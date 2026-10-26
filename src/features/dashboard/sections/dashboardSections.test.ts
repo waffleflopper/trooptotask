@@ -29,14 +29,21 @@ describe('activeDashboardSections', () => {
 			'criticalTasks',
 			'evaluations',
 			'lossesAndAwards',
-			'onboarding'
+			'onboarding',
+			'eventsAndTaskings'
 		]);
 	});
 
 	it('drops only the switched-off sections and never Availability', () => {
 		const active = activeDashboardSections(DASHBOARD_SECTIONS, ['evaluations', 'onboarding']);
 
-		expect(active.map((entry) => entry.id)).toEqual(['availability', 'training', 'criticalTasks', 'lossesAndAwards']);
+		expect(active.map((entry) => entry.id)).toEqual([
+			'availability',
+			'training',
+			'criticalTasks',
+			'lossesAndAwards',
+			'eventsAndTaskings'
+		]);
 	});
 });
 
@@ -54,6 +61,7 @@ const inputs: DashboardInputs = {
 	page: {
 		orgId: 'org-1',
 		orgName: 'Test Unit',
+		taskings: { status: 'off' },
 		userId: 'user-1',
 		viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 		disabledFeatures: [],

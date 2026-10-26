@@ -4,6 +4,7 @@
 	import {
 		DASHBOARD_SECTIONS,
 		DashboardPageView,
+		DashboardTaskingsSource,
 		createDashboardAccess,
 		createDashboardScreenModel,
 		overlayDashboardRecords,
@@ -32,6 +33,7 @@
 	let latestSummary = $state<{ orgId: string; summary: DashboardPageSummaryData } | null>(null);
 	let recordOverlay = $state.raw<DashboardRecordOverlay | null>(null);
 	let summaryError = $state<Error | null>(null);
+	const taskingsSource = new DashboardTaskingsSource();
 	let summaryRequest = 0;
 	let saveNumber = 0;
 	onDestroy(() => {
@@ -74,6 +76,8 @@
 			cancelled = true;
 		};
 	});
+
+	$effect(() => taskingsSource.track(data.taskings, orgId));
 
 	$effect(() => {
 		let cancelled = false;
@@ -127,7 +131,10 @@
 			trainingSummary: projectedSummary?.trainingSummary ?? null,
 			ictlSummary: projectedSummary?.ictlSummary ?? null,
 			onboardingTrainingCompletions: projectedSummary?.onboardingTrainingCompletions ?? [],
-			summaryFailed: summary === null
+			summaryFailed: summary === null,
+			taskings: shell?.org.disabledFeatures.includes('eventsAndTaskings')
+				? { status: 'off' }
+				: taskingsSource.stateFor(orgId)
 		};
 	}
 
@@ -160,6 +167,14 @@
 	const access = createDashboardAccess(shellUI);
 	const updates: DashboardPageUpdates = {
 		refreshSummary: () => void refreshSummary(),
+		refreshTaskings: () => {
+			const savedIn = orgId;
+			return taskingsSource.refresh(savedIn, () => savedIn === orgId);
+		},
+		retryTaskings: () => {
+			const retriedIn = orgId;
+			void taskingsSource.retry(retriedIn, () => retriedIn === orgId);
+		},
 		putRecord: (savedIn, change) => {
 			if (dashboardBootstrap && savedIn === orgId)
 				recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change, ++saveNumber);

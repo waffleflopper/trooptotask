@@ -388,3 +388,57 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
 11. **Export and activity.** The JSON export holds `calendarTaskingEquipment` and `calendarTaskingChecklistItems`; the
     Excel `Tasking Equipment` and `Tasking Checklist` sheets name each Tasking by its outcome and each completer by
     email. Settings › Logs reads `Added equipment Litters on Provide four trauma-lane medics` and its siblings.
+
+## Dashboard
+
+The Dashboard's Needs you queue lists each active Tasking once, under its most urgent kind: `Overdue` (past suspense,
+most days late first), `Blocked` (status Blocked, suspense soonest), `Short` (still executing or starting within 14
+days with fewer picked than needed, or an equipment item not ready; execution start soonest) and `Due soon` (suspense
+within 7 days). `Overdue` ranks with Overdue evaluations, `Blocked` after Expired, `Short` with Unfilled and `Due soon`
+after Stalled. The subtitle names the owner, the Event, `N of R picked` and `N equipment items not ready`. Picks under
+review never count. Short rows offer `Pick people`; the others link to the Tasking. It is a separate source with its
+own pending row, `Needs you is incomplete. Tasking items could not load.` with `Try again`, and a header count.
+
+Seed as `calendarOperate` from the page with one `POST` each to `/org/A/api/calendar-taskings` (body `{ id, draft }`)
+and `.../status` (`{ action: 'block', reason }`, `start`, `complete`), dates relative to the browser day D: Alpha
+`Overdue` due D-3 and Organization `Overdue` due D-6; Alpha due D+3, then `block` it; Alpha needing 2 executing D+3 to
+D+4 due D+5 with one `Aid bag` (quantity 2, secured 1) at `.../equipment`; Bravo needing 1 executing D+2; an
+Organization Tasking needing 3 executing D+7; Alpha due D+4 with no requirement; a completed one due D-4; and one
+executing next month. Nine rows show.
+
+1. **Operator.** As `calendarOperate` at 1440, `Needs you · 9` lists, in order, Overdue (D-6, `6 days late`), Overdue
+   (D-3), Blocked, the two Unfilled duty rows, Short Bravo (`starts in 2 days`), Short Alpha
+   (`Alpha · 0 of 2 picked · 1 equipment item not ready`, `starts in 3 days`), Short Organization (`0 of 3 picked`) and
+   Due soon. The completed Tasking and the next-month one are absent. Overdue, Blocked and Due soon rows have a link and
+   no button. Each row's link opens `/org/A/calendar/taskings/ID`.
+2. **Pick people.** Press `Pick people` on the Alpha Short row. `Assign people` opens in place with only SPC Able; the
+   page's requests are one `GET` and one `PUT` of `.../people`, then one `GET api/dashboard/taskings`, and no
+   `__data.json`. Pick Able and save: the sheet closes, the row reads `1 of 2 picked` and focus returns to its button.
+   Pick SPC Baker on the Bravo row: the row leaves Short and reads `Due soon` with `1 of 1 picked`, and focus moves to
+   its link. The count stays 9.
+3. **Stale save.** Open the Organization row's picker and tick Able without saving. From a second `calendarOperate` page
+   `PUT` `{ personnelIds: [BAKER], keep: [], removeOutsideScope: false, expectedRevision: 0 }` to its `.../people`.
+   Save the first page: the sheet stays open under `Someone else saved this list while you were choosing` with
+   `Saved now: SPC Baker, Synthetic.` and Able still ticked. Save again: it closes and the row reads `1 of 3 picked`.
+4. **Keyboard.** Focus a `Pick people` button and press Enter: the sheet opens with focus on `Cancel`. Escape closes it
+   and focus is back on the button.
+5. **Failed and pending source.** `$V server-source arm rpc/calendar_tasking_attention fail-hard 1 60000`, then reload
+   Home: `Needs you · 2` keeps the two Unfilled duty rows, `Needs you is incomplete. Tasking items could not load.` and
+   `Try again` show under them, and Strength, On duty and Readiness render as usual. `server-source restore`, press
+   `Try again`: one `GET api/dashboard/taskings` and nine rows. For the pending state arm
+   `server-source arm rpc/calendar_tasking_attention hold 1 40000` and reload: the two duty rows show with one
+   skeleton row under them and no `Nothing needs you right now.`; `release` replaces the skeleton with the rows.
+6. **Group-scoped and read-only.** As `calendarScoped` the queue is six rows, with Alpha's four Taskings only (no Bravo,
+   no Organization row), and `GET api/dashboard/taskings` returns those four titles. `Range safety detail` and
+   `Gate guard rotation` are absent from its `__data.json`. As `calendarView` all nine rows show with no `Pick people`.
+   As the `viewer` login the same `GET` answers `null` and no Tasking row shows.
+7. **Switch off.** As `orgOwner`, Settings › Features, turn `Events & Taskings` off. The operator's Dashboard shows
+   `Needs you · 2` with no Tasking row, no `api/dashboard/taskings` request, and `server-source arm
+rpc/calendar_tasking_attention hold 1 60000` records `matches: 0` after a reload. Turn it back on.
+8. **Widths.** Capture the queue for the operator, `calendarScoped`, `calendarView`, the failed state, the pending state
+   and the switch off at 1440, 900 and 390. At 390 `Pick people` sits beside the title and the timing stays on the
+   first line. `scrollWidth` equals the viewport.
+
+Not covered by the harness: more than 100 rows needing attention, which the unit tests cover with
+`N more Tasking items are not listed`. `supabase/tests/calendar_tasking_attention.sql` proves the ranking, scope, the
+viewer's day and the switch as ordinary signed-in users.

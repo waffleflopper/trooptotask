@@ -76,24 +76,28 @@ export type NeedsYouItem =
 	| (NeedsYouItemBase & LateItem & { kind: 'expired'; trainingTypeId: string; personnelIds: readonly string[] })
 	| (NeedsYouItemBase & DatedItem & { kind: 'unfilled'; assignmentTypeId: string; openDates: readonly string[] })
 	| (NeedsYouItemBase & DatedItem & { kind: 'stalled'; onboardingId: string; stepId: string })
-	| (NeedsYouItemBase & DatedItem & { kind: 'leaving'; personnelId: string });
+	| (NeedsYouItemBase & DatedItem & { kind: 'leaving'; personnelId: string })
+	| (NeedsYouItemBase & LateItem & { kind: 'taskingOverdue'; taskingId: string })
+	| (NeedsYouItemBase & DatedItem & { kind: 'taskingBlocked' | 'taskingShort' | 'taskingDueSoon'; taskingId: string });
 
 export type NeedsYouKind = NeedsYouItem['kind'];
 
-/** Rank order is row order: an earlier kind always ranks above a later one. */
+/** A lower tier always ranks above a higher one; kinds in one tier rank together by urgency. */
 export const NEEDS_YOU_KINDS = [
-	{ kind: 'overdue', label: 'Overdue', severity: 'danger' },
-	{ kind: 'expired', label: 'Expired', severity: 'danger' },
-	{ kind: 'unfilled', label: 'Unfilled', severity: 'warning' },
-	{ kind: 'stalled', label: 'Stalled', severity: 'warning' },
-	{ kind: 'leaving', label: 'Leaving', severity: 'info' }
-] as const satisfies readonly { kind: NeedsYouKind; label: string; severity: NeedsYouSeverity }[];
+	{ kind: 'overdue', label: 'Overdue', severity: 'danger', tier: 0 },
+	{ kind: 'taskingOverdue', label: 'Overdue', severity: 'danger', tier: 0 },
+	{ kind: 'expired', label: 'Expired', severity: 'danger', tier: 1 },
+	{ kind: 'taskingBlocked', label: 'Blocked', severity: 'danger', tier: 2 },
+	{ kind: 'unfilled', label: 'Unfilled', severity: 'warning', tier: 3 },
+	{ kind: 'taskingShort', label: 'Short', severity: 'warning', tier: 3 },
+	{ kind: 'stalled', label: 'Stalled', severity: 'warning', tier: 4 },
+	{ kind: 'taskingDueSoon', label: 'Due soon', severity: 'warning', tier: 5 },
+	{ kind: 'leaving', label: 'Leaving', severity: 'info', tier: 6 }
+] as const satisfies readonly { kind: NeedsYouKind; label: string; severity: NeedsYouSeverity; tier: number }[];
 
 export type NeedsYouKindInfo = (typeof NEEDS_YOU_KINDS)[number];
 
-const KIND_INFO = new Map<NeedsYouKind, NeedsYouKindInfo & { tier: number }>(
-	NEEDS_YOU_KINDS.map((info, tier) => [info.kind, { ...info, tier }])
-);
+const KIND_INFO = new Map<NeedsYouKind, NeedsYouKindInfo>(NEEDS_YOU_KINDS.map((info) => [info.kind, info]));
 
 export function needsYouKindInfo(kind: NeedsYouKind): NeedsYouKindInfo {
 	return KIND_INFO.get(kind)!;

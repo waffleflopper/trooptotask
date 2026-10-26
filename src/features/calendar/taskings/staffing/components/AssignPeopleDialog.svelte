@@ -27,7 +27,7 @@
 
 	interface Props {
 		orgId: string;
-		tasking: Tasking;
+		tasking: Pick<Tasking, 'id' | 'responsibility' | 'requirement'>;
 		groups: GroupLabels;
 		onSaved: (result: StaffingSaveResult) => void;
 		onClose: () => void;

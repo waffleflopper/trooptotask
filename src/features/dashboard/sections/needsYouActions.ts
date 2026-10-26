@@ -1,7 +1,9 @@
+import { loadAssignPeopleDialog, type TaskingAttentionRow } from '$features/calendar';
 import { acknowledgeAwardTracking } from '$features/personnel';
 import { loadRecordClassDialog } from '$features/training';
 import type { Personnel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 import { personnelResource } from './dashboardAccess';
 import type { DashboardInputs } from './dashboardInputs';
 import { DUTY_FILL_DAYS, needsYouPanel, type NeedsYouAction } from './needsYou';
@@ -71,6 +73,30 @@ export function awardStartedAction(inputs: DashboardInputs, person: Personnel): 
 		run: async (updates) => {
 			await acknowledgeAwardTracking(orgId, person.id);
 			updates.putRecord(orgId, { list: 'awardTrackingAcknowledgedPersonnelIds', personnelId: person.id });
+		}
+	};
+}
+
+/** Opens the staffing picker in place, under the policy and scope Tasking detail uses. */
+export function pickPeopleAction(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouAction {
+	const orgId = inputs.page.orgId;
+	const groups = Object.fromEntries(inputs.groups.map((group) => [group.id, group.name]));
+	const tasking = {
+		id: row.taskingId,
+		responsibility: row.responsibility,
+		requirement: row.required === null ? null : { count: row.required, qualifications: null }
+	};
+	return {
+		label: 'Pick people',
+		policy: calendar.manageTaskings,
+		resource: scopeSetResourceForGroupId(row.responsibility.kind === 'group' ? row.responsibility.groupId : null),
+		mode: 'dialog',
+		open: async () => {
+			const [{ default: Panel }, { default: Dialog }] = await Promise.all([
+				import('../components/needs-you/PickPeoplePanel.svelte'),
+				loadAssignPeopleDialog()
+			]);
+			return needsYouPanel(Panel, { orgId, tasking, groups, Dialog });
 		}
 	};
 }

@@ -125,6 +125,7 @@ export {
 	transitionTasking
 } from './taskings/taskingOperations.server';
 export { createSupabaseCalendarTaskingPersistence } from './taskings/taskingPersistence.server';
+export { createSupabaseCalendarTaskingAttentionReader, loadTaskingAttention } from './taskings/taskingAttention.server';
 export {
 	loadTaskingStaffing,
 	loadStaffingPicker,

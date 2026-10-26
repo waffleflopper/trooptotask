@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { AttentionActionRow } from '$lib/components/patterns/readiness-items';
+	import { AttentionActionRow, AttentionActionRowSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Button } from '$lib/components/ui/button';
 	import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 	import type { DashboardAccess } from '../sections/dashboardAccess';
+	import type { NeedsYouLoad } from '../sections/dashboardSections';
 	import { needsYouKindInfo, type NeedsYouAction, type NeedsYouPanel, type NeedsYouQueue } from '../sections/needsYou';
 	import {
 		IDLE_ACTION,
@@ -21,9 +22,16 @@
 		updates: DashboardPageUpdates;
 		/** Features whose rows could not load; the queue is then incomplete, not clear. */
 		unavailable?: readonly string[];
+		/** Sources that arrive after the page: a placeholder row while pending, a note with Try again when failed. */
+		loads?: readonly NeedsYouLoad[];
 	}
 
-	let { queue, model, access, updates, unavailable = [] }: Props = $props();
+	let { queue, model, access, updates, unavailable = [], loads = [] }: Props = $props();
+
+	const pending = $derived(loads.some((load) => load.state === 'pending'));
+	const failedLoads = $derived(loads.filter((load) => load.state === 'failed'));
+	const partialLoads = $derived(loads.flatMap((load) => (load.state === 'partial' ? [load] : [])));
+	const incompleteLabels = $derived([...unavailable, ...failedLoads.map((load) => load.label)]);
 
 	let showAll = $state(false);
 	let list = $state<HTMLUListElement>();
@@ -118,16 +126,36 @@
 </script>
 
 {#snippet incomplete()}
-	<p class="border-t border-border py-3 text-sm text-muted-foreground">
-		Needs you is incomplete. {unavailable.join(' and ')} items could not load.
-	</p>
+	<div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border py-3 text-sm text-muted-foreground">
+		<p>Needs you is incomplete. {incompleteLabels.join(' and ')} items could not load.</p>
+		{#each failedLoads as load (load.label)}
+			<Button variant="link" class="px-0 underline" onclick={() => load.retry(updates)}>Try again</Button>
+		{/each}
+	</div>
+{/snippet}
+
+{#snippet unlisted()}
+	{#each partialLoads as load (load.label)}
+		<p class="border-t border-border py-3 text-sm text-muted-foreground">
+			{load.unlisted} more {load.label} items are not listed.
+			<Button variant="link" class="h-auto px-0 underline" href={load.href}>Open Taskings</Button>
+		</p>
+	{/each}
+{/snippet}
+
+{#snippet placeholder()}
+	<div aria-hidden="true" data-needs-you-pending>
+		<AttentionActionRowSkeleton />
+	</div>
 {/snippet}
 
 {#if queue.ranked.length === 0}
-	{#if unavailable.length > 0}
+	{#if incompleteLabels.length > 0}
 		<div bind:this={incompleteNote} tabindex="-1" class="border-t border-foreground outline-none">
 			{@render incomplete()}
 		</div>
+	{:else if pending}
+		<div class="border-t border-foreground">{@render placeholder()}</div>
 	{:else}
 		<p
 			bind:this={empty}
@@ -223,7 +251,11 @@
 			</li>
 		{/if}
 	</ul>
-	{#if unavailable.length > 0}
+	{#if pending}
+		{@render placeholder()}
+	{/if}
+	{#if incompleteLabels.length > 0}
 		{@render incomplete()}
 	{/if}
+	{@render unlisted()}
 {/if}

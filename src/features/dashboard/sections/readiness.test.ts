@@ -62,6 +62,7 @@ function inputs(loaded: Loaded = {}): DashboardInputs {
 		page: {
 			orgId: 'org-1',
 			orgName: 'Test Unit',
+			taskings: { status: 'off' },
 			userId: 'user-1',
 			viewerDay: { date: today, timeZone: 'UTC' },
 			disabledFeatures: [],

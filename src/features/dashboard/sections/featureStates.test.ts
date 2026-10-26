@@ -48,6 +48,7 @@ function unit(overrides: Partial<SetUp> = {}): DashboardInputs {
 	const page: DashboardPageData = {
 		orgId: 'org-1',
 		orgName: 'Test Unit',
+		taskings: { status: 'off' },
 		userId: 'user-1',
 		viewerDay: { date: TODAY, timeZone: 'UTC' },
 		disabledFeatures: [],

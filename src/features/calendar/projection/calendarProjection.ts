@@ -21,6 +21,7 @@ const projectedSuspenseSchema = z.object({
 });
 
 const projectedCommitmentSchema = z.object({
+	conflicts: z.boolean(),
 	taskingId: uuidSchema,
 	title: z.string(),
 	personnelId: uuidSchema,

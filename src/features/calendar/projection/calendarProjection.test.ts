@@ -27,6 +27,7 @@ const event = (overrides: Partial<ProjectedEvent> = {}): ProjectedEvent => ({
 });
 
 const commitment = (overrides: Partial<ProjectedCommitment> = {}): ProjectedCommitment => ({
+	conflicts: false,
 	taskingId: ids.tasking,
 	title: 'Submit roster',
 	personnelId: ids.person,

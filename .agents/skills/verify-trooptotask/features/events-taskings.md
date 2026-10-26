@@ -46,8 +46,12 @@ Features `Events & Taskings` turns the whole feature off.
 
 ## How to get to it (user POV)
 
-Open `Calendar`. The toolbar action `Events & Taskings` opens `/org/ORG/calendar/events`; below about 1024 px it sits in
-`More Calendar controls`. The list has `Upcoming` / `Past`, a `Calendar` action back to the month, and `Create event`
+Choose `Events & Taskings` under `Calendar` in the sidebar, or the Calendar toolbar action `Events & Taskings`. Both
+open the Taskings list `/org/ORG/calendar/taskings`; below about 1024 px the toolbar action sits in
+`More Calendar controls`. The sidebar item stays current and the breadcrumb reads `Calendar › Events & Taskings` on
+every events and taskings page, including detail pages.
+
+The list has `Upcoming` / `Past`, a `Calendar` action back to the month, and `Create event`
 for an operator. A row opens `/org/ORG/calendar/events/EVENT_ID`, whose header has `Back to Events`, the title, the
 status badge and, for an operator, `Edit` and `Cancel event`. Facts follow (Dates, Host, Coordinator, Location, Source,
 Description), then `Activity`.
@@ -58,8 +62,9 @@ Description), then `Activity`.
 names who blocked, completed or cancelled it. Facts follow (Responsible, Event, Suspense, Execution, Report time,
 Requirement, Instructions), then `Activity`. At 900 the selects move into `Filters`; at 390 the view switch joins them.
 
-Member labels are the membership email, or the first eight characters of the user id and `...` when the email is empty.
-Fixture memberships have no email, so labels read like `4bdb4963...`.
+Member labels use `RANK First Last` from the member profile, then membership email, then the first eight characters
+of the user id and `...`. The Event list and detail provide `memberOptions` in name order and `currentUserId` for the
+coordinator sheet. The same label read supplies coordinators, Activity actors and lifecycle attribution.
 
 ## Helper controls
 
@@ -122,9 +127,9 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     `This event is not available` with `Back to Events`, and no Activity section. The three writes against A, and an
     edit or cancel of A's id under B, all return 404.
 11. **Feature off.** As `orgOwner`, open Settings › Features and turn `Events & Taskings` off.
-    `$V rows organizations orgA` lists `eventsAndTaskings` in `disabled_features`. As the operator, the Calendar toolbar
-    has no `Events & Taskings` action, the list and detail URLs show `Events & Taskings is off`, and the three writes
-    return 403. Turn it back on and read `disabled_features` empty again.
+    `$V rows organizations orgA` lists `eventsAndTaskings` in `disabled_features`. As the operator, the sidebar and the
+    Calendar toolbar have no `Events & Taskings`, the list and detail URLs show `Events & Taskings is off`, and the
+    three writes return 403. Turn it back on and read `disabled_features` empty again.
 12. **Export.** As `orgOwner` on `settings/exports`, export JSON as in [Organization exports](organization-exports.md).
     `calendarEvents` and `calendarEventActivity` hold A's Events and Activity, and the Excel `Events` sheet lists each
     Event with its host and coordinator. With the switch off, both sections are absent.
@@ -440,50 +445,47 @@ Expected values are written here, never read from a design file. `src/features/c
 
 ## Dashboard
 
-The Dashboard's Needs you queue lists each active Tasking once, under its most urgent kind: `Overdue` (past suspense,
-most days late first), `Blocked` (status Blocked, suspense soonest), `Short` (still executing or starting within 14
-days with fewer picked than needed, or an equipment item not ready; execution start soonest) and `Due soon` (suspense
-within 7 days). `Overdue` ranks with Overdue evaluations, `Blocked` after Expired, `Short` with Unfilled and `Due soon`
-after Stalled. The subtitle names the owner, the Event, `N of R picked` and `N equipment items not ready`. Picks under
-review never count. Short rows offer `Pick people`; the others link to the Tasking. It is a separate source with its
-own pending row, `Needs you is incomplete. Tasking items could not load.` with `Try again`, and a header count.
+The Dashboard request returns `attention.rows`, `attention.total` and `attention.onTrack`, plus the forecast.
+Needs you receives Overdue, Blocked and Short Taskings and one Conflict row per visible Person and Tasking. A Conflict
+row names the Person, status label and start, and the Tasking title. Picks under review and archived People never
+conflict. Another overlapping Tasking is an advisory, not a conflict. On-track work due within seven days appears in
+`attention.onTrack` with its title, responsibility, suspense, picked and required counts, and is absent from Needs you.
+The source keeps its pending and failed states separate from an empty queue.
 
-Seed as `calendarOperate` from the page with one `POST` each to `/org/A/api/calendar-taskings` (body `{ id, draft }`)
-and `.../status` (`{ action: 'block', reason }`, `start`, `complete`), dates relative to the browser day D: Alpha
-`Overdue` due D-3 and Organization `Overdue` due D-6; Alpha due D+3, then `block` it; Alpha needing 2 executing D+3 to
-D+4 due D+5 with one `Aid bag` (quantity 2, secured 1) at `.../equipment`; Bravo needing 1 executing D+2; an
-Organization Tasking needing 3 executing D+7; Alpha due D+4 with no requirement; a completed one due D-4; and one
-executing next month. Nine rows show.
+Seed as `calendarOperate` through `/org/A/api/calendar-taskings` with dates relative to the viewer day D. Create Alpha
+Overdue due D-3, Alpha Blocked due D+3, Alpha needing two People executing D+3 through D+7, and on-track Alpha work due
+D+4 with no staffing requirement. Add Bravo needing one Person executing D+2 through D+3 and due D+3, and an
+Organization Tasking needing three executing D+7 through D+8 and due D+8. Pick Able on the Alpha executing Tasking.
+Add Leave for Able on D+5 through D+7 without a Tasking reference. Keep the Alpha Tasking's equipment ready. Before
+staffing Bravo, expect six Tasking attention rows and the two seeded Unfilled duty rows, eight Needs you rows total.
 
-1. **Operator.** As `calendarOperate` at 1440, `Needs you · 9` lists, in order, Overdue (D-6, `6 days late`), Overdue
-   (D-3), Blocked, the two Unfilled duty rows, Short Bravo (`starts in 2 days`), Short Alpha
-   (`Alpha · 0 of 2 picked · 1 equipment item not ready`, `starts in 3 days`), Short Organization (`0 of 3 picked`) and
-   Due soon. The completed Tasking and the next-month one are absent. Overdue, Blocked and Due soon rows have a link and
-   no button. Each row's link opens `/org/A/calendar/taskings/ID`.
-2. **Pick people.** Press `Pick people` on the Alpha Short row. `Assign people` opens in place with only SPC Able; the
-   page's requests are one `GET` and one `PUT` of `.../people`, then one `GET api/dashboard/taskings`, and no
-   `__data.json`. Pick Able and save: the sheet closes, the row reads `1 of 2 picked` and focus returns to its button.
-   Pick SPC Baker on the Bravo row: the row leaves Short and reads `Due soon` with `1 of 1 picked`, and focus moves to
-   its link. The count stays 9.
+1. **Operator.** The eight Needs you rows include Overdue, Blocked, Short and Conflict. The Conflict identifies Able,
+   Leave and its
+   start. The due-D+4 Tasking is absent from `attention.rows` and present in `attention.onTrack`. The executing
+   Tasking's picker reports `isConflict: true`, `overlapDays: 3`, `executionDays: 5` for the Leave row.
+2. **Pick people.** Pick Baker on the Bravo Short Tasking and save. It leaves Needs you and enters
+   `attention.onTrack` with `picked: 1`, `required: 1`, and its D+3 suspense. Seven Needs you rows remain. The save
+   refreshes `api/dashboard/taskings` once and does not reload the page.
+
 3. **Stale save.** Open the Organization row's picker and tick Able without saving. From a second `calendarOperate` page
    `PUT` `{ personnelIds: [BAKER], keep: [], removeOutsideScope: false, expectedRevision: 0 }` to its `.../people`.
    Save the first page: the sheet stays open under `Someone else saved this list while you were choosing` with
    `Saved now: SPC Baker, Synthetic.` and Able still ticked. Save again: it closes and the row reads `1 of 3 picked`.
 4. **Keyboard.** Focus a `Pick people` button and press Enter: the sheet opens with focus on `Cancel`. Escape closes it
    and focus is back on the button.
-5. **Failed and pending source.** `$V server-source arm rpc/calendar_tasking_attention fail-hard 1 60000`, then reload
+5. **Failed and pending source.** `$V server-source arm rpc/calendar_tasking_dashboard fail-hard 1 60000`, then reload
    Home: `Needs you · 2` keeps the two Unfilled duty rows, `Needs you is incomplete. Tasking items could not load.` and
    `Try again` show under them, and Strength, On duty and Readiness render as usual. `server-source restore`, press
-   `Try again`: one `GET api/dashboard/taskings` and nine rows. For the pending state arm
-   `server-source arm rpc/calendar_tasking_attention hold 1 40000` and reload: the two duty rows show with one
+   `Try again`: one `GET api/dashboard/taskings` and the eight original rows. For the pending state arm
+   `server-source arm rpc/calendar_tasking_dashboard hold 1 40000` and reload: the two duty rows show with one
    skeleton row under them and no `Nothing needs you right now.`; `release` replaces the skeleton with the rows.
 6. **Group-scoped and read-only.** As `calendarScoped` the queue is six rows, with Alpha's four Taskings only (no Bravo,
    no Organization row), and `GET api/dashboard/taskings` returns those four titles. `Range safety detail` and
-   `Gate guard rotation` are absent from its `__data.json`. As `calendarView` all nine rows show with no `Pick people`.
+   `Gate guard rotation` are absent from its `__data.json`. As `calendarView` all eight original rows show with no `Pick people`.
    As the `viewer` login the same `GET` answers `null` and no Tasking row shows.
 7. **Switch off.** As `orgOwner`, Settings › Features, turn `Events & Taskings` off. The operator's Dashboard shows
    `Needs you · 2` with no Tasking row, no `api/dashboard/taskings` request, and `server-source arm
-rpc/calendar_tasking_attention hold 1 60000` records `matches: 0` after a reload. Turn it back on.
+rpc/calendar_tasking_dashboard hold 1 60000` records `matches: 0` after a reload. Turn it back on.
 8. **Widths.** Capture the queue for the operator, `calendarScoped`, `calendarView`, the failed state, the pending state
    and the switch off at 1440, 900 and 390. At 390 `Pick people` sits beside the title and the timing stays on the
    first line. `scrollWidth` equals the viewport.
@@ -520,7 +522,7 @@ Bravo Tasking due D+3; `Post cleanup week` D+7 to D+11 with no Tasking; `Range c
    As `calendarView` the lane matches the operator's.
 4. **Overlap.** Add `Ammo draw` D+2 to D+3 and reload: it takes the lower row with `+1`, which lists it with
    `Brigade CG visit`, and the lane stays 83px. Its title is cut short in the box; the link name keeps it whole.
-5. **Failed and pending.** `$V server-source arm rpc/calendar_tasking_attention fail-hard 1 60000` and reload: the lane
+5. **Failed and pending.** `$V server-source arm rpc/calendar_tasking_dashboard fail-hard 1 60000` and reload: the lane
    reads `Events and suspenses could not load.` with `Try again`, at the same 83px, while the forecast, by-group strip
    and On duty render. `server-source restore` and press the lane's `Try again`: one `GET api/dashboard/taskings?asOf=D`
    and the marks. With `hold 1 40000` instead the lane holds three skeleton bars at 83px (`Loading events and suspenses`
@@ -531,7 +533,8 @@ Bravo Tasking due D+3; `Post cleanup week` D+7 to D+11 with no Tasking; `Range c
    the viewport.
 
 Not covered by the harness: more than 100 rows needing attention, which the unit tests cover with
-`N more Tasking items are not listed`. `supabase/tests/calendar_tasking_attention.sql` proves the ranking, scope, the
+`N more Tasking items are not listed`. `supabase/tests/calendar_tasking_attention.sql` and
+`supabase/tests/calendar_tasking_parity.sql` prove the ranking, scope, the
 viewer's day and the switch as ordinary signed-in users, and `supabase/tests/calendar_range_projection.sql` proves that
 an Event's work in scope differs for Organization-wide and Alpha readers.
 
@@ -542,7 +545,8 @@ opens Bulk Status Add with those people and dates filled in; the leader picks th
 own validation and write. Left of it, one quiet line counts the picked people whose Availability entries do not together
 cover every execution day: `N of M picked people have no Availability covering every execution day.`, or
 `Availability covers every execution day for everyone picked.` It is derived on every load from one read of the
-Tasking's picks and dates, never stored, and never creates anything. Picks under review and archived people are left
+Tasking's picks and dates, using only entries whose `set_for_tasking_id` is this Tasking, never stored, and never
+creates anything. Picks under review and archived people are left
 out. Only people the reader may write Availability for are counted and prefilled, so a viewer sees neither the line nor
 the action, and a Group-scoped operator is told only about their Groups. A completed or cancelled Tasking offers
 neither. The line has its own skeleton and load error with `Retry`, and `People` stays usable when it fails.
@@ -562,7 +566,7 @@ fixture's Baker has `Verification Training` 25 – 27 Oct, which covers one day 
    `VERIFICATION TRAINING 25–27 OCT OVERLAPS`. With `Verification Leave` chosen press `Add to 3 people`.
 3. **Return and clearing.** The page lands on the Tasking and the line reads
    `Availability covers every execution day for everyone picked.` `$V rows availability_entries orgA` has three new
-   Leave rows for 2026-10-27 to 2026-10-29 with no Tasking reference, and the Calendar month shows their bars on
+   Leave rows for 2026-10-27 to 2026-10-29 with `set_for_tasking_id` equal to the source Tasking, and the Calendar month shows their bars on
    27 – 29 Oct. Editing the picks afterwards changes none of them.
 4. **Part covered.** Create a Tasking executing 27 – 31 Oct with the same three picks. The line reads
    `3 of 3 …`. Open Set availability, choose `Verification Training` (Baker is disabled as already on it), save: back on
@@ -586,3 +590,24 @@ fixture's Baker has `Verification Training` 25 – 27 Oct, which covers one day 
 `src/features/calendar/taskings/staffing/` tests cover the link, the prefill parser and the action's states;
 `supabase/tests/calendar_tasking_availability_gaps.sql` covers coverage across adjacent, overlapping and nested entries,
 review exclusion, scope and the feature switch as ordinary signed-in users.
+
+## Conflict and summary data contracts
+
+The Events list, Event detail and Taskings list stream `workspace` as an `EventRead<TaskingWorkspace>`. A failed read
+is `status: failed`, never a zero-conflict answer. `workspace.taskings` holds only visible Taskings. Each value has
+`eventRelation` (`standalone`, `preparation`, `execution`, `closeout`), `status`, `responsibleGroupId`, `picked`,
+`required`, `equipment`, `conflicts`, `nextDate` and `suspenseOn`. Equipment has ready/total requirement counts and
+returnedQuantity/totalQuantity unit counts. `workspace.counts` supplies active, overdue, blocked, needsPeople and
+completed chips without additional requests. `workspace.events` includes permitted Event aggregates, even for work
+outside a Group reader's scope. Need action counts each active Tasking once when overdue, blocked or short of People.
+An Event with total zero is awareness only.
+
+Tasking detail streams `pickStates`. The picker returns `states` beside `advisories`. States are `clear`, `conflict`
+with Availability dates and overlap-day counts, `committed_elsewhere` with visible Tasking facts or an anonymous
+commitment, or `unknown` with reason `failed` or `no_execution`. Calendar commitments carry a `conflicts` boolean.
+
+Use `supabase/tests/calendar_tasking_parity.sql` in the disposable database checks. As ordinary Organization-wide and
+Group-scoped users it proves own-Tasking and available statuses do not conflict, leave is not coverage, hidden and
+foreign provenance is refused, and scoped readers do not learn hidden people or Tasking details. For five execution
+days and three days of unrelated Leave, expect one conflicting pick and overlap 3 of 5. Recording the same entry for
+this Tasking removes its conflict without changing it when picks change. Another overlapping Tasking stays advisory.

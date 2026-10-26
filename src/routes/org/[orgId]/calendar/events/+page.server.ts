@@ -16,6 +16,11 @@ export const load = async ({ params, locals, cookies, depends, url }: PageServer
 		context: createRequestCalendarEventContext,
 		policyAction: POLICY_ACTION_CATALOG.calendar.viewEvents,
 		policyResource: { kind: 'unscoped' },
-		fn: async (ctx) => ({ today, when, list: settleEventRead(listEvents(ctx, when, today)) })
+		fn: async (ctx) => ({
+			today,
+			when,
+			workspace: settleEventRead(ctx.taskingWorkspace.read(today)),
+			list: settleEventRead(listEvents(ctx, when, today))
+		})
 	});
 };

@@ -121,6 +121,7 @@
 	userRole={shell.member.role}
 	membershipId={shell.member.membershipId}
 	capabilityMap={shell.member.capabilityMap}
+	disabledFeatures={shell.org.disabledFeatures}
 	account={shell.user}
 	{onToggleTheme}
 	{isDarkTheme}

@@ -172,8 +172,8 @@
 {#if prefill}
 	<Alert.Root class="mb-4">
 		<Alert.Description>
-			Prefilled from a tasking’s picked people and execution dates. These become ordinary Availability entries, and
-			changing who is picked later does not update them.
+			Prefilled from a tasking’s picked people and execution dates. These entries record which tasking they were set
+			for, and changing who is picked later does not update them.
 		</Alert.Description>
 	</Alert.Root>
 {/if}

@@ -78,7 +78,7 @@ export type NeedsYouItem =
 	| (NeedsYouItemBase & DatedItem & { kind: 'stalled'; onboardingId: string; stepId: string })
 	| (NeedsYouItemBase & DatedItem & { kind: 'leaving'; personnelId: string })
 	| (NeedsYouItemBase & LateItem & { kind: 'taskingOverdue'; taskingId: string })
-	| (NeedsYouItemBase & DatedItem & { kind: 'taskingBlocked' | 'taskingShort' | 'taskingDueSoon'; taskingId: string });
+	| (NeedsYouItemBase & DatedItem & { kind: 'taskingBlocked' | 'taskingShort' | 'taskingConflict'; taskingId: string });
 
 export type NeedsYouKind = NeedsYouItem['kind'];
 
@@ -91,7 +91,7 @@ export const NEEDS_YOU_KINDS = [
 	{ kind: 'unfilled', label: 'Unfilled', severity: 'warning', tier: 3 },
 	{ kind: 'taskingShort', label: 'Short', severity: 'warning', tier: 3 },
 	{ kind: 'stalled', label: 'Stalled', severity: 'warning', tier: 4 },
-	{ kind: 'taskingDueSoon', label: 'Due soon', severity: 'warning', tier: 5 },
+	{ kind: 'taskingConflict', label: 'Conflict', severity: 'warning', tier: 2 },
 	{ kind: 'leaving', label: 'Leaving', severity: 'info', tier: 6 }
 ] as const satisfies readonly { kind: NeedsYouKind; label: string; severity: NeedsYouSeverity; tier: number }[];
 

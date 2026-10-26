@@ -7,7 +7,7 @@ SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations
 SELECT is((SELECT count(*)::integer FROM upgrade_fixture.availability_removal_current_rows),8,
   'the populated upgrade retains every saved fixture row');
 SELECT results_eq(
-  $$ SELECT table_name,row_id,row_data FROM upgrade_fixture.availability_removal_current_rows ORDER BY table_name,row_id $$,
+  $$ SELECT table_name,row_id,row_data - 'set_for_tasking_id' FROM upgrade_fixture.availability_removal_current_rows ORDER BY table_name,row_id $$,
   $$ SELECT table_name,row_id,row_data FROM upgrade_fixture.availability_removal_before_rows ORDER BY table_name,row_id $$,
   'upgrade preserves complete saved identities, dates, nulls, notes and reference values');
 SELECT ok(has_function_privilege('authenticated',
@@ -37,10 +37,13 @@ SELECT is(public.delete_availability_entries(
 ),0,'the upgraded operation is safe to replay');
 RESET ROLE;
 SELECT results_eq(
-  $$ SELECT table_name,row_id,row_data FROM upgrade_fixture.availability_removal_current_rows ORDER BY table_name,row_id $$,
+  $$ SELECT table_name,row_id,row_data - 'set_for_tasking_id' FROM upgrade_fixture.availability_removal_current_rows ORDER BY table_name,row_id $$,
   $$ SELECT table_name,row_id,row_data FROM upgrade_fixture.availability_removal_before_rows
      WHERE NOT (table_name='availability_entries' AND row_id='e6110000-0000-4000-8000-000000000501')
      ORDER BY table_name,row_id $$,
   'the upgraded deletion preserves every other saved row and field');
+RESET ROLE;
+SELECT ok(NOT EXISTS (SELECT 1 FROM public.availability_entries WHERE set_for_tasking_id IS NOT NULL),
+  'historical Availability entries remain unlinked after upgrade');
 SELECT * FROM finish();
 ROLLBACK;

@@ -12,7 +12,13 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { rejectedRequestMessage, withinOrganizationLifetime } from '$lib/stores/core';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
-	import { eventDraftSchema, type CalendarEvent, type EventHost, type MemberLabels } from '../eventModel';
+	import {
+		eventDraftSchema,
+		memberOptions as optionsForMembers,
+		type CalendarEvent,
+		type EventHost,
+		type MemberLabels
+	} from '../eventModel';
 	import { createEventRequest, updateEventRequest } from '../eventRequests';
 	import CoordinatorField from './CoordinatorField.svelte';
 
@@ -58,11 +64,7 @@
 
 	$effect(() => () => (open = false));
 
-	const memberOptions = $derived(
-		Object.entries(members)
-			.map(([userId, label]) => ({ userId, label }))
-			.sort((a, b) => a.label.localeCompare(b.label))
-	);
+	const memberOptions = $derived(optionsForMembers(members));
 	const sourceShown = $derived(hostKind === 'external' || legacySource);
 
 	const input = $derived({

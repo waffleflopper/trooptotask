@@ -54,6 +54,9 @@
 	let triedEdit = $state(false);
 
 	$effect(() => () => writes.stop());
+	$effect(() => {
+		if (!canEdit) editing = null;
+	});
 	// A refreshed load replaces what is shown only while no write of ours is still on its way.
 	$effect(() => {
 		const next = loaded;

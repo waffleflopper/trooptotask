@@ -215,7 +215,7 @@ describe('Tasking equipment and checklist', () => {
 		expect(body(send, 1).id).not.toBe(body(send, 0).id);
 	});
 
-	it('closes an open editor when the Tasking stops being editable', async () => {
+	it('closes an open editor when the Tasking stops being editable, and does not bring it back on reopen', async () => {
 		const { rerender } = render(TaskingListsSection, {
 			orgId: 'org-a',
 			taskingId: TASKING,
@@ -231,5 +231,10 @@ describe('Tasking equipment and checklist', () => {
 
 		expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
 		expect(screen.getByText('Litters')).toBeTruthy();
+
+		await rerender({ canEdit: true });
+
+		expect(screen.getByRole('button', { name: 'Edit Litters' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
 	});
 });

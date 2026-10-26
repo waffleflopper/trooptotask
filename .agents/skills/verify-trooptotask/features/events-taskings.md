@@ -14,8 +14,11 @@ Features `Events & Taskings` turns the whole feature off.
 - `event-list`: `Upcoming` (ends today or later, earliest first) and `Past` (latest first, the 100 most recent) under
   one toolbar view switch, with `?when=past` in the URL. A row reads the date range, the title, the host and the
   coordinator, and a status badge `Upcoming`, `Ongoing`, `Past` or `Cancelled`. A cancelled title is struck through.
-- `event-create`: the `Create event` sheet. Title, dates and host are required and come first. Location, source
-  reference and description sit behind `Add location, source and notes`. The coordinator defaults to the creator.
+- `event-create`: the `Create event` sheet. `Title`, `Starts`, `Ends`, `Who is running it?` and `Coordinator` come
+  first. The host is two cards, `We are hosting` and `Another organization`; the second opens a shaded panel with
+  `Hosting organization` and `Source reference`. `OPTIONAL` adders `Location` and `Description` reveal and focus their
+  fields. `Coordinator` searches current members by name and starts on the creator, marked `(you)`. The footer reads
+  `Does not mark anyone unavailable.` beside `Cancel`, `Create and add tasking` and `Create event`.
 - `event-edit`: the same sheet, filled. `Save changes` stays disabled until something changes.
 - `event-cancel`: a confirmation with an optional reason. The detail then shows who cancelled it and when, and Edit and
   Cancel are gone.
@@ -30,13 +33,20 @@ Features `Events & Taskings` turns the whole feature off.
   survives Back. A row reads `Starts` or `Due` with that date, the outcome, the owner and the Event or `Standalone`,
   then the status badge and an attention badge `Overdue`, `Due today` or `Due soon`. Closed views hold the 100 most
   recent.
-- `tasking-create`: the `Create tasking` sheet. Outcome, Responsible and Suspense are required and come first;
-  Responsible starts empty for an Organization-wide operator. Event is optional. Execution dates, report time, people
-  needed, qualifications and instructions sit behind `Add execution dates, staffing and instructions`.
+- `tasking-create`: the `Create tasking` sheet. `Required outcome`, `Who is responsible?` and `Suspense` are required.
+  Event is optional: a filled row with `Make standalone` when chosen, an Event select when not. Responsible is two
+  cards, `A Group` with its Group select and `Organization level`. An Organization-wide operator starts on
+  `Organization level`. A Group-scoped operator starts on their Group only when they manage exactly one, and
+  `Organization level` is disabled for them. A hint under the cards names who may pick people. `People committed` sets
+  the execution dates and report time in one range picker beside `Suspense`. `OPTIONAL` holds `People` (count and
+  qualifications), `Equipment` rows (name, `×`, quantity, `Add item`) and the `Checklist` and `Instructions` adders.
+  Equipment and checklist items save after the Tasking, in order. If one fails, the Tasking's detail opens with a
+  lasting toast naming each item that did not save.
 - `tasking-from-event`: `Create and add tasking` in the Event sheet, and `Add tasking` on Event detail, open the Tasking
   sheet with that Event chosen. The Event detail lists its Taskings.
-- `tasking-edit`: the same sheet, filled, with `Make standalone` for a linked Tasking. Rerouting, relinking and
-  unlinking keep the Tasking's identity and write Activity.
+- `tasking-edit`: the same sheet, filled, with `Make standalone` for a linked Tasking. Equipment and checklist are
+  edited on the detail page, so the edit sheet has no rows for them. Rerouting, relinking and unlinking keep the
+  Tasking's identity and write Activity.
 - `tasking-lifecycle`: header actions follow the status. `Start`, `Unblock` and `Reopen` act at once. `Block` needs a
   reason, `Complete` takes an optional note and `Cancel tasking` an optional reason, each in a confirmation. The
   database refuses any other move with 409. Completed and cancelled Taskings cannot be edited.
@@ -88,21 +98,22 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
 
 1. **Empty and create.** As `calendarOperate` at 1440, open `Events & Taskings`. With no Events the list shows the
    `No upcoming events` empty state and a `Create event` button. Click the toolbar's `Create event`. Focus is in
-   `Title`. Press `Create event` with nothing filled: no request leaves, and `Title`, `Start date` and `End date` are
-   invalid. Fill a title, pick Tuesday 10 Nov 2026 as the start (the end follows it), then pick 12 Nov as the end. Keep
-   `This organization`. Arm `$V network arm-observe PAGE calendar-events` and press `Create event` twice quickly.
-   Exactly one `POST` returns 200, and the page moves to the new Event's detail with `10 – 12 Nov 2026`, the badge
-   `Upcoming` and one Activity entry. `$V rows calendar_events orgA` shows `starts_on 2026-11-10`, `ends_on 2026-11-12`
-   and `created_by` set to the operator.
-2. **External host with a source.** Create a second Event, `1 – 4 Dec 2026`, `Another host` named `1-1 BN`. Open
-   `Add location, source and notes` (its chevron turns) and fill a location, `https://example.mil/opord` and a two-line
-   description. Type `javascript:alert(1)` as the source first and save: the field is invalid with its link message and
-   the request does not leave. Restore the https link and save. The detail shows the host name, the source as a link
-   opening a new tab, and the description keeping its line break.
+   `Title`. Press `Create event` with nothing filled: no request leaves. `Title`, `Starts` and `Ends` are invalid, and
+   both dates read `Choose a date.` Fill a title, pick Tuesday 10 Nov 2026 as the start (the end follows it), then pick
+   12 Nov as the end. Keep `We are hosting`. Arm `$V network arm-observe PAGE calendar-events` and press `Create event`
+   twice quickly. Exactly one `POST` returns 200, and the page moves to the new Event's detail with `10 – 12 Nov 2026`,
+   the badge `Upcoming` and one Activity entry. `$V rows calendar_events orgA` shows `starts_on 2026-11-10`,
+   `ends_on 2026-11-12` and `created_by` set to the operator.
+2. **External host with a source.** Create a second Event, `1 – 4 Dec 2026`, `Another organization` with
+   `Hosting organization` `1-1 BN`. Fill `Source reference` with `https://example.mil/opord`. Choose `Location` and
+   `Description` under `OPTIONAL`; each new field takes focus. Fill a location and a two-line description. Type
+   `javascript:alert(1)` as the source first and save: the field is invalid with its link message and the request does
+   not leave. Restore the https link and save. The detail shows the host name, the source as a link opening a new tab,
+   and the description keeping its line break.
 3. **One-day awareness Event.** Create `20 Nov 2026` with start and end the same, host `2nd BDE`, source
    `BDE OPORD 27-03`. The list row and the detail read `20 Nov 2026`, and the source shows as text.
 4. **Edit and reload.** On the first Event press `Edit`. `Save changes` is disabled. Move the end to 13 Nov and switch
-   the host to `Another host` `1-1 BN`. Save. The sheet closes, focus returns to `Edit`, the dates read
+   the host to `Another organization` `1-1 BN`. Save. The sheet closes, focus returns to `Edit`, the dates read
    `10 – 13 Nov 2026`, and Activity adds a dates entry and a coordination entry naming only the host. Reload: the dates
    are unchanged. Repeat the reload with the browser in a zone west of UTC; no date moves.
 5. **Cancel.** On the one-day Event press `Cancel event`. The dialog asks to confirm, with `Keep event` and a reason
@@ -135,11 +146,16 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     Event with its host and coordinator. With the switch off, both sections are absent.
 
 13. **Tasking from an Event.** As the operator, create an Event with `Create and add tasking`. The page moves to the
-    Event's detail and the Tasking sheet opens with that Event chosen; the URL has no `addTasking` left. Press
-    `Create tasking` with nothing else filled: `Outcome`, `Responsible` and `Suspense` are invalid and no request
-    leaves. Fill them with `Alpha` and a suspense three days ahead, then press `Create tasking` twice quickly. One
-    `POST` returns 200 and the Tasking appears under the Event's `Taskings`. `$V rows calendar_taskings orgA` shows
-    `responsible_group_id` Alpha, the Event id and `created_by` the operator.
+    Event's detail and the `Add tasking` sheet opens with that Event as a filled row and `Organization level` chosen;
+    the URL has no `addTasking` left, and Back leaves the page with the sheet closed. Press `Add tasking` with nothing
+    else filled: `Required outcome` and `Suspense` are invalid and no request leaves. Fill the outcome, choose `A Group`
+    and `Alpha` (the hint names Alpha's leaders), a suspense three days ahead, `People committed` over the Event's dates
+    with report time 0600 (the field reads `· report 0600`), equipment `M997 FLA ambulance` quantity 1 and
+    `Litter, folding` quantity 2, and one checklist item. Press `Add tasking` twice quickly. One Tasking `POST` returns
+    200, then one equipment `POST` per row and the checklist `POST`, in that order, and the Tasking appears under the
+    Event's `Taskings`. `$V rows calendar_taskings orgA` shows `responsible_group_id` Alpha, the Event id, `report_time`
+    06:00 and `created_by` the operator. `$V rows calendar_tasking_equipment orgA` and
+    `calendar_tasking_checklist_items` hold the two rows and the item.
 14. **Organization Tasking.** From the Taskings list, create a standalone Tasking owned by `Verification Organization A`
     with a suspense in the past. Its row reads `Due`, the date and `Overdue`, and `?view=overdue` lists it.
 15. **Lifecycle.** On that Tasking press `Start`, then `Block`: `Block` in the dialog stays disabled until a reason is
@@ -162,10 +178,11 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     row stacks the date over the outcome and the badges, the actions wrap under the title, and `scrollWidth` equals the
     viewport.
 20. **Scoped Tasking operator.** As `calendarScoped` (Alpha), the list shows only Alpha Taskings and no
-    Organization-owned ones. `Create tasking` offers only `Alpha`, already chosen. `Edit` on an Alpha Tasking shows
-    `Responsible` disabled. A Bravo Tasking's URL reads `This tasking is not available`. From the page, a create for
-    Bravo or the Organization and a reroute of an Alpha Tasking to Bravo return 403; an edit or move of a Bravo or
-    Organization Tasking returns 404. `$V rows calendar_taskings orgA` changes only for an allowed Alpha move.
+    Organization-owned ones. `Create tasking` starts on `A Group` with `Alpha` chosen and `Organization level` disabled.
+    `Edit` on an Alpha Tasking shows both responsibility cards disabled. A Bravo Tasking's URL reads
+    `This tasking is not available`. From the page, a create for Bravo or the Organization and a reroute of an Alpha
+    Tasking to Bravo return 403; an edit or move of a Bravo or Organization Tasking returns 404.
+    `$V rows calendar_taskings orgA` changes only for an allowed Alpha move.
 21. **Tasking read-only and outsiders.** As `calendarView` the list and detail render with no `Create tasking`, actions
     or `Edit`, and the three writes return 403. As the `viewer` login the list and detail are the 403 page and the
     writes return 403. As `calendarForeign` A's Taskings URLs are 404 and the writes return 404. No row changes.

@@ -279,7 +279,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		findManyMock.mockResolvedValue([]);
 		mockCtx.organizationSettings = {
 			findTrainingBriefingContext: vi.fn().mockRejectedValue(new Error('settings unavailable'))
-		};
+		} as unknown as OrganizationSettingsReader;
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,

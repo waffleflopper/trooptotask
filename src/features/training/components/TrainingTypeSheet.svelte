@@ -35,6 +35,7 @@
 		type,
 		position,
 		catalogSize,
+		nextSortOrder,
 		personnel,
 		rankCatalog,
 		today,
@@ -50,6 +51,7 @@
 		/** The edited type's place in the column order. */
 		position: number;
 		catalogSize: number;
+		nextSortOrder: number;
 		/** Active personnel, who the applies-to counts and name previews come from. */
 		personnel: Personnel[];
 		rankCatalog: RankCatalogEntry[] | undefined;
@@ -90,7 +92,7 @@
 	const stillHere = () => alive && org.orgId === openedIn;
 
 	let draft = $state(
-		untrack(() => (type ? trainingTypeDraftFrom(type) : { ...newTrainingTypeDraft(), sortOrder: catalogSize }))
+		untrack(() => (type ? trainingTypeDraftFrom(type) : { ...newTrainingTypeDraft(), sortOrder: nextSortOrder }))
 	);
 	const savedDraft = JSON.stringify(draft);
 	const dirty = $derived(JSON.stringify(draft) !== savedDraft);

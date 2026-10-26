@@ -52,15 +52,15 @@ Focus View orders Targeted before Required and omits Optional.
 
 1. **Read the unchanged catalog and matrix:** From Training, open Manage Types. Read the table at 1440: the columns
    `Training`, `Renews`, `Warns at`, `Who needs it`, `Applies to` and `Exempt`, one row per seeded type. Required reads
-   `Every 12 months`, `60d · 30d`, `Everyone`, `3 of 3` and `Allowed`. Targeted reads `Every 12 months`,
-   `Everyone except MOS 68W`... (record the rule text the fixture actually shows) and Optional reads `Never expires`,
-   `—`, `Optional` and `—`. Return to the matrix, choose the Focus View, and confirm the visible Targeted/Required
+   `Every 12 months`, `60d · 30d`, `Everyone`, `3 of 3` and `—`. Targeted reads `Every 12 months`, `60d · 30d`,
+   `MOS: 68W except Role NCO`, `1 of 3` and `—`. Optional reads `Never expires`, `—`, `Optional`, `0 of 3` and `—`. Return to the matrix, choose the Focus View, and confirm the visible Targeted/Required
    column names and order and the Able/Baker/Unassigned status differences above. Switch between `A–Z` and `Groups`,
    then Alpha and all Groups using the compact Group selector; the saved view stays selected and the expected visible
    roster changes. Reload and select Focus View again; compare the same saved IDs and column order using
    `$V rows training_types orgA id <ID>` and `$V rows training_views orgA id <trainingView>`.
 2. **Create, edit and cancel:** Open Manage Types as `trainingConfigure`. Choose `New type`: the sheet reads
-   `New training type · 4 of 4` over `Untitled type`, `Create type` is the primary action and `Cancel` closes it.
+   `New training type · 4 of 4` over `Untitled type` (its fixed sort order sits after the highest seeded one, so the
+   new row is last), `Create type` is the primary action and `Cancel` closes it.
    Create three types, each with a unique marker name:
    - Months: `Every few months`, Good for `18`, First warning `60`, Final warning `30`. The row reads `Every 18 months`
      and `60d · 30d`; read back `$V rows training_types orgA name MARKER` for `expiration_months` 18,

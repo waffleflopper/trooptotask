@@ -312,6 +312,7 @@
 		type={opened}
 		position={opened ? orderedTypes.findIndex((type) => type.id === opened.id) + 1 : 0}
 		catalogSize={orderedTypes.length}
+		nextSortOrder={orderedTypes.reduce((next, type) => Math.max(next, type.sortOrder + 1), 0)}
 		{personnel}
 		{rankCatalog}
 		{today}

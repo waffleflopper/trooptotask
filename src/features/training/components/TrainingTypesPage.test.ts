@@ -198,6 +198,22 @@ describe('TrainingTypesPage', () => {
 			await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Range safety' })));
 		});
 
+		it('puts a new type after the last saved position, not after the type count', async () => {
+			const requests = stubServer();
+			mount([
+				{ ...cpr, sortOrder: 10 },
+				{ ...license, sortOrder: 20 },
+				{ ...legacyNever, sortOrder: 30 }
+			]);
+
+			await fireEvent.click(screen.getByRole('button', { name: 'New type' }));
+			await fireEvent.input(field('Name'), { target: { value: 'Range safety' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Create type' }));
+
+			await waitFor(() => expect(requests).toHaveLength(1));
+			expect(requests[0].body).toMatchObject({ name: 'Range safety', sortOrder: 31 });
+		});
+
 		it('says what is missing on the field after a save attempt and moves focus to it', async () => {
 			const requests = stubServer();
 			mount();

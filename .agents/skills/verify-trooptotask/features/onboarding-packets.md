@@ -264,9 +264,7 @@ As `onboardingConfigure` at 1280, then at 390:
 5. **Filters.** Search `StatusOnTrack` and require only that row, with the strip recounted for it. Search also matches
    rank and MOS. Choose `Bravo` in `Group` and require only Bravo People. A search nobody matches shows
    `No Soldiers match`; `Clear filters` restores the search and `All groups`.
-6. **A filter closes the open packet.** Open a packet, then search for another Soldier or choose another Group. The
-   sheet closes and clearing the filter does not reopen it.
-7. **Future start date.** Start a packet with a start date a few days ahead. The row's day slot and the packet header
+6. **Future start date.** Start a packet with a start date a few days ahead. The row's day slot and the packet header
    read `Starts in N days` (`Starts tomorrow` for one day) instead of `Day N`, and the packet is New or On track by its
    progress.
 

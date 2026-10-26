@@ -230,22 +230,6 @@ describe('Onboarding Active list', () => {
 		expect(screen.queryByText('1 stalled', { selector: '[data-slot="page-header"] span' })).toBeNull();
 	});
 
-	it('closes the open packet when a search or Group filter hides it and leaves it closed', async () => {
-		mount();
-		await openPacket('CPL Jones, Alex');
-
-		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
-			target: { value: '68w' }
-		});
-		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-
-		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
-			target: { value: '' }
-		});
-		expect(rows()).toHaveLength(4);
-		expect(screen.queryByRole('dialog')).toBeNull();
-	});
-
 	it('shows a start date in the future as a countdown in the row and the packet', async () => {
 		onboardingStore.load(
 			[

@@ -118,11 +118,6 @@
 			document.querySelector<HTMLElement>(`[data-onboarding-id="${CSS.escape(id)}"]`)?.focus();
 	}
 
-	function closePanelIfFiltered() {
-		if (selectedId && active.some((onboarding) => onboarding.id === selectedId && !matches(onboarding)))
-			selectedId = null;
-	}
-
 	function clearFilters() {
 		search = '';
 		groupId = ALL_GROUPS;
@@ -154,7 +149,6 @@
 				defaultValue: ALL_GROUPS,
 				onValueChange: (value) => {
 					groupId = value;
-					closePanelIfFiltered();
 				}
 			});
 		}
@@ -170,7 +164,6 @@
 		value: search,
 		onValueChange: (value: string) => {
 			search = value;
-			closePanelIfFiltered();
 		}
 	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
@@ -332,7 +325,7 @@
 									name={ctx.getPersonName(summary.packet.personnelId)}
 									meta={personMeta(summary.packet)}
 									selected={selectedId === summary.packet.id}
-									onSelect={() => (selectedId = selectedId === summary.packet.id ? null : summary.packet.id)}
+									onSelect={() => (selectedId = summary.packet.id)}
 								/>
 							</li>
 						{/each}
@@ -341,7 +334,7 @@
 			{/if}
 		</div>
 
-		{#if selected && noteDraft && view === 'list'}
+		{#if selected && noteDraft}
 			<AppDialog.Root open {busy} {closeBlocked} onClose={closePanel}>
 				<AppDialog.Content presentation="sheet" class="p-0" showCloseButton={false}>
 					<AppDialog.Description class="sr-only">Onboarding packet</AppDialog.Description>

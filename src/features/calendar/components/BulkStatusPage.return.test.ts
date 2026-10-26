@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
@@ -37,9 +38,9 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 
 const TASKING = '00000000-0000-4000-8000-000000000101';
 
-function renderPage() {
+function renderPage(disabledFeatures?: readonly FeatureKey[]) {
 	return render(BulkStatusPage, {
-		props: { org, data: { orgId: 'org-1', orgName: 'Test Unit', personnel: [], allPersonnel: [] } }
+		props: { org, data: { orgId: 'org-1', orgName: 'Test Unit', personnel: [], allPersonnel: [], disabledFeatures } }
 	});
 }
 
@@ -50,7 +51,7 @@ describe('BulkStatusPage after a prefilled save', () => {
 		invalidateMock.mockReset().mockResolvedValue(undefined);
 	});
 
-	it('lands back on the Tasking, then refreshes the Calendar data', async () => {
+	it('lands back on the Tasking and refreshes the Calendar data as part of leaving', async () => {
 		pageMock.url = new URL(
 			`http://localhost/org/org-1/calendar/bulk?tab=add&tasking=${TASKING}&from=2030-10-19&to=2030-10-23`
 		);
@@ -58,9 +59,23 @@ describe('BulkStatusPage after a prefilled save', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
 
+		await waitFor(() => expect(gotoMock).toHaveBeenCalled());
+		expect(gotoMock).toHaveBeenCalledExactlyOnceWith(`/org/org-1/calendar/taskings/${TASKING}`, {
+			invalidate: ['app:calendar-data']
+		});
+		expect(invalidateMock).not.toHaveBeenCalled();
+	});
+
+	it('ignores the prefill while Events & Taskings is off', async () => {
+		pageMock.url = new URL(
+			`http://localhost/org/org-1/calendar/bulk?tab=add&tasking=${TASKING}&from=2030-10-19&to=2030-10-23`
+		);
+		renderPage(['eventsAndTaskings']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+
 		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:calendar-data'));
-		expect(gotoMock).toHaveBeenCalledExactlyOnceWith(`/org/org-1/calendar/taskings/${TASKING}`);
-		expect(gotoMock.mock.invocationCallOrder[0]).toBeLessThan(invalidateMock.mock.invocationCallOrder[0]);
+		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
 	it('stays on Bulk Status when nothing asked for a return', async () => {

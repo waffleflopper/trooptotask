@@ -48,6 +48,7 @@
 	const pageData = $derived.by(() => ({
 		orgId: data.shell.org.id,
 		orgName: data.shell.org.name,
+		disabledFeatures: data.shell.org.disabledFeatures,
 		calendar: resolvedData.calendar ? { data: resolvedData.calendar.data } : undefined
 	}));
 </script>

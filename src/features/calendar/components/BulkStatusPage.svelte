@@ -26,12 +26,14 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
+	import type { FeatureKey } from '$lib/access/featureSwitches';
 
 	interface Props {
 		org: CalendarOperationsPageAccess;
 		data: {
 			orgId: string;
 			orgName?: string;
+			disabledFeatures?: readonly FeatureKey[];
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
 			calendar?: {
@@ -60,8 +62,12 @@
 		return 'add';
 	});
 
-	// Only the Add form takes a prefill; it travels in the link so a reload keeps it.
-	const prefill = $derived(activeTab === 'add' ? readAvailabilityPrefill(page.url.searchParams) : null);
+	// Only the Add form takes a prefill, and only while Taskings exist; it travels in the link so a reload keeps it.
+	const prefill = $derived(
+		activeTab === 'add' && !data.disabledFeatures?.includes('eventsAndTaskings')
+			? readAvailabilityPrefill(page.url.searchParams)
+			: null
+	);
 	const prefillKey = $derived(prefill ? JSON.stringify(prefill) : '');
 	const backHref = $derived(prefill ? taskingHref(orgUrlSegment, prefill.taskingId) : `/org/${orgUrlSegment}/calendar`);
 
@@ -141,11 +147,11 @@
 
 	function handleComplete() {
 		const returnTo = prefill && active && data.orgId === applyingOrgId ? backHref : null;
-		// An invalidation cancels a navigation started before it, so leave first.
+		// A separate invalidate would cancel a navigation started before it, so refresh as part of leaving.
 		if (returnTo) {
-			void goto(resolve(returnTo as `/org/${string}/calendar/taskings/${string}`)).then(() =>
-				invalidate('app:calendar-data')
-			);
+			void goto(resolve(returnTo as `/org/${string}/calendar/taskings/${string}`), {
+				invalidate: ['app:calendar-data']
+			});
 			return;
 		}
 		invalidate('app:calendar-data');

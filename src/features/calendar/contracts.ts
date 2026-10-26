@@ -712,5 +712,10 @@ export type {
 	ProjectedSuspense
 } from './projection/calendarProjection';
 export type { AssignmentSource } from './roster/rosterTypes';
+export type {
+	TaskingAttentionKind,
+	TaskingAttentionProjection,
+	TaskingAttentionRow
+} from './taskings/taskingAttentionModel';
 
 export { compareOverlappingEntries, shownEntryByPerson, sortedStatusTypes } from './dayStatuses';

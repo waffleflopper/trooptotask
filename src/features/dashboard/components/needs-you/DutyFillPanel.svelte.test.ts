@@ -130,7 +130,7 @@ function open(openDates: readonly string[], organizationWide = true) {
 				can: (_action: unknown, resource?: PolicyResource) => organizationWide || resource?.kind !== 'organization',
 				isPrivileged: false
 			},
-			updates: { refreshSummary: vi.fn(), putRecord: vi.fn() },
+			updates: { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() },
 			save: (command: () => Promise<void>) => command(),
 			saving: false,
 			failure: null,

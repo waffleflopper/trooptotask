@@ -26,6 +26,7 @@ import {
 	createSupabaseCalendarProjectionReader,
 	createSupabaseCalendarTaskingPersistence,
 	createSupabaseCalendarStaffingPersistence,
+	createSupabaseCalendarTaskingAttentionReader,
 	createSupabaseCalendarDeletionReferences,
 	createSupabaseCalendarTaskingListsPersistence,
 	createSupabaseRosterSwapPersistence,
@@ -631,6 +632,15 @@ export function createRequestCalendarTaskingContext(request: AdmittedOrganizatio
 		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId),
 		calendarStaffing: createSupabaseCalendarStaffingPersistence(request.supabase, orgId),
 		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
+	};
+}
+
+export function createRequestDashboardTaskingContext(request: AdmittedOrganizationRequest) {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		taskingAttention: createSupabaseCalendarTaskingAttentionReader(request.supabase, request.auth.orgId),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 

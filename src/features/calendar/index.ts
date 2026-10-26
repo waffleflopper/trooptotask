@@ -85,7 +85,8 @@ export type {
 	TaskingChoices,
 	TaskingDetail,
 	TaskingList,
-	TaskingListScope
+	TaskingListScope,
+	TaskingResponsibility
 } from './taskings/taskingModel';
 export type {
 	ChecklistItem,
@@ -94,6 +95,15 @@ export type {
 	TaskingLists,
 	TaskingReadiness
 } from './taskings/taskingListsModel';
+/** The Assign people picker, loaded on first open. */
+export function loadAssignPeopleDialog() {
+	return import('./taskings/staffing/components/AssignPeopleDialog.svelte');
+}
 export { parseTaskingFilters, parseTaskingView, scopeOfView } from './taskings/taskingModel';
 export type { TaskingStaffing } from './taskings/staffing/staffingModel';
+export type {
+	TaskingAttentionProjection,
+	TaskingAttentionKind,
+	TaskingAttentionRow
+} from './taskings/taskingAttentionModel';
 export { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './import/statusImportLane';

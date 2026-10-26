@@ -12,6 +12,16 @@ export type DashboardSectionId = 'availability' | FeatureKey;
 
 export type NeedsYouSource = (inputs: DashboardInputs) => readonly NeedsYouItem[];
 
+/** A source that loads on its own: until it settles the queue shows a placeholder, and a failure names it. */
+export type NeedsYouLoad = {
+	label: string;
+	retry: (updates: DashboardPageUpdates) => void;
+} & (
+	| { state: 'pending' | 'failed' }
+	/** Rows the source counted but did not list, so the header still counts them. */
+	| { state: 'partial'; unlisted: number; href: string }
+);
+
 /** Green for good, amber for warning, red only for the worst share. */
 export type ReadinessTone = 'good' | 'warning' | 'critical';
 
@@ -110,6 +120,8 @@ export interface DashboardSection {
 	/** A section that is not set up adds nothing; owners and admins see a hint instead. */
 	setup: SetupCheck | null;
 	needsYou: readonly NeedsYouSource[];
+	/** The load state of a Needs you source that arrives after the page, or null once it has settled. */
+	needsYouLoad: ((inputs: DashboardInputs) => NeedsYouLoad | null) | null;
 	readiness: ReadinessSource | null;
 	quickAdd: readonly QuickAddEntry[];
 	onDuty: readonly OnDutyBlock[];
@@ -125,6 +137,7 @@ export function dashboardSection(
 		feature: id === 'availability' ? null : id,
 		setup: null,
 		needsYou: [],
+		needsYouLoad: null,
 		readiness: null,
 		quickAdd: [],
 		onDuty: [],
@@ -148,6 +161,8 @@ export interface DashboardSectionParts {
 	readinessColumns: readonly ReadinessColumn[];
 	/** Titles of the sections whose Needs you items could not load, so the queue is incomplete. */
 	needsYouUnavailable: readonly string[];
+	/** Needs you sources still loading or failed, which the queue shows beside the rows it has. */
+	needsYouLoads: readonly NeedsYouLoad[];
 	onDutyBlocks: readonly OnDutyBlock[];
 	/** Owners and admins only; one per feature that is on but not set up. */
 	setupHints: readonly SetupHint[];
@@ -206,6 +221,10 @@ export function composeDashboardSections(
 		needsYouUnavailable: readiness.flatMap(({ column, feedsNeedsYou }) =>
 			column.state === 'failed' && feedsNeedsYou ? [column.title] : []
 		),
+		needsYouLoads: active.flatMap((entry) => {
+			const load = entry.needsYouLoad?.(inputs);
+			return load ? [load] : [];
+		}),
 		onDutyBlocks: active
 			.flatMap((entry) => entry.onDuty)
 			.filter((part) => part.available?.(inputs, access) ?? true)

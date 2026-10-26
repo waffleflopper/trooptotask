@@ -1,4 +1,4 @@
-export type DashboardLoadPhase = 'summary';
+export type DashboardLoadPhase = 'summary' | 'taskings';
 
 function getNowMs(): number {
 	return typeof performance !== 'undefined' ? performance.now() : Date.now();

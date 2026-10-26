@@ -63,8 +63,7 @@ function serve(...saves: Response[]) {
 	return sent;
 }
 
-function open() {
-	const onSaved = vi.fn();
+function open(onSaved = vi.fn()) {
 	render(AssignPeopleDialog, { orgId: 'org-a', tasking, groups: { [ALPHA]: 'Alpha' }, onSaved, onClose: vi.fn() });
 	return onSaved;
 }
@@ -112,5 +111,22 @@ describe('AssignPeopleDialog', () => {
 		);
 		expect(screen.getByRole('checkbox', { name: /Baker/ }).getAttribute('aria-checked')).toBe('true');
 		expect(onSaved).not.toHaveBeenCalled();
+	});
+
+	it('stays busy until the caller has finished with the saved picks', async () => {
+		serve(json({ outcome: 'saved', staffing: nobody }));
+		let finish!: () => void;
+		const onSaved = open(vi.fn(() => new Promise<void>((resolve) => (finish = resolve))));
+
+		await fireEvent.click(await screen.findByRole('checkbox', { name: /Baker/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save people' }));
+		await waitFor(() => expect(onSaved).toHaveBeenCalled());
+		await new Promise((resolve) => setTimeout(resolve));
+
+		expect(screen.getByRole('button', { name: /Save people/ }).hasAttribute('disabled')).toBe(true);
+		finish();
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: /Save people/ }).hasAttribute('disabled')).toBe(false)
+		);
 	});
 });

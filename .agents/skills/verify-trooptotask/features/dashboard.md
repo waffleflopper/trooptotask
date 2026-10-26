@@ -13,6 +13,10 @@ workspace/summary load, and old responses must never restore another Organizatio
   dialogs, and each save shows on the Dashboard without a reload. Steps are under [Quick add](#quick-add).
 - `needs-you-actions`: Update status, Record class, Fill and Award started act on a Needs you row in place, and a saved
   row leaves the queue. Check off opens Onboarding at the packet. Steps are under [Actions](#actions).
+- `tasking-attention`: with Events & Taskings on, active Taskings join Needs you as Overdue, Blocked, Short and Due
+  soon rows, each Tasking once, and a Short row offers `Pick people`. The source loads after the page with its own
+  pending row and `Try again`, and a failure leaves every other row. Steps are in
+  [Events & Taskings](events-taskings.md#dashboard).
 - `combined-overview`: current strength, availability, Person/Group assignments, Training attention/currency, Critical
   Tasks readiness, evaluations, Onboarding and nearest ETS/DEROS use independently known source facts. Steps for the
   Readiness row are under [Readiness row](#readiness-row).
@@ -436,16 +440,17 @@ Arriving and leaving reads `No one in onboarding.`
 A Needs you row offers one action when the viewer may take it; otherwise only its link remains. Overdue offers
 `Update status` (`ratingScheme.updateEntries`), Expired `Record class` (`training.recordCompletions`), Unfilled
 `Fill N days` (`calendar.manageAssignments`, N at most 7), Stalled `Check off` (`onboarding.manageWorkflows`) and
-Leaving `Award started` (`personnel.manageRecords` on that Person). `Check off` is a link to Onboarding with that packet
-open, because completing a step needs the Onboarding workspace. While an action opens or saves, its button reads
-`aria-disabled="true"` and ignores a second press. A failed save keeps the row and shows the message in it, as a
-`role="alert"` line or inside the open dialog or panel, with no toast. A saved row leaves the queue and focus moves to
-the action, or else the link, of the row now in its place, or to the empty state (the incomplete note when the summary
-failed) once the queue is empty. Closing a dialog or panel returns focus to its button. In the Fill panel, choosing a
-day opens the duty picker. While its code loads, that day shows a spinner and `aria-busy`. If it fails to load, the
-panel shows `The duty picker did not load, so this day cannot be swapped yet.` with `Try again`, keeping the chosen day.
-The harness cannot fail a script chunk (`emulate` refuses `Offline` under the network allowlist), so the component test
-covers that failure. None of these reads anything at page load.
+Leaving `Award started` (`personnel.manageRecords` on that Person). A Short Tasking offers `Pick people`
+(`calendar.manageTaskings` on its Group or the Organization), which opens the staffing picker in place. `Check off` is a
+link to Onboarding with that packet open, because completing a step needs the Onboarding workspace. While an action
+opens or saves, its button reads `aria-disabled="true"` and ignores a second press. A failed save keeps the row and
+shows the message in it, as a `role="alert"` line or inside the open dialog or panel, with no toast. A saved row leaves
+the queue and focus moves to the action, or else the link, of the row now in its place, or to the empty state (the
+incomplete note when the summary failed) once the queue is empty. Closing a dialog or panel returns focus to its button.
+In the Fill panel, choosing a day opens the duty picker. While its code loads, that day shows a spinner and `aria-busy`.
+If it fails to load, the panel shows `The duty picker did not load, so this day cannot be swapped yet.` with
+`Try again`, keeping the chosen day. The harness cannot fail a script chunk (`emulate` refuses `Offline` under the
+network allowlist), so the component test covers that failure. None of these reads anything at page load.
 
 After `$V seed dashboard`, as `orgOwner` at 1440:
 

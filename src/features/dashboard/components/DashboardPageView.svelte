@@ -48,6 +48,10 @@
 	const parts = $derived(
 		model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures, access) : null
 	);
+	const needsYouCount = $derived(
+		(parts?.needsYou.ranked.length ?? 0) +
+			(parts?.needsYouLoads.reduce((sum, load) => sum + (load.state === 'partial' ? load.unlisted : 0), 0) ?? 0)
+	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
 	const columnFailed = $derived(parts?.readinessColumns.some((column) => column.state === 'failed') ?? false);
 	const hintDismissals = new SetupHintDismissals(() => ({
@@ -224,7 +228,7 @@
 						id="dashboard-needs-you"
 						tabindex={-1}
 						size="compact"
-						eyebrow={parts ? `Needs you · ${parts.needsYou.ranked.length}` : 'Needs you'}
+						eyebrow={parts ? `Needs you · ${needsYouCount}` : 'Needs you'}
 						title="Most urgent first"
 					>
 						{#snippet action()}
@@ -232,7 +236,14 @@
 						{/snippet}
 					</PageShell.SectionHeader>
 					{#if parts && model}
-						<NeedsYouQueue queue={parts.needsYou} {model} {access} {updates} unavailable={parts.needsYouUnavailable} />
+						<NeedsYouQueue
+							queue={parts.needsYou}
+							{model}
+							{access}
+							{updates}
+							unavailable={parts.needsYouUnavailable}
+							loads={parts.needsYouLoads}
+						/>
 					{:else}
 						<div class="grid border-t border-foreground" aria-hidden="true">
 							{#each { length: 5 }, index (index)}

@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { Personnel } from '$features/personnel/contracts';
+	import type { CalendarLane } from '$features/calendar/utils/calendarLanes';
+	import { commitmentsOf, type CommitmentsByPerson } from '$features/calendar/projection/projectionCommitments';
+	import CalendarLanes from './calendar-lanes/CalendarLanes.svelte';
 	import type { AvailabilityEntry, SpecialDay } from '$features/calendar/contracts';
 	import { getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
 	import BarTrack from './calendar-bars/BarTrack.svelte';
@@ -26,13 +29,26 @@
 		personnelByGroup: GroupData[];
 		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
+		/** Event and suspense lanes under the date row. */
+		lanes?: readonly CalendarLane[];
+		/** Taskings each Person is picked for over the three months. */
+		commitments?: CommitmentsByPerson;
 		onDateColumnClick?: (date: Date) => void;
 		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
 	}
 
-	let { startDate, personnelByGroup, tracks, specialDays, onDateColumnClick, onOpenEntry, onOpenOverflow }: Props =
-		$props();
+	let {
+		startDate,
+		personnelByGroup,
+		tracks,
+		specialDays,
+		lanes = [],
+		commitments,
+		onDateColumnClick,
+		onOpenEntry,
+		onOpenOverflow
+	}: Props = $props();
 
 	const viewStartDate = $derived(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
 	let scrollAreaEl: HTMLDivElement;
@@ -184,30 +200,47 @@
 				{/each}
 			</div>
 
-			<div class="sticky top-9 z-[9] grid [grid-template-columns:var(--long-range-columns)] border-b bg-card">
-				<div class="sticky left-0 z-10 min-h-8 border-r bg-card px-3"></div>
-				{#each days as day, index (day.dateKey)}
-					{@const month = months.find((item) => item.month === day.date.getMonth())}
-					<Button
-						variant="cell"
-						size="none"
-						class={[
-							'h-8 min-w-0 justify-start overflow-visible bg-card px-0.5 text-muted-foreground max-sm:h-9',
-							day.date.getDay() === 1 && 'border-l border-border',
-							day.weekend && 'bg-muted/55',
-							day.today && 'z-[1] bg-primary/10 inset-ring inset-ring-primary',
-							day.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'
-						]}
-						aria-label={day.dateLabel}
-						title={day.specialDay?.name ?? `Jump to ${month?.name} ${month?.year}`}
-						onclick={() => onDateColumnClick?.(day.date)}
-					>
-						{#if day.date.getDay() === 1 || index === 0}
-							<span class="relative z-[2] font-mono text-[9px] font-semibold whitespace-nowrap">{day.dayOfMonth}</span>
-						{/if}
-					</Button>
-				{/each}
-			</div>
+			{#snippet dateRow()}
+				<div
+					class={[
+						'grid [grid-template-columns:var(--long-range-columns)] border-b bg-card',
+						lanes.length === 0 && 'sticky top-9 z-[9]'
+					]}
+				>
+					<div class="sticky left-0 z-10 min-h-8 border-r bg-card px-3"></div>
+					{#each days as day, index (day.dateKey)}
+						{@const month = months.find((item) => item.month === day.date.getMonth())}
+						<Button
+							variant="cell"
+							size="none"
+							class={[
+								'h-8 min-w-0 justify-start overflow-visible bg-card px-0.5 text-muted-foreground max-sm:h-9',
+								day.date.getDay() === 1 && 'border-l border-border',
+								day.weekend && 'bg-muted/55',
+								day.today && 'z-[1] bg-primary/10 inset-ring inset-ring-primary',
+								day.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'
+							]}
+							aria-label={day.dateLabel}
+							title={day.specialDay?.name ?? `Jump to ${month?.name} ${month?.year}`}
+							onclick={() => onDateColumnClick?.(day.date)}
+						>
+							{#if day.date.getDay() === 1 || index === 0}
+								<span class="relative z-[2] font-mono text-[9px] font-semibold whitespace-nowrap">{day.dayOfMonth}</span
+								>
+							{/if}
+						</Button>
+					{/each}
+				</div>
+			{/snippet}
+
+			{#if lanes.length === 0}
+				{@render dateRow()}
+			{:else}
+				<div class="sticky top-9 z-[9] bg-card [--calendar-cell-width:10px]">
+					{@render dateRow()}
+					<CalendarLanes {lanes} headerCells={days} />
+				</div>
+			{/if}
 
 			<div class="roster-rows relative" bind:this={rosterRowsEl} style:height={`${rosterLayout.totalHeight}px`}>
 				<div class="absolute inset-0 grid [grid-template-columns:var(--long-range-columns)]" aria-hidden="true">
@@ -254,6 +287,7 @@
 									layout={tracks.layout(row.person.id, visibleDays, policy)}
 									personLabel="{row.person.rank} {row.person.lastName}, {row.person.firstName}"
 									size="compact"
+									commitments={commitmentsOf(commitments, row.person.id)}
 									onOpenEntry={onOpenEntry && ((entry, anchor) => onOpenEntry(row.person, entry, anchor))}
 									onOpenOverflow={onOpenOverflow &&
 										((entryIds, anchor) => onOpenOverflow(row.person, entryIds, anchor))}

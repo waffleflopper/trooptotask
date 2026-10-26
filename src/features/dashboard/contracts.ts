@@ -11,6 +11,7 @@ import type { TrainingType } from '$features/training/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { TrainingSummary } from '$features/training/contracts';
+import type { TaskingAttentionProjection } from '$features/calendar/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 
 export interface DashboardIctlMosReadiness {
@@ -72,6 +73,13 @@ export interface DashboardViewerDay {
 	timeZone: string;
 }
 
+/** Tasking attention loads on its own: `off` is not read for this unit or viewer, and `failed` is not empty. */
+export type DashboardTaskingsState =
+	| { status: 'off' }
+	| { status: 'pending' }
+	| { status: 'failed' }
+	| { status: 'ready'; attention: TaskingAttentionProjection };
+
 export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
@@ -85,6 +93,7 @@ export interface DashboardPageData {
 	onboardingTrainingCompletions: string[];
 	/** The summary read failed, so a null summary above is unknown rather than withheld. */
 	summaryFailed: boolean;
+	taskings: DashboardTaskingsState;
 	[key: string]: unknown;
 }
 

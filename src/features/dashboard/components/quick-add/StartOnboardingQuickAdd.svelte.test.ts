@@ -57,7 +57,9 @@ function openStart() {
 					refreshPopulations.push(
 						saved.flatMap((change) => (change.list === 'activeOnboardings' ? [change.record.personnelId] : []))
 					);
-				}
+				},
+				refreshTaskings: async () => {},
+				retryTaskings: () => {}
 			}
 		}
 	});

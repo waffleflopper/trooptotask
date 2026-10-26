@@ -89,6 +89,7 @@ export {
 export { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from './utils/calendarAnchorDate';
 export {
 	CALENDAR_RANGE_COLLECTIONS,
+	DEFAULT_CALENDAR_RANGE_COLLECTIONS,
 	initialCalendarCoverage,
 	MAX_CALENDAR_RANGE_DAYS,
 	type CalendarRangeCollection
@@ -125,6 +126,7 @@ export {
 	transitionTasking
 } from './taskings/taskingOperations.server';
 export { createSupabaseCalendarTaskingPersistence } from './taskings/taskingPersistence.server';
+export { createSupabaseCalendarTaskingAttentionReader, loadTaskingAttention } from './taskings/taskingAttention.server';
 export {
 	loadTaskingStaffing,
 	loadStaffingPicker,
@@ -149,3 +151,8 @@ export {
 	reorderTaskingList
 } from './taskings/taskingListsOperations.server';
 export { createSupabaseCalendarTaskingListsPersistence } from './taskings/taskingListsPersistence.server';
+export {
+	createSupabaseCalendarProjectionReader,
+	readCalendarProjection,
+	type CalendarProjectionReader
+} from './projection/calendarProjectionRead.server';

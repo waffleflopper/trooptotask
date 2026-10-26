@@ -1,5 +1,6 @@
 import {
 	CALENDAR_RANGE_COLLECTIONS,
+	DEFAULT_CALENDAR_RANGE_COLLECTIONS,
 	fetchCalendarRangeData,
 	MAX_CALENDAR_RANGE_DAYS,
 	type CalendarRangeCollection
@@ -53,9 +54,9 @@ export const _getConfig: RouteConfig<
 		rangeStart: event.url.searchParams.get('rangeStart') ?? '',
 		rangeEnd: event.url.searchParams.get('rangeEnd') ?? '',
 		// `input` validates each name before `fn` runs. A tab loaded before this parameter existed sends
-		// none and still receives every collection, as it did then.
+		// none and still receives every collection it knew, as it did then.
 		collections: (event.url.searchParams.get('collections')?.split(',') ?? [
-			...CALENDAR_RANGE_COLLECTIONS
+			...DEFAULT_CALENDAR_RANGE_COLLECTIONS
 		]) as CalendarRangeCollection[]
 	}),
 	fn: async (ctx, input) => fetchCalendarRangeData(ctx, input)

@@ -88,7 +88,12 @@ function answerPreviews(answer: () => Promise<Response>) {
 
 async function openFill() {
 	answerPreviews(() => json(preview('p-adams', 'p-baker')));
-	render(NeedsYouFillHarness, { props: { model, updates: { refreshSummary: vi.fn(), putRecord: vi.fn() } } });
+	render(NeedsYouFillHarness, {
+		props: {
+			model,
+			updates: { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() }
+		}
+	});
 	await fireEvent.click(screen.getByRole('button', { name: 'Fill 2 days' }));
 	const assignAll = await screen.findByRole('button', { name: 'Assign all 2' });
 	await waitFor(() => expect(assignAll.getAttribute('aria-disabled')).toBe('false'));

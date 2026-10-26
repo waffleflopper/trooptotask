@@ -14,6 +14,10 @@ export type DashboardRecordChange =
 export interface DashboardPageUpdates {
 	/** Rereads the server summary in the background; the page keeps its last values until the read lands, and keeps them if it fails. */
 	refreshSummary(): void;
+	/** Rereads Tasking attention after a save, keeping the last rows if the read fails; settles once it has landed. */
+	refreshTaskings(): Promise<void>;
+	/** Reads Tasking attention again after its load failed. */
+	retryTaskings(): void;
 	/** Shows a record saved in the Organization in its list until the page data is next read; ignored once the page has moved to another Organization. */
 	putRecord(orgId: string, change: DashboardRecordChange): void;
 }

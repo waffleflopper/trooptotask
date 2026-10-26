@@ -27,7 +27,12 @@ const access: DashboardAccess = {
 	can: () => true,
 	isPrivileged: false
 };
-const updates = { refreshSummary: () => {}, putRecord: () => {} };
+const updates = {
+	refreshSummary: () => {},
+	refreshTaskings: async () => {},
+	retryTaskings: () => {},
+	putRecord: () => {}
+};
 const frame = {
 	orgName: 'Test Unit',
 	viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
@@ -315,6 +320,7 @@ describe('Dashboard sections', () => {
 		return {
 			orgId: 'org-1',
 			orgName: 'Test Unit',
+			taskings: { status: 'off' },
 			userId: 'user-1',
 			viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 			disabledFeatures: [],

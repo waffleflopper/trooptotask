@@ -704,6 +704,18 @@ export interface CalendarAvailabilityRemovalPort {
 }
 
 export type { CalendarSupportReader } from './supportReadTypes';
+export type {
+	CalendarProjection,
+	CalendarProjectionRead,
+	ProjectedCommitment,
+	ProjectedEvent,
+	ProjectedSuspense
+} from './projection/calendarProjection';
 export type { AssignmentSource } from './roster/rosterTypes';
+export type {
+	TaskingAttentionKind,
+	TaskingAttentionProjection,
+	TaskingAttentionRow
+} from './taskings/taskingAttentionModel';
 
 export { compareOverlappingEntries, shownEntryByPerson, sortedStatusTypes } from './dayStatuses';

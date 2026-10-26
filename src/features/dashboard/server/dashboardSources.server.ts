@@ -23,7 +23,8 @@ export const DASHBOARD_SOURCES = {
 	ratingSchemeEntries: { feature: 'evaluations', lane: 'ratingScheme' },
 	activeOnboardings: { feature: 'onboarding', lane: 'onboarding' },
 	onboardingTemplates: { feature: 'onboarding', lane: 'onboarding' },
-	awardAcknowledgements: { feature: 'lossesAndAwards', lane: 'personnel' }
+	awardAcknowledgements: { feature: 'lossesAndAwards', lane: 'personnel' },
+	taskingAttention: { feature: 'eventsAndTaskings', lane: 'calendar' }
 } as const satisfies Record<string, DashboardSourceGate>;
 
 export type DashboardSource = keyof typeof DASHBOARD_SOURCES;

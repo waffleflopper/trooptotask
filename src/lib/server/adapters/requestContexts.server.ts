@@ -23,9 +23,11 @@ import {
 } from '$features/training/index.server';
 import {
 	createSupabaseCalendarEventPersistence,
+	createSupabaseCalendarProjectionReader,
 	createSupabaseCalendarTaskingPersistence,
 	createSupabaseCalendarAvailabilityGaps,
 	createSupabaseCalendarStaffingPersistence,
+	createSupabaseCalendarTaskingAttentionReader,
 	createSupabaseCalendarDeletionReferences,
 	createSupabaseCalendarTaskingListsPersistence,
 	createSupabaseRosterSwapPersistence,
@@ -635,6 +637,15 @@ export function createRequestCalendarTaskingContext(request: AdmittedOrganizatio
 	};
 }
 
+export function createRequestDashboardTaskingContext(request: AdmittedOrganizationRequest) {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		taskingAttention: createSupabaseCalendarTaskingAttentionReader(request.supabase, request.auth.orgId),
+		disabledFeatures: request.disabledFeatures
+	};
+}
+
 export function createRequestDailyAssignmentContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestCalendarCatalogContext(request),
@@ -691,7 +702,9 @@ export function createRequestCalendarRangeContext(request: AdmittedOrganizationR
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
-		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId)
+		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
+		calendarProjection: createSupabaseCalendarProjectionReader(request.supabase, request.auth.orgId),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 

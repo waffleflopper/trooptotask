@@ -5,6 +5,8 @@ import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shift
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
+// These tables export named columns; availability_entries hides set_for_tasking_id from ordinary readers.
+const EXPLICIT_COLUMNS = new Set<CalendarExportTable>(['status_types', 'availability_entries']);
 const cases = [
 	{
 		table: 'status_types',
@@ -80,13 +82,15 @@ function provider(table: CalendarExportTable, saved: Row) {
 		...saved,
 		id: `saved-${String(1001 - index).padStart(4, '0')}`,
 		organization_id: ORG,
-		...(table === 'status_types' ? {} : { unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] } })
+		...(EXPLICIT_COLUMNS.has(table)
+			? {}
+			: { unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] } })
 	}));
 	const rows: Row[] = [
 		{ ...owned[0], id: 'foreign-row', organization_id: 'org-b' },
 		...owned.map((row) => ({ ...row }))
 	];
-	if (table === 'status_types') for (const row of rows) row.unknown_status_field = { discarded: true };
+	if (EXPLICIT_COLUMNS.has(table)) for (const row of rows) row.unknown_status_field = { discarded: true };
 	const state = { failFrom: null as number | null, nullData: false };
 	const client = createClient('http://archive.invalid', 'synthetic-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

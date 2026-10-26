@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import { STATUS_TYPE_FIELDS } from './calendarPersistenceMapping.server';
+import { AVAILABILITY_FIELDS, STATUS_TYPE_FIELDS } from './calendarPersistenceMapping.server';
 import { RequestFailure } from '$lib/errors';
 
 const activityRowsSchema = z.array(z.record(z.string(), z.unknown()));
@@ -46,7 +46,9 @@ export function createSupabaseCalendarExportReader(client: SupabaseClient, orgId
 				}
 				const query = client
 					.from(table)
-					.select(table === 'status_types' ? STATUS_TYPE_FIELDS : '*')
+					.select(
+						table === 'status_types' ? STATUS_TYPE_FIELDS : table === 'availability_entries' ? AVAILABILITY_FIELDS : '*'
+					)
 					.eq('organization_id', orgId);
 				const ordered =
 					table === 'roster_starting_numbers'

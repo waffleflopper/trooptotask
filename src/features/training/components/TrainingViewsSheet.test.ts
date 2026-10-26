@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
+import type { ComponentProps } from 'svelte';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import TrainingViewsSheet from './TrainingViewsSheet.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
@@ -52,19 +53,21 @@ function makeView(id: string, name: string, columnIds: string[]): TrainingView {
 const annual = makeView('view-annual', 'Annual trainings', ['t-eo', 't-sharp']);
 const medical = makeView('view-medical', 'Aid station', ['t-cls']);
 
+type SheetProps = ComponentProps<typeof TrainingViewsSheet>;
 type Props = Partial<{
 	canMutate: boolean;
-	saveView: ReturnType<typeof vi.fn>;
-	deleteView: ReturnType<typeof vi.fn>;
-	returnFocusTo: () => HTMLElement | null;
-	onClose: ReturnType<typeof vi.fn>;
+	saveView: Mock<SheetProps['saveView']>;
+	deleteView: Mock<SheetProps['deleteView']>;
+	returnFocusTo: SheetProps['returnFocusTo'];
+	onClose: Mock<SheetProps['onClose']>;
 }>;
 
 function renderSheet(props: Props = {}) {
 	const saveView =
-		props.saveView ?? vi.fn(async (draft) => makeView(draft.id ?? 'view-new', draft.name, draft.columnIds));
-	const deleteView = props.deleteView ?? vi.fn(async () => 'deleted' as const);
-	const onClose = props.onClose ?? vi.fn();
+		props.saveView ??
+		vi.fn<SheetProps['saveView']>(async (draft) => makeView(draft.id ?? 'view-new', draft.name, draft.columnIds));
+	const deleteView = props.deleteView ?? vi.fn<SheetProps['deleteView']>(async () => 'deleted');
+	const onClose = props.onClose ?? vi.fn<SheetProps['onClose']>();
 	render(TrainingViewsSheet, {
 		props: {
 			orgId: 'org-1',

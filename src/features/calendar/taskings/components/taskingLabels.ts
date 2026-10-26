@@ -72,17 +72,13 @@ function scheduleChanges(from: TaskingSchedule, to: TaskingSchedule): string[] {
 function peopleList({ names, others }: NamedPeople): string | null {
 	const parts = others > 0 ? [...names, `${others} other ${others === 1 ? 'person' : 'people'}`] : names;
 	if (parts.length === 0) return null;
-	return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+	return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join('; ')} and ${parts.at(-1)}`;
 }
 
 function staffingChanges(fact: Extract<TaskingActivityFact, { kind: 'staffing_changed' }>): string {
 	const [added, removed, kept] = [peopleList(fact.added), peopleList(fact.removed), peopleList(fact.kept)];
-	const changes = [
-		added && `Picked ${added}`,
-		removed && `${added ? 'removed' : 'Removed'} ${removed}`,
-		kept && `${added || removed ? 'kept' : 'Kept'} ${kept} after review`
-	];
-	return changes.filter(Boolean).join('; ') || 'Changed who is picked';
+	const changes = [added && `Picked ${added}`, removed && `Removed ${removed}`, kept && `Kept ${kept} after review`];
+	return changes.filter(Boolean).join('. ') || 'Changed who is picked';
 }
 
 /** One Activity line, with a reason or note kept apart so it reads as the actor's own words. */

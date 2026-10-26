@@ -161,22 +161,28 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
 7. **Evals screen states.** Use the [component foundation](component-foundation.md) recipe's `reader.js`. Run
    `$V seed rating-scheme` first. Record each row PASS, FAIL, UNAVAILABLE or UNRUN with actor, width and theme; a FAIL
    stays FAIL until the same row passes on a later candidate.
-   - ID: E1
-     - Screen and control: Page header, search and Grouped rows
-     - How to reach it: `ratingOperate`, `Grouped`, 1440, 1024 and 390
-     - Expected: The eyebrow reads `Rating scheme · <Organization>` above the `Evals` heading, with the live status
-       `6 of 8 shown` and four counts in due tones (`6 active`, `1 past thru`, `4 thru in 30 days`,
-       `1 thru in 31 to 60 days` on the seed). Each Senior rater section has an `SR` heading, an `External` tag for a
-       typed name, `Senior rates N` and right-aligned non-zero counts (`1 past thru`, `3 in 30d`, `1 in 31–60d`). Each
-       rater block lists rows with a 3 px due rail, the rated Person, an eval badge with the report label, the period as
-       `25 Oct 25 – 20 Oct 26`, the workflow step or `Not tracked`, and the due text in its tone (`5d past thru` red,
-       `Thru in 15d` orange, `Current` green). The first row is the most urgent. Each row is one `Button` whose name
-       carries every visible cell; Tab reaches it, Enter and Space open the sheet, and focus returns to that row after
-       Escape or Save, or to `Add Entry` when the row is gone. `Group order` offers `Sort: Most urgent` and
-       `Sort: Senior rater A to Z` and exists only in Grouped. At 1024 the rows keep two lines (Soldier and due text,
-       then eval and workflow) with nothing clipped; at 1440 they use six fixed columns. Typing `zzzz` into
-       `Search by Soldier or rater` shows `No entries match` and `0 of 8 shown`; `Clear search and filters` restores
-       `6 of 8 shown`
+   - ID: E1 - Screen and control: Page header, search and Grouped rows - How to reach it: `ratingOperate`, `Grouped`,
+     1440, 1024 and 390 - Expected: The eyebrow reads `Rating scheme · <Organization>` above a large uppercase display
+     `Evals` heading (about 48 px at 1440, smaller at 390), with the live status `6 of 8 shown` and four 15 px counts,
+     the due ones semibold in their tones (`6 active`, `1 past thru`, `4 thru in 30 days`, `1 thru in 31 to 60 days` on
+     the seed), separated by thin vertical rules at 1440. Each Senior rater section opens with a mono `SR` label, the
+     name as a 28 px uppercase display heading, an `External` tag for a typed name and `Senior rates N`, all on one
+     baseline, above a 2 px foreground rule; right-aligned non-zero counts in 12 px mono read
+     `1 past thru · 3 in 30 days · 1 in 31–60` (middle dots, never `30d`). Each rater block has a 200 px left column at
+     1024 and up (the rater name 15 px semibold, then `Rater · rates N` muted with an orange `· External` word for a
+     typed name, on the same line at every width) and a bordered list of rows. A row has a 3 px due rail, the rated
+     Person (`SPC Able`), a small bordered eval tag (`NCOER`) with the report label (`Annual`), the period as
+     `25 Oct 25 → 20 Oct 26` (day padded to two digits), the workflow step or `Not tracked`, and the due text in its
+     tone (`5d past thru` red, `Thru in 15d` orange, `Current` green). At 1440 every row is one line about 47 px tall
+     and the first row of a rater is not stretched to the rater column's height; below that the rows keep two lines
+     (Soldier and due text, then eval and workflow) with nothing clipped. The first row is the most urgent. Each row is
+     one `Button` whose name carries every visible cell; Tab reaches it, Enter and Space open the sheet, and focus
+     returns to that row after Escape or Save, or to `Add Entry` when the row is gone. `Group order` offers
+     `Sort: Most urgent` and `Sort: Senior rater A to Z` and exists only in Grouped. With at least three Senior raters,
+     one that sorts last by name holding the most overdue entry comes first by urgency and last A to Z (add them through
+     the sheet). Typing `zzzz` into `Search by Soldier or rater` shows `No entries match` and `0 of 8 shown`;
+     `Clear search and filters` restores `6 of 8 shown`. Search also finds a Soldier by any label the page shows:
+     `SPC Able`, `SPC Able, Synthetic` and `Able, Synthetic` each keep the Able rows
 
    - ID: E2
      - Screen and control: Table view and view mode
@@ -192,33 +198,38 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    - ID: E3
      - Screen and control: Entry sheet focus and required fields
      - How to reach it: `Add Entry`, then `Add entry` with every field empty
-     - Expected: The sheet slides in from the right, focus moves into it, and the header reads `New entry` /
-       `Add entry`. Each missing control is `aria-invalid="true"` with a resolving `aria-describedby` and its own
-       message below it (`Rated Soldier is required.`, `Start date is required.`, `Thru date is required.`,
-       `Rater is required.`, `Senior rater is required.`) and focus moves to `Rated Soldier`. Type is a segmented
-       control with the selected item raised. Escape and Cancel return focus to `Add Entry`. Editing a row shows
-       `Edit entry · SR <name>`, the rated Soldier as the title (`SPC Able, Synthetic`), a tone dot with
-       `5d past thru · Thru 20 Oct 2026`, and a `Delete entry` link only for an actor who may delete
+     - Expected: A sheet slides in from the right, about 560 px wide at 1440 and the full screen below 640 px, focus
+       moves into it, and the header reads the mono eyebrow `New entry` above the uppercase display title `Add entry`.
+       Each missing control is `aria-invalid="true"` with a resolving `aria-describedby` and its own message below it
+       (`Rated Soldier is required.`, `Start date is required.`, `Thru date is required.`, `Rater is required.`,
+       `Senior rater is required.`) and focus moves to `Rated Soldier`. Type is a segmented control with the selected
+       item raised. Escape and Cancel return focus to `Add Entry`. Sections (`Rated Soldier`, `Evaluation`,
+       `Rating period`, `Rating chain`, `Tracking`) are divided by rules. The Report trigger reads the code and label
+       (`AN · Annual`). Editing a row shows `Edit entry · SR <name>`, the rated Soldier as the title
+       (`SPC Able, Synthetic`), a tone dot with `Thru 20 Oct 2026 · 5 days past` (an entry due in 15 days reads
+       `Thru in 15 days`), and a `Delete entry` link only for an actor who may delete. The link opens
+       `Delete this entry?`; confirming submits the approval request and closes the sheet
 
-   - ID: E4
-     - Screen and control: Rating chain comboboxes and failed save
-     - How to reach it: Open an entry, `Rater`, type a name nobody in the unit has (`COL Visiting Guest`), press Enter
-     - Expected: The list reads `No one in the unit matches.` and ends with
-       `Use "COL Visiting Guest" as an external rater`, wrapped on a narrow sheet. A unit Person shows an `In unit`
-       hint; a typed name shows an orange `External` tag. After Save, `$V rows rating_scheme_entries orgA id ID` reads
-       `rater_name` `COL Visiting Guest` and `rater_person_id` null, and the grouped row sits under that rater with its
-       tag. Then `network arm-fail PAGE rating-scheme` and Save: the sheet stays open with every value; an `Alert`
-       (`role="alert"`, `Rating entry was not saved`) inside the sheet states the failure; focus stays on `Save changes`
-       (`Add entry` for a new one); the row is unchanged. A toast alone is a FAIL. Restore, retry once and read the row
-       back
+   - ID: E4 - Screen and control: Rating chain comboboxes and failed save - How to reach it: Open an entry, `Rater`,
+     type a name nobody in the unit has (`COL Visiting Guest`), press Enter - Expected: The list reads
+     `No one in the unit matches.` and ends with `Use "COL Visiting Guest" as an external rater`, wrapped on a narrow
+     sheet. A unit Person shows a muted mono `In unit` hint; a typed name shows orange mono `External` text, not a
+     filled badge. Under the chain a line reads
+     `Search the unit, or type a name that isn't in it to add an external rater.`; `+ Intermediate rater` and
+     `+ Reviewer` are underlined links, and each added slot has a remove button. After Save,
+     `$V rows rating_scheme_entries orgA id ID` reads `rater_name` `COL Visiting Guest` and `rater_person_id` null, and
+     the grouped row sits under that rater with its tag. Then `network arm-fail PAGE rating-scheme` and Save: the sheet
+     stays open with every value; an `Alert` (`role="alert"`, `Rating entry was not saved`) inside the sheet states the
+     failure; focus stays on `Save changes` (`Add entry` for a new one); the row is unchanged. A toast alone is a FAIL.
+     Restore, retry once and read the row back
 
    - ID: E5
      - Screen and control: Workspace loading
      - How to reach it: On Home, `server-source arm rating_scheme_entries hold 1 120000`, then choose Evals
      - Expected: A labelled loading region (`role="status"`, `aria-live="polite"`, no `aria-busy` on the live region,
        named `Loading evaluations`) whose blocks match the loaded page: three header lines, one toolbar block and two
-       Senior rater sections with a rater column and a list, so nothing shifts when rows arrive. Release with
-       `server-source restore`
+       Senior rater sections (a heading on a 2 px rule, a rater column at 1024 and up and a list), so nothing shifts
+       when rows arrive. At 390 the toolbar block is two rows tall. Release with `server-source restore`
 
    - ID: E6
      - Screen and control: Workspace error (`evals/+layout`, `+page`)
@@ -236,25 +247,29 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
 
    - ID: E8
      - Screen and control: Narrow and dark
-     - How to reach it: 390x844 dark: Grouped, Table, the entry modal
-     - Expected: No horizontal document overflow; the toolbar stays one row (search, `More Evaluation controls` and
-       `Add Entry`); the header counts wrap to two lines; Grouped rows are two lines with the due text on the right and
-       the rail on the left; the table scrolls inside its region; the sheet takes three quarters of the width with
-       reachable `Save changes` and Cancel
+     - How to reach it: 390x844 dark: Grouped, Table, the Add and Edit sheets, Filters
+     - Expected: No horizontal document overflow. The toolbar is two rows: `Search by Soldier or rater` across the full
+       width (about 322 px), then `Grouped` / `Table`, `Filters` and an icon-only `Add Entry` (a 32 px square whose
+       accessible name is still `Add Entry`) on one row. The header counts wrap to two lines. Grouped rows are two lines
+       with the due text on the right and the rail on the left; the Senior rater heading wraps under its name; the table
+       scrolls inside its region. The sheet fills the whole screen with reachable `Save changes` (`Add entry`) and
+       Cancel; `Add entry` with every field empty lists the five inline errors inside it. `Filters` opens a menu of
+       `Evaluation type, Eval Type: All`, `Evaluation status, Status: Active`, `Evaluation workflow, Workflow: All`,
+       `Group order, Sort: Most urgent` (Grouped only) and `Export`
 
    - ID: E9
-     - Screen and control: Toolbar fold sweep and More
+     - Screen and control: Toolbar fold sweep and Filters
      - How to reach it: `ratingOperate` on Evals.
-       `$V toolbar-sweep PAGE "Evaluation controls" RUN_DIR --expect export,grouped-sort,workflow,status,eval-type,view-mode --pinned add-entry --search --step 4 --record sweep-light`,
-       then dark. At 390, switch to `Table` on the row, open `More Evaluation controls`, set `Evaluation type` to NCOER,
-       then choose `Export`; as `ratingView`, read the row and More
-     - Expected: `toolbar-sweep.json` passes with zero failures: `Export` folds first (near 1344), then `Group order`
-       (1292), workflow (1136), status (1008), type (876) and the view mode (464), and each restores within 4 px;
-       `Add Entry` and the search stay on the row at 390. At 390 More lists `Grouped` and `Table`, one submenu per
-       filter (`Evaluation type, Eval Type: All`, `Evaluation status, Status: Active`,
-       `Evaluation workflow, Workflow: All`), `Group order, Sort: Most urgent` while in Grouped, and `Export`; a
-       non-default folded filter puts the dot on More. `Export` downloads only the filtered entries. The viewer has no
-       `Add Entry` on the row or in More
+       `$V toolbar-sweep PAGE "Evaluation controls" RUN_DIR --expect export,grouped-sort,workflow,status,eval-type --pinned add-entry,view-mode --search --step 4 --record sweep-light`,
+       then dark. At 390, switch to `Table` on the row, open `Filters`, set `Evaluation type` to NCOER, then choose
+       `Export`; as `ratingView`, read the row and Filters
+     - Expected: `toolbar-sweep.json` passes with zero failures: `Export` folds first (near 1368), then `Group order`
+       (1316), workflow (1160), status (1032) and type (960), each restoring within 4 px. The toolbar switches to its
+       compact form when its own width falls below 640 px (a 390 phone, and a tablet beside the open sidebar), not by
+       viewport: there search is a full-width row of its own, every filter and action is in `Filters` and only the view
+       mode and the icon-only `Add Entry` stay on the second row. `Add Entry` and the search stay present at every width
+       and no control changes membership twice in one 4 px step. A non-default folded filter puts the dot on `Filters`.
+       `Export` downloads only the filtered entries. The viewer has no `Add Entry` on the row or in the menu
 
 Remove UI-created entries through the owner UI. Compare every original A/B row across all 20 fields, including
 timestamps, and confirm created-witness absence before `clean-seeds`. Complete every comparison depending on any

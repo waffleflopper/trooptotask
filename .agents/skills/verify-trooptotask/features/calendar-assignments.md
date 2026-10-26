@@ -75,8 +75,9 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
 
 ## How to get to it (user POV)
 
-Sign in with Calendar operation access and choose `Calendar` → `Duty planner`, which opens the page headed
-`Duty planner` under the eyebrow `Calendar · Planning`. Its header holds `Today`, `Previous month`, the month title
+Sign in with Calendar operation access and choose `Duty planner` under `Calendar` in the sidebar, or the Calendar
+toolbar's `Duty planner`. Either opens the page headed `Duty planner` under the eyebrow `Calendar · Planning`.
+Its header holds `Today`, `Previous month`, the month title
 button (it opens the month picker) and `Next month`, then `Back to calendar`. The table has one column per assignment
 type (Calendar lane types first, then planner-only types, archived types left out) and one row per date. A column header
 shows the type's chip and name with a `<type> column actions` button beside the name, and `N OF M DAYS` under the name.

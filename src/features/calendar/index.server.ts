@@ -157,3 +157,6 @@ export {
 	readCalendarProjection,
 	type CalendarProjectionReader
 } from './projection/calendarProjectionRead.server';
+
+export { createSupabaseCalendarTaskingWorkspaceReader } from './taskings/taskingRead.server';
+export { loadTaskingPickStates } from './taskings/staffing/staffingOperations.server';

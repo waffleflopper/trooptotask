@@ -26,6 +26,7 @@
 	} from '../eventModel';
 	import { datesChanged, type TaskingSummary } from '../../taskings/eventWorkModel';
 	import type { EventTaskingList, TaskingChoices } from '../../taskings/taskingModel';
+	import type { TaskingWorkspace } from '../../taskings/taskingReadModel';
 	import EventDateReview from '../../taskings/components/EventDateReview.svelte';
 	import EventTaskings from '../../taskings/components/EventTaskings.svelte';
 	import EventsTaskingsHeader from '../../taskings/components/EventsTaskingsHeader.svelte';
@@ -42,11 +43,14 @@
 		activity: Promise<EventRead<EventActivity[]>>;
 		taskings: Promise<EventRead<EventTaskingList>>;
 		taskingSummaries: Promise<EventRead<TaskingSummary[]>>;
+		/** This Event's Tasking totals and each visible Tasking's staffing, equipment and conflict facts. */
+		workspace: Promise<EventRead<TaskingWorkspace>>;
 		taskingChoices: Promise<EventRead<TaskingChoices | null>>;
 		addTasking: boolean;
 	}
 
-	let { org, today, detail, activity, taskings, taskingSummaries, taskingChoices, addTasking }: Props = $props();
+	let { org, today, detail, activity, taskings, taskingSummaries, workspace, taskingChoices, addTasking }: Props =
+		$props();
 
 	const canManage = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageEvents, { kind: 'organization' }).allowed
@@ -327,6 +331,7 @@
 					event={current}
 					{taskings}
 					summaries={taskingSummaries}
+					{workspace}
 					choices={taskingChoices}
 					addOnArrival={addTasking}
 				/>

@@ -13,8 +13,10 @@ workspace/summary load, and old responses must never restore another Organizatio
   dialogs, and each save shows on the Dashboard without a reload. Steps are under [Quick add](#quick-add).
 - `needs-you-actions`: Update status, Record class, Fill and Award started act on a Needs you row in place, and a saved
   row leaves the queue. Check off opens Onboarding at the packet. Steps are under [Actions](#actions).
-- `tasking-attention`: with Events & Taskings on, active Taskings join Needs you as Overdue, Blocked, Short and Due
-  soon rows, each Tasking once, and a Short row offers `Pick people`. The source loads after the page with its own
+- `tasking-attention`: with Events & Taskings on, active Taskings join Needs you as Overdue, Blocked and Short rows,
+  plus
+  Conflict rows for visible picked People. On-track due-soon work comes in `attention.onTrack` in the same request.
+  A Short row offers `Pick people`. The source loads after the page with its own
   pending row and `Try again`, and a failure leaves every other row. Steps are in
   [Events & Taskings](events-taskings.md#dashboard).
 - `forecast-lane`: with Events & Taskings on, the forecast's `Events and suspenses` lane draws Events as spans
@@ -80,13 +82,22 @@ Foreign/B. The new Alpha Person has ETS in 30 days and DEROS in 60 days; the arc
 strength/losses and its saved evaluation is omitted from the due projection but stays stored. Record the fixture/browser
 local date and timezone.
 
-| Actor                    | Strength (present/total)       | Training attention and currency                                                                 | Evals overdue/due within 30 days              | Active packet                  |
-| ------------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------ |
-| `dashboardView`, A       | 3/4, 75%; Baker out            | Two expired People (Able and Baker), one warning record (Unassigned), 25% Person-based currency | 1/1; completed and archived People's excluded | Able has 2/3 active steps, 67% |
-| `dashboardScoped`, Alpha | 2/2, 100%; no Baker/unassigned | One expired Person (Able), no warning; 50% currency                                             | 1/0                                           | Same Able packet               |
-| `dashboardEmpty`         | No-personnel note, settled     | No scoped records or people                                                                     | 0/0                                           | None                           |
-| `dashboardNone`          | 0/0; no scoped record facts    | Training/Critical Tasks omitted; no feature source is read                                      | 0/0                                           | None                           |
-| `dashboardForeign`, B    | 1/1, 100%; Foreign only        | No A Training facts                                                                             | 1/0                                           | None                           |
+| Actor | Strength (present/total) | Training attention and currency
+| Evals overdue/due within 30 days | Active packet |
+| ------------------------ | ------------------------------ |
+----------------------------------------------------------------------------------------------- |
+--------------------------------------------- | ------------------------------ |
+| `dashboardView`, A | 3/4, 75%; Baker out | Two expired People (Able and Baker), one warning record
+(Unassigned), 25% Person-based currency | 1/1; completed and archived People's excluded | Able has 2/3 active steps, 67%
+|
+| `dashboardScoped`, Alpha | 2/2, 100%; no Baker/unassigned | One expired Person (Able), no warning; 50% currency
+| 1/0 | Same Able packet |
+| `dashboardEmpty` | No-personnel note, settled | No scoped records or people
+| 0/0 | None |
+| `dashboardNone` | 0/0; no scoped record facts | Training/Critical Tasks omitted; no feature source is read
+| 0/0 | None |
+| `dashboardForeign`, B | 1/1, 100%; Foreign only | No A Training facts
+| 1/0 | None |
 
 Currency is Person-based, distinct from Training's required-cell readiness denominator. Three of A's four active People
 have expired/orange warnings, leaving one current Person. Missing completions and yellow warnings do not add People to

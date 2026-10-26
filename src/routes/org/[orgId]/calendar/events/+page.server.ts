@@ -1,5 +1,5 @@
 import type { EventListWhen } from '$features/calendar';
-import { listEvents, listTaskings, loadTaskingChoices, settleEventRead } from '$features/calendar/index.server';
+import { listEvents, loadTaskingChoices, settleEventRead } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarTaskingContext } from '$lib/server/adapters/requestContexts.server';
@@ -19,9 +19,8 @@ export const load = async ({ params, locals, cookies, depends, url }: PageServer
 		fn: async (ctx) => ({
 			today,
 			when,
+			workspace: settleEventRead(ctx.taskingWorkspace.read(today)),
 			list: settleEventRead(listEvents(ctx, when, today)),
-			// The Taskings column rolls up the open Taskings the reader can see.
-			taskings: settleEventRead(listTaskings(ctx, 'active')),
 			choices: settleEventRead(loadTaskingChoices(ctx, today))
 		})
 	});

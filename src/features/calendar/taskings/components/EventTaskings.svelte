@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { CalendarEventsPageAccess } from '../../contracts';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
@@ -11,7 +12,9 @@
 	import { reloadCalendarEvents } from '../../events/eventPageState';
 	import { groupEventWork, type EventWorkPhase, type TaskingSummary } from '../eventWorkModel';
 	import { isActiveStatus, type EventTaskingList, type Tasking, type TaskingChoices } from '../taskingModel';
-	import { eventRowFacts, itemTimeline, nextDateFacts, summarizeEventWork, type FactTone } from '../taskingRowModel';
+	import type { TaskingWorkspace } from '../taskingReadModel';
+	import { conflictLabel, eventRowFacts, eventSummaryLine, itemTimeline, nextDateFacts } from '../taskingRowModel';
+	import ConflictMarker from './ConflictMarker.svelte';
 	import ResponsibilityPill from './ResponsibilityPill.svelte';
 	import TaskingDialog from './TaskingDialog.svelte';
 	import { STATUS_BADGES, TONE_TEXT } from './taskingLabels';
@@ -23,12 +26,14 @@
 		taskings: Promise<EventRead<EventTaskingList>>;
 		/** The Taskings outside the reader's scope, as one-line rows. */
 		summaries: Promise<EventRead<TaskingSummary[]>>;
+		/** The Event's totals and each visible Tasking's staffing, equipment and conflict facts. */
+		workspace: Promise<EventRead<TaskingWorkspace>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
 		/** Opens Create tasking once, for "Create and add tasking". */
 		addOnArrival: boolean;
 	}
 
-	let { org, today, event, taskings, summaries, choices, addOnArrival }: Props = $props();
+	let { org, today, event, taskings, summaries, workspace, choices, addOnArrival }: Props = $props();
 
 	const canCreate = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'unscoped' }).allowed
@@ -39,6 +44,7 @@
 	const taskingsHref = $derived(`/org/${org.orgUrlSegment}/calendar/taskings`);
 	const streamed = new StreamedValue(() => taskings);
 	const streamedSummaries = new StreamedValue(() => summaries);
+	const streamedWorkspace = new StreamedValue(() => workspace);
 	// A created Tasking shows at once and stands until the refreshed list arrives.
 	let added = $state.raw<{ tasking: Tasking; over: unknown } | null>(null);
 	let creating = $state<TaskingChoices | null>(null);
@@ -48,9 +54,16 @@
 
 	$effect(() => () => (alive = false));
 
+	const facts = $derived.by(() => {
+		const current = streamedWorkspace.current;
+		if (current.state !== 'ready') return current.state === 'failed' ? ('failed' as const) : null;
+		return current.value.status === 'loaded' ? current.value.value : ('failed' as const);
+	});
+	// Rows need their facts, so a failed facts read fails the region instead of reading as zeros.
 	const loaded = $derived.by(() => {
 		const current = streamed.current;
-		if (current.state !== 'ready') return current.state === 'failed' ? ('failed' as const) : null;
+		if (current.state === 'failed' || facts === 'failed') return 'failed' as const;
+		if (current.state !== 'ready' || facts === null) return null;
 		if (current.value.status !== 'loaded') return 'failed' as const;
 		const list = current.value.value;
 		if (added?.over !== current || list.taskings.some((tasking) => tasking.id === added?.tasking.id)) return list;
@@ -69,14 +82,19 @@
 			: null
 	);
 	const summary = $derived(
-		work && loaded && loaded !== 'failed'
-			? summarizeEventWork(
-					work.flatMap((group) => group.items),
-					loaded.staffing,
-					today
-				)
+		work && facts && facts !== 'failed'
+			? (facts.events[event.id] ?? {
+					total: 0,
+					needAction: 0,
+					overdue: 0,
+					blocked: 0,
+					needPeople: 0,
+					fullyStaffedAndReady: 0,
+					conflicts: 0
+				})
 			: null
 	);
+	const rowFacts = $derived(facts && facts !== 'failed' ? facts.taskings : {});
 	const hasActiveWork = $derived(
 		(work ?? []).some((group) => group.items.some((item) => isActiveStatus(itemTimeline(item).status.kind)))
 	);
@@ -88,20 +106,7 @@
 				? 'After · closeout'
 				: `During · ${eventDayRange(event, today)}`;
 
-	const summaryLine = $derived<{ text: string; tone: FactTone }[]>(
-		summary
-			? [
-					{ count: summary.overdue, text: `${summary.overdue} overdue`, tone: 'danger' as const },
-					{ count: summary.blocked, text: `${summary.blocked} blocked`, tone: 'danger' as const },
-					{
-						count: summary.needPeople,
-						text: `${summary.needPeople} ${summary.needPeople === 1 ? 'needs' : 'need'} people`,
-						tone: 'warning' as const
-					},
-					{ count: summary.ready, text: `${summary.ready} fully staffed and ready`, tone: 'success' as const }
-				].filter((part) => part.count > 0)
-			: []
-	);
+	const summaryLine = $derived(summary ? eventSummaryLine(summary) : []);
 
 	$effect(() => {
 		if (!addOnArrival || arrivalHandled || !canCreate || event.cancellation) return;
@@ -144,7 +149,16 @@
 		{:else if summaryLine.length > 0}
 			<p class="m-0 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs font-medium">
 				{#each summaryLine as part (part.text)}
-					<span class={TONE_TEXT[part.tone]}>{part.text}</span>
+					{#if part.conflicts}
+						<span
+							class={['inline-flex items-center gap-1', TONE_TEXT[part.tone]]}
+							title={conflictLabel(part.conflicts)}
+						>
+							<TriangleAlert class="size-3.5" aria-hidden="true" />{part.text}
+						</span>
+					{:else}
+						<span class={TONE_TEXT[part.tone]}>{part.text}</span>
+					{/if}
 				{/each}
 			</p>
 		{/if}
@@ -196,7 +210,8 @@
 								{#each group.items as item (item.kind === 'full' ? item.tasking.id : item.summary.id)}
 									{@const timeline = itemTimeline(item)}
 									{@const status = STATUS_BADGES[timeline.status.kind]}
-									{@const fact = eventRowFacts(item, loaded.staffing)}
+									{@const itemFacts = item.kind === 'full' ? rowFacts[item.tasking.id] : undefined}
+									{@const fact = eventRowFacts(item, itemFacts)}
 									{@const next = nextDateFacts(timeline, today, { report: true })}
 									<li class="border-b border-border last:border-b-0">
 										<svelte:element
@@ -229,6 +244,9 @@
 													/>
 													{#if fact}
 														<span class={['truncate font-mono text-xs', TONE_TEXT[fact.tone]]}>{fact.text}</span>
+													{/if}
+													{#if itemFacts && itemFacts.conflicts > 0}
+														<ConflictMarker people={itemFacts.conflicts} />
 													{/if}
 												</span>
 											</span>

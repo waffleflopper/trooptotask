@@ -7,6 +7,7 @@ import { eventDatesLabel, type ProjectionLinks } from './projectionLanes';
 /** A Person's committed stretch of one row: one Tasking, or several where picks overlap. */
 export type CommitmentSegment =
 	| {
+			readonly conflicts: boolean;
 			readonly kind: 'tasking';
 			readonly start: number;
 			readonly end: number;
@@ -16,6 +17,7 @@ export type CommitmentSegment =
 			readonly href: string;
 	  }
 	| {
+			readonly conflicts: boolean;
 			readonly kind: 'taskings';
 			readonly start: number;
 			readonly end: number;
@@ -79,6 +81,7 @@ function segmentOf(
 	links: ProjectionLinks
 ): CommitmentSegment {
 	const edges = {
+		conflicts: covering.some((span) => span.item.conflicts),
 		start,
 		end,
 		continuesBefore: covering.some((span) => span.start < start),

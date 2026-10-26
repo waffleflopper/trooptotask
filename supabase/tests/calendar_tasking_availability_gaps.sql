@@ -77,6 +77,12 @@ SELECT is(pg_temp.pick('401', ARRAY['501', '502']), 'saved', 'two Alpha People a
 SELECT is(pg_temp.pick('402', ARRAY['501', '502', '503', '504']), 'saved', 'four People are picked for Organization-level work');
 SELECT is(pg_temp.pick('403', ARRAY['501']), 'saved', 'a Tasking with no execution dates is staffed');
 
+UPDATE public.availability_entries SET set_for_tasking_id = pg_temp.id('401')
+WHERE organization_id = pg_temp.id('101');
+INSERT INTO public.availability_entries(organization_id, personnel_id, status_type_id, start_date, end_date, set_for_tasking_id)
+SELECT organization_id, personnel_id, status_type_id, start_date, end_date, pg_temp.id('402')
+FROM public.availability_entries WHERE organization_id = pg_temp.id('101');
+
 SELECT is(pg_temp.gaps('402'), ARRAY['502', '504'],
   'an Organization-wide operator is told who is not covered, merging adjacent, overlapping and nested entries');
 SELECT is(pg_temp.checked('402'), 4::bigint, 'the read answers for every pick it checked, covered or not');
@@ -97,10 +103,10 @@ SELECT is(pg_temp.gaps('402'), ARRAY[]::text[], 'another Organization is told no
 -- A pick under review commits nobody, and covering the days clears a gap.
 RESET ROLE;
 UPDATE public.personnel SET archived_at = now() WHERE id = pg_temp.id('504');
-INSERT INTO public.availability_entries (organization_id, personnel_id, status_type_id, start_date, end_date)
-VALUES (pg_temp.id('101'), pg_temp.id('502'), pg_temp.id('601'), '2030-10-22', '2030-10-23');
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('2');
+INSERT INTO public.availability_entries (organization_id, personnel_id, status_type_id, start_date, end_date, set_for_tasking_id)
+VALUES (pg_temp.id('101'), pg_temp.id('502'), pg_temp.id('601'), '2030-10-22', '2030-10-23', pg_temp.id('402'));
 SELECT is(pg_temp.gaps('402'), ARRAY[]::text[], 'an archived pick and a newly covered Person leave nothing to set');
 SELECT is(pg_temp.checked('402'), 3::bigint, 'an archived pick is no longer checked');
 

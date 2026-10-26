@@ -17,7 +17,6 @@
 	import {
 		CLOSED_TASKING_LIMIT,
 		DEFAULT_TASKING_FILTERS,
-		activeTaskingCounts,
 		filterTaskings,
 		scopeOfView,
 		taskingFiltersQuery,
@@ -26,9 +25,9 @@
 		type TaskingFilters,
 		type TaskingList,
 		type TaskingView,
-		type TaskingWithin,
-		type ActiveTaskingCounts
+		type TaskingWithin
 	} from '../taskingModel';
+	import type { TaskingWorkspace } from '../taskingReadModel';
 	import type { FactTone } from '../taskingRowModel';
 	import EventsTaskingsHeader from './EventsTaskingsHeader.svelte';
 	import TaskingDialog from './TaskingDialog.svelte';
@@ -39,13 +38,13 @@
 		today: string;
 		filters: TaskingFilters;
 		list: Promise<EventRead<TaskingList>>;
-		/** The active list for the count chips while a closed view shows; null when `list` is the active one. */
-		activeList: Promise<EventRead<TaskingList>> | null;
+		/** Row facts and chip counts for every Tasking the reader can see. */
+		workspace: Promise<EventRead<TaskingWorkspace>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
 		eventMembers: Promise<EventRead<MemberLabels | null>>;
 	}
 
-	let { org, today, filters, list, activeList, choices, eventMembers }: Props = $props();
+	let { org, today, filters, list, workspace, choices, eventMembers }: Props = $props();
 
 	const canCreate = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'unscoped' }).allowed
@@ -59,24 +58,26 @@
 	const taskingsHref = $derived(`/org/${org.orgUrlSegment}/calendar/taskings`);
 	const eventsHref = $derived(`/org/${org.orgUrlSegment}/calendar/events`);
 	const streamed = new StreamedValue(() => list);
-	const streamedActive = new StreamedValue(() => activeList ?? list);
+	const streamedWorkspace = new StreamedValue(() => workspace);
+	const facts = $derived.by(() => {
+		const current = streamedWorkspace.current;
+		if (current.state === 'pending' || current.state === 'absent') return null;
+		if (current.state === 'failed' || current.value.status !== 'loaded') return 'failed' as const;
+		return current.value.value;
+	});
 	// A refresh keeps the shown list; moving to a view that loads another list shows the skeleton until it arrives.
+	// Rows need their facts too, so a failed facts read fails the table instead of reading as zeros.
 	const loaded = $derived.by(() => {
 		const current = streamed.current;
-		if (current.state === 'pending' || current.state === 'absent') return null;
-		if (current.state === 'failed' || current.value.status !== 'loaded') return 'failed' as const;
+		if (current.state === 'pending' || current.state === 'absent' || facts === null) return null;
+		if (current.state === 'failed' || current.value.status !== 'loaded' || facts === 'failed') return 'failed' as const;
 		return current.value.value.scope === scopeOfView(filters.view) ? current.value.value : null;
 	});
-	const counts = $derived.by(() => {
-		const current = streamedActive.current;
-		if (current.state === 'pending' || current.state === 'absent') return null;
-		// A failed count leaves the chips as plain filters; the list region reports its own failure.
-		if (current.state === 'failed' || current.value.status !== 'loaded') return 'failed' as const;
-		const active = current.value.value;
-		return active.scope === 'active' ? activeTaskingCounts(active.taskings, active.staffing, today) : null;
-	});
+	const counts = $derived(facts === null || facts === 'failed' ? facts : facts.counts);
 	const shown = $derived(
-		loaded && loaded !== 'failed' ? filterTaskings(loaded.taskings, filters, today, loaded.staffing) : []
+		loaded && loaded !== 'failed' && facts && facts !== 'failed'
+			? filterTaskings(loaded.taskings, filters, today, facts.taskings)
+			: []
 	);
 	const filtered = $derived(
 		JSON.stringify({ ...filters, view: DEFAULT_TASKING_FILTERS.view }) !== JSON.stringify(DEFAULT_TASKING_FILTERS)
@@ -107,19 +108,13 @@
 		muted: 'border border-border bg-muted text-foreground hover:bg-muted/60'
 	};
 
-	const count = (key: keyof ActiveTaskingCounts) => (counts === 'failed' ? undefined : (counts?.[key] ?? null));
+	const count = (key: keyof TaskingWorkspace['counts']) => (counts === 'failed' ? undefined : (counts?.[key] ?? null));
 	const chips = $derived<{ view: TaskingView; label: string; tone: FactTone; count: number | null | undefined }[]>([
 		{ view: 'active', label: 'Active', tone: 'plain', count: count('active') },
 		{ view: 'overdue', label: 'Overdue', tone: 'danger', count: count('overdue') },
 		{ view: 'blocked', label: 'Blocked', tone: 'danger', count: count('blocked') },
 		{ view: 'needs_people', label: 'Needs people', tone: 'warning', count: count('needsPeople') },
-		{
-			view: 'completed',
-			label: 'Completed',
-			tone: 'muted',
-			// Only the completed view loads completed Taskings; elsewhere the chip carries no number.
-			count: filters.view === 'completed' && loaded && loaded !== 'failed' ? loaded.taskings.length : undefined
-		}
+		{ view: 'completed', label: 'Completed', tone: 'muted', count: count('completed') }
 	]);
 
 	const eventOptions = $derived.by<ToolbarOption[]>(() => {
@@ -300,7 +295,7 @@
 							<Skeleton class="h-3 w-[2ch]" aria-hidden="true" />
 						{:else if chip.count !== undefined}
 							<span class="min-w-[1ch] font-mono text-xs font-semibold tabular-nums">
-								{chip.count >= CLOSED_TASKING_LIMIT && chip.view === 'completed' ? `${chip.count}+` : chip.count}
+								{chip.count}
 							</span>
 						{/if}
 					</a>
@@ -349,7 +344,13 @@
 				{/if}
 			</Empty.Root>
 		{:else}
-			<TaskingsTable {taskingsHref} {today} taskings={shown} groups={loaded.groups} staffing={loaded.staffing} />
+			<TaskingsTable
+				{taskingsHref}
+				{today}
+				taskings={shown}
+				groups={loaded.groups}
+				facts={facts && facts !== 'failed' ? facts.taskings : {}}
+			/>
 			{#if scopeOfView(filters.view) !== 'active' && loaded.taskings.length >= CLOSED_TASKING_LIMIT}
 				<p class="text-sm text-muted-foreground">Showing the {CLOSED_TASKING_LIMIT} most recent.</p>
 			{/if}

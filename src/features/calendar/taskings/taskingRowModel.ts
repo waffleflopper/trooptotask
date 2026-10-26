@@ -1,18 +1,8 @@
 import { formatWeekdayDayMonth, getDayName, parseDate } from '$lib/utils/dates';
 import { daysBetween } from '../events/eventModel';
-import { eventWorkPhase, type EventWorkItem } from './eventWorkModel';
-import type { EquipmentReadiness } from './taskingListsModel';
-import {
-	isActiveStatus,
-	needsPeople,
-	nextTaskingDate,
-	taskingAttention,
-	type StaffingCount,
-	type StaffingRequirement,
-	type Tasking,
-	type TaskingList,
-	type TaskingTimeline
-} from './taskingModel';
+import type { EventWorkItem } from './eventWorkModel';
+import { nextTaskingDate, taskingAttention, type TaskingTimeline } from './taskingModel';
+import type { EventTaskingSummary, TaskingRowFacts } from './taskingReadModel';
 
 /** How a fact reads at a glance; each surface maps it to its own text colour. */
 export type FactTone = 'danger' | 'warning' | 'success' | 'plain' | 'muted';
@@ -31,23 +21,38 @@ export const rowDay = (date: string, today: string) =>
 		: `${formatWeekdayDayMonth(date)} ${date.slice(0, 4)}`;
 
 /** `picked / required`: short of people warns, filled reads as done, nothing required is a dash. */
-export function peopleFact(requirement: StaffingRequirement | null, picked: number): RowFact {
-	if (requirement === null) return picked > 0 ? { text: String(picked), tone: 'plain' } : NONE;
-	return { text: `${picked} / ${requirement.count}`, tone: picked >= requirement.count ? 'success' : 'warning' };
+export function peopleFact({ picked, required }: Pick<TaskingRowFacts, 'picked' | 'required'>): RowFact {
+	if (required === null) return picked > 0 ? { text: String(picked), tone: 'plain' } : NONE;
+	return { text: `${picked} / ${required}`, tone: picked >= required ? 'success' : 'warning' };
 }
 
-export function equipmentFact(equipment: EquipmentReadiness | null): RowFact {
-	if (equipment === null) return NONE;
+/** Closeout work counts what came back; everything else counts what is ready. */
+export function equipmentFact({
+	equipment,
+	eventRelation
+}: Pick<TaskingRowFacts, 'equipment' | 'eventRelation'>): RowFact {
+	if (equipment.total === 0) return NONE;
+	if (eventRelation === 'closeout')
+		return {
+			text: `${equipment.returnedQuantity} of ${equipment.totalQuantity} returned`,
+			tone: equipment.returnedQuantity >= equipment.totalQuantity ? 'success' : 'plain'
+		};
 	if (equipment.ready === equipment.total) return { text: 'Ready', tone: 'success' };
 	return { text: `${equipment.ready} of ${equipment.total} ready`, tone: 'danger' };
 }
 
+/** The accessible name of the amber conflict marker. */
+export const conflictLabel = (people: number) =>
+	people === 1 ? '1 person has a conflicting status' : `${people} people have a conflicting status`;
+
 /** The Event a Tasking serves and when against it, or that it stands alone. */
-export function eventRelation(tasking: Pick<Tasking, 'event' | 'suspenseOn' | 'execution'>): string {
-	if (!tasking.event) return 'Standalone · no event';
-	const phase = eventWorkPhase(tasking, tasking.event);
-	if (phase === 'preparation') return `${tasking.event.title} · prep`;
-	return phase === 'closeout' ? `${tasking.event.title} · closeout` : tasking.event.title;
+export function eventRelation(
+	event: { title: string } | null,
+	relation: TaskingRowFacts['eventRelation'] | undefined
+): string {
+	if (!event || relation === 'standalone') return 'Standalone · no event';
+	if (relation === 'preparation') return `${event.title} · prep`;
+	return relation === 'closeout' ? `${event.title} · closeout` : event.title;
 }
 
 export interface NextDateFacts {
@@ -92,7 +97,7 @@ export const itemTimeline = (item: EventWorkItem): TaskingTimeline =>
 		: { status: { kind: item.summary.status }, suspenseOn: item.summary.suspenseOn, execution: item.summary.execution };
 
 /** The staffing and equipment line under a row in an Event's table, coloured by what still needs doing. */
-export function eventRowFacts(item: EventWorkItem, staffing: Record<string, StaffingCount>): RowFact | null {
+export function eventRowFacts(item: EventWorkItem, facts: TaskingRowFacts | undefined): RowFact | null {
 	if (item.kind === 'summary') {
 		const { requiredCount, pickedCount } = item.summary;
 		if (requiredCount === null) return null;
@@ -101,80 +106,56 @@ export function eventRowFacts(item: EventWorkItem, staffing: Record<string, Staf
 			tone: pickedCount >= requiredCount ? 'success' : 'warning'
 		};
 	}
-	const { tasking } = item;
-	const picked = staffing[tasking.id]?.picked ?? 0;
-	const equipment = tasking.readiness.equipment;
-	const equipmentReady = equipment === null || equipment.ready === equipment.total;
-	const parts = [
-		tasking.requirement && `${picked} of ${tasking.requirement.count} picked`,
-		equipment && (equipmentReady ? 'equipment ready' : `equipment ${equipment.ready} of ${equipment.total} ready`)
-	].filter((part) => typeof part === 'string');
+	if (!facts) return null;
+	const { picked, required, equipment, eventRelation: relation } = facts;
+	const closeout = relation === 'closeout';
+	const equipmentReady = equipment.ready === equipment.total;
+	const equipmentPart =
+		equipment.total === 0
+			? null
+			: closeout
+				? `${equipment.returnedQuantity} of ${equipment.totalQuantity} returned`
+				: equipmentReady
+					? 'equipment ready'
+					: `equipment ${equipment.ready} of ${equipment.total} ready`;
+	const parts = [required !== null && `${picked} of ${required} picked`, equipmentPart].filter(
+		(part) => typeof part === 'string'
+	);
 	if (parts.length === 0) return null;
-	const short = tasking.requirement !== null && picked < tasking.requirement.count;
-	return { text: parts.join(' · '), tone: !equipmentReady ? 'danger' : short ? 'warning' : 'success' };
+	const short = required !== null && picked < required;
+	const tone: FactTone =
+		!closeout && !equipmentReady ? 'danger' : short ? 'warning' : closeout && required === null ? 'plain' : 'success';
+	return { text: parts.join(' · '), tone };
 }
 
-/** The coloured line over an Event's table. Rows outside the reader's scope carry no equipment, so they never read as ready. */
-export interface EventWorkSummary {
-	total: number;
-	overdue: number;
-	blocked: number;
-	needPeople: number;
-	ready: number;
-}
-
-export function summarizeEventWork(
-	items: readonly EventWorkItem[],
-	staffing: Record<string, StaffingCount>,
-	today: string
-): EventWorkSummary {
-	const summary: EventWorkSummary = { total: items.length, overdue: 0, blocked: 0, needPeople: 0, ready: 0 };
-	for (const item of items) {
-		const status = item.kind === 'full' ? item.tasking.status.kind : item.summary.status;
-		if (!isActiveStatus(status)) continue;
-		const suspenseOn = item.kind === 'full' ? item.tasking.suspenseOn : item.summary.suspenseOn;
-		const overdue = suspenseOn < today;
-		const short =
-			item.kind === 'full'
-				? needsPeople(item.tasking, staffing[item.tasking.id])
-				: item.summary.requiredCount !== null && item.summary.pickedCount < item.summary.requiredCount;
-		if (overdue) summary.overdue += 1;
-		if (status === 'blocked') summary.blocked += 1;
-		if (short) summary.needPeople += 1;
-		if (item.kind === 'full' && !overdue && status !== 'blocked' && !short && item.tasking.requirement) {
-			const equipment = item.tasking.readiness.equipment;
-			if (equipment === null || equipment.ready === equipment.total) summary.ready += 1;
+/** The coloured line over an Event's table, in the order a commander reads it. Conflicts are amber, never red. */
+export function eventSummaryLine(summary: EventTaskingSummary): (RowFact & { conflicts?: number })[] {
+	const parts: (RowFact & { count: number; conflicts?: number })[] = [
+		{ count: summary.overdue, text: `${summary.overdue} overdue`, tone: 'danger' },
+		{ count: summary.blocked, text: `${summary.blocked} blocked`, tone: 'danger' },
+		{
+			count: summary.needPeople,
+			text: `${summary.needPeople} ${summary.needPeople === 1 ? 'needs' : 'need'} people`,
+			tone: 'warning'
+		},
+		{
+			count: summary.conflicts,
+			text: `${summary.conflicts} ${summary.conflicts === 1 ? 'conflict' : 'conflicts'}`,
+			tone: 'warning',
+			conflicts: summary.conflicts
+		},
+		{
+			count: summary.fullyStaffedAndReady,
+			text: `${summary.fullyStaffedAndReady} fully staffed and ready`,
+			tone: 'success'
 		}
-	}
-	return summary;
+	];
+	return parts.filter((part) => part.count > 0).map(({ count: _count, ...part }) => part);
 }
 
-/** An Event's active Taskings and how many of them are overdue, blocked or short of people. */
-export interface EventTaskingRollup {
-	total: number;
-	needAction: number;
-}
-
-export function rollupEventTaskings(list: TaskingList, today: string): Record<string, EventTaskingRollup> {
-	const rollups: Record<string, EventTaskingRollup> = {};
-	for (const tasking of list.taskings) {
-		if (!tasking.event || !isActiveStatus(tasking.status.kind)) continue;
-		const rollup = (rollups[tasking.event.id] ??= { total: 0, needAction: 0 });
-		rollup.total += 1;
-		if (
-			tasking.status.kind === 'blocked' ||
-			taskingAttention(tasking, today) === 'overdue' ||
-			needsPeople(tasking, list.staffing[tasking.id])
-		)
-			rollup.needAction += 1;
-	}
-	return rollups;
-}
-
-/** A past Event's Taskings are mostly closed, so no open ones says nothing about awareness. */
-export function rollupFact(rollup: EventTaskingRollup | undefined, when: 'upcoming' | 'past' = 'upcoming'): RowFact {
-	if (!rollup || rollup.total === 0)
-		return { text: when === 'past' ? 'No open taskings' : 'Awareness only', tone: 'muted' };
-	if (rollup.needAction > 0) return { text: `${rollup.total} · ${rollup.needAction} need action`, tone: 'danger' };
-	return { text: `${rollup.total} · on track`, tone: 'plain' };
+/** The Events list's Taskings cell. An Event with no Taskings at all is one the unit only needs to know about. */
+export function rollupFact(summary: EventTaskingSummary | undefined): RowFact {
+	if (!summary || summary.total === 0) return { text: 'Awareness only', tone: 'muted' };
+	if (summary.needAction > 0) return { text: `${summary.total} · ${summary.needAction} need action`, tone: 'danger' };
+	return { text: `${summary.total} · on track`, tone: 'plain' };
 }

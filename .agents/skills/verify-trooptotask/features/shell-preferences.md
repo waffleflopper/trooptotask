@@ -29,6 +29,11 @@ choices persist for their own user and Organization without resetting a newer se
 - `mobile-navigation`: Home (including the current URL) and other ordinary navigation close the drawer; Escape closes it
   and returns focus. Modified new-tab activation preserves the drawer, and collapsed desktop navigation retains its
   tooltips.
+- `section-navigation`: Calendar lists `Events & Taskings` and `Duty planner` as always-open sub-items. Each stays
+  current on its own routes, including detail pages, and Calendar then reads as their parent. Collapsed to icons, the
+  sub-items hide and the Calendar icon carries the current page.
+- `sidebar-slide`: Toggle Sidebar slides the sidebar and the content beside it together in 125 ms. Reduced motion, page
+  load and navigation never animate it.
 - `admission`: a nonmember cannot read shell data or save another Organization's preferences; the server derives the
   actor rather than trusting body IDs.
 - `provider-self-scope`: preferences and Getting Started progress belong to the caller in a current Organization
@@ -188,6 +193,27 @@ distinct from ordinary UI or authorization proof.
     and Close. It must stay above the desktop sidebar at 1280 with the `below-banner` offset, and its Dismiss must be
     reachable when no modal is open. While a modal is open, `body` has `pointer-events: none`, so the banner is never a
     hit target. Judge its paint order from the screenshot. Run `clean-seeds` afterwards.
+
+16. **Section sub-items.** As `calendarConfigure` at 1440x900, open `calendar/taskings`. The sidebar shows
+    `Events & Taskings` and `Duty planner` indented under `Calendar`. `Events & Taskings` is highlighted with
+    `aria-current="page"`. `Calendar` has no highlight and no `aria-current`, only medium weight. The breadcrumb reads
+    `Verification Organization A › Calendar › Events & Taskings`, and it reads the same on a Tasking detail and an Event
+    detail page, where `Events & Taskings` stays current. On `calendar/assignments` `Duty planner` is current and the
+    breadcrumb ends `Duty planner`. On `calendar` and `calendar/reports` Calendar itself is highlighted. Collapse Toggle
+    Sidebar on a Tasking page: the sub-items disappear and the Calendar icon is highlighted, with the tooltip
+    `Calendar`. At 390x844 open Toggle Sidebar: the drawer shows the sub-items with the same current item, and choosing
+    `Duty planner` closes it. As `calendarView` only `Events & Taskings` appears. With `Events & Taskings` switched off,
+    only `Duty planner` appears for `calendarConfigure`.
+17. **Sidebar slide.** As `calendarConfigure` at 1440x900 on `calendar`, start a read-only frame sampler with
+    `evaluate_script` and the function
+    `() => { const q = (s) => document.querySelector(s); const out = (window.__slide = []); const t0 = performance.now(); const tick = () => { out.push([Math.round(performance.now() - t0), q('[data-slot=sidebar-gap]').getBoundingClientRect().width, q('[data-slot=sidebar-inset]').getBoundingClientRect().left]); if (performance.now() - t0 < 4000) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }`,
+    then click the header's `Toggle Sidebar` by its snapshot UID (the sidebar rail carries the same name) and read
+    `window.__slide` after three seconds. Expected: the gap width falls from 256 to 48 through about eight intermediate
+    frames over about 125 ms, easing out, and every sample has the content's left edge equal to the gap width.
+    Expanding again rises from 48 to 256 the same way. Reload and read `performance.getEntriesByType('layout-shift')`:
+    no entry. Choose another sidebar link with the sampler running, expanded and collapsed: the width never changes.
+    Native `emulate` cannot set reduced motion, so read the `(prefers-reduced-motion: reduce)` rule from
+    `document.styleSheets`: it sets `transition-duration: 0.01ms !important` on every element.
 
 Direct SQL proof uses the canonical `python3 scripts/ci/database.py` runner under the repository's Node version, which
 owns fresh disposable projects and disables seeds. Its `account_preferences_rls.sql` contract exercises ordinary

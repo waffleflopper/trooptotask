@@ -33,7 +33,7 @@ function ports(calendar: CapabilityLevel, projection: TaskingAttentionProjection
 	};
 }
 
-const projection: TaskingAttentionProjection = { rows: [], total: 0 };
+const projection: TaskingAttentionProjection = { rows: [], total: 0, onTrack: [] };
 
 describe('loadTaskingAttention', () => {
 	it('reads the viewer day for a member who can see Events', async () => {
@@ -72,10 +72,11 @@ describe('createSupabaseCalendarTaskingAttentionReader', () => {
 	}
 
 	it('maps the rows and carries the full count beside the bounded rows', async () => {
-		const { rpc, reader } = client({ data: [row], error: null });
+		const { rpc, reader } = client({ data: { rows: [row], total: 7, onTrack: [] }, error: null });
 
 		await expect(reader.read('2026-10-26')).resolves.toEqual({
 			total: 7,
+			onTrack: [],
 			rows: [
 				{
 					taskingId: TASKING,
@@ -92,13 +93,16 @@ describe('createSupabaseCalendarTaskingAttentionReader', () => {
 			]
 		});
 		expect(rpc).toHaveBeenCalledWith(
-			'calendar_tasking_attention',
+			'calendar_tasking_dashboard',
 			expect.objectContaining({ p_organization_id: ORG, p_today: '2026-10-26' })
 		);
 	});
 
 	it('maps a Tasking with no Group to Organization responsibility', async () => {
-		const { reader } = client({ data: [{ ...row, responsible_group_id: null }], error: null });
+		const { reader } = client({
+			data: { rows: [{ ...row, responsible_group_id: null }], total: 7, onTrack: [] },
+			error: null
+		});
 
 		const { rows } = await reader.read('2026-10-26');
 
@@ -106,9 +110,9 @@ describe('createSupabaseCalendarTaskingAttentionReader', () => {
 	});
 
 	it('returns an empty projection when nothing needs attention', async () => {
-		const { reader } = client({ data: [], error: null });
+		const { reader } = client({ data: { rows: [], total: 0, onTrack: [] }, error: null });
 
-		await expect(reader.read('2026-10-26')).resolves.toEqual({ rows: [], total: 0 });
+		await expect(reader.read('2026-10-26')).resolves.toEqual({ rows: [], total: 0, onTrack: [] });
 	});
 
 	it('throws the database message on a failed read', async () => {

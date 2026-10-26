@@ -30,6 +30,7 @@
 		detail={data.detail}
 		activity={data.activity}
 		taskings={data.taskings}
+		workspace={data.workspace}
 		taskingSummaries={data.taskingSummaries}
 		taskingChoices={data.taskingChoices}
 		{addTasking}

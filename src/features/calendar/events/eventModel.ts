@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BUILT_IN_ARMY_RANK_OPTIONS } from '$features/personnel/contracts';
 import { formatDayMonth, formatDayMonthYear, getDayName, parseDate } from '$lib/utils/dates';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 
@@ -52,15 +53,35 @@ export type EventActivity = EventActivityFact & { id: number; at: string; actorU
 /** Every current member of the Organization, by user id. A coordinator or actor missing here has left. */
 export type MemberLabels = Record<string, string>;
 
+export interface OrganizationMemberOption {
+	userId: string;
+	label: string;
+}
+
+const memberSortName = (label: string) => {
+	const [rank, ...name] = label.split(' ');
+	return BUILT_IN_ARMY_RANK_OPTIONS.includes(rank) ? name.join(' ') : label;
+};
+
+export function memberOptions(members: MemberLabels): OrganizationMemberOption[] {
+	return Object.entries(members)
+		.map(([userId, label]) => ({ userId, label }))
+		.sort((a, b) => memberSortName(a.label).localeCompare(memberSortName(b.label)) || a.userId.localeCompare(b.userId));
+}
+
 export interface EventList {
 	when: EventListWhen;
 	events: CalendarEvent[];
 	members: MemberLabels;
+	memberOptions: OrganizationMemberOption[];
+	currentUserId: string;
 }
 
 export interface EventDetail {
 	event: CalendarEvent;
 	members: MemberLabels;
+	memberOptions: OrganizationMemberOption[];
+	currentUserId: string;
 }
 
 /** A streamed read that answers instead of rejecting, so one failed region leaves the rest of the page working. */

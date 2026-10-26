@@ -145,6 +145,8 @@ export function describeActivity(
 				summary: `Changed equipment ${fact.from.quantity} × ${fact.from.name} to ${fact.to.quantity} × ${fact.to.name}`,
 				note: null
 			};
+		case 'equipment_returned':
+			return { summary: `Returned ${fact.to} of ${fact.quantity} ${fact.name} (was ${fact.from})`, note: null };
 		case 'equipment_secured':
 			return { summary: `Secured ${fact.to} of ${fact.quantity} ${fact.name} (was ${fact.from})`, note: null };
 		case 'checklist_added':

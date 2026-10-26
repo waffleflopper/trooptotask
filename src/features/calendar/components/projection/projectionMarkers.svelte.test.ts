@@ -114,7 +114,7 @@ describe('CommitmentRun', () => {
 
 	it('links a single commitment to its Tasking', () => {
 		render(CommitmentRun, {
-			segment: { kind: 'tasking', ...edges, label: 'Tasking: Submit roster', href: '/taskings/t1' }
+			segment: { kind: 'tasking', conflicts: false, ...edges, label: 'Tasking: Submit roster', href: '/taskings/t1' }
 		});
 
 		expect(screen.getByRole('link', { name: 'Tasking: Submit roster' }).getAttribute('href')).toBe('/taskings/t1');
@@ -124,6 +124,7 @@ describe('CommitmentRun', () => {
 		render(CommitmentRun, {
 			segment: {
 				kind: 'taskings',
+				conflicts: false,
 				...edges,
 				label: '2 Taskings: A, B',
 				heading: 'Tasking commitments',

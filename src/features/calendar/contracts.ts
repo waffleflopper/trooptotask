@@ -512,6 +512,7 @@ export interface FederalHolidayDefault {
 }
 
 export interface AvailabilityCreate {
+	setForTaskingId?: string | null;
 	personnelId: string;
 	statusTypeId: string;
 	startDate: string;
@@ -519,7 +520,7 @@ export interface AvailabilityCreate {
 	note?: string | null;
 }
 
-export type AvailabilityPatch = Partial<Omit<AvailabilityCreate, 'personnelId'>>;
+export type AvailabilityPatch = Partial<Omit<AvailabilityCreate, 'personnelId' | 'setForTaskingId'>>;
 
 export const AVAILABILITY_NOTE_MAX_LENGTH = 200;
 
@@ -719,3 +720,8 @@ export type {
 } from './taskings/taskingAttentionModel';
 
 export { compareOverlappingEntries, shownEntryByPerson, sortedStatusTypes } from './dayStatuses';
+
+export type { TaskingRowFacts, TaskingWorkspace, EventTaskingSummary } from './taskings/taskingReadModel';
+export type { StaffingPersonState, StaffingAdvisories, StaffingAdvisory } from './taskings/staffing/staffingModel';
+
+export type { TaskingConflict, TaskingOnTrackRow } from './taskings/taskingAttentionModel';

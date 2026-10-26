@@ -118,3 +118,11 @@ describe('Event dates for the Events & Taskings pages', () => {
 		).toEqual({ text: 'Cancelled', upcoming: false });
 	});
 });
+
+it('offers coordinators in label order with their account IDs', async () => {
+	const { memberOptions } = await import('./eventModel');
+	expect(memberOptions({ z: 'CPT Zed Brown', a: 'SFC Dana Whitaker' })).toEqual([
+		{ userId: 'a', label: 'SFC Dana Whitaker' },
+		{ userId: 'z', label: 'CPT Zed Brown' }
+	]);
+});

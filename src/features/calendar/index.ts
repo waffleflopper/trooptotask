@@ -108,3 +108,10 @@ export type {
 	TaskingAttentionRow
 } from './taskings/taskingAttentionModel';
 export { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './import/statusImportLane';
+
+export type { TaskingRowFacts, TaskingWorkspace, EventTaskingSummary } from './taskings/taskingReadModel';
+export type { StaffingPersonState, StaffingAdvisories, StaffingAdvisory } from './taskings/staffing/staffingModel';
+
+export type { TaskingConflict, TaskingOnTrackRow } from './taskings/taskingAttentionModel';
+
+export type { OrganizationMemberOption } from './events/eventModel';

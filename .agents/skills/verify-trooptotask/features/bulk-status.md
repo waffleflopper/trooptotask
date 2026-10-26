@@ -16,7 +16,7 @@ with clear partial results and whole-entry warnings.
   replay shows every saved row as Unchanged.
 - `bulk-prefill`: a Tasking's `Set availability…` opens Add at `?tab=add&tasking=ID&people=IDS&from=D&to=D` with the
   picked people ticked and the execution dates filled. `Prefilled from a tasking’s picked people and execution dates…`
-  says the saved entries are ordinary Availability that later pick changes do not update. A person off the reader's
+  says the saved entries record the source Tasking and later pick changes do not update them. A person off the reader's
   roster, an id that is not an id, an inapplicable tab and the whole prefill while Events & Taskings is off are
   dropped. `Back to tasking` replaces `Back to calendar`, and a full save lands back on the Tasking. See
   [Set availability](events-taskings.md#set-availability).

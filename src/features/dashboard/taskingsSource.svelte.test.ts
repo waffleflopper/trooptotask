@@ -3,7 +3,7 @@ import type { DashboardTaskings } from './contracts';
 import { DashboardTaskingsSource } from './taskingsSource.svelte';
 
 const projection = (total: number): DashboardTaskings => ({
-	attention: { rows: [], total },
+	attention: { rows: [], total, onTrack: [] },
 	forecast: { events: [], suspenses: [] }
 });
 const fetchMock = vi.fn();

@@ -147,6 +147,7 @@ describe('commitmentsByPerson', () => {
 		taskingId,
 		title: `Tasking ${taskingId}`,
 		personnelId,
+		conflicts: false,
 		startsOn,
 		endsOn
 	});

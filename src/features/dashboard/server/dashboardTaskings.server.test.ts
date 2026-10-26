@@ -4,7 +4,7 @@ import type { CapabilityLevel } from '$lib/access/memberAccessShape';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { fetchDashboardTaskings } from './dashboardTaskings.server';
 
-const attention = { rows: [], total: 0 };
+const attention = { rows: [], total: 0, onTrack: [] };
 const event = {
 	id: '00000000-0000-4000-8000-000000000301',
 	title: 'Best Medic Competition',

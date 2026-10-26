@@ -19,7 +19,7 @@
 	today={data.today}
 	{filters}
 	list={data.list}
-	activeList={data.activeList}
+	workspace={data.workspace}
 	choices={data.choices}
 	eventMembers={data.eventMembers}
 />

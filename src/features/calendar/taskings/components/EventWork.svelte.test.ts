@@ -6,6 +6,7 @@ import CancelEventDialog from '../../events/components/CancelEventDialog.svelte'
 import type { CalendarEvent, EventRead } from '../../events/eventModel';
 import type { TaskingSummary } from '../eventWorkModel';
 import type { GroupLabels, Tasking } from '../taskingModel';
+import type { TaskingRowFacts, TaskingWorkspace } from '../taskingReadModel';
 import EventDateReview from './EventDateReview.svelte';
 import EventTaskings from './EventTaskings.svelte';
 
@@ -67,16 +68,48 @@ const finished = tasking('00000000-0000-4000-8000-000000000404', 'Retired roster
 	status: { kind: 'completed', note: null, at: '2026-10-16T00:00:00Z', by: null }
 });
 
+const rowFacts = (conflicts = 0): TaskingRowFacts => ({
+	eventRelation: 'preparation',
+	picked: 1,
+	required: 2,
+	equipment: { ready: 0, total: 0, returnedQuantity: 0, totalQuantity: 0 },
+	conflicts,
+	nextDate: '2026-10-15',
+	suspenseOn: '2026-10-15',
+	status: 'open',
+	responsibleGroupId: ALPHA
+});
+const workspaceWith = (conflicts = 0): TaskingWorkspace => ({
+	taskings: { [prepare.id]: rowFacts(conflicts), [closeOut.id]: { ...rowFacts(), eventRelation: 'closeout' } },
+	events: {
+		[event.id]: {
+			total: 3,
+			needAction: 3,
+			overdue: 1,
+			blocked: 1,
+			needPeople: 2,
+			fullyStaffedAndReady: 0,
+			conflicts
+		}
+	},
+	counts: { active: 3, overdue: 1, blocked: 1, needsPeople: 2, completed: 0 }
+});
+
 afterEach(cleanup);
 
 describe('Event detail work groups', () => {
-	function showEvent(summaries: Promise<EventRead<TaskingSummary[]>>, overrides: Partial<CalendarEvent> = {}) {
+	function showEvent(
+		summaries: Promise<EventRead<TaskingSummary[]>>,
+		overrides: Partial<CalendarEvent> = {},
+		workspace: Promise<EventRead<TaskingWorkspace>> = loaded(workspaceWith())
+	) {
 		render(EventTaskings, {
 			org,
 			today: '2026-10-12',
 			event: { ...event, ...overrides },
 			taskings: loaded({ taskings: [closeOut, prepare], groups, staffing: {} }),
 			summaries,
+			workspace,
 			choices: loaded(null),
 			addOnArrival: false
 		});
@@ -112,6 +145,7 @@ describe('Event detail work groups', () => {
 			event,
 			taskings: loaded({ taskings: [], groups, staffing: {} }),
 			summaries: loaded([]),
+			workspace: loaded({ taskings: {}, events: {}, counts: workspaceWith().counts }),
 			choices: loaded(null),
 			addOnArrival: false
 		});
@@ -120,6 +154,23 @@ describe('Event detail work groups', () => {
 		for (const phase of [/prep/i, /during/i, /closeout/i])
 			expect(screen.queryByRole('region', { name: phase })).toBeNull();
 		expect(screen.queryByRole('link')).toBeNull();
+	});
+
+	it('marks the Taskings whose picks conflict, and only those', async () => {
+		showEvent(loaded([]), {}, loaded(workspaceWith(2)));
+
+		const preparation = within(await screen.findByRole('region', { name: /prep/i }));
+		const closeout = within(screen.getByRole('region', { name: /closeout/i }));
+		expect(preparation.getByRole('img', { name: /2 people/ })).toBeTruthy();
+		expect(closeout.queryByRole('img')).toBeNull();
+	});
+
+	it('shows the region’s load error, not zero conflicts, when the facts fail', async () => {
+		showEvent(loaded([]), {}, failed());
+
+		expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy();
+		expect(screen.queryByRole('link', { name: /Submit the roster/ })).toBeNull();
+		expect(screen.queryByRole('region', { name: /prep/i })).toBeNull();
 	});
 
 	it('shows a cancelled Event’s active Taskings as still active', async () => {

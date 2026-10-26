@@ -21,8 +21,10 @@
 		type EventRead,
 		type MemberLabels
 	} from '../eventModel';
-	import type { Tasking, TaskingChoices, TaskingList } from '../../taskings/taskingModel';
-	import { rollupEventTaskings, rollupFact } from '../../taskings/taskingRowModel';
+	import type { Tasking, TaskingChoices } from '../../taskings/taskingModel';
+	import type { TaskingWorkspace } from '../../taskings/taskingReadModel';
+	import { rollupFact } from '../../taskings/taskingRowModel';
+	import ConflictMarker from '../../taskings/components/ConflictMarker.svelte';
 	import EventsTaskingsHeader from '../../taskings/components/EventsTaskingsHeader.svelte';
 	import TaskingDialog from '../../taskings/components/TaskingDialog.svelte';
 	import { TONE_TEXT } from '../../taskings/components/taskingLabels';
@@ -34,12 +36,12 @@
 		today: string;
 		when: EventListWhen;
 		list: Promise<EventRead<EventList>>;
-		/** The open Taskings the reader can see, rolled up per Event. */
-		taskings: Promise<EventRead<TaskingList>>;
+		/** Per-Event Tasking totals, need-action and conflict counts. */
+		workspace: Promise<EventRead<TaskingWorkspace>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
 	}
 
-	let { org, today, when, list, taskings, choices }: Props = $props();
+	let { org, today, when, list, workspace, choices }: Props = $props();
 
 	const canManage = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageEvents, { kind: 'organization' }).allowed
@@ -52,7 +54,7 @@
 	);
 	const eventsHref = $derived(`/org/${org.orgUrlSegment}/calendar/events`);
 	const streamed = new StreamedValue(() => list);
-	const streamedTaskings = new StreamedValue(() => taskings);
+	const streamedWorkspace = new StreamedValue(() => workspace);
 	// A refresh keeps the shown list; switching between upcoming and past shows the skeleton until the other list arrives.
 	const shown = $derived.by(() => {
 		const current = streamed.current;
@@ -61,10 +63,10 @@
 		return current.value.value.when === when ? current.value.value : null;
 	});
 	const rollups = $derived.by(() => {
-		const current = streamedTaskings.current;
+		const current = streamedWorkspace.current;
 		if (current.state === 'pending' || current.state === 'absent') return null;
 		if (current.state === 'failed' || current.value.status !== 'loaded') return 'failed' as const;
-		return rollupEventTaskings(current.value.value, today);
+		return current.value.value.events;
 	});
 	let creating = $state<{ members: MemberLabels } | null>(null);
 	let creatingTasking = $state<TaskingChoices | null>(null);
@@ -206,7 +208,8 @@
 					</div>
 					<ul>
 						{#each shown.events as event (event.id)}
-							{@const rollup = rollups && rollups !== 'failed' ? rollupFact(rollups[event.id], when) : null}
+							{@const summary = rollups && rollups !== 'failed' ? rollups[event.id] : undefined}
+							{@const rollup = rollups && rollups !== 'failed' ? rollupFact(summary) : null}
 							<li class="border-b border-border last:border-b-0">
 								<a
 									href={`${eventsHref}/${event.id}`}
@@ -234,6 +237,9 @@
 												<span class={['truncate', TONE_TEXT[rollup.tone], rollup.tone === 'danger' && 'font-medium']}>
 													{rollup.text}
 												</span>
+												{#if summary && summary.conflicts > 0}
+													<ConflictMarker people={summary.conflicts} />
+												{/if}
 											{:else}
 												<span class="text-muted-foreground">—</span>
 											{/if}

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { MemberLabels } from '../events/eventModel';
 import type { TaskingListActivityFact, TaskingReadiness } from './taskingListsModel';
+import type { TaskingRowFacts } from './taskingReadModel';
 
 export const TASKING_TITLE_MAX = 200;
 export const TASKING_QUALIFICATIONS_MAX = 1000;
@@ -270,38 +271,9 @@ export const responsibilityKey = (responsibility: TaskingResponsibility) =>
 	responsibility.kind === 'group' ? responsibility.groupId : 'organization';
 
 /** An active Tasking with fewer counted picks than it requires. */
-export function needsPeople(
-	tasking: Pick<Tasking, 'status' | 'requirement'>,
-	staffing: Pick<StaffingCount, 'picked'> | undefined
-): boolean {
-	return (
-		isActiveStatus(tasking.status.kind) &&
-		tasking.requirement !== null &&
-		(staffing?.picked ?? 0) < tasking.requirement.count
-	);
-}
-
-export interface ActiveTaskingCounts {
-	active: number;
-	overdue: number;
-	blocked: number;
-	needsPeople: number;
-}
-
-/** What the count chips show for the loaded active list. */
-export function activeTaskingCounts(
-	taskings: readonly Tasking[],
-	staffing: Record<string, StaffingCount>,
-	today: string
-): ActiveTaskingCounts {
-	const active = taskings.filter((tasking) => isActiveStatus(tasking.status.kind));
-	return {
-		active: active.length,
-		overdue: active.filter((tasking) => taskingAttention(tasking, today) === 'overdue').length,
-		blocked: active.filter((tasking) => tasking.status.kind === 'blocked').length,
-		needsPeople: active.filter((tasking) => needsPeople(tasking, staffing[tasking.id])).length
-	};
-}
+/** An active Tasking still short of the people it requires. */
+export const needsPeople = ({ status, picked, required }: Pick<TaskingRowFacts, 'status' | 'picked' | 'required'>) =>
+	isActiveStatus(status) && required !== null && picked < required;
 
 function touchesWindow(tasking: Tasking, from: string, to: string): boolean {
 	if (tasking.suspenseOn >= from && tasking.suspenseOn <= to) return true;
@@ -313,7 +285,7 @@ export function filterTaskings(
 	taskings: Tasking[],
 	filters: TaskingFilters,
 	today: string,
-	staffing: Record<string, StaffingCount> = {}
+	facts: Record<string, TaskingRowFacts> = {}
 ): Tasking[] {
 	const search = filters.search.trim().toLocaleLowerCase();
 	const windowEnd = filters.within === 'any' ? null : addDays(today, Number(filters.within) - 1);
@@ -321,7 +293,7 @@ export function filterTaskings(
 		(tasking) =>
 			(filters.view !== 'overdue' || taskingAttention(tasking, today) === 'overdue') &&
 			(filters.view !== 'blocked' || tasking.status.kind === 'blocked') &&
-			(filters.view !== 'needs_people' || needsPeople(tasking, staffing[tasking.id])) &&
+			(filters.view !== 'needs_people' || (tasking.id in facts && needsPeople(facts[tasking.id]))) &&
 			(filters.event === 'all' ||
 				(filters.event === 'standalone' ? tasking.event === null : tasking.event?.id === filters.event)) &&
 			(filters.responsibility === 'all' || responsibilityKey(tasking.responsibility) === filters.responsibility) &&

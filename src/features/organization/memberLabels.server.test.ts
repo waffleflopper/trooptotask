@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadOrganizationMemberLabels } from './memberLabels.server';
+import { loadOrganizationMemberLabels, createSupabaseOrganizationMemberLabelsReader } from './memberLabels.server';
 
 const LEADER = '11111111-1111-4111-8111-111111111111';
 const SECOND = '22222222-2222-4222-8222-222222222222';
@@ -28,4 +28,37 @@ describe('Organization member labels', () => {
 			])
 		);
 	});
+});
+
+it('formats profile rank and name while preserving unresolved contributor identity', async () => {
+	const labels = await loadOrganizationMemberLabels(
+		{
+			findMembers: async () => [
+				{ user_id: LEADER, rank: ' SFC ', first_name: ' Dana ', last_name: ' Whitaker ', email: 'other@example.test' },
+				{ user_id: SECOND, rank: 'SGT', email: null }
+			]
+		},
+		'org-1',
+		[LEADER, SECOND]
+	);
+	expect([...labels]).toEqual([
+		[LEADER, 'SFC Dana Whitaker'],
+		[SECOND, SECOND]
+	]);
+});
+
+it('uses short IDs only for the Calendar member directory', async () => {
+	const read = createSupabaseOrganizationMemberLabelsReader(
+		{
+			rpc: async () => ({
+				error: null,
+				data: [
+					{ user_id: LEADER, rank: 'SFC', first_name: 'Dana', last_name: 'Whitaker', email: null },
+					{ user_id: SECOND, rank: null, first_name: null, last_name: null, email: null }
+				]
+			})
+		} as never,
+		'org-1'
+	);
+	expect(await read()).toEqual({ [LEADER]: 'SFC Dana Whitaker', [SECOND]: '22222222...' });
 });

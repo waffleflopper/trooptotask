@@ -16,6 +16,6 @@
 	today={data.today}
 	when={data.when}
 	list={data.list}
-	taskings={data.taskings}
+	workspace={data.workspace}
 	choices={data.choices}
 />

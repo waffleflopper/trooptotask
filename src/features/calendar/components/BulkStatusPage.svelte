@@ -124,7 +124,10 @@
 		applyingOrgId = data.orgId;
 		applyingGeneration = formGeneration;
 		const inserted = await availabilityStore.addBatch(
-			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note)
+			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note).map((record) => ({
+				...record,
+				setForTaskingId: prefill?.taskingId ?? null
+			}))
 		);
 		return inserted.map((entry) => entry.personnelId);
 	}

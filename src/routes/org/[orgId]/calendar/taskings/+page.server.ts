@@ -19,9 +19,8 @@ export const load = async ({ params, locals, cookies, depends, url }: PageServer
 		policyResource: { kind: 'unscoped' },
 		fn: async (ctx) => ({
 			today,
+			workspace: settleEventRead(ctx.taskingWorkspace.read(today)),
 			list: settleEventRead(listTaskings(ctx, scope)),
-			// The count chips read the active list; a closed view loads it alongside its own.
-			activeList: scope === 'active' ? null : settleEventRead(listTaskings(ctx, 'active')),
 			choices: settleEventRead(loadTaskingChoices(ctx, today)),
 			eventMembers: settleEventRead(loadEventMembers(ctx))
 		})

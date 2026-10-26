@@ -90,7 +90,7 @@ describe('Tasking kinds in the queue', () => {
 	});
 	const datedTasking = (
 		id: string,
-		kind: 'taskingBlocked' | 'taskingShort' | 'taskingDueSoon',
+		kind: 'taskingBlocked' | 'taskingShort' | 'taskingConflict',
 		date: string
 	): NeedsYouItem => ({ ...base, id, title: id, kind, taskingId: id, urgency: { date } });
 
@@ -103,21 +103,21 @@ describe('Tasking kinds in the queue', () => {
 		expect(ids(queue.rows)).toEqual(['late', 'eval', 'sharp', 'blocked']);
 	});
 
-	it('ranks Short Taskings with Unfilled duty by date, ahead of Stalled onboarding and Due soon Taskings', () => {
+	it('ranks conflicts ahead of Short Taskings and Unfilled duty, then orders those by date', () => {
 		const queue = buildNeedsYouQueue([
 			[
-				datedTasking('soon', 'taskingDueSoon', '2026-10-20'),
+				datedTasking('soon', 'taskingConflict', '2026-10-20'),
 				datedTasking('short', 'taskingShort', '2026-10-22'),
 				unfilled('duty', 'Staff duty', '2026-10-21')
 			]
 		]);
 
-		expect(ids(queue.rows)).toEqual(['duty', 'short', 'soon']);
+		expect(ids(queue.rows)).toEqual(['soon', 'duty', 'short']);
 	});
 
 	it('labels each kind and colours it by severity', () => {
 		expect(
-			(['taskingOverdue', 'taskingBlocked', 'taskingShort', 'taskingDueSoon'] as const).map((kind) => {
+			(['taskingOverdue', 'taskingBlocked', 'taskingShort', 'taskingConflict'] as const).map((kind) => {
 				const { label, severity } = needsYouKindInfo(kind);
 				return [label, severity];
 			})
@@ -125,7 +125,7 @@ describe('Tasking kinds in the queue', () => {
 			['Overdue', 'danger'],
 			['Blocked', 'danger'],
 			['Short', 'warning'],
-			['Due soon', 'warning']
+			['Conflict', 'warning']
 		]);
 	});
 });

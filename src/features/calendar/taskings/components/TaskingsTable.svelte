@@ -1,9 +1,10 @@
 <script lang="ts">
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { Badge } from '$lib/components/ui/badge';
-	import { NO_STAFFING } from '../staffing/staffingModel';
-	import type { GroupLabels, StaffingCount, Tasking } from '../taskingModel';
+	import type { GroupLabels, Tasking } from '../taskingModel';
+	import type { TaskingRowFacts } from '../taskingReadModel';
 	import { equipmentFact, eventRelation, nextDateFacts, peopleFact } from '../taskingRowModel';
+	import ConflictMarker from './ConflictMarker.svelte';
 	import ResponsibilityPill from './ResponsibilityPill.svelte';
 	import { STATUS_BADGES, TONE_TEXT } from './taskingLabels';
 
@@ -12,10 +13,11 @@
 		today: string;
 		taskings: Tasking[];
 		groups: GroupLabels;
-		staffing: Record<string, StaffingCount>;
+		facts: Record<string, TaskingRowFacts>;
 	}
 
-	let { taskingsHref, today, taskings, groups, staffing }: Props = $props();
+	let { taskingsHref, today, taskings, groups, facts }: Props = $props();
+	const NO_FACT = { text: '—', tone: 'muted' } as const;
 </script>
 
 <!--
@@ -39,8 +41,9 @@
 		<ul>
 			{#each taskings as tasking (tasking.id)}
 				{@const status = STATUS_BADGES[tasking.status.kind]}
-				{@const people = peopleFact(tasking.requirement, (staffing[tasking.id] ?? NO_STAFFING).picked)}
-				{@const equipment = equipmentFact(tasking.readiness.equipment)}
+				{@const fact = facts[tasking.id]}
+				{@const people = fact ? peopleFact(fact) : NO_FACT}
+				{@const equipment = fact ? equipmentFact(fact) : NO_FACT}
 				{@const next = nextDateFacts(tasking, today)}
 				<li class="border-b border-border last:border-b-0">
 					<a
@@ -56,7 +59,9 @@
 							class="col-start-1 row-start-1 grid min-w-0 gap-0.5 @min-[56rem]:col-start-auto @min-[56rem]:row-start-auto"
 						>
 							<span class="truncate text-sm leading-[18px] font-semibold text-foreground">{tasking.title}</span>
-							<span class="truncate font-mono text-xs text-muted-foreground">{eventRelation(tasking)}</span>
+							<span class="truncate font-mono text-xs text-muted-foreground"
+								>{eventRelation(tasking.event, fact?.eventRelation)}</span
+							>
 						</span>
 						<span class="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-1 @min-[56rem]:contents">
 							<span class="flex min-w-0">
@@ -65,6 +70,9 @@
 							<span class="flex items-center gap-1.5 font-mono text-[13px]">
 								<span class="text-muted-foreground @min-[56rem]:sr-only">People</span>
 								<span class={[TONE_TEXT[people.tone], people.tone !== 'muted' && 'font-medium']}>{people.text}</span>
+								{#if fact && fact.conflicts > 0}
+									<ConflictMarker people={fact.conflicts} />
+								{/if}
 							</span>
 							<span class="flex items-center gap-1.5 font-mono text-[13px]">
 								<span class="text-muted-foreground @min-[56rem]:sr-only">Equipment</span>

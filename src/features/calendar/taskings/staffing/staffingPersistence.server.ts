@@ -60,13 +60,24 @@ const advisoryRowSchema = z
 		label: z.string().nullable(),
 		starts_on: z.string().nullable(),
 		ends_on: z.string().nullable(),
-		other_tasking_id: z.string().nullable()
+		other_tasking_id: z.string().nullable(),
+		is_conflict: z.boolean(),
+		overlap_days: z.number().nullable(),
+		execution_days: z.number().nullable()
 	})
 	.transform((row): [string, StaffingAdvisory] => {
 		if (row.kind === 'availability')
 			return [
 				row.personnel_id,
-				{ kind: 'availability', label: row.label ?? '', startsOn: row.starts_on ?? '', endsOn: row.ends_on ?? '' }
+				{
+					kind: 'availability',
+					label: row.label ?? '',
+					startsOn: row.starts_on ?? '',
+					endsOn: row.ends_on ?? '',
+					isConflict: row.is_conflict,
+					overlapDays: row.overlap_days ?? 0,
+					executionDays: row.execution_days ?? 0
+				}
 			];
 		if (row.other_tasking_id === null || row.label === null || !row.starts_on || !row.ends_on)
 			return [row.personnel_id, { kind: 'committed_elsewhere' }];

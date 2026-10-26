@@ -85,7 +85,7 @@
 			const key = issue.path.join('.');
 			byField[key] ??= key === 'startsOn' || key === 'endsOn' ? 'Choose a date.' : issue.message;
 		}
-		if (parsed.error.issues.some((issue) => issue.code === 'custom' && issue.path[0] === 'endsOn'))
+		if (startsOn && endsOn && parsed.error.issues.some((issue) => issue.code === 'custom' && issue.path[0] === 'endsOn'))
 			byField.endsOn = 'End on or after the start date.';
 		return byField;
 	});

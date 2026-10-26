@@ -93,6 +93,9 @@ describe('EventDialog', () => {
 
 		expect(send).not.toHaveBeenCalled();
 		expect(titleInput().getAttribute('aria-invalid')).toBe('true');
+		const dateError = (label: string) =>
+			document.getElementById(screen.getByLabelText(label).getAttribute('aria-describedby') ?? '')?.textContent;
+		expect(dateError('Ends')).toBe(dateError('Starts'));
 	});
 
 	it('drops the outside host and its source reference when the Organization hosts instead', async () => {

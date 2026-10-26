@@ -535,6 +535,7 @@ describe('TrainingMatrix recording popover', () => {
 		expect(await within(popover).findByText('Training record was not saved')).toBeTruthy();
 		expect(within(popover).getByText('Connection lost')).toBeTruthy();
 		expect(dateInput(popover).value).toBe('2026-10-20');
+		await waitFor(() => expect(document.activeElement).toBe(within(popover).getByRole('button', { name: /^Save/ })));
 		expect(vi.mocked(toast.success)).not.toHaveBeenCalled();
 	});
 

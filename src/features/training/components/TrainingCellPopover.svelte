@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CornerDownLeftIcon from '@lucide/svelte/icons/corner-down-left';
@@ -46,6 +46,7 @@
 	let showExtras = $state(false);
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
+	let formElement = $state<HTMLFormElement | null>(null);
 
 	const expirationDate = $derived(
 		kind === 'cardDate' ? date || null : kind === 'months' ? calculateExpirationDate(date, type.expirationMonths) : null
@@ -110,12 +111,18 @@
 		} catch (error) {
 			if (stillHere()) saveError = error instanceof Error && error.message.trim() ? error.message : 'Could not save.';
 		} finally {
-			if (stillHere()) saving = false;
+			if (stillHere()) {
+				saving = false;
+				if (saveError) {
+					await tick();
+					if (stillHere()) formElement?.querySelector<HTMLElement>('button[type="submit"]')?.focus();
+				}
+			}
 		}
 	}
 </script>
 
-<form class="grid gap-3" onsubmit={save}>
+<form bind:this={formElement} class="grid gap-3" onsubmit={save}>
 	<div class="grid gap-1">
 		<div class="flex items-baseline justify-between gap-3 font-mono text-[0.6875rem] tracking-[0.08em] uppercase">
 			<span class="min-w-0 truncate text-muted-foreground">Record · {type.name}</span>

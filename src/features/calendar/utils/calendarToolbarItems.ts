@@ -79,7 +79,7 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 			id: 'calendar-events',
 			label: 'Events & Taskings',
 			icon: 'clipboard-check',
-			href: `${calendarHref}/events`
+			href: `${calendarHref}/taskings`
 		});
 	}
 

@@ -101,6 +101,21 @@ describe('RatingSchemeEntryModal', () => {
 		expect(screen.getByRole('group', { name: 'Type' }).getAttribute('aria-invalid')).toBeNull();
 	});
 
+	it('reads the report as its code and label, and the header due line from the thru date', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2027, 0, 18, 12));
+		try {
+			render(RatingSchemeEntryModal, {
+				props: { entry, personnel, isCurrentWorkspace: () => true, onSave: vi.fn(), onClose: vi.fn() }
+			});
+
+			expect(screen.getByLabelText('Report').textContent?.trim()).toBe('AN · Annual');
+			expect(screen.getByRole('dialog').textContent).toContain('Thru 31 Dec 2026 · 18 days past');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('saves a rater typed in as an external name and not as a person', async () => {
 		const onSave = vi.fn().mockResolvedValue(undefined);
 		render(RatingSchemeEntryModal, {

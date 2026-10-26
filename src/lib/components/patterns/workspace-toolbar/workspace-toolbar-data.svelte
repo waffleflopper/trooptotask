@@ -616,7 +616,7 @@
 						<InputGroup.Addon>
 							<SearchIcon aria-hidden="true" />
 						</InputGroup.Addon>
-						<InputGroup.Input type="search" tabindex={-1} placeholder={search.placeholder} />
+						<InputGroup.Input type="search" tabindex={-1} placeholder={rowSearch.placeholder} />
 					</InputGroup.Root>
 				</div>
 				<div data-toolbar-search-measure="icon" class="flex shrink-0" {@attach measure()}>

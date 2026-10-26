@@ -22,8 +22,15 @@
 
 	const groups = $derived(groupRatingSchemeEntries(entries, personnel, sort));
 
+	// Tracks shrink from their widest toward their narrowest together, so a 1184 px workspace still fits one line.
 	const rowClass =
-		'relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 py-2.5 pr-4 pl-5 text-left text-sm @3xl:grid-cols-[minmax(6rem,10rem)_minmax(8.5rem,12rem)_10.5rem_minmax(0,1fr)_6.5rem_1rem]';
+		'relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 py-3 pr-3.5 pl-3 text-left @3xl:grid-cols-[minmax(7rem,190px)_minmax(8.5rem,180px)_minmax(9.5rem,180px)_minmax(5.5rem,150px)_minmax(6rem,1fr)_1rem]';
+
+	const dueCountLabels = [
+		['overdue', 'past thru'],
+		['due-30', 'in 30 days'],
+		['due-60', 'in 31–60']
+	] as const;
 
 	function getRatedPersonLabel(id: string): string {
 		const p = personnel.find((p) => p.id === id);
@@ -39,26 +46,28 @@
 	{@const due = getRatingDueLabel(entry.ratingPeriodEnd, entry.status)}
 	{@const tone = ratingDueTone[due.status]}
 	<span class="absolute inset-y-0 left-0 w-0.75 {tone.rail}" aria-hidden="true"></span>
-	<span class="truncate font-medium @max-3xl:col-start-1 @max-3xl:row-start-1"
+	<span class="truncate text-[15px] font-semibold @max-3xl:col-start-1 @max-3xl:row-start-1"
 		>{getRatedPersonLabel(entry.ratedPersonId)}</span
 	>
 	<span class="flex min-w-0 items-center gap-2 @max-3xl:col-start-1 @max-3xl:row-start-2">
-		<Badge variant="outline">{entry.evalType}</Badge>
+		<span class="shrink-0 rounded-sm border px-[5px] font-mono text-[11px] leading-4 font-medium">{entry.evalType}</span
+		>
 		{#if entry.reportType}
-			<span class="truncate text-muted-foreground">{getReportTypeLabel(entry.reportType, entry.evalType)}</span>
+			<span class="truncate text-sm">{getReportTypeLabel(entry.reportType, entry.evalType)}</span>
 		{/if}
 	</span>
-	<span class="whitespace-nowrap text-muted-foreground tabular-nums @max-3xl:hidden">
-		{formatDayMonthShortYear(entry.ratingPeriodStart)} – {formatDayMonthShortYear(entry.ratingPeriodEnd)}
+	<span class="font-mono text-xs whitespace-nowrap text-muted-foreground tabular-nums @max-3xl:hidden">
+		{formatDayMonthShortYear(entry.ratingPeriodStart)} → {formatDayMonthShortYear(entry.ratingPeriodEnd)}
 	</span>
 	<span
-		class="truncate text-muted-foreground @max-3xl:col-start-2 @max-3xl:row-start-2 @max-3xl:text-right {entry.workflowStatus
-			? 'text-foreground'
-			: ''}"
+		class="truncate font-mono text-xs @max-3xl:col-start-2 @max-3xl:row-start-2 @max-3xl:text-right {entry.workflowStatus
+			? ''
+			: 'text-muted-foreground'}"
 	>
 		{entry.workflowStatus ? getWorkflowLabel(entry.workflowStatus) : 'Not tracked'}
 	</span>
-	<span class="text-right font-medium whitespace-nowrap {tone.text} @max-3xl:col-start-2 @max-3xl:row-start-1"
+	<span
+		class="text-right font-mono text-xs font-semibold whitespace-nowrap {tone.text} @max-3xl:col-start-2 @max-3xl:row-start-1"
 		>{due.text}</span
 	>
 	{#if onEdit}
@@ -76,40 +85,41 @@
 		</Empty.Header>
 	</Empty.Root>
 {:else}
-	<div class="grid gap-8">
+	<div class="grid gap-9">
 		{#each groups as group (group.key)}
-			<section class="grid gap-3" aria-label="Senior rater {group.label}">
-				<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-					<h2 class="font-heading text-lg font-semibold">
-						<span class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">SR</span>
-						{group.label}
+			<section class="grid gap-1" aria-label="Senior rater {group.label}">
+				<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-foreground pb-2.5">
+					<h2 class="flex min-w-0 flex-wrap items-baseline gap-x-3">
+						<span class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">SR</span>
+						<span class="font-heading text-[28px] leading-[30px] font-extrabold wrap-anywhere uppercase">
+							{group.label}
+						</span>
 					</h2>
 					{#if group.external}
 						<Badge variant="warning">External</Badge>
 					{/if}
 					<span class="text-sm text-muted-foreground">Senior rates {group.entryCount}</span>
-					<span class="ml-auto flex flex-wrap gap-x-3 text-sm font-medium tabular-nums">
-						{#if group.dueCounts.overdue > 0}
-							<span class={ratingDueTone.overdue.text}>{group.dueCounts.overdue} past thru</span>
-						{/if}
-						{#if group.dueCounts['due-30'] > 0}
-							<span class={ratingDueTone['due-30'].text}>{group.dueCounts['due-30']} in 30d</span>
-						{/if}
-						{#if group.dueCounts['due-60'] > 0}
-							<span class={ratingDueTone['due-60'].text}>{group.dueCounts['due-60']} in 31–60d</span>
-						{/if}
+					<span class="ml-auto flex flex-wrap items-baseline gap-x-2 font-mono text-xs font-medium tabular-nums">
+						{#each dueCountLabels.filter(([status]) => group.dueCounts[status] > 0) as [status, label], index (status)}
+							{#if index > 0}
+								<span class="text-muted-foreground" aria-hidden="true">·</span>
+							{/if}
+							<span class={ratingDueTone[status].text}>{group.dueCounts[status]} {label}</span>
+						{/each}
 					</span>
 				</div>
 				{#each group.raterGroups as rater (rater.key)}
-					<div class="grid items-start gap-x-6 gap-y-2 lg:grid-cols-[13rem_minmax(0,1fr)]">
-						<div class="min-w-0">
-							<h3 class="flex flex-wrap items-center gap-x-2 text-sm font-medium">
-								<span class="wrap-anywhere">{rater.label}</span>
+					<div
+						class="grid items-start gap-x-6 gap-y-2 border-b py-4 last:border-b-0 lg:grid-cols-[200px_minmax(0,1fr)]"
+					>
+						<div class="flex min-w-0 flex-col gap-0.5 lg:pt-2.5">
+							<h3 class="text-[15px] font-semibold wrap-anywhere">{rater.label}</h3>
+							<p class="text-[13px] whitespace-nowrap text-muted-foreground">
+								Rater · rates {rater.entries.length}
 								{#if rater.external}
-									<Badge variant="warning">External</Badge>
+									<span class="text-expiring-foreground"> · External</span>
 								{/if}
-							</h3>
-							<p class="text-xs text-muted-foreground">Rater · rates {rater.entries.length}</p>
+							</p>
 						</div>
 						<ul class="@container divide-y overflow-hidden rounded-lg border bg-card text-card-foreground">
 							{#each rater.entries as entry (entry.id)}

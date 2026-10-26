@@ -176,9 +176,9 @@ describe('formatDayMonthYear', () => {
 });
 
 describe('formatDayMonthShortYear', () => {
-	it('keeps the day-month-year order with a two-digit year', () => {
+	it('keeps the day-month-year order with a two-digit year and a padded day', () => {
 		expect(formatDayMonthShortYear('2024-09-24')).toBe('24 Sep 24');
-		expect(formatDayMonthShortYear('2027-01-05T00:00:00Z')).toBe('5 Jan 27');
+		expect(formatDayMonthShortYear('2027-01-05T00:00:00Z')).toBe('05 Jan 27');
 	});
 });
 

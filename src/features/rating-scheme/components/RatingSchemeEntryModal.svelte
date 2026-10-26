@@ -18,7 +18,7 @@
 		syncReportTypeForRatingSchemeEntryDraft
 	} from '$features/rating-scheme/utils/ratingSchemeEntryDraft';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { getRatingDueLabel } from '../utils/ratingScheme';
+	import { getDaysUntilDue, getRatingDueLabel } from '../utils/ratingScheme';
 	import { ratingDueTone } from '../utils/ratingDueTone';
 	import EvaluatorField from './EvaluatorField.svelte';
 	import * as Alert from '$lib/components/ui/alert';
@@ -184,6 +184,20 @@
 
 	const ratedPerson = $derived(entry ? personnel.find((p) => p.id === entry.ratedPersonId) : undefined);
 	const headerDue = $derived(entry ? getRatingDueLabel(entry.ratingPeriodEnd, entry.status) : null);
+	const headerDueLine = $derived.by(() => {
+		if (!entry || !headerDue) return '';
+		const days = Math.abs(getDaysUntilDue(entry.ratingPeriodEnd));
+		const plural = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
+		switch (headerDue.status) {
+			case 'overdue':
+				return `Thru ${formatDayMonthYear(entry.ratingPeriodEnd).padStart(11, '0')} · ${plural(days)} past`;
+			case 'due-30':
+			case 'due-60':
+				return `Thru in ${plural(days)}`;
+			default:
+				return headerDue.text;
+		}
+	});
 	const evalTypeOptions: RatingSchemeEntryEvalType[] = ['OER', 'NCOER', 'WOER'];
 	const statusOptions: { value: RatingSchemeEntryStatus; label: string }[] = [
 		{ value: 'active', label: 'Active' },
@@ -202,33 +216,41 @@
 	</h3>
 {/snippet}
 
-{#snippet optionalRole(
+{#snippet chainRow(
 	label: string,
 	id: string,
-	onRemove: () => void,
 	evaluator: EvaluatorDraft,
-	onChange: (next: EvaluatorDraft) => void
+	onChange: (next: EvaluatorDraft) => void,
+	error?: { field: RatingSchemeRequiredField; message: string },
+	onRemove?: () => void
 )}
-	<Field.Root>
-		<div class="flex items-center justify-between gap-2">
-			<Field.Label for={id}>{label}</Field.Label>
-			<Button variant="ghost" size="icon-sm" aria-label="Remove {label.toLowerCase()}" onclick={onRemove}>
-				<XIcon aria-hidden="true" />
-			</Button>
+	<Field.Root class="gap-1.5 sm:grid sm:grid-cols-[110px_minmax(0,1fr)] sm:items-start sm:gap-x-3">
+		<Field.Label for={id} class="text-sm font-medium sm:h-9 sm:items-center">{label}</Field.Label>
+		<div class="grid gap-1.5">
+			<div class="flex items-center gap-1.5">
+				<div class="min-w-0 flex-1">
+					<EvaluatorField {id} {label} value={evaluator} people={personnelOptions} {onChange} class="h-9" />
+				</div>
+				{#if onRemove}
+					<Button variant="ghost" size="icon-sm" aria-label="Remove {label.toLowerCase()}" onclick={onRemove}>
+						<XIcon aria-hidden="true" />
+					</Button>
+				{/if}
+			</div>
+			{#if error}{@render requiredError(error.field, error.message)}{/if}
 		</div>
-		<EvaluatorField {id} {label} value={evaluator} people={personnelOptions} {onChange} />
 	</Field.Root>
 {/snippet}
 
 <AppDialog.Root open {busy} closeBlocked={dirty} {onClose}>
-	<AppDialog.Content presentation="sheet">
+	<AppDialog.Content presentation="sheet" size="wide">
 		<AppDialog.Header
-			class="border-b px-7 pb-4"
+			class="gap-2 border-b px-7 pt-7 pb-5"
 			eyebrow={entry
 				? `Edit entry · SR ${evaluatorName(entry.seniorRaterPersonId, entry.seniorRaterName)}`
 				: 'New entry'}
 		>
-			<AppDialog.Title>
+			<AppDialog.Title class="font-heading text-[34px] leading-[34px] font-extrabold uppercase">
 				{#if entry}
 					{ratedPerson ? formatPersonLabel(ratedPerson) : 'Unknown'}
 				{:else}
@@ -236,42 +258,48 @@
 				{/if}
 			</AppDialog.Title>
 			<AppDialog.Description
-				class={cn('flex items-center gap-2', headerDue && cn('font-medium', ratingDueTone[headerDue.status].text))}
+				class={cn(
+					'flex items-center gap-2 text-sm',
+					headerDue && cn('font-semibold', ratingDueTone[headerDue.status].text)
+				)}
 			>
 				{#if entry && headerDue}
 					<span class={cn('size-2 shrink-0 rounded-full', ratingDueTone[headerDue.status].rail)} aria-hidden="true"
 					></span>
-					{headerDue.text} · Thru {formatDayMonthYear(entry.ratingPeriodEnd)}
+					{headerDueLine}
 				{:else}
 					Pick the Soldier first. Eval type comes from their rank.
 				{/if}
 			</AppDialog.Description>
 		</AppDialog.Header>
 
-		<AppDialog.Body class="flex flex-col gap-7 px-7 py-6">
+		<AppDialog.Body class="p-0">
 			<fieldset class="contents" disabled={busy}>
 				{#if !entry}
-					<Field.Root>
-						<Field.Label for="rated-individual">Rated Soldier</Field.Label>
-						<Combobox.Root
-							items={personnelOptions}
-							bind:value={draft.ratedPersonId}
-							label="Rated Soldier"
-							autoHighlight
-							onValueChange={handleRatedPersonValueChange}
-						>
-							<Combobox.Trigger id="rated-individual" clearable placeholder="Search personnel..." />
-							<Combobox.Content>
-								<Combobox.Search placeholder="Search personnel..." />
-								<Combobox.Empty>No personnel found.</Combobox.Empty>
-								<Combobox.List />
-							</Combobox.Content>
-						</Combobox.Root>
-						{@render requiredError('ratedPerson', 'Rated Soldier is required.')}
-					</Field.Root>
+					<section class="grid gap-3 border-b px-7 py-5.5">
+						{@render sectionTitle('Rated Soldier')}
+						<Field.Root>
+							<Field.Label for="rated-individual" class="sr-only">Rated Soldier</Field.Label>
+							<Combobox.Root
+								items={personnelOptions}
+								bind:value={draft.ratedPersonId}
+								label="Rated Soldier"
+								autoHighlight
+								onValueChange={handleRatedPersonValueChange}
+							>
+								<Combobox.Trigger id="rated-individual" class="h-9" clearable placeholder="Search personnel..." />
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search personnel..." />
+									<Combobox.Empty>No personnel found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
+							{@render requiredError('ratedPerson', 'Rated Soldier is required.')}
+						</Field.Root>
+					</section>
 				{/if}
 
-				<section class="grid gap-3">
+				<section class="grid gap-3 border-b px-7 py-5.5">
 					{@render sectionTitle('Evaluation')}
 					<Field.Root>
 						<Field.Title id="eval-type-label">Type</Field.Title>
@@ -298,23 +326,26 @@
 							value={draft.reportType}
 							onValueChange={(value) => handleReportTypeValueChange(value as string)}
 						>
-							<Select.Trigger id="report-type" class="w-full">{view.reportTypeLabel}</Select.Trigger>
+							<Select.Trigger id="report-type" class="h-9 w-full">
+								{draft.reportType ? `${draft.reportType} · ${view.reportTypeLabel}` : view.reportTypeLabel}
+							</Select.Trigger>
 							<Select.Content>
 								{#each view.reportTypeOptions as opt (opt.value)}
-									<Select.Item value={opt.value} label={`${opt.value} - ${opt.label}`} />
+									<Select.Item value={opt.value} label={`${opt.value} · ${opt.label}`} />
 								{/each}
 							</Select.Content>
 						</Select.Root>
 					</Field.Root>
 				</section>
 
-				<section class="grid gap-3">
+				<section class="grid gap-3 border-b px-7 py-5.5">
 					{@render sectionTitle('Rating period')}
-					<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid grid-cols-2 gap-3">
 						<Field.Root>
 							<Field.Label for="period-start">Start</Field.Label>
 							<DatePicker
 								id="period-start"
+								class="h-9"
 								value={draft.ratingPeriodStart}
 								placeholder="Select start date"
 								onValueChange={handleRatingPeriodStartChange}
@@ -325,6 +356,7 @@
 							<Field.Label for="period-end">Thru</Field.Label>
 							<DatePicker
 								id="period-end"
+								class="h-9"
 								value={draft.ratingPeriodEnd}
 								placeholder="Select thru date"
 								onValueChange={handleRatingPeriodEndChange}
@@ -342,63 +374,66 @@
 					{/if}
 				</section>
 
-				<section class="grid gap-3">
+				<section class="grid gap-3 border-b px-7 py-5.5">
 					{@render sectionTitle('Rating chain')}
-					<Field.Root>
-						<Field.Label for="rater">Rater</Field.Label>
-						<EvaluatorField
-							id="rater"
-							label="Rater"
-							value={draft.rater}
-							people={personnelOptions}
-							onChange={(next) => (draft.rater = next)}
-						/>
-						{@render requiredError('rater', 'Rater is required.')}
-					</Field.Root>
+					{@render chainRow('Rater', 'rater', draft.rater, (next) => (draft.rater = next), {
+						field: 'rater',
+						message: 'Rater is required.'
+					})}
 					{#if draft.showIntermediate}
-						{@render optionalRole(
+						{@render chainRow(
 							'Intermediate rater',
 							'intermediate-rater',
-							() => removeIntermediateRaterFromDraft(draft),
 							draft.intermediateRater,
-							(next) => (draft.intermediateRater = next)
+							(next) => (draft.intermediateRater = next),
+							undefined,
+							() => removeIntermediateRaterFromDraft(draft)
 						)}
 					{/if}
-					<Field.Root>
-						<Field.Label for="senior-rater">Senior rater</Field.Label>
-						<EvaluatorField
-							id="senior-rater"
-							label="Senior rater"
-							value={draft.seniorRater}
-							people={personnelOptions}
-							onChange={(next) => (draft.seniorRater = next)}
-						/>
-						{@render requiredError('seniorRater', 'Senior rater is required.')}
-					</Field.Root>
+					{@render chainRow('Senior rater', 'senior-rater', draft.seniorRater, (next) => (draft.seniorRater = next), {
+						field: 'seniorRater',
+						message: 'Senior rater is required.'
+					})}
 					{#if draft.showReviewer}
-						{@render optionalRole(
+						{@render chainRow(
 							'Reviewer',
 							'reviewer',
-							() => removeReviewerFromDraft(draft),
 							draft.reviewer,
-							(next) => (draft.reviewer = next)
+							(next) => (draft.reviewer = next),
+							undefined,
+							() => removeReviewerFromDraft(draft)
 						)}
 					{/if}
+					<p class="text-[13px] text-muted-foreground sm:pl-[122px]">
+						Search the unit, or type a name that isn't in it to add an external rater.
+					</p>
 					{#if !draft.showIntermediate || !draft.showReviewer}
-						<div class="flex flex-wrap gap-x-4 gap-y-1">
+						<div class="flex flex-wrap gap-x-4 gap-y-1 sm:pl-[122px]">
 							{#if !draft.showIntermediate}
-								<Button variant="link" size="none" onclick={() => (draft.showIntermediate = true)}>
+								<Button
+									variant="link"
+									size="none"
+									class="text-sm underline"
+									onclick={() => (draft.showIntermediate = true)}
+								>
 									+ Intermediate rater
 								</Button>
 							{/if}
 							{#if !draft.showReviewer}
-								<Button variant="link" size="none" onclick={() => (draft.showReviewer = true)}>+ Reviewer</Button>
+								<Button
+									variant="link"
+									size="none"
+									class="text-sm underline"
+									onclick={() => (draft.showReviewer = true)}
+								>
+									+ Reviewer
+								</Button>
 							{/if}
 						</div>
 					{/if}
 				</section>
 
-				<section class="grid gap-3">
+				<section class="grid gap-3 px-7 py-5.5">
 					{@render sectionTitle('Tracking')}
 					<Field.Root>
 						<Field.Title id="entry-status-label">Status</Field.Title>
@@ -423,14 +458,21 @@
 						<Field.Root>
 							<div class="flex items-center justify-between gap-2">
 								<Field.Label for="workflow-status">Workflow step</Field.Label>
-								<Button variant="link" size="none" onclick={() => removeWorkflowFromDraft(draft)}>Stop tracking</Button>
+								<Button
+									variant="link"
+									size="none"
+									class="text-sm underline"
+									onclick={() => removeWorkflowFromDraft(draft)}
+								>
+									Stop tracking
+								</Button>
 							</div>
 							<Select.Root
 								type="single"
 								value={draft.workflowStatus}
 								onValueChange={(value) => handleWorkflowStatusValueChange(value as string)}
 							>
-								<Select.Trigger id="workflow-status" class="w-full">{view.workflowStatusLabel}</Select.Trigger>
+								<Select.Trigger id="workflow-status" class="h-9 w-full">{view.workflowStatusLabel}</Select.Trigger>
 								<Select.Content>
 									{#each view.filteredWorkflowOptions as opt (opt.value)}
 										<Select.Item value={opt.value} label={opt.label} />
@@ -439,7 +481,12 @@
 							</Select.Root>
 						</Field.Root>
 					{:else}
-						<Button variant="link" size="none" class="w-fit" onclick={() => (draft.showWorkflow = true)}>
+						<Button
+							variant="link"
+							size="none"
+							class="w-fit text-sm underline"
+							onclick={() => (draft.showWorkflow = true)}
+						>
 							+ Track workflow step
 						</Button>
 					{/if}

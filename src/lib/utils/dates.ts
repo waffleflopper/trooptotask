@@ -60,9 +60,9 @@ export function formatDayMonthYear(dateOnly: string): string {
 	return `${formatDayMonth(dateOnly)} ${dateOnly.slice(0, 4)}`;
 }
 
-/** "24 Sep 24" — day, month and two-digit year for tight columns */
+/** "08 Sep 24" — two-digit day, month and two-digit year, so a column of them lines up */
 export function formatDayMonthShortYear(dateOnly: string): string {
-	return `${formatDayMonth(dateOnly)} ${dateOnly.slice(2, 4)}`;
+	return `${formatDayMonth(dateOnly).padStart(6, '0')} ${dateOnly.slice(2, 4)}`;
 }
 
 /** "YYYY-MM-DD" — for form values and API data */

@@ -185,7 +185,8 @@
 		label: 'Search by Soldier or rater',
 		placeholder: 'Search Soldier or rater...',
 		value: ctx.searchQuery,
-		onValueChange: (value) => (ctx.searchQuery = value)
+		onValueChange: (value) => (ctx.searchQuery = value),
+		ownRowBelow: 'sm'
 	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
 	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
@@ -194,6 +195,8 @@
 					kind: 'action',
 					id: 'add-entry',
 					label: 'Add Entry',
+					icon: 'plus',
+					iconOnlyBelow: 'sm',
 					onclick: () => ctx.handleAddRatingEntry(),
 					disabled: !canUseRatingSchemeWriteActions,
 					disabledReason: canUseRatingSchemeWriteActions ? undefined : ratingSchemeWriteAffordance.explanation
@@ -207,16 +210,19 @@
 </svelte:head>
 
 {#snippet headerCounts()}
-	<span class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-		<span><span class="font-semibold text-foreground tabular-nums">{ctx.activeEntryCount}</span> active</span>
-		<span class={ratingDueTone.overdue.text}>
-			<span class="font-semibold tabular-nums">{ratingStats.overdue}</span> past thru
+	<span class="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[15px]">
+		<span><span class="tabular-nums">{ctx.activeEntryCount}</span> active</span>
+		<span class="h-3.5 w-px bg-border max-sm:hidden" aria-hidden="true"></span>
+		<span class="font-semibold {ratingDueTone.overdue.text}">
+			<span class="tabular-nums">{ratingStats.overdue}</span> past thru
 		</span>
-		<span class={ratingDueTone['due-30'].text}>
-			<span class="font-semibold tabular-nums">{ratingStats['due-30']}</span> thru in 30 days
+		<span class="h-3.5 w-px bg-border max-sm:hidden" aria-hidden="true"></span>
+		<span class="font-semibold {ratingDueTone['due-30'].text}">
+			<span class="tabular-nums">{ratingStats['due-30']}</span> thru in 30 days
 		</span>
-		<span class={ratingDueTone['due-60'].text}>
-			<span class="font-semibold tabular-nums">{ratingStats['due-60']}</span> thru in 31 to 60 days
+		<span class="h-3.5 w-px bg-border max-sm:hidden" aria-hidden="true"></span>
+		<span class="font-semibold {ratingDueTone['due-60'].text}">
+			<span class="tabular-nums">{ratingStats['due-60']}</span> thru in 31 to 60 days
 		</span>
 	</span>
 {/snippet}
@@ -240,6 +246,7 @@
 	{:else}
 		<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
 			<PageShell.Header
+				variant="display"
 				eyebrow="Rating scheme · {ctx.orgName}"
 				title="Evals"
 				subtitle={headerCounts}

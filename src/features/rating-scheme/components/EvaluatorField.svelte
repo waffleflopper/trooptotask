@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import * as Command from '$lib/components/ui/command';
 	import { setEvaluatorFromPicker, type EvaluatorDraft } from '../utils/ratingSchemeEntryDraft';
@@ -10,9 +9,10 @@
 		value: EvaluatorDraft;
 		people: { value: string; label: string }[];
 		onChange: (next: EvaluatorDraft) => void;
+		class?: string;
 	}
 
-	let { id, label, value, people, onChange }: Props = $props();
+	let { id, label, value, people, onChange, class: className }: Props = $props();
 
 	// No person id starts with this; the option's value carries the typed name.
 	const EXTERNAL_PREFIX = '\u0000external:';
@@ -40,16 +40,16 @@
 </script>
 
 <Combobox.Root {items} value={selected} bind:search {label} autoHighlight onValueChange={handleValueChange}>
-	<Combobox.Trigger {id} clearable placeholder="Search unit or type a name">
+	<Combobox.Trigger {id} class={className} clearable placeholder="Search unit or type a name">
 		{#if value.kind === 'person'}
 			<span class="flex min-w-0 items-center gap-2">
 				<span class="truncate">{personLabel}</span>
-				<span class="shrink-0 text-xs text-muted-foreground">In unit</span>
+				<span class="shrink-0 font-mono text-[11px] text-muted-foreground">In unit</span>
 			</span>
 		{:else if value.kind === 'external'}
 			<span class="flex min-w-0 items-center gap-2">
 				<span class="truncate">{value.name}</span>
-				<Badge variant="warning">External</Badge>
+				<span class="shrink-0 font-mono text-[11px] text-expiring-foreground">External</span>
 			</span>
 		{:else}
 			<span class="text-muted-foreground">Search unit or type a name</span>

@@ -367,10 +367,8 @@ describe('WorkspaceToolbar', () => {
 			const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
 			expect(searchRow()?.contains(field)).toBe(true);
 			expect(toolbar().querySelector('[data-toolbar-row]')?.contains(field)).toBe(false);
-			expect(
-				searchRow()?.compareDocumentPosition(toolbar().querySelector('[data-toolbar-row]') as Node) &
-					Node.DOCUMENT_POSITION_FOLLOWING
-			).toBeTruthy();
+			const row = toolbar().querySelector('[data-toolbar-row]') as Node;
+			expect((searchRow() as Node).compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 			expect(within(toolbar()).queryByRole('button', { name: 'Search roster' })).toBeNull();
 			expect(within(toolbar()).getByRole('group', { name: 'View mode' })).toBeTruthy();
 			expect(within(toolbar()).getByRole('button', { name: 'More Roster controls' })).toBeTruthy();

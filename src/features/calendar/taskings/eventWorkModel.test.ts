@@ -22,6 +22,7 @@ function tasking(id: string, title: string, suspenseOn: string, extra: Partial<T
 		requirement: null,
 		instructions: null,
 		status: { kind: 'open' },
+		readiness: { equipment: null, checklist: null },
 		...extra
 	};
 }

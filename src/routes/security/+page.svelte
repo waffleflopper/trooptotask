@@ -101,8 +101,8 @@
 			Hosted in the United States on providers with established security programs, with controls mapped to NIST SP
 			800-171 Rev 2.
 		</PublicHeading>
-		<div class="flex flex-col gap-12 lg:flex-row lg:items-start lg:justify-between lg:gap-16">
-			<div class="min-w-0 lg:w-[560px] lg:shrink-0">
+		<div class="flex flex-col gap-12 xl:flex-row xl:items-start xl:justify-between xl:gap-16">
+			<div class="min-w-0 xl:w-[560px] xl:shrink-0">
 				<h3
 					class="{monoLabel} m-0 flex h-12 items-center border-b border-chrome-border font-normal text-chrome-text-muted"
 				>
@@ -122,7 +122,7 @@
 					{/each}
 				</dl>
 			</div>
-			<div class="min-w-0 lg:w-[600px] lg:shrink-0">
+			<div class="min-w-0 xl:w-[600px] xl:shrink-0">
 				<h3
 					class="{monoLabel} m-0 flex h-12 items-center border-b border-chrome-border font-normal text-chrome-text-muted"
 				>
@@ -141,15 +141,15 @@
 	</PublicSection>
 
 	<PublicSection>
-		<div class="flex flex-col gap-12 lg:flex-row lg:justify-between lg:gap-16">
-			<div class="flex flex-col gap-12 lg:w-[420px] lg:shrink-0">
+		<div class="flex flex-col gap-12 xl:flex-row xl:justify-between xl:gap-16">
+			<div class="flex flex-col gap-12 xl:w-[420px] xl:shrink-0">
 				<PublicHeading label="Compliance and use" lines={['Use it with', 'judgment.']} />
 				<p class="m-0 font-body text-lg leading-7 font-light text-muted-foreground">
 					FedRAMP and formal federal procurement are a separate review. They do not, by themselves, decide whether a
 					tool is useful, secure and workable inside your local policy and approval chain.
 				</p>
 			</div>
-			<div class="min-w-0 border-t-2 border-foreground lg:w-[764px] lg:shrink-0">
+			<div class="min-w-0 border-t-2 border-foreground xl:w-[764px] xl:shrink-0">
 				<h3
 					class="{monoLabel} m-0 flex min-h-12 items-center border-b border-border py-3 font-normal text-muted-foreground"
 				>

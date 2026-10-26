@@ -17,7 +17,7 @@
 	const dark = $derived(tone === 'dark');
 </script>
 
-<div class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between lg:gap-20">
+<div class="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between xl:gap-20">
 	<div class="flex flex-col gap-6">
 		<div class={cn(monoLabel, 'tracking-[0.14em]', dark ? 'text-chrome-accent' : 'text-accent-text')}>{label}</div>
 		<svelte:element
@@ -33,7 +33,7 @@
 	{#if children}
 		<div
 			class={cn(
-				'font-body text-lg leading-7 font-light lg:w-[420px] lg:shrink-0',
+				'font-body text-lg leading-7 font-light xl:w-[420px] xl:shrink-0',
 				dark ? 'text-chrome-text-muted' : 'text-muted-foreground'
 			)}
 		>

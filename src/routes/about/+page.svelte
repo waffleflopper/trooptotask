@@ -56,8 +56,8 @@
 </svelte:head>
 
 <PublicShell signedIn={data.signedIn} active="about">
-	<PublicSection tone="dark" class="gap-12 lg:flex-row lg:items-end lg:justify-between lg:gap-20">
-		<div class="flex min-w-0 flex-col gap-12 lg:grow">
+	<PublicSection tone="dark" class="gap-12 xl:flex-row xl:items-end xl:justify-between xl:gap-20">
+		<div class="flex min-w-0 flex-col gap-12 xl:grow">
 			<PublicHeading
 				label="About · Built from the orderly room"
 				lines={['Built by a leader', 'who lived the problem.']}
@@ -160,8 +160,8 @@
 		</div>
 	</PublicSection>
 
-	<PublicSection class="lg:flex-row lg:justify-between lg:gap-16">
-		<div class="flex flex-col gap-12 lg:w-[420px] lg:shrink-0">
+	<PublicSection class="xl:flex-row xl:justify-between xl:gap-16">
+		<div class="flex flex-col gap-12 xl:w-[420px] xl:shrink-0">
 			<PublicHeading label="Shaped by real feedback" lines={['One builder.', 'Real users.']} />
 			<div class="flex flex-col gap-5">
 				<p class="{bodyClass} text-foreground">
@@ -173,7 +173,7 @@
 				</p>
 			</div>
 		</div>
-		<div class="min-w-0 self-start border-t-2 border-foreground lg:w-[764px] lg:shrink-0">
+		<div class="min-w-0 self-start border-t-2 border-foreground xl:w-[764px] xl:shrink-0">
 			<ul class="m-0 list-none p-0">
 				{#each isNot as item (item)}
 					<li

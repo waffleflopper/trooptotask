@@ -20,7 +20,9 @@
 		type TaskingStaffing
 	} from '../staffingModel';
 	import { saveStaffingRequest } from '../staffingRequests';
+	import { availabilityTargets } from '../availabilityPrefill';
 	import AssignPeopleDialog from './AssignPeopleDialog.svelte';
+	import SetAvailability from './SetAvailability.svelte';
 	import { groupLabel, reviewLabel } from './staffingLabels';
 
 	interface Props {
@@ -29,9 +31,14 @@
 		groups: GroupLabels;
 		people: Promise<EventRead<TaskingStaffing>>;
 		canManage: boolean;
+		orgUrlSegment: string;
+		/** Whether the reader may set Availability for a Person in this Group, under Bulk Status's rules. */
+		canSetAvailability: (groupId: string | null) => boolean;
+		availabilityGaps: Promise<EventRead<string[]>>;
 	}
 
-	let { orgId, tasking, groups, people, canManage }: Props = $props();
+	let { orgId, tasking, groups, people, canManage, orgUrlSegment, canSetAvailability, availabilityGaps }: Props =
+		$props();
 
 	const streamed = new StreamedValue(() => people);
 	// A save answers with the stored selection; it stands until the refreshed load arrives.
@@ -171,6 +178,13 @@
 				People under review stay on the list but do not count toward the requirement until someone keeps or removes
 				them.
 			</p>
+		{/if}
+	{/if}
+
+	{#if typeof staffing === 'object' && staffing !== null && tasking.execution && isEditable(tasking)}
+		{@const targets = availabilityTargets(staffing.picks, canSetAvailability)}
+		{#if targets.length > 0}
+			<SetAvailability {orgUrlSegment} {tasking} execution={tasking.execution} {targets} gaps={availabilityGaps} />
 		{/if}
 	{/if}
 </section>

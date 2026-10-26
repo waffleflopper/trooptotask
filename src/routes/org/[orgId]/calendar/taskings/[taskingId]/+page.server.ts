@@ -1,6 +1,7 @@
 import {
 	listTaskingActivity,
 	loadTaskingChoices,
+	loadTaskingAvailabilityGaps,
 	loadTaskingDetail,
 	loadTaskingStaffing,
 	loadTaskingLists,
@@ -26,6 +27,7 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 			detail: settleEventRead(loadTaskingDetail(ctx, params.taskingId)),
 			activity: settleEventRead(listTaskingActivity(ctx, params.taskingId)),
 			people: settleEventRead(loadTaskingStaffing(ctx, params.taskingId)),
+			availabilityGaps: settleEventRead(loadTaskingAvailabilityGaps(ctx, params.taskingId)),
 			lists: settleEventRead(loadTaskingLists(ctx, params.taskingId)),
 			choices: settleEventRead(loadTaskingChoices(ctx, today))
 		})

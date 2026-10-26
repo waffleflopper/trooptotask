@@ -123,6 +123,26 @@ describe('BulkStatusPage', () => {
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
+	it('returns to the Tasking that asked for the prefill, and to the Calendar otherwise', () => {
+		const tasking = '00000000-0000-4000-8000-000000000101';
+		pageMock.url = new URL(
+			`http://localhost/org/org-1/calendar/bulk?tab=add&tasking=${tasking}&people=00000000-0000-4000-8000-000000000501&from=2030-10-19&to=2030-10-23`
+		);
+		const { unmount } = renderPage();
+
+		expect(screen.getByRole('link', { name: 'Back to tasking' }).getAttribute('href')).toBe(
+			`/org/org-1/calendar/taskings/${tasking}`
+		);
+
+		unmount();
+		pageMock.url = new URL(
+			'http://localhost/org/org-1/calendar/bulk?tab=add&tasking=../../admin&from=2030-10-19&to=2030-10-23'
+		);
+		renderPage();
+
+		expect(screen.getByRole('link', { name: 'Back to calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
+	});
+
 	it('switches tabs without resetting focus or scroll, and replaces the history entry', async () => {
 		renderPage();
 

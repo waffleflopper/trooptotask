@@ -5,6 +5,7 @@
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
+	import { readAvailabilityPrefill, taskingHref } from '$features/calendar/taskings/staffing/availabilityPrefill';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import type { CalendarOperationsPageAccess } from '../contracts';
@@ -59,6 +60,11 @@
 		return 'add';
 	});
 
+	// Only the Add form takes a prefill; it travels in the link so a reload keeps it.
+	const prefill = $derived(activeTab === 'add' ? readAvailabilityPrefill(page.url.searchParams) : null);
+	const prefillKey = $derived(prefill ? JSON.stringify(prefill) : '');
+	const backHref = $derived(prefill ? taskingHref(orgUrlSegment, prefill.taskingId) : `/org/${orgUrlSegment}/calendar`);
+
 	function switchTab(tab: string) {
 		// A single toggle group emits '' when the pressed item is clicked again.
 		if (!TABS.some((option) => option.value === tab)) return;
@@ -95,6 +101,8 @@
 		active = false;
 	});
 
+	let applyingOrgId = '';
+
 	async function handleBulkApply(
 		personnelIds: string[],
 		statusTypeId: string,
@@ -102,6 +110,7 @@
 		endDate: string,
 		note: string | null
 	): Promise<string[]> {
+		applyingOrgId = data.orgId;
 		const inserted = await availabilityStore.addBatch(
 			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note)
 		);
@@ -131,6 +140,14 @@
 	}
 
 	function handleComplete() {
+		const returnTo = prefill && active && data.orgId === applyingOrgId ? backHref : null;
+		// An invalidation cancels a navigation started before it, so leave first.
+		if (returnTo) {
+			void goto(resolve(returnTo as `/org/${string}/calendar/taskings/${string}`)).then(() =>
+				invalidate('app:calendar-data')
+			);
+			return;
+		}
 		invalidate('app:calendar-data');
 	}
 </script>
@@ -150,9 +167,9 @@
 					{/each}
 				</ToggleGroup.Root>
 			{/if}
-			<Button variant="outline" size="sm" href={`/org/${orgUrlSegment}/calendar`}>
+			<Button variant="outline" size="sm" href={backHref}>
 				<ArrowLeftIcon aria-hidden="true" />
-				Back to calendar
+				{prefill ? 'Back to tasking' : 'Back to calendar'}
 			</Button>
 		{/snippet}
 	</PageShell.Header>
@@ -165,15 +182,18 @@
 	{:else}
 		<div class="min-w-0">
 			{#if activeTab === 'add'}
-				<BulkStatusAdd
-					personnelByGroup={scopedPBG}
-					statusTypes={statusTypesStore.items}
-					availabilityEntries={availabilityStore.items}
-					orgId={data.orgId}
-					{rangeCoordinator}
-					onApply={handleBulkApply}
-					onComplete={handleComplete}
-				/>
+				{#key prefillKey}
+					<BulkStatusAdd
+						personnelByGroup={scopedPBG}
+						statusTypes={statusTypesStore.items}
+						availabilityEntries={availabilityStore.items}
+						orgId={data.orgId}
+						{rangeCoordinator}
+						onApply={handleBulkApply}
+						onComplete={handleComplete}
+						{prefill}
+					/>
+				{/key}
 			{:else if activeTab === 'remove'}
 				<BulkStatusRemove
 					personnelByGroup={scopedPBG}

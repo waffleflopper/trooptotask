@@ -19,6 +19,7 @@
 	import type { CalendarSpan } from '$features/calendar/utils/calendarBars';
 	import { projectBulkRosterAvailability } from '$features/calendar/utils/bulkRosterAvailability';
 	import { dayWindow, toDayNumber } from '$lib/utils/dayNumber';
+	import type { AvailabilityPrefill } from '$features/calendar/taskings/staffing/availabilityPrefill';
 	import BulkStepHeading from './BulkStepHeading.svelte';
 	import RosterPicker from './RosterPicker.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -46,20 +47,38 @@
 			note: string | null
 		) => Promise<string[]>;
 		onComplete: () => void;
+		/** People and dates a Tasking asks for; only those on this roster are selected. */
+		prefill?: AvailabilityPrefill | null;
 	}
 
-	let { personnelByGroup, statusTypes, availabilityEntries, orgId, rangeCoordinator, onApply, onComplete }: Props =
-		$props();
+	let {
+		personnelByGroup,
+		statusTypes,
+		availabilityEntries,
+		orgId,
+		rangeCoordinator,
+		onApply,
+		onComplete,
+		prefill = null
+	}: Props = $props();
 
 	const todayStr = formatDate(new Date());
 	let statusSelection = $state('');
-	let startDate = $state(todayStr);
-	let endDate = $state(todayStr);
+	// The prefill is read once; a different one remounts this form.
+	// svelte-ignore state_referenced_locally
+	let startDate = $state(prefill?.startDate ?? todayStr);
+	// svelte-ignore state_referenced_locally
+	let endDate = $state(prefill?.endDate ?? todayStr);
 	let note = $state('');
 	let isSubmitting = $state(false);
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
+	function selectPrefilled() {
+		const wanted = new Set(prefill?.personnelIds);
+		for (const person of allPersonnel) if (wanted.has(person.id)) selection.toggleRow(person, 0, true);
+	}
+	selectPrefilled();
 
 	const statusId = $derived(
 		statusTypes.some((s) => s.id === statusSelection) ? statusSelection : (statusTypes[0]?.id ?? '')
@@ -149,6 +168,15 @@
 		}
 	}
 </script>
+
+{#if prefill}
+	<Alert.Root class="mb-4">
+		<Alert.Description>
+			Prefilled from a tasking’s picked people and execution dates. These become ordinary Availability entries, and
+			changing who is picked later does not update them.
+		</Alert.Description>
+	</Alert.Root>
+{/if}
 
 <div class="grid items-start gap-6 min-[1101px]:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
 	<Card.Root class="min-[1101px]:sticky min-[1101px]:top-20">

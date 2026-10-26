@@ -1,0 +1,75 @@
+// @vitest-environment happy-dom
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import BulkStatusPage from './BulkStatusPage.svelte';
+
+const { gotoMock, invalidateMock, pageMock } = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
+	invalidateMock: vi.fn(),
+	pageMock: { url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add') }
+}));
+
+const access = createClientAccess(() => ({
+	membershipRole: 'member',
+	capabilityMap: createCapabilityMap('configure')
+}));
+const org = {
+	orgUrlSegment: 'org-1',
+	scopeSet: access.scopeSet,
+	affordanceForFeatureAction: access.affordanceForFeatureAction
+};
+
+vi.mock('$app/navigation', () => ({ goto: gotoMock, invalidate: invalidateMock, invalidateAll: vi.fn() }));
+vi.mock('$app/state', () => ({ page: pageMock }));
+vi.mock('./BulkStatusAdd.svelte', async () => ({
+	default: (await import('../test-support/BulkStatusAddFinishStub.svelte')).default
+}));
+vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({ statusTypesStore: { items: [] } }));
+vi.mock('$features/calendar/stores/availability.svelte', () => ({
+	availabilityStore: { items: [], addBatch: vi.fn(async () => [{ personnelId: 'person-1' }]), removeBatch: vi.fn() }
+}));
+vi.mock('$features/personnel', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/personnel')>()),
+	pinnedGroupsStore: { list: [] }
+}));
+
+const TASKING = '00000000-0000-4000-8000-000000000101';
+
+function renderPage() {
+	return render(BulkStatusPage, {
+		props: { org, data: { orgId: 'org-1', orgName: 'Test Unit', personnel: [], allPersonnel: [] } }
+	});
+}
+
+describe('BulkStatusPage after a prefilled save', () => {
+	beforeEach(() => {
+		cleanup();
+		gotoMock.mockReset().mockResolvedValue(undefined);
+		invalidateMock.mockReset().mockResolvedValue(undefined);
+	});
+
+	it('lands back on the Tasking, then refreshes the Calendar data', async () => {
+		pageMock.url = new URL(
+			`http://localhost/org/org-1/calendar/bulk?tab=add&tasking=${TASKING}&from=2030-10-19&to=2030-10-23`
+		);
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:calendar-data'));
+		expect(gotoMock).toHaveBeenCalledExactlyOnceWith(`/org/org-1/calendar/taskings/${TASKING}`);
+		expect(gotoMock.mock.invocationCallOrder[0]).toBeLessThan(invalidateMock.mock.invocationCallOrder[0]);
+	});
+
+	it('stays on Bulk Status when nothing asked for a return', async () => {
+		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=add');
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:calendar-data'));
+		expect(gotoMock).not.toHaveBeenCalled();
+	});
+});

@@ -388,3 +388,55 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
 11. **Export and activity.** The JSON export holds `calendarTaskingEquipment` and `calendarTaskingChecklistItems`; the
     Excel `Tasking Equipment` and `Tasking Checklist` sheets name each Tasking by its outcome and each completer by
     email. Settings › Logs reads `Added equipment Litters on Provide four trauma-lane medics` and its siblings.
+
+## Set availability
+
+Below `People`, a Tasking that has execution dates and at least one pick that counts offers `Set availability…`. It
+opens Bulk Status Add with those people and dates filled in; the leader picks the status and saves through Bulk Status's
+own validation and write. Left of it, one quiet line counts the picked people whose Availability entries do not together
+cover every execution day: `N of M picked people have no Availability covering every execution day.`, or
+`Availability covers every execution day for everyone picked.` It is derived on every load from one read of the
+Tasking's picks and dates, never stored, and never creates anything. Picks under review and archived people are left
+out. Only people the reader may write Availability for are counted and prefilled, so a viewer sees neither the line nor
+the action, and a Group-scoped operator is told only about their Groups. A completed or cancelled Tasking offers
+neither. The line has its own skeleton and load error with `Retry`, and `People` stays usable when it fails.
+
+### Driving it
+
+As `calendarOperate`, create an Organization Tasking executing 27 – 29 Oct 2026 and an Alpha Tasking, then `PUT` picks
+to `/org/A/api/calendar-taskings/ID/people` with `{ personnelIds, keep: [], removeOutsideScope: false,
+expectedRevision: 0 }`: SPC Able, SPC Baker and SPC Unassigned on the Organization Tasking, Able on the Alpha one. The
+fixture's Baker has `Verification Training` 25 – 27 Oct, which covers one day only.
+
+1. **Action and advisory.** At 1440 the Organization Tasking's `People` section ends with
+   `3 of 3 picked people have no Availability covering every execution day.` and `Set availability…`. The link carries
+   `tab=add`, `tasking`, `people` (the three ids) and `from=2026-10-27&to=2026-10-29`.
+2. **Prefill.** Following it opens `Bulk status` with the note above the steps, `Back to tasking`, the dates
+   `Oct 27, 2026` to `Oct 29, 2026` and all three people ticked (`3 of 3 selected`); Baker carries
+   `VERIFICATION TRAINING 25–27 OCT OVERLAPS`. With `Verification Leave` chosen press `Add to 3 people`.
+3. **Return and clearing.** The page lands on the Tasking and the line reads
+   `Availability covers every execution day for everyone picked.` `$V rows availability_entries orgA` has three new
+   Leave rows for 2026-10-27 to 2026-10-29 with no Tasking reference, and the Calendar month shows their bars on
+   27 – 29 Oct. Editing the picks afterwards changes none of them.
+4. **Part covered.** Create a Tasking executing 27 – 31 Oct with the same three picks. The line reads
+   `3 of 3 …`. Open Set availability, choose `Verification Training` (Baker is disabled as already on it), save: back on
+   the Tasking the line reads `1 of 3 picked people have no Availability covering every execution day.`
+5. **Failed check.** In the disposable database only, rename `public.calendar_tasking_availability_gaps` and load the
+   Tasking. `Availability could not be checked.` with `Retry` replaces the line, `People` still lists everyone and
+   `Set availability…` still works. Rename it back and press `Retry`: the line returns. To see the skeleton, wrap the
+   function in one that sleeps four seconds, open the Tasking from the list and sample at 100 ms: the loading region
+   stays until it settles, and the row height and the `Equipment` heading's top do not move.
+6. **Widths.** Capture the Tasking and the prefilled Bulk Status at 1440, 900 and 390. At 390 the line wraps over two
+   lines and `Set availability…` sits under it, in the same place as the skeleton; `scrollWidth` equals the viewport.
+   Focus the link with the keyboard and press Enter: it opens the same prefilled page.
+7. **Scoped operator.** As `calendarScoped` the Alpha Tasking offers the action for Able only (`people=` holds one id)
+   and the Organization Tasking reads `This tasking is not available`. Opening Bulk Status with Able, Baker, Unassigned
+   and a junk id in `people` ticks only Able (`1 of 1 selected`) and ignores the rest.
+8. **Read-only.** As `calendarView` the Organization Tasking shows `People` with no line and no action, and Bulk Status
+   with a prefill link reads `Access restricted.`
+9. **No dates, closed.** A Tasking without execution dates, a completed one and one whose picks are all under review
+   show neither the line nor the action.
+
+`src/features/calendar/taskings/staffing/` tests cover the link, the prefill parser and the action's states;
+`supabase/tests/calendar_tasking_availability_gaps.sql` covers coverage across adjacent, overlapping and nested entries,
+review exclusion, scope and the feature switch as ordinary signed-in users.

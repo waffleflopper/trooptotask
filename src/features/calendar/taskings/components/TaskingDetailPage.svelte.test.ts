@@ -48,6 +48,7 @@ describe('TaskingDetailPage', () => {
 			detail: Promise.resolve(detail),
 			activity: Promise.resolve(activity),
 			people: new Promise<EventRead<TaskingStaffing>>(() => {}),
+			availabilityGaps: new Promise<EventRead<string[]>>(() => {}),
 			lists: Promise.resolve(lists),
 			choices: new Promise<EventRead<TaskingChoices | null>>((resolve) => (resolveChoices = resolve))
 		});

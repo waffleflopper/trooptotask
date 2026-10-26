@@ -131,6 +131,10 @@ export {
 	saveTaskingPeople
 } from './taskings/staffing/staffingOperations.server';
 export {
+	createSupabaseCalendarAvailabilityGaps,
+	loadTaskingAvailabilityGaps
+} from './taskings/staffing/availabilityGaps.server';
+export {
 	createSupabaseCalendarStaffingPersistence,
 	createSupabaseCalendarDeletionReferences
 } from './taskings/staffing/staffingPersistence.server';

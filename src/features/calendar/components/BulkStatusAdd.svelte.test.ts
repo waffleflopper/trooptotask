@@ -74,6 +74,7 @@ function renderAdd(
 		onComplete?: () => void;
 		loadRange?: NonNullable<ConstructorParameters<typeof CalendarRangeCoordinator>[0]>['loadRange'];
 		loaded?: boolean;
+		prefill?: ComponentProps<typeof BulkStatusAdd>['prefill'];
 	} = {}
 ) {
 	const onApply = options.onApply ?? vi.fn<Apply>();
@@ -96,7 +97,8 @@ function renderAdd(
 			orgId: 'org-1',
 			rangeCoordinator,
 			onApply,
-			onComplete
+			onComplete,
+			prefill: options.prefill
 		}
 	});
 	return { onApply, onComplete, rangeCoordinator };
@@ -308,4 +310,39 @@ it('shows the overlap warning only for the people who would be added', async () 
 	await fireEvent.click(checkbox('Select SPC Baker, Pat'));
 
 	expect(within(summary).queryByText(/Training/)).toBeNull();
+});
+
+it('opens with the Tasking’s people and dates, drops people off this roster, and saves them as ordinary entries', async () => {
+	vi.spyOn(toastStore, 'success').mockImplementation(() => 'success-toast');
+	const onApply = vi.fn<Apply>().mockResolvedValue([able.id, baker.id]);
+	const { onComplete } = renderAdd({
+		onApply,
+		prefill: {
+			taskingId: 'tasking-1',
+			personnelIds: [able.id, baker.id, 'person-not-on-roster'],
+			startDate: '2026-10-05',
+			endDate: '2026-10-07'
+		}
+	});
+
+	expect((screen.getByLabelText('Start date') as HTMLInputElement).value).toBe('2026-10-05');
+	expect((screen.getByLabelText('End date') as HTMLInputElement).value).toBe('2026-10-07');
+	expect(checkbox('Select SPC Able, Pat').getAttribute('aria-checked')).toBe('true');
+	expect(checkbox('Select SPC Baker, Pat').getAttribute('aria-checked')).toBe('true');
+	expect(checkbox('Select SPC Cole, Pat').getAttribute('aria-checked')).toBe('false');
+	expect(screen.getByText(/changing who is picked later does not update them/)).toBeTruthy();
+
+	await fireEvent.click(chip('Training'));
+	await waitFor(() => expect(addButton().disabled).toBe(false));
+	await fireEvent.click(addButton());
+
+	await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+	expect(onApply).toHaveBeenCalledExactlyOnceWith([able.id, baker.id], 'training', '2026-10-05', '2026-10-07', null);
+});
+
+it('says nothing about a Tasking when none asked', () => {
+	renderAdd();
+
+	expect(screen.queryByText(/changing who is picked later/)).toBeNull();
+	expect(checkbox('Select SPC Able, Pat').getAttribute('aria-checked')).toBe('false');
 });

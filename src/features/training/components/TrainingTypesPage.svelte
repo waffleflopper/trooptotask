@@ -52,8 +52,9 @@
 	let sheet = $state.raw<Sheet | null>(null);
 	let focusAfterClose: () => HTMLElement | null | undefined = () => undefined;
 	type OrderRequest = { orgId: string; ids: string[] };
+	// The order shown while saving. Moves made during a save replace it and go out as one follow-up save.
 	let pendingOrder = $state.raw<OrderRequest | null>(null);
-	const reordering = $derived(pendingOrder?.orgId === org.orgId);
+	let orderInFlight = false;
 	let alive = true;
 	onDestroy(() => {
 		alive = false;
@@ -131,40 +132,46 @@
 		openSheet({ type }, rowButton(type.id) ?? null);
 	}
 
-	async function move(id: string, toIndex: number) {
-		if (reordering) return;
+	function move(id: string, toIndex: number) {
 		const next = rows.filter((type) => type.id !== id);
 		const moved = rows.find((type) => type.id === id);
 		if (!moved) return;
 		next.splice(toIndex, 0, moved);
 		const ids = next.map((type) => type.id);
-		const expectedTrainingTypeIds = orderedTypes.map((type) => type.id);
-		if (ids.every((id, index) => id === expectedTrainingTypeIds[index])) return;
-		const request = { orgId: org.orgId, ids };
-		pendingOrder = request;
-		const stillHere = () => alive && org.orgId === request.orgId && pendingOrder === request;
+		if (ids.every((id, index) => id === rows[index]?.id)) return;
+		pendingOrder = { orgId: org.orgId, ids };
+		if (!orderInFlight) void saveOrder(org.orgId);
+	}
+
+	async function saveOrder(orgId: string) {
+		orderInFlight = true;
+		const stillHere = () => alive && org.orgId === orgId;
 		try {
-			const response = await fetch(`/org/${request.orgId}/api/training-types/order`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ trainingTypeIds: ids, expectedTrainingTypeIds })
-			});
-			if (!stillHere()) return;
-			if (!response.ok) throw new Error('Order was not saved');
-			const positions = new Map(ids.map((id, sortOrder) => [id, sortOrder]));
-			trainingTypesStore.updateLocalWhere(
-				(type) => positions.has(type.id),
-				(type) => ({
-					...type,
-					sortOrder: positions.get(type.id) ?? type.sortOrder
-				})
-			);
+			while (stillHere() && pendingOrder?.orgId === orgId) {
+				const request = pendingOrder;
+				const expectedTrainingTypeIds = orderedTypes.map((type) => type.id);
+				if (request.ids.every((id, index) => id === expectedTrainingTypeIds[index])) break;
+				const response = await fetch(`/org/${orgId}/api/training-types/order`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ trainingTypeIds: request.ids, expectedTrainingTypeIds })
+				});
+				if (!stillHere()) return;
+				if (!response.ok) throw new Error('Order was not saved');
+				const positions = new Map(request.ids.map((id, sortOrder) => [id, sortOrder]));
+				trainingTypesStore.updateLocalWhere(
+					(type) => positions.has(type.id),
+					(type) => ({ ...type, sortOrder: positions.get(type.id) ?? type.sortOrder })
+				);
+			}
+			if (stillHere()) pendingOrder = null;
 		} catch {
 			if (!stillHere()) return;
+			pendingOrder = null;
 			toastStore.error('Failed to save the training type order. Reloading the saved order.');
 			await invalidate('app:training-data');
 		} finally {
-			if (stillHere()) pendingOrder = null;
+			orderInFlight = false;
 		}
 	}
 </script>

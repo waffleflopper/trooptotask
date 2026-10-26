@@ -74,6 +74,8 @@ Focus View orders Targeted before Required and omits Optional.
      (31 after the seeded 10, 20, 30).
    - Card date: `Date on the card`. The row reads `Date on the card`; the stored `expiration_date_only` is true.
    - Never: `Never expires`. The row reads `Never expires` with `—` under `Warns at`.
+   - Before creating the months type, set Good for `24` and First warning `90`, choose `Date on the card`, set Final
+     warning `45`, choose `Never expires`, then `Every few months` again: the fields read `24`, `90` and `45`.
 
    Edit one of them: under `Who needs it` choose `Only some`, add an MOS chip `68W` under `Only` and a role chip under
    `Except` through `+ Add an exception`, then choose `Save changes`. The sheet closes, focus returns to that row's name
@@ -153,7 +155,10 @@ Focus View orders Targeted before Required and omits Optional.
    `$V rows training_types orgA name MARKER` to be absent, with focus on the `New type` button. Reorder: grab a row's
    grip (`Reorder <name>`) and press ArrowUp, or drag it with
    `$V pointer drag PAGE URL '[aria-label="Reorder <name>"]' '[aria-label="Reorder <other>"]'`; the row moves up and the
-   matrix column order follows after a reload, and `training_types.sort_order` reads the new order. Repeat
+   matrix column order follows after a reload, and `training_types.sort_order` reads the new order. With
+   `$V network arm-hold $PAGE training-types/order`, press ArrowUp twice on the same grip: the row moves up two places
+   at once and only one `PUT` is sent. After `$V network release $PAGE` (release again if the follow-up is held),
+   `$V network state $PAGE` lists two `PUT`s with `200`, and `sort_order` reads the row two places up. Repeat
    add/edit/cancel-then-confirm delete for a temporary view in the `Manage views` sheet: `Delete view` opens the
    `Delete Saved View` alertdialog, Cancel keeps the editor, and Delete returns to the list without the view. Capture
    the Types page and the sheet at 1440, 1024 and 390 wide once; the Types table stacks each row into two lines below a

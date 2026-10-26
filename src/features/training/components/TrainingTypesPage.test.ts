@@ -272,6 +272,24 @@ describe('TrainingTypesPage', () => {
 			expect(screen.queryByRole('spinbutton', { name: 'First warning' })).toBeNull();
 		});
 
+		it('brings back typed renewal values after switching how the type renews and back', async () => {
+			mount();
+			await fireEvent.click(screen.getByRole('button', { name: 'New type' }));
+			await fireEvent.input(numberField('Good for'), { target: { value: '24' } });
+			await fireEvent.input(numberField('First warning'), { target: { value: '90' } });
+
+			await fireEvent.click(screen.getByRole('radio', { name: 'Date on the card' }));
+			await fireEvent.input(numberField('Final warning'), { target: { value: '45' } });
+			await fireEvent.click(screen.getByRole('radio', { name: 'Never expires' }));
+			await fireEvent.click(screen.getByRole('radio', { name: 'Every few months' }));
+
+			expect(
+				[numberField('Good for'), numberField('First warning'), numberField('Final warning')].map(
+					(input) => input.value
+				)
+			).toEqual(['24', '90', '45']);
+		});
+
 		it('counts who an Only some rule catches as the rule changes and says who they are', async () => {
 			mount();
 			await fireEvent.click(screen.getByRole('button', { name: 'New type' }));
@@ -524,6 +542,34 @@ describe('TrainingTypesPage', () => {
 				trainingTypeIds: ['type-1', 'type-3', 'type-2'],
 				expectedTrainingTypeIds: ['type-1', 'type-2', 'type-3']
 			});
+		});
+
+		it('saves moves made while an order is saving as one follow-up order', async () => {
+			let release!: () => void;
+			const requests = stubServer({
+				hold: new Promise<void>((resolve) => {
+					release = resolve;
+				})
+			});
+			mount();
+			await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder SHARP' }), { key: 'ArrowUp' });
+			await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder SHARP' }), { key: 'ArrowUp' });
+			expect(order()).toEqual(['SHARP', 'CPR', 'Mil license']);
+			release();
+
+			await waitFor(() => expect(requests).toHaveLength(2));
+			expect(requests.map((request) => request.body)).toEqual([
+				{ trainingTypeIds: ['type-1', 'type-3', 'type-2'], expectedTrainingTypeIds: ['type-1', 'type-2', 'type-3'] },
+				{ trainingTypeIds: ['type-3', 'type-1', 'type-2'], expectedTrainingTypeIds: ['type-1', 'type-3', 'type-2'] }
+			]);
+			await waitFor(() =>
+				expect(Object.fromEntries(trainingTypesStore.items.map(({ id, sortOrder }) => [id, sortOrder]))).toEqual({
+					'type-1': 1,
+					'type-2': 2,
+					'type-3': 0
+				})
+			);
+			expect(order()).toEqual(['SHARP', 'CPR', 'Mil license']);
 		});
 
 		it('rolls an optimistic move back and reports a refused order', async () => {

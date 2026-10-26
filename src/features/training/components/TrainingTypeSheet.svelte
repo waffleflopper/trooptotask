@@ -147,16 +147,23 @@
 		return more > 0 ? `${shownNames.join(', ')} and ${more} more` : shownNames.join(', ');
 	}
 
+	// Values typed before switching how a type renews come back when the user switches back.
+	let lastRenewal = untrack(() => ({
+		months: draft.preservedRenewalFields.expirationMonths ?? 12,
+		firstWarningDays: draft.preservedRenewalFields.warningDaysYellow,
+		finalWarningDays: draft.preservedRenewalFields.warningDaysOrange
+	}));
+
 	function chooseRenewal(kind: RenewalDraft['kind']) {
 		if (kind === renewal.kind) return;
-		const preserved = draft.preservedRenewalFields;
-		const warnings =
-			renewal.kind === 'never'
-				? { firstWarningDays: preserved.warningDaysYellow, finalWarningDays: preserved.warningDaysOrange }
-				: { firstWarningDays: renewal.firstWarningDays, finalWarningDays: renewal.finalWarningDays };
-		const months = renewal.kind === 'months' ? renewal.months : (preserved.expirationMonths ?? 12);
+		if (renewal.kind !== 'never') lastRenewal = { ...lastRenewal, ...renewal };
+		const { months, firstWarningDays, finalWarningDays } = lastRenewal;
 		draft.renewal =
-			kind === 'months' ? { kind, months, ...warnings } : kind === 'cardDate' ? { kind, ...warnings } : { kind };
+			kind === 'months'
+				? { kind, months, firstWarningDays, finalWarningDays }
+				: kind === 'cardDate'
+					? { kind, firstWarningDays, finalWarningDays }
+					: { kind };
 	}
 
 	function chooseMode(mode: ApplicabilityDraft['mode']) {

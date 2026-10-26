@@ -139,6 +139,35 @@ Focus View orders Targeted before Required and omits Optional.
      `Sign-in rosters` into More; at 390 the row holds the toggle, a search field that takes the remaining width and
      More. `scrollWidth` equals `clientWidth` on the page and on the `Training controls` toolbar, and the matrix
      viewport scrolls sideways inside itself.
+9. **Manage views sheet layout and guards:** As `trainingConfigure`, open More, then `Manage views…` (the dialog is
+   named `Manage views` and holds focus; Escape returns focus to `More Training controls`; opened from the View menu's
+   last option, Escape returns it to `Training view filter`). The list reads `SAVED VIEWS · 1` and `New view`, and the
+   seeded row `Verification Focus View` `2 of 3 columns`. Measured widths: the dialog is 384 wide on the right edge at
+   1440 (left 1056) and 1024 (left 640), and at 390 it spans the screen (left 0, width 390); `scrollWidth` equals
+   `innerWidth` at all three and the editor body does not scroll sideways. In the editor the footer holds
+   `Delete view` at the far left and `Cancel`, `Save view` at the right at 1440 and 1024.
+   - Editor: `In this view · 2` lists Targeted then Required, `Not in this view · 1` lists Optional. Check Optional: it
+     becomes the third row of `In this view` and keeps focus; the description reads `3 of 3 trainings`, the back arrow
+     (`Back to all views`) is disabled and Escape leaves the dialog open. `Cancel` returns to the list with
+     `2 of 3 columns` and no row change.
+   - Name: clear it on a new view and choose `Save view`; focus lands on `View name` with `Name is required.`.
+   - Failed save: `$V network arm-fail $PAGE training-views`, save a new view named with a marker; the sheet stays on
+     the editor with `Failed to save view.` on `View name`, the typed name is kept and `Save view` is enabled. After
+     `network restore`, `Save view` returns to the list (`SAVED VIEWS · 2`), focus lands on the saved row, and
+     `$V rows training_views orgA name <marker>` shows it.
+   - Busy: `$V network arm-hold $PAGE training-views`, then `Save view`: the dialog reports `busy`; the back arrow,
+     `View name`, `Delete view`, `Cancel` and `Saving...` are disabled and Escape leaves it open. `$V network release`
+     returns to the list with the new name.
+   - Delete: `Delete view` opens `Delete Saved View` reading `Delete "<name>"? This only removes the saved layout.`;
+     its `Cancel` keeps the editor and focuses `Delete view`. With `arm-fail` armed, `Delete` shows the alert
+     `Failed to delete view. Try again.` and the confirmation stays; after `restore`, `Delete` returns to the list
+     (`SAVED VIEWS · 1`) and `$V rows training_views orgA name <marker>` is empty. Deleting the view selected in the
+     matrix selects `All trainings`.
+   - Access: `trainingView` and `trainingScopedConfig` see `All trainings | Verification Focus View` in the View menu
+     (no `Manage views…`); `trainingView` has no More button and `trainingScopedConfig` More holds only `Import`.
+   - Redirect and load: a full load of `/org/<org>/training/views` ends on `/org/<org>/training`. With
+     `$V server-source arm personnel_trainings fail-hard` a full load of `/training` shows `Unable to load Training`
+     with `Retry Training` instead of the matrix, so the sheet is unreachable; `server-source restore` recovers.
 
 Use `tool evaluate_script` on the signed-in page for endpoint probes. Substitute the fixture IDs and a unique marker:
 

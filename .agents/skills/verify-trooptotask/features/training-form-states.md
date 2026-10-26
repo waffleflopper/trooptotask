@@ -147,6 +147,7 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
    | `Training Records` (Person editor)          | `Mark All Completed Today`       | the matrix person button                                                  |
    | `Record · <type>` (cell popover)            | the date field's month segment   | the matrix cell button after a save, an Escape or `Open record` closes it |
    | `Delete Training Type`, `Delete Saved View` | the alertdialog container itself | the opening `Delete Type` or `Delete view` button                         |
+   | `Manage views` sheet                        | the sheet container itself       | `More Training controls` (More) or `Training view filter` (View menu)     |
 
    Import is a page, not a dialog; training-completions-reports step 4 records its Tab order.
 

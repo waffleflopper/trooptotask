@@ -307,7 +307,7 @@
 					</p>
 				</fieldset>
 			</AppDialog.Body>
-			<AppDialog.Footer class="flex-row items-center justify-between border-t px-5 py-4 sm:px-7">
+			<AppDialog.Footer class="flex-row items-center justify-between border-t px-5 py-4 sm:justify-between sm:px-7">
 				{#if editor.viewId !== null}
 					<Button
 						variant="link"

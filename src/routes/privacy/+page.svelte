@@ -21,7 +21,7 @@
 
 	<PublicSection>
 		<div class="border-t-2 border-foreground">
-			<PublicRow num="01" label="Information We Collect" title="What we collect, and why.">
+			<PublicRow level="h2" num="01" label="Information We Collect" title="What we collect, and why.">
 				<p>
 					We collect information you provide directly: account info (email, name), organization data, and personnel
 					records you enter (names, ranks, unit assignments, contact information, training records, counseling notes,
@@ -29,7 +29,7 @@
 					and timestamps for security and audit purposes.
 				</p>
 			</PublicRow>
-			<PublicRow num="02" label="How We Use Your Information" title="Purpose-driven, nothing more.">
+			<PublicRow level="h2" num="02" label="How We Use Your Information" title="Purpose-driven, nothing more.">
 				<p>
 					We use your information to: provide and maintain the TroopToTask service; authenticate your identity and
 					manage access; generate security-relevant audit logs; respond to support requests; send service-related
@@ -37,7 +37,7 @@
 					profiling, or any purpose unrelated to delivering the service.
 				</p>
 			</PublicRow>
-			<PublicRow num="03" label="Data Storage & Security" title="Protected at every layer.">
+			<PublicRow level="h2" num="03" label="Data Storage & Security" title="Protected at every layer.">
 				<p>
 					All data is encrypted at rest (AES-256) and in transit (TLS 1.2+). Data is stored on Supabase infrastructure
 					hosted in the United States. We implement role-based access controls, security-relevant audit logging, and
@@ -45,7 +45,7 @@
 					details.
 				</p>
 			</PublicRow>
-			<PublicRow num="04" label="Data Sharing" title="Your data stays yours.">
+			<PublicRow level="h2" num="04" label="Data Sharing" title="Your data stays yours.">
 				<p>
 					We do not sell or rent your personal information or personnel data. We may disclose information only when
 					required by law, to enforce our terms, or to protect rights and safety. Our service providers process data
@@ -53,7 +53,7 @@
 					and file storage; and Vercel for application hosting, analytics, and performance signals.
 				</p>
 			</PublicRow>
-			<PublicRow id="data-retention" num="05" label="Data Retention" title="Kept only as long as needed.">
+			<PublicRow level="h2" id="data-retention" num="05" label="Data Retention" title="Kept only as long as needed.">
 				<p>
 					Organization data follows record-specific deletion and archive controls. Personnel and related records may be
 					archived before permanent removal under your Organization's retention settings. To request account deletion,
@@ -62,7 +62,7 @@
 					Applicable audit records remain under our one-year retention policy.
 				</p>
 			</PublicRow>
-			<PublicRow num="06" label="Your Rights" title="You are in control.">
+			<PublicRow level="h2" num="06" label="Your Rights" title="You are in control.">
 				<p>
 					You have the right to: access all data stored about you and your organization; export your data at any time
 					via our export features; correct inaccurate information; request deletion of your account and personal data;
@@ -70,7 +70,7 @@
 					organization's data through the application.
 				</p>
 			</PublicRow>
-			<PublicRow num="07" label="Cookies & Tracking" title="Essential only, no surveillance.">
+			<PublicRow level="h2" num="07" label="Cookies & Tracking" title="Essential only, no surveillance.">
 				<p>
 					We use only essential cookies required for authentication and session management. We use Vercel Web Analytics
 					and Vercel Speed Insights to collect aggregate site analytics and performance signals, including visited URLs,
@@ -81,20 +81,20 @@
 					data broker networks, or use analytics to profile individual people.
 				</p>
 			</PublicRow>
-			<PublicRow num="08" label="Children's Privacy" title="Not designed for minors.">
+			<PublicRow level="h2" num="08" label="Children's Privacy" title="Not designed for minors.">
 				<p>
 					TroopToTask is designed for use by military personnel and unit leaders. We do not knowingly collect
 					information from children under 13. If we become aware that we have collected such information, we will delete
 					it immediately.
 				</p>
 			</PublicRow>
-			<PublicRow num="09" label="Changes to This Policy" title="Transparent updates.">
+			<PublicRow level="h2" num="09" label="Changes to This Policy" title="Transparent updates.">
 				<p>
 					We may update this policy to reflect changes in our practices or legal requirements. We will notify users of
 					material changes via the application. Continued use after changes constitutes acceptance.
 				</p>
 			</PublicRow>
-			<PublicRow num="10" label="Contact" title="Get in touch.">
+			<PublicRow level="h2" num="10" label="Contact" title="Get in touch.">
 				<p>For privacy-related inquiries, contact us at:</p>
 				<PublicContactCard email="privacy@trooptotask.org" />
 			</PublicRow>

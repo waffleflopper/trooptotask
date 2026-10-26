@@ -7,10 +7,11 @@
 		num: string;
 		label: string;
 		title: string;
+		level?: 'h2' | 'h3';
 		children: Snippet;
 	}
 
-	let { id, num, label, title, children }: Props = $props();
+	let { id, num, label, title, level = 'h3', children }: Props = $props();
 </script>
 
 <div
@@ -24,7 +25,7 @@
 	<div
 		class="flex flex-col gap-2 font-body text-lg leading-7 [&_:is(p,li)_a]:text-accent-text [&_:is(p,li)_a]:underline [&_:is(p,li)_a]:decoration-accent-text/55 [&_:is(p,li)_a]:underline-offset-[0.2em] [&_li]:mt-2 [&_p]:m-0 [&_p]:font-light [&_p]:text-muted-foreground [&_ul]:m-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:font-light [&_ul]:text-muted-foreground"
 	>
-		<h3 class="m-0 text-lg leading-7 font-normal text-foreground">{title}</h3>
+		<svelte:element this={level} class="m-0 text-lg leading-7 font-normal text-foreground">{title}</svelte:element>
 		{@render children()}
 	</div>
 </div>

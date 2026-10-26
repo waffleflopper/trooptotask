@@ -109,9 +109,11 @@
 					<li
 						class="grid grid-cols-1 gap-1 border-b border-border py-4 lg:min-h-16 lg:grid-cols-[19fr_15fr_20fr_10fr] lg:items-center lg:gap-0 lg:py-3"
 					>
-						<span class="{monoLabel} text-foreground">{row.where}</span>
-						<span class="{bodyClass} text-foreground">{row.job}</span>
-						<span class="{bodyClass} font-light text-muted-foreground">{row.stuck}</span>
+						<span class="{monoLabel} text-foreground"><span class="sr-only">Where: </span>{row.where}</span>
+						<span class="{bodyClass} text-foreground"><span class="sr-only">The job: </span>{row.job}</span>
+						<span class="{bodyClass} font-light text-muted-foreground"
+							><span class="sr-only">What stuck: </span>{row.stuck}</span
+						>
 						<span class="{monoLabel} mt-2 flex items-center gap-3 lg:mt-0 lg:justify-end">
 							{#if row.marker === 'idea'}
 								<span class="text-muted-foreground">The idea</span>

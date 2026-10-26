@@ -99,6 +99,7 @@
 			type="button"
 			class="flex min-w-0 flex-1 items-center gap-3 rounded-sm px-1 py-0.5 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
 			aria-expanded={expanded}
+			disabled={busy}
 			onclick={onToggle}
 		>
 			<span class="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">

@@ -12,15 +12,14 @@ disabled, narrow and dark state, and each hand-built control exposes its name an
 - `record-sheet`: a name or the popover's `Open record` opens the Soldier's record sheet at `?person=<id>`. It reads
   `N of M ready` and `N to record` from the Soldier's required types, groups the types as Needs action, Current, Not
   required and Exempt, and records Today or a card date in place. Up and down arrows step through the matrix's row
-  order.
-  `Edit` on a row opens its form on the stored completion date (the stored expiration date for a card-date type), so a
-  note-only change keeps the date; a Needs action row's own form starts on today. Opening another row while a form has
-  changes asks `Discard changes?`; Cancel keeps the draft. While a save is pending or a form has changes, Back, links
-  and `Open profile` (disabled) do nothing and Escape stays blocked. A form's `Save` is disabled while another save is
-  pending, and a refused renewal keeps its form, draft and error in place. `Exempt` and `Unexempt` appear only for an
-  actor who can configure types.
-  While the sheet code downloads, the sheet opens with the Soldier's rank and name and a skeleton; a failed download shows
-  `Unable to open` with `Retry`.
+  order. `Edit` on a row opens its form on the stored completion date (the stored expiration date for a card-date type),
+  so a note-only change keeps the date; a record stored without one opens with an empty date and `Save` stays disabled
+  until a date is chosen; a Needs action row's own form starts on today. Opening another row while a form has changes
+  asks `Discard changes?`; Cancel keeps the draft. While a save or delete is pending or a form has changes, Back, links
+  and `Open profile` (disabled) do nothing and Escape stays blocked. While a save is pending every row title, field and
+  `Save` is disabled, so the saving form stays open, and a refused renewal keeps its form, draft and error in place.
+  `Exempt` and `Unexempt` appear only for an actor who can configure types. While the sheet code downloads, the sheet
+  opens with the Soldier's rank and name and a skeleton; a failed download shows `Unable to open` with `Retry`.
 - `matrix-quick-record`: a matrix cell opens a popover anchored to it, with one date field, a live preview, optional
   notes and certificate link, and `Open record`. Enter saves, Escape closes, and focus returns to the cell.
 - `failed-save-keeps-values`: a rejected save leaves the form open with every value, selection and chip in place, the
@@ -95,9 +94,9 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
    reads in the muted tone; non-zero counts keep their tone, and the thin separators between counts stay. A current cell
    of a type with no expiry shows the completion month (`Nov ’25`); its popover status line reads `Never expires`.
 
-   In the cell popover the date control is the shared date picker (a button named `Completion date`, not a native
-   date input). Opening a cell that already has a record fills the notes and the certificate URL from it; saving only
-   the date keeps both, and saving a card-date type keeps its stored completion date. The note link
+   In the cell popover the date control is the shared date picker (a button named `Completion date`, not a native date
+   input). Opening a cell that already has a record fills the notes and the certificate URL from it; saving only the
+   date keeps both, and saving a card-date type keeps its stored completion date. The note link
    `Add a note or certificate link…` is underlined. At 390 the search field in `Training controls` takes its own full
    row above the other controls; at 1024 and 1440 it stays on the row.
 

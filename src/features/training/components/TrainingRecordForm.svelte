@@ -65,7 +65,7 @@
 	const kind = $derived(renewalMode(type));
 	const initialDate = untrack(() => {
 		if (keepRecordedDate && training) {
-			return type.expirationDateOnly ? (training.expirationDate ?? '') : (training.completionDate ?? today);
+			return (type.expirationDateOnly ? training.expirationDate : training.completionDate) ?? '';
 		}
 		return type.expirationDateOnly ? '' : today;
 	});
@@ -150,7 +150,7 @@
 				<span class="font-mono text-[0.625rem] tracking-[0.08em] text-muted-foreground uppercase">Today</span>
 			{/if}
 		</div>
-		<DatePicker id="{uid}-date" bind:value={date} disabled={saving} />
+		<DatePicker id="{uid}-date" bind:value={date} disabled={saving || busy} />
 		{#if preview}
 			<p class={['flex items-center gap-1.5 text-sm', preview.ok ? 'text-foreground' : 'text-danger-foreground']}>
 				{#if preview.ok}<CheckIcon class="size-3.5 text-success-foreground" aria-hidden="true" />{/if}
@@ -164,7 +164,7 @@
 	{#if showExtras}
 		<Field.Root class="gap-1.5">
 			<Field.Label for="{uid}-notes" class="text-xs">Notes</Field.Label>
-			<Textarea id="{uid}-notes" rows={2} bind:value={notes} disabled={saving} />
+			<Textarea id="{uid}-notes" rows={2} bind:value={notes} disabled={saving || busy} />
 		</Field.Root>
 		<Field.Root class="gap-1.5">
 			<Field.Label for="{uid}-certificate" class="text-xs">Certificate URL</Field.Label>
@@ -173,7 +173,7 @@
 				type="url"
 				placeholder="https://..."
 				bind:value={certificateUrl}
-				disabled={saving}
+				disabled={saving || busy}
 			/>
 		</Field.Root>
 	{/if}

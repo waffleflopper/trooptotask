@@ -337,6 +337,19 @@ describe('TrainingRecordSheet', () => {
 			);
 		});
 
+		it('does not fill in today for a record saved without a completion date', async () => {
+			const onSave = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			const undated = trainings.map((record) => (record.id === 'r-ok' ? { ...record, completionDate: null } : record));
+			render(TrainingRecordSheet, { props: props({ onSave, trainings: undated }) });
+			await user.click(await screen.findByRole('button', { name: 'More actions for Safety' }));
+			await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+
+			await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+			expect(onSave).not.toHaveBeenCalled();
+		});
+
 		it('keeps the stored card date when only a note changes', async () => {
 			const onSave = vi.fn().mockResolvedValue(undefined);
 			const user = userEvent.setup();
@@ -371,6 +384,21 @@ describe('TrainingRecordSheet', () => {
 	});
 
 	describe('saving from the form', () => {
+		it('keeps a saving form open when another item is chosen, so its refusal still shows', async () => {
+			const user = userEvent.setup();
+			let refuse!: (error: Error) => void;
+			const onSave = vi.fn(() => new Promise<void>((_resolve, reject) => (refuse = reject)));
+			render(TrainingRecordSheet, { props: props({ onSave }) });
+			await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+			await user.click(screen.getByRole('button', { name: /^CPR/ }));
+			refuse(new Error('Server said no'));
+
+			expect(await screen.findByText(/Server said no/)).toBeTruthy();
+			expect(screen.getByRole('button', { name: /^BLS/ }).getAttribute('aria-expanded')).toBe('true');
+			expect(screen.getByRole('button', { name: /^CPR/ }).getAttribute('aria-expanded')).toBe('false');
+		});
+
 		it('keeps the draft and shows the error when a renewal the store already applied is refused', async () => {
 			const user = userEvent.setup();
 			const onSave = vi.fn(async (data: Omit<PersonnelTraining, 'id'>) => {
@@ -467,6 +495,21 @@ describe('TrainingRecordSheet', () => {
 			const onSave = vi.fn().mockImplementation(() => new Promise(() => {}));
 			render(TrainingRecordSheet, { props: props({ onSave }) });
 			await user.click(await screen.findByRole('button', { name: 'Record CPR today' }));
+			const cancel = vi.fn();
+
+			navigationGuard.current?.({ cancel });
+
+			expect(cancel).toHaveBeenCalledOnce();
+		});
+
+		it('cancels navigation away while a delete is in flight', async () => {
+			const user = userEvent.setup();
+			const onRemove = vi.fn().mockImplementation(() => new Promise(() => {}));
+			render(TrainingRecordSheet, { props: props({ onRemove }) });
+			await user.click(await screen.findByRole('button', { name: 'More actions for Safety' }));
+			await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+			await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+			await waitFor(() => expect(onRemove).toHaveBeenCalledOnce());
 			const cancel = vi.fn();
 
 			navigationGuard.current?.({ cancel });

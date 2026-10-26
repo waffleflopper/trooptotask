@@ -125,6 +125,8 @@
 	}
 
 	function expand(typeId: string | null, isCorrection = false) {
+		// A pending form stays mounted, so a refused save can still show its error.
+		if (saving.pending) return;
 		if (typeId === expandedTypeId && (typeId === null || isCorrection === correcting)) return;
 		if (formDirty) discardTarget = { typeId, correcting: isCorrection };
 		else open(typeId, isCorrection);
@@ -231,16 +233,19 @@
 			confirmRemoveTypeId = null;
 			return;
 		}
-		try {
-			await onRemove(record.id, () => sameSheet(personId));
-		} catch (error) {
-			if (sameSheet(personId))
-				toast.error(error instanceof Error ? error.message : 'Could not remove training record. Try again.', {
-					duration: 6000
-				});
-			return;
-		}
-		if (!sameSheet(personId)) return;
+		let removed = false;
+		await saving.run(async () => {
+			try {
+				await onRemove(record.id, () => sameSheet(personId));
+				removed = true;
+			} catch (error) {
+				if (sameSheet(personId))
+					toast.error(error instanceof Error ? error.message : 'Could not remove training record. Try again.', {
+						duration: 6000
+					});
+			}
+		});
+		if (!removed || !sameSheet(personId)) return;
 		confirmRemoveTypeId = null;
 		if (typeId) collapse(typeId);
 	}

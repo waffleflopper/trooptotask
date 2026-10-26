@@ -76,10 +76,11 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    brand, `Sign In` and `Request Access` only: `Platform`, `What's next`, `Security`, `FAQ` and `About` are hidden below
    900px and there is no mobile menu. Expect the footer to carry `Platform`, `What's next`, `FAQ`, `About`, `Security`,
    `Privacy` and `Terms` as reachable links (scroll to the bottom and read them). Expect the shell's
-   `scrollWidth <= clientWidth` and no element with `getBoundingClientRect().right > innerWidth`, on every public page.
-   The document-level `scrollWidth` check is vacuous here because the shell clips horizontal overflow. Expect each
-   header control's rect to lie inside `0..innerWidth`. Repeat at 1024x768 and expect the full header on one line with
-   no overlap. Record the actual header text and footer link list.
+   `scrollWidth <= clientWidth` and no element with `getBoundingClientRect().right > innerWidth`, on every public page
+   (skip elements inside a `[data-reveal="pending"]` block: the What's next verbs start scaled up and are clipped). The
+   document-level `scrollWidth` check is vacuous here because the shell clips horizontal overflow. Expect each header
+   control's rect to lie inside `0..innerWidth`. Repeat at 1024x768 and expect the full header on one line with no
+   overlap. Record the actual header text and footer link list.
 
 5. **Home hero.** Open `$ORIGIN/` at 1440x900 signed out. Expect, in order: the 80px dark header, then at y 208 the
    amber eyebrow `READINESS · BUILT FOR THE COMPANY`, then the `h1` at y 248 whose first line `LESS TIME ON ADMIN.` is

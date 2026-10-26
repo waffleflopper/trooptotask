@@ -185,7 +185,7 @@
 </script>
 
 <AppDialog.Root open {busy} closeBlocked={dirty} onClose={close}>
-	<AppDialog.Content presentation="sheet" class="data-[side=right]:max-sm:w-full">
+	<AppDialog.Content presentation="sheet">
 		<AppDialog.Header class="border-b px-5 pt-5 pb-4 sm:px-7">
 			{#if editor}
 				<p

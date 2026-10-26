@@ -57,6 +57,7 @@ export class TrainingPageContext {
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
 	readonly #savePreferences: (patch: TrainingPreferencesPatch) => void;
 	#hydratedSelectionFingerprint: string | null = null;
+	readonly #deletingViewIds = new Set<string>();
 	#disposed = false;
 
 	selectedGroupId = $state<string>('');
@@ -273,7 +274,13 @@ export class TrainingPageContext {
 
 	async deleteView(id: string): Promise<'deleted' | 'failed' | 'stale'> {
 		if (!this.#isCurrentViewsWorkspace()) return 'stale';
-		const result = await trainingViewsStore.remove(id);
+		this.#deletingViewIds.add(id);
+		let result: Awaited<ReturnType<typeof trainingViewsStore.remove>>;
+		try {
+			result = await trainingViewsStore.remove(id);
+		} finally {
+			this.#deletingViewIds.delete(id);
+		}
 		if (!this.#isCurrentViewsWorkspace()) return 'stale';
 		if (result === 'error') return 'failed';
 		if (this.selectedViewId === id) this.setSelectedViewId(null);
@@ -370,6 +377,7 @@ export class TrainingPageContext {
 		if (
 			viewsLoaded &&
 			this.selectedViewId &&
+			!this.#deletingViewIds.has(this.selectedViewId) &&
 			!trainingViewsStore.items.some((view) => view.id === this.selectedViewId)
 		) {
 			this.selectedViewId = null;

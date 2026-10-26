@@ -901,6 +901,33 @@ describe('TrainingPageContext', () => {
 			expect(trainingViewsStore.items).toEqual([stored]);
 			expect(ctx.selectedViewId).toBe('view-1');
 		});
+
+		it('keeps the selection while the delete is in flight and after it fails', async () => {
+			trainingViewsStore.load([stored], 'org-1');
+			let respond!: (response: Response) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValue(
+					new Promise<Response>((resolve) => {
+						respond = resolve;
+					})
+				)
+			);
+			const ctx = makeContext(makeData(), modals, makeOrg());
+			ctx.setSelectedViewId('view-1');
+			expect([...ctx.savedViewIds]).toEqual(['view-1']);
+			savePreferencesMock.mockClear();
+
+			const deleting = ctx.deleteView('view-1');
+			expect([...ctx.savedViewIds]).toEqual([]);
+			expect(ctx.selectedViewId).toBe('view-1');
+			respond(Response.json({ message: 'Internal server error' }, { status: 500 }));
+
+			expect(await deleting).toBe('failed');
+			expect([...ctx.savedViewIds]).toEqual(['view-1']);
+			expect(ctx.selectedViewId).toBe('view-1');
+			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
 	});
 });
 

@@ -364,6 +364,30 @@ describe('TrainingPageView', () => {
 			await fireEvent.keyDown(sheet, { key: 'Escape' });
 			await waitFor(() => expect(document.activeElement).toBe(viewFilter()));
 		});
+
+		it('opens the sheet again from the View menu after closing it and keeps the current view shown', async () => {
+			const widths = stubToolbarWidths();
+			renderWithModals();
+			await widths.layOut(2000);
+
+			async function chooseManageViews() {
+				const view = viewFilter();
+				view.focus();
+				await fireEvent.keyDown(view, { key: 'Enter' });
+				const option = await screen.findByRole('option', { name: 'Manage views…' });
+				await fireEvent.pointerMove(option);
+				await fireEvent.pointerUp(option);
+				await fireEvent.click(option);
+				return screen.findByRole('dialog', { name: 'Manage views' });
+			}
+
+			const first = await chooseManageViews();
+			await fireEvent.keyDown(first, { key: 'Escape' });
+			await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Manage views' })).toBeNull());
+
+			expect(await chooseManageViews()).toBeTruthy();
+			expect(viewFilter().textContent).toContain('All trainings');
+		});
 	});
 
 	function memberContext(training: 'operate' | 'view'): TrainingPageContext {

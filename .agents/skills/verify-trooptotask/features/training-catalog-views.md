@@ -141,7 +141,8 @@ Focus View orders Targeted before Required and omits Optional.
      viewport scrolls sideways inside itself.
 9. **Manage views sheet layout and guards:** As `trainingConfigure`, open More, then `Manage views…` (the dialog is
    named `Manage views` and holds focus; Escape returns focus to `More Training controls`; opened from the View menu's
-   last option, Escape returns it to `Training view filter`). The list reads `SAVED VIEWS · 1` and `New view`, and the
+   last option, Escape returns it to `Training view filter`, which still reads the current view, and choosing
+   `Manage views…` again opens the sheet again). The list reads `SAVED VIEWS · 1` and `New view`, and the
    seeded row `Verification Focus View` `2 of 3 columns`. Measured widths: the dialog is 384 wide on the right edge at
    1440 (left 1056) and 1024 (left 640), and at 390 it spans the screen (left 0, width 390); `scrollWidth` equals
    `innerWidth` at all three and the editor body does not scroll sideways. In the editor the footer holds
@@ -160,9 +161,10 @@ Focus View orders Targeted before Required and omits Optional.
      returns to the list with the new name.
    - Delete: `Delete view` opens `Delete Saved View` reading `Delete "<name>"? This only removes the saved layout.`;
      its `Cancel` keeps the editor and focuses `Delete view`. With `arm-fail` armed, `Delete` shows the alert
-     `Failed to delete view. Try again.` and the confirmation stays; after `restore`, `Delete` returns to the list
-     (`SAVED VIEWS · 1`) and `$V rows training_views orgA name <marker>` is empty. Deleting the view selected in the
-     matrix selects `All trainings`.
+     `Failed to delete view. Try again.` and the confirmation stays; with that view selected in the matrix,
+     `Training view filter` still reads its name and the matrix keeps its columns. After `restore`, `Delete` returns to
+     the list (`SAVED VIEWS · 1`) and `$V rows training_views orgA name <marker>` is empty. Deleting the view selected
+     in the matrix selects `All trainings`.
    - Access: `trainingView` and `trainingScopedConfig` see `All trainings | Verification Focus View` in the View menu
      (no `Manage views…`); `trainingView` has no More button and `trainingScopedConfig` More holds only `Import`.
    - Redirect and load: a full load of `/org/<org>/training/views` ends on `/org/<org>/training`. With

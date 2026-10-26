@@ -6,11 +6,12 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 	import { calculateExpirationDate, type TrainingStatusInfo } from '$features/training/utils/trainingStatus';
-	import { getColumnIntervalLabel } from '$features/training/utils/cellDisplayText';
+	import { getColumnIntervalLabel, neverExpires } from '$features/training/utils/cellDisplayText';
 	import { formatDayMonthYear } from '$lib/utils/dates';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
+	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 
@@ -39,11 +40,15 @@
 	});
 	const stillHere = () => !disposed && orgId === startOrgId && isCurrent();
 
-	const kind = $derived(type.expirationDateOnly ? 'cardDate' : type.expirationMonths === null ? 'never' : 'months');
+	const kind = $derived(type.expirationDateOnly ? 'cardDate' : neverExpires(type) ? 'never' : 'months');
 	let date = $state(untrack(() => (type.expirationDateOnly ? '' : today)));
-	let notes = $state('');
-	let certificateUrl = $state('');
-	let showExtras = $state(false);
+	// An uploaded certificate is a storage path, not a link: it stays on the record unless a link replaces it.
+	const storedCertificate = untrack(() => training?.certificateUrl ?? null);
+	const editableCertificate = storedCertificate && /^https?:\/\//i.test(storedCertificate) ? storedCertificate : '';
+	const storedNotes = untrack(() => training?.notes ?? '');
+	let notes = $state(storedNotes);
+	let certificateUrl = $state(editableCertificate);
+	let showExtras = $state(Boolean(storedNotes || editableCertificate));
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let formElement = $state<HTMLFormElement | null>(null);
@@ -55,7 +60,7 @@
 
 	const statusLine = $derived.by(() => {
 		const { status, daysUntilExpiration: days } = statusInfo;
-		const until = training?.expirationDate ? formatDayMonthYear(training.expirationDate) : null;
+		const until = training?.expirationDate && kind !== 'never' ? formatDayMonthYear(training.expirationDate) : null;
 		const dayCount = Math.abs(days ?? 0);
 		const dayLabel = `${dayCount} ${dayCount === 1 ? 'day' : 'days'}`;
 		switch (status) {
@@ -90,6 +95,14 @@
 		muted: 'text-muted-foreground'
 	};
 
+	// The date field is a button, so Enter would open its calendar instead of saving.
+	function submitOnEnterInDate(event: KeyboardEvent) {
+		if (event.key !== 'Enter' || !(event.target instanceof HTMLElement) || event.target.id !== `${uid}-date`) return;
+		event.preventDefault();
+		event.stopPropagation();
+		formElement?.requestSubmit();
+	}
+
 	async function save(event: SubmitEvent) {
 		event.preventDefault();
 		if (!canSave || !stillHere()) return;
@@ -100,10 +113,10 @@
 			await onSave({
 				personnelId: person.id,
 				trainingTypeId: type.id,
-				completionDate: kind === 'cardDate' ? null : date,
+				completionDate: kind === 'cardDate' ? (training?.completionDate ?? null) : date,
 				expirationDate,
 				notes: notes.trim() || null,
-				certificateUrl: certificateUrl.trim() || null
+				certificateUrl: certificateUrl.trim() || (editableCertificate ? null : storedCertificate)
 			});
 			if (!stillHere()) return;
 			toast.success(isUpdate ? 'Training record updated' : 'Training record saved');
@@ -122,7 +135,7 @@
 	}
 </script>
 
-<form bind:this={formElement} class="grid gap-3" onsubmit={save}>
+<form bind:this={formElement} class="grid gap-3" onsubmit={save} onkeydowncapture={submitOnEnterInDate}>
 	<div class="grid gap-1">
 		<div class="flex items-baseline justify-between gap-3 font-mono text-[0.6875rem] tracking-[0.08em] uppercase">
 			<span class="min-w-0 truncate text-muted-foreground">Record · {type.name}</span>
@@ -144,7 +157,7 @@
 				<span class="font-mono text-[0.625rem] tracking-[0.08em] text-muted-foreground uppercase">Today</span>
 			{/if}
 		</div>
-		<Input id="{uid}-date" type="date" bind:value={date} disabled={saving} required />
+		<DatePicker id="{uid}-date" bind:value={date} disabled={saving} />
 		{#if preview}
 			<p class={['flex items-center gap-1.5 text-sm', preview.ok ? 'text-foreground' : 'text-danger-foreground']}>
 				{#if preview.ok}<CheckIcon class="size-3.5 text-success-foreground" aria-hidden="true" />{/if}
@@ -183,7 +196,13 @@
 		{#if showExtras}
 			<span></span>
 		{:else}
-			<Button type="button" variant="link" size="none" class="text-sm" onclick={() => (showExtras = true)}>
+			<Button
+				type="button"
+				variant="link"
+				size="none"
+				class="text-sm text-foreground underline"
+				onclick={() => (showExtras = true)}
+			>
 				Add a note or certificate link…
 			</Button>
 		{/if}

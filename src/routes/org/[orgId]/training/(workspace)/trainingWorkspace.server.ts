@@ -71,10 +71,16 @@ export async function streamTrainingWorkspaceBootstrap(
 		fn: async (ctx) => {
 			const data: TrainingWorkspaceData = {
 				...fetchTrainingWorkspaceData(ctx, context.orgId),
-				readiness: ctx.organizationSettings.findTrainingBriefingContext(ctx.auth.orgId).then((organization) => {
-					if (!organization) fail(404, 'Organization not found');
-					return { readinessGoalPercent: organization.trainingReadinessGoalPercent, readinessAsOf };
-				})
+				readiness: ctx.organizationSettings
+					.findTrainingBriefingContext(ctx.auth.orgId)
+					.then((organization) => {
+						if (!organization) fail(404, 'Organization not found');
+						return { readinessGoalPercent: organization.trainingReadinessGoalPercent, readinessAsOf };
+					})
+					.catch((error: unknown) => {
+						console.error('[training-workspace] Failed to load readiness goal', { orgId: ctx.auth.orgId, error });
+						return { readinessGoalPercent: null, readinessAsOf };
+					})
 			};
 			return {
 				laneKey: TRAINING_WORKSPACE_LANE_KEY,

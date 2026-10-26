@@ -208,7 +208,8 @@ export interface TrainingReportWorkbookExport {
 export const TRAINING_WORKSPACE_LANE_KEY = 'training' as const;
 export type TrainingWorkspaceItems<T> = T[] | Promise<T[]>;
 export interface TrainingWorkspaceReadiness {
-	readinessGoalPercent: number;
+	/** Null when the Organization's goal could not be read: the day and the counts still hold. */
+	readinessGoalPercent: number | null;
 	readinessAsOf: string;
 }
 export interface TrainingWorkspaceData {

@@ -68,6 +68,10 @@
 	const actionsInRowOrder = $derived(actions.toReversed());
 	const rowCandidates = $derived(items.filter((item) => !isMenuOnly(item)));
 
+	const searchStacked = $derived(
+		Boolean(search?.stackBelow) && metrics.available > 0 && metrics.available < (search?.stackBelow ?? 0)
+	);
+
 	let lastFit: FitResult | null = null;
 	const fit = $derived.by((): FitResult | null => {
 		const measured = metrics;
@@ -91,7 +95,7 @@
 				section: sectionOf(item),
 				menuOnly: isMenuOnly(item)
 			})),
-			...(search
+			...(search && !searchStacked
 				? { searchMinWidth: measured.searchField, searchIconWidth: measured.searchIcon }
 				: { searchMinWidth: null, searchIconWidth: null })
 		});
@@ -117,8 +121,8 @@
 		...actions.filter((item) => item.menuOnly)
 	]);
 	const showMore = $derived(moreViews.length + moreFilters.length + moreActions.length > 0);
-	const searchMode = $derived<'field' | 'icon' | 'open' | 'none'>(
-		!search ? 'none' : fit?.searchCollapsed ? (searchOpen ? 'open' : 'icon') : 'field'
+	const searchMode = $derived<'field' | 'icon' | 'open' | 'stacked' | 'none'>(
+		!search ? 'none' : searchStacked ? 'stacked' : fit?.searchCollapsed ? (searchOpen ? 'open' : 'icon') : 'field'
 	);
 	const trailingId = $derived(rowActions[0]?.id ?? (showMore ? 'more' : primary?.id));
 	const searchText = $derived(search?.value.trim() ?? '');
@@ -479,7 +483,7 @@
 			{/if}
 		</div>
 	{:else}
-		<div class={cn('flex min-w-40 flex-1', searchMode !== 'open' && 'max-w-80')}>
+		<div class={cn('flex min-w-40 flex-1', searchMode !== 'open' && searchMode !== 'stacked' && 'max-w-80')}>
 			<InputGroup.Root>
 				<InputGroup.Addon>
 					<SearchIcon aria-hidden="true" />
@@ -531,6 +535,11 @@
 		bare ? 'p-1' : 'rounded-lg border border-border bg-card p-2'
 	)}
 >
+	{#if search && searchMode === 'stacked'}
+		<div class="mb-1.5 flex w-full">
+			{@render searchControl(search)}
+		</div>
+	{/if}
 	<div
 		bind:this={rowElement}
 		data-toolbar-row
@@ -543,7 +552,7 @@
 			{/each}
 		{/if}
 
-		{#if search && searchPlacement === 'before-filters'}
+		{#if search && searchMode !== 'stacked' && searchPlacement === 'before-filters'}
 			{@render searchControl(search)}
 		{/if}
 
@@ -553,7 +562,7 @@
 			{/each}
 		{/if}
 
-		{#if search && searchPlacement === 'after-filters'}
+		{#if search && searchMode !== 'stacked' && searchPlacement === 'after-filters'}
 			{@render searchControl(search)}
 		{/if}
 

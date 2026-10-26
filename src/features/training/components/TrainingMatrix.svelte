@@ -4,7 +4,10 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { evaluateUpcomingLosses, type Personnel } from '$features/personnel/contracts';
-	import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
+	import {
+		DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+		DEFAULT_TRAINING_READINESS_GOAL_PERCENT
+	} from '$features/organization/contracts';
 	import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
 	import {
 		getTrainingStatus,
@@ -16,11 +19,13 @@
 		getCellStatusLabel,
 		getColumnIntervalLabel
 	} from '$features/training/utils/cellDisplayText';
-	import { BRIEFING_BAND_TIER, MATRIX_HORIZON_DAYS as HORIZON_DAYS } from '$features/training/utils/matrixReadiness';
+	import { BRIEFING_BAND_TIER } from '$features/training/utils/briefingBandTier';
+	import { MATRIX_HORIZON_DAYS as HORIZON_DAYS } from '$features/training/utils/matrixReadiness';
 	import { trainingMatrixGaps, type TrainingMatrixGaps } from '$features/training/utils/trainingBriefing';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import * as Popover from '$lib/components/ui/popover';
-	import * as ReadinessBand from '$lib/components/patterns/readiness-band/index.js';
+	import { readinessBandTone } from '$lib/components/patterns/readiness-band/index.js';
+	import { formatReadinessBandPercent } from '$lib/components/patterns/readiness-band/types.js';
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import { Button } from '$lib/components/ui/button';
@@ -36,7 +41,8 @@
 		orgId: string;
 		/** The Organization's calendar day, YYYY-MM-DD: the readiness reference and the popover's default date. */
 		asOf: string;
-		goalPercent: number;
+		/** Null while the Organization goal is unavailable: group readiness is then left out. */
+		goalPercent: number | null;
 		/** Makes cells open the recording popover. */
 		onRecord?: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
 		onPersonClick?: (person: Personnel) => void;
@@ -137,7 +143,7 @@
 		return {
 			training,
 			statusInfo,
-			displayText: getCellDisplayText(statusInfo, training)
+			displayText: getCellDisplayText(statusInfo, training, type)
 		};
 	}
 
@@ -171,7 +177,7 @@
 			records: trainings,
 			asOf,
 			horizonDays: HORIZON_DAYS,
-			goalPercent
+			goalPercent: goalPercent ?? DEFAULT_TRAINING_READINESS_GOAL_PERCENT
 		});
 	}
 
@@ -211,6 +217,8 @@
 	let scrollTop = $state(0);
 	let measuredViewportHeight = $state(0);
 	let focusedRowId = $state<string | null>(null);
+	// The popover's row stays mounted until focus is back on its cell, even after it scrolls out of the window.
+	let pinnedRowId = $state<string | null>(null);
 
 	function trackFocus(event: FocusEvent) {
 		const row = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-matrix-row]') : null;
@@ -251,6 +259,7 @@
 		anchorElement = findCell(target);
 		returnTarget = target;
 		returnFocus = true;
+		pinnedRowId = person.id;
 		recordSnapshot = { person, type, training, statusInfo };
 		recordTarget = target;
 	}
@@ -261,8 +270,9 @@
 
 	function restoreCellFocus(event: Event) {
 		event.preventDefault();
-		if (!returnFocus || !returnTarget) return;
-		findCell(returnTarget)?.querySelector<HTMLElement>('button')?.focus();
+		if (recordTarget !== null) return;
+		if (returnFocus && returnTarget) findCell(returnTarget)?.querySelector<HTMLElement>('button')?.focus();
+		pinnedRowId = null;
 	}
 
 	async function openPersonRecord(person: Personnel) {
@@ -271,6 +281,7 @@
 		recordTarget = null;
 		await tick();
 		if (target) findCell(target)?.querySelector<HTMLElement>('button')?.focus();
+		pinnedRowId = null;
 		onPersonClick?.(person);
 	}
 
@@ -298,7 +309,7 @@
 			scrollTop,
 			viewportHeight: measuredViewportHeight || FALLBACK_VIEWPORT_HEIGHT,
 			overscanPx: rowHeight * OVERSCAN_ROWS,
-			pinnedKey: recordTarget?.personId ?? focusedRowId
+			pinnedKey: pinnedRowId ?? focusedRowId
 		})
 	);
 	const totalColumns = $derived(matrixColumns.length + 1);
@@ -344,7 +355,7 @@
 					class="w-full min-w-0 justify-start gap-2 text-left sm:gap-4"
 					onclick={() => onPersonClick?.(row.meta.person)}
 				>
-					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-accent-text">
+					<span class="w-8 shrink-0 font-mono text-xs font-medium text-muted-foreground">
 						{row.meta.rank}
 					</span>
 					<span class="truncate text-sm font-medium">{row.label}</span>
@@ -356,7 +367,7 @@
 				</Button>
 			{:else}
 				<span class="flex items-baseline gap-2 text-foreground sm:gap-4">
-					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-accent-text">
+					<span class="w-8 shrink-0 font-mono text-xs font-medium text-muted-foreground">
 						{row.meta.rank}
 					</span>
 					<span class="truncate text-sm font-medium">{row.label}</span>
@@ -439,11 +450,17 @@
 					<OperationalMatrix.HeaderRow aria-rowindex={1}>
 						<OperationalMatrix.CornerCell
 							sticky
-							class="sticky left-0 top-0 z-30 w-32 min-w-32 bg-muted px-2 py-1.5 sm:w-48 sm:min-w-48 sm:px-3"
+							class="sticky left-0 top-0 z-30 w-32 min-w-32 bg-muted px-2 py-1.5 text-left align-bottom sm:w-48 sm:min-w-48 sm:px-3"
 							aria-sort={ariaSort('name')}
 						>
-							<Button variant="ghost" size="sm" onclick={() => table.toggleSort('name')}>
-								Name<span aria-hidden="true">{sortIndicator('name')}</span>
+							<Button
+								variant="ghost"
+								size="none"
+								class="gap-2 font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
+								onclick={() => table.toggleSort('name')}
+							>
+								<span>Personnel<span aria-hidden="true">{sortIndicator('name')}</span></span>
+								<span class="font-normal tracking-normal">{personnel.length}</span>
 							</Button>
 						</OperationalMatrix.CornerCell>
 						{#each matrixColumns as column (column.id)}
@@ -515,13 +532,15 @@
 											>{item.group.rowIds.length}</span
 										>
 									</button>
-									{#if gaps}
-										<ReadinessBand.Cell
-											tier={BRIEFING_BAND_TIER[gaps.readiness.band]}
-											percent={gaps.readiness.percent}
-											palette="semantic"
-											class="h-5 w-auto shrink-0 px-1.5 text-[11px]"
-										/>
+									{#if gaps && goalPercent !== null}
+										<span
+											class={[
+												'ml-auto shrink-0 font-mono text-[11px] font-semibold tabular-nums',
+												readinessBandTone[BRIEFING_BAND_TIER[gaps.readiness.band]]
+											]}
+										>
+											{formatReadinessBandPercent(gaps.readiness.percent)}<span class="sr-only"> ready</span>
+										</span>
 									{/if}
 								</div>
 								{#snippet trailing()}

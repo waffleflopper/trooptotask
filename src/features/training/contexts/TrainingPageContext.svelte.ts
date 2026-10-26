@@ -122,7 +122,7 @@ export class TrainingPageContext {
 		return this.#data.orgName;
 	}
 
-	get readinessGoalPercent(): number {
+	get readinessGoalPercent(): number | null {
 		return trainingReadinessSource.forOrganization(this.orgId).readinessGoalPercent;
 	}
 

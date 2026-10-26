@@ -7,6 +7,7 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
 	import { MATRIX_HORIZON_DAYS } from '$features/training/utils/matrixReadiness';
+	import { DEFAULT_TRAINING_READINESS_GOAL_PERCENT } from '$features/organization/contracts';
 	import { summarizeTrainingReadiness } from '$features/training/utils/trainingBriefing';
 	import { buildTrainingMatrixWorkbook, type TrainingMatrixWorkbookInput } from '../utils/trainingMatrixWorkbook';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
@@ -125,7 +126,7 @@
 					records: personnelTrainingsStore.items,
 					asOf: ctx.readinessAsOf,
 					horizonDays: MATRIX_HORIZON_DAYS,
-					goalPercent: ctx.readinessGoalPercent
+					goalPercent: ctx.readinessGoalPercent ?? DEFAULT_TRAINING_READINESS_GOAL_PERCENT
 				})
 	);
 
@@ -235,17 +236,24 @@
 		return items;
 	});
 
+	const SEARCH_STACK_WIDTH = 480;
 	const toolbarSearch = $derived({
 		label: 'Search name, rank, or MOS',
 		placeholder: 'Search name, rank, MOS',
 		value: ctx.searchQuery,
-		onValueChange: (value) => (ctx.searchQuery = value)
+		onValueChange: (value) => (ctx.searchQuery = value),
+		stackBelow: SEARCH_STACK_WIDTH
 	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 </script>
 
 <div class="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
 	<div class="flex min-h-full flex-1 flex-col gap-4 px-6 pt-4 pb-5 max-sm:p-3">
-		<TrainingPageHeader orgName={ctx.orgName} personnelCount={ctx.personnel.length} summary={readinessSummary} />
+		<TrainingPageHeader
+			orgName={ctx.orgName}
+			personnelCount={ctx.personnel.length}
+			summary={readinessSummary}
+			readinessUnavailable={!loading && ctx.readinessGoalPercent === null}
+		/>
 
 		<WorkspaceToolbar ariaLabel="Training controls" items={toolbarItems} search={toolbarSearch} />
 

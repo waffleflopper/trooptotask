@@ -102,7 +102,7 @@ interface TrainingPageViewTestCtx {
 	personnel: Personnel[];
 	searchQuery: string;
 	readinessAsOf: string;
-	readinessGoalPercent: number;
+	readinessGoalPercent: number | null;
 	handleSaveTraining: ReturnType<typeof vi.fn>;
 	handlePersonClick: ReturnType<typeof vi.fn>;
 }
@@ -449,6 +449,19 @@ describe('TrainingPageView', () => {
 
 			expect(matrixNames()).toEqual(['SGT Smith, Jane']);
 			expect(screen.getByText('Goal 90% · 1 of 2')).toBeTruthy();
+		});
+
+		it('shows its own error in the header while the matrix stays usable when the goal could not be read', () => {
+			trainingReadinessHydration.load({ readinessGoalPercent: null, readinessAsOf: '2026-10-25' }, 'org-1');
+			const ctx = exportContext();
+			ctx.setViewMode('alphabetical');
+			render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+
+			expect(screen.getByRole('alert').textContent).toContain('Unable to load readiness');
+			expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+			expect(screen.queryByText(/^Goal /)).toBeNull();
+			expect(screen.getByText('1 not recorded')).toBeTruthy();
+			expect(matrixNames()).toEqual(['SPC Adams, John', 'SGT Smith, Jane']);
 		});
 
 		it('shows the header skeleton instead of a goal until the reporting day arrives', () => {

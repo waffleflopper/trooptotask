@@ -10,8 +10,19 @@ function formatMonthYear(dateOnly: string): string | null {
 	return year && name ? `${name} ’${year.slice(-2)}` : null;
 }
 
+type RenewalKind = Pick<TrainingType, 'expirationMonths' | 'expirationDateOnly'>;
+
+/** True for a type that never lapses; a stored expiration date from before it became so no longer counts. */
+export function neverExpires(type: RenewalKind): boolean {
+	return !type.expirationDateOnly && type.expirationMonths === null;
+}
+
 /** What a matrix cell shows. A current cell shows the month it lapses, or the completion month when it never does. */
-export function getCellDisplayText(statusInfo: TrainingStatusInfo, training: PersonnelTraining | undefined): string {
+export function getCellDisplayText(
+	statusInfo: TrainingStatusInfo,
+	training: PersonnelTraining | undefined,
+	type: RenewalKind
+): string {
 	switch (statusInfo.status) {
 		case 'exempt':
 			return 'Exempt';
@@ -25,14 +36,16 @@ export function getCellDisplayText(statusInfo: TrainingStatusInfo, training: Per
 		case 'warning-orange':
 			return statusInfo.daysUntilExpiration === null ? statusInfo.label : `${statusInfo.daysUntilExpiration}d`;
 		case 'current': {
-			const date = training?.expirationDate ?? training?.completionDate;
+			const date = neverExpires(type)
+				? training?.completionDate
+				: (training?.expirationDate ?? training?.completionDate);
 			return (date && formatMonthYear(date)) || statusInfo.label;
 		}
 	}
 }
 
 /** The renewal interval under a column name. */
-export function getColumnIntervalLabel(type: Pick<TrainingType, 'expirationMonths' | 'expirationDateOnly'>): string {
+export function getColumnIntervalLabel(type: RenewalKind): string {
 	if (type.expirationDateOnly) return 'Date';
 	return type.expirationMonths === null ? 'No expiry' : `${type.expirationMonths} mo`;
 }

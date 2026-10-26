@@ -5,7 +5,7 @@ and manages a signed PDF scan without changing Training records.
 
 ## Sub-features
 
-- `roster-entry`: open Sign-In Rosters from the Training page and see saved rosters permitted by Training access and
+- `roster-entry`: open Sign-in rosters from the Training page and see saved rosters permitted by Training access and
   Group scope.
 - `roster-create`: filter candidates by rank or Group, choose date, sort and layout, generate a PDF, and save the
   selected Personnel facts.
@@ -25,7 +25,7 @@ and manages a signed PDF scan without changing Training records.
 
 ## How to get to it (user POV)
 
-Sign in to Organization A, choose `Training` in the Organization navigation, then `Sign-In Rosters` in the
+Sign in to Organization A, choose `Training` in the Organization navigation, then `Sign-in rosters` in the
 `Training controls` toolbar (in `More Training controls` when it has folded). Choose `New Roster`, enter a title, adjust
 rank/Group, date, sort and layout choices, then choose `Generate & Print`. Open the saved row to `Re-print`, attach a
 `Signed Scan`, download its named file, remove the scan, or delete the roster after confirmation.
@@ -65,12 +65,12 @@ clear. Objects without the current pointer remain visible as orphan witnesses. Q
 never confirmed absence.
 
 1. Run `$V fixture`. Use `$V actor rosterManager training` and keep its returned `pageId` as `PAGE`. Choose the visible
-   `Sign-In Rosters` action. Expect `Saved Rosters` and `New Roster`, with no Calendar assignment needed.
+   `Sign-in rosters` action. Expect `Saved Rosters` and `New Roster`, with no Calendar assignment needed.
 2. Use a unique title, for example `Map Roster <run-id>`. Choose `New Roster`, filter to Alpha and an observed rank that
    includes Able, choose `By rank` and `Separate by group`, and confirm the included count before `Generate & Print`.
    Capture the PDF itself. Expect its title, date or intentionally blank date, selected Person and signature column. The
    generated PDF is a client download; its presence alone does not prove the database save. Reload Training, reopen
-   Sign-In Rosters, search for the title, and read `$V rows sign_in_rosters orgA title "$TITLE"`. Expect one row with
+   Sign-in rosters, search for the title, and read `$V rows sign_in_rosters orgA title "$TITLE"`. Expect one row with
    `personnel_ids`, `personnel_snapshot`, `scope_group_ids`, filter and sort fields matching the selection, and no
    foreign Person. Capture the row ID as `ROSTER_ID` and a second visible read after reload. A single included Person
    proves the saved sort/layout selections, not their effect on PDF ordering. For that proof, use
@@ -147,7 +147,7 @@ provider error is a failed readback, never a missing or correctly configured buc
   object's absence. The attach command retires the displaced key, and the request succeeds whether that key's cleanup
   completes or stays pending. Native drag-and-drop replacement is not established by this helper.
 
-- `Sign-In Rosters` is one `Training controls` action. It folds into `More Training controls` below about 1052 wide, so
+- `Sign-in rosters` is one `Training controls` action. It folds into `More Training controls` below about 1052 wide, so
   use the row button or the More item, whichever the fresh snapshot shows. The modal is loaded on demand, so wait for
   its heading after opening it.
 - `Generate & Print` downloads before POSTing the roster. Verify both the PDF and stored row; a generated PDF can exist

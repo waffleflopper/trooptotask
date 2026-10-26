@@ -273,6 +273,27 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			vi.useRealTimers();
 		}
 	});
+
+	it('streams the day without a goal, and the rest of the workspace, when the Organization goal cannot be read', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		findManyMock.mockResolvedValue([]);
+		mockCtx.organizationSettings = {
+			findTrainingBriefingContext: vi.fn().mockRejectedValue(new Error('settings unavailable'))
+		};
+
+		const routeData = await streamTrainingWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: { get: () => undefined } as unknown as Cookies,
+			orgId: '1-11-bde'
+		});
+		const workspace = granted(await routeData.training.data);
+
+		await expect(workspace.hydration.readiness?.items).resolves.toEqual({
+			readinessGoalPercent: null,
+			readinessAsOf: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+		});
+		await expect(workspace.data.personnelTrainings).resolves.toEqual([]);
+	});
 });
 
 function rankCatalogRow(overrides: Record<string, unknown>): Record<string, unknown> {

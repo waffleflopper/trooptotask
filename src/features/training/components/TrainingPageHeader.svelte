@@ -1,8 +1,11 @@
 <script lang="ts">
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { readinessBandTone } from '$lib/components/patterns/readiness-band/index.js';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { BRIEFING_BAND_TIER, MATRIX_HORIZON_DAYS } from '../utils/matrixReadiness';
+	import { BRIEFING_BAND_TIER } from '../utils/briefingBandTier';
+	import { MATRIX_HORIZON_DAYS } from '../utils/matrixReadiness';
 	import type { TrainingReadinessSummary } from '../utils/trainingBriefing';
 
 	interface Props {
@@ -10,21 +13,31 @@
 		personnelCount: number;
 		/** Null while the workspace loads. */
 		summary: TrainingReadinessSummary | null;
+		/** The Organization goal could not be read, so the readiness figures are withheld. */
+		readinessUnavailable?: boolean;
 	}
 
-	let { orgName, personnelCount, summary }: Props = $props();
+	let { orgName, personnelCount, summary, readinessUnavailable = false }: Props = $props();
 
 	const percentLabel = (percent: number | null) => (percent === null ? '—' : `${percent}%`);
 </script>
 
+{#snippet count(value: number, label: string, tone: string)}
+	<span class={['tabular-nums', value > 0 ? tone : 'text-muted-foreground']}>{value} {label}</span>
+{/snippet}
+
 {#snippet counts()}
 	{#if summary}
-		<p class="flex flex-wrap items-center gap-x-4 gap-y-1 text-lg font-medium">
-			<span class="text-danger-foreground tabular-nums">{summary.expired} expired</span>
-			<span class="text-warning-foreground tabular-nums"
-				>{summary.lapsing} expire within {MATRIX_HORIZON_DAYS} days</span
-			>
-			<span class="text-foreground tabular-nums">{summary.notRecorded} not recorded</span>
+		<p class="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-lg">
+			{@render count(summary.expired, 'expired', 'font-semibold text-danger-foreground')}
+			<span class="h-3.5 w-px bg-border" aria-hidden="true"></span>
+			{@render count(
+				summary.lapsing,
+				`expire within ${MATRIX_HORIZON_DAYS} days`,
+				'font-semibold text-warning-foreground'
+			)}
+			<span class="h-3.5 w-px bg-border" aria-hidden="true"></span>
+			{@render count(summary.notRecorded, 'not recorded', 'text-foreground')}
 		</p>
 	{:else}
 		<div class="flex flex-wrap gap-x-4 gap-y-1" role="status" aria-label="Loading training counts">
@@ -36,7 +49,15 @@
 {/snippet}
 
 {#snippet readiness()}
-	{#if summary}
+	{#if readinessUnavailable}
+		<Alert.Root variant="destructive" class="max-w-sm">
+			<Alert.Title>Unable to load readiness</Alert.Title>
+			<Alert.Description>The readiness goal could not be read.</Alert.Description>
+			<Alert.Action>
+				<Button type="button" variant="destructive" size="xs" onclick={() => window.location.reload()}>Retry</Button>
+			</Alert.Action>
+		</Alert.Root>
+	{:else if summary}
 		<div class="flex items-center gap-3">
 			<span
 				class={[

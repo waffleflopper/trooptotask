@@ -196,7 +196,7 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    Choose Mark All Completed Today and Mark All (`personnel-trainings/batch`): the confirmation stays open and busy
    until release; afterwards remove each new Baker record. In Calendar settings → Holidays & closures → New closure, the
    two date pickers are named First day and Last day. Also hold Send feedback (`feedback`), a new Person in Add Person
-   (`personnel`), a Training matrix cell's record dialog (`personnel-trainings`, where Delete and the exemption toggle
+   (`personnel`), a Training matrix cell's popover (`personnel-trainings`, where Delete and the exemption toggle
    are also disabled), Record Completion as `ictOperator` (`personnel-ict-completions`), Set Personnel Status as
    `calendarOperate` (`availability`), an Evals entry as `ratingOperate` (`rating-scheme`), Able's Data sheet
    (`personnel/ABLE_ID/data-sheet`, at 1280 width each visible field is named by its label), a new Sign-In Roster as

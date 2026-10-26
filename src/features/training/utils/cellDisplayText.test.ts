@@ -43,7 +43,7 @@ function makeTraining(overrides: Partial<PersonnelTraining> = {}): PersonnelTrai
 }
 
 function cellText(type: TrainingType, training: PersonnelTraining | undefined, asOf: string): string {
-	return getCellDisplayText(getTrainingStatus(training, type, person, asOf), training);
+	return getCellDisplayText(getTrainingStatus(training, type, person, asOf), training, type);
 }
 
 describe('getCellDisplayText', () => {
@@ -56,6 +56,12 @@ describe('getCellDisplayText', () => {
 		expect(cellText(type, makeTraining({ completionDate: '2026-03-02', expirationDate: null }), '2026-10-25')).toBe(
 			'Mar ’26'
 		);
+	});
+
+	it('shows the completion month, not an old stored expiry, once a type never expires', () => {
+		const type = makeType({ expirationMonths: null });
+		const training = makeTraining({ completionDate: '2026-03-02', expirationDate: '2027-03-02' });
+		expect(cellText(type, training, '2026-10-25')).toBe('Mar ’26');
 	});
 
 	it('shows the lapse month of a card-date record', () => {

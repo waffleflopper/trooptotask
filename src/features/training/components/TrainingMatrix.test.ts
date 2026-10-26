@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'svelte-sonner';
 import TrainingMatrix from './TrainingMatrix.svelte';
@@ -50,6 +51,15 @@ const persistedTraining: PersonnelTraining = {
 };
 
 vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('$lib/components/ui/date-picker', async () => ({
+	DatePicker: (await import('$features/calendar/test-support/DatePickerInputStub.svelte')).default
+}));
+
+function deferred() {
+	let resolve: () => void = () => undefined;
+	const promise = new Promise<void>((done) => (resolve = done));
+	return { promise, resolve };
+}
 
 const AS_OF = '2026-10-25';
 const ORG_ID = 'org-1';
@@ -141,7 +151,7 @@ describe('TrainingMatrix', () => {
 				trainings: [persistedTraining]
 			}
 		});
-		const nameHeader = screen.getByRole('columnheader', { name: /^Name/ });
+		const nameHeader = screen.getByRole('columnheader', { name: /^Personnel/ });
 		const typeHeader = screen.getByRole('columnheader', { name: /CPR/ });
 		const rowOrder = () => mountedNames().map((name) => `SGT ${name}`);
 
@@ -149,7 +159,8 @@ describe('TrainingMatrix', () => {
 		expect(typeHeader.getAttribute('aria-sort')).toBe('none');
 		expect(rowOrder()).toEqual(['SGT Adams, Zed', 'SGT Smith, Jane']);
 
-		const nameButton = screen.getByRole('button', { name: /^Name/ });
+		const nameButton = screen.getByRole('button', { name: /^Personnel/ });
+		expect(nameButton.textContent).toContain('2');
 		await fireEvent.click(nameButton);
 		expect(nameHeader.getAttribute('aria-sort')).toBe('descending');
 		expect(rowOrder()).toEqual(['SGT Smith, Jane', 'SGT Adams, Zed']);
@@ -320,6 +331,20 @@ describe('TrainingMatrix cell text', () => {
 		expect(cellStatus('Smith').text).toContain('Exempt');
 	});
 
+	it('shows the completion month for a type that never expires, whatever expiry an older setting stored', () => {
+		const forever: TrainingType = { ...trainingType, id: 'type-3', name: 'Once', expirationMonths: null };
+		const stored = record({
+			trainingTypeId: 'type-3',
+			completionDate: '2026-03-02',
+			expirationDate: '2027-03-02'
+		});
+		render(TrainingMatrix, {
+			props: { ...matrixProps, personnel: [person], trainingTypes: [forever], trainings: [stored] }
+		});
+
+		expect(cellStatus('Smith').text).toContain('Mar ’26');
+	});
+
 	it('labels each column with its renewal interval', () => {
 		const dated: TrainingType = {
 			...trainingType,
@@ -387,6 +412,44 @@ describe('TrainingMatrix footer and group bands', () => {
 
 		expect(bandCell('Alpha')).toBe('2 not ready');
 		expect(bandCell('Bravo')).toBe('');
+	});
+});
+
+describe('TrainingMatrix group band readiness', () => {
+	const groupedPeople = [
+		{ ...named('Adams'), groupName: 'Alpha' },
+		{ ...named('Baker'), groupName: 'Alpha' }
+	];
+	const bandText = () => screen.getByRole('button', { name: /Alpha/ }).closest('tr')?.textContent ?? '';
+
+	it('shows the ready share of a group as plain text next to the group name', () => {
+		const trainings = [record({ id: 't-a', personnelId: 'person-Adams', expirationDate: '2027-06-15' })];
+		render(TrainingMatrix, {
+			props: {
+				...matrixProps,
+				personnel: groupedPeople,
+				trainingTypes: [trainingType],
+				trainings,
+				groupBy: { key: (p) => p.groupName ?? '' }
+			}
+		});
+
+		expect(bandText()).toContain('50%');
+	});
+
+	it('leaves the share out while the Organization goal is unavailable', () => {
+		render(TrainingMatrix, {
+			props: {
+				...matrixProps,
+				goalPercent: null,
+				personnel: groupedPeople,
+				trainingTypes: [trainingType],
+				trainings: [],
+				groupBy: { key: (p) => p.groupName ?? '' }
+			}
+		});
+
+		expect(bandText()).not.toContain('%');
 	});
 });
 
@@ -508,6 +571,81 @@ describe('TrainingMatrix recording popover', () => {
 		});
 	});
 
+	it('says a type that never expires never expires, whatever expiry an older setting stored', async () => {
+		const stored = record({
+			id: 't-once',
+			trainingTypeId: 'type-once',
+			completionDate: '2026-03-02',
+			expirationDate: '2027-03-02'
+		});
+		mountRecordable({ trainings: [stored] });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Smith Once: Current' }));
+		const popover = await openPopover();
+
+		expect(within(popover).getByText('Current · never expires')).toBeTruthy();
+		expect(within(popover).queryByText(/Current until/)).toBeNull();
+	});
+
+	it('shows the note and certificate link already on the record and sends them back unchanged', async () => {
+		const user = userEvent.setup();
+		const stored = record({ id: 't-1', notes: 'Range card', certificateUrl: 'https://example.test/cpr.pdf' });
+		const { onRecord } = mountRecordable({ trainings: [stored] });
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: Current' }));
+		const popover = await openPopover();
+		expect((within(popover).getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Range card');
+		expect((within(popover).getByLabelText('Certificate URL') as HTMLInputElement).value).toBe(
+			'https://example.test/cpr.pdf'
+		);
+		await fireEvent.input(dateInput(popover), { target: { value: '2026-10-20' } });
+		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
+
+		await waitFor(() => expect(onRecord).toHaveBeenCalledTimes(1));
+		expect(onRecord).toHaveBeenCalledWith({
+			personnelId: 'person-1',
+			trainingTypeId: 'type-1',
+			completionDate: '2026-10-20',
+			expirationDate: '2027-10-20',
+			notes: 'Range card',
+			certificateUrl: 'https://example.test/cpr.pdf'
+		});
+	});
+
+	it('keeps an uploaded certificate on the record when only a note is added', async () => {
+		const user = userEvent.setup();
+		const stored = record({ id: 't-1', certificateUrl: 'org/personnel/person-1/cpr.pdf' });
+		const { onRecord } = mountRecordable({ trainings: [stored] });
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: Current' }));
+		const popover = await openPopover();
+		await user.click(within(popover).getByRole('button', { name: /^Add a note/ }));
+		expect((within(popover).getByLabelText('Certificate URL') as HTMLInputElement).value).toBe('');
+		await user.type(within(popover).getByLabelText('Notes'), 'Renewed on site');
+		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
+
+		await waitFor(() => expect(onRecord).toHaveBeenCalledTimes(1));
+		expect(onRecord).toHaveBeenCalledWith(
+			expect.objectContaining({ notes: 'Renewed on site', certificateUrl: 'org/personnel/person-1/cpr.pdf' })
+		);
+	});
+
+	it('returns focus to the cell on Escape after its row scrolled out of the window', async () => {
+		const user = userEvent.setup();
+		mountRecordable({ personnel: roster(400) });
+
+		const cell = screen.getByRole('button', { name: 'P000 CPR: No record' });
+		await user.click(cell);
+		await openPopover();
+		await scrollTo(300 * ROW_HEIGHT);
+		await user.keyboard('{Escape}');
+
+		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'P000 CPR: No record' }))
+		);
+	});
+
 	it('closes on Escape without saving and returns focus to the cell', async () => {
 		const user = userEvent.setup();
 		const { onRecord } = mountRecordable();
@@ -542,10 +680,10 @@ describe('TrainingMatrix recording popover', () => {
 	it('leaves a later popover alone when an earlier save finishes after it was closed', async () => {
 		const user = userEvent.setup();
 		const jones = named('Jones', 'person-2');
-		let finishFirst: () => void = () => undefined;
+		const firstSave = deferred();
 		const onRecord = vi
 			.fn()
-			.mockImplementationOnce(() => new Promise<void>((resolve) => (finishFirst = resolve)))
+			.mockImplementationOnce(() => firstSave.promise)
 			.mockResolvedValue(undefined);
 		render(TrainingMatrix, {
 			props: { ...matrixProps, personnel: [person, jones], trainingTypes: [trainingType], trainings: [], onRecord }
@@ -560,8 +698,9 @@ describe('TrainingMatrix recording popover', () => {
 		const second = await openPopover();
 		expect(within(second).getByText(/Jones, Jane/)).toBeTruthy();
 
-		finishFirst();
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		firstSave.resolve();
+		await firstSave.promise;
+		await tick();
 
 		expect(second.isConnected).toBe(true);
 		expect(within(second).getByText(/Jones, Jane/)).toBeTruthy();
@@ -570,8 +709,8 @@ describe('TrainingMatrix recording popover', () => {
 
 	it('writes nothing back when the Organization changes while a save is in flight', async () => {
 		const user = userEvent.setup();
-		let finish: () => void = () => undefined;
-		const onRecord = vi.fn().mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
+		const save = deferred();
+		const onRecord = vi.fn().mockImplementationOnce(() => save.promise);
 		const { view, props } = mountRecordable({ onRecord });
 
 		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
@@ -579,8 +718,9 @@ describe('TrainingMatrix recording popover', () => {
 		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
 		await view.rerender({ ...props, orgId: 'org-2' });
 
-		finish();
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		save.resolve();
+		await save.promise;
+		await tick();
 
 		expect(vi.mocked(toast.success)).not.toHaveBeenCalled();
 		expect(screen.getByText('Record · CPR')).toBeTruthy();

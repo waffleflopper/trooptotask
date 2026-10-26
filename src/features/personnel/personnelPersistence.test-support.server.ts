@@ -24,6 +24,7 @@ export function withPersonnelPersistence<
 		roster: createInMemoryPersonnelRosterReader(ctx.store, ctx.auth.orgId),
 		groups: createInMemoryGroupPersistence(ctx.store, ctx.auth.orgId, ctx.auth.scopeSet),
 		selfPins: createInMemorySelfPinPersistence(ctx.store, ctx.auth.orgId, ctx.auth.userId),
-		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: ctx.auth, rankCatalog: ctx.rankCatalog })
+		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: ctx.auth, rankCatalog: ctx.rankCatalog }),
+		deletionReferences: { find: async () => ({ taskingTitles: [], hiddenTaskings: 0 }) }
 	};
 }

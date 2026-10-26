@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
+import type { PersonnelDeletionReferencesPort } from '$features/personnel/contracts';
 import { TASKING_GONE } from '../taskingPersistence.server';
 import type {
 	StaffingAdvisory,
@@ -15,13 +16,6 @@ export const STAFFING_INELIGIBLE =
 const STAFFING_CLOSED = 'A completed or cancelled tasking keeps its staffing. Reopen it to change who is picked.';
 const STAFFING_DENIED = 'You do not have Calendar operation access to staff this tasking.';
 
-/** Taskings that keep a Person or Group from permanent deletion, as the caller may see them. */
-export interface DeletionReferences {
-	taskings: { id: string; title: string }[];
-	/** Referencing Taskings outside the caller's Calendar scope. */
-	hidden: number;
-}
-
 export interface CalendarStaffingPersistence {
 	/** Null when the reader cannot see the Tasking. */
 	findStaffing(taskingId: string): Promise<TaskingStaffing | null>;
@@ -30,7 +24,6 @@ export interface CalendarStaffingPersistence {
 	/** By Person, over the Tasking's execution dates; empty unless the reader may staff it. */
 	listAdvisories(taskingId: string): Promise<Record<string, StaffingAdvisory[]>>;
 	saveStaffing(taskingId: string, save: StaffingSave): Promise<'saved' | 'unchanged' | 'conflict'>;
-	findDeletionReferences(target: { personnelId: string } | { groupId: string }): Promise<DeletionReferences>;
 }
 
 const countRowSchema = z.object({
@@ -175,20 +168,27 @@ export function createSupabaseCalendarStaffingPersistence(
 			const [row] = z.array(saveRowSchema).parse(data);
 			if (!row) throw new Error('save_calendar_tasking_people returned no outcome');
 			return row.outcome;
-		},
-		async findDeletionReferences(target) {
-			const rows = z
-				.array(z.object({ tasking_id: z.string().nullable(), title: z.string().nullable() }))
-				.parse(
-					await rpcRows('calendar_deletion_references', {
-						p_personnel_id: 'personnelId' in target ? target.personnelId : null,
-						p_group_id: 'groupId' in target ? target.groupId : null
-					})
-				);
-			const taskings = rows.flatMap((row) =>
-				row.tasking_id && row.title ? [{ id: row.tasking_id, title: row.title }] : []
-			);
-			return { taskings, hidden: rows.length - taskings.length };
+		}
+
+	};
+}
+
+/** Reads Calendar's references for Personnel's permanent deletion, scoped like the actor's Calendar view. */
+export function createSupabaseCalendarDeletionReferences(
+	client: SupabaseClient,
+	orgId: string
+): PersonnelDeletionReferencesPort {
+	return {
+		async find(target) {
+			const { data, error } = await client.rpc('calendar_deletion_references', {
+				p_organization_id: orgId,
+				p_personnel_id: 'personnelId' in target ? target.personnelId : null,
+				p_group_id: 'groupId' in target ? target.groupId : null
+			});
+			if (error) throw new Error(error.message);
+			const rows = z.array(z.object({ tasking_id: z.string().nullable(), title: z.string().nullable() })).parse(data);
+			const taskingTitles = rows.flatMap((row) => (row.title === null ? [] : [row.title]));
+			return { taskingTitles, hiddenTaskings: rows.length - taskingTitles.length };
 		}
 	};
 }

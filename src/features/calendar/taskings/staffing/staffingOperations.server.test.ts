@@ -65,8 +65,7 @@ function memoryStaffing(advisories: () => Promise<Record<string, never>> = async
 			picked = save.personnelIds;
 			revision += 1;
 			return 'saved';
-		},
-		findDeletionReferences: async () => ({ taskings: [], hidden: 0 })
+		}
 	};
 	return { port, saves };
 }
@@ -129,7 +128,7 @@ function member(
 	return { ctx, saves: staffing.saves, audit, advisoryReads: () => advisoryReads };
 }
 
-const alpha = { scopeSet: { kind: 'groups', groupIds: [ALPHA] } } as const;
+const alpha: { scopeSet: ScopeSet } = { scopeSet: { kind: 'groups', groupIds: [ALPHA] } };
 const save = (personnelIds: string[], expectedRevision: number) => ({
 	personnelIds,
 	keep: [],

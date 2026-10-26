@@ -10,7 +10,7 @@ import type {
 	PersonnelWorkbookHistoryReader,
 	SavedPersonnelSheet
 } from '$features/personnel/contracts';
-import type { RankCatalogPersistence } from '$features/personnel/contracts';
+import type { PersonnelDeletionReferencesPort, RankCatalogPersistence } from '$features/personnel/contracts';
 import type {
 	OrganizationSettingsMembershipRow,
 	OrganizationSettingsInvitationRow,
@@ -145,6 +145,7 @@ type TestContextOptions = {
 	) => CalendarAvailabilityPersistence;
 	calendarAssignmentsFactory?: (rawStore: FixtureRowStore, orgId: string) => CalendarAssignmentReader;
 	ratingSchemeFactory?: (rawStore: FixtureRowStore, orgId: string) => RatingSchemePersistence;
+	deletionReferences?: PersonnelDeletionReferencesPort;
 	criticalTaskLibraryFactory?: (rawStore: InMemoryDataStore, orgId: string) => CriticalTaskLibraryPersistence;
 	criticalTaskCompletionsFactory?: (rawStore: FixtureRowStore, orgId: string) => CriticalTaskCompletionPersistence;
 	criticalTasksReadModelFactory?: (
@@ -2110,6 +2111,9 @@ export function createTestContext(
 		scope,
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		deletionReferences: overrides?.deletionReferences ?? {
+			find: async () => ({ taskingTitles: [], hiddenTaskings: 0 })
+		},
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
 		organizationSettings,
 		contributorLabels: (userIds: string[]) => organizationSettings.findMemberLabels(auth.orgId, userIds),

@@ -129,4 +129,7 @@ export {
 	loadStaffingPicker,
 	saveTaskingPeople
 } from './taskings/staffing/staffingOperations.server';
-export { createSupabaseCalendarStaffingPersistence } from './taskings/staffing/staffingPersistence.server';
+export {
+	createSupabaseCalendarStaffingPersistence,
+	createSupabaseCalendarDeletionReferences
+} from './taskings/staffing/staffingPersistence.server';

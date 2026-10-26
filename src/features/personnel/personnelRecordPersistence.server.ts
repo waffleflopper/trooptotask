@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fail } from '$lib/errors';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelLifecycleReference, PersonnelRecordPersistence } from './contracts';
@@ -159,6 +160,8 @@ export function createSupabasePersonnelRecordPersistence(
 		},
 		async delete(id) {
 			const { error } = await client.from('personnel').delete().eq('organization_id', orgId).eq('id', id);
+			if (error?.code === '23503' && error.message.includes('calendar_tasking_participants_personnel_fkey'))
+				fail(409, 'This person was just picked for a tasking. Remove them from it before deleting.');
 			if (error) throwPersonnelMutationError(error);
 		}
 	};

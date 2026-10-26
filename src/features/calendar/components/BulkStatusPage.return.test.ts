@@ -29,6 +29,9 @@ vi.mock('$app/state', () => ({ page: pageMock, navigating: navigatingMock }));
 vi.mock('./BulkStatusAdd.svelte', async () => ({
 	default: (await import('../test-support/BulkStatusAddFinishStub.svelte')).default
 }));
+vi.mock('./BulkStatusRemove.svelte', async () => ({
+	default: (await import('../test-support/BulkStatusRemoveFinishStub.svelte')).default
+}));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({ statusTypesStore: { items: [] } }));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
 	availabilityStore: { items: [], addBatch: addBatchMock, removeBatch: vi.fn() }
@@ -99,6 +102,19 @@ describe('BulkStatusPage after a prefilled save', () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(gotoMock).not.toHaveBeenCalledWith(`/org/org-1/calendar/taskings/${TASKING}`, expect.anything());
+	});
+
+	it('refreshes the Calendar data after a removal, including one reached by switching tabs', async () => {
+		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=add');
+		const view = renderPage();
+		await fireEvent.click(screen.getByRole('radio', { name: 'Remove' }));
+		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=remove');
+		view.unmount();
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish removal' }));
+
+		expect(invalidateMock).toHaveBeenCalledWith('app:calendar-data');
 	});
 
 	it('ignores the prefill while Events & Taskings is off', async () => {

@@ -91,4 +91,15 @@ describe('SetAvailability', () => {
 		expect(screen.getByRole('status', { name: 'Checking Availability' })).toBeTruthy();
 		expect(screen.queryByText(/^Availability covers every execution day/)).toBeNull();
 	});
+
+	it('checks again when the picks change before their refreshed read arrives', async () => {
+		const settled: Promise<EventRead<string[]>> = Promise.resolve({ status: 'loaded', value: [] });
+		const view = renderAction(settled);
+		await screen.findByText(/^Availability covers every execution day/);
+
+		await view.rerender({ targets: [pick(ALICE), pick(BRUNO), pick(CARLA)], gaps: settled });
+		await Promise.resolve();
+
+		expect(screen.getByRole('status', { name: 'Checking Availability' })).toBeTruthy();
+	});
 });

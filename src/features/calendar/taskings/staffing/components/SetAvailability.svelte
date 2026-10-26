@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { reloadCalendarEvents } from '../../../events/eventPageState';
@@ -22,18 +23,20 @@
 
 	const streamed = new StreamedValue(() => gaps);
 	// A refresh keeps the last coverage, which only answers for the picks and dates it was read for.
+	// A save updates picks and dates before its refreshed read arrives, so a read answers for what was
+	// asked when it arrived, never for a later change.
 	const askedFor = $derived(JSON.stringify([targets.map((t) => t.personnelId), execution]));
 	let answeredFor = $state<string | null>(null);
+	let latestRead: Promise<unknown> | null = null;
 	$effect(() => {
-		const key = askedFor;
-		let live = true;
+		const read = gaps;
+		if (read === latestRead) return;
+		latestRead = read;
+		const key = untrack(() => askedFor);
 		const settle = () => {
-			if (live) answeredFor = key;
+			if (read === latestRead) answeredFor = key;
 		};
-		gaps.then(settle, settle);
-		return () => {
-			live = false;
-		};
+		read.then(settle, settle);
 	});
 	const uncovered = $derived.by(() => {
 		if (answeredFor !== askedFor) return null;

@@ -151,10 +151,15 @@
 		}
 	}
 
-	function handleComplete() {
+	function refreshCalendar() {
+		invalidate('app:calendar-data');
+	}
+
+	function handleAddComplete() {
 		// The reader already chose to go elsewhere; returning or refreshing now would cancel that navigation.
-		if (navigating.to || applyingGeneration !== formGeneration) return;
-		const returnTo = prefill && active && data.orgId === applyingOrgId ? backHref : null;
+		if (navigating.to) return;
+		const sameForm = applyingGeneration === formGeneration;
+		const returnTo = prefill && sameForm && active && data.orgId === applyingOrgId ? backHref : null;
 		// A separate invalidate would cancel a navigation started before it, so refresh as part of leaving.
 		if (returnTo) {
 			void goto(resolve(returnTo as `/org/${string}/calendar/taskings/${string}`), {
@@ -162,7 +167,7 @@
 			});
 			return;
 		}
-		invalidate('app:calendar-data');
+		refreshCalendar();
 	}
 </script>
 
@@ -204,7 +209,7 @@
 						orgId={data.orgId}
 						{rangeCoordinator}
 						onApply={handleBulkApply}
-						onComplete={handleComplete}
+						onComplete={handleAddComplete}
 						{prefill}
 					/>
 				{/key}
@@ -216,7 +221,7 @@
 					personnelList={calendarPersonnel}
 					loadAvailabilityRange={loadAvailabilityEntriesForRange}
 					onRemove={handleBulkRemove}
-					onComplete={handleComplete}
+					onComplete={refreshCalendar}
 				/>
 			{/if}
 		</div>

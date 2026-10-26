@@ -241,6 +241,10 @@ _Avoid_: Invalid, stale
 Availability or another active Tasking that overlaps a candidate's execution dates, shown in the picker for awareness. It never blocks a pick, and a Tasking the reader cannot see reads only as committed elsewhere.
 _Avoid_: Blocker, availability check
 
+**Availability gap**:
+A counted pick whose Availability entries, together, leave an execution day of their Tasking uncovered. Tasking detail counts them for readers who may set those People's Availability and offers Set availability, which opens Bulk Status prefilled. What it saves is ordinary Availability with no link to the Tasking.
+_Avoid_: Conflict, missing status
+
 **Event work phase**:
 Where a Tasking sits against its Event: execution when its execution dates or suspense touch the Event's dates, preparation when it is due before the Event starts, closeout when after it ends. Event detail groups its Taskings by phase.
 _Avoid_: Stage, before/after

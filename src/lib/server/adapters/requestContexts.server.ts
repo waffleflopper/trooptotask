@@ -25,6 +25,7 @@ import {
 	createSupabaseCalendarEventPersistence,
 	createSupabaseCalendarProjectionReader,
 	createSupabaseCalendarTaskingPersistence,
+	createSupabaseCalendarAvailabilityGaps,
 	createSupabaseCalendarStaffingPersistence,
 	createSupabaseCalendarTaskingAttentionReader,
 	createSupabaseCalendarDeletionReferences,
@@ -631,6 +632,7 @@ export function createRequestCalendarTaskingContext(request: AdmittedOrganizatio
 		groups: createSupabaseGroupPersistence(request.supabase, orgId, request.auth.scopeSet),
 		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId),
 		calendarStaffing: createSupabaseCalendarStaffingPersistence(request.supabase, orgId),
+		calendarAvailabilityGaps: createSupabaseCalendarAvailabilityGaps(request.supabase, orgId),
 		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
 	};
 }

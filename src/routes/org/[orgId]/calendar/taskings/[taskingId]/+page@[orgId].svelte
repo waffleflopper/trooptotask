@@ -32,6 +32,7 @@
 		lists={data.lists}
 		choices={data.choices}
 		people={data.people}
+		availabilityGaps={data.availabilityGaps}
 		editOnArrival={edit}
 	/>
 {/key}

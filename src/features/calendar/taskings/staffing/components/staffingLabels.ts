@@ -26,3 +26,8 @@ export function reviewLabel(review: PickReview, groupId: string | null, groups: 
 
 export const groupLabel = (groupId: string | null, groups: GroupLabels) =>
 	groupId === null ? 'Unassigned' : (groups[groupId] ?? 'Another group');
+
+export function availabilityGapLabel(uncovered: number, total: number): string {
+	if (uncovered === 0) return 'Availability covers every execution day for everyone picked.';
+	return `${uncovered} of ${total} picked ${total === 1 ? 'person has' : 'people have'} no Availability covering every execution day.`;
+}

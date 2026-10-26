@@ -17,6 +17,12 @@ export interface TaskingPick {
 	reviewSince: string | null;
 }
 
+/** One read's answer: the picks it checked and how many of them lack Availability on an execution day. */
+export interface AvailabilityCoverage {
+	checked: number;
+	uncovered: number;
+}
+
 export const NO_STAFFING: StaffingCount = { picked: 0, needsReview: 0, outsideScope: 0 };
 
 export interface TaskingStaffing extends StaffingCount {

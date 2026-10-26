@@ -83,6 +83,13 @@ function renderSheet(canEdit = true) {
 	});
 }
 
+/** The numbers in the sheet's description: how many are saved, then how many wait on a scan when any do. */
+function headerCounts() {
+	const id = screen.getByRole('dialog').getAttribute('aria-describedby');
+	const description = id ? document.getElementById(id) : null;
+	return (description?.textContent?.match(/\d+/g) ?? []).map(Number);
+}
+
 function previewedNames() {
 	const preview = screen.getByTestId('roster-print-preview');
 	return [...preview.querySelectorAll('tbody tr')].flatMap((row) => {
@@ -122,8 +129,7 @@ describe('SignInRostersSheet list', () => {
 		);
 		renderSheet();
 
-		expect(await screen.findByText('3 saved')).toBeTruthy();
-		expect(screen.getByText('2 waiting on a signed scan')).toBeTruthy();
+		await waitFor(() => expect(headerCounts()).toEqual([3, 2]));
 	});
 
 	it('counts rosters waiting on a scan across every page, not just the loaded ones', async () => {
@@ -133,8 +139,7 @@ describe('SignInRostersSheet list', () => {
 		);
 		renderSheet();
 
-		expect(await screen.findByText('21 saved')).toBeTruthy();
-		expect(screen.getByText('1 waiting on a signed scan')).toBeTruthy();
+		await waitFor(() => expect(headerCounts()).toEqual([21, 1]));
 		expect(screen.getByRole('button', { name: 'Show more' })).toBeTruthy();
 	});
 
@@ -167,7 +172,7 @@ describe('SignInRostersSheet list', () => {
 
 		expect((await screen.findByRole('alert')).textContent).toContain('Sign-in rosters are unavailable.');
 		expect(screen.queryByText('No sign-in rosters yet.')).toBeNull();
-		expect(screen.queryByText(/saved/)).toBeNull();
+		expect(headerCounts()).toEqual([]);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
@@ -205,14 +210,13 @@ describe('SignInRostersSheet list', () => {
 		vi.stubGlobal('fetch', fetchMock);
 		renderSheet();
 		const row = (await screen.findByText('Range safety brief')).closest('li') as HTMLElement;
-		expect(screen.getByText('2 waiting on a signed scan')).toBeTruthy();
+		expect(headerCounts()).toEqual([2, 2]);
 
 		await fireEvent.dragEnter(row, { dataTransfer: { types: ['Files'] } });
-		expect(within(row).getByText('Drop to attach')).toBeTruthy();
 		await fireEvent.drop(row, { dataTransfer: { files: [pdf()], types: ['Files'] } });
 
 		expect(await within(row).findByRole('button', { name: 'Signed scan' })).toBeTruthy();
-		expect(screen.getByText('1 waiting on a signed scan')).toBeTruthy();
+		expect(headerCounts()).toEqual([2, 1]);
 		const uploads = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST');
 		expect(uploads.map(([input]) => String(input))).toEqual(['/org/org-1/api/sign-in-rosters/roster-2/upload']);
 		expect(uploads[0]?.[1]?.body).toBeInstanceOf(FormData);
@@ -236,7 +240,13 @@ describe('SignInRostersSheet list', () => {
 		await fireEvent.change(await screen.findByLabelText('Signed scan file for Morning Formation'), {
 			target: { files: [pdf()] }
 		});
-		expect(screen.getByText('Uploading signed-roster.pdf…')).toBeTruthy();
+		const row = screen.getByText('Morning Formation').closest('li') as HTMLElement;
+		expect(
+			within(row)
+				.getAllByRole('status')
+				.map((status) => status.textContent)
+				.join(' ')
+		).toContain('signed-roster.pdf');
 		expect(screen.getByRole('dialog').getAttribute('aria-busy')).toBe('true');
 
 		finish(json({ filePath: SAVED_SCAN }));

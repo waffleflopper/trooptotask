@@ -398,7 +398,7 @@
 {/snippet}
 
 {#snippet selectControl(item: ToolbarSelect, live: boolean)}
-	<Select.Root type="single" value={item.value} onValueChange={live ? item.onValueChange : undefined}>
+	<Select.Root type="single" bind:value={() => item.value, (next) => live && item.onValueChange(next)}>
 		<Select.Trigger aria-label={item.ariaLabel ?? item.label} tabindex={live ? undefined : -1}>
 			<span>{optionLabel(item, item.value)}</span>
 		</Select.Trigger>

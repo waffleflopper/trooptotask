@@ -26,7 +26,7 @@ existing generic text. Provider, constraint and foreign-Organization details nev
 
 ## How to get to it (user POV)
 
-The forms are the normal editors in Training → Manage Types and Manage Views, Calendar → Settings, Personnel, Evals and
+The forms are the normal editors in Training → Manage Types and the Manage views sheet, Calendar → Settings, Personnel, Evals and
 Onboarding. The other cases have no visible entry point. Drive them as authenticated endpoint probes.
 
 ## Driving it with verify:app

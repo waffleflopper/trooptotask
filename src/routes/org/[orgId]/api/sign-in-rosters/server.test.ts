@@ -131,7 +131,10 @@ describe('/api/sign-in-rosters route config', () => {
 			global: {
 				fetch: async (input, init) => {
 					const request = new Request(input, init);
-					if (request.method !== 'GET' || new URL(request.url).pathname !== '/rest/v1/sign_in_rosters') {
+					if (
+						!['GET', 'HEAD'].includes(request.method) ||
+						new URL(request.url).pathname !== '/rest/v1/sign_in_rosters'
+					) {
 						throw new Error('Only the saved roster read is available');
 					}
 					return Response.json(
@@ -174,6 +177,7 @@ describe('/api/sign-in-rosters route config', () => {
 
 		expect(result).toEqual({
 			total: 1,
+			unsigned: 1,
 			rosters: [
 				{
 					id: 'historical-roster',
@@ -276,6 +280,7 @@ describe('/api/sign-in-rosters route config', () => {
 		);
 		expect(result).toEqual({
 			total: 1,
+			unsigned: 1,
 			rosters: [
 				expect.objectContaining({
 					id: created.id,
@@ -824,6 +829,51 @@ describe('/api/sign-in-rosters route config', () => {
 
 		expect(result.rosters.map((roster) => roster.id)).toEqual(['roster-alpha']);
 		expect(result.total).toBe(1);
+	});
+
+	it('counts the rosters still waiting on a signed scan across all pages and only within the reader scope', async () => {
+		const ctx = createRosterTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+			}
+		});
+		const seeded = (id: string, day: number, extra: Record<string, unknown> = {}) => ({
+			id,
+			organization_id: ctx.auth.orgId,
+			title: id,
+			scope_group_ids: [GROUP_ALPHA],
+			personnel_ids: [],
+			personnel_snapshot: [],
+			signed_file_path: null,
+			created_at: `2026-05-0${day}T10:00:00.000Z`,
+			...extra
+		});
+		const signed = { signed_file_path: `${ctx.auth.orgId}/sign-in-rosters/x/scan.pdf` };
+		ctx.rawStore.seed('sign_in_rosters', [
+			seeded('newest-signed', 5, signed),
+			seeded('newer-signed', 4, signed),
+			seeded('oldest-unsigned', 1),
+			seeded('other-group', 3, { scope_group_ids: [GROUP_BRAVO] }),
+			seeded('foreign', 2, { organization_id: 'foreign-org' })
+		]);
+
+		const firstPage = (await handleUseCaseRequest(_getConfig, ctx, { limit: 2, offset: 0 }, () =>
+			selectRosterContext(ctx)
+		)) as { rosters: Array<{ id: string }>; total: number; unsigned: number };
+
+		expect(firstPage.rosters.map((roster) => roster.id)).toEqual(['newest-signed', 'newer-signed']);
+		expect(firstPage.total).toBe(3);
+		expect(firstPage.unsigned).toBe(1);
 	});
 
 	it('falls back to the default page size for a non-numeric limit and accepts only instant date bounds', async () => {

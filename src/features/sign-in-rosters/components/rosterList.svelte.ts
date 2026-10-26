@@ -22,6 +22,8 @@ function cleanupNotice(payload: { fileCleanup?: string }) {
 export class RosterList {
 	rosters = $state<SignInRoster[]>([]);
 	total = $state(0);
+	/** Rosters matching the filters that have no signed scan, across every page. */
+	waitingOnScan = $state(0);
 	loading = $state(true);
 	loadError = $state('');
 	searchTitle = $state('');
@@ -36,7 +38,6 @@ export class RosterList {
 
 	readonly busy = $derived(this.uploading.size > 0 || this.removing.size > 0 || this.deleting !== null);
 	readonly hasFilters = $derived(!!this.searchTitle || !!this.dateFrom || !!this.dateTo);
-	readonly waitingOnScan = $derived(this.rosters.filter((roster) => !roster.signedFilePath).length);
 
 	#orgId: string;
 	#disposed = false;
@@ -79,12 +80,17 @@ export class RosterList {
 			const data = (await res.json().catch(() => ({}))) as {
 				rosters?: SignInRoster[];
 				total?: number;
+				unsigned?: number;
 				message?: unknown;
 			};
 			if (!alive() || version !== this.#loadVersion) return;
 			if (!res.ok || !Array.isArray(data.rosters)) throw new Error(failureMessage(data, LOAD_FAILED));
 			this.rosters = reset ? data.rosters : [...this.rosters, ...data.rosters];
 			this.total = typeof data.total === 'number' ? data.total : this.rosters.length;
+			this.waitingOnScan =
+				typeof data.unsigned === 'number'
+					? data.unsigned
+					: this.rosters.filter((roster) => !roster.signedFilePath).length;
 			this.loading = false;
 		} catch (err) {
 			if (!alive() || version !== this.#loadVersion) return;
@@ -106,14 +112,19 @@ export class RosterList {
 		void this.load(true);
 	}
 
-	#patch(id: string, change: Partial<SignInRoster>) {
-		this.rosters = this.rosters.map((roster) => (roster.id === id ? { ...roster, ...change } : roster));
+	#setScan(id: string, signedFilePath: string | null) {
+		const current = this.rosters.find((roster) => roster.id === id);
+		if (!current) return;
+		if (!current.signedFilePath !== !signedFilePath) this.waitingOnScan += signedFilePath ? -1 : 1;
+		this.rosters = this.rosters.map((roster) => (roster.id === id ? { ...roster, signedFilePath } : roster));
 	}
 
 	#drop(id: string) {
-		if (!this.rosters.some((roster) => roster.id === id)) return;
+		const current = this.rosters.find((roster) => roster.id === id);
+		if (!current) return;
 		this.rosters = this.rosters.filter((roster) => roster.id !== id);
 		this.total--;
+		if (!current.signedFilePath) this.waitingOnScan--;
 	}
 
 	#dropUnavailable(id: string) {
@@ -149,7 +160,7 @@ export class RosterList {
 				return;
 			}
 			if (!response.ok || !payload.filePath) throw new Error(failureMessage(payload, 'Upload failed.'));
-			this.#patch(roster.id, { signedFilePath: payload.filePath });
+			this.#setScan(roster.id, payload.filePath);
 			toastStore.success('Signed scan uploaded');
 		} catch (err: unknown) {
 			if (alive()) this.scanErrors.set(roster.id, err instanceof Error ? err.message : 'Upload failed.');
@@ -202,7 +213,7 @@ export class RosterList {
 			}
 			if (!response.ok) throw new Error(failureMessage(payload, 'Remove failed.'));
 			this.scanErrors.delete(roster.id);
-			this.#patch(roster.id, { signedFilePath: null });
+			this.#setScan(roster.id, null);
 			toastStore.success(`Signed scan removed${cleanupNotice(payload)}`);
 		} catch (err: unknown) {
 			if (!this.#disposed) this.scanErrors.set(roster.id, err instanceof Error ? err.message : 'Remove failed.');

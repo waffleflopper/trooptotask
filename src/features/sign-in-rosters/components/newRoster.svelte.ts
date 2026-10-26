@@ -1,8 +1,8 @@
 import type { Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import { formatToday } from '$lib/utils/dates';
-import { generateRosterPdf } from '../rosterPdf';
 import { emptySignInRosterFilter, filterSignInRosterPersonnel, type SignInRosterFilter } from '../signInRosterFilter';
+import type { SignInRoster } from '../sign-in-rosters.types';
 import { sortSignInRosterRows } from '../signInRosterRankOrder';
 
 const SAVE_FAILED = 'Unable to save the roster.';
@@ -21,7 +21,6 @@ interface Inputs {
 	orgId: string;
 	personnel: () => readonly Personnel[];
 	rankCatalog: () => readonly RankCatalogEntry[] | undefined;
-	compareGroupNames: () => (a: string, b: string) => number;
 }
 
 /** The new-roster form: its fields, who they select, and the order that selection prints and saves in. */
@@ -94,9 +93,9 @@ export class NewRoster {
 			: [...this.filter.ranks, ...ranks.filter((rank) => !this.filter.ranks.includes(rank))];
 	}
 
-	/** Prints the PDF, then saves the roster. Resolves true when it saved and the sheet is still open. */
-	async saveAndPrint(): Promise<boolean> {
-		if (!this.canSave || this.saving) return false;
+	/** Saves the roster. Resolves the stored roster, or null when it was refused or the sheet is no longer open. */
+	async save(): Promise<SignInRoster | null> {
+		if (!this.canSave || this.saving) return null;
 		this.saving = true;
 		this.error = '';
 		const inOrganization = stillInOrganizationLifetime();
@@ -112,8 +111,6 @@ export class NewRoster {
 		};
 
 		try {
-			await generateRosterPdf({ ...config, personnelSnapshot: snapshot }, this.#inputs.compareGroupNames());
-			if (!alive()) return false;
 			const res = await withinOrganizationLifetime(
 				fetch(`/org/${this.#inputs.orgId}/api/sign-in-rosters`, {
 					method: 'POST',
@@ -125,17 +122,18 @@ export class NewRoster {
 					})
 				})
 			);
-			const payload = (await withinOrganizationLifetime(res.json().catch(() => ({})))) as { message?: unknown };
-			if (!alive()) return false;
+			const payload = (await withinOrganizationLifetime(res.json().catch(() => ({})))) as SignInRoster & {
+				message?: unknown;
+			};
+			if (!alive()) return null;
 			if (!res.ok) {
-				const reason = typeof payload.message === 'string' && payload.message ? payload.message : SAVE_FAILED;
-				this.error = `The PDF was downloaded but the roster was not saved. ${reason}`;
-				return false;
+				this.error = typeof payload.message === 'string' && payload.message ? payload.message : SAVE_FAILED;
+				return null;
 			}
-			return true;
+			return payload as SignInRoster;
 		} catch (err) {
 			if (alive()) this.error = err instanceof Error ? err.message : SAVE_FAILED;
-			return false;
+			return null;
 		} finally {
 			this.saving = false;
 		}

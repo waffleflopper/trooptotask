@@ -51,8 +51,7 @@
 		draft = new NewRoster({
 			orgId: untrack(() => orgId),
 			personnel: () => personnel,
-			rankCatalog: () => rankCatalog,
-			compareGroupNames: () => compareGroupNames
+			rankCatalog: () => rankCatalog
 		});
 	}
 
@@ -69,9 +68,11 @@
 
 	async function saveAndPrint() {
 		const saving = draft;
-		if (!saving || !(await saving.saveAndPrint()) || draft !== saving) return;
+		const saved = await saving?.save();
+		if (!saved || draft !== saving) return;
 		leaveNew();
 		void list.load(true);
+		await reprint(saved);
 	}
 
 	async function reprint(roster: SignInRoster) {

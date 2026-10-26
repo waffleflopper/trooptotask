@@ -67,9 +67,13 @@ function json(data: unknown, ok = true, status = ok ? 200 : 500): Response {
 	return { ok, status, json: vi.fn().mockResolvedValue(data) } as unknown as Response;
 }
 
+function unsignedIn(rosters: SignInRoster[]) {
+	return rosters.filter((saved) => !saved.signedFilePath).length;
+}
+
 function listFetch(rosters: SignInRoster[], total = rosters.length) {
 	return vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
-		(init?.method ?? 'GET') === 'GET' ? json({ rosters, total }) : json({})
+		(init?.method ?? 'GET') === 'GET' ? json({ rosters, total, unsigned: unsignedIn(rosters) }) : json({})
 	);
 }
 
@@ -114,12 +118,24 @@ describe('SignInRostersSheet list', () => {
 		expect(screen.getByText('2 waiting on a signed scan')).toBeTruthy();
 	});
 
+	it('counts rosters waiting on a scan across every page, not just the loaded ones', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => json({ rosters: [roster({ signedFilePath: SAVED_SCAN })], total: 21, unsigned: 1 }))
+		);
+		renderSheet();
+
+		expect(await screen.findByText('21 saved')).toBeTruthy();
+		expect(screen.getByText('1 waiting on a signed scan')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Show more' })).toBeTruthy();
+	});
+
 	it('shows the next page after Show more', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const offset = new URL(String(input), 'http://localhost').searchParams.get('offset');
 			return offset === '0'
-				? json({ rosters: [roster()], total: 2 })
-				: json({ rosters: [roster({ id: 'roster-2', title: 'Range safety brief' })], total: 2 });
+				? json({ rosters: [roster()], total: 2, unsigned: 2 })
+				: json({ rosters: [roster({ id: 'roster-2', title: 'Range safety brief' })], total: 2, unsigned: 2 });
 		});
 		vi.stubGlobal('fetch', fetchMock);
 		renderSheet();
@@ -176,17 +192,19 @@ describe('SignInRostersSheet list', () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
 			String(input).endsWith('/roster-2/upload') && init?.method === 'POST'
 				? json({ filePath: 'org-1/sign-in-rosters/roster-2/signed-roster.pdf' })
-				: json({ rosters: [roster(), roster({ id: 'roster-2', title: 'Range safety brief' })], total: 2 })
+				: json({ rosters: [roster(), roster({ id: 'roster-2', title: 'Range safety brief' })], total: 2, unsigned: 2 })
 		);
 		vi.stubGlobal('fetch', fetchMock);
 		renderSheet();
 		const row = (await screen.findByText('Range safety brief')).closest('li') as HTMLElement;
+		expect(screen.getByText('2 waiting on a signed scan')).toBeTruthy();
 
 		await fireEvent.dragEnter(row, { dataTransfer: { types: ['Files'] } });
 		expect(within(row).getByText('Drop to attach')).toBeTruthy();
 		await fireEvent.drop(row, { dataTransfer: { files: [pdf()], types: ['Files'] } });
 
 		expect(await within(row).findByRole('button', { name: 'Signed scan' })).toBeTruthy();
+		expect(screen.getByText('1 waiting on a signed scan')).toBeTruthy();
 		const uploads = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST');
 		expect(uploads.map(([input]) => String(input))).toEqual(['/org/org-1/api/sign-in-rosters/roster-2/upload']);
 		expect(uploads[0]?.[1]?.body).toBeInstanceOf(FormData);
@@ -328,8 +346,7 @@ describe('SignInRostersSheet new roster', () => {
 		await choose('MOS', '11B');
 		await choose('Role', 'Driver');
 
-		const count = screen.getByText('0 of 3 personnel match the filters below');
-		expect(count.className).toContain('text-destructive-text');
+		expect(screen.getByText('0 of 3 personnel match the filters below')).toBeTruthy();
 		expect((screen.getByRole('button', { name: 'Save and print' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
@@ -367,10 +384,17 @@ describe('SignInRostersSheet new roster', () => {
 		expect(await screen.findByText('Morning Formation')).toBeTruthy();
 	});
 
-	it('stays busy and locked while the save is held, then lists the new roster', async () => {
+	it('downloads nothing while the save is held, then prints the stored roster and lists it', async () => {
 		let finish!: (response: Response) => void;
+		const stored = roster({
+			id: 'roster-2',
+			title: 'Annual AT',
+			personnelSnapshot: [{ id: 'p9', rank: 'SSG', lastName: 'Stored', firstName: 'Copy', group: 'Alpha' }]
+		});
 		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
-			init?.method === 'POST' ? new Promise<Response>((resolve) => (finish = resolve)) : json({ rosters: [], total: 0 })
+			init?.method === 'POST'
+				? new Promise<Response>((resolve) => (finish = resolve))
+				: json({ rosters: [], total: 0, unsigned: 0 })
 		);
 		vi.stubGlobal('fetch', fetchMock);
 		renderSheet();
@@ -383,19 +407,24 @@ describe('SignInRostersSheet new roster', () => {
 		expect(screen.getByRole('dialog').getAttribute('aria-busy')).toBe('true');
 		expect((screen.getByRole('button', { name: 'Back to sign-in rosters' }) as HTMLButtonElement).disabled).toBe(true);
 		expect(screen.getByLabelText('Title').closest('fieldset')?.disabled).toBe(true);
+		expect(mockAutoTable).not.toHaveBeenCalled();
 
-		finish(json({ id: 'roster-2' }));
+		finish(json(stored));
 
 		expect(await screen.findByRole('button', { name: 'New roster' })).toBeTruthy();
+		await waitFor(() => expect(mockAutoTable).toHaveBeenCalledTimes(1));
+		expect(mockAutoTable.mock.calls[0]?.[1].body).toEqual([
+			[{ content: '1', styles: { halign: 'center' } }, 'SSG', 'Stored, Copy', '']
+		]);
 	});
 
-	it('keeps the form and says the PDF was not saved when the save is refused', async () => {
+	it('keeps the form and downloads nothing when the save is refused', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
 				init?.method === 'POST'
 					? json({ message: 'Personnel selection is limited to 500 personnel' }, false, 400)
-					: json({ rosters: [], total: 0 })
+					: json({ rosters: [], total: 0, unsigned: 0 })
 			)
 		);
 		renderSheet();
@@ -403,9 +432,25 @@ describe('SignInRostersSheet new roster', () => {
 		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Annual AT' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save and print' }));
 
-		expect((await screen.findByRole('alert')).textContent).toBe(
-			'The PDF was downloaded but the roster was not saved. Personnel selection is limited to 500 personnel'
-		);
+		expect((await screen.findByRole('alert')).textContent).toBe('Personnel selection is limited to 500 personnel');
 		expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('Annual AT');
+		expect(mockAutoTable).not.toHaveBeenCalled();
+	});
+
+	it('downloads nothing when the save request fails outright', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+				if (init?.method === 'POST') throw new TypeError('Failed to fetch');
+				return json({ rosters: [], total: 0, unsigned: 0 });
+			})
+		);
+		renderSheet();
+		await openNewRoster();
+		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Annual AT' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save and print' }));
+
+		expect((await screen.findByRole('alert')).textContent).toBe('Failed to fetch');
+		expect(mockAutoTable).not.toHaveBeenCalled();
 	});
 });

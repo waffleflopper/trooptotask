@@ -53,7 +53,7 @@
 			<span class="tabular-nums">{list.total} saved</span>
 			{#if list.waitingOnScan > 0}
 				<span class="font-medium text-warning-foreground tabular-nums">
-					{list.waitingOnScan}{hasMore ? '+' : ''} waiting on a signed scan
+					{list.waitingOnScan} waiting on a signed scan
 				</span>
 			{/if}
 		{/if}

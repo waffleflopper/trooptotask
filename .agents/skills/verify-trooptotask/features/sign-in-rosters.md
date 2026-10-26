@@ -81,8 +81,8 @@ never confirmed absence.
    `N of M personnel match` line and the print preview before `Save and print`. Repeat once with an observed MOS and
    Role instead (the fixture holds `68W` and `11B`, role `NCO`): the saved `filter_config` must hold `mos` and `roles`
    with those values, and the preview must list only the people who match both. Capture the PDF itself. Expect its
-   title, date or intentionally blank date, selected Person and signature column. The generated PDF is a client
-   download; its presence alone does not prove the database save. Reload Training, reopen Sign-in rosters, search for
+   title, date or intentionally blank date, selected Person and signature column. The PDF downloads only once the
+   save has succeeded. Reload Training, reopen Sign-in rosters, search for
    the title, and read `$V rows sign_in_rosters orgA title "$TITLE"`. Expect one row with `personnel_ids`,
    `personnel_snapshot`, `scope_group_ids`, filter and sort fields matching the selection, and no foreign Person.
    Capture the row ID as `ROSTER_ID` and a second visible read after reload. A single included Person proves the saved
@@ -167,8 +167,12 @@ provider error is a failed readback, never a missing or correctly configured buc
 - `Sign-in rosters` is one `Training controls` action. It folds into `More Training controls` below about 1052 wide, so
   use the row button or the More item, whichever the fresh snapshot shows. The sheet is loaded on demand, so wait for
   its heading after opening it. Below 640 wide it fills the screen.
-- `Save and print` downloads before POSTing the roster. Verify both the PDF and stored row; a generated PDF can exist
-  even when saving fails.
+- `Save and print` saves first and downloads the PDF only after the save succeeds, from the saved roster's snapshot,
+  the same page `Reprint` makes. A refused or failed save shows its error, keeps the form and downloads nothing. Hold
+  the POST with `$V network` to prove no download appears while it waits.
+- The header's `N waiting on a signed scan` is the server's count of rosters without a signed scan under the same
+  search and date filters, so it is right before `Show more`. It drops after an attach, rises after a scan is removed,
+  and drops when a roster without a scan is deleted.
 - While a save is held, Escape and the overlay do nothing, `Close` is absent and the form is disabled. A form with a
   title or any filter also ignores Escape, and its back arrow opens `Discard this roster?`.
 - The roster list shows 20 rows and `Show more` loads the next 20. With `$V seed roster-pages` the footer reads

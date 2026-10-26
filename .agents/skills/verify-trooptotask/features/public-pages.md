@@ -128,9 +128,12 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    the number of amber cells always equals the pressed tier's count. Hover `PLATOON SERGEANT`, then Tab to
    `TEAM LEADER`, then click `COMMANDER · 1SG`: after each, only that button is pressed, the `SEES n · UPDATES n` line
    shows its count and the amber cell count matches. After any of those the automatic cycle stays stopped for the rest
-   of the visit: wait 6 seconds and expect no change. On a fresh load with motion allowed and the band in view, wait
-   about 3 seconds without touching it and expect the pressed tier to advance by one; scroll it out of view and the
-   cycle pauses. With `prefers-reduced-motion: reduce` it never advances. Below 1280 the tiers sit above the grid.
+   of the visit: wait 6 seconds and expect no change. On a fresh load with motion allowed and the band in view, poll
+   `aria-pressed` and expect the pressed tier to advance by one about every 2.4 seconds, wrapping from `TEAM LEADER` to
+   `COMMANDER · 1SG`; scroll it out of view and the cycle pauses. With `prefers-reduced-motion: reduce` it never
+   advances. `emulate` cannot set that media feature, so pass `navigate_page` an `initScript` that replaces
+   `window.matchMedia` with an object whose `matches` is true for `(prefers-reduced-motion: reduce)`. Below 1280 the
+   tiers sit above the grid.
 
 10. **What's next.** Click header `What's next`. Expect `WHAT'S NEXT · IN DESIGN NOW`, heading
     `ADMIN UPDATES. / DONE IN SECONDS.` and the lead saying these are not yet in the product. A bordered card holds
@@ -163,8 +166,9 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
     From `/about`, click `FAQ` and expect `/` with `#faq` and the FAQ in view. At 390 the same links in the footer do
     the same, with the footer link list from step 14.
 
-14. **Footer links.** At 1440 scroll to the footer and list its visible links with `evaluate_script`. Expect exactly
-    four: `About` `/about`, `Security` `/security`, `Privacy` `/privacy`, `Terms` `/terms`, beside the brand and
+14. **Footer links.** At 1440 scroll to the footer and list the visible links in `nav[aria-label="Footer"]` with
+    `evaluate_script` (a bare `footer` selector also matches the Thesis quote's footer). Expect exactly four: `About`
+    `/about`, `Security` `/security`, `Privacy` `/privacy`, `Terms` `/terms`, beside the brand and
     `Not for classified information`. At 390 expect those four plus `Platform` `/#platform`, `What's next`
     `/#whats-next` and `FAQ` `/#faq`. On `/about` and `/security` the matching footer link is amber with
     `aria-current="page"`. A same-origin `fetch` of each path returns 200. Click `Privacy` and `Terms` and expect their

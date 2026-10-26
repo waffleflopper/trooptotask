@@ -343,6 +343,19 @@ describe('RatingSchemePageView', () => {
 			expect(screen.queryByText('No entries match')).toBeNull();
 			expect(screen.getByText('3 of 3 shown')).toBeTruthy();
 		});
+		it('offers no clear action when only completed entries exist under the default filters', () => {
+			const completed = ordered.map((entry) => ({ ...entry, status: 'completed' as const }));
+			const ctx = new RatingSchemePageContext(
+				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: completed, personnelLookup: people },
+				new ModalRegistry(),
+				makeOrg(),
+				completed
+			);
+			render(RatingSchemePageView, { props: { ctx, personnelLookup: people } });
+
+			expect(screen.getByText('No active entries')).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Clear search and filters' })).toBeNull();
+		});
 	});
 
 	describe('when the toolbar is narrow', () => {

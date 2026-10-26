@@ -263,12 +263,21 @@
 				{#if ctx.filteredRatingEntries.length === 0 && ctx.totalEntryCount > 0}
 					<Empty.Root class="border-border bg-card">
 						<Empty.Header>
-							<Empty.Title>No entries match</Empty.Title>
-							<Empty.Description>Nothing fits the current search and filters.</Empty.Description>
+							{#if ctx.hasActiveSearchOrFilters}
+								<Empty.Title>No entries match</Empty.Title>
+								<Empty.Description>Nothing fits the current search and filters.</Empty.Description>
+							{:else}
+								<Empty.Title>No active entries</Empty.Title>
+								<Empty.Description
+									>Choose another status to see completed and change of rater entries.</Empty.Description
+								>
+							{/if}
 						</Empty.Header>
-						<Empty.Content>
-							<Button variant="outline" onclick={() => ctx.clearSearchAndFilters()}>Clear search and filters</Button>
-						</Empty.Content>
+						{#if ctx.hasActiveSearchOrFilters}
+							<Empty.Content>
+								<Button variant="outline" onclick={() => ctx.clearSearchAndFilters()}>Clear search and filters</Button>
+							</Empty.Content>
+						{/if}
 					</Empty.Root>
 				{:else if ctx.ratingViewMode === 'grouped'}
 					<RatingSchemeGroupedView

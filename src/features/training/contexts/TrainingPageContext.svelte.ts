@@ -24,6 +24,7 @@ import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
 import { recordTrainingCompletions } from '../personnelTrainingRequests';
+import { matchesPersonnelSearch } from '../utils/personnelSearch';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
@@ -59,6 +60,7 @@ export class TrainingPageContext {
 
 	selectedGroupId = $state<string>('');
 	selectedViewId = $state<string | null>(null);
+	searchQuery = $state('');
 	viewMode = $state<TrainingMatrixViewMode>('by-group');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
@@ -150,11 +152,13 @@ export class TrainingPageContext {
 	}
 
 	get filteredPersonnel(): Personnel[] {
-		return [...this.basePersonnel].sort((a, b) => {
-			const lastNameDiff = a.lastName.localeCompare(b.lastName);
-			if (lastNameDiff !== 0) return lastNameDiff;
-			return a.firstName.localeCompare(b.firstName);
-		});
+		return this.basePersonnel
+			.filter((person) => matchesPersonnelSearch(person, this.searchQuery))
+			.sort((a, b) => {
+				const lastNameDiff = a.lastName.localeCompare(b.lastName);
+				if (lastNameDiff !== 0) return lastNameDiff;
+				return a.firstName.localeCompare(b.firstName);
+			});
 	}
 
 	get personnelByGroup(): PersonnelGroup[] {
@@ -196,10 +200,6 @@ export class TrainingPageContext {
 		} else {
 			this.collapsedGroups.add(group);
 		}
-	}
-
-	handleCellClick(person: Personnel, type: TrainingType, training: PersonnelTraining | undefined): void {
-		this.#modals.open('record', { person, type, training });
 	}
 
 	handlePersonClick(person: Personnel): void {

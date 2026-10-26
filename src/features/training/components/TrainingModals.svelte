@@ -5,24 +5,15 @@
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 	import { pinnedGroupsStore } from '$features/personnel';
-	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
-	type RecordPayload = { person: Personnel; type: TrainingType; training?: PersonnelTraining };
 	type PersonEditorPayload = { person: Personnel };
-	type TrainingRecordModalModule = typeof import('$features/training/components/TrainingRecordModal.svelte');
 	type PersonTrainingEditorModule = typeof import('$features/training/components/PersonTrainingEditor.svelte');
 	type SignInRosterModalModule = typeof import('$features/sign-in-rosters');
 
-	let trainingRecordModalModule: Promise<TrainingRecordModalModule> | undefined;
 	let personTrainingEditorModule: Promise<PersonTrainingEditorModule> | undefined;
 	let signInRosterModalModule: Promise<SignInRosterModalModule> | undefined;
-
-	function loadTrainingRecordModal() {
-		trainingRecordModalModule ??= import('$features/training/components/TrainingRecordModal.svelte');
-		return trainingRecordModalModule;
-	}
 
 	function loadPersonTrainingEditor() {
 		personTrainingEditorModule ??= import('$features/training/components/PersonTrainingEditor.svelte');
@@ -34,28 +25,6 @@
 		return signInRosterModalModule;
 	}
 </script>
-
-{#if modals.isOpen('record')}
-	{@const p = modals.payload<RecordPayload>('record')}
-	{#if p}
-		{#await loadTrainingRecordModal() then { default: TrainingRecordModal }}
-			<TrainingRecordModal
-				person={p.person}
-				trainingType={p.type}
-				existingTraining={p.training}
-				onSave={ctx.handleSaveTraining.bind(ctx)}
-				onRemove={ctx.handleRemoveTraining.bind(ctx)}
-				onClose={modals.closerFor('record')}
-				canBeExempted={p.type.canBeExempted}
-				isExempt={ctx.isExempt(p.person, p.type)}
-				onToggleExempt={(exempt) => {
-					ctx.handleToggleExempt(p.type.id, p.person.id, exempt);
-					modals.close('record');
-				}}
-			/>
-		{/await}
-	{/if}
-{/if}
 
 {#if modals.isOpen('sign-in-rosters')}
 	{#await loadSignInRosterModal() then { SignInRosterModal }}

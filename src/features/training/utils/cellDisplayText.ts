@@ -1,52 +1,38 @@
 import type { TrainingStatusInfo } from './trainingStatus';
-import type { PersonnelTraining, TrainingStatus } from '$features/training/training.types';
+import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 
-function formatCompactTrainingDate(date: string | null | undefined): string | null {
-	if (!date) return null;
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-	const [year, month] = date.split('-');
-	if (!year || !month) return date;
-	return `${month}/${year}`;
+/** "Jun ’27" for a date-only string (YYYY-MM-DD). */
+function formatMonthYear(dateOnly: string): string | null {
+	const [year, month] = dateOnly.split('-');
+	const name = SHORT_MONTHS[Number(month) - 1];
+	return year && name ? `${name} ’${year.slice(-2)}` : null;
 }
 
-export function formatTrainingCellText(status: TrainingStatus, label: string, date: string | null | undefined): string {
-	const compactDate = formatCompactTrainingDate(date);
-	switch (status) {
-		case 'current':
-		case 'warning-yellow':
-		case 'warning-orange':
-			return compactDate ?? label;
-		case 'expired':
-			return 'Expired';
-		case 'exempt':
-			return 'Exempt';
-		case 'not-required':
-			return 'N/A';
-		case 'not-completed':
-			return 'Not Done';
-	}
-}
-
-export function getCellDisplayText(
-	statusInfo: TrainingStatusInfo,
-	training: PersonnelTraining | undefined,
-	expirationDateOnly: boolean
-): string {
+/** What a matrix cell shows. A current cell shows the month it lapses, or the completion month when it never does. */
+export function getCellDisplayText(statusInfo: TrainingStatusInfo, training: PersonnelTraining | undefined): string {
 	switch (statusInfo.status) {
 		case 'exempt':
 			return 'Exempt';
 		case 'not-required':
-			return 'N/A';
+			return '—';
 		case 'not-completed':
-			return 'Not Done';
-		case 'current':
+			return 'No record';
+		case 'expired':
+			return 'Expired';
 		case 'warning-yellow':
 		case 'warning-orange':
-		case 'expired': {
-			const relevantDate = expirationDateOnly
-				? training?.expirationDate
-				: (training?.expirationDate ?? training?.completionDate);
-			return formatTrainingCellText(statusInfo.status, statusInfo.label, relevantDate);
+			return statusInfo.daysUntilExpiration === null ? statusInfo.label : `${statusInfo.daysUntilExpiration}d`;
+		case 'current': {
+			const date = training?.expirationDate ?? training?.completionDate;
+			return (date && formatMonthYear(date)) || statusInfo.label;
 		}
 	}
+}
+
+/** The renewal interval under a column name. */
+export function getColumnIntervalLabel(type: Pick<TrainingType, 'expirationMonths' | 'expirationDateOnly'>): string {
+	if (type.expirationDateOnly) return 'Date';
+	return type.expirationMonths === null ? 'No expiry' : `${type.expirationMonths} mo`;
 }

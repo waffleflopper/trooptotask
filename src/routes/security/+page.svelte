@@ -158,7 +158,7 @@
 				<ul class="m-0 list-none p-0">
 					{#each keepOut as item (item)}
 						<li
-							class="flex min-h-16 flex-col justify-center gap-1 border-b border-border py-3 sm:flex-row sm:items-center sm:gap-0"
+							class="flex min-h-16 flex-col justify-center gap-1 border-b border-border py-3 sm:flex-row sm:items-center sm:justify-start sm:gap-0"
 						>
 							<span class="{monoLabel} w-40 shrink-0 text-destructive-text">Keep out</span>
 							<span class="font-body text-lg leading-[22px] text-foreground">{item}</span>

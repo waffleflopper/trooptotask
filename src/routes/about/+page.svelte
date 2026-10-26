@@ -111,7 +111,7 @@
 					>
 						<span class="{monoLabel} text-foreground">{row.where}</span>
 						<span class="{bodyClass} text-foreground">{row.job}</span>
-						<span class="{bodyClass} font-light text-muted-foreground lg:pr-6">{row.stuck}</span>
+						<span class="{bodyClass} font-light text-muted-foreground">{row.stuck}</span>
 						<span class="{monoLabel} mt-2 flex items-center gap-3 lg:mt-0 lg:justify-end">
 							{#if row.marker === 'idea'}
 								<span class="text-muted-foreground">The idea</span>
@@ -177,7 +177,7 @@
 			<ul class="m-0 list-none p-0">
 				{#each isNot as item (item)}
 					<li
-						class="flex min-h-16 flex-col justify-center gap-1 border-b border-border py-3 sm:flex-row sm:items-center sm:gap-0"
+						class="flex min-h-16 flex-col justify-center gap-1 border-b border-border py-3 sm:flex-row sm:items-center sm:justify-start sm:gap-0"
 					>
 						<span class="{monoLabel} w-40 shrink-0 text-muted-foreground">Is not</span>
 						<span class="{bodyClass} text-foreground">{item}</span>

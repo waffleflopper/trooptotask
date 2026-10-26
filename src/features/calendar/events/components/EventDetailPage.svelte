@@ -70,14 +70,17 @@
 	});
 	const members = $derived(typeof loaded === 'object' && loaded ? loaded.members : {});
 
+	let latestSave = 0;
+
 	async function stored(event: CalendarEvent) {
+		const save = ++latestSave;
 		const before = typeof loaded === 'object' && loaded ? loaded.event : null;
 		const eventUrl = page.url.pathname;
 		saved = { event, over: streamedDetail.current };
 		dialog = null;
 		await invalidate('app:calendar-events');
 		// The refresh resets page state, and the reader may have moved on while it ran.
-		if (before && datesChanged(before, event) && page.url.pathname === eventUrl)
+		if (before && datesChanged(before, event) && save === latestSave && page.url.pathname === eventUrl)
 			replaceState('', {
 				...page.state,
 				eventDateReview: {

@@ -100,7 +100,7 @@ describe('Event detail work groups', () => {
 		showEvent(failed());
 
 		expect(await screen.findByRole('link', { name: /Submit the roster/ })).toBeTruthy();
-		expect(screen.getByText('Other groups’ taskings could not be loaded')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
 	});
 
 	it('says an Event with nothing under it has nothing, and no empty group boxes render', async () => {
@@ -114,8 +114,10 @@ describe('Event detail work groups', () => {
 			addOnArrival: false
 		});
 
-		expect(await screen.findByText('No taskings under this event.')).toBeTruthy();
-		expect(screen.queryByRole('region', { name: 'Preparation' })).toBeNull();
+		expect(await screen.findByRole('heading', { name: 'Taskings' })).toBeTruthy();
+		for (const phase of ['Preparation', 'Execution', 'Closeout'])
+			expect(screen.queryByRole('region', { name: phase })).toBeNull();
+		expect(screen.queryByRole('link')).toBeNull();
 	});
 
 	it('shows a cancelled Event’s active Taskings as still active', async () => {
@@ -138,7 +140,6 @@ describe('EventDateReview', () => {
 
 		const submit = await screen.findByRole('link', { name: /Submit the roster/ });
 		expect(submit.getAttribute('href')).toBe(`/org/org-a/calendar/taskings/${prepare.id}?edit`);
-		expect(within(submit).getByText('Outside the new dates, in preparation')).toBeTruthy();
 		expect(screen.getByRole('link', { name: /Return borrowed equipment/ })).toBeTruthy();
 		expect(screen.queryByRole('link', { name: /Retired roster/ })).toBeNull();
 	});

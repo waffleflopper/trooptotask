@@ -21,6 +21,7 @@ import {
 } from './readiness';
 import { criticalTasksSetup, evaluationsSetup, onboardingSetup, trainingSetup } from './setupChecks';
 import { startOnboardingChoices } from './startOnboardingChoices';
+import { eventsAndTaskingsLane } from './eventsAndTaskingsLane';
 import { taskingAttention, taskingAttentionLoad } from './taskingAttention';
 
 const { calendar, training } = POLICY_ACTION_CATALOG;
@@ -93,6 +94,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	dashboardSection('eventsAndTaskings', {
 		available: (_, access) => access.can(calendar.viewEvents),
 		needsYou: [taskingAttention],
-		needsYouLoad: taskingAttentionLoad
+		needsYouLoad: taskingAttentionLoad,
+		forecastLanes: [eventsAndTaskingsLane]
 	})
 ];

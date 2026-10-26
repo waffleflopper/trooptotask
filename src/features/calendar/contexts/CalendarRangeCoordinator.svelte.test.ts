@@ -297,7 +297,16 @@ describe('CalendarRangeCoordinator', () => {
 	describe('projection', () => {
 		const withEvents = { ...both(may), events: may };
 		const projection = {
-			events: [{ id: 'e1', title: 'Field exercise', startsOn: '2026-05-04', endsOn: '2026-05-06', cancelled: false }],
+			events: [
+				{
+					id: 'e1',
+					title: 'Field exercise',
+					startsOn: '2026-05-04',
+					endsOn: '2026-05-06',
+					cancelled: false,
+					hasWork: false
+				}
+			],
 			suspenses: [],
 			commitments: []
 		};

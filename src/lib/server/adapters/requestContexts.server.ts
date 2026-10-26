@@ -642,6 +642,7 @@ export function createRequestDashboardTaskingContext(request: AdmittedOrganizati
 		auth: request.auth,
 		audit: request.audit,
 		taskingAttention: createSupabaseCalendarTaskingAttentionReader(request.supabase, request.auth.orgId),
+		calendarProjection: createSupabaseCalendarProjectionReader(request.supabase, request.auth.orgId),
 		disabledFeatures: request.disabledFeatures
 	};
 }

@@ -17,6 +17,7 @@
 	} from '../sections/dashboardSections';
 	import { seesCalendar, type DashboardAccess } from '../sections/dashboardAccess';
 	import BottomLine from './BottomLine.svelte';
+	import ForecastLaneLegend from './ForecastLaneLegend.svelte';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import GroupStrength from './GroupStrength.svelte';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
@@ -191,7 +192,10 @@
 								onOpenCalendar={() => openCalendarAt(model.today)}
 							>
 								{#snippet lanes()}
-									<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} />
+									<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} {updates} />
+								{/snippet}
+								{#snippet laneLegend()}
+									<ForecastLaneLegend lanes={parts.forecastLanes} />
 								{/snippet}
 							</StrengthForecast>
 							<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />

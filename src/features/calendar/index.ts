@@ -66,6 +66,7 @@ export function loadDutyPicker() {
 export { CalendarStatusBadge } from './components/calendar-status-badge';
 export { default as PersonnelNextDays } from './components/PersonnelNextDays.svelte';
 export { default as PersonnelNextDaysSkeleton } from './components/PersonnelNextDaysSkeleton.svelte';
+export { default as MarkerListPopover } from './components/projection/MarkerListPopover.svelte';
 export { default as Da6SetupPage } from './components/da6/Da6SetupPage.svelte';
 
 export type { CalendarEventsPageAccess, CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';

@@ -194,7 +194,8 @@ describe('GET /api/calendar-range', () => {
 					title: 'Field exercise',
 					startsOn: '2026-03-04',
 					endsOn: '2026-03-06',
-					cancelled: false
+					cancelled: false,
+					hasWork: false
 				}
 			],
 			suspenses: [],

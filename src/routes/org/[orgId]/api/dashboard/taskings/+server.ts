@@ -1,5 +1,5 @@
-import { fetchDashboardTaskingAttention } from '$features/dashboard/index.server';
-import type { TaskingAttentionProjection } from '$features/calendar';
+import type { DashboardTaskings } from '$features/dashboard/contracts';
+import { fetchDashboardTaskings } from '$features/dashboard/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, privateJson, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestDashboardTaskingContext } from '$lib/server/adapters/requestContexts.server';
@@ -8,7 +8,7 @@ import { isDateOnly } from '$lib/utils/dates';
 
 export const _getConfig: RouteConfig<
 	{ asOf: string },
-	TaskingAttentionProjection | null,
+	DashboardTaskings | null,
 	ReturnType<typeof createRequestDashboardTaskingContext>
 > = {
 	context: createRequestDashboardTaskingContext,
@@ -17,7 +17,7 @@ export const _getConfig: RouteConfig<
 		const asked = event.url.searchParams.get('asOf');
 		return { asOf: isDateOnly(asked) ? asked : viewerToday(event.cookies) };
 	},
-	fn: (ctx, { asOf }) => fetchDashboardTaskingAttention(ctx, asOf),
+	fn: (ctx, { asOf }) => fetchDashboardTaskings(ctx, asOf),
 	formatOutput: privateJson
 };
 

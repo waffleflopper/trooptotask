@@ -1,9 +1,5 @@
 import { formatDashboardDisplayDate, type DashboardViewerDay } from '$features/dashboard/contracts';
-import {
-	fetchDashboardSummary,
-	fetchDashboardTaskingAttention,
-	withDashboardTiming
-} from '$features/dashboard/index.server';
+import { fetchDashboardSummary, fetchDashboardTaskings, withDashboardTiming } from '$features/dashboard/index.server';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContextCore, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
@@ -46,7 +42,7 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 		{
 			policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 			defer: true,
-			fn: (ctx) => withDashboardTiming(orgId, 'taskings', () => fetchDashboardTaskingAttention(ctx, asOf))
+			fn: (ctx) => withDashboardTiming(orgId, 'taskings', () => fetchDashboardTaskings(ctx, asOf))
 		},
 		() => createRequestDashboardTaskingContext(ctx)
 	);

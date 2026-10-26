@@ -126,6 +126,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261026060000_calendar_range_projection.sql",
     "20261026070000_calendar_tasking_attention.sql",
     "20261026080000_calendar_tasking_availability_gaps.sql",
+    "20261026090000_calendar_range_projection_event_work.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

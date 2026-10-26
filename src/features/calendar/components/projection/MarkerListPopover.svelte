@@ -25,7 +25,10 @@
 
 <Popover.Root>
 	<Popover.Trigger class={className} aria-label={label}>{@render children()}</Popover.Trigger>
-	<Popover.Content class="w-72 gap-1.5 p-2" align="start">
+	<Popover.Content
+		class="max-h-(--bits-popover-content-available-height) w-72 gap-1.5 overflow-y-auto p-2"
+		align="start"
+	>
 		<Popover.Header>
 			<Popover.Title class="text-xs">{heading}</Popover.Title>
 		</Popover.Header>

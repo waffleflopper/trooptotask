@@ -66,6 +66,26 @@ export function mergeProjections(current: CalendarProjection, next: CalendarProj
 	};
 }
 
+/** A fresh read of `range` replaces what an earlier read held there, so a completed Tasking's rail does not linger. */
+export function replaceProjectionRange(
+	current: CalendarProjection,
+	range: { rangeStart: string; rangeEnd: string },
+	next: CalendarProjection
+): CalendarProjection {
+	const overlaps = ({ startsOn, endsOn }: { startsOn: string; endsOn: string }) =>
+		endsOn >= range.rangeStart && startsOn <= range.rangeEnd;
+	return mergeProjections(
+		{
+			events: current.events.filter((event) => !overlaps(event)),
+			suspenses: current.suspenses.filter(
+				({ suspenseOn }) => suspenseOn < range.rangeStart || suspenseOn > range.rangeEnd
+			),
+			commitments: current.commitments.filter((commitment) => !overlaps(commitment))
+		},
+		next
+	);
+}
+
 function uniqueBy<T>(items: readonly T[], key: (item: T) => string): T[] {
 	return [...new Map(items.map((item) => [key(item), item])).values()];
 }

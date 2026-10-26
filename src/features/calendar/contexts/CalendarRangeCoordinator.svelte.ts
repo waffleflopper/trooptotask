@@ -10,7 +10,7 @@ import {
 } from '$features/calendar/utils/calendarRange';
 import {
 	EMPTY_PROJECTION,
-	mergeProjections,
+	replaceProjectionRange,
 	type CalendarProjection
 } from '$features/calendar/projection/calendarProjection';
 import {
@@ -149,8 +149,10 @@ export class CalendarRangeCoordinator {
 			const projections = rangeDataSets.flatMap((rangeData) => rangeData.projection ?? []);
 			this.projectionFailed = projections.some((read) => read.kind === 'failed');
 			if (!this.projectionFailed) {
-				for (const read of projections) {
-					if (read.kind === 'loaded') this.projection = mergeProjections(this.projection, read);
+				for (const rangeData of rangeDataSets) {
+					if (rangeData.projection?.kind === 'loaded') {
+						this.projection = replaceProjectionRange(this.projection, rangeData, rangeData.projection);
+					}
 				}
 			}
 			this.#include(this.projectionFailed ? withoutEvents(needed) : needed);

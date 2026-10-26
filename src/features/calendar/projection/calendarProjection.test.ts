@@ -3,6 +3,7 @@ import {
 	calendarProjectionSchema,
 	EMPTY_PROJECTION,
 	mergeProjections,
+	replaceProjectionRange,
 	type ProjectedCommitment,
 	type ProjectedEvent
 } from './calendarProjection';
@@ -53,6 +54,24 @@ describe('mergeProjections', () => {
 
 		expect(merged.events.map((item) => item.id)).toEqual([ids.event, ids.other]);
 		expect(merged.commitments).toHaveLength(2);
+	});
+});
+
+describe('replaceProjectionRange', () => {
+	const may = { rangeStart: '2026-05-01', rangeEnd: '2026-05-31' };
+
+	it('drops what an earlier read held over the range and keeps what lies outside it', () => {
+		const outside = commitment({ taskingId: ids.other, startsOn: '2026-07-01', endsOn: '2026-07-02' });
+		const stale = commitment({ startsOn: '2026-05-30', endsOn: '2026-06-02' });
+
+		const result = replaceProjectionRange(
+			{ ...EMPTY_PROJECTION, commitments: [stale, outside], events: [event()] },
+			may,
+			EMPTY_PROJECTION
+		);
+
+		expect(result.commitments).toEqual([outside]);
+		expect(result.events).toEqual([]);
 	});
 });
 

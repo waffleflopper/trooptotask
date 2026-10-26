@@ -1,7 +1,7 @@
 import { toDayNumber } from '$lib/utils/dayNumber';
 import type { MarkerListItem } from '$features/calendar/components/projection/MarkerListPopover.svelte';
 import type { ProjectedCommitment } from './calendarProjection';
-import { hiddenBehind, indexSpan, layoutSingleRow } from './projectionLayout';
+import { indexSpan, type IndexedSpan } from './projectionLayout';
 import { eventDatesLabel, type ProjectionLinks } from './projectionLanes';
 
 /** A Person's committed stretch of one row: one Tasking, or several where picks overlap. */
@@ -54,41 +54,55 @@ export function commitmentsByPerson(
 
 	const result = new Map<string, readonly CommitmentSegment[]>();
 	for (const [personnelId, own] of grouped) {
-		const { runs, overflows } = layoutSingleRow(
-			own.map((commitment) => indexSpan(commitment, first)),
-			days,
-			(commitment) => commitment.taskingId
-		);
-		const segments = runs.map((run): CommitmentSegment => {
-			const all = [run.item, ...hiddenBehind(run, overflows, (commitment) => commitment.taskingId)];
-			const edges = {
-				start: run.start,
-				end: run.end,
-				continuesBefore: run.continuesBefore,
-				continuesAfter: run.continuesAfter
-			};
-			if (all.length === 1) {
-				return {
-					kind: 'tasking',
-					...edges,
-					label: `Tasking: ${run.item.title}, ${eventDatesLabel(run.item)}`,
-					href: links.tasking(run.item.taskingId)
-				};
+		const spans = own.map((commitment) => indexSpan(commitment, first));
+		const segments: CommitmentSegment[] = [];
+		let open: { start: number; key: string; spans: typeof spans } | null = null;
+		for (let day = 0; day <= days; day++) {
+			const covering = day < days ? spans.filter((span) => span.start <= day && day <= span.end) : [];
+			const key = covering.map((span) => span.item.taskingId).join(',');
+			if (open && open.key !== key) {
+				segments.push(segmentOf(open.spans, open.start, day - 1, links));
+				open = null;
 			}
-			return {
-				kind: 'taskings',
-				...edges,
-				label: `${all.length} Taskings: ${all.map((commitment) => commitment.title).join(', ')}`,
-				heading: 'Tasking commitments',
-				items: all.map((commitment) => ({
-					key: commitment.taskingId,
-					title: commitment.title,
-					detail: `Executes ${eventDatesLabel(commitment)}`,
-					href: links.tasking(commitment.taskingId)
-				}))
-			};
-		});
+			if (covering.length > 0 && !open) open = { start: day, key, spans: covering };
+		}
 		result.set(personnelId, segments);
 	}
 	return result;
+}
+
+/** The Taskings covering days `start` to `end` of a row, which all cover every one of them. */
+function segmentOf(
+	covering: readonly IndexedSpan<ProjectedCommitment>[],
+	start: number,
+	end: number,
+	links: ProjectionLinks
+): CommitmentSegment {
+	const edges = {
+		start,
+		end,
+		continuesBefore: covering.some((span) => span.start < start),
+		continuesAfter: covering.some((span) => span.end > end)
+	};
+	const [only] = covering;
+	if (covering.length === 1) {
+		return {
+			kind: 'tasking',
+			...edges,
+			label: `Tasking: ${only.item.title}, ${eventDatesLabel(only.item)}`,
+			href: links.tasking(only.item.taskingId)
+		};
+	}
+	return {
+		kind: 'taskings',
+		...edges,
+		label: `${covering.length} Taskings: ${covering.map((span) => span.item.title).join(', ')}`,
+		heading: 'Tasking commitments',
+		items: covering.map(({ item }) => ({
+			key: item.taskingId,
+			title: item.title,
+			detail: `Executes ${eventDatesLabel(item)}`,
+			href: links.tasking(item.taskingId)
+		}))
+	};
 }

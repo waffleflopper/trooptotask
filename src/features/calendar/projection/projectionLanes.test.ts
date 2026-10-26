@@ -167,16 +167,22 @@ describe('commitmentsByPerson', () => {
 		expect(result.has('p2')).toBe(false);
 	});
 
-	it('shares one segment that opens a list where a Person is picked for overlapping Taskings', () => {
-		const result = byPerson([
+	it('shares a segment that opens a list only on the days Taskings overlap', () => {
+		const segments = byPerson([
 			commitment('t1', '2026-05-04', '2026-05-08'),
 			commitment('t2', '2026-05-06', '2026-05-07')
-		]);
+		]).get('p1')!;
 
-		const segments = result.get('p1')!;
-		const shared = segments.find((segment) => segment.kind === 'taskings');
-		expect(shared).toMatchObject({ items: [{ key: 't1' }, { key: 't2' }] });
-		expect(segments.every((segment) => segment.end >= segment.start)).toBe(true);
+		expect(segments).toEqual([
+			expect.objectContaining({ kind: 'tasking', start: 3, end: 4, href: '/taskings/t1', continuesAfter: true }),
+			expect.objectContaining({
+				kind: 'taskings',
+				start: 5,
+				end: 6,
+				items: [expect.objectContaining({ key: 't1' }), expect.objectContaining({ key: 't2' })]
+			}),
+			expect.objectContaining({ kind: 'tasking', start: 7, end: 7, href: '/taskings/t1', continuesBefore: true })
+		]);
 	});
 
 	it('keeps each Person to their own commitments', () => {

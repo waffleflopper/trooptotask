@@ -392,11 +392,17 @@ describe('calendar page', () => {
 			expect(screen.queryByRole('button', { name: 'Retry loading Events' })).toBeNull();
 		});
 
-		it('asks for no Events while the switch is off', async () => {
+		it('reads only availability and assignments past the loaded months while the switch is off', async () => {
 			render(WithPreferences, { props: { data: makePageData() } });
 
-			await new Promise((resolve) => setTimeout(resolve, 20));
-			expect(loadCalendarRangeMock).not.toHaveBeenCalled();
+			const next = await screen.findByRole('button', { name: 'Next month' });
+			await fireEvent.click(next);
+			await fireEvent.click(next);
+
+			await waitFor(() => expect(loadCalendarRangeMock).toHaveBeenCalled());
+			for (const [, request] of loadCalendarRangeMock.mock.calls) {
+				expect(request.collections).not.toContain('events');
+			}
 			expect(screen.queryByRole('group', { name: 'Events' })).toBeNull();
 		});
 	});

@@ -346,7 +346,7 @@ describe('WorkspaceToolbar', () => {
 		await waitFor(() => expect(document.activeElement).toBe(moreButton()));
 	});
 
-	describe('phone layout opt-in', () => {
+	describe('compactBelow', () => {
 		function stubPhone(matches: boolean): void {
 			vi.stubGlobal('matchMedia', () => ({
 				matches,
@@ -359,46 +359,78 @@ describe('WorkspaceToolbar', () => {
 			return toolbar().querySelector<HTMLElement>('[data-toolbar-search-row]');
 		}
 
-		it('puts search on its own row above the controls and keeps the view on the row at a width that collapses search', async () => {
+		function row(): HTMLElement {
+			return toolbar().querySelector<HTMLElement>('[data-toolbar-row]') as HTMLElement;
+		}
+
+		it('puts search on a full row above a row of view, Filters and the primary', async () => {
 			stubPhone(true);
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(291);
 
 			const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
 			expect(searchRow()?.contains(field)).toBe(true);
-			expect(toolbar().querySelector('[data-toolbar-row]')?.contains(field)).toBe(false);
-			const row = toolbar().querySelector('[data-toolbar-row]') as Node;
-			expect((searchRow() as Node).compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+			expect(row().contains(field)).toBe(false);
+			expect((searchRow() as Node).compareDocumentPosition(row()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 			expect(within(toolbar()).queryByRole('button', { name: 'Search roster' })).toBeNull();
-			expect(within(toolbar()).getByRole('group', { name: 'View mode' })).toBeTruthy();
-			expect(within(toolbar()).getByRole('button', { name: 'More Roster controls' })).toBeTruthy();
-			expect(within(toolbar()).getByRole('button', { name: 'Add status' })).toBeTruthy();
+			expect(within(row()).getByRole('group', { name: 'View mode' })).toBeTruthy();
+			expect(within(row()).getByRole('button', { name: 'Filters' })).toBeTruthy();
+			expect(within(row()).getByRole('button', { name: 'Add status' })).toBeTruthy();
+			expect(within(row()).queryByRole('combobox')).toBeNull();
+			expect(within(row()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
 		});
 
-		it('searches from the own-row field and still folds filters into More', async () => {
+		it('folds every filter into the Filters menu even when the row has room', async () => {
 			stubPhone(true);
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
-			await layOut(291);
+			await layOut(2000);
 
+			expect(within(row()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
 			await fireEvent.input(within(toolbar()).getByRole('searchbox', { name: 'Search roster' }), {
 				target: { value: 'ada' }
 			});
 			expect(output('Search value')).toBe('ada');
-			await openMore();
-			expect(screen.getByRole('menuitem', { name: /^Status/ })).toBeTruthy();
+			const filters = within(row()).getByRole('button', { name: 'Filters' });
+			filters.focus();
+			await fireEvent.keyDown(filters, { key: 'Enter' });
+			await screen.findByRole('menu');
+			for (const name of [/^Group/, /^Status/]) expect(screen.getByRole('menuitem', { name })).toBeTruthy();
+			expect(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' })).toBeTruthy();
 		});
 
-		it('keeps search in the row on a wide viewport even when opted in', async () => {
+		it('marks the Filters trigger when a folded filter leaves its default', async () => {
+			stubPhone(true);
+			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true, initialStatus: ['leave'] } });
+			await layOut(291);
+
+			expect(description(within(row()).getByRole('button', { name: 'Filters' }))).toBe('Hidden filters active: Status');
+		});
+
+		it('hides the primary label but keeps it as the accessible name', async () => {
+			stubPhone(true);
+			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
+			await layOut(291);
+
+			const add = within(row()).getByRole('button', { name: 'Add status' });
+			expect(add.querySelector('span.sr-only')?.textContent).toBe('Add status');
+			await fireEvent.click(add);
+			expect(output('Runs')).toBe('add:0');
+		});
+
+		it('changes nothing on a wide viewport', async () => {
 			stubPhone(false);
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(1000);
 
 			const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
 			expect(searchRow()).toBeNull();
-			expect(toolbar().querySelector('[data-toolbar-row]')?.contains(field)).toBe(true);
+			expect(row().contains(field)).toBe(true);
+			expect(within(row()).getByRole('button', { name: 'Gaps only' })).toBeTruthy();
+			expect(within(row()).queryByRole('button', { name: 'Filters' })).toBeNull();
+			expect(within(row()).getByRole('button', { name: 'Add status' }).querySelector('span.sr-only')).toBeNull();
 		});
 
-		it('leaves a toolbar that did not opt in unchanged on a phone viewport', async () => {
+		it('changes nothing for a toolbar that did not opt in, even on a phone viewport', async () => {
 			stubPhone(true);
 			render(DataToolbarTest, { props: { withArchive: false } });
 			await layOut(291);
@@ -406,27 +438,9 @@ describe('WorkspaceToolbar', () => {
 			expect(searchRow()).toBeNull();
 			expect(within(toolbar()).getByRole('button', { name: 'Search roster' })).toBeTruthy();
 			expect(within(toolbar()).queryByRole('searchbox')).toBeNull();
-			expect(
-				within(toolbar()).getByRole('button', { name: 'Add status' }).querySelector('.max-sm\\:sr-only')
-			).toBeNull();
-		});
-
-		it('hides the primary label below the breakpoint but keeps it as the accessible name', async () => {
-			stubPhone(true);
-			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
-			await layOut(291);
-
-			const add = within(toolbar()).getByRole('button', { name: 'Add status' });
-			expect(add.querySelector('span.max-sm\\:sr-only')?.textContent).toBe('Add status');
-			await fireEvent.click(add);
-			expect(output('Runs')).toBe('add:0');
-		});
-
-		it('refuses an icon-only primary that has no icon', () => {
-			stubPhone(true);
-			expect(() => render(DataToolbarTest, { props: { phoneLayout: true, primaryIcon: false } })).toThrow(
-				/iconOnlyBelow/
-			);
+			expect(within(toolbar()).queryByRole('button', { name: 'Filters' })).toBeNull();
+			expect(within(toolbar()).getByRole('button', { name: 'More Roster controls' })).toBeTruthy();
+			expect(within(toolbar()).getByRole('button', { name: 'Add status' }).querySelector('span.sr-only')).toBeNull();
 		});
 	});
 

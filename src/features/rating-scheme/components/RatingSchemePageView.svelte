@@ -185,8 +185,7 @@
 		label: 'Search by Soldier or rater',
 		placeholder: 'Search Soldier or rater...',
 		value: ctx.searchQuery,
-		onValueChange: (value) => (ctx.searchQuery = value),
-		ownRowBelow: 'sm'
+		onValueChange: (value) => (ctx.searchQuery = value)
 	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
 	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
@@ -196,7 +195,6 @@
 					id: 'add-entry',
 					label: 'Add Entry',
 					icon: 'plus',
-					iconOnlyBelow: 'sm',
 					onclick: () => ctx.handleAddRatingEntry(),
 					disabled: !canUseRatingSchemeWriteActions,
 					disabledReason: canUseRatingSchemeWriteActions ? undefined : ratingSchemeWriteAffordance.explanation
@@ -258,6 +256,7 @@
 				items={toolbarItems}
 				search={toolbarSearch}
 				primary={toolbarPrimary}
+				compactBelow="sm"
 			/>
 
 			<div class="min-h-0 flex-1 overflow-auto">

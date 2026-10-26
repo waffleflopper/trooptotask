@@ -34,7 +34,7 @@
 	import WorkspaceToolbarMenu from './workspace-toolbar-menu.svelte';
 	import WorkspaceToolbarMore, { actionItems, moreButton } from './workspace-toolbar-more.svelte';
 
-	let { ariaLabel, items, bare = false, search, primary }: WorkspaceToolbarProps = $props();
+	let { ariaLabel, items, bare = false, search, primary, compactBelow }: WorkspaceToolbarProps = $props();
 	const uid = $props.id();
 
 	type Metrics = {
@@ -67,9 +67,12 @@
 	const actions = $derived(items.filter((item): item is ToolbarAction => sectionOf(item) === 'actions'));
 	// The most important action sits next to More and the primary, so the row reads actions in reverse rank.
 	const actionsInRowOrder = $derived(actions.toReversed());
-	const rowCandidates = $derived(items.filter((item) => !isMenuOnly(item)));
 	const phone = new MediaQuery('width < 40rem', false);
-	const searchOwnRow = $derived(Boolean(search?.ownRowBelow) && phone.current);
+	const compact = $derived(Boolean(compactBelow) && phone.current);
+	const searchOwnRow = $derived(compact && Boolean(search));
+	const primaryIconOnly = $derived(compact && Boolean(primary?.icon));
+	const foldsToMore = (item: ToolbarItem): boolean => isMenuOnly(item) || (compact && sectionOf(item) === 'filters');
+	const rowCandidates = $derived(items.filter((item) => !foldsToMore(item)));
 	// Search on its own row never competes for the controls' width, so the fit sees no search at all.
 	const rowSearch = $derived(searchOwnRow ? undefined : search);
 
@@ -94,7 +97,7 @@
 				id: item.id,
 				width: measured.items[item.id] ?? 0,
 				section: sectionOf(item),
-				menuOnly: isMenuOnly(item)
+				menuOnly: foldsToMore(item)
 			})),
 			...(rowSearch
 				? { searchMinWidth: measured.searchField, searchIconWidth: measured.searchIcon }
@@ -131,9 +134,6 @@
 
 	$effect.pre(() => {
 		if (!import.meta.env.DEV) return;
-		if (primary?.iconOnlyBelow && !primary.icon) {
-			throw new Error(`WorkspaceToolbar "${ariaLabel}" sets iconOnlyBelow on a primary with no icon.`);
-		}
 		const ids = [...items.map((item) => item.id), ...(primary ? [primary.id] : [])];
 		const duplicate = ids.find((id, index) => ids.indexOf(id) !== index);
 		if (duplicate) throw new Error(`WorkspaceToolbar "${ariaLabel}" has more than one item with id "${duplicate}".`);
@@ -311,7 +311,7 @@
 )}
 	<Button
 		variant={action.destructive ? 'destructive' : variant}
-		class={iconOnly ? 'max-sm:size-8 max-sm:px-0' : undefined}
+		class={iconOnly ? 'size-8 px-0' : undefined}
 		href={action.href}
 		disabled={action.disabled}
 		title={live ? action.disabledReason : undefined}
@@ -329,7 +329,7 @@
 			<WorkspaceToolbarIcon icon={action.icon} />
 		{/if}
 		{#if iconOnly}
-			<span class="max-sm:sr-only">{action.label}</span>
+			<span class="sr-only">{action.label}</span>
 		{:else}
 			{action.label}
 		{/if}
@@ -587,12 +587,19 @@
 			{/each}
 			{#if showMore}
 				<div data-toolbar-more class={cn('flex shrink-0', trailingId === 'more' && 'ml-auto')}>
-					<WorkspaceToolbarMore {ariaLabel} views={moreViews} filters={moreFilters} actions={moreActions} {run} />
+					<WorkspaceToolbarMore
+						{ariaLabel}
+						views={moreViews}
+						filters={moreFilters}
+						actions={moreActions}
+						filtersLabel={compact}
+						{run}
+					/>
 				</div>
 			{/if}
 			{#if primary}
 				<div data-toolbar-item={primary.id} class={cn('flex shrink-0', trailingId === primary.id && 'ml-auto')}>
-					{@render actionControl(primary, 'default', true, Boolean(primary.iconOnlyBelow))}
+					{@render actionControl(primary, 'default', true, primaryIconOnly)}
 				</div>
 			{/if}
 		{/if}
@@ -624,11 +631,11 @@
 				</div>
 			{/if}
 			<div data-toolbar-more class="flex shrink-0" {@attach measure()}>
-				{@render moreButton('', { tabindex: -1 })}
+				{@render moreButton('', { tabindex: -1 }, undefined, compact)}
 			</div>
 			{#if primary}
 				<div data-toolbar-item={primary.id} data-toolbar-primary class="flex shrink-0" {@attach measure()}>
-					{@render actionControl(primary, 'default', false, Boolean(primary.iconOnlyBelow))}
+					{@render actionControl(primary, 'default', false, primaryIconOnly)}
 				</div>
 			{/if}
 		</div>

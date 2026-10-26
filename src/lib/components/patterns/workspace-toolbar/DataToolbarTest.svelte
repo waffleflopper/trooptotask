@@ -17,7 +17,6 @@
 		reportsDisabled?: boolean;
 		describePlanner?: boolean;
 		phoneLayout?: boolean;
-		primaryIcon?: boolean;
 		onRun?: (name: string) => void;
 	};
 
@@ -37,7 +36,6 @@
 		reportsDisabled = false,
 		describePlanner = false,
 		phoneLayout = false,
-		primaryIcon = true,
 		onRun
 	}: Props = $props();
 
@@ -184,17 +182,16 @@
 		label: 'Search roster',
 		placeholder: 'Search...',
 		value: search,
-		onValueChange: (value) => (search = value),
-		ownRowBelow: phoneLayout ? 'sm' : undefined
+		onValueChange: (value) => (search = value)
 	}}
 	primary={{
 		kind: 'action',
 		id: 'add',
 		label: 'Add status',
-		icon: primaryIcon ? 'plus' : undefined,
-		iconOnlyBelow: phoneLayout ? 'sm' : undefined,
+		icon: 'plus',
 		onclick: () => log('add')
 	}}
+	compactBelow={phoneLayout ? 'sm' : undefined}
 />
 
 <output aria-label="View value">{view}</output>

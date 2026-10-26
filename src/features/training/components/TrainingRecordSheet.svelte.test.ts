@@ -524,6 +524,22 @@ describe('TrainingRecordSheet', () => {
 			await waitFor(() => expect(onToggleExempt).toHaveBeenCalledExactlyOnceWith('bls', true));
 		});
 
+		it('asks before Record all drops a draft on a type it records, and keeps the draft when the answer is no', async () => {
+			const onSaveBatch = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			render(TrainingRecordSheet, { props: props({ onSaveBatch }) });
+			await dirtyFirstForm(user);
+
+			await user.click(screen.getByRole('button', { name: 'Record all 2 today' }));
+			await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
+			expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Draft note');
+
+			await user.click(screen.getByRole('button', { name: 'Record all 2 today' }));
+			await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard' }));
+			await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Record 2' }));
+			await waitFor(() => expect(onSaveBatch).toHaveBeenCalledOnce());
+		});
+
 		it('opens another item without asking when nothing was typed', async () => {
 			const user = userEvent.setup();
 			render(TrainingRecordSheet, { props: props() });

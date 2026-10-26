@@ -198,6 +198,12 @@
 
 	let confirmRecordAll = $state(false);
 
+	function askRecordAll() {
+		const showConfirm = () => (confirmRecordAll = true);
+		if (formDirty && sheet.recordableToday.some((item) => item.type.id === expandedTypeId)) afterDiscard = showConfirm;
+		else showConfirm();
+	}
+
 	async function recordAll() {
 		if (saving.pending) return;
 		const personId = person.id;
@@ -361,7 +367,7 @@
 											size="none"
 											class="text-sm text-foreground underline"
 											disabled={busy}
-											onclick={() => (confirmRecordAll = true)}
+											onclick={askRecordAll}
 										>
 											Record all {sheet.recordableToday.length} today
 										</Button>

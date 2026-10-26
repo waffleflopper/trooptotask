@@ -12,6 +12,7 @@ vi.mock('$app/state', () => ({ page: { url: new URL('https://app.test/'), state:
 const TASKING = '00000000-0000-4000-8000-000000000101';
 const ALICE = '00000000-0000-4000-8000-000000000501';
 const BRUNO = '00000000-0000-4000-8000-000000000502';
+const CARLA = '00000000-0000-4000-8000-000000000503';
 const tasking: Tasking = {
 	id: TASKING,
 	title: 'Provide four trauma-lane medics',
@@ -36,7 +37,7 @@ const pick = (personnelId: string): TaskingPick => ({
 });
 
 function renderAction(gaps: Promise<EventRead<string[]>>) {
-	render(SetAvailability, {
+	return render(SetAvailability, {
 		orgUrlSegment: 'c-co',
 		tasking,
 		execution: tasking.execution!,
@@ -79,5 +80,15 @@ describe('SetAvailability', () => {
 
 		expect(await screen.findByText(/covers every execution day for everyone picked/)).toBeTruthy();
 		expect(screen.queryByText(/no Availability covering/)).toBeNull();
+	});
+
+	it('checks again instead of showing the old coverage when the picks change', async () => {
+		const view = renderAction(Promise.resolve({ status: 'loaded', value: [] }));
+		await screen.findByText(/^Availability covers every execution day/);
+
+		await view.rerender({ targets: [pick(ALICE), pick(BRUNO), pick(CARLA)], gaps: new Promise(() => {}) });
+
+		expect(screen.getByRole('status', { name: 'Checking Availability' })).toBeTruthy();
+		expect(screen.queryByText(/^Availability covers every execution day/)).toBeNull();
 	});
 });

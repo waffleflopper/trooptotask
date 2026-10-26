@@ -71,9 +71,14 @@
 	const prefillKey = $derived(prefill ? JSON.stringify(prefill) : '');
 	const backHref = $derived(prefill ? taskingHref(orgUrlSegment, prefill.taskingId) : `/org/${orgUrlSegment}/calendar`);
 
+	// Switching tabs replaces the form, so a save that finishes later belongs to a form that is gone.
+	let formGeneration = 0;
+	let applyingGeneration = -1;
+
 	function switchTab(tab: string) {
 		// A single toggle group emits '' when the pressed item is clicked again.
 		if (!TABS.some((option) => option.value === tab)) return;
+		formGeneration++;
 		const url = new URL(page.url);
 		url.searchParams.set('tab', tab);
 		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
@@ -117,6 +122,7 @@
 		note: string | null
 	): Promise<string[]> {
 		applyingOrgId = data.orgId;
+		applyingGeneration = formGeneration;
 		const inserted = await availabilityStore.addBatch(
 			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note)
 		);
@@ -147,7 +153,7 @@
 
 	function handleComplete() {
 		// The reader already chose to go elsewhere; returning or refreshing now would cancel that navigation.
-		if (navigating.to) return;
+		if (navigating.to || applyingGeneration !== formGeneration) return;
 		const returnTo = prefill && active && data.orgId === applyingOrgId ? backHref : null;
 		// A separate invalidate would cancel a navigation started before it, so refresh as part of leaving.
 		if (returnTo) {

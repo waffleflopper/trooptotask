@@ -21,7 +21,22 @@
 	let { orgUrlSegment, tasking, execution, targets, gaps }: Props = $props();
 
 	const streamed = new StreamedValue(() => gaps);
+	// A refresh keeps the last coverage, which only answers for the picks and dates it was read for.
+	const askedFor = $derived(JSON.stringify([targets.map((t) => t.personnelId), execution]));
+	let answeredFor = $state<string | null>(null);
+	$effect(() => {
+		const key = askedFor;
+		let live = true;
+		const settle = () => {
+			if (live) answeredFor = key;
+		};
+		gaps.then(settle, settle);
+		return () => {
+			live = false;
+		};
+	});
 	const uncovered = $derived.by(() => {
+		if (answeredFor !== askedFor) return null;
 		const current = streamed.current;
 		if (current.state !== 'ready') return current.state === 'failed' ? ('failed' as const) : null;
 		if (current.value.status !== 'loaded') return 'failed' as const;

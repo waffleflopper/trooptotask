@@ -6,7 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import BulkStatusPage from './BulkStatusPage.svelte';
 
-const { gotoMock, invalidateMock, pageMock, navigatingMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateMock, pageMock, navigatingMock, addBatchMock } = vi.hoisted(() => ({
+	addBatchMock: vi.fn(async () => [{ personnelId: 'person-1' }]),
 	gotoMock: vi.fn(),
 	invalidateMock: vi.fn(),
 	pageMock: { url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add') },
@@ -30,7 +31,7 @@ vi.mock('./BulkStatusAdd.svelte', async () => ({
 }));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({ statusTypesStore: { items: [] } }));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
-	availabilityStore: { items: [], addBatch: vi.fn(async () => [{ personnelId: 'person-1' }]), removeBatch: vi.fn() }
+	availabilityStore: { items: [], addBatch: addBatchMock, removeBatch: vi.fn() }
 }));
 vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
@@ -80,6 +81,24 @@ describe('BulkStatusPage after a prefilled save', () => {
 
 		expect(gotoMock).not.toHaveBeenCalled();
 		expect(invalidateMock).not.toHaveBeenCalled();
+	});
+
+	it('does not return from a save whose form was replaced by a tab switch', async () => {
+		pageMock.url = new URL(
+			`http://localhost/org/org-1/calendar/bulk?tab=add&tasking=${TASKING}&from=2030-10-19&to=2030-10-23`
+		);
+		let finishSave = () => {};
+		addBatchMock.mockImplementationOnce(
+			() => new Promise((resolve) => (finishSave = () => resolve([{ personnelId: 'person-1' }])))
+		);
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+		await fireEvent.click(screen.getByRole('radio', { name: 'Remove' }));
+		finishSave();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(gotoMock).not.toHaveBeenCalledWith(`/org/org-1/calendar/taskings/${TASKING}`, expect.anything());
 	});
 
 	it('ignores the prefill while Events & Taskings is off', async () => {

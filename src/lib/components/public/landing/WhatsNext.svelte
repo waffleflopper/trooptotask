@@ -209,7 +209,7 @@
 				Plain questions, answered from your unit's live data.
 			</p>
 		</div>
-		<div class="grid grid-cols-1 gap-10 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
+		<div class="grid grid-cols-1 gap-10 overflow-x-clip sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
 			{#each verbs as item, i (item.verb)}
 				<div class="flex flex-col gap-5 border-border xl:border-l xl:px-6 xl:first:border-l-0 xl:first:pl-0">
 					<p

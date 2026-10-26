@@ -38,7 +38,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="overflow-hidden rounded-t-lg bg-background">
+		<div class="overflow-hidden rounded-t-[8px] bg-background">
 			<img
 				src="/landing/hero-dashboard.webp"
 				alt="TroopToTask dashboard for C Co, 526th BSB: 19 of 22 Soldiers available today, who is out and when they return, and a 14-day availability chart."

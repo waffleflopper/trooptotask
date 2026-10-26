@@ -31,7 +31,7 @@
 			<nav aria-label="Footer">
 				<ul class="m-0 flex list-none flex-wrap gap-x-8 gap-y-3 p-0">
 					{#each links as link (link.label)}
-						<li class={cn(link.narrowOnly && 'min-[900px]:hidden')}>
+						<li class={cn('flex', link.narrowOnly && 'min-[900px]:hidden')}>
 							<a
 								href={link.href}
 								aria-current={link.current ? 'page' : undefined}

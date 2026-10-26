@@ -442,6 +442,29 @@ describe('TrainingMatrix display options', () => {
 		expect(band.textContent).toContain('1 of 2');
 		expect(band.closest('tr')?.textContent).toContain('50%');
 	});
+
+	it('keeps a Soldier fixed while filtered until the filter settles again, with a live count', async () => {
+		const people = [named('Adams'), named('Baker')];
+		const props = {
+			...matrixProps,
+			personnel: people,
+			trainingTypes: [trainingType],
+			display: { ...display, matrixNeedsActionOnly: true }
+		};
+		const counts = () => screen.getByText(/need action/).textContent;
+		const view = render(TrainingMatrix, { props: { ...props, trainings: [] } });
+		expect(mountedNames()).toEqual(['Adams, Jane', 'Baker, Jane']);
+		expect(counts()).toContain('2 of 2 need action');
+
+		const fixed = [record({ id: 't-a', personnelId: 'person-Adams', expirationDate: '2027-06-15' })];
+		await view.rerender({ ...props, trainings: fixed });
+		expect(mountedNames()).toEqual(['Adams, Jane', 'Baker, Jane']);
+		expect(counts()).toContain('1 of 2 need action');
+
+		await view.rerender({ ...props, trainings: fixed, display });
+		await view.rerender({ ...props, trainings: fixed });
+		expect(mountedNames()).toEqual(['Baker, Jane']);
+	});
 });
 
 describe('TrainingMatrix group band readiness', () => {

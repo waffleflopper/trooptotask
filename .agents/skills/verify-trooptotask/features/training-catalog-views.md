@@ -186,8 +186,10 @@ Focus View orders Targeted before Required and omits Optional.
      checked. Each choice keeps the menu open. `Check mark` turns Able's Required cell to `✓` and `Blank` empties it;
      `No record` cells keep their text. `Color every status` fills Able's Required cell green; the red and amber cells
      are unchanged. `Only Soldiers needing action` keeps all three rows on a fresh seed, since each has a `No record`
-     cell, and the count line reads `3 of 3 need action × 3 types`; each band's count reads `1 of 1`. Reload: every
-     choice is still set. Reset them all to `Date` and off afterwards.
+     cell, and the count line reads `3 of 3 need action × 3 types`; each band's count reads `1 of 1`. Record a
+     completion in every open cell of one Soldier with the filter on: the row stays and the count drops to `2 of 3`;
+     turning the filter off and on again removes the row. Reload: every choice is still set. Reset them all to `Date`
+     and off afterwards.
    - Narrow widths: at 1024 the toolbar keeps `Search`, both filters and `Export` and folds `Reports` and
      `Sign-in rosters` into More; at 390 search takes its own full-width row (322 wide) above a row holding the toggle,
      `Training view filter` and More, and More lists `Group` (`Group: All`), `Display`, `Reports`, `Sign-in rosters`,

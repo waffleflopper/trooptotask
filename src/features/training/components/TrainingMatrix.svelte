@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -91,12 +91,21 @@
 
 	const NEEDS_ACTION = new Set<TrainingStatus>(['expired', 'warning-orange', 'warning-yellow', 'not-completed']);
 
-	const shownPersonnel = $derived(
+	const needsAction = (person: Personnel) =>
+		trainingTypes.some((type) => NEEDS_ACTION.has(getCellMetadata(person, type).statusInfo.status));
+
+	// The filter settles when it, the view or the roster changes, not on a save: a Soldier fixed mid-session keeps their
+	// row, so focus and record stepping still have somewhere to go.
+	const filterKey = $derived(
 		display.matrixNeedsActionOnly
-			? personnel.filter((person) =>
-					trainingTypes.some((type) => NEEDS_ACTION.has(getCellMetadata(person, type).statusInfo.status))
-				)
-			: personnel
+			? `${personnel.map((person) => person.id).join()}|${trainingTypes.map((type) => type.id).join()}`
+			: null
+	);
+	const shownPersonnel = $derived.by(() =>
+		filterKey === null ? personnel : untrack(() => personnel.filter((person) => needsAction(person)))
+	);
+	const stillNeedingAction = $derived(
+		display.matrixNeedsActionOnly ? shownPersonnel.filter((person) => needsAction(person)).length : 0
 	);
 
 	const columns: ColumnDef<Personnel>[] = [
@@ -439,7 +448,7 @@
 				<h2 class="font-heading text-xl font-semibold tracking-tight">{title}</h2>
 				<p class="font-mono text-xs text-muted-foreground">
 					{display.matrixNeedsActionOnly
-						? `${shownPersonnel.length} of ${personnel.length} need action`
+						? `${stillNeedingAction} of ${personnel.length} need action`
 						: `${personnel.length} personnel`} × {trainingTypes.length} types · {groupBy ? 'by group' : 'A–Z'}
 				</p>
 			</div>

@@ -14,4 +14,12 @@
 	<title>Taskings - Troop to Task</title>
 </svelte:head>
 
-<TaskingsPage {org} today={data.today} {filters} list={data.list} choices={data.choices} />
+<TaskingsPage
+	{org}
+	today={data.today}
+	{filters}
+	list={data.list}
+	activeList={data.activeList}
+	choices={data.choices}
+	eventMembers={data.eventMembers}
+/>

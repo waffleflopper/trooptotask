@@ -40,6 +40,9 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'organization_invitations',
 	'organization_rank_catalog',
 	'personnel',
+	'calendar_events',
+	'calendar_event_activity',
+	'calendar_taskings',
 	'rpc/roster_signals',
 	'rpc/calendar_tasking_attention'
 ]);

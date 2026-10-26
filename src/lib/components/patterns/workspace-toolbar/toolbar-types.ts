@@ -61,6 +61,8 @@ export type ToolbarSelect = ItemIdentity & {
 	options: ToolbarOption[];
 	value: string;
 	defaultValue: string;
+	/** Names the filter before its value, for short option labels such as `All`. */
+	showLabel?: boolean;
 	onValueChange: (value: string) => void;
 };
 

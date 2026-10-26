@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { eventDateRange, eventDraftSchema, eventPhase, parseSourceReference } from './eventModel';
+import {
+	eventCountdown,
+	eventDateRange,
+	eventDayRange,
+	eventDraftSchema,
+	eventPhase,
+	parseSourceReference,
+	shortEventDateRange
+} from './eventModel';
 
 const COORDINATOR = '00000000-0000-4000-8000-000000000001';
 const draft = {
@@ -83,5 +91,30 @@ describe('eventDraftSchema', () => {
 		expect(issues({ endsOn: '2026-10-18' })).toEqual(['endsOn']);
 		expect(issues({ sourceReference: 'javascript:alert(1)' })).toEqual(['sourceReference']);
 		expect(issues({ host: { kind: 'external', name: ' ' } })).toEqual(['host.name']);
+	});
+});
+
+describe('Event dates for the Events & Taskings pages', () => {
+	const today = '2026-10-16';
+	const lanes = { startsOn: '2026-10-19', endsOn: '2026-10-23' };
+
+	it("leaves the year out when it is the viewer's", () => {
+		expect(shortEventDateRange(lanes, today)).toBe('19 – 23 Oct');
+		expect(shortEventDateRange({ startsOn: '2026-10-30', endsOn: '2026-11-02' }, today)).toBe('30 Oct – 2 Nov');
+		expect(shortEventDateRange({ startsOn: '2027-01-04', endsOn: '2027-01-04' }, today)).toBe('4 Jan 2027');
+		expect(eventDayRange(lanes, today)).toBe('Mon 19 – Fri 23 Oct');
+		expect(eventDayRange({ startsOn: '2026-10-30', endsOn: '2026-11-02' }, today)).toBe('Fri 30 Oct – Mon 2 Nov');
+		expect(eventDayRange({ startsOn: '2026-10-21', endsOn: '2026-10-21' }, today)).toBe('Wed 21 Oct');
+	});
+
+	it('counts down to the Event, through it, and past it', () => {
+		const event = { ...lanes, cancellation: null };
+		expect(eventCountdown(event, today)).toEqual({ text: 'Starts in 3 days', upcoming: true });
+		expect(eventCountdown(event, '2026-10-18')).toEqual({ text: 'Starts tomorrow', upcoming: true });
+		expect(eventCountdown(event, '2026-10-20')).toEqual({ text: 'Day 2 of 5', upcoming: true });
+		expect(eventCountdown(event, '2026-10-24')).toEqual({ text: 'Ended 23 Oct', upcoming: false });
+		expect(
+			eventCountdown({ ...lanes, cancellation: { at: '2026-10-10T10:00:00Z', by: null, reason: null } }, today)
+		).toEqual({ text: 'Cancelled', upcoming: false });
 	});
 });

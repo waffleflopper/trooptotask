@@ -1,4 +1,4 @@
-import { listTaskings, loadTaskingChoices, settleEventRead } from '$features/calendar/index.server';
+import { listTaskings, loadEventMembers, loadTaskingChoices, settleEventRead } from '$features/calendar/index.server';
 import { parseTaskingView, scopeOfView } from '$features/calendar';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -20,7 +20,10 @@ export const load = async ({ params, locals, cookies, depends, url }: PageServer
 		fn: async (ctx) => ({
 			today,
 			list: settleEventRead(listTaskings(ctx, scope)),
-			choices: settleEventRead(loadTaskingChoices(ctx, today))
+			// The count chips read the active list; a closed view loads it alongside its own.
+			activeList: scope === 'active' ? null : settleEventRead(listTaskings(ctx, 'active')),
+			choices: settleEventRead(loadTaskingChoices(ctx, today)),
+			eventMembers: settleEventRead(loadEventMembers(ctx))
 		})
 	});
 };

@@ -55,6 +55,11 @@ export function formatWeekdayDay(dateOnly: string): string {
 	return `${getDayName(parseDate(dateOnly))} ${Number(dateOnly.slice(8, 10))}`;
 }
 
+/** "Thu 15 Oct" — weekday, day and month for a date-only string (YYYY-MM-DD) when the year is evident */
+export function formatWeekdayDayMonth(dateOnly: string): string {
+	return `${getDayName(parseDate(dateOnly))} ${formatDayMonth(dateOnly)}`;
+}
+
 /** "24 Sep 2024" — the military day-month-year order for date-only strings (YYYY-MM-DD) */
 export function formatDayMonthYear(dateOnly: string): string {
 	return `${formatDayMonth(dateOnly)} ${dateOnly.slice(0, 4)}`;

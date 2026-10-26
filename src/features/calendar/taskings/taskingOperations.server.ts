@@ -13,6 +13,7 @@ import {
 	responsibilityKey,
 	taskingDraftSchema,
 	taskingTransitionSchema,
+	type EventTaskingList,
 	type GroupLabels,
 	type Tasking,
 	type TaskingAction,
@@ -84,14 +85,12 @@ export async function listTaskings(ctx: CalendarTaskingPorts, scope: TaskingList
 }
 
 /** The Taskings under one Event that the viewer's scope covers. */
-export async function listEventTaskings(
-	ctx: CalendarTaskingPorts,
-	eventId: string
-): Promise<{ taskings: Tasking[]; groups: GroupLabels }> {
+export async function listEventTaskings(ctx: CalendarTaskingPorts, eventId: string): Promise<EventTaskingList> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
-	if (!uuidSchema.safeParse(eventId).success) return { taskings: [], groups: {} };
+	if (!uuidSchema.safeParse(eventId).success) return { taskings: [], groups: {}, staffing: {} };
 	const [taskings, groups] = await Promise.all([ctx.calendarTaskings.listEventTaskings(eventId), groupLabels(ctx)]);
-	return { taskings, groups };
+	const staffing = await ctx.calendarStaffing.countStaffing(taskings.map((tasking) => tasking.id));
+	return { taskings, groups, staffing };
 }
 
 /** One-line rows for the Event's Taskings outside the viewer's scope. They open nothing. */

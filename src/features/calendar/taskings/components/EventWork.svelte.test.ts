@@ -75,7 +75,7 @@ describe('Event detail work groups', () => {
 			org,
 			today: '2026-10-12',
 			event: { ...event, ...overrides },
-			taskings: loaded({ taskings: [closeOut, prepare], groups }),
+			taskings: loaded({ taskings: [closeOut, prepare], groups, staffing: {} }),
 			summaries,
 			choices: loaded(null),
 			addOnArrival: false
@@ -85,9 +85,9 @@ describe('Event detail work groups', () => {
 	it('groups full and summary rows by phase and opens only the full ones', async () => {
 		showEvent(loaded([bravo]));
 
-		const preparation = within(await screen.findByRole('region', { name: 'Preparation' }));
-		const execution = within(screen.getByRole('region', { name: 'Execution' }));
-		const closeout = within(screen.getByRole('region', { name: 'Closeout' }));
+		const preparation = within(await screen.findByRole('region', { name: /prep/i }));
+		const execution = within(screen.getByRole('region', { name: /during/i }));
+		const closeout = within(screen.getByRole('region', { name: /closeout/i }));
 		expect(preparation.getByRole('link', { name: /Submit the roster/ }).getAttribute('href')).toBe(
 			`/org/org-a/calendar/taskings/${prepare.id}`
 		);
@@ -110,14 +110,14 @@ describe('Event detail work groups', () => {
 			org,
 			today: '2026-10-12',
 			event,
-			taskings: loaded({ taskings: [], groups }),
+			taskings: loaded({ taskings: [], groups, staffing: {} }),
 			summaries: loaded([]),
 			choices: loaded(null),
 			addOnArrival: false
 		});
 
 		expect(await screen.findByText(/no taskings/i)).toBeTruthy();
-		for (const phase of ['Preparation', 'Execution', 'Closeout'])
+		for (const phase of [/prep/i, /during/i, /closeout/i])
 			expect(screen.queryByRole('region', { name: phase })).toBeNull();
 		expect(screen.queryByRole('link')).toBeNull();
 	});

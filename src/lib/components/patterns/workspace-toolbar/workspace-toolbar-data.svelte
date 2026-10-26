@@ -430,7 +430,10 @@
 {#snippet selectControl(item: ToolbarSelect, live: boolean)}
 	<Select.Root type="single" bind:value={() => item.value, (next) => live && item.onValueChange(next)}>
 		<Select.Trigger aria-label={item.ariaLabel ?? item.label} tabindex={live ? undefined : -1}>
-			<span>{optionLabel(item, item.value)}</span>
+			{#if item.showLabel}
+				<span class="text-muted-foreground">{item.label}</span>
+			{/if}
+			<span class={[item.showLabel && 'font-semibold']}>{optionLabel(item, item.value)}</span>
 		</Select.Trigger>
 		{#if live}
 			<Select.Content>

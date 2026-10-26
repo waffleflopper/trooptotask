@@ -14,11 +14,20 @@ import type {
 	TaskingStatusKind
 } from '../taskingModel';
 import type { NamedPeople } from '../staffing/staffingModel';
+import type { FactTone } from '../taskingRowModel';
+
+export const TONE_TEXT: Record<FactTone, string> = {
+	danger: 'text-danger-foreground',
+	warning: 'text-accent-text',
+	success: 'text-success-foreground',
+	plain: 'text-foreground',
+	muted: 'text-muted-foreground'
+};
 
 export const STATUS_BADGES: Record<TaskingStatusKind, { label: string; variant: BadgeVariant }> = {
 	open: { label: 'Open', variant: 'outline' },
 	in_progress: { label: 'In progress', variant: 'info' },
-	blocked: { label: 'Blocked', variant: 'warning' },
+	blocked: { label: 'Blocked', variant: 'danger' },
 	completed: { label: 'Completed', variant: 'success' },
 	cancelled: { label: 'Cancelled', variant: 'secondary' }
 };

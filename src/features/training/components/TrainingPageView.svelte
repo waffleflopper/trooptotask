@@ -22,6 +22,7 @@
 	import {
 		WorkspaceToolbar,
 		type ToolbarItem,
+		type ToolbarMenuItem,
 		type WorkspaceToolbarProps
 	} from '$lib/components/patterns/workspace-toolbar';
 	import { pinnedGroupsStore } from '$features/personnel';
@@ -149,6 +150,38 @@
 		...(ctx.canManageConfig ? [{ value: MANAGE_VIEWS, label: 'Manage views…' }] : [])
 	]);
 	const groupFilterOptions = $derived([...ctx.groupFilterOptions]);
+	const currentMarkOptions = [
+		{ value: 'date', label: 'Date' },
+		{ value: 'check', label: 'Check mark' },
+		{ value: 'blank', label: 'Blank' }
+	];
+	const displayOptions = $derived<ToolbarMenuItem[]>([
+		{
+			kind: 'toggle',
+			id: 'color-all',
+			label: 'Color every status',
+			pressed: ctx.matrixDisplay.matrixColorAll,
+			onPressedChange: (pressed) => ctx.setMatrixDisplay({ matrixColorAll: pressed })
+		},
+		{
+			kind: 'toggle',
+			id: 'needs-action-only',
+			label: 'Only Soldiers needing action',
+			pressed: ctx.matrixDisplay.matrixNeedsActionOnly,
+			onPressedChange: (pressed) => ctx.setMatrixDisplay({ matrixNeedsActionOnly: pressed })
+		},
+		{
+			kind: 'select',
+			id: 'current-mark',
+			label: 'Current cells show',
+			options: currentMarkOptions,
+			value: ctx.matrixDisplay.matrixCurrentMark,
+			onValueChange: (value) => {
+				if (value === 'date' || value === 'check' || value === 'blank')
+					ctx.setMatrixDisplay({ matrixCurrentMark: value });
+			}
+		}
+	]);
 	const matrixViewOptions = [
 		{ value: 'alphabetical', label: 'A–Z' },
 		{ value: 'by-group', label: 'Groups' }
@@ -211,7 +244,8 @@
 				label: 'Reports',
 				href: `/org/${orgUrlSegment}/training/reports`,
 				icon: 'chart'
-			}
+			},
+			{ kind: 'action', id: 'matrix-display', label: 'Display', icon: 'sliders', menuItems: displayOptions }
 		];
 
 		if (ctx.canRecordTraining) {
@@ -259,12 +293,7 @@
 
 <div bind:this={pageRoot} class="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
 	<div class="flex min-h-full flex-1 flex-col gap-4 px-6 pt-4 pb-5 max-sm:p-3">
-		<TrainingPageHeader
-			orgName={ctx.orgName}
-			personnelCount={ctx.personnel.length}
-			summary={readinessSummary}
-			readinessUnavailable={!loading && ctx.readinessGoalPercent === null}
-		/>
+		<TrainingPageHeader summary={readinessSummary} />
 
 		<WorkspaceToolbar ariaLabel="Training controls" items={toolbarItems} search={toolbarSearch} />
 
@@ -331,6 +360,7 @@
 					onRecord={ctx.canRecordTraining ? ctx.handleSaveTraining.bind(ctx) : undefined}
 					onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 					onRowOrderChange={(ids) => (ctx.rowOrder = ids)}
+					display={ctx.matrixDisplay}
 					groupBy={ctx.viewMode === 'by-group'
 						? {
 								key: (p) => p.groupName || NO_GROUP,

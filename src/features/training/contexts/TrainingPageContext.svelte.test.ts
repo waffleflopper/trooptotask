@@ -653,6 +653,38 @@ describe('TrainingPageContext', () => {
 			expect(ctx.viewMode).toBe('by-group');
 		});
 
+		it('restores the matrix display choices and saves only the one that changed', () => {
+			const ctx = makeContext(
+				makeData({
+					userPreferences: {
+						training: {
+							selectedGroupId: null,
+							selectedViewId: null,
+							matrixViewMode: 'by-group',
+							matrixColorAll: true,
+							matrixCurrentMark: 'check',
+							matrixNeedsActionOnly: false
+						}
+					}
+				}),
+				makeOrg()
+			);
+			expect(ctx.matrixDisplay).toEqual({
+				matrixColorAll: true,
+				matrixCurrentMark: 'check',
+				matrixNeedsActionOnly: false
+			});
+
+			ctx.setMatrixDisplay({ matrixNeedsActionOnly: true });
+
+			expect(ctx.matrixDisplay).toEqual({
+				matrixColorAll: true,
+				matrixCurrentMark: 'check',
+				matrixNeedsActionOnly: true
+			});
+			expect(savePreferencesMock).toHaveBeenCalledWith({ training: { matrixNeedsActionOnly: true } });
+		});
+
 		it('hydrates persisted training preferences when available', () => {
 			trainingViewsStore.load(
 				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],

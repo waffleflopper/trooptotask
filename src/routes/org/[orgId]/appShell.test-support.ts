@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Cookies } from '@sveltejs/kit';
 import type { AppShellRouteData, ReadyAppShell } from '$features/app-shell/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-import type { SignedInAccount } from '$features/identity/contracts';
+import { getDefaultUserOrgPreferences, type SignedInAccount } from '$features/identity/contracts';
 
 export function createReadyAppShellRouteData(
 	overrides: {
@@ -54,7 +54,7 @@ export function createReadyAppShellRouteData(
 			state: { orgSuspended: false },
 			preferences: {
 				calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
-				training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' }
+				training: getDefaultUserOrgPreferences().training
 			},
 			announcements: [],
 			whatsNew: []

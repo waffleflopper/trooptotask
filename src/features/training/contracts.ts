@@ -274,11 +274,20 @@ export interface TrainingPageAccess {
 	) => TrainingAffordance;
 }
 export type TrainingMatrixViewMode = 'alphabetical' | 'by-group';
+/** What a current cell shows: its month, a check mark, or nothing. */
+export type TrainingMatrixCurrentMark = 'date' | 'check' | 'blank';
 export interface TrainingPagePreferences {
 	selectedGroupId: string | null;
 	selectedViewId: string | null;
 	matrixViewMode: TrainingMatrixViewMode;
+	matrixColorAll: boolean;
+	matrixCurrentMark: TrainingMatrixCurrentMark;
+	matrixNeedsActionOnly: boolean;
 }
+export type TrainingMatrixDisplay = Pick<
+	TrainingPagePreferences,
+	'matrixColorAll' | 'matrixCurrentMark' | 'matrixNeedsActionOnly'
+>;
 export interface TrainingPreferencesPatch {
 	training?: Partial<TrainingPagePreferences>;
 }

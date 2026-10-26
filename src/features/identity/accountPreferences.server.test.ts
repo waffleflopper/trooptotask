@@ -110,7 +110,14 @@ function writer(supabase: SupabaseClient) {
 const scope = { userId: 'test-user', orgId: 'test-org' };
 const defaults = {
 	calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
-	training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' }
+	training: {
+		selectedGroupId: null,
+		selectedViewId: null,
+		matrixViewMode: 'by-group',
+		matrixColorAll: false,
+		matrixCurrentMark: 'date',
+		matrixNeedsActionOnly: false
+	}
 };
 
 describe('Identity account/Organization preferences', () => {
@@ -169,7 +176,14 @@ describe('Identity account/Organization preferences', () => {
 				created_at: '2026-01-01T00:00:00Z',
 				preferences: {
 					calendar: { showStatusText: true, showPersonnelRoles: true, highlightOnboarding: true },
-					training: { selectedGroupId: 'group-1', selectedViewId: 'view-1', matrixViewMode: 'alphabetical' }
+					training: {
+						selectedGroupId: 'group-1',
+						selectedViewId: 'view-1',
+						matrixViewMode: 'alphabetical',
+						matrixColorAll: false,
+						matrixCurrentMark: 'date',
+						matrixNeedsActionOnly: false
+					}
 				}
 			})
 		);

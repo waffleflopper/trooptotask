@@ -166,10 +166,9 @@ Focus View orders Targeted before Required and omits Optional.
 
 8. **Matrix readout:** As `trainingConfigure` at 1440 wide on a fresh seed, read the matrix before recording anything.
    Capture each value from a text snapshot.
-   - Header: eyebrow `TRAINING · VERIFICATION ORGANIZATION A · 3 PERSONNEL`, title `TRAINING`, and the subtitle
-     `0 expired`, `0 expire within 30 days`, `3 not recorded`. Readiness reads `25%`, `READY TODAY`, `GOAL 90% · 1 OF 4`
-     and `25% BY <today + 30 days> IF NO ONE RENEWS` (`24 Nov` on 25 Oct). One of the four applicable requirements
-     (Able's Required type) is current; Optional never counts.
+   - Header: one right-aligned line above the toolbar, `0 EXPIRED · 0 EXPIRE WITHIN 30 DAYS`, in the small upper-case
+     mono type. No eyebrow, visible title, `not recorded` count or readiness figure shows; the page's `Training` heading
+     is screen-reader only.
    - Columns: `Verification Required Training 12 MO`, `Verification Targeted Training 12 MO` and
      `Verification Optional Training NO EXPIRY`, each with its color square.
    - Cells: Able's Required cell shows the lapse month and year of `trainingExpires` (`Oct ’27` on 25 Oct 2026); Able's
@@ -177,18 +176,24 @@ Focus View orders Targeted before Required and omits Optional.
      reads `—`, and the Optional column is `—` for all three.
    - Bands: `ALPHA 1` `50%`, `BRAVO 1` `0%`, `UNASSIGNED 1` `0%`. Collapse `BRAVO`: its band shows `1` under Required
      and the Baker row leaves; its toggle reports `aria-expanded="false"`.
-   - Footer `NOT READY NOW`, `EXPIRED OR NO RECORD`: `2`, `1`, `0` with `—` beneath each (`+N in 30d` appears when a
-     requirement lapses within 30 days).
+   - Legend: `Expiring soon`, `Expiring`, `Expired`, `No record`, `Not required` and `EXEMPT`; no `Current until` entry.
+     The matrix has no footer row.
    - Search: type `baker` into `Search name, rank, or MOS`. The count line reads `1 personnel × 3 types`, one row stays
-     under `BRAVO`, the footer reads `1`, `0`, `0`, and the header numbers do not change. Clear the field with
-     `Control+A` and `Backspace` (`tool fill` with an empty value leaves the bound query in place). `11b` or the MOS
-     `68W` match by MOS.
-   - Narrow widths: at 1024 the toolbar keeps `Search`, both filters and `Export` and folds `Reports` and
+     under `BRAVO`, and the header numbers do not change. Clear the field with `Control+A` and `Backspace` (`tool fill`
+     with an empty value leaves the bound query in place). `11b` or the MOS `68W` match by MOS.
+   - Display: the `Display` menu holds the checkboxes `Color every status` and `Only Soldiers needing action`, then the
+     `Current cells show` radio group `Date`, `Check mark`, `Blank` with `Date` checked. Each choice keeps the menu
+     open. `Check mark` turns Able's Required cell to `✓` and `Blank` empties it; `No record` cells keep their text.
+     `Color every status` fills Able's Required cell green; the red and amber cells are unchanged.
+     `Only Soldiers needing action` keeps all three rows on a fresh seed, since each has a `No record` cell, and the
+     count line reads `3 of 3 need action × 3 types`. Reload: every choice is still set. Reset them all to `Date` and
+     off afterwards.
+   - Narrow widths: at 1024 the toolbar keeps `Search`, both filters and `Export` and folds `Display`, `Reports` and
      `Sign-in rosters` into More; at 390 search takes its own full-width row (322 wide) above a row holding the toggle,
-     `Training view filter` and More, and More lists `Group` (`Group: All`), `Reports`, `Sign-in rosters`, `Export`,
-     `Import`, `Manage views` and `Manage types`. Text typed in search and focus stay in the field when the width
-     crosses 390 and 600. `scrollWidth` equals `clientWidth` on the page and on the `Training controls` toolbar, and the
-     matrix viewport scrolls sideways inside itself.
+     `Training view filter` and More, and More lists `Group` (`Group: All`), `Display`, `Reports`, `Sign-in rosters`,
+     `Export`, `Import`, `Manage views` and `Manage types`. Text typed in search and focus stay in the field when the
+     width crosses 390 and 600. `scrollWidth` equals `clientWidth` on the page and on the `Training controls` toolbar,
+     and the matrix viewport scrolls sideways inside itself.
 9. **Manage views sheet layout and guards:** As `trainingConfigure`, open More, then `Manage views…` (the dialog is
    named `Manage views` and holds focus; Escape returns focus to `More Training controls`; opened from the View menu's
    last option, Escape returns it to `Training view filter`, which still reads the current view, and choosing

@@ -365,25 +365,7 @@ describe('TrainingMatrix cell text', () => {
 	});
 });
 
-describe('TrainingMatrix footer and group bands', () => {
-	it('counts people who are not ready in the footer, with those lapsing within 30 days beneath', async () => {
-		const people = ['Adams', 'Baker', 'Clark'].map((lastName) => named(lastName));
-		const trainings = [
-			record({ id: 't-a', personnelId: 'person-Adams', expirationDate: '2026-08-04' }),
-			record({ id: 't-b', personnelId: 'person-Baker', expirationDate: '2026-11-06' })
-		];
-		const view = render(TrainingMatrix, {
-			props: { ...matrixProps, personnel: people, trainingTypes: [trainingType], trainings }
-		});
-		const footer = () => document.querySelector('[data-matrix-footer] td')?.textContent?.replace(/\s+/g, ' ').trim();
-
-		expect(footer()).toBe('2 not ready +1 in 30d');
-
-		await view.rerender({ ...matrixProps, personnel: [people[1]], trainingTypes: [trainingType], trainings });
-
-		expect(footer()).toBe('0 not ready +1 in 30d');
-	});
-
+describe('TrainingMatrix group bands', () => {
 	it('shows the gap counts of a collapsed group in its band', async () => {
 		const people = [
 			{ ...named('Adams'), groupName: 'Alpha' },
@@ -413,6 +395,50 @@ describe('TrainingMatrix footer and group bands', () => {
 
 		expect(bandCell('Alpha')).toBe('2 not ready');
 		expect(bandCell('Bravo')).toBe('');
+	});
+});
+
+describe('TrainingMatrix display options', () => {
+	const display = { matrixColorAll: false, matrixCurrentMark: 'date', matrixNeedsActionOnly: false } as const;
+	const shownText = (lastName: string) =>
+		rowFor(lastName).querySelector('[data-slot="training-matrix-cell"] > [aria-hidden="true"]')?.textContent ?? null;
+
+	it('shows a check mark or nothing in a current cell, and leaves a problem cell as it was', async () => {
+		const people = [named('Adams'), named('Davis')];
+		const trainings = [
+			record({ id: 't-a', personnelId: 'person-Adams', expirationDate: '2027-06-15' }),
+			record({ id: 't-d', personnelId: 'person-Davis', expirationDate: '2026-08-04' })
+		];
+		const props = { ...matrixProps, personnel: people, trainingTypes: [trainingType], trainings };
+		const view = render(TrainingMatrix, { props: { ...props, display: { ...display, matrixCurrentMark: 'check' } } });
+
+		expect(shownText('Adams')).toBe('✓');
+		expect(shownText('Davis')).toBe('Expired');
+
+		await view.rerender({ ...props, display: { ...display, matrixCurrentMark: 'blank' } });
+
+		expect(shownText('Adams')).toBe('');
+		expect(shownText('Davis')).toBe('Expired');
+	});
+
+	it('shows only the Soldiers needing action while the group share still counts everyone', () => {
+		const people = [
+			{ ...named('Adams'), groupName: 'Alpha' },
+			{ ...named('Baker'), groupName: 'Alpha' }
+		];
+		render(TrainingMatrix, {
+			props: {
+				...matrixProps,
+				personnel: people,
+				trainingTypes: [trainingType],
+				trainings: [record({ id: 't-a', personnelId: 'person-Adams', expirationDate: '2027-06-15' })],
+				groupBy: { key: (p) => p.groupName ?? '' },
+				display: { ...display, matrixNeedsActionOnly: true }
+			}
+		});
+
+		expect(mountedNames()).toEqual(['Baker, Jane']);
+		expect(screen.getByRole('button', { name: /Alpha/ }).closest('tr')?.textContent).toContain('50%');
 	});
 });
 

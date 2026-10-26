@@ -83,7 +83,10 @@ export type ToolbarToggle = ItemIdentity & {
 /** A display option inside an action's menu: a checkbox item that keeps the menu open and never marks More. */
 export type ToolbarMenuToggle = Omit<ToolbarToggle, 'menuOnly' | 'defaultPressed'>;
 
-export type ToolbarMenuItem = ToolbarAction | ToolbarMenuToggle;
+/** A display choice inside an action's menu: a labelled radio group that keeps the menu open and never marks More. */
+export type ToolbarMenuSelect = Omit<ToolbarSelect, 'defaultValue'>;
+
+export type ToolbarMenuItem = ToolbarAction | ToolbarMenuToggle | ToolbarMenuSelect;
 
 export type ToolbarFilter = ToolbarSelect | ToolbarMultiSelect | ToolbarToggle;
 

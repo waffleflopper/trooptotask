@@ -117,8 +117,31 @@
 {#snippet actionItems(items: ToolbarMenuItem[], path: string[], blocked: boolean, choose: Choose, run: RunAction)}
 	{@const destructive = items.filter((item) => item.kind === 'action' && item.destructive) as ToolbarAction[]}
 	{@const reserveIcon = items.some((item) => item.kind === 'action' && item.icon)}
-	{#each items.filter((item) => item.kind === 'toggle' || !item.destructive) as item (item.id)}
-		{#if item.kind === 'toggle'}
+	{@const regular = items.filter((item) => item.kind !== 'action' || !item.destructive)}
+	{#each regular as item, index (item.id)}
+		{#if item.kind === 'select'}
+			{#if index > 0}
+				<DropdownMenu.Separator />
+			{/if}
+			<DropdownMenu.RadioGroup value={item.value} onValueChange={item.onValueChange}>
+				<DropdownMenu.GroupHeading class="text-xs font-medium text-muted-foreground"
+					>{item.label}</DropdownMenu.GroupHeading
+				>
+				{#each item.options as option (option.value)}
+					<DropdownMenu.RadioItem
+						value={option.value}
+						disabled={blocked}
+						closeOnSelect={false}
+						aria-label={option.ariaLabel}
+					>
+						{option.label}
+					</DropdownMenu.RadioItem>
+				{/each}
+			</DropdownMenu.RadioGroup>
+			{#if index < regular.length - 1}
+				<DropdownMenu.Separator />
+			{/if}
+		{:else if item.kind === 'toggle'}
 			<DropdownMenu.CheckboxItem
 				checked={item.pressed}
 				disabled={blocked}

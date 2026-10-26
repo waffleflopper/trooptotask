@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountPreferencesState } from './accountPreferences.svelte';
-import type { UserOrgPreferences, UserOrgPreferencesPatch } from './accountPreferences';
+import {
+	getDefaultUserOrgPreferences,
+	type UserOrgPreferences,
+	type UserOrgPreferencesPatch
+} from './accountPreferences';
 
 const { invalidate, invalidateAll } = vi.hoisted(() => ({ invalidate: vi.fn(), invalidateAll: vi.fn() }));
 vi.mock('$app/navigation', () => ({ invalidate, invalidateAll }));
@@ -8,7 +12,7 @@ vi.mock('$app/navigation', () => ({ invalidate, invalidateAll }));
 function preferences(): UserOrgPreferences {
 	return {
 		calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
-		training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' }
+		training: getDefaultUserOrgPreferences().training
 	};
 }
 
@@ -84,7 +88,14 @@ describe('AccountPreferencesState', () => {
 		expect(server.requests).toHaveLength(0);
 		expect(state.value).toEqual({
 			calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
-			training: { selectedGroupId: 'seed-group', selectedViewId: null, matrixViewMode: 'by-group' }
+			training: {
+				selectedGroupId: 'seed-group',
+				selectedViewId: null,
+				matrixViewMode: 'by-group',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 	});
 
@@ -122,7 +133,14 @@ describe('AccountPreferencesState', () => {
 		state.patch({ calendar: { highlightOnboarding: true, showStatusText: true } });
 		expect(state.value).toEqual({
 			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
-			training: { selectedGroupId: 'bravo', selectedViewId: 'focus', matrixViewMode: 'by-group' }
+			training: {
+				selectedGroupId: 'bravo',
+				selectedViewId: 'focus',
+				matrixViewMode: 'by-group',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 		await vi.advanceTimersByTimeAsync(349);
 		expect(server.requests).toHaveLength(0);
@@ -139,7 +157,14 @@ describe('AccountPreferencesState', () => {
 		await settleReplies();
 		expect(server.saved).toEqual({
 			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
-			training: { selectedGroupId: 'bravo', selectedViewId: 'focus', matrixViewMode: 'by-group' }
+			training: {
+				selectedGroupId: 'bravo',
+				selectedViewId: 'focus',
+				matrixViewMode: 'by-group',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 		expect(onError).not.toHaveBeenCalled();
 		expect(invalidate).not.toHaveBeenCalled();
@@ -159,7 +184,14 @@ describe('AccountPreferencesState', () => {
 		expect(server.requests).toHaveLength(1);
 		expect(state.value).toEqual({
 			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
-			training: { selectedGroupId: 'bravo', selectedViewId: 'focus', matrixViewMode: 'alphabetical' }
+			training: {
+				selectedGroupId: 'bravo',
+				selectedViewId: 'focus',
+				matrixViewMode: 'alphabetical',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 		server.requests[0].confirm({ calendar: { showPersonnelRoles: true } });
 		await settleReplies();
@@ -170,13 +202,27 @@ describe('AccountPreferencesState', () => {
 		});
 		expect(state.value).toEqual({
 			calendar: { showStatusText: true, showPersonnelRoles: true, highlightOnboarding: true },
-			training: { selectedGroupId: 'bravo', selectedViewId: 'focus', matrixViewMode: 'alphabetical' }
+			training: {
+				selectedGroupId: 'bravo',
+				selectedViewId: 'focus',
+				matrixViewMode: 'alphabetical',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 		server.requests[1].confirm();
 		await settleReplies();
 		expect(server.saved).toEqual({
 			calendar: { showStatusText: true, showPersonnelRoles: true, highlightOnboarding: true },
-			training: { selectedGroupId: 'bravo', selectedViewId: 'focus', matrixViewMode: 'alphabetical' }
+			training: {
+				selectedGroupId: 'bravo',
+				selectedViewId: 'focus',
+				matrixViewMode: 'alphabetical',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 	});
 
@@ -221,7 +267,14 @@ describe('AccountPreferencesState', () => {
 		expect(onError).toHaveBeenCalledTimes(1);
 		expect(state.value).toEqual({
 			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
-			training: { selectedGroupId: 'alpha', selectedViewId: null, matrixViewMode: 'by-group' }
+			training: {
+				selectedGroupId: 'alpha',
+				selectedViewId: null,
+				matrixViewMode: 'by-group',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 		await vi.advanceTimersByTimeAsync(10_000);
 		expect(server.requests).toHaveLength(1);
@@ -235,7 +288,14 @@ describe('AccountPreferencesState', () => {
 		await settleReplies();
 		expect(server.saved).toEqual({
 			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
-			training: { selectedGroupId: 'alpha', selectedViewId: 'focus', matrixViewMode: 'by-group' }
+			training: {
+				selectedGroupId: 'alpha',
+				selectedViewId: 'focus',
+				matrixViewMode: 'by-group',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 		expect(onError).toHaveBeenCalledTimes(1);
 	});
@@ -259,7 +319,14 @@ describe('AccountPreferencesState', () => {
 		await settleReplies();
 		expect(server.saved).toEqual({
 			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
-			training: { selectedGroupId: 'bravo', selectedViewId: 'focus', matrixViewMode: 'by-group' }
+			training: {
+				selectedGroupId: 'bravo',
+				selectedViewId: 'focus',
+				matrixViewMode: 'by-group',
+				matrixColorAll: false,
+				matrixCurrentMark: 'date',
+				matrixNeedsActionOnly: false
+			}
 		});
 	});
 
@@ -292,7 +359,14 @@ describe('AccountPreferencesState', () => {
 			expect(server.requests).toHaveLength(1);
 			expect(state.value).toEqual({
 				calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
-				training: { selectedGroupId: 'bravo', selectedViewId: 'focus', matrixViewMode: 'by-group' }
+				training: {
+					selectedGroupId: 'bravo',
+					selectedViewId: 'focus',
+					matrixViewMode: 'by-group',
+					matrixColorAll: false,
+					matrixCurrentMark: 'date',
+					matrixNeedsActionOnly: false
+				}
 			});
 			expect(onError).not.toHaveBeenCalled();
 		}

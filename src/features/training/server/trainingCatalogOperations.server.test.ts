@@ -8,6 +8,8 @@ import {
 	updateTrainingView,
 	deleteTrainingView
 } from './trainingCatalogOperations.server';
+import { trainingTypeDraftFrom, trainingTypeInputFromDraft } from '../utils/trainingTypeDraft';
+import { trainingTypeCreateInput, trainingTypeUpdateInput } from './trainingPersistenceMapping.server';
 
 const TARGETED_TYPE = '00000000-0000-4000-8000-00000000c001';
 const REQUIRED_TYPE = '00000000-0000-4000-8000-00000000c002';
@@ -26,6 +28,165 @@ const NO_CONFIGURE = {
 };
 
 describe('Training catalog operations', () => {
+	describe('warning order', () => {
+		it.each([
+			{ warningDaysYellow: 30, warningDaysOrange: 30 },
+			{ warningDaysYellow: 30, warningDaysOrange: 31 },
+			{ warningDaysYellow: 30 },
+			{ warningDaysOrange: 60 }
+		])('rejects an invalid create including defaulted counterparts %j', async (warnings) => {
+			const ctx = createWritePortsContext();
+			await expect(createTrainingType(ctx, { name: 'Invalid', ...warnings })).rejects.toMatchObject({ status: 400 });
+			expect(await ctx.trainingCatalog.listTypes()).toEqual([]);
+		});
+
+		it.each([
+			{ warnings: { warningDaysYellow: 31 }, yellow: 31, orange: 30 },
+			{ warnings: { warningDaysOrange: 59 }, yellow: 60, orange: 59 },
+			{ warnings: { warningDaysYellow: 1, warningDaysOrange: 0 }, yellow: 1, orange: 0 }
+		])('creates a valid pair with %j', async ({ warnings, yellow, orange }) => {
+			const ctx = createWritePortsContext();
+			const created = await createTrainingType(ctx, { name: 'Valid', ...warnings });
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+				{ id: created.id, warningDaysYellow: yellow, warningDaysOrange: orange }
+			]);
+		});
+
+		it.each([
+			{ warningDaysOrange: 60 },
+			{ warningDaysOrange: 61 },
+			{ warningDaysYellow: 30 },
+			{ warningDaysYellow: 29 },
+			{ warningDaysYellow: 15, warningDaysOrange: 15 }
+		])('rejects an invalid update against the saved counterpart %j', async (warnings) => {
+			const ctx = createWritePortsContext();
+			const created = await createTrainingType(ctx, { name: 'CLS' });
+			await expect(updateTrainingType(ctx, { id: created.id, ...warnings })).rejects.toMatchObject({ status: 400 });
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+				{ id: created.id, warningDaysYellow: 60, warningDaysOrange: 30 }
+			]);
+			expect(ctx.audit.events.map((event) => event.action)).toEqual(['training_type.created']);
+		});
+
+		it.each([
+			{ warnings: { warningDaysOrange: 59 }, yellow: 60, orange: 59 },
+			{ warnings: { warningDaysYellow: 31 }, yellow: 31, orange: 30 },
+			{ warnings: { warningDaysYellow: 10, warningDaysOrange: 5 }, yellow: 10, orange: 5 }
+		])('saves a valid warning update %j', async ({ warnings, yellow, orange }) => {
+			const ctx = createWritePortsContext();
+			const created = await createTrainingType(ctx, { name: 'CLS' });
+			await updateTrainingType(ctx, { id: created.id, ...warnings });
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+				{ id: created.id, warningDaysYellow: yellow, warningDaysOrange: orange }
+			]);
+		});
+
+		it('keeps a legacy invalid type readable and permits edits that send neither warning', async () => {
+			const ctx = createWritePortsContext();
+			ctx.store.seed('training_types', [
+				{
+					id: REQUIRED_TYPE,
+					organization_id: ctx.auth.orgId,
+					name: 'Legacy',
+					warning_days_yellow: 10,
+					warning_days_orange: 20
+				}
+			]);
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+				{ id: REQUIRED_TYPE, warningDaysYellow: 10, warningDaysOrange: 20 }
+			]);
+			await updateTrainingType(ctx, { id: REQUIRED_TYPE, sortOrder: 4 });
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+				{ id: REQUIRED_TYPE, sortOrder: 4, warningDaysYellow: 10, warningDaysOrange: 20 }
+			]);
+			await expect(updateTrainingType(ctx, { id: REQUIRED_TYPE, warningDaysYellow: 15 })).rejects.toMatchObject({
+				status: 400
+			});
+			await updateTrainingType(ctx, { id: REQUIRED_TYPE, warningDaysOrange: 5 });
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+				{ id: REQUIRED_TYPE, warningDaysYellow: 10, warningDaysOrange: 5 }
+			]);
+		});
+
+		it('renames a legacy never type through its draft without rewriting hidden warnings', async () => {
+			const ctx = createWritePortsContext();
+			await ctx.trainingCatalog.createType({
+				name: 'Legacy never',
+				expirationMonths: null,
+				expirationDateOnly: false,
+				warningDaysYellow: 10,
+				warningDaysOrange: 20
+			});
+			const [saved] = await ctx.trainingCatalog.listTypes();
+			const draft = trainingTypeDraftFrom(saved);
+			draft.name = 'Renamed never';
+			await updateTrainingType(ctx, { id: saved.id, ...trainingTypeInputFromDraft(draft, 'update') });
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+				{ id: saved.id, name: 'Renamed never', expirationMonths: null, warningDaysYellow: 10, warningDaysOrange: 20 }
+			]);
+		});
+
+		it.each([false, true])(
+			'rejects untouched legacy warnings that remain visible, card date %s',
+			async (expirationDateOnly) => {
+				const ctx = createWritePortsContext();
+				const saved = await ctx.trainingCatalog.createType({
+					name: 'Legacy visible',
+					expirationMonths: 12,
+					expirationDateOnly,
+					warningDaysYellow: 10,
+					warningDaysOrange: 20
+				});
+				await expect(
+					updateTrainingType(ctx, {
+						id: saved.id,
+						...trainingTypeInputFromDraft(trainingTypeDraftFrom(saved), 'update')
+					})
+				).rejects.toMatchObject({ status: 400 });
+				expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+					{ id: saved.id, name: 'Legacy visible', warningDaysYellow: 10, warningDaysOrange: 20 }
+				]);
+			}
+		);
+
+		it('does not use another Organization warning values for a partial update', async () => {
+			const ctx = createWritePortsContext();
+			ctx.store.seed('training_types', [
+				{
+					id: REQUIRED_TYPE,
+					organization_id: 'other-org',
+					name: 'Foreign',
+					warning_days_yellow: 60,
+					warning_days_orange: 30
+				}
+			]);
+			await expect(updateTrainingType(ctx, { id: REQUIRED_TYPE, warningDaysOrange: 20 })).rejects.toMatchObject({
+				status: 404
+			});
+		});
+
+		it('requires configuration capability before reading a saved warning counterpart', async () => {
+			const ctx = createWritePortsContext({ auth: NO_CONFIGURE });
+			await expect(updateTrainingType(ctx, { id: REQUIRED_TYPE, warningDaysOrange: 20 })).rejects.toMatchObject({
+				status: 403
+			});
+		});
+
+		it('associates warning-order input errors with the final warning field', () => {
+			for (const schema of [trainingTypeCreateInput, trainingTypeUpdateInput]) {
+				const result = schema.safeParse({
+					id: REQUIRED_TYPE,
+					name: 'CLS',
+					warningDaysYellow: 30,
+					warningDaysOrange: 30
+				});
+				expect(result.error?.issues.map((issue) => ({ code: issue.code, path: issue.path }))).toEqual([
+					{ code: 'custom', path: ['warningDaysOrange'] }
+				]);
+			}
+		});
+	});
+
 	it('creates a type with the saved defaults, clears its description, then deletes and notifies admins', async () => {
 		const ctx = {
 			...createWritePortsContext(),

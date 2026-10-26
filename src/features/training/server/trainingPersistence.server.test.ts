@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSupabaseTrainingCatalogPersistence } from './trainingCatalogPersistence.server';
 import { createSupabaseTrainingCompletionPersistence } from './trainingCompletionPersistence.server';
+import { setTrainingTypeOrder } from './trainingCatalogOperations.server';
+import { createWritePortsContext } from './trainingPersistence.test-support.server';
 import { trainingProvider } from './test-support/trainingProvider.server';
 
 const ORG = 'org-a';
@@ -16,6 +18,35 @@ function ports(initial: Parameters<typeof trainingProvider>[0]) {
 }
 
 describe('ordinary Training persistence', () => {
+	it('writes changed order positions without rewriting other fields or another Organization', async () => {
+		const A = 'e6110000-0000-0000-0000-000000000401';
+		const B = 'e6110000-0000-0000-0000-000000000402';
+		const C = 'e6110000-0000-0000-0000-000000000403';
+		const { catalog, state } = ports({
+			training_types: [
+				{ id: A, organization_id: ORG, name: 'A', sort_order: 0, warning_days_yellow: 10, warning_days_orange: 20 },
+				{ id: B, organization_id: ORG, name: 'B', sort_order: 1 },
+				{ id: C, organization_id: ORG, name: 'C', sort_order: 2 },
+				{ id: C, organization_id: 'other-org', name: 'Other', sort_order: 9 }
+			]
+		});
+		const ctx = createWritePortsContext();
+		await setTrainingTypeOrder(
+			{ ...ctx, trainingCatalog: catalog },
+			{ trainingTypeIds: [A, C, B], expectedTrainingTypeIds: [A, B, C] }
+		);
+		expect(state.rows.training_types).toEqual([
+			{ id: A, organization_id: ORG, name: 'A', sort_order: 0, warning_days_yellow: 10, warning_days_orange: 20 },
+			{ id: B, organization_id: ORG, name: 'B', sort_order: 2 },
+			{ id: C, organization_id: ORG, name: 'C', sort_order: 1 },
+			{ id: C, organization_id: 'other-org', name: 'Other', sort_order: 9 }
+		]);
+		expect(state.requests.filter(({ method }) => method === 'PATCH').map(({ body }) => body)).toEqual([
+			{ sort_order: 1 },
+			{ sort_order: 2 }
+		]);
+	});
+
 	it('retains saved metadata and known present-null defaults without materializing omitted leaves', async () => {
 		const { catalog, completions } = ports({
 			training_types: [

@@ -46,7 +46,7 @@
 
 <AppDialog.Header eyebrow={`Training · ${orgName}`} class="border-b pb-4">
 	<AppDialog.Title>Sign-in rosters</AppDialog.Title>
-	<AppDialog.Description class="flex min-h-5 flex-wrap items-center gap-x-3">
+	<AppDialog.Description class="flex min-h-5.5 flex-wrap items-center gap-x-3">
 		{#if firstLoad}
 			<Skeleton class="h-4 w-28" />
 		{:else if !list.loadError}

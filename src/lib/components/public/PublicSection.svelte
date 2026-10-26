@@ -17,8 +17,9 @@
 <section
 	{id}
 	class={cn(
+		'scroll-mt-20',
 		loose ? 'py-20 sm:py-28 lg:py-40' : 'py-16 sm:py-24 lg:py-32',
-		tone === 'dark' ? 'bg-chrome' : 'bg-background'
+		tone === 'dark' ? 'bg-chrome text-chrome-text' : 'bg-background text-foreground'
 	)}
 >
 	<div class={cn(pageGutter, 'flex flex-col gap-12 lg:gap-16', className)}>

@@ -7,6 +7,7 @@ import TrainingPageView from './TrainingPageView.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
+import { trainingReadinessHydration } from '$features/training/webSources.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { groupCatalogHydration } from '$features/personnel';
@@ -14,7 +15,6 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
-import TrainingModals from './TrainingModals.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import ExcelJS from 'exceljs';
 import * as workbookHelpers from '$lib/utils/workbook';
@@ -98,7 +98,12 @@ interface TrainingPageViewTestCtx {
 	setViewMode: ReturnType<typeof vi.fn>;
 	filteredPersonnel: Personnel[];
 	orgId: string;
-	handleCellClick: ReturnType<typeof vi.fn>;
+	orgName: string;
+	personnel: Personnel[];
+	searchQuery: string;
+	readinessAsOf: string;
+	readinessGoalPercent: number | null;
+	handleSaveTraining: ReturnType<typeof vi.fn>;
 	handlePersonClick: ReturnType<typeof vi.fn>;
 }
 
@@ -121,7 +126,12 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		setViewMode: vi.fn(),
 		filteredPersonnel: personnel,
 		orgId: 'org-1',
-		handleCellClick: vi.fn(),
+		orgName: 'Test Org',
+		personnel,
+		searchQuery: '',
+		readinessAsOf: '2026-10-25',
+		readinessGoalPercent: 90,
+		handleSaveTraining: vi.fn(),
 		handlePersonClick: vi.fn(),
 		...overrides
 	} satisfies TrainingPageViewTestCtx;
@@ -135,6 +145,7 @@ describe('TrainingPageView', () => {
 		trainingViewsStore.load([], 'org-1');
 		personnelTrainingsStore.load([], 'org-1');
 		pinnedGroupsHydration.load(['Alpha'], 'org-1');
+		trainingReadinessHydration.load({ readinessGoalPercent: 90, readinessAsOf: '2026-10-25' }, 'org-1');
 	});
 
 	afterEach(() => {
@@ -149,6 +160,7 @@ describe('TrainingPageView', () => {
 		trainingViewsStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');
 		pinnedGroupsHydration.load([], 'org-test-reset');
+		trainingReadinessHydration.clear();
 	});
 
 	it('announces the loading skeleton as a busy status region and describes why export is unavailable', () => {
@@ -167,7 +179,7 @@ describe('TrainingPageView', () => {
 		const status = screen.getByRole('status', { name: 'Loading training matrix' });
 		expect(status.getAttribute('aria-live')).toBe('polite');
 		expect(status.hasAttribute('aria-busy')).toBe(false);
-		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
+		const exportButton = screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement;
 		expect(exportButton.disabled).toBe(true);
 		expect(toolbarDescription(exportButton)).toBe('Export unavailable while loading.');
 	});
@@ -185,20 +197,18 @@ describe('TrainingPageView', () => {
 			}
 		});
 
-		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
+		const exportButton = screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement;
 		expect(exportButton.disabled).toBe(true);
 		expect(toolbarDescription(exportButton)).toBe(reason);
 	});
 
-	it('retains a failed completion draft and updates the matrix after a successful retry', async () => {
-		vi.useFakeTimers({ toFake: ['Date'] });
-		vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
+	it('retains a failed completion draft in the cell popover and updates the matrix after a successful retry', async () => {
 		const saved = {
 			id: 'saved-training',
 			personnelId: 'person-1',
 			trainingTypeId: 'type-1',
-			completionDate: '2026-06-15',
-			expirationDate: '2027-06-15',
+			completionDate: '2026-10-25',
+			expirationDate: '2027-10-25',
 			notes: 'Range qualification',
 			certificateUrl: null
 		};
@@ -220,18 +230,19 @@ describe('TrainingPageView', () => {
 			vi.fn().mockResolvedValue(undefined)
 		);
 		render(TrainingPageView, { props: { ctx, modals } });
-		render(TrainingModals, { props: { ctx, modals } });
-		await fireEvent.click(screen.getByLabelText('Smith CPR: Not Done'));
-		const notes = await screen.findByRole('textbox', { name: 'Notes (optional)' });
-		await fireEvent.input(notes, { target: { value: 'Range qualification' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false));
-		expect((notes as HTMLTextAreaElement).value).toBe('Range qualification');
-		expect(personnelTrainingsStore.items).toEqual([]);
-		expect(screen.getByLabelText('Smith CPR: Not Done')).toBeTruthy();
+		await fireEvent.click(screen.getByLabelText('Smith CPR: No record'));
+		const popover = (await screen.findByText('Record · CPR')).closest('form') as HTMLElement;
+		await fireEvent.click(within(popover).getByRole('button', { name: /^Add a note/ }));
+		await fireEvent.input(within(popover).getByLabelText('Notes'), { target: { value: 'Range qualification' } });
+		await fireEvent.click(within(popover).getByRole('button', { name: /^Save/ }));
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(await within(popover).findByText('Recording denied')).toBeTruthy();
+		expect((within(popover).getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Range qualification');
+		expect(personnelTrainingsStore.items).toEqual([]);
+		expect(screen.getByLabelText('Smith CPR: No record')).toBeTruthy();
+
+		await fireEvent.click(within(popover).getByRole('button', { name: /^Save/ }));
+		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
 		expect(screen.getByLabelText('Smith CPR: Current')).toBeTruthy();
 		expect(personnelTrainingsStore.items).toEqual([saved]);
 		expect(fetchMock).toHaveBeenLastCalledWith(
@@ -241,8 +252,8 @@ describe('TrainingPageView', () => {
 				body: JSON.stringify({
 					personnelId: 'person-1',
 					trainingTypeId: 'type-1',
-					completionDate: '2026-06-15',
-					expirationDate: '2027-06-15',
+					completionDate: '2026-10-25',
+					expirationDate: '2027-10-25',
 					notes: 'Range qualification',
 					certificateUrl: null
 				})
@@ -272,7 +283,7 @@ describe('TrainingPageView', () => {
 			row.getAttribute('data-row-group-id')
 		);
 		expect(headers).toEqual(['Bravo', 'Alpha', '\u0000']);
-		expect(screen.getByText(/^▼\s*Unassigned \(1\)$/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Unassigned/ }).getAttribute('aria-expanded')).toBe('true');
 	});
 
 	it('keeps a real Group named Unassigned apart from People without a Group', () => {
@@ -302,22 +313,27 @@ describe('TrainingPageView', () => {
 		expect(headers).toEqual(['Unassigned', 'Bravo', '\u0000']);
 	});
 
-	it('links manage views to the training views workspace', () => {
+	it('goes to the views workspace from Manage views in the View menu and in More', async () => {
+		const widths = stubToolbarWidths();
+		const ctx = makeCtx('by-group');
 		render(TrainingPageView, {
-			props: {
-				ctx: makeCtx('by-group') as unknown as TrainingPageContext,
-				modals: new ModalRegistry()
-			}
+			props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() }
 		});
+		await widths.foldAll();
 
-		const manageViews = screen.getByRole('link', { name: /Manage Views/i });
-		expect(manageViews.getAttribute('href')).toBe('/org/org-1/training/views');
+		const menu = await openToolbarMore('Training controls');
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Manage views' }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training/views'));
+		vi.mocked(goto).mockClear();
+
+		await openToolbarMore('Training controls');
+		await openToolbarSubmenu('View, All trainings');
+		await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Manage views…' }));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training/views'));
+		expect(ctx.setSelectedViewId).not.toHaveBeenCalled();
 	});
 
-	it.each([
-		['operate', '/org/org-1/training/import'],
-		['view', null]
-	] as const)('links Import to the import page only for someone who can record completions (%s)', (training, href) => {
+	function memberContext(training: 'operate' | 'view'): TrainingPageContext {
 		const org = {
 			orgId: 'org-1',
 			orgUrlSegment: 'org-1',
@@ -327,17 +343,31 @@ describe('TrainingPageView', () => {
 				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
 			})
 		};
-		const ctx = new TrainingPageContext(
+		return new TrainingPageContext(
 			{ orgId: 'org-1', orgName: 'Test Org' },
 			new ModalRegistry(),
 			org,
 			vi.fn().mockResolvedValue(true),
 			vi.fn().mockResolvedValue(undefined)
 		);
-		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+	}
 
-		expect(screen.queryByRole('link', { name: 'Import' })?.getAttribute('href') ?? null).toBe(href);
-		expect(screen.queryByRole('link', { name: 'Manage Types' })).toBeNull();
+	it('offers Import from More to someone who can record completions, and no configuration commands', async () => {
+		render(TrainingPageView, { props: { ctx: memberContext('operate'), modals: new ModalRegistry() } });
+
+		const menu = await openToolbarMore('Training controls');
+		expect(within(menu).queryByRole('menuitem', { name: 'Manage types' })).toBeNull();
+		expect(within(menu).queryByRole('menuitem', { name: 'Manage views' })).toBeNull();
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Import' }));
+
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training/import'));
+	});
+
+	it('leaves someone who can only view without a More menu', () => {
+		render(TrainingPageView, { props: { ctx: memberContext('view'), modals: new ModalRegistry() } });
+
+		expect(screen.queryByRole('button', { name: 'More Training controls' })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Reports' })).toBeTruthy();
 	});
 
 	function exportContext(
@@ -365,6 +395,83 @@ describe('TrainingPageView', () => {
 			vi.fn()
 		);
 	}
+
+	describe('readiness header and search', () => {
+		const smithRecord = {
+			id: 'record-1',
+			personnelId: 'person-1',
+			trainingTypeId: 'type-1',
+			completionDate: '2026-06-15',
+			expirationDate: '2027-06-15',
+			notes: null,
+			certificateUrl: null
+		};
+		const searchBox = () => screen.getByRole('searchbox', { name: 'Search name, rank, or MOS' });
+		const matrixNames = () =>
+			[...screen.getByTestId('training-matrix').querySelectorAll('[data-matrix-row] th')].map(
+				(header) => header.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+			);
+		const footerCount = () =>
+			document.querySelector('[data-matrix-footer] td')?.textContent?.replace(/\s+/g, ' ').trim();
+
+		beforeEach(() => personnelTrainingsStore.load([smithRecord], 'org-1'));
+
+		it('narrows the rows and the footer to the search, but not the header', async () => {
+			const ctx = exportContext();
+			ctx.setViewMode('alphabetical');
+			render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+			expect(matrixNames()).toEqual(['SPC Adams, John', 'SGT Smith, Jane']);
+			expect(footerCount()).toBe('1 not ready —');
+			expect(screen.getByText('Goal 90% · 1 of 2')).toBeTruthy();
+
+			await fireEvent.input(searchBox(), { target: { value: 'smith' } });
+
+			await waitFor(() => expect(matrixNames()).toEqual(['SGT Smith, Jane']));
+			expect(footerCount()).toBe('0 not ready —');
+			expect(screen.getByText('Goal 90% · 1 of 2')).toBeTruthy();
+		});
+
+		it('finds a Soldier by MOS', async () => {
+			const ctx = exportContext();
+			ctx.setViewMode('alphabetical');
+			render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+
+			await fireEvent.input(searchBox(), { target: { value: '11b' } });
+
+			await waitFor(() => expect(matrixNames()).toEqual(['SPC Adams, John']));
+		});
+
+		it('keeps the header on every person when a Group is selected', async () => {
+			const ctx = exportContext();
+			ctx.setViewMode('alphabetical');
+			ctx.setSelectedGroupId('group-1');
+			render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+
+			expect(matrixNames()).toEqual(['SGT Smith, Jane']);
+			expect(screen.getByText('Goal 90% · 1 of 2')).toBeTruthy();
+		});
+
+		it('shows its own error in the header while the matrix stays usable when the goal could not be read', () => {
+			trainingReadinessHydration.load({ readinessGoalPercent: null, readinessAsOf: '2026-10-25' }, 'org-1');
+			const ctx = exportContext();
+			ctx.setViewMode('alphabetical');
+			render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+
+			expect(screen.getByRole('alert').textContent).toContain('Unable to load readiness');
+			expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+			expect(screen.queryByText(/^Goal /)).toBeNull();
+			expect(screen.getByText('1 not recorded')).toBeTruthy();
+			expect(matrixNames()).toEqual(['SPC Adams, John', 'SGT Smith, Jane']);
+		});
+
+		it('shows the header skeleton instead of a goal until the reporting day arrives', () => {
+			trainingReadinessHydration.clear();
+			render(TrainingPageView, { props: { ctx: exportContext(), modals: new ModalRegistry() } });
+
+			expect(screen.queryByText(/^Goal /)).toBeNull();
+			expect(screen.getByRole('status', { name: 'Loading training matrix' })).toBeTruthy();
+		});
+	});
 
 	function captureDownload() {
 		const blobs: Blob[] = [];
@@ -441,7 +548,7 @@ describe('TrainingPageView', () => {
 		const { blobs, filenames } = captureDownload();
 		const pending = holdWorkbook();
 		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
-		const button = screen.getByRole('button', { name: 'Export Excel' });
+		const button = screen.getByRole('button', { name: 'Export' });
 		button.focus();
 		await Promise.all([fireEvent.click(button), fireEvent.click(button)]);
 		await pending.generated;
@@ -466,7 +573,7 @@ describe('TrainingPageView', () => {
 		expect(parsed.getWorksheet('Training Matrix')!.getCell('A1').value).toContain(
 			`Exported ${filenames[0].slice('training-matrix-'.length, -'.xlsx'.length)}.`
 		);
-		expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(false);
+		expect((screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('suppresses an old-scope workbook when same-Organization access narrows while Training view remains allowed', async () => {
@@ -476,7 +583,7 @@ describe('TrainingPageView', () => {
 		const { filenames } = captureDownload();
 		const pending = holdWorkbook();
 		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 		const blob = await pending.generated;
 		const parsed = new ExcelJS.Workbook();
 		await parsed.xlsx.load(
@@ -493,7 +600,7 @@ describe('TrainingPageView', () => {
 		expect(ctx.canViewTraining).toBe(true);
 		pending.release();
 		await waitFor(() =>
-			expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(false)
+			expect((screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement).disabled).toBe(false)
 		);
 		expect(filenames).toEqual([]);
 	});
@@ -504,7 +611,7 @@ describe('TrainingPageView', () => {
 			throw new Error('internal module details');
 		});
 		render(TrainingPageView, { props: { ctx: exportContext(), modals: new ModalRegistry() } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
 		expect(filenames).toEqual([]);
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -521,7 +628,7 @@ describe('TrainingPageView', () => {
 			if (condition === 'empty catalog') trainingTypesStore.load([], 'org-1');
 			const { filenames } = captureDownload();
 			render(TrainingPageView, { props: { ctx: exportContext(), modals: new ModalRegistry() } });
-			const button = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
+			const button = screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement;
 			expect(button.disabled).toBe(true);
 			await fireEvent.click(button);
 			expect(filenames).toEqual([]);
@@ -535,7 +642,7 @@ describe('TrainingPageView', () => {
 			const pending = holdWorkbook();
 			const modals = new ModalRegistry();
 			const view = render(TrainingPageView, { props: { ctx: exportContext(), modals } });
-			await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 			await pending.generated;
 			if (condition === 'organization changes') await view.rerender({ ctx: exportContext('view', 'org-2'), modals });
 			if (condition === 'access disappears') await view.rerender({ ctx: exportContext('none'), modals });
@@ -558,13 +665,13 @@ describe('TrainingPageView', () => {
 		it('switches the matrix view from its radio group', async () => {
 			const ctx = makeCtx('by-group');
 			render(TrainingPageView, { props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() } });
-			expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-pressed')).toBe('true');
+			expect(screen.getByRole('button', { name: 'Groups' }).getAttribute('aria-pressed')).toBe('true');
 			await widths.foldAll();
 
 			const menu = await openToolbarMore('Training controls');
 			const views = within(menu).getByRole('group', { name: 'Training matrix view mode' });
-			expect(within(views).getByRole('menuitemradio', { name: 'Group' }).getAttribute('aria-checked')).toBe('true');
-			await fireEvent.click(within(views).getByRole('menuitemradio', { name: 'A-Z' }));
+			expect(within(views).getByRole('menuitemradio', { name: 'Groups' }).getAttribute('aria-checked')).toBe('true');
+			await fireEvent.click(within(views).getByRole('menuitemradio', { name: 'A–Z' }));
 
 			expect(ctx.setViewMode).toHaveBeenCalledWith('alphabetical');
 		});
@@ -588,7 +695,7 @@ describe('TrainingPageView', () => {
 			await widths.foldAll();
 
 			await openToolbarMore('Training controls');
-			await openToolbarSubmenu('Training view, All Trainings');
+			await openToolbarSubmenu('View, All trainings');
 			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Focus' }));
 			expect(ctx.setSelectedViewId).toHaveBeenCalledWith('focus');
 
@@ -616,7 +723,7 @@ describe('TrainingPageView', () => {
 			await widths.foldAll();
 
 			let menu = await openToolbarMore('Training controls');
-			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Sign-In Rosters' }));
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Sign-in rosters' }));
 			await waitFor(() => expect(open).toHaveBeenCalledWith('sign-in-rosters'));
 
 			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
@@ -631,7 +738,7 @@ describe('TrainingPageView', () => {
 			await widths.foldAll();
 
 			const menu = await openToolbarMore('Training controls');
-			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Export Excel' }));
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Export' }));
 
 			await waitFor(() => expect(filenames).toHaveLength(1));
 		});
@@ -646,7 +753,7 @@ describe('TrainingPageView', () => {
 			await widths.foldAll();
 
 			const menu = await openToolbarMore('Training controls');
-			const item = within(menu).getByRole('menuitem', { name: 'Export Excel' });
+			const item = within(menu).getByRole('menuitem', { name: 'Export' });
 			expect(item.getAttribute('aria-disabled')).toBe('true');
 			expect(item.getAttribute('title')).toBe('No personnel to export.');
 		});
@@ -656,10 +763,10 @@ describe('TrainingPageView', () => {
 			render(TrainingPageView, { props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() } });
 			await widths.foldAll();
 
-			expect(screen.queryByRole('button', { name: 'Manage Types' })).toBeNull();
-			expect(screen.queryByRole('link', { name: 'Manage Types' })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Manage types' })).toBeNull();
+			expect(screen.queryByRole('link', { name: 'Manage types' })).toBeNull();
 			const menu = await openToolbarMore('Training controls');
-			expect(within(menu).queryByRole('menuitem', { name: 'Manage Views' })).toBeNull();
+			expect(within(menu).queryByRole('menuitem', { name: 'Manage views' })).toBeNull();
 			expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
 		});
 	});

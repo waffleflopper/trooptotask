@@ -32,7 +32,7 @@ widths, in light and dark.
 Choose `Onboard` in Organization navigation for the Onboarding list. Choose a row to open its packet beside the list, or
 in a sheet below 1280. Search, the `Group` select (when the Organization has Groups), `History`, `Templates` and
 `Start onboarding` are in the `Onboarding controls` toolbar above the list. Sign-in Rosters: `Training`, then
-`Sign-In Rosters` in the page actions (or `More training actions` at 390).
+`Sign-in rosters` in the `Training controls` toolbar (or `More Training controls` when it has folded).
 
 ## Driving it with verify:app
 

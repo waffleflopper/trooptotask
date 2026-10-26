@@ -98,10 +98,10 @@ describe('training page', () => {
 	});
 	it('keeps the immediate matrix choice when older shell props are revalidated', async () => {
 		const view = render(WithPreferences, { props: { data: makePageData() } });
-		await fireEvent.click(screen.getByRole('button', { name: 'A-Z' }));
-		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
+		await fireEvent.click(screen.getByRole('button', { name: 'A–Z' }));
+		expect(screen.getByRole('button', { name: 'A–Z' }).getAttribute('aria-pressed')).toBe('true');
 		await view.rerender({ data: makePageData() });
-		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
-		expect(screen.getByRole('button', { name: /^Group$/ }).getAttribute('aria-pressed')).toBe('false');
+		expect(screen.getByRole('button', { name: 'A–Z' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByRole('button', { name: /^Groups$/ }).getAttribute('aria-pressed')).toBe('false');
 	});
 });

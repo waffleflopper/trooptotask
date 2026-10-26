@@ -102,6 +102,8 @@ export type WorkspaceToolbarProps = {
 		onValueChange: (value: string) => void;
 		/** Where search sits in the row and keyboard order; defaults to before the filters. */
 		placement?: 'before-filters' | 'after-filters';
+		/** Below this row width in px, search takes its own full-width row above the controls and never collapses to an icon. */
+		stackBelow?: number;
 	};
 	primary?: ToolbarAction & { menuOnly?: never };
 };

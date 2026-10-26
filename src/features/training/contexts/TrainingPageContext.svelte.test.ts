@@ -308,6 +308,18 @@ describe('TrainingPageContext', () => {
 			});
 		});
 
+		it('narrows the group-filtered rows by the search query', () => {
+			const ctx = makeContext(makeData(), modals, makeOrg());
+			ctx.searchQuery = 'adams';
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
+
+			ctx.selectedGroupId = 'g-1';
+			expect(ctx.filteredPersonnel).toEqual([]);
+
+			ctx.searchQuery = '';
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-1']);
+		});
+
 		it('preserves an empty group selection after stores hydrate', () => {
 			const ctx = makeContext(
 				makeData({
@@ -765,17 +777,6 @@ describe('TrainingPageContext', () => {
 			ctx.toggleGroup('Alpha');
 			ctx.toggleGroup('Alpha');
 			expect(ctx.collapsedGroups.has('Alpha')).toBe(false);
-		});
-	});
-
-	describe('handleCellClick', () => {
-		it('opens the record modal with the correct payload', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
-			ctx.handleCellClick(mockPerson, mockType, undefined);
-			expect(modals.isOpen('record')).toBe(true);
-			const payload = modals.payload<{ person: Personnel; type: TrainingType }>('record');
-			expect(payload?.person.id).toBe('p-1');
-			expect(payload?.type.id).toBe('t-1');
 		});
 	});
 

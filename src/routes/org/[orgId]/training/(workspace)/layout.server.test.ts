@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createReadyAppShellRouteData, createUrlBlindLayoutEvent } from '../../appShell.test-support';
 import { _createTrainingLayoutLoad } from './+layout.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 
 type TrainingLoadEvent = Parameters<ReturnType<typeof _createTrainingLayoutLoad>>[0];
 
@@ -15,6 +16,6 @@ describe('Training workspace layout', () => {
 
 		expect(await _createTrainingLayoutLoad({ streamTrainingWorkspace: stream })(event)).toBe(workspace);
 		expect(stream).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-1' }));
-		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:training-data');
+		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:training-data', VIEWER_DAY_DEPENDENCY);
 	});
 });

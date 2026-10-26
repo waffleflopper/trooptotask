@@ -375,6 +375,42 @@ describe('WorkspaceToolbar', () => {
 		);
 	});
 
+	it('gives an opted-in search its own row below the stack width and returns it to the row above', async () => {
+		render(DataToolbarTest, { props: { stackSearchBelow: 480 } });
+		await layOut(360);
+
+		const row = toolbar().querySelector('[data-toolbar-row]') as HTMLElement;
+		const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
+		expect(row.contains(field), 'stacked search sits outside the control row').toBe(false);
+		expect(within(toolbar()).queryByRole('button', { name: 'Search roster' }), 'never collapses to an icon').toBeNull();
+		expect(within(toolbar()).getByRole('button', { name: 'Add status' })).toBeTruthy();
+
+		await fireEvent.input(field, { target: { value: 'jo' } });
+		expect(output('Search value')).toBe('jo');
+
+		await layOut(600);
+		const inRow = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
+		expect(row.contains(inRow), 'wide search sits in the row').toBe(true);
+	});
+
+	it('keeps focus and the caret in the search field when it moves across the stack width', async () => {
+		render(DataToolbarTest, { props: { stackSearchBelow: 480 } });
+		await layOut(600);
+		const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' }) as HTMLInputElement;
+		await fireEvent.input(field, { target: { value: 'smith' } });
+		field.focus();
+		field.setSelectionRange(2, 2);
+
+		await layOut(360);
+		const stacked = within(toolbar()).getByRole('searchbox', { name: 'Search roster' }) as HTMLInputElement;
+		await waitFor(() => expect(document.activeElement).toBe(stacked));
+		expect([stacked.selectionStart, stacked.selectionEnd]).toEqual([2, 2]);
+
+		await layOut(600);
+		const inRow = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
+		await waitFor(() => expect(document.activeElement).toBe(inRow));
+	});
+
 	it('keeps the same focused field when the row widens during phone search', async () => {
 		render(DataToolbarTest);
 		await layOut(291);

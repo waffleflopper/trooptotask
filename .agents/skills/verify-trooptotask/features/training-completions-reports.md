@@ -50,7 +50,7 @@ repeat only the affected clearing/restoration action.
 
 Choose `Training` in the Organization navigation. Choose a Person's Training cell to add or edit that record, or open
 the Person editor by selecting the person's name in the Training matrix. Use the `Import` link in the
-`Training controls` toolbar to open the import page. Use `Export Excel` in that toolbar for the full training matrix,
+`Training controls` toolbar to open the import page. Use `Export` in that toolbar for the full training matrix,
 keeping the selected Group and including every Training column even when a saved view hides some. At narrow widths, open
 `More Training controls` if the action has folded. Open `Reports` for the `Training Reports` briefing: the single-row
 `Training report controls` toolbar (the `Forecast horizon` buttons `30 D`, `60 D`, `90 D` and `180 D` (named `30 days`
@@ -155,7 +155,7 @@ percentage.
    `training-reports` summary request runs on load. Reload for a second visible read.
    `$V rows personnel_trainings orgA personnel_id <personA>` separately confirms the original `trainingCurrent` ID and
    literal completion/expiration dates; B data must be absent from A's matrix and report. **Main matrix export:** Return
-   to Training and arm `$V export arm PAGE`, choose `Export Excel`, then save the captured file with
+   to Training and arm `$V export arm PAGE`, choose `Export`, then save the captured file with
    `$V export save PAGE .verification/evidence/verify-trooptotask/<run-name>/training-matrix.xlsx`. Inspect it with
    `$V workbook FILE 'Training Matrix'` and restore the capture. Require one sheet, Name/Rank/Group identity columns and
    Required, Targeted, Optional in catalog order; Optional has `(completion only)` in its header. There are exactly

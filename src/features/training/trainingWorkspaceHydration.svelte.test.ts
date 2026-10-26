@@ -1,10 +1,42 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';
 import { createTrainingWorkspaceHydrator } from './trainingWorkspaceHydration.svelte';
-import type { TrainingWorkspaceHydration } from './contracts';
+import type { TrainingWorkspaceHydration, TrainingWorkspaceReadiness } from './contracts';
+import { trainingReadinessHydration } from './webSources.svelte';
+import { TrainingPageContext } from './contexts/TrainingPageContext.svelte';
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+
+function pageContext(orgId: string) {
+	return new TrainingPageContext(
+		{ orgId, orgName: 'Test Company' },
+		new ModalRegistry(),
+		{ orgId, ...createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') }) },
+		async () => false,
+		() => undefined
+	);
+}
+
+function readinessWorkspace(
+	orgId: string,
+	items: TrainingWorkspaceReadiness | Promise<TrainingWorkspaceReadiness>,
+	snapshotKey = 'readiness:1'
+): TrainingWorkspaceHydration {
+	return {
+		orgId,
+		personnel: { mode: 'replace', snapshotKey: 'people', items: [] },
+		groups: { mode: 'replace', snapshotKey: 'groups', items: [] },
+		trainingTypes: { mode: 'replace', snapshotKey: 'types', items: [] },
+		trainingViews: { mode: 'replace', snapshotKey: 'views', items: [] },
+		personnelTrainings: { mode: 'replace', snapshotKey: 'records', items: [] },
+		pinnedGroups: { mode: 'replace', snapshotKey: 'pins', items: [] },
+		readiness: { mode: 'replace', snapshotKey, items }
+	};
+}
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -56,6 +88,85 @@ function createStores() {
 }
 
 describe('Training workspace hydration adapter', () => {
+	beforeEach(() => trainingReadinessHydration.clear());
+
+	it('exposes the streamed Organization goal and day through the page context', async () => {
+		const ctx = pageContext('org-1');
+		const readiness = deferred<TrainingWorkspaceReadiness>();
+		const pending = createTrainingWorkspaceHydrator().hydrate(
+			readinessWorkspace('org-1', readiness.promise),
+			createStores()
+		);
+		readiness.resolve({ readinessGoalPercent: 85, readinessAsOf: '2026-10-14' });
+		await pending;
+
+		expect({ goal: ctx.readinessGoalPercent, asOf: ctx.readinessAsOf }).toEqual({ goal: 85, asOf: '2026-10-14' });
+	});
+
+	it('ignores a delayed goal after the user switches Organizations', async () => {
+		const hydrator = createTrainingWorkspaceHydrator();
+		const stores = createStores();
+		const old = deferred<TrainingWorkspaceReadiness>();
+		const pending = hydrator.hydrate(readinessWorkspace('org-old', old.promise), stores);
+		await hydrator.hydrate(
+			readinessWorkspace('org-new', { readinessGoalPercent: 75, readinessAsOf: '2026-10-15' }),
+			stores
+		);
+		old.resolve({ readinessGoalPercent: 95, readinessAsOf: '2026-10-14' });
+		await pending;
+
+		const current = pageContext('org-new');
+		const previous = pageContext('org-old');
+		expect({ goal: current.readinessGoalPercent, asOf: current.readinessAsOf }).toEqual({
+			goal: 75,
+			asOf: '2026-10-15'
+		});
+		expect({ goal: previous.readinessGoalPercent, asOf: previous.readinessAsOf }).toEqual({ goal: 90, asOf: '' });
+	});
+
+	it('keeps a newer goal refresh when an older request finishes later', async () => {
+		const hydrator = createTrainingWorkspaceHydrator();
+		const stores = createStores();
+		const old = deferred<TrainingWorkspaceReadiness>();
+		const pending = hydrator.hydrate(readinessWorkspace('org-1', old.promise, 'old'), stores);
+		await hydrator.hydrate(
+			readinessWorkspace('org-1', { readinessGoalPercent: 75, readinessAsOf: '2026-10-15' }, 'new'),
+			stores
+		);
+		old.resolve({ readinessGoalPercent: 95, readinessAsOf: '2026-10-14' });
+		await pending;
+
+		const ctx = pageContext('org-1');
+		expect({ goal: ctx.readinessGoalPercent, asOf: ctx.readinessAsOf }).toEqual({ goal: 75, asOf: '2026-10-15' });
+	});
+
+	it('clears readiness on access denial and prevents a pending goal from restoring it', async () => {
+		const hydrator = createTrainingWorkspaceHydrator();
+		const stores = createStores();
+		await hydrator.hydrate(
+			readinessWorkspace('org-1', { readinessGoalPercent: 75, readinessAsOf: '2026-10-15' }),
+			stores
+		);
+		const later = deferred<TrainingWorkspaceReadiness>();
+		const pending = hydrator.hydrate(readinessWorkspace('org-1', later.promise, 'later'), stores);
+		hydrator.restrict(stores);
+		later.resolve({ readinessGoalPercent: 95, readinessAsOf: '2026-10-16' });
+		await pending;
+
+		const ctx = pageContext('org-1');
+		expect({ goal: ctx.readinessGoalPercent, asOf: ctx.readinessAsOf }).toEqual({ goal: 90, asOf: '' });
+	});
+
+	it('propagates a failed readiness source to the workspace load error', async () => {
+		const readiness = deferred<TrainingWorkspaceReadiness>();
+		const pending = createTrainingWorkspaceHydrator().hydrate(
+			readinessWorkspace('org-1', readiness.promise),
+			createStores()
+		);
+		readiness.reject(new Error('Organization settings unavailable'));
+		await expect(pending).rejects.toThrow('Organization settings unavailable');
+	});
+
 	it('hydrates explicit Training workspace targets through the adapter interface', async () => {
 		const stores = createStores();
 		const trainingType = { id: 'tt1', name: 'CPR' } as TrainingType;

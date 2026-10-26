@@ -207,6 +207,10 @@ export interface TrainingReportWorkbookExport {
 
 export const TRAINING_WORKSPACE_LANE_KEY = 'training' as const;
 export type TrainingWorkspaceItems<T> = T[] | Promise<T[]>;
+export interface TrainingWorkspaceReadiness {
+	readinessGoalPercent: number;
+	readinessAsOf: string;
+}
 export interface TrainingWorkspaceData {
 	personnelTrainings: TrainingWorkspaceItems<PersonnelTraining>;
 	trainingTypes: TrainingWorkspaceItems<TrainingType>;
@@ -215,6 +219,7 @@ export interface TrainingWorkspaceData {
 	groups: TrainingWorkspaceItems<Group>;
 	pinnedGroups: TrainingWorkspaceItems<string>;
 	rankCatalog?: TrainingWorkspaceItems<RankCatalogEntry>;
+	readiness?: TrainingWorkspaceReadiness | Promise<TrainingWorkspaceReadiness>;
 }
 export type TrainingWorkspaceHydrationMode = 'replace' | 'preserve-client';
 export interface TrainingWorkspaceHydrationTarget<T> {
@@ -232,6 +237,11 @@ export interface TrainingWorkspaceHydration {
 	personnelTrainings: TrainingWorkspaceHydrationTarget<PersonnelTraining>;
 	pinnedGroups: TrainingWorkspaceHydrationTarget<string>;
 	rankCatalog?: TrainingWorkspaceHydrationTarget<RankCatalogEntry>;
+	readiness?: {
+		mode: TrainingWorkspaceHydrationMode;
+		snapshotKey: string;
+		items: TrainingWorkspaceReadiness | Promise<TrainingWorkspaceReadiness>;
+	};
 }
 export interface TrainingWorkspaceResult {
 	laneKey: typeof TRAINING_WORKSPACE_LANE_KEY;

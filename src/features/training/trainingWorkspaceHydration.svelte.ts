@@ -14,6 +14,8 @@ import {
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingWorkspaceHydration, TrainingWorkspaceHydrationTarget } from './contracts';
+import type { TrainingWorkspaceReadiness } from './contracts';
+import { trainingReadinessHydration } from './webSources.svelte';
 
 export interface TrainingHydrationLoadable<T> {
 	readonly orgId: string;
@@ -79,6 +81,7 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 
 		restrict(stores: TrainingHydrationStores = defaultTrainingHydrationStores) {
 			hydrationTargets.reset();
+			trainingReadinessHydration.clear();
 			for (const store of Object.values(stores)) store.load([], '');
 		},
 
@@ -104,6 +107,15 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 					? createTargetDescriptor(hydration.rankCatalog, stores.rankCatalogStore, orgId, 'rankCatalog')
 					: undefined
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
+			if (hydration.readiness && hydration.readiness.mode !== 'preserve-client') {
+				descriptors.push({
+					targetName: 'readiness',
+					snapshotKey: hydration.readiness.snapshotKey,
+					items: hydration.readiness.items,
+					storeOrgId: () => trainingReadinessHydration.orgId,
+					apply: (value) => trainingReadinessHydration.load(value as TrainingWorkspaceReadiness, orgId)
+				});
+			}
 
 			await hydrationTargets.applyDescriptors(orgId, descriptors);
 		}

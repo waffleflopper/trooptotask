@@ -6,10 +6,14 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { TrainingWorkspaceData } from '$features/training/contracts';
+import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { GroupPersistence, Personnel, SelfPinPersistence } from '$features/personnel/contracts';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/index.server';
-import { createInMemoryDataStore } from '$features/training/server/trainingPersistence.test-support.server';
+import {
+	createInMemoryDataStore,
+	createQueryWithRawStorePortsContext
+} from '$features/training/server/trainingPersistence.test-support.server';
 import { createTestRankCatalogPersistence } from '$lib/server/adapters/inMemory';
 import {
 	createInMemoryGroupPersistence,
@@ -50,7 +54,8 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 			trainingCompletions: undefined as unknown as ReturnType<typeof createInMemoryTrainingCompletionPersistence>,
 			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
 			selfPins: undefined as unknown as Pick<SelfPinPersistence, 'listNames'>,
-			personnelTrainingRoster: undefined as unknown as PersonnelTrainingRosterPort
+			personnelTrainingRoster: undefined as unknown as PersonnelTrainingRosterPort,
+			organizationSettings: undefined as unknown as OrganizationSettingsReader
 		}
 	};
 });
@@ -97,6 +102,11 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			listActiveForReports: vi.fn(),
 			findWriteSubjects: vi.fn()
 		};
+		const settings = createQueryWithRawStorePortsContext();
+		settings.rawStore.seed('organizations', [
+			{ id: mockCtx.auth.orgId, name: 'Test Company', training_readiness_goal_percent: 85 }
+		]);
+		mockCtx.organizationSettings = settings.organizationSettings;
 		listRosterCandidatesMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
@@ -111,7 +121,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { get: () => undefined } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		let workspace: ReturnType<typeof granted<Awaited<typeof routeData.training.data>>> | undefined;
@@ -199,7 +209,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { get: () => undefined } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		const workspace = granted(await routeData.training.data);
@@ -226,7 +236,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { get: () => undefined } as unknown as Cookies,
 			orgId: '1-11-bde'
 		});
 		const workspace = granted(await routeData.training.data);
@@ -236,6 +246,32 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			expect.objectContaining({ code: 'PO2', state: 'active' }),
 			expect.objectContaining({ code: 'SSgt', state: 'active' })
 		]);
+	});
+
+	it('streams the stored Organization goal and the same calendar day used by reports', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-10-15T00:30:00Z'));
+		findManyMock.mockResolvedValue([]);
+		try {
+			for (const [timeZone, readinessAsOf] of [
+				['America/Anchorage', '2026-10-14'],
+				[undefined, '2026-10-15']
+			]) {
+				const routeData = await streamTrainingWorkspaceBootstrap({
+					locals: {} as App.Locals,
+					cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) } as unknown as Cookies,
+					orgId: '1-11-bde'
+				});
+				const workspace = granted(await routeData.training.data);
+				await expect(workspace.data.readiness).resolves.toEqual({ readinessGoalPercent: 85, readinessAsOf });
+				await expect(workspace.hydration.readiness?.items).resolves.toEqual({
+					readinessGoalPercent: 85,
+					readinessAsOf
+				});
+			}
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 

@@ -19,6 +19,8 @@ function pick(personnelId: string, lastName: string): TaskingPick {
 		firstName: 'Dana',
 		lastName,
 		groupId: 'g-hq',
+		mos: '68W',
+		clinicRole: '',
 		archived: false,
 		selectedAt: '2026-10-19T00:00:00Z',
 		reviewSince: null
@@ -30,7 +32,9 @@ const candidate = (personnelId: string, lastName: string, rank = 'SSG') => ({
 	rank,
 	firstName: 'Lee',
 	lastName,
-	groupId: 'g-alpha'
+	groupId: 'g-alpha',
+	mos: '68W',
+	clinicRole: ''
 });
 
 const leave = {

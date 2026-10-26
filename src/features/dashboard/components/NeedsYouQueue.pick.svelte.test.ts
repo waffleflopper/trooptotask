@@ -47,6 +47,8 @@ function pick(personnelId: string, lastName: string): TaskingPick {
 		firstName: 'Dana',
 		lastName,
 		groupId: null,
+		mos: '68W',
+		clinicRole: '',
 		archived: false,
 		selectedAt: at,
 		reviewSince: null
@@ -58,7 +60,9 @@ const candidate = (personnelId: string, lastName: string) => ({
 	rank: 'SSG',
 	firstName: 'Lee',
 	lastName,
-	groupId: null
+	groupId: null,
+	mos: '68W',
+	clinicRole: ''
 });
 
 function picker(picks: TaskingPick[], revision: number): StaffingPicker {

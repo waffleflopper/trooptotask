@@ -134,6 +134,7 @@ describe('TaskingDetailPage', () => {
 		const before = staffing(1, pick(BRUNO, 'Baker'));
 		const after = staffing(2, pick(ALICE, 'Avery'), pick(BRUNO, 'Baker'));
 		const picker: StaffingPicker = {
+			tasking: staffed,
 			states: {},
 			staffing: before,
 			candidates: [pick(ALICE, 'Avery'), pick(BRUNO, 'Baker')],

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { MemberLabels } from '../events/eventModel';
+import type { TaskingListActivityFact, TaskingReadiness } from './taskingListsModel';
 
 export const TASKING_TITLE_MAX = 200;
 export const TASKING_QUALIFICATIONS_MAX = 1000;
@@ -54,6 +55,7 @@ export interface Tasking {
 	requirement: StaffingRequirement | null;
 	instructions: string | null;
 	status: TaskingStatus;
+	readiness: TaskingReadiness;
 }
 
 export interface TaskingSchedule {
@@ -75,7 +77,8 @@ export type TaskingActivityFact =
 	| { kind: 'unblocked' }
 	| { kind: 'completed'; note: string | null }
 	| { kind: 'reopened' }
-	| { kind: 'cancelled'; reason: string | null };
+	| { kind: 'cancelled'; reason: string | null }
+	| TaskingListActivityFact;
 
 export type TaskingActivity = TaskingActivityFact & { id: number; at: string; actorUserId: string | null };
 

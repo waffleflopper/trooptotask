@@ -26,8 +26,10 @@
 		type TaskingChoices,
 		type TaskingDetail
 	} from '../taskingModel';
+	import type { TaskingLists } from '../taskingListsModel';
 	import { transitionTaskingRequest } from '../taskingRequests';
 	import TaskingDialog from './TaskingDialog.svelte';
+	import TaskingListsSection from './TaskingListsSection.svelte';
 	import TaskingStatusBadges from './TaskingStatusBadges.svelte';
 	import TaskingTransitionDialog from './TaskingTransitionDialog.svelte';
 	import {
@@ -43,10 +45,11 @@
 		today: string;
 		detail: Promise<EventRead<TaskingDetail>>;
 		activity: Promise<EventRead<TaskingActivityLog>>;
+		lists: Promise<EventRead<TaskingLists>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
 	}
 
-	let { org, today, detail, activity, choices }: Props = $props();
+	let { org, today, detail, activity, lists, choices }: Props = $props();
 
 	const taskingsHref = $derived(`/org/${org.orgUrlSegment}/calendar/taskings`);
 	const streamedDetail = new StreamedValue(() => detail);
@@ -239,6 +242,17 @@
 				<PageShell.FactRow label="Instructions" value={null} />
 			{/if}
 		</dl>
+	{/if}
+
+	{#if loaded !== 'gone' && loaded !== 'failed'}
+		<TaskingListsSection
+			orgId={org.orgId}
+			taskingId={typeof loaded === 'object' && loaded ? loaded.tasking.id : ''}
+			{lists}
+			{members}
+			canEdit={canManage && typeof loaded === 'object' && loaded !== null && isEditable(loaded.tasking)}
+			onChanged={() => void invalidate('app:calendar-events')}
+		/>
 	{/if}
 
 	{#if loaded !== 'gone'}

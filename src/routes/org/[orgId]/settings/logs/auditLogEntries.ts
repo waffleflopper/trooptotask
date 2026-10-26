@@ -166,11 +166,31 @@ function emailed(template: (email: string) => string, fallback: string): (detail
 	};
 }
 
+/** A change to one equipment or checklist item, with the Tasking it belongs to. */
+const taskingItem =
+	(verb: string, kind: string) =>
+	(details: Details): string => {
+		const item = str(details, 'item');
+		const tasking = str(details, 'title');
+		return `${verb} ${kind}${item ? ` ${item}` : ''}${tasking ? ` on ${tasking}` : ''}`;
+	};
+
 type Sentence = string | ((details: Details) => string);
 
 /** Exact actions whose wording the generic verb and noun below would get wrong. */
 const SENTENCES: Record<string, Sentence> = {
 	'organization.settings_updated': settingsUpdated,
+	'calendar_tasking.equipment_added': taskingItem('Added', 'equipment'),
+	'calendar_tasking.equipment_changed': taskingItem('Changed', 'equipment'),
+	'calendar_tasking.equipment_secured': taskingItem('Updated secured count of', 'equipment'),
+	'calendar_tasking.equipment_removed': taskingItem('Removed', 'equipment'),
+	'calendar_tasking.equipment_reordered': taskingItem('Reordered', 'equipment'),
+	'calendar_tasking.checklist_added': taskingItem('Added', 'checklist item'),
+	'calendar_tasking.checklist_renamed': taskingItem('Renamed', 'checklist item'),
+	'calendar_tasking.checklist_completed': taskingItem('Completed', 'checklist item'),
+	'calendar_tasking.checklist_reopened': taskingItem('Reopened', 'checklist item'),
+	'calendar_tasking.checklist_removed': taskingItem('Removed', 'checklist item'),
+	'calendar_tasking.checklist_reordered': taskingItem('Reordered', 'checklist item'),
 	'organization.rank_catalog.bulk_state_changed': (d) =>
 		`Changed the state of ${amount(d, 'changedCount', 'rank', 'ranks')}`,
 	'organization.rank_catalog.reconciled': 'Reconciled the rank catalog',

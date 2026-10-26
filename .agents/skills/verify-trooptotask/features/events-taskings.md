@@ -180,3 +180,63 @@ the dialog below the UI. The Tasking counterparts live under `src/features/calen
 `supabase/tests/calendar_taskings.sql` covers Tasking access, attribution, Activity and the transition function.
 `supabase/tests/calendar_events.sql` proves the RLS, the database-written attribution and Activity, and the cancel
 function as ordinary signed-in users; run it with the disposable database procedure in the Definition of Done.
+
+## Equipment and checklist
+
+A Tasking's detail carries an `Equipment` list (a name, a quantity and how many are secured) and a `Checklist` (flat,
+ordered, open or done), each with its own add form. The headings read `N of M ready · P partial` and `D of N done`. A
+Tasking list row repeats them as `Equipment N of M ready · P partial` and `Checklist D/N`, and only when the Tasking has
+items. Neither list moves the Tasking's status. Completed and cancelled Taskings keep both lists on record, read-only.
+
+- `equipment-edit`: `Add equipment` and `Quantity` with `Add to equipment`; per row `Secure one fewer`,
+  `Secure one more` and `All secured` (each named after the item), `Move up`, `Move down`, `Edit` and `Remove`.
+  `Edit` opens `Equipment`, `Quantity` and `Secured` inline with `Save` and `Cancel`. A row reads `Ready`, `Partial` or
+  `Not secured` and `Secured n of N`.
+- `checklist-edit`: `Add checklist item` with `Add to checklist`; per row a checkbox named after the item, then
+  `Move up`, `Move down`, `Edit` and `Remove`. A done item is struck through with `Done by` and the time.
+- `lists-access`: a Group-scoped operator edits only their Groups' Taskings, a Calendar viewer sees both lists with no
+  controls, and another Group's Tasking is `This tasking is not available`. Writes outside reach return 403, or 404 when
+  the Tasking is hidden; a closed Tasking returns 409.
+
+Helpers: `$V rows calendar_tasking_equipment orgA` and `$V rows calendar_tasking_checklist_items orgA` read the stored
+rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
+`$V network arm-fail PAGE calendar-taskings/ID/equipment` (or `/checklist`) fails the next add for that Tasking.
+`rows calendar_tasking_activity` shows `equipment_*` and `checklist_*` kinds. Seed Taskings and items with a same-origin
+`fetch` from the page: `POST` to `/org/A/api/calendar-taskings` with `{id, draft}`, then to `.../ID/equipment` with
+`{id, draft: {name, quantity, securedQuantity}}` or `.../ID/checklist` with `{id, label}`.
+
+1. **Add.** As `calendarOperate` at 1440, open an Alpha Tasking. `Equipment` reads `None required` and `Checklist` reads
+   `No items`. Add `Litters` x 4 and `Radios` x 2, then two checklist items. Each add appears at once, the heading reads
+   `0 of 2 ready` and `0 of 2 done`, and the inputs clear. `$V rows` shows `position` 1 and 2 and `created_by` the
+   operator; the checklist rows are `done false`. Activity gains one entry per add.
+2. **Secure, tick and reorder.** `All secured: Litters`: the row reads `Ready`, `Secured 4 of 4`, the heading
+   `1 of 2 ready`. `Secure one more Radios`: `Partial`, `1 of 2 ready · 1 partial`. Tick the first checklist item: it is
+   struck through with `Done by` and the time, the heading reads `1 of 2 done`, and `done_by`/`done_at` are set in the
+   row. `Move Radios up` swaps the rows and `position` follows. Untick: `done_by` and `done_at` clear. Reload: the
+   order, counts and ticks are unchanged.
+3. **Edit.** `Edit` a row, set `Secured` above `Quantity` and press `Save`: `Secured` is invalid with
+   `Secured cannot be more than the quantity.` and no request leaves. Fix it and save: the row updates, and Activity
+   gains a changed entry for a new name or quantity and a secured entry for a new secured count.
+4. **Failed add.** After the last navigation arm `$V network arm-fail PAGE calendar-taskings/ID/equipment`. Add
+   `Stretchers` x 3: an alert reads `The equipment was not added. Your entry is kept, so try again.`, the entry stays in
+   the form and `$V rows` has no new row. `network restore PAGE`, press `Add to equipment` again: it saves once.
+5. **Remove.** `Remove` a row and an item: each disappears, the heading counts fall, and Activity gains a removed entry.
+   With no items left the summary goes, the list reads `None required` or `No items`, and the Tasking list row loses
+   its summary.
+6. **List rows.** On the Taskings list the Alpha row reads `Equipment 1 of 3 ready · 2 partial` and
+   `Checklist 1/2` in the title column, with no layout shift when it appears, and rows without items show nothing.
+7. **Widths.** Capture the list, the detail and the `Equipment` and `Checklist` sections at 1440, 900 and 390;
+   `scrollWidth` equals the viewport. At 390 the row actions wrap under the item and the add forms stack with a full
+   width `Add`.
+8. **Scoped operator.** As `calendarScoped` the list shows only Alpha Taskings with their summaries, and an Alpha detail
+   has every control. A Bravo or Organization Tasking's detail reads `This tasking is not available`. From the page, a
+   `POST` to a Bravo or Organization Tasking's `equipment` or `checklist`, a `PUT` reorder and a `PATCH` of one of its
+   items return 404 and `$V rows` is unchanged.
+9. **Read-only roles.** As `calendarView` both lists render with no add form and disabled checkboxes, and the same
+   writes return 403 on an Alpha, Bravo and Organization Tasking. As the `viewer` login the detail is the 403 page, and
+   as `calendarForeign` it is 404.
+10. **Closed Tasking.** `Complete` a Tasking with items: the lists stay, with no add form or row actions. A `POST` to
+    its `equipment` returns 409. `Reopen` restores the controls.
+11. **Export and activity.** The JSON export holds `calendarTaskingEquipment` and `calendarTaskingChecklistItems`; the
+    Excel `Tasking Equipment` and `Tasking Checklist` sheets name each Tasking by its outcome and each completer by
+    email. Settings › Logs reads `Added equipment Litters on Provide four trauma-lane medics` and its siblings.

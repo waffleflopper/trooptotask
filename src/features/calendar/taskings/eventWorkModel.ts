@@ -115,7 +115,13 @@ export function taskingsToReview(taskings: Tasking[], before: EventDates, after:
 			const previous = eventWorkPhase(tasking, before);
 			return { tasking, phase, movedFrom: previous === phase ? null : previous };
 		})
-		.filter((item) => item.movedFrom !== null || item.phase !== 'execution');
+		.filter(
+			(item) => item.movedFrom !== null || item.phase !== 'execution' || executesOutside(item.tasking.execution, after)
+		);
+}
+
+function executesOutside(execution: EventWorkDates['execution'], event: EventDates): boolean {
+	return execution !== null && (execution.startsOn < event.startsOn || execution.endsOn > event.endsOn);
 }
 
 export const datesChanged = (before: EventDates, after: EventDates) =>

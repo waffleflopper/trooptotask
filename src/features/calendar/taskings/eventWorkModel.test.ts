@@ -117,6 +117,18 @@ describe('taskingsToReview', () => {
 		]);
 	});
 
+	it('lists a Tasking still executing in the new dates whose execution now runs past them', () => {
+		const lanes = tasking('lanes', 'Lane coverage', '2026-10-15', {
+			execution: { startsOn: '2026-10-19', endsOn: '2026-10-23', reportTime: null }
+		});
+
+		const review = taskingsToReview([lanes], EVENT, { startsOn: '2026-10-20', endsOn: '2026-10-22' });
+
+		expect(review.map(({ tasking: { id }, phase, movedFrom }) => [id, phase, movedFrom])).toEqual([
+			['lanes', 'execution', null]
+		]);
+	});
+
 	it('leaves a Tasking that stays inside the dates alone', () => {
 		const inside = tasking('inside', 'Lane coverage', '2026-10-22');
 		expect(taskingsToReview([inside], EVENT, { startsOn: '2026-10-20', endsOn: '2026-10-24' })).toEqual([]);

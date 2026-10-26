@@ -13,16 +13,16 @@ export interface FeatureSwitch {
 	/** The lane the switch projects to `none`; a switch without one is read directly by its consumers. */
 	readonly lane: DurableFeatureLane | null;
 	/** The `/org/[orgId]/<path>` routes, and everything below them, that show the off state. */
-	readonly routePath: string | null;
+	readonly routePaths: readonly string[];
 }
 
 export const FEATURE_SWITCHES: Readonly<Record<FeatureKey, FeatureSwitch>> = {
-	training: { label: 'Training', lane: 'training', routePath: 'training' },
-	criticalTasks: { label: 'Critical tasks', lane: 'criticalTasks', routePath: 'critical-tasks' },
-	evaluations: { label: 'Evaluations', lane: 'ratingScheme', routePath: 'evals' },
-	onboarding: { label: 'Onboarding', lane: 'onboarding', routePath: 'onboarding' },
-	lossesAndAwards: { label: 'Losses and awards', lane: null, routePath: null },
-	eventsAndTaskings: { label: 'Events & Taskings', lane: null, routePath: 'calendar/events' }
+	training: { label: 'Training', lane: 'training', routePaths: ['training'] },
+	criticalTasks: { label: 'Critical tasks', lane: 'criticalTasks', routePaths: ['critical-tasks'] },
+	evaluations: { label: 'Evaluations', lane: 'ratingScheme', routePaths: ['evals'] },
+	onboarding: { label: 'Onboarding', lane: 'onboarding', routePaths: ['onboarding'] },
+	lossesAndAwards: { label: 'Losses and awards', lane: null, routePaths: [] },
+	eventsAndTaskings: { label: 'Events & Taskings', lane: null, routePaths: ['calendar/events', 'calendar/taskings'] }
 };
 
 export const FEATURE_KEYS = Object.keys(FEATURE_SWITCHES) as FeatureKey[];
@@ -55,10 +55,8 @@ export function findDisabledFeatureRoute(
 	if (!routeId?.startsWith(ORG_ROUTE_PREFIX)) return null;
 	const path = `${routeId.slice(ORG_ROUTE_PREFIX.length)}/`;
 	return (
-		disabledFeatures.find((key) => {
-			const owned = FEATURE_SWITCHES[key].routePath;
-			return owned !== null && path.startsWith(`${owned}/`);
-		}) ?? null
+		disabledFeatures.find((key) => FEATURE_SWITCHES[key].routePaths.some((owned) => path.startsWith(`${owned}/`))) ??
+		null
 	);
 }
 

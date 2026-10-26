@@ -357,11 +357,24 @@ describe('Training type draft validation', () => {
 	it.each<RenewalDraft>([
 		{ kind: 'months', months: 12, firstWarningDays: 30, finalWarningDays: 30 },
 		{ kind: 'cardDate', firstWarningDays: 30, finalWarningDays: 40 },
-		{ kind: 'cardDate', firstWarningDays: 30, finalWarningDays: NaN }
+		{ kind: 'cardDate', firstWarningDays: 30, finalWarningDays: NaN },
+		{ kind: 'months', months: 12, firstWarningDays: 30, finalWarningDays: -5 }
 	])('rejects an invalid final warning for $kind', (renewal) => {
 		expect(Object.keys(validateTrainingTypeDraft({ ...newTrainingTypeDraft(), name: 'CLS', renewal }))).toEqual([
 			'finalWarningDays'
 		]);
+	});
+
+	it.each([0, -10])('rejects a first warning of %i days', (firstWarningDays) => {
+		expect(
+			Object.keys(
+				validateTrainingTypeDraft({
+					...newTrainingTypeDraft(),
+					name: 'CLS',
+					renewal: { kind: 'cardDate', firstWarningDays, finalWarningDays: -20 }
+				})
+			)
+		).toContain('firstWarningDays');
 	});
 
 	it('reports a noninteger first warning and accepts a strictly shorter final warning', () => {

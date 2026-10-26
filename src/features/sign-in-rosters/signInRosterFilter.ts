@@ -26,7 +26,7 @@ export function emptySignInRosterFilter(): SignInRosterFilter {
 export function matchesSignInRosterFilter(person: SignInRosterFilterPerson, filter: SignInRosterFilter): boolean {
 	return (
 		matchesDimension(person.groupId, filter.groups) &&
-		matchesDimension(person.rank, filter.ranks) &&
+		matchesDimension(person.rank.trim(), filter.ranks) &&
 		matchesDimension(person.mos, filter.mos) &&
 		matchesDimension(person.clinicRole, filter.roles)
 	);

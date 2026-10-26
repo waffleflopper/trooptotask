@@ -49,7 +49,7 @@
 		<Combobox.Content>
 			{@render menuTop?.()}
 			<Combobox.Empty>{emptyText}</Combobox.Empty>
-			<Combobox.List>
+			<Combobox.List aria-label={label}>
 				{#snippet children(value, option)}
 					<Combobox.Item {value} label={option.label} />
 				{/snippet}

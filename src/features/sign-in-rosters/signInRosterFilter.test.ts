@@ -65,6 +65,12 @@ describe('Sign-in roster audience filters', () => {
 		expect(matchesSignInRosterFilter(person, filter)).toBe(false);
 	});
 
+	it('matches a stored rank with surrounding spaces to the rank it is offered as', () => {
+		const person: SignInRosterFilterPerson = { groupId: 'alpha', rank: ' SGT ', mos: '68W', clinicRole: 'Medic' };
+
+		expect(matchesSignInRosterFilter(person, { groups: [], ranks: ['SGT'], mos: [], roles: [] })).toBe(true);
+	});
+
 	it('matches group ids independently of group labels', () => {
 		const person = { ...personnel[0], groupName: 'bravo' };
 

@@ -151,9 +151,12 @@ export function validateTrainingTypeDraft(
 		}
 	}
 	if (renewal.kind !== 'never') {
-		if (!Number.isInteger(renewal.firstWarningDays)) errors.firstWarningDays = 'Use a whole number of days.';
-		if (!Number.isInteger(renewal.finalWarningDays)) errors.finalWarningDays = 'Use a whole number of days.';
-		else if (renewal.finalWarningDays >= renewal.firstWarningDays) {
+		if (!Number.isInteger(renewal.firstWarningDays) || renewal.firstWarningDays < 1) {
+			errors.firstWarningDays = 'Use a whole number of days, 1 or more.';
+		}
+		if (!Number.isInteger(renewal.finalWarningDays) || renewal.finalWarningDays < 0) {
+			errors.finalWarningDays = 'Use a whole number of days, 0 or more.';
+		} else if (renewal.finalWarningDays >= renewal.firstWarningDays) {
 			errors.finalWarningDays = 'Make the final warning shorter than the first.';
 		}
 	}

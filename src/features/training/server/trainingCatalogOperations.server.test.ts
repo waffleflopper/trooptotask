@@ -33,7 +33,9 @@ describe('Training catalog operations', () => {
 			{ warningDaysYellow: 30, warningDaysOrange: 30 },
 			{ warningDaysYellow: 30, warningDaysOrange: 31 },
 			{ warningDaysYellow: 30 },
-			{ warningDaysOrange: 60 }
+			{ warningDaysOrange: 60 },
+			{ warningDaysYellow: 30, warningDaysOrange: -5 },
+			{ warningDaysYellow: 0, warningDaysOrange: -5 }
 		])('rejects an invalid create including defaulted counterparts %j', async (warnings) => {
 			const ctx = createWritePortsContext();
 			await expect(createTrainingType(ctx, { name: 'Invalid', ...warnings })).rejects.toMatchObject({ status: 400 });

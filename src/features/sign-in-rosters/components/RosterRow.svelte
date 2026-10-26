@@ -60,8 +60,8 @@
 	data-dragging={dragging || undefined}
 	{@attach fileDrop({ onFiles: attach, onDraggingChange: (next) => (dragging = next && canEdit) })}
 >
-	<div class="flex items-center gap-3">
-		<div class="min-w-0 flex-1">
+	<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+		<div class="min-w-48 flex-1">
 			<p class="truncate text-base font-semibold text-foreground">{roster.title}</p>
 			<p class="font-mono text-[11px] tracking-[0.06em] text-muted-foreground uppercase tabular-nums">
 				{dateLabel} · {roster.personnelSnapshot.length} personnel

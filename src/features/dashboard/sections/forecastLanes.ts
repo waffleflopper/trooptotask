@@ -22,7 +22,7 @@ export type PlacedLaneMark = ForecastLaneMark & {
 	/** 1-based grid column of the first forecast day the mark covers. */
 	column: number;
 	span: number;
-	/** 1-based row: spans pack into the fewest rows, points stack below every span. */
+	/** 1-based row: spans pack into the fewest rows, points stack below at least SPAN_ROWS of them. */
 	row: number;
 	/** Free columns after a span in its row, where a short span's title can run. */
 	room: number;
@@ -47,6 +47,9 @@ export interface DashboardForecastLaneView {
 	legend: readonly ForecastLegendEntry[];
 	read: { state: 'ready'; marks: readonly PlacedLaneMark[] } | Exclude<ForecastLaneRead, { state: 'ready' }>;
 }
+
+/** Span rows a lane keeps even when fewer are used, so its points stay on one line and its height holds. */
+export const SPAN_ROWS = 2;
 
 /** Places marks on the forecast's day columns, clipping spans to the window and dropping marks outside it. */
 export function placeForecastLaneMarks(
@@ -78,7 +81,7 @@ export function placeForecastLaneMarks(
 			for (const column of columns) taken[row][column] = true;
 			return { ...placed, row };
 		});
-	const spanRows = taken.length;
+	const spanRows = Math.max(taken.length, SPAN_ROWS);
 	const pointsOn = new Map<number, number>();
 
 	return [

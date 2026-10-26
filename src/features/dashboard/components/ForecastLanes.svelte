@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import type { DashboardPageUpdates } from '../dashboardPageUpdates';
-	import type { DashboardForecastLaneView, PlacedLaneMark } from '../sections/forecastLanes';
+	import { SPAN_ROWS, type DashboardForecastLaneView, type PlacedLaneMark } from '../sections/forecastLanes';
 
 	let {
 		days,
@@ -12,8 +12,9 @@
 
 	const ROW = 22;
 	const GAP = 4;
-	/** Two rows, an Event and a suspense, so the common lane keeps the height its placeholder holds. */
-	const MIN_HEIGHT = 2 * ROW + GAP;
+	/** The span rows and one point row, so the common lane keeps the height its placeholder holds. */
+	const ROWS = SPAN_ROWS + 1;
+	const MIN_HEIGHT = ROWS * ROW + (ROWS - 1) * GAP;
 	const focus = 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 
 	/** A span too short for its title shows the title beside it, in the free days that follow. */
@@ -86,7 +87,8 @@
 		{:else if lane.read.state === 'pending'}
 			<div class="grid" style:row-gap="{GAP}px" style:grid-auto-rows="{ROW}px" aria-busy="true">
 				<Skeleton class="h-full w-[45%]" aria-hidden="true" />
-				<Skeleton class="ml-[30%] h-full w-[15%]" aria-hidden="true" />
+				<Skeleton class="ml-[55%] h-full w-[30%]" aria-hidden="true" />
+				<Skeleton class="ml-[20%] h-full w-[50%]" aria-hidden="true" />
 				<span class="sr-only">Loading {lane.label.toLowerCase()}</span>
 			</div>
 		{:else}

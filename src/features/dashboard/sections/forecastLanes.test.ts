@@ -35,7 +35,7 @@ describe('placeForecastLaneMarks', () => {
 			])
 		).toEqual([
 			{ id: 'exercise', column: 1, span: 2, row: 1, room: 4 },
-			{ id: 'suspense', column: 4, span: 1, row: 2, room: 0 }
+			{ id: 'suspense', column: 4, span: 1, row: 3, room: 0 }
 		]);
 	});
 

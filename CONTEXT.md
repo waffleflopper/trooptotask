@@ -254,7 +254,7 @@ The list of an Event's active Taskings that its date change left outside the new
 _Avoid_: Cascade, auto-shift
 
 **Calendar projection**:
-The Events, Suspenses and commitments a Calendar range shows, read once with the visible buffered range under the Calendar read policy. A Tasking the reader cannot see, and a person outside the reader's roster scope, are absent rather than hidden. It never creates Availability entries or Daily Assignment Slots and never changes availability counts.
+The Events, Suspenses and commitments a Calendar range shows, read once with the visible buffered range under the Calendar read policy. A Tasking the reader cannot see, and a person outside the reader's roster scope, are absent rather than hidden. It never creates Availability entries or Daily Assignment Slots and never changes availability counts. The Dashboard reads it over the forecast's 14 days.
 _Avoid_: Calendar overlay, marker feed
 
 **Commitment**:
@@ -264,6 +264,10 @@ _Avoid_: Busy, assignment
 **Tasking attention**:
 The Dashboard's Needs you rows for active Taskings, each Tasking once under its most urgent kind: Overdue (past suspense), Blocked (marked Blocked), Short (still executing or starting within 14 days with fewer picked than needed, or equipment not ready) and Due soon (suspense within 7 days). Only Taskings in the reader's scope appear, and a pick under review never counts as picked.
 _Avoid_: Alert, task list
+
+**Forecast lane**:
+A row of marks under the Dashboard's 14-day strength forecast that never changes its availability numbers. The Events & Taskings lane draws each Event the reader can see as a span, strong when a Tasking on it that is not cancelled is in the reader's scope and quiet when it is for awareness only, and each active Suspense in scope as a point. Each mark opens its Event or Tasking.
+_Avoid_: Overlay, timeline
 
 **DONSA**:
 A day of no scheduled activities, represented as a Calendar special day; Training Holiday is also appropriate military-facing wording.

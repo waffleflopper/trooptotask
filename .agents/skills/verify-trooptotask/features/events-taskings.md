@@ -1,8 +1,9 @@
 # Events & Taskings
 
 An Event is something the unit runs, supports or needs to know about, on one date or a range of dates. An
-Organization-wide Calendar operator creates, edits and cancels Events. Every Calendar reader lists them and opens their
-detail. There is no delete: a cancelled Event stays on record with who cancelled it, when and why.
+Organization-wide Calendar operator creates, edits, cancels and permanently deletes Events. Every Calendar reader lists
+them and opens their detail. A cancelled Event stays on record with who cancelled it, when and why; a deleted Event is
+gone, and its Taskings either stay as standalone or are deleted with it.
 
 A Tasking is an outcome the unit owes by a suspense date. It is owned by one Group or by the Organization, and it is
 standalone or linked to one Event. A Calendar operator creates, edits, links, unlinks and moves Taskings through `Open`,
@@ -24,6 +25,11 @@ Features `Events & Taskings` turns the whole feature off.
 - `event-edit`: the same sheet, filled. `Save changes` stays disabled until something changes.
 - `event-cancel`: a confirmation with an optional reason. The detail then shows who cancelled it and when, and Edit and
   Cancel are gone.
+- `event-delete`: `Delete event`, red, below a separator in the detail's `...` menu, for an active or a cancelled
+  Event. The dialog names the Event. With linked Taskings it lists up to four with their status badges, then
+  `and N more`, and asks `What happens to its N taskings?` with two cards, `Keep them as standalone` (chosen) and
+  `Delete them too`. The confirm button reads `Delete event`, or `Delete event and N taskings` for the second card.
+  Without Taskings it only confirms. Success lands on the Events list with a toast.
 - `event-activity`: the detail card's `History` list, newest first, written by the database for created, dates changed,
   coordination changed and cancelled.
 - `event-access`: Group-scoped operators and Calendar viewers read Events with no controls, and the server refuses their
@@ -72,7 +78,8 @@ Every Events & Taskings page shares one header: the `CALENDAR / EVENTS & TASKING
 the right, then a row with `Calendar` (back to the month) and an `Events` / `Taskings` segmented control. The Events
 list adds `Upcoming` / `Past` to that row, with `Create event` and `+ Create tasking` for an operator. A row opens
 `/org/ORG/calendar/events/EVENT_ID`, whose header has the title, `Edit event` and `+ Add tasking` for an operator, and
-`All events`, `Show on availability` and a `...` menu holding `Cancel event` in the row. The left card shows a countdown
+`All events`, `Show on availability` and a `...` menu holding `Cancel event` and a red `Delete event` in the row; a
+cancelled Event's menu holds only `Delete event`. The left card shows a countdown
 (`Starts in N days`, amber), the dates, the location, `HOSTED BY`, `SOURCE`, `COORDINATOR`, the description and
 `HISTORY`. The right column is `What ORG owes` with the Tasking count, a summary line (`N overdue`, `N blocked`,
 `N need people`, an amber triangle with `N conflicts`, `N fully staffed and ready`) and the groups. Below about 830 px
@@ -825,3 +832,35 @@ operator can use it, for either an active or a cancelled Event. Cancellation sti
 
 `supabase/tests/calendar_event_deletion.sql` proves both modes across all Tasking statuses, retained attribution and
 Activity, cascade cleanup, Availability provenance, Organization isolation and denied roles in the disposable database.
+
+### Deleting from the detail page
+
+Seed as `calendarOperate` the frame data under [Calendar markers](#calendar-markers): `Best Medic Competition` with its
+six Taskings (one with a pick, equipment and a checklist item) and `Post cleanup week` with none. Add a completed
+Tasking under `Brigade CG visit`, then cancel that Event. Note the Tasking ids.
+`$V server-source arm rpc/delete_calendar_event fail-hard 1 60000` fails the next deletion inside the server.
+
+29. **Menu.** On `Best Medic Competition` the `...` menu reads `Cancel event`, a separator, then `Delete event` in red.
+    On the cancelled `Brigade CG visit` it holds only `Delete event`. As `calendarScoped` and `calendarView` there is no
+    `...` menu.
+30. **Failed delete.** Open `Delete event` on `Best Medic Competition`. The dialog lists four Taskings with their badges
+    and `and 2 more` under `What happens to its 6 taskings?`, with `Keep them as standalone` checked and the button
+    `Delete event`. Arm the fault above and press `Delete event`. The dialog stays, with
+    `The event was not deleted. Try again.` as an alert and `Keep them as standalone` still checked.
+    `$V rows calendar_events orgA id EVENT` still has the row. `server-source restore`.
+31. **Keep as standalone.** Arm `$V feedback arm PAGE` and press `Delete event` once more. The page moves to
+    `/org/A/calendar/events` without the Event, and the toast reads
+    `Deleted Best Medic Competition. 6 taskings kept as standalone.` Open the picked Tasking: the strip reads
+    `Standalone · no event`, its status, pick, equipment and checklist are unchanged, and `ACTIVITY` starts with
+    `unlinked from Best Medic Competition, which was deleted`. `$V rows calendar_taskings orgA id ID` shows `event_id`
+    null.
+32. **Delete them too.** On `Brigade CG visit` open `Delete event` and choose `Delete them too`; the button reads
+    `Delete event and 2 taskings`. Confirm. The toast reads `Deleted Brigade CG visit and 2 taskings.` Both Tasking URLs
+    read `This tasking is not available`, and `rows` finds neither Tasking nor the Event.
+33. **No Taskings.** On `Post cleanup week` the dialog has no list and no cards, only `Keep event` and `Delete event`.
+    The `DELETE` request body is `{"taskings":"standalone"}` and the toast reads `Deleted Post cleanup week.`
+34. **Calendar.** Open an Event from its Calendar bar's `Open event`, delete it, then press the toolbar's `Calendar`.
+    The `Events` row no longer shows it and its count drops by one.
+35. **Widths.** Capture the dialog with Taskings and without at 1440, 900 and 390. At 390 the dialog fits the viewport
+    without scrolling the page, the buttons stack with the confirm on top, and long Tasking titles truncate beside their
+    badges.

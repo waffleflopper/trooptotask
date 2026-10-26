@@ -26,8 +26,9 @@ Choose `Training` in the Organization navigation. The `Training controls` toolba
 `Export`. Its `More Training controls` menu holds `Import`, `Manage views` and `Manage types`; the first three controls
 on the right fold into it as the page narrows (find them with the
 [shared UI recipe](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more)). `Training view filter` ends with
-`Manage views…`, which opens the Views page. Manage Types shows a `Training type controls` toolbar holding `+ New Type`
-and, in the detail pane, `Training type detail controls` holding `Edit`. Manage Views shows `Training view controls`
+`Manage views…`, which opens the Views page. Manage Types shows the page header `TRAINING TYPES` with `Back to matrix`
+and `New type`, over one table named `Training types, in column order`; choosing a row's name opens the type sheet.
+Manage Views shows `Training view controls`
 with the `Back to Matrix` link and `New View`, and `Training view detail controls` with `Edit`; read-only members see
 none of the create or edit actions. On the matrix, choose the named saved view in `Training view filter` and switch the
 Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` or
@@ -49,22 +50,39 @@ completion, while Baker and Unassigned have no record. Targeted applies to MOS `
 required and incomplete; Baker and Unassigned are not required. Optional does not require a missing record. The saved
 Focus View orders Targeted before Required and omits Optional.
 
-1. **Read the unchanged catalog and matrix:** From Training, open Manage Types. Select each seeded type and capture its
-   expiration, applicability and Optional details. Return to the matrix, choose the Focus View, and confirm the visible
-   Targeted/Required column names and order and the Able/Baker/Unassigned status differences above. Switch between `A–Z`
-   and `Groups`, then Alpha and all Groups using the compact Group selector; the saved view stays selected and the
-   expected visible roster changes. Reload and select Focus View again; compare the same saved IDs and column order
-   using `$V rows training_types orgA id <ID>` and `$V rows training_views orgA id <trainingView>`.
-2. **Create, edit and cancel:** Open Manage Types as `trainingConfigure`, create a uniquely named type with a fixed
-   expiration, targeted `68W` MOS, and an NCO exclusion. Capture the chosen controls and Save result; reload and read
-   back the new row and its arrays. Edit the seeded Required type's description, save and reload;
+1. **Read the unchanged catalog and matrix:** From Training, open Manage Types. Read the table at 1440: the columns
+   `Training`, `Renews`, `Warns at`, `Who needs it`, `Applies to` and `Exempt`, one row per seeded type. Required reads
+   `Every 12 months`, `60d · 30d`, `Everyone`, `3 of 3` and `Allowed`. Targeted reads `Every 12 months`,
+   `Everyone except MOS 68W`... (record the rule text the fixture actually shows) and Optional reads `Never expires`,
+   `—`, `Optional` and `—`. Return to the matrix, choose the Focus View, and confirm the visible Targeted/Required
+   column names and order and the Able/Baker/Unassigned status differences above. Switch between `A–Z` and `Groups`,
+   then Alpha and all Groups using the compact Group selector; the saved view stays selected and the expected visible
+   roster changes. Reload and select Focus View again; compare the same saved IDs and column order using
+   `$V rows training_types orgA id <ID>` and `$V rows training_views orgA id <trainingView>`.
+2. **Create, edit and cancel:** Open Manage Types as `trainingConfigure`. Choose `New type`: the sheet reads
+   `New training type · 4 of 4` over `Untitled type`, `Create type` is the primary action and `Cancel` closes it.
+   Create three types, each with a unique marker name:
+   - Months: `Every few months`, Good for `18`, First warning `60`, Final warning `30`. The row reads `Every 18 months`
+     and `60d · 30d`; read back `$V rows training_types orgA name MARKER` for `expiration_months` 18,
+     `warning_days_yellow` 60 and `warning_days_orange` 30.
+   - Card date: `Date on the card`. The row reads `Date on the card`; the stored `expiration_date_required` is true and
+     `expiration_months` is null.
+   - Never: `Never expires`. The row reads `Never expires` with `—` under `Warns at`.
+
+   Edit one of them: under `Who needs it` choose `Only some`, add an MOS chip `68W` under `Only` and a role chip under
+   `Except` through `+ Add an exception`, then choose `Save changes`. The sheet closes, focus returns to that row's name
+   button, the row reads `MOS: 68W except Role: <role>` and `Applies to` shows the matched count. Reload and read back
+   the arrays on the same ID. Edit the seeded Required type's description, save and reload;
    `$V rows training_types orgA id <trainingRequired>` and `$V rows personnel_trainings orgA id <trainingCurrent>` must
    retain the type, completion and reference IDs. Restore the original description with focused `Control+A` and
-   `Backspace`, save, and read back the same IDs and a null description. Cancel a separate edit and confirm no row
-   change. Create a uniquely named view with two distinguishable type columns, use the visible up/down controls to
-   reorder them, save, reload, and confirm `$V rows training_views orgA name <marker>` has that order. Edit that view,
-   save and read back its stable ID; Cancel a separate view edit. Delete only the newly created view and type through
-   their visible confirmations, then verify both rows are absent. Keep seeded types and views for later journeys.
+   `Backspace`, save, and read back the same IDs and a null description. Open another edit, change a field and choose
+   `Cancel` or press Escape: a `Discard changes?` confirmation appears, discarding it leaves no row change, and an
+   untouched sheet closes at once. Create a uniquely named view with two distinguishable type columns, use the visible
+   up/down controls to reorder them, save, reload, and confirm `$V rows training_views orgA name <marker>` has that
+   order. Edit that view, save and read back its stable ID; Cancel a separate view edit. Delete only the newly created
+   view and types through their visible confirmations, then verify the rows are absent. Keep seeded types and views for
+   later journeys.
+
 3. **Access and isolation:** As `trainingView`, `trainingOperate`, `trainingScoped` and `trainingScopedConfig`, open the
    matrix and direct Types/Views routes; record visible read access, configuration affordances and the Alpha-only roster
    for each scoped actor. For `trainingScopedConfig`, check that Import remains available while Manage Types/Views and
@@ -75,8 +93,9 @@ Focus View orders Targeted before Required and omits Optional.
    visible in B but A's types/views are absent. Record HTTP status and stored-row absence separately from the UI
    affordance. A `400` is an invalid payload, not proof of denial.
 4. **Failed save and retry:** On a fresh `trainingConfigure` Types page, arm `$V network arm-fail $PAGE training-types`
-   immediately before saving a newly named type. Capture the matched `503` in `$V network state $PAGE`, visible error
-   feedback, retained form state, and zero stored rows for that name. Restore the hook, retry through the visible form,
+   immediately before saving a newly named type. Capture the matched `503` in `$V network state $PAGE`, the sheet's
+   alert `Failed to save training type.`, the sheet still open with every entered value, and zero stored rows for that
+   name. Restore the hook, retry through the visible form,
    reload and read back exactly one saved row. Delete it through the visible confirmation and read back absence. Repeat
    the same sequence for a new view with `training-views`. Missing visible feedback, a closed form, or lost entered
    values is a product failure, not a passing retry. On a UI-created saved view, change its name and reverse two
@@ -97,13 +116,14 @@ Focus View orders Targeted before Required and omits Optional.
    `/training/views`); each shows the shared `WorkspaceLoadError` (`Unable to load Training` with `Retry Training`),
    never a stuck skeleton or a thrown render, and Retry recovers after `server-source restore`. A client-side visit from
    the matrix does not reload the source, so it cannot trigger this.
-7. **Type-management add, edit, delete and confirm:** As `trainingConfigure` in `Training type management workspace`,
-   add a uniquely named type, select its row in the `Training types` grid, edit its name and an MOS/role applicability
-   chip through the group selector (add, then remove one chip) and save; reload and read back the same ID. Open Delete
-   Type: the `Delete Training Type` alertdialog names the type. Cancel first and require the row, selection and focus on
-   the opening control to remain; then confirm and require the list entry and `$V rows training_types orgA name MARKER`
-   to be absent. Repeat add/edit/cancel-then-confirm delete for a temporary view in Manage Views. Capture each workspace
-   at narrow and wide widths once.
+7. **Type delete, order and the Views workspace:** As `trainingConfigure`, create a uniquely named type, open its sheet
+   and choose `Delete type`: the `Delete Training Type` alertdialog names the type. Cancel first and require the sheet
+   and focus on the opening control to remain; then confirm and require the sheet closed, the row gone and
+   `$V rows training_types orgA name MARKER` to be absent, with focus on the `New type` button. Reorder: grab a row's
+   grip (`Reorder <name>`) and press ArrowDown, or focus a row and press `Alt+ArrowDown`; the row moves, the matrix
+   column order follows after a reload, and `training_types.sort_order` reads the new order. Repeat add/edit/
+   cancel-then-confirm delete for a temporary view in Manage Views. Capture each page at 1440, 1024 and 390 wide once;
+   the Types table stacks each row into two lines below a 56rem container.
 
 8. **Matrix readout:** As `trainingConfigure` at 1440 wide on a fresh seed, read the matrix before recording anything.
    Capture each value from a text snapshot.

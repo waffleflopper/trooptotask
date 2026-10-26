@@ -64,10 +64,9 @@ Rating Scheme and Critical Tasks. `MISSING` is `00000000-0000-4000-8000-00000000
    | orgOwner          | `POST api/personnel-ict-completions/batch` with `{records:[null]}`; a record with `personnelId:'abc'`; a known Person and task with `completedAt:'2026-02-30'` | `400` ×3 (`Invalid input: expected object, received null`, `Invalid ID`, `Use a valid date (YYYY-MM-DD)`); the Organization's completion rows are unchanged |
    | orgOwner          | `POST api/personnel-trainings/batch` for `personB` on `trainingOptional` with `status:'not-completed'`, then with no status                                    | `400 Status must be completed or exempt` ×2; the Organization's Training rows are unchanged                                                                 |
 
-2. **Form messages.** As `trainingConfigure`, open Manage Types → `+ New Type`. The Name field accepts at most 100
-   characters. Paste a 105-character name through `fill`, then Create. If the browser truncates it, the type saves with
-   100 characters; delete it visibly. Then create a type named `Verification Required Training`: the form stays open
-   with `A Training type with that name already exists.` and no second row. As `calendarConfigure`, choose `Edit` from
+2. **Form messages.** As `trainingConfigure`, open Manage Types → `New type`. Paste a 105-character name through `fill`, then `Create type`: `Name` shows
+   `Keep the name to 100 characters.`, the sheet stays open and no row is created. Enter `Verification Required
+Training`: the sheet stays open with `A Training type with that name already exists.` and no second row. As `calendarConfigure`, choose `Edit` from
    `More actions for Verification Leave`, enter a 101-character name in the inline composer and choose `Save changes`.
    The composer stays open with the draft, the error toast reads `Name must be 100 characters or fewer` and the row is
    unchanged. As `manager`, rename a Group to `Bravo` from Manage Groups: the message names the duplicate and both

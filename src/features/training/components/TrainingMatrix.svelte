@@ -24,8 +24,7 @@
 	import { trainingMatrixGaps, type TrainingMatrixGaps } from '$features/training/utils/trainingBriefing';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import * as Popover from '$lib/components/ui/popover';
-	import { readinessBandTone } from '$lib/components/patterns/readiness-band/index.js';
-	import { formatReadinessBandPercent } from '$lib/components/patterns/readiness-band/types.js';
+	import { formatReadinessBandPercent, readinessBandTone } from '$lib/components/patterns/readiness-band/index.js';
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import { Button } from '$lib/components/ui/button';

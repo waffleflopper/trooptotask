@@ -102,8 +102,14 @@ export type WorkspaceToolbarProps = {
 		onValueChange: (value: string) => void;
 		/** Where search sits in the row and keyboard order; defaults to before the filters. */
 		placement?: 'before-filters' | 'after-filters';
+		/** Below this breakpoint search takes a full-width row above the controls and leaves the fit to them. */
+		ownRowBelow?: 'sm';
 	};
-	primary?: ToolbarAction & { menuOnly?: never };
+	primary?: ToolbarAction & {
+		menuOnly?: never;
+		/** Below this breakpoint only the icon shows; the label stays as the accessible name. Needs `icon`. */
+		iconOnlyBelow?: 'sm';
+	};
 };
 
 export function sectionOf(item: ToolbarItem): ToolbarSection {

@@ -6,6 +6,7 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { onDestroy, tick, untrack } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import type { Attachment } from 'svelte/attachments';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
@@ -67,6 +68,10 @@
 	// The most important action sits next to More and the primary, so the row reads actions in reverse rank.
 	const actionsInRowOrder = $derived(actions.toReversed());
 	const rowCandidates = $derived(items.filter((item) => !isMenuOnly(item)));
+	const phone = new MediaQuery('width < 40rem', false);
+	const searchOwnRow = $derived(Boolean(search?.ownRowBelow) && phone.current);
+	// Search on its own row never competes for the controls' width, so the fit sees no search at all.
+	const rowSearch = $derived(searchOwnRow ? undefined : search);
 
 	let lastFit: FitResult | null = null;
 	const fit = $derived.by((): FitResult | null => {
@@ -76,7 +81,7 @@
 		const ready =
 			measured.more > 0 &&
 			(!primary || measured.primary > 0) &&
-			(!search || (measured.searchField > 0 && measured.searchIcon > 0)) &&
+			(!rowSearch || (measured.searchField > 0 && measured.searchIcon > 0)) &&
 			rowCandidates.every((item) => measured.items[item.id] > 0);
 		// An item that is not measured yet waits in More under the last fit; unfolding everything would unmount More.
 		if (!ready) return lastFit;
@@ -91,7 +96,7 @@
 				section: sectionOf(item),
 				menuOnly: isMenuOnly(item)
 			})),
-			...(search
+			...(rowSearch
 				? { searchMinWidth: measured.searchField, searchIconWidth: measured.searchIcon }
 				: { searchMinWidth: null, searchIconWidth: null })
 		});
@@ -118,7 +123,7 @@
 	]);
 	const showMore = $derived(moreViews.length + moreFilters.length + moreActions.length > 0);
 	const searchMode = $derived<'field' | 'icon' | 'open' | 'none'>(
-		!search ? 'none' : fit?.searchCollapsed ? (searchOpen ? 'open' : 'icon') : 'field'
+		!search ? 'none' : searchOwnRow ? 'field' : fit?.searchCollapsed ? (searchOpen ? 'open' : 'icon') : 'field'
 	);
 	const trailingId = $derived(rowActions[0]?.id ?? (showMore ? 'more' : primary?.id));
 	const searchText = $derived(search?.value.trim() ?? '');
@@ -126,6 +131,9 @@
 
 	$effect.pre(() => {
 		if (!import.meta.env.DEV) return;
+		if (primary?.iconOnlyBelow && !primary.icon) {
+			throw new Error(`WorkspaceToolbar "${ariaLabel}" sets iconOnlyBelow on a primary with no icon.`);
+		}
 		const ids = [...items.map((item) => item.id), ...(primary ? [primary.id] : [])];
 		const duplicate = ids.find((id, index) => ids.indexOf(id) !== index);
 		if (duplicate) throw new Error(`WorkspaceToolbar "${ariaLabel}" has more than one item with id "${duplicate}".`);
@@ -298,10 +306,12 @@
 	action: ToolbarAction,
 	variant: 'default' | 'outline',
 	live: boolean,
-	props: Record<string, unknown> = {}
+	props: Record<string, unknown> = {},
+	iconOnly: boolean = false
 )}
 	<Button
 		variant={action.destructive ? 'destructive' : variant}
+		class={iconOnly ? 'max-sm:size-8 max-sm:px-0' : undefined}
 		href={action.href}
 		disabled={action.disabled}
 		title={live ? action.disabledReason : undefined}
@@ -318,21 +328,30 @@
 		{:else}
 			<WorkspaceToolbarIcon icon={action.icon} />
 		{/if}
-		{action.label}
+		{#if iconOnly}
+			<span class="max-sm:sr-only">{action.label}</span>
+		{:else}
+			{action.label}
+		{/if}
 		{#if action.menuItems}
 			<ChevronDown aria-hidden="true" />
 		{/if}
 	</Button>
 {/snippet}
 
-{#snippet actionControl(action: ToolbarAction, variant: 'default' | 'outline', live: boolean)}
+{#snippet actionControl(
+	action: ToolbarAction,
+	variant: 'default' | 'outline',
+	live: boolean,
+	iconOnly: boolean = false
+)}
 	{#if live && action.menuItems}
 		<WorkspaceToolbarMenu
 			label={action.label}
 			contentClass={action.menuItems.some((item) => item.kind === 'action' && item.description) ? 'w-75' : undefined}
 		>
 			{#snippet trigger(props)}
-				{@render actionButton(action, variant, true, props)}
+				{@render actionButton(action, variant, true, props, iconOnly)}
 			{/snippet}
 			{#snippet children(choose)}
 				{@render actionItems(
@@ -345,7 +364,7 @@
 			{/snippet}
 		</WorkspaceToolbarMenu>
 	{:else}
-		{@render actionButton(action, variant, live)}
+		{@render actionButton(action, variant, live, {}, iconOnly)}
 	{/if}
 	{#if live && action.disabledReason}
 		<span id={reasonId(action.id)} class="sr-only">{action.disabledReason}</span>
@@ -479,7 +498,7 @@
 			{/if}
 		</div>
 	{:else}
-		<div class={cn('flex min-w-40 flex-1', searchMode !== 'open' && 'max-w-80')}>
+		<div class={cn('flex min-w-40 flex-1', searchMode !== 'open' && !searchOwnRow && 'max-w-80')}>
 			<InputGroup.Root>
 				<InputGroup.Addon>
 					<SearchIcon aria-hidden="true" />
@@ -531,6 +550,11 @@
 		bare ? 'p-1' : 'rounded-lg border border-border bg-card p-2'
 	)}
 >
+	{#if search && searchOwnRow}
+		<div data-toolbar-search-row class="mb-1.5 flex min-w-0 items-center">
+			{@render searchControl(search)}
+		</div>
+	{/if}
 	<div
 		bind:this={rowElement}
 		data-toolbar-row
@@ -543,7 +567,7 @@
 			{/each}
 		{/if}
 
-		{#if search && searchPlacement === 'before-filters'}
+		{#if search && !searchOwnRow && searchPlacement === 'before-filters'}
 			{@render searchControl(search)}
 		{/if}
 
@@ -553,7 +577,7 @@
 			{/each}
 		{/if}
 
-		{#if search && searchPlacement === 'after-filters'}
+		{#if search && !searchOwnRow && searchPlacement === 'after-filters'}
 			{@render searchControl(search)}
 		{/if}
 
@@ -568,7 +592,7 @@
 			{/if}
 			{#if primary}
 				<div data-toolbar-item={primary.id} class={cn('flex shrink-0', trailingId === primary.id && 'ml-auto')}>
-					{@render actionControl(primary, 'default', true)}
+					{@render actionControl(primary, 'default', true, Boolean(primary.iconOnlyBelow))}
 				</div>
 			{/if}
 		{/if}
@@ -586,7 +610,7 @@
 					{@render itemControl(item, false)}
 				</div>
 			{/each}
-			{#if search}
+			{#if rowSearch}
 				<div data-toolbar-search-measure="field" class="flex w-40 shrink-0" {@attach measure()}>
 					<InputGroup.Root>
 						<InputGroup.Addon>
@@ -604,7 +628,7 @@
 			</div>
 			{#if primary}
 				<div data-toolbar-item={primary.id} data-toolbar-primary class="flex shrink-0" {@attach measure()}>
-					{@render actionControl(primary, 'default', false)}
+					{@render actionControl(primary, 'default', false, Boolean(primary.iconOnlyBelow))}
 				</div>
 			{/if}
 		</div>

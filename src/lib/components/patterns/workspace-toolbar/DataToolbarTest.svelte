@@ -16,6 +16,8 @@
 		planningDisabled?: boolean;
 		reportsDisabled?: boolean;
 		describePlanner?: boolean;
+		phoneLayout?: boolean;
+		primaryIcon?: boolean;
 		onRun?: (name: string) => void;
 	};
 
@@ -34,6 +36,8 @@
 		planningDisabled = false,
 		reportsDisabled = false,
 		describePlanner = false,
+		phoneLayout = false,
+		primaryIcon = true,
 		onRun
 	}: Props = $props();
 
@@ -180,13 +184,15 @@
 		label: 'Search roster',
 		placeholder: 'Search...',
 		value: search,
-		onValueChange: (value) => (search = value)
+		onValueChange: (value) => (search = value),
+		ownRowBelow: phoneLayout ? 'sm' : undefined
 	}}
 	primary={{
 		kind: 'action',
 		id: 'add',
 		label: 'Add status',
-		icon: 'plus',
+		icon: primaryIcon ? 'plus' : undefined,
+		iconOnlyBelow: phoneLayout ? 'sm' : undefined,
 		onclick: () => log('add')
 	}}
 />

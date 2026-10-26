@@ -347,14 +347,6 @@ describe('WorkspaceToolbar', () => {
 	});
 
 	describe('compactBelow', () => {
-		function stubPhone(matches: boolean): void {
-			vi.stubGlobal('matchMedia', () => ({
-				matches,
-				addEventListener: () => {},
-				removeEventListener: () => {}
-			}));
-		}
-
 		function searchRow(): HTMLElement | null {
 			return toolbar().querySelector<HTMLElement>('[data-toolbar-search-row]');
 		}
@@ -364,7 +356,6 @@ describe('WorkspaceToolbar', () => {
 		}
 
 		it('puts search on a full row above a row of view, Filters and the primary', async () => {
-			stubPhone(true);
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(291);
 
@@ -381,9 +372,8 @@ describe('WorkspaceToolbar', () => {
 		});
 
 		it('folds every filter and action into the Filters menu even when the row has room', async () => {
-			stubPhone(true);
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
-			await layOut(2000);
+			await layOut(639);
 
 			expect(within(row()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
 			expect(within(row()).queryByRole('button', { name: 'Import' })).toBeNull();
@@ -401,7 +391,6 @@ describe('WorkspaceToolbar', () => {
 		});
 
 		it('marks the Filters trigger when a folded filter leaves its default', async () => {
-			stubPhone(true);
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true, initialStatus: ['leave'] } });
 			await layOut(291);
 
@@ -409,7 +398,6 @@ describe('WorkspaceToolbar', () => {
 		});
 
 		it('hides the primary label but keeps it as the accessible name', async () => {
-			stubPhone(true);
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(291);
 
@@ -419,8 +407,7 @@ describe('WorkspaceToolbar', () => {
 			expect(output('Runs')).toBe('add:0');
 		});
 
-		it('changes nothing on a wide viewport', async () => {
-			stubPhone(false);
+		it('changes nothing on a wide toolbar', async () => {
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(1000);
 
@@ -432,8 +419,7 @@ describe('WorkspaceToolbar', () => {
 			expect(within(row()).getByRole('button', { name: 'Add status' }).querySelector('span.sr-only')).toBeNull();
 		});
 
-		it('changes nothing for a toolbar that did not opt in, even on a phone viewport', async () => {
-			stubPhone(true);
+		it('changes nothing for a toolbar that did not opt in, even on a narrow toolbar', async () => {
 			render(DataToolbarTest, { props: { withArchive: false } });
 			await layOut(291);
 

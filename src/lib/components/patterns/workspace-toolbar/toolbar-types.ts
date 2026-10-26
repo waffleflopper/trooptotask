@@ -105,7 +105,7 @@ export type WorkspaceToolbarProps = {
 	};
 	primary?: ToolbarAction & { menuOnly?: never };
 	/**
-	 * Below this breakpoint search takes a full-width row of its own, every filter and action folds into one
+	 * Below this toolbar width (`sm`, 640 px) search takes a full-width row of its own, every filter and action folds into one
 	 * Filters menu beside the view, and a primary with an icon shows only that icon, keeping its label as the
 	 * accessible name.
 	 */

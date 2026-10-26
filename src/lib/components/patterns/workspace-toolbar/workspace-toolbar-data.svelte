@@ -6,7 +6,6 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { onDestroy, tick, untrack } from 'svelte';
-	import { MediaQuery } from 'svelte/reactivity';
 	import type { Attachment } from 'svelte/attachments';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
@@ -36,6 +35,7 @@
 
 	let { ariaLabel, items, bare = false, search, primary, compactBelow }: WorkspaceToolbarProps = $props();
 	const uid = $props.id();
+	const COMPACT_BELOW_PX = { sm: 640 } as const;
 
 	type Metrics = {
 		available: number;
@@ -67,8 +67,14 @@
 	const actions = $derived(items.filter((item): item is ToolbarAction => sectionOf(item) === 'actions'));
 	// The most important action sits next to More and the primary, so the row reads actions in reverse rank.
 	const actionsInRowOrder = $derived(actions.toReversed());
-	const phone = new MediaQuery('width < 40rem', false);
-	const compact = $derived(Boolean(compactBelow) && phone.current);
+	// Keyed on the toolbar's own width so a sidebar that narrows the workspace folds it like a phone would.
+	let lastCompact = false;
+	const compact = $derived.by(() => {
+		if (!compactBelow) return false;
+		if (metrics.available <= 0) return lastCompact;
+		lastCompact = metrics.available < COMPACT_BELOW_PX[compactBelow];
+		return lastCompact;
+	});
 	const searchOwnRow = $derived(compact && Boolean(search));
 	const primaryIconOnly = $derived(compact && Boolean(primary?.icon));
 	const foldsToMore = (item: ToolbarItem): boolean => isMenuOnly(item) || (compact && sectionOf(item) !== 'view');

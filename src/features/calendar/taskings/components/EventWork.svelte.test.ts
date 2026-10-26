@@ -114,7 +114,7 @@ describe('Event detail work groups', () => {
 			addOnArrival: false
 		});
 
-		expect(await screen.findByRole('heading', { name: 'Taskings' })).toBeTruthy();
+		expect(await screen.findByText(/no taskings/i)).toBeTruthy();
 		for (const phase of ['Preparation', 'Execution', 'Closeout'])
 			expect(screen.queryByRole('region', { name: phase })).toBeNull();
 		expect(screen.queryByRole('link')).toBeNull();

@@ -108,7 +108,11 @@
 	// One draft per opened packet: a note typed in one packet never carries into another.
 	const noteDraft = $derived(selectedId ? new NoteDraft() : null);
 	const busy = $derived(noteDraft?.saving ?? false);
-	const closeBlocked = $derived(noteDraft?.dirty ?? false);
+	// A draft on a step that has since completed has no editor left, so it must not trap the sheet.
+	const closeBlocked = $derived(
+		!!noteDraft?.dirty &&
+			!!selected?.steps.some((step) => step.id === noteDraft.stepId && step.active && !step.completed)
+	);
 
 	async function closePanel() {
 		const id = selectedId;

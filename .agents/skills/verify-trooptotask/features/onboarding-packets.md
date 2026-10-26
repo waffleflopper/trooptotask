@@ -34,7 +34,9 @@ Choose Onboard in Organization navigation. The list orders Soldiers in processin
 Use `Start onboarding` in the toolbar to select a member, start date and template. Choose a row to open its packet in an
 overlay sheet, at every width, to record checklist and stage progress, add notes or close it out. The sheet dims the
 list behind it without resizing it; `Close packet`, Escape or a click on the backdrop closes it and focus returns to
-that row. While a note is typed but unsaved, or saving, none of those close it and `Close packet` is hidden.
+that row. While a note on an open step is typed but unsaved, or saving, none of those close it, `Close packet` is
+hidden and the note's Cancel is disabled during the save. Completing that step removes its editor and releases the
+guard.
 `More packet actions` re-syncs, switches or assigns its template, removes an inactive step or cancels the packet. `View`
 in the toolbar (or `All n steps` in the waiting strip) switches the page between List and a Matrix of Soldiers by step;
 the choice is page state, so a reload returns to List. Choose History to inspect retained packets. Reopening uses the

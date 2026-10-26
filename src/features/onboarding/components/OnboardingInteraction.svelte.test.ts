@@ -562,6 +562,44 @@ describe('Onboarding packet panel', () => {
 		await closePacket(dialog);
 	});
 
+	it('stops guarding an unsaved note once its step completes and the editor is gone', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValue(Response.json({ id: 'step-1', completed: true, currentStage: null, progressChangedAt: NOW }))
+		);
+		mount();
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+		await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Note for Verify ID card' }), {
+			target: { value: 'Call finance Monday' }
+		});
+		await fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Mark Verify ID card complete' }));
+		await waitFor(() => expect(within(dialog).queryByRole('textbox')).toBeNull());
+
+		await closePacket(dialog);
+	});
+
+	it('keeps Cancel unavailable while a note save is in flight', async () => {
+		let finish!: (response: Response) => void;
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(new Promise<Response>((resolve) => (finish = resolve))));
+		mount();
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+		await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Note for Verify ID card' }), {
+			target: { value: 'Called finance' }
+		});
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save note' }));
+		expect((within(dialog).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
+
+		finish(Response.json({ id: 'step-1', notes: [{ text: 'Called finance', timestamp: NOW, userId: 'user-1' }] }));
+		await waitFor(() => expect(within(dialog).queryByRole('textbox')).toBeNull());
+		await closePacket(dialog);
+	});
+
 	it('closes a packet with an empty note field on Escape', async () => {
 		mount();
 		const dialog = await openPacket('SGT Smith, Jane');

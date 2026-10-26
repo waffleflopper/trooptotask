@@ -15,7 +15,7 @@
 
 <div
 	{id}
-	class="grid grid-cols-1 gap-4 border-b border-border py-8 lg:grid-cols-[minmax(200px,380px)_minmax(0,720px)] lg:gap-x-8"
+	class="grid scroll-mt-20 grid-cols-1 gap-4 border-b border-border py-8 lg:grid-cols-[minmax(200px,380px)_minmax(0,720px)] lg:gap-x-8"
 >
 	<div class="flex gap-4 lg:pt-1 {monoLabel}">
 		<span class="text-accent-text">{num}</span>

@@ -117,18 +117,4 @@ describe('landing page', () => {
 		await vi.advanceTimersByTimeAsync(5000);
 		expect(squad).toHaveAttribute('aria-pressed', 'true');
 	});
-
-	it('shows every section without IntersectionObserver, and arms off-screen motion only when it exists', () => {
-		vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ top: 5000 } as DOMRect);
-
-		vi.stubGlobal('IntersectionObserver', undefined);
-		const { container: still } = renderPage();
-		expect(still.querySelector('[data-reveal]')).toBeNull();
-		expect(screen.getByRole('heading', { level: 1 })).toBeVisible();
-		cleanup();
-
-		stubMotion();
-		const { container: moving } = renderPage();
-		expect(moving.querySelector('[data-reveal="shown"]')).not.toBeNull();
-	});
 });

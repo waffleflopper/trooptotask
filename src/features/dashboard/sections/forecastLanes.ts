@@ -2,30 +2,24 @@ import { toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 
 /**
- * A mark under the forecast's day labels that opens the record it stands for. `label` names the link; a span also
- * shows its `title`. An overlay never changes the availability numbers.
+ * A mark under the forecast's day labels that opens the record it stands for. `label` names the link; `title` and
+ * `detail` show when the mark is listed with others. An overlay never changes the availability numbers.
  */
-export type ForecastLaneMark =
-	| {
-			kind: 'span';
-			id: string;
-			start: string;
-			end: string;
-			title: string;
-			label: string;
-			href: string;
-			emphasis: 'strong' | 'quiet' | 'cancelled';
-	  }
-	| { kind: 'point'; id: string; date: string; label: string; href: string };
+export type ForecastLaneMark = { id: string; title: string; detail: string; label: string; href: string } & (
+	| { kind: 'span'; start: string; end: string; emphasis: 'strong' | 'quiet' | 'cancelled' }
+	| { kind: 'point'; date: string }
+);
 
 export type PlacedLaneMark = ForecastLaneMark & {
 	/** 1-based grid column of the first forecast day the mark covers. */
 	column: number;
 	span: number;
-	/** 1-based row: spans pack into the fewest rows, points stack below at least SPAN_ROWS of them. */
+	/** 1-based row: spans take the first SPAN_ROWS, points the row below. */
 	row: number;
 	/** Free columns after a span in its row, where a short span's title can run. */
 	room: number;
+	/** Marks with no row of their own on these days, listed with this one. */
+	more: readonly ForecastLaneMark[];
 };
 
 /** A lane whose data arrives after the page: placeholder while pending, its own error with retry when failed. */
@@ -37,6 +31,7 @@ export type ForecastLaneRead =
 export interface ForecastLegendEntry {
 	kind: ForecastLaneMark['kind'];
 	label: string;
+	plural: string;
 }
 
 export interface DashboardForecastLaneView {
@@ -48,10 +43,14 @@ export interface DashboardForecastLaneView {
 	read: { state: 'ready'; marks: readonly PlacedLaneMark[] } | Exclude<ForecastLaneRead, { state: 'ready' }>;
 }
 
-/** Span rows a lane keeps even when fewer are used, so its points stay on one line and its height holds. */
+/** A lane is always this many span rows and one point row, so its height never changes when data arrives. */
 export const SPAN_ROWS = 2;
+export const LANE_ROWS = SPAN_ROWS + 1;
 
-/** Places marks on the forecast's day columns, clipping spans to the window and dropping marks outside it. */
+/**
+ * Places marks on the forecast's day columns, clipping spans to the window and dropping marks outside it. A span with
+ * no free row is listed with the bottom-row span it overlaps, and a day's later points with its first.
+ */
 export function placeForecastLaneMarks(
 	days: readonly string[],
 	marks: readonly ForecastLaneMark[]
@@ -68,34 +67,38 @@ export function placeForecastLaneMarks(
 		return [{ mark, column: from - first + 1, span: Math.min(end, last) - from + 1 }];
 	});
 
-	const taken: boolean[][] = [];
-	const free = (row: number, column: number) => !taken[row]?.[column];
-	const spans = clipped
+	type Placed = { mark: ForecastLaneMark; column: number; span: number; row: number; more: ForecastLaneMark[] };
+	const rows: (Placed | undefined)[][] = Array.from({ length: SPAN_ROWS }, () => []);
+	const spans: Placed[] = [];
+	for (const { mark, column, span } of clipped
 		.filter(({ mark }) => mark.kind === 'span')
-		.sort((a, b) => a.column - b.column || b.span - a.span)
-		.map((placed) => {
-			const columns = Array.from({ length: placed.span }, (_, offset) => placed.column + offset);
-			let row = 0;
-			while (!columns.every((column) => free(row, column))) row++;
-			taken[row] ??= [];
-			for (const column of columns) taken[row][column] = true;
-			return { ...placed, row };
-		});
-	const spanRows = Math.max(taken.length, SPAN_ROWS);
-	const pointsOn = new Map<number, number>();
+		.sort((a, b) => a.column - b.column || b.span - a.span)) {
+		const columns = Array.from({ length: span }, (_, offset) => column + offset);
+		const row = rows.findIndex((cells) => columns.every((cell) => !cells[cell]));
+		if (row < 0) {
+			columns
+				.map((cell) => rows[SPAN_ROWS - 1][cell])
+				.find((host) => host)
+				?.more.push(mark);
+			continue;
+		}
+		const placed = { mark, column, span, row, more: [] };
+		for (const cell of columns) rows[row][cell] = placed;
+		spans.push(placed);
+	}
 
-	return [
-		...spans.map(({ mark, column, span, row }) => {
-			let room = 0;
-			while (column + span + room <= days.length && free(row, column + span + room)) room++;
-			return { ...mark, column, span, row: row + 1, room };
-		}),
-		...clipped
-			.filter(({ mark }) => mark.kind === 'point')
-			.map(({ mark, column, span }) => {
-				const stacked = pointsOn.get(column) ?? 0;
-				pointsOn.set(column, stacked + 1);
-				return { ...mark, column, span, row: spanRows + stacked + 1, room: 0 };
-			})
-	];
+	const points = new Map<number, Placed>();
+	for (const { mark, column, span } of clipped.filter(({ mark }) => mark.kind === 'point')) {
+		const host = points.get(column);
+		if (host) host.more.push(mark);
+		else points.set(column, { mark, column, span, row: SPAN_ROWS, more: [] });
+	}
+
+	return [...spans, ...points.values()].map(({ mark, column, span, row, more }) => {
+		let room = 0;
+		if (mark.kind === 'span') {
+			while (column + span + room <= days.length && !rows[row][column + span + room]) room++;
+		}
+		return { ...mark, column, span, row: row + 1, room, more };
+	});
 }

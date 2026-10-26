@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { calendarStore } from '$features/calendar';
 import { createRawSnippet } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -377,6 +377,7 @@ describe('Dashboard sections', () => {
 		start: '2026-10-20',
 		end: '2026-10-22',
 		title: 'FTX',
+		detail: '20 Oct to 22 Oct',
 		label: 'FTX exercise',
 		href: '/org/org-1/ftx',
 		emphasis: 'strong' as const
@@ -412,6 +413,7 @@ describe('Dashboard sections', () => {
 					id: 'exercises',
 					label: 'Exercises',
 					empty: 'No exercises.',
+					legend: [],
 					read: () => ({ state: 'ready', marks: [ftx] })
 				}
 			]
@@ -449,7 +451,13 @@ describe('Dashboard sections', () => {
 				]
 			],
 			forecastLanes: [
-				{ id: 'exercises', label: 'Exercises', empty: 'No exercises.', read: () => ({ state: 'ready', marks: [ftx] }) }
+				{
+					id: 'exercises',
+					label: 'Exercises',
+					empty: 'No exercises.',
+					legend: [],
+					read: () => ({ state: 'ready', marks: [ftx] })
+				}
 			]
 		});
 		const ctx = createDashboardScreenModel({ ...pageData(), disabledFeatures: ['criticalTasks'] }, { sources });
@@ -513,9 +521,43 @@ describe('Dashboard sections', () => {
 			expect(bands().every((band) => band?.getAttribute('aria-busy') === 'false')).toBe(true);
 		});
 
-		it('adds no lane when the Tasking read is off', () => {
+		it('lists the suspenses due on one day behind its first diamond', async () => {
+			const due = (taskingId: string) => ({
+				taskingId,
+				title: taskingId,
+				suspenseOn: '2026-10-22',
+				status: 'open' as const
+			});
+			renderWith({
+				status: 'ready',
+				attention: { rows: [], total: 0 },
+				forecast: { events: [], suspenses: [due('t-1'), due('t-2'), due('t-3')] }
+			});
+
+			expect(
+				within(lane()!)
+					.getAllByRole('link')
+					.map((mark) => mark.getAttribute('href'))
+			).toEqual(['/org/org-1/calendar/taskings/t-1']);
+			await fireEvent.click(within(lane()!).getByRole('button'));
+
+			const list = await waitFor(() => {
+				const content = document.querySelector<HTMLElement>('[data-slot="popover-content"]');
+				expect(content).not.toBeNull();
+				return content!;
+			});
+			const listed = within(list).getAllByRole('link');
+			expect(listed.map((mark) => mark.getAttribute('href'))).toEqual([
+				'/org/org-1/calendar/taskings/t-1',
+				'/org/org-1/calendar/taskings/t-2',
+				'/org/org-1/calendar/taskings/t-3'
+			]);
+		});
+
+		it('leaves the forecast in place without a lane when the Tasking read is off', () => {
 			renderWith({ status: 'off' });
 
+			expect(bands()[0]).toBeTruthy();
 			expect(lane()).toBeNull();
 		});
 	});

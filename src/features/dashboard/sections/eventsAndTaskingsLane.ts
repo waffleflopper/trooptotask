@@ -12,24 +12,29 @@ function eventMark(inputs: DashboardInputs, event: ProjectedEvent): ForecastLane
 			? `on ${formatDayMonth(event.startsOn)}`
 			: `${formatDayMonth(event.startsOn)} to ${formatDayMonth(event.endsOn)}`;
 	const standing = { strong: 'with Taskings for you', quiet: 'for awareness', cancelled: 'cancelled' }[emphasis];
+	const detail = `${dates}, ${standing}`;
 	return {
 		kind: 'span',
 		id: `event:${event.id}`,
 		start: event.startsOn,
 		end: event.endsOn,
 		title: event.title,
-		label: `Event ${event.title}, ${dates}, ${standing}`,
+		detail,
+		label: `Event ${event.title}, ${detail}`,
 		href: `${orgPath(inputs)}/calendar/events/${event.id}`,
 		emphasis
 	};
 }
 
 function suspenseMark(inputs: DashboardInputs, suspense: ProjectedSuspense): ForecastLaneMark {
+	const detail = `due ${formatDayMonth(suspense.suspenseOn)}`;
 	return {
 		kind: 'point',
 		id: `suspense:${suspense.taskingId}`,
 		date: suspense.suspenseOn,
-		label: `Suspense ${suspense.title}, due ${formatDayMonth(suspense.suspenseOn)}`,
+		title: suspense.title,
+		detail,
+		label: `Suspense ${suspense.title}, ${detail}`,
 		href: `${orgPath(inputs)}/calendar/taskings/${suspense.taskingId}`
 	};
 }
@@ -40,8 +45,8 @@ export const eventsAndTaskingsLane: ForecastLane = {
 	label: 'Events and suspenses',
 	empty: 'No Events or suspenses in the next 14 days.',
 	legend: [
-		{ kind: 'span', label: 'Event' },
-		{ kind: 'point', label: 'Suspense' }
+		{ kind: 'span', label: 'Event', plural: 'Events' },
+		{ kind: 'point', label: 'Suspense', plural: 'Suspenses' }
 	],
 	read: (inputs) => {
 		const { taskings } = inputs.page;

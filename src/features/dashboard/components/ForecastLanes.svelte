@@ -1,8 +1,14 @@
 <script lang="ts">
+	import { MarkerListPopover } from '$features/calendar';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import type { DashboardPageUpdates } from '../dashboardPageUpdates';
-	import { SPAN_ROWS, type DashboardForecastLaneView, type PlacedLaneMark } from '../sections/forecastLanes';
+	import {
+		LANE_ROWS,
+		type DashboardForecastLaneView,
+		type ForecastLaneMark,
+		type PlacedLaneMark
+	} from '../sections/forecastLanes';
 
 	let {
 		days,
@@ -12,37 +18,67 @@
 
 	const ROW = 22;
 	const GAP = 4;
-	/** The span rows and one point row, so the common lane keeps the height its placeholder holds. */
-	const ROWS = SPAN_ROWS + 1;
-	const MIN_HEIGHT = ROWS * ROW + (ROWS - 1) * GAP;
+	const HEIGHT = LANE_ROWS * ROW + (LANE_ROWS - 1) * GAP;
 	const focus = 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+	const chip = `flex shrink-0 items-center rounded-sm border border-dashed border-muted-foreground px-1 font-mono text-[11px] leading-none font-semibold text-foreground ${focus}`;
 
 	/** A span too short for its title shows the title beside it, in the free days that follow. */
 	function titleBeside(mark: PlacedLaneMark): boolean {
-		return mark.kind === 'span' && mark.span < 3 && mark.room > 0;
+		return mark.kind === 'span' && mark.span < 3 && mark.room > 0 && mark.more.length === 0;
 	}
+
+	function counted(lane: DashboardForecastLaneView, kind: ForecastLaneMark['kind'], count: number): string {
+		const entry = lane.legend.find((legend) => legend.kind === kind);
+		return entry ? `${count} ${count === 1 ? entry.label : entry.plural}` : String(count);
+	}
+
+	function listed(mark: PlacedLaneMark) {
+		return [mark, ...mark.more].map(({ id, title, detail, href }) => ({ key: id, title, detail, href }));
+	}
+
+	const titles = (marks: readonly ForecastLaneMark[]) => marks.map((mark) => mark.title).join(', ');
 </script>
 
+{#snippet more(lane: DashboardForecastLaneView, mark: PlacedLaneMark, className: string)}
+	<MarkerListPopover
+		label={`${counted(lane, mark.kind, mark.more.length)} more: ${titles(mark.more)}`}
+		heading={counted(lane, mark.kind, mark.more.length + 1)}
+		items={listed(mark)}
+		class={className}
+	>
+		+{mark.more.length}
+	</MarkerListPopover>
+{/snippet}
+
 {#each lanes as lane (lane.id)}
-	<div class="border-t border-border pt-2" style:min-height="{MIN_HEIGHT + 9}px" data-forecast-lane={lane.id}>
+	<div class="border-t border-border pt-2" style:height="{HEIGHT + 9}px" data-forecast-lane={lane.id}>
 		{#if lane.read.state === 'ready' && lane.read.marks.length > 0}
 			<ul
 				class="grid gap-x-1.5"
 				style:row-gap="{GAP}px"
 				style:grid-template-columns="repeat({days.length}, minmax(0, 1fr))"
-				style:grid-auto-rows="{ROW}px"
+				style:grid-template-rows="repeat({LANE_ROWS}, {ROW}px)"
 				aria-label={lane.label}
 			>
 				{#each lane.read.marks as mark (mark.id)}
 					{@const beside = titleBeside(mark)}
 					{@const columns = mark.span + (beside ? mark.room : 0)}
-					<li class="min-w-0" style:grid-column="{mark.column} / span {columns}" style:grid-row={mark.row}>
-						{#if mark.kind === 'span'}
+					<li class="flex min-w-0 gap-1" style:grid-column="{mark.column} / span {columns}" style:grid-row={mark.row}>
+						{#if mark.kind === 'span' && mark.span === 1 && mark.more.length > 0}
+							<MarkerListPopover
+								label={`${counted(lane, mark.kind, mark.more.length + 1)}: ${titles([mark, ...mark.more])}`}
+								heading={counted(lane, mark.kind, mark.more.length + 1)}
+								items={listed(mark)}
+								class="{chip} w-full justify-center"
+							>
+								{mark.more.length + 1}
+							</MarkerListPopover>
+						{:else if mark.kind === 'span'}
 							<a
 								href={mark.href}
 								aria-label={mark.label}
 								title={mark.label}
-								class="flex h-full min-w-0 items-center gap-1.5 rounded-[3px] text-[13px] leading-[22px] no-underline {focus}"
+								class="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-[3px] text-[13px] leading-[22px] no-underline {focus}"
 							>
 								<span
 									aria-hidden="true"
@@ -69,15 +105,21 @@
 									</span>
 								{/if}
 							</a>
+							{#if mark.more.length > 0}
+								{@render more(lane, mark, chip)}
+							{/if}
 						{:else}
 							<a
 								href={mark.href}
 								aria-label={mark.label}
 								title={mark.label}
-								class="flex h-full items-center justify-center rounded-[3px] {focus}"
+								class="flex h-full min-w-0 flex-1 items-center justify-center rounded-[3px] {focus}"
 							>
-								<span class="size-2.5 rotate-45 bg-foreground" aria-hidden="true"></span>
+								<span class="size-2.5 shrink-0 rotate-45 bg-foreground" aria-hidden="true"></span>
 							</a>
+							{#if mark.more.length > 0}
+								{@render more(lane, mark, `${chip} h-4 self-center px-0.5 text-[10px]`)}
+							{/if}
 						{/if}
 					</li>
 				{/each}

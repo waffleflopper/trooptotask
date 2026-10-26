@@ -492,35 +492,40 @@ rpc/calendar_tasking_attention hold 1 60000` records `matches: 0` after a reload
 
 The strength forecast has one `Events and suspenses` lane under its day labels, read by the same
 `GET api/dashboard/taskings` as the Tasking rows, so it shares their pending, failed and retry state. Each Event the
-viewer can read that overlaps the 14 days is a span over its dates: filled when a Tasking on it that is not cancelled
-is in the viewer's scope, outlined in italics when it is for awareness only, dashed and struck through when cancelled.
-A span of one or two days with free days after it shows its title beside the box. Each active suspense in scope is a
-diamond on its due day. Spans use two rows and the diamonds sit on a third, so the lane is 83px tall unless more than
-two Events overlap or a day has more than one suspense. The legend adds `Event` and `Suspense`. The forecast's numbers
-never change.
+viewer can read that overlaps the 14 days is a span over its dates: filled when a Tasking on it that is not cancelled is
+in the viewer's scope, outlined in italics when it is for awareness only, dashed and struck through when cancelled. A
+span of one or two days with free days after it shows its title beside the box. Each active suspense in scope is a
+diamond on its due day. The lane is always two rows of spans and one of diamonds, 83px tall whatever arrives: an Event
+with no free row is listed behind the lower Event it overlaps, and a day's later suspenses behind its first diamond,
+each under a dashed `+N` that opens a list of every mark it stands for, with a one-day Event showing the count alone.
+The legend adds `Event` and `Suspense`. The forecast's numbers never change.
 
 Seed as `calendarOperate` from the page with one `POST` each to `/org/A/api/calendar-events` (`{ id, draft }`, host
 `{ kind: 'organization' }`) and `/org/A/api/calendar-taskings` (no execution or requirement), dates relative to the
-browser day D: Event `Best Medic Competition` D+1 to D+4 with an Alpha Tasking due D+2; `Brigade CG visit` on D+3 with
-a Bravo Tasking due D+3; `Post cleanup week` D+7 to D+11 with no Tasking; `Range closure` on D+9, then
+browser day D: Event `Best Medic Competition` D+1 to D+4 with an Alpha Tasking due D+2; `Brigade CG visit` on D+3 with a
+Bravo Tasking due D+3; `Post cleanup week` D+7 to D+11 with no Tasking; `Range closure` on D+9, then
 `POST .../ID/cancel` with `{ reason }`; and standalone Taskings due D+4 for Alpha, Bravo and the Organization.
 
 1. **Operator.** As `calendarOperate` at 1440 the lane shows `Best Medic Competition` filled over D+1 to D+4,
    `Brigade CG visit` filled on D+3 with its title beside it, `Post cleanup week` outlined over D+7 to D+11 and
-   `Range closure` dashed and struck through on D+9. Five diamonds show: D+2, D+3 and three stacked on D+4. Every mark
-   is a link whose name gives the kind, title, dates and standing, such as
-   `Event Best Medic Competition, 27 Oct to 30 Oct, with Taskings for you` or `Suspense TITLE, due 30 Oct`.
+   `Range closure` dashed and struck through on D+9. Diamonds show on D+2, D+3 and D+4, where `+2` opens a list of the
+   three suspenses due that day, each a link to its detail. Every mark is a link whose name gives the kind, title, dates
+   and standing, such as `Event Best Medic Competition, 27 Oct to 30 Oct, with Taskings for you` or
+   `Suspense TITLE, due 30 Oct`.
 2. **Open.** Tab from `Open calendar`: focus moves to the first Event with a visible ring. Enter opens
-   `/org/A/calendar/events/ID`; Enter on a diamond opens `/org/A/calendar/taskings/ID`.
+   `/org/A/calendar/events/ID`; Enter on a diamond opens `/org/A/calendar/taskings/ID`, and on `+2` the list, where Tab
+   reaches each Tasking.
 3. **Scoped and read-only.** As `calendarScoped` (Alpha) every Event shows, but `Brigade CG visit` is outlined because
    its only work is Bravo's, and only the two Alpha diamonds show: no Bravo or Organization suspense. The lane is 83px.
    As `calendarView` the lane matches the operator's.
-4. **Failed and pending.** `$V server-source arm rpc/calendar_tasking_attention fail-hard 1 60000` and reload: the lane
+4. **Overlap.** Add `Lane Ammo draw` D+2 to D+3 and reload: it is listed behind `Brigade CG visit`, which shows the
+   count `2`, and the lane stays 83px.
+5. **Failed and pending.** `$V server-source arm rpc/calendar_tasking_attention fail-hard 1 60000` and reload: the lane
    reads `Events and suspenses could not load.` with `Try again`, at the same 83px, while the forecast, by-group strip
-   and On duty render. `server-source restore` and press the lane's `Try again`: one
-   `GET api/dashboard/taskings?asOf=D` and the marks. With `hold 1 40000` instead the lane holds three skeleton bars at
-   83px (`Loading events and suspenses` for screen readers) and the Strength band is not busy; `release` fills it.
-5. **Switch off and widths.** With `Events & Taskings` off the lane and its legend entries are gone and no
+   and On duty render. `server-source restore` and press the lane's `Try again`: one `GET api/dashboard/taskings?asOf=D`
+   and the marks. With `hold 1 40000` instead the lane holds three skeleton bars at 83px (`Loading events and suspenses`
+   for screen readers) and the Strength band is not busy; `release` fills it.
+6. **Switch off and widths.** With `Events & Taskings` off the lane and its legend entries are gone and no
    `api/dashboard/taskings` request leaves. Capture the lane for the operator, `calendarScoped`, `calendarView`, failed
    and pending at 1440, 900 and 390. At 390 the lane scrolls sideways with the forecast's days and `scrollWidth` equals
    the viewport.

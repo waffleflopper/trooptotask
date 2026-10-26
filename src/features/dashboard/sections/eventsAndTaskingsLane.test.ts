@@ -34,7 +34,7 @@ describe('eventsAndTaskingsLane', () => {
 			})
 		);
 
-		expect(read?.state === 'ready' && read.marks.map(({ label: _label, ...mark }) => mark)).toEqual([
+		expect(read?.state === 'ready' && read.marks.map(({ label: _label, detail: _detail, ...mark }) => mark)).toEqual([
 			{
 				kind: 'span',
 				id: 'event:e-work',
@@ -62,7 +62,13 @@ describe('eventsAndTaskingsLane', () => {
 				href: '/org/org-1/calendar/events/e-off',
 				emphasis: 'cancelled'
 			},
-			{ kind: 'point', id: 'suspense:t-1', date: '2026-10-28', href: '/org/org-1/calendar/taskings/t-1' }
+			{
+				kind: 'point',
+				id: 'suspense:t-1',
+				date: '2026-10-28',
+				title: 'Names to the 1SG',
+				href: '/org/org-1/calendar/taskings/t-1'
+			}
 		]);
 	});
 

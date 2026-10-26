@@ -69,7 +69,7 @@ export interface ForecastLane {
 	label: string;
 	/** Said in place of the marks when the lane has none. */
 	empty: string;
-	legend?: readonly ForecastLegendEntry[];
+	legend: readonly ForecastLegendEntry[];
 	/** Null leaves the lane out, as when its source is not read for this viewer. */
 	read: (inputs: DashboardInputs) => ForecastLaneRead | null;
 }
@@ -224,7 +224,7 @@ export function composeDashboardSections(
 						id: lane.id,
 						label: lane.label,
 						empty: lane.empty,
-						legend: lane.legend ?? [],
+						legend: lane.legend,
 						read:
 							read.state === 'ready'
 								? { state: 'ready' as const, marks: placeForecastLaneMarks(inputs.forecastDays, read.marks) }

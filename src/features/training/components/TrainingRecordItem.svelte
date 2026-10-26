@@ -27,8 +27,12 @@
 		orgId: string;
 		asOf: string;
 		expanded: boolean;
+		/** Open to fix the stored record, not to renew it. */
+		correcting: boolean;
 		/** A save is in flight somewhere in the sheet. */
 		busy: boolean;
+		/** Whether this person may exempt Soldiers from types, which edits the type itself. */
+		canExempt: boolean;
 		/** True while the sheet is still on this Soldier and this item is still open. */
 		isCurrent: () => boolean;
 		onToggle: () => void;
@@ -47,7 +51,9 @@
 		orgId,
 		asOf,
 		expanded,
+		correcting,
 		busy,
+		canExempt,
 		isCurrent,
 		onToggle,
 		onEdit,
@@ -61,6 +67,8 @@
 	const { type, record, statusInfo } = $derived(item);
 	const isExempt = $derived(section === 'exempt');
 	const statusLine = $derived(getStatusLine(statusInfo, record, type));
+	const canExemptHere = $derived(canExempt && type.canBeExempted && section !== 'not-required');
+	const hasMenu = $derived(isExempt ? canExempt : true);
 	const toneClass = {
 		danger: 'text-danger-foreground',
 		warning: 'text-warning-foreground',
@@ -137,40 +145,55 @@
 			<span class="shrink-0 font-mono text-xs text-muted-foreground uppercase">Exempt</span>
 		{/if}
 
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon-sm"
-						disabled={busy}
-						aria-label={`More actions for ${type.name}`}
-					>
-						<EllipsisIcon />
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end" class="w-44">
-				{#if isExempt}
-					<DropdownMenu.Item onSelect={() => onExempt(false)}>Unexempt</DropdownMenu.Item>
-				{:else}
-					{#if type.canBeExempted && section !== 'not-required'}
-						<DropdownMenu.Item onSelect={() => onExempt(true)}>Exempt</DropdownMenu.Item>
+		{#if hasMenu}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant="ghost"
+							size="icon-sm"
+							disabled={busy}
+							aria-label={`More actions for ${type.name}`}
+						>
+							<EllipsisIcon />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end" class="w-44">
+					{#if isExempt}
+						<DropdownMenu.Item onSelect={() => onExempt(false)}>Unexempt</DropdownMenu.Item>
+					{:else}
+						{#if canExemptHere}
+							<DropdownMenu.Item onSelect={() => onExempt(true)}>Exempt</DropdownMenu.Item>
+						{/if}
+						<DropdownMenu.Item onSelect={onEdit}>{record ? 'Edit' : 'Add record'}</DropdownMenu.Item>
+						{#if record}
+							<DropdownMenu.Separator />
+							<DropdownMenu.Item variant="destructive" onSelect={onDelete}>Delete</DropdownMenu.Item>
+						{/if}
 					{/if}
-					<DropdownMenu.Item onSelect={onEdit}>{record ? 'Edit' : 'Add record'}</DropdownMenu.Item>
-					{#if record}
-						<DropdownMenu.Separator />
-						<DropdownMenu.Item variant="destructive" onSelect={onDelete}>Delete</DropdownMenu.Item>
-					{/if}
-				{/if}
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{/if}
 	</div>
 
 	{#if expanded}
 		<div class="pr-1 pb-3 pl-8">
-			<TrainingRecordForm {person} {type} training={record} {orgId} today={asOf} {isCurrent} {onSave} {onDirtyChange} />
+			{#key correcting}
+				<TrainingRecordForm
+					{person}
+					{type}
+					training={record}
+					{orgId}
+					today={asOf}
+					{isCurrent}
+					{busy}
+					keepRecordedDate={correcting}
+					{onSave}
+					{onDirtyChange}
+				/>
+			{/key}
 		</div>
 	{/if}
 </li>

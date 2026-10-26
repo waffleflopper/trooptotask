@@ -9,7 +9,6 @@ import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 
 const { gotoMock, pageMock } = vi.hoisted(() => ({
@@ -47,10 +46,9 @@ function org(training: 'configure' | 'view') {
 }
 const makeOrg = () => org('configure');
 const makeData = () => ({ orgId: 'org-1', orgName: 'Test Org', isOwner: false, isAdmin: false });
-const modals = new ModalRegistry();
 
-function makeContext(data: ReturnType<typeof makeData>, _modals: ModalRegistry, access: ReturnType<typeof org>) {
-	return new TrainingPageContext(data, _modals, access, vi.fn().mockResolvedValue(true), vi.fn());
+function makeContext(data: ReturnType<typeof makeData>, access: ReturnType<typeof org>) {
+	return new TrainingPageContext(data, access, vi.fn().mockResolvedValue(true), vi.fn());
 }
 
 describe('TrainingPageContext record sheet', () => {
@@ -96,7 +94,7 @@ describe('TrainingPageContext record sheet', () => {
 		};
 
 		it('pushes a history entry that opens the record for the clicked Soldier', async () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.handlePersonClick(mockPerson);
 			await Promise.resolve();
 
@@ -106,7 +104,7 @@ describe('TrainingPageContext record sheet', () => {
 		});
 
 		it('closes by going back, which removes the param and the sheet', async () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.handlePersonClick(mockPerson);
 			await Promise.resolve();
 
@@ -118,7 +116,7 @@ describe('TrainingPageContext record sheet', () => {
 
 		it('keeps the page entry when the sheet was opened by a link and only strips the param on close', async () => {
 			openOnLoad('p-2');
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			expect(ctx.recordPerson?.id).toBe('p-2');
 
 			ctx.closeRecord();
@@ -131,7 +129,7 @@ describe('TrainingPageContext record sheet', () => {
 
 		it('names an unknown Soldier without opening anything', () => {
 			openOnLoad('nobody');
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 
 			expect(ctx.recordPersonId).toBe('nobody');
 			expect(ctx.recordPerson).toBeNull();
@@ -139,13 +137,13 @@ describe('TrainingPageContext record sheet', () => {
 
 		it('opens nothing for a viewer who cannot record training', () => {
 			openOnLoad('p-1');
-			const ctx = makeContext(makeData(), modals, org('view'));
+			const ctx = makeContext(makeData(), org('view'));
 
 			expect(ctx.recordPerson).toBeNull();
 		});
 
 		it('steps through the order the matrix reported, replacing the entry instead of stacking one', async () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.rowOrder = ['p-2', 'p-1'];
 			ctx.handlePersonClick(mockPerson2);
 			await Promise.resolve();
@@ -166,7 +164,7 @@ describe('TrainingPageContext record sheet', () => {
 		});
 
 		it('still closes with Back after stepping', async () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.rowOrder = ['p-2', 'p-1'];
 			ctx.handlePersonClick(mockPerson2);
 			await Promise.resolve();
@@ -182,7 +180,7 @@ describe('TrainingPageContext record sheet', () => {
 		it('returns focus to the control that opened the record', async () => {
 			const opener = document.createElement('button');
 			document.body.append(opener);
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.handlePersonClick(mockPerson, opener);
 
 			await ctx.restoreRecordFocus();
@@ -196,7 +194,7 @@ describe('TrainingPageContext record sheet', () => {
 			name.dataset.personOpener = 'p-1';
 			const gone = document.createElement('button');
 			document.body.append(name);
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.handlePersonClick(mockPerson, gone);
 
 			await ctx.restoreRecordFocus();

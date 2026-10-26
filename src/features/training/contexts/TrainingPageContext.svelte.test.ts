@@ -7,7 +7,6 @@ const getDefaultUserOrgPreferences = () => ({
 });
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
-import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
@@ -56,10 +55,6 @@ function makeOrg() {
 		orgUrlSegment: 'test-org',
 		...createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('configure') })
 	};
-}
-
-function makeModals() {
-	return new ModalRegistry();
 }
 
 function makePolicyOrg(options: { training: CapabilityMap['training'] }) {
@@ -157,18 +152,15 @@ function makeData(overrides: Record<string, unknown> = {}) {
 
 const submitRemovalRequest = vi.fn().mockResolvedValue(true);
 type ContextArgs = ConstructorParameters<typeof TrainingPageContext>;
-function makeContext(data: ContextArgs[0], modals: ContextArgs[1], org: ContextArgs[2]) {
-	return new TrainingPageContext(data, modals, org, submitRemovalRequest, savePreferencesMock);
+function makeContext(data: ContextArgs[0], org: ContextArgs[1]) {
+	return new TrainingPageContext(data, org, submitRemovalRequest, savePreferencesMock);
 }
 
 describe('TrainingPageContext', () => {
-	let modals: ModalRegistry;
-
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		submitRemovalRequest.mockReset().mockResolvedValue(true);
 		vi.unstubAllGlobals();
-		modals = makeModals();
 		savePreferencesMock.mockReset();
 		personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
 		groupCatalogHydration.load(mockGroups, 'org-1');
@@ -190,7 +182,7 @@ describe('TrainingPageContext', () => {
 				trainingTypesStore.load([saved], 'org-1');
 				vi.stubGlobal('fetch', async () => Response.json({ message: serverMessage }, { status }));
 				const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
-				const ctx = makeContext(makeData(), modals, makePolicyOrg({ training: 'configure' }));
+				const ctx = makeContext(makeData(), makePolicyOrg({ training: 'configure' }));
 
 				await ctx.handleToggleExempt(saved.id, mockPerson.id, exempt);
 
@@ -203,13 +195,13 @@ describe('TrainingPageContext', () => {
 	describe('canManageConfig', () => {
 		it('is false without Training configure capability', () => {
 			const org = makePolicyOrg({ training: 'operate' });
-			const ctx = makeContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), org);
 			expect(ctx.canManageConfig).toBe(false);
 		});
 
 		it('uses Training configure policy instead of legacy full-editor state', () => {
 			const org = makePolicyOrg({ training: 'configure' });
-			const ctx = makeContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), org);
 			expect(ctx.canManageConfig).toBe(true);
 		});
 
@@ -223,7 +215,7 @@ describe('TrainingPageContext', () => {
 					scopeSet: { kind: 'groups', groupIds: ['g-1'] }
 				})
 			};
-			const ctx = makeContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), org);
 
 			expect(ctx.canViewTraining).toBe(true);
 			expect(ctx.canManageConfig).toBe(false);
@@ -233,20 +225,20 @@ describe('TrainingPageContext', () => {
 	describe('training policy affordances', () => {
 		it('allows an operator to record completions with Training operate capability', () => {
 			const org = makePolicyOrg({ training: 'operate' });
-			const ctx = makeContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), org);
 
 			expect(ctx.canViewTraining).toBe(true);
 			expect(ctx.canRecordTraining).toBe(true);
 		});
 
 		it('denies record affordances for view-only capability', () => {
-			const viewOnly = makeContext(makeData(), modals, makePolicyOrg({ training: 'view' }));
+			const viewOnly = makeContext(makeData(), makePolicyOrg({ training: 'view' }));
 
 			expect(viewOnly.canRecordTraining).toBe(false);
 		});
 
 		it('uses Training view policy for page visibility', () => {
-			const ctx = makeContext(makeData(), modals, makePolicyOrg({ training: 'none' }));
+			const ctx = makeContext(makeData(), makePolicyOrg({ training: 'none' }));
 
 			expect(ctx.canViewTraining).toBe(false);
 		});
@@ -254,7 +246,7 @@ describe('TrainingPageContext', () => {
 
 	describe('availableRoles', () => {
 		it('returns sorted unique non-null clinic roles', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			// mockPerson has null clinicRole, mockPerson2 has 'Medic'
 			expect(ctx.availableRoles).toEqual(['Medic']);
 		});
@@ -262,7 +254,7 @@ describe('TrainingPageContext', () => {
 		it('returns empty array when no roles', () => {
 			personnelRosterHydration.load([{ ...mockPerson, clinicRole: null } as unknown as Personnel], 'org-1');
 			const data = makeData();
-			const ctx = makeContext(data, modals, makeOrg());
+			const ctx = makeContext(data, makeOrg());
 			expect(ctx.availableRoles).toEqual([]);
 		});
 	});
@@ -272,7 +264,7 @@ describe('TrainingPageContext', () => {
 		personnelRosterHydration.load([workspacePerson], 'org-1');
 		const data = makeData();
 
-		const ctx = makeContext(data, modals, makeOrg());
+		const ctx = makeContext(data, makeOrg());
 
 		expect(ctx.personnel).toEqual([workspacePerson]);
 		expect(ctx.filteredPersonnel[0].id).toBe('workspace-person');
@@ -280,13 +272,13 @@ describe('TrainingPageContext', () => {
 
 	describe('filteredPersonnel', () => {
 		it('returns all personnel sorted by last name when no group selected', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			expect(ctx.filteredPersonnel[0].lastName).toBe('Adams');
 			expect(ctx.filteredPersonnel[1].lastName).toBe('Smith');
 		});
 
 		it('filters by selectedGroupId', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.selectedGroupId = 'g-1';
 			expect(ctx.filteredPersonnel).toHaveLength(1);
 			expect(ctx.filteredPersonnel[0].id).toBe('p-1');
@@ -294,7 +286,7 @@ describe('TrainingPageContext', () => {
 
 		it('filters unassigned personnel through the roster group filter value', async () => {
 			personnelRosterHydration.load([mockPerson, mockPerson2, unassignedPerson], 'org-1');
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 
 			expect(ctx.groupFilterOptions).toContainEqual({ value: 'name:Unassigned', label: 'Unassigned' });
 
@@ -309,7 +301,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('narrows the group-filtered rows by the search query', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.searchQuery = 'adams';
 			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
 
@@ -332,7 +324,6 @@ describe('TrainingPageContext', () => {
 						}
 					}
 				}),
-				modals,
 				makeOrg()
 			);
 
@@ -345,7 +336,7 @@ describe('TrainingPageContext', () => {
 
 	describe('groups', () => {
 		it('reads groups from the hydrated groups store', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 
 			expect(ctx.groups).toEqual(mockGroups);
 		});
@@ -359,14 +350,14 @@ describe('TrainingPageContext', () => {
 			];
 			trainingRankCatalogStore.load(catalog, 'org-1');
 
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 
 			expect(ctx.rankCatalog).toEqual(catalog);
 		});
 	});
 
 	it('propagates training save failures', async () => {
-		const ctx = makeContext(makeData(), modals, makeOrg());
+		const ctx = makeContext(makeData(), makeOrg());
 		vi.spyOn(personnelTrainingsStore, 'add').mockRejectedValueOnce(new Error('insert blocked by policy'));
 
 		await expect(
@@ -399,7 +390,7 @@ describe('TrainingPageContext', () => {
 				.mockResolvedValueOnce(new Response(null, { status: 503 }))
 				.mockResolvedValueOnce(new Response(null, { status: 200 }))
 		);
-		const ctx = makeContext(makeData(), modals, makeOrg());
+		const ctx = makeContext(makeData(), makeOrg());
 		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
 		expect(personnelTrainingsStore.items).toEqual([record]);
 		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
@@ -426,7 +417,7 @@ describe('TrainingPageContext', () => {
 				.mockResolvedValueOnce(Response.json({ requiresApproval: true }, { status: 202 }))
 		);
 		submitRemovalRequest.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-		const ctx = makeContext(makeData(), modals, makeOrg());
+		const ctx = makeContext(makeData(), makeOrg());
 		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
 		expect(personnelTrainingsStore.items).toEqual([record]);
 		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
@@ -476,7 +467,6 @@ describe('TrainingPageContext', () => {
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
 			const ctx = new TrainingPageContext(
 				makeData(),
-				modals,
 				makePolicyOrg({ training: 'operate' }),
 				submitDeletionRequest,
 				savePreferencesMock
@@ -552,7 +542,7 @@ describe('TrainingPageContext', () => {
 		};
 
 		it('posts one batch request and merges inserted and updated results', async () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			personnelTrainingsStore.load([{ ...updatedTraining, notes: 'Original notes' }], 'org-1');
 			const fetchMock = vi.fn().mockResolvedValue({
 				ok: true,
@@ -573,7 +563,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('throws on non-OK response and does not mutate the training store', async () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			personnelTrainingsStore.load([updatedTraining], 'org-1');
 			vi.stubGlobal(
 				'fetch',
@@ -590,7 +580,7 @@ describe('TrainingPageContext', () => {
 
 		it('keeps the destination Organization records unchanged when an old batch response arrives', async () => {
 			personnelTrainingsStore.load([], 'org-1');
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			let respond!: (response: Response) => void;
 			const response = new Promise<Response>((resolve) => {
 				respond = resolve;
@@ -618,7 +608,7 @@ describe('TrainingPageContext', () => {
 	it.each(['success', 'failure'] as const)(
 		'keeps a disposed workspace batch quiet after a late %s on returning to its Organization',
 		async (outcome) => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			let resolve!: (response: Response) => void;
 			let reject!: (error: Error) => void;
 			const pending = new Promise<Response>((yes, no) => {
@@ -659,7 +649,7 @@ describe('TrainingPageContext', () => {
 
 	describe('default viewMode', () => {
 		it('defaults to by-group', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			expect(ctx.viewMode).toBe('by-group');
 		});
 
@@ -679,7 +669,6 @@ describe('TrainingPageContext', () => {
 						}
 					}
 				}),
-				modals,
 				makeOrg()
 			);
 
@@ -703,7 +692,6 @@ describe('TrainingPageContext', () => {
 						}
 					}
 				}),
-				modals,
 				makeOrg()
 			);
 
@@ -736,7 +724,6 @@ describe('TrainingPageContext', () => {
 						}
 					}
 				}),
-				modals,
 				makeOrg()
 			);
 
@@ -766,14 +753,14 @@ describe('TrainingPageContext', () => {
 
 	describe('toggleGroup', () => {
 		it('adds a group to collapsedGroups', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			expect(ctx.collapsedGroups.has('Alpha')).toBe(false);
 			ctx.toggleGroup('Alpha');
 			expect(ctx.collapsedGroups.has('Alpha')).toBe(true);
 		});
 
 		it('removes a group already in collapsedGroups', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.toggleGroup('Alpha');
 			ctx.toggleGroup('Alpha');
 			expect(ctx.collapsedGroups.has('Alpha')).toBe(false);
@@ -782,18 +769,18 @@ describe('TrainingPageContext', () => {
 
 	describe('isExempt', () => {
 		it('returns true when person is in exemptPersonnelIds', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			expect(ctx.isExempt(mockPerson, mockType)).toBe(true);
 		});
 
 		it('returns false when person is not exempt', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			expect(ctx.isExempt(mockPerson2, mockType)).toBe(false);
 		});
 
 		it('returns false when type cannot be exempted', () => {
 			const nonExemptType = { ...mockType, canBeExempted: false };
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			expect(ctx.isExempt(mockPerson, nonExemptType)).toBe(false);
 		});
 	});

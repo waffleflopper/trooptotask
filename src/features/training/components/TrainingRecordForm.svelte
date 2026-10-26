@@ -23,6 +23,10 @@
 		today: string;
 		/** True while the surface that shows this form is still open on this person and type. */
 		isCurrent: () => boolean;
+		/** Start from the record's stored date instead of today, so a correction does not move the completion. */
+		keepRecordedDate?: boolean;
+		/** A save elsewhere on the surface is in flight: hold this one back. */
+		busy?: boolean;
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
 		/** Runs after a save that this form is still showing; `isUpdate` is true when it replaced a record. */
 		onSaved?: (isUpdate: boolean) => void;
@@ -34,8 +38,21 @@
 		footer?: Snippet;
 	}
 
-	let { person, type, training, orgId, today, isCurrent, onSave, onSaved, onDirtyChange, header, footer }: Props =
-		$props();
+	let {
+		person,
+		type,
+		training,
+		orgId,
+		today,
+		isCurrent,
+		keepRecordedDate = false,
+		busy = false,
+		onSave,
+		onSaved,
+		onDirtyChange,
+		header,
+		footer
+	}: Props = $props();
 
 	const uid = $props.id();
 	const startOrgId = untrack(() => orgId);
@@ -46,7 +63,12 @@
 	const stillHere = () => !disposed && orgId === startOrgId && isCurrent();
 
 	const kind = $derived(renewalMode(type));
-	const initialDate = untrack(() => (type.expirationDateOnly ? '' : today));
+	const initialDate = untrack(() => {
+		if (keepRecordedDate && training) {
+			return type.expirationDateOnly ? (training.expirationDate ?? '') : (training.completionDate ?? today);
+		}
+		return type.expirationDateOnly ? '' : today;
+	});
 	let date = $state(initialDate);
 	// An uploaded certificate is a storage path, not a link: it stays on the record unless a link replaces it.
 	const storedCertificate = untrack(() => training?.certificateUrl ?? null);
@@ -67,7 +89,7 @@
 	const expirationDate = $derived(
 		kind === 'cardDate' ? date || null : kind === 'months' ? calculateExpirationDate(date, type.expirationMonths) : null
 	);
-	const canSave = $derived(date !== '' && !saving);
+	const canSave = $derived(date !== '' && !saving && !busy);
 
 	const preview = $derived.by(() => {
 		if (kind === 'never') return date ? { ok: true, text: 'Never expires' } : null;

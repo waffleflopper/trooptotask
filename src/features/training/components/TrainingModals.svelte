@@ -68,6 +68,7 @@
 			orgId={ctx.orgId}
 			asOf={ctx.readinessAsOf}
 			loading={recordLoading}
+			canExempt={ctx.trainingConfigureAffordance.allowed}
 			profileHref={resolve('/org/[orgId]/personnel/[personnelSlug]', {
 				orgId: ctx.orgUrlSegment,
 				personnelSlug: recordPerson.slug ?? recordPerson.id

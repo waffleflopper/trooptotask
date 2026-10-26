@@ -22,7 +22,6 @@ import type {
 	TrainingPagePreferences,
 	TrainingPreferencesPatch
 } from '../contracts';
-import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
@@ -75,7 +74,6 @@ export class TrainingPageContext {
 
 	constructor(
 		data: TrainingPageData,
-		_modals: ModalRegistry,
 		org: TrainingPageAccess,
 		submitRemovalRequest: TrainingRemovalRequest,
 		savePreferences: (patch: TrainingPreferencesPatch) => void

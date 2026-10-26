@@ -4,6 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+const navigationGuard = vi.hoisted(() => ({ current: null as null | ((navigation: { cancel: () => void }) => void) }));
+vi.mock('$app/navigation', () => ({
+	beforeNavigate: (guard: (navigation: { cancel: () => void }) => void) => (navigationGuard.current = guard)
+}));
+
 import TrainingRecordSheet from './TrainingRecordSheet.svelte';
 
 const ASOF = '2026-10-25';
@@ -82,6 +87,7 @@ function props(overrides: Record<string, unknown> = {}) {
 		asOf: ASOF,
 		loading: false,
 		profileHref: '/org/org-1/personnel/brooks',
+		canExempt: true,
 		canStep: { previous: true, next: true },
 		onStep: vi.fn(),
 		onSave: vi.fn().mockResolvedValue(undefined),
@@ -291,5 +297,217 @@ describe('TrainingRecordSheet', () => {
 
 		await waitFor(() => expect(onRemove).toHaveBeenCalledOnce());
 		expect(onRemove.mock.calls[0][0]).toBe('r-ok');
+	});
+
+	describe('correcting a record', () => {
+		it('renews an expired record from today when saved from its open form', async () => {
+			const onSave = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			render(TrainingRecordSheet, { props: props({ onSave }) });
+
+			await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+			await waitFor(() =>
+				expect(onSave).toHaveBeenCalledExactlyOnceWith(
+					expect.objectContaining({ trainingTypeId: 'bls', completionDate: '2026-10-25', expirationDate: '2027-10-25' })
+				)
+			);
+		});
+
+		it('keeps the stored completion date when only a note changes', async () => {
+			const onSave = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			render(TrainingRecordSheet, { props: props({ onSave }) });
+			await user.click(await screen.findByRole('button', { name: 'More actions for Safety' }));
+			await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.type(screen.getByLabelText('Notes'), 'Re-scanned certificate');
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+
+			await waitFor(() =>
+				expect(onSave).toHaveBeenCalledExactlyOnceWith({
+					personnelId: 'p1',
+					trainingTypeId: 'ok',
+					completionDate: '2026-10-06',
+					expirationDate: '2027-10-06',
+					notes: 'Re-scanned certificate',
+					certificateUrl: null
+				})
+			);
+		});
+
+		it('keeps the stored card date when only a note changes', async () => {
+			const onSave = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			const stored: PersonnelTraining = {
+				id: 'r-card',
+				personnelId: 'p1',
+				trainingTypeId: 'card',
+				completionDate: null,
+				expirationDate: '2027-03-15',
+				notes: null,
+				certificateUrl: null
+			};
+			render(TrainingRecordSheet, { props: props({ onSave, trainings: [...trainings, stored] }) });
+			await user.click(await screen.findByRole('button', { name: 'More actions for Driver card' }));
+			await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.type(screen.getByLabelText('Notes'), 'Renewed');
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+
+			await waitFor(() =>
+				expect(onSave).toHaveBeenCalledExactlyOnceWith({
+					personnelId: 'p1',
+					trainingTypeId: 'card',
+					completionDate: null,
+					expirationDate: '2027-03-15',
+					notes: 'Renewed',
+					certificateUrl: null
+				})
+			);
+		});
+	});
+
+	describe('saving from the form', () => {
+		it('keeps the draft and shows the error when a renewal the store already applied is refused', async () => {
+			const user = userEvent.setup();
+			const onSave = vi.fn(async (data: Omit<PersonnelTraining, 'id'>) => {
+				await rerender(
+					props({
+						onSave,
+						trainings: [...trainings.filter((record) => record.id !== 'r-bls'), { id: 'temp', ...data }]
+					})
+				);
+				await rerender(props({ onSave }));
+				throw new Error('Server said no');
+			});
+			const { rerender } = render(TrainingRecordSheet, { props: props({ onSave }) });
+			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.type(screen.getByLabelText('Notes'), 'Draft note');
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+
+			expect(await screen.findByText(/Server said no/)).toBeTruthy();
+			expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Draft note');
+		});
+
+		it('holds a form save back while another save is in flight', async () => {
+			const user = userEvent.setup();
+			const onSave = vi.fn().mockImplementation(() => new Promise(() => {}));
+			render(TrainingRecordSheet, { props: props({ onSave }) });
+			await user.click(await screen.findByRole('button', { name: 'Record CPR today' }));
+
+			await waitFor(() =>
+				expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true)
+			);
+			expect(onSave).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe('leaving a draft', () => {
+		async function dirtyFirstForm(user: ReturnType<typeof userEvent.setup>) {
+			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.type(screen.getByLabelText('Notes'), 'Draft note');
+		}
+
+		it('asks before opening another item, and keeps the draft when the answer is no', async () => {
+			const user = userEvent.setup();
+			render(TrainingRecordSheet, { props: props() });
+			await dirtyFirstForm(user);
+
+			await user.click(screen.getByRole('button', { name: /^CPR/ }));
+			const confirm = await screen.findByRole('alertdialog');
+			await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+
+			expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Draft note');
+			expect(screen.getByRole('button', { name: /^BLS/ }).getAttribute('aria-expanded')).toBe('true');
+		});
+
+		it('opens the other item once the draft is discarded', async () => {
+			const user = userEvent.setup();
+			render(TrainingRecordSheet, { props: props() });
+			await dirtyFirstForm(user);
+
+			await user.click(screen.getByRole('button', { name: /^CPR/ }));
+			await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard' }));
+
+			await waitFor(() =>
+				expect(screen.getByRole('button', { name: /^CPR/ }).getAttribute('aria-expanded')).toBe('true')
+			);
+			expect(screen.queryByDisplayValue('Draft note')).toBeNull();
+		});
+
+		it('opens another item without asking when nothing was typed', async () => {
+			const user = userEvent.setup();
+			render(TrainingRecordSheet, { props: props() });
+			await screen.findByRole('button', { name: 'Save' });
+
+			await user.click(screen.getByRole('button', { name: /^CPR/ }));
+
+			expect(screen.queryByRole('alertdialog')).toBeNull();
+			expect(screen.getByRole('button', { name: /^CPR/ }).getAttribute('aria-expanded')).toBe('true');
+		});
+
+		it('cancels navigation away while a form has unsaved changes', async () => {
+			const user = userEvent.setup();
+			render(TrainingRecordSheet, { props: props() });
+			await dirtyFirstForm(user);
+			const cancel = vi.fn();
+
+			navigationGuard.current?.({ cancel });
+
+			expect(cancel).toHaveBeenCalledOnce();
+			expect(screen.getByRole('link', { name: 'Open profile' }).getAttribute('aria-disabled')).toBe('true');
+		});
+
+		it('cancels navigation away while a save is in flight', async () => {
+			const user = userEvent.setup();
+			const onSave = vi.fn().mockImplementation(() => new Promise(() => {}));
+			render(TrainingRecordSheet, { props: props({ onSave }) });
+			await user.click(await screen.findByRole('button', { name: 'Record CPR today' }));
+			const cancel = vi.fn();
+
+			navigationGuard.current?.({ cancel });
+
+			expect(cancel).toHaveBeenCalledOnce();
+		});
+
+		it('lets navigation go when nothing is pending', async () => {
+			render(TrainingRecordSheet, { props: props() });
+			await screen.findByRole('dialog');
+			const cancel = vi.fn();
+
+			navigationGuard.current?.({ cancel });
+
+			expect(cancel).not.toHaveBeenCalled();
+			expect(screen.getByRole('link', { name: 'Open profile' }).getAttribute('aria-disabled')).not.toBe('true');
+		});
+	});
+
+	describe('exempting', () => {
+		const exemptable = type('fit', 'Fitness', { canBeExempted: true });
+
+		it('offers neither Exempt nor Unexempt to someone who cannot configure types', async () => {
+			const user = userEvent.setup();
+			const { rerender } = render(TrainingRecordSheet, {
+				props: props({ trainingTypes: [exemptable], trainings: [], canExempt: false })
+			});
+
+			await user.click(await screen.findByRole('button', { name: 'More actions for Fitness' }));
+			expect(await screen.findByRole('menuitem', { name: 'Add record' })).toBeTruthy();
+			expect(screen.queryByRole('menuitem', { name: 'Exempt' })).toBeNull();
+			await user.keyboard('{Escape}');
+
+			await rerender(
+				props({
+					trainingTypes: [{ ...exemptable, exemptPersonnelIds: ['p1'] }],
+					trainings: [],
+					canExempt: false
+				})
+			);
+			expect(screen.queryByRole('button', { name: 'More actions for Fitness' })).toBeNull();
+		});
 	});
 });

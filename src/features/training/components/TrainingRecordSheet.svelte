@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick, untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { beforeNavigate } from '$app/navigation';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import type { Personnel } from '$features/personnel/contracts';
@@ -32,6 +33,8 @@
 		/** True until the types, records and day this sheet reads are in. */
 		loading: boolean;
 		profileHref: string;
+		/** Exempting changes the training type, which only people who configure types may do. */
+		canExempt: boolean;
 		canStep: { previous: boolean; next: boolean };
 		onStep: (direction: -1 | 1) => void;
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => Promise<void>;
@@ -49,6 +52,7 @@
 		asOf,
 		loading,
 		profileHref,
+		canExempt,
 		canStep,
 		onStep,
 		onSave,
@@ -69,11 +73,18 @@
 	let formDirty = $state(false);
 	let saveError = $state<string | null>(null);
 	let expandedTypeId = $state<string | null>(null);
+	/** The open form fixes the stored record, so it starts from that record's date; otherwise it renews from today. */
+	let correcting = $state(false);
 	let seededFor: string | null = null;
 	let titleElement = $state<HTMLElement | null>(null);
 	let bodyElement = $state<HTMLDivElement | null>(null);
 
-	const sheet = $derived(buildTrainingRecordSheet({ person, types: trainingTypes, records: trainings, asOf }));
+	// A renewal moves its row to Current as soon as the store takes it. The form stays where it is until the save
+	// settles, so a refused save leaves the draft and its error in place.
+	let settling = $state.raw<PersonnelTraining[] | null>(null);
+	const sheet = $derived(
+		buildTrainingRecordSheet({ person, types: trainingTypes, records: settling ?? trainings, asOf })
+	);
 	const total = $derived(sheet.segments.length);
 	const group = $derived(person.groupName || 'Unassigned');
 	const subline = $derived([person.mos, person.clinicRole].filter(Boolean).join(' · '));
@@ -84,6 +95,7 @@
 		saveError = null;
 		formDirty = false;
 		expandedTypeId = untrack(() => sheet.needsAction[0]?.type.id ?? null);
+		correcting = false;
 	});
 
 	const sections = $derived<Array<{ id: RecordSection; label: string; items: RecordSheetItem[] }>>([
@@ -102,11 +114,29 @@
 
 	/** A row that changed section unmounts its form, so leave nothing expanded on it. */
 	function collapse(...typeIds: string[]) {
-		if (expandedTypeId && typeIds.includes(expandedTypeId)) expandedTypeId = null;
+		if (expandedTypeId && typeIds.includes(expandedTypeId)) open(null);
+	}
+
+	let discardTarget = $state<{ typeId: string | null; correcting: boolean } | null>(null);
+
+	function open(typeId: string | null, isCorrection = false) {
+		expandedTypeId = typeId;
+		correcting = typeId !== null && isCorrection;
+	}
+
+	function expand(typeId: string | null, isCorrection = false) {
+		if (typeId === expandedTypeId && (typeId === null || isCorrection === correcting)) return;
+		if (formDirty) discardTarget = { typeId, correcting: isCorrection };
+		else open(typeId, isCorrection);
 	}
 
 	function toggle(typeId: string) {
-		expandedTypeId = expandedTypeId === typeId ? null : typeId;
+		expand(expandedTypeId === typeId ? null : typeId);
+	}
+
+	function discardDraft() {
+		if (discardTarget) open(discardTarget.typeId, discardTarget.correcting);
+		discardTarget = null;
 	}
 
 	async function focusNextAction() {
@@ -145,11 +175,19 @@
 	}
 
 	async function saveFromForm(item: RecordSheetItem, data: Omit<PersonnelTraining, 'id'>) {
+		if (saving.pending) return;
 		const personId = person.id;
 		const isUpdate = !!item.record;
-		await saving.run(() => onSave(data));
+		await saving.run(async () => {
+			settling = trainings;
+			try {
+				await onSave(data);
+				if (sameSheet(personId)) collapse(item.type.id);
+			} finally {
+				settling = null;
+			}
+		});
 		if (!sameSheet(personId)) return;
-		collapse(item.type.id);
 		toast.success(isUpdate ? 'Training record updated' : 'Training record saved');
 		await focusNextAction();
 	}
@@ -157,6 +195,7 @@
 	let confirmRecordAll = $state(false);
 
 	async function recordAll() {
+		if (saving.pending) return;
 		const personId = person.id;
 		const records = sheet.recordableToday.map(
 			(item): BatchRecord => ({
@@ -207,6 +246,7 @@
 	}
 
 	async function setExempt(item: RecordSheetItem, exempt: boolean) {
+		if (saving.pending) return;
 		const personId = person.id;
 		saveError = null;
 		await saving.run(() => onToggleExempt(item.type.id, exempt));
@@ -214,6 +254,10 @@
 	}
 
 	const busy = $derived(saving.pending);
+
+	beforeNavigate((navigation) => {
+		if (busy || formDirty) navigation.cancel();
+	});
 
 	async function step(direction: -1 | 1) {
 		if (busy || formDirty || !(direction === -1 ? canStep.previous : canStep.next)) return;
@@ -325,10 +369,12 @@
 											{orgId}
 											{asOf}
 											expanded={expandedTypeId === item.type.id}
+											correcting={expandedTypeId === item.type.id && correcting}
 											{busy}
+											{canExempt}
 											isCurrent={() => sameSheet(person.id) && expandedTypeId === item.type.id}
 											onToggle={() => toggle(item.type.id)}
-											onEdit={() => (expandedTypeId = item.type.id)}
+											onEdit={() => expand(item.type.id, true)}
 											onToday={() => void recordToday(item)}
 											onExempt={(exempt) => void setExempt(item, exempt)}
 											onDelete={() => (confirmRemoveTypeId = item.type.id)}
@@ -366,7 +412,7 @@
 				</Button>
 				<span class="ml-1 font-mono text-xs text-muted-foreground max-sm:hidden">↑ ↓ next Soldier</span>
 			</div>
-			<Button variant="outline" href={profileHref}>Open profile</Button>
+			<Button variant="outline" href={profileHref} disabled={busy || formDirty}>Open profile</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
@@ -382,6 +428,16 @@
 		variant="default"
 		onConfirm={recordAll}
 		onCancel={() => (confirmRecordAll = false)}
+	/>
+{/if}
+
+{#if discardTarget}
+	<ConfirmDialog
+		title="Discard changes?"
+		message="This training record has changes that are not saved."
+		confirmLabel="Discard"
+		onConfirm={discardDraft}
+		onCancel={() => (discardTarget = null)}
 	/>
 {/if}
 

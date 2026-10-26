@@ -220,7 +220,6 @@ describe('TrainingPageView', () => {
 		const modals = new ModalRegistry();
 		const ctx = new TrainingPageContext(
 			{ orgId: 'org-1', orgName: 'Test Org' },
-			modals,
 			{
 				orgId: 'org-1',
 				orgUrlSegment: 'org-1',
@@ -345,7 +344,6 @@ describe('TrainingPageView', () => {
 		};
 		return new TrainingPageContext(
 			{ orgId: 'org-1', orgName: 'Test Org' },
-			new ModalRegistry(),
 			org,
 			vi.fn().mockResolvedValue(true),
 			vi.fn().mockResolvedValue(undefined)
@@ -382,7 +380,6 @@ describe('TrainingPageView', () => {
 		}));
 		return new TrainingPageContext(
 			{ orgId, orgName: 'Test Org' },
-			new ModalRegistry(),
 			{
 				...access,
 				orgId,

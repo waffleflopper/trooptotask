@@ -208,7 +208,7 @@
 		);
 	}
 
-	type Layout = { ids: string[]; more: boolean; collapsed: boolean };
+	type Layout = { ids: string[]; more: boolean; collapsed: boolean; stacked: boolean };
 	let previousLayout: Layout | null = null;
 
 	function focusAfterUpdate(target: () => HTMLElement | null | undefined): void {
@@ -224,6 +224,15 @@
 		const leaving = before.ids.filter((id) => !after.ids.includes(id));
 		if (leaving.some((id) => holdsFocus(id, active))) {
 			focusAfterUpdate(moreTrigger);
+		} else if (before.stacked !== after.stacked && active && active === searchInput) {
+			// Crossing the stack width renders the field under another parent, so focus and caret move with it.
+			const { selectionStart, selectionEnd } = searchInput;
+			if (!after.stacked && after.collapsed) focusAfterUpdate(searchIcon);
+			else
+				void tick().then(() => {
+					searchInput?.focus({ preventScroll: true });
+					searchInput?.setSelectionRange(selectionStart, selectionEnd);
+				});
 		} else if (!before.collapsed && after.collapsed && active && active === searchInput) {
 			focusAfterUpdate(searchIcon);
 		} else if (before.more && !after.more && active && moreTrigger()?.contains(active)) {
@@ -235,7 +244,12 @@
 	}
 
 	$effect.pre(() => {
-		const next: Layout = { ids: [...visibleIds], more: showMore, collapsed: Boolean(fit?.searchCollapsed) };
+		const next: Layout = {
+			ids: [...visibleIds],
+			more: showMore,
+			collapsed: Boolean(fit?.searchCollapsed),
+			stacked: searchStacked
+		};
 		const before = previousLayout;
 		previousLayout = next;
 		if (before && rowElement) untrack(() => handleLayoutChange(before, next));

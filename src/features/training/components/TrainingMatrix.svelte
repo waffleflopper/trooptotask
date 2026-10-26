@@ -169,11 +169,13 @@
 		};
 	}
 
+	const trainingsByPerson = $derived(Map.groupBy(trainings, (training) => training.personnelId));
+
 	function gapsFor(people: Personnel[]): TrainingMatrixGaps {
 		return trainingMatrixGaps({
 			personnel: people,
 			types: trainingTypes,
-			records: trainings,
+			records: people.flatMap((person) => trainingsByPerson.get(person.id) ?? []),
 			asOf,
 			horizonDays: HORIZON_DAYS,
 			goalPercent: goalPercent ?? DEFAULT_TRAINING_READINESS_GOAL_PERCENT

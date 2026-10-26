@@ -118,6 +118,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261025160100_feedback_reporter_replies.sql",
     "20261026010000_calendar_events.sql",
     "20261026020000_calendar_taskings.sql",
+    "20261026040000_calendar_tasking_staffing.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

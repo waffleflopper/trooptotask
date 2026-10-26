@@ -11,13 +11,15 @@ export class ListWrites {
 		this.#alive = false;
 	}
 
-	run<R>(request: () => Promise<R>, apply: (result: R) => void, failure: string) {
+	/** `recover` runs after a failed write, when anything a refresh brought in meanwhile is safe to show again. */
+	run<R>(request: () => Promise<R>, apply: (result: R) => void, failure: string, recover?: () => void) {
 		return this.saving.run(async () => {
 			this.error = '';
 			try {
 				apply(await withinOrganizationLifetime(request(), () => this.#alive));
 			} catch (error) {
 				this.error = rejectedRequestMessage(error, failure);
+				recover?.();
 			}
 		});
 	}

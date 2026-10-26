@@ -74,18 +74,24 @@
 		triedAdd = true;
 		if (!addParsed.success) return;
 		const { id, label: text } = addParsed.data;
+		const submitted = label;
 		void writes.run(
 			() => addChecklistItemRequest(orgId, taskingId, id, text),
 			(item) => {
 				put(item);
 				addId = crypto.randomUUID();
-				label = '';
-				triedAdd = false;
+				if (label === submitted) {
+					label = '';
+					triedAdd = false;
+				}
 				onChanged();
 			},
-			'The item was not added. Your entry is kept, so try again.'
+			'The item was not added. Your entry is kept, so try again.',
+			reseed
 		);
 	}
+
+	const reseed = () => (items = loaded);
 
 	function change(item: ChecklistItem, patch: { label?: string; done?: boolean }, done?: () => void) {
 		void writes.run(
@@ -95,7 +101,8 @@
 				done?.();
 				onChanged();
 			},
-			'The item did not change. Try again.'
+			'The item did not change. Try again.',
+			reseed
 		);
 	}
 
@@ -104,7 +111,12 @@
 		if (!editParsed?.success || editParsed.data.label === undefined) return;
 		const text = editParsed.data.label;
 		if (text === item.label) editing = null;
-		else change(item, { label: text }, () => (editing = null));
+		else {
+			const submitted = editing?.label;
+			change(item, { label: text }, () => {
+				if (editing?.label === submitted) editing = null;
+			});
+		}
 	}
 
 	function remove(item: ChecklistItem) {
@@ -114,7 +126,8 @@
 				items = items.filter((existing) => existing.id !== item.id);
 				onChanged();
 			},
-			'The item was not removed. Try again.'
+			'The item was not removed. Try again.',
+			reseed
 		);
 	}
 
@@ -131,7 +144,8 @@
 				items = lists.checklist;
 				onChanged();
 			},
-			'The order did not change. Try again.'
+			'The order did not change. Try again.',
+			reseed
 		);
 	}
 </script>
@@ -154,7 +168,7 @@
 		<ul class="m-0 grid list-none divide-y rounded-lg border p-0">
 			{#each items as item, index (item.id)}
 				<li class="p-3">
-					{#if editing?.id === item.id}
+					{#if canEdit && editing?.id === item.id}
 						<form
 							class="grid gap-3"
 							novalidate

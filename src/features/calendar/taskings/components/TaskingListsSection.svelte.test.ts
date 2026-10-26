@@ -5,6 +5,9 @@ import type { EventRead } from '../../events/eventModel';
 import type { TaskingLists } from '../taskingListsModel';
 import TaskingListsSection from './TaskingListsSection.svelte';
 
+const refresh = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock('$app/navigation', () => ({ invalidate: refresh }));
+
 const TASKING = '00000000-0000-4000-8000-000000000101';
 const LITTERS = '00000000-0000-4000-8000-000000000501';
 const RADIOS = '00000000-0000-4000-8000-000000000502';
@@ -163,10 +166,46 @@ describe('Tasking equipment and checklist', () => {
 		expect(screen.getByText(/sgt\.kim@example\.mil/)).toBeTruthy();
 	});
 
-	it('shows a retry instead of the lists when they cannot be loaded', async () => {
+	it('offers a retry instead of the lists when they cannot be loaded, and retrying reloads the Calendar data', async () => {
 		open(false, { status: 'failed' });
 
-		expect(await screen.findByText('Equipment and checklist could not be loaded')).toBeTruthy();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+
+		await waitFor(() => expect(refresh).toHaveBeenCalledWith('app:calendar-events'));
 		expect(screen.queryByRole('region', { name: 'Equipment' })).toBeNull();
+		expect(screen.queryByRole('region', { name: 'Checklist' })).toBeNull();
+	});
+
+	it('keeps what was typed while an add was still saving', async () => {
+		let finish: (response: Response) => void = () => {};
+		stubFetch(() => new Promise<Response>((resolve) => (finish = resolve)) as unknown as Response);
+		open(true);
+
+		const name = (await screen.findByLabelText('Add equipment')) as HTMLInputElement;
+		await fireEvent.input(name, { target: { value: 'Stretchers' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add to equipment' }));
+		await fireEvent.input(name, { target: { value: 'Stretchers and straps' } });
+		finish(Response.json({ id: LITTERS, name: 'Stretchers', quantity: 1, securedQuantity: 0 }));
+
+		await waitFor(() => expect(screen.getByText('Stretchers')).toBeTruthy());
+		expect(name.value).toBe('Stretchers and straps');
+	});
+
+	it('closes an open editor when the Tasking stops being editable', async () => {
+		const { rerender } = render(TaskingListsSection, {
+			orgId: 'org-a',
+			taskingId: TASKING,
+			lists: Promise.resolve({ status: 'loaded', value: lists } as const),
+			members: {},
+			canEdit: true,
+			onChanged: vi.fn()
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: 'Edit Litters' }));
+		expect(screen.getByLabelText('Quantity', { selector: '[id^="equipment-quantity"]' })).toBeTruthy();
+
+		await rerender({ canEdit: false });
+
+		expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+		expect(screen.getByText('Litters')).toBeTruthy();
 	});
 });

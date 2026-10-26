@@ -67,6 +67,41 @@ BEGIN
 END;
 $$;
 
+-- Takes the Tasking's row lock before a list write, so completing a Tasking, adding to a
+-- list and editing an item queue instead of racing, and refuses the write once the Tasking
+-- is closed. A caller who could not manage the Tasking is left to the policy's refusal.
+CREATE FUNCTION calendar_private.lock_calendar_tasking_for_list_write(
+  p_organization_id uuid,
+  p_tasking_id uuid,
+  p_adding boolean
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_status text;
+  v_group uuid;
+BEGIN
+  IF p_adding THEN
+    SELECT t.status, t.responsible_group_id INTO v_status, v_group
+    FROM public.calendar_taskings AS t
+    WHERE t.organization_id = p_organization_id AND t.id = p_tasking_id
+    FOR NO KEY UPDATE;
+  ELSE
+    SELECT t.status, t.responsible_group_id INTO v_status, v_group
+    FROM public.calendar_taskings AS t
+    WHERE t.organization_id = p_organization_id AND t.id = p_tasking_id
+    FOR SHARE;
+  END IF;
+  IF v_status IS NOT NULL AND v_status NOT IN ('open', 'in_progress', 'blocked')
+    AND calendar_private.can_manage_calendar_tasking(p_organization_id, v_group) THEN
+    RAISE EXCEPTION 'A completed or cancelled tasking cannot change' USING ERRCODE = '55000';
+  END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION calendar_private.lock_calendar_tasking_for_list_write(uuid, uuid, boolean)
+  FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE FUNCTION calendar_private.stamp_calendar_tasking_equipment() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
@@ -75,6 +110,7 @@ DECLARE
   v_count integer;
   v_last integer;
 BEGIN
+  PERFORM calendar_private.lock_calendar_tasking_for_list_write(NEW.organization_id, NEW.tasking_id, TG_OP = 'INSERT');
   IF TG_OP = 'INSERT' THEN
     SELECT pg_catalog.count(*), pg_catalog.max(position) INTO v_count, v_last
     FROM public.calendar_tasking_equipment
@@ -111,6 +147,7 @@ DECLARE
   v_count integer;
   v_last integer;
 BEGIN
+  PERFORM calendar_private.lock_calendar_tasking_for_list_write(NEW.organization_id, NEW.tasking_id, TG_OP = 'INSERT');
   IF TG_OP = 'INSERT' THEN
     SELECT pg_catalog.count(*), pg_catalog.max(position) INTO v_count, v_last
     FROM public.calendar_tasking_checklist_items

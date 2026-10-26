@@ -89,19 +89,24 @@
 	function add() {
 		triedAdd = true;
 		if (!addParsed.success) return;
-		const [id, draft] = [addId, addParsed.data];
+		const [id, draft, submitted] = [addId, addParsed.data, { ...adding }];
 		void writes.run(
 			() => addEquipmentRequest(orgId, taskingId, id, draft),
 			(item) => {
 				put(item);
 				addId = crypto.randomUUID();
-				adding = { name: '', quantity: '1' };
-				triedAdd = false;
+				if (adding.name === submitted.name && adding.quantity === submitted.quantity) {
+					adding = { name: '', quantity: '1' };
+					triedAdd = false;
+				}
 				onChanged();
 			},
-			'The equipment was not added. Your entry is kept, so try again.'
+			'The equipment was not added. Your entry is kept, so try again.',
+			reseed
 		);
 	}
+
+	const reseed = () => (items = loaded);
 
 	function change(item: EquipmentRequirement, patch: Record<string, unknown>, done?: () => void) {
 		const parsed = equipmentChangeSchema.safeParse(patch);
@@ -113,7 +118,8 @@
 				done?.();
 				onChanged();
 			},
-			'The equipment did not change. Try again.'
+			'The equipment did not change. Try again.',
+			reseed
 		);
 	}
 
@@ -142,7 +148,18 @@
 			...(securedQuantity !== item.securedQuantity && { securedQuantity })
 		};
 		if (Object.keys(patch).length === 0) editing = null;
-		else change(item, patch, () => (editing = null));
+		else {
+			const submitted = { ...editing! };
+			change(item, patch, () => {
+				if (
+					editing &&
+					editing.name === submitted.name &&
+					editing.quantity === submitted.quantity &&
+					editing.securedQuantity === submitted.securedQuantity
+				)
+					editing = null;
+			});
+		}
 	}
 
 	function remove(item: EquipmentRequirement) {
@@ -152,7 +169,8 @@
 				items = items.filter((existing) => existing.id !== item.id);
 				onChanged();
 			},
-			'The equipment was not removed. Try again.'
+			'The equipment was not removed. Try again.',
+			reseed
 		);
 	}
 
@@ -169,7 +187,8 @@
 				items = lists.equipment;
 				onChanged();
 			},
-			'The order did not change. Try again.'
+			'The order did not change. Try again.',
+			reseed
 		);
 	}
 </script>
@@ -193,7 +212,7 @@
 			{#each items as item, index (item.id)}
 				{@const state = STATES[equipmentState(item)]}
 				<li class="p-3">
-					{#if editing?.id === item.id}
+					{#if canEdit && editing?.id === item.id}
 						<form
 							class="grid gap-3"
 							novalidate

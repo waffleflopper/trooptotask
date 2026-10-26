@@ -127,7 +127,7 @@ export function createSupabaseCalendarTaskingListsPersistence(
 				})
 				.select(EQUIPMENT_COLUMNS)
 				.single();
-			if (error?.code === '23505') {
+			if (error?.code === '23505' || error?.code === '54000') {
 				const existing = await equipment()
 					.select(EQUIPMENT_COLUMNS)
 					.eq('organization_id', orgId)
@@ -170,7 +170,7 @@ export function createSupabaseCalendarTaskingListsPersistence(
 				.insert({ id, organization_id: orgId, tasking_id: taskingId, label })
 				.select(CHECKLIST_COLUMNS)
 				.single();
-			if (error?.code === '23505') {
+			if (error?.code === '23505' || error?.code === '54000') {
 				const existing = await checklist()
 					.select(CHECKLIST_COLUMNS)
 					.eq('organization_id', orgId)

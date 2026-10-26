@@ -1,0 +1,23 @@
+import { listEventActivity, loadEventDetail, settleEventRead } from '$features/calendar/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestCalendarEventContext } from '$lib/server/adapters/requestContexts.server';
+import { viewerToday } from '$lib/server/viewerDay.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
+import type { PageServerLoadEvent } from './$types';
+
+export const load = async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
+	depends('app:org-core', 'app:calendar-events', VIEWER_DAY_DEPENDENCY);
+	const today = viewerToday(cookies);
+
+	return loadWithContext(locals, cookies, params.orgId, {
+		context: createRequestCalendarEventContext,
+		policyAction: POLICY_ACTION_CATALOG.calendar.viewEvents,
+		policyResource: { kind: 'unscoped' },
+		fn: async (ctx) => ({
+			today,
+			detail: settleEventRead(loadEventDetail(ctx, params.eventId)),
+			activity: settleEventRead(listEventActivity(ctx, params.eventId))
+		})
+	});
+};

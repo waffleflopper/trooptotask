@@ -10,6 +10,7 @@ export interface CalendarToolbarInput {
 	canManageAvailability: boolean;
 	canManageAssignments: boolean;
 	canManageConfig: boolean;
+	showEvents: boolean;
 	groupOptions: ToolbarOption[];
 	groupFilter: string;
 	showStatusText: boolean;
@@ -71,6 +72,16 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 		{ kind: 'action', id: 'calendar-display', label: 'Display', icon: 'sliders', menuItems: displayOptions },
 		{ kind: 'action', id: 'calendar-reports', label: 'Reports', icon: 'chart', href: `${calendarHref}/reports` }
 	];
+
+	if (input.showEvents) {
+		items.push({
+			kind: 'action',
+			id: 'calendar-events',
+			label: 'Events & Taskings',
+			icon: 'clipboard-check',
+			href: `${calendarHref}/events`
+		});
+	}
 
 	if (input.canManageAssignments) {
 		items.push({

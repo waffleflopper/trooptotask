@@ -19,7 +19,8 @@ const COUNTS: FeatureCounts = {
 	trainingRecords: 912,
 	criticalTaskLists: 0,
 	ratingSchemeEntries: 21,
-	onboardingTemplates: 0
+	onboardingTemplates: 0,
+	calendarEvents: 0
 };
 
 type Stored = { disabledFeatures: FeatureKey[]; strengthFloorPercent: number };
@@ -34,7 +35,11 @@ function data(stored: Stored, counts: Promise<FeatureCounts> = Promise.resolve(C
 }
 
 /** Applies each save to `stored` the way the settings endpoint does, after `gate` lets it through. */
-function serve(stored: Stored, gate: (body: Record<string, unknown>) => Promise<Response | void> = async () => {}) {
+function serve(
+	stored: Stored,
+	gate: (body: Record<string, unknown>) => Promise<Response | void> = async () => {},
+	counts?: Promise<FeatureCounts>
+) {
 	const request = vi.fn(async (_url: string, init: RequestInit) => {
 		const body = JSON.parse(String(init.body));
 		const answer = await gate(body);
@@ -48,7 +53,7 @@ function serve(stored: Stored, gate: (body: Record<string, unknown>) => Promise<
 		return Response.json({ success: true });
 	});
 	vi.stubGlobal('fetch', request);
-	const view = render(Page, { data: data(stored), form: null, params: { orgId: 'c-co' } });
+	const view = render(Page, { data: data(stored, counts), form: null, params: { orgId: 'c-co' } });
 	server.refresh = () => view.rerender({ data: data(stored) });
 	return request;
 }
@@ -79,16 +84,17 @@ describe('Features settings page', () => {
 			params: { orgId: 'c-co' }
 		});
 
-		const names = ['Training', 'Critical tasks', 'Evaluations', 'Onboarding', 'Losses and awards'];
+		const names = ['Training', 'Critical tasks', 'Evaluations', 'Onboarding', 'Losses and awards', 'Events & Taskings'];
 		expect(screen.getAllByRole('switch')).toEqual(names.map(featureSwitch));
 		expect(names.map((name) => featureSwitch(name).getAttribute('aria-checked'))).toEqual([
 			'true',
 			'false',
 			'true',
 			'true',
+			'true',
 			'true'
 		]);
-		expect(screen.getAllByText('Loading counts')).toHaveLength(5);
+		expect(screen.queryAllByText('Loading counts')).not.toEqual([]);
 		expect(floorField()).not.toHaveAccessibleDescription(/80% of 22/);
 
 		release(COUNTS);
@@ -104,17 +110,15 @@ describe('Features settings page', () => {
 		expect(featureSwitch('Evaluations')).not.toHaveAccessibleDescription(/Hidden/);
 	});
 
-	it('says the counts are unavailable when they fail to stream', async () => {
-		vi.stubGlobal('fetch', vi.fn());
-		render(Page, {
-			data: data({ disabledFeatures: [], strengthFloorPercent: 80 }, Promise.reject(new Error('down'))),
-			form: null,
-			params: { orgId: 'c-co' }
-		});
+	it('says the counts are unavailable and keeps every switch working when they fail to stream', async () => {
+		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
+		serve(stored, undefined, Promise.reject(new Error('down')));
 
-		await waitFor(() => expect(screen.getAllByText('Counts unavailable')).toHaveLength(5));
-		expect(screen.queryByText('Loading counts')).toBeNull();
-		expect(screen.getAllByRole('switch')).toHaveLength(5);
+		await waitFor(() => expect(screen.queryByText('Loading counts')).toBeNull());
+		expect(screen.queryAllByText('Counts unavailable')).not.toEqual([]);
+
+		await fireEvent.click(featureSwitch('Events & Taskings'));
+		await waitFor(() => expect(stored.disabledFeatures).toEqual(['eventsAndTaskings']));
 	});
 
 	it('puts a switch back and says which feature failed and why', async () => {

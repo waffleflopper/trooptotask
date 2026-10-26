@@ -84,6 +84,7 @@ An Organization feature switch ([`featureSwitches.ts`](../../src/lib/access/feat
 - Unassigned Personnel are visible only to owners, admins and Organization-scoped members with the needed capability ([`20260926000700_personnel_unassigned_scope.sql`](../../supabase/migrations/20260926000700_personnel_unassigned_scope.sql)). The same rule covers Calendar, Training and Rating Scheme rows for those People.
 - A Group-scoped member reads only its own Groups ([`20261012000700_group_catalog_scope.sql`](../../supabase/migrations/20261012000700_group_catalog_scope.sql)). Creating, renaming and deleting Groups needs Personnel `configure` over the whole Organization.
 - Calendar Group targets must be same-Organization Groups inside the caller's scope ([`20260918000100_enforce_calendar_assignment_group_scope.sql`](../../supabase/migrations/20260918000100_enforce_calendar_assignment_group_scope.sql)).
+- Any Calendar `view` member reads every Event of the Organization. Creating, editing and cancelling an Event needs Calendar `operate` over the whole Organization, so a Group-scoped operator reads Events but cannot change them ([`20261026010000_calendar_events.sql`](../../supabase/migrations/20261026010000_calendar_events.sql)). Attribution and Event Activity are written by the database, and cancellation goes through `cancel_calendar_event`. The Events & Taskings switch hides every Event route and row.
 - Membership and invitation scopes reject Groups from another Organization.
 
 ### Sensitive Personnel artifacts and files

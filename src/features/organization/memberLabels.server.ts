@@ -1,3 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface OrganizationMemberLabelRow {
@@ -37,4 +40,28 @@ export async function loadOrganizationMemberLabels(
 	if (userIds.length === 0) return new Map();
 	const rows = await reader.findMembers(orgId, userIds);
 	return new Map(rows.map((row) => [row.user_id, labelForRow(row)]));
+}
+
+/** Every current member's label, by user id. */
+export function createSupabaseOrganizationMemberLabelsReader(
+	client: SupabaseClient,
+	orgId: string
+): () => Promise<Record<string, string>> {
+	return async () => {
+		const result = await selectAllSupabaseRows<OrganizationMemberLabelRow>(async (from, to) => {
+			const { data, error } = await client
+				.from('organization_memberships')
+				.select('user_id, email')
+				.eq('organization_id', orgId)
+				.order('id', { ascending: true })
+				.range(from, to)
+				.returns<OrganizationMemberLabelRow[]>();
+			return { data, error };
+		});
+		if (result.error)
+			throw new Error((result.error as { message?: string }).message ?? 'Organization member labels read failed');
+		return Object.fromEntries(
+			(result.data ?? []).map((row) => [row.user_id, compact(row.email) || `${row.user_id.slice(0, 8)}...`])
+		);
+	};
 }

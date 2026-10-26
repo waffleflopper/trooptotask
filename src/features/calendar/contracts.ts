@@ -44,6 +44,18 @@ export interface CalendarOperationsPageAccess {
 	) => Pick<ClientAffordance, 'allowed'>;
 }
 
+/** Live advisory facts supplied by Delivery for the Event pages. */
+export interface CalendarEventsPageAccess {
+	readonly orgId: string;
+	readonly orgUrlSegment: string;
+	readonly orgName: string;
+	readonly userId: string;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => Pick<ClientAffordance, 'allowed'>;
+}
+
 export interface CalendarSettingsPageAccess {
 	readonly orgUrlSegment: string;
 	readonly affordanceForFeatureAction: (

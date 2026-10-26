@@ -102,3 +102,14 @@ export { createSupabaseRosterPresenceSignals } from './rosterPresenceSignals.ser
 
 export { previewRosterSwap, commitRosterSwap, undoRosterSwap } from './rosterSwapOperations.server';
 export { createSupabaseRosterSwapPersistence } from './rosterSwapPersistence.server';
+
+export {
+	listEvents,
+	loadEventDetail,
+	listEventActivity,
+	createEvent,
+	updateEvent,
+	cancelEvent,
+	settleEventRead
+} from './events/eventOperations.server';
+export { createSupabaseCalendarEventPersistence } from './events/eventPersistence.server';

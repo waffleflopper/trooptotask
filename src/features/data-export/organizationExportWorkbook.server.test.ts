@@ -143,6 +143,27 @@ describe('Organization Data Export workbook', () => {
 		expect(calendar?.rows[0]?.person).toBe('person-without-name');
 	});
 
+	it('names an Event coordinator by email and falls back to the user id without one', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				memberships: [
+					{ user_id: 'user-kim', email: 'sgt.kim@example.mil' },
+					{ user_id: 'user-lee', email: null }
+				],
+				calendarEvents: [
+					{ id: 'event-1', title: 'Range Week', coordinator_user_id: 'user-kim', cancelled_by: null },
+					{ id: 'event-2', title: 'Best Medic', coordinator_user_id: 'user-lee', cancelled_by: 'user-lee' }
+				]
+			})
+		});
+		const events = plan.readableSheets.find((sheet) => sheet.name === 'Events');
+
+		expect(events?.rows.map((row) => [row.coordinator, row.cancelled_by])).toEqual([
+			['sgt.kim@example.mil', ''],
+			['user-lee', 'user-lee']
+		]);
+	});
+
 	it('returns a dated workbook filename owned by the export use case', async () => {
 		const result = await buildOrganizationDataExportWorkbook({
 			payload: payload()

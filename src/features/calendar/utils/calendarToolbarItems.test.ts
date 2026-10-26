@@ -8,6 +8,7 @@ function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolb
 		canManageAvailability: false,
 		canManageAssignments: false,
 		canManageConfig: false,
+		showEvents: true,
 		groupOptions: [{ value: '', label: 'Group: All' }],
 		groupFilter: '',
 		showStatusText: false,
@@ -63,6 +64,14 @@ describe('buildCalendarToolbar', () => {
 			'/org/1-11-bde/calendar/bulk?tab=remove',
 			'/org/1-11-bde/calendar/import'
 		]);
+	});
+
+	it('links Events & Taskings to the Events list only while the feature is on', () => {
+		const eventsOf = (showEvents: boolean) =>
+			buildCalendarToolbar(makeInput({ showEvents })).items.find((item) => item.id === 'calendar-events');
+
+		expect(eventsOf(true)).toMatchObject({ href: '/org/1-11-bde/calendar/events' });
+		expect(eventsOf(false)).toBeUndefined();
 	});
 
 	it('lists Show Onboarding in Display only while someone is onboarding', () => {

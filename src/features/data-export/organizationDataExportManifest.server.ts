@@ -7,7 +7,8 @@ export const ORGANIZATION_DATA_EXPORT_AREA_KEYS = [
 	'training',
 	'critical-tasks',
 	'onboarding',
-	'rating-scheme'
+	'rating-scheme',
+	'events-and-taskings'
 ] as const;
 
 export type OrganizationDataExportAreaKey = (typeof ORGANIZATION_DATA_EXPORT_AREA_KEYS)[number];
@@ -108,6 +109,14 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('rosterForms', 'Roster Forms', 'roster_forms', 'calendar', 'Calendar'),
 	section('rosterStartingNumbers', 'Roster Starting Numbers', 'roster_starting_numbers', 'calendar', 'Calendar'),
 	section('rosterExcusals', 'Roster Excusals', 'roster_excusals', 'calendar', 'Calendar'),
+	section('calendarEvents', 'Events', 'calendar_events', 'events-and-taskings', 'Events & Taskings'),
+	section(
+		'calendarEventActivity',
+		'Event Activity',
+		'calendar_event_activity',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
 	section('trainingTypes', 'Training Types', 'training_types', 'training', 'Training'),
 	section('personnelTrainings', 'Personnel Trainings', 'personnel_trainings', 'training', 'Training'),
 	section(
@@ -295,6 +304,30 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 	{ name: 'Roster Forms', areaKey: 'calendar', rows: (sections) => sections.rosterForms ?? [] },
 	{ name: 'Roster Starting Numbers', areaKey: 'calendar', rows: (sections) => sections.rosterStartingNumbers ?? [] },
 	{ name: 'Roster Excusals', areaKey: 'calendar', rows: (sections) => sections.rosterExcusals ?? [] },
+	{
+		name: 'Events',
+		areaKey: 'events-and-taskings',
+		rows: (sections) => {
+			const members = new Map(
+				(sections.memberships ?? [])
+					.filter((member) => member.email)
+					.map((member) => [String(member.user_id), String(member.email)])
+			);
+			return (sections.calendarEvents ?? []).map((event) => ({
+				title: event.title,
+				starts_on: event.starts_on,
+				ends_on: event.ends_on,
+				host: event.host_name ?? 'This organization',
+				coordinator: lookup(members, event.coordinator_user_id),
+				location: event.location ?? '',
+				source_reference: event.source_reference ?? '',
+				description: event.description ?? '',
+				cancelled_at: event.cancelled_at ?? '',
+				cancelled_by: event.cancelled_by ? lookup(members, event.cancelled_by) : '',
+				cancellation_reason: event.cancellation_reason ?? ''
+			}));
+		}
+	},
 	{ name: 'Onboarding Templates', areaKey: 'onboarding', rows: (sections) => sections.onboardingTemplates ?? [] },
 	{
 		name: 'Onboarding Progress',

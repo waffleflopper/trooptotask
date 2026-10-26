@@ -8,7 +8,8 @@ const empty: FeatureCounts = {
 	trainingRecords: 0,
 	criticalTaskLists: 0,
 	ratingSchemeEntries: 0,
-	onboardingTemplates: 0
+	onboardingTemplates: 0,
+	calendarEvents: 0
 };
 const stocked: FeatureCounts = {
 	activePersonnel: 22,
@@ -17,7 +18,8 @@ const stocked: FeatureCounts = {
 	trainingRecords: 912,
 	criticalTaskLists: 1,
 	ratingSchemeEntries: 21,
-	onboardingTemplates: 3
+	onboardingTemplates: 3,
+	calendarEvents: 4
 };
 
 function lanes(counts: FeatureCounts, on: boolean) {
@@ -31,7 +33,8 @@ describe('Features holds lanes', () => {
 			['Critical tasks', { text: '1 task list', notSetUp: false }],
 			['Evaluations', { text: '21 in rating scheme', notSetUp: false }],
 			['Onboarding', { text: '3 templates', notSetUp: false }],
-			['Losses and awards', null]
+			['Losses and awards', null],
+			['Events & Taskings', { text: '4 events', notSetUp: false }]
 		]);
 	});
 
@@ -41,7 +44,8 @@ describe('Features holds lanes', () => {
 			['Critical tasks', { text: 'Not set up · no task lists', notSetUp: true }],
 			['Evaluations', { text: 'Not set up · no rating scheme', notSetUp: true }],
 			['Onboarding', { text: 'Not set up · no templates', notSetUp: true }],
-			['Losses and awards', null]
+			['Losses and awards', null],
+			['Events & Taskings', { text: '0 events', notSetUp: false }]
 		]);
 		expect(lanes(empty, false).slice(0, 2)).toEqual([
 			['Training', { text: 'No training types', notSetUp: false }],

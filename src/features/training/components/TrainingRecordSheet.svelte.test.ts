@@ -505,6 +505,25 @@ describe('TrainingRecordSheet', () => {
 			expect(screen.queryByDisplayValue('Draft note')).toBeNull();
 		});
 
+		it('asks before exempting an item with a draft, and exempts only once the draft is discarded', async () => {
+			const onToggleExempt = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			const trainingTypes = types.map((entry) => (entry.id === 'bls' ? { ...entry, canBeExempted: true } : entry));
+			render(TrainingRecordSheet, { props: props({ trainingTypes, onToggleExempt }) });
+			await dirtyFirstForm(user);
+
+			await user.click(screen.getByRole('button', { name: 'More actions for BLS' }));
+			await user.click(await screen.findByRole('menuitem', { name: 'Exempt' }));
+			await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
+			expect(onToggleExempt).not.toHaveBeenCalled();
+			expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Draft note');
+
+			await user.click(screen.getByRole('button', { name: 'More actions for BLS' }));
+			await user.click(await screen.findByRole('menuitem', { name: 'Exempt' }));
+			await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard' }));
+			await waitFor(() => expect(onToggleExempt).toHaveBeenCalledExactlyOnceWith('bls', true));
+		});
+
 		it('opens another item without asking when nothing was typed', async () => {
 			const user = userEvent.setup();
 			render(TrainingRecordSheet, { props: props() });

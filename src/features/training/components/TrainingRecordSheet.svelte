@@ -117,7 +117,8 @@
 		if (expandedTypeId && typeIds.includes(expandedTypeId)) open(null);
 	}
 
-	let discardTarget = $state<{ typeId: string | null; correcting: boolean } | null>(null);
+	// What to do once the user agrees to drop the open form's changes.
+	let afterDiscard = $state.raw<(() => void) | null>(null);
 
 	function open(typeId: string | null, isCorrection = false) {
 		expandedTypeId = typeId;
@@ -128,7 +129,7 @@
 		// A pending form stays mounted, so a refused save can still show its error.
 		if (saving.pending) return;
 		if (typeId === expandedTypeId && (typeId === null || isCorrection === correcting)) return;
-		if (formDirty) discardTarget = { typeId, correcting: isCorrection };
+		if (formDirty) afterDiscard = () => open(typeId, isCorrection);
 		else open(typeId, isCorrection);
 	}
 
@@ -137,8 +138,9 @@
 	}
 
 	function discardDraft() {
-		if (discardTarget) open(discardTarget.typeId, discardTarget.correcting);
-		discardTarget = null;
+		const proceed = afterDiscard;
+		afterDiscard = null;
+		proceed?.();
 	}
 
 	async function focusNextAction() {
@@ -250,8 +252,12 @@
 		if (typeId) collapse(typeId);
 	}
 
-	async function setExempt(item: RecordSheetItem, exempt: boolean) {
+	async function setExempt(item: RecordSheetItem, exempt: boolean, discarded = false) {
 		if (saving.pending) return;
+		if (!discarded && formDirty && expandedTypeId === item.type.id) {
+			afterDiscard = () => void setExempt(item, exempt, true);
+			return;
+		}
 		const personId = person.id;
 		saveError = null;
 		await saving.run(() => onToggleExempt(item.type.id, exempt));
@@ -436,13 +442,13 @@
 	/>
 {/if}
 
-{#if discardTarget}
+{#if afterDiscard}
 	<ConfirmDialog
 		title="Discard changes?"
 		message="This training record has changes that are not saved."
 		confirmLabel="Discard"
 		onConfirm={discardDraft}
-		onCancel={() => (discardTarget = null)}
+		onCancel={() => (afterDiscard = null)}
 	/>
 {/if}
 

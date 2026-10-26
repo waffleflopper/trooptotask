@@ -55,7 +55,7 @@
 <li
 	class={cn(
 		'relative flex flex-col gap-1.5 border-b border-border px-1 py-4 transition-colors',
-		dragging && 'rounded-lg border-dashed border-warning bg-warning-muted px-3'
+		dragging && 'rounded-lg bg-warning-muted outline-1 -outline-offset-1 outline-warning outline-dashed'
 	)}
 	data-dragging={dragging || undefined}
 	{@attach fileDrop({ onFiles: attach, onDraggingChange: (next) => (dragging = next && canEdit) })}

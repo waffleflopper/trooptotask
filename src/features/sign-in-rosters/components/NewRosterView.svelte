@@ -157,7 +157,12 @@
 					Who's on it
 				</h3>
 				{#if draft.hasFilter}
-					<Button variant="link" size="none" class="text-[13px] underline" onclick={() => draft.clearFilters()}>
+					<Button
+						variant="link"
+						size="none"
+						class="text-[13px] leading-5 underline"
+						onclick={() => draft.clearFilters()}
+					>
 						Clear filters
 					</Button>
 				{/if}

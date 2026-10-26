@@ -1,3 +1,5 @@
+import type { SignInRosterFilter } from './signInRosterFilter';
+
 export interface SignInRoster {
 	id: string;
 	title: string;
@@ -6,7 +8,7 @@ export interface SignInRoster {
 	separateByGroup: boolean;
 	sortBy: 'alphabetical' | 'rank';
 	personnelSnapshot: { id: string; rank: string; lastName: string; firstName: string; group: string }[];
-	filterConfig: { groups: string[]; ranks: string[] } | null;
+	filterConfig: SignInRosterFilter | null;
 	signedFilePath: string | null;
 	createdBy: string;
 	createdAt: string;

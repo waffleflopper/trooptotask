@@ -316,9 +316,7 @@ export function createSupabaseCalendarTaskingPersistence(
 					.order('id')
 			);
 			const rows = data.map((row) => activityRowSchema.parse(row));
-			const people = rows.flatMap((row) =>
-				row.kind === 'staffing_changed' ? Object.values(row.payload).flat() : []
-			);
+			const people = rows.flatMap((row) => (row.kind === 'staffing_changed' ? Object.values(row.payload).flat() : []));
 			const labels = await readPersonLabels(client, orgId, people);
 			return rows.map((row) => toActivity(row, labels));
 		},

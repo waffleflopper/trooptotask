@@ -206,9 +206,9 @@ describe('Tasking staffing operations', () => {
 	it('refuses keeping someone the selection drops before anything is saved', async () => {
 		const { ctx, saves } = member('operate', tasking({ kind: 'group', groupId: ALPHA }));
 
-		await expect(
-			saveTaskingPeople(ctx, TASKING, { ...save([ALICE], 0), keep: [BRUNO] })
-		).rejects.toMatchObject({ status: 400 });
+		await expect(saveTaskingPeople(ctx, TASKING, { ...save([ALICE], 0), keep: [BRUNO] })).rejects.toMatchObject({
+			status: 400
+		});
 		expect(saves).toEqual([]);
 	});
 });

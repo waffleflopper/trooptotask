@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { uuidSchema } from '$lib/utils/inputSchemas';
-import { TASKING_STAFFING_MAX, type StaffingRequirement, type TaskingResponsibility } from '../taskingModel';
+import {
+	TASKING_STAFFING_MAX,
+	type StaffingCount,
+	type StaffingRequirement,
+	type TaskingResponsibility
+} from '../taskingModel';
+
+export type { NamedPeople, StaffingCount } from '../taskingModel';
 
 /** A picked Person whose roster scope the reader covers. Picks outside it are only counted. */
 export interface TaskingPick {
@@ -13,15 +20,6 @@ export interface TaskingPick {
 	selectedAt: string;
 	/** When the pick stopped qualifying. Only an explicit keep or removal clears it; restoring the Person does not. */
 	reviewSince: string | null;
-}
-
-/** Every pick of a Tasking, counted the same way for every reader. */
-export interface StaffingCount {
-	/** Picks that fill the requirement. A pick under review never does. */
-	picked: number;
-	needsReview: number;
-	/** Picks whose person is outside the reader's roster scope, shown only as a number. */
-	outsideScope: number;
 }
 
 export const NO_STAFFING: StaffingCount = { picked: 0, needsReview: 0, outsideScope: 0 };
@@ -73,19 +71,44 @@ export interface StaffingPicker {
 	advisories: StaffingAdvisories;
 }
 
-/** People named in an Activity entry: names the reader's roster scope covers, and how many others. */
-export interface NamedPeople {
-	names: string[];
-	others: number;
-}
-
 export const personName = (person: Pick<TaskingPick, 'rank' | 'firstName' | 'lastName'>) =>
 	[person.rank, `${person.lastName}, ${person.firstName}`].filter(Boolean).join(' ');
 
-/** `picked of required`, or just the picked count when nothing is required. */
+/** `picked of required`, or just the picked count when nothing is required. Picks under review never count. */
 export function staffingLabel(count: StaffingCount, requirement: StaffingRequirement | null): string | null {
-	if (requirement) return `${count.picked} of ${requirement.count}`;
+	if (requirement) return `${count.picked} of ${requirement.count} picked`;
 	return count.picked > 0 ? `${count.picked} picked` : null;
+}
+
+export const outsideScopeLabel = (count: number) => `${count} ${count === 1 ? 'person' : 'people'} outside your Groups`;
+
+/** One person the picker lists: a candidate, or someone already picked who no longer is one. */
+export interface PickerRow {
+	personnelId: string;
+	name: string;
+	groupId: string | null;
+	review: PickReview | null;
+}
+
+/** Candidates plus every current pick, so an operator can see and drop a pick that stopped qualifying. */
+export function pickerRows(picker: StaffingPicker, responsibility: TaskingResponsibility): PickerRow[] {
+	const rows = new Map<string, PickerRow>();
+	for (const pick of picker.staffing.picks)
+		rows.set(pick.personnelId, {
+			personnelId: pick.personnelId,
+			name: personName(pick),
+			groupId: pick.groupId,
+			review: pickReview(pick, responsibility)
+		});
+	for (const candidate of picker.candidates)
+		if (!rows.has(candidate.personnelId))
+			rows.set(candidate.personnelId, {
+				personnelId: candidate.personnelId,
+				name: personName(candidate),
+				groupId: candidate.groupId,
+				review: null
+			});
+	return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name) || a.personnelId.localeCompare(b.personnelId));
 }
 
 const uniqueIds = (ids: string[]) => new Set(ids).size === ids.length;

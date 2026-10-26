@@ -155,11 +155,7 @@ export async function permanentlyDeletePersonnelRecord(
 	if (!person.archivedAt) fail(400, 'Can only permanently delete archived personnel');
 
 	const name = personnelName(person);
-	const blocked = deletionBlockedMessage(
-		name,
-		'picked for',
-		await ctx.deletionReferences.find({ personnelId: id })
-	);
+	const blocked = deletionBlockedMessage(name, 'picked for', await ctx.deletionReferences.find({ personnelId: id }));
 	if (blocked) fail(409, blocked);
 
 	await ctx.personnel.delete(id);

@@ -16,7 +16,12 @@ export async function readPersonLabels(
 		p_personnel_ids: [...new Set(ids)]
 	});
 	if (error) throw new Error(error.message);
-	return new Map(z.array(labelRowSchema).parse(data).map((row) => [row.personnel_id, row.label]));
+	return new Map(
+		z
+			.array(labelRowSchema)
+			.parse(data)
+			.map((row) => [row.personnel_id, row.label])
+	);
 }
 
 export function namedPeople(ids: string[], labels: Map<string, string>): NamedPeople {

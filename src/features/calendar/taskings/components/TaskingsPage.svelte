@@ -31,6 +31,7 @@
 	import TaskingDialog from './TaskingDialog.svelte';
 	import TaskingStatusBadges from './TaskingStatusBadges.svelte';
 	import { responsibilityLabel } from './taskingLabels';
+	import { NO_STAFFING, staffingLabel } from '../staffing/staffingModel';
 
 	interface Props {
 		org: CalendarEventsPageAccess;
@@ -58,6 +59,12 @@
 		return current.value.value.scope === scopeOfView(filters.view) ? current.value.value : null;
 	});
 	const shown = $derived(loaded && loaded !== 'failed' ? filterTaskings(loaded.taskings, filters, today) : []);
+
+	function staffingSuffix(count: typeof NO_STAFFING, tasking: Tasking) {
+		const label = staffingLabel(count, tasking.requirement);
+		const review = count.needsReview > 0 ? `${count.needsReview} to review` : null;
+		return [label, review].map((part) => (part ? ` · ${part}` : '')).join('');
+	}
 	const filtered = $derived(
 		JSON.stringify({ ...filters, view: DEFAULT_TASKING_FILTERS.view }) !== JSON.stringify(DEFAULT_TASKING_FILTERS)
 	);
@@ -253,7 +260,7 @@
 							<span class="truncate font-medium text-foreground">{tasking.title}</span>
 							<span class="truncate text-sm text-muted-foreground">
 								{responsibilityLabel(tasking.responsibility, loaded.groups, org.orgName)} · {tasking.event?.title ??
-									'Standalone'}
+									'Standalone'}{staffingSuffix(loaded.staffing[tasking.id] ?? NO_STAFFING, tasking)}
 							</span>
 						</span>
 						<TaskingStatusBadges {tasking} {today} />

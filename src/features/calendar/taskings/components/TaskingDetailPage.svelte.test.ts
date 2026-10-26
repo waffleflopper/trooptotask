@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarEventsPageAccess } from '../../contracts';
 import type { EventRead } from '../../events/eventModel';
 import type { Tasking, TaskingActivityLog, TaskingChoices, TaskingDetail } from '../taskingModel';
+import type { TaskingStaffing } from '../staffing/staffingModel';
 import TaskingDetailPage from './TaskingDetailPage.svelte';
 
 vi.mock('$app/navigation', () => ({ invalidate: vi.fn() }));
@@ -43,6 +44,7 @@ describe('TaskingDetailPage', () => {
 			today: '2026-10-26',
 			detail: Promise.resolve(detail),
 			activity: Promise.resolve(activity),
+			people: new Promise<EventRead<TaskingStaffing>>(() => {}),
 			choices: new Promise<EventRead<TaskingChoices | null>>((resolve) => (resolveChoices = resolve))
 		});
 

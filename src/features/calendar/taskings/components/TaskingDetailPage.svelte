@@ -30,6 +30,8 @@
 	import TaskingDialog from './TaskingDialog.svelte';
 	import TaskingStatusBadges from './TaskingStatusBadges.svelte';
 	import TaskingTransitionDialog from './TaskingTransitionDialog.svelte';
+	import TaskingPeople from '../staffing/components/TaskingPeople.svelte';
+	import type { TaskingStaffing } from '../staffing/staffingModel';
 	import {
 		ACTION_LABELS,
 		describeActivity,
@@ -44,9 +46,10 @@
 		detail: Promise<EventRead<TaskingDetail>>;
 		activity: Promise<EventRead<TaskingActivityLog>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
+		people: Promise<EventRead<TaskingStaffing>>;
 	}
 
-	let { org, today, detail, activity, choices }: Props = $props();
+	let { org, today, detail, activity, choices, people }: Props = $props();
 
 	const taskingsHref = $derived(`/org/${org.orgUrlSegment}/calendar/taskings`);
 	const streamedDetail = new StreamedValue(() => detail);
@@ -239,6 +242,8 @@
 				<PageShell.FactRow label="Instructions" value={null} />
 			{/if}
 		</dl>
+
+		<TaskingPeople orgId={org.orgId} {tasking} {groups} {people} {canManage} />
 	{/if}
 
 	{#if loaded !== 'gone'}

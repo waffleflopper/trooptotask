@@ -3,13 +3,7 @@ import { z } from 'zod';
 import { fail } from '$lib/errors';
 import type { PersonnelDeletionReferencesPort } from '$features/personnel/contracts';
 import { TASKING_GONE } from '../taskingPersistence.server';
-import type {
-	StaffingAdvisory,
-	StaffingCount,
-	StaffingSave,
-	TaskingPick,
-	TaskingStaffing
-} from './staffingModel';
+import type { StaffingAdvisory, StaffingCount, StaffingSave, TaskingPick, TaskingStaffing } from './staffingModel';
 
 export const STAFFING_INELIGIBLE =
 	'Someone on this list can no longer be picked for this tasking. Review the list and save again.';
@@ -169,7 +163,6 @@ export function createSupabaseCalendarStaffingPersistence(
 			if (!row) throw new Error('save_calendar_tasking_people returned no outcome');
 			return row.outcome;
 		}
-
 	};
 }
 

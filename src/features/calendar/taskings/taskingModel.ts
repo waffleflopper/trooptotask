@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { MemberLabels } from '../events/eventModel';
-import type { NamedPeople, StaffingCount } from './staffing/staffingModel';
 
 export const TASKING_TITLE_MAX = 200;
 export const TASKING_QUALIFICATIONS_MAX = 1000;
@@ -60,6 +59,21 @@ export interface Tasking {
 export interface TaskingSchedule {
 	suspenseOn: string;
 	execution: TaskingExecution | null;
+}
+
+/** Every pick of a Tasking, counted the same way for every reader. */
+export interface StaffingCount {
+	/** Picks that fill the requirement. A pick under review never does. */
+	picked: number;
+	needsReview: number;
+	/** Picks whose person is outside the reader's roster scope, shown only as a number. */
+	outsideScope: number;
+}
+
+/** People named in an Activity entry: names the reader's roster scope covers, and how many others. */
+export interface NamedPeople {
+	names: string[];
+	others: number;
 }
 
 export type TaskingActivityFact =

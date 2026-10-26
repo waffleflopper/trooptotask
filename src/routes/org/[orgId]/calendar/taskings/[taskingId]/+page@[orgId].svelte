@@ -13,5 +13,12 @@
 </svelte:head>
 
 {#key page.params.taskingId}
-	<TaskingDetailPage {org} today={data.today} detail={data.detail} activity={data.activity} choices={data.choices} />
+	<TaskingDetailPage
+		{org}
+		today={data.today}
+		detail={data.detail}
+		activity={data.activity}
+		choices={data.choices}
+		people={data.people}
+	/>
 {/key}

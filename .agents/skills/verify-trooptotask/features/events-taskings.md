@@ -518,8 +518,8 @@ Bravo Tasking due D+3; `Post cleanup week` D+7 to D+11 with no Tasking; `Range c
 3. **Scoped and read-only.** As `calendarScoped` (Alpha) every Event shows, but `Brigade CG visit` is outlined because
    its only work is Bravo's, and only the two Alpha diamonds show: no Bravo or Organization suspense. The lane is 83px.
    As `calendarView` the lane matches the operator's.
-4. **Overlap.** Add `Lane Ammo draw` D+2 to D+3 and reload: it is listed behind `Brigade CG visit`, which shows the
-   count `2`, and the lane stays 83px.
+4. **Overlap.** Add `Ammo draw` D+2 to D+3 and reload: it takes the lower row with `+1`, which lists it with
+   `Brigade CG visit`, and the lane stays 83px. Its title is cut short in the box; the link name keeps it whole.
 5. **Failed and pending.** `$V server-source arm rpc/calendar_tasking_attention fail-hard 1 60000` and reload: the lane
    reads `Events and suspenses could not load.` with `Try again`, at the same 83px, while the forecast, by-group strip
    and On duty render. `server-source restore` and press the lane's `Try again`: one `GET api/dashboard/taskings?asOf=D`

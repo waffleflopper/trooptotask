@@ -464,6 +464,7 @@ describe('TrainingTypesPage', () => {
 			expect(requests.map(({ method, body }) => [method, body.id])).toEqual([['DELETE', 'type-1']]);
 			await waitFor(() => expect(personnelTrainingsStore.items.map((record) => record.id)).toEqual(['c-2']));
 			expect(screen.queryByRole('dialog')).toBeNull();
+			await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'New type' })));
 		});
 
 		it('keeps a failed delete open with its reason', async () => {

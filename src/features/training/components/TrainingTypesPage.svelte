@@ -317,7 +317,11 @@
 		{rankCatalog}
 		{today}
 		onSaved={closeSheet}
-		onDeleted={() => closeSheet()}
+		onDeleted={() => {
+			closeSheet();
+			// The delete confirmation restores focus to a button that has just unmounted, so land after it.
+			requestAnimationFrame(returnFocus);
+		}}
 		onClose={() => closeSheet()}
 		{returnFocus}
 	/>

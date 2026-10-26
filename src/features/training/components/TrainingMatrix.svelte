@@ -503,7 +503,9 @@
 											<ChevronDownIcon class="size-4 shrink-0" aria-hidden="true" />
 										{/if}
 										<span class="truncate">{item.group.label}</span>
-										<span class="font-mono text-xs font-normal text-muted-foreground">{item.group.rowIds.length}</span>
+										<span class="font-mono text-xs font-normal text-muted-foreground max-sm:hidden"
+											>{item.group.rowIds.length}</span
+										>
 									</button>
 									{#if gaps}
 										<ReadinessBand.Cell

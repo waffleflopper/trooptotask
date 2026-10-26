@@ -13,22 +13,26 @@ definitions.
 - `saved-views`: create, edit, order and delete a named set of Training columns, then use it in the matrix.
 - `workspace-reuse`: moving between the matrix, Manage Types and Manage Views keeps the loaded workspace and sends no
   page-data request.
+- `matrix-readout`: the page header, the cells, the group bands and the footer read the same readiness numbers, and
+  the search, view and group controls narrow the rows without changing the header.
 - `access`: Training view/operate and Group-scoped actors can read their allowed matrix but cannot change the
   Organization catalog, even when a Group-scoped actor has the Training configure capability; the latter keeps the
   Import link for authorized records. A foreign Organization's catalog is private.
 
 ## How to get to it (user POV)
 
-Choose `Training` in the Organization navigation. In the `Training controls` toolbar, open `Manage Types` (the primary
-action, always on the row) or `Manage Views` (the first control to fold into `More Training controls` as the page
-narrows; find it with the [shared UI recipe](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more)). Manage Types
-shows a `Training type controls` toolbar holding `+ New Type` and, in the detail pane, `Training type detail controls`
-holding `Edit`. Manage Views shows `Training view controls` with the `Back to Matrix` link and `New View`, and
-`Training view detail controls` with `Edit`; read-only members see none of the create or edit actions. On the matrix,
-choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and
-Alpha. A direct link (a full page load) to `training/types` or `training/views` must enforce the same access rules as
-visible navigation. Moving between the matrix, `Manage Types` and `Manage Views` reuses the loaded workspace and is not
-access proof.
+Choose `Training` in the Organization navigation. The `Training controls` toolbar holds the `A–Z` and `Groups` toggle,
+`Search name, rank, or MOS`, `Training view filter`, `Training group filter`, `Reports`, `Sign-in rosters` and
+`Export`. Its `More Training controls` menu holds `Import`, `Manage views` and `Manage types`; the first three controls
+on the right fold into it as the page narrows (find them with the
+[shared UI recipe](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more)). `Training view filter` ends with
+`Manage views…`, which opens the Views page. Manage Types shows a `Training type controls` toolbar holding `+ New Type`
+and, in the detail pane, `Training type detail controls` holding `Edit`. Manage Views shows `Training view controls`
+with the `Back to Matrix` link and `New View`, and `Training view detail controls` with `Edit`; read-only members see
+none of the create or edit actions. On the matrix, choose the named saved view in `Training view filter` and switch the
+Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` or
+`training/views` must enforce the same access rules as visible navigation. Moving between the matrix, `Manage types`
+and `Manage views` reuses the loaded workspace and is not access proof.
 
 ## Helper controls
 
@@ -47,8 +51,8 @@ Focus View orders Targeted before Required and omits Optional.
 
 1. **Read the unchanged catalog and matrix:** From Training, open Manage Types. Select each seeded type and capture its
    expiration, applicability and Optional details. Return to the matrix, choose the Focus View, and confirm the visible
-   Targeted/Required column names and order and the Able/Baker/Unassigned status differences above. Switch between `A-Z`
-   and `Group`, then Alpha and all Groups using the compact Group selector; the saved view stays selected and the
+   Targeted/Required column names and order and the Able/Baker/Unassigned status differences above. Switch between `A–Z`
+   and `Groups`, then Alpha and all Groups using the compact Group selector; the saved view stays selected and the
    expected visible roster changes. Reload and select Focus View again; compare the same saved IDs and column order
    using `$V rows training_types orgA id <ID>` and `$V rows training_views orgA id <trainingView>`.
 2. **Create, edit and cancel:** Open Manage Types as `trainingConfigure`, create a uniquely named type with a fixed
@@ -100,6 +104,30 @@ Focus View orders Targeted before Required and omits Optional.
    the opening control to remain; then confirm and require the list entry and `$V rows training_types orgA name MARKER`
    to be absent. Repeat add/edit/cancel-then-confirm delete for a temporary view in Manage Views. Capture each workspace
    at narrow and wide widths once.
+
+8. **Matrix readout:** As `trainingConfigure` at 1440 wide on a fresh seed, read the matrix before recording anything.
+   Capture each value from a text snapshot.
+   - Header: eyebrow `TRAINING · VERIFICATION ORGANIZATION A · 3 PERSONNEL`, title `TRAINING`, and the subtitle
+     `0 expired`, `0 expire within 30 days`, `3 not recorded`. Readiness reads `25%`, `READY TODAY`,
+     `GOAL 90% · 1 OF 4` and `25% BY <today + 30 days> IF NO ONE RENEWS` (`24 Nov` on 25 Oct). One of the four
+     applicable requirements (Able's Required type) is current; Optional never counts.
+   - Columns: `Verification Required Training 12 MO`, `Verification Targeted Training 12 MO` and
+     `Verification Optional Training NO EXPIRY`, each with its color square.
+   - Cells: Able's Required cell shows the lapse month and year of `trainingExpires` (`Oct ’27` on 25 Oct 2026); Able's
+     Targeted, Baker's Required and Unassigned's Required read `No record` (red outline). Every cell that does not
+     apply reads `—`, and the Optional column is `—` for all three.
+   - Bands: `ALPHA 1` `50%`, `BRAVO 1` `0%`, `UNASSIGNED 1` `0%`. Collapse `BRAVO`: its band shows `1` under
+     Required and the Baker row leaves; its toggle reports `aria-expanded="false"`.
+   - Footer `NOT READY NOW`, `EXPIRED OR NO RECORD`: `2`, `1`, `0` with `—` beneath each (`+N in 30d` appears when a
+     requirement lapses within 30 days).
+   - Search: type `baker` into `Search name, rank, or MOS`. The count line reads `1 personnel × 3 types`, one row stays
+     under `BRAVO`, the footer reads `1`, `0`, `0`, and the header numbers do not change. Clear the field with
+     `Control+A` and `Backspace` (`tool fill` with an empty value leaves the bound query in place). `11b` or the MOS
+     `68W` match by MOS.
+   - Narrow widths: at 1024 the toolbar keeps `Search`, both filters and `Export` and folds `Reports` and
+     `Sign-in rosters` into More; at 390 the row holds the toggle, a search field that takes the remaining width and
+     More. `scrollWidth` equals `clientWidth` on the page and on the `Training controls` toolbar, and the matrix
+     viewport scrolls sideways inside itself.
 
 Use `tool evaluate_script` on the signed-in page for endpoint probes. Substitute the fixture IDs and a unique marker:
 

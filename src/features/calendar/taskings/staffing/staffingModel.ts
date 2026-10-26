@@ -11,6 +11,8 @@ export interface TaskingPick {
 	firstName: string;
 	lastName: string;
 	groupId: string | null;
+	mos: string;
+	clinicRole: string;
 	archived: boolean;
 	selectedAt: string;
 	/** When the pick stopped qualifying. Only an explicit keep or removal clears it; restoring the Person does not. */
@@ -48,6 +50,8 @@ export interface StaffingCandidate {
 	firstName: string;
 	lastName: string;
 	groupId: string | null;
+	mos: string;
+	clinicRole: string;
 }
 
 export function isCandidateFor(responsibility: TaskingResponsibility, person: { groupId: string | null }): boolean {
@@ -85,6 +89,10 @@ export interface StaffingPicker {
 export const personName = (person: Pick<TaskingPick, 'rank' | 'firstName' | 'lastName'>) =>
 	[person.rank, `${person.lastName}, ${person.firstName}`].filter(Boolean).join(' ');
 
+/** `RANK Last`, short enough for a chip or a toast. */
+export const shortPersonName = (person: Pick<TaskingPick, 'rank' | 'lastName'>) =>
+	[person.rank, person.lastName].filter(Boolean).join(' ');
+
 /** `picked of required`, or just the picked count when nothing is required. Picks under review never count. */
 export function staffingLabel(picked: number, required: number | null): string | null {
 	if (required !== null) return `${picked} of ${required} picked`;
@@ -94,10 +102,7 @@ export function staffingLabel(picked: number, required: number | null): string |
 export const outsideScopeLabel = (count: number) => `${count} ${count === 1 ? 'person' : 'people'} outside your Groups`;
 
 /** One person the picker lists: a candidate, or someone already picked who no longer is one. */
-export interface PickerRow {
-	personnelId: string;
-	name: string;
-	groupId: string | null;
+export interface PickerRow extends StaffingCandidate {
 	review: PickReview | null;
 }
 
@@ -107,19 +112,22 @@ export function pickerRows(picker: StaffingPicker, responsibility: TaskingRespon
 	for (const pick of picker.staffing.picks)
 		rows.set(pick.personnelId, {
 			personnelId: pick.personnelId,
-			name: personName(pick),
+			rank: pick.rank,
+			firstName: pick.firstName,
+			lastName: pick.lastName,
 			groupId: pick.groupId,
+			mos: pick.mos,
+			clinicRole: pick.clinicRole,
 			review: pickReview(pick, responsibility)
 		});
 	for (const candidate of picker.candidates)
-		if (!rows.has(candidate.personnelId))
-			rows.set(candidate.personnelId, {
-				personnelId: candidate.personnelId,
-				name: personName(candidate),
-				groupId: candidate.groupId,
-				review: null
-			});
-	return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name) || a.personnelId.localeCompare(b.personnelId));
+		if (!rows.has(candidate.personnelId)) rows.set(candidate.personnelId, { ...candidate, review: null });
+	return [...rows.values()].sort(
+		(a, b) =>
+			a.lastName.localeCompare(b.lastName) ||
+			a.firstName.localeCompare(b.firstName) ||
+			a.personnelId.localeCompare(b.personnelId)
+	);
 }
 
 const uniqueIds = (ids: string[]) => new Set(ids).size === ids.length;

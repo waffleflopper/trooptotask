@@ -119,6 +119,7 @@ export {
 	listTaskings,
 	listEventTaskings,
 	listEventTaskingSummaries,
+	listEventContributions,
 	loadTaskingDetail,
 	listTaskingActivity,
 	loadTaskingChoices,

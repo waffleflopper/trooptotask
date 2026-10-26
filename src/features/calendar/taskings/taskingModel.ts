@@ -89,7 +89,8 @@ export type TaskingActivityFact =
 	| { kind: 'requirement_changed'; from: StaffingRequirement | null; to: StaffingRequirement | null }
 	| { kind: 'instructions_changed' }
 	| { kind: 'started' }
-	| { kind: 'blocked'; reason: string }
+	/** `edited` corrects the reason of a Tasking that stays Blocked. */
+	| { kind: 'blocked'; reason: string; edited?: boolean }
 	| { kind: 'unblocked' }
 	| { kind: 'completed'; note: string | null }
 	| { kind: 'reopened' }

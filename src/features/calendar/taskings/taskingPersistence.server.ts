@@ -195,7 +195,10 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 		}),
 		z.object({ kind: z.literal('instructions_changed') }),
 		z.object({ kind: z.literal('started') }),
-		z.object({ kind: z.literal('blocked'), payload: z.object({ reason: z.string() }) }),
+		z.object({
+			kind: z.literal('blocked'),
+			payload: z.object({ reason: z.string(), edited: z.boolean().optional() })
+		}),
 		z.object({ kind: z.literal('unblocked') }),
 		z.object({ kind: z.literal('completed'), payload: z.object({ note: z.string().nullable() }) }),
 		z.object({ kind: z.literal('reopened') }),
@@ -250,7 +253,7 @@ function toActivity(row: ActivityRow): TaskingActivity {
 		case 'unlinked':
 			return { ...base, kind: row.kind, eventId: row.payload.eventId };
 		case 'blocked':
-			return { ...base, kind: 'blocked', reason: row.payload.reason };
+			return { ...base, kind: 'blocked', reason: row.payload.reason, edited: row.payload.edited === true };
 		case 'completed':
 			return { ...base, kind: 'completed', note: row.payload.note };
 		case 'cancelled':

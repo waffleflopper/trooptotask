@@ -52,9 +52,11 @@ Features `Events & Taskings` turns the whole feature off.
 - `tasking-edit`: the same sheet, filled, with `Make standalone` for a linked Tasking. Equipment and checklist are
   edited on the detail page, so the edit sheet has no rows for them. Rerouting, relinking and unlinking keep the
   Tasking's identity and write Activity.
-- `tasking-lifecycle`: header actions follow the status. `Start`, `Unblock` and `Reopen` act at once. `Block` needs a
-  reason, `Complete` takes an optional note and `Cancel tasking` an optional reason, each in a confirmation. The
-  database refuses any other move with 409. Completed and cancelled Taskings cannot be edited.
+- `tasking-lifecycle`: the rail's `STATUS` card follows the status, with the status select and its next moves. `Start`,
+  `Unblock` and `Reopen` act at once; `Unblock` and `Reopen` also sit in the header. `Mark blocked` needs a reason and
+  the Blocked banner's `Edit reason` changes it (`Save reason`). `Complete` takes an optional note and the `...` menu's
+  `Cancel tasking` an optional reason, each in a confirmation. The database refuses any other move with 409. Completed
+  and cancelled Taskings cannot be edited, but a Completed Tasking still counts returned equipment.
 - `tasking-access`: a Group-scoped operator sees and changes only their Groups' Taskings, creates only for them, and
   cannot move responsibility. A Calendar viewer reads every Tasking with no controls. Writes outside a caller's reach
   return 403, or 404 when the Tasking is hidden from them.
@@ -77,10 +79,13 @@ list adds `Upcoming` / `Past` to that row, with `Create event` and `+ Create tas
 of content the card stacks over the groups. `Show on availability` opens the Calendar on the Event's start month.
 
 The Taskings list is `/org/ORG/calendar/taskings` with `Create event` and `+ Create tasking` for an operator. A row
-opens `/org/ORG/calendar/taskings/TASKING_ID`, whose header has `Back to Taskings`, the outcome, the badges and, for an
-operator who owns it, the lifecycle actions and `Edit`. A banner names who blocked, completed or cancelled it. Facts
-follow (Responsible, Event, Suspense, Execution, Report time, Requirement, Instructions), then `Activity`. At 900 the
-selects move into `Filters`; at 390 the view switch joins them.
+opens `/org/ORG/calendar/taskings/TASKING_ID`. Its header has the outcome, `Edit` and `+ Assign people` for an operator
+who owns it, then the shared row with `All taskings`, the status badge, the responsible pill and a `...` menu holding
+`Cancel tasking`. A banner names who blocked, completed or cancelled it. The main column is a three-cell strip (`EVENT`,
+`PEOPLE COMMITTED` over `Report HHMM`, `SUSPENSE` over a countdown), then `People`, then `Equipment` and `Checklist`
+side by side. The rail holds `STATUS` (a status select and the next actions), `REST OF THE EVENT`, `INSTRUCTIONS`,
+`WHO CAN PICK PEOPLE` and `ACTIVITY`. At 900 the rail stacks under the main column; at 390 everything stacks. At 900 the
+list selects move into `Filters`; at 390 the view switch joins them.
 
 Member labels use `RANK First Last` from the member profile, then membership email, then the first eight characters
 of the user id and `...`. The Event list and detail provide `memberOptions` in name order and `currentUserId` for the
@@ -213,12 +218,23 @@ shows each person's overlapping availability and other Taskings as advisories th
 the whole selection against the revision the picker loaded. A picked person who is archived or leaves the responsible
 Group stays on the list as `Needs review`, drops out of the count and waits for an explicit `Keep` or `Remove`.
 
-- `staffing-people`: the `People` section below the facts reads `N of R picked` (or `N picked` with no requirement),
-  lists each pick with its Group on an Organization Tasking, and ends with `N people outside your Groups` for a
-  Group-scoped reader. It has its own skeleton and load error.
-- `staffing-picker`: `Assign people` opens a sheet with search, a `Group` select on an Organization Tasking only, a live
-  `N selected of R needed` count and one checkbox row per candidate with its advisories. A Group-scoped operator gets an
-  extra `Remove N people outside your Groups` checkbox when such picks exist; left alone, they stay picked.
+- `staffing-people`: the `People` card reads `N of R selected` (or `N selected` with no requirement) over the
+  requirement line, lists each pick as rank, `Last, First`, MOS and clinic role (with the Group on an Organization
+  Tasking) and an overlap state, then a dashed `N more person needed by DAY` row with `Pick N more`, and
+  `N people outside your Groups` for a Group-scoped reader. `Change` reopens the picker. It has its own skeleton and
+  load error.
+- `staffing-picker`: `Assign people` opens a side sheet: the outcome and execution dates, a scope banner
+  (`Alpha's tasking. You can pick from Alpha's roster.` or
+  `Organization-level tasking. You can pick from every Group.`), the selected bar (`x of y`, a chip per pick with
+  `Remove NAME`, dashed empty slots), search, a styled `Group` select on an Organization Tasking (a locked Group label
+  otherwise), an `MOS` toggle when the requirement names an MOS someone holds, and one checkbox row per candidate with
+  its overlap state. Whoever was picked when the sheet opened leads the list, so ticking never moves a row. The footer
+  reads `N more needed` or `x of y selected` and `Save N people`, which is disabled until something changes. A
+  Group-scoped operator gets an extra `Remove N people outside your Groups` checkbox when such picks exist; left alone,
+  they stay picked.
+- `staffing-undo`: a save toasts `x of y selected`, who now shows a commitment and who no longer does, and `Undo` for
+  ten seconds. `Undo` saves the earlier list against the revision the save returned. If someone saved since, it reads
+  `Undo did not go through` and the card shows their list.
 - `staffing-save`: a stale revision returns 409 with the stored list. The sheet keeps the operator's choices under an
   alert naming who is saved now, and the next save replaces it. A failed save keeps the draft. Resending a saved list
   answers `unchanged` and writes nothing.
@@ -260,41 +276,42 @@ the `orgOwner` page; archive with `$V personnel-archive-batch PAGE orgA '["ID"]'
 Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Tasking needing 3 and a Bravo Tasking needing
 1, each executing 26 – 28 Oct 2026, through `Create tasking` or a `POST` to `/org/A/api/calendar-taskings`.
 
-1. **Organization-wide picker.** At 1440 open the Organization Tasking. `People` reads `0 of 3 picked` with an empty
-   state. `Assign people` lists all three people with their Groups (`Unassigned` for SPC Unassigned), and Baker carries
-   `Verification Training · 25 – 27 Oct 2026` in the warning colour. `Group` `Bravo` leaves only Baker; search `unass`
-   leaves only SPC Unassigned. From the search field, Tab and Space pick all three and the count reads
-   `3 selected of 3 needed`. `Save people` closes the sheet; `People` reads `3 of 3 picked`, and Activity adds
+1. **Organization-wide picker.** At 1440 open the Organization Tasking. `People` reads `0 of 3 selected` over a dashed
+   `3 more people needed by DAY` row. `Assign people` lists all three people with their Groups (`Unassigned` for SPC
+   Unassigned), and Baker carries `Verification Training Sun 25 Oct – Tue 27 Oct. Overlaps 2 of 3 days.` in the warning
+   colour. `Group` `Bravo` leaves only Baker; search `unass` leaves only SPC Unassigned. From the search field, Tab and
+   Space pick all three and the count reads `3 of 3`. `Save 3 people` closes the sheet; `People` reads
+   `3 of 3 selected`, and Activity adds
    `Picked SPC Able, Synthetic; SPC Baker, Synthetic and SPC Unassigned, Synthetic`.
 2. **Group picker.** On the Alpha Tasking the picker has no `Group` select and lists only SPC Able, now carrying the
-   Organization Tasking's title and `26 – 28 Oct 2026`. Pick Able and save: `1 of 2 picked`.
+   Organization Tasking's title and `26 – 28 Oct 2026`. Pick Able and save: `1 of 2 selected`.
 3. **List counts.** The Taskings list rows end `· 1 of 2 picked`, `· 3 of 3 picked` and `· 0 of 1 picked`.
 4. **Retry is a no-op.** From the page, `PUT` the same list with the same `expectedRevision` twice. The first answers
    `saved`, the second `unchanged` with the same revision, and the participant rows and audit rows do not grow.
 5. **Concurrent edit.** Open a second `calendarOperate` page. Open the Organization Tasking's picker in both. In the
    second, clear SPC Unassigned and save. In the first, clear Baker and save. The sheet stays open with
    `Someone else saved this list while you were choosing` listing Able and Baker, and the first page's choices (Able and
-   Unassigned) still ticked. Save again: `2 of 3 picked`, and Activity holds both changes in order.
+   Unassigned) still ticked. Save again: `2 of 3 selected`, and Activity holds both changes in order.
 6. **Failed save.** Open the picker, run the one-shot override above, change a pick and save. The sheet keeps the choice
    under `The people were not saved…`, and `$V rows calendar_tasking_participants` is unchanged. Save again: it closes.
-7. **Needs review.** Move Able to Bravo. The Alpha Tasking reads `0 of 2 picked`, Able shows `Needs review` and
+7. **Needs review.** Move Able to Bravo. The Alpha Tasking reads `0 of 2 selected`, Able shows `Needs review` and
    `Moved to Bravo` with only `Remove`, and a note explains reviewed picks do not count. Move Able back: the row reads
-   `Eligible again` with `Keep` and `Remove`. Press `Keep`: `1 of 2 picked`, and Activity adds
+   `Eligible again` with `Keep` and `Remove`. Press `Keep`: `1 of 2 selected`, and Activity adds
    `Kept SPC Able, Synthetic after review`. Archive SPC Unassigned (picked on the Organization Tasking): `Archived`.
    Restore them: still `Needs review`, now `Eligible again`. Press `Remove`; Activity adds the removal.
-8. **Group-scoped operator.** Move Able to Bravo again. As `calendarScoped`, the Alpha Tasking reads `0 of 2 picked` and
-   `1 person outside your Groups` with no name and no review note; Activity reads `Picked 1 other person`. The picker
-   says `Nobody on this roster is active.` and offers `Remove 1 person outside your Groups`. Tick it and save:
-   `Nobody is picked yet`, Activity `Removed 1 other person`, and no participant row remains. From the page, `GET` and
-   `PUT` `/org/A/api/calendar-taskings/ID/people` for the Organization and Bravo Taskings return 404; a `PUT` on the
-   Alpha Tasking naming Baker or SPC Unassigned returns 409 and stores nothing.
+8. **Group-scoped operator.** Move Able to Bravo again. As `calendarScoped`, the Alpha Tasking reads `0 of 2 selected`
+   and `1 person outside your Groups` with no name and no review note; Activity reads `Picked 1 other person`. The
+   picker says `Nobody on this roster is active.` and offers `Remove 1 person outside your Groups`. Tick it and save:
+   `0 of 2 selected` with no outside line, Activity `Removed 1 other person`, and no participant row remains. From the
+   page, `GET` and `PUT` `/org/A/api/calendar-taskings/ID/people` for the Organization and Bravo Taskings return 404; a
+   `PUT` on the Alpha Tasking naming Baker or SPC Unassigned returns 409 and stores nothing.
 9. **Read-only and outsiders.** As `calendarView`, a detail shows the names with no `Assign people`, `Keep` or `Remove`,
    and `GET` and `PUT` on `.../people` return 403. The `viewer` login gets 403 from both, and the detail's `__data.json`
    ends in a 403 node with neither the title nor a name. As `calendarForeign`, A's detail is 404 and both calls
    return 404.
 10. **Widths.** Capture the Organization detail, the picker, the Taskings list, the scoped `People` section and a review
-    row at 1440, 900 and 390. At 390 the sheet fills the screen with `Save people` and `Cancel` stacked and reachable,
-    review actions sit beside the name, and `scrollWidth` equals the viewport.
+    row at 1440, 900 and 390. At 390 the sheet fills the screen with `Save N people` and `Cancel` reachable, review
+    actions sit beside the name, and `scrollWidth` equals the viewport.
 11. **Delete guards.** Archive Able while picked. As `orgOwner`, Settings › Archives › `Delete SPC Able, Synthetic`,
     type the name and press `Delete permanently`: the dialog stays and a toast reads
     `SPC Able, Synthetic is picked for “…”. Remove them from that tasking before deleting.` The person row remains. In
@@ -306,6 +323,60 @@ Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Taskin
 `src/features/calendar/taskings/staffing/` tests cover the operations, review derivation and the picker's conflict and
 failed-save handling; `supabase/tests/calendar_tasking_staffing.sql` covers candidates, concealment, refused writes,
 revisions, review flags and the delete guards as ordinary signed-in users.
+
+## Tasking detail
+
+Seed as `calendarOperate`, with same-origin `fetch` from the page, pausing about 2.5 s between writes: the app allows 60
+requests a minute per IP, shared with actor logins, so wait a minute after logging in several actors. Ranks such as
+`SSG` need the Army pack first: as `orgOwner`, `POST /org/A/settings/ranks?/addServicePack` with form `service=army` and
+header `x-sveltekit-action: true`. Add SSG Hale (68W, Section sergeant), SGT Ortiz (68W, Team leader), SPC Nguyen, SPC
+Reyes and PFC Kim to Alpha, SFC Diaz and SPC Moore to Bravo, and SSG Park (68K) to no Group. Create the Event
+`Best Medic Competition`, 29 Oct – 2 Nov 2026, and link:
+
+- `trauma`, Alpha, `Provide 4 trauma-lane medics`, needs 4, qualifications `68W, CLS instructor preferred.`, execution
+  29 Oct – 2 Nov, report `06:00`, suspense 2 Nov, instructions; picks Able, Hale and Ortiz; equipment `Aid bag, M9` x 4
+  all secured and `Litter, folding` x 2 with 1 secured; two checklist items, one done; then `Start`.
+- `graders`, Organization, `Provide 3 lane graders (E-6+)`, same dates; picks Hale and Diaz.
+- `lane`, Alpha, blocked with a reason; `done`, Bravo, completed with a note, with equipment returned 2 of 2 and 1 of 2.
+- A `Leave` for Ortiz, 30 Oct – 1 Nov, through `POST /org/A/api/availability`.
+
+1. **In progress (Organization-wide operator).** Open `trauma` at 1440. The header reads the outcome, `Edit` and
+   `+ Assign people`; the row reads `All taskings`, `In progress`, `ALPHA` and `...`. The strip reads `EVENT` with the
+   Event link, `PEOPLE COMMITTED` `Thu 29 Oct – Mon 2 Nov` over `Report 0600`, and `SUSPENSE` `Mon 2 Nov` over
+   `In N days`. `People` reads `3 of 4 selected` in amber over `68W, CLS instructor preferred. From Alpha.`: Able
+   `No known overlap`, Hale an info line naming `Provide 3 lane graders (E-6+)`, Ortiz a warning line
+   `Verification Leave Fri 30 Oct – Sun 1 Nov. Overlaps 3 of 5 days.`, then `1 more person needed by Thu 29 Oct` with
+   `Pick 1 more`. The rail reads `STATUS` with `In progress`, `Mark blocked` and `Complete`, then `REST OF THE EVENT`
+   listing `graders`, `INSTRUCTIONS`, `WHO CAN PICK PEOPLE` and `ACTIVITY` newest first.
+2. **Scoped reader.** As `calendarScoped`, Hale's line reads `Committed elsewhere over these dates.` with no title, and
+   `REST OF THE EVENT` lists the Organization Tasking only as its responsible and outcome, with no link.
+3. **Blocked and completed.** `lane` shows a red `Blocked` banner with `since DAY · NAME`, the reason and `Edit reason`;
+   `Unblock` replaces `+ Assign people`. `Edit reason` › change the text › `Save reason`: the banner reads the new
+   reason and Activity adds it. `done` shows a green banner with the note, `Reopen` in the header, no `Edit`, and
+   `Equipment` `1 of 2 returned`.
+4. **Picker.** On `graders` press `+ Assign people`. The sheet reads `Assign people`, the outcome and dates, the
+   `Organization-level tasking. You can pick from every Group.` banner, `2 of 3` with chips `SSG Hale · Alpha` and
+   `SFC Diaz · Bravo` and one dashed slot. Hale and Diaz lead the list. `Group` › `Bravo` leaves Diaz and Moore;
+   `Unassigned` leaves Park. `Save` is disabled. On `trauma` the sheet has a locked `Group Alpha`, an `MOS` toggle that
+   leaves only 68W holders, `Other Groups are not listed.` and the footer `Only Alpha's roster appears…`.
+   `Remove SGT Ortiz, Lena` on a chip unticks her row.
+5. **Undo.** On `trauma` tick Nguyen and press `Save 4 people`. The sheet closes, `People` reads `4 of 4 selected` with
+   Nguyen marked `new`, and a toast reads `4 of 4 selected`, `SPC Nguyen now shows a commitment…` and `Undo`. Press
+   `Undo`: `The earlier selection is back` and `3 of 4 selected`; `$V rows calendar_tasking_participants` lists Able,
+   Hale and Ortiz, and Activity holds both changes. Save Nguyen again, then from a second page `PUT` a different list
+   with the revision the save returned, then press `Undo` on the first: `Undo did not go through` with
+   `Someone else changed who is picked after your save.`, and `People` shows the second page's list.
+6. **Load states.** After the last navigation arm one source at a time with `hold 1 30000`, reload, capture, then
+   `fail-hard 1 60000`, reload, capture, and `server-source restore`. `rpc/calendar_tasking_people`: `People` shows
+   skeleton rows, then `People could not be loaded` with `Retry`, and the header's `+ Assign people` goes.
+   `calendar_tasking_equipment`: two skeleton cards, then `Equipment and checklist could not be loaded`.
+   `rpc/read_calendar_tasking_activity`: skeleton lines under `ACTIVITY`, then `Activity could not be loaded`.
+   `rpc/list_calendar_event_tasking_summaries` as `calendarScoped`: `REST OF THE EVENT` reads
+   `The event's other taskings could not be loaded.` Every other region renders as usual, and nothing shifts when a held
+   source arrives.
+7. **Widths.** Capture `trauma`, `lane`, `done` and both pickers at 1440, 900 and 390. At 900 the rail stacks under the
+   main column; at 390 the strip, the cards and the rail stack, the picker fills the screen, and `scrollWidth` equals
+   the viewport.
 
 ## Event detail and shared Events
 
@@ -391,17 +462,23 @@ function as ordinary signed-in users; run it with the disposable database proced
 
 ## Equipment and checklist
 
-A Tasking's detail carries an `Equipment` list (a name, a quantity and how many are secured) and a `Checklist` (flat,
-ordered, open or done), each with its own add form. The headings read `N of M ready · P partial` and `D of N done`. A
-Tasking list row repeats them as `Equipment N of M ready · P partial` and `Checklist D/N`, and only when the Tasking has
-items. Neither list moves the Tasking's status. Completed and cancelled Taskings keep both lists on record, read-only.
+A Tasking's detail carries an `Equipment` card (a name, a quantity and how many are secured) and a `Checklist` card
+(flat, ordered, open or done) side by side, each with its own add form. The headings read `N of M ready` (green when all
+are, red on a Blocked Tasking, amber otherwise) and `D of N`. A Tasking list row repeats them as
+`Equipment N of M ready · P partial` and `Checklist D/N`, and only when the Tasking has items. Neither list moves the
+Tasking's status. Completed and cancelled Taskings keep both lists on record, read-only, except that a Completed Tasking
+counts returned equipment.
 
-- `equipment-edit`: `Add equipment` and `Quantity` with `Add to equipment`; per row `Secure one fewer`,
-  `Secure one more` and `All secured` (each named after the item), `Move up`, `Move down`, `Edit` and `Remove`.
-  `Edit` opens `Equipment`, `Quantity` and `Secured` inline with `Save` and `Cancel`. A row reads `Ready`, `Partial` or
-  `Not secured` and `Secured n of N`.
-- `checklist-edit`: `Add checklist item` with `Add to checklist`; per row a checkbox named after the item, then
-  `Move up`, `Move down`, `Edit` and `Remove`. A done item is struck through with `Done by` and the time.
+- `equipment-edit`: `+ Add equipment` opens `Equipment` and `Quantity` with `Add` (named `Add to equipment`) and
+  `Cancel`. A row is a checkbox named after the item (ticked secures all, unticked none), then `× N`, or
+  `n of N secured` in amber (red when Blocked) for a partial row, and an `Actions for NAME` menu with `Edit`, `Move up`,
+  `Move down` and `Remove`. `Edit` opens `Equipment`, `Quantity` and `Secured` inline with `Save` and `Cancel`.
+- `equipment-return`: on a Completed Tasking the heading reads `R of N returned`, the checkbox marks an item returned in
+  full, a partly returned row reads `n of N returned`, and `Actions for NAME` holds only `Count returned…`, a
+  `Returned of N NAME` field with `Save`. Each sends `returnedQuantity` and nothing else.
+- `checklist-edit`: `+ Add item` opens `Checklist item` with `Add` (named `Add to checklist`). A row is a checkbox named
+  after the item and an `Actions for LABEL` menu with `Edit`, `Move up`, `Move down` and `Remove`. A done item is struck
+  through.
 - `lists-access`: a Group-scoped operator edits only their Groups' Taskings, a Calendar viewer sees both lists with no
   controls, and another Group's Tasking is `This tasking is not available`. Writes outside reach return 403, or 404 when
   the Tasking is hidden; a closed Tasking returns 409.
@@ -413,15 +490,14 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
 `fetch` from the page: `POST` to `/org/A/api/calendar-taskings` with `{id, draft}`, then to `.../ID/equipment` with
 `{id, draft: {name, quantity, securedQuantity}}` or `.../ID/checklist` with `{id, label}`.
 
-1. **Add.** As `calendarOperate` at 1440, open an Alpha Tasking. `Equipment` reads `None required` and `Checklist` reads
+1. **Add.** As `calendarOperate` at 1440, open an Alpha Tasking. `Equipment` reads `None needed` and `Checklist` reads
    `No items`. Add `Litters` x 4 and `Radios` x 2, then two checklist items. Each add appears at once, the heading reads
-   `0 of 2 ready` and `0 of 2 done`, and the inputs clear. `$V rows` shows `position` 1 and 2 and `created_by` the
-   operator; the checklist rows are `done false`. Activity gains one entry per add.
-2. **Secure, tick and reorder.** `All secured: Litters`: the row reads `Ready`, `Secured 4 of 4`, the heading
-   `1 of 2 ready`. `Secure one more Radios`: `Partial`, `1 of 2 ready · 1 partial`. Tick the first checklist item: it is
-   struck through with `Done by` and the time, the heading reads `1 of 2 done`, and `done_by`/`done_at` are set in the
-   row. `Move Radios up` swaps the rows and `position` follows. Untick: `done_by` and `done_at` clear. Reload: the
-   order, counts and ticks are unchanged.
+   `0 of 2 ready` and `0 of 2`, and the inputs clear. `$V rows` shows `position` 1 and 2 and `created_by` the operator;
+   the checklist rows are `done false`. Activity gains one entry per add.
+2. **Secure, tick and reorder.** Tick `Litters`: the row reads `× 4`, the heading `1 of 2 ready`. `Edit` Radios with
+   `Secured` 1: the row reads `1 of 2 secured` in amber. Tick the first checklist item: it is struck through, the
+   heading reads `1 of 2`, and `done_by`/`done_at` are set in the row. `Actions for Radios` › `Move up` swaps the rows
+   and `position` follows. Untick: `done_by` and `done_at` clear. Reload: the order, counts and ticks are unchanged.
 3. **Edit.** `Edit` a row, set `Secured` above `Quantity` and press `Save`: `Secured` is invalid with
    `Secured cannot be more than the quantity.` and no request leaves. Fix it and save: the row updates, and Activity
    gains a changed entry for a new name or quantity and a secured entry for a new secured count.
@@ -429,13 +505,12 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
    `Stretchers` x 3: an alert reads `The equipment was not added. Your entry is kept, so try again.`, the entry stays in
    the form and `$V rows` has no new row. `network restore PAGE`, press `Add to equipment` again: it saves once.
 5. **Remove.** `Remove` a row and an item: each disappears, the heading counts fall, and Activity gains a removed entry.
-   With no items left the summary goes, the list reads `None required` or `No items`, and the Tasking list row loses
-   its summary.
+   With no items left the headings read `None needed` and `No items`, and the Tasking list row loses its summary.
 6. **List rows.** On the Taskings list the Alpha row reads `Equipment 1 of 3 ready · 2 partial` and
    `Checklist 1/2` in the title column, with no layout shift when it appears, and rows without items show nothing.
 7. **Widths.** Capture the list, the detail and the `Equipment` and `Checklist` sections at 1440, 900 and 390;
-   `scrollWidth` equals the viewport. At 390 the row actions wrap under the item and the add forms stack with a full
-   width `Add`.
+   `scrollWidth` equals the viewport. At 390 the two cards stack and each row keeps its checkbox, name, count and menu
+   on one line.
 8. **Scoped operator.** As `calendarScoped` the list shows only Alpha Taskings with their summaries, and an Alpha detail
    has every control. A Bravo or Organization Tasking's detail reads `This tasking is not available`. From the page, a
    `POST` to a Bravo or Organization Tasking's `equipment` or `checklist`, a `PUT` reorder and a `PATCH` of one of its
@@ -443,8 +518,11 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
 9. **Read-only roles.** As `calendarView` both lists render with no add form and disabled checkboxes, and the same
    writes return 403 on an Alpha, Bravo and Organization Tasking. As the `viewer` login the detail is the 403 page, and
    as `calendarForeign` it is 404.
-10. **Closed Tasking.** `Complete` a Tasking with items: the lists stay, with no add form or row actions. A `POST` to
-    its `equipment` returns 409. `Reopen` restores the controls.
+10. **Closed Tasking.** `Complete` a Tasking with items: the lists stay, with no add form and no checklist actions.
+    `Equipment` reads `0 of 2 returned` and each row's menu holds only `Count returned…`. Tick `Litters`: the heading
+    reads `1 of 2 returned` and its row `returned_quantity 4`. `Count returned…` on Radios: `-1` is refused in the field
+    and sends nothing; `1` reads `1 of 2 returned` on the row. A `POST` to its `equipment` returns 409. `Reopen`
+    restores the controls.
 11. **Export and activity.** The JSON export holds `calendarTaskingEquipment` and `calendarTaskingChecklistItems`; the
     Excel `Tasking Equipment` and `Tasking Checklist` sheets name each Tasking by its outcome and each completer by
     email. Settings › Logs reads `Added equipment Litters on Provide four trauma-lane medics` and its siblings.

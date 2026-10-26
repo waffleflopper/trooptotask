@@ -1,10 +1,10 @@
 import type { BadgeVariant } from '$lib/components/ui/badge';
-import { formatDayMonthYear } from '$lib/utils/dates';
-import { eventDateRange } from '../../events/eventModel';
-import type { EquipmentReadiness, ChecklistProgress } from '../taskingListsModel';
+import { formatDate, formatDayMonthYear, formatWeekdayDayMonth } from '$lib/utils/dates';
+import { daysBetween, eventDateRange, eventDayRange } from '../../events/eventModel';
 import type {
 	GroupLabels,
 	StaffingRequirement,
+	Tasking,
 	TaskingAction,
 	TaskingActivityFact,
 	TaskingAttention,
@@ -125,7 +125,7 @@ export function describeActivity(
 		case 'started':
 			return { summary: 'Started work', note: null };
 		case 'blocked':
-			return { summary: 'Blocked the tasking', note: fact.reason };
+			return { summary: fact.edited ? 'Changed the block reason' : 'Blocked the tasking', note: fact.reason };
 		case 'unblocked':
 			return { summary: 'Unblocked the tasking', note: null };
 		case 'completed':
@@ -162,8 +162,71 @@ export function describeActivity(
 	}
 }
 
-export function equipmentSummary({ total, ready, partial }: EquipmentReadiness): string {
-	return `${ready} of ${total} ready${partial > 0 ? ` · ${partial} partial` : ''}`;
+const dayCount = (days: number) => `${days} ${days === 1 ? 'day' : 'days'}`;
+
+/** How the suspense stands today, or how it was met once the Tasking closed. */
+export function suspenseNote(tasking: Pick<Tasking, 'status' | 'suspenseOn'>, today: string): string {
+	const { status } = tasking;
+	if (status.kind === 'completed') {
+		const late = daysBetween(tasking.suspenseOn, formatDate(new Date(status.at)));
+		return late > 0 ? `Completed ${dayCount(late)} late` : 'Completed on time';
+	}
+	if (status.kind === 'cancelled') return 'Cancelled';
+	const days = daysBetween(today, tasking.suspenseOn);
+	if (days === 0) return 'Due today';
+	return days > 0 ? `In ${dayCount(days)}` : `Overdue by ${dayCount(-days)}`;
 }
 
-export const checklistSummary = ({ total, done }: ChecklistProgress) => `${done} of ${total} done`;
+/** The rail's one sentence on what the status means and what does not change it. */
+export function statusSentence(tasking: Tasking, picked: number | null, today: string): string {
+	switch (tasking.status.kind) {
+		case 'open':
+			return 'Start when work begins. Picking people and securing equipment do not change the status.';
+		case 'in_progress': {
+			const required = tasking.requirement?.count ?? null;
+			const equipment = tasking.readiness.equipment;
+			const staffed = required !== null && picked !== null && picked >= required;
+			if (tasking.execution && staffed && (!equipment || equipment.ready === equipment.total))
+				return `Fully staffed and equipped. Still In progress until coverage ends ${eventDayRange({ startsOn: tasking.execution.endsOn, endsOn: tasking.execution.endsOn }, today)}.`;
+			const staffing = required === null ? 'Staffing' : `Staffing ${required} of ${required}`;
+			return `Complete after ${tasking.execution ? 'coverage ends' : 'the work is done'}. ${staffing} does not finish the tasking.`;
+		}
+		case 'blocked':
+			return 'Blocked stays on the Dashboard and the event until cleared. The suspense does not move.';
+		case 'completed':
+			return 'Completion is explicit and kept in history. Reopen keeps the original note.';
+		case 'cancelled':
+			return 'Cancelled taskings stay on record. They cannot be reopened.';
+	}
+}
+
+/** Who may act on this Tasking now, said in a sentence instead of role names. Nothing once it is cancelled. */
+export function whoCanNote(
+	tasking: Pick<Tasking, 'status' | 'responsibility'>,
+	groups: GroupLabels,
+	reader: { canManage: boolean; organizationWide: boolean }
+): { label: string; text: string } | null {
+	const kind = tasking.status.kind;
+	if (kind === 'cancelled') return null;
+	const label = kind === 'completed' ? 'Who can reopen' : kind === 'blocked' ? 'Who can update' : 'Who can pick people';
+	const staff = `Organization-wide calendar staff${reader.organizationWide ? ', like you' : ''}`;
+	if (tasking.responsibility.kind === 'organization')
+		return { label, text: kind === 'completed' || kind === 'blocked' ? `${staff}.` : `${staff}, from every Group.` };
+	const group = groups[tasking.responsibility.groupId] ?? 'The responsible Group';
+	const groupLeader = reader.canManage && !reader.organizationWide;
+	if (kind === 'completed' || kind === 'blocked')
+		return { label, text: `${group} leaders who manage the calendar${groupLeader ? ', like you,' : ''} and ${staff}.` };
+	if (groupLeader)
+		return {
+			label,
+			text: `You can pick ${group} people for ${group} taskings. Routing to another Group belongs to Organization-wide calendar staff.`
+		};
+	return { label, text: `${group} leaders who manage the calendar, from ${group}'s roster. ${staff}.` };
+}
+
+/** "Wed 14 Oct, 1720": when a status was set, in the reader's day and military time. */
+export function statusMoment(at: string): string {
+	const date = new Date(at);
+	const time = `${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
+	return `${formatWeekdayDayMonth(formatDate(date))}, ${time}`;
+}

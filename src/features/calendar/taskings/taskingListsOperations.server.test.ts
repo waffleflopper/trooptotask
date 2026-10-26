@@ -224,6 +224,28 @@ describe('Tasking equipment and checklist operations', () => {
 		expect(audit.entries).toEqual([]);
 	});
 
+	it('records a return on a completed Tasking and keeps everything else on it closed', async () => {
+		const completed = tasking(ALPHA, { kind: 'completed', note: null, at: '2026-10-25T12:00:00Z', by: ACTOR });
+		const { ctx, equipment } = member('operate', { kind: 'organization' }, completed);
+		equipment.push({ id: LITTERS, ...littersDraft, securedQuantity: 4, returnedQuantity: 0 });
+
+		await updateEquipment(ctx, TASKING, LITTERS, { returnedQuantity: 3 });
+		await expect(
+			updateEquipment(ctx, TASKING, LITTERS, { returnedQuantity: 4, securedQuantity: 3 })
+		).rejects.toMatchObject({ status: 409 });
+
+		expect(equipment[0]).toMatchObject({ securedQuantity: 4, returnedQuantity: 3 });
+		const cancelled = member(
+			'operate',
+			{ kind: 'organization' },
+			tasking(ALPHA, { kind: 'cancelled', reason: null, at: '2026-10-25T12:00:00Z', by: ACTOR })
+		);
+		cancelled.equipment.push({ id: LITTERS, ...littersDraft, returnedQuantity: 0 });
+		await expect(updateEquipment(cancelled.ctx, TASKING, LITTERS, { returnedQuantity: 1 })).rejects.toMatchObject({
+			status: 409
+		});
+	});
+
 	it('conceals a Tasking the viewer cannot see', async () => {
 		const { ctx } = member('operate', { kind: 'organization' }, null);
 

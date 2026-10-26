@@ -32,6 +32,8 @@
 		lists={data.lists}
 		choices={data.choices}
 		people={data.people}
+		pickStates={data.pickStates}
+		restOfEvent={data.restOfEvent}
 		availabilityGaps={data.availabilityGaps}
 		editOnArrival={edit}
 	/>

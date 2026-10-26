@@ -298,7 +298,7 @@ export const TRAINING_TYPE_NAME_EXISTS_MESSAGE = 'A Training type with that name
 
 const catalogName = z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or fewer');
 
-export const trainingTypeCreateInput = z.object({
+const trainingTypeFieldsInput = z.object({
 	name: catalogName,
 	description: z.string().nullable().optional(),
 	expirationMonths: z.number().int().nullable().optional(),
@@ -317,7 +317,33 @@ export const trainingTypeCreateInput = z.object({
 	canBeExempted: z.boolean().optional(),
 	isOptional: z.boolean().optional()
 });
-export const trainingTypeUpdateInput = trainingTypeCreateInput.partial().extend({ id: uuidSchema });
+const warningOrderError = {
+	message: 'Make the final warning shorter than the first.',
+	path: ['warningDaysOrange']
+};
+export const trainingTypeWarningsInput = trainingTypeFieldsInput
+	.pick({ warningDaysYellow: true, warningDaysOrange: true })
+	.required()
+	.refine((input) => input.warningDaysOrange < input.warningDaysYellow, warningOrderError);
+
+export const trainingTypeCreateInput = trainingTypeFieldsInput.refine(
+	(input) =>
+		trainingTypeWarningsInput.safeParse({
+			warningDaysYellow: input.warningDaysYellow ?? 60,
+			warningDaysOrange: input.warningDaysOrange ?? 30
+		}).success,
+	warningOrderError
+);
+export const trainingTypeUpdateInput = trainingTypeFieldsInput
+	.partial()
+	.extend({ id: uuidSchema })
+	.refine(
+		(input) =>
+			input.warningDaysYellow === undefined ||
+			input.warningDaysOrange === undefined ||
+			trainingTypeWarningsInput.safeParse(input).success,
+		warningOrderError
+	);
 export const trainingViewCreateInput = z.object({
 	name: catalogName,
 	columnIds: z.array(uuidSchema).optional()

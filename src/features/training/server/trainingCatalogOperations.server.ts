@@ -17,6 +17,7 @@ import type {
 import {
 	trainingTypeCreateInput,
 	trainingTypeUpdateInput,
+	trainingTypeWarningsInput,
 	trainingViewCreateInput,
 	trainingViewUpdateInput,
 	trainingExemptionInput,
@@ -50,6 +51,16 @@ export async function updateTrainingType(
 	if (!parsed.success) error(400, issueMessage(parsed.error));
 	const id = parsed.data.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
+	const { warningDaysYellow, warningDaysOrange } = parsed.data;
+	if ((warningDaysYellow === undefined) !== (warningDaysOrange === undefined)) {
+		const saved = (await ctx.trainingCatalog.listTypes()).find((type) => type.id === id);
+		if (!saved) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
+		const warnings = trainingTypeWarningsInput.safeParse({
+			warningDaysYellow: warningDaysYellow ?? saved.warningDaysYellow,
+			warningDaysOrange: warningDaysOrange ?? saved.warningDaysOrange
+		});
+		if (!warnings.success) error(400, issueMessage(warnings.error));
+	}
 	const row = await ctx.trainingCatalog.patchType(id, parsed.data);
 	if (!row) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
 	ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });

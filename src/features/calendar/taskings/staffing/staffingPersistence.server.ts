@@ -100,8 +100,7 @@ function writeFailure(error: { code?: string; message: string }): never {
 	}
 }
 
-const counted = (row: z.output<typeof countRowSchema>): StaffingCount & { revision: number } => ({
-	revision: row.revision,
+const counted = (row: z.output<typeof countRowSchema>): StaffingCount => ({
 	picked: row.picked,
 	needsReview: row.needs_review,
 	outsideScope: row.outside_scope
@@ -131,15 +130,10 @@ export function createSupabaseCalendarStaffingPersistence(
 				rpcRows('calendar_tasking_people', { p_tasking_id: taskingId })
 			]);
 			if (!count) return null;
-			return { ...counted(count), picks: picks.map((row) => pickRowSchema.parse(row)) };
+			return { ...counted(count), revision: count.revision, picks: picks.map((row) => pickRowSchema.parse(row)) };
 		},
 		async countStaffing(taskingIds) {
-			return Object.fromEntries(
-				(await countRows(taskingIds)).map((row) => {
-					const { revision: _revision, ...count } = counted(row);
-					return [row.tasking_id, count];
-				})
-			);
+			return Object.fromEntries((await countRows(taskingIds)).map((row) => [row.tasking_id, counted(row)]));
 		},
 		async listAdvisories(taskingId) {
 			const byPerson: Record<string, StaffingAdvisory[]> = {};

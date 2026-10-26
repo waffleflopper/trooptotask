@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -38,7 +39,7 @@
 	const UNASSIGNED = 'unassigned';
 
 	let picker = $state.raw<StaffingPicker | 'failed' | null>(null);
-	let selected = $state(new Set<string>());
+	const selected = new SvelteSet<string>();
 	let removeOutsideScope = $state(false);
 	let revision = $state(0);
 	let initial = $state.raw<string[]>([]);
@@ -58,7 +59,8 @@
 			const loaded = await withinOrganizationLifetime(loadStaffingPickerRequest(orgId, tasking.id), () => open);
 			const picked = loaded.staffing.picks.map((pick) => pick.personnelId);
 			initial = picked;
-			selected = new Set(picked);
+			selected.clear();
+			for (const id of picked) selected.add(id);
 			revision = loaded.staffing.revision;
 			picker = loaded;
 		} catch {
@@ -95,10 +97,8 @@
 	const conflictNames = $derived(conflict?.picks.map(personName) ?? []);
 
 	function toggle(personnelId: string, checked: boolean) {
-		const next = new Set(selected);
-		if (checked) next.add(personnelId);
-		else next.delete(personnelId);
-		selected = next;
+		if (checked) selected.add(personnelId);
+		else selected.delete(personnelId);
 	}
 
 	function save() {

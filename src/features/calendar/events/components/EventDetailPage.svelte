@@ -32,6 +32,7 @@
 	import EventsTaskingsHeader from '../../taskings/components/EventsTaskingsHeader.svelte';
 	import { reloadCalendarEvents, setEventPageState } from '../eventPageState';
 	import CancelEventDialog from './CancelEventDialog.svelte';
+	import DeleteEventDialog from './DeleteEventDialog.svelte';
 	import EventDialog from './EventDialog.svelte';
 	import EventLoadFailed from './EventLoadFailed.svelte';
 	import { describeActivity, memberLabel } from './eventLabels';
@@ -65,7 +66,7 @@
 
 	// A save answers with the stored event; it stands until the refreshed detail arrives.
 	let saved = $state.raw<{ event: CalendarEvent; over: unknown } | null>(null);
-	let dialog = $state<'edit' | 'cancel' | null>(null);
+	let dialog = $state<'edit' | 'cancel' | 'delete' | null>(null);
 	// After a date change the Taskings left to review stand until dismissed, and survive Back from a Tasking's edit.
 	const dateReview = $derived(page.state.eventDateReview ?? null);
 
@@ -143,7 +144,7 @@
 		>
 			<CalendarDays data-icon="inline-start" aria-hidden="true" />Show on availability
 		</Button>
-		{#if canManage && open}
+		{#if canManage}
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
 					{#snippet child({ props })}
@@ -153,7 +154,11 @@
 					{/snippet}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end">
-					<DropdownMenu.Item variant="destructive" onSelect={() => (dialog = 'cancel')}>Cancel event</DropdownMenu.Item>
+					{#if open}
+						<DropdownMenu.Item onSelect={() => (dialog = 'cancel')}>Cancel event</DropdownMenu.Item>
+						<DropdownMenu.Separator />
+					{/if}
+					<DropdownMenu.Item variant="destructive" onSelect={() => (dialog = 'delete')}>Delete event</DropdownMenu.Item>
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 		{/if}
@@ -353,5 +358,7 @@
 		/>
 	{:else if dialog === 'cancel'}
 		<CancelEventDialog {org} {event} {taskings} onCancelled={stored} onClose={() => (dialog = null)} />
+	{:else if dialog === 'delete'}
+		<DeleteEventDialog {org} {event} {taskings} onClose={() => (dialog = null)} />
 	{/if}
 {/if}

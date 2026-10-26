@@ -97,7 +97,7 @@ SELECT throws_ok($$SELECT pg_temp.save('402', ARRAY['503', '504', '506'], 1)$$, 
   'another Organization''s Person cannot be picked');
 SELECT throws_ok($$SELECT pg_temp.save('401', ARRAY['501', '501'], 1)$$, '22023', NULL, 'the same Person cannot be picked twice');
 SELECT is(
-  (SELECT array_agg(kind ORDER BY id) FROM public.calendar_tasking_activity WHERE tasking_id = pg_temp.id('401')),
+  (SELECT array_agg(kind ORDER BY id) FROM public.read_calendar_tasking_activity(pg_temp.id('101')) WHERE tasking_id = pg_temp.id('401')),
   ARRAY['created', 'staffing_changed'], 'one staffing change is recorded per saved selection');
 
 -- Group-scoped operators staff only their Group's Taskings, and only from that Group.
@@ -130,9 +130,13 @@ SELECT throws_ok($$SELECT pg_temp.save('401', ARRAY[]::text[], 2)$$, 'P0002', NU
   'a member without Calendar cannot find the Tasking');
 SELECT is((SELECT count(*)::int FROM public.calendar_tasking_people(pg_temp.id('101'), pg_temp.id('401'))), 0,
   'and reads no picks');
+SELECT is((SELECT count(*)::int FROM public.read_calendar_tasking_activity(pg_temp.id('101'))), 0,
+  'a member without Calendar reads no Activity');
 SELECT pg_temp.act_as('6');
 SELECT throws_ok($$SELECT pg_temp.save('401', ARRAY[]::text[], 2)$$, 'P0002', NULL,
   'another Organization''s owner cannot find the Tasking');
+SELECT is((SELECT count(*)::int FROM public.read_calendar_tasking_activity(pg_temp.id('101'), pg_temp.id('401'))), 0,
+  'another Organization reads no Activity even with its Tasking id');
 
 -- Advisories show other commitments over the execution dates; hidden work stays anonymous.
 SELECT pg_temp.act_as('2');
@@ -183,6 +187,18 @@ SELECT results_eq(
   $$SELECT picked, needs_review, outside_scope FROM public.calendar_tasking_staffing(pg_temp.id('101'), ARRAY[pg_temp.id('401')])$$,
   $$VALUES (0, 1, 0)$$, 'a flagged pick leaves the picked count');
 SELECT pg_temp.act_as('7');
+SELECT throws_ok(
+  $$SELECT payload FROM public.calendar_tasking_activity WHERE tasking_id = pg_temp.id('401')$$,
+  '42501', NULL, 'a Group-scoped reader cannot bypass Activity redaction through the table');
+SELECT results_eq(
+  $$SELECT payload FROM public.read_calendar_tasking_activity(pg_temp.id('101'), pg_temp.id('401'))
+    WHERE kind = 'staffing_changed' ORDER BY id$$,
+  $$VALUES
+    ('{"added":{"names":["SGT Baker, Ben"],"others":1},"removed":{"names":[],"others":0},"kept":{"names":[],"others":0}}'::jsonb),
+    ('{"added":{"names":[],"others":0},"removed":{"names":["SGT Baker, Ben"],"others":0},"kept":{"names":[],"others":0}}'::jsonb)$$,
+  'Activity names in-scope People and counts a Person who left the reader''s Groups');
+SELECT is((SELECT count(*)::int FROM public.read_calendar_tasking_activity(pg_temp.id('101'), pg_temp.id('402'))), 0,
+  'the Activity read hides Organization-level Taskings from a Group-scoped reader');
 SELECT is((SELECT count(*)::int FROM public.calendar_tasking_participants), 0,
   'an Alpha viewer cannot read the pick of a Person now in Bravo');
 SELECT is((SELECT count(*)::int FROM public.calendar_tasking_people(pg_temp.id('101'), pg_temp.id('401'))), 0,
@@ -198,6 +214,15 @@ SELECT pg_temp.act_as('3');
 SELECT is(pg_temp.save('401', ARRAY[]::text[], 2), 'unchanged:2',
   'an Alpha operator''s save keeps the pick they cannot name');
 SELECT pg_temp.act_as('4');
+SELECT throws_ok($$SELECT * FROM public.calendar_tasking_activity$$, '42501', NULL,
+  'Organization-wide readers also cannot read the Activity table directly');
+SELECT results_eq(
+  $$SELECT payload FROM public.read_calendar_tasking_activity(pg_temp.id('101'), pg_temp.id('401'))
+    WHERE kind = 'staffing_changed' ORDER BY id$$,
+  $$VALUES
+    ('{"added":{"names":["SGT Baker, Ben","SPC Adams, Ana"],"others":0},"removed":{"names":[],"others":0},"kept":{"names":[],"others":0}}'::jsonb),
+    ('{"added":{"names":[],"others":0},"removed":{"names":["SGT Baker, Ben"],"others":0},"kept":{"names":[],"others":0}}'::jsonb)$$,
+  'an Organization-wide reader sees every staffing name through the protected read');
 SELECT results_eq(
   $$SELECT last_name, group_id, review_since IS NOT NULL FROM public.calendar_tasking_people(pg_temp.id('101'), pg_temp.id('401'))$$,
   $$VALUES ('Adams'::text, pg_temp.id('202'), true)$$, 'an Organization-wide viewer sees the flagged pick by name');
@@ -248,6 +273,13 @@ SELECT is(pg_temp.save('405', ARRAY[]::text[], 1, ARRAY[]::text[], true), 'saved
   'an Alpha operator explicitly removes the pick now outside their Groups');
 SELECT is(pg_temp.picks('405'), ARRAY[]::text[], 'and it is gone');
 SELECT pg_temp.act_as('7');
+SELECT results_eq(
+  $$SELECT payload FROM public.read_calendar_tasking_activity(pg_temp.id('101'), pg_temp.id('405'))
+    WHERE kind = 'staffing_changed' ORDER BY id$$,
+  $$VALUES
+    ('{"added":{"names":[],"others":1},"removed":{"names":[],"others":0},"kept":{"names":[],"others":0}}'::jsonb),
+    ('{"added":{"names":[],"others":0},"removed":{"names":[],"others":1},"kept":{"names":[],"others":0}}'::jsonb)$$,
+  'removed picks also stay anonymous in the history after leaving the reader''s scope');
 SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), pg_temp.id('501'), NULL)), 0,
   'an Alpha reader learns nothing about the Taskings of a Person who left their Groups');
 
@@ -275,6 +307,21 @@ SELECT pg_temp.act_as('1');
 SELECT throws_ok($$SELECT public.delete_group_with_reassignment(pg_temp.id('101'), pg_temp.id('201'), NULL)$$, '23503', NULL,
   'a Group responsible for a Tasking cannot be deleted');
 
+UPDATE public.calendar_taskings SET responsible_group_id = pg_temp.id('201') WHERE id = pg_temp.id('401');
+SELECT pg_temp.act_as('7');
+SELECT is(
+  (SELECT payload->'kept' FROM public.read_calendar_tasking_activity(pg_temp.id('101'), pg_temp.id('401'))
+    WHERE kind = 'staffing_changed' ORDER BY id DESC LIMIT 1),
+  '{"names":[],"others":1}'::jsonb, 'kept picks also become anonymous when their Person leaves the reader''s scope');
+SELECT pg_temp.act_as('4');
+SELECT is(
+  (SELECT payload->'kept' FROM public.read_calendar_tasking_activity(pg_temp.id('101'), pg_temp.id('401'))
+    WHERE kind = 'staffing_changed' ORDER BY id DESC LIMIT 1),
+  '{"names":["SPC Adams, Ana"],"others":0}'::jsonb, 'Organization-wide readers still name the kept Person');
+SET LOCAL ROLE anon;
+SELECT throws_ok($$SELECT * FROM public.read_calendar_tasking_activity(pg_temp.id('101'))$$, '42501', NULL,
+  'anonymous callers cannot execute the Activity read');
+
 -- The switch freezes staffing for every role.
 RESET ROLE;
 UPDATE public.organizations SET disabled_features = ARRAY['eventsAndTaskings'] WHERE id = pg_temp.id('101');
@@ -282,6 +329,7 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('1');
 SELECT throws_ok($$SELECT pg_temp.save('402', ARRAY[]::text[], 4)$$, 'P0002', NULL, 'staffing is frozen while the switch is off');
 SELECT is((SELECT count(*)::int FROM public.calendar_tasking_participants), 0, 'and picks are hidden');
+SELECT is((SELECT count(*)::int FROM public.read_calendar_tasking_activity(pg_temp.id('101'))), 0, 'and Activity is hidden');
 
 RESET ROLE;
 SELECT lives_ok($$DELETE FROM public.organizations WHERE id = pg_temp.id('101')$$,

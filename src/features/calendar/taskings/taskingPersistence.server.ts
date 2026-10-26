@@ -15,7 +15,6 @@ import {
 	type TaskingStatus,
 	type TaskingTransition
 } from './taskingModel';
-import { namedPeople, readPersonLabels } from './staffing/personLabels.server';
 import { readinessOf } from './taskingListsModel';
 
 export const TASKING_GONE = 'That tasking is no longer available.';
@@ -173,6 +172,8 @@ const requirementSchema = z
 	);
 const responsibilitySchema = z.string().nullable().transform(responsibilityFrom);
 
+const namedPeopleSchema = z.object({ names: z.array(z.string()), others: z.number().int().nonnegative() });
+
 const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), actor_id: z.string().nullable() }).and(
 	z.discriminatedUnion('kind', [
 		z.object({ kind: z.literal('created') }),
@@ -197,7 +198,7 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 		z.object({ kind: z.literal('cancelled'), payload: z.object({ reason: z.string().nullable() }) }),
 		z.object({
 			kind: z.literal('staffing_changed'),
-			payload: z.object({ added: z.array(z.string()), removed: z.array(z.string()), kept: z.array(z.string()) })
+			payload: z.object({ added: namedPeopleSchema, removed: namedPeopleSchema, kept: namedPeopleSchema })
 		}),
 		z.object({
 			kind: z.enum(['equipment_added', 'equipment_removed']),
@@ -224,7 +225,7 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 
 type ActivityRow = z.output<typeof activityRowSchema>;
 
-function toActivity(row: ActivityRow, labels: Map<string, string>): TaskingActivity {
+function toActivity(row: ActivityRow): TaskingActivity {
 	const base = { id: row.id, at: row.occurred_at, actorUserId: row.actor_id };
 	switch (row.kind) {
 		case 'created':
@@ -254,9 +255,7 @@ function toActivity(row: ActivityRow, labels: Map<string, string>): TaskingActiv
 			return {
 				...base,
 				kind: row.kind,
-				added: namedPeople(row.payload.added, labels),
-				removed: namedPeople(row.payload.removed, labels),
-				kept: namedPeople(row.payload.kept, labels)
+				...row.payload
 			};
 		case 'equipment_added':
 		case 'equipment_removed':
@@ -351,17 +350,9 @@ export function createSupabaseCalendarTaskingPersistence(
 		findTasking,
 		async listActivity(taskingId) {
 			const data = await allRows(() =>
-				client
-					.from('calendar_tasking_activity')
-					.select('id, occurred_at, actor_id, kind, payload')
-					.eq('organization_id', orgId)
-					.eq('tasking_id', taskingId)
-					.order('id')
+				client.rpc('read_calendar_tasking_activity', { p_organization_id: orgId, p_tasking_id: taskingId }).order('id')
 			);
-			const rows = data.map((row) => activityRowSchema.parse(row));
-			const people = rows.flatMap((row) => (row.kind === 'staffing_changed' ? Object.values(row.payload).flat() : []));
-			const labels = await readPersonLabels(client, orgId, people);
-			return rows.map((row) => toActivity(row, labels));
+			return data.map((row) => toActivity(activityRowSchema.parse(row)));
 		},
 		async findEventTitles(ids) {
 			if (ids.length === 0) return {};

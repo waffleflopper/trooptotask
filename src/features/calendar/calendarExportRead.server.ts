@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { STATUS_TYPE_FIELDS } from './calendarPersistenceMapping.server';
 import { RequestFailure } from '$lib/errors';
+
+const activityRowsSchema = z.array(z.record(z.string(), z.unknown()));
 
 const EXPORT_TABLES = [
 	'status_types',
@@ -34,6 +37,13 @@ export function createSupabaseCalendarExportReader(client: SupabaseClient, orgId
 				throw new RequestFailure(400, 'Unsupported Calendar export table');
 			}
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
+				if (table === 'calendar_tasking_activity') {
+					const { data, error } = await client
+						.rpc('read_calendar_tasking_activity', { p_organization_id: orgId })
+						.order('id', { ascending: true })
+						.range(from, to);
+					return { data: data === null ? null : activityRowsSchema.parse(data), error };
+				}
 				const query = client
 					.from(table)
 					.select(table === 'status_types' ? STATUS_TYPE_FIELDS : '*')

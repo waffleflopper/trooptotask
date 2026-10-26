@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { namedPeople } from './personLabels.server';
 import { pickReview, type TaskingPick } from './staffingModel';
 
 const ALPHA = 'alpha';
@@ -27,13 +26,5 @@ describe('pickReview', () => {
 
 	it('never calls a Group move a reason on Organization-level work', () => {
 		expect(pickReview(pick({ groupId: null }), { kind: 'organization' })).toBe('eligible_again');
-	});
-});
-
-describe('namedPeople', () => {
-	it('names only the people a reader may see and counts the rest', () => {
-		const labels = new Map([['b', 'SGT Bo Ray']]);
-
-		expect(namedPeople(['a', 'b', 'c'], labels)).toEqual({ names: ['SGT Bo Ray'], others: 2 });
 	});
 });

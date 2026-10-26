@@ -12,10 +12,10 @@ $$;
 
 -- 1 owner, 2 Organization-wide Calendar operator, 3 Alpha-scoped Calendar operator,
 -- 4 Organization-wide Calendar viewer, 5 member without Calendar, 6 another Organization's owner,
--- 7 Alpha-scoped Calendar viewer.
+-- 7 Alpha-scoped Calendar viewer, 8 Organization-wide Personnel configurer without Calendar.
 INSERT INTO auth.users (id, aud, role, email, email_confirmed_at)
 SELECT pg_temp.id(n::text), 'authenticated', 'authenticated', 'staffing-' || n || '@example.test', now()
-FROM generate_series(1, 7) AS n;
+FROM generate_series(1, 8) AS n;
 INSERT INTO public.organizations (id, name, created_by) VALUES
   (pg_temp.id('101'), 'Staffing Alpha', pg_temp.id('1')),
   (pg_temp.id('102'), 'Staffing Other', pg_temp.id('6'));
@@ -32,7 +32,8 @@ INSERT INTO public.organization_memberships (
   (pg_temp.id('101'), pg_temp.id('4'), 'member', 'viewer', '{"calendar":"view"}', 'organization', ARRAY[]::uuid[]),
   (pg_temp.id('101'), pg_temp.id('5'), 'member', 'viewer', '{"calendar":"none"}', 'organization', ARRAY[]::uuid[]),
   (pg_temp.id('102'), pg_temp.id('6'), 'owner', 'editor', '{}', 'organization', ARRAY[]::uuid[]),
-  (pg_temp.id('101'), pg_temp.id('7'), 'member', 'viewer', '{"calendar":"view"}', 'groups', ARRAY[pg_temp.id('201')]);
+  (pg_temp.id('101'), pg_temp.id('7'), 'member', 'viewer', '{"calendar":"view"}', 'groups', ARRAY[pg_temp.id('201')]),
+  (pg_temp.id('101'), pg_temp.id('8'), 'member', 'viewer', '{"calendar":"none","personnel":"configure"}', 'organization', ARRAY[]::uuid[]);
 -- 501 and 502 Alpha, 503 Bravo, 504 ungrouped, 505 archived Alpha, 506 another Organization.
 INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug, archived_at) VALUES
   (pg_temp.id('501'), pg_temp.id('101'), pg_temp.id('201'), 'SPC', 'Ana', 'Adams', 'staffing-501', NULL),
@@ -252,15 +253,26 @@ SELECT lives_ok($$UPDATE public.calendar_taskings SET responsible_group_id = pg_
   'an Organization-wide operator reroutes the Alpha Tasking to Bravo');
 SELECT is(pg_temp.picks('401'), ARRAY['501?'], 'rerouting flags the picks the new Group does not hold');
 
--- Permanent deletion of a referenced Person or Group is refused and explained.
-SELECT pg_temp.act_as('7');
+-- Permanent deletion of a referenced Person or Group is refused and explained, only to whoever may delete it.
+SELECT pg_temp.act_as('8');
 SELECT results_eq(
   $$SELECT tasking_id, title FROM public.calendar_deletion_references(pg_temp.id('101'), pg_temp.id('502'), NULL)$$,
-  $$VALUES (NULL::uuid, NULL::text)$$, 'a reader sees a hidden referencing Tasking only as a row to count');
-SELECT pg_temp.act_as('2');
+  $$VALUES (NULL::uuid, NULL::text)$$, 'a Personnel configurer sees a hidden referencing Tasking only as a row to count');
+SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), NULL, pg_temp.id('201'))),
+  1, 'and counts the hidden Taskings a Group is responsible for');
+SELECT pg_temp.act_as('7');
+SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), pg_temp.id('502'), NULL)), 0,
+  'a Calendar viewer who cannot delete the Person learns nothing');
+SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), NULL, pg_temp.id('202'))), 0,
+  'nor about another Group''s Taskings');
+SELECT pg_temp.act_as('5');
+SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), NULL, pg_temp.id('201'))), 0,
+  'a member without Calendar or Group management learns nothing from a Group id');
+SELECT pg_temp.act_as('1');
 SELECT results_eq(
   $$SELECT tasking_id, title FROM public.calendar_deletion_references(pg_temp.id('101'), NULL, pg_temp.id('201'))$$,
-  $$VALUES (pg_temp.id('404'), 'Alpha litter carry'::text)$$, 'an Organization-wide reader sees the Group''s Tasking');
+  $$VALUES (pg_temp.id('404'), 'Alpha litter carry'::text)$$, 'an owner who may delete the Group sees its Tasking');
+SELECT pg_temp.act_as('2');
 SELECT lives_ok($$INSERT INTO public.calendar_taskings (id, organization_id, title, responsible_group_id, suspense_on)
   VALUES (pg_temp.id('405'), pg_temp.id('101'), 'Alpha barracks detail', pg_temp.id('201'), '2030-11-02')$$,
   'an Organization-wide operator adds another Alpha Tasking');

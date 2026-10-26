@@ -368,17 +368,14 @@ AS $$
     SELECT calendar_private.can_view_calendar_tasking(t.organization_id, t.responsible_group_id) AS visible
   ) AS access
   WHERE t.organization_id = p_organization_id
-    AND EXISTS (
-      SELECT 1 FROM public.organization_memberships AS m
-      WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
-    )
     AND (
-      (p_group_id IS NOT NULL AND t.responsible_group_id = p_group_id)
+      (p_group_id IS NOT NULL AND t.responsible_group_id = p_group_id
+        AND public.can_manage_groups(p_organization_id))
       OR (p_personnel_id IS NOT NULL AND EXISTS (
         SELECT 1 FROM public.calendar_tasking_participants AS p
         JOIN public.personnel AS person ON person.organization_id = p.organization_id AND person.id = p.personnel_id
         WHERE p.organization_id = t.organization_id AND p.tasking_id = t.id AND p.personnel_id = p_personnel_id
-          AND public.can_view_personnel_record(person.organization_id, person.group_id)
+          AND public.can_configure_personnel_record(person.organization_id, person.group_id)
       ))
     )
   ORDER BY t.suspense_on DESC, t.id;

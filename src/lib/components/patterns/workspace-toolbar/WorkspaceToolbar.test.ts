@@ -347,41 +347,29 @@ describe('WorkspaceToolbar', () => {
 	});
 
 	describe('compactBelow', () => {
-		function searchRow(): HTMLElement | null {
-			return toolbar().querySelector<HTMLElement>('[data-toolbar-search-row]');
-		}
-
-		function row(): HTMLElement {
-			return toolbar().querySelector<HTMLElement>('[data-toolbar-row]') as HTMLElement;
-		}
-
-		it('puts search on a full row above a row of view, Filters and the primary', async () => {
+		it('keeps search open and folds filters into Filters beside the view and the primary', async () => {
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(291);
 
-			const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
-			expect(searchRow()?.contains(field)).toBe(true);
-			expect(row().contains(field)).toBe(false);
-			expect((searchRow() as Node).compareDocumentPosition(row()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+			expect(within(toolbar()).getByRole('searchbox', { name: 'Search roster' })).toBeTruthy();
 			expect(within(toolbar()).queryByRole('button', { name: 'Search roster' })).toBeNull();
-			expect(within(row()).getByRole('group', { name: 'View mode' })).toBeTruthy();
-			expect(within(row()).getByRole('button', { name: 'Filters' })).toBeTruthy();
-			expect(within(row()).getByRole('button', { name: 'Add status' })).toBeTruthy();
-			expect(within(row()).queryByRole('combobox')).toBeNull();
-			expect(within(row()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
+			expect(within(toolbar()).getByRole('group', { name: 'View mode' })).toBeTruthy();
+			expect(within(toolbar()).getByRole('button', { name: 'Filters' })).toBeTruthy();
+			expect(within(toolbar()).queryByRole('combobox')).toBeNull();
+			expect(within(toolbar()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
 		});
 
 		it('folds every filter and action into the Filters menu even when the row has room', async () => {
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(639);
 
-			expect(within(row()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
-			expect(within(row()).queryByRole('button', { name: 'Import' })).toBeNull();
+			expect(within(toolbar()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
+			expect(within(toolbar()).queryByRole('button', { name: 'Import' })).toBeNull();
 			await fireEvent.input(within(toolbar()).getByRole('searchbox', { name: 'Search roster' }), {
 				target: { value: 'ada' }
 			});
 			expect(output('Search value')).toBe('ada');
-			const filters = within(row()).getByRole('button', { name: 'Filters' });
+			const filters = within(toolbar()).getByRole('button', { name: 'Filters' });
 			filters.focus();
 			await fireEvent.keyDown(filters, { key: 'Enter' });
 			await screen.findByRole('menu');
@@ -394,16 +382,16 @@ describe('WorkspaceToolbar', () => {
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true, initialStatus: ['leave'] } });
 			await layOut(291);
 
-			expect(description(within(row()).getByRole('button', { name: 'Filters' }))).toBe('Hidden filters active: Status');
+			expect(description(within(toolbar()).getByRole('button', { name: 'Filters' }))).toBe(
+				'Hidden filters active: Status'
+			);
 		});
 
-		it('hides the primary label but keeps it as the accessible name', async () => {
+		it('keeps the primary reachable by its name', async () => {
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(291);
 
-			const add = within(row()).getByRole('button', { name: 'Add status' });
-			expect(add.querySelector('span.sr-only')?.textContent).toBe('Add status');
-			await fireEvent.click(add);
+			await fireEvent.click(within(toolbar()).getByRole('button', { name: 'Add status' }));
 			expect(output('Runs')).toBe('add:0');
 		});
 
@@ -411,24 +399,19 @@ describe('WorkspaceToolbar', () => {
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(1000);
 
-			const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
-			expect(searchRow()).toBeNull();
-			expect(row().contains(field)).toBe(true);
-			expect(within(row()).getByRole('button', { name: 'Gaps only' })).toBeTruthy();
-			expect(within(row()).queryByRole('button', { name: 'Filters' })).toBeNull();
-			expect(within(row()).getByRole('button', { name: 'Add status' }).querySelector('span.sr-only')).toBeNull();
+			expect(within(toolbar()).getByRole('searchbox', { name: 'Search roster' })).toBeTruthy();
+			expect(within(toolbar()).getByRole('button', { name: 'Gaps only' })).toBeTruthy();
+			expect(within(toolbar()).queryByRole('button', { name: 'Filters' })).toBeNull();
 		});
 
 		it('changes nothing for a toolbar that did not opt in, even on a narrow toolbar', async () => {
 			render(DataToolbarTest, { props: { withArchive: false } });
 			await layOut(291);
 
-			expect(searchRow()).toBeNull();
 			expect(within(toolbar()).getByRole('button', { name: 'Search roster' })).toBeTruthy();
 			expect(within(toolbar()).queryByRole('searchbox')).toBeNull();
 			expect(within(toolbar()).queryByRole('button', { name: 'Filters' })).toBeNull();
 			expect(within(toolbar()).getByRole('button', { name: 'More Roster controls' })).toBeTruthy();
-			expect(within(toolbar()).getByRole('button', { name: 'Add status' }).querySelector('span.sr-only')).toBeNull();
 		});
 	});
 

@@ -563,7 +563,7 @@
 	)}
 >
 	{#if search && searchOwnRow}
-		<div data-toolbar-search-row class="mb-1.5 flex min-w-0 items-center">
+		<div class="mb-1.5 flex min-w-0 items-center">
 			{@render searchControl(search)}
 		</div>
 	{/if}

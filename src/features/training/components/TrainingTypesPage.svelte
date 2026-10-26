@@ -233,7 +233,7 @@
 							{/if}
 						</div>
 					</div>
-					<div class="col-start-2 grid gap-1.5 text-sm @4xl:contents">
+					<div class="col-start-2 flex flex-wrap gap-x-6 gap-y-1 text-sm @4xl:contents">
 						<span class="flex flex-wrap gap-x-2">{@render cellLabel('Renews')}{renews(type)}</span>
 						<span class="flex flex-wrap gap-x-2 font-mono text-[13px]">
 							{@render cellLabel('Warns at')}{warnsAt(type)}

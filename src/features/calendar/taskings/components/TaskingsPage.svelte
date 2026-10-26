@@ -247,7 +247,7 @@
 					>
 						<span class="flex items-baseline gap-2 sm:grid sm:gap-0">
 							<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase">{next.label}</span>
-							<span class="font-mono text-sm tabular-nums">{formatDayMonthYear(next.on)}</span>
+							<span class="font-mono text-sm text-foreground tabular-nums">{formatDayMonthYear(next.on)}</span>
 						</span>
 						<span class="grid min-w-0 gap-0.5">
 							<span class="truncate font-medium text-foreground">{tasking.title}</span>

@@ -124,7 +124,7 @@
 					<div
 						class={[
 							fadeUp,
-							'flex items-start justify-between gap-6 rounded-md border-l-[3px] bg-background px-6 py-5',
+							'flex flex-col items-start justify-between gap-4 rounded-md border-l-[3px] bg-background px-5 py-5 sm:flex-row sm:gap-6 sm:px-6',
 							change.tone
 						]}
 						style:transition-delay="{cardsIn + i * 350}ms"
@@ -159,8 +159,9 @@
 						Nothing changes until you approve.
 					</p>
 					<div class="flex items-center gap-6" aria-hidden="true">
-						<span class={[label, 'text-muted-foreground']}>DISCARD</span>
-						<span class={[label, 'flex h-11 items-center rounded-lg bg-foreground px-5 text-background']}
+						<span class={[label, 'whitespace-nowrap text-muted-foreground']}>DISCARD</span>
+						<span
+							class={[label, 'flex h-11 items-center rounded-lg bg-foreground px-5 whitespace-nowrap text-background']}
 							>APPROVE 3 CHANGES</span
 						>
 					</div>
@@ -214,20 +215,20 @@
 					Plain questions, answered from your unit's live data.
 				</p>
 			</div>
-			<div class="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0">
+			<div class="grid grid-cols-1 gap-10 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
 				{#each verbs as item, i (item.verb)}
-					<div class="flex flex-col gap-5 border-border lg:border-l lg:px-6 lg:first:border-l-0 lg:first:pl-0">
+					<div class="flex flex-col gap-5 border-border xl:border-l xl:px-6 xl:first:border-l-0 xl:first:pl-0">
 						<p
 							class={[
 								display,
-								'origin-bottom-left text-accent transition-[opacity,scale] duration-500 in-data-[reveal=pending]:scale-125 in-data-[reveal=pending]:opacity-0',
+								'origin-bottom-left text-accent xl:text-[length:min(4.625rem,6.6vw_-_1.375rem)] transition-[opacity,scale] duration-500 in-data-[reveal=pending]:scale-125 in-data-[reveal=pending]:opacity-0',
 								ease
 							]}
 							style:transition-delay="{i * 220}ms"
 						>
 							{item.verb}
 						</p>
-						<p class={[body, 'italic lg:min-h-14']}>“{item.prompt}”</p>
+						<p class={[body, 'italic sm:min-h-14']}>“{item.prompt}”</p>
 						<div class="flex flex-col gap-1">
 							<p class={label}>{item.result}</p>
 							<p class={[label, 'text-muted-foreground']}>{item.detail}</p>

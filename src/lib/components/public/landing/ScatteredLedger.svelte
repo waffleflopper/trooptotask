@@ -80,7 +80,7 @@
 						style:transition-delay="{i * 80}ms"
 					>
 						<td class="col-span-2 font-mono text-[0.8125rem] leading-4 lg:col-span-1">{row.source}</td>
-						<td class="font-body text-lg leading-[1.375rem]">{row.holds}</td>
+						<td class="row-start-2 font-body text-lg leading-[1.375rem] lg:row-start-auto">{row.holds}</td>
 						<td
 							class={[
 								body,
@@ -89,11 +89,11 @@
 						>
 							{row.fails}
 						</td>
-						<td class="row-start-2 lg:row-start-auto">
+						<td class="col-start-2 row-start-2 lg:col-start-auto lg:row-start-auto">
 							<span
 								class={[
 									label,
-									'flex items-center justify-end gap-3',
+									'flex items-center justify-end gap-3 whitespace-nowrap',
 									row.upcoming ? 'text-muted-foreground' : 'text-foreground'
 								]}
 							>

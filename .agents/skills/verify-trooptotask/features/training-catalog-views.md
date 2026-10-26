@@ -62,26 +62,39 @@ Focus View orders Targeted before Required and omits Optional.
    `New training type · 4 of 4` over `Untitled type` (its fixed sort order sits after the highest seeded one, so the
    new row is last), `Create type` is the primary action and `Cancel` closes it.
    Create three types, each with a unique marker name:
-   - Months: `Every few months`, Good for `18`, First warning `60`, Final warning `30`. The row reads `Every 18 months`
-     and `60d · 30d`; read back `$V rows training_types orgA name MARKER` for `expiration_months` 18,
-     `warning_days_yellow` 60 and `warning_days_orange` 30.
-   - Card date: `Date on the card`. The row reads `Date on the card`; the stored `expiration_date_required` is true and
-     `expiration_months` is null.
+   - Months: `Every few months`, color `Teal`, Good for `18`, First warning `90`, Final warning `45`. The timeline reads
+     `Done 25 Oct 2026`, `Warn 26 Jan 2028 · 11 Mar 2028`, `Expires 25 Apr 2028` on 25 Oct 2026. The row reads
+     `Every 18 months` and `90d · 45d`; read back `$V rows training_types orgA name MARKER` for `expiration_months` 18,
+     `warning_days_yellow` 90, `warning_days_orange` 45, `color` `#3d8b8b` and a `sort_order` above every earlier row
+     (31 after the seeded 10, 20, 30).
+   - Card date: `Date on the card`. The row reads `Date on the card`; the stored `expiration_date_only` is true.
    - Never: `Never expires`. The row reads `Never expires` with `—` under `Warns at`.
 
    Edit one of them: under `Who needs it` choose `Only some`, add an MOS chip `68W` under `Only` and a role chip under
    `Except` through `+ Add an exception`, then choose `Save changes`. The sheet closes, focus returns to that row's name
-   button, the row reads `MOS: 68W except Role: <role>` and `Applies to` shows the matched count. Reload and read back
+   button, the row reads `MOS: 68W except Role NCO` and `Applies to` reads `1 of 3` (the sheet read `Matches 1: SPC Able` and
+   `Excludes 1: SPC Unassigned`). Reload and read back
    the arrays on the same ID. Edit the seeded Required type's description, save and reload;
    `$V rows training_types orgA id <trainingRequired>` and `$V rows personnel_trainings orgA id <trainingCurrent>` must
    retain the type, completion and reference IDs. Restore the original description with focused `Control+A` and
-   `Backspace`, save, and read back the same IDs and a null description. Open another edit, change a field and choose
-   `Cancel` or press Escape: a `Discard changes?` confirmation appears, discarding it leaves no row change, and an
-   untouched sheet closes at once. Create a uniquely named view with two distinguishable type columns, use the visible
+   `Backspace`, save, and read back the same IDs and a null description. Open another edit and change a field: Escape, a click
+   outside and the corner close control are all unavailable while the edit is unsaved, and `Cancel` closes the sheet
+   without asking, leaves the row unchanged and returns focus to the row's name button. An untouched sheet closes on
+   Escape. Create a uniquely named view with two distinguishable type columns, use the visible
    up/down controls to reorder them, save, reload, and confirm `$V rows training_views orgA name <marker>` has that
    order. Edit that view, save and read back its stable ID; Cancel a separate view edit. Delete only the newly created
    view and types through their visible confirmations, then verify the rows are absent. Keep seeded types and views for
    later journeys.
+
+   Server rule and legacy rows: through the signed-in page POST `api/training-types` with `warningDaysYellow:30,
+warningDaysOrange:30`, then `45`, and PUT `{id, warningDaysOrange:90}` for a type whose first warning is 90: each
+   returns `400` `Make the final warning shorter than the first.` and writes no row. POST a legacy card-date type
+   (`expirationMonths:24, expirationDateOnly:true, warningDaysYellow:120, warningDaysOrange:15`) and a legacy never type
+   (`warningDaysYellow:45, warningDaysOrange:10`), open each through the table and choose `Save changes` untouched: the
+   sheet shows `Date on the card` with `120` and `15`, and `Never expires`; `$V rows` shows `expiration_months` 24 and
+   the warning days unchanged. With `$V network arm-hold 2 training-types`, change a field and choose `Save changes`:
+   every field, `Delete type`, `Cancel` and `Save changes` are disabled, Escape does not close the sheet, and
+   `network release` closes it with the saved value read back.
 
 3. **Access and isolation:** As `trainingView`, `trainingOperate`, `trainingScoped` and `trainingScopedConfig`, open the
    matrix and direct Types/Views routes; record visible read access, configuration affordances and the Alpha-only roster
@@ -120,8 +133,8 @@ Focus View orders Targeted before Required and omits Optional.
    and choose `Delete type`: the `Delete Training Type` alertdialog names the type. Cancel first and require the sheet
    and focus on the opening control to remain; then confirm and require the sheet closed, the row gone and
    `$V rows training_types orgA name MARKER` to be absent, with focus on the `New type` button. Reorder: grab a row's
-   grip (`Reorder <name>`) and press ArrowDown, or focus a row and press `Alt+ArrowDown`; the row moves, the matrix
-   column order follows after a reload, and `training_types.sort_order` reads the new order. Repeat add/edit/
+   grip (`Reorder <name>`) and press ArrowUp, or drag it with `$V pointer drag PAGE URL '[aria-label="Reorder <name>"]'
+'[aria-label="Reorder <other>"]'`; the row moves up and the matrix column order follows after a reload, and `training_types.sort_order` reads the new order. Repeat add/edit/
    cancel-then-confirm delete for a temporary view in Manage Views. Capture each page at 1440, 1024 and 390 wide once;
    the Types table stacks each row into two lines below a 56rem container.
 

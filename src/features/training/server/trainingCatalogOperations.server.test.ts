@@ -8,6 +8,7 @@ import {
 	updateTrainingView,
 	deleteTrainingView
 } from './trainingCatalogOperations.server';
+import { trainingTypeDraftFrom, trainingTypeInputFromDraft } from '../utils/trainingTypeDraft';
 import { trainingTypeCreateInput, trainingTypeUpdateInput } from './trainingPersistenceMapping.server';
 
 const TARGETED_TYPE = '00000000-0000-4000-8000-00000000c001';
@@ -104,6 +105,24 @@ describe('Training catalog operations', () => {
 			await updateTrainingType(ctx, { id: REQUIRED_TYPE, warningDaysOrange: 5 });
 			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
 				{ id: REQUIRED_TYPE, warningDaysYellow: 10, warningDaysOrange: 5 }
+			]);
+		});
+
+		it('renames a legacy never type through its draft without rewriting hidden warnings', async () => {
+			const ctx = createWritePortsContext();
+			await ctx.trainingCatalog.createType({
+				name: 'Legacy never',
+				expirationMonths: null,
+				expirationDateOnly: false,
+				warningDaysYellow: 10,
+				warningDaysOrange: 20
+			});
+			const [saved] = await ctx.trainingCatalog.listTypes();
+			const draft = trainingTypeDraftFrom(saved);
+			draft.name = 'Renamed never';
+			await updateTrainingType(ctx, { id: saved.id, ...trainingTypeInputFromDraft(draft, 'update') });
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+				{ id: saved.id, name: 'Renamed never', expirationMonths: null, warningDaysYellow: 10, warningDaysOrange: 20 }
 			]);
 		});
 

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingTypesPage from './TrainingTypesPage.svelte';
 import { personnelRosterHydration } from '$features/personnel';
@@ -88,20 +88,17 @@ const legacyNever: TrainingType = {
 	sortOrder: 2
 };
 
-type Request = { method: string; body: Record<string, unknown> };
+type Request = { url: string; method: string; body: Record<string, unknown> };
 
 /** Answers Training type writes the way the server does; `fail` and `hold` shape the PUT and POST answers. */
-function stubServer(
-	options: { fail?: { status: number; message: string }; failIds?: string[]; hold?: Promise<void> } = {}
-) {
+function stubServer(options: { fail?: { status: number; message: string }; hold?: Promise<void> } = {}) {
 	const requests: Request[] = [];
 	vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
 		const body = JSON.parse(init.body as string) as Record<string, unknown> & { id: string };
-		requests.push({ method: init.method as string, body });
+		requests.push({ url: _url, method: init.method as string, body });
 		await options.hold;
 		if (init.method === 'DELETE') return Response.json({ success: true });
 		if (options.fail) return Response.json({ message: options.fail.message }, { status: options.fail.status });
-		if (options.failIds?.includes(body.id)) return Response.json({ message: 'Internal server error' }, { status: 500 });
 		const saved = trainingTypesStore.items.find((type) => type.id === body.id);
 		return Response.json({ ...saved, ...body, id: body.id ?? 'type-new' });
 	});
@@ -483,55 +480,73 @@ describe('TrainingTypesPage', () => {
 	});
 
 	describe('reordering', () => {
-		const savedOrders = (requests: Request[]) =>
-			Object.fromEntries(requests.map(({ body }) => [body.id as string, body.sortOrder]));
 		const order = () =>
-			screen
-				.getAllByRole('listitem')
-				.map((item) => ['CPR', 'Mil license', 'SHARP'].find((name) => item.textContent?.includes(name)));
+			screen.getAllByRole('listitem').map((item) =>
+				within(item)
+					.getAllByRole('button')
+					.find((button) => !button.hasAttribute('data-reorder-grip'))
+					?.textContent?.trim()
+			);
 
-		it('moves a type with its handle and saves only the positions that changed', async () => {
+		it('saves a move with one complete order request', async () => {
 			const requests = stubServer();
 			mount();
-
 			await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder SHARP' }), { key: 'ArrowUp' });
-
-			await waitFor(() => expect(requests).toHaveLength(2));
-			expect(savedOrders(requests)).toEqual({ 'type-3': 1, 'type-2': 2 });
-			expect(order()).toEqual(['CPR', 'SHARP', 'Mil license']);
-		});
-
-		it('gives every type its own position when a move starts from shared positions', async () => {
-			const requests = stubServer();
-			mount([
-				{ ...cpr, sortOrder: 0 },
-				{ ...license, sortOrder: 0 },
-				{ ...legacyNever, sortOrder: 0 }
+			await waitFor(() => expect(order()).toEqual(['CPR', 'SHARP', 'Mil license']));
+			expect(requests).toEqual([
+				{
+					url: '/org/org-1/api/training-types/order',
+					method: 'PUT',
+					body: {
+						trainingTypeIds: ['type-1', 'type-3', 'type-2'],
+						expectedTrainingTypeIds: ['type-1', 'type-2', 'type-3']
+					}
+				}
 			]);
-
-			await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder CPR' }), { key: 'ArrowDown' });
-
-			await waitFor(() => expect(requests).toHaveLength(2));
-			expect(savedOrders(requests)).toEqual({ 'type-1': 1, 'type-3': 2 });
-			expect(order()).toEqual(['Mil license', 'CPR', 'SHARP']);
-		});
-
-		it('says a half-saved reorder failed and re-reads the saved order', async () => {
-			const requests = stubServer({ failIds: ['type-2'] });
-			invalidateMock.mockResolvedValue(undefined);
-			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-			mount();
-
-			await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder SHARP' }), { key: 'ArrowUp' });
-
-			await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:training-data'));
-			expect(errorToast).toHaveBeenCalledOnce();
-			expect(requests).toHaveLength(2);
-			expect(trainingTypesStore.items.map((type) => [type.id, type.sortOrder])).toEqual([
+			expect(trainingTypesStore.items.map(({ id, sortOrder }) => [id, sortOrder])).toEqual([
 				['type-1', 0],
-				['type-2', 1],
+				['type-2', 2],
 				['type-3', 1]
 			]);
+		});
+
+		it('rolls an optimistic move back and reports a refused order', async () => {
+			let release!: () => void;
+			const requests = stubServer({
+				hold: new Promise<void>((resolve) => {
+					release = resolve;
+				}),
+				fail: { status: 409, message: 'Order changed' }
+			});
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			mount();
+			await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder SHARP' }), { key: 'ArrowUp' });
+			expect(order()).toEqual(['CPR', 'SHARP', 'Mil license']);
+			release();
+			await waitFor(() => expect(order()).toEqual(['CPR', 'Mil license', 'SHARP']));
+			expect(requests).toHaveLength(1);
+			expect(errorToast).toHaveBeenCalledOnce();
+			expect(invalidateMock).toHaveBeenCalledWith('app:training-data');
+		});
+
+		it.each([false, true])('ignores a reorder reply after leaving the Organization, rejected %s', async (rejected) => {
+			let release!: () => void;
+			stubServer({
+				hold: new Promise<void>((resolve) => {
+					release = resolve;
+				}),
+				...(rejected ? { fail: { status: 500, message: 'Failed' } } : {})
+			});
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			const page = mount();
+			await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder SHARP' }), { key: 'ArrowUp' });
+			trainingTypesStore.load([{ ...cpr, id: 'foreign', name: 'B catalog', sortOrder: 7 }], 'org-2');
+			await page.rerender({ org: accessFor(true, 'org-2'), orgName: 'Other Unit', data: { personnel: [] } });
+			await act(() => release());
+			expect(screen.getByRole('button', { name: 'B catalog' })).toBeTruthy();
+			expect(trainingTypesStore.items).toMatchObject([{ id: 'foreign', sortOrder: 7 }]);
+			expect(errorToast).not.toHaveBeenCalled();
+			expect(invalidateMock).not.toHaveBeenCalled();
 		});
 	});
 });

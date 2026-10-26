@@ -247,6 +247,25 @@ describe('Training type drafts', () => {
 		});
 	});
 
+	it('omits hidden warnings when saving a legacy never type and keeps its stored fields', () => {
+		const saved = savedType({
+			expirationMonths: null,
+			expirationDateOnly: false,
+			warningDaysYellow: 10,
+			warningDaysOrange: 20
+		});
+		const patch = trainingTypeInputFromDraft(trainingTypeDraftFrom(saved), 'update');
+		expect(patch).not.toHaveProperty('warningDaysYellow');
+		expect(patch).not.toHaveProperty('warningDaysOrange');
+		expect({ ...saved, ...patch }).toEqual(saved);
+	});
+
+	it('creates a never type with the current warning defaults', () => {
+		const draft = newTrainingTypeDraft();
+		draft.renewal = { kind: 'never' };
+		expect(trainingTypeInputFromDraft(draft)).toMatchObject({ warningDaysYellow: 60, warningDaysOrange: 30 });
+	});
+
 	it.each([null, ''])('retains the saved description %j', (description) => {
 		expect(trainingTypeInputFromDraft(trainingTypeDraftFrom(savedType({ description })))).toMatchObject({
 			name: 'CLS',

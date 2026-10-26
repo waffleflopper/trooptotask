@@ -1,10 +1,6 @@
 import { z } from 'zod';
 import { uuidSchema } from '$lib/utils/inputSchemas';
-import {
-	TASKING_STAFFING_MAX,
-	type StaffingCount,
-	type TaskingResponsibility
-} from '../taskingModel';
+import { TASKING_STAFFING_MAX, type StaffingCount, type TaskingResponsibility } from '../taskingModel';
 
 export type { NamedPeople, StaffingCount } from '../taskingModel';
 

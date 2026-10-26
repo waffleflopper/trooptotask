@@ -510,6 +510,22 @@ describe('TrainingTypesPage', () => {
 			);
 		});
 
+		it('lists types that share a position in the order the server reads them', async () => {
+			const requests = stubServer();
+			mount([
+				{ ...license, sortOrder: 4 },
+				{ ...cpr, sortOrder: 4 },
+				{ ...legacyNever, sortOrder: 9 }
+			]);
+			expect(order()).toEqual(['CPR', 'Mil license', 'SHARP']);
+			await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder SHARP' }), { key: 'ArrowUp' });
+			await waitFor(() => expect(requests).toHaveLength(1));
+			expect(requests[0].body).toEqual({
+				trainingTypeIds: ['type-1', 'type-3', 'type-2'],
+				expectedTrainingTypeIds: ['type-1', 'type-2', 'type-3']
+			});
+		});
+
 		it('rolls an optimistic move back and reports a refused order', async () => {
 			let release!: () => void;
 			const requests = stubServer({

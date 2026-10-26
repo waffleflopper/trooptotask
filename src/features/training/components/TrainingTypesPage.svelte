@@ -64,7 +64,10 @@
 	const GRID =
 		'grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 @4xl:grid-cols-[2rem_minmax(12rem,2.2fr)_10rem_6.5rem_minmax(9rem,1.6fr)_6.5rem_5.5rem] @4xl:items-center';
 
-	const orderedTypes = $derived([...trainingTypesStore.items].sort((a, b) => a.sortOrder - b.sortOrder));
+	// Ties break by id, as the server lists them, so the expected order a reorder sends matches the stored one.
+	const orderedTypes = $derived(
+		[...trainingTypesStore.items].sort((a, b) => a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+	);
 	const rows = $derived(
 		pendingOrder?.orgId === org.orgId
 			? pendingOrder.ids.flatMap((id) => orderedTypes.find((type) => type.id === id) ?? [])

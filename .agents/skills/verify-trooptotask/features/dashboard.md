@@ -17,6 +17,10 @@ workspace/summary load, and old responses must never restore another Organizatio
   soon rows, each Tasking once, and a Short row offers `Pick people`. The source loads after the page with its own
   pending row and `Try again`, and a failure leaves every other row. Steps are in
   [Events & Taskings](events-taskings.md#dashboard).
+- `forecast-lane`: with Events & Taskings on, the forecast's `Events and suspenses` lane draws Events as spans
+  (filled with work in scope, outlined for awareness, struck through when cancelled) and suspenses as diamonds, each
+  opening its detail, from the same read with its own skeleton and `Try again`. Steps are in
+  [Forecast lane](events-taskings.md#forecast-lane).
 - `combined-overview`: current strength, availability, Person/Group assignments, Training attention/currency, Critical
   Tasks readiness, evaluations, Onboarding and nearest ETS/DEROS use independently known source facts. Steps for the
   Readiness row are under [Readiness row](#readiness-row).

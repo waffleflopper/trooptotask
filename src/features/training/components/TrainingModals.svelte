@@ -3,22 +3,34 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-	import type { Personnel } from '$features/personnel/contracts';
+	import { resolve } from '$app/paths';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import LazySheet, { lazyModule } from './LazySheet.svelte';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
-	type PersonEditorPayload = { person: Personnel };
-	type PersonTrainingEditorModule = typeof import('$features/training/components/PersonTrainingEditor.svelte');
 	type ManageViewsPayload = { returnFocusTo: () => HTMLElement | null };
 
-	let personTrainingEditorModule: Promise<PersonTrainingEditorModule> | undefined;
+	const loadTrainingRecordSheet = lazyModule(() => import('$features/training/components/TrainingRecordSheet.svelte'));
+	const recordPerson = $derived(ctx.recordPerson);
+	const recordLoading = $derived(
+		trainingTypesStore.orgId !== ctx.orgId ||
+			personnelTrainingsStore.orgId !== ctx.orgId ||
+			trainingTypesStore.loading ||
+			personnelTrainingsStore.loading ||
+			ctx.readinessAsOf === ''
+	);
 
-	function loadPersonTrainingEditor() {
-		personTrainingEditorModule ??= import('$features/training/components/PersonTrainingEditor.svelte');
-		return personTrainingEditorModule;
-	}
+	let recordWasOpen = false;
+	$effect(() => {
+		const open = recordPerson !== null;
+		if (recordWasOpen && !open) void ctx.restoreRecordFocus();
+		recordWasOpen = open;
+	});
+
+	$effect(() => {
+		if (ctx.rosterReady && ctx.recordPersonId && !recordPerson) ctx.dropRecordParam();
+	});
 
 	const loadTrainingViewsSheet = lazyModule(() => import('$features/training/components/TrainingViewsSheet.svelte'));
 	const loadSignInRostersSheet = lazyModule(() => import('$features/sign-in-rosters'));
@@ -46,22 +58,36 @@
 	</LazySheet>
 {/if}
 
-{#if modals.isOpen('person-editor')}
-	{@const pe = modals.payload<PersonEditorPayload>('person-editor')}
-	{#if pe}
-		{#await loadPersonTrainingEditor() then { default: PersonTrainingEditor }}
-			<PersonTrainingEditor
-				person={pe.person}
+{#if recordPerson}
+	{@const person = recordPerson}
+	<LazySheet
+		load={loadTrainingRecordSheet}
+		title={`${person.rank} ${person.firstName} ${person.lastName}`}
+		onClose={() => ctx.closeRecord()}
+	>
+		{#snippet children({ default: TrainingRecordSheet })}
+			<TrainingRecordSheet
+				{person}
 				trainingTypes={trainingTypesStore.items}
 				trainings={personnelTrainingsStore.items}
+				orgId={ctx.orgId}
+				asOf={ctx.readinessAsOf}
+				loading={recordLoading}
+				canExempt={ctx.trainingConfigureAffordance.allowed}
+				profileHref={resolve('/org/[orgId]/personnel/[personnelSlug]', {
+					orgId: ctx.orgUrlSegment,
+					personnelSlug: person.slug ?? person.id
+				})}
+				canStep={{ previous: !!ctx.recordNeighbours.previous, next: !!ctx.recordNeighbours.next }}
+				onStep={(direction) => ctx.stepRecord(direction)}
 				onSave={ctx.handleSaveTraining.bind(ctx)}
 				onSaveBatch={ctx.handleSaveTrainingBatch.bind(ctx)}
 				onRemove={ctx.handleRemoveTraining.bind(ctx)}
-				onClose={modals.closerFor('person-editor')}
-				onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, pe.person.id, exempt)}
+				onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, person.id, exempt)}
+				onClose={() => ctx.closeRecord()}
 			/>
-		{/await}
-	{/if}
+		{/snippet}
+	</LazySheet>
 {/if}
 
 {#if modals.isOpen('manage-views')}

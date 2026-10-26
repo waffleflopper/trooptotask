@@ -6,7 +6,7 @@ roster.
 
 ## Sub-features
 
-- `completion-lifecycle`: add, edit, cancel and remove a completion through a matrix cell or the Person editor; dates,
+- `completion-lifecycle`: add, edit, cancel and remove a completion through a matrix cell or the record sheet; dates,
   notes, certificate URL and the existing record ID survive ordinary updates and reload.
 - `completion-recovery`: failed saves and removals leave stored facts unchanged, show useful feedback and allow retry;
   an operate-only deletion request is distinct from a completed deletion. Direct SQL deletion of a completion also needs
@@ -41,7 +41,7 @@ roster.
 - `reverse-consumers`: Dashboard Training projections, Personnel readiness and the Person workbook retain their distinct
   meanings; Onboarding consumes completion references through its retained Training contract.
 
-When restoring empty Notes or Certificate URL in the Person editor, focus the textbox and use native `Control+A` and
+When restoring empty Notes or Certificate URL in the record sheet, focus the textbox and use native `Control+A` and
 `Backspace` before Save. As with Type Description, `fill` with an empty string can clear DOM text without updating
 Svelte's bound value. Inspect the actual save body and provider row if they disagree; preserve the failed attempt and
 repeat only the affected clearing/restoration action.
@@ -49,19 +49,19 @@ repeat only the affected clearing/restoration action.
 ## How to get to it (user POV)
 
 Choose `Training` in the Organization navigation. Choose a Person's Training cell to add or edit that record, or open
-the Person editor by selecting the person's name in the Training matrix. Use the `Import` link in the
-`Training controls` toolbar to open the import page. Use `Export` in that toolbar for the full training matrix,
-keeping the selected Group and including every Training column even when a saved view hides some. At narrow widths, open
-`More Training controls` if the action has folded. Open `Reports` for the `Training Reports` briefing: the single-row
-`Training report controls` toolbar (the `Forecast horizon` buttons `30 D`, `60 D`, `90 D` and `180 D` (named `30 days`
-to `180 days`) as pressed toggles, which show as `30 days` to `180 days` radio items in More once the horizon folds,
-`Filter by view`, `Filter by group`, `Filter by rank`, `Filter by MOS`, `Filter by duty role`,
-`Filter by training type`, `Clear filters` when the selection is not the default, `Export Excel`, and the primary
-`Print brief`; the least important controls fold into `More Training report controls` as it narrows), with the
-`Updating briefing` status staying in the page header while a change loads, the Bottom line, the Forecast chart
-(`data-testid="training-briefing-forecast"`, with a screen-reader table of weekly points), the Hot-spot grid (the
-`Hot-spot grid controls` toolbar above it with the `Rows by` buttons, beside a visible `Rows by` caption; each cell is a
-button named `<row>, <type>: <n>% ready today[, drops <k> points by <date>][, selected]` holding
+the record sheet by selecting the person's name in the Training matrix. Use the `Import` link in the `Training controls`
+toolbar to open the import page. Use `Export` in that toolbar for the full training matrix, keeping the selected Group
+and including every Training column even when a saved view hides some. At narrow widths, open `More Training controls`
+if the action has folded. Open `Reports` for the `Training Reports` briefing: the single-row `Training report controls`
+toolbar (the `Forecast horizon` buttons `30 D`, `60 D`, `90 D` and `180 D` (named `30 days` to `180 days`) as pressed
+toggles, which show as `30 days` to `180 days` radio items in More once the horizon folds, `Filter by view`,
+`Filter by group`, `Filter by rank`, `Filter by MOS`, `Filter by duty role`, `Filter by training type`, `Clear filters`
+when the selection is not the default, `Export Excel`, and the primary `Print brief`; the least important controls fold
+into `More Training report controls` as it narrows), with the `Updating briefing` status staying in the page header
+while a change loads, the Bottom line, the Forecast chart (`data-testid="training-briefing-forecast"`, with a
+screen-reader table of weekly points), the Hot-spot grid (the `Hot-spot grid controls` toolbar above it with the
+`Rows by` buttons, beside a visible `Rows by` caption; each cell is a button named
+`<row>, <type>: <n>% ready today[, drops <k> points by <date>][, selected]` holding
 `[data-slot=readiness-band-cell][data-tier]`), the `Already gone vs. about to go` Type risk table
 (`Not ready and lapsing requirements by training type`: a row header per type, stacked bar, `Not ready` and `By <date>`
 counts), and the `Where training time buys the most` Focus list (at most three numbered areas, each with its title
@@ -192,26 +192,25 @@ percentage.
    draft and require unchanged values. Arm `$V network arm-fail PAGE personnel-trainings`, edit again and Save. Capture
    the actual failed request, feedback and entered values; provider readback must retain the preceding saved row.
    Restore with `$V network restore PAGE`, retry through the form, and require the new values on the same ID after
-   reload. In the modal and the Person editor the failure is an Alert titled `Training record was not saved` inside the
+   reload. In the modal and the record sheet the failure is an Alert titled `Training record was not saved` inside the
    dialog, focus is on `Save`, Escape is blocked while the draft is dirty and closes a pristine dialog (`closeBlocked`),
-   and `Mark All Completed Today` failures remain toasts. A lost draft, a toast-only save failure or a closed form
-   without useful error is a failure. This temporary Optional record must not change the required report's 25%
-   readiness.
+   and `Record all N today` failures remain toasts. A lost draft, a toast-only save failure or a closed form without
+   useful error is a failure. This temporary Optional record must not change the required report's 25% readiness.
 3. **Removal and approval distinction:** On that temporary Baker/Optional record, capture the original row before each
    attempt. As `trainingConfigure`, arm a one-request `personnel-trainings` failure, choose Delete and confirm
    `Delete Training Record`. Require useful failure feedback, unchanged saved row and an available retry; record the
    actual dialog behavior instead of treating a closed dialog as success. Restore the control and retry visibly. A
    successful configure removal must leave no row after reload. Repeat failure/retry from the named Person row: choose
-   `Remove TYPE record`, confirm, and require the Person editor and confirmation to remain with the saved dates/notes
-   after failure; retry must remove that exact record after reload. For a separate temporary completion created as
-   `trainingOperate`, Delete may return **202 `{requiresApproval:true}`** and submit a Resource Deletion Request.
-   Require the completion to remain and capture the pending-request outcome with `$V rows deletion_requests orgA`; 202
-   is neither a failed permission probe nor a completed removal. Before submission, arm
-   `$V network arm-fail PAGE deletion-requests`: require failed-request feedback, a retryable confirmation, the saved
-   completion unchanged and no new pending request. Restore and retry, then reopen and repeat the removal request: 409
-   already-pending is accepted without duplicating the request, and the Person editor retains the saved dates/notes.
-   When approved-completion deletion is affected, sign in separately as `orgAdmin` on `settings/members`, then choose
-   Approvals and locate the exact temporary completion request. Arm
+   `More actions for TYPE`, `Delete`, confirm, and require the record sheet and confirmation to remain with the saved
+   dates/notes after failure; retry must remove that exact record after reload. For a separate temporary completion
+   created as `trainingOperate`, Delete may return **202 `{requiresApproval:true}`** and submit a Resource Deletion
+   Request. Require the completion to remain and capture the pending-request outcome with
+   `$V rows deletion_requests orgA`; 202 is neither a failed permission probe nor a completed removal. Before
+   submission, arm `$V network arm-fail PAGE deletion-requests`: require failed-request feedback, a retryable
+   confirmation, the saved completion unchanged and no new pending request. Restore and retry, then reopen and repeat
+   the removal request: 409 already-pending is accepted without duplicating the request, and the record sheet retains
+   the saved dates/notes. When approved-completion deletion is affected, sign in separately as `orgAdmin` on
+   `settings/members`, then choose Approvals and locate the exact temporary completion request. Arm
    `$V network arm-fail REVIEW_PAGE deletion-requests/review` before Approve: capture the matched 503 and unchanged
    completion/pending request, restore, then retry visibly. Require review 200, the exact completion absent, the request
    approved, no other completion changed, and both Approvals and the original Training page consistent after reload. The
@@ -279,10 +278,11 @@ percentage.
    **Expiration-only, exemptions and Person statistics:** When completion writes or Person summary counts are affected,
    create a temporary required type with per-Person expiration and exemptions enabled through Training configuration.
    Save Able with no completion date, a literal expiry inside the orange window, Notes and Certificate URL; edit the
-   expiry and notes, then reload and require the same ID and null completion date. In the Person editor require Current
-   1, Orange 1 and Not Done 1 (seeded Required, temporary type and missing Targeted); move the temporary expiry to
-   yesterday and require Current 1, Expired 1 and Not Done 1. Use a date inside the yellow window for a separate Yellow
-   1 check. Import a CSV with the header `Soldier,<temporary type name>` and the row `"Baker, Synthetic",Exempt` (`N/A`
+   expiry and notes, then reload and require the same ID and null completion date. In the record sheet require
+   `2 of 3 ready` and `1 to record` (Current: seeded Required; Needs action: the temporary type, expiring, and the
+   missing Targeted); move the temporary expiry to yesterday and require `1 of 3 ready` and `2 to record`, with the
+   temporary type first in Needs action as `Expired <date>`. Use a date inside the yellow window for a separate yellow
+   check. Import a CSV with the header `Soldier,<temporary type name>` and the row `"Baker, Synthetic",Exempt` (`N/A`
    reads the same). As `trainingOperate`, the row needs a fix described by
    `Marking someone exempt needs permission to configure training requirements.`, the rail card
    `Exempt marks need access to training requirements` offers only `Leave exempt marks out`, and a direct exempt `POST`

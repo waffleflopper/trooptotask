@@ -1,5 +1,6 @@
 import type { TrainingStatusInfo } from './trainingStatus';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { formatDayMonthYear } from '$lib/utils/dates';
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -15,6 +16,12 @@ type RenewalKind = Pick<TrainingType, 'expirationMonths' | 'expirationDateOnly'>
 /** True for a type that never lapses; a stored expiration date from before it became so no longer counts. */
 export function neverExpires(type: RenewalKind): boolean {
 	return !type.expirationDateOnly && type.expirationMonths === null;
+}
+
+export type RenewalMode = 'months' | 'cardDate' | 'never';
+
+export function renewalMode(type: RenewalKind): RenewalMode {
+	return type.expirationDateOnly ? 'cardDate' : neverExpires(type) ? 'never' : 'months';
 }
 
 /** What a matrix cell shows. A current cell shows the month it lapses, or the completion month when it never does. */
@@ -59,5 +66,37 @@ export function getCellStatusLabel(statusInfo: TrainingStatusInfo): string {
 			return 'Not required';
 		default:
 			return statusInfo.label;
+	}
+}
+
+export interface StatusLine {
+	tone: 'danger' | 'warning' | 'muted';
+	text: string;
+}
+
+/** One line on where a record stands, such as "Expired 4 Aug 2026 · 76 days ago". */
+export function getStatusLine(
+	statusInfo: TrainingStatusInfo,
+	training: Pick<PersonnelTraining, 'expirationDate'> | undefined,
+	type: RenewalKind
+): StatusLine {
+	const { status, daysUntilExpiration: days } = statusInfo;
+	const until = training?.expirationDate && !neverExpires(type) ? formatDayMonthYear(training.expirationDate) : null;
+	const dayCount = Math.abs(days ?? 0);
+	const dayLabel = `${dayCount} ${dayCount === 1 ? 'day' : 'days'}`;
+	switch (status) {
+		case 'expired':
+			return { tone: 'danger', text: until ? `Expired ${until} · ${dayLabel} ago` : 'Expired' };
+		case 'warning-orange':
+		case 'warning-yellow':
+			return { tone: 'warning', text: until ? `Expires ${until} · ${dayLabel} left` : `${dayLabel} left` };
+		case 'current':
+			return { tone: 'muted', text: until ? `Current until ${until}` : 'Current · never expires' };
+		case 'not-completed':
+			return { tone: 'danger', text: 'No record' };
+		case 'not-required':
+			return { tone: 'muted', text: 'Not required for this Soldier' };
+		case 'exempt':
+			return { tone: 'muted', text: 'Exempt' };
 	}
 }

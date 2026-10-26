@@ -9,12 +9,10 @@ import { trainingReadinessHydration } from './webSources.svelte';
 import { TrainingPageContext } from './contexts/TrainingPageContext.svelte';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 function pageContext(orgId: string) {
 	return new TrainingPageContext(
 		{ orgId, orgName: 'Test Company' },
-		new ModalRegistry(),
 		{ orgId, ...createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') }) },
 		async () => false,
 		() => undefined

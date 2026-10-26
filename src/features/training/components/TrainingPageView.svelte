@@ -263,7 +263,7 @@
 
 		{#if loading}
 			<div
-				class="grid gap-2 overflow-hidden rounded-lg border border-border bg-card p-3"
+				class="grid min-h-112 flex-1 content-start gap-2 overflow-hidden rounded-lg border border-border bg-card p-3"
 				role="status"
 				aria-live="polite"
 				aria-label="Loading training matrix"

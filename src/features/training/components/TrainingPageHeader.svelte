@@ -58,7 +58,7 @@
 		</div>
 	{:else}
 		<div class="flex items-center gap-3" role="status" aria-label="Loading readiness">
-			<Skeleton class="h-14 w-28" />
+			<Skeleton class="h-15 w-28" />
 			<div class="grid gap-1">
 				<Skeleton class="h-4 w-24" />
 				<Skeleton class="h-4 w-40" />

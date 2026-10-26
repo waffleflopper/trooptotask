@@ -1,33 +1,32 @@
 # Public and marketing pages
 
-A visitor reads the product, About, Security, Privacy and Terms pages without an account, switches the theme, and
-reaches Sign In and Request Access. A signed-in member sees the same pages with `Dashboard` in place of the access
-links. The pages are static prose. Every product claim matches what the app does today, and no page states a price,
+A visitor reads the product, About, Security, Privacy and Terms pages without an account and reaches Sign In and
+Request Access. The pages always show their own light and dark bands, whatever theme the app stored. A signed-in member
+sees the same pages with `Dashboard` in place of the access links. The pages are static prose. Every product claim matches what the app does today, and no page states a price,
 plan, subscription, trial or quota until Robert approves one.
 
 ## Sub-features
 
-- `public-nav`: header with brand link home, `About` and `Security` links (active on their own page), `FAQ` on home
-  only, `Toggle theme`, `Sign In` and `Request Access`.
-- `home-overlay-nav`: on `/` the header sits over the hero in the overlay style and switches to the solid style once the
-  hero has scrolled past.
-- `narrow-nav`: below 900px the header keeps the brand, `Toggle theme`, `Sign In` and `Request Access`; there is no
-  mobile menu, and the footer carries About, Security, FAQ, Privacy Policy and Terms of Use.
-- `theme`: light/dark toggle that persists across reload and across pages.
+- `public-nav`: dark header with the brand link home, `Platform` (`/#platform`), `What's next` (`/#whats-next`),
+  `Security`, `FAQ` (`/#faq`) and `About`, then `Sign In` and `Request Access`. The link for the page you are on is
+  amber with `aria-current="page"`. There is no classification bar and no theme toggle.
+- `narrow-nav`: below 900px the header keeps the brand, `Sign In` and `Request Access`; there is no mobile menu, and the
+  footer carries `Platform`, `What's next`, `FAQ`, `About`, `Security`, `Privacy` and `Terms`.
+- `public-bands`: public pages render the same light and dark bands whether the stored theme is light or dark.
 - `faq`: six home questions, one answer open at a time, mouse and keyboard.
-- `footer-links`: seven links that resolve.
-- `contact-cards`: `mailto:` links on Security, Privacy and Terms.
-- `signed-in-state`: `Dashboard` in the header and `Go to Dashboard` as the call to action on `/` and the inner pages.
+- `footer-links`: four links that resolve on desktop, seven below 900px.
+- `contact-cards`: `mailto:` links on Security (the `Email Security` button), Privacy and Terms.
+- `signed-in-state`: `Dashboard` in the header and `Go to Dashboard` as the closing call to action on every public page.
 - `public-claims`: no public page claims a feature, price, plan or quota the product does not have.
-- `public-appearance`: Home, About, Security, Privacy and Terms at 1280x800 and 390x844, light and dark, no horizontal
-  overflow, no console error.
+- `public-appearance`: Home, About, Security, Privacy and Terms at 1440x900, 1024x768 and 390x844 with the stored theme
+  light and dark, no horizontal overflow, no console error.
 
 ## How to get to it (user POV)
 
-Open the site root signed out. `About` and `Security` are in the header; `Privacy Policy` and `Terms of Use` are in the
-footer, as are About, Security, FAQ, Request Access and Sign In. `Request Access` and `Sign In` also appear in the
-header, in the home hero and in the closing call to action. A signed-in member opens the same URLs and sees `Dashboard`
-instead.
+Open the site root signed out. `Platform`, `What's next`, `Security`, `FAQ` and `About` are in the header with
+`Sign In` and `Request Access`; the footer carries `About`, `Security`, `Privacy` and `Terms`. `Request Access` also
+closes every page except Security, which closes with `Email Security`. A signed-in member opens the same URLs and sees
+`Dashboard` instead.
 
 ## Driving it with verify:app
 
@@ -47,33 +46,32 @@ apart, and if a page body is `{"error":"Too many requests"}` wait 60 seconds and
 Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-only reads, `resize_page` for the viewport,
 `take_screenshot`, `press_key` for Tab, Enter and Space, `list_console_messages` for errors.
 
-1. **Public header, signed out.** Open `$ORIGIN/` at 1280x800 (`resize_page`). Expect the brand link to `/`, `About`,
-   `Security`, `FAQ`, `Toggle theme`, `Sign In` and `Request Access` in the header, and no `Dashboard`. Click `Sign In`
-   and expect `/auth/login`; go back, click `Request Access` and expect `/auth/request-access`. On `/about` and on
-   `/security` expect the header's `About` or `Security` link respectively to carry the active state (accent-colored
-   bottom border, full-strength text and `aria-current="page"`) and the other not, and no `FAQ` link. On `/privacy` and
-   `/terms` expect neither active. Clicking the brand from any inner page returns to `/`.
+1. **Public header, signed out.** Open `$ORIGIN/about` at 1440x900 (`resize_page`). Expect a dark header with the brand
+   link to `/`, then `Platform` `/#platform`, `What's next` `/#whats-next`, `Security` `/security`, `FAQ` `/#faq` and
+   `About` `/about`, then `Sign In` and `Request Access`; no `Dashboard`, no `Toggle theme` control and no classification
+   bar above the header. Click `Sign In` and expect `/auth/login`; go back, click `Request Access` and expect
+   `/auth/request-access`. On `/about` expect only `About` to be amber with `aria-current="page"`; on `/security` only
+   `Security`. On `/privacy` and `/terms` expect no header link current. Clicking the brand from any inner page returns
+   to `/`.
 
-2. **Theme.** Click `Toggle theme` once and expect `document.documentElement.dataset.theme` to flip between `light` and
-   `dark` and `localStorage.theme` to match. Reload and expect the same theme without a flash to the other one. Navigate
-   through the header (`About`, then `Security`) and by full navigation to `/privacy`; expect the theme to hold on each.
-   Toggle back and expect the first theme.
+2. **Public bands ignore the stored theme.** Run `localStorage.setItem('theme','dark')` and reload `/about`, then
+   `/security`, `/privacy` and `/terms`. Expect `document.documentElement.dataset.theme` to be `dark`, yet each page's
+   light bands to keep the paper background (`getComputedStyle(section).backgroundColor` is `oklch(0.985 0.001 106.423)`
+   or its rgb equivalent, about `rgb(250, 250, 249)`) with near-black text, and its dark bands to be near black
+   (`rgb(12, 10, 9)` or similar). Set `localStorage.theme` to `light`, reload, and expect the same colors. Open `/` in
+   the dark theme and expect the header and footer to look the same as on `/about`. Clear the key afterwards.
 
-3. **Home overlay navigation.** At scroll 0 on `/` expect the page's first `nav` in the overlay style: `position:fixed`,
-   no visible bottom border, translucent dark chrome background over the hero (about 88% opaque), light header text.
-   Scroll the shell past the hero (`shell.scrollTo(0, hero.offsetHeight + 100)`, wait 800 ms) and expect the solid
-   style: an opaque page-background surface, a visible bottom border and a shadow. Scroll back to 0 and expect the
-   overlay style again. Read computed `position`, `backgroundColor`, `borderBottomColor` and `boxShadow` with
-   `evaluate_script`, and take a viewport screenshot of each state.
+3. **Header on scroll.** On `/about` at 1440x900 scroll the shell down 800px and expect the header to stay at the top of
+   the viewport (`position: sticky`) with the same dark background and no layout jump.
 
 4. **Narrow header (390x844).** `resize_page` to 390x844 and reload each public page. Expect the header to show the
-   brand, `Toggle theme`, `Sign In` and `Request Access` only: `About`, `Security` and `FAQ` are hidden below 900px and
-   there is no mobile menu. Expect the footer to carry `About`, `Security`, `FAQ`, `Privacy Policy` and `Terms of Use`
-   as reachable links (scroll to the bottom and read them). Expect the shell's `scrollWidth <= clientWidth` and no
-   element (outside the Security page's `On this page` strip, which scrolls sideways inside itself) with
-   `getBoundingClientRect().right > innerWidth`, on every public page. The document-level `scrollWidth` check is vacuous
-   here because the shell clips horizontal overflow. Expect each header control's rect to lie inside `0..innerWidth`.
-   Record the actual header text and footer link list.
+   brand, `Sign In` and `Request Access` only: `Platform`, `What's next`, `Security`, `FAQ` and `About` are hidden below
+   900px and there is no mobile menu. Expect the footer to carry `Platform`, `What's next`, `FAQ`, `About`, `Security`,
+   `Privacy` and `Terms` as reachable links (scroll to the bottom and read them). Expect the shell's
+   `scrollWidth <= clientWidth` and no element with `getBoundingClientRect().right > innerWidth`, on every public page.
+   The document-level `scrollWidth` check is vacuous here because the shell clips horizontal overflow. Expect each
+   header control's rect to lie inside `0..innerWidth`. Repeat at 1024x768 and expect the full header on one line with
+   no overlap. Record the actual header text and footer link list.
 
 5. **FAQ.** On `/` use the header `FAQ` link and expect the FAQ section in view with `#faq` in the URL. Expect six
    question buttons, all `aria-expanded="false"` with their answers not visible (hidden or not rendered). Click question
@@ -82,28 +80,31 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    press Enter, then Space on another: each toggles as with a click. Expect a visible focus ring on the focused trigger:
    computed `outlineStyle` not `none` with `outlineWidth` above 0, or a non-`none` `boxShadow` ring.
 
-6. **Footer links.** At 1280 scroll to the footer and list its links with `evaluate_script`. Expect exactly seven:
-   `About` `/about`, `Security` `/security`, `FAQ` `/#faq`, `Request Access` `/auth/request-access`, `Sign In`
-   `/auth/login`, `Privacy Policy` `/privacy`, `Terms of Use` `/terms`. A same-origin `fetch` of each path returns 200.
-   Click `Privacy Policy` and `Terms of Use` and expect their headings.
+6. **Footer links.** At 1440 scroll to the footer and list its visible links with `evaluate_script`. Expect exactly four:
+   `About` `/about`, `Security` `/security`, `Privacy` `/privacy`, `Terms` `/terms`, beside the brand and
+   `Not for classified information`. At 390 expect those four plus `Platform` `/#platform`, `What's next`
+   `/#whats-next` and `FAQ` `/#faq`. On `/about` and `/security` the matching footer link is amber with
+   `aria-current="page"`. A same-origin `fetch` of each path returns 200. Click `Privacy` and `Terms` and expect their
+   headings.
 
 7. **Contact cards.** Read every `a[href^="mailto:"]` on `/security`, `/privacy` and `/terms`. Expect Security to have
-   `mailto:security@trooptotask.org?subject=Security%20vulnerability%20report`, Privacy to have a card for
-   `privacy@trooptotask.org`, and Terms to have a card for `support@trooptotask.org`. Inline `privacy@trooptotask.org`
-   links in Privacy and Terms body text are also `mailto:`. Do not click; record the hrefs.
+   `mailto:security@trooptotask.org?subject=Security%20vulnerability%20report` on its `Email Security` button in the
+   closing band, Privacy to have a card for `privacy@trooptotask.org`, and Terms to have a card for
+   `support@trooptotask.org`. Inline `privacy@trooptotask.org` links in Privacy and Terms body text are also `mailto:`.
+   Do not click; record the hrefs.
 
-8. **Keyboard.** On `/` at 1280 press Tab from the top and, after each press, read `document.activeElement` (tag, text
-   or aria-label, href) and its computed outline and box shadow. Expect: brand, `About`, `Security`, `FAQ`,
-   `Toggle theme`, `Sign In`, `Request Access` in visible left-to-right order, then the hero's call to action, each with
-   a visible focus ring. Repeat at 390x844 and expect the order brand, `Toggle theme`, `Sign In`, `Request Access`, then
-   the hero call to action. Repeat on `/about` and `/security` for the header part.
+8. **Keyboard.** On `/about` at 1440 press Tab from the top and, after each press, read `document.activeElement` (tag,
+   text or aria-label, href) and its computed outline and box shadow. Expect: brand, `Platform`, `What's next`,
+   `Security`, `FAQ`, `About`, `Sign In`, `Request Access` in visible left-to-right order, each with a visible focus
+   ring. Repeat at 390x844 and expect the order brand, `Sign In`, `Request Access`. Repeat on `/security` for the header
+   part.
 
 9. **Signed-in state.** `login viewer`, then `navigate_page` the signed-in page to `$ORIGIN/`. Expect the header to show
    `Dashboard` (to `/dashboard?show=all`) and not `Sign In` or `Request Access`, and the hero and closing call to action
-   to read `Go to Dashboard` and not `Request Access`. Repeat on `/security` (header and closing call to action) and on
-   `/about`; expect no `Request Access` or `Sign In` call to action in the page body, and About's second body action to
-   read `Go to Dashboard`. The footer is the same static seven links in both states. Click `Dashboard` and expect
-   `/dashboard?show=all`, the signed-in Organization chooser, not a login form. Screenshot signed-in home at 1280 light.
+   to read `Go to Dashboard` and not `Request Access`. Repeat on `/about`, `/privacy` and `/terms` (header and closing
+   call to action), and on `/security` (header only; its closing band is `Email Security` in both states); expect no
+   `Request Access` or `Sign In` link anywhere. The footer is the same in both states. Click `Dashboard` and expect
+   `/dashboard?show=all`, the signed-in Organization chooser, not a login form. Screenshot signed-in `/about` at 1440.
 
 10. **Claims scan.** For each of the five pages, run `evaluate_script` with `() => document.body.innerText` and save the
     text to `<page>-text.txt` in the run directory. Search it case-insensitively for
@@ -112,9 +113,10 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
     claim the app does not deliver. "The plan" as everyday English is not a claim, and the shipped duty roster is a real
     feature.
 
-11. **Appearance matrix.** For each width (1280x800, 390x844) and theme (light, dark) and each page (home, about,
-    security, privacy, terms): `resize_page`, set the theme with `Toggle theme`, `navigate_page`, reveal the page, then
-    capture it as described below into `<page>-<width>-<theme>.png`. That is 20 captures. **Reveal.** Home hides each
+11. **Appearance matrix.** For each width (1440x900, 1024x768, 390x844) and stored theme (light, dark) and each page (home, about,
+    security, privacy, terms): `resize_page`, set `localStorage.theme`, `navigate_page`, reveal the page, then
+    capture it as described below into `<page>-<width>-<theme>.png`. That is 30 captures; the two themes must look
+    identical on About, Security, Privacy and Terms. **Reveal.** Home hides each
     `.reveal` section until an IntersectionObserver sees it, so a capture of an unrevealed page is blank in places.
     Immediately before the capture run `evaluate_script` with an async function that steps the shell's `scrollTo(0, y)`
     down its `scrollHeight` in increments of `innerHeight / 2`, waits 150 ms per step and 600 ms at the bottom, scrolls
@@ -123,8 +125,7 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
     layout (the page spaces sections in `vh` units), so stitch instead: take a viewport screenshot at scroll 0, then
     repeatedly scroll the shell to `previousBottom - 56` (clamped to the end), wait 700 ms, take a viewport screenshot,
     drop its top `previousBottom - actualScrollTop` rows (the sticky header and the overlap), and append. The stitched
-    height equals the shell's `scrollHeight`; the sticky `On this page` strip on Security repeats at each seam and a 1
-    px seam line can appear. Review each capture for clipping, overlapping text and legibility of text over its
+    height equals the shell's `scrollHeight`; a 1 px seam line can appear. Review each capture for clipping, overlapping text and legibility of text over its
     background in both themes.
 
 12. **Console.** After each page load in the matrix, call `list_console_messages` and save it. Expect no `error`
@@ -132,20 +133,18 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
     `/_vercel/insights/script.js` and `/_vercel/speed-insights/script.js` (HTML MIME type or 404) and matching Vercel
     `log` lines. Record these as environment noise and list them separately; any other error is a failure.
 
-13. **Contrast.** On each page, in both themes at 1280, run `evaluate_script` over visible text nodes: resolve the text
-    color and the nearest opaque ancestor background (use a 1x1 canvas to convert `oklch()` colors), and list text under
-    4.5:1 (3:1 for 24px or 18.66px bold), skipping text inside `aria-hidden="true"` decoration (the home quote mark, the
-    classification bar's `//`). Expect none. Exclude the overlay header on `/` over the dark hero, whose translucent
-    background makes the nearest-ancestor method wrong; judge it from the screenshot.
+13. **Contrast.** On each page, with the stored theme light and dark at 1440, run `evaluate_script` over visible text
+    nodes: resolve the text color and the nearest opaque ancestor background (use a 1x1 canvas to convert `oklch()`
+    colors), and list text under 4.5:1 (3:1 for 24px or 18.66px bold), skipping text inside `aria-hidden="true"`
+    decoration. Expect none. Small amber labels on the light bands use the darker `accent-text` amber, not the bright
+    accent.
 
 ## Gotchas
 
-- Theme lives in `localStorage` under `theme` and is applied to `html[data-theme]`; a fresh browser context starts from
-  the system preference (light in the owned headless browser). Toggle once per theme change, because the toggle is the
-  only control.
-- The home page's `.reveal` classes and the header's solid state depend on IntersectionObserver; a screenshot before
-  scrolling can show hidden sections or the overlay header.
-- The home header's overlay colors differ from the inner pages' solid header. The hero is dark chrome in both themes;
-  judge contrast of header text over it in the overlay state separately from the solid state.
+- The stored theme lives in `localStorage` under `theme` and is applied to `html[data-theme]`, but public pages ignore
+  it: the shell sets `data-theme="light"` on its own wrapper, so light bands keep the light tokens and dark bands use the
+  fixed chrome tokens. There is no public theme toggle; set the key with `evaluate_script` and reload.
+- Home sections that reveal on scroll depend on IntersectionObserver; a screenshot before scrolling can show them in
+  their starting state.
 - Public pages never fetch Organization data; a signed-in tab only changes the header and call-to-action state. A
   session that has not finished MFA is treated as signed out.

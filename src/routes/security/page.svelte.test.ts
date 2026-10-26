@@ -9,7 +9,7 @@ describe('security disclosure contact', () => {
 	it('preserves the vulnerability mailbox and subject line', () => {
 		render(Page, { props: { data: { viewer: null, signedIn: false } } });
 
-		expect(screen.getByRole('link', { name: 'security@trooptotask.org' }).getAttribute('href')).toBe(
+		expect(screen.getByRole('link', { name: 'Email Security' }).getAttribute('href')).toBe(
 			'mailto:security@trooptotask.org?subject=Security%20vulnerability%20report'
 		);
 	});

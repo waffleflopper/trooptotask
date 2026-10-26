@@ -57,6 +57,7 @@
 
 	const loading = $derived(
 		!storesHydratedForOrg ||
+			ctx.readinessAsOf === '' ||
 			rosterStore.loading ||
 			groupsStore.loading ||
 			trainingTypesStore.loading ||

@@ -314,11 +314,11 @@
 	{#if gap && (gap.notReady > 0 || gap.lapsing > 0)}
 		<span class="flex items-center justify-center gap-1.5 text-xs font-semibold">
 			{#if gap.notReady > 0}
-				<span class="text-danger-foreground">{gap.notReady}<span class="sr-only"> not ready</span></span>
+				<span class="text-danger-foreground">{gap.notReady}&#32;<span class="sr-only">not ready</span></span>
 			{/if}
 			{#if gap.lapsing > 0}
 				<span class="text-warning-foreground"
-					>+{gap.lapsing}<span class="sr-only"> lapsing in {HORIZON_DAYS} days</span></span
+					>+{gap.lapsing}&#32;<span class="sr-only">lapsing in {HORIZON_DAYS} days</span></span
 				>
 			{/if}
 		</span>
@@ -551,7 +551,7 @@
 									class={[
 										'block font-heading text-xl leading-none font-semibold tabular-nums',
 										gap.notReady > 0 ? 'text-danger-foreground' : 'text-muted-foreground'
-									]}>{gap.notReady}<span class="sr-only"> not ready</span></span
+									]}>{gap.notReady}&#32;<span class="sr-only">not ready</span></span
 								>
 								<span
 									class={[

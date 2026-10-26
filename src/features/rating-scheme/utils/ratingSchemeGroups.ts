@@ -113,7 +113,11 @@ export function groupRatingSchemeEntries(
 	for (const senior of groups) {
 		senior.raterGroups.sort(compare);
 		for (const rater of senior.raterGroups) {
-			rater.entries.sort((a, b) => a.ratingPeriodEnd.localeCompare(b.ratingPeriodEnd));
+			rater.entries.sort(
+				(a, b) =>
+					Number(a.status === 'completed') - Number(b.status === 'completed') ||
+					a.ratingPeriodEnd.localeCompare(b.ratingPeriodEnd)
+			);
 		}
 	}
 	return groups.sort(compare);

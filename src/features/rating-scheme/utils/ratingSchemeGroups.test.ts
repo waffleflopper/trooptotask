@@ -122,6 +122,19 @@ describe('groupRatingSchemeEntries', () => {
 		expect(groups.map((group) => group.label)).toEqual(['MAJ Adams, Amy', 'COL Zulu, Zed']);
 	});
 
+	it("lists a rater's open entries before older completed ones", () => {
+		const groups = groupRatingSchemeEntries(
+			[
+				entry('done', { status: 'completed', ratingPeriodEnd: '2025-01-01' }),
+				entry('open', { ratingPeriodEnd: '2026-06-30' })
+			],
+			personnel,
+			'urgency',
+			today
+		);
+		expect(groups[0].raterGroups[0].entries.map((item) => item.id)).toEqual(['open', 'done']);
+	});
+
 	it('keeps a missing person separate from typed names and handles an empty list', () => {
 		const groups = groupRatingSchemeEntries(
 			[entry('missing', { seniorRaterPersonId: 'missing-person', raterPersonId: 'missing-rater' })],

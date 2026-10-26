@@ -123,7 +123,11 @@
 			{#if index > 0}
 				<DropdownMenu.Separator />
 			{/if}
-			<DropdownMenu.RadioGroup value={item.value} onValueChange={item.onValueChange}>
+			<DropdownMenu.RadioGroup
+				aria-label={item.ariaLabel ?? item.label}
+				value={item.value}
+				onValueChange={item.onValueChange}
+			>
 				<DropdownMenu.GroupHeading class="text-xs font-medium text-muted-foreground"
 					>{item.label}</DropdownMenu.GroupHeading
 				>

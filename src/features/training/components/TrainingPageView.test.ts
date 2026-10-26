@@ -423,10 +423,15 @@ describe('TrainingPageView', () => {
 		await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training/import'));
 	});
 
-	it('leaves someone who can only view without a More menu', () => {
+	it('gives someone who can only view the display options in More and no commands', async () => {
 		render(TrainingPageView, { props: { ctx: memberContext('view'), modals: new ModalRegistry() } });
 
-		expect(screen.queryByRole('button', { name: 'More Training controls' })).toBeNull();
+		const menu = await openToolbarMore('Training controls');
+		expect(
+			within(menu)
+				.getAllByRole('menuitem')
+				.map((item) => item.textContent?.trim())
+		).toEqual(['Display']);
 		expect(screen.getByRole('link', { name: 'Reports' })).toBeTruthy();
 	});
 

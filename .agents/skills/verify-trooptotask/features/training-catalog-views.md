@@ -181,14 +181,14 @@ Focus View orders Targeted before Required and omits Optional.
    - Search: type `baker` into `Search name, rank, or MOS`. The count line reads `1 personnel × 3 types`, one row stays
      under `BRAVO`, and the header numbers do not change. Clear the field with `Control+A` and `Backspace` (`tool fill`
      with an empty value leaves the bound query in place). `11b` or the MOS `68W` match by MOS.
-   - Display: the `Display` menu holds the checkboxes `Color every status` and `Only Soldiers needing action`, then the
-     `Current cells show` radio group `Date`, `Check mark`, `Blank` with `Date` checked. Each choice keeps the menu
-     open. `Check mark` turns Able's Required cell to `✓` and `Blank` empties it; `No record` cells keep their text.
-     `Color every status` fills Able's Required cell green; the red and amber cells are unchanged.
-     `Only Soldiers needing action` keeps all three rows on a fresh seed, since each has a `No record` cell, and the
-     count line reads `3 of 3 need action × 3 types`. Reload: every choice is still set. Reset them all to `Date` and
-     off afterwards.
-   - Narrow widths: at 1024 the toolbar keeps `Search`, both filters and `Export` and folds `Display`, `Reports` and
+   - Display: More's `Display` submenu, there at every width, holds the checkboxes `Color every status` and
+     `Only Soldiers needing action`, then the `Current cells show` radio group `Date`, `Check mark`, `Blank` with `Date`
+     checked. Each choice keeps the menu open. `Check mark` turns Able's Required cell to `✓` and `Blank` empties it;
+     `No record` cells keep their text. `Color every status` fills Able's Required cell green; the red and amber cells
+     are unchanged. `Only Soldiers needing action` keeps all three rows on a fresh seed, since each has a `No record`
+     cell, and the count line reads `3 of 3 need action × 3 types`; each band's count reads `1 of 1`. Reload: every
+     choice is still set. Reset them all to `Date` and off afterwards.
+   - Narrow widths: at 1024 the toolbar keeps `Search`, both filters and `Export` and folds `Reports` and
      `Sign-in rosters` into More; at 390 search takes its own full-width row (322 wide) above a row holding the toggle,
      `Training view filter` and More, and More lists `Group` (`Group: All`), `Display`, `Reports`, `Sign-in rosters`,
      `Export`, `Import`, `Manage views` and `Manage types`. Text typed in search and focus stay in the field when the

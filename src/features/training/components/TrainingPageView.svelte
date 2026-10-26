@@ -245,7 +245,14 @@
 				href: `/org/${orgUrlSegment}/training/reports`,
 				icon: 'chart'
 			},
-			{ kind: 'action', id: 'matrix-display', label: 'Display', icon: 'sliders', menuItems: displayOptions }
+			{
+				kind: 'action',
+				id: 'matrix-display',
+				label: 'Display',
+				icon: 'sliders',
+				menuItems: displayOptions,
+				menuOnly: true
+			}
 		];
 
 		if (ctx.canRecordTraining) {

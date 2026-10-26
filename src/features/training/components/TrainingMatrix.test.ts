@@ -438,7 +438,9 @@ describe('TrainingMatrix display options', () => {
 		});
 
 		expect(mountedNames()).toEqual(['Baker, Jane']);
-		expect(screen.getByRole('button', { name: /Alpha/ }).closest('tr')?.textContent).toContain('50%');
+		const band = screen.getByRole('button', { name: /Alpha/ });
+		expect(band.textContent).toContain('1 of 2');
+		expect(band.closest('tr')?.textContent).toContain('50%');
 	});
 });
 

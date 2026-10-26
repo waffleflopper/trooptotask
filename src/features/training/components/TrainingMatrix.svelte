@@ -200,10 +200,10 @@
 	}
 
 	// A group's readiness counts everyone in it, including the rows that "needing action" hides.
-	const groupGaps = $derived.by(() => {
-		const members = groupBy ? Map.groupBy(personnel, groupBy.key) : new Map<string, Personnel[]>();
-		return new Map(table.groups.map((group) => [group.key, gapsFor(members.get(group.key) ?? group.rows)]));
-	});
+	const groupMembers = $derived(groupBy ? Map.groupBy(personnel, groupBy.key) : new Map<string, Personnel[]>());
+	const groupGaps = $derived(
+		new Map(table.groups.map((group) => [group.key, gapsFor(groupMembers.get(group.key) ?? group.rows)]))
+	);
 
 	const departureTags = $derived(
 		new Map(
@@ -562,7 +562,9 @@
 										{/if}
 										<span class="truncate">{item.group.label}</span>
 										<span class="font-mono text-xs font-normal text-muted-foreground max-sm:hidden"
-											>{item.group.rowIds.length}</span
+											>{display.matrixNeedsActionOnly
+												? `${item.group.rowIds.length} of ${groupMembers.get(item.group.id)?.length ?? item.group.rowIds.length}`
+												: item.group.rowIds.length}</span
 										>
 									</button>
 									{#if gaps && goalPercent !== null}

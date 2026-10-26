@@ -10,26 +10,27 @@
 
 	type PersonEditorPayload = { person: Personnel };
 	type PersonTrainingEditorModule = typeof import('$features/training/components/PersonTrainingEditor.svelte');
-	type SignInRosterModalModule = typeof import('$features/sign-in-rosters');
+	type SignInRostersSheetModule = typeof import('$features/sign-in-rosters');
 
 	let personTrainingEditorModule: Promise<PersonTrainingEditorModule> | undefined;
-	let signInRosterModalModule: Promise<SignInRosterModalModule> | undefined;
+	let signInRostersSheetModule: Promise<SignInRostersSheetModule> | undefined;
 
 	function loadPersonTrainingEditor() {
 		personTrainingEditorModule ??= import('$features/training/components/PersonTrainingEditor.svelte');
 		return personTrainingEditorModule;
 	}
 
-	function loadSignInRosterModal() {
-		signInRosterModalModule ??= import('$features/sign-in-rosters');
-		return signInRosterModalModule;
+	function loadSignInRostersSheet() {
+		signInRostersSheetModule ??= import('$features/sign-in-rosters');
+		return signInRostersSheetModule;
 	}
 </script>
 
 {#if modals.isOpen('sign-in-rosters')}
-	{#await loadSignInRosterModal() then { SignInRosterModal }}
-		<SignInRosterModal
+	{#await loadSignInRostersSheet() then { SignInRostersSheet }}
+		<SignInRostersSheet
 			orgId={ctx.orgId}
+			orgName={ctx.orgName}
 			personnel={ctx.personnel}
 			groups={ctx.groups}
 			pinnedGroups={pinnedGroupsStore.orgId === ctx.orgId ? pinnedGroupsStore.list : []}

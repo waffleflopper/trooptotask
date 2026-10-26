@@ -2,6 +2,7 @@
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { Input } from '$lib/components/ui/input';
 	import { cn } from '$lib/utils.js';
+	import { fileDrop } from './file-drop';
 
 	let {
 		title,
@@ -25,27 +26,6 @@
 
 	let dragging = $state(false);
 
-	function acceptsDrag(event: DragEvent) {
-		return event.dataTransfer?.types.includes('Files') === true;
-	}
-
-	function dragOver(event: DragEvent) {
-		if (!acceptsDrag(event)) return;
-		event.preventDefault();
-		dragging = true;
-	}
-
-	function dragLeave(event: DragEvent) {
-		if (!(event.currentTarget as Node).contains(event.relatedTarget as Node | null)) dragging = false;
-	}
-
-	function drop(event: DragEvent) {
-		event.preventDefault();
-		dragging = false;
-		const files = [...(event.dataTransfer?.files ?? [])];
-		if (files.length > 0) onFiles(files);
-	}
-
 	function pick(event: Event & { currentTarget: HTMLInputElement }) {
 		const input = event.currentTarget;
 		const files = [...(input.files ?? [])];
@@ -62,10 +42,7 @@
 		error && 'border-destructive',
 		className
 	)}
-	ondragenter={dragOver}
-	ondragover={dragOver}
-	ondragleave={dragLeave}
-	ondrop={drop}
+	{@attach fileDrop({ onFiles, onDraggingChange: (next) => (dragging = next) })}
 >
 	<Input bind:ref type="file" class="sr-only" {accept} aria-invalid={error ? true : undefined} onchange={pick} />
 	<UploadIcon class="size-7 text-foreground" strokeWidth={1.6} aria-hidden="true" />

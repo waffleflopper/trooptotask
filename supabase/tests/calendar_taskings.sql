@@ -158,9 +158,8 @@ SELECT is((SELECT id FROM public.calendar_taskings WHERE id = pg_temp.id('401'))
   'unlinking and relinking keeps the same Tasking');
 
 -- An Organization-wide operator reroutes; the change is recorded.
-SELECT lives_ok($$UPDATE public.calendar_taskings SET responsible_group_id = pg_temp.id('202') WHERE id = pg_temp.id('403')$$,
+SELECT lives_ok($$UPDATE public.calendar_taskings SET responsible_group_id = pg_temp.id('201') WHERE id = pg_temp.id('403')$$,
   'an Organization-wide operator changes responsibility');
-UPDATE public.calendar_taskings SET responsible_group_id = pg_temp.id('201') WHERE id = pg_temp.id('403');
 SELECT is(
   (SELECT payload FROM public.calendar_tasking_activity WHERE tasking_id = pg_temp.id('403') AND kind = 'responsibility_changed' ORDER BY id DESC LIMIT 1),
   jsonb_build_object('from', pg_temp.id('202'), 'to', pg_temp.id('201')),

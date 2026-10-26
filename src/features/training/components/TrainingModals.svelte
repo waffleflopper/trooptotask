@@ -37,8 +37,6 @@
 
 	const loadTrainingViewsSheet = lazyModule(() => import('$features/training/components/TrainingViewsSheet.svelte'));
 
-	const loadTrainingViewsSheet = lazyModule(() => import('$features/training/components/TrainingViewsSheet.svelte'));
-
 	function loadSignInRosterModal() {
 		signInRosterModalModule ??= import('$features/sign-in-rosters');
 		return signInRosterModalModule;
@@ -86,22 +84,6 @@
 				onRemove={ctx.handleRemoveTraining.bind(ctx)}
 				onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, person.id, exempt)}
 				onClose={() => ctx.closeRecord()}
-			/>
-		{/snippet}
-	</LazySheet>
-{/if}
-
-{#if modals.isOpen('manage-views')}
-	{@const mv = modals.payload<ManageViewsPayload>('manage-views')}
-	<LazySheet load={loadTrainingViewsSheet} title="Manage views" onClose={modals.closerFor('manage-views')}>
-		{#snippet children({ default: TrainingViewsSheet })}
-			<TrainingViewsSheet
-				orgId={ctx.orgId}
-				canMutate={ctx.trainingConfigureAffordance.allowed}
-				saveView={ctx.saveView.bind(ctx)}
-				deleteView={ctx.deleteView.bind(ctx)}
-				returnFocusTo={mv?.returnFocusTo}
-				onClose={modals.closerFor('manage-views')}
 			/>
 		{/snippet}
 	</LazySheet>

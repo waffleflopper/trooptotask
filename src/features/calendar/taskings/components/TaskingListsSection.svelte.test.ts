@@ -104,7 +104,7 @@ describe('Tasking equipment and checklist', () => {
 		const send = stubFetch(() => Response.json({ id: LITTERS, name: 'Litters', quantity: 4, securedQuantity: 4 }));
 		open(true);
 
-		await fireEvent.click(await screen.findByRole('button', { name: 'Mark all Litters secured' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'All secured: Litters' }));
 
 		await waitFor(() => expect(screen.getByText('2 of 2 ready')).toBeTruthy());
 		expect(send.mock.calls[0][0]).toBe(`/org/org-a/api/calendar-taskings/${TASKING}/equipment/${LITTERS}`);

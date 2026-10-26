@@ -308,7 +308,7 @@
 										<Button
 											variant="outline"
 											size="sm"
-											aria-label={`Mark all ${item.name} secured`}
+											aria-label={`All secured: ${item.name}`}
 											disabled={writes.saving.pending || item.securedQuantity >= item.quantity}
 											onclick={() => secure(item, item.quantity)}>All secured</Button
 										>

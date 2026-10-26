@@ -189,7 +189,7 @@ Tasking list row repeats them as `Equipment N of M ready · P partial` and `Chec
 items. Neither list moves the Tasking's status. Completed and cancelled Taskings keep both lists on record, read-only.
 
 - `equipment-edit`: `Add equipment` and `Quantity` with `Add to equipment`; per row `Secure one fewer`,
-  `Secure one more` and `Mark all secured` (each named after the item), `Move up`, `Move down`, `Edit` and `Remove`.
+  `Secure one more` and `All secured` (each named after the item), `Move up`, `Move down`, `Edit` and `Remove`.
   `Edit` opens `Equipment`, `Quantity` and `Secured` inline with `Save` and `Cancel`. A row reads `Ready`, `Partial` or
   `Not secured` and `Secured n of N`.
 - `checklist-edit`: `Add checklist item` with `Add to checklist`; per row a checkbox named after the item, then
@@ -209,7 +209,7 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
    `No items`. Add `Litters` x 4 and `Radios` x 2, then two checklist items. Each add appears at once, the heading reads
    `0 of 2 ready` and `0 of 2 done`, and the inputs clear. `$V rows` shows `position` 1 and 2 and `created_by` the
    operator; the checklist rows are `done false`. Activity gains one entry per add.
-2. **Secure, tick and reorder.** `Mark all Litters secured`: the row reads `Ready`, `Secured 4 of 4`, the heading
+2. **Secure, tick and reorder.** `All secured: Litters`: the row reads `Ready`, `Secured 4 of 4`, the heading
    `1 of 2 ready`. `Secure one more Radios`: `Partial`, `1 of 2 ready · 1 partial`. Tick the first checklist item: it is
    struck through with `Done by` and the time, the heading reads `1 of 2 done`, and `done_by`/`done_at` are set in the
    row. `Move Radios up` swaps the rows and `position` follows. Untick: `done_by` and `done_at` clear. Reload: the

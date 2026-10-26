@@ -76,7 +76,7 @@ export function trainingTypeDraftFrom(type: TrainingType): TrainingTypeDraft {
 	};
 }
 
-function renewalFieldsFromDraft(draft: TrainingTypeDraft) {
+function renewalFieldsFromDraft(draft: TrainingTypeDraft, intent: 'create' | 'update') {
 	const renewal = draft.renewal;
 	switch (renewal.kind) {
 		case 'months':
@@ -97,8 +97,7 @@ function renewalFieldsFromDraft(draft: TrainingTypeDraft) {
 			return {
 				expirationMonths: null,
 				expirationDateOnly: false,
-				warningDaysYellow: draft.preservedRenewalFields.warningDaysYellow,
-				warningDaysOrange: draft.preservedRenewalFields.warningDaysOrange
+				...(intent === 'create' ? { warningDaysYellow: 60, warningDaysOrange: 30 } : {})
 			};
 	}
 }
@@ -118,7 +117,15 @@ function applicabilityFieldsFromDraft(draft: ApplicabilityDraft) {
 	};
 }
 
-export function trainingTypeInputFromDraft(draft: TrainingTypeDraft): Omit<TrainingType, 'id'> {
+type TrainingTypeDraftInput = Omit<TrainingType, 'id' | 'warningDaysYellow' | 'warningDaysOrange'> &
+	Partial<Pick<TrainingType, 'warningDaysYellow' | 'warningDaysOrange'>>;
+
+export function trainingTypeInputFromDraft(draft: TrainingTypeDraft, intent: 'update'): TrainingTypeDraftInput;
+export function trainingTypeInputFromDraft(draft: TrainingTypeDraft, intent?: 'create'): Omit<TrainingType, 'id'>;
+export function trainingTypeInputFromDraft(
+	draft: TrainingTypeDraft,
+	intent: 'create' | 'update' = 'create'
+): TrainingTypeDraftInput {
 	return {
 		name: draft.name,
 		description: draft.description,
@@ -126,7 +133,7 @@ export function trainingTypeInputFromDraft(draft: TrainingTypeDraft): Omit<Train
 		canBeExempted: draft.canBeExempted,
 		sortOrder: draft.sortOrder,
 		exemptPersonnelIds: [...draft.exemptPersonnelIds],
-		...renewalFieldsFromDraft(draft),
+		...renewalFieldsFromDraft(draft, intent),
 		...applicabilityFieldsFromDraft(draft.applicability)
 	};
 }

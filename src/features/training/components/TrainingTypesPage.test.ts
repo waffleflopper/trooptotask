@@ -80,8 +80,8 @@ const legacyNever: TrainingType = {
 	name: 'SHARP',
 	description: null,
 	expirationMonths: null,
-	warningDaysYellow: 45,
-	warningDaysOrange: 15,
+	warningDaysYellow: 10,
+	warningDaysOrange: 20,
 	excludedMos: [],
 	canBeExempted: false,
 	exemptPersonnelIds: [],
@@ -328,8 +328,6 @@ describe('TrainingTypesPage', () => {
 				color: '#22c55e',
 				expirationMonths: null,
 				expirationDateOnly: false,
-				warningDaysYellow: 45,
-				warningDaysOrange: 15,
 				appliesToRoles: [],
 				appliesToMos: [],
 				appliesToRanks: [],
@@ -503,11 +501,13 @@ describe('TrainingTypesPage', () => {
 					}
 				}
 			]);
-			expect(trainingTypesStore.items.map(({ id, sortOrder }) => [id, sortOrder])).toEqual([
-				['type-1', 0],
-				['type-2', 2],
-				['type-3', 1]
-			]);
+			await waitFor(() =>
+				expect(trainingTypesStore.items.map(({ id, sortOrder }) => [id, sortOrder])).toEqual([
+					['type-1', 0],
+					['type-3', 1],
+					['type-2', 2]
+				])
+			);
 		});
 
 		it('rolls an optimistic move back and reports a refused order', async () => {

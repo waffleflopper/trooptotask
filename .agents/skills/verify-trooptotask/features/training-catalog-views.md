@@ -89,12 +89,21 @@ Focus View orders Targeted before Required and omits Optional.
    Server rule and legacy rows: through the signed-in page POST `api/training-types` with `warningDaysYellow:30,
 warningDaysOrange:30`, then `45`, and PUT `{id, warningDaysOrange:90}` for a type whose first warning is 90: each
    returns `400` `Make the final warning shorter than the first.` and writes no row. POST a legacy card-date type
-   (`expirationMonths:24, expirationDateOnly:true, warningDaysYellow:120, warningDaysOrange:15`) and a legacy never type
-   (`warningDaysYellow:45, warningDaysOrange:10`), open each through the table and choose `Save changes` untouched: the
+   (`expirationMonths:24, expirationDateOnly:true, warningDaysYellow:120, warningDaysOrange:15`) and seed a legacy never type
+   (`warningDaysYellow:10, warningDaysOrange:20`, seeded through the disposable provider API because the app's create
+   route rejects that invalid pair), open each through the table and choose `Save changes` untouched: the
    sheet shows `Date on the card` with `120` and `15`, and `Never expires`; `$V rows` shows `expiration_months` 24 and
-   the warning days unchanged. With `$V network arm-hold 2 training-types`, change a field and choose `Save changes`:
+   the warning days unchanged. Rename the never type and save again. The PUT omits both warning fields, the row
+   retains `10` and `20`, and the new name persists after reload. Untouched invalid warnings on months and card-date
+   types remain visible and block saving until corrected. With `$V network arm-hold 2 training-types`, change a field and choose `Save changes`:
    every field, `Delete type`, `Cancel` and `Save changes` are disabled, Escape does not close the sheet, and
    `network release` closes it with the saved value read back.
+
+   Order regression: with at least 31 types in the disposable Organization, drag the last type above the first.
+   Exactly one PUT to `api/training-types/order` sends the full `trainingTypeIds` and the previous
+   `expectedTrainingTypeIds`. Reload and read every `sort_order` as unique consecutive positions `0` through `N - 1`.
+   A stale expected list returns `409` without a write. An omitted, repeated or foreign selected ID returns `400`.
+   A refused reorder shows an error and restores the saved order. Remove only temporary types after the check.
 
 3. **Access and isolation:** As `trainingView`, `trainingOperate`, `trainingScoped` and `trainingScopedConfig`, open the
    matrix and direct Types/Views routes; record visible read access, configuration affordances and the Alpha-only roster

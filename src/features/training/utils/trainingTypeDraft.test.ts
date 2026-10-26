@@ -63,7 +63,7 @@ const renewalCases: {
 		label: 'never',
 		saved: { expirationMonths: null, expirationDateOnly: false, warningDaysYellow: 10, warningDaysOrange: 20 },
 		draft: { kind: 'never' },
-		payload: { expirationMonths: null, expirationDateOnly: false, warningDaysYellow: 10, warningDaysOrange: 20 }
+		payload: { expirationMonths: null, expirationDateOnly: false }
 	}
 ];
 
@@ -234,7 +234,7 @@ describe('Training type drafts', () => {
 			const draft = trainingTypeDraftFrom(savedType({ ...renewal.saved, ...applicability.saved }));
 			expect(draft.renewal).toEqual(renewal.draft);
 			expect(draft.applicability).toEqual(applicability.draft);
-			expect(trainingTypeInputFromDraft(draft)).toEqual({
+			expect(trainingTypeInputFromDraft(draft, 'update')).toEqual({
 				name: 'CLS',
 				description: '  Sustainment training  ',
 				color: '#123456',
@@ -309,8 +309,8 @@ describe('Training type drafts', () => {
 		expect(trainingTypeInputFromDraft(draft)).toMatchObject({
 			expirationMonths: null,
 			expirationDateOnly: false,
-			warningDaysYellow: 45,
-			warningDaysOrange: 15,
+			warningDaysYellow: 60,
+			warningDaysOrange: 30,
 			appliesToRoles: [],
 			appliesToMos: [],
 			appliesToRanks: [],

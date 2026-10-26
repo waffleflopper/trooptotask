@@ -295,6 +295,10 @@ export function trainingCompletedRow(input: TrainingCompletedUpsert, orgId: stri
 
 export const TRAINING_TYPE_UNAVAILABLE_MESSAGE = 'That Training type is no longer available.';
 export const TRAINING_TYPE_NAME_EXISTS_MESSAGE = 'A Training type with that name already exists.';
+export const TRAINING_TYPE_ORDER_CHANGED_MESSAGE = 'The Training type order changed. Reload and try again.';
+
+const trainingTypeIds = z.array(uuidSchema).refine((ids) => new Set(ids).size === ids.length);
+export const trainingTypeOrderInput = z.object({ trainingTypeIds, expectedTrainingTypeIds: trainingTypeIds }).strict();
 
 const catalogName = z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or fewer');
 

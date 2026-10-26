@@ -126,6 +126,29 @@ describe('Training catalog operations', () => {
 			]);
 		});
 
+		it.each([false, true])(
+			'rejects untouched legacy warnings that remain visible, card date %s',
+			async (expirationDateOnly) => {
+				const ctx = createWritePortsContext();
+				const saved = await ctx.trainingCatalog.createType({
+					name: 'Legacy visible',
+					expirationMonths: 12,
+					expirationDateOnly,
+					warningDaysYellow: 10,
+					warningDaysOrange: 20
+				});
+				await expect(
+					updateTrainingType(ctx, {
+						id: saved.id,
+						...trainingTypeInputFromDraft(trainingTypeDraftFrom(saved), 'update')
+					})
+				).rejects.toMatchObject({ status: 400 });
+				expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
+					{ id: saved.id, name: 'Legacy visible', warningDaysYellow: 10, warningDaysOrange: 20 }
+				]);
+			}
+		);
+
 		it('does not use another Organization warning values for a partial update', async () => {
 			const ctx = createWritePortsContext();
 			ctx.store.seed('training_types', [

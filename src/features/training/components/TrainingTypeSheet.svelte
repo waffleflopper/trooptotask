@@ -194,15 +194,16 @@
 
 	async function save() {
 		error = '';
-		const { exemptPersonnelIds, sortOrder, ...fields } = trainingTypeInputFromDraft({
-			...draft,
-			name: draft.name.trim(),
-			description: draft.description?.trim() || null
-		});
+		const savingDraft = { ...draft, name: draft.name.trim(), description: draft.description?.trim() || null };
+		const {
+			exemptPersonnelIds: _exemptPersonnelIds,
+			sortOrder: _sortOrder,
+			...fields
+		} = trainingTypeInputFromDraft(savingDraft, 'update');
 		try {
 			const saved = type
 				? (await trainingTypesStore.updateOrThrow(type.id, fields)) && type.id
-				: (await trainingTypesStore.add({ ...fields, sortOrder, exemptPersonnelIds }))?.id;
+				: (await trainingTypesStore.add(trainingTypeInputFromDraft(savingDraft)))?.id;
 			if (!stillHere()) return;
 			if (!saved) {
 				error = 'Failed to save training type.';

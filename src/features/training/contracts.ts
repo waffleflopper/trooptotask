@@ -332,6 +332,7 @@ export interface TrainingCatalogPersistence {
 	createType(input: TrainingTypeCreate): Promise<SavedTrainingType>;
 	/** Resolves null when no Training type with this id exists in the Organization. */
 	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType | null>;
+	writeTypePositions(positions: readonly Pick<TrainingType, 'id' | 'sortOrder'>[]): Promise<void>;
 	deleteType(id: string): Promise<void>;
 	createView(input: TrainingViewCreate): Promise<SavedTrainingView>;
 	patchView(id: string, fields: TrainingViewPatch): Promise<SavedTrainingView | null>;

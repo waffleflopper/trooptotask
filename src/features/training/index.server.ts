@@ -3,6 +3,7 @@ export type { TrainingOnboardingReferencesPort } from './contracts';
 export {
 	createTrainingType,
 	updateTrainingType,
+	setTrainingTypeOrder,
 	deleteTrainingType,
 	describeTrainingTypeDeletionRequest,
 	setTrainingExemption,

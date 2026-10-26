@@ -69,7 +69,7 @@ export class TaskingStaffingState {
 				personnelIds: before.picks.map((pick) => pick.personnelId),
 				keep: [],
 				removeOutsideScope: false,
-				expectedRevision: result.staffing.revision
+				expectedRevision: result.revision
 			});
 			const undone = await withinOrganizationLifetime(request, () => this.#alive);
 			this.show(undone);

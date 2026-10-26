@@ -67,7 +67,8 @@ INSERT INTO public.availability_entries(id, organization_id, personnel_id, statu
   (pg_temp.id('701'), pg_temp.id('101'), pg_temp.id('501'), pg_temp.id('601'), '2030-10-21', '2030-10-23', NULL),
   (pg_temp.id('702'), pg_temp.id('101'), pg_temp.id('502'), pg_temp.id('601'), '2030-10-19', '2030-10-23', pg_temp.id('401')),
   (pg_temp.id('703'), pg_temp.id('101'), pg_temp.id('502'), pg_temp.id('602'), '2030-10-19', '2030-10-23', NULL),
-  (pg_temp.id('704'), pg_temp.id('101'), pg_temp.id('503'), pg_temp.id('601'), '2030-10-19', '2030-10-23', NULL);
+  (pg_temp.id('704'), pg_temp.id('101'), pg_temp.id('503'), pg_temp.id('601'), '2030-10-19', '2030-10-23', NULL),
+  (pg_temp.id('705'), pg_temp.id('101'), pg_temp.id('501'), pg_temp.id('601'), '2030-12-01', '2030-12-02', pg_temp.id('402'));
 SELECT results_eq($$SELECT rank, first_name, last_name FROM public.organization_member_labels(pg_temp.id('101')) WHERE user_id=pg_temp.id('2')$$,
   $$VALUES ('SFC'::text,'Dana'::text,'Whitaker'::text)$$, 'ordinary members read profile labels of current Organization members');
 SELECT is((SELECT count(*) FROM public.organization_member_labels(pg_temp.id('102'))), 0::bigint, 'foreign member labels are hidden');
@@ -95,6 +96,8 @@ SELECT is((SELECT count(*) FROM public.user_profiles WHERE user_id=pg_temp.id('2
 SELECT is((SELECT first_name FROM public.organization_member_labels(pg_temp.id('101')) WHERE user_id=pg_temp.id('2')),'Dana','Group-scoped members resolve shared Organization member names');
 SELECT throws_ok($$INSERT INTO public.availability_entries(organization_id,personnel_id,status_type_id,start_date,end_date,set_for_tasking_id) VALUES(pg_temp.id('101'),pg_temp.id('501'),pg_temp.id('601'),'2030-10-19','2030-10-23',pg_temp.id('402'))$$,'42501',NULL,'scoped writer cannot attach to hidden Tasking');
 SELECT throws_ok($$UPDATE public.availability_entries SET set_for_tasking_id=pg_temp.id('402') WHERE id=pg_temp.id('701')$$,'42501',NULL,'direct update cannot attach hidden provenance');
+SELECT throws_ok($$UPDATE public.availability_entries SET set_for_tasking_id=pg_temp.id('402') WHERE id=pg_temp.id('705')$$,'42501',NULL,'a no-op write cannot confirm hidden provenance');
+SELECT lives_ok($$UPDATE public.availability_entries SET note='Range day' WHERE id=pg_temp.id('705')$$,'scoped writer still edits an entry set for hidden work');
 SELECT throws_ok($$INSERT INTO public.availability_entries(organization_id,personnel_id,status_type_id,start_date,end_date,set_for_tasking_id) VALUES(pg_temp.id('101'),pg_temp.id('501'),pg_temp.id('601'),'2030-10-19','2030-10-23',pg_temp.id('999'))$$,'42501',NULL,'unknown Tasking is refused without disclosure');
 SELECT is((SELECT count(*) FROM public.calendar_tasking_advisories(pg_temp.id('101'),pg_temp.id('401')) WHERE personnel_id=pg_temp.id('503')),0::bigint,'scoped advisories never name hidden people');
 SELECT ok(EXISTS(SELECT 1 FROM public.calendar_tasking_advisories(pg_temp.id('101'),pg_temp.id('401')) WHERE kind='tasking' AND label IS NULL AND other_tasking_id IS NULL AND starts_on IS NULL),'hidden commitment is generic');
@@ -110,9 +113,13 @@ SELECT is((pg_temp.workspace()->'taskings'->pg_temp.id('402')::text->>'conflicts
 SELECT public.transition_calendar_tasking(pg_temp.id('101'),pg_temp.id('402'),'complete',NULL);
 SELECT is((SELECT count(*) FROM public.calendar_tasking_conflict_people(pg_temp.id('101')) WHERE tasking_id=pg_temp.id('402')),0::bigint,'completed work has no conflicts');
 RESET ROLE;
-UPDATE public.personnel SET archived_at=now() WHERE id=pg_temp.id('503');
+UPDATE public.personnel SET archived_at=now() WHERE id IN (pg_temp.id('501'),pg_temp.id('503'));
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT count(*) FROM public.calendar_tasking_conflict_people(pg_temp.id('101')) WHERE personnel_id=pg_temp.id('503')),0::bigint,'archived picks never conflict');
+SELECT is((pg_temp.workspace()->'taskings'->pg_temp.id('402')::text->>'picked')::integer,1,
+  'a completed Tasking keeps counting a pick archived afterwards');
+SELECT is((SELECT picked FROM public.calendar_tasking_staffing(pg_temp.id('101'),ARRAY[pg_temp.id('402')])),1,
+  'its detail count agrees');
 SELECT pg_temp.act_as('6');
 INSERT INTO public.calendar_taskings(id,organization_id,title,responsible_group_id,suspense_on)
 VALUES(pg_temp.id('405'),pg_temp.id('102'),'Foreign',NULL,'2030-10-23');

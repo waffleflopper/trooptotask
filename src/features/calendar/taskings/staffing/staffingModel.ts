@@ -148,8 +148,13 @@ export const staffingSaveSchema = z
 
 export type StaffingSave = z.output<typeof staffingSaveSchema>;
 
-/** `conflict` means someone else saved first; nothing was written and `staffing` is what they saved. */
-export type StaffingSaveResult = { outcome: 'saved' | 'unchanged' | 'conflict'; staffing: TaskingStaffing };
+export type StaffingSaveOutcome = { outcome: 'saved' | 'unchanged' | 'conflict'; revision: number };
+
+/**
+ * `conflict` means someone else saved first; nothing was written and `staffing` is what they saved.
+ * `revision` is the one this save wrote or found; `staffing` is read afterwards and may already be newer.
+ */
+export type StaffingSaveResult = StaffingSaveOutcome & { staffing: TaskingStaffing };
 
 /** The selection a save asks for, kept apart from what is stored so a failed or refused save loses nothing. */
 export interface StaffingDraft {

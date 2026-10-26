@@ -103,7 +103,7 @@ export async function saveTaskingPeople(
 	const save = parse(staffingSaveSchema, input);
 	const tasking = await requireTasking(ctx, id);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, tasking.responsibility);
-	const outcome = await ctx.calendarStaffing.saveStaffing(tasking.id, save);
+	const { outcome, revision } = await ctx.calendarStaffing.saveStaffing(tasking.id, save);
 	const staffing = await requireStaffing(ctx, tasking.id);
 	if (outcome === 'saved')
 		await ctx.audit.log({
@@ -112,7 +112,7 @@ export async function saveTaskingPeople(
 			resourceId: tasking.id,
 			details: { title: tasking.title, picked: staffing.picked, needsReview: staffing.needsReview }
 		});
-	return { outcome, staffing };
+	return { outcome, revision, staffing };
 }
 
 export async function loadTaskingPickStates(

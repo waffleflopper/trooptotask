@@ -40,9 +40,9 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
     WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
       AND calendar_private.can_view_calendar_events(p_organization_id)
   ), picked AS (
-    SELECT p.tasking_id, count(*) FILTER (WHERE p.review_since IS NULL AND person.archived_at IS NULL)::integer AS picked
+    -- Same rule as calendar_tasking_staffing: a closed Tasking keeps a pick whose Person is archived later.
+    SELECT p.tasking_id, count(*) FILTER (WHERE p.review_since IS NULL)::integer AS picked
     FROM public.calendar_tasking_participants p
-    JOIN public.personnel person ON person.organization_id = p.organization_id AND person.id = p.personnel_id
     WHERE p.organization_id = p_organization_id GROUP BY p.tasking_id
   ), equipment AS (
     SELECT q.tasking_id, count(*)::integer AS total,

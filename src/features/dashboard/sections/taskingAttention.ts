@@ -59,12 +59,14 @@ function toItem(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouItem
 		case 'short': {
 			const startsOn = row.executionStartsOn ?? row.suspenseOn;
 			const away = daysBetween(inputs.today, startsOn);
+			const missing = (row.required ?? 0) - row.picked;
 			return {
 				...base,
 				kind: 'taskingShort',
 				subtitle: subtitle(),
 				timing: away < 0 ? 'underway' : `starts ${formatDayOffset(away)}`,
-				action: pickPeopleAction(inputs, row, `Pick ${Math.max((row.required ?? 0) - row.picked, 1)}`, base.href),
+				// Short on equipment alone: picking people cannot fix it, so the row only links to the Tasking.
+				action: missing > 0 ? pickPeopleAction(inputs, row, `Pick ${missing}`, base.href) : null,
 				urgency: { date: startsOn }
 			};
 		}

@@ -63,11 +63,11 @@ function memoryStaffing(advisories: () => Promise<Record<string, never>> = async
 		listAdvisories: advisories,
 		async saveStaffing(_id, save) {
 			saves.push(save);
-			if ([...save.personnelIds].sort().join() === [...picked].sort().join()) return 'unchanged';
-			if (save.expectedRevision !== revision) return 'conflict';
+			if ([...save.personnelIds].sort().join() === [...picked].sort().join()) return { outcome: 'unchanged', revision };
+			if (save.expectedRevision !== revision) return { outcome: 'conflict', revision };
 			picked = save.personnelIds;
 			revision += 1;
-			return 'saved';
+			return { outcome: 'saved', revision };
 		}
 	};
 	return { port, saves };

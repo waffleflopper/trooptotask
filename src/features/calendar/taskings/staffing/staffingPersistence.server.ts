@@ -4,7 +4,14 @@ import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelDeletionReferencesPort } from '$features/personnel/contracts';
 import { TASKING_GONE } from '../taskingPersistence.server';
-import type { StaffingAdvisory, StaffingCount, StaffingSave, TaskingPick, TaskingStaffing } from './staffingModel';
+import type {
+	StaffingAdvisory,
+	StaffingCount,
+	StaffingSave,
+	StaffingSaveOutcome,
+	TaskingPick,
+	TaskingStaffing
+} from './staffingModel';
 
 export const STAFFING_INELIGIBLE =
 	'Someone on this list can no longer be picked for this tasking. Review the list and save again.';
@@ -18,7 +25,7 @@ export interface CalendarStaffingPersistence {
 	countStaffing(taskingIds: string[]): Promise<Record<string, StaffingCount>>;
 	/** By Person, over the Tasking's execution dates; empty unless the reader may staff it. */
 	listAdvisories(taskingId: string): Promise<Record<string, StaffingAdvisory[]>>;
-	saveStaffing(taskingId: string, save: StaffingSave): Promise<'saved' | 'unchanged' | 'conflict'>;
+	saveStaffing(taskingId: string, save: StaffingSave): Promise<StaffingSaveOutcome>;
 }
 
 const countRowSchema = z.object({
@@ -172,7 +179,7 @@ export function createSupabaseCalendarStaffingPersistence(
 			if (error) return writeFailure(error);
 			const [row] = z.array(saveRowSchema).parse(data);
 			if (!row) throw new Error('save_calendar_tasking_people returned no outcome');
-			return row.outcome;
+			return row;
 		}
 	};
 }

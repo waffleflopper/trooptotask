@@ -132,7 +132,8 @@ describe('TaskingDetailPage', () => {
 	describe('undoing a picker save', () => {
 		const staffed: Tasking = { ...tasking, requirement: { count: 2, qualifications: null } };
 		const before = staffing(1, pick(BRUNO, 'Baker'));
-		const after = staffing(2, pick(ALICE, 'Avery'), pick(BRUNO, 'Baker'));
+		// Read after the save, so it may already carry a newer revision than the one the save wrote.
+		const after = staffing(3, pick(ALICE, 'Avery'), pick(BRUNO, 'Baker'));
 		const picker: StaffingPicker = {
 			tasking: staffed,
 			states: {},
@@ -143,7 +144,7 @@ describe('TaskingDetailPage', () => {
 
 		async function saveAndUndo(undoReply: Response) {
 			const saves: unknown[] = [];
-			const replies = [Response.json({ outcome: 'saved', staffing: after }), undoReply];
+			const replies = [Response.json({ outcome: 'saved', revision: 2, staffing: after }), undoReply];
 			vi.stubGlobal(
 				'fetch',
 				vi.fn(async (_url: string, init?: RequestInit) => {
@@ -166,7 +167,9 @@ describe('TaskingDetailPage', () => {
 		}
 
 		it('puts the earlier selection back against the saved revision', async () => {
-			const { saves, success, error } = await saveAndUndo(Response.json({ outcome: 'saved', staffing: before }));
+			const { saves, success, error } = await saveAndUndo(
+				Response.json({ outcome: 'saved', revision: 3, staffing: before })
+			);
 
 			expect(saves[1]).toEqual({ personnelIds: [BRUNO], keep: [], removeOutsideScope: false, expectedRevision: 2 });
 			await waitFor(() => expect(success).toHaveBeenCalledTimes(2));
@@ -176,7 +179,9 @@ describe('TaskingDetailPage', () => {
 
 		it('says the Undo was refused when someone saved since, and shows their selection', async () => {
 			const theirs = staffing(3, pick(ALICE, 'Avery'));
-			const { error } = await saveAndUndo(Response.json({ outcome: 'conflict', staffing: theirs }, { status: 409 }));
+			const { error } = await saveAndUndo(
+				Response.json({ outcome: 'conflict', revision: 3, staffing: theirs }, { status: 409 })
+			);
 
 			await waitFor(() => expect(error).toHaveBeenCalledOnce());
 			await waitFor(() => expect(screen.queryByText(/Baker/)).toBeNull());

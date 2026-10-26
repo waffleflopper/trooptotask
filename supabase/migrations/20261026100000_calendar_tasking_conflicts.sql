@@ -28,9 +28,8 @@ CREATE INDEX availability_entries_tasking_idx ON public.availability_entries(org
 CREATE FUNCTION calendar_private.check_availability_tasking() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
-  IF NEW.set_for_tasking_id IS NOT NULL AND (TG_OP = 'INSERT'
-    OR NEW.set_for_tasking_id IS DISTINCT FROM OLD.set_for_tasking_id
-    OR NEW.organization_id IS DISTINCT FROM OLD.organization_id) THEN
+  -- Also when unchanged: success on a no-op write would confirm a hidden Tasking's provenance.
+  IF NEW.set_for_tasking_id IS NOT NULL THEN
     IF NOT EXISTS (SELECT 1 FROM public.calendar_taskings t
       WHERE t.organization_id = NEW.organization_id AND t.id = NEW.set_for_tasking_id
         AND calendar_private.can_view_calendar_tasking(t.organization_id, t.responsible_group_id)) THEN
@@ -41,7 +40,8 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION calendar_private.check_availability_tasking() FROM PUBLIC, anon, authenticated, service_role;
-CREATE TRIGGER check_availability_tasking BEFORE INSERT OR UPDATE ON public.availability_entries
+CREATE TRIGGER check_availability_tasking
+  BEFORE INSERT OR UPDATE OF set_for_tasking_id, organization_id ON public.availability_entries
   FOR EACH ROW EXECUTE FUNCTION calendar_private.check_availability_tasking();
 
 -- Private unredacted facts are callable only by the scoped public readers below.

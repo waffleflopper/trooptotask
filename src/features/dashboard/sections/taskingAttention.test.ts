@@ -58,6 +58,12 @@ describe('taskingAttention', () => {
 		});
 	});
 
+	it('only links a Tasking that is short on equipment alone', () => {
+		const [item] = taskingAttention(ready({ ...base, required: null, picked: 1 }));
+
+		expect(item).toMatchObject({ kind: 'taskingShort', href: '/org/org-1/calendar/taskings/t-1', action: null });
+	});
+
 	it('says underway for a Short Tasking whose execution has begun', () => {
 		const [item] = taskingAttention(ready({ ...base, executionStartsOn: '2026-10-24' }));
 

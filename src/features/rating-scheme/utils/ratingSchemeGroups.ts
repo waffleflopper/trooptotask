@@ -32,11 +32,17 @@ export function groupRatingSchemeEntries(
 		{ group: RatingSchemeSeniorRaterGroup; raters: Map<string, RatingSchemeRaterGroup> }
 	>();
 	const earliestOpenEnd = new Map<RatingSchemeSeniorRaterGroup | RatingSchemeRaterGroup, string>();
+	const sortName = new Map<RatingSchemeSeniorRaterGroup | RatingSchemeRaterGroup, string>();
 
 	function label(personId: string | null, name: string | null): string {
 		if (!personId) return name ?? 'Not Set';
 		const person = people.get(personId);
 		return person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
+	}
+
+	function nameWithoutRank(personId: string | null, name: string | null): string {
+		const person = personId ? people.get(personId) : undefined;
+		return person ? `${person.lastName}, ${person.firstName}` : label(personId, name);
 	}
 
 	for (const entry of entries) {
@@ -55,6 +61,7 @@ export function groupRatingSchemeEntries(
 				raters: new Map()
 			};
 			seniorRaters.set(seniorKey, senior);
+			sortName.set(senior.group, nameWithoutRank(entry.seniorRaterPersonId, entry.seniorRaterName));
 		}
 		const raterKey = entry.raterPersonId || entry.raterName || 'unassigned';
 		let rater = senior.raters.get(raterKey);
@@ -66,6 +73,7 @@ export function groupRatingSchemeEntries(
 				entries: []
 			};
 			senior.raters.set(raterKey, rater);
+			sortName.set(rater, nameWithoutRank(entry.raterPersonId, entry.raterName));
 			senior.group.raterGroups.push(rater);
 		}
 		rater.entries.push(entry);
@@ -98,7 +106,7 @@ export function groupRatingSchemeEntries(
 				return aEnd.localeCompare(bEnd);
 			}
 		}
-		return a.label.localeCompare(b.label);
+		return (sortName.get(a) ?? '').localeCompare(sortName.get(b) ?? '');
 	}
 
 	const groups = [...seniorRaters.values()].map(({ group }) => group);

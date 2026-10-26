@@ -109,6 +109,19 @@ describe('groupRatingSchemeEntries', () => {
 		expect(groups[4]).toMatchObject({ key: 'unassigned', label: 'Not Set', external: false });
 	});
 
+	it('orders unit senior raters by surname, not rank, in A to Z mode', () => {
+		const groups = groupRatingSchemeEntries(
+			[entry('zulu', { seniorRaterPersonId: 'senior-zulu' }), entry('adams', { seniorRaterPersonId: 'senior-adams' })],
+			[
+				{ id: 'senior-zulu', rank: 'COL', lastName: 'Zulu', firstName: 'Zed' },
+				{ id: 'senior-adams', rank: 'MAJ', lastName: 'Adams', firstName: 'Amy' }
+			],
+			'seniorRaterAZ',
+			today
+		);
+		expect(groups.map((group) => group.label)).toEqual(['MAJ Adams, Amy', 'COL Zulu, Zed']);
+	});
+
 	it('keeps a missing person separate from typed names and handles an empty list', () => {
 		const groups = groupRatingSchemeEntries(
 			[entry('missing', { seniorRaterPersonId: 'missing-person', raterPersonId: 'missing-rater' })],

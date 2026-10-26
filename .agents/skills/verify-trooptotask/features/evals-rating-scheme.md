@@ -179,10 +179,10 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      one `Button` whose name carries every visible cell; Tab reaches it, Enter and Space open the sheet, and focus
      returns to that row after Escape or Save, or to `Add Entry` when the row is gone. `Group order` offers
      `Sort: Most urgent` and `Sort: Senior rater A to Z` and exists only in Grouped. With at least three Senior raters,
-     one that sorts last by name holding the most overdue entry comes first by urgency and last A to Z (add them through
-     the sheet). Typing `zzzz` into `Search by Soldier or rater` shows `No entries match` and `0 of 8 shown`;
-     `Clear search and filters` restores `6 of 8 shown`. Search also finds a Soldier by any label the page shows:
-     `SPC Able`, `SPC Able, Synthetic` and `Able, Synthetic` each keep the Able rows
+     one whose surname sorts last, whatever the rank, holding the most overdue entry comes first by urgency and last A
+     to Z (add them through the sheet). Typing `zzzz` into `Search by Soldier or rater` shows `No entries match` and
+     `0 of 8 shown`; `Clear search and filters` restores `6 of 8 shown`. Search also finds a Soldier by any label the
+     page shows: `SPC Able`, `SPC Able, Synthetic` and `Able, Synthetic` each keep the Able rows
 
    - ID: E2
      - Screen and control: Table view and view mode

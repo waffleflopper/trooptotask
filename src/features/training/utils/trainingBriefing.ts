@@ -674,6 +674,11 @@ export function summarizeTrainingReadiness(input: TrainingReadinessInput): Train
 	return readinessSummary(input, requirementEntries({ ...input, types }));
 }
 
+/** The requirements the readiness numbers count, one per Person and Training type that applies and is not exempt. */
+export function trainingRequirements(input: Omit<TrainingReadinessInput, 'goalPercent'>): BriefingRequirement[] {
+	return requirementEntries({ ...input, goalPercent: 0 }).map((entry) => entry.requirement);
+}
+
 export function trainingMatrixGaps(input: TrainingReadinessInput): TrainingMatrixGaps {
 	const entries = requirementEntries(input);
 	const byType: Record<string, TrainingColumnGaps> = Object.fromEntries(

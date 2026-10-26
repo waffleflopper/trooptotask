@@ -3,22 +3,41 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-	import type { Personnel } from '$features/personnel/contracts';
+	import { resolve } from '$app/paths';
 	import { pinnedGroupsStore } from '$features/personnel';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
-	type PersonEditorPayload = { person: Personnel };
-	type PersonTrainingEditorModule = typeof import('$features/training/components/PersonTrainingEditor.svelte');
+	type TrainingRecordSheetModule = typeof import('$features/training/components/TrainingRecordSheet.svelte');
 	type SignInRosterModalModule = typeof import('$features/sign-in-rosters');
 
-	let personTrainingEditorModule: Promise<PersonTrainingEditorModule> | undefined;
+	let trainingRecordSheetModule: Promise<TrainingRecordSheetModule> | undefined;
 	let signInRosterModalModule: Promise<SignInRosterModalModule> | undefined;
 
-	function loadPersonTrainingEditor() {
-		personTrainingEditorModule ??= import('$features/training/components/PersonTrainingEditor.svelte');
-		return personTrainingEditorModule;
+	function loadTrainingRecordSheet() {
+		trainingRecordSheetModule ??= import('$features/training/components/TrainingRecordSheet.svelte');
+		return trainingRecordSheetModule;
 	}
+
+	const recordPerson = $derived(ctx.recordPerson);
+	const recordLoading = $derived(
+		trainingTypesStore.orgId !== ctx.orgId ||
+			personnelTrainingsStore.orgId !== ctx.orgId ||
+			trainingTypesStore.loading ||
+			personnelTrainingsStore.loading ||
+			ctx.readinessAsOf === ''
+	);
+
+	let recordWasOpen = false;
+	$effect(() => {
+		const open = recordPerson !== null;
+		if (recordWasOpen && !open) void ctx.restoreRecordFocus();
+		recordWasOpen = open;
+	});
+
+	$effect(() => {
+		if (ctx.rosterReady && ctx.recordPersonId && !recordPerson) ctx.dropRecordParam();
+	});
 
 	function loadSignInRosterModal() {
 		signInRosterModalModule ??= import('$features/sign-in-rosters');
@@ -40,20 +59,26 @@
 	{/await}
 {/if}
 
-{#if modals.isOpen('person-editor')}
-	{@const pe = modals.payload<PersonEditorPayload>('person-editor')}
-	{#if pe}
-		{#await loadPersonTrainingEditor() then { default: PersonTrainingEditor }}
-			<PersonTrainingEditor
-				person={pe.person}
-				trainingTypes={trainingTypesStore.items}
-				trainings={personnelTrainingsStore.items}
-				onSave={ctx.handleSaveTraining.bind(ctx)}
-				onSaveBatch={ctx.handleSaveTrainingBatch.bind(ctx)}
-				onRemove={ctx.handleRemoveTraining.bind(ctx)}
-				onClose={modals.closerFor('person-editor')}
-				onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, pe.person.id, exempt)}
-			/>
-		{/await}
-	{/if}
+{#if recordPerson}
+	{#await loadTrainingRecordSheet() then { default: TrainingRecordSheet }}
+		<TrainingRecordSheet
+			person={recordPerson}
+			trainingTypes={trainingTypesStore.items}
+			trainings={personnelTrainingsStore.items}
+			orgId={ctx.orgId}
+			asOf={ctx.readinessAsOf}
+			loading={recordLoading}
+			profileHref={resolve('/org/[orgId]/personnel/[personnelSlug]', {
+				orgId: ctx.orgUrlSegment,
+				personnelSlug: recordPerson.slug ?? recordPerson.id
+			})}
+			canStep={{ previous: !!ctx.recordNeighbours.previous, next: !!ctx.recordNeighbours.next }}
+			onStep={(direction) => ctx.stepRecord(direction)}
+			onSave={ctx.handleSaveTraining.bind(ctx)}
+			onSaveBatch={ctx.handleSaveTrainingBatch.bind(ctx)}
+			onRemove={ctx.handleRemoveTraining.bind(ctx)}
+			onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, recordPerson.id, exempt)}
+			onClose={() => ctx.closeRecord()}
+		/>
+	{/await}
 {/if}

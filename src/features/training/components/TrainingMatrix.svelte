@@ -44,7 +44,10 @@
 		goalPercent: number | null;
 		/** Makes cells open the recording popover. */
 		onRecord?: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
-		onPersonClick?: (person: Personnel) => void;
+		/** Opens the person's record; `opener` is where focus goes back to when it closes. */
+		onPersonClick?: (person: Personnel, opener: HTMLElement | null) => void;
+		/** Reports the rows in the order the matrix shows them, collapsed groups left out. */
+		onRowOrderChange?: (personnelIds: string[]) => void;
 		groupBy?: GroupDef<Personnel>;
 	}
 
@@ -79,6 +82,7 @@
 		goalPercent,
 		onRecord,
 		onPersonClick,
+		onRowOrderChange,
 		groupBy
 	}: Props = $props();
 
@@ -281,9 +285,10 @@
 		const target = returnTarget;
 		recordTarget = null;
 		await tick();
-		if (target) findCell(target)?.querySelector<HTMLElement>('button')?.focus();
+		const cellButton = target ? (findCell(target)?.querySelector<HTMLElement>('button') ?? null) : null;
+		cellButton?.focus();
 		pinnedRowId = null;
-		onPersonClick?.(person);
+		onPersonClick?.(person, cellButton);
 	}
 
 	const matrixRows = $derived<MatrixRow[]>(table.rows.map(toMatrixRow));
@@ -305,6 +310,9 @@
 					...(group.collapsed ? [] : group.rows.map(rowItem))
 				])
 	);
+	$effect(() => {
+		onRowOrderChange?.(virtualItems.flatMap((item) => (item.kind === 'row' ? [item.key] : [])));
+	});
 	const virtualWindow = $derived(
 		OperationalMatrix.buildVirtualMatrixWindow(virtualItems, {
 			scrollTop,
@@ -354,7 +362,8 @@
 					variant="cell"
 					size="none"
 					class="w-full min-w-0 justify-start gap-2 text-left sm:gap-4"
-					onclick={() => onPersonClick?.(row.meta.person)}
+					data-person-opener={row.id}
+					onclick={(event) => onPersonClick?.(row.meta.person, event.currentTarget)}
 				>
 					<span class="w-8 shrink-0 font-mono text-xs font-medium text-muted-foreground">
 						{row.meta.rank}

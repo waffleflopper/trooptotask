@@ -319,6 +319,7 @@
 					goalPercent={ctx.readinessGoalPercent}
 					onRecord={ctx.canRecordTraining ? ctx.handleSaveTraining.bind(ctx) : undefined}
 					onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
+					onRowOrderChange={(ids) => (ctx.rowOrder = ids)}
 					groupBy={ctx.viewMode === 'by-group'
 						? {
 								key: (p) => p.groupName || NO_GROUP,

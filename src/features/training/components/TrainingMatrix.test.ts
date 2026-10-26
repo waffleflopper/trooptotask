@@ -179,9 +179,10 @@ describe('TrainingMatrix', () => {
 			props: { ...matrixProps, personnel: [person], trainingTypes: [trainingType], trainings: [], onPersonClick }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /Smith, Jane/ }));
+		const nameButton = screen.getByRole('button', { name: /Smith, Jane/ });
+		await fireEvent.click(nameButton);
 
-		expect(onPersonClick).toHaveBeenCalledWith(person);
+		expect(onPersonClick).toHaveBeenCalledWith(person, nameButton);
 	});
 
 	it('mounts only the rows around the scroll position of a large roster', async () => {

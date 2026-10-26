@@ -780,16 +780,6 @@ describe('TrainingPageContext', () => {
 		});
 	});
 
-	describe('handlePersonClick', () => {
-		it('opens the person-editor modal with the person', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
-			ctx.handlePersonClick(mockPerson);
-			expect(modals.isOpen('person-editor')).toBe(true);
-			const payload = modals.payload<{ person: Personnel }>('person-editor');
-			expect(payload?.person.id).toBe('p-1');
-		});
-	});
-
 	describe('isExempt', () => {
 		it('returns true when person is in exemptPersonnelIds', () => {
 			const ctx = makeContext(makeData(), modals, makeOrg());

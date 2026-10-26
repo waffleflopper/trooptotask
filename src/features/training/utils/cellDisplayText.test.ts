@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { getCellDisplayText, getCellStatusLabel, getColumnIntervalLabel } from './cellDisplayText';
+import {
+	getCellDisplayText,
+	getCellStatusLabel,
+	getColumnIntervalLabel,
+	getStatusLine,
+	renewalMode
+} from './cellDisplayText';
 import { getTrainingStatus } from './trainingStatus';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 
@@ -113,5 +119,51 @@ describe('getColumnIntervalLabel', () => {
 		expect(getColumnIntervalLabel(makeType({ expirationMonths: 36 }))).toBe('36 mo');
 		expect(getColumnIntervalLabel(makeType({ expirationDateOnly: true, expirationMonths: null }))).toBe('Date');
 		expect(getColumnIntervalLabel(makeType({ expirationMonths: null }))).toBe('No expiry');
+	});
+});
+
+describe('renewalMode', () => {
+	it.each([
+		{ type: makeType(), expected: 'months' },
+		{ type: makeType({ expirationMonths: null }), expected: 'never' },
+		{ type: makeType({ expirationDateOnly: true }), expected: 'cardDate' },
+		{ type: makeType({ expirationDateOnly: true, expirationMonths: null }), expected: 'cardDate' }
+	])('reads $expected', ({ type, expected }) => {
+		expect(renewalMode(type)).toBe(expected);
+	});
+});
+
+describe('getStatusLine', () => {
+	function line(type: TrainingType, training: PersonnelTraining | undefined, asOf: string) {
+		return getStatusLine(getTrainingStatus(training, type, person, asOf), training, type);
+	}
+
+	it.each([
+		{
+			name: 'expired',
+			training: makeTraining({ expirationDate: '2026-08-04' }),
+			expected: { tone: 'danger', text: 'Expired 4 Aug 2026 · 82 days ago' }
+		},
+		{
+			name: 'expiring',
+			training: makeTraining({ expirationDate: '2026-11-11' }),
+			expected: { tone: 'warning', text: 'Expires 11 Nov 2026 · 17 days left' }
+		},
+		{
+			name: 'current',
+			training: makeTraining({ expirationDate: '2027-06-15' }),
+			expected: { tone: 'muted', text: 'Current until 15 Jun 2027' }
+		},
+		{ name: 'no record', training: undefined, expected: { tone: 'danger', text: 'No record' } }
+	])('says $name', ({ training, expected }) => {
+		expect(line(makeType(), training, '2026-10-25')).toEqual(expected);
+	});
+
+	it('says a never-expiring record is current without a date', () => {
+		const type = makeType({ expirationMonths: null });
+		expect(line(type, makeTraining({ expirationDate: null }), '2026-10-25')).toEqual({
+			tone: 'muted',
+			text: 'Current · never expires'
+		});
 	});
 });

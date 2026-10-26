@@ -1,4 +1,8 @@
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { tick } from 'svelte';
+import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
+import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
+import { page } from '$app/state';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -27,6 +31,7 @@ import { recordTrainingCompletions } from '../personnelTrainingRequests';
 import { matchesPersonnelSearch } from '../utils/personnelSearch';
 import { trainingReadinessSource } from '../webSources.svelte';
 
+const RECORD_PARAM = 'person';
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
 type TrainingBatchCompletionRecord = TrainingBatchRecord & { status: 'completed' };
@@ -52,7 +57,6 @@ export interface TrainingPageData {
 
 export class TrainingPageContext {
 	readonly #data: TrainingPageData;
-	readonly #modals: ModalRegistry;
 	readonly #org: TrainingPageAccess;
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
 	readonly #savePreferences: (patch: TrainingPreferencesPatch) => void;
@@ -64,16 +68,19 @@ export class TrainingPageContext {
 	searchQuery = $state('');
 	viewMode = $state<TrainingMatrixViewMode>('by-group');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
+	/** The matrix's visible row order: what the record sheet steps through. */
+	rowOrder = $state.raw<string[]>([]);
+	#recordOpener: HTMLElement | null = null;
+	#steppedFrom: string | null = null;
 
 	constructor(
 		data: TrainingPageData,
-		modals: ModalRegistry,
+		_modals: ModalRegistry,
 		org: TrainingPageAccess,
 		submitRemovalRequest: TrainingRemovalRequest,
 		savePreferences: (patch: TrainingPreferencesPatch) => void
 	) {
 		this.#data = data;
-		this.#modals = modals;
 		this.#org = org;
 		this.#submitRemovalRequest = submitRemovalRequest;
 		this.#savePreferences = savePreferences;
@@ -211,8 +218,79 @@ export class TrainingPageContext {
 		}
 	}
 
-	handlePersonClick(person: Personnel): void {
-		this.#modals.open('person-editor', { person });
+	/** The `?person=` the page was opened on, even when it names nobody the viewer may see. */
+	get recordPersonId(): string | null {
+		return page.url.searchParams.get(RECORD_PARAM);
+	}
+
+	get rosterReady(): boolean {
+		return rosterStore.orgId === this.orgId && !rosterStore.loading;
+	}
+
+	get recordPerson(): Personnel | null {
+		const id = this.recordPersonId;
+		if (!id || !this.canRecordTraining) return null;
+		return this.personnel.find((person) => person.id === id) ?? null;
+	}
+
+	/** The Soldiers either side of the open record in the matrix's visible order. */
+	get recordNeighbours(): { previous: Personnel | null; next: Personnel | null } {
+		const at = this.rowOrder.indexOf(this.recordPersonId ?? '');
+		if (at === -1) return { previous: null, next: null };
+		const personnel = this.personnel;
+		const inRow = (index: number) => personnel.find((person) => person.id === this.rowOrder[index]) ?? null;
+		return { previous: inRow(at - 1), next: inRow(at + 1) };
+	}
+
+	handlePersonClick(person: Personnel, opener: HTMLElement | null = null): void {
+		this.#recordOpener = opener;
+		this.#steppedFrom = person.id;
+		void goto(this.#recordTarget(person.id), {
+			noScroll: true,
+			keepFocus: true,
+			state: { trainingRecord: true }
+		});
+	}
+
+	stepRecord(direction: -1 | 1): void {
+		const { previous, next } = this.recordNeighbours;
+		const target = direction === -1 ? previous : next;
+		if (!target) return;
+		void goto(this.#recordTarget(target.id), {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true,
+			state: { ...page.state }
+		});
+	}
+
+	/** Closes the sheet: back to the entry that opened it, or off the param when the page was loaded on it. */
+	closeRecord(): void {
+		if (page.state.trainingRecord) history.back();
+		else this.dropRecordParam();
+	}
+
+	dropRecordParam(): void {
+		void goto(this.#recordTarget(null), { replaceState: true, noScroll: true, keepFocus: true });
+	}
+
+	/** Puts focus back on the name (or cell) that opened the record, or on the open Soldier's name if that scrolled away. */
+	async restoreRecordFocus(): Promise<void> {
+		await tick();
+		const opener = this.#recordOpener;
+		const stepped = this.#steppedFrom;
+		this.#recordOpener = null;
+		this.#steppedFrom = null;
+		if (opener?.isConnected) opener.focus();
+		else if (stepped) document.querySelector<HTMLElement>(`[data-person-opener="${CSS.escape(stepped)}"]`)?.focus();
+	}
+
+	#recordTarget(personId: string | null) {
+		const params = new SvelteURLSearchParams(page.url.search);
+		if (personId) params.set(RECORD_PARAM, personId);
+		else params.delete(RECORD_PARAM);
+		const query = params.toString();
+		return resolve(`${page.url.pathname}${query ? `?${query}` : ''}` as `/org/${string}/training`);
 	}
 
 	setSelectedGroupId(groupId: string): void {

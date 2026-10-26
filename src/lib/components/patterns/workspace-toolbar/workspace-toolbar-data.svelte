@@ -320,9 +320,10 @@
 	props: Record<string, unknown> = {},
 	iconOnly: boolean = false
 )}
+	<!-- A width transition between icon and text would hand the fit a half-grown button. -->
 	<Button
 		variant={action.destructive ? 'destructive' : variant}
-		class={iconOnly ? 'size-8 px-0' : undefined}
+		class={iconOnly ? 'size-8 px-0 transition-colors' : compactBelow ? 'transition-colors' : undefined}
 		href={action.href}
 		disabled={action.disabled}
 		title={live ? action.disabledReason : undefined}

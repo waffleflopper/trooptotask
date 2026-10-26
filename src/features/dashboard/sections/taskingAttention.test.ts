@@ -52,7 +52,7 @@ describe('taskingAttention', () => {
 			urgency: { date: '2026-10-28' },
 			action: {
 				label: 'Pick 2',
-				mode: 'dialog',
+				mode: 'expand',
 				policy: POLICY_ACTION_CATALOG.calendar.manageTaskings
 			}
 		});
@@ -107,7 +107,7 @@ describe('taskingAttention', () => {
 			title: expect.stringMatching(/SGT Okafor.*leave/),
 			subtitle: expect.stringContaining('Provide four medics'),
 			urgency: { date: '2026-10-27' },
-			action: { label: 'Swap', mode: 'dialog', policy: POLICY_ACTION_CATALOG.calendar.manageTaskings }
+			action: { label: 'Swap', mode: 'expand', policy: POLICY_ACTION_CATALOG.calendar.manageTaskings }
 		});
 	});
 

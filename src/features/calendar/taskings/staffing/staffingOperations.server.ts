@@ -69,6 +69,7 @@ export async function loadStaffingPicker(ctx: CalendarStaffingPorts, id: string)
 			: ({ kind: 'no_execution' } as const)
 	]);
 	return {
+		tasking: { requirement: tasking.requirement, execution: tasking.execution },
 		staffing,
 		candidates: people
 			.filter((person) => isCandidateFor(tasking.responsibility, person))

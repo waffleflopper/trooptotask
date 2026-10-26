@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { AttentionActionRow, AttentionActionRowSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Button } from '$lib/components/ui/button';
@@ -93,6 +94,10 @@
 	}
 
 	async function open(id: string, action: Extract<NeedsYouAction, { open: unknown }>) {
+		// One row works in place at a time; a row mid-save keeps its panel until the save lands.
+		if (action.mode === 'expand')
+			for (const [other, state] of actions)
+				if (other !== id && state.status !== 'saving' && panelOf(state)) send(other, { type: 'close' });
 		send(id, { type: 'open' });
 		try {
 			send(id, { type: 'opened', panel: await action.open() });
@@ -114,6 +119,19 @@
 			void restoreFocusAfterFailure(id);
 			throw new Error(message);
 		}
+	}
+
+	// Escape inside a panel opened in place folds it; focus returns to the action as for any close.
+	function escapeCloses(id: string): Attachment<HTMLElement> {
+		return (node) => {
+			function onKeydown(event: KeyboardEvent) {
+				if (event.key !== 'Escape' || event.defaultPrevented || stateOf(id).status === 'saving') return;
+				event.preventDefault();
+				send(id, { type: 'close' });
+			}
+			node.addEventListener('keydown', onKeydown);
+			return () => node.removeEventListener('keydown', onKeydown);
+		};
 	}
 
 	// The fold row leaves with its button, so focus moves to the first row it revealed.
@@ -214,7 +232,7 @@
 				expanded={act?.mode === 'expand' && panel !== null}
 			>
 				{#if panel}
-					<div id={panelId}>
+					<div id={panelId} {@attach act?.mode === 'expand' ? escapeCloses(item.id) : undefined}>
 						<panel.component
 							{...panel.props}
 							{model}

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { uuidSchema } from '$lib/utils/inputSchemas';
-import { TASKING_STAFFING_MAX, type StaffingCount, type TaskingResponsibility } from '../taskingModel';
+import { TASKING_STAFFING_MAX, type StaffingCount, type Tasking, type TaskingResponsibility } from '../taskingModel';
 
 export type { NamedPeople, StaffingCount } from '../taskingModel';
 
@@ -75,6 +75,7 @@ export type StaffingAdvisories =
 	| { kind: 'loaded'; byPerson: Record<string, StaffingAdvisory[]> };
 
 export interface StaffingPicker {
+	tasking: Pick<Tasking, 'requirement' | 'execution'>;
 	staffing: TaskingStaffing;
 	candidates: StaffingCandidate[];
 	advisories: StaffingAdvisories;

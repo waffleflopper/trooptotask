@@ -1,9 +1,4 @@
-import {
-	loadAssignPeopleDialog,
-	transitionTaskingRequest,
-	type TaskingAttentionRow,
-	type TaskingTransition
-} from '$features/calendar';
+import { transitionTaskingRequest, type TaskingAttentionRow, type TaskingTransition } from '$features/calendar';
 import { acknowledgeAwardTracking } from '$features/personnel';
 import { loadRecordClassDialog } from '$features/training';
 import type { Personnel } from '$features/personnel/contracts';
@@ -107,28 +102,33 @@ export function taskingStatusAction(
 }
 
 /**
- * Opens the staffing picker in place, under the policy and scope Tasking detail uses. The picker marks a Person whose
- * availability clashes, so a Conflict row's Swap opens the same picker.
+ * Opens slots for the people still needed in the row, under the policy and scope Tasking detail uses. A Conflict row's
+ * Swap opens the same slots with the conflicting person's open for a replacement.
  */
-export function pickPeopleAction(inputs: DashboardInputs, row: TaskingAttentionRow, label: string): NeedsYouAction {
-	const orgId = inputs.page.orgId;
+export function pickPeopleAction(
+	inputs: DashboardInputs,
+	row: TaskingAttentionRow,
+	label: string,
+	href: string
+): NeedsYouAction {
 	const groups = Object.fromEntries(inputs.groups.map((group) => [group.id, group.name]));
-	const tasking = {
-		id: row.taskingId,
-		responsibility: row.responsibility,
-		requirement: row.required === null ? null : { count: row.required, qualifications: null }
+	const props = {
+		orgId: inputs.page.orgId,
+		taskingId: row.taskingId,
+		title: row.title,
+		href,
+		required: row.required,
+		swap: row.kind === 'conflict' ? row.conflict : null,
+		groups
 	};
 	return {
 		label,
 		policy: calendar.manageTaskings,
 		resource: taskingResource(row),
-		mode: 'dialog',
+		mode: 'expand',
 		open: async () => {
-			const [{ default: Panel }, { default: Dialog }] = await Promise.all([
-				import('../components/needs-you/PickPeoplePanel.svelte'),
-				loadAssignPeopleDialog()
-			]);
-			return needsYouPanel(Panel, { orgId, tasking, groups, Dialog });
+			const { default: Panel } = await import('../components/needs-you/PickPeoplePanel.svelte');
+			return needsYouPanel(Panel, props);
 		}
 	};
 }

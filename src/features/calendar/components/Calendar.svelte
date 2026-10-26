@@ -5,6 +5,7 @@
 	import type { CalendarLane } from '$features/calendar/utils/calendarLanes';
 	import { commitmentsOf, type CommitmentsByPerson } from '$features/calendar/projection/projectionCommitments';
 	import CalendarHeader from './CalendarHeader.svelte';
+	import type { SuspenseLaneDay } from './projection/SuspenseLaneCell.svelte';
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from './GroupHeader.svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -39,6 +40,8 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		lanes?: readonly CalendarLane[];
+		/** Active suspenses by date, drawn in the date headers. */
+		suspenses?: readonly SuspenseLaneDay[];
 		/** Taskings each Person is picked for over these dates; awareness only, never availability. */
 		commitments?: CommitmentsByPerson;
 		activeOnboardingPersonnelIds?: string[];
@@ -76,6 +79,7 @@
 		assignmentTypes,
 		assignments,
 		lanes = [],
+		suspenses,
 		commitments,
 		activeOnboardingPersonnelIds = [],
 		highlightOnboarding = true,
@@ -295,6 +299,7 @@
 	<CalendarHeader
 		headerCells={days}
 		{lanes}
+		{suspenses}
 		onDateClick={canEditAssignments ? onDateClick : undefined}
 		{scrollLeft}
 		{scrollbarWidth}

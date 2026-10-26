@@ -708,6 +708,7 @@ export function createRequestCalendarRangeContext(request: AdmittedOrganizationR
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 		calendarProjection: createSupabaseCalendarProjectionReader(request.supabase, request.auth.orgId),
+		taskingWorkspace: createSupabaseCalendarTaskingWorkspaceReader(request.supabase, request.auth.orgId),
 		disabledFeatures: request.disabledFeatures
 	};
 }

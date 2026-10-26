@@ -346,11 +346,55 @@ describe('calendar page', () => {
 	describe('with Events & Taskings on', () => {
 		const projection = {
 			kind: 'loaded' as const,
-			events: [{ id: 'e1', title: 'Field exercise', startsOn: '2026-04-06', endsOn: '2026-04-08', cancelled: false }],
+			events: [
+				{
+					id: 'e1',
+					title: 'Field exercise',
+					startsOn: '2026-04-06',
+					endsOn: '2026-04-08',
+					cancelled: false,
+					hasWork: true,
+					host: null
+				}
+			],
 			suspenses: [{ taskingId: 't1', title: 'Submit roster', suspenseOn: '2026-04-10', status: 'open' as const }],
 			commitments: [
-				{ taskingId: 't1', title: 'Submit roster', personnelId: 'p1', startsOn: '2026-04-06', endsOn: '2026-04-09' }
-			]
+				{
+					taskingId: 't1',
+					title: 'Submit roster',
+					personnelId: 'p1',
+					startsOn: '2026-04-06',
+					endsOn: '2026-04-09',
+					conflicts: false
+				}
+			],
+			facts: {
+				taskings: {
+					t1: {
+						eventRelation: 'execution' as const,
+						picked: 1,
+						required: 2,
+						equipment: { ready: 0, total: 0, returnedQuantity: 0, totalQuantity: 0 },
+						conflicts: 0,
+						nextDate: '2026-04-06',
+						suspenseOn: '2026-04-10',
+						status: 'open' as const,
+						responsibleGroupId: null
+					}
+				},
+				events: {
+					e1: {
+						total: 1,
+						needAction: 1,
+						overdue: 0,
+						blocked: 0,
+						needPeople: 1,
+						fullyStaffedAndReady: 0,
+						conflicts: 0
+					}
+				},
+				needAction: 1
+			}
 		};
 
 		it('reads Events with the visible range and marks them on the matrix', async () => {
@@ -362,7 +406,7 @@ describe('calendar page', () => {
 			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
 
 			expect(await screen.findByRole('link', { name: /Field exercise/ })).toBeTruthy();
-			expect(screen.getByRole('link', { name: 'Suspense: Submit roster' })).toBeTruthy();
+			expect(screen.getByRole('link', { name: /suspense: Submit roster/i })).toBeTruthy();
 			expect(screen.getByRole('link', { name: /Tasking: Submit roster/ })).toBeTruthy();
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
 			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-1', {
@@ -370,6 +414,42 @@ describe('calendar page', () => {
 				rangeEnd: '2026-04-30',
 				collections: ['events']
 			});
+		});
+
+		it('opens a quick card from an Event and returns focus to it on Escape', async () => {
+			loadCalendarRangeMock.mockResolvedValue({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30', projection });
+			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
+
+			const bar = await screen.findByRole('link', { name: /Field exercise/ });
+			await fireEvent.click(bar);
+
+			const card = await screen.findByRole('dialog', { name: 'Field exercise' });
+			expect(within(card).getByRole('link', { name: 'Open event' }).getAttribute('href')).toBe(
+				'/org/org-1/calendar/events/e1'
+			);
+			await fireEvent.keyDown(card, { key: 'Escape' });
+
+			await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Field exercise' })).toBeNull());
+			await waitFor(() => expect(document.activeElement).toBe(bar));
+		});
+
+		it('opens a quick card for a suspense with the Tasking it belongs to', async () => {
+			loadCalendarRangeMock.mockResolvedValue({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30', projection });
+			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
+
+			await fireEvent.click(await screen.findByRole('link', { name: /suspense: Submit roster/i }));
+
+			const card = await screen.findByRole('dialog', { name: 'Submit roster' });
+			expect(within(card).getByRole('link', { name: 'Open tasking' }).getAttribute('href')).toBe(
+				'/org/org-1/calendar/taskings/t1'
+			);
+		});
+
+		it('badges Events & Taskings with the Taskings that need action', async () => {
+			loadCalendarRangeMock.mockResolvedValue({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30', projection });
+			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
+
+			expect(await screen.findByRole('link', { name: /Events & Taskings\W+1 need action/ })).toBeTruthy();
 		});
 
 		it('keeps the matrix usable when only the projection fails and retries that read alone', async () => {

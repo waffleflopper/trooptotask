@@ -451,52 +451,84 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
 
 ## Calendar markers
 
-The Calendar shows Events, Suspenses and picked execution dates beside availability, behind the `Events & Taskings`
-switch. One `calendar-range` read with `collections=events` carries them with the visible range. Sub-features:
-`calendar-events-lane`, `calendar-suspense-lane`, `calendar-commitment`, `calendar-marker-overflow`,
+The Calendar shows Events, suspenses and picked execution dates beside availability, behind the `Events & Taskings`
+switch. One `calendar-range` read with `collections=events` carries them with the visible range, together with the
+Tasking facts the quick cards and the toolbar count use. Sub-features: `calendar-events-row`,
+`calendar-header-suspense`, `calendar-commitment`, `calendar-quick-card`, `calendar-taskings-badge`,
 `calendar-marker-3-month`, `calendar-marker-failure`, `calendar-marker-feature-off`.
 
-Data (October 2026, today is 26 Oct): Events `Field exercise` 27-29 Oct, `Range day` 28 Oct, `Quarterly inspection`
-28-30 Oct, `Block leave` 20 Oct-4 Nov. Taskings `Submit roster` (Alpha, suspense 30 Oct, execution 27-29 Oct, SPC Able
-picked), `Inventory` (Organization, suspense 30 Oct, execution 28-31 Oct, Able and Baker picked), `Weapons qual`
-(Bravo, suspense 3 Nov, execution 3-5 Nov, Baker picked). Create them as `calendarOperate` with the forms in steps 1-3
-and the Staffing steps, or `PUT` the picks to `calendar-taskings/ID/people`.
+Data (October 2026, today is 26 Oct). Seed as `calendarOperate` from the Calendar page with `POST`s to
+`/org/A/api/calendar-events` and `/org/A/api/calendar-taskings`, then `.../ID/status`, `.../ID/equipment` and
+`PUT .../ID/people`:
 
-1. **Month.** As `calendarOperate` on `/calendar` in `Month`: below the date headers `Events` reads `4` and `Suspenses`
-   reads `2 due`. `Block leave` is one span from the 20th. Days with more Events than fit show a count; its button
-   opens a list of every Event that day, each linking to its detail. `Suspense: Submit roster` is a diamond on the
-   30th with a `+1` button listing the second Suspense. Able's row has a hatched rail under 27-31 Oct and Baker's under
-   28 Oct-5 Nov, each labelled `Tasking: TITLE, DATES`; days two picks share read `2 Taskings` and open a list. The
-   rails sit apart from availability fills and `+` cells: clicking a day's `+` still opens Add availability, and the
-   daily-assignment header action is unchanged.
-2. **Requests.** Reload: exactly one `calendar-range?rangeStart=2026-10-01&rangeEnd=2026-10-31&collections=events`
-   follows, with no per-cell, per-Event or per-person request. `Next month` inside coverage sends none.
-3. **Keyboard.** Tab from the toolbar: the Event links, diamonds, rails and `+N` buttons take focus in reading order
-   with a visible ring (`:focus-visible` matches). Enter on `Suspense: Inventory` opens that Tasking's detail; Escape
-   closes an open overflow list and returns focus to its button.
-4. **3-Month.** `3-Month` shows the same Events and Suspenses as lanes under the date row (`Events`, `Suspenses`), and
-   the same rails on each row. The lanes stay put while the roster scrolls vertically.
-5. **Scoped.** As `calendarScoped` (Alpha only) all four Events show, only `Suspense: Submit roster` and its rail show,
-   and Baker's row and the Bravo and Organization Taskings are absent. As `calendarView` the Organization Tasking
-   `Inventory` shows with its rails and the Alpha and Bravo Taskings are absent.
-6. **Save and return.** From a marker open an Event, `Edit`, rename it, `Save changes`, then press `Calendar` in the
-   sidebar: the lane and the labels carry the new title, after one more `collections=events` read.
-7. **Projection failure.** The server answers a failed projection in band, so only the Events region fails. In the
-   page, wrap `window.fetch` so a `calendar-range` response gets `projection: { kind: 'failed' }`, then press
-   `Next month`: `Events` reads `Events could not be loaded.` with `Retry`, `Suspenses` reads `Suspenses could not be
-loaded.`, the matrix, `+` cells and toolbar keep working and no page alert shows. Remove the wrapper and press
-   `Retry`: the lanes fill. While the read is in flight both lanes hold a skeleton at the loaded height, and the
-   matrix does not move. `$V network arm-fail PAGE calendar-range` instead fails the whole read, so the page alert
-   shows as well as the lane errors.
-8. **Feature off.** As `orgOwner` turn `Events & Taskings` off in Settings › Features. As `calendarOperate` the
-   Calendar has no `Events`, `Suspenses` lane, rail or legend entry, no `Events & Taskings` action, and `Next month`
-   past coverage requests `collections=availability%2Cassignments` only, never `events`. Turn it back on.
-9. **Widths.** Capture Month and 3-Month at 1440, 900 and 390; `scrollWidth` equals the viewport. At 390 the lanes
-   scroll with the dates and their labels stay pinned left; markers are never smaller text and never stack.
+- Events `Best Medic Competition` 28 Oct-1 Nov hosted by us, `Brigade CG visit` 21 Oct hosted by `526th BSB`, and
+  `Post cleanup week` 2-6 Nov hosted by `Garrison`.
+- Under `Best Medic Competition`: `Submit competitor roster to BN S3` (Organization, suspense 22 Oct, needs 3, started),
+  `Lane equipment ready` (Alpha, suspense 25 Oct, 4 of 6 aid bags, blocked), `Alpha trauma lane` (Alpha, suspense 1 Nov,
+  execution 28 Oct-1 Nov, needs 1, Able picked, started), `Provide 2 evacuation-lane medics` (Bravo, execution 28 Oct-1
+  Nov, needs 2, Baker picked), `Provide 3 lane graders (E-6+)` (Organization, execution 28 Oct-1 Nov, needs 3) and
+  `Return borrowed aid bags` (Alpha, suspense 2 Nov, 0 of 2).
+- `Clinic walkthrough for CG visit` (Alpha, suspense 28 Oct, needs 1, Able picked) under `Brigade CG visit`, and the
+  standalone `Q1 medical readiness slides` (Organization, suspense 27 Oct).
+- Verification Leave for Able 29 Oct-3 Nov.
+
+1. **Month.** As `calendarOperate` on `/calendar` in `Month` at 1440, the `Events` row sits under the date headers and
+   reads `2 this month`. `Best Medic Competition` is a dark bar from the 28th with the count `6` after its title.
+   `Brigade CG visit` is a dashed outline on the 21st whose text `Brigade CG visit · 526th BSB` runs on past the chip.
+   The row holds two Events per day; a day with more shows a `+N` button that lists every Event that day. A cancelled
+   Event is struck through.
+2. **Header suspenses.** Small diamonds sit in the top-right corner of the date headers for the 22nd and 25th (red,
+   named `Overdue suspense: TITLE`) and the 27th and 28th (outlined, `Suspense: TITLE`). They clear the day name. A day
+   with two suspenses opens a list.
+3. **Commitments.** Baker's row has a thin solid amber underline under 28-31 Oct, named
+   `Tasking: Provide 2 evacuation-lane medics, 28 Oct 2026 to 1 Nov 2026`. Able's underline breaks into amber dashes
+   from the 28th with a small amber warning mark at its start, and its name ends `conflicts with availability`. Nothing
+   is red. Clicking a day's `+` still opens Add availability.
+4. **Legend and toolbar.** The legend adds `Tasking commitment`, `Suspense` and `Commitment conflict`. The toolbar's
+   first action is `Events & Taskings` with a red count `4`, named `Events & Taskings , 4 need action`, linking to
+   `/calendar/taskings`. It reads no extra request. Below 1024 the action moves into `More Calendar controls` with its
+   count.
+5. **Event card.** Click `Best Medic Competition`: the URL stays on `/calendar` and a card opens under the bar with
+   focus inside it. It reads `Event · We host`, the title, `28 Oct – 1 Nov 2026`, `Host` `We are hosting`, `Taskings`
+   `6 · 4 need action` and `1 availability conflict` with an amber icon, then `Open event` and `Add tasking`. A tracked
+   Event reads `Event · Tracked` and its host. Escape closes it and focus is back on the bar. Opening another marker
+   replaces the card; only one is ever open.
+6. **Tasking card.** Click the 25th's red diamond: the card reads `Blocked` and `Overdue` badges,
+   `Lane equipment ready`, `Responsible` `Alpha`, `Suspense` `25 Oct 2026` in red and `People` `0 picked`, with
+   `Open tasking`, `Assign people` and `Unblock`. The next status action follows the status: `Start` when open,
+   `Mark done` in progress, `Unblock` when blocked. On the 27th's diamond press `Start`: the badge turns `In progress`
+   and the action `Mark done` after one more `collections=events` read, and the row in `calendar_taskings` reads
+   `in_progress`. `Assign people` closes the card and opens the `Assign people` sheet. A reader who cannot manage that
+   Tasking sees only `Open tasking`.
+7. **Conflict card.** Click Able's dashed underline: `Alpha trauma lane`, `In progress`, `People` `1 of 1` and
+   `SPC Able, Synthetic is not available on these dates` with an amber icon, then `Open tasking`, `Assign people` and
+   `Mark done`.
+8. **Keyboard.** Tab from the toolbar: the Event bars, header diamonds and underlines take focus in reading order with a
+   visible ring. Enter opens the card, Tab moves through its actions and Escape returns focus to the marker. Changing
+   month or view closes an open card.
+9. **3-Month.** `3-Month` keeps the `Events` row and adds a compact `Suspenses` lane under it instead of header
+   diamonds; underlines stay on each row. The lanes stay put while the roster scrolls vertically.
+10. **Requests.** Reload: exactly one `calendar-range?rangeStart=2026-10-01&rangeEnd=2026-10-31&collections=events`
+    follows, with no per-cell, per-Event, per-card or per-person request. `Next month` inside coverage sends none.
+11. **Scoped.** As `calendarScoped` (Alpha only) every Event shows, and only Alpha's diamonds, underlines and card facts
+    show. The toolbar count covers Alpha's work only.
+12. **Load states.** In the page wrap `window.fetch` so a `calendar-range` response with `events` waits 8 s and gets
+    `projection: { kind: 'failed' }`, then press `Next month`. While it waits the `Events` row holds a skeleton at its
+    loaded height and the matrix does not move. Then it reads `Events could not be loaded.` with `Retry`; no diamond,
+    underline or toolbar count shows, and the matrix, `+` cells and toolbar keep working. Remove the wrapper and press
+    `Retry`: the row fills. `$V network arm-fail PAGE calendar-range` instead fails the whole read, so the page alert
+    shows as well.
+13. **Feature off.** As `orgOwner` turn `Events & Taskings` off in Settings › Features. As `calendarOperate` the
+    Calendar has no `Events` row, diamond, underline, legend entry or `Events & Taskings` action, and `Next month` past
+    coverage requests `collections=availability%2Cassignments` only. Turn it back on.
+14. **Widths.** Capture Month and 3-Month at 1440, 900 and 390; `scrollWidth` equals the viewport. At 390 the row
+    scrolls with the dates and its label stays pinned left. A card opened at 390 stays inside the viewport (320 px wide,
+    8 px from the edge).
 
 Expected values are written here, never read from a design file. `src/features/calendar/projection/` and
-`src/features/calendar/components/projection/` tests cover the lane layout, overflow lists and commitment runs, and
-`supabase/tests/calendar_range_projection.sql` proves the read as ordinary Organization-wide and Group-scoped users.
+`src/features/calendar/components/projection/` tests cover the row layout, header suspenses, commitment runs and the
+cards, and `supabase/tests/calendar_range_projection.sql` proves the read as ordinary Organization-wide and Group-scoped
+users.
 
 ## Dashboard
 
@@ -505,7 +537,9 @@ Needs you receives Overdue, Blocked and Short Taskings and one Conflict row per 
 row names the Person, status label and start, and the Tasking title. Picks under review and archived People never
 conflict. Another overlapping Tasking is an advisory, not a conflict. On-track work due within seven days appears in
 `attention.onTrack` with its title, responsibility, suspense, picked and required counts, and is absent from Needs you.
-The source keeps its pending and failed states separate from an empty queue.
+The source keeps its pending and failed states separate from an empty queue. Each row acts in place: Overdue offers
+`Mark done`, Blocked `Unblock`, Short `Pick N` for the People still needed, and Conflict `Swap`. On duty lists
+`attention.onTrack` under `Taskings due · 7 days · on track`, with an `Events & Taskings` link.
 
 Seed as `calendarOperate` through `/org/A/api/calendar-taskings` with dates relative to the viewer day D. Create Alpha
 Overdue due D-3, Alpha Blocked due D+3, Alpha needing two People executing D+3 through D+7, and on-track Alpha work due
@@ -514,11 +548,11 @@ Organization Tasking needing three executing D+7 through D+8 and due D+8. Pick A
 Add Leave for Able on D+5 through D+7 without a Tasking reference. Keep the Alpha Tasking's equipment ready. Before
 staffing Bravo, expect six Tasking attention rows and the two seeded Unfilled duty rows, eight Needs you rows total.
 
-1. **Operator.** The eight Needs you rows include Overdue, Blocked, Short and Conflict. The Conflict identifies Able,
-   Leave and its
-   start. The due-D+4 Tasking is absent from `attention.rows` and present in `attention.onTrack`. The executing
-   Tasking's picker reports `isConflict: true`, `overlapDays: 3`, `executionDays: 5` for the Leave row.
-2. **Pick people.** Pick Baker on the Bravo Short Tasking and save. It leaves Needs you and enters
+1. **Operator.** The eight Needs you rows include Overdue, Blocked, Short and Conflict. The Conflict reads
+   `SPC Synthetic Able is on leave from WEEKDAY DAY` with `Committed to TITLE` under it, in amber with `Swap`. The
+   due-D+4 Tasking is absent from `attention.rows` and present in `attention.onTrack`. The executing Tasking's picker
+   reports `isConflict: true`, `overlapDays: 3`, `executionDays: 5` for the Leave row.
+2. **Pick people.** Choose `Pick 1` on the Bravo Short Tasking, pick Baker and save. It leaves Needs you and enters
    `attention.onTrack` with `picked: 1`, `required: 1`, and its D+3 suspense. Seven Needs you rows remain. The save
    refreshes `api/dashboard/taskings` once and does not reload the page.
 
@@ -526,7 +560,7 @@ staffing Bravo, expect six Tasking attention rows and the two seeded Unfilled du
    `PUT` `{ personnelIds: [BAKER], keep: [], removeOutsideScope: false, expectedRevision: 0 }` to its `.../people`.
    Save the first page: the sheet stays open under `Someone else saved this list while you were choosing` with
    `Saved now: SPC Baker, Synthetic.` and Able still ticked. Save again: it closes and the row reads `1 of 3 picked`.
-4. **Keyboard.** Focus a `Pick people` button and press Enter: the sheet opens with focus on `Cancel`. Escape closes it
+4. **Keyboard.** Focus a `Pick N` button and press Enter: the sheet opens with focus on `Cancel`. Escape closes it
    and focus is back on the button.
 5. **Failed and pending source.** `$V server-source arm rpc/calendar_tasking_dashboard fail-hard 1 60000`, then reload
    Home: `Needs you · 2` keeps the two Unfilled duty rows, `Needs you is incomplete. Tasking items could not load.` and
@@ -536,14 +570,30 @@ staffing Bravo, expect six Tasking attention rows and the two seeded Unfilled du
    skeleton row under them and no `Nothing needs you right now.`; `release` replaces the skeleton with the rows.
 6. **Group-scoped and read-only.** As `calendarScoped` the queue is six rows, with Alpha's four Taskings only (no Bravo,
    no Organization row), and `GET api/dashboard/taskings` returns those four titles. `Range safety detail` and
-   `Gate guard rotation` are absent from its `__data.json`. As `calendarView` all eight original rows show with no `Pick people`.
-   As the `viewer` login the same `GET` answers `null` and no Tasking row shows.
+   `Gate guard rotation` are absent from its `__data.json`. As `calendarView` all eight original rows show with no
+   action. As the `viewer` login the same `GET` answers `null` and no Tasking row shows.
 7. **Switch off.** As `orgOwner`, Settings › Features, turn `Events & Taskings` off. The operator's Dashboard shows
    `Needs you · 2` with no Tasking row, no `api/dashboard/taskings` request, and `server-source arm
 rpc/calendar_tasking_dashboard hold 1 60000` records `matches: 0` after a reload. Turn it back on.
 8. **Widths.** Capture the queue for the operator, `calendarScoped`, `calendarView`, the failed state, the pending state
-   and the switch off at 1440, 900 and 390. At 390 `Pick people` sits beside the title and the timing stays on the
+   and the switch off at 1440, 900 and 390. At 390 each action sits beside the title and the timing stays on the
    first line. `scrollWidth` equals the viewport.
+9. **Mark done and Unblock.** Choose `Mark done` on the Overdue row: one `POST .../ID/status` with
+   `{ action: 'complete', note: null }`, then one `GET api/dashboard/taskings`, and the row leaves without a page
+   reload. `rows calendar_taskings orgA title TITLE` reads `completed`. Choose `Unblock` on the Blocked row: it leaves
+   Needs you, its status reads `in_progress`, and as it has no staffing requirement it joins On track. Wrap
+   `window.fetch` so the status `POST` answers 409 with a `message`: the row stays and shows that message.
+10. **Swap.** Choose `Swap` on the Conflict row: the `Assign people` sheet opens for that Tasking with Able ticked and
+    the Leave dates in amber under the name. Cancel leaves the row as it was.
+11. **On track.** The block lists the due-D+4 Tasking as `Alpha · open` with its weekday date, each title linking to its
+    detail. A Tasking with a staffing requirement reads `N / N people` in green. While the Tasking read is held the
+    block shows three skeleton rows; when it fails it reads `Taskings could not be loaded.` and keeps the
+    `Events & Taskings` link, and the Needs you `Try again` rereads both. The block is absent with the switch off and
+    for a viewer without Calendar access.
+12. **Create tasking.** Quick add's filled `+ Tasking` reads `GET api/calendar-taskings/choices` and opens the
+    `Create tasking` sheet with the Organization, Groups and upcoming Events. Create one due D+3: the sheet closes, a
+    toast offers `Open`, one `GET api/dashboard/taskings` follows, and the new Tasking shows in On track. When the
+    choices read fails, a toast says `Create tasking` could not open and no sheet opens.
 
 ### Forecast lane
 

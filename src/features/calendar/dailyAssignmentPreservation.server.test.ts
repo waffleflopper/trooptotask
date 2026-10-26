@@ -16,6 +16,7 @@ const G_CHARLIE = '00000000-0000-4000-8000-000000000018';
 const range = {
 	rangeStart: '2026-03-01',
 	rangeEnd: '2026-03-31',
+	today: '2026-03-15',
 	collections: ['availability', 'assignments'] as const
 };
 

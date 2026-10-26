@@ -137,7 +137,7 @@ describe('a unit with every feature set up', () => {
 	it('shows every column and quick add and gives no hint', () => {
 		expect(compose(unit())).toMatchObject({
 			columns: ['training', 'critical-tasks', 'evaluations', 'arriving-and-leaving'],
-			quickAdd: ['Status', 'Training record', 'Start onboarding'],
+			quickAdd: ['Status', 'Training record', 'Start onboarding', 'Tasking'],
 			hints: []
 		});
 	});
@@ -150,7 +150,7 @@ describe('frame 05: Critical tasks off and Onboarding with no template', () => {
 		const { columns, quickAdd, parts } = compose(loaded, owner, ['criticalTasks']);
 
 		expect(columns).toEqual(['training', 'evaluations', 'arriving-and-leaving']);
-		expect(quickAdd).toEqual(['Status', 'Training record']);
+		expect(quickAdd).toEqual(['Status', 'Training record', 'Tasking']);
 		expect(parts.readinessColumns.at(-1)?.link).toEqual({ label: 'Personnel', href: '/org/org-1/personnel' });
 		expect(parts.setupHints).toEqual([
 			{
@@ -165,7 +165,7 @@ describe('frame 05: Critical tasks off and Onboarding with no template', () => {
 	it('gives a member the same page without the hint', () => {
 		expect(compose(loaded, member, ['criticalTasks'])).toMatchObject({
 			columns: ['training', 'evaluations', 'arriving-and-leaving'],
-			quickAdd: ['Status', 'Training record'],
+			quickAdd: ['Status', 'Training record', 'Tasking'],
 			hints: []
 		});
 	});

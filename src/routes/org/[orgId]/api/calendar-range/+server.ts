@@ -8,6 +8,7 @@ import {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarRangeContext } from '$lib/server/adapters/requestContexts.server';
+import { viewerToday } from '$lib/server/viewerDay.server';
 import { parseDate } from '$lib/utils/dates';
 import { dateOnlySchema } from '$lib/utils/inputSchemas';
 import { z } from 'zod';
@@ -21,6 +22,7 @@ const calendarRangeInput = z
 	.object({
 		rangeStart: dateOnlySchema,
 		rangeEnd: dateOnlySchema,
+		today: dateOnlySchema,
 		collections: z
 			.array(z.enum(CALENDAR_RANGE_COLLECTIONS))
 			.min(1)
@@ -53,6 +55,7 @@ export const _getConfig: RouteConfig<
 	parseInput: (event) => ({
 		rangeStart: event.url.searchParams.get('rangeStart') ?? '',
 		rangeEnd: event.url.searchParams.get('rangeEnd') ?? '',
+		today: viewerToday(event.cookies),
 		// `input` validates each name before `fn` runs. A tab loaded before this parameter existed sends
 		// none and still receives every collection it knew, as it did then.
 		collections: (event.url.searchParams.get('collections')?.split(',') ?? [

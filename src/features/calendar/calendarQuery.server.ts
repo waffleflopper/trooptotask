@@ -2,6 +2,7 @@ import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } f
 import type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { readCalendarProjection, type CalendarProjectionReader } from './projection/calendarProjectionRead.server';
+import type { CalendarTaskingWorkspaceReader } from './taskings/taskingRead.server';
 import type { CalendarRangeCollection } from './utils/calendarRange';
 export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 import { listAssignmentTypes } from './assignmentTypeRead.server';
@@ -36,6 +37,7 @@ interface CalendarQueryPorts {
 	personnelCalendarRoster?: Pick<PersonnelCalendarRosterPort, 'listAssigneeIds'>;
 	/** Needed only to read the `events` collection. */
 	calendarProjection?: CalendarProjectionReader;
+	taskingWorkspace?: CalendarTaskingWorkspaceReader;
 	disabledFeatures?: readonly FeatureKey[];
 }
 
@@ -48,6 +50,8 @@ export type CalendarQueryInput = CalendarDateRange;
 
 export interface CalendarRangeQueryInput extends CalendarQueryInput {
 	collections: readonly CalendarRangeCollection[];
+	/** The reader's day, which decides what is overdue. */
+	today: string;
 }
 
 export interface CalendarBootstrapQueryInput extends CalendarQueryInput {
@@ -123,7 +127,7 @@ export async function fetchCalendarRangeData(
 				: undefined,
 			withAssignments ? listSpecialDaysInRange(ctx.calendarCatalogs, range) : undefined,
 			withAssignments ? listDailyAssignments(ctx, range, calendarScope) : undefined,
-			withEvents ? readCalendarProjection(requireProjectionPorts(ctx), range) : undefined
+			withEvents ? readCalendarProjection(requireProjectionPorts(ctx), range, input.today) : undefined
 		]);
 
 		return {
@@ -138,8 +142,14 @@ export async function fetchCalendarRangeData(
 }
 
 function requireProjectionPorts(ctx: CalendarQueryPorts) {
-	if (!ctx.calendarProjection || !ctx.disabledFeatures) throw new Error('Calendar projection reader is unavailable');
-	return { calendarProjection: ctx.calendarProjection, disabledFeatures: ctx.disabledFeatures };
+	if (!ctx.calendarProjection || !ctx.taskingWorkspace || !ctx.disabledFeatures) {
+		throw new Error('Calendar projection reader is unavailable');
+	}
+	return {
+		calendarProjection: ctx.calendarProjection,
+		taskingWorkspace: ctx.taskingWorkspace,
+		disabledFeatures: ctx.disabledFeatures
+	};
 }
 
 export async function fetchCalendarBootstrap(

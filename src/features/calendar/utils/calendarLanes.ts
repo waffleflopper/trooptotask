@@ -44,6 +44,10 @@ export interface CalendarLane {
 	readonly label: string;
 	readonly color?: string;
 	readonly detail?: string;
+	/** Makes `detail` a link, such as to the full list the lane samples. */
+	readonly detailHref?: string;
+	/** Rows of lane height the lane takes; one unless it stacks overlapping spans. */
+	readonly rows?: number;
 	readonly summary: string;
 	readonly track: LaneTrack;
 }

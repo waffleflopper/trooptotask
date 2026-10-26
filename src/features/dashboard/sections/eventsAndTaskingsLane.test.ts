@@ -14,6 +14,7 @@ const event = (id: string, overrides: { hasWork?: boolean; cancelled?: boolean }
 	endsOn: '2026-10-29',
 	cancelled: false,
 	hasWork: false,
+	host: null,
 	...overrides
 });
 

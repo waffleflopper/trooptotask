@@ -1,4 +1,9 @@
-import { loadAssignPeopleDialog, type TaskingAttentionRow } from '$features/calendar';
+import {
+	loadAssignPeopleDialog,
+	transitionTaskingRequest,
+	type TaskingAttentionRow,
+	type TaskingTransition
+} from '$features/calendar';
 import { acknowledgeAwardTracking } from '$features/personnel';
 import { loadRecordClassDialog } from '$features/training';
 import type { Personnel } from '$features/personnel/contracts';
@@ -77,8 +82,35 @@ export function awardStartedAction(inputs: DashboardInputs, person: Personnel): 
 	};
 }
 
-/** Opens the staffing picker in place, under the policy and scope Tasking detail uses. */
-export function pickPeopleAction(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouAction {
+function taskingResource(row: TaskingAttentionRow) {
+	return scopeSetResourceForGroupId(row.responsibility.kind === 'group' ? row.responsibility.groupId : null);
+}
+
+/** Moves the Tasking on from the row, then rereads the Tasking rows the move clears it from. */
+export function taskingStatusAction(
+	inputs: DashboardInputs,
+	row: TaskingAttentionRow,
+	label: string,
+	transition: TaskingTransition
+): NeedsYouAction {
+	const orgId = inputs.page.orgId;
+	return {
+		label,
+		policy: calendar.manageTaskings,
+		resource: taskingResource(row),
+		mode: 'run',
+		run: async (updates) => {
+			await transitionTaskingRequest(orgId, row.taskingId, transition);
+			await updates.refreshTaskings();
+		}
+	};
+}
+
+/**
+ * Opens the staffing picker in place, under the policy and scope Tasking detail uses. The picker marks a Person whose
+ * availability clashes, so a Conflict row's Swap opens the same picker.
+ */
+export function pickPeopleAction(inputs: DashboardInputs, row: TaskingAttentionRow, label: string): NeedsYouAction {
 	const orgId = inputs.page.orgId;
 	const groups = Object.fromEntries(inputs.groups.map((group) => [group.id, group.name]));
 	const tasking = {
@@ -87,9 +119,9 @@ export function pickPeopleAction(inputs: DashboardInputs, row: TaskingAttentionR
 		requirement: row.required === null ? null : { count: row.required, qualifications: null }
 	};
 	return {
-		label: 'Pick people',
+		label,
 		policy: calendar.manageTaskings,
-		resource: scopeSetResourceForGroupId(row.responsibility.kind === 'group' ? row.responsibility.groupId : null),
+		resource: taskingResource(row),
 		mode: 'dialog',
 		open: async () => {
 			const [{ default: Panel }, { default: Dialog }] = await Promise.all([

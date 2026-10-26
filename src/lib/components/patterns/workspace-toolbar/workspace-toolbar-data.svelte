@@ -31,7 +31,7 @@
 	} from './toolbar-types.js';
 	import WorkspaceToolbarIcon from './workspace-toolbar-icon.svelte';
 	import WorkspaceToolbarMenu from './workspace-toolbar-menu.svelte';
-	import WorkspaceToolbarMore, { actionItems, moreButton } from './workspace-toolbar-more.svelte';
+	import WorkspaceToolbarMore, { actionItems, moreButton, toolbarBadgeClass } from './workspace-toolbar-more.svelte';
 
 	let { ariaLabel, items, bare = false, search, primary, compactBelow }: WorkspaceToolbarProps = $props();
 	const uid = $props.id();
@@ -361,6 +361,10 @@
 			<span class="sr-only">{action.label}</span>
 		{:else}
 			{action.label}
+		{/if}
+		{#if action.badge && action.badge.count > 0}
+			<span aria-hidden="true" class={toolbarBadgeClass}>{action.badge.count}</span>
+			<span class="sr-only">, {action.badge.label}</span>
 		{/if}
 		{#if action.menuItems}
 			<ChevronDown aria-hidden="true" />

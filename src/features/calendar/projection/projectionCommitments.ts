@@ -1,6 +1,6 @@
 import { toDayNumber } from '$lib/utils/dayNumber';
-import type { MarkerListItem } from '$features/calendar/components/projection/MarkerListPopover.svelte';
 import type { ProjectedCommitment } from './calendarProjection';
+import type { ProjectionCardChoice, ProjectionTarget } from './projectionCards';
 import { indexSpan, type IndexedSpan } from './projectionLayout';
 import { eventDatesLabel, type ProjectionLinks } from './projectionLanes';
 
@@ -15,6 +15,7 @@ export type CommitmentSegment =
 			readonly continuesAfter: boolean;
 			readonly label: string;
 			readonly href: string;
+			readonly target: ProjectionTarget;
 	  }
 	| {
 			readonly conflicts: boolean;
@@ -25,7 +26,7 @@ export type CommitmentSegment =
 			readonly continuesAfter: boolean;
 			readonly label: string;
 			readonly heading: string;
-			readonly items: readonly MarkerListItem[];
+			readonly choices: readonly ProjectionCardChoice[];
 	  };
 
 export type CommitmentsByPerson = ReadonlyMap<string, readonly CommitmentSegment[]>;
@@ -58,12 +59,14 @@ export function commitmentsByPerson(
 	for (const [personnelId, own] of grouped) {
 		const spans = own.map((commitment) => indexSpan(commitment, first));
 		const segments: CommitmentSegment[] = [];
+		const segmentOf = (covering: typeof spans, start: number, end: number) =>
+			commitmentSegment(personnelId, covering, start, end, links);
 		let open: { start: number; key: string; spans: typeof spans } | null = null;
 		for (let day = 0; day <= days; day++) {
 			const covering = day < days ? spans.filter((span) => span.start <= day && day <= span.end) : [];
 			const key = covering.map((span) => span.item.taskingId).join(',');
 			if (open && open.key !== key) {
-				segments.push(segmentOf(open.spans, open.start, day - 1, links));
+				segments.push(segmentOf(open.spans, open.start, day - 1));
 				open = null;
 			}
 			if (covering.length > 0 && !open) open = { start: day, key, spans: covering };
@@ -74,38 +77,43 @@ export function commitmentsByPerson(
 }
 
 /** The Taskings covering days `start` to `end` of a row, which all cover every one of them. */
-function segmentOf(
+function commitmentSegment(
+	personnelId: string,
 	covering: readonly IndexedSpan<ProjectedCommitment>[],
 	start: number,
 	end: number,
 	links: ProjectionLinks
 ): CommitmentSegment {
+	const conflicts = covering.some((span) => span.item.conflicts);
 	const edges = {
-		conflicts: covering.some((span) => span.item.conflicts),
+		conflicts,
 		start,
 		end,
 		continuesBefore: covering.some((span) => span.start < start),
 		continuesAfter: covering.some((span) => span.end > end)
 	};
+	const conflictNote = conflicts ? ', conflicts with availability' : '';
 	const [only] = covering;
 	if (covering.length === 1) {
 		return {
 			kind: 'tasking',
 			...edges,
-			label: `Tasking: ${only.item.title}, ${eventDatesLabel(only.item)}`,
-			href: links.tasking(only.item.taskingId)
+			label: `Tasking: ${only.item.title}, ${eventDatesLabel(only.item)}${conflictNote}`,
+			href: links.tasking(only.item.taskingId),
+			target: { kind: 'tasking', id: only.item.taskingId, personnelId }
 		};
 	}
 	return {
 		kind: 'taskings',
 		...edges,
-		label: `${covering.length} Taskings: ${covering.map((span) => span.item.title).join(', ')}`,
+		label: `${covering.length} Taskings: ${covering.map((span) => span.item.title).join(', ')}${conflictNote}`,
 		heading: 'Tasking commitments',
-		items: covering.map(({ item }) => ({
+		choices: covering.map(({ item }) => ({
 			key: item.taskingId,
 			title: item.title,
-			detail: `Executes ${eventDatesLabel(item)}`,
-			href: links.tasking(item.taskingId)
+			detail: `Executes ${eventDatesLabel(item)}${item.conflicts ? ' · Conflict' : ''}`,
+			href: links.tasking(item.taskingId),
+			target: { kind: 'tasking', id: item.taskingId, personnelId }
 		}))
 	};
 }

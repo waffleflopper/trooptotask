@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
+import type { EventTaskingSummary, TaskingRowFacts, TaskingWorkspace } from '../taskings/taskingReadModel';
 
 const activeStatusSchema = z.enum(['open', 'in_progress', 'blocked']);
 
@@ -10,7 +11,9 @@ const projectedEventSchema = z.object({
 	endsOn: dateOnlySchema,
 	cancelled: z.boolean(),
 	/** A Tasking on the Event that is not cancelled is in the reader's scope. The Calendar does not use it. */
-	hasWork: z.boolean()
+	hasWork: z.boolean(),
+	/** The other Organization running the Event; null when we host it. */
+	host: z.string().nullable()
 });
 
 const projectedSuspenseSchema = z.object({
@@ -50,10 +53,55 @@ export type ProjectedCommitment = z.infer<typeof projectedCommitmentSchema>;
 
 export type CalendarProjection = z.infer<typeof calendarProjectionSchema>;
 
+/** What the Calendar's quick cards and toolbar badge need beyond the projection, from the same read. */
+export interface CalendarTaskingFacts {
+	/** Every open, in progress or blocked Tasking the reader can see. */
+	taskings: Record<string, TaskingRowFacts>;
+	/** The Tasking summary of each Event in the range. */
+	events: Record<string, EventTaskingSummary>;
+	/** Active Taskings that are overdue, blocked or short of people, across the Organization. */
+	needAction: number;
+}
+
 /** The projection of one range read: the facts, or the one region that could not load. */
-export type CalendarProjectionRead = ({ kind: 'loaded' } & CalendarProjection) | { kind: 'failed' };
+export type CalendarProjectionRead =
+	| ({ kind: 'loaded'; facts: CalendarTaskingFacts } & CalendarProjection)
+	| { kind: 'failed' };
 
 export const EMPTY_PROJECTION: CalendarProjection = { events: [], suspenses: [], commitments: [] };
+
+export const EMPTY_TASKING_FACTS: CalendarTaskingFacts = { taskings: {}, events: {}, needAction: 0 };
+
+/** The same rule as an Event's `needAction` count in `calendar_tasking_workspace`. */
+export function taskingNeedsAction(facts: TaskingRowFacts, today: string): boolean {
+	return facts.status === 'blocked' || facts.suspenseOn < today || facts.picked < (facts.required ?? 0);
+}
+
+/** Trims the workspace to active Taskings and the range's Events, so a long history does not ride every read. */
+export function calendarTaskingFacts(
+	projection: CalendarProjection,
+	workspace: TaskingWorkspace,
+	today: string
+): CalendarTaskingFacts {
+	const taskings = Object.fromEntries(
+		Object.entries(workspace.taskings).filter(
+			([, facts]) => facts.status === 'open' || facts.status === 'in_progress' || facts.status === 'blocked'
+		)
+	);
+	const events = Object.fromEntries(
+		projection.events.flatMap((event) => {
+			const summary = workspace.events[event.id];
+			return summary ? [[event.id, summary] as const] : [];
+		})
+	);
+	const needAction = Object.values(taskings).filter((facts) => taskingNeedsAction(facts, today)).length;
+	return { taskings, events, needAction };
+}
+
+/** The latest read answers for every active Tasking; Event summaries from earlier ranges stay. */
+export function mergeTaskingFacts(current: CalendarTaskingFacts, next: CalendarTaskingFacts): CalendarTaskingFacts {
+	return { taskings: next.taskings, events: { ...current.events, ...next.events }, needAction: next.needAction };
+}
 
 /** Reads of adjacent ranges both return an Event or commitment that spans their edge, so each identity is kept once. */
 export function mergeProjections(current: CalendarProjection, next: CalendarProjection): CalendarProjection {

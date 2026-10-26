@@ -22,6 +22,7 @@ describe('GET /api/calendar-range', () => {
 				{
 					rangeStart: '03/01/2026',
 					rangeEnd: '2026-03-31',
+					today: '2026-03-15',
 					collections: ['availability']
 				},
 				() => ctx
@@ -39,6 +40,7 @@ describe('GET /api/calendar-range', () => {
 				{
 					rangeStart: '2026-04-01',
 					rangeEnd: '2026-03-31',
+					today: '2026-03-15',
 					collections: ['availability']
 				},
 				() => ctx
@@ -56,6 +58,7 @@ describe('GET /api/calendar-range', () => {
 				{
 					rangeStart: '2026-01-01',
 					rangeEnd: '2027-01-02',
+					today: '2026-03-15',
 					collections: ['availability']
 				},
 				() => ctx
@@ -74,7 +77,7 @@ describe('GET /api/calendar-range', () => {
 			handleUseCaseRequest(
 				_getConfig,
 				ctx,
-				{ rangeStart: '2026-03-01', rangeEnd: '2026-03-31', collections } as never,
+				{ rangeStart: '2026-03-01', rangeEnd: '2026-03-31', today: '2026-03-15', collections } as never,
 				() => ctx
 			)
 		).rejects.toThrow(message);
@@ -111,6 +114,7 @@ describe('GET /api/calendar-range', () => {
 			{
 				rangeStart: '2026-03-01',
 				rangeEnd: '2026-03-31',
+				today: '2026-03-15',
 				collections: ['availability', 'assignments']
 			},
 			() => ctx
@@ -151,7 +155,7 @@ describe('GET /api/calendar-range', () => {
 					await handleUseCaseRequest(
 						_getConfig,
 						ctx,
-						{ rangeStart: '2026-03-01', rangeEnd: '2026-03-31', collections },
+						{ rangeStart: '2026-03-01', rangeEnd: '2026-03-31', today: '2026-03-15', collections },
 						() => ctx
 					)
 				)
@@ -174,7 +178,8 @@ describe('GET /api/calendar-range', () => {
 		const ctx = createTestContext();
 		seedMarch(ctx);
 		const input = _getConfig.parseInput!({
-			url: new URL('https://trooptotask.test/org/o/api/calendar-range?rangeStart=2026-03-01&rangeEnd=2026-03-31')
+			url: new URL('https://trooptotask.test/org/o/api/calendar-range?rangeStart=2026-03-01&rangeEnd=2026-03-31'),
+			cookies: { get: () => undefined }
 		} as never);
 
 		expect(JSON.parse(JSON.stringify(await handleUseCaseRequest(_getConfig, ctx, input, () => ctx)))).toEqual({
@@ -195,23 +200,36 @@ describe('GET /api/calendar-range', () => {
 					startsOn: '2026-03-04',
 					endsOn: '2026-03-06',
 					cancelled: false,
-					hasWork: false
+					hasWork: false,
+					host: null
 				}
 			],
 			suspenses: [],
 			commitments: []
 		};
-		const request = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31', collections: ['events' as const] };
+		const request = {
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-03-31',
+			today: '2026-03-15',
+			collections: ['events' as const]
+		};
+		const workspace = {
+			taskings: {},
+			events: {},
+			counts: { active: 0, overdue: 0, blocked: 0, needsPeople: 0, completed: 0 }
+		};
+		const taskingWorkspace = { read: async () => workspace };
+		const noFacts = { taskings: {}, events: {}, needAction: 0 };
 
 		it('returns the projection of the range beside nothing else', async () => {
-			const ctx = { ...createTestContext(), calendarProjection: { read: async () => projection } };
+			const ctx = { ...createTestContext(), calendarProjection: { read: async () => projection }, taskingWorkspace };
 
 			const result = await handleUseCaseRequest(_getConfig, ctx, request, () => ctx);
 
 			expect(JSON.parse(JSON.stringify(result))).toEqual({
 				rangeStart: '2026-03-01',
 				rangeEnd: '2026-03-31',
-				projection: { kind: 'loaded', ...projection }
+				projection: { kind: 'loaded', ...projection, facts: noFacts }
 			});
 		});
 
@@ -223,7 +241,8 @@ describe('GET /api/calendar-range', () => {
 					read: async () => {
 						throw new Error('rpc failed');
 					}
-				}
+				},
+				taskingWorkspace
 			};
 			seedMarch(ctx);
 
@@ -247,7 +266,7 @@ describe('GET /api/calendar-range', () => {
 			const result = await handleUseCaseRequest(_getConfig, ctx, request, () => ctx);
 
 			expect(read).not.toHaveBeenCalled();
-			expect(result.projection).toEqual({ kind: 'loaded', events: [], suspenses: [], commitments: [] });
+			expect(result.projection).toEqual({ kind: 'loaded', events: [], suspenses: [], commitments: [], facts: noFacts });
 		});
 	});
 });

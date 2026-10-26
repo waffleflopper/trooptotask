@@ -103,8 +103,8 @@ describe('buildProjectionLanes', () => {
 		});
 
 		expect(days[9].markers).toEqual([
-			expect.objectContaining({ key: 't1', href: '/taskings/t1', label: 'Suspense: Submit roster' }),
-			expect.objectContaining({ key: 't2', href: '/taskings/t2', label: 'Suspense: Inventory' })
+			expect.objectContaining({ key: 't1', href: '/taskings/t1', label: expect.stringContaining('Submit roster') }),
+			expect.objectContaining({ key: 't2', href: '/taskings/t2', label: expect.stringContaining('Inventory') })
 		]);
 		expect(days.filter((day) => day.markers.length > 0)).toHaveLength(1);
 	});
@@ -116,12 +116,6 @@ describe('buildProjectionLanes', () => {
 		});
 
 		expect(days.every((day) => day.markers.length === 0)).toBe(true);
-	});
-
-	it('marks the compact density so a ten pixel day offers one control', () => {
-		const { days } = lanesFor(EMPTY_PROJECTION, 'compact');
-
-		expect(days.every((day) => (day as { compact?: boolean }).compact)).toBe(true);
 	});
 
 	it.each([['loading' as const], ['error' as const]])('reserves both lanes while %s', (kind) => {

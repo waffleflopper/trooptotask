@@ -197,6 +197,27 @@ describe('TaskingDetailPage', () => {
 			await waitFor(() => expect(screen.queryByText(/Avery/)).toBeNull());
 		});
 
+		it("offers no Undo after a save removed picks outside the operator's Groups", async () => {
+			const hidden = { ...before, outsideScope: 2 };
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async (_url: string, init?: RequestInit) =>
+					init?.method
+						? Response.json({ outcome: 'saved', revision: 2, staffing: after })
+						: Response.json({ ...picker, staffing: hidden })
+				)
+			);
+			const success = vi.spyOn(toastStore, 'success').mockReturnValue('toast');
+			open(staffed, loaded(hidden));
+
+			await fireEvent.click(await screen.findByRole('button', { name: /Assign people/ }));
+			await fireEvent.click(await screen.findByRole('checkbox', { name: /Avery/ }));
+			await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
+
+			await waitFor(() => expect(success).toHaveBeenCalledOnce());
+			expect(success.mock.calls[0][2]).toBeUndefined();
+		});
+
 		it('says the Undo was refused when someone saved since, and shows their selection', async () => {
 			const theirs = staffing(3, pick(ALICE, 'Avery'));
 			const { error } = await saveAndUndo(

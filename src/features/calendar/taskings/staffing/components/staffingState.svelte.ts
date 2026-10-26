@@ -58,8 +58,10 @@ export class TaskingStaffingState {
 			tasking.execution,
 			today
 		);
+		// Picks outside the operator's Groups were never shown to them, so a removal of those cannot be put back.
+		const removedHidden = result.staffing.outsideScope < before.outsideScope;
 		const undo = { label: 'Undo', onClick: () => void this.#undo(tasking, before, result) };
-		toastStore.success(title, 10000, undo, description);
+		toastStore.success(title, 10000, removedHidden ? undefined : undo, description);
 	}
 
 	/** Puts the earlier selection back only if nobody saved over this one since. */

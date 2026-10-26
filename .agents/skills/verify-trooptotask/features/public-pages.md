@@ -24,7 +24,8 @@ the app does today, and no page states a price, plan, subscription, trial or quo
   section's top just below the sticky header.
 - `footer-links`: four links that resolve on desktop, seven below 900px.
 - `contact-cards`: `mailto:` links on Security (the `Email Security` button), Privacy and Terms.
-- `signed-in-state`: `Dashboard` in the header and `Go to Dashboard` as the closing call to action on every public page.
+- `signed-in-state`: `Dashboard` in the header and `Go to Dashboard` as the closing call to action on every public page
+  except Security, which keeps `Email Security`.
 - `public-claims`: no public page claims a feature, price, plan or quota the product does not have.
 - `public-appearance`: Home, About, Security, Privacy and Terms at 1440x900, 1024x768 and 390x844 with the stored theme
   light and dark, no horizontal overflow, no console error.
@@ -101,8 +102,8 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    rows end in a filled amber square after their `IN TROOPTOTASK` label; the seventh, `TASKINGS · NEXT`, ends in an
    empty outlined square, because that part is not built yet. Cells in the second column use regular serif weight
    (`font-weight: 400`); the third column and every lead paragraph use light (300); every mono label is 400. After the
-   band scrolls into view the squares turn from grey to amber one row at a time. At 1024 and below the column headers
-   are visually hidden and each row stacks as source, holds and goes-wrong lines, still with its label.
+   band scrolls into view the squares turn from grey to amber one row at a time. Below 1024 the column headers are
+   visually hidden and each row stacks as source, holds and goes-wrong lines, still with its label.
 
 7. **Duty-day thesis.** Scroll to the first dark band after the ledger. Expect eyebrow `WHY IT MATTERS`, heading
    `HALF A DUTY DAY,` in muted grey over `GIVEN BACK.` in near white, then a figure captioned
@@ -112,7 +113,7 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    grey segment's width a few seconds after it enters view. Before it enters view (with motion allowed) it is 50%, and
    with `prefers-reduced-motion: reduce` it is 8% at once. The axis reads `0600`, `1200`, `1800`. Beside the chart a
    block with a 2px amber left rule reads `Every hour a leader is not reconciling trackers...` and
-   `WORDS · SFC, 1-43 ADA`; below 1280 the quote stacks under the chart.
+   `WORDS · SFC, 1-43 ADA`; below 1024 the quote stacks under the chart.
 
 8. **Available today.** Click header `Platform` (or scroll). Expect `AVAILABLE TODAY` eyebrow, heading
    `ONE FORMATION. / ONE SOURCE OF TRUTH.`, then six product screenshots captioned `01 · CALENDAR`, `02 · PERSONNEL`,

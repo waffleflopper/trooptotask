@@ -116,6 +116,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261025140100_access_request_resubmission_readers.sql",
     "20261025150100_admin_directory_sorting.sql",
     "20261025160100_feedback_reporter_replies.sql",
+    "20261026010000_calendar_events.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

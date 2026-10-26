@@ -32,7 +32,9 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
         AND (a.picked < coalesce(a.staffing_required, 0) OR a.not_ready > 0) THEN 'short'
       END AS kind FROM windowed a
   ), attention AS (
-    SELECT a.id, a.title, a.responsible_group_id, a.event_title, a.suspense_on, a.execution_starts_on,
+    -- An execution start goes out only when its window drives the row's timing; otherwise the suspense does.
+    SELECT a.id, a.title, a.responsible_group_id, a.event_title, a.suspense_on,
+      CASE WHEN a.executing_soon THEN a.execution_starts_on END AS execution_starts_on,
       a.staffing_required, a.picked, a.not_ready, a.kind, NULL::jsonb AS conflict,
       CASE WHEN a.kind = 'short' AND a.execution_starts_on = p_today THEN 0
         WHEN a.kind = 'overdue' THEN 1 WHEN a.kind = 'blocked' THEN 3 ELSE 4 END AS priority,

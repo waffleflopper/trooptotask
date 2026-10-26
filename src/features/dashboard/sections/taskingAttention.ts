@@ -57,9 +57,8 @@ function toItem(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouItem
 				urgency: { date: row.suspenseOn }
 			};
 		case 'short': {
-			const starts = row.executionStartsOn;
-			// Short with no execution within two weeks means it is short against its suspense.
-			const startsOn = starts !== null && daysBetween(inputs.today, starts) <= 14 ? starts : null;
+			// The server sends an execution start only when that window applies; otherwise this is short against its suspense.
+			const startsOn = row.executionStartsOn;
 			const away = startsOn === null ? 0 : daysBetween(inputs.today, startsOn);
 			const missing = (row.required ?? 0) - row.picked;
 			return {

@@ -60,7 +60,8 @@ INSERT INTO public.calendar_taskings(id, organization_id, event_id, title, respo
   (pg_temp.id('402'), pg_temp.id('101'), pg_temp.id('301'), 'Hidden graders', NULL, '2030-10-23', '2030-10-19', '2030-10-23', 1),
   (pg_temp.id('403'), pg_temp.id('101'), pg_temp.id('301'), 'Bravo lane', pg_temp.id('202'), '2030-10-23', '2030-10-19', '2030-10-23', 1),
   (pg_temp.id('404'), pg_temp.id('101'), NULL, 'Submit slides', pg_temp.id('201'), '2030-10-20', NULL, NULL, NULL),
-  (pg_temp.id('406'), pg_temp.id('101'), NULL, 'Draft range card', pg_temp.id('201'), '2030-10-22', NULL, NULL, 2);
+  (pg_temp.id('406'), pg_temp.id('101'), NULL, 'Draft range card', pg_temp.id('201'), '2030-10-22', NULL, NULL, 2),
+  (pg_temp.id('407'), pg_temp.id('101'), NULL, 'Range after-action', pg_temp.id('201'), '2030-10-22', '2030-10-10', '2030-10-12', 2);
 SELECT public.save_calendar_tasking_people(pg_temp.id('101'), pg_temp.id('401'), ARRAY[pg_temp.id('501'),pg_temp.id('502')], '{}', false, 0);
 SELECT public.save_calendar_tasking_people(pg_temp.id('101'), pg_temp.id('402'), ARRAY[pg_temp.id('501')], '{}', false, 0);
 SELECT public.save_calendar_tasking_people(pg_temp.id('101'), pg_temp.id('403'), ARRAY[pg_temp.id('503')], '{}', false, 0);
@@ -83,6 +84,8 @@ SELECT is((pg_temp.workspace()->'events'->pg_temp.id('301')::text->>'conflicts')
 SELECT is((SELECT count(*) FROM jsonb_array_elements(pg_temp.dashboard()->'rows') r WHERE r->>'kind'='conflict'),3::bigint,'dashboard names one conflict for each visible person and Tasking');
 SELECT is((SELECT jsonb_array_length(pg_temp.dashboard()->'onTrack')),1,'on-track due-soon work has its own list');
 SELECT is((SELECT r->>'kind' FROM jsonb_array_elements(pg_temp.dashboard()->'rows') r WHERE r->>'tasking_id'=pg_temp.id('406')::text),'short','incomplete work due this week with no execution dates is short');
+SELECT results_eq($$SELECT r->>'kind', r->>'execution_starts_on' FROM jsonb_array_elements(pg_temp.dashboard()->'rows') r WHERE r->>'tasking_id'=pg_temp.id('407')::text$$,
+  $$VALUES ('short'::text, NULL::text)$$, 'incomplete work whose execution has ended is short against its suspense');
 SELECT is((SELECT count(*) FROM jsonb_array_elements(pg_temp.dashboard()->'rows') r WHERE r->>'tasking_id'=pg_temp.id('404')::text),0::bigint,'on-track work does not appear under Needs you');
 SELECT ok((SELECT (r->>'conflicts')::boolean FROM jsonb_array_elements(public.calendar_range_projection(pg_temp.id('101'),'2030-10-19','2030-10-23')->'commitments') r WHERE r->>'taskingId'=pg_temp.id('401')::text AND r->>'personnelId'=pg_temp.id('501')::text),'Calendar commitment carries its conflict');
 SELECT ok(NOT (SELECT (r->>'conflicts')::boolean FROM jsonb_array_elements(public.calendar_range_projection(pg_temp.id('101'),'2030-10-19','2030-10-23')->'commitments') r WHERE r->>'taskingId'=pg_temp.id('401')::text AND r->>'personnelId'=pg_temp.id('502')::text),'own availability is a clear Calendar commitment');

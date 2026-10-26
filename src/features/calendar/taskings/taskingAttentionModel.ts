@@ -22,6 +22,7 @@ interface TaskingAttentionFacts {
 	responsibility: TaskingResponsibility;
 	eventTitle: string | null;
 	suspenseOn: string;
+	/** Only while its execution window drives the row's timing; otherwise null. */
 	executionStartsOn: string | null;
 	required: number | null;
 	picked: number;

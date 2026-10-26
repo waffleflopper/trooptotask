@@ -27,9 +27,10 @@
 		return mark.kind === 'span' && mark.span < 3 && mark.room > 0 && mark.more.length === 0;
 	}
 
-	function counted(lane: DashboardForecastLaneView, kind: ForecastLaneMark['kind'], count: number): string {
+	function counted(lane: DashboardForecastLaneView, kind: ForecastLaneMark['kind'], count: number, more = false) {
 		const entry = lane.legend.find((legend) => legend.kind === kind);
-		return entry ? `${count} ${count === 1 ? entry.label : entry.plural}` : String(count);
+		const noun = entry && (count === 1 ? entry.label : entry.plural);
+		return [count, more && 'more', noun].filter(Boolean).join(' ');
 	}
 
 	function listed(mark: PlacedLaneMark) {
@@ -41,7 +42,7 @@
 
 {#snippet more(lane: DashboardForecastLaneView, mark: PlacedLaneMark, className: string)}
 	<MarkerListPopover
-		label={`${counted(lane, mark.kind, mark.more.length)} more: ${titles(mark.more)}`}
+		label={`${counted(lane, mark.kind, mark.more.length, true)}: ${titles(mark.more)}`}
 		heading={counted(lane, mark.kind, mark.more.length + 1)}
 		items={listed(mark)}
 		class={className}

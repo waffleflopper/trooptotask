@@ -802,7 +802,7 @@ describe('TrainingPageContext', () => {
 				bodies.push(JSON.parse(init.body as string));
 				return Response.json(created);
 			});
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 
 			const result = await ctx.saveView({ id: null, name: 'Range', columnIds: ['t-2', 't-1'] });
 
@@ -816,7 +816,7 @@ describe('TrainingPageContext', () => {
 			trainingViewsStore.load([stored], 'org-1');
 			const edited = { ...stored, name: 'Yearly', columnIds: ['t-2', 't-1'] };
 			vi.stubGlobal('fetch', async () => Response.json(edited));
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 
 			const result = await ctx.saveView({ id: 'view-1', name: 'Yearly', columnIds: ['t-2', 't-1'] });
 
@@ -827,7 +827,7 @@ describe('TrainingPageContext', () => {
 
 		it('throws and applies nothing when the save is refused', async () => {
 			vi.stubGlobal('fetch', async () => Response.json({ message: 'Internal server error' }, { status: 500 }));
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 
 			await expect(ctx.saveView({ id: null, name: 'Range', columnIds: [] })).rejects.toThrow();
 			expect(ctx.selectedViewId).toBeNull();
@@ -844,7 +844,7 @@ describe('TrainingPageContext', () => {
 					})
 				)
 			);
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			const saving = ctx.saveView({ id: null, name: 'Range', columnIds: [] }).catch((error: unknown) => error);
 
 			ctx.dispose();
@@ -858,7 +858,7 @@ describe('TrainingPageContext', () => {
 		it('clears the selection when the selected view is deleted', async () => {
 			trainingViewsStore.load([stored], 'org-1');
 			vi.stubGlobal('fetch', async () => new Response(null, { status: 204 }));
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.setSelectedViewId('view-1');
 
 			expect(await ctx.deleteView('view-1')).toBe('deleted');
@@ -870,7 +870,7 @@ describe('TrainingPageContext', () => {
 		it('keeps the view and the selection when the delete fails', async () => {
 			trainingViewsStore.load([stored], 'org-1');
 			vi.stubGlobal('fetch', async () => Response.json({ message: 'Internal server error' }, { status: 500 }));
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.setSelectedViewId('view-1');
 
 			expect(await ctx.deleteView('view-1')).toBe('failed');
@@ -890,7 +890,7 @@ describe('TrainingPageContext', () => {
 					})
 				)
 			);
-			const ctx = makeContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), makeOrg());
 			ctx.setSelectedViewId('view-1');
 			expect([...ctx.savedViewIds]).toEqual(['view-1']);
 			savePreferencesMock.mockClear();

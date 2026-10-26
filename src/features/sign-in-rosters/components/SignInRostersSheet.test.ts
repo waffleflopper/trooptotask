@@ -286,7 +286,7 @@ describe('SignInRostersSheet list', () => {
 		expect(screen.queryByLabelText(/Signed scan file for/)).toBeNull();
 	});
 
-	it('says the link could not be made when the scan link request fails', async () => {
+	it('shows an error and opens nothing when the scan link request fails', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (input: RequestInfo | URL) => {
@@ -294,11 +294,14 @@ describe('SignInRostersSheet list', () => {
 				return json({ rosters: [roster({ signedFilePath: SAVED_SCAN })], total: 1 });
 			})
 		);
+		const open = vi.fn();
+		vi.stubGlobal('open', open);
 		renderSheet(false);
 
 		await fireEvent.click(await screen.findByRole('button', { name: 'Signed scan' }));
 
-		expect(await screen.findByText('Could not generate download link.')).toBeTruthy();
+		expect((await screen.findByRole('alert')).textContent?.trim()).not.toBe('');
+		expect(open).not.toHaveBeenCalled();
 	});
 });
 

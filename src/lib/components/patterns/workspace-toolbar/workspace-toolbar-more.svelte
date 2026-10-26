@@ -82,7 +82,7 @@
 				<WorkspaceToolbarIcon icon={action.icon} reserve={reserveIcon} />
 				{action.label}
 			</DropdownMenu.SubTrigger>
-			<DropdownMenu.SubContent class="max-w-(--bits-dropdown-menu-content-available-width)">
+			<DropdownMenu.SubContent class="max-w-(--bits-menu-content-available-width)">
 				{@render actionItems(action.menuItems, [...path, action.id], Boolean(unavailable), choose, run)}
 			</DropdownMenu.SubContent>
 		</DropdownMenu.Sub>
@@ -218,7 +218,7 @@
 									{current}
 								</span>
 							</DropdownMenu.SubTrigger>
-							<DropdownMenu.SubContent class="max-w-(--bits-dropdown-menu-content-available-width)">
+							<DropdownMenu.SubContent class="max-w-(--bits-menu-content-available-width)">
 								{#if filter.kind === 'select'}
 									<DropdownMenu.RadioGroup
 										aria-label={filter.label}

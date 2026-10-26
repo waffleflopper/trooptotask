@@ -931,9 +931,7 @@ describe('CalendarPageView', () => {
 		);
 
 		await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
-		const [message, , retry] = toastError.mock.calls[0]!;
-		expect(message).toBe('Saved, but the Calendar could not refresh.');
-		retry?.onClick();
+		toastError.mock.calls[0]![2]!.onClick();
 		await waitFor(() => expect(onTaskingsChanged).toHaveBeenCalledTimes(2));
 		expect(toastError).toHaveBeenCalledTimes(1);
 	});

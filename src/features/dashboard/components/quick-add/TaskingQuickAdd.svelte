@@ -3,6 +3,9 @@
 	import { goto } from '$app/navigation';
 	import { loadTaskingDialog, type Tasking, type TaskingChoices } from '$features/calendar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildRequestError, stillInOrganizationLifetime } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { QuickAddDialogProps } from '../../sections/dashboardSections';
@@ -16,7 +19,7 @@
 	const organizationWide = untrack(() =>
 		access.can(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'organization' })
 	);
-	let sheet = $state.raw<{ Dialog: Dialog; choices: TaskingChoices } | null>(null);
+	let sheet = $state.raw<{ Dialog: Dialog; choices: TaskingChoices } | 'loading' | 'failed'>('loading');
 	let active = true;
 	onDestroy(() => {
 		active = false;
@@ -37,6 +40,7 @@
 			if (active && current()) sheet = { Dialog, choices };
 		} catch {
 			if (!active || !current()) return;
+			sheet = 'failed';
 			toastStore.error('Could not open Create tasking. Try again.');
 			onClose();
 		}
@@ -53,6 +57,25 @@
 	}
 </script>
 
-{#if sheet}
+{#if sheet === 'loading'}
+	<AppDialog.Root voice="form" {onClose}>
+		<AppDialog.Content presentation="sheet" size="wide">
+			<AppDialog.Header>
+				<AppDialog.Title>Create tasking</AppDialog.Title>
+				<AppDialog.Description>Loading the groups and events to choose from.</AppDialog.Description>
+			</AppDialog.Header>
+			<AppDialog.Body>
+				<div class="grid gap-4" aria-hidden="true">
+					<Skeleton class="h-10 w-full" />
+					<Skeleton class="h-24 w-full" />
+					<Skeleton class="h-10 w-full" />
+				</div>
+			</AppDialog.Body>
+			<AppDialog.Footer>
+				<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
+			</AppDialog.Footer>
+		</AppDialog.Content>
+	</AppDialog.Root>
+{:else if sheet !== 'failed'}
 	<sheet.Dialog {orgId} {orgName} choices={sheet.choices} {organizationWide} onSaved={saved} {onClose} />
 {/if}

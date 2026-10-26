@@ -59,6 +59,16 @@ describe('Create tasking from the Dashboard', () => {
 		await waitFor(() => expect(refreshTaskings).toHaveBeenCalledOnce());
 	});
 
+	it('holds a closable sheet open while the choices load', async () => {
+		fetchMock.mockReturnValue(new Promise(() => {}));
+		const { onClose } = open();
+
+		const pending = await screen.findByRole('dialog', { name: 'Create tasking' });
+		await fireEvent.click(within(pending).getByRole('button', { name: 'Cancel' }));
+
+		expect(onClose).toHaveBeenCalledOnce();
+	});
+
 	it('closes with an error instead of opening an empty sheet when the choices cannot be read', async () => {
 		const error = vi.spyOn(toastStore, 'error');
 		fetchMock.mockResolvedValue(new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 }));

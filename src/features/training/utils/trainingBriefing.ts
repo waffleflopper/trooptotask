@@ -20,7 +20,18 @@ import type {
 	BriefingTypeRisk,
 	FocusCandidateKey,
 	TrainingBriefing,
-	TrainingBriefingInput
+	TrainingBriefingInput,
+	TrainingColumnGaps,
+	TrainingMatrixGaps,
+	TrainingReadinessInput,
+	TrainingReadinessSummary
+} from './trainingBriefing.types';
+
+export type {
+	TrainingColumnGaps,
+	TrainingMatrixGaps,
+	TrainingReadinessInput,
+	TrainingReadinessSummary
 } from './trainingBriefing.types';
 
 const READY_STATES: ReadonlySet<TrainingStatus> = new Set(['current', 'warning-yellow', 'warning-orange']);
@@ -216,23 +227,13 @@ function findCliff(bucketEnds: number[], bucketLapses: number[], lapsing: Entry[
 	};
 }
 
-function analyze(input: TrainingBriefingInput): Analysis {
-	const population = filterPersonnel(input.personnel, input.filters);
-	const selectedTypeIds = input.filters.trainingTypeIds ?? [];
-	const columns = input.types.filter(
-		(type) => !type.isOptional && (selectedTypeIds.length === 0 || selectedTypeIds.includes(type.id))
-	);
+function requirementEntries(input: TrainingReadinessInput, rowsBy: BriefingRowsBy = 'group'): Entry[] {
 	const records = new Map(input.records.map((record) => [`${record.personnelId}-${record.trainingTypeId}`, record]));
-	const horizonDays = input.horizonDays;
-	const rows = new Map<string, Row>();
 	const entries: Entry[] = [];
 
-	for (const person of population) {
-		const identity = rowIdentity(person, input.rowsBy);
-		const row = rows.get(identity.key) ?? { ...identity, soldierCount: 0, entries: [] };
-		row.soldierCount += 1;
-		rows.set(identity.key, row);
-		columns.forEach((type, column) => {
+	for (const person of input.personnel) {
+		const identity = rowIdentity(person, rowsBy);
+		input.types.forEach((type, column) => {
 			const record = records.get(`${person.id}-${type.id}`);
 			const status = getTrainingStatus(record, type, person, input.asOf);
 			if (status.status === 'not-required' || status.status === 'exempt') return;
@@ -252,13 +253,31 @@ function analyze(input: TrainingBriefingInput): Analysis {
 					expirationDate: record?.expirationDate ?? null,
 					readyToday,
 					lapseDate: lapseOffset === null ? null : addDays(input.asOf, lapseOffset),
-					lapsesInHorizon: lapseOffset !== null && lapseOffset <= horizonDays
+					lapsesInHorizon: lapseOffset !== null && lapseOffset <= input.horizonDays
 				}
 			};
 			entries.push(entry);
-			row.entries.push(entry);
 		});
 	}
+	return entries;
+}
+
+function analyze(input: TrainingBriefingInput): Analysis {
+	const population = filterPersonnel(input.personnel, input.filters);
+	const selectedTypeIds = input.filters.trainingTypeIds ?? [];
+	const columns = input.types.filter(
+		(type) => !type.isOptional && (selectedTypeIds.length === 0 || selectedTypeIds.includes(type.id))
+	);
+	const entries = requirementEntries({ ...input, personnel: population, types: columns }, input.rowsBy);
+	const rows = new Map<string, Row>();
+	for (const person of population) {
+		const identity = rowIdentity(person, input.rowsBy);
+		const row = rows.get(identity.key) ?? { ...identity, soldierCount: 0, entries: [] };
+		row.soldierCount += 1;
+		rows.set(identity.key, row);
+	}
+	for (const entry of entries) rows.get(entry.requirement.rowKey)?.entries.push(entry);
+	const horizonDays = input.horizonDays;
 
 	const bucketEnds: number[] = [];
 	for (let end = BUCKET_DAYS; end < horizonDays; end += BUCKET_DAYS) bucketEnds.push(end);
@@ -634,25 +653,63 @@ function bottomLineSentence(analysis: Analysis, drop: number | null): string {
 	return `${sentence} ${share} of that drop lands between ${range.start} and ${range.end}.`;
 }
 
+function readinessSummary(input: TrainingReadinessInput, entries: Entry[]): TrainingReadinessSummary {
+	const totals = summarize(entries, input.horizonDays, input.goalPercent);
+	const horizonEnd = addDays(input.asOf, input.horizonDays);
+	return {
+		asOf: input.asOf,
+		horizonEnd,
+		horizonEndLabel: dayLabel(horizonEnd),
+		goalPercent: input.goalPercent,
+		today: totals.today,
+		horizon: totals.horizon,
+		expired: entries.filter((entry) => entry.requirement.status === 'expired').length,
+		notRecorded: entries.filter((entry) => entry.requirement.status === 'not-completed').length,
+		lapsing: entries.filter((entry) => entry.requirement.lapsesInHorizon).length
+	};
+}
+
+export function summarizeTrainingReadiness(input: TrainingReadinessInput): TrainingReadinessSummary {
+	const types = input.types.filter((type) => !type.isOptional);
+	return readinessSummary(input, requirementEntries({ ...input, types }));
+}
+
+export function trainingMatrixGaps(input: TrainingReadinessInput): TrainingMatrixGaps {
+	const entries = requirementEntries(input);
+	const byType: Record<string, TrainingColumnGaps> = Object.fromEntries(
+		input.types.map((type) => [type.id, { notReady: 0, lapsing: 0 }])
+	);
+	for (const { requirement } of entries) {
+		if (!requirement.readyToday) byType[requirement.typeId].notReady += 1;
+		if (requirement.lapsesInHorizon) byType[requirement.typeId].lapsing += 1;
+	}
+	const requiredTypeIds = new Set(input.types.filter((type) => !type.isOptional).map((type) => type.id));
+	const requiredEntries = entries.filter((entry) => requiredTypeIds.has(entry.requirement.typeId));
+	return {
+		readiness: summarize(requiredEntries, input.horizonDays, input.goalPercent).today,
+		byType
+	};
+}
+
 export function buildTrainingBriefing(input: TrainingBriefingInput): TrainingBriefing {
 	const analysis = analyze(input);
-	const { entries, horizonEnd } = analysis;
-	const totals = summarize(entries, input.horizonDays, input.goalPercent);
+	const summary = readinessSummary(input, analysis.entries);
+	const drop = percent(summary.today.ready - summary.horizon.ready, summary.today.applicable);
 	return {
 		bottomLine: {
 			scopeName: input.scopeName,
 			soldierCount: analysis.population.length,
-			asOf: input.asOf,
+			asOf: summary.asOf,
 			asOfLabel: fullDateLabel(input.asOf),
-			horizonEnd,
-			horizonEndLabel: dayLabel(horizonEnd),
-			today: totals.today,
-			horizon: totals.horizon,
-			drop: totals.drop,
-			expired: entries.filter((entry) => entry.requirement.status === 'expired').length,
-			notRecorded: entries.filter((entry) => entry.requirement.status === 'not-completed').length,
-			lapsing: entries.filter((entry) => entry.requirement.lapsesInHorizon).length,
-			sentence: bottomLineSentence(analysis, totals.drop)
+			horizonEnd: summary.horizonEnd,
+			horizonEndLabel: summary.horizonEndLabel,
+			today: summary.today,
+			horizon: summary.horizon,
+			drop,
+			expired: summary.expired,
+			notRecorded: summary.notRecorded,
+			lapsing: summary.lapsing,
+			sentence: bottomLineSentence(analysis, drop)
 		},
 		forecast: buildForecast(analysis),
 		grid: buildGrid(analysis),

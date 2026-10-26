@@ -807,6 +807,101 @@ describe('TrainingPageContext', () => {
 			expect(ctx.isExempt(mockPerson, nonExemptType)).toBe(false);
 		});
 	});
+
+	describe('saved views', () => {
+		const stored = {
+			id: 'view-1',
+			name: 'Annual',
+			columnIds: ['t-1'],
+			createdBy: 'user-1',
+			createdAt: '2026-05-10T00:00:00.000Z',
+			updatedAt: '2026-05-10T00:00:00.000Z'
+		};
+
+		it('applies a newly created view to the matrix and remembers the choice', async () => {
+			const created = { ...stored, id: 'view-new', name: 'Range', columnIds: ['t-2', 't-1'] };
+			const bodies: unknown[] = [];
+			vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+				bodies.push(JSON.parse(init.body as string));
+				return Response.json(created);
+			});
+			const ctx = makeContext(makeData(), modals, makeOrg());
+
+			const result = await ctx.saveView({ id: null, name: 'Range', columnIds: ['t-2', 't-1'] });
+
+			expect(result).toEqual(created);
+			expect(bodies).toMatchObject([{ name: 'Range', columnIds: ['t-2', 't-1'] }]);
+			expect(ctx.selectedViewId).toBe('view-new');
+			expect(savePreferencesMock).toHaveBeenCalledWith({ training: { selectedViewId: 'view-new' } });
+		});
+
+		it('applies an edited view and keeps its identity', async () => {
+			trainingViewsStore.load([stored], 'org-1');
+			const edited = { ...stored, name: 'Yearly', columnIds: ['t-2', 't-1'] };
+			vi.stubGlobal('fetch', async () => Response.json(edited));
+			const ctx = makeContext(makeData(), modals, makeOrg());
+
+			const result = await ctx.saveView({ id: 'view-1', name: 'Yearly', columnIds: ['t-2', 't-1'] });
+
+			expect(result).toEqual(edited);
+			expect(trainingViewsStore.items).toEqual([edited]);
+			expect(ctx.selectedViewId).toBe('view-1');
+		});
+
+		it('throws and applies nothing when the save is refused', async () => {
+			vi.stubGlobal('fetch', async () => Response.json({ message: 'Internal server error' }, { status: 500 }));
+			const ctx = makeContext(makeData(), modals, makeOrg());
+
+			await expect(ctx.saveView({ id: null, name: 'Range', columnIds: [] })).rejects.toThrow();
+			expect(ctx.selectedViewId).toBeNull();
+			expect(trainingViewsStore.items).toEqual([]);
+		});
+
+		it('leaves the selection alone when the save resolves after the user left the Training page', async () => {
+			let respond!: (response: Response) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValue(
+					new Promise<Response>((resolve) => {
+						respond = resolve;
+					})
+				)
+			);
+			const ctx = makeContext(makeData(), modals, makeOrg());
+			const saving = ctx.saveView({ id: null, name: 'Range', columnIds: [] }).catch((error: unknown) => error);
+
+			ctx.dispose();
+			respond(Response.json({ ...stored, id: 'view-late' }));
+
+			expect(await saving).toBe('stale');
+			expect(ctx.selectedViewId).toBeNull();
+			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+
+		it('clears the selection when the selected view is deleted', async () => {
+			trainingViewsStore.load([stored], 'org-1');
+			vi.stubGlobal('fetch', async () => new Response(null, { status: 204 }));
+			const ctx = makeContext(makeData(), modals, makeOrg());
+			ctx.setSelectedViewId('view-1');
+
+			expect(await ctx.deleteView('view-1')).toBe('deleted');
+
+			expect(trainingViewsStore.items).toEqual([]);
+			expect(ctx.selectedViewId).toBeNull();
+		});
+
+		it('keeps the view and the selection when the delete fails', async () => {
+			trainingViewsStore.load([stored], 'org-1');
+			vi.stubGlobal('fetch', async () => Response.json({ message: 'Internal server error' }, { status: 500 }));
+			const ctx = makeContext(makeData(), modals, makeOrg());
+			ctx.setSelectedViewId('view-1');
+
+			expect(await ctx.deleteView('view-1')).toBe('failed');
+
+			expect(trainingViewsStore.items).toEqual([stored]);
+			expect(ctx.selectedViewId).toBe('view-1');
+		});
+	});
 });
 
 function rankCatalogEntry(overrides: Partial<RankCatalogEntry>): RankCatalogEntry {

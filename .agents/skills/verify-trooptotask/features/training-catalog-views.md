@@ -10,9 +10,10 @@ definitions.
   on ordinary edits.
 - `applicability`: Everyone, Optional and targeted role/MOS/rank rules determine whether a Person is required to
   complete a type; exclusions win over targeting.
-- `saved-views`: create, edit, order and delete a named set of Training columns, then use it in the matrix.
-- `workspace-reuse`: moving between the matrix, Manage Types and Manage Views keeps the loaded workspace and sends no
-  page-data request.
+- `saved-views`: the `Manage views` sheet lists saved views; its editor creates, edits, orders and deletes a named set
+  of Training columns, and saving applies the view to the matrix.
+- `workspace-reuse`: moving between the matrix, Manage Types and opening Manage views keeps the loaded workspace and
+  sends no page-data request.
 - `matrix-readout`: the page header, the cells, the group bands and the footer read the same readiness numbers, and
   the search, view and group controls narrow the rows without changing the header.
 - `access`: Training view/operate and Group-scoped actors can read their allowed matrix but cannot change the
@@ -26,13 +27,16 @@ Choose `Training` in the Organization navigation. The `Training controls` toolba
 `Export`. Its `More Training controls` menu holds `Import`, `Manage views` and `Manage types`; the first three controls
 on the right fold into it as the page narrows (find them with the
 [shared UI recipe](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more)). `Training view filter` ends with
-`Manage views…`, which opens the Views page. Manage Types shows a `Training type controls` toolbar holding `+ New Type`
-and, in the detail pane, `Training type detail controls` holding `Edit`. Manage Views shows `Training view controls`
-with the `Back to Matrix` link and `New View`, and `Training view detail controls` with `Edit`; read-only members see
-none of the create or edit actions. On the matrix, choose the named saved view in `Training view filter` and switch the
-Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` or
-`training/views` must enforce the same access rules as visible navigation. Moving between the matrix, `Manage types`
-and `Manage views` reuses the loaded workspace and is not access proof.
+`Manage views…`, which opens the `Manage views` sheet; More's `Manage views` opens the same sheet. Manage Types shows a
+`Training type controls` toolbar holding `+ New Type` and, in the detail pane, `Training type detail controls` holding
+`Edit`. The sheet lists the saved views A to Z, each with `N of M columns`, and a `New view` button; a member who cannot
+configure sees no `New view` and cannot open a view. Choosing a view opens its editor in the same sheet: `All views ·
+Edit view` above the name, a `View name` field, `In this view · N` (checked, in column order, each row with a drag
+handle) and `Not in this view · N`. The back arrow (`Back to all views`) returns to the list; the footer holds
+`Delete view`, `Cancel` and `Save view`. On the matrix, choose the named saved view in `Training view filter` and switch the
+Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` must
+enforce the same access rules as visible navigation; `training/views` redirects (308) to `training`. Moving between the
+matrix, `Manage types` and opening `Manage views` reuses the loaded workspace and is not access proof.
 
 ## Helper controls
 
@@ -61,14 +65,18 @@ Focus View orders Targeted before Required and omits Optional.
    `$V rows training_types orgA id <trainingRequired>` and `$V rows personnel_trainings orgA id <trainingCurrent>` must
    retain the type, completion and reference IDs. Restore the original description with focused `Control+A` and
    `Backspace`, save, and read back the same IDs and a null description. Cancel a separate edit and confirm no row
-   change. Create a uniquely named view with two distinguishable type columns, use the visible up/down controls to
-   reorder them, save, reload, and confirm `$V rows training_views orgA name <marker>` has that order. Edit that view,
-   save and read back its stable ID; Cancel a separate view edit. Delete only the newly created view and type through
+   change. Open `Manage views…`, choose `New view`, name it with a unique marker and check two
+   distinguishable types: each checked type joins the end of `In this view`. Drag a grip, or press `Alt+ArrowUp` on a
+   focused checkbox, to reorder them; unchecking a type moves it under `Not in this view`. `Save view` returns to the
+   list, selects the view in `Training view filter` and shows its columns in that order; reload and confirm
+   `$V rows training_views orgA name <marker>` has the same `columnIds` order. Edit that view and save; read back its
+   stable ID. `Cancel` a separate edit and confirm no row change. Delete only the newly created view and type through
    their visible confirmations, then verify both rows are absent. Keep seeded types and views for later journeys.
 3. **Access and isolation:** As `trainingView`, `trainingOperate`, `trainingScoped` and `trainingScopedConfig`, open the
-   matrix and direct Types/Views routes; record visible read access, configuration affordances and the Alpha-only roster
-   for each scoped actor. For `trainingScopedConfig`, check that Import remains available while Manage Types/Views and
-   their direct-page mutation controls are absent. As `viewer`, verify the Training-none denial. For each denied actor,
+   matrix and the direct Types route; record visible read access, configuration affordances and the Alpha-only roster
+   for each scoped actor. For `trainingScopedConfig`, check that Import remains available while Manage Types and
+   `Manage views` (in the View menu and in More) are absent. A full load of `/org/<org>/training/views` ends on
+   `/org/<org>/training`. As `viewer`, verify the Training-none denial. For each denied actor,
    send authenticated `POST` requests to both A catalog JSON endpoints with valid unique names through its signed-in
    page; require `403` or `404` and empty `$V rows` readback for those names. As `trainingConfigure`, attempt the same
    valid requests against B; require denial and no B rows. As `trainingForeign`, confirm B's private type/view are
@@ -78,10 +86,12 @@ Focus View orders Targeted before Required and omits Optional.
    immediately before saving a newly named type. Capture the matched `503` in `$V network state $PAGE`, visible error
    feedback, retained form state, and zero stored rows for that name. Restore the hook, retry through the visible form,
    reload and read back exactly one saved row. Delete it through the visible confirmation and read back absence. Repeat
-   the same sequence for a new view with `training-views`. Missing visible feedback, a closed form, or lost entered
-   values is a product failure, not a passing retry. On a UI-created saved view, change its name and reverse two
-   selected columns. Arm `training-views` before the edit PUT. A controlled 503 must retain the same name/order draft,
-   useful error, and enabled Save. The original saved ID and fields remain exact. Restore the hook and explicitly retry;
+   the same sequence for a new view in the `Manage views` sheet with `training-views`: the sheet stays on the editor,
+   `View name` shows `Failed to save view.`, the name and checked order are kept and `Save view` is enabled again.
+   Missing visible feedback, a closed form, or lost entered values is a product failure, not a passing retry. On a
+   UI-created saved view, change its name and reverse two checked columns. Arm `training-views` before the edit PUT. A
+   controlled 503 must retain the same name/order draft, useful error, and enabled `Save view`. The original saved ID
+   and fields remain exact. Restore the hook and explicitly retry;
    reload must show the edited name/order on that same ID. Delete only the temporary view. This existing-view edit is
    distinct from new-view creation.
 
@@ -90,20 +100,21 @@ Focus View orders Targeted before Required and omits Optional.
    `Onboarding` → `Templates` and inspect the Training Type selector in a temporary template step for the seeded
    Required/Targeted names. Remove the temporary template through the visible controls and read back its absence.
 6. **Workspace reuse and a failed source:** As `trainingConfigure` on a settled matrix, clear resource timings and visit
-   `Manage Types`, its `Training` link back to the matrix, then `Manage Views`. The page-data probe from the skill's
-   Drive section must show no `__data.json` entry. Click `Reports`: expect one `training/reports/__data.json` and no
-   workspace reload. Returning to the matrix from Reports loads the workspace again. Failed source: arm
-   `$V server-source arm personnel_trainings fail-hard` and do a full load of `/training/types` (then
-   `/training/views`); each shows the shared `WorkspaceLoadError` (`Unable to load Training` with `Retry Training`),
-   never a stuck skeleton or a thrown render, and Retry recovers after `server-source restore`. A client-side visit from
-   the matrix does not reload the source, so it cannot trigger this.
+   `Manage Types`, its `Training` link back to the matrix, then open `Manage views…`. The page-data probe from the
+   skill's Drive section must show no `__data.json` entry. Click `Reports`: expect one `training/reports/__data.json` and
+   no workspace reload. Returning to the matrix from Reports loads the workspace again. Failed source: arm
+   `$V server-source arm personnel_trainings fail-hard` and do a full load of `/training/types`; it shows the shared
+   `WorkspaceLoadError` (`Unable to load Training` with `Retry Training`), never a stuck skeleton or a thrown render, and
+   Retry recovers after `server-source restore`. A client-side visit from the matrix does not reload the source, so it
+   cannot trigger this.
 7. **Type-management add, edit, delete and confirm:** As `trainingConfigure` in `Training type management workspace`,
    add a uniquely named type, select its row in the `Training types` grid, edit its name and an MOS/role applicability
    chip through the group selector (add, then remove one chip) and save; reload and read back the same ID. Open Delete
    Type: the `Delete Training Type` alertdialog names the type. Cancel first and require the row, selection and focus on
    the opening control to remain; then confirm and require the list entry and `$V rows training_types orgA name MARKER`
-   to be absent. Repeat add/edit/cancel-then-confirm delete for a temporary view in Manage Views. Capture each workspace
-   at narrow and wide widths once.
+   to be absent. Repeat add/edit/cancel-then-confirm delete for a temporary view in the `Manage views` sheet: `Delete view` opens
+   the `Delete Saved View` alertdialog, Cancel keeps the editor, and Delete returns to the list without the view.
+   Capture each workspace and the sheet at 1440, 1024 and 390 wide once.
 
 8. **Matrix readout:** As `trainingConfigure` at 1440 wide on a fresh seed, read the matrix before recording anything.
    Capture each value from a text snapshot.

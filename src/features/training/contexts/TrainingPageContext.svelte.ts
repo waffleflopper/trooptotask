@@ -21,7 +21,7 @@ import type {
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { TrainingType, TrainingView, PersonnelTraining } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
 import { recordTrainingCompletions } from '../personnelTrainingRequests';
 import { matchesPersonnelSearch } from '../utils/personnelSearch';
@@ -248,6 +248,36 @@ export class TrainingPageContext {
 
 	#isCurrentWorkspace(): boolean {
 		return !this.#disposed && personnelTrainingsStore.orgId === this.orgId;
+	}
+
+	#isCurrentViewsWorkspace(): boolean {
+		return !this.#disposed && trainingViewsStore.orgId === this.orgId;
+	}
+
+	/** Saves a view and applies it to the matrix. `'stale'` means the user left, so nothing was written. */
+	async saveView(draft: { id: string | null; name: string; columnIds: string[] }): Promise<TrainingView | 'stale'> {
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		const { name, columnIds } = draft;
+		let saved: TrainingView | null;
+		if (draft.id === null) {
+			saved = await trainingViewsStore.add({ name, columnIds, createdBy: '', createdAt: '', updatedAt: '' });
+		} else {
+			const updated = await trainingViewsStore.updateOrThrow(draft.id, { name, columnIds });
+			saved = updated ? (trainingViewsStore.getById(draft.id) ?? null) : null;
+		}
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		if (!saved) throw new Error('Failed to save view.');
+		this.setSelectedViewId(saved.id);
+		return saved;
+	}
+
+	async deleteView(id: string): Promise<'deleted' | 'failed' | 'stale'> {
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		const result = await trainingViewsStore.remove(id);
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		if (result === 'error') return 'failed';
+		if (this.selectedViewId === id) this.setSelectedViewId(null);
+		return 'deleted';
 	}
 
 	async handleSaveTraining(data: Omit<PersonnelTraining, 'id'>): Promise<void> {

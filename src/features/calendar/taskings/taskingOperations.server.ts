@@ -8,6 +8,7 @@ import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
 import type { CalendarEventPersistence } from '../events/eventPersistence.server';
 import type { MemberLabels } from '../events/eventModel';
+import type { TaskingSummary } from './eventWorkModel';
 import {
 	responsibilityKey,
 	taskingDraftSchema,
@@ -91,6 +92,13 @@ export async function listEventTaskings(
 	if (!uuidSchema.safeParse(eventId).success) return { taskings: [], groups: {} };
 	const [taskings, groups] = await Promise.all([ctx.calendarTaskings.listEventTaskings(eventId), groupLabels(ctx)]);
 	return { taskings, groups };
+}
+
+/** One-line rows for the Event's Taskings outside the viewer's scope. They open nothing. */
+export async function listEventTaskingSummaries(ctx: CalendarTaskingPorts, eventId: string): Promise<TaskingSummary[]> {
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
+	if (!uuidSchema.safeParse(eventId).success) return [];
+	return ctx.calendarTaskings.listEventTaskingSummaries(eventId);
 }
 
 export async function loadTaskingDetail(ctx: CalendarTaskingPorts, id: string): Promise<TaskingDetail> {

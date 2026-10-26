@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { reloadCalendarEvents } from '../eventPageState';
 
 	let { title }: { title: string } = $props();
 	let retrying = $state(false);
@@ -10,7 +10,7 @@
 	async function retry() {
 		retrying = true;
 		try {
-			await invalidate('app:calendar-events');
+			await reloadCalendarEvents();
 		} finally {
 			retrying = false;
 		}

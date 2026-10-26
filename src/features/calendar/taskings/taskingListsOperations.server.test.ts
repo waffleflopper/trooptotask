@@ -127,6 +127,7 @@ function member(
 			findTasking: async () => stored,
 			listTaskings: async () => [],
 			listEventTaskings: async () => [],
+			listEventTaskingSummaries: async () => [],
 			listActivity: async () => [],
 			findEventTitles: async () => ({}),
 			createTasking: async () => {

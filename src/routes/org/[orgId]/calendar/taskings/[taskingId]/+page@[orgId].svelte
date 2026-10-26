@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import TaskingDetailPage from '$features/calendar/taskings/components/TaskingDetailPage.svelte';
 	import { getAppShellContext } from '$features/app-shell';
@@ -6,6 +8,15 @@
 
 	let { data }: PageProps = $props();
 	const org = getAppShellContext();
+	const edit = page.url.searchParams.has('edit');
+
+	// The request to edit is spent on arrival, so Back or a reload never reopens the dialog.
+	onMount(() => {
+		if (!edit) return;
+		const url = new URL(page.url);
+		url.searchParams.delete('edit');
+		replaceState(url, page.state);
+	});
 </script>
 
 <svelte:head>
@@ -21,5 +32,6 @@
 		lists={data.lists}
 		choices={data.choices}
 		people={data.people}
+		editOnArrival={edit}
 	/>
 {/key}

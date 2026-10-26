@@ -274,12 +274,58 @@ Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Taskin
 failed-save handling; `supabase/tests/calendar_tasking_staffing.sql` covers candidates, concealment, refused writes,
 revisions, review flags and the delete guards as ordinary signed-in users.
 
+## Event detail and shared Events
+
+Event detail groups its Taskings under `Preparation`, `Execution` and `Closeout`. A Tasking is in `Execution` when its
+execution dates or its suspense fall within the Event's dates, in `Preparation` when it is due before the Event starts
+and in `Closeout` when after it ends. A phase with nothing in it does not render. Rows sort by suspense, then outcome.
+
+A Group-scoped reader sees their Groups' Taskings as the usual rows that open, and every other Tasking linked to the
+Event, Organization-level ones included, as a dashed one-line row that does not open: the Group or Organization, the
+outcome, the status badge, `Due` with the suspense and `Needs N` when a count is required. `Blocked` shows with no
+reason. Another Group's standalone Tasking appears nowhere. An Organization-wide reader sees every Tasking as an opening
+row.
+
+Saving new Event dates opens `Review taskings` above `Taskings`: the Event's active Taskings that moved phase or sit
+outside the new dates, each with a note and a link to `/org/ORG/calendar/taskings/ID?edit`, which opens that Tasking's
+edit. Nothing about a Tasking changes. `Dismiss` closes the list. `Cancel event` lists the Event's active Taskings in
+the dialog under `These taskings stay active and linked to the cancelled event`, and cancels none of them. The cancelled
+Event's detail keeps them, with a notice that they stay open.
+
+`$V rows calendar_taskings orgA` before and after a date edit or a cancel must be identical.
+
+Drive it as `calendarOperate` unless noted, with the Event dated 10 – 12 Nov 2026 and an Alpha Tasking due 5 Nov, a
+Bravo Tasking due 11 Nov with `People needed` 6 and then blocked with a reason, and an Organization Tasking due 16 Nov,
+all linked to it; add a standalone Bravo Tasking.
+
+23. **Groups.** The detail lists `Preparation` (Alpha, 5 Nov), `Execution` (Bravo, 11 Nov) and `Closeout` (Organization,
+    16 Nov), each row opening its Tasking. The standalone Bravo Tasking is absent, and no phase shows as an empty box.
+24. **Scoped reader.** As `calendarScoped` (Alpha), the Alpha row opens. The Bravo and Organization rows are dashed rows
+    with no link: Bravo shows `Blocked` and `Needs 6`, with no reason, people or instructions anywhere in the page text.
+    From the page, `fetch` the Bravo Tasking's `/org/A/api/calendar-taskings/ID` PATCH and its status POST: 404.
+    `/org/A/calendar/taskings/BRAVO_ID` reads `This tasking is not available`. As `calendarView` the same rows show.
+25. **Date review.** On the Event press `Edit`, move the dates to 17 – 19 Nov and save. `Review taskings` lists the
+    Alpha, Bravo and Organization Taskings with notes, and the Event's rows regroup. Open the Alpha link: its edit sheet
+    opens on arrival and the URL has no `edit` left. Back returns to the Event with the list still there, without
+    reopening the edit. Edit only the title of the Event and
+    save: no review list appears.
+26. **Cancel review.** Press `Cancel event`. The dialog lists the three active Taskings as links; complete one first and
+    it drops off the list. Confirm. The detail shows the cancellation banner and the notice that the Taskings stay open,
+    with every Tasking still `Open`, `In progress` or `Blocked`.
+27. **Load states.** Reload the detail with the network slowed: the `Taskings` region shows its skeleton rows, then the
+    groups, with no shift of the Activity section beyond the groups themselves. With `arm-fail` on the summary read the
+    reader's own rows stay and `Other groups’ taskings could not be loaded` shows with `Retry`.
+28. **Widths.** Capture the detail with all three phases, the review list and the cancel dialog at 1440, 900 and 390. At
+    390 a row stacks the outcome over its line and the badge, and `scrollWidth` equals the viewport.
+
 ## Lower-level checks
 
 `src/features/calendar/events/eventModel.test.ts`, `eventOperations.server.test.ts`,
 `components/EventDialog.svelte.test.ts` and `components/eventLabels.test.ts` cover the draft rules, the operations and
 the dialog below the UI. The Tasking counterparts live under `src/features/calendar/taskings/`, and
 `supabase/tests/calendar_taskings.sql` covers Tasking access, attribution, Activity and the transition function.
+`supabase/tests/calendar_event_tasking_summaries.sql` proves, as ordinary Organization-wide and Group-scoped users, that
+the summary read returns only its eight summary fields and conceals everything else.
 `supabase/tests/calendar_events.sql` proves the RLS, the database-written attribution and Activity, and the cancel
 function as ordinary signed-in users; run it with the disposable database procedure in the Definition of Done.
 

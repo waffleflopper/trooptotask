@@ -6,10 +6,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import BulkStatusPage from './BulkStatusPage.svelte';
 
-const { gotoMock, invalidateMock, pageMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateMock, pageMock, navigatingMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
 	invalidateMock: vi.fn(),
-	pageMock: { url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add') }
+	pageMock: { url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add') },
+	navigatingMock: { to: null as { url: URL } | null }
 }));
 
 const access = createClientAccess(() => ({
@@ -23,7 +24,7 @@ const org = {
 };
 
 vi.mock('$app/navigation', () => ({ goto: gotoMock, invalidate: invalidateMock, invalidateAll: vi.fn() }));
-vi.mock('$app/state', () => ({ page: pageMock }));
+vi.mock('$app/state', () => ({ page: pageMock, navigating: navigatingMock }));
 vi.mock('./BulkStatusAdd.svelte', async () => ({
 	default: (await import('../test-support/BulkStatusAddFinishStub.svelte')).default
 }));
@@ -49,6 +50,7 @@ describe('BulkStatusPage after a prefilled save', () => {
 		cleanup();
 		gotoMock.mockReset().mockResolvedValue(undefined);
 		invalidateMock.mockReset().mockResolvedValue(undefined);
+		navigatingMock.to = null;
 	});
 
 	it('lands back on the Tasking and refreshes the Calendar data as part of leaving', async () => {
@@ -63,6 +65,20 @@ describe('BulkStatusPage after a prefilled save', () => {
 		expect(gotoMock).toHaveBeenCalledExactlyOnceWith(`/org/org-1/calendar/taskings/${TASKING}`, {
 			invalidate: ['app:calendar-data']
 		});
+		expect(invalidateMock).not.toHaveBeenCalled();
+	});
+
+	it('leaves a navigation the reader started during the save alone', async () => {
+		pageMock.url = new URL(
+			`http://localhost/org/org-1/calendar/bulk?tab=add&tasking=${TASKING}&from=2030-10-19&to=2030-10-23`
+		);
+		renderPage();
+		navigatingMock.to = { url: new URL('http://localhost/org/org-1/personnel') };
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+		await Promise.resolve();
+
+		expect(gotoMock).not.toHaveBeenCalled();
 		expect(invalidateMock).not.toHaveBeenCalled();
 	});
 

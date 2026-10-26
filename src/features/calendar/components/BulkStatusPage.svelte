@@ -13,7 +13,7 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -146,6 +146,8 @@
 	}
 
 	function handleComplete() {
+		// The reader already chose to go elsewhere; returning or refreshing now would cancel that navigation.
+		if (navigating.to) return;
 		const returnTo = prefill && active && data.orgId === applyingOrgId ? backHref : null;
 		// A separate invalidate would cancel a navigation started before it, so refresh as part of leaving.
 		if (returnTo) {

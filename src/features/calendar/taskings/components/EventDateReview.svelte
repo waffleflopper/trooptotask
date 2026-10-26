@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { invalidate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { CalendarEventsPageAccess } from '../../contracts';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -21,6 +23,20 @@
 	let { org, taskings, before, after, onDismiss }: Props = $props();
 
 	const streamed = new StreamedValue(() => taskings);
+	let dismissed = false;
+
+	// invalidate() clears shallow page state, which holds this review, so a retry puts it back unless it was dismissed meanwhile.
+	async function reload() {
+		const { href } = page.url;
+		const review = { before, after };
+		await invalidate('app:calendar-events');
+		if (!dismissed && page.url.href === href) replaceState('', { ...page.state, eventDateReview: review });
+	}
+
+	function dismiss() {
+		dismissed = true;
+		onDismiss();
+	}
 
 	const loaded = $derived.by(() => {
 		const current = streamed.current;
@@ -41,7 +57,7 @@
 <section class="grid gap-3" aria-labelledby="event-date-review-heading">
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<h2 id="event-date-review-heading" class="font-heading text-lg font-semibold">Review taskings</h2>
-		<Button variant="ghost" size="sm" onclick={onDismiss}>Dismiss</Button>
+		<Button variant="ghost" size="sm" onclick={dismiss}>Dismiss</Button>
 	</div>
 	{#if loaded === null}
 		<div class="grid gap-2" role="status" aria-label="Loading taskings to review">
@@ -50,7 +66,7 @@
 			{/each}
 		</div>
 	{:else if loaded === 'failed'}
-		<EventLoadFailed title="Taskings to review could not be loaded" />
+		<EventLoadFailed title="Taskings to review could not be loaded" {reload} />
 	{:else if loaded.items.length === 0}
 		<Alert.Root>
 			<Alert.Description>No active tasking sits outside the new dates.</Alert.Description>

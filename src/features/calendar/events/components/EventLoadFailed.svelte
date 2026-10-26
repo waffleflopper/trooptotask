@@ -1,21 +1,17 @@
 <script lang="ts">
-	import { invalidate, replaceState } from '$app/navigation';
-	import { page } from '$app/state';
+	import { invalidate } from '$app/navigation';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 
-	let { title }: { title: string } = $props();
+	let { title, reload = () => invalidate('app:calendar-events') }: { title: string; reload?: () => Promise<unknown> } =
+		$props();
 	let retrying = $state(false);
 
 	async function retry() {
 		retrying = true;
-		const { href } = page.url;
-		const state = page.state;
 		try {
-			await invalidate('app:calendar-events');
-			// invalidate() clears shallow page state, such as an open date review.
-			if (page.url.href === href) replaceState('', state);
+			await reload();
 		} finally {
 			retrying = false;
 		}

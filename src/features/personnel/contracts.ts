@@ -186,7 +186,7 @@ export function deletionBlockedMessage(
 	if (count === 0) return null;
 	const items = taskingTitles.map((title) => `“${title}”`);
 	if (hiddenTaskings > 0)
-		items.push(`${hiddenTaskings} ${hiddenTaskings === 1 ? 'tasking' : 'taskings'} outside your Groups`);
+		items.push(`${hiddenTaskings} ${hiddenTaskings === 1 ? 'tasking' : 'taskings'} you cannot see`);
 	const list = items.length === 1 ? items[0] : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 	const them = count === 1 ? 'that tasking' : 'those taskings';
 	const next =

@@ -221,6 +221,18 @@ _Avoid_: Deadline, due date in product copy
 The record of a Tasking's creation, outcome, responsibility, date, Event link, requirement and instruction changes and every status move, written by the database with the acting member.
 _Avoid_: Audit log, history
 
+**Pick**:
+A Person chosen to carry out a Tasking. A Group Tasking picks from the responsible Group's active roster and an Organization Tasking from the whole active roster. Picks are saved as one whole list, and the count reads picked of required.
+_Avoid_: Assignment, participant in product copy
+
+**Needs review**:
+A pick whose Person was archived or left the responsible Group after being picked. It stays on the list, does not count, and clears only when an operator keeps or removes it; restoring the Person does not clear it.
+_Avoid_: Invalid, stale
+
+**Staffing advisory**:
+Availability or another active Tasking that overlaps a candidate's execution dates, shown in the picker for awareness. It never blocks a pick, and a Tasking the reader cannot see reads only as committed elsewhere.
+_Avoid_: Blocker, availability check
+
 **DONSA**:
 A day of no scheduled activities, represented as a Calendar special day; Training Holiday is also appropriate military-facing wording.
 _Avoid_: Closure, org closure in product copy

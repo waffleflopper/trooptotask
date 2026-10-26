@@ -44,7 +44,9 @@
 		>
 			<Textarea bind:value={draft.text} aria-label={`Note for ${step.stepName}`} rows={2} />
 			<div class="flex justify-end gap-2">
-				<Button type="button" variant="ghost" size="sm" onclick={() => draft.cancel()}>Cancel</Button>
+				<Button type="button" variant="ghost" size="sm" disabled={draft.saving} onclick={() => draft.cancel()}
+					>Cancel</Button
+				>
 				<Button type="submit" size="sm" disabled={draft.saving || !draft.text.trim()}>Save note</Button>
 			</div>
 		</form>

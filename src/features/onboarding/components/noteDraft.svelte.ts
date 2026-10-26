@@ -8,6 +8,11 @@ export class NoteDraft {
 	/** Identifies the draft a pending save belongs to, so a finished save closes only its own draft. */
 	#version = 0;
 
+	/** Closing the packet would lose typed text. */
+	get dirty() {
+		return this.stepId !== null && this.text.trim() !== '';
+	}
+
 	open(stepId: string) {
 		this.#version++;
 		this.stepId = stepId;

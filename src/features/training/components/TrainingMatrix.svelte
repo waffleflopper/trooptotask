@@ -419,6 +419,9 @@
 					label={cell.displayText}
 					srLabel={getCellStatusLabel(cell.statusInfo)}
 					colorAll={display.matrixColorAll}
+					class={cell.statusInfo.status === 'current' && display.matrixCurrentMark === 'check'
+						? 'text-sm font-bold'
+						: undefined}
 				/>
 			</OperationalMatrix.Cell>
 		{/each}

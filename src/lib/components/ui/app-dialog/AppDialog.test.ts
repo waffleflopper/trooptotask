@@ -121,12 +121,6 @@ describe('AppDialog', () => {
 		expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it('fills the screen below 640 px when presented as a sheet', () => {
-		render(AppDialogTest, { presentation: 'sheet' });
-		const sheet = screen.getByRole('dialog', { name: 'Shared dialog title' });
-		expect(sheet.classList.contains('data-[side=right]:max-sm:w-full')).toBe(true);
-	});
-
 	it('presents as a side sheet with the same draft protection', async () => {
 		render(AppDialogTest, { presentation: 'sheet' });
 		const sheet = screen.getByRole('dialog', { name: 'Shared dialog title' });

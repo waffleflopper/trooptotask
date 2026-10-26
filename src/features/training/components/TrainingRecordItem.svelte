@@ -103,11 +103,13 @@
 				{/if}
 			</span>
 			<span class="grid min-w-0 gap-0.5">
-				<span class={['truncate text-[0.9375rem]', section === 'not-required' && 'text-muted-foreground']}>
+				<span class={['text-[0.9375rem] break-words', section === 'not-required' && 'text-muted-foreground']}>
 					{type.name}
 				</span>
 				{#if section === 'needs-action'}
 					<span class={['font-mono text-xs', toneClass[statusLine.tone]]}>{statusLine.text}</span>
+				{:else if section === 'not-required' && item.reason}
+					<span class="font-mono text-xs text-muted-foreground">{item.reason}</span>
 				{/if}
 			</span>
 			{#if expanded && section === 'needs-action'}
@@ -131,8 +133,6 @@
 		{:else if section === 'current'}
 			<span class="shrink-0 font-mono text-xs text-muted-foreground">{doneDate}</span>
 			<span class="w-14 shrink-0 text-right font-mono text-xs">{untilText}</span>
-		{:else if section === 'not-required' && item.reason}
-			<span class="max-w-[45%] shrink text-right font-mono text-xs text-muted-foreground">{item.reason}</span>
 		{:else if isExempt}
 			<span class="shrink-0 font-mono text-xs text-muted-foreground uppercase">Exempt</span>
 		{/if}

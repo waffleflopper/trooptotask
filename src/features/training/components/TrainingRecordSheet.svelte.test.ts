@@ -244,4 +244,52 @@ describe('TrainingRecordSheet', () => {
 		);
 		expect(screen.queryByText(/Server said no/)).toBeNull();
 	});
+
+	it('leaves no form open on a row that moved to Current after Record all', async () => {
+		render(TrainingRecordSheet, { props: props() });
+		expect(await screen.findByRole('button', { name: 'Save' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Record all 2 today' }));
+		await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Record 2' }));
+
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
+	});
+
+	it('exempts a Soldier from a type that allows it, and takes the exemption back', async () => {
+		const onToggleExempt = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		const exemptable = type('fit', 'Fitness', { canBeExempted: true });
+		const { rerender } = render(TrainingRecordSheet, {
+			props: props({ trainingTypes: [exemptable], trainings: [], onToggleExempt })
+		});
+
+		await user.click(await screen.findByRole('button', { name: 'More actions for Fitness' }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Exempt' }));
+		expect(onToggleExempt).toHaveBeenLastCalledWith('fit', true);
+
+		await rerender(
+			props({
+				trainingTypes: [{ ...exemptable, exemptPersonnelIds: ['p1'] }],
+				trainings: [],
+				onToggleExempt
+			})
+		);
+		await user.click(await screen.findByRole('button', { name: 'More actions for Fitness' }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Unexempt' }));
+		expect(onToggleExempt).toHaveBeenLastCalledWith('fit', false);
+	});
+
+	it('removes the record behind a row only after the confirm', async () => {
+		const onRemove = vi.fn().mockResolvedValue(undefined);
+		const user = userEvent.setup();
+		render(TrainingRecordSheet, { props: props({ onRemove }) });
+
+		await user.click(await screen.findByRole('button', { name: 'More actions for Safety' }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+		expect(onRemove).not.toHaveBeenCalled();
+		await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+		await waitFor(() => expect(onRemove).toHaveBeenCalledOnce());
+		expect(onRemove.mock.calls[0][0]).toBe('r-ok');
+	});
 });

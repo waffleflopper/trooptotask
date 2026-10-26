@@ -100,6 +100,11 @@
 		missing: 'border-2 border-destructive'
 	};
 
+	/** A row that changed section unmounts its form, so leave nothing expanded on it. */
+	function collapse(...typeIds: string[]) {
+		if (expandedTypeId && typeIds.includes(expandedTypeId)) expandedTypeId = null;
+	}
+
 	function toggle(typeId: string) {
 		expandedTypeId = expandedTypeId === typeId ? null : typeId;
 	}
@@ -134,7 +139,9 @@
 				if (sameSheet(personId)) reportFailure(item.type.name, error);
 			}
 		});
-		if (saved && sameSheet(personId)) await focusNextAction();
+		if (!saved || !sameSheet(personId)) return;
+		collapse(item.type.id);
+		await focusNextAction();
 	}
 
 	async function saveFromForm(item: RecordSheetItem, data: Omit<PersonnelTraining, 'id'>) {
@@ -142,7 +149,7 @@
 		const isUpdate = !!item.record;
 		await saving.run(() => onSave(data));
 		if (!sameSheet(personId)) return;
-		if (expandedTypeId === item.type.id) expandedTypeId = null;
+		collapse(item.type.id);
 		toast.success(isUpdate ? 'Training record updated' : 'Training record saved');
 		await focusNextAction();
 	}
@@ -169,6 +176,7 @@
 		}
 		if (!sameSheet(personId)) return;
 		confirmRecordAll = false;
+		collapse(...records.map((record) => record.trainingTypeId));
 		await focusNextAction();
 	}
 
@@ -176,9 +184,10 @@
 
 	async function removeRecord() {
 		const personId = person.id;
+		const typeId = confirmRemoveTypeId;
 		const record = sheet.needsAction
 			.concat(sheet.current, sheet.notRequired)
-			.find((item) => item.type.id === confirmRemoveTypeId)?.record;
+			.find((item) => item.type.id === typeId)?.record;
 		if (!record) {
 			confirmRemoveTypeId = null;
 			return;
@@ -192,14 +201,16 @@
 				});
 			return;
 		}
-		if (sameSheet(personId)) confirmRemoveTypeId = null;
+		if (!sameSheet(personId)) return;
+		confirmRemoveTypeId = null;
+		if (typeId) collapse(typeId);
 	}
 
 	async function setExempt(item: RecordSheetItem, exempt: boolean) {
 		const personId = person.id;
 		saveError = null;
 		await saving.run(() => onToggleExempt(item.type.id, exempt));
-		if (!sameSheet(personId)) return;
+		if (sameSheet(personId)) collapse(item.type.id);
 	}
 
 	const busy = $derived(saving.pending);
@@ -232,7 +243,11 @@
 		onCloseAutoFocus={(event) => event.preventDefault()}
 	>
 		<AppDialog.Header eyebrow={`Training record · ${group}`} class="border-b pr-12 pb-4">
-			<AppDialog.Title class="uppercase focus-visible:outline-none" tabindex={-1} bind:ref={titleElement}>
+			<AppDialog.Title
+				class="font-heading text-3xl leading-8 font-extrabold uppercase focus-visible:outline-none"
+				tabindex={-1}
+				bind:ref={titleElement}
+			>
 				{person.rank}
 				{person.firstName}
 				{person.lastName}
@@ -242,14 +257,14 @@
 			{/if}
 			{#if loading}
 				<div class="grid gap-2 pt-2" role="status" aria-label="Loading training record">
-					<Skeleton class="h-1 w-full" />
+					<Skeleton class="h-1.5 w-full" />
 					<Skeleton class="h-4 w-40" />
 				</div>
 			{:else if total > 0}
 				<div class="grid gap-2 pt-2">
 					<div class="flex gap-1" aria-hidden="true">
 						{#each sheet.segments as segment, index (index)}
-							<span class={['h-1 flex-1', segmentClass[segment]]}></span>
+							<span class={['h-1.5 flex-1', segmentClass[segment]]}></span>
 						{/each}
 					</div>
 					<div class="flex items-baseline justify-between font-mono text-xs">

@@ -215,14 +215,14 @@ describe('RatingSchemePageView', () => {
 
 		expect(groupedToggle.getAttribute('aria-pressed')).toBe('true');
 		expect(tableToggle.getAttribute('aria-pressed')).toBe('false');
-		expect(screen.queryByRole('columnheader', { name: /Rated Individual/ })).toBeNull();
+		expect(screen.queryByRole('columnheader', { name: /Rated Soldier/ })).toBeNull();
 
 		await fireEvent.click(tableToggle);
 
 		expect(groupedToggle.getAttribute('aria-pressed')).toBe('false');
 		expect(tableToggle.getAttribute('aria-pressed')).toBe('true');
-		expect(screen.getByRole('columnheader', { name: /Rated Individual/ })).toBeTruthy();
-		expect(screen.getByRole('columnheader', { name: /Thru Date/ })).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: /Rated Soldier/ })).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: /Thru/ })).toBeTruthy();
 		const scrollRegion = screen.getByRole('region', { name: 'Rating scheme entries, scrollable' });
 		expect(scrollRegion.tabIndex).toBe(0);
 		expect(within(scrollRegion).getByRole('table')).toBeTruthy();
@@ -275,6 +275,76 @@ describe('RatingSchemePageView', () => {
 		expect(toastError).not.toHaveBeenCalled();
 	});
 
+	describe('ordering and search', () => {
+		const base = entries[0]!;
+		const ordered: RatingSchemeEntry[] = [
+			{ ...base, id: 'smith', ratedPersonId: 'p1', seniorRaterName: 'Zed Senior', ratingPeriodEnd: '2026-10-20' },
+			{ ...base, id: 'jones', ratedPersonId: 'p2', seniorRaterName: 'Alpha Senior', ratingPeriodEnd: '2027-06-30' },
+			{ ...base, id: 'adams', ratedPersonId: 'p3', seniorRaterName: 'Zed Senior', ratingPeriodEnd: '2026-11-10' }
+		];
+		const people = [
+			{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
+			{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' },
+			{ id: 'p3', rank: 'SPC', firstName: 'Ann', lastName: 'Adams' }
+		];
+
+		function renderOrdered() {
+			const ctx = new RatingSchemePageContext(
+				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: ordered, personnelLookup: people },
+				new ModalRegistry(),
+				makeOrg(),
+				ordered
+			);
+			render(RatingSchemePageView, { props: { ctx, personnelLookup: people } });
+			return ctx;
+		}
+
+		const groupLabels = () => screen.getAllByRole('region').map((region) => region.getAttribute('aria-label') ?? '');
+
+		beforeEach(() => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-10-25T12:00:00Z'));
+		});
+
+		afterEach(() => vi.useRealTimers());
+
+		it('orders senior rater groups by urgency and then by name on request', async () => {
+			renderOrdered();
+			expect(groupLabels()).toEqual(['Senior rater Zed Senior', 'Senior rater Alpha Senior']);
+
+			const order = screen.getByRole('button', { name: 'Group order' });
+			order.focus();
+			await fireEvent.keyDown(order, { key: 'ArrowDown' });
+			await fireEvent.pointerUp(await screen.findByRole('option', { name: /Senior rater A to Z/ }));
+
+			expect(groupLabels()).toEqual(['Senior rater Alpha Senior', 'Senior rater Zed Senior']);
+		});
+
+		it('sorts the table by rated Soldier last name until a header is chosen', async () => {
+			renderOrdered();
+			await fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+
+			const rows = screen.getAllByRole('row', { name: /^Edit rating entry for / });
+			expect(rows.map((row) => row.getAttribute('data-rating-entry-id'))).toEqual(['adams', 'jones', 'smith']);
+		});
+
+		it('narrows by search, says nothing matches and clears from the empty state', async () => {
+			renderOrdered();
+			const search = screen.getByRole('searchbox', { name: 'Search by Soldier or rater' });
+
+			await fireEvent.input(search, { target: { value: 'Smith' } });
+			expect(screen.getByText('1 of 3 shown')).toBeTruthy();
+
+			await fireEvent.input(search, { target: { value: 'nobody matches this' } });
+			expect(screen.getByText('No entries match')).toBeTruthy();
+			expect(screen.queryByRole('button', { name: /SGT Smith/ })).toBeNull();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear search and filters' }));
+			expect(screen.queryByText('No entries match')).toBeNull();
+			expect(screen.getByText('3 of 3 shown')).toBeTruthy();
+		});
+	});
+
 	describe('when the toolbar folds', () => {
 		const toolbarName = 'Evaluation controls';
 
@@ -303,7 +373,7 @@ describe('RatingSchemePageView', () => {
 					name: 'Table'
 				})
 			);
-			expect(await screen.findByRole('columnheader', { name: /Rated Individual/ })).toBeTruthy();
+			expect(await screen.findByRole('columnheader', { name: /Rated Soldier/ })).toBeTruthy();
 
 			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 			await openToolbarMore(toolbarName);

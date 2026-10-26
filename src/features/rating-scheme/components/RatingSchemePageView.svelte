@@ -3,15 +3,16 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
-	import {
-		WORKFLOW_STATUS_OPTIONS,
-		type RatingDueStatus,
-		type WorkflowStatus
-	} from '$features/rating-scheme/rating-scheme.types';
+	import { WORKFLOW_STATUS_OPTIONS, type WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
+	import { ratingDueTone } from '$features/rating-scheme/utils/ratingDueTone';
+	import type { GroupedSort } from '$features/rating-scheme/utils/ratingSchemeGroups';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
+	import * as Empty from '$lib/components/ui/empty';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import {
 		WorkspaceToolbar,
 		type ToolbarItem,
@@ -19,7 +20,6 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
-	import EvalBadge from '$features/rating-scheme/components/EvalBadge.svelte';
 	import type { RatingSchemePageContext } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
 
 	interface Props {
@@ -93,12 +93,11 @@
 		if (canUseRatingSchemeWriteActions) ctx.handleEditRatingEntry(entry);
 	});
 	const ratingStats = $derived(ctx.ratingStats);
-	const ratingShownLabel = $derived(`${ctx.filteredRatingEntries.length} of ${ratingSchemeStore.items.length} shown`);
-	const ratingMetricItems = $derived([
-		{ id: 'overdue', label: 'Overdue', value: ratingStats.overdue, status: 'overdue' as RatingDueStatus },
-		{ id: 'due-60', label: '60d', value: ratingStats['due-60'], status: 'due-60' as RatingDueStatus },
-		{ id: 'due-30', label: '30d', value: ratingStats['due-30'], status: 'due-30' as RatingDueStatus }
-	]);
+	const ratingShownLabel = $derived(`${ctx.filteredRatingEntries.length} of ${ctx.totalEntryCount} shown`);
+	const groupedSortOptions = [
+		{ value: 'urgency', label: 'Sort: Most urgent' },
+		{ value: 'seniorRaterAZ', label: 'Sort: Senior rater A to Z' }
+	];
 	async function exportEntries(): Promise<void> {
 		exportLoading = true;
 		const current = stillInOrganizationLifetime();
@@ -157,6 +156,19 @@
 			});
 		}
 
+		if (ctx.ratingViewMode === 'grouped') {
+			items.push({
+				kind: 'select',
+				id: 'grouped-sort',
+				label: 'Group order',
+				ariaLabel: 'Group order',
+				options: groupedSortOptions,
+				value: ctx.groupedSort,
+				defaultValue: 'urgency',
+				onValueChange: (value) => (ctx.groupedSort = value as GroupedSort)
+			});
+		}
+
 		items.push({
 			kind: 'action',
 			id: 'export',
@@ -168,6 +180,13 @@
 
 		return items;
 	});
+
+	const toolbarSearch = $derived({
+		label: 'Search by Soldier or rater',
+		placeholder: 'Search Soldier or rater...',
+		value: ctx.searchQuery,
+		onValueChange: (value) => (ctx.searchQuery = value)
+	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
 	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
 		showRatingSchemeWriteActions
@@ -187,6 +206,27 @@
 	<title>Evals - Troop to Task</title>
 </svelte:head>
 
+{#snippet headerCounts()}
+	<span class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+		<span><span class="font-semibold text-foreground tabular-nums">{ctx.activeEntryCount}</span> active</span>
+		<span class={ratingDueTone.overdue.text}>
+			<span class="font-semibold tabular-nums">{ratingStats.overdue}</span> past thru
+		</span>
+		<span class={ratingDueTone['due-30'].text}>
+			<span class="font-semibold tabular-nums">{ratingStats['due-30']}</span> thru in 30 days
+		</span>
+		<span class={ratingDueTone['due-60'].text}>
+			<span class="font-semibold tabular-nums">{ratingStats['due-60']}</span> thru in 31 to 60 days
+		</span>
+	</span>
+{/snippet}
+
+{#snippet shownCount()}
+	<span class="text-xs font-medium text-muted-foreground" role="status" aria-label={ratingShownLabel}>
+		{ratingShownLabel}
+	</span>
+{/snippet}
+
 <div class="flex h-full min-h-0 flex-col overflow-hidden bg-background" bind:this={workspace}>
 	{#if !canViewRatingScheme}
 		<div class="p-4 md:p-6">
@@ -198,41 +238,47 @@
 			</Alert.Root>
 		</div>
 	{:else}
-		<div class="flex min-h-0 flex-1 overflow-hidden p-4 md:p-6">
-			<section class="flex min-h-0 w-full flex-col gap-4 overflow-hidden">
-				<WorkspaceToolbar ariaLabel="Evaluation controls" items={toolbarItems} primary={toolbarPrimary} />
+		<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
+			<PageShell.Header
+				eyebrow="Rating scheme · {ctx.orgName}"
+				title="Evals"
+				subtitle={headerCounts}
+				aside={shownCount}
+			/>
 
-				<div class="min-h-0 flex-1 overflow-auto rounded-lg border bg-card text-card-foreground">
-					<div
-						class="flex flex-col gap-3 border-b bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-					>
-						<div class="flex flex-wrap items-center gap-2" aria-label="Evaluation status summary">
-							{#each ratingMetricItems as item (item.id)}
-								<EvalBadge kind="due" value={item.status}>
-									<span>{item.label}</span>
-									<span>{item.value}</span>
-								</EvalBadge>
-							{/each}
-						</div>
-						<div class="text-xs font-medium text-muted-foreground" role="status" aria-label={ratingShownLabel}>
-							{ratingShownLabel}
-						</div>
-					</div>
-					{#if ctx.ratingViewMode === 'grouped'}
-						<RatingSchemeGroupedView
-							entries={ctx.filteredRatingEntries}
-							personnel={personnelLookup}
-							onEdit={canUseRatingSchemeWriteActions ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
-						/>
-					{:else}
-						<RatingSchemeTableView
-							entries={ctx.filteredRatingEntries}
-							personnel={personnelLookup}
-							onEdit={canUseRatingSchemeWriteActions ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
-						/>
-					{/if}
-				</div>
-			</section>
+			<WorkspaceToolbar
+				ariaLabel="Evaluation controls"
+				items={toolbarItems}
+				search={toolbarSearch}
+				primary={toolbarPrimary}
+			/>
+
+			<div class="min-h-0 flex-1 overflow-auto">
+				{#if ctx.filteredRatingEntries.length === 0 && ctx.totalEntryCount > 0}
+					<Empty.Root class="border-border bg-card">
+						<Empty.Header>
+							<Empty.Title>No entries match</Empty.Title>
+							<Empty.Description>Nothing fits the current search and filters.</Empty.Description>
+						</Empty.Header>
+						<Empty.Content>
+							<Button variant="outline" onclick={() => ctx.clearSearchAndFilters()}>Clear search and filters</Button>
+						</Empty.Content>
+					</Empty.Root>
+				{:else if ctx.ratingViewMode === 'grouped'}
+					<RatingSchemeGroupedView
+						entries={ctx.filteredRatingEntries}
+						personnel={personnelLookup}
+						sort={ctx.groupedSort}
+						onEdit={canUseRatingSchemeWriteActions ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
+					/>
+				{:else}
+					<RatingSchemeTableView
+						entries={ctx.filteredRatingEntries}
+						personnel={personnelLookup}
+						onEdit={canUseRatingSchemeWriteActions ? (entry) => ctx.handleEditRatingEntry(entry) : undefined}
+					/>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>

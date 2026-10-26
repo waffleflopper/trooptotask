@@ -43,10 +43,14 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'calendar_events',
 	'calendar_event_activity',
 	'calendar_taskings',
+	'calendar_tasking_equipment',
 	'rpc/roster_signals',
 	'rpc/calendar_tasking_attention',
 	'rpc/calendar_tasking_dashboard',
-	'rpc/calendar_tasking_workspace'
+	'rpc/calendar_tasking_workspace',
+	'rpc/calendar_tasking_people',
+	'rpc/read_calendar_tasking_activity',
+	'rpc/list_calendar_event_tasking_summaries'
 ]);
 const ORGANIZATION_COLUMN = { organizations: 'id', audit_logs: 'org_id' };
 

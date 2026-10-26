@@ -63,7 +63,9 @@
 			: COPY[action]
 	);
 
-	let text = $state(untrack(() => (tasking.status.kind === 'blocked' && action === 'block' ? tasking.status.reason : '')));
+	let text = $state(
+		untrack(() => (tasking.status.kind === 'blocked' && action === 'block' ? tasking.status.reason : ''))
+	);
 	let saveError = $state('');
 	let open = true;
 

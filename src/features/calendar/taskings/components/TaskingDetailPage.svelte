@@ -306,7 +306,7 @@
 
 {#snippet cell(heading: string, value: string, secondary: string | null, href?: string)}
 	<div
-		class="grid content-start gap-1 border-b border-border px-4 py-[14px] last:border-b-0 @min-[40rem]:border-r @min-[40rem]:border-b-0 @min-[40rem]:last:border-r-0"
+		class="grid content-start gap-1 border-b border-border px-4 py-[14px] last:border-b-0 @min-[34rem]:border-r @min-[34rem]:border-b-0 @min-[34rem]:last:border-r-0"
 	>
 		{@render label(heading)}
 		{#if href}
@@ -371,7 +371,7 @@
 					{/if}
 
 					<div class="@container rounded-lg border border-border bg-card">
-						<div class="grid @min-[40rem]:grid-cols-3">
+						<div class="grid @min-[34rem]:grid-cols-3">
 							{#if tasking.event}
 								{@render cell(
 									'Event',
@@ -386,7 +386,7 @@
 								{@render cell(
 									'People committed',
 									eventDayRange(tasking.execution, today),
-									tasking.execution.reportTime ? `Report ${tasking.execution.reportTime}` : null
+									tasking.execution.reportTime ? `Report ${tasking.execution.reportTime.replace(':', '')}` : null
 								)}
 							{:else}
 								{@const needed = tasking.requirement?.count ?? 0}
@@ -433,7 +433,9 @@
 						<div
 							class={[
 								'grid gap-[10px] rounded-lg border border-l-4 px-[18px] py-4',
-								completed ? 'border-success/25 border-l-success bg-success/6' : 'border-border border-l-muted-foreground bg-muted'
+								completed
+									? 'border-success/25 border-l-success bg-success/6'
+									: 'border-border border-l-muted-foreground bg-muted'
 							]}
 						>
 							<div class="flex flex-wrap items-baseline gap-x-2.5">
@@ -480,7 +482,7 @@
 					/>
 				</div>
 
-				<aside class="grid min-w-0 gap-4" aria-label="Tasking status and history">
+				<aside class="grid min-w-0 grid-cols-1 gap-4" aria-label="Tasking status and history">
 					<section class="grid gap-3 rounded-lg border border-border bg-card p-4" aria-label="Status">
 						{@render label('Status')}
 						<Select.Root
@@ -529,7 +531,10 @@
 					</section>
 
 					{#if tasking.event && !seesWholeOrganization}
-						<section class="grid gap-2 rounded-lg border border-border bg-card p-4" aria-label="Rest of the event">
+						<section
+							class="grid grid-cols-1 gap-2 rounded-lg border border-border bg-card p-4"
+							aria-label="Rest of the event"
+						>
 							{@render label('Rest of the event')}
 							{#if rest === null}
 								<div class="grid gap-2" role="status" aria-label="Loading the rest of the event">
@@ -541,7 +546,7 @@
 							{:else if rest.length === 0}
 								<p class="m-0 text-[13px] text-muted-foreground">This is the event's only tasking.</p>
 							{:else}
-								<ul class="m-0 grid list-none gap-1.5 p-0">
+								<ul class="m-0 grid list-none grid-cols-1 gap-1.5 p-0">
 									{#each rest as contribution (contribution.id)}
 										<li class="flex items-baseline justify-between gap-3 text-sm">
 											<span class="min-w-0 truncate">{contributionLabel(contribution)}</span>
@@ -555,7 +560,9 @@
 												<span
 													class={[
 														'shrink-0 font-mono text-xs tabular-nums',
-														contribution.picked >= contribution.required ? 'text-success-foreground' : 'text-accent-text'
+														contribution.picked >= contribution.required
+															? 'text-success-foreground'
+															: 'text-accent-text'
 													]}
 												>
 													{contribution.picked} of {contribution.required}
@@ -607,7 +614,9 @@
 											{activityDay(entry.at)}
 										</time>
 										<span class="grid min-w-0 gap-0.5 text-[13px] leading-[18px]">
-											<span class="wrap-anywhere">{memberLabel(entry.actorUserId, members)} {lowerFirst(line.summary)}</span>
+											<span class="wrap-anywhere"
+												>{memberLabel(entry.actorUserId, members)} {lowerFirst(line.summary)}</span
+											>
 											{#if line.note}
 												<span class="wrap-anywhere whitespace-pre-line text-muted-foreground">{line.note}</span>
 											{/if}

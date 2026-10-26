@@ -85,9 +85,7 @@
 	});
 	const shortTone = $derived(blocked ? 'text-danger-foreground' : 'text-accent-text');
 	const full = $derived(items.length >= TASKING_LIST_LIMIT);
-	const countParsed = $derived(
-		counting ? securedSchema.safeParse(Number(counting.returnedQuantity)) : null
-	);
+	const countParsed = $derived(counting ? securedSchema.safeParse(Number(counting.returnedQuantity)) : null);
 	const addParsed = $derived(
 		equipmentDraftSchema.safeParse({ name: adding.name, quantity: Number(adding.quantity), securedQuantity: 0 })
 	);
@@ -269,7 +267,8 @@
 									maxlength={EQUIPMENT_NAME_MAX * 2}
 									bind:value={editing.name}
 								/>
-								{#if triedEdit && problem(editParsed, 'name')}<Field.Error>{problem(editParsed, 'name')}</Field.Error>{/if}
+								{#if triedEdit && problem(editParsed, 'name')}<Field.Error>{problem(editParsed, 'name')}</Field.Error
+									>{/if}
 							</Field.Root>
 							<div class="grid grid-cols-2 gap-3">
 								<Field.Root>
@@ -442,7 +441,12 @@
 			</div>
 		</form>
 	{:else if canEdit && !full}
-		<Button variant="ghost" size="sm" class="-ml-2 justify-self-start text-muted-foreground" onclick={() => (addOpen = true)}>
+		<Button
+			variant="ghost"
+			size="sm"
+			class="-ml-2 justify-self-start text-muted-foreground"
+			onclick={() => (addOpen = true)}
+		>
 			<Plus data-icon="inline-start" aria-hidden="true" />Add equipment
 		</Button>
 	{/if}

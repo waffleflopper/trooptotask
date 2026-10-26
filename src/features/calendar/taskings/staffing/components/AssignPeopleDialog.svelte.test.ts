@@ -25,8 +25,24 @@ const picker: StaffingPicker = {
 	states: {},
 	staffing: nobody,
 	candidates: [
-		{ personnelId: ALICE, rank: 'SPC', firstName: 'Alice', lastName: 'Avery', groupId: ALPHA, mos: '68W', clinicRole: '' },
-		{ personnelId: BRUNO, rank: 'SGT', firstName: 'Bruno', lastName: 'Baker', groupId: ALPHA, mos: '68W', clinicRole: '' }
+		{
+			personnelId: ALICE,
+			rank: 'SPC',
+			firstName: 'Alice',
+			lastName: 'Avery',
+			groupId: ALPHA,
+			mos: '68W',
+			clinicRole: ''
+		},
+		{
+			personnelId: BRUNO,
+			rank: 'SGT',
+			firstName: 'Bruno',
+			lastName: 'Baker',
+			groupId: ALPHA,
+			mos: '68W',
+			clinicRole: ''
+		}
 	],
 	advisories: { kind: 'loaded', byPerson: {} }
 };
@@ -88,9 +104,7 @@ describe('AssignPeopleDialog', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
 
 		await waitFor(() => expect(sent).toHaveLength(1));
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false)
-		);
+		await waitFor(() => expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false));
 		expect(screen.getByRole('checkbox', { name: /Avery/ }).getAttribute('aria-checked')).toBe('true');
 		expect(onSaved).not.toHaveBeenCalled();
 
@@ -109,9 +123,7 @@ describe('AssignPeopleDialog', () => {
 		await fireEvent.click(await screen.findByRole('checkbox', { name: /Baker/ }));
 		await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
 
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false)
-		);
+		await waitFor(() => expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false));
 		expect(screen.getByRole('checkbox', { name: /Baker/ }).getAttribute('aria-checked')).toBe('true');
 		expect(onSaved).not.toHaveBeenCalled();
 	});
@@ -128,9 +140,7 @@ describe('AssignPeopleDialog', () => {
 
 		expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(true);
 		finish();
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false)
-		);
+		await waitFor(() => expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false));
 	});
 
 	it('hands the caller the selection it opened on, so the save can be undone', async () => {

@@ -89,7 +89,13 @@
 	const ownerName = $derived(
 		responsibility.kind === 'organization' ? null : groupLabel(responsibility.groupId, groups)
 	);
-	const rows = $derived(typeof picker === 'object' && picker ? pickerRows(picker, responsibility) : []);
+	// Who was picked when the sheet opened leads the list, so ticking someone never moves a row.
+	const rows = $derived.by(() => {
+		if (typeof picker !== 'object' || !picker) return [];
+		const all = pickerRows(picker, responsibility);
+		const was = new Set(initial);
+		return [...all.filter((row) => was.has(row.personnelId)), ...all.filter((row) => !was.has(row.personnelId))];
+	});
 	const rowsById = $derived(new Map(rows.map((row) => [row.personnelId, row])));
 	const groupOptions = $derived(
 		Object.entries(groups)
@@ -200,7 +206,10 @@
 			</div>
 		</AppDialog.Header>
 
-		<div class="flex flex-wrap items-center gap-2 border-b border-border bg-card px-6 py-3" aria-label="Selected people">
+		<div
+			class="flex flex-wrap items-center gap-2 border-b border-border bg-card px-6 py-3"
+			aria-label="Selected people"
+		>
 			<span class={['shrink-0 font-mono text-[13px] font-semibold tabular-nums', countTone]}>
 				{required === null ? `${selected.size} selected` : `${selected.size} of ${required}`}
 			</span>
@@ -222,7 +231,8 @@
 				{/if}
 			{/each}
 			{#each Array.from({ length: Math.min(openSlots, 6) }, (_, index) => index) as slot (slot)}
-				<span class="h-[26px] w-14 shrink-0 rounded-full border-[1.5px] border-dashed border-accent" aria-hidden="true"></span>
+				<span class="h-[26px] w-14 shrink-0 rounded-full border-[1.5px] border-dashed border-accent" aria-hidden="true"
+				></span>
 			{/each}
 		</div>
 

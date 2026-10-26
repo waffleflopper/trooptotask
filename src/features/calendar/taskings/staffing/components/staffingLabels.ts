@@ -37,7 +37,11 @@ export type PersonStateLine = { tone: 'clear' | 'conflict' | 'elsewhere'; text: 
 
 const more = (count: number, noun: string) => (count > 0 ? ` And ${count} more ${noun}${count === 1 ? '' : 's'}.` : '');
 
-export function personStateLine(state: StaffingPersonState, execution: EventDates | null, today: string): PersonStateLine {
+export function personStateLine(
+	state: StaffingPersonState,
+	execution: EventDates | null,
+	today: string
+): PersonStateLine {
 	switch (state.kind) {
 		case 'unknown':
 			return null;

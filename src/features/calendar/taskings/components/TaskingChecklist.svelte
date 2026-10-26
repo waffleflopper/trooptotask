@@ -276,7 +276,12 @@
 			</div>
 		</form>
 	{:else if canEdit && !full}
-		<Button variant="ghost" size="sm" class="-ml-2 justify-self-start text-muted-foreground" onclick={() => (addOpen = true)}>
+		<Button
+			variant="ghost"
+			size="sm"
+			class="-ml-2 justify-self-start text-muted-foreground"
+			onclick={() => (addOpen = true)}
+		>
 			<Plus data-icon="inline-start" aria-hidden="true" />Add item
 		</Button>
 	{/if}

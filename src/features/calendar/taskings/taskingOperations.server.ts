@@ -106,10 +106,7 @@ export async function listEventContributions(
 	eventId: string,
 	exceptTaskingId: string
 ): Promise<EventContribution[]> {
-	const [own, others] = await Promise.all([
-		listEventTaskings(ctx, eventId),
-		listEventTaskingSummaries(ctx, eventId)
-	]);
+	const [own, others] = await Promise.all([listEventTaskings(ctx, eventId), listEventTaskingSummaries(ctx, eventId)]);
 	const visible = own.taskings.map(
 		(tasking): EventContribution => ({
 			id: tasking.id,

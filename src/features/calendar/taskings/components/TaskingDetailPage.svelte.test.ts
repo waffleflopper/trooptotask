@@ -62,7 +62,11 @@ const staffing = (revision: number, ...picks: TaskingPick[]): TaskingStaffing =>
 const never = <T>() => new Promise<T>(() => {});
 const loaded = <T>(value: T) => Promise.resolve({ status: 'loaded', value } as EventRead<T>);
 
-function open(shown: Tasking, people: Promise<EventRead<TaskingStaffing>> = never(), choices = never<EventRead<TaskingChoices | null>>()) {
+function open(
+	shown: Tasking,
+	people: Promise<EventRead<TaskingStaffing>> = never(),
+	choices = never<EventRead<TaskingChoices | null>>()
+) {
 	const detail: TaskingDetail = { tasking: shown, groups: { [ALPHA]: 'Alpha' }, members: {} };
 	render(TaskingDetailPage, {
 		org,

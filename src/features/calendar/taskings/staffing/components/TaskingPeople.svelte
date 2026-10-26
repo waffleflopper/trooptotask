@@ -74,10 +74,7 @@
 		tasking.responsibility.kind === 'organization' ? null : groupLabel(tasking.responsibility.groupId, groups)
 	);
 	const requirementLine = $derived(
-		[
-			tasking.requirement?.qualifications?.replace(/\.$/, ''),
-			scopeName ? `From ${scopeName}` : 'From any Group'
-		]
+		[tasking.requirement?.qualifications?.replace(/\.$/, ''), scopeName ? `From ${scopeName}` : 'From any Group']
 			.filter(Boolean)
 			.join('. ') + '.'
 	);
@@ -120,7 +117,10 @@
 
 <!-- Nobody needed and nobody picked has nothing to show, so the card stays out of the way. -->
 {#if required !== null || (typeof current === 'object' && current !== null && (current.picks.length > 0 || current.outsideScope > 0)) || current === 'failed'}
-	<section class="@container overflow-clip rounded-lg border border-border bg-card" aria-labelledby="tasking-people-heading">
+	<section
+		class="@container overflow-clip rounded-lg border border-border bg-card"
+		aria-labelledby="tasking-people-heading"
+	>
 		<div class="flex items-start justify-between gap-3 px-4 pt-[14px] pb-3">
 			<div class="grid min-w-0 gap-0.5">
 				<div class="flex flex-wrap items-baseline gap-x-2.5">
@@ -167,7 +167,8 @@
 		{:else if current === 'failed'}
 			<div class="border-t border-border p-3"><EventLoadFailed title="People could not be loaded" /></div>
 		{:else}
-			{@const open = required !== null && isActiveStatus(tasking.status.kind) ? Math.max(0, required - current.picked) : 0}
+			{@const open =
+				required !== null && isActiveStatus(tasking.status.kind) ? Math.max(0, required - current.picked) : 0}
 			<ul class="m-0 list-none p-0">
 				{#each current.picks as pick (pick.personnelId)}
 					{@const review = pickReview(pick, tasking.responsibility)}
@@ -182,7 +183,9 @@
 						<span class="hidden w-[150px] shrink-0 truncate font-mono text-xs text-muted-foreground @[40rem]:block">
 							{secondary(pick)}
 						</span>
-						<span class="flex basis-full flex-wrap items-center gap-2 pl-12 @[40rem]:w-[230px] @[40rem]:basis-auto @[40rem]:pl-0">
+						<span
+							class="flex basis-full flex-wrap items-center gap-2 pl-12 @[40rem]:w-[230px] @[40rem]:basis-auto @[40rem]:pl-0"
+						>
 							{#if review}
 								<Badge variant="warning">Needs review</Badge>
 								<span class="text-[13px] text-muted-foreground">{reviewLabel(review, pick.groupId, groups)}</span>
@@ -230,7 +233,9 @@
 				{/if}
 				{#if open > 0}
 					<li class="flex min-h-[50px] flex-wrap items-center gap-3 border-t border-border bg-accent/6 px-4 py-2">
-						<span class="h-[22px] w-9 shrink-0 rounded-[3px] border-[1.5px] border-dashed border-accent" aria-hidden="true"
+						<span
+							class="h-[22px] w-9 shrink-0 rounded-[3px] border-[1.5px] border-dashed border-accent"
+							aria-hidden="true"
 						></span>
 						<span class="min-w-0 flex-1 text-sm font-medium text-accent-text">
 							{open} more {open === 1 ? 'person' : 'people'} needed by {neededBy}

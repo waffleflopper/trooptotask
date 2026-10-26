@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
 	formatDate,
 	formatDayMonth,
+	formatDayMonthShortYear,
 	formatDayMonthYear,
 	formatToday,
 	parseDate,
@@ -171,6 +172,13 @@ describe('formatDayMonthYear', () => {
 		expect(formatDayMonthYear('2024-09-24')).toBe('24 Sep 2024');
 		expect(formatDayMonthYear('2026-01-05T00:00:00Z')).toBe('5 Jan 2026');
 		expect(formatDayMonth('2026-09-15')).toBe('15 Sep');
+	});
+});
+
+describe('formatDayMonthShortYear', () => {
+	it('keeps the day-month-year order with a two-digit year', () => {
+		expect(formatDayMonthShortYear('2024-09-24')).toBe('24 Sep 24');
+		expect(formatDayMonthShortYear('2027-01-05T00:00:00Z')).toBe('5 Jan 27');
 	});
 });
 

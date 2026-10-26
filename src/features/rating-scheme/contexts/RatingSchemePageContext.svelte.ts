@@ -136,6 +136,14 @@ export class RatingSchemePageContext {
 		this.workflowFilter = 'all';
 	}
 
+	get totalEntryCount(): number {
+		return this.#ratingStore.items.length;
+	}
+
+	get activeEntryCount(): number {
+		return this.#ratingStore.items.filter((entry) => entry.status === 'active').length;
+	}
+
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number } {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0 };
 		for (const entry of this.#ratingStore.items) {

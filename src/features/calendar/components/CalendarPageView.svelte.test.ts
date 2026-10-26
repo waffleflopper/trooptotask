@@ -16,6 +16,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import { tick } from 'svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core';
+import { EMPTY_PROJECTION, EMPTY_TASKING_FACTS } from '$features/calendar/projection/calendarProjection';
 
 const gotoMock = vi.hoisted(() => vi.fn());
 
@@ -31,6 +32,11 @@ vi.mock('$features/calendar/utils/calendarPrint', () => exportMocks);
 vi.mock('$app/navigation', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$app/navigation')>()),
 	goto: gotoMock
+}));
+
+vi.mock('$features/calendar/taskings/taskingRequests', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/calendar/taskings/taskingRequests')>()),
+	transitionTaskingRequest: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
@@ -882,5 +888,53 @@ describe('CalendarPageView', () => {
 		await tick();
 
 		expect(toastError).not.toHaveBeenCalled();
+	});
+
+	it('says a saved Tasking change left the Calendar stale when the reread fails, and reads again from the toast', async () => {
+		mutableAvailabilityStore.loading = false;
+		calendarStore.goToMonth(2026, 4);
+		const toastError = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onTaskingsChanged = vi.fn().mockResolvedValueOnce('failed').mockResolvedValueOnce('read');
+		const facts = {
+			...EMPTY_TASKING_FACTS,
+			taskings: {
+				t1: {
+					eventRelation: 'standalone' as const,
+					picked: 0,
+					required: 2,
+					equipment: { ready: 0, total: 0, returnedQuantity: 0, totalQuantity: 0 },
+					conflicts: 0,
+					nextDate: '2026-05-10',
+					suspenseOn: '2026-05-10',
+					status: 'open' as const,
+					responsibleGroupId: null
+				}
+			}
+		};
+		const ctx = makeContext(mockData, makeMockOrg({ userRole: 'owner' }));
+		render(CalendarPageView, {
+			props: {
+				ctx,
+				data: { orgId: 'org1', orgName: 'Test Org' },
+				projection: {
+					...EMPTY_PROJECTION,
+					suspenses: [{ taskingId: 't1', title: 'Litter team', suspenseOn: '2026-05-10', status: 'open' }]
+				},
+				taskingFacts: facts,
+				onTaskingsChanged
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('link', { name: /Litter team/ }));
+		await fireEvent.click(
+			within(await screen.findByRole('dialog', { name: 'Litter team' })).getByRole('button', { name: 'Start' })
+		);
+
+		await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
+		const [message, , retry] = toastError.mock.calls[0]!;
+		expect(message).toBe('Saved, but the Calendar could not refresh.');
+		retry?.onClick();
+		await waitFor(() => expect(onTaskingsChanged).toHaveBeenCalledTimes(2));
+		expect(toastError).toHaveBeenCalledTimes(1);
 	});
 });

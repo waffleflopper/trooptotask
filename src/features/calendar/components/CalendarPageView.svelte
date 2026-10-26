@@ -72,7 +72,7 @@
 		/** Tasking facts from the same read, for the quick cards and the toolbar badge. */
 		taskingFacts?: CalendarTaskingFacts;
 		/** Reads the Events region again after a Tasking write. */
-		onTaskingsChanged?: () => Promise<unknown>;
+		onTaskingsChanged?: () => Promise<'read' | 'failed' | 'abandoned'>;
 	}
 
 	let {
@@ -218,8 +218,17 @@
 			return current() ? 'failed' : 'abandoned';
 		}
 		if (!current()) return 'abandoned';
-		await onTaskingsChanged?.();
+		await refreshTaskings(current);
 		return current() ? 'done' : 'abandoned';
+	}
+
+	// The write saved; a failed reread must not leave old markers and counts looking current.
+	async function refreshTaskings(current: () => boolean) {
+		if ((await onTaskingsChanged?.()) === 'failed' && current())
+			toastStore.error('Saved, but the Calendar could not refresh.', undefined, {
+				label: 'Retry',
+				onClick: () => void refreshTaskings(current)
+			});
 	}
 
 	function personLabel(personnelId: string): string {
@@ -550,7 +559,7 @@
 			groups={groupNames}
 			onSaved={() => {
 				assigning = null;
-				return onTaskingsChanged?.();
+				return refreshTaskings(stillInOrganizationLifetime());
 			}}
 			onClose={() => (assigning = null)}
 		/>

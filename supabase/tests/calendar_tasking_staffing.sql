@@ -52,10 +52,12 @@ $$;
 CREATE FUNCTION pg_temp.ids(p_suffixes text[]) RETURNS uuid[] LANGUAGE sql IMMUTABLE AS $$
   SELECT coalesce(array_agg(pg_temp.id(s)), ARRAY[]::uuid[]) FROM unnest(p_suffixes) AS s;
 $$;
-CREATE FUNCTION pg_temp.save(p_tasking text, p_people text[], p_revision integer, p_kept text[] DEFAULT ARRAY[]::text[])
-RETURNS text LANGUAGE sql AS $$
+CREATE FUNCTION pg_temp.save(
+  p_tasking text, p_people text[], p_revision integer, p_kept text[] DEFAULT ARRAY[]::text[],
+  p_remove_outside boolean DEFAULT false
+) RETURNS text LANGUAGE sql AS $$
   SELECT outcome || ':' || revision FROM public.save_calendar_tasking_people(
-    pg_temp.id('101'), pg_temp.id(p_tasking), pg_temp.ids(p_people), pg_temp.ids(p_kept), p_revision);
+    pg_temp.id('101'), pg_temp.id(p_tasking), pg_temp.ids(p_people), pg_temp.ids(p_kept), p_remove_outside, p_revision);
 $$;
 CREATE FUNCTION pg_temp.picks(p_tasking text) RETURNS text[] LANGUAGE sql AS $$
   SELECT coalesce(array_agg(right(personnel_id::text, 3) || CASE WHEN review_since IS NULL THEN '' ELSE '?' END
@@ -191,6 +193,9 @@ SELECT results_eq(
   $$VALUES (0, 1, 1)$$, 'the Alpha viewer sees only that one pick sits outside their Groups');
 SELECT is((SELECT count(*)::int FROM public.calendar_tasking_staffing(pg_temp.id('101'), ARRAY[pg_temp.id('402')])), 0,
   'and no staffing for Organization-level work they cannot see');
+SELECT pg_temp.act_as('3');
+SELECT is(pg_temp.save('401', ARRAY[]::text[], 2), 'unchanged:2',
+  'an Alpha operator''s save keeps the pick they cannot name');
 SELECT pg_temp.act_as('4');
 SELECT results_eq(
   $$SELECT last_name, group_id, review_since IS NOT NULL FROM public.calendar_tasking_people(pg_temp.id('101'), pg_temp.id('401'))$$,
@@ -230,6 +235,17 @@ SELECT pg_temp.act_as('2');
 SELECT results_eq(
   $$SELECT tasking_id, title FROM public.calendar_deletion_references(pg_temp.id('101'), NULL, pg_temp.id('201'))$$,
   $$VALUES (pg_temp.id('404'), 'Alpha litter carry'::text)$$, 'an Organization-wide reader sees the Group''s Tasking');
+SELECT lives_ok($$INSERT INTO public.calendar_taskings (id, organization_id, title, responsible_group_id, suspense_on)
+  VALUES (pg_temp.id('405'), pg_temp.id('101'), 'Alpha barracks detail', pg_temp.id('201'), '2030-11-02')$$,
+  'an Organization-wide operator adds another Alpha Tasking');
+SELECT is(pg_temp.save('405', ARRAY['501'], 0), 'saved:1', 'and picks an Alpha Person for it');
+RESET ROLE;
+UPDATE public.personnel SET group_id = pg_temp.id('202') WHERE id = pg_temp.id('501');
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.act_as('3');
+SELECT is(pg_temp.save('405', ARRAY[]::text[], 1, ARRAY[]::text[], true), 'saved:2',
+  'an Alpha operator explicitly removes the pick now outside their Groups');
+SELECT is(pg_temp.picks('405'), ARRAY[]::text[], 'and it is gone');
 SELECT pg_temp.act_as('6');
 SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), pg_temp.id('502'), NULL)), 0,
   'another Organization learns nothing');

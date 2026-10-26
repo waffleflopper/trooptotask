@@ -130,9 +130,12 @@ EXECUTE FUNCTION calendar_private.flag_picks_of_rerouted_tasking();
 -- already stored changes nothing, so a retried save converges. Any other change
 -- against a revision the caller did not see returns 'conflict' and writes nothing.
 -- Newly picked and kept People must be active and in the Tasking's roster;
--- a pick already under review may stay as it is.
+-- a pick already under review may stay as it is. The caller cannot name picks
+-- outside their roster scope, so those stay unless p_remove_outside_scope says
+-- to remove them.
 CREATE FUNCTION public.save_calendar_tasking_people(
-  p_organization_id uuid, p_tasking_id uuid, p_personnel_ids uuid[], p_kept_ids uuid[], p_expected_revision integer
+  p_organization_id uuid, p_tasking_id uuid, p_personnel_ids uuid[], p_kept_ids uuid[], p_remove_outside_scope boolean,
+  p_expected_revision integer
 ) RETURNS TABLE (outcome text, revision integer)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = ''
@@ -145,6 +148,7 @@ DECLARE
   v_revision integer;
   v_current uuid[];
   v_flagged uuid[];
+  v_outside uuid[];
   v_added uuid[];
   v_removed uuid[];
   v_checked uuid[];
@@ -171,10 +175,16 @@ BEGIN
   END IF;
 
   SELECT coalesce(array_agg(p.personnel_id), ARRAY[]::uuid[]),
-    coalesce(array_agg(p.personnel_id) FILTER (WHERE p.review_since IS NOT NULL), ARRAY[]::uuid[])
-  INTO v_current, v_flagged
+    coalesce(array_agg(p.personnel_id) FILTER (WHERE p.review_since IS NOT NULL), ARRAY[]::uuid[]),
+    coalesce(array_agg(p.personnel_id) FILTER (
+      WHERE NOT calendar_private.calendar_person_in_scope(p.organization_id, p.personnel_id)
+    ), ARRAY[]::uuid[])
+  INTO v_current, v_flagged, v_outside
   FROM public.calendar_tasking_participants AS p
   WHERE p.organization_id = p_organization_id AND p.tasking_id = p_tasking_id;
+  IF p_remove_outside_scope IS NOT TRUE THEN
+    v_ids := v_ids || ARRAY(SELECT id FROM unnest(v_outside) AS id WHERE NOT id = ANY (v_ids));
+  END IF;
 
   v_kept := ARRAY(SELECT id FROM unnest(v_kept) AS id WHERE id = ANY (v_flagged));
   IF v_ids @> v_current AND v_current @> v_ids AND cardinality(v_kept) = 0 THEN
@@ -220,9 +230,9 @@ BEGIN
   RETURN QUERY SELECT 'saved'::text, v_revision + 1;
 END;
 $$;
-ALTER FUNCTION public.save_calendar_tasking_people(uuid, uuid, uuid[], uuid[], integer) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.save_calendar_tasking_people(uuid, uuid, uuid[], uuid[], integer) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.save_calendar_tasking_people(uuid, uuid, uuid[], uuid[], integer) TO authenticated;
+ALTER FUNCTION public.save_calendar_tasking_people(uuid, uuid, uuid[], uuid[], boolean, integer) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.save_calendar_tasking_people(uuid, uuid, uuid[], uuid[], boolean, integer) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.save_calendar_tasking_people(uuid, uuid, uuid[], uuid[], boolean, integer) TO authenticated;
 
 -- Staffing counts for the Taskings the reader can see. `outside_scope` counts
 -- picks whose person the reader's roster scope does not cover; they stay nameless.

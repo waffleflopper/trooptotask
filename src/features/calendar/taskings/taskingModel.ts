@@ -86,6 +86,7 @@ export type TaskingActivityFact =
 	| { kind: 'dates_changed'; from: TaskingSchedule; to: TaskingSchedule }
 	| { kind: 'linked'; eventId: string }
 	| { kind: 'unlinked'; eventId: string }
+	| { kind: 'event_deleted'; eventId: string; eventTitle: string }
 	| { kind: 'requirement_changed'; from: StaffingRequirement | null; to: StaffingRequirement | null }
 	| { kind: 'instructions_changed' }
 	| { kind: 'started' }

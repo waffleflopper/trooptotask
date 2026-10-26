@@ -189,6 +189,7 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 		z.object({ kind: z.literal('dates_changed'), payload: z.object({ from: scheduleSchema, to: scheduleSchema }) }),
 		z.object({ kind: z.literal('linked'), payload: z.object({ eventId: z.string() }) }),
 		z.object({ kind: z.literal('unlinked'), payload: z.object({ eventId: z.string() }) }),
+		z.object({ kind: z.literal('event_deleted'), payload: z.object({ eventId: z.string(), eventTitle: z.string() }) }),
 		z.object({
 			kind: z.literal('requirement_changed'),
 			payload: z.object({ from: requirementSchema, to: requirementSchema })
@@ -252,6 +253,8 @@ function toActivity(row: ActivityRow): TaskingActivity {
 		case 'linked':
 		case 'unlinked':
 			return { ...base, kind: row.kind, eventId: row.payload.eventId };
+		case 'event_deleted':
+			return { ...base, kind: row.kind, ...row.payload };
 		case 'blocked':
 			return { ...base, kind: 'blocked', reason: row.payload.reason, edited: row.payload.edited === true };
 		case 'completed':

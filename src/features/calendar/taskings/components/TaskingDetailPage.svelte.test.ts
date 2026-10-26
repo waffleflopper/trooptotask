@@ -65,14 +65,15 @@ const loaded = <T>(value: T) => Promise.resolve({ status: 'loaded', value } as E
 function open(
 	shown: Tasking,
 	people: Promise<EventRead<TaskingStaffing>> = never(),
-	choices = never<EventRead<TaskingChoices | null>>()
+	choices = never<EventRead<TaskingChoices | null>>(),
+	activity: TaskingActivityLog = { entries: [], eventTitles: {} }
 ) {
 	const detail: TaskingDetail = { tasking: shown, groups: { [ALPHA]: 'Alpha' }, members: {} };
 	render(TaskingDetailPage, {
 		org,
 		today: '2026-10-26',
 		detail: loaded(detail),
-		activity: loaded<TaskingActivityLog>({ entries: [], eventTitles: {} }),
+		activity: loaded(activity),
 		people,
 		pickStates: loaded<Record<string, StaffingPersonState>>({}),
 		availabilityGaps: never<EventRead<AvailabilityCoverage>>(),
@@ -89,6 +90,25 @@ afterEach(() => {
 });
 
 describe('TaskingDetailPage', () => {
+	it('explains why the retained Tasking became standalone after its Event was deleted', async () => {
+		open(tasking, never(), never(), {
+			entries: [
+				{
+					id: 1,
+					at: '2026-10-26T12:00:00Z',
+					actorUserId: org.userId,
+					kind: 'event_deleted',
+					eventId: 'deleted-event',
+					eventTitle: 'Best Medic Competition'
+				}
+			],
+			eventTitles: {}
+		});
+		expect((await screen.findByText(/unlinked from Best Medic Competition/)).textContent).toContain(
+			'unlinked from Best Medic Competition, which was deleted'
+		);
+	});
+
 	it('keeps a Block draft when an earlier Edit finishes loading its choices', async () => {
 		let resolveChoices!: (value: EventRead<TaskingChoices | null>) => void;
 		open(tasking, never(), new Promise((resolve) => (resolveChoices = resolve)));

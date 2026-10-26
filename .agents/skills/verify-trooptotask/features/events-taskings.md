@@ -803,3 +803,25 @@ Group-scoped users it proves own-Tasking and available statuses do not conflict,
 foreign provenance is refused, and scoped readers do not learn hidden people or Tasking details. For five execution
 days and three days of unrelated Leave, expect one conflicting pick and overlap 3 of 5. Recording the same entry for
 this Tasking removes its conflict without changing it when picks change. Another overlapping Tasking stays advisory.
+
+## Event deletion API
+
+Permanent deletion uses `DELETE /org/ORG/api/calendar-events/EVENT` with
+`{"taskings":"standalone"}` or `{"taskings":"delete"}`. The JSON response is
+`{"taskings":"standalone","count":N}` or `{"taskings":"delete","count":N}`. Only an Organization-wide Calendar
+operator can use it, for either an active or a cancelled Event. Cancellation still preserves linked Taskings.
+
+1. Create a synthetic Event and linked Tasking using the existing creation recipe. As `calendarOperate`, send a
+   same-origin deletion request in the owned browser with `taskings: 'standalone'`. Expect 200 and the linked count.
+   Reload the Tasking detail. Its Event is `Standalone` and Activity reads
+   `Unlinked from Best Medic Competition, which was deleted` when that was the Event title. Reload again and confirm
+   the same identity, status, picks, equipment and checklist. The Event detail now shows the existing unavailable state.
+2. Repeat with a synthetic cancelled Event and `taskings: 'delete'`. Expect 200 and the linked count. Its Taskings,
+   picks, equipment, checklist and Activity are gone; existing Availability retains its dates and status. An Event
+   without Taskings returns count zero in either mode.
+3. As `calendarScoped` and `calendarView`, try each mode against another synthetic Event. Expect 403 and unchanged
+   Event and Tasking rows. An unsupported mode returns 400. Repeating a successful deletion returns 404 with
+   `That event is no longer available.`
+
+`supabase/tests/calendar_event_deletion.sql` proves both modes across all Tasking statuses, retained attribution and
+Activity, cascade cleanup, Availability provenance, Organization isolation and denied roles in the disposable database.

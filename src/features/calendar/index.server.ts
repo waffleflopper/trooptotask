@@ -112,6 +112,7 @@ export {
 	createEvent,
 	updateEvent,
 	cancelEvent,
+	deleteEvent,
 	settleEventRead
 } from './events/eventOperations.server';
 export { createSupabaseCalendarEventPersistence } from './events/eventPersistence.server';

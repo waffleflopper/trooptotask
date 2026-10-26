@@ -7,6 +7,8 @@ import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
 import {
 	eventCancellationSchema,
+	eventDeletionSchema,
+	type EventDeletionResult,
 	memberOptions,
 	eventDraftSchema,
 	type CalendarEvent,
@@ -95,6 +97,19 @@ export async function cancelEvent(ctx: CalendarEventPorts, id: string, input: un
 	const event = await ctx.calendarEvents.cancelEvent(eventId(id), reason);
 	await ctx.audit.log(audited('cancelled', event));
 	return event;
+}
+
+export async function deleteEvent(ctx: CalendarEventPorts, id: string, input: unknown): Promise<EventDeletionResult> {
+	const { taskings } = parse(eventDeletionSchema, input);
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageEvents, ORGANIZATION);
+	const event = await ctx.calendarEvents.findEvent(eventId(id));
+	if (!event) fail(404, EVENT_GONE);
+	const count = await ctx.calendarEvents.deleteEvent(event.id, taskings);
+	await ctx.audit.log({
+		...audited('deleted', event),
+		details: { title: event.title, mode: taskings, count }
+	});
+	return { taskings, count };
 }
 
 export function settleEventRead<T>(read: Promise<T>): Promise<EventRead<T>> {

@@ -141,7 +141,7 @@ function eventsLane(
 				target: { kind: 'event', id: event.id },
 				label: eventLabel(event),
 				cancelled: event.cancelled,
-				hosted: event.host === null,
+				host: event.host,
 				taskings: facts.events[event.id]?.total ?? 0,
 				row: run.row,
 				continuesBefore: run.continuesBefore,

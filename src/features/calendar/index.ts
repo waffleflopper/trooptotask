@@ -87,8 +87,10 @@ export type {
 	TaskingDetail,
 	TaskingList,
 	TaskingListScope,
-	TaskingResponsibility
+	TaskingResponsibility,
+	TaskingTransition
 } from './taskings/taskingModel';
+export { transitionTaskingRequest } from './taskings/taskingRequests';
 export type {
 	ChecklistItem,
 	EquipmentRequirement,
@@ -99,6 +101,10 @@ export type {
 /** The Assign people picker, loaded on first open. */
 export function loadAssignPeopleDialog() {
 	return import('./taskings/staffing/components/AssignPeopleDialog.svelte');
+}
+/** The Create tasking sheet, loaded on first open. */
+export function loadTaskingDialog() {
+	return import('./taskings/components/TaskingDialog.svelte');
 }
 export { parseTaskingFilters, parseTaskingView, scopeOfView } from './taskings/taskingModel';
 export type { TaskingStaffing } from './taskings/staffing/staffingModel';

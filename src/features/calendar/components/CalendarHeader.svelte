@@ -61,7 +61,7 @@
 						>
 					</Button>
 					{#if suspense && suspense.markers.length > 0}
-						<SuspenseLaneCell value={suspense} class="absolute top-0.5 right-0.5 z-[1] size-3.5 rounded-sm" />
+						<SuspenseLaneCell value={suspense} class="absolute top-0 right-0 z-[1] size-3 rounded-sm" />
 					{/if}
 				</div>
 			{/each}

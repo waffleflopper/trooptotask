@@ -8,8 +8,8 @@
 		/** Names the control: the title with its dates and host, and that it is cancelled. */
 		readonly label: string;
 		readonly cancelled: boolean;
-		/** We run it; otherwise another Organization does and we track it. */
-		readonly hosted: boolean;
+		/** The Organization running it; null when we host it. */
+		readonly host: string | null;
 		/** Taskings on the Event that the reader can see. */
 		readonly taskings: number;
 		/** 0 is the top row of the lane. */
@@ -32,12 +32,13 @@
 
 	const focus = 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 	const everyone = $derived([value.self, ...value.others]);
+	const hosted = $derived(value.host === null);
 	const label = $derived(
 		value.taskings > 0 ? `${value.label}, ${value.taskings} Tasking${value.taskings === 1 ? '' : 's'}` : value.label
 	);
 	// A hosted bar keeps its title inside the dark fill; a tracked chip's title may run on past a short chip.
 	const titleWidth = $derived(
-		value.hosted ? undefined : `calc(${((value.days + value.room) / value.days) * 100}% - 0.25rem)`
+		hosted ? undefined : `calc(${((value.days + value.room) / value.days) * 100}% - 0.25rem)`
 	);
 </script>
 
@@ -54,7 +55,7 @@
 		title={label}
 		class={[
 			'relative flex h-full min-w-0 flex-1 items-center gap-1.5 px-1.5 no-underline',
-			value.hosted
+			hosted
 				? 'overflow-hidden bg-chrome text-chrome-text'
 				: 'border border-dashed border-muted-foreground/60 text-muted-foreground',
 			!value.continuesBefore && 'rounded-l-[3px]',
@@ -67,13 +68,13 @@
 		<span
 			aria-hidden="true"
 			class={[
-				'block shrink-0 overflow-hidden text-ellipsis whitespace-nowrap',
-				value.hosted ? 'max-w-full font-semibold' : 'font-normal',
+				'block overflow-hidden text-ellipsis whitespace-nowrap',
+				hosted ? 'min-w-0 font-semibold' : 'shrink-0 font-normal',
 				value.cancelled && 'line-through opacity-70'
 			]}
-			style:max-width={titleWidth}>{value.title}</span
+			style:max-width={titleWidth}>{value.title}{value.host === null ? '' : ` · ${value.host}`}</span
 		>
-		{#if value.hosted && value.taskings > 0}
+		{#if hosted && value.taskings > 0}
 			<span aria-hidden="true" class="shrink-0 font-mono text-[9px] leading-3 text-chrome-accent">{value.taskings}</span
 			>
 		{/if}

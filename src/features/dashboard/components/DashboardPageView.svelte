@@ -54,6 +54,7 @@
 			(parts?.needsYouLoads.reduce((sum, load) => sum + (load.state === 'partial' ? load.unlisted : 0), 0) ?? 0)
 	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
+	const filledQuickAdd = $derived(quickAdd.findLast((entry) => entry.primary));
 	const columnFailed = $derived(parts?.readinessColumns.some((column) => column.state === 'failed') ?? false);
 	const hintDismissals = new SetupHintDismissals(() => ({
 		orgId: model?.data.orgId ?? '',
@@ -116,7 +117,7 @@
 	<div class="flex flex-wrap items-center gap-2 pb-1" role="group" aria-labelledby="dashboard-quick-add">
 		<span id="dashboard-quick-add" class="pr-1.5 {EYEBROW}">Quick add</span>
 		{#each quickAdd as entry (entry.id)}
-			<Button variant={entry.primary ? 'default' : 'outline'} onclick={() => openQuickAdd(entry)}>
+			<Button variant={entry === filledQuickAdd ? 'default' : 'outline'} onclick={() => openQuickAdd(entry)}>
 				<entry.icon data-icon="inline-start" aria-hidden="true" />
 				{entry.label}
 			</Button>

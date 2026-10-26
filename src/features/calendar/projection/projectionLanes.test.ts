@@ -123,9 +123,9 @@ describe('buildProjectionLanes', () => {
 			}
 		);
 
-		expect(segments.map((segment) => [segment.value.hosted, segment.value.taskings])).toEqual([
-			[true, 6],
-			[false, 0]
+		expect(segments.map((segment) => [segment.value.host, segment.value.taskings])).toEqual([
+			[null, 6],
+			['1st MDB', 0]
 		]);
 	});
 

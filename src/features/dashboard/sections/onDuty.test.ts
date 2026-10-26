@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AssignmentType, AvailabilityEntry } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { DashboardInputs } from './dashboardInputs';
-import { comingAndGoing, tonightAndTomorrow } from './onDuty';
+import { comingAndGoing, taskingsOnTrack, tonightAndTomorrow } from './onDuty';
 
 function person(id: string, rank: string, lastName: string): Personnel {
 	return { id, rank, lastName, firstName: 'A', mos: '68W', clinicRole: '', groupId: 'alpha', groupName: 'Alpha' };
@@ -158,5 +158,45 @@ describe('comingAndGoing', () => {
 		expect(comingAndGoing(inputs({ availability: [entry('x', 'p-bravo', '2026-10-21', '2026-10-22')] }), 7)).toEqual(
 			[]
 		);
+	});
+});
+
+describe('taskingsOnTrack', () => {
+	it('links each Tasking and names its owner, then its staffing or, with no requirement, its status', () => {
+		const rows = taskingsOnTrack(inputs({ page: { orgId: 'org-1' } as DashboardInputs['page'] }), [
+			{
+				taskingId: 't-roster',
+				title: 'Submit roster',
+				suspenseOn: '2026-10-21',
+				responsibleGroupId: 'alpha',
+				picked: 2,
+				required: 2,
+				status: 'in_progress'
+			},
+			{
+				taskingId: 't-slides',
+				title: 'Brief slides',
+				suspenseOn: '2026-10-22',
+				responsibleGroupId: null,
+				picked: 0,
+				required: null,
+				status: 'open'
+			}
+		]);
+
+		expect(rows).toMatchObject([
+			{
+				taskingId: 't-roster',
+				href: '/org/org-1/calendar/taskings/t-roster',
+				detail: expect.stringMatching(/^Alpha Platoon · 2 \/ 2/),
+				staffed: true
+			},
+			{
+				taskingId: 't-slides',
+				href: '/org/org-1/calendar/taskings/t-slides',
+				detail: expect.stringMatching(/^Organization · open$/),
+				staffed: false
+			}
+		]);
 	});
 });

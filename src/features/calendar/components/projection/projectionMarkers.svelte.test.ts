@@ -108,7 +108,7 @@ describe('EventsLaneSegment', () => {
 		target: { kind: 'event', id: 'a' },
 		label: 'Event a, 4 May 2026 to 6 May 2026, we host',
 		cancelled: false,
-		hosted: true,
+		host: null,
 		taskings: 0,
 		row: 0,
 		continuesBefore: false,

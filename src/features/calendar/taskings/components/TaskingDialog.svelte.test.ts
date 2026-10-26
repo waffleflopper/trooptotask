@@ -1,8 +1,13 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Tasking, TaskingChoices } from '../taskingModel';
+import { toastStore } from '$lib/stores/toast.svelte';
+import type { Tasking, TaskingChoices, TaskingEventOption } from '../taskingModel';
 import TaskingDialog from './TaskingDialog.svelte';
+
+const goto = vi.hoisted(() => vi.fn());
+vi.mock('$app/navigation', () => ({ goto }));
+vi.mock('$app/state', () => ({ page: { params: { orgId: 'c-co' } } }));
 
 const ALPHA = '00000000-0000-4000-8000-000000000201';
 const BRAVO = '00000000-0000-4000-8000-000000000202';
@@ -33,7 +38,14 @@ function deferred<T>() {
 	return { promise, resolve };
 }
 
-function open(props: Partial<{ tasking: Tasking; organizationWide: boolean; choices: TaskingChoices }> = {}) {
+function open(
+	props: Partial<{
+		tasking: Tasking;
+		organizationWide: boolean;
+		choices: TaskingChoices;
+		linkTo: TaskingEventOption;
+	}> = {}
+) {
 	const onSaved = vi.fn();
 	render(TaskingDialog, {
 		orgId: 'org-a',
@@ -47,14 +59,23 @@ function open(props: Partial<{ tasking: Tasking; organizationWide: boolean; choi
 	return { onSaved };
 }
 
-const outcome = () => screen.getByLabelText('Outcome') as HTMLInputElement;
-const responsible = () => screen.getByLabelText('Responsible') as HTMLSelectElement;
-const optionValues = (select: HTMLSelectElement) =>
-	[...select.options].filter((option) => !option.disabled).map((option) => option.value);
+const outcome = () => screen.getByLabelText('Required outcome') as HTMLInputElement;
+const groupCard = () => screen.getByRole('radio', { name: /A Group/ });
+const organizationCard = () => screen.getByRole('radio', { name: /Organization level/ });
+const sentBody = (send: { mock: { calls: unknown[][] } }, call = 0) =>
+	JSON.parse(((send.mock.calls[call] as [string, RequestInit])[1].body as string) ?? 'null');
+
+/** Any day will do; the visible month follows the real clock, so no test reads which day it was. */
+async function chooseSuspense() {
+	await fireEvent.click(screen.getByLabelText('Suspense'));
+	await fireEvent.click(document.querySelector('[data-bits-day]:not([data-disabled])') as HTMLElement);
+}
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
+	goto.mockClear();
 });
 
 describe('TaskingDialog', () => {
@@ -115,20 +136,35 @@ describe('TaskingDialog', () => {
 		expect(JSON.parse((send.mock.calls[0] as unknown as [string, RequestInit])[1].body as string).eventId).toBeNull();
 	});
 
-	it('asks who is responsible instead of assuming the organization, and sends nothing until chosen', async () => {
+	it('starts an Organization-wide operator at Organization level', async () => {
+		const send = vi.fn(async () => Response.json(saved));
+		vi.stubGlobal('fetch', send);
+		open({ linkTo: choices.events[0] });
+
+		expect(organizationCard().getAttribute('aria-checked')).toBe('true');
+		await fireEvent.input(outcome(), { target: { value: 'Provide 3 lane graders' } });
+		await chooseSuspense();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add tasking' }));
+
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		expect(sentBody(send)).toMatchObject({ draft: { eventId: EVENT, responsibility: { kind: 'organization' } } });
+	});
+
+	it('asks a Group-scoped operator with several Groups who is responsible and sends nothing until chosen', async () => {
 		const send = vi.fn();
 		vi.stubGlobal('fetch', send);
-		open();
+		open({ organizationWide: false });
 
-		expect(responsible().value).toBe('');
+		expect(groupCard().getAttribute('aria-checked')).toBe('false');
+		expect(organizationCard().hasAttribute('disabled')).toBe(true);
 		await fireEvent.input(outcome(), { target: { value: 'Brief the commander' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Create tasking' }));
 
 		expect(send).not.toHaveBeenCalled();
-		expect(responsible().getAttribute('aria-invalid')).toBe('true');
+		expect(screen.getByRole('radiogroup').getAttribute('aria-invalid')).toBe('true');
 	});
 
-	it('marks the Ends date invalid when it falls before Starts', async () => {
+	it('marks the committed dates invalid when Ends falls before Starts', async () => {
 		const send = vi.fn();
 		vi.stubGlobal('fetch', send);
 		open({ tasking: { ...saved, execution: { startsOn: '2026-11-06', endsOn: '2026-11-02', reportTime: null } } });
@@ -137,19 +173,47 @@ describe('TaskingDialog', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
 		expect(send).not.toHaveBeenCalled();
-		const ends = screen.getByLabelText('Ends');
-		expect(ends.getAttribute('aria-invalid')).toBe('true');
-		expect(document.getElementById(ends.getAttribute('aria-describedby') ?? '')?.textContent).toBeTruthy();
-		expect(screen.getByLabelText('Starts').getAttribute('aria-invalid')).not.toBe('true');
+		const committed = screen.getByLabelText('People committed');
+		expect(committed.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(committed.getAttribute('aria-describedby') ?? '')?.textContent).toBeTruthy();
 	});
 
-	it('offers a Group-scoped operator only their Groups and locks responsibility when editing', () => {
+	it('preselects the only Group of a Group-scoped operator and locks responsibility when editing', () => {
 		open({ organizationWide: false, choices: { ...choices, groups: [{ id: ALPHA, name: 'Alpha' }] } });
-		expect(optionValues(responsible())).toEqual([ALPHA]);
-		expect(responsible().value).toBe(ALPHA);
+		expect(groupCard().getAttribute('aria-checked')).toBe('true');
+		expect(screen.getByLabelText('Group').textContent).toContain('Alpha');
 		cleanup();
 
 		open({ organizationWide: false, tasking: saved });
-		expect(responsible().disabled).toBe(true);
+		expect(groupCard().hasAttribute('disabled')).toBe(true);
+		expect(organizationCard().hasAttribute('disabled')).toBe(true);
+	});
+
+	it('adds equipment then checklist after the Tasking, and lands on its page naming what did not save', async () => {
+		const error = vi.spyOn(toastStore, 'error').mockReturnValue('toast');
+		const send = vi.fn(async (url: string, _init: RequestInit) => {
+			if (url.endsWith('/checklist')) return new Response('boom', { status: 500 });
+			return Response.json(url.endsWith('/equipment') ? {} : saved);
+		});
+		vi.stubGlobal('fetch', send);
+		const { onSaved } = open({ linkTo: choices.events[0] });
+
+		await fireEvent.input(outcome(), { target: { value: 'Provide FLA ambulance' } });
+		await chooseSuspense();
+		await fireEvent.input(screen.getByLabelText('Equipment item 1'), { target: { value: 'M997 FLA ambulance' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Checklist' }));
+		await fireEvent.input(screen.getByLabelText('Checklist item 1'), { target: { value: 'Driver licensed' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add tasking' }));
+
+		await waitFor(() => expect(goto).toHaveBeenCalledWith(`/org/c-co/calendar/taskings/${saved.id}`));
+		expect(send.mock.calls.map(([url]) => url.replace(`/org/org-a/api/calendar-taskings`, ''))).toEqual([
+			'',
+			`/${saved.id}/equipment`,
+			`/${saved.id}/checklist`
+		]);
+		expect(sentBody(send, 1).draft).toEqual({ name: 'M997 FLA ambulance', quantity: 1, securedQuantity: 0 });
+		expect(onSaved).toHaveBeenCalledWith(saved);
+		expect(error.mock.calls[0][0]).toContain('Driver licensed');
+		expect(error.mock.calls[0][0]).not.toContain('M997');
 	});
 });

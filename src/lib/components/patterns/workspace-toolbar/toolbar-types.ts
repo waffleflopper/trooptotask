@@ -104,6 +104,12 @@ export type WorkspaceToolbarProps = {
 		placement?: 'before-filters' | 'after-filters';
 	};
 	primary?: ToolbarAction & { menuOnly?: never };
+	/**
+	 * Below this toolbar width (`sm`, 640 px) search takes a full-width row of its own, every filter and action folds into one
+	 * Filters menu beside the view, and a primary with an icon shows only that icon, keeping its label as the
+	 * accessible name.
+	 */
+	compactBelow?: 'sm';
 };
 
 export function sectionOf(item: ToolbarItem): ToolbarSection {

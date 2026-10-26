@@ -7,6 +7,7 @@
 		onValueChange
 	}: { searchable?: boolean; disabled?: boolean; onValueChange?: (value: string | string[]) => void } = $props();
 	let selected = $state('');
+	let typed = $state('');
 	const people = [
 		{ value: 'avery', label: 'Avery Brooks', description: 'HQ' },
 		{ value: 'jon', label: 'Jon Bell', description: 'B Co', disabled: true },
@@ -14,7 +15,15 @@
 	];
 </script>
 
-<Combobox.Root items={people} bind:value={selected} label="Person" autoHighlight {disabled} {onValueChange}>
+<Combobox.Root
+	items={people}
+	bind:value={selected}
+	bind:search={typed}
+	label="Person"
+	autoHighlight
+	{disabled}
+	{onValueChange}
+>
 	<Combobox.Trigger clearable placeholder="Search personnel..." aria-label="Person" />
 	<Combobox.Content>
 		{#if searchable}<Combobox.Search placeholder="Search personnel..." />{/if}
@@ -26,3 +35,5 @@
 <button type="button">Outside control</button>
 
 <output aria-label="Selected person">{selected}</output>
+
+<output aria-label="Typed text">{typed}</output>

@@ -246,6 +246,9 @@ SELECT pg_temp.act_as('3');
 SELECT is(pg_temp.save('405', ARRAY[]::text[], 1, ARRAY[]::text[], true), 'saved:2',
   'an Alpha operator explicitly removes the pick now outside their Groups');
 SELECT is(pg_temp.picks('405'), ARRAY[]::text[], 'and it is gone');
+SELECT pg_temp.act_as('7');
+SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), pg_temp.id('501'), NULL)), 0,
+  'an Alpha reader learns nothing about the Taskings of a Person who left their Groups');
 SELECT pg_temp.act_as('6');
 SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), pg_temp.id('502'), NULL)), 0,
   'another Organization learns nothing');

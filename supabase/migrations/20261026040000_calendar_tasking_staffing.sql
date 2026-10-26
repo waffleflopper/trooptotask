@@ -251,7 +251,8 @@ AS $$
   LEFT JOIN public.calendar_tasking_participants AS p ON p.organization_id = t.organization_id AND p.tasking_id = t.id
   WHERE t.organization_id = p_organization_id AND t.id = ANY (p_tasking_ids)
     AND calendar_private.can_view_calendar_tasking(t.organization_id, t.responsible_group_id)
-  GROUP BY t.id, t.staffing_revision;
+  GROUP BY t.id, t.staffing_revision
+  ORDER BY t.id;
 $$;
 ALTER FUNCTION public.calendar_tasking_staffing(uuid, uuid[]) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.calendar_tasking_staffing(uuid, uuid[]) FROM PUBLIC, anon, service_role;
@@ -291,7 +292,8 @@ AS $$
   FROM public.personnel AS person
   WHERE person.organization_id = p_organization_id AND person.id = ANY (p_personnel_ids)
     AND calendar_private.can_view_calendar_events(p_organization_id)
-    AND public.calendar_personnel_group_scope_matches(person.organization_id, person.group_id);
+    AND public.calendar_personnel_group_scope_matches(person.organization_id, person.group_id)
+  ORDER BY person.id;
 $$;
 ALTER FUNCTION public.calendar_person_labels(uuid, uuid[]) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.calendar_person_labels(uuid, uuid[]) FROM PUBLIC, anon, service_role;
@@ -341,7 +343,7 @@ AS $$
   CROSS JOIN LATERAL (
     SELECT calendar_private.can_view_calendar_tasking(other.organization_id, other.responsible_group_id) AS visible
   ) AS access
-  ORDER BY 1, 4 NULLS LAST, 3;
+  ORDER BY 1, 4 NULLS LAST, 3, 2, 5, 6;
 $$;
 ALTER FUNCTION public.calendar_tasking_advisories(uuid, uuid) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.calendar_tasking_advisories(uuid, uuid) FROM PUBLIC, anon, service_role;
@@ -369,7 +371,9 @@ AS $$
       (p_group_id IS NOT NULL AND t.responsible_group_id = p_group_id)
       OR (p_personnel_id IS NOT NULL AND EXISTS (
         SELECT 1 FROM public.calendar_tasking_participants AS p
+        JOIN public.personnel AS person ON person.organization_id = p.organization_id AND person.id = p.personnel_id
         WHERE p.organization_id = t.organization_id AND p.tasking_id = t.id AND p.personnel_id = p_personnel_id
+          AND public.can_view_personnel_record(person.organization_id, person.group_id)
       ))
     )
   ORDER BY t.suspense_on DESC, t.id;

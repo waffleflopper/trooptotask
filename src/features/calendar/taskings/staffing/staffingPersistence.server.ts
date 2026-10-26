@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelDeletionReferencesPort } from '$features/personnel/contracts';
 import { TASKING_GONE } from '../taskingPersistence.server';
 import type { StaffingAdvisory, StaffingCount, StaffingSave, TaskingPick, TaskingStaffing } from './staffingModel';
@@ -111,9 +112,11 @@ export function createSupabaseCalendarStaffingPersistence(
 	orgId: string
 ): CalendarStaffingPersistence {
 	async function rpcRows(name: string, args: Record<string, unknown>): Promise<unknown[]> {
-		const { data, error } = await client.rpc(name, { p_organization_id: orgId, ...args });
-		if (error) throw new Error(error.message);
-		return (data ?? []) as unknown[];
+		const { data, error } = await selectAllSupabaseRows<unknown>(
+			async (from, to) => await client.rpc(name, { p_organization_id: orgId, ...args }).range(from, to)
+		);
+		if (error) throw new Error((error as { message: string }).message);
+		return data ?? [];
 	}
 
 	async function countRows(taskingIds: string[]) {
@@ -125,11 +128,10 @@ export function createSupabaseCalendarStaffingPersistence(
 
 	return {
 		async findStaffing(taskingId) {
-			const [[count], picks] = await Promise.all([
-				countRows([taskingId]),
-				rpcRows('calendar_tasking_people', { p_tasking_id: taskingId })
-			]);
+			// Picks read after the revision are never older than it, so a save naming it cannot drop a newer pick.
+			const [count] = await countRows([taskingId]);
 			if (!count) return null;
+			const picks = await rpcRows('calendar_tasking_people', { p_tasking_id: taskingId });
 			return { ...counted(count), revision: count.revision, picks: picks.map((row) => pickRowSchema.parse(row)) };
 		},
 		async countStaffing(taskingIds) {

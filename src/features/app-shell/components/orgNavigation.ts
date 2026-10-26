@@ -1,5 +1,4 @@
-import type { CapabilityMap, DurableFeatureLane } from '$lib/access/memberAccessShape';
-import { capabilityMeets } from '$lib/access/memberAccessShape';
+import { capabilityMeets, type CapabilityMap, type DurableFeatureLane } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { SETTINGS_PAGES } from '$features/organization/contracts';

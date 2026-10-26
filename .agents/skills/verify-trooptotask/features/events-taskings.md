@@ -46,8 +46,12 @@ Features `Events & Taskings` turns the whole feature off.
 
 ## How to get to it (user POV)
 
-Open `Calendar`. The toolbar action `Events & Taskings` opens `/org/ORG/calendar/events`; below about 1024 px it sits in
-`More Calendar controls`. The list has `Upcoming` / `Past`, a `Calendar` action back to the month, and `Create event`
+Choose `Events & Taskings` under `Calendar` in the sidebar, or the Calendar toolbar action `Events & Taskings`. Both
+open the Taskings list `/org/ORG/calendar/taskings`; below about 1024 px the toolbar action sits in
+`More Calendar controls`. The sidebar item stays current and the breadcrumb reads `Calendar › Events & Taskings` on
+every events and taskings page, including detail pages.
+
+The list has `Upcoming` / `Past`, a `Calendar` action back to the month, and `Create event`
 for an operator. A row opens `/org/ORG/calendar/events/EVENT_ID`, whose header has `Back to Events`, the title, the
 status badge and, for an operator, `Edit` and `Cancel event`. Facts follow (Dates, Host, Coordinator, Location, Source,
 Description), then `Activity`.
@@ -122,9 +126,9 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     `This event is not available` with `Back to Events`, and no Activity section. The three writes against A, and an
     edit or cancel of A's id under B, all return 404.
 11. **Feature off.** As `orgOwner`, open Settings › Features and turn `Events & Taskings` off.
-    `$V rows organizations orgA` lists `eventsAndTaskings` in `disabled_features`. As the operator, the Calendar toolbar
-    has no `Events & Taskings` action, the list and detail URLs show `Events & Taskings is off`, and the three writes
-    return 403. Turn it back on and read `disabled_features` empty again.
+    `$V rows organizations orgA` lists `eventsAndTaskings` in `disabled_features`. As the operator, the sidebar and the
+    Calendar toolbar have no `Events & Taskings`, the list and detail URLs show `Events & Taskings is off`, and the
+    three writes return 403. Turn it back on and read `disabled_features` empty again.
 12. **Export.** As `orgOwner` on `settings/exports`, export JSON as in [Organization exports](organization-exports.md).
     `calendarEvents` and `calendarEventActivity` hold A's Events and Activity, and the Excel `Events` sheet lists each
     Event with its host and coordinator. With the switch off, both sections are absent.

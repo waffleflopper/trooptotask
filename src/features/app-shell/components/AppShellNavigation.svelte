@@ -18,15 +18,16 @@
 	{#each navItems as item (item.href)}
 		{@const children = item.children?.filter((sub) => sub.visible) ?? []}
 		{@const childActive = children.some((sub) => isOrgNavSubItemActive(pathname, sub))}
-		{@const itemActive = isOrgNavItemActive(pathname, item)}
+		{@const parentOfCurrent = childActive && showsSubItems}
+		{@const current = isOrgNavItemActive(pathname, item) && !parentOfCurrent}
 		<Sidebar.MenuItem>
-			<Sidebar.MenuButton isActive={itemActive && !(childActive && showsSubItems)} tooltipContent={linkName(item)}>
+			<Sidebar.MenuButton
+				isActive={current}
+				class={parentOfCurrent ? 'font-medium' : undefined}
+				tooltipContent={linkName(item)}
+			>
 				{#snippet child({ props })}
-					<a
-						{...props}
-						href={resolve(item.href as `/org/${string}`)}
-						aria-current={itemActive && !childActive ? 'page' : undefined}
-					>
+					<a {...props} href={resolve(item.href as `/org/${string}`)} aria-current={current ? 'page' : undefined}>
 						<OrgNavIcon icon={item.icon} />
 						<span>{linkName(item)}</span>
 						{#if item.badgeLabel}

@@ -66,13 +66,15 @@ function toItem(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouItem
 				urgency: { date: startsOn }
 			};
 		}
-		case 'due_soon':
+		case 'conflict':
 			return {
 				...base,
-				kind: 'taskingDueSoon',
-				subtitle: subtitle(`Due ${formatDayMonth(row.suspenseOn)}`),
-				timing: due,
-				urgency: { date: row.suspenseOn }
+				id: `tasking:${row.taskingId}:conflict:${row.conflict.personnelId}`,
+				kind: 'taskingConflict',
+				title: `${row.conflict.personLabel} is on ${row.conflict.statusLabel.toLowerCase()} from ${formatDayMonth(row.conflict.startsOn)}`,
+				subtitle: `Committed to ${row.title}`,
+				timing: formatDayOffset(daysBetween(inputs.today, row.conflict.startsOn)),
+				urgency: { date: row.conflict.startsOn }
 			};
 	}
 }

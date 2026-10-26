@@ -12,7 +12,7 @@ SELECT results_eq($$
     SELECT id AS row_id, to_jsonb(t) - 'roster_effect' - 'short_label' AS row_data FROM public.status_types t
       WHERE organization_id::text LIKE 'e1726000-%' AND roster_effect = 'A'
     UNION ALL
-    SELECT id, to_jsonb(a) FROM public.availability_entries a WHERE organization_id::text LIKE 'e1726000-%') AS current_rows
+    SELECT id, to_jsonb(a) - 'set_for_tasking_id' FROM public.availability_entries a WHERE organization_id::text LIKE 'e1726000-%') AS current_rows
   ORDER BY row_id $$,
   $$ SELECT row_id, row_data FROM upgrade_fixture.status_type_roster_effect_before_rows ORDER BY row_id $$,
   'every saved status type reads A and keeps its details, and availability is unchanged');
@@ -21,5 +21,8 @@ SELECT throws_ok($$ UPDATE public.status_types SET roster_effect = 'X' WHERE id 
   '23514', NULL, 'an upgraded type rejects an unknown effect');
 SELECT lives_ok($$ UPDATE public.status_types SET roster_effect = 'available' WHERE id = 'e1726000-0000-4000-8000-000000000502' $$,
   'an upgraded type stores Still available');
+RESET ROLE;
+SELECT ok(NOT EXISTS (SELECT 1 FROM public.availability_entries WHERE set_for_tasking_id IS NOT NULL),
+  'historical Availability entries remain unlinked after upgrade');
 SELECT * FROM finish();
 ROLLBACK;

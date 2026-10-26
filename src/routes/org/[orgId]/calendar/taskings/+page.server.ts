@@ -19,6 +19,7 @@ export const load = async ({ params, locals, cookies, depends, url }: PageServer
 		policyResource: { kind: 'unscoped' },
 		fn: async (ctx) => ({
 			today,
+			workspace: settleEventRead(ctx.taskingWorkspace.read(today)),
 			list: settleEventRead(listTaskings(ctx, scope)),
 			choices: settleEventRead(loadTaskingChoices(ctx, today))
 		})

@@ -14,7 +14,13 @@
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { rejectedRequestMessage, withinOrganizationLifetime } from '$lib/stores/core';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
-	import { eventDraftSchema, type CalendarEvent, type EventHost, type MemberLabels } from '../eventModel';
+	import {
+		eventDraftSchema,
+		memberOptions as optionsForMembers,
+		type CalendarEvent,
+		type EventHost,
+		type MemberLabels
+	} from '../eventModel';
 	import { createEventRequest, updateEventRequest } from '../eventRequests';
 
 	interface Props {
@@ -50,11 +56,7 @@
 
 	$effect(() => () => (open = false));
 
-	const memberOptions = $derived(
-		Object.entries(members)
-			.map(([userId, label]) => ({ userId, label }))
-			.sort((a, b) => a.label.localeCompare(b.label))
-	);
+	const memberOptions = $derived(optionsForMembers(members));
 	const coordinatorLeft = $derived(!(coordinatorUserId in members));
 
 	const input = $derived({

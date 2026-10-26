@@ -421,7 +421,9 @@ const availabilityFields = z.object({
 const orderedRange = (entry: { startDate?: string; endDate?: string }) =>
 	!entry.startDate || !entry.endDate || entry.startDate <= entry.endDate;
 
-export const availabilityCreateInput = availabilityFields.refine(orderedRange, DATE_RANGE_MESSAGE);
+export const availabilityCreateInput = availabilityFields
+	.extend({ setForTaskingId: uuidSchema.nullable().optional() })
+	.refine(orderedRange, DATE_RANGE_MESSAGE);
 export const availabilityUpdateInput = availabilityFields
 	.omit({ personnelId: true })
 	.partial()

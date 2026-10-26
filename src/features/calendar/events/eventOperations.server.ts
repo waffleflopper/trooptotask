@@ -6,6 +6,7 @@ import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
 import {
 	eventCancellationSchema,
+	memberOptions,
 	eventDraftSchema,
 	type CalendarEvent,
 	type EventActivity,
@@ -48,14 +49,14 @@ const audited = (action: string, event: CalendarEvent) => ({
 export async function listEvents(ctx: CalendarEventPorts, when: EventListWhen, today: string): Promise<EventList> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
 	const [events, members] = await Promise.all([ctx.calendarEvents.listEvents(when, today), ctx.memberLabels()]);
-	return { when, events, members };
+	return { when, events, members, memberOptions: memberOptions(members), currentUserId: ctx.auth.userId };
 }
 
 export async function loadEventDetail(ctx: CalendarEventPorts, id: string): Promise<EventDetail> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
 	const [event, members] = await Promise.all([ctx.calendarEvents.findEvent(eventId(id)), ctx.memberLabels()]);
 	if (!event) fail(404, EVENT_GONE);
-	return { event, members };
+	return { event, members, memberOptions: memberOptions(members), currentUserId: ctx.auth.userId };
 }
 
 export async function listEventActivity(ctx: CalendarEventPorts, id: string): Promise<EventActivity[]> {

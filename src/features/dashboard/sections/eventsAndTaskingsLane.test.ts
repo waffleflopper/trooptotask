@@ -22,7 +22,7 @@ describe('eventsAndTaskingsLane', () => {
 		const read = eventsAndTaskingsLane.read(
 			inputs({
 				status: 'ready',
-				attention: { rows: [], total: 0 },
+				attention: { rows: [], total: 0, onTrack: [] },
 				forecast: {
 					events: [
 						event('e-work', { hasWork: true }),
@@ -76,7 +76,7 @@ describe('eventsAndTaskingsLane', () => {
 		const read = eventsAndTaskingsLane.read(
 			inputs({
 				status: 'ready',
-				attention: { rows: [], total: 0 },
+				attention: { rows: [], total: 0, onTrack: [] },
 				forecast: {
 					events: [event('e1', { hasWork: true }), event('e1'), event('e1', { cancelled: true })],
 					suspenses: []

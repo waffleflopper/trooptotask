@@ -22,6 +22,7 @@ const tasking: Tasking = {
 };
 const nobody: TaskingStaffing = { revision: 0, picked: 0, needsReview: 0, outsideScope: 0, picks: [] };
 const picker: StaffingPicker = {
+	states: {},
 	staffing: nobody,
 	candidates: [
 		{ personnelId: ALICE, rank: 'SPC', firstName: 'Alice', lastName: 'Avery', groupId: ALPHA },

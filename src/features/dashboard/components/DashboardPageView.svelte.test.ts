@@ -493,7 +493,7 @@ describe('Dashboard sections', () => {
 			});
 
 		it('links each Event span and suspense point to its detail', () => {
-			renderWith({ status: 'ready', attention: { rows: [], total: 0 }, forecast });
+			renderWith({ status: 'ready', attention: { rows: [], total: 0, onTrack: [] }, forecast });
 
 			const marks = within(lane()!).getAllByRole('link');
 			expect(marks.map((mark) => mark.getAttribute('href'))).toEqual([
@@ -530,7 +530,7 @@ describe('Dashboard sections', () => {
 			});
 			renderWith({
 				status: 'ready',
-				attention: { rows: [], total: 0 },
+				attention: { rows: [], total: 0, onTrack: [] },
 				forecast: { events: [], suspenses: [due('t-1'), due('t-2'), due('t-3')] }
 			});
 

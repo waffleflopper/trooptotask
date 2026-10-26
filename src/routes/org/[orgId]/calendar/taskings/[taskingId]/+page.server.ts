@@ -1,5 +1,6 @@
 import {
 	listTaskingActivity,
+	loadTaskingPickStates,
 	loadTaskingChoices,
 	loadTaskingAvailabilityGaps,
 	loadTaskingDetail,
@@ -24,6 +25,7 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 		policyResource: { kind: 'unscoped' },
 		fn: async (ctx) => ({
 			today,
+			pickStates: settleEventRead(loadTaskingPickStates(ctx, params.taskingId)),
 			detail: settleEventRead(loadTaskingDetail(ctx, params.taskingId)),
 			activity: settleEventRead(listTaskingActivity(ctx, params.taskingId)),
 			people: settleEventRead(loadTaskingStaffing(ctx, params.taskingId)),

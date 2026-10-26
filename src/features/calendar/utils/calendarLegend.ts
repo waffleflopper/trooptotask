@@ -1,6 +1,9 @@
 import type { Component } from 'svelte';
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import DutyLegendMark from '$features/calendar/components/calendar-legend/DutyLegendMark.svelte';
+import ProjectionLegendMark, {
+	type ProjectionLegendKind
+} from '$features/calendar/components/calendar-legend/ProjectionLegendMark.svelte';
 import StatusLegendMark from '$features/calendar/components/calendar-legend/StatusLegendMark.svelte';
 import { drawsDutyMarker } from '$features/calendar/utils/calendarRenderState';
 import { oneDayLabel } from '$lib/components/patterns/calendar-bars';
@@ -57,5 +60,18 @@ export function dutyMarkerLegend(assignmentTypes: readonly AssignmentType[]): Le
 					}
 				]
 			: []
+	};
+}
+
+export function eventsLegend(): LegendSource {
+	const entry = (kind: ProjectionLegendKind, label: string): LegendEntry => ({
+		key: kind,
+		label,
+		mark: legendMark(ProjectionLegendMark, kind)
+	});
+	return {
+		key: 'events',
+		ariaLabel: 'Events and Taskings',
+		entries: [entry('event', 'Event'), entry('suspense', 'Suspense'), entry('commitment', 'Tasking commitment')]
 	};
 }

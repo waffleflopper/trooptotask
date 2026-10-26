@@ -54,7 +54,9 @@ export type LaneTrack =
 			readonly shape: 'span';
 			readonly Segment: Component<{ value: unknown }>;
 			readonly segments: readonly LaneSegment<unknown>[];
-	  };
+	  }
+	// One component over every day, for a lane that is loading or could not load.
+	| { readonly shape: 'status'; readonly Status: Component<{ value: unknown }>; readonly value: unknown };
 
 /** `start` and `end` are inclusive indexes into the visible dates. */
 export interface LaneSegment<T> {
@@ -70,6 +72,10 @@ export function dayTrack<T>(Day: Component<{ value: T }>, days: readonly T[]): L
 
 export function spanTrack<T>(Segment: Component<{ value: T }>, segments: readonly LaneSegment<T>[]): LaneTrack {
 	return { shape: 'span', Segment: Segment as Component<{ value: unknown }>, segments };
+}
+
+export function statusTrack<T>(Status: Component<{ value: T }>, value: T): LaneTrack {
+	return { shape: 'status', Status: Status as Component<{ value: unknown }>, value };
 }
 
 export type { AssignmentLaneDay, DaysLaneSegment };

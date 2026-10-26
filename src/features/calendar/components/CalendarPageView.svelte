@@ -13,7 +13,16 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
-	import { DRAG_TO_ADD_HINT, dutyMarkerLegend, statusLegend } from '$features/calendar/utils/calendarLegend';
+	import { longRangeDates } from '$features/calendar/utils/calendarRange';
+	import type { CalendarProjection } from '$features/calendar/projection/calendarProjection';
+	import { commitmentsByPerson } from '$features/calendar/projection/projectionCommitments';
+	import { buildProjectionLanes, type ProjectionRegion } from '$features/calendar/projection/projectionLanes';
+	import {
+		DRAG_TO_ADD_HINT,
+		dutyMarkerLegend,
+		eventsLegend,
+		statusLegend
+	} from '$features/calendar/utils/calendarLegend';
 	import { beforeRosterForm, dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
 	import { indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
 	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
@@ -36,9 +45,21 @@
 		};
 		rangeStatus?: 'ready' | 'loading' | 'error';
 		onRetryRange?: () => void;
+		/** Events, suspenses and commitments for the shown dates; read apart so their failure leaves the matrix usable. */
+		projection?: CalendarProjection;
+		projectionStatus?: 'ready' | 'loading' | 'error';
+		onRetryProjection?: () => void;
 	}
 
-	let { ctx, data, rangeStatus = 'ready', onRetryRange }: Props = $props();
+	let {
+		ctx,
+		data,
+		rangeStatus = 'ready',
+		onRetryRange,
+		projection,
+		projectionStatus = 'ready',
+		onRetryProjection
+	}: Props = $props();
 
 	function getExportData() {
 		return {
@@ -103,13 +124,47 @@
 		})
 	);
 
-	const legend = $derived(
-		ctx.viewMode === 'month'
+	const legend = $derived([
+		...(ctx.viewMode === 'month'
 			? [
 					statusLegend(statusTypesStore.items, ctx.canManageAvailability ? DRAG_TO_ADD_HINT : undefined),
 					dutyMarkerLegend(dailyAssignmentsStore.types)
 				]
-			: [statusLegend(statusTypesStore.items)]
+			: [statusLegend(statusTypesStore.items)]),
+		...(ctx.showEvents ? [eventsLegend()] : [])
+	]);
+
+	const projectionLinks = $derived({
+		event: (id: string) => `/org/${data.orgUrlSegment ?? data.orgId}/calendar/events/${id}`,
+		tasking: (id: string) => `/org/${data.orgUrlSegment ?? data.orgId}/calendar/taskings/${id}`
+	});
+	const projectionDates = $derived(
+		ctx.viewMode === '3-month' ? longRangeDates(calendarStore.currentDate) : calendarStore.dates
+	);
+	const projectionRegion = $derived.by((): ProjectionRegion => {
+		if (projectionStatus === 'error') return { kind: 'error', retry: onRetryProjection };
+		if (projectionStatus === 'loading' || !projection) return { kind: 'loading' };
+		return { kind: 'ready', projection };
+	});
+	const projectionLanes = $derived(
+		ctx.showEvents && projectionDates.length > 0
+			? buildProjectionLanes({
+					dates: projectionDates,
+					region: projectionRegion,
+					links: projectionLinks,
+					density: ctx.viewMode === '3-month' ? 'compact' : 'month'
+				})
+			: []
+	);
+	const commitments = $derived(
+		ctx.showEvents && projectionRegion.kind === 'ready' && projectionDates.length > 0
+			? commitmentsByPerson(
+					projectionRegion.projection.commitments,
+					formatDate(projectionDates[0]),
+					projectionDates.length,
+					projectionLinks
+				)
+			: undefined
 	);
 
 	// Built apart from the roster rows so search and Group filter changes do not rebuild lanes.
@@ -325,6 +380,8 @@
 						personnelByGroup={ctx.filteredPBG}
 						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
+						lanes={projectionLanes}
+						{commitments}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
@@ -338,7 +395,8 @@
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
-						{lanes}
+						lanes={[...lanes, ...projectionLanes]}
+						{commitments}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={ctx.canManageAvailability}

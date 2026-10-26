@@ -253,6 +253,14 @@ _Avoid_: Preview, stub
 The list of an Event's active Taskings that its date change left outside the new dates or in another phase. Nothing is moved for the operator; each Tasking opens its own edit.
 _Avoid_: Cascade, auto-shift
 
+**Calendar projection**:
+The Events, Suspenses and commitments a Calendar range shows, read once with the visible buffered range under the Calendar read policy. A Tasking the reader cannot see, and a person outside the reader's roster scope, are absent rather than hidden. It never creates Availability entries or Daily Assignment Slots and never changes availability counts.
+_Avoid_: Calendar overlay, marker feed
+
+**Commitment**:
+A person's picked execution dates on an active Tasking, drawn as a thin indicator on their row. A pick marked Needs review draws none.
+_Avoid_: Busy, assignment
+
 **DONSA**:
 A day of no scheduled activities, represented as a Calendar special day; Training Holiday is also appropriate military-facing wording.
 _Avoid_: Closure, org closure in product copy

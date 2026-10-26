@@ -1,4 +1,4 @@
-import { endOfMonth, formatDate, getMonthName } from '$lib/utils/dates';
+import { addMonths, endOfMonth, formatDate, getMonthDates, getMonthName } from '$lib/utils/dates';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
 export interface CalendarBufferedRange {
@@ -44,9 +44,15 @@ export const MAX_CALENDAR_RANGE_DAYS = 366;
 const TODAY_READ_BACK_DAYS = 90;
 
 /** The collections one range read returns; Special Days travel with assignments. */
-export const CALENDAR_RANGE_COLLECTIONS = ['availability', 'assignments'] as const;
+export const CALENDAR_RANGE_COLLECTIONS = ['availability', 'assignments', 'events'] as const;
 
 export type CalendarRangeCollection = (typeof CALENDAR_RANGE_COLLECTIONS)[number];
+
+/** What a read without `collections` returns: a tab loaded before `events` existed never asks for it. */
+export const DEFAULT_CALENDAR_RANGE_COLLECTIONS = ['availability', 'assignments'] as const;
+
+/** The collections every Calendar view needs; `events` joins them only behind the Events & Taskings switch. */
+type BaseCoverage = Required<Pick<CalendarCoverage, (typeof DEFAULT_CALENDAR_RANGE_COLLECTIONS)[number]>>;
 
 /** The days of each collection that a view needs or a coordinator holds. */
 export type CalendarCoverage = Partial<Record<CalendarRangeCollection, CalendarBufferedRange>>;
@@ -56,7 +62,7 @@ export interface CalendarRangeRequest extends CalendarBufferedRange {
 	collections: CalendarRangeCollection[];
 }
 
-function coverageThrough(firstVisible: string, lastVisible: string, today: string): Required<CalendarCoverage> {
+function coverageThrough(firstVisible: string, lastVisible: string, today: string): BaseCoverage {
 	const readBackStart = shiftDate(firstVisible, -TODAY_READ_BACK_DAYS);
 	const availabilityStart = today >= readBackStart && today < firstVisible ? today : firstVisible;
 	return {
@@ -70,7 +76,7 @@ export function calendarViewCoverage(
 	anchor: Date,
 	view: CalendarViewMode,
 	today: string = formatDate(new Date())
-): Required<CalendarCoverage> {
+): BaseCoverage {
 	const lastVisibleMonth = new Date(anchor.getFullYear(), anchor.getMonth() + PERIODS[view].months - 1, 1);
 	return coverageThrough(
 		formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1)),
@@ -79,12 +85,21 @@ export function calendarViewCoverage(
 	);
 }
 
+/** Every day of the three months a 3-Month view shows, from the anchor's month. */
+export function longRangeDates(anchor: Date): Date[] {
+	const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+	return [0, 1, 2].flatMap((offset) => {
+		const month = addMonths(first, offset);
+		return getMonthDates(month.getFullYear(), month.getMonth());
+	});
+}
+
 /**
  * The bootstrap holds the anchor month's view and the month after it, so Next month needs no read.
  * The server knows only its UTC day, and every viewer's day is within one day of it, so availability
  * starts at the earliest of those days within the read-back and covers each viewer's today.
  */
-export function initialCalendarCoverage(anchor: Date, serverToday: string): Required<CalendarCoverage> {
+export function initialCalendarCoverage(anchor: Date, serverToday: string): BaseCoverage {
 	const firstVisible = formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
 	const readBackStart = shiftDate(firstVisible, -TODAY_READ_BACK_DAYS);
 	const viewerDays = [-1, 0, 1].map((days) => shiftDate(serverToday, days));

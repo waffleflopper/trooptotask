@@ -1,6 +1,7 @@
 import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 import type { FeatureKey } from '$lib/access/featureSwitches';
+import { readCalendarProjection, type CalendarProjectionReader } from './projection/calendarProjectionRead.server';
 import type { CalendarRangeCollection } from './utils/calendarRange';
 export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 import { listAssignmentTypes } from './assignmentTypeRead.server';
@@ -33,6 +34,9 @@ interface CalendarQueryPorts {
 	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
 	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange'>;
 	personnelCalendarRoster?: Pick<PersonnelCalendarRosterPort, 'listAssigneeIds'>;
+	/** Needed only to read the `events` collection. */
+	calendarProjection?: CalendarProjectionReader;
+	disabledFeatures?: readonly FeatureKey[];
 }
 
 export interface CalendarDateRange {
@@ -109,15 +113,17 @@ export async function fetchCalendarRangeData(
 	const range = { rangeStart, rangeEnd };
 	const withAvailability = input.collections.includes('availability');
 	const withAssignments = input.collections.includes('assignments');
+	const withEvents = input.collections.includes('events');
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
 	return withCalendarTiming(orgId, 'date-ranged-query', async () => {
-		const [availabilityEntries, specialDays, dailyAssignments] = await Promise.all([
+		const [availabilityEntries, specialDays, dailyAssignments, projection] = await Promise.all([
 			withAvailability
 				? listAvailabilityEntries(ctx, { ...range, personnelIds: calendarScope?.personnelIds })
 				: undefined,
 			withAssignments ? listSpecialDaysInRange(ctx.calendarCatalogs, range) : undefined,
-			withAssignments ? listDailyAssignments(ctx, range, calendarScope) : undefined
+			withAssignments ? listDailyAssignments(ctx, range, calendarScope) : undefined,
+			withEvents ? readCalendarProjection(requireProjectionPorts(ctx), range) : undefined
 		]);
 
 		return {
@@ -125,9 +131,15 @@ export async function fetchCalendarRangeData(
 			rangeEnd,
 			availabilityEntries,
 			specialDays,
-			dailyAssignments
+			dailyAssignments,
+			projection
 		};
 	});
+}
+
+function requireProjectionPorts(ctx: CalendarQueryPorts) {
+	if (!ctx.calendarProjection || !ctx.disabledFeatures) throw new Error('Calendar projection reader is unavailable');
+	return { calendarProjection: ctx.calendarProjection, disabledFeatures: ctx.disabledFeatures };
 }
 
 export async function fetchCalendarBootstrap(

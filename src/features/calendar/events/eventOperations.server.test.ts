@@ -3,7 +3,15 @@ import type { AuditEvent } from '$lib/audit/contracts';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { CalendarEvent } from './eventModel';
-import { cancelEvent, createEvent, listEvents, updateEvent, type CalendarEventPorts } from './eventOperations.server';
+import {
+	cancelEvent,
+	createEvent,
+	deleteEvent,
+	listEvents,
+	updateEvent,
+	type CalendarEventPorts
+} from './eventOperations.server';
+import { fail } from '$lib/errors';
 import type { CalendarEventPersistence } from './eventPersistence.server';
 
 const ACTOR = '00000000-0000-4000-8000-000000000001';
@@ -19,10 +27,15 @@ const draft = {
 	sourceReference: 'BN FRAGO 27-012'
 };
 
-function memoryEvents(): CalendarEventPersistence & { stored: Map<string, CalendarEvent> } {
+function memoryEvents(): CalendarEventPersistence & {
+	stored: Map<string, CalendarEvent>;
+	linked: Map<string, string | null>;
+} {
 	const stored = new Map<string, CalendarEvent>();
+	const linked = new Map<string, string | null>();
 	return {
 		stored,
+		linked,
 		listEvents: async () => [...stored.values()],
 		findEvent: async (id) => stored.get(id) ?? null,
 		listActivity: async () => [],
@@ -39,6 +52,15 @@ function memoryEvents(): CalendarEventPersistence & { stored: Map<string, Calend
 			const event = { ...existing, ...input };
 			stored.set(id, event);
 			return event;
+		},
+		async deleteEvent(id, taskings) {
+			if (!stored.delete(id)) fail(404, 'That event is no longer available.');
+			const ids = [...linked].filter(([, eventId]) => eventId === id).map(([taskingId]) => taskingId);
+			for (const taskingId of ids) {
+				if (taskings === 'delete') linked.delete(taskingId);
+				else linked.set(taskingId, null);
+			}
+			return ids.length;
 		},
 		async cancelEvent(id, reason) {
 			const event = { ...stored.get(id)!, cancellation: { at: '2026-10-25T12:00:00Z', by: ACTOR, reason } };
@@ -90,6 +112,74 @@ function member(calendar: CapabilityLevel, scopeSet: ScopeSet = { kind: 'organiz
 }
 
 describe('Event operations', () => {
+	it.each(['standalone', 'delete'] as const)(
+		'deletes a cancelled Event in %s mode and settles its audit before answering',
+		async (taskings) => {
+			const { ctx, calendarEvents, audit } = member('operate');
+			calendarEvents.stored.set(EVENT, {
+				id: EVENT,
+				...draft,
+				host: { kind: 'organization' },
+				cancellation: { at: '2026-10-25T12:00:00Z', by: ACTOR, reason: null }
+			});
+			calendarEvents.linked.set('tasking-a', EVENT);
+			calendarEvents.linked.set('tasking-b', EVENT);
+			calendarEvents.linked.set('unrelated', null);
+
+			expect(await deleteEvent(ctx, EVENT, { taskings })).toEqual({ taskings, count: 2 });
+			expect(calendarEvents.stored.get(EVENT)).toBeUndefined();
+			expect([...calendarEvents.linked]).toEqual(
+				taskings === 'standalone'
+					? [
+							['tasking-a', null],
+							['tasking-b', null],
+							['unrelated', null]
+						]
+					: [['unrelated', null]]
+			);
+			expect(audit.entries).toEqual([
+				{
+					action: 'calendar_event.deleted',
+					resourceType: 'calendar_event',
+					resourceId: EVENT,
+					details: { title: 'Best Medic Competition', mode: taskings, count: 2 }
+				}
+			]);
+		}
+	);
+
+	it('refuses deletion for a viewer or a Group operator, preserving the Event', async () => {
+		for (const access of [member('view'), member('operate', { kind: 'groups', groupIds: ['g-1'] })]) {
+			access.calendarEvents.stored.set(EVENT, {
+				id: EVENT,
+				...draft,
+				host: { kind: 'organization' },
+				cancellation: null
+			});
+			await expect(deleteEvent(access.ctx, EVENT, { taskings: 'delete' })).rejects.toMatchObject({ status: 403 });
+			expect(access.calendarEvents.stored.get(EVENT)?.title).toBe('Best Medic Competition');
+			expect(access.audit.entries.filter(({ action }) => action === 'calendar_event.deleted')).toEqual([]);
+		}
+	});
+
+	it('refuses malformed deletion bodies and missing Events without a deletion audit', async () => {
+		const { ctx, calendarEvents, audit } = member('operate');
+		calendarEvents.stored.set(EVENT, { id: EVENT, ...draft, host: { kind: 'organization' }, cancellation: null });
+		for (const input of [{}, { taskings: 'archive' }, { taskings: 'delete', actorId: ACTOR }, null]) {
+			await expect(deleteEvent(ctx, EVENT, input)).rejects.toMatchObject({ status: 400 });
+		}
+		expect(calendarEvents.stored.get(EVENT)?.title).toBe('Best Medic Competition');
+		await expect(deleteEvent(ctx, 'invalid', { taskings: 'delete' })).rejects.toMatchObject({
+			status: 404,
+			message: 'That event is no longer available.'
+		});
+		await expect(deleteEvent(ctx, ACTOR, { taskings: 'standalone' })).rejects.toMatchObject({
+			status: 404,
+			message: 'That event is no longer available.'
+		});
+		expect(audit.entries).toEqual([]);
+	});
+
 	it('lets an Organization-wide operator create, edit and cancel, auditing each before it answers', async () => {
 		const { ctx, calendarEvents, audit } = member('operate');
 

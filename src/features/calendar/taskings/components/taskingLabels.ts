@@ -115,6 +115,8 @@ export function describeActivity(
 			return { summary: `Linked to ${eventTitle(fact.eventId)}`, note: null };
 		case 'unlinked':
 			return { summary: `Unlinked from ${eventTitle(fact.eventId)}`, note: null };
+		case 'event_deleted':
+			return { summary: `Unlinked from ${fact.eventTitle}, which was deleted`, note: null };
 		case 'requirement_changed':
 			return {
 				summary: `Changed the requirement from ${requirementLabel(fact.from) ?? 'none'} to ${requirementLabel(fact.to) ?? 'none'}`,

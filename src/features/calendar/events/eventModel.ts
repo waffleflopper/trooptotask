@@ -207,3 +207,8 @@ export type EventDraft = z.output<typeof eventDraftSchema>;
 export const eventCancellationSchema = z
 	.object({ reason: optionalText('the reason', EVENT_CANCELLATION_REASON_MAX) })
 	.strict();
+
+export const eventDeletionSchema = z.object({ taskings: z.enum(['standalone', 'delete']) }).strict();
+
+export type EventDeletionMode = z.output<typeof eventDeletionSchema>['taskings'];
+export type EventDeletionResult = { taskings: EventDeletionMode; count: number };

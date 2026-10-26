@@ -132,6 +132,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261026102000_calendar_projection_conflicts.sql",
     "20261026103000_calendar_tasking_dashboard.sql",
     "20261026110000_calendar_tasking_detail.sql",
+    "20261026120000_calendar_event_deletion.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -223,6 +224,7 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
+    "calendar_event_deletion.sql",
     "calendar_taskings.sql",
     "calendar_tasking_equipment_checklist.sql",
     "calendar_tasking_staffing.sql",

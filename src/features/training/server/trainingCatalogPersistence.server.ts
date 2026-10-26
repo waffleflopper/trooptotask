@@ -5,6 +5,7 @@ import type { TrainingCatalogPersistence, TrainingTypeTiming, TrainingTypeImport
 import {
 	TRAINING_TYPE_FIELDS,
 	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
+	TRAINING_TYPE_ORDER_CHANGED_MESSAGE,
 	TRAINING_VIEW_FIELDS,
 	toTrainingType,
 	toTrainingView,
@@ -204,6 +205,19 @@ export function createSupabaseTrainingCatalogPersistence(
 		async deleteType(id) {
 			const { error } = await client.from('training_types').delete().eq('organization_id', orgId).eq('id', id);
 			if (error) throw new Error(error.message);
+		},
+		async writeTypePositions(positions) {
+			for (const { id, sortOrder } of positions) {
+				const { data, error } = await client
+					.from('training_types')
+					.update({ sort_order: sortOrder })
+					.eq('organization_id', orgId)
+					.eq('id', id)
+					.select('id')
+					.maybeSingle<{ id: string }>();
+				if (error) throw new Error(error.message);
+				if (!data) fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);
+			}
 		},
 		async createView(input) {
 			const { data, error } = await client

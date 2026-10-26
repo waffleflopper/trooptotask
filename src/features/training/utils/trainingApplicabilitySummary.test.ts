@@ -1,47 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeTrainingApplicability } from './trainingApplicabilitySummary';
+import { summarizeApplicability } from './trainingApplicabilitySummary';
+import type { ApplicabilityDraft } from './trainingTypeDraft';
 
-const everyone = {
-	isOptional: false,
-	appliesToRoles: [],
-	appliesToMos: [],
-	appliesToRanks: [],
-	excludedRoles: [],
-	excludedMos: [],
-	excludedRanks: []
-};
+const draft = (fields: Partial<ApplicabilityDraft>): ApplicabilityDraft => ({
+	mode: 'everyone',
+	only: [],
+	except: [],
+	...fields
+});
 
-describe('summarizeTrainingApplicability', () => {
-	it.each([
-		{ name: 'no rule', type: everyone, expected: 'Everyone' },
-		{
-			name: 'optional ignores every list',
-			type: { ...everyone, isOptional: true, appliesToRoles: ['Driver'] },
-			expected: 'Optional'
-		},
-		{ name: 'one role', type: { ...everyone, appliesToRoles: ['Driver'] }, expected: 'Role: Driver' },
-		{
-			name: 'several values of one kind',
-			type: { ...everyone, appliesToMos: ['68W', '91B'] },
-			expected: 'MOS: 68W, 91B'
-		},
-		{
-			name: 'several kinds read as any-of',
-			type: { ...everyone, appliesToRoles: ['Driver'], appliesToRanks: ['SGT'] },
-			expected: 'Role: Driver · Rank: SGT'
-		},
-		{ name: 'an exception alone', type: { ...everyone, excludedMos: ['68W'] }, expected: 'Everyone except MOS 68W' },
-		{
-			name: 'exceptions of two kinds',
-			type: { ...everyone, excludedMos: ['68W', '91B'], excludedRoles: ['Medic'] },
-			expected: 'Everyone except Role Medic · MOS 68W, 91B'
-		},
-		{
-			name: 'a rule with an exception',
-			type: { ...everyone, appliesToRoles: ['Driver'], excludedMos: ['68W'] },
-			expected: 'Role: Driver · except MOS 68W'
-		}
-	])('reads $name', ({ type, expected }) => {
-		expect(summarizeTrainingApplicability(type)).toBe(expected);
+describe('summarizeApplicability', () => {
+	it.each<[string, ApplicabilityDraft, string]>([
+		['everyone', draft({}), 'Everyone'],
+		[
+			'optional, ignoring any chips',
+			draft({ mode: 'optional', only: [{ kind: 'role', value: 'Driver' }] }),
+			'Optional'
+		],
+		['one role', draft({ mode: 'onlySome', only: [{ kind: 'role', value: 'Driver' }] }), 'Role: Driver'],
+		[
+			'values of one kind grouped, kinds in role, MOS, rank order',
+			draft({
+				mode: 'onlySome',
+				only: [
+					{ kind: 'rank', value: 'SGT' },
+					{ kind: 'mos', value: '88M' },
+					{ kind: 'role', value: 'Driver' },
+					{ kind: 'role', value: 'Medic' }
+				]
+			}),
+			'Role: Driver, Medic; MOS: 88M; Rank: SGT'
+		],
+		['an exception to everyone', draft({ except: [{ kind: 'mos', value: '68W' }] }), 'Everyone except MOS 68W'],
+		[
+			'an exception to a narrowed audience',
+			draft({
+				mode: 'onlySome',
+				only: [{ kind: 'role', value: 'Driver' }],
+				except: [{ kind: 'rank', value: 'PVT' }]
+			}),
+			'Role: Driver except Rank PVT'
+		],
+		['only some with no chips yet', draft({ mode: 'onlySome' }), 'Everyone']
+	])('describes %s', (_label, applicability, expected) => {
+		expect(summarizeApplicability(applicability)).toBe(expected);
 	});
 });

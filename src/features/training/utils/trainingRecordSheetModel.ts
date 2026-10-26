@@ -2,9 +2,10 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '../training.types';
 import { renewalMode, type RenewalMode } from './cellDisplayText';
 import { MATRIX_HORIZON_DAYS } from './matrixReadiness';
-import { summarizeTrainingApplicability } from './trainingApplicabilitySummary';
+import { summarizeApplicability } from './trainingApplicabilitySummary';
 import { trainingRequirements } from './trainingBriefing';
 import { getTrainingStatus, type TrainingStatusInfo } from './trainingStatus';
+import { trainingTypeDraftFrom } from './trainingTypeDraft';
 
 export interface RecordSheetItem {
 	type: TrainingType;
@@ -67,7 +68,8 @@ export function buildTrainingRecordSheet(input: {
 			record,
 			statusInfo,
 			renewal: renewalMode(type),
-			reason: statusInfo.status === 'not-required' ? summarizeTrainingApplicability(type) : null
+			reason:
+				statusInfo.status === 'not-required' ? summarizeApplicability(trainingTypeDraftFrom(type).applicability) : null
 		};
 	});
 	const withStatus = (...statuses: TrainingStatusInfo['status'][]) =>

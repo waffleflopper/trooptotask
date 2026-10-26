@@ -219,6 +219,7 @@ function createTestTrainingPersistence(store: FixtureRowStore, orgId: string, op
 				listTypeImportReferences: unavailable,
 				findTypeId: unavailable,
 				setPersonExemption: unavailable,
+				writeTypePositions: unavailable,
 				createType: unavailable,
 				patchType: unavailable,
 				deleteType: unavailable,

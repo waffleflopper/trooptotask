@@ -1,30 +1,20 @@
-import type { TrainingRequirementFacts } from '../training.types';
+import type { ApplicabilityChip, ApplicabilityDraft } from './trainingTypeDraft';
 
-type ApplicabilityFacts = Pick<
-	TrainingRequirementFacts,
-	| 'isOptional'
-	| 'appliesToRoles'
-	| 'appliesToMos'
-	| 'appliesToRanks'
-	| 'excludedRoles'
-	| 'excludedMos'
-	| 'excludedRanks'
->;
+const KIND_LABEL: Record<ApplicabilityChip['kind'], string> = { role: 'Role', mos: 'MOS', rank: 'Rank' };
+const KIND_ORDER: ApplicabilityChip['kind'][] = ['role', 'mos', 'rank'];
 
-function parts(roles: string[], mos: string[], ranks: string[], separator: string): string[] {
-	return [
-		['Role', roles],
-		['MOS', mos],
-		['Rank', ranks]
-	].flatMap(([label, values]) => (values.length > 0 ? [`${label}${separator}${(values as string[]).join(', ')}`] : []));
+function describeChips(chips: ApplicabilityChip[], separator: string): string {
+	return KIND_ORDER.flatMap((kind) => {
+		const values = chips.filter((chip) => chip.kind === kind).map((chip) => chip.value);
+		return values.length > 0 ? [`${KIND_LABEL[kind]}${separator}${values.join(', ')}`] : [];
+	}).join('; ');
 }
 
-/** Who a Training type applies to, in a few words: "Everyone", "Optional", "Role: Driver", "Everyone except MOS 68W". */
-export function summarizeTrainingApplicability(type: ApplicabilityFacts): string {
-	if (type.isOptional) return 'Optional';
-	const only = parts(type.appliesToRoles, type.appliesToMos, type.appliesToRanks, ': ');
-	const except = parts(type.excludedRoles, type.excludedMos, type.excludedRanks, ' ');
-	const exceptText = except.length > 0 ? `except ${except.join(' · ')}` : '';
-	if (only.length === 0) return exceptText ? `Everyone ${exceptText}` : 'Everyone';
-	return [only.join(' · '), exceptText].filter(Boolean).join(' · ');
+/** One line for who a Training type applies to, such as "Role: Driver" or "Everyone except MOS 68W". */
+export function summarizeApplicability(applicability: ApplicabilityDraft): string {
+	if (applicability.mode === 'optional') return 'Optional';
+	const only = applicability.mode === 'onlySome' ? describeChips(applicability.only, ': ') : '';
+	const except = describeChips(applicability.except, ' ');
+	const audience = only || 'Everyone';
+	return except ? `${audience} except ${except}` : audience;
 }

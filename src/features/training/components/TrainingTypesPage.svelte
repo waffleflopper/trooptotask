@@ -1,45 +1,33 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { invalidate } from '$app/navigation';
-	import { DEFAULT_TRAINING_TYPE_COLOR, type TrainingPageAccess } from '../contracts';
-	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as Field from '$lib/components/ui/field';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Input } from '$lib/components/ui/input';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
-	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
-	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
+	import { resolve } from '$app/paths';
+	import { ChevronLeft, Plus } from '@lucide/svelte';
+	import type { TrainingPageAccess } from '../contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import type { Personnel } from '$features/personnel/contracts';
-	import type { RankCatalogEntry } from '$features/personnel/contracts';
-	import { rankCodesForOptions } from '$features/personnel/contracts';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Button } from '$lib/components/ui/button';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
+	import type { Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { rosterStore } from '$features/personnel';
 	import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import * as Alert from '$lib/components/ui/alert';
-	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-	import {
-		getExpirationMode,
-		toExpirationFields,
-		formatApplicability,
-		getTypeSummaryLine,
-		type ExpirationMode
-	} from '$features/training/utils/trainingTypeDisplay';
-	import ApplicabilityEditor from './ApplicabilityEditor.svelte';
-	import type { ApplicabilityFields } from './ApplicabilityEditor.svelte';
+	import { formatToday } from '$lib/utils/dates';
+	import { isTrainingApplicable } from '$features/training/utils/applicability';
+	import { summarizeApplicability } from '$features/training/utils/trainingApplicabilitySummary';
+	import { trainingTypeDraftFrom } from '$features/training/utils/trainingTypeDraft';
 	import type { TrainingType } from '$features/training/training.types';
+	import TrainingTypeSheet from './TrainingTypeSheet.svelte';
 
 	let {
 		data,
-		org
+		org,
+		orgName = '',
+		loading = false
 	}: {
 		data: {
 			[key: string]: unknown;
@@ -47,48 +35,45 @@
 			personnel?: Personnel[];
 		};
 		org: TrainingPageAccess;
+		orgName?: string;
+		/** The types or personnel are still on their way. */
+		loading?: boolean;
 	} = $props();
 
-	const configureAffordance = $derived(
+	const canMutate = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'organization' })
+			.allowed
 	);
-	const canMutate = $derived(configureAffordance.allowed);
 	const workspaceData = $derived(data.training?.data);
+	const matrixHref = $derived(resolve(`/org/${org.orgUrlSegment ?? org.orgId}/training`));
 
-	let selectedTypeId: string | null = $state(null);
-	let editing = $state(false);
-	let nameInput = $state<HTMLInputElement | null>(null);
-	let creating = $state(false);
-	let saving = $state(false);
-	let error = $state('');
-	let mobileDetailOpen = $state(false);
-	let confirmDelete: { id: string; name: string } | null = $state(null);
-	let deleteError = $state('');
-	let reordering = $state(false);
-	let typeList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
+	/** The edited type is kept as it was opened, so a delete that removes it from the store does not unmount the sheet early. */
+	type Sheet = { type: TrainingType | null };
+	let sheet = $state.raw<Sheet | null>(null);
+	let focusAfterClose: () => HTMLElement | null | undefined = () => undefined;
+	type OrderRequest = { orgId: string; ids: string[] };
+	// The order shown while saving. Moves made during a save replace it and go out as one follow-up save.
+	let pendingOrder = $state.raw<OrderRequest | null>(null);
+	let orderInFlight = false;
+	let alive = true;
+	onDestroy(() => {
+		alive = false;
+	});
+	let newTypeButton = $state<HTMLElement | null>(null);
+	let list = $state<HTMLDivElement | null>(null);
+	const today = formatToday();
+	// The columns' minimum widths, gaps and padding need 920 px, so the grid waits for a 58rem container.
+	const GRID =
+		'grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 @min-[58rem]:grid-cols-[2rem_minmax(12rem,2.2fr)_10rem_6.5rem_minmax(9rem,1.6fr)_6.5rem_5.5rem] @min-[58rem]:items-center';
 
-	let editName = $state('');
-	let editDescription = $state('');
-	let editColor = $state(DEFAULT_TRAINING_TYPE_COLOR);
-	let editExpirationMode: ExpirationMode = $state('never');
-	let editExpirationMonths = $state<number | null>(12);
-	let editWarningYellow = $state(60);
-	let editWarningOrange = $state(30);
-	let editAppliesToRoles = $state<string[]>([]);
-	let editAppliesToMos = $state<string[]>([]);
-	let editAppliesToRanks = $state<string[]>([]);
-	let editExcludedRoles = $state<string[]>([]);
-	let editExcludedMos = $state<string[]>([]);
-	let editExcludedRanks = $state<string[]>([]);
-	let editCanBeExempted = $state(false);
-	let editIsOptional = $state(false);
-
-	const types = $derived(trainingTypesStore.items);
-	const orderedTypes = $derived([...types].sort((a, b) => a.sortOrder - b.sortOrder));
-	const selectedType = $derived(
-		creating
-			? null
-			: (selectedTypeId ? (types.find((t) => t.id === selectedTypeId) ?? null) : null) || orderedTypes[0] || null
+	// Ties break by id, as the server lists them, so the expected order a reorder sends matches the stored one.
+	const orderedTypes = $derived(
+		[...trainingTypesStore.items].sort((a, b) => a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+	);
+	const rows = $derived(
+		pendingOrder?.orgId === org.orgId
+			? pendingOrder.ids.flatMap((id) => orderedTypes.find((type) => type.id === id) ?? [])
+			: orderedTypes
 	);
 
 	const fallbackPersonnel = $derived(
@@ -104,268 +89,140 @@
 			: createRosterReadModel({ personnel: fallbackPersonnel, groups: [], pinnedGroups: [] }).full({ status: 'active' })
 					.flatPersonnel
 	);
-
-	const availableRoles = $derived(
-		[...new Set(personnel.map((p: { clinicRole: string }) => p.clinicRole))].filter(Boolean).sort() as string[]
-	);
-
-	const availableMos = $derived(
-		[...new Set(personnel.map((p: { mos: string }) => p.mos))].filter(Boolean).sort() as string[]
-	);
-
-	const routeRankCatalog = $derived(
-		Array.isArray(workspaceData?.rankCatalog) ? (workspaceData.rankCatalog as RankCatalogEntry[]) : undefined
-	);
 	const rankCatalog = $derived(
-		routeRankCatalog ??
-			(trainingRankCatalogStore.orgId === org.orgId
+		Array.isArray(workspaceData?.rankCatalog)
+			? (workspaceData.rankCatalog as RankCatalogEntry[])
+			: trainingRankCatalogStore.orgId === org.orgId
 				? (trainingRankCatalogStore.items as RankCatalogEntry[])
-				: undefined)
-	);
-	const preservedApplicabilityRanks = $derived(
-		creating || editing
-			? [...editAppliesToRanks, ...editExcludedRanks]
-			: selectedType
-				? [...selectedType.appliesToRanks, ...selectedType.excludedRanks]
-				: []
-	);
-	const availableRanks = $derived(
-		rankCodesForOptions({
-			rankCatalog,
-			observedRanks: personnel.map((p: { rank: string }) => p.rank),
-			preserveRanks: preservedApplicabilityRanks
-		})
+				: undefined
 	);
 
-	function selectType(id: string) {
-		if (editing || creating) return;
-		selectedTypeId = id;
-		mobileDetailOpen = true;
+	function renews(type: TrainingType): string {
+		const renewal = trainingTypeDraftFrom(type).renewal;
+		if (renewal.kind === 'cardDate') return 'Date on the card';
+		if (renewal.kind === 'never') return 'Never expires';
+		return renewal.months === 1 ? 'Every month' : `Every ${renewal.months} months`;
 	}
 
-	async function focusNameInput() {
-		await tick();
-		nameInput?.focus();
+	const warnsAt = (type: TrainingType) =>
+		trainingTypeDraftFrom(type).renewal.kind === 'never'
+			? '—'
+			: `${type.warningDaysYellow}d · ${type.warningDaysOrange}d`;
+
+	const rowButton = (id: string) => list?.querySelector<HTMLElement>(`[data-type-id="${CSS.escape(id)}"]`);
+
+	function openSheet(next: Sheet, opener: HTMLElement | null) {
+		if (!canMutate || sheet) return;
+		focusAfterClose = () => (opener?.isConnected ? opener : newTypeButton);
+		sheet = next;
 	}
 
-	function startEdit() {
-		if (!selectedType || !canMutate) return;
-		error = '';
-		mobileDetailOpen = true;
-		selectedTypeId = selectedType.id;
-		editName = selectedType.name;
-		editDescription = selectedType.description ?? '';
-		editColor = selectedType.color;
-		editExpirationMode = getExpirationMode(selectedType);
-		editExpirationMonths = selectedType.expirationMonths ?? 12;
-		editWarningYellow = selectedType.warningDaysYellow;
-		editWarningOrange = selectedType.warningDaysOrange;
-		editAppliesToRoles = [...selectedType.appliesToRoles];
-		editAppliesToMos = [...selectedType.appliesToMos];
-		editAppliesToRanks = [...selectedType.appliesToRanks];
-		editExcludedRoles = [...selectedType.excludedRoles];
-		editExcludedMos = [...selectedType.excludedMos];
-		editExcludedRanks = [...selectedType.excludedRanks];
-		editCanBeExempted = selectedType.canBeExempted;
-		editIsOptional = selectedType.isOptional;
-		editing = true;
-		focusNameInput();
+	function closeSheet(focusTypeId?: string) {
+		const opener = focusAfterClose;
+		focusAfterClose = () => (focusTypeId ? rowButton(focusTypeId) : null) ?? opener() ?? newTypeButton;
+		sheet = null;
 	}
 
-	function cancelEdit() {
-		const wasCreating = creating;
-		editing = false;
-		creating = false;
-		saving = false;
-		error = '';
-		if (wasCreating) mobileDetailOpen = false;
+	function returnFocus() {
+		focusAfterClose()?.focus();
 	}
 
-	function startCreate() {
-		if (!canMutate) return;
-		error = '';
-		mobileDetailOpen = true;
-		selectedTypeId = null;
-		editName = '';
-		editDescription = '';
-		editColor = DEFAULT_TRAINING_TYPE_COLOR;
-		editExpirationMode = 'fixed';
-		editExpirationMonths = 12;
-		editWarningYellow = 60;
-		editWarningOrange = 30;
-		editAppliesToRoles = [];
-		editAppliesToMos = [];
-		editAppliesToRanks = [];
-		editExcludedRoles = [];
-		editExcludedMos = [];
-		editExcludedRanks = [];
-		editCanBeExempted = false;
-		editIsOptional = false;
-		creating = true;
-		editing = false;
-		focusNameInput();
+	function openRow(event: MouseEvent, type: TrainingType) {
+		const target = event.target as HTMLElement;
+		if (target.closest('[data-reorder-grip]')) return;
+		openSheet({ type }, rowButton(type.id) ?? null);
 	}
 
-	async function saveEdit() {
-		if (!editName.trim() || saving) return;
-		saving = true;
-		error = '';
+	function move(id: string, toIndex: number) {
+		const next = rows.filter((type) => type.id !== id);
+		const moved = rows.find((type) => type.id === id);
+		if (!moved) return;
+		next.splice(toIndex, 0, moved);
+		const ids = next.map((type) => type.id);
+		if (ids.every((id, index) => id === rows[index]?.id)) return;
+		pendingOrder = { orgId: org.orgId, ids };
+		if (!orderInFlight) void saveOrder(org.orgId);
+	}
+
+	async function saveOrder(orgId: string) {
+		orderInFlight = true;
+		const stillHere = () => alive && org.orgId === orgId;
 		try {
-			const expirationFields = toExpirationFields(
-				editExpirationMode,
-				editExpirationMode === 'fixed' ? editExpirationMonths : null
-			);
-			const payload = {
-				name: editName.trim(),
-				description: editDescription.trim() || null,
-				color: editColor,
-				...expirationFields,
-				warningDaysYellow: editExpirationMode === 'never' ? 60 : editWarningYellow,
-				warningDaysOrange: editExpirationMode === 'never' ? 30 : editWarningOrange,
-				appliesToRoles: editAppliesToRoles,
-				appliesToMos: editAppliesToMos,
-				appliesToRanks: editAppliesToRanks,
-				excludedRoles: editExcludedRoles,
-				excludedMos: editExcludedMos,
-				excludedRanks: editExcludedRanks,
-				canBeExempted: editCanBeExempted,
-				isOptional: editIsOptional
-			};
-
-			if (creating) {
-				const newType = await trainingTypesStore.add({
-					...payload,
-					sortOrder: orderedTypes.length,
-					exemptPersonnelIds: []
-				} as Omit<TrainingType, 'id'>);
-				if (!newType) {
-					error = 'Failed to save training type.';
-					return;
-				}
-				selectedTypeId = newType.id;
-				creating = false;
-				mobileDetailOpen = true;
-				editing = false;
-				saving = false;
-				await tick();
-				typeList?.focusSelected();
-			} else if (selectedTypeId) {
-				if (!(await trainingTypesStore.updateOrThrow(selectedTypeId, payload))) {
-					error = 'Failed to save training type.';
-					return;
-				}
+			while (stillHere() && pendingOrder?.orgId === orgId) {
+				const request = pendingOrder;
+				const expectedTrainingTypeIds = orderedTypes.map((type) => type.id);
+				if (request.ids.every((id, index) => id === expectedTrainingTypeIds[index])) break;
+				const response = await fetch(`/org/${orgId}/api/training-types/order`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ trainingTypeIds: request.ids, expectedTrainingTypeIds })
+				});
+				if (!stillHere()) return;
+				if (!response.ok) throw new Error('Order was not saved');
+				const positions = new Map(request.ids.map((id, sortOrder) => [id, sortOrder]));
+				trainingTypesStore.updateLocalWhere(
+					(type) => positions.has(type.id),
+					(type) => ({ ...type, sortOrder: positions.get(type.id) ?? type.sortOrder })
+				);
 			}
-			editing = false;
-		} catch (failure) {
-			error = rejectedRequestMessage(failure, 'Failed to save training type.');
-		} finally {
-			saving = false;
-		}
-	}
-
-	function openDelete(type: { id: string; name: string }) {
-		deleteError = '';
-		confirmDelete = { id: type.id, name: type.name };
-	}
-
-	async function deleteType(id: string) {
-		deleteError = '';
-		const result = await trainingTypesStore.remove(id);
-		if (result === 'error') {
-			deleteError = 'Failed to delete training type. Try again.';
-			return;
-		}
-		if (result === 'deleted') personnelTrainingsStore.removeByTrainingTypeLocal(id);
-		if (selectedTypeId === id) selectedTypeId = null;
-		mobileDetailOpen = false;
-		confirmDelete = null;
-	}
-
-	async function move(index: number, target: number) {
-		if (reordering || target < 0 || target >= orderedTypes.length) return;
-		const order = [...orderedTypes];
-		[order[index], order[target]] = [order[target], order[index]];
-		const positions = new Set(orderedTypes.map((type) => type.sortOrder));
-		// Distinct positions swap between the two rows, so a refused write can disturb no other row.
-		// Shared positions are renumbered so the move takes effect and the tie is repaired.
-		const changed =
-			positions.size === orderedTypes.length
-				? [
-						{ type: orderedTypes[index], sortOrder: orderedTypes[target].sortOrder },
-						{ type: orderedTypes[target], sortOrder: orderedTypes[index].sortOrder }
-					]
-				: order
-						.map((type, sortOrder) => ({ type, sortOrder }))
-						.filter(({ type, sortOrder }) => type.sortOrder !== sortOrder);
-		reordering = true;
-		try {
-			const saved = await Promise.all(
-				changed.map(({ type, sortOrder }) =>
-					trainingTypesStore.updateOrThrow(type.id, { sortOrder }).then(Boolean, () => false)
-				)
-			);
-			if (saved.every(Boolean)) return;
+			if (stillHere()) pendingOrder = null;
+		} catch {
+			if (!stillHere()) return;
+			pendingOrder = null;
 			toastStore.error('Failed to save the training type order. Reloading the saved order.');
 			await invalidate('app:training-data');
 		} finally {
-			reordering = false;
+			orderInFlight = false;
 		}
 	}
-
-	function handleApplicabilityChange(fields: ApplicabilityFields) {
-		editAppliesToRoles = fields.appliesToRoles;
-		editAppliesToMos = fields.appliesToMos;
-		editAppliesToRanks = fields.appliesToRanks;
-		editExcludedRoles = fields.excludedRoles;
-		editExcludedMos = fields.excludedMos;
-		editExcludedRanks = fields.excludedRanks;
-		editIsOptional = fields.isOptional;
-	}
-
-	function getExpirationLabel(mode: ExpirationMode): string {
-		switch (mode) {
-			case 'fixed':
-				return 'Expires after a set number of months';
-			case 'never':
-				return 'Never expires';
-			case 'date-only':
-				return 'Expiration date varies per person';
-		}
-	}
-
-	function closeMobileDetail() {
-		if (creating || editing) {
-			cancelEdit();
-		}
-		mobileDetailOpen = false;
-	}
-
-	const typeActionDisabled = $derived(creating || editing);
-
-	const newTypeAction = $derived<WorkspaceToolbarProps['primary']>({
-		kind: 'action',
-		id: 'new-type',
-		label: '+ New Type',
-		onclick: startCreate,
-		disabled: typeActionDisabled,
-		disabledReason: typeActionDisabled ? 'Finish the current edit first' : undefined
-	});
-	const editTypeAction: NonNullable<WorkspaceToolbarProps['primary']> = {
-		kind: 'action',
-		id: 'edit-type',
-		label: 'Edit',
-		onclick: startEdit
-	};
 </script>
 
-<TypeWorkspace.Root aria-label="Training type management workspace" class="overflow-hidden">
-	{#if canMutate}
-		<WorkspaceToolbar ariaLabel="Training type controls" items={[]} primary={newTypeAction} />
-	{/if}
+{#snippet cellLabel(text: string)}
+	<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase sr-only @max-[58rem]:not-sr-only"
+		>{text}</span
+	>
+{/snippet}
 
-	<TypeWorkspace.Layout>
-		<TypeWorkspace.List mobileHidden={mobileDetailOpen || creating || editing}>
-			{#if orderedTypes.length === 0 && !creating}
+<div class="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+	<div class="flex min-h-full flex-1 flex-col gap-6 px-6 pt-4 pb-5 max-sm:p-3">
+		<PageShell.Header
+			eyebrow={orgName ? `Training · ${orgName}` : 'Training'}
+			title="Training types"
+			variant="display"
+			subtitle={loading
+				? 'The order here is the column order in the matrix and on reports.'
+				: `${orderedTypes.length} ${orderedTypes.length === 1 ? 'type' : 'types'}. The order here is the column order in the matrix and on reports.`}
+		>
+			{#snippet aside()}
+				<Button variant="outline" href={matrixHref}><ChevronLeft aria-hidden="true" />Back to matrix</Button>
+				{#if canMutate}
+					<Button
+						bind:ref={newTypeButton}
+						disabled={loading}
+						onclick={(event) => openSheet({ type: null }, event.currentTarget)}
+					>
+						<Plus aria-hidden="true" />New type
+					</Button>
+				{/if}
+			{/snippet}
+		</PageShell.Header>
+
+		<section aria-label="Training types" class="@container grid gap-3">
+			{#if loading}
+				<div class="overflow-hidden rounded-lg border bg-card" role="status" aria-label="Loading training types">
+					{#each { length: 6 }, index (index)}
+						<div class="flex items-center gap-4 border-b px-4 py-4 last:border-b-0">
+							<Skeleton class="size-3 rounded-sm" />
+							<div class="grid flex-1 gap-1.5">
+								<Skeleton class="h-4 w-40" />
+								<Skeleton class="h-3.5 w-64 max-w-full" />
+							</div>
+							<Skeleton class="hidden h-4 w-28 @min-[58rem]:block" />
+							<Skeleton class="hidden h-4 w-16 @min-[58rem]:block" />
+						</div>
+					{/each}
+				</div>
+			{:else if orderedTypes.length === 0}
 				<Empty.Root>
 					<Empty.Header>
 						<Empty.Title level={3}>No training types yet.</Empty.Title>
@@ -373,248 +230,124 @@
 					</Empty.Header>
 					{#if canMutate}
 						<Empty.Content>
-							<Button type="button" onclick={startCreate}>+ New Type</Button>
+							<Button type="button" onclick={(event) => openSheet({ type: null }, event.currentTarget)}>
+								<Plus aria-hidden="true" />New type
+							</Button>
 						</Empty.Content>
 					{/if}
 				</Empty.Root>
 			{:else}
-				<TypeWorkspace.ItemList bind:this={typeList} aria-label="Training types">
-					{#each orderedTypes as type, i (type.id)}
-						<TypeWorkspace.ListItem
-							selected={selectedType?.id === type.id && !creating}
-							color={type.color}
-							title={type.name}
-							description={getTypeSummaryLine(type)}
-							onselect={() => selectType(type.id)}
-							disabled={editing || creating}
-						>
-							{#snippet actions()}
-								{#if canMutate && !editing && !creating}
-									<Button
-										variant="outline"
-										size="icon"
-										type="button"
-										onclick={async (event) => {
-											const button = event.currentTarget;
-											await move(i, i - 1);
-											TypeWorkspace.focusEnabledSibling(button);
-										}}
-										disabled={reordering || i === 0}
-										aria-label={`Move ${type.name} up`}
-									>
-										<ArrowUp aria-hidden="true" />
-									</Button>
-									<Button
-										variant="outline"
-										size="icon"
-										type="button"
-										onclick={async (event) => {
-											const button = event.currentTarget;
-											await move(i, i + 1);
-											TypeWorkspace.focusEnabledSibling(button);
-										}}
-										disabled={reordering || i === orderedTypes.length - 1}
-										aria-label={`Move ${type.name} down`}
-									>
-										<ArrowDown aria-hidden="true" />
-									</Button>
-								{/if}
-							{/snippet}
-						</TypeWorkspace.ListItem>
-					{/each}
-				</TypeWorkspace.ItemList>
-			{/if}
-		</TypeWorkspace.List>
-
-		<TypeWorkspace.Detail
-			mobileHidden={!mobileDetailOpen && !creating && !editing}
-			class={creating || editing ? 'flex flex-col overflow-hidden pr-0' : undefined}
-		>
-			{#if creating || editing || selectedType}
-				<TypeWorkspace.MobileBack onclick={closeMobileDetail}>Training types</TypeWorkspace.MobileBack>
-			{/if}
-
-			{#if creating || editing}
-				<div class="grid min-h-0 flex-1 gap-6 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
-					<TypeWorkspace.DetailHeader title={creating ? 'New Training Type' : 'Edit Training Type'} />
-
-					<TypeWorkspace.FormSection title="Basics" class="sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-end">
-						<Field.Root>
-							<Field.Label for="type-name">Name</Field.Label>
-							<Input
-								id="type-name"
-								type="text"
-								bind:ref={nameInput}
-								bind:value={editName}
-								maxlength={100}
-								placeholder="e.g. First Aid"
-							/>
-							{#if error}
-								<Field.Error>{error}</Field.Error>
+				{#snippet rowCells(type: TrainingType)}
+					<div class="flex min-w-0 items-start gap-3">
+						<span class="mt-1.5 size-3 shrink-0 rounded-sm" style="background-color: {type.color}" aria-hidden="true"
+						></span>
+						<div class="grid min-w-0">
+							{#if canMutate}
+								<button
+									type="button"
+									data-type-id={type.id}
+									class="w-fit max-w-full cursor-pointer text-start font-heading text-base font-semibold wrap-anywhere outline-none focus-visible:underline"
+								>
+									{type.name}
+								</button>
+							{:else}
+								<span class="font-heading text-base font-semibold wrap-anywhere">{type.name}</span>
 							{/if}
-						</Field.Root>
-						<Field.Root>
-							<Field.Label for="type-color">Color</Field.Label>
-							<TypeWorkspace.ColorInput id="type-color" bind:value={editColor} />
-						</Field.Root>
-						<Field.Root class="sm:col-span-2">
-							<Field.Label for="type-desc">Description</Field.Label>
-							<Textarea id="type-desc" rows={2} bind:value={editDescription} placeholder="Optional description" />
-						</Field.Root>
-					</TypeWorkspace.FormSection>
+							{#if type.description}
+								<span class="text-sm text-muted-foreground wrap-anywhere">{type.description}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="col-start-2 flex flex-wrap gap-x-6 gap-y-1 text-sm @min-[58rem]:contents">
+						<span class="flex flex-wrap gap-x-2">{@render cellLabel('Renews')}{renews(type)}</span>
+						<span class="flex flex-wrap gap-x-2 font-mono text-[13px]">
+							{@render cellLabel('Warns at')}{warnsAt(type)}
+						</span>
+						<span class="flex flex-wrap gap-x-2">
+							{@render cellLabel('Who needs it')}{summarizeApplicability(trainingTypeDraftFrom(type).applicability)}
+						</span>
+					</div>
+					<div class="col-start-2 flex flex-wrap gap-x-6 gap-y-1 text-sm @min-[58rem]:contents">
+						<span class="flex gap-x-2 font-mono text-[13px] @min-[58rem]:justify-end">
+							{@render cellLabel('Applies to')}{personnel.filter((person) => isTrainingApplicable(type, person)).length} of
+							{personnel.length}
+						</span>
+						<span class="flex gap-x-2 font-mono text-[13px] @min-[58rem]:justify-end">
+							{@render cellLabel('Exempt')}{type.canBeExempted ? 'Allowed' : '—'}
+						</span>
+					</div>
+				{/snippet}
 
-					<TypeWorkspace.FormSection title="Expiration">
-						<RadioGroup.Root bind:value={editExpirationMode} class="md:grid-cols-[1fr_0.8fr_1.2fr]">
-							{#each ['fixed', 'never', 'date-only'] as const as mode (mode)}
-								<TypeWorkspace.Choice>
-									<label for="expiration-{mode}" class="flex min-h-10 cursor-pointer items-center gap-3 text-sm">
-										<RadioGroup.Item id="expiration-{mode}" value={mode} aria-label={getExpirationLabel(mode)} />
-										<span>{getExpirationLabel(mode)}</span>
-									</label>
-								</TypeWorkspace.Choice>
-							{/each}
-						</RadioGroup.Root>
-						{#if editExpirationMode === 'fixed'}
-							<Field.Root>
-								<Field.Label for="exp-months">Months until expiration</Field.Label>
-								<Input id="exp-months" type="number" min="1" max="120" bind:value={editExpirationMonths} />
-							</Field.Root>
-						{/if}
-					</TypeWorkspace.FormSection>
-
-					{#if editExpirationMode !== 'never'}
-						<TypeWorkspace.FormSection title="Warning Thresholds" layout="two-column">
-							<Field.Root>
-								<Field.Label for="warn-yellow">Yellow warning (days)</Field.Label>
-								<Input id="warn-yellow" type="number" min="1" bind:value={editWarningYellow} />
-							</Field.Root>
-							<Field.Root>
-								<Field.Label for="warn-orange">Orange warning (days)</Field.Label>
-								<Input id="warn-orange" type="number" min="1" bind:value={editWarningOrange} />
-							</Field.Root>
-						</TypeWorkspace.FormSection>
-					{/if}
-
-					{#key selectedTypeId ?? 'new-training-type'}
-						<ApplicabilityEditor
-							appliesToRoles={editAppliesToRoles}
-							appliesToMos={editAppliesToMos}
-							appliesToRanks={editAppliesToRanks}
-							excludedRoles={editExcludedRoles}
-							excludedMos={editExcludedMos}
-							excludedRanks={editExcludedRanks}
-							isOptional={editIsOptional}
-							{availableRoles}
-							{availableMos}
-							{availableRanks}
-							onchange={handleApplicabilityChange}
-						/>
-					{/key}
-
-					<TypeWorkspace.FormSection title="Options">
-						<Field.Root orientation="horizontal">
-							<Checkbox id="can-be-exempted" bind:checked={editCanBeExempted} />
-							<Field.Label for="can-be-exempted">Can be exempted</Field.Label>
-						</Field.Root>
-					</TypeWorkspace.FormSection>
-				</div>
-
-				<TypeWorkspace.FooterActions class="shrink-0 bg-background py-3 pr-2">
-					{#if !creating && selectedTypeId && canMutate}
-						<Button
-							variant="destructive"
-							size="sm"
-							type="button"
-							onclick={() => selectedType && openDelete(selectedType)}
+				<div class="overflow-hidden rounded-lg border bg-card">
+					<div
+						class="{GRID} border-b-2 border-foreground bg-muted/40 px-3 py-2.5 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase @max-[58rem]:hidden"
+						aria-hidden="true"
+					>
+						<span></span>
+						<span>Training</span>
+						<span>Renews</span>
+						<span>Warns at</span>
+						<span>Who needs it</span>
+						<span class="text-end">Applies to</span>
+						<span class="text-end">Exempt</span>
+					</div>
+					{#if canMutate}
+						<ReorderList
+							bind:ref={list}
+							aria-label="Training types, in column order"
+							entries={rows.map((type) => ({ id: type.id, label: type.name }))}
+							onmove={move}
 						>
-							<Trash2 aria-hidden="true" />
-							Delete
-						</Button>
+							{#each rows as type (type.id)}
+								<ReorderItem
+									id={type.id}
+									class="{GRID} cursor-pointer border-b px-3 py-3 last:border-b-0 hover:bg-muted/40"
+									onclick={(event) => openRow(event, type)}
+								>
+									<ReorderGrip class="mt-0.5" />
+									{@render rowCells(type)}
+								</ReorderItem>
+							{/each}
+						</ReorderList>
+					{:else}
+						<div role="list" bind:this={list} aria-label="Training types, in column order">
+							{#each rows as type (type.id)}
+								<div role="listitem" class="{GRID} border-b px-3 py-3 last:border-b-0">
+									<span></span>
+									{@render rowCells(type)}
+								</div>
+							{/each}
+						</div>
 					{/if}
-					<TypeWorkspace.ActionSpacer />
-					<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
-					<Button size="sm" type="button" onclick={saveEdit} disabled={!editName.trim() || saving}>
-						{#if saving}<Spinner />{/if}
-						{creating ? 'Create' : 'Save'}
-					</Button>
-				</TypeWorkspace.FooterActions>
-			{:else if selectedType}
-				<TypeWorkspace.Stack>
-					{#if canMutate}
-						<WorkspaceToolbar ariaLabel="Training type detail controls" items={[]} primary={editTypeAction} />
-					{/if}
-					<TypeWorkspace.DetailHeader title={selectedType.name} color={selectedType.color} />
-
-					<TypeWorkspace.Description>
-						{selectedType.description ?? 'No description has been added for this training type.'}
-					</TypeWorkspace.Description>
-
-					<TypeWorkspace.FactList>
-						<TypeWorkspace.Fact label="Expiration">
-							{getExpirationLabel(getExpirationMode(selectedType))}
-						</TypeWorkspace.Fact>
-
-						{#if getExpirationMode(selectedType) === 'fixed'}
-							<TypeWorkspace.Fact label="Duration">{selectedType.expirationMonths} months</TypeWorkspace.Fact>
-						{/if}
-
-						{#if getExpirationMode(selectedType) !== 'never'}
-							<TypeWorkspace.Fact label="Warning Thresholds">
-								Yellow at {selectedType.warningDaysYellow} days, Orange at {selectedType.warningDaysOrange} days
-							</TypeWorkspace.Fact>
-						{/if}
-
-						<TypeWorkspace.Fact label="Applies to">
-							{formatApplicability(selectedType)}
-						</TypeWorkspace.Fact>
-
-						<TypeWorkspace.Fact label="Optional">
-							{selectedType.isOptional
-								? 'Yes. People without records are not treated as missing this type.'
-								: 'No. Matching personnel are expected to have this training.'}
-						</TypeWorkspace.Fact>
-
-						<TypeWorkspace.Fact label="Can be exempted">
-							{selectedType.canBeExempted ? 'Yes' : 'No'}
-						</TypeWorkspace.Fact>
-
-						<TypeWorkspace.Fact label="List order">
-							{orderedTypes.findIndex((type) => type.id === selectedType.id) + 1} of {orderedTypes.length}
-						</TypeWorkspace.Fact>
-					</TypeWorkspace.FactList>
-
-					{#if canMutate}
-						<TypeWorkspace.FooterActions>
-							<Button variant="destructive" size="sm" type="button" onclick={() => openDelete(selectedType)}>
-								Delete Type
-							</Button>
-						</TypeWorkspace.FooterActions>
-					{/if}
-				</TypeWorkspace.Stack>
-			{:else}
-				<Empty.Root>
-					<Empty.Header>
-						<Empty.Title level={3}>Select a training type</Empty.Title>
-						<Empty.Description>Choose a type from the list to view details.</Empty.Description>
-					</Empty.Header>
-				</Empty.Root>
+				</div>
+				{#if canMutate}
+					<p class="text-sm text-muted-foreground">
+						Drag a row by its handle, or use Alt + ↑ ↓, to change the column order. Click a row to edit it.
+					</p>
+				{/if}
 			{/if}
-		</TypeWorkspace.Detail>
-	</TypeWorkspace.Layout>
-</TypeWorkspace.Root>
+		</section>
+	</div>
+</div>
 
-{#if confirmDelete}
-	<ConfirmDialog
-		title="Delete Training Type"
-		message="Are you sure you want to delete '{confirmDelete.name}'? All associated training records will also be deleted. This cannot be undone."
-		confirmLabel="Delete"
-		onConfirm={() => {
-			if (confirmDelete) return deleteType(confirmDelete.id);
+{#if sheet}
+	{@const opened = sheet.type}
+	<TrainingTypeSheet
+		{org}
+		type={opened}
+		position={opened ? orderedTypes.findIndex((type) => type.id === opened.id) + 1 : 0}
+		catalogSize={orderedTypes.length}
+		nextSortOrder={orderedTypes.reduce((next, type) => Math.max(next, type.sortOrder + 1), 0)}
+		{personnel}
+		{rankCatalog}
+		{today}
+		onSaved={closeSheet}
+		onDeleted={() => {
+			closeSheet();
+			// The delete confirmation restores focus to a button that has just unmounted, so land after it.
+			requestAnimationFrame(returnFocus);
 		}}
-		onCancel={() => (confirmDelete = null)}
-	>
-		{#if deleteError}
-			<Alert.Root variant="destructive"><Alert.Description>{deleteError}</Alert.Description></Alert.Root>
-		{/if}
-	</ConfirmDialog>
+		onClose={() => closeSheet()}
+		{returnFocus}
+	/>
 {/if}

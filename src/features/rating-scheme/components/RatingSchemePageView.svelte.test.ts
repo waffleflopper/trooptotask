@@ -9,7 +9,7 @@ import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/
 import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core';
 
@@ -345,22 +345,29 @@ describe('RatingSchemePageView', () => {
 		});
 	});
 
-	describe('when the toolbar folds', () => {
+	describe('when the toolbar is narrow', () => {
 		const toolbarName = 'Evaluation controls';
 
 		afterEach(() => vi.unstubAllGlobals());
 
-		it('keeps the view, every filter and Export working from More with Add Entry pinned on the row', async () => {
+		async function openFilters(): Promise<HTMLElement> {
+			const trigger = screen.getByRole('button', { name: 'Filters' });
+			trigger.focus();
+			await fireEvent.keyDown(trigger, { key: 'Enter' });
+			return screen.findByRole('menu');
+		}
+
+		it('keeps the view and Add Entry on the row with every filter and Export in Filters', async () => {
 			const widths = stubToolbarWidths();
 			render(RatingSchemePageView, { props: { ctx: makeContext(), personnelLookup } });
 			await widths.foldAll();
 
 			const row = within(screen.getByRole('toolbar', { name: toolbarName }));
 			expect(row.queryByRole('button', { name: 'Export' })).toBeNull();
-			expect(row.queryByRole('button', { name: 'Table' })).toBeNull();
 			expect(row.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
+			expect(row.getByRole('searchbox', { name: /Search/ })).toBeTruthy();
 
-			const menu = await openToolbarMore(toolbarName);
+			const menu = await openFilters();
 			for (const name of [
 				'Evaluation type, Eval Type: All',
 				'Evaluation status, Status: Active',
@@ -368,33 +375,32 @@ describe('RatingSchemePageView', () => {
 			]) {
 				expect(within(menu).getByRole('menuitem', { name })).toBeTruthy();
 			}
-			await fireEvent.click(
-				within(within(menu).getByRole('group', { name: 'Evaluation view mode' })).getByRole('menuitemradio', {
-					name: 'Table'
-				})
-			);
+			expect(within(menu).getByRole('menuitem', { name: 'Export' })).toBeTruthy();
+			await fireEvent.keyDown(menu, { key: 'Escape' });
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+
+			await fireEvent.click(row.getByRole('button', { name: 'Table' }));
 			expect(await screen.findByRole('columnheader', { name: /Rated Soldier/ })).toBeTruthy();
 
-			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-			await openToolbarMore(toolbarName);
+			await openFilters();
 			await openToolbarSubmenu('Evaluation type, Eval Type: All');
 			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'NCOER' }));
 			expect(screen.getByText('1 of 2 shown')).toBeTruthy();
 
 			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-			await openToolbarMore(toolbarName);
+			await openFilters();
 			expect(screen.getByRole('menuitem', { name: 'Evaluation type, NCOER' })).toBeTruthy();
 			await fireEvent.click(screen.getByRole('menuitem', { name: 'Export' }));
 			await waitFor(() => expect(exportRatingSchemeMock).toHaveBeenCalledTimes(1));
 			expect(exportRatingSchemeMock.mock.calls[0]?.[0]).toHaveLength(1);
 		});
 
-		it('shows the filter dot on More while a folded filter is not at its default', async () => {
+		it('shows the filter dot on Filters while a folded filter is not at its default', async () => {
 			const widths = stubToolbarWidths();
 			const ctx = makeContext();
 			render(RatingSchemePageView, { props: { ctx, personnelLookup } });
 			await widths.foldAll();
-			const more = () => screen.getByRole('button', { name: `More ${toolbarName}` });
+			const more = () => screen.getByRole('button', { name: 'Filters' });
 			expect(more().getAttribute('aria-describedby')).toBeNull();
 
 			ctx.ratingFilter = 'completed';
@@ -404,7 +410,7 @@ describe('RatingSchemePageView', () => {
 			expect(description?.textContent).toBe('Hidden filters active: Evaluation status');
 		});
 
-		it('offers a viewer neither Add Entry on the row nor in More', async () => {
+		it('offers a viewer neither Add Entry on the row nor in Filters', async () => {
 			const widths = stubToolbarWidths();
 			render(RatingSchemePageView, {
 				props: { ctx: makeContext(new ModalRegistry(), makeOrg('view')), personnelLookup }
@@ -412,7 +418,7 @@ describe('RatingSchemePageView', () => {
 			await widths.foldAll();
 
 			expect(screen.queryByRole('button', { name: 'Add Entry' })).toBeNull();
-			await openToolbarMore(toolbarName);
+			await openFilters();
 			expect(screen.queryByRole('menuitem', { name: 'Add Entry' })).toBeNull();
 			expect(screen.getByRole('menuitem', { name: 'Export' })).toBeTruthy();
 		});

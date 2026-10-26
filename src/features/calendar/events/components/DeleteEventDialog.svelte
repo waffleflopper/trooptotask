@@ -56,7 +56,8 @@
 			const request = deleteEventRequest(org.orgId, event.id, asks ? mode : 'standalone');
 			const result = await withinOrganizationLifetime(request, () => open);
 			toastStore.success(deletedMessage(result));
-			void goto(`/org/${org.orgUrlSegment}/calendar/events`);
+			// Busy until the page leaves, so a second click cannot ask to delete a deleted Event.
+			await goto(`/org/${org.orgUrlSegment}/calendar/events`);
 		} catch (error) {
 			saveError = rejectedRequestMessage(error, 'The event was not deleted. Try again.');
 		}

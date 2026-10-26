@@ -122,7 +122,7 @@
 		{/if}
 		{#if work && work.length > 0}
 			<EventWorkGroups {org} {today} groups={work} groupLabels={loaded.groups} />
-		{:else}
+		{:else if otherWork !== 'failed'}
 			<p class="m-0 text-sm text-muted-foreground">No taskings under this event.</p>
 		{/if}
 		{#if otherWork === 'failed'}

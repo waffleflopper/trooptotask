@@ -21,6 +21,8 @@
 		loading?: boolean;
 		loadingText?: string;
 		open?: boolean;
+		/** The text typed into the search box. Bind it to offer an option built from what was typed. */
+		search?: string;
 		label?: string;
 		class?: ClassValue;
 		onValueChange?: (value: ComboboxValue) => void;
@@ -38,6 +40,7 @@
 		loading = false,
 		loadingText = 'Loading options...',
 		open = $bindable(false),
+		search = $bindable(''),
 		label = 'Combobox',
 		class: className,
 		onValueChange,
@@ -45,7 +48,6 @@
 	}: Props = $props();
 
 	let restoreFocus = true;
-	let search = $state('');
 	let commandValue = $state('');
 	let anchor = $state<HTMLElement | null>(null);
 	let content = $state<HTMLElement | null>(null);

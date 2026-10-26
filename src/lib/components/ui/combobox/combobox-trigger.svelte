@@ -49,7 +49,7 @@
 	data-slot="combobox-trigger"
 	data-placeholder={selectedValues.length === 0 ? '' : undefined}
 	class={cn(
-		'border-input data-placeholder:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 focus-within:border-ring focus-within:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 gap-1.5 rounded-lg border bg-transparent text-sm transition-colors select-none focus-within:ring-3 aria-invalid:ring-3 h-8 flex w-full items-center justify-between whitespace-nowrap outline-none has-disabled:cursor-not-allowed has-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+		'border-input data-placeholder:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 focus-within:border-ring focus-within:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 has-[button[aria-invalid=true]]:border-destructive has-[button[aria-invalid=true]]:ring-destructive/20 has-[button[aria-invalid=true]]:ring-3 gap-1.5 rounded-lg border bg-transparent text-sm transition-colors select-none focus-within:ring-3 aria-invalid:ring-3 h-8 flex w-full items-center justify-between whitespace-nowrap outline-none has-disabled:cursor-not-allowed has-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
 		className
 	)}
 >

@@ -47,18 +47,42 @@ it('formats profile rank and name while preserving unresolved contributor identi
 	]);
 });
 
+function directory(
+	rows: {
+		user_id: string;
+		rank: string | null;
+		first_name: string | null;
+		last_name: string | null;
+		email: string | null;
+	}[]
+) {
+	return {
+		rpc: () => ({ range: async (from: number, to: number) => ({ error: null, data: rows.slice(from, to + 1) }) })
+	} as never;
+}
+
 it('uses short IDs only for the Calendar member directory', async () => {
 	const read = createSupabaseOrganizationMemberLabelsReader(
-		{
-			rpc: async () => ({
-				error: null,
-				data: [
-					{ user_id: LEADER, rank: 'SFC', first_name: 'Dana', last_name: 'Whitaker', email: null },
-					{ user_id: SECOND, rank: null, first_name: null, last_name: null, email: null }
-				]
-			})
-		} as never,
+		directory([
+			{ user_id: LEADER, rank: 'SFC', first_name: 'Dana', last_name: 'Whitaker', email: null },
+			{ user_id: SECOND, rank: null, first_name: null, last_name: null, email: null }
+		]),
 		'org-1'
 	);
 	expect(await read()).toEqual({ [LEADER]: 'SFC Dana Whitaker', [SECOND]: '22222222...' });
+});
+
+it('reads members past the first page of the directory', async () => {
+	const filler = Array.from({ length: 1000 }, (_, i) => ({
+		user_id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+		rank: null,
+		first_name: null,
+		last_name: null,
+		email: `member${i}@example.test`
+	}));
+	const read = createSupabaseOrganizationMemberLabelsReader(
+		directory([...filler, { user_id: LEADER, rank: 'SFC', first_name: 'Dana', last_name: 'Whitaker', email: null }]),
+		'org-1'
+	);
+	expect((await read())[LEADER]).toBe('SFC Dana Whitaker');
 });

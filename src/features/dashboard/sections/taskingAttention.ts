@@ -57,17 +57,19 @@ function toItem(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouItem
 				urgency: { date: row.suspenseOn }
 			};
 		case 'short': {
-			const startsOn = row.executionStartsOn ?? row.suspenseOn;
-			const away = daysBetween(inputs.today, startsOn);
+			const starts = row.executionStartsOn;
+			// Short with no execution within two weeks means it is short against its suspense.
+			const startsOn = starts !== null && daysBetween(inputs.today, starts) <= 14 ? starts : null;
+			const away = startsOn === null ? 0 : daysBetween(inputs.today, startsOn);
 			const missing = (row.required ?? 0) - row.picked;
 			return {
 				...base,
 				kind: 'taskingShort',
 				subtitle: subtitle(),
-				timing: away < 0 ? 'underway' : `starts ${formatDayOffset(away)}`,
+				timing: startsOn === null ? due : away < 0 ? 'underway' : `starts ${formatDayOffset(away)}`,
 				// Short on equipment alone: picking people cannot fix it, so the row only links to the Tasking.
 				action: missing > 0 ? pickPeopleAction(inputs, row, `Pick ${missing}`, base.href) : null,
-				urgency: { date: startsOn }
+				urgency: { date: startsOn ?? row.suspenseOn }
 			};
 		}
 		case 'conflict':

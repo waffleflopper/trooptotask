@@ -20,19 +20,23 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
     JOIN people v ON v.personnel_id = c.personnel_id
     JOIN public.personnel person ON person.organization_id = p_organization_id AND person.id = c.personnel_id
     ORDER BY c.tasking_id, c.personnel_id, c.starts_on, c.availability_id
+  ), windowed AS (
+    SELECT a.*, a.execution_starts_on IS NOT NULL AND a.execution_ends_on >= p_today
+      AND a.execution_starts_on <= p_today + 14 AS executing_soon
+    FROM active a
   ), kinded AS (
     SELECT a.*, CASE WHEN a.suspense_on < p_today THEN 'overdue'
       WHEN a.status = 'blocked' THEN 'blocked'
-      WHEN a.execution_starts_on IS NOT NULL AND a.execution_ends_on >= p_today
-        AND a.execution_starts_on <= p_today + 14
+      -- Incomplete work due within a week is short even with no execution dates near.
+      WHEN (a.executing_soon OR a.suspense_on <= p_today + 7)
         AND (a.picked < coalesce(a.staffing_required, 0) OR a.not_ready > 0) THEN 'short'
-      END AS kind FROM active a
+      END AS kind FROM windowed a
   ), attention AS (
     SELECT a.id, a.title, a.responsible_group_id, a.event_title, a.suspense_on, a.execution_starts_on,
       a.staffing_required, a.picked, a.not_ready, a.kind, NULL::jsonb AS conflict,
       CASE WHEN a.kind = 'short' AND a.execution_starts_on = p_today THEN 0
         WHEN a.kind = 'overdue' THEN 1 WHEN a.kind = 'blocked' THEN 3 ELSE 4 END AS priority,
-      CASE WHEN a.kind = 'short' THEN a.execution_starts_on ELSE a.suspense_on END AS next_date,
+      CASE WHEN a.kind = 'short' AND a.executing_soon THEN a.execution_starts_on ELSE a.suspense_on END AS next_date,
       '' AS person_key
     FROM kinded a WHERE a.kind IS NOT NULL
     UNION ALL

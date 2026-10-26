@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -51,8 +52,10 @@ export function createSupabaseOrganizationMemberLabelsReader(
 	orgId: string
 ): () => Promise<Record<string, string>> {
 	return async () => {
-		const { data, error } = await client.rpc('organization_member_labels', { p_organization_id: orgId });
-		if (error) throw new Error(error.message);
+		const { data, error } = await selectAllSupabaseRows<unknown>(
+			async (from, to) => await client.rpc('organization_member_labels', { p_organization_id: orgId }).range(from, to)
+		);
+		if (error) throw new Error((error as { message: string }).message);
 		const rows = z
 			.array(
 				z.object({

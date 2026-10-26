@@ -64,6 +64,12 @@ describe('taskingAttention', () => {
 		expect(item).toMatchObject({ kind: 'taskingShort', href: '/org/org-1/calendar/taskings/t-1', action: null });
 	});
 
+	it('dates a Short Tasking by its suspense when no execution is near', () => {
+		const [item] = taskingAttention(ready({ ...base, executionStartsOn: null }));
+
+		expect(item).toMatchObject({ timing: 'due in 4 days', urgency: { date: '2026-10-30' } });
+	});
+
 	it('says underway for a Short Tasking whose execution has begun', () => {
 		const [item] = taskingAttention(ready({ ...base, executionStartsOn: '2026-10-24' }));
 

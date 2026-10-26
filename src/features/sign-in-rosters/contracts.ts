@@ -1,6 +1,19 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FileCleanup } from '$features/organization/contracts';
 
+export {
+	emptySignInRosterFilter,
+	filterSignInRosterPersonnel,
+	matchesSignInRosterFilter,
+	signInRosterFilterOptions,
+	signInRosterRankCategoryGroups
+} from './signInRosterFilter';
+export type {
+	SignInRosterFilter,
+	SignInRosterFilterPerson,
+	SignInRosterRankQuickFilterCategory
+} from './signInRosterFilter';
+
 export const ROSTER_UNAVAILABLE_MESSAGE = 'This roster is no longer available.';
 
 /** Membership/capability facts admitted by delivery; provider credentials stay there. */

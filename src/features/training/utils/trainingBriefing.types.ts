@@ -57,6 +57,37 @@ export interface BriefingReadiness {
 	band: BriefingBand;
 }
 
+export interface TrainingReadinessInput {
+	personnel: Personnel[];
+	types: TrainingType[];
+	records: TrainingCompletionFacts[];
+	asOf: string;
+	horizonDays: number;
+	goalPercent: number;
+}
+
+export interface TrainingReadinessSummary {
+	asOf: string;
+	horizonEnd: string;
+	horizonEndLabel: string;
+	goalPercent: number;
+	today: BriefingReadiness;
+	horizon: BriefingReadiness;
+	expired: number;
+	notRecorded: number;
+	lapsing: number;
+}
+
+export interface TrainingColumnGaps {
+	notReady: number;
+	lapsing: number;
+}
+
+export interface TrainingMatrixGaps {
+	readiness: BriefingReadiness;
+	byType: Record<string, TrainingColumnGaps>;
+}
+
 export interface BriefingBottomLine {
 	scopeName: string;
 	soldierCount: number;

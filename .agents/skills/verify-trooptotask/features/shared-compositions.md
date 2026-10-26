@@ -7,9 +7,9 @@ appearance, structure and keyboard behavior unchanged unless the issue's accepta
 
 ## Sub-features
 
-- `type-management`: Training Types, Training Views and Onboarding Templates render a keyboard `grid` of `row` elements,
-  a detail form with `Collapsible` disclosures (a trigger `button` with `aria-expanded`, not `details`/`summary`) and a
-  color field, and per-row action toolbars.
+- `type-management`: Onboarding Templates render a keyboard `grid` of `row` elements, a detail form with `Collapsible`
+  disclosures (a trigger `button` with `aria-expanded`, not `details`/`summary`) and a color field, and per-row action
+  toolbars.
 - `import-flow`: Personnel, Training, Calendar status and the Critical Tasks task library and completion import pages
   render the shared File, Columns, Review and Done steps, fix rail, review list and receipt.
 - `readiness-band`: Training Reports and Critical Tasks Reports render ramp and semantic tiles, drop markers and a

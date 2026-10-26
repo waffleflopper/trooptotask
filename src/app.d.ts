@@ -26,6 +26,8 @@ declare global {
 		}
 		interface PageState {
 			importStep?: 'columns' | 'review' | 'done';
+			/** The Training record sheet was opened from this page, so closing it steps back one entry. */
+			trainingRecord?: boolean;
 		}
 	}
 }

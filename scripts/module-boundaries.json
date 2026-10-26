@@ -406,7 +406,7 @@
 			"web-ui"
 		],
 		"shared": [],
-		"sign-in-rosters": ["organization", "personnel", "access", "audit", "provider", "shared", "web-ui"],
+		"sign-in-rosters": ["organization", "personnel", "access", "audit", "provider", "shared", "web-ui", "web-patterns"],
 		"training": [
 			"organization",
 			"personnel",
@@ -513,8 +513,7 @@
 			"src/features/training/components/TrainingModals.svelte",
 			"src/features/training/components/TrainingPageView.svelte",
 			"src/features/training/components/TrainingReportsPage.svelte",
-			"src/features/training/components/TrainingTypesPage.svelte",
-			"src/features/training/components/TrainingViewsPage.svelte"
+			"src/features/training/components/TrainingTypesPage.svelte"
 		],
 		"web-ui": [
 			"src/app.css",

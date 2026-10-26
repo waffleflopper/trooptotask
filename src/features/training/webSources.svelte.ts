@@ -1,5 +1,33 @@
 import type { TrainingType } from './training.types';
 import { trainingTypesStore } from './stores/trainingTypes.svelte';
+import { DEFAULT_TRAINING_READINESS_GOAL_PERCENT } from '$features/organization/contracts';
+import type { TrainingWorkspaceReadiness } from './contracts';
+
+let readiness = $state<TrainingWorkspaceReadiness & { orgId: string }>({
+	orgId: '',
+	readinessGoalPercent: DEFAULT_TRAINING_READINESS_GOAL_PERCENT,
+	readinessAsOf: ''
+});
+
+export const trainingReadinessSource = {
+	forOrganization(orgId: string): TrainingWorkspaceReadiness {
+		return readiness.orgId === orgId
+			? readiness
+			: { readinessGoalPercent: DEFAULT_TRAINING_READINESS_GOAL_PERCENT, readinessAsOf: '' };
+	}
+};
+
+export const trainingReadinessHydration = {
+	get orgId() {
+		return readiness.orgId;
+	},
+	load(value: TrainingWorkspaceReadiness, orgId: string) {
+		readiness = { ...value, orgId };
+	},
+	clear() {
+		readiness = { orgId: '', readinessGoalPercent: DEFAULT_TRAINING_READINESS_GOAL_PERCENT, readinessAsOf: '' };
+	}
+};
 
 /** Read-only catalog facts used by other feature screens. */
 export const trainingTypeSource = {

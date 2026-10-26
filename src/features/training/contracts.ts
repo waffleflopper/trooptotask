@@ -207,6 +207,11 @@ export interface TrainingReportWorkbookExport {
 
 export const TRAINING_WORKSPACE_LANE_KEY = 'training' as const;
 export type TrainingWorkspaceItems<T> = T[] | Promise<T[]>;
+export interface TrainingWorkspaceReadiness {
+	/** Null when the Organization's goal could not be read: the day and the counts still hold. */
+	readinessGoalPercent: number | null;
+	readinessAsOf: string;
+}
 export interface TrainingWorkspaceData {
 	personnelTrainings: TrainingWorkspaceItems<PersonnelTraining>;
 	trainingTypes: TrainingWorkspaceItems<TrainingType>;
@@ -215,6 +220,7 @@ export interface TrainingWorkspaceData {
 	groups: TrainingWorkspaceItems<Group>;
 	pinnedGroups: TrainingWorkspaceItems<string>;
 	rankCatalog?: TrainingWorkspaceItems<RankCatalogEntry>;
+	readiness?: TrainingWorkspaceReadiness | Promise<TrainingWorkspaceReadiness>;
 }
 export type TrainingWorkspaceHydrationMode = 'replace' | 'preserve-client';
 export interface TrainingWorkspaceHydrationTarget<T> {
@@ -232,6 +238,11 @@ export interface TrainingWorkspaceHydration {
 	personnelTrainings: TrainingWorkspaceHydrationTarget<PersonnelTraining>;
 	pinnedGroups: TrainingWorkspaceHydrationTarget<string>;
 	rankCatalog?: TrainingWorkspaceHydrationTarget<RankCatalogEntry>;
+	readiness?: {
+		mode: TrainingWorkspaceHydrationMode;
+		snapshotKey: string;
+		items: TrainingWorkspaceReadiness | Promise<TrainingWorkspaceReadiness>;
+	};
 }
 export interface TrainingWorkspaceResult {
 	laneKey: typeof TRAINING_WORKSPACE_LANE_KEY;
@@ -321,6 +332,7 @@ export interface TrainingCatalogPersistence {
 	createType(input: TrainingTypeCreate): Promise<SavedTrainingType>;
 	/** Resolves null when no Training type with this id exists in the Organization. */
 	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType | null>;
+	writeTypePositions(positions: readonly Pick<TrainingType, 'id' | 'sortOrder'>[]): Promise<void>;
 	deleteType(id: string): Promise<void>;
 	createView(input: TrainingViewCreate): Promise<SavedTrainingView>;
 	patchView(id: string, fields: TrainingViewPatch): Promise<SavedTrainingView | null>;

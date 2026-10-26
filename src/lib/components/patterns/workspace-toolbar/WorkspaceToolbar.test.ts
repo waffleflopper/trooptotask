@@ -444,6 +444,24 @@ describe('WorkspaceToolbar', () => {
 		);
 	});
 
+	it('keeps focus and the caret in the search field when it moves across the stack width', async () => {
+		render(DataToolbarTest, { props: { stackSearchBelow: 480 } });
+		await layOut(600);
+		const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' }) as HTMLInputElement;
+		await fireEvent.input(field, { target: { value: 'smith' } });
+		field.focus();
+		field.setSelectionRange(2, 2);
+
+		await layOut(360);
+		const stacked = within(toolbar()).getByRole('searchbox', { name: 'Search roster' }) as HTMLInputElement;
+		await waitFor(() => expect(document.activeElement).toBe(stacked));
+		expect([stacked.selectionStart, stacked.selectionEnd]).toEqual([2, 2]);
+
+		await layOut(600);
+		const inRow = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
+		await waitFor(() => expect(document.activeElement).toBe(inRow));
+	});
+
 	it('keeps the same focused field when the row widens during phone search', async () => {
 		render(DataToolbarTest);
 		await layOut(291);

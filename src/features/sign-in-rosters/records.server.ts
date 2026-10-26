@@ -42,8 +42,8 @@ interface CreateRosterContext extends RosterContext, SignInRosterSnapshotContext
 }
 
 export async function listSignInRosters(ctx: RosterContext, input: SignInRosterListInput) {
-	const { data, count } = await ctx.persistence.list(input);
-	return { rosters: data, total: count ?? 0 };
+	const { data, count, unsigned } = await ctx.persistence.list(input);
+	return { rosters: data, total: count ?? 0, unsigned };
 }
 
 export async function createSignInRoster(ctx: CreateRosterContext, input: Record<string, unknown>) {

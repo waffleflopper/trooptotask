@@ -3,6 +3,7 @@ import Legend from './readiness-band-legend.svelte';
 
 export { Cell, Legend };
 export {
+	formatReadinessBandPercent,
 	readinessBandTone,
 	type ReadinessBandLegendItem,
 	type ReadinessBandPalette,

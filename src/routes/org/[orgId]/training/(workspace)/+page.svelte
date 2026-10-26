@@ -24,7 +24,7 @@
 			},
 			userPreferences: preferences.value
 		};
-		return new TrainingPageContext(pageData, modals, org, submitDeletionRequest, (patch) => preferences.patch(patch));
+		return new TrainingPageContext(pageData, org, submitDeletionRequest, (patch) => preferences.patch(patch));
 	});
 	onDestroy(() => ctx?.dispose());
 </script>

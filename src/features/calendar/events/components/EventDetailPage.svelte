@@ -19,6 +19,8 @@
 		type EventDetail,
 		type EventRead
 	} from '../eventModel';
+	import type { GroupLabels, Tasking, TaskingChoices } from '../../taskings/taskingModel';
+	import EventTaskings from '../../taskings/components/EventTaskings.svelte';
 	import CancelEventDialog from './CancelEventDialog.svelte';
 	import EventDialog from './EventDialog.svelte';
 	import EventLoadFailed from './EventLoadFailed.svelte';
@@ -30,9 +32,12 @@
 		today: string;
 		detail: Promise<EventRead<EventDetail>>;
 		activity: Promise<EventRead<EventActivity[]>>;
+		taskings: Promise<EventRead<{ taskings: Tasking[]; groups: GroupLabels }>>;
+		taskingChoices: Promise<EventRead<TaskingChoices | null>>;
+		addTasking: boolean;
 	}
 
-	let { org, today, detail, activity }: Props = $props();
+	let { org, today, detail, activity, taskings, taskingChoices, addTasking }: Props = $props();
 
 	const canManage = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageEvents, { kind: 'organization' }).allowed
@@ -149,6 +154,8 @@
 				<PageShell.FactRow label="Description" value={null} />
 			{/if}
 		</dl>
+
+		<EventTaskings {org} {today} {event} {taskings} choices={taskingChoices} addOnArrival={addTasking} />
 	{/if}
 
 	{#if loaded !== 'gone'}

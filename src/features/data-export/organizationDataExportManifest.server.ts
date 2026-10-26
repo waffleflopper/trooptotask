@@ -117,6 +117,14 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 		'events-and-taskings',
 		'Events & Taskings'
 	),
+	section('calendarTaskings', 'Taskings', 'calendar_taskings', 'events-and-taskings', 'Events & Taskings'),
+	section(
+		'calendarTaskingActivity',
+		'Tasking Activity',
+		'calendar_tasking_activity',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
 	section('trainingTypes', 'Training Types', 'training_types', 'training', 'Training'),
 	section('personnelTrainings', 'Personnel Trainings', 'personnel_trainings', 'training', 'Training'),
 	section(
@@ -325,6 +333,31 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 				cancelled_at: event.cancelled_at ?? '',
 				cancelled_by: event.cancelled_by ? lookup(members, event.cancelled_by) : '',
 				cancellation_reason: event.cancellation_reason ?? ''
+			}));
+		}
+	},
+	{
+		name: 'Taskings',
+		areaKey: 'events-and-taskings',
+		rows: (sections, labels) => {
+			const events = new Map((sections.calendarEvents ?? []).map((event) => [String(event.id), String(event.title)]));
+			return (sections.calendarTaskings ?? []).map((tasking) => ({
+				outcome: tasking.title,
+				event: tasking.event_id ? lookup(events, tasking.event_id) : 'Standalone',
+				responsible: tasking.responsible_group_id
+					? lookup(labels.groups, tasking.responsible_group_id)
+					: 'This organization',
+				suspense_on: tasking.suspense_on,
+				execution_starts_on: tasking.execution_starts_on ?? '',
+				execution_ends_on: tasking.execution_ends_on ?? '',
+				report_time: tasking.report_time ?? '',
+				people_needed: tasking.staffing_required ?? '',
+				qualifications: tasking.qualifications ?? '',
+				instructions: tasking.instructions ?? '',
+				status: tasking.status,
+				block_reason: tasking.block_reason ?? '',
+				completion_note: tasking.completion_note ?? '',
+				cancellation_reason: tasking.cancellation_reason ?? ''
 			}));
 		}
 	},

@@ -18,6 +18,7 @@
 		type EventRead,
 		type MemberLabels
 	} from '../eventModel';
+	import EventsTaskingsTabs from '../../taskings/components/EventsTaskingsTabs.svelte';
 	import EventDialog from './EventDialog.svelte';
 	import EventLoadFailed from './EventLoadFailed.svelte';
 	import EventStatusBadge from './EventStatusBadge.svelte';
@@ -34,6 +35,9 @@
 
 	const canManage = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageEvents, { kind: 'organization' }).allowed
+	);
+	const canCreateTasking = $derived(
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'unscoped' }).allowed
 	);
 	const eventsHref = $derived(`/org/${org.orgUrlSegment}/calendar/events`);
 	const streamed = new StreamedValue(() => list);
@@ -77,14 +81,15 @@
 		if (requested === list && result.status === 'loaded') creating = { members: result.value.members };
 	}
 
-	function created(event: CalendarEvent) {
+	function created(event: CalendarEvent, next?: 'add-tasking') {
 		creating = null;
-		void goto(`${eventsHref}/${event.id}`);
+		void goto(`${eventsHref}/${event.id}${next === 'add-tasking' ? '?addTasking=1' : ''}`);
 	}
 </script>
 
 <PageShell.Root width="content" density="compact">
 	<PageShell.Header title="Events" subtitle="What the unit runs, supports or needs to know about, by date." />
+	<EventsTaskingsTabs orgUrlSegment={org.orgUrlSegment} current="events" />
 	<WorkspaceToolbar
 		ariaLabel="Event controls"
 		items={toolbarItems}
@@ -163,6 +168,7 @@
 		orgId={org.orgId}
 		members={creating.members}
 		currentUserId={org.userId}
+		offerTasking={canCreateTasking}
 		onSaved={created}
 		onClose={() => (creating = null)}
 	/>

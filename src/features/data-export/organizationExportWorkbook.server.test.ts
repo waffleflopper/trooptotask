@@ -164,6 +164,24 @@ describe('Organization Data Export workbook', () => {
 		]);
 	});
 
+	it('names a Tasking’s Event and responsible Group, and reads no Group as the organization itself', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				calendarEvents: [{ id: 'event-1', title: 'Best Medic' }],
+				calendarTaskings: [
+					{ id: 'tasking-1', title: 'Provide medics', event_id: 'event-1', responsible_group_id: 'group-1' },
+					{ id: 'tasking-2', title: 'Brief the commander', event_id: null, responsible_group_id: null }
+				]
+			})
+		});
+		const taskings = plan.readableSheets.find((sheet) => sheet.name === 'Taskings');
+
+		expect(taskings?.rows.map((row) => [row.outcome, row.event, row.responsible])).toEqual([
+			['Provide medics', 'Best Medic', 'Alpha'],
+			['Brief the commander', 'Standalone', 'This organization']
+		]);
+	});
+
 	it('returns a dated workbook filename owned by the export use case', async () => {
 		const result = await buildOrganizationDataExportWorkbook({
 			payload: payload()

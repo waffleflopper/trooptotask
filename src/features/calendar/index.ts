@@ -80,4 +80,5 @@ export type {
 	TaskingList,
 	TaskingListScope
 } from './taskings/taskingModel';
+export { parseTaskingFilters, parseTaskingView, scopeOfView } from './taskings/taskingModel';
 export { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './import/statusImportLane';

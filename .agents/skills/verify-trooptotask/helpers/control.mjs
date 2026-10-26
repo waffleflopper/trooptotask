@@ -110,6 +110,8 @@ const tableColumns = {
 	special_days: 'organization_id',
 	calendar_events: 'organization_id',
 	calendar_event_activity: 'organization_id',
+	calendar_taskings: 'organization_id',
+	calendar_tasking_activity: 'organization_id',
 	notifications: 'organization_id',
 	audit_logs: 'org_id',
 	data_exports: 'org_id',
@@ -199,7 +201,9 @@ const filters = new Set([
 	'rated_person_id',
 	'resource_id',
 	'requested_by',
-	'event_id'
+	'event_id',
+	'tasking_id',
+	'responsible_group_id'
 ]);
 
 async function owned() {
@@ -2768,6 +2772,7 @@ async function main() {
 					'calendar-reports/status-days',
 					'special-days',
 					'calendar-events',
+					'calendar-taskings',
 					'sign-in-rosters',
 					'training-types',
 					'training-views',

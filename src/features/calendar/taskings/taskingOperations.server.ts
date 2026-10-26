@@ -3,6 +3,7 @@ import { fail } from '$lib/errors';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { AuditPort } from '$lib/audit/contracts';
 import type { GroupPersistence } from '$features/personnel/contracts';
+import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
 import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
 import type { CalendarEventPersistence } from '../events/eventPersistence.server';
@@ -109,9 +110,13 @@ export async function listTaskingActivity(ctx: CalendarTaskingPorts, id: string)
 	return { entries, eventTitles: await ctx.calendarTaskings.findEventTitles(eventIds) };
 }
 
-/** Groups the viewer could pick and the Events not yet over and not cancelled. */
-export async function loadTaskingChoices(ctx: CalendarTaskingPorts, today: string): Promise<TaskingChoices> {
+/** Groups the viewer could pick and the Events not yet over and not cancelled; nothing for a reader who cannot create. */
+export async function loadTaskingChoices(ctx: CalendarTaskingPorts, today: string): Promise<TaskingChoices | null> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
+	const decision = await evaluateAuthoritativePolicyDecision(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, {
+		kind: 'unscoped'
+	});
+	if (!decision.allowed) return null;
 	const [groups, events] = await Promise.all([
 		ctx.groups.listCatalog(),
 		ctx.calendarEvents.listEvents('upcoming', today)

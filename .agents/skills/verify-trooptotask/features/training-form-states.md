@@ -9,6 +9,10 @@ disabled, narrow and dark state, and each hand-built control exposes its name an
 - `raw-control-states`: the Dashboard expanders, the matrix sort and person buttons and the applicability chips are
   canonical `Button`s that expose a name, a role, keyboard operation, a visible app focus ring and a state
   (`aria-expanded` and `aria-controls`, `aria-sort`, focus handed to a neighbor chip).
+- `record-sheet`: a name or the popover's `Open record` opens the Soldier's record sheet at `?person=<id>`. It reads
+  `N of M ready` and `N to record` from the Soldier's required types, groups the types as Needs action, Current, Not
+  required and Exempt, and records Today or a card date in place. Up and down arrows step through the matrix's row
+  order.
 - `matrix-quick-record`: a matrix cell opens a popover anchored to it, with one date field, a live preview, optional
   notes and certificate link, and `Open record`. Enter saves, Escape closes, and focus returns to the cell.
 - `failed-save-keeps-values`: a rejected save leaves the form open with every value, selection and chip in place, the
@@ -30,8 +34,8 @@ disabled, narrow and dark state, and each hand-built control exposes its name an
 ## How to get to it (user POV)
 
 Dashboard: sign in, enter an Organization and choose **Home**. Training: **Training** in the sidebar, then **Reports**,
-or **More** (`Import`, `Manage views`, `Manage types`), a Person's name (the `Training Records` dialog) or a matrix cell
-(the `Record · <type>` popover, whose `Open record` opens the `Training Records` dialog).
+or **More** (`Import`, `Manage views`, `Manage types`), a Person's name (the record sheet, at `?person=<id>`) or a
+matrix cell (the `Record · <type>` popover, whose `Open record` opens the same sheet).
 
 ## Driving it with verify:app
 
@@ -63,12 +67,12 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
 
 2. **GroupSelector and TrainingMatrix controls.** As `trainingConfigure` at 1280 light, then 390 dark.
 
-   | Control                                       | Accessible name and state                                                                                                                           | Expected                                                                                                                                                                                 |
-   | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | GroupSelector chip remove (in the Types form) | `Remove Medic`, `Remove NCO`, `Remove 68W`                                                                                                          | `Button` `icon-sm`, 28x28 at 1280 and 40x40 at 390. Enter removes the chip and moves focus to the neighbor chip's remove, then to the `Search roles` or `Search mos` field; never `body` |
-   | Matrix person button                          | `SPC Able, Synthetic`, 310x20 at 1280 and 111x20 at 390                                                                                             | Enter and Space open the `Training Records` dialog, focus lands on `Mark All Completed Today`, Escape returns focus to this button                                                       |
-   | Matrix `Personnel ▲ 12` sort button           | The left-aligned header reads `Personnel` plus the direction glyph and the person count; the `th` carries `aria-sort` (`ascending` or `descending`) | Enter and Space toggle the direction and keep focus; the other headers read `none`                                                                                                       |
-   | Matrix type header buttons                    | `Verification Targeted Training 12 MO` (then with `▲` or `▼`); the color square is `aria-hidden`                                                    | 210.3x55 at 1280 and 99x55 at 390. `aria-sort` follows the active column; Enter and Space toggle and keep focus                                                                          |
+   | Control                                       | Accessible name and state                                                                                                                           | Expected                                                                                                                                                                                                                                       |
+   | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | GroupSelector chip remove (in the Types form) | `Remove Medic`, `Remove NCO`, `Remove 68W`                                                                                                          | `Button` `icon-sm`, 28x28 at 1280 and 40x40 at 390. Enter removes the chip and moves focus to the neighbor chip's remove, then to the `Search roles` or `Search mos` field; never `body`                                                       |
+   | Matrix person button                          | `SPC Able, Synthetic`, 310x20 at 1280 and 111x20 at 390                                                                                             | Enter and Space open the record sheet and add `?person=<id>` as one history entry. Focus lands on `Record all N today` (on `Open profile` while the sheet loads). Escape or Back closes it, removes the param and returns focus to this button |
+   | Matrix `Personnel ▲ 12` sort button           | The left-aligned header reads `Personnel` plus the direction glyph and the person count; the `th` carries `aria-sort` (`ascending` or `descending`) | Enter and Space toggle the direction and keep focus; the other headers read `none`                                                                                                                                                             |
+   | Matrix type header buttons                    | `Verification Targeted Training 12 MO` (then with `▲` or `▼`); the color square is `aria-hidden`                                                    | 210.3x55 at 1280 and 99x55 at 390. `aria-sort` follows the active column; Enter and Space toggle and keep focus                                                                                                                                |
 
    The matrix `table` is named `Training status matrix`. Matrix view mode (`A–Z`, `Groups`), `Training view filter` and
    `Training group filter` leave the URL empty and survive a reload. Reset them to `Groups`, `All trainings` and
@@ -93,15 +97,15 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
    submit, then capture the open form, every value, the visible error and where it renders, `network state` with one 503
    and the unchanged row. Restore, retry once, reload and read back. Run `$V network restore PAGE` after every case.
 
-   | Form                              | Entry (actor `trainingConfigure`)                                                                          | Family armed                | Expected                                                                                                                                                                                                                                                                                |
-   | --------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Types create (with Applicability) | Manage Types, `+ New Type`: name, description, color, 18 months, Targeted, a role chip, an MOS chip        | `training-types`            | Retention (chips, Targeted, custom color, description, 18), zero rows, `Field.Error` `Failed to save training type.` on Name, focus on `Create`. Create is disabled while Name is blank                                                                                                 |
-   | Types edit                        | Select a type, `Edit`: change name, description and color                                                  | `training-types`            | Retention including the custom color; row unchanged; focus on `Save`; the retry saves the same ID                                                                                                                                                                                       |
-   | Views create                      | Manage Views, `New View`: name, two selected types in an order                                             | `training-views`            | Retention (name, selection, order), zero rows, `Field.Error` `Failed to save view.` on View Name, focus on `Save`                                                                                                                                                                       |
-   | Views edit                        | Select the view, `Edit`: rename and reverse the two columns                                                | `training-views`            | Retention (the reversed order is kept); row unchanged; same ID after the retry                                                                                                                                                                                                          |
-   | Cell popover create and edit      | Matrix cell: date, `Add a note or certificate link…`, Notes, Certificate URL                               | `personnel-trainings`       | Retention (date, Notes, URL). An Alert (`role="alert"`) titled `Training record was not saved` with the request message renders inside the popover, which stays open; the cell and the header numbers are unchanged. Saving again after `restore` writes once and closes it             |
-   | Person editor edit and add        | Person name, row `Edit`, and the Optional type's `Add`                                                     | `personnel-trainings`       | Retention (Notes, URL, `Mark as Complete`). The same inside-dialog Alert (it names the type), focus on `Save`, Escape blocked while dirty. `Mark All Completed Today` failures still show a toast and leave the confirm dialog open                                                     |
-   | Import page                       | `Import`, upload the tracker from training-completions-reports step 4, answer the rail, `Import 2 changes` | `personnel-trainings/batch` | Done reads `0 changes saved.` with `Not confirmed 2` and the warning `The last batch was not confirmed`; no row is written. `Import another file` and the same answers save each completion once. While held (`arm-hold`), the bar reads `Saving 0 of 2 changes` and Import is disabled |
+   | Form                              | Entry (actor `trainingConfigure`)                                                                          | Family armed                | Expected                                                                                                                                                                                                                                                                                                 |
+   | --------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Types create (with Applicability) | Manage Types, `+ New Type`: name, description, color, 18 months, Targeted, a role chip, an MOS chip        | `training-types`            | Retention (chips, Targeted, custom color, description, 18), zero rows, `Field.Error` `Failed to save training type.` on Name, focus on `Create`. Create is disabled while Name is blank                                                                                                                  |
+   | Types edit                        | Select a type, `Edit`: change name, description and color                                                  | `training-types`            | Retention including the custom color; row unchanged; focus on `Save`; the retry saves the same ID                                                                                                                                                                                                        |
+   | Views create                      | Manage Views, `New View`: name, two selected types in an order                                             | `training-views`            | Retention (name, selection, order), zero rows, `Field.Error` `Failed to save view.` on View Name, focus on `Save`                                                                                                                                                                                        |
+   | Views edit                        | Select the view, `Edit`: rename and reverse the two columns                                                | `training-views`            | Retention (the reversed order is kept); row unchanged; same ID after the retry                                                                                                                                                                                                                           |
+   | Cell popover create and edit      | Matrix cell: date, `Add a note or certificate link…`, Notes, Certificate URL                               | `personnel-trainings`       | Retention (date, Notes, URL). An Alert (`role="alert"`) titled `Training record was not saved` with the request message renders inside the popover, which stays open; the cell and the header numbers are unchanged. Saving again after `restore` writes once and closes it                              |
+   | Record sheet edit and add         | Person name, a row's `More actions for <type>`, `Edit` or `Add record`                                     | `personnel-trainings`       | Retention (date, Notes, URL). The same inside-sheet Alert titled `Training record was not saved` (it names the type), focus on `Save`, Escape blocked while dirty. `Today` failures show the Alert at the top of the sheet; `Record all N today` failures show a toast and leave the confirm dialog open |
+   | Import page                       | `Import`, upload the tracker from training-completions-reports step 4, answer the rail, `Import 2 changes` | `personnel-trainings/batch` | Done reads `0 changes saved.` with `Not confirmed 2` and the warning `The last batch was not confirmed`; no row is written. `Import another file` and the same answers save each completion once. While held (`arm-hold`), the bar reads `Saving 0 of 2 changes` and Import is disabled                  |
 
    Retry once after each failure and read the row back. Remove every temporary record through the visible controls
    (`Remove <type> record`, then `Delete`) and read the original rows back before cleanup.
@@ -109,13 +113,13 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
 4. **Field error association.** Read `aria-invalid` and the resolved `aria-describedby` for the field the message
    belongs to.
 
-   | Form                        | Trigger                                   | Expected                                                                                                                                          |
-   | --------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Types name                  | a failed save                             | `Field.Error`, `role="alert"`, `aria-invalid="true"` on Name, `aria-describedby` resolves                                                         |
-   | Types blank name            | Create with an empty Name                 | UNREACHABLE. The button is disabled, so no message exists                                                                                         |
-   | Views name                  | Save with a blank name, and a failed save | `Name is required.` and `Failed to save view.` are associated. Focus stays on `Save`. Typing a name clears `Name is required.`                    |
-   | Cell popover, Person editor | a failed save                             | An Alert inside the popover or dialog, not a field association; the fields stay valid and keep their values                                       |
-   | Import page                 | `2025-11-31` in a training cell           | The Review cell editor (`Completed, Alpha · row 4`) has `aria-invalid="true"` and `aria-describedby` resolving to `Enter a date like 2026-03-11.` |
+   | Form                       | Trigger                                   | Expected                                                                                                                                          |
+   | -------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Types name                 | a failed save                             | `Field.Error`, `role="alert"`, `aria-invalid="true"` on Name, `aria-describedby` resolves                                                         |
+   | Types blank name           | Create with an empty Name                 | UNREACHABLE. The button is disabled, so no message exists                                                                                         |
+   | Views name                 | Save with a blank name, and a failed save | `Name is required.` and `Failed to save view.` are associated. Focus stays on `Save`. Typing a name clears `Name is required.`                    |
+   | Cell popover, record sheet | a failed save                             | An Alert inside the popover or sheet, not a field association; the fields stay valid and keep their values                                        |
+   | Import page                | `2025-11-31` in a training cell           | The Review cell editor (`Completed, Alpha · row 4`) has `aria-invalid="true"` and `aria-describedby` resolving to `Enter a date like 2026-03-11.` |
 
 5. **Screen states.** Capture at 1280x800 light and 390x844 dark with the actors named. Use native `resize_page` and
    `emulate` with `colorScheme`, and toggle the theme with `Toggle theme` (it does not follow `emulate`).
@@ -142,20 +146,19 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
 
 7. **Dialog focus.** Record where focus lands when each dialog opens and where it returns.
 
-   | Dialog                                      | Open lands on                    | Escape or close returns to                                                |
-   | ------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------- |
-   | `Training Records` (Person editor)          | `Mark All Completed Today`       | the matrix person button                                                  |
-   | `Record · <type>` (cell popover)            | the date field's month segment   | the matrix cell button after a save, an Escape or `Open record` closes it |
-   | `Delete Training Type`, `Delete Saved View` | the alertdialog container itself | the opening `Delete Type` or `Delete View` button                         |
+   | Dialog                                      | Open lands on                    | Escape or close returns to                                                 |
+   | ------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------- |
+   | Record sheet (`?person=<id>`)               | `Record all N today`             | the matrix person button, or the cell that opened it through `Open record` |
+   | `Record · <type>` (cell popover)            | the date field's month segment   | the matrix cell button after a save, an Escape or `Open record` closes it  |
+   | `Delete Training Type`, `Delete Saved View` | the alertdialog container itself | the opening `Delete Type` or `Delete View` button                          |
 
    Import is a page, not a dialog; training-completions-reports step 4 records its Tab order.
 
 8. **Color is data.** In Manage Types create a type with a custom color through the native color input (set `#cc3366`,
-   dispatch `input` and `change`). Read back `training_types.color`. The list swatch, the matrix column square and the
-   Person editor badge all render that stored color; the three seeded types store `#6b7280` and render
-   `rgb(107, 114, 128)`. `#6b7280` is also the new-type form default, which is saved as data. The `PersonTrainingEditor`
-   fallback literal for a type missing from the catalog cannot be reached from the UI: record it as source only. Delete
-   the temporary type through `Delete Type` and read back absence.
+   dispatch `input` and `change`). Read back `training_types.color`. The list swatch and the matrix column square both
+   render that stored color; the three seeded types store `#6b7280` and render `rgb(107, 114, 128)`. `#6b7280` is also
+   the new-type form default, which is saved as data. Delete the temporary type through `Delete Type` and read back
+   absence.
 
 9. **Tables and print.** On Reports the Type risk table is
    `table[aria-label="Not ready and lapsing requirements by training type"]` (a `Table`) with column headers Type,

@@ -190,14 +190,14 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    matching request in `network state`, `aria-busy="true"` on the dialog or sheet (the alert dialog for a confirmation),
    focus inside it, every draft field and row action disabled and Escape blocked. Signed-scan Remove is the exception:
    only Remove and Close disable, and unrelated roster controls stay enabled. Release, require the saved result, restore
-   the control and undo the change through the UI. As `trainingConfigure` on `training`, open SPC Baker's Training
-   Records, choose Add on the Required training and type a unique Notes value (`personnel-trainings`); afterwards remove
-   the record through Delete. Repeat with `arm-fail`: the failure toast shows and the draft stays editable; Cancel it.
-   Choose Mark All Completed Today and Mark All (`personnel-trainings/batch`): the confirmation stays open and busy
+   the control and undo the change through the UI. As `trainingConfigure` on `training`, open SPC Baker's record sheet,
+   choose `Add record` on the Required training and type a unique Notes value (`personnel-trainings`); afterwards remove
+   the record through `Delete`. Repeat with `arm-fail`: the failure toast shows and the draft stays editable; Cancel it.
+   Choose `Record all N today` in the record sheet (`personnel-trainings/batch`): the confirmation stays open and busy
    until release; afterwards remove each new Baker record. In Calendar settings → Holidays & closures → New closure, the
    two date pickers are named First day and Last day. Also hold Send feedback (`feedback`), a new Person in Add Person
-   (`personnel`), a Training matrix cell's popover (`personnel-trainings`, where Delete and the exemption toggle
-   are also disabled), Record Completion as `ictOperator` (`personnel-ict-completions`), Set Personnel Status as
+   (`personnel`), a Training matrix cell's popover (`personnel-trainings`, where Delete and the exemption toggle are
+   also disabled), Record Completion as `ictOperator` (`personnel-ict-completions`), Set Personnel Status as
    `calendarOperate` (`availability`), an Evals entry as `ratingOperate` (`rating-scheme`), Able's Data sheet
    (`personnel/ABLE_ID/data-sheet`, at 1280 width each visible field is named by its label), a new Sign-In Roster as
    `rosterManager` (`sign-in-rosters`), a signed scan's Remove (`sign-in-rosters/ROSTER_ID/upload`, Close disabled too),

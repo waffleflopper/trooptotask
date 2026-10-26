@@ -50,6 +50,8 @@ function memoryStaffing(advisories: () => Promise<Record<string, never>> = async
 			firstName: 'Pat',
 			lastName: personnelId.slice(-3),
 			groupId: ALPHA,
+			mos: '68W',
+			clinicRole: '',
 			archived: false,
 			selectedAt: '2030-10-01T00:00:00Z',
 			reviewSince: null

@@ -68,6 +68,17 @@ export const taskingSummaryRowSchema = z
 		})
 	);
 
+/** Another Tasking under the same Event, as counts a reader outside it may see. */
+export interface EventContribution {
+	id: string;
+	title: string;
+	responsibility: SummaryResponsibility;
+	status: TaskingStatusKind;
+	picked: number;
+	required: number | null;
+	suspenseOn: string;
+}
+
 export type EventWorkItem = { kind: 'full'; tasking: Tasking } | { kind: 'summary'; summary: TaskingSummary };
 
 export interface EventWorkGroup {

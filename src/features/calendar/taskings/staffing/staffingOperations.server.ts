@@ -72,7 +72,15 @@ export async function loadStaffingPicker(ctx: CalendarStaffingPorts, id: string)
 		staffing,
 		candidates: people
 			.filter((person) => isCandidateFor(tasking.responsibility, person))
-			.map(({ id, rank, firstName, lastName, groupId }) => ({ personnelId: id, rank, firstName, lastName, groupId })),
+			.map(({ id, rank, firstName, lastName, groupId, mos, clinicRole }) => ({
+				personnelId: id,
+				rank,
+				firstName,
+				lastName,
+				groupId,
+				mos,
+				clinicRole
+			})),
 		advisories,
 		states: Object.fromEntries(
 			[

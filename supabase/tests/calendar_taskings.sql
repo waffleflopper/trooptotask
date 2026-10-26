@@ -234,7 +234,7 @@ SELECT results_eq(
   $$VALUES ('blocked'::text, 'Litters short'::text, pg_temp.id('3'), true, '2030-10-23'::date)$$,
   'blocking records the trimmed reason and the actor and keeps the suspense');
 SELECT pg_temp.act_as('2');
-SELECT lives_ok($$SELECT pg_temp.move('404', 'block', 'Another reason')$$, 'blocking again changes nothing');
+SELECT lives_ok($$SELECT pg_temp.move('404', 'block', 'Litters short')$$, 'blocking again with the same reason changes nothing');
 SELECT is((SELECT blocked_by FROM public.calendar_taskings WHERE id = pg_temp.id('404')), pg_temp.id('3'),
   'a repeat block keeps the first actor');
 SELECT throws_ok($$SELECT pg_temp.move('404', 'start')$$, '55000', NULL, 'a Blocked Tasking is unblocked, not started');

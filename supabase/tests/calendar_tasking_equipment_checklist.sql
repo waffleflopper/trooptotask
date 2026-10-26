@@ -266,8 +266,8 @@ SELECT pg_temp.act_as('2');
 SELECT pg_temp.move('401', 'complete', 'Done');
 SELECT throws_ok($$SELECT pg_temp.add_equipment('540', '401')$$, '55000', NULL, 'equipment cannot be added to a Completed Tasking');
 SELECT throws_ok($$SELECT pg_temp.add_item('640', '401')$$, '55000', NULL, 'an item cannot be added to a Completed Tasking');
-WITH changed AS (UPDATE public.calendar_tasking_equipment SET secured_quantity = 0 WHERE tasking_id = pg_temp.id('401') RETURNING id)
-SELECT is((SELECT count(*)::int FROM changed), 0, 'equipment of a Completed Tasking cannot change');
+SELECT throws_ok($$UPDATE public.calendar_tasking_equipment SET secured_quantity = 0 WHERE tasking_id = pg_temp.id('401')$$,
+  '55000', NULL, 'equipment of a Completed Tasking cannot change, except what was returned');
 WITH removed AS (DELETE FROM public.calendar_tasking_checklist_items WHERE tasking_id = pg_temp.id('401') RETURNING id)
 SELECT is((SELECT count(*)::int FROM removed), 0, 'items of a Completed Tasking cannot be removed');
 SELECT throws_ok($$SELECT pg_temp.reorder('401', 'equipment', ARRAY['502'])$$, '55000', NULL, 'a Completed Tasking cannot be reordered');

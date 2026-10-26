@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as Field from '$lib/components/ui/field';
@@ -48,9 +49,21 @@
 			required: false
 		}
 	};
-	const copy = $derived(COPY[action]);
+	// Blocking a Blocked Tasking again corrects its reason and keeps who blocked it and since when.
+	const correcting = $derived(tasking.status.kind === 'blocked' && action === 'block');
+	const copy = $derived(
+		correcting
+			? {
+					...COPY.block,
+					title: 'Change the block reason?',
+					message: 'It stays Blocked since the same day, by the same person. Activity keeps the earlier reason.',
+					confirm: 'Save reason',
+					keep: 'Keep it'
+				}
+			: COPY[action]
+	);
 
-	let text = $state('');
+	let text = $state(untrack(() => (tasking.status.kind === 'blocked' && action === 'block' ? tasking.status.reason : '')));
 	let saveError = $state('');
 	let open = true;
 

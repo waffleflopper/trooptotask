@@ -104,7 +104,7 @@ const quantitySchema = z
 	.min(1, 'Enter at least 1.')
 	.max(EQUIPMENT_QUANTITY_MAX, `Keep it to ${EQUIPMENT_QUANTITY_MAX}.`);
 
-const securedSchema = z
+export const securedSchema = z
 	.number({ error: 'Enter how many are secured.' })
 	.int('Enter a whole number.')
 	.min(0, 'Enter 0 or more.')

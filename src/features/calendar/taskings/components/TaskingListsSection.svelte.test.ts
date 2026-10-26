@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EventRead } from '../../events/eventModel';
 import type { TaskingLists } from '../taskingListsModel';
@@ -12,7 +12,6 @@ const TASKING = '00000000-0000-4000-8000-000000000101';
 const LITTERS = '00000000-0000-4000-8000-000000000501';
 const RADIOS = '00000000-0000-4000-8000-000000000502';
 const CHECK = '00000000-0000-4000-8000-000000000601';
-const MEMBER = '00000000-0000-4000-8000-000000000003';
 
 const lists: TaskingLists = {
 	equipment: [
@@ -22,18 +21,30 @@ const lists: TaskingLists = {
 	checklist: [{ id: CHECK, label: 'Confirm the range is booked', done: false, doneAt: null, doneBy: null }]
 };
 
-function open(canEdit: boolean, loaded: EventRead<TaskingLists> = { status: 'loaded', value: lists }) {
+function open(
+	canEdit: boolean,
+	loaded: EventRead<TaskingLists> = { status: 'loaded', value: lists },
+	returns: { returning: boolean; canReturn: boolean } = { returning: false, canReturn: false }
+) {
 	const onChanged = vi.fn();
 	render(TaskingListsSection, {
 		orgId: 'org-a',
 		taskingId: TASKING,
 		lists: Promise.resolve(loaded),
-		members: { [MEMBER]: 'sgt.kim@example.mil' },
 		canEdit,
+		...returns,
+		blocked: false,
 		onChanged
 	});
 	return { onChanged };
 }
+
+async function choose(item: string, action: string) {
+	await fireEvent.click(await screen.findByRole('button', { name: `Actions for ${item}` }));
+	await fireEvent.click(await screen.findByRole('menuitem', { name: action }));
+}
+
+const checkbox = (name: string) => screen.getByRole('checkbox', { name }) as HTMLButtonElement;
 
 function stubFetch(handler: (url: string, init: RequestInit) => Response | Promise<Response>) {
 	const send = vi.fn((url: string, init: RequestInit) => Promise.resolve(handler(url, init)));
@@ -50,15 +61,14 @@ afterEach(() => {
 });
 
 describe('Tasking equipment and checklist', () => {
-	it('shows each requirement’s state and the ready count, and gives a reader no controls', async () => {
+	it('shows which requirements are ready and gives a reader no controls', async () => {
 		open(false);
 
-		const equipment = within(await screen.findByRole('region', { name: 'Equipment' }));
-		expect(equipment.getByText('1 of 2 ready · 1 partial')).toBeTruthy();
-		expect(equipment.getByText('Partial')).toBeTruthy();
-		expect(equipment.getByText('Ready')).toBeTruthy();
+		await screen.findByRole('region', { name: 'Equipment' });
+		expect(checkbox('Litters').getAttribute('aria-checked')).toBe('false');
+		expect(checkbox('Radios').getAttribute('aria-checked')).toBe('true');
 		expect(screen.queryByRole('button')).toBeNull();
-		expect((screen.getByRole('checkbox') as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getAllByRole('checkbox').every((box) => (box as HTMLButtonElement).disabled)).toBe(true);
 	});
 
 	it('adds equipment under one id, so a retry after a failure cannot add it twice', async () => {
@@ -70,14 +80,19 @@ describe('Tasking equipment and checklist', () => {
 		);
 		const { onChanged } = open(true);
 
-		await fireEvent.input(await screen.findByLabelText('Add equipment'), { target: { value: 'Stretchers' } });
+		await fireEvent.click(await screen.findByRole('button', { name: 'Add equipment' }));
+		await fireEvent.input(screen.getByLabelText('Equipment', { selector: '#equipment-add-name' }), {
+			target: { value: 'Stretchers' }
+		});
 		await fireEvent.input(screen.getByLabelText('Quantity', { selector: '#equipment-add-quantity' }), {
 			target: { value: '3' }
 		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Add to equipment' }));
 
 		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
-		expect((screen.getByLabelText('Add equipment') as HTMLInputElement).value).toBe('Stretchers');
+		expect((screen.getByLabelText('Equipment', { selector: '#equipment-add-name' }) as HTMLInputElement).value).toBe(
+			'Stretchers'
+		);
 		expect(onChanged).not.toHaveBeenCalled();
 
 		fail = false;
@@ -86,7 +101,7 @@ describe('Tasking equipment and checklist', () => {
 
 		expect(body(send, 1).id).toBe(body(send, 0).id);
 		expect(body(send, 1).draft).toEqual({ name: 'Stretchers', quantity: 3, securedQuantity: 0 });
-		expect((screen.getByLabelText('Add equipment') as HTMLInputElement).value).toBe('');
+		expect(screen.queryByRole('button', { name: 'Add to equipment' })).toBeNull();
 		expect(onChanged).toHaveBeenCalledOnce();
 	});
 
@@ -94,19 +109,22 @@ describe('Tasking equipment and checklist', () => {
 		const send = stubFetch(() => Response.json({}));
 		open(true);
 
-		await fireEvent.click(await screen.findByRole('button', { name: 'Add to equipment' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Add equipment' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add to equipment' }));
 
 		expect(send).not.toHaveBeenCalled();
-		expect(screen.getByLabelText('Add equipment').getAttribute('aria-invalid')).toBe('true');
+		expect(screen.getByLabelText('Equipment', { selector: '#equipment-add-name' }).getAttribute('aria-invalid')).toBe(
+			'true'
+		);
 	});
 
 	it('secures every unit in one press and shows the requirement ready', async () => {
 		const send = stubFetch(() => Response.json({ id: LITTERS, name: 'Litters', quantity: 4, securedQuantity: 4 }));
 		open(true);
 
-		await fireEvent.click(await screen.findByRole('button', { name: 'All secured: Litters' }));
+		await fireEvent.click(await screen.findByRole('checkbox', { name: 'Litters' }));
 
-		await waitFor(() => expect(screen.getByText('2 of 2 ready')).toBeTruthy());
+		await waitFor(() => expect(checkbox('Litters').getAttribute('aria-checked')).toBe('true'));
 		expect(send.mock.calls[0][0]).toBe(`/org/org-a/api/calendar-taskings/${TASKING}/equipment/${LITTERS}`);
 		expect(body(send, 0)).toEqual({ securedQuantity: 4 });
 	});
@@ -115,7 +133,7 @@ describe('Tasking equipment and checklist', () => {
 		const send = stubFetch(() => Response.json({}));
 		open(true);
 
-		await fireEvent.click(await screen.findByRole('button', { name: 'Edit Litters' }));
+		await choose('Litters', 'Edit');
 		await fireEvent.input(screen.getByLabelText('Secured'), { target: { value: '5' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -129,7 +147,7 @@ describe('Tasking equipment and checklist', () => {
 		);
 		open(true);
 
-		await fireEvent.click(await screen.findByRole('button', { name: 'Move Radios up' }));
+		await choose('Radios', 'Move up');
 
 		await waitFor(() => expect(screen.getAllByRole('listitem')[0].textContent).toContain('Radios'));
 		expect(send.mock.calls[0][1].method).toBe('PUT');
@@ -145,25 +163,6 @@ describe('Tasking equipment and checklist', () => {
 
 		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
 		expect(box.getAttribute('aria-checked')).toBe('false');
-		expect(screen.getByText('0 of 1 done')).toBeTruthy();
-	});
-
-	it('completes a checklist item and names who did it', async () => {
-		stubFetch(() =>
-			Response.json({
-				id: CHECK,
-				label: 'Confirm the range is booked',
-				done: true,
-				doneAt: '2026-10-25T12:00:00Z',
-				doneBy: MEMBER
-			})
-		);
-		open(true);
-
-		await fireEvent.click(await screen.findByRole('checkbox', { name: 'Confirm the range is booked' }));
-
-		await waitFor(() => expect(screen.getByText('1 of 1 done')).toBeTruthy());
-		expect(screen.getByText(/sgt\.kim@example\.mil/)).toBeTruthy();
 	});
 
 	it('offers a retry instead of the lists when they cannot be loaded, and retrying reloads the Calendar data', async () => {
@@ -181,7 +180,8 @@ describe('Tasking equipment and checklist', () => {
 		stubFetch(() => new Promise<Response>((resolve) => (finish = resolve)) as unknown as Response);
 		open(true);
 
-		const name = (await screen.findByLabelText('Add equipment')) as HTMLInputElement;
+		await fireEvent.click(await screen.findByRole('button', { name: 'Add equipment' }));
+		const name = screen.getByLabelText('Equipment', { selector: '#equipment-add-name' }) as HTMLInputElement;
 		await fireEvent.input(name, { target: { value: 'Stretchers' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add to equipment' }));
 		await fireEvent.input(name, { target: { value: 'Stretchers and straps' } });
@@ -202,7 +202,8 @@ describe('Tasking equipment and checklist', () => {
 		});
 		open(true);
 
-		const entry = (await screen.findByLabelText('Add checklist item')) as HTMLInputElement;
+		await fireEvent.click(await screen.findByRole('button', { name: 'Add item' }));
+		const entry = screen.getByLabelText('Checklist item', { selector: '#checklist-add-label' }) as HTMLInputElement;
 		await fireEvent.input(entry, { target: { value: 'Book the range' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add to checklist' }));
 		await fireEvent.input(entry, { target: { value: 'Draw the radios' } });
@@ -220,11 +221,13 @@ describe('Tasking equipment and checklist', () => {
 			orgId: 'org-a',
 			taskingId: TASKING,
 			lists: Promise.resolve({ status: 'loaded', value: lists } as const),
-			members: {},
 			canEdit: true,
+			returning: false,
+			canReturn: false,
+			blocked: false,
 			onChanged: vi.fn()
 		});
-		await fireEvent.click(await screen.findByRole('button', { name: 'Edit Litters' }));
+		await choose('Litters', 'Edit');
 		expect(screen.getByLabelText('Quantity', { selector: '[id^="equipment-quantity"]' })).toBeTruthy();
 
 		await rerender({ canEdit: false });
@@ -234,7 +237,40 @@ describe('Tasking equipment and checklist', () => {
 
 		await rerender({ canEdit: true });
 
-		expect(screen.getByRole('button', { name: 'Edit Litters' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Actions for Litters' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+	});
+
+	it('records returns on a Completed Tasking and leaves the rest of the list closed', async () => {
+		const send = stubFetch(() =>
+			Response.json({ id: LITTERS, name: 'Litters', quantity: 4, securedQuantity: 4, returnedQuantity: 4 })
+		);
+		open(false, { status: 'loaded', value: lists }, { returning: true, canReturn: true });
+
+		await fireEvent.click(await screen.findByRole('checkbox', { name: 'Litters' }));
+
+		await waitFor(() => expect(checkbox('Litters').getAttribute('aria-checked')).toBe('true'));
+		expect(body(send, 0)).toEqual({ returnedQuantity: 4 });
+		expect(screen.queryByRole('button', { name: 'Add equipment' })).toBeNull();
+	});
+
+	it('counts a partial return and refuses a count that is not a whole number', async () => {
+		const send = stubFetch(() =>
+			Response.json({ id: LITTERS, name: 'Litters', quantity: 4, securedQuantity: 4, returnedQuantity: 3 })
+		);
+		open(false, { status: 'loaded', value: lists }, { returning: true, canReturn: true });
+
+		await choose('Litters', 'Count returned…');
+		const count = screen.getByLabelText(/Returned of 4/);
+		await fireEvent.input(count, { target: { value: '-1' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(send).not.toHaveBeenCalled();
+
+		await fireEvent.input(count, { target: { value: '3' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(body(send, 0)).toEqual({ returnedQuantity: 3 }));
+		await waitFor(() => expect(screen.queryByLabelText(/Returned of 4/)).toBeNull());
+		expect(checkbox('Litters').getAttribute('aria-checked')).toBe('false');
 	});
 });

@@ -1,4 +1,5 @@
 import {
+	listEventContributions,
 	listTaskingActivity,
 	loadTaskingPickStates,
 	loadTaskingChoices,
@@ -23,15 +24,24 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 		context: createRequestCalendarTaskingContext,
 		policyAction: POLICY_ACTION_CATALOG.calendar.viewEvents,
 		policyResource: { kind: 'unscoped' },
-		fn: async (ctx) => ({
+		fn: async (ctx) => {
+			const detail = loadTaskingDetail(ctx, params.taskingId);
+			return {
 			today,
 			pickStates: settleEventRead(loadTaskingPickStates(ctx, params.taskingId)),
-			detail: settleEventRead(loadTaskingDetail(ctx, params.taskingId)),
+			detail: settleEventRead(detail),
+			// The Event is known only once the Tasking is read; the counts follow it on the server, not the browser.
+			restOfEvent: settleEventRead(
+				detail.then(({ tasking }) =>
+					tasking.event ? listEventContributions(ctx, tasking.event.id, tasking.id) : []
+				)
+			),
 			activity: settleEventRead(listTaskingActivity(ctx, params.taskingId)),
 			people: settleEventRead(loadTaskingStaffing(ctx, params.taskingId)),
 			availabilityGaps: settleEventRead(loadTaskingAvailabilityGaps(ctx, params.taskingId)),
 			lists: settleEventRead(loadTaskingLists(ctx, params.taskingId)),
 			choices: settleEventRead(loadTaskingChoices(ctx, today))
-		})
+			};
+		}
 	});
 };

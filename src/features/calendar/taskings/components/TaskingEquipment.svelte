@@ -1,10 +1,9 @@
 <script lang="ts">
-	import Minus from '@lucide/svelte/icons/minus';
 	import Plus from '@lucide/svelte/icons/plus';
 	import { untrack } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
-	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -13,11 +12,11 @@
 		TASKING_LIST_LIMIT,
 		equipmentChangeSchema,
 		equipmentDraftSchema,
+		securedSchema,
 		equipmentReadiness,
 		equipmentState,
 		movedIds,
-		type EquipmentRequirement,
-		type EquipmentState
+		type EquipmentRequirement
 	} from '../taskingListsModel';
 	import {
 		addEquipmentRequest,
@@ -27,35 +26,37 @@
 	} from '../taskingListsRequests';
 	import ListItemActions from './ListItemActions.svelte';
 	import { ListWrites } from './listWrites.svelte';
-	import { equipmentSummary } from './taskingLabels';
 
 	interface Props {
 		orgId: string;
 		taskingId: string;
 		items: EquipmentRequirement[];
 		canEdit: boolean;
+		/** A Completed Tasking counts what came back instead of what was secured. */
+		returning: boolean;
+		/** Whether the reader may record returns on a Completed Tasking. */
+		canReturn: boolean;
+		/** A Blocked Tasking shows missing equipment as the problem it is. */
+		blocked: boolean;
 		onChanged: () => void;
 	}
 
-	let { orgId, taskingId, items: loaded, canEdit, onChanged }: Props = $props();
-
-	const STATES: Record<EquipmentState, { label: string; variant: BadgeVariant }> = {
-		ready: { label: 'Ready', variant: 'success' },
-		partial: { label: 'Partial', variant: 'warning' },
-		none: { label: 'Not secured', variant: 'outline' }
-	};
+	let { orgId, taskingId, items: loaded, canEdit, returning, canReturn, blocked, onChanged }: Props = $props();
 
 	const writes = new ListWrites();
 	let items = $state.raw(untrack(() => loaded));
 	let addId = crypto.randomUUID();
 	let adding = $state({ name: '', quantity: '1' });
 	let triedAdd = $state(false);
+	let addOpen = $state(false);
 	let editing = $state<{ id: string; name: string; quantity: string; securedQuantity: string } | null>(null);
+	let counting = $state<{ id: string; returnedQuantity: string } | null>(null);
 	let triedEdit = $state(false);
 
 	$effect(() => () => writes.stop());
 	$effect(() => {
 		if (!canEdit) editing = null;
+		if (!canReturn) counting = null;
 	});
 	// A refreshed load replaces what is shown only while no write of ours is still on its way.
 	$effect(() => {
@@ -66,7 +67,27 @@
 	});
 
 	const readiness = $derived(equipmentReadiness(items));
+	const returned = (item: EquipmentRequirement) => (item.returnedQuantity ?? 0) >= item.quantity;
+	const summary = $derived.by(() => {
+		if (!readiness) return { text: 'None needed', tone: 'text-muted-foreground' };
+		if (returning) {
+			const back = items.filter(returned).length;
+			return {
+				text: `${back} of ${items.length} returned`,
+				tone: back === items.length ? 'text-success-foreground' : 'text-accent-text'
+			};
+		}
+		const done = readiness.ready === readiness.total;
+		return {
+			text: `${readiness.ready} of ${readiness.total} ready`,
+			tone: done ? 'text-success-foreground' : blocked ? 'text-danger-foreground' : 'text-accent-text'
+		};
+	});
+	const shortTone = $derived(blocked ? 'text-danger-foreground' : 'text-accent-text');
 	const full = $derived(items.length >= TASKING_LIST_LIMIT);
+	const countParsed = $derived(
+		counting ? securedSchema.safeParse(Number(counting.returnedQuantity)) : null
+	);
 	const addParsed = $derived(
 		equipmentDraftSchema.safeParse({ name: adding.name, quantity: Number(adding.quantity), securedQuantity: 0 })
 	);
@@ -101,6 +122,7 @@
 				if (adding.name === submitted.name && adding.quantity === submitted.quantity) {
 					adding = { name: '', quantity: '1' };
 					triedAdd = false;
+					addOpen = false;
 				}
 				onChanged();
 			},
@@ -126,10 +148,21 @@
 		);
 	}
 
-	const secure = (item: EquipmentRequirement, to: number) => {
-		const securedQuantity = Math.min(item.quantity, Math.max(0, to));
-		if (securedQuantity !== item.securedQuantity) change(item, { securedQuantity });
-	};
+	const secure = (item: EquipmentRequirement, all: boolean) =>
+		change(item, { securedQuantity: all ? item.quantity : 0 });
+	const giveBack = (item: EquipmentRequirement, all: boolean) =>
+		change(item, { returnedQuantity: all ? item.quantity : 0 });
+
+	function saveCount(item: EquipmentRequirement) {
+		if (!counting || !countParsed?.success) return;
+		const returnedQuantity = Math.min(item.quantity, countParsed.data);
+		const submitted = counting.returnedQuantity;
+		if (returnedQuantity === (item.returnedQuantity ?? 0)) counting = null;
+		else
+			change(item, { returnedQuantity }, () => {
+				if (counting?.returnedQuantity === submitted) counting = null;
+			});
+	}
 
 	function startEdit(item: EquipmentRequirement) {
 		triedEdit = false;
@@ -196,12 +229,15 @@
 	}
 </script>
 
-<section class="grid gap-3" aria-labelledby="tasking-equipment-heading">
-	<div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-		<h2 id="tasking-equipment-heading" class="font-heading text-lg font-semibold">Equipment</h2>
-		<p class="m-0 text-sm text-muted-foreground" aria-live="polite">
-			{readiness ? equipmentSummary(readiness) : 'None required'}
-		</p>
+<section
+	class="grid min-w-0 content-start gap-[10px] rounded-lg border border-border bg-card px-4 py-[14px]"
+	aria-labelledby="tasking-equipment-heading"
+>
+	<div class="flex flex-wrap items-baseline gap-x-2.5">
+		<h2 id="tasking-equipment-heading" class="font-heading text-xl leading-6 font-semibold">Equipment</h2>
+		<span class={['font-mono text-[13px] font-semibold tabular-nums', summary.tone]} aria-live="polite">
+			{summary.text}
+		</span>
 	</div>
 
 	{#if writes.error}
@@ -211,31 +247,31 @@
 	{/if}
 
 	{#if items.length > 0}
-		<ul class="m-0 grid list-none divide-y rounded-lg border p-0">
+		<ul class="m-0 grid list-none gap-1.5 p-0">
 			{#each items as item, index (item.id)}
-				{@const state = STATES[equipmentState(item)]}
-				<li class="p-3">
+				{@const state = equipmentState(item)}
+				{@const checkId = `equipment-check-${item.id}`}
+				<li class="min-h-7">
 					{#if canEdit && editing?.id === item.id}
 						<form
-							class="grid gap-3"
+							class="grid gap-3 py-1"
 							novalidate
 							onsubmit={(submit) => {
 								submit.preventDefault();
 								saveEdit(item);
 							}}
 						>
-							<div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6rem_6rem]">
-								<Field.Root>
-									<Field.Label for={`equipment-name-${item.id}`}>Equipment</Field.Label>
-									<Input
-										id={`equipment-name-${item.id}`}
-										autocomplete="off"
-										maxlength={EQUIPMENT_NAME_MAX * 2}
-										bind:value={editing.name}
-									/>
-									{#if triedEdit && problem(editParsed, 'name')}<Field.Error>{problem(editParsed, 'name')}</Field.Error
-										>{/if}
-								</Field.Root>
+							<Field.Root>
+								<Field.Label for={`equipment-name-${item.id}`}>Equipment</Field.Label>
+								<Input
+									id={`equipment-name-${item.id}`}
+									autocomplete="off"
+									maxlength={EQUIPMENT_NAME_MAX * 2}
+									bind:value={editing.name}
+								/>
+								{#if triedEdit && problem(editParsed, 'name')}<Field.Error>{problem(editParsed, 'name')}</Field.Error>{/if}
+							</Field.Root>
+							<div class="grid grid-cols-2 gap-3">
 								<Field.Root>
 									<Field.Label for={`equipment-quantity-${item.id}`}>Quantity</Field.Label>
 									<Input
@@ -266,117 +302,148 @@
 									{#if writes.saving.pending}<Spinner />{/if}
 									Save
 								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={writes.saving.pending}
-									onclick={() => {
-										editing = null;
-									}}>Cancel</Button
-								>
+								<Button variant="outline" size="sm" disabled={writes.saving.pending} onclick={() => (editing = null)}>
+									Cancel
+								</Button>
+							</div>
+						</form>
+					{:else if canReturn && counting?.id === item.id}
+						<form
+							class="grid gap-3 py-1"
+							novalidate
+							onsubmit={(submit) => {
+								submit.preventDefault();
+								saveCount(item);
+							}}
+						>
+							<Field.Root>
+								<Field.Label for={`equipment-returned-${item.id}`}>Returned of {item.quantity} {item.name}</Field.Label>
+								<Input
+									id={`equipment-returned-${item.id}`}
+									inputmode="numeric"
+									autocomplete="off"
+									class="w-24"
+									bind:value={counting.returnedQuantity}
+								/>
+								{#if countParsed && !countParsed.success}
+									<Field.Error>{countParsed.error.issues[0]?.message}</Field.Error>
+								{/if}
+							</Field.Root>
+							<div class="flex flex-wrap gap-2">
+								<Button type="submit" size="sm" disabled={writes.saving.pending}>
+									{#if writes.saving.pending}<Spinner />{/if}
+									Save
+								</Button>
+								<Button variant="outline" size="sm" disabled={writes.saving.pending} onclick={() => (counting = null)}>
+									Cancel
+								</Button>
 							</div>
 						</form>
 					{:else}
-						<div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-3">
-							<div class="grid min-w-0 gap-0.5">
-								<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-									<span class="font-medium wrap-anywhere">{item.name}</span>
-									<Badge variant={state.variant}>{state.label}</Badge>
-								</div>
-								<span class="font-mono text-xs text-muted-foreground tabular-nums">
-									Secured {item.securedQuantity} of {item.quantity}
+						{@const back = item.returnedQuantity ?? 0}
+						{@const active = returning ? canReturn : canEdit}
+						<div class="flex min-h-7 items-center gap-[10px]">
+							<Checkbox
+								id={checkId}
+								class={[
+									!active && 'disabled:cursor-default disabled:opacity-100',
+									!returning && state !== 'ready' && blocked && 'border-danger',
+									!returning && state === 'partial' && !blocked && 'border-accent'
+								]
+									.filter(Boolean)
+									.join(' ')}
+								checked={returning ? returned(item) : state === 'ready'}
+								disabled={!active || writes.saving.pending}
+								onCheckedChange={(checked) => (returning ? giveBack(item, checked) : secure(item, checked))}
+							/>
+							<label for={checkId} class="min-w-0 flex-1 text-sm wrap-anywhere">{item.name}</label>
+							{#if returning && back > 0 && back < item.quantity}
+								<span class="shrink-0 font-mono text-xs text-accent-text tabular-nums">
+									{back} of {item.quantity} returned
 								</span>
-							</div>
+							{:else if !returning && state === 'partial'}
+								<span class={['shrink-0 font-mono text-xs tabular-nums', shortTone]}>
+									{item.securedQuantity} of {item.quantity} secured
+								</span>
+							{:else}
+								<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">× {item.quantity}</span>
+							{/if}
 							{#if canEdit}
-								<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-									<div class="flex items-center gap-1">
-										<Button
-											variant="outline"
-											size="icon-sm"
-											aria-label={`Secure one fewer ${item.name}`}
-											disabled={writes.saving.pending || item.securedQuantity === 0}
-											onclick={() => secure(item, item.securedQuantity - 1)}
-										>
-											<Minus />
-										</Button>
-										<Button
-											variant="outline"
-											size="icon-sm"
-											aria-label={`Secure one more ${item.name}`}
-											disabled={writes.saving.pending || item.securedQuantity >= item.quantity}
-											onclick={() => secure(item, item.securedQuantity + 1)}
-										>
-											<Plus />
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											aria-label={`All secured: ${item.name}`}
-											disabled={writes.saving.pending || item.securedQuantity >= item.quantity}
-											onclick={() => secure(item, item.quantity)}>All secured</Button
-										>
-									</div>
-									<ListItemActions
-										name={item.name}
-										first={index === 0}
-										last={index === items.length - 1}
-										disabled={writes.saving.pending}
-										onMove={(step) => move(item, step)}
-										onEdit={() => startEdit(item)}
-										onRemove={() => remove(item)}
-									/>
-								</div>
+								<ListItemActions
+									name={item.name}
+									first={index === 0}
+									last={index === items.length - 1}
+									disabled={writes.saving.pending}
+									onMove={(step) => move(item, step)}
+									onEdit={() => startEdit(item)}
+									onRemove={() => remove(item)}
+								/>
+							{:else if canReturn}
+								<ListItemActions
+									name={item.name}
+									first={index === 0}
+									last={index === items.length - 1}
+									disabled={writes.saving.pending}
+									editLabel="Count returned…"
+									onEdit={() => (counting = { id: item.id, returnedQuantity: String(back) })}
+								/>
 							{/if}
 						</div>
 					{/if}
 				</li>
 			{/each}
 		</ul>
+	{:else if !canEdit}
+		<p class="m-0 text-[13px] text-muted-foreground">Nothing to bring.</p>
 	{/if}
 
-	{#if canEdit}
+	{#if canEdit && addOpen}
 		<form
-			class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6rem_auto] sm:items-start"
+			class="grid gap-3 border-t border-border pt-3"
 			novalidate
 			onsubmit={(submit) => {
 				submit.preventDefault();
 				add();
 			}}
 		>
-			<Field.Root>
-				<Field.Label for="equipment-add-name">Add equipment</Field.Label>
-				<Input
-					id="equipment-add-name"
-					autocomplete="off"
-					placeholder="e.g., Litters"
-					disabled={full}
-					bind:value={adding.name}
-				/>
-				{#if triedAdd && problem(addParsed, 'name')}<Field.Error>{problem(addParsed, 'name')}</Field.Error>{/if}
-			</Field.Root>
-			<Field.Root>
-				<Field.Label for="equipment-add-quantity">Quantity</Field.Label>
-				<Input
-					id="equipment-add-quantity"
-					inputmode="numeric"
-					autocomplete="off"
-					disabled={full}
-					bind:value={adding.quantity}
-				/>
-				{#if triedAdd && problem(addParsed, 'quantity')}<Field.Error>{problem(addParsed, 'quantity')}</Field.Error>{/if}
-			</Field.Root>
-			<div class="sm:pt-[1.625rem]">
-				<Button
-					type="submit"
-					variant="outline"
-					class="w-full sm:w-auto"
-					aria-label="Add to equipment"
-					disabled={writes.saving.pending || full}
-				>
+			<div class="grid grid-cols-[minmax(0,1fr)_5rem] gap-3">
+				<Field.Root>
+					<Field.Label for="equipment-add-name">Equipment</Field.Label>
+					<Input
+						id="equipment-add-name"
+						autocomplete="off"
+						placeholder="e.g., Litters"
+						disabled={full}
+						bind:value={adding.name}
+					/>
+					{#if triedAdd && problem(addParsed, 'name')}<Field.Error>{problem(addParsed, 'name')}</Field.Error>{/if}
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="equipment-add-quantity">Quantity</Field.Label>
+					<Input
+						id="equipment-add-quantity"
+						inputmode="numeric"
+						autocomplete="off"
+						disabled={full}
+						bind:value={adding.quantity}
+					/>
+					{#if triedAdd && problem(addParsed, 'quantity')}<Field.Error>{problem(addParsed, 'quantity')}</Field.Error
+						>{/if}
+				</Field.Root>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<Button type="submit" size="sm" aria-label="Add to equipment" disabled={writes.saving.pending || full}>
 					{#if writes.saving.pending}<Spinner />{/if}
 					Add
 				</Button>
+				<Button variant="outline" size="sm" disabled={writes.saving.pending} onclick={() => (addOpen = false)}>
+					Cancel
+				</Button>
 			</div>
 		</form>
+	{:else if canEdit && !full}
+		<Button variant="ghost" size="sm" class="-ml-2 justify-self-start text-muted-foreground" onclick={() => (addOpen = true)}>
+			<Plus data-icon="inline-start" aria-hidden="true" />Add equipment
+		</Button>
 	{/if}
 </section>

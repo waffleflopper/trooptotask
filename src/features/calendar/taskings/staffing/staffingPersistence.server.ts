@@ -38,7 +38,9 @@ const pickRowSchema = z
 		group_id: z.string().nullable(),
 		archived: z.boolean(),
 		selected_at: z.string(),
-		review_since: z.string().nullable()
+		review_since: z.string().nullable(),
+		mos: z.string().nullable(),
+		clinic_role: z.string().nullable()
 	})
 	.transform(
 		(row): TaskingPick => ({
@@ -47,6 +49,8 @@ const pickRowSchema = z
 			firstName: row.first_name,
 			lastName: row.last_name,
 			groupId: row.group_id,
+			mos: row.mos ?? '',
+			clinicRole: row.clinic_role ?? '',
 			archived: row.archived,
 			selectedAt: row.selected_at,
 			reviewSince: row.review_since

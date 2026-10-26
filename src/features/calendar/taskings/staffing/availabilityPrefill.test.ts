@@ -68,6 +68,8 @@ describe('availabilityTargets', () => {
 		firstName: 'Pat',
 		lastName: 'Able',
 		groupId: ALPHA,
+		mos: '68W',
+		clinicRole: '',
 		archived: false,
 		selectedAt: '2030-10-01T00:00:00Z',
 		reviewSince: null,

@@ -44,6 +44,8 @@
 		primary: number;
 		searchField: number;
 		searchIcon: number;
+		// The mode the DOM was in when these sizes were read; a button that changes between icon and text is stale until re-read.
+		compact: boolean;
 		items: Record<string, number>;
 	};
 
@@ -54,6 +56,7 @@
 		primary: 0,
 		searchField: 0,
 		searchIcon: 0,
+		compact: false,
 		items: {}
 	});
 	let searchOpen = $state(false);
@@ -88,6 +91,7 @@
 		// A host with no width is hidden, not narrow; keep its last layout until it is measured again.
 		if (measured.available <= 0) return lastFit;
 		const ready =
+			measured.compact === compact &&
 			measured.more > 0 &&
 			(!primary || measured.primary > 0) &&
 			(!rowSearch || (measured.searchField > 0 && measured.searchIcon > 0)) &&
@@ -150,7 +154,7 @@
 	// ResizeObserver delivers every changed box of one layout before paint; one delivery is one
 	// metrics write and so one fit, which keeps an unfolded overflowing row from ever being painted.
 	function record(entries: ResizeObserverEntry[]): void {
-		const next: Metrics = { ...metrics, items: {} };
+		const next: Metrics = { ...metrics, compact, items: {} };
 		for (const { id } of rowCandidates) {
 			if (metrics.items[id] !== undefined) next.items[id] = metrics.items[id];
 		}
@@ -177,6 +181,7 @@
 			a.primary === b.primary &&
 			a.searchField === b.searchField &&
 			a.searchIcon === b.searchIcon &&
+			a.compact === b.compact &&
 			aIds.length === Object.keys(b.items).length &&
 			aIds.every((id) => a.items[id] === b.items[id])
 		);

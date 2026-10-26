@@ -443,7 +443,7 @@ describe('TrainingMatrix display options', () => {
 		expect(band.closest('tr')?.textContent).toContain('50%');
 	});
 
-	it('keeps a Soldier fixed while filtered until the filter settles again, with a live count', async () => {
+	it('keeps a Soldier fixed while filtered until the filter settles again, and shows a new one at once', async () => {
 		const people = [named('Adams'), named('Baker')];
 		const props = {
 			...matrixProps,
@@ -464,6 +464,9 @@ describe('TrainingMatrix display options', () => {
 		await view.rerender({ ...props, trainings: fixed, display });
 		await view.rerender({ ...props, trainings: fixed });
 		expect(mountedNames()).toEqual(['Baker, Jane']);
+
+		await view.rerender({ ...props, trainings: [] });
+		expect(mountedNames()).toEqual(['Adams, Jane', 'Baker, Jane']);
 	});
 });
 

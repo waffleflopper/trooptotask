@@ -94,19 +94,24 @@
 	const needsAction = (person: Personnel) =>
 		trainingTypes.some((type) => NEEDS_ACTION.has(getCellMetadata(person, type).statusInfo.status));
 
-	// The filter settles when it, the view or the roster changes, not on a save: a Soldier fixed mid-session keeps their
-	// row, so focus and record stepping still have somewhere to go.
+	// Anyone who needs action shows at once. A Soldier fixed mid-session keeps their row until the filter, the roster or
+	// the columns change, so focus and record stepping still have somewhere to go.
 	const filterKey = $derived(
 		display.matrixNeedsActionOnly
 			? `${personnel.map((person) => person.id).join()}|${trainingTypes.map((type) => type.id).join()}`
 			: null
 	);
-	const shownPersonnel = $derived.by(() =>
-		filterKey === null ? personnel : untrack(() => personnel.filter((person) => needsAction(person)))
+	const keptIds = $derived.by(() =>
+		filterKey === null
+			? null
+			: untrack(() => new Set(personnel.filter((person) => needsAction(person)).map((person) => person.id)))
 	);
-	const stillNeedingAction = $derived(
-		display.matrixNeedsActionOnly ? shownPersonnel.filter((person) => needsAction(person)).length : 0
-	);
+	const needingAction = $derived(keptIds ? personnel.filter((person) => needsAction(person)) : []);
+	const shownPersonnel = $derived.by(() => {
+		if (!keptIds) return personnel;
+		const live = new Set(needingAction.map((person) => person.id));
+		return personnel.filter((person) => live.has(person.id) || keptIds.has(person.id));
+	});
 
 	const columns: ColumnDef<Personnel>[] = [
 		{
@@ -448,7 +453,7 @@
 				<h2 class="font-heading text-xl font-semibold tracking-tight">{title}</h2>
 				<p class="font-mono text-xs text-muted-foreground">
 					{display.matrixNeedsActionOnly
-						? `${stillNeedingAction} of ${personnel.length} need action`
+						? `${needingAction.length} of ${personnel.length} need action`
 						: `${personnel.length} personnel`} × {trainingTypes.length} types · {groupBy ? 'by group' : 'A–Z'}
 				</p>
 			</div>

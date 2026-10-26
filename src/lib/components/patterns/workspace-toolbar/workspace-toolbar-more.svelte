@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import ListFilter from '@lucide/svelte/icons/list-filter';
 	import MoreHorizontal from '@lucide/svelte/icons/more-horizontal';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -26,10 +27,12 @@
 		filters: ToolbarFilter[];
 		/** Folded actions in row order, menu-only actions included. */
 		actions: ToolbarAction[];
+		/** Names the trigger "Filters" instead of More, for a toolbar whose filters all live in the menu. */
+		filtersLabel?: boolean;
 		run: RunAction;
 	};
 
-	let { ariaLabel, views, filters, actions, run }: Props = $props();
+	let { ariaLabel, views, filters, actions, filtersLabel = false, run }: Props = $props();
 	const descriptionId = $props.id();
 	const hiddenActive = $derived(filters.filter(isFilterActive).map((filter) => filter.label));
 
@@ -42,9 +45,21 @@
 	}
 </script>
 
-{#snippet moreButton(label: string, props: Record<string, unknown>, describedBy?: string)}
-	<Button variant="outline" size="icon" class="relative" aria-label={label} aria-describedby={describedBy} {...props}>
-		<MoreHorizontal aria-hidden="true" />
+{#snippet moreButton(label: string, props: Record<string, unknown>, describedBy?: string, filtersLabel = false)}
+	<Button
+		variant="outline"
+		size={filtersLabel ? 'default' : 'icon'}
+		class="relative"
+		aria-label={filtersLabel ? undefined : label}
+		aria-describedby={describedBy}
+		{...props}
+	>
+		{#if filtersLabel}
+			<ListFilter aria-hidden="true" />
+			Filters
+		{:else}
+			<MoreHorizontal aria-hidden="true" />
+		{/if}
 		{#if describedBy}
 			<span aria-hidden="true" class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent ring-2 ring-card"
 			></span>
@@ -127,7 +142,7 @@
 
 <WorkspaceToolbarMenu contentClass="w-auto min-w-48">
 	{#snippet trigger(props)}
-		{@render moreButton(`More ${ariaLabel}`, props, hiddenActive.length > 0 ? descriptionId : undefined)}
+		{@render moreButton(`More ${ariaLabel}`, props, hiddenActive.length > 0 ? descriptionId : undefined, filtersLabel)}
 	{/snippet}
 	{#snippet children(choose)}
 		{#if views.length > 0}

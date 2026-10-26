@@ -126,6 +126,18 @@ describe('Combobox single', () => {
 		}
 	);
 
+	it('exposes the typed text through a bound search and clears it once an option is chosen', async () => {
+		render(ComboboxSingleTest);
+		const trigger = screen.getByRole('button', { name: 'Person' });
+		await fireEvent.click(trigger);
+		await fireEvent.input(await screen.findByPlaceholderText('Search personnel...'), { target: { value: 'Ma' } });
+		await waitFor(() => expect(screen.getByLabelText('Typed text').textContent).toBe('Ma'));
+
+		await fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: /Maya Chen/ }));
+		await waitFor(() => expect(screen.getByLabelText('Typed text').textContent).toBe(''));
+		expect(screen.getByLabelText('Selected person').textContent).toBe('maya');
+	});
+
 	it('names its open list after the trigger, not the default suggestions label', async () => {
 		render(ComboboxSingleTest);
 

@@ -17,6 +17,7 @@
 		reportsDisabled?: boolean;
 		describePlanner?: boolean;
 		stackSearchBelow?: number;
+		phoneLayout?: boolean;
 		onRun?: (name: string) => void;
 	};
 
@@ -36,6 +37,7 @@
 		reportsDisabled = false,
 		describePlanner = false,
 		stackSearchBelow,
+		phoneLayout = false,
 		onRun
 	}: Props = $props();
 
@@ -192,6 +194,7 @@
 		icon: 'plus',
 		onclick: () => log('add')
 	}}
+	compactBelow={phoneLayout ? 'sm' : undefined}
 />
 
 <output aria-label="View value">{view}</output>

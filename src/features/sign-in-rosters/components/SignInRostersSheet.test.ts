@@ -83,6 +83,14 @@ function renderSheet(canEdit = true) {
 	});
 }
 
+function previewedNames() {
+	const preview = screen.getByTestId('roster-print-preview');
+	return [...preview.querySelectorAll('tbody tr')].flatMap((row) => {
+		const cells = row.querySelectorAll('td');
+		return cells.length === 4 ? [cells[2].textContent?.trim() ?? ''] : [];
+	});
+}
+
 async function openNewRoster() {
 	await fireEvent.click(await screen.findByRole('button', { name: 'New roster' }));
 	return screen.findByRole('heading', { name: 'New sign-in roster' });
@@ -319,14 +327,14 @@ describe('SignInRostersSheet new roster', () => {
 		vi.stubGlobal('fetch', fetchMock);
 		renderSheet();
 		await openNewRoster();
-		expect(screen.getByText('3 of 3 personnel match the filters below')).toBeTruthy();
+		expect(previewedNames()).toEqual(['Able, Alex', 'Baker, Alex', 'Cole, Alex']);
 
 		await choose('MOS', '68W');
-		expect(screen.getByText('2 of 3 personnel match the filters below')).toBeTruthy();
+		expect(previewedNames()).toEqual(['Able, Alex', 'Baker, Alex']);
 		await choose('Role', 'Medic');
-		expect(screen.getByText('1 of 3 personnel match the filters below')).toBeTruthy();
+		expect(previewedNames()).toEqual(['Able, Alex']);
 		await choose('Role', 'Driver');
-		expect(screen.getByText('2 of 3 personnel match the filters below')).toBeTruthy();
+		expect(previewedNames()).toEqual(['Able, Alex', 'Baker, Alex']);
 
 		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Medic skills' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save and print' }));
@@ -340,7 +348,7 @@ describe('SignInRostersSheet new roster', () => {
 		expect(body.personnelSnapshot).toBeUndefined();
 	});
 
-	it('blocks saving when the filters leave nobody and shows the count as 0', async () => {
+	it('blocks saving and previews nobody when the filters leave nobody', async () => {
 		vi.stubGlobal('fetch', listFetch([]));
 		renderSheet();
 		await openNewRoster();
@@ -349,7 +357,7 @@ describe('SignInRostersSheet new roster', () => {
 		await choose('MOS', '11B');
 		await choose('Role', 'Driver');
 
-		expect(screen.getByText('0 of 3 personnel match the filters below')).toBeTruthy();
+		expect(previewedNames()).toEqual([]);
 		expect((screen.getByRole('button', { name: 'Save and print' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 

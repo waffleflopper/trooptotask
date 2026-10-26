@@ -309,7 +309,9 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 		areaKey: 'events-and-taskings',
 		rows: (sections) => {
 			const members = new Map(
-				(sections.memberships ?? []).map((member) => [String(member.user_id), String(member.email ?? '')])
+				(sections.memberships ?? [])
+					.filter((member) => member.email)
+					.map((member) => [String(member.user_id), String(member.email)])
 			);
 			return (sections.calendarEvents ?? []).map((event) => ({
 				title: event.title,

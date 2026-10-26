@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { untrack } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -134,6 +135,12 @@
 			}}
 		>
 			<AppDialog.Body class="grid content-start gap-5">
+				{#if saveError}
+					<Alert.Root variant="destructive" {@attach (alert) => alert.scrollIntoView({ block: 'nearest' })}>
+						<Alert.Title>Not saved</Alert.Title>
+						<Alert.Description>{saveError}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				<fieldset class="contents" disabled={saving.pending}>
 					<Field.Root>
 						<Field.Label for="event-title">Title</Field.Label>
@@ -196,6 +203,7 @@
 						<Collapsible.Trigger>
 							{#snippet child({ props })}
 								<Button {...props} variant="ghost" size="sm" class="-ml-2">
+									<ChevronRight class={['transition-transform', moreOpen && 'rotate-90']} aria-hidden="true" />
 									{moreOpen ? 'Hide details' : 'Add location, source and notes'}
 								</Button>
 							{/snippet}
@@ -224,13 +232,6 @@
 							</Field.Root>
 						</Collapsible.Content>
 					</Collapsible.Root>
-
-					{#if saveError}
-						<Alert.Root variant="destructive">
-							<Alert.Title>Not saved</Alert.Title>
-							<Alert.Description>{saveError}</Alert.Description>
-						</Alert.Root>
-					{/if}
 				</fieldset>
 			</AppDialog.Body>
 		</form>

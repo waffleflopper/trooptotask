@@ -60,6 +60,8 @@ export function createSupabaseOrganizationMemberLabelsReader(
 		});
 		if (result.error)
 			throw new Error((result.error as { message?: string }).message ?? 'Organization member labels read failed');
-		return Object.fromEntries((result.data ?? []).map((row) => [row.user_id, labelForRow(row)]));
+		return Object.fromEntries(
+			(result.data ?? []).map((row) => [row.user_id, compact(row.email) || `${row.user_id.slice(0, 8)}...`])
+		);
 	};
 }

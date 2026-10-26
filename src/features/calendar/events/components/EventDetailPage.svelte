@@ -134,21 +134,20 @@
 			<PageShell.FactRow label="Location" value={event.location} />
 			{#if source?.kind === 'link'}
 				<PageShell.FactRow label="Source">
-					<a
-						href={source.url}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="break-all text-sm underline underline-offset-3">{source.url}</a
+					<a href={source.url} target="_blank" rel="noopener noreferrer" class="break-all underline underline-offset-3"
+						>{source.url}</a
 					>
 				</PageShell.FactRow>
 			{:else}
 				<PageShell.FactRow label="Source" value={event.sourceReference} />
 			{/if}
-			<PageShell.FactRow label="Description">
-				<p class={['m-0 text-sm whitespace-pre-line', !event.description && 'text-muted-foreground']}>
-					{event.description ?? 'Not set'}
-				</p>
-			</PageShell.FactRow>
+			{#if event.description}
+				<PageShell.FactRow label="Description">
+					<p class="m-0 wrap-anywhere whitespace-pre-line">{event.description}</p>
+				</PageShell.FactRow>
+			{:else}
+				<PageShell.FactRow label="Description" value={null} />
+			{/if}
 		</dl>
 	{/if}
 

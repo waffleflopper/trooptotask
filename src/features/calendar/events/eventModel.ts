@@ -124,7 +124,7 @@ export const eventDraftSchema = z
 		description: optionalText('the description', EVENT_DESCRIPTION_MAX),
 		sourceReference: optionalText('the source reference', EVENT_SOURCE_MAX).refine(
 			(value) => value === null || parseSourceReference(value) !== null,
-			'Enter an order identifier or an http or https link.'
+			'Links must start with http:// or https://.'
 		)
 	})
 	.strict()

@@ -135,7 +135,12 @@
 					>
 						<span class="font-mono text-sm text-muted-foreground tabular-nums">{eventDateRange(event)}</span>
 						<span class="grid min-w-0 gap-0.5">
-							<span class={['truncate font-medium', event.cancellation && 'text-muted-foreground line-through']}>
+							<span
+								class={[
+									'truncate font-medium',
+									event.cancellation ? 'text-muted-foreground line-through' : 'text-foreground'
+								]}
+							>
 								{event.title}
 							</span>
 							<span class="truncate text-sm text-muted-foreground">

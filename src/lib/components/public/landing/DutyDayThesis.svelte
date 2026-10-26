@@ -1,0 +1,75 @@
+<script lang="ts">
+	import { ease, fadeUp, reveal } from './reveal';
+	import { band, body, container, display, eyebrow, label } from './type';
+</script>
+
+<section class="bg-chrome text-chrome-text">
+	<div class={[container, band, 'flex flex-col gap-16 lg:gap-20']}>
+		<div class="flex flex-col gap-6">
+			<p class={[eyebrow, 'text-chrome-accent']}>WHY IT MATTERS</p>
+			<h2 class={display}>
+				<span class="block text-chrome-text-muted">HALF A DUTY DAY,</span>
+				<span class="block">GIVEN BACK.</span>
+			</h2>
+		</div>
+		<div class="flex flex-col gap-16 lg:flex-row lg:items-end lg:gap-20" {@attach reveal}>
+			<figure class={[fadeUp, 'flex grow flex-col gap-10']}>
+				<figcaption
+					class="flex flex-col gap-3 border-b border-chrome-border pb-3 sm:flex-row sm:items-center sm:justify-between"
+				>
+					<span class={[label, 'text-chrome-text-muted']}>ONE LEADER'S DUTY DAY, IN THEIR WORDS</span>
+					<span class="flex items-center gap-6">
+						<span class={[label, 'flex items-center gap-2 text-chrome-text-muted']}>
+							<span class="size-2 shrink-0 bg-chrome-surface-muted" aria-hidden="true"></span>ADMIN
+						</span>
+						<span class={[label, 'flex items-center gap-2 text-chrome-text-muted']}>
+							<span class="size-2 shrink-0 bg-chrome-accent" aria-hidden="true"></span>WITH SOLDIERS
+						</span>
+					</span>
+				</figcaption>
+				<div class="flex flex-col gap-3">
+					<div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+						<span class={[label, 'text-chrome-text-muted']}>BEFORE</span>
+						<q class="font-body text-lg leading-[1.375rem] font-light text-chrome-text-muted italic">
+							half my day on administrative tasks
+						</q>
+					</div>
+					<div class="flex h-10 gap-0.5" aria-hidden="true">
+						<div class="w-1/2 bg-chrome-surface-muted"></div>
+						<div class="grow bg-chrome-accent/45"></div>
+					</div>
+				</div>
+				<div class="flex flex-col gap-3">
+					<div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+						<span class={label}>WITH TROOPTOTASK</span>
+						<q class="font-body text-lg leading-[1.375rem] font-light italic">nearly all my day with the Soldiers</q>
+					</div>
+					<div class="flex h-10 gap-0.5" aria-hidden="true">
+						<div
+							class={[
+								'w-[8%] bg-chrome-surface-muted transition-[width] delay-500 duration-[1400ms] in-data-[reveal=pending]:w-1/2',
+								ease
+							]}
+						></div>
+						<div class="grow bg-chrome-accent"></div>
+					</div>
+				</div>
+				<div
+					class="flex justify-between font-mono text-[0.8125rem] leading-4 text-chrome-text-muted"
+					aria-hidden="true"
+				>
+					<span>0600</span><span>1200</span><span>1800</span>
+				</div>
+			</figure>
+			<blockquote
+				class={[fadeUp, 'flex shrink-0 flex-col gap-6 border-l-2 border-chrome-accent pl-8 delay-200 lg:w-[400px]']}
+			>
+				<p class={body}>
+					Every hour a leader is not reconciling trackers is an hour on the range, in the motor pool or counseling a
+					Soldier. That is readiness.
+				</p>
+				<footer class={[label, 'text-chrome-text-muted']}>WORDS · SFC, 1-43 ADA</footer>
+			</blockquote>
+		</div>
+	</div>
+</section>

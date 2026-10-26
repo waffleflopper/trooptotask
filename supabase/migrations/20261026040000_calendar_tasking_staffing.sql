@@ -287,7 +287,7 @@ RETURNS TABLE (personnel_id uuid, label text)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT person.id, pg_catalog.concat_ws(' ', NULLIF(person.rank, ''), person.last_name || ', ' || person.first_name)
+  SELECT person.id, pg_catalog.concat_ws(' ', NULLIF(person.rank, ''), person.first_name, person.last_name)
   FROM public.personnel AS person
   WHERE person.organization_id = p_organization_id AND person.id = ANY (p_personnel_ids)
     AND calendar_private.can_view_calendar_events(p_organization_id)

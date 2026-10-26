@@ -12,6 +12,7 @@ import type {
 	TaskingSchedule,
 	TaskingStatusKind
 } from '../taskingModel';
+import type { NamedPeople } from '../staffing/staffingModel';
 
 export const STATUS_BADGES: Record<TaskingStatusKind, { label: string; variant: BadgeVariant }> = {
 	open: { label: 'Open', variant: 'outline' },
@@ -68,6 +69,22 @@ function scheduleChanges(from: TaskingSchedule, to: TaskingSchedule): string[] {
 	return changes;
 }
 
+function peopleList({ names, others }: NamedPeople): string | null {
+	const parts = others > 0 ? [...names, `${others} other ${others === 1 ? 'person' : 'people'}`] : names;
+	if (parts.length === 0) return null;
+	return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+}
+
+function staffingChanges(fact: Extract<TaskingActivityFact, { kind: 'staffing_changed' }>): string {
+	const [added, removed, kept] = [peopleList(fact.added), peopleList(fact.removed), peopleList(fact.kept)];
+	const changes = [
+		added && `Picked ${added}`,
+		removed && `${added ? 'removed' : 'Removed'} ${removed}`,
+		kept && `${added || removed ? 'kept' : 'Kept'} ${kept} after review`
+	];
+	return changes.filter(Boolean).join('; ') || 'Changed who is picked';
+}
+
 /** One Activity line, with a reason or note kept apart so it reads as the actor's own words. */
 export function describeActivity(
 	fact: TaskingActivityFact,
@@ -111,5 +128,7 @@ export function describeActivity(
 			return { summary: 'Reopened the tasking', note: null };
 		case 'cancelled':
 			return { summary: 'Cancelled the tasking', note: fact.reason };
+		case 'staffing_changed':
+			return { summary: staffingChanges(fact), note: null };
 	}
 }

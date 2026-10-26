@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { MemberLabels } from '../events/eventModel';
+import type { NamedPeople, StaffingCount } from './staffing/staffingModel';
 
 export const TASKING_TITLE_MAX = 200;
 export const TASKING_QUALIFICATIONS_MAX = 1000;
@@ -75,7 +76,8 @@ export type TaskingActivityFact =
 	| { kind: 'unblocked' }
 	| { kind: 'completed'; note: string | null }
 	| { kind: 'reopened' }
-	| { kind: 'cancelled'; reason: string | null };
+	| { kind: 'cancelled'; reason: string | null }
+	| { kind: 'staffing_changed'; added: NamedPeople; removed: NamedPeople; kept: NamedPeople };
 
 export type TaskingActivity = TaskingActivityFact & { id: number; at: string; actorUserId: string | null };
 
@@ -90,6 +92,8 @@ export interface TaskingList {
 	scope: TaskingListScope;
 	taskings: Tasking[];
 	groups: GroupLabels;
+	/** By Tasking id; a Tasking missing here has no picks. */
+	staffing: Record<string, StaffingCount>;
 }
 
 export interface TaskingDetail {

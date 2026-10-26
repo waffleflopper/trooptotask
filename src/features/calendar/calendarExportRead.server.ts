@@ -15,7 +15,8 @@ const EXPORT_TABLES = [
 	'calendar_events',
 	'calendar_event_activity',
 	'calendar_taskings',
-	'calendar_tasking_activity'
+	'calendar_tasking_activity',
+	'calendar_tasking_participants'
 ] as const;
 
 export type CalendarExportTable = (typeof EXPORT_TABLES)[number];
@@ -41,7 +42,9 @@ export function createSupabaseCalendarExportReader(client: SupabaseClient, orgId
 								.order('form_id', { ascending: true })
 								.order('personnel_id', { ascending: true })
 								.order('track', { ascending: true })
-						: query.order('id', { ascending: true });
+						: table === 'calendar_tasking_participants'
+							? query.order('tasking_id', { ascending: true }).order('personnel_id', { ascending: true })
+							: query.order('id', { ascending: true });
 				const { data, error } = await ordered.range(from, to).returns<Record<string, unknown>[]>();
 				return { data, error };
 			});

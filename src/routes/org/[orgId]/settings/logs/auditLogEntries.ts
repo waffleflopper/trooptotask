@@ -420,7 +420,8 @@ const VERBS: Record<string, string> = {
 	reopened: 'Reopened',
 	started: 'Started',
 	blocked: 'Blocked',
-	unblocked: 'Unblocked'
+	unblocked: 'Unblocked',
+	staffed: 'Staffed'
 };
 
 function genericSentence(action: string, details: Details): string {

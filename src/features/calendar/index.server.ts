@@ -124,3 +124,9 @@ export {
 	transitionTasking
 } from './taskings/taskingOperations.server';
 export { createSupabaseCalendarTaskingPersistence } from './taskings/taskingPersistence.server';
+export {
+	loadTaskingStaffing,
+	loadStaffingPicker,
+	saveTaskingPeople
+} from './taskings/staffing/staffingOperations.server';
+export { createSupabaseCalendarStaffingPersistence } from './taskings/staffing/staffingPersistence.server';

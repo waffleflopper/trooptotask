@@ -182,6 +182,22 @@ describe('Organization Data Export workbook', () => {
 		]);
 	});
 
+	it('names each picked person against the Tasking they are picked for, with any open review', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				calendarTaskings: [{ id: 'tasking-1', title: 'Provide medics', event_id: null }],
+				calendarTaskingParticipants: [
+					{ tasking_id: 'tasking-1', personnel_id: 'person-1', review_since: '2026-05-02T00:00:00Z' }
+				]
+			})
+		});
+		const people = plan.readableSheets.find((sheet) => sheet.name === 'Tasking People');
+
+		expect(people?.rows.map((row) => [row.tasking, row.person, row.needs_review_since])).toEqual([
+			['Provide medics', expect.stringContaining('Smith'), '2026-05-02T00:00:00Z']
+		]);
+	});
+
 	it('returns a dated workbook filename owned by the export use case', async () => {
 		const result = await buildOrganizationDataExportWorkbook({
 			payload: payload()

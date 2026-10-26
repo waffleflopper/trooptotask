@@ -15,6 +15,7 @@ import {
 	type TaskingStatus,
 	type TaskingTransition
 } from './taskingModel';
+import { namedPeople, readPersonLabels } from './staffing/personLabels.server';
 
 export const TASKING_GONE = 'That tasking is no longer available.';
 export const TASKING_STATUS_CHANGED = 'This tasking’s status has changed. Reload to see where it stands now.';
@@ -184,12 +185,17 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 		z.object({ kind: z.literal('unblocked') }),
 		z.object({ kind: z.literal('completed'), payload: z.object({ note: z.string().nullable() }) }),
 		z.object({ kind: z.literal('reopened') }),
-		z.object({ kind: z.literal('cancelled'), payload: z.object({ reason: z.string().nullable() }) })
+		z.object({ kind: z.literal('cancelled'), payload: z.object({ reason: z.string().nullable() }) }),
+		z.object({
+			kind: z.literal('staffing_changed'),
+			payload: z.object({ added: z.array(z.string()), removed: z.array(z.string()), kept: z.array(z.string()) })
+		})
 	])
 );
 
-function toActivity(raw: unknown): TaskingActivity {
-	const row = activityRowSchema.parse(raw);
+type ActivityRow = z.output<typeof activityRowSchema>;
+
+function toActivity(row: ActivityRow, labels: Map<string, string>): TaskingActivity {
 	const base = { id: row.id, at: row.occurred_at, actorUserId: row.actor_id };
 	switch (row.kind) {
 		case 'created':
@@ -215,6 +221,14 @@ function toActivity(raw: unknown): TaskingActivity {
 			return { ...base, kind: 'completed', note: row.payload.note };
 		case 'cancelled':
 			return { ...base, kind: 'cancelled', reason: row.payload.reason };
+		case 'staffing_changed':
+			return {
+				...base,
+				kind: row.kind,
+				added: namedPeople(row.payload.added, labels),
+				removed: namedPeople(row.payload.removed, labels),
+				kept: namedPeople(row.payload.kept, labels)
+			};
 	}
 }
 
@@ -301,7 +315,12 @@ export function createSupabaseCalendarTaskingPersistence(
 					.eq('tasking_id', taskingId)
 					.order('id')
 			);
-			return data.map(toActivity);
+			const rows = data.map((row) => activityRowSchema.parse(row));
+			const people = rows.flatMap((row) =>
+				row.kind === 'staffing_changed' ? Object.values(row.payload).flat() : []
+			);
+			const labels = await readPersonLabels(client, orgId, people);
+			return rows.map((row) => toActivity(row, labels));
 		},
 		async findEventTitles(ids) {
 			if (ids.length === 0) return {};

@@ -192,8 +192,8 @@ Focus View orders Targeted before Required and omits Optional.
      and off afterwards.
    - Narrow widths: at 1024 the toolbar keeps `Search`, both filters and `Export` and folds `Reports` and
      `Sign-in rosters` into More; at 390 search takes its own full-width row (322 wide) above a row holding the toggle,
-     `Training view filter` and More, and More lists `Group` (`Group: All`), `Display`, `Reports`, `Sign-in rosters`,
-     `Export`, `Import`, `Manage views` and `Manage types`. Text typed in search and focus stay in the field when the
+     `Training view filter` and More, and More lists `Group` (`Group: All`), `Reports`, `Sign-in rosters`, `Export`,
+     `Display`, `Import`, `Manage views` and `Manage types`. Text typed in search and focus stay in the field when the
      width crosses 390 and 600. `scrollWidth` equals `clientWidth` on the page and on the `Training controls` toolbar,
      and the matrix viewport scrolls sideways inside itself.
 9. **Manage views sheet layout and guards:** As `trainingConfigure`, open More, then `Manage views…` (the dialog is

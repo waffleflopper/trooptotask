@@ -31,8 +31,12 @@ Organization and Group scope.
 ## How to get to it (user POV)
 
 Choose Onboard in Organization navigation. The list orders Soldiers in processing Stalled, Ready, On track, then New.
-Use `Start onboarding` in the toolbar to select a member, start date and template. Choose a row to open its packet
-beside the list, or in a sheet below 1280, to record checklist and stage progress, add notes or close it out.
+Use `Start onboarding` in the toolbar to select a member, start date and template. Choose a row to open its packet in an
+overlay sheet, at every width, to record checklist and stage progress, add notes or close it out. The sheet dims the
+list behind it without resizing it; `Close packet`, Escape or a click on the backdrop closes it and focus returns to
+that row. While a note on an open step is typed but unsaved, or saving, none of those close it, `Close packet` is
+hidden and the note's Cancel is disabled during the save. Completing that step removes its editor and releases the
+guard.
 `More packet actions` re-syncs, switches or assigns its template, removes an inactive step or cancels the packet. `View`
 in the toolbar (or `All n steps` in the waiting strip) switches the page between List and a Matrix of Soldiers by step;
 the choice is page state, so a reload returns to List. Choose History to inspect retained packets. Reopening uses the
@@ -123,9 +127,10 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    Training on, stored completion or an existing matching Training record, including an expired one, completes the
    active step. A step with neither remains incomplete. Completed/cancelled history keeps its snapshots. Compare the
    existing Training record and fresh packet query rather than inferring completion from a checkbox. A real Training
-   change uses a separately authorized Training actor and is verified again after Onboarding reload. In the List panel,
-   type an unsaved note on the open step, expand another step, then reopen the first: the draft text is still in the
-   editor.
+   change uses a separately authorized Training actor and is verified again after Onboarding reload. In the packet
+   sheet, type an unsaved note on the open step, expand another step, then reopen the first: the draft text is still in
+   the editor. With the draft still unsaved, Escape and a backdrop click leave the sheet open and `Close packet` is
+   hidden; Cancel the note, or save it, and the sheet closes normally with focus on its row.
 3. **Lifecycle and history:** Cancel an active packet through confirmation; dismissing confirmation first must preserve
    it. After confirmed save require cancelled status/timestamp and the same progress/note IDs, then inspect
    History/reload. Separately reopen the cancelled packet through an ordinary authenticated PUT to `onboarding` with
@@ -215,11 +220,10 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    own page and the return sends nothing; a template saved there appears in the Start Onboarding dialog without a
    reload.
 9. **Packet link:** Take an active packet ID from `$V rows personnel_onboardings orgA`. From the org's Onboarding URL,
-   append `?packet=<id>` (a Dashboard Onboarding row link does the same). The packet opens beside the list (or in the
-   sheet below 1280) and the address drops the parameter, so a reload shows the plain list with no packet open. An ID
-   that is not an active packet, such as a random UUID or a packet no longer in processing, selects nothing and also
-   drops the parameter. `Start onboarding` from the page POSTs through the same start the Dashboard uses and the new
-   packet joins the list.
+   append `?packet=<id>` (a Dashboard Onboarding row link does the same). The packet opens in the overlay sheet and the
+   address drops the parameter, so a reload shows the plain list with no packet open. An ID that is not an active
+   packet, such as a random UUID or a packet no longer in processing, selects nothing and also drops the parameter.
+   `Start onboarding` from the page POSTs through the same start the Dashboard uses and the new packet joins the list.
 
 `$V rows` supports `personnel_onboardings` and `onboarding_step_progress` with Person/packet/step filters. Choose one
 action (`arm-fail`, `arm-hold` or `arm-observe`) and one family (`onboarding`, `onboarding-steps` or
@@ -262,9 +266,7 @@ As `onboardingConfigure` at 1280, then at 390:
 5. **Filters.** Search `StatusOnTrack` and require only that row, with the strip recounted for it. Search also matches
    rank and MOS. Choose `Bravo` in `Group` and require only Bravo People. A search nobody matches shows
    `No Soldiers match`; `Clear filters` restores the search and `All groups`.
-6. **A filter closes the open packet.** Open a packet, then search for another Soldier or choose another Group. The
-   panel (or sheet) closes and clearing the filter does not reopen it.
-7. **Future start date.** Start a packet with a start date a few days ahead. The row's day slot and the packet header
+6. **Future start date.** Start a packet with a start date a few days ahead. The row's day slot and the packet header
    read `Starts in N days` (`Starts tomorrow` for one day) instead of `Day N`, and the packet is New or On track by its
    progress.
 
@@ -311,9 +313,9 @@ As `onboardingConfigure` at 1280, then 390, light and dark:
    `Advance ... to Reviewed` on `Matrixmissing` and open `Matrixfresh` Paperwork before release; Fresh's popover stays
    `Not started` and the Missing cell ends at Reviewed. For two overlapping note saves,
    `arm-hold PAGE onboarding-steps 1` holds the first response: on a `Matrixmissing` Paperwork popover save note
-   `First`, Cancel the editor while it is pending, `Add note` again and save `Second` (it answers at once), then
-   `release`. The popover and the List panel for the same packet must keep showing `Second` as the latest note and both
-   notes after a reload; the provider rows hold both notes in order.
+   `First`, press Escape while it is pending (Cancel is disabled during a save), reopen the same cell, `Add note` again
+   and save `Second` (it answers at once), then `release`. The popover and the packet sheet for the same packet must
+   keep showing `Second` as the latest note and both notes after a reload; the provider rows hold both notes in order.
 7. **Filters.** Search `Matrixreserve` leaves only the Reserve grid and drops the no-template line. A search nobody
    matches shows `No Soldiers match` with `Clear filters`. Group Alpha drops `Matrixmissing`. Choose the Group with
    ArrowDown and Enter; its options are not in the snapshot.
@@ -341,7 +343,7 @@ current at stage 2, with an unbroken-URL note. `clean-seeds` removes all of it.
 As `onboardingConfigure` at 1280, then 390, light and dark: nothing may scroll sideways and every stage, step name,
 note, done-list line and subtitle wraps in full.
 
-1. **List panel.** Open the packet, then `Paperwork: Access Requests <tag>`. In `Onboarding packet`'s scroll container
+1. **Packet sheet.** Open the packet, then `Paperwork: Access Requests <tag>`. In `Onboarding packet`'s scroll container
    `scrollWidth` equals `clientWidth`, the three stage rows wrap, and `Advance` and the day count stay on their rows.
    Expand the `done` line and the done Paperwork step: still no horizontal scroll. Tab walks `Set ... to <stage>` then
    `Advance ...` in order, and Enter on `Advance` completes the step.

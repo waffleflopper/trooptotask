@@ -1,11 +1,11 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { STEP_TYPE_LABELS } from '../contexts/OnboardingPageContext.svelte';
 	import type { OnboardingStepProgress, PersonnelOnboarding } from '../onboarding.types';
 	import { clockLabel, isStepStalled, summarizePacket, type Today } from '../onboardingStatus';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import * as Alert from '$lib/components/ui/alert';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Collapsible from '$lib/components/ui/collapsible';
@@ -16,19 +16,19 @@
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import X from '@lucide/svelte/icons/x';
 	import OnboardingStageControls from './OnboardingStageControls.svelte';
-	import { NoteDraft } from './noteDraft.svelte';
+	import type { NoteDraft } from './noteDraft.svelte';
 	import OnboardingStepNotes from './OnboardingStepNotes.svelte';
 
 	interface Props {
 		ctx: OnboardingPageContext;
 		onboarding: PersonnelOnboarding;
 		today: Today;
-		/** Renders the Soldier's name as the panel's accessible title. */
-		heading: Snippet<[string]>;
+		/** Owned by the caller, which blocks closing while it holds unsaved text. */
+		draft: NoteDraft;
 		onClose?: () => void;
 	}
 
-	let { ctx, onboarding, today, heading, onClose }: Props = $props();
+	let { ctx, onboarding, today, draft, onClose }: Props = $props();
 
 	const summary = $derived(summarizePacket(onboarding, today));
 	const canManage = $derived(ctx.canManageOnboarding(onboarding) && onboarding.status === 'in_progress');
@@ -61,7 +61,6 @@
 	let openCardId = $state<string | undefined>(undefined);
 	let doneExpandedId = $state<string | null>(null);
 	let doneOpen = $state(false);
-	const noteDraft = new NoteDraft();
 
 	const cardId = $derived(
 		openCardId && openSteps.some((step) => step.id === openCardId) ? openCardId : (summary.focus?.id ?? null)
@@ -118,7 +117,7 @@
 				{@render trainingLink()}
 			</div>
 		{/if}
-		<OnboardingStepNotes {ctx} {step} {canManage} draft={noteDraft} />
+		<OnboardingStepNotes {ctx} {step} {canManage} {draft} />
 	</div>
 {/snippet}
 
@@ -152,7 +151,9 @@
 				<p class="font-mono text-xs uppercase tracking-wider wrap-anywhere text-muted-foreground">
 					Packet · {ctx.getTemplateName(onboarding.templateId)}
 				</p>
-				{@render heading(ctx.getPersonName(onboarding.personnelId))}
+				<AppDialog.Title class="font-heading text-2xl font-semibold">
+					{ctx.getPersonName(onboarding.personnelId)}
+				</AppDialog.Title>
 				<p class="text-sm wrap-anywhere text-muted-foreground">{subtitle}</p>
 			</div>
 			{#if onClose}

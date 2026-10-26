@@ -61,5 +61,15 @@ export { default as PersonnelNextDays } from './components/PersonnelNextDays.sve
 export { default as PersonnelNextDaysSkeleton } from './components/PersonnelNextDaysSkeleton.svelte';
 export { default as Da6SetupPage } from './components/da6/Da6SetupPage.svelte';
 
-export type { CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';
+export type { CalendarEventsPageAccess, CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';
+export type {
+	CalendarEvent,
+	EventActivity,
+	EventDetail,
+	EventHost,
+	EventList,
+	EventListWhen,
+	EventRead,
+	MemberLabels
+} from './events/eventModel';
 export { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './import/statusImportLane';

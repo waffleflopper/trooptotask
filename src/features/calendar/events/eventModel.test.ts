@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eventDraftSchema, eventPhase, parseSourceReference } from './eventModel';
+import { eventDateRange, eventDraftSchema, eventPhase, parseSourceReference } from './eventModel';
 
 const COORDINATOR = '00000000-0000-4000-8000-000000000001';
 const draft = {
@@ -30,6 +30,17 @@ describe('eventPhase', () => {
 			'ongoing',
 			'past'
 		]);
+	});
+});
+
+describe('eventDateRange', () => {
+	it.each([
+		['2026-10-19', '2026-10-19', '19 Oct 2026'],
+		['2026-10-19', '2026-10-23', '19 – 23 Oct 2026'],
+		['2026-10-28', '2026-11-02', '28 Oct – 2 Nov 2026'],
+		['2026-12-30', '2027-01-02', '30 Dec 2026 – 2 Jan 2027']
+	])('reads %s to %s as %s', (startsOn, endsOn, expected) => {
+		expect(eventDateRange({ startsOn, endsOn })).toBe(expected);
 	});
 });
 

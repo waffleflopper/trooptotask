@@ -149,6 +149,10 @@ export class CalendarPageContext {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes).allowed;
 	}
 
+	get showEvents(): boolean {
+		return !this.#getData().disabledFeatures?.includes('eventsAndTaskings');
+	}
+
 	get canViewCalendar(): boolean {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.calendar.viewAvailability,

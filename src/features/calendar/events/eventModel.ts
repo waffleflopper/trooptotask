@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatDayMonth, formatDayMonthYear } from '$lib/utils/dates';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 
 export const EVENT_TITLE_MAX = 200;
@@ -52,15 +53,18 @@ export type EventActivity = EventActivityFact & { id: number; at: string; actorU
 export type MemberLabels = Record<string, string>;
 
 export interface EventList {
+	when: EventListWhen;
 	events: CalendarEvent[];
 	members: MemberLabels;
 }
 
 export interface EventDetail {
 	event: CalendarEvent;
-	activity: EventActivity[];
 	members: MemberLabels;
 }
+
+/** A streamed read that answers instead of rejecting, so one failed region leaves the rest of the page working. */
+export type EventRead<T> = { status: 'loaded'; value: T } | { status: 'failed' } | { status: 'gone' };
 
 /** Upcoming lists every event not yet over; past lists the most recent ones that are. */
 export type EventListWhen = 'upcoming' | 'past';
@@ -71,6 +75,16 @@ export type EventPhase = 'upcoming' | 'ongoing' | 'past';
 export function eventPhase(dates: EventDates, today: string): EventPhase {
 	if (today < dates.startsOn) return 'upcoming';
 	return today > dates.endsOn ? 'past' : 'ongoing';
+}
+
+/** "19 Oct 2026", "19 – 23 Oct 2026", "28 Oct – 2 Nov 2026" or "30 Dec 2026 – 2 Jan 2027". */
+export function eventDateRange({ startsOn, endsOn }: EventDates): string {
+	if (startsOn === endsOn) return formatDayMonthYear(startsOn);
+	if (startsOn.slice(0, 4) !== endsOn.slice(0, 4))
+		return `${formatDayMonthYear(startsOn)} – ${formatDayMonthYear(endsOn)}`;
+	const start =
+		startsOn.slice(0, 7) === endsOn.slice(0, 7) ? String(Number(startsOn.slice(8))) : formatDayMonth(startsOn);
+	return `${start} – ${formatDayMonthYear(endsOn)}`;
 }
 
 export type EventSource = { kind: 'link'; url: string } | { kind: 'order'; text: string };

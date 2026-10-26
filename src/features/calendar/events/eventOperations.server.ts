@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { AuditPort } from '$lib/audit/contracts';
 import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
@@ -8,7 +8,9 @@ import {
 	eventCancellationSchema,
 	eventDraftSchema,
 	type CalendarEvent,
+	type EventActivity,
 	type EventDetail,
+	type EventRead,
 	type EventList,
 	type EventListWhen,
 	type MemberLabels
@@ -46,18 +48,19 @@ const audited = (action: string, event: CalendarEvent) => ({
 export async function listEvents(ctx: CalendarEventPorts, when: EventListWhen, today: string): Promise<EventList> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
 	const [events, members] = await Promise.all([ctx.calendarEvents.listEvents(when, today), ctx.memberLabels()]);
-	return { events, members };
+	return { when, events, members };
 }
 
 export async function loadEventDetail(ctx: CalendarEventPorts, id: string): Promise<EventDetail> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
-	const [event, activity, members] = await Promise.all([
-		ctx.calendarEvents.findEvent(eventId(id)),
-		ctx.calendarEvents.listActivity(id),
-		ctx.memberLabels()
-	]);
+	const [event, members] = await Promise.all([ctx.calendarEvents.findEvent(eventId(id)), ctx.memberLabels()]);
 	if (!event) fail(404, EVENT_GONE);
-	return { event, activity, members };
+	return { event, members };
+}
+
+export async function listEventActivity(ctx: CalendarEventPorts, id: string): Promise<EventActivity[]> {
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
+	return ctx.calendarEvents.listActivity(eventId(id));
 }
 
 export async function createEvent(ctx: CalendarEventPorts, input: unknown): Promise<CalendarEvent> {
@@ -83,4 +86,15 @@ export async function cancelEvent(ctx: CalendarEventPorts, id: string, input: un
 	const event = await ctx.calendarEvents.cancelEvent(eventId(id), reason);
 	await ctx.audit.log(audited('cancelled', event));
 	return event;
+}
+
+export function settleEventRead<T>(read: Promise<T>): Promise<EventRead<T>> {
+	return read.then(
+		(value) => ({ status: 'loaded', value }),
+		(cause) => {
+			if (cause instanceof RequestFailure && cause.status === 404) return { status: 'gone' };
+			console.error('[calendar-events] Failed to load:', cause);
+			return { status: 'failed' };
+		}
+	);
 }

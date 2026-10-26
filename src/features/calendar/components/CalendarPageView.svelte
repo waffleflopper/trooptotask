@@ -84,6 +84,7 @@
 			canManageAvailability: ctx.canManageAvailability,
 			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
+			showEvents: ctx.showEvents,
 			groupOptions: ctx.groupFilterOptions.map((option) => ({
 				value: option.value,
 				label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`

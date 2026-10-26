@@ -1,15 +1,6 @@
 <script lang="ts" module>
-	import type { BriefingBand, BriefingRowsBy } from '../contracts';
-	import type { ReadinessBandTier } from '$lib/components/patterns/readiness-band/index.js';
-
-	const BAND_TIER: Record<BriefingBand, ReadinessBandTier> = {
-		goal: 'good',
-		near: 'okay',
-		below: 'caution',
-		far: 'warn',
-		critical: 'danger',
-		none: 'not-applicable'
-	};
+	import type { BriefingRowsBy } from '../contracts';
+	import { BRIEFING_BAND_TIER } from '../utils/briefingBandTier';
 
 	const TOTAL_ROW_ID = 'total';
 	const BRIEFING_ID = 'training-briefing';
@@ -325,7 +316,7 @@
 	]);
 
 	function tone(readiness: BriefingReadiness): string {
-		return readinessBandTone[BAND_TIER[readiness.band]];
+		return readinessBandTone[BRIEFING_BAND_TIER[readiness.band]];
 	}
 
 	function soldierLabel(count: number): string {
@@ -513,7 +504,7 @@
 						<ReadinessBand.Legend
 							palette="semantic"
 							ariaLabel={`Readiness bands for a ${briefing.forecast.goalPercent}% goal`}
-							items={grid.legend.map((item) => ({ tier: BAND_TIER[item.band], label: item.label }))}
+							items={grid.legend.map((item) => ({ tier: BRIEFING_BAND_TIER[item.band], label: item.label }))}
 							dropLabel={`▼ ${grid.dropAlertPoints}+`}
 						/>
 					{/snippet}
@@ -591,7 +582,7 @@
 													<ReadinessBand.Cell
 														palette="semantic"
 														size="tile"
-														tier={BAND_TIER[cell.today.band]}
+														tier={BRIEFING_BAND_TIER[cell.today.band]}
 														percent={cell.today.percent}
 														label={cell.today.percent === null ? '—' : String(cell.today.percent)}
 														drop={cell.dropAlert ? cell.drop : null}

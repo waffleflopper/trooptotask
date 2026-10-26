@@ -6,11 +6,15 @@
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
+	import { MATRIX_HORIZON_DAYS } from '$features/training/utils/matrixReadiness';
+	import { DEFAULT_TRAINING_READINESS_GOAL_PERCENT } from '$features/organization/contracts';
+	import { summarizeTrainingReadiness } from '$features/training/utils/trainingBriefing';
 	import { buildTrainingMatrixWorkbook, type TrainingMatrixWorkbookInput } from '../utils/trainingMatrixWorkbook';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { workbookBlob } from '$lib/utils/workbook';
 	import { formatToday } from '$lib/utils/dates';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
+	import TrainingPageHeader from '$features/training/components/TrainingPageHeader.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Alert from '$lib/components/ui/alert';
@@ -54,6 +58,7 @@
 
 	const loading = $derived(
 		!storesHydratedForOrg ||
+			ctx.readinessAsOf === '' ||
 			rosterStore.loading ||
 			groupsStore.loading ||
 			trainingTypesStore.loading ||
@@ -112,14 +117,41 @@
 
 	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.items, activeView));
 
+	const readinessSummary = $derived(
+		loading
+			? null
+			: summarizeTrainingReadiness({
+					personnel: ctx.personnel,
+					types: filterColumnsByView(trainingTypesStore.items, null),
+					records: personnelTrainingsStore.items,
+					asOf: ctx.readinessAsOf,
+					horizonDays: MATRIX_HORIZON_DAYS,
+					goalPercent: ctx.readinessGoalPercent ?? DEFAULT_TRAINING_READINESS_GOAL_PERCENT
+				})
+	);
+
+	const MANAGE_VIEWS = '\u0000manage-views';
+	let pageRoot = $state<HTMLElement | null>(null);
+	function toolbarControlOrMore(id: string): HTMLElement | null {
+		const row = pageRoot?.querySelector('[data-toolbar-row]');
+		return (
+			row?.querySelector<HTMLElement>(`[data-toolbar-item="${id}"] button`) ??
+			row?.querySelector<HTMLElement>('[data-toolbar-more] button') ??
+			null
+		);
+	}
+	function openManageViews(openerId: string) {
+		modals.open('manage-views', { returnFocusTo: () => toolbarControlOrMore(openerId) });
+	}
 	const trainingViewOptions = $derived([
-		{ value: '', label: 'All Trainings' },
-		...trainingViewsStore.items.map((view) => ({ value: view.id, label: view.name }))
+		{ value: '', label: 'All trainings' },
+		...trainingViewsStore.items.map((view) => ({ value: view.id, label: view.name })),
+		...(ctx.canManageConfig ? [{ value: MANAGE_VIEWS, label: 'Manage views…' }] : [])
 	]);
 	const groupFilterOptions = $derived([...ctx.groupFilterOptions]);
 	const matrixViewOptions = [
-		{ value: 'alphabetical', label: 'A-Z' },
-		{ value: 'by-group', label: 'Group' }
+		{ value: 'alphabetical', label: 'A–Z' },
+		{ value: 'by-group', label: 'Groups' }
 	];
 	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
 		const items: ToolbarItem[] = [
@@ -136,12 +168,15 @@
 			{
 				kind: 'select',
 				id: 'training-view',
-				label: 'Training view',
+				label: 'View',
 				ariaLabel: 'Training view filter',
 				options: trainingViewOptions,
 				value: ctx.selectedViewId ?? '',
 				defaultValue: '',
-				onValueChange: (value) => ctx.setSelectedViewId(value || null)
+				onValueChange: (value) => {
+					if (value === MANAGE_VIEWS) openManageViews('training-view');
+					else ctx.setSelectedViewId(value || null);
+				}
 			},
 			{
 				kind: 'select',
@@ -155,27 +190,27 @@
 			},
 			{
 				kind: 'action',
-				id: 'reports',
-				label: 'Reports',
-				href: `/org/${orgUrlSegment}/training/reports`,
-				icon: 'chart'
-			},
-			{
-				kind: 'action',
-				id: 'sign-in-rosters',
-				label: 'Sign-In Rosters',
-				onclick: () => modals.open('sign-in-rosters'),
-				icon: 'clipboard-list'
-			},
-			{
-				kind: 'action',
 				id: 'export-excel',
-				label: exportState.status === 'exporting' ? 'Exporting...' : 'Export Excel',
+				label: exportState.status === 'exporting' ? 'Exporting...' : 'Export',
 				onclick: () => void exportExcel(),
 				icon: 'download',
 				loading: exportState.status === 'exporting',
 				disabled: exportUnavailable,
 				disabledReason: exportDisabledReason
+			},
+			{
+				kind: 'action',
+				id: 'sign-in-rosters',
+				label: 'Sign-in rosters',
+				onclick: () => modals.open('sign-in-rosters'),
+				icon: 'clipboard-list'
+			},
+			{
+				kind: 'action',
+				id: 'reports',
+				label: 'Reports',
+				href: `/org/${orgUrlSegment}/training/reports`,
+				icon: 'chart'
 			}
 		];
 
@@ -185,37 +220,53 @@
 				id: 'import',
 				label: 'Import',
 				href: `/org/${orgUrlSegment}/training/import`,
-				icon: 'upload'
+				icon: 'upload',
+				menuOnly: true
 			});
 		}
 		if (ctx.canManageConfig) {
-			items.push({
-				kind: 'action',
-				id: 'manage-views',
-				label: 'Manage Views',
-				href: `/org/${orgUrlSegment}/training/views`,
-				icon: 'settings'
-			});
+			items.push(
+				{
+					kind: 'action',
+					id: 'manage-views',
+					label: 'Manage views',
+					onclick: () => openManageViews('manage-views'),
+					icon: 'settings',
+					menuOnly: true
+				},
+				{
+					kind: 'action',
+					id: 'manage-types',
+					label: 'Manage types',
+					href: `/org/${orgUrlSegment}/training/types`,
+					icon: 'book-open',
+					menuOnly: true
+				}
+			);
 		}
 		return items;
 	});
 
-	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
-		ctx.canManageConfig
-			? {
-					kind: 'action',
-					id: 'manage-types',
-					label: 'Manage Types',
-					href: `/org/${orgUrlSegment}/training/types`,
-					icon: 'book-open'
-				}
-			: undefined
-	);
+	const SEARCH_STACK_WIDTH = 480;
+	const toolbarSearch = $derived({
+		label: 'Search name, rank, or MOS',
+		placeholder: 'Search name, rank, MOS',
+		value: ctx.searchQuery,
+		onValueChange: (value) => (ctx.searchQuery = value),
+		stackBelow: SEARCH_STACK_WIDTH
+	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 </script>
 
-<div class="flex h-full flex-col bg-background">
-	<div class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2">
-		<WorkspaceToolbar ariaLabel="Training controls" items={toolbarItems} primary={toolbarPrimary} />
+<div bind:this={pageRoot} class="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+	<div class="flex min-h-full flex-1 flex-col gap-4 px-6 pt-4 pb-5 max-sm:p-3">
+		<TrainingPageHeader
+			orgName={ctx.orgName}
+			personnelCount={ctx.personnel.length}
+			summary={readinessSummary}
+			readinessUnavailable={!loading && ctx.readinessGoalPercent === null}
+		/>
+
+		<WorkspaceToolbar ariaLabel="Training controls" items={toolbarItems} search={toolbarSearch} />
 
 		{#if exportError}
 			<Alert.Root variant="destructive">
@@ -231,7 +282,7 @@
 
 		{#if loading}
 			<div
-				class="grid gap-2 overflow-hidden rounded-lg border border-border bg-card p-3"
+				class="grid min-h-112 flex-1 content-start gap-2 overflow-hidden rounded-lg border border-border bg-card p-3"
 				role="status"
 				aria-live="polite"
 				aria-label="Loading training matrix"
@@ -257,7 +308,7 @@
 				</Empty.Header>
 				{#if ctx.canManageConfig}
 					<Empty.Content>
-						<Button onclick={() => goto(resolve(`/org/${orgUrlSegment}/training/types`))}>Manage Types</Button>
+						<Button onclick={() => goto(resolve(`/org/${orgUrlSegment}/training/types`))}>Manage types</Button>
 					</Empty.Content>
 				{/if}
 			</Empty.Root>
@@ -268,29 +319,26 @@
 				</Empty.Header>
 			</Empty.Root>
 		{:else}
-			<div class="min-h-0 flex-1 overflow-auto" data-testid="training-matrix">
-				{#if ctx.viewMode === 'alphabetical'}
-					<TrainingMatrix
-						personnel={ctx.filteredPersonnel}
-						trainingTypes={filteredTypes}
-						trainings={personnelTrainingsStore.items}
-						onCellClick={ctx.canRecordTraining ? ctx.handleCellClick.bind(ctx) : undefined}
-						onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
-					/>
-				{:else}
-					<TrainingMatrix
-						personnel={ctx.filteredPersonnel}
-						trainingTypes={filteredTypes}
-						trainings={personnelTrainingsStore.items}
-						onCellClick={ctx.canRecordTraining ? ctx.handleCellClick.bind(ctx) : undefined}
-						onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
-						groupBy={{
-							key: (p) => p.groupName || NO_GROUP,
-							label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
-							compare: (a, b) => compareGroups(a === NO_GROUP ? '' : a, b === NO_GROUP ? '' : b)
-						}}
-					/>
-				{/if}
+			<div class="min-h-112 flex-1" data-testid="training-matrix">
+				<TrainingMatrix
+					personnel={ctx.filteredPersonnel}
+					trainingTypes={filteredTypes}
+					trainings={personnelTrainingsStore.items}
+					title={activeView?.name ?? 'All trainings'}
+					orgId={ctx.orgId}
+					asOf={ctx.readinessAsOf}
+					goalPercent={ctx.readinessGoalPercent}
+					onRecord={ctx.canRecordTraining ? ctx.handleSaveTraining.bind(ctx) : undefined}
+					onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
+					onRowOrderChange={(ids) => (ctx.rowOrder = ids)}
+					groupBy={ctx.viewMode === 'by-group'
+						? {
+								key: (p) => p.groupName || NO_GROUP,
+								label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
+								compare: (a, b) => compareGroups(a === NO_GROUP ? '' : a, b === NO_GROUP ? '' : b)
+							}
+						: undefined}
+				/>
 			</div>
 		{/if}
 	</div>

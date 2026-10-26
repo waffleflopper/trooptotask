@@ -38,7 +38,7 @@ const expectedRoster = {
 	personnelSnapshot: [
 		{ id: 'old-person', rank: 'LEGACY', firstName: 'Prior', lastName: 'Person', group: 'Old Group', groupId: 'alpha' }
 	],
-	filterConfig: { groups: ['alpha'], ranks: ['LEGACY'] },
+	filterConfig: { groups: ['alpha'], ranks: ['LEGACY'], mos: [], roles: [] },
 	signedFilePath: 'ordinary-org/sign-in-rosters/saved-roster/signed.pdf',
 	createdBy: 'original-user',
 	createdAt: '2026-02-02T03:04:05.123456Z'
@@ -64,6 +64,7 @@ function fixture(rows: Row[]) {
 					[...url.searchParams].every(([column, filter]) => {
 						if (['select', 'order', 'offset', 'limit'].includes(column)) return true;
 						if (filter.startsWith('eq.')) return String(row[column]) === filter.slice(3);
+						if (filter === 'is.null') return row[column] === null || row[column] === undefined;
 						if (filter.startsWith('cd.{')) {
 							const allowed = filter.slice(4, -1).split(',');
 							return Array.isArray(row[column]) && row[column].every((id) => allowed.includes(String(id)));
@@ -84,7 +85,7 @@ function fixture(rows: Row[]) {
 					const row = { id: 'created-roster', created_at: '2026-03-04T05:06:07.654321Z', ...(await request.json()) };
 					saved.push(row);
 					visible = [row];
-				} else if (request.method !== 'GET') {
+				} else if (request.method !== 'GET' && request.method !== 'HEAD') {
 					throw new Error('Unexpected roster provider method');
 				}
 				const ordering = url.searchParams.get('order');
@@ -137,7 +138,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 		const run = fixture([savedRoster, { ...savedRoster, id: 'foreign', organization_id: 'foreign-org' }]);
 		const port = persistence(run);
 		expect(await port.find('saved-roster')).toEqual(expectedRoster);
-		expect(await port.list(page)).toEqual({ data: [expectedRoster], count: 1 });
+		expect(await port.list(page)).toEqual({ data: [expectedRoster], count: 1, unsigned: 0 });
 		expect(await port.find('foreign')).toBeNull();
 		expect(await port.find('missing')).toBeNull();
 	});
@@ -164,11 +165,36 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 		const easternDays = { createdFrom: '2026-02-01T05:00:00.000Z', createdBefore: '2026-02-04T05:00:00.000Z' };
 		expect(await port.list({ title: 'cLiNiC', ...easternDays, limit: 1, offset: 1 })).toEqual({
 			data: [{ ...expectedRoster, id: 'middle', createdAt: '2026-02-02T00:00:00Z' }],
-			count: 3
+			count: 3,
+			unsigned: 0
 		});
 		expect(await port.find('mixed')).toBeNull();
 		expect(await port.find('org-only')).toBeNull();
 		expect(await port.find('foreign')).toBeNull();
+	});
+
+	it('counts rosters without a signed scan across every page, under the same title, date and Group filters', async () => {
+		const unsigned = { signed_file_path: null };
+		const run = fixture([
+			{ ...savedRoster, id: 'oldest', created_at: '2026-02-01T00:00:00Z', ...unsigned },
+			{ ...savedRoster, id: 'signed-a', created_at: '2026-02-02T00:00:00Z' },
+			{ ...savedRoster, id: 'signed-b', created_at: '2026-02-03T00:00:00Z' },
+			{ ...savedRoster, id: 'old-range', created_at: '2026-01-01T00:00:00Z', ...unsigned },
+			{ ...savedRoster, id: 'other-title', title: 'Other', created_at: '2026-02-02T00:00:00Z', ...unsigned },
+			{
+				...savedRoster,
+				id: 'out-of-scope',
+				scope_group_ids: ['bravo'],
+				created_at: '2026-02-02T00:00:00Z',
+				...unsigned
+			},
+			{ ...savedRoster, id: 'foreign', organization_id: 'foreign-org', ...unsigned }
+		]);
+		const port = persistence(run, ['alpha']);
+		const firstPage = await port.list({ ...page, title: 'clinic', createdFrom: '2026-02-01T00:00:00Z', limit: 1 });
+		expect(firstPage.data.map((roster) => roster.id)).toEqual(['signed-b']);
+		expect(firstPage).toMatchObject({ count: 3, unsigned: 1 });
+		expect(await port.list(page)).toMatchObject({ count: 5, unsigned: 3 });
 	});
 
 	it('requires the whole nonempty roster scope to fit a multiple-Group grant', async () => {
@@ -178,7 +204,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 			{ ...savedRoster, id: 'unassigned', scope_group_ids: [] }
 		]);
 		const port = persistence(run, ['alpha', 'bravo']);
-		expect(await port.list(page)).toEqual({ data: [{ ...expectedRoster, id: 'both' }], count: 1 });
+		expect(await port.list(page)).toEqual({ data: [{ ...expectedRoster, id: 'both' }], count: 1, unsigned: 0 });
 		expect(await port.find('both')).toEqual({ ...expectedRoster, id: 'both' });
 		expect(await port.find('overlap')).toBeNull();
 		expect(await persistence(run).find('unassigned')).toEqual({ ...expectedRoster, id: 'unassigned' });
@@ -188,7 +214,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 		const run = fixture([savedRoster]);
 		run.fault.method = 'GET';
 		const port = persistence(run, []);
-		expect(await port.list(page)).toEqual({ data: [], count: 0 });
+		expect(await port.list(page)).toEqual({ data: [], count: 0, unsigned: 0 });
 		expect(await port.find('saved-roster')).toBeNull();
 	});
 
@@ -207,7 +233,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 	it('preserves a missing provider count instead of substituting the page length', async () => {
 		const run = fixture([savedRoster]);
 		run.fault.omitCount = true;
-		expect(await persistence(run).list(page)).toEqual({ data: [expectedRoster], count: null });
+		expect(await persistence(run).list(page)).toEqual({ data: [expectedRoster], count: null, unsigned: 0 });
 	});
 
 	it('creates only mapped owner facts in this Organization without a scan', async () => {
@@ -225,7 +251,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 			],
 			personnelIds: ['current-person'],
 			scopeGroupIds: ['bravo'],
-			filterConfig: { groups: ['bravo'], ranks: ['PFC'] },
+			filterConfig: { groups: ['bravo'], ranks: ['PFC'], mos: ['68W'], roles: ['Driver'] },
 			createdBy: 'current-user',
 			organization_id: 'foreign-org',
 			unexpected_provider_column: 'must not be stored'
@@ -240,7 +266,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 			personnelSnapshot: [
 				{ id: 'current-person', rank: 'PFC', firstName: 'New', lastName: 'Person', group: 'Bravo', groupId: 'bravo' }
 			],
-			filterConfig: { groups: ['bravo'], ranks: ['PFC'] },
+			filterConfig: { groups: ['bravo'], ranks: ['PFC'], mos: ['68W'], roles: ['Driver'] },
 			signedFilePath: null,
 			createdBy: 'current-user',
 			createdAt: '2026-03-04T05:06:07.654321Z'
@@ -260,7 +286,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 				],
 				personnel_ids: ['current-person'],
 				scope_group_ids: ['bravo'],
-				filter_config: { groups: ['bravo'], ranks: ['PFC'] },
+				filter_config: { groups: ['bravo'], ranks: ['PFC'], mos: ['68W'], roles: ['Driver'] },
 				signed_file_path: null,
 				created_by: 'current-user',
 				created_at: '2026-03-04T05:06:07.654321Z'
@@ -311,7 +337,7 @@ describe('ordinary owned Sign-in Roster rank projection through the actual SDK',
 			{
 				id: 'a',
 				organization_id: ORG,
-				filter_config: { ranks: [' SGT ', 5, null, '', 'SGT', 'sgt'] },
+				filter_config: { ranks: [' SGT ', 5, null, '', 'SGT', 'sgt'], mos: ['68W'], roles: ['Driver'] },
 				personnel_snapshot: [{ rank: ' SSG ' }, null, 'PFC', { rank: 4 }, ['COL'], { rank: 'SGT' }, { rank: '' }]
 			},
 			{

@@ -7,6 +7,7 @@ import type { SavedTrainingType, SavedTrainingView } from '../contracts';
 import type {
 	TrainingTypeCreateContext,
 	TrainingTypeUpdateContext,
+	TrainingTypeOrderContext,
 	TrainingTypeDeleteContext,
 	TrainingTypeDeletionRequestContext,
 	TrainingExemptionContext,
@@ -17,6 +18,9 @@ import type {
 import {
 	trainingTypeCreateInput,
 	trainingTypeUpdateInput,
+	trainingTypeWarningsInput,
+	trainingTypeOrderInput,
+	TRAINING_TYPE_ORDER_CHANGED_MESSAGE,
 	trainingViewCreateInput,
 	trainingViewUpdateInput,
 	trainingExemptionInput,
@@ -25,6 +29,37 @@ import {
 
 const configureAction = POLICY_ACTION_CATALOG.training.configureRequirements;
 const catalogResource = { kind: 'organization' } as const;
+
+export async function setTrainingTypeOrder(
+	ctx: TrainingTypeOrderContext,
+	input: Record<string, unknown>
+): Promise<void> {
+	const parsed = trainingTypeOrderInput.safeParse(input);
+	if (!parsed.success) error(400, 'Choose every Training type once');
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
+	const { trainingTypeIds, expectedTrainingTypeIds } = parsed.data;
+	const saved = await ctx.trainingCatalog.listTypes();
+	if (
+		saved.length !== expectedTrainingTypeIds.length ||
+		saved.some((type, index) => type.id !== expectedTrainingTypeIds[index])
+	) {
+		fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);
+	}
+	const savedById = new Map(saved.map((type) => [type.id, type]));
+	if (trainingTypeIds.length !== saved.length || trainingTypeIds.some((id) => !savedById.has(id))) {
+		error(400, 'Choose every Training type once');
+	}
+	const positions = trainingTypeIds
+		.map((id, sortOrder) => ({ id, sortOrder }))
+		.filter(({ id, sortOrder }) => savedById.get(id)?.sortOrder !== sortOrder);
+	await ctx.trainingCatalog.writeTypePositions(positions);
+	await ctx.audit.log({
+		action: 'training_type.reordered',
+		resourceType: 'organization',
+		resourceId: ctx.auth.orgId,
+		details: { trainingTypeIds }
+	});
+}
 
 export async function createTrainingType(
 	ctx: TrainingTypeCreateContext,
@@ -50,6 +85,16 @@ export async function updateTrainingType(
 	if (!parsed.success) error(400, issueMessage(parsed.error));
 	const id = parsed.data.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
+	const { warningDaysYellow, warningDaysOrange } = parsed.data;
+	if ((warningDaysYellow === undefined) !== (warningDaysOrange === undefined)) {
+		const saved = (await ctx.trainingCatalog.listTypes()).find((type) => type.id === id);
+		if (!saved) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
+		const warnings = trainingTypeWarningsInput.safeParse({
+			warningDaysYellow: warningDaysYellow ?? saved.warningDaysYellow,
+			warningDaysOrange: warningDaysOrange ?? saved.warningDaysOrange
+		});
+		if (!warnings.success) error(400, issueMessage(warnings.error));
+	}
 	const row = await ctx.trainingCatalog.patchType(id, parsed.data);
 	if (!row) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
 	ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });

@@ -4,6 +4,7 @@ import {
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { streamTrainingWorkspaceBootstrap, type TrainingWorkspaceRouteData } from './trainingWorkspace.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 
 export interface TrainingLayoutLoadDeps {
 	streamTrainingWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<TrainingWorkspaceRouteData>;
@@ -14,7 +15,7 @@ export function _createTrainingLayoutLoad(deps: TrainingLayoutLoadDeps = {}): La
 
 	return async (event) =>
 		streamReadyFeatureLaneWorkspace(event, {
-			dependencies: ['app:org-core', 'app:training-data'],
+			dependencies: ['app:org-core', 'app:training-data', VIEWER_DAY_DEPENDENCY],
 			streamWorkspace: streamTrainingWorkspace
 		});
 }

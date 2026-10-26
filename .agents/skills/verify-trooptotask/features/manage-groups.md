@@ -137,7 +137,7 @@ first).
 3. As `calendarOperate`, open `/calendar/bulk`. The Add roster picker's Group headers read Bravo, Alpha, Unassigned and
    keep that order after `Sort by Name` in either direction.
 4. As `trainingConfigure` on Training, the `Group` view's matrix headers read `BRAVO (1)`, `ALPHA (1)`, `UNASSIGNED (1)`
-   at 1440x900, 900x900 and 390x844. In `Sign-In Rosters`, `New Roster` lists the Group filters Bravo, Alpha. An
+   at 1440x900, 900x900 and 390x844. In `Sign-in rosters`, `New Roster` lists the Group filters Bravo, Alpha. An
    `Alphabetical` roster with `Separate by group` prints its sections Bravo (Baker), Alpha (Able), Unassigned; read it
    with `pdftotext -layout`, then delete the roster.
 5. As `onboardingOperate`, the Onboarding `Group` filter lists `All groups`, Bravo, Alpha. The `Start onboarding` member

@@ -1,2 +1,2 @@
-export { default as SignInRosterModal } from './components/SignInRosterModal.svelte';
+export { default as SignInRostersSheet } from './components/SignInRostersSheet.svelte';
 export type { SignInRoster } from './sign-in-rosters.types';

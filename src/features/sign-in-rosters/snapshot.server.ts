@@ -7,6 +7,7 @@ import type {
 import { sortSignInRosterRows } from './signInRosterRankOrder';
 import { fail } from '$lib/errors';
 import { isUuid } from '$lib/utils/inputSchemas';
+import type { SignInRosterFilter } from './signInRosterFilter';
 
 const MAX_ROSTER_PERSONNEL = 500;
 
@@ -33,7 +34,7 @@ export interface PreparedSignInRosterSnapshot {
 	personnelIds: string[];
 	scopeGroupIds: string[];
 	personnelSnapshot: CanonicalSignInRosterSnapshot[];
-	filterConfig: { groups: string[]; ranks: string[] } | null;
+	filterConfig: SignInRosterFilter | null;
 	sortBy: 'alphabetical' | 'rank';
 }
 
@@ -160,12 +161,14 @@ function sortSnapshot(
 	return sortSignInRosterRows(snapshot, sortBy, rankCatalog);
 }
 
-function sanitizeFilterConfig(value: unknown): { groups: string[]; ranks: string[] } | null {
+export function sanitizeFilterConfig(value: unknown): SignInRosterFilter | null {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
 	const config = value as Record<string, unknown>;
 	return {
 		groups: stringArray(config.groups),
-		ranks: stringArray(config.ranks)
+		ranks: stringArray(config.ranks),
+		mos: stringArray(config.mos),
+		roles: stringArray(config.roles)
 	};
 }
 

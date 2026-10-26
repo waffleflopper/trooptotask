@@ -16,6 +16,7 @@
 		planningDisabled?: boolean;
 		reportsDisabled?: boolean;
 		describePlanner?: boolean;
+		stackSearchBelow?: number;
 		phoneLayout?: boolean;
 		onRun?: (name: string) => void;
 	};
@@ -35,6 +36,7 @@
 		planningDisabled = false,
 		reportsDisabled = false,
 		describePlanner = false,
+		stackSearchBelow,
 		phoneLayout = false,
 		onRun
 	}: Props = $props();
@@ -182,7 +184,8 @@
 		label: 'Search roster',
 		placeholder: 'Search...',
 		value: search,
-		onValueChange: (value) => (search = value)
+		onValueChange: (value) => (search = value),
+		stackBelow: stackSearchBelow
 	}}
 	primary={{
 		kind: 'action',

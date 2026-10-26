@@ -10,6 +10,7 @@ import type { TrainingCertificateStore } from './trainingCompletionPorts.server'
 import { TRAINING_CERTIFICATE_BUCKET } from './trainingCertificateStore.server';
 import {
 	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
+	TRAINING_TYPE_ORDER_CHANGED_MESSAGE,
 	toTrainingType,
 	toTrainingView,
 	toTrainingCompletion,
@@ -44,7 +45,10 @@ export function createInMemoryTrainingCatalogPersistence(
 		async listTypes() {
 			return (
 				await store.findMany<TrainingTypeRow>('training_types', orgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
+					orderBy: [
+						{ column: 'sort_order', ascending: true },
+						{ column: 'id', ascending: true }
+					]
 				})
 			).map(toTrainingType);
 		},
@@ -137,6 +141,12 @@ export function createInMemoryTrainingCatalogPersistence(
 		},
 		deleteType(id) {
 			return store.delete('training_types', orgId, id);
+		},
+		async writeTypePositions(positions) {
+			for (const { id, sortOrder } of positions) {
+				if (!(await store.findOne('training_types', orgId, { id }))) fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);
+				await store.update('training_types', orgId, id, { sort_order: sortOrder });
+			}
 		},
 		async createView(input) {
 			return toTrainingView(

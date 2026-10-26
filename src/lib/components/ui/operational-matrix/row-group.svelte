@@ -7,10 +7,12 @@
 		group: OperationalMatrixRowGroup;
 		columnSpan?: number;
 		children?: Snippet;
+		/** Cells after the group header, for a band that carries per-column values; set `columnSpan` to the header's own width. */
+		trailing?: Snippet;
 		virtualIndex?: number;
 	};
 
-	let { group, columnSpan, children, virtualIndex, ...restProps }: Props = $props();
+	let { group, columnSpan, children, trailing, virtualIndex, ...restProps }: Props = $props();
 </script>
 
 <tr
@@ -28,4 +30,5 @@
 			{group.label}
 		{/if}
 	</th>
+	{@render trailing?.()}
 </tr>

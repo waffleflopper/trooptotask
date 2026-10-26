@@ -135,8 +135,8 @@ describe('training types page', () => {
 			}
 		});
 
-		expect(await screen.findByText('Loading training types...')).toBeTruthy();
-		expect(screen.queryByText('No training types yet. Create one to get started.')).toBeNull();
+		expect(await screen.findByRole('status', { name: 'Loading training types' })).toBeTruthy();
+		expect(screen.queryByText('No training types yet.')).toBeNull();
 	});
 
 	it('renders the resolved page once current-org stores hydrate', async () => {
@@ -153,7 +153,7 @@ describe('training types page', () => {
 			}
 		});
 
-		expect(await screen.findByRole('row', { name: 'CPR' })).toBeTruthy();
-		expect(screen.queryByText('Loading training types...')).toBeNull();
+		expect(await screen.findByRole('button', { name: 'CPR' })).toBeTruthy();
+		expect(screen.queryByRole('status', { name: 'Loading training types' })).toBeNull();
 	});
 });

@@ -1,4 +1,8 @@
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { tick } from 'svelte';
+import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
+import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
+import { page } from '$app/state';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -18,13 +22,15 @@ import type {
 	TrainingPagePreferences,
 	TrainingPreferencesPatch
 } from '../contracts';
-import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { TrainingView, PersonnelTraining } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
 import { recordTrainingCompletions } from '../personnelTrainingRequests';
+import { matchesPersonnelSearch } from '../utils/personnelSearch';
+import { trainingReadinessSource } from '../webSources.svelte';
 
+const RECORD_PARAM = 'person';
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
 type TrainingBatchCompletionRecord = TrainingBatchRecord & { status: 'completed' };
@@ -50,27 +56,30 @@ export interface TrainingPageData {
 
 export class TrainingPageContext {
 	readonly #data: TrainingPageData;
-	readonly #modals: ModalRegistry;
 	readonly #org: TrainingPageAccess;
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
 	readonly #savePreferences: (patch: TrainingPreferencesPatch) => void;
 	#hydratedSelectionFingerprint: string | null = null;
+	readonly #deletingViewIds = new SvelteSet<string>();
 	#disposed = false;
 
 	selectedGroupId = $state<string>('');
 	selectedViewId = $state<string | null>(null);
+	searchQuery = $state('');
 	viewMode = $state<TrainingMatrixViewMode>('by-group');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
+	/** The matrix's visible row order: what the record sheet steps through. */
+	rowOrder = $state.raw<string[]>([]);
+	#recordOpener: HTMLElement | null = null;
+	#steppedFrom: string | null = null;
 
 	constructor(
 		data: TrainingPageData,
-		modals: ModalRegistry,
 		org: TrainingPageAccess,
 		submitRemovalRequest: TrainingRemovalRequest,
 		savePreferences: (patch: TrainingPreferencesPatch) => void
 	) {
 		this.#data = data;
-		this.#modals = modals;
 		this.#org = org;
 		this.#submitRemovalRequest = submitRemovalRequest;
 		this.#savePreferences = savePreferences;
@@ -119,6 +128,14 @@ export class TrainingPageContext {
 		return this.#data.orgName;
 	}
 
+	get readinessGoalPercent(): number | null {
+		return trainingReadinessSource.forOrganization(this.orgId).readinessGoalPercent;
+	}
+
+	get readinessAsOf(): string {
+		return trainingReadinessSource.forOrganization(this.orgId).readinessAsOf;
+	}
+
 	get personnel(): Personnel[] {
 		this.reconcileHydratedSelections();
 		return this.trainingRosterView().flatPersonnel;
@@ -150,11 +167,13 @@ export class TrainingPageContext {
 	}
 
 	get filteredPersonnel(): Personnel[] {
-		return [...this.basePersonnel].sort((a, b) => {
-			const lastNameDiff = a.lastName.localeCompare(b.lastName);
-			if (lastNameDiff !== 0) return lastNameDiff;
-			return a.firstName.localeCompare(b.firstName);
-		});
+		return this.basePersonnel
+			.filter((person) => matchesPersonnelSearch(person, this.searchQuery))
+			.sort((a, b) => {
+				const lastNameDiff = a.lastName.localeCompare(b.lastName);
+				if (lastNameDiff !== 0) return lastNameDiff;
+				return a.firstName.localeCompare(b.firstName);
+			});
 	}
 
 	get personnelByGroup(): PersonnelGroup[] {
@@ -186,10 +205,6 @@ export class TrainingPageContext {
 		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.items, personnelTrainingsStore.items);
 	}
 
-	isExempt(person: Personnel, type: TrainingType): boolean {
-		return type.canBeExempted && type.exemptPersonnelIds.includes(person.id);
-	}
-
 	toggleGroup(group: string): void {
 		if (this.collapsedGroups.has(group)) {
 			this.collapsedGroups.delete(group);
@@ -198,12 +213,79 @@ export class TrainingPageContext {
 		}
 	}
 
-	handleCellClick(person: Personnel, type: TrainingType, training: PersonnelTraining | undefined): void {
-		this.#modals.open('record', { person, type, training });
+	/** The `?person=` the page was opened on, even when it names nobody the viewer may see. */
+	get recordPersonId(): string | null {
+		return page.url.searchParams.get(RECORD_PARAM);
 	}
 
-	handlePersonClick(person: Personnel): void {
-		this.#modals.open('person-editor', { person });
+	get rosterReady(): boolean {
+		return rosterStore.orgId === this.orgId && !rosterStore.loading;
+	}
+
+	get recordPerson(): Personnel | null {
+		const id = this.recordPersonId;
+		if (!id || !this.canRecordTraining) return null;
+		return this.personnel.find((person) => person.id === id) ?? null;
+	}
+
+	/** The Soldiers either side of the open record in the matrix's visible order. */
+	get recordNeighbours(): { previous: Personnel | null; next: Personnel | null } {
+		const at = this.rowOrder.indexOf(this.recordPersonId ?? '');
+		if (at === -1) return { previous: null, next: null };
+		const personnel = this.personnel;
+		const inRow = (index: number) => personnel.find((person) => person.id === this.rowOrder[index]) ?? null;
+		return { previous: inRow(at - 1), next: inRow(at + 1) };
+	}
+
+	handlePersonClick(person: Personnel, opener: HTMLElement | null = null): void {
+		this.#recordOpener = opener;
+		this.#steppedFrom = person.id;
+		void goto(this.#recordTarget(person.id), {
+			noScroll: true,
+			keepFocus: true,
+			state: { trainingRecord: true }
+		});
+	}
+
+	stepRecord(direction: -1 | 1): void {
+		const { previous, next } = this.recordNeighbours;
+		const target = direction === -1 ? previous : next;
+		if (!target) return;
+		void goto(this.#recordTarget(target.id), {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true,
+			state: { ...page.state }
+		});
+	}
+
+	/** Closes the sheet: back to the entry that opened it, or off the param when the page was loaded on it. */
+	closeRecord(): void {
+		if (page.state.trainingRecord) history.back();
+		else this.dropRecordParam();
+	}
+
+	dropRecordParam(): void {
+		void goto(this.#recordTarget(null), { replaceState: true, noScroll: true, keepFocus: true });
+	}
+
+	/** Puts focus back on the name (or cell) that opened the record, or on the open Soldier's name if that scrolled away. */
+	async restoreRecordFocus(): Promise<void> {
+		await tick();
+		const opener = this.#recordOpener;
+		const stepped = this.#steppedFrom;
+		this.#recordOpener = null;
+		this.#steppedFrom = null;
+		if (opener?.isConnected) opener.focus();
+		else if (stepped) document.querySelector<HTMLElement>(`[data-person-opener="${CSS.escape(stepped)}"]`)?.focus();
+	}
+
+	#recordTarget(personId: string | null) {
+		const params = new SvelteURLSearchParams(page.url.search);
+		if (personId) params.set(RECORD_PARAM, personId);
+		else params.delete(RECORD_PARAM);
+		const query = params.toString();
+		return resolve(`${page.url.pathname}${query ? `?${query}` : ''}` as `/org/${string}/training`);
 	}
 
 	setSelectedGroupId(groupId: string): void {
@@ -239,6 +321,42 @@ export class TrainingPageContext {
 
 	#isCurrentWorkspace(): boolean {
 		return !this.#disposed && personnelTrainingsStore.orgId === this.orgId;
+	}
+
+	#isCurrentViewsWorkspace(): boolean {
+		return !this.#disposed && trainingViewsStore.orgId === this.orgId;
+	}
+
+	/** Saves a view and applies it to the matrix. `'stale'` means the user left, so nothing was written. */
+	async saveView(draft: { id: string | null; name: string; columnIds: string[] }): Promise<TrainingView | 'stale'> {
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		const { name, columnIds } = draft;
+		let saved: TrainingView | null;
+		if (draft.id === null) {
+			saved = await trainingViewsStore.add({ name, columnIds, createdBy: '', createdAt: '', updatedAt: '' });
+		} else {
+			const updated = await trainingViewsStore.updateOrThrow(draft.id, { name, columnIds });
+			saved = updated ? (trainingViewsStore.getById(draft.id) ?? null) : null;
+		}
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		if (!saved) throw new Error('Failed to save view.');
+		this.setSelectedViewId(saved.id);
+		return saved;
+	}
+
+	async deleteView(id: string): Promise<'deleted' | 'failed' | 'stale'> {
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		this.#deletingViewIds.add(id);
+		let result: Awaited<ReturnType<typeof trainingViewsStore.remove>>;
+		try {
+			result = await trainingViewsStore.remove(id);
+		} finally {
+			this.#deletingViewIds.delete(id);
+		}
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		if (result === 'error') return 'failed';
+		if (this.selectedViewId === id) this.setSelectedViewId(null);
+		return 'deleted';
 	}
 
 	async handleSaveTraining(data: Omit<PersonnelTraining, 'id'>): Promise<void> {
@@ -331,6 +449,7 @@ export class TrainingPageContext {
 		if (
 			viewsLoaded &&
 			this.selectedViewId &&
+			!this.#deletingViewIds.has(this.selectedViewId) &&
 			!trainingViewsStore.items.some((view) => view.id === this.selectedViewId)
 		) {
 			this.selectedViewId = null;

@@ -29,6 +29,7 @@ function matches(row: Row, column: string, filter: string): boolean {
 	const operand = rest.join('.');
 	if (operator === 'not') return !matches(row, column, operand);
 	if (operator === 'eq') return String(value) === operand;
+	if (operator === 'is' && operand === 'null') return value === null || value === undefined;
 	if (operator === 'in')
 		return operand
 			.slice(1, -1)
@@ -63,7 +64,8 @@ export function createShiftingPostgrestClient(tables: Record<string, Row[]>): Su
 				const url = new URL(request.url);
 				const table = url.pathname.replace('/rest/v1/', '');
 				const rows = tables[table];
-				if (request.method !== 'GET' || !rows) throw new Error(`Unexpected ${request.method} ${url.pathname}`);
+				if ((request.method !== 'GET' && request.method !== 'HEAD') || !rows)
+					throw new Error(`Unexpected ${request.method} ${url.pathname}`);
 				const shift = requests++ % Math.max(rows.length, 1);
 				let visible = [...rows.slice(shift), ...rows.slice(0, shift)];
 				for (const [column, filter] of url.searchParams) {

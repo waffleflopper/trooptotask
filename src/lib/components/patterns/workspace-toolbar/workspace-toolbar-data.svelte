@@ -78,7 +78,10 @@
 		lastCompact = metrics.available < COMPACT_BELOW_PX[compactBelow];
 		return lastCompact;
 	});
-	const searchOwnRow = $derived(compact && Boolean(search));
+	const searchStacked = $derived(
+		Boolean(search?.stackBelow) && metrics.available > 0 && metrics.available < (search?.stackBelow ?? 0)
+	);
+	const searchOwnRow = $derived(Boolean(search) && (compact || searchStacked));
 	const primaryIconOnly = $derived(compact && Boolean(primary?.icon));
 	const foldsToMore = (item: ToolbarItem): boolean => isMenuOnly(item) || (compact && sectionOf(item) !== 'view');
 	const rowCandidates = $derived(items.filter((item) => !foldsToMore(item)));
@@ -223,7 +226,7 @@
 		);
 	}
 
-	type Layout = { ids: string[]; more: boolean; collapsed: boolean };
+	type Layout = { ids: string[]; more: boolean; collapsed: boolean; stacked: boolean };
 	let previousLayout: Layout | null = null;
 
 	function focusAfterUpdate(target: () => HTMLElement | null | undefined): void {
@@ -239,6 +242,15 @@
 		const leaving = before.ids.filter((id) => !after.ids.includes(id));
 		if (leaving.some((id) => holdsFocus(id, active))) {
 			focusAfterUpdate(moreTrigger);
+		} else if (before.stacked !== after.stacked && active && active === searchInput) {
+			// Crossing the stack width renders the field under another parent, so focus and caret move with it.
+			const { selectionStart, selectionEnd } = searchInput;
+			if (!after.stacked && after.collapsed) focusAfterUpdate(searchIcon);
+			else
+				void tick().then(() => {
+					searchInput?.focus({ preventScroll: true });
+					searchInput?.setSelectionRange(selectionStart, selectionEnd);
+				});
 		} else if (!before.collapsed && after.collapsed && active && active === searchInput) {
 			focusAfterUpdate(searchIcon);
 		} else if (before.more && !after.more && active && moreTrigger()?.contains(active)) {
@@ -250,7 +262,12 @@
 	}
 
 	$effect.pre(() => {
-		const next: Layout = { ids: [...visibleIds], more: showMore, collapsed: Boolean(fit?.searchCollapsed) };
+		const next: Layout = {
+			ids: [...visibleIds],
+			more: showMore,
+			collapsed: Boolean(fit?.searchCollapsed),
+			stacked: searchOwnRow
+		};
 		const before = previousLayout;
 		previousLayout = next;
 		if (before && rowElement) untrack(() => handleLayoutChange(before, next));
@@ -411,7 +428,7 @@
 {/snippet}
 
 {#snippet selectControl(item: ToolbarSelect, live: boolean)}
-	<Select.Root type="single" value={item.value} onValueChange={live ? item.onValueChange : undefined}>
+	<Select.Root type="single" bind:value={() => item.value, (next) => live && item.onValueChange(next)}>
 		<Select.Trigger aria-label={item.ariaLabel ?? item.label} tabindex={live ? undefined : -1}>
 			<span>{optionLabel(item, item.value)}</span>
 		</Select.Trigger>

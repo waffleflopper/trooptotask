@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { SignInRoster } from './sign-in-rosters.types';
-import type { PreparedSignInRosterSnapshot } from './snapshot.server';
+import { sanitizeFilterConfig, type PreparedSignInRosterSnapshot } from './snapshot.server';
 
 export interface SignInRosterListInput {
 	title: string;
@@ -27,7 +27,8 @@ export interface SignInRosterCreateInput {
 }
 
 export interface SignInRosterPersistence {
-	list(input: SignInRosterListInput): Promise<{ data: SignInRoster[]; count: number | null }>;
+	/** `count` and `unsigned` cover every roster matching the filters, not just the page; `unsigned` lacks a signed scan. */
+	list(input: SignInRosterListInput): Promise<{ data: SignInRoster[]; count: number | null; unsigned: number }>;
 	find(id: string): Promise<SignInRoster | null>;
 	create(input: SignInRosterCreateInput): Promise<SignInRoster>;
 }
@@ -40,7 +41,7 @@ interface RosterRow {
 	separate_by_group: boolean;
 	sort_by: SignInRoster['sortBy'];
 	personnel_snapshot: SignInRoster['personnelSnapshot'];
-	filter_config: SignInRoster['filterConfig'];
+	filter_config: unknown;
 	signed_file_path: string | null;
 	created_by: string;
 	created_at: string;
@@ -58,7 +59,7 @@ function toRoster(row: RosterRow): SignInRoster {
 		separateByGroup: row.separate_by_group,
 		sortBy: row.sort_by,
 		personnelSnapshot: row.personnel_snapshot,
-		filterConfig: row.filter_config,
+		filterConfig: sanitizeFilterConfig(row.filter_config),
 		signedFilePath: row.signed_file_path,
 		createdBy: row.created_by,
 		createdAt: row.created_at
@@ -71,28 +72,36 @@ export function createSupabaseSignInRosterPersistence(
 ): SignInRosterPersistence {
 	const groupIds = scopeSet.kind === 'groups' ? [...new Set(scopeSet.groupIds.filter(Boolean))] : null;
 
-	function read(count?: 'exact') {
-		let query = client
-			.from('sign_in_rosters')
-			.select(ROSTER_FIELDS, count ? { count } : undefined)
-			.eq('organization_id', orgId);
+	function read(options?: { count: 'exact'; head?: boolean }) {
+		let query = client.from('sign_in_rosters').select(ROSTER_FIELDS, options).eq('organization_id', orgId);
 		if (groupIds) query = query.containedBy('scope_group_ids', groupIds).not('scope_group_ids', 'eq', '{}');
 		return query;
 	}
 
 	return {
 		async list(input) {
-			if (groupIds?.length === 0) return { data: [], count: 0 };
-			let query = read('exact');
-			if (input.title) query = query.ilike('title', `%${input.title}%`);
-			if (input.createdFrom) query = query.gte('created_at', input.createdFrom);
-			if (input.createdBefore) query = query.lt('created_at', input.createdBefore);
-			const { data, error, count } = await query
-				.order('created_at', { ascending: false })
-				.order('id', { ascending: true })
-				.range(input.offset, input.offset + input.limit - 1);
-			if (error) throw new Error(error.message);
-			return { data: ((data ?? []) as RosterRow[]).map(toRoster), count: count ?? null };
+			if (groupIds?.length === 0) return { data: [], count: 0, unsigned: 0 };
+			const matching = (options: { count: 'exact'; head?: boolean }) => {
+				let query = read(options);
+				if (input.title) query = query.ilike('title', `%${input.title}%`);
+				if (input.createdFrom) query = query.gte('created_at', input.createdFrom);
+				if (input.createdBefore) query = query.lt('created_at', input.createdBefore);
+				return query;
+			};
+			const [page, missing] = await Promise.all([
+				matching({ count: 'exact' })
+					.order('created_at', { ascending: false })
+					.order('id', { ascending: true })
+					.range(input.offset, input.offset + input.limit - 1),
+				matching({ count: 'exact', head: true }).is('signed_file_path', null)
+			]);
+			if (page.error) throw new Error(page.error.message);
+			if (missing.error) throw new Error(missing.error.message);
+			return {
+				data: ((page.data ?? []) as RosterRow[]).map(toRoster),
+				count: page.count ?? null,
+				unsigned: missing.count ?? 0
+			};
 		},
 		async find(id) {
 			if (groupIds?.length === 0) return null;

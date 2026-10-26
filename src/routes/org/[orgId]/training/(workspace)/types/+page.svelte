@@ -3,7 +3,6 @@
 	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
 	import TrainingTypesPage from '$features/training/components/TrainingTypesPage.svelte';
-	import { Spinner } from '$lib/components/ui/spinner';
 	import type { TrainingWorkspaceResult } from '$features/training/contracts';
 	import { isPromiseLike, materializeWorkspaceData } from '$lib/utils/streamedRouteData';
 
@@ -16,8 +15,7 @@
 	);
 	const storesHydratedForOrg = $derived(rosterStore.orgId === org.orgId && trainingTypesStore.orgId === org.orgId);
 	const storesPending = $derived(!storesHydratedForOrg || rosterStore.loading || trainingTypesStore.loading);
-	const immediateWorkspacePending = $derived(!!immediateTrainingBootstrap && storesPending);
-	const pageData = $derived.by(() => pageDataFor(immediateTrainingBootstrap));
+	const orgName = $derived(data.shell?.kind === 'ready' ? data.shell.org.name : '');
 
 	function pageDataFor(trainingBootstrap: TrainingWorkspaceResult | null | undefined) {
 		return materializeWorkspaceData(data, 'training', trainingBootstrap);
@@ -30,35 +28,17 @@
 
 {#if streamedTraining && isPromiseLike(streamedTraining)}
 	{#await streamedTraining}
-		<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-live="polite" role="status">
-			<Spinner class="size-4" />
-			<p>Loading training types...</p>
-		</section>
+		<TrainingTypesPage {org} {orgName} data={pageDataFor(null)} loading />
 	{:then resolvedTraining}
-		{#if storesPending}
-			<section
-				class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
-				aria-live="polite"
-				role="status"
-			>
-				<Spinner class="size-4" />
-				<p>Loading training types...</p>
-			</section>
-		{:else}
-			<div class="h-full min-h-0 overflow-hidden">
-				<TrainingTypesPage {org} data={pageDataFor(resolvedTraining)} />
-			</div>
-		{/if}
+		<TrainingTypesPage {org} {orgName} data={pageDataFor(resolvedTraining)} loading={storesPending} />
 	{:catch}
 		<!-- The Training layout observes this same source and shows WorkspaceLoadError. -->
 	{/await}
-{:else if immediateWorkspacePending}
-	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-live="polite" role="status">
-		<Spinner class="size-4" />
-		<p>Loading training types...</p>
-	</section>
 {:else}
-	<div class="h-full min-h-0 overflow-hidden">
-		<TrainingTypesPage {org} data={pageData} />
-	</div>
+	<TrainingTypesPage
+		{org}
+		{orgName}
+		data={pageDataFor(immediateTrainingBootstrap)}
+		loading={!!immediateTrainingBootstrap && storesPending}
+	/>
 {/if}

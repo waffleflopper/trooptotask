@@ -33,7 +33,7 @@ const AREA_RULES: readonly (readonly [RegExp, string])[] = [
 	[/^(personnel_ict_completion|ict_task|critical_tasks)\./, 'Critical tasks'],
 	[/^(training|training_type|training_view|training_record)\./, 'Training'],
 	[
-		/^(availability|status_type|assignment_type|special_day|calendar_report|daily_assignment|calendar_event)\./,
+		/^(availability|status_type|assignment_type|special_day|calendar_report|daily_assignment|calendar_event|calendar_tasking)\./,
 		'Calendar'
 	],
 	[/^onboarding/, 'Onboarding'],
@@ -381,6 +381,7 @@ const NOUNS: Record<string, string> = {
 	availability: 'availability entry',
 	daily_assignment: 'daily assignment',
 	calendar_event: 'event',
+	calendar_tasking: 'tasking',
 	group: 'group',
 	pinned_group: 'pinned group',
 	ict_task: 'critical task',
@@ -416,7 +417,10 @@ const VERBS: Record<string, string> = {
 	reactivated: 'Reactivated',
 	cancelled: 'Cancelled',
 	completed: 'Completed',
-	reopened: 'Reopened'
+	reopened: 'Reopened',
+	started: 'Started',
+	blocked: 'Blocked',
+	unblocked: 'Unblocked'
 };
 
 function genericSentence(action: string, details: Details): string {

@@ -21,6 +21,9 @@ describe('findDisabledFeatureRoute', () => {
 		expect(findDisabledFeatureRoute('/org/[orgId]/calendar/events/[eventId]', ['eventsAndTaskings'])).toBe(
 			'eventsAndTaskings'
 		);
+		expect(findDisabledFeatureRoute('/org/[orgId]/calendar/taskings/[taskingId]', ['eventsAndTaskings'])).toBe(
+			'eventsAndTaskings'
+		);
 	});
 
 	it('ignores routes of features that are on and routes no feature owns', () => {

@@ -47,6 +47,18 @@ describe('auditSentence', () => {
 		);
 	});
 
+	it.each(['started', 'blocked', 'unblocked', 'completed', 'reopened', 'cancelled'])(
+		'names the tasking a %s move changed, under Calendar',
+		(verb) => {
+			const action = `calendar_tasking.${verb}`;
+			const sentence = auditSentence(action, { title: 'Provide medics' });
+
+			expect(sentence).toContain('Provide medics');
+			expect(sentence).not.toContain(action);
+			expect(viewAuditEntry(entry({ action, details: null }), 'UTC').area).toBe('Calendar');
+		}
+	);
+
 	it('falls back to the event in words for an action it does not know', () => {
 		const sentence = auditSentence('widget.frobbed', null);
 

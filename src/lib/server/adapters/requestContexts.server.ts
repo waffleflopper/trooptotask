@@ -23,6 +23,7 @@ import {
 } from '$features/training/index.server';
 import {
 	createSupabaseCalendarEventPersistence,
+	createSupabaseCalendarTaskingPersistence,
 	createSupabaseRosterSwapPersistence,
 	createSupabaseCalendarExportReader,
 	createSupabaseCalendarAssignmentReplacementPort,
@@ -608,6 +609,18 @@ export function createRequestCalendarEventContext(request: AdmittedOrganizationR
 		auth: request.auth,
 		audit: request.audit,
 		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
+		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId)
+	};
+}
+
+export function createRequestCalendarTaskingContext(request: AdmittedOrganizationRequest) {
+	const orgId = request.auth.orgId;
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		calendarTaskings: createSupabaseCalendarTaskingPersistence(request.supabase, orgId),
+		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, orgId, request.auth.scopeSet),
 		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId)
 	};
 }

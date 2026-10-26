@@ -23,11 +23,13 @@
 		event?: CalendarEvent;
 		members: MemberLabels;
 		currentUserId: string;
-		onSaved: (event: CalendarEvent) => void;
+		/** Offers "Create and add tasking" beside Create event. */
+		offerTasking?: boolean;
+		onSaved: (event: CalendarEvent, next?: 'add-tasking') => void;
 		onClose: () => void;
 	}
 
-	let { orgId, event, members, currentUserId, onSaved, onClose }: Props = $props();
+	let { orgId, event, members, currentUserId, offerTasking = false, onSaved, onClose }: Props = $props();
 
 	const [initial, creator] = untrack(() => [event, currentUserId] as const);
 	const id = initial?.id ?? crypto.randomUUID();
@@ -97,7 +99,7 @@
 		if (value && (!endsOn || endsOn < value)) endsOn = value;
 	}
 
-	function save() {
+	function save(next?: 'add-tasking') {
 		triedSave = true;
 		if (!parsed.success) {
 			if (problems.location || problems.sourceReference || problems.description) moreOpen = true;
@@ -109,7 +111,8 @@
 			try {
 				const request = initial ? updateEventRequest(orgId, id, draft) : createEventRequest(orgId, id, draft);
 				const saved = await withinOrganizationLifetime(request, () => open);
-				onSaved(saved);
+				if (next) onSaved(saved, next);
+				else onSaved(saved);
 			} catch (error) {
 				saveError = rejectedRequestMessage(error, 'The event was not saved. Your entries are kept, so try again.');
 			}
@@ -237,6 +240,11 @@
 		</form>
 		<AppDialog.Footer class="border-t pt-4">
 			<Button variant="outline" onclick={onClose} disabled={saving.pending}>Cancel</Button>
+			{#if offerTasking && !initial}
+				<Button variant="outline" onclick={() => save('add-tasking')} disabled={saving.pending}>
+					Create and add tasking
+				</Button>
+			{/if}
 			<Button type="submit" form="event-form" disabled={saving.pending || (initial !== undefined && !dirty)}>
 				{#if saving.pending}<Spinner />{/if}
 				{initial ? 'Save changes' : 'Create event'}

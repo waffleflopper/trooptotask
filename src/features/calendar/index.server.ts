@@ -113,3 +113,14 @@ export {
 	settleEventRead
 } from './events/eventOperations.server';
 export { createSupabaseCalendarEventPersistence } from './events/eventPersistence.server';
+export {
+	listTaskings,
+	listEventTaskings,
+	loadTaskingDetail,
+	listTaskingActivity,
+	loadTaskingChoices,
+	createTasking,
+	updateTasking,
+	transitionTasking
+} from './taskings/taskingOperations.server';
+export { createSupabaseCalendarTaskingPersistence } from './taskings/taskingPersistence.server';

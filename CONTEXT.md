@@ -205,6 +205,22 @@ _Avoid_: Delete, archive
 The record of an Event's creation, date changes, host or coordinator changes and cancellation, written by the database with the acting member.
 _Avoid_: Audit log, history
 
+**Tasking**:
+An outcome the unit owes by a date, owned by exactly one Group or by the Organization itself. It stands alone or sits under one Event, and linking or unlinking it later keeps the same Tasking and its history. It moves Open, In progress, Blocked, Completed or Cancelled only by an explicit action.
+_Avoid_: Task, mission, assignment when a Daily Assignment is meant
+
+**Responsibility**:
+Who owns a Tasking: one Group, or the Organization when no single Group does. Organization level is always chosen, never assumed, and only Organization-wide Calendar operators move it.
+_Avoid_: Owner, assignee
+
+**Suspense**:
+The date a Tasking's outcome is due. It marks no one as busy; execution dates do that.
+_Avoid_: Deadline, due date in product copy
+
+**Tasking Activity**:
+The record of a Tasking's creation, outcome, responsibility, date, Event link, requirement and instruction changes and every status move, written by the database with the acting member.
+_Avoid_: Audit log, history
+
 **DONSA**:
 A day of no scheduled activities, represented as a Calendar special day; Training Holiday is also appropriate military-facing wording.
 _Avoid_: Closure, org closure in product copy

@@ -174,7 +174,7 @@ export const POLICY_ACTION_CATALOG = {
 		}),
 		viewEvents: featureAction({
 			id: 'calendar.viewEvents',
-			label: 'View events',
+			label: 'View events and taskings',
 			lane: 'calendar',
 			feature: 'eventsAndTaskings',
 			accessMode: 'read',
@@ -183,6 +183,14 @@ export const POLICY_ACTION_CATALOG = {
 		manageEvents: featureAction({
 			id: 'calendar.manageEvents',
 			label: 'Create, edit and cancel events',
+			lane: 'calendar',
+			feature: 'eventsAndTaskings',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		manageTaskings: featureAction({
+			id: 'calendar.manageTaskings',
+			label: 'Create, edit and move taskings',
 			lane: 'calendar',
 			feature: 'eventsAndTaskings',
 			accessMode: 'write',

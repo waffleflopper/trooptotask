@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _putConfig } from './+server';
@@ -44,6 +44,31 @@ describe('PUT Training type order', () => {
 				details: { trainingTypeIds: [C, A, B] }
 			}
 		]);
+	});
+
+	it('waits for its audit entry before acknowledging the order', async () => {
+		const ctx = context();
+		let started!: () => void;
+		let release!: () => void;
+		const auditStarted = new Promise<void>((resolve) => {
+			started = resolve;
+		});
+		const delivered = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		vi.spyOn(ctx.audit, 'log').mockImplementation(async () => {
+			started();
+			await delivered;
+		});
+		let acknowledged = false;
+		const response = put(ctx, choice).then(() => {
+			acknowledged = true;
+		});
+		await auditStarted;
+		expect(acknowledged).toBe(false);
+		release();
+		await response;
+		expect(acknowledged).toBe(true);
 	});
 
 	it.each([

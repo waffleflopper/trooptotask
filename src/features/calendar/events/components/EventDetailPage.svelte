@@ -2,7 +2,6 @@
 	import type { CalendarEventsPageAccess } from '../../contracts';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import CalendarX from '@lucide/svelte/icons/calendar-x';
-	import { invalidate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as PageShell from '$lib/components/patterns/page-shell';
@@ -24,6 +23,7 @@
 	import type { GroupLabels, Tasking, TaskingChoices } from '../../taskings/taskingModel';
 	import EventDateReview from '../../taskings/components/EventDateReview.svelte';
 	import EventTaskings from '../../taskings/components/EventTaskings.svelte';
+	import { reloadCalendarEvents, setEventPageState } from '../eventPageState';
 	import CancelEventDialog from './CancelEventDialog.svelte';
 	import EventDialog from './EventDialog.svelte';
 	import EventLoadFailed from './EventLoadFailed.svelte';
@@ -78,10 +78,10 @@
 		const eventUrl = page.url.pathname;
 		saved = { event, over: streamedDetail.current };
 		dialog = null;
-		await invalidate('app:calendar-events');
-		// The refresh resets page state, and the reader may have moved on while it ran.
+		await reloadCalendarEvents();
+		// The reader may have moved on while the refresh ran.
 		if (before && datesChanged(before, event) && save === latestSave && page.url.pathname === eventUrl)
-			replaceState('', {
+			setEventPageState({
 				...page.state,
 				eventDateReview: {
 					before: { startsOn: before.startsOn, endsOn: before.endsOn },
@@ -181,7 +181,7 @@
 				{taskings}
 				before={dateReview.before}
 				after={dateReview.after}
-				onDismiss={() => replaceState('', { ...page.state, eventDateReview: undefined })}
+				onDismiss={() => setEventPageState({ ...page.state, eventDateReview: undefined })}
 			/>
 		{/if}
 

@@ -9,7 +9,7 @@ import type { GroupLabels, Tasking } from '../taskingModel';
 import EventDateReview from './EventDateReview.svelte';
 import EventTaskings from './EventTaskings.svelte';
 
-vi.mock('$app/navigation', () => ({ invalidate: vi.fn() }));
+vi.mock('$app/navigation', () => ({ invalidate: vi.fn(), replaceState: vi.fn() }));
 
 const ALPHA = '00000000-0000-4000-8000-000000000201';
 const org: CalendarEventsPageAccess = {

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { CalendarEventsPageAccess } from '../../contracts';
-	import { invalidate } from '$app/navigation';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -8,6 +7,7 @@
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import type { CalendarEvent, EventRead } from '../../events/eventModel';
 	import EventLoadFailed from '../../events/components/EventLoadFailed.svelte';
+	import { reloadCalendarEvents } from '../../events/eventPageState';
 	import { groupEventWork, type TaskingSummary } from '../eventWorkModel';
 	import { isActiveStatus, type GroupLabels, type Tasking, type TaskingChoices } from '../taskingModel';
 	import EventWorkGroups from './EventWorkGroups.svelte';
@@ -88,7 +88,7 @@
 	function created(tasking: Tasking) {
 		if (tasking.event?.id === event.id) added = { tasking, over: streamed.current };
 		creating = null;
-		void invalidate('app:calendar-events');
+		void reloadCalendarEvents();
 	}
 </script>
 

@@ -6,7 +6,7 @@ import type { TaskingLists } from '../taskingListsModel';
 import TaskingListsSection from './TaskingListsSection.svelte';
 
 const refresh = vi.hoisted(() => vi.fn(() => Promise.resolve()));
-vi.mock('$app/navigation', () => ({ invalidate: refresh }));
+vi.mock('$app/navigation', () => ({ invalidate: refresh, replaceState: vi.fn() }));
 
 const TASKING = '00000000-0000-4000-8000-000000000101';
 const LITTERS = '00000000-0000-4000-8000-000000000501';

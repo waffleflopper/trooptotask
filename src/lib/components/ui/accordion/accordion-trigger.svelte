@@ -9,10 +9,12 @@
 		ref = $bindable(null),
 		class: className,
 		level = 3,
+		indicator = 'chevron',
 		children,
 		...restProps
 	}: WithoutChild<AccordionPrimitive.TriggerProps> & {
 		level?: AccordionPrimitive.HeaderProps['level'];
+		indicator?: 'chevron' | 'sign';
 	} = $props();
 
 	const contentId = getAccordionContentId();
@@ -30,13 +32,24 @@
 		{...restProps}
 	>
 		{@render children?.()}
-		<ChevronDownIcon
-			data-slot="accordion-trigger-icon"
-			class="cn-accordion-trigger-icon pointer-events-none shrink-0 group-aria-expanded/accordion-trigger:hidden"
-		/>
-		<ChevronUpIcon
-			data-slot="accordion-trigger-icon"
-			class="cn-accordion-trigger-icon pointer-events-none hidden shrink-0 group-aria-expanded/accordion-trigger:inline"
-		/>
+		{#if indicator === 'sign'}
+			<span
+				data-slot="accordion-trigger-icon"
+				class="pointer-events-none shrink-0 text-center font-mono text-[0.8125rem] leading-4"
+				aria-hidden="true"
+			>
+				<span class="group-aria-expanded/accordion-trigger:hidden">+</span>
+				<span class="hidden text-accent-text group-aria-expanded/accordion-trigger:inline">−</span>
+			</span>
+		{:else}
+			<ChevronDownIcon
+				data-slot="accordion-trigger-icon"
+				class="cn-accordion-trigger-icon pointer-events-none shrink-0 group-aria-expanded/accordion-trigger:hidden"
+			/>
+			<ChevronUpIcon
+				data-slot="accordion-trigger-icon"
+				class="cn-accordion-trigger-icon pointer-events-none hidden shrink-0 group-aria-expanded/accordion-trigger:inline"
+			/>
+		{/if}
 	</AccordionPrimitive.Trigger>
 </AccordionPrimitive.Header>

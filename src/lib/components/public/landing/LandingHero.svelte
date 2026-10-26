@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { body, container, display, eyebrow, label } from './type';
+	import PublicButton from '../PublicButton.svelte';
+	import PublicHeading from '../PublicHeading.svelte';
+	import { body, monoLabel, pageGutter } from '../layout';
 
 	interface Props {
 		action: { href: string; label: string };
@@ -14,32 +15,26 @@
 </script>
 
 <section class="bg-chrome text-chrome-text">
-	<div class={container}>
+	<div class={pageGutter}>
 		<div class="flex flex-col gap-12 pt-16 pb-12 lg:pt-32 lg:pb-16">
-			<div class="flex flex-col gap-6">
-				<p class={[eyebrow, 'text-chrome-accent']}>READINESS · BUILT FOR THE COMPANY</p>
-				<h1 class={[display, 'tracking-[-0.005em]']}>
-					<span class={['block text-chrome-text-muted', wipe]}>LESS TIME ON ADMIN.</span>
-					<span class={['block text-chrome-accent motion-safe:delay-200', wipe]}>MORE TIME WITH SOLDIERS.</span>
-				</h1>
-			</div>
+			<PublicHeading
+				label="READINESS · BUILT FOR THE COMPANY"
+				lines={['LESS TIME ON ADMIN.', 'MORE TIME WITH SOLDIERS.']}
+				tone="dark"
+				accent
+				level="h1"
+				lineClass={[wipe, `${wipe} motion-safe:delay-200`]}
+			/>
 			<div class="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
 				<p class={[body, 'max-w-[520px] text-chrome-text-muted']}>
 					Every tracker a leader reconciles by hand is time taken from the range, the motor pool and counseling.
 					TroopToTask keeps the whole formation current in one place, so that time goes back to training Soldiers.
 				</p>
 				<div class="flex flex-wrap items-center gap-8">
-					<a href="#platform" class={[label, 'text-chrome-text underline decoration-1 underline-offset-[6px]']}>
+					<a href="#platform" class={[monoLabel, 'text-chrome-text underline decoration-1 underline-offset-[6px]']}>
 						SEE IT WORK
 					</a>
-					<Button
-						href={action.href}
-						variant="accent"
-						size="none"
-						class="h-12 rounded-lg bg-chrome-accent px-6 font-mono text-[0.8125rem] leading-4 font-normal tracking-[0.12em] text-chrome uppercase hover:bg-chrome-accent/90"
-					>
-						{action.label}
-					</Button>
+					<PublicButton href={action.href}>{action.label}</PublicButton>
 				</div>
 			</div>
 		</div>

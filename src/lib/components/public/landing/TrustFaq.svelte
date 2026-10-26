@@ -1,6 +1,8 @@
 <script lang="ts">
 	import * as Accordion from '$lib/components/ui/accordion';
-	import { band, body, container, display, eyebrow, label } from './type';
+	import PublicHeading from '../PublicHeading.svelte';
+	import PublicSection from '../PublicSection.svelte';
+	import { body, monoLabel } from '../layout';
 
 	const controls = [
 		{ name: 'NIST 800-171', value: 'Aligned controls' },
@@ -44,40 +46,35 @@
 	];
 </script>
 
-<section id="faq" class="scroll-mt-20 bg-background text-foreground">
-	<div class={[container, band, 'flex flex-col gap-16 lg:flex-row lg:gap-16 xl:gap-24']}>
-		<div class="flex shrink-0 flex-col gap-12 lg:w-[360px] xl:w-[420px]">
-			<div class="flex flex-col gap-6">
-				<p class={[eyebrow, 'text-accent-text']}>BEFORE YOU HAND OVER THE ROSTER</p>
-				<h2 class={display}><span class="block">FAIR</span><span class="block">QUESTIONS.</span></h2>
-			</div>
-			<dl class="border-t-2 border-foreground">
-				{#each controls as control (control.name)}
-					<div class="flex min-h-12 items-center justify-between gap-4 border-b border-border">
-						<dt class={label}>{control.name}</dt>
-						<dd class="font-body text-lg leading-[1.375rem] font-light text-muted-foreground">{control.value}</dd>
-					</div>
-				{/each}
-			</dl>
-			<p class={[body, 'text-muted-foreground']}>
-				Built for the administrative and personnel data that runs a unit day to day. Not authorized for classified
-				information.
-			</p>
-		</div>
-		<Accordion.Root type="single" value="2" class="grow self-start border-t-2 border-foreground">
-			{#each faqs as faq, i (faq.question)}
-				<Accordion.Item value={String(i)} class="border-b border-border">
-					<Accordion.Trigger
-						indicator="sign"
-						class="items-center gap-6 rounded-none py-[22px] font-body text-lg leading-[1.375rem] font-normal text-foreground hover:no-underline"
-					>
-						{faq.question}
-					</Accordion.Trigger>
-					<Accordion.Content class="pb-[22px]">
-						<p class={[body, 'max-w-[620px] text-muted-foreground']}>{faq.answer}</p>
-					</Accordion.Content>
-				</Accordion.Item>
+<PublicSection id="faq" class="gap-16 lg:flex-row lg:gap-16 xl:gap-24">
+	<div class="flex shrink-0 flex-col gap-12 lg:w-[360px] xl:w-[420px]">
+		<PublicHeading label="BEFORE YOU HAND OVER THE ROSTER" lines={['FAIR', 'QUESTIONS.']} />
+		<dl class="border-t-2 border-foreground">
+			{#each controls as control (control.name)}
+				<div class="flex min-h-12 items-center justify-between gap-4 border-b border-border">
+					<dt class={monoLabel}>{control.name}</dt>
+					<dd class="font-body text-lg leading-[1.375rem] font-light text-muted-foreground">{control.value}</dd>
+				</div>
 			{/each}
-		</Accordion.Root>
+		</dl>
+		<p class={[body, 'text-muted-foreground']}>
+			Built for the administrative and personnel data that runs a unit day to day. Not authorized for classified
+			information.
+		</p>
 	</div>
-</section>
+	<Accordion.Root type="single" value="2" class="grow self-start border-t-2 border-foreground">
+		{#each faqs as faq, i (faq.question)}
+			<Accordion.Item value={String(i)} class="border-b border-border">
+				<Accordion.Trigger
+					indicator="sign"
+					class="items-center gap-6 rounded-none py-[22px] font-body text-lg leading-[1.375rem] font-normal text-foreground hover:no-underline"
+				>
+					{faq.question}
+				</Accordion.Trigger>
+				<Accordion.Content class="pb-[22px]">
+					<p class={[body, 'max-w-[620px] text-muted-foreground']}>{faq.answer}</p>
+				</Accordion.Content>
+			</Accordion.Item>
+		{/each}
+	</Accordion.Root>
+</PublicSection>

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { ease, fadeUp, reveal } from './reveal';
-	import SectionIntro from './SectionIntro.svelte';
-	import { band, body, container, label } from './type';
+	import PublicHeading from '../PublicHeading.svelte';
+	import PublicSection from '../PublicSection.svelte';
+	import { body, monoLabel } from '../layout';
 
 	const rows = [
 		{
@@ -53,68 +54,65 @@
 		'lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto] lg:gap-x-6 xl:grid-cols-[356px_276px_minmax(0,1fr)_200px]';
 </script>
 
-<section class="bg-background text-foreground">
-	<div class={[container, band, 'flex flex-col gap-16']}>
-		<SectionIntro
-			eyebrow="THE ANSWER EXISTS"
-			lines={['SCATTERED ACROSS', 'EVERY TRACKER.']}
-			lead="Every leader keeps their own copy. Before anyone can answer the question, someone has to reconcile seven of them by hand."
-		/>
-		<table class="block w-full border-t-2 border-foreground" {@attach reveal}>
-			<thead class="block max-lg:sr-only">
-				<tr class={[columns, 'grid h-12 items-center border-b border-border text-left text-muted-foreground']}>
-					<th class={[label, 'font-normal']}>WHERE IT LIVES TODAY</th>
-					<th class={[label, 'font-normal']}>WHAT IT HOLDS</th>
-					<th class={[label, 'font-normal']}>WHAT GOES WRONG</th>
-					<th class={[label, 'pr-5 text-right font-normal']}>IN TROOPTOTASK</th>
-				</tr>
-			</thead>
-			<tbody class="block">
-				{#each rows as row, i (row.source)}
-					<tr
+<PublicSection class="gap-16 lg:gap-16">
+	<PublicHeading label="THE ANSWER EXISTS" lines={['SCATTERED ACROSS', 'EVERY TRACKER.']}>
+		Every leader keeps their own copy. Before anyone can answer the question, someone has to reconcile seven of them by
+		hand.
+	</PublicHeading>
+	<table class="block w-full border-t-2 border-foreground" {@attach reveal}>
+		<thead class="block max-lg:sr-only">
+			<tr class={[columns, 'grid h-12 items-center border-b border-border text-left text-muted-foreground']}>
+				<th class={[monoLabel, 'font-normal']}>WHERE IT LIVES TODAY</th>
+				<th class={[monoLabel, 'font-normal']}>WHAT IT HOLDS</th>
+				<th class={[monoLabel, 'font-normal']}>WHAT GOES WRONG</th>
+				<th class={[monoLabel, 'pr-5 text-right font-normal']}>IN TROOPTOTASK</th>
+			</tr>
+		</thead>
+		<tbody class="block">
+			{#each rows as row, i (row.source)}
+				<tr
+					class={[
+						columns,
+						fadeUp,
+						'grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 border-b border-border py-4 lg:min-h-16 lg:items-center lg:py-0'
+					]}
+					style:transition-delay="{i * 80}ms"
+				>
+					<td class="col-span-2 font-mono text-[0.8125rem] leading-4 lg:col-span-1">{row.source}</td>
+					<td class="row-start-2 font-body text-lg leading-[1.375rem] lg:row-start-auto">{row.holds}</td>
+					<td
 						class={[
-							columns,
-							fadeUp,
-							'grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 border-b border-border py-4 lg:min-h-16 lg:items-center lg:py-0'
+							body,
+							'col-span-2 row-start-3 leading-[1.375rem] text-muted-foreground lg:col-span-1 lg:row-start-auto'
 						]}
-						style:transition-delay="{i * 80}ms"
 					>
-						<td class="col-span-2 font-mono text-[0.8125rem] leading-4 lg:col-span-1">{row.source}</td>
-						<td class="row-start-2 font-body text-lg leading-[1.375rem] lg:row-start-auto">{row.holds}</td>
-						<td
+						{row.fails}
+					</td>
+					<td class="col-start-2 row-start-2 lg:col-start-auto lg:row-start-auto">
+						<span
 							class={[
-								body,
-								'col-span-2 row-start-3 leading-[1.375rem] text-muted-foreground lg:col-span-1 lg:row-start-auto'
+								monoLabel,
+								'flex items-center justify-end gap-3 whitespace-nowrap',
+								row.upcoming ? 'text-muted-foreground' : 'text-foreground'
 							]}
 						>
-							{row.fails}
-						</td>
-						<td class="col-start-2 row-start-2 lg:col-start-auto lg:row-start-auto">
-							<span
-								class={[
-									label,
-									'flex items-center justify-end gap-3 whitespace-nowrap',
-									row.upcoming ? 'text-muted-foreground' : 'text-foreground'
-								]}
-							>
-								{row.home}
-								{#if row.upcoming}
-									<span class="size-2 shrink-0 rounded-[1px] border border-muted-foreground" aria-hidden="true"></span>
-								{:else}
-									<span
-										class={[
-											'size-2 shrink-0 rounded-[1px] bg-accent transition-colors duration-300 in-data-[reveal=pending]:bg-border',
-											ease
-										]}
-										style:transition-delay="{700 + i * 160}ms"
-										aria-hidden="true"
-									></span>
-								{/if}
-							</span>
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-</section>
+							{row.home}
+							{#if row.upcoming}
+								<span class="size-2 shrink-0 rounded-[1px] border border-muted-foreground" aria-hidden="true"></span>
+							{:else}
+								<span
+									class={[
+										'size-2 shrink-0 rounded-[1px] bg-accent transition-colors duration-300 in-data-[reveal=pending]:bg-border',
+										ease
+									]}
+									style:transition-delay="{700 + i * 160}ms"
+									aria-hidden="true"
+								></span>
+							{/if}
+						</span>
+					</td>
+				</tr>
+			{/each}
+		</tbody>
+	</table>
+</PublicSection>

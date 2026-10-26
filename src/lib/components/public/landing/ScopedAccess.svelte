@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
 	import { motionAllowed } from './reveal';
-	import SectionIntro from './SectionIntro.svelte';
-	import { band, container, label } from './type';
+	import PublicHeading from '../PublicHeading.svelte';
+	import PublicSection from '../PublicSection.svelte';
+	import { monoLabel } from '../layout';
 
 	const SQUAD = 9;
 	const PLATOON = SQUAD * 3;
@@ -75,81 +76,77 @@
 	};
 </script>
 
-<section class="bg-chrome text-chrome-text">
-	<div class={[container, band, 'flex flex-col gap-16 lg:gap-[72px]']}>
-		<SectionIntro
-			dark
-			eyebrow="SCOPED ACCESS · BUILT IN"
-			lines={['EVERY LEADER', 'OWNS THEIR PIECE.']}
-			lead="Decentralized, like mission command. Squad leaders keep their own Soldiers current, and the commander sees one formation that is never out of sync."
-		/>
-		<div class="flex flex-col gap-12 xl:flex-row xl:items-start xl:gap-[88px]" {@attach autoCycle}>
-			<div
-				class="flex shrink-0 flex-col border-t border-chrome-border xl:w-[520px]"
-				role="group"
-				aria-label="Access tiers"
-			>
-				{#each tiers as t, i (t.role)}
-					{@const on = i === active}
-					<button
-						type="button"
-						aria-pressed={on}
-						class={[
-							'flex min-h-16 items-center gap-4 border-b border-l-2 border-b-chrome-border px-6 py-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-chrome-accent focus-visible:ring-inset',
-							on
-								? 'border-l-chrome-accent bg-chrome-surface text-chrome-text'
-								: 'border-l-transparent text-chrome-text-muted'
-						]}
-						onpointerenter={() => choose(i)}
-						onfocus={() => choose(i)}
-						onclick={() => choose(i)}
-					>
-						<span class={[label, 'w-32 shrink-0 sm:w-[220px]']}>{t.role}</span>
-						<span class="grow font-body text-lg leading-[1.375rem] font-light">{t.scope}</span>
-						<span class={['font-heading text-lg leading-[1.375rem] font-bold', on && 'text-chrome-accent']}>
-							{t.count}
+<PublicSection tone="dark" class="gap-16 lg:gap-[72px]">
+	<PublicHeading label="SCOPED ACCESS · BUILT IN" lines={['EVERY LEADER', 'OWNS THEIR PIECE.']} tone="dark" plain>
+		Decentralized, like mission command. Squad leaders keep their own Soldiers current, and the commander sees one
+		formation that is never out of sync.
+	</PublicHeading>
+	<div class="flex flex-col gap-12 xl:flex-row xl:items-start xl:gap-[88px]" {@attach autoCycle}>
+		<div
+			class="flex shrink-0 flex-col border-t border-chrome-border xl:w-[520px]"
+			role="group"
+			aria-label="Access tiers"
+		>
+			{#each tiers as t, i (t.role)}
+				{@const on = i === active}
+				<button
+					type="button"
+					aria-pressed={on}
+					class={[
+						'flex min-h-16 items-center gap-4 border-b border-l-2 border-b-chrome-border px-6 py-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-chrome-accent focus-visible:ring-inset',
+						on
+							? 'border-l-chrome-accent bg-chrome-surface text-chrome-text'
+							: 'border-l-transparent text-chrome-text-muted'
+					]}
+					onpointerenter={() => choose(i)}
+					onfocus={() => choose(i)}
+					onclick={() => choose(i)}
+				>
+					<span class={[monoLabel, 'w-32 shrink-0 sm:w-[220px]']}>{t.role}</span>
+					<span class="grow font-body text-lg leading-[1.375rem] font-light">{t.scope}</span>
+					<span class={['font-heading text-lg leading-[1.375rem] font-bold', on && 'text-chrome-accent']}>
+						{t.count}
+					</span>
+				</button>
+			{/each}
+		</div>
+		<div class="flex flex-col gap-8">
+			<div class="flex flex-wrap gap-8" aria-hidden="true">
+				{#each platoons as name, p (name)}
+					<div class="flex flex-col gap-3">
+						<span
+							class={[
+								monoLabel,
+								'transition-colors',
+								platoonOf(tier.first) <= p && p <= platoonOf(tier.first + tier.count - 1)
+									? 'text-chrome-text'
+									: 'text-chrome-text-muted'
+							]}
+						>
+							{name}
 						</span>
-					</button>
+						<div class="grid grid-cols-[repeat(9,18px)] gap-[5px]">
+							{#each { length: PLATOON }, s (s)}
+								{@const cell = p * PLATOON + s}
+								<span
+									class={[
+										'size-[18px] rounded-[2px] border transition-colors duration-300',
+										covers(cell)
+											? 'border-chrome-accent bg-chrome-accent'
+											: platoonOf(cell) === platoonOf(tier.first)
+												? 'border-chrome-surface-muted bg-chrome-surface-muted'
+												: 'border-chrome-border bg-chrome-surface'
+									]}
+								></span>
+							{/each}
+						</div>
+					</div>
 				{/each}
 			</div>
-			<div class="flex flex-col gap-8">
-				<div class="flex flex-wrap gap-8" aria-hidden="true">
-					{#each platoons as name, p (name)}
-						<div class="flex flex-col gap-3">
-							<span
-								class={[
-									label,
-									'transition-colors',
-									platoonOf(tier.first) <= p && p <= platoonOf(tier.first + tier.count - 1)
-										? 'text-chrome-text'
-										: 'text-chrome-text-muted'
-								]}
-							>
-								{name}
-							</span>
-							<div class="grid grid-cols-[repeat(9,18px)] gap-[5px]">
-								{#each { length: PLATOON }, s (s)}
-									{@const cell = p * PLATOON + s}
-									<span
-										class={[
-											'size-[18px] rounded-[2px] border transition-colors duration-300',
-											covers(cell)
-												? 'border-chrome-accent bg-chrome-accent'
-												: platoonOf(cell) === platoonOf(tier.first)
-													? 'border-chrome-surface-muted bg-chrome-surface-muted'
-													: 'border-chrome-border bg-chrome-surface'
-										]}
-									></span>
-								{/each}
-							</div>
-						</div>
-					{/each}
-				</div>
-				<p class="flex flex-wrap gap-x-6 gap-y-2">
-					<span class={[label, 'text-chrome-text']}>{tier.leader}</span>
-					<span class={[label, 'text-chrome-text-muted']}>SEES {tier.count} · UPDATES {tier.count}</span>
-				</p>
-			</div>
+			<p class="flex flex-wrap gap-x-6 gap-y-2">
+				<span class={[monoLabel, 'text-chrome-text']}>{tier.leader}</span>
+				<span class={[monoLabel, 'text-chrome-text-muted']}>SEES {tier.count} · UPDATES {tier.count}</span>
+			</p>
 		</div>
 	</div>
-</section>
+</PublicSection>

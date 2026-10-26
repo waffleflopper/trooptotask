@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { reveal } from './reveal';
-	import SectionIntro from './SectionIntro.svelte';
-	import { band, body, container, label, title } from './type';
+	import PublicHeading from '../PublicHeading.svelte';
+	import PublicSection from '../PublicSection.svelte';
+	import { body, monoLabel, title } from '../layout';
 
 	type Shot = {
 		index: string;
@@ -105,45 +106,41 @@
 {/snippet}
 
 {#snippet caption(shot: Shot)}
-	<p class={[label, 'text-accent-text']}>{shot.index} · {shot.name}</p>
+	<p class={[monoLabel, 'text-accent-text']}>{shot.index} · {shot.name}</p>
 	<h3 class={title}>{shot.heading}</h3>
 {/snippet}
 
-<section id="platform" class="scroll-mt-20 bg-background text-foreground">
-	<div class={[container, band, 'flex flex-col gap-16 lg:gap-[72px]']}>
-		<SectionIntro
-			eyebrow="AVAILABLE TODAY"
-			lines={['ONE FORMATION.', 'ONE SOURCE OF TRUTH.']}
-			lead="Every tracker in the ledger above, replaced by one system that leaders already update as part of their day."
-		/>
-		<div class="flex flex-col gap-8">
-			{@render screenshot(calendar.image)}
-			<div class="flex flex-col gap-4 lg:flex-row lg:justify-between lg:gap-20">
-				<div class="flex flex-col gap-2 lg:w-[420px]">{@render caption(calendar)}</div>
-				<p class={[body, 'text-muted-foreground lg:w-[620px]']}>{calendar.text}</p>
-			</div>
-		</div>
-		<div class="grid gap-16 md:grid-cols-2 md:gap-10">
-			{#each pair as shot (shot.index)}
-				<div class="flex flex-col gap-8">
-					{@render screenshot(shot.image)}
-					<div class="flex flex-col gap-2">
-						{@render caption(shot)}
-						<p class={[body, 'text-muted-foreground']}>{shot.text}</p>
-					</div>
-				</div>
-			{/each}
-		</div>
-		<div class="grid gap-16 md:grid-cols-3 md:gap-10">
-			{#each trio as shot (shot.index)}
-				<div class="flex flex-col gap-6">
-					{@render screenshot(shot.image)}
-					<div class="flex flex-col gap-2">
-						{@render caption(shot)}
-						<p class={[body, 'text-muted-foreground']}>{shot.text}</p>
-					</div>
-				</div>
-			{/each}
+<PublicSection id="platform" class="gap-16 lg:gap-[72px]">
+	<PublicHeading label="AVAILABLE TODAY" lines={['ONE FORMATION.', 'ONE SOURCE OF TRUTH.']}>
+		Every tracker in the ledger above, replaced by one system that leaders already update as part of their day.
+	</PublicHeading>
+	<div class="flex flex-col gap-8">
+		{@render screenshot(calendar.image)}
+		<div class="flex flex-col gap-4 lg:flex-row lg:justify-between lg:gap-20">
+			<div class="flex flex-col gap-2 lg:w-[420px]">{@render caption(calendar)}</div>
+			<p class={[body, 'text-muted-foreground lg:w-[620px]']}>{calendar.text}</p>
 		</div>
 	</div>
-</section>
+	<div class="grid gap-16 md:grid-cols-2 md:gap-10">
+		{#each pair as shot (shot.index)}
+			<div class="flex flex-col gap-8">
+				{@render screenshot(shot.image)}
+				<div class="flex flex-col gap-2">
+					{@render caption(shot)}
+					<p class={[body, 'text-muted-foreground']}>{shot.text}</p>
+				</div>
+			</div>
+		{/each}
+	</div>
+	<div class="grid gap-16 md:grid-cols-3 md:gap-10">
+		{#each trio as shot (shot.index)}
+			<div class="flex flex-col gap-6">
+				{@render screenshot(shot.image)}
+				<div class="flex flex-col gap-2">
+					{@render caption(shot)}
+					<p class={[body, 'text-muted-foreground']}>{shot.text}</p>
+				</div>
+			</div>
+		{/each}
+	</div>
+</PublicSection>

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
 	CLOSED_TASKING_LIMIT,
 	transitionNote,
@@ -29,8 +30,8 @@ export interface CalendarTaskingPersistence {
 	/** Retrying the same id converges on the Tasking the first attempt created, with `created` false. */
 	createTasking(id: string, draft: TaskingDraft): Promise<{ tasking: Tasking; created: boolean }>;
 	updateTasking(id: string, draft: TaskingDraft): Promise<Tasking | null>;
-	/** Repeating an action that already landed changes nothing. */
-	transitionTasking(id: string, transition: TaskingTransition): Promise<Tasking>;
+	/** Repeating an action that already landed changes nothing, and `moved` is false. */
+	transitionTasking(id: string, transition: TaskingTransition): Promise<{ tasking: Tasking; moved: boolean }>;
 }
 
 const COLUMNS = [
@@ -89,6 +90,7 @@ const taskingRowSchema = z
 	.and(statusRowSchema);
 
 type TaskingRow = z.output<typeof taskingRowSchema>;
+type PagedQuery = { range(from: number, to: number): PromiseLike<{ data: unknown[] | null; error: unknown }> };
 
 const responsibilityFrom = (groupId: string | null): TaskingResponsibility =>
 	groupId === null ? { kind: 'organization' } : { kind: 'group', groupId };
@@ -267,28 +269,39 @@ export function createSupabaseCalendarTaskingPersistence(
 		return (data ?? []).map(toTasking);
 	}
 
+	async function allRows(query: () => PagedQuery) {
+		const { data, error } = await selectAllSupabaseRows(async (from, to) => await query().range(from, to));
+		if (error) throw new Error((error as { message: string }).message);
+		return data ?? [];
+	}
+
 	return {
 		listTaskings(scope) {
 			if (scope === 'active')
-				return rows(taskings().in('status', ['open', 'in_progress', 'blocked']).order('suspense_on').order('id'));
+				return allRows(() =>
+					taskings().in('status', ['open', 'in_progress', 'blocked']).order('suspense_on').order('id')
+				).then((data) => data.map(toTasking));
 			const at = scope === 'completed' ? 'completed_at' : 'cancelled_at';
 			return rows(
 				taskings().eq('status', scope).order(at, { ascending: false }).order('id').limit(CLOSED_TASKING_LIMIT)
 			);
 		},
 		listEventTaskings(eventId) {
-			return rows(taskings().eq('event_id', eventId).order('suspense_on').order('title').order('id'));
+			return allRows(() => taskings().eq('event_id', eventId).order('suspense_on').order('title').order('id')).then(
+				(data) => data.map(toTasking)
+			);
 		},
 		findTasking,
 		async listActivity(taskingId) {
-			const { data, error } = await client
-				.from('calendar_tasking_activity')
-				.select('id, occurred_at, actor_id, kind, payload')
-				.eq('organization_id', orgId)
-				.eq('tasking_id', taskingId)
-				.order('id');
-			if (error) throw new Error(error.message);
-			return (data ?? []).map(toActivity);
+			const data = await allRows(() =>
+				client
+					.from('calendar_tasking_activity')
+					.select('id, occurred_at, actor_id, kind, payload')
+					.eq('organization_id', orgId)
+					.eq('tasking_id', taskingId)
+					.order('id')
+			);
+			return data.map(toActivity);
 		},
 		async findEventTitles(ids) {
 			if (ids.length === 0) return {};
@@ -325,7 +338,7 @@ export function createSupabaseCalendarTaskingPersistence(
 			return data ? toTasking(data) : null;
 		},
 		async transitionTasking(id, transition) {
-			const { error } = await client.rpc('transition_calendar_tasking', {
+			const { data, error } = await client.rpc('transition_calendar_tasking', {
 				p_organization_id: orgId,
 				p_tasking_id: id,
 				p_action: transition.action,
@@ -334,7 +347,7 @@ export function createSupabaseCalendarTaskingPersistence(
 			if (error) return writeFailure(error);
 			const tasking = await findTasking(id);
 			if (!tasking) return fail(404, TASKING_GONE);
-			return tasking;
+			return { tasking, moved: z.boolean().parse(data) };
 		}
 	};
 }

@@ -50,7 +50,7 @@ RETURNS void LANGUAGE sql AS $$
     CASE WHEN p_group IS NULL THEN NULL ELSE pg_temp.id(p_group) END,
     CASE WHEN p_event IS NULL THEN NULL ELSE pg_temp.id(p_event) END, '2030-10-23');
 $$;
-CREATE FUNCTION pg_temp.move(p_id text, p_action text, p_note text DEFAULT NULL) RETURNS void LANGUAGE sql AS $$
+CREATE FUNCTION pg_temp.move(p_id text, p_action text, p_note text DEFAULT NULL) RETURNS boolean LANGUAGE sql AS $$
   SELECT public.transition_calendar_tasking(pg_temp.id('101'), pg_temp.id(p_id), p_action, p_note);
 $$;
 CREATE FUNCTION pg_temp.status_of(p_id text) RETURNS text LANGUAGE sql AS $$
@@ -227,8 +227,8 @@ SELECT throws_ok($$SELECT pg_temp.move('404', 'unblock')$$, '55000', NULL, 'an O
 SELECT throws_ok($$SELECT pg_temp.move('404', 'reopen')$$, '55000', NULL, 'an Open Tasking cannot be reopened');
 SELECT throws_ok($$SELECT pg_temp.move('404', 'block', '   ')$$, '23514', NULL, 'a block needs a reason');
 SELECT throws_ok($$SELECT pg_temp.move('404', 'archive')$$, '22023', NULL, 'an unknown action is refused');
-SELECT lives_ok($$SELECT pg_temp.move('404', 'start')$$, 'an Alpha operator starts an Alpha Tasking');
-SELECT lives_ok($$SELECT pg_temp.move('404', 'start')$$, 'starting again changes nothing');
+SELECT is(pg_temp.move('404', 'start'), true, 'an Alpha operator starts an Alpha Tasking');
+SELECT is(pg_temp.move('404', 'start'), false, 'starting again changes nothing and says so');
 SELECT lives_ok($$SELECT pg_temp.move('404', 'block', '  Litters short  ')$$, 'an In progress Tasking is blocked with a reason');
 SELECT results_eq(
   $$SELECT status, block_reason, blocked_by, blocked_at IS NOT NULL, suspense_on FROM public.calendar_taskings WHERE id = pg_temp.id('404')$$,

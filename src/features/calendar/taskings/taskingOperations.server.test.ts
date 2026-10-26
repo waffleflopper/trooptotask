@@ -67,7 +67,7 @@ function memoryTaskings(): CalendarTaskingPersistence & { stored: Map<string, Ta
 		async transitionTasking(id, transition) {
 			const existing = stored.get(id)!;
 			const { from, to } = TASKING_TRANSITIONS[transition.action];
-			if (existing.status.kind === to) return existing;
+			if (existing.status.kind === to) return { tasking: existing, moved: false };
 			if (!from.includes(existing.status.kind)) throw new Error('not allowed');
 			const at = '2026-10-25T12:00:00Z';
 			const status: TaskingStatus =
@@ -80,7 +80,7 @@ function memoryTaskings(): CalendarTaskingPersistence & { stored: Map<string, Ta
 							: { kind: to };
 			const tasking = { ...existing, status };
 			stored.set(id, tasking);
-			return tasking;
+			return { tasking, moved: true };
 		}
 	};
 }

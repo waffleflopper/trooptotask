@@ -60,6 +60,8 @@
 	let actionError = $state('');
 	let movingBy = $state<TaskingAction | null>(null);
 	let alive = true;
+	// Choosing any other action drops an Edit still waiting on its choices.
+	let editIntent = 0;
 	const moving = new PendingSave();
 
 	$effect(() => () => (alive = false));
@@ -97,14 +99,16 @@
 
 	async function startEdit() {
 		actionError = '';
+		const intent = ++editIntent;
 		const requested = choices;
 		const result = await requested;
-		if (!alive || requested !== choices) return;
+		if (!alive || requested !== choices || intent !== editIntent) return;
 		if (result.status === 'loaded' && result.value) dialog = { kind: 'edit', choices: result.value };
 		else actionError = 'The groups and events to choose from could not be loaded. Try again in a moment.';
 	}
 
 	function act(tasking: Tasking, action: TaskingAction) {
+		editIntent++;
 		if (action === 'block' || action === 'complete' || action === 'cancel') {
 			dialog = { kind: action };
 			return;

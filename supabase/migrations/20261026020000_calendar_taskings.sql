@@ -279,9 +279,10 @@ GRANT ALL ON public.calendar_taskings, public.calendar_tasking_activity TO servi
 
 -- The only way a Tasking's status changes. A repeat of an action that already
 -- landed is a no-op, so a retried request keeps the first actor, time and note.
+-- Returns whether this call moved the Tasking, decided under the row lock.
 CREATE FUNCTION public.transition_calendar_tasking(
   p_organization_id uuid, p_tasking_id uuid, p_action text, p_note text
-) RETURNS void
+) RETURNS boolean
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = ''
 AS $$
@@ -330,7 +331,7 @@ BEGIN
   END IF;
 
   IF v_status = v_target THEN
-    RETURN;
+    RETURN false;
   END IF;
   IF NOT v_status = ANY (v_from) THEN
     RAISE EXCEPTION 'A % tasking cannot %', v_status, p_action USING ERRCODE = '55000';
@@ -348,6 +349,7 @@ BEGIN
     cancelled_at = CASE WHEN v_target = 'cancelled' THEN pg_catalog.now() END,
     cancelled_by = CASE WHEN v_target = 'cancelled' THEN auth.uid() END
   WHERE organization_id = p_organization_id AND id = p_tasking_id;
+  RETURN true;
 END;
 $$;
 ALTER FUNCTION public.transition_calendar_tasking(uuid, uuid, text, text) OWNER TO postgres;

@@ -154,8 +154,7 @@ export async function transitionTasking(ctx: CalendarTaskingPorts, id: string, i
 	const transition = parse(taskingTransitionSchema, input);
 	const existing = await requireExisting(ctx, id);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, existing.responsibility);
-	const tasking = await ctx.calendarTaskings.transitionTasking(existing.id, transition);
-	if (tasking.status.kind !== existing.status.kind)
-		await ctx.audit.log(audited(AUDIT_VERBS[transition.action], tasking));
+	const { tasking, moved } = await ctx.calendarTaskings.transitionTasking(existing.id, transition);
+	if (moved) await ctx.audit.log(audited(AUDIT_VERBS[transition.action], tasking));
 	return tasking;
 }

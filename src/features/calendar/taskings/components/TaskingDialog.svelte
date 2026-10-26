@@ -108,7 +108,7 @@
 			if (key.startsWith('responsibility')) byField.responsibility ??= 'Choose who is responsible.';
 			else if (key === 'suspenseOn') byField.suspenseOn ??= 'Choose a date.';
 			else if (key === 'execution.startsOn' || key === 'execution.endsOn')
-				byField.execution ??= issue.code === 'custom' ? issue.message : 'Choose both dates, or clear both.';
+				byField[key] ??= issue.code === 'custom' ? issue.message : 'Choose both dates, or clear both.';
 			else byField[key] ??= issue.message;
 		}
 		return byField;
@@ -130,7 +130,8 @@
 		triedSave = true;
 		if (!parsed.success) {
 			if (
-				problems.execution ||
+				problems['execution.startsOn'] ||
+				problems['execution.endsOn'] ||
 				problems['execution.reportTime'] ||
 				problems['requirement.count'] ||
 				problems['requirement.qualifications'] ||
@@ -256,10 +257,12 @@
 											bind:value={() => form.startsOn, chooseStart}
 											placeholder="Choose a date"
 										/>
+										{#if problems['execution.startsOn']}<Field.Error>{problems['execution.startsOn']}</Field.Error>{/if}
 									</Field.Root>
 									<Field.Root>
 										<Field.Label for="tasking-ends-on">Ends</Field.Label>
 										<DatePicker id="tasking-ends-on" bind:value={form.endsOn} placeholder="Choose a date" />
+										{#if problems['execution.endsOn']}<Field.Error>{problems['execution.endsOn']}</Field.Error>{/if}
 									</Field.Root>
 									<Field.Root>
 										<Field.Label for="tasking-report-time">Report time</Field.Label>
@@ -269,6 +272,7 @@
 											disabled={!form.startsOn && !form.endsOn}
 											bind:value={form.reportTime}
 										/>
+										{#if problems['execution.reportTime']}<Field.Error>{problems['execution.reportTime']}</Field.Error>{/if}
 									</Field.Root>
 								</div>
 								<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -279,8 +283,6 @@
 										<Button variant="ghost" size="sm" onclick={clearExecution}>Clear execution</Button>
 									{/if}
 								</div>
-								{#if problems.execution}<Field.Error>{problems.execution}</Field.Error>{/if}
-								{#if problems['execution.reportTime']}<Field.Error>{problems['execution.reportTime']}</Field.Error>{/if}
 							</fieldset>
 							<div class="grid gap-4 sm:grid-cols-[8rem_1fr]">
 								<Field.Root>

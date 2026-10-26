@@ -127,6 +127,21 @@ describe('TaskingDialog', () => {
 		expect(responsible().getAttribute('aria-invalid')).toBe('true');
 	});
 
+	it('marks the Ends date invalid when it falls before Starts', async () => {
+		const send = vi.fn();
+		vi.stubGlobal('fetch', send);
+		open({ tasking: { ...saved, execution: { startsOn: '2026-11-06', endsOn: '2026-11-02', reportTime: null } } });
+
+		await fireEvent.input(outcome(), { target: { value: 'Provide five medics' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		expect(send).not.toHaveBeenCalled();
+		const ends = screen.getByLabelText('Ends');
+		expect(ends.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(ends.getAttribute('aria-describedby') ?? '')?.textContent).toBeTruthy();
+		expect(screen.getByLabelText('Starts').getAttribute('aria-invalid')).not.toBe('true');
+	});
+
 	it('offers a Group-scoped operator only their Groups and locks responsibility when editing', () => {
 		open({ organizationWide: false, choices: { ...choices, groups: [{ id: ALPHA, name: 'Alpha' }] } });
 		expect(optionValues(responsible())).toEqual([ALPHA]);

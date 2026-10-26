@@ -22,7 +22,7 @@ const tasking: Tasking = {
 };
 const nobody: TaskingStaffing = { revision: 0, picked: 0, needsReview: 0, outsideScope: 0, picks: [] };
 const picker: StaffingPicker = {
-	tasking: { requirement: null, execution: null },
+	tasking: { requirement: tasking.requirement, execution: tasking.execution },
 	states: {},
 	staffing: nobody,
 	candidates: [
@@ -71,11 +71,15 @@ const brunoSaved: TaskingStaffing = {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 function serve(...saves: Response[]) {
+	return serveFrom(picker, ...saves);
+}
+
+function serveFrom(loaded: StaffingPicker, ...saves: Response[]) {
 	const sent: unknown[] = [];
 	vi.stubGlobal(
 		'fetch',
 		vi.fn(async (_url: string, init?: RequestInit) => {
-			if (!init?.method) return json(picker);
+			if (!init?.method) return json(loaded);
 			sent.push(JSON.parse(String(init.body)));
 			return saves.shift() ?? json({ message: 'unexpected' }, 500);
 		})
@@ -94,6 +98,13 @@ afterEach(() => {
 });
 
 describe('AssignPeopleDialog', () => {
+	it('filters by the MOS the loaded requirement names when the caller passed only a count', async () => {
+		serveFrom({ ...picker, tasking: { ...picker.tasking, requirement: { count: 2, qualifications: '68W' } } });
+		open();
+
+		expect(await screen.findByRole('button', { name: '68W', pressed: true })).toBeTruthy();
+	});
+
 	it('keeps the operator’s choices when someone else saved first, and saves them against the new revision', async () => {
 		const sent = serve(
 			json({ outcome: 'conflict', staffing: brunoSaved }, 409),

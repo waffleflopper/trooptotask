@@ -105,10 +105,12 @@
 	const groupFilterLabel = $derived(
 		groupFilter === ALL_GROUPS ? 'All' : groupFilter === UNASSIGNED ? 'Unassigned' : (groups[groupFilter] ?? 'All')
 	);
+	// What the picker read is current; a caller's copy, such as a Calendar card's, may be partial.
+	const requirement = $derived(typeof picker === 'object' && picker ? picker.tasking.requirement : tasking.requirement);
 	// The requirement names an MOS only as free text, so the toggle appears only when that text names one people hold.
 	const qualifications = $derived(
 		qualificationTokens(
-			tasking.requirement?.qualifications ?? null,
+			requirement?.qualifications ?? null,
 			rows.map((row) => row.mos)
 		)
 	);
@@ -126,7 +128,7 @@
 	const dirty = $derived(
 		removeOutsideScope || selected.size !== initial.length || initial.some((id) => !selected.has(id))
 	);
-	const required = $derived(tasking.requirement?.count ?? null);
+	const required = $derived(requirement?.count ?? null);
 	const openSlots = $derived(required === null ? 0 : Math.max(0, required - selected.size));
 	const countText = $derived(
 		required === null

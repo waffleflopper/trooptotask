@@ -38,7 +38,7 @@ const expectedRoster = {
 	personnelSnapshot: [
 		{ id: 'old-person', rank: 'LEGACY', firstName: 'Prior', lastName: 'Person', group: 'Old Group', groupId: 'alpha' }
 	],
-	filterConfig: { groups: ['alpha'], ranks: ['LEGACY'] },
+	filterConfig: { groups: ['alpha'], ranks: ['LEGACY'], mos: [], roles: [] },
 	signedFilePath: 'ordinary-org/sign-in-rosters/saved-roster/signed.pdf',
 	createdBy: 'original-user',
 	createdAt: '2026-02-02T03:04:05.123456Z'
@@ -225,7 +225,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 			],
 			personnelIds: ['current-person'],
 			scopeGroupIds: ['bravo'],
-			filterConfig: { groups: ['bravo'], ranks: ['PFC'] },
+			filterConfig: { groups: ['bravo'], ranks: ['PFC'], mos: ['68W'], roles: ['Driver'] },
 			createdBy: 'current-user',
 			organization_id: 'foreign-org',
 			unexpected_provider_column: 'must not be stored'
@@ -240,7 +240,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 			personnelSnapshot: [
 				{ id: 'current-person', rank: 'PFC', firstName: 'New', lastName: 'Person', group: 'Bravo', groupId: 'bravo' }
 			],
-			filterConfig: { groups: ['bravo'], ranks: ['PFC'] },
+			filterConfig: { groups: ['bravo'], ranks: ['PFC'], mos: ['68W'], roles: ['Driver'] },
 			signedFilePath: null,
 			createdBy: 'current-user',
 			createdAt: '2026-03-04T05:06:07.654321Z'
@@ -260,7 +260,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 				],
 				personnel_ids: ['current-person'],
 				scope_group_ids: ['bravo'],
-				filter_config: { groups: ['bravo'], ranks: ['PFC'] },
+				filter_config: { groups: ['bravo'], ranks: ['PFC'], mos: ['68W'], roles: ['Driver'] },
 				signed_file_path: null,
 				created_by: 'current-user',
 				created_at: '2026-03-04T05:06:07.654321Z'
@@ -311,7 +311,7 @@ describe('ordinary owned Sign-in Roster rank projection through the actual SDK',
 			{
 				id: 'a',
 				organization_id: ORG,
-				filter_config: { ranks: [' SGT ', 5, null, '', 'SGT', 'sgt'] },
+				filter_config: { ranks: [' SGT ', 5, null, '', 'SGT', 'sgt'], mos: ['68W'], roles: ['Driver'] },
 				personnel_snapshot: [{ rank: ' SSG ' }, null, 'PFC', { rank: 4 }, ['COL'], { rank: 'SGT' }, { rank: '' }]
 			},
 			{

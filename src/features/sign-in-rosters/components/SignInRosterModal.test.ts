@@ -68,7 +68,7 @@ function makeRoster(overrides: Partial<SignInRoster> = {}): SignInRoster {
 				group: 'Alpha'
 			}
 		],
-		filterConfig: { groups: [], ranks: ['SGT'] },
+		filterConfig: { groups: [], ranks: ['SGT'], mos: [], roles: [] },
 		signedFilePath: null,
 		createdBy: 'user-1',
 		createdAt: '2026-03-28T12:00:00.000Z',
@@ -128,6 +128,36 @@ describe('SignInRosterModal', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
 		expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
 		expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+	});
+
+	it('reprints saved personnel when a legacy roster has no MOS or Duty Role filter keys', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () =>
+				jsonResponse({
+					rosters: [
+						{
+							...makeRoster(),
+							filterConfig: { groups: [], ranks: ['SGT'] },
+							personnelSnapshot: [
+								{ id: 'historical-person', rank: 'SGT', lastName: 'Prior', firstName: 'Person', group: 'Old Group' }
+							]
+						}
+					],
+					total: 1
+				})
+			)
+		);
+		renderModal({ personnel: [] });
+
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/ }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Re-print' }));
+
+		await waitFor(() => {
+			expect(mockAutoTable.mock.calls[0]?.[1].body).toEqual([
+				[{ content: '1', styles: { halign: 'center' } }, 'SGT', 'Prior, Person', '']
+			]);
+		});
 	});
 
 	it('persists the roster when creating a new sign-in roster', async () => {

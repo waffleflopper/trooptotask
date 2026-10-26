@@ -377,7 +377,9 @@
 	{#if live && action.menuItems}
 		<WorkspaceToolbarMenu
 			label={action.label}
-			contentClass={action.menuItems.some((item) => item.kind === 'action' && item.description) ? 'w-75' : undefined}
+			contentClass={action.menuItems.some((item) => item.kind === 'action' && item.description)
+				? 'w-75'
+				: 'w-auto min-w-(--bits-dropdown-menu-anchor-width)'}
 		>
 			{#snippet trigger(props)}
 				{@render actionButton(action, variant, true, props, iconOnly)}

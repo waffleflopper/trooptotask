@@ -189,7 +189,14 @@ describe('organization layout scope lifetime', () => {
 			if (submitted.length === 1) return firstSave.promise;
 			return Response.json({
 				calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
-				training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'alphabetical' }
+				training: {
+					selectedGroupId: null,
+					selectedViewId: null,
+					matrixViewMode: 'alphabetical',
+					matrixColorAll: false,
+					matrixCurrentMark: 'date',
+					matrixNeedsActionOnly: false
+				}
 			});
 		});
 		const view = render(Layout, { data: workspace(), children: preferenceChildren });
@@ -213,7 +220,14 @@ describe('organization layout scope lifetime', () => {
 		firstSave.resolve(
 			Response.json({
 				calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
-				training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' }
+				training: {
+					selectedGroupId: null,
+					selectedViewId: null,
+					matrixViewMode: 'by-group',
+					matrixColorAll: false,
+					matrixCurrentMark: 'date',
+					matrixNeedsActionOnly: false
+				}
 			})
 		);
 		await vi.advanceTimersByTimeAsync(0);

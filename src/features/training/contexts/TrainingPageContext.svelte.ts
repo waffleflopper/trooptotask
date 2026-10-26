@@ -18,6 +18,7 @@ import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type {
 	TrainingPageAccess,
 	TrainingAffordance,
+	TrainingMatrixDisplay,
 	TrainingMatrixViewMode,
 	TrainingPagePreferences,
 	TrainingPreferencesPatch
@@ -31,6 +32,11 @@ import { matchesPersonnelSearch } from '../utils/personnelSearch';
 import { trainingReadinessSource } from '../webSources.svelte';
 
 const RECORD_PARAM = 'person';
+const DEFAULT_MATRIX_DISPLAY: TrainingMatrixDisplay = {
+	matrixColorAll: false,
+	matrixCurrentMark: 'date',
+	matrixNeedsActionOnly: false
+};
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
 type TrainingBatchCompletionRecord = TrainingBatchRecord & { status: 'completed' };
@@ -67,6 +73,7 @@ export class TrainingPageContext {
 	selectedViewId = $state<string | null>(null);
 	searchQuery = $state('');
 	viewMode = $state<TrainingMatrixViewMode>('by-group');
+	matrixDisplay = $state<TrainingMatrixDisplay>({ ...DEFAULT_MATRIX_DISPLAY });
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 	/** The matrix's visible row order: what the record sheet steps through. */
 	rowOrder = $state.raw<string[]>([]);
@@ -315,6 +322,11 @@ export class TrainingPageContext {
 		});
 	}
 
+	setMatrixDisplay(patch: Partial<TrainingMatrixDisplay>): void {
+		this.matrixDisplay = { ...this.matrixDisplay, ...patch };
+		this.#savePreferences({ training: patch });
+	}
+
 	dispose(): void {
 		this.#disposed = true;
 	}
@@ -427,6 +439,11 @@ export class TrainingPageContext {
 		this.selectedViewId =
 			selectedViewId && (!viewsLoaded || this.savedViewIds.has(selectedViewId)) ? selectedViewId : null;
 		this.viewMode = trainingPrefs?.matrixViewMode ?? 'by-group';
+		this.matrixDisplay = {
+			matrixColorAll: trainingPrefs?.matrixColorAll ?? DEFAULT_MATRIX_DISPLAY.matrixColorAll,
+			matrixCurrentMark: trainingPrefs?.matrixCurrentMark ?? DEFAULT_MATRIX_DISPLAY.matrixCurrentMark,
+			matrixNeedsActionOnly: trainingPrefs?.matrixNeedsActionOnly ?? DEFAULT_MATRIX_DISPLAY.matrixNeedsActionOnly
+		};
 	}
 
 	private reconcileHydratedSelections(): void {

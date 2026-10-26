@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -9,6 +9,7 @@
 		DEFAULT_TRAINING_READINESS_GOAL_PERCENT
 	} from '$features/organization/contracts';
 	import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
+	import type { TrainingMatrixDisplay } from '$features/training/contracts';
 	import {
 		getTrainingStatus,
 		TRAINING_STATUS_SORT_ORDER,
@@ -29,7 +30,7 @@
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import { Button } from '$lib/components/ui/button';
 	import TrainingCellPopover from './TrainingCellPopover.svelte';
-	import TrainingMatrixCell, { trainingMatrixCellClasses } from './TrainingMatrixCell.svelte';
+	import TrainingMatrixCell, { trainingMatrixCellClass } from './TrainingMatrixCell.svelte';
 
 	interface Props {
 		personnel: Personnel[];
@@ -49,6 +50,7 @@
 		/** Reports the rows in the order the matrix shows them, collapsed groups left out. */
 		onRowOrderChange?: (personnelIds: string[]) => void;
 		groupBy?: GroupDef<Personnel>;
+		display?: TrainingMatrixDisplay;
 	}
 
 	interface TrainingCellMetadata {
@@ -83,8 +85,33 @@
 		onRecord,
 		onPersonClick,
 		onRowOrderChange,
-		groupBy
+		groupBy,
+		display = { matrixColorAll: false, matrixCurrentMark: 'date', matrixNeedsActionOnly: false }
 	}: Props = $props();
+
+	const NEEDS_ACTION = new Set<TrainingStatus>(['expired', 'warning-orange', 'warning-yellow', 'not-completed']);
+
+	const needsAction = (person: Personnel) =>
+		trainingTypes.some((type) => NEEDS_ACTION.has(getCellMetadata(person, type).statusInfo.status));
+
+	// Anyone who needs action shows at once. A Soldier fixed mid-session keeps their row until the filter, the roster or
+	// the columns change, so focus and record stepping still have somewhere to go.
+	const filterKey = $derived(
+		display.matrixNeedsActionOnly
+			? `${personnel.map((person) => person.id).join()}|${trainingTypes.map((type) => type.id).join()}`
+			: null
+	);
+	const keptIds = $derived.by(() =>
+		filterKey === null
+			? null
+			: untrack(() => new Set(personnel.filter((person) => needsAction(person)).map((person) => person.id)))
+	);
+	const needingAction = $derived(keptIds ? personnel.filter((person) => needsAction(person)) : []);
+	const shownPersonnel = $derived.by(() => {
+		if (!keptIds) return personnel;
+		const live = new Set(needingAction.map((person) => person.id));
+		return personnel.filter((person) => live.has(person.id) || keptIds.has(person.id));
+	});
 
 	const columns: ColumnDef<Personnel>[] = [
 		{
@@ -96,7 +123,7 @@
 	];
 
 	const table = useDataTable({
-		data: () => personnel,
+		data: () => shownPersonnel,
 		columns,
 		initialSortKey: 'name',
 		groupBy: () => groupBy,
@@ -106,7 +133,7 @@
 			const status = (p: Personnel) => getCellMetadata(p, type).statusInfo.status;
 			let sortOrder: Map<string, number> | undefined;
 			const rank = (p: Personnel) => {
-				sortOrder ??= new Map(personnel.map((person) => [person.id, TRAINING_STATUS_SORT_ORDER[status(person)]]));
+				sortOrder ??= new Map(shownPersonnel.map((person) => [person.id, TRAINING_STATUS_SORT_ORDER[status(person)]]));
 				return sortOrder.get(p.id) ?? 0;
 			};
 			return {
@@ -146,7 +173,7 @@
 		return {
 			training,
 			statusInfo,
-			displayText: getCellDisplayText(statusInfo, training, type)
+			displayText: getCellDisplayText(statusInfo, training, type, display.matrixCurrentMark)
 		};
 	}
 
@@ -186,8 +213,11 @@
 		});
 	}
 
-	const footerGaps = $derived(gapsFor(personnel));
-	const groupGaps = $derived(new Map(table.groups.map((group) => [group.key, gapsFor(group.rows)])));
+	// A group's readiness counts everyone in it, including the rows that "needing action" hides.
+	const groupMembers = $derived(groupBy ? Map.groupBy(personnel, groupBy.key) : new Map<string, Personnel[]>());
+	const groupGaps = $derived(
+		new Map(table.groups.map((group) => [group.key, gapsFor(groupMembers.get(group.key) ?? group.rows)]))
+	);
 
 	const departureTags = $derived(
 		new Map(
@@ -324,7 +354,6 @@
 	const totalColumns = $derived(matrixColumns.length + 1);
 
 	const legendItems: Array<{ status: TrainingStatus; label: string; sample: string }> = [
-		{ status: 'current', label: 'Current until', sample: 'Jun ’27' },
 		{ status: 'warning-yellow', label: 'Expiring soon', sample: '' },
 		{ status: 'warning-orange', label: 'Expiring', sample: '' },
 		{ status: 'expired', label: 'Expired', sample: '' },
@@ -403,6 +432,10 @@
 					status={cell.statusInfo.status}
 					label={cell.displayText}
 					srLabel={getCellStatusLabel(cell.statusInfo)}
+					colorAll={display.matrixColorAll}
+					class={cell.statusInfo.status === 'current' && display.matrixCurrentMark === 'check'
+						? 'text-sm font-bold'
+						: undefined}
 				/>
 			</OperationalMatrix.Cell>
 		{/each}
@@ -419,19 +452,23 @@
 			<div class="flex min-w-0 flex-wrap items-baseline gap-x-3">
 				<h2 class="font-heading text-xl font-semibold tracking-tight">{title}</h2>
 				<p class="font-mono text-xs text-muted-foreground">
-					{personnel.length} personnel × {trainingTypes.length} types · {groupBy ? 'by group' : 'A–Z'}
+					{display.matrixNeedsActionOnly
+						? `${needingAction.length} of ${personnel.length} need action`
+						: `${personnel.length} personnel`} × {trainingTypes.length} types · {groupBy ? 'by group' : 'A–Z'}
 				</p>
 			</div>
 			<ul class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground" aria-label="Status legend">
 				{#each legendItems as item (item.status)}
 					<li class="flex items-center gap-1.5">
 						{#if item.status === 'exempt'}
-							<span class="font-mono text-xs uppercase">{item.label}</span>
+							<span class={['px-1 font-mono text-xs', trainingMatrixCellClass(item.status, display.matrixColorAll)]}
+								>{item.label}</span
+							>
 						{:else}
 							<span
 								class={[
 									'inline-flex h-4 min-w-5 items-center justify-center px-1 font-mono text-[10px]',
-									trainingMatrixCellClasses[item.status]
+									trainingMatrixCellClass(item.status, display.matrixColorAll)
 								]}
 								aria-hidden="true">{item.sample}</span
 							>
@@ -470,7 +507,7 @@
 								onclick={() => table.toggleSort('name')}
 							>
 								<span>Personnel<span aria-hidden="true">{sortIndicator('name')}</span></span>
-								<span class="font-normal tracking-normal">{personnel.length}</span>
+								<span class="font-normal tracking-normal">{shownPersonnel.length}</span>
 							</Button>
 						</OperationalMatrix.CornerCell>
 						{#each matrixColumns as column (column.id)}
@@ -539,7 +576,9 @@
 										{/if}
 										<span class="truncate">{item.group.label}</span>
 										<span class="font-mono text-xs font-normal text-muted-foreground max-sm:hidden"
-											>{item.group.rowIds.length}</span
+											>{display.matrixNeedsActionOnly
+												? `${item.group.rowIds.length} of ${groupMembers.get(item.group.id)?.length ?? item.group.rowIds.length}`
+												: item.group.rowIds.length}</span
 										>
 									</button>
 									{#if gaps && goalPercent !== null}
@@ -567,43 +606,19 @@
 							{@render matrixRow(item.row, item.virtualIndex)}
 						{/if}
 					{/each}
+					{#if shownPersonnel.length === 0}
+						<tr>
+							<td colspan={totalColumns} class="px-3 py-6 text-left text-sm text-muted-foreground">
+								No one needs action on these trainings.
+							</td>
+						</tr>
+					{/if}
 					{#if virtualWindow.bottomSpacerHeight > 0}
 						<tr aria-hidden="true" data-matrix-spacer="bottom">
 							<td colspan={totalColumns} style:height={`${virtualWindow.bottomSpacerHeight}px`}></td>
 						</tr>
 					{/if}
 				</OperationalMatrix.Body>
-
-				<tfoot data-matrix-footer>
-					<tr>
-						<th
-							scope="row"
-							class="sticky bottom-0 left-0 z-30 w-32 min-w-32 border border-border bg-muted px-2 py-2 text-left font-mono text-[10px] font-semibold tracking-[0.08em] uppercase sm:w-48 sm:min-w-48 sm:px-3"
-						>
-							Not ready now
-							<span class="block font-normal text-muted-foreground">Expired or no record</span>
-						</th>
-						{#each matrixColumns as column (column.id)}
-							{@const gap = footerGaps.byType[column.id]}
-							<td class="sticky bottom-0 z-20 border border-border bg-muted px-1 py-2 text-center">
-								<span
-									class={[
-										'block font-heading text-xl leading-none font-semibold tabular-nums',
-										gap.notReady > 0 ? 'text-danger-foreground' : 'text-muted-foreground'
-									]}>{gap.notReady}&#32;<span class="sr-only">not ready</span></span
-								>
-								<span
-									class={[
-										'mt-1 block font-mono text-[10px]',
-										gap.lapsing > 0 ? 'text-warning-foreground' : 'text-muted-foreground'
-									]}
-								>
-									{gap.lapsing > 0 ? `+${gap.lapsing} in ${HORIZON_DAYS}d` : '—'}
-								</span>
-							</td>
-						{/each}
-					</tr>
-				</tfoot>
 			</OperationalMatrix.Table>
 		</OperationalMatrix.Viewport>
 	</OperationalMatrix.Root>

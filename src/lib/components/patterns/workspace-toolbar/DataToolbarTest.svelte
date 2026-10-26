@@ -48,6 +48,7 @@
 	let gaps = $state(false);
 	let roles = $state(true);
 	let compact = $state(false);
+	let density = $state('normal');
 	// svelte-ignore state_referenced_locally
 	let search = $state(initialSearch);
 	let runs = $state<string[]>([]);
@@ -157,6 +158,17 @@
 								label: 'Compact rows',
 								pressed: compact,
 								onPressedChange: (pressed: boolean) => (compact = pressed)
+							},
+							{
+								kind: 'select',
+								id: 'density',
+								label: 'Density',
+								options: [
+									{ value: 'normal', label: 'Normal' },
+									{ value: 'dense', label: 'Dense' }
+								],
+								value: density,
+								onValueChange: (value: string) => (density = value)
 							}
 						]
 					} satisfies ToolbarItem
@@ -203,5 +215,6 @@
 <output aria-label="Gaps value">{gaps ? 'on' : 'off'}</output>
 <output aria-label="Roles value">{roles ? 'on' : 'off'}</output>
 <output aria-label="Compact value">{compact ? 'on' : 'off'}</output>
+<output aria-label="Density value">{density}</output>
 <output aria-label="Search value">{search || 'empty'}</output>
 <output aria-label="Runs">{runs.join(' ') || 'none'}</output>

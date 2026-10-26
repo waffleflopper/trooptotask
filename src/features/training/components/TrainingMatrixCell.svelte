@@ -11,6 +11,16 @@
 		'not-required': 'text-muted-foreground/60',
 		exempt: 'text-muted-foreground uppercase'
 	};
+
+	/** With every status colored, current reads green and exempt blue instead of plain text. */
+	const colorAllClasses: Partial<Record<TrainingStatus, string>> = {
+		current: 'bg-success-muted text-success-foreground',
+		exempt: 'bg-info-muted text-info-foreground uppercase'
+	};
+
+	export function trainingMatrixCellClass(status: TrainingStatus, colorAll: boolean): string {
+		return (colorAll && colorAllClasses[status]) || trainingMatrixCellClasses[status];
+	}
 </script>
 
 <script lang="ts">
@@ -21,12 +31,14 @@
 		status,
 		label,
 		srLabel,
+		colorAll = false,
 		class: className,
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLSpanElement>> & {
 		status: TrainingStatus;
 		label: string;
 		srLabel?: string;
+		colorAll?: boolean;
 	} = $props();
 </script>
 
@@ -35,7 +47,7 @@
 	data-status={status}
 	class={cn(
 		'm-[3px] inline-flex flex-1 items-center justify-center overflow-hidden px-1 text-center font-mono text-[11px] tracking-[0.04em]',
-		trainingMatrixCellClasses[status],
+		trainingMatrixCellClass(status, colorAll),
 		className
 	)}
 	{...restProps}

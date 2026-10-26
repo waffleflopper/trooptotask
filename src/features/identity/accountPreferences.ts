@@ -4,6 +4,10 @@ export const TrainingMatrixViewModeSchema = z.enum(['alphabetical', 'by-group'])
 
 export type TrainingMatrixViewMode = z.infer<typeof TrainingMatrixViewModeSchema>;
 
+export const TrainingMatrixCurrentMarkSchema = z.enum(['date', 'check', 'blank']);
+
+export type TrainingMatrixCurrentMark = z.infer<typeof TrainingMatrixCurrentMarkSchema>;
+
 export interface UserOrgPreferences {
 	calendar: {
 		showStatusText: boolean;
@@ -14,6 +18,9 @@ export interface UserOrgPreferences {
 		selectedGroupId: string | null;
 		selectedViewId: string | null;
 		matrixViewMode: TrainingMatrixViewMode;
+		matrixColorAll: boolean;
+		matrixCurrentMark: TrainingMatrixCurrentMark;
+		matrixNeedsActionOnly: boolean;
 	};
 }
 
@@ -32,7 +39,10 @@ export const UserOrgPreferencesSchema = z.object({
 	training: z.object({
 		selectedGroupId: z.string().nullable(),
 		selectedViewId: z.string().nullable(),
-		matrixViewMode: TrainingMatrixViewModeSchema
+		matrixViewMode: TrainingMatrixViewModeSchema,
+		matrixColorAll: z.boolean(),
+		matrixCurrentMark: TrainingMatrixCurrentMarkSchema,
+		matrixNeedsActionOnly: z.boolean()
 	})
 });
 
@@ -48,7 +58,10 @@ export const UserOrgPreferencesPatchSchema = z.object({
 		.object({
 			selectedGroupId: z.string().nullable().optional(),
 			selectedViewId: z.string().nullable().optional(),
-			matrixViewMode: TrainingMatrixViewModeSchema.optional()
+			matrixViewMode: TrainingMatrixViewModeSchema.optional(),
+			matrixColorAll: z.boolean().optional(),
+			matrixCurrentMark: TrainingMatrixCurrentMarkSchema.optional(),
+			matrixNeedsActionOnly: z.boolean().optional()
 		})
 		.optional()
 });
@@ -63,7 +76,10 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 		training: {
 			selectedGroupId: null,
 			selectedViewId: null,
-			matrixViewMode: 'by-group'
+			matrixViewMode: 'by-group',
+			matrixColorAll: false,
+			matrixCurrentMark: 'date',
+			matrixNeedsActionOnly: false
 		}
 	};
 }

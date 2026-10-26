@@ -14,6 +14,7 @@ import { pinnedGroupsHydration } from '$features/personnel';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
+import type { TrainingMatrixDisplay } from '$features/training/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -97,6 +98,8 @@ interface TrainingPageViewTestCtx {
 	groupFilterOptions: Array<{ value: string; label: string }>;
 	viewMode: 'alphabetical' | 'by-group';
 	setViewMode: ReturnType<typeof vi.fn>;
+	matrixDisplay: TrainingMatrixDisplay;
+	setMatrixDisplay: ReturnType<typeof vi.fn>;
 	filteredPersonnel: Personnel[];
 	orgId: string;
 	orgName: string;
@@ -125,6 +128,8 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		],
 		viewMode,
 		setViewMode: vi.fn(),
+		matrixDisplay: { matrixColorAll: false, matrixCurrentMark: 'date', matrixNeedsActionOnly: false },
+		setMatrixDisplay: vi.fn(),
 		filteredPersonnel: personnel,
 		orgId: 'org-1',
 		orgName: 'Test Org',
@@ -418,10 +423,15 @@ describe('TrainingPageView', () => {
 		await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training/import'));
 	});
 
-	it('leaves someone who can only view without a More menu', () => {
+	it('gives someone who can only view the display options in More and no commands', async () => {
 		render(TrainingPageView, { props: { ctx: memberContext('view'), modals: new ModalRegistry() } });
 
-		expect(screen.queryByRole('button', { name: 'More Training controls' })).toBeNull();
+		const menu = await openToolbarMore('Training controls');
+		expect(
+			within(menu)
+				.getAllByRole('menuitem')
+				.map((item) => item.textContent?.trim())
+		).toEqual(['Display']);
 		expect(screen.getByRole('link', { name: 'Reports' })).toBeTruthy();
 	});
 
@@ -450,7 +460,7 @@ describe('TrainingPageView', () => {
 		);
 	}
 
-	describe('readiness header and search', () => {
+	describe('header counts and search', () => {
 		const smithRecord = {
 			id: 'record-1',
 			personnelId: 'person-1',
@@ -460,29 +470,32 @@ describe('TrainingPageView', () => {
 			notes: null,
 			certificateUrl: null
 		};
+		const adamsExpired = {
+			...smithRecord,
+			id: 'record-2',
+			personnelId: 'person-2',
+			completionDate: '2024-06-15',
+			expirationDate: '2025-06-15'
+		};
 		const searchBox = () => screen.getByRole('searchbox', { name: 'Search name, rank, or MOS' });
 		const matrixNames = () =>
 			[...screen.getByTestId('training-matrix').querySelectorAll('[data-matrix-row] th')].map(
 				(header) => header.textContent?.replace(/\s+/g, ' ').trim() ?? ''
 			);
-		const footerCount = () =>
-			document.querySelector('[data-matrix-footer] td')?.textContent?.replace(/\s+/g, ' ').trim();
 
-		beforeEach(() => personnelTrainingsStore.load([smithRecord], 'org-1'));
+		beforeEach(() => personnelTrainingsStore.load([smithRecord, adamsExpired], 'org-1'));
 
-		it('narrows the rows and the footer to the search, but not the header', async () => {
+		it('narrows the rows to the search, but not the header counts', async () => {
 			const ctx = exportContext();
 			ctx.setViewMode('alphabetical');
 			render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
 			expect(matrixNames()).toEqual(['SPC Adams, John', 'SGT Smith, Jane']);
-			expect(footerCount()).toBe('1 not ready —');
-			expect(screen.getByText('Goal 90% · 1 of 2')).toBeTruthy();
+			expect(screen.getByText('1 expired')).toBeTruthy();
 
 			await fireEvent.input(searchBox(), { target: { value: 'smith' } });
 
 			await waitFor(() => expect(matrixNames()).toEqual(['SGT Smith, Jane']));
-			expect(footerCount()).toBe('0 not ready —');
-			expect(screen.getByText('Goal 90% · 1 of 2')).toBeTruthy();
+			expect(screen.getByText('1 expired')).toBeTruthy();
 		});
 
 		it('finds a Soldier by MOS', async () => {
@@ -495,35 +508,32 @@ describe('TrainingPageView', () => {
 			await waitFor(() => expect(matrixNames()).toEqual(['SPC Adams, John']));
 		});
 
-		it('keeps the header on every person when a Group is selected', async () => {
+		it('keeps the header counts on every person when a Group is selected', async () => {
 			const ctx = exportContext();
 			ctx.setViewMode('alphabetical');
 			ctx.setSelectedGroupId('group-1');
 			render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
 
 			expect(matrixNames()).toEqual(['SGT Smith, Jane']);
-			expect(screen.getByText('Goal 90% · 1 of 2')).toBeTruthy();
+			expect(screen.getByText('1 expired')).toBeTruthy();
 		});
 
-		it('shows its own error in the header while the matrix stays usable when the goal could not be read', () => {
+		it('shows the counts and the matrix when the goal could not be read', () => {
 			trainingReadinessHydration.load({ readinessGoalPercent: null, readinessAsOf: '2026-10-25' }, 'org-1');
 			const ctx = exportContext();
 			ctx.setViewMode('alphabetical');
 			render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
 
-			expect(screen.getByRole('alert').textContent).toContain('Unable to load readiness');
-			expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
-			expect(screen.queryByText(/^Goal /)).toBeNull();
-			expect(screen.getByText('1 not recorded')).toBeTruthy();
+			expect(screen.getByText('1 expired')).toBeTruthy();
 			expect(matrixNames()).toEqual(['SPC Adams, John', 'SGT Smith, Jane']);
 		});
 
-		it('shows the header skeleton instead of a goal until the reporting day arrives', () => {
+		it('shows the counts skeleton until the reporting day arrives', () => {
 			trainingReadinessHydration.clear();
 			render(TrainingPageView, { props: { ctx: exportContext(), modals: new ModalRegistry() } });
 
-			expect(screen.queryByText(/^Goal /)).toBeNull();
-			expect(screen.getByRole('status', { name: 'Loading training matrix' })).toBeTruthy();
+			expect(screen.queryByText(/expired$/)).toBeNull();
+			expect(screen.getByRole('status', { name: 'Loading training counts' })).toBeTruthy();
 		});
 	});
 

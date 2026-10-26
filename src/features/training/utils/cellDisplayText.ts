@@ -1,5 +1,6 @@
 import type { TrainingStatusInfo } from './trainingStatus';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import type { TrainingMatrixCurrentMark } from '../contracts';
 import { formatDayMonthYear } from '$lib/utils/dates';
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -24,11 +25,15 @@ export function renewalMode(type: RenewalKind): RenewalMode {
 	return type.expirationDateOnly ? 'cardDate' : neverExpires(type) ? 'never' : 'months';
 }
 
-/** What a matrix cell shows. A current cell shows the month it lapses, or the completion month when it never does. */
+/**
+ * What a matrix cell shows. A current cell shows the month it lapses, or the completion month when it never does,
+ * unless the reader chose a check mark or nothing.
+ */
 export function getCellDisplayText(
 	statusInfo: TrainingStatusInfo,
 	training: PersonnelTraining | undefined,
-	type: RenewalKind
+	type: RenewalKind,
+	currentMark: TrainingMatrixCurrentMark = 'date'
 ): string {
 	switch (statusInfo.status) {
 		case 'exempt':
@@ -43,6 +48,8 @@ export function getCellDisplayText(
 		case 'warning-orange':
 			return statusInfo.daysUntilExpiration === null ? statusInfo.label : `${statusInfo.daysUntilExpiration}d`;
 		case 'current': {
+			if (currentMark === 'check') return '✓';
+			if (currentMark === 'blank') return '';
 			const date = neverExpires(type)
 				? training?.completionDate
 				: (training?.expirationDate ?? training?.completionDate);

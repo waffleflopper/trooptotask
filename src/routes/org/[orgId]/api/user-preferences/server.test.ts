@@ -18,7 +18,14 @@ function requestContext(options?: Parameters<typeof createTestContext>[0]) {
 
 const preferences = {
 	calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
-	training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' }
+	training: {
+		selectedGroupId: null,
+		selectedViewId: null,
+		matrixViewMode: 'by-group',
+		matrixColorAll: false,
+		matrixCurrentMark: 'date',
+		matrixNeedsActionOnly: false
+	}
 };
 let readError: null | { message: string };
 let writes: number;

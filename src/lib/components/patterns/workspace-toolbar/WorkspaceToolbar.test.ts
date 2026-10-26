@@ -584,6 +584,22 @@ describe('WorkspaceToolbar', () => {
 		expect(screen.getAllByRole('menu'), 'the menu stays open').toHaveLength(1);
 	});
 
+	it('picks a display choice in a row menu and keeps the menu open', async () => {
+		render(DataToolbarTest, { props: { withArchive: false, withDisplayMenu: true } });
+		await layOut(2000);
+
+		const display = within(toolbar()).getByRole('button', { name: 'Display' });
+		display.focus();
+		await fireEvent.keyDown(display, { key: 'Enter' });
+		const dense = await screen.findByRole('menuitemradio', { name: 'Dense' });
+		expect(dense.getAttribute('aria-checked')).toBe('false');
+		await fireEvent.click(dense);
+
+		expect(output('Density value')).toBe('dense');
+		expect(screen.getByRole('menuitemradio', { name: 'Dense' }).getAttribute('aria-checked')).toBe('true');
+		expect(screen.getAllByRole('menu'), 'the menu stays open').toHaveLength(1);
+	});
+
 	it('checks a display option from a folded menu without marking More', async () => {
 		render(DataToolbarTest, { props: { withArchive: false, withDisplayMenu: true } });
 		await layOut(1000);

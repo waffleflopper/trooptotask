@@ -14,12 +14,13 @@ disabled, narrow and dark state, and each hand-built control exposes its name an
   required and Exempt, and records Today or a card date in place. Up and down arrows step through the matrix's row
   order. `Edit` on a row opens its form on the stored completion date (the stored expiration date for a card-date type),
   so a note-only change keeps the date; a record stored without one opens with an empty date and `Save` stays disabled
-  until a date is chosen; a Needs action row's own form starts on today. Opening another row while a form has changes
-  asks `Discard changes?`; Cancel keeps the draft. While a save or delete is pending or a form has changes, Back, links
-  and `Open profile` (disabled) do nothing and Escape stays blocked. While a save is pending every row title, field and
-  `Save` is disabled, so the saving form stays open, and a refused renewal keeps its form, draft and error in place.
-  `Exempt` and `Unexempt` appear only for an actor who can configure types. While the sheet code downloads, the sheet
-  opens with the Soldier's rank and name and a skeleton; a failed download shows `Unable to open` with `Retry`.
+  until a date is chosen, except a Never expires record, which saves a note with `completion_date` still null; a Needs
+  action row's own form starts on today. Opening another row while a form has changes asks `Discard changes?`; Cancel
+  keeps the draft. While a save or delete is pending or a form has changes, Back, links and `Open profile` (disabled) do
+  nothing and Escape stays blocked. While a save is pending every row title, field and `Save` is disabled, so the saving
+  form stays open, and a refused renewal keeps its form, draft and error in place. `Exempt` and `Unexempt` appear only
+  for an actor who can configure types. While the sheet code downloads, the sheet opens with the Soldier's rank and name
+  and a skeleton; a failed download shows `Unable to open` with `Retry`.
 - `matrix-quick-record`: a matrix cell opens a popover anchored to it, with one date field, a live preview, optional
   notes and certificate link, and `Open record`. Enter saves, Escape closes, and focus returns to the cell.
 - `failed-save-keeps-values`: a rejected save leaves the form open with every value, selection and chip in place, the

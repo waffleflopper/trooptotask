@@ -350,6 +350,44 @@ describe('TrainingRecordSheet', () => {
 			expect(onSave).not.toHaveBeenCalled();
 		});
 
+		it('saves a note on a never-expiring record stored without a date, keeping it undated', async () => {
+			const onSave = vi.fn().mockResolvedValue(undefined);
+			const user = userEvent.setup();
+			const stored: PersonnelTraining = {
+				id: 'r-never',
+				personnelId: 'p1',
+				trainingTypeId: 'never',
+				completionDate: null,
+				expirationDate: null,
+				notes: null,
+				certificateUrl: null
+			};
+			render(TrainingRecordSheet, {
+				props: props({
+					onSave,
+					trainingTypes: [...types, type('never', 'Orientation', { sortOrder: 5, expirationMonths: null })],
+					trainings: [...trainings, stored]
+				})
+			});
+			await user.click(await screen.findByRole('button', { name: 'More actions for Orientation' }));
+			await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.type(screen.getByLabelText('Notes'), 'Briefed');
+
+			await user.click(screen.getByRole('button', { name: 'Save' }));
+
+			await waitFor(() =>
+				expect(onSave).toHaveBeenCalledExactlyOnceWith({
+					personnelId: 'p1',
+					trainingTypeId: 'never',
+					completionDate: null,
+					expirationDate: null,
+					notes: 'Briefed',
+					certificateUrl: null
+				})
+			);
+		});
+
 		it('keeps the stored card date when only a note changes', async () => {
 			const onSave = vi.fn().mockResolvedValue(undefined);
 			const user = userEvent.setup();

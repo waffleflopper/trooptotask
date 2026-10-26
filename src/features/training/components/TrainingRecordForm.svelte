@@ -89,10 +89,12 @@
 	const expirationDate = $derived(
 		kind === 'cardDate' ? date || null : kind === 'months' ? calculateExpirationDate(date, type.expirationMonths) : null
 	);
-	const canSave = $derived(date !== '' && !saving && !busy);
+	// A never-expiring completion may be stored without a date; editing it keeps that allowed.
+	const dateOptional = untrack(() => kind === 'never' && keepRecordedDate && !!training && !training.completionDate);
+	const canSave = $derived((date !== '' || dateOptional) && !saving && !busy);
 
 	const preview = $derived.by(() => {
-		if (kind === 'never') return date ? { ok: true, text: 'Never expires' } : null;
+		if (kind === 'never') return date || dateOptional ? { ok: true, text: 'Never expires' } : null;
 		if (!expirationDate) return null;
 		const label = formatDayMonthYear(expirationDate);
 		return expirationDate >= today
@@ -118,7 +120,7 @@
 			await onSave({
 				personnelId: person.id,
 				trainingTypeId: type.id,
-				completionDate: kind === 'cardDate' ? (training?.completionDate ?? null) : date,
+				completionDate: kind === 'cardDate' ? (training?.completionDate ?? null) : date || null,
 				expirationDate,
 				notes: notes.trim() || null,
 				certificateUrl: certificateUrl.trim() || (editableCertificate ? null : storedCertificate)

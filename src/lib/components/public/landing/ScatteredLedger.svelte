@@ -78,8 +78,8 @@
 					]}
 					style:transition-delay="{i * 80}ms"
 				>
-					<td class="col-span-2 font-mono text-[0.8125rem] leading-4 lg:col-span-1">{row.source}</td>
-					<td class="row-start-2 font-body text-lg leading-[1.375rem] lg:row-start-auto">{row.holds}</td>
+					<td class="col-span-2 font-mono text-[0.8125rem] font-normal leading-4 lg:col-span-1">{row.source}</td>
+					<td class="row-start-2 font-body text-lg font-normal leading-[1.375rem] lg:row-start-auto">{row.holds}</td>
 					<td
 						class={[
 							body,

@@ -34,7 +34,7 @@
 				>
 				<ul class="m-0 flex list-none gap-6 p-0 max-[900px]:hidden xl:gap-8">
 					{#each links as link (link.label)}
-						<li>
+						<li class="flex">
 							<a
 								href={link.href}
 								aria-current={link.current ? 'page' : undefined}

@@ -49,7 +49,10 @@
 					<div class="grow bg-chrome-accent"></div>
 				</div>
 			</div>
-			<div class="flex justify-between font-mono text-[0.8125rem] leading-4 text-chrome-text-muted" aria-hidden="true">
+			<div
+				class="flex justify-between font-mono text-[0.8125rem] leading-4 font-normal text-chrome-text-muted"
+				aria-hidden="true"
+			>
 				<span>0600</span><span>1200</span><span>1800</span>
 			</div>
 		</figure>

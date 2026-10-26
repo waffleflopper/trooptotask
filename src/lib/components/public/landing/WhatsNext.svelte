@@ -105,7 +105,7 @@
 						</svg>
 					</div>
 				</div>
-				<p class="font-body text-lg leading-7">
+				<p class="font-body text-lg leading-7 font-normal">
 					“{#each words as word, i (i)}<span
 							class="transition-opacity duration-150 in-data-[reveal=pending]:opacity-0"
 							style:transition-delay="{i * 45}ms">{word}</span
@@ -127,8 +127,8 @@
 					<div class="flex flex-col gap-1.5">
 						<p class={monoLabel}>{change.kind}</p>
 						<p class={[title, 'text-foreground']}>{change.who}</p>
-						<p class="font-body text-lg leading-6 text-foreground">{change.what}</p>
-						<p class="pt-1 font-mono text-[0.8125rem] leading-4 tracking-[0.06em]">✓ {change.check}</p>
+						<p class="font-body text-lg leading-6 font-normal text-foreground">{change.what}</p>
+						<p class="pt-1 font-mono text-[0.8125rem] font-normal leading-4 tracking-[0.06em]">✓ {change.check}</p>
 					</div>
 					<span
 						class="grid h-7 shrink-0 place-items-center rounded-sm border border-border px-2.5 *:col-start-1 *:row-start-1"
@@ -179,7 +179,10 @@
 					<div class="flex h-11 items-center justify-between border-b border-border">
 						<dt class={[monoLabel, 'text-muted-foreground']}>{row.name}</dt>
 						<dd
-							class={['font-mono text-[0.8125rem] leading-4', row.short ? 'text-danger-foreground' : 'text-foreground']}
+							class={[
+								'font-mono text-[0.8125rem] leading-4 font-normal',
+								row.short ? 'text-danger-foreground' : 'text-foreground'
+							]}
 						>
 							{row.value}
 						</dd>

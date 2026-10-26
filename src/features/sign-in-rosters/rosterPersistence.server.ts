@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { SignInRoster } from './sign-in-rosters.types';
-import type { PreparedSignInRosterSnapshot } from './snapshot.server';
+import { sanitizeFilterConfig, type PreparedSignInRosterSnapshot } from './snapshot.server';
 
 export interface SignInRosterListInput {
 	title: string;
@@ -40,7 +40,7 @@ interface RosterRow {
 	separate_by_group: boolean;
 	sort_by: SignInRoster['sortBy'];
 	personnel_snapshot: SignInRoster['personnelSnapshot'];
-	filter_config: SignInRoster['filterConfig'];
+	filter_config: unknown;
 	signed_file_path: string | null;
 	created_by: string;
 	created_at: string;
@@ -58,7 +58,7 @@ function toRoster(row: RosterRow): SignInRoster {
 		separateByGroup: row.separate_by_group,
 		sortBy: row.sort_by,
 		personnelSnapshot: row.personnel_snapshot,
-		filterConfig: row.filter_config,
+		filterConfig: sanitizeFilterConfig(row.filter_config),
 		signedFilePath: row.signed_file_path,
 		createdBy: row.created_by,
 		createdAt: row.created_at

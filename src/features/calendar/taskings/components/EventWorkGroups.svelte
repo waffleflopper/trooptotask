@@ -5,6 +5,7 @@
 	import { nextTaskingDate, type GroupLabels } from '../taskingModel';
 	import type { EventWorkGroup, EventWorkPhase, TaskingSummary } from '../eventWorkModel';
 	import TaskingStatusBadges from './TaskingStatusBadges.svelte';
+	import { staffingLabel } from '../staffing/staffingModel';
 	import { STATUS_BADGES, responsibilityLabel } from './taskingLabels';
 
 	interface Props {
@@ -63,9 +64,13 @@
 								<span class="grid min-w-0 gap-0.5">
 									<span class="truncate font-medium text-foreground">{summary.title}</span>
 									<span class="truncate text-sm text-muted-foreground">
-										{summaryResponsible(summary)} · Due {formatDayMonthYear(summary.suspenseOn)}{summary.requiredCount
-											? ` · Needs ${summary.requiredCount}`
-											: ''}
+										{[
+											summaryResponsible(summary),
+											`Due ${formatDayMonthYear(summary.suspenseOn)}`,
+											staffingLabel(summary.pickedCount, summary.requiredCount)
+										]
+											.filter(Boolean)
+											.join(' · ')}
 									</span>
 								</span>
 								<span class="flex flex-wrap items-center gap-1.5">

@@ -33,6 +33,7 @@ export interface TaskingSummary extends EventWorkDates {
 	status: TaskingStatusKind;
 	/** People required. Picked people are not counted until staffing exists. */
 	requiredCount: number | null;
+	pickedCount: number;
 }
 
 export const taskingSummaryRowSchema = z
@@ -42,6 +43,7 @@ export const taskingSummaryRowSchema = z
 		responsible_group_name: z.string().nullable(),
 		status: z.enum(['open', 'in_progress', 'blocked', 'completed', 'cancelled']),
 		staffing_required: z.number().nullable(),
+		staffing_picked: z.number(),
 		suspense_on: z.string(),
 		execution_starts_on: z.string().nullable(),
 		execution_ends_on: z.string().nullable()
@@ -57,6 +59,7 @@ export const taskingSummaryRowSchema = z
 					: { kind: 'group', name: row.responsible_group_name },
 			status: row.status,
 			requiredCount: row.staffing_required,
+			pickedCount: row.staffing_picked,
 			suspenseOn: row.suspense_on,
 			execution:
 				row.execution_starts_on && row.execution_ends_on

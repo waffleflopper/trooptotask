@@ -3,7 +3,6 @@ import { uuidSchema } from '$lib/utils/inputSchemas';
 import {
 	TASKING_STAFFING_MAX,
 	type StaffingCount,
-	type StaffingRequirement,
 	type TaskingResponsibility
 } from '../taskingModel';
 
@@ -75,9 +74,9 @@ export const personName = (person: Pick<TaskingPick, 'rank' | 'firstName' | 'las
 	[person.rank, `${person.lastName}, ${person.firstName}`].filter(Boolean).join(' ');
 
 /** `picked of required`, or just the picked count when nothing is required. Picks under review never count. */
-export function staffingLabel(count: StaffingCount, requirement: StaffingRequirement | null): string | null {
-	if (requirement) return `${count.picked} of ${requirement.count} picked`;
-	return count.picked > 0 ? `${count.picked} picked` : null;
+export function staffingLabel(picked: number, required: number | null): string | null {
+	if (required !== null) return `${picked} of ${required} picked`;
+	return picked > 0 ? `${picked} picked` : null;
 }
 
 export const outsideScopeLabel = (count: number) => `${count} ${count === 1 ? 'person' : 'people'} outside your Groups`;

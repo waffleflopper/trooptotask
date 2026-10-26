@@ -89,7 +89,7 @@
 				<Skeleton class="h-5 w-24" />
 			{:else if staffing !== 'failed'}
 				<span class="text-sm text-muted-foreground tabular-nums">
-					{staffingLabel(staffing, tasking.requirement) ?? 'Nobody picked yet'}
+					{staffingLabel(staffing.picked, tasking.requirement?.count ?? null) ?? 'Nobody picked yet'}
 				</span>
 			{/if}
 		</div>

@@ -261,6 +261,7 @@ describe('Tasking operations', () => {
 			responsibility: { kind: 'group', name: 'Bravo' },
 			status: 'blocked',
 			requiredCount: 6,
+			pickedCount: 2,
 			suspenseOn: '2026-10-22',
 			execution: null
 		} as const;

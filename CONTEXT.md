@@ -246,7 +246,7 @@ Where a Tasking sits against its Event: execution when its execution dates or su
 _Avoid_: Stage, before/after
 
 **Summary row**:
-The one-line, non-opening row a Group-scoped reader gets for another Group's or the Organization's Tasking under a shared Event: responsible Group or Organization, outcome, status, requirement and suspense. It never carries people, instructions, a block reason, equipment, checklist or Activity, and grants no access to the Tasking. A standalone Tasking outside the reader's scope has none.
+The one-line, non-opening row a Group-scoped reader gets for another Group's or the Organization's Tasking under a shared Event: responsible Group or Organization, outcome, status, picked of required and suspense. It never carries people, instructions, a block reason, equipment, checklist or Activity, and grants no access to the Tasking. A standalone Tasking outside the reader's scope has none.
 _Avoid_: Preview, stub
 
 **Date review**:

@@ -51,6 +51,15 @@ INSERT INTO public.calendar_taskings (
     NULL, NULL, NULL, NULL, NULL, NULL),
   (pg_temp.id('405'), pg_temp.id('101'), 'Bravo other event', pg_temp.id('302'), pg_temp.id('202'), '2030-11-01',
     NULL, NULL, NULL, NULL, NULL, NULL);
+-- Bravo's Tasking has two picks that count and one under review that does not.
+INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug) VALUES
+  (pg_temp.id('501'), pg_temp.id('101'), pg_temp.id('202'), 'SPC', 'Dana', 'Secretname', 'secretname-dana'),
+  (pg_temp.id('502'), pg_temp.id('101'), pg_temp.id('202'), 'SGT', 'Eli', 'Hiddenname', 'hiddenname-eli'),
+  (pg_temp.id('503'), pg_temp.id('101'), pg_temp.id('202'), 'PFC', 'Fay', 'Covertname', 'covertname-fay');
+INSERT INTO public.calendar_tasking_participants (organization_id, tasking_id, personnel_id, review_since) VALUES
+  (pg_temp.id('101'), pg_temp.id('402'), pg_temp.id('501'), NULL),
+  (pg_temp.id('101'), pg_temp.id('402'), pg_temp.id('502'), NULL),
+  (pg_temp.id('101'), pg_temp.id('402'), pg_temp.id('503'), now());
 CREATE FUNCTION pg_temp.act_as(p_user text) RETURNS void LANGUAGE sql AS $$
   SELECT set_config('request.jwt.claim.sub', pg_temp.id(p_user)::text, true),
     set_config('request.jwt.claims', json_build_object('sub', pg_temp.id(p_user), 'role', 'authenticated')::text, true);
@@ -69,12 +78,12 @@ SELECT pg_temp.act_as('4');
 SELECT is(pg_temp.summary_ids('301'), ARRAY[pg_temp.id('402'), pg_temp.id('403')],
   'an Alpha viewer gets a summary for the Bravo and Organization-level Taskings under the Event, not their own');
 SELECT results_eq(
-  $$SELECT title, responsible_group_name, status, staffing_required, suspense_on
+  $$SELECT title, responsible_group_name, status, staffing_required, staffing_picked, suspense_on
     FROM public.list_calendar_event_tasking_summaries(pg_temp.id('101'), pg_temp.id('301'))$$,
   $$VALUES
-    ('Bravo litter teams'::text, 'Bravo'::text, 'blocked'::text, 6, '2030-10-22'::date),
-    ('Return borrowed equipment'::text, NULL::text, 'open'::text, NULL::integer, '2030-10-28'::date)$$,
-  'a summary row carries the Group or Organization level, outcome, status, requirement and suspense');
+    ('Bravo litter teams'::text, 'Bravo'::text, 'blocked'::text, 6, 2, '2030-10-22'::date),
+    ('Return borrowed equipment'::text, NULL::text, 'open'::text, NULL::integer, 0, '2030-10-28'::date)$$,
+  'a summary row carries the Group or Organization level, outcome, status, picks that count of the requirement and suspense');
 SELECT results_eq(
   $$SELECT execution_starts_on, execution_ends_on
     FROM public.list_calendar_event_tasking_summaries(pg_temp.id('101'), pg_temp.id('301')) WHERE id = pg_temp.id('402')$$,
@@ -85,18 +94,18 @@ SELECT is(
     SELECT jsonb_object_keys(to_jsonb(s)) AS key
     FROM (SELECT * FROM public.list_calendar_event_tasking_summaries(pg_temp.id('101'), pg_temp.id('301')) LIMIT 1) AS s
   ) AS keys),
-  ARRAY['execution_ends_on', 'execution_starts_on', 'id', 'responsible_group_name', 'staffing_required', 'status',
+  ARRAY['execution_ends_on', 'execution_starts_on', 'id', 'responsible_group_name', 'staffing_picked', 'staffing_required', 'status',
     'suspense_on', 'title'],
   'the summary read returns exactly the summary fields');
 SELECT is(
   (SELECT count(*)::int
    FROM public.list_calendar_event_tasking_summaries(pg_temp.id('101'), pg_temp.id('301')) AS s
-   WHERE to_jsonb(s)::text ~* '(secret|instructions|block reason|68W|05:30|06:00)'),
+   WHERE to_jsonb(s)::text ~* '(secret|instructions|block reason|68W|05:30|06:00|Secretname|Hiddenname|Covertname)'),
   0,
-  'no summary row holds instructions, a block reason, qualifications or a report time');
+  'no summary row holds instructions, a block reason, qualifications, a report time or a picked name');
 SELECT is((SELECT count(*)::int FROM public.calendar_taskings WHERE id IN (pg_temp.id('402'), pg_temp.id('403'))), 0,
   'a summary grants no access to the Tasking itself');
-SELECT is((SELECT count(*)::int FROM public.calendar_tasking_activity WHERE tasking_id IN (pg_temp.id('402'), pg_temp.id('403'))), 0,
+SELECT is((SELECT count(*)::int FROM public.read_calendar_tasking_activity(pg_temp.id('101')) WHERE tasking_id IN (pg_temp.id('402'), pg_temp.id('403'))), 0,
   'a summary grants no access to its Activity');
 
 -- Standalone Taskings outside the reader's scope are never shown, whatever Event is asked about.

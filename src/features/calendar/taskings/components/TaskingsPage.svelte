@@ -62,7 +62,7 @@
 	const shown = $derived(loaded && loaded !== 'failed' ? filterTaskings(loaded.taskings, filters, today) : []);
 
 	function staffingSuffix(count: typeof NO_STAFFING, tasking: Tasking) {
-		const label = staffingLabel(count, tasking.requirement);
+		const label = staffingLabel(count.picked, tasking.requirement?.count ?? null);
 		const review = count.needsReview > 0 ? `${count.needsReview} to review` : null;
 		return [label, review].map((part) => (part ? ` · ${part}` : '')).join('');
 	}

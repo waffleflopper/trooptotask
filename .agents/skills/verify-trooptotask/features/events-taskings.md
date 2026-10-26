@@ -282,7 +282,7 @@ and in `Closeout` when after it ends. A phase with nothing in it does not render
 
 A Group-scoped reader sees their Groups' Taskings as the usual rows that open, and every other Tasking linked to the
 Event, Organization-level ones included, as a dashed one-line row that does not open: the Group or Organization, the
-outcome, the status badge, `Due` with the suspense and `Needs N` when a count is required. `Blocked` shows with no
+outcome, the status badge, `Due` with the suspense and `N of R picked` when a count is required. `Blocked` shows with no
 reason. Another Group's standalone Tasking appears nowhere. An Organization-wide reader sees every Tasking as an opening
 row.
 
@@ -301,8 +301,8 @@ all linked to it; add a standalone Bravo Tasking.
 23. **Groups.** The detail lists `Preparation` (Alpha, 5 Nov), `Execution` (Bravo, 11 Nov) and `Closeout` (Organization,
     16 Nov), each row opening its Tasking. The standalone Bravo Tasking is absent, and no phase shows as an empty box.
 24. **Scoped reader.** As `calendarScoped` (Alpha), the Alpha row opens. The Bravo and Organization rows are dashed rows
-    with no link: Bravo shows `Blocked` and `Needs 6`, with no reason, people or instructions anywhere in the page text.
-    From the page, `fetch` the Bravo Tasking's `/org/A/api/calendar-taskings/ID` PATCH and its status POST: 404.
+    with no link: Bravo shows `Blocked` and `N of 6 picked`, with no reason, people or instructions anywhere in the page
+    text. From the page, `fetch` the Bravo Tasking's `/org/A/api/calendar-taskings/ID` PATCH and its status POST: 404.
     `/org/A/calendar/taskings/BRAVO_ID` reads `This tasking is not available`. As `calendarView` the same rows show.
 25. **Date review.** On the Event press `Edit`, move the dates to 17 – 19 Nov and save. `Review taskings` lists the
     Alpha, Bravo and Organization Taskings with notes, and the Event's rows regroup. Open the Alpha link: its edit sheet

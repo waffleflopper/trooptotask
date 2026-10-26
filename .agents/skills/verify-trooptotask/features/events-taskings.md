@@ -552,16 +552,25 @@ staffing Bravo, expect six Tasking attention rows and the two seeded Unfilled du
    `SPC Synthetic Able is on leave from WEEKDAY DAY` with `Committed to TITLE` under it, in amber with `Swap`. The
    due-D+4 Tasking is absent from `attention.rows` and present in `attention.onTrack`. The executing Tasking's picker
    reports `isConflict: true`, `overlapDays: 3`, `executionDays: 5` for the Leave row.
-2. **Pick people.** Choose `Pick 1` on the Bravo Short Tasking, pick Baker and save. It leaves Needs you and enters
-   `attention.onTrack` with `picked: 1`, `required: 1`, and its D+3 suspense. Seven Needs you rows remain. The save
-   refreshes `api/dashboard/taskings` once and does not reload the page.
-
-3. **Stale save.** Open the Organization row's picker and tick Able without saving. From a second `calendarOperate` page
-   `PUT` `{ personnelIds: [BAKER], keep: [], removeOutsideScope: false, expectedRevision: 0 }` to its `.../people`.
-   Save the first page: the sheet stays open under `Someone else saved this list while you were choosing` with
-   `Saved now: SPC Baker, Synthetic.` and Able still ticked. Save again: it closes and the row reads `1 of 3 picked`.
-4. **Keyboard.** Focus a `Pick N` button and press Enter: the sheet opens with focus on `Cancel`. Escape closes it
-   and focus is back on the button.
+2. **Pick people.** Choose `Pick 1` on the Bravo Short Tasking. The row expands in place under a tint with one slot card
+   per Person still needed, labelled by the role word in the title or `Person N`, each holding the first Person free
+   over the execution dates in name order, then a `Suggested:` line and `Cancel` / `Confirm 1 person`. Open the slot,
+   choose Baker and confirm. The PUT names the whole list with the loaded `expectedRevision`, and the row leaves Needs
+   you and enters `attention.onTrack` with `picked: 1`, `required: 1`, and its D+3 suspense. Seven Needs you rows
+   remain. The save refreshes `api/dashboard/taskings` once and does not reload the page. `Cancel` folds a row with no
+   request.
+3. **Conflict choice and stale save.** Choose `Pick 3` on the Organization row. Open the first open slot and choose
+   Able: the slot turns amber and its note names the Leave and its overlap, `1 of 2 days`. From a second
+   `calendarOperate` page `PUT` `{ personnelIds: [BAKER], keep: [], removeOutsideScope: false, expectedRevision: 0 }` to
+   its `.../people`. Confirm on the first page: the row stays expanded with a `role="alert"` line saying someone else
+   saved first, Baker shows as a `Selected` slot, Able keeps that slot, and the row refreshes to `1 of 3 picked` and
+   `Pick 2`. Confirm again: the PUT carries the new revision, names Baker, Able and the Person suggested in the other
+   slot, and the row leaves Needs you.
+4. **Swap and keyboard.** Focus `Swap` on the Conflict row and press Enter: the row expands with the conflicting
+   Person's slot open in amber, a line naming whom it replaces, and every other pick kept as `Selected`. Tab past the
+   row's link to the slots and press Enter: the list opens with focus in its search. Escape closes the list only, and a
+   second Escape folds the row with focus back on `Swap`. Opening another row's `Pick N` or `Swap` folds the first. At
+   390 px the slots stack in one column; from 900 px they sit side by side.
 5. **Failed and pending source.** `$V server-source arm rpc/calendar_tasking_dashboard fail-hard 1 60000`, then reload
    Home: `Needs you · 2` keeps the two Unfilled duty rows, `Needs you is incomplete. Tasking items could not load.` and
    `Try again` show under them, and Strength, On duty and Readiness render as usual. `server-source restore`, press

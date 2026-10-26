@@ -10,3 +10,5 @@ export { default as AttentionListSkeleton } from './attention-list-skeleton.svel
 export { default as AttentionActionRow } from './attention-action-row.svelte';
 export type { AttentionTone } from './attention-action-row.svelte';
 export { default as AttentionActionRowSkeleton } from './attention-action-row-skeleton.svelte';
+export { default as FillSlot } from './fill-slot.svelte';
+export type { FillSlotTone } from './fill-slot.svelte';

@@ -107,7 +107,8 @@ export function loadTaskingDialog() {
 	return import('./taskings/components/TaskingDialog.svelte');
 }
 export { parseTaskingFilters, parseTaskingView, scopeOfView } from './taskings/taskingModel';
-export type { TaskingStaffing } from './taskings/staffing/staffingModel';
+export type { StaffingPicker, TaskingPick, TaskingStaffing } from './taskings/staffing/staffingModel';
+export { loadStaffingPickerRequest, saveStaffingRequest } from './taskings/staffing/staffingRequests';
 export type {
 	TaskingAttentionProjection,
 	TaskingAttentionKind,

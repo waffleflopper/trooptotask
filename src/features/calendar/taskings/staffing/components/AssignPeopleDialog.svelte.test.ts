@@ -22,6 +22,7 @@ const tasking: Tasking = {
 };
 const nobody: TaskingStaffing = { revision: 0, picked: 0, needsReview: 0, outsideScope: 0, picks: [] };
 const picker: StaffingPicker = {
+	tasking: { requirement: null, execution: null },
 	states: {},
 	staffing: nobody,
 	candidates: [

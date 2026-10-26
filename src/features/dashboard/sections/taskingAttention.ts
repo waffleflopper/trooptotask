@@ -64,7 +64,7 @@ function toItem(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouItem
 				kind: 'taskingShort',
 				subtitle: subtitle(),
 				timing: away < 0 ? 'underway' : `starts ${formatDayOffset(away)}`,
-				action: pickPeopleAction(inputs, row, `Pick ${Math.max((row.required ?? 0) - row.picked, 1)}`),
+				action: pickPeopleAction(inputs, row, `Pick ${Math.max((row.required ?? 0) - row.picked, 1)}`, base.href),
 				urgency: { date: startsOn }
 			};
 		}
@@ -75,7 +75,7 @@ function toItem(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouItem
 				kind: 'taskingConflict',
 				title: `${row.conflict.personLabel} is on ${row.conflict.statusLabel.toLowerCase()} from ${formatWeekdayDay(row.conflict.startsOn)}`,
 				subtitle: `Committed to ${row.title}`,
-				action: pickPeopleAction(inputs, row, 'Swap'),
+				action: pickPeopleAction(inputs, row, 'Swap', base.href),
 				timing: formatDayOffset(daysBetween(inputs.today, row.conflict.startsOn)),
 				urgency: { date: row.conflict.startsOn }
 			};

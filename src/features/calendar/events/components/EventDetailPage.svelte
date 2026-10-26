@@ -2,7 +2,7 @@
 	import type { CalendarEventsPageAccess } from '../../contracts';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import CalendarX from '@lucide/svelte/icons/calendar-x';
-	import { invalidate } from '$app/navigation';
+	import { page } from '$app/state';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Alert from '$lib/components/ui/alert';
@@ -19,8 +19,11 @@
 		type EventDetail,
 		type EventRead
 	} from '../eventModel';
+	import { datesChanged, type TaskingSummary } from '../../taskings/eventWorkModel';
 	import type { GroupLabels, Tasking, TaskingChoices } from '../../taskings/taskingModel';
+	import EventDateReview from '../../taskings/components/EventDateReview.svelte';
 	import EventTaskings from '../../taskings/components/EventTaskings.svelte';
+	import { reloadCalendarEvents, setEventPageState } from '../eventPageState';
 	import CancelEventDialog from './CancelEventDialog.svelte';
 	import EventDialog from './EventDialog.svelte';
 	import EventLoadFailed from './EventLoadFailed.svelte';
@@ -33,11 +36,12 @@
 		detail: Promise<EventRead<EventDetail>>;
 		activity: Promise<EventRead<EventActivity[]>>;
 		taskings: Promise<EventRead<{ taskings: Tasking[]; groups: GroupLabels }>>;
+		taskingSummaries: Promise<EventRead<TaskingSummary[]>>;
 		taskingChoices: Promise<EventRead<TaskingChoices | null>>;
 		addTasking: boolean;
 	}
 
-	let { org, today, detail, activity, taskings, taskingChoices, addTasking }: Props = $props();
+	let { org, today, detail, activity, taskings, taskingSummaries, taskingChoices, addTasking }: Props = $props();
 
 	const canManage = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageEvents, { kind: 'organization' }).allowed
@@ -49,6 +53,8 @@
 	// A save answers with the stored event; it stands until the refreshed detail arrives.
 	let saved = $state.raw<{ event: CalendarEvent; over: unknown } | null>(null);
 	let dialog = $state<'edit' | 'cancel' | null>(null);
+	// After a date change the Taskings left to review stand until dismissed, and survive Back from a Tasking's edit.
+	const dateReview = $derived(page.state.eventDateReview ?? null);
 
 	const loaded = $derived.by(() => {
 		const current = streamedDetail.current;
@@ -64,10 +70,24 @@
 	});
 	const members = $derived(typeof loaded === 'object' && loaded ? loaded.members : {});
 
-	function stored(event: CalendarEvent) {
+	let latestSave = 0;
+
+	async function stored(event: CalendarEvent) {
+		const save = ++latestSave;
+		const before = typeof loaded === 'object' && loaded ? loaded.event : null;
+		const eventUrl = page.url.pathname;
 		saved = { event, over: streamedDetail.current };
 		dialog = null;
-		void invalidate('app:calendar-events');
+		await reloadCalendarEvents();
+		// The reader may have moved on while the refresh ran.
+		if (before && datesChanged(before, event) && save === latestSave && page.url.pathname === eventUrl)
+			setEventPageState({
+				...page.state,
+				eventDateReview: {
+					before: { startsOn: before.startsOn, endsOn: before.endsOn },
+					after: { startsOn: event.startsOn, endsOn: event.endsOn }
+				}
+			});
 	}
 </script>
 
@@ -155,7 +175,25 @@
 			{/if}
 		</dl>
 
-		<EventTaskings {org} {today} {event} {taskings} choices={taskingChoices} addOnArrival={addTasking} />
+		{#if dateReview}
+			<EventDateReview
+				{org}
+				{taskings}
+				before={dateReview.before}
+				after={dateReview.after}
+				onDismiss={() => setEventPageState({ ...page.state, eventDateReview: undefined })}
+			/>
+		{/if}
+
+		<EventTaskings
+			{org}
+			{today}
+			{event}
+			{taskings}
+			summaries={taskingSummaries}
+			choices={taskingChoices}
+			addOnArrival={addTasking}
+		/>
 	{/if}
 
 	{#if loaded !== 'gone'}
@@ -203,6 +241,6 @@
 			onClose={() => (dialog = null)}
 		/>
 	{:else if dialog === 'cancel'}
-		<CancelEventDialog orgId={org.orgId} event={loaded.event} onCancelled={stored} onClose={() => (dialog = null)} />
+		<CancelEventDialog {org} event={loaded.event} {taskings} onCancelled={stored} onClose={() => (dialog = null)} />
 	{/if}
 {/if}

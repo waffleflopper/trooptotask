@@ -229,6 +229,18 @@ _Avoid_: Subtask, to-do
 The record of a Tasking's creation, outcome, responsibility, date, Event link, requirement, instruction, equipment and checklist changes and every status move, written by the database with the acting member.
 _Avoid_: Audit log, history
 
+**Event work phase**:
+Where a Tasking sits against its Event: execution when its execution dates or suspense touch the Event's dates, preparation when it is due before the Event starts, closeout when after it ends. Event detail groups its Taskings by phase.
+_Avoid_: Stage, before/after
+
+**Summary row**:
+The one-line, non-opening row a Group-scoped reader gets for another Group's or the Organization's Tasking under a shared Event: responsible Group or Organization, outcome, status, requirement and suspense. It never carries people, instructions, a block reason, equipment, checklist or Activity, and grants no access to the Tasking. A standalone Tasking outside the reader's scope has none.
+_Avoid_: Preview, stub
+
+**Date review**:
+The list of an Event's active Taskings that its date change left outside the new dates or in another phase. Nothing is moved for the operator; each Tasking opens its own edit.
+_Avoid_: Cascade, auto-shift
+
 **DONSA**:
 A day of no scheduled activities, represented as a Calendar special day; Training Holiday is also appropriate military-facing wording.
 _Avoid_: Closure, org closure in product copy

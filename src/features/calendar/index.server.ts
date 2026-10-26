@@ -116,6 +116,7 @@ export { createSupabaseCalendarEventPersistence } from './events/eventPersistenc
 export {
 	listTaskings,
 	listEventTaskings,
+	listEventTaskingSummaries,
 	loadTaskingDetail,
 	listTaskingActivity,
 	loadTaskingChoices,

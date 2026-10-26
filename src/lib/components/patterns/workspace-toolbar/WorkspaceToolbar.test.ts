@@ -380,12 +380,13 @@ describe('WorkspaceToolbar', () => {
 			expect(within(row()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
 		});
 
-		it('folds every filter into the Filters menu even when the row has room', async () => {
+		it('folds every filter and action into the Filters menu even when the row has room', async () => {
 			stubPhone(true);
 			render(DataToolbarTest, { props: { withArchive: false, phoneLayout: true } });
 			await layOut(2000);
 
 			expect(within(row()).queryByRole('button', { name: 'Gaps only' })).toBeNull();
+			expect(within(row()).queryByRole('button', { name: 'Import' })).toBeNull();
 			await fireEvent.input(within(toolbar()).getByRole('searchbox', { name: 'Search roster' }), {
 				target: { value: 'ada' }
 			});
@@ -396,6 +397,7 @@ describe('WorkspaceToolbar', () => {
 			await screen.findByRole('menu');
 			for (const name of [/^Group/, /^Status/]) expect(screen.getByRole('menuitem', { name })).toBeTruthy();
 			expect(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' })).toBeTruthy();
+			expect(screen.getByRole('menuitem', { name: 'Import' })).toBeTruthy();
 		});
 
 		it('marks the Filters trigger when a folded filter leaves its default', async () => {

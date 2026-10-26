@@ -105,8 +105,9 @@ export type WorkspaceToolbarProps = {
 	};
 	primary?: ToolbarAction & { menuOnly?: never };
 	/**
-	 * Below this breakpoint search takes a full-width row of its own, every filter folds into one Filters menu,
-	 * and a primary with an icon shows only that icon, keeping its label as the accessible name.
+	 * Below this breakpoint search takes a full-width row of its own, every filter and action folds into one
+	 * Filters menu beside the view, and a primary with an icon shows only that icon, keeping its label as the
+	 * accessible name.
 	 */
 	compactBelow?: 'sm';
 };

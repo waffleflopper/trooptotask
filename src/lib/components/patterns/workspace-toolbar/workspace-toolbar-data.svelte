@@ -71,7 +71,7 @@
 	const compact = $derived(Boolean(compactBelow) && phone.current);
 	const searchOwnRow = $derived(compact && Boolean(search));
 	const primaryIconOnly = $derived(compact && Boolean(primary?.icon));
-	const foldsToMore = (item: ToolbarItem): boolean => isMenuOnly(item) || (compact && sectionOf(item) === 'filters');
+	const foldsToMore = (item: ToolbarItem): boolean => isMenuOnly(item) || (compact && sectionOf(item) !== 'view');
 	const rowCandidates = $derived(items.filter((item) => !foldsToMore(item)));
 	// Search on its own row never competes for the controls' width, so the fit sees no search at all.
 	const rowSearch = $derived(searchOwnRow ? undefined : search);

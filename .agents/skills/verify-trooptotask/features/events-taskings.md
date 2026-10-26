@@ -191,7 +191,7 @@ Group stays on the list as `Needs review`, drops out of the count and waits for 
   answers `unchanged` and writes nothing.
 - `staffing-review`: archive or a Group move flags a pick `Needs review` with `Archived`, `Moved to GROUP` or
   `No longer in a Group`. Restoring or moving back reads `Eligible again` and adds `Keep`; the flag stays until someone
-  acts.
+  acts. A Completed or Cancelled Tasking keeps its picks as they stood; reopening flags whoever changed meanwhile.
 - `staffing-counts`: the Taskings list row's muted line ends `· N of R picked`. Picks under review never count.
 - `staffing-delete-guard`: permanently deleting a picked Person, or deleting a Group responsible for a Tasking, is
   refused with 409 and a message naming the Taskings.

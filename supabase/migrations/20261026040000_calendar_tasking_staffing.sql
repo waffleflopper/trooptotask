@@ -80,6 +80,7 @@ GRANT SELECT ON public.calendar_tasking_participants TO authenticated;
 GRANT ALL ON public.calendar_tasking_participants TO service_role;
 
 -- Archiving a picked Person, or moving them out of a Group Tasking's Group, flags the pick.
+-- A closed Tasking keeps its record as it stood; reopening flags what changed meanwhile.
 CREATE FUNCTION calendar_private.flag_picks_of_changed_person() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
@@ -89,6 +90,7 @@ BEGIN
   FROM public.calendar_taskings AS t
   WHERE p.organization_id = NEW.organization_id AND p.personnel_id = NEW.id AND p.review_since IS NULL
     AND t.organization_id = p.organization_id AND t.id = p.tasking_id
+    AND t.status NOT IN ('completed', 'cancelled')
     AND (NEW.archived_at IS NOT NULL
       OR (t.responsible_group_id IS NOT NULL AND NEW.group_id IS DISTINCT FROM t.responsible_group_id));
   RETURN NULL;
@@ -102,29 +104,31 @@ FOR EACH ROW
 WHEN (OLD.group_id IS DISTINCT FROM NEW.group_id OR (OLD.archived_at IS NULL) <> (NEW.archived_at IS NULL))
 EXECUTE FUNCTION calendar_private.flag_picks_of_changed_person();
 
--- Rerouting a Tasking flags the picks its new Group does not hold; nobody is moved or dropped.
-CREATE FUNCTION calendar_private.flag_picks_of_rerouted_tasking() RETURNS trigger
+-- Rerouting or reopening a Tasking flags the picks it no longer holds; nobody is moved or dropped.
+CREATE FUNCTION calendar_private.flag_picks_of_changed_tasking() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  IF NEW.responsible_group_id IS NOT NULL THEN
+  IF NEW.status NOT IN ('completed', 'cancelled') THEN
     UPDATE public.calendar_tasking_participants AS p SET review_since = pg_catalog.now()
     FROM public.personnel AS person
     WHERE p.organization_id = NEW.organization_id AND p.tasking_id = NEW.id AND p.review_since IS NULL
       AND person.organization_id = p.organization_id AND person.id = p.personnel_id
-      AND person.group_id IS DISTINCT FROM NEW.responsible_group_id;
+      AND (person.archived_at IS NOT NULL
+        OR (NEW.responsible_group_id IS NOT NULL AND person.group_id IS DISTINCT FROM NEW.responsible_group_id));
   END IF;
   RETURN NULL;
 END;
 $$;
-REVOKE ALL ON FUNCTION calendar_private.flag_picks_of_rerouted_tasking() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION calendar_private.flag_picks_of_changed_tasking() FROM PUBLIC, anon, authenticated, service_role;
 
-CREATE TRIGGER flag_calendar_tasking_picks_on_reroute
-AFTER UPDATE OF responsible_group_id ON public.calendar_taskings
+CREATE TRIGGER flag_calendar_tasking_picks_on_change
+AFTER UPDATE OF responsible_group_id, status ON public.calendar_taskings
 FOR EACH ROW
-WHEN (OLD.responsible_group_id IS DISTINCT FROM NEW.responsible_group_id)
-EXECUTE FUNCTION calendar_private.flag_picks_of_rerouted_tasking();
+WHEN (OLD.responsible_group_id IS DISTINCT FROM NEW.responsible_group_id
+  OR (OLD.status IN ('completed', 'cancelled') AND NEW.status NOT IN ('completed', 'cancelled')))
+EXECUTE FUNCTION calendar_private.flag_picks_of_changed_tasking();
 
 -- Replaces the whole selection in one transaction. Saving the selection that is
 -- already stored changes nothing, so a retried save converges. Any other change

@@ -178,6 +178,7 @@ UPDATE public.personnel SET group_id = pg_temp.id('202') WHERE id = pg_temp.id('
 SET LOCAL ROLE authenticated;
 SELECT is(pg_temp.picks('401'), ARRAY['501?'], 'moving a picked Person out of the Group flags the pick');
 SELECT is(pg_temp.picks('402'), ARRAY['501', '503', '504'], 'an Organization-level pick does not depend on the Group');
+SELECT is(pg_temp.picks('404'), ARRAY['501'], 'a Completed Tasking keeps its record as it stood');
 SELECT results_eq(
   $$SELECT picked, needs_review, outside_scope FROM public.calendar_tasking_staffing(pg_temp.id('101'), ARRAY[pg_temp.id('401')])$$,
   $$VALUES (0, 1, 0)$$, 'a flagged pick leaves the picked count');
@@ -249,6 +250,11 @@ SELECT is(pg_temp.picks('405'), ARRAY[]::text[], 'and it is gone');
 SELECT pg_temp.act_as('7');
 SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), pg_temp.id('501'), NULL)), 0,
   'an Alpha reader learns nothing about the Taskings of a Person who left their Groups');
+
+SELECT pg_temp.act_as('2');
+SELECT lives_ok($$SELECT public.transition_calendar_tasking(pg_temp.id('101'), pg_temp.id('404'), 'reopen', NULL)$$,
+  'the litter carry is reopened');
+SELECT is(pg_temp.picks('404'), ARRAY['501?'], 'reopening flags a pick that left the Group while it was closed');
 SELECT pg_temp.act_as('6');
 SELECT is((SELECT count(*)::int FROM public.calendar_deletion_references(pg_temp.id('101'), pg_temp.id('502'), NULL)), 0,
   'another Organization learns nothing');

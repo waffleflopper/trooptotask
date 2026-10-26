@@ -168,8 +168,8 @@ SELECT is(
    WHERE other_tasking_id = pg_temp.id('404')), 0,
   'a Completed Tasking commits nobody');
 SELECT pg_temp.act_as('4');
-SELECT is((SELECT count(*)::int FROM public.calendar_tasking_advisories(pg_temp.id('101'), pg_temp.id('401'))), 0,
-  'a viewer reads no advisories');
+SELECT ok((SELECT count(*) FROM public.calendar_tasking_advisories(pg_temp.id('101'), pg_temp.id('401'))) > 0,
+  'a Calendar viewer reads scoped advisories for Tasking detail');
 
 -- Staffing a closed Tasking is refused; resubmitting its stored selection is harmless.
 SELECT pg_temp.act_as('2');

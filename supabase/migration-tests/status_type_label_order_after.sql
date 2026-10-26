@@ -15,7 +15,7 @@ SELECT results_eq($$
     SELECT id AS row_id, to_jsonb(t) - 'short_label' - 'roster_effect' AS row_data FROM public.status_types t
       WHERE organization_id::text LIKE 'e1684000-%' AND short_label IS NULL
     UNION ALL
-    SELECT id, to_jsonb(a) FROM public.availability_entries a WHERE organization_id::text LIKE 'e1684000-%') AS current_rows
+    SELECT id, to_jsonb(a) - 'set_for_tasking_id' FROM public.availability_entries a WHERE organization_id::text LIKE 'e1684000-%') AS current_rows
   ORDER BY row_id $$,
   $$ SELECT row_id, row_data FROM upgrade_fixture.status_type_label_order_before_rows ORDER BY row_id $$,
   'every status type keeps its identity, details and position with no label, and availability is unchanged');
@@ -42,5 +42,8 @@ RESET ROLE;
 SELECT is((SELECT jsonb_agg(jsonb_build_array(name, sort_order) ORDER BY sort_order, id) FROM public.status_types
   WHERE organization_id = 'e1684000-0000-4000-8000-000000000102'),
   '[["Bravo Leave", 1], ["Bravo School", 2]]', 'another Organization keeps its saved positions');
+RESET ROLE;
+SELECT ok(NOT EXISTS (SELECT 1 FROM public.availability_entries WHERE set_for_tasking_id IS NOT NULL),
+  'historical Availability entries remain unlinked after upgrade');
 SELECT * FROM finish();
 ROLLBACK;

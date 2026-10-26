@@ -35,7 +35,7 @@ export interface CalendarTaskingListsPersistence {
 	reorder(taskingId: string, list: TaskingListKind, ids: string[]): Promise<void>;
 }
 
-const EQUIPMENT_COLUMNS = 'id, name, quantity, secured_quantity';
+const EQUIPMENT_COLUMNS = 'id, name, quantity, secured_quantity, returned_quantity';
 const CHECKLIST_COLUMNS = 'id, label, done, done_at, done_by';
 const ORDER = { ascending: true } as const;
 
@@ -43,7 +43,8 @@ const equipmentRowSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	quantity: z.number(),
-	secured_quantity: z.number()
+	secured_quantity: z.number(),
+	returned_quantity: z.number().default(0)
 });
 const checklistRowSchema = z.object({
 	id: z.string(),
@@ -55,7 +56,13 @@ const checklistRowSchema = z.object({
 
 function toEquipment(raw: unknown): EquipmentRequirement {
 	const row = equipmentRowSchema.parse(raw);
-	return { id: row.id, name: row.name, quantity: row.quantity, securedQuantity: row.secured_quantity };
+	return {
+		id: row.id,
+		name: row.name,
+		quantity: row.quantity,
+		securedQuantity: row.secured_quantity,
+		returnedQuantity: row.returned_quantity
+	};
 }
 
 function toChecklistItem(raw: unknown): ChecklistItem {
@@ -144,7 +151,8 @@ export function createSupabaseCalendarTaskingListsPersistence(
 				.update({
 					...(change.name !== undefined && { name: change.name }),
 					...(change.quantity !== undefined && { quantity: change.quantity }),
-					...(change.securedQuantity !== undefined && { secured_quantity: change.securedQuantity })
+					...(change.securedQuantity !== undefined && { secured_quantity: change.securedQuantity }),
+					...(change.returnedQuantity !== undefined && { returned_quantity: change.returnedQuantity })
 				})
 				.eq('organization_id', orgId)
 				.eq('tasking_id', taskingId)

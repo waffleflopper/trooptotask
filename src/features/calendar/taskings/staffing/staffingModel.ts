@@ -56,7 +56,15 @@ export function isCandidateFor(responsibility: TaskingResponsibility, person: { 
 
 /** Another fact over the execution dates. An inaccessible Tasking is only "committed elsewhere". */
 export type StaffingAdvisory =
-	| { kind: 'availability'; label: string; startsOn: string; endsOn: string }
+	| {
+			kind: 'availability';
+			label: string;
+			startsOn: string;
+			endsOn: string;
+			isConflict: boolean;
+			overlapDays: number;
+			executionDays: number;
+	  }
 	| { kind: 'tasking'; taskingId: string; title: string; startsOn: string; endsOn: string }
 	| { kind: 'committed_elsewhere' };
 
@@ -70,6 +78,7 @@ export interface StaffingPicker {
 	staffing: TaskingStaffing;
 	candidates: StaffingCandidate[];
 	advisories: StaffingAdvisories;
+	states: Record<string, StaffingPersonState>;
 }
 
 export const personName = (person: Pick<TaskingPick, 'rank' | 'firstName' | 'lastName'>) =>
@@ -145,3 +154,20 @@ export const draftOf = (staffing: TaskingStaffing): StaffingDraft => ({
 	keep: [],
 	removeOutsideScope: false
 });
+
+export type StaffingPersonState =
+	| { kind: 'unknown'; reason: 'failed' | 'no_execution' }
+	| { kind: 'clear' }
+	| { kind: 'conflict'; availability: Extract<StaffingAdvisory, { kind: 'availability' }>[] }
+	| { kind: 'committed_elsewhere'; commitments: Exclude<StaffingAdvisory, { kind: 'availability' }>[] };
+
+export function staffingPersonState(personnelId: string, advisories: StaffingAdvisories): StaffingPersonState {
+	if (advisories.kind !== 'loaded') return { kind: 'unknown', reason: advisories.kind };
+	const rows = advisories.byPerson[personnelId] ?? [];
+	const availability = rows.filter(
+		(row): row is Extract<StaffingAdvisory, { kind: 'availability' }> => row.kind === 'availability' && row.isConflict
+	);
+	if (availability.length > 0) return { kind: 'conflict', availability };
+	const commitments = rows.filter((row) => row.kind !== 'availability');
+	return commitments.length > 0 ? { kind: 'committed_elsewhere', commitments } : { kind: 'clear' };
+}

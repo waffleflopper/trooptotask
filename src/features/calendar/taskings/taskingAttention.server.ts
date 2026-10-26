@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
-import { ATTENTION_ROW_LIMIT, attentionRowSchema, type TaskingAttentionProjection } from './taskingAttentionModel';
+import { ATTENTION_ROW_LIMIT, taskingDashboardSchema, type TaskingAttentionProjection } from './taskingAttentionModel';
 
 export interface CalendarTaskingAttentionReader {
 	/** The viewer's active Taskings needing attention on `today`; a reader sees only the work their scope covers. */
@@ -19,14 +19,13 @@ export function createSupabaseCalendarTaskingAttentionReader(
 ): CalendarTaskingAttentionReader {
 	return {
 		async read(today) {
-			const { data, error } = await client.rpc('calendar_tasking_attention', {
+			const { data, error } = await client.rpc('calendar_tasking_dashboard', {
 				p_organization_id: orgId,
 				p_today: today,
 				p_limit: ATTENTION_ROW_LIMIT
 			});
 			if (error) throw new Error(error.message);
-			const parsed = ((data ?? []) as unknown[]).map((row) => attentionRowSchema.parse(row));
-			return { rows: parsed.map(({ row }) => row), total: parsed[0]?.total ?? 0 };
+			return taskingDashboardSchema.parse(data);
 		}
 	};
 }

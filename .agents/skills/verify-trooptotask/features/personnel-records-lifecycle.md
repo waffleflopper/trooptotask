@@ -148,7 +148,7 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
 1. **Create, cancel and failed save:** As `manager`, choose Add Person. Enter a unique `MapCreated<tag>` last name,
    Synthetic first name, active SPC rank, 68W, Medic, Alpha, ETS `2027-05-01` and PCS / DEROS `2027-06-01`. Cancel once
    and require no row with that last name. Reopen, enter the same draft, arm `$V network arm-fail PAGE personnel` and
-   submit Add Personnel. Save network state, visible error and draft; no matching Person may exist. Restore the hook and
+   submit `Add person`. Save network state, visible error and draft; no matching Person may exist. Restore the hook and
    retry visibly. Require exactly one saved row, capture its ID/slug/Group ID and reopen after reload with the submitted
    values. A closed dialog or success toast alone is insufficient. Independently prove required rank/name validation
    without a saved row. Duplicate names are supported: a deliberate second create may get another ID and distinct slug;

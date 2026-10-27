@@ -14,6 +14,8 @@
 		size?: 'default' | 'wide' | 'fullscreen';
 		/** A side sheet keeps the same dismissal and busy rules as the centered dialog. */
 		presentation?: 'dialog' | 'sheet';
+		/** `sheet` fills the screen below 640 px, for a form typed into repeatedly on a phone. */
+		narrow?: 'centered' | 'sheet';
 	};
 
 	let {
@@ -21,6 +23,7 @@
 		showCloseButton = true,
 		size = 'default',
 		presentation = 'dialog',
+		narrow = 'centered',
 		class: className,
 		ref = $bindable(null),
 		...restProps
@@ -60,8 +63,10 @@
 			'max-h-[min(42rem,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-lg',
 			size === 'wide' && 'sm:max-w-3xl',
 			size === 'fullscreen' && 'h-[calc(100dvh-2rem)] sm:max-w-5xl',
+			narrow === 'sheet' &&
+				'max-sm:inset-0 max-sm:h-dvh max-sm:max-h-dvh max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0',
 			dialog.tone === 'destructive' && 'border-t-4 border-t-destructive',
-			dialog.voice === 'editorial' && 'font-body',
+			(dialog.voice === 'editorial' || dialog.voice === 'announcement') && 'font-body',
 			className
 		)}
 		{...restProps}

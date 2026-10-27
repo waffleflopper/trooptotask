@@ -93,7 +93,12 @@ function workspace(userId = 'user-a', orgId = 'org-a', sessionId = 'session-1') 
 		announcements: [],
 		whatsNew: [{ id: 'entry-newest', title: 'Update', paragraphs: ['Body'], publishedOn: '2026-10-24' }]
 	};
-	return { viewer: null, shell, identitySessionScope: { userId, sessionId } } satisfies LayoutData;
+	return {
+		organizationSetup: null,
+		viewer: null,
+		shell,
+		identitySessionScope: { userId, sessionId }
+	} satisfies LayoutData;
 }
 function statusCheckbox() {
 	return screen.getByRole('checkbox', { name: 'Show status text' }) as HTMLInputElement;
@@ -375,6 +380,7 @@ describe('organization layout suspended contact', () => {
 		render(Layout, {
 			children,
 			data: {
+				organizationSetup: null,
 				viewer: null,
 				identitySessionScope: null,
 				shell: {
@@ -393,6 +399,7 @@ describe('organization layout suspended contact', () => {
 		render(Layout, {
 			children,
 			data: {
+				organizationSetup: null,
 				viewer: null,
 				identitySessionScope: null,
 				shell: {

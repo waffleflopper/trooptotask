@@ -18,6 +18,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { CoachMark } from '$lib/components/patterns/coach-mark';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
 	import { cn } from '$lib/utils';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -80,6 +81,7 @@
 	let addPeopleValue = $state('');
 	let ordering = $state(0);
 	let detailsRef = $state<HTMLElement | null>(null);
+	let hintDismissed = $state(false);
 
 	const groupIds = $derived(new Set(groups.map((group) => group.id)));
 	const membersByGroup = $derived.by(() => {
@@ -107,6 +109,8 @@
 	const isPinned = $derived(selectedGroup ? pinnedNames.includes(selectedGroup.name) : false);
 	const entries = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
 	const busy = $derived(pending !== null || ordering > 0);
+	const noGroups = $derived(!loading && groups.length === 0);
+	const showHint = $derived(noGroups && !hintDismissed);
 	const dirty = $derived(newGroupName.trim() !== '' || (renameDraft !== null && renameDraft !== selectedGroup?.name));
 
 	const moveTargets = $derived([
@@ -190,6 +194,7 @@
 	async function addGroup() {
 		const name = newGroupName.trim();
 		if (!name || pending) return;
+		hintDismissed = true;
 		if (await run('add', () => onAdd(name))) {
 			newGroupName = '';
 			const added = groups.find((group) => group.name === name);
@@ -306,44 +311,66 @@
 		<div class="grid min-h-0 overflow-y-auto lg:grid-cols-[18.75rem_minmax(0,1fr)] lg:overflow-hidden">
 			<section aria-label="Groups" class="flex min-h-0 flex-col border-border bg-muted max-lg:border-b lg:border-r">
 				<Field.Root data-invalid={failures.add ? true : undefined} class="gap-1.5 p-4">
-					<div class="flex gap-1.5">
-						<Input
-							bind:value={newGroupName}
-							aria-label="New group name"
-							placeholder="New group name"
-							readonly={pending === 'add'}
-							class="bg-background"
-							oninput={() => clearFailure('add')}
-							onkeydown={(event) => {
-								if (event.key === 'Enter') {
-									event.preventDefault();
-									void addGroup();
-								}
-							}}
-						/>
-						<Button
-							type="button"
-							variant="outline"
-							onclick={addGroup}
-							disabled={!newGroupName.trim() || pending !== null}
-						>
-							Add
-						</Button>
-					</div>
+					<CoachMark
+						open={showHint}
+						id="first-group-hint"
+						title="Type a Group name here, then select Add."
+						body="Enter works too. Add as many as you need, and drag them into order after."
+						onDismiss={() => (hintDismissed = true)}
+					>
+						<div class="flex gap-1.5">
+							<Input
+								bind:value={newGroupName}
+								aria-label="New group name"
+								aria-describedby={showHint ? 'first-group-hint' : undefined}
+								placeholder="New group name"
+								readonly={pending === 'add'}
+								class="bg-background"
+								oninput={() => {
+									hintDismissed = true;
+									clearFailure('add');
+								}}
+								onkeydown={(event) => {
+									if (event.key === 'Enter') {
+										event.preventDefault();
+										void addGroup();
+									}
+								}}
+							/>
+							<Button
+								type="button"
+								variant="outline"
+								onclick={addGroup}
+								disabled={!newGroupName.trim() || pending !== null}
+							>
+								Add
+							</Button>
+						</div>
+					</CoachMark>
 					{#if failures.add}<Field.Error>{failures.add}</Field.Error>{/if}
 				</Field.Root>
 
-				<p
-					class="px-4 pt-1 pb-2 font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase"
-				>
-					Drag to reorder
-				</p>
+				{#if !noGroups}
+					<p
+						class="px-4 pt-1 pb-2 font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase"
+					>
+						Drag to reorder
+					</p>
+				{/if}
 				{#if failures.order}
 					<p role="alert" class="px-4 pb-2 text-sm text-destructive-text">{failures.order}</p>
 				{/if}
 
 				<div class="min-h-0 lg:flex-1 lg:overflow-y-auto">
-					{#if loading}
+					{#if noGroups}
+						<div class="flex h-full flex-col justify-end p-4 max-lg:pt-0">
+							<p
+								class="rounded-sm border border-dashed border-muted-foreground/40 p-3.5 text-[13px] leading-[18px] text-muted-foreground"
+							>
+								Your Groups line up here, in the order the roster shows them.
+							</p>
+						</div>
+					{:else if loading}
 						<div class="grid gap-3 px-4 py-3" aria-busy="true" aria-label="Loading Groups">
 							{#each [0, 1, 2, 3] as row (row)}
 								<Skeleton class="h-6 w-full" />
@@ -414,261 +441,300 @@
 				</div>
 			</section>
 
-			<section
-				bind:this={detailsRef}
-				aria-label={selectedName}
-				class="flex min-w-0 scroll-mt-4 flex-col gap-3 px-4 pb-4 sm:px-6 lg:min-h-0 lg:overflow-y-auto"
-			>
-				<div class="flex flex-wrap items-center gap-3 pt-[18px] pb-0.5">
-					{#if renameDraft !== null && selectedGroup}
-						<Field.Root data-invalid={failures.rename ? true : undefined} class="min-w-0 flex-1 gap-1.5">
-							<div class="flex flex-wrap items-center gap-2">
-								<Input
-									bind:value={renameDraft}
-									aria-label="Group name"
-									readonly={pending === 'rename'}
-									class="max-w-xs"
-									oninput={() => clearFailure('rename')}
-									onkeydown={(event) => {
-										if (event.key === 'Enter') {
-											event.preventDefault();
-											void saveRename();
-										} else if (event.key === 'Escape') {
-											event.preventDefault();
-											event.stopPropagation();
+			{#if noGroups}
+				<section
+					aria-labelledby="first-group-heading"
+					class="flex min-w-0 flex-col justify-center gap-2.5 px-4 py-8 sm:px-6 lg:px-18"
+				>
+					<p class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+						No Groups yet
+					</p>
+					<h3
+						id="first-group-heading"
+						class="font-heading text-[26px] leading-[30px] font-bold text-foreground uppercase"
+					>
+						Name your first Group
+					</h3>
+					<p class="max-w-[420px] text-[15px] leading-[22px] text-muted-foreground">
+						Start with the sections you report on, like HQ Section, 1st Platoon or Maintenance. Once a Group exists,
+						this side lists who is in it and lets you add people.
+					</p>
+				</section>
+			{:else}
+				<section
+					bind:this={detailsRef}
+					aria-label={selectedName}
+					class="flex min-w-0 scroll-mt-4 flex-col gap-3 px-4 pb-4 sm:px-6 lg:min-h-0 lg:overflow-y-auto"
+				>
+					<div class="flex flex-wrap items-center gap-3 pt-[18px] pb-0.5">
+						{#if renameDraft !== null && selectedGroup}
+							<Field.Root data-invalid={failures.rename ? true : undefined} class="min-w-0 flex-1 gap-1.5">
+								<div class="flex flex-wrap items-center gap-2">
+									<Input
+										bind:value={renameDraft}
+										aria-label="Group name"
+										readonly={pending === 'rename'}
+										class="max-w-xs"
+										oninput={() => clearFailure('rename')}
+										onkeydown={(event) => {
+											if (event.key === 'Enter') {
+												event.preventDefault();
+												void saveRename();
+											} else if (event.key === 'Escape') {
+												event.preventDefault();
+												event.stopPropagation();
+												renameDraft = null;
+											}
+										}}
+									/>
+									<Button
+										type="button"
+										size="sm"
+										onclick={saveRename}
+										disabled={!renameDraft.trim() || pending !== null}
+									>
+										Save
+									</Button>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										disabled={pending === 'rename'}
+										onclick={() => {
 											renameDraft = null;
-										}
-									}}
-								/>
-								<Button type="button" size="sm" onclick={saveRename} disabled={!renameDraft.trim() || pending !== null}>
-									Save
-								</Button>
+											clearFailure('rename');
+										}}
+									>
+										Cancel
+									</Button>
+								</div>
+								{#if failures.rename}<Field.Error>{failures.rename}</Field.Error>{/if}
+							</Field.Root>
+						{:else}
+							<h3 class="min-w-0 truncate font-heading text-[26px] leading-[30px] font-bold text-foreground uppercase">
+								{selectedName}
+							</h3>
+							{#if selectedGroup}
 								<Button
 									type="button"
-									variant="outline"
-									size="sm"
-									disabled={pending === 'rename'}
+									variant="ghost"
+									size="icon-sm"
+									aria-label="Rename {selectedGroup.name}"
+									title="Rename"
 									onclick={() => {
-										renameDraft = null;
+										renameDraft = selectedGroup.name;
 										clearFailure('rename');
 									}}
 								>
-									Cancel
+									<PencilIcon aria-hidden="true" />
 								</Button>
-							</div>
-							{#if failures.rename}<Field.Error>{failures.rename}</Field.Error>{/if}
-						</Field.Root>
-					{:else}
-						<h3 class="min-w-0 truncate font-heading text-[26px] leading-[30px] font-bold text-foreground uppercase">
-							{selectedName}
-						</h3>
+							{/if}
+						{/if}
 						{#if selectedGroup}
 							<Button
 								type="button"
-								variant="ghost"
-								size="icon-sm"
-								aria-label="Rename {selectedGroup.name}"
-								title="Rename"
-								onclick={() => {
-									renameDraft = selectedGroup.name;
-									clearFailure('rename');
-								}}
-							>
-								<PencilIcon aria-hidden="true" />
-							</Button>
-						{/if}
-					{/if}
-					{#if selectedGroup}
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							aria-pressed={isPinned}
-							disabled={pending === 'pin'}
-							class={cn(isPinned && 'border-accent text-accent-text')}
-							onclick={togglePin}
-						>
-							<PinIcon aria-hidden="true" class={cn(isPinned ? 'fill-accent text-accent' : 'text-muted-foreground')} />
-							{isPinned ? 'Pinned to top' : 'Pin to top'}
-						</Button>
-					{/if}
-				</div>
-				{#if failures.pin}<p role="alert" class="-mt-2 text-sm text-destructive-text">{failures.pin}</p>{/if}
-
-				{#if selectedGroup && addPeopleItems.length > 0}
-					<Field.Root data-invalid={failures['add-people'] ? true : undefined} class="gap-1.5">
-						<Combobox.Root
-							items={addPeopleItems}
-							bind:value={addPeopleValue}
-							label="Add people"
-							autoHighlight
-							disabled={pending !== null}
-							onValueChange={addPerson}
-						>
-							<Combobox.Trigger
-								aria-label="Add people to {selectedGroup.name}"
-								placeholder="Add people: search by name or rank, or pick from Unassigned"
-								class="h-9 bg-background"
-							>
-								<span class="flex min-w-0 items-center gap-2 text-muted-foreground">
-									<PlusIcon aria-hidden="true" class="size-3.5" />
-									<span class="truncate">Add people: search by name or rank, or pick from Unassigned</span>
-								</span>
-							</Combobox.Trigger>
-							<Combobox.Content>
-								<Combobox.Search placeholder="Search by name or rank" />
-								<Combobox.Empty>No one matches.</Combobox.Empty>
-								<Combobox.List />
-							</Combobox.Content>
-						</Combobox.Root>
-						{#if failures['add-people']}<Field.Error>{failures['add-people']}</Field.Error>{/if}
-					</Field.Root>
-				{/if}
-
-				{#if checkedMembers.length > 0}
-					<div
-						class="flex min-h-11 flex-wrap items-center gap-2.5 rounded-md bg-foreground px-3 py-1.5 text-background"
-						role="toolbar"
-						aria-label="Selected members"
-					>
-						<span class="text-sm font-semibold">{checkedMembers.length} selected</span>
-						<span class="flex-1"></span>
-						{#if moveTargets.length > 0}
-							<DropdownMenu.Root>
-								<DropdownMenu.Trigger>
-									{#snippet child({ props })}
-										<Button
-											{...props}
-											type="button"
-											size="sm"
-											variant="outline"
-											disabled={pending !== null}
-											class="border-chrome-border bg-chrome-surface-muted text-chrome-text hover:bg-chrome-surface-muted/80 hover:text-chrome-text"
-										>
-											Move to…
-											<ChevronDownIcon aria-hidden="true" />
-										</Button>
-									{/snippet}
-								</DropdownMenu.Trigger>
-								<DropdownMenu.Content align="end">
-									{#each moveTargets as target (target.id)}
-										<DropdownMenu.Item
-											onSelect={() =>
-												moveMembers(
-													'members',
-													checkedMembers.map((person) => person.id),
-													target.id === UNASSIGNED ? null : target.id
-												)}
-										>
-											{target.name}
-										</DropdownMenu.Item>
-									{/each}
-								</DropdownMenu.Content>
-							</DropdownMenu.Root>
-						{/if}
-						{#if selectedGroup && canMoveTo(null)}
-							<Button
-								type="button"
+								variant="outline"
 								size="sm"
-								variant="ghost"
-								disabled={pending !== null}
-								class="border border-chrome-border text-chrome-text hover:bg-chrome-surface-muted hover:text-chrome-text"
-								onclick={() =>
-									moveMembers(
-										'members',
-										checkedMembers.map((person) => person.id),
-										null
-									)}
+								aria-pressed={isPinned}
+								disabled={pending === 'pin'}
+								class={cn(isPinned && 'border-accent text-accent-text')}
+								onclick={togglePin}
 							>
-								Remove from Group
+								<PinIcon
+									aria-hidden="true"
+									class={cn(isPinned ? 'fill-accent text-accent' : 'text-muted-foreground')}
+								/>
+								{isPinned ? 'Pinned to top' : 'Pin to top'}
 							</Button>
 						{/if}
 					</div>
-				{/if}
-				{#if failures.members}<p role="alert" class="text-sm text-destructive-text">{failures.members}</p>{/if}
-				{#if notice}<p role="status" class="text-sm text-muted-foreground">{notice}</p>{/if}
+					{#if failures.pin}<p role="alert" class="-mt-2 text-sm text-destructive-text">{failures.pin}</p>{/if}
 
-				<div class="overflow-hidden rounded-md border border-border bg-background">
-					<div
-						class={cn(
-							'grid h-8 items-center border-b border-border bg-muted px-3 font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase',
-							memberColumns
-						)}
-					>
-						<span>
-							{#if movableMembers.length > 0}
-								<Checkbox
-									aria-label="Select all members of {selectedName}"
-									checked={checkedMembers.length > 0 && checkedMembers.length === movableMembers.length}
-									indeterminate={checkedMembers.length > 0 && checkedMembers.length < movableMembers.length}
-									onCheckedChange={(on) => toggleAll(on === true)}
-								/>
-							{/if}
-						</span>
-						<span>Rank</span>
-						<span>Members · {members.length}</span>
-						<span class="max-sm:hidden">Duty role</span>
-						{#if todayStatus}<span>Today</span>{/if}
-					</div>
-					{#if loading}
-						<div class="grid gap-3 px-3 py-3" aria-busy="true" aria-label="Loading members">
-							{#each [0, 1, 2] as row (row)}
-								<Skeleton class="h-5 w-full" />
-							{/each}
-						</div>
-					{:else if members.length === 0}
-						<p class="px-3 py-6 text-center text-sm text-muted-foreground">
-							{selectedGroup ? 'No one is in this Group yet.' : 'Everyone has a Group.'}
-						</p>
-					{:else}
-						<ul aria-label="Members of {selectedName}">
-							{#each members as person (person.id)}
-								{@const isChecked = checked.includes(person.id)}
-								{@const dot = todayStatus?.(person)}
-								<li
-									class={cn(
-										'grid min-h-[42px] items-center border-b border-border px-3 last:border-b-0',
-										memberColumns,
-										isChecked && 'bg-muted'
-									)}
+					{#if selectedGroup && addPeopleItems.length > 0}
+						<Field.Root data-invalid={failures['add-people'] ? true : undefined} class="gap-1.5">
+							<Combobox.Root
+								items={addPeopleItems}
+								bind:value={addPeopleValue}
+								label="Add people"
+								autoHighlight
+								disabled={pending !== null}
+								onValueChange={addPerson}
+							>
+								<Combobox.Trigger
+									aria-label="Add people to {selectedGroup.name}"
+									placeholder="Add people: search by name or rank, or pick from Unassigned"
+									class="h-9 bg-background"
 								>
-									<span>
-										{#if canMovePerson(person)}
-											<Checkbox
-												aria-label="Select {personName(person)}"
-												checked={isChecked}
-												onCheckedChange={(on) => toggleMember(person.id, on === true)}
-											/>
-										{/if}
+									<span class="flex min-w-0 items-center gap-2 text-muted-foreground">
+										<PlusIcon aria-hidden="true" class="size-3.5" />
+										<span class="truncate">Add people: search by name or rank, or pick from Unassigned</span>
 									</span>
-									<span class="font-mono text-[13px] font-medium text-foreground">{person.rank}</span>
-									<span class="truncate text-sm font-semibold text-foreground"
-										>{person.lastName}, {person.firstName}</span
-									>
-									<span class="truncate text-sm text-muted-foreground max-sm:hidden">{person.clinicRole}</span>
-									{#if dot}
-										<span class="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground">
-											{#if dot.kind === 'skeleton'}
-												<Skeleton class="h-3 w-16" />
-											{:else if dot.kind === 'present'}
-												<span aria-hidden="true" class="size-[7px] shrink-0 rounded-full bg-success"></span>
-												<span class="truncate">Present</span>
-											{:else if dot.kind === 'away'}
-												<span
-													aria-hidden="true"
-													class="size-[7px] shrink-0 rounded-full"
-													style:background-color={dot.type.color}
-												></span>
-												<span class="truncate">{dot.type.name}</span>
-											{/if}
-										</span>
-									{/if}
-								</li>
-							{/each}
-						</ul>
+								</Combobox.Trigger>
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search by name or rank" />
+									<Combobox.Empty>No one matches.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
+							{#if failures['add-people']}<Field.Error>{failures['add-people']}</Field.Error>{/if}
+						</Field.Root>
 					{/if}
-				</div>
-			</section>
+
+					{#if checkedMembers.length > 0}
+						<div
+							class="flex min-h-11 flex-wrap items-center gap-2.5 rounded-md bg-foreground px-3 py-1.5 text-background"
+							role="toolbar"
+							aria-label="Selected members"
+						>
+							<span class="text-sm font-semibold">{checkedMembers.length} selected</span>
+							<span class="flex-1"></span>
+							{#if moveTargets.length > 0}
+								<DropdownMenu.Root>
+									<DropdownMenu.Trigger>
+										{#snippet child({ props })}
+											<Button
+												{...props}
+												type="button"
+												size="sm"
+												variant="outline"
+												disabled={pending !== null}
+												class="border-chrome-border bg-chrome-surface-muted text-chrome-text hover:bg-chrome-surface-muted/80 hover:text-chrome-text"
+											>
+												Move to…
+												<ChevronDownIcon aria-hidden="true" />
+											</Button>
+										{/snippet}
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content align="end">
+										{#each moveTargets as target (target.id)}
+											<DropdownMenu.Item
+												onSelect={() =>
+													moveMembers(
+														'members',
+														checkedMembers.map((person) => person.id),
+														target.id === UNASSIGNED ? null : target.id
+													)}
+											>
+												{target.name}
+											</DropdownMenu.Item>
+										{/each}
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+							{/if}
+							{#if selectedGroup && canMoveTo(null)}
+								<Button
+									type="button"
+									size="sm"
+									variant="ghost"
+									disabled={pending !== null}
+									class="border border-chrome-border text-chrome-text hover:bg-chrome-surface-muted hover:text-chrome-text"
+									onclick={() =>
+										moveMembers(
+											'members',
+											checkedMembers.map((person) => person.id),
+											null
+										)}
+								>
+									Remove from Group
+								</Button>
+							{/if}
+						</div>
+					{/if}
+					{#if failures.members}<p role="alert" class="text-sm text-destructive-text">{failures.members}</p>{/if}
+					{#if notice}<p role="status" class="text-sm text-muted-foreground">{notice}</p>{/if}
+
+					{#if selectedGroup && !loading && people.length === 0}
+						<div class="grid gap-1.5 rounded-sm border border-dashed border-muted-foreground/40 px-6 py-7">
+							<p class="text-[15px] leading-5 font-semibold text-foreground">No one in {selectedGroup.name} yet</p>
+							<p class="max-w-[460px] text-sm leading-5 text-muted-foreground">
+								A Group column in your roster spreadsheet fills Groups on import, or add people here once they are on
+								the roster.
+							</p>
+						</div>
+					{:else}
+						<div class="overflow-hidden rounded-md border border-border bg-background">
+							<div
+								class={cn(
+									'grid h-8 items-center border-b border-border bg-muted px-3 font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase',
+									memberColumns
+								)}
+							>
+								<span>
+									{#if movableMembers.length > 0}
+										<Checkbox
+											aria-label="Select all members of {selectedName}"
+											checked={checkedMembers.length > 0 && checkedMembers.length === movableMembers.length}
+											indeterminate={checkedMembers.length > 0 && checkedMembers.length < movableMembers.length}
+											onCheckedChange={(on) => toggleAll(on === true)}
+										/>
+									{/if}
+								</span>
+								<span>Rank</span>
+								<span>Members · {members.length}</span>
+								<span class="max-sm:hidden">Duty role</span>
+								{#if todayStatus}<span>Today</span>{/if}
+							</div>
+							{#if loading}
+								<div class="grid gap-3 px-3 py-3" aria-busy="true" aria-label="Loading members">
+									{#each [0, 1, 2] as row (row)}
+										<Skeleton class="h-5 w-full" />
+									{/each}
+								</div>
+							{:else if members.length === 0}
+								<p class="px-3 py-6 text-center text-sm text-muted-foreground">
+									{selectedGroup ? 'No one is in this Group yet.' : 'Everyone has a Group.'}
+								</p>
+							{:else}
+								<ul aria-label="Members of {selectedName}">
+									{#each members as person (person.id)}
+										{@const isChecked = checked.includes(person.id)}
+										{@const dot = todayStatus?.(person)}
+										<li
+											class={cn(
+												'grid min-h-[42px] items-center border-b border-border px-3 last:border-b-0',
+												memberColumns,
+												isChecked && 'bg-muted'
+											)}
+										>
+											<span>
+												{#if canMovePerson(person)}
+													<Checkbox
+														aria-label="Select {personName(person)}"
+														checked={isChecked}
+														onCheckedChange={(on) => toggleMember(person.id, on === true)}
+													/>
+												{/if}
+											</span>
+											<span class="font-mono text-[13px] font-medium text-foreground">{person.rank}</span>
+											<span class="truncate text-sm font-semibold text-foreground"
+												>{person.lastName}, {person.firstName}</span
+											>
+											<span class="truncate text-sm text-muted-foreground max-sm:hidden">{person.clinicRole}</span>
+											{#if dot}
+												<span class="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground">
+													{#if dot.kind === 'skeleton'}
+														<Skeleton class="h-3 w-16" />
+													{:else if dot.kind === 'present'}
+														<span aria-hidden="true" class="size-[7px] shrink-0 rounded-full bg-success"></span>
+														<span class="truncate">Present</span>
+													{:else if dot.kind === 'away'}
+														<span
+															aria-hidden="true"
+															class="size-[7px] shrink-0 rounded-full"
+															style:background-color={dot.type.color}
+														></span>
+														<span class="truncate">{dot.type.name}</span>
+													{/if}
+												</span>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					{/if}
+				</section>
+			{/if}
 		</div>
 
 		{#if confirmingDelete && selectedGroup}

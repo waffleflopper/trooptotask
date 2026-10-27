@@ -17,6 +17,7 @@ function fixture() {
 					id: ORG,
 					name: 'Alpha',
 					url_slug: 'alpha',
+					created_at: '2025-06-01T12:00:00Z',
 					suspended_at: suspendedAt,
 					disabled_features: ['training']
 				});
@@ -49,6 +50,7 @@ describe('request-local Organization identity', () => {
 				id: ORG,
 				name: 'Alpha',
 				urlSlug: 'alpha',
+				createdAt: '2025-06-01T12:00:00Z',
 				suspendedAt: null,
 				disabledFeatures: ['training']
 			});

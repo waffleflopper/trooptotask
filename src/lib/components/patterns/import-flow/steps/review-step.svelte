@@ -170,11 +170,11 @@
 		</div>
 	</div>
 
-	<div class="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
-		<div class="min-w-0 lg:order-2">
+	<div class="grid min-w-0 gap-4 @min-[42rem]:grid-cols-[minmax(0,1fr)_17rem] @min-[42rem]:items-start">
+		<div class="min-w-0 @min-[42rem]:order-2">
 			<FixRail {session} onCreate={create} />
 		</div>
-		<div class="grid min-w-0 gap-2 lg:order-1" bind:clientWidth={width} bind:this={listArea}>
+		<div class="grid min-w-0 gap-2 @min-[42rem]:order-1" bind:clientWidth={width} bind:this={listArea}>
 			<VirtualList
 				items={rows}
 				key={(row) => row.row.id}
@@ -234,8 +234,9 @@
 		</div>
 	</div>
 
+	<!-- A host with its own sticky footer sets --import-flow-bar-offset so this bar stacks above it. -->
 	<div
-		class="sticky bottom-0 z-20 -mx-1 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-chrome px-4 py-3 text-chrome-text"
+		class="sticky bottom-[var(--import-flow-bar-offset,0px)] z-20 -mx-1 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-chrome px-4 py-3 text-chrome-text"
 	>
 		{#if committing}
 			<div class="grid min-w-0 flex-1 basis-48 gap-1.5" role="status">

@@ -20,9 +20,9 @@ the preset's helper; with `Role` set to `Admin`, `Preset` reads `Uses Admin auth
 authority. `Waiting on them` appears above `Members` only while invitations are pending. Each row shows the email,
 `<preset> · sent <relative>`, the funnel status and its detail (failed delivery in the destructive color), `Resend` and
 `Revoke`. Closed invitations fold into `Invitation history · <n> closed` at the foot of the members list; that read
-streams after first paint behind a skeleton. An existing invited account signs in and opens `/dashboard`, where its
-pending Organization card has `Accept` and `Decline`. A new account uses the private Account Setup Link first, signs in,
-then accepts the separate Organization invitation.
+streams after first paint behind a skeleton. An existing invited account signs in and opens `/dashboard`, where the
+Organizations list shows each pending invitation first, under `Invitations`, with `Decline` and `Accept` on its row. A
+new account uses the private Account Setup Link first, signs in, then accepts the separate Organization invitation.
 
 ## Helper controls
 
@@ -69,11 +69,13 @@ helper provides invitation and membership readback for A/B. The owned app's outb
    `Alpha`, then click `Send invite`. Save the result and a reload of `Waiting on them`, including email, access label
    and funnel status. Confirm the invitee is absent from `Members` and from the owned A membership readback before
    acceptance. A duplicate pending invite must show a visible error and leave one pending invitation.
-2. As `orgInvitee`, open `/dashboard`; save a before snapshot with A under `Pending Invitations` and no A workspace.
-   Click that card's `Accept`, capture the response and resulting `Joined <Organization>` feedback, then reload. A must
-   now appear once under `Organizations`; the invitation must leave Pending and appear in the owner's history. Open A
-   and verify Alpha access without Bravo access using a retained Personnel or Calendar view; Organization B stays
-   absent. Record the exact A membership/access snapshot and invitation state from the owned provider.
+2. As `orgInvitee`, open `/dashboard`; save a before snapshot with A under `Invitations` and `Nothing yet.` under
+   `Member of`. Click that row's `Accept`: the page stays on `/dashboard?show=all`, the row leaves `Invitations`,
+   `Joined <Organization>. It's now in your list.` shows above the list and A appears under `Member of` with its role.
+   Reload: A must still appear once under `Member of`; the invitation must leave Pending and appear in the owner's
+   history. Open A and verify Alpha access without Bravo access using a retained Personnel or Calendar view;
+   Organization B stays absent. Record the exact A membership/access snapshot and invitation state from the owned
+   provider.
 3. On a separate fresh invitation, choose `Decline` from the invitee's Dashboard. Reload both Dashboard and owner
    Members; no membership is created and the owner sees the closed invitation after expanding `Invitation history`. A
    revoked invitation likewise cannot grant membership after reload. Keep each case on its own synthetic email or

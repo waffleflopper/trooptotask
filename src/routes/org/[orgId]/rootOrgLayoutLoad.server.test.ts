@@ -211,6 +211,7 @@ describe('createRootOrgLayoutLoad', () => {
 		});
 
 		expect(result).toEqual({
+			organizationSetup: null,
 			shell: {
 				kind: 'suspended',
 				org: { id: 'org-1', name: 'Suspended Unit', urlSegment: 'org-1' },
@@ -219,5 +220,50 @@ describe('createRootOrgLayoutLoad', () => {
 		});
 		expect(createOrgAccessPort).not.toHaveBeenCalled();
 		expect(createFirstPaintChromePort).not.toHaveBeenCalled();
+	});
+});
+
+describe('owner setup entry stream', () => {
+	it.each(['owner', 'admin', 'member'] as const)('delivers setup data only to an owner, viewer %s', async (role) => {
+		const { createReadyAppShellRouteData } = await import('./appShell.test-support');
+		const state = { branch: null, answers: {}, finishedAt: null, prompts: {} };
+		let complete!: (value: import('$features/organization/contracts').SetupEntryData) => void;
+		const entry = new Promise<import('$features/organization/contracts').SetupEntryData>((resolve) => {
+			complete = resolve;
+		});
+		const reads: string[] = [];
+		const load = createRootOrgLayoutLoad({
+			createAppShellRequest: () => ({
+				loadFirstPaint: async () => createReadyAppShellRouteData({ role }),
+				loadDeferredChrome: async () => {
+					throw new Error('Unexpected chrome read');
+				}
+			}),
+			streamSetupEntry: (context) => {
+				reads.push(context.orgId);
+				return entry;
+			}
+		});
+		const result = await load({
+			params: { orgId: 'org-1' },
+			locals: {} as App.Locals,
+			cookies: {} as Parameters<typeof load>[0]['cookies'],
+			depends: () => {},
+			url: new URL('http://localhost/org/org-1')
+		});
+		expect(result.shell.kind).toBe('ready');
+		complete({ orgId: 'org-1', state, today: '2026-10-27', entry: { prompt: { kind: 'invitation' }, resume: null } });
+		if (role === 'owner') {
+			await expect(result.organizationSetup).resolves.toEqual({
+				orgId: 'org-1',
+				state,
+				today: '2026-10-27',
+				entry: { prompt: { kind: 'invitation' }, resume: null }
+			});
+			expect(reads).toEqual(['org-1']);
+		} else {
+			expect(result.organizationSetup).toBeNull();
+			expect(reads).toEqual([]);
+		}
 	});
 });

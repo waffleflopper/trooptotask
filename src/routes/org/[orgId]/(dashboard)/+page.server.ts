@@ -15,6 +15,7 @@ import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
 import { streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
+import { streamOrganizationSetupEntry, streamSetupInvitationProgress } from '../setupEntryLoad.server';
 
 export const load = async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
 	depends('app:org-core');
@@ -47,9 +48,21 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 		() => createRequestDashboardTaskingContext(ctx)
 	);
 
+	const organizationSetup =
+		ctx.auth.role === 'owner' ? streamOrganizationSetupEntry({ locals, cookies, orgId: ctx.auth.orgId }) : null;
+
 	return {
 		summary,
 		taskings,
+		organizationSetup,
+		setupInvitationProgress: organizationSetup
+			? streamSetupInvitationProgress({
+					request: ctx,
+					entry: organizationSetup,
+					workspace: dashboard.data,
+					summary
+				})
+			: null,
 		breadcrumbLabel: formatDashboardDisplayDate(asOf),
 		viewerDay: { date: asOf, timeZone } satisfies DashboardViewerDay
 	};

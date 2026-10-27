@@ -10,7 +10,11 @@ import type {
 	PersonnelWorkbookHistoryReader,
 	SavedPersonnelSheet
 } from '$features/personnel/contracts';
-import type { PersonnelDeletionReferencesPort, RankCatalogPersistence } from '$features/personnel/contracts';
+import type {
+	PersonnelDeletionReferencesPort,
+	RankCatalogPersistence,
+	SavedRankCatalogEntry
+} from '$features/personnel/contracts';
 import type {
 	OrganizationSettingsMembershipRow,
 	OrganizationSettingsInvitationRow,
@@ -2017,6 +2021,14 @@ export function createTestRankCatalogPersistence(store: FixtureRowStore, orgId: 
 				entries.map((entry) => ({ ...entry })),
 				{ onConflict: 'organization_id,code' }
 			),
+		async setStatesByCodes(codes, state) {
+			const entries = await store.findMany<SavedRankCatalogEntry>('organization_rank_catalog', orgId);
+			return Promise.all(
+				entries
+					.filter((entry) => codes.includes(entry.code) && entry.state !== state)
+					.map((entry) => store.update<SavedRankCatalogEntry>('organization_rank_catalog', orgId, entry.id, { state }))
+			);
+		},
 		patchEntryById: (id, values) => store.update('organization_rank_catalog', orgId, id, { ...values })
 	};
 }

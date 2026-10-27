@@ -80,6 +80,36 @@ export async function loadMembersSettings(
 	});
 }
 
+export interface PendingInvitationsSettings {
+	invitations: SettingsPendingInvitationRow[];
+	groups: Array<{ id: string; name: string }>;
+}
+
+/** What the invite form and the list of pending invitations need, without the member roster or history. */
+export async function loadPendingInvitationsSettings(
+	ctx: MembersSettingsLoadContext,
+	input: { groups: Promise<Array<{ id: string; name: string }>> }
+): Promise<PendingInvitationsSettings> {
+	const [invitationRows, invitationDeliveryRows, groups] = await Promise.all([
+		ctx.organizationSettings.listInvitations(ctx.auth.orgId, 'pending'),
+		ctx.organizationSettings.listInvitationDeliveries(ctx.auth.orgId),
+		input.groups
+	]);
+	const section = buildMembersSettingsSection({
+		currentMemberRole: ctx.auth.role,
+		canManageMembers: ctx.auth.canManageMembers,
+		isAdmin: false,
+		members: [],
+		invitations: invitationRows,
+		closedInvitations: Promise.resolve([]),
+		invitationDeliveries: invitationDeliveryRows,
+		invitationSetupStates: await loadInvitationSetupStates(ctx, invitationRows),
+		groups,
+		disabledFeatures: ctx.disabledFeatures
+	});
+	return { invitations: section.invitations, groups: section.groups };
+}
+
 /**
  * The status line is context, not the reason the members screen exists, so a missing or failing
  * lookup degrades it to invitation-email state rather than taking the whole screen down

@@ -13,10 +13,7 @@
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import { useDataTable, type ColumnDef, type DataTableRowAction } from '$lib/components/ui/data-table/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -25,6 +22,7 @@
 	import { settleAction } from '$lib/utils/settleAction';
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import MemberAccessSheet from './MemberAccessSheet.svelte';
+	import MemberInviteForm from './MemberInviteForm.svelte';
 	import type {
 		MembersSettingsActionData,
 		MembersSettingsData,
@@ -32,19 +30,9 @@
 		SettingsMemberRow
 	} from './memberSettingsTypes';
 	import {
-		SETTINGS_ACCESS_OPTIONS,
-		SETTINGS_GOVERNANCE_ROLE_OPTIONS,
-		type EditableMembershipRole,
-		type EditablePreset
-	} from './settingsMemberAccessConstants';
-	import {
-		ALL_GROUPS,
 		accessLabel,
 		createSettingsMemberAccessWorkspace,
-		memberInitials,
-		presetHelper,
-		presetLabel,
-		roleHelper
+		memberInitials
 	} from './settingsMemberAccessWorkspace.svelte';
 
 	type Props = {
@@ -224,115 +212,22 @@
 	function isFailedDelivery(status: SettingsInvitationFunnelStatus): boolean {
 		return status === 'invitation_email_failed' || status === 'setup_email_failed';
 	}
-
-	const inviteHelper = $derived(
-		workspace.invite.role === 'admin'
-			? roleHelper('admin')
-			: `${presetHelper(workspace.invite.preset)} They accept the invite after signing in.`
-	);
 </script>
 
 <div class="grid gap-10">
 	{#if section.canInvite}
-		<section aria-label="Invite a member">
-			<form
-				method="POST"
-				action="?/invite"
-				class="grid gap-2.5 rounded-sm border bg-muted p-3.5"
-				use:enhance={invitationEnhance}
-			>
-				<input type="hidden" name="membershipRole" value={workspace.invite.role} />
-				{#if workspace.invite.role === 'member'}
-					<input type="hidden" name="memberPreset" value={workspace.invite.preset} />
-					<input
-						type="hidden"
-						name="scopeSetKind"
-						value={workspace.invite.groupIds.length > 0 ? 'groups' : 'organization'}
-					/>
-					{#each workspace.invite.groupIds as groupId (groupId)}
-						<input type="hidden" name="scopeSetGroupIds" value={groupId} />
-					{/each}
-				{/if}
-				<div class="flex flex-wrap items-center gap-2">
-					<Label for="invite-email" class="w-14 shrink-0 font-semibold">Invite</Label>
-					<Input
-						bind:ref={inviteEmailInput}
-						id="invite-email"
-						name="email"
-						type="email"
-						placeholder="name@unit.mil"
-						class="min-w-48 flex-1 bg-background"
-						aria-describedby="invite-helper"
-						bind:value={workspace.invite.email}
-						required
-					/>
-					{#if isOwner}
-						<Select.Root
-							type="single"
-							bind:value={() => workspace.invite.role, (role: EditableMembershipRole) => (workspace.invite.role = role)}
-						>
-							<Select.Trigger aria-label="Role" class="w-28 bg-background">
-								{workspace.invite.role === 'admin' ? 'Admin' : 'Member'}
-							</Select.Trigger>
-							<Select.Content>
-								{#each SETTINGS_GOVERNANCE_ROLE_OPTIONS as option (option.value)}
-									<Select.Item value={option.value} label={option.label} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					{/if}
-					{#if workspace.invite.role === 'member'}
-						<Select.Root
-							type="single"
-							bind:value={() => workspace.invite.preset, (preset: EditablePreset) => (workspace.invite.preset = preset)}
-						>
-							<Select.Trigger aria-label="Preset" class="w-28 bg-background">
-								{presetLabel(workspace.invite.preset)}
-							</Select.Trigger>
-							<Select.Content>
-								{#each SETTINGS_ACCESS_OPTIONS as option (option.value)}
-									<Select.Item value={option.value} label={option.label} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-						<Select.Root
-							type="multiple"
-							bind:value={() => workspace.inviteGroupsValue, (values: string[]) => workspace.setInviteGroups(values)}
-						>
-							<Select.Trigger aria-label="Groups" class="w-34 bg-background">
-								<span class="truncate">{workspace.inviteGroupsLabel}</span>
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value={ALL_GROUPS} label="All groups" />
-								{#each section.groups as group (group.id)}
-									<Select.Item value={group.id} label={group.name} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					{:else}
-						<p class="flex h-8 w-62 items-center rounded-lg border bg-background px-2.5 text-sm text-muted-foreground">
-							Uses Admin authority
-						</p>
-					{/if}
-					<!-- aria-disabled keeps focus on the pressed button while an invitation request is pending. -->
-					<Button
-						type="submit"
-						aria-disabled={invitationPending ? 'true' : undefined}
-						aria-busy={inviteLoading || undefined}>{inviteLoading ? 'Sending...' : 'Send invite'}</Button
-					>
-				</div>
-				<!-- The outcome takes the helper's line so the strip keeps its height. -->
-				{#if invitationOwner === NEW_INVITATION && inviteError}
-					<p id="invite-helper" role="alert" class="text-sm text-destructive-text sm:pl-16">{inviteError}</p>
-				{:else if inviteConfirmed}
-					<p id="invite-helper" role="status" class="text-sm sm:pl-16">
-						{invitationForm?.inviteMessage ?? 'Invitation created.'}
-					</p>
-				{:else}
-					<p id="invite-helper" class="text-sm text-muted-foreground sm:pl-16">{inviteHelper}</p>
-				{/if}
-			</form>
-		</section>
+		<MemberInviteForm
+			{workspace}
+			groups={section.groups}
+			{isOwner}
+			submit={invitationEnhance}
+			pending={invitationPending}
+			loading={inviteLoading}
+			error={invitationOwner === NEW_INVITATION ? inviteError : null}
+			confirmed={inviteConfirmed}
+			message={invitationForm?.inviteMessage}
+			bind:emailInput={inviteEmailInput}
+		/>
 	{/if}
 
 	{#if section.invitations.length > 0}

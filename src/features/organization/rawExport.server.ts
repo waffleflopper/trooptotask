@@ -13,6 +13,11 @@ export function createSupabaseOrganizationRawExportReader(client: SupabaseClient
 			if (!isOrganizationRawExportTable(table)) {
 				throw new RequestFailure(400, 'Unsupported Organization export table');
 			}
+			if (table === 'organization_setup') {
+				const { data, error } = await client.rpc('export_organization_setup', { p_organization_id: orgId });
+				if (error) throw new Error(error.message);
+				return data ?? [];
+			}
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
 				const { data, error } = await client
 					.from(table)

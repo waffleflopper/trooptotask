@@ -68,12 +68,12 @@ export type { PersonnelLifecycleCommandPort } from './contracts';
 export {
 	addOrganizationRankServicePack,
 	bulkSetOrganizationRankCatalogState,
+	configureOrganizationRankServices,
 	loadOrganizationRankCatalog,
 	loadOrganizationRankCatalogReferenceSummaries,
-	reactivateOrganizationRankCatalogEntry,
 	removeOrganizationRankCatalogEntry,
-	retireOrganizationRankCatalogEntry,
-	saveOrganizationRankCatalogEntry
+	saveOrganizationRankCatalogEntry,
+	setOrganizationRankCatalogStates
 } from './rankCatalogOperations.server';
 export { createSupabaseRankCatalogAdministrationPort } from './rankCatalogAdministration.server';
 export { getPersonnelOrganizationDefaults } from './organizationDefaults.server';

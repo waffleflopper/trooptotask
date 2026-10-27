@@ -5,6 +5,7 @@ export interface OrganizationRouteIdentity {
 	name: string | null;
 	urlSlug: string | null;
 	suspendedAt: string | null;
+	createdAt: string | null;
 	disabledFeatures: FeatureKey[];
 }
 

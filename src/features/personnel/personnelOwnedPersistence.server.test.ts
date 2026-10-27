@@ -409,6 +409,31 @@ describe('finite Personnel ordinary provider contracts', () => {
 		await expect(port.saveEntries([values])).rejects.toThrow('Rank write denied');
 		await expect(port.patchEntryById('rank-a', values)).rejects.toThrow('Rank write denied');
 	});
+	it('rank state updates retain details and affect only differing target codes in the Organization', async () => {
+		const p = personnelProvider({
+			organization_rank_catalog: [
+				{ ...rank, label: 'Saved name', sort_order: 42 },
+				{ ...rank, id: 'already-off', code: 'OFF', state: 'retired' },
+				{ ...rank, id: 'untargeted', code: 'OTHER' },
+				{ ...rank, id: 'foreign', organization_id: 'org-b' }
+			]
+		});
+		const port = createSupabaseRankCatalogPersistence(p.client, 'org-a');
+
+		expect(await port.setStatesByCodes(['CUSTOM', 'OFF', 'REMOVED'], 'retired')).toEqual([
+			{ ...rank, label: 'Saved name', sort_order: 42, state: 'retired' }
+		]);
+		expect(p.state.rows.organization_rank_catalog).toEqual([
+			{ ...rank, label: 'Saved name', sort_order: 42, state: 'retired' },
+			{ ...rank, id: 'already-off', code: 'OFF', state: 'retired' },
+			{ ...rank, id: 'untargeted', code: 'OTHER' },
+			{ ...rank, id: 'foreign', organization_id: 'org-b' }
+		]);
+		expect(await port.setStatesByCodes(['CUSTOM'], 'retired')).toEqual([]);
+		expect(await port.setStatesByCodes([], 'active')).toEqual([]);
+		p.state.failure = () => ({ code: '42501', message: 'Rank write denied', status: 403 });
+		await expect(port.setStatesByCodes(['CUSTOM'], 'active')).rejects.toThrow('Rank write denied');
+	});
 	it('SDS replacement and acknowledgement retain all untouched saved fields and canonical organization', async () => {
 		const p = personnelProvider({
 			personnel_extended_info: [

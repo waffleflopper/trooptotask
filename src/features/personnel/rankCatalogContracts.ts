@@ -16,7 +16,7 @@ export interface OrganizationRankCatalogEntry extends RankCatalogEntry {
 	source: OrganizationRankCatalogSource;
 }
 
-export type SaveOrganizationRankCatalogEntryInput = Omit<RankCatalogEntry, 'source'> & {
+export type SaveOrganizationRankCatalogEntryInput = Omit<RankCatalogEntry, 'source' | 'state'> & {
 	intent?: 'create' | 'update' | 'upsert';
 	originalCode?: string;
 };

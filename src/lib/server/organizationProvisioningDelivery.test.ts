@@ -45,11 +45,7 @@ describe('Organization provisioning delivery boundary', () => {
 			'special_days',
 			'status_types'
 		]);
-		expect(defaults.groups).toEqual([
-			{ name: 'Leadership', sort_order: 0 },
-			{ name: 'Alpha', sort_order: 1 },
-			{ name: 'Bravo', sort_order: 2 }
-		]);
+		expect(defaults.groups).toEqual([]);
 		expect(defaults.status_types).toEqual([
 			{ name: 'Leave', color: '#48bb78', text_color: '#ffffff', sort_order: 0 },
 			{ name: 'School', color: '#4299e1', text_color: '#ffffff', sort_order: 1 },

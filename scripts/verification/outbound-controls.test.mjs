@@ -257,14 +257,38 @@ test('each named fault matches only its allowlisted writes on the owned provider
 		],
 		'org-create': [
 			[providerInput('rpc/create_organization', { method: 'POST' }), ['POST', '/rest/v1/rpc/create_organization']]
+		],
+		'org-setup-answer': [
+			[
+				providerInput('rpc/save_organization_setup_answer', { method: 'POST' }),
+				['POST', '/rest/v1/rpc/save_organization_setup_answer']
+			]
+		],
+		'org-setup-prompt': [
+			[
+				providerInput('rpc/save_organization_setup_prompt', { method: 'POST' }),
+				['POST', '/rest/v1/rpc/save_organization_setup_prompt']
+			]
+		],
+		'org-feature-switch': [
+			[
+				providerInput('organizations', {
+					method: 'PATCH',
+					body: JSON.stringify({ disabled_features: ['evaluations'] })
+				}),
+				['PATCH', '/rest/v1/organizations']
+			]
+		],
+		'org-setup-training-editor-read': [
+			[providerInput('training_types', { method: 'GET' }), ['GET', '/rest/v1/training_types', 500]]
 		]
 	};
 	for (const [name, matching] of Object.entries(cases)) {
-		for (const [input, [method, path]] of matching) {
+		for (const [input, [method, path, status = 503]] of matching) {
 			const { control, passed } = faults();
 			control.command('fault-arm', { name });
 			const response = await control.fetch(...input);
-			assert.equal(response.status, 503);
+			assert.equal(response.status, status);
 			assert.equal((await response.json()).code, 'T2T_VERIFY_PROVIDER_FAULT');
 			assert.equal(passed.length, 0);
 			assert.deepEqual(control.command('fault-state').controls[name].call, { method, path });
@@ -351,6 +375,26 @@ test('identity faults match only the password, revocation and setup calls they n
 		assert.equal(passed.length, pass.length);
 		assert.equal(control.command('fault-state').controls[name].matches, 1);
 	}
+});
+
+test('the Ranks editor read fault fails only the training rank reference read', async () => {
+	const { control, passed } = faults();
+	control.command('fault-arm', { name: 'org-setup-ranks-references' });
+	const references = providerInput('training_types?select=applies_to_ranks%2Cexcluded_ranks&organization_id=eq.org', {
+		method: 'GET'
+	});
+	for (const input of [
+		providerInput('training_types?select=*&organization_id=eq.org', { method: 'HEAD' }),
+		providerInput('training_types?select=id%2Cname', { method: 'GET' })
+	])
+		assert.equal(await (await control.fetch(...input)).text(), 'real');
+	assert.equal((await control.fetch(...references)).status, 500);
+	assert.equal(await (await control.fetch(...references)).text(), 'real');
+	assert.equal(passed.length, 3);
+	assert.deepEqual(control.command('fault-state').controls['org-setup-ranks-references'].call, {
+		method: 'GET',
+		path: '/rest/v1/training_types'
+	});
 });
 
 test('onboarding step faults fail one exact step write at the chosen ordinal and leave every sibling write alone', async () => {

@@ -16,6 +16,7 @@
 		shell,
 		children,
 		feedback,
+		headerActions,
 		onToggleTheme,
 		isDarkTheme
 	}: {
@@ -23,6 +24,7 @@
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		children: Snippet;
+		headerActions?: Snippet;
 		feedback: Snippet<[{ onClose: () => void; orgId: string; orgName: string; pageUrl: string }]>;
 	} = $props();
 	let showFeedback = $state(false);
@@ -127,6 +129,7 @@
 	{isDarkTheme}
 	onFeedback={openFeedback}
 	onWhatsNew={openWhatsNew}
+	actions={headerActions}
 >
 	{#snippet banner()}
 		<BannerStack>

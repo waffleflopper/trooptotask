@@ -6,14 +6,18 @@ import type {
 	SavedRankCatalogEntry
 } from './rankCatalogPersistence';
 const SELECT = 'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order,created_at,updated_at';
-function values(row: RankCatalogValues): RankCatalogValues {
+function values(row: RankCatalogValues): RankCatalogValues;
+function values(
+	row: Omit<RankCatalogValues, 'state'> & { state?: RankCatalogValues['state'] }
+): Omit<RankCatalogValues, 'state'> & { state?: RankCatalogValues['state'] };
+function values(row: Omit<RankCatalogValues, 'state'> & { state?: RankCatalogValues['state'] }) {
 	return {
 		code: row.code,
 		label: row.label,
 		service: row.service,
 		category: row.category,
 		pay_grade: row.pay_grade,
-		state: row.state,
+		...(row.state !== undefined ? { state: row.state } : {}),
 		source: row.source,
 		sort_order: row.sort_order
 	};
@@ -67,6 +71,18 @@ export function createSupabaseRankCatalogPersistence(client: SupabaseClient, org
 			const { data, error } = await client
 				.from('organization_rank_catalog')
 				.upsert(payload, { onConflict: 'organization_id,code' })
+				.select(SELECT);
+			if (error) throw new Error(error.message);
+			return (data ?? []).map(saved);
+		},
+		async setStatesByCodes(codes, state) {
+			if (!codes.length) return [];
+			const { data, error } = await client
+				.from('organization_rank_catalog')
+				.update({ state })
+				.eq('organization_id', orgId)
+				.in('code', [...codes])
+				.neq('state', state)
 				.select(SELECT);
 			if (error) throw new Error(error.message);
 			return (data ?? []).map(saved);

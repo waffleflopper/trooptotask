@@ -3,11 +3,7 @@ import { buildDefaultRankCatalogSeeds } from './rankCatalogOperations.server';
 /** Rows a new Organization starts with, written by Organization's creation transaction. */
 export function getPersonnelOrganizationDefaults() {
 	return {
-		groups: [
-			{ name: 'Leadership', sort_order: 0 },
-			{ name: 'Alpha', sort_order: 1 },
-			{ name: 'Bravo', sort_order: 2 }
-		],
+		groups: [],
 		rank_catalog: buildDefaultRankCatalogSeeds().map((entry) => ({
 			code: entry.code,
 			label: entry.label,

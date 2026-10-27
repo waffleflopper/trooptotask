@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { RequestFailure } from '$lib/errors';
 
-const EXPORT_TABLES = ['getting_started_progress', 'user_org_preferences'] as const;
+const EXPORT_TABLES = ['user_org_preferences'] as const;
 
 export type IdentityExportTable = (typeof EXPORT_TABLES)[number];
 

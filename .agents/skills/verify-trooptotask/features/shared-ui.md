@@ -20,7 +20,7 @@ values, accessible descriptions and focus restoration must survive changes to th
 ## How to get to it (user POV)
 
 In Personnel, use a named row's `Quick edit` button for the inline form with the ETS and PCS / DEROS date pickers, and
-`Add Person` for the Add Personnel dialog. Import opens the file preview with validation hints. Toggle Sidebar collapses
+`Add Person` for the Add a person dialog. Import opens the file preview with validation hints. Toggle Sidebar collapses
 desktop navigation; its icon links and the header theme button expose tooltip labels. An admitted platform administrator
 uses the same sidebar on Admin screens.
 
@@ -90,12 +90,12 @@ Sign in normally as `manager` and retain its page/Organization IDs. Preserve the
    A problem cell is a textbox with `aria-invalid="true"` and an `aria-describedby` that resolves to its row's visible
    message line in the grid, or to the message under the field on a 390 px card. Hover and keyboard focus show no
    tooltip; the message is always visible. Choose `Leave import` from a link out and require unchanged original rows.
-4. **Dialog and date picker.** As `manager` choose the toolbar's `Add Person` and require Add Personnel plus usable
-   focus inside the dialog. Use Tab and Shift+Tab at its boundaries to check focus containment. Open ETS, move to the
-   previous month and back, and select a literal named date from the grid. Record the selected-date announcement and the
-   draft value through read-only DOM inspection. Keyboard date movement/activation must retain usable grid focus until
-   selection closes the popover. Cancel with Escape and require `Add Person` focused, no remaining modal and no new
-   roster row. Reopen to confirm the canceled draft is absent.
+4. **Dialog and date picker.** As `manager` choose the toolbar's `Add Person` and require the `Add a person` dialog plus
+   usable focus inside the dialog. Use Tab and Shift+Tab at its boundaries to check focus containment. Open ETS, move to
+   the previous month and back, and select a literal named date from the grid. Record the selected-date announcement and
+   the draft value through read-only DOM inspection. Keyboard date movement/activation must retain usable grid focus
+   until selection closes the popover. Cancel with Escape and require `Add Person` focused, no remaining modal and no
+   new roster row. Reopen to confirm the canceled draft is absent.
 5. **Confirmation.** On Able's record choose `More Personnel record` → `Archive`. Require an alertdialog naming Able
    with the retained-history explanation and Cancel/Archive actions. Choose Cancel, require focus restored to the same
    menu button and verify Able remains active with unchanged dates. This cancel probe supplies no archive-mutation or

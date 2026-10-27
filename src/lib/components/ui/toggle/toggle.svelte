@@ -8,13 +8,16 @@
 				default: 'bg-transparent',
 				outline: 'border-input hover:bg-muted border bg-transparent',
 				chip: 'border-border bg-card hover:bg-muted aria-pressed:border-transparent aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90 data-[state=on]:bg-foreground data-[state=on]:text-background rounded-full border',
-				pill: 'hover:bg-muted aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90 data-[state=on]:bg-foreground data-[state=on]:text-background rounded-full bg-transparent'
+				pill: 'hover:bg-muted aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90 data-[state=on]:bg-foreground data-[state=on]:text-background rounded-full bg-transparent',
+				/** Dashed while off and filled while on, for a set of items each switched on or off in one click. */
+				tag: 'rounded-md border border-dashed border-muted-foreground/40 bg-transparent font-mono font-semibold text-muted-foreground hover:border-foreground/50 hover:bg-transparent aria-pressed:border-solid aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90 data-[state=on]:bg-foreground data-[state=on]:text-background'
 			},
 			size: {
 				default: 'h-8 min-w-8 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
 				sm: "h-7 min-w-7 rounded-[min(var(--radius),12px)] px-2.5 text-[0.8rem] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
 				lg: 'h-9 min-w-9 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
-				chip: 'h-7.5 gap-1.75 px-3 text-[13px]'
+				chip: 'h-7.5 gap-1.75 px-3 text-[13px]',
+				tag: "h-8 gap-1.5 px-2.5 text-[13px] [&_svg:not([class*='size-'])]:size-3"
 			}
 		},
 		defaultVariants: {

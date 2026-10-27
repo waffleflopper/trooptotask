@@ -73,8 +73,8 @@ credentials are used for the request.
 `network` also accepts `organization/settings` and the exact A form actions `settings/general/updateName`,
 `settings/general/updateSlug`, `settings/general/clearSlug`, `settings/danger/deleteOrganization`,
 `settings/members/updateMemberAccess`, `settings/members/invite`, `settings/members/resendInvite`,
-`settings/members/revokeInvite`, `settings/members/removeMember`, `settings/danger/transferOwnership` and the six rank
-actions `settings/ranks/saveRank`, `retireRank`, `reactivateRank`, `bulkRankState`, `deleteRank` and `addServicePack`.
+`settings/members/revokeInvite`, `settings/members/removeMember`, `settings/danger/transferOwnership` and the four rank
+actions `settings/ranks/saveRank`, `setRankStates`, `deleteRank` and `addServicePack`.
 Settings controls read A's current slug from the owned provider and bind to that canonical segment (or its UUID when
 unset) and the exact form action query, leaving another action and Organization untouched. Restore and rearm after
 changing the slug. `orgSettingsPeer` is the independent B owner, and `orgSettingsSwitch` is admin in A/B with all

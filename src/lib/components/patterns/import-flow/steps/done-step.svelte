@@ -35,7 +35,7 @@
 	);
 </script>
 
-<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+<div class="grid gap-6 @min-[42rem]:grid-cols-[minmax(0,1fr)_24rem] @min-[42rem]:items-start">
 	<section class="grid content-start gap-5" aria-labelledby="import-done-heading">
 		<div class="grid gap-1">
 			<h2 id="import-done-heading" class="font-heading text-3xl font-semibold uppercase">

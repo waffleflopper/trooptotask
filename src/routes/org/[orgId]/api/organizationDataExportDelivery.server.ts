@@ -32,7 +32,7 @@ export function createOrganizationDataExportReads(
 		organizationRankCatalog: () => archiveReaders.personnel.listRows('organization_rank_catalog'),
 		dashboardConfigs: () => archiveReaders.dashboard.listRows(),
 		deletionRequests: () => listDeletionRequestExportRows(deletionRequestStore, orgId),
-		gettingStartedProgress: () => archiveReaders.identity.listRows('getting_started_progress'),
+		organizationSetup: () => organizationRawExport.listRows(orgId, 'organization_setup'),
 		notifications: () => listNotificationExportRows(ctx.notificationSelf),
 		userOrgPreferences: () => archiveReaders.identity.listRows('user_org_preferences'),
 		userPinnedGroups: () => archiveReaders.personnel.listRows('user_pinned_groups'),

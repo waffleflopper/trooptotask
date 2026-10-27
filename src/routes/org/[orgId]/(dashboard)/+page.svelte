@@ -181,8 +181,10 @@
 		}
 	};
 
+	// What's New waits for the setup decision so a visit never stacks two dialogs.
+	let setupPrompted = $state<boolean | null>(null);
 	$effect(() => {
-		if (ctx) shellUI.autoShowWhatsNew();
+		if (ctx && (!data.organizationSetup || setupPrompted === false)) shellUI.autoShowWhatsNew();
 	});
 </script>
 
@@ -200,4 +202,16 @@
 		sections={DASHBOARD_SECTIONS}
 		summaryFailure={loadFailure}
 	/>
+{/if}
+{#if data.organizationSetup}
+	{#await import('$features/organization') then { SetupEntryPrompt }}
+		<SetupEntryPrompt
+			{orgId}
+			orgUrlSegment={data.shell.org.urlSegment}
+			orgName={data.shell.org.name}
+			entry={data.organizationSetup}
+			invitationProgress={data.setupInvitationProgress}
+			onDecide={(prompted) => (setupPrompted = prompted)}
+		/>
+	{/await}
 {/if}

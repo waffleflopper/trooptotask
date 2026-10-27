@@ -24,6 +24,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		emailConfirmed: true,
+		emailConfirmationUnavailable: false,
 		userEmail: emailConfirmation.email,
 		emailConfirmationMessage: undefined,
 		requestId
@@ -61,13 +62,14 @@ export const actions: Actions = {
 			return fail(failure.status, { error: String(failure.data.error), ...retained });
 		}
 
-		throw redirect(303, `/org/${result.orgId}`);
+		throw redirect(303, `/org/${result.orgId}/setup`);
 	}
 };
 
 function emailConfirmationLoadData(emailConfirmation: CurrentUserEmailConfirmation, requestId: string) {
 	return {
 		emailConfirmed: false,
+		emailConfirmationUnavailable: emailConfirmation.status === 'unavailable',
 		requestId,
 		userEmail: emailConfirmation.email,
 		emailConfirmationMessage:

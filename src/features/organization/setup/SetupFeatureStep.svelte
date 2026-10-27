@@ -91,23 +91,28 @@
 	<Button variant="outline" class="self-start" disabled={flow.pending} onclick={turnOn}>Turn {label} back on</Button>
 {/snippet}
 
-<section class="flex flex-col gap-2 lg:gap-3.5" aria-labelledby="{id}-question">
-	<h2 id="{id}-question" class="font-heading text-xl leading-6 font-bold lg:text-[22px] lg:leading-[26px]">
+<section class="@container/choices flex flex-col gap-2 lg:gap-3.5" aria-labelledby="{id}-question">
+	<h2
+		id="{id}-question"
+		class="font-heading text-xl leading-6 font-bold @xl/choices:text-[22px] @xl/choices:leading-[26px]"
+	>
 		Will your unit use {label}?
 	</h2>
 	<RadioGroup.Root
 		aria-labelledby="{id}-question"
-		class="grid-cols-1 gap-2 lg:grid-cols-3 lg:gap-3"
+		class="grid-cols-1 gap-2 @xl/choices:grid-cols-3 @xl/choices:gap-3"
 		bind:value={() => choice, (next) => (choice = next as Choice)}
 	>
 		{#each choices as option (option.value)}
 			<label
-				class="flex cursor-pointer gap-2.5 rounded-lg border border-border p-3 transition-colors has-data-[state=checked]:border-foreground has-data-[state=checked]:bg-background has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-foreground lg:gap-3 lg:p-4"
+				class="flex cursor-pointer gap-2.5 rounded-lg border border-border p-3 transition-colors has-data-[state=checked]:border-foreground has-data-[state=checked]:bg-background has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-foreground @xl/choices:gap-3 @xl/choices:p-4"
 			>
 				<RadioGroup.Item value={option.value} class="mt-0.5" />
-				<span class="flex min-w-0 flex-col gap-0.5 lg:gap-1.5">
-					<span class="text-[15px] leading-5 font-semibold lg:text-base">{option.title}</span>
-					<span class="text-[13px] leading-[18px] text-muted-foreground lg:text-sm lg:leading-5">{option.hint()}</span>
+				<span class="flex min-w-0 flex-col gap-0.5 @xl/choices:gap-1.5">
+					<span class="text-[15px] leading-5 font-semibold @xl/choices:text-base">{option.title}</span>
+					<span class="text-[13px] leading-[18px] text-muted-foreground @xl/choices:text-sm @xl/choices:leading-5"
+						>{option.hint()}</span
+					>
 				</span>
 			</label>
 		{/each}

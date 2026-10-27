@@ -123,32 +123,37 @@
 						<Button variant="link" class="h-auto p-0 align-baseline" onclick={loadCatalog}>Retry</Button>
 					</p>
 				{/if}
-				<ul class="grid gap-x-8 sm:grid-flow-col sm:grid-cols-2" style:grid-template-rows="repeat({rows}, auto)">
-					{#each suggestions as suggestion, index (suggestion.id)}
-						{@const exists = added(suggestion.name)}
-						<li class={index >= NARROW_ROWS && !expanded ? 'max-sm:hidden' : undefined}>
-							<label
-								class="flex h-10 cursor-pointer items-center gap-2.5 border-b border-border has-disabled:cursor-default"
-							>
-								<Checkbox
-									checked={exists || picked.has(suggestion.id)}
-									disabled={exists}
-									onCheckedChange={(checked) => (checked ? picked.add(suggestion.id) : picked.delete(suggestion.id))}
-								/>
-								<span
-									class="min-w-0 flex-1 truncate text-sm leading-5 {exists || picked.has(suggestion.id)
-										? ''
-										: 'text-muted-foreground'}"
+				<div class="@container/picks">
+					<ul
+						class="grid gap-x-8 @md/picks:grid-flow-col @md/picks:grid-cols-2"
+						style:grid-template-rows="repeat({rows}, auto)"
+					>
+						{#each suggestions as suggestion, index (suggestion.id)}
+							{@const exists = added(suggestion.name)}
+							<li class={index >= NARROW_ROWS && !expanded ? 'max-sm:hidden' : undefined}>
+								<label
+									class="flex h-10 cursor-pointer items-center gap-2.5 border-b border-border has-disabled:cursor-default"
 								>
-									{suggestion.name}
-								</span>
-								<span class="shrink-0 font-mono text-xs leading-4 text-muted-foreground">
-									{exists ? 'Added' : `${suggestion.expirationMonths} mo`}
-								</span>
-							</label>
-						</li>
-					{/each}
-				</ul>
+									<Checkbox
+										checked={exists || picked.has(suggestion.id)}
+										disabled={exists}
+										onCheckedChange={(checked) => (checked ? picked.add(suggestion.id) : picked.delete(suggestion.id))}
+									/>
+									<span
+										class="min-w-0 flex-1 truncate text-sm leading-5 {exists || picked.has(suggestion.id)
+											? ''
+											: 'text-muted-foreground'}"
+									>
+										{suggestion.name}
+									</span>
+									<span class="shrink-0 font-mono text-xs leading-4 text-muted-foreground">
+										{exists ? 'Added' : `${suggestion.expirationMonths} mo`}
+									</span>
+								</label>
+							</li>
+						{/each}
+					</ul>
+				</div>
 				{#if !expanded && suggestions.length > NARROW_ROWS}
 					<Button
 						variant="link"

@@ -34,9 +34,9 @@ $V network arm-hold PAGE org-page/setup-training     # holds the Training step's
 ```
 
 `org-setup-answer` fails the Continue write before it reaches the database. `org-setup-training-count` fails the first
-training type count after arming; arm it, then reload a setup page so the setup facts are the first read.
-The setup facts resolve together, so holding their Taskings count keeps every fact loading. The setup document streams
-while it is held, so open the page with a `navigate_page` timeout of about 3000 ms and drive it after the timeout.
+training type count after arming; arm it, then reload a setup page so the setup facts are the first read. The setup
+facts resolve together, so holding their Taskings count keeps every fact loading. The setup document streams while it is
+held, so open the page with a `navigate_page` timeout of about 3000 ms and drive it after the timeout.
 
 ## Driving it with verify:app
 
@@ -66,15 +66,16 @@ Preconditions: `doctor` passes; use `orgOwner`, `orgAdmin` and `orgMember` from 
 9. Capture a step and Done at 1440, 1024 and 390 px. At 390 px the rail is a step header (`Step n of 12 · Group`,
    `All steps`, a segmented bar), the footer stays at the bottom, and the page has no horizontal scroll.
 
-10. Done while facts load: as `orgOwner` on fresh seed, arm the `calendar_taskings` hold and open `/setup/done`.
-    Expect skeletons for the summary (eyebrow, headline, note, two list lines), the five counts and one row in each
-    column; below 768 px only On shows. `$V server-source release`: the summary reads `7 steps still open`, On lists
-    three features and Later and Off read `None`. A buffered `layout-shift` observer reports CLS 0 at 1440 and 390 px;
-    the summary keeps 176 px (1440) or 190 px (390) and the counts keep their top.
+10. Done while facts load: as `orgOwner` on fresh seed, arm the `calendar_taskings` hold and open `/setup/done`. Expect
+    skeletons for the summary (eyebrow, headline, note, two list lines), the five counts and one row in each column;
+    below 768 px only On shows. `$V server-source release`: the summary reads `7 steps still open`, On lists three
+    features and Later and Off read `None`. A buffered `layout-shift` observer reports CLS 0 at 1440 and 390 px; the
+    summary keeps 176 px (1440) or 190 px (390) and the counts keep their top.
 11. Continue while a step navigation is pending: on `/setup/groups`, `$V network arm-hold PAGE org-page/setup-training`,
-    choose Training in the rail, then `Continue to Ranks` while Groups still shows. Expect Continue busy (`aria-busy`,
-    spinner `Loading`) and no POST to `api/organization/setup/answer`. `$V network release PAGE`: the URL stays
-    `/setup/training` and Groups stays not answered. `$V network restore PAGE`.
+    choose the rail's `Training , done` link by snapshot UID (the sidebar has its own `Training` link), then
+    `Continue to Ranks` while Groups still shows. Expect Continue busy (`aria-busy`, spinner `Loading`) and no POST to
+    `api/organization/setup/answer`. `$V network release PAGE`: the URL stays `/setup/training` and Groups stays not
+    answered. `$V network restore PAGE`.
 
 ## Gotchas
 

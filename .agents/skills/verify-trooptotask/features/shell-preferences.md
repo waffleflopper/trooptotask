@@ -59,9 +59,8 @@ observation, failure and hold for their exact GET/query part, installing before 
 control. These browser controls establish client scheduling/recovery and do not establish real provider failures.
 `server-source arm user_org_preferences fail-hard` separately injects one synthetic provider-read 500 in the owned app
 process. Use it for first-paint fallback, strict save/read failure and Organization export failure proof. Restore the
-control before retry.
-Run `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for method, query, origin, tenant
-and response-order isolation.
+control before retry. Run `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for method,
+query, origin, tenant and response-order isolation.
 
 ## Driving it with verify:app
 
@@ -121,10 +120,11 @@ distinct from ordinary UI or authorization proof.
    recover saved choices. Separately arm the same control on the already-loaded Training page, then change a visible
    filter: the preference PATCH must fail when its merge read fails, with visible feedback and unchanged saved fields.
    Restore and explicitly retry. For Organization export failure, open Settings › Exports as `orgAdmin`, arm the same
-   control last and choose Export JSON at once: expect a visible export failure, a new failed `data_exports` row and no
-   download. Restore, choose Export JSON again: expect a download and a completed row. These controls return one marked
-   synthetic provider 500 before dispatch; they establish application handling of that response, not a production
-   outage or database-policy failure.
+   control last and choose Export JSON at once: expect the alert `JSON export failed. Please try again.`, a new failed
+   `data_exports` row and no captured download. Restore, choose Export JSON again: expect a JSON download whose
+   `organizationSetup` section holds the saved setup answers, a new completed row and no alert. These controls return
+   one marked synthetic provider 500 before dispatch; they establish application handling of that response, not a
+   production outage or database-policy failure.
 
 9. Separately labeled ordinary HTTP/provider concurrency proof: arm `$V server-source arm user_org_preferences hold` on
    a signed-in owned page, start one preference PATCH and wait for source state `phase: held` with real GET 200. The

@@ -43,6 +43,7 @@ function respond(status: number, body: unknown) {
 function setup(stepKey: SetupStepKey | null, unitFacts = facts()) {
 	const source = $state<SetupFlowSource>({
 		orgUrlSegment: 'alpha',
+		isOwner: true,
 		disabledFeatures: [],
 		setupState: empty,
 		setupFacts: Promise.resolve(unitFacts),
@@ -279,7 +280,7 @@ describe('Finish', () => {
 		await flow.finish();
 
 		expect(flow.state.finishedAt).toBe(finishedAt);
-		expect(navigate).toHaveBeenCalledWith('/org/alpha');
+		expect(navigate).toHaveBeenCalledWith('/org/alpha', { invalidate: ['app:organization-setup'] });
 	});
 
 	it('does not leave for the Dashboard when the finish lands after the owner moved on', async () => {
@@ -324,5 +325,94 @@ describe('Facts', () => {
 		const withErrors = flow.rail.filter((step) => step.loadErrors.length > 0).map((step) => step.key);
 		expect(withErrors).toEqual(['training']);
 		expect(flow.rail.find((step) => step.key === 'invite')?.state).toBe('notAnswered');
+	});
+});
+
+describe('Finish later', () => {
+	it('awaits the owner snooze before applying state and opening the Dashboard', async () => {
+		const response = deferred<Response>();
+		const writes: unknown[] = [];
+		vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+			writes.push({ url, body: JSON.parse(String(init.body)) });
+			return response.promise;
+		});
+		const { flow, navigate, source } = setup('ranks');
+		source.setupState = { ...empty, branch: 'army', answers: { groups: 'reviewed' } };
+		await settle();
+
+		const leaving = flow.finishLater();
+		await flow.finishLater();
+		expect(flow.pending).toBe(true);
+		expect(navigate).not.toHaveBeenCalled();
+		expect(writes).toEqual([
+			{ url: '/org/alpha/api/organization/setup/prompt', body: { key: 'setup', choice: 'tomorrow' } }
+		]);
+		response.resolve(respond(200, { ...source.setupState, prompts: { setup: { snoozedUntil: '2026-10-28' } } }));
+		await leaving;
+
+		expect(flow.state).toEqual({
+			branch: 'army',
+			answers: { groups: 'reviewed' },
+			finishedAt: null,
+			prompts: { setup: { snoozedUntil: '2026-10-28' } }
+		});
+		expect(navigate).toHaveBeenCalledWith('/org/alpha', { invalidate: ['app:organization-setup'] });
+		expect(flow.pending).toBe(false);
+	});
+
+	it('takes an admin to the Dashboard without changing prompt state', async () => {
+		const writes: unknown[] = [];
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			writes.push(init.body);
+			return respond(200, empty);
+		});
+		const { flow, source, navigate } = setup('ranks');
+		source.isOwner = false;
+		await settle();
+
+		await flow.finishLater();
+
+		expect(navigate).toHaveBeenCalledWith('/org/alpha', { invalidate: ['app:organization-setup'] });
+		expect(flow.state).toEqual({ branch: null, answers: {}, finishedAt: null, prompts: {} });
+		expect(writes).toEqual([]);
+	});
+
+	it('keeps the owner on the step and shows a failed snooze for retry', async () => {
+		vi.stubGlobal('fetch', async () => respond(503, { message: 'Storage unavailable' }));
+		const { flow, navigate } = setup('ranks');
+		await settle();
+
+		await flow.finishLater();
+
+		expect(flow.error).toBe('Storage unavailable');
+		expect(flow.pending).toBe(false);
+		expect(flow.state).toEqual({ branch: null, answers: {}, finishedAt: null, prompts: {} });
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it.each([200, 503])('ignores a late %s snooze after switching units', async (status) => {
+		const response = deferred<Response>();
+		vi.stubGlobal('fetch', () => response.promise);
+		const { flow, source, navigate } = setup('ranks');
+		await settle();
+
+		const leaving = flow.finishLater();
+		flow.leave('/org/alpha/setup/ranks', '/org/bravo/setup/ranks');
+		source.orgUrlSegment = 'bravo';
+		response.resolve(
+			respond(
+				status,
+				status === 200
+					? { ...empty, prompts: { setup: { snoozedUntil: '2026-10-28' } } }
+					: { message: 'Storage unavailable' }
+			)
+		);
+		await leaving;
+
+		expect(flow.dashboardHref).toBe('/org/bravo');
+		expect(flow.state).toEqual({ branch: null, answers: {}, finishedAt: null, prompts: {} });
+		expect(flow.error).toBeNull();
+		expect(flow.pending).toBe(false);
+		expect(navigate).not.toHaveBeenCalled();
 	});
 });

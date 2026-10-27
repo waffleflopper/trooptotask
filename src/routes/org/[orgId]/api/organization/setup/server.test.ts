@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { _postConfig as answer } from './answer/+server';
 import { _postConfig as branch } from './branch/+server';
 import { _postConfig as finish } from './finish/+server';
@@ -102,5 +102,59 @@ describe('Organization setup endpoints', () => {
 		expect(replied).toBe(false);
 		release();
 		await expect(pending).resolves.toEqual({ branch: 'navy', answers: {}, prompts: {}, finishedAt: null });
+	});
+});
+
+describe('prompt choices and Finish later', () => {
+	it.each([
+		['America/Anchorage', '2026-03-08'],
+		['Pacific/Kiritimati', '2026-03-09']
+	])('persists tomorrow in the viewer zone %s and retains existing answers', async (zone, expected) => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-03-08T07:30:00Z'));
+		try {
+			const { ctx, state } = fixture('owner');
+			await handleUseCaseRequest(answer, ctx, { step: 'groups', answer: 'reviewed' }, () => ctx);
+			const input = await prompt.parseInput({
+				request: new Request('http://localhost/prompt', {
+					method: 'POST',
+					body: JSON.stringify({ key: 'setup', choice: 'tomorrow' })
+				}),
+				cookies: { get: () => zone }
+			} as never);
+			await handleUseCaseRequest(prompt, ctx, input, () => ctx);
+			expect(state()).toEqual({
+				branch: null,
+				answers: { groups: 'reviewed' },
+				finishedAt: null,
+				prompts: { setup: { snoozedUntil: expected } }
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('persists never only for the chosen new feature', async () => {
+		const { ctx, state } = fixture();
+		const input = await prompt.parseInput({
+			request: new Request('http://localhost/prompt', {
+				method: 'POST',
+				body: JSON.stringify({ key: 'training', choice: 'never' })
+			}),
+			cookies: { get: () => 'UTC' }
+		} as never);
+		await handleUseCaseRequest(prompt, ctx, input, () => ctx);
+		expect(state()).toEqual({ branch: null, answers: {}, finishedAt: null, prompts: { training: { never: true } } });
+	});
+
+	it('rejects a client-provided snooze date instead of trusting the browser clock', async () => {
+		await expect(
+			prompt.parseInput({
+				request: new Request('http://localhost/prompt', {
+					method: 'POST',
+					body: JSON.stringify({ key: 'setup', state: { snoozedUntil: '2028-01-01' } })
+				})
+			} as never)
+		).rejects.toMatchObject({ status: 400 });
 	});
 });

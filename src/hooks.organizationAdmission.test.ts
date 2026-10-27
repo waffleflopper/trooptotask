@@ -490,6 +490,7 @@ describe('Organization shell admission with real provider mapping', () => {
 		f.tables.organizations[0].suspended_at = SUSPENDED_AT;
 		const result = await f.load();
 		expect(result).toEqual({
+			organizationSetup: null,
 			shell: {
 				kind: 'suspended',
 				org: { id: ORG, name: 'Alpha', urlSegment: 'alpha' },

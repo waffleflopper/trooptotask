@@ -15,6 +15,7 @@ import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
 import { streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
+import { streamOrganizationSetupEntry, streamSetupInvitationProgress } from '../setupEntryLoad.server';
 
 export const load = async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
 	depends('app:org-core');
@@ -23,6 +24,7 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 	const asOf = viewerToday(cookies);
 	const timeZone = viewerTimeZone(cookies);
 	const ctx = await buildLayoutRequest(locals, orgId);
+	if (ctx.auth.role === 'owner') depends('app:organization-setup');
 	const { dashboard } = await streamDashboardWorkspaceBootstrap({ locals, cookies, orgId: ctx.auth.orgId });
 	const { data: summary } = loadWithContextCore(
 		ctx,
@@ -50,6 +52,15 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 	return {
 		summary,
 		taskings,
+		setupInvitationProgress:
+			ctx.auth.role === 'owner'
+				? streamSetupInvitationProgress({
+						request: ctx,
+						entry: streamOrganizationSetupEntry({ locals, cookies, orgId: ctx.auth.orgId }),
+						workspace: dashboard.data,
+						summary
+					})
+				: null,
 		breadcrumbLabel: formatDashboardDisplayDate(asOf),
 		viewerDay: { date: asOf, timeZone } satisfies DashboardViewerDay
 	};

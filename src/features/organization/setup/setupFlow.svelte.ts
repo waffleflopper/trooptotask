@@ -6,6 +6,7 @@ import { parseOrganizationSetup, type OrganizationSetup, type SetupAnswer } from
 
 export interface SetupFlowSource {
 	orgUrlSegment: string;
+	isOwner: boolean;
 	disabledFeatures: readonly FeatureKey[];
 	setupState: OrganizationSetup;
 	setupFacts: Promise<SetupFacts>;
@@ -17,6 +18,7 @@ export interface SetupFlowSource {
 
 /** Runs before Continue moves on. A rejection keeps the owner on the step and shows its message. */
 export type SetupStepSave = () => Promise<void>;
+export type SetupNavigate = (href: `/org/${string}`, options?: { invalidate?: string[] }) => Promise<void>;
 
 export interface SetupRailStep {
 	key: SetupStepKey;
@@ -70,7 +72,7 @@ function messageOf(cause: unknown) {
  */
 export class SetupFlow {
 	#source: () => SetupFlowSource;
-	#navigate: (href: string) => Promise<void>;
+	#navigate: SetupNavigate;
 	#visit = 0;
 
 	#loaded = $derived.by(() => this.#source().setupState);
@@ -109,7 +111,7 @@ export class SetupFlow {
 	previous = $derived(this.position > 0 ? this.rail[this.position - 1] : null);
 	next = $derived(this.position >= 0 ? (this.rail[this.position + 1] ?? null) : null);
 
-	constructor(source: () => SetupFlowSource, navigate: (href: string) => Promise<void>) {
+	constructor(source: () => SetupFlowSource, navigate: SetupNavigate) {
 		this.#source = source;
 		this.#navigate = navigate;
 		$effect(() => {
@@ -122,11 +124,11 @@ export class SetupFlow {
 		});
 	}
 
-	get dashboardHref() {
+	get dashboardHref(): `/org/${string}` {
 		return `/org/${this.#source().orgUrlSegment}`;
 	}
 
-	href(slug: string) {
+	href(slug: string): `/org/${string}` {
 		return `/org/${this.#source().orgUrlSegment}/setup/${slug}`;
 	}
 
@@ -186,7 +188,20 @@ export class SetupFlow {
 			const next = await this.#post('finish', {});
 			if (!stillHere()) return;
 			this.#apply(next);
-			await this.#navigate(target);
+			await this.#navigate(target, { invalidate: ['app:organization-setup'] });
+		});
+	}
+
+	finishLater() {
+		const target = this.dashboardHref;
+		const isOwner = this.#source().isOwner;
+		return this.#run(async (stillHere) => {
+			if (isOwner) {
+				const next = await this.#post('prompt', { key: 'setup', choice: 'tomorrow' });
+				if (!stillHere()) return;
+				this.#apply(next);
+			}
+			if (stillHere()) await this.#navigate(target, { invalidate: ['app:organization-setup'] });
 		});
 	}
 
@@ -209,7 +224,7 @@ export class SetupFlow {
 		}
 	}
 
-	async #post(path: 'answer' | 'finish', body: Record<string, unknown>): Promise<OrganizationSetup> {
+	async #post(path: 'answer' | 'finish' | 'prompt', body: Record<string, unknown>): Promise<OrganizationSetup> {
 		const response = await fetch(`/org/${this.#source().orgUrlSegment}/api/organization/setup/${path}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },

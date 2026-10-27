@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { beforeNavigate, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { navigating, page } from '$app/state';
 	import type { LayoutProps } from './$types';
 	import { SetupFlow, SetupRail, setSetupFlow } from '$features/organization';
@@ -13,7 +14,7 @@
 				stepKey: page.data.setupStepKey ?? null,
 				navigating: navigating.to !== null && navigating.to.url.pathname !== navigating.from?.url.pathname
 			}),
-			(href) => goto(href)
+			(href, options) => goto(resolve(href), options)
 		)
 	);
 	beforeNavigate(({ from, to }) => flow.leave(from?.url.pathname, to?.url.pathname));

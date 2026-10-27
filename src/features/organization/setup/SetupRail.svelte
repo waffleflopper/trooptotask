@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -21,9 +20,14 @@
 
 {#snippet finishLater()}
 	<div class="flex flex-col gap-1 border-t border-border px-2.5 pt-4">
-		<a href={resolve(flow.dashboardHref as '/')} class="w-fit text-sm leading-[18px] text-foreground underline">
+		<button
+			type="button"
+			onclick={() => flow.finishLater()}
+			disabled={flow.busy}
+			class="w-fit text-sm leading-[18px] text-foreground underline disabled:opacity-50"
+		>
 			Finish later
-		</a>
+		</button>
 		<p class="text-xs leading-4 text-muted-foreground">Your answers are kept.</p>
 	</div>
 {/snippet}

@@ -81,9 +81,11 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    `Privacy` and `Terms` as reachable links (scroll to the bottom and read them). Expect the shell's
    `scrollWidth <= clientWidth` and no element with `getBoundingClientRect().right > innerWidth`, on every public page
    (skip elements inside a `[data-reveal="pending"]` block: the What's next verbs start scaled up and are clipped). The
-   document-level `scrollWidth` check is vacuous here because the shell clips horizontal overflow. Expect each header
-   control's rect to lie inside `0..innerWidth`. Repeat at 1024x768 and expect the full header on one line with no
-   overlap. Record the actual header text and footer link list.
+   document-level `scrollWidth` check is vacuous here because the shell clips horizontal overflow. Expect
+   `document.documentElement.scrollHeight` to equal `innerHeight` on every public page, so only the shell scrolls; a
+   taller document means an absolutely positioned element (such as `sr-only` text) escaped the shell and the window
+   scrolls past the footer. Expect each header control's rect to lie inside `0..innerWidth`. Repeat at 1024x768 and
+   expect the full header on one line with no overlap. Record the actual header text and footer link list.
 
 5. **Home hero.** Open `$ORIGIN/` at 1440x900 signed out. Expect, in order: the 80px dark header, then the `h1` at y 208
    with no eyebrow above it, whose first line `LESS TIME ON ADMIN.` is muted grey and second line

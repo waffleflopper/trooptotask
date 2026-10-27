@@ -17,7 +17,7 @@
 <!-- Public pages render the same light and dark bands whatever theme the app stored. -->
 <div
 	data-theme="light"
-	class="min-h-screen overflow-x-hidden bg-background font-body text-base leading-[1.65] font-light text-foreground"
+	class="relative min-h-screen overflow-x-hidden bg-background font-body text-base leading-[1.65] font-light text-foreground"
 >
 	<PublicSiteNav {signedIn} {active} />
 

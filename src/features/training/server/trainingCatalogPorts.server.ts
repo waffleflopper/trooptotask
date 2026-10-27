@@ -7,6 +7,9 @@ export type TrainingTypeCreateContext = {
 	readonly audit: PolicyAuditSink;
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'createType'>;
 };
+export type TrainingTypeReadContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
+};
 export type TrainingTypeUpdateContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'patchType' | 'listTypes'>;
 };

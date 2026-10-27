@@ -27,6 +27,9 @@ export type {
 	TrainingBriefingReportInput
 } from './utils/briefingReportInput';
 import type { TrainingBriefingReportInput } from './utils/briefingReportInput';
+export { getTrainingSuggestions, trainingSuggestionsInputSchema } from './trainingSuggestions';
+export type { TrainingSuggestion, TrainingSuggestionsInput } from './trainingSuggestions';
+import type { TrainingSuggestion } from './trainingSuggestions';
 
 export type {
 	TrainingType,
@@ -298,6 +301,13 @@ export type SavedTrainingType = TrainingType & {
 	organization_id: string;
 	created_at: string;
 };
+
+export interface TrainingSuggestionsResult {
+	created: TrainingSuggestion[];
+	skipped: TrainingSuggestion[];
+	failed: Array<TrainingSuggestion & { message: string }>;
+	trainingTypes: SavedTrainingType[];
+}
 
 export type SavedTrainingView = TrainingView & {
 	organization_id: string;

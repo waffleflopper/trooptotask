@@ -1,11 +1,24 @@
 import { createRequestTrainingCatalogContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { createRequestTrainingTypeDeletionContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, privateJson, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
 import { validateUUID } from '$lib/server/validation';
-import { createTrainingType, updateTrainingType, deleteTrainingType } from '$features/training/index.server';
+import {
+	createTrainingType,
+	updateTrainingType,
+	deleteTrainingType,
+	listTrainingTypes
+} from '$features/training/index.server';
 import type { TrainingType } from '$features/training/contracts';
+
+export const _getConfig = {
+	context: createRequestTrainingCatalogContext,
+	policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
+	policyResource: { kind: 'organization' as const },
+	fn: listTrainingTypes,
+	formatOutput: privateJson
+};
 
 export const _postConfig = {
 	context: createRequestTrainingCatalogContext,
@@ -42,5 +55,6 @@ export const _deleteConfig = {
 >;
 
 export const POST = handle(_postConfig);
+export const GET = handle(_getConfig);
 export const PUT = handle(_putConfig);
 export const DELETE = handle(_deleteConfig);

@@ -6,6 +6,7 @@ import { issueMessage } from '$lib/utils/inputSchemas';
 import type { SavedTrainingType, SavedTrainingView } from '../contracts';
 import type {
 	TrainingTypeCreateContext,
+	TrainingTypeReadContext,
 	TrainingTypeUpdateContext,
 	TrainingTypeOrderContext,
 	TrainingTypeDeleteContext,
@@ -29,6 +30,11 @@ import {
 
 const configureAction = POLICY_ACTION_CATALOG.training.configureRequirements;
 const catalogResource = { kind: 'organization' } as const;
+
+export async function listTrainingTypes(ctx: TrainingTypeReadContext): Promise<SavedTrainingType[]> {
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewMatrix, catalogResource, 'training_type');
+	return ctx.trainingCatalog.listTypes();
+}
 
 export async function setTrainingTypeOrder(
 	ctx: TrainingTypeOrderContext,
@@ -69,7 +75,7 @@ export async function createTrainingType(
 	if (!parsed.success) error(400, issueMessage(parsed.error));
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
 	const row = await ctx.trainingCatalog.createType(parsed.data);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'training_type.created',
 		resourceType: 'training_type',
 		resourceId: row.id

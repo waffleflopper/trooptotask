@@ -118,6 +118,21 @@ describe('SetupResume', () => {
 		]);
 	});
 
+	it('refreshes after Never ask again even when Try again is pressed while it saves', async () => {
+		let reply!: (response: Response) => void;
+		prompt = () => new Promise((resolve) => (reply = resolve));
+		progress = () => Response.json({ message: 'Setup facts timed out' }, { status: 503 });
+		renderResume(entry(true));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Resume setup' }));
+		await screen.findByRole('alert');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Never ask again' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+		reply(Response.json({ branch: 'army', answers: {}, finishedAt: null, prompts: { setup: { never: true } } }));
+
+		await waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:organization-setup'));
+	});
+
 	it('names a pending new feature after Never ask again and links to its step', async () => {
 		const events = SETUP_STEPS.find(({ key }) => key === 'eventsAndTaskings')!;
 		const state: SetupEntryData['state'] = {

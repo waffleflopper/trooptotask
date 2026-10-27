@@ -172,7 +172,7 @@
 						{next ? `Continue with ${next.title}` : 'Review and finish'}
 					</Button>
 				{:else if progress.status === 'error'}
-					<Button variant="outline" onclick={load}>Try again</Button>
+					<Button variant="outline" disabled={pending} onclick={load}>Try again</Button>
 				{/if}
 				<Button variant="ghost" class="ml-auto" disabled={pending} onclick={neverAskAgain}>Never ask again</Button>
 			</div>

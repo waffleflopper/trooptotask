@@ -8,7 +8,6 @@ import { groupCatalogHydration, groupsStore, pinnedGroupsHydration, pinnedGroups
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import type { Personnel } from '../personnel.types';
 import { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-import { toastStore } from '$lib/stores/toast.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import PersonnelModals from './PersonnelModals.svelte';
@@ -370,11 +369,10 @@ describe('scoped Personnel creation', () => {
 					: Response.json({ ...draft, id: 'saved-alpha' });
 			})
 		);
-		vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
 		modals.open('personnel-modal');
 		render(PersonnelModals, { props: { ctx, modals } });
-		await fireEvent.input(screen.getByLabelText('Last Name'), { target: { value: 'Scoped' } });
-		await fireEvent.input(screen.getByLabelText('First Name'), { target: { value: 'Synthetic' } });
+		await fireEvent.input(screen.getByLabelText('Last name'), { target: { value: 'Scoped' } });
+		await fireEvent.input(screen.getByLabelText('First name'), { target: { value: 'Synthetic' } });
 		await fireEvent.click(screen.getByTestId('personnel-save'));
 		expect(requests).toEqual([]);
 		expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-invalid')).toBe('true');
@@ -384,10 +382,10 @@ describe('scoped Personnel creation', () => {
 		await fireEvent.click(await screen.findByRole('option', { name: 'Alpha' }));
 		expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
 		await fireEvent.click(screen.getByTestId('personnel-save'));
-		await waitFor(() => expect(toastStore.error).toHaveBeenCalled());
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy());
 		expect(personnelStore.items).toEqual([]);
 		expect(modals.isOpen('personnel-modal')).toBe(true);
-		expect((screen.getByLabelText('Last Name') as HTMLInputElement).value).toBe('Scoped');
+		expect((screen.getByLabelText('Last name') as HTMLInputElement).value).toBe('Scoped');
 		expect(screen.getByRole('button', { name: 'Group' }).textContent).toContain('Alpha');
 		fail = false;
 		await fireEvent.click(screen.getByTestId('personnel-save'));

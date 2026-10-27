@@ -16,13 +16,21 @@
 	import type { Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import SunIcon from '@lucide/svelte/icons/sun';
+	import { themeStore } from '$lib/stores/theme.svelte';
 	import { cn } from '$lib/utils';
 
 	interface Props {
 		eyebrow: string;
 		headline: [string, string];
 		lede: string;
-		steps?: { label: string; items: AuthStep[] };
+		/** `narrow: 'hidden'` drops the steps below 1024 px, where the page's next screen repeats them. */
+		steps?: { label: string; items: AuthStep[]; narrow?: 'hidden' };
+		/** A signed-in page trades the marketing link for Account, Sign out and the theme toggle. */
+		signedIn?: { account?: boolean };
+		/** `wide` fits a list with actions on each row. */
+		panelWidth?: 'default' | 'wide';
 		panelEyebrow: string;
 		panelTitle: string;
 		panelDescription?: string;
@@ -35,6 +43,8 @@
 		headline,
 		lede,
 		steps,
+		signedIn,
+		panelWidth = 'default',
 		panelEyebrow,
 		panelTitle,
 		panelDescription,
@@ -57,6 +67,8 @@
 	];
 
 	const chromeLabel = 'font-mono text-[11px] leading-[14px] tracking-[0.12em] text-chrome-text-muted uppercase';
+	const mastheadLink =
+		'font-mono text-xs leading-4 tracking-[0.12em] text-chrome-text-muted uppercase hover:text-chrome-text';
 	const altLink =
 		'font-body text-sm leading-5 text-foreground underline decoration-1 underline-offset-[3px] hover:decoration-2';
 </script>
@@ -69,12 +81,28 @@
 	>
 		<div class="flex items-center justify-between gap-4">
 			<p class="font-heading text-xl leading-7 font-bold tracking-[0.02em] uppercase">TroopToTask</p>
-			<a
-				href={resolve('/')}
-				class="font-mono text-xs leading-4 tracking-[0.12em] text-chrome-text-muted uppercase hover:text-chrome-text"
-			>
-				<span aria-hidden="true">←</span> TroopToTask.com
-			</a>
+			{#if signedIn}
+				<nav aria-label="Account" class="flex items-center gap-6 sm:gap-8">
+					{#if signedIn.account}
+						<a href={resolve('/account')} class={mastheadLink}>Account</a>
+					{/if}
+					<form method="POST" action={resolve('/auth/logout')}>
+						<button type="submit" class={cn(mastheadLink, 'cursor-pointer')}>Sign out</button>
+					</form>
+					<button
+						type="button"
+						class="-m-2 inline-flex cursor-pointer p-2 text-chrome-text-muted hover:text-chrome-text"
+						aria-label="Toggle theme"
+						onclick={() => themeStore.toggle()}
+					>
+						{#if themeStore.isDark}<SunIcon class="size-4" />{:else}<MoonIcon class="size-4" />{/if}
+					</button>
+				</nav>
+			{:else}
+				<a href={resolve('/')} class={mastheadLink}>
+					<span aria-hidden="true">←</span> TroopToTask.com
+				</a>
+			{/if}
 		</div>
 
 		<div class="mt-10 flex flex-col gap-4 lg:my-auto lg:gap-6 lg:py-12">
@@ -93,7 +121,7 @@
 		class="flex justify-center px-6 py-10 sm:px-10 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:items-center lg:px-12 lg:py-12 xl:px-20"
 		aria-labelledby="auth-panel-title"
 	>
-		<div class="flex w-full max-w-[400px] flex-col gap-8">
+		<div class={cn('flex w-full flex-col gap-8', panelWidth === 'wide' ? 'max-w-[520px]' : 'max-w-[400px]')}>
 			<div class="flex flex-col gap-2.5 border-b-2 border-foreground pb-5">
 				<p class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
 					{panelEyebrow}
@@ -140,7 +168,10 @@
 	</main>
 
 	<footer
-		class="border-t border-chrome-border bg-chrome px-6 pt-8 pb-10 text-chrome-text sm:px-10 lg:col-start-1 lg:row-start-2 lg:border-t-0 lg:border-r lg:px-12 lg:pt-0 lg:pb-12 xl:px-16"
+		class={cn(
+			'border-t border-chrome-border bg-chrome px-6 pt-8 pb-10 text-chrome-text sm:px-10 lg:col-start-1 lg:row-start-2 lg:border-t-0 lg:border-r lg:px-12 lg:pt-0 lg:pb-12 xl:px-16',
+			steps?.narrow === 'hidden' && 'max-lg:hidden'
+		)}
 	>
 		{#if steps}
 			<section aria-labelledby="auth-steps-label">

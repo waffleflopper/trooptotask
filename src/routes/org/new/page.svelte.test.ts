@@ -25,6 +25,7 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
 	return {
 		viewer: null,
 		emailConfirmed: true,
+		emailConfirmationUnavailable: false,
 		userEmail: 'owner@example.com',
 		emailConfirmationMessage: undefined,
 		requestId: 'load-request-id',
@@ -48,7 +49,7 @@ describe('/org/new page', () => {
 		pageState.status = 503;
 		const view = render(Page, { props: { data: makePageData(), form: null } });
 		const requestId = () => (document.querySelector('input[name="requestId"]') as HTMLInputElement).value;
-		const name = screen.getByLabelText('Organization Name') as HTMLInputElement;
+		const name = screen.getByLabelText('Organization name') as HTMLInputElement;
 		expect(requestId()).toBe('load-request-id');
 		await fireEvent.input(name, { target: { value: '2nd Battalion' } });
 
@@ -70,7 +71,7 @@ describe('/org/new page', () => {
 				form: { error: 'We could not confirm that.', name: '1st Battalion', requestId: 'load-request-id' }
 			}
 		});
-		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).value).toBe('1st Battalion');
+		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('1st Battalion');
 	});
 
 	it('uses the request id the server returns with a failure', async () => {
@@ -100,12 +101,9 @@ describe('/org/new page', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Confirm your email first' })).toBeTruthy();
-		expect(screen.getByText(/Open the newest confirmation email for pending@example.com/)).toBeTruthy();
-		expect(screen.getByTestId('org-new-status').textContent).toContain('Email confirmation required');
-		expect(screen.getByText(/Confirm your email before creating an Organization/)).toBeTruthy();
-		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).disabled).toBe(true);
-		expect((screen.getByRole('button', { name: 'Create Organization' }) as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('status').textContent).toContain('pending@example.com');
+		expect((screen.getByLabelText('Organization name') as HTMLInputElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Create and start setup' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it('associates a rejected name with its field and returns focus to it', async () => {
@@ -117,7 +115,7 @@ describe('/org/new page', () => {
 			}
 		});
 
-		const name = screen.getByLabelText('Organization Name') as HTMLInputElement;
+		const name = screen.getByLabelText('Organization name') as HTMLInputElement;
 		expect(name.getAttribute('aria-invalid')).toBe('true');
 		expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent?.trim()).toBe(
 			'Organization name is required'
@@ -125,7 +123,7 @@ describe('/org/new page', () => {
 		expect(screen.getByRole('alert')).toBe(document.getElementById(name.getAttribute('aria-describedby') ?? ''));
 
 		await fireEvent.input(name, { target: { value: ' ' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Create Organization' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Create and start setup' }));
 		await enhanceRequests[0](
 			frameworkOutcome(
 				{ type: 'failure', status: 400, data: { error: 'Organization name is required' } },
@@ -137,9 +135,9 @@ describe('/org/new page', () => {
 
 	it('keeps the typed name with an Alert when creation errors unexpectedly, and refocuses Create', async () => {
 		const view = render(Page, { props: { data: makePageData(), form: null } });
-		await fireEvent.input(screen.getByLabelText('Organization Name'), { target: { value: '2nd Battalion' } });
+		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: '2nd Battalion' } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Create Organization' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Create and start setup' }));
 		await enhanceRequests[0](
 			frameworkOutcome(
 				{ type: 'error', status: 500, error: { message: 'Internal Error' } },
@@ -148,15 +146,15 @@ describe('/org/new page', () => {
 		);
 
 		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
-		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).value).toBe('2nd Battalion');
-		expect(screen.getByLabelText('Organization Name').getAttribute('aria-invalid')).toBeNull();
-		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Organization' }));
+		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('2nd Battalion');
+		expect(screen.getByLabelText('Organization name').getAttribute('aria-invalid')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create and start setup' }));
 	});
 
 	it('keeps focus on Create and sends one request while creation is pending', async () => {
 		render(Page, { props: { data: makePageData(), form: null } });
-		await fireEvent.input(screen.getByLabelText('Organization Name'), { target: { value: '2nd Battalion' } });
-		const create = screen.getByRole('button', { name: 'Create Organization' }) as HTMLButtonElement;
+		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: '2nd Battalion' } });
+		const create = screen.getByRole('button', { name: 'Create and start setup' }) as HTMLButtonElement;
 		create.focus();
 
 		await fireEvent.click(create);
@@ -165,7 +163,7 @@ describe('/org/new page', () => {
 		expect(enhanceRequests).toHaveLength(1);
 		expect(create.disabled).toBe(false);
 		expect(create.getAttribute('aria-disabled')).toBe('true');
-		expect(create.textContent?.trim()).toBe('Creating...');
+		expect(create.textContent?.trim()).toBe('Creating 2nd Battalion');
 		expect(document.activeElement).toBe(create);
 	});
 
@@ -177,13 +175,13 @@ describe('/org/new page', () => {
 				form: { error: 'Synthetic request failure', name: '2nd Battalion', requestId: 'load-request-id' }
 			}
 		});
-		await fireEvent.input(screen.getByLabelText('Organization Name'), { target: { value: '2nd Battalion' } });
+		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: '2nd Battalion' } });
 		expect(screen.getByRole('alert').textContent?.trim()).toBe('Synthetic request failure');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Create Organization' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Create and start setup' }));
 
 		expect(screen.queryByRole('alert')).toBeNull();
-		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).value).toBe('2nd Battalion');
+		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('2nd Battalion');
 
 		await enhanceRequests[0](
 			frameworkOutcome(
@@ -200,8 +198,8 @@ describe('/org/new page', () => {
 		pageState.status = 400;
 		const view = render(Page, { props: { data: makePageData(), form: null } });
 		const page = { applyForm: (form: unknown) => view.rerender({ form: form as never }) };
-		const name = screen.getByLabelText('Organization Name') as HTMLInputElement;
-		const create = screen.getByRole('button', { name: 'Create Organization' });
+		const name = screen.getByLabelText('Organization name') as HTMLInputElement;
+		const create = screen.getByRole('button', { name: 'Create and start setup' });
 		await fireEvent.input(name, { target: { value: 'Taken' } });
 		await fireEvent.click(create);
 		await enhanceRequests[0](
@@ -226,8 +224,8 @@ describe('/org/new page', () => {
 
 	it('does not navigate to the new Organization when its response arrives after the user left', async () => {
 		const view = render(Page, { props: { data: makePageData(), form: null } });
-		await fireEvent.input(screen.getByLabelText('Organization Name'), { target: { value: '2nd Battalion' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Create Organization' }));
+		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: '2nd Battalion' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create and start setup' }));
 		const late = enhanceRequests[0];
 		view.unmount();
 		const page: FrameworkPage = { applyForm: async () => {} };

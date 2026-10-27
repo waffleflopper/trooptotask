@@ -81,6 +81,7 @@
 		groups={groupManagementStore.items.filter((group) => ctx.canCreatePersonnelInGroup(group.id))}
 		allowUnassigned={ctx.allowUnassignedPersonnel}
 		rankCatalog={ctx.data.rankCatalog ?? []}
+		organizationName={ctx.orgName}
 		onSubmit={handleSubmit}
 		onClose={modals.closerFor('personnel-modal')}
 	/>

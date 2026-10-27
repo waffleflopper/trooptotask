@@ -19,7 +19,6 @@ export class RankStateEdits {
 	#queue: Promise<unknown> = Promise.resolve();
 	#request = 0;
 	#catalog: () => unknown;
-	#inOrganization = stillInOrganizationLifetime();
 	#disposed = false;
 	pending = $state(0);
 
@@ -28,7 +27,7 @@ export class RankStateEdits {
 	}
 
 	get current(): boolean {
-		return !this.#disposed && this.#inOrganization();
+		return !this.#disposed;
 	}
 
 	dispose(): void {
@@ -48,14 +47,16 @@ export class RankStateEdits {
 	}
 
 	apply(changes: RankStateChange[], send: SendRankStates): Promise<string | null> {
+		const inOrganization = stillInOrganizationLifetime();
+		const current = () => this.current && inOrganization();
 		const request = ++this.#request;
 		for (const change of changes) this.#shown.set(change.code, { state: change.state, request, savedOn: null });
 		this.pending++;
-		const sent = this.#queue.then(() => (this.current ? send() : null)).catch(() => FALLBACK_FAILURE);
+		const sent = this.#queue.then(() => (current() ? send() : null)).catch(() => FALLBACK_FAILURE);
 		this.#queue = sent;
 		return withinOrganizationLifetime(
 			sent.then((failure) => {
-				if (!this.current) return null;
+				if (!current()) return null;
 				const catalog = this.#catalog();
 				for (const change of changes) {
 					if (!failure) this.#confirmed.set(change.code, { state: change.state, savedOn: catalog });
@@ -67,7 +68,7 @@ export class RankStateEdits {
 				this.pending--;
 				return failure;
 			}),
-			() => this.current
+			current
 		);
 	}
 }

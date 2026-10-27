@@ -213,6 +213,40 @@ describe('Continue', () => {
 		expect(flow.busy).toBe(false);
 	});
 
+	it('keeps a write when the owner reopens the step already shown', async () => {
+		const response = deferred<Response>();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => response.promise)
+		);
+		const { flow } = setup('groups');
+		await settle();
+
+		const saving = flow.answer('groups', 'reviewed');
+		flow.leave('/org/alpha/setup/groups', '/org/alpha/setup/groups');
+		response.resolve(respond(200, { ...empty, answers: { groups: 'reviewed' } }));
+		await saving;
+
+		expect(flow.rail.find((step) => step.key === 'groups')?.state).toBe('done');
+	});
+
+	it('drops a write once the owner opens another step', async () => {
+		const response = deferred<Response>();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => response.promise)
+		);
+		const { flow } = setup('groups');
+		await settle();
+
+		const saving = flow.answer('groups', 'reviewed');
+		flow.leave('/org/alpha/setup/groups', '/org/alpha/setup/ranks');
+		response.resolve(respond(200, { ...empty, answers: { groups: 'reviewed' } }));
+		await saving;
+
+		expect(flow.rail.find((step) => step.key === 'groups')?.state).toBe('notAnswered');
+	});
+
 	it('shows no error from a failed write the owner already left', async () => {
 		const response = deferred<Response>();
 		vi.stubGlobal(

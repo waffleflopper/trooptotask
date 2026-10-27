@@ -130,8 +130,12 @@ export class SetupFlow {
 		return `/org/${this.#source().orgUrlSegment}/setup/${slug}`;
 	}
 
-	/** Call when any navigation starts. Work begun on the page being left no longer owns the view. */
-	leave() {
+	/**
+	 * Call when any navigation starts. Work begun on the page being left no longer owns the view. Reopening the page
+	 * already shown leaves nothing, so its step body and in-flight writes carry on.
+	 */
+	leave(from?: string, to?: string) {
+		if (from !== undefined && from === to) return;
 		this.#visit++;
 		this.pending = false;
 		this.error = null;

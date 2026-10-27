@@ -8,11 +8,15 @@
 
 	const flow = setSetupFlow(
 		new SetupFlow(
-			() => ({ ...data, stepKey: page.data.setupStepKey ?? null, navigating: navigating.to !== null }),
+			() => ({
+				...data,
+				stepKey: page.data.setupStepKey ?? null,
+				navigating: navigating.to !== null && navigating.to.url.pathname !== navigating.from?.url.pathname
+			}),
 			(href) => goto(href)
 		)
 	);
-	beforeNavigate(() => flow.leave());
+	beforeNavigate(({ from, to }) => flow.leave(from?.url.pathname, to?.url.pathname));
 </script>
 
 <svelte:head>

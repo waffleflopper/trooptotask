@@ -2,7 +2,12 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { enhanceRequests, simulateEnhance } from '$lib/test-support/sveltekitEnhance';
+import {
+	enhanceRequests,
+	frameworkOutcome,
+	simulateEnhance,
+	type FrameworkPage
+} from '$lib/test-support/sveltekitEnhance';
 import type { SetupFacts } from './registry';
 import type { SetupFlow, SetupFlowSource } from './setupFlow.svelte';
 import type { SetupTeamData } from './teamTypes';
@@ -57,7 +62,8 @@ function renderStep(data: Promise<SetupTeamData>, unitFacts = facts()) {
 		disabledFeatures: [],
 		setupState: { branch: null, answers: {}, finishedAt: null, prompts: {} },
 		setupFacts: Promise.resolve(unitFacts),
-		stepKey: 'invite'
+		stepKey: 'invite',
+		navigating: false
 	};
 	return render(SetupFlowCapture, { props: { source, onflow: (created: SetupFlow) => (flow = created) } });
 }
@@ -76,10 +82,16 @@ async function send(email: string) {
 	await waitFor(() => expect(enhanceRequests).toHaveLength(1));
 }
 
-const settle = (result: Parameters<(typeof enhanceRequests)[number]>[0]['result']) =>
-	enhanceRequests[0]({ result, update: async () => {} });
+// The Members action lives on another route, so SvelteKit applies a success or failure there, not on this page.
+let framework: FrameworkPage;
+
+const settle = (result: Parameters<(typeof enhanceRequests)[number]>[0]['result'], request = 0) =>
+	enhanceRequests[request](frameworkOutcome(result, framework));
+
+const stepPath = '/org/alpha/setup/invite';
 
 beforeEach(() => {
+	framework = { applyForm: async () => {}, away: true };
 	vi.stubGlobal(
 		'fetch',
 		vi.fn(
@@ -137,12 +149,35 @@ describe('Invite your team step', () => {
 		renderStep(Promise.resolve(team()));
 		await send('new.person@example.com');
 
-		flow.leave();
+		flow.leave(stepPath, '/org/alpha/setup/done');
 		await settle({ type: 'success', status: 200, data: { inviteSuccess: true } });
 
 		expect(invalidate).not.toHaveBeenCalled();
 		expect(await emailField()).toHaveValue('new.person@example.com');
 		expect(screen.queryByRole('status')).toBeNull();
+	});
+
+	it('finishes a send when the owner reopens the step it is on', async () => {
+		renderStep(Promise.resolve(team()));
+		await send('new.person@example.com');
+
+		flow.leave(stepPath, stepPath);
+		await settle({ type: 'success', status: 200, data: { inviteSuccess: true } });
+
+		expect(invalidate).toHaveBeenCalledWith('app:organization-setup');
+		await waitFor(() => expect(screen.getByRole('button', { name: /^Continue/ })).toBeEnabled());
+		await fireEvent.input(await emailField(), { target: { value: 'second.person@example.com' } });
+		await fireEvent.click(sendButton()!);
+		await waitFor(() => expect(enhanceRequests).toHaveLength(2));
+	});
+
+	it('follows a redirect from the invite action', async () => {
+		renderStep(Promise.resolve(team()));
+		await send('new.person@example.com');
+
+		await settle({ type: 'redirect', status: 303, location: '/auth/login' });
+
+		expect(framework.location).toBe('/auth/login');
 	});
 
 	it('holds Continue while an invitation is sending', async () => {

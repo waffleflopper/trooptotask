@@ -208,10 +208,13 @@ distinct from ordinary UI or authorization proof.
     `evaluate_script` and the function
     `() => { const q = (s) => document.querySelector(s); const out = (window.__slide = []); const t0 = performance.now(); const tick = () => { out.push([Math.round(performance.now() - t0), q('[data-slot=sidebar-gap]').getBoundingClientRect().width, q('[data-slot=sidebar-inset]').getBoundingClientRect().left]); if (performance.now() - t0 < 4000) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }`,
     then click the header's `Toggle Sidebar` by its snapshot UID (the sidebar rail carries the same name) and read
-    `window.__slide` after three seconds. Expected: the gap width falls from 256 to 48 through about eight intermediate
-    frames over about 125 ms, easing out, and every sample has the content's left edge equal to the gap width.
-    Expanding again rises from 48 to 256 the same way. Reload and read `performance.getEntriesByType('layout-shift')`:
-    no entry. Choose another sidebar link with the sampler running, expanded and collapsed: the width never changes.
+    `window.__slide` after three seconds. Expected: the gap width falls from 256 to 64 (the 48 px icon rail and 8 px of
+    frame each side) through about eight intermediate frames over about 125 ms, easing out. From the first collapsing
+    sample the content's left edge is the gap width plus 8, the frame beside the collapsed rail, and it rests at 72.
+    Expanding again rises from 64 to 256 the same way with the left edge equal to the gap width. The sidebar and the
+    frame around the content are the chrome black in both themes. Reload and read
+    `performance.getEntriesByType('layout-shift')`: no entry. Choose another sidebar link with the sampler running,
+    expanded and collapsed: the width never changes.
     Native `emulate` cannot set reduced motion, so read the `(prefers-reduced-motion: reduce)` rule from
     `document.styleSheets`: it sets `transition-duration: 0.01ms !important` on every element.
 

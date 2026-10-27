@@ -405,8 +405,8 @@
 		>Skip to main content</a
 	>
 	{@render banner?.()}
-	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden bg-background">
-		<Sidebar.Root collapsible="icon">
+	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden">
+		<Sidebar.Root collapsible="icon" variant="inset">
 			<Sidebar.Header>
 				<Sidebar.Menu>
 					<Sidebar.MenuItem>
@@ -522,14 +522,14 @@
 										aria-label={`${signedInAs.name}, account menu`}
 									>
 										<span
-											class="hidden aspect-square size-8 items-center justify-center rounded-md border bg-muted text-xs font-medium group-data-[collapsible=icon]:flex"
+											class="hidden aspect-square size-8 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent text-xs font-medium group-data-[collapsible=icon]:flex"
 											aria-hidden="true"
 										>
 											{signedInAs.initials}
 										</span>
 										<span class="grid flex-1 gap-0.5 text-left leading-tight">
 											<span class="truncate text-sm font-medium">{signedInAs.name}</span>
-											<span class="truncate font-mono text-[11px] tracking-[0.04em] text-muted-foreground"
+											<span class="truncate font-mono text-[11px] tracking-[0.04em] text-sidebar-foreground/70"
 												>Your account</span
 											>
 										</span>
@@ -602,7 +602,7 @@
 			<Sidebar.Rail />
 		</Sidebar.Root>
 
-		<Sidebar.Inset>
+		<Sidebar.Inset class="overflow-hidden dark:md:ring-1 dark:md:ring-sidebar-border">
 			<header
 				class="sticky top-0 z-10 flex h-14 min-w-0 shrink-0 items-center gap-2 border-b bg-background px-4"
 				data-print-chrome

@@ -187,6 +187,7 @@
 		data-setup-new-feature
 	>
 		<span class="size-2 shrink-0 rounded-full bg-info" aria-hidden="true"></span>
-		New<span class="hidden sm:inline">: {newStep.title}</span>
+		<span class="sm:hidden">New</span>
+		<span class="hidden sm:inline">New: {newStep.title}</span>
 	</Button>
 {/if}

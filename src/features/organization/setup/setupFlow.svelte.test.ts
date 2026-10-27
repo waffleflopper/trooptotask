@@ -46,7 +46,8 @@ function setup(stepKey: SetupStepKey | null, unitFacts = facts()) {
 		disabledFeatures: [],
 		setupState: empty,
 		setupFacts: Promise.resolve(unitFacts),
-		stepKey
+		stepKey,
+		navigating: false
 	});
 	const navigate = vi.fn(async (_href: string) => {});
 	let flow!: SetupFlow;
@@ -191,6 +192,27 @@ describe('Continue', () => {
 		expect(flow.error).toBeNull();
 	});
 
+	it('starts nothing while a navigation to another step is pending', async () => {
+		const fetch = vi.fn(async () => respond(200, { ...empty, answers: { groups: 'reviewed' } }));
+		vi.stubGlobal('fetch', fetch);
+		const { flow, navigate, source } = setup('groups');
+		await settle();
+
+		flow.leave();
+		source.navigating = true;
+		const saving = flow.continue();
+		expect(flow.busy).toBe(true);
+		source.navigating = false;
+		source.stepKey = 'training';
+		await saving;
+		await settle();
+
+		expect(fetch).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+		expect(flow.rail.find((step) => step.key === 'groups')?.state).toBe('notAnswered');
+		expect(flow.busy).toBe(false);
+	});
+
 	it('shows no error from a failed write the owner already left', async () => {
 		const response = deferred<Response>();
 		vi.stubGlobal(
@@ -240,6 +262,20 @@ describe('Finish', () => {
 		response.resolve(respond(200, { ...empty, finishedAt: '2026-10-26T12:00:00.000Z' }));
 		await finishing;
 
+		expect(navigate).not.toHaveBeenCalled();
+		expect(flow.state.finishedAt).toBeNull();
+	});
+	it('does not finish while a navigation away from Done is pending', async () => {
+		const fetch = vi.fn(async () => respond(200, { ...empty, finishedAt: '2026-10-26T12:00:00.000Z' }));
+		vi.stubGlobal('fetch', fetch);
+		const { flow, navigate, source } = setup(null);
+		await settle();
+
+		flow.leave();
+		source.navigating = true;
+		await flow.finish();
+
+		expect(fetch).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
 		expect(flow.state.finishedAt).toBeNull();
 	});

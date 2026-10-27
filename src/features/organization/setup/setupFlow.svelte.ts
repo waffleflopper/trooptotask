@@ -11,6 +11,8 @@ export interface SetupFlowSource {
 	setupFacts: Promise<SetupFacts>;
 	/** The open step, or `null` on the Done page. */
 	stepKey: SetupStepKey | null;
+	/** A navigation has started and its page has not arrived yet. */
+	navigating: boolean;
 }
 
 /** Runs before Continue moves on. A rejection keeps the owner on the step and shows its message. */
@@ -79,6 +81,8 @@ export class SetupFlow {
 	state = $derived(this.#saved?.over === this.#loaded ? this.#saved.state : this.#loaded);
 	facts = $state<SetupFacts | null>(null);
 	pending = $state(false);
+	/** Continue and Finish start nothing while set. */
+	busy = $derived(this.pending || this.#source().navigating);
 	error = $state<string | null>(null);
 
 	model = $derived.by(() => {
@@ -165,7 +169,7 @@ export class SetupFlow {
 	}
 
 	async #run(work: (stillHere: () => boolean) => Promise<void>) {
-		if (this.pending) return;
+		if (this.busy) return;
 		const visit = this.#visit;
 		const stillHere = () => visit === this.#visit;
 		this.pending = true;

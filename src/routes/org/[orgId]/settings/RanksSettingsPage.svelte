@@ -189,7 +189,7 @@
 						<span class="h-2.5 w-3.5 rounded-xs bg-foreground" aria-hidden="true"></span>On
 					</li>
 					<li class="flex items-center gap-1.5">
-						<span class="h-2.5 w-3.5 rounded-xs border border-dashed border-input" aria-hidden="true"></span>Off
+						<span class="h-2.5 w-3.5 rounded-xs border border-dashed border-muted-foreground/40" aria-hidden="true"></span>Off
 					</li>
 				</ul>
 			{/snippet}

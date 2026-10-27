@@ -203,8 +203,8 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    `rosterManager` (`sign-in-rosters`), a signed scan's Remove (`sign-in-rosters/ROSTER_ID/upload`, Close disabled too),
    a Members row's `Manage` sheet as `orgOwner` (`settings/members/updateMemberAccess`), a Duty planner column's Clear
    month (column actions → `Clear month`) and its confirmation as `calendarConfigure` (`daily-assignments/batch`; the
-   confirmation stays busy and the column actions button disabled while held), and a rank's Retire as `orgOwner` on
-   `settings/ranks` (`settings/ranks/retireRank`, its row actions disabled; reactivate it afterwards).
+   confirmation stays busy and the column actions button disabled while held), and a custom rank's Save as `orgOwner` on
+   `settings/ranks` (`settings/ranks/saveRank`, its editor's Save and Remove disabled; the rank chips stay available).
 
 5. **Sheet and popover dismissal (`orgOwner`, `manager`).** On `settings/members`, open a row's `Manage`. Press Escape:
    the sheet closes and focus returns to the opening button. Reopen and click the overlay outside the sheet: same

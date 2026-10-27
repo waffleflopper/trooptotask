@@ -2692,9 +2692,7 @@ async function main() {
 				'settings/members/removeMember': 'memberError',
 				'settings/danger/transferOwnership': 'transferError',
 				'settings/ranks/saveRank': 'rankError',
-				'settings/ranks/retireRank': 'rankError',
-				'settings/ranks/reactivateRank': 'rankError',
-				'settings/ranks/bulkRankState': 'rankError',
+				'settings/ranks/setRankStates': 'rankError',
 				'settings/ranks/deleteRank': 'rankError',
 				'settings/ranks/addServicePack': 'rankError'
 			};

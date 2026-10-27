@@ -81,6 +81,99 @@ describe('organization rank catalog', () => {
 		});
 	});
 
+	it('a delayed state change preserves details saved after its catalog read', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'enlisted',
+			payGrade: 'E-6',
+			sortOrder: 500
+		});
+		const result = await setOrganizationRankCatalogStates(
+			{
+				...ctx,
+				rankCatalog: {
+					...ctx.rankCatalog,
+					async listEntries() {
+						const beforeRename = (await ctx.rankCatalog.listEntries()).map((row) => ({ ...row }));
+						await saveOrganizationRankCatalogEntry(ctx, {
+							code: 'DET-SGT',
+							originalCode: 'DET-SGT',
+							intent: 'update',
+							label: 'Detachment Lead',
+							service: 'custom',
+							category: 'officer',
+							payGrade: 'O-3',
+							sortOrder: 42
+						});
+						ctx.auditPort.events.length = 0;
+						return beforeRename;
+					}
+				}
+			},
+			{ changes: [{ code: 'DET-SGT', state: 'retired' }] }
+		);
+
+		expect(await ctx.rankCatalog.findEntryByCode('DET-SGT')).toMatchObject({
+			code: 'DET-SGT',
+			label: 'Detachment Lead',
+			service: 'custom',
+			category: 'officer',
+			pay_grade: 'O-3',
+			sort_order: 42,
+			state: 'retired'
+		});
+		expect(result).toEqual({ changedCount: 1 });
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'organization.rank_catalog.bulk_state_changed',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'test-org',
+				details: { changedCount: 1, changes: [{ code: 'DET-SGT', state: 'retired' }] }
+			}
+		]);
+	});
+
+	it('a delayed state change does not recreate a rank removed after its catalog read', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'enlisted',
+			payGrade: 'E-6',
+			sortOrder: 500
+		});
+		ctx.auditPort.events.length = 0;
+		const result = await setOrganizationRankCatalogStates(
+			{
+				...ctx,
+				rankCatalog: {
+					...ctx.rankCatalog,
+					async listEntries() {
+						const beforeRemove = await ctx.rankCatalog.listEntries();
+						await ctx.rawStore.delete('organization_rank_catalog', 'test-org', beforeRemove[0].id);
+						return beforeRemove;
+					}
+				}
+			},
+			{ changes: [{ code: 'DET-SGT', state: 'retired' }] }
+		);
+
+		expect(await ctx.rankCatalog.findEntryByCode('DET-SGT')).toBeNull();
+		expect(result).toEqual({ changedCount: 0 });
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'organization.rank_catalog.bulk_state_changed',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'test-org',
+				details: { changedCount: 0, changes: [] }
+			}
+		]);
+	});
+
 	it('sends uniform values for existing and missing pack ranks in one atomic upsert', async () => {
 		const existing = {
 			id: 'rank-sgt',

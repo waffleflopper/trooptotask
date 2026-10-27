@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RanksSettingsData, SettingsRankCatalogRow, SettingsRankServicePackOption } from '../settingsSectionTypes';
 import Page from './+page.svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core/lifetime';
 
 type ActionResult = { type: 'success' | 'failure'; status?: number; data?: Record<string, unknown> };
@@ -87,6 +88,7 @@ afterEach(async () => {
 	heldSubmissions.length = 0;
 	submittedForms.length = 0;
 	invalidateAll.mockClear();
+	vi.mocked(toastStore.success).mockClear();
 	vi.unstubAllGlobals();
 	try {
 		cleanup();
@@ -543,6 +545,56 @@ describe('custom rank names', () => {
 		await vi.runAllTimersAsync();
 		expect(screen.queryByRole('form', { name: 'Edit DET-SGT' })).toBeNull();
 		expect(document.activeElement).toBe(nameButton('DET-SGT'));
+	});
+
+	it.each(['unmount', 'Organization lifetime'] as const)(
+		'ignores a save reply after %s without moving focus',
+		async (leave) => {
+			const page = renderRankPage([rankEntry()]);
+			await openNames();
+			await click(nameButton('DET-SGT'));
+			submitWith(screen.getByRole('button', { name: 'Save DET-SGT' }));
+			const reply = heldSubmissions[0];
+			if (leave === 'unmount') {
+				page.unmount();
+				renderRankPage([rankEntry()]);
+				await openNames();
+				await click(nameButton('DET-SGT'));
+			} else {
+				endOrganizationLifetime();
+			}
+			const label = screen.getByLabelText('Label');
+			label.focus();
+			const update = vi.fn(async () => {});
+
+			await reply({ result: { type: 'success', data: { code: 'DET-SGT' } }, update });
+			await vi.runAllTimersAsync();
+
+			expect(update).not.toHaveBeenCalled();
+			expect(toastStore.success).not.toHaveBeenCalled();
+			expect(document.activeElement).toBe(label);
+			expect(screen.getByRole('button', { name: 'Save DET-SGT' })).toBeEnabled();
+		}
+	);
+
+	it('ignores feedback and focus if the Organization lifetime ends while applying a save', async () => {
+		renderRankPage([rankEntry()]);
+		await openNames();
+		await click(nameButton('DET-SGT'));
+		submitWith(screen.getByRole('button', { name: 'Save DET-SGT' }));
+		const label = screen.getByLabelText('Label');
+		await heldSubmissions[0]({
+			result: { type: 'success', data: { code: 'DET-SGT' } },
+			update: async () => {
+				endOrganizationLifetime();
+				label.focus();
+			}
+		});
+		await vi.runAllTimersAsync();
+
+		expect(toastStore.success).not.toHaveBeenCalled();
+		expect(document.activeElement).toBe(label);
+		expect(screen.getByRole('button', { name: 'Save DET-SGT' })).toBeEnabled();
 	});
 
 	it('keeps the typed values and marks the field the server rejected', async () => {

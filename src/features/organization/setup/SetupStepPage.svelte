@@ -6,16 +6,27 @@
 	import type { SetupStepKey } from './registry';
 	import SetupInviteStep from './SetupInviteStep.svelte';
 	import SetupStepFooter from './SetupStepFooter.svelte';
+	import SetupWelcomeStep from './SetupWelcomeStep.svelte';
 	import { SETUP_FACT_LABELS, SETUP_GROUP_LABELS, getSetupFlow } from './setupFlow.svelte';
 
 	/** A step's body renders its editor and its own `SetupStepFooter`. Steps without one show a placeholder. */
 	const bodies: Partial<Record<SetupStepKey, Component>> = {
+		welcome: SetupWelcomeStep,
 		invite: SetupInviteStep
 	};
 
+	let {
+		orgName = '',
+		delivered = {}
+	}: {
+		orgName?: string;
+		/** Bodies that embed another feature's editor. Organization cannot import those, so the route composes them. */
+		delivered?: Partial<Record<SetupStepKey, Component>>;
+	} = $props();
+
 	const flow = getSetupFlow();
 	const step = $derived(flow.current);
-	const Body = $derived(step ? bodies[step.key] : undefined);
+	const Body = $derived(step ? (bodies[step.key] ?? delivered[step.key]) : undefined);
 </script>
 
 {#if step}
@@ -26,7 +37,7 @@
 			Step {flow.position + 1} of {flow.rail.length} · {SETUP_GROUP_LABELS[step.group]}
 		</p>
 		<h1 class="font-heading text-[40px] leading-10 font-extrabold uppercase lg:text-5xl lg:leading-12">
-			{step.title}
+			{step.key === 'welcome' && orgName ? `Let's set up ${orgName}` : step.title}
 		</h1>
 		<p class="text-base leading-6">{step.pitch}</p>
 	</div>

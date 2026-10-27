@@ -7,6 +7,8 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { parseOrganizationSetup } from '$features/organization/contracts';
 import type { OrganizationSetupPort } from '$features/organization/index.server';
+import type { SetupBranch } from '$features/organization/contracts';
+import { configureOrganizationRankServices, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 
 function fixture(role: 'owner' | 'admin' | 'member' = 'owner') {
 	const base = createTestContext({ auth: { role } });
@@ -30,7 +32,14 @@ function fixture(role: 'owner' | 'admin' | 'member' = 'owner') {
 			return state;
 		}
 	};
-	return { ctx: { ...base, organizationSetup: port }, state: () => state };
+	return {
+		ctx: {
+			...base,
+			organizationSetup: port,
+			configureBranchRanks: (service: SetupBranch) => configureOrganizationRankServices(base, { service })
+		},
+		state: () => state
+	};
 }
 
 describe('Organization setup endpoints', () => {
@@ -38,6 +47,7 @@ describe('Organization setup endpoints', () => {
 		const { ctx, state } = fixture('admin');
 		await handleUseCaseRequest(answer, ctx, { step: 'groups', answer: 'reviewed' }, () => ctx);
 		await handleUseCaseRequest(branch, ctx, { branch: 'army' }, () => ctx);
+		expect(await ctx.rankCatalog.findEntryByCode('SGT')).toMatchObject({ state: 'active', source: 'built-in' });
 		expect(await handleUseCaseRequest(finish, ctx, {}, () => ctx)).toEqual({
 			branch: 'army',
 			answers: { groups: 'reviewed' },
@@ -48,6 +58,72 @@ describe('Organization setup endpoints', () => {
 			handleUseCaseRequest(prompt, ctx, { key: 'setup', state: { never: true } }, () => ctx)
 		).rejects.toMatchObject({ status: 403 });
 		expect(state().prompts).toEqual({});
+	});
+
+	it('rejects a member branch save before changing ranks or the stored branch', async () => {
+		const { ctx, state } = fixture('member');
+		await expect(handleUseCaseRequest(branch, ctx, { branch: 'navy' }, () => ctx)).rejects.toMatchObject({
+			status: 403
+		});
+		expect(state()).toEqual({ branch: null, answers: {}, prompts: {}, finishedAt: null });
+		expect(await ctx.rankCatalog.listEntries()).toEqual([]);
+	});
+
+	it('keeps the saved branch after a rank failure and converges when retried', async () => {
+		const { ctx, state } = fixture('admin');
+		await handleUseCaseRequest(branch, ctx, { branch: 'army' }, () => ctx);
+		const saveEntries = ctx.rankCatalog.saveEntries;
+		ctx.rankCatalog.saveEntries = async (entries) => {
+			if (entries.some((entry) => entry.state === 'retired')) throw new Error('Synthetic rank write failure');
+			return saveEntries(entries);
+		};
+		await expect(handleUseCaseRequest(branch, ctx, { branch: 'navy' }, () => ctx)).rejects.toThrow();
+		expect(state()).toEqual({ branch: 'army', answers: {}, prompts: {}, finishedAt: null });
+		expect(await ctx.rankCatalog.findEntryByCode('PO3')).toMatchObject({ state: 'active', source: 'built-in' });
+		ctx.rankCatalog.saveEntries = saveEntries;
+		expect(await handleUseCaseRequest(branch, ctx, { branch: 'navy' }, () => ctx)).toEqual({
+			branch: 'navy',
+			answers: {},
+			prompts: {},
+			finishedAt: null
+		});
+		expect(await ctx.rankCatalog.findEntryByCode('SGT')).toMatchObject({ state: 'retired', source: 'built-in' });
+	});
+
+	it('reconciles ranks when setup persistence fails and leaves ranks alone when clearing the branch', async () => {
+		const { ctx, state } = fixture('admin');
+		await handleUseCaseRequest(branch, ctx, { branch: 'army' }, () => ctx);
+		const saveBranch = ctx.organizationSetup.saveBranch;
+		ctx.organizationSetup.saveBranch = async () => {
+			throw new Error('Synthetic setup write failure');
+		};
+		await expect(handleUseCaseRequest(branch, ctx, { branch: 'navy' }, () => ctx)).rejects.toThrow();
+		expect(state().branch).toBe('army');
+		expect(await ctx.rankCatalog.findEntryByCode('SGT')).toMatchObject({ state: 'retired' });
+		ctx.organizationSetup.saveBranch = saveBranch;
+		await handleUseCaseRequest(branch, ctx, { branch: 'navy' }, () => ctx);
+		const beforeClear = await ctx.rankCatalog.listEntries();
+		ctx.configureBranchRanks = async () => {
+			throw new Error('Clearing must not configure ranks');
+		};
+		expect(await handleUseCaseRequest(branch, ctx, { branch: null }, () => ctx)).toEqual({
+			branch: null,
+			answers: {},
+			prompts: {},
+			finishedAt: null
+		});
+		expect(await ctx.rankCatalog.listEntries()).toEqual(beforeClear);
+	});
+
+	it('rejects civilian as a branch choice without changing the catalog', async () => {
+		const { ctx, state } = fixture('admin');
+		await handleUseCaseRequest(branch, ctx, { branch: 'army' }, () => ctx);
+		const before = await loadOrganizationRankCatalog(ctx);
+		await expect(handleUseCaseRequest(branch, ctx, { branch: 'civilian' }, () => ctx)).rejects.toMatchObject({
+			status: 400
+		});
+		expect(state().branch).toBe('army');
+		expect(await loadOrganizationRankCatalog(ctx)).toEqual(before);
 	});
 
 	it('keeps prompt state owner-only and validates the viewer-local snooze day', async () => {
@@ -103,4 +179,19 @@ describe('Organization setup endpoints', () => {
 		release();
 		await expect(pending).resolves.toEqual({ branch: 'navy', answers: {}, prompts: {}, finishedAt: null });
 	});
+
+	it.each(['organization.rank_catalog.service_pack_added', 'organization.rank_catalog.bulk_state_changed'])(
+		'keeps the branch unchanged if the rank audit fails: %s',
+		async (action) => {
+			const { ctx, state } = fixture('admin');
+			await handleUseCaseRequest(branch, ctx, { branch: 'army' }, () => ctx);
+			const log = ctx.audit.log;
+			ctx.audit.log = async (event) => {
+				if (event.action === action) throw new Error('Synthetic audit failure');
+				await log(event);
+			};
+			await expect(handleUseCaseRequest(branch, ctx, { branch: 'navy' }, () => ctx)).rejects.toThrow();
+			expect(state()).toEqual({ branch: 'army', answers: {}, prompts: {}, finishedAt: null });
+		}
+	);
 });

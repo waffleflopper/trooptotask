@@ -1,8 +1,12 @@
 import { createContext } from 'svelte';
+import { invalidate } from '$app/navigation';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { SETUP_STEPS, type SetupFactKey, type SetupFacts, type SetupStep, type SetupStepKey } from './registry';
 import { buildSetupModel, deriveSetupStepState, type SetupStepState } from './model';
 import { parseOrganizationSetup, type OrganizationSetup, type SetupAnswer } from './state';
+import type { SetupBranch } from './branch';
+import type { SetupStarterPackResult, SetupTrainingSuggestionsResult } from './featureStepSupport';
+import { saveOrganizationSettings } from '../saveOrganizationSettings';
 
 export interface SetupFlowSource {
 	orgUrlSegment: string;
@@ -158,6 +162,66 @@ export class SetupFlow {
 			this.#apply(next);
 			await this.#navigate(target);
 		});
+	}
+
+	isFeatureOff(feature: FeatureKey) {
+		return this.#source().disabledFeatures.includes(feature);
+	}
+
+	/**
+	 * Writes one feature switch through Settings › Features' operation, so the audit entry is the same, then reloads
+	 * the switches. Resolves false when the owner has since navigated away.
+	 */
+	async switchFeature(feature: FeatureKey, on: boolean) {
+		const visit = this.#visit;
+		await saveOrganizationSettings(this.#source().orgUrlSegment, { featureSwitch: { feature, on } });
+		if (visit !== this.#visit) return false;
+		await Promise.all([invalidate('app:org-core'), invalidate('app:organization-setup')]);
+		return visit === this.#visit;
+	}
+
+	/** Turns an off feature back on without leaving the step. */
+	turnFeatureOn(feature: FeatureKey) {
+		return this.#run(async () => {
+			await this.switchFeature(feature, true);
+		});
+	}
+
+	/** Resolves null when the owner has since navigated away. */
+	async addTrainingSuggestions(branch: SetupBranch, suggestionIds: readonly string[]) {
+		return this.#refreshAfter(
+			this.#postJson<SetupTrainingSuggestionsResult>('training-types/suggestions', { branch, suggestionIds })
+		);
+	}
+
+	/** Resolves null when the owner has since navigated away. */
+	async applyFirstWeekOperations() {
+		return this.#refreshAfter(
+			this.#postJson<SetupStarterPackResult>('starter-configuration-packs/first-week-operations/apply', {})
+		);
+	}
+
+	async #refreshAfter<T>(write: Promise<T>): Promise<T | null> {
+		const visit = this.#visit;
+		const result = await write;
+		if (visit !== this.#visit) return null;
+		// New rows can make the step Done from data, which the rail reads from the reloaded facts.
+		await invalidate('app:organization-setup');
+		return visit === this.#visit ? result : null;
+	}
+
+	async #postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+		const response = await fetch(`/org/${this.#source().orgUrlSegment}/api/${path}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		const payload: unknown = await response.json().catch(() => null);
+		if (!response.ok) {
+			const message = (payload as { message?: unknown } | null)?.message;
+			throw new Error(typeof message === 'string' ? message : 'Try again.');
+		}
+		return payload as T;
 	}
 
 	#apply(state: OrganizationSetup) {

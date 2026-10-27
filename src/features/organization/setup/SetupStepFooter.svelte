@@ -27,7 +27,12 @@
 
 <SetupFooterBar error={flow.error}>
 	{#if flow.previous}
-		<Button variant="outline" size="lg" href={flow.href(flow.previous.slug)}>
+		<Button
+			variant="outline"
+			size="lg"
+			class="max-sm:size-10 max-sm:border-chrome-border max-sm:bg-transparent max-sm:text-chrome-text max-sm:hover:bg-chrome-hover"
+			href={flow.href(flow.previous.slug)}
+		>
 			<ChevronLeft data-icon="inline-start" aria-hidden="true" />
 			<span class="max-sm:sr-only">{flow.previous.title}</span>
 			<span class="sr-only sm:hidden">Back</span>
@@ -35,13 +40,13 @@
 	{/if}
 	<p
 		id="{id}-note"
-		class="min-w-0 flex-1 text-right font-mono text-[11px] leading-[14px] tracking-[0.04em] text-muted-foreground max-sm:sr-only"
+		class="min-w-0 flex-1 text-right font-mono text-[11px] leading-[14px] tracking-[0.04em] text-muted-foreground max-sm:line-clamp-2 max-sm:text-left max-sm:font-sans max-sm:text-[13px] max-sm:leading-[18px] max-sm:tracking-normal max-sm:text-chrome-text-muted"
 	>
 		{blocked ?? note}
 	</p>
 	<Button
 		size="lg"
-		class="max-sm:ml-auto"
+		class="max-sm:h-10 max-sm:bg-chrome-accent max-sm:px-4 max-sm:text-[15px] max-sm:font-semibold max-sm:text-chrome"
 		disabled={blocked !== null}
 		aria-describedby={blocked !== null ? `${id}-note` : undefined}
 		aria-busy={flow.pending || undefined}

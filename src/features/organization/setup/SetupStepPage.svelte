@@ -5,10 +5,23 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { SetupStepKey } from './registry';
 	import SetupStepFooter from './SetupStepFooter.svelte';
+	import SetupTrainingStep from './SetupTrainingStep.svelte';
+	import SetupCriticalTasksStep from './SetupCriticalTasksStep.svelte';
+	import SetupEvaluationsStep from './SetupEvaluationsStep.svelte';
+	import SetupOnboardingStep from './SetupOnboardingStep.svelte';
+	import SetupLossesAndAwardsStep from './SetupLossesAndAwardsStep.svelte';
+	import SetupEventsAndTaskingsStep from './SetupEventsAndTaskingsStep.svelte';
 	import { SETUP_FACT_LABELS, SETUP_GROUP_LABELS, getSetupFlow } from './setupFlow.svelte';
 
 	/** A step's body renders its editor and its own `SetupStepFooter`. Steps without one show a placeholder. */
-	const bodies: Partial<Record<SetupStepKey, Component>> = {};
+	const bodies: Partial<Record<SetupStepKey, Component>> = {
+		training: SetupTrainingStep,
+		criticalTasks: SetupCriticalTasksStep,
+		evaluations: SetupEvaluationsStep,
+		onboarding: SetupOnboardingStep,
+		lossesAndAwards: SetupLossesAndAwardsStep,
+		eventsAndTaskings: SetupEventsAndTaskingsStep
+	};
 
 	const flow = getSetupFlow();
 	const step = $derived(flow.current);

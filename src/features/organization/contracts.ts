@@ -97,3 +97,4 @@ export * from './setup/registry';
 export * from './setup/state';
 export * from './setup/model';
 export * from './setup/hasData';
+export type { SetupTeamData } from './setup/teamTypes';

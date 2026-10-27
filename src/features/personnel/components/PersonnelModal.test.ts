@@ -309,12 +309,23 @@ describe('PersonnelModal', () => {
 			expect(onSubmit).not.toHaveBeenCalled();
 		});
 
-		it('is not offered when the caller needs the one person it adds', () => {
+		it('adds exactly one person and closes when the caller needs the one person it adds', async () => {
+			const onSubmit = vi.fn().mockResolvedValue(undefined);
+			const onClose = vi.fn();
 			render(PersonnelModal, {
-				props: { groups, rankCatalog: armyRankCatalog, addAnother: false, onSubmit: vi.fn(), onClose: vi.fn() }
+				props: { groups, rankCatalog: armyRankCatalog, addAnother: false, onSubmit, onClose }
 			});
+			await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Smith' } });
+			await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Jane' } });
 
+			await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter', ctrlKey: true });
+			expect(onSubmit).not.toHaveBeenCalled();
 			expect(screen.queryByRole('button', { name: /add another/i })).toBeNull();
+
+			await fireEvent.click(screen.getByTestId('personnel-save'));
+			await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+			expect(onSubmit).toHaveBeenCalledTimes(1);
+			expect(onSubmit.mock.calls[0][0]).toMatchObject({ lastName: 'Smith', firstName: 'Jane' });
 		});
 	});
 

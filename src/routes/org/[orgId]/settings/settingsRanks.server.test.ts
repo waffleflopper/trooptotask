@@ -576,9 +576,8 @@ describe('rank settings read model', () => {
 			]
 		});
 
-		expect(settings.sections.ranks.entries.retired).toEqual([
+		expect(settings.sections.ranks.entries.retired.find((entry) => entry.code === 'SP4')).toEqual(
 			expect.objectContaining({
-				code: 'SP4',
 				source: 'built-in',
 				commands: {
 					canEdit: false,
@@ -588,7 +587,7 @@ describe('rank settings read model', () => {
 					deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
 				}
 			})
-		]);
+		);
 	});
 
 	it('fails closed when a custom rank is missing its reference summary', () => {
@@ -686,5 +685,23 @@ describe('rank settings read model', () => {
 			status: 403,
 			message: 'This action requires an organization admin or owner role'
 		});
+	});
+	it('lists a rank missing from an added branch pack as off, and no ranks from a pack never added', () => {
+		const armyWithoutSergeant = BUILT_IN_RANK_CATALOG.filter(
+			(entry) => entry.service === 'army' && entry.code !== 'SGT'
+		).map((entry) => ({ ...entry, organizationId: 'test-org', source: 'built-in' as const }));
+
+		const ranks = buildRanksSettingsData({
+			catalog: armyWithoutSergeant,
+			referenceSummaries: [],
+			canManageCatalog: true
+		}).sections.ranks;
+
+		expect(ranks.entries.retired.find((entry) => entry.code === 'SGT')).toMatchObject({
+			service: 'army',
+			state: 'retired',
+			source: 'built-in'
+		});
+		expect([...ranks.entries.active, ...ranks.entries.retired].some((entry) => entry.service === 'navy')).toBe(false);
 	});
 });

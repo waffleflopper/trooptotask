@@ -8,7 +8,7 @@ const {
 	loadRanksSettingsMock,
 	loadSettingsPageMock,
 	removeOrganizationRankCatalogEntryMock,
-	retireOrganizationRankCatalogEntryMock,
+	setOrganizationRankCatalogStatesMock,
 	saveOrganizationRankCatalogEntryMock
 } = vi.hoisted(() => ({
 	addOrganizationRankServicePackMock: vi.fn(),
@@ -17,7 +17,7 @@ const {
 	loadRanksSettingsMock: vi.fn(),
 	loadSettingsPageMock: vi.fn(),
 	removeOrganizationRankCatalogEntryMock: vi.fn(),
-	retireOrganizationRankCatalogEntryMock: vi.fn(),
+	setOrganizationRankCatalogStatesMock: vi.fn(),
 	saveOrganizationRankCatalogEntryMock: vi.fn()
 }));
 
@@ -42,7 +42,7 @@ vi.mock('$features/personnel/index.server', async () => {
 		createSupabaseRankCatalogAdministrationPort: createSupabaseRankCatalogAdministrationPortMock,
 		addOrganizationRankServicePack: addOrganizationRankServicePackMock,
 		removeOrganizationRankCatalogEntry: removeOrganizationRankCatalogEntryMock,
-		retireOrganizationRankCatalogEntry: retireOrganizationRankCatalogEntryMock,
+		setOrganizationRankCatalogStates: setOrganizationRankCatalogStatesMock,
 		saveOrganizationRankCatalogEntry: saveOrganizationRankCatalogEntryMock
 	};
 });
@@ -94,7 +94,7 @@ describe('rank settings page server', () => {
 		vi.clearAllMocks();
 		buildRouteRequestMock.mockResolvedValue(routeContext);
 		createSupabaseRankCatalogAdministrationPortMock.mockReturnValue({ kind: 'rank-admin-port' });
-		retireOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'retired' });
+		setOrganizationRankCatalogStatesMock.mockResolvedValue({ changedCount: 2 });
 	});
 
 	it('uses saved roster rank references for both Settings warnings and deletion decisions', async () => {
@@ -209,12 +209,33 @@ describe('rank settings page server', () => {
 		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 	});
 
-	it('retires ranks and maps denied writes to rankError action failures', async () => {
-		retireOrganizationRankCatalogEntryMock.mockRejectedValueOnce(
+	it('sends each posted rank with its own state', async () => {
+		const body = new URLSearchParams([
+			['code', 'CPL'],
+			['state', 'retired'],
+			['code', 'DET-SGT'],
+			['state', 'active']
+		]);
+
+		const result = await actions.setRankStates(actionEvent('setRankStates', body));
+
+		expect(result).toEqual({ success: true, changedCount: 2 });
+		expect(setOrganizationRankCatalogStatesMock.mock.calls[0][1]).toEqual({
+			changes: [
+				{ code: 'CPL', state: 'retired' },
+				{ code: 'DET-SGT', state: 'active' }
+			]
+		});
+	});
+
+	it('maps denied rank state writes to rankError action failures', async () => {
+		setOrganizationRankCatalogStatesMock.mockRejectedValueOnce(
 			new RequestFailure(403, 'This action requires an organization admin or owner role')
 		);
 
-		const result = await actions.retireRank(actionEvent('retireRank', new URLSearchParams({ code: 'DET-SGT' })));
+		const result = await actions.setRankStates(
+			actionEvent('setRankStates', new URLSearchParams({ code: 'DET-SGT', state: 'retired' }))
+		);
 
 		expect(result).toMatchObject({
 			status: 403,

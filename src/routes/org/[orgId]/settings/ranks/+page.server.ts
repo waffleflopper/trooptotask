@@ -13,11 +13,9 @@ import { createSupabaseRankCatalogAdministrationPort } from '$features/personnel
 import { fail } from '$lib/errors';
 import {
 	addOrganizationRankServicePack,
-	bulkSetOrganizationRankCatalogState,
-	reactivateOrganizationRankCatalogEntry,
 	removeOrganizationRankCatalogEntry,
-	retireOrganizationRankCatalogEntry,
-	saveOrganizationRankCatalogEntry
+	saveOrganizationRankCatalogEntry,
+	setOrganizationRankCatalogStates
 } from '$features/personnel/index.server';
 import { toActionFailure } from '$lib/server/adapters/httpAdapter';
 import { loadSettingsPage } from '../settingsLoad.server';
@@ -54,27 +52,20 @@ export const actions: Actions = {
 		}
 	},
 
-	bulkRankState: async (event) => {
+	setRankStates: async (event) => {
 		const { request, locals } = event;
 		if (!locals.user) throw redirect(303, '/auth/login');
 
 		const formData = await request.formData();
 		try {
-			const ctx = createRequestRankCatalogContext(await buildRouteRequest(event));
-			const service = getStringFormValue(formData, 'service') as RankService;
-			const targetState = getStringFormValue(formData, 'targetState') as RankState;
-			if (targetState !== 'active' && targetState !== 'retired') {
-				fail(400, 'Bulk rank state must be active or retired.');
-			}
-
-			const result = await bulkSetOrganizationRankCatalogState(ctx, { service, targetState });
-
-			return {
-				success: true,
-				service,
-				state: targetState,
-				changedCount: result.changedCount
-			};
+			const codes = formData.getAll('code');
+			const states = formData.getAll('state');
+			if (codes.length !== states.length) fail(400, 'Each rank needs a state.');
+			const result = await setOrganizationRankCatalogStates(
+				createRequestRankCatalogContext(await buildRouteRequest(event)),
+				{ changes: codes.map((code, index) => ({ code: String(code), state: String(states[index]) as RankState })) }
+			);
+			return { success: true, changedCount: result.changedCount };
 		} catch (error) {
 			return toActionFailure('rankError', error);
 		}
@@ -106,38 +97,6 @@ export const actions: Actions = {
 			});
 
 			return { success: true, code: saved.code };
-		} catch (error) {
-			return toActionFailure('rankError', error);
-		}
-	},
-
-	retireRank: async (event) => {
-		const { request, locals } = event;
-		if (!locals.user) throw redirect(303, '/auth/login');
-
-		const formData = await request.formData();
-		const code = getStringFormValue(formData, 'code');
-		try {
-			await retireOrganizationRankCatalogEntry(createRequestRankCatalogContext(await buildRouteRequest(event)), {
-				code
-			});
-			return { success: true, code };
-		} catch (error) {
-			return toActionFailure('rankError', error);
-		}
-	},
-
-	reactivateRank: async (event) => {
-		const { request, locals } = event;
-		if (!locals.user) throw redirect(303, '/auth/login');
-
-		const formData = await request.formData();
-		const code = getStringFormValue(formData, 'code');
-		try {
-			await reactivateOrganizationRankCatalogEntry(createRequestRankCatalogContext(await buildRouteRequest(event)), {
-				code
-			});
-			return { success: true, code };
 		} catch (error) {
 			return toActionFailure('rankError', error);
 		}

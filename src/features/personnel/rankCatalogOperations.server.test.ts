@@ -8,10 +8,9 @@ import {
 	ensureOrganizationRankCatalog,
 	loadOrganizationRankCatalog,
 	loadOrganizationRankCatalogReferenceSummaries,
-	reactivateOrganizationRankCatalogEntry,
 	removeOrganizationRankCatalogEntry,
-	retireOrganizationRankCatalogEntry,
-	saveOrganizationRankCatalogEntry
+	saveOrganizationRankCatalogEntry,
+	setOrganizationRankCatalogStates
 } from './rankCatalogOperations.server';
 
 const DEFAULT_SEEDED_RANK_SERVICES = new Set(['army', 'civilian', 'custom']);
@@ -1014,7 +1013,7 @@ describe('organization rank catalog', () => {
 			status: 409,
 			message: 'Rank is referenced by active Organization data. Retire it instead.'
 		});
-		await retireOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' });
+		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'DET-SGT', state: 'retired' }] });
 
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
 			expect.arrayContaining([
@@ -1289,7 +1288,7 @@ describe('organization rank catalog', () => {
 			state: 'active',
 			sortOrder: 501
 		});
-		await retireOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' });
+		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'DET-SGT', state: 'retired' }] });
 
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
 			expect.arrayContaining([
@@ -1304,86 +1303,66 @@ describe('organization rank catalog', () => {
 		);
 	});
 
-	it('audits successful rank catalog retire operations after the entry is persisted', async () => {
+	it('sets each listed rank to its own state in one audited write', async () => {
 		const ctx = createTestContext();
-
-		await saveOrganizationRankCatalogEntry(ctx, {
-			code: 'DET-SGT',
-			label: 'Detachment Sergeant',
-			service: 'custom',
-			category: 'custom',
-			payGrade: 'ungraded',
-			state: 'active',
-			sortOrder: 500
-		});
+		await ensureOrganizationRankCatalog(ctx);
+		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'SGT', state: 'retired' }] });
 		ctx.auditPort.events.length = 0;
 
-		await retireOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' });
-
-		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					code: 'DET-SGT',
-					label: 'Detachment Sergeant',
-					state: 'retired',
-					source: 'custom'
-				})
-			])
-		);
-		const storedRank = await ctx.rawStore.findOne<{ id: string }>('organization_rank_catalog', 'test-org', {
-			code: 'DET-SGT'
+		const result = await setOrganizationRankCatalogStates(ctx, {
+			changes: [
+				{ code: 'CPL', state: 'retired' },
+				{ code: 'SGT', state: 'active' },
+				{ code: 'SPC', state: 'active' }
+			]
 		});
-		expect(storedRank?.id).toBeTruthy();
+
+		const states = Object.fromEntries(
+			(await loadOrganizationRankCatalog(ctx)).map((entry) => [entry.code, entry.state])
+		);
+		expect([states.CPL, states.SGT, states.SPC]).toEqual(['retired', 'active', 'active']);
+		expect(result).toEqual({ changedCount: 2 });
 		expect(ctx.auditPort.events).toEqual([
 			{
-				action: 'organization.rank_catalog.retired',
+				action: 'organization.rank_catalog.bulk_state_changed',
 				resourceType: 'organization_rank_catalog',
-				resourceId: storedRank?.id,
+				resourceId: 'test-org',
 				details: {
-					code: 'DET-SGT',
-					label: 'Detachment Sergeant',
-					payGrade: 'ungraded',
-					state: 'retired',
-					source: 'custom'
+					changedCount: 2,
+					changes: expect.arrayContaining([
+						{ code: 'CPL', state: 'retired' },
+						{ code: 'SGT', state: 'active' }
+					])
 				}
 			}
 		]);
 	});
 
-	it('reactivates retired built-in ranks through the governed catalog path', async () => {
+	it('adds a missing rank from an added branch pack when it is turned on', async () => {
 		const ctx = createTestContext();
 		await ensureOrganizationRankCatalog(ctx);
-		await retireOrganizationRankCatalogEntry(ctx, { code: 'SGT' });
-		ctx.auditPort.events.length = 0;
-
-		await reactivateOrganizationRankCatalogEntry(ctx, { code: 'SGT' });
-
-		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					code: 'SGT',
-					state: 'active',
-					source: 'built-in'
-				})
-			])
-		);
-		const storedRank = await ctx.rawStore.findOne<{ id: string }>('organization_rank_catalog', 'test-org', {
+		const sergeant = await ctx.rawStore.findOne<{ id: string }>('organization_rank_catalog', 'test-org', {
 			code: 'SGT'
 		});
-		expect(storedRank?.id).toBeTruthy();
-		expect(ctx.auditPort.events).toEqual([
-			{
-				action: 'organization.rank_catalog.reactivated',
-				resourceType: 'organization_rank_catalog',
-				resourceId: storedRank?.id,
-				details: {
-					code: 'SGT',
-					label: 'Sergeant',
-					payGrade: 'E-5',
-					state: 'active',
-					source: 'built-in'
-				}
-			}
-		]);
+		await ctx.rawStore.delete('organization_rank_catalog', 'test-org', sergeant!.id);
+
+		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'SGT', state: 'active' }] });
+
+		expect(await ctx.rankCatalog.findEntryByCode('SGT')).toMatchObject({
+			label: 'Sergeant',
+			service: 'army',
+			state: 'active',
+			source: 'built-in'
+		});
+	});
+
+	it('refuses a rank that is neither in the catalog nor in an added branch pack', async () => {
+		const ctx = createTestContext();
+		await ensureOrganizationRankCatalog(ctx);
+
+		await expect(
+			setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'PO3', state: 'active' }] })
+		).rejects.toMatchObject({ status: 404 });
+		expect(await ctx.rankCatalog.findEntryByCode('PO3')).toBeNull();
 	});
 });

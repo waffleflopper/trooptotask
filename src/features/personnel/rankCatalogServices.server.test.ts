@@ -3,7 +3,7 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	configureOrganizationRankServices,
 	loadOrganizationRankCatalog,
-	reactivateOrganizationRankCatalogEntry
+	setOrganizationRankCatalogStates
 } from './rankCatalogOperations.server';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
 
@@ -37,7 +37,7 @@ describe('Organization rank service selection', () => {
 		await configureOrganizationRankServices(ctx, { service: 'army' });
 		expect(serviceStates(await loadOrganizationRankCatalog(ctx))).toEqual({ army: ['active'], navy: ['retired'] });
 		expect(await ctx.rankCatalog.findEntryByCode('SGT')).toEqual(sergeant);
-		await reactivateOrganizationRankCatalogEntry(ctx, { code: 'PO3' });
+		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'PO3', state: 'active' }] });
 		expect(await ctx.rankCatalog.findEntryByCode('PO3')).toMatchObject({ state: 'active', source: 'built-in' });
 	});
 

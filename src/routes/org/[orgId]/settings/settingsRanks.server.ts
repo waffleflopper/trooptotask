@@ -109,7 +109,7 @@ export async function loadRanksSettings(
 	const referenceSummaries = await loadOrganizationRankCatalogReferenceSummaries(
 		ctx,
 		{
-			codes: catalog.map((entry) => entry.code)
+			codes: [...catalog, ...missingPackRanks(catalog)].map((entry) => entry.code)
 		},
 		() => ctx.trainingCatalog.listRankApplicabilityReferences(),
 		ctx.readSignInRosterRankReferences,
@@ -125,7 +125,7 @@ export async function loadRanksSettings(
 
 export function buildRanksSettingsData(input: BuildRanksSettingsDataInput): RanksSettingsData {
 	const referenceSummaries = new Map(input.referenceSummaries.map((summary) => [summary.code, summary]));
-	const rows = input.catalog.map((entry) =>
+	const rows = [...input.catalog, ...missingPackRanks(input.catalog)].map((entry) =>
 		buildRankCatalogRow(entry, referenceSummaries.get(entry.code), input.canManageCatalog)
 	);
 
@@ -155,6 +155,20 @@ export function buildRanksSettingsData(input: BuildRanksSettingsDataInput): Rank
 			}
 		}
 	};
+}
+
+/** Built-in ranks of an added branch pack that the catalog lacks. They show as off, and turning one on adds it. */
+function missingPackRanks(catalog: OrganizationRankCatalogEntry[]): OrganizationRankCatalogEntry[] {
+	const added = new Set(catalog.filter((entry) => entry.source === 'built-in').map((entry) => entry.service));
+	const codes = new Set(catalog.map((entry) => entry.code.toUpperCase()));
+	return BUILT_IN_RANK_CATALOG.filter((entry) => added.has(entry.service) && !codes.has(entry.code.toUpperCase())).map(
+		(entry) => ({
+			...entry,
+			organizationId: '',
+			state: 'retired',
+			source: 'built-in'
+		})
+	);
 }
 
 function buildRankCatalogRow(

@@ -82,6 +82,10 @@ Preconditions: `doctor` passes; use `orgOwner`, `orgAdmin` and `orgMember` from 
 - Continue writes nothing for a step the unit's data already makes Done, so the counter may start above zero.
 - A feature turned off in Settings › Features shows its step as Off with a struck title; Continue skips the write.
 - Setup state lives on the Organization. Finish and every answer persist across workers' sessions until reseed.
+- The sticky footer covers rows that a native `click` scrolls only just into view, so the click lands on the footer.
+  Scroll the row to the centre with `evaluate_script` (`scrollIntoView({ block: 'center' })`) before clicking a row
+  near the end of the Training step.
+- At 390 px only the first 3 Army rows render until `Show 5 more`; expand the list before unchecking `OPSEC`.
 
 ## Feature steps
 
@@ -170,8 +174,9 @@ async () =>
     sideways. At 1024 px the `Your own types` rows and `Add your own type` fit the 400 px step column without
     truncating `Range Safety`; at 390 px the type sheet fits the screen and its footer buttons stay reachable.
 14. Editor load failure: on `/setup/critical-tasks`, `$V fault arm org-setup-training-editor-read`, then choose the
-    rail's Training link. Expect an alert in the Army panel ending `Types that already exist are skipped when you add.`
-    with `Retry`, the 8 rows still checkable, `Add your own type` disabled, and the rail and choice cards usable.
+    rail's Training link. Expect an alert in the Army panel, `Internal server error` then
+    `Types that already exist are skipped when you add.`, with `Retry`. All 8 rows read `12 mo`, checked and checkable,
+    the footer reads `Add 8 and continue`, `Add your own type` is disabled, and the rail and choice cards still work.
     `$V fault state` shows one match on `GET /rest/v1/training_types`. `$V fault restore`, then `Retry`: the alert
     clears and `Your own types` lists the unit's types.
 15. Layout shift: on `/setup/critical-tasks` of a unit with own types, register a buffered `layout-shift` observer,

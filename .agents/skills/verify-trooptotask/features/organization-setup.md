@@ -116,8 +116,8 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
    and Civilian `1 of 1 on`. Settings › Ranks shows the same numbers. A new unit that only ever chose Army reads
    `30 on · 0 off · 1 custom` with only Army and Civilian tabs, `SP4` tagged `History`, and `+ Add a branch`.
 4. In the embedded editor open the Navy tab and press `Turn all Enlisted ranks on`. The URL stays `/setup/ranks`; the
-   note reads `Turned on 13 Enlisted ranks.` and Navy `13 of 23 on`. Settings › Ranks matches after reload. Press a chip
-   off and on again: each press saves without a dialog.
+   note reads `Turned on 9 Enlisted ranks.`, Navy `9 of 23 on` and the head `39 on · 101 off · 1 custom`. Settings ›
+   Ranks matches after reload. Press a chip off and on again: each press saves without a dialog.
 5. `/setup/groups` on a new unit has no Groups: `Split the roster the way you run it` with `Add your Groups` and
    `Skip, keep one roster`, the footer `0 groups · everyone in one roster` and no `Manage groups`. `Add your Groups`
    opens the Group manager with focus on `New group name`, described by the hint

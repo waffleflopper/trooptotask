@@ -197,7 +197,8 @@
 		</PageShell.SectionHeader>
 
 		<Tabs.Root value={tab} onValueChange={(value) => (chosenTab = value)}>
-			<div class="flex items-end gap-x-7 overflow-x-auto border-b pt-3.5">
+			<!-- The border is an inset shadow so the active tab's underline, drawn below the tab, stays inside the scroll box. -->
+			<div class="flex items-end gap-x-7 overflow-x-auto pt-3.5 pb-px shadow-[inset_0_-1px_0_var(--color-border)]">
 				{#if board.branches.length > 0}
 					<Tabs.List variant="line" aria-label="Branches" class="shrink-0">
 						{#each board.branches as branch (branch.service)}

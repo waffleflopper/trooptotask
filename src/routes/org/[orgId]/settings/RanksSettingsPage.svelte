@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { applyAction, enhance } from '$app/forms';
 	import {
 		RANK_ALREADY_EXISTS_MESSAGE,
 		RANK_CODE_REQUIRED_MESSAGE,
@@ -73,10 +73,16 @@
 
 	let {
 		ranksSettings,
-		form
+		form,
+		actionBase = '',
+		saving = $bindable(false)
 	}: {
 		ranksSettings: RanksSettingsData;
 		form: { [key: string]: unknown; rankError?: string } | null;
+		/** The Settings › Ranks path, when the editor is shown on another page. Its actions live there. */
+		actionBase?: string;
+		/** A rank request is in flight. */
+		saving?: boolean;
 	} = $props();
 
 	let savingAction = $state<string | null>(null);
@@ -250,13 +256,20 @@
 			}
 			const actionKey = typeof key === 'string' ? key : key(formData);
 			savingAction = actionKey;
+			saving = true;
 			lastActionKey = actionKey;
+			const submittedFrom = location.pathname;
 			return async ({ result, update }) => {
 				const succeeded = result.type === 'success';
 				try {
 					await update({ reset: false });
+					// SvelteKit applies `form` only on the action's own page, so the page embedding the editor applies it.
+					if (actionBase && (succeeded || result.type === 'failure') && location.pathname === submittedFrom) {
+						await applyAction(result);
+					}
 				} finally {
 					savingAction = null;
+					saving = false;
 					settleSubmission?.(succeeded);
 					settleSubmission = null;
 				}
@@ -537,7 +550,7 @@
 						{#if pack.missingCount > 0}
 							<form
 								method="POST"
-								action="?/addServicePack"
+								action="{actionBase}?/addServicePack"
 								use:enhance={enhancedForm(`pack-${pack.value}`, { focusFallback: packActionsFocusTarget(pack) })}
 							>
 								<input type="hidden" name="service" value={pack.value} />
@@ -557,7 +570,7 @@
 							<form
 								id={`bulk-retired-${pack.value}`}
 								method="POST"
-								action="?/bulkRankState"
+								action="{actionBase}?/bulkRankState"
 								class="hidden"
 								use:enhance={enhancedForm(`bulk-retire-${pack.value}`)}
 							>
@@ -567,7 +580,7 @@
 							<form
 								id={`bulk-active-${pack.value}`}
 								method="POST"
-								action="?/bulkRankState"
+								action="{actionBase}?/bulkRankState"
 								class="hidden"
 								use:enhance={enhancedForm(`bulk-reactivate-${pack.value}`)}
 							>
@@ -643,7 +656,7 @@
 					<form
 						id={`rank-${intent}-form`}
 						method="POST"
-						{action}
+						action="{actionBase}{action}"
 						class="hidden"
 						use:enhance={enhancedForm((data) => `${intent}-${data.get('code')}`)}
 					>
@@ -793,7 +806,7 @@
 			<form
 				id={`${domId}-form`}
 				method="POST"
-				action="?/saveRank"
+				action="{actionBase}?/saveRank"
 				aria-label={isNew ? 'New custom rank' : `Edit ${entry.code}`}
 				class={[
 					'grid gap-3',

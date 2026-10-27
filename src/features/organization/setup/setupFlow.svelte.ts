@@ -1,9 +1,13 @@
 import { createContext } from 'svelte';
+import { invalidate } from '$app/navigation';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { SETUP_STEPS, type SetupFactKey, type SetupFacts, type SetupStep, type SetupStepKey } from './registry';
 import { buildSetupModel, deriveSetupStepState, type SetupStepState } from './model';
 import type { OrganizationSetup, SetupAnswer } from './state';
 import { postSetup, setupErrorMessage } from './setupClient';
+import type { SetupBranch } from './branch';
+import type { SetupStarterPackResult, SetupTrainingSuggestionsResult } from './featureStepSupport';
+import { saveOrganizationSettings } from '../saveOrganizationSettings';
 
 export interface SetupFlowSource {
 	orgUrlSegment: string;
@@ -146,6 +150,18 @@ export class SetupFlow {
 		if (visit === this.#visit) this.#apply(next);
 	}
 
+	/**
+	 * Saves the unit's branch; the server activates that service's built-in ranks first. Resolves `true` when the
+	 * result was applied, `false` when the owner had already moved on.
+	 */
+	async saveBranch(branch: SetupBranch) {
+		const visit = this.#visit;
+		const next = await this.#post('branch', { branch });
+		if (visit !== this.#visit) return false;
+		this.#apply(next);
+		return true;
+	}
+
 	/** A check for work that outlives one render: false once the owner navigates anywhere. */
 	stillHere() {
 		const visit = this.#visit;
@@ -203,6 +219,65 @@ export class SetupFlow {
 		});
 	}
 
+	isFeatureOff(feature: FeatureKey) {
+		return this.#source().disabledFeatures.includes(feature);
+	}
+
+	/**
+	 * Writes one feature switch through Settings › Features' operation, so the audit entry is the same, then reloads
+	 * the switches. Resolves false when the owner has since navigated away.
+	 */
+	async switchFeature(feature: FeatureKey, on: boolean) {
+		const visit = this.#visit;
+		await saveOrganizationSettings(this.#source().orgUrlSegment, { featureSwitch: { feature, on } });
+		// The switch is saved even if the owner moved on, so the app's feature switches reload either way.
+		await Promise.all([invalidate('app:org-core'), invalidate('app:organization-setup')]);
+		return visit === this.#visit;
+	}
+
+	/** Turns an off feature back on without leaving the step. */
+	turnFeatureOn(feature: FeatureKey) {
+		return this.#run(async () => {
+			await this.switchFeature(feature, true);
+		});
+	}
+
+	/** Resolves null when the owner has since navigated away. */
+	async addTrainingSuggestions(branch: SetupBranch, suggestionIds: readonly string[]) {
+		return this.#refreshAfter(
+			this.#postJson<SetupTrainingSuggestionsResult>('training-types/suggestions', { branch, suggestionIds })
+		);
+	}
+
+	/** Resolves null when the owner has since navigated away. */
+	async applyFirstWeekOperations() {
+		return this.#refreshAfter(
+			this.#postJson<SetupStarterPackResult>('starter-configuration-packs/first-week-operations/apply', {})
+		);
+	}
+
+	async #refreshAfter<T>(write: Promise<T>): Promise<T | null> {
+		const visit = this.#visit;
+		const result = await write;
+		// New rows can make the step Done from data, which the rail reads from the reloaded facts, even after a move.
+		await invalidate('app:organization-setup');
+		return visit === this.#visit ? result : null;
+	}
+
+	async #postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+		const response = await fetch(`/org/${this.#source().orgUrlSegment}/api/${path}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		const payload: unknown = await response.json().catch(() => null);
+		if (!response.ok) {
+			const message = (payload as { message?: unknown } | null)?.message;
+			throw new Error(typeof message === 'string' ? message : 'Try again.');
+		}
+		return payload as T;
+	}
+
 	#apply(state: OrganizationSetup) {
 		this.#saved = { over: this.#loaded, state };
 	}
@@ -222,7 +297,7 @@ export class SetupFlow {
 		}
 	}
 
-	#post(path: 'answer' | 'finish' | 'prompt', body: Record<string, unknown>): Promise<OrganizationSetup> {
+	#post(path: 'answer' | 'branch' | 'finish' | 'prompt', body: Record<string, unknown>): Promise<OrganizationSetup> {
 		return postSetup(this.#source().orgUrlSegment, path, body);
 	}
 }

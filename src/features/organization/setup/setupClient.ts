@@ -13,7 +13,7 @@ async function readSetupResponse(response: Response): Promise<unknown> {
 
 export async function postSetup(
 	orgUrlSegment: string,
-	path: 'answer' | 'finish' | 'prompt',
+	path: 'answer' | 'branch' | 'finish' | 'prompt',
 	body: Record<string, unknown>
 ): Promise<OrganizationSetup> {
 	const response = await fetch(`/org/${orgUrlSegment}/api/organization/setup/${path}`, {

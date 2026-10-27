@@ -22,12 +22,15 @@
 	let {
 		lane,
 		title,
-		eyebrow
+		eyebrow,
+		embedded = false
 	}: {
 		/** Null while the lane's reference data loads; the flow keeps its footprint. */
 		lane: ImportLane<C, Refs, Change> | null;
 		title: string;
 		eyebrow?: string;
+		/** Inside another page: a section heading in place of the page shell and its page title. */
+		embedded?: boolean;
 	} = $props();
 
 	const typed = new ImportSession<C, Refs, Change>(() => {
@@ -90,24 +93,42 @@
 	onDestroy(() => session.startOver());
 </script>
 
-<PageShell.Root width="wide" class="pb-28 lg:pb-6">
-	<PageShell.Header {title} {eyebrow} variant="display">
-		{#snippet aside()}
-			<ImportStepper current={shownStep} />
-		{/snippet}
-	</PageShell.Header>
-	{#if !lane}
-		<ImportFlowSkeleton />
-	{:else if session.phase.step === 'file'}
-		<FileStep {session} />
-	{:else if session.phase.step === 'columns'}
-		<ColumnsStep {session} onBack={back} />
-	{:else if session.phase.step === 'review' || session.phase.step === 'committing'}
-		<ReviewStep {session} onBack={back} />
-	{:else}
-		<DoneStep {session} receipt={session.phase.receipt} />
-	{/if}
-</PageShell.Root>
+{#if embedded}
+	<section class="grid min-w-0 gap-6" aria-labelledby="import-flow-heading">
+		<PageShell.SectionHeader id="import-flow-heading" {title} {eyebrow} size="compact" ruled>
+			{#snippet action()}
+				<ImportStepper current={shownStep} />
+			{/snippet}
+		</PageShell.SectionHeader>
+		{@render flow()}
+	</section>
+{:else}
+	<PageShell.Root width="wide" class="pb-28 lg:pb-6">
+		<PageShell.Header {title} {eyebrow} variant="display">
+			{#snippet aside()}
+				<ImportStepper current={shownStep} />
+			{/snippet}
+		</PageShell.Header>
+		{@render flow()}
+	</PageShell.Root>
+{/if}
+
+<!-- The steps lay out by the flow's own width, so an embedded flow in a narrow column stacks. -->
+{#snippet flow()}
+	<div class="@container min-w-0">
+		{#if !lane}
+			<ImportFlowSkeleton />
+		{:else if session.phase.step === 'file'}
+			<FileStep {session} />
+		{:else if session.phase.step === 'columns'}
+			<ColumnsStep {session} onBack={back} />
+		{:else if session.phase.step === 'review' || session.phase.step === 'committing'}
+			<ReviewStep {session} onBack={back} />
+		{:else}
+			<DoneStep {session} receipt={session.phase.receipt} />
+		{/if}
+	</div>
+{/snippet}
 
 {#if leaveTarget}
 	{@const target = leaveTarget}

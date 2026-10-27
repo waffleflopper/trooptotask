@@ -517,6 +517,7 @@
 			"src/features/training/components/TrainingModals.svelte",
 			"src/features/training/components/TrainingPageView.svelte",
 			"src/features/training/components/TrainingReportsPage.svelte",
+			"src/features/training/components/TrainingTypeEditor.svelte",
 			"src/features/training/components/TrainingTypesPage.svelte"
 		],
 		"web-ui": [

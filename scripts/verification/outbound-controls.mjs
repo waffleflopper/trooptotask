@@ -74,6 +74,11 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'org-setup-prompt': [write('POST', '/rest/v1/rpc/save_organization_setup_prompt')],
 	'org-setup-state-read': [write('POST', '/rest/v1/rpc/read_organization_setup', { status: 500 })],
 	'org-setup-training-count': [write('HEAD', '/rest/v1/training_types', { status: 500 })],
+	'org-feature-switch': [write('PATCH', '/rest/v1/organizations', { body: { disabled_features: PRESENT } })],
+	'org-setup-training-editor-read': [write('GET', '/rest/v1/training_types', { status: 500 })],
+	'org-setup-ranks-references': [
+		write('GET', '/rest/v1/training_types', { status: 500, query: { select: 'applies_to_ranks,excluded_ranks' } })
+	],
 	'password-update': [write('PUT', '/auth/v1/user', { body: { password: PRESENT } })],
 	'password-reconcile': [write('POST', '/rest/v1/rpc/password_change_attempt', { body: { p_action: 'reconcile' } })],
 	'password-revocation': [write('POST', '/auth/v1/logout', { query: { scope: 'others' } })],

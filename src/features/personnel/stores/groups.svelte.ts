@@ -192,7 +192,7 @@ export const groupManagementStore = defineStore<Group, GroupExtensions>(
 );
 
 /** Other feature lanes can read the current Organization catalog without mutating it. */
-export const groupsStore: Pick<Store<Group>, 'items' | 'orgId' | 'loading'> = {
+export const groupsStore: Pick<Store<Group>, 'items' | 'orgId' | 'loading' | 'busy'> = {
 	get items() {
 		return groupManagementStore.items;
 	},
@@ -201,6 +201,9 @@ export const groupsStore: Pick<Store<Group>, 'items' | 'orgId' | 'loading'> = {
 	},
 	get loading() {
 		return groupManagementStore.loading;
+	},
+	get busy() {
+		return groupManagementStore.busy;
 	}
 };
 

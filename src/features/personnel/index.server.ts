@@ -68,6 +68,7 @@ export type { PersonnelLifecycleCommandPort } from './contracts';
 export {
 	addOrganizationRankServicePack,
 	bulkSetOrganizationRankCatalogState,
+	configureOrganizationRankServices,
 	loadOrganizationRankCatalog,
 	loadOrganizationRankCatalogReferenceSummaries,
 	reactivateOrganizationRankCatalogEntry,

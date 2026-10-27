@@ -5,6 +5,9 @@ import type { SetupFacts, SetupStepKey } from './registry';
 import type { OrganizationSetup } from './state';
 import { SetupFlow, type SetupFlowSource } from './setupFlow.svelte';
 
+const { invalidate } = vi.hoisted(() => ({ invalidate: vi.fn(async (_dependency: string) => {}) }));
+vi.mock('$app/navigation', () => ({ invalidate }));
+
 const ready = (value: number) => ({ status: 'ready', value }) as const;
 
 function facts(overrides: Partial<SetupFacts> = {}): SetupFacts {
@@ -63,6 +66,7 @@ const cleanups: (() => void)[] = [];
 afterEach(() => {
 	cleanups.splice(0).forEach((destroy) => destroy());
 	vi.unstubAllGlobals();
+	invalidate.mockClear();
 });
 
 async function settle() {
@@ -434,5 +438,79 @@ describe('Finish later', () => {
 		expect(flow.error).toBeNull();
 		expect(flow.pending).toBe(false);
 		expect(navigate).not.toHaveBeenCalled();
+	});
+});
+
+describe('saveBranch', () => {
+	it('applies the saved branch to the open step', async () => {
+		const fetch = vi.fn(async () => respond(200, { ...empty, branch: 'army' }));
+		vi.stubGlobal('fetch', fetch);
+		const { flow } = setup('welcome');
+		await settle();
+
+		expect(await flow.saveBranch('army')).toBe(true);
+
+		expect(fetch).toHaveBeenCalledWith(
+			'/org/alpha/api/organization/setup/branch',
+			expect.objectContaining({ body: JSON.stringify({ branch: 'army' }) })
+		);
+		expect(flow.state.branch).toBe('army');
+		expect(flow.rail.find((step) => step.key === 'welcome')?.state).toBe('done');
+	});
+
+	it('ignores a response that arrives after the owner left', async () => {
+		const response = deferred<Response>();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => response.promise)
+		);
+		const { flow } = setup('welcome');
+		await settle();
+
+		const saving = flow.saveBranch('navy');
+		flow.leave();
+		response.resolve(respond(200, { ...empty, branch: 'navy' }));
+
+		expect(await saving).toBe(false);
+		expect(flow.state.branch).toBeNull();
+	});
+});
+
+describe('Writes that change the unit', () => {
+	it('reloads the feature switches and setup facts after a switch the owner already left', async () => {
+		const response = deferred<Response>();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => response.promise)
+		);
+		const { flow } = setup('training');
+		await settle();
+
+		const switching = flow.switchFeature('training', false);
+		flow.leave();
+		response.resolve(respond(200, {}));
+
+		expect(await switching).toBe(false);
+		expect(invalidate.mock.calls.map(([dependency]) => dependency).sort()).toEqual([
+			'app:org-core',
+			'app:organization-setup'
+		]);
+	});
+
+	it('reloads the setup facts after suggestions the owner already left', async () => {
+		const response = deferred<Response>();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => response.promise)
+		);
+		const { flow } = setup('training');
+		await settle();
+
+		const adding = flow.addTrainingSuggestions('army', ['opsec']);
+		flow.leave();
+		response.resolve(respond(200, { added: 1 }));
+
+		expect(await adding).toBeNull();
+		expect(invalidate).toHaveBeenCalledWith('app:organization-setup');
 	});
 });

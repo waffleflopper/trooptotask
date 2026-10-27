@@ -66,7 +66,7 @@ export const SETTINGS_PAGES = {
 		group: 'Unit',
 		ownerOnly: false,
 		width: 'form',
-		skeleton: [{ kind: 'rows', heights: [137, 137, 136, 117] }]
+		skeleton: [{ kind: 'rows', heights: [137, 137, 137, 136] }]
 	},
 	features: {
 		label: 'Features',

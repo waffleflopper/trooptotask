@@ -71,7 +71,12 @@ export class SetupFlow {
 	#navigate: (href: string) => Promise<void>;
 	#visit = 0;
 
-	state = $derived.by(() => this.#source().setupState);
+	#loaded = $derived.by(() => this.#source().setupState);
+	#loadedFacts = $derived.by(() => this.#source().setupFacts);
+	/** The latest write's result. It outlives step changes and yields once the layout reloads newer state. */
+	#saved = $state.raw<{ over: OrganizationSetup; state: OrganizationSetup } | null>(null);
+
+	state = $derived(this.#saved?.over === this.#loaded ? this.#saved.state : this.#loaded);
 	facts = $state<SetupFacts | null>(null);
 	pending = $state(false);
 	error = $state<string | null>(null);
@@ -104,11 +109,10 @@ export class SetupFlow {
 		this.#source = source;
 		this.#navigate = navigate;
 		$effect(() => {
-			const { setupFacts, setupState } = source();
 			let live = true;
-			setupFacts.then(
+			this.#loadedFacts.then(
 				(facts) => live && (this.facts = facts),
-				(cause) => live && (this.facts = failedFacts(setupState.branch, messageOf(cause)))
+				(cause) => live && (this.facts = failedFacts(this.#loaded.branch, messageOf(cause)))
 			);
 			return () => (live = false);
 		});
@@ -132,7 +136,7 @@ export class SetupFlow {
 	async answer(step: SetupStepKey, answer: SetupAnswer | null) {
 		const visit = this.#visit;
 		const next = await this.#post('answer', { step, answer });
-		if (visit === this.#visit) this.state = next;
+		if (visit === this.#visit) this.#apply(next);
 	}
 
 	/** Saves the open step, by default recording it reviewed, then opens the next step or Done. */
@@ -151,9 +155,13 @@ export class SetupFlow {
 		return this.#run(async (stillHere) => {
 			const next = await this.#post('finish', {});
 			if (!stillHere()) return;
-			this.state = next;
+			this.#apply(next);
 			await this.#navigate(target);
 		});
+	}
+
+	#apply(state: OrganizationSetup) {
+		this.#saved = { over: this.#loaded, state };
 	}
 
 	async #run(work: (stillHere: () => boolean) => Promise<void>) {

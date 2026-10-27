@@ -63,13 +63,14 @@
 						<span class="size-2 rounded-full border-[1.5px] border-muted-foreground/45"></span>
 					{/if}
 				</span>
-				<span class={cn('min-w-0 flex-1 truncate', off && 'text-muted-foreground line-through')}>{step.title}</span>
-				{#if step.state}<span class="sr-only">, {STATE_NAMES[step.state]}</span>{/if}
+				<span class={cn('min-w-0 flex-1 truncate', off && 'text-muted-foreground line-through')}
+					>{step.title}{#if step.state}<span class="sr-only">, {STATE_NAMES[step.state]}</span
+						>{/if}{#if step.loadErrors.length}<span class="sr-only"
+							>, {step.loadErrors.map(({ source }) => SETUP_FACT_LABELS[source]).join(' and ')} could not be loaded</span
+						>{/if}</span
+				>
 				{#if step.loadErrors.length}
 					<CircleAlert class="size-3.5 shrink-0 text-destructive-text" aria-hidden="true" />
-					<span class="sr-only">
-						, {step.loadErrors.map(({ source }) => SETUP_FACT_LABELS[source]).join(' and ')} could not be loaded
-					</span>
 				{/if}
 				<span
 					class="w-10 shrink-0 text-right font-mono text-[10px] font-medium tracking-[0.08em] text-muted-foreground uppercase"

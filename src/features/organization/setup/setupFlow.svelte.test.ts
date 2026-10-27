@@ -51,7 +51,7 @@ function setup(stepKey: SetupStepKey | null, unitFacts = facts()) {
 	const navigate = vi.fn(async (_href: string) => {});
 	let flow!: SetupFlow;
 	const destroy = $effect.root(() => {
-		flow = new SetupFlow(() => source, navigate);
+		flow = new SetupFlow(() => ({ ...source }), navigate);
 	});
 	cleanups.push(destroy);
 	return { flow, navigate, source };
@@ -83,6 +83,34 @@ describe('Continue', () => {
 		);
 		expect(navigate).toHaveBeenCalledWith('/org/alpha/setup/ranks');
 		expect(flow.rail.find((step) => step.key === 'groups')?.state).toBe('done');
+	});
+
+	it('keeps a saved answer when the next step opens without reloading setup state', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => respond(200, { ...empty, answers: { groups: 'reviewed' } }))
+		);
+		const { flow, source } = setup('groups');
+		await settle();
+
+		await flow.continue();
+		source.stepKey = 'ranks';
+
+		expect(flow.rail.find((step) => step.key === 'groups')?.state).toBe('done');
+	});
+
+	it('takes reloaded setup state over an earlier saved answer', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => respond(200, { ...empty, answers: { groups: 'reviewed' } }))
+		);
+		const { flow, source } = setup('groups');
+		await settle();
+
+		await flow.continue();
+		source.setupState = { ...empty, answers: { groups: 'later' } };
+
+		expect(flow.rail.find((step) => step.key === 'groups')?.state).toBe('later');
 	});
 
 	it('writes nothing when the unit data already makes the step Done', async () => {

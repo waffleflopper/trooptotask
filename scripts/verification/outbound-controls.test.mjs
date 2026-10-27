@@ -264,6 +264,12 @@ test('each named fault matches only its allowlisted writes on the owned provider
 				['POST', '/rest/v1/rpc/save_organization_setup_answer']
 			]
 		],
+		'org-setup-prompt': [
+			[
+				providerInput('rpc/save_organization_setup_prompt', { method: 'POST' }),
+				['POST', '/rest/v1/rpc/save_organization_setup_prompt']
+			]
+		],
 		'org-feature-switch': [
 			[
 				providerInput('organizations', {

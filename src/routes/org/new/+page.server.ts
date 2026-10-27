@@ -61,7 +61,7 @@ export const actions: Actions = {
 			return fail(failure.status, { error: String(failure.data.error), ...retained });
 		}
 
-		throw redirect(303, `/org/${result.orgId}`);
+		throw redirect(303, `/org/${result.orgId}/setup`);
 	}
 };
 

@@ -11,7 +11,8 @@ import {
 	createSupabaseOrganizationSetupPort,
 	createSupabaseOrganizationSettingsReader,
 	resolveOrganizationRouteIdentity,
-	readUnitCounts
+	readUnitCounts,
+	type SetupFactReads
 } from '$features/organization/index.server';
 import {
 	getPreferredOrganizationUrlSegment,
@@ -34,11 +35,14 @@ export interface SetupLayoutData {
 
 export function streamSetupData(request: AdmittedOrganizationRequest) {
 	const setup = createSupabaseOrganizationSetupPort(request.supabase);
+	return { state: setup.read(request.auth.orgId), facts: streamSetupFacts(request) };
+}
+
+export function streamSetupFacts(request: AdmittedOrganizationRequest, reuse: Partial<SetupFactReads> = {}) {
 	const settings = createSupabaseOrganizationSettingsReader(request.supabase);
 	const { unitCounts } = createRequestUnitCountsContext(request);
 	const rankContext = createRequestRankCatalogContext(request);
-	const state = setup.read(request.auth.orgId);
-	const facts = loadOrganizationSetupFacts({
+	return loadOrganizationSetupFacts({
 		groups: () => unitCounts.countRows({ table: 'groups' }),
 		activeRanks: async () =>
 			(await loadOrganizationRankCatalog(rankContext, { authorization: 'organization-governance' })).filter(
@@ -59,9 +63,9 @@ export function streamSetupData(request: AdmittedOrganizationRequest) {
 			const days = await settings.findLossWarningWindowDays(request.auth.orgId);
 			if (days == null) throw new Error('Missing loss warning setting');
 			return days;
-		}
+		},
+		...reuse
 	});
-	return { state, facts };
 }
 
 const loads = new WeakMap<App.Locals, Map<string, Promise<SetupLayoutData>>>();

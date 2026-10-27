@@ -20,5 +20,7 @@ export { default as SetupRail } from './setup/SetupRail.svelte';
 export { default as SetupStepPage } from './setup/SetupStepPage.svelte';
 export { default as SetupStepFooter } from './setup/SetupStepFooter.svelte';
 export { default as SetupDonePage } from './setup/SetupDonePage.svelte';
+export { default as SetupEntryPrompt } from './setup/SetupEntryPrompt.svelte';
+export { default as SetupResume } from './setup/SetupResume.svelte';
 export { getSetupFlow } from './setup/setupFlow.svelte';
 export { default as SetupEditorNote } from './setup/SetupEditorNote.svelte';

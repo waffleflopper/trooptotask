@@ -21,6 +21,9 @@ export interface OrganizationSetup {
 
 const unknownEntries = z.record(z.string(), z.unknown()).catch({});
 const setupPromptKeySchema = z.union([z.literal('setup'), setupStepKeySchema]);
+export const setupPromptChoiceInputSchema = z
+	.object({ key: setupPromptKeySchema, choice: z.enum(['tomorrow', 'never']) })
+	.strict();
 const storedStateSchema = z.object({
 	branch: setupBranchSchema.nullable().catch(null),
 	answers: unknownEntries.transform((entries) => {

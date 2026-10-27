@@ -51,6 +51,8 @@
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
 		onWhatsNew?: () => void;
+		/** Quiet top-bar actions placed before Feedback. */
+		actions?: Snippet;
 		banner?: Snippet;
 		children?: Snippet;
 	}
@@ -69,6 +71,7 @@
 		isDarkTheme,
 		onFeedback,
 		onWhatsNew,
+		actions,
 		banner,
 		children
 	}: Props = $props();
@@ -628,6 +631,7 @@
 					</Breadcrumb.List>
 				</Breadcrumb.Root>
 				<div class="ml-auto flex items-center gap-1">
+					{@render actions?.()}
 					{#if onFeedback}
 						<Button
 							variant="outline"

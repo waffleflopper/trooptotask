@@ -126,7 +126,7 @@ describe('org/new admission through real provisioning', () => {
 			orgId: 'foreign-org',
 			url_slug: 'foreign-org'
 		});
-		await expect(actions.default(input as never)).rejects.toMatchObject({ status: 303, location: '/org/org-1' });
+		await expect(actions.default(input as never)).rejects.toMatchObject({ status: 303, location: '/org/org-1/setup' });
 		expect(port.createOrganization).toHaveBeenCalledTimes(1);
 		expect(port.createOrganization).toHaveBeenCalledWith({ name: 'Alpha Company', requestId });
 	});
@@ -145,7 +145,7 @@ describe('org/new admission through real provisioning', () => {
 	])('creates with a fresh request id when the submitted one is %s', async (_, fields) => {
 		await expect(actions.default(event(confirmed, fields) as never)).rejects.toMatchObject({
 			status: 303,
-			location: '/org/org-1'
+			location: '/org/org-1/setup'
 		});
 		const [[call]] = port.createOrganization.mock.calls;
 		expect(call.name).toBe('Alpha Company');
@@ -161,7 +161,10 @@ describe('org/new admission through real provisioning', () => {
 		});
 		expect(JSON.stringify(failed)).not.toContain('organizations_pkey');
 
-		await expect(actions.default(event() as never)).rejects.toMatchObject({ status: 303, location: '/org/org-1' });
+		await expect(actions.default(event() as never)).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1/setup'
+		});
 		expect(port.createOrganization.mock.calls).toEqual([
 			[{ name: 'Alpha Company', requestId }],
 			[{ name: 'Alpha Company', requestId }]

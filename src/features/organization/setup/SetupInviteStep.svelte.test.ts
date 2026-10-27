@@ -59,6 +59,7 @@ function renderStep(data: Promise<SetupTeamData>, unitFacts = facts()) {
 	pageData.setupTeam = data;
 	const source: SetupFlowSource = {
 		orgUrlSegment: 'alpha',
+		isOwner: true,
 		disabledFeatures: [],
 		setupState: { branch: null, answers: {}, finishedAt: null, prompts: {} },
 		setupFacts: Promise.resolve(unitFacts),

@@ -90,6 +90,7 @@ function open(
 		setupState: state,
 		setupFacts: Promise.resolve(facts),
 		stepKey,
+		isOwner: true,
 		navigating: false
 	};
 	const fullSupport: SetupStepSupport = {

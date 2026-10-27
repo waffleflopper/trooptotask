@@ -3,13 +3,15 @@ import { invalidate } from '$app/navigation';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { SETUP_STEPS, type SetupFactKey, type SetupFacts, type SetupStep, type SetupStepKey } from './registry';
 import { buildSetupModel, deriveSetupStepState, type SetupStepState } from './model';
-import { parseOrganizationSetup, type OrganizationSetup, type SetupAnswer } from './state';
+import type { OrganizationSetup, SetupAnswer } from './state';
+import { postSetup, setupErrorMessage } from './setupClient';
 import type { SetupBranch } from './branch';
 import type { SetupStarterPackResult, SetupTrainingSuggestionsResult } from './featureStepSupport';
 import { saveOrganizationSettings } from '../saveOrganizationSettings';
 
 export interface SetupFlowSource {
 	orgUrlSegment: string;
+	isOwner: boolean;
 	disabledFeatures: readonly FeatureKey[];
 	setupState: OrganizationSetup;
 	setupFacts: Promise<SetupFacts>;
@@ -21,6 +23,7 @@ export interface SetupFlowSource {
 
 /** Runs before Continue moves on. A rejection keeps the owner on the step and shows its message. */
 export type SetupStepSave = () => Promise<void>;
+export type SetupNavigate = (href: `/org/${string}`, options?: { invalidate?: string[] }) => Promise<void>;
 
 export interface SetupRailStep {
 	key: SetupStepKey;
@@ -64,17 +67,13 @@ function failedFacts(branch: SetupFacts['branch'], message: string): SetupFacts 
 	};
 }
 
-function messageOf(cause: unknown) {
-	return cause instanceof Error && cause.message ? cause.message : 'Try again.';
-}
-
 /**
  * The setup layout's client state. Every write and the navigation after it belong to the visit that started them;
  * once the owner navigates anywhere, a late response changes nothing.
  */
 export class SetupFlow {
 	#source: () => SetupFlowSource;
-	#navigate: (href: string) => Promise<void>;
+	#navigate: SetupNavigate;
 	#visit = 0;
 
 	#loaded = $derived.by(() => this.#source().setupState);
@@ -113,24 +112,24 @@ export class SetupFlow {
 	previous = $derived(this.position > 0 ? this.rail[this.position - 1] : null);
 	next = $derived(this.position >= 0 ? (this.rail[this.position + 1] ?? null) : null);
 
-	constructor(source: () => SetupFlowSource, navigate: (href: string) => Promise<void>) {
+	constructor(source: () => SetupFlowSource, navigate: SetupNavigate) {
 		this.#source = source;
 		this.#navigate = navigate;
 		$effect(() => {
 			let live = true;
 			this.#loadedFacts.then(
 				(facts) => live && (this.facts = facts),
-				(cause) => live && (this.facts = failedFacts(this.#loaded.branch, messageOf(cause)))
+				(cause) => live && (this.facts = failedFacts(this.#loaded.branch, setupErrorMessage(cause)))
 			);
 			return () => (live = false);
 		});
 	}
 
-	get dashboardHref() {
+	get dashboardHref(): `/org/${string}` {
 		return `/org/${this.#source().orgUrlSegment}`;
 	}
 
-	href(slug: string) {
+	href(slug: string): `/org/${string}` {
 		return `/org/${this.#source().orgUrlSegment}/setup/${slug}`;
 	}
 
@@ -202,7 +201,21 @@ export class SetupFlow {
 			const next = await this.#post('finish', {});
 			if (!stillHere()) return;
 			this.#apply(next);
-			await this.#navigate(target);
+			await this.#navigate(target, { invalidate: ['app:organization-setup'] });
+		});
+	}
+
+	finishLater() {
+		const target = this.dashboardHref;
+		const isOwner = this.#source().isOwner;
+		const { prompts, finishedAt } = this.#loaded;
+		return this.#run(async (stillHere) => {
+			if (isOwner && !finishedAt && !(prompts.setup && 'never' in prompts.setup)) {
+				const next = await this.#post('prompt', { key: 'setup', choice: 'tomorrow' });
+				if (!stillHere()) return;
+				this.#apply(next);
+			}
+			if (stillHere()) await this.#navigate(target, { invalidate: ['app:organization-setup'] });
 		});
 	}
 
@@ -278,24 +291,14 @@ export class SetupFlow {
 		try {
 			await work(stillHere);
 		} catch (cause) {
-			if (stillHere()) this.error = messageOf(cause);
+			if (stillHere()) this.error = setupErrorMessage(cause);
 		} finally {
 			if (stillHere()) this.pending = false;
 		}
 	}
 
-	async #post(path: 'answer' | 'branch' | 'finish', body: Record<string, unknown>): Promise<OrganizationSetup> {
-		const response = await fetch(`/org/${this.#source().orgUrlSegment}/api/organization/setup/${path}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body)
-		});
-		const payload: unknown = await response.json().catch(() => null);
-		if (!response.ok) {
-			const message = (payload as { message?: unknown } | null)?.message;
-			throw new Error(typeof message === 'string' ? message : 'Try again.');
-		}
-		return parseOrganizationSetup(payload);
+	#post(path: 'answer' | 'branch' | 'finish' | 'prompt', body: Record<string, unknown>): Promise<OrganizationSetup> {
+		return postSetup(this.#source().orgUrlSegment, path, body);
 	}
 }
 

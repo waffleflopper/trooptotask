@@ -35,6 +35,7 @@ it('shows a failed fact source on its own step and leaves the step usable', asyn
 		props: {
 			source: {
 				orgUrlSegment: 'alpha',
+				isOwner: true,
 				disabledFeatures: [],
 				setupState: { branch: null, answers: {}, finishedAt: null, prompts: {} },
 				setupFacts: Promise.resolve(facts),

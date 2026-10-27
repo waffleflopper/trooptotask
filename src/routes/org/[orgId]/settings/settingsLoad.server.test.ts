@@ -9,7 +9,14 @@ const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn()
 vi.mock('$lib/server/adapters/httpAdapter', () => ({ loadWithContext: loadWithContextMock }));
 import { buildCommonSettingsPageData, buildSettingsPageOrganization, loadSettingsPage } from './settingsLoad.server';
 
-const identity = { id: 'org-1', name: 'Test Org', urlSlug: 'test-org', suspendedAt: null, disabledFeatures: [] };
+const identity = {
+	id: 'org-1',
+	name: 'Test Org',
+	urlSlug: 'test-org',
+	suspendedAt: null,
+	createdAt: null,
+	disabledFeatures: []
+};
 
 describe('settings load helpers', () => {
 	beforeEach(() => loadWithContextMock.mockReset());

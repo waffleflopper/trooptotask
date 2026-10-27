@@ -119,7 +119,7 @@
 						Your organization starts with default groups, status types, assignment types, and federal holidays so you
 						are not staring at a blank page after setup.
 					</p>
-					<p>After creation, you will land on the owner dashboard with the first-run setup checklist.</p>
+					<p>After creation, you will land in Organization setup.</p>
 				</div>
 
 				<div class="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">

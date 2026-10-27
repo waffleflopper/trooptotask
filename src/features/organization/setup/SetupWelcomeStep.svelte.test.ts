@@ -50,6 +50,7 @@ function renderWelcome() {
 				setupState: empty,
 				setupFacts: Promise.resolve(facts),
 				stepKey: 'welcome',
+				isOwner: true,
 				navigating: false
 			}
 		}
@@ -113,6 +114,7 @@ it('waits for the refreshed rank count before announcing it', async () => {
 		setupState: empty,
 		setupFacts: Promise.resolve(facts),
 		stepKey: 'welcome' as const,
+		isOwner: true,
 		navigating: false
 	};
 	const { rerender } = render(SetupFlowHarness, { props: { source } });

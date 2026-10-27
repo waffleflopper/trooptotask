@@ -15,6 +15,7 @@ interface OrganizationRouteRow {
 	name?: unknown;
 	url_slug?: unknown;
 	suspended_at?: unknown;
+	created_at?: unknown;
 	disabled_features?: unknown;
 }
 
@@ -24,7 +25,7 @@ async function readOrganizationRoute(
 ): Promise<{ data: OrganizationRouteRow | null; error: unknown }> {
 	return supabase
 		.from('organizations')
-		.select('id, name, url_slug, suspended_at, disabled_features')
+		.select('id, name, url_slug, suspended_at, disabled_features, created_at')
 		.eq(isOrganizationIdSegment(segment) ? 'id' : 'url_slug', segment)
 		.maybeSingle()
 		.then(
@@ -72,6 +73,7 @@ export async function resolveOrganizationRouteIdentity(
 		name: typeof data.name === 'string' ? data.name : null,
 		urlSlug: typeof data.url_slug === 'string' ? data.url_slug : null,
 		suspendedAt: typeof data.suspended_at === 'string' ? data.suspended_at : null,
+		createdAt: typeof data.created_at === 'string' ? data.created_at : null,
 		disabledFeatures: parseDisabledFeatures(data.disabled_features)
 	};
 }

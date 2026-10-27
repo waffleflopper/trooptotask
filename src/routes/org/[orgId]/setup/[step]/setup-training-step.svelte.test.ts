@@ -100,6 +100,7 @@ it('creates a type in the Training step’s own editor and keeps the owner’s p
 				setupState: state,
 				setupFacts: Promise.resolve(facts),
 				stepKey: 'training',
+				isOwner: true,
 				navigating: false
 			}),
 			navigate

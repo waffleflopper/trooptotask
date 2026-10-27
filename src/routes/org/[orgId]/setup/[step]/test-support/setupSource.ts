@@ -36,6 +36,7 @@ export function stepSource(
 		setupState: { branch: 'army', answers: {}, finishedAt: null, prompts: {} },
 		setupFacts,
 		stepKey,
+		isOwner: true,
 		navigating: false
 	};
 }

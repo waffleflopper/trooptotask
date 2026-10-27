@@ -1,13 +1,15 @@
 <script lang="ts">
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { cn } from '$lib/utils.js';
 	import type { SetupFact, SetupFactKey, SetupFacts, SetupStepKey } from './registry';
 	import SetupFooterBar from './SetupFooterBar.svelte';
-	import { getSetupFlow } from './setupFlow.svelte';
+	import { SETUP_FACT_LABELS, getSetupFlow } from './setupFlow.svelte';
 
 	let { orgName }: { orgName: string } = $props();
 
@@ -66,6 +68,16 @@
 					}
 				]
 			: null
+	);
+	const failed = $derived(
+		model && facts
+			? [
+					...new Set([
+						...COUNTS.filter(({ source }) => facts[source].status === 'error').map(({ source }) => source),
+						...model.on.flatMap((step) => step.loadErrors.map(({ source }) => source))
+					])
+				]
+			: []
 	);
 	const allReviewed = $derived(model !== null && model.unanswered.length === 0);
 	const open = $derived(model?.unanswered.length ?? 0);
@@ -147,6 +159,20 @@
 		</div>
 	{/each}
 </dl>
+
+{#if failed.length}
+	<Alert.Root variant="destructive">
+		<Alert.Title>
+			{failed.map((source) => SETUP_FACT_LABELS[source]).join(' and ')} could not be loaded
+		</Alert.Title>
+		<Alert.Description>
+			These counts may be out of date. Your answers are saved.
+			<Button variant="outline" size="sm" class="mt-2" onclick={() => invalidate('app:organization-setup')}>
+				Retry
+			</Button>
+		</Alert.Description>
+	</Alert.Root>
+{/if}
 
 <div class="grid items-start gap-8 md:grid-cols-3">
 	{#each columns ?? [{ label: 'On' }, { label: 'Later' }, { label: 'Off' }] as column, index (column.label)}

@@ -1,5 +1,6 @@
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { PersonnelTrainingRosterPort, RankCatalogEntry } from '$features/personnel/contracts';
 import type { TrainingCatalogPersistence } from '../contracts';
 
 export type TrainingTypeCreateContext = {
@@ -7,8 +8,10 @@ export type TrainingTypeCreateContext = {
 	readonly audit: PolicyAuditSink;
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'createType'>;
 };
-export type TrainingTypeReadContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
+export type TrainingTypeEditorReadContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
+	readonly personnelTrainingRoster: Pick<PersonnelTrainingRosterPort, 'listActiveForWorkspace'>;
+	readonly loadRankCatalog: () => Promise<RankCatalogEntry[]>;
 };
 export type TrainingTypeUpdateContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'patchType' | 'listTypes'>;

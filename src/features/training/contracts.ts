@@ -309,6 +309,13 @@ export interface TrainingSuggestionsResult {
 	trainingTypes: SavedTrainingType[];
 }
 
+/** What the training type editor needs: the catalog, the active personnel it previews against, and the ranks. */
+export interface TrainingTypeEditorData {
+	trainingTypes: SavedTrainingType[];
+	personnel: Personnel[];
+	rankCatalog: RankCatalogEntry[];
+}
+
 export type SavedTrainingView = TrainingView & {
 	organization_id: string;
 };

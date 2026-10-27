@@ -114,37 +114,51 @@ async () =>
 ```
 
 1. As `orgOwner`, open `/setup/training`. Expect the `Common Army annual training` panel with 8 rows, each `12 mo`, all
-   checked, and `8 of 8 selected`; the seed's own training types are not on the Army list. The count shows a skeleton
-   until the unit's types load. Uncheck 5. Expect `3 of 8 selected`, the note `Adds 3 training types` and
-   `Add 3 and continue`. Choose it: `/setup/critical-tasks`. `$V rows training_types orgA` lists the 3 names; Training ›
-   Types shows each `Every 12 months`. Back on `/setup/training` the 3 rows read `Added`, checked and disabled.
-2. `/setup/critical-tasks`: choose `Later`, Continue. The answer is stored (revisit shows `Later` checked), but the rail
+   checked, and `8 of 8 selected`. The seed's own training types are not on the Army list; they appear under
+   `Your own types`, one row each with a pencil, the name and its period. The count shows a skeleton until the unit's
+   types load. Uncheck 5. Expect `3 of 8 selected`, the note `Adds 3 training types` and `Add 3 and continue`. Choose
+   it: `/setup/critical-tasks`. `$V rows training_types orgA` lists the 3 names; Training › Types shows each
+   `Every 12 months`. Back on `/setup/training` the 3 rows read `Added`, checked and disabled.
+2. Still on `/setup/training`, uncheck `OPSEC`: `4 of 5 selected`. Choose `Add your own type`. The Training type sheet
+   opens over the step with the eyebrow `New training type · <n+1> of <n+1>`, where n is the unit's type count, and the
+   URL stays `/setup/training`. Enter `Range Safety`, keep `Every few months` at 12 and choose `Create type`. Expect the
+   sheet to close, a `Range Safety` row reading `12 mo` under `Your own types`, `OPSEC` still unchecked and
+   `4 of 5 selected`. The newest `$V rows audit_logs orgA` row is `training_type.created`. Choose the `Range Safety`
+   row: the sheet reopens as `Edit training type`; `Cancel` closes it with no write. Do not continue.
+3. Choose `We won’t use it`, then `Turn off Training and continue`. Reopen `/setup/training`: `Training is off`. Choose
+   `Turn Training back on`. Expect `Set it up now` selected and every Army row that is not `Added` checked:
+   `5 of 5 selected` and `Add 5 and continue`. Do not continue.
+4. Set the branch to `navy` with the request in the preconditions, then reload `/setup/training`. Expect a
+   `Training types` panel with no Army list: two skeleton rows while the types load, then one row per unit type,
+   including `Range Safety`, and `Add a type`, which opens the same sheet. Set the branch back to `army`.
+5. `/setup/critical-tasks`: choose `Later`, Continue. The answer is stored (revisit shows `Later` checked), but the rail
    stays Done because seed task lists make the step Done; Done outranks Later.
-3. `/setup/evaluations`: choose `Later`, Continue. Expect the rail row `Evaluations, later`, and on the Dashboard the
+6. `/setup/evaluations`: choose `Later`, Continue. Expect the rail row `Evaluations, later`, and on the Dashboard the
    hint `Evaluations is on, but there are no rating scheme entries yet` with `Add an entry`.
-4. Back on `/setup/evaluations`, choose `We won’t use it`. Expect the consequence panel.
+7. Back on `/setup/evaluations`, choose `We won’t use it`. Expect the consequence panel.
    `$V fault arm org-feature-switch`, then `Turn off Evaluations and continue`: the URL stays, the alert reads
    `Couldn't save. Internal server error`, the rail is unchanged and `$V fault state` shows one match.
    `$V fault restore`, then choose it again: `/setup/onboarding`, the rail row `Evaluations, off`, and Evals is gone
    from the sidebar. The newest `$V rows audit_logs orgA` row is `organization.settings_updated` with
    `{disabled_features: ['evaluations'], previous_disabled_features: []}`.
-5. Settings › Features shows the Evaluations switch off. Turn it on there: the audit row has the same action with
+8. Settings › Features shows the Evaluations switch off. Turn it on there: the audit row has the same action with
    `{disabled_features: [], previous_disabled_features: ['evaluations']}`. `/setup/evaluations` opens on `Later`, the
    rail reads `Evaluations, later` and Evals is back in the sidebar.
-6. `/setup/onboarding`: check `First Week Operations`. Expect the note `Adds a template and 2 training types` and
+9. `/setup/onboarding`: check `First Week Operations`. Expect the note `Adds a template and 2 training types` and
    `Add First Week Operations and continue`. Choose it: `/setup/losses-and-awards`, Onboarding Done.
    `$V rows onboarding_templates orgA` gains `New Arrival Packet`; `$V rows training_types orgA` gains
    `Unit Orientation` and `Required Annual Training`.
-7. `/setup/losses-and-awards` shows the loss warning window (`180 days` on seed) and `change it in Settings › Features`.
-   Continue marks it Done.
-8. `/setup/events-and-taskings`: turn it off. Expect `/setup/invite` and the rail row Off. Reopen the step:
-   `We won’t use it` is checked, the panel reads `Events & Taskings is off`. `Turn Events & Taskings back on` returns
-   the sidebar link, sets the rail row to not answered and selects `Set it up now` with `Open Events` and
-   `Open Taskings`.
-9. As `orgAdmin`, every step shows the same actions as the owner. Admins always hold configure on every feature, so the
-   `capability_overrides` on admin fixtures such as `deletionReviewer` change nothing here; a viewer without Training
-   configure is covered by the component test only.
-10. Layout: at 1440 px the three cards sit in one row and the Army list in two columns. At 1024 px the cards stack and
+10. `/setup/losses-and-awards` shows the loss warning window (`180 days` on seed) and
+    `change it in Settings › Features`. Continue marks it Done.
+11. `/setup/events-and-taskings`: turn it off. Expect `/setup/invite` and the rail row Off. Reopen the step:
+    `We won’t use it` is checked, the panel reads `Events & Taskings is off`. `Turn Events & Taskings back on` returns
+    the sidebar link, sets the rail row to not answered and selects `Set it up now` with `Open Events` and
+    `Open Taskings`.
+12. As `orgAdmin`, every step shows the same actions as the owner. Admins always hold configure on every feature, so the
+    `capability_overrides` on admin fixtures such as `deletionReviewer` change nothing here; a viewer without Training
+    configure is covered by the component test only.
+13. Layout: at 1440 px the three cards sit in one row and the Army list in two columns. At 1024 px the cards stack and
     the list is one column. At 390 px the footer is the dark band, the list shows 3 rows and `Show 5 more`, a long label
     such as `Turn off Events & Taskings and continue` wraps to two lines beside its note, and the page never scrolls
-    sideways.
+    sideways. At 1024 px the `Your own types` rows and `Add your own type` fit the 400 px step column without
+    truncating `Range Safety`; at 390 px the type sheet fits the screen and its footer buttons stay reachable.

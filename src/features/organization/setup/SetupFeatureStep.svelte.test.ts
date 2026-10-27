@@ -9,6 +9,7 @@ import type { SetupFacts, SetupStepKey } from './registry';
 import type { OrganizationSetup } from './state';
 import type { SetupStepSupport } from './featureStepSupport';
 import SetupFlowHarness from './test-support/SetupFlowHarness.svelte';
+import TrainingTypeEditorStub from './test-support/TrainingTypeEditorStub.svelte';
 
 const invalidate = vi.hoisted(() => vi.fn(async (_dependency: string) => {}));
 vi.mock('$app/navigation', () => ({ invalidate, goto: vi.fn() }));
@@ -68,37 +69,50 @@ function stubFetch(routes: Record<string, Route>) {
 	return posts;
 }
 
+const owner = createClientAccess({ membershipRole: 'owner' });
+
 function open(
 	stepKey: SetupStepKey,
-	{ disabledFeatures = [], support }: { disabledFeatures?: FeatureKey[]; support?: Partial<SetupStepSupport> } = {}
+	{
+		disabledFeatures = [],
+		catalog = [],
+		support
+	}: {
+		disabledFeatures?: FeatureKey[];
+		catalog?: { id: string; name: string; expirationMonths: number | null }[];
+		support?: Partial<SetupStepSupport>;
+	} = {}
 ) {
 	const navigate = vi.fn(async (_href: string) => {});
-	render(SetupFlowHarness, {
-		props: {
-			source: {
-				orgUrlSegment: 'alpha',
-				disabledFeatures,
-				setupState: state,
-				setupFacts: Promise.resolve(facts),
-				stepKey,
-				navigating: false
-			},
-			support: {
-				access: createClientAccess({ membershipRole: 'owner' }),
-				trainingSuggestions: (branch) => (branch === 'army' ? armyList : []),
-				...support
-			},
-			navigate
-		}
-	});
-	return navigate;
+	const source = {
+		orgUrlSegment: 'alpha',
+		disabledFeatures,
+		setupState: state,
+		setupFacts: Promise.resolve(facts),
+		stepKey,
+		navigating: false
+	};
+	const fullSupport: SetupStepSupport = {
+		access: owner,
+		trainingSuggestions: (branch) => (branch === 'army' ? armyList : []),
+		trainingTypes: { load: async () => ({ trainingTypes: catalog }), Editor: TrainingTypeEditorStub },
+		...support
+	};
+	const { rerender } = render(SetupFlowHarness, { props: { source, support: fullSupport, navigate } });
+	/** Stands in for the layout and app shell reloading after a write. */
+	const reload = (next: { disabledFeatures: FeatureKey[]; support: Partial<SetupStepSupport> }) =>
+		rerender({
+			source: { ...source, disabledFeatures: next.disabledFeatures },
+			support: { ...fullSupport, ...next.support }
+		});
+	return { navigate, reload };
 }
 
 const continueButton = () => screen.getByRole('button', { name: /continue/i });
 
 it('turns a feature off through the Settings switch, then opens the next step', async () => {
 	const posts = stubFetch({ 'POST /api/organization/settings': () => respond(200, { success: true }) });
-	const navigate = open('evaluations');
+	const { navigate } = open('evaluations');
 
 	await fireEvent.click(screen.getByRole('radio', { name: /We won’t use it/ }));
 	await fireEvent.click(screen.getByRole('button', { name: /turn off evaluations/i }));
@@ -115,7 +129,7 @@ it('turns a feature off through the Settings switch, then opens the next step', 
 
 it('keeps the owner on the step when the switch write fails', async () => {
 	stubFetch({ 'POST /api/organization/settings': () => respond(409, { message: 'Settings changed. Try again.' }) });
-	const navigate = open('evaluations');
+	const { navigate } = open('evaluations');
 
 	await fireEvent.click(screen.getByRole('radio', { name: /We won’t use it/ }));
 	await fireEvent.click(screen.getByRole('button', { name: /turn off evaluations/i }));
@@ -143,7 +157,7 @@ it('records Later without touching the switch', async () => {
 	const posts = stubFetch({
 		'POST /api/organization/setup/answer': () => respond(200, { ...state, answers: { criticalTasks: 'later' } })
 	});
-	const navigate = open('criticalTasks');
+	const { navigate } = open('criticalTasks');
 
 	await fireEvent.click(screen.getByRole('radio', { name: /Later/ }));
 	await fireEvent.click(continueButton());
@@ -154,11 +168,10 @@ it('records Later without touching the switch', async () => {
 
 it('adds only the picked suggestions the unit does not have yet', async () => {
 	const posts = stubFetch({
-		'GET /api/training-types': () => respond(200, [{ name: 'SHARP' }]),
 		'POST /api/training-types/suggestions': () =>
 			respond(200, { failed: [], trainingTypes: [{ name: 'SHARP' }, { name: 'Equal Opportunity' }] })
 	});
-	const navigate = open('training');
+	const { navigate } = open('training', { catalog: [{ id: 'sharp-type', name: 'SHARP', expirationMonths: 12 }] });
 
 	await waitFor(() => expect(screen.getByRole('checkbox', { name: /SHARP/ })).toBeDisabled());
 	await fireEvent.click(screen.getByRole('checkbox', { name: /Suicide Prevention/ }));
@@ -171,14 +184,13 @@ it('adds only the picked suggestions the unit does not have yet', async () => {
 
 it('stays on Training when some suggestions fail', async () => {
 	stubFetch({
-		'GET /api/training-types': () => respond(200, []),
 		'POST /api/training-types/suggestions': () =>
 			respond(200, {
 				failed: [{ id: 'opsec', name: 'OPSEC', expirationMonths: 12, message: 'Try again.' }],
 				trainingTypes: [{ name: 'SHARP' }, { name: 'Equal Opportunity' }, { name: 'Suicide Prevention (ACE)' }]
 			})
 	});
-	const navigate = open('training');
+	const { navigate } = open('training');
 
 	await waitFor(() => expect(continueButton()).toBeEnabled());
 	await fireEvent.click(continueButton());
@@ -193,7 +205,7 @@ it('shows a viewer without Training configure the step but no picks', async () =
 	const posts = stubFetch({
 		'POST /api/organization/setup/answer': () => respond(200, { ...state, answers: { training: 'reviewed' } })
 	});
-	const navigate = open('training', {
+	const { navigate } = open('training', {
 		support: {
 			access: createClientAccess({
 				membershipRole: 'admin',
@@ -207,4 +219,32 @@ it('shows a viewer without Training configure the step but no picks', async () =
 
 	await waitFor(() => expect(navigate).toHaveBeenCalledWith('/org/alpha/setup/critical-tasks'));
 	expect(posts).toEqual([{ path: '/api/organization/setup/answer', body: { step: 'training', answer: 'reviewed' } }]);
+});
+
+it('checks every suggestion that arrives after Training is turned back on', async () => {
+	const posts = stubFetch({
+		'POST /api/organization/settings': () => respond(200, { success: true }),
+		'POST /api/training-types/suggestions': () => respond(200, { failed: [], trainingTypes: [] })
+	});
+	// A switched-off feature projects no Training access, so the step mounts without suggestions.
+	const trainingOff = createClientAccess({
+		membershipRole: 'owner',
+		capabilityMap: { ...createCapabilityMap('configure'), training: 'none' }
+	});
+	const { navigate, reload } = open('training', { disabledFeatures: ['training'], support: { access: trainingOff } });
+
+	await fireEvent.click(screen.getByRole('button', { name: /back on/i }));
+	await waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:org-core'));
+	await reload({ disabledFeatures: [], support: { access: owner } });
+	await waitFor(() => expect(continueButton()).toBeEnabled());
+	await fireEvent.click(continueButton());
+
+	await waitFor(() => expect(navigate).toHaveBeenCalledWith('/org/alpha/setup/critical-tasks'));
+	expect(posts).toEqual([
+		{ path: '/api/organization/settings', body: { featureSwitch: { feature: 'training', on: true } } },
+		{
+			path: '/api/training-types/suggestions',
+			body: { branch: 'army', suggestionIds: ['sharp', 'eo', 'ace', 'opsec'] }
+		}
+	]);
 });

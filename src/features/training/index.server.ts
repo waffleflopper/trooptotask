@@ -2,7 +2,7 @@ export { createSupabaseTrainingOnboardingReferencesPort } from './onboardingRefe
 export type { TrainingOnboardingReferencesPort } from './contracts';
 export {
 	createTrainingType,
-	listTrainingTypes,
+	readTrainingTypeEditor,
 	updateTrainingType,
 	setTrainingTypeOrder,
 	deleteTrainingType,

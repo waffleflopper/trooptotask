@@ -3,10 +3,10 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
-import type { SavedTrainingType, SavedTrainingView } from '../contracts';
+import type { SavedTrainingType, SavedTrainingView, TrainingTypeEditorData } from '../contracts';
 import type {
 	TrainingTypeCreateContext,
-	TrainingTypeReadContext,
+	TrainingTypeEditorReadContext,
 	TrainingTypeUpdateContext,
 	TrainingTypeOrderContext,
 	TrainingTypeDeleteContext,
@@ -31,9 +31,14 @@ import {
 const configureAction = POLICY_ACTION_CATALOG.training.configureRequirements;
 const catalogResource = { kind: 'organization' } as const;
 
-export async function listTrainingTypes(ctx: TrainingTypeReadContext): Promise<SavedTrainingType[]> {
-	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewMatrix, catalogResource, 'training_type');
-	return ctx.trainingCatalog.listTypes();
+export async function readTrainingTypeEditor(ctx: TrainingTypeEditorReadContext): Promise<TrainingTypeEditorData> {
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
+	const [trainingTypes, personnel, rankCatalog] = await Promise.all([
+		ctx.trainingCatalog.listTypes(),
+		ctx.personnelTrainingRoster.listActiveForWorkspace(ctx.auth),
+		ctx.loadRankCatalog()
+	]);
+	return { trainingTypes, personnel, rankCatalog };
 }
 
 export async function setTrainingTypeOrder(

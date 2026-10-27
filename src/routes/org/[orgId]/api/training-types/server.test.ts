@@ -1,44 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import {
-	_getConfig as typeGet,
-	_postConfig as typePost,
-	_putConfig as typePut,
-	_deleteConfig as typeDelete
-} from './+server';
+import { _postConfig as typePost, _putConfig as typePut, _deleteConfig as typeDelete } from './+server';
 import { _postConfig as viewPost, _putConfig as viewPut, _deleteConfig as viewDelete } from '../training-views/+server';
 
 describe('Training catalog JSON routes', () => {
-	it('reads only the requested Organization catalog with Training view authority', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'view',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
-			}
-		});
-		ctx.store.seed('training_types', [
-			{ id: 'own-type', organization_id: ctx.auth.orgId, name: 'SHARP', expiration_months: 12, sort_order: 0 },
-			{ id: 'foreign-type', organization_id: 'another-org', name: 'Foreign', sort_order: 0 }
-		]);
-		expect(await handleUseCaseRequest(typeGet, ctx, undefined, () => ctx)).toMatchObject([
-			{ id: 'own-type', name: 'SHARP', expirationMonths: 12 }
-		]);
-		const denied = {
-			...ctx,
-			auth: { ...ctx.auth, capabilityMap: { ...ctx.auth.capabilityMap, training: 'none' as const } }
-		};
-		await expect(handleUseCaseRequest(typeGet, denied, undefined, () => denied)).rejects.toMatchObject({ status: 403 });
-	});
-
 	it('returns saved type and view rows and the existing delete response', async () => {
 		const ctx = createTestContext();
 		const selected = { ...ctx, notifyTrainingTypeDeleted: vi.fn(async () => {}) };

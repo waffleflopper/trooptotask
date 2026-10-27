@@ -15,7 +15,7 @@ export { default as SettingsPageHeader } from './SettingsPageHeader.svelte';
 export { default as LeaveOrganizationDialog } from './LeaveOrganizationDialog.svelte';
 
 export { SetupFlow, setSetupFlow } from './setup/setupFlow.svelte';
-export { setSetupStepSupport, type SetupStepSupport } from './setup/featureStepSupport';
+export { setSetupStepSupport, setupTrainingTypeEditor, type SetupStepSupport } from './setup/featureStepSupport';
 export { default as SetupRail } from './setup/SetupRail.svelte';
 export { default as SetupStepPage } from './setup/SetupStepPage.svelte';
 export { default as SetupStepFooter } from './setup/SetupStepFooter.svelte';

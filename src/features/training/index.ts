@@ -34,6 +34,7 @@ export { TrainingPageContext } from './contexts/TrainingPageContext.svelte';
 export type { TrainingPageData } from './contexts/TrainingPageContext.svelte';
 
 export { trainingTypesStore } from './stores/trainingTypes.svelte';
+export { loadTrainingTypeEditor, type LoadedTrainingTypeEditor } from './trainingTypeEditor';
 export { trainingViewsStore } from './stores/trainingViews.svelte';
 export { trainingWorkspaceHydrator } from './trainingWorkspaceHydration.svelte';
 

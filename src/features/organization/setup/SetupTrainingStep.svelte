@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { invalidate } from '$app/navigation';
+	import { Pencil } from '@lucide/svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import { getSetupStepSupport } from './featureStepSupport';
+	import { getSetupStepSupport, type SetupTrainingTypeCatalog } from './featureStepSupport';
 	import SetupFeaturePanel from './SetupFeaturePanel.svelte';
 	import SetupFeatureStep from './SetupFeatureStep.svelte';
 	import { getSetupFlow } from './setupFlow.svelte';
@@ -13,43 +15,55 @@
 	/** Rows shown at phone width before "Show N more". */
 	const NARROW_ROWS = 3;
 
-	type Catalog = { state: 'loading' } | { state: 'ready'; names: Set<string> } | { state: 'failed'; message: string };
+	type Catalog =
+		| { state: 'loading' }
+		| { state: 'ready'; catalog: SetupTrainingTypeCatalog }
+		| { state: 'failed'; message: string };
 
 	const flow = getSetupFlow();
 	const support = getSetupStepSupport();
+	const Editor = support.trainingTypes.Editor;
 	const canConfigure = $derived(
 		support.access.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements).allowed
 	);
 	const branch = $derived(flow.state.branch);
 	const suggestions = $derived(canConfigure && branch ? support.trainingSuggestions(branch) : []);
-	const typesHref = $derived(`${flow.dashboardHref}/training/types`);
 
 	let catalog = $state.raw<Catalog>({ state: 'loading' });
-	const picked = new SvelteSet<string>(untrack(() => suggestions.map((suggestion) => suggestion.id)));
+	// Unchecked rather than checked picks, so suggestions that arrive later, as after turning Training back on, start
+	// checked.
+	const unpicked = new SvelteSet<string>();
 	let expanded = $state(false);
+	let editing = $state<{ typeId: string | null } | null>(null);
 
-	const added = (name: string) => catalog.state === 'ready' && catalog.names.has(name);
+	const types = $derived(catalog.state === 'ready' ? catalog.catalog.trainingTypes : []);
+	const added = (name: string) => types.some((type) => type.name === name);
 	const open = $derived(suggestions.filter((suggestion) => !added(suggestion.name)));
-	const toAdd = $derived(open.filter((suggestion) => picked.has(suggestion.id)));
+	const toAdd = $derived(open.filter((suggestion) => !unpicked.has(suggestion.id)));
+	const ownTypes = $derived(types.filter((type) => !suggestions.some((suggestion) => suggestion.name === type.name)));
 	const rows = $derived(Math.ceil(suggestions.length / 2));
 
 	let loads = 0;
-	async function loadCatalog() {
+	async function loadCatalog({ quiet = false } = {}) {
 		const load = ++loads;
-		catalog = { state: 'loading' };
+		if (!quiet) catalog = { state: 'loading' };
 		try {
-			const response = await fetch(`${flow.dashboardHref}/api/training-types`);
-			if (!response.ok) throw new Error(`Training types could not be loaded (${response.status}).`);
-			const types: { name: string }[] = await response.json();
-			if (load === loads) catalog = { state: 'ready', names: new Set(types.map((type) => type.name)) };
+			const loaded = await support.trainingTypes.load();
+			if (load === loads) catalog = { state: 'ready', catalog: loaded };
 		} catch (cause) {
 			if (load === loads) catalog = { state: 'failed', message: (cause as Error).message };
 		}
 	}
 
 	$effect(() => {
-		if (suggestions.length > 0) untrack(loadCatalog);
+		if (canConfigure) untrack(() => loadCatalog());
 	});
+
+	async function changed() {
+		editing = null;
+		// A new type can make the step Done from data, which the rail reads from the reloaded facts.
+		await Promise.all([loadCatalog({ quiet: true }), invalidate('app:organization-setup')]);
+	}
 
 	async function save() {
 		if (!branch) return;
@@ -58,7 +72,9 @@
 			toAdd.map((suggestion) => suggestion.id)
 		);
 		if (!result) return;
-		catalog = { state: 'ready', names: new Set(result.trainingTypes.map((type) => type.name)) };
+		if (catalog.state === 'ready') {
+			catalog = { state: 'ready', catalog: { ...catalog.catalog, trainingTypes: result.trainingTypes } };
+		}
 		if (result.failed.length > 0) {
 			throw new Error(`${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`);
 		}
@@ -77,10 +93,42 @@
 	);
 </script>
 
+{#snippet loadError()}
+	{#if catalog.state === 'failed'}
+		<p role="alert" class="text-sm leading-5 text-destructive-text">
+			{catalog.message}
+			{#if suggestions.length > 0}Types that already exist are skipped when you add.{/if}
+			<Button variant="link" class="h-auto p-0 align-baseline" onclick={() => loadCatalog()}>Retry</Button>
+		</p>
+	{/if}
+{/snippet}
+
+{#snippet typeRows(list: typeof types)}
+	<ul>
+		{#each list as type (type.id)}
+			<li>
+				<button
+					type="button"
+					class="group flex h-10 w-full cursor-pointer items-center gap-2.5 border-b border-border text-start outline-none"
+					onclick={() => (editing = { typeId: type.id })}
+				>
+					<Pencil class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+					<span class="min-w-0 flex-1 truncate text-sm leading-5 group-hover:underline group-focus-visible:underline">
+						{type.name}
+					</span>
+					<span class="shrink-0 font-mono text-xs leading-4 text-muted-foreground">
+						{type.expirationMonths ? `${type.expirationMonths} mo` : '—'}
+					</span>
+				</button>
+			</li>
+		{/each}
+	</ul>
+{/snippet}
+
 <SetupFeatureStep
 	setUpHint={suggestions.length > 0
 		? 'Add the training your unit tracks. Start from the common Army list below.'
-		: 'Add the training your unit tracks on the Training types page.'}
+		: 'Add the training your unit tracks, with how often each renews.'}
 	laterHint="Training stays on, empty. Owners and admins see a reminder on the Dashboard until it has a type."
 	{footer}
 >
@@ -92,12 +140,32 @@
 			</p>
 		{:else if suggestions.length === 0}
 			<SetupFeaturePanel title="Training types">
+				{@render loadError()}
+				{#if catalog.state === 'loading'}
+					<div role="status" aria-label="Loading training types">
+						{#each { length: 2 }, index (index)}
+							<div class="flex h-10 items-center gap-2.5 border-b border-border">
+								<Skeleton class="size-4" />
+								<Skeleton class="h-4 w-40" />
+							</div>
+						{/each}
+					</div>
+				{:else}
+					{@render typeRows(types)}
+				{/if}
 				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
 					<p class="flex-1 text-sm leading-5 text-muted-foreground">
 						Add each requirement your unit tracks, with how often it renews. Have records in a spreadsheet? Import them
 						once the types exist.
 					</p>
-					<Button variant="outline" href={typesHref}>Open Training types</Button>
+					<Button
+						variant="outline"
+						class="self-start sm:self-auto"
+						disabled={catalog.state !== 'ready'}
+						onclick={() => (editing = { typeId: null })}
+					>
+						Add a type
+					</Button>
 				</div>
 			</SetupFeaturePanel>
 		{:else}
@@ -117,12 +185,7 @@
 						{/if}
 					</span>
 				{/snippet}
-				{#if catalog.state === 'failed'}
-					<p role="alert" class="text-sm leading-5 text-destructive-text">
-						{catalog.message} Types that already exist are skipped when you add.
-						<Button variant="link" class="h-auto p-0 align-baseline" onclick={loadCatalog}>Retry</Button>
-					</p>
-				{/if}
+				{@render loadError()}
 				<div class="@container/picks">
 					<ul
 						class="grid gap-x-8 @md/picks:grid-flow-col @md/picks:grid-cols-2"
@@ -130,20 +193,17 @@
 					>
 						{#each suggestions as suggestion, index (suggestion.id)}
 							{@const exists = added(suggestion.name)}
+							{@const checked = exists || !unpicked.has(suggestion.id)}
 							<li class={index >= NARROW_ROWS && !expanded ? 'max-sm:hidden' : undefined}>
 								<label
 									class="flex h-10 cursor-pointer items-center gap-2.5 border-b border-border has-disabled:cursor-default"
 								>
 									<Checkbox
-										checked={exists || picked.has(suggestion.id)}
+										{checked}
 										disabled={exists}
-										onCheckedChange={(checked) => (checked ? picked.add(suggestion.id) : picked.delete(suggestion.id))}
+										onCheckedChange={(next) => (next ? unpicked.delete(suggestion.id) : unpicked.add(suggestion.id))}
 									/>
-									<span
-										class="min-w-0 flex-1 truncate text-sm leading-5 {exists || picked.has(suggestion.id)
-											? ''
-											: 'text-muted-foreground'}"
-									>
+									<span class="min-w-0 flex-1 truncate text-sm leading-5 {checked ? '' : 'text-muted-foreground'}">
 										{suggestion.name}
 									</span>
 									<span class="shrink-0 font-mono text-xs leading-4 text-muted-foreground">
@@ -163,16 +223,35 @@
 						Show {suggestions.length - NARROW_ROWS} more
 					</Button>
 				{/if}
+				{#if ownTypes.length > 0}
+					<div class="flex flex-col gap-1.5">
+						<p
+							class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
+						>
+							Your own types
+						</p>
+						{@render typeRows(ownTypes)}
+					</div>
+				{/if}
 				<div class="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:gap-5">
 					<p class="flex-1 text-sm leading-5 text-muted-foreground">
 						Periods and colors can be changed on the Training types page. Have records in a spreadsheet? Import them
 						once the types exist.
 					</p>
-					<a href={typesHref} class="shrink-0 text-sm leading-5 text-foreground underline underline-offset-2"
-						>Add your own type</a
+					<Button
+						variant="link"
+						class="h-auto shrink-0 self-start p-0 text-sm leading-5 text-foreground underline underline-offset-2 sm:self-auto"
+						disabled={catalog.state !== 'ready'}
+						onclick={() => (editing = { typeId: null })}
 					>
+						Add your own type
+					</Button>
 				</div>
 			</SetupFeaturePanel>
 		{/if}
 	{/snippet}
 </SetupFeatureStep>
+
+{#if editing && catalog.state === 'ready'}
+	<Editor catalog={catalog.catalog} typeId={editing.typeId} onChanged={changed} onClose={() => (editing = null)} />
+{/if}

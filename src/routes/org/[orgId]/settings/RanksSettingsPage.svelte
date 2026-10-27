@@ -198,7 +198,7 @@
 
 		<Tabs.Root value={tab} onValueChange={(value) => (chosenTab = value)}>
 			<!-- The border is an inset shadow so the active tab's underline, drawn below the tab, stays inside the scroll box. -->
-			<div class="flex items-end gap-x-7 overflow-x-auto pt-3.5 pb-px shadow-[inset_0_-1px_0_var(--color-border)]">
+			<div class="flex items-end gap-x-7 overflow-x-auto pt-3.5 pb-0.5 shadow-[inset_0_-1px_0_var(--color-border)]">
 				{#if board.branches.length > 0}
 					<Tabs.List variant="line" aria-label="Branches" class="shrink-0">
 						{#each board.branches as branch (branch.service)}

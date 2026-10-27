@@ -69,44 +69,62 @@
 	);
 	const allReviewed = $derived(model !== null && model.unanswered.length === 0);
 	const open = $derived(model?.unanswered.length ?? 0);
+
+	const HEADLINE = 'font-heading text-5xl leading-12 font-extrabold uppercase lg:text-[64px] lg:leading-[60px]';
+	const SKELETON_TEXT = 'animate-pulse rounded-md bg-muted box-decoration-clone text-transparent';
+	const OPEN_NOTE = 'Open steps keep their place. Finish now and come back from Unit settings any time.';
+	const stillOpen = (count: number) => `${count} ${count === 1 ? 'step' : 'steps'} still open`;
 </script>
 
-<div class="flex max-w-190 flex-col gap-3">
-	{#if model}
-		<p
-			class={cn(
-				'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] uppercase',
-				allReviewed ? 'text-success-foreground' : 'text-muted-foreground'
-			)}
-		>
-			{model.reviewed} of {model.total} reviewed
+<!-- The placeholder stays under the summary, invisible once it resolves, so a summary that fits it moves nothing below. -->
+<div class="grid max-w-190 *:[grid-area:1/1]">
+	<div class={cn('flex flex-col gap-3', model && 'invisible')} aria-hidden="true">
+		<Skeleton class="h-3.5 w-36" />
+		<p class={HEADLINE}>
+			<span class={SKELETON_TEXT}>{stillOpen(9)}</span>
 		</p>
-		<h1 class="font-heading text-5xl leading-12 font-extrabold uppercase lg:text-[64px] lg:leading-[60px]">
-			{allReviewed ? `${orgName} is ready` : `${open} ${open === 1 ? 'step' : 'steps'} still open`}
-		</h1>
-	{:else}
-		<Skeleton class="h-3.5 w-36" aria-hidden="true" />
-		<Skeleton class="h-12 w-2/3 lg:h-[60px]" aria-hidden="true" />
-		<p class="sr-only">Loading the summary</p>
-	{/if}
-	<p class="text-[17px] leading-[26px]">
-		{#if model && !allReviewed}
-			Open steps keep their place. Finish now and come back from Unit settings any time.
-		{:else}
-			Here's what you set up. All of it can be changed in Unit settings, and setup stays there if you want to walk
-			through it again.
-		{/if}
-	</p>
-	{#if model && !allReviewed}
-		<p class="text-sm leading-5 text-muted-foreground">
-			Still open:
-			{#each model.unanswered as step, index (step.key)}
-				<a href={resolve(flow.href(step.slug) as '/')} class="text-foreground underline">{step.title}</a>{index <
-				model.unanswered.length - 1
-					? ', '
-					: '.'}
+		<p class="text-[17px] leading-[26px]"><span class={SKELETON_TEXT}>{OPEN_NOTE}</span></p>
+		<div class="flex flex-col">
+			{#each ['w-full', 'w-2/3'] as width (width)}
+				<div class="flex h-5 items-center"><Skeleton class={cn('h-3.5', width)} /></div>
 			{/each}
-		</p>
+		</div>
+	</div>
+	{#if model}
+		<div class="flex flex-col gap-3">
+			<p
+				class={cn(
+					'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] uppercase',
+					allReviewed ? 'text-success-foreground' : 'text-muted-foreground'
+				)}
+			>
+				{model.reviewed} of {model.total} reviewed
+			</p>
+			<h1 class={HEADLINE}>
+				{allReviewed ? `${orgName} is ready` : stillOpen(open)}
+			</h1>
+			<p class="text-[17px] leading-[26px]">
+				{#if allReviewed}
+					Here's what you set up. All of it can be changed in Unit settings, and setup stays there if you want to walk
+					through it again.
+				{:else}
+					{OPEN_NOTE}
+				{/if}
+			</p>
+			{#if !allReviewed}
+				<p class="text-sm leading-5 text-muted-foreground">
+					Still open:
+					{#each model.unanswered as step, index (step.key)}
+						<a href={resolve(flow.href(step.slug) as '/')} class="text-foreground underline">{step.title}</a>{index <
+						model.unanswered.length - 1
+							? ', '
+							: '.'}
+					{/each}
+				</p>
+			{/if}
+		</div>
+	{:else}
+		<p class="sr-only">Loading the summary</p>
 	{/if}
 </div>
 
@@ -135,8 +153,12 @@
 </dl>
 
 <div class="grid items-start gap-8 md:grid-cols-3">
-	{#each columns ?? [{ label: 'On' }, { label: 'Later' }, { label: 'Off' }] as column (column.label)}
-		<section class="flex flex-col" aria-labelledby="setup-done-{column.label}">
+	{#each columns ?? [{ label: 'On' }, { label: 'Later' }, { label: 'Off' }] as column, index (column.label)}
+		<!-- Stacked, Later and Off wait for On's rows so they appear below it rather than move. -->
+		<section
+			class={cn('flex flex-col', !columns && index > 0 && 'max-md:hidden')}
+			aria-labelledby="setup-done-{column.label}"
+		>
 			<h2 class="flex items-center gap-2 border-b-2 border-foreground pb-2">
 				<span
 					class={cn('size-2 shrink-0 rounded-sm', 'swatch' in column ? column.swatch : 'bg-muted')}
@@ -159,9 +181,9 @@
 					<p class="border-b border-border py-2.5 text-[13px] leading-[18px] text-muted-foreground">None</p>
 				{/each}
 			{:else}
-				<div class="flex flex-col gap-1.5 border-b border-border py-2.5" aria-hidden="true">
-					<Skeleton class="h-4 w-28" />
-					<Skeleton class="h-3.5 w-40" />
+				<div class="flex flex-col gap-0.5 border-b border-border py-2.5" aria-hidden="true">
+					<div class="flex h-5 items-center"><Skeleton class="h-4 w-28" /></div>
+					<div class="flex h-[18px] items-center"><Skeleton class="h-3.5 w-40" /></div>
 				</div>
 			{/if}
 		</section>

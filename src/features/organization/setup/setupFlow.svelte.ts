@@ -82,7 +82,7 @@ export class SetupFlow {
 	facts = $state<SetupFacts | null>(null);
 	pending = $state(false);
 	/** Continue and Finish start nothing while set. */
-	busy = $derived(this.pending || this.#source().navigating);
+	busy = $derived.by(() => this.pending || this.#source().navigating);
 	error = $state<string | null>(null);
 
 	model = $derived.by(() => {

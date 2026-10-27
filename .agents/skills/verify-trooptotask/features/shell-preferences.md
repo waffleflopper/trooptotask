@@ -51,15 +51,15 @@ new, Send feedback, Sign out), for scope/session changes.
 ## Helper controls
 
 Shell and preference verification uses the [shell/preference recipe](shell-preferences.md). `preferences ROLE orgA|orgB`
-reads only the named synthetic user's saved preference and Getting Started rows.
+reads only the named synthetic user's saved preference rows.
 `network arm-observe|arm-fail|arm-hold|arm-hold-fail PAGE user-preferences` binds the exact same-origin A PATCH using
 its Organization UUID, as the Calendar/Training savers do; it records only known preference fields.
 `shell-notification-count` and `shell-organization-switcher` use the canonical Organization route segment and support
 observation, failure and hold for their exact GET/query part, installing before an automatic reload. Restore every
 control. These browser controls establish client scheduling/recovery and do not establish real provider failures.
-`server-source arm user_org_preferences|getting_started_progress fail-hard` separately injects one synthetic
-provider-read 500 in the owned app process. Use `user_org_preferences` for first-paint fallback and strict save/read
-failure proof, and `getting_started_progress` for Organization export failure proof. Restore the control before retry.
+`server-source arm user_org_preferences fail-hard` separately injects one synthetic provider-read 500 in the owned app
+process. Use it for first-paint fallback, strict save/read failure and Organization export failure proof. Restore the
+control before retry.
 Run `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for method, query, origin, tenant
 and response-order isolation.
 
@@ -120,9 +120,11 @@ distinct from ordinary UI or authorization proof.
    shell must remain usable with display defaults, while actual saved preferences stay unchanged. Restore and reload to
    recover saved choices. Separately arm the same control on the already-loaded Training page, then change a visible
    filter: the preference PATCH must fail when its merge read fails, with visible feedback and unchanged saved fields.
-   Restore and explicitly retry. `getting_started_progress` is also an allowed source for Organization export failure
-   proof. These controls return one marked synthetic provider 500 before dispatch; they establish application handling
-   of that response, not a production outage or database-policy failure.
+   Restore and explicitly retry. For Organization export failure, open Settings › Exports as `orgAdmin`, arm the same
+   control last and choose Export JSON at once: expect a visible export failure, a new failed `data_exports` row and no
+   download. Restore, choose Export JSON again: expect a download and a completed row. These controls return one marked
+   synthetic provider 500 before dispatch; they establish application handling of that response, not a production
+   outage or database-policy failure.
 
 9. Separately labeled ordinary HTTP/provider concurrency proof: arm `$V server-source arm user_org_preferences hold` on
    a signed-in owned page, start one preference PATCH and wait for source state `phase: held` with real GET 200. The

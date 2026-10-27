@@ -278,7 +278,14 @@ export async function seedDashboardCurrency({ client, fixture, tag, ownedState, 
 			]
 		],
 		['training_types', 'orgB', [yellowType]],
-		['personnel_trainings', 'orgB', [completion(ids.orgB, ids.personForeign, yellowType.id, 45)]]
+		[
+			'personnel_trainings',
+			'orgB',
+			[
+				completion(ids.orgB, ids.personForeign, yellowType.id, 45),
+				completion(ids.orgB, ids.personForeign, ids.trainingForeignType, 400)
+			]
+		]
 	];
 	for (const [table, organization, rows] of batches)
 		ownedState.seeded.push({ kind: 'dashboard-currency', table, organization, tag, ids: rows.map(({ id }) => id) });

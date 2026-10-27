@@ -88,20 +88,21 @@ local date and timezone.
 ----------------------------------------------------------------------------------------------- |
 --------------------------------------------- | ------------------------------ |
 | `dashboardView`, A | 3/4, 75%; Baker out | Two expired People (Able and Baker), one warning record
-(Unassigned), 25% Person-based currency | 1/1; completed and archived People's excluded | Able has 2/3 active steps, 67%
-|
-| `dashboardScoped`, Alpha | 2/2, 100%; no Baker/unassigned | One expired Person (Able), no warning; 50% currency
+(Unassigned), one Person missing a required record (Loss), 0% Person-based currency
+| 1/1; completed and archived People's excluded | Able has 2/3 active steps, 67% |
+| `dashboardScoped`, Alpha | 2/2, 100%; no Baker/unassigned | One expired Person (Able), one missing (Loss); 0% currency
 | 1/0 | Same Able packet |
 | `dashboardEmpty` | No-personnel note, settled | No scoped records or people
 | 0/0 | None |
 | `dashboardNone` | 0/0; no scoped record facts | Training/Critical Tasks omitted; no feature source is read
 | 0/0 | None |
-| `dashboardForeign`, B | 1/1, 100%; Foreign only | No A Training facts
+| `dashboardForeign`, B | 1/1, 100%; Foreign only | No A Training facts; Foreign misses Foreign Private Training, 0%
 | 1/0 | None |
 
 Currency is Person-based, distinct from Training's required-cell readiness denominator. Three of A's four active People
-have expired/orange warnings, leaving one current Person. Missing completions and yellow warnings do not add People to
-the source-owned expired/orange attention count. Do not silently redefine a failing example.
+have expired/orange warnings and the fourth, Loss, misses an applicable required record, so no Person is current. A
+Person counts once, as expired before missing before expiring. Yellow warnings do not make a Person delinquent; missing
+records do not add to the expired/orange attention count. Do not silently redefine a failing example.
 
 1. **Combined native read.** Run `$V actor dashboardView home` and capture the page. Strength is 3/4 with Baker's
    Training status. Needs you lists seven rows, most urgent first. `NCOER for SPC Able, Synthetic` is Overdue, 5 days
@@ -155,16 +156,17 @@ the source-owned expired/orange attention count. Do not silently redefine a fail
    B, return visibly to A and confirm each Organization's counts. If navigation or the page hook prevents that sequence,
    record the attempted path and limitation rather than crediting a different Calendar hold.
 7. **Currency beyond the detail cap and yellow warnings.** First capture the Training column and the Strength band's
-   by-group strip separately: the column reads `Bravo is lowest at 0%` (Alpha is 50%), while the strip reads
+   by-group strip separately: the column reads `Alpha is lowest at 0%` (Bravo is also 0%), while the strip reads
    `ALPHA 2/2`. Then run `$V seed dashboard-currency` once. Its 12 required A types add 23 expired records (Able has 12,
    Baker 11), all older than the two existing expired records. Unassigned's orange record therefore falls beyond the 25
-   displayed issues; three of four People still need attention, so A currency remains 25%. Loss has a yellow completion
-   on one added type and must not become a fourth delinquent Person. A's record statistics are 25 expired, one orange
-   and one yellow; the Training column still names `Bravo is lowest at 0%`. The two new B rows supply one Foreign yellow
-   completion at +45 days with yellow/orange windows 60/30: B has zero expired/orange People and reads `100%` and
-   `Everyone is current.`, even with an unrelated missing completion. Preserve ordinary page-data statistics, capped
-   issue IDs and complete Group counts separately from native column observations. Reload A/B and repeat Alpha-only and
-   empty-scope reads; Alpha remains 50%, empty settles at 100%. `clean-seeds` removes both journaled cohorts.
+   displayed issues; Unassigned and Loss now miss the added types, so the column reads 0% with
+   `2 Soldiers expired and 2 missing records.` Loss has a yellow completion on one added type. A's record statistics are
+   25 expired, one orange and one yellow; the Training column names `Alpha is lowest at 0%`. The B rows supply one
+   Foreign yellow completion at +45 days with yellow/orange windows 60/30 and a current Foreign Private Training record:
+   B has zero expired/orange/missing People and reads `100%` and `Everyone is current.` Preserve ordinary page-data
+   statistics, capped issue IDs and complete Group counts separately from native column observations. Reload A/B and
+   repeat Alpha-only and empty-scope reads; Alpha reads 0% with `1 Soldier expired and 1 missing records.`, empty
+   settles at 100%. `clean-seeds` removes both journaled cohorts.
 
 8. **Independent server sources.** Before a visible Home navigation from Calendar, arm
    `$V server-source arm TABLE hold 1 120000` for each of `personnel_onboardings`, `rating_scheme_entries`,
@@ -363,9 +365,10 @@ Each column has a title, a big figure, a bar and a note, then a link to its owni
 amber for warning and red only for the worst. Columns share the width equally and close ranks when a section contributes
 none. From 640 to 1023 they wrap two to a row; below 640 they stack.
 
-- **Training** is Person-based currency: a Person with any expired or orange record is not current. The figure is green
-  at 90% or more, amber from 75% and red below. The bar splits current, expiring (orange only) and expired People. The
-  note names the lowest Group when two or more Groups have People and that Group is below 100%.
+- **Training** is Person-based currency: a Person with any expired, orange or missing applicable required record is not
+  current. The figure is green at 90% or more, amber from 75% and red below. The bar splits current, expiring (orange
+  only), missing records and expired People, each Person once in the worst of expired, missing and expiring. The note
+  names the lowest Group when two or more Groups have People and that Group is below 100%.
 - **Critical tasks** shows the summary's overall readiness as `N%` ready, with the 30-day change in points. The bar
   splits the People with an applicable task into three disjoint shares: below the 70% threshold (red), at or above it
   with a task lapsing soon (amber), and ready (green). The note gives the People below the threshold and the tasks
@@ -379,11 +382,11 @@ none. From 640 to 1023 they wrap two to a row; below 640 they stack.
 
 Worked examples from `$V seed dashboard` on A:
 
-- `dashboardView` has four columns. Training reads `25%` in red with 1 current, 1 expiring and 2 expired, and
-  `2 Soldiers expired and 1 expiring. Bravo is lowest at 0%.` Critical tasks reads `14%` ready with all four People
-  below the threshold (`4 of 4 Soldiers below the 70% threshold`). Evaluations reads `1` overdue with
-  `1 more due within 30 days and 1 within 60. 2 are current.` Arriving and leaving reads `1` with the Loss Person's ETS
-  by name and `1 Soldier in onboarding.`
+- `dashboardView` has four columns. Training reads `0%` in red with 0 current, 1 expiring, 1 missing records and 2
+  expired, and `2 Soldiers expired, 1 missing records and 1 expiring. Alpha is lowest at 0%.` Critical tasks reads `14%`
+  ready with all four People below the threshold (`4 of 4 Soldiers below the 70% threshold`). Evaluations reads `1`
+  overdue with `1 more due within 30 days and 1 within 60. 2 are current.` Arriving and leaving reads `1` with the Loss
+  Person's ETS by name and `1 Soldier in onboarding.`
 - `dashboardScoped` reads Training `50%` with `1 Soldier expired.`, Critical tasks `25%` with
   `2 of 2 Soldiers below the 70% threshold`, and Evaluations `1` with `None due within 60 days. 1 is current.`
 - `dashboardNone` has only Arriving and leaving. Without Training, Critical Tasks or rating access the other three
@@ -417,8 +420,8 @@ Start onboarding opens `Start Onboarding` directly, and Tasking opens `Create ta
 Person's records on `Continue` and Start onboarding reads templates and ranks (`GET api/onboarding/start-options`) as it
 opens.
 
-On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out, Training reads `100%` current and
-Arriving and leaving reads `No one in onboarding.`
+On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out, Training reads `0%` current with
+`3 Soldiers missing records.` and Arriving and leaving reads `No one in onboarding.`
 
 1. **Visibility.** `orgOwner` sees all four with Tasking filled. `dashboardView` sees no entry and no label.
    `calendarOperate` sees Status and a filled Tasking, `calendarScoped` Status, `rosterManager` only Training record and

@@ -70,19 +70,15 @@
 	const allReviewed = $derived(model !== null && model.unanswered.length === 0);
 	const open = $derived(model?.unanswered.length ?? 0);
 
-	const HEADLINE = 'font-heading text-5xl leading-12 font-extrabold uppercase lg:text-[64px] lg:leading-[60px]';
 	const SKELETON_TEXT = 'animate-pulse rounded-md bg-muted box-decoration-clone text-transparent';
 	const OPEN_NOTE = 'Open steps keep their place. Finish now and come back from Unit settings any time.';
-	const stillOpen = (count: number) => `${count} ${count === 1 ? 'step' : 'steps'} still open`;
 </script>
 
 <!-- The placeholder stays under the summary, invisible once it resolves, so a summary that fits it moves nothing below. -->
 <div class="grid max-w-190 *:[grid-area:1/1]">
 	<div class={cn('flex flex-col gap-3', model && 'invisible')} aria-hidden="true">
 		<Skeleton class="h-3.5 w-36" />
-		<p class={HEADLINE}>
-			<span class={SKELETON_TEXT}>{stillOpen(9)}</span>
-		</p>
+		<Skeleton class="my-1 h-10 w-2/3 lg:my-1.5 lg:h-12" />
 		<p class="text-[17px] leading-[26px]"><span class={SKELETON_TEXT}>{OPEN_NOTE}</span></p>
 		<div class="flex flex-col">
 			{#each ['w-full', 'w-2/3'] as width (width)}
@@ -100,8 +96,8 @@
 			>
 				{model.reviewed} of {model.total} reviewed
 			</p>
-			<h1 class={HEADLINE}>
-				{allReviewed ? `${orgName} is ready` : stillOpen(open)}
+			<h1 class="font-heading text-5xl leading-12 font-extrabold uppercase lg:text-[64px] lg:leading-[60px]">
+				{allReviewed ? `${orgName} is ready` : `${open} ${open === 1 ? 'step' : 'steps'} still open`}
 			</h1>
 			<p class="text-[17px] leading-[26px]">
 				{#if allReviewed}

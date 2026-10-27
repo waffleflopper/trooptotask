@@ -42,7 +42,7 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	const sentences: string[] = [];
 	const counts = [
 		{ count: expired, label: 'expired' },
-		{ count: missing, label: 'missing records' },
+		{ count: missing, label: 'missing training' },
 		{ count: expiring, label: 'expiring' }
 	]
 		.filter(({ count }) => count > 0)
@@ -66,7 +66,7 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 			shares: [
 				{ label: 'current', count: current, tone: 'good' },
 				{ label: 'expiring', count: expiring, tone: 'warning' },
-				{ label: 'missing records', count: missing, tone: 'critical' },
+				{ label: 'missing training', count: missing, tone: 'critical' },
 				{ label: 'expired', count: expired, tone: 'critical' }
 			]
 		},

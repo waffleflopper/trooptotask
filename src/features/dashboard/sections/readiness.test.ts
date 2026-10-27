@@ -145,7 +145,7 @@ describe('trainingReadiness', () => {
 				shares: [
 					{ label: 'current', count: 1, tone: 'good' },
 					{ label: 'expiring', count: 2, tone: 'warning' },
-					{ label: 'missing records', count: 0, tone: 'critical' },
+					{ label: 'missing training', count: 0, tone: 'critical' },
 					{ label: 'expired', count: 1, tone: 'critical' }
 				]
 			},
@@ -169,11 +169,11 @@ describe('trainingReadiness', () => {
 				shares: [
 					{ label: 'current', count: 0, tone: 'good' },
 					{ label: 'expiring', count: 0, tone: 'warning' },
-					{ label: 'missing records', count: 1, tone: 'critical' },
+					{ label: 'missing training', count: 1, tone: 'critical' },
 					{ label: 'expired', count: 0, tone: 'critical' }
 				]
 			},
-			note: '1 Soldier missing records.'
+			note: '1 Soldier missing training.'
 		});
 
 		const mixed = trainingReadiness(
@@ -183,7 +183,7 @@ describe('trainingReadiness', () => {
 			}),
 			everything
 		);
-		expect(mixed).toMatchObject({ figure: '17%', note: '2 Soldiers expired, 2 missing records and 1 expiring.' });
+		expect(mixed).toMatchObject({ figure: '17%', note: '2 Soldiers expired, 2 missing training and 1 expiring.' });
 	});
 
 	it.each([

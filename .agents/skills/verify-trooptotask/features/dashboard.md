@@ -160,12 +160,12 @@ records do not add to the expired/orange attention count. Do not silently redefi
    `ALPHA 2/2`. Then run `$V seed dashboard-currency` once. Its 12 required A types add 23 expired records (Able has 12,
    Baker 11), all older than the two existing expired records. Unassigned's orange record therefore falls beyond the 25
    displayed issues; Unassigned and Loss now miss the added types, so the column reads 0% with
-   `2 Soldiers expired and 2 missing records.` Loss has a yellow completion on one added type. A's record statistics are
-   25 expired, one orange and one yellow; the Training column names `Alpha is lowest at 0%`. The B rows supply one
+   `2 Soldiers expired and 2 missing training.` Loss has a yellow completion on one added type. A's record statistics
+   are 25 expired, one orange and one yellow; the Training column names `Alpha is lowest at 0%`. The B rows supply one
    Foreign yellow completion at +45 days with yellow/orange windows 60/30 and a current Foreign Private Training record:
    B has zero expired/orange/missing People and reads `100%` and `Everyone is current.` Preserve ordinary page-data
    statistics, capped issue IDs and complete Group counts separately from native column observations. Reload A/B and
-   repeat Alpha-only and empty-scope reads; Alpha reads 0% with `1 Soldier expired and 1 missing records.`, empty
+   repeat Alpha-only and empty-scope reads; Alpha reads 0% with `1 Soldier expired and 1 missing training.`, empty
    settles at 100%. `clean-seeds` removes both journaled cohorts.
 
 8. **Independent server sources.** Before a visible Home navigation from Calendar, arm
@@ -367,7 +367,7 @@ none. From 640 to 1023 they wrap two to a row; below 640 they stack.
 
 - **Training** is Person-based currency: a Person with any expired, orange or missing applicable required record is not
   current. The figure is green at 90% or more, amber from 75% and red below. The bar splits current, expiring (orange
-  only), missing records and expired People, each Person once in the worst of expired, missing and expiring. The note
+  only), missing training and expired People, each Person once in the worst of expired, missing and expiring. The note
   names the lowest Group when two or more Groups have People and that Group is below 100%.
 - **Critical tasks** shows the summary's overall readiness as `N%` ready, with the 30-day change in points. The bar
   splits the People with an applicable task into three disjoint shares: below the 70% threshold (red), at or above it
@@ -382,12 +382,12 @@ none. From 640 to 1023 they wrap two to a row; below 640 they stack.
 
 Worked examples from `$V seed dashboard` on A:
 
-- `dashboardView` has four columns. Training reads `0%` in red with 0 current, 1 expiring, 1 missing records and 2
-  expired, and `2 Soldiers expired, 1 missing records and 1 expiring. Alpha is lowest at 0%.` Critical tasks reads `14%`
-  ready with all four People below the threshold (`4 of 4 Soldiers below the 70% threshold`). Evaluations reads `1`
-  overdue with `1 more due within 30 days and 1 within 60. 2 are current.` Arriving and leaving reads `1` with the Loss
-  Person's ETS by name and `1 Soldier in onboarding.`
-- `dashboardScoped` reads Training `50%` with `1 Soldier expired.`, Critical tasks `25%` with
+- `dashboardView` has four columns. Training reads `0%` in red with 0 current, 1 expiring, 1 missing training and 2
+  expired, and `2 Soldiers expired, 1 missing training and 1 expiring. Alpha is lowest at 0%.` Critical tasks reads
+  `14%` ready with all four People below the threshold (`4 of 4 Soldiers below the 70% threshold`). Evaluations reads
+  `1` overdue with `1 more due within 30 days and 1 within 60. 2 are current.` Arriving and leaving reads `1` with the
+  Loss Person's ETS by name and `1 Soldier in onboarding.`
+- `dashboardScoped` reads Training `0%` with `1 Soldier expired and 1 missing training.`, Critical tasks `25%` with
   `2 of 2 Soldiers below the 70% threshold`, and Evaluations `1` with `None due within 60 days. 1 is current.`
 - `dashboardNone` has only Arriving and leaving. Without Training, Critical Tasks or rating access the other three
   columns are absent, not empty, and the page data carries no Critical Tasks summary.
@@ -421,7 +421,7 @@ Person's records on `Continue` and Start onboarding reads templates and ranks (`
 opens.
 
 On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out, Training reads `0%` current with
-`3 Soldiers missing records.` and Arriving and leaving reads `No one in onboarding.`
+`3 Soldiers missing training.` and Arriving and leaving reads `No one in onboarding.`
 
 1. **Visibility.** `orgOwner` sees all four with Tasking filled. `dashboardView` sees no entry and no label.
    `calendarOperate` sees Status and a filled Tasking, `calendarScoped` Status, `rosterManager` only Training record and
@@ -436,8 +436,8 @@ On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out
    `Continue`: the fields disable and `Continue` spins until `network release`. For the Person's current record, set an
    old completion date so `STATUS` reads `Expired`. Arm `arm-fail` on the same family and choose `Save`:
    `Training record was not saved` shows inline. Restore and save. The dialog closes, one `GET api/dashboard/summary`
-   refreshes the summary without another workspace bootstrap, Training drops to `67%` with `1 expired`. Reload and read
-   again.
+   refreshes the summary without another workspace bootstrap, Training stays `0%` with
+   `1 Soldier expired and 2 missing training.` Reload and read again.
 4. **Start onboarding.** Arm `arm-hold PAGE onboarding/start-options` and open it: a skeleton dialog reads
    `Loading onboarding templates.` with only `Cancel`. Arm `arm-fail` on the same family and open it again:
    `Could not open Start Onboarding` with `Try again`, which then loads the dialog. Choose a Member and note the

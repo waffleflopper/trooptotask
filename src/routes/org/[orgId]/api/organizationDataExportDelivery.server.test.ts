@@ -549,16 +549,16 @@ describe('retained Organization export projection', () => {
 				}
 			},
 			{
-				key: 'gettingStartedProgress',
-				table: 'getting_started_progress',
-				sheet: 'Raw - Getting Started Progress',
+				key: 'organizationSetup',
+				table: 'organization_setup',
+				sheet: 'Raw - Organization Setup',
 				row: {
-					id: 'progress-saved',
 					organization_id: 'org-1',
-					user_id: 'owner-1',
-					completed_steps: ['organization', 'personnel'],
-					dismissed: false,
-					created_at: '2026-09-01T00:00:00.123456Z'
+					branch: 'army',
+					answers: { groups: 'reviewed', training: 'later' },
+					prompts: { setup: { never: true } },
+					finished_at: null,
+					updated_at: '2026-09-01T00:00:00.123456Z'
 				}
 			},
 			{
@@ -800,9 +800,16 @@ describe('retained Organization export projection', () => {
 				: 'organization_id';
 			rows.push({ ...rows[0], id: 'foreign-' + table, [scopeColumn]: 'foreign-org' });
 		}
-		const fetchRows = async (input: RequestInfo | URL, denySensitive: boolean) => {
+		const fetchRows = async (input: RequestInfo | URL, denySensitive: boolean, init?: RequestInit) => {
 			const url = new URL(String(input));
 			const table = url.pathname.split('/').at(-1)!;
+			if (table === 'export_organization_setup') {
+				const body = JSON.parse(String(init?.body));
+				return Response.json(
+					(providerRows.organization_setup ?? []).filter((row) => row.organization_id === body.p_organization_id)
+				);
+			}
+
 			if (
 				denySensitive &&
 				[
@@ -838,11 +845,11 @@ describe('retained Organization export projection', () => {
 		};
 		const client = createClient('http://export-provider.test', 'synthetic-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
-			global: { fetch: (input) => fetchRows(input, true) }
+			global: { fetch: (input, init) => fetchRows(input, true, init) }
 		});
 		const adminClient = createClient('http://export-provider.test', 'synthetic-service-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
-			global: { fetch: (input) => fetchRows(input, false) }
+			global: { fetch: (input, init) => fetchRows(input, false, init) }
 		});
 		const actor = createTestAuthContext({ orgId: 'org-1' });
 		const result = await loadOrganizationExportPayload(

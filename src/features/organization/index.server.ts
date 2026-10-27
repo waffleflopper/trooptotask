@@ -76,3 +76,14 @@ export {
 	readOrganizationMembershipAccess,
 	readOrganizationMembershipForRequest
 } from './organizationMembershipRead.server';
+
+export { createSupabaseOrganizationSetupPort } from './setup/persistence.server';
+export type { OrganizationSetupPort } from './setup/persistence.server';
+export {
+	saveOrganizationSetupAnswer,
+	saveOrganizationSetupBranch,
+	finishOrganizationSetup,
+	saveOrganizationSetupPrompt
+} from './setup/operations.server';
+export { loadOrganizationSetupFacts } from './setup/facts.server';
+export type { SetupFactReads } from './setup/facts.server';

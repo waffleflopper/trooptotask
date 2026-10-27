@@ -60,7 +60,6 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261003000100_cancel_own_deletion_request.sql",
     "20261003000200_platform_organization_membership_commands.sql",
     "20261004000200_critical_task_archive_retention.sql",
-    "20261004000100_scope_getting_started_progress.sql",
     "20261004100618_training_readiness_goal.sql",
     "20261006000100_atomic_calendar_availability_removal.sql",
     "20261012000100_invitation_grant_liveness.sql",
@@ -133,6 +132,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261026103000_calendar_tasking_dashboard.sql",
     "20261026110000_calendar_tasking_detail.sql",
     "20261026120000_calendar_event_deletion.sql",
+    "20261027090000_organization_setup.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -234,6 +234,7 @@ STAGED_UPGRADE_SQL_TESTS = (
     "setup_email_people.sql",
     "platform_operator_authorization.sql",
     "access_request_server_writes.sql",
+    "organization_setup_writes.sql",
     "whats_new_and_announcements.sql",
     "platform_organization_directory.sql",
     "feedback_staff_access.sql",

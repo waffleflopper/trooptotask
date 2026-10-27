@@ -41,12 +41,6 @@
 	const cardsIn = typed + 300;
 	const approved = cardsIn + changes.length * 350 + 600;
 
-	const tasking = [
-		{ name: 'STAFFED', value: '3 / 4 medics', short: false },
-		{ name: 'EQUIPPED', value: '3 of 4 ready', short: true },
-		{ name: 'ON TIME', value: 'Starts Mon 19 Oct', short: false }
-	];
-
 	const verbs = [
 		{
 			verb: 'ASK',
@@ -66,9 +60,9 @@
 </script>
 
 <PublicSection id="whats-next" class="gap-16 lg:gap-[72px]">
-	<PublicHeading label="WHAT'S NEXT · IN DESIGN NOW" lines={['ADMIN UPDATES.', 'DONE IN SECONDS.']}>
-		Built on the same foundation as everything above. These are being designed with leaders now and are not yet in the
-		product.
+	<PublicHeading lines={['COMING SOON:', 'ADMIN, DONE IN SECONDS.']} lineClass={['text-accent', '']}>
+		We are building these with leaders now, on the same foundation as everything above. None of it is in the product
+		yet.
 	</PublicHeading>
 
 	<div class="flex flex-col overflow-hidden rounded-lg border border-border lg:flex-row" {@attach reveal}>
@@ -76,10 +70,7 @@
 			class="flex flex-col justify-between gap-12 border-b border-border p-6 sm:p-12 lg:w-[420px] lg:shrink-0 lg:border-r lg:border-b-0 xl:w-[520px]"
 		>
 			<div class="flex flex-col gap-4">
-				<div class="flex items-center justify-between gap-4">
-					<p class={[monoLabel, 'text-accent-text']}>DROP ZONE · AI</p>
-					<p class={[monoLabel, 'text-muted-foreground']}>0:11 ELAPSED</p>
-				</div>
+				<p class={[monoLabel, 'text-muted-foreground']}>0:11 ELAPSED</p>
 				<h3 class={display}>JUST SAY IT.</h3>
 				<p class={[body, 'text-muted-foreground']}>
 					Talk through the changes the way you would tell your first sergeant. Drop Zone drafts the updates, and you
@@ -166,56 +157,17 @@
 		</div>
 	</div>
 
-	<div class="flex flex-col gap-10 lg:flex-row lg:items-center lg:gap-20 lg:pt-14" {@attach reveal}>
-		<div class={[fadeUp, 'flex shrink-0 flex-col gap-5 lg:w-[360px]']}>
-			<p class={[monoLabel, 'text-accent-text']}>EVENTS & TASKINGS · IN DESIGN</p>
-			<h3 class={title}>EVERY TASKING. TRACKED TO DONE.</h3>
-			<p class={[body, 'text-muted-foreground']}>
-				The tasking that arrived as a forwarded email becomes a tracked requirement, with an owner, the people it needs
-				and the equipment it is waiting on. Leaders staff it from their own roster and see conflicts before they assign.
-			</p>
-			<dl class="border-t border-border">
-				{#each tasking as row (row.name)}
-					<div class="flex h-11 items-center justify-between border-b border-border">
-						<dt class={[monoLabel, 'text-muted-foreground']}>{row.name}</dt>
-						<dd
-							class={[
-								'font-mono text-[0.8125rem] leading-4 font-normal',
-								row.short ? 'text-danger-foreground' : 'text-foreground'
-							]}
-						>
-							{row.value}
-						</dd>
-					</div>
-				{/each}
-			</dl>
-		</div>
-		<div class={[fadeUp, 'grow overflow-hidden rounded-lg border border-border delay-150']}>
-			<img
-				src="/landing/events-taskings.webp"
-				alt="Events and Taskings design: a list of active taskings with status, responsible group, people staffed, equipment readiness and next date."
-				width="840"
-				height="525"
-				loading="lazy"
-				class="block h-auto w-full"
-			/>
-		</div>
-	</div>
-
 	<div class="flex flex-col gap-10 lg:pt-14" {@attach reveal}>
-		<div class="flex flex-col gap-3 border-t-2 border-foreground pt-5 sm:flex-row sm:items-baseline sm:justify-between">
-			<p class={[monoLabel, 'text-accent-text']}>AI ACROSS THE PLATFORM · IN DESIGN</p>
-			<p class="font-body text-lg leading-[1.375rem] font-light text-muted-foreground">
-				Plain questions, answered from your unit's live data.
-			</p>
-		</div>
+		<p class={[body, 'border-t-2 border-foreground pt-5 text-foreground']}>
+			Ask in plain words. Answers come from your unit's live data.
+		</p>
 		<div class="grid grid-cols-1 gap-10 overflow-x-clip sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
 			{#each verbs as item, i (item.verb)}
-				<div class="flex flex-col gap-5 border-border xl:border-l xl:px-6 xl:first:border-l-0 xl:first:pl-0">
+				<div class="flex flex-col gap-5 border-border xl:border-l xl:px-4 xl:first:border-l-0 xl:first:pl-0">
 					<p
 						class={[
 							display,
-							'origin-bottom-left text-accent xl:text-[length:min(4.625rem,6.6vw_-_1.375rem)] transition-[opacity,scale] duration-500 in-data-[reveal=pending]:scale-125 in-data-[reveal=pending]:opacity-0',
+							'origin-bottom-left text-accent xl:text-[length:min(5rem,6.8vw_-_1.2rem)] transition-[opacity,scale] duration-500 in-data-[reveal=pending]:scale-125 in-data-[reveal=pending]:opacity-0',
 							ease
 						]}
 						style:transition-delay="{i * 220}ms"

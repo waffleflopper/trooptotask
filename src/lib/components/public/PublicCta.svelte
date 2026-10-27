@@ -17,7 +17,6 @@
 </script>
 
 <PublicBand
-	label="The bottom line"
 	lines={['Less admin. More training.', "That's readiness."]}
 	copy="Request reviewed access for your unit. We set up your structure with you, import your roster and train your team leads."
 >

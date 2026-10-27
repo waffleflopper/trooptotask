@@ -20,7 +20,7 @@
 	]);
 
 	const linkClass =
-		'no-underline transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-chrome-accent max-sm:text-xs max-sm:tracking-[0.08em]';
+		'no-underline transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-chrome-accent max-sm:tracking-[0.08em]';
 </script>
 
 <nav aria-label="Primary" class="sticky top-0 z-100 bg-chrome">

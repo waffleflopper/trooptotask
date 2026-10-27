@@ -45,8 +45,7 @@
 			source: 'Outlook · Inbox (214)',
 			holds: 'Tasking requirements',
 			fails: 'RE: RE: FW: TASKING — BMC LANE SUPPORT',
-			home: 'TASKINGS · NEXT',
-			upcoming: true
+			home: 'TASKINGS'
 		}
 	];
 
@@ -55,8 +54,8 @@
 </script>
 
 <PublicSection class="gap-16 lg:gap-16">
-	<PublicHeading label="THE ANSWER EXISTS" lines={['SCATTERED ACROSS', 'EVERY TRACKER.']}>
-		Every leader keeps their own copy. Before anyone can answer the question, someone has to reconcile seven of them by
+	<PublicHeading lines={['SCATTERED ACROSS', 'EVERY TRACKER.']}>
+		Every leader keeps their own copy. Before anyone can say who is ready, someone has to reconcile seven of them by
 		hand.
 	</PublicHeading>
 	<table class="block w-full border-t-2 border-foreground" {@attach reveal}>
@@ -89,26 +88,16 @@
 						{row.fails}
 					</td>
 					<td class="col-start-2 row-start-2 lg:col-start-auto lg:row-start-auto">
-						<span
-							class={[
-								monoLabel,
-								'flex items-center justify-end gap-3 whitespace-nowrap',
-								row.upcoming ? 'text-muted-foreground' : 'text-foreground'
-							]}
-						>
+						<span class={[monoLabel, 'flex items-center justify-end gap-3 whitespace-nowrap text-foreground']}>
 							{row.home}
-							{#if row.upcoming}
-								<span class="size-2 shrink-0 rounded-[1px] border border-muted-foreground" aria-hidden="true"></span>
-							{:else}
-								<span
-									class={[
-										'size-2 shrink-0 rounded-[1px] bg-accent transition-colors duration-300 in-data-[reveal=pending]:bg-border',
-										ease
-									]}
-									style:transition-delay="{700 + i * 160}ms"
-									aria-hidden="true"
-								></span>
-							{/if}
+							<span
+								class={[
+									'size-2 shrink-0 rounded-[1px] bg-accent transition-colors duration-300 in-data-[reveal=pending]:bg-border',
+									ease
+								]}
+								style:transition-delay="{700 + i * 160}ms"
+								aria-hidden="true"
+							></span>
 						</span>
 					</td>
 				</tr>

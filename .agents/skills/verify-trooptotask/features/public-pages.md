@@ -29,6 +29,8 @@ the app does today, and no page states a price, plan, subscription, trial or quo
 - `public-claims`: no public page claims a feature, price, plan or quota the product does not have.
 - `public-appearance`: Home, About, Security, Privacy and Terms at 1440x900, 1024x768 and 390x844 with the stored theme
   light and dark, no horizontal overflow, no console error.
+- `public-type`: four text sizes (80, 32, 18 and 13px) and three weights (700 for the one bold, 400 and 300). No section
+  opens with a small all-caps eyebrow above its heading.
 
 ## How to get to it (user POV)
 
@@ -83,46 +85,51 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    control's rect to lie inside `0..innerWidth`. Repeat at 1024x768 and expect the full header on one line with no
    overlap. Record the actual header text and footer link list.
 
-5. **Home hero.** Open `$ORIGIN/` at 1440x900 signed out. Expect, in order: the 80px dark header, then at y 208 the
-   amber eyebrow `READINESS · BUILT FOR THE COMPANY`, then the `h1` at y 248 whose first line `LESS TIME ON ADMIN.` is
-   muted grey and second line `MORE TIME WITH SOLDIERS.` amber, both 80px Barlow Condensed on a 76px line (the `h1`
-   height is 152px). Below it a serif paragraph no wider than 520px, then `SEE IT WORK` (underlined, `href="#platform"`)
-   beside a 48px-high `Request Access` button (`/auth/request-access`) whose right edge sits at x 1360. The dashboard
-   image is 1280x520 at x 80, y 624 with its top corners rounded and its alt text starting `TroopToTask dashboard`. The
-   hero and header share one near-black background with no seam, and the image is the only element below the fold line
-   that is not lazy (`loading` is not `lazy`, `fetchpriority="high"`). Reload with no scroll: the two headline lines
-   wipe in left to right, the second 200ms after the first, and under `prefers-reduced-motion: reduce` both are visible
-   at once with no transition. Disabling JavaScript (or reading the server HTML with `fetch`) still contains both lines.
+5. **Home hero.** Open `$ORIGIN/` at 1440x900 signed out. Expect, in order: the 80px dark header, then the `h1` at y 208
+   with no eyebrow above it, whose first line `LESS TIME ON ADMIN.` is muted grey and second line
+   `MORE TIME WITH SOLDIERS.` amber, both 80px Barlow Condensed on a 76px line (the `h1` height is 152px). Below it a
+   serif paragraph no wider than 520px, then `SEE IT WORK` (underlined, `href="#platform"`) beside a 48px-high
+   `Request Access` button (`/auth/request-access`) whose right edge sits at x 1360. The dashboard image is 1280x520 at
+   x 80, y 584 with its top corners rounded and its alt text starting `TroopToTask dashboard`. The hero and header share
+   one near-black background with no seam, and the image is the only element below the fold line that is not lazy
+   (`loading` is not `lazy`, `fetchpriority="high"`). Reload with no scroll: the two headline lines wipe in left to
+   right, the second 200ms after the first, and under `prefers-reduced-motion: reduce` both are visible at once with no
+   transition. Disabling JavaScript (or reading the server HTML with `fetch`) still contains both lines.
 
-6. **Scattered ledger.** Scroll the first light band into view. Expect eyebrow `THE ANSWER EXISTS` in amber, the
-   two-line heading `SCATTERED ACROSS / EVERY TRACKER.` in near black, and on its right at 1440 a 420px-wide lead
-   paragraph. Below it a table with a 2px top rule, the headers `WHERE IT LIVES TODAY`, `WHAT IT HOLDS`,
-   `WHAT GOES WRONG` and `IN TROOPTOTASK`, and seven rows, each at least 64px high. Row one is
-   `LEAVE_TRACKER_FINAL_v7.xlsx` / `Leave, TDY and appointments` / `#REF! in the totals row` / `CALENDAR`. The first six
-   rows end in a filled amber square after their `IN TROOPTOTASK` label; the seventh, `TASKINGS · NEXT`, ends in an
-   empty outlined square, because that part is not built yet. Cells in the second column use regular serif weight
-   (`font-weight: 400`); the third column and every lead paragraph use light (300); every mono label is 400. After the
-   band scrolls into view the squares turn from grey to amber one row at a time. Below 1024 the column headers are
-   visually hidden and each row stacks as source, holds and goes-wrong lines, still with its label.
+6. **Scattered ledger.** Scroll the first light band into view. Expect no eyebrow, the two-line heading
+   `SCATTERED ACROSS / EVERY TRACKER.` in near black, and on its right at 1440 a 420px-wide lead paragraph starting
+   `Every leader keeps their own copy.` Below it a table with a 2px top rule, the headers `WHERE IT LIVES TODAY`,
+   `WHAT IT HOLDS`, `WHAT GOES WRONG` and `IN TROOPTOTASK`, and seven rows, each at least 64px high. Row one is
+   `LEAVE_TRACKER_FINAL_v7.xlsx` / `Leave, TDY and appointments` / `#REF! in the totals row` / `CALENDAR`. Every row
+   ends in a filled amber square after its `IN TROOPTOTASK` label; the seventh reads `TASKINGS`. Cells in the second
+   column use regular serif weight (`font-weight: 400`); the third column and every lead paragraph use light (300);
+   every mono label is 400. After the band scrolls into view the squares turn from grey to amber one row at a time.
+   Below 1024 the column headers are visually hidden and each row stacks as source, holds and goes-wrong lines, still
+   with its label.
 
-7. **Duty-day thesis.** Scroll to the first dark band after the ledger. Expect eyebrow `WHY IT MATTERS`, heading
-   `HALF A DUTY DAY,` in muted grey over `GIVEN BACK.` in near white, then a figure captioned
-   `ONE LEADER'S DUTY DAY, IN THEIR WORDS` with the legend `ADMIN` and `WITH SOLDIERS`. The `BEFORE` bar is half grey
-   and half dim amber under the words `half my day on administrative tasks`. The `WITH TROOPTOTASK` bar shows its grey
-   admin segment at 8% of the bar width and the rest bright amber under `nearly all my day with the Soldiers`; read the
-   grey segment's width a few seconds after it enters view. Before it enters view (with motion allowed) it is 50%, and
-   with `prefers-reduced-motion: reduce` it is 8% at once. The axis reads `0600`, `1200`, `1800`. Beside the chart a
-   block with a 2px amber left rule reads `Every hour a leader is not reconciling trackers...` and
-   `WORDS · SFC, 1-43 ADA`; below 1024 the quote stacks under the chart.
+7. **Duty-day thesis.** Scroll to the first dark band after the ledger. Expect no eyebrow and no testimonial, the
+   heading `ADMIN TIME` in muted grey over `IS SOLDIER TIME.` in near white, and a lead starting
+   `Every hour spent reconciling trackers`. Below it a list of five trades. Each row shows a chore in light grey serif
+   with a strikethrough (`Reconciling three leave trackers`, `Rebuilding the training meeting slides`,
+   `Texting around to find who has CQ`, `Chasing expired training one name at a time`,
+   `Re-copying an in-processing checklist`), an amber `→` at 1024 and above, and what the leader does instead as a 32px
+   condensed line (`ON THE RANGE WITH THEIR SQUAD.`, `COUNSELING A SOLDIER.`, `IN THE MOTOR POOL.`,
+   `RUNNING THE TRAINING ITSELF.`, `SPONSORING THE NEW ARRIVAL.`). The accessible text of each row reads
+   `Instead of <chore> they are <instead>`. With motion allowed the rows fade up in turn as the list enters view and
+   each strikethrough draws in after its row; with `prefers-reduced-motion: reduce` every row and strike shows at once.
+   Below 1024 each row stacks the chore over its replacement.
 
-8. **Available today.** Click header `Platform` (or scroll). Expect `AVAILABLE TODAY` eyebrow, heading
-   `ONE FORMATION. / ONE SOURCE OF TRUTH.`, then six product screenshots captioned `01 · CALENDAR`, `02 · PERSONNEL`,
-   `03 · TRAINING REPORTS`, `04 · TRAINING`, `05 · EVALS` and `06 · ONBOARDING`, each with a bold condensed heading and
-   a serif paragraph. Layout at 1440: shot 01 full width, shots 02 and 03 side by side, shots 04 to 06 in three columns;
-   below 768 every shot stacks to one column. Every `img` has a non-empty `alt`, a `width` and `height` attribute, and
-   `loading="lazy"`, and none is wider than its column. The section element has `id="platform"`.
+8. **Available today.** Click header `Platform` (or scroll). Expect no eyebrow, heading
+   `ONE FORMATION. / ONE SOURCE OF TRUTH.` and a lead starting `All of it is in TroopToTask today.`, then seven `h3`
+   captions in 32px condensed type, each a muted feature name over its claim: `CALENDAR.` / `WHO'S WHERE. EVERY DAY.`,
+   `EVENTS & TASKINGS.` / `EVERY TASKING. TRACKED TO DONE.`, `PERSONNEL.`, `TRAINING REPORTS.`, `TRAINING.`, `EVALS.`
+   and `ONBOARDING.`, each with a serif paragraph and no number. Layout at 1440: Calendar full width; Events & Taskings
+   with a 420px text column beside its image and the rows `STAFFED 3 / 4 medics`, `EQUIPPED 3 of 4 ready` in red and
+   `ON TIME Starts Mon 19 Oct`; Personnel and Training reports side by side; Training, Evals and Onboarding in three
+   columns. Below 768 every block stacks to one column. Every `img` has a non-empty `alt`, a `width` and `height`
+   attribute, and `loading="lazy"`, and none is wider than its column. The section element has `id="platform"`.
 
-9. **Scoped access.** Scroll to the second dark band. Expect eyebrow `SCOPED ACCESS · BUILT IN` and heading
+9. **Scoped access.** Scroll to the second dark band. Expect no eyebrow and the heading
    `EVERY LEADER / OWNS THEIR PIECE.`, both heading lines near white. A `group` named `Access tiers` holds four buttons:
    `COMMANDER · 1SG` (`81`), `PLATOON SERGEANT` (`27`), `SQUAD LEADER` (`9`) and `TEAM LEADER` (`4`), each with
    `aria-pressed`. On load exactly one is pressed, `SQUAD LEADER`, with an amber left rule, and the line under the grid
@@ -137,24 +144,24 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    `window.matchMedia` with an object whose `matches` is true for `(prefers-reduced-motion: reduce)`. Below 1280 the
    tiers sit above the grid.
 
-10. **What's next.** Click header `What's next`. Expect `WHAT'S NEXT · IN DESIGN NOW`, heading
-    `ADMIN UPDATES. / DONE IN SECONDS.` and the lead saying these are not yet in the product. A bordered card holds
-    `DROP ZONE · AI`, `JUST SAY IT.` and a transcript that types in word by word, then three change cards
+10. **What's next.** Click header `What's next`. Expect no eyebrow and the heading `COMING SOON:` in amber over
+    `ADMIN, DONE IN SECONDS.` in near black, with the lead ending `None of it is in the product yet.` A bordered card
+    holds `0:11 ELAPSED`, `JUST SAY IT.` and a transcript that types in word by word, then three change cards
     (`CALENDAR · ADD STATUS`, `TRAINING · LOG COMPLETION`, `TASKINGS · ASSIGN PERSON`) whose `REVIEW` tags change to
-    updated, ending with `DISCARD` and `APPROVE 3 CHANGES`; none of these is a working control. Under it the
-    `EVENTS & TASKINGS · IN DESIGN` block lists `STAFFED 3 / 4 medics`, `EQUIPPED 3 of 4 ready` in red and
-    `ON TIME Starts Mon 19 Oct` beside an image. Last the `AI ACROSS THE PLATFORM · IN DESIGN` row shows four verbs
-    `ASK`, `BRIEF`, `FORECAST` and `FILL` in amber, each with a quoted prompt and a result line. Every verb is on one
-    line at 1440, and the verbs form two columns below 1280. The section element has `id="whats-next"`. Nothing in this
-    section claims the product does these things today.
+    updated, ending with `DISCARD` and `APPROVE 3 CHANGES`; none of these is a working control. Events & Taskings is not
+    in this section. Last a row under a 2px rule reads `Ask in plain words. Answers come from your unit's live data.`
+    and shows four verbs `ASK`, `BRIEF`, `FORECAST` and `FILL` in amber, each with a quoted prompt and a result line.
+    Every verb is on one line at 1440 (about 79px there, capped so `FORECAST` fits its column; 80px from about 1600
+    wide), and the verbs form two columns below 1280. The section element has `id="whats-next"`. Nothing in this section
+    claims the product does these things today.
 
-11. **Testimonials.** Scroll to the third dark band. Expect `FROM LEADERS USING IT TODAY` with
-    `JBER, ALASKA · GRAFENWÖHR, GERMANY · FORT BLISS, TEXAS` on the right, the large two-tone quote ending in
-    `DISAPPEARED OVERNIGHT.` in amber with `COMPANY LEADERSHIP · 18TH CSSB`, and under a rule two smaller quotes
-    attributed `CPT · FORMER COMPANY COMMANDER · MEDDAC-AK` and `SFC · 1-43 ADA`, in two columns at 768 and above.
+11. **Testimonials.** Scroll to the third dark band. Expect no visible eyebrow or location strip; a visually hidden `h2`
+    reads `From leaders using TroopToTask`. The large two-tone quote ends in `DISAPPEARED OVERNIGHT.` in amber with
+    `COMPANY LEADERSHIP · GRAFENWÖHR, GERMANY`, and under a rule two smaller quotes are attributed
+    `CPT · FORT WAINWRIGHT` and `SFC · FORT BLISS`, in two columns at 768 and above.
 
-12. **Trust and FAQ.** Click header `FAQ`. Expect `BEFORE YOU HAND OVER THE ROSTER` and `FAIR / QUESTIONS.` beside five
-    control rows (`NIST 800-171`, `AES-256`, `TLS 1.2+`, `ROLES`, `AUDIT`), then the line ending
+12. **Trust and FAQ.** Click header `FAQ`. Expect `FAIR / QUESTIONS.` with no eyebrow, beside five control rows
+    (`NIST 800-171`, `AES-256`, `TLS 1.2+`, `ROLES`, `AUDIT`), then the line ending
     `Not authorized for classified information.` Expect six question buttons, each with a `+` that becomes `−` when
     open. On load question 3 (`I already have my roster in a spreadsheet...`) is open (`aria-expanded="true"`, answer
     visible) and the other five are `false` with answers not visible. Click question 1: it opens and question 3 closes,
@@ -164,17 +171,16 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
 
 13. **Header anchors.** From the top of `/` at 1440x900 click `Platform`, then `What's next`, then `FAQ`. After each,
     expect the URL hash to be `#platform`, `#whats-next`, `#faq`, the shell scrolled so that section's top edge is
-    within 2px of 80px (the sticky header's height) and its eyebrow visible. Click `SEE IT WORK` and expect `#platform`.
+    within 2px of 80px (the sticky header's height) and its heading visible. Click `SEE IT WORK` and expect `#platform`.
     From `/about`, click `FAQ` and expect `/` with `#faq` and the FAQ in view. At 390 the same links in the footer do
     the same, with the footer link list from step 14.
 
 14. **Footer links.** At 1440 scroll to the footer and list the visible links in `nav[aria-label="Footer"]` with
-    `evaluate_script` (a bare `footer` selector also matches the Thesis quote's footer). Expect exactly four: `About`
-    `/about`, `Security` `/security`, `Privacy` `/privacy`, `Terms` `/terms`, beside the brand and
-    `Not for classified information`. At 390 expect those four plus `Platform` `/#platform`, `What's next`
-    `/#whats-next` and `FAQ` `/#faq`. On `/about` and `/security` the matching footer link is amber with
-    `aria-current="page"`. A same-origin `fetch` of each path returns 200. Click `Privacy` and `Terms` and expect their
-    headings.
+    `evaluate_script`. Expect exactly four: `About` `/about`, `Security` `/security`, `Privacy` `/privacy`, `Terms`
+    `/terms`, beside the brand and `Not for classified information`. At 390 expect those four plus `Platform`
+    `/#platform`, `What's next` `/#whats-next` and `FAQ` `/#faq`. On `/about` and `/security` the matching footer link
+    is amber with `aria-current="page"`. A same-origin `fetch` of each path returns 200. Click `Privacy` and `Terms` and
+    expect their headings.
 
 15. **Contact cards.** Read every `a[href^="mailto:"]` on `/security`, `/privacy` and `/terms`. Expect Security to have
     `mailto:security@trooptotask.org?subject=Security%20vulnerability%20report` on its `Email Security` button in the
@@ -214,7 +220,7 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
     `document.querySelectorAll('[data-reveal="pending"]').length`. Expect 0 before capturing; the same helper runs
     harmlessly on the other pages. **Full-page capture.** A tall viewport changes the layout (the shell fills the
     viewport height), so stitch instead: take a viewport screenshot at scroll 0, then repeatedly scroll the shell to
-    `previousBottom - 56` (clamped to the end), wait 700 ms, take a viewport screenshot, drop its top
+    `previousBottom - 80` (clamped to the end), wait 700 ms, take a viewport screenshot, drop its top
     `previousBottom - actualScrollTop` rows (the sticky header and the overlap), and append. The stitched height equals
     the shell's `scrollHeight`; a 1 px seam line can appear. Review each capture for clipping, overlapping text and
     legibility of text over its background in both themes.
@@ -230,6 +236,11 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
     decoration. Expect none. Small amber labels on the light bands use the darker `accent-text` amber, not the bright
     accent.
 
+22. **Type scale.** On each page at 1440, walk visible text nodes with `evaluate_script` (skip `aria-hidden="true"`,
+    `.sr-only` and image content) and tally the parent's computed `fontSize` and `fontWeight`. Expect sizes only from
+    80, 32, 18 and 13px, plus the What's next verbs at about 79px from their fit cap, and weights only 700, 400 and 300.
+    Home uses all four sizes; About, Security, Privacy and Terms show 80, 18 and 13px in this walk.
+
 ## Gotchas
 
 - The stored theme lives in `localStorage` under `theme` and is applied to `html[data-theme]`, but public pages ignore
@@ -237,5 +248,10 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
   the fixed chrome tokens. There is no public theme toggle; set the key with `evaluate_script` and reload.
 - Home sections that reveal on scroll depend on IntersectionObserver; a screenshot before scrolling can show them in
   their starting state.
+- `take_screenshot --save` writes the MCP result as JSON, not a PNG. Decode the image with
+  `jq -r '.content[] | select(.type=="image") | .data' FILE | base64 -d`, and give every capture a new path.
+- A tab can stop painting after a long burst of tool calls: screenshots come back as the blank page background at every
+  scroll position and reveal blocks stay `pending`. Open a fresh tab with `new_page`, close the old one and continue
+  there.
 - Public pages never fetch Organization data; a signed-in tab only changes the header and call-to-action state. A
   session that has not finished MFA is treated as signed out.

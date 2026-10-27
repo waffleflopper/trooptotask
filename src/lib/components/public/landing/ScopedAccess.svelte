@@ -77,7 +77,7 @@
 </script>
 
 <PublicSection tone="dark" class="gap-16 lg:gap-[72px]">
-	<PublicHeading label="SCOPED ACCESS · BUILT IN" lines={['EVERY LEADER', 'OWNS THEIR PIECE.']} tone="dark" plain>
+	<PublicHeading lines={['EVERY LEADER', 'OWNS THEIR PIECE.']} tone="dark" plain>
 		Decentralized, like mission command. Squad leaders keep their own Soldiers current, and the commander sees one
 		formation that is never out of sync.
 	</PublicHeading>

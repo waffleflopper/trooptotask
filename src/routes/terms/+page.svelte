@@ -15,9 +15,9 @@
 </svelte:head>
 
 <PublicShell signedIn={data.signedIn}>
-	<PublicHero label="Terms of Use · Effective Date: March 8, 2026" lines={['Terms of', 'use.']}>
+	<PublicHero lines={['Terms of', 'use.']}>
 		Please read these terms carefully before using TroopToTask. By accessing or using the service, you agree to be bound
-		by these terms.
+		by these terms. Effective March 8, 2026.
 	</PublicHero>
 
 	<PublicSection>

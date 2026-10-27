@@ -45,9 +45,9 @@
 </svelte:head>
 
 <PublicShell signedIn={data.signedIn} active="security" showCta={false}>
-	<PublicHero label="Security · Last reviewed May 2026" lines={['Your roster,', 'protected.']}>
+	<PublicHero lines={['Your roster,', 'protected.']}>
 		TroopToTask aligns with NIST SP 800-171 for protecting Controlled Unclassified Information. Every unit's data is
-		treated as CUI-equivalent. The platform is built for unclassified environments only.
+		treated as CUI-equivalent. The platform is built for unclassified environments only. Last reviewed May 2026.
 		{#snippet aside()}
 			<dl class="m-0 border-t-2 border-chrome-text">
 				{#each specs as spec (spec.term)}
@@ -63,7 +63,7 @@
 	</PublicHero>
 
 	<PublicSection>
-		<PublicHeading label="How it's protected" lines={['Treated like', 'it matters.']}>
+		<PublicHeading lines={['Treated like', 'it matters.']}>
 			Names, ranks, unit assignments, training records, counseling notes and availability. This is what protects every
 			one of them.
 		</PublicHeading>
@@ -97,7 +97,7 @@
 	</PublicSection>
 
 	<PublicSection tone="dark">
-		<PublicHeading label="Where it runs" lines={['Proven platforms.', 'Aligned controls.']} tone="dark">
+		<PublicHeading lines={['Proven platforms.', 'Aligned controls.']} tone="dark">
 			Hosted in the United States on providers with established security programs, with controls mapped to NIST SP
 			800-171 Rev 2.
 		</PublicHeading>
@@ -143,7 +143,7 @@
 	<PublicSection>
 		<div class="flex flex-col gap-12 xl:flex-row xl:justify-between xl:gap-16">
 			<div class="flex flex-col gap-12 xl:w-[420px] xl:shrink-0">
-				<PublicHeading label="Compliance and use" lines={['Use it with', 'judgment.']} />
+				<PublicHeading lines={['Use it with', 'judgment.']} />
 				<p class="m-0 font-body text-lg leading-7 font-light text-muted-foreground">
 					FedRAMP and formal federal procurement are a separate review. They do not, by themselves, decide whether a
 					tool is useful, secure and workable inside your local policy and approval chain.
@@ -174,7 +174,6 @@
 	</PublicSection>
 
 	<PublicBand
-		label="Responsible disclosure"
 		lines={['Found a vulnerability?', 'Tell us first.']}
 		copy="Email security@trooptotask.org. We acknowledge reports within 48 hours and aim to share a resolution timeline within 5 business days. Please allow reasonable time before public disclosure."
 	>

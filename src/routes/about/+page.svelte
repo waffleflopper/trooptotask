@@ -58,13 +58,7 @@
 <PublicShell signedIn={data.signedIn} active="about">
 	<PublicSection tone="dark" class="gap-12 xl:flex-row xl:items-end xl:justify-between xl:gap-20">
 		<div class="flex min-w-0 flex-col gap-12 xl:grow">
-			<PublicHeading
-				label="About · Built from the orderly room"
-				lines={['Built by a leader', 'who lived the problem.']}
-				tone="dark"
-				accent
-				level="h1"
-			/>
+			<PublicHeading lines={['Built by a leader', 'who lived the problem.']} tone="dark" accent level="h1" />
 			<p class="{bodyClass} max-w-[560px] font-light text-chrome-text-muted">
 				I'm SSG Baddeley, an active duty Army NCO and the sole developer behind TroopToTask. I built it around the admin
 				friction I've seen as a first-line leader, in the orderly room, deployed in the TOC, and as a Troop Clinic
@@ -89,7 +83,7 @@
 	</PublicSection>
 
 	<PublicSection>
-		<PublicHeading label="Why I built it" lines={['The same friction,', 'every assignment.']}>
+		<PublicHeading lines={['The same friction,', 'every assignment.']}>
 			The tools changed and the technology improved. Scattered trackers, duplicated updates and unclear ownership stayed
 			exactly where they were.
 		</PublicHeading>
@@ -146,12 +140,10 @@
 	</PublicSection>
 
 	<PublicSection tone="dark" loose class="gap-12 lg:gap-16">
-		<div class="{monoLabel} tracking-[0.14em] text-chrome-accent">What stayed with me</div>
+		<h2 class="sr-only">What stayed with me</h2>
 		<div class="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between lg:gap-20">
 			<figure class="m-0 flex max-w-[900px] flex-col gap-8 border-l-2 border-chrome-accent pl-6 sm:pl-10">
-				<blockquote
-					class="m-0 font-body text-[clamp(1.5rem,4vw,2.75rem)] leading-[1.27] font-light text-chrome-text italic"
-				>
+				<blockquote class="m-0 font-body text-[2rem] leading-10 font-light text-chrome-text italic">
 					“Never lose sight of the fact that every decision we make in these meetings is executed by a Soldier.”
 				</blockquote>
 				<figcaption class="{monoLabel} text-chrome-text-muted">CSM Moran · 1st Medical Brigade, retired</figcaption>
@@ -164,7 +156,7 @@
 
 	<PublicSection class="xl:flex-row xl:justify-between xl:gap-16">
 		<div class="flex flex-col gap-12 xl:w-[420px] xl:shrink-0">
-			<PublicHeading label="Shaped by real feedback" lines={['One builder.', 'Real users.']} />
+			<PublicHeading lines={['One builder.', 'Real users.']} />
 			<div class="flex flex-col gap-5">
 				<p class="{bodyClass} text-foreground">
 					Not a defense contractor or a corporate team. One NCO, building close to the problem.

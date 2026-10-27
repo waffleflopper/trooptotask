@@ -48,7 +48,7 @@
 
 <PublicSection id="faq" class="gap-16 lg:flex-row lg:gap-16 xl:gap-24">
 	<div class="flex shrink-0 flex-col gap-12 lg:w-[360px] xl:w-[420px]">
-		<PublicHeading label="BEFORE YOU HAND OVER THE ROSTER" lines={['FAIR', 'QUESTIONS.']} />
+		<PublicHeading lines={['FAIR', 'QUESTIONS.']} />
 		<dl class="border-t-2 border-foreground">
 			{#each controls as control (control.name)}
 				<div class="flex min-h-12 items-center justify-between gap-4 border-b border-border">

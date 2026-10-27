@@ -20,7 +20,7 @@
 	class={cn(
 		monoLabel,
 		'rounded-lg bg-chrome-accent font-normal text-chrome hover:bg-chrome-accent hover:brightness-110',
-		size === 'sm' ? 'h-10 px-5 max-sm:px-3 max-sm:text-xs max-sm:tracking-[0.08em]' : 'h-12 px-6'
+		size === 'sm' ? 'h-10 px-5 max-sm:px-3 max-sm:tracking-[0.08em]' : 'h-12 px-6'
 	)}
 >
 	{@render children()}

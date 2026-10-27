@@ -15,8 +15,9 @@
 </svelte:head>
 
 <PublicShell signedIn={data.signedIn}>
-	<PublicHero label="Privacy Policy · Effective Date: March 8, 2026" lines={['Your privacy,', 'respected.']}>
-		TroopToTask is committed to protecting your personal information and the personnel data you entrust to us.
+	<PublicHero lines={['Your privacy,', 'respected.']}>
+		TroopToTask is committed to protecting your personal information and the personnel data you entrust to us. Effective
+		March 8, 2026.
 	</PublicHero>
 
 	<PublicSection>

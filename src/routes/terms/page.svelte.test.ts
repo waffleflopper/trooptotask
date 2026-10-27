@@ -19,7 +19,7 @@ describe('terms page contact', () => {
 	it('states when the terms took effect', () => {
 		renderTermsPage();
 
-		expect(screen.getByText(/Effective Date: March 8, 2026/)).toBeTruthy();
+		expect(screen.getByText(/Effective March 8, 2026/)).toBeTruthy();
 	});
 
 	it('links to the canonical support mailbox', () => {

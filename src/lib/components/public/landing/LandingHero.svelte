@@ -18,7 +18,6 @@
 	<div class={pageGutter}>
 		<div class="flex flex-col gap-12 pt-16 pb-12 lg:pt-32 lg:pb-16">
 			<PublicHeading
-				label="READINESS · BUILT FOR THE COMPANY"
 				lines={['LESS TIME ON ADMIN.', 'MORE TIME WITH SOLDIERS.']}
 				tone="dark"
 				accent

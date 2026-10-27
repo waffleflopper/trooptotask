@@ -216,7 +216,7 @@ describe('acceptDashboardInvitation', () => {
 			)
 		).rejects.toMatchObject({
 			status: 404,
-			message: 'Invitation not found'
+			message: 'This invitation is no longer available. Ask the unit to send a new one.'
 		});
 		expect(port.acceptedInvitations).toEqual([
 			{ invitationId: 'missing', userId: 'user-1', email: 'user@example.com' }
@@ -498,7 +498,7 @@ describe('declineDashboardInvitation', () => {
 			)
 		).rejects.toMatchObject({
 			status: 404,
-			message: 'Invitation not found'
+			message: 'This invitation is no longer available. Ask the unit to send a new one.'
 		});
 	});
 

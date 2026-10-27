@@ -151,7 +151,7 @@ export async function acceptDashboardInvitation(
 	});
 
 	if (accepted.status === 'not_found') {
-		fail(404, 'Invitation not found');
+		fail(404, 'This invitation is no longer available. Ask the unit to send a new one.');
 	}
 	if (accepted.status === 'setup_required') {
 		fail(400, 'Complete account setup before accepting this organization invitation');
@@ -213,7 +213,7 @@ export async function declineDashboardInvitation(
 	});
 
 	if (declined.status === 'not_found') {
-		fail(404, 'Invitation not found');
+		fail(404, 'This invitation is no longer available. Ask the unit to send a new one.');
 	}
 	if (declined.status === 'expired') {
 		if (declined.organizationId) {

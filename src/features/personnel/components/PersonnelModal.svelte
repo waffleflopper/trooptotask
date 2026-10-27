@@ -22,6 +22,7 @@
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import { cn } from '$lib/utils';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { onDestroy, tick, untrack } from 'svelte';
 
@@ -150,7 +151,9 @@
 {/snippet}
 
 {#snippet keptMark()}
-	{#if kept}<span aria-hidden="true" class="font-mono text-[11px] font-normal tracking-[0.04em] text-muted-foreground">· kept</span>{/if}
+	{#if kept}<span aria-hidden="true" class="font-mono text-[11px] font-normal tracking-[0.04em] text-muted-foreground"
+			>· kept</span
+		>{/if}
 {/snippet}
 
 <AppDialog.Root open voice="form" busy={isSaving} closeBlocked={dirty} {onClose}>
@@ -352,6 +355,7 @@
 						<Button
 							type="button"
 							variant="outline"
+							class="max-sm:h-11"
 							disabled={isSaving}
 							aria-keyshortcuts="Control+Enter Meta+Enter"
 							onclick={() => submit('another')}
@@ -365,7 +369,7 @@
 						type="submit"
 						form="personnel-form"
 						data-testid="personnel-save"
-						class={addAnother ? undefined : 'col-span-2'}
+						class={cn('max-sm:h-11', !addAnother && 'col-span-2')}
 						disabled={isSaving}
 					>
 						{isSaving ? 'Adding...' : failure ? 'Try again' : 'Add person'}

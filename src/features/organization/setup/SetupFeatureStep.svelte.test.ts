@@ -100,7 +100,7 @@ it('turns a feature off through the Settings switch, then opens the next step', 
 	const navigate = open('evaluations');
 
 	await fireEvent.click(screen.getByRole('radio', { name: /We won’t use it/ }));
-	await fireEvent.click(screen.getByRole('button', { name: 'Turn off Evaluations and continue' }));
+	await fireEvent.click(screen.getByRole('button', { name: /turn off evaluations/i }));
 
 	await waitFor(() => expect(navigate).toHaveBeenCalledWith('/org/alpha/setup/onboarding'));
 	expect(posts).toEqual([
@@ -117,7 +117,7 @@ it('keeps the owner on the step when the switch write fails', async () => {
 	const navigate = open('evaluations');
 
 	await fireEvent.click(screen.getByRole('radio', { name: /We won’t use it/ }));
-	await fireEvent.click(screen.getByRole('button', { name: 'Turn off Evaluations and continue' }));
+	await fireEvent.click(screen.getByRole('button', { name: /turn off evaluations/i }));
 
 	expect(await screen.findByRole('alert')).toHaveTextContent('Settings changed. Try again.');
 	expect(navigate).not.toHaveBeenCalled();

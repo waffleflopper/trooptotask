@@ -147,13 +147,35 @@ export class SetupFlow {
 		if (visit === this.#visit) this.#apply(next);
 	}
 
+	/** A check for work that outlives one render: false once the owner navigates anywhere. */
+	stillHere() {
+		const visit = this.#visit;
+		return () => visit === this.#visit;
+	}
+
+	/** Records `answer` unless the unit's data already makes the step Done or its feature is Off. */
+	async answerUnlessSettled(key: SetupStepKey, answer: SetupAnswer) {
+		const stillHere = this.stillHere();
+		const { setupFacts, disabledFeatures } = this.#source();
+		const facts = await setupFacts.catch(() => null);
+		if (!stillHere()) return;
+		const entry = SETUP_STEPS.find((step) => step.key === key)!;
+		const state = facts
+			? deriveSetupStepState(entry, this.state, facts, disabledFeatures)
+			: this.state.answers[key] === 'reviewed'
+				? 'done'
+				: 'notAnswered';
+		if (state === 'done' || state === 'off') return;
+		await this.answer(key, answer);
+	}
+
 	/** Saves the open step, by default recording it reviewed, then opens the next step or Done. */
 	continue(save?: SetupStepSave) {
 		const step = this.current;
 		if (!step) return Promise.resolve();
 		const target = this.href(this.next?.slug ?? 'done');
 		return this.#run(async (stillHere) => {
-			await (save ?? (() => this.#markReviewed(step.key, stillHere)))();
+			await (save ?? (() => this.answerUnlessSettled(step.key, 'reviewed')))();
 			if (stillHere()) await this.#navigate(target);
 		});
 	}
@@ -185,20 +207,6 @@ export class SetupFlow {
 		} finally {
 			if (stillHere()) this.pending = false;
 		}
-	}
-
-	async #markReviewed(key: SetupStepKey, stillHere: () => boolean) {
-		const { setupFacts, disabledFeatures } = this.#source();
-		const facts = await setupFacts.catch(() => null);
-		if (!stillHere()) return;
-		const entry = SETUP_STEPS.find((step) => step.key === key)!;
-		const state = facts
-			? deriveSetupStepState(entry, this.state, facts, disabledFeatures)
-			: this.state.answers[key] === 'reviewed'
-				? 'done'
-				: 'notAnswered';
-		if (state === 'done' || state === 'off') return;
-		await this.answer(key, 'reviewed');
 	}
 
 	async #post(path: 'answer' | 'finish', body: Record<string, unknown>): Promise<OrganizationSetup> {

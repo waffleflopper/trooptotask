@@ -72,6 +72,40 @@ export function rankOptionsFor(rankCatalog: readonly RankCatalogEntry[], current
 	return [{ value: currentRank, label: currentRank }, ...active];
 }
 
+const RANK_CATEGORY_GROUPS: Record<RankCatalogEntry['category'], string> = {
+	enlisted: 'Enlisted',
+	warrant: 'Warrant',
+	officer: 'Officer',
+	civilian: 'Civilian',
+	custom: 'Other'
+};
+
+export interface RankPickerOption extends PersonnelDraftOption {
+	name: string;
+	payGrade: string;
+	group: string;
+}
+
+/** The Organization's active ranks for a picker, grouped Enlisted, Warrant, Officer, Civilian, Other in catalog order. */
+export function rankPickerOptionsFor(rankCatalog: readonly RankCatalogEntry[]): RankPickerOption[] {
+	const order = Object.keys(RANK_CATEGORY_GROUPS);
+	return rankCatalog
+		.filter((entry) => entry.state === 'active')
+		.toSorted((a, b) => order.indexOf(a.category) - order.indexOf(b.category))
+		.map((entry) => ({
+			value: entry.code,
+			label: entry.code,
+			name: entry.label === entry.code ? '' : entry.label,
+			payGrade: entry.payGrade === 'ungraded' ? '' : entry.payGrade,
+			group: RANK_CATEGORY_GROUPS[entry.category]
+		}));
+}
+
+/** The draft after a person is added with Add and add another: Rank, MOS and Group carry over, the rest clears. */
+export function nextPersonnelDraft(added: PersonnelDraft): PersonnelDraft {
+	return { ...personnelDraftOf(null, added.rank), mos: added.mos, groupId: added.groupId };
+}
+
 export function defaultNewPersonnelRank(options: readonly PersonnelDraftOption[]): string {
 	return options.find((option) => normalizeRankCode(option.value) === COMMON_NEW_PERSONNEL_RANK)?.value ?? '';
 }

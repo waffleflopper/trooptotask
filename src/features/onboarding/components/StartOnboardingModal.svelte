@@ -216,6 +216,7 @@
 		{groups}
 		{rankCatalog}
 		{allowUnassigned}
+		addAnother={false}
 		onSubmit={handleAddPersonSubmit}
 		onClose={() => (showAddPersonModal = false)}
 	/>

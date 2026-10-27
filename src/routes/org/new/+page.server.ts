@@ -24,6 +24,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		emailConfirmed: true,
+		emailConfirmationUnavailable: false,
 		userEmail: emailConfirmation.email,
 		emailConfirmationMessage: undefined,
 		requestId
@@ -68,6 +69,7 @@ export const actions: Actions = {
 function emailConfirmationLoadData(emailConfirmation: CurrentUserEmailConfirmation, requestId: string) {
 	return {
 		emailConfirmed: false,
+		emailConfirmationUnavailable: emailConfirmation.status === 'unavailable',
 		requestId,
 		userEmail: emailConfirmation.email,
 		emailConfirmationMessage:

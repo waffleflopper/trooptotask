@@ -11,6 +11,9 @@
 		disabled?: boolean;
 		loading?: boolean;
 		loadingLabel?: string;
+		/** Keeps focus on the pressed button while loading: it reads as disabled, and the form ignores a second press. */
+		holdFocus?: boolean;
+		ref?: HTMLElement | null;
 		onclick?: () => void;
 		children: Snippet;
 		'data-testid'?: string;
@@ -23,6 +26,8 @@
 		disabled = false,
 		loading = false,
 		loadingLabel,
+		holdFocus = false,
+		ref = $bindable(null),
 		onclick,
 		children,
 		'data-testid': dataTestId
@@ -30,10 +35,13 @@
 </script>
 
 <Button
+	bind:ref
 	{id}
 	{href}
 	type={href ? undefined : type}
-	disabled={disabled || loading}
+	disabled={disabled || (loading && !holdFocus)}
+	aria-disabled={loading && holdFocus ? 'true' : undefined}
+	aria-busy={loading || undefined}
 	{onclick}
 	data-testid={dataTestId}
 	class="h-12 w-full justify-between px-5 font-mono text-[13px] tracking-[0.12em] uppercase"

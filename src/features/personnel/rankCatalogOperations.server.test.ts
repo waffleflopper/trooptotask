@@ -81,7 +81,100 @@ describe('organization rank catalog', () => {
 		});
 	});
 
-	it('sends uniform values for existing and missing pack ranks in one atomic upsert', async () => {
+	it('a delayed state change preserves details saved after its catalog read', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'enlisted',
+			payGrade: 'E-6',
+			sortOrder: 500
+		});
+		const result = await setOrganizationRankCatalogStates(
+			{
+				...ctx,
+				rankCatalog: {
+					...ctx.rankCatalog,
+					async listEntries() {
+						const beforeRename = (await ctx.rankCatalog.listEntries()).map((row) => ({ ...row }));
+						await saveOrganizationRankCatalogEntry(ctx, {
+							code: 'DET-SGT',
+							originalCode: 'DET-SGT',
+							intent: 'update',
+							label: 'Detachment Lead',
+							service: 'custom',
+							category: 'officer',
+							payGrade: 'O-3',
+							sortOrder: 42
+						});
+						ctx.auditPort.events.length = 0;
+						return beforeRename;
+					}
+				}
+			},
+			{ changes: [{ code: 'DET-SGT', state: 'retired' }] }
+		);
+
+		expect(await ctx.rankCatalog.findEntryByCode('DET-SGT')).toMatchObject({
+			code: 'DET-SGT',
+			label: 'Detachment Lead',
+			service: 'custom',
+			category: 'officer',
+			pay_grade: 'O-3',
+			sort_order: 42,
+			state: 'retired'
+		});
+		expect(result).toEqual({ changedCount: 1 });
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'organization.rank_catalog.bulk_state_changed',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'test-org',
+				details: { changedCount: 1, changes: [{ code: 'DET-SGT', state: 'retired' }] }
+			}
+		]);
+	});
+
+	it('a delayed state change does not recreate a rank removed after its catalog read', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'enlisted',
+			payGrade: 'E-6',
+			sortOrder: 500
+		});
+		ctx.auditPort.events.length = 0;
+		const result = await setOrganizationRankCatalogStates(
+			{
+				...ctx,
+				rankCatalog: {
+					...ctx.rankCatalog,
+					async listEntries() {
+						const beforeRemove = await ctx.rankCatalog.listEntries();
+						await ctx.rawStore.delete('organization_rank_catalog', 'test-org', beforeRemove[0].id);
+						return beforeRemove;
+					}
+				}
+			},
+			{ changes: [{ code: 'DET-SGT', state: 'retired' }] }
+		);
+
+		expect(await ctx.rankCatalog.findEntryByCode('DET-SGT')).toBeNull();
+		expect(result).toEqual({ changedCount: 0 });
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'organization.rank_catalog.bulk_state_changed',
+				resourceType: 'organization_rank_catalog',
+				resourceId: 'test-org',
+				details: { changedCount: 0, changes: [] }
+			}
+		]);
+	});
+
+	it('updates only state for existing ranks and inserts missing pack ranks', async () => {
 		const existing = {
 			id: 'rank-sgt',
 			organization_id: 'test-org',
@@ -102,13 +195,20 @@ describe('organization rank catalog', () => {
 			global: {
 				fetch: async (input, init) => {
 					const request = new Request(input, init);
-					if (request.method !== 'POST') return Response.json([existing]);
+					if (request.method === 'GET') return Response.json([existing]);
+					if (request.method === 'PATCH') {
+						const url = new URL(request.url);
+						writes.push({
+							organization: url.searchParams.get('organization_id'),
+							codes: url.searchParams.get('code'),
+							state: url.searchParams.get('state'),
+							body: await request.json()
+						});
+						return Response.json([{ ...existing, state: 'active' }]);
+					}
 					const body: unknown = await request.json();
 					writes.push({ conflict: new URL(request.url).searchParams.get('on_conflict'), body });
-					return Response.json([
-						{ ...existing, state: 'active' },
-						{ ...existing, id: 'rank-spc', code: 'SPC', state: 'active' }
-					]);
+					return Response.json([{ ...existing, id: 'rank-spc', code: 'SPC', state: 'active' }]);
 				}
 			}
 		});
@@ -125,20 +225,10 @@ describe('organization rank catalog', () => {
 			)
 		).toEqual({ changedCount: 2 });
 		expect(writes).toEqual([
+			{ organization: 'eq.test-org', codes: 'in.(SGT)', state: 'neq.active', body: { state: 'active' } },
 			{
 				conflict: 'organization_id,code',
 				body: [
-					{
-						organization_id: 'test-org',
-						code: 'SGT',
-						label: 'Sergeant',
-						service: 'army',
-						category: 'enlisted',
-						pay_grade: 'E-5',
-						state: 'active',
-						source: 'built-in',
-						sort_order: 14
-					},
 					{
 						organization_id: 'test-org',
 						code: 'SPC',

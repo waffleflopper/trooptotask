@@ -24,8 +24,9 @@ removes unused ones; no other member can change the catalog. Setup's Ranks step 
   Custom and on.
 - `rank-names`: `Edit names` (`aria-expanded`) lists every rank the Organization added with grade and use, including one
   filed under a branch such as Army, which also shows as that branch's chip; a rank's button opens its editor with
-  Label, Category, Pay grade and Tie-break. Saving names never changes whether a rank is on. The code stays fixed.
-  `Remove` deletes an unreferenced custom rank after a destructive confirmation.
+  Label, Category, Pay grade and Tie-break. Saving names never changes whether a rank is on. Turning a rank on or off
+  never rewrites its saved name or details. Replies after leaving the names editor or Organization show no feedback and
+  move no focus. The code stays fixed. `Remove` deletes an unreferenced custom rank after a destructive confirmation.
 - `rank-failure`: a failed or rejected save shows its error, keeps every entered value and changes no chip.
 - `rank-denied`: a member without Organization owner/admin access cannot reach the catalog or change a rank.
 
@@ -116,6 +117,11 @@ reaches the provider. Use `arm-hold` and `release` to hold one. Restore every co
     Before reloading, Undo restores the last confirmed states, including SGT. Turn all Enlisted off again, reload and
     require every Enlisted chip off. These pack additions persist for this worker; restart it before any recipe that
     requires the original partial catalog.
+
+15. **Late name saves.** With `orgSettingsSwitch` on A, create a `MAP-<tag>` custom rank. Arm feedback and hold
+    `saveRank`, rename it and Save. Switch to B before releasing, focus a visible control, then release from the same
+    page. Require no new rank success toast, no focus move, and unchanged B rows. Return to A and reload: the saved name
+    remains. Repeat while leaving Ranks for another Settings page in A. Restore feedback and network controls.
 
 Remove UI-created ranks, turn back on or off every rank you changed, and compare
 `$V rows organization_rank_catalog orgA|orgB` with the preserved original. Ranks added from a pack stay; restart the

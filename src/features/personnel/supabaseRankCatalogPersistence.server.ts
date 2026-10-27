@@ -75,6 +75,18 @@ export function createSupabaseRankCatalogPersistence(client: SupabaseClient, org
 			if (error) throw new Error(error.message);
 			return (data ?? []).map(saved);
 		},
+		async setStatesByCodes(codes, state) {
+			if (!codes.length) return [];
+			const { data, error } = await client
+				.from('organization_rank_catalog')
+				.update({ state })
+				.eq('organization_id', orgId)
+				.in('code', [...codes])
+				.neq('state', state)
+				.select(SELECT);
+			if (error) throw new Error(error.message);
+			return (data ?? []).map(saved);
+		},
 		async patchEntryById(id, input) {
 			const { data, error } = await client
 				.from('organization_rank_catalog')

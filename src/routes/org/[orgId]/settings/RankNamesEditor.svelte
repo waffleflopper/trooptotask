@@ -10,7 +10,8 @@
 		RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
 	} from '$features/personnel/contracts';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { tick } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
+	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import type { Attachment } from 'svelte/attachments';
 	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -68,6 +69,16 @@
 	let deleteFailed = $state(false);
 	let deleteCode = $state('');
 	let settleDelete: ((succeeded: boolean) => void) | null = null;
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+	});
+
+	function editorLifetime(): () => boolean {
+		const inOrganization = stillInOrganizationLifetime();
+		const startedOn = location.pathname;
+		return () => !disposed && inOrganization() && location.pathname === startedOn;
+	}
 
 	const rankError = $derived(typeof form?.rankError === 'string' ? form.rankError : null);
 	const catalogRows = $derived<CatalogRow[]>([
@@ -135,7 +146,7 @@
 
 	// A request that settles after the user opened another editor must leave that editor open. SvelteKit's
 	// post-action focus reset leaves focus on the body, so it goes back into that editor unless the user moved it.
-	async function keepAnotherEditor(editor: NonNullable<OpenEditor>): Promise<boolean> {
+	async function keepAnotherEditor(editor: NonNullable<OpenEditor>, current: () => boolean): Promise<boolean> {
 		if (openEditor === null) return false;
 		const same =
 			openEditor.kind === 'new' || editor.kind === 'new'
@@ -143,6 +154,7 @@
 				: openEditor.code === editor.code;
 		if (same) return false;
 		await tick();
+		if (!current() || openEditor === null) return true;
 		if (document.activeElement === document.body) {
 			const id = openEditor.kind === 'new' ? 'new-rank-editor' : `${rankDomId(openEditor.code)}-editor`;
 			document.getElementById(id)?.querySelector<HTMLElement>(EDITOR_FIELDS)?.focus();
@@ -150,10 +162,12 @@
 		return true;
 	}
 
-	async function closeEditor(focusCode: string | null = null): Promise<void> {
+	async function closeEditor(focusCode: string | null = null, current = editorLifetime()): Promise<void> {
+		if (!current()) return;
 		const closing = openEditor;
 		openEditor = null;
 		await tick();
+		if (!current()) return;
 		const code = focusCode ?? (closing?.kind === 'rank' ? closing.code : null);
 		restoreFocus([code ? rankToggle(code) : null, focusAfterClose()]);
 	}
@@ -172,7 +186,7 @@
 	// Rank mutations run one at a time: savingAction is a single slot, so a second submission would clear it early.
 	function enhancedForm(
 		key: string | ((data: FormData) => string),
-		focusAfter: (succeeded: boolean, code: string | null) => Promise<void>
+		focusAfter: (succeeded: boolean, code: string | null, current: () => boolean) => Promise<void>
 	): SubmitFunction {
 		return ({ cancel, formData }) => {
 			if (savingAction !== null) {
@@ -183,13 +197,15 @@
 			savingAction = actionKey;
 			saving = true;
 			lastActionKey = actionKey;
-			const submittedFrom = location.pathname;
+			const current = editorLifetime();
 			return async ({ result, update }) => {
 				const succeeded = result.type === 'success';
 				try {
+					if (!current()) return;
 					await update({ reset: false });
+					if (!current()) return;
 					// SvelteKit applies `form` only on the action's own page, so the page embedding the editor applies it.
-					if (actionBase && (succeeded || result.type === 'failure') && location.pathname === submittedFrom) {
+					if (actionBase && (succeeded || result.type === 'failure')) {
 						await applyAction(result);
 					}
 				} finally {
@@ -198,41 +214,50 @@
 					settleDelete?.(succeeded);
 					settleDelete = null;
 				}
+				if (!current()) return;
 				if (succeeded) toastStore.success('Rank catalog updated.');
-				await focusAfter(succeeded, succeeded && typeof result.data?.code === 'string' ? result.data.code : null);
+				await focusAfter(
+					succeeded,
+					succeeded && typeof result.data?.code === 'string' ? result.data.code : null,
+					current
+				);
 			};
 		};
 	}
 
 	// A new rank's draft closes into its row; a saved rank's editor stays open on Save.
 	function saveFocus(editor: NonNullable<OpenEditor>, submitter: () => HTMLElement | null) {
-		return async (succeeded: boolean, code: string | null) => {
-			if (await keepAnotherEditor(editor)) return;
+		return async (succeeded: boolean, code: string | null, current: () => boolean) => {
+			if ((await keepAnotherEditor(editor, current)) || !current()) return;
 			if (succeeded && editor.kind === 'new') {
-				await closeEditor(code);
+				await closeEditor(code, current);
 				return;
 			}
 			await tick();
+			if (!current()) return;
 			restoreFocus([submitter(), focusAfterClose()]);
 		};
 	}
 
 	async function confirmRankDelete() {
 		if (!pendingRankDelete || savingAction !== null) return;
+		const current = editorLifetime();
 		deleteCode = pendingRankDelete.code;
 		deleteFailed = false;
 		await tick();
+		if (!current()) return;
 		const form = document.getElementById('rank-delete-form');
 		if (!(form instanceof HTMLFormElement)) return;
 		const succeeded = await new Promise<boolean>((resolve) => {
 			settleDelete = resolve;
 			form.requestSubmit();
 		});
+		if (!current()) return;
 		deleteFailed = !succeeded;
 		if (!succeeded) return;
 		pendingRankDelete = null;
 		openEditor = null;
-		focusAfterDialogCloses(() => focusAfterClose());
+		focusAfterDialogCloses(() => (current() ? focusAfterClose() : null));
 	}
 </script>
 

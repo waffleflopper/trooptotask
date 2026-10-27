@@ -545,6 +545,26 @@ describe('custom rank names', () => {
 		expect(document.activeElement).toBe(nameButton('DET-SGT'));
 	});
 
+	it('renames and removes an Organization rank filed under a branch', async () => {
+		const lead = rankEntry({ code: 'SEC-LEAD', service: 'army', serviceLabel: 'Army' });
+		const page = renderRankPage([SGT, lead]);
+
+		await openNames();
+		await click(nameButton('SEC-LEAD'));
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Section Lead' } });
+		submitWith(screen.getByRole('button', { name: 'Save SEC-LEAD' }));
+		expect(submittedForms.map(({ action, fields }) => [action, fields.code, fields.service, fields.label])).toEqual([
+			['?/saveRank', 'SEC-LEAD', 'army', 'Section Lead']
+		]);
+		await page.succeedWith([SGT, { ...lead, label: 'Section Lead' }]);
+
+		await click(screen.getByRole('button', { name: 'Remove' }));
+		await fireEvent.click(
+			within(screen.getByRole('alertdialog', { name: 'Remove SEC-LEAD' })).getByRole('button', { name: 'Remove rank' })
+		);
+		expect(submittedForms.at(-1)).toEqual({ action: '?/deleteRank', fields: { code: 'SEC-LEAD' } });
+	});
+
 	it('keeps the typed values and marks the field the server rejected', async () => {
 		const page = renderRankPage([rankEntry()]);
 

@@ -10,7 +10,7 @@
 				chip: 'border-border bg-card hover:bg-muted aria-pressed:border-transparent aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90 data-[state=on]:bg-foreground data-[state=on]:text-background rounded-full border',
 				pill: 'hover:bg-muted aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90 data-[state=on]:bg-foreground data-[state=on]:text-background rounded-full bg-transparent',
 				/** Dashed while off and filled while on, for a set of items each switched on or off in one click. */
-				tag: 'rounded-md border border-dashed border-input bg-transparent font-mono font-semibold text-muted-foreground hover:border-foreground/50 hover:bg-transparent aria-pressed:border-solid aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90'
+				tag: 'rounded-md border border-dashed border-input bg-transparent font-mono font-semibold text-muted-foreground hover:border-foreground/50 hover:bg-transparent aria-pressed:border-solid aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90 data-[state=on]:bg-foreground data-[state=on]:text-background'
 			},
 			size: {
 				default: 'h-8 min-w-8 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',

@@ -48,7 +48,7 @@
 					{/snippet}
 				</PageShell.SectionHeader>
 				{#if groupsStore.items.length === 0}
-					<div class="flex items-center gap-12 border-b pt-9 pb-8 max-sm:pt-6">
+					<div class="@container flex items-center gap-12 border-b pt-9 pb-8 max-sm:pt-6">
 						<div class="grid flex-1 gap-3">
 							<h3 class="font-heading text-[28px] leading-[30px] font-bold">Split the roster the way you run it</h3>
 							<p class="max-w-100 text-[15px] leading-[22px] text-muted-foreground">
@@ -72,7 +72,7 @@
 								</div>
 							{/if}
 						</div>
-						<div class="w-85 shrink-0 max-md:hidden">
+						<div class="w-85 shrink-0 @max-2xl:hidden">
 							<p
 								id="setup-groups-examples"
 								class="pb-2.5 font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"

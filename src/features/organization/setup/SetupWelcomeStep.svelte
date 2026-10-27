@@ -93,11 +93,11 @@
 			{#if failure}
 				<p role="alert" class="text-destructive-text">Couldn't save the service. {failure}</p>
 			{:else if saved && chosenLabel && saving === null}
+				{@const count = activeRanks === null ? '' : ` (${activeRanks} active ranks)`}
 				<p role="status">
-					Saved. {chosenLabel === 'Mixed or joint' ? 'Every service' : chosenLabel} ranks are active{activeRanks !==
-					null
-						? ` (${activeRanks} active ranks)`
-						: ''}; other services' ranks are retired and can be restored.
+					{flow.state.branch === 'custom'
+						? `Saved. Every service's ranks are active${count}.`
+						: `Saved. ${chosenLabel} ranks are active${count}; other services' ranks are retired and can be restored.`}
 					<a class="underline underline-offset-4" href={flow.href('ranks')}>Review them in Ranks</a>
 				</p>
 			{/if}

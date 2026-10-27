@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
 	import { page } from '$app/state';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { getSetupFlow, SetupStepFooter } from '$features/organization';
@@ -31,7 +30,6 @@
 		});
 		return {
 			...base,
-			afterCommit: () => Promise.all([base.afterCommit?.(), invalidate('app:organization-setup')]).then(() => {}),
 			exit: { href: flow.href(flow.next?.slug ?? 'done'), label: `Continue to ${flow.next?.title ?? 'Done'}` }
 		};
 	}

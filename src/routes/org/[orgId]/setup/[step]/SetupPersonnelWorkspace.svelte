@@ -9,6 +9,7 @@
 		groupsStore,
 		loadPersonnelModals,
 		personnelRosterHydration,
+		personnelStore,
 		personnelWorkspaceHydrator,
 		PersonnelPageContext,
 		pinnedGroupsHydration,
@@ -101,9 +102,12 @@
 		};
 	});
 
-	// Groups and people added here change setup's counts, so the rail and Done page reread them.
+	// Groups and people added here change setup's counts, so the rail and Done page reread them once the write lands;
+	// an added row shows before the server has it.
 	const sizes = $derived(
-		view.status === 'ready' ? `${groupsStore.items.length}:${view.ctx.allActivePersonnel.length}` : null
+		view.status === 'ready' && !personnelStore.busy && !groupsStore.busy
+			? `${groupsStore.items.length}:${view.ctx.allActivePersonnel.length}`
+			: null
 	);
 	let seen: string | null = null;
 	$effect(() => {

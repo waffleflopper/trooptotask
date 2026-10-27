@@ -2705,7 +2705,10 @@ async function main() {
 				'org/new': ['/org/new', '', 'error']
 			}[family];
 			// Org pages whose streamed regions load after the page: path under /org/ORG/.
-			const orgPage = { 'org-page/whats-new': 'whats-new/__data.json' }[family] ?? null;
+			const orgPage =
+				{ 'org-page/whats-new': 'whats-new/__data.json', 'org-page/setup-training': 'setup/training/__data.json' }[
+					family
+				] ?? null;
 			const settingsPage =
 				/^settings-page\/(general|features|policies|ranks|members|approvals|archives|logs|exports|danger)$/.exec(
 					family

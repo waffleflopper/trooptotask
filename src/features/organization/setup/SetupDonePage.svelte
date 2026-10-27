@@ -75,10 +75,11 @@
 </script>
 
 <!-- The placeholder stays under the summary, invisible once it resolves, so a summary that fits it moves nothing below. -->
-<div class="grid max-w-190 *:[grid-area:1/1]">
+<div class="@container grid max-w-190 *:[grid-area:1/1]">
 	<div class={cn('flex flex-col gap-3', model && 'invisible')} aria-hidden="true">
 		<Skeleton class="h-3.5 w-36" />
-		<Skeleton class="my-1 h-10 w-2/3 lg:my-1.5 lg:h-12" />
+		<!-- The large headline wraps in the narrow column beside the rail. -->
+		<Skeleton class="my-1 h-10 w-2/3 lg:my-1.5 lg:h-12 lg:@max-[31rem]:h-[108px]" />
 		<p class="text-[17px] leading-[26px]"><span class={SKELETON_TEXT}>{OPEN_NOTE}</span></p>
 		<div class="flex flex-col">
 			{#each ['w-full', 'w-2/3'] as width (width)}

@@ -1,13 +1,16 @@
 <script lang="ts">
+	import { invalidate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
 	import {
 		calendarSettingsSaving,
+		dailyAssignmentsStore,
 		type CalendarWorkspaceRestricted,
 		type CalendarWorkspaceResult
 	} from '$features/calendar';
 	import CalendarSettingsPage from '$features/calendar/components/CalendarSettingsPage.svelte';
 	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { SetupEditorNote, SetupStepFooter } from '$features/organization';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -57,6 +60,17 @@
 		};
 	});
 	$effect(() => () => calendarWorkspaceHydrator.reset());
+
+	// Statuses and assignments added here change setup's counts, so the Done page rereads them once the write lands.
+	const sizes = $derived(
+		view === 'ready' && !saving ? `${statusTypesStore.items.length}:${dailyAssignmentsStore.types.length}` : null
+	);
+	let seen: string | null = null;
+	$effect(() => {
+		if (sizes === null) return;
+		if (seen !== null && seen !== sizes) void invalidate('app:organization-setup');
+		seen = sizes;
+	});
 </script>
 
 <div class="flex flex-col gap-10">

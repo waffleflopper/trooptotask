@@ -8,6 +8,8 @@ import SetupStepHarness from './test-support/SetupStepHarness.svelte';
 import { page } from './test-support/setupPage.svelte';
 import { answerEndpoint, stepSource } from './test-support/setupSource';
 
+const { invalidate } = vi.hoisted(() => ({ invalidate: vi.fn(async () => {}) }));
+vi.mock('$app/navigation', () => ({ invalidate }));
 vi.mock('$app/state', async () => await import('./test-support/setupPage.svelte'));
 vi.mock('$features/app-shell', () => ({ getAppShellContext: () => ({ orgUrlSegment: 'alpha' }) }));
 vi.mock('$features/calendar/calendarWorkspaceHydration.svelte', () => ({
@@ -20,6 +22,7 @@ vi.mock('$features/calendar/components/CalendarSettingsPage.svelte', async () =>
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	invalidate.mockClear();
 });
 
 it('holds Continue while a calendar setting saves, then stays on the step when it fails', async () => {
@@ -50,4 +53,19 @@ it('holds Continue while a calendar setting saves, then stays on the step when i
 	expect(navigate).not.toHaveBeenCalled();
 	await fireEvent.click(next);
 	await waitFor(() => expect(navigate).toHaveBeenCalledWith('/org/alpha/setup/training'));
+});
+
+it('rereads the setup counts once an assignment added here is saved', async () => {
+	page.data = { calendar: { data: Promise.resolve({ hydration: {} }) } };
+	render(SetupStepHarness, {
+		props: { source: stepSource('calendar'), navigate: vi.fn(async () => {}), step: SetupCalendarStep }
+	});
+	await screen.findByTestId('visible-stub');
+	dailyAssignmentsStore.load([], [], 'alpha');
+	await new Promise((settle) => setTimeout(settle));
+	expect(invalidate).not.toHaveBeenCalled();
+
+	dailyAssignmentsStore.load([{ id: 'cq', name: 'CQ' } as never], [], 'alpha');
+
+	await waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:organization-setup'));
 });

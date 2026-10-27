@@ -115,8 +115,8 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
    Personnel `later`.
 7. `/setup/calendar` shows Calendar settings with Status Types 7, Assignment Types 1 and Holidays & closures 44 on a
    new unit, and no `Back to Calendar`. `Continue to Training` marks Calendar Done: `5 of 12`.
-8. Back on Personnel, `Add a person`, fill Last and First name and `Add Personnel`. Without a reload expect
-   `1 person so far` and the rail's Personnel row Done. A reload keeps both.
+8. Back on Personnel, `Add a person`, fill Last name `Fixround`, First name `Jane` and MOS `68W`, then
+   `Add Personnel`. Without a reload expect `1 person so far` and the rail's Personnel row Done. A reload keeps both.
 9. As `orgAdmin` on the fixture unit every step shows the same editor actions (`Manage groups`, rank pack buttons,
    `Add a person`, the drop zone, Calendar `Add new`), and choosing a service saves.
 10. `$V fault arm org-setup-ranks-references`, reload `/setup/ranks`. Expect an alert

@@ -67,12 +67,12 @@
 			{/if}
 		{/snippet}
 		{#snippet loading()}
-			<div class="grid gap-10" aria-busy="true">
+			<div class="@container grid gap-10" aria-busy="true">
 				<span class="sr-only">Loading the roster</span>
 				<Skeleton class="h-16 w-full" aria-hidden="true" />
 				<div class="grid gap-6" aria-hidden="true">
 					<Skeleton class="h-8 w-64" />
-					<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+					<div class="grid gap-6 @min-[42rem]:grid-cols-[minmax(0,1fr)_20rem]">
 						<Skeleton class="h-64 w-full" />
 						<Skeleton class="h-64 w-full" />
 					</div>

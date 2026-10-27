@@ -5,12 +5,12 @@
 	import {
 		calendarSettingsSaving,
 		dailyAssignmentsStore,
+		statusTypesStore,
 		type CalendarWorkspaceRestricted,
 		type CalendarWorkspaceResult
 	} from '$features/calendar';
 	import CalendarSettingsPage from '$features/calendar/components/CalendarSettingsPage.svelte';
 	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
-	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { SetupEditorNote, SetupStepFooter } from '$features/organization';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';

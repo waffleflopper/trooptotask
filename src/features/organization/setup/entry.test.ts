@@ -39,32 +39,32 @@ describe('setupEntry', () => {
 				registry: [released],
 				state: { ...empty, prompts: { setup: { snoozedUntil: '2026-10-28' } } }
 			})
-		).toEqual({ prompt: null, resume: false });
+		).toEqual({ prompt: null, resume: null });
 	});
 
 	it.each([
-		['untouched', empty, { prompt: { kind: 'invitation' }, resume: false }],
+		['untouched', empty, { prompt: { kind: 'invitation' }, resume: null }],
 		[
 			'snoozed until tomorrow',
 			{ ...empty, prompts: { setup: { snoozedUntil: '2026-10-28' } } },
-			{ prompt: null, resume: true }
+			{ prompt: null, resume: { kind: 'setup' } }
 		],
 		[
 			'snooze ends today',
 			{ ...empty, prompts: { setup: { snoozedUntil: '2026-10-27' } } },
-			{ prompt: { kind: 'invitation' }, resume: true }
+			{ prompt: { kind: 'invitation' }, resume: { kind: 'setup' } }
 		],
 		[
 			'expired snooze',
 			{ ...empty, prompts: { setup: { snoozedUntil: '2026-10-01' } } },
-			{ prompt: { kind: 'invitation' }, resume: true }
+			{ prompt: { kind: 'invitation' }, resume: { kind: 'setup' } }
 		],
-		['never ask again', { ...empty, prompts: { setup: { never: true } } }, { prompt: null, resume: false }],
-		['finished', { ...empty, finishedAt }, { prompt: null, resume: false }],
+		['never ask again', { ...empty, prompts: { setup: { never: true } } }, { prompt: null, resume: null }],
+		['finished', { ...empty, finishedAt }, { prompt: null, resume: null }],
 		[
 			'finished after snoozing',
 			{ ...empty, finishedAt, prompts: { setup: { snoozedUntil: '2026-10-28' } } },
-			{ prompt: null, resume: false }
+			{ prompt: null, resume: null }
 		]
 	] satisfies [string, OrganizationSetup, unknown][])(
 		'%s setup decides invitation and resume together',
@@ -74,32 +74,32 @@ describe('setupEntry', () => {
 	);
 
 	it('gives the invitation priority over a new step', () => {
-		expect(decide({ registry: [released] })).toEqual({ prompt: { kind: 'invitation' }, resume: false });
+		expect(decide({ registry: [released] })).toEqual({ prompt: { kind: 'invitation' }, resume: null });
 	});
 
 	it('offers an unanswered new step after Finish', () => {
 		expect(decide({ registry: [released], state: { ...empty, finishedAt } })).toEqual({
 			prompt: { kind: 'newFeature', step: 'training' },
-			resume: false
+			resume: null
 		});
 	});
 
 	it('can offer a new step during the setup invitation snooze', () => {
 		expect(
 			decide({ registry: [released], state: { ...empty, prompts: { setup: { snoozedUntil: '2026-10-28' } } } })
-		).toEqual({ prompt: { kind: 'newFeature', step: 'training' }, resume: true });
+		).toEqual({ prompt: { kind: 'newFeature', step: 'training' }, resume: { kind: 'setup' } });
 	});
 
 	it.each([null, finishedAt])('shows only resume for a new step after setup never, finishedAt %s', (finishedAt) => {
 		expect(
 			decide({ registry: [released], state: { ...empty, finishedAt, prompts: { setup: { never: true } } } })
-		).toEqual({ prompt: null, resume: true });
+		).toEqual({ prompt: null, resume: { kind: 'newFeature', step: 'training' } });
 	});
 
 	it.each(['reviewed', 'later'] as const)('settles a new step answered %s', (answer) => {
 		expect(decide({ registry: [released], state: { ...empty, finishedAt, answers: { training: answer } } })).toEqual({
 			prompt: null,
-			resume: false
+			resume: null
 		});
 	});
 
@@ -110,7 +110,7 @@ describe('setupEntry', () => {
 				disabledFeatures: ['training'],
 				state: { ...empty, prompts: { setup: { never: true } } }
 			})
-		).toEqual({ prompt: null, resume: false });
+		).toEqual({ prompt: null, resume: null });
 	});
 
 	it.each(['2025-12-31', '2026-01-01', undefined])(
@@ -118,7 +118,7 @@ describe('setupEntry', () => {
 		(since) => {
 			expect(decide({ registry: [{ ...released, since }], state: { ...empty, finishedAt } })).toEqual({
 				prompt: null,
-				resume: false
+				resume: null
 			});
 		}
 	);
@@ -126,17 +126,23 @@ describe('setupEntry', () => {
 	it('settles a feature prompt never independently of setup', () => {
 		expect(
 			decide({ registry: [released], state: { ...empty, finishedAt, prompts: { training: { never: true } } } })
-		).toEqual({ prompt: null, resume: false });
+		).toEqual({ prompt: null, resume: null });
 		expect(decide({ registry: [released], state: { ...empty, prompts: { training: { never: true } } } })).toEqual({
 			prompt: { kind: 'invitation' },
-			resume: false
+			resume: null
 		});
 	});
 
 	it.each([
-		['2026-10-28', { prompt: null, resume: true }],
-		['2026-10-27', { prompt: { kind: 'newFeature', step: 'training' }, resume: true }],
-		['2026-10-26', { prompt: { kind: 'newFeature', step: 'training' }, resume: true }]
+		['2026-10-28', { prompt: null, resume: { kind: 'newFeature', step: 'training' } }],
+		[
+			'2026-10-27',
+			{ prompt: { kind: 'newFeature', step: 'training' }, resume: { kind: 'newFeature', step: 'training' } }
+		],
+		[
+			'2026-10-26',
+			{ prompt: { kind: 'newFeature', step: 'training' }, resume: { kind: 'newFeature', step: 'training' } }
+		]
 	])('keeps resume while a new step snooze dated %s waits for an answer', (snoozedUntil, expected) => {
 		expect(
 			decide({ registry: [released], state: { ...empty, finishedAt, prompts: { training: { snoozedUntil } } } })
@@ -146,23 +152,26 @@ describe('setupEntry', () => {
 	it('offers at most one new prompt in registry order, skipping a snoozed or declined step', () => {
 		expect(decide({ registry: [released, second], state: { ...empty, finishedAt } })).toEqual({
 			prompt: { kind: 'newFeature', step: 'training' },
-			resume: false
+			resume: null
 		});
 		expect(
 			decide({
 				registry: [released, second],
 				state: { ...empty, finishedAt, prompts: { training: { snoozedUntil: '2026-10-28' } } }
 			})
-		).toEqual({ prompt: { kind: 'newFeature', step: 'evaluations' }, resume: true });
+		).toEqual({
+			prompt: { kind: 'newFeature', step: 'evaluations' },
+			resume: { kind: 'newFeature', step: 'training' }
+		});
 		expect(
 			decide({ registry: [released, second], state: { ...empty, finishedAt, prompts: { training: { never: true } } } })
-		).toEqual({ prompt: { kind: 'newFeature', step: 'evaluations' }, resume: false });
+		).toEqual({ prompt: { kind: 'newFeature', step: 'evaluations' }, resume: null });
 	});
 
 	it('removes prompts and resume when their step leaves the registry', () => {
 		expect(decide({ state: { ...empty, finishedAt, prompts: { training: { snoozedUntil: '2026-10-28' } } } })).toEqual({
 			prompt: null,
-			resume: false
+			resume: null
 		});
 	});
 });

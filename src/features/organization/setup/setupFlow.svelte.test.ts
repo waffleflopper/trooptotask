@@ -329,6 +329,26 @@ describe('Facts', () => {
 });
 
 describe('Finish later', () => {
+	it.each([
+		['declined', { ...empty, prompts: { setup: { never: true as const } } }],
+		['finished', { ...empty, finishedAt: '2026-10-26T12:00:00.000Z' }]
+	])('leaves %s setup without changing prompt state', async (_, state) => {
+		const writes: unknown[] = [];
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			writes.push(init.body);
+			return respond(200, { ...empty, prompts: { setup: { snoozedUntil: '2026-10-28' } } });
+		});
+		const { flow, source, navigate } = setup('ranks');
+		source.setupState = state;
+		await settle();
+
+		await flow.finishLater();
+
+		expect(writes).toEqual([]);
+		expect(navigate).toHaveBeenCalledWith('/org/alpha', { invalidate: ['app:organization-setup'] });
+		expect(flow.state).toEqual(state);
+	});
+
 	it('awaits the owner snooze before applying state and opening the Dashboard', async () => {
 		const response = deferred<Response>();
 		const writes: unknown[] = [];

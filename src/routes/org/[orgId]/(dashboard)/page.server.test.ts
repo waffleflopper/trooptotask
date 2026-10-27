@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardWorkspaceData, DashboardWorkspaceResult } from '$features/dashboard/contracts';
 import { createReadyAppShellRouteData } from '../appShell.test-support';
+import type { OrganizationSetup } from '$features/organization/contracts';
+import { streamOrganizationSetupEntry } from '../setupEntryLoad.server';
 
 const {
 	buildLayoutRequestMock,
@@ -14,6 +16,7 @@ const {
 	findManyWithCountMock,
 	findManyMock,
 	leaveOrganizationMock,
+	readSetupMock,
 	mockCtx
 } = vi.hoisted(() => {
 	const ORG_ID = '11111111-1111-1111-1111-111111111111';
@@ -32,6 +35,7 @@ const {
 		findManyWithCountMock,
 		findManyMock,
 		leaveOrganizationMock: vi.fn(),
+		readSetupMock: vi.fn(),
 		mockCtx: {
 			auth: {
 				orgId: ORG_ID,
@@ -79,6 +83,8 @@ vi.mock('$features/organization/index.server', async () => {
 
 	return {
 		...actual,
+		createSupabaseOrganizationSetupPort: () => ({ read: readSetupMock }),
+		resolveOrganizationRouteIdentity: async () => ({ createdAt: '2020-01-01T12:00:00Z' }),
 		createSupabaseOrgSettingsMemberManagementPort: createSupabaseOrgSettingsMemberManagementPortMock,
 		leaveOrganization: leaveOrganizationMock
 	};
@@ -203,6 +209,86 @@ describe('dashboard page server load', () => {
 			} as never)
 		).rejects.toMatchObject({ status: 403, body: { message: 'Organization is suspended' } });
 		expect(streamDashboardWorkspaceMock).not.toHaveBeenCalled();
+	});
+
+	it('streams a fresh owner invitation when returning after the snooze day with a retained layout', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-27T16:00:00Z'));
+		const state: OrganizationSetup = {
+			branch: null,
+			answers: {},
+			finishedAt: null,
+			prompts: { setup: { snoozedUntil: '2026-10-28' } }
+		};
+		buildLayoutRequestMock.mockResolvedValue({ ...mockCtx, auth: { ...mockCtx.auth, role: 'owner' } });
+		readSetupMock.mockResolvedValue(state);
+		const retained = await streamOrganizationSetupEntry({
+			locals: {} as App.Locals,
+			orgId: ORG_ID,
+			cookies: easternViewer
+		});
+		expect(retained).toMatchObject({ today: '2026-10-27', entry: { prompt: null } });
+
+		vi.setSystemTime(new Date('2026-10-28T16:00:00Z'));
+		let complete!: (state: OrganizationSetup) => void;
+		readSetupMock.mockReturnValueOnce(
+			new Promise<OrganizationSetup>((resolve) => {
+				complete = resolve;
+			})
+		);
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({ dashboard: { data: new Promise(() => {}) } });
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: easternViewer,
+			depends: vi.fn()
+		} as never);
+		complete(state);
+
+		await expect(result.organizationSetup).resolves.toMatchObject({
+			orgId: ORG_ID,
+			today: '2026-10-28',
+			entry: { prompt: { kind: 'invitation' } }
+		});
+		expect(retained?.entry.prompt).toBeNull();
+	});
+
+	it.each(['admin', 'member'] as const)('returns no setup entry or invitation progress to %s', async (role) => {
+		buildLayoutRequestMock.mockResolvedValue({ ...mockCtx, auth: { ...mockCtx.auth, role } });
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({ dashboard: { data: new Promise(() => {}) } });
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: easternViewer,
+			depends: vi.fn()
+		} as never);
+
+		expect(result.organizationSetup).toBeNull();
+		expect(result.setupInvitationProgress).toBeNull();
+		expect(result.breadcrumbLabel).toEqual(expect.any(String));
+	});
+
+	it('keeps Dashboard reads independent of setup prompt invalidation', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-28T16:00:00Z'));
+		buildLayoutRequestMock.mockResolvedValue({ ...mockCtx, auth: { ...mockCtx.auth, role: 'owner' } });
+		readSetupMock.mockResolvedValue({
+			branch: null,
+			answers: {},
+			finishedAt: null,
+			prompts: { setup: { never: true } }
+		});
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({ dashboard: { data: new Promise(() => {}) } });
+		const dependencies = new Set<string>();
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: easternViewer,
+			depends: (...keys: string[]) => keys.forEach((key) => dependencies.add(key))
+		} as never);
+
+		expect(result.viewerDay).toEqual({ date: '2026-10-28', timeZone: 'America/New_York' });
+		expect(dependencies.has('app:organization-setup')).toBe(false);
 	});
 
 	it('streams dashboard summary without starting non-critical support queries in the page server load', async () => {

@@ -14,6 +14,7 @@
 		validatePersonnelDraft,
 		type PersonnelDraftErrors
 	} from '$features/personnel/personnelDraft';
+	import { StoreRequestError } from '$lib/stores/core/ports';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -61,7 +62,9 @@
 	let submitAttempted = $state(false);
 	let isSaving = $state(false);
 	let added = $state<string[]>([]);
-	let failure = $state<{ who: string; message: string; mode: SubmitMode } | null>(null);
+	let failure = $state<{ who: string; message: string; mode: SubmitMode; confirmed: boolean } | null>(null);
+	// Without a server rejection the create may have committed, and resending would add the person twice.
+	const unconfirmed = $derived(failure !== null && !failure.confirmed);
 	const dirty = $derived(personnelDraftChanges(opening, draft, groups).length > 0);
 
 	const errors = $derived(validatePersonnelDraft(draft, { allowUnassigned, groups }));
@@ -92,7 +95,7 @@
 	}
 
 	async function submit(mode: SubmitMode) {
-		if (isSaving) return;
+		if (isSaving || unconfirmed) return;
 		submitAttempted = true;
 		const invalid = (Object.keys(fieldIds) as FieldName[]).find((field) => errors[field]);
 		if (invalid) {
@@ -107,7 +110,12 @@
 			await onSubmit(payload);
 		} catch (error) {
 			if (disposed) return;
-			failure = { who: who(payload), message: personnelSaveErrorMessage(error, 'The person was not saved.'), mode };
+			failure = {
+				who: who(payload),
+				message: personnelSaveErrorMessage(error, 'The person was not saved.'),
+				mode,
+				confirmed: error instanceof StoreRequestError && error.status < 500
+			};
 			isSaving = false;
 			await tick();
 			primaryButton?.focus();
@@ -180,8 +188,16 @@
 						class="mt-5"
 						{@attach (alert) => alert.scrollIntoView({ block: 'nearest' })}
 					>
-						<Alert.Title>{failure.who} wasn't added</Alert.Title>
-						<Alert.Description>{failure.message} Everything you typed is still here.</Alert.Description>
+						{#if failure.confirmed}
+							<Alert.Title>{failure.who} wasn't added</Alert.Title>
+							<Alert.Description>{failure.message} Everything you typed is still here.</Alert.Description>
+						{:else}
+							<Alert.Title>{failure.who} may already be saved</Alert.Title>
+							<Alert.Description
+								>The connection dropped before the server answered. Reload to check the roster before you add them
+								again.</Alert.Description
+							>
+						{/if}
 					</Alert.Root>
 				{/if}
 				<fieldset class="contents" disabled={isSaving}>
@@ -356,7 +372,7 @@
 							type="button"
 							variant="outline"
 							class="max-sm:h-11"
-							disabled={isSaving}
+							disabled={isSaving || unconfirmed}
 							aria-keyshortcuts="Control+Enter Meta+Enter"
 							onclick={() => submit('another')}
 						>
@@ -364,16 +380,27 @@
 							<span class="max-sm:hidden">Add and add another</span>
 						</Button>
 					{/if}
-					<Button
-						bind:ref={primaryButton}
-						type="submit"
-						form="personnel-form"
-						data-testid="personnel-save"
-						class={cn('max-sm:h-11', !addAnother && 'col-span-2')}
-						disabled={isSaving}
-					>
-						{isSaving ? 'Adding...' : failure ? 'Try again' : 'Add person'}
-					</Button>
+					{#if unconfirmed}
+						<Button
+							bind:ref={primaryButton}
+							type="button"
+							class={cn('max-sm:h-11', !addAnother && 'col-span-2')}
+							onclick={() => location.reload()}
+						>
+							Reload roster
+						</Button>
+					{:else}
+						<Button
+							bind:ref={primaryButton}
+							type="submit"
+							form="personnel-form"
+							data-testid="personnel-save"
+							class={cn('max-sm:h-11', !addAnother && 'col-span-2')}
+							disabled={isSaving}
+						>
+							{isSaving ? 'Adding...' : failure ? 'Try again' : 'Add person'}
+						</Button>
+					{/if}
 				</div>
 			</div>
 		</AppDialog.Footer>

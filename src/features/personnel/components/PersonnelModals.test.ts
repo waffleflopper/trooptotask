@@ -365,7 +365,7 @@ describe('scoped Personnel creation', () => {
 				const draft = JSON.parse(init.body);
 				requests.push(draft);
 				return fail
-					? Response.json({ message: 'Unavailable' }, { status: 503 })
+					? Response.json({ message: 'Group is full' }, { status: 409 })
 					: Response.json({ ...draft, id: 'saved-alpha' });
 			})
 		);

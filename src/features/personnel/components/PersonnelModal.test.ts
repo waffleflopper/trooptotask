@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PersonnelModal from './PersonnelModal.svelte';
+import { StoreRequestError } from '$lib/stores/core/ports';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 
 afterEach(async () => {
@@ -141,7 +142,10 @@ describe('PersonnelModal', () => {
 
 	it('keeps a failed add in the dialog and resends the same values with Try again', async () => {
 		const onClose = vi.fn();
-		const onSubmit = vi.fn().mockRejectedValueOnce(new Error('insert blocked by policy')).mockResolvedValue(undefined);
+		const onSubmit = vi
+			.fn()
+			.mockRejectedValueOnce(new StoreRequestError('insert blocked by policy', 403, true))
+			.mockResolvedValue(undefined);
 		render(PersonnelModal, { props: { groups: [], rankCatalog: armyRankCatalog, onSubmit, onClose } });
 		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Smith' } });
 		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Jane' } });
@@ -155,6 +159,22 @@ describe('PersonnelModal', () => {
 
 		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 		expect(onSubmit).toHaveBeenNthCalledWith(2, onSubmit.mock.calls[0][0]);
+	});
+
+	it('never resends an add whose outcome the server did not confirm', async () => {
+		const onSubmit = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+		render(PersonnelModal, { props: { groups: [], rankCatalog: armyRankCatalog, onSubmit, onClose: vi.fn() } });
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Smith' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Jane' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Reload roster' })).toBeTruthy());
+		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+		await fireEvent.submit(document.getElementById('personnel-form')!);
+		await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter', ctrlKey: true });
+		await fireEvent.click(screen.getByRole('button', { name: /add another/i }));
+
+		expect(onSubmit).toHaveBeenCalledTimes(1);
 	});
 
 	it('submits blank ETS and PCS / DEROS fields as null', async () => {

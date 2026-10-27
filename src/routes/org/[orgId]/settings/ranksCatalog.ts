@@ -107,7 +107,9 @@ export type RankBranchGroup = {
 	categories: RankCategoryGroup[];
 };
 
-const HISTORY_CODES = new Set(BUILT_IN_RANK_CATALOG.filter((entry) => entry.state === 'retired').map((entry) => entry.code));
+const HISTORY_CODES = new Set(
+	BUILT_IN_RANK_CATALOG.filter((entry) => entry.state === 'retired').map((entry) => entry.code)
+);
 const CATEGORY_ORDER = ['officer', 'warrant', 'enlisted', 'civilian', 'custom'];
 
 /** A built-in rank that only old records use, such as SP4. */

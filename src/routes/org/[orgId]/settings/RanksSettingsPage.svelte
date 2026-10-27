@@ -36,7 +36,14 @@
 	} = $props();
 
 	const edits = new RankStateEdits(
-		(changes) => post('setRankStates', changes.flatMap((change) => [['code', change.code], ['state', change.state]])),
+		(changes) =>
+			post(
+				'setRankStates',
+				changes.flatMap((change) => [
+					['code', change.code],
+					['state', change.state]
+				])
+			),
 		() => ranksSettings
 	);
 
@@ -104,11 +111,7 @@
 		}
 	}
 
-	function noteFor(
-		moved: SettingsRankCatalogRow[],
-		state: RankState,
-		bulk: { label: string } | null
-	): string | null {
+	function noteFor(moved: SettingsRankCatalogRow[], state: RankState, bulk: { label: string } | null): string | null {
 		const held = state === 'retired' ? moved.filter((entry) => holders(entry) > 0) : [];
 		if (!bulk) {
 			const [entry] = held;

@@ -121,7 +121,7 @@ function army(
 	code: string,
 	label: string,
 	category: 'officer' | 'warrant' | 'enlisted',
-	payGrade: string,
+	payGrade: SettingsRankCatalogRow['payGrade'],
 	overrides: Partial<SettingsRankCatalogRow> = {}
 ): SettingsRankCatalogRow {
 	return rankEntry({
@@ -275,7 +275,13 @@ describe('turning ranks on and off', () => {
 		await click(chip('Sergeant'));
 		expect(chip('Sergeant')).toHaveAttribute('aria-pressed', 'false');
 		expect(heldPosts.map(({ action, fields }) => ({ action, fields }))).toEqual([
-			{ action: '?/setRankStates', fields: [['code', 'SGT'], ['state', 'retired']] }
+			{
+				action: '?/setRankStates',
+				fields: [
+					['code', 'SGT'],
+					['state', 'retired']
+				]
+			}
 		]);
 
 		await heldPosts[0].answer({ type: 'success', data: { success: true, changedCount: 1 } });
@@ -353,7 +359,10 @@ describe('turning ranks on and off', () => {
 	it('adds a branch and opens its tab', async () => {
 		const page = renderRankPage([LT, SGT]);
 
-		await fireEvent.pointerDown(screen.getByRole('button', { name: '+ Add a branch' }), { button: 0, pointerType: 'mouse' });
+		await fireEvent.pointerDown(screen.getByRole('button', { name: '+ Add a branch' }), {
+			button: 0,
+			pointerType: 'mouse'
+		});
 		await vi.runAllTimersAsync();
 		await click(screen.getByRole('menuitem', { name: /Navy/ }));
 		expect(heldPosts.map(({ action, fields }) => ({ action, fields }))).toEqual([
@@ -364,7 +373,12 @@ describe('turning ranks on and off', () => {
 		await page.reload([
 			LT,
 			SGT,
-			{ ...rankEntry({ code: 'PO3', label: 'Petty Officer Third Class' }), service: 'navy', serviceLabel: 'Navy', source: 'built-in' }
+			{
+				...rankEntry({ code: 'PO3', label: 'Petty Officer Third Class' }),
+				service: 'navy',
+				serviceLabel: 'Navy',
+				source: 'built-in'
+			}
 		]);
 		expect(screen.getByRole('tab', { name: /Navy/ })).toHaveAttribute('aria-selected', 'true');
 	});

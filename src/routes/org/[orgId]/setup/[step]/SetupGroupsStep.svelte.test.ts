@@ -22,7 +22,11 @@ afterEach(() => {
 
 function renderGroupsStep() {
 	const openGroupEditor = vi.fn();
-	personnelStubs.ctx = { canManageGroups: true, allActivePersonnel: [], openGroupEditor } as unknown as PersonnelPageContext;
+	personnelStubs.ctx = {
+		canManageGroups: true,
+		allActivePersonnel: [],
+		openGroupEditor
+	} as unknown as PersonnelPageContext;
 	page.data = { orgId: 'alpha' };
 	const fetch = vi.fn(answerEndpoint());
 	vi.stubGlobal('fetch', fetch);

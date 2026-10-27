@@ -289,6 +289,19 @@
 			</Button>
 		</div>
 	</PageShell.FactRow>
+
+	<PageShell.FactRow
+		variant="display"
+		label="Organization setup"
+		description="A guided pass through groups, ranks, the calendar, each feature and your team. Change any answer here later."
+	>
+		<div class="flex justify-end">
+			<Button variant="link" class="-mr-2" href={`/org/${organization.urlSegment}/setup`}>
+				Open setup
+				<ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+			</Button>
+		</div>
+	</PageShell.FactRow>
 </PageShell.FactSection>
 
 <AppDialog.Root bind:open={workspace.slugConfirmOpen} onClose={() => workspace.cancelSlugAction()}>

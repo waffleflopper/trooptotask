@@ -98,6 +98,7 @@ means the workspace reloaded.
 - [Organization settings, creation and communications states](organization-settings-states.md): settings screens in
   every state.
 - [Organization data exports](organization-exports.md): export contents, lifecycle and recovery.
+- [Organization setup](organization-setup.md): guided steps, rail, Done summary and failures.
 - [Find personnel](find-personnel.md): search, roster views, scope, and the roster's status and Needs attention signals.
 - [Personnel record lifecycle](personnel-records-lifecycle.md): create, import, archive and restore.
 - [Personnel artifacts](personnel-artifacts.md): counseling, documents, follow-ups and notes.

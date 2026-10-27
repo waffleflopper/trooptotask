@@ -84,12 +84,16 @@ _Avoid_: Button permission
 An additional rule that can affect authorization beyond Membership Role, capabilities, and scope, such as an owner-only restriction.
 _Avoid_: Member Preset
 
+**Organization setup**:
+The owner's guided pass through a unit's configuration: Groups, Ranks, Personnel, Calendar, each feature and inviting the team. Each step embeds the existing Settings editor for its area. A step is Done when the unit's data or the owner's review settles it, Later when left for later, or Off when its Feature switch is off. Admins can revisit it from Settings › General.
+_Avoid_: Onboarding, which is personnel in-processing; wizard; getting started checklist
+
 **Policy Decision**:
 The allow-or-deny result for a Policy Action after relevant authority, scope, and overlays are considered, with a reason that can explain the result. Server decisions enforce access; client affordances are advisory.
 _Avoid_: Checkbox, hidden button as access enforcement
 
 **Feature switch**:
-A unit-wide setting that turns off Training, Critical Tasks, Evaluations, Onboarding, or Losses and awards for every member, owners included. A disabled feature's Feature Lane projects to `none` with the reason "off for the unit", distinct from no permission. It leaves records and stored member access unchanged, and it is not a security boundary: RLS and SQL capability checks do not read it.
+A unit-wide setting that turns off Training, Critical Tasks, Evaluations, Onboarding, Losses and awards, or Events & Taskings for every member, owners included. A disabled feature's Feature Lane projects to `none` with the reason "off for the unit", distinct from no permission. SQL lane checks read it too: `member_access_has_capability` denies a lane whose feature is off, for owners and admins as well. It leaves records and stored member access unchanged, so turning the feature back on restores the access members had.
 _Avoid_: Feature flag, which names a release toggle; Capability Level `none`
 
 **Strength floor**:

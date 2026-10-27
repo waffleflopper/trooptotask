@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
 import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive, isOrgNavSubItemActive } from './orgNavigation';
+import { SETUP_STEPS } from '$features/organization/contracts';
 
 const baseCapabilities: CapabilityMap = {
 	calendar: 'none',
@@ -192,6 +193,17 @@ describe('getOrgBreadcrumbs', () => {
 		expect(getOrgBreadcrumbs('/org/org-1/calendar/assignments', 'Test Org', nav).at(-1)).toEqual({
 			label: 'Duty planner'
 		});
+	});
+
+	it('names the open Organization setup step after the unit and links back into setup', () => {
+		const nav = getOrgNavigation('org-1', { ...baseCapabilities, calendar: 'view' }, []);
+
+		expect(getOrgBreadcrumbs('/org/org-1/setup/critical-tasks', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Organization setup', href: '/org/org-1/setup' },
+			{ label: SETUP_STEPS.find((step) => step.slug === 'critical-tasks')!.title }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/setup/done', 'Test Org', nav).at(-1)).toEqual({ label: 'Done' });
 	});
 
 	it("labels the What's new page without the unit, since the page is personal", () => {

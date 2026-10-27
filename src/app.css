@@ -103,7 +103,9 @@
 	}
 }
 
-:root {
+/* [data-theme='light'] also scopes the light tokens to a subtree, which public pages use to ignore the stored app theme. */
+:root,
+[data-theme='light'] {
 	color-scheme: light;
 
 	--focus-outline: 2px solid var(--ring);

@@ -1,19 +1,41 @@
 <script lang="ts">
-	import PublicContactCard from '$lib/components/public/PublicContactCard.svelte';
-	import PublicContentSection from '$lib/components/public/PublicContentSection.svelte';
-	import PublicPageHeader from '$lib/components/public/PublicPageHeader.svelte';
+	import PublicBand from '$lib/components/public/PublicBand.svelte';
+	import PublicButton from '$lib/components/public/PublicButton.svelte';
+	import PublicHeading from '$lib/components/public/PublicHeading.svelte';
+	import PublicHero from '$lib/components/public/PublicHero.svelte';
+	import PublicRow from '$lib/components/public/PublicRow.svelte';
+	import PublicSection from '$lib/components/public/PublicSection.svelte';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
+	import { monoLabel } from '$lib/components/public/layout';
 
 	let { data } = $props();
 
-	const sections = [
-		{ id: 'data-classification', num: '01', label: 'Classification' },
-		{ id: 'encryption', num: '02', label: 'Encryption' },
-		{ id: 'access-control', num: '03', label: 'Access' },
-		{ id: 'audit-logging', num: '04', label: 'Audit' },
-		{ id: 'infrastructure', num: '05', label: 'Infrastructure' },
-		{ id: 'compliance', num: '06', label: 'Compliance' },
-		{ id: 'disclosure', num: '07', label: 'Disclosure' }
+	const specs = [
+		{ term: 'NIST 800-171', detail: 'Aligned controls' },
+		{ term: 'AES-256', detail: 'Encryption at rest' },
+		{ term: 'TLS 1.2+', detail: 'In transit, HSTS enforced' },
+		{ term: 'US-hosted', detail: 'All infrastructure' }
+	];
+
+	const providers = [
+		{ name: 'Vercel', role: 'Application hosting and delivery', detail: 'SOC 2 Type II' },
+		{ name: 'Supabase', role: 'Database, sign-in and file storage', detail: 'SOC 2 Type II · AWS, isolated tenancy' },
+		{ name: 'Region', role: 'United States', detail: 'All infrastructure' }
+	];
+
+	const families = [
+		{ id: '3.1', name: 'Access Control' },
+		{ id: '3.3', name: 'Audit and Accountability' },
+		{ id: '3.5', name: 'Identification and Authentication' },
+		{ id: '3.6', name: 'Incident Response' },
+		{ id: '3.13', name: 'System and Communications Protection' },
+		{ id: '3.14', name: 'System and Information Integrity' }
+	];
+
+	const keepOut = [
+		'Classified information of any kind',
+		'Highly sensitive operational details',
+		'Anything your command or cyber office has said stays out'
 	];
 </script>
 
@@ -22,140 +44,143 @@
 	<meta name="description" content="Security practices and NIST 800-171 alignment information for Troop to Task." />
 </svelte:head>
 
-<PublicShell signedIn={data.signedIn} active="security">
-	<PublicPageHeader label="Security" meta="Last reviewed: May 2026">
-		{#snippet title()}Your data, <em>protected.</em>{/snippet}
-		<p>TroopToTask aligns with NIST SP 800-171 for the protection of Controlled Unclassified Information.</p>
-	</PublicPageHeader>
-
-	<nav class="sticky top-14 z-40 border-b border-border bg-card" aria-label="On this page">
-		<ul
-			class="mx-auto flex max-w-[780px] list-none items-stretch gap-1 overflow-x-auto px-4 [scrollbar-width:thin] max-sm:px-2"
-		>
-			{#each sections as section (section.id)}
-				<li>
-					<a
-						href={`#${section.id}`}
-						class="inline-flex items-center gap-[0.4rem] border-b-2 border-transparent px-[0.65rem] py-[0.7rem] font-mono text-[0.6875rem] font-medium tracking-[0.08em] whitespace-nowrap text-muted-foreground uppercase no-underline transition-colors duration-[120ms] hover:border-accent hover:text-accent-text focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-						><span class="font-semibold text-accent-text">{section.num}</span>{section.label}</a
+<PublicShell signedIn={data.signedIn} active="security" showCta={false}>
+	<PublicHero lines={['Your roster,', 'protected.']}>
+		TroopToTask aligns with NIST SP 800-171 for protecting Controlled Unclassified Information. Every unit's data is
+		treated as CUI-equivalent. The platform is built for unclassified environments only. Last reviewed May 2026.
+		{#snippet aside()}
+			<dl class="m-0 border-t-2 border-chrome-text">
+				{#each specs as spec (spec.term)}
+					<div
+						class="flex min-h-12 items-center justify-between gap-4 border-b border-chrome-border py-3 font-body text-lg leading-[22px]"
 					>
-				</li>
-			{/each}
-		</ul>
-	</nav>
+						<dt class="{monoLabel} text-chrome-text">{spec.term}</dt>
+						<dd class="m-0 text-right font-light text-chrome-text-muted">{spec.detail}</dd>
+					</div>
+				{/each}
+			</dl>
+		{/snippet}
+	</PublicHero>
 
-	<PublicContentSection id="data-classification" label="01 // Data Classification">
-		{#snippet title()}What we handle, and how we treat it.{/snippet}
-		<p>
-			TroopToTask manages personnel readiness data that may include Controlled Unclassified Information (CUI). This
-			includes names, ranks, unit assignments, training records, counseling notes, and availability statuses. We treat
-			all customer data as CUI-equivalent and apply protections accordingly.
-		</p>
-		<p>
-			We do not process, store, or transmit classified information at any level. TroopToTask is designed exclusively for
-			unclassified environments.
-		</p>
-	</PublicContentSection>
+	<PublicSection>
+		<PublicHeading lines={['Treated like', 'it matters.']}>
+			Names, ranks, unit assignments, training records, counseling notes and availability. This is what protects every
+			one of them.
+		</PublicHeading>
+		<div class="border-t-2 border-foreground">
+			<PublicRow num="01" label="Classification" title="All customer data is handled as CUI-equivalent.">
+				<p>
+					TroopToTask does not process, store or transmit classified information at any level. It is designed for
+					unclassified environments only.
+				</p>
+			</PublicRow>
+			<PublicRow num="02" label="Encryption" title="Encrypted in transit and at rest.">
+				<p>
+					TLS 1.2 or higher between your browser and our servers, enforced with HSTS so cleartext and downgrade
+					connections are blocked. Databases, backups and file storage are encrypted with AES-256 using managed keys.
+				</p>
+			</PublicRow>
+			<PublicRow num="03" label="Access" title="Protected actions are checked at two layers.">
+				<p>
+					Sign-in supports multi-factor authentication, and sessions expire after 24 hours. Role-based permissions in
+					the app sit on top of row-level security in the database, which keeps each unit's records isolated. Sensitive
+					documents use short-lived signed links.
+				</p>
+			</PublicRow>
+			<PublicRow num="04" label="Audit" title="Security events leave a trail.">
+				<p>
+					Sign-ins, permission changes, data changes and admin actions are logged with who, what, which record and when.
+					Logs are kept for one year and leave out full record contents.
+				</p>
+			</PublicRow>
+		</div>
+	</PublicSection>
 
-	<PublicContentSection id="encryption" label="02 // Encryption" alternate>
-		{#snippet title()}Encrypted in transit and at rest.{/snippet}
-		<p>
-			All data transmitted between your browser and our servers is encrypted with TLS 1.2 or higher, enforced via HTTP
-			Strict Transport Security (HSTS) headers. Downgrade attacks and cleartext connections are blocked.
-		</p>
-		<p>
-			Data at rest is encrypted with AES-256 by our infrastructure providers. Database backups, file storage, and all
-			persistent data stores use server-side encryption with managed keys.
-		</p>
-	</PublicContentSection>
+	<PublicSection tone="dark">
+		<PublicHeading lines={['Proven platforms.', 'Aligned controls.']} tone="dark">
+			Hosted in the United States on providers with established security programs, with controls mapped to NIST SP
+			800-171 Rev 2.
+		</PublicHeading>
+		<div class="flex flex-col gap-12 xl:flex-row xl:items-start xl:justify-between xl:gap-16">
+			<div class="min-w-0 xl:w-[560px]">
+				<h3
+					class="{monoLabel} m-0 flex h-12 items-center border-b border-chrome-border font-normal text-chrome-text-muted"
+				>
+					Infrastructure
+				</h3>
+				<dl class="m-0">
+					{#each providers as provider (provider.name)}
+						<div
+							class="flex flex-col gap-2 border-b border-chrome-border py-5 sm:grid sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-0"
+						>
+							<dt class="{monoLabel} text-chrome-text sm:pt-1">{provider.name}</dt>
+							<dd class="m-0 flex flex-col gap-1 font-body text-lg leading-6">
+								<span class="text-chrome-text">{provider.role}</span>
+								<span class="font-light text-chrome-text-muted">{provider.detail}</span>
+							</dd>
+						</div>
+					{/each}
+				</dl>
+			</div>
+			<div class="min-w-0 xl:w-[600px]">
+				<h3
+					class="{monoLabel} m-0 flex h-12 items-center border-b border-chrome-border font-normal text-chrome-text-muted"
+				>
+					NIST SP 800-171 control families
+				</h3>
+				<ul class="m-0 list-none p-0">
+					{#each families as family (family.id)}
+						<li class="flex min-h-14 items-center border-b border-chrome-border py-3">
+							<span class="{monoLabel} w-20 shrink-0 text-chrome-accent">{family.id}</span>
+							<span class="font-body text-lg leading-[22px] text-chrome-text">{family.name}</span>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		</div>
+	</PublicSection>
 
-	<PublicContentSection id="access-control" label="03 // Access Control">
-		{#snippet title()}Protected actions require authorization.{/snippet}
-		<p>
-			Authentication is handled via Supabase Auth with support for email/password and multi-factor authentication
-			(TOTP). Sessions are enforced with a 24-hour absolute timeout and secure cookie handling.
-		</p>
-		<p>
-			Authorization uses a layered approach: role-based access control (RBAC) at the application level with admin,
-			editor, and viewer roles, combined with PostgreSQL Row-Level Security (RLS) policies that enforce tenant isolation
-			at the database layer. Organization-scoped operations use server-side membership and permission checks before
-			accessing protected data. Public access requests use validation and rate limits, while maintenance endpoints
-			require a separate secret. Sensitive document uploads and downloads are mediated through application endpoints,
-			with private storage access enforced by explicit policies and short-lived signed URLs.
-		</p>
-	</PublicContentSection>
+	<PublicSection>
+		<div class="flex flex-col gap-12 xl:flex-row xl:justify-between xl:gap-16">
+			<div class="flex flex-col gap-12 xl:w-[420px] xl:shrink-0">
+				<PublicHeading lines={['Use it with', 'judgment.']} />
+				<p class="m-0 font-body text-lg leading-7 font-light text-muted-foreground">
+					FedRAMP and formal federal procurement are a separate review. They do not, by themselves, decide whether a
+					tool is useful, secure and workable inside your local policy and approval chain.
+				</p>
+			</div>
+			<div class="min-w-0 border-t-2 border-foreground xl:w-[764px]">
+				<h3
+					class="{monoLabel} m-0 flex min-h-12 items-center border-b border-border py-3 font-normal text-muted-foreground"
+				>
+					Keep these in approved government systems
+				</h3>
+				<ul class="m-0 list-none p-0">
+					{#each keepOut as item (item)}
+						<li
+							class="flex min-h-16 flex-col justify-center gap-1 border-b border-border py-3 sm:flex-row sm:items-center sm:justify-start sm:gap-0"
+						>
+							<span class="{monoLabel} w-40 shrink-0 text-destructive-text">Keep out</span>
+							<span class="font-body text-lg leading-[22px] text-foreground">{item}</span>
+						</li>
+					{/each}
+				</ul>
+				<p class="m-0 pt-8 font-body text-lg leading-7 font-light text-muted-foreground sm:pl-40">
+					The aim is a secure, dependable tool leaders can trust today, strengthened over time for more demanding
+					compliance environments.
+				</p>
+			</div>
+		</div>
+	</PublicSection>
 
-	<PublicContentSection id="audit-logging" label="04 // Audit Logging" alternate>
-		{#snippet title()}Security events leave a trail.{/snippet}
-		<p>
-			TroopToTask maintains structured audit logs for security-relevant events including authentication attempts,
-			permission changes, data modifications, and administrative actions. Logs capture the actor, action, resource,
-			timestamp, and limited contextual metadata needed for accountability and review.
-		</p>
-		<p>
-			Audit records are retained for 1 year, with automated cleanup of expired entries. Audit details exclude full
-			record contents and unnecessary sensitive fields while preserving the limited identifiers needed to answer who did
-			what to which record.
-		</p>
-	</PublicContentSection>
-
-	<PublicContentSection id="infrastructure" label="05 // Infrastructure">
-		{#snippet title()}Built on proven platforms.{/snippet}
-		<p>TroopToTask runs on infrastructure from providers with established security programs:</p>
-		<ul>
-			<li><strong>Vercel</strong> — Application hosting and edge delivery. SOC 2 Type II certified.</li>
-			<li>
-				<strong>Supabase</strong> — PostgreSQL database, authentication, and file storage. SOC 2 Type II certified. Hosted
-				on AWS with isolated tenancy.
-			</li>
-		</ul>
-		<p>All infrastructure is hosted within the United States.</p>
-	</PublicContentSection>
-
-	<PublicContentSection id="compliance" label="06 // Compliance & Use" alternate>
-		{#snippet title()}Aligned with NIST, used with judgment.{/snippet}
-		<p>TroopToTask's security controls align with the following NIST SP 800-171 Rev 2 control families:</p>
-		<ul>
-			<li><strong>Access Control (3.1)</strong> — RBAC, RLS, session management, least privilege</li>
-			<li>
-				<strong>Audit &amp; Accountability (3.3)</strong> — Structured logging, retention policies, and minimized audit details
-			</li>
-			<li>
-				<strong>Identification &amp; Authentication (3.5)</strong> — MFA support, password policies, session timeouts
-			</li>
-			<li><strong>System &amp; Communications Protection (3.13)</strong> — TLS 1.2+, AES-256, security headers, CSP</li>
-			<li>
-				<strong>System &amp; Information Integrity (3.14)</strong> — Input validation, rate limiting, error handling
-			</li>
-			<li><strong>Incident Response (3.6)</strong> — Documented response procedures, contact channels</li>
-		</ul>
-		<p>
-			TroopToTask is built for military leaders who need a practical, secure way to stay on top of personnel and
-			readiness without creating more administrative drag.
-		</p>
-		<p>
-			FedRAMP and formal federal procurement involve a separate, additional compliance review. That process does not, by
-			itself, determine whether a commercial platform is useful, secure, and workable for leaders operating within their
-			local policy, command guidance, and approval chain.
-		</p>
-		<p>
-			Use TroopToTask in ways that match local policy and sound judgment: keep classified information, highly sensitive
-			operational details, and anything your command or cybersecurity office has directed to remain in approved
-			government systems out of the platform. Our aim is a secure, dependable tool leaders can trust today, while we
-			continue to strengthen it for more demanding compliance environments.
-		</p>
-	</PublicContentSection>
-
-	<PublicContentSection id="disclosure" label="07 // Responsible Disclosure">
-		{#snippet title()}Report a vulnerability.{/snippet}
-		<p>
-			If you discover a security vulnerability in TroopToTask, we encourage responsible disclosure. Please report
-			findings to:
-		</p>
-		<PublicContactCard email="security@trooptotask.org" subject="Security vulnerability report" />
-		<p>
-			We ask that you provide a reasonable amount of time for us to address reported issues before public disclosure. We
-			will acknowledge receipt within 48 hours and aim to provide a resolution timeline within 5 business days.
-		</p>
-	</PublicContentSection>
+	<PublicBand
+		lines={['Found a vulnerability?', 'Tell us first.']}
+		copy="Email security@trooptotask.org. We acknowledge reports within 48 hours and aim to share a resolution timeline within 5 business days. Please allow reasonable time before public disclosure."
+	>
+		{#snippet action()}
+			<PublicButton href="mailto:security@trooptotask.org?subject=Security%20vulnerability%20report"
+				>Email Security</PublicButton
+			>
+		{/snippet}
+	</PublicBand>
 </PublicShell>

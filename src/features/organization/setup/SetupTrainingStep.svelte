@@ -141,18 +141,6 @@
 		{:else if suggestions.length === 0}
 			<SetupFeaturePanel title="Training types">
 				{@render loadError()}
-				{#if catalog.state === 'loading'}
-					<div role="status" aria-label="Loading training types">
-						{#each { length: 2 }, index (index)}
-							<div class="flex h-10 items-center gap-2.5 border-b border-border">
-								<Skeleton class="size-4" />
-								<Skeleton class="h-4 w-40" />
-							</div>
-						{/each}
-					</div>
-				{:else}
-					{@render typeRows(types)}
-				{/if}
 				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
 					<p class="flex-1 text-sm leading-5 text-muted-foreground">
 						Add each requirement your unit tracks, with how often it renews. Have records in a spreadsheet? Import them
@@ -167,6 +155,18 @@
 						Add a type
 					</Button>
 				</div>
+				{#if catalog.state === 'loading'}
+					<div role="status" aria-label="Loading training types">
+						{#each { length: 2 }, index (index)}
+							<div class="flex h-10 items-center gap-2.5 border-b border-border">
+								<Skeleton class="size-4" />
+								<Skeleton class="h-4 w-40" />
+							</div>
+						{/each}
+					</div>
+				{:else}
+					{@render typeRows(types)}
+				{/if}
 			</SetupFeaturePanel>
 		{:else}
 			<SetupFeaturePanel title="Common Army annual training">
@@ -223,16 +223,6 @@
 						Show {suggestions.length - NARROW_ROWS} more
 					</Button>
 				{/if}
-				{#if ownTypes.length > 0}
-					<div class="flex flex-col gap-1.5">
-						<p
-							class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
-						>
-							Your own types
-						</p>
-						{@render typeRows(ownTypes)}
-					</div>
-				{/if}
 				<div class="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:gap-5">
 					<p class="flex-1 text-sm leading-5 text-muted-foreground">
 						Periods and colors can be changed on the Training types page. Have records in a spreadsheet? Import them
@@ -247,6 +237,16 @@
 						Add your own type
 					</Button>
 				</div>
+				{#if ownTypes.length > 0}
+					<div class="flex flex-col gap-1.5">
+						<p
+							class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
+						>
+							Your own types
+						</p>
+						{@render typeRows(ownTypes)}
+					</div>
+				{/if}
 			</SetupFeaturePanel>
 		{/if}
 	{/snippet}

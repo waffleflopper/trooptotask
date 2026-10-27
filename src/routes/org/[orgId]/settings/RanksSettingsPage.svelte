@@ -161,9 +161,10 @@
 		note = shownNote ?? (note?.key === key ? null : note);
 		if (failure?.key === key) failure = null;
 		const request = Symbol();
-		latestEdits.set(key, request);
-		const failed = await applyStates((bulk ? entries : moved).map((entry) => ({ code: entry.code, state })));
-		if (latestEdits.get(key) !== request || !failed) return;
+		const changes = (bulk ? entries : moved).map((entry) => ({ code: entry.code, state }));
+		for (const change of changes) latestEdits.set(change.code, request);
+		const failed = await applyStates(changes);
+		if (!failed || !changes.some((change) => latestEdits.get(change.code) === request)) return;
 		failure = { key, message: failed };
 		if (shownNote && note === shownNote) note = null;
 	}
@@ -171,9 +172,10 @@
 	async function undo(shownNote: Note) {
 		note = null;
 		const request = Symbol();
-		latestEdits.set(shownNote.key, request);
+		for (const change of shownNote.undo) latestEdits.set(change.code, request);
 		const failed = await applyStates(shownNote.undo);
-		if (latestEdits.get(shownNote.key) === request && failed) failure = { key: shownNote.key, message: failed };
+		if (failed && shownNote.undo.some((change) => latestEdits.get(change.code) === request))
+			failure = { key: shownNote.key, message: failed };
 	}
 
 	async function addBranch(service: string) {

@@ -164,7 +164,7 @@ export async function acceptDashboardInvitation(
 				email: normalizedEmail
 			});
 		}
-		fail(400, 'Invitation has expired');
+		fail(400, 'This invitation has expired. Ask the unit to send a new one.');
 	}
 	if (accepted.status === 'blocked') {
 		fail(400, 'This organization invitation is no longer available because platform access was rejected');
@@ -223,7 +223,7 @@ export async function declineDashboardInvitation(
 				email: normalizedEmail
 			});
 		}
-		fail(400, 'Invitation has expired');
+		fail(400, 'This invitation has expired. Ask the unit to send a new one.');
 	}
 	if (declined.status === 'blocked') {
 		fail(400, 'This organization invitation is no longer available because platform access was rejected');

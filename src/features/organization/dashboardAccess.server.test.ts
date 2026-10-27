@@ -252,7 +252,7 @@ describe('acceptDashboardInvitation', () => {
 			)
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Invitation has expired'
+			message: 'This invitation has expired. Ask the unit to send a new one.'
 		});
 
 		expect(notifications.notifications).toEqual([
@@ -517,7 +517,7 @@ describe('declineDashboardInvitation', () => {
 			)
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Invitation has expired'
+			message: 'This invitation has expired. Ask the unit to send a new one.'
 		});
 		expect(notifications.notifications).toEqual([
 			{

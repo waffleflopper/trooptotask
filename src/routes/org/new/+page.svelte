@@ -36,13 +36,12 @@
 	eyebrow="New Organization"
 	headline={['Stand up', 'your unit.']}
 	lede="Name it here. Setup takes it from there, one step at a time, and you can skip any step."
-	steps={{
+	outline={{
 		label: 'What happens next',
-		narrow: 'hidden',
 		items: [
-			{ title: 'Name your Organization', detail: 'Now', state: 'current' },
-			{ title: 'Set up', detail: 'Groups, ranks, your roster and features', state: 'upcoming' },
-			{ title: 'Invite your team', detail: 'Once it is set up', state: 'upcoming' }
+			{ title: 'Name your Organization', tag: 'Now' },
+			{ title: 'Set up Groups, ranks, your roster and features' },
+			{ title: 'Invite your team' }
 		]
 	}}
 	signedIn={{}}

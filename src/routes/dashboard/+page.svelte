@@ -27,6 +27,9 @@
 	let supersededForm = $state.raw<typeof form | undefined>(undefined);
 	const failure = $derived(form === supersededForm ? undefined : form?.error);
 	let successMessage = $state<string | null>(null);
+	// The service answers 400 or 404 when an invitation can no longer be answered (expired, revoked, already
+	// answered), so that row keeps its message and loses its buttons.
+	let closedInvitations = $state<Record<string, string>>({});
 	let orgFilter = $state('');
 	let listHeading = $state<HTMLElement | null>(null);
 
@@ -55,8 +58,15 @@
 							requestError = error;
 							loading = null;
 							if (!error && result.type === 'success') successMessage = successText;
+							if (result.type === 'failure' && (result.status === 400 || result.status === 404)) {
+								closedInvitations[invitationId] = String(result.data?.error ?? '');
+							}
 						},
-						focus: () => [formElement.querySelector('button'), listHeading]
+						focus: () => [
+							formElement.querySelector('button'),
+							document.getElementById(`invitation-${invitationId}-error`),
+							listHeading
+						]
 					}
 				);
 			};
@@ -108,7 +118,8 @@
 			</div>
 			<ul class="flex flex-col gap-2">
 				{#each data.pendingInvitations as invitation (invitation.id)}
-					{@const rowError = respondedInvitationId === invitation.id ? (requestError ?? failure) : null}
+					{@const closed = closedInvitations[invitation.id]}
+					{@const rowError = closed ?? (respondedInvitationId === invitation.id ? (requestError ?? failure) : null)}
 					<li
 						class={cn(
 							'flex flex-col gap-2.5 rounded-md border-l-3 bg-card px-4 py-3.5',
@@ -122,50 +133,59 @@
 									Invited {formatRelativeDate(invitation.createdAt)}
 								</span>
 							</div>
-							<div class="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
-								<form
-									method="POST"
-									action="?/declineInvitation"
-									use:enhance={respondToInvitation(
-										invitation.id,
-										`Declined the invitation to ${invitation.organizationName}.`
-									)}
-								>
-									<input type="hidden" name="invitationId" value={invitation.id} />
-									<!-- aria-disabled keeps focus on the pressed button while the response is pending. -->
-									<Button
-										class="w-full"
-										type="submit"
-										variant="outline"
-										aria-disabled={loading === invitation.id ? 'true' : undefined}
-										aria-busy={loading === invitation.id || undefined}
+							{#if closed === undefined}
+								<div class="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+									<form
+										method="POST"
+										action="?/declineInvitation"
+										use:enhance={respondToInvitation(
+											invitation.id,
+											`Declined the invitation to ${invitation.organizationName}.`
+										)}
 									>
-										Decline <span class="sr-only">invitation to {invitation.organizationName}</span>
-									</Button>
-								</form>
-								<form
-									method="POST"
-									action="?/acceptInvitation"
-									use:enhance={respondToInvitation(
-										invitation.id,
-										`Joined ${invitation.organizationName}. It's now in your list.`
-									)}
-								>
-									<input type="hidden" name="invitationId" value={invitation.id} />
-									<Button
-										class="w-full"
-										type="submit"
-										aria-disabled={loading === invitation.id ? 'true' : undefined}
-										aria-busy={loading === invitation.id || undefined}
+										<input type="hidden" name="invitationId" value={invitation.id} />
+										<!-- aria-disabled keeps focus on the pressed button while the response is pending. -->
+										<Button
+											class="w-full max-sm:h-11"
+											type="submit"
+											variant="outline"
+											aria-disabled={loading === invitation.id ? 'true' : undefined}
+											aria-busy={loading === invitation.id || undefined}
+										>
+											Decline <span class="sr-only">invitation to {invitation.organizationName}</span>
+										</Button>
+									</form>
+									<form
+										method="POST"
+										action="?/acceptInvitation"
+										use:enhance={respondToInvitation(
+											invitation.id,
+											`Joined ${invitation.organizationName}. It's now in your list.`
+										)}
 									>
-										{loading === invitation.id ? 'Accepting...' : 'Accept'}
-										<span class="sr-only">invitation to {invitation.organizationName}</span>
-									</Button>
-								</form>
-							</div>
+										<input type="hidden" name="invitationId" value={invitation.id} />
+										<Button
+											class="w-full max-sm:h-11"
+											type="submit"
+											aria-disabled={loading === invitation.id ? 'true' : undefined}
+											aria-busy={loading === invitation.id || undefined}
+										>
+											{loading === invitation.id ? 'Accepting...' : 'Accept'}
+											<span class="sr-only">invitation to {invitation.organizationName}</span>
+										</Button>
+									</form>
+								</div>
+							{/if}
 						</div>
 						{#if rowError}
-							<p role="alert" class="text-sm leading-5 text-destructive-text">{rowError}</p>
+							<p
+								id={`invitation-${invitation.id}-error`}
+								role="alert"
+								tabindex="-1"
+								class="text-sm leading-5 text-destructive-text outline-none"
+							>
+								{rowError}
+							</p>
 						{/if}
 					</li>
 				{/each}

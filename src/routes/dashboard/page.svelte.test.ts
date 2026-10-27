@@ -164,6 +164,22 @@ describe('/dashboard page', () => {
 		expect(refreshes).toEqual([]);
 	});
 
+	it('drops the buttons from an invitation the server refuses and focuses its message', async () => {
+		const { default: Page } = await import('./+page.svelte');
+		const view = render(Page, { props: { data: invitationData(), form: null } });
+
+		await respond(
+			'?/acceptInvitation',
+			{ type: 'failure', status: 400, data: { error: 'Invitation expired' } },
+			(form) => view.rerender({ data: invitationData(), form: form as never })
+		);
+
+		const row = screen.getByText('Bravo Company').closest('li')!;
+		await waitFor(() => expect(document.activeElement).toBe(within(row).getByRole('alert')));
+		expect(within(row).getByRole('alert').textContent?.trim()).toBe('Invitation expired');
+		expect(within(row).queryByRole('button')).toBeNull();
+	});
+
 	it.each([
 		[
 			'?/acceptInvitation',

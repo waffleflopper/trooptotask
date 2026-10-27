@@ -25,11 +25,12 @@
 		eyebrow: string;
 		headline: [string, string];
 		lede: string;
-		/** `narrow: 'hidden'` drops the steps below 1024 px, where the page's next screen repeats them. */
-		steps?: { label: string; items: AuthStep[]; narrow?: 'hidden' };
+		steps?: { label: string; items: AuthStep[] };
+		/** What happens after this page, under the lede from 1024 px; `tag` marks the step this page does. */
+		outline?: { label: string; items: { title: string; tag?: string }[] };
 		/** A signed-in page trades the marketing link for Account, Sign out and the theme toggle. */
 		signedIn?: { account?: boolean };
-		/** `wide` fits a list with actions on each row. */
+		/** `wide` fits a list with actions on each row: top-aligned so it can grow, without the lede below 640 px. */
 		panelWidth?: 'default' | 'wide';
 		panelEyebrow: string;
 		panelTitle: string;
@@ -43,6 +44,7 @@
 		headline,
 		lede,
 		steps,
+		outline,
 		signedIn,
 		panelWidth = 'default',
 		panelEyebrow,
@@ -86,7 +88,7 @@
 					{#if signedIn.account}
 						<a href={resolve('/account')} class={mastheadLink}>Account</a>
 					{/if}
-					<form method="POST" action={resolve('/auth/logout')}>
+					<form method="POST" action={resolve('/auth/logout')} class="flex">
 						<button type="submit" class={cn(mastheadLink, 'cursor-pointer')}>Sign out</button>
 					</form>
 					<button
@@ -113,12 +115,49 @@
 				<span class="block">{headline[0]}</span>
 				<span class="block text-chrome-accent">{headline[1]}</span>
 			</p>
-			<p class="max-w-[420px] text-base leading-6 font-light text-chrome-text-muted lg:text-lg lg:leading-7">{lede}</p>
+			<p
+				class={cn(
+					'max-w-[420px] text-base leading-6 font-light text-chrome-text-muted lg:text-lg lg:leading-7',
+					panelWidth === 'wide' && 'max-sm:hidden'
+				)}
+			>
+				{lede}
+			</p>
+			{#if outline}
+				<ol aria-label={outline.label} class="mt-4 hidden max-w-[420px] border-t border-chrome-border lg:block">
+					{#each outline.items as item, index (item.title)}
+						<li
+							class="flex items-baseline gap-4 border-b border-chrome-border py-3.5"
+							aria-current={item.tag ? 'step' : undefined}
+						>
+							<span
+								class={cn(
+									'w-6 shrink-0 font-mono text-xs leading-4',
+									item.tag ? 'text-chrome-accent' : 'text-chrome-text-muted'
+								)}
+							>
+								{String(index + 1).padStart(2, '0')}
+							</span>
+							<span class={cn('grow text-base leading-6', item.tag ? 'text-chrome-text' : 'text-chrome-text-muted')}>
+								{item.title}
+							</span>
+							{#if item.tag}
+								<span class="font-mono text-[11px] leading-[14px] tracking-[0.08em] text-chrome-accent uppercase">
+									{item.tag}
+								</span>
+							{/if}
+						</li>
+					{/each}
+				</ol>
+			{/if}
 		</div>
 	</header>
 
 	<main
-		class="flex justify-center px-6 py-10 sm:px-10 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:items-center lg:px-12 lg:py-12 xl:px-20"
+		class={cn(
+			'flex justify-center px-6 py-10 sm:px-10 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:px-12 lg:py-12 xl:px-20',
+			panelWidth === 'wide' ? 'lg:items-start lg:pt-24' : 'lg:items-center'
+		)}
 		aria-labelledby="auth-panel-title"
 	>
 		<div class={cn('flex w-full flex-col gap-8', panelWidth === 'wide' ? 'max-w-[520px]' : 'max-w-[400px]')}>
@@ -168,10 +207,7 @@
 	</main>
 
 	<footer
-		class={cn(
-			'border-t border-chrome-border bg-chrome px-6 pt-8 pb-10 text-chrome-text sm:px-10 lg:col-start-1 lg:row-start-2 lg:border-t-0 lg:border-r lg:px-12 lg:pt-0 lg:pb-12 xl:px-16',
-			steps?.narrow === 'hidden' && 'max-lg:hidden'
-		)}
+		class="border-t border-chrome-border bg-chrome px-6 pt-8 pb-10 text-chrome-text sm:px-10 lg:col-start-1 lg:row-start-2 lg:border-t-0 lg:border-r lg:px-12 lg:pt-0 lg:pb-12 xl:px-16"
 	>
 		{#if steps}
 			<section aria-labelledby="auth-steps-label">

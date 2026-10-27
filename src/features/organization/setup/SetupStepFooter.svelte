@@ -44,13 +44,13 @@
 		class="max-sm:ml-auto"
 		disabled={blocked !== null}
 		aria-describedby={blocked !== null ? `${id}-note` : undefined}
-		aria-busy={flow.pending || undefined}
-		aria-disabled={flow.pending ? 'true' : undefined}
+		aria-busy={flow.busy || undefined}
+		aria-disabled={flow.busy ? 'true' : undefined}
 		onclick={() => flow.continue(save)}
 	>
 		{label}
-		{#if flow.pending}
-			<Spinner data-icon="inline-end" aria-label="Saving" />
+		{#if flow.busy}
+			<Spinner data-icon="inline-end" aria-label={flow.pending ? 'Saving' : 'Loading'} />
 		{:else}
 			<ChevronRight data-icon="inline-end" aria-hidden="true" />
 		{/if}

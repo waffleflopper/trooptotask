@@ -123,7 +123,6 @@ const tableColumns = {
 	organization_invitation_email_outbox: 'organization_id',
 	access_request_organization_invitation_links: 'organization_id',
 	dashboard_configs: 'org_id',
-	getting_started_progress: 'organization_id',
 	user_org_preferences: 'organization_id',
 	user_pinned_groups: 'organization_id',
 	beta_feedback: 'organization_id',
@@ -562,14 +561,7 @@ async function main() {
 				.eq('user_id', userId)
 				.eq('organization_id', organizationId)
 		);
-		const progress = checked(
-			await client
-				.from('getting_started_progress')
-				.select('*')
-				.eq('user_id', userId)
-				.eq('organization_id', organizationId)
-		);
-		note({ role, userId, organization: orgKey, organizationId, preferences, progress });
+		note({ role, userId, organization: orgKey, organizationId, preferences });
 		return;
 	}
 	if (command === 'deletion-request') {
@@ -2713,7 +2705,10 @@ async function main() {
 				'org/new': ['/org/new', '', 'error']
 			}[family];
 			// Org pages whose streamed regions load after the page: path under /org/ORG/.
-			const orgPage = { 'org-page/whats-new': 'whats-new/__data.json' }[family] ?? null;
+			const orgPage =
+				{ 'org-page/whats-new': 'whats-new/__data.json', 'org-page/setup-training': 'setup/training/__data.json' }[
+					family
+				] ?? null;
 			const settingsPage =
 				/^settings-page\/(general|features|policies|ranks|members|approvals|archives|logs|exports|danger)$/.exec(
 					family

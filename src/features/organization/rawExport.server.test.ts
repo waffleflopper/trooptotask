@@ -124,7 +124,7 @@ describe('ordinary Organization raw export provider', () => {
 		await expect(fixture.reader.listRows('org-a', table)).resolves.toEqual(fixture.ownRows);
 	});
 
-	it('exports setup through the owner-gated reader with the ordinary session and retains stored fields', async () => {
+	it('exports setup through the privileged reader with the ordinary session and retains stored fields', async () => {
 		const saved = {
 			organization_id: 'org-a',
 			branch: 'army',
@@ -146,7 +146,7 @@ describe('ordinary Organization raw export provider', () => {
 					)
 						throw new Error('Setup export requires its session RPC');
 					const body = await request.json();
-					if (deny) return Response.json({ code: '42501', message: 'Owner export denied' }, { status: 403 });
+					if (deny) return Response.json({ code: '42501', message: 'Organization export denied' }, { status: 403 });
 					return Response.json(body.p_organization_id === 'org-a' ? [saved] : []);
 				}
 			}
@@ -155,7 +155,7 @@ describe('ordinary Organization raw export provider', () => {
 		await expect(reader.listRows('org-a', 'organization_setup')).resolves.toEqual([saved]);
 		await expect(reader.listRows('org-b', 'organization_setup')).resolves.toEqual([]);
 		deny = true;
-		await expect(reader.listRows('org-a', 'organization_setup')).rejects.toThrow('Owner export denied');
+		await expect(reader.listRows('org-a', 'organization_setup')).rejects.toThrow('Organization export denied');
 	});
 
 	it('retains the ordinary client’s empty invitation provenance visibility', async () => {

@@ -351,6 +351,17 @@ describe('POST /api/export-excel', () => {
 			{ id: 'own-note', organization_id: ctx.auth.orgId, personnel_id: 'p-1', text: 'Retained history' },
 			{ id: 'foreign-note', organization_id: 'other-org', personnel_id: 'p-2', text: 'Foreign' }
 		]);
+		ctx.rawStore.seed('organization_setup', [
+			{
+				organization_id: ctx.auth.orgId,
+				branch: 'army',
+				answers: { training: 'later' },
+				prompts: { setup: { never: true } },
+				finished_at: null,
+				updated_at: '2026-10-27T00:00:00Z'
+			},
+			{ organization_id: 'other-org', branch: 'navy' }
+		]);
 
 		const result = await handleUseCaseRequest(
 			configFor(ctx),
@@ -367,6 +378,17 @@ describe('POST /api/export-excel', () => {
 		const rows = workbook.getWorksheet('Raw - Leader Notes')!.getSheetValues().flat(2);
 		expect(rows).toContain('own-note');
 		expect(rows).not.toContain('foreign-note');
+		const setupRows = workbook.getWorksheet('Raw - Organization Setup')!.getSheetValues().flat(2);
+		expect(setupRows).toEqual(
+			expect.arrayContaining([
+				ctx.auth.orgId,
+				'army',
+				'{"training":"later"}',
+				'{"setup":{"never":true}}',
+				'2026-10-27T00:00:00Z'
+			])
+		);
+		expect(setupRows).not.toContain('navy');
 		const inventory = workbook.getWorksheet('Export Inventory')!;
 		const inventoryRows = inventory.getSheetValues();
 		expect(inventoryRows).toEqual(

@@ -307,6 +307,17 @@ describe('POST /api/export', () => {
 		ctx.rawStore.seed('personnel_extended_info', [
 			{ id: 'own-detail', organization_id: ctx.auth.orgId, personnel_id: 'p-1' }
 		]);
+		ctx.rawStore.seed('organization_setup', [
+			{
+				organization_id: ctx.auth.orgId,
+				branch: 'army',
+				answers: { training: 'later' },
+				prompts: { setup: { never: true } },
+				finished_at: null,
+				updated_at: '2026-10-27T00:00:00Z'
+			},
+			{ organization_id: 'other-org', branch: 'navy' }
+		]);
 
 		const result = await handleUseCaseRequest(
 			configFor(ctx),
@@ -322,6 +333,16 @@ describe('POST /api/export', () => {
 		const payload = JSON.parse(result.artifact.body);
 		expect(payload.leaderNotes.map((row: { id: string }) => row.id)).toEqual(['own-note']);
 		expect(payload.personnelExtendedInfo.map((row: { id: string }) => row.id)).toEqual(['own-detail']);
+		expect(payload.organizationSetup).toEqual([
+			{
+				organization_id: ctx.auth.orgId,
+				branch: 'army',
+				answers: { training: 'later' },
+				prompts: { setup: { never: true } },
+				finished_at: null,
+				updated_at: '2026-10-27T00:00:00Z'
+			}
+		]);
 		expect(payload.personnelOnboardings).toEqual([]);
 		expect(payload.onboardingStepProgress).toEqual([]);
 		expect(payload.sections.personnelOnboardings).toEqual([]);

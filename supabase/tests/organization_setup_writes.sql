@@ -28,6 +28,11 @@ SELECT throws_ok($$DELETE FROM public.organization_setup WHERE organization_id='
 SELECT set_config('request.jwt.claim.sub','e8660000-0000-4000-8000-000000000102',true);
 SELECT is((public.save_organization_setup_answer('e8660000-0000-4000-8000-000000000100','training','later')->'answers'->>'training'), 'later', 'an ordinary signed-in admin saves an answer');
 SELECT is((public.save_organization_setup_branch('e8660000-0000-4000-8000-000000000100','army')->>'branch'), 'army', 'an admin saves the branch');
+SELECT results_eq(
+  $$SELECT organization_id, branch, answers, prompts FROM public.export_organization_setup('e8660000-0000-4000-8000-000000000100')$$,
+  $$VALUES ('e8660000-0000-4000-8000-000000000100'::uuid, 'army'::text, '{"training":"later"}'::jsonb, '{"setup":{"never":true}}'::jsonb)$$,
+  'an ordinary signed-in admin exports the stored setup row'
+);
 SELECT ok((public.finish_organization_setup('e8660000-0000-4000-8000-000000000100')->>'finishedAt') IS NOT NULL, 'an admin finishes setup');
 SELECT throws_ok($$SELECT public.save_organization_setup_prompt('e8660000-0000-4000-8000-000000000100','setup','{"never":true}')$$,'42501',NULL,'an admin cannot write owner prompt state');
 SELECT is((public.save_organization_setup_answer('e8660000-0000-4000-8000-000000000100','groups','reviewed')->'answers'), '{"groups":"reviewed","training":"later"}'::jsonb,'saving one answer preserves another');
@@ -50,7 +55,7 @@ SELECT throws_ok($$INSERT INTO public.organization_setup(organization_id) VALUES
 SELECT throws_ok($$UPDATE public.organization_setup SET branch='navy' WHERE organization_id='e8660000-0000-4000-8000-000000000100'$$,'42501',NULL,'the member cannot update setup rows directly');
 SELECT throws_ok($$DELETE FROM public.organization_setup WHERE organization_id='e8660000-0000-4000-8000-000000000100'$$,'42501',NULL,'the member cannot delete setup rows directly');
 SELECT is((public.read_organization_setup('e8660000-0000-4000-8000-000000000100')->>'branch'),'army','a member reads the shared setup state through its reader');
-SELECT throws_ok($$SELECT public.export_organization_setup('e8660000-0000-4000-8000-000000000100')$$,'42501',NULL,'a member cannot use the owner export reader');
+SELECT throws_ok($$SELECT public.export_organization_setup('e8660000-0000-4000-8000-000000000100')$$,'42501',NULL,'a member cannot use the privileged export reader');
 SELECT set_config('request.jwt.claim.sub','e8660000-0000-4000-8000-000000000104',true);
 SELECT throws_ok($$SELECT public.save_organization_setup_answer('e8660000-0000-4000-8000-000000000100','groups','later')$$,'42501',NULL,'the outsider cannot save setup answers');
 SELECT throws_ok($$SELECT public.save_organization_setup_branch('e8660000-0000-4000-8000-000000000100','army')$$,'42501',NULL,'the outsider cannot save a branch');

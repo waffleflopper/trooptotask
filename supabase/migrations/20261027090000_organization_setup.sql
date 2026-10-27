@@ -67,7 +67,7 @@ $$;
 CREATE FUNCTION public.export_organization_setup(p_organization_id uuid)
 RETURNS SETOF public.organization_setup LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
-  IF NOT public.is_org_owner(p_organization_id) THEN RAISE insufficient_privilege; END IF;
+  IF NOT public.is_org_privileged(p_organization_id) THEN RAISE insufficient_privilege; END IF;
   RETURN QUERY SELECT * FROM public.organization_setup WHERE organization_id = p_organization_id;
 END;
 $$;

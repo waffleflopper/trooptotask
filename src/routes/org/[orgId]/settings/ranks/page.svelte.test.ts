@@ -309,6 +309,17 @@ describe('turning ranks on and off', () => {
 		]);
 	});
 
+	it('keeps a failed chip error when a different chip in its category saves', async () => {
+		renderRankPage([WO1, CW2]);
+		await click(chip('Chief Warrant Officer 2'));
+		await click(chip('Warrant Officer 1'));
+		await heldPosts[0].answer({ type: 'failure', status: 403, data: { rankError: 'Access denied.' } });
+		await heldPosts[1].answer({ type: 'success', data: { success: true } });
+		expect(chip('Chief Warrant Officer 2')).toHaveAttribute('aria-pressed', 'true');
+		expect(chip('Warrant Officer 1')).toHaveAttribute('aria-pressed', 'false');
+		expect(within(block('Warrant Officer')).getByRole('alert')).toHaveTextContent('Access denied.');
+	});
+
 	it('Undo uses a confirmed toggle before the refreshed catalog arrives', async () => {
 		renderRankPage([WO1, CW2]);
 		await click(chip('Chief Warrant Officer 2'));

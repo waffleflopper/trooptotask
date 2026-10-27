@@ -72,10 +72,19 @@
 
 	const SKELETON_TEXT = 'animate-pulse rounded-md bg-muted box-decoration-clone text-transparent';
 	const OPEN_NOTE = 'Open steps keep their place. Finish now and come back from Unit settings any time.';
+	const READY_NOTE =
+		"Here's what you set up. All of it can be changed in Unit settings, and setup stays there if you want to walk through it again.";
+	const EYEBROW = 'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] uppercase';
+	const HEADLINE = 'font-heading text-5xl leading-12 font-extrabold uppercase lg:text-[64px] lg:leading-[60px]';
 </script>
 
-<!-- The placeholder stays under the summary, invisible once it resolves, so a summary that fits it moves nothing below. -->
+<!-- The placeholders stay under the summary, invisible, so the region is never shorter than the ready state with this unit's name. -->
 <div class="@container grid max-w-190 *:[grid-area:1/1]">
+	<div class="invisible flex flex-col gap-3" aria-hidden="true">
+		<p class={EYEBROW}>&nbsp;</p>
+		<p class={HEADLINE}>{orgName} is ready</p>
+		<p class="text-[17px] leading-[26px]">{READY_NOTE}</p>
+	</div>
 	<div class={cn('flex flex-col gap-3', model && 'invisible')} aria-hidden="true">
 		<Skeleton class="h-3.5 w-36" />
 		<!-- The large headline wraps in the narrow column beside the rail. -->
@@ -89,24 +98,14 @@
 	</div>
 	{#if model}
 		<div class="flex flex-col gap-3">
-			<p
-				class={cn(
-					'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] uppercase',
-					allReviewed ? 'text-success-foreground' : 'text-muted-foreground'
-				)}
-			>
+			<p class={cn(EYEBROW, allReviewed ? 'text-success-foreground' : 'text-muted-foreground')}>
 				{model.reviewed} of {model.total} reviewed
 			</p>
-			<h1 class="font-heading text-5xl leading-12 font-extrabold uppercase lg:text-[64px] lg:leading-[60px]">
+			<h1 class={HEADLINE}>
 				{allReviewed ? `${orgName} is ready` : `${open} ${open === 1 ? 'step' : 'steps'} still open`}
 			</h1>
 			<p class="text-[17px] leading-[26px]">
-				{#if allReviewed}
-					Here's what you set up. All of it can be changed in Unit settings, and setup stays there if you want to walk
-					through it again.
-				{:else}
-					{OPEN_NOTE}
-				{/if}
+				{allReviewed ? READY_NOTE : OPEN_NOTE}
 			</p>
 			{#if !allReviewed}
 				<p class="text-sm leading-5 text-muted-foreground">

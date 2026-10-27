@@ -239,7 +239,7 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
 22. **Type scale.** On each page at 1440, walk visible text nodes with `evaluate_script` (skip `aria-hidden="true"`,
     `.sr-only` and image content) and tally the parent's computed `fontSize` and `fontWeight`. Expect sizes only from
     80, 32, 18 and 13px, plus the What's next verbs at about 79px from their fit cap, and weights only 700, 400 and 300.
-    Home uses all four sizes; About, Security, Privacy and Terms show 80, 18 and 13px in this walk.
+    Home and About (its 32px quote) use all four sizes; Security, Privacy and Terms show 80, 18 and 13px.
 
 ## Gotchas
 

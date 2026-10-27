@@ -263,6 +263,15 @@ test('each named fault matches only its allowlisted writes on the owned provider
 				providerInput('rpc/save_organization_setup_answer', { method: 'POST' }),
 				['POST', '/rest/v1/rpc/save_organization_setup_answer']
 			]
+		],
+		'org-feature-switch': [
+			[
+				providerInput('organizations', {
+					method: 'PATCH',
+					body: JSON.stringify({ disabled_features: ['evaluations'] })
+				}),
+				['PATCH', '/rest/v1/organizations']
+			]
 		]
 	};
 	for (const [name, matching] of Object.entries(cases)) {

@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface OrganizationMemberLabelRow {
 	user_id: string;
+	rank?: string | null;
 	email?: string | null;
 	name?: string | null;
 	display_name?: string | null;
@@ -27,7 +29,9 @@ function labelForRow(row: OrganizationMemberLabelRow): string {
 		compact(row.display_name) ||
 		compact(row.full_name) ||
 		compact(row.name) ||
-		[compact(row.first_name), compact(row.last_name)].filter(Boolean).join(' ');
+		([compact(row.first_name), compact(row.last_name)].some(Boolean)
+			? [compact(row.rank), compact(row.first_name), compact(row.last_name)].filter(Boolean).join(' ')
+			: '');
 	return fullName || compact(row.username) || compact(row.email) || row.user_id;
 }
 
@@ -48,20 +52,26 @@ export function createSupabaseOrganizationMemberLabelsReader(
 	orgId: string
 ): () => Promise<Record<string, string>> {
 	return async () => {
-		const result = await selectAllSupabaseRows<OrganizationMemberLabelRow>(async (from, to) => {
-			const { data, error } = await client
-				.from('organization_memberships')
-				.select('user_id, email')
-				.eq('organization_id', orgId)
-				.order('id', { ascending: true })
-				.range(from, to)
-				.returns<OrganizationMemberLabelRow[]>();
-			return { data, error };
-		});
-		if (result.error)
-			throw new Error((result.error as { message?: string }).message ?? 'Organization member labels read failed');
+		const { data, error } = await selectAllSupabaseRows<unknown>(
+			async (from, to) => await client.rpc('organization_member_labels', { p_organization_id: orgId }).range(from, to)
+		);
+		if (error) throw new Error((error as { message: string }).message);
+		const rows = z
+			.array(
+				z.object({
+					user_id: z.string(),
+					rank: z.string().nullable(),
+					first_name: z.string().nullable(),
+					last_name: z.string().nullable(),
+					email: z.string().nullable()
+				})
+			)
+			.parse(data);
 		return Object.fromEntries(
-			(result.data ?? []).map((row) => [row.user_id, compact(row.email) || `${row.user_id.slice(0, 8)}...`])
+			rows.map((row) => {
+				const label = labelForRow(row);
+				return [row.user_id, label === row.user_id ? `${row.user_id.slice(0, 8)}...` : label];
+			})
 		);
 	};
 }

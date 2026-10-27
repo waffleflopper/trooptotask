@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import {
 		CalendarRangeCoordinator,
 		PlannerRosterRead,
@@ -19,10 +18,10 @@
 	} from '$features/calendar';
 	import type { RosterFillPreview } from '$features/calendar/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import { FillSlot } from '$lib/components/patterns/readiness-items';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { Spinner } from '$lib/components/ui/spinner';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatWeekdayDay, parseDate } from '$lib/utils/dates';
 	import { openCalendarAt } from '../../calendarLink';
@@ -387,42 +386,19 @@
 						<Skeleton class="h-3.5 w-16" />
 					</div>
 				{:else}
-					<button
-						type="button"
-						class={[
-							'grid h-full w-full content-start gap-1 rounded-[4px] border py-2.5 pr-2.5 pl-3 text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50',
-							card.status === 'ready' && card.selected
-								? 'border-foreground bg-muted'
-								: 'border-border bg-background hover:bg-muted/60'
-						]}
+					<FillSlot
+						label={card.status === 'ready' ? card.heading : formatWeekdayDay(card.date)}
+						name={card.status === 'ready' ? card.name : 'Not suggested'}
+						note={card.status === 'ready' ? card.note : 'Count unavailable'}
+						detail={card.status === 'ready' && card.skipped ? card.skipped : undefined}
+						tone={card.status === 'ready' && card.selected ? 'selected' : 'default'}
+						busy={opening}
+						busyLabel="Opening the duty picker"
 						disabled={saving || !ready}
 						aria-haspopup="dialog"
-						aria-busy={opening}
 						aria-label="{formatWeekdayDay(card.date)}: {card.status === 'ready' ? card.name : 'not suggested'}, swap"
 						onclick={(event) => swap(card.date, event.currentTarget)}
-					>
-						<span class="flex items-center justify-between">
-							<span
-								class="font-mono text-[11px] leading-[14px] font-semibold tracking-[0.08em] text-muted-foreground uppercase"
-							>
-								{card.status === 'ready' ? card.heading : formatWeekdayDay(card.date)}
-							</span>
-							{#if opening}
-								<Spinner class="size-3 text-muted-foreground" aria-label="Opening the duty picker" />
-							{:else}
-								<ChevronDownIcon class="size-3 text-muted-foreground" aria-hidden="true" />
-							{/if}
-						</span>
-						<span class="text-[15px] leading-5 font-semibold wrap-anywhere text-foreground">
-							{card.status === 'ready' ? card.name : 'Not suggested'}
-						</span>
-						<span class="font-mono text-[11px] leading-[14px] text-muted-foreground">
-							{card.status === 'ready' ? card.note : 'Count unavailable'}
-						</span>
-						{#if card.status === 'ready' && card.skipped}
-							<span class="text-[11px] leading-[14px] text-muted-foreground italic">{card.skipped}</span>
-						{/if}
-					</button>
+					/>
 				{/if}
 			</li>
 		{/each}

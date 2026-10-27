@@ -163,5 +163,7 @@
 		projection={rangeCoordinator.projection}
 		projectionStatus={rangeCoordinator.projectionStatus(viewCoverage)}
 		onRetryProjection={() => rangeCoordinator.retryFailedRange()}
+		taskingFacts={rangeCoordinator.taskingFacts}
+		onTaskingsChanged={() => rangeCoordinator.rereadEvents(data.shell.org.id)}
 	/>
 {/if}

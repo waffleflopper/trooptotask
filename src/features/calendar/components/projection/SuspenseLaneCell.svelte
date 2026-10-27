@@ -1,61 +1,52 @@
 <script lang="ts" module>
-	import type { MarkerListItem } from './MarkerListPopover.svelte';
+	import type { ProjectionCardChoice } from '$features/calendar/projection/projectionCards';
 
 	export interface SuspenseLaneDay {
 		readonly dateLabel: string;
-		/** Every suspense due this day, in the order the first one is shown. */
-		readonly markers: readonly (MarkerListItem & { readonly label: string })[];
-		/** Ten pixel columns have room for one control, which opens the list. */
-		readonly compact: boolean;
+		/** Every active suspense due this day. */
+		readonly markers: readonly (ProjectionCardChoice & { readonly label: string })[];
+		/** The day has passed, so its suspenses are overdue. */
+		readonly overdue: boolean;
 	}
 </script>
 
 <script lang="ts">
-	import MarkerListPopover from './MarkerListPopover.svelte';
+	import ProjectionMarker from './ProjectionMarker.svelte';
 
-	let { value }: { value: SuspenseLaneDay } = $props();
+	let { value, class: className = '' }: { value: SuspenseLaneDay; class?: string } = $props();
 
 	const first = $derived(value.markers[0]);
-	const more = $derived(value.markers.slice(1));
 	const listLabel = $derived(
-		`${value.markers.length} suspense${value.markers.length === 1 ? '' : 's'} due ${value.dateLabel}`
+		`${value.markers.length} ${value.overdue ? 'overdue ' : ''}suspenses due ${value.dateLabel}`
+	);
+	const control = $derived(
+		`flex items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${className || 'size-full'}`
 	);
 </script>
 
+<!-- One control a day: a header corner and a ten pixel column have room for nothing more. -->
 {#snippet diamond()}
-	<span aria-hidden="true" class="size-2 shrink-0 rotate-45 bg-info"></span>
+	<svg aria-hidden="true" width="9" height="9" viewBox="0 0 10 10" class="shrink-0">
+		<path
+			d="M5 .8L9.2 5 5 9.2.8 5z"
+			stroke-width="1.2"
+			class={value.overdue ? 'fill-destructive stroke-destructive' : 'fill-card stroke-foreground'}
+		/>
+	</svg>
 {/snippet}
 
-{#if first}
-	{#if value.compact && more.length > 0}
-		<MarkerListPopover
-			label={listLabel}
-			heading={`Suspenses due ${value.dateLabel}`}
-			items={value.markers}
-			class="flex size-full items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-		>
-			{@render diamond()}
-		</MarkerListPopover>
-	{:else}
-		<div class="flex size-full min-w-0 items-center justify-center">
-			<a
-				href={first.href}
-				class="flex h-full min-w-0 flex-1 items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-				aria-label={first.label}
-				title={first.label}
-			>
-				{@render diamond()}
-			</a>
-			{#if more.length > 0}
-				<MarkerListPopover
-					label={`${more.length} more: ${listLabel}`}
-					heading={`Suspenses due ${value.dateLabel}`}
-					items={value.markers}
-					class="mr-px flex h-4 shrink-0 items-center rounded-sm border border-dashed border-info px-0.5 font-mono text-[9px] leading-none font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-				>
-					+{more.length}
-				</MarkerListPopover>
-			{/if}
-		</div>
-	{/if}
+{#if first && value.markers.length === 1}
+	<ProjectionMarker target={first.target} href={first.href} label={first.label} title={first.label} class={control}>
+		{@render diamond()}
+	</ProjectionMarker>
+{:else if first}
+	<ProjectionMarker
+		label={listLabel}
+		title={listLabel}
+		heading={`Suspenses due ${value.dateLabel}`}
+		choices={value.markers}
+		class={control}
+	>
+		{@render diamond()}
+	</ProjectionMarker>
 {/if}

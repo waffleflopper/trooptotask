@@ -1,54 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import { toDayNumber } from '$lib/utils/dayNumber';
-import { indexSpan, layoutSingleRow } from './projectionLayout';
+import { indexSpan, packRows } from './projectionLayout';
 
 const first = toDayNumber('2026-05-01');
 const span = (id: string, startsOn: string, endsOn: string) => indexSpan({ id, startsOn, endsOn }, first);
-const idOf = (item: { id: string }) => item.id;
+const placement = (packing: ReturnType<typeof packRows<{ id: string }>>) =>
+	packing.runs.map(({ item, row, start, end }) => [item.id, row, start, end]);
 
-describe('layoutSingleRow', () => {
-	it('shows a multi-day item as one run', () => {
-		const { runs, overflows } = layoutSingleRow([span('a', '2026-05-03', '2026-05-06')], 31, idOf);
+describe('packRows', () => {
+	it('shows a multi-day item as one run on the top row', () => {
+		const packing = packRows([span('a', '2026-05-03', '2026-05-06')], 2, 31);
 
-		expect(runs.map(({ item, start, end }) => [item.id, start, end])).toEqual([['a', 2, 5]]);
-		expect(overflows).toEqual([]);
+		expect(placement(packing)).toEqual([['a', 0, 2, 5]]);
+		expect(packing.overflow).toEqual([]);
 	});
 
 	it('clips an item that starts before the first day and marks that it continues', () => {
-		const { runs } = layoutSingleRow([span('a', '2026-04-28', '2026-05-02')], 31, idOf);
+		const { runs } = packRows([span('a', '2026-04-28', '2026-05-02')], 2, 31);
 
 		expect(runs).toEqual([expect.objectContaining({ start: 0, end: 1, continuesBefore: true, continuesAfter: false })]);
 	});
 
-	it('counts the items an earlier one covers in an overflow, not in a second row', () => {
-		const { runs, overflows } = layoutSingleRow(
+	it('drops an overlapping item to the next row whole, and back to the top row once it is free', () => {
+		const packing = packRows(
 			[
 				span('a', '2026-05-03', '2026-05-08'),
 				span('b', '2026-05-05', '2026-05-06'),
-				span('c', '2026-05-06', '2026-05-12')
+				span('c', '2026-05-10', '2026-05-12')
 			],
-			31,
-			idOf
+			2,
+			31
 		);
 
-		expect(runs.map(({ item, start, end }) => [item.id, start, end])).toEqual([
-			['a', 2, 7],
-			['c', 8, 11]
-		]);
-		expect(overflows.map(({ start, end, hidden }) => [start, end, hidden.map(idOf)])).toEqual([
-			[4, 4, ['b']],
-			[5, 5, ['b', 'c']],
-			[6, 7, ['c']]
+		expect(placement(packing)).toEqual([
+			['a', 0, 2, 7],
+			['c', 0, 9, 11],
+			['b', 1, 4, 5]
 		]);
 	});
 
-	it('never shows more than one item on a day however many cover it', () => {
-		const spans = ['a', 'b', 'c', 'd', 'e'].map((id) => span(id, '2026-05-10', '2026-05-10'));
+	it('overflows an item no row has room for rather than adding a row', () => {
+		const spans = ['a', 'b', 'c', 'd'].map((id) => span(id, '2026-05-10', '2026-05-10'));
 
-		const { runs, overflows } = layoutSingleRow(spans, 31, idOf);
+		const packing = packRows(spans, 2, 31);
 
-		expect(runs).toHaveLength(1);
-		expect(overflows).toEqual([{ start: 9, end: 9, hidden: expect.arrayContaining([expect.anything()]) }]);
-		expect(overflows[0].hidden).toHaveLength(4);
+		expect(placement(packing).map(([id, row]) => [id, row])).toEqual([
+			['a', 0],
+			['b', 1]
+		]);
+		expect(packing.overflow.map((item) => item.id)).toEqual(['c', 'd']);
+	});
+
+	it('ignores an item wholly outside the shown days', () => {
+		expect(packRows([span('a', '2026-06-02', '2026-06-03')], 2, 31)).toEqual({ runs: [], overflow: [] });
 	});
 });

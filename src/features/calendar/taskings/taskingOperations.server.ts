@@ -8,11 +8,12 @@ import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
 import type { CalendarEventPersistence } from '../events/eventPersistence.server';
 import type { MemberLabels } from '../events/eventModel';
-import type { TaskingSummary } from './eventWorkModel';
+import type { EventContribution, TaskingSummary } from './eventWorkModel';
 import {
 	responsibilityKey,
 	taskingDraftSchema,
 	taskingTransitionSchema,
+	type EventTaskingList,
 	type GroupLabels,
 	type Tasking,
 	type TaskingAction,
@@ -84,14 +85,12 @@ export async function listTaskings(ctx: CalendarTaskingPorts, scope: TaskingList
 }
 
 /** The Taskings under one Event that the viewer's scope covers. */
-export async function listEventTaskings(
-	ctx: CalendarTaskingPorts,
-	eventId: string
-): Promise<{ taskings: Tasking[]; groups: GroupLabels }> {
+export async function listEventTaskings(ctx: CalendarTaskingPorts, eventId: string): Promise<EventTaskingList> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
-	if (!uuidSchema.safeParse(eventId).success) return { taskings: [], groups: {} };
+	if (!uuidSchema.safeParse(eventId).success) return { taskings: [], groups: {}, staffing: {} };
 	const [taskings, groups] = await Promise.all([ctx.calendarTaskings.listEventTaskings(eventId), groupLabels(ctx)]);
-	return { taskings, groups };
+	const staffing = await ctx.calendarStaffing.countStaffing(taskings.map((tasking) => tasking.id));
+	return { taskings, groups, staffing };
 }
 
 /** One-line rows for the Event's Taskings outside the viewer's scope. They open nothing. */
@@ -99,6 +98,43 @@ export async function listEventTaskingSummaries(ctx: CalendarTaskingPorts, event
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
 	if (!uuidSchema.safeParse(eventId).success) return [];
 	return ctx.calendarTaskings.listEventTaskingSummaries(eventId);
+}
+
+/** Every other Tasking under the Event as counts only: the reader's own rows and others' summaries alike. */
+export async function listEventContributions(
+	ctx: CalendarTaskingPorts,
+	eventId: string,
+	exceptTaskingId: string
+): Promise<EventContribution[]> {
+	const [own, others] = await Promise.all([listEventTaskings(ctx, eventId), listEventTaskingSummaries(ctx, eventId)]);
+	const visible = own.taskings.map(
+		(tasking): EventContribution => ({
+			id: tasking.id,
+			title: tasking.title,
+			responsibility:
+				tasking.responsibility.kind === 'organization'
+					? ORGANIZATION
+					: { kind: 'group', name: own.groups[tasking.responsibility.groupId] ?? 'Another group' },
+			status: tasking.status.kind,
+			picked: own.staffing[tasking.id]?.picked ?? 0,
+			required: tasking.requirement?.count ?? null,
+			suspenseOn: tasking.suspenseOn
+		})
+	);
+	const summarized = others.map(
+		(summary): EventContribution => ({
+			id: summary.id,
+			title: summary.title,
+			responsibility: summary.responsibility,
+			status: summary.status,
+			picked: summary.pickedCount,
+			required: summary.requiredCount,
+			suspenseOn: summary.suspenseOn
+		})
+	);
+	return [...visible, ...summarized]
+		.filter((contribution) => contribution.id !== exceptTaskingId)
+		.sort((a, b) => a.suspenseOn.localeCompare(b.suspenseOn) || a.title.localeCompare(b.title));
 }
 
 export async function loadTaskingDetail(ctx: CalendarTaskingPorts, id: string): Promise<TaskingDetail> {

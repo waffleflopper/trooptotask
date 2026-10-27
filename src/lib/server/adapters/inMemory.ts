@@ -60,7 +60,8 @@ import {
 	ROSTER_CHANGED,
 	STARTING_NUMBERS_LOCKED,
 	effectiveRosterFormStart,
-	type CalendarProjectionReader
+	type CalendarProjectionReader,
+	type CalendarTaskingWorkspaceReader
 } from '$features/calendar/index.server';
 import type {
 	CriticalTaskCompletionPersistence,
@@ -268,6 +269,7 @@ function createTestCalendarPersistence(
 	calendarAvailability: CalendarAvailabilityPersistence;
 	calendarAssignments: CalendarAssignmentReader;
 	calendarProjection: CalendarProjectionReader;
+	taskingWorkspace: CalendarTaskingWorkspaceReader;
 } {
 	return {
 		calendarCatalogs:
@@ -325,7 +327,8 @@ function createTestCalendarPersistence(
 				listRosterDetailDays: unavailableCalendarPersistence,
 				listSlotReferences: unavailableCalendarPersistence
 			} satisfies CalendarAssignmentReader),
-		calendarProjection: { read: unavailableCalendarPersistence }
+		calendarProjection: { read: unavailableCalendarPersistence },
+		taskingWorkspace: { read: unavailableCalendarPersistence }
 	};
 }
 

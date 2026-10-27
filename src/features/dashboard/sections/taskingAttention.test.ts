@@ -32,10 +32,14 @@ function inputs(taskings: DashboardTaskingsState): DashboardInputs {
 }
 
 const ready = (...rows: TaskingAttentionRow[]) =>
-	inputs({ status: 'ready', attention: { rows, total: rows.length }, forecast: { events: [], suspenses: [] } });
+	inputs({
+		status: 'ready',
+		attention: { rows, total: rows.length, onTrack: [] },
+		forecast: { events: [], suspenses: [] }
+	});
 
 describe('taskingAttention', () => {
-	it('names a Short Tasking by its picks and equipment and offers Pick people', () => {
+	it('names a Short Tasking by its picks and equipment and offers to pick the people it lacks', () => {
 		const [item] = taskingAttention(ready(base));
 
 		expect(item).toMatchObject({
@@ -47,11 +51,23 @@ describe('taskingAttention', () => {
 			href: '/org/org-1/calendar/taskings/t-1',
 			urgency: { date: '2026-10-28' },
 			action: {
-				label: 'Pick people',
-				mode: 'dialog',
+				label: 'Pick 2',
+				mode: 'expand',
 				policy: POLICY_ACTION_CATALOG.calendar.manageTaskings
 			}
 		});
+	});
+
+	it('only links a Tasking that is short on equipment alone', () => {
+		const [item] = taskingAttention(ready({ ...base, required: null, picked: 1 }));
+
+		expect(item).toMatchObject({ kind: 'taskingShort', href: '/org/org-1/calendar/taskings/t-1', action: null });
+	});
+
+	it('dates a Short Tasking by its suspense when no execution is near', () => {
+		const [item] = taskingAttention(ready({ ...base, executionStartsOn: null }));
+
+		expect(item).toMatchObject({ timing: 'due in 4 days', urgency: { date: '2026-10-30' } });
 	});
 
 	it('says underway for a Short Tasking whose execution has begun', () => {
@@ -60,7 +76,7 @@ describe('taskingAttention', () => {
 		expect(item?.timing).toBe('underway');
 	});
 
-	it('counts days late for an Overdue Tasking and links to detail without an action', () => {
+	it('counts days late for an Overdue Tasking and offers to mark it done in place', () => {
 		const [item] = taskingAttention(
 			ready({ ...base, kind: 'overdue', suspenseOn: '2026-10-23', required: null, equipmentNotReady: 0 })
 		);
@@ -70,21 +86,40 @@ describe('taskingAttention', () => {
 			subtitle: expect.stringMatching(/23 Oct.*Alpha.*Range week/),
 			timing: '3 days late',
 			urgency: { daysLate: 3 },
-			action: null
+			action: { label: 'Mark done', mode: 'run', policy: POLICY_ACTION_CATALOG.calendar.manageTaskings }
 		});
 	});
 
-	it.each([
-		['blocked', 'taskingBlocked'],
-		['due_soon', 'taskingDueSoon']
-	] as const)('maps %s to %s ranked by its suspense', (kind, mapped) => {
-		const [item] = taskingAttention(ready({ ...base, kind, suspenseOn: '2026-10-29' }));
+	it('ranks a Blocked Tasking by its suspense and offers to unblock it in place', () => {
+		const [item] = taskingAttention(ready({ ...base, kind: 'blocked', suspenseOn: '2026-10-29' }));
 
 		expect(item).toMatchObject({
-			kind: mapped,
+			kind: 'taskingBlocked',
 			timing: 'due in 3 days',
 			urgency: { date: '2026-10-29' },
-			action: null
+			action: { label: 'Unblock', mode: 'run', policy: POLICY_ACTION_CATALOG.calendar.manageTaskings }
+		});
+	});
+
+	it('names the conflicting Person and their commitment and offers a Swap through the picker', () => {
+		const conflict = {
+			personnelId: 'p-okafor',
+			personLabel: 'SGT Okafor',
+			statusLabel: 'Leave',
+			startsOn: '2026-10-27',
+			endsOn: '2026-10-30',
+			overlapDays: 2,
+			executionDays: 3
+		};
+		const [item] = taskingAttention(ready({ ...base, kind: 'conflict', conflict }));
+
+		expect(item).toMatchObject({
+			kind: 'taskingConflict',
+			id: 'tasking:t-1:conflict:p-okafor',
+			title: expect.stringMatching(/SGT Okafor.*leave/),
+			subtitle: expect.stringContaining('Provide four medics'),
+			urgency: { date: '2026-10-27' },
+			action: { label: 'Swap', mode: 'expand', policy: POLICY_ACTION_CATALOG.calendar.manageTaskings }
 		});
 	});
 
@@ -114,14 +149,18 @@ describe('taskingAttentionLoad', () => {
 
 	it.each<DashboardTaskingsState>([
 		{ status: 'off' },
-		{ status: 'ready', attention: { rows: [], total: 0 }, forecast: { events: [], suspenses: [] } }
+		{ status: 'ready', attention: { rows: [], total: 0, onTrack: [] }, forecast: { events: [], suspenses: [] } }
 	])('reports nothing once the source is $status', (state) => {
 		expect(taskingAttentionLoad(inputs(state))).toBeNull();
 	});
 
 	it('counts the rows the bound left out so the header still counts them', () => {
 		const load = taskingAttentionLoad(
-			inputs({ status: 'ready', attention: { rows: [base], total: 4 }, forecast: { events: [], suspenses: [] } })
+			inputs({
+				status: 'ready',
+				attention: { rows: [base], total: 4, onTrack: [] },
+				forecast: { events: [], suspenses: [] }
+			})
 		);
 
 		expect(load).toMatchObject({ state: 'partial', unlisted: 3, href: '/org/org-1/calendar/taskings' });

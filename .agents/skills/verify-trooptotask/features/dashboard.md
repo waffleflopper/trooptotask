@@ -9,14 +9,16 @@ workspace/summary load, and old responses must never restore another Organizatio
 
 - `strength-band`: Bottom line, the 14-day forecast with its floor line and flagged duty days, and the by-group strip,
   all from one per-day status index over the loaded window. Steps are under [Strength band](#strength-band).
-- `quick-add`: Status, Training record and Start onboarding beside the title open the Calendar, Training and Onboarding
-  dialogs, and each save shows on the Dashboard without a reload. Steps are under [Quick add](#quick-add).
+- `quick-add`: Status, Training record, Start onboarding and Tasking beside the title open the Calendar, Training,
+  Onboarding and Create tasking dialogs, and each save shows on the Dashboard without a reload. Steps are under
+  [Quick add](#quick-add).
 - `needs-you-actions`: Update status, Record class, Fill and Award started act on a Needs you row in place, and a saved
   row leaves the queue. Check off opens Onboarding at the packet. Steps are under [Actions](#actions).
-- `tasking-attention`: with Events & Taskings on, active Taskings join Needs you as Overdue, Blocked, Short and Due
-  soon rows, each Tasking once, and a Short row offers `Pick people`. The source loads after the page with its own
-  pending row and `Try again`, and a failure leaves every other row. Steps are in
-  [Events & Taskings](events-taskings.md#dashboard).
+- `tasking-attention`: with Events & Taskings on, active Taskings join Needs you as Overdue, Blocked and Short rows,
+  plus Conflict rows for visible picked People. Overdue offers `Mark done`, Blocked `Unblock`, Short `Pick N` and
+  Conflict `Swap`. On-track work due within seven days comes in `attention.onTrack` in the same request and On duty
+  lists it under `Taskings due · 7 days · on track`. The source loads after the page with its own pending row and
+  `Try again`, and a failure leaves every other row. Steps are in [Events & Taskings](events-taskings.md#dashboard).
 - `forecast-lane`: with Events & Taskings on, the forecast's `Events and suspenses` lane draws Events as spans
   (filled with work in scope, outlined for awareness, struck through when cancelled) and suspenses as diamonds, each
   opening its detail, from the same read with its own skeleton and `Try again`. Steps are in
@@ -80,13 +82,22 @@ Foreign/B. The new Alpha Person has ETS in 30 days and DEROS in 60 days; the arc
 strength/losses and its saved evaluation is omitted from the due projection but stays stored. Record the fixture/browser
 local date and timezone.
 
-| Actor                    | Strength (present/total)       | Training attention and currency                                                                 | Evals overdue/due within 30 days              | Active packet                  |
-| ------------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------ |
-| `dashboardView`, A       | 3/4, 75%; Baker out            | Two expired People (Able and Baker), one warning record (Unassigned), 25% Person-based currency | 1/1; completed and archived People's excluded | Able has 2/3 active steps, 67% |
-| `dashboardScoped`, Alpha | 2/2, 100%; no Baker/unassigned | One expired Person (Able), no warning; 50% currency                                             | 1/0                                           | Same Able packet               |
-| `dashboardEmpty`         | No-personnel note, settled     | No scoped records or people                                                                     | 0/0                                           | None                           |
-| `dashboardNone`          | 0/0; no scoped record facts    | Training/Critical Tasks omitted; no feature source is read                                      | 0/0                                           | None                           |
-| `dashboardForeign`, B    | 1/1, 100%; Foreign only        | No A Training facts                                                                             | 1/0                                           | None                           |
+| Actor | Strength (present/total) | Training attention and currency
+| Evals overdue/due within 30 days | Active packet |
+| ------------------------ | ------------------------------ |
+----------------------------------------------------------------------------------------------- |
+--------------------------------------------- | ------------------------------ |
+| `dashboardView`, A | 3/4, 75%; Baker out | Two expired People (Able and Baker), one warning record
+(Unassigned), 25% Person-based currency | 1/1; completed and archived People's excluded | Able has 2/3 active steps, 67%
+|
+| `dashboardScoped`, Alpha | 2/2, 100%; no Baker/unassigned | One expired Person (Able), no warning; 50% currency
+| 1/0 | Same Able packet |
+| `dashboardEmpty` | No-personnel note, settled | No scoped records or people
+| 0/0 | None |
+| `dashboardNone` | 0/0; no scoped record facts | Training/Critical Tasks omitted; no feature source is read
+| 0/0 | None |
+| `dashboardForeign`, B | 1/1, 100%; Foreign only | No A Training facts
+| 1/0 | None |
 
 Currency is Person-based, distinct from Training's required-cell readiness denominator. Three of A's four active People
 have expired/orange warnings, leaving one current Person. Missing completions and yellow warnings do not add People to
@@ -392,26 +403,28 @@ Worked examples from `$V seed dashboard` on A:
 
 Each active section contributes its entries in order: Status (Calendar availability, `calendar.manageAvailability`, only
 once a status type exists), Training record (`training.recordCompletions`, only when an actionable Person and Training
-type pair is not exempt) and Start onboarding (`onboarding.manageWorkflows`). An entry needs a loaded Person the viewer
-may act on. For Start onboarding that Person must have no active packet, unless the viewer may create Personnel and can
-add the arrival. If the dialog chunk fails to load, a toast appears and the next click tries again. Start onboarding is
-the one filled button; without it every entry is outlined. With no entry, the `Quick add` label is absent too. Status
-and Training record open a picker (`Add status`, `Add training record`) whose `Person` combobox lists only People the
-viewer may act on, by last name, then the shared `Set Personnel Status` dialog, or `Add Training Record`
+type pair is not exempt), Start onboarding (`onboarding.manageWorkflows`) and Tasking (`calendar.manageTaskings`, with
+Events & Taskings on). Every entry but Tasking needs a loaded Person the viewer may act on. For Start onboarding that
+Person must have no active packet, unless the viewer may create Personnel and can add the arrival. If the dialog chunk
+fails to load, a toast appears and the next click tries again. Start onboarding and Tasking are primary; the last
+primary entry shown is filled and every other entry is outlined. With no entry, the `Quick add` label is absent too.
+Status and Training record open a picker (`Add status`, `Add training record`) whose `Person` combobox lists only People
+the viewer may act on, by last name, then the shared `Set Personnel Status` dialog, or `Add Training Record`
 (`Edit Training Record` when the Person already has a record of that type). Status starts on the viewer day. A Person
 exempt from the chosen Training type keeps `Continue` off, with a note that exemptions change on the Training page.
-Start onboarding opens `Start Onboarding` directly. None of these reads anything at page load: Training record reads the
+Start onboarding opens `Start Onboarding` directly, and Tasking opens `Create tasking` once
+`GET api/calendar-taskings/choices` answers. None of these reads anything at page load: Training record reads the
 Person's records on `Continue` and Start onboarding reads templates and ranks (`GET api/onboarding/start-options`) as it
 opens.
 
 On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out, Training reads `100%` current and
 Arriving and leaving reads `No one in onboarding.`
 
-1. **Visibility.** `orgOwner` sees all three. `dashboardView` sees no entry and no label. `calendarOperate` and
-   `calendarScoped` see only Status, `rosterManager` only Training record and `onboardingPersonnelScoped` only Start
-   onboarding. Personnel-none operators (`rosterScoped`, `onboardingScoped`) load no People, so they see nothing.
-   `calendarScoped`'s Person list and `onboardingPersonnelScoped`'s Member list name only `SPC Able, Synthetic`, and the
-   latter keeps `Add Person`.
+1. **Visibility.** `orgOwner` sees all four with Tasking filled. `dashboardView` sees no entry and no label.
+   `calendarOperate` sees Status and a filled Tasking, `calendarScoped` Status, `rosterManager` only Training record and
+   `onboardingPersonnelScoped` only Start onboarding. Personnel-none operators (`rosterScoped`, `onboardingScoped`) load
+   no People, so they see nothing. `calendarScoped`'s Person list and `onboardingPersonnelScoped`'s Member list name
+   only `SPC Able, Synthetic`, and the latter keeps `Add Person`.
 2. **Status.** By keyboard: `Status`, ArrowDown, type a name, Enter, Tab to `Continue`, Enter. Arm
    `$V network arm-fail PAGE availability` and choose `Add Status`: the `Could not save status. Try again.` toast
    appears, the dialog stays open and Bottom line is unchanged. Restore and save. Bottom line drops by one at once and
@@ -444,17 +457,18 @@ Arriving and leaving reads `No one in onboarding.`
 A Needs you row offers one action when the viewer may take it; otherwise only its link remains. Overdue offers
 `Update status` (`ratingScheme.updateEntries`), Expired `Record class` (`training.recordCompletions`), Unfilled
 `Fill N days` (`calendar.manageAssignments`, N at most 7), Stalled `Check off` (`onboarding.manageWorkflows`) and
-Leaving `Award started` (`personnel.manageRecords` on that Person). A Short Tasking offers `Pick people`
-(`calendar.manageTaskings` on its Group or the Organization), which opens the staffing picker in place. `Check off` is a
-link to Onboarding with that packet open, because completing a step needs the Onboarding workspace. While an action
-opens or saves, its button reads `aria-disabled="true"` and ignores a second press. A failed save keeps the row and
-shows the message in it, as a `role="alert"` line or inside the open dialog or panel, with no toast. A saved row leaves
-the queue and focus moves to the action, or else the link, of the row now in its place, or to the empty state (the
-incomplete note when the summary failed) once the queue is empty. Closing a dialog or panel returns focus to its button.
-In the Fill panel, choosing a day opens the duty picker. While its code loads, that day shows a spinner and `aria-busy`.
-If it fails to load, the panel shows `The duty picker did not load, so this day cannot be swapped yet.` with
-`Try again`, keeping the chosen day. The harness cannot fail a script chunk (`emulate` refuses `Offline` under the
-network allowlist), so the component test covers that failure. None of these reads anything at page load.
+Leaving `Award started` (`personnel.manageRecords` on that Person). A Short Tasking offers `Pick N` and a Conflict
+`Swap` (`calendar.manageTaskings` on its Group or the Organization); each expands the row into person slots, like
+`Fill N days`, and only one such row stays open. `Check off` is a link to Onboarding with that packet open, because
+completing a step needs the Onboarding workspace. While an action opens or saves, its button reads
+`aria-disabled="true"` and ignores a second press. A failed save keeps the row and shows the message in it, as a
+`role="alert"` line or inside the open dialog or panel, with no toast. A saved row leaves the queue and focus moves to
+the action, or else the link, of the row now in its place, or to the empty state (the incomplete note when the summary
+failed) once the queue is empty. Closing a dialog or panel returns focus to its button. In the Fill panel, choosing a
+day opens the duty picker. While its code loads, that day shows a spinner and `aria-busy`. If it fails to load, the
+panel shows `The duty picker did not load, so this day cannot be swapped yet.` with `Try again`, keeping the chosen day.
+The harness cannot fail a script chunk (`emulate` refuses `Offline` under the network allowlist), so the component test
+covers that failure. None of these reads anything at page load.
 
 After `$V seed dashboard`, as `orgOwner` at 1440:
 

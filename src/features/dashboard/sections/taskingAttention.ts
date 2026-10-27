@@ -1,10 +1,10 @@
 import type { TaskingAttentionRow } from '$features/calendar';
-import { formatDayMonth, formatDayOffset } from '$lib/utils/dates';
+import { formatDayMonth, formatDayOffset, formatWeekdayDay } from '$lib/utils/dates';
 import { toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from './dashboardInputs';
 import type { NeedsYouLoad, NeedsYouSource } from './dashboardSections';
 import type { NeedsYouItem } from './needsYou';
-import { pickPeopleAction } from './needsYouActions';
+import { pickPeopleAction, taskingStatusAction } from './needsYouActions';
 import { orgPath, plural } from './needsYouSources';
 
 function daysBetween(from: string, to: string): number {
@@ -43,6 +43,7 @@ function toItem(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouItem
 				kind: 'taskingOverdue',
 				subtitle: subtitle(`Due ${formatDayMonth(row.suspenseOn)}`),
 				timing: `${plural(daysLate, 'day', 'days')} late`,
+				action: taskingStatusAction(inputs, row, 'Mark done', { action: 'complete', note: null }),
 				urgency: { daysLate }
 			};
 		}
@@ -52,27 +53,34 @@ function toItem(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouItem
 				kind: 'taskingBlocked',
 				subtitle: subtitle(`Due ${formatDayMonth(row.suspenseOn)}`),
 				timing: due,
+				action: taskingStatusAction(inputs, row, 'Unblock', { action: 'unblock' }),
 				urgency: { date: row.suspenseOn }
 			};
 		case 'short': {
-			const startsOn = row.executionStartsOn ?? row.suspenseOn;
-			const away = daysBetween(inputs.today, startsOn);
+			// The server sends an execution start only when that window applies; otherwise this is short against its suspense.
+			const startsOn = row.executionStartsOn;
+			const away = startsOn === null ? 0 : daysBetween(inputs.today, startsOn);
+			const missing = (row.required ?? 0) - row.picked;
 			return {
 				...base,
 				kind: 'taskingShort',
 				subtitle: subtitle(),
-				timing: away < 0 ? 'underway' : `starts ${formatDayOffset(away)}`,
-				action: pickPeopleAction(inputs, row),
-				urgency: { date: startsOn }
+				timing: startsOn === null ? due : away < 0 ? 'underway' : `starts ${formatDayOffset(away)}`,
+				// Short on equipment alone: picking people cannot fix it, so the row only links to the Tasking.
+				action: missing > 0 ? pickPeopleAction(inputs, row, `Pick ${missing}`, base.href) : null,
+				urgency: { date: startsOn ?? row.suspenseOn }
 			};
 		}
-		case 'due_soon':
+		case 'conflict':
 			return {
 				...base,
-				kind: 'taskingDueSoon',
-				subtitle: subtitle(`Due ${formatDayMonth(row.suspenseOn)}`),
-				timing: due,
-				urgency: { date: row.suspenseOn }
+				id: `tasking:${row.taskingId}:conflict:${row.conflict.personnelId}`,
+				kind: 'taskingConflict',
+				title: `${row.conflict.personLabel} is on ${row.conflict.statusLabel.toLowerCase()} from ${formatWeekdayDay(row.conflict.startsOn)}`,
+				subtitle: `Committed to ${row.title}`,
+				action: pickPeopleAction(inputs, row, 'Swap', base.href),
+				timing: formatDayOffset(daysBetween(inputs.today, row.conflict.startsOn)),
+				urgency: { date: row.conflict.startsOn }
 			};
 	}
 }

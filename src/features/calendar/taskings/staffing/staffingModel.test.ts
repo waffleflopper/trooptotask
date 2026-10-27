@@ -8,6 +8,8 @@ const pick = (overrides: Partial<TaskingPick>): TaskingPick => ({
 	firstName: 'Pat',
 	lastName: 'Lee',
 	groupId: ALPHA,
+	mos: '68W',
+	clinicRole: '',
 	archived: false,
 	selectedAt: '2030-10-01T00:00:00Z',
 	reviewSince: '2030-10-02T00:00:00Z',

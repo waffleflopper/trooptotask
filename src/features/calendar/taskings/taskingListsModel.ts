@@ -13,6 +13,7 @@ export interface EquipmentRequirement {
 	name: string;
 	quantity: number;
 	securedQuantity: number;
+	returnedQuantity?: number;
 }
 
 /** `doneBy` is null only when the acting account no longer exists. */
@@ -31,7 +32,7 @@ export type TaskingListActivityFact =
 			from: { name: string; quantity: number };
 			to: { name: string; quantity: number };
 	  }
-	| { kind: 'equipment_secured'; name: string; quantity: number; from: number; to: number }
+	| { kind: 'equipment_secured' | 'equipment_returned'; name: string; quantity: number; from: number; to: number }
 	| { kind: 'checklist_added' | 'checklist_removed' | 'checklist_completed' | 'checklist_reopened'; label: string }
 	| { kind: 'checklist_renamed'; from: string; to: string };
 
@@ -103,7 +104,7 @@ const quantitySchema = z
 	.min(1, 'Enter at least 1.')
 	.max(EQUIPMENT_QUANTITY_MAX, `Keep it to ${EQUIPMENT_QUANTITY_MAX}.`);
 
-const securedSchema = z
+export const securedSchema = z
 	.number({ error: 'Enter how many are secured.' })
 	.int('Enter a whole number.')
 	.min(0, 'Enter 0 or more.')
@@ -129,7 +130,8 @@ export const equipmentChangeSchema = z
 	.object({
 		name: requiredText('the equipment', EQUIPMENT_NAME_MAX).optional(),
 		quantity: quantitySchema.optional(),
-		securedQuantity: securedSchema.optional()
+		securedQuantity: securedSchema.optional(),
+		returnedQuantity: securedSchema.optional()
 	})
 	.strict()
 	.refine((change) => Object.keys(change).length > 0, { message: 'Nothing to change.' })

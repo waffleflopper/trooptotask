@@ -11,6 +11,8 @@ export interface CalendarToolbarInput {
 	canManageAssignments: boolean;
 	canManageConfig: boolean;
 	showEvents: boolean;
+	/** Active Taskings that are overdue, blocked or short of people. */
+	taskingsNeedingAction: number;
 	groupOptions: ToolbarOption[];
 	groupFilter: string;
 	showStatusText: boolean;
@@ -59,6 +61,21 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 	];
 
 	const items: ToolbarItem[] = [
+		...(input.showEvents
+			? [
+					{
+						kind: 'action',
+						id: 'calendar-events',
+						label: 'Events & Taskings',
+						icon: 'lines',
+						href: `${calendarHref}/taskings`,
+						badge: {
+							count: input.taskingsNeedingAction,
+							label: `${input.taskingsNeedingAction} need action`
+						}
+					} satisfies ToolbarItem
+				]
+			: []),
 		{
 			kind: 'select',
 			id: 'group',
@@ -72,16 +89,6 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 		{ kind: 'action', id: 'calendar-display', label: 'Display', icon: 'sliders', menuItems: displayOptions },
 		{ kind: 'action', id: 'calendar-reports', label: 'Reports', icon: 'chart', href: `${calendarHref}/reports` }
 	];
-
-	if (input.showEvents) {
-		items.push({
-			kind: 'action',
-			id: 'calendar-events',
-			label: 'Events & Taskings',
-			icon: 'clipboard-check',
-			href: `${calendarHref}/events`
-		});
-	}
 
 	if (input.canManageAssignments) {
 		items.push({

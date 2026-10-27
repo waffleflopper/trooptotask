@@ -23,7 +23,7 @@ UNION ALL
 SELECT 'public.assignment_types', id, to_jsonb(row_value) - 'show_on_calendar' - 'roster_pool_rules' - 'roster_weekend_mode'
   || jsonb_build_object('show_in_date_header', row_value.show_on_calendar) FROM public.assignment_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000402'
 UNION ALL
-SELECT 'public.availability_entries', id, to_jsonb(row_value) FROM public.availability_entries AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000501','d5000000-0000-4000-8000-000000000502')
+SELECT 'public.availability_entries', id, to_jsonb(row_value) - 'set_for_tasking_id' FROM public.availability_entries AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000501','d5000000-0000-4000-8000-000000000502')
 UNION ALL
 SELECT 'public.daily_assignments', id, to_jsonb(row_value) - 'source' FROM public.daily_assignments AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000601','d5000000-0000-4000-8000-000000000602');
 SELECT is((SELECT count(*)::integer FROM calendar_unassigned_current_rows), 14, 'all historical Calendar rows remain');
@@ -51,5 +51,8 @@ SELECT is(count(*)::integer, 0, 'Group member cannot edit retained unassigned as
 SELECT set_config('request.jwt.claim.sub', 'd5000000-0000-4000-8000-000000000002', true);
 SELECT is((SELECT count(*)::integer FROM public.availability_entries), 2, 'Organization-scoped member retains unassigned availability');
 SELECT is((SELECT count(*)::integer FROM public.daily_assignments), 2, 'Organization-scoped member retains unassigned person assignment');
+RESET ROLE;
+SELECT ok(NOT EXISTS (SELECT 1 FROM public.availability_entries WHERE set_for_tasking_id IS NOT NULL),
+  'historical Availability entries remain unlinked after upgrade');
 SELECT * FROM finish();
 ROLLBACK;

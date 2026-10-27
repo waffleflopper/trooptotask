@@ -1,3 +1,4 @@
+import { createSupabaseCalendarTaskingWorkspaceReader } from '$features/calendar/index.server';
 import type { ApprovedDeletionEffects } from '$features/deletion-requests/index.server';
 import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
@@ -617,6 +618,7 @@ export function createRequestCalendarEventContext(request: AdmittedOrganizationR
 		auth: request.auth,
 		audit: request.audit,
 		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
+		taskingWorkspace: createSupabaseCalendarTaskingWorkspaceReader(request.supabase, orgId),
 		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId)
 	};
 }
@@ -629,6 +631,7 @@ export function createRequestCalendarTaskingContext(request: AdmittedOrganizatio
 		calendarTaskings: createSupabaseCalendarTaskingPersistence(request.supabase, orgId),
 		taskingLists: createSupabaseCalendarTaskingListsPersistence(request.supabase, orgId),
 		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
+		taskingWorkspace: createSupabaseCalendarTaskingWorkspaceReader(request.supabase, orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, orgId, request.auth.scopeSet),
 		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId),
 		calendarStaffing: createSupabaseCalendarStaffingPersistence(request.supabase, orgId),
@@ -705,6 +708,7 @@ export function createRequestCalendarRangeContext(request: AdmittedOrganizationR
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 		calendarProjection: createSupabaseCalendarProjectionReader(request.supabase, request.auth.orgId),
+		taskingWorkspace: createSupabaseCalendarTaskingWorkspaceReader(request.supabase, request.auth.orgId),
 		disabledFeatures: request.disabledFeatures
 	};
 }

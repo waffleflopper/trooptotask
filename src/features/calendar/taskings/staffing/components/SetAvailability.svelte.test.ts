@@ -31,6 +31,8 @@ const pick = (personnelId: string): TaskingPick => ({
 	firstName: 'Pat',
 	lastName: 'Able',
 	groupId: null,
+	mos: '68W',
+	clinicRole: '',
 	archived: false,
 	selectedAt: '2030-10-01T00:00:00Z',
 	reviewSince: null

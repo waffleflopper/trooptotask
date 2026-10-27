@@ -33,9 +33,11 @@
 	type Props = HTMLAttributes<HTMLElement> & {
 		items?: RouteTabItem[];
 		label?: string;
+		/** `segmented` draws a few sibling pages as one track with the current page raised, beside other page controls. */
+		variant?: 'underline' | 'segmented';
 	};
 
-	let { items = [], label = 'Route sections', class: className, ...restProps }: Props = $props();
+	let { items = [], label = 'Route sections', variant = 'underline', class: className, ...restProps }: Props = $props();
 
 	let scroller = $state<HTMLElement>();
 	const activeIndex = $derived(items.findIndex((item) => item.active));
@@ -80,42 +82,67 @@
 	{/await}
 {/snippet}
 
-<nav data-slot="route-tabs" aria-label={label} class={cn('min-w-0 border-b border-border', className)} {...restProps}>
-	<div bind:this={scroller} class="flex min-w-0 items-center gap-1 overflow-x-auto">
+{#if variant === 'segmented'}
+	<nav
+		data-slot="route-tabs"
+		aria-label={label}
+		class={cn('flex h-8 w-fit shrink-0 items-center gap-0.5 rounded-lg bg-border p-[3px]', className)}
+		{...restProps}
+	>
 		{#each items as item (item.href)}
-			{#if item.disabled}
-				<span
-					data-slot="route-tab"
-					aria-disabled="true"
-					class={cn(
-						'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground opacity-50',
-						item.trailing && 'gap-1.5 text-xs',
-						item === firstTrailing && 'ml-auto'
-					)}
-				>
-					{@render content(item)}
-				</span>
-			{:else}
-				<a
-					data-slot="route-tab"
-					href={resolve(item.href as '/')}
-					aria-current={item.active ? 'page' : undefined}
-					class={cn(
-						'inline-flex h-10 shrink-0 items-center gap-2 rounded-t-md border-b-2 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
-						item.trailing && 'gap-1.5 text-xs',
-						item === firstTrailing && 'ml-auto',
-						item.destructive
-							? item.active
-								? 'border-destructive text-destructive'
-								: 'border-transparent text-destructive hover:border-destructive/40'
-							: item.active
-								? 'border-foreground text-foreground'
-								: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
-					)}
-				>
-					{@render content(item)}
-				</a>
-			{/if}
+			<a
+				data-slot="route-tab"
+				href={resolve(item.href as '/')}
+				aria-current={item.active ? 'page' : undefined}
+				class={cn(
+					'inline-flex h-[26px] items-center rounded-md px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+					item.active
+						? 'bg-background font-semibold text-foreground'
+						: 'font-medium text-muted-foreground hover:text-foreground'
+				)}
+			>
+				{item.label}
+			</a>
 		{/each}
-	</div>
-</nav>
+	</nav>
+{:else}
+	<nav data-slot="route-tabs" aria-label={label} class={cn('min-w-0 border-b border-border', className)} {...restProps}>
+		<div bind:this={scroller} class="flex min-w-0 items-center gap-1 overflow-x-auto">
+			{#each items as item (item.href)}
+				{#if item.disabled}
+					<span
+						data-slot="route-tab"
+						aria-disabled="true"
+						class={cn(
+							'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground opacity-50',
+							item.trailing && 'gap-1.5 text-xs',
+							item === firstTrailing && 'ml-auto'
+						)}
+					>
+						{@render content(item)}
+					</span>
+				{:else}
+					<a
+						data-slot="route-tab"
+						href={resolve(item.href as '/')}
+						aria-current={item.active ? 'page' : undefined}
+						class={cn(
+							'inline-flex h-10 shrink-0 items-center gap-2 rounded-t-md border-b-2 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
+							item.trailing && 'gap-1.5 text-xs',
+							item === firstTrailing && 'ml-auto',
+							item.destructive
+								? item.active
+									? 'border-destructive text-destructive'
+									: 'border-transparent text-destructive hover:border-destructive/40'
+								: item.active
+									? 'border-foreground text-foreground'
+									: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+						)}
+					>
+						{@render content(item)}
+					</a>
+				{/if}
+			{/each}
+		</div>
+	</nav>
+{/if}

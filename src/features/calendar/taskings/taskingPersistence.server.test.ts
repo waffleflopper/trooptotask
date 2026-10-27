@@ -4,6 +4,39 @@ import { createSupabaseCalendarTaskingPersistence } from './taskingPersistence.s
 import { describeActivity } from './components/taskingLabels';
 
 describe('Tasking Activity read', () => {
+	it('reads and renders the deleted Event title after the Event is gone', async () => {
+		const client = createClient('http://activity.invalid', 'synthetic-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async () =>
+					Response.json([
+						{
+							id: 18,
+							occurred_at: '2030-10-19T12:00:00Z',
+							actor_id: 'operator-a',
+							kind: 'event_deleted',
+							payload: { eventId: 'event-a', eventTitle: 'Best Medic Competition' }
+						}
+					])
+			}
+		});
+		const entries = await createSupabaseCalendarTaskingPersistence(client, 'org-a').listActivity('tasking-a');
+		expect(entries).toEqual([
+			{
+				id: 18,
+				at: '2030-10-19T12:00:00Z',
+				actorUserId: 'operator-a',
+				kind: 'event_deleted',
+				eventId: 'event-a',
+				eventTitle: 'Best Medic Competition'
+			}
+		]);
+		expect(describeActivity(entries[0], {}, {}, 'Alpha')).toEqual({
+			summary: 'Unlinked from Best Medic Competition, which was deleted',
+			note: null
+		});
+	});
+
 	it('keeps database-redacted staffing counts and the existing Activity display', async () => {
 		const client = createClient('http://activity.invalid', 'synthetic-request-key', {
 			auth: { persistSession: false, autoRefreshToken: false },

@@ -107,10 +107,12 @@ export { createSupabaseRosterSwapPersistence } from './rosterSwapPersistence.ser
 export {
 	listEvents,
 	loadEventDetail,
+	loadEventMembers,
 	listEventActivity,
 	createEvent,
 	updateEvent,
 	cancelEvent,
+	deleteEvent,
 	settleEventRead
 } from './events/eventOperations.server';
 export { createSupabaseCalendarEventPersistence } from './events/eventPersistence.server';
@@ -118,6 +120,7 @@ export {
 	listTaskings,
 	listEventTaskings,
 	listEventTaskingSummaries,
+	listEventContributions,
 	loadTaskingDetail,
 	listTaskingActivity,
 	loadTaskingChoices,
@@ -156,3 +159,9 @@ export {
 	readCalendarProjection,
 	type CalendarProjectionReader
 } from './projection/calendarProjectionRead.server';
+
+export {
+	createSupabaseCalendarTaskingWorkspaceReader,
+	type CalendarTaskingWorkspaceReader
+} from './taskings/taskingRead.server';
+export { loadTaskingPickStates } from './taskings/staffing/staffingOperations.server';

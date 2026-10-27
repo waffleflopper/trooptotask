@@ -13,6 +13,7 @@ import {
 
 function requireAvailabilityMutation(error: { code?: string; message: string } | null): void {
 	if (!error) return;
+	if (error.code === '42501') fail(403, 'Tasking is unavailable for this Organization');
 	if (error.code === '23503' && error.message.includes('"availability_entries_org_status_type_fkey"'))
 		fail(404, 'Status type is unavailable for this Organization');
 	if (error.code === '23514' && error.message.includes('"availability_entries_note_length"'))
@@ -29,7 +30,8 @@ function availabilityInsert(input: AvailabilityCreate, orgId: string) {
 		status_type_id: input.statusTypeId,
 		start_date: input.startDate,
 		end_date: input.endDate,
-		note: input.note ?? null
+		note: input.note ?? null,
+		set_for_tasking_id: input.setForTaskingId ?? null
 	};
 }
 

@@ -88,10 +88,30 @@ describe('EventDialog', () => {
 		vi.stubGlobal('fetch', send);
 		open();
 
-		expect((screen.getByLabelText('Coordinator') as HTMLSelectElement).value).toBe(LEE);
+		expect(screen.getByLabelText('Coordinator').textContent).toContain(`${members[LEE]} (you)`);
 		await fireEvent.click(screen.getByRole('button', { name: 'Create event' }));
 
 		expect(send).not.toHaveBeenCalled();
 		expect(titleInput().getAttribute('aria-invalid')).toBe('true');
+		const dateError = (label: string) =>
+			document.getElementById(screen.getByLabelText(label).getAttribute('aria-describedby') ?? '')?.textContent;
+		expect(dateError('Ends')).toBe(dateError('Starts'));
+	});
+
+	it('drops the outside host and its source reference when the Organization hosts instead', async () => {
+		const send = vi.fn(async () => Response.json(saved));
+		vi.stubGlobal('fetch', send);
+		open({ event: saved });
+
+		expect((screen.getByLabelText('Source reference') as HTMLInputElement).value).toBe('BN FRAGO 27-012');
+		await fireEvent.click(screen.getByRole('radio', { name: /We are hosting/ }));
+		expect(screen.queryByLabelText('Hosting organization')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		expect(JSON.parse((send.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)).toMatchObject({
+			host: { kind: 'organization' },
+			sourceReference: null
+		});
 	});
 });

@@ -1,43 +1,41 @@
 <script lang="ts">
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import ChevronUp from '@lucide/svelte/icons/chevron-up';
-	import Pencil from '@lucide/svelte/icons/pencil';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 
 	interface Props {
-		/** What the item is, so every button names it: "Move Litters up". */
+		/** What the item is, so the menu names it: "Actions for Litters". */
 		name: string;
 		first: boolean;
 		last: boolean;
 		disabled: boolean;
-		onMove: (step: -1 | 1) => void;
+		/** Omitted where an item's place is fixed, such as equipment being returned. */
+		onMove?: (step: -1 | 1) => void;
 		onEdit: () => void;
-		onRemove: () => void;
+		editLabel?: string;
+		onRemove?: () => void;
 	}
 
-	let { name, first, last, disabled, onMove, onEdit, onRemove }: Props = $props();
+	let { name, first, last, disabled, onMove, onEdit, editLabel = 'Edit', onRemove }: Props = $props();
 </script>
 
-<div class="flex items-center gap-0.5">
-	<Button
-		variant="ghost"
-		size="icon-sm"
-		aria-label={`Move ${name} up`}
-		disabled={disabled || first}
-		onclick={() => onMove(-1)}
-	>
-		<ChevronUp />
-	</Button>
-	<Button
-		variant="ghost"
-		size="icon-sm"
-		aria-label={`Move ${name} down`}
-		disabled={disabled || last}
-		onclick={() => onMove(1)}
-	>
-		<ChevronDown />
-	</Button>
-	<Button variant="ghost" size="icon-sm" aria-label={`Edit ${name}`} {disabled} onclick={onEdit}><Pencil /></Button>
-	<Button variant="ghost" size="icon-sm" aria-label={`Remove ${name}`} {disabled} onclick={onRemove}><Trash2 /></Button>
-</div>
+<DropdownMenu.Root>
+	<DropdownMenu.Trigger {disabled}>
+		{#snippet child({ props })}
+			<Button {...props} variant="ghost" size="icon-sm" class="-my-1 size-7" aria-label={`Actions for ${name}`}>
+				<Ellipsis />
+			</Button>
+		{/snippet}
+	</DropdownMenu.Trigger>
+	<DropdownMenu.Content align="end">
+		<DropdownMenu.Item onSelect={onEdit}>{editLabel}</DropdownMenu.Item>
+		{#if onMove}
+			<DropdownMenu.Item disabled={first} onSelect={() => onMove(-1)}>Move up</DropdownMenu.Item>
+			<DropdownMenu.Item disabled={last} onSelect={() => onMove(1)}>Move down</DropdownMenu.Item>
+		{/if}
+		{#if onRemove}
+			<DropdownMenu.Separator />
+			<DropdownMenu.Item variant="destructive" onSelect={onRemove}>Remove</DropdownMenu.Item>
+		{/if}
+	</DropdownMenu.Content>
+</DropdownMenu.Root>

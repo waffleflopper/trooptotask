@@ -11,4 +11,11 @@
 	<title>Events - Troop to Task</title>
 </svelte:head>
 
-<EventsPage {org} today={data.today} when={data.when} list={data.list} />
+<EventsPage
+	{org}
+	today={data.today}
+	when={data.when}
+	list={data.list}
+	workspace={data.workspace}
+	choices={data.choices}
+/>

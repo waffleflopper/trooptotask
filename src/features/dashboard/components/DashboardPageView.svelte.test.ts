@@ -476,7 +476,8 @@ describe('Dashboard sections', () => {
 					startsOn: '2026-10-20',
 					endsOn: '2026-10-23',
 					cancelled: false,
-					hasWork: true
+					hasWork: true,
+					host: null
 				}
 			],
 			suspenses: [{ taskingId: 't-1', title: 'Alpha lane coverage', suspenseOn: '2026-10-22', status: 'open' as const }]
@@ -493,7 +494,7 @@ describe('Dashboard sections', () => {
 			});
 
 		it('links each Event span and suspense point to its detail', () => {
-			renderWith({ status: 'ready', attention: { rows: [], total: 0 }, forecast });
+			renderWith({ status: 'ready', attention: { rows: [], total: 0, onTrack: [] }, forecast });
 
 			const marks = within(lane()!).getAllByRole('link');
 			expect(marks.map((mark) => mark.getAttribute('href'))).toEqual([
@@ -530,7 +531,7 @@ describe('Dashboard sections', () => {
 			});
 			renderWith({
 				status: 'ready',
-				attention: { rows: [], total: 0 },
+				attention: { rows: [], total: 0, onTrack: [] },
 				forecast: { events: [], suspenses: [due('t-1'), due('t-2'), due('t-3')] }
 			});
 
@@ -559,6 +560,65 @@ describe('Dashboard sections', () => {
 
 			expect(bands()[0]).toBeTruthy();
 			expect(lane()).toBeNull();
+		});
+	});
+
+	describe('Taskings on track', () => {
+		const block = () => screen.getByRole('region', { name: /on track/i });
+		const renderWith = (taskings: DashboardPageData['taskings']) =>
+			render(DashboardPageView, {
+				props: {
+					...frame,
+					ctx: createDashboardScreenModel({ ...pageData(), taskings }, { sources }),
+					sections: DASHBOARD_SECTIONS
+				}
+			});
+		const onTrack = {
+			taskingId: 't-roster',
+			title: 'Submit roster',
+			suspenseOn: '2026-10-21',
+			responsibleGroupId: null,
+			picked: 2,
+			required: 2,
+			status: 'in_progress' as const
+		};
+
+		it('links each Tasking due this week and the Events & Taskings workspace', () => {
+			renderWith({
+				status: 'ready',
+				attention: { rows: [], total: 0, onTrack: [onTrack] },
+				forecast: { events: [], suspenses: [] }
+			});
+
+			expect(
+				within(block())
+					.getAllByRole('link')
+					.map((link) => link.getAttribute('href'))
+			).toEqual(['/org/org-1/calendar/taskings/t-roster', '/org/org-1/calendar/taskings']);
+		});
+
+		it('holds skeleton rows while the read is pending', () => {
+			renderWith({ status: 'pending' });
+
+			expect(block().getAttribute('aria-busy')).toBe('true');
+			expect(block().querySelector('[data-slot="skeleton"]')).not.toBeNull();
+		});
+
+		it('says the read failed in place and keeps the workspace link', () => {
+			renderWith({ status: 'failed' });
+
+			expect(within(block()).getByText(/could not be loaded/i)).toBeTruthy();
+			expect(
+				within(block())
+					.getAllByRole('link')
+					.map((link) => link.getAttribute('href'))
+			).toEqual(['/org/org-1/calendar/taskings']);
+		});
+
+		it('leaves On duty without the block when the Tasking read is off', () => {
+			renderWith({ status: 'off' });
+
+			expect(screen.queryByRole('region', { name: /on track/i })).toBeNull();
 		});
 	});
 

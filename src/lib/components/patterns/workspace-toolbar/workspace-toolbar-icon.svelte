@@ -10,6 +10,7 @@
 	import Download from '@lucide/svelte/icons/download';
 	import FilePlus2 from '@lucide/svelte/icons/file-plus-2';
 	import FileText from '@lucide/svelte/icons/file-text';
+	import Lines from '@lucide/svelte/icons/text-align-start';
 	import NotebookPen from '@lucide/svelte/icons/notebook-pen';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Printer from '@lucide/svelte/icons/printer';
@@ -40,6 +41,7 @@
 		download: Download,
 		'file-plus': FilePlus2,
 		'file-text': FileText,
+		lines: Lines,
 		'notebook-pen': NotebookPen,
 		plus: Plus,
 		printer: Printer,

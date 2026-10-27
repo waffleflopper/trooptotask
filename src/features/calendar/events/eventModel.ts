@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { formatDayMonth, formatDayMonthYear } from '$lib/utils/dates';
+import { BUILT_IN_ARMY_RANK_OPTIONS } from '$features/personnel/contracts';
+import { formatDayMonth, formatDayMonthYear, getDayName, parseDate } from '$lib/utils/dates';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 
 export const EVENT_TITLE_MAX = 200;
@@ -52,15 +53,35 @@ export type EventActivity = EventActivityFact & { id: number; at: string; actorU
 /** Every current member of the Organization, by user id. A coordinator or actor missing here has left. */
 export type MemberLabels = Record<string, string>;
 
+export interface OrganizationMemberOption {
+	userId: string;
+	label: string;
+}
+
+const memberSortName = (label: string) => {
+	const [rank, ...name] = label.split(' ');
+	return BUILT_IN_ARMY_RANK_OPTIONS.includes(rank) ? name.join(' ') : label;
+};
+
+export function memberOptions(members: MemberLabels): OrganizationMemberOption[] {
+	return Object.entries(members)
+		.map(([userId, label]) => ({ userId, label }))
+		.sort((a, b) => memberSortName(a.label).localeCompare(memberSortName(b.label)) || a.userId.localeCompare(b.userId));
+}
+
 export interface EventList {
 	when: EventListWhen;
 	events: CalendarEvent[];
 	members: MemberLabels;
+	memberOptions: OrganizationMemberOption[];
+	currentUserId: string;
 }
 
 export interface EventDetail {
 	event: CalendarEvent;
 	members: MemberLabels;
+	memberOptions: OrganizationMemberOption[];
+	currentUserId: string;
 }
 
 /** A streamed read that answers instead of rejecting, so one failed region leaves the rest of the page working. */
@@ -85,6 +106,54 @@ export function eventDateRange({ startsOn, endsOn }: EventDates): string {
 	const start =
 		startsOn.slice(0, 7) === endsOn.slice(0, 7) ? String(Number(startsOn.slice(8))) : formatDayMonth(startsOn);
 	return `${start} – ${formatDayMonthYear(endsOn)}`;
+}
+
+export function daysBetween(from: string, to: string): number {
+	const day = (date: string) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8)));
+	return Math.round((day(to) - day(from)) / 86_400_000);
+}
+
+const yearUnlessThis = (date: string, today: string) =>
+	date.slice(0, 4) === today.slice(0, 4) ? '' : ` ${date.slice(0, 4)}`;
+
+/** "19 – 23 Oct" or "30 Oct – 2 Nov", with the year only when it is not the viewer's. */
+export function shortEventDateRange({ startsOn, endsOn }: EventDates, today: string): string {
+	const year = startsOn.slice(0, 4) === endsOn.slice(0, 4) ? yearUnlessThis(endsOn, today) : null;
+	if (year === null) return eventDateRange({ startsOn, endsOn });
+	if (startsOn === endsOn) return `${formatDayMonth(startsOn)}${year}`;
+	const start =
+		startsOn.slice(0, 7) === endsOn.slice(0, 7) ? String(Number(startsOn.slice(8))) : formatDayMonth(startsOn);
+	return `${start} – ${formatDayMonth(endsOn)}${year}`;
+}
+
+const weekday = (date: string) => getDayName(parseDate(date));
+
+/** "Mon 19 – Fri 23 Oct", "Fri 30 Oct – Mon 2 Nov" or "Mon 19 Oct", with the year only when it is not the viewer's. */
+export function eventDayRange({ startsOn, endsOn }: EventDates, today: string): string {
+	const end = `${weekday(endsOn)} ${formatDayMonth(endsOn)}${yearUnlessThis(endsOn, today)}`;
+	if (startsOn === endsOn) return end;
+	const start =
+		startsOn.slice(0, 7) === endsOn.slice(0, 7)
+			? `${weekday(startsOn)} ${Number(startsOn.slice(8))}`
+			: `${weekday(startsOn)} ${formatDayMonth(startsOn)}${startsOn.slice(0, 4) === endsOn.slice(0, 4) ? '' : ` ${startsOn.slice(0, 4)}`}`;
+	return `${start} – ${end}`;
+}
+
+/** How far the viewer's day is from the Event, for the line above its dates. */
+export function eventCountdown(
+	event: EventDates & Pick<CalendarEvent, 'cancellation'>,
+	today: string
+): { text: string; upcoming: boolean } {
+	if (event.cancellation) return { text: 'Cancelled', upcoming: false };
+	const phase = eventPhase(event, today);
+	if (phase === 'past') return { text: `Ended ${formatDayMonth(event.endsOn)}`, upcoming: false };
+	if (phase === 'ongoing') {
+		const length = daysBetween(event.startsOn, event.endsOn) + 1;
+		const text = length === 1 ? 'Today' : `Day ${daysBetween(event.startsOn, today) + 1} of ${length}`;
+		return { text, upcoming: true };
+	}
+	const days = daysBetween(today, event.startsOn);
+	return { text: days === 1 ? 'Starts tomorrow' : `Starts in ${days} days`, upcoming: true };
 }
 
 export type EventSource = { kind: 'link'; url: string } | { kind: 'order'; text: string };
@@ -138,3 +207,8 @@ export type EventDraft = z.output<typeof eventDraftSchema>;
 export const eventCancellationSchema = z
 	.object({ reason: optionalText('the reason', EVENT_CANCELLATION_REASON_MAX) })
 	.strict();
+
+export const eventDeletionSchema = z.object({ taskings: z.enum(['standalone', 'delete']) }).strict();
+
+export type EventDeletionMode = z.output<typeof eventDeletionSchema>['taskings'];
+export type EventDeletionResult = { taskings: EventDeletionMode; count: number };

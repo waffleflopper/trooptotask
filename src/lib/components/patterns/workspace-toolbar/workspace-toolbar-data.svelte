@@ -31,7 +31,7 @@
 	} from './toolbar-types.js';
 	import WorkspaceToolbarIcon from './workspace-toolbar-icon.svelte';
 	import WorkspaceToolbarMenu from './workspace-toolbar-menu.svelte';
-	import WorkspaceToolbarMore, { actionItems, moreButton } from './workspace-toolbar-more.svelte';
+	import WorkspaceToolbarMore, { actionItems, moreButton, toolbarBadgeClass } from './workspace-toolbar-more.svelte';
 
 	let { ariaLabel, items, bare = false, search, primary, compactBelow }: WorkspaceToolbarProps = $props();
 	const uid = $props.id();
@@ -362,6 +362,10 @@
 		{:else}
 			{action.label}
 		{/if}
+		{#if action.badge && action.badge.count > 0}
+			<span aria-hidden="true" class={toolbarBadgeClass}>{action.badge.count}</span>
+			<span class="sr-only">, {action.badge.label}</span>
+		{/if}
 		{#if action.menuItems}
 			<ChevronDown aria-hidden="true" />
 		{/if}
@@ -430,7 +434,10 @@
 {#snippet selectControl(item: ToolbarSelect, live: boolean)}
 	<Select.Root type="single" bind:value={() => item.value, (next) => live && item.onValueChange(next)}>
 		<Select.Trigger aria-label={item.ariaLabel ?? item.label} tabindex={live ? undefined : -1}>
-			<span>{optionLabel(item, item.value)}</span>
+			{#if item.showLabel}
+				<span class="text-muted-foreground">{item.label}</span>
+			{/if}
+			<span class={[item.showLabel && 'font-semibold']}>{optionLabel(item, item.value)}</span>
 		</Select.Trigger>
 		{#if live}
 			<Select.Content>

@@ -1,31 +1,39 @@
 <script lang="ts">
 	import type { CalendarEventsPageAccess } from '../../contracts';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as Alert from '$lib/components/ui/alert';
-	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
-	import type { CalendarEvent, EventRead } from '../../events/eventModel';
+	import { eventDayRange, type CalendarEvent, type EventRead } from '../../events/eventModel';
 	import EventLoadFailed from '../../events/components/EventLoadFailed.svelte';
 	import { reloadCalendarEvents } from '../../events/eventPageState';
-	import { groupEventWork, type TaskingSummary } from '../eventWorkModel';
-	import { isActiveStatus, type GroupLabels, type Tasking, type TaskingChoices } from '../taskingModel';
-	import EventWorkGroups from './EventWorkGroups.svelte';
+	import { groupEventWork, type EventWorkPhase, type TaskingSummary } from '../eventWorkModel';
+	import { isActiveStatus, type EventTaskingList, type Tasking, type TaskingChoices } from '../taskingModel';
+	import type { TaskingWorkspace } from '../taskingReadModel';
+	import { conflictLabel, eventRowFacts, eventSummaryLine, itemTimeline, nextDateFacts } from '../taskingRowModel';
+	import ConflictMarker from './ConflictMarker.svelte';
+	import ResponsibilityPill from './ResponsibilityPill.svelte';
 	import TaskingDialog from './TaskingDialog.svelte';
+	import { STATUS_BADGES, TONE_TEXT } from './taskingLabels';
 
 	interface Props {
 		org: CalendarEventsPageAccess;
 		today: string;
 		event: CalendarEvent;
-		taskings: Promise<EventRead<{ taskings: Tasking[]; groups: GroupLabels }>>;
+		taskings: Promise<EventRead<EventTaskingList>>;
 		/** The Taskings outside the reader's scope, as one-line rows. */
 		summaries: Promise<EventRead<TaskingSummary[]>>;
+		/** The Event's totals and each visible Tasking's staffing, equipment and conflict facts. */
+		workspace: Promise<EventRead<TaskingWorkspace>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
 		/** Opens Create tasking once, for "Create and add tasking". */
 		addOnArrival: boolean;
 	}
 
-	let { org, today, event, taskings, summaries, choices, addOnArrival }: Props = $props();
+	let { org, today, event, taskings, summaries, workspace, choices, addOnArrival }: Props = $props();
 
 	const canCreate = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'unscoped' }).allowed
@@ -33,8 +41,10 @@
 	const organizationWide = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'organization' }).allowed
 	);
+	const taskingsHref = $derived(`/org/${org.orgUrlSegment}/calendar/taskings`);
 	const streamed = new StreamedValue(() => taskings);
 	const streamedSummaries = new StreamedValue(() => summaries);
+	const streamedWorkspace = new StreamedValue(() => workspace);
 	// A created Tasking shows at once and stands until the refreshed list arrives.
 	let added = $state.raw<{ tasking: Tasking; over: unknown } | null>(null);
 	let creating = $state<TaskingChoices | null>(null);
@@ -44,9 +54,16 @@
 
 	$effect(() => () => (alive = false));
 
+	const facts = $derived.by(() => {
+		const current = streamedWorkspace.current;
+		if (current.state !== 'ready') return current.state === 'failed' ? ('failed' as const) : null;
+		return current.value.status === 'loaded' ? current.value.value : ('failed' as const);
+	});
+	// Rows need their facts, so a failed facts read fails the region instead of reading as zeros.
 	const loaded = $derived.by(() => {
 		const current = streamed.current;
-		if (current.state !== 'ready') return current.state === 'failed' ? ('failed' as const) : null;
+		if (current.state === 'failed' || facts === 'failed') return 'failed' as const;
+		if (current.state !== 'ready' || facts === null) return null;
 		if (current.value.status !== 'loaded') return 'failed' as const;
 		const list = current.value.value;
 		if (added?.over !== current || list.taskings.some((tasking) => tasking.id === added?.tasking.id)) return list;
@@ -64,11 +81,32 @@
 			? groupEventWork(event, loaded.taskings, otherWork === 'failed' ? [] : otherWork)
 			: null
 	);
-	const hasActiveWork = $derived(
-		(work ?? []).some((group) =>
-			group.items.some((item) => isActiveStatus(item.kind === 'full' ? item.tasking.status.kind : item.summary.status))
-		)
+	const summary = $derived(
+		work && facts && facts !== 'failed'
+			? (facts.events[event.id] ?? {
+					total: 0,
+					needAction: 0,
+					overdue: 0,
+					blocked: 0,
+					needPeople: 0,
+					fullyStaffedAndReady: 0,
+					conflicts: 0
+				})
+			: null
 	);
+	const rowFacts = $derived(facts && facts !== 'failed' ? facts.taskings : {});
+	const hasActiveWork = $derived(
+		(work ?? []).some((group) => group.items.some((item) => isActiveStatus(itemTimeline(item).status.kind)))
+	);
+
+	const phaseTitle = (phase: EventWorkPhase) =>
+		phase === 'preparation'
+			? 'Before · prep'
+			: phase === 'closeout'
+				? 'After · closeout'
+				: `During · ${eventDayRange(event, today)}`;
+
+	const summaryLine = $derived(summary ? eventSummaryLine(summary) : []);
 
 	$effect(() => {
 		if (!addOnArrival || arrivalHandled || !canCreate || event.cancellation) return;
@@ -76,7 +114,8 @@
 		void startCreate();
 	});
 
-	async function startCreate() {
+	/** Add tasking lives in the page header; the page calls this. */
+	export async function startCreate() {
 		createError = '';
 		const requested = choices;
 		const result = await requested;
@@ -92,22 +131,57 @@
 	}
 </script>
 
-<section class="grid gap-3" aria-labelledby="event-taskings-heading">
-	<div class="flex flex-wrap items-center justify-between gap-2">
-		<h2 id="event-taskings-heading" class="font-heading text-lg font-semibold">Taskings</h2>
-		{#if canCreate && !event.cancellation}
-			<Button variant="outline" size="sm" onclick={startCreate}>Add tasking</Button>
+<section class="grid min-w-0 gap-4" aria-labelledby="event-taskings-heading">
+	<div class="grid gap-1.5">
+		<div class="flex flex-wrap items-baseline gap-x-2.5">
+			<h2 id="event-taskings-heading" class="font-heading text-[22px] leading-[26px] font-semibold">
+				What {org.orgName} owes
+			</h2>
+			{#if summary}
+				<span class="font-mono text-xs text-muted-foreground">
+					{summary.total}
+					{summary.total === 1 ? 'tasking' : 'taskings'}
+				</span>
+			{/if}
+		</div>
+		{#if summary === null && loaded !== 'failed'}
+			<Skeleton class="h-4 w-64 max-w-full" />
+		{:else if summaryLine.length > 0}
+			<p class="m-0 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs font-medium">
+				{#each summaryLine as part (part.text)}
+					{#if part.conflicts}
+						<span
+							class={['inline-flex items-center gap-1', TONE_TEXT[part.tone]]}
+							title={conflictLabel(part.conflicts)}
+						>
+							<TriangleAlert class="size-3.5" aria-hidden="true" />{part.text}
+						</span>
+					{:else}
+						<span class={TONE_TEXT[part.tone]}>{part.text}</span>
+					{/if}
+				{/each}
+			</p>
 		{/if}
 	</div>
+
 	{#if createError}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{createError}</Alert.Description>
 		</Alert.Root>
 	{/if}
+
 	{#if loaded === null || otherWork === null}
-		<div class="grid gap-2" role="status" aria-label="Loading taskings">
-			{#each [0, 1] as placeholder (placeholder)}
-				<Skeleton class="h-14 w-full" />
+		<div class="overflow-hidden rounded-lg border border-border" role="status" aria-label="Loading taskings">
+			<div class="h-[30px] border-b border-border bg-muted"></div>
+			{#each [0, 1, 2] as placeholder (placeholder)}
+				<div class="flex h-14 items-center gap-3 border-b border-border px-3.5 last:border-b-0">
+					<Skeleton class="h-5 w-20 shrink-0" />
+					<div class="grid min-w-0 grow gap-1">
+						<Skeleton class="h-4 w-2/3" />
+						<Skeleton class="h-3 w-1/3" />
+					</div>
+					<Skeleton class="hidden h-4 w-24 shrink-0 sm:block" />
+				</div>
 			{/each}
 		</div>
 	{:else if loaded === 'failed'}
@@ -121,7 +195,81 @@
 			</Alert.Root>
 		{/if}
 		{#if work && work.length > 0}
-			<EventWorkGroups {org} {today} groups={work} groupLabels={loaded.groups} />
+			<!-- One row markup for both layouts: below the container breakpoint the status sits beside the title and the dates drop under it. -->
+			<div class="@container">
+				<div class="overflow-hidden rounded-lg border border-border bg-card">
+					{#each work as group (group.phase)}
+						<section class="border-b border-border last:border-b-0" aria-labelledby={`event-work-${group.phase}`}>
+							<h3
+								id={`event-work-${group.phase}`}
+								class="m-0 flex h-[30px] items-center border-b border-border bg-muted px-3.5 font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
+							>
+								{phaseTitle(group.phase)}
+							</h3>
+							<ul>
+								{#each group.items as item (item.kind === 'full' ? item.tasking.id : item.summary.id)}
+									{@const timeline = itemTimeline(item)}
+									{@const status = STATUS_BADGES[timeline.status.kind]}
+									{@const itemFacts = item.kind === 'full' ? rowFacts[item.tasking.id] : undefined}
+									{@const fact = eventRowFacts(item, itemFacts)}
+									{@const next = nextDateFacts(timeline, today, { report: true })}
+									<li class="border-b border-border last:border-b-0">
+										<svelte:element
+											this={item.kind === 'full' ? 'a' : 'div'}
+											href={item.kind === 'full' ? `${taskingsHref}/${item.tasking.id}` : undefined}
+											class={[
+												'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-3.5 py-3 @min-[40rem]:h-14 @min-[40rem]:grid-cols-[96px_minmax(0,1fr)_130px_16px] @min-[40rem]:py-0',
+												item.kind === 'full' &&
+													'transition-colors hover:bg-muted/60 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset'
+											]}
+										>
+											<span
+												class="col-start-2 row-start-1 flex justify-self-end @min-[40rem]:col-start-auto @min-[40rem]:row-start-auto @min-[40rem]:justify-self-start"
+											>
+												<Badge variant={status.variant}>{status.label}</Badge>
+											</span>
+											<span
+												class="col-start-1 row-start-1 grid min-w-0 gap-[3px] @min-[40rem]:col-start-auto @min-[40rem]:row-start-auto"
+											>
+												<span class="truncate text-sm leading-[18px] font-semibold text-foreground">
+													{item.kind === 'full' ? item.tasking.title : item.summary.title}
+												</span>
+												<span class="flex min-w-0 items-center gap-2">
+													<ResponsibilityPill
+														responsibility={item.kind === 'full'
+															? item.tasking.responsibility
+															: item.summary.responsibility}
+														groups={loaded.groups}
+														size="sm"
+													/>
+													{#if fact}
+														<span class={['truncate font-mono text-xs', TONE_TEXT[fact.tone]]}>{fact.text}</span>
+													{/if}
+													{#if itemFacts && itemFacts.conflicts > 0}
+														<ConflictMarker people={itemFacts.conflicts} />
+													{/if}
+												</span>
+											</span>
+											<span
+												class="col-span-2 flex flex-wrap gap-x-2 font-mono text-xs @min-[40rem]:col-span-1 @min-[40rem]:grid @min-[40rem]:justify-items-end @min-[40rem]:gap-0.5"
+											>
+												<span class={['font-medium', TONE_TEXT[next.primary.tone]]}>{next.primary.text}</span>
+												<span class="text-muted-foreground">{next.due}</span>
+											</span>
+											{#if item.kind === 'full'}
+												<ChevronRight
+													class="hidden size-4 text-muted-foreground @min-[40rem]:block"
+													aria-hidden="true"
+												/>
+											{/if}
+										</svelte:element>
+									</li>
+								{/each}
+							</ul>
+						</section>
+					{/each}
+				</div>
+			</div>
 		{:else if otherWork !== 'failed'}
 			<p class="m-0 text-sm text-muted-foreground">No taskings under this event.</p>
 		{/if}

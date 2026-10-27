@@ -22,10 +22,28 @@ const tasking: Tasking = {
 };
 const nobody: TaskingStaffing = { revision: 0, picked: 0, needsReview: 0, outsideScope: 0, picks: [] };
 const picker: StaffingPicker = {
+	tasking: { requirement: tasking.requirement, execution: tasking.execution },
+	states: {},
 	staffing: nobody,
 	candidates: [
-		{ personnelId: ALICE, rank: 'SPC', firstName: 'Alice', lastName: 'Avery', groupId: ALPHA },
-		{ personnelId: BRUNO, rank: 'SGT', firstName: 'Bruno', lastName: 'Baker', groupId: ALPHA }
+		{
+			personnelId: ALICE,
+			rank: 'SPC',
+			firstName: 'Alice',
+			lastName: 'Avery',
+			groupId: ALPHA,
+			mos: '68W',
+			clinicRole: ''
+		},
+		{
+			personnelId: BRUNO,
+			rank: 'SGT',
+			firstName: 'Bruno',
+			lastName: 'Baker',
+			groupId: ALPHA,
+			mos: '68W',
+			clinicRole: ''
+		}
 	],
 	advisories: { kind: 'loaded', byPerson: {} }
 };
@@ -41,6 +59,8 @@ const brunoSaved: TaskingStaffing = {
 			firstName: 'Bruno',
 			lastName: 'Baker',
 			groupId: ALPHA,
+			mos: '68W',
+			clinicRole: '',
 			archived: false,
 			selectedAt: '2030-10-01T00:00:00Z',
 			reviewSince: null
@@ -51,11 +71,15 @@ const brunoSaved: TaskingStaffing = {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 function serve(...saves: Response[]) {
+	return serveFrom(picker, ...saves);
+}
+
+function serveFrom(loaded: StaffingPicker, ...saves: Response[]) {
 	const sent: unknown[] = [];
 	vi.stubGlobal(
 		'fetch',
 		vi.fn(async (_url: string, init?: RequestInit) => {
-			if (!init?.method) return json(picker);
+			if (!init?.method) return json(loaded);
 			sent.push(JSON.parse(String(init.body)));
 			return saves.shift() ?? json({ message: 'unexpected' }, 500);
 		})
@@ -74,6 +98,13 @@ afterEach(() => {
 });
 
 describe('AssignPeopleDialog', () => {
+	it('filters by the MOS the loaded requirement names when the caller passed only a count', async () => {
+		serveFrom({ ...picker, tasking: { ...picker.tasking, requirement: { count: 2, qualifications: '68W' } } });
+		open();
+
+		expect(await screen.findByRole('button', { name: '68W', pressed: true })).toBeTruthy();
+	});
+
 	it('keeps the operator’s choices when someone else saved first, and saves them against the new revision', async () => {
 		const sent = serve(
 			json({ outcome: 'conflict', staffing: brunoSaved }, 409),
@@ -82,16 +113,14 @@ describe('AssignPeopleDialog', () => {
 		const onSaved = open();
 
 		await fireEvent.click(await screen.findByRole('checkbox', { name: /Avery/ }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Save people' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
 
 		await waitFor(() => expect(sent).toHaveLength(1));
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: 'Save people' }).hasAttribute('disabled')).toBe(false)
-		);
+		await waitFor(() => expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false));
 		expect(screen.getByRole('checkbox', { name: /Avery/ }).getAttribute('aria-checked')).toBe('true');
 		expect(onSaved).not.toHaveBeenCalled();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Save people' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
 		await waitFor(() => expect(onSaved).toHaveBeenCalled());
 		expect(sent).toMatchObject([
 			{ personnelIds: [ALICE], expectedRevision: 0 },
@@ -104,11 +133,9 @@ describe('AssignPeopleDialog', () => {
 		const onSaved = open();
 
 		await fireEvent.click(await screen.findByRole('checkbox', { name: /Baker/ }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Save people' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
 
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: 'Save people' }).hasAttribute('disabled')).toBe(false)
-		);
+		await waitFor(() => expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false));
 		expect(screen.getByRole('checkbox', { name: /Baker/ }).getAttribute('aria-checked')).toBe('true');
 		expect(onSaved).not.toHaveBeenCalled();
 	});
@@ -119,14 +146,45 @@ describe('AssignPeopleDialog', () => {
 		const onSaved = open(vi.fn(() => new Promise<void>((resolve) => (finish = resolve))));
 
 		await fireEvent.click(await screen.findByRole('checkbox', { name: /Baker/ }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Save people' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
 		await waitFor(() => expect(onSaved).toHaveBeenCalled());
 		await new Promise((resolve) => setTimeout(resolve));
 
-		expect(screen.getByRole('button', { name: /Save people/ }).hasAttribute('disabled')).toBe(true);
+		expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(true);
 		finish();
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: /Save people/ }).hasAttribute('disabled')).toBe(false)
-		);
+		await waitFor(() => expect(screen.getByRole('button', { name: /Save \d/ }).hasAttribute('disabled')).toBe(false));
+	});
+
+	it('hands the caller the selection it opened on, so the save can be undone', async () => {
+		serve(json({ outcome: 'saved', staffing: brunoSaved }));
+		const onSaved = open();
+
+		await fireEvent.click(await screen.findByRole('checkbox', { name: /Baker/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
+
+		await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ outcome: 'saved', staffing: brunoSaved }, nobody));
+	});
+
+	it('drops a person from the selection when their chip is removed', async () => {
+		const sent = serve(json({ outcome: 'saved', staffing: nobody }));
+		open();
+
+		await fireEvent.click(await screen.findByRole('checkbox', { name: /Avery/ }));
+		await fireEvent.click(await screen.findByRole('checkbox', { name: /Baker/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /Remove .*Avery/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /Save \d/ }));
+
+		await waitFor(() => expect(sent).toMatchObject([{ personnelIds: [BRUNO] }]));
+		expect(screen.getByRole('checkbox', { name: /Avery/ }).getAttribute('aria-checked')).toBe('false');
+	});
+
+	it('narrows the roster to people matching the search', async () => {
+		serve();
+		open();
+
+		await fireEvent.input(await screen.findByRole('searchbox'), { target: { value: 'bak' } });
+
+		await waitFor(() => expect(screen.queryByRole('checkbox', { name: /Avery/ })).toBeNull());
+		expect(screen.getByRole('checkbox', { name: /Baker/ })).toBeTruthy();
 	});
 });

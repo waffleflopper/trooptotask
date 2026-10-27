@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { uuidSchema } from '$lib/utils/inputSchemas';
-import { TASKING_STAFFING_MAX, type StaffingCount, type TaskingResponsibility } from '../taskingModel';
+import { TASKING_STAFFING_MAX, type StaffingCount, type Tasking, type TaskingResponsibility } from '../taskingModel';
 
 export type { NamedPeople, StaffingCount } from '../taskingModel';
 
@@ -11,6 +11,8 @@ export interface TaskingPick {
 	firstName: string;
 	lastName: string;
 	groupId: string | null;
+	mos: string;
+	clinicRole: string;
 	archived: boolean;
 	selectedAt: string;
 	/** When the pick stopped qualifying. Only an explicit keep or removal clears it; restoring the Person does not. */
@@ -48,6 +50,8 @@ export interface StaffingCandidate {
 	firstName: string;
 	lastName: string;
 	groupId: string | null;
+	mos: string;
+	clinicRole: string;
 }
 
 export function isCandidateFor(responsibility: TaskingResponsibility, person: { groupId: string | null }): boolean {
@@ -56,7 +60,15 @@ export function isCandidateFor(responsibility: TaskingResponsibility, person: { 
 
 /** Another fact over the execution dates. An inaccessible Tasking is only "committed elsewhere". */
 export type StaffingAdvisory =
-	| { kind: 'availability'; label: string; startsOn: string; endsOn: string }
+	| {
+			kind: 'availability';
+			label: string;
+			startsOn: string;
+			endsOn: string;
+			isConflict: boolean;
+			overlapDays: number;
+			executionDays: number;
+	  }
 	| { kind: 'tasking'; taskingId: string; title: string; startsOn: string; endsOn: string }
 	| { kind: 'committed_elsewhere' };
 
@@ -67,13 +79,19 @@ export type StaffingAdvisories =
 	| { kind: 'loaded'; byPerson: Record<string, StaffingAdvisory[]> };
 
 export interface StaffingPicker {
+	tasking: Pick<Tasking, 'requirement' | 'execution'>;
 	staffing: TaskingStaffing;
 	candidates: StaffingCandidate[];
 	advisories: StaffingAdvisories;
+	states: Record<string, StaffingPersonState>;
 }
 
 export const personName = (person: Pick<TaskingPick, 'rank' | 'firstName' | 'lastName'>) =>
 	[person.rank, `${person.lastName}, ${person.firstName}`].filter(Boolean).join(' ');
+
+/** `RANK Last`, short enough for a chip or a toast. */
+export const shortPersonName = (person: Pick<TaskingPick, 'rank' | 'lastName'>) =>
+	[person.rank, person.lastName].filter(Boolean).join(' ');
 
 /** `picked of required`, or just the picked count when nothing is required. Picks under review never count. */
 export function staffingLabel(picked: number, required: number | null): string | null {
@@ -84,10 +102,7 @@ export function staffingLabel(picked: number, required: number | null): string |
 export const outsideScopeLabel = (count: number) => `${count} ${count === 1 ? 'person' : 'people'} outside your Groups`;
 
 /** One person the picker lists: a candidate, or someone already picked who no longer is one. */
-export interface PickerRow {
-	personnelId: string;
-	name: string;
-	groupId: string | null;
+export interface PickerRow extends StaffingCandidate {
 	review: PickReview | null;
 }
 
@@ -97,19 +112,22 @@ export function pickerRows(picker: StaffingPicker, responsibility: TaskingRespon
 	for (const pick of picker.staffing.picks)
 		rows.set(pick.personnelId, {
 			personnelId: pick.personnelId,
-			name: personName(pick),
+			rank: pick.rank,
+			firstName: pick.firstName,
+			lastName: pick.lastName,
 			groupId: pick.groupId,
+			mos: pick.mos,
+			clinicRole: pick.clinicRole,
 			review: pickReview(pick, responsibility)
 		});
 	for (const candidate of picker.candidates)
-		if (!rows.has(candidate.personnelId))
-			rows.set(candidate.personnelId, {
-				personnelId: candidate.personnelId,
-				name: personName(candidate),
-				groupId: candidate.groupId,
-				review: null
-			});
-	return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name) || a.personnelId.localeCompare(b.personnelId));
+		if (!rows.has(candidate.personnelId)) rows.set(candidate.personnelId, { ...candidate, review: null });
+	return [...rows.values()].sort(
+		(a, b) =>
+			a.lastName.localeCompare(b.lastName) ||
+			a.firstName.localeCompare(b.firstName) ||
+			a.personnelId.localeCompare(b.personnelId)
+	);
 }
 
 const uniqueIds = (ids: string[]) => new Set(ids).size === ids.length;
@@ -130,8 +148,13 @@ export const staffingSaveSchema = z
 
 export type StaffingSave = z.output<typeof staffingSaveSchema>;
 
-/** `conflict` means someone else saved first; nothing was written and `staffing` is what they saved. */
-export type StaffingSaveResult = { outcome: 'saved' | 'unchanged' | 'conflict'; staffing: TaskingStaffing };
+export type StaffingSaveOutcome = { outcome: 'saved' | 'unchanged' | 'conflict'; revision: number };
+
+/**
+ * `conflict` means someone else saved first; nothing was written and `staffing` is what they saved.
+ * `revision` is the one this save wrote or found; `staffing` is read afterwards and may already be newer.
+ */
+export type StaffingSaveResult = StaffingSaveOutcome & { staffing: TaskingStaffing };
 
 /** The selection a save asks for, kept apart from what is stored so a failed or refused save loses nothing. */
 export interface StaffingDraft {
@@ -145,3 +168,20 @@ export const draftOf = (staffing: TaskingStaffing): StaffingDraft => ({
 	keep: [],
 	removeOutsideScope: false
 });
+
+export type StaffingPersonState =
+	| { kind: 'unknown'; reason: 'failed' | 'no_execution' }
+	| { kind: 'clear' }
+	| { kind: 'conflict'; availability: Extract<StaffingAdvisory, { kind: 'availability' }>[] }
+	| { kind: 'committed_elsewhere'; commitments: Exclude<StaffingAdvisory, { kind: 'availability' }>[] };
+
+export function staffingPersonState(personnelId: string, advisories: StaffingAdvisories): StaffingPersonState {
+	if (advisories.kind !== 'loaded') return { kind: 'unknown', reason: advisories.kind };
+	const rows = advisories.byPerson[personnelId] ?? [];
+	const availability = rows.filter(
+		(row): row is Extract<StaffingAdvisory, { kind: 'availability' }> => row.kind === 'availability' && row.isConflict
+	);
+	if (availability.length > 0) return { kind: 'conflict', availability };
+	const commitments = rows.filter((row) => row.kind !== 'availability');
+	return commitments.length > 0 ? { kind: 'committed_elsewhere', commitments } : { kind: 'clear' };
+}

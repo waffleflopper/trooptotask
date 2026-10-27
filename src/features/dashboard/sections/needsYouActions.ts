@@ -1,4 +1,4 @@
-import { loadAssignPeopleDialog, type TaskingAttentionRow } from '$features/calendar';
+import { transitionTaskingRequest, type TaskingAttentionRow, type TaskingTransition } from '$features/calendar';
 import { acknowledgeAwardTracking } from '$features/personnel';
 import { loadRecordClassDialog } from '$features/training';
 import type { Personnel } from '$features/personnel/contracts';
@@ -77,26 +77,58 @@ export function awardStartedAction(inputs: DashboardInputs, person: Personnel): 
 	};
 }
 
-/** Opens the staffing picker in place, under the policy and scope Tasking detail uses. */
-export function pickPeopleAction(inputs: DashboardInputs, row: TaskingAttentionRow): NeedsYouAction {
+function taskingResource(row: TaskingAttentionRow) {
+	return scopeSetResourceForGroupId(row.responsibility.kind === 'group' ? row.responsibility.groupId : null);
+}
+
+/** Moves the Tasking on from the row, then rereads the Tasking rows the move clears it from. */
+export function taskingStatusAction(
+	inputs: DashboardInputs,
+	row: TaskingAttentionRow,
+	label: string,
+	transition: TaskingTransition
+): NeedsYouAction {
 	const orgId = inputs.page.orgId;
+	return {
+		label,
+		policy: calendar.manageTaskings,
+		resource: taskingResource(row),
+		mode: 'run',
+		run: async (updates) => {
+			await transitionTaskingRequest(orgId, row.taskingId, transition);
+			await updates.refreshTaskings();
+		}
+	};
+}
+
+/**
+ * Opens slots for the people still needed in the row, under the policy and scope Tasking detail uses. A Conflict row's
+ * Swap opens the same slots with the conflicting person's open for a replacement.
+ */
+export function pickPeopleAction(
+	inputs: DashboardInputs,
+	row: TaskingAttentionRow,
+	label: string,
+	href: string
+): NeedsYouAction {
 	const groups = Object.fromEntries(inputs.groups.map((group) => [group.id, group.name]));
-	const tasking = {
-		id: row.taskingId,
-		responsibility: row.responsibility,
-		requirement: row.required === null ? null : { count: row.required, qualifications: null }
+	const props = {
+		orgId: inputs.page.orgId,
+		taskingId: row.taskingId,
+		title: row.title,
+		href,
+		required: row.required,
+		swap: row.kind === 'conflict' ? row.conflict : null,
+		groups
 	};
 	return {
-		label: 'Pick people',
+		label,
 		policy: calendar.manageTaskings,
-		resource: scopeSetResourceForGroupId(row.responsibility.kind === 'group' ? row.responsibility.groupId : null),
-		mode: 'dialog',
+		resource: taskingResource(row),
+		mode: 'expand',
 		open: async () => {
-			const [{ default: Panel }, { default: Dialog }] = await Promise.all([
-				import('../components/needs-you/PickPeoplePanel.svelte'),
-				loadAssignPeopleDialog()
-			]);
-			return needsYouPanel(Panel, { orgId, tasking, groups, Dialog });
+			const { default: Panel } = await import('../components/needs-you/PickPeoplePanel.svelte');
+			return needsYouPanel(Panel, props);
 		}
 	};
 }

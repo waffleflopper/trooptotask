@@ -4,7 +4,14 @@ import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelDeletionReferencesPort } from '$features/personnel/contracts';
 import { TASKING_GONE } from '../taskingPersistence.server';
-import type { StaffingAdvisory, StaffingCount, StaffingSave, TaskingPick, TaskingStaffing } from './staffingModel';
+import type {
+	StaffingAdvisory,
+	StaffingCount,
+	StaffingSave,
+	StaffingSaveOutcome,
+	TaskingPick,
+	TaskingStaffing
+} from './staffingModel';
 
 export const STAFFING_INELIGIBLE =
 	'Someone on this list can no longer be picked for this tasking. Review the list and save again.';
@@ -18,7 +25,7 @@ export interface CalendarStaffingPersistence {
 	countStaffing(taskingIds: string[]): Promise<Record<string, StaffingCount>>;
 	/** By Person, over the Tasking's execution dates; empty unless the reader may staff it. */
 	listAdvisories(taskingId: string): Promise<Record<string, StaffingAdvisory[]>>;
-	saveStaffing(taskingId: string, save: StaffingSave): Promise<'saved' | 'unchanged' | 'conflict'>;
+	saveStaffing(taskingId: string, save: StaffingSave): Promise<StaffingSaveOutcome>;
 }
 
 const countRowSchema = z.object({
@@ -38,7 +45,9 @@ const pickRowSchema = z
 		group_id: z.string().nullable(),
 		archived: z.boolean(),
 		selected_at: z.string(),
-		review_since: z.string().nullable()
+		review_since: z.string().nullable(),
+		mos: z.string().nullable(),
+		clinic_role: z.string().nullable()
 	})
 	.transform(
 		(row): TaskingPick => ({
@@ -47,6 +56,8 @@ const pickRowSchema = z
 			firstName: row.first_name,
 			lastName: row.last_name,
 			groupId: row.group_id,
+			mos: row.mos ?? '',
+			clinicRole: row.clinic_role ?? '',
 			archived: row.archived,
 			selectedAt: row.selected_at,
 			reviewSince: row.review_since
@@ -60,13 +71,24 @@ const advisoryRowSchema = z
 		label: z.string().nullable(),
 		starts_on: z.string().nullable(),
 		ends_on: z.string().nullable(),
-		other_tasking_id: z.string().nullable()
+		other_tasking_id: z.string().nullable(),
+		is_conflict: z.boolean(),
+		overlap_days: z.number().nullable(),
+		execution_days: z.number().nullable()
 	})
 	.transform((row): [string, StaffingAdvisory] => {
 		if (row.kind === 'availability')
 			return [
 				row.personnel_id,
-				{ kind: 'availability', label: row.label ?? '', startsOn: row.starts_on ?? '', endsOn: row.ends_on ?? '' }
+				{
+					kind: 'availability',
+					label: row.label ?? '',
+					startsOn: row.starts_on ?? '',
+					endsOn: row.ends_on ?? '',
+					isConflict: row.is_conflict,
+					overlapDays: row.overlap_days ?? 0,
+					executionDays: row.execution_days ?? 0
+				}
 			];
 		if (row.other_tasking_id === null || row.label === null || !row.starts_on || !row.ends_on)
 			return [row.personnel_id, { kind: 'committed_elsewhere' }];
@@ -157,7 +179,7 @@ export function createSupabaseCalendarStaffingPersistence(
 			if (error) return writeFailure(error);
 			const [row] = z.array(saveRowSchema).parse(data);
 			if (!row) throw new Error('save_calendar_tasking_people returned no outcome');
-			return row.outcome;
+			return row;
 		}
 	};
 }

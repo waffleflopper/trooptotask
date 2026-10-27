@@ -87,8 +87,10 @@ export type {
 	TaskingDetail,
 	TaskingList,
 	TaskingListScope,
-	TaskingResponsibility
+	TaskingResponsibility,
+	TaskingTransition
 } from './taskings/taskingModel';
+export { transitionTaskingRequest } from './taskings/taskingRequests';
 export type {
 	ChecklistItem,
 	EquipmentRequirement,
@@ -100,11 +102,23 @@ export type {
 export function loadAssignPeopleDialog() {
 	return import('./taskings/staffing/components/AssignPeopleDialog.svelte');
 }
+/** The Create tasking sheet, loaded on first open. */
+export function loadTaskingDialog() {
+	return import('./taskings/components/TaskingDialog.svelte');
+}
 export { parseTaskingFilters, parseTaskingView, scopeOfView } from './taskings/taskingModel';
-export type { TaskingStaffing } from './taskings/staffing/staffingModel';
+export type { StaffingPicker, TaskingPick, TaskingStaffing } from './taskings/staffing/staffingModel';
+export { loadStaffingPickerRequest, saveStaffingRequest } from './taskings/staffing/staffingRequests';
 export type {
 	TaskingAttentionProjection,
 	TaskingAttentionKind,
 	TaskingAttentionRow
 } from './taskings/taskingAttentionModel';
 export { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './import/statusImportLane';
+
+export type { TaskingRowFacts, TaskingWorkspace, EventTaskingSummary } from './taskings/taskingReadModel';
+export type { StaffingPersonState, StaffingAdvisories, StaffingAdvisory } from './taskings/staffing/staffingModel';
+
+export type { TaskingConflict, TaskingOnTrackRow } from './taskings/taskingAttentionModel';
+
+export type { OrganizationMemberOption } from './events/eventModel';

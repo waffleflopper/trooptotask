@@ -6,6 +6,7 @@ import {
 	type CalendarEvent,
 	type EventActivity,
 	type EventDraft,
+	type EventDeletionMode,
 	type EventHost,
 	type EventListWhen
 } from './eventModel';
@@ -23,6 +24,7 @@ export interface CalendarEventPersistence {
 	createEvent(id: string, draft: EventDraft): Promise<{ event: CalendarEvent; created: boolean }>;
 	updateEvent(id: string, draft: EventDraft): Promise<CalendarEvent | null>;
 	cancelEvent(id: string, reason: string | null): Promise<CalendarEvent>;
+	deleteEvent(id: string, taskings: EventDeletionMode): Promise<number>;
 }
 
 const COLUMNS =
@@ -62,6 +64,8 @@ function toEvent(raw: unknown): CalendarEvent {
 			row.cancelled_at === null ? null : { at: row.cancelled_at, by: row.cancelled_by, reason: row.cancellation_reason }
 	};
 }
+
+const deletionRowSchema = z.object({ taskings: z.number().int().nonnegative() });
 
 const datesSchema = z.object({ startsOn: z.string(), endsOn: z.string() });
 const coordinationSchema = z
@@ -116,6 +120,8 @@ function writeFailure(error: { code?: string; message: string }): never {
 			return fail(409, EVENT_CANCELLED);
 		case 'P0002':
 			return fail(404, EVENT_GONE);
+		case '22023':
+			return fail(400, 'Choose whether to keep or delete the linked taskings.');
 		case '23514':
 			if (error.message.includes('coordinator')) return fail(400, EVENT_COORDINATOR_NOT_MEMBER);
 			return fail(400, 'Check the event details and try again.');
@@ -185,6 +191,17 @@ export function createSupabaseCalendarEventPersistence(
 				.maybeSingle();
 			if (error) return writeFailure(error);
 			return data ? toEvent(data) : null;
+		},
+		async deleteEvent(id, taskings) {
+			const { data, error } = await client
+				.rpc('delete_calendar_event', {
+					p_organization_id: orgId,
+					p_event_id: id,
+					p_taskings: taskings
+				})
+				.single();
+			if (error) return writeFailure(error);
+			return deletionRowSchema.parse(data).taskings;
 		},
 		async cancelEvent(id, reason) {
 			const { error } = await client.rpc('cancel_calendar_event', {

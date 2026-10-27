@@ -23,6 +23,7 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 		policyResource: { kind: 'unscoped' },
 		fn: async (ctx) => ({
 			today,
+			workspace: settleEventRead(ctx.taskingWorkspace.read(today, params.eventId)),
 			detail: settleEventRead(loadEventDetail(ctx, params.eventId)),
 			activity: settleEventRead(listEventActivity(ctx, params.eventId)),
 			taskings: settleEventRead(listEventTaskings(ctx, params.eventId)),

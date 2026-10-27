@@ -1,63 +1,94 @@
 import { z } from 'zod';
 import type { TaskingResponsibility } from './taskingModel';
 
-/** Most urgent first; a Tasking appears once, under the first kind it meets. */
-export const TASKING_ATTENTION_KINDS = ['overdue', 'blocked', 'short', 'due_soon'] as const;
+export const TASKING_ATTENTION_KINDS = ['overdue', 'blocked', 'short', 'conflict'] as const;
 export type TaskingAttentionKind = (typeof TASKING_ATTENTION_KINDS)[number];
-
 export const ATTENTION_ROW_LIMIT = 100;
 
-/** An active Tasking in the viewer's scope that needs attention, with the facts its row names. */
-export interface TaskingAttentionRow {
+export const taskingConflictSchema = z.object({
+	personnelId: z.string(),
+	personLabel: z.string(),
+	statusLabel: z.string(),
+	startsOn: z.string(),
+	endsOn: z.string(),
+	overlapDays: z.number(),
+	executionDays: z.number()
+});
+export type TaskingConflict = z.infer<typeof taskingConflictSchema>;
+
+interface TaskingAttentionFacts {
 	taskingId: string;
-	kind: TaskingAttentionKind;
 	title: string;
 	responsibility: TaskingResponsibility;
 	eventTitle: string | null;
 	suspenseOn: string;
+	/** Only while its execution window drives the row's timing; otherwise null. */
 	executionStartsOn: string | null;
-	/** Null when the Tasking has no staffing requirement. */
 	required: number | null;
-	/** Picks that fill the requirement; a pick under review never does. */
 	picked: number;
 	equipmentNotReady: number;
 }
 
+export type TaskingAttentionRow = TaskingAttentionFacts &
+	({ kind: 'overdue' | 'blocked' | 'short' } | { kind: 'conflict'; conflict: TaskingConflict });
+
+export const taskingOnTrackRowSchema = z.object({
+	taskingId: z.string(),
+	title: z.string(),
+	suspenseOn: z.string(),
+	responsibleGroupId: z.string().nullable(),
+	picked: z.number(),
+	required: z.number().nullable(),
+	status: z.enum(['open', 'in_progress', 'blocked'])
+});
+export type TaskingOnTrackRow = z.infer<typeof taskingOnTrackRowSchema>;
+
 export interface TaskingAttentionProjection {
-	/** Bounded, most urgent first. */
 	rows: TaskingAttentionRow[];
-	/** Every Tasking needing attention, including those the row bound left out. */
 	total: number;
+	onTrack: TaskingOnTrackRow[];
 }
 
-export const attentionRowSchema = z
-	.object({
-		tasking_id: z.string(),
-		kind: z.enum(TASKING_ATTENTION_KINDS),
-		title: z.string(),
-		responsible_group_id: z.string().nullable(),
-		event_title: z.string().nullable(),
-		suspense_on: z.string(),
-		execution_starts_on: z.string().nullable(),
-		staffing_required: z.number().nullable(),
-		staffing_picked: z.number(),
-		equipment_not_ready: z.number(),
-		attention_total: z.coerce.number()
-	})
-	.transform((row) => ({
-		total: row.attention_total,
-		row: {
+const rowFacts = z.object({
+	tasking_id: z.string(),
+	title: z.string(),
+	responsible_group_id: z.string().nullable(),
+	event_title: z.string().nullable(),
+	suspense_on: z.string(),
+	execution_starts_on: z.string().nullable(),
+	staffing_required: z.number().nullable(),
+	staffing_picked: z.number(),
+	equipment_not_ready: z.number()
+});
+export const attentionRowSchema = rowFacts
+	.and(
+		z.discriminatedUnion('kind', [
+			z.object({ kind: z.enum(['overdue', 'blocked', 'short']) }),
+			z.object({ kind: z.literal('conflict'), conflict: taskingConflictSchema })
+		])
+	)
+	.transform((row): TaskingAttentionRow => {
+		const facts: TaskingAttentionFacts = {
 			taskingId: row.tasking_id,
-			kind: row.kind,
 			title: row.title,
-			responsibility: (row.responsible_group_id === null
-				? { kind: 'organization' }
-				: { kind: 'group', groupId: row.responsible_group_id }) as TaskingResponsibility,
+			responsibility:
+				row.responsible_group_id === null
+					? { kind: 'organization' }
+					: { kind: 'group', groupId: row.responsible_group_id },
 			eventTitle: row.event_title,
 			suspenseOn: row.suspense_on,
 			executionStartsOn: row.execution_starts_on,
 			required: row.staffing_required,
 			picked: row.staffing_picked,
 			equipmentNotReady: row.equipment_not_ready
-		} satisfies TaskingAttentionRow
-	}));
+		};
+		return row.kind === 'conflict'
+			? { ...facts, kind: 'conflict', conflict: row.conflict }
+			: { ...facts, kind: row.kind };
+	});
+
+export const taskingDashboardSchema = z.object({
+	rows: z.array(attentionRowSchema),
+	total: z.number(),
+	onTrack: z.array(taskingOnTrackRowSchema)
+});

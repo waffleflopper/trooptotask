@@ -42,14 +42,17 @@ const audited = (verb: string, tasking: Tasking, item?: string) => ({
 	details: { title: tasking.title, ...(item && { item }) }
 });
 
-/** A Tasking the operator can change: visible, in their scope, and not Completed or Cancelled. */
-async function requireEditable(ctx: CalendarTaskingListsPorts, id: string): Promise<Tasking> {
+/**
+ * A Tasking the operator can change: visible, in their scope, and not Completed or Cancelled.
+ * Equipment comes back after the work, so a return alone may still be recorded on a Completed Tasking.
+ */
+async function requireEditable(ctx: CalendarTaskingListsPorts, id: string, returnOnly = false): Promise<Tasking> {
 	if (!uuidSchema.safeParse(id).success) fail(404, TASKING_GONE);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
 	const tasking = await ctx.calendarTaskings.findTasking(id);
 	if (!tasking) fail(404, TASKING_GONE);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, tasking.responsibility);
-	if (!isEditable(tasking)) fail(409, TASKING_CLOSED);
+	if (!isEditable(tasking) && !(returnOnly && tasking.status.kind === 'completed')) fail(409, TASKING_CLOSED);
 	return tasking;
 }
 
@@ -79,7 +82,8 @@ export async function updateEquipment(
 	input: unknown
 ): Promise<EquipmentRequirement> {
 	const change = parse(equipmentChangeSchema, input);
-	const tasking = await requireEditable(ctx, taskingId);
+	const returnOnly = Object.keys(change).every((key) => key === 'returnedQuantity');
+	const tasking = await requireEditable(ctx, taskingId, returnOnly);
 	const item = await ctx.taskingLists.updateEquipment(tasking.id, itemId(id), change);
 	if (!item) fail(404, LIST_ITEM_GONE);
 	if (change.name !== undefined || change.quantity !== undefined)

@@ -1,126 +1,150 @@
 import { describe, expect, it } from 'vitest';
 import type { LaneSegment } from '$features/calendar/utils/calendarLanes';
 import type { EventsLaneSegment } from '$features/calendar/components/projection/EventsLaneSegment.svelte';
-import { EMPTY_PROJECTION, type CalendarProjection } from './calendarProjection';
+import { EMPTY_PROJECTION, EMPTY_TASKING_FACTS, type CalendarProjection } from './calendarProjection';
 import { commitmentsByPerson } from './projectionCommitments';
-import { buildProjectionLanes, type ProjectionLinks } from './projectionLanes';
+import { buildProjectionLanes, suspenseDays, type ProjectionLinks } from './projectionLanes';
 
-const links: ProjectionLinks = { event: (id) => `/events/${id}`, tasking: (id) => `/taskings/${id}` };
+const links: ProjectionLinks = {
+	events: '/events',
+	event: (id) => `/events/${id}`,
+	tasking: (id) => `/taskings/${id}`
+};
 const MAY = Array.from({ length: 31 }, (_, index) => new Date(2026, 4, index + 1));
+const TODAY = '2026-05-10';
 
-const event = (id: string, startsOn: string, endsOn: string, cancelled = false) => ({
+const event = (id: string, startsOn: string, endsOn: string, cancelled = false, host: string | null = null) => ({
 	id,
 	title: `Event ${id}`,
 	startsOn,
 	endsOn,
 	cancelled,
-	hasWork: false
+	hasWork: false,
+	host
 });
 
-function lanesFor(projection: CalendarProjection, density: 'month' | 'compact' = 'month') {
-	const [events, suspenses] = buildProjectionLanes({
+function eventSegments(projection: CalendarProjection, facts = EMPTY_TASKING_FACTS) {
+	const [events] = buildProjectionLanes({
 		dates: MAY,
-		region: { kind: 'ready', projection },
+		region: { kind: 'ready', projection, facts },
 		links,
-		density
+		density: 'month',
+		today: TODAY
 	});
-	if (events.track.shape !== 'span' || suspenses.track.shape !== 'day') throw new Error('Unexpected lane shapes');
-	return {
-		events,
-		suspenses,
-		segments: events.track.segments as readonly LaneSegment<EventsLaneSegment>[],
-		days: suspenses.track.days as { markers: unknown[] }[]
-	};
+	if (events.track.shape !== 'span') throw new Error('Unexpected lane shape');
+	return events.track.segments as readonly LaneSegment<EventsLaneSegment>[];
 }
 
+const placed = (segments: readonly LaneSegment<EventsLaneSegment>[]) =>
+	segments.map((segment) => [segment.value.href, segment.value.row, segment.start, segment.end]);
+
 describe('buildProjectionLanes', () => {
-	it('draws a multi-day Event as one segment over its days, linked to its detail', () => {
-		const { segments } = lanesFor({ ...EMPTY_PROJECTION, events: [event('a', '2026-05-04', '2026-05-06')] });
+	it('draws a multi-day Event as one bar over its days, linked to its detail', () => {
+		const segments = eventSegments({ ...EMPTY_PROJECTION, events: [event('a', '2026-05-04', '2026-05-06')] });
 
 		expect(segments).toEqual([
 			{
 				start: 3,
 				end: 5,
-				value: expect.objectContaining({ href: '/events/a', days: 3, continuesBefore: false, others: [] })
+				value: expect.objectContaining({ href: '/events/a', row: 0, days: 3, continuesBefore: false, others: [] })
 			}
 		]);
 	});
 
 	it('keeps an Event that began before the range, clipped to the visible days', () => {
-		const { segments } = lanesFor({ ...EMPTY_PROJECTION, events: [event('a', '2026-04-28', '2026-05-02')] });
+		const segments = eventSegments({ ...EMPTY_PROJECTION, events: [event('a', '2026-04-28', '2026-05-02')] });
 
 		expect(segments).toEqual([{ start: 0, end: 1, value: expect.objectContaining({ continuesBefore: true }) }]);
 	});
 
-	it('lists the Events behind the visible one on its segment, never as extra segments', () => {
-		const { segments } = lanesFor({
+	it('drops an Event inside a longer one to the second row, whole', () => {
+		const segments = eventSegments({
+			...EMPTY_PROJECTION,
+			events: [event('short', '2026-05-04', '2026-05-05'), event('long', '2026-05-01', '2026-05-10')]
+		});
+
+		expect(placed(segments)).toEqual([
+			['/events/long', 0, 0, 9],
+			['/events/short', 1, 3, 4]
+		]);
+	});
+
+	it('offers the Events no row can hold from the second-row bar they overlap', () => {
+		const segments = eventSegments({
 			...EMPTY_PROJECTION,
 			events: [
 				event('a', '2026-05-04', '2026-05-06'),
 				event('b', '2026-05-05', '2026-05-05'),
-				event('c', '2026-05-05', '2026-05-05')
+				event('c', '2026-05-05', '2026-05-07')
 			]
 		});
 
-		const behind = segments.flatMap((segment) => segment.value.others.map((item) => item.key));
-		expect(new Set(behind)).toEqual(new Set(['a', 'c']));
-		expect(segments.every((segment) => segment.end >= segment.start)).toBe(true);
-		const days = segments.flatMap((segment) =>
-			Array.from({ length: segment.end - segment.start + 1 }, (_, i) => segment.start + i)
-		);
-		expect(new Set(days).size).toBe(days.length);
-	});
-
-	it('lets a short Event stand out inside a long one, which shows around it', () => {
-		const { segments } = lanesFor({
-			...EMPTY_PROJECTION,
-			events: [event('long', '2026-05-01', '2026-05-10'), event('short', '2026-05-04', '2026-05-05')]
-		});
-
-		expect(segments.map((segment) => [segment.value.href, segment.start, segment.end])).toEqual([
-			['/events/long', 0, 2],
-			['/events/short', 3, 4],
-			['/events/long', 5, 9]
+		expect(placed(segments)).toEqual([
+			['/events/a', 0, 3, 5],
+			['/events/c', 1, 4, 6]
 		]);
-		expect(segments[1].value.others.map((item) => item.key)).toEqual(['long']);
+		expect(segments[1].value.others.map((choice) => choice.key)).toEqual(['b']);
 	});
 
-	it('lets a live Event take the day a cancelled one also covers', () => {
-		const { segments } = lanesFor({
+	it('places a live Event before a cancelled one on the same day', () => {
+		const segments = eventSegments({
 			...EMPTY_PROJECTION,
 			events: [event('x', '2026-05-04', '2026-05-04', true), event('y', '2026-05-04', '2026-05-04')]
 		});
 
-		expect(segments[0].value).toMatchObject({ href: '/events/y', others: [{ key: 'x' }] });
-	});
-
-	it('puts a suspense on its day as a marker routed to the Tasking, and groups a shared day', () => {
-		const { days } = lanesFor({
-			...EMPTY_PROJECTION,
-			suspenses: [
-				{ taskingId: 't1', title: 'Submit roster', suspenseOn: '2026-05-10', status: 'open' },
-				{ taskingId: 't2', title: 'Inventory', suspenseOn: '2026-05-10', status: 'blocked' }
-			]
-		});
-
-		expect(days[9].markers).toEqual([
-			expect.objectContaining({ key: 't1', href: '/taskings/t1', label: expect.stringContaining('Submit roster') }),
-			expect.objectContaining({ key: 't2', href: '/taskings/t2', label: expect.stringContaining('Inventory') })
+		expect(placed(segments)).toEqual([
+			['/events/y', 0, 3, 3],
+			['/events/x', 1, 3, 3]
 		]);
-		expect(days.filter((day) => day.markers.length > 0)).toHaveLength(1);
 	});
 
-	it('ignores a suspense outside the shown dates', () => {
-		const { days } = lanesFor({
-			...EMPTY_PROJECTION,
-			suspenses: [{ taskingId: 't1', title: 'Late', suspenseOn: '2026-06-02', status: 'open' }]
-		});
+	it('marks the Events we host and carries their Tasking count', () => {
+		const segments = eventSegments(
+			{
+				...EMPTY_PROJECTION,
+				events: [
+					event('ours', '2026-05-04', '2026-05-04'),
+					event('theirs', '2026-05-08', '2026-05-08', false, '1st MDB')
+				]
+			},
+			{
+				...EMPTY_TASKING_FACTS,
+				events: {
+					ours: {
+						total: 6,
+						needAction: 2,
+						overdue: 1,
+						blocked: 1,
+						needPeople: 0,
+						fullyStaffedAndReady: 4,
+						conflicts: 1
+					}
+				}
+			}
+		);
 
-		expect(days.every((day) => day.markers.length === 0)).toBe(true);
+		expect(segments.map((segment) => [segment.value.host, segment.value.taskings])).toEqual([
+			[null, 6],
+			['1st MDB', 0]
+		]);
 	});
 
-	it.each([['loading' as const], ['error' as const]])('reserves both lanes while %s', (kind) => {
-		const lanes = buildProjectionLanes({ dates: MAY, region: { kind }, links, density: 'month' });
+	it('keeps a Suspenses lane in the compact view only', () => {
+		const lanesOf = (density: 'month' | 'compact') =>
+			buildProjectionLanes({
+				dates: MAY,
+				region: { kind: 'ready', projection: EMPTY_PROJECTION, facts: EMPTY_TASKING_FACTS },
+				links,
+				density,
+				today: TODAY
+			}).map((lane) => lane.kind);
+
+		expect(lanesOf('month')).toEqual(['events']);
+		expect(lanesOf('compact')).toEqual(['events', 'suspenses']);
+	});
+
+	it.each([['loading' as const], ['error' as const]])('reserves the Events lane while %s', (kind) => {
+		const lanes = buildProjectionLanes({ dates: MAY, region: { kind }, links, density: 'compact', today: TODAY });
 
 		expect(lanes.map((lane) => [lane.kind, lane.track.shape])).toEqual([
 			['events', 'status'],
@@ -134,11 +158,43 @@ describe('buildProjectionLanes', () => {
 			dates: MAY,
 			region: { kind: 'error', retry },
 			links,
-			density: 'month'
+			density: 'compact',
+			today: TODAY
 		});
 
 		expect(events.track).toMatchObject({ value: { kind: 'error', retry } });
 		expect(suspenses.track).toMatchObject({ value: { kind: 'error', retry: undefined } });
+	});
+});
+
+describe('suspenseDays', () => {
+	const daysOf = (suspenses: CalendarProjection['suspenses']) =>
+		suspenseDays({ dates: MAY, links, today: TODAY }, { ...EMPTY_PROJECTION, suspenses });
+
+	it('puts a suspense on its day, opening its Tasking, and groups a shared day', () => {
+		const days = daysOf([
+			{ taskingId: 't1', title: 'Submit roster', suspenseOn: '2026-05-12', status: 'open' },
+			{ taskingId: 't2', title: 'Inventory', suspenseOn: '2026-05-12', status: 'blocked' }
+		]);
+
+		expect(days[11].markers).toEqual([
+			expect.objectContaining({ href: '/taskings/t1', target: { kind: 'tasking', id: 't1' } }),
+			expect.objectContaining({ href: '/taskings/t2', target: { kind: 'tasking', id: 't2' } })
+		]);
+		expect(days.filter((day) => day.markers.length > 0)).toHaveLength(1);
+	});
+
+	it('marks the days before today as overdue', () => {
+		const days = daysOf([]);
+
+		expect(days[8].overdue).toBe(true);
+		expect(days[9].overdue).toBe(false);
+	});
+
+	it('ignores a suspense outside the shown dates', () => {
+		const days = daysOf([{ taskingId: 't1', title: 'Late', suspenseOn: '2026-06-02', status: 'open' }]);
+
+		expect(days.every((day) => day.markers.length === 0)).toBe(true);
 	});
 });
 
@@ -147,6 +203,7 @@ describe('commitmentsByPerson', () => {
 		taskingId,
 		title: `Tasking ${taskingId}`,
 		personnelId,
+		conflicts: false,
 		startsOn,
 		endsOn
 	});
@@ -174,7 +231,7 @@ describe('commitmentsByPerson', () => {
 				kind: 'taskings',
 				start: 5,
 				end: 6,
-				items: [expect.objectContaining({ key: 't1' }), expect.objectContaining({ key: 't2' })]
+				choices: [expect.objectContaining({ key: 't1' }), expect.objectContaining({ key: 't2' })]
 			}),
 			expect.objectContaining({ kind: 'tasking', start: 7, end: 7, href: '/taskings/t1', continuesBefore: true })
 		]);

@@ -1,7 +1,12 @@
 import { buildRequestError } from '$lib/stores/core';
-import type { CalendarEvent, EventDraft } from './eventModel';
+import type { CalendarEvent, EventDraft, EventDeletionMode, EventDeletionResult } from './eventModel';
 
-async function send(orgId: string, path: string, method: 'POST' | 'PATCH', body: unknown): Promise<CalendarEvent> {
+async function send<T = CalendarEvent>(
+	orgId: string,
+	path: string,
+	method: 'POST' | 'PATCH' | 'DELETE',
+	body: unknown
+): Promise<T> {
 	const response = await fetch(`/org/${orgId}/api/calendar-events${path}`, {
 		method,
 		headers: { 'Content-Type': 'application/json' },
@@ -20,3 +25,9 @@ export const updateEventRequest = (orgId: string, id: string, draft: EventDraft)
 
 export const cancelEventRequest = (orgId: string, id: string, reason: string | null) =>
 	send(orgId, `/${id}/cancel`, 'POST', { reason });
+
+export const deleteEventRequest = (
+	orgId: string,
+	eventId: string,
+	taskings: EventDeletionMode
+): Promise<EventDeletionResult> => send<EventDeletionResult>(orgId, `/${eventId}`, 'DELETE', { taskings });

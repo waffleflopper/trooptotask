@@ -189,13 +189,17 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 		z.object({ kind: z.literal('dates_changed'), payload: z.object({ from: scheduleSchema, to: scheduleSchema }) }),
 		z.object({ kind: z.literal('linked'), payload: z.object({ eventId: z.string() }) }),
 		z.object({ kind: z.literal('unlinked'), payload: z.object({ eventId: z.string() }) }),
+		z.object({ kind: z.literal('event_deleted'), payload: z.object({ eventId: z.string(), eventTitle: z.string() }) }),
 		z.object({
 			kind: z.literal('requirement_changed'),
 			payload: z.object({ from: requirementSchema, to: requirementSchema })
 		}),
 		z.object({ kind: z.literal('instructions_changed') }),
 		z.object({ kind: z.literal('started') }),
-		z.object({ kind: z.literal('blocked'), payload: z.object({ reason: z.string() }) }),
+		z.object({
+			kind: z.literal('blocked'),
+			payload: z.object({ reason: z.string(), edited: z.boolean().optional() })
+		}),
 		z.object({ kind: z.literal('unblocked') }),
 		z.object({ kind: z.literal('completed'), payload: z.object({ note: z.string().nullable() }) }),
 		z.object({ kind: z.literal('reopened') }),
@@ -216,7 +220,7 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 			})
 		}),
 		z.object({
-			kind: z.literal('equipment_secured'),
+			kind: z.enum(['equipment_secured', 'equipment_returned']),
 			payload: z.object({ name: z.string(), quantity: z.number(), from: z.number(), to: z.number() })
 		}),
 		z.object({
@@ -249,8 +253,10 @@ function toActivity(row: ActivityRow): TaskingActivity {
 		case 'linked':
 		case 'unlinked':
 			return { ...base, kind: row.kind, eventId: row.payload.eventId };
+		case 'event_deleted':
+			return { ...base, kind: row.kind, ...row.payload };
 		case 'blocked':
-			return { ...base, kind: 'blocked', reason: row.payload.reason };
+			return { ...base, kind: 'blocked', reason: row.payload.reason, edited: row.payload.edited === true };
 		case 'completed':
 			return { ...base, kind: 'completed', note: row.payload.note };
 		case 'cancelled':
@@ -267,6 +273,7 @@ function toActivity(row: ActivityRow): TaskingActivity {
 		case 'equipment_changed':
 			return { ...base, kind: row.kind, ...row.payload };
 		case 'equipment_secured':
+		case 'equipment_returned':
 			return { ...base, kind: row.kind, ...row.payload };
 		case 'checklist_added':
 		case 'checklist_removed':

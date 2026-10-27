@@ -9,8 +9,10 @@ import type { Tasking } from '../taskingModel';
 import { TASKING_GONE, type CalendarTaskingPersistence } from '../taskingPersistence.server';
 import {
 	isCandidateFor,
+	staffingPersonState,
 	staffingSaveSchema,
 	type StaffingAdvisories,
+	type StaffingPersonState,
 	type StaffingPicker,
 	type StaffingSaveResult,
 	type TaskingStaffing
@@ -67,11 +69,28 @@ export async function loadStaffingPicker(ctx: CalendarStaffingPorts, id: string)
 			: ({ kind: 'no_execution' } as const)
 	]);
 	return {
+		tasking: { requirement: tasking.requirement, execution: tasking.execution },
 		staffing,
 		candidates: people
 			.filter((person) => isCandidateFor(tasking.responsibility, person))
-			.map(({ id, rank, firstName, lastName, groupId }) => ({ personnelId: id, rank, firstName, lastName, groupId })),
-		advisories
+			.map(({ id, rank, firstName, lastName, groupId, mos, clinicRole }) => ({
+				personnelId: id,
+				rank,
+				firstName,
+				lastName,
+				groupId,
+				mos,
+				clinicRole
+			})),
+		advisories,
+		states: Object.fromEntries(
+			[
+				...new Set([
+					...people.filter((p) => isCandidateFor(tasking.responsibility, p)).map((p) => p.id),
+					...staffing.picks.map((p) => p.personnelId)
+				])
+			].map((id) => [id, staffingPersonState(id, advisories)])
+		)
 	};
 }
 
@@ -84,7 +103,7 @@ export async function saveTaskingPeople(
 	const save = parse(staffingSaveSchema, input);
 	const tasking = await requireTasking(ctx, id);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, tasking.responsibility);
-	const outcome = await ctx.calendarStaffing.saveStaffing(tasking.id, save);
+	const { outcome, revision } = await ctx.calendarStaffing.saveStaffing(tasking.id, save);
 	const staffing = await requireStaffing(ctx, tasking.id);
 	if (outcome === 'saved')
 		await ctx.audit.log({
@@ -93,5 +112,27 @@ export async function saveTaskingPeople(
 			resourceId: tasking.id,
 			details: { title: tasking.title, picked: staffing.picked, needsReview: staffing.needsReview }
 		});
-	return { outcome, staffing };
+	return { outcome, revision, staffing };
+}
+
+export async function loadTaskingPickStates(
+	ctx: CalendarStaffingPorts,
+	id: string
+): Promise<Record<string, StaffingPersonState>> {
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
+	const [tasking, staffing] = await Promise.all([requireTasking(ctx, id), requireStaffing(ctx, id)]);
+	const advisories: StaffingAdvisories = tasking.execution
+		? await ctx.calendarStaffing.listAdvisories(id).then(
+				(byPerson): StaffingAdvisories => ({ kind: 'loaded', byPerson }),
+				(): StaffingAdvisories => ({ kind: 'failed' })
+			)
+		: { kind: 'no_execution' };
+	return Object.fromEntries(
+		staffing.picks.map((pick) => [
+			pick.personnelId,
+			advisories.kind === 'loaded' && (pick.reviewSince !== null || pick.archived)
+				? { kind: 'clear' }
+				: staffingPersonState(pick.personnelId, advisories)
+		])
+	);
 }

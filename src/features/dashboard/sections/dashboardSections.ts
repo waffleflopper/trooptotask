@@ -96,9 +96,9 @@ export interface QuickAddEntry {
 	id: string;
 	label: string;
 	icon: Component;
-	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding. */
+	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding, 40 Tasking. */
 	order: number;
-	/** The one filled button; a page without this entry has none (frame 05). */
+	/** Filled; when several entries ask, only the last shown is filled, so a page keeps one (frames 01 and 05). */
 	primary?: boolean;
 	/** Loaded on first open, so the dialogs stay out of the page's first load. */
 	loadDialog: () => Promise<{ default: Component<QuickAddDialogProps> }>;

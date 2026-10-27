@@ -764,7 +764,6 @@ const appWrittenTables = [
 	['daily_assignments', 'organization_id'],
 	['user_org_preferences', 'organization_id'],
 	['user_pinned_groups', 'organization_id'],
-	['getting_started_progress', 'organization_id'],
 	['dashboard_configs', 'org_id'],
 	['data_exports', 'org_id'],
 	['notifications', 'organization_id'],

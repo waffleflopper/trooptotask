@@ -298,7 +298,7 @@ export async function addOrganizationRankServicePack(
 		entries
 	};
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'organization.rank_catalog.service_pack_added',
 		resourceType: 'organization_rank_catalog',
 		resourceId: ports.auth.orgId,
@@ -310,6 +310,32 @@ export async function addOrganizationRankServicePack(
 	});
 
 	return result;
+}
+
+export async function configureOrganizationRankServices(
+	ports: RankCatalogPorts,
+	input: { service: RankService }
+): Promise<void> {
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
+	if (input.service !== 'custom' && !RANK_SERVICE_PACK_SERVICES.has(input.service)) {
+		fail(400, 'Choose a military service or a mixed unit');
+	}
+
+	const selectedServices =
+		input.service === 'custom' ? RANK_SERVICE_PACK_SERVICES : new Set<RankService>([input.service]);
+	for (const service of selectedServices) {
+		await addOrganizationRankServicePack(ports, { service });
+	}
+
+	const catalog = await loadOrganizationRankCatalog(ports, { authorization: 'organization-governance' });
+	for (const service of RANK_SERVICE_PACK_SERVICES) {
+		const targetState = selectedServices.has(service) ? 'active' : 'retired';
+		if (
+			catalog.some((entry) => entry.source === 'built-in' && entry.service === service && entry.state !== targetState)
+		) {
+			await bulkSetOrganizationRankCatalogState(ports, { service, targetState });
+		}
+	}
 }
 
 export async function bulkSetOrganizationRankCatalogState(
@@ -340,7 +366,7 @@ export async function bulkSetOrganizationRankCatalogState(
 		entries
 	};
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'organization.rank_catalog.bulk_state_changed',
 		resourceType: 'organization_rank_catalog',
 		resourceId: ports.auth.orgId,

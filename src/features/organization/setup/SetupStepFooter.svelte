@@ -46,7 +46,7 @@
 	</p>
 	<Button
 		size="lg"
-		class="max-sm:h-10 max-sm:bg-chrome-accent max-sm:px-4 max-sm:text-[15px] max-sm:font-semibold max-sm:text-chrome"
+		class="max-sm:h-auto max-sm:min-h-10 max-sm:shrink max-sm:bg-chrome-accent max-sm:px-4 max-sm:py-2 max-sm:text-left max-sm:text-[15px] max-sm:font-semibold max-sm:whitespace-normal max-sm:text-chrome"
 		disabled={blocked !== null}
 		aria-describedby={blocked !== null ? `${id}-note` : undefined}
 		aria-busy={flow.pending || undefined}

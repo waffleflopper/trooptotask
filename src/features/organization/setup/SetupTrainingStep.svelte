@@ -163,7 +163,9 @@
 						Periods and colors can be changed on the Training types page. Have records in a spreadsheet? Import them
 						once the types exist.
 					</p>
-					<a href={typesHref} class="shrink-0 text-sm leading-5 underline underline-offset-2">Add your own type</a>
+					<a href={typesHref} class="shrink-0 text-sm leading-5 text-foreground underline underline-offset-2"
+						>Add your own type</a
+					>
 				</div>
 			</SetupFeaturePanel>
 		{/if}

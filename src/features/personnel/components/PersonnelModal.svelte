@@ -142,7 +142,7 @@
 {#snippet sectionLabel(id: string, name: string, required: boolean)}
 	<p
 		id={`person-section-${id}`}
-		class="flex gap-2 font-mono text-[11px] leading-[14px] tracking-[0.08em] sm:flex-col sm:gap-1"
+		class="flex gap-2 font-mono text-[11px] leading-[14px] tracking-[0.08em] uppercase sm:flex-col sm:gap-1"
 	>
 		<span class="font-medium text-foreground">{name}</span>
 		<span class={required ? 'text-accent-text' : 'text-muted-foreground'}>{required ? 'Required' : 'Optional'}</span>
@@ -150,7 +150,7 @@
 {/snippet}
 
 {#snippet keptMark()}
-	{#if kept}<span class="font-mono text-[11px] font-normal tracking-[0.04em] text-muted-foreground">· kept</span>{/if}
+	{#if kept}<span aria-hidden="true" class="font-mono text-[11px] font-normal tracking-[0.04em] text-muted-foreground">· kept</span>{/if}
 {/snippet}
 
 <AppDialog.Root open voice="form" busy={isSaving} closeBlocked={dirty} {onClose}>

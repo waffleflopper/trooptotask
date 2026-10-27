@@ -12,7 +12,8 @@ export type AppDialogTone = 'default' | 'destructive';
 /**
  * `editorial` sets the dialog in the platform admin's type: condensed title, serif body and its roomier spacing.
  * `form` frames a create or edit form: a ruled header with a condensed title and a muted footer bar.
+ * `announcement` is editorial with an uppercase title and an amber eyebrow, for a one-time invitation to the owner.
  */
-export type AppDialogVoice = 'default' | 'editorial' | 'form';
+export type AppDialogVoice = 'default' | 'editorial' | 'form' | 'announcement';
 
 export const [getAppDialogState, setAppDialogState] = createContext<AppDialogState>();

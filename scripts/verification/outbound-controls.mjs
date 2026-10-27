@@ -71,6 +71,8 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'org-create': [write('POST', '/rest/v1/rpc/create_organization')],
 	'org-create-lost-ack': [write('POST', '/rest/v1/rpc/create_organization', { afterCommit: true })],
 	'org-setup-answer': [write('POST', '/rest/v1/rpc/save_organization_setup_answer')],
+	'org-setup-prompt': [write('POST', '/rest/v1/rpc/save_organization_setup_prompt')],
+	'org-setup-state-read': [write('POST', '/rest/v1/rpc/read_organization_setup', { status: 500 })],
 	'org-setup-training-count': [write('HEAD', '/rest/v1/training_types', { status: 500 })],
 	'password-update': [write('PUT', '/auth/v1/user', { body: { password: PRESENT } })],
 	'password-reconcile': [write('POST', '/rest/v1/rpc/password_change_attempt', { body: { p_action: 'reconcile' } })],

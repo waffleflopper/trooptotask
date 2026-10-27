@@ -20,7 +20,7 @@
 	class={cn(
 		'flex shrink-0 flex-col-reverse gap-2 px-4 pt-0 pb-4 sm:flex-row sm:justify-end',
 		tone === 'destructive' && 'border-t border-border bg-muted px-7 py-3.5 sm:items-center',
-		tone !== 'destructive' && voice === 'editorial' && 'px-7 pb-6',
+		tone !== 'destructive' && (voice === 'editorial' || voice === 'announcement') && 'px-7 pb-6',
 		tone !== 'destructive' && voice === 'form' && 'border-t border-border bg-muted px-6 py-3.5 sm:items-center',
 		className
 	)}

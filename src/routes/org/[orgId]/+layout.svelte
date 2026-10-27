@@ -57,6 +57,17 @@
 			onToggleTheme={() => themeStore.toggle()}
 			isDarkTheme={themeStore.isDark}
 		>
+			{#snippet headerActions()}
+				{#if data.organizationSetup}
+					{#await import('$features/organization') then { SetupResume }}
+						<SetupResume
+							orgId={readyShell.org.id}
+							orgUrlSegment={readyShell.org.urlSegment}
+							entry={data.organizationSetup}
+						/>
+					{/await}
+				{/if}
+			{/snippet}
 			{#snippet feedback(props)}
 				{#await import('$features/feedback') then { FeedbackModal }}
 					<FeedbackModal {...props} />

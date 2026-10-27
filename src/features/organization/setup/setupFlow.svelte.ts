@@ -2,7 +2,8 @@ import { createContext } from 'svelte';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { SETUP_STEPS, type SetupFactKey, type SetupFacts, type SetupStep, type SetupStepKey } from './registry';
 import { buildSetupModel, deriveSetupStepState, type SetupStepState } from './model';
-import { parseOrganizationSetup, type OrganizationSetup, type SetupAnswer } from './state';
+import type { OrganizationSetup, SetupAnswer } from './state';
+import { postSetup, setupErrorMessage } from './setupClient';
 
 export interface SetupFlowSource {
 	orgUrlSegment: string;
@@ -62,10 +63,6 @@ function failedFacts(branch: SetupFacts['branch'], message: string): SetupFacts 
 	};
 }
 
-function messageOf(cause: unknown) {
-	return cause instanceof Error && cause.message ? cause.message : 'Try again.';
-}
-
 /**
  * The setup layout's client state. Every write and the navigation after it belong to the visit that started them;
  * once the owner navigates anywhere, a late response changes nothing.
@@ -118,7 +115,7 @@ export class SetupFlow {
 			let live = true;
 			this.#loadedFacts.then(
 				(facts) => live && (this.facts = facts),
-				(cause) => live && (this.facts = failedFacts(this.#loaded.branch, messageOf(cause)))
+				(cause) => live && (this.facts = failedFacts(this.#loaded.branch, setupErrorMessage(cause)))
 			);
 			return () => (live = false);
 		});
@@ -218,24 +215,14 @@ export class SetupFlow {
 		try {
 			await work(stillHere);
 		} catch (cause) {
-			if (stillHere()) this.error = messageOf(cause);
+			if (stillHere()) this.error = setupErrorMessage(cause);
 		} finally {
 			if (stillHere()) this.pending = false;
 		}
 	}
 
-	async #post(path: 'answer' | 'finish' | 'prompt', body: Record<string, unknown>): Promise<OrganizationSetup> {
-		const response = await fetch(`/org/${this.#source().orgUrlSegment}/api/organization/setup/${path}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body)
-		});
-		const payload: unknown = await response.json().catch(() => null);
-		if (!response.ok) {
-			const message = (payload as { message?: unknown } | null)?.message;
-			throw new Error(typeof message === 'string' ? message : 'Try again.');
-		}
-		return parseOrganizationSetup(payload);
+	#post(path: 'answer' | 'finish' | 'prompt', body: Record<string, unknown>): Promise<OrganizationSetup> {
+		return postSetup(this.#source().orgUrlSegment, path, body);
 	}
 }
 

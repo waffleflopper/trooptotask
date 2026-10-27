@@ -263,6 +263,12 @@ test('each named fault matches only its allowlisted writes on the owned provider
 				providerInput('rpc/save_organization_setup_answer', { method: 'POST' }),
 				['POST', '/rest/v1/rpc/save_organization_setup_answer']
 			]
+		],
+		'org-setup-prompt': [
+			[
+				providerInput('rpc/save_organization_setup_prompt', { method: 'POST' }),
+				['POST', '/rest/v1/rpc/save_organization_setup_prompt']
+			]
 		]
 	};
 	for (const [name, matching] of Object.entries(cases)) {

@@ -61,7 +61,7 @@
 			size === 'wide' && 'sm:max-w-3xl',
 			size === 'fullscreen' && 'h-[calc(100dvh-2rem)] sm:max-w-5xl',
 			dialog.tone === 'destructive' && 'border-t-4 border-t-destructive',
-			dialog.voice === 'editorial' && 'font-body',
+			(dialog.voice === 'editorial' || dialog.voice === 'announcement') && 'font-body',
 			className
 		)}
 		{...restProps}

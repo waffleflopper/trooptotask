@@ -113,3 +113,66 @@ reaches the same mail sink as [organization invitations](organization-invitation
 Gotchas: Continue records Later, not Reviewed, when nothing is invited and no other member exists; data that makes the
 step Done records nothing. The form's groups and the invitation list stream with the step, so the strip shows a skeleton
 first; a failed read shows `The invitation form could not be loaded` with Retry.
+
+## Setup entry and prompts
+
+Only the owner sees any of this. An existing unit's owner gets a one-time invitation on the Dashboard: eyebrow
+`For the owner · Organization setup`, title `Finish setting up <Organization>`, a `N of 12 already done` line with one
+row per Done step, `Start setup` and `Not now`. `Not now` swaps in `Remind me tomorrow` and `Never ask again`. After
+`Remind me tomorrow` or `Finish later`, a quiet `Resume setup` button sits left of `Feedback` in the top bar; at 390 px
+it shows only its icon. Its popover loads progress when opened: `R of 12 reviewed`, a bar, the unanswered steps in rail
+order with their group, `Continue with <first unanswered step>` (or `Review and finish` when none is left) and
+`Never ask again`. A Dashboard visit opens at most one prompt; the What's New dialog waits for a later visit when a
+setup prompt opened.
+
+Writes go to `POST /org/<seg>/api/organization/setup/prompt` with `{ key, choice }`; progress is
+`GET /org/<seg>/api/organization/setup/progress`. Both answer 403 for anyone but the owner.
+
+1. New unit: as `orgOwner`, create a unit at `/org/new`. Expect `/org/<new seg>/setup` showing Welcome, not the
+   Dashboard, and no invitation when you return to that unit's Dashboard after `Finish later` (step 6).
+2. Existing unit: `$V actor orgOwner dashboard` on fresh seed. The Dashboard renders first; the invitation dialog then
+   opens once with `5 of 12 already done` and rows Personnel, Training, Critical tasks, Onboarding and Invite your team,
+   each with a check and its group (`Your unit`, `Features`, `Team`). The dialog opens with its count already filled; it
+   does not grow after opening. `Start setup` links to `/org/<seg>/setup`. Escape closes it for this visit only and
+   writes nothing; a reload shows it again.
+3. Remind me tomorrow: `Not now`, then `Remind me tomorrow`. Expect one POST with `{"key":"setup","choice":"tomorrow"}`
+   answering 200 with `prompts.setup.snoozedUntil` set to the browser's tomorrow
+   (`() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); }`), the dialog
+   closed, `Resume setup` in the top bar and no second dialog after the reload that follows. A full reload shows no
+   invitation and keeps `Resume setup`.
+4. Resume popover: open `Resume setup`. Expect skeleton lines, then `5 of 12` `reviewed` on fresh seed (the setup rail's
+   count once steps are answered), the unanswered steps in rail order starting Welcome, Groups, Ranks, and
+   `Continue with Welcome` linking to `/org/<seg>/setup/welcome`. Exactly one GET to the progress endpoint per opening
+   and none before the first opening. Close it, `$V fault arm org-setup-training-count`, open it again: the count drops
+   to `4 of 12`, Training is listed as unanswered and a muted note says more steps may already be done. Close it,
+   `$V fault arm org-setup-state-read`, open it again: the progress GET fails and the popover shows a destructive alert
+   ending `Internal server error` with `Try again` and no Continue link; `Try again` loads the count.
+   `$V fault restore`.
+5. Next local day: the snooze compares the viewer's local day, read from the `t2t_tz` cookie, which a full page load
+   rewrites to the browser's zone. Launch with `--browser-timezone Pacific/Kiritimati` (UTC+14). Before step 3's choice,
+   run `evaluate_script` `() => { document.cookie = 't2t_tz=Pacific/Pago_Pago; Path=/'; }` (UTC−11, one calendar day
+   behind Kiritimati except between 23:00 and 24:00 Pago Pago time). The snooze then ends on the Kiritimati day. Reload
+   once: that load still reads the Pago Pago cookie, rewrites it and shows no prompt. Reload again: the invitation
+   returns once. Choose `Remind me tomorrow` again; after a reload it stays hidden until the next Kiritimati day.
+6. Finish later: open `/setup/groups` and choose `Finish later` in the rail. Expect the Dashboard, a POST
+   `{"key":"setup","choice":"tomorrow"}` before the navigation, no invitation and `Resume setup` present.
+7. Never ask again: from the invitation (`Not now`, `Never ask again`) or the popover's `Never ask again`. Expect a POST
+   `{"key":"setup","choice":"never"}`, the dialog or popover closed, `Resume setup` gone, and after a reload neither
+   returns. Settings › General still shows `Open setup`.
+8. Admin and member: `$V actor orgAdmin dashboard` and `$V actor orgMember dashboard` show no invitation, no
+   `Resume setup` and no request to either setup endpoint. A direct GET to the progress endpoint answers 403 for both.
+9. Failed choice: on a fresh visit with the invitation open, `$V fault arm org-setup-prompt`, then `Not now` and
+   `Remind me tomorrow`. Expect the POST to fail, the dialog still open with a destructive alert reading
+   `Internal server error`, the buttons enabled again and no `Resume setup`. `$V fault state` shows one match;
+   `$V fault restore`, choose again and the dialog closes. The same fault on the popover's `Never ask again` keeps the
+   popover open with the alert.
+10. New-feature prompt: no registry step has a `since` date, so no live unit receives one. It is covered by
+    `entry.test.ts` (who gets it, priority below the invitation, Option A after never) and
+    `SetupEntryPrompt.svelte.test.ts` (`Set it up` targets `/setup/<step slug>`, both choices post that step's key).
+11. Capture the invitation, the Resume popover and the top bar at 1440, 1024 and 390 px. At 390 px the dialog's buttons
+    stack, the top bar keeps the breadcrumb, the Resume icon, notifications and theme, and nothing scrolls horizontally.
+
+Gotchas: the invitation and Resume decisions stream after first paint, so the dialog and button appear a moment after
+the Dashboard. Every choice reruns the loads that depend on `app:organization-setup`: the Organization layout and the
+owner's Dashboard page. The setup state persists across workers' sessions until reseed, so record the starting `prompts`
+from the first POST response or reseed between cases.

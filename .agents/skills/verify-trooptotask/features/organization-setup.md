@@ -30,6 +30,7 @@ As an owner or admin, open Settings › General and choose `Open setup` on the `
 $V fault arm org-setup-answer         # next POST rpc/save_organization_setup_answer returns 503
 $V fault arm org-setup-training-count # next training_types count read returns 500
 $V server-source arm calendar_taskings hold 1 30000 # holds every setup fact until release
+$V server-source arm calendar_taskings fail-hard 1   # fails the Taskings fact; a one-shot `fail` is retried unseen
 $V network arm-hold PAGE org-page/setup-training     # holds the Training step's page data until release
 ```
 
@@ -64,7 +65,11 @@ Preconditions: `doctor` passes; use `orgOwner`, `orgAdmin` and `orgMember` from 
    with an alert icon and an alert naming `Training types` with Retry; other rows keep their states and Continue stays
    enabled. Restore, then Retry clears the alert.
 9. Capture a step and Done at 1440, 1024 and 390 px. At 390 px the rail is a step header (`Step n of 12 · Group`,
-   `All steps`, a segmented bar), the footer stays at the bottom, and the page has no horizontal scroll.
+   `All steps`, a segmented bar), the footer stays at the bottom, and the page has no horizontal scroll. At 1024 px the
+   footer's Back shows only its 40 px icon, every note fits two lines and Continue fits; a long label such as
+   `Continue to Events & Taskings` wraps to two lines (58 px). At 1440 px Back keeps its label and the note is one line.
+   Tab through `/setup/training` at 1440 and 390 px: each focused row stops at least 16 px above the footer, and focus
+   entering the footer does not move `#main-content`'s `scrollTop`.
 
 10. Done while facts load: as `orgOwner` on fresh seed, arm the `calendar_taskings` hold and open `/setup/done`. Expect
     skeletons for the summary (eyebrow, headline, note, two list lines), the five counts and one row in each column;
@@ -128,7 +133,10 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
     `$V fault state` shows one match on `GET /rest/v1/training_types`. Restore, then Retry shows the editor.
 11. At 1440, 1024 and 390 px no step scrolls sideways. At 1024 the embedded import stacks the drop zone above the
     column list and Calendar settings stacks its section list above the editor; at 1440 Calendar settings shows them
-    side by side with Holidays & closures stacked.
+    side by side with Holidays & closures stacked. Welcome's `What TroopToTask does` shows two columns at 1440 and one
+    at 1024. On Personnel, upload a 14-row CSV and reach `3 OF 4 · REVIEW`: at 1440 and 390 px, mid-scroll and at the
+    end, the review bar's `Import 14 changes` sits above the setup footer (bar bottom 805 at 1440 and 760 at 390, footer
+    top 828 and 780) and both take clicks.
 12. Rank errors on the setup page: on `/setup/ranks` choose `Add custom rank`, Code `SGT`, Label `Squad Sergeant`, then
     `Add rank`. Expect the URL unchanged, Code marked invalid and described by
     `Rank catalog entry already exists. Edit it instead.`, and both typed values kept. Settings › Ranks shows the same

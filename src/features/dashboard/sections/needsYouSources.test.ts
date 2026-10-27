@@ -200,6 +200,7 @@ function inputs(loaded: Loaded): DashboardInputs {
 							issues: [],
 							expiredByType: loaded.expiredByType ?? [],
 							expiredPersonnelCount: 0,
+							missingPersonnelCount: 0,
 							groupDelinquencies: []
 						},
 			ictlSummary: null,

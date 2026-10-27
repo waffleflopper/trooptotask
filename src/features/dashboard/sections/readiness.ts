@@ -14,7 +14,7 @@ function percentOf(part: number, whole: number): number {
 	return whole === 0 ? 100 : Math.max(0, Math.round((part / whole) * 100));
 }
 
-/** Person-based currency: a Person with any expired or orange-warning requirement is not current. */
+/** Person-based currency: a Person with any expired, missing or orange-warning requirement is not current. */
 export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	const summary = inputs.page.trainingSummary;
 	const column = {
@@ -34,17 +34,24 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	);
 	const delinquent = summary.groupDelinquencies.reduce((sum, group) => sum + group.delinquentPersonnelCount, 0);
 	const expired = summary.expiredPersonnelCount;
-	const expiring = delinquent - expired;
+	const missing = summary.missingPersonnelCount;
+	const expiring = delinquent - expired - missing;
 	const current = Math.max(0, total - delinquent);
 	const currentPercent = percentOf(current, total);
 
 	const sentences: string[] = [];
-	if (delinquent === 0) sentences.push('Everyone is current.');
-	else if (expired === 0) sentences.push(`${plural(expiring, 'Soldier', 'Soldiers')} expiring.`);
-	else
-		sentences.push(
-			`${plural(expired, 'Soldier', 'Soldiers')} expired${expiring > 0 ? ` and ${expiring} expiring` : ''}.`
+	const counts = [
+		{ count: expired, label: 'expired' },
+		{ count: missing, label: 'missing training' },
+		{ count: expiring, label: 'expiring' }
+	]
+		.filter(({ count }) => count > 0)
+		.map(({ count, label }, index) =>
+			index === 0 ? `${plural(count, 'Soldier', 'Soldiers')} ${label}` : `${count} ${label}`
 		);
+	const last = counts.pop();
+	if (!last) sentences.push('Everyone is current.');
+	else sentences.push(counts.length > 0 ? `${counts.join(', ')} and ${last}.` : `${last}.`);
 	const lowest = lowestGroupCurrency(inputs, delinquentByGroup);
 	if (lowest && lowest.percent < 100) sentences.push(`${lowest.name} is lowest at ${lowest.percent}%.`);
 
@@ -59,6 +66,7 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 			shares: [
 				{ label: 'current', count: current, tone: 'good' },
 				{ label: 'expiring', count: expiring, tone: 'warning' },
+				{ label: 'missing training', count: missing, tone: 'critical' },
 				{ label: 'expired', count: expired, tone: 'critical' }
 			]
 		},

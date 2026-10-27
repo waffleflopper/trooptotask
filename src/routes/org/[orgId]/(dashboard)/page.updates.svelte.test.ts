@@ -34,6 +34,7 @@ function summary(current: number, expiredIds: string[] = []): DashboardPageSumma
 			issues: [],
 			expiredByType: expiredIds.length ? [{ trainingTypeId: 'cpr', personnelIds: expiredIds, maxDaysLate: 5 }] : [],
 			expiredPersonnelCount: expiredIds.length,
+			missingPersonnelCount: 0,
 			groupDelinquencies: []
 		},
 		ictlSummary: null,

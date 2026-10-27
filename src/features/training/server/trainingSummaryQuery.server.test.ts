@@ -277,7 +277,8 @@ describe('literal Dashboard Training person attribution', () => {
 					['baker', 'required', '2025-01-01'],
 					['baker', 'second', '2025-01-01'],
 					['unassigned', 'required', '2025-01-01'],
-					['current', 'required', '2027-09-29']
+					['current', 'required', '2027-09-29'],
+					['current', 'second', '2027-09-29']
 				].map(([personnelId, typeId, expiry], index) => ({
 					id: `completion-${index}`,
 					organization_id: ORG,
@@ -369,5 +370,55 @@ describe('Dashboard expired Training by type', () => {
 			{ trainingTypeId: 'required', personnelIds: ['able', 'baker'], maxDaysLate: 10 },
 			{ trainingTypeId: 'second', personnelIds: ['baker'], maxDaysLate: 1 }
 		]);
+	});
+});
+
+describe('Dashboard missing required Training', () => {
+	it('counts a Person missing applicable required records as not current, once, after expired', async () => {
+		const ctx = buildCtx();
+		(ctx.store as ReturnType<typeof createInMemoryDataStore>).seed(
+			'personnel_trainings',
+			[
+				['both', 'annual', '2026-01-01'],
+				['done', 'annual', '2027-09-29'],
+				['done', 'lifetime', null]
+			].map(([personnelId, typeId, expiry], index) => ({
+				id: `completion-${index}`,
+				organization_id: ORG,
+				personnel_id: personnelId,
+				training_type_id: typeId,
+				completion_date: '2025-09-29',
+				expiration_date: expiry,
+				notes: null,
+				certificate_url: null
+			}))
+		);
+		const personnel = [
+			['empty', 'alpha'],
+			['both', 'alpha'],
+			['done', 'bravo']
+		].map(([id, groupId]) => ({ id, groupId, rank: 'SGT', lastName: id, firstName: 'Pat' })) as never[];
+		const trainingTypes = [
+			makeTrainingType('annual'),
+			{ ...makeTrainingType('lifetime'), expirationMonths: null },
+			{ ...makeTrainingType('optional'), isOptional: true },
+			{ ...makeTrainingType('colonels'), appliesToRanks: ['COL'] },
+			{ ...makeTrainingType('exempted'), canBeExempted: true, exemptPersonnelIds: ['empty', 'both', 'done'] }
+		];
+
+		const { trainingSummary } = await fetchDashboardTrainingSummary(ctx, {
+			personnel,
+			trainingTypes,
+			onboardingPersonnelIds: [],
+			asOf: '2026-09-29',
+			options: { issueLimit: 0, issueStatuses: ['expired'] }
+		});
+
+		expect(trainingSummary.expiredPersonnelCount).toBe(1);
+		expect(trainingSummary.missingPersonnelCount).toBe(1);
+		expect(trainingSummary.groupDelinquencies).toEqual([
+			{ groupId: 'alpha', expiredPersonnelCount: 1, delinquentPersonnelCount: 2 }
+		]);
+		expect(trainingSummary.issues).toEqual([]);
 	});
 });

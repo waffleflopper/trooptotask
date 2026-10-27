@@ -125,6 +125,8 @@ export interface TrainingSummary {
 	issues: TrainingIssue[];
 	expiredByType: ExpiredTrainingType[];
 	expiredPersonnelCount: number;
+	/** People missing an applicable required record, other than those already expired. */
+	missingPersonnelCount: number;
 	groupDelinquencies: Array<{
 		groupId: string | null;
 		expiredPersonnelCount: number;
@@ -144,7 +146,6 @@ export interface TrainingSummaryInput {
 		groupId?: string;
 		issueLimit?: number;
 		issueStatuses?: TrainingStatus[];
-		includeNotCompleted?: boolean;
 	};
 }
 

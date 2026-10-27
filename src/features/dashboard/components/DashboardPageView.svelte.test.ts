@@ -816,6 +816,7 @@ describe('Dashboard sections', () => {
 		issues: [],
 		expiredByType: [],
 		expiredPersonnelCount: 0,
+		missingPersonnelCount: 0,
 		groupDelinquencies: []
 	};
 	const ictlSummary: DashboardPageData['ictlSummary'] = {
@@ -870,6 +871,7 @@ describe('Dashboard sections', () => {
 			...trainingSummary,
 			expiredByType: [{ trainingTypeId: 'cpr', personnelIds: ['p1'], maxDaysLate: 4 }],
 			expiredPersonnelCount: 1,
+			missingPersonnelCount: 0,
 			groupDelinquencies: [{ groupId: null, expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }]
 		};
 		const diaz: Personnel = {

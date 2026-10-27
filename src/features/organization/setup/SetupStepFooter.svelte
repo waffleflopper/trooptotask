@@ -40,7 +40,7 @@
 	{/if}
 	<p
 		id="{id}-note"
-		class="min-w-0 flex-1 text-right font-mono text-[11px] leading-[14px] tracking-[0.04em] text-muted-foreground max-sm:line-clamp-2 max-sm:text-left max-sm:font-sans max-sm:text-[13px] max-sm:leading-[18px] max-sm:tracking-normal max-sm:text-chrome-text-muted"
+		class="min-w-0 flex-1 text-right font-mono max-sm:min-w-20 text-[11px] leading-[14px] tracking-[0.04em] text-muted-foreground max-sm:line-clamp-2 max-sm:text-left max-sm:font-sans max-sm:text-[13px] max-sm:leading-[18px] max-sm:tracking-normal max-sm:text-chrome-text-muted"
 	>
 		{blocked ?? note}
 	</p>

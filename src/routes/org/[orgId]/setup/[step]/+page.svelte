@@ -4,7 +4,12 @@
 	import { loadTrainingTypeEditor } from '$features/training';
 	import { getTrainingSuggestions } from '$features/training/contracts';
 	import TrainingTypeEditor from '$features/training/components/TrainingTypeEditor.svelte';
+	import SetupCalendarStep from './SetupCalendarStep.svelte';
+	import SetupGroupsStep from './SetupGroupsStep.svelte';
+	import SetupPersonnelStep from './SetupPersonnelStep.svelte';
+	import SetupRanksStep from './SetupRanksStep.svelte';
 
+	let { data } = $props();
 	const org = getAppShellContext();
 	setSetupStepSupport({
 		access: org,
@@ -13,4 +18,12 @@
 	});
 </script>
 
-<SetupStepPage />
+<SetupStepPage
+	orgName={data.orgName}
+	delivered={{
+		groups: SetupGroupsStep,
+		ranks: SetupRanksStep,
+		personnel: SetupPersonnelStep,
+		calendar: SetupCalendarStep
+	}}
+/>

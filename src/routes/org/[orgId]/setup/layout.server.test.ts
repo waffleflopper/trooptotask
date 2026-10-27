@@ -16,10 +16,8 @@ describe('Organization setup routes', () => {
 	});
 
 	it('rejects a slug outside the registry and identifies a valid feature step', async () => {
-		expect(() => loadStep({ params: { step: 'not-a-step' } } as never)).toThrow(
-			expect.objectContaining({ status: 404 })
-		);
-		expect(loadStep({ params: { step: 'events-and-taskings' } } as never)).toEqual({
+		await expect(loadStep({ params: { step: 'not-a-step' } } as never)).rejects.toMatchObject({ status: 404 });
+		await expect(loadStep({ params: { step: 'events-and-taskings' } } as never)).resolves.toEqual({
 			setupStepKey: 'eventsAndTaskings'
 		});
 	});

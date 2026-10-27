@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { SetupFlow, setSetupFlow } from '$features/organization';
 	import Page from './+page.svelte';
+	import type { PageData } from './$types';
 
 	let {
 		source,
@@ -11,4 +12,4 @@
 	setSetupFlow(new SetupFlow(source, navigate));
 </script>
 
-<Page />
+<Page data={{ orgName: '' } as PageData} />

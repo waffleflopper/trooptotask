@@ -87,6 +87,62 @@ Preconditions: `doctor` passes; use `orgOwner`, `orgAdmin` and `orgMember` from 
   near the end of the Training step.
 - At 390 px only the first 3 Army rows render until `Show 5 more`; expand the list before unchecking `OPSEC`.
 
+## Your unit steps
+
+Welcome, Groups, Ranks, Personnel and Calendar embed the same editors as Settings and the Personnel page. Drive them on
+a new unit so Personnel starts empty: as `orgOwner`, open `/org/new`, create `S2B Test Unit` and open
+`/org/<new seg>/setup`.
+
+```bash
+$V fault arm org-setup-ranks-references # next training_types rank-reference read returns 500
+```
+
+`org-setup-ranks-references` fails only the Ranks editor's read of training rank references; the setup facts still load.
+
+1. `/setup/welcome` on the new unit: `0 of 12 reviewed`; the unit name with `Rename in Settings`; service buttons Army,
+   Navy, Air Force, Marine Corps, Coast Guard, Space Force and `Mixed or joint` (no Civilian); `Start with Groups` is
+   disabled with `Choose a service to continue`.
+2. Choose `Mixed or joint`. Expect the status `Saved. Every service's ranks are active (140 active ranks).`, Welcome
+   Done and `1 of 12`. Choose `Army`. Expect `Start with Groups` enabled and the status
+   `Saved. Army ranks are active (30 active ranks); other services' ranks are retired and can be restored.` Until the
+   refreshed count arrives the status omits it; it never shows 140 for Army.
+3. `Review them in Ranks`. Branch coverage reads Army `28 active`, Navy `0 active, 23 retired`, Air Force 19, Marine
+   Corps 26, Coast Guard 22 and Space Force 20 retired; Catalog `30 active · 110 retired · 0 custom`. Settings › Ranks
+   shows the same numbers. A new unit that only ever chose Army shows the other services `Not added`, not retired.
+4. In the embedded editor open `More actions for Navy` › `Reactivate retired ranks (23)` and confirm. The URL stays
+   `/setup/ranks`; Navy reads `23 active`; Catalog `53 active · 87 retired`. Settings › Ranks matches after reload.
+5. `/setup/groups` lists the unit's Groups (a new unit: Leadership, Alpha, Bravo, each `0 people`) under `3 groups`.
+   `Manage groups` opens the Personnel Group manager; a Group added there appears in the list on Done.
+   `Continue to Ranks` marks Groups Done.
+6. Continue from Ranks to Personnel: `0 people so far`, `A handful of people?` with `Add a person`, and the import drop
+   zone with `Columns we look for`. `Continue to Calendar` with nobody on the roster, or before the count loads, marks
+   Personnel `later`.
+7. `/setup/calendar` shows Calendar settings with Status Types 7, Assignment Types 1 and Holidays & closures 44 on a
+   new unit, and no `Back to Calendar`. `Continue to Training` marks Calendar Done: `5 of 12`.
+8. Back on Personnel, `Add a person`, fill Last name `Fixround`, First name `Jane` and MOS `68W`, then
+   `Add Personnel`. Without a reload expect `1 person so far` and the rail's Personnel row Done. A reload keeps both.
+9. As `orgAdmin` on the fixture unit every step shows the same editor actions (`Manage groups`, rank pack buttons,
+   `Add a person`, the drop zone, Calendar `Add new`), and choosing a service saves.
+10. `$V fault arm org-setup-ranks-references`, reload `/setup/ranks`. Expect an alert
+    `The rank editor could not be loaded` with Retry, the rail states unchanged and `Continue to Personnel` enabled.
+    `$V fault state` shows one match on `GET /rest/v1/training_types`. Restore, then Retry shows the editor.
+11. At 1440, 1024 and 390 px no step scrolls sideways. At 1024 the embedded import stacks the drop zone above the
+    column list and Calendar settings stacks its section list above the editor; at 1440 Calendar settings shows them
+    side by side with Holidays & closures stacked.
+12. Rank errors on the setup page: on `/setup/ranks` choose `Add custom rank`, Code `SGT`, Label `Squad Sergeant`, then
+    `Add rank`. Expect the URL unchanged, Code marked invalid and described by
+    `Rank catalog entry already exists. Edit it instead.`, and both typed values kept. Settings › Ranks shows the same
+    error for the same input.
+13. Continue while a rank save is pending: the hold matches only the fixture unit, so as `orgOwner` on
+    `/org/<orgA>/setup/ranks` run `$V network arm-hold PAGE settings/ranks/saveRank` and submit step 12's draft. Expect
+    `Continue to Personnel` disabled and described by `Saving your change…`, and no POST to
+    `api/organization/setup/answer`. `$V network release PAGE`: the duplicate error shows with the draft kept, the URL
+    stays `/setup/ranks` and Continue is enabled again. `$V network restore PAGE`. Calendar holds Continue the same way
+    while a status type, assignment type, lane order or closure saves.
+14. After step 8 (add Jane Fixround, MOS `68W`), import a CSV with the header `Last name,First name,Rank,MOS` and the
+    row `Fixround,Jane,SPC,25B`. Review reads `Update · 1` and `0 added · 1 updated`, with MOS `68W` becoming `25B`.
+    After `Import 1 change` and a reload the footer still reads `1 person so far`.
+
 ## Feature steps
 
 Training, Critical tasks, Evaluations, Onboarding, Losses and awards and Events & Taskings each ask
@@ -184,3 +240,34 @@ async () =>
     its skeleton and `Add your own type` is disabled. `$V network release PAGE`: `Your own types` appears below the hint
     row, and the summed `value` of entries without `hadRecentInput` since the click is 0 at 1440 and 390 px.
     `$V network restore PAGE`.
+
+## Invite your team step
+
+`/setup/invite` embeds the Settings › Members invite strip: the `Invite` email field, `Role` (owner only), `Preset`,
+`Groups` and `Send invite`, under a band that says it is the same form as Settings › Members. Below it,
+`Waiting on them` lists each pending invitation as `<email>` and `<preset> · sent <relative> · <funnel status>`, with a
+link to Settings › Members for Resend and Revoke. The strip posts to the Members `?/invite` action and a sent invitation
+reaches the same mail sink as [organization invitations](organization-invitations.md).
+
+1. As `orgOwner`, `$V actor orgOwner settings/general`, then open `/setup/invite`. Expect `Step 12 of 12 · Team`, the
+   strip on one line at 1440 px (92 px tall, 816 px wide), no `Waiting on them` list on a fresh seed and
+   `Continue to Done`. The seed already has other members, so the rail row reads Done and the counter `5 of 12`.
+2. `$V fill PAGE textbox "Invite" s4-invite-one@example.test`, then `$V click PAGE button "Send invite"`. Expect the
+   line under the strip to read `Invitation created and email delivery was queued.`, the email field empty, one
+   `Waiting on them` row `Editor · sent today · Waiting on them` and, from `$V mail state`, an `account-setup` and an
+   `invitation` message for that address. Settings › Members lists the same invitation.
+3. Send the same address again. Expect `An invitation for this email is already pending` under the strip, the address
+   still in the field and the URL unchanged. With `$V fault arm setup-link-create` and a new address, expect
+   `Invitation could not be created because the account setup link could not be issued`, the draft kept and the
+   invitation stored `blocked`, not `pending`. `$V fault restore` afterwards.
+4. As `orgAdmin`, the same step shows the strip without `Role` and a sent invitation lists the same way. As `orgMember`,
+   the step answers 403 like the rest of setup.
+5. In a unit with only its owner, create one at `/org/new` and open `/setup/invite`. Expect `0 of 12` and the rail row
+   `not answered`. Choose `Continue to Done`: the rail row reads `later`. Return, send an invitation and expect the row
+   to read `done` and the counter `1 of 12` without a reload, and the same after a reload.
+6. At 1024 and 390 px the strip wraps to more lines (192 px tall) and `#main-content` has no horizontal scroll. A reload
+   records no layout shift.
+
+Gotchas: Continue records Later, not Reviewed, when nothing is invited and no other member exists; data that makes the
+step Done records nothing. The form's groups and the invitation list stream with the step, so the strip shows a skeleton
+first; a failed read shows `The invitation form could not be loaded` with Retry.

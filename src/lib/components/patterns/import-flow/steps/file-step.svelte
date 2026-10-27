@@ -20,7 +20,7 @@
 	}
 </script>
 
-<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+<div class="grid gap-6 @min-[42rem]:grid-cols-[minmax(0,1fr)_20rem]">
 	<div class="grid content-start gap-3">
 		<Dropzone
 			class="min-h-64 justify-center"

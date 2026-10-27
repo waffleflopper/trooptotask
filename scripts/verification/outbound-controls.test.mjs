@@ -371,6 +371,26 @@ test('identity faults match only the password, revocation and setup calls they n
 	}
 });
 
+test('the Ranks editor read fault fails only the training rank reference read', async () => {
+	const { control, passed } = faults();
+	control.command('fault-arm', { name: 'org-setup-ranks-references' });
+	const references = providerInput('training_types?select=applies_to_ranks%2Cexcluded_ranks&organization_id=eq.org', {
+		method: 'GET'
+	});
+	for (const input of [
+		providerInput('training_types?select=*&organization_id=eq.org', { method: 'HEAD' }),
+		providerInput('training_types?select=id%2Cname', { method: 'GET' })
+	])
+		assert.equal(await (await control.fetch(...input)).text(), 'real');
+	assert.equal((await control.fetch(...references)).status, 500);
+	assert.equal(await (await control.fetch(...references)).text(), 'real');
+	assert.equal(passed.length, 3);
+	assert.deepEqual(control.command('fault-state').controls['org-setup-ranks-references'].call, {
+		method: 'GET',
+		path: '/rest/v1/training_types'
+	});
+});
+
 test('onboarding step faults fail one exact step write at the chosen ordinal and leave every sibling write alone', async () => {
 	const steps = 'onboarding_template_steps';
 	const insert = (table) => providerInput(table, { method: 'POST', body: JSON.stringify([{ name: 'Copied step' }]) });

@@ -166,7 +166,7 @@
 	}
 </script>
 
-<div class="grid gap-6">
+<div class="@container grid grid-cols-1 gap-6">
 	{#if !canManage}
 		<Alert.Root>
 			<Alert.Description>
@@ -197,7 +197,7 @@
 		</PageShell.SectionHeader>
 
 		<Tabs.Root value={tab} onValueChange={(value) => (chosenTab = value)}>
-			<div class="flex items-end gap-x-7 border-b pt-3.5 max-md:overflow-x-auto">
+			<div class="flex items-end gap-x-7 overflow-x-auto border-b pt-3.5">
 				{#if board.branches.length > 0}
 					<Tabs.List variant="line" aria-label="Branches" class="shrink-0">
 						{#each board.branches as branch (branch.service)}
@@ -239,7 +239,7 @@
 					</DropdownMenu.Root>
 				{/if}
 				{#if canManage}
-					<p class="mb-2.5 ml-auto shrink-0 text-[13px] text-muted-foreground max-md:hidden">
+					<p class="mb-2.5 ml-auto shrink-0 text-[13px] text-muted-foreground @max-2xl:hidden">
 						Select a rank to turn it on or off.
 					</p>
 				{/if}
@@ -285,7 +285,7 @@
 			<h3 id="{key}-heading" class="font-heading text-lg leading-[22px] font-bold">{label}</h3>
 			<p class="flex-1 font-mono text-xs text-muted-foreground">{detail}</p>
 			{#if canManage}
-				<div class="flex items-center gap-4 max-sm:basis-full">
+				<div class="flex items-center gap-4 @max-md:basis-full">
 					{#if custom}
 						{#if nameRows.length > 0}
 							<Button

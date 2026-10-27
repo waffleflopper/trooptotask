@@ -4,13 +4,15 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { SetupStepKey } from './registry';
+	import SetupInviteStep from './SetupInviteStep.svelte';
 	import SetupStepFooter from './SetupStepFooter.svelte';
 	import SetupWelcomeStep from './SetupWelcomeStep.svelte';
 	import { SETUP_FACT_LABELS, SETUP_GROUP_LABELS, getSetupFlow } from './setupFlow.svelte';
 
 	/** A step's body renders its editor and its own `SetupStepFooter`. Steps without one show a placeholder. */
 	const bodies: Partial<Record<SetupStepKey, Component>> = {
-		welcome: SetupWelcomeStep
+		welcome: SetupWelcomeStep,
+		invite: SetupInviteStep
 	};
 
 	let {

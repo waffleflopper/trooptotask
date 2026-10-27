@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SettingsRankCatalogRow } from './settingsSectionTypes';
-import { RANK_LANE_ORDER, rankInUse, rankSentence } from './ranksCatalog';
+import { groupRanks, isHistoryRank, RANK_LANE_ORDER, rankInUse, rankSentence } from './ranksCatalog';
 
 function summary(active: { personnel: number; trainingApplicability: number }, historical: number, canDelete = false) {
 	return {
@@ -111,5 +111,45 @@ describe('rankSentence', () => {
 		expect(rankSentence(warned)).toBe(
 			'Referenced by 3 active records or filters. Also appears in 1 historical snapshot or saved filter.'
 		);
+	});
+});
+
+describe('groupRanks', () => {
+	const services = [{ value: 'army' as const }, { value: 'civilian' as const }, { value: 'custom' as const }];
+
+	it('splits each branch into categories in pay grade order and keeps custom ranks apart', () => {
+		const board = groupRanks(
+			[
+				rank('SGT', { service: 'army', category: 'enlisted', categoryLabel: 'Enlisted', payGrade: 'E-5' }),
+				rank('DET-SGT', { payGrade: 'E-6' }),
+				rank('CIV', { service: 'civilian', category: 'civilian', payGrade: 'ungraded' }),
+				rank('CPT', { service: 'army', category: 'officer', categoryLabel: 'Officer', payGrade: 'O-3' }),
+				rank('SFC', { service: 'army', category: 'enlisted', categoryLabel: 'Enlisted', payGrade: 'E-7' })
+			],
+			services
+		);
+
+		expect(
+			board.branches.map((branch) => [
+				branch.service,
+				branch.categories.map((group) => [group.label, group.ranks.map((entry) => entry.code)])
+			])
+		).toEqual([
+			[
+				'army',
+				[
+					['Officer', ['CPT']],
+					['Enlisted', ['SFC', 'SGT']]
+				]
+			],
+			['civilian', [['Custom', ['CIV']]]]
+		]);
+		expect(board.custom.map((entry) => entry.code)).toEqual(['DET-SGT']);
+	});
+
+	it('tags only built-in ranks kept for old records as history', () => {
+		expect(isHistoryRank(rank('SP4', { source: 'built-in' }))).toBe(true);
+		expect(isHistoryRank(rank('SPC', { source: 'built-in' }))).toBe(false);
+		expect(isHistoryRank(rank('SP4', { source: 'custom' }))).toBe(false);
 	});
 });

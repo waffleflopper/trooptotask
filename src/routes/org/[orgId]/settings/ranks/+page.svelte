@@ -15,7 +15,7 @@
 
 <SettingsPageHeader
 	page="ranks"
-	subtitle="The rank list behind every picker and import. Retiring a rank hides it from new choices; every record that already uses it stays as written."
+	subtitle="The rank list behind every picker and import. Turning a rank off hides it from new choices. Every record that already uses it stays as written."
 />
 
 {#if data.ranksSettings}

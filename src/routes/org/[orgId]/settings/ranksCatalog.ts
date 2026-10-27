@@ -1,8 +1,9 @@
-import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
+import {
+	BUILT_IN_RANK_CATALOG,
+	type OrganizationRankCatalogReferenceSummary,
+	type RankService
+} from '$features/personnel/contracts';
 import type { SettingsRankCatalogRow } from './settingsSectionTypes';
-
-export type RankStateFilter = 'all' | SettingsRankCatalogRow['state'];
-export type RankBranchFilter = 'all' | SettingsRankCatalogRow['service'];
 
 export type RankInUse = { kind: 'people' | 'training' | 'history' | 'none' | 'unknown'; count: number; text: string };
 type RankComparator = (a: SettingsRankCatalogRow, b: SettingsRankCatalogRow) => number;
@@ -54,20 +55,6 @@ export function compareRankPrecedence(a: SettingsRankCatalogRow, b: SettingsRank
 	);
 }
 
-export function filterRanks(
-	ranks: readonly SettingsRankCatalogRow[],
-	filters: { state: RankStateFilter; branch: RankBranchFilter; search: string }
-): SettingsRankCatalogRow[] {
-	const query = filters.search.trim().toLowerCase();
-	return ranks.filter(
-		(entry) =>
-			(filters.state === 'all' || entry.state === filters.state) &&
-			(filters.branch === 'all' || entry.service === filters.branch) &&
-			(!query ||
-				`${entry.code} ${entry.label} ${entry.serviceLabel} ${entry.sourceLabel}`.toLowerCase().includes(query))
-	);
-}
-
 /** People first, because a rank people hold is the reason it cannot be removed. */
 export function rankInUse(summary: OrganizationRankCatalogReferenceSummary): RankInUse {
 	const { activeReferences, historicalReferences } = summary;
@@ -110,4 +97,43 @@ export const RANK_LANE_ORDER = {
 export function rankSentence(entry: SettingsRankCatalogRow): string {
 	if (entry.warnings.length > 0) return entry.warnings.join(' ');
 	return entry.commands.deleteDisabledReason ?? (entry.commands.canDelete ? REMOVABLE_SENTENCE : '');
+}
+
+export type RankCategoryGroup = { key: string; label: string; ranks: SettingsRankCatalogRow[] };
+export type RankBranchGroup = {
+	service: RankService;
+	label: string;
+	ranks: SettingsRankCatalogRow[];
+	categories: RankCategoryGroup[];
+};
+
+const HISTORY_CODES = new Set(BUILT_IN_RANK_CATALOG.filter((entry) => entry.state === 'retired').map((entry) => entry.code));
+const CATEGORY_ORDER = ['officer', 'warrant', 'enlisted', 'civilian', 'custom'];
+
+/** A built-in rank that only old records use, such as SP4. */
+export function isHistoryRank(entry: SettingsRankCatalogRow): boolean {
+	return entry.source === 'built-in' && HISTORY_CODES.has(entry.code);
+}
+
+/**
+ * Branch tabs in `services` order, each split into categories in pay grade order. Ranks of the custom service are
+ * the Organization's own and sit apart from the branches.
+ */
+export function groupRanks(
+	ranks: readonly SettingsRankCatalogRow[],
+	services: readonly { value: RankService }[]
+): { branches: RankBranchGroup[]; custom: SettingsRankCatalogRow[] } {
+	const sorted = ranks.toSorted(compareRankPrecedence);
+	const branches = services.flatMap(({ value }) => {
+		const branchRanks = sorted.filter((entry) => entry.service === value);
+		if (value === 'custom' || branchRanks.length === 0) return [];
+		const categories = CATEGORY_ORDER.flatMap((category) => {
+			const categoryRanks = branchRanks.filter((entry) => entry.category === category);
+			return categoryRanks.length === 0
+				? []
+				: [{ key: `${value}:${category}`, label: categoryRanks[0].categoryLabel, ranks: categoryRanks }];
+		});
+		return [{ service: value, label: branchRanks[0].serviceLabel, ranks: branchRanks, categories }];
+	});
+	return { branches, custom: sorted.filter((entry) => entry.service === 'custom') };
 }

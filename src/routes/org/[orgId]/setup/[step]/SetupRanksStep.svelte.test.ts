@@ -86,7 +86,7 @@ async function renderRanksStep() {
 			step: SetupRanksStep
 		}
 	});
-	await fireEvent.click(await screen.findByRole('button', { name: 'Add custom rank' }));
+	await fireEvent.click(await screen.findByRole('button', { name: '+ Custom rank' }));
 	await fireEvent.input(screen.getByLabelText('Code'), { target: { value: 'SGT' } });
 	await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Squad Sergeant' } });
 	const add = screen.getByRole('button', { name: 'Add rank' }) as HTMLButtonElement;
@@ -141,7 +141,7 @@ it('keeps the editor and offers Retry when a refresh after a change fails', asyn
 	render(SetupStepHarness, {
 		props: { source: stepSource('ranks'), navigate: vi.fn(async () => {}), step: SetupRanksStep }
 	});
-	await screen.findByRole('button', { name: 'Add custom rank' });
+	await screen.findByRole('button', { name: '+ Custom rank' });
 	expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
 
 	const refresh = Promise.reject(new Error('upstream'));
@@ -149,5 +149,5 @@ it('keeps the editor and offers Retry when a refresh after a change fails', asyn
 	page.data = { ranksSettings: refresh };
 
 	await screen.findByRole('button', { name: 'Retry' });
-	expect(screen.getByRole('button', { name: 'Add custom rank' })).toBeInTheDocument();
+	expect(screen.getByRole('button', { name: '+ Custom rank' })).toBeInTheDocument();
 });

@@ -49,7 +49,8 @@ function renderWelcome() {
 				disabledFeatures: [],
 				setupState: empty,
 				setupFacts: Promise.resolve(facts),
-				stepKey: 'welcome'
+				stepKey: 'welcome',
+				navigating: false
 			}
 		}
 	});

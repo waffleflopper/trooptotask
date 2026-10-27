@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseRankCatalogPersistence } from './supabaseRankCatalogPersistence.server';
 import { describe, expect, it } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
 import { createTestContext } from '$lib/server/adapters/inMemory';
@@ -42,6 +44,105 @@ function withAtomicDelete(ctx: ReturnType<typeof createTestContext>) {
 }
 
 describe('organization rank catalog', () => {
+	it('a delayed name save preserves a later rank toggle', async () => {
+		const ctx = createTestContext();
+		const draft = {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'enlisted',
+			payGrade: 'E-6',
+			state: 'active',
+			sortOrder: 500
+		} as const;
+		await saveOrganizationRankCatalogEntry(ctx, draft);
+		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'DET-SGT', state: 'retired' }] });
+		await saveOrganizationRankCatalogEntry(ctx, {
+			...draft,
+			label: 'Detachment Lead',
+			intent: 'update',
+			originalCode: 'DET-SGT'
+		});
+		expect(await ctx.rankCatalog.findEntryByCode('DET-SGT')).toMatchObject({
+			label: 'Detachment Lead',
+			state: 'retired'
+		});
+	});
+
+	it('sends uniform values for existing and missing pack ranks in one atomic upsert', async () => {
+		const existing = {
+			id: 'rank-sgt',
+			organization_id: 'test-org',
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'retired',
+			source: 'built-in',
+			sort_order: 14,
+			created_at: '2026-01-01T00:00:00Z',
+			updated_at: '2026-01-01T00:00:00Z'
+		};
+		const writes: unknown[] = [];
+		const client = createClient('http://rank.invalid', 'synthetic-key', {
+			auth: { persistSession: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					if (request.method !== 'POST') return Response.json([existing]);
+					const body: unknown = await request.json();
+					writes.push({ conflict: new URL(request.url).searchParams.get('on_conflict'), body });
+					return Response.json([
+						{ ...existing, state: 'active' },
+						{ ...existing, id: 'rank-spc', code: 'SPC', state: 'active' }
+					]);
+				}
+			}
+		});
+		const ctx = createTestContext();
+		expect(
+			await setOrganizationRankCatalogStates(
+				{ ...ctx, rankCatalog: createSupabaseRankCatalogPersistence(client, 'test-org') },
+				{
+					changes: [
+						{ code: 'SGT', state: 'active' },
+						{ code: 'SPC', state: 'active' }
+					]
+				}
+			)
+		).toEqual({ changedCount: 2 });
+		expect(writes).toEqual([
+			{
+				conflict: 'organization_id,code',
+				body: [
+					{
+						organization_id: 'test-org',
+						code: 'SGT',
+						label: 'Sergeant',
+						service: 'army',
+						category: 'enlisted',
+						pay_grade: 'E-5',
+						state: 'active',
+						source: 'built-in',
+						sort_order: 14
+					},
+					{
+						organization_id: 'test-org',
+						code: 'SPC',
+						label: 'Specialist',
+						service: 'army',
+						category: 'enlisted',
+						pay_grade: 'E-4',
+						state: 'active',
+						source: 'built-in',
+						sort_order: 1
+					}
+				]
+			}
+		]);
+	});
+
 	it('seeds built-in defaults and returns the Organization catalog without rewriting Personnel rank strings', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [

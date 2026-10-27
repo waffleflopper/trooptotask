@@ -4,13 +4,19 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RanksSettingsData, SettingsRankCatalogRow, SettingsRankServicePackOption } from '../settingsSectionTypes';
 import Page from './+page.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core/lifetime';
 
 type ActionResult = { type: 'success' | 'failure'; status?: number; data?: Record<string, unknown> };
 type HeldSubmission = (opts: {
 	result: ActionResult;
 	update: (options?: { reset?: boolean }) => Promise<void>;
 }) => Promise<void>;
-type HeldPost = { action: string; fields: Array<[string, string]>; answer: (result: ActionResult) => Promise<void> };
+type HeldPost = {
+	path: string;
+	action: string;
+	fields: Array<[string, string]>;
+	answer: (result: ActionResult) => Promise<void>;
+};
 
 const { heldPosts, heldSubmissions, submittedForms, invalidateAll } = vi.hoisted(() => ({
 	heldPosts: [] as HeldPost[],
@@ -21,6 +27,13 @@ const { heldPosts, heldSubmissions, submittedForms, invalidateAll } = vi.hoisted
 
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: { success: vi.fn() } }));
 vi.mock('$app/navigation', () => ({ invalidateAll }));
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return new URL(location.href);
+		}
+	}
+}));
 
 // Rank on/off changes post with fetch; the names editor posts through enhance. Both hold until the test answers.
 vi.mock('$app/forms', () => ({
@@ -57,12 +70,14 @@ vi.mock('$app/forms', () => ({
 }));
 
 beforeEach(() => {
+	history.replaceState(null, '', '/org/org-1/settings/ranks');
 	vi.useFakeTimers();
 	vi.stubGlobal(
 		'fetch',
 		(url: string, init: { body: FormData }) =>
 			new Promise((resolve) => {
 				heldPosts.push({
+					path: new URL(url, location.href).pathname,
 					action: url,
 					fields: [...init.body.entries()] as Array<[string, string]>,
 					answer: async (result) => {
@@ -219,6 +234,7 @@ function renderRankPage(ranks: SettingsRankCatalogRow[], canManageCatalog = true
 	const show = (next: SettingsRankCatalogRow[], form: { rankError?: string; success?: boolean } | null) =>
 		view.rerender({ data: { ranksSettings: rankSettings(next) } as never, form, params: { orgId: 'org-1' } });
 	return {
+		unmount: view.unmount,
 		/** The catalog SvelteKit loads after a successful write. */
 		reload: async (next: SettingsRankCatalogRow[]) => {
 			await show(next, null);
@@ -261,6 +277,46 @@ async function click(element: HTMLElement) {
 }
 
 describe('turning ranks on and off', () => {
+	it.each(['page', 'Organization'])('drops queued edits and completion effects after leaving the %s', async (scope) => {
+		const page = renderRankPage([SGT]);
+		await click(chip('Sergeant'));
+		await click(chip('Sergeant'));
+		if (scope === 'page') page.unmount();
+		else endOrganizationLifetime();
+		history.replaceState(null, '', '/org/org-2/settings/ranks');
+		await heldPosts[0].answer({ type: 'success', data: { success: true } });
+		expect(heldPosts.map((post) => post.path)).toEqual(['/org/org-1/settings/ranks']);
+		expect(invalidateAll).not.toHaveBeenCalled();
+		if (scope === 'Organization') {
+			expect(chip('Sergeant')).toHaveAttribute('aria-pressed', 'true');
+		}
+	});
+
+	it('Turn all off includes a pending toggle that fails and Undo restores confirmed states', async () => {
+		const page = renderRankPage([WO1, CW2, CW3]);
+		await click(chip('Chief Warrant Officer 2'));
+		await click(screen.getByRole('button', { name: 'Turn all Warrant Officer ranks off' }));
+		await heldPosts[0].answer({ type: 'failure', status: 500 });
+		expect(heldPosts[1].fields).toEqual([
+			['code', 'CW3'],
+			['state', 'retired'],
+			['code', 'CW2'],
+			['state', 'retired'],
+			['code', 'WO1'],
+			['state', 'retired']
+		]);
+		await heldPosts[1].answer({ type: 'success', data: { success: true } });
+		await page.reload([off(WO1), off(CW2), CW3]);
+		expect(chip('Chief Warrant Officer 2')).toHaveAttribute('aria-pressed', 'false');
+		await click(screen.getByRole('button', { name: 'Undo' }));
+		expect(heldPosts[2].fields).toEqual([
+			['code', 'CW2'],
+			['state', 'active'],
+			['code', 'WO1'],
+			['state', 'active']
+		]);
+	});
+
 	it('shows each branch with how many of its ranks are on', () => {
 		renderRankPage([LT, WO1, CW2, CW3, SGT]);
 

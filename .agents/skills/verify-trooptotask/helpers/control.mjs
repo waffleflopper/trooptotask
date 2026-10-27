@@ -2774,6 +2774,7 @@ async function main() {
 					'calendar-taskings',
 					'sign-in-rosters',
 					'training-types',
+					'training-types/editor',
 					'training-views',
 					'onboarding',
 					'onboarding/start-options',

@@ -96,8 +96,13 @@ Training, Critical tasks, Evaluations, Onboarding, Losses and awards and Events 
 - An already-off feature opens on `We won’t use it` with a `<Feature> is off` panel and `Turn <Feature> back on`.
 
 ```bash
-$V fault arm org-feature-switch # next PATCH /rest/v1/organizations carrying disabled_features returns 500
+$V fault arm org-feature-switch             # next PATCH /rest/v1/organizations carrying disabled_features returns 500
+$V fault arm org-setup-training-editor-read # next training_types list read returns 500
+$V network arm-hold PAGE training-types/editor # holds the Training step's type editor read until release
 ```
+
+The type editor loads when the Training step mounts, so arm either control on another step and reach Training through
+the rail; a reload makes the page's own reads run first.
 
 Preconditions: steps 1-9 above are not required. Training suggestions need the unit's branch. If the Welcome step on
 your checkout cannot set it, set Army from the owner page with `evaluate_script`; the request answers 200:
@@ -115,10 +120,11 @@ async () =>
 
 1. As `orgOwner`, open `/setup/training`. Expect the `Common Army annual training` panel with 8 rows, each `12 mo`, all
    checked, and `8 of 8 selected`. The seed's own training types are not on the Army list; they appear under
-   `Your own types`, one row each with a pencil, the name and its period. The count shows a skeleton until the unit's
-   types load. Uncheck 5. Expect `3 of 8 selected`, the note `Adds 3 training types` and `Add 3 and continue`. Choose
-   it: `/setup/critical-tasks`. `$V rows training_types orgA` lists the 3 names; Training › Types shows each
-   `Every 12 months`. Back on `/setup/training` the 3 rows read `Added`, checked and disabled.
+   `Your own types`, below the hint row and `Add your own type`, one row each with a pencil, the name and its period.
+   The count shows a skeleton until the unit's types load. Uncheck 5. Expect `3 of 8 selected`, the note
+   `Adds 3 training types` and `Add 3 and continue`. Choose it: `/setup/critical-tasks`. `$V rows training_types orgA`
+   lists the 3 names; Training › Types shows each `Every 12 months`. Back on `/setup/training` the 3 rows read
+   `Added`, checked and disabled.
 2. Still on `/setup/training`, uncheck `OPSEC`: `4 of 5 selected`. Choose `Add your own type`. The Training type sheet
    opens over the step with the eyebrow `New training type · <n+1> of <n+1>`, where n is the unit's type count, and the
    URL stays `/setup/training`. Enter `Range Safety`, keep `Every few months` at 12 and choose `Create type`. Expect the
@@ -129,8 +135,9 @@ async () =>
    `Turn Training back on`. Expect `Set it up now` selected and every Army row that is not `Added` checked:
    `5 of 5 selected` and `Add 5 and continue`. Do not continue.
 4. Set the branch to `navy` with the request in the preconditions, then reload `/setup/training`. Expect a
-   `Training types` panel with no Army list: two skeleton rows while the types load, then one row per unit type,
-   including `Range Safety`, and `Add a type`, which opens the same sheet. Set the branch back to `army`.
+   `Training types` panel with no Army list: the hint row and `Add a type` first, then two skeleton rows while the
+   types load and one row per unit type, including `Range Safety`. `Add a type` opens the same sheet. Set the branch
+   back to `army`.
 5. `/setup/critical-tasks`: choose `Later`, Continue. The answer is stored (revisit shows `Later` checked), but the rail
    stays Done because seed task lists make the step Done; Done outranks Later.
 6. `/setup/evaluations`: choose `Later`, Continue. Expect the rail row `Evaluations, later`, and on the Dashboard the
@@ -162,3 +169,13 @@ async () =>
     such as `Turn off Events & Taskings and continue` wraps to two lines beside its note, and the page never scrolls
     sideways. At 1024 px the `Your own types` rows and `Add your own type` fit the 400 px step column without
     truncating `Range Safety`; at 390 px the type sheet fits the screen and its footer buttons stay reachable.
+14. Editor load failure: on `/setup/critical-tasks`, `$V fault arm org-setup-training-editor-read`, then choose the
+    rail's Training link. Expect an alert in the Army panel ending `Types that already exist are skipped when you add.`
+    with `Retry`, the 8 rows still checkable, `Add your own type` disabled, and the rail and choice cards usable.
+    `$V fault state` shows one match on `GET /rest/v1/training_types`. `$V fault restore`, then `Retry`: the alert
+    clears and `Your own types` lists the unit's types.
+15. Layout shift: on `/setup/critical-tasks` of a unit with own types, register a buffered `layout-shift` observer,
+    `$V network arm-hold PAGE training-types/editor` and choose the rail's Training link. While held, the count shows
+    its skeleton and `Add your own type` is disabled. `$V network release PAGE`: `Your own types` appears below the hint
+    row, and the summed `value` of entries without `hadRecentInput` since the click is 0 at 1440 and 390 px.
+    `$V network restore PAGE`.

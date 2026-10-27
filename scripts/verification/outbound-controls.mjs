@@ -73,6 +73,7 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'org-setup-answer': [write('POST', '/rest/v1/rpc/save_organization_setup_answer')],
 	'org-setup-training-count': [write('HEAD', '/rest/v1/training_types', { status: 500 })],
 	'org-feature-switch': [write('PATCH', '/rest/v1/organizations', { body: { disabled_features: PRESENT } })],
+	'org-setup-training-editor-read': [write('GET', '/rest/v1/training_types', { status: 500 })],
 	'password-update': [write('PUT', '/auth/v1/user', { body: { password: PRESENT } })],
 	'password-reconcile': [write('POST', '/rest/v1/rpc/password_change_attempt', { body: { p_action: 'reconcile' } })],
 	'password-revocation': [write('POST', '/auth/v1/logout', { query: { scope: 'others' } })],

@@ -100,7 +100,8 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
    disabled with `Choose a service to continue`.
 2. Choose `Mixed or joint`. Expect the status `Saved. Every service's ranks are active (140 active ranks).`, Welcome
    Done and `1 of 12`. Choose `Army`. Expect `Start with Groups` enabled and the status
-   `Saved. Army ranks are active (30 active ranks); other services' ranks are retired and can be restored.`
+   `Saved. Army ranks are active (30 active ranks); other services' ranks are retired and can be restored.` Until the
+   refreshed count arrives the status omits it; it never shows 140 for Army.
 3. `Review them in Ranks`. Branch coverage reads Army `28 active`, Navy `0 active, 23 retired`, Air Force 19, Marine
    Corps 26, Coast Guard 22 and Space Force 20 retired; Catalog `30 active · 110 retired · 0 custom`. Settings › Ranks
    shows the same numbers. A new unit that only ever chose Army shows the other services `Not added`, not retired.
@@ -110,7 +111,8 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
    `Manage groups` opens the Personnel Group manager; a Group added there appears in the list on Done.
    `Continue to Ranks` marks Groups Done.
 6. Continue from Ranks to Personnel: `0 people so far`, `A handful of people?` with `Add a person`, and the import drop
-   zone with `Columns we look for`. `Continue to Calendar` with nobody on the roster marks Personnel `later`.
+   zone with `Columns we look for`. `Continue to Calendar` with nobody on the roster, or before the count loads, marks
+   Personnel `later`.
 7. `/setup/calendar` shows Calendar settings with Status Types 7, Assignment Types 1 and Holidays & closures 44 on a
    new unit, and no `Back to Calendar`. `Continue to Training` marks Calendar Done: `5 of 12`.
 8. Back on Personnel, `Add a person`, fill Last and First name and `Add Personnel`. Without a reload expect
@@ -123,3 +125,16 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
 11. At 1440, 1024 and 390 px no step scrolls sideways. At 1024 the embedded import stacks the drop zone above the
     column list and Calendar settings stacks its section list above the editor; at 1440 Calendar settings shows them
     side by side with Holidays & closures stacked.
+12. Rank errors on the setup page: on `/setup/ranks` choose `Add custom rank`, Code `SGT`, Label `Squad Sergeant`, then
+    `Add rank`. Expect the URL unchanged, Code marked invalid and described by
+    `Rank catalog entry already exists. Edit it instead.`, and both typed values kept. Settings › Ranks shows the same
+    error for the same input.
+13. Continue while a rank save is pending: the hold matches only the fixture unit, so as `orgOwner` on
+    `/org/<orgA>/setup/ranks` run `$V network arm-hold PAGE settings/ranks/saveRank` and submit step 12's draft. Expect
+    `Continue to Personnel` disabled and described by `Saving your change…`, and no POST to
+    `api/organization/setup/answer`. `$V network release PAGE`: the duplicate error shows with the draft kept, the URL
+    stays `/setup/ranks` and Continue is enabled again. `$V network restore PAGE`. Calendar holds Continue the same way
+    while a status type, assignment type, lane order or closure saves.
+14. After step 8 (add Jane Fixround, MOS `68W`), import a CSV with the header `Last name,First name,Rank,MOS` and the
+    row `Fixround,Jane,SPC,25B`. Review reads `Update · 1` and `0 added · 1 updated`, with MOS `68W` becoming `25B`.
+    After `Import 1 change` and a reload the footer still reads `1 person so far`.

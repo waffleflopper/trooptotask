@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
-import { saveOrganizationRankCatalogEntry } from '$features/personnel/index.server';
+import { saveOrganizationRankCatalogEntry, setOrganizationRankCatalogStates } from '$features/personnel/index.server';
 import { buildRanksSettingsData, loadRanksSettings } from './settingsRanks.server';
 
 const NO_CAPABILITIES = {
@@ -14,6 +14,76 @@ const NO_CAPABILITIES = {
 } as const;
 
 describe('rank settings read model', () => {
+	it('loads a missing Air Force Gen beside the case-distinct Army GEN', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed(
+			'organization_rank_catalog',
+			BUILT_IN_RANK_CATALOG.filter((entry) => entry.code === 'GEN' || entry.code === 'Amn').map((entry) => ({
+				id: entry.code,
+				organization_id: 'test-org',
+				code: entry.code,
+				label: entry.label,
+				service: entry.service,
+				category: entry.category,
+				pay_grade: entry.payGrade,
+				state: 'active',
+				source: 'built-in',
+				sort_order: entry.sortOrder
+			}))
+		);
+
+		const settings = await loadRanksSettings({ ...ctx, readSignInRosterRankReferences: async () => [] });
+
+		expect(settings.sections.ranks.entries.active.find((entry) => entry.code === 'GEN')).toMatchObject({
+			code: 'GEN',
+			service: 'army',
+			state: 'active'
+		});
+		expect(settings.sections.ranks.entries.retired.find((entry) => entry.code === 'Gen')).toMatchObject({
+			code: 'Gen',
+			service: 'air-force',
+			state: 'retired',
+			source: 'built-in'
+		});
+	});
+
+	it.each(['custom', 'discovered'] as const)('does not offer a missing pack rank over a %s alias', (source) => {
+		const settings = buildRanksSettingsData({
+			catalog: [
+				{
+					organizationId: 'test-org',
+					code: 'PVT',
+					label: 'Private',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-1',
+					state: 'active',
+					source: 'built-in',
+					sortOrder: 0
+				},
+				{
+					organizationId: 'test-org',
+					code: 'spc',
+					label: 'Local Specialist',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'retired',
+					source,
+					sortOrder: 500
+				}
+			],
+			referenceSummaries: [],
+			canManageCatalog: true
+		});
+
+		const codes = [...settings.sections.ranks.entries.active, ...settings.sections.ranks.entries.retired].map(
+			(entry) => entry.code
+		);
+		expect(codes).toContain('spc');
+		expect(codes).not.toContain('SPC');
+	});
+
 	it('groups active and retired rank catalog rows with service-pack options', async () => {
 		const ctx = createTestContext();
 		await saveOrganizationRankCatalogEntry(ctx, {
@@ -22,7 +92,6 @@ describe('rank settings read model', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		await saveOrganizationRankCatalogEntry(ctx, {
@@ -31,9 +100,9 @@ describe('rank settings read model', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'retired',
 			sortOrder: 501
 		});
+		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'OLD-SGT', state: 'retired' }] });
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'person-1',
@@ -67,9 +136,7 @@ describe('rank settings read model', () => {
 			tieBreakHelp: 'Tie-break order only decides display order when ranks share the same pay grade.'
 		});
 		expect(navyPack).toMatchObject({
-			label: 'Navy',
-			missingCount: expect.any(Number),
-			isInstalled: false
+			label: 'Navy'
 		});
 		expect(activeRank).toMatchObject({
 			code: 'DET-SGT',
@@ -94,7 +161,6 @@ describe('rank settings read model', () => {
 			],
 			commands: {
 				canEdit: true,
-				canRetire: true,
 				canDelete: false,
 				deleteDisabledReason: 'Referenced by active Organization data; retire it instead.'
 			}
@@ -104,7 +170,6 @@ describe('rank settings read model', () => {
 			state: 'retired',
 			commands: {
 				canEdit: true,
-				canRetire: false,
 				canDelete: true,
 				deleteDisabledReason: null
 			}
@@ -192,9 +257,7 @@ describe('rank settings read model', () => {
 		});
 
 		expect(settings.sections.ranks.servicePacks.find((pack) => pack.value === 'navy')).toMatchObject({
-			existingCount: 0,
-			missingCount: navyDiscoveredRows.length,
-			isInstalled: false
+			existingCount: 0
 		});
 	});
 
@@ -289,8 +352,6 @@ describe('rank settings read model', () => {
 					code: 'SGT',
 					commands: {
 						canEdit: false,
-						canRetire: false,
-						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
 					}
@@ -299,8 +360,6 @@ describe('rank settings read model', () => {
 					code: 'DET-SGT',
 					commands: {
 						canEdit: false,
-						canRetire: false,
-						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: null
 					}
@@ -310,8 +369,6 @@ describe('rank settings read model', () => {
 					source: 'discovered',
 					commands: {
 						canEdit: false,
-						canRetire: false,
-						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: null
 					}
@@ -408,7 +465,7 @@ describe('rank settings read model', () => {
 		});
 	});
 
-	it('does not expose built-in rank metadata as editable while keeping retire available', () => {
+	it('keeps built-in rank metadata read only', () => {
 		const settings = buildRanksSettingsData({
 			canManageCatalog: true,
 			catalog: [
@@ -473,8 +530,6 @@ describe('rank settings read model', () => {
 					code: 'SGT',
 					commands: {
 						canEdit: false,
-						canRetire: true,
-						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
 					}
@@ -483,112 +538,11 @@ describe('rank settings read model', () => {
 					code: 'DET-SGT',
 					commands: expect.objectContaining({
 						canEdit: true,
-						canRetire: true,
 						canDelete: true
 					})
 				})
 			])
 		);
-	});
-
-	it('summarizes branch service packs with active and retired built-in rank counts', () => {
-		const settings = buildRanksSettingsData({
-			canManageCatalog: true,
-			catalog: [
-				{
-					organizationId: 'test-org',
-					code: 'SGT',
-					label: 'Sergeant',
-					service: 'army',
-					category: 'enlisted',
-					payGrade: 'E-5',
-					state: 'active',
-					source: 'built-in',
-					sortOrder: 0
-				},
-				{
-					organizationId: 'test-org',
-					code: 'SP4',
-					label: 'Specialist Four',
-					service: 'army',
-					category: 'enlisted',
-					payGrade: 'E-4',
-					state: 'retired',
-					source: 'built-in',
-					sortOrder: 2
-				},
-				{
-					organizationId: 'test-org',
-					code: 'DET-SGT',
-					label: 'Detachment Sergeant',
-					service: 'army',
-					category: 'custom',
-					payGrade: 'ungraded',
-					state: 'active',
-					source: 'custom',
-					sortOrder: 500
-				}
-			],
-			referenceSummaries: []
-		});
-
-		expect(settings.sections.ranks.servicePacks.find((pack) => pack.value === 'army')).toMatchObject({
-			label: 'Army',
-			existingCount: 2,
-			activeCount: 1,
-			retiredCount: 1,
-			canBulkRetire: true,
-			canBulkReactivate: true
-		});
-	});
-
-	it('lets governors reactivate retired built-in ranks without exposing hard delete', () => {
-		const settings = buildRanksSettingsData({
-			canManageCatalog: true,
-			catalog: [
-				{
-					organizationId: 'test-org',
-					code: 'SP4',
-					label: 'Specialist Four',
-					service: 'army',
-					category: 'enlisted',
-					payGrade: 'E-4',
-					state: 'retired',
-					source: 'built-in',
-					sortOrder: 2
-				}
-			],
-			referenceSummaries: [
-				{
-					code: 'SP4',
-					activeReferences: {
-						personnel: 0,
-						trainingApplicability: 0,
-						total: 0
-					},
-					historicalReferences: {
-						signInRosterFilters: 0,
-						signInRosterSnapshots: 0,
-						total: 0
-					},
-					canDelete: true
-				}
-			]
-		});
-
-		expect(settings.sections.ranks.entries.retired).toEqual([
-			expect.objectContaining({
-				code: 'SP4',
-				source: 'built-in',
-				commands: {
-					canEdit: false,
-					canRetire: false,
-					canReactivate: true,
-					canDelete: false,
-					deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
-				}
-			})
-		]);
 	});
 
 	it('fails closed when a custom rank is missing its reference summary', () => {
@@ -620,8 +574,6 @@ describe('rank settings read model', () => {
 				}),
 				commands: {
 					canEdit: true,
-					canRetire: true,
-					canReactivate: false,
 					canDelete: false,
 					deleteDisabledReason: 'Reference check unavailable; retire it instead.'
 				}
@@ -686,5 +638,23 @@ describe('rank settings read model', () => {
 			status: 403,
 			message: 'This action requires an organization admin or owner role'
 		});
+	});
+	it('lists a rank missing from an added branch pack as off, and no ranks from a pack never added', () => {
+		const armyWithoutSergeant = BUILT_IN_RANK_CATALOG.filter(
+			(entry) => entry.service === 'army' && entry.code !== 'SGT'
+		).map((entry) => ({ ...entry, organizationId: 'test-org', source: 'built-in' as const }));
+
+		const ranks = buildRanksSettingsData({
+			catalog: armyWithoutSergeant,
+			referenceSummaries: [],
+			canManageCatalog: true
+		}).sections.ranks;
+
+		expect(ranks.entries.retired.find((entry) => entry.code === 'SGT')).toMatchObject({
+			service: 'army',
+			state: 'retired',
+			source: 'built-in'
+		});
+		expect([...ranks.entries.active, ...ranks.entries.retired].some((entry) => entry.service === 'navy')).toBe(false);
 	});
 });

@@ -7,6 +7,7 @@ then checks that each change saved on its own.
 
 - `groups-open`: open the Group editor from Personnel at 1440, as a full-height sheet below 1024 and at 390.
 - `groups-add`: create a uniquely named Group with Enter; a duplicate or failed add keeps the draft beside its error.
+- `groups-first`: with no Groups, a hint points at `New group name` and the editor teaches the first Group.
 - `groups-edit`: rename inline; the viewer's pin follows the new name.
 - `groups-order`: reorder by drag and by Alt+Arrow; a stale order answers 409, adopts the saved catalog and reloads
   roster membership and pins.
@@ -127,6 +128,14 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
     and `More Personnel controls` lists only `Archive`. The four Group requests answer 403. A membership POST moving
     Baker into Alpha answers 200 with `movedIds: []` and Baker in `unavailableIds`. Moving Able into Bravo or to
     Unassigned (`groupId: null`) answers 403. Rows are unchanged.
+13. **First Group.** On a unit with no Groups (create one at `/org/new` as in
+    [organization setup](organization-setup.md), then `Add your Groups` on its Groups step or `Manage Groups` on
+    Personnel), focus is on `New group name`, described by the hint `Type a Group name here, then select Add.` with
+    `Dismiss hint`. The list shows `Your Groups line up here, in the order the roster shows them.`, the right pane
+    `No Groups yet` and `Name your first Group`, and there is no `Unassigned` row, `Drag to reorder` or Delete. Escape
+    dismisses the hint and keeps the dialog open; a second Escape closes it. Add `HQ Section`: the hint does not return,
+    the field is cleared and focused, and the right pane reads `No one in HQ Section yet`. Reload and reopen: no hint.
+    Capture 1440, 1024 and 390; at 390 the hint sits under the field and covers nothing.
 
 ## Group order everywhere
 

@@ -40,14 +40,17 @@
 	{:else if shown}
 		<SetupEditorLoadError subject="The rank editor" />
 	{:else}
-		<div class="grid gap-10" aria-busy="true">
+		<div class="grid gap-6" aria-busy="true">
 			<span class="sr-only">Loading the rank editor</span>
-			{#each [6, 8] as rows, index (index)}
-				<div class="grid" aria-hidden="true">
-					<Skeleton class="mb-2 h-8 w-56" />
-					{#each { length: rows }, row (row)}
-						<Skeleton class="mt-2 h-9 w-full" />
-					{/each}
+			<Skeleton class="h-8 w-56" aria-hidden="true" />
+			{#each [10, 5, 13] as chips, index (index)}
+				<div class="grid gap-3" aria-hidden="true">
+					<Skeleton class="h-5 w-32" />
+					<div class="flex flex-wrap gap-2">
+						{#each { length: chips }, chip (chip)}
+							<Skeleton class="h-8 w-20" />
+						{/each}
+					</div>
 				</div>
 			{/each}
 		</div>

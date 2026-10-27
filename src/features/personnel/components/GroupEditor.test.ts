@@ -302,3 +302,64 @@ describe('GroupEditor', () => {
 		await waitFor(() => expect(onDelete).toHaveBeenCalledWith('g-empty', null));
 	});
 });
+
+describe('GroupEditor before the first Group', () => {
+	const hintFor = (field: HTMLElement) => {
+		const id = field.getAttribute('aria-describedby');
+		return id ? document.getElementById(id) : null;
+	};
+
+	function renderEmpty(overrides: Partial<ComponentProps<typeof GroupEditor>> = {}) {
+		const props = renderEditor({ groups: [], people: [], initialSelection: null, ...overrides });
+		return { ...props, field: screen.getByRole('textbox', { name: 'New group name' }) };
+	}
+
+	it('focuses the name field with a hint, and leaves out what needs a Group', async () => {
+		const { field } = renderEmpty();
+
+		await waitFor(() => expect(document.activeElement).toBe(field));
+		expect(hintFor(field)).not.toBeNull();
+		expect(screen.queryByRole('list', { name: 'Groups in display order' })).toBeNull();
+		expect(screen.queryByRole('button', { name: /^Unassigned/ })).toBeNull();
+		expect(screen.queryByRole('button', { name: /^Delete/ })).toBeNull();
+	});
+
+	it('drops the hint on the first keystroke', async () => {
+		const { field } = renderEmpty();
+
+		await fireEvent.input(field, { target: { value: 'H' } });
+
+		expect(hintFor(field)).toBeNull();
+	});
+
+	it('drops the hint on Escape and keeps the manager open', async () => {
+		const { field, onClose } = renderEmpty();
+
+		await fireEvent.keyDown(field, { key: 'Escape' });
+
+		expect(hintFor(field)).toBeNull();
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it('drops the hint from its close button', async () => {
+		const { field } = renderEmpty();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss hint' }));
+
+		expect(hintFor(field)).toBeNull();
+	});
+
+	it('never shows the hint once a Group exists', () => {
+		renderEditor();
+
+		expect(hintFor(screen.getByRole('textbox', { name: 'New group name' }))).toBeNull();
+	});
+
+	it('explains where members come from while no one is on the roster', () => {
+		renderEditor({ groups: [groups[0]], people: [], initialSelection: 'g-hq' });
+
+		expect(screen.queryByRole('list', { name: 'Members of HQ' })).toBeNull();
+		expect(screen.queryByRole('checkbox')).toBeNull();
+		expect(screen.getByRole('region', { name: 'HQ' }).textContent).toMatch(/No one in HQ/);
+	});
+});

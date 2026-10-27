@@ -111,14 +111,21 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
    Done and `1 of 12`. Choose `Army`. Expect `Start with Groups` enabled and the status
    `Saved. Army ranks are active (30 active ranks); other services' ranks are retired and can be restored.` Until the
    refreshed count arrives the status omits it; it never shows 140 for Army.
-3. `Review them in Ranks`. Branch coverage reads Army `28 active`, Navy `0 active, 23 retired`, Air Force 19, Marine
-   Corps 26, Coast Guard 22 and Space Force 20 retired; Catalog `30 active · 110 retired · 0 custom`. Settings › Ranks
-   shows the same numbers. A new unit that only ever chose Army shows the other services `Not added`, not retired.
-4. In the embedded editor open `More actions for Navy` › `Reactivate retired ranks (23)` and confirm. The URL stays
-   `/setup/ranks`; Navy reads `23 active`; Catalog `53 active · 87 retired`. Settings › Ranks matches after reload.
-5. `/setup/groups` lists the unit's Groups (a new unit: Leadership, Alpha, Bravo, each `0 people`) under `3 groups`.
-   `Manage groups` opens the Personnel Group manager; a Group added there appears in the list on Done.
-   `Continue to Ranks` marks Groups Done.
+3. `Review them in Ranks`. `Your ranks` reads `30 on · 110 off · 1 custom` with tabs Army `28 of 28 on`, Navy
+   `0 of 23 on`, Air Force `0 of 19 on`, Marine Corps `0 of 26 on`, Coast Guard `0 of 22 on`, Space Force `0 of 20 on`
+   and Civilian `1 of 1 on`. Settings › Ranks shows the same numbers. A new unit that only ever chose Army reads
+   `30 on · 0 off · 1 custom` with only Army and Civilian tabs, `SP4` tagged `History`, and `+ Add a branch`.
+4. In the embedded editor open the Navy tab and press `Turn all Enlisted ranks on`. The URL stays `/setup/ranks`; the
+   note reads `Turned on 9 Enlisted ranks.`, Navy `9 of 23 on` and the head `39 on · 101 off · 1 custom`. Settings ›
+   Ranks matches after reload. Press a chip off and on again: each press saves without a dialog.
+5. `/setup/groups` on a new unit has no Groups: `Split the roster the way you run it` with `Add your Groups` and
+   `Skip, keep one roster`, the footer `0 groups · everyone in one roster` and no `Manage groups`. `Add your Groups`
+   opens the Group manager with focus on `New group name`, described by the hint
+   `Type a Group name here, then select Add.`; the manager shows `Name your first Group` and no Unassigned row, drag
+   label or Delete. Escape dismisses the hint and keeps the dialog open. Add `HQ Section`: the hint is gone, the field
+   is cleared and focused, and the right side reads `No one in HQ Section yet`. Close and reload: the step lists
+   `HQ Section` with `0 people`, the footer reads `1 group · changes save as you make them` and `Manage groups` shows.
+   On another new unit `Skip, keep one roster` goes to `/setup/ranks` with Groups Done and `2 of 12`.
 6. Continue from Ranks to Personnel: `0 people so far`, `A handful of people?` with `Add a person`, and the import drop
    zone with `Columns we look for`. `Continue to Calendar` with nobody on the roster, or before the count loads, marks
    Personnel `later`.
@@ -126,8 +133,8 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
    new unit, and no `Back to Calendar`. `Continue to Training` marks Calendar Done: `5 of 12`.
 8. Back on Personnel, `Add a person`, fill Last name `Fixround`, First name `Jane` and MOS `68W`, then `Add person`.
    Without a reload expect `1 person so far` and the rail's Personnel row Done. A reload keeps both.
-9. As `orgAdmin` on the fixture unit every step shows the same editor actions (`Manage groups`, rank pack buttons,
-   `Add a person`, the drop zone, Calendar `Add new`), and choosing a service saves.
+9. As `orgAdmin` on the fixture unit every step shows the same editor actions (`Manage groups`, rank chips,
+   `+ Add a branch`, `Add a person`, the drop zone, Calendar `Add new`), and choosing a service saves.
 10. `$V fault arm org-setup-ranks-references`, reload `/setup/ranks`. Expect an alert
     `The rank editor could not be loaded` with Retry, the rail states unchanged and `Continue to Personnel` enabled.
     `$V fault state` shows one match on `GET /rest/v1/training_types`. Restore, then Retry shows the editor.
@@ -137,7 +144,7 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
     at 1024. On Personnel, upload a 14-row CSV and reach `3 OF 4 · REVIEW`: at 1440 and 390 px, mid-scroll and at the
     end, the review bar's `Import 14 changes` sits above the setup footer (bar bottom 805 at 1440 and 760 at 390, footer
     top 828 and 780) and both take clicks.
-12. Rank errors on the setup page: on `/setup/ranks` choose `Add custom rank`, Code `SGT`, Label `Squad Sergeant`, then
+12. Rank errors on the setup page: on `/setup/ranks` choose `+ Custom rank`, Code `SGT`, Label `Squad Sergeant`, then
     `Add rank`. Expect the URL unchanged, Code marked invalid and described by
     `Rank catalog entry already exists. Edit it instead.`, and both typed values kept. Settings › Ranks shows the same
     error for the same input.

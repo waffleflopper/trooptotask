@@ -40,7 +40,6 @@ const sergeant: SettingsRankCatalogRow = {
 	payGradeLabel: 'E-5',
 	state: 'active',
 	source: 'built-in',
-	sourceLabel: 'Built-in',
 	sortOrder: 500,
 	referenceSummary: {
 		code: 'SGT',
@@ -49,7 +48,7 @@ const sergeant: SettingsRankCatalogRow = {
 		canDelete: false
 	},
 	warnings: [],
-	commands: { canEdit: false, canRetire: true, canReactivate: false, canDelete: false, deleteDisabledReason: null }
+	commands: { canEdit: false, canDelete: false, deleteDisabledReason: null }
 };
 
 const ranksSettings: RanksSettingsData = {
@@ -64,8 +63,7 @@ const ranksSettings: RanksSettingsData = {
 					{ value: 'custom', label: 'Custom' }
 				],
 				categories: [{ value: 'custom', label: 'Custom' }],
-				payGrades: [{ value: 'ungraded', label: 'Ungraded' }],
-				states: [{ value: 'active', label: 'Active' }]
+				payGrades: [{ value: 'ungraded', label: 'Ungraded' }]
 			},
 			entries: { active: [sergeant], retired: [] }
 		}
@@ -86,7 +84,7 @@ async function renderRanksStep() {
 			step: SetupRanksStep
 		}
 	});
-	await fireEvent.click(await screen.findByRole('button', { name: 'Add custom rank' }));
+	await fireEvent.click(await screen.findByRole('button', { name: '+ Custom rank' }));
 	await fireEvent.input(screen.getByLabelText('Code'), { target: { value: 'SGT' } });
 	await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Squad Sergeant' } });
 	const add = screen.getByRole('button', { name: 'Add rank' }) as HTMLButtonElement;
@@ -141,7 +139,7 @@ it('keeps the editor and offers Retry when a refresh after a change fails', asyn
 	render(SetupStepHarness, {
 		props: { source: stepSource('ranks'), navigate: vi.fn(async () => {}), step: SetupRanksStep }
 	});
-	await screen.findByRole('button', { name: 'Add custom rank' });
+	await screen.findByRole('button', { name: '+ Custom rank' });
 	expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
 
 	const refresh = Promise.reject(new Error('upstream'));
@@ -149,5 +147,5 @@ it('keeps the editor and offers Retry when a refresh after a change fails', asyn
 	page.data = { ranksSettings: refresh };
 
 	await screen.findByRole('button', { name: 'Retry' });
-	expect(screen.getByRole('button', { name: 'Add custom rank' })).toBeInTheDocument();
+	expect(screen.getByRole('button', { name: '+ Custom rank' })).toBeInTheDocument();
 });

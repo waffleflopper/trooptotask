@@ -26,5 +26,8 @@ export interface RankCatalogPersistence {
 	listEntries(): Promise<SavedRankCatalogEntry[]>;
 	findEntryByCode(code: string): Promise<SavedRankCatalogEntry | null>;
 	saveEntries(entries: RankCatalogSave[]): Promise<SavedRankCatalogEntry[]>;
-	patchEntryById(id: string, values: RankCatalogValues): Promise<SavedRankCatalogEntry>;
+	patchEntryById(
+		id: string,
+		values: Omit<RankCatalogValues, 'state'> & { state?: RankState }
+	): Promise<SavedRankCatalogEntry>;
 }

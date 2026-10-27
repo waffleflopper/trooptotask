@@ -222,9 +222,12 @@ export async function saveOrganizationRankCatalogEntry(
 				...builtInEntry,
 				state: existing?.source === 'built-in' ? existing.state : builtInEntry.state
 			}
-		: entry;
+		: { ...entry, state: 'active' as const };
 	const source = builtInEntry ? 'built-in' : (existing?.source ?? 'custom');
-	const [saved] = await ports.rankCatalog.saveEntries([serializeRankCatalogEntry(entryToSave, source)]);
+	const { state, ...details } = serializeRankCatalogEntry(entryToSave, source);
+	const saved = existing
+		? await ports.rankCatalog.patchEntryById(existing.id, details)
+		: (await ports.rankCatalog.saveEntries([{ ...details, state }]))[0];
 
 	if (!saved) {
 		fail(500, 'Failed to save rank catalog entry');
@@ -432,70 +435,61 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 	return codes.map((code) => summaries.get(code) ?? createEmptyReferenceSummary(code));
 }
 
-export async function retireOrganizationRankCatalogEntry(
+/**
+ * Sets each listed rank to its state in one write. A built-in rank missing from an added branch pack is inserted, so
+ * turning on a pack rank that was never added and turning on an existing one are the same request.
+ */
+export async function setOrganizationRankCatalogStates(
 	ports: RankCatalogPorts,
-	input: { code: string }
-): Promise<OrganizationRankCatalogEntry> {
+	input: { changes: ReadonlyArray<{ code: string; state: RankState }> }
+): Promise<{ changedCount: number }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
 
-	const code = sanitizeString(input.code, 80);
-	if (!code) {
-		fail(400, RANK_CODE_REQUIRED_MESSAGE);
+	const targets = new Map<string, RankState>();
+	for (const change of input.changes) {
+		const code = sanitizeString(change.code, 80);
+		if (!code) fail(400, RANK_CODE_REQUIRED_MESSAGE);
+		if (!RANK_STATES.has(change.state)) fail(400, 'Invalid rank state');
+		targets.set(code, change.state);
+	}
+	if (targets.size === 0) fail(400, 'Choose at least one rank');
+
+	const existing = await ports.rankCatalog.listEntries();
+	const existingByCode = new Map(existing.map((entry) => [entry.code, entry]));
+	const existingServices = new Set(
+		existing.filter((entry) => entry.source === 'built-in').map((entry) => entry.service)
+	);
+	const rowsToSave: RankCatalogSave[] = [];
+	for (const [code, state] of targets) {
+		const entry = existingByCode.get(code);
+		if (entry) {
+			if (entry.state !== state)
+				rowsToSave.push(serializeRankCatalogEntry({ ...deserializeRankCatalogRow(entry), state }, entry.source));
+			continue;
+		}
+		const builtIn = BUILT_IN_RANK_CATALOG.find((candidate) => candidate.code === code);
+		if (
+			!builtIn ||
+			!existingServices.has(builtIn.service) ||
+			existing.some((row) => row.source !== 'built-in' && row.code.toUpperCase() === code.toUpperCase())
+		) {
+			fail(404, 'Rank catalog entry not found');
+		}
+		rowsToSave.push(serializeRankCatalogEntry({ ...builtIn, state }, 'built-in'));
 	}
 
-	const existing = await ports.rankCatalog.findEntryByCode(code);
-	if (!existing) {
-		fail(404, 'Rank catalog entry not found');
-	}
-
-	const [saved] = await ports.rankCatalog.saveEntries([{ ...existing, state: 'retired' }]);
-
-	if (!saved) {
-		fail(500, 'Failed to retire rank catalog entry');
-	}
-
-	const retiredEntry = deserializeRankCatalogRow(saved);
-	ports.audit.log({
-		action: 'organization.rank_catalog.retired',
+	const saved = await ports.rankCatalog.saveEntries(rowsToSave);
+	await ports.audit.log({
+		action: 'organization.rank_catalog.bulk_state_changed',
 		resourceType: 'organization_rank_catalog',
-		resourceId: saved.id,
-		details: rankCatalogAuditDetails(retiredEntry)
+		resourceId: ports.auth.orgId,
+		details: {
+			changedCount: saved.length,
+			changes: saved.map((row) => ({ code: row.code, state: row.state }))
+		}
 	});
 
-	return retiredEntry;
-}
-
-export async function reactivateOrganizationRankCatalogEntry(
-	ports: RankCatalogPorts,
-	input: { code: string }
-): Promise<OrganizationRankCatalogEntry> {
-	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
-
-	const code = sanitizeString(input.code, 80);
-	if (!code) {
-		fail(400, RANK_CODE_REQUIRED_MESSAGE);
-	}
-
-	const existing = await ports.rankCatalog.findEntryByCode(code);
-	if (!existing) {
-		fail(404, 'Rank catalog entry not found');
-	}
-
-	const [saved] = await ports.rankCatalog.saveEntries([{ ...existing, state: 'active' }]);
-
-	if (!saved) {
-		fail(500, 'Failed to reactivate rank catalog entry');
-	}
-
-	const reactivatedEntry = deserializeRankCatalogRow(saved);
-	ports.audit.log({
-		action: 'organization.rank_catalog.reactivated',
-		resourceType: 'organization_rank_catalog',
-		resourceId: saved.id,
-		details: rankCatalogAuditDetails(reactivatedEntry)
-	});
-
-	return reactivatedEntry;
+	return { changedCount: saved.length };
 }
 
 export async function removeOrganizationRankCatalogEntry(
@@ -629,7 +623,7 @@ function serializeRankCatalogEntry(entry: RankCatalogEntry, source: Organization
 	};
 }
 
-function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput): RankCatalogEntry {
+function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput): Omit<RankCatalogEntry, 'state'> {
 	const code = sanitizeString(input.code, 80);
 	const label = sanitizeString(input.label, 120);
 
@@ -648,9 +642,6 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 	if (!isValidRankPayGrade(input.payGrade)) {
 		fail(400, 'Invalid rank pay grade');
 	}
-	if (!RANK_STATES.has(input.state)) {
-		fail(400, 'Invalid rank state');
-	}
 
 	const sortOrder = Number.isFinite(input.sortOrder) ? input.sortOrder : 0;
 	if (!Number.isInteger(sortOrder) || sortOrder < RANK_TIE_BREAK_MIN || sortOrder > RANK_TIE_BREAK_MAX) {
@@ -658,9 +649,11 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 	}
 
 	return {
-		...input,
 		code: resolveBuiltInRank(code)?.code ?? code,
 		label,
+		service: input.service,
+		category: input.category,
+		payGrade: input.payGrade,
 		sortOrder
 	};
 }

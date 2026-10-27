@@ -134,3 +134,20 @@ it('holds Continue while a rank save is in flight, then stays on the step when i
 	await fireEvent.click(next);
 	await waitFor(() => expect(navigate).toHaveBeenCalledWith('/org/alpha/setup/personnel'));
 });
+
+it('keeps the editor and offers Retry when a refresh after a change fails', async () => {
+	page.data = { ranksSettings: Promise.resolve(ranksSettings) };
+	vi.stubGlobal('fetch', vi.fn(answerEndpoint()));
+	render(SetupStepHarness, {
+		props: { source: stepSource('ranks'), navigate: vi.fn(async () => {}), step: SetupRanksStep }
+	});
+	await screen.findByRole('button', { name: 'Add custom rank' });
+	expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+
+	const refresh = Promise.reject(new Error('upstream'));
+	refresh.catch(() => {});
+	page.data = { ranksSettings: refresh };
+
+	await screen.findByRole('button', { name: 'Retry' });
+	expect(screen.getByRole('button', { name: 'Add custom rank' })).toBeInTheDocument();
+});

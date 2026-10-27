@@ -53,6 +53,7 @@
 	const streamed = $derived(page.data.personnel as PersonnelWorkspaceRouteData['personnel'] | undefined);
 
 	let view = $state.raw<View>({ status: 'loading' });
+	let stale = $state(false);
 
 	function context(data: PersonnelWorkspaceData) {
 		return new PersonnelPageContext(
@@ -90,10 +91,15 @@
 					return;
 				}
 				await personnelWorkspaceHydrator.hydrate(workspace.hydration, stores);
-				if (!cancelled) view = { status: 'ready', ctx: context(workspace.data) };
+				if (!cancelled) {
+					view = { status: 'ready', ctx: context(workspace.data) };
+					stale = false;
+				}
 			},
 			onReject: () => {
-				if (!cancelled && view.status !== 'ready') view = { status: 'failed' };
+				if (cancelled) return;
+				if (view.status === 'ready') stale = true;
+				else view = { status: 'failed' };
 			}
 		});
 		return () => {
@@ -118,6 +124,9 @@
 </script>
 
 {#if view.status === 'ready'}
+	{#if stale}
+		<SetupEditorLoadError subject={subject[0].toUpperCase() + subject.slice(1)} stale />
+	{/if}
 	{@render children(view.ctx)}
 	{#await loadPersonnelModals() then { default: PersonnelModals }}
 		<PersonnelModals ctx={view.ctx} {modals} />

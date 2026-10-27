@@ -23,6 +23,7 @@
 	);
 
 	let view = $state<'loading' | 'ready' | 'restricted' | 'failed'>('loading');
+	let stale = $state(false);
 	const saving = $derived(calendarSettingsSaving());
 
 	// The same hydration the Calendar layout runs, so the settings editors read the stores they always read.
@@ -39,10 +40,15 @@
 					return;
 				}
 				await calendarWorkspaceHydrator.hydrate(calendar.hydration);
-				if (!cancelled) view = 'ready';
+				if (!cancelled) {
+					view = 'ready';
+					stale = false;
+				}
 			},
 			onReject: () => {
-				if (!cancelled && view !== 'ready') view = 'failed';
+				if (cancelled) return;
+				if (view === 'ready') stale = true;
+				else view = 'failed';
 			}
 		});
 		return () => {
@@ -59,6 +65,9 @@
 		nothing is locked in.
 	</SetupEditorNote>
 	{#if view === 'ready'}
+		{#if stale}
+			<SetupEditorLoadError subject="Calendar settings" stale />
+		{/if}
 		<CalendarSettingsPage {org} {rankCatalog} embedded />
 	{:else if view === 'failed'}
 		<SetupEditorLoadError subject="Calendar settings" />

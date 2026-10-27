@@ -9,13 +9,13 @@
 	const streamed = $derived(page.data.ranksSettings as Promise<RanksSettingsData> | undefined);
 
 	// A reload after a rank change keeps the editor on screen until the fresh catalog arrives.
-	let shown = $state.raw<{ ranks: RanksSettingsData } | { failed: true } | null>(null);
+	let shown = $state.raw<{ ranks: RanksSettingsData; stale?: true } | { failed: true } | null>(null);
 	$effect(() => {
 		const pending = streamed;
 		let live = true;
 		pending?.then(
 			(ranks) => live && (shown = { ranks }),
-			() => live && !(shown && 'ranks' in shown) && (shown = { failed: true })
+			() => live && (shown = shown && 'ranks' in shown ? { ranks: shown.ranks, stale: true } : { failed: true })
 		);
 		return () => (live = false);
 	});
@@ -28,6 +28,9 @@
 		This is the same editor as Settings › Ranks. Anything you change here is there later, and nothing is locked in.
 	</SetupEditorNote>
 	{#if shown && 'ranks' in shown}
+		{#if shown.stale}
+			<SetupEditorLoadError subject="The rank editor" stale />
+		{/if}
 		<RanksSettingsPage
 			ranksSettings={shown.ranks}
 			form={page.form}

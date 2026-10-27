@@ -4,9 +4,12 @@
 	import SetupGroupsStep from './SetupGroupsStep.svelte';
 	import SetupPersonnelStep from './SetupPersonnelStep.svelte';
 	import SetupRanksStep from './SetupRanksStep.svelte';
+
+	let { data } = $props();
 </script>
 
 <SetupStepPage
+	orgName={data.orgName}
 	delivered={{
 		groups: SetupGroupsStep,
 		ranks: SetupRanksStep,

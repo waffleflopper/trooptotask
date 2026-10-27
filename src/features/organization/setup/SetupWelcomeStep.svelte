@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
-	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import type { SetupBranch } from './branch';
@@ -27,7 +26,6 @@
 
 	const flow = getSetupFlow();
 	const id = $props.id();
-	const orgName = $derived(String(page.data.orgName ?? ''));
 
 	let saving = $state<SetupBranch | null>(null);
 	let failure = $state<string | null>(null);
@@ -59,17 +57,6 @@
 </script>
 
 <div class="flex flex-col gap-10">
-	<p class="font-heading text-2xl leading-7 font-bold uppercase lg:text-[32px] lg:leading-9">
-		<span class="sr-only">Unit:</span>
-		{orgName}
-		<a
-			class="ml-2 align-middle font-sans text-sm font-normal tracking-normal normal-case underline underline-offset-4"
-			href="{flow.dashboardHref}/settings/general"
-		>
-			Rename <span class="sr-only">the unit</span> in Settings
-		</a>
-	</p>
-
 	<section class="grid gap-3" aria-labelledby="{id}-branch" aria-describedby="{id}-hint">
 		<h2 id="{id}-branch" class="font-heading text-2xl leading-7 font-bold">Which service is your unit?</h2>
 		<p id="{id}-hint" class="text-sm leading-5 text-muted-foreground">

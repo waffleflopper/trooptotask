@@ -16,8 +16,10 @@
 	};
 
 	let {
+		orgName = '',
 		delivered = {}
 	}: {
+		orgName?: string;
 		/** Bodies that embed another feature's editor. Organization cannot import those, so the route composes them. */
 		delivered?: Partial<Record<SetupStepKey, Component>>;
 	} = $props();
@@ -35,7 +37,7 @@
 			Step {flow.position + 1} of {flow.rail.length} · {SETUP_GROUP_LABELS[step.group]}
 		</p>
 		<h1 class="font-heading text-[40px] leading-10 font-extrabold uppercase lg:text-5xl lg:leading-12">
-			{step.title}
+			{step.key === 'welcome' && orgName ? `Let's set up ${orgName}` : step.title}
 		</h1>
 		<p class="text-base leading-6">{step.pitch}</p>
 	</div>

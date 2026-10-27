@@ -170,11 +170,11 @@
 		</div>
 	</div>
 
-	<div class="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
-		<div class="min-w-0 lg:order-2">
+	<div class="grid min-w-0 gap-4 @min-[42rem]:grid-cols-[minmax(0,1fr)_17rem] @min-[42rem]:items-start">
+		<div class="min-w-0 @min-[42rem]:order-2">
 			<FixRail {session} onCreate={create} />
 		</div>
-		<div class="grid min-w-0 gap-2 lg:order-1" bind:clientWidth={width} bind:this={listArea}>
+		<div class="grid min-w-0 gap-2 @min-[42rem]:order-1" bind:clientWidth={width} bind:this={listArea}>
 			<VirtualList
 				items={rows}
 				key={(row) => row.row.id}

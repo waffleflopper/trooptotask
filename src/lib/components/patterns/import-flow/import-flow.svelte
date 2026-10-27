@@ -113,18 +113,21 @@
 	</PageShell.Root>
 {/if}
 
+<!-- The steps lay out by the flow's own width, so an embedded flow in a narrow column stacks. -->
 {#snippet flow()}
-	{#if !lane}
-		<ImportFlowSkeleton />
-	{:else if session.phase.step === 'file'}
-		<FileStep {session} />
-	{:else if session.phase.step === 'columns'}
-		<ColumnsStep {session} onBack={back} />
-	{:else if session.phase.step === 'review' || session.phase.step === 'committing'}
-		<ReviewStep {session} onBack={back} />
-	{:else}
-		<DoneStep {session} receipt={session.phase.receipt} />
-	{/if}
+	<div class="@container min-w-0">
+		{#if !lane}
+			<ImportFlowSkeleton />
+		{:else if session.phase.step === 'file'}
+			<FileStep {session} />
+		{:else if session.phase.step === 'columns'}
+			<ColumnsStep {session} onBack={back} />
+		{:else if session.phase.step === 'review' || session.phase.step === 'committing'}
+			<ReviewStep {session} onBack={back} />
+		{:else}
+			<DoneStep {session} receipt={session.phase.receipt} />
+		{/if}
+	</div>
 {/snippet}
 
 {#if leaveTarget}

@@ -102,74 +102,77 @@
 		<Button href={`/org/${orgUrlSegment}/calendar`} size="sm">View calendar</Button>
 	</div>
 {:else}
-	<Tabs.Root
-		bind:value={activeSection}
-		orientation="vertical"
-		class="min-h-[600px] flex-col gap-0 overflow-hidden rounded-md border border-border bg-background lg:flex-row"
-	>
-		<aside
-			class="flex w-full shrink-0 flex-col border-b border-border bg-muted/30 lg:w-[260px] lg:border-r lg:border-b-0"
+	<!-- Sized by its own width: Organization setup shows this page in a narrower column. -->
+	<div class="@container">
+		<Tabs.Root
+			bind:value={activeSection}
+			orientation="vertical"
+			class="min-h-[600px] flex-col gap-0 overflow-hidden rounded-md border border-border bg-background @min-[42rem]:flex-row"
 		>
-			<div class="flex items-center gap-2 border-b border-border px-5 py-4">
-				<Settings class="size-4 text-muted-foreground" />
-				<h2 class="text-sm font-semibold tracking-tight">Calendar Settings</h2>
-			</div>
-
-			<div class="flex-1 p-2">
-				<Tabs.List aria-label="Calendar settings sections" class="w-full">
-					{#each sectionDefs as section (section.key)}
-						<Tabs.Trigger value={section.key}>
-							<section.icon />
-							{section.label}
-							<Badge variant="secondary" class="ml-auto">{section.getCount()}</Badge>
-						</Tabs.Trigger>
-					{/each}
-				</Tabs.List>
-			</div>
-		</aside>
-
-		<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-			<div class="flex flex-col gap-3 border-b border-border px-6 py-4">
-				<div>
-					<h3 class="text-base font-semibold">{activeSectionDef.label}</h3>
-					<p class="text-sm text-muted-foreground">{activeSectionDef.description}</p>
+			<aside
+				class="flex w-full shrink-0 flex-col border-b border-border bg-muted/30 @min-[42rem]:w-[260px] @min-[42rem]:border-r @min-[42rem]:border-b-0"
+			>
+				<div class="flex items-center gap-2 border-b border-border px-5 py-4">
+					<Settings class="size-4 text-muted-foreground" />
+					<h2 class="text-sm font-semibold tracking-tight">Calendar Settings</h2>
 				</div>
-				<WorkspaceToolbar
-					ariaLabel="Calendar settings controls"
-					items={toolbarItems}
-					search={{
-						label: `Filter ${activeSectionDef.label}`,
-						placeholder: 'Filter...',
-						value: searchQuery,
-						onValueChange: (value) => (searchQuery = value)
-					}}
-					primary={canMutate
-						? {
-								kind: 'action',
-								id: 'add-new',
-								label: activeSectionDef.addLabel ?? 'Add new',
-								icon: 'plus',
-								onclick: openAddForActiveSection
-							}
-						: undefined}
-				/>
-			</div>
 
-			<Tabs.Content value="status" class="overflow-y-auto p-6">
-				{#if activeSection === 'status'}
-					<CalendarStatusSettingsSection bind:this={statusSection} {canMutate} {searchQuery} />
-				{/if}
-			</Tabs.Content>
-			<Tabs.Content value="assignments" class="overflow-y-auto p-6">
-				{#if activeSection === 'assignments'}
-					<CalendarAssignmentSettingsSection bind:this={assignmentSection} {canMutate} {searchQuery} {rankCatalog} />
-				{/if}
-			</Tabs.Content>
-			<Tabs.Content value="closures" class="overflow-y-auto p-6">
-				{#if activeSection === 'closures'}
-					<CalendarClosureSettingsSection bind:this={closureSection} {canMutate} {searchQuery} />
-				{/if}
-			</Tabs.Content>
-		</div>
-	</Tabs.Root>
+				<div class="flex-1 p-2">
+					<Tabs.List aria-label="Calendar settings sections" class="w-full">
+						{#each sectionDefs as section (section.key)}
+							<Tabs.Trigger value={section.key}>
+								<section.icon />
+								{section.label}
+								<Badge variant="secondary" class="ml-auto">{section.getCount()}</Badge>
+							</Tabs.Trigger>
+						{/each}
+					</Tabs.List>
+				</div>
+			</aside>
+
+			<div class="@container flex min-w-0 flex-1 flex-col overflow-hidden">
+				<div class="flex flex-col gap-3 border-b border-border px-6 py-4">
+					<div>
+						<h3 class="text-base font-semibold">{activeSectionDef.label}</h3>
+						<p class="text-sm text-muted-foreground">{activeSectionDef.description}</p>
+					</div>
+					<WorkspaceToolbar
+						ariaLabel="Calendar settings controls"
+						items={toolbarItems}
+						search={{
+							label: `Filter ${activeSectionDef.label}`,
+							placeholder: 'Filter...',
+							value: searchQuery,
+							onValueChange: (value) => (searchQuery = value)
+						}}
+						primary={canMutate
+							? {
+									kind: 'action',
+									id: 'add-new',
+									label: activeSectionDef.addLabel ?? 'Add new',
+									icon: 'plus',
+									onclick: openAddForActiveSection
+								}
+							: undefined}
+					/>
+				</div>
+
+				<Tabs.Content value="status" class="overflow-y-auto p-6">
+					{#if activeSection === 'status'}
+						<CalendarStatusSettingsSection bind:this={statusSection} {canMutate} {searchQuery} />
+					{/if}
+				</Tabs.Content>
+				<Tabs.Content value="assignments" class="overflow-y-auto p-6">
+					{#if activeSection === 'assignments'}
+						<CalendarAssignmentSettingsSection bind:this={assignmentSection} {canMutate} {searchQuery} {rankCatalog} />
+					{/if}
+				</Tabs.Content>
+				<Tabs.Content value="closures" class="overflow-y-auto p-6">
+					{#if activeSection === 'closures'}
+						<CalendarClosureSettingsSection bind:this={closureSection} {canMutate} {searchQuery} />
+					{/if}
+				</Tabs.Content>
+			</div>
+		</Tabs.Root>
+	</div>
 {/if}

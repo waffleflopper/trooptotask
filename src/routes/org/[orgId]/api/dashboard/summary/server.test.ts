@@ -247,6 +247,7 @@ const expectedTrainingSummary = {
 	],
 	expiredByType: [{ trainingTypeId: 'type-cpr', personnelIds: ['p-ann'], maxDaysLate: 277 }],
 	expiredPersonnelCount: 1,
+	missingPersonnelCount: 0,
 	groupDelinquencies: [{ groupId: 'g-alpha', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }]
 };
 

@@ -277,7 +277,8 @@ describe('literal Dashboard Training person attribution', () => {
 					['baker', 'required', '2025-01-01'],
 					['baker', 'second', '2025-01-01'],
 					['unassigned', 'required', '2025-01-01'],
-					['current', 'required', '2027-09-29']
+					['current', 'required', '2027-09-29'],
+					['current', 'second', '2027-09-29']
 				].map(([personnelId, typeId, expiry], index) => ({
 					id: `completion-${index}`,
 					organization_id: ORG,

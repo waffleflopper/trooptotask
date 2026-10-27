@@ -46,6 +46,7 @@ function expiredSummary(
 			issues: [],
 			expiredByType: expiredByType.map((expired) => ({ ...expired, maxDaysLate: 12 })),
 			expiredPersonnelCount: 3,
+			missingPersonnelCount: 0,
 			groupDelinquencies: []
 		},
 		ictlSummary: null,
@@ -139,6 +140,7 @@ describe('the Dashboard record overlay', () => {
 				issues: [],
 				expiredByType: [],
 				expiredPersonnelCount: 0,
+				missingPersonnelCount: 0,
 				groupDelinquencies: []
 			},
 			ictlSummary: null,

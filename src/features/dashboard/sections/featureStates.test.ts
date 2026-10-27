@@ -89,6 +89,7 @@ function unit(overrides: Partial<SetUp> = {}): DashboardInputs {
 					issues: [],
 					expiredByType: [],
 					expiredPersonnelCount: 0,
+					missingPersonnelCount: 0,
 					groupDelinquencies: []
 				},
 		ictlSummary: setUp.summaryFailed

@@ -145,6 +145,7 @@ describe('trainingReadiness', () => {
 				shares: [
 					{ label: 'current', count: 1, tone: 'good' },
 					{ label: 'expiring', count: 2, tone: 'warning' },
+					{ label: 'missing records', count: 0, tone: 'critical' },
 					{ label: 'expired', count: 1, tone: 'critical' }
 				]
 			},

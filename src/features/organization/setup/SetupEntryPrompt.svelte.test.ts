@@ -138,6 +138,30 @@ describe('SetupEntryPrompt', () => {
 		expect(posts).toEqual([{ key: 'eventsAndTaskings', choice: 'never' }]);
 	});
 
+	it.each([
+		{ prompt: { kind: 'invitation' } as const, key: 'setup' },
+		{ prompt: { kind: 'newFeature', step: 'eventsAndTaskings' } as const, key: 'eventsAndTaskings' }
+	])('counts Escape on the $prompt.kind prompt as Remind me tomorrow', async ({ prompt, key }) => {
+		renderPrompt({ entry: entry(prompt), invitationProgress: progress() });
+
+		await fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(posts).toEqual([{ key, choice: 'tomorrow' }]);
+		expect(invalidate).toHaveBeenLastCalledWith('app:organization-setup');
+	});
+
+	it('keeps the invitation open with the error when the dismissal fails to save', async () => {
+		respond = () => Response.json({ message: 'Setup state is unavailable' }, { status: 503 });
+		renderPrompt({ entry: entry({ kind: 'invitation' }), invitationProgress: progress() });
+
+		await fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+
+		expect(await screen.findByRole('alert')).toHaveTextContent('Setup state is unavailable');
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		expect(posts).toEqual([{ key: 'setup', choice: 'tomorrow' }]);
+	});
+
 	it('renders nothing without a prompt or for another Organization', async () => {
 		const decisions: boolean[] = [];
 		const onDecide = (prompted: boolean) => decisions.push(prompted);

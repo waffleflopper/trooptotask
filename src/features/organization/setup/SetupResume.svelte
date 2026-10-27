@@ -9,6 +9,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import type { SetupEntryData } from './entry';
 	import type { SetupModel } from './model';
+	import { SETUP_STEPS } from './registry';
 	import { fetchSetupProgress, postSetupPromptChoice, setupErrorMessage } from './setupClient';
 	import { SETUP_GROUP_LABELS } from './setupFlow.svelte';
 
@@ -43,8 +44,9 @@
 		};
 	});
 
-	const neverAsked = $derived(
-		resolved !== null && resolved.state.prompts.setup !== undefined && 'never' in resolved.state.prompts.setup
+	const resume = $derived(resolved?.entry.resume ?? null);
+	const newStep = $derived(
+		resume?.kind === 'newFeature' ? SETUP_STEPS.find(({ key }) => key === resume.step) : undefined
 	);
 
 	async function load() {
@@ -60,7 +62,10 @@
 		}
 	}
 
-	function onOpenChange(next: boolean) {
+	/** A pending Never ask again keeps the popover open, so its success still refreshes the entry. */
+	function setOpen(next: boolean) {
+		if (next === open || pending) return;
+		open = next;
 		if (next) void load();
 		else request++;
 	}
@@ -87,8 +92,8 @@
 	}
 </script>
 
-{#if resolved && resolved.entry.resume !== null}
-	<Popover.Root bind:open {onOpenChange}>
+{#if resume?.kind === 'setup'}
+	<Popover.Root bind:open={() => open, setOpen}>
 		<Popover.Trigger>
 			{#snippet child({ props })}
 				<Button {...props} variant="outline" size="sm" aria-label="Resume setup" data-setup-resume>
@@ -169,10 +174,19 @@
 				{:else if progress.status === 'error'}
 					<Button variant="outline" onclick={load}>Try again</Button>
 				{/if}
-				{#if !neverAsked}
-					<Button variant="ghost" class="ml-auto" disabled={pending} onclick={neverAskAgain}>Never ask again</Button>
-				{/if}
+				<Button variant="ghost" class="ml-auto" disabled={pending} onclick={neverAskAgain}>Never ask again</Button>
 			</div>
 		</Popover.Content>
 	</Popover.Root>
+{:else if newStep}
+	<Button
+		href={`/org/${orgUrlSegment}/setup/${newStep.slug}`}
+		variant="outline"
+		size="sm"
+		aria-label={`New: ${newStep.title}`}
+		data-setup-new-feature
+	>
+		<span class="size-2 shrink-0 rounded-full bg-info" aria-hidden="true"></span>
+		New<span class="hidden sm:inline">: {newStep.title}</span>
+	</Button>
 {/if}

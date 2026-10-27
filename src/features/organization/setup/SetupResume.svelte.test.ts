@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SetupEntryData } from './entry';
+import { setupEntry, type SetupEntryData } from './entry';
+import { SETUP_STEPS } from './registry';
 import SetupResume from './SetupResume.svelte';
 
 const { invalidate } = vi.hoisted(() => ({ invalidate: vi.fn(async (_dependency: string) => {}) }));
@@ -10,6 +11,7 @@ vi.mock('$app/navigation', () => ({ invalidate, goto: vi.fn() }));
 
 const requests: string[] = [];
 let progress: () => Response;
+let prompt: () => Promise<Response>;
 
 const step = (key: string, slug: string, title: string, group: string) => ({
 	key,
@@ -23,6 +25,9 @@ const step = (key: string, slug: string, title: string, group: string) => ({
 
 beforeEach(() => {
 	requests.length = 0;
+	invalidate.mockClear();
+	prompt = async () =>
+		Response.json({ branch: 'army', answers: {}, finishedAt: null, prompts: { setup: { never: true } } });
 	progress = () =>
 		Response.json({
 			steps: [],
@@ -37,9 +42,9 @@ beforeEach(() => {
 			total: 12,
 			firstUnansweredSlug: 'critical-tasks'
 		});
-	vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
-		requests.push(String(input));
-		return progress();
+	vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+		requests.push(`${init?.method ?? 'GET'} ${input}`);
+		return init?.method === 'POST' ? prompt() : progress();
 	});
 });
 
@@ -68,7 +73,7 @@ describe('SetupResume', () => {
 		await fireEvent.click(button);
 
 		expect(await screen.findByText('10 of 12')).toBeInTheDocument();
-		expect(requests).toEqual(['/org/alpha/api/organization/setup/progress']);
+		expect(requests).toEqual(['GET /org/alpha/api/organization/setup/progress']);
 		expect(screen.getByRole('link', { name: /Critical tasks/ })).toHaveAttribute(
 			'href',
 			'/org/alpha/setup/critical-tasks'
@@ -93,5 +98,46 @@ describe('SetupResume', () => {
 
 		await view.rerender({ entry: entry(true) });
 		expect(await screen.findByRole('button', { name: 'Resume setup' })).toBeInTheDocument();
+	});
+
+	it('refreshes after Never ask again even when Escape is pressed while it saves', async () => {
+		let reply!: (response: Response) => void;
+		prompt = () => new Promise((resolve) => (reply = resolve));
+		renderResume(entry(true));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Resume setup' }));
+		await screen.findByText('10 of 12');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Never ask again' }));
+		await fireEvent.keyDown(document.body, { key: 'Escape' });
+		reply(Response.json({ branch: 'army', answers: {}, finishedAt: null, prompts: { setup: { never: true } } }));
+
+		await waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:organization-setup'));
+		expect(requests).toEqual([
+			'GET /org/alpha/api/organization/setup/progress',
+			'POST /org/alpha/api/organization/setup/prompt'
+		]);
+	});
+
+	it('names a pending new feature after Never ask again and links to its step', async () => {
+		const events = SETUP_STEPS.find(({ key }) => key === 'eventsAndTaskings')!;
+		const state: SetupEntryData['state'] = {
+			branch: 'army',
+			answers: {},
+			finishedAt: null,
+			prompts: { setup: { never: true } }
+		};
+		const decision = setupEntry({
+			isOwner: true,
+			state,
+			registry: [{ ...events, since: '2026-10-20' }],
+			disabledFeatures: [],
+			organizationCreatedOn: '2026-01-05',
+			today: '2026-10-27'
+		});
+		renderResume(Promise.resolve({ orgId: 'org-1', today: '2026-10-27', state, entry: decision }));
+
+		const link = await screen.findByRole('link', { name: /Events & Taskings/ });
+		expect(link).toHaveAttribute('href', '/org/alpha/setup/events-and-taskings');
+		expect(screen.queryByRole('button', { name: 'Resume setup' })).toBeNull();
 	});
 });

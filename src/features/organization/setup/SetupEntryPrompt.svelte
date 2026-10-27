@@ -95,12 +95,23 @@
 		close();
 		await invalidate('app:organization-setup');
 	}
+
+	/** Escape or an outside click is Not now with its default, so the invitation does not return on the next visit. */
+	function dismiss(event: Event, prompt: Prompt) {
+		event.preventDefault();
+		void choose(prompt, 'tomorrow');
+	}
 </script>
 
 {#if visit.phase === 'open'}
 	{@const prompt = visit.prompt}
-	<AppDialog.Root open voice="announcement" busy={pending} onClose={close}>
-		<AppDialog.Content data-setup-prompt={prompt.kind}>
+	<AppDialog.Root open voice="announcement" busy={pending}>
+		<AppDialog.Content
+			data-setup-prompt={prompt.kind}
+			showCloseButton={false}
+			onEscapeKeydown={(event) => dismiss(event, prompt)}
+			onInteractOutside={(event) => dismiss(event, prompt)}
+		>
 			{#if prompt.kind === 'invitation'}
 				<AppDialog.Header eyebrow="For the owner · Organization setup">
 					<AppDialog.Title>Finish setting up {orgName}</AppDialog.Title>

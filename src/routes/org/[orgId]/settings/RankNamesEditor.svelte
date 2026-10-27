@@ -355,7 +355,6 @@
 		>
 			<input type="hidden" name="intent" value={isNew ? 'add' : 'edit'} />
 			<input type="hidden" name="service" value={entry?.service ?? 'custom'} />
-			<input type="hidden" name="state" value={entry?.state ?? 'active'} />
 			{#if isNew}
 				<Field.Root data-invalid={fieldError('code') ? true : undefined}>
 					<Field.Label for={`${domId}-code`}>Code</Field.Label>

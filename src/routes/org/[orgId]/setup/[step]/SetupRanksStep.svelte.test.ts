@@ -40,7 +40,6 @@ const sergeant: SettingsRankCatalogRow = {
 	payGradeLabel: 'E-5',
 	state: 'active',
 	source: 'built-in',
-	sourceLabel: 'Built-in',
 	sortOrder: 500,
 	referenceSummary: {
 		code: 'SGT',
@@ -49,7 +48,7 @@ const sergeant: SettingsRankCatalogRow = {
 		canDelete: false
 	},
 	warnings: [],
-	commands: { canEdit: false, canRetire: true, canReactivate: false, canDelete: false, deleteDisabledReason: null }
+	commands: { canEdit: false, canDelete: false, deleteDisabledReason: null }
 };
 
 const ranksSettings: RanksSettingsData = {
@@ -64,8 +63,7 @@ const ranksSettings: RanksSettingsData = {
 					{ value: 'custom', label: 'Custom' }
 				],
 				categories: [{ value: 'custom', label: 'Custom' }],
-				payGrades: [{ value: 'ungraded', label: 'Ungraded' }],
-				states: [{ value: 'active', label: 'Active' }]
+				payGrades: [{ value: 'ungraded', label: 'Ungraded' }]
 			},
 			entries: { active: [sergeant], retired: [] }
 		}

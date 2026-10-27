@@ -2,8 +2,7 @@ import {
 	BUILT_IN_RANK_CATALOG,
 	type RankCategory,
 	type RankPayGrade,
-	type RankService,
-	type RankState
+	type RankService
 } from '$features/personnel/contracts';
 import {
 	loadOrganizationRankCatalog,
@@ -82,17 +81,6 @@ const PAY_GRADE_OPTIONS: Array<SettingsRankOption<RankPayGrade>> = PAY_GRADE_VAL
 	label: value === 'ungraded' ? 'Ungraded' : value
 }));
 
-const STATE_OPTIONS: Array<SettingsRankOption<RankState>> = [
-	{ value: 'active', label: 'Active' },
-	{ value: 'retired', label: 'Retired' }
-];
-
-const SOURCE_LABELS: Record<OrganizationRankCatalogEntry['source'], string> = {
-	'built-in': 'Built-in',
-	discovered: 'Discovered',
-	custom: 'Custom'
-};
-
 export interface BuildRanksSettingsDataInput {
 	catalog: OrganizationRankCatalogEntry[];
 	referenceSummaries: OrganizationRankCatalogReferenceSummary[];
@@ -136,12 +124,11 @@ export function buildRanksSettingsData(input: BuildRanksSettingsDataInput): Rank
 					active: rows.filter((entry) => entry.state === 'active'),
 					retired: rows.filter((entry) => entry.state === 'retired')
 				},
-				servicePacks: buildServicePackOptions(input.catalog, input.canManageCatalog),
+				servicePacks: buildServicePackOptions(input.catalog),
 				options: {
 					services: SERVICE_OPTIONS,
 					categories: CATEGORY_OPTIONS,
-					payGrades: PAY_GRADE_OPTIONS,
-					states: STATE_OPTIONS
+					payGrades: PAY_GRADE_OPTIONS
 				},
 				copy: {
 					payGradeHelp: 'Pay grade groups ranks for cross-service ordering without changing Personnel rank strings.',
@@ -192,24 +179,19 @@ function buildRankCatalogRow(
 		payGradeLabel: optionLabel(PAY_GRADE_OPTIONS, entry.payGrade),
 		state: entry.state,
 		source: entry.source,
-		sourceLabel: SOURCE_LABELS[entry.source],
 		sortOrder: entry.sortOrder,
 		referenceSummary: summary,
 		warnings: referenceWarnings(entry, summary),
 		commands: {
 			canEdit: canManageCatalog && !isBuiltIn,
-			canRetire: canManageCatalog && entry.state === 'active',
-			canReactivate: canManageCatalog && entry.state === 'retired',
+
 			canDelete,
 			deleteDisabledReason: deleteDisabledReason(entry, summary)
 		}
 	};
 }
 
-function buildServicePackOptions(
-	catalog: OrganizationRankCatalogEntry[],
-	canManageCatalog: boolean
-): SettingsRankServicePackOption[] {
+function buildServicePackOptions(catalog: OrganizationRankCatalogEntry[]): SettingsRankServicePackOption[] {
 	return SERVICE_PACK_SERVICES.map((service) => {
 		const builtInEntries = BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === service);
 		const builtInCodes = new Set(builtInEntries.map((entry) => entry.code));
@@ -217,21 +199,12 @@ function buildServicePackOptions(
 			(entry) => builtInCodes.has(entry.code) && entry.service === service && entry.source === 'built-in'
 		);
 		const existingCount = existingBuiltInRows.length;
-		const activeCount = existingBuiltInRows.filter((entry) => entry.state === 'active').length;
-		const retiredCount = existingBuiltInRows.filter((entry) => entry.state === 'retired').length;
-		const missingCount = builtInEntries.length - existingCount;
 
 		return {
 			value: service,
 			label: optionLabel(SERVICE_OPTIONS, service),
 			builtInCount: builtInEntries.length,
-			existingCount,
-			activeCount,
-			retiredCount,
-			missingCount,
-			isInstalled: missingCount === 0,
-			canBulkRetire: canManageCatalog && activeCount > 0,
-			canBulkReactivate: canManageCatalog && retiredCount > 0
+			existingCount
 		};
 	});
 }

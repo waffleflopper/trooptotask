@@ -23,11 +23,10 @@ function rank(code: string, overrides: Partial<SettingsRankCatalogRow> = {}): Se
 		payGradeLabel: 'E-5',
 		state: 'active',
 		source: 'custom',
-		sourceLabel: 'Custom',
 		sortOrder: 500,
 		referenceSummary: summary({ personnel: 0, trainingApplicability: 0 }, 0, true),
 		warnings: [],
-		commands: { canEdit: true, canRetire: true, canReactivate: false, canDelete: true, deleteDisabledReason: null },
+		commands: { canEdit: true, canDelete: true, deleteDisabledReason: null },
 		...overrides
 	};
 }
@@ -63,16 +62,6 @@ describe('RANK_LANE_ORDER', () => {
 			'PEOPLE-3'
 		]);
 	});
-
-	it('breaks a Source tie by rank precedence', () => {
-		const ranks = [
-			rank('E5', { source: 'built-in', sourceLabel: 'Built-in' }),
-			rank('CUSTOM'),
-			rank('E7', { source: 'built-in', sourceLabel: 'Built-in', payGrade: 'E-7' })
-		];
-
-		expect(ranks.sort(RANK_LANE_ORDER.source).map((entry) => entry.code)).toEqual(['E7', 'E5', 'CUSTOM']);
-	});
 });
 
 describe('rankSentence', () => {
@@ -83,8 +72,6 @@ describe('rankSentence', () => {
 				rank('B', {
 					commands: {
 						canEdit: true,
-						canRetire: true,
-						canReactivate: false,
 						canDelete: false,
 						deleteDisabledReason: 'Referenced ranks cannot be removed.'
 					}
@@ -101,8 +88,6 @@ describe('rankSentence', () => {
 			],
 			commands: {
 				canEdit: true,
-				canRetire: false,
-				canReactivate: true,
 				canDelete: false,
 				deleteDisabledReason: 'Referenced by active Organization data; retire it instead.'
 			}

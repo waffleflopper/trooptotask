@@ -43,12 +43,6 @@ export type SettingsRankOption<Value extends string> = {
 export type SettingsRankServicePackOption = SettingsRankOption<RankService> & {
 	builtInCount: number;
 	existingCount: number;
-	activeCount: number;
-	retiredCount: number;
-	missingCount: number;
-	isInstalled: boolean;
-	canBulkRetire: boolean;
-	canBulkReactivate: boolean;
 };
 
 export type SettingsRankCatalogRow = {
@@ -62,15 +56,12 @@ export type SettingsRankCatalogRow = {
 	payGradeLabel: string;
 	state: RankState;
 	source: 'built-in' | 'discovered' | 'custom';
-	sourceLabel: string;
 	sortOrder: number;
 	referenceSummary: OrganizationRankCatalogReferenceSummary;
 	/** What the rank's references mean for removing it, one sentence each. */
 	warnings: string[];
 	commands: {
 		canEdit: boolean;
-		canRetire: boolean;
-		canReactivate: boolean;
 		canDelete: boolean;
 		deleteDisabledReason: string | null;
 	};
@@ -86,7 +77,6 @@ export type SettingsRanksSectionData = {
 		services: Array<SettingsRankOption<RankService>>;
 		categories: Array<SettingsRankOption<RankCategory>>;
 		payGrades: Array<SettingsRankOption<RankPayGrade>>;
-		states: Array<SettingsRankOption<RankState>>;
 	};
 	copy: {
 		payGradeHelp: string;

@@ -56,13 +56,25 @@ describe('organization rank catalog', () => {
 			sortOrder: 500
 		} as const;
 		await saveOrganizationRankCatalogEntry(ctx, draft);
-		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'DET-SGT', state: 'retired' }] });
-		await saveOrganizationRankCatalogEntry(ctx, {
-			...draft,
-			label: 'Detachment Lead',
-			intent: 'update',
-			originalCode: 'DET-SGT'
-		});
+		await saveOrganizationRankCatalogEntry(
+			{
+				...ctx,
+				rankCatalog: {
+					...ctx.rankCatalog,
+					async findEntryByCode(code) {
+						const beforeToggle = await ctx.rankCatalog.findEntryByCode(code);
+						await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'DET-SGT', state: 'retired' }] });
+						return beforeToggle;
+					}
+				}
+			},
+			{
+				...draft,
+				label: 'Detachment Lead',
+				intent: 'update',
+				originalCode: 'DET-SGT'
+			}
+		);
 		expect(await ctx.rankCatalog.findEntryByCode('DET-SGT')).toMatchObject({
 			label: 'Detachment Lead',
 			state: 'retired'
@@ -495,7 +507,6 @@ describe('organization rank catalog', () => {
 			service: 'navy',
 			category: 'officer',
 			payGrade: 'O-10',
-			state: 'active',
 			sortOrder: 9
 		});
 		ctx.auditPort.events.length = 0;
@@ -696,7 +707,6 @@ describe('organization rank catalog', () => {
 				service: 'custom',
 				category: 'custom',
 				payGrade: 'ungraded',
-				state: 'active',
 				sortOrder: 500
 			})
 		).rejects.toMatchObject({
@@ -711,7 +721,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 
@@ -733,8 +742,7 @@ describe('organization rank catalog', () => {
 			{ field: 'payGrade', value: 'X-1', message: 'Invalid rank pay grade' },
 			{ field: 'payGrade', value: 'E-10', message: 'Invalid rank pay grade' },
 			{ field: 'payGrade', value: 'W-6', message: 'Invalid rank pay grade' },
-			{ field: 'payGrade', value: 'O-11', message: 'Invalid rank pay grade' },
-			{ field: 'state', value: 'inactive', message: 'Invalid rank state' }
+			{ field: 'payGrade', value: 'O-11', message: 'Invalid rank pay grade' }
 		] as const;
 
 		for (const invalidInput of invalidInputs) {
@@ -746,7 +754,6 @@ describe('organization rank catalog', () => {
 					service: 'custom',
 					category: 'custom',
 					payGrade: 'ungraded',
-					state: 'active',
 					sortOrder: 500,
 					[invalidInput.field]: invalidInput.value
 				})
@@ -770,7 +777,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		ctx.auditPort.events.length = 0;
@@ -784,7 +790,6 @@ describe('organization rank catalog', () => {
 				service: 'custom',
 				category: 'custom',
 				payGrade: 'ungraded',
-				state: 'active',
 				sortOrder: 501
 			})
 		).rejects.toMatchObject({
@@ -808,7 +813,6 @@ describe('organization rank catalog', () => {
 				service: 'custom',
 				category: 'custom',
 				payGrade: 'ungraded',
-				state: 'active',
 				sortOrder: 2_147_483_648
 			})
 		).rejects.toMatchObject({
@@ -831,7 +835,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 
@@ -872,7 +875,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		ctx.rawStore.seed('personnel', [
@@ -922,7 +924,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'retired',
 			sortOrder: 500
 		});
 		const readRosterRankReferences = async () => [{ filterRanks: ['DET-SGT'], snapshotRanks: [] }];
@@ -959,7 +960,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 
@@ -987,7 +987,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		ctx.rawStore.seed('personnel', [
@@ -1090,7 +1089,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		ctx.rawStore.seed('personnel', [
@@ -1134,7 +1132,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		const before = await loadOrganizationRankCatalog(ctx);
@@ -1168,7 +1165,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		ctx.auditPort.events.length = 0;
@@ -1211,7 +1207,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		await saveOrganizationRankCatalogEntry(ctx, {
@@ -1220,7 +1215,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 501
 		});
 		ctx.rawStore.seed('personnel', [
@@ -1297,7 +1291,6 @@ describe('organization rank catalog', () => {
 			service: 'army',
 			category: 'enlisted',
 			payGrade: 'E-5',
-			state: 'active',
 			sortOrder: 5
 		});
 
@@ -1348,7 +1341,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'retired',
 			sortOrder: 999
 		});
 
@@ -1377,7 +1369,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 500
 		});
 		await saveOrganizationRankCatalogEntry(ctx, {
@@ -1386,7 +1377,6 @@ describe('organization rank catalog', () => {
 			service: 'custom',
 			category: 'custom',
 			payGrade: 'ungraded',
-			state: 'active',
 			sortOrder: 501
 		});
 		await setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'DET-SGT', state: 'retired' }] });

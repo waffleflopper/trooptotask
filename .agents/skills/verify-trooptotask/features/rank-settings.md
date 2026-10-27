@@ -10,7 +10,7 @@ removes unused ones; no other member can change the catalog. Setup's Ranks step 
   Every rank is a chip showing its code and pay grade.
 - `rank-toggle`: a chip is a toggle button (`aria-pressed`) named by the rank's label. Pressing it turns the rank on or
   off at once and saves it; a failure puts the chip back and shows the reason under its block. When several presses
-  overlap, the last one wins.
+  overlap, the last one wins. Leaving the page cancels unsent changes and ignores late responses.
 - `rank-bulk`: each block's `Turn all on` and `Turn all off` (named `Turn all <block> ranks on|off`) change every rank
   of the block in one write. A note under the block reads `Turned on|off N <block> ranks.`, names each held rank it
   turned off with its count, and `Undo` restores each rank's exact previous state.
@@ -23,7 +23,7 @@ removes unused ones; no other member can change the catalog. Setup's Ranks step 
 - `rank-create`: `+ Custom rank` opens the names editor with a `New custom rank` draft focused on Code; a new rank is
   Custom and on.
 - `rank-names`: `Edit names` (`aria-expanded`) lists the editable custom ranks with grade and use; a rank's button opens
-  its editor with Label, Category, Pay grade and Tie-break. The code stays fixed. `Remove` deletes an unreferenced
+  its editor with Label, Category, Pay grade and Tie-break. Saving names never changes whether a rank is on. The code stays fixed. `Remove` deletes an unreferenced
   custom rank after a destructive confirmation.
 - `rank-failure`: a failed or rejected save shows its error, keeps every entered value and changes no chip.
 - `rank-denied`: a member without Organization owner/admin access cannot reach the catalog or change a rank.
@@ -85,7 +85,7 @@ reaches the provider. Use `arm-hold` and `release` to hold one. Restore every co
 8. **Edit names.** In `Edit names`, press `MAP-<tag>`: `aria-expanded` is `true`, focus is on Label, no Code field.
    Change Label and save: the toast, the editor stays open with the saved values and the chip's name changes after
    reload. Hold `saveRank` with `arm-hold`: Save and Remove are disabled while every chip and Turn all link stays
-   enabled; release and the toast shows. Escape or Cancel closes without a request and returns focus to the row.
+   enabled. Turn the rank off before releasing, then release and reload. Its new name persists and its chip stays off. Escape or Cancel closes without a request and returns focus to the row.
 9. **Remove.** In `MAP-<tag>`'s editor press Remove: the confirmation `Remove MAP-<tag>` says it cannot be undone.
    Cancel changes nothing. Arm `arm-fail ... deleteRank`, confirm: the dialog stays open with its Alert. Restore and
    confirm: the chip and the `$V rows` row are gone.
@@ -102,6 +102,17 @@ reaches the provider. Use `arm-hold` and `release` to hold one. Restore every co
 12. **Field association.** In an open names editor each control has a resolving label; Tie-break `aria-describedby`
     resolves to its help, and its input has `min=-2147483648`, `max=2147483647` and `step=1`. A server error that names
     one field renders on that field with `aria-invalid`; a generic failure stays in the editor's `Alert`.
+
+13. **Queued writes and Organization switching.** Sign in as `orgSettingsSwitch`, an admin of A and B. Preserve
+    `$V rows organization_rank_catalog orgB`. On A hold `setRankStates`, press Sergeant off and on, then switch to B
+    with the Organization switcher before releasing. Release from the same browser page. B's rows must match the
+    preserved values, and no queued `setRankStates` request may target B. Restore the control.
+14. **Partial pack and overlapping intents.** A starts with PFC, SPC and SGT saved but other Army ranks missing.
+    Turn SGT off, then Turn all Enlisted on. Reload and read `$V rows`: all 13 Enlisted codes are active, the original
+    SGT ID and creation time are retained, and no alert appears. Hold a failing SGT-off request with
+    `arm-hold-fail ... setRankStates`, then press Turn all Enlisted off. Release and require every Enlisted chip off. Before reloading, Undo restores the last confirmed states,
+    including SGT. Turn all Enlisted off again, reload and require every Enlisted chip off. These pack additions persist
+    for this worker; restart it before any recipe that requires the original partial catalog.
 
 Remove UI-created ranks, turn back on or off every rank you changed, and compare
 `$V rows organization_rank_catalog orgA|orgB` with the preserved original. Ranks added from a pack stay; restart the

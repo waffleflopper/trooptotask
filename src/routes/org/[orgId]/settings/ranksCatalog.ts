@@ -86,11 +86,8 @@ function compareInUse(a: SettingsRankCatalogRow, b: SettingsRankCatalogRow): num
 /** Ascending order for each sortable catalog lane; ties fall back to rank precedence. */
 export const RANK_LANE_ORDER = {
 	rank: compareRankPrecedence,
-	branch: (a, b) => a.serviceLabel.localeCompare(b.serviceLabel) || compareRankPrecedence(a, b),
 	grade: compareRankPrecedence,
-	source: (a, b) => a.sourceLabel.localeCompare(b.sourceLabel) || compareRankPrecedence(a, b),
-	inUse: compareInUse,
-	state: (a, b) => a.state.localeCompare(b.state) || compareRankPrecedence(a, b)
+	inUse: compareInUse
 } satisfies Record<string, RankComparator>;
 
 /** What removing or retiring this rank would do: its reference warnings, else why it stays, else that it can go. */

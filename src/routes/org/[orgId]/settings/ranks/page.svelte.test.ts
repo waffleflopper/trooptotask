@@ -27,13 +27,6 @@ const { heldPosts, heldSubmissions, submittedForms, invalidateAll } = vi.hoisted
 
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: { success: vi.fn() } }));
 vi.mock('$app/navigation', () => ({ invalidateAll }));
-vi.mock('$app/state', () => ({
-	page: {
-		get url() {
-			return new URL(location.href);
-		}
-	}
-}));
 
 // Rank on/off changes post with fetch; the names editor posts through enhance. Both hold until the test answers.
 vi.mock('$app/forms', () => ({
@@ -118,7 +111,6 @@ function rankEntry(overrides: Partial<SettingsRankCatalogRow> = {}): SettingsRan
 		payGradeLabel: 'E-6',
 		state: 'active',
 		source: 'custom',
-		sourceLabel: 'Custom',
 		sortOrder: 500,
 		referenceSummary: {
 			code,
@@ -127,7 +119,7 @@ function rankEntry(overrides: Partial<SettingsRankCatalogRow> = {}): SettingsRan
 			canDelete: true
 		},
 		warnings: [],
-		commands: { canEdit: true, canRetire: true, canReactivate: false, canDelete: true, deleteDisabledReason: null },
+		commands: { canEdit: true, canDelete: true, deleteDisabledReason: null },
 		...overrides
 	};
 }
@@ -149,8 +141,7 @@ function army(
 		payGrade,
 		payGradeLabel: payGrade,
 		source: 'built-in',
-		sourceLabel: 'Built-in',
-		commands: { canEdit: false, canRetire: true, canReactivate: false, canDelete: false, deleteDisabledReason: null },
+		commands: { canEdit: false, canDelete: false, deleteDisabledReason: null },
 		...overrides
 	});
 }
@@ -179,13 +170,7 @@ function navyPack(): SettingsRankServicePackOption {
 		value: 'navy',
 		label: 'Navy',
 		builtInCount: 26,
-		existingCount: 0,
-		activeCount: 0,
-		retiredCount: 0,
-		missingCount: 26,
-		isInstalled: false,
-		canBulkRetire: false,
-		canBulkReactivate: false
+		existingCount: 0
 	};
 }
 
@@ -210,10 +195,6 @@ function rankSettings(ranks: SettingsRankCatalogRow[], canManageCatalog = true):
 						{ value: 'E-6', label: 'E-6' },
 						{ value: 'E-7', label: 'E-7' },
 						{ value: 'ungraded', label: 'Ungraded' }
-					],
-					states: [
-						{ value: 'active', label: 'Active' },
-						{ value: 'retired', label: 'Retired' }
 					]
 				},
 				entries: {
@@ -310,11 +291,30 @@ describe('turning ranks on and off', () => {
 		expect(chip('Chief Warrant Officer 2')).toHaveAttribute('aria-pressed', 'false');
 		await click(screen.getByRole('button', { name: 'Undo' }));
 		expect(heldPosts[2].fields).toEqual([
+			['code', 'CW3'],
+			['state', 'retired'],
 			['code', 'CW2'],
 			['state', 'active'],
 			['code', 'WO1'],
 			['state', 'active']
 		]);
+	});
+
+	it('Undo uses a confirmed toggle before the refreshed catalog arrives', async () => {
+		renderRankPage([WO1, CW2]);
+		await click(chip('Chief Warrant Officer 2'));
+		await heldPosts[0].answer({ type: 'success', data: { success: true } });
+		await click(screen.getByRole('button', { name: 'Turn all Warrant Officer ranks off' }));
+		await heldPosts[1].answer({ type: 'success', data: { success: true } });
+		await click(screen.getByRole('button', { name: 'Undo' }));
+		expect(heldPosts[2].fields).toEqual([
+			['code', 'CW2'],
+			['state', 'retired'],
+			['code', 'WO1'],
+			['state', 'active']
+		]);
+		expect(chip('Chief Warrant Officer 2')).toHaveAttribute('aria-pressed', 'false');
+		expect(chip('Warrant Officer 1')).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	it('shows each branch with how many of its ranks are on', () => {
@@ -332,7 +332,7 @@ describe('turning ranks on and off', () => {
 		expect(chip('Sergeant')).toHaveAttribute('aria-pressed', 'false');
 		expect(heldPosts.map(({ action, fields }) => ({ action, fields }))).toEqual([
 			{
-				action: '?/setRankStates',
+				action: 'http://localhost:3000/org/org-1/settings/ranks?/setRankStates',
 				fields: [
 					['code', 'SGT'],
 					['state', 'retired']
@@ -390,6 +390,8 @@ describe('turning ranks on and off', () => {
 			expect(chip(label)).toHaveAttribute('aria-pressed', 'false');
 		}
 		expect(heldPosts[0].fields).toEqual([
+			['code', 'CW3'],
+			['state', 'retired'],
 			['code', 'CW2'],
 			['state', 'retired'],
 			['code', 'WO1'],
@@ -402,6 +404,8 @@ describe('turning ranks on and off', () => {
 
 		await click(within(note).getByRole('button', { name: 'Undo' }));
 		expect(heldPosts[1].fields).toEqual([
+			['code', 'CW3'],
+			['state', 'retired'],
 			['code', 'CW2'],
 			['state', 'active'],
 			['code', 'WO1'],
@@ -422,7 +426,7 @@ describe('turning ranks on and off', () => {
 		await vi.runAllTimersAsync();
 		await click(screen.getByRole('menuitem', { name: /Navy/ }));
 		expect(heldPosts.map(({ action, fields }) => ({ action, fields }))).toEqual([
-			{ action: '?/addServicePack', fields: [['service', 'navy']] }
+			{ action: 'http://localhost:3000/org/org-1/settings/ranks?/addServicePack', fields: [['service', 'navy']] }
 		]);
 
 		await heldPosts[0].answer({ type: 'success', data: { success: true } });
@@ -473,7 +477,6 @@ describe('custom rank names', () => {
 				fields: {
 					intent: 'edit',
 					service: 'custom',
-					state: 'active',
 					code: 'DET-SGT',
 					originalCode: 'DET-SGT',
 					label: 'Detachment Lead',
@@ -540,7 +543,6 @@ describe('custom rank names', () => {
 				fields: {
 					intent: 'add',
 					service: 'custom',
-					state: 'active',
 					code: 'NEW-1',
 					label: 'New rank',
 					category: 'custom',

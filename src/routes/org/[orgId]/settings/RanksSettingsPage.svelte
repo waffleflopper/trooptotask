@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { withinOrganizationLifetime } from '$lib/stores/core';
 	import { deserialize } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { RankState } from '$features/personnel/contracts';
@@ -35,18 +38,10 @@
 		saving?: boolean;
 	} = $props();
 
-	const edits = new RankStateEdits(
-		(changes) =>
-			post(
-				'setRankStates',
-				changes.flatMap((change) => [
-					['code', change.code],
-					['state', change.state]
-				])
-			),
-		() => ranksSettings
-	);
+	const edits = new RankStateEdits(() => ranksSettings);
+	onDestroy(() => edits.dispose());
 
+	const latestEdits = new SvelteMap<string, symbol>();
 	let chosenTab = $state('');
 	let note = $state<Note | null>(null);
 	let failure = $state<Failure | null>(null);
@@ -58,6 +53,9 @@
 
 	const ranks = $derived(ranksSettings.sections.ranks);
 	const canManage = $derived(ranks.commands.canManageCatalog);
+	const savedStates = $derived(
+		new Map([...ranks.entries.active, ...ranks.entries.retired].map((entry) => [entry.code, entry.state]))
+	);
 	const shown = $derived(
 		[...ranks.entries.active, ...ranks.entries.retired].map((entry) => ({
 			...entry,
@@ -89,16 +87,19 @@
 	}
 
 	/** Resolves with the failure message, or null once saved. */
-	async function post(action: string, fields: string[][]): Promise<string | null> {
+	async function post(url: string, fields: string[][]): Promise<string | null> {
 		const body = new FormData();
 		for (const [name, value] of fields) body.append(name, value);
 		try {
-			const response = await fetch(`${actionBase}?/${action}`, {
-				method: 'POST',
-				body,
-				headers: { 'x-sveltekit-action': 'true' }
-			});
-			const result = deserialize(await response.text());
+			const response = await withinOrganizationLifetime(
+				fetch(url, {
+					method: 'POST',
+					body,
+					headers: { 'x-sveltekit-action': 'true' }
+				}),
+				() => edits.current
+			);
+			const result = deserialize(await withinOrganizationLifetime(response.text(), () => edits.current));
 			if (result.type === 'success') {
 				void invalidateAll();
 				return null;
@@ -109,6 +110,23 @@
 		} catch {
 			return FALLBACK_FAILURE;
 		}
+	}
+
+	function actionUrl(action: string): string {
+		return new URL(`${actionBase}?/${action}`, location.href).href;
+	}
+
+	function applyStates(changes: RankStateChange[]): Promise<string | null> {
+		const url = actionUrl('setRankStates');
+		return edits.apply(changes, () =>
+			post(
+				url,
+				changes.flatMap((change) => [
+					['code', change.code],
+					['state', change.state]
+				])
+			)
+		);
 	}
 
 	function noteFor(moved: SettingsRankCatalogRow[], state: RankState, bulk: { label: string } | null): string | null {
@@ -131,30 +149,38 @@
 		state: RankState,
 		bulk: { label: string } | null = null
 	) {
-		const moved = entries.filter((entry) => entry.state !== state);
-		if (moved.length === 0) return;
-		const undo = moved.map((entry) => ({ code: entry.code, state: entry.state }));
+		const confirmed = entries.map((entry) => ({
+			...entry,
+			state: edits.confirmedStateOf(entry.code, savedStates.get(entry.code) ?? entry.state)
+		}));
+		const moved = (bulk ? confirmed : entries).filter((entry) => entry.state !== state);
+		if (!bulk && moved.length === 0) return;
+		const undo = confirmed.map((entry) => ({ code: entry.code, state: entry.state }));
 		const text = noteFor(moved, state, bulk);
 		const shownNote: Note | null = text ? { key, text, undo } : null;
 		note = shownNote ?? (note?.key === key ? null : note);
 		if (failure?.key === key) failure = null;
-		const failed = await edits.apply(moved.map((entry) => ({ code: entry.code, state })));
-		if (!failed) return;
+		const request = Symbol();
+		latestEdits.set(key, request);
+		const failed = await applyStates((bulk ? entries : moved).map((entry) => ({ code: entry.code, state })));
+		if (latestEdits.get(key) !== request || !failed) return;
 		failure = { key, message: failed };
 		if (shownNote && note === shownNote) note = null;
 	}
 
 	async function undo(shownNote: Note) {
 		note = null;
-		const failed = await edits.apply(shownNote.undo);
-		if (failed) failure = { key: shownNote.key, message: failed };
+		const request = Symbol();
+		latestEdits.set(shownNote.key, request);
+		const failed = await applyStates(shownNote.undo);
+		if (latestEdits.get(shownNote.key) === request && failed) failure = { key: shownNote.key, message: failed };
 	}
 
 	async function addBranch(service: string) {
 		if (addingBranch) return;
 		addingBranch = true;
 		failure = null;
-		const failed = await post('addServicePack', [['service', service]]);
+		const failed = await post(actionUrl('addServicePack'), [['service', service]]);
 		addingBranch = false;
 		if (failed) failure = { key: BRANCHES_KEY, message: failed };
 		else chosenTab = service;

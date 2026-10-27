@@ -90,7 +90,6 @@ export const actions: Actions = {
 				service: getStringFormValue(formData, 'service') as RankService,
 				category: getStringFormValue(formData, 'category') as RankCategory,
 				payGrade: getStringFormValue(formData, 'payGrade') as RankPayGrade,
-				state: getStringFormValue(formData, 'state') as RankState,
 				sortOrder: parseSortOrder(formData),
 				intent,
 				originalCode

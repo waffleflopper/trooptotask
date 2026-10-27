@@ -222,9 +222,12 @@ export async function saveOrganizationRankCatalogEntry(
 				...builtInEntry,
 				state: existing?.source === 'built-in' ? existing.state : builtInEntry.state
 			}
-		: entry;
+		: { ...entry, state: 'active' as const };
 	const source = builtInEntry ? 'built-in' : (existing?.source ?? 'custom');
-	const [saved] = await ports.rankCatalog.saveEntries([serializeRankCatalogEntry(entryToSave, source)]);
+	const { state, ...details } = serializeRankCatalogEntry(entryToSave, source);
+	const saved = existing
+		? await ports.rankCatalog.patchEntryById(existing.id, details)
+		: (await ports.rankCatalog.saveEntries([{ ...details, state }]))[0];
 
 	if (!saved) {
 		fail(500, 'Failed to save rank catalog entry');
@@ -460,7 +463,8 @@ export async function setOrganizationRankCatalogStates(
 	for (const [code, state] of targets) {
 		const entry = existingByCode.get(code);
 		if (entry) {
-			if (entry.state !== state) rowsToSave.push({ ...entry, state });
+			if (entry.state !== state)
+				rowsToSave.push(serializeRankCatalogEntry({ ...deserializeRankCatalogRow(entry), state }, entry.source));
 			continue;
 		}
 		const builtIn = BUILT_IN_RANK_CATALOG.find((candidate) => candidate.code === code);
@@ -619,7 +623,7 @@ function serializeRankCatalogEntry(entry: RankCatalogEntry, source: Organization
 	};
 }
 
-function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput): RankCatalogEntry {
+function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput): Omit<RankCatalogEntry, 'state'> {
 	const code = sanitizeString(input.code, 80);
 	const label = sanitizeString(input.label, 120);
 
@@ -638,9 +642,6 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 	if (!isValidRankPayGrade(input.payGrade)) {
 		fail(400, 'Invalid rank pay grade');
 	}
-	if (!RANK_STATES.has(input.state)) {
-		fail(400, 'Invalid rank state');
-	}
 
 	const sortOrder = Number.isFinite(input.sortOrder) ? input.sortOrder : 0;
 	if (!Number.isInteger(sortOrder) || sortOrder < RANK_TIE_BREAK_MIN || sortOrder > RANK_TIE_BREAK_MAX) {
@@ -648,9 +649,11 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 	}
 
 	return {
-		...input,
 		code: resolveBuiltInRank(code)?.code ?? code,
 		label,
+		service: input.service,
+		category: input.category,
+		payGrade: input.payGrade,
 		sortOrder
 	};
 }

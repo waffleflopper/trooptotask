@@ -98,13 +98,15 @@ function inputs(loaded: Loaded = {}): DashboardInputs {
 
 function trainingSummary(
 	expiredPersonnelCount: number,
-	groupDelinquencies: { groupId: string | null; expired: number; delinquent: number }[]
+	groupDelinquencies: { groupId: string | null; expired: number; delinquent: number }[],
+	missingPersonnelCount = 0
 ): DashboardPageData['trainingSummary'] {
 	return {
 		stats: { current: 0, expired: 0, warningOrange: 0, warningYellow: 0, notCompleted: 0, notRequired: 0, total: 0 },
 		issues: [],
 		expiredByType: [],
 		expiredPersonnelCount,
+		missingPersonnelCount,
 		groupDelinquencies: groupDelinquencies.map(({ groupId, expired, delinquent }) => ({
 			groupId,
 			expiredPersonnelCount: expired,
@@ -148,6 +150,39 @@ describe('trainingReadiness', () => {
 			},
 			note: '1 Soldier expired and 2 expiring. Bravo is lowest at 0%.'
 		});
+	});
+
+	it('counts People missing required records as not current, apart from expired and expiring', () => {
+		const alone = trainingReadiness(
+			inputs({
+				personnel: [person('p1', null)],
+				trainingSummary: trainingSummary(0, [{ groupId: null, expired: 0, delinquent: 1 }], 1)
+			}),
+			everything
+		);
+		expect(alone).toMatchObject({
+			figure: '0%',
+			figureTone: 'critical',
+			graphic: {
+				kind: 'shares',
+				shares: [
+					{ label: 'current', count: 0, tone: 'good' },
+					{ label: 'expiring', count: 0, tone: 'warning' },
+					{ label: 'missing records', count: 1, tone: 'critical' },
+					{ label: 'expired', count: 0, tone: 'critical' }
+				]
+			},
+			note: '1 Soldier missing records.'
+		});
+
+		const mixed = trainingReadiness(
+			inputs({
+				personnel: Array.from({ length: 6 }, (_, index) => person(`p${index}`, null)),
+				trainingSummary: trainingSummary(2, [{ groupId: null, expired: 2, delinquent: 5 }], 2)
+			}),
+			everything
+		);
+		expect(mixed).toMatchObject({ figure: '17%', note: '2 Soldiers expired, 2 missing records and 1 expiring.' });
 	});
 
 	it.each([

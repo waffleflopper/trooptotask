@@ -67,3 +67,34 @@ Preconditions: `doctor` passes; use `orgOwner`, `orgAdmin` and `orgMember` from 
 - Continue writes nothing for a step the unit's data already makes Done, so the counter may start above zero.
 - A feature turned off in Settings › Features shows its step as Off with a struck title; Continue skips the write.
 - Setup state lives on the Organization. Finish and every answer persist across workers' sessions until reseed.
+
+## Invite your team step
+
+`/setup/invite` embeds the Settings › Members invite strip: the `Invite` email field, `Role` (owner only), `Preset`,
+`Groups` and `Send invite`, under a band that says it is the same form as Settings › Members. Below it,
+`Waiting on them` lists each pending invitation as `<email>` and `<preset> · sent <relative> · <funnel status>`, with a
+link to Settings › Members for Resend and Revoke. The strip posts to the Members `?/invite` action and a sent invitation
+reaches the same mail sink as [organization invitations](organization-invitations.md).
+
+1. As `orgOwner`, `$V actor orgOwner settings/general`, then open `/setup/invite`. Expect `Step 12 of 12 · Team`, the
+   strip on one line at 1440 px (92 px tall, 816 px wide), no `Waiting on them` list on a fresh seed and
+   `Continue to Done`. The seed already has other members, so the rail row reads Done and the counter `5 of 12`.
+2. `$V fill PAGE textbox "Invite" s4-invite-one@example.test`, then `$V click PAGE button "Send invite"`. Expect the
+   line under the strip to read `Invitation created and email delivery was queued.`, the email field empty, one
+   `Waiting on them` row `Editor · sent today · Waiting on them` and, from `$V mail state`, an `account-setup` and an
+   `invitation` message for that address. Settings › Members lists the same invitation.
+3. Send the same address again. Expect `An invitation for this email is already pending` under the strip, the address
+   still in the field and the URL unchanged. With `$V fault arm setup-link-create` and a new address, expect
+   `Invitation could not be created because the account setup link could not be issued`, the draft kept and the
+   invitation stored `blocked`, not `pending`. `$V fault restore` afterwards.
+4. As `orgAdmin`, the same step shows the strip without `Role` and a sent invitation lists the same way. As `orgMember`,
+   the step answers 403 like the rest of setup.
+5. In a unit with only its owner, create one at `/org/new` and open `/setup/invite`. Expect `0 of 12` and the rail row
+   `not answered`. Choose `Continue to Done`: the rail row reads `later`. Return, send an invitation and expect the row
+   to read `done` and the counter `1 of 12` without a reload, and the same after a reload.
+6. At 1024 and 390 px the strip wraps to more lines (192 px tall) and `#main-content` has no horizontal scroll. A reload
+   records no layout shift.
+
+Gotchas: Continue records Later, not Reviewed, when nothing is invited and no other member exists; data that makes the
+step Done records nothing. The form's groups and the invitation list stream with the step, so the strip shows a skeleton
+first; a failed read shows `The invitation form could not be loaded` with Retry.

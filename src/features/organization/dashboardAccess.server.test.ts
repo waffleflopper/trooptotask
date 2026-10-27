@@ -216,7 +216,7 @@ describe('acceptDashboardInvitation', () => {
 			)
 		).rejects.toMatchObject({
 			status: 404,
-			message: 'Invitation not found'
+			message: 'This invitation is no longer available. Ask the unit to send a new one.'
 		});
 		expect(port.acceptedInvitations).toEqual([
 			{ invitationId: 'missing', userId: 'user-1', email: 'user@example.com' }
@@ -252,7 +252,7 @@ describe('acceptDashboardInvitation', () => {
 			)
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Invitation has expired'
+			message: 'This invitation has expired. Ask the unit to send a new one.'
 		});
 
 		expect(notifications.notifications).toEqual([
@@ -281,7 +281,7 @@ describe('acceptDashboardInvitation', () => {
 				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
 			)
 		).rejects.toMatchObject({
-			status: 400,
+			status: 403,
 			message: 'Complete account setup before accepting this organization invitation'
 		});
 	});
@@ -329,7 +329,7 @@ describe('acceptDashboardInvitation', () => {
 				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
 			)
 		).rejects.toMatchObject({
-			status: 400,
+			status: 409,
 			message: 'This Organization invitation is unavailable. Ask the inviting Organization for help.'
 		});
 	});
@@ -498,7 +498,7 @@ describe('declineDashboardInvitation', () => {
 			)
 		).rejects.toMatchObject({
 			status: 404,
-			message: 'Invitation not found'
+			message: 'This invitation is no longer available. Ask the unit to send a new one.'
 		});
 	});
 
@@ -517,7 +517,7 @@ describe('declineDashboardInvitation', () => {
 			)
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Invitation has expired'
+			message: 'This invitation has expired. Ask the unit to send a new one.'
 		});
 		expect(notifications.notifications).toEqual([
 			{
@@ -610,8 +610,8 @@ describe('dashboard invitation denial effects', () => {
 		['accept', 'already_member', 400],
 		['accept', 'not_found', 404],
 		['accept', 'blocked', 400],
-		['accept', 'unavailable', 400],
-		['accept', 'setup_required', 400],
+		['accept', 'unavailable', 409],
+		['accept', 'setup_required', 403],
 		['accept', 'failed', 500],
 		['decline', 'already_accepted', 400],
 		['decline', 'already_declined', 400],

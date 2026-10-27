@@ -56,7 +56,7 @@ describe('provisionOrganization', () => {
 		expect(failure).toMatchObject({
 			status: 503,
 			message:
-				"We couldn't confirm that your Organization was created. Select Create Organization again to finish. Retrying won't create a duplicate.",
+				"We couldn't confirm that your Organization was created. Select Create and start setup again to finish. Retrying won't create a duplicate.",
 			publicMessage: true
 		});
 		expect((failure as Error).message).toBe(ORGANIZATION_CREATION_UNCONFIRMED_MESSAGE);

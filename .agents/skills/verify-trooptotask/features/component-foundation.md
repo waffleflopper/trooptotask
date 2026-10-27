@@ -153,8 +153,8 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    source census finds none, record UNAVAILABLE with the census and keep the component test as the only proof.
 4. **Dialog dismissal and busy close (`manager`, Personnel).** Open Add Person and click outside the dialog: it closes
    without saving and focus returns to Add Person. Reopen and use the close button: same result. Reopen and type a
-   unique Last Name and First Name: the close button disappears and Escape and an outside click leave the dialog open,
-   without `aria-busy`. Arm `$V network arm-hold PAGE personnel` and choose Add Personnel. While `network state` shows
+   unique Last name and First name: the close button disappears and Escape and an outside click leave the dialog open,
+   without `aria-busy`. Arm `$V network arm-hold PAGE personnel` and choose `Add person`. While `network state` shows
    the held POST, press Escape, click outside and read Cancel: all close paths stay blocked, the dialog stays open and
    busy, and focus stays on the dialog rather than `body`. Release: the dialog closes, focus returns to Add Person and
    the new Person is listed; restore the control. Check the new Person's row and choose the bulk bar's `Archive…`: the
@@ -229,9 +229,10 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    region: a labelled polite live region containing **Personnel updated**. Toasts last about four seconds, so hover the
    toast to hold it, then repeat from the focused row (E, MOS `68W`, Enter). Read both toasts: they stack, each with its
    own `Close toast`. Press Alt+T, Tab to a `Close toast` and press Enter: that toast is removed. Then open Add Person,
-   type a Last Name and First Name, arm `$V network arm-fail PAGE personnel` and choose Add Personnel for an error toast
-   reading **Failed to add personnel**; the dialog stays open with its draft. Restore and Cancel. Require all toasts
-   readable and the error announced. Read the toaster's theme with each app theme.
+   type a Last name and First name, arm `$V network arm-fail PAGE personnel` and choose `Add person`: no toast appears;
+   the dialog stays open with its draft and an `Alert` reading `<Rank Last> wasn't added`, and the primary button reads
+   `Try again`. Restore and Cancel. Require all toasts readable and the error announced. Read the toaster's theme with
+   each app theme.
 9. **Loading status (`ictOperator`, `manager`).** On Critical Tasks Reports, arm
    `$V network arm-hold PAGE critical-tasks/reports/summary` and choose a Group in Filter by group. While held, require
    `aria-busy="true"` on the refreshing sections, a loading `role="status"` region with no `aria-busy`, and any spinner

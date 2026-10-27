@@ -8,6 +8,9 @@ import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 type Callback = (options: { result: ActionResult; update: () => Promise<void> }) => Promise<void>;
 type Submit = (input: { formElement: HTMLFormElement; cancel: () => void }) => Callback;
 const forms = vi.hoisted(() => ({ submits: new Map<string, Submit>() }));
+const navigation = vi.hoisted(() => ({ page: { url: new URL('http://localhost/dashboard?show=all') }, goto: vi.fn() }));
+vi.mock('$app/state', () => ({ page: navigation.page }));
+vi.mock('$app/navigation', () => ({ goto: navigation.goto }));
 vi.mock('$app/forms', () => ({
 	enhance: (form: HTMLFormElement, submit: Submit) => {
 		forms.submits.set(form.getAttribute('action') ?? '', submit);
@@ -23,7 +26,7 @@ const invitation = {
 };
 
 function invitationData(pendingInvitations = [invitation]) {
-	return { viewer: null, organizations: [], pendingInvitations };
+	return { viewer: null, userEmail: 'member@example.com', organizations: [], pendingInvitations };
 }
 
 async function respond(action: string, result: ActionResult, applyForm: (form: unknown) => Promise<void>) {
@@ -40,6 +43,8 @@ async function respond(action: string, result: ActionResult, applyForm: (form: u
 describe('/dashboard page', () => {
 	afterEach(() => {
 		cleanup();
+		navigation.page.url = new URL('http://localhost/dashboard?show=all');
+		navigation.goto.mockReset();
 		forms.submits.clear();
 		enhanceRequests.length = 0;
 	});
@@ -51,6 +56,7 @@ describe('/dashboard page', () => {
 			props: {
 				data: {
 					viewer: null,
+					userEmail: null,
 					organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'admin', urlSegment: '1-11-bde' }],
 					pendingInvitations: []
 				},
@@ -96,7 +102,7 @@ describe('/dashboard page', () => {
 			{ type: 'failure', status: 409, data: { error: 'Invitation expired' } },
 			(form) => view.rerender({ data: invitationData(), form: form as never })
 		);
-		const row = screen.getByText('Bravo Company').parentElement!;
+		const row = screen.getByText('Bravo Company').closest('li')!;
 		await waitFor(() => expect(within(row).getByRole('alert').textContent).toContain('Invitation expired'));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Accept invitation to Bravo Company' }));
@@ -104,7 +110,7 @@ describe('/dashboard page', () => {
 		expect(within(row).queryByRole('alert')).toBeNull();
 	});
 
-	it('moves focus to the workspace heading when a declined invitation leaves the list', async () => {
+	it('moves focus to the Member of heading when a declined invitation leaves the list', async () => {
 		const { default: Page } = await import('./+page.svelte');
 		const view = render(Page, { props: { data: invitationData(), form: null } });
 
@@ -112,10 +118,8 @@ describe('/dashboard page', () => {
 			view.rerender({ data: invitationData([]), form: form as never })
 		);
 
-		await waitFor(() =>
-			expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Available workspaces' }))
-		);
-		expect(screen.getByRole('status').textContent?.trim()).toBe('Invitation declined.');
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Member of' })));
+		expect(screen.getByRole('status').textContent).toContain('Bravo Company');
 	});
 
 	it('refreshes after an accepted invitation only while the dashboard is still open', async () => {
@@ -129,7 +133,7 @@ describe('/dashboard page', () => {
 				{ applyForm: async () => {}, invalidate: async () => void refreshes.push('open') }
 			)
 		);
-		await waitFor(() => expect(screen.getByRole('status').textContent?.trim()).toBe('Joined Bravo Company.'));
+		await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Bravo Company'));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Accept invitation to Bravo Company' }));
 		view.unmount();
@@ -143,6 +147,37 @@ describe('/dashboard page', () => {
 		expect(refreshes).toEqual(['open']);
 	});
 
+	it('keeps someone who arrived without show=all on the list after accepting', async () => {
+		navigation.page.url = new URL('http://localhost/dashboard');
+		const { default: Page } = await import('./+page.svelte');
+		const refreshes: string[] = [];
+		render(Page, { props: { data: invitationData(), form: null } });
+
+		await respond('?/acceptInvitation', { type: 'success', status: 200 }, async () => void refreshes.push('update'));
+
+		expect(navigation.goto).toHaveBeenCalledWith(
+			'/dashboard?show=all',
+			expect.objectContaining({ replaceState: true })
+		);
+		expect(refreshes).toEqual([]);
+	});
+
+	it('drops the buttons from an invitation the server refuses and focuses its message', async () => {
+		const { default: Page } = await import('./+page.svelte');
+		const view = render(Page, { props: { data: invitationData(), form: null } });
+
+		await respond(
+			'?/acceptInvitation',
+			{ type: 'failure', status: 400, data: { error: 'Invitation expired' } },
+			(form) => view.rerender({ data: invitationData(), form: form as never })
+		);
+
+		const row = screen.getByText('Bravo Company').closest('li')!;
+		await waitFor(() => expect(document.activeElement).toBe(within(row).getByRole('alert')));
+		expect(within(row).getByRole('alert').textContent?.trim()).toBe('Invitation expired');
+		expect(within(row).queryByRole('button')).toBeNull();
+	});
+
 	it.each([
 		[
 			'?/acceptInvitation',
@@ -151,6 +186,12 @@ describe('/dashboard page', () => {
 			{ type: 'failure', status: 409, data: { error: 'Invitation expired' } }
 		],
 		['?/acceptInvitation', 'Accept', 'error', { type: 'error', status: 500, error: { message: 'Internal Error' } }],
+		[
+			'?/acceptInvitation',
+			'Accept',
+			'setup-required failure',
+			{ type: 'failure', status: 403, data: { error: 'Complete account setup' } }
+		],
 		[
 			'?/declineInvitation',
 			'Decline',
@@ -166,7 +207,7 @@ describe('/dashboard page', () => {
 
 			await respond(action, result, (form) => view.rerender({ data: invitationData(), form: form as never }));
 
-			const row = screen.getByText('Bravo Company').parentElement!;
+			const row = screen.getByText('Bravo Company').closest('li')!;
 			await waitFor(() => expect(within(row).getByRole('alert')).toBeTruthy());
 			expect(document.activeElement).toBe(screen.getByRole('button', { name: `${label} invitation to Bravo Company` }));
 		}
@@ -182,7 +223,9 @@ describe('/dashboard page', () => {
 
 		it('narrows the organization links as the filter changes and names a filter that matches nothing', async () => {
 			const { default: Page } = await import('./+page.svelte');
-			render(Page, { props: { data: { viewer: null, organizations, pendingInvitations: [] }, form: null } });
+			render(Page, {
+				props: { data: { viewer: null, userEmail: null, organizations, pendingInvitations: [] }, form: null }
+			});
 			const filter = within(chooser()).getByRole('searchbox', { name: 'Filter organizations' });
 
 			await fireEvent.input(filter, { target: { value: ' ech ' } });
@@ -197,7 +240,9 @@ describe('/dashboard page', () => {
 		it('filters from the collapsed search icon', async () => {
 			const widths = stubToolbarWidths();
 			const { default: Page } = await import('./+page.svelte');
-			render(Page, { props: { data: { viewer: null, organizations, pendingInvitations: [] }, form: null } });
+			render(Page, {
+				props: { data: { viewer: null, userEmail: null, organizations, pendingInvitations: [] }, form: null }
+			});
 			await widths.foldAll();
 			expect(screen.queryByRole('searchbox', { name: 'Filter organizations' })).toBeNull();
 

@@ -16,7 +16,7 @@ const confirmed = {
 
 const requestId = '6f0c6c9e-7a53-4d1b-9a4e-2f3f0f9f0a11';
 const UNCONFIRMED_CREATION =
-	"We couldn't confirm that your Organization was created. Select Create Organization again to finish. Retrying won't create a duplicate.";
+	"We couldn't confirm that your Organization was created. Select Create and start setup again to finish. Retrying won't create a duplicate.";
 
 function event(
 	providerUser: Record<string, unknown> | null = confirmed,

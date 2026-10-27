@@ -19,7 +19,7 @@
 		onclick,
 		onkeydown,
 		...restProps
-	}: Omit<HTMLButtonAttributes, 'class'> & {
+	}: Omit<HTMLButtonAttributes, 'class' | 'children'> & {
 		ref?: HTMLDivElement | null;
 		class?: ClassValue;
 		placeholder?: string;

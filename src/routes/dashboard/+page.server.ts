@@ -25,6 +25,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	return {
+		userEmail: user.email ?? null,
 		organizations: result.organizations,
 		pendingInvitations: result.pendingInvitations
 	};

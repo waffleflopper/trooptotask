@@ -53,7 +53,7 @@ const entry = (resume: boolean): Promise<SetupEntryData> =>
 		orgId: 'org-1',
 		today: '2026-10-27',
 		state: { branch: 'army', answers: {}, finishedAt: null, prompts: { setup: { snoozedUntil: '2026-10-28' } } },
-		entry: { prompt: null, resume }
+		entry: { prompt: null, resume: resume ? { kind: 'setup' } : null }
 	});
 
 const renderResume = (data: Promise<SetupEntryData | null>) =>

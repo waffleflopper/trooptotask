@@ -252,13 +252,13 @@ describe('owner setup entry stream', () => {
 			url: new URL('http://localhost/org/org-1')
 		});
 		expect(result.shell.kind).toBe('ready');
-		complete({ orgId: 'org-1', state, today: '2026-10-27', entry: { prompt: { kind: 'invitation' }, resume: false } });
+		complete({ orgId: 'org-1', state, today: '2026-10-27', entry: { prompt: { kind: 'invitation' }, resume: null } });
 		if (role === 'owner') {
 			await expect(result.organizationSetup).resolves.toEqual({
 				orgId: 'org-1',
 				state,
 				today: '2026-10-27',
-				entry: { prompt: { kind: 'invitation' }, resume: false }
+				entry: { prompt: { kind: 'invitation' }, resume: null }
 			});
 			expect(reads).toEqual(['org-1']);
 		} else {

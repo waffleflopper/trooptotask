@@ -32,7 +32,7 @@ function entry(prompt: SetupEntry['prompt'], orgId = 'org-1'): Promise<SetupEntr
 		orgId,
 		today: '2026-10-27',
 		state: { branch: 'army', answers: {}, finishedAt: null, prompts: {} },
-		entry: { prompt, resume: false }
+		entry: { prompt, resume: null }
 	});
 }
 

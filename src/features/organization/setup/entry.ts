@@ -6,7 +6,7 @@ import type { SetupModel } from './model';
 
 export interface SetupEntry {
 	prompt: { kind: 'invitation' } | { kind: 'newFeature'; step: SetupStepKey } | null;
-	resume: boolean;
+	resume: { kind: 'setup' } | { kind: 'newFeature'; step: SetupStepKey } | null;
 }
 
 export interface SetupEntryData {
@@ -49,7 +49,7 @@ export function setupEntry({
 	organizationCreatedOn: string;
 	today: string;
 }): SetupEntry {
-	if (!isOwner) return { prompt: null, resume: false };
+	if (!isOwner) return { prompt: null, resume: null };
 	const setupPrompt = state.prompts.setup;
 	const neverSetup = setupPrompt !== undefined && 'never' in setupPrompt;
 	const newSteps = registry.filter((step) => {
@@ -63,12 +63,16 @@ export function setupEntry({
 		);
 	});
 	const newPrompt = newSteps.find((step) => !isSnoozed(state.prompts[step.key], today));
-	const resume =
-		(!state.finishedAt && setupPrompt !== undefined && 'snoozedUntil' in setupPrompt) ||
-		newSteps.some((step) => {
-			const prompt = state.prompts[step.key];
-			return neverSetup || (prompt !== undefined && 'snoozedUntil' in prompt);
-		});
+	const resumeStep = newSteps.find((step) => {
+		const prompt = state.prompts[step.key];
+		return neverSetup || (prompt !== undefined && 'snoozedUntil' in prompt);
+	});
+	const resume: SetupEntry['resume'] =
+		!state.finishedAt && setupPrompt !== undefined && 'snoozedUntil' in setupPrompt
+			? { kind: 'setup' }
+			: resumeStep
+				? { kind: 'newFeature', step: resumeStep.key }
+				: null;
 	if (!state.finishedAt && !neverSetup && !isSnoozed(setupPrompt, today)) {
 		return { prompt: { kind: 'invitation' }, resume };
 	}

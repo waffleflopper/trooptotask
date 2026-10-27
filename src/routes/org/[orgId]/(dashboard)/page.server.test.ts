@@ -265,7 +265,7 @@ describe('dashboard page server load', () => {
 
 		expect(result.organizationSetup).toBeNull();
 		expect(result.setupInvitationProgress).toBeNull();
-		expect(result.breadcrumbLabel).toEqual(expect.any(String));
+		expect(readSetupMock).not.toHaveBeenCalled();
 	});
 
 	it('keeps Dashboard reads independent of setup prompt invalidation', async () => {

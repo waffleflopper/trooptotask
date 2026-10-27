@@ -87,7 +87,7 @@
 	}
 </script>
 
-{#if resolved?.entry.resume}
+{#if resolved && resolved.entry.resume !== null}
 	<Popover.Root bind:open {onOpenChange}>
 		<Popover.Trigger>
 			{#snippet child({ props })}

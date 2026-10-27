@@ -192,8 +192,9 @@ export class SetupFlow {
 	finishLater() {
 		const target = this.dashboardHref;
 		const isOwner = this.#source().isOwner;
+		const { prompts, finishedAt } = this.#loaded;
 		return this.#run(async (stillHere) => {
-			if (isOwner) {
+			if (isOwner && !finishedAt && !(prompts.setup && 'never' in prompts.setup)) {
 				const next = await this.#post('prompt', { key: 'setup', choice: 'tomorrow' });
 				if (!stillHere()) return;
 				this.#apply(next);

@@ -83,7 +83,7 @@ describe('setup entry delivery', () => {
 			orgId: ORG,
 			state: { branch: null, answers: {}, finishedAt: null, prompts: { setup: { snoozedUntil: '2026-10-28' } } },
 			today: '2026-10-27',
-			entry: { prompt: null, resume: true }
+			entry: { prompt: null, resume: { kind: 'setup' } }
 		});
 		expect(duplicate).toEqual(entry);
 		expect(event.requests.filter((request) => request.path === 'rpc/read_organization_setup')).toEqual([
@@ -102,9 +102,9 @@ describe('setup entry delivery', () => {
 		const second = fixture('owner', { ...empty, prompts: { setup: { never: true } } });
 		expect((await streamOrganizationSetupEntry(first))?.entry).toEqual({
 			prompt: { kind: 'invitation' },
-			resume: false
+			resume: null
 		});
-		expect((await streamOrganizationSetupEntry(second))?.entry).toEqual({ prompt: null, resume: false });
+		expect((await streamOrganizationSetupEntry(second))?.entry).toEqual({ prompt: null, resume: null });
 	});
 });
 

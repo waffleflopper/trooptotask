@@ -221,7 +221,7 @@
 						<li class="border-b">
 							<a
 								href={resolve(`/org/${org.urlSegment ?? org.id}` as `/org/${string}`)}
-								class="flex min-h-14 items-center gap-4 py-3 pr-1 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+								class="flex min-h-14 items-center gap-4 py-3 pr-1 text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
 							>
 								<span class="min-w-0 grow text-base leading-[22px] font-medium">{org.name}</span>
 								<span class="shrink-0 text-right font-mono text-[11px] leading-[14px] tracking-[0.08em] uppercase">
@@ -254,7 +254,7 @@
 
 	<a
 		href={resolve('/org/new')}
-		class="flex items-center gap-4 rounded-lg border border-dashed border-input py-4 pr-2 pl-4 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+		class="flex items-center gap-4 rounded-lg border border-dashed border-input py-4 pr-2 pl-4 text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
 	>
 		<span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-foreground text-chrome-accent">
 			<PlusIcon class="size-3.5" strokeWidth={2.25} aria-hidden="true" />

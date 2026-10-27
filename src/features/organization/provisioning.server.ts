@@ -23,7 +23,7 @@ export interface OrgProvisioningPort {
 }
 
 export const ORGANIZATION_CREATION_UNCONFIRMED_MESSAGE =
-	"We couldn't confirm that your Organization was created. Select Create Organization again to finish. Retrying won't create a duplicate.";
+	"We couldn't confirm that your Organization was created. Select Create and start setup again to finish. Retrying won't create a duplicate.";
 
 export async function provisionOrganization(
 	port: OrgProvisioningPort,

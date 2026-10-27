@@ -40,7 +40,7 @@ values.
 
    | Form                        | Entry (actor)                              | Family armed                             | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                      |
    | --------------------------- | ------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-   | Add Person                  | Personnel → Add Person (`manager`)         | `personnel`                              | Rank, names, MOS, Duty Role, Group, ETS, PCS / DEROS all retained                                                                                                                                                                                                                                                                                                                                                                          |
+   | Add Person                  | Personnel → Add Person (`manager`)         | `personnel`                              | Rank, names, MOS, Duty Role, Group, ETS, PCS / DEROS all retained; the error is an `Alert` in the dialog, `<Rank Last> wasn't added`, not a toast, and the primary button reads `Try again`                                                                                                                                                                                                                                                |
    | Quick edit                  | row `Quick edit` or E (`manager`)          | `personnel`                              | change several fields and Save: the row stays open with every value and `Failed to update personnel` in an alert, and `Save` retries; Escape and `Cancel` close without asking even with a draft, while another row's `Quick edit` asks `Discard changes?`                                                                                                                                                                                 |
    | Data sheet                  | Details → Data sheet → Edit (`manager`)    | `personnel/PERSON_ID/data-sheet`         | the server refuses a one-space Last or First name, an invalid personal email or date, and a rank outside the catalog; the refused field shows its message inline with `aria-invalid`, focus moves to it, and neither the Person nor the sheet row saves; a failed request shows the server message in the form `Alert` and every field keeps its value; Cancel, Escape, sidebar links and browser Back with a changed field ask to discard |
    | Follow-up create            | Overview and Log tab                       | `personnel/PERSON_ID/follow-ups`         | title, notes, due date                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -97,6 +97,25 @@ values.
    horizontal scroll, the group headers and the tab links within the viewport and operable, and light/dark text and
    error colors readable.
 
+5. **Add a person, several in a row.** As `manager`, open Personnel → `Add Person`. Expect the dialog `Add a person`
+   with eyebrow `Personnel · <Organization>`, four sections (Who `Required`; Job, Leaving and Placement `Optional`),
+   Rank `SPC` with `Specialist` and `E-4`, and focus in `Last name`. The Rank list groups the active ranks under
+   Enlisted, Warrant, Officer, Civilian and Other, shows code, name and pay grade, and matches code or name. Fill
+   `Last name`, `First name`, MOS `92Y` and a Duty Role, then choose `Add and add another` (Ctrl/Cmd+Enter does the
+   same; Enter is `Add person`). The dialog stays open with `Added SPC <Last> · 1 so far` in the footer and Cancel
+   reading `Done`; Rank, MOS and Group show `· kept` and keep their values; names, Duty Role and dates clear; focus is
+   back in `Last name`. Add a second with Ctrl+Enter (`· 2 so far`), choose Group `Alpha`, then add a third with
+   `Add person`: the dialog closes with an `Added <Rank Last>` toast. Reload Personnel and read
+   `$V rows personnel orgA`: three rows with rank `SPC` and MOS `92Y`, the Duty Role (`clinic_role`) only on the first
+   and the Group only on the third. Submitting with both names empty shows `Enter a last name.` and
+   `Enter a first name.` on their fields and focuses `Last name`. A failed save (`network arm-fail PAGE personnel`)
+   keeps the dialog open with `<Rank Last> wasn't added` and the message in an `Alert` at the top of the body, every
+   value in place and the primary button reading `Try again`; restore and press it to save once. Where the actor may
+   leave people unassigned and the Organization has no Groups, a `No Groups yet` note replaces the Group select. Every
+   text input carries `autocomplete="off"`, `data-1p-ignore`, `data-lpignore` and `data-bwignore`. At 390 the dialog
+   fills the screen, the section labels sit above their fields, the footer's second button reads `Add another`, and the
+   page has no horizontal scroll. Start Onboarding's Add Person has no `Add and add another`.
+
 ## Gotchas
 
 - A synthetic 503 is not a provider outage; it proves the browser's recovery and the absence of a write only. Failures
@@ -107,10 +126,11 @@ values.
   the same control; arm it immediately before the action and restore it afterward.
 - The modal's `Group` select shares its name with the toolbar's `Group` view toggle: pick the dialog's with the second
   match, because a click on the toolbar button closes the dialog and drops the draft. Rank and Group are comboboxes:
-  type the value into the combobox and press Enter. `upload_file` takes `filePaths` (an array) inside the workspace
-  roots, so keep fixture files under `.verification/evidence/` and delete them before packaging. Counseling dates are
-  chosen through the date picker (click the day cell). The `rows` allowlist includes `leader_notes` and
-  `counseling_records`, so read their no-write proof with `$V rows leader_notes orgA personnel_id ID` and
+  type the value into the combobox and press Enter. `take_snapshot` omits their open options; read them with
+  `evaluate_script` over `[role=option]`. `upload_file` takes `filePaths` (an array) inside the workspace roots, so keep
+  fixture files under `.verification/evidence/` and delete them before packaging. Counseling dates are chosen through
+  the date picker (click the day cell). The `rows` allowlist includes `leader_notes` and `counseling_records`, so read
+  their no-write proof with `$V rows leader_notes orgA personnel_id ID` and
   `$V rows counseling_records orgA personnel_id ID`. The Archived tab's `Delete` opens a destructive
   `Delete archived item` confirmation: Cancel and Escape send nothing, and confirm stays open and busy until the DELETE
   settles (a failure keeps it open with the Alert and Confirm retries), so drive it only on a seeded archived item. On

@@ -435,10 +435,7 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 	return codes.map((code) => summaries.get(code) ?? createEmptyReferenceSummary(code));
 }
 
-/**
- * Sets each listed rank to its state in one write. A built-in rank missing from an added branch pack is inserted, so
- * turning on a pack rank that was never added and turning on an existing one are the same request.
- */
+/** Built-in ranks missing from an added branch pack can be turned on without adding the whole pack. */
 export async function setOrganizationRankCatalogStates(
 	ports: RankCatalogPorts,
 	input: { changes: ReadonlyArray<{ code: string; state: RankState }> }
@@ -460,11 +457,11 @@ export async function setOrganizationRankCatalogStates(
 		existing.filter((entry) => entry.source === 'built-in').map((entry) => entry.service)
 	);
 	const rowsToSave: RankCatalogSave[] = [];
+	const codesByState: Record<RankState, string[]> = { active: [], retired: [] };
 	for (const [code, state] of targets) {
 		const entry = existingByCode.get(code);
 		if (entry) {
-			if (entry.state !== state)
-				rowsToSave.push(serializeRankCatalogEntry({ ...deserializeRankCatalogRow(entry), state }, entry.source));
+			codesByState[state].push(code);
 			continue;
 		}
 		const builtIn = BUILT_IN_RANK_CATALOG.find((candidate) => candidate.code === code);
@@ -478,7 +475,11 @@ export async function setOrganizationRankCatalogStates(
 		rowsToSave.push(serializeRankCatalogEntry({ ...builtIn, state }, 'built-in'));
 	}
 
-	const saved = await ports.rankCatalog.saveEntries(rowsToSave);
+	const saved = [
+		...(await ports.rankCatalog.setStatesByCodes(codesByState.active, 'active')),
+		...(await ports.rankCatalog.setStatesByCodes(codesByState.retired, 'retired')),
+		...(await ports.rankCatalog.saveEntries(rowsToSave))
+	];
 	await ports.audit.log({
 		action: 'organization.rank_catalog.bulk_state_changed',
 		resourceType: 'organization_rank_catalog',

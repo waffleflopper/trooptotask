@@ -78,6 +78,8 @@ export function personnelProvider(initial: Partial<Record<PersonnelTable, Row[]>
 							if (['select', 'order', 'offset', 'limit', 'columns', 'on_conflict'].includes(column)) continue;
 							if (filter.startsWith('eq.')) {
 								if (String(row[column]) !== filter.slice(3)) return false;
+							} else if (filter.startsWith('neq.')) {
+								if (String(row[column]) === filter.slice(4)) return false;
 							} else if (filter.startsWith('in.(')) {
 								if (
 									!filter

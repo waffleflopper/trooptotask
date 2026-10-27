@@ -32,10 +32,14 @@
 	let saving = $state<SetupBranch | null>(null);
 	let failure = $state<string | null>(null);
 	let saved = $state(false);
+	/** The facts read before the last save; their rank count predates it. */
+	let staleFacts = $state.raw<typeof flow.facts>(null);
 
 	const chosen = $derived(saving ?? flow.state.branch);
 	const chosenLabel = $derived(BRANCHES.find((branch) => branch.value === flow.state.branch)?.label);
-	const activeRanks = $derived(flow.facts?.activeRanks.status === 'ready' ? flow.facts.activeRanks.value : null);
+	const activeRanks = $derived(
+		flow.facts !== staleFacts && flow.facts?.activeRanks.status === 'ready' ? flow.facts.activeRanks.value : null
+	);
 
 	async function choose(branch: SetupBranch) {
 		if (saving || branch === flow.state.branch) return;
@@ -43,6 +47,7 @@
 		failure = null;
 		try {
 			if (!(await flow.saveBranch(branch))) return;
+			staleFacts = flow.facts;
 			saved = true;
 			saving = null;
 			await invalidate('app:organization-setup');

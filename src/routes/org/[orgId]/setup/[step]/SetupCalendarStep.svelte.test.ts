@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, expect, it, vi } from 'vitest';
+import { dailyAssignmentsStore } from '$features/calendar';
 import SetupCalendarStep from './SetupCalendarStep.svelte';
 import SetupStepHarness from './test-support/SetupStepHarness.svelte';
 import { page } from './test-support/setupPage.svelte';
@@ -13,7 +14,7 @@ vi.mock('$features/calendar/calendarWorkspaceHydration.svelte', () => ({
 	calendarWorkspaceHydrator: { hydrate: async () => {}, restrict: () => {}, reset: () => {} }
 }));
 vi.mock('$features/calendar/components/CalendarSettingsPage.svelte', async () => ({
-	default: (await import('./test-support/CalendarSettingsStub.svelte')).default
+	default: (await import('$lib/test-stubs/VisibleStub.svelte')).default
 }));
 
 afterEach(() => {
@@ -23,24 +24,27 @@ afterEach(() => {
 
 it('holds Continue while a calendar setting saves, then stays on the step when it fails', async () => {
 	page.data = { calendar: { data: Promise.resolve({ hydration: {} }) } };
-	const statusSave = Promise.withResolvers<Response>();
+	const typeSave = Promise.withResolvers<Response>();
 	const answer = answerEndpoint();
 	const fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
-		String(input).endsWith('/setup/answer') ? answer(input, init) : statusSave.promise
+		String(input).endsWith('/setup/answer') ? answer(input, init) : typeSave.promise
 	);
 	vi.stubGlobal('fetch', fetch);
 	const navigate = vi.fn(async () => {});
 	render(SetupStepHarness, { props: { source: stepSource('calendar'), navigate, step: SetupCalendarStep } });
 	const next = screen.getByRole('button', { name: /Continue to/ });
 
-	await fireEvent.click(await screen.findByRole('button', { name: 'Add status type' }));
+	await screen.findByTestId('visible-stub');
+	dailyAssignmentsStore.load([], [], 'alpha');
+	void dailyAssignmentsStore.addType({ name: 'Staff Duty' } as never).catch(() => {});
+	await waitFor(() => expect(next).toBeDisabled());
 	await fireEvent.click(next);
 	await new Promise((settle) => setTimeout(settle));
 
-	expect(fetch.mock.calls.map(([input]) => String(input))).toEqual(['/org/alpha/api/status-types']);
+	expect(fetch.mock.calls.map(([input]) => String(input))).toEqual(['/org/alpha/api/assignment-types']);
 	expect(navigate).not.toHaveBeenCalled();
 
-	statusSave.resolve(new Response(JSON.stringify({ message: 'Status type name is taken' }), { status: 409 }));
+	typeSave.resolve(new Response(JSON.stringify({ message: 'Assignment type name is taken' }), { status: 409 }));
 
 	await waitFor(() => expect(next).toBeEnabled());
 	expect(navigate).not.toHaveBeenCalled();

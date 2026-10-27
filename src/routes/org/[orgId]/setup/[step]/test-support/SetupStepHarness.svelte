@@ -9,7 +9,12 @@
 		step: Step
 	}: { source: SetupFlowSource; navigate: (href: string) => Promise<void>; step: Component } = $props();
 
-	setSetupFlow(new SetupFlow(() => source, navigate));
+	setSetupFlow(
+		new SetupFlow(
+			() => source,
+			(href) => navigate(href)
+		)
+	);
 </script>
 
 <Step />

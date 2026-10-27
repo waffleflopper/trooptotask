@@ -19,6 +19,8 @@
 		);
 		return () => (live = false);
 	});
+
+	let saving = $state(false);
 </script>
 
 <div class="flex flex-col gap-10">
@@ -29,6 +31,7 @@
 		<RanksSettingsPage
 			ranksSettings={shown.ranks}
 			form={page.form}
+			bind:saving
 			actionBase="/org/{page.params.orgId}/settings/ranks"
 		/>
 	{:else if shown}
@@ -48,4 +51,4 @@
 	{/if}
 </div>
 
-<SetupStepFooter />
+<SetupStepFooter blocked={saving ? 'Saving your change…' : null} />

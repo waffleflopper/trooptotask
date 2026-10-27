@@ -42,6 +42,7 @@ export function loadAvailabilityModal() {
 
 export { calendarStore } from './stores/calendar.svelte';
 export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
+export { calendarSettingsSaving } from './stores/calendarSettingsSaving';
 export { CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
 export { calendarViewCoverage, rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
 export { da6Href, da6SetupHref } from './utils/da6View';

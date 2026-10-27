@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
-	import type { CalendarWorkspaceRestricted, CalendarWorkspaceResult } from '$features/calendar';
+	import {
+		calendarSettingsSaving,
+		type CalendarWorkspaceRestricted,
+		type CalendarWorkspaceResult
+	} from '$features/calendar';
 	import CalendarSettingsPage from '$features/calendar/components/CalendarSettingsPage.svelte';
 	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
 	import { SetupEditorNote, SetupStepFooter } from '$features/organization';
@@ -19,6 +23,7 @@
 	);
 
 	let view = $state<'loading' | 'ready' | 'restricted' | 'failed'>('loading');
+	const saving = $derived(calendarSettingsSaving());
 
 	// The same hydration the Calendar layout runs, so the settings editors read the stores they always read.
 	$effect(() => {
@@ -67,4 +72,4 @@
 	{/if}
 </div>
 
-<SetupStepFooter />
+<SetupStepFooter blocked={saving ? 'Saving your change…' : null} />

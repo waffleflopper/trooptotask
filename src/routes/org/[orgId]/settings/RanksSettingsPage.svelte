@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { applyAction, enhance } from '$app/forms';
 	import {
 		RANK_ALREADY_EXISTS_MESSAGE,
 		RANK_CODE_REQUIRED_MESSAGE,
@@ -74,12 +74,15 @@
 	let {
 		ranksSettings,
 		form,
-		actionBase = ''
+		actionBase = '',
+		saving = $bindable(false)
 	}: {
 		ranksSettings: RanksSettingsData;
 		form: { [key: string]: unknown; rankError?: string } | null;
 		/** The Settings › Ranks path, when the editor is shown on another page. Its actions live there. */
 		actionBase?: string;
+		/** A rank request is in flight. */
+		saving?: boolean;
 	} = $props();
 
 	let savingAction = $state<string | null>(null);
@@ -253,13 +256,20 @@
 			}
 			const actionKey = typeof key === 'string' ? key : key(formData);
 			savingAction = actionKey;
+			saving = true;
 			lastActionKey = actionKey;
+			const submittedFrom = location.pathname;
 			return async ({ result, update }) => {
 				const succeeded = result.type === 'success';
 				try {
 					await update({ reset: false });
+					// SvelteKit applies `form` only on the action's own page, so the page embedding the editor applies it.
+					if (actionBase && (succeeded || result.type === 'failure') && location.pathname === submittedFrom) {
+						await applyAction(result);
+					}
 				} finally {
 					savingAction = null;
+					saving = false;
 					settleSubmission?.(succeeded);
 					settleSubmission = null;
 				}

@@ -22,7 +22,7 @@
 		const base = createPersonnelImportLane({
 			orgId: ctx.orgId,
 			orgUrlSegment: ctx.orgUrlSegment,
-			personnel: ctx.data.personnel ?? [],
+			personnel: ctx.allActivePersonnel,
 			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
 			rankCatalog: ctx.data.rankCatalog ?? [],
 			canManageGroups: ctx.canManageGroups,
@@ -34,9 +34,9 @@
 		};
 	}
 
-	/** Leaving with nobody on the roster records Later; with anyone on it, the step is Done from the data. */
+	/** Leaving with nobody on the roster, or before the count loads, records Later; people on it make the step Done. */
 	async function save() {
-		if (activePeople === 0) await flow.answer('personnel', 'later');
+		if (!activePeople) await flow.answer('personnel', 'later');
 	}
 </script>
 

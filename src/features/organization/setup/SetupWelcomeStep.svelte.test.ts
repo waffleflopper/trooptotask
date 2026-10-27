@@ -101,3 +101,32 @@ it('keeps the step unanswered when the branch save fails', async () => {
 	expect(continueButton).toBeDisabled();
 	expect(invalidate).not.toHaveBeenCalled();
 });
+
+it('waits for the refreshed rank count before announcing it', async () => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async () => respond(200, { ...empty, branch: 'army' }))
+	);
+	const source = {
+		orgUrlSegment: 'alpha',
+		disabledFeatures: [],
+		setupState: empty,
+		setupFacts: Promise.resolve(facts),
+		stepKey: 'welcome' as const,
+		navigating: false
+	};
+	const { rerender } = render(SetupFlowHarness, { props: { source } });
+
+	await userEvent.click(screen.getByRole('button', { name: 'Army' }));
+	const status = await screen.findByRole('status');
+	expect(status).not.toHaveTextContent('14');
+
+	await rerender({
+		source: {
+			...source,
+			setupState: { ...empty, branch: 'army' },
+			setupFacts: Promise.resolve({ ...facts, activeRanks: ready(30) })
+		}
+	});
+	await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('30'));
+});

@@ -55,9 +55,8 @@
 				{
 					result,
 					// The invitation reshapes the pending list and the rail's Invite your team state, both read at load.
-					update: async () => {
-						if (result.type === 'success') await invalidate('app:organization-setup');
-					}
+					update: (options) =>
+						result.type === 'success' ? invalidate('app:organization-setup') : outcome.update(options)
 				},
 				{
 					isCurrent: stillHere,

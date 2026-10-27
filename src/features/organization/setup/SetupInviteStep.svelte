@@ -83,7 +83,7 @@
 	}
 </script>
 
-<div class="flex max-w-190 flex-col gap-7">
+<div class="flex flex-col gap-7">
 	<p class="border-l-[3px] border-accent bg-muted px-4 py-3 text-sm leading-5">
 		This is the same invitation form as Settings › Members. People you invite appear there too, and nothing is locked
 		in.
@@ -149,7 +149,7 @@
 					{/each}
 				</ul>
 				<p class="pt-3 text-sm">
-					<a class="underline underline-offset-4" href="{flow.dashboardHref}/settings/members">
+					<a class="text-foreground underline underline-offset-4" href="{flow.dashboardHref}/settings/members">
 						Resend or revoke in Settings › Members
 					</a>
 				</p>

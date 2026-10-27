@@ -258,6 +258,15 @@ async function click(element: HTMLElement) {
 }
 
 describe('turning ranks on and off', () => {
+	it('accepts edits after the previous Organization shell finishes disposal', async () => {
+		renderRankPage([SGT]);
+		endOrganizationLifetime();
+		await click(chip('Sergeant'));
+		expect(heldPosts.map((post) => post.path)).toEqual(['/org/org-1/settings/ranks']);
+		await heldPosts[0].answer({ type: 'success', data: { success: true } });
+		expect(chip('Sergeant')).toHaveAttribute('aria-pressed', 'false');
+	});
+
 	it.each(['page', 'Organization'])('drops queued edits and completion effects after leaving the %s', async (scope) => {
 		const page = renderRankPage([SGT]);
 		await click(chip('Sergeant'));

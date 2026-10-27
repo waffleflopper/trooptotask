@@ -68,7 +68,10 @@
 	);
 	const onCount = $derived(countOn(shown));
 	const addableBranches = $derived(ranks.servicePacks.filter((pack) => pack.existingCount === 0));
-	const nameRows = $derived(board.custom.filter((entry) => entry.commands.canEdit));
+	// Older editors let an Organization file its own ranks under a branch, so those need names too.
+	const nameRows = $derived(
+		[...board.custom, ...board.branches.flatMap((branch) => branch.ranks)].filter((entry) => entry.commands.canEdit)
+	);
 
 	$effect(() => {
 		saving = edits.pending > 0 || addingBranch || namesSaving;

@@ -22,10 +22,10 @@ removes unused ones; no other member can change the catalog. Setup's Ranks step 
   `<label> (history)`.
 - `rank-create`: `+ Custom rank` opens the names editor with a `New custom rank` draft focused on Code; a new rank is
   Custom and on.
-- `rank-names`: `Edit names` (`aria-expanded`) lists the editable custom ranks with grade and use; a rank's button opens
-  its editor with Label, Category, Pay grade and Tie-break. Saving names never changes whether a rank is on. The code
-  stays fixed. `Remove` deletes an unreferenced
-  custom rank after a destructive confirmation.
+- `rank-names`: `Edit names` (`aria-expanded`) lists every rank the Organization added with grade and use, including one
+  filed under a branch such as Army, which also shows as that branch's chip; a rank's button opens its editor with
+  Label, Category, Pay grade and Tie-break. Saving names never changes whether a rank is on. The code stays fixed.
+  `Remove` deletes an unreferenced custom rank after a destructive confirmation.
 - `rank-failure`: a failed or rejected save shows its error, keeps every entered value and changes no chip.
 - `rank-denied`: a member without Organization owner/admin access cannot reach the catalog or change a rank.
 
@@ -109,13 +109,13 @@ reaches the provider. Use `arm-hold` and `release` to hold one. Restore every co
     `$V rows organization_rank_catalog orgB`. On A hold `setRankStates`, press Sergeant off and on, then switch to B
     with the Organization switcher before releasing. Release from the same browser page. B's rows must match the
     preserved values, and no queued `setRankStates` request may target B. Restore the control.
-14. **Partial pack and overlapping intents.** A starts with PFC, SPC and SGT saved but other Army ranks missing.
-    Turn SGT off, then Turn all Enlisted on. Reload and read `$V rows`: all 13 Enlisted codes are active, the original
-    SGT ID and creation time are retained, and no alert appears. Hold a failing SGT-off request with
+14. **Partial pack and overlapping intents.** A starts with PFC, SPC and SGT saved but other Army ranks missing. Turn
+    SGT off, then Turn all Enlisted on. Reload and read `$V rows`: all 13 Enlisted codes are active, the original SGT ID
+    and creation time are retained, and no alert appears. Hold a failing SGT-off request with
     `arm-hold-fail ... setRankStates`, then press Turn all Enlisted off. Release and require every Enlisted chip off.
-    Before reloading, Undo restores the last confirmed states,
-    including SGT. Turn all Enlisted off again, reload and require every Enlisted chip off. These pack additions persist
-    for this worker; restart it before any recipe that requires the original partial catalog.
+    Before reloading, Undo restores the last confirmed states, including SGT. Turn all Enlisted off again, reload and
+    require every Enlisted chip off. These pack additions persist for this worker; restart it before any recipe that
+    requires the original partial catalog.
 
 Remove UI-created ranks, turn back on or off every rank you changed, and compare
 `$V rows organization_rank_catalog orgA|orgB` with the preserved original. Ranks added from a pack stay; restart the

@@ -154,7 +154,7 @@ export async function acceptDashboardInvitation(
 		fail(404, 'This invitation is no longer available. Ask the unit to send a new one.');
 	}
 	if (accepted.status === 'setup_required') {
-		fail(400, 'Complete account setup before accepting this organization invitation');
+		fail(403, 'Complete account setup before accepting this organization invitation');
 	}
 	if (accepted.status === 'expired') {
 		if (accepted.organizationId) {
@@ -170,7 +170,7 @@ export async function acceptDashboardInvitation(
 		fail(400, 'This organization invitation is no longer available because platform access was rejected');
 	}
 	if (accepted.status === 'unavailable') {
-		fail(400, 'This Organization invitation is unavailable. Ask the inviting Organization for help.');
+		fail(409, 'This Organization invitation is unavailable. Ask the inviting Organization for help.');
 	}
 	if (accepted.status === 'already_member') {
 		fail(400, 'You are already a member of this organization');

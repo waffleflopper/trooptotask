@@ -187,6 +187,12 @@ describe('/dashboard page', () => {
 		],
 		['?/acceptInvitation', 'Accept', 'error', { type: 'error', status: 500, error: { message: 'Internal Error' } }],
 		[
+			'?/acceptInvitation',
+			'Accept',
+			'setup-required failure',
+			{ type: 'failure', status: 403, data: { error: 'Complete account setup' } }
+		],
+		[
 			'?/declineInvitation',
 			'Decline',
 			'failure',

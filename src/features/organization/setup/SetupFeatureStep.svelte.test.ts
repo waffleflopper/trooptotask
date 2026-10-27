@@ -80,7 +80,8 @@ function open(
 				disabledFeatures,
 				setupState: state,
 				setupFacts: Promise.resolve(facts),
-				stepKey
+				stepKey,
+				navigating: false
 			},
 			support: {
 				access: createClientAccess({ membershipRole: 'owner' }),

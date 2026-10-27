@@ -471,7 +471,7 @@ export async function setOrganizationRankCatalogStates(
 		if (
 			!builtIn ||
 			!existingServices.has(builtIn.service) ||
-			existing.some((row) => row.code.toUpperCase() === code.toUpperCase())
+			existing.some((row) => row.source !== 'built-in' && row.code.toUpperCase() === code.toUpperCase())
 		) {
 			fail(404, 'Rank catalog entry not found');
 		}

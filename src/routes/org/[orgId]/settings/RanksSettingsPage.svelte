@@ -154,7 +154,7 @@
 			state: edits.confirmedStateOf(entry.code, savedStates.get(entry.code) ?? entry.state)
 		}));
 		const moved = (bulk ? confirmed : entries).filter((entry) => entry.state !== state);
-		if (!bulk && moved.length === 0) return;
+		if (moved.length === 0 && !entries.some((entry) => entry.state !== state)) return;
 		const undo = confirmed.map((entry) => ({ code: entry.code, state: entry.state }));
 		const text = noteFor(moved, state, bulk);
 		const shownNote: Note | null = text ? { key, text, undo } : null;

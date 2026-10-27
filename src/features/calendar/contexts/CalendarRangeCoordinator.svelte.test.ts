@@ -394,6 +394,21 @@ describe('CalendarRangeCoordinator', () => {
 			expect(coordinator.taskingFacts.events.e1?.needAction).toBe(1);
 		});
 
+		it('keeps the newer reread when an older one answers last', async () => {
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded(3) }));
+			await coordinator.ensureRange('org-1', withEvents);
+			let answerOlder!: (data: ReturnType<typeof makeRangeData>) => void;
+			loadRange.mockReturnValueOnce(new Promise((resolve) => (answerOlder = resolve)));
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded(1) }));
+
+			const older = coordinator.rereadEvents('org-1');
+			expect(await coordinator.rereadEvents('org-1')).toBe('read');
+			answerOlder(makeRangeData({ projection: loaded(2) }));
+
+			expect(await older).toBe('abandoned');
+			expect(coordinator.taskingFacts.needAction).toBe(1);
+		});
+
 		it('keeps the held Tasking facts when reading them again fails', async () => {
 			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded(2) }));
 			await coordinator.ensureRange('org-1', withEvents);

@@ -52,6 +52,8 @@ export class CalendarRangeCoordinator {
 	#pendingRangeKey = $state<string | null>(null);
 	#failedRangeKey = $state<string | null>(null);
 	#requestSerial = 0;
+	// Rereads after Tasking writes overlap without starting a range read, so they keep their own order.
+	#eventsSerial = 0;
 	readonly #loadRange: typeof loadCalendarRange;
 	readonly #mergeRangeIntoStores: typeof mergeCalendarRangeIntoStores;
 
@@ -204,15 +206,18 @@ export class CalendarRangeCoordinator {
 		const events = untrack(() => this.loaded.events);
 		if (!events) return 'read';
 		const requestSerial = this.#requestSerial;
+		const eventsSerial = ++this.#eventsSerial;
 		const sameOrganization = stillInOrganizationLifetime();
+		const current = () =>
+			sameOrganization() && requestSerial === this.#requestSerial && eventsSerial === this.#eventsSerial;
 		try {
 			const rangeDataSets = await this.#readRanges(orgId, planCalendarRangeReads({}, { events }), requestSerial);
-			if (!sameOrganization() || requestSerial !== this.#requestSerial) return 'abandoned';
+			if (!current()) return 'abandoned';
 			if (rangeDataSets.some((rangeData) => rangeData.projection?.kind !== 'loaded')) return 'failed';
 			this.#applyProjections(rangeDataSets);
 			return 'read';
 		} catch {
-			return sameOrganization() && requestSerial === this.#requestSerial ? 'failed' : 'abandoned';
+			return current() ? 'failed' : 'abandoned';
 		}
 	}
 

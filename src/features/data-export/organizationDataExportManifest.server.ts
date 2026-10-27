@@ -79,7 +79,7 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('organizationRankCatalog', 'Organization Rank Catalog', 'organization_rank_catalog', 'settings', 'Settings'),
 	section('dashboardConfigs', 'Dashboard Configs', 'dashboard_configs', 'settings', 'Settings'),
 	section('deletionRequests', 'Deletion Requests', 'deletion_requests', 'settings', 'Settings'),
-	section('gettingStartedProgress', 'Getting Started Progress', 'getting_started_progress', 'settings', 'Settings'),
+	section('organizationSetup', 'Organization Setup', 'organization_setup', 'settings', 'Settings'),
 	section('notifications', 'Notifications', 'notifications', 'settings', 'Settings'),
 	section('userOrgPreferences', 'User Organization Preferences', 'user_org_preferences', 'settings', 'Settings'),
 	section('userPinnedGroups', 'User Pinned Groups', 'user_pinned_groups', 'settings', 'Settings'),

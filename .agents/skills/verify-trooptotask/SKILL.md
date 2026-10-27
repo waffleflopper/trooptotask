@@ -217,7 +217,8 @@ Recipes own feature actors, targets, commands and proof limits:
 - [Notifications/Feedback](features/notifications-feedback.md), [Evals](features/evals-rating-scheme.md).
 - Organization: [settings/reauth/destruction](features/organization-settings-destruction.md),
   [member entry](features/organization-member-access.md), [invitations/mail](features/organization-invitations.md),
-  [creation](features/organization-creation.md), [exports](features/organization-exports.md).
+  [creation](features/organization-creation.md), [exports](features/organization-exports.md),
+  [setup](features/organization-setup.md).
 - [Audit/maintenance](features/audit-capture-projections.md), [deletion requests/review](features/deletion-requests.md).
 - Platform: [Inbox](features/platform-inbox.md), [Feedback](features/platform-feedback.md),
   [administration](features/platform-administration.md),

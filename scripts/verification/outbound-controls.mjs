@@ -70,6 +70,8 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'invitation-block': [write('PATCH', '/rest/v1/organization_invitations', { body: { status: 'blocked' } })],
 	'org-create': [write('POST', '/rest/v1/rpc/create_organization')],
 	'org-create-lost-ack': [write('POST', '/rest/v1/rpc/create_organization', { afterCommit: true })],
+	'org-setup-answer': [write('POST', '/rest/v1/rpc/save_organization_setup_answer')],
+	'org-setup-training-count': [write('HEAD', '/rest/v1/training_types', { status: 500 })],
 	'password-update': [write('PUT', '/auth/v1/user', { body: { password: PRESENT } })],
 	'password-reconcile': [write('POST', '/rest/v1/rpc/password_change_attempt', { body: { p_action: 'reconcile' } })],
 	'password-revocation': [write('POST', '/auth/v1/logout', { query: { scope: 'others' } })],

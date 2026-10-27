@@ -1,66 +1,68 @@
 BEGIN;
 SET LOCAL search_path = public, extensions;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(14);
+SELECT no_plan();
 
-SELECT ok((SELECT migration_absent FROM upgrade_fixture.account_preferences_baseline), 'saved rows preceded the progress-scope migration');
-SELECT is((SELECT progress_count FROM upgrade_fixture.account_preferences_baseline), 2, 'old policy exposed own historical progress outside membership');
-SELECT is((SELECT preference_count FROM upgrade_fixture.account_preferences_baseline), 1, 'old preference policy already hid the historical foreign row');
-SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations WHERE version = '20261004000100'), 1, 'scope migration is recorded after populated upgrade');
+SELECT is((SELECT preference_count FROM upgrade_fixture.account_preferences_baseline), 1, 'preference policy hid the historical foreign row before upgrade');
 SELECT results_eq(
   $$ SELECT * FROM upgrade_fixture.account_preferences_current_rows ORDER BY table_name, row_id $$,
   $$ SELECT * FROM upgrade_fixture.account_preferences_before_rows ORDER BY table_name, row_id $$,
-  'upgrade preserves every saved ID, value and timestamp, including hidden historical rows'
+  'upgrade preserves preference and roster identities, saved values and timestamps'
 );
 SELECT results_eq(
   $$ SELECT * FROM upgrade_fixture.account_preferences_current_metadata ORDER BY object_name $$,
   $$ SELECT * FROM upgrade_fixture.account_preferences_before_metadata ORDER BY object_name $$,
-  'upgrade preserves table grants, RLS flags, columns, constraints, triggers, membership helper and preference policies'
+  'upgrade preserves preference grants, RLS flags, columns, constraints, triggers and membership helper grants'
+);
+SELECT hasnt_table('public', 'getting_started_progress', 'setup retires the old checklist on populated upgrade');
+SELECT results_eq(
+  $$ SELECT organization_id, branch, answers, finished_at FROM public.organization_setup
+     WHERE organization_id::text LIKE 'd2600000-%' ORDER BY organization_id $$,
+  $$ VALUES ('d2600000-0000-4000-8000-000000000101'::uuid, NULL::text,
+     '{"groups":"reviewed","ranks":"reviewed","calendar":"reviewed"}'::jsonb, NULL::timestamptz) $$,
+  'only an existing active roster receives the three reviewed-default marks'
 );
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'd2600000-0000-4000-8000-000000000001', true);
-SELECT results_eq(
-  $$ SELECT id FROM public.getting_started_progress ORDER BY id $$,
-  $$ VALUES ('d2600000-0000-4000-8000-000000000301'::uuid) $$,
-  'upgraded actor sees only its saved progress in current membership'
-);
 SELECT results_eq(
   $$ SELECT id FROM public.user_org_preferences ORDER BY id $$,
   $$ VALUES ('d2600000-0000-4000-8000-000000000401'::uuid) $$,
   'upgraded actor still sees only its saved preferences in current membership'
 );
 WITH changed AS (
-  UPDATE public.getting_started_progress SET dismissed_at = NULL
-  WHERE id = 'd2600000-0000-4000-8000-000000000301' RETURNING dismissed_at
+  UPDATE public.user_org_preferences SET preferences = jsonb_set(preferences, '{calendar,showStatusText}', 'false')
+  WHERE id = 'd2600000-0000-4000-8000-000000000401' RETURNING preferences
 )
-SELECT ok((SELECT dismissed_at IS NULL FROM changed), 'upgraded member can reset its saved dismissal');
+SELECT is((SELECT preferences FROM changed),
+  '{"calendar":{"showStatusText":false,"showPersonnelRoles":false},"training":{"matrixViewMode":"alphabetical","selectedGroupId":null},"historicalSentinel":"retain"}'::jsonb,
+  'upgraded member can update its own saved preferences without losing neighboring keys');
 WITH changed AS (
-  UPDATE public.getting_started_progress SET dismissed_at = NULL
-  WHERE id = 'd2600000-0000-4000-8000-000000000302' RETURNING id
+  UPDATE public.user_org_preferences SET preferences = '{}'
+  WHERE id = 'd2600000-0000-4000-8000-000000000402' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM changed), 0, 'upgraded member cannot change its historical foreign dismissal');
+SELECT is((SELECT count(*)::integer FROM changed), 0, 'upgraded member cannot change its historical foreign preferences');
 WITH removed AS (
-  DELETE FROM public.getting_started_progress WHERE id = 'd2600000-0000-4000-8000-000000000303' RETURNING id
+  DELETE FROM public.user_org_preferences WHERE id = 'd2600000-0000-4000-8000-000000000403' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM removed), 0, 'upgraded member cannot delete its peer progress');
+SELECT is((SELECT count(*)::integer FROM removed), 0, 'upgraded member cannot delete peer preferences');
 SELECT throws_ok(
-  $$ UPDATE public.getting_started_progress SET organization_id = 'd2600000-0000-4000-8000-000000000102'
-     WHERE id = 'd2600000-0000-4000-8000-000000000301' $$,
-  '42501', NULL, 'upgraded member cannot move progress outside membership'
+  $$ UPDATE public.user_org_preferences SET organization_id = 'd2600000-0000-4000-8000-000000000102'
+     WHERE id = 'd2600000-0000-4000-8000-000000000401' $$,
+  '42501', NULL, 'upgraded member cannot move preferences outside membership'
 );
 
 RESET ROLE;
 SELECT results_eq(
   $$ SELECT table_name, row_id, row_data FROM upgrade_fixture.account_preferences_current_rows
-     WHERE row_id <> 'd2600000-0000-4000-8000-000000000301' ORDER BY table_name, row_id $$,
+     WHERE row_id <> 'd2600000-0000-4000-8000-000000000401' ORDER BY table_name, row_id $$,
   $$ SELECT table_name, row_id, row_data FROM upgrade_fixture.account_preferences_before_rows
-     WHERE row_id <> 'd2600000-0000-4000-8000-000000000301' ORDER BY table_name, row_id $$,
-  'ordinary reset changes no neighboring saved rows or preference values'
+     WHERE row_id <> 'd2600000-0000-4000-8000-000000000401' ORDER BY table_name, row_id $$,
+  'ordinary preference update changes no neighboring rows'
 );
-SELECT is((SELECT to_jsonb(r) - 'dismissed_at' FROM public.getting_started_progress r WHERE id = 'd2600000-0000-4000-8000-000000000301'),
-  (SELECT row_data - 'dismissed_at' FROM upgrade_fixture.account_preferences_before_rows WHERE row_id = 'd2600000-0000-4000-8000-000000000301'),
-  'reset preserves its saved identity, Organization, user and creation timestamp');
+SELECT is((SELECT to_jsonb(r) - 'preferences' - 'updated_at' FROM public.user_org_preferences r WHERE id = 'd2600000-0000-4000-8000-000000000401'),
+  (SELECT row_data - 'preferences' - 'updated_at' FROM upgrade_fixture.account_preferences_before_rows WHERE row_id = 'd2600000-0000-4000-8000-000000000401'),
+  'preference update preserves saved identity, Organization, user and creation timestamp');
 
 SELECT * FROM finish();
 ROLLBACK;

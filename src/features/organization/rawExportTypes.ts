@@ -1,5 +1,6 @@
 export const ORGANIZATION_RAW_EXPORT_TABLES = [
 	'organizations',
+	'organization_setup',
 	'organization_memberships',
 	'organization_invitations',
 	'organization_invitation_email_outbox',

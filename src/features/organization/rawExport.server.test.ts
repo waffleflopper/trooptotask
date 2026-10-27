@@ -25,8 +25,8 @@ const tables = [
 	'access_request_organization_invitation_links'
 ] as const;
 
-function provider(table: OrganizationRawExportTable, count = 1, platformAdministrator = false) {
-	const savedFacts: Record<OrganizationRawExportTable, Record<string, unknown>> = {
+function provider(table: (typeof tables)[number], count = 1, platformAdministrator = false) {
+	const savedFacts: Record<(typeof tables)[number], Record<string, unknown>> = {
 		organizations: profile,
 		organization_memberships: {
 			user_id: 'member-a',
@@ -122,6 +122,40 @@ describe('ordinary Organization raw export provider', () => {
 		const fixture = provider(table, 1, true);
 		expect(fixture.state.requests).toEqual([]);
 		await expect(fixture.reader.listRows('org-a', table)).resolves.toEqual(fixture.ownRows);
+	});
+
+	it('exports setup through the privileged reader with the ordinary session and retains stored fields', async () => {
+		const saved = {
+			organization_id: 'org-a',
+			branch: 'army',
+			answers: { training: 'later' },
+			prompts: { setup: { never: true } },
+			finished_at: null,
+			updated_at: '2026-10-27T00:00:00Z'
+		};
+		let deny = false;
+		const client = createClient('http://127.0.0.1:9', 'synthetic-ordinary-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					if (
+						request.url !== 'http://127.0.0.1:9/rest/v1/rpc/export_organization_setup' ||
+						request.method !== 'POST' ||
+						request.headers.get('authorization') !== 'Bearer synthetic-ordinary-key'
+					)
+						throw new Error('Setup export requires its session RPC');
+					const body = await request.json();
+					if (deny) return Response.json({ code: '42501', message: 'Organization export denied' }, { status: 403 });
+					return Response.json(body.p_organization_id === 'org-a' ? [saved] : []);
+				}
+			}
+		});
+		const reader = createSupabaseOrganizationRawExportReader(client);
+		await expect(reader.listRows('org-a', 'organization_setup')).resolves.toEqual([saved]);
+		await expect(reader.listRows('org-b', 'organization_setup')).resolves.toEqual([]);
+		deny = true;
+		await expect(reader.listRows('org-a', 'organization_setup')).rejects.toThrow('Organization export denied');
 	});
 
 	it('retains the ordinary client’s empty invitation provenance visibility', async () => {

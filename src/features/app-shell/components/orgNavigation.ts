@@ -1,7 +1,7 @@
 import { capabilityMeets, type CapabilityMap, type DurableFeatureLane } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { SETTINGS_PAGES } from '$features/organization/contracts';
+import { SETTINGS_PAGES, SETUP_STEPS } from '$features/organization/contracts';
 
 export type OrgNavIcon =
 	| 'dashboard'
@@ -76,7 +76,11 @@ const SUPPORT_ROUTE_BREADCRUMBS: Record<string, { label: string; children: Recor
 			children: { profile: 'Profile', security: 'Sign-in & security' },
 			personal: true
 		},
-		'whats-new': { label: "What's new", children: {}, personal: true }
+		'whats-new': { label: "What's new", children: {}, personal: true },
+		setup: {
+			label: 'Organization setup',
+			children: { ...Object.fromEntries(SETUP_STEPS.map((step) => [step.slug, step.title])), done: 'Done' }
+		}
 	};
 
 export function getOrgNavigation(

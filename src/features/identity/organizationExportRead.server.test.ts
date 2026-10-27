@@ -8,17 +8,6 @@ const ORG = 'org-a';
 const USER = 'user-a';
 const cases = [
 	{
-		table: 'getting_started_progress',
-		saved: {
-			id: 'progress-a',
-			organization_id: ORG,
-			user_id: USER,
-			dismissed_at: null,
-			created_at: '2026-01-02T03:04:05.123456Z',
-			retained_extra: { completed: false }
-		}
-	},
-	{
 		table: 'user_org_preferences',
 		saved: {
 			id: 'preference-a',

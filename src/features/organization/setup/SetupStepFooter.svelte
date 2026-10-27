@@ -42,7 +42,8 @@
 		id="{id}-note"
 		class="min-w-0 flex-1 text-right font-mono max-sm:min-w-16 text-[11px] leading-[14px] tracking-[0.04em] text-muted-foreground max-sm:line-clamp-2 max-sm:text-left max-sm:font-sans max-sm:text-[13px] max-sm:leading-[18px] max-sm:tracking-normal max-sm:text-chrome-text-muted"
 	>
-		{blocked ?? note}
+		<!-- A new text node rather than a moved one, so swapping right-aligned copy records no layout shift. -->
+		{#key blocked ?? note}{blocked ?? note}{/key}
 	</p>
 	<Button
 		size="lg"

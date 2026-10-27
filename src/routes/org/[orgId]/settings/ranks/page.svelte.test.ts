@@ -258,6 +258,33 @@ async function click(element: HTMLElement) {
 }
 
 describe('turning ranks on and off', () => {
+	it('Turn all on sends no request and shows no note when the block is already on', async () => {
+		renderRankPage([WO1, CW2]);
+
+		await click(screen.getByRole('button', { name: 'Turn all Warrant Officer ranks on' }));
+
+		expect(heldPosts).toEqual([]);
+		expect(within(block('Warrant Officer')).getByRole('status')).toBeEmptyDOMElement();
+		expect(chip('Warrant Officer 1')).toHaveAttribute('aria-pressed', 'true');
+		expect(chip('Chief Warrant Officer 2')).toHaveAttribute('aria-pressed', 'true');
+	});
+
+	it('Turn all on overrides a pending off toggle when confirmed ranks are already on', async () => {
+		renderRankPage([WO1, CW2]);
+		await click(chip('Chief Warrant Officer 2'));
+		await click(screen.getByRole('button', { name: 'Turn all Warrant Officer ranks on' }));
+		await heldPosts[0].answer({ type: 'success', data: { success: true } });
+
+		expect(heldPosts[1].fields).toEqual([
+			['code', 'CW2'],
+			['state', 'active'],
+			['code', 'WO1'],
+			['state', 'active']
+		]);
+		await heldPosts[1].answer({ type: 'success', data: { success: true } });
+		expect(chip('Chief Warrant Officer 2')).toHaveAttribute('aria-pressed', 'true');
+	});
+
 	it('accepts edits after the previous Organization shell finishes disposal', async () => {
 		renderRankPage([SGT]);
 		endOrganizationLifetime();

@@ -1447,6 +1447,80 @@ describe('organization rank catalog', () => {
 		});
 	});
 
+	it('turns on Air Force Gen without changing the case-distinct Army GEN', async () => {
+		const ctx = createTestContext();
+		const armyGeneral = {
+			id: 'army-general',
+			organization_id: 'test-org',
+			code: 'GEN',
+			label: 'General',
+			service: 'army',
+			category: 'officer',
+			pay_grade: 'O-10',
+			state: 'retired',
+			source: 'built-in',
+			sort_order: 7,
+			created_at: '2026-01-01T00:00:00Z'
+		};
+		ctx.rawStore.seed('organization_rank_catalog', [
+			armyGeneral,
+			{
+				id: 'airman',
+				organization_id: 'test-org',
+				code: 'Amn',
+				label: 'Airman',
+				service: 'air-force',
+				category: 'enlisted',
+				pay_grade: 'E-2',
+				state: 'active',
+				source: 'built-in',
+				sort_order: 0
+			}
+		]);
+
+		await expect(
+			setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'Gen', state: 'active' }] })
+		).resolves.toEqual({ changedCount: 1 });
+
+		expect(await ctx.rankCatalog.findEntryByCode('Gen')).toMatchObject({
+			code: 'Gen',
+			label: 'General',
+			service: 'air-force',
+			state: 'active',
+			source: 'built-in'
+		});
+		expect(await ctx.rankCatalog.findEntryByCode('GEN')).toEqual(armyGeneral);
+	});
+
+	it.each(['custom', 'discovered'] as const)('does not insert a missing pack rank over a %s alias', async (source) => {
+		const ctx = createTestContext();
+		await ensureOrganizationRankCatalog(ctx);
+		await ctx.rankCatalog.saveEntries([
+			{
+				code: 'spc',
+				label: 'Local Specialist',
+				service: 'custom',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'retired',
+				source,
+				sort_order: 500
+			}
+		]);
+		const specialist = await ctx.rankCatalog.findEntryByCode('SPC');
+		await ctx.rawStore.delete('organization_rank_catalog', 'test-org', specialist!.id);
+
+		await expect(
+			setOrganizationRankCatalogStates(ctx, { changes: [{ code: 'SPC', state: 'active' }] })
+		).rejects.toMatchObject({ status: 404 });
+		expect(await ctx.rankCatalog.findEntryByCode('SPC')).toBeNull();
+		expect(await ctx.rankCatalog.findEntryByCode('spc')).toMatchObject({
+			code: 'spc',
+			state: 'retired',
+			source
+		});
+	});
+
 	it('refuses a rank that is neither in the catalog nor in an added branch pack', async () => {
 		const ctx = createTestContext();
 		await ensureOrganizationRankCatalog(ctx);

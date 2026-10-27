@@ -14,6 +14,76 @@ const NO_CAPABILITIES = {
 } as const;
 
 describe('rank settings read model', () => {
+	it('loads a missing Air Force Gen beside the case-distinct Army GEN', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed(
+			'organization_rank_catalog',
+			BUILT_IN_RANK_CATALOG.filter((entry) => entry.code === 'GEN' || entry.code === 'Amn').map((entry) => ({
+				id: entry.code,
+				organization_id: 'test-org',
+				code: entry.code,
+				label: entry.label,
+				service: entry.service,
+				category: entry.category,
+				pay_grade: entry.payGrade,
+				state: 'active',
+				source: 'built-in',
+				sort_order: entry.sortOrder
+			}))
+		);
+
+		const settings = await loadRanksSettings({ ...ctx, readSignInRosterRankReferences: async () => [] });
+
+		expect(settings.sections.ranks.entries.active.find((entry) => entry.code === 'GEN')).toMatchObject({
+			code: 'GEN',
+			service: 'army',
+			state: 'active'
+		});
+		expect(settings.sections.ranks.entries.retired.find((entry) => entry.code === 'Gen')).toMatchObject({
+			code: 'Gen',
+			service: 'air-force',
+			state: 'retired',
+			source: 'built-in'
+		});
+	});
+
+	it.each(['custom', 'discovered'] as const)('does not offer a missing pack rank over a %s alias', (source) => {
+		const settings = buildRanksSettingsData({
+			catalog: [
+				{
+					organizationId: 'test-org',
+					code: 'PVT',
+					label: 'Private',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-1',
+					state: 'active',
+					source: 'built-in',
+					sortOrder: 0
+				},
+				{
+					organizationId: 'test-org',
+					code: 'spc',
+					label: 'Local Specialist',
+					service: 'custom',
+					category: 'custom',
+					payGrade: 'ungraded',
+					state: 'retired',
+					source,
+					sortOrder: 500
+				}
+			],
+			referenceSummaries: [],
+			canManageCatalog: true
+		});
+
+		const codes = [...settings.sections.ranks.entries.active, ...settings.sections.ranks.entries.retired].map(
+			(entry) => entry.code
+		);
+		expect(codes).toContain('spc');
+		expect(codes).not.toContain('SPC');
+	});
+
 	it('groups active and retired rank catalog rows with service-pack options', async () => {
 		const ctx = createTestContext();
 		await saveOrganizationRankCatalogEntry(ctx, {

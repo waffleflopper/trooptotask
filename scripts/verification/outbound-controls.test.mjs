@@ -263,14 +263,26 @@ test('each named fault matches only its allowlisted writes on the owned provider
 				providerInput('rpc/save_organization_setup_answer', { method: 'POST' }),
 				['POST', '/rest/v1/rpc/save_organization_setup_answer']
 			]
+		],
+		'org-feature-switch': [
+			[
+				providerInput('organizations', {
+					method: 'PATCH',
+					body: JSON.stringify({ disabled_features: ['evaluations'] })
+				}),
+				['PATCH', '/rest/v1/organizations']
+			]
+		],
+		'org-setup-training-editor-read': [
+			[providerInput('training_types', { method: 'GET' }), ['GET', '/rest/v1/training_types', 500]]
 		]
 	};
 	for (const [name, matching] of Object.entries(cases)) {
-		for (const [input, [method, path]] of matching) {
+		for (const [input, [method, path, status = 503]] of matching) {
 			const { control, passed } = faults();
 			control.command('fault-arm', { name });
 			const response = await control.fetch(...input);
-			assert.equal(response.status, 503);
+			assert.equal(response.status, status);
 			assert.equal((await response.json()).code, 'T2T_VERIFY_PROVIDER_FAULT');
 			assert.equal(passed.length, 0);
 			assert.deepEqual(control.command('fault-state').controls[name].call, { method, path });

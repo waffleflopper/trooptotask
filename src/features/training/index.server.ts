@@ -2,6 +2,7 @@ export { createSupabaseTrainingOnboardingReferencesPort } from './onboardingRefe
 export type { TrainingOnboardingReferencesPort } from './contracts';
 export {
 	createTrainingType,
+	readTrainingTypeEditor,
 	updateTrainingType,
 	setTrainingTypeOrder,
 	deleteTrainingType,
@@ -12,6 +13,7 @@ export {
 	deleteTrainingView
 } from './server/trainingCatalogOperations.server';
 export { createSupabaseTrainingCatalogPersistence } from './server/trainingCatalogPersistence.server';
+export { applyTrainingSuggestions } from './server/trainingSuggestions.server';
 export { createSupabaseTrainingCompletionPersistence } from './server/trainingCompletionPersistence.server';
 export { createSupabaseTrainingCertificateStore } from './server/trainingCertificateStore.server';
 export { createSupabaseTrainingTypeNamesReader } from './server/trainingTypeNames.server';

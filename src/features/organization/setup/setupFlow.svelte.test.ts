@@ -5,6 +5,9 @@ import type { SetupFacts, SetupStepKey } from './registry';
 import type { OrganizationSetup } from './state';
 import { SetupFlow, type SetupFlowSource } from './setupFlow.svelte';
 
+const { invalidate } = vi.hoisted(() => ({ invalidate: vi.fn(async (_dependency: string) => {}) }));
+vi.mock('$app/navigation', () => ({ invalidate }));
+
 const ready = (value: number) => ({ status: 'ready', value }) as const;
 
 function facts(overrides: Partial<SetupFacts> = {}): SetupFacts {
@@ -62,6 +65,7 @@ const cleanups: (() => void)[] = [];
 afterEach(() => {
 	cleanups.splice(0).forEach((destroy) => destroy());
 	vi.unstubAllGlobals();
+	invalidate.mockClear();
 });
 
 async function settle() {
@@ -359,5 +363,44 @@ describe('saveBranch', () => {
 
 		expect(await saving).toBe(false);
 		expect(flow.state.branch).toBeNull();
+	});
+});
+
+describe('Writes that change the unit', () => {
+	it('reloads the feature switches and setup facts after a switch the owner already left', async () => {
+		const response = deferred<Response>();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => response.promise)
+		);
+		const { flow } = setup('training');
+		await settle();
+
+		const switching = flow.switchFeature('training', false);
+		flow.leave();
+		response.resolve(respond(200, {}));
+
+		expect(await switching).toBe(false);
+		expect(invalidate.mock.calls.map(([dependency]) => dependency).sort()).toEqual([
+			'app:org-core',
+			'app:organization-setup'
+		]);
+	});
+
+	it('reloads the setup facts after suggestions the owner already left', async () => {
+		const response = deferred<Response>();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => response.promise)
+		);
+		const { flow } = setup('training');
+		await settle();
+
+		const adding = flow.addTrainingSuggestions('army', ['opsec']);
+		flow.leave();
+		response.resolve(respond(200, { added: 1 }));
+
+		expect(await adding).toBeNull();
+		expect(invalidate).toHaveBeenCalledWith('app:organization-setup');
 	});
 });

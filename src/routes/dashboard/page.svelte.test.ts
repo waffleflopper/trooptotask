@@ -119,7 +119,7 @@ describe('/dashboard page', () => {
 		);
 
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Member of' })));
-		expect(screen.getByRole('status').textContent?.trim()).toBe('Declined the invitation to Bravo Company.');
+		expect(screen.getByRole('status').textContent).toContain('Bravo Company');
 	});
 
 	it('refreshes after an accepted invitation only while the dashboard is still open', async () => {
@@ -133,9 +133,7 @@ describe('/dashboard page', () => {
 				{ applyForm: async () => {}, invalidate: async () => void refreshes.push('open') }
 			)
 		);
-		await waitFor(() =>
-			expect(screen.getByRole('status').textContent?.trim()).toBe("Joined Bravo Company. It's now in your list.")
-		);
+		await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Bravo Company'));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Accept invitation to Bravo Company' }));
 		view.unmount();

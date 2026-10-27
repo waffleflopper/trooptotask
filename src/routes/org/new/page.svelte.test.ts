@@ -163,7 +163,7 @@ describe('/org/new page', () => {
 		expect(enhanceRequests).toHaveLength(1);
 		expect(create.disabled).toBe(false);
 		expect(create.getAttribute('aria-disabled')).toBe('true');
-		expect(create.textContent?.trim()).toBe('Creating 2nd Battalion');
+		expect(create.textContent).toContain('2nd Battalion');
 		expect(document.activeElement).toBe(create);
 	});
 

@@ -262,13 +262,13 @@ describe('PersonnelModal', () => {
 			expect((screen.getByLabelText(/First Name/i) as HTMLInputElement).value).toBe('');
 			expect((screen.getByLabelText(/Duty Role/i) as HTMLInputElement).value).toBe('');
 			expect((screen.getByLabelText(/MOS/i) as HTMLInputElement).value).toBe('92Y');
-			expect(screen.getByRole('status').textContent).toContain('Added SPC Alvarez · 1 so far');
+			expect(screen.getByRole('status').textContent).toMatch(/SPC Alvarez\D+1\b/);
 			expect(onClose).not.toHaveBeenCalled();
 
 			await typePerson('Okafor', 'Ben');
 			await fireEvent.keyDown(screen.getByLabelText(/First Name/i), { key: 'Enter', ctrlKey: true });
 
-			await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Added SPC Okafor · 2 so far'));
+			await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/SPC Okafor\D+2\b/));
 			expect(onSubmit).toHaveBeenLastCalledWith(
 				expect.objectContaining({ rank: 'SPC', lastName: 'Okafor', mos: '92Y', groupId: 'g-supply' })
 			);

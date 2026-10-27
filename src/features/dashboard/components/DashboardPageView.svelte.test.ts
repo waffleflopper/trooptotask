@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { calendarStore } from '$features/calendar';
 import { createRawSnippet } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -27,7 +27,12 @@ const access: DashboardAccess = {
 	can: () => true,
 	isPrivileged: false
 };
-const updates = { refreshSummary: () => {}, putRecord: () => {} };
+const updates = {
+	refreshSummary: () => {},
+	refreshTaskings: async () => {},
+	retryTaskings: () => {},
+	putRecord: () => {}
+};
 const frame = {
 	orgName: 'Test Unit',
 	viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
@@ -315,6 +320,7 @@ describe('Dashboard sections', () => {
 		return {
 			orgId: 'org-1',
 			orgName: 'Test Unit',
+			taskings: { status: 'off' },
 			userId: 'user-1',
 			viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 			disabledFeatures: [],
@@ -365,6 +371,17 @@ describe('Dashboard sections', () => {
 		groupId: null,
 		groupName: ''
 	};
+	const ftx = {
+		kind: 'span' as const,
+		id: 'ftx',
+		start: '2026-10-20',
+		end: '2026-10-22',
+		title: 'FTX',
+		detail: '20 Oct to 22 Oct',
+		label: 'FTX exercise',
+		href: '/org/org-1/ftx',
+		emphasis: 'strong' as const
+	};
 	const sources = {
 		personnel: { items: [onePerson], loading: false },
 		statusTypes: { items: [], loading: false },
@@ -395,9 +412,9 @@ describe('Dashboard sections', () => {
 				{
 					id: 'exercises',
 					label: 'Exercises',
-					marks: () => [
-						{ kind: 'span', id: 'ftx', start: '2026-10-20', end: '2026-10-22', label: 'FTX', emphasis: 'strong' }
-					]
+					empty: 'No exercises.',
+					legend: [],
+					read: () => ({ state: 'ready', marks: [ftx] })
 				}
 			]
 		});
@@ -412,7 +429,7 @@ describe('Dashboard sections', () => {
 		expect(within(queue).getByText('Leaving')).toBeTruthy();
 		expect(within(queue).getByText('PCS to Fort Hood')).toBeTruthy();
 		const lane = screen.getByRole('list', { name: 'Exercises' });
-		expect(within(lane).getByText('FTX')).toBeTruthy();
+		expect(within(lane).getByRole('link', { name: 'FTX exercise' }).getAttribute('href')).toBe('/org/org-1/ftx');
 		expect(bands().every((band) => band?.getAttribute('aria-busy') === 'false')).toBe(true);
 	});
 
@@ -433,7 +450,15 @@ describe('Dashboard sections', () => {
 					}
 				]
 			],
-			forecastLanes: [{ id: 'exercises', label: 'Exercises', marks: () => [] }]
+			forecastLanes: [
+				{
+					id: 'exercises',
+					label: 'Exercises',
+					empty: 'No exercises.',
+					legend: [],
+					read: () => ({ state: 'ready', marks: [ftx] })
+				}
+			]
 		});
 		const ctx = createDashboardScreenModel({ ...pageData(), disabledFeatures: ['criticalTasks'] }, { sources });
 
@@ -442,6 +467,161 @@ describe('Dashboard sections', () => {
 		expect(screen.getByText('Nothing needs you right now.')).toBeTruthy();
 		expect(screen.queryByRole('list', { name: 'Exercises' })).toBeNull();
 	});
+	describe('the Events & Taskings lane', () => {
+		const forecast = {
+			events: [
+				{
+					id: 'e-1',
+					title: 'Best Medic Competition',
+					startsOn: '2026-10-20',
+					endsOn: '2026-10-23',
+					cancelled: false,
+					hasWork: true,
+					host: null
+				}
+			],
+			suspenses: [{ taskingId: 't-1', title: 'Alpha lane coverage', suspenseOn: '2026-10-22', status: 'open' as const }]
+		};
+		const lane = () => document.querySelector<HTMLElement>('[data-forecast-lane="events-and-taskings"]');
+		const renderWith = (taskings: DashboardPageData['taskings'], pageUpdates = updates) =>
+			render(DashboardPageView, {
+				props: {
+					...frame,
+					updates: pageUpdates,
+					ctx: createDashboardScreenModel({ ...pageData(), taskings }, { sources }),
+					sections: DASHBOARD_SECTIONS
+				}
+			});
+
+		it('links each Event span and suspense point to its detail', () => {
+			renderWith({ status: 'ready', attention: { rows: [], total: 0, onTrack: [] }, forecast });
+
+			const marks = within(lane()!).getAllByRole('link');
+			expect(marks.map((mark) => mark.getAttribute('href'))).toEqual([
+				'/org/org-1/calendar/events/e-1',
+				'/org/org-1/calendar/taskings/t-1'
+			]);
+			expect(marks.every((mark) => (mark.getAttribute('aria-label') ?? '').length > 0)).toBe(true);
+		});
+
+		it('holds a placeholder while the read is pending, and the forecast numbers do not wait for it', () => {
+			renderWith({ status: 'pending' });
+
+			expect(lane()?.querySelector('[aria-busy="true"] [data-slot="skeleton"]')).not.toBeNull();
+			expect(within(lane()!).queryAllByRole('link')).toEqual([]);
+			expect(bands()[0]?.getAttribute('aria-busy')).toBe('false');
+		});
+
+		it('fails on its own and retries the Tasking read', async () => {
+			const retryTaskings = vi.fn();
+			renderWith({ status: 'failed' }, { ...updates, retryTaskings });
+
+			await fireEvent.click(within(lane()!).getByRole('button', { name: 'Try again' }));
+
+			expect(retryTaskings).toHaveBeenCalledOnce();
+			expect(bands().every((band) => band?.getAttribute('aria-busy') === 'false')).toBe(true);
+		});
+
+		it('lists the suspenses due on one day behind its first diamond', async () => {
+			const due = (taskingId: string) => ({
+				taskingId,
+				title: taskingId,
+				suspenseOn: '2026-10-22',
+				status: 'open' as const
+			});
+			renderWith({
+				status: 'ready',
+				attention: { rows: [], total: 0, onTrack: [] },
+				forecast: { events: [], suspenses: [due('t-1'), due('t-2'), due('t-3')] }
+			});
+
+			expect(
+				within(lane()!)
+					.getAllByRole('link')
+					.map((mark) => mark.getAttribute('href'))
+			).toEqual(['/org/org-1/calendar/taskings/t-1']);
+			await fireEvent.click(within(lane()!).getByRole('button'));
+
+			const list = await waitFor(() => {
+				const content = document.querySelector<HTMLElement>('[data-slot="popover-content"]');
+				expect(content).not.toBeNull();
+				return content!;
+			});
+			const listed = within(list).getAllByRole('link');
+			expect(listed.map((mark) => mark.getAttribute('href'))).toEqual([
+				'/org/org-1/calendar/taskings/t-1',
+				'/org/org-1/calendar/taskings/t-2',
+				'/org/org-1/calendar/taskings/t-3'
+			]);
+		});
+
+		it('leaves the forecast in place without a lane when the Tasking read is off', () => {
+			renderWith({ status: 'off' });
+
+			expect(bands()[0]).toBeTruthy();
+			expect(lane()).toBeNull();
+		});
+	});
+
+	describe('Taskings on track', () => {
+		const block = () => screen.getByRole('region', { name: /on track/i });
+		const renderWith = (taskings: DashboardPageData['taskings']) =>
+			render(DashboardPageView, {
+				props: {
+					...frame,
+					ctx: createDashboardScreenModel({ ...pageData(), taskings }, { sources }),
+					sections: DASHBOARD_SECTIONS
+				}
+			});
+		const onTrack = {
+			taskingId: 't-roster',
+			title: 'Submit roster',
+			suspenseOn: '2026-10-21',
+			responsibleGroupId: null,
+			picked: 2,
+			required: 2,
+			status: 'in_progress' as const
+		};
+
+		it('links each Tasking due this week and the Events & Taskings workspace', () => {
+			renderWith({
+				status: 'ready',
+				attention: { rows: [], total: 0, onTrack: [onTrack] },
+				forecast: { events: [], suspenses: [] }
+			});
+
+			expect(
+				within(block())
+					.getAllByRole('link')
+					.map((link) => link.getAttribute('href'))
+			).toEqual(['/org/org-1/calendar/taskings/t-roster', '/org/org-1/calendar/taskings']);
+		});
+
+		it('holds skeleton rows while the read is pending', () => {
+			renderWith({ status: 'pending' });
+
+			expect(block().getAttribute('aria-busy')).toBe('true');
+			expect(block().querySelector('[data-slot="skeleton"]')).not.toBeNull();
+		});
+
+		it('says the read failed in place and keeps the workspace link', () => {
+			renderWith({ status: 'failed' });
+
+			expect(within(block()).getByText(/could not be loaded/i)).toBeTruthy();
+			expect(
+				within(block())
+					.getAllByRole('link')
+					.map((link) => link.getAttribute('href'))
+			).toEqual(['/org/org-1/calendar/taskings']);
+		});
+
+		it('leaves On duty without the block when the Tasking read is off', () => {
+			renderWith({ status: 'off' });
+
+			expect(screen.queryByRole('region', { name: /on track/i })).toBeNull();
+		});
+	});
+
 	function leaving(index: number) {
 		return {
 			kind: 'leaving' as const,

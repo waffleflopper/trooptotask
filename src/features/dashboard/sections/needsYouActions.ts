@@ -1,7 +1,9 @@
+import { transitionTaskingRequest, type TaskingAttentionRow, type TaskingTransition } from '$features/calendar';
 import { acknowledgeAwardTracking } from '$features/personnel';
 import { loadRecordClassDialog } from '$features/training';
 import type { Personnel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 import { personnelResource } from './dashboardAccess';
 import type { DashboardInputs } from './dashboardInputs';
 import { DUTY_FILL_DAYS, needsYouPanel, type NeedsYouAction } from './needsYou';
@@ -71,6 +73,62 @@ export function awardStartedAction(inputs: DashboardInputs, person: Personnel): 
 		run: async (updates) => {
 			await acknowledgeAwardTracking(orgId, person.id);
 			updates.putRecord(orgId, { list: 'awardTrackingAcknowledgedPersonnelIds', personnelId: person.id });
+		}
+	};
+}
+
+function taskingResource(row: TaskingAttentionRow) {
+	return scopeSetResourceForGroupId(row.responsibility.kind === 'group' ? row.responsibility.groupId : null);
+}
+
+/** Moves the Tasking on from the row, then rereads the Tasking rows the move clears it from. */
+export function taskingStatusAction(
+	inputs: DashboardInputs,
+	row: TaskingAttentionRow,
+	label: string,
+	transition: TaskingTransition
+): NeedsYouAction {
+	const orgId = inputs.page.orgId;
+	return {
+		label,
+		policy: calendar.manageTaskings,
+		resource: taskingResource(row),
+		mode: 'run',
+		run: async (updates) => {
+			await transitionTaskingRequest(orgId, row.taskingId, transition);
+			await updates.refreshTaskings();
+		}
+	};
+}
+
+/**
+ * Opens slots for the people still needed in the row, under the policy and scope Tasking detail uses. A Conflict row's
+ * Swap opens the same slots with the conflicting person's open for a replacement.
+ */
+export function pickPeopleAction(
+	inputs: DashboardInputs,
+	row: TaskingAttentionRow,
+	label: string,
+	href: string
+): NeedsYouAction {
+	const groups = Object.fromEntries(inputs.groups.map((group) => [group.id, group.name]));
+	const props = {
+		orgId: inputs.page.orgId,
+		taskingId: row.taskingId,
+		title: row.title,
+		href,
+		required: row.required,
+		swap: row.kind === 'conflict' ? row.conflict : null,
+		groups
+	};
+	return {
+		label,
+		policy: calendar.manageTaskings,
+		resource: taskingResource(row),
+		mode: 'expand',
+		open: async () => {
+			const { default: Panel } = await import('../components/needs-you/PickPeoplePanel.svelte');
+			return needsYouPanel(Panel, props);
 		}
 	};
 }

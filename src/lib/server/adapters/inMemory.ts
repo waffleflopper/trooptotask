@@ -10,7 +10,7 @@ import type {
 	PersonnelWorkbookHistoryReader,
 	SavedPersonnelSheet
 } from '$features/personnel/contracts';
-import type { RankCatalogPersistence } from '$features/personnel/contracts';
+import type { PersonnelDeletionReferencesPort, RankCatalogPersistence } from '$features/personnel/contracts';
 import type {
 	OrganizationSettingsMembershipRow,
 	OrganizationSettingsInvitationRow,
@@ -56,7 +56,13 @@ import type {
 	AssignmentSource
 } from '$features/calendar/contracts';
 import { fail } from '$lib/errors';
-import { ROSTER_CHANGED, STARTING_NUMBERS_LOCKED, effectiveRosterFormStart } from '$features/calendar/index.server';
+import {
+	ROSTER_CHANGED,
+	STARTING_NUMBERS_LOCKED,
+	effectiveRosterFormStart,
+	type CalendarProjectionReader,
+	type CalendarTaskingWorkspaceReader
+} from '$features/calendar/index.server';
 import type {
 	CriticalTaskCompletionPersistence,
 	CriticalTaskLibraryPersistence,
@@ -145,6 +151,7 @@ type TestContextOptions = {
 	) => CalendarAvailabilityPersistence;
 	calendarAssignmentsFactory?: (rawStore: FixtureRowStore, orgId: string) => CalendarAssignmentReader;
 	ratingSchemeFactory?: (rawStore: FixtureRowStore, orgId: string) => RatingSchemePersistence;
+	deletionReferences?: PersonnelDeletionReferencesPort;
 	criticalTaskLibraryFactory?: (rawStore: InMemoryDataStore, orgId: string) => CriticalTaskLibraryPersistence;
 	criticalTaskCompletionsFactory?: (rawStore: FixtureRowStore, orgId: string) => CriticalTaskCompletionPersistence;
 	criticalTasksReadModelFactory?: (
@@ -261,6 +268,8 @@ function createTestCalendarPersistence(
 	calendarCatalogs: CalendarCatalogPersistence;
 	calendarAvailability: CalendarAvailabilityPersistence;
 	calendarAssignments: CalendarAssignmentReader;
+	calendarProjection: CalendarProjectionReader;
+	taskingWorkspace: CalendarTaskingWorkspaceReader;
 } {
 	return {
 		calendarCatalogs:
@@ -317,7 +326,9 @@ function createTestCalendarPersistence(
 				listDayReferences: unavailableCalendarPersistence,
 				listRosterDetailDays: unavailableCalendarPersistence,
 				listSlotReferences: unavailableCalendarPersistence
-			} satisfies CalendarAssignmentReader)
+			} satisfies CalendarAssignmentReader),
+		calendarProjection: { read: unavailableCalendarPersistence },
+		taskingWorkspace: { read: unavailableCalendarPersistence }
 	};
 }
 
@@ -2110,6 +2121,9 @@ export function createTestContext(
 		scope,
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		deletionReferences: overrides?.deletionReferences ?? {
+			find: async () => ({ taskingTitles: [], hiddenTaskings: 0 })
+		},
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
 		organizationSettings,
 		contributorLabels: (userIds: string[]) => organizationSettings.findMemberLabels(auth.orgId, userIds),

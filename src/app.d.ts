@@ -28,6 +28,8 @@ declare global {
 			importStep?: 'columns' | 'review' | 'done';
 			/** The Training record sheet was opened from this page, so closing it steps back one entry. */
 			trainingRecord?: boolean;
+			/** The Event dates a save just changed, so Back from a Tasking's edit returns to the same review list. */
+			eventDateReview?: { before: { startsOn: string; endsOn: string }; after: { startsOn: string; endsOn: string } };
 		}
 	}
 }

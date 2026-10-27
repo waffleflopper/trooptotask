@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildNeedsYouQueue, type NeedsYouItem } from './needsYou';
+import { buildNeedsYouQueue, needsYouKindInfo, type NeedsYouItem } from './needsYou';
 
 const base = { subtitle: '', timing: '', href: '/org/org-1', action: null };
 
@@ -76,5 +76,56 @@ describe('buildNeedsYouQueue', () => {
 
 	it('returns an empty queue with no fold when no source has items', () => {
 		expect(buildNeedsYouQueue([[], []])).toEqual({ ranked: [], rows: [], fold: null });
+	});
+});
+
+describe('Tasking kinds in the queue', () => {
+	const lateTasking = (id: string, daysLate: number): NeedsYouItem => ({
+		...base,
+		id,
+		title: id,
+		kind: 'taskingOverdue',
+		taskingId: id,
+		urgency: { daysLate }
+	});
+	const datedTasking = (
+		id: string,
+		kind: 'taskingBlocked' | 'taskingShort' | 'taskingConflict',
+		date: string
+	): NeedsYouItem => ({ ...base, id, title: id, kind, taskingId: id, urgency: { date } });
+
+	it('ranks overdue Taskings with overdue evaluations by days late, then expired, then blocked Taskings', () => {
+		const queue = buildNeedsYouQueue([
+			[datedTasking('blocked', 'taskingBlocked', '2026-10-20'), expired('sharp', 'SHARP', 40)],
+			[overdue('eval', 'NCOER', 5), lateTasking('late', 12)]
+		]);
+
+		expect(ids(queue.rows)).toEqual(['late', 'eval', 'sharp', 'blocked']);
+	});
+
+	it('ranks conflicts ahead of Short Taskings and Unfilled duty, then orders those by date', () => {
+		const queue = buildNeedsYouQueue([
+			[
+				datedTasking('soon', 'taskingConflict', '2026-10-20'),
+				datedTasking('short', 'taskingShort', '2026-10-22'),
+				unfilled('duty', 'Staff duty', '2026-10-21')
+			]
+		]);
+
+		expect(ids(queue.rows)).toEqual(['soon', 'duty', 'short']);
+	});
+
+	it('labels each kind and colours it by severity', () => {
+		expect(
+			(['taskingOverdue', 'taskingBlocked', 'taskingShort', 'taskingConflict'] as const).map((kind) => {
+				const { label, severity } = needsYouKindInfo(kind);
+				return [label, severity];
+			})
+		).toEqual([
+			['Overdue', 'danger'],
+			['Blocked', 'danger'],
+			['Short', 'warning'],
+			['Conflict', 'warning']
+		]);
 	});
 });

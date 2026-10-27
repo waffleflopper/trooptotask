@@ -45,7 +45,8 @@ function seed(): Record<string, Row[]> {
 			...rows(8, OTHER, { archived_at: null })
 		],
 		rating_scheme_entries: [...rows(12, ORG), ...rows(8, OTHER)],
-		onboarding_templates: [...rows(2, ORG), ...rows(8, OTHER)]
+		onboarding_templates: [...rows(2, ORG), ...rows(8, OTHER)],
+		calendar_events: [...rows(3, ORG), ...rows(1, OTHER)]
 	};
 }
 
@@ -60,7 +61,8 @@ const EXPECTED = {
 	trainingRecords: 13,
 	criticalTaskLists: 10,
 	ratingSchemeEntries: 12,
-	onboardingTemplates: 2
+	onboardingTemplates: 2,
+	calendarEvents: 3
 };
 
 function inMemoryContext(tables: Record<string, Row[]>) {

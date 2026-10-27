@@ -18,6 +18,7 @@ interface CreateAvailabilityBatchInput {
 		startDate: string;
 		endDate: string;
 		note?: string | null;
+		setForTaskingId?: string | null;
 	}>;
 }
 
@@ -54,7 +55,7 @@ export async function createAvailabilityBatch(
 
 	const inserted = await ctx.calendarAvailability.createMany(records);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.bulk_created`,
 		resourceType: AUDIT_RESOURCE,
 		details: { count: inserted.length }
@@ -88,7 +89,7 @@ export async function deleteAvailabilityBatch(
 
 	const deletedCount = await ctx.availabilityRemoval.deleteIds(ids);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.bulk_deleted`,
 		resourceType: AUDIT_RESOURCE,
 		details: { count: deletedCount }

@@ -164,6 +164,38 @@ export interface GroupPersistence {
 	deleteWithReassignment(id: string, targetId: string | null): Promise<number>;
 }
 
+/** Taskings that still point at a Person or Group, as the actor may see them. Any keeps it from permanent deletion. */
+export interface PersonnelDeletionReferences {
+	taskingTitles: string[];
+	/** Referencing Taskings outside the actor's Calendar scope, only counted. */
+	hiddenTaskings: number;
+}
+
+export interface PersonnelDeletionReferencesPort {
+	find(target: { personnelId: string } | { groupId: string }): Promise<PersonnelDeletionReferences>;
+}
+
+/** The 409 a referenced Person or Group gets, naming what holds it and what to do first. */
+export function deletionBlockedMessage(
+	subject: string,
+	holds: 'picked for' | 'responsible for',
+	references: PersonnelDeletionReferences
+): string | null {
+	const { taskingTitles, hiddenTaskings } = references;
+	const count = taskingTitles.length + hiddenTaskings;
+	if (count === 0) return null;
+	const items = taskingTitles.map((title) => `“${title}”`);
+	if (hiddenTaskings > 0)
+		items.push(`${hiddenTaskings} ${hiddenTaskings === 1 ? 'tasking' : 'taskings'} you cannot see`);
+	const list = items.length === 1 ? items[0] : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+	const them = count === 1 ? 'that tasking' : 'those taskings';
+	const next =
+		holds === 'picked for'
+			? `Remove them from ${them} before deleting.`
+			: `Move ${them} to another Group or the organization before deleting.`;
+	return `${subject} is ${holds} ${list}. ${next}`;
+}
+
 export interface PinnedGroupResult {
 	id: string;
 	groupName: string;

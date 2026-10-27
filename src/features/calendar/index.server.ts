@@ -89,6 +89,7 @@ export {
 export { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from './utils/calendarAnchorDate';
 export {
 	CALENDAR_RANGE_COLLECTIONS,
+	DEFAULT_CALENDAR_RANGE_COLLECTIONS,
 	initialCalendarCoverage,
 	MAX_CALENDAR_RANGE_DAYS,
 	type CalendarRangeCollection
@@ -102,3 +103,65 @@ export { createSupabaseRosterPresenceSignals } from './rosterPresenceSignals.ser
 
 export { previewRosterSwap, commitRosterSwap, undoRosterSwap } from './rosterSwapOperations.server';
 export { createSupabaseRosterSwapPersistence } from './rosterSwapPersistence.server';
+
+export {
+	listEvents,
+	loadEventDetail,
+	loadEventMembers,
+	listEventActivity,
+	createEvent,
+	updateEvent,
+	cancelEvent,
+	deleteEvent,
+	settleEventRead
+} from './events/eventOperations.server';
+export { createSupabaseCalendarEventPersistence } from './events/eventPersistence.server';
+export {
+	listTaskings,
+	listEventTaskings,
+	listEventTaskingSummaries,
+	listEventContributions,
+	loadTaskingDetail,
+	listTaskingActivity,
+	loadTaskingChoices,
+	createTasking,
+	updateTasking,
+	transitionTasking
+} from './taskings/taskingOperations.server';
+export { createSupabaseCalendarTaskingPersistence } from './taskings/taskingPersistence.server';
+export { createSupabaseCalendarTaskingAttentionReader, loadTaskingAttention } from './taskings/taskingAttention.server';
+export {
+	loadTaskingStaffing,
+	loadStaffingPicker,
+	saveTaskingPeople
+} from './taskings/staffing/staffingOperations.server';
+export {
+	createSupabaseCalendarAvailabilityGaps,
+	loadTaskingAvailabilityGaps
+} from './taskings/staffing/availabilityGaps.server';
+export {
+	createSupabaseCalendarStaffingPersistence,
+	createSupabaseCalendarDeletionReferences
+} from './taskings/staffing/staffingPersistence.server';
+export {
+	loadTaskingLists,
+	addEquipment,
+	updateEquipment,
+	removeEquipment,
+	addChecklistItem,
+	updateChecklistItem,
+	removeChecklistItem,
+	reorderTaskingList
+} from './taskings/taskingListsOperations.server';
+export { createSupabaseCalendarTaskingListsPersistence } from './taskings/taskingListsPersistence.server';
+export {
+	createSupabaseCalendarProjectionReader,
+	readCalendarProjection,
+	type CalendarProjectionReader
+} from './projection/calendarProjectionRead.server';
+
+export {
+	createSupabaseCalendarTaskingWorkspaceReader,
+	type CalendarTaskingWorkspaceReader
+} from './taskings/taskingRead.server';
+export { loadTaskingPickStates } from './taskings/staffing/staffingOperations.server';

@@ -24,6 +24,8 @@ function throwGroupCommandError(error: { code?: string; message: string }): neve
 	if (error.code === '22023' || error.code === '22P02') fail(400, 'Invalid Group change');
 	if (['GRP01', '40P01', '40001', '55P03'].includes(error.code ?? '')) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
 	if (error.code === '23505') fail(409, GROUP_NAME_EXISTS_MESSAGE);
+	if (error.code === '23503' && error.message.includes('calendar_taskings_responsible_group_fkey'))
+		fail(409, 'This Group is now responsible for a tasking. Move it to another Group or the organization first.');
 	if (!error.code) fail(503, GROUP_CHANGE_UNCONFIRMED_MESSAGE, { publicMessage: true });
 	throw new Error(error.message);
 }

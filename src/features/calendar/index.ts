@@ -1,5 +1,12 @@
 export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from './contracts';
 export type {
+	CalendarProjection,
+	CalendarProjectionRead,
+	ProjectedCommitment,
+	ProjectedEvent,
+	ProjectedSuspense
+} from './projection/calendarProjection';
+export type {
 	CalendarBootstrap,
 	CalendarRangeData,
 	CalendarWorkspaceResult,
@@ -59,7 +66,59 @@ export function loadDutyPicker() {
 export { CalendarStatusBadge } from './components/calendar-status-badge';
 export { default as PersonnelNextDays } from './components/PersonnelNextDays.svelte';
 export { default as PersonnelNextDaysSkeleton } from './components/PersonnelNextDaysSkeleton.svelte';
+export { default as MarkerListPopover } from './components/projection/MarkerListPopover.svelte';
 export { default as Da6SetupPage } from './components/da6/Da6SetupPage.svelte';
 
-export type { CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';
+export type { CalendarEventsPageAccess, CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';
+export type {
+	CalendarEvent,
+	EventActivity,
+	EventDetail,
+	EventHost,
+	EventList,
+	EventListWhen,
+	EventRead,
+	MemberLabels
+} from './events/eventModel';
+export type {
+	Tasking,
+	TaskingActivityLog,
+	TaskingChoices,
+	TaskingDetail,
+	TaskingList,
+	TaskingListScope,
+	TaskingResponsibility,
+	TaskingTransition
+} from './taskings/taskingModel';
+export { transitionTaskingRequest } from './taskings/taskingRequests';
+export type {
+	ChecklistItem,
+	EquipmentRequirement,
+	TaskingListKind,
+	TaskingLists,
+	TaskingReadiness
+} from './taskings/taskingListsModel';
+/** The Assign people picker, loaded on first open. */
+export function loadAssignPeopleDialog() {
+	return import('./taskings/staffing/components/AssignPeopleDialog.svelte');
+}
+/** The Create tasking sheet, loaded on first open. */
+export function loadTaskingDialog() {
+	return import('./taskings/components/TaskingDialog.svelte');
+}
+export { parseTaskingFilters, parseTaskingView, scopeOfView } from './taskings/taskingModel';
+export type { StaffingPicker, TaskingPick, TaskingStaffing } from './taskings/staffing/staffingModel';
+export { loadStaffingPickerRequest, saveStaffingRequest } from './taskings/staffing/staffingRequests';
+export type {
+	TaskingAttentionProjection,
+	TaskingAttentionKind,
+	TaskingAttentionRow
+} from './taskings/taskingAttentionModel';
 export { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './import/statusImportLane';
+
+export type { TaskingRowFacts, TaskingWorkspace, EventTaskingSummary } from './taskings/taskingReadModel';
+export type { StaffingPersonState, StaffingAdvisories, StaffingAdvisory } from './taskings/staffing/staffingModel';
+
+export type { TaskingConflict, TaskingOnTrackRow } from './taskings/taskingAttentionModel';
+
+export type { OrganizationMemberOption } from './events/eventModel';

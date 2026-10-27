@@ -149,6 +149,10 @@ export class CalendarPageContext {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes).allowed;
 	}
 
+	get showEvents(): boolean {
+		return !this.#getData().disabledFeatures?.includes('eventsAndTaskings');
+	}
+
 	get canViewCalendar(): boolean {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.calendar.viewAvailability,
@@ -168,6 +172,16 @@ export class CalendarPageContext {
 			POLICY_ACTION_CATALOG.calendar.manageAssignments,
 			CALENDAR_WORKSPACE_RESOURCE
 		).allowed;
+	}
+
+	/** Adding a Tasking from the Calendar lands on an Event, which any Tasking manager may add to. */
+	get canAddTaskings(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'unscoped' })
+			.allowed;
+	}
+
+	canManageTasking(responsibility: { kind: 'group'; groupId: string } | { kind: 'organization' }): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, responsibility).allowed;
 	}
 
 	/** Roster counts span the whole Organization, so the picker shows them only to an Organization-wide operator. */

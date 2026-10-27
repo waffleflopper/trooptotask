@@ -18,6 +18,12 @@ describe('findDisabledFeatureRoute', () => {
 		expect(findDisabledFeatureRoute('/org/[orgId]/critical-tasks/(workspace)/library', ['criticalTasks'])).toBe(
 			'criticalTasks'
 		);
+		expect(findDisabledFeatureRoute('/org/[orgId]/calendar/events/[eventId]', ['eventsAndTaskings'])).toBe(
+			'eventsAndTaskings'
+		);
+		expect(findDisabledFeatureRoute('/org/[orgId]/calendar/taskings/[taskingId]', ['eventsAndTaskings'])).toBe(
+			'eventsAndTaskings'
+		);
 	});
 
 	it('ignores routes of features that are on and routes no feature owns', () => {
@@ -25,6 +31,8 @@ describe('findDisabledFeatureRoute', () => {
 		expect(findDisabledFeatureRoute('/org/[orgId]/(dashboard)', ['training'])).toBeNull();
 		expect(findDisabledFeatureRoute('/org/[orgId]/settings/training', ['training'])).toBeNull();
 		expect(findDisabledFeatureRoute('/org/[orgId]', ['training'])).toBeNull();
+		expect(findDisabledFeatureRoute('/org/[orgId]/calendar', ['eventsAndTaskings'])).toBeNull();
+		expect(findDisabledFeatureRoute('/org/[orgId]/calendar/eventsheet', ['eventsAndTaskings'])).toBeNull();
 		expect(findDisabledFeatureRoute(null, ['training'])).toBeNull();
 	});
 });

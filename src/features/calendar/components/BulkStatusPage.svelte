@@ -5,6 +5,7 @@
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
+	import { readAvailabilityPrefill, taskingHref } from '$features/calendar/taskings/staffing/availabilityPrefill';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import type { CalendarOperationsPageAccess } from '../contracts';
@@ -12,7 +13,7 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -25,12 +26,14 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
+	import type { FeatureKey } from '$lib/access/featureSwitches';
 
 	interface Props {
 		org: CalendarOperationsPageAccess;
 		data: {
 			orgId: string;
 			orgName?: string;
+			disabledFeatures?: readonly FeatureKey[];
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
 			calendar?: {
@@ -59,9 +62,23 @@
 		return 'add';
 	});
 
+	// Only the Add form takes a prefill, and only while Taskings exist; it travels in the link so a reload keeps it.
+	const prefill = $derived(
+		activeTab === 'add' && !data.disabledFeatures?.includes('eventsAndTaskings')
+			? readAvailabilityPrefill(page.url.searchParams)
+			: null
+	);
+	const prefillKey = $derived(prefill ? JSON.stringify(prefill) : '');
+	const backHref = $derived(prefill ? taskingHref(orgUrlSegment, prefill.taskingId) : `/org/${orgUrlSegment}/calendar`);
+
+	// Switching tabs replaces the form, so a save that finishes later belongs to a form that is gone.
+	let formGeneration = 0;
+	let applyingGeneration = -1;
+
 	function switchTab(tab: string) {
 		// A single toggle group emits '' when the pressed item is clicked again.
 		if (!TABS.some((option) => option.value === tab)) return;
+		formGeneration++;
 		const url = new URL(page.url);
 		url.searchParams.set('tab', tab);
 		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
@@ -95,6 +112,8 @@
 		active = false;
 	});
 
+	let applyingOrgId = '';
+
 	async function handleBulkApply(
 		personnelIds: string[],
 		statusTypeId: string,
@@ -102,8 +121,13 @@
 		endDate: string,
 		note: string | null
 	): Promise<string[]> {
+		applyingOrgId = data.orgId;
+		applyingGeneration = formGeneration;
 		const inserted = await availabilityStore.addBatch(
-			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note)
+			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note).map((record) => ({
+				...record,
+				setForTaskingId: prefill?.taskingId ?? null
+			}))
 		);
 		return inserted.map((entry) => entry.personnelId);
 	}
@@ -130,8 +154,23 @@
 		}
 	}
 
-	function handleComplete() {
+	function refreshCalendar() {
 		invalidate('app:calendar-data');
+	}
+
+	function handleAddComplete() {
+		// The reader already chose to go elsewhere; returning or refreshing now would cancel that navigation.
+		if (navigating.to) return;
+		const sameForm = applyingGeneration === formGeneration;
+		const returnTo = prefill && sameForm && active && data.orgId === applyingOrgId ? backHref : null;
+		// A separate invalidate would cancel a navigation started before it, so refresh as part of leaving.
+		if (returnTo) {
+			void goto(resolve(returnTo as `/org/${string}/calendar/taskings/${string}`), {
+				invalidate: ['app:calendar-data']
+			});
+			return;
+		}
+		refreshCalendar();
 	}
 </script>
 
@@ -150,9 +189,9 @@
 					{/each}
 				</ToggleGroup.Root>
 			{/if}
-			<Button variant="outline" size="sm" href={`/org/${orgUrlSegment}/calendar`}>
+			<Button variant="outline" size="sm" href={backHref}>
 				<ArrowLeftIcon aria-hidden="true" />
-				Back to calendar
+				{prefill ? 'Back to tasking' : 'Back to calendar'}
 			</Button>
 		{/snippet}
 	</PageShell.Header>
@@ -165,15 +204,18 @@
 	{:else}
 		<div class="min-w-0">
 			{#if activeTab === 'add'}
-				<BulkStatusAdd
-					personnelByGroup={scopedPBG}
-					statusTypes={statusTypesStore.items}
-					availabilityEntries={availabilityStore.items}
-					orgId={data.orgId}
-					{rangeCoordinator}
-					onApply={handleBulkApply}
-					onComplete={handleComplete}
-				/>
+				{#key prefillKey}
+					<BulkStatusAdd
+						personnelByGroup={scopedPBG}
+						statusTypes={statusTypesStore.items}
+						availabilityEntries={availabilityStore.items}
+						orgId={data.orgId}
+						{rangeCoordinator}
+						onApply={handleBulkApply}
+						onComplete={handleAddComplete}
+						{prefill}
+					/>
+				{/key}
 			{:else if activeTab === 'remove'}
 				<BulkStatusRemove
 					personnelByGroup={scopedPBG}
@@ -182,7 +224,7 @@
 					personnelList={calendarPersonnel}
 					loadAvailabilityRange={loadAvailabilityEntriesForRange}
 					onRemove={handleBulkRemove}
-					onComplete={handleComplete}
+					onComplete={refreshCalendar}
 				/>
 			{/if}
 		</div>

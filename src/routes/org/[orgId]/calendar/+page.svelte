@@ -108,7 +108,11 @@
 		(patch) => preferences.patch({ calendar: patch })
 	);
 	ctx.syncUserPreferences(untrack(() => preferences.value.calendar));
-	const viewCoverage = $derived(calendarViewCoverage(calendarStore.currentDate, ctx.viewMode));
+	// Events load with the visible range, sharing its read, but only behind the Events & Taskings switch.
+	const viewCoverage = $derived.by(() => {
+		const base = calendarViewCoverage(calendarStore.currentDate, ctx.viewMode);
+		return ctx.showEvents ? { ...base, events: base.assignments } : base;
+	});
 	let activeAccessKey: string | null = null;
 
 	$effect(() => {
@@ -156,5 +160,10 @@
 		data={viewData}
 		rangeStatus={rangeCoordinator.status(viewCoverage)}
 		onRetryRange={() => rangeCoordinator.retryFailedRange()}
+		projection={rangeCoordinator.projection}
+		projectionStatus={rangeCoordinator.projectionStatus(viewCoverage)}
+		onRetryProjection={() => rangeCoordinator.retryFailedRange()}
+		taskingFacts={rangeCoordinator.taskingFacts}
+		onTaskingsChanged={() => rangeCoordinator.rereadEvents(data.shell.org.id)}
 	/>
 {/if}

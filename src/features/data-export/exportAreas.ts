@@ -1,13 +1,12 @@
 import { FEATURE_SWITCHES, type FeatureKey } from '$lib/access/featureSwitches';
 import type { ExportScopeCounts } from './exportsSettingsTypes';
 
-/** The export area keys a turned-off feature removes from an export: its lane, kebab-cased. */
+/** The export area keys a turned-off feature removes from an export: its lane, or its key without one, kebab-cased. */
 export function disabledExportAreaKeys(disabledFeatures: readonly FeatureKey[]): Set<string> {
 	return new Set(
-		disabledFeatures.flatMap((key) => {
-			const lane = FEATURE_SWITCHES[key].lane;
-			return lane ? [lane.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)] : [];
-		})
+		disabledFeatures.map((key) =>
+			(FEATURE_SWITCHES[key].lane ?? key).replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+		)
 	);
 }
 

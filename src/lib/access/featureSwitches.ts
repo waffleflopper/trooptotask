@@ -1,21 +1,28 @@
 import type { DurableFeatureLane } from './memberAccessShape';
 
-export type FeatureKey = 'training' | 'criticalTasks' | 'evaluations' | 'onboarding' | 'lossesAndAwards';
+export type FeatureKey =
+	| 'training'
+	| 'criticalTasks'
+	| 'evaluations'
+	| 'onboarding'
+	| 'lossesAndAwards'
+	| 'eventsAndTaskings';
 
 export interface FeatureSwitch {
 	readonly label: string;
-	/** The lane the switch projects to `none`; Losses and awards has none and its consumers read the switch. */
+	/** The lane the switch projects to `none`; a switch without one is read directly by its consumers. */
 	readonly lane: DurableFeatureLane | null;
-	/** The `/org/[orgId]/<segment>` routes that show the off state. */
-	readonly routeSegment: string | null;
+	/** The `/org/[orgId]/<path>` routes, and everything below them, that show the off state. */
+	readonly routePaths: readonly string[];
 }
 
 export const FEATURE_SWITCHES: Readonly<Record<FeatureKey, FeatureSwitch>> = {
-	training: { label: 'Training', lane: 'training', routeSegment: 'training' },
-	criticalTasks: { label: 'Critical tasks', lane: 'criticalTasks', routeSegment: 'critical-tasks' },
-	evaluations: { label: 'Evaluations', lane: 'ratingScheme', routeSegment: 'evals' },
-	onboarding: { label: 'Onboarding', lane: 'onboarding', routeSegment: 'onboarding' },
-	lossesAndAwards: { label: 'Losses and awards', lane: null, routeSegment: null }
+	training: { label: 'Training', lane: 'training', routePaths: ['training'] },
+	criticalTasks: { label: 'Critical tasks', lane: 'criticalTasks', routePaths: ['critical-tasks'] },
+	evaluations: { label: 'Evaluations', lane: 'ratingScheme', routePaths: ['evals'] },
+	onboarding: { label: 'Onboarding', lane: 'onboarding', routePaths: ['onboarding'] },
+	lossesAndAwards: { label: 'Losses and awards', lane: null, routePaths: [] },
+	eventsAndTaskings: { label: 'Events & Taskings', lane: null, routePaths: ['calendar/events', 'calendar/taskings'] }
 };
 
 export const FEATURE_KEYS = Object.keys(FEATURE_SWITCHES) as FeatureKey[];
@@ -46,8 +53,11 @@ export function findDisabledFeatureRoute(
 	disabledFeatures: readonly FeatureKey[]
 ): FeatureKey | null {
 	if (!routeId?.startsWith(ORG_ROUTE_PREFIX)) return null;
-	const [segment] = routeId.slice(ORG_ROUTE_PREFIX.length).split('/');
-	return disabledFeatures.find((key) => FEATURE_SWITCHES[key].routeSegment === segment) ?? null;
+	const path = `${routeId.slice(ORG_ROUTE_PREFIX.length)}/`;
+	return (
+		disabledFeatures.find((key) => FEATURE_SWITCHES[key].routePaths.some((owned) => path.startsWith(`${owned}/`))) ??
+		null
+	);
 }
 
 export function featureExportNote(key: FeatureKey): string {

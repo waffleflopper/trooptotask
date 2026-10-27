@@ -24,6 +24,7 @@
 	import Sun from '@lucide/svelte/icons/sun';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { MEMBERSHIP_ROLE_LABELS, type CapabilityMap, type MembershipRole } from '$lib/access/memberAccessShape';
+	import type { FeatureKey } from '$lib/access/featureSwitches';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import AppShellNavigation from './AppShellNavigation.svelte';
@@ -44,6 +45,7 @@
 		userRole: MembershipRole;
 		membershipId?: string | null;
 		capabilityMap: CapabilityMap;
+		disabledFeatures: FeatureKey[];
 		account: SignedInAccount;
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
@@ -61,6 +63,7 @@
 		userRole,
 		membershipId = null,
 		capabilityMap,
+		disabledFeatures,
 		account,
 		onToggleTheme,
 		isDarkTheme,
@@ -99,7 +102,7 @@
 	const routeLeafLabel = $derived(
 		typeof $page.data?.breadcrumbLabel === 'string' ? $page.data.breadcrumbLabel : undefined
 	);
-	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap));
+	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap, disabledFeatures));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
 	const settingsPath = $derived(`/org/${orgUrlSegment}/settings`);
 	const inSettings = (path: string) => path === settingsPath || path.startsWith(`${settingsPath}/`);

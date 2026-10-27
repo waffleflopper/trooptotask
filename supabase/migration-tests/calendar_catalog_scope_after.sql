@@ -38,7 +38,7 @@ UNION ALL
 SELECT 'special_days', id, to_jsonb(row_value) FROM public.special_days AS row_value
   WHERE id = 'e5000000-0000-4000-8000-000000000601'
 UNION ALL
-SELECT 'availability_entries', id, to_jsonb(row_value) FROM public.availability_entries AS row_value
+SELECT 'availability_entries', id, to_jsonb(row_value) - 'set_for_tasking_id' FROM public.availability_entries AS row_value
   WHERE id IN ('e5000000-0000-4000-8000-000000000701', 'e5000000-0000-4000-8000-000000000702');
 SELECT is((SELECT count(*)::integer FROM calendar_catalog_current_rows), 6,
   'all historical catalog and availability rows remain');
@@ -145,5 +145,8 @@ SELECT is((SELECT count(*)::integer FROM public.availability_entries
 SELECT is((SELECT count(*)::integer FROM public.availability_entries
            WHERE id = 'e5000000-0000-4000-8000-000000000702'), 1,
   'Alpha deletion does not remove the historical row linked to Bravo');
+RESET ROLE;
+SELECT ok(NOT EXISTS (SELECT 1 FROM public.availability_entries WHERE set_for_tasking_id IS NOT NULL),
+  'historical Availability entries remain unlinked after upgrade');
 SELECT * FROM finish();
 ROLLBACK;

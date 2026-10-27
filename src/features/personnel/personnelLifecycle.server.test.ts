@@ -310,6 +310,23 @@ describe('Personnel — permanent delete', () => {
 		]);
 	}
 
+	it('refuses deleting someone picked for Taskings, naming them, and keeps the record', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		ctx.deletionReferences = {
+			find: async () => ({ taskingTitles: ['Provide four trauma-lane medics'], hiddenTaskings: 0 })
+		};
+		const notify = vi.fn(async (_name: string) => {});
+
+		await expect(permanentlyDeletePersonnelRecord(ctx, 'p-1', notify)).rejects.toMatchObject({
+			status: 409,
+			message: expect.stringContaining('Provide four trauma-lane medics')
+		});
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.not.toBeNull();
+		expect(ctx.auditPort.events.map((event) => event.action)).not.toContain('personnel.permanently_deleted');
+		expect(notify).not.toHaveBeenCalled();
+	});
+
 	it('deletes archived personnel, audits, and supplies its saved name to delivery', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);

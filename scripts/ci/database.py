@@ -116,6 +116,23 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261025140100_access_request_resubmission_readers.sql",
     "20261025150100_admin_directory_sorting.sql",
     "20261025160100_feedback_reporter_replies.sql",
+    "20261026010000_calendar_events.sql",
+    "20261026020000_calendar_taskings.sql",
+    "20261026050000_calendar_tasking_equipment_checklist.sql",
+    "20261026055000_calendar_event_tasking_summaries.sql",
+    "20261026055100_calendar_tasking_staffing.sql",
+    "20261026055200_calendar_tasking_activity_scope.sql",
+    "20261026055300_calendar_event_tasking_summary_picks.sql",
+    "20261026060000_calendar_range_projection.sql",
+    "20261026070000_calendar_tasking_attention.sql",
+    "20261026080000_calendar_tasking_availability_gaps.sql",
+    "20261026090000_calendar_range_projection_event_work.sql",
+    "20261026100000_calendar_tasking_conflicts.sql",
+    "20261026101000_calendar_tasking_workspace.sql",
+    "20261026102000_calendar_projection_conflicts.sql",
+    "20261026103000_calendar_tasking_dashboard.sql",
+    "20261026110000_calendar_tasking_detail.sql",
+    "20261026120000_calendar_event_deletion.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -207,6 +224,12 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
+    "calendar_event_deletion.sql",
+    "calendar_taskings.sql",
+    "calendar_tasking_equipment_checklist.sql",
+    "calendar_tasking_staffing.sql",
+    "calendar_range_projection.sql",
+    "calendar_tasking_availability_gaps.sql",
     "admin_directory_sorting.sql",
     "setup_email_people.sql",
     "platform_operator_authorization.sql",

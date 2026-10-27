@@ -8,10 +8,12 @@ import {
 	requireFeaturePolicy,
 	requireGovernancePolicy
 } from '$lib/access/index.server';
-import type {
-	PersonnelLifecycleCommandPort,
-	PersonnelLifecycleReference,
-	PersonnelRecordPersistence
+import {
+	deletionBlockedMessage,
+	type PersonnelDeletionReferencesPort,
+	type PersonnelLifecycleCommandPort,
+	type PersonnelLifecycleReference,
+	type PersonnelRecordPersistence
 } from './contracts';
 
 interface PersonnelLifecycleContext {
@@ -132,7 +134,7 @@ export async function restorePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 }
 
 export async function permanentlyDeletePersonnelRecord(
-	ctx: PersonnelLifecycleContext,
+	ctx: PersonnelLifecycleContext & { deletionReferences: PersonnelDeletionReferencesPort },
 	id: string,
 	notifyPermanentlyDeleted: (name: string) => Promise<void>
 ) {
@@ -152,9 +154,11 @@ export async function permanentlyDeletePersonnelRecord(
 
 	if (!person.archivedAt) fail(400, 'Can only permanently delete archived personnel');
 
-	await ctx.personnel.delete(id);
-
 	const name = personnelName(person);
+	const blocked = deletionBlockedMessage(name, 'picked for', await ctx.deletionReferences.find({ personnelId: id }));
+	if (blocked) fail(409, blocked);
+
+	await ctx.personnel.delete(id);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.permanently_deleted`,

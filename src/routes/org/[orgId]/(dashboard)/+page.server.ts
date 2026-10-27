@@ -1,5 +1,5 @@
 import { formatDashboardDisplayDate, type DashboardViewerDay } from '$features/dashboard/contracts';
-import { fetchDashboardSummary, withDashboardTiming } from '$features/dashboard/index.server';
+import { fetchDashboardSummary, fetchDashboardTaskings, withDashboardTiming } from '$features/dashboard/index.server';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContextCore, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
@@ -7,6 +7,7 @@ import {
 	buildLayoutRequest,
 	buildRouteRequest,
 	createRequestDashboardSummaryContext,
+	createRequestDashboardTaskingContext,
 	createRequestNotificationContext
 } from '$lib/server/adapters/requestContexts.server';
 import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
@@ -36,9 +37,19 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 		},
 		() => createRequestDashboardSummaryContext(ctx)
 	);
+	const { data: taskings } = loadWithContextCore(
+		ctx,
+		{
+			policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+			defer: true,
+			fn: (ctx) => withDashboardTiming(orgId, 'taskings', () => fetchDashboardTaskings(ctx, asOf))
+		},
+		() => createRequestDashboardTaskingContext(ctx)
+	);
 
 	return {
 		summary,
+		taskings,
 		breadcrumbLabel: formatDashboardDisplayDate(asOf),
 		viewerDay: { date: asOf, timeZone } satisfies DashboardViewerDay
 	};

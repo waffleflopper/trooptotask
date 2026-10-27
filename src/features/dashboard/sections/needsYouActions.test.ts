@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { DashboardInputs } from './dashboardInputs';
-import { awardStartedAction, updateStatusAction } from './needsYouActions';
+import type { TaskingAttentionRow } from '$features/calendar';
+import { awardStartedAction, taskingStatusAction, updateStatusAction } from './needsYouActions';
 
 const inputs = { today: '2026-10-21', page: { orgId: 'org-1' } } as DashboardInputs;
 const patel = { id: 'p-patel', groupId: 'bravo', lastName: 'Patel' } as Personnel;
@@ -26,7 +27,7 @@ describe('Award started', () => {
 	it('records the acknowledgement, then shows it on the page', async () => {
 		const action = awardStartedAction(inputs, patel);
 		if (action.mode !== 'run') throw new Error('Award started runs in place');
-		const updates = { refreshSummary: vi.fn(), putRecord: vi.fn() };
+		const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
 		fetchMock.mockReturnValueOnce(respond({ acknowledged: true }));
 
 		await action.run(updates);
@@ -46,7 +47,7 @@ describe('Award started', () => {
 	it('fails with the server message and leaves the page unchanged', async () => {
 		const action = awardStartedAction(inputs, patel);
 		if (action.mode !== 'run') throw new Error('Award started runs in place');
-		const updates = { refreshSummary: vi.fn(), putRecord: vi.fn() };
+		const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
 		fetchMock.mockReturnValueOnce(respond({ message: 'Forbidden' }, 403));
 
 		await expect(action.run(updates)).rejects.toThrow('Forbidden');
@@ -73,5 +74,49 @@ describe('Update status', () => {
 		fetchMock.mockReturnValueOnce(respond({ message: 'Rating Scheme entry not found' }, 404));
 
 		await expect(action.open()).rejects.toThrow('Rating Scheme entry not found');
+	});
+});
+
+describe('a Tasking status action', () => {
+	const row = {
+		taskingId: 't-1',
+		kind: 'overdue',
+		responsibility: { kind: 'group', groupId: 'alpha' }
+	} as TaskingAttentionRow;
+
+	it('moves the Tasking on, then rereads the Tasking rows', async () => {
+		const action = taskingStatusAction(inputs, row, 'Mark done', { action: 'complete', note: null });
+		if (action.mode !== 'run') throw new Error('A status action runs in place');
+		const order: string[] = [];
+		const updates = {
+			refreshSummary: vi.fn(),
+			refreshTaskings: vi.fn(async () => void order.push('refresh')),
+			retryTaskings: vi.fn(),
+			putRecord: vi.fn()
+		};
+		fetchMock.mockImplementationOnce(() => {
+			order.push('transition');
+			return respond({ id: 't-1' });
+		});
+
+		await action.run(updates);
+
+		const [url, request] = fetchMock.mock.calls[0];
+		expect([url, request.method, JSON.parse(request.body)]).toEqual([
+			'/org/org-1/api/calendar-taskings/t-1/status',
+			'POST',
+			{ action: 'complete', note: null }
+		]);
+		expect(order).toEqual(['transition', 'refresh']);
+	});
+
+	it('fails with the server message and leaves the rows as they were', async () => {
+		const action = taskingStatusAction(inputs, row, 'Unblock', { action: 'unblock' });
+		if (action.mode !== 'run') throw new Error('A status action runs in place');
+		const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
+		fetchMock.mockReturnValueOnce(respond({ message: 'Tasking is not blocked' }, 409));
+
+		await expect(action.run(updates)).rejects.toThrow('Tasking is not blocked');
+		expect(updates.refreshTaskings).not.toHaveBeenCalled();
 	});
 });

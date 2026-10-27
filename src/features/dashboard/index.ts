@@ -18,3 +18,4 @@ export { DASHBOARD_SECTIONS } from './sections/dashboardSectionRegistry';
 export { createDashboardAccess, type DashboardAccess } from './sections/dashboardAccess';
 
 export { dashboardWorkspaceHydrator } from './dashboardWorkspaceHydration.svelte';
+export { DashboardTaskingsSource } from './taskingsSource.svelte';

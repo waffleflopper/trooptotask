@@ -44,6 +44,18 @@ export interface CalendarOperationsPageAccess {
 	) => Pick<ClientAffordance, 'allowed'>;
 }
 
+/** Live advisory facts supplied by Delivery for the Event pages. */
+export interface CalendarEventsPageAccess {
+	readonly orgId: string;
+	readonly orgUrlSegment: string;
+	readonly orgName: string;
+	readonly userId: string;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => Pick<ClientAffordance, 'allowed'>;
+}
+
 export interface CalendarSettingsPageAccess {
 	readonly orgUrlSegment: string;
 	readonly affordanceForFeatureAction: (
@@ -500,6 +512,7 @@ export interface FederalHolidayDefault {
 }
 
 export interface AvailabilityCreate {
+	setForTaskingId?: string | null;
 	personnelId: string;
 	statusTypeId: string;
 	startDate: string;
@@ -507,7 +520,7 @@ export interface AvailabilityCreate {
 	note?: string | null;
 }
 
-export type AvailabilityPatch = Partial<Omit<AvailabilityCreate, 'personnelId'>>;
+export type AvailabilityPatch = Partial<Omit<AvailabilityCreate, 'personnelId' | 'setForTaskingId'>>;
 
 export const AVAILABILITY_NOTE_MAX_LENGTH = 200;
 
@@ -692,6 +705,23 @@ export interface CalendarAvailabilityRemovalPort {
 }
 
 export type { CalendarSupportReader } from './supportReadTypes';
+export type {
+	CalendarProjection,
+	CalendarProjectionRead,
+	ProjectedCommitment,
+	ProjectedEvent,
+	ProjectedSuspense
+} from './projection/calendarProjection';
 export type { AssignmentSource } from './roster/rosterTypes';
+export type {
+	TaskingAttentionKind,
+	TaskingAttentionProjection,
+	TaskingAttentionRow
+} from './taskings/taskingAttentionModel';
 
 export { compareOverlappingEntries, shownEntryByPerson, sortedStatusTypes } from './dayStatuses';
+
+export type { TaskingRowFacts, TaskingWorkspace, EventTaskingSummary } from './taskings/taskingReadModel';
+export type { StaffingPersonState, StaffingAdvisories, StaffingAdvisory } from './taskings/staffing/staffingModel';
+
+export type { TaskingConflict, TaskingOnTrackRow } from './taskings/taskingAttentionModel';

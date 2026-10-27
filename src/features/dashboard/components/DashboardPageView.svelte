@@ -17,6 +17,7 @@
 	} from '../sections/dashboardSections';
 	import { seesCalendar, type DashboardAccess } from '../sections/dashboardAccess';
 	import BottomLine from './BottomLine.svelte';
+	import ForecastLaneLegend from './ForecastLaneLegend.svelte';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import GroupStrength from './GroupStrength.svelte';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
@@ -48,7 +49,12 @@
 	const parts = $derived(
 		model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures, access) : null
 	);
+	const needsYouCount = $derived(
+		(parts?.needsYou.ranked.length ?? 0) +
+			(parts?.needsYouLoads.reduce((sum, load) => sum + (load.state === 'partial' ? load.unlisted : 0), 0) ?? 0)
+	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
+	const filledQuickAdd = $derived(quickAdd.findLast((entry) => entry.primary));
 	const columnFailed = $derived(parts?.readinessColumns.some((column) => column.state === 'failed') ?? false);
 	const hintDismissals = new SetupHintDismissals(() => ({
 		orgId: model?.data.orgId ?? '',
@@ -111,7 +117,7 @@
 	<div class="flex flex-wrap items-center gap-2 pb-1" role="group" aria-labelledby="dashboard-quick-add">
 		<span id="dashboard-quick-add" class="pr-1.5 {EYEBROW}">Quick add</span>
 		{#each quickAdd as entry (entry.id)}
-			<Button variant={entry.primary ? 'default' : 'outline'} onclick={() => openQuickAdd(entry)}>
+			<Button variant={entry === filledQuickAdd ? 'default' : 'outline'} onclick={() => openQuickAdd(entry)}>
 				<entry.icon data-icon="inline-start" aria-hidden="true" />
 				{entry.label}
 			</Button>
@@ -187,7 +193,10 @@
 								onOpenCalendar={() => openCalendarAt(model.today)}
 							>
 								{#snippet lanes()}
-									<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} />
+									<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} {updates} />
+								{/snippet}
+								{#snippet laneLegend()}
+									<ForecastLaneLegend lanes={parts.forecastLanes} />
 								{/snippet}
 							</StrengthForecast>
 							<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />
@@ -224,7 +233,7 @@
 						id="dashboard-needs-you"
 						tabindex={-1}
 						size="compact"
-						eyebrow={parts ? `Needs you · ${parts.needsYou.ranked.length}` : 'Needs you'}
+						eyebrow={parts ? `Needs you · ${needsYouCount}` : 'Needs you'}
 						title="Most urgent first"
 					>
 						{#snippet action()}
@@ -232,7 +241,14 @@
 						{/snippet}
 					</PageShell.SectionHeader>
 					{#if parts && model}
-						<NeedsYouQueue queue={parts.needsYou} {model} {access} {updates} unavailable={parts.needsYouUnavailable} />
+						<NeedsYouQueue
+							queue={parts.needsYou}
+							{model}
+							{access}
+							{updates}
+							unavailable={parts.needsYouUnavailable}
+							loads={parts.needsYouLoads}
+						/>
 					{:else}
 						<div class="grid border-t border-foreground" aria-hidden="true">
 							{#each { length: 5 }, index (index)}

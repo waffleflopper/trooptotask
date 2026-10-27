@@ -29,14 +29,21 @@ describe('activeDashboardSections', () => {
 			'criticalTasks',
 			'evaluations',
 			'lossesAndAwards',
-			'onboarding'
+			'onboarding',
+			'eventsAndTaskings'
 		]);
 	});
 
 	it('drops only the switched-off sections and never Availability', () => {
 		const active = activeDashboardSections(DASHBOARD_SECTIONS, ['evaluations', 'onboarding']);
 
-		expect(active.map((entry) => entry.id)).toEqual(['availability', 'training', 'criticalTasks', 'lossesAndAwards']);
+		expect(active.map((entry) => entry.id)).toEqual([
+			'availability',
+			'training',
+			'criticalTasks',
+			'lossesAndAwards',
+			'eventsAndTaskings'
+		]);
 	});
 });
 
@@ -54,6 +61,7 @@ const inputs: DashboardInputs = {
 	page: {
 		orgId: 'org-1',
 		orgName: 'Test Unit',
+		taskings: { status: 'off' },
 		userId: 'user-1',
 		viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 		disabledFeatures: [],
@@ -256,7 +264,7 @@ describe('a viewer without Calendar access', () => {
 	it('gets no On duty blocks or Unfilled rows, since the server withheld that data', () => {
 		expect(calendarParts('none')).toEqual({ onDuty: [], needsYou: [] });
 		expect(calendarParts('view')).toEqual({
-			onDuty: ['tonight-and-tomorrow', 'coming-and-going'],
+			onDuty: ['tonight-and-tomorrow', 'taskings-on-track', 'coming-and-going'],
 			needsYou: ['unfilled:sd']
 		});
 	});
@@ -316,8 +324,13 @@ describe('the Quick add entries', () => {
 		return composeDashboardSections(DASHBOARD_SECTIONS, loaded, disabled, access).quickAdd.map((entry) => entry.label);
 	}
 
-	it('offers an owner Status, then Training record, then Start onboarding', () => {
-		expect(labelsFor({ membershipRole: 'owner' })).toEqual(['Status', 'Training record', 'Start onboarding']);
+	it('offers an owner Status, then Training record, then Start onboarding, then Tasking', () => {
+		expect(labelsFor({ membershipRole: 'owner' })).toEqual([
+			'Status',
+			'Training record',
+			'Start onboarding',
+			'Tasking'
+		]);
 	});
 
 	const member = (lane: 'calendar' | 'training' | 'onboarding', groupIds = ['alpha']) => ({
@@ -327,7 +340,7 @@ describe('the Quick add entries', () => {
 	});
 
 	it('offers each lane operator only their own entry, including a Group-scoped one', () => {
-		expect(labelsFor(member('calendar'))).toEqual(['Status']);
+		expect(labelsFor(member('calendar'))).toEqual(['Status', 'Tasking']);
 		expect(labelsFor(member('training'))).toEqual(['Training record']);
 		expect(labelsFor(member('onboarding'))).toEqual(['Start onboarding']);
 	});
@@ -336,10 +349,10 @@ describe('the Quick add entries', () => {
 		const onlyBravo = { ...withTrainingType, personnel: [bravoPerson] };
 		const nobody = { ...withTrainingType, personnel: [] };
 
-		expect(labelsFor(member('calendar'), onlyBravo)).toEqual([]);
+		expect(labelsFor(member('calendar'), onlyBravo)).toEqual(['Tasking']);
 		expect(labelsFor(member('training'), onlyBravo)).toEqual([]);
 		expect(labelsFor(member('onboarding'), onlyBravo)).toEqual([]);
-		expect(labelsFor({ membershipRole: 'owner' }, nobody)).toEqual(['Start onboarding']);
+		expect(labelsFor({ membershipRole: 'owner' }, nobody)).toEqual(['Start onboarding', 'Tasking']);
 	});
 
 	it('offers Training record only when a Group-scoped operator has a non-exempt person and type pair', () => {
@@ -384,7 +397,8 @@ describe('the Quick add entries', () => {
 		expect(labelsFor({ membershipRole: 'owner' }, allStarted)).toEqual([
 			'Status',
 			'Training record',
-			'Start onboarding'
+			'Start onboarding',
+			'Tasking'
 		]);
 	});
 
@@ -395,13 +409,17 @@ describe('the Quick add entries', () => {
 	it('drops Status until a status type exists, Training record until a Training type exists, and entries whose feature is off', () => {
 		expect(labelsFor({ membershipRole: 'owner' }, { ...withTrainingType, statusTypes: [] })).toEqual([
 			'Training record',
-			'Start onboarding'
+			'Start onboarding',
+			'Tasking'
 		]);
 		expect(labelsFor({ membershipRole: 'owner' }, { ...withTrainingType, page: inputs.page })).toEqual([
 			'Status',
-			'Start onboarding'
+			'Start onboarding',
+			'Tasking'
 		]);
-		expect(labelsFor({ membershipRole: 'owner' }, withTrainingType, ['training', 'onboarding'])).toEqual(['Status']);
+		expect(
+			labelsFor({ membershipRole: 'owner' }, withTrainingType, ['training', 'onboarding', 'eventsAndTaskings'])
+		).toEqual(['Status']);
 	});
 });
 

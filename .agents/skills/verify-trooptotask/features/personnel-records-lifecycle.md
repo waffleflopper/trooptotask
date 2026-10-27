@@ -340,12 +340,15 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    archivedDuplicate → Delete. A wrong confirmation name must keep `Delete permanently` disabled; Cancel changes no row.
    Reopen, type its exact displayed name, arm `personnel/permanent` failure and submit: useful error, unchanged archived
    Person and artifacts, and no success claim. Restore and retry visibly; require HTTP 200, removal from Archives and
-   exact saved-ID absence after reload. Preserve all other A/B People and the independent history sentinels.
-   Metadata-only documents establish no Storage-byte deletion. Keep the command’s delete → success audit → awaited
-   notification → response ordering and notification-failure effects under focused lower-level proof; a pre-request
-   browser 503 cannot establish provider or notification failure. Use only helper-created temporary People for this
-   destructive journey. After a successful `Delete permanently`, focus moves to the next row's first action, else the
-   previous row's, else the `Archived people` heading; never `body`.
+   exact saved-ID absence after reload. A Person still picked for a Calendar Tasking is refused: `Delete permanently`
+   answers 409, the dialog stays, the toast reads
+   `NAME is picked for “TITLE”. Remove them from that tasking before deleting.` and the archived row remains (see
+   [Events & Taskings](events-taskings.md) Staffing step 11). Preserve all other A/B People and the independent history
+   sentinels. Metadata-only documents establish no Storage-byte deletion. Keep the command’s delete → success audit →
+   awaited notification → response ordering and notification-failure effects under focused lower-level proof; a
+   pre-request browser 503 cannot establish provider or notification failure. Use only helper-created temporary People
+   for this destructive journey. After a successful `Delete permanently`, focus moves to the next row's first action,
+   else the previous row's, else the `Archived people` heading; never `body`.
 8. **Denied capability, Group, empty and foreign scope:** Viewer has no create/edit/import/direct-archive/restore
    controls; attempt valid authenticated writes to establish 403 or concealed 404 with no effect. personnelOperate can
    create active People, update and import but cannot directly archive, restore or permanently delete.

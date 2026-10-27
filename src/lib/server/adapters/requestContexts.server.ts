@@ -1,3 +1,4 @@
+import { createSupabaseCalendarTaskingWorkspaceReader } from '$features/calendar/index.server';
 import type { ApprovedDeletionEffects } from '$features/deletion-requests/index.server';
 import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
@@ -22,6 +23,14 @@ import {
 	createSupabaseTrainingTypeNamesReader
 } from '$features/training/index.server';
 import {
+	createSupabaseCalendarEventPersistence,
+	createSupabaseCalendarProjectionReader,
+	createSupabaseCalendarTaskingPersistence,
+	createSupabaseCalendarAvailabilityGaps,
+	createSupabaseCalendarStaffingPersistence,
+	createSupabaseCalendarTaskingAttentionReader,
+	createSupabaseCalendarDeletionReferences,
+	createSupabaseCalendarTaskingListsPersistence,
 	createSupabaseRosterSwapPersistence,
 	createSupabaseCalendarExportReader,
 	createSupabaseCalendarAssignmentReplacementPort,
@@ -52,7 +61,8 @@ import {
 	createSupabaseOrganizationPolicyWritePort,
 	createSupabaseOrganizationRawExportReader,
 	createSupabaseOrganizationSettingsReader,
-	createSupabaseOrganizationUnitCountsPort
+	createSupabaseOrganizationUnitCountsPort,
+	createSupabaseOrganizationMemberLabelsReader
 } from '$features/organization/index.server';
 import {
 	createSupabasePersonnelExportReader,
@@ -391,7 +401,8 @@ export function createRequestGroupContext(request: AdmittedOrganizationRequest) 
 	return {
 		auth: request.auth,
 		audit: request.audit,
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet)
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
+		deletionReferences: createSupabaseCalendarDeletionReferences(request.supabase, request.auth.orgId)
 	};
 }
 
@@ -481,6 +492,7 @@ export function createRequestPersonnelPermanentDeletionContext(request: Admitted
 	const notifications = createRequestNotificationDelivery();
 	return {
 		...createRequestPersonnelLifecycleContext(request),
+		deletionReferences: createSupabaseCalendarDeletionReferences(request.supabase, request.auth.orgId),
 		notifyPersonnelDeleted: (name: string) =>
 			notifications.notifyAdmins(request.auth.orgId, request.auth.userId, {
 				type: 'personnel_permanently_deleted',
@@ -600,6 +612,44 @@ export function createRequestCalendarCatalogContext(request: AdmittedOrganizatio
 	};
 }
 
+export function createRequestCalendarEventContext(request: AdmittedOrganizationRequest) {
+	const orgId = request.auth.orgId;
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
+		taskingWorkspace: createSupabaseCalendarTaskingWorkspaceReader(request.supabase, orgId),
+		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId)
+	};
+}
+
+export function createRequestCalendarTaskingContext(request: AdmittedOrganizationRequest) {
+	const orgId = request.auth.orgId;
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		calendarTaskings: createSupabaseCalendarTaskingPersistence(request.supabase, orgId),
+		taskingLists: createSupabaseCalendarTaskingListsPersistence(request.supabase, orgId),
+		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
+		taskingWorkspace: createSupabaseCalendarTaskingWorkspaceReader(request.supabase, orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, orgId, request.auth.scopeSet),
+		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId),
+		calendarStaffing: createSupabaseCalendarStaffingPersistence(request.supabase, orgId),
+		calendarAvailabilityGaps: createSupabaseCalendarAvailabilityGaps(request.supabase, orgId),
+		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
+	};
+}
+
+export function createRequestDashboardTaskingContext(request: AdmittedOrganizationRequest) {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		taskingAttention: createSupabaseCalendarTaskingAttentionReader(request.supabase, request.auth.orgId),
+		calendarProjection: createSupabaseCalendarProjectionReader(request.supabase, request.auth.orgId),
+		disabledFeatures: request.disabledFeatures
+	};
+}
+
 export function createRequestDailyAssignmentContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestCalendarCatalogContext(request),
@@ -656,7 +706,10 @@ export function createRequestCalendarRangeContext(request: AdmittedOrganizationR
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
-		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId)
+		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
+		calendarProjection: createSupabaseCalendarProjectionReader(request.supabase, request.auth.orgId),
+		taskingWorkspace: createSupabaseCalendarTaskingWorkspaceReader(request.supabase, request.auth.orgId),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 

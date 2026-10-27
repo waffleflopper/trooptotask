@@ -9,6 +9,7 @@ import {
 	type CalendarRangeData,
 	type CalendarWorkspaceResult
 } from '$features/calendar';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { createReadyAppShellRouteData } from '../appShell.test-support';
 
 const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock } = vi.hoisted(() => ({
@@ -173,12 +174,15 @@ const WithPreferences: typeof Page = (anchor, props) => {
 	return {};
 };
 
-function makePageData(range?: { rangeStart: string; rangeEnd: string }) {
+const EVENTS_OFF: FeatureKey[] = ['eventsAndTaskings'];
+
+function makePageData(range?: { rangeStart: string; rangeEnd: string }, disabledFeatures: FeatureKey[] = EVENTS_OFF) {
 	return {
 		...createReadyAppShellRouteData({
 			orgId: 'org-1',
 			orgName: 'Test Unit',
-			userId: 'user-1'
+			userId: 'user-1',
+			disabledFeatures
 		}),
 		calendar: {
 			data: makeBootstrap(range)
@@ -336,6 +340,150 @@ describe('calendar page', () => {
 
 		await waitFor(() => {
 			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-08-01`);
+		});
+	});
+
+	describe('with Events & Taskings on', () => {
+		const projection = {
+			kind: 'loaded' as const,
+			events: [
+				{
+					id: 'e1',
+					title: 'Field exercise',
+					startsOn: '2026-04-06',
+					endsOn: '2026-04-08',
+					cancelled: false,
+					hasWork: true,
+					host: null
+				}
+			],
+			suspenses: [{ taskingId: 't1', title: 'Submit roster', suspenseOn: '2026-04-10', status: 'open' as const }],
+			commitments: [
+				{
+					taskingId: 't1',
+					title: 'Submit roster',
+					personnelId: 'p1',
+					startsOn: '2026-04-06',
+					endsOn: '2026-04-09',
+					conflicts: false
+				}
+			],
+			facts: {
+				taskings: {
+					t1: {
+						eventRelation: 'execution' as const,
+						picked: 1,
+						required: 2,
+						equipment: { ready: 0, total: 0, returnedQuantity: 0, totalQuantity: 0 },
+						conflicts: 0,
+						nextDate: '2026-04-06',
+						suspenseOn: '2026-04-10',
+						status: 'open' as const,
+						responsibleGroupId: null
+					}
+				},
+				events: {
+					e1: {
+						total: 1,
+						needAction: 1,
+						overdue: 0,
+						blocked: 0,
+						needPeople: 1,
+						fullyStaffedAndReady: 0,
+						conflicts: 0
+					}
+				},
+				needAction: 1
+			}
+		};
+
+		it('reads Events with the visible range and marks them on the matrix', async () => {
+			loadCalendarRangeMock.mockResolvedValue({
+				rangeStart: '2026-04-01',
+				rangeEnd: '2026-04-30',
+				projection
+			});
+			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
+
+			expect(await screen.findByRole('link', { name: /Field exercise/ })).toBeTruthy();
+			expect(screen.getByRole('link', { name: /suspense: Submit roster/i })).toBeTruthy();
+			expect(screen.getByRole('link', { name: /Tasking: Submit roster/ })).toBeTruthy();
+			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
+			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-1', {
+				rangeStart: '2026-04-01',
+				rangeEnd: '2026-04-30',
+				collections: ['events']
+			});
+		});
+
+		it('opens a quick card from an Event and returns focus to it on Escape', async () => {
+			loadCalendarRangeMock.mockResolvedValue({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30', projection });
+			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
+
+			const bar = await screen.findByRole('link', { name: /Field exercise/ });
+			await fireEvent.click(bar);
+
+			const card = await screen.findByRole('dialog', { name: 'Field exercise' });
+			expect(within(card).getByRole('link', { name: 'Open event' }).getAttribute('href')).toBe(
+				'/org/org-1/calendar/events/e1'
+			);
+			await fireEvent.keyDown(card, { key: 'Escape' });
+
+			await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Field exercise' })).toBeNull());
+			await waitFor(() => expect(document.activeElement).toBe(bar));
+		});
+
+		it('opens a quick card for a suspense with the Tasking it belongs to', async () => {
+			loadCalendarRangeMock.mockResolvedValue({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30', projection });
+			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
+
+			await fireEvent.click(await screen.findByRole('link', { name: /suspense: Submit roster/i }));
+
+			const card = await screen.findByRole('dialog', { name: 'Submit roster' });
+			expect(within(card).getByRole('link', { name: 'Open tasking' }).getAttribute('href')).toBe(
+				'/org/org-1/calendar/taskings/t1'
+			);
+		});
+
+		it('badges Events & Taskings with the Taskings that need action', async () => {
+			loadCalendarRangeMock.mockResolvedValue({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30', projection });
+			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
+
+			expect(await screen.findByRole('link', { name: /Events & Taskings\W+1 need action/ })).toBeTruthy();
+		});
+
+		it('keeps the matrix usable when only the projection fails and retries that read alone', async () => {
+			loadCalendarRangeMock.mockResolvedValueOnce({
+				rangeStart: '2026-04-01',
+				rangeEnd: '2026-04-30',
+				projection: { kind: 'failed' }
+			});
+			loadCalendarRangeMock.mockResolvedValueOnce({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30', projection });
+			render(WithPreferences, { props: { data: makePageData(undefined, []) } });
+
+			const retry = await screen.findByRole('button', { name: 'Retry loading Events' });
+			expect(screen.queryByText('Additional calendar data is temporarily unavailable.')).toBeNull();
+			expect(screen.getAllByRole('button', { name: /Smith, Alice/ }).length).toBeGreaterThan(0);
+
+			await fireEvent.click(retry);
+
+			expect(await screen.findByRole('link', { name: /Field exercise/ })).toBeTruthy();
+			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(2);
+			expect(screen.queryByRole('button', { name: 'Retry loading Events' })).toBeNull();
+		});
+
+		it('reads only availability and assignments past the loaded months while the switch is off', async () => {
+			render(WithPreferences, { props: { data: makePageData() } });
+
+			const next = await screen.findByRole('button', { name: 'Next month' });
+			await fireEvent.click(next);
+			await fireEvent.click(next);
+
+			await waitFor(() => expect(loadCalendarRangeMock).toHaveBeenCalled());
+			for (const [, request] of loadCalendarRangeMock.mock.calls) {
+				expect(request.collections).not.toContain('events');
+			}
+			expect(screen.queryByRole('group', { name: 'Events' })).toBeNull();
 		});
 	});
 });

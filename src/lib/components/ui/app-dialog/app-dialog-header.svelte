@@ -29,6 +29,8 @@
 		(destructive || editorial) &&
 			'gap-2.5 px-7 pt-7 [&_[data-slot=dialog-description]]:text-[15px] [&_[data-slot=dialog-description]]:leading-[22px] [&_[data-slot=dialog-title]]:font-heading [&_[data-slot=dialog-title]]:text-[32px] [&_[data-slot=dialog-title]]:leading-8 [&_[data-slot=dialog-title]]:font-extrabold',
 		destructive && '[&_[data-slot=dialog-title]]:uppercase',
+		voice === 'form' &&
+			'gap-1 border-b px-6 pt-5.5 pb-4 [&_[data-slot=dialog-description]]:leading-5 [&_[data-slot=dialog-title]]:font-heading [&_[data-slot=dialog-title]]:text-2xl [&_[data-slot=dialog-title]]:leading-7 [&_[data-slot=dialog-title]]:font-bold',
 		className
 	)}
 	{...restProps}

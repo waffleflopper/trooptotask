@@ -14,6 +14,7 @@ export function createReadyAppShellRouteData(
 		account?: SignedInAccount;
 		role?: ReadyAppShell['member']['role'];
 		criticalTasksCapability?: ReadyAppShell['member']['capabilityMap']['criticalTasks'];
+		disabledFeatures?: FeatureKey[];
 	} = {}
 ): AppShellRouteData {
 	const role = overrides.role ?? 'admin';
@@ -40,7 +41,7 @@ export function createReadyAppShellRouteData(
 				id: overrides.orgId ?? 'org-1',
 				urlSegment: overrides.orgUrlSegment ?? overrides.orgId ?? 'org-1',
 				name: overrides.orgName ?? 'Test Org',
-				disabledFeatures: []
+				disabledFeatures: overrides.disabledFeatures ?? []
 			},
 			user: {
 				id: overrides.userId ?? 'user-1',

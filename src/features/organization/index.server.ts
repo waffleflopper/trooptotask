@@ -1,4 +1,4 @@
-export { loadOrganizationMemberLabels } from './memberLabels.server';
+export { createSupabaseOrganizationMemberLabelsReader, loadOrganizationMemberLabels } from './memberLabels.server';
 export { createSupabaseOrganizationMemberEmailsReader } from './memberEmails.server';
 export { loadPersonnelDocumentStorageCapBytes } from './personnelDocumentSettings.server';
 export type { OrganizationPersonnelDocumentSettingsReader } from './personnelDocumentSettings.server';

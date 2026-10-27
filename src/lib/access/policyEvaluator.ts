@@ -6,6 +6,7 @@ import {
 	type MembershipRole,
 	type ScopeSet
 } from './memberAccessShape';
+import type { FeatureKey } from './featureSwitches';
 import { matchScopeSet, type MatchedScope, type ScopeSetResource } from './scopeSetAccess';
 
 export type { MatchedScope } from './scopeSetAccess';
@@ -48,6 +49,8 @@ export interface FeatureLanePolicyAction {
 	accessMode: Exclude<PolicyActionAccessMode, 'governance'>;
 	owner: FeatureLanePolicyActionOwner;
 	requiredCapability: Exclude<CapabilityLevel, 'none'>;
+	/** A lane-less switch that also gates the action, read directly because it projects to no lane. */
+	feature?: FeatureKey;
 }
 
 export interface OrganizationGovernancePolicyAction {
@@ -168,6 +171,30 @@ export const POLICY_ACTION_CATALOG = {
 			lane: 'calendar',
 			accessMode: 'write',
 			requiredCapability: 'configure'
+		}),
+		viewEvents: featureAction({
+			id: 'calendar.viewEvents',
+			label: 'View events and taskings',
+			lane: 'calendar',
+			feature: 'eventsAndTaskings',
+			accessMode: 'read',
+			requiredCapability: 'view'
+		}),
+		manageEvents: featureAction({
+			id: 'calendar.manageEvents',
+			label: 'Create, edit and cancel events',
+			lane: 'calendar',
+			feature: 'eventsAndTaskings',
+			accessMode: 'write',
+			requiredCapability: 'operate'
+		}),
+		manageTaskings: featureAction({
+			id: 'calendar.manageTaskings',
+			label: 'Create, edit and move taskings',
+			lane: 'calendar',
+			feature: 'eventsAndTaskings',
+			accessMode: 'write',
+			requiredCapability: 'operate'
 		})
 	},
 	personnel: {
@@ -494,6 +521,7 @@ function featureAction(input: {
 	id: string;
 	label: string;
 	lane: DurableFeatureLane;
+	feature?: FeatureKey;
 	accessMode: FeatureLanePolicyAction['accessMode'];
 	requiredCapability: FeatureLanePolicyAction['requiredCapability'];
 }): FeatureLanePolicyAction {
@@ -502,7 +530,8 @@ function featureAction(input: {
 		label: input.label,
 		accessMode: input.accessMode,
 		owner: { kind: 'feature-lane', lane: input.lane },
-		requiredCapability: input.requiredCapability
+		requiredCapability: input.requiredCapability,
+		...(input.feature ? { feature: input.feature } : {})
 	};
 }
 

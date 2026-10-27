@@ -5,6 +5,8 @@ import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shift
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
+// These tables export named columns; availability_entries hides set_for_tasking_id from ordinary readers.
+const EXPLICIT_COLUMNS = new Set<CalendarExportTable>(['status_types', 'availability_entries']);
 const cases = [
 	{
 		table: 'status_types',
@@ -80,13 +82,15 @@ function provider(table: CalendarExportTable, saved: Row) {
 		...saved,
 		id: `saved-${String(1001 - index).padStart(4, '0')}`,
 		organization_id: ORG,
-		...(table === 'status_types' ? {} : { unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] } })
+		...(EXPLICIT_COLUMNS.has(table)
+			? {}
+			: { unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] } })
 	}));
 	const rows: Row[] = [
 		{ ...owned[0], id: 'foreign-row', organization_id: 'org-b' },
 		...owned.map((row) => ({ ...row }))
 	];
-	if (table === 'status_types') for (const row of rows) row.unknown_status_field = { discarded: true };
+	if (EXPLICIT_COLUMNS.has(table)) for (const row of rows) row.unknown_status_field = { discarded: true };
 	const state = { failFrom: null as number | null, nullData: false };
 	const client = createClient('http://archive.invalid', 'synthetic-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -94,7 +98,13 @@ function provider(table: CalendarExportTable, saved: Row) {
 			fetch: async (input, init) => {
 				const request = new Request(input, init);
 				const url = new URL(request.url);
-				if (url.origin !== 'http://archive.invalid' || url.pathname !== `/rest/v1/${table}` || request.method !== 'GET')
+				const isActivity = table === 'calendar_tasking_activity';
+				const path = isActivity ? 'rpc/read_calendar_tasking_activity' : table;
+				if (
+					url.origin !== 'http://archive.invalid' ||
+					url.pathname !== `/rest/v1/${path}` ||
+					request.method !== (isActivity ? 'POST' : 'GET')
+				)
 					throw new Error('Unexpected archive provider operation');
 				if (
 					request.headers.get('authorization') !== 'Bearer synthetic-request-key' ||
@@ -105,7 +115,8 @@ function provider(table: CalendarExportTable, saved: Row) {
 				if (state.failFrom !== null && offset >= state.failFrom)
 					return Response.json({ code: '42501', message: 'Saved rows unavailable' }, { status: 403 });
 				if (state.nullData) return Response.json(null);
-				let visible = rows;
+				const args = isActivity ? await request.json() : null;
+				let visible = isActivity ? rows.filter((row) => row.organization_id === args.p_organization_id) : rows;
 				for (const [column, filter] of url.searchParams) {
 					if (filter.startsWith('eq.')) visible = visible.filter((row) => String(row[column]) === filter.slice(3));
 					else if (!['select', 'order', 'offset', 'limit'].includes(column))
@@ -136,6 +147,28 @@ function provider(table: CalendarExportTable, saved: Row) {
 }
 
 describe('Calendar ordinary Organization archive reads', () => {
+	it('exports protected Activity across pages under ordinary request authority and rejects partial history', async () => {
+		const { client, owned, state } = provider('calendar_tasking_activity', {
+			tasking_id: 'tasking-a',
+			kind: 'staffing_changed',
+			payload: {
+				added: { names: ['SPC Adams, Ana'], others: 1 },
+				removed: { names: [], others: 0 },
+				kept: { names: [], others: 0 }
+			}
+		});
+		expect(await createSupabaseCalendarExportReader(client, ORG).listRows('calendar_tasking_activity')).toEqual(
+			owned.toReversed()
+		);
+		expect(await createSupabaseCalendarExportReader(client, 'empty-org').listRows('calendar_tasking_activity')).toEqual(
+			[]
+		);
+		state.failFrom = 1000;
+		await expect(createSupabaseCalendarExportReader(client, ORG).listRows('calendar_tasking_activity')).rejects.toThrow(
+			'Saved rows unavailable'
+		);
+	});
+
 	it('retains starting numbers with composite keys across shifting pages and excludes foreign rows', async () => {
 		const owned = ['form-a', 'form-b'].flatMap((form_id) =>
 			pagedIds(167, 'person').flatMap((personnel_id) =>

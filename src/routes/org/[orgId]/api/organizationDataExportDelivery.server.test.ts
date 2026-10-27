@@ -772,7 +772,9 @@ describe('retained Organization export projection', () => {
 					personnel_id: 'person-1',
 					status_type_id: 'status-1',
 					start_date: '2026-09-20',
-					end_date: '2026-09-21'
+					end_date: '2026-09-21',
+					note: null,
+					created_at: '2026-09-01T00:00:00Z'
 				}
 			],
 			sign_in_rosters: [{ id: 'roster-1', organization_id: 'org-1', name: 'Clinic training' }],
@@ -922,7 +924,9 @@ describe('retained Organization export projection', () => {
 				personnel_id: 'person-1',
 				status_type_id: 'status-1',
 				start_date: '2026-09-20',
-				end_date: '2026-09-21'
+				end_date: '2026-09-21',
+				note: null,
+				created_at: '2026-09-01T00:00:00Z'
 			}
 		]);
 		expect(json.memberships).toEqual([

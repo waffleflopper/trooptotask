@@ -8,6 +8,7 @@ import type {
 	DailyAssignment
 } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
+import type { CalendarProjectionRead } from '$features/calendar/projection/calendarProjection';
 
 export interface CalendarBootstrap {
 	/** The assignment span: the visible days. */
@@ -37,6 +38,8 @@ export interface CalendarRangeData {
 	availabilityEntries?: AvailabilityEntry[];
 	specialDays?: SpecialDay[];
 	dailyAssignments?: DailyAssignment[];
+	/** Present when `events` was requested. */
+	projection?: CalendarProjectionRead;
 }
 
 export interface CalendarWorkspaceData {

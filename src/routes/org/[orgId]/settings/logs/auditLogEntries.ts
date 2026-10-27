@@ -32,7 +32,10 @@ const AREA_RULES: readonly (readonly [RegExp, string])[] = [
 	[/^personnel\.(permanently_deleted|restored)$/, 'Archives'],
 	[/^(personnel_ict_completion|ict_task|critical_tasks)\./, 'Critical tasks'],
 	[/^(training|training_type|training_view|training_record)\./, 'Training'],
-	[/^(availability|status_type|assignment_type|special_day|calendar_report|daily_assignment)\./, 'Calendar'],
+	[
+		/^(availability|status_type|assignment_type|special_day|calendar_report|daily_assignment|calendar_event|calendar_tasking)\./,
+		'Calendar'
+	],
 	[/^onboarding/, 'Onboarding'],
 	[/^rating_scheme\./, 'Evals'],
 	[/^sign_in_roster\./, 'Rosters'],
@@ -104,7 +107,8 @@ const FEATURE_LABELS: Record<string, string> = {
 	criticalTasks: 'Critical tasks',
 	evaluations: 'Evaluations',
 	onboarding: 'Onboarding',
-	lossesAndAwards: 'Losses and awards'
+	lossesAndAwards: 'Losses and awards',
+	eventsAndTaskings: 'Events & Taskings'
 };
 
 function featureKeys(value: unknown): string[] {
@@ -162,11 +166,31 @@ function emailed(template: (email: string) => string, fallback: string): (detail
 	};
 }
 
+/** A change to one equipment or checklist item, with the Tasking it belongs to. */
+const taskingItem =
+	(verb: string, kind: string) =>
+	(details: Details): string => {
+		const item = str(details, 'item');
+		const tasking = str(details, 'title');
+		return `${verb} ${kind}${item ? ` ${item}` : ''}${tasking ? ` on ${tasking}` : ''}`;
+	};
+
 type Sentence = string | ((details: Details) => string);
 
 /** Exact actions whose wording the generic verb and noun below would get wrong. */
 const SENTENCES: Record<string, Sentence> = {
 	'organization.settings_updated': settingsUpdated,
+	'calendar_tasking.equipment_added': taskingItem('Added', 'equipment'),
+	'calendar_tasking.equipment_changed': taskingItem('Changed', 'equipment'),
+	'calendar_tasking.equipment_secured': taskingItem('Updated secured count of', 'equipment'),
+	'calendar_tasking.equipment_removed': taskingItem('Removed', 'equipment'),
+	'calendar_tasking.equipment_reordered': taskingItem('Reordered', 'equipment'),
+	'calendar_tasking.checklist_added': taskingItem('Added', 'checklist item'),
+	'calendar_tasking.checklist_renamed': taskingItem('Renamed', 'checklist item'),
+	'calendar_tasking.checklist_completed': taskingItem('Completed', 'checklist item'),
+	'calendar_tasking.checklist_reopened': taskingItem('Reopened', 'checklist item'),
+	'calendar_tasking.checklist_removed': taskingItem('Removed', 'checklist item'),
+	'calendar_tasking.checklist_reordered': taskingItem('Reordered', 'checklist item'),
 	'organization.rank_catalog.bulk_state_changed': (d) =>
 		`Changed the state of ${amount(d, 'changedCount', 'rank', 'ranks')}`,
 	'organization.rank_catalog.reconciled': 'Reconciled the rank catalog',
@@ -376,6 +400,8 @@ const NOUNS: Record<string, string> = {
 	assignment_type: 'assignment type',
 	availability: 'availability entry',
 	daily_assignment: 'daily assignment',
+	calendar_event: 'event',
+	calendar_tasking: 'tasking',
 	group: 'group',
 	pinned_group: 'pinned group',
 	ict_task: 'critical task',
@@ -411,7 +437,11 @@ const VERBS: Record<string, string> = {
 	reactivated: 'Reactivated',
 	cancelled: 'Cancelled',
 	completed: 'Completed',
-	reopened: 'Reopened'
+	reopened: 'Reopened',
+	started: 'Started',
+	blocked: 'Blocked',
+	unblocked: 'Unblocked',
+	staffed: 'Staffed'
 };
 
 function genericSentence(action: string, details: Details): string {

@@ -138,7 +138,7 @@ describe('Calendar-only group-scoped status import', () => {
 				const result = await handleUseCaseRequest(
 					_getConfig,
 					request,
-					{ ...range, collections: ['availability'] },
+					{ ...range, today: '2026-11-01', collections: ['availability'] },
 					() => ctx
 				);
 				source.entries = result.availabilityEntries ?? [];

@@ -13,7 +13,36 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
-	import { DRAG_TO_ADD_HINT, dutyMarkerLegend, statusLegend } from '$features/calendar/utils/calendarLegend';
+	import { longRangeDates } from '$features/calendar/utils/calendarRange';
+	import {
+		EMPTY_TASKING_FACTS,
+		type CalendarProjection,
+		type CalendarTaskingFacts
+	} from '$features/calendar/projection/calendarProjection';
+	import { commitmentsByPerson } from '$features/calendar/projection/projectionCommitments';
+	import {
+		buildProjectionLanes,
+		suspenseDays,
+		type ProjectionLinks,
+		type ProjectionRegion
+	} from '$features/calendar/projection/projectionLanes';
+	import { setProjectionCards, type ProjectionCardRequest } from '$features/calendar/projection/projectionCards';
+	import {
+		projectionCard,
+		type CardStatusAction,
+		type TaskingCard
+	} from '$features/calendar/projection/projectionCardModel';
+	import ProjectionCard from '$features/calendar/components/projection/ProjectionCard.svelte';
+	import { transitionTaskingRequest } from '$features/calendar/taskings/taskingRequests';
+	import type { TaskingTransition } from '$features/calendar/taskings/taskingModel';
+	import { loadAssignPeopleDialog } from '$features/calendar';
+	import { personName } from '$features/calendar/taskings/staffing/staffingModel';
+	import {
+		DRAG_TO_ADD_HINT,
+		dutyMarkerLegend,
+		eventsLegend,
+		statusLegend
+	} from '$features/calendar/utils/calendarLegend';
 	import { beforeRosterForm, dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
 	import { indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
 	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
@@ -36,9 +65,27 @@
 		};
 		rangeStatus?: 'ready' | 'loading' | 'error';
 		onRetryRange?: () => void;
+		/** Events, suspenses and commitments for the shown dates; read apart so their failure leaves the matrix usable. */
+		projection?: CalendarProjection;
+		projectionStatus?: 'ready' | 'loading' | 'error';
+		onRetryProjection?: () => void;
+		/** Tasking facts from the same read, for the quick cards and the toolbar badge. */
+		taskingFacts?: CalendarTaskingFacts;
+		/** Reads the Events region again after a Tasking write. */
+		onTaskingsChanged?: () => Promise<'read' | 'failed' | 'abandoned'>;
 	}
 
-	let { ctx, data, rangeStatus = 'ready', onRetryRange }: Props = $props();
+	let {
+		ctx,
+		data,
+		rangeStatus = 'ready',
+		onRetryRange,
+		projection,
+		projectionStatus = 'ready',
+		onRetryProjection,
+		taskingFacts = EMPTY_TASKING_FACTS,
+		onTaskingsChanged
+	}: Props = $props();
 
 	function getExportData() {
 		return {
@@ -84,6 +131,8 @@
 			canManageAvailability: ctx.canManageAvailability,
 			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
+			showEvents: ctx.showEvents,
+			taskingsNeedingAction: projectionStatus === 'ready' ? taskingFacts.needAction : 0,
 			groupOptions: ctx.groupFilterOptions.map((option) => ({
 				value: option.value,
 				label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`
@@ -102,13 +151,112 @@
 		})
 	);
 
-	const legend = $derived(
-		ctx.viewMode === 'month'
+	const legend = $derived([
+		...(ctx.viewMode === 'month'
 			? [
 					statusLegend(statusTypesStore.items, ctx.canManageAvailability ? DRAG_TO_ADD_HINT : undefined),
 					dutyMarkerLegend(dailyAssignmentsStore.types)
 				]
-			: [statusLegend(statusTypesStore.items)]
+			: [statusLegend(statusTypesStore.items)]),
+		...(ctx.showEvents ? [eventsLegend()] : [])
+	]);
+
+	const projectionLinks = $derived.by((): ProjectionLinks => {
+		const calendarHref = `/org/${data.orgUrlSegment ?? data.orgId}/calendar`;
+		return {
+			events: `${calendarHref}/events`,
+			event: (id) => `${calendarHref}/events/${id}`,
+			tasking: (id) => `${calendarHref}/taskings/${id}`
+		};
+	});
+	// The viewer's day, matching the server's notion of overdue for this read.
+	const today = formatDate(new Date());
+	const projectionDates = $derived(
+		ctx.viewMode === '3-month' ? longRangeDates(calendarStore.currentDate) : calendarStore.dates
+	);
+	const projectionRegion = $derived.by((): ProjectionRegion => {
+		if (projectionStatus === 'error') return { kind: 'error', retry: onRetryProjection };
+		if (projectionStatus === 'loading' || !projection) return { kind: 'loading' };
+		return { kind: 'ready', projection, facts: taskingFacts };
+	});
+	const projectionLanes = $derived(
+		ctx.showEvents && projectionDates.length > 0
+			? buildProjectionLanes({
+					dates: projectionDates,
+					region: projectionRegion,
+					links: projectionLinks,
+					density: ctx.viewMode === '3-month' ? 'compact' : 'month',
+					today
+				})
+			: []
+	);
+	const headerSuspenses = $derived(
+		ctx.showEvents && ctx.viewMode === 'month' && projectionRegion.kind === 'ready'
+			? suspenseDays({ dates: projectionDates, links: projectionLinks, today }, projectionRegion.projection)
+			: undefined
+	);
+
+	// One quick card at a time; opening another marker replaces it. A card belongs to the period it was opened in,
+	// so moving to another month or view drops it with its marker.
+	const period = $derived(`${ctx.viewMode}:${projectionDates[0]?.getTime()}`);
+	let opened = $state.raw<{ request: ProjectionCardRequest; anchor: HTMLElement; period: string } | null>(null);
+	const card = $derived(opened?.period === period ? opened : null);
+	let assigning = $state.raw<TaskingCard | null>(null);
+	setProjectionCards({ open: (request, anchor) => (opened = { request, anchor, period }) });
+
+	const TRANSITIONS: Record<CardStatusAction, TaskingTransition> = {
+		start: { action: 'start' },
+		complete: { action: 'complete', note: null },
+		unblock: { action: 'unblock' }
+	};
+
+	async function changeStatus(tasking: TaskingCard, action: CardStatusAction) {
+		const current = stillInOrganizationLifetime();
+		try {
+			await transitionTaskingRequest(data.orgId, tasking.id, TRANSITIONS[action]);
+		} catch {
+			return current() ? 'failed' : 'abandoned';
+		}
+		if (!current()) return 'abandoned';
+		await refreshTaskings(current);
+		return current() ? 'done' : 'abandoned';
+	}
+
+	// The write saved; a failed reread must not leave old markers and counts looking current.
+	async function refreshTaskings(current: () => boolean) {
+		if ((await onTaskingsChanged?.()) === 'failed' && current())
+			toastStore.error('Saved, but the Calendar could not refresh.', undefined, {
+				label: 'Retry',
+				onClick: () => void refreshTaskings(current)
+			});
+	}
+
+	function personLabel(personnelId: string): string {
+		const person = ctx.allPersonnelFlat.find((candidate) => candidate.id === personnelId);
+		return person ? personName(person) : 'A picked Person';
+	}
+
+	const groupNames = $derived(Object.fromEntries(ctx.scopedGroups.map((group) => [group.id, group.name])));
+
+	async function loadAssignPeople() {
+		const current = stillInOrganizationLifetime();
+		try {
+			return await loadAssignPeopleDialog();
+		} catch (error) {
+			if (current()) toastStore.error(error instanceof Error ? error.message : 'Assign people failed to load');
+			assigning = null;
+			throw error;
+		}
+	}
+	const commitments = $derived(
+		ctx.showEvents && projectionRegion.kind === 'ready' && projectionDates.length > 0
+			? commitmentsByPerson(
+					projectionRegion.projection.commitments,
+					formatDate(projectionDates[0]),
+					projectionDates.length,
+					projectionLinks
+				)
+			: undefined
 	);
 
 	// Built apart from the roster rows so search and Group filter changes do not rebuild lanes.
@@ -324,6 +472,8 @@
 						personnelByGroup={ctx.filteredPBG}
 						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
+						lanes={projectionLanes}
+						{commitments}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
@@ -337,7 +487,9 @@
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
-						{lanes}
+						lanes={[...projectionLanes, ...lanes]}
+						suspenses={headerSuspenses}
+						{commitments}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={ctx.canManageAvailability}
@@ -371,6 +523,50 @@
 		</div>
 	{/if}
 </div>
+
+{#if card && projectionRegion.kind === 'ready'}
+	{@const ready = projectionRegion}
+	{#key card}
+		<ProjectionCard
+			request={card.request}
+			anchor={card.anchor}
+			{today}
+			cardFor={(target) => projectionCard(target, ready.projection, ready.facts, projectionLinks)}
+			groupName={(groupId) => groupNames[groupId] ?? 'Another group'}
+			personName={personLabel}
+			canAddTasking={ctx.canAddTaskings}
+			canManage={(tasking) => ctx.canManageTasking(tasking.responsibility)}
+			onStatus={changeStatus}
+			onAssign={(tasking) => {
+				opened = null;
+				assigning = tasking;
+			}}
+			onClose={() => (opened = null)}
+		/>
+	{/key}
+{/if}
+
+{#if assigning}
+	{@const tasking = assigning}
+	{#await loadAssignPeople() then { default: AssignPeopleDialog }}
+		<AssignPeopleDialog
+			orgId={data.orgId}
+			tasking={{
+				id: tasking.id,
+				responsibility: tasking.responsibility,
+				requirement: tasking.required === null ? null : { count: tasking.required, qualifications: null }
+			}}
+			groups={groupNames}
+			onSaved={() => {
+				assigning = null;
+				return refreshTaskings(stillInOrganizationLifetime());
+			}}
+			onClose={() => (assigning = null)}
+		/>
+	{:catch}
+		<span class="sr-only">Assign people failed to load.</span>
+	{/await}
+{/if}
 
 {#if ctx.editor}
 	{@const request = ctx.editor}

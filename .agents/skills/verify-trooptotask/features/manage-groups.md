@@ -14,7 +14,8 @@ then checks that each change saved on its own.
   roster PDFs list Groups as pins, then the saved order, then Unassigned. Group filters, including Onboarding's, follow
   the saved order without pins.
 - `groups-members`: Add people, Move to… and Remove from Group, each in one request.
-- `groups-remove`: delete a Group after choosing where its members go; an empty Group gets a plain confirmation.
+- `groups-remove`: delete a Group after choosing where its members go; an empty Group gets a plain confirmation. A Group
+  still responsible for a Calendar Tasking is refused with the Tasking named.
 - `groups-today`: the Today column's skeleton, failure and hidden states.
 - `groups-denied`: a reader's same-Organization and foreign-Organization writes are rejected with no saved change.
 - `groups-scope`: a Group-scoped Personnel configurer sees no `Manage Groups`; its Group writes are rejected, and its
@@ -100,7 +101,11 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
    `Delete and move 1`. The Group row is gone, Baker's `group_id` is Bravo, the pin row is gone, and Bravo is selected.
    For an empty Group the strip reads `No one is in this Group.` with `Cancel` (focused) and `Delete`; Cancel returns
    focus to `Delete <name>…`. With `arm-fail PAGE groups`, `Delete` shows
-   `We couldn't confirm the Group change. Reload to see what saved.` in the strip, and the row remains.
+   `We couldn't confirm the Group change. Reload to see what saved.` in the strip, and the row remains. With a Tasking
+   owned by the Group (see [Events & Taskings](events-taskings.md) Staffing step 11), `Delete` answers 409 and the strip
+   shows
+   `This Group is responsible for “TITLE”. Move that tasking to another Group or the organization before deleting.`; the
+   Group, its members and the Tasking are unchanged.
 8. **Retired membership reply.** As `personnelSwitch`, establish A/B browser history. Hold the first real
    `POST /org/<orgA>/api/personnel/group-membership` reply after it saves a move of Able to Bravo. Use native Back to B
    and Forward to A, then move Able back to Alpha in the new visit. Release the old 200 reply. Able stays in Alpha in

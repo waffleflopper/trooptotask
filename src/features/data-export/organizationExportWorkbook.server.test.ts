@@ -143,6 +143,93 @@ describe('Organization Data Export workbook', () => {
 		expect(calendar?.rows[0]?.person).toBe('person-without-name');
 	});
 
+	it('names an Event coordinator by email and falls back to the user id without one', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				memberships: [
+					{ user_id: 'user-kim', email: 'sgt.kim@example.mil' },
+					{ user_id: 'user-lee', email: null }
+				],
+				calendarEvents: [
+					{ id: 'event-1', title: 'Range Week', coordinator_user_id: 'user-kim', cancelled_by: null },
+					{ id: 'event-2', title: 'Best Medic', coordinator_user_id: 'user-lee', cancelled_by: 'user-lee' }
+				]
+			})
+		});
+		const events = plan.readableSheets.find((sheet) => sheet.name === 'Events');
+
+		expect(events?.rows.map((row) => [row.coordinator, row.cancelled_by])).toEqual([
+			['sgt.kim@example.mil', ''],
+			['user-lee', 'user-lee']
+		]);
+	});
+
+	it('names a Tasking’s Event and responsible Group, and reads no Group as the organization itself', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				calendarEvents: [{ id: 'event-1', title: 'Best Medic' }],
+				calendarTaskings: [
+					{ id: 'tasking-1', title: 'Provide medics', event_id: 'event-1', responsible_group_id: 'group-1' },
+					{ id: 'tasking-2', title: 'Brief the commander', event_id: null, responsible_group_id: null }
+				]
+			})
+		});
+		const taskings = plan.readableSheets.find((sheet) => sheet.name === 'Taskings');
+
+		expect(taskings?.rows.map((row) => [row.outcome, row.event, row.responsible])).toEqual([
+			['Provide medics', 'Best Medic', 'Alpha'],
+			['Brief the commander', 'Standalone', 'This organization']
+		]);
+	});
+
+	it('names each picked person against the Tasking they are picked for, with any open review', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				calendarTaskings: [{ id: 'tasking-1', title: 'Provide medics', event_id: null }],
+				calendarTaskingParticipants: [
+					{ tasking_id: 'tasking-1', personnel_id: 'person-1', review_since: '2026-05-02T00:00:00Z' }
+				]
+			})
+		});
+		const people = plan.readableSheets.find((sheet) => sheet.name === 'Tasking People');
+
+		expect(people?.rows.map((row) => [row.tasking, row.person, row.needs_review_since])).toEqual([
+			['Provide medics', expect.stringContaining('Smith'), '2026-05-02T00:00:00Z']
+		]);
+	});
+
+	it('names the Tasking and the member behind each equipment and checklist row', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				memberships: [{ user_id: 'user-kim', email: 'sgt.kim@example.mil' }],
+				calendarTaskings: [{ id: 'tasking-1', title: 'Provide medics' }],
+				calendarTaskingEquipment: [
+					{ tasking_id: 'tasking-1', position: 1, name: 'Litters', quantity: 4, secured_quantity: 3 }
+				],
+				calendarTaskingChecklistItems: [
+					{
+						tasking_id: 'tasking-1',
+						position: 1,
+						label: 'Book the range',
+						done: true,
+						done_at: '2030-10-23T09:00:00Z',
+						done_by: 'user-kim'
+					},
+					{ tasking_id: 'tasking-1', position: 2, label: 'Brief medics', done: false, done_at: null, done_by: null }
+				]
+			})
+		});
+		const sheet = (name: string) => plan.readableSheets.find((candidate) => candidate.name === name);
+
+		expect(sheet('Tasking Equipment')?.rows).toEqual([
+			{ tasking: 'Provide medics', position: 1, equipment: 'Litters', quantity: 4, secured_quantity: 3 }
+		]);
+		expect(sheet('Tasking Checklist')?.rows.map((row) => [row.tasking, row.item, row.done, row.done_by])).toEqual([
+			['Provide medics', 'Book the range', true, 'sgt.kim@example.mil'],
+			['Provide medics', 'Brief medics', false, '']
+		]);
+	});
+
 	it('returns a dated workbook filename owned by the export use case', async () => {
 		const result = await buildOrganizationDataExportWorkbook({
 			payload: payload()

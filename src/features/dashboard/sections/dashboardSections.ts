@@ -4,13 +4,28 @@ import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardAccess } from './dashboardAccess';
 import type { DashboardInputs } from './dashboardInputs';
-import { placeForecastLaneMarks, type DashboardForecastLaneView, type ForecastLaneMark } from './forecastLanes';
+import {
+	placeForecastLaneMarks,
+	type DashboardForecastLaneView,
+	type ForecastLaneRead,
+	type ForecastLegendEntry
+} from './forecastLanes';
 import { buildNeedsYouQueue, type NeedsYouItem, type NeedsYouQueue } from './needsYou';
 
 /** Availability and Calendar is always on; every other section belongs to one feature switch. */
 export type DashboardSectionId = 'availability' | FeatureKey;
 
 export type NeedsYouSource = (inputs: DashboardInputs) => readonly NeedsYouItem[];
+
+/** A source that loads on its own: until it settles the queue shows a placeholder, and a failure names it. */
+export type NeedsYouLoad = {
+	label: string;
+	retry: (updates: DashboardPageUpdates) => void;
+} & (
+	| { state: 'pending' | 'failed' }
+	/** Rows the source counted but did not list, so the header still counts them. */
+	| { state: 'partial'; unlisted: number; href: string }
+);
 
 /** Green for good, amber for warning, red only for the worst share. */
 export type ReadinessTone = 'good' | 'warning' | 'critical';
@@ -52,7 +67,11 @@ export type DashboardPartAvailability = (inputs: DashboardInputs, access: Dashbo
 export interface ForecastLane {
 	id: string;
 	label: string;
-	marks: (inputs: DashboardInputs) => readonly ForecastLaneMark[];
+	/** Said in place of the marks when the lane has none. */
+	empty: string;
+	legend: readonly ForecastLegendEntry[];
+	/** Null leaves the lane out, as when its source is not read for this viewer. */
+	read: (inputs: DashboardInputs) => ForecastLaneRead | null;
 }
 
 export interface DashboardBlock {
@@ -77,9 +96,9 @@ export interface QuickAddEntry {
 	id: string;
 	label: string;
 	icon: Component;
-	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding. */
+	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding, 40 Tasking. */
 	order: number;
-	/** The one filled button; a page without this entry has none (frame 05). */
+	/** Filled; when several entries ask, only the last shown is filled, so a page keeps one (frames 01 and 05). */
 	primary?: boolean;
 	/** Loaded on first open, so the dialogs stay out of the page's first load. */
 	loadDialog: () => Promise<{ default: Component<QuickAddDialogProps> }>;
@@ -110,6 +129,8 @@ export interface DashboardSection {
 	/** A section that is not set up adds nothing; owners and admins see a hint instead. */
 	setup: SetupCheck | null;
 	needsYou: readonly NeedsYouSource[];
+	/** The load state of a Needs you source that arrives after the page, or null once it has settled. */
+	needsYouLoad: ((inputs: DashboardInputs) => NeedsYouLoad | null) | null;
 	readiness: ReadinessSource | null;
 	quickAdd: readonly QuickAddEntry[];
 	onDuty: readonly OnDutyBlock[];
@@ -125,6 +146,7 @@ export function dashboardSection(
 		feature: id === 'availability' ? null : id,
 		setup: null,
 		needsYou: [],
+		needsYouLoad: null,
 		readiness: null,
 		quickAdd: [],
 		onDuty: [],
@@ -148,6 +170,8 @@ export interface DashboardSectionParts {
 	readinessColumns: readonly ReadinessColumn[];
 	/** Titles of the sections whose Needs you items could not load, so the queue is incomplete. */
 	needsYouUnavailable: readonly string[];
+	/** Needs you sources still loading or failed, which the queue shows beside the rows it has. */
+	needsYouLoads: readonly NeedsYouLoad[];
 	onDutyBlocks: readonly OnDutyBlock[];
 	/** Owners and admins only; one per feature that is on but not set up. */
 	setupHints: readonly SetupHint[];
@@ -192,11 +216,22 @@ export function composeDashboardSections(
 			active.flatMap((entry) => entry.needsYou.map((source) => permittedActions(source(inputs), access)))
 		),
 		forecastLanes: active.flatMap((entry) =>
-			entry.forecastLanes.map((lane) => ({
-				id: lane.id,
-				label: lane.label,
-				marks: placeForecastLaneMarks(inputs.forecastDays, lane.marks(inputs))
-			}))
+			entry.forecastLanes.flatMap((lane) => {
+				const read = lane.read(inputs);
+				if (!read) return [];
+				return [
+					{
+						id: lane.id,
+						label: lane.label,
+						empty: lane.empty,
+						legend: lane.legend,
+						read:
+							read.state === 'ready'
+								? { state: 'ready' as const, marks: placeForecastLaneMarks(inputs.forecastDays, read.marks) }
+								: read
+					}
+				];
+			})
 		),
 		quickAdd: active
 			.flatMap((entry) => entry.quickAdd)
@@ -206,6 +241,10 @@ export function composeDashboardSections(
 		needsYouUnavailable: readiness.flatMap(({ column, feedsNeedsYou }) =>
 			column.state === 'failed' && feedsNeedsYou ? [column.title] : []
 		),
+		needsYouLoads: active.flatMap((entry) => {
+			const load = entry.needsYouLoad?.(inputs);
+			return load ? [load] : [];
+		}),
 		onDutyBlocks: active
 			.flatMap((entry) => entry.onDuty)
 			.filter((part) => part.available?.(inputs, access) ?? true)

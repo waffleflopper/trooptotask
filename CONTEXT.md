@@ -193,6 +193,86 @@ _Avoid_: sheet as the stored record
 A person's count going into a DA 6 form's first day on a Track, carried from the last form or typed from a paper DA 6. Typed numbers change only until the first detail on the form is served; then they are part of the record.
 _Avoid_: Initial count, seed
 
+**Event**:
+Something the unit runs, supports or should know about, over one or more whole dates. Its host is this Organization or a named outside unit, and its coordinator is an Organization member who is the point of contact; neither grants access. An Event with nothing asked of the unit is awareness only.
+_Avoid_: Availability Status, appointment, tasking when the Event itself is meant
+
+**Event cancellation**:
+The explicit end of an Event, with who cancelled it, when, and an optional reason. A cancelled Event stays on record and cannot be edited; Events are never deleted.
+_Avoid_: Delete, archive
+
+**Event Activity**:
+The record of an Event's creation, date changes, host or coordinator changes and cancellation, written by the database with the acting member.
+_Avoid_: Audit log, history
+
+**Tasking**:
+An outcome the unit owes by a date, owned by exactly one Group or by the Organization itself. It stands alone or sits under one Event, and linking or unlinking it later keeps the same Tasking and its history. It moves Open, In progress, Blocked, Completed or Cancelled only by an explicit action.
+_Avoid_: Task, mission, assignment when a Daily Assignment is meant
+
+**Responsibility**:
+Who owns a Tasking: one Group, or the Organization when no single Group does. Organization level is always chosen, never assumed, and only Organization-wide Calendar operators move it.
+_Avoid_: Owner, assignee
+
+**Suspense**:
+The date a Tasking's outcome is due. It marks no one as busy; execution dates do that.
+_Avoid_: Deadline, due date in product copy
+
+**Equipment requirement**:
+A named item a Tasking needs, with a quantity and how many are secured. It is ready when all are secured and partial when some are. It never changes the Tasking's status.
+_Avoid_: Supply, gear list
+
+**Checklist item**:
+One step on a Tasking's flat, ordered list, open or done. Completing it records who and when, and it never changes the Tasking's status.
+_Avoid_: Subtask, to-do
+
+**Tasking Activity**:
+The record of a Tasking's creation, outcome, responsibility, date, Event link, requirement, instruction, equipment and checklist changes and every status move, written by the database with the acting member.
+_Avoid_: Audit log, history
+
+**Pick**:
+A Person chosen to carry out a Tasking. A Group Tasking picks from the responsible Group's active roster and an Organization Tasking from the whole active roster. Picks are saved as one whole list, and the count reads picked of required.
+_Avoid_: Assignment, participant in product copy
+
+**Needs review**:
+A pick whose Person was archived or left the responsible Group after being picked. It stays on the list, does not count, and clears only when an operator keeps or removes it; restoring the Person does not clear it.
+_Avoid_: Invalid, stale
+
+**Staffing advisory**:
+Availability or another active Tasking that overlaps a candidate's execution dates, shown in the picker for awareness. It never blocks a pick, and a Tasking the reader cannot see reads only as committed elsewhere.
+_Avoid_: Blocker, availability check
+
+**Availability gap**:
+A counted pick whose Availability entries, together, leave an execution day of their Tasking uncovered. Tasking detail counts them for readers who may set those People's Availability and offers Set availability, which opens Bulk Status prefilled. What it saves is ordinary Availability with no link to the Tasking.
+_Avoid_: Conflict, missing status
+
+**Event work phase**:
+Where a Tasking sits against its Event: execution when its execution dates or suspense touch the Event's dates, preparation when it is due before the Event starts, closeout when after it ends. Event detail groups its Taskings by phase.
+_Avoid_: Stage, before/after
+
+**Summary row**:
+The one-line, non-opening row a Group-scoped reader gets for another Group's or the Organization's Tasking under a shared Event: responsible Group or Organization, outcome, status, picked of required and suspense. It never carries people, instructions, a block reason, equipment, checklist or Activity, and grants no access to the Tasking. A standalone Tasking outside the reader's scope has none.
+_Avoid_: Preview, stub
+
+**Date review**:
+The list of an Event's active Taskings that its date change left outside the new dates or in another phase. Nothing is moved for the operator; each Tasking opens its own edit.
+_Avoid_: Cascade, auto-shift
+
+**Calendar projection**:
+The Events, Suspenses and commitments a Calendar range shows, read once with the visible buffered range under the Calendar read policy. A Tasking the reader cannot see, and a person outside the reader's roster scope, are absent rather than hidden. It never creates Availability entries or Daily Assignment Slots and never changes availability counts. The Dashboard reads it over the forecast's 14 days.
+_Avoid_: Calendar overlay, marker feed
+
+**Commitment**:
+A person's picked execution dates on an active Tasking, drawn as a thin indicator on their row. A pick marked Needs review draws none.
+_Avoid_: Busy, assignment
+
+**Tasking attention**:
+The Dashboard's Needs you rows for active Taskings, each Tasking once under its most urgent kind: Overdue (past suspense), Blocked (marked Blocked), Short (still executing or starting within 14 days with fewer picked than needed, or equipment not ready) and Due soon (suspense within 7 days). Only Taskings in the reader's scope appear, and a pick under review never counts as picked.
+_Avoid_: Alert, task list
+
+**Forecast lane**:
+A row of marks under the Dashboard's 14-day strength forecast that never changes its availability numbers. The Events & Taskings lane draws each Event the reader can see as a span, strong when a Tasking on it that is not cancelled is in the reader's scope and quiet when it is for awareness only, and each active Suspense in scope as a point. Each mark opens its Event or Tasking.
+_Avoid_: Overlay, timeline
+
 **DONSA**:
 A day of no scheduled activities, represented as a Calendar special day; Training Holiday is also appropriate military-facing wording.
 _Avoid_: Closure, org closure in product copy

@@ -3,6 +3,7 @@ import CheckIcon from '@lucide/svelte/icons/check';
 import PlusIcon from '@lucide/svelte/icons/plus';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import ComingAndGoing from '../components/ComingAndGoing.svelte';
+import TaskingsOnTrack from '../components/TaskingsOnTrack.svelte';
 import TonightAndTomorrow from '../components/TonightAndTomorrow.svelte';
 import { dashboardSection, type DashboardSection } from './dashboardSections';
 import { actionablePersonnel, personnelResource, seesCalendar } from './dashboardAccess';
@@ -21,6 +22,8 @@ import {
 } from './readiness';
 import { criticalTasksSetup, evaluationsSetup, onboardingSetup, trainingSetup } from './setupChecks';
 import { startOnboardingChoices } from './startOnboardingChoices';
+import { eventsAndTaskingsLane } from './eventsAndTaskingsLane';
+import { taskingAttention, taskingAttentionLoad } from './taskingAttention';
 
 const { calendar, training } = POLICY_ACTION_CATALOG;
 
@@ -86,6 +89,31 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				primary: true,
 				loadDialog: () => import('../components/quick-add/StartOnboardingQuickAdd.svelte'),
 				available: (inputs, access) => startOnboardingChoices(inputs, access).usable
+			}
+		]
+	}),
+	dashboardSection('eventsAndTaskings', {
+		available: (_, access) => access.can(calendar.viewEvents),
+		needsYou: [taskingAttention],
+		needsYouLoad: taskingAttentionLoad,
+		forecastLanes: [eventsAndTaskingsLane],
+		onDuty: [
+			{
+				id: 'taskings-on-track',
+				order: 20,
+				component: TaskingsOnTrack,
+				available: (_, access) => seesCalendar(access)
+			}
+		],
+		quickAdd: [
+			{
+				id: 'tasking',
+				label: 'Tasking',
+				icon: PlusIcon,
+				order: 40,
+				primary: true,
+				loadDialog: () => import('../components/quick-add/TaskingQuickAdd.svelte'),
+				available: (_, access) => access.can(calendar.manageTaskings)
 			}
 		]
 	})

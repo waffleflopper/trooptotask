@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
+import type { NeedsYouLoad } from '../sections/dashboardSections';
 import { buildNeedsYouQueue, needsYouPanel, type NeedsYouAction, type NeedsYouItem } from '../sections/needsYou';
 import NeedsYouPanelTestDouble from './needs-you/NeedsYouPanelTestDouble.svelte';
 import NeedsYouQueue from './NeedsYouQueue.svelte';
@@ -23,18 +24,19 @@ function leaving(id: string, action: NeedsYouAction | null): NeedsYouItem {
 	};
 }
 
-function show(items: NeedsYouItem[], unavailable: string[] = []) {
-	const updates = { refreshSummary: vi.fn(), putRecord: vi.fn() };
-	const { rerender } = render(NeedsYouQueue, {
+function show(items: NeedsYouItem[], unavailable: string[] = [], loads: NeedsYouLoad[] = []) {
+	const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
+	const { rerender, container } = render(NeedsYouQueue, {
 		props: {
 			queue: buildNeedsYouQueue([items]),
 			model: {} as DashboardScreenModel,
 			access: { can: () => true, isPrivileged: false },
 			updates,
-			unavailable
+			unavailable,
+			loads
 		}
 	});
-	return { updates, rerender };
+	return { updates, rerender, container };
 }
 
 function deferred() {
@@ -152,6 +154,27 @@ describe('NeedsYouQueue actions', () => {
 		expect(screen.getByRole('alert').textContent).toBe('Assignment type is archived');
 	});
 
+	it('opens one panel in place when a second row opens while the first is still loading', async () => {
+		const panel = () => needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() });
+		const first = deferred();
+		const openFirst = vi.fn(() => first.promise.then(panel));
+		const openSecond = vi.fn().mockResolvedValue(panel());
+		show([
+			leaving('a', { label: 'Fill A', policy, mode: 'expand', open: openFirst }),
+			leaving('b', { label: 'Fill B', policy, mode: 'expand', open: openSecond })
+		]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill A' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill B' }));
+		await screen.findByRole('region', { name: 'Test panel' });
+		first.resolve();
+		await first.promise;
+
+		await waitFor(() => expect(screen.getAllByRole('region', { name: 'Test panel' })).toHaveLength(1));
+		expect(screen.getByRole('button', { name: 'Fill A' }).getAttribute('aria-expanded')).toBe('false');
+		expect(screen.getByRole('button', { name: 'Fill B' }).getAttribute('aria-expanded')).toBe('true');
+	});
+
 	it('collapses an expanded panel from its toggle', async () => {
 		const open = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
 		show([leaving('sd', { label: 'Fill 2 days', policy, mode: 'expand', open })]);
@@ -172,5 +195,57 @@ describe('NeedsYouQueue actions', () => {
 
 		expect(screen.getByRole('link', { name: 'Check off' }).getAttribute('href')).toBe('/org/org-1/onboarding?packet=a');
 		expect(screen.queryAllByRole('button')).toEqual([]);
+	});
+});
+
+describe('NeedsYouQueue sources that load after the page', () => {
+	const load = (state: 'pending' | 'failed', retry = vi.fn()): NeedsYouLoad => ({ label: 'Tasking', state, retry });
+
+	it('holds the place of a pending source with a placeholder instead of saying nothing needs you', () => {
+		const { container } = show([], [], [load('pending')]);
+
+		expect(container.querySelector('[data-needs-you-pending]')).not.toBeNull();
+		expect(screen.queryByText('Nothing needs you right now.')).toBeNull();
+	});
+
+	it('keeps the rows it has and adds a placeholder row for a pending source', () => {
+		const { container } = show([leaving('p-patel', null)], [], [load('pending')]);
+
+		expect(screen.getByRole('link', { name: 'Row p-patel' })).toBeTruthy();
+		expect(container.querySelector('[data-needs-you-pending]')).not.toBeNull();
+	});
+
+	it('names a failed source beside the other rows and retries it from the note', async () => {
+		const retry = vi.fn();
+		const { updates } = show([leaving('p-patel', null)], [], [load('failed', retry)]);
+
+		expect(screen.getByRole('link', { name: 'Row p-patel' })).toBeTruthy();
+		expect(screen.getByText(/incomplete.*Tasking/)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+		expect(retry).toHaveBeenCalledWith(updates);
+	});
+
+	it('is incomplete, not clear, when the only source failed', () => {
+		show([], [], [load('failed')]);
+
+		expect(screen.getByText(/incomplete.*Tasking/)).toBeTruthy();
+		expect(screen.queryByText('Nothing needs you right now.')).toBeNull();
+	});
+
+	it('says how many rows the source did not list and links to where they are', () => {
+		const partial: NeedsYouLoad = {
+			label: 'Tasking',
+			state: 'partial',
+			unlisted: 3,
+			href: '/org/org-1/calendar/taskings',
+			retry: vi.fn()
+		};
+		show([leaving('p-patel', null)], [], [partial]);
+
+		expect(screen.getByText(/3 more Tasking items are not listed/)).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Open Taskings' }).getAttribute('href')).toBe(
+			'/org/org-1/calendar/taskings'
+		);
 	});
 });

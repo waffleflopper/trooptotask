@@ -7,7 +7,8 @@ export const ORGANIZATION_DATA_EXPORT_AREA_KEYS = [
 	'training',
 	'critical-tasks',
 	'onboarding',
-	'rating-scheme'
+	'rating-scheme',
+	'events-and-taskings'
 ] as const;
 
 export type OrganizationDataExportAreaKey = (typeof ORGANIZATION_DATA_EXPORT_AREA_KEYS)[number];
@@ -108,6 +109,43 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('rosterForms', 'Roster Forms', 'roster_forms', 'calendar', 'Calendar'),
 	section('rosterStartingNumbers', 'Roster Starting Numbers', 'roster_starting_numbers', 'calendar', 'Calendar'),
 	section('rosterExcusals', 'Roster Excusals', 'roster_excusals', 'calendar', 'Calendar'),
+	section('calendarEvents', 'Events', 'calendar_events', 'events-and-taskings', 'Events & Taskings'),
+	section(
+		'calendarEventActivity',
+		'Event Activity',
+		'calendar_event_activity',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
+	section('calendarTaskings', 'Taskings', 'calendar_taskings', 'events-and-taskings', 'Events & Taskings'),
+	section(
+		'calendarTaskingActivity',
+		'Tasking Activity',
+		'calendar_tasking_activity',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
+	section(
+		'calendarTaskingParticipants',
+		'Tasking People',
+		'calendar_tasking_participants',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
+	section(
+		'calendarTaskingEquipment',
+		'Tasking Equipment',
+		'calendar_tasking_equipment',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
+	section(
+		'calendarTaskingChecklistItems',
+		'Tasking Checklist Items',
+		'calendar_tasking_checklist_items',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
 	section('trainingTypes', 'Training Types', 'training_types', 'training', 'Training'),
 	section('personnelTrainings', 'Personnel Trainings', 'personnel_trainings', 'training', 'Training'),
 	section(
@@ -295,6 +333,94 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 	{ name: 'Roster Forms', areaKey: 'calendar', rows: (sections) => sections.rosterForms ?? [] },
 	{ name: 'Roster Starting Numbers', areaKey: 'calendar', rows: (sections) => sections.rosterStartingNumbers ?? [] },
 	{ name: 'Roster Excusals', areaKey: 'calendar', rows: (sections) => sections.rosterExcusals ?? [] },
+	{
+		name: 'Events',
+		areaKey: 'events-and-taskings',
+		rows: (sections) => {
+			const members = memberEmails(sections);
+			return (sections.calendarEvents ?? []).map((event) => ({
+				title: event.title,
+				starts_on: event.starts_on,
+				ends_on: event.ends_on,
+				host: event.host_name ?? 'This organization',
+				coordinator: lookup(members, event.coordinator_user_id),
+				location: event.location ?? '',
+				source_reference: event.source_reference ?? '',
+				description: event.description ?? '',
+				cancelled_at: event.cancelled_at ?? '',
+				cancelled_by: event.cancelled_by ? lookup(members, event.cancelled_by) : '',
+				cancellation_reason: event.cancellation_reason ?? ''
+			}));
+		}
+	},
+	{
+		name: 'Taskings',
+		areaKey: 'events-and-taskings',
+		rows: (sections, labels) => {
+			const events = new Map((sections.calendarEvents ?? []).map((event) => [String(event.id), String(event.title)]));
+			return (sections.calendarTaskings ?? []).map((tasking) => ({
+				outcome: tasking.title,
+				event: tasking.event_id ? lookup(events, tasking.event_id) : 'Standalone',
+				responsible: tasking.responsible_group_id
+					? lookup(labels.groups, tasking.responsible_group_id)
+					: 'This organization',
+				suspense_on: tasking.suspense_on,
+				execution_starts_on: tasking.execution_starts_on ?? '',
+				execution_ends_on: tasking.execution_ends_on ?? '',
+				report_time: tasking.report_time ?? '',
+				people_needed: tasking.staffing_required ?? '',
+				qualifications: tasking.qualifications ?? '',
+				instructions: tasking.instructions ?? '',
+				status: tasking.status,
+				block_reason: tasking.block_reason ?? '',
+				completion_note: tasking.completion_note ?? '',
+				cancellation_reason: tasking.cancellation_reason ?? ''
+			}));
+		}
+	},
+	{
+		name: 'Tasking People',
+		areaKey: 'events-and-taskings',
+		rows: (sections, labels) => {
+			const taskings = taskingTitles(sections);
+			return (sections.calendarTaskingParticipants ?? []).map((pick) => ({
+				tasking: lookup(taskings, pick.tasking_id),
+				person: lookup(labels.personnel, pick.personnel_id),
+				selected_at: pick.selected_at,
+				needs_review_since: pick.review_since ?? ''
+			}));
+		}
+	},
+	{
+		name: 'Tasking Equipment',
+		areaKey: 'events-and-taskings',
+		rows: (sections) => {
+			const taskings = taskingTitles(sections);
+			return (sections.calendarTaskingEquipment ?? []).map((item) => ({
+				tasking: lookup(taskings, item.tasking_id),
+				position: item.position,
+				equipment: item.name,
+				quantity: item.quantity,
+				secured_quantity: item.secured_quantity
+			}));
+		}
+	},
+	{
+		name: 'Tasking Checklist',
+		areaKey: 'events-and-taskings',
+		rows: (sections) => {
+			const taskings = taskingTitles(sections);
+			const members = memberEmails(sections);
+			return (sections.calendarTaskingChecklistItems ?? []).map((item) => ({
+				tasking: lookup(taskings, item.tasking_id),
+				position: item.position,
+				item: item.label,
+				done: item.done,
+				done_at: item.done_at ?? '',
+				done_by: item.done_by ? lookup(members, item.done_by) : ''
+			}));
+		}
+	},
 	{ name: 'Onboarding Templates', areaKey: 'onboarding', rows: (sections) => sections.onboardingTemplates ?? [] },
 	{
 		name: 'Onboarding Progress',
@@ -355,6 +481,18 @@ export function assertOrganizationDataExportManifestIsSafe(): void {
 		}
 		seen.add(section.key);
 	}
+}
+
+function memberEmails(sections: OrganizationDataExportSections): Map<string, string> {
+	return new Map(
+		(sections.memberships ?? [])
+			.filter((member) => member.email)
+			.map((member) => [String(member.user_id), String(member.email)])
+	);
+}
+
+function taskingTitles(sections: OrganizationDataExportSections): Map<string, string> {
+	return new Map((sections.calendarTaskings ?? []).map((tasking) => [String(tasking.id), String(tasking.title)]));
 }
 
 function lookup(labels: Map<string, string>, value: unknown): string {

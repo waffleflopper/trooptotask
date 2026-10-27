@@ -12,6 +12,7 @@ export type WorkspaceToolbarIcon =
 	| 'download'
 	| 'file-plus'
 	| 'file-text'
+	| 'lines'
 	| 'notebook-pen'
 	| 'plus'
 	| 'printer'
@@ -40,6 +41,8 @@ export type ToolbarAction = ItemIdentity & {
 	icon?: WorkspaceToolbarIcon;
 	/** A second line under the label when the action shows in a menu. */
 	description?: string;
+	/** A count of items waiting on the reader; `label` is its accessible text. Hidden at zero. */
+	badge?: { count: number; label: string };
 	destructive?: boolean;
 	disabled?: boolean;
 	disabledReason?: string;
@@ -61,6 +64,8 @@ export type ToolbarSelect = ItemIdentity & {
 	options: ToolbarOption[];
 	value: string;
 	defaultValue: string;
+	/** Names the filter before its value, for short option labels such as `All`. */
+	showLabel?: boolean;
 	onValueChange: (value: string) => void;
 };
 

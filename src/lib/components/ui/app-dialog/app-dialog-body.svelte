@@ -20,6 +20,7 @@
 	class={cn(
 		'min-h-0 overflow-y-auto px-4 py-4 text-sm',
 		(tone === 'destructive' || voice === 'editorial') && 'px-7 py-5',
+		voice === 'form' && 'px-6 py-5',
 		className
 	)}
 	{...restProps}

@@ -112,6 +112,7 @@ function renderHeader(overrides: Partial<ComponentProps<typeof AppShellHeader>> 
 			userRole: 'admin',
 			membershipId: 'membership-1',
 			capabilityMap: baseCapabilityMap,
+			disabledFeatures: [],
 			account: {
 				email: 'dana@example.test',
 				hasTwoFactor: true,
@@ -818,6 +819,29 @@ describe('AppShellHeader', () => {
 		await waitFor(() =>
 			expect(fetchMock).toHaveBeenCalledWith('/org/org-2/api/app-shell-chrome?part=notification-count')
 		);
+	});
+
+	it('marks Events & Taskings current on a Tasking page and leaves Calendar as its parent', () => {
+		pageStore.setPath('/org/org-1/calendar/taskings/tasking-1');
+
+		renderHeader({ capabilityMap: { ...baseCapabilityMap, calendar: 'operate' } });
+
+		const nav = screen.getByRole('link', { name: 'Home' }).closest('ul') as HTMLElement;
+		expect(within(nav).getByRole('link', { name: 'Events & Taskings' }).getAttribute('href')).toBe(
+			'/org/org-1/calendar/taskings'
+		);
+		expect(within(nav).getByRole('link', { name: 'Events & Taskings' }).getAttribute('aria-current')).toBe('page');
+		expect(within(nav).getByRole('link', { name: 'Calendar' }).hasAttribute('aria-current')).toBe(false);
+		expect(within(nav).getByRole('link', { name: 'Duty planner' }).hasAttribute('aria-current')).toBe(false);
+		const breadcrumb = screen.getByLabelText('Current section');
+		expect(within(breadcrumb).getByText('Events & Taskings').getAttribute('aria-current')).toBe('page');
+	});
+
+	it('leaves Events & Taskings out of the sidebar while its feature is off', () => {
+		renderHeader({ disabledFeatures: ['eventsAndTaskings'] });
+
+		expect(screen.getByRole('link', { name: 'Calendar' })).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Events & Taskings' })).toBeNull();
 	});
 
 	it('renders route-aware Calendar breadcrumbs for subpages', () => {

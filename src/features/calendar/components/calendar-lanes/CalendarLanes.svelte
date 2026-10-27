@@ -21,6 +21,7 @@
 			aria-labelledby={labelId}
 			aria-describedby={summaryId}
 			data-lane-kind={lane.kind}
+			style:height={lane.rows && lane.rows > 1 ? `calc(var(--calendar-lane-height) * ${lane.rows} - 8px)` : undefined}
 			class="relative grid h-(--calendar-lane-height) w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] grid-cols-[var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 		>
 			<div
@@ -30,7 +31,13 @@
 					<span class="size-2 shrink-0 rounded-[2px]" style:background-color={lane.color} aria-hidden="true"></span>
 				{/if}
 				<span id={labelId} class="min-w-0 truncate text-foreground">{lane.label}</span>
-				{#if lane.detail}
+				{#if lane.detail && lane.detailHref}
+					<a
+						href={lane.detailHref}
+						class="ml-auto shrink-0 font-body text-xs font-medium tracking-normal text-foreground normal-case underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+						>{lane.detail}</a
+					>
+				{:else if lane.detail}
 					<span class="ml-auto shrink-0 tracking-normal normal-case">{lane.detail}</span>
 				{/if}
 				<span id={summaryId} class="sr-only">{lane.summary}</span>
@@ -60,6 +67,14 @@
 						<lane.track.Segment value={segment.value} />
 					</div>
 				{/each}
+			{/if}
+			{#if lane.track.shape === 'status'}
+				<div class="absolute inset-y-0 right-0 left-(--calendar-personnel-column-width) z-[1] min-w-0">
+					<!-- Sticky, so the message stays in view while the dates scroll. -->
+					<div class="sticky left-(--calendar-personnel-column-width) flex h-full w-max max-w-full items-center">
+						<lane.track.Status value={lane.track.value} />
+					</div>
+				</div>
 			{/if}
 		</div>
 	{/each}

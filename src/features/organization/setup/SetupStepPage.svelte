@@ -5,14 +5,24 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { SetupStepKey } from './registry';
 	import SetupStepFooter from './SetupStepFooter.svelte';
+	import SetupWelcomeStep from './SetupWelcomeStep.svelte';
 	import { SETUP_FACT_LABELS, SETUP_GROUP_LABELS, getSetupFlow } from './setupFlow.svelte';
 
 	/** A step's body renders its editor and its own `SetupStepFooter`. Steps without one show a placeholder. */
-	const bodies: Partial<Record<SetupStepKey, Component>> = {};
+	const bodies: Partial<Record<SetupStepKey, Component>> = {
+		welcome: SetupWelcomeStep
+	};
+
+	let {
+		delivered = {}
+	}: {
+		/** Bodies that embed another feature's editor. Organization cannot import those, so the route composes them. */
+		delivered?: Partial<Record<SetupStepKey, Component>>;
+	} = $props();
 
 	const flow = getSetupFlow();
 	const step = $derived(flow.current);
-	const Body = $derived(step ? bodies[step.key] : undefined);
+	const Body = $derived(step ? (bodies[step.key] ?? delivered[step.key]) : undefined);
 </script>
 
 {#if step}

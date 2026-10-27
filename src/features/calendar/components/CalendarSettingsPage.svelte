@@ -17,8 +17,16 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import Users from '@lucide/svelte/icons/users';
 
-	let { org, rankCatalog }: { org: CalendarSettingsPageAccess; rankCatalog: Promise<readonly RankCatalogEntry[]> } =
-		$props();
+	let {
+		org,
+		rankCatalog,
+		embedded = false
+	}: {
+		org: CalendarSettingsPageAccess;
+		rankCatalog: Promise<readonly RankCatalogEntry[]>;
+		/** Shown inside another flow, so it offers no way back to the Calendar. */
+		embedded?: boolean;
+	} = $props();
 	const orgUrlSegment = $derived(org.orgUrlSegment);
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes)
@@ -61,9 +69,11 @@
 		}
 	];
 
-	const toolbarItems = $derived<ToolbarItem[]>([
-		{ kind: 'action', id: 'back-to-calendar', label: 'Back to Calendar', href: `/org/${orgUrlSegment}/calendar` }
-	]);
+	const toolbarItems = $derived<ToolbarItem[]>(
+		embedded
+			? []
+			: [{ kind: 'action', id: 'back-to-calendar', label: 'Back to Calendar', href: `/org/${orgUrlSegment}/calendar` }]
+	);
 
 	const activeSectionDef = $derived(sectionDefs.find((s) => s.key === activeSection) ?? sectionDefs[0]);
 

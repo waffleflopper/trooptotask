@@ -73,10 +73,13 @@
 
 	let {
 		ranksSettings,
-		form
+		form,
+		actionBase = ''
 	}: {
 		ranksSettings: RanksSettingsData;
 		form: { [key: string]: unknown; rankError?: string } | null;
+		/** The Settings › Ranks path, when the editor is shown on another page. Its actions live there. */
+		actionBase?: string;
 	} = $props();
 
 	let savingAction = $state<string | null>(null);
@@ -537,7 +540,7 @@
 						{#if pack.missingCount > 0}
 							<form
 								method="POST"
-								action="?/addServicePack"
+								action="{actionBase}?/addServicePack"
 								use:enhance={enhancedForm(`pack-${pack.value}`, { focusFallback: packActionsFocusTarget(pack) })}
 							>
 								<input type="hidden" name="service" value={pack.value} />
@@ -557,7 +560,7 @@
 							<form
 								id={`bulk-retired-${pack.value}`}
 								method="POST"
-								action="?/bulkRankState"
+								action="{actionBase}?/bulkRankState"
 								class="hidden"
 								use:enhance={enhancedForm(`bulk-retire-${pack.value}`)}
 							>
@@ -567,7 +570,7 @@
 							<form
 								id={`bulk-active-${pack.value}`}
 								method="POST"
-								action="?/bulkRankState"
+								action="{actionBase}?/bulkRankState"
 								class="hidden"
 								use:enhance={enhancedForm(`bulk-reactivate-${pack.value}`)}
 							>
@@ -643,7 +646,7 @@
 					<form
 						id={`rank-${intent}-form`}
 						method="POST"
-						{action}
+						action="{actionBase}{action}"
 						class="hidden"
 						use:enhance={enhancedForm((data) => `${intent}-${data.get('code')}`)}
 					>
@@ -793,7 +796,7 @@
 			<form
 				id={`${domId}-form`}
 				method="POST"
-				action="?/saveRank"
+				action="{actionBase}?/saveRank"
 				aria-label={isNew ? 'New custom rank' : `Edit ${entry.code}`}
 				class={[
 					'grid gap-3',

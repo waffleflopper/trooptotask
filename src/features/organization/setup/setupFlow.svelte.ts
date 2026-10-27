@@ -3,6 +3,7 @@ import type { FeatureKey } from '$lib/access/featureSwitches';
 import { SETUP_STEPS, type SetupFactKey, type SetupFacts, type SetupStep, type SetupStepKey } from './registry';
 import { buildSetupModel, deriveSetupStepState, type SetupStepState } from './model';
 import { parseOrganizationSetup, type OrganizationSetup, type SetupAnswer } from './state';
+import type { SetupBranch } from './branch';
 
 export interface SetupFlowSource {
 	orgUrlSegment: string;
@@ -139,6 +140,18 @@ export class SetupFlow {
 		if (visit === this.#visit) this.#apply(next);
 	}
 
+	/**
+	 * Saves the unit's branch; the server activates that service's built-in ranks first. Resolves `true` when the
+	 * result was applied, `false` when the owner had already moved on.
+	 */
+	async saveBranch(branch: SetupBranch) {
+		const visit = this.#visit;
+		const next = await this.#post('branch', { branch });
+		if (visit !== this.#visit) return false;
+		this.#apply(next);
+		return true;
+	}
+
 	/** Saves the open step, by default recording it reviewed, then opens the next step or Done. */
 	continue(save?: SetupStepSave) {
 		const step = this.current;
@@ -193,7 +206,7 @@ export class SetupFlow {
 		await this.answer(key, 'reviewed');
 	}
 
-	async #post(path: 'answer' | 'finish', body: Record<string, unknown>): Promise<OrganizationSetup> {
+	async #post(path: 'answer' | 'branch' | 'finish', body: Record<string, unknown>): Promise<OrganizationSetup> {
 		const response = await fetch(`/org/${this.#source().orgUrlSegment}/api/organization/setup/${path}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },

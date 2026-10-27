@@ -256,3 +256,38 @@ describe('Facts', () => {
 		expect(flow.rail.find((step) => step.key === 'invite')?.state).toBe('notAnswered');
 	});
 });
+
+describe('saveBranch', () => {
+	it('applies the saved branch to the open step', async () => {
+		const fetch = vi.fn(async () => respond(200, { ...empty, branch: 'army' }));
+		vi.stubGlobal('fetch', fetch);
+		const { flow } = setup('welcome');
+		await settle();
+
+		expect(await flow.saveBranch('army')).toBe(true);
+
+		expect(fetch).toHaveBeenCalledWith(
+			'/org/alpha/api/organization/setup/branch',
+			expect.objectContaining({ body: JSON.stringify({ branch: 'army' }) })
+		);
+		expect(flow.state.branch).toBe('army');
+		expect(flow.rail.find((step) => step.key === 'welcome')?.state).toBe('done');
+	});
+
+	it('ignores a response that arrives after the owner left', async () => {
+		const response = deferred<Response>();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => response.promise)
+		);
+		const { flow } = setup('welcome');
+		await settle();
+
+		const saving = flow.saveBranch('navy');
+		flow.leave();
+		response.resolve(respond(200, { ...empty, branch: 'navy' }));
+
+		expect(await saving).toBe(false);
+		expect(flow.state.branch).toBeNull();
+	});
+});

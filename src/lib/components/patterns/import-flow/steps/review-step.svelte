@@ -234,8 +234,9 @@
 		</div>
 	</div>
 
+	<!-- A host with its own sticky footer sets --import-flow-bar-offset so this bar stacks above it. -->
 	<div
-		class="sticky bottom-0 z-20 -mx-1 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-chrome px-4 py-3 text-chrome-text"
+		class="sticky bottom-[var(--import-flow-bar-offset,0px)] z-20 -mx-1 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-chrome px-4 py-3 text-chrome-text"
 	>
 		{#if committing}
 			<div class="grid min-w-0 flex-1 basis-48 gap-1.5" role="status">

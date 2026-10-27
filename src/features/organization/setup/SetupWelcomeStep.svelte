@@ -96,9 +96,9 @@
 		</div>
 	</section>
 
-	<section class="grid gap-4" aria-labelledby="{id}-tour">
+	<section class="@container grid gap-4" aria-labelledby="{id}-tour">
 		<h2 id="{id}-tour" class="font-heading text-2xl leading-7 font-bold">What TroopToTask does</h2>
-		<div class="grid gap-8 lg:grid-cols-2 lg:gap-10">
+		<div class="grid gap-8 @3xl:grid-cols-2 @3xl:gap-10">
 			{@render column('Every unit', 'Set up in the next four steps', EVERY_UNIT)}
 			{@render column('You choose', 'Use it, leave it for later, or turn it off', FEATURES)}
 		</div>

@@ -15,6 +15,8 @@ export interface SetupFlowSource {
 	setupFacts: Promise<SetupFacts>;
 	/** The open step, or `null` on the Done page. */
 	stepKey: SetupStepKey | null;
+	/** A navigation has started and its page has not arrived yet. */
+	navigating: boolean;
 }
 
 /** Runs before Continue moves on. A rejection keeps the owner on the step and shows its message. */
@@ -83,6 +85,8 @@ export class SetupFlow {
 	state = $derived(this.#saved?.over === this.#loaded ? this.#saved.state : this.#loaded);
 	facts = $state<SetupFacts | null>(null);
 	pending = $state(false);
+	/** Continue and Finish start nothing while set. */
+	busy = $derived.by(() => this.pending || this.#source().navigating);
 	error = $state<string | null>(null);
 
 	model = $derived.by(() => {
@@ -130,8 +134,12 @@ export class SetupFlow {
 		return `/org/${this.#source().orgUrlSegment}/setup/${slug}`;
 	}
 
-	/** Call when any navigation starts. Work begun on the page being left no longer owns the view. */
-	leave() {
+	/**
+	 * Call when any navigation starts. Work begun on the page being left no longer owns the view. Reopening the page
+	 * already shown leaves nothing, so its step body and in-flight writes carry on.
+	 */
+	leave(from?: string, to?: string) {
+		if (from !== undefined && from === to) return;
 		this.#visit++;
 		this.pending = false;
 		this.error = null;
@@ -229,7 +237,7 @@ export class SetupFlow {
 	}
 
 	async #run(work: (stillHere: () => boolean) => Promise<void>) {
-		if (this.pending) return;
+		if (this.busy) return;
 		const visit = this.#visit;
 		const stillHere = () => visit === this.#visit;
 		this.pending = true;

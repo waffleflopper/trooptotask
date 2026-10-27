@@ -95,14 +95,15 @@ Audit and notification additions remain separate effects.
 Export section completeness means complete rows visible to that request's authorized reader. Notifications remain
 self-owned; Feedback and invitation provenance retain their ordinary/platform-admin RLS limits. A privileged
 Organization-wide readback is not the expected artifact for these sections. Compare the signed-in actor's permitted rows
-and denied peers separately. The scoped readback covers all 38 source tables, including `dashboard_configs`,
-`getting_started_progress`, `user_org_preferences`, `user_pinned_groups`, and
-`access_request_organization_invitation_links`. An empty stored collection establishes absence and inventory presence;
+and denied peers separately. The export reads 50 source tables. The scoped `rows` readback covers 49 of them, including
+`dashboard_configs`, `user_org_preferences`, `user_pinned_groups`, and `access_request_organization_invitation_links`.
+The 50th, `organization_setup`, has no client grant and is read through an RPC: compare the `organizationSetup` section
+with the branch and answers the setup rail shows. An empty stored collection establishes absence and inventory presence;
 positive saved-field behavior still needs a nonempty source witness or independently specified lower-level coverage.
 
 Record `$V rows data_exports orgA` and `orgB`, notifications, and source rows before each request. Include
-`access_request_organization_invitation_links`, `dashboard_configs`, `getting_started_progress`, `user_org_preferences`,
-`user_pinned_groups` and `beta_feedback` when comparing full saved fields. The readbacks are privileged synthetic source
+`access_request_organization_invitation_links`, `dashboard_configs`, `user_org_preferences`, `user_pinned_groups` and
+`beta_feedback` when comparing full saved fields. The readbacks are privileged synthetic source
 observations; the downloaded rows must still obey the exporting user's ordinary RLS and the separately admitted
 Personnel artifact reader. Compare original rows after the run. Export requests legitimately add their own lifecycle,
 Audit, and administrator notification rows; distinguish these effects from unrelated source mutations.

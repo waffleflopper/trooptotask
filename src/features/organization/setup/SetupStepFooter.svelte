@@ -49,13 +49,13 @@
 		class="max-sm:h-auto max-sm:min-h-10 max-sm:shrink max-sm:bg-chrome-accent max-sm:px-4 max-sm:py-2 max-sm:text-left max-sm:text-[15px] max-sm:font-semibold max-sm:whitespace-normal max-sm:text-chrome"
 		disabled={blocked !== null}
 		aria-describedby={blocked !== null ? `${id}-note` : undefined}
-		aria-busy={flow.pending || undefined}
-		aria-disabled={flow.pending ? 'true' : undefined}
+		aria-busy={flow.busy || undefined}
+		aria-disabled={flow.busy ? 'true' : undefined}
 		onclick={() => flow.continue(save)}
 	>
 		{label}
-		{#if flow.pending}
-			<Spinner data-icon="inline-end" aria-label="Saving" />
+		{#if flow.busy}
+			<Spinner data-icon="inline-end" aria-label={flow.pending ? 'Saving' : 'Loading'} />
 		{:else}
 			<ChevronRight data-icon="inline-end" aria-hidden="true" />
 		{/if}

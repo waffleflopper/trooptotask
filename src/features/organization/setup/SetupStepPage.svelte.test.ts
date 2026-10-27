@@ -38,7 +38,8 @@ it('shows a failed fact source on its own step and leaves the step usable', asyn
 				disabledFeatures: [],
 				setupState: { branch: null, answers: {}, finishedAt: null, prompts: {} },
 				setupFacts: Promise.resolve(facts),
-				stepKey: 'training'
+				stepKey: 'training',
+				navigating: false
 			}
 		}
 	});

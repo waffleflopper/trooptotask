@@ -277,9 +277,9 @@
 {/snippet}
 
 <div
-	class={['grid gap-6', canMutate && '@min-[42rem]:grid-cols-[minmax(0,1fr)_24rem] @min-[42rem]:grid-rows-[auto_1fr]']}
+	class={['grid gap-6', canMutate && '@min-[50rem]:grid-cols-[minmax(0,1fr)_24rem] @min-[50rem]:grid-rows-[auto_1fr]']}
 >
-	<div class="flex flex-wrap items-center gap-3 @min-[42rem]:col-start-1 @min-[42rem]:row-start-1">
+	<div class="flex flex-wrap items-center gap-3 @min-[50rem]:col-start-1 @min-[50rem]:row-start-1">
 		<NativeSelect aria-label="Year" class="w-[6.5rem]" value={filterYear} onchange={handleFilterYearChange}>
 			{#each yearOptions as year (year)}
 				<option value={year}>{year}</option>
@@ -298,7 +298,7 @@
 	</div>
 
 	{#if canMutate}
-		<div class="flex min-w-0 flex-col gap-4 @min-[42rem]:col-start-2 @min-[42rem]:row-span-2 @min-[42rem]:row-start-1">
+		<div class="flex min-w-0 flex-col gap-4 @min-[50rem]:col-start-2 @min-[50rem]:row-span-2 @min-[50rem]:row-start-1">
 			{#if composerOpen}
 				{#key composerSession}
 					<ClosureComposer bind:this={composerView} onClose={closeComposer} onDismiss={dismissComposer} />
@@ -314,7 +314,7 @@
 		</div>
 	{/if}
 
-	<div class="flex min-w-0 flex-col gap-5 @min-[42rem]:col-start-1 @min-[42rem]:row-start-2">
+	<div class="flex min-w-0 flex-col gap-5 @min-[50rem]:col-start-1 @min-[50rem]:row-start-2">
 		{#if view.past}
 			{@const past = view.past}
 			<Collapsible.Root>

@@ -265,8 +265,10 @@
 			<h2 class="font-heading text-[34px] leading-9 font-extrabold uppercase">{name}</h2>
 			{#if sections.identity.state === 'loading'}
 				<Skeleton class="h-4 w-28" />
-			{:else if sections.identity.state === 'ready' && sections.identity.value.dodId}
-				<p class="font-mono text-[13px] leading-4 text-muted-foreground">{sections.identity.value.dodId}</p>
+			{:else if sections.identity.state === 'ready'}
+				<p class="font-mono text-[13px] leading-4 text-muted-foreground">
+					{sections.identity.value.dodId ?? 'No DoD ID'}
+				</p>
 			{/if}
 			<div class="flex min-h-6 flex-wrap items-center gap-2.5">
 				{#if person.mos}

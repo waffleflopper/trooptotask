@@ -411,8 +411,8 @@ scoped actors retain their baseline grants.
     `Preview of SPC Synthetic Baker` docks on the right. Its top bar reads `2 of 3 · J/K` in `Group` view with
     `Previous person`, `Next person`, `Open record` (the record URL) and `Close preview`. Identity reads `BRAVO · NCO`,
     `SPC SYNTHETIC BAKER`, `11B`, the amber `Verification Training today` pill and `(910) 555-0148`.
-    A Person with a DoD ID on the Data sheet shows it as a muted mono line directly under the name; Baker has none,
-    so no line or gap follows the name. `Next 7 days` draws
+    A muted mono line directly under the name holds the Data sheet DoD ID; Baker has none, so it reads `No DoD ID`
+    and the identity block keeps the same height as for a Person with an ID. `Next 7 days` draws
     today plus six days with the training bar and its legend; `Needs attention · 2` lists the two missing items with
     `Missing · Not recorded` and a `Readiness` link; `Open follow-ups · 2` shows `Overdue 4 days` in red and the other's
     weekday date; `Latest note` quotes the note. The page fetched exactly five requests,

@@ -255,8 +255,8 @@ it('offers Retry when the read fails and re-enables adding once it succeeds', as
 	expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
 });
 
-it('adds exactly the available people when Select available is used, skipping both kinds of overlap', async () => {
-	const onApply = vi.fn().mockResolvedValue([able.id]);
+it('adds everyone not already on the status when Select available is used, including other-status overlaps', async () => {
+	const onApply = vi.fn().mockResolvedValue([able.id, baker.id]);
 	renderAdd({ onApply });
 	await setDates(START, END);
 
@@ -265,7 +265,7 @@ it('adds exactly the available people when Select available is used, skipping bo
 	await fireEvent.click(addButton());
 
 	await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
-	expect(onApply.mock.calls[0].slice(0, 2)).toEqual([[able.id], 'leave']);
+	expect(onApply.mock.calls[0].slice(0, 2)).toEqual([[able.id, baker.id], 'leave']);
 });
 
 it('adds a person who overlaps another status when picked by hand', async () => {

@@ -64,8 +64,8 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    disabled with `Already on Verification Leave <dates>` and Baker (whose seeded Training entry spans yesterday through
    tomorrow, so 16–18 Oct on 17 Oct) selectable with `Verification Training <dates> overlaps`, taking each date span
    from `$V fixture` and the seed output rather than a fixed day; both show a bar in the day strip and Unassigned shows
-   none. `Select available` selects only Unassigned (neither overlap kind) and the picker reads `1 of 3 selected`.
-   Select Baker too: the summary bar reads `Add Verification Leave to 2 people · …` with
+   none. `Select available` selects Baker and Unassigned (everyone not already on Leave) and the picker reads
+   `2 of 3 selected`. The summary bar reads `Add Verification Leave to 2 people · …` with
    `1 person overlaps existing Verification Training`. Fill a unique note, observe `availability/batch` with
    `$V network arm-observe $PAGE availability/batch`, and click `Add to 2 people`. Require one POST `200` with the Baker
    and Unassigned IDs, `$V rows availability_entries orgA note "$NOTE"` returning exactly those two rows with the chosen

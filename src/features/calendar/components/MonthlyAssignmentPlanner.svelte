@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CalendarTypesEmptyState from './CalendarTypesEmptyState.svelte';
 	import { untrack } from 'svelte';
 	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -485,7 +486,7 @@
 	</section>
 {:else if table.columns.length === 0}
 	<section class="rounded-lg border bg-card px-5 py-6 text-sm text-muted-foreground">
-		<p>No duty types are set up yet. Add one in Calendar settings to plan its days.</p>
+		<p><CalendarTypesEmptyState kind="assignments" /></p>
 	</section>
 {:else}
 	{#if staleAssignments}
@@ -720,7 +721,6 @@
 			? ` This ends ${endedSwaps} duty ${endedSwaps === 1 ? 'swap' : 'swaps'}, and both days of each then count for whoever holds them.`
 			: ''}"
 		confirmLabel="Clear month"
-		variant="default"
 		onConfirm={clearMonth}
 		onCancel={() => (clearTypeId = null)}
 	/>

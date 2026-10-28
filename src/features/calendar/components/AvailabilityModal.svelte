@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CalendarTypesEmptyState from './CalendarTypesEmptyState.svelte';
 	import { untrack } from 'svelte';
 	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
 	import type { AvailabilityEditorRequest } from '$features/calendar/contexts/CalendarPageContext.svelte';
@@ -206,7 +207,7 @@
 						{/if}
 					</div>
 					{#if statusTypes.length === 0}
-						<Field.Description>No statuses are set up yet. Add one in Calendar settings.</Field.Description>
+						<Field.Description><CalendarTypesEmptyState kind="status" /></Field.Description>
 					{/if}
 				</Field.Root>
 

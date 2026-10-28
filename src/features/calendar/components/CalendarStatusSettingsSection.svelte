@@ -230,7 +230,9 @@
 {#if confirmDelete}
 	<ConfirmDialog
 		title="Delete Status Type"
-		message={`Remove "${confirmDelete.name}"? All schedule entries using this status will also be removed. This cannot be undone.`}
+		message={confirmDelete.rosterEffect === 'available'
+			? `Remove "${confirmDelete.name}"? This removes every schedule entry with this status. This cannot be undone.`
+			: `Remove "${confirmDelete.name}"? This removes every schedule entry with this status. Open DA 6 forms recalculate their counts; closed forms keep their saved numbers. This cannot be undone.`}
 		confirmLabel="Delete"
 		onConfirm={() => {
 			if (confirmDelete) return deleteStatus(confirmDelete);

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { calendarTypeSetupFor, setCalendarTypeSetup } from './calendarTypeSetup';
 	import { onDestroy } from 'svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Button } from '$lib/components/ui/button';
@@ -45,6 +46,7 @@
 	let { data, org }: Props = $props();
 
 	const orgUrlSegment = $derived(org.orgUrlSegment);
+	setCalendarTypeSetup(() => calendarTypeSetupFor(org));
 	const availabilityAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, { kind: 'unscoped' })
 	);

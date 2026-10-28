@@ -47,7 +47,7 @@ one-day chip and the `More actions for <name>` menu with `Edit` and `Delete`. Th
 beside `Drag to set legend and picker order.` An assignment type row has a `Show <name> on the calendar` switch and a
 `More actions for <name>` menu with `Edit` and `Delete`. Assignment types sit in two lists: `On the calendar · N lanes`
 in lane order with a `Reorder <name>` grip on each row, and `Duty planner only` sorted by name. Assignment type Add and
-Edit open a side sheet. A deletion dialog warns about linked schedule entries or assignments. `Holidays & closures` is
+Edit open a side sheet. A deletion dialog says what the delete removes: schedule entries for a status, assigned days (and, for a Person type, its duty roster and saved DA 6 forms) for an assignment type. `Holidays & closures` is
 the third section and is driven in [Special days](special-days.md).
 
 ## Helper controls
@@ -125,14 +125,16 @@ confirmation. Row actions are named, such as `More actions for Verification Leav
    `POST /org/<orgA>/api/assignment-types` with the table's create payload plus `showOnCalendar: true`. Each must return
    `400`, the A lanes must stay Staff then Group and no `MARKER` row may exist; only the lane command writes
    `show_on_calendar` and lane order.
-4. **Status deletion:** Choose `More actions for Verification Retiring Status` → `Delete`. Capture the warning that all
-   schedule entries using it will be removed, then confirm. Read back absence of `statusDelete` and its linked
+4. **Status deletion:** Choose `More actions for Verification Retiring Status` → `Delete`. Capture the warning that
+   every schedule entry with this status will be removed, then confirm. A status with a roster effect adds that open DA 6
+   forms recalculate and closed forms keep their saved numbers; one that is `Still available` says neither. Read back absence of `statusDelete` and its linked
    `availabilityDelete`, while the March historical entry remains. Compare A's `audit_logs` and `notifications`
    before/after: expect a `status_type.deleted` event for that ID and a `Status Type Deleted` administrator
    notification. Notification delivery is asynchronous, so observe it without claiming it committed atomically with
    deletion.
 5. **Assignment deletion:** Choose `More actions for Verification Retiring Duty` → `Delete`. Capture the warning that
-   linked assignments will be removed, then confirm. Read back absence of that type and its linked assignment; the Staff
+   every day it is assigned will be removed, then confirm. A person-assigned type also names its duty roster and saved
+   DA 6 forms; a Group-assigned type does not. Read back absence of that type and its linked assignment; the Staff
    assignment and archived type/assignment remain. Compare notifications before/after for `Assignment Type Deleted`. Do
    not remove seeded Staff, Group or archived history. Before another journey needs either deleted fixture, run
    `npm run --silent verify:app -- restart --worker "$WORKER"`, then `doctor` and `$V fixture` again.
@@ -437,6 +439,14 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       cards stack, the row wraps its effect text, and `document.documentElement.scrollWidth` equals `innerWidth`.
     - Delete `Verification AWOL` through its Delete confirmation. Set `Verification Leave` back to `Away` so later steps
       read the seeded effect.
+14. **Empty-state setup links.** Where a Calendar surface has no status types or no assignment types, it says
+    `No status types yet.` or `No assignment types yet.` For a viewer with Calendar configure access it ends with a
+    `Set up status types` or `Set up assignment types` link to `/org/ORG/calendar/settings?section=status` or
+    `?section=assignments`; for anyone else it says `Ask someone who manages Calendar settings to add one.` The surfaces
+    are the quick-add popover and the availability dialog (status types), the Bulk Status Add summary (status types), the
+    Daily Assignments dialog and the duty planner (assignment types). The settings link opens on the named tab, and
+    `?section=closures` opens `Holidays & closures`; an unknown value opens `Status Types`. Capture one status-type and one
+    assignment-type empty state at 1280 px and 390 px, follow each link and read the selected tab.
 
 ## Gotchas
 

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { validateUUID } from '$lib/server/validation';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {

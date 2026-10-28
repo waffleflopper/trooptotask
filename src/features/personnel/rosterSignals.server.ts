@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { evaluatePolicyDecision } from '$lib/access/policyEvaluator';

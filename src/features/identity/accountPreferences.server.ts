@@ -1,6 +1,6 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';

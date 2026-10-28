@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import type { Database, SupabaseClient } from '$lib/server/database';
 
 type Row = Record<string, unknown>;
 
@@ -56,7 +57,7 @@ function compare(a: Row, b: Row, order: string): number {
  */
 export function createShiftingPostgrestClient(tables: Record<string, Row[]>): SupabaseClient {
 	let requests = 0;
-	return createClient('http://shifting-postgrest.invalid', 'synthetic-request-key', {
+	return createClient<Database>('http://shifting-postgrest.invalid', 'synthetic-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
 			fetch: async (input, init) => {

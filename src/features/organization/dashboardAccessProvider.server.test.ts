@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseDashboardOrgAccessPort } from './dashboardAccessProvider.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 type Call = { method: string; args: unknown[] };
 

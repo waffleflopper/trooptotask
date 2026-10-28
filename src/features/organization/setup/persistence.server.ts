@@ -1,5 +1,5 @@
 import type { SetupStepKey } from './registry';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { RequestFailure } from '$lib/errors';
 import {
 	parseOrganizationSetup,

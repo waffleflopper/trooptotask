@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { fail, RequestFailure } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';

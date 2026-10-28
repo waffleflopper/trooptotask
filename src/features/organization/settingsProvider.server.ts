@@ -6,7 +6,7 @@ import type {
 } from './organizationSettingsTypes';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from './memberLabels.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type {
 	OrganizationSettingsReader,
 	OrganizationPolicyChanges,

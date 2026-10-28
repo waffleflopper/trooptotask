@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createHash, randomBytes } from 'node:crypto';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { env } from '$env/dynamic/private';
 import { addUtcDays } from './accountSetupDates';
 import { getAdminClient } from '$lib/server/supabase';

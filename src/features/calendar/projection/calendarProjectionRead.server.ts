@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { CalendarDateRange } from '../contracts';
 import type { CalendarTaskingWorkspaceReader } from '../taskings/taskingRead.server';

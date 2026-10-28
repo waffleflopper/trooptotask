@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { OnboardingCalendarMarkersPort } from '../contracts';
 
 export function createSupabaseOnboardingCalendarMarkersPort(supabase: SupabaseClient): OnboardingCalendarMarkersPort {

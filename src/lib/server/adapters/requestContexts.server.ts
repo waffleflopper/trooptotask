@@ -112,7 +112,7 @@ import {
 } from '$lib/audit/index.server';
 import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { RequestEvent } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import { createSupabaseScopeEnforcementAdapter } from '$features/personnel/index.server';

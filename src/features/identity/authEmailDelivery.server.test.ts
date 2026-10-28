@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 
 const { getAdminClientMock } = vi.hoisted(() => ({ getAdminClientMock: vi.fn() }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: getAdminClientMock }));

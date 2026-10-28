@@ -31,9 +31,9 @@ describe('service connection through the installed SDK', () => {
 		});
 		const client = getAdminClient();
 		try {
-			await client.rpc('service_probe');
+			await client.rpc('is_platform_operator');
 			expect(requests).toHaveLength(1);
-			expect(requests[0].url).toBe('http://service.invalid/rest/v1/rpc/service_probe');
+			expect(requests[0].url).toBe('http://service.invalid/rest/v1/rpc/is_platform_operator');
 			expect(requests[0].headers.get('authorization')).toBe('Bearer synthetic-service-key');
 			expect(requests[0].headers.get('apikey')).toBe('synthetic-service-key');
 		} finally {

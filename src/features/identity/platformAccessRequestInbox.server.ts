@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { AccessRequestStatus } from './contracts';
 
 const INBOX_COLUMNS = 'id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at';

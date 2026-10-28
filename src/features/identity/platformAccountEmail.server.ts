@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { sendAuthEmail } from './authEmailDelivery.server';
 import { createIdentityPlatformSupportReader } from './platformSupportReader.server';
 import type { IdentityPlatformAccountEmailPort } from './contracts';

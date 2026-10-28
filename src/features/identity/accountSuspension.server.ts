@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 
 /** Reads current account suspension; `null` means the status could not be verified. */
 export async function readAccountSuspension(

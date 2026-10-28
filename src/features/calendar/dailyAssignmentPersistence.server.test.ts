@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { createSupabaseCalendarAssignmentReplacementPort } from './dailyAssignmentPersistence.server';
 
 function clientWithResult(result: { data: unknown; error: { code: string; message: string } | null }) {

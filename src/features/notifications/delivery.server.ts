@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { NotificationDeliveryPort, NotificationPayload } from './contracts';
 
 /** Delivery composition supplies Organization facts without a reverse owner import. */

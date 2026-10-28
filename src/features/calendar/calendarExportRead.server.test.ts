@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseCalendarExportReader, type CalendarExportTable } from './calendarExportRead.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';

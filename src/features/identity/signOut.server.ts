@@ -1,6 +1,6 @@
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import type { Cookies } from '@sveltejs/kit';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { getPendingAuthFlowCookieName } from './mfaGate.server';
 import { clearSupabaseAuthCookies, getSupabaseAuthStorageKey } from './supabaseSession.server';
 

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { checkDurableRateLimit, createSupabaseDurableRateLimitStore } from '$lib/access/index.server';
 
 /** Limit repeated admin-generated OTP replacements and outbound email per target user and action. */

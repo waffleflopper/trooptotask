@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './+server';
 
@@ -72,7 +73,7 @@ beforeEach(() => {
 	state.ack = true;
 	state.suspendOutcome = undefined;
 	state.audit.mockReset().mockResolvedValue();
-	state.client = createClient('http://127.0.0.1:9', 'synthetic-service', {
+	state.client = createClient<Database>('http://127.0.0.1:9', 'synthetic-service', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
 			fetch: async (input, init) => {

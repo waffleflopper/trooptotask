@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 
 type LoginResult = { status: 'authenticated'; mfaPending: boolean } | { status: 'invalid' | 'unavailable' };
 

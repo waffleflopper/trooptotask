@@ -185,7 +185,7 @@ export function createSupabasePersonnelWorkbookHistoryReader(
 				const { data, error } = await client
 					.from('personnel_extended_info')
 					.select(
-						'emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip'
+						'dod_id,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip'
 					)
 					.eq('organization_id', orgId)
 					.eq('personnel_id', personnelId)
@@ -195,6 +195,7 @@ export function createSupabasePersonnelWorkbookHistoryReader(
 				const page = data ?? [];
 				rows.push(
 					...page.map((row: PersonnelSheetExportFacts) => ({
+						...(row.dod_id !== undefined ? { dod_id: row.dod_id } : {}),
 						...(row.emergency_contact_name !== undefined ? { emergency_contact_name: row.emergency_contact_name } : {}),
 						...(row.emergency_contact_relationship !== undefined
 							? { emergency_contact_relationship: row.emergency_contact_relationship }

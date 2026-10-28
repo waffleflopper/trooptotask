@@ -96,6 +96,7 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 	ctx.rawStore.seed('personnel_extended_info', [
 		{
 			id: 'extended-1',
+			dod_id: '0123456789',
 			organization_id: ctx.auth.orgId,
 			personnel_id: PERSONNEL_ID,
 			emergency_contact_name: 'Taylor Smith',
@@ -280,6 +281,7 @@ describe('Personnel export use case', () => {
 				{ Field: 'ETS', Value: '2027-05-01' },
 				{ Field: 'PCS / DEROS', Value: '2026-11-30' },
 				{ Field: 'Archived At', Value: '2026-05-19T21:00:00.000Z' },
+				{ Field: 'DoD ID', Value: '0123456789' },
 				{ Field: 'Emergency Contact Name', Value: 'Taylor Smith' },
 				{ Field: 'Emergency Contact Relationship', Value: 'Spouse' },
 				{ Field: 'Emergency Contact Phone', Value: '555-0100' },

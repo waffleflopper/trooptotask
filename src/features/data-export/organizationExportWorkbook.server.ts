@@ -163,6 +163,7 @@ function buildColumns(rows: Record<string, unknown>[]): WorkbookColumn[] {
 
 function toColumnHeader(key: string): string {
 	if (key === 'clinic_role') return 'Duty Role';
+	if (key === 'dod_id') return 'DoD ID';
 	if (key === 'deros') return 'PCS / DEROS';
 	if (key === 'ets') return 'ETS';
 	return key

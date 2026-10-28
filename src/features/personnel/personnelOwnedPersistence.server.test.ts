@@ -325,6 +325,7 @@ const readCases = [
 		read: (p: ReturnType<typeof personnelProvider>) =>
 			createSupabasePersonnelWorkbookHistoryReader(p.client, 'org-a').listExtendedInfoExportFacts('person-a'),
 		expected: {
+			dod_id: '0123456789',
 			emergency_contact_name: 'Sam',
 			emergency_contact_relationship: 'Sibling',
 			emergency_contact_phone: '555-0101',

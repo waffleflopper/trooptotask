@@ -103,6 +103,7 @@ export async function exportPersonnelWorkbook(
 	];
 	if (ext) {
 		infoRows.push(
+			{ field: 'DoD ID', value: ext.dod_id ?? '' },
 			{ field: 'Emergency Contact Name', value: (ext.emergency_contact_name as string) ?? '' },
 			{ field: 'Emergency Contact Relationship', value: (ext.emergency_contact_relationship as string) ?? '' },
 			{ field: 'Emergency Contact Phone', value: (ext.emergency_contact_phone as string) ?? '' },
@@ -201,7 +202,7 @@ export async function exportPersonnelWorkbook(
 			.trim()
 			.replace(/\s+/g, '_');
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.exported',
 		resourceType: 'personnel',
 		resourceId: id,

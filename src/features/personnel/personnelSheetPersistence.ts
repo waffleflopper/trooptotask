@@ -60,6 +60,7 @@ export interface PersonnelCounselingExportFacts {
 export type PersonnelSheetExportFacts = Partial<
 	Pick<
 		PersonnelSheetEditableValues,
+		| 'dod_id'
 		| 'emergency_contact_name'
 		| 'emergency_contact_relationship'
 		| 'emergency_contact_phone'

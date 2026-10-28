@@ -5,15 +5,12 @@
 	import { Pencil } from '@lucide/svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { getSetupStepSupport, type SetupTrainingTypeCatalog } from './featureStepSupport';
 	import SetupFeaturePanel from './SetupFeaturePanel.svelte';
 	import SetupFeatureStep from './SetupFeatureStep.svelte';
+	import SetupSuggestionPanel from './SetupSuggestionPanel.svelte';
 	import { getSetupFlow } from './setupFlow.svelte';
-
-	/** Rows shown at phone width before "Show N more". */
-	const NARROW_ROWS = 3;
 
 	type Catalog =
 		| { state: 'loading' }
@@ -30,10 +27,7 @@
 	const suggestions = $derived(canConfigure && branch ? support.trainingSuggestions(branch) : []);
 
 	let catalog = $state.raw<Catalog>({ state: 'loading' });
-	// Unchecked rather than checked picks, so suggestions that arrive later, as after turning Training back on, start
-	// checked.
 	const unpicked = new SvelteSet<string>();
-	let expanded = $state(false);
 	let editing = $state<{ typeId: string | null } | null>(null);
 
 	const types = $derived(catalog.state === 'ready' ? catalog.catalog.trainingTypes : []);
@@ -41,7 +35,6 @@
 	const open = $derived(suggestions.filter((suggestion) => !added(suggestion.name)));
 	const toAdd = $derived(open.filter((suggestion) => !unpicked.has(suggestion.id)));
 	const ownTypes = $derived(types.filter((type) => !suggestions.some((suggestion) => suggestion.name === type.name)));
-	const rows = $derived(Math.ceil(suggestions.length / 2));
 
 	let loads = 0;
 	async function loadCatalog({ quiet = false } = {}) {
@@ -169,60 +162,20 @@
 				{/if}
 			</SetupFeaturePanel>
 		{:else}
-			<SetupFeaturePanel title="Common Army annual training">
-				{#snippet aside()}
-					<span
-						class="hidden font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase sm:inline"
-						aria-live="polite"
-					>
-						{#if catalog.state === 'loading'}
-							<Skeleton class="inline-block h-3.5 w-28 align-middle" aria-hidden="true" />
-							<span class="sr-only">Checking your training types</span>
-						{:else if open.length === 0}
-							All added
-						{:else}
-							{toAdd.length} of {open.length} selected
-						{/if}
+			<SetupSuggestionPanel
+				title="Common Army annual training"
+				{suggestions}
+				{unpicked}
+				added={(suggestion) => added(suggestion.name)}
+				loading={catalog.state === 'loading'}
+				loadingLabel="Checking your training types"
+				notice={loadError}
+			>
+				{#snippet detail(suggestion, exists)}
+					<span class="shrink-0 font-mono text-xs leading-4 text-muted-foreground">
+						{exists ? 'Added' : `${suggestion.expirationMonths} mo`}
 					</span>
 				{/snippet}
-				{@render loadError()}
-				<div class="@container/picks">
-					<ul
-						class="grid gap-x-8 @md/picks:grid-flow-col @md/picks:grid-cols-2"
-						style:grid-template-rows="repeat({rows}, auto)"
-					>
-						{#each suggestions as suggestion, index (suggestion.id)}
-							{@const exists = added(suggestion.name)}
-							{@const checked = exists || !unpicked.has(suggestion.id)}
-							<li class={index >= NARROW_ROWS && !expanded ? 'max-sm:hidden' : undefined}>
-								<label
-									class="flex h-10 cursor-pointer items-center gap-2.5 border-b border-border has-disabled:cursor-default"
-								>
-									<Checkbox
-										{checked}
-										disabled={exists}
-										onCheckedChange={(next) => (next ? unpicked.delete(suggestion.id) : unpicked.add(suggestion.id))}
-									/>
-									<span class="min-w-0 flex-1 truncate text-sm leading-5 {checked ? '' : 'text-muted-foreground'}">
-										{suggestion.name}
-									</span>
-									<span class="shrink-0 font-mono text-xs leading-4 text-muted-foreground">
-										{exists ? 'Added' : `${suggestion.expirationMonths} mo`}
-									</span>
-								</label>
-							</li>
-						{/each}
-					</ul>
-				</div>
-				{#if !expanded && suggestions.length > NARROW_ROWS}
-					<Button
-						variant="link"
-						class="h-auto self-start p-0 text-foreground underline sm:hidden"
-						onclick={() => (expanded = true)}
-					>
-						Show {suggestions.length - NARROW_ROWS} more
-					</Button>
-				{/if}
 				<div class="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:gap-5">
 					<p class="flex-1 text-sm leading-5 text-muted-foreground">
 						Periods and colors can be changed on the Training types page. Have records in a spreadsheet? Import them
@@ -247,7 +200,7 @@
 						{@render typeRows(ownTypes)}
 					</div>
 				{/if}
-			</SetupFeaturePanel>
+			</SetupSuggestionPanel>
 		{/if}
 	{/snippet}
 </SetupFeatureStep>

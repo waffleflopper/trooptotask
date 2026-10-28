@@ -120,6 +120,10 @@
 							</Combobox.Content>
 						</Combobox.Root>
 					</div>
+				{:else}
+					<p class="text-sm text-muted-foreground">
+						No assignment types are set up yet. Add one in Calendar settings to assign daily duties.
+					</p>
 				{/each}
 			</div>
 		</AppDialog.Body>

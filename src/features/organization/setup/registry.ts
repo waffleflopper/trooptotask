@@ -104,7 +104,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
 		slug: 'calendar',
 		group: 'unit',
 		title: 'Calendar',
-		pitch: 'Review the statuses and duty assignments your unit tracks each day.',
+		pitch: 'Choose the statuses and duty assignments your unit tracks each day.',
 		factSources: ['statusTypes', 'assignmentTypes'],
 		hasData: (facts) => (factValue(facts.statusTypes) ?? 0) > 0 || (factValue(facts.assignmentTypes) ?? 0) > 0
 	},

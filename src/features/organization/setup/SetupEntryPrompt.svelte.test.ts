@@ -95,6 +95,38 @@ describe('SetupEntryPrompt', () => {
 		expect(partial).not.toBe(complete);
 	});
 
+	it('lists a turned-off step as an Off row and says so in the count', async () => {
+		const headline = async (invitationProgress: Promise<SetupInvitationProgress>) => {
+			const view = renderPrompt({ entry: entry({ kind: 'invitation' }), invitationProgress });
+			const dialog = await screen.findByRole('dialog');
+			const shown = {
+				count: dialog.querySelector('[data-setup-done-count]')?.textContent?.trim(),
+				rows: within(dialog)
+					.getAllByRole('listitem')
+					.map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+			};
+			view.unmount();
+			return shown;
+		};
+		const training = (state: 'done' | 'off') => ({
+			key: 'training' as const,
+			slug: 'training',
+			group: 'features' as const,
+			title: 'Training',
+			pitch: '',
+			state,
+			loadErrors: []
+		});
+
+		const allDone = await headline(progress({ handledSteps: [training('done')] }));
+		const withOff = await headline(progress({ handledSteps: [training('off')] }));
+
+		expect(withOff.rows).toEqual(['Training Off']);
+		expect(allDone.rows).not.toEqual(['Training Off']);
+		expect(withOff.count).toContain('2 of 12');
+		expect(withOff.count).not.toBe(allDone.count);
+	});
+
 	it('snoozes until tomorrow and opens no second prompt in the same visit after the reload', async () => {
 		const view = renderPrompt({ entry: entry({ kind: 'invitation' }), invitationProgress: progress() });
 

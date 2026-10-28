@@ -100,6 +100,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 		async readAttemptId() {
 			return 'admitted-attempt-1';
 		},
+		async readInvitedOrganizationName() {
+			return null;
+		},
 		async reconcileClaim() {
 			const recoveryState = this.recoveryState;
 			if (recoveryState?.state === 'fenced') {

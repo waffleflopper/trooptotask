@@ -254,6 +254,24 @@ describe('PersonnelModal', () => {
 		expect(group.getAttribute('aria-invalid')).toBe('true');
 		expect(describedText(group)).toBe('Select a permitted Group.');
 	});
+	it('warns that an unassigned person is seen only with whole-unit access, until a Group is picked', async () => {
+		render(PersonnelModal, {
+			props: {
+				groups: [{ id: 'g-1', name: 'Alpha', sortOrder: 0 }],
+				allowUnassigned: true,
+				rankCatalog: navyRankCatalog,
+				onSubmit: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+		const group = () => document.getElementById('person-group') as HTMLElement;
+		expect(describedText(group())).toMatch(/whole-unit access/);
+
+		await fireEvent.click(group());
+		await fireEvent.click(await screen.findByRole('option', { name: 'Alpha' }));
+		await waitFor(() => expect(describedText(group())).not.toMatch(/whole-unit access/));
+	});
+
 	describe('Add and add another', () => {
 		const groups = [{ id: 'g-supply', name: 'Supply section', sortOrder: 0 }];
 

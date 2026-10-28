@@ -63,7 +63,7 @@
 	const ROLE_OPTIONS = SETTINGS_GOVERNANCE_ROLE_OPTIONS.map(({ value, label }) => ({ value, label }));
 	const PRESET_OPTIONS = SETTINGS_ACCESS_OPTIONS.map(({ value, label }) => ({ value, label }));
 	const SCOPE_OPTIONS: Array<{ value: ScopeSet['kind']; label: string }> = [
-		{ value: 'organization', label: 'All groups' },
+		{ value: 'organization', label: 'Whole unit' },
 		{ value: 'groups', label: 'Selected' }
 	];
 
@@ -85,11 +85,11 @@
 	}
 
 	function scopeSentence(scope: ScopeSet): string {
-		if (scope.kind === 'organization') return `Works across every group in ${unit}.`;
+		if (scope.kind === 'organization') return `Works across all of ${unit}, including Soldiers with no group.`;
 		if (scope.groupIds.length === 0) return 'Pick at least one group. With none, they can sign in but see no records.';
 		const names = scope.groupIds.map((id) => workspace.groupName(id));
 		const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-		return `Works in ${list} only.`;
+		return `Works in ${list} only. Soldiers with no group aren't visible to them.`;
 	}
 </script>
 

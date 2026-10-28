@@ -342,6 +342,9 @@
 										<Combobox.List />
 									</Combobox.Content>
 								</Combobox.Root>
+								{#if allowUnassigned && !draft.groupId}
+									<Field.Description>Only members with whole-unit access will see this person.</Field.Description>
+								{/if}
 								{#if shownErrors.groupId}<Field.Error>{shownErrors.groupId}</Field.Error>{/if}
 							</Field.Root>
 						{/if}

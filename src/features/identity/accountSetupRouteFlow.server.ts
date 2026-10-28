@@ -37,7 +37,7 @@ export type AccountSetupPageState =
 export type AccountSetupLoadResult =
 	| { state: 'redirect-authenticated'; path: string }
 	| { state: 'redirect-setup'; session: AccountSetupSession; path: string }
-	| { state: 'valid'; email: string }
+	| { state: 'valid'; email: string; invitedTo: string | null }
 	| { state: 'recovery-available'; email: string }
 	| { state: AccountSetupPageState; message: string; clearSession?: true };
 
@@ -80,6 +80,14 @@ interface AccountSetupRouteFlowDependencies {
 	checkCompletionRateLimit?: AccountSetupRateLimitCheck;
 	audit: AccountSetupAudit;
 	now?: () => Date;
+}
+
+async function readInvitedTo(store: AccountSetupCompletionStore, accessRequestId: string): Promise<string | null> {
+	try {
+		return (await store.readInvitedOrganizationName(accessRequestId)) ?? null;
+	} catch {
+		return null;
+	}
 }
 
 function tokenStateMessage(state: string): string {
@@ -370,7 +378,8 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 
 			return {
 				state: 'valid',
-				email: accessRequest.email
+				email: accessRequest.email,
+				invitedTo: await readInvitedTo(dependencies.store(), accessRequest.id)
 			};
 		},
 

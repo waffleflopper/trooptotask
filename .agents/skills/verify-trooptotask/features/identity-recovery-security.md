@@ -174,7 +174,8 @@ The private-credential controls fill visible fields without printing values:
    `Choose your password` for the class's address, with Email Address disabled. Fill a short Password by native `fill`
    and capture the requirement list. Fill a different Confirm Password and require `Passwords do not match` with Set Up
    Account disabled. Press Check setup status and require `This setup link is ready. You can choose a password now.`
-   with the form kept. Fill both fields with one run-local synthetic password (keep it out of notes) and submit with Set
+   with the form kept. A plain approval reads `Reviewed Access` and keeps `Request access`; an invited email reads
+   `Unit invitation` instead ([Organization invitations](organization-invitations.md) drives that one). Fill both fields with one run-local synthetic password (keep it out of notes) and submit with Set
    Up Account. Require `/dashboard`, which sends an account without membership to `/org/new`. `$V access-request EMAIL`
    must show `setup_completed_at`, `setup_user_id` and the link's `used_at`. In a fresh public context run
    `setup-link PAGE valid` again and require `Account setup complete` with Sign in and Reset your password. Open each

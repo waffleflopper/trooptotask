@@ -27,8 +27,9 @@ summary line (`Operator · HQ PLT · 2 area changes`) and a 2px rule. Each secti
 and its control on the right: `Role` and `Preset` as radio groups, `Area by area` with the sentence
 `Change an area only when the preset is too broad or too narrow for it.` and six lanes, `Calendar`, `Personnel`,
 `Training`, `Critical tasks`, `Onboarding` and `Evaluations`, of `None`/`View`/`Update`/`Manage` (a lane off the preset
-shows an amber dot in its gutter and `<preset> gives <level>`), and `Groups` as `All groups`/`Selected` with group chips
-and a restating sentence, visible without scrolling at 1440x1000. The footer has `Remove from <unit>` on the left and
+shows an amber dot in its gutter and `<preset> gives <level>`), and `Groups` as `Whole unit`/`Selected` with group chips
+and a restating sentence (`Works across all of <unit>, including Soldiers with no group.` or `Works in <list> only. Soldiers
+with no group aren't visible to them.`), visible without scrolling at 1440x1000. The footer has `Remove from <unit>` on the left and
 `Cancel` with `Save <n> changes` together on the right. At 390 a lane's control wraps under its label and stays
 right-aligned. Escape cancels without saving; a save returns focus to the row's `Manage` button. Below `md` the table
 keeps the member and actions columns and moves both lanes under the email. `Remove` lives in the row's
@@ -62,7 +63,7 @@ ordinary access checks because it intentionally changes the seeded owner.
    and reopen. The row must show amber `No groups`, the sheet must retain `Selected` with no chip pressed and the amber
    sign-in-but-see-nothing sentence, and the same stored membership must retain `access_scope_kind: groups` with
    `access_scope_group_ids: []`. The member's reloaded Personnel workspace must contain no People. Restore Alpha and
-   check that only Alpha returns; then explicitly choose `All groups` and verify Organization access separately.
+   check that only Alpha returns; then explicitly choose `Whole unit` and verify Organization access separately.
    Clearing Groups must never grant Organization access. Saving may remove redundant capability overrides equal to the
    preset; compare effective access as well as the exact stored delta.
 3. As `orgAdmin`, open `Manage` for an ordinary member. Record that `Role` is plain text, not a radio group, and that

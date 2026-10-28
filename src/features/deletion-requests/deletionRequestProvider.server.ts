@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { DeletionRequest } from './contracts';
@@ -32,7 +31,7 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map((row) => ({
 				...row,
-				status: z.enum(['pending', 'approved', 'denied', 'cancelled']).parse(row.status)
+				status: row.status as DeletionRequest['status']
 			}));
 		},
 		async readPendingSummary(orgId, requestedBy) {
@@ -77,7 +76,7 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map((row) => ({
 				...row,
-				status: z.enum(['pending', 'approved', 'denied', 'cancelled']).parse(row.status)
+				status: row.status as DeletionRequest['status']
 			}));
 		}
 	};

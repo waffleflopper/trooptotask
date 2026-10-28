@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import type { SupabaseClient } from '$lib/server/database';
 import { addUtcDays } from './accountSetupDates';
 import {
@@ -66,7 +65,7 @@ function mapAccessRequest(row: AccessRequestRow): AccessRequestSetupRequest {
 	return {
 		id: row.id,
 		email: row.email,
-		status: z.enum(['pending', 'approved', 'rejected', 'rescinded']).parse(row.status),
+		status: row.status as AccessRequestStatus,
 		createdAt: new Date(row.created_at),
 		reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
 		setupCompletedAt: row.setup_completed_at ? new Date(row.setup_completed_at) : null,

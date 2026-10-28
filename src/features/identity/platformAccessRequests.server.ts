@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
@@ -19,24 +18,6 @@ const LINK_COLUMNS =
 	'access_request_id, id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason';
 const DELIVERY_COLUMNS =
 	'access_request_id, id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at';
-
-const requestStatus = z.enum(['pending', 'approved', 'rejected', 'rescinded']);
-
-const deliveryStatus = z.enum(['pending', 'sent', 'failed']);
-
-const linkFailureReason = z
-	.enum([
-		'access-request-missing',
-		'access-request-completed',
-		'access-request-not-approved',
-		'account-create-failed',
-		'completion-tracking-failed',
-		'reconciled-no-write',
-		'operator-released'
-	])
-	.nullable();
-
-const linkRevocationReason = z.enum(['manual', 'replaced', 'cleanup']).nullable();
 
 type RequestRow = Omit<
 	IdentitySupportAccessRequestRow,
@@ -87,7 +68,7 @@ export function createIdentityPlatformAccessRequestStore(client: SupabaseClient)
 				auth_email_outbox: AccessRequestAuthEmailOutbox[];
 			})[] = data.map((request) => ({
 				...request,
-				status: requestStatus.parse(request.status),
+				status: request.status as IdentitySupportAccessRequestRow['status'],
 				approval_basis: request.approval_basis as IdentitySupportAccessRequestRow['approval_basis'],
 				account_setup_links: [],
 				auth_email_outbox: []
@@ -128,8 +109,8 @@ export function createIdentityPlatformAccessRequestStore(client: SupabaseClient)
 					if (!request || !batch.includes(requestId)) throw new Error('Unexpected setup link request');
 					request.account_setup_links.push({
 						...link,
-						failure_reason: linkFailureReason.parse(link.failure_reason),
-						revocation_reason: linkRevocationReason.parse(link.revocation_reason)
+						failure_reason: link.failure_reason as AccessRequestSetupLink['failure_reason'],
+						revocation_reason: link.revocation_reason as AccessRequestSetupLink['revocation_reason']
 					});
 				}
 				for (const { access_request_id: requestId, ...delivery } of deliveries.data ?? []) {
@@ -137,7 +118,7 @@ export function createIdentityPlatformAccessRequestStore(client: SupabaseClient)
 					if (!request || !batch.includes(requestId)) throw new Error('Unexpected setup delivery request');
 					request.auth_email_outbox.push({
 						...delivery,
-						status: deliveryStatus.parse(delivery.status)
+						status: delivery.status as AccessRequestAuthEmailOutbox['status']
 					});
 				}
 			}

@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import type { SupabaseClient } from '$lib/server/database';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
@@ -57,8 +56,8 @@ function toDueEntry(row: RatingSchemeDueRow, ratedPersonName: string | undefined
 		id: row.id,
 		ratedPersonId: row.rated_person_id,
 		...(ratedPersonName === undefined ? {} : { ratedPersonName }),
-		evalType: z.enum(['OER', 'NCOER', 'WOER']).parse(row.eval_type),
+		evalType: row.eval_type as RatingSchemeDueEntry['evalType'],
 		ratingPeriodEnd: row.rating_period_end,
-		status: z.enum(['active', 'completed', 'change-of-rater']).parse(row.status)
+		status: row.status as RatingSchemeDueEntry['status']
 	};
 }

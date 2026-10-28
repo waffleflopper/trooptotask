@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import type { Database, SupabaseClient } from '$lib/server/database';
 import type {
 	RankCatalogPersistence,
@@ -23,47 +22,14 @@ function values(row: Omit<RankCatalogValues, 'state'> & { state?: RankCatalogVal
 		sort_order: row.sort_order
 	};
 }
-const rankColumns = {
-	service: z.enum(['army', 'navy', 'air-force', 'marine-corps', 'coast-guard', 'space-force', 'civilian', 'custom']),
-	category: z.enum(['officer', 'warrant', 'enlisted', 'civilian', 'custom']),
-	pay_grade: z.enum([
-		'O-1',
-		'O-2',
-		'O-3',
-		'O-4',
-		'O-5',
-		'O-6',
-		'O-7',
-		'O-8',
-		'O-9',
-		'O-10',
-		'W-1',
-		'W-2',
-		'W-3',
-		'W-4',
-		'W-5',
-		'E-1',
-		'E-2',
-		'E-3',
-		'E-4',
-		'E-5',
-		'E-6',
-		'E-7',
-		'E-8',
-		'E-9',
-		'ungraded'
-	]),
-	state: z.enum(['active', 'retired']),
-	source: z.enum(['built-in', 'discovered', 'custom'])
-};
 function saved(raw: Database['public']['Tables']['organization_rank_catalog']['Row']): SavedRankCatalogEntry {
 	const row = {
 		...raw,
-		service: rankColumns.service.parse(raw.service),
-		category: rankColumns.category.parse(raw.category),
-		pay_grade: rankColumns.pay_grade.parse(raw.pay_grade),
-		state: rankColumns.state.parse(raw.state),
-		source: rankColumns.source.parse(raw.source)
+		service: raw.service as RankCatalogValues['service'],
+		category: raw.category as RankCatalogValues['category'],
+		pay_grade: raw.pay_grade as RankCatalogValues['pay_grade'],
+		state: raw.state as RankCatalogValues['state'],
+		source: raw.source as RankCatalogValues['source']
 	};
 	return {
 		...values(row),

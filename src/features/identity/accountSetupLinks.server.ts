@@ -226,7 +226,7 @@ function mapAccessRequestRow(row: AccessRequestRow): AccountSetupLinkAccessReque
 		name: row.name,
 		firstName: row.first_name,
 		lastName: row.last_name,
-		status: z.enum(['pending', 'approved', 'rejected', 'rescinded']).parse(row.status),
+		status: row.status as AccessRequestStatus,
 		setupCompletedAt: row.setup_completed_at,
 		setupGrantLive: row.setup_grant_live
 	};

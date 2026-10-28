@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import random
 import re
+import shlex
 import shutil
 import signal
 import socket
@@ -674,9 +675,9 @@ def run(command, workdir, *, quiet=False, check=True, environment=None, input_te
             _receipt.save()
     result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
     if quiet and check and result.returncode:
-        print("Command failed; credential-bearing startup output was suppressed.", flush=True)
-        if command[:2] == ['supabase', 'start']:
-            diagnostics = startup_diagnostics(result.stdout)
+        print("Command failed; captured output was suppressed to protect credentials.", flush=True)
+        if separate_stderr or command[:2] == ['supabase', 'start']:
+            diagnostics = startup_diagnostics(result.stderr if separate_stderr else result.stdout)
             if diagnostics:
                 print(diagnostics, flush=True)
     if check and result.returncode:
@@ -731,6 +732,15 @@ APP_SCHEMAS = ('public', 'calendar_private', 'member_access_private', 'onboardin
                'organization_private', 'personnel_private')
 
 
+def supabase_cli_pin(workflow):
+    for step in re.split(r'(?m)^\s*-\s+', workflow):
+        if re.search(r'(?m)^\s*uses:\s*supabase/setup-cli@', step):
+            version = re.search(r'''(?m)^\s+version:\s*['"]?(\d+\.\d+\.\d+)['"]?\s*(?:#.*)?$''', step)
+            if version:
+                return version[1]
+    raise ValueError('No Supabase CLI version pin found in .github/workflows/ci.yml')
+
+
 def normalize_schema_dump(dump):
     return '\n'.join(
         line for line in dump.splitlines()
@@ -738,7 +748,7 @@ def normalize_schema_dump(dump):
     ).strip() + '\n'
 
 
-def generate_schema(repository, workdir, execute, container, *, write=False):
+def generate_schema(repository, workdir, execute, container, *, cli_version, write=False):
     types = execute(['supabase', 'gen', 'types', 'typescript', '--local', '--schema', 'public'],
                     workdir, quiet=True, separate_stderr=True).stdout
     dump = execute(['docker', 'exec', '-e', 'PGPASSWORD=postgres', container,
@@ -759,8 +769,10 @@ def generate_schema(repository, workdir, execute, container, *, write=False):
         elif not path.exists() or path.read_text() != content:
             drift.append(name)
     if drift:
-        raise ValueError('Generated database files differ from migrations: ' + ', '.join(drift)
-                         + '. Regenerate with: mise exec node@24 -- npm run db:schema')
+        message = ('Generated database files differ from migrations: ' + ', '.join(drift)
+                   + f'. Supabase CLI {cli_version}. Regenerate with: mise exec node@24 -- npm run db:schema')
+        print(message, flush=True)
+        return message
     if not write:
         print('Generated database types and current schema match migrations.', flush=True)
 
@@ -803,7 +815,8 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
         migrations = sorted((workdir / "supabase/migrations").glob("*.sql"))
         print(f"Replay: {len(migrations)} migrations, {migrations[0].name} "
               f"through {migrations[-1].name}; staged upgrade: {staged_upgrade}", flush=True)
-        execute(["supabase", "--version"], workdir)
+        cli_version = execute(["supabase", "--version"], workdir, quiet=True, separate_stderr=True).stdout.strip()
+        print(f'Supabase CLI {cli_version}', flush=True)
         for sock in held_ports:
             sock.close()
         started = True  # Partial startup also needs exact-project cleanup.
@@ -859,7 +872,7 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 workdir, environment=_provider_environment(repository, workdir, execute))
             print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding, Organization Storage and account preference scope upgrades passed.", flush=True)
             return
-        generate_schema(repository, workdir, execute, container, write=write_schema)
+        drift = generate_schema(repository, workdir, execute, container, cli_version=cli_version, write=write_schema)
         if write_schema:
             return
         if setup_people_explain:
@@ -869,6 +882,8 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             for name in sql_tests:
                 execute(["supabase", "test", "db", f"supabase/tests/{name}"], workdir)
             print("Fresh replay and selected SQL contracts passed.", flush=True)
+            if drift:
+                raise ValueError(drift)
             return
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True
@@ -906,6 +921,8 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
         # The legacy dump advances sequences even when rolled back. Keep it after contracts.
         validate_seeds(repository, workdir, execute, psql)
         print("Fresh replay, SQL contracts, migration regressions and provider probes passed.", flush=True)
+        if drift:
+            raise ValueError(drift)
     finally:
         for sock in held_ports:
             sock.close()
@@ -955,6 +972,7 @@ def main():
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, interrupted)
+    local_receipt_environment = None
     try:
         repository = Path(__file__).resolve().parents[2]
         if args.cleanup:
@@ -963,12 +981,21 @@ def main():
                 return
             cleanup_owned_projects(JobReceipt(args.cleanup))
             return
+        if args.write_schema:
+            cli_version = run(['supabase', '--version'], repository, quiet=True, separate_stderr=True).stdout.strip()
+            pinned_version = supabase_cli_pin((repository / '.github/workflows/ci.yml').read_text())
+            if cli_version != pinned_version:
+                raise ValueError(f'Supabase CLI {cli_version} differs from CI pin {pinned_version} '
+                                 'in .github/workflows/ci.yml. Use the pinned CLI before regenerating.')
         if args.write_schema and not args.receipt:
             runner_temp = Path.home() / '.cache/trooptotask-schema'
             runner_temp.mkdir(parents=True, exist_ok=True, mode=0o700)
             run_id = str(time.time_ns())
-            os.environ.update(GITHUB_RUN_ID=run_id, GITHUB_RUN_ATTEMPT='1', GITHUB_JOB='local',
-                              GITHUB_REPOSITORY='waffleflopsgg/trooptotask', RUNNER_TEMP=str(runner_temp))
+            local_receipt_environment = {
+                'GITHUB_RUN_ID': run_id, 'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_JOB': 'local',
+                'GITHUB_REPOSITORY': 'waffleflopper/trooptotask', 'RUNNER_TEMP': str(runner_temp),
+            }
+            os.environ.update(local_receipt_environment)
             args.receipt = runner_temp / f't2t-ci-db-{run_id}-1-local.json'
         if args.receipt:
             environment = local_docker_environment(repository)
@@ -985,6 +1012,12 @@ def main():
     except (subprocess.CalledProcessError, OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
         print(f"Database validation failed: {error}", flush=True)
         raise SystemExit(1) from error
+    finally:
+        if local_receipt_environment and args.receipt and args.receipt.exists():
+            recovery = ['env', *(f'{key}={value}' for key, value in local_receipt_environment.items()),
+                        'mise', 'exec', 'node@24', '--', 'python3', 'scripts/ci/database.py',
+                        '--cleanup', str(args.receipt)]
+            print('Disposable database receipt retained. Recover with: ' + shlex.join(recovery), flush=True)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
-import { z } from 'zod';
 import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { CalendarAssignmentReader } from './contracts';
+import type { AssignmentSource, CalendarAssignmentReader } from './contracts';
 import { ASSIGNMENT_FIELDS, toAssignment, type AssignmentRow } from './calendarPersistenceMapping.server';
 
 export function createSupabaseCalendarAssignmentReader(
@@ -64,7 +63,7 @@ export function createSupabaseCalendarAssignmentReader(
 			return (result.data ?? []).map((row) => ({
 				date: row.date,
 				assigneeId: row.assignee_id,
-				source: z.enum(['manual', 'roster']).parse(row.source)
+				source: row.source as AssignmentSource
 			}));
 		},
 		async listSlotReferences(slots) {

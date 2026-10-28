@@ -14,8 +14,8 @@
 	{#if current?.canSetUp[kind]}
 		<Button
 			variant="link"
-			size="sm"
-			class="h-auto p-0"
+			size="none"
+			class="align-baseline underline"
 			href={`/org/${current.orgUrlSegment}/calendar/settings?section=${kind}`}
 		>
 			Set up {noun}

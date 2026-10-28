@@ -370,8 +370,7 @@ none. From 640 to 1023 they wrap two to a row; below 640 they stack.
   Hot-spot grid, from the unit's Training readiness goal (default 90%): green at the goal, amber within 20 points below
   it, red further down. The bar splits current, expiring (orange only), missing training and expired People, each
   Person once in the worst of expired, missing and expiring. The note names the lowest Group when two or more Groups
-  have People and that Group is below 100%, and always ends `Goal 90%. Any training expired, missing or in its Expiring
-window makes a Soldier not current.` with the unit's goal.
+  have People and that Group is below 100%, and always ends `Goal 90%. Missing required training, or any recorded training expired or in its Expiring window, makes a Soldier not current.` with the unit's goal.
 - **Critical tasks** shows the summary's overall readiness as `N%` ready, with the 30-day change in points. The bar
   splits the People with an applicable task into three disjoint shares: below the 70% threshold (red), at or above it
   with a task lapsing soon (amber), and ready (green). The note gives the People below the threshold and the tasks

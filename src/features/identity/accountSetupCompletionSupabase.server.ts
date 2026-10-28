@@ -76,6 +76,7 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 				.select('organization:organizations(name), invitation:organization_invitations!inner(status)')
 				.eq('access_request_id', accessRequestId)
 				.eq('invitation.status', 'pending')
+				.gt('invitation.expires_at', new Date().toISOString())
 				.order('created_at', { ascending: false })
 				.limit(1)
 				.maybeSingle<{ organization: { name: string | null } | null }>();

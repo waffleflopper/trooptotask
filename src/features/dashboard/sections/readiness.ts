@@ -67,7 +67,7 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	const lowest = lowestGroupCurrency(inputs, delinquentByGroup);
 	if (lowest && lowest.percent < 100) sentences.push(`${lowest.name} is lowest at ${lowest.percent}%.`);
 	sentences.push(
-		`Goal ${goal}%. Any required training expired, missing or in its Expiring window makes a Soldier not current.`
+		`Goal ${goal}%. Missing required training, or any recorded training expired or in its Expiring window, makes a Soldier not current.`
 	);
 
 	return {

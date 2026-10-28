@@ -149,7 +149,7 @@ percentage.
 1. **Unchanged matrix and report:** Run `$V actor trainingConfigure training`, save its page ID, and capture the loaded
    matrix. Require Able Required Current, Able Targeted Not Done, Baker/Unassigned Required Not Done, and
    Baker/Unassigned Targeted N/A. Optional has no completion and is N/A. Use the visible `Reports` link and capture the
-   Bottom line at 25% ready today (the `Ready today` label has the caption `of required training` under it) with Ready 1, Not ready (expired) 0, Not ready (not recorded) 3 and Lapse 0, the
+   Bottom line at 25% ready today (the `Ready today` label has the caption `counted per training` under it) with Ready 1, Not ready (expired) 0, Not ready (not recorded) 3 and Lapse 0, the
    subtitle's three soldiers, and the Hot-spot grid's Alpha 50%, Bravo 0%, Unassigned 0% rows with the Required/Targeted
    Total cells above. The first paint must come from the server: the page HTML already holds these numbers and no
    `training-reports` summary request runs on load. Reload for a second visible read.

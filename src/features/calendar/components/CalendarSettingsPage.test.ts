@@ -719,32 +719,29 @@ describe('CalendarSettingsPage', () => {
 	it.each([
 		['personnel', true],
 		['group', false]
-	] as const)(
-		'warns about the duty roster and DA 6 forms when deleting a %s-assigned type: %s',
-		async (assignTo, warns) => {
-			assignmentTypesStoreMock.types = [
-				{
-					id: 'cq',
-					name: 'Charge of Quarters',
-					shortName: 'CQ',
-					assignTo,
-					color: '#2563eb',
-					poolRules: null,
-					weekendMode: 'same',
-					excusals: [],
-					showOnCalendar: false,
-					sortOrder: 0
-				}
-			];
+	] as const)('warns about the duty roster only when deleting a %s-assigned type: %s', async (assignTo, warns) => {
+		assignmentTypesStoreMock.types = [
+			{
+				id: 'cq',
+				name: 'Charge of Quarters',
+				shortName: 'CQ',
+				assignTo,
+				color: '#2563eb',
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
+				showOnCalendar: false,
+				sortOrder: 0
+			}
+		];
 
-			render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
-			await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
-			await openRowAction('Charge of Quarters', 'Delete');
-			const dialog = screen.getByRole('alertdialog', { name: 'Delete Assignment Type' });
-			expect(/DA 6/.test(dialog.textContent ?? '')).toBe(warns);
-		}
-	);
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
+		await openRowAction('Charge of Quarters', 'Delete');
+		const dialog = screen.getByRole('alertdialog', { name: 'Delete Assignment Type' });
+		expect(/duty roster/.test(dialog.textContent ?? '')).toBe(warns);
+	});
 
 	it('keeps the add-assignment dialog open when creation fails', async () => {
 		assignmentTypesStoreMock.addType.mockResolvedValueOnce(null);

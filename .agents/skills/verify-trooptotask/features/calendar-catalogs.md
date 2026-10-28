@@ -134,7 +134,7 @@ confirmation. Row actions are named, such as `More actions for Verification Leav
    deletion.
 5. **Assignment deletion:** Choose `More actions for Verification Retiring Duty` → `Delete`. Capture the warning that
    every day it is assigned will be removed, then confirm. A person-assigned type also names its duty roster and saved
-   DA 6 forms; a Group-assigned type does not. Read back absence of that type and its linked assignment; the Staff
+   DA 6 forms; a Group-assigned type names only its saved DA 6 forms. Read back absence of that type and its linked assignment; the Staff
    assignment and archived type/assignment remain. Compare notifications before/after for `Assignment Type Deleted`. Do
    not remove seeded Staff, Group or archived history. Before another journey needs either deleted fixture, run
    `npm run --silent verify:app -- restart --worker "$WORKER"`, then `doctor` and `$V fixture` again.

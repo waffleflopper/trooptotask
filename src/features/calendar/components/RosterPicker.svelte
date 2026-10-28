@@ -126,20 +126,13 @@
 		for (const p of visiblePersonnel()) setSelected(p, true);
 	}
 
-	function selectAvailable() {
-		if (!availability) return;
-		for (const p of visiblePersonnel()) {
-			if (rosterAvailabilityRow(availability, p.id).kind === 'available') setSelected(p, true);
-		}
-	}
-
 	function selectNone() {
 		if (!disabled) selection.clear();
 	}
 
 	const toolbarItems = $derived<ToolbarItem[]>([
 		availability
-			? { kind: 'action', id: 'select-available', label: 'Select available', onclick: selectAvailable, disabled }
+			? { kind: 'action', id: 'select-available', label: 'Select available', onclick: selectShown, disabled }
 			: { kind: 'action', id: 'select-shown', label: 'Select shown', onclick: selectShown, disabled },
 		{ kind: 'action', id: 'clear', label: 'Clear', onclick: selectNone, disabled }
 	]);

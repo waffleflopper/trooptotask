@@ -7,7 +7,8 @@ in the new workspace.
 
 - `creation-gate`: sign-in and confirmed email are required before the form can create a workspace.
 - `owner-creation`: one valid submission creates one Organization and its owner membership.
-- `initial-configuration`: Groups, Calendar catalogs and holidays, and Personnel ranks are available after creation.
+- `initial-configuration`: federal holidays and Personnel ranks are available after creation; Groups, Calendar status
+  types and assignment types start empty.
 - `creation-retry`: a failed or unconfirmed creation leaves the form and its name in place; submitting that same form
   again finishes with exactly one complete Organization, and a fresh form may still create another.
 
@@ -55,9 +56,10 @@ without membership. Use `$V actor orgCreator dashboard` and its returned page ID
    `Owner` role. Reload both pages for a second read; keep the created ID and canonical URL segment.
 3. From the new workspace, open Personnel Group management and rank settings, Calendar status/assignment settings, and
    special days. Record the initial Groups, rank catalog, status and manual assignment types, and federal holidays shown
-   there; reload each relevant view. Run `$V created-org 'Unique synthetic Organization name'` again for exact created
-   Organization, owner membership and default-row identities/counts. Compare with Organization A/B so creation has not
-   added defaults to either existing tenant.
+   there; reload each relevant view. Calendar settings reads Holidays & closures 44, Status Types 0 and Assignment
+   Types 0. Run `$V created-org 'Unique synthetic Organization name'` again for exact created Organization, owner
+   membership and default-row identities/counts. Compare with Organization A/B so creation has not added defaults to
+   either existing tenant.
 4. Run the [recoverable creation](#recoverable-creation) cases for failed, unconfirmed and retried creation.
 
 ## Recoverable creation
@@ -72,8 +74,8 @@ inside the RPC, so browser faults cannot reach them; the isolated SQL proof in
 shows no Organization, request or row remains, and `supabase/tests/organization_creation_concurrency.sql` proves two
 sessions with one request id leave one Organization. Record `$V fault state` (its `matches` and `call`) for every armed
 case, then `$V fault restore`. A fault that never matches means its write does not exist; it is not a pass of the case
-it names. A complete Organization has one owner membership carrying the creator's email, no Groups, seven status types,
-one manual assignment type, four years of federal holidays and the default rank catalog.
+it names. A complete Organization has one owner membership carrying the creator's email, no Groups, no status or
+assignment types, four years of federal holidays and the default rank catalog.
 
 - (a) `org-create`, then submit. Expect a visible error that names no provider detail and says retrying is safe, the
   form still showing the name, and `created-org` count zero. Restore and select `Create and start setup` again on the

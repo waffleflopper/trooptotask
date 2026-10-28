@@ -9,7 +9,7 @@ feature and Invite, ending on a Done summary. Each step has its own URL and reme
 - `setup-rail`: the step rail shows every step grouped Your unit, Features and Team, each Done, Later, Off or not
   answered, with `N of 12 reviewed` and a progress bar. Below 1024 px it collapses to a step header with `All steps`.
 - `setup-continue`: Continue records the step reviewed unless unit data already makes it Done, then opens the next step;
-  the last step opens Done.
+  the last step opens Done. Groups is Done once the unit has a Group, Calendar once it has a status or assignment type.
 - `setup-history`: browser Back and Forward move between step URLs; a reload keeps rail state.
 - `setup-done`: the summary counts Groups, Ranks, People, Statuses and pending invites, sorts features into On, Later
   and Off, and Finish lands on the Dashboard.
@@ -45,16 +45,17 @@ Preconditions: `doctor` passes; use `orgOwner`, `orgAdmin` and `orgMember` from 
 
 1. `$V actor orgOwner settings/general` (setup is not an actor destination). Expect an `Organization setup` row with
    `Open setup`. Choose it. Expect `/setup/welcome` on fresh seed, title `Welcome`, no Back button, `Continue to Groups`
-   and `5 of 12 reviewed`: seed data already makes Personnel, Training, Critical tasks, Onboarding and Invite your team
-   Done. The rail shows skeleton glyphs first, then states; a reload records no layout shift.
+   and `7 of 12 reviewed`: seed data already makes Groups, Personnel, Calendar, Training, Critical tasks, Onboarding and
+   Invite your team Done. The rail shows skeleton glyphs first, then states; a reload records no layout shift.
 2. Choose `Continue to Groups`, then `Continue to Ranks`. Expect `/setup/ranks`, Welcome and Groups Done and
-   `7 of 12 reviewed`. Reload: the same counter and glyphs return.
+   `8 of 12 reviewed`; Groups was already Done, so its Continue writes nothing. Reload: the same counter and glyphs
+   return.
 3. Browser Back: `/setup/groups`. Forward: `/setup/ranks`. The rail's current row follows the URL.
 4. Open `/setup/done`. With every step reviewed the headline names the Organization; otherwise it reads
    `K steps still open` and links each open step. Seed counts: Groups 2, Ranks 4, People 3, Statuses 3, Invites
    pending 0. The On column lists Training `3 training types`, Critical tasks `2 task lists` and Onboarding
    `1 template`; Later and Off read `None`. Choose `Finish`; expect the Dashboard at `/org/<seg>`.
-5. As `orgAdmin`, `Open setup` lands on the first open step (Calendar after step 2's owner answers). Continue, reload,
+5. As `orgAdmin`, `Open setup` lands on the first open step (Ranks after step 2's owner answers). Continue, reload,
    Back and Forward behave as in steps 2 and 3, and Finish lands on the Dashboard.
 6. `$V actor orgMember settings/general` reports `access: denied`: General itself is 403, so no setup link shows.
    `/setup`, `/setup/welcome` and `/setup/done` each answer 403.
@@ -73,7 +74,7 @@ Preconditions: `doctor` passes; use `orgOwner`, `orgAdmin` and `orgMember` from 
 
 10. Done while facts load: as `orgOwner` on fresh seed, arm the `calendar_taskings` hold and open `/setup/done`. Expect
     skeletons for the summary (eyebrow, headline, note, two list lines), the five counts and one row in each column;
-    below 768 px only On shows. `$V server-source release`: the summary reads `7 steps still open`, On lists three
+    below 768 px only On shows. `$V server-source release`: the summary reads `5 steps still open`, On lists three
     features and Later and Off read `None`. A buffered `layout-shift` observer reports CLS 0 at 1440 and 390 px; the
     summary keeps 176 px (1440) or 190 px (390) and the counts keep their top.
 11. Continue while a step navigation is pending: on `/setup/groups`, `$V network arm-hold PAGE org-page/setup-training`,
@@ -125,12 +126,23 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
    label or Delete. Escape dismisses the hint and keeps the dialog open. Add `HQ Section`: the hint is gone, the field
    is cleared and focused, and the right side reads `No one in HQ Section yet`. Close and reload: the step lists
    `HQ Section` with `0 people`, the footer reads `1 group · changes save as you make them` and `Manage groups` shows.
-   On another new unit `Skip, keep one roster` goes to `/setup/ranks` with Groups Done and `2 of 12`.
+   The rail marks Groups Done as soon as `HQ Section` saves. On another new unit `Skip, keep one roster` goes to
+   `/setup/ranks` with Groups Done and `2 of 12`.
 6. Continue from Ranks to Personnel: `0 people so far`, `A handful of people?` with `Add a person`, and the import drop
    zone with `Columns we look for`. `Continue to Calendar` with nobody on the roster, or before the count loads, marks
    Personnel `later`.
-7. `/setup/calendar` shows Calendar settings with Status Types 7, Assignment Types 1 and Holidays & closures 44 on a
-   new unit, and no `Back to Calendar`. `Continue to Training` marks Calendar Done: `5 of 12`.
+7. `/setup/calendar` on a new unit shows Calendar settings with Status Types 0, Assignment Types 0 and Holidays &
+   closures 44, and no `Back to Calendar`. Above the editors, `Common statuses and assignments` lists 8 checked rows:
+   Leave, School, Training / TDY, Appointment, Sick, Other Duty / Detail and CQ/SD tagged `Status`, and Staff Duty
+   tagged `Assignment`, each with its color swatch. The count reads `8 of 8 selected`, the footer note
+   `Adds 7 statuses and 1 assignment` and the button `Add 8 and continue`. While the Calendar data loads the panel
+   holds 8 skeleton rows with the count's skeleton, and a buffered `layout-shift` observer reports CLS 0 at 1440, 1024
+   and 390 px. At 390 px the panel shows 3 rows and `Show 5 more`. Uncheck Sick and CQ/SD: `6 of 8 selected`,
+   `Adds 5 statuses and 1 assignment` and `Add 6 and continue`. Choose it: `/setup/training`, the rail's Calendar row
+   Done and the counter `5 of 12`. Calendar settings shows Status Types 5 (Leave, School, Training / TDY, Appointment,
+   Other Duty / Detail) and Assignment Types 1. Reload `/setup/calendar`: the panel lists only Sick and CQ/SD, both
+   checked, `2 of 2 selected` and `Add 2 and continue`. A row whose name the unit already has, in any casing, is
+   hidden; with none left the panel is gone and Continue reads `Continue to Training`.
 8. Back on Personnel, `Add a person`, fill Last name `Fixround`, First name `Jane` and MOS `68W`, then `Add person`.
    Without a reload expect `1 person so far` and the rail's Personnel row Done. A reload keeps both.
 9. As `orgAdmin` on the fixture unit every step shows the same editor actions (`Manage groups`, rank chips,
@@ -266,7 +278,7 @@ reaches the same mail sink as [organization invitations](organization-invitation
 
 1. As `orgOwner`, `$V actor orgOwner settings/general`, then open `/setup/invite`. Expect `Step 12 of 12 · Team`, the
    strip on one line at 1440 px (92 px tall, 816 px wide), no `Waiting on them` list on a fresh seed and
-   `Continue to Done`. The seed already has other members, so the rail row reads Done and the counter `5 of 12`.
+   `Continue to Done`. The seed already has other members, so the rail row reads Done and the counter `7 of 12`.
 2. `$V fill PAGE textbox "Invite" s4-invite-one@example.test`, then `$V click PAGE button "Send invite"`. Expect the
    line under the strip to read `Invitation created and email delivery was queued.`, the email field empty, one
    `Waiting on them` row `Editor · sent today · Waiting on them` and, from `$V mail state`, an `account-setup` and an
@@ -291,13 +303,14 @@ first; a failed read shows `The invitation form could not be loaded` with Retry.
 
 Only the owner sees any of this. An existing unit's owner gets a one-time invitation on the Dashboard: eyebrow
 `For the owner · Organization setup`, title `Finish setting up <Organization>`, a `N of 12 already done` line with one
-row per Done step, `Start setup` and `Not now`, and no close button. `Not now` swaps in `Remind me tomorrow` and
-`Never ask again`. Escape or a click outside counts as `Remind me tomorrow`. After `Remind me tomorrow` or
-`Finish later`, a quiet `Resume setup` button sits left of `Feedback` in the top bar; at 390 px it shows only its icon.
-Its popover loads progress when opened: `R of 12 reviewed`, a bar, the unanswered steps in rail order with their group,
-`Continue with <first unanswered step>` (or `Review and finish` when none is left) and `Never ask again`. While
-`Never ask again` saves, Escape, an outside click and the button leave the popover open. A Dashboard visit opens at most
-one prompt; the What's New dialog waits for a later visit when a setup prompt opened.
+row per Done step, `Start setup` and `Not now`, and no close button. A feature turned off counts as handled: the line
+reads `N of 12 already done or turned off`, and its row has a muted dash and `Off` in place of the check and group.
+`Not now` swaps in `Remind me tomorrow` and `Never ask again`. Escape or a click outside counts as `Remind me tomorrow`.
+After `Remind me tomorrow` or `Finish later`, a quiet `Resume setup` button sits left of `Feedback` in the top bar; at
+390 px it shows only its icon. Its popover loads progress when opened: `R of 12 reviewed`, a bar, the unanswered steps
+in rail order with their group, `Continue with <first unanswered step>` (or `Review and finish` when none is left) and
+`Never ask again`. While `Never ask again` saves, Escape, an outside click and the button leave the popover open. A
+Dashboard visit opens at most one prompt; the What's New dialog waits for a later visit when a setup prompt opened.
 
 Writes go to `POST /org/<seg>/api/organization/setup/prompt` with `{ key, choice }`; progress is
 `GET /org/<seg>/api/organization/setup/progress`. Both answer 403 for anyone but the owner.
@@ -305,23 +318,23 @@ Writes go to `POST /org/<seg>/api/organization/setup/prompt` with `{ key, choice
 1. New unit: as `orgOwner`, create a unit at `/org/new`. Expect `/org/<new seg>/setup/welcome` with the `Welcome`
    heading, not the Dashboard.
 2. Existing unit: `$V actor orgOwner dashboard` on fresh seed, then open `/org/<seg>`. The Dashboard renders first; the
-   invitation dialog then opens once with `5 of 12 already done` and rows Personnel, Training, Critical tasks,
-   Onboarding and Invite your team, each with a check and its group (`Your unit`, `Features`, `Team`). The dialog opens
-   with its count already filled; it does not grow after opening. `Start setup` links to `/org/<seg>/setup`. Press
-   Escape: expect exactly one POST `{"key":"setup","choice":"tomorrow"}` answering 200, the dialog closed and
-   `Resume setup` in the top bar. A reload shows no invitation and keeps `Resume setup`. A click on the dimmed page
-   outside the dialog behaves the same.
+   invitation dialog then opens once with `7 of 12 already done` and rows Groups, Personnel, Calendar, Training,
+   Critical tasks, Onboarding and Invite your team, each with a check and its group (`Your unit`, `Features`, `Team`).
+   The dialog opens with its count already filled; it does not grow after opening. `Start setup` links to
+   `/org/<seg>/setup`. Press Escape: expect exactly one POST `{"key":"setup","choice":"tomorrow"}` answering 200, the
+   dialog closed and `Resume setup` in the top bar. A reload shows no invitation and keeps `Resume setup`. A click on
+   the dimmed page outside the dialog behaves the same.
 3. Remind me tomorrow: on a fresh visit with the invitation open, `Not now`, then `Remind me tomorrow`. Expect one POST
    with `{"key":"setup","choice":"tomorrow"}` answering 200 with `prompts.setup.snoozedUntil` set to the browser's
    tomorrow (`() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-CA'); }`), the
    dialog closed, `Resume setup` in the top bar and no second dialog after the reload that follows. A full reload shows
    no invitation and keeps `Resume setup`.
-4. Resume popover: open `Resume setup`. Expect skeleton lines, then `5 of 12` `reviewed` on fresh seed (the setup rail's
-   count once steps are answered), the unanswered steps in rail order Welcome, Groups, Ranks, Calendar, Evaluations,
-   Losses and awards, Events & Taskings, and `Continue with Welcome` linking to `/org/<seg>/setup/welcome`. Exactly one
-   GET to the progress endpoint per opening and none before the first opening. Close it,
-   `$V fault arm org-setup-training-count`, open it again: the count drops to `4 of 12`, Training is listed as
-   unanswered and a muted note says more steps may already be done. Close it, `$V fault arm org-setup-state-read`, open
+4. Resume popover: open `Resume setup`. Expect skeleton lines, then `7 of 12` `reviewed` on fresh seed (the setup rail's
+   count once steps are answered), the unanswered steps in rail order Welcome, Ranks, Evaluations, Losses and awards,
+   Events & Taskings, and `Continue with Welcome` linking to `/org/<seg>/setup/welcome`. Exactly one GET to the progress
+   endpoint per opening and none before the first opening. Close it, `$V fault arm org-setup-training-count`, open it
+   again: the count drops to `6 of 12`, Training is listed as unanswered and a muted note says more steps may already be
+   done. Close it, `$V fault arm org-setup-state-read`, open
    it again: the progress GET fails and the popover shows a destructive alert
    `Couldn’t load setup progress. Internal server error` with `Try again` and no Continue link; `Try again` loads the
    count. `$V fault restore`.
@@ -360,6 +373,11 @@ Writes go to `POST /org/<seg>/api/organization/setup/prompt` with `{ key, choice
     px the dialog's buttons stack with the primary action last, the top bar keeps the breadcrumb, the Resume icon or
     `New`, notifications and theme, and nothing scrolls horizontally (`document.documentElement.scrollWidth` equals
     `innerWidth`).
+12. Turned-off features: on fresh seed, before any choice, switch off Evaluations and Losses and awards in Settings ›
+    Features, then open `/org/<seg>`. Expect `9 of 12 already done or turned off` and nine rows in rail order: Groups,
+    Personnel, Calendar, Training, Critical tasks, Evaluations, Onboarding, Losses and awards and Invite your team.
+    Evaluations and Losses and awards each show a muted dash, a muted title and `Off`; the rest keep the check and
+    their group. Switch both back on afterwards.
 
 Gotchas: the invitation and Resume decisions stream after first paint, so the dialog and button appear a moment after
 the Dashboard. A choice reruns only the Organization layout's `app:organization-setup` load; the Dashboard page keeps

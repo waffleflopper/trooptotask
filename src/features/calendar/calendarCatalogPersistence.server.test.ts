@@ -125,6 +125,21 @@ describe('Calendar ordinary catalog persistence', () => {
 		).toEqual(['is.null']);
 	});
 
+	it.each(['status', 'assignment'] as const)(
+		'preserves unique conflicts from a %s create for retry reconciliation',
+		async (kind) => {
+			const { client, state } = calendarProvider();
+			state.failure = ({ method }) =>
+				method === 'POST' ? { code: '23505', message: 'Duplicate name', status: 409 } : null;
+			const port = createSupabaseCalendarCatalogPersistence(client, ORG);
+			await expect(
+				kind === 'status'
+					? port.createStatusType({ name: 'Leave' })
+					: port.createAssignmentType({ name: 'Staff Duty', shortName: 'SD', assignTo: 'personnel' })
+			).rejects.toMatchObject({ status: 409 });
+		}
+	);
+
 	it('retains returned null sort order and omission without inventing saved metadata', async () => {
 		const { client } = calendarProvider({
 			status_types: [
@@ -232,7 +247,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			assignTo: 'personnel',
 			color: '#6b7280',
 			showOnCalendar: false,
-			sortOrder: 0,
+			sortOrder: 8,
 			poolRules: null,
 			weekendMode: 'same',
 			excusals: []
@@ -287,7 +302,7 @@ describe('Calendar ordinary catalog persistence', () => {
 				short_name: 'D',
 				assign_to: 'personnel',
 				color: '#6b7280',
-				sort_order: 0,
+				sort_order: 8,
 				show_on_calendar: false,
 				roster_pool_rules: null,
 				roster_weekend_mode: 'same'
@@ -298,8 +313,8 @@ describe('Calendar ordinary catalog persistence', () => {
 			{ text_color: '#000000', short_label: 'LV', roster_effect: 'available' }
 		]);
 		const typeWrites = state.requests.filter(({ table, body }) => table === 'assignment_types' && body);
-		for (const { body } of typeWrites) {
-			expect(body).not.toHaveProperty('sort_order');
+		for (const { body, method } of typeWrites) {
+			if (method === 'PATCH') expect(body).not.toHaveProperty('sort_order');
 			expect(body).not.toHaveProperty('show_on_calendar');
 		}
 		// Roster rules change only when a DA 6 form closes, so a details edit never writes them.

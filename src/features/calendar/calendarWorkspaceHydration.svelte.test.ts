@@ -107,7 +107,7 @@ function createStores() {
 	return {
 		personnelStore: createLoadable<Personnel>(),
 		groupsStore: createLoadable<Group>(),
-		statusTypesStore: createLoadable<StatusType>(),
+		statusTypesStore: createRangeLoadable<StatusType>(),
 		availabilityEntriesStore: createRangeLoadable<AvailabilityEntry>(),
 		specialDaysStore: createRangeLoadable<SpecialDay>(),
 		calendarAssignmentsStore: createCalendarAssignmentsLoadable(),
@@ -205,6 +205,28 @@ describe('Calendar workspace hydration adapter', () => {
 		expect(stores.calendarAssignmentsStore.assignments).toEqual([outsideAssignment, incomingAssignment]);
 		expect(stores.calendarAssignmentsStore.orgId).toBe('org-1');
 		expect(stores.pinnedGroupsStore.items).toEqual(['Alpha']);
+	});
+
+	it('keeps a status edit confirmed while an older snapshot was in flight', async () => {
+		const leave = { id: 'st-1', name: 'Leave' } as StatusType;
+		const statusTypesStore = createStore<StatusType>({
+			resource: 'status-types',
+			adapter: createMockAdapter<StatusType>({ update: async (id, data) => ({ ...leave, ...data, id }) })
+		});
+		statusTypesStore.load([leave], 'org-1');
+		const snapshot = Promise.withResolvers<StatusType[]>();
+
+		const hydrating = createCalendarWorkspaceHydrator().hydrate(
+			preserveClientHydration({
+				statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: snapshot.promise }
+			}),
+			{ ...createStores(), statusTypesStore }
+		);
+		await statusTypesStore.update('st-1', { name: 'Annual Leave' });
+		snapshot.resolve([leave]);
+		await hydrating;
+
+		expect(statusTypesStore.items.map((type) => type.name)).toEqual(['Annual Leave']);
 	});
 
 	it('preserves client-owned targets without loading stores', async () => {

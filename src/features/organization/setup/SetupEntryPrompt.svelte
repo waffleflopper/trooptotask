@@ -121,21 +121,33 @@
 				</AppDialog.Header>
 				<AppDialog.Body class="grid gap-3">
 					{#if prompt.progress}
-						{@const { done, total, completedSteps, loadErrors } = prompt.progress}
+						{@const { handled, total, handledSteps, loadErrors } = prompt.progress}
+						{@const anyOff = handledSteps.some((step) => step.state === 'off')}
 						<div>
 							<p class="flex flex-wrap items-baseline gap-x-2.5 border-b-2 border-foreground pb-2">
 								<span class="font-heading text-lg leading-[22px] font-bold" data-setup-done-count>
-									{loadErrors.length ? `At least ${done} of ${total}` : `${done} of ${total}`} already done
+									{loadErrors.length ? `At least ${handled} of ${total}` : `${handled} of ${total}`} already done{anyOff
+										? ' or turned off'
+										: ''}
 								</span>
 								<span class="text-[13px] leading-[18px] text-muted-foreground">from what you’ve set up so far</span>
 							</p>
 							<ul class="grid">
-								{#each completedSteps as step (step.key)}
+								{#each handledSteps as step (step.key)}
+									{@const off = step.state === 'off'}
 									<li class="flex h-[34px] items-center gap-2.5 border-b border-border">
-										<Check class="size-4 shrink-0 text-success-foreground" aria-hidden="true" />
-										<span class="min-w-0 flex-1 truncate font-semibold">{step.title}</span>
+										{#if off}
+											<span class="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
+												<span class="h-[1.5px] w-[9px] bg-muted-foreground/45"></span>
+											</span>
+										{:else}
+											<Check class="size-4 shrink-0 text-success-foreground" aria-hidden="true" />
+										{/if}
+										<span class="min-w-0 flex-1 truncate {off ? 'text-muted-foreground' : 'font-semibold'}"
+											>{step.title}</span
+										>
 										<span class="shrink-0 font-mono text-[10px] tracking-[0.08em] text-muted-foreground uppercase">
-											{SETUP_GROUP_LABELS[step.group]}
+											{off ? 'Off' : SETUP_GROUP_LABELS[step.group]}
 										</span>
 									</li>
 								{/each}

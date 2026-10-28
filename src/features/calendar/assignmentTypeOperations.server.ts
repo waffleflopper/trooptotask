@@ -21,7 +21,7 @@ export async function createAssignmentType(ctx: CalendarCatalogPorts, input: Rec
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.createAssignmentType(parsed.data);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'assignment_type.created',
 		resourceType: 'assignment_type',
 		resourceId: row.id

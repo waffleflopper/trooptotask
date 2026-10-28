@@ -213,12 +213,13 @@ export function createInMemoryCalendarCatalogPersistence(
 			}));
 		},
 		async createAssignmentType(input) {
+			const saved = await store.findMany<AssignmentTypeRow>('assignment_types', orgId);
 			const row = await store.insert<AssignmentTypeRow>('assignment_types', orgId, {
 				name: input.name,
 				short_name: input.shortName,
 				assign_to: input.assignTo,
 				color: input.color ?? '#6b7280',
-				sort_order: 0,
+				sort_order: Math.max(-1, ...saved.map((type) => type.sort_order)) + 1,
 				show_on_calendar: false,
 				roster_pool_rules: input.poolRules ?? null,
 				roster_weekend_mode: input.weekendMode ?? 'same'

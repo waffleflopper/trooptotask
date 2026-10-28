@@ -96,12 +96,12 @@ export function streamSetupInvitationProgress({
 				...(request.disabledFeatures.includes('evaluations') ? { evaluations: async () => 0 } : {})
 			});
 			const model = buildSetupModel({ state: data.state, facts, disabledFeatures: request.disabledFeatures });
-			const completedSteps = model.steps.filter((step) => step.state === 'done');
+			const handledSteps = model.steps.filter((step) => step.state === 'done' || step.state === 'off');
 			return {
 				orgId: request.auth.orgId,
-				done: completedSteps.length,
+				handled: handledSteps.length,
 				total: model.total,
-				completedSteps,
+				handledSteps,
 				loadErrors: model.steps.flatMap((step) => step.loadErrors)
 			};
 		})

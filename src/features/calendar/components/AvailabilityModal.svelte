@@ -205,6 +205,9 @@
 							<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 						{/if}
 					</div>
+					{#if statusTypes.length === 0}
+						<Field.Description>No statuses are set up yet. Add one in Calendar settings.</Field.Description>
+					{/if}
 				</Field.Root>
 
 				<div class="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-start">

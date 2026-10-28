@@ -16,6 +16,7 @@ export {
 } from './specialDayOperations.server';
 export { listSpecialDaysInRange, listSpecialDays } from './specialDayRead.server';
 export { getCalendarOrganizationDefaults } from './organizationDefaults.server';
+export { applyCalendarSuggestions } from './calendarSuggestions.server';
 export {
 	createStatusType,
 	updateStatusType,

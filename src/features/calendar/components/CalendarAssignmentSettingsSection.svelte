@@ -51,6 +51,7 @@
 			.filter((type) => !type.archivedAt && !laneIds.includes(type.id))
 			.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
 	);
+	const hasTypes = $derived(types.some((type) => !type.archivedAt));
 	const query = $derived(searchQuery.trim().toLowerCase());
 	const matches = (type: AssignmentType) => !query || type.name.toLowerCase().includes(query);
 	const visibleLanes = $derived(lanes.filter(matches));
@@ -157,7 +158,9 @@
 			</ReorderList>
 		{:else if lanes.length === 0}
 			<p class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-				No lanes. Turn on an assignment type to show it under the dates.
+				{hasTypes
+					? 'No lanes. Turn on an assignment type to show it under the dates.'
+					: 'No lanes yet. Add an assignment type, then turn it on here.'}
 			</p>
 		{/if}
 		{#if lanes.length > 3}
@@ -183,7 +186,7 @@
 			</ul>
 		{:else if plannerOnly.length === 0}
 			<p class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-				Every assignment type is on the calendar.
+				{hasTypes ? 'Every assignment type is on the calendar.' : 'No assignment types yet.'}
 			</p>
 		{/if}
 	</section>

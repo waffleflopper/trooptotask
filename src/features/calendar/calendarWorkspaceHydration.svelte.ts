@@ -57,7 +57,7 @@ export interface CalendarPinnedGroupsHydrationLoadable {
 export interface CalendarHydrationStores {
 	personnelStore: CalendarHydrationLoadable<Personnel>;
 	groupsStore: CalendarHydrationLoadable<Group>;
-	statusTypesStore: CalendarHydrationLoadable<StatusType>;
+	statusTypesStore: CalendarRangeHydrationLoadable<StatusType>;
 	availabilityEntriesStore: CalendarRangeHydrationLoadable<AvailabilityEntry>;
 	specialDaysStore: CalendarRangeHydrationLoadable<SpecialDay>;
 	calendarAssignmentsStore: CalendarAssignmentsHydrationLoadable;
@@ -99,10 +99,10 @@ function createTargetDescriptor<T>(
 	};
 }
 
-// A range snapshot is authoritative only within its range, and only up to the changes the store
+// A snapshot is authoritative only where `covers` says, and only up to the changes the store
 // confirmed after its request left.
-function createRangeTargetDescriptor<T extends { id: string }>(
-	target: CalendarRangeHydrationTarget<T>,
+function createReconciledTargetDescriptor<T extends { id: string }>(
+	target: CalendarRangeHydrationTarget<T> | CalendarWorkspaceHydrationTarget<T>,
 	store: CalendarRangeHydrationLoadable<T>,
 	orgId: string,
 	targetName: string,
@@ -199,8 +199,15 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 			const descriptors = [
 				createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
 				createTargetDescriptor(hydration.groups, stores.groupsStore, orgId, 'groups'),
-				createTargetDescriptor(hydration.statusTypes, stores.statusTypesStore, orgId, 'statusTypes'),
-				createRangeTargetDescriptor(
+				createReconciledTargetDescriptor(
+					hydration.statusTypes,
+					stores.statusTypesStore,
+					orgId,
+					'statusTypes',
+					() => true,
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
+				),
+				createReconciledTargetDescriptor(
 					hydration.availabilityEntries,
 					stores.availabilityEntriesStore,
 					orgId,
@@ -208,7 +215,7 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 					rangeCoversSpan(hydration.availabilityEntries.range),
 					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
-				createRangeTargetDescriptor(
+				createReconciledTargetDescriptor(
 					hydration.specialDays,
 					stores.specialDaysStore,
 					orgId,

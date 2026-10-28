@@ -18,9 +18,9 @@ export interface SetupEntryData {
 
 export interface SetupInvitationProgress {
 	orgId: string;
-	done: number;
+	handled: number;
 	total: number;
-	completedSteps: SetupModel['steps'];
+	handledSteps: SetupModel['steps'];
 	loadErrors: SetupModel['steps'][number]['loadErrors'];
 }
 

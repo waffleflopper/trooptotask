@@ -73,8 +73,9 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 		async readInvitedOrganizationName(accessRequestId) {
 			const { data, error } = await client
 				.from('access_request_organization_invitation_links')
-				.select('organization:organizations(name)')
+				.select('organization:organizations(name), invitation:organization_invitations!inner(status)')
 				.eq('access_request_id', accessRequestId)
+				.eq('invitation.status', 'pending')
 				.order('created_at', { ascending: false })
 				.limit(1)
 				.maybeSingle<{ organization: { name: string | null } | null }>();

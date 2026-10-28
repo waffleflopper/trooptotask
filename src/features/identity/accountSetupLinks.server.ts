@@ -111,7 +111,7 @@ interface AccessRequestRow {
 	name?: string | null;
 	first_name?: string | null;
 	last_name?: string | null;
-	status: AccessRequestStatus;
+	status: string;
 	setup_completed_at: string | null;
 	setup_grant_live: boolean;
 }
@@ -226,7 +226,7 @@ function mapAccessRequestRow(row: AccessRequestRow): AccountSetupLinkAccessReque
 		name: row.name,
 		firstName: row.first_name,
 		lastName: row.last_name,
-		status: row.status,
+		status: z.enum(['pending', 'approved', 'rejected', 'rescinded']).parse(row.status),
 		setupCompletedAt: row.setup_completed_at,
 		setupGrantLive: row.setup_grant_live
 	};
@@ -561,7 +561,7 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 				.maybeSingle();
 
 			throwSupabaseError(error);
-			return data ? mapAccessRequestRow(data as AccessRequestRow) : null;
+			return data ? mapAccessRequestRow(data) : null;
 		},
 
 		async issueSetupLink(input) {

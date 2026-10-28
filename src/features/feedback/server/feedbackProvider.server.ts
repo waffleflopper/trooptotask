@@ -69,16 +69,18 @@ export function createSupabaseFeedbackReviewStore(client: SupabaseClient): Feedb
 export function createSupabaseFeedbackSubmissionStore(getClient: () => SupabaseClient): FeedbackSubmissionStore {
 	return {
 		async insertFeedbackSubmission(input) {
-			const { error } = await getClient().from('beta_feedback').insert({
-				user_id: input.userId,
-				user_email: input.userEmail,
-				organization_id: input.organizationId,
-				organization_name: input.organizationName,
-				category: input.category,
-				message: input.message,
-				page_url: input.pageUrl,
-				page_section: input.pageSection
-			});
+			const { error } = await getClient()
+				.from('beta_feedback')
+				.insert({
+					user_id: input.userId,
+					user_email: input.userEmail as string,
+					organization_id: input.organizationId,
+					organization_name: input.organizationName,
+					category: input.category,
+					message: input.message,
+					page_url: input.pageUrl,
+					page_section: input.pageSection
+				});
 			if (error) throw new Error('Failed to insert feedback', { cause: error });
 		}
 	};

@@ -24,7 +24,14 @@ export async function createPlatformInboxOperations(event: RequestEvent) {
 				const { data, error } = await adminClient.rpc('platform_inbox_stats', {
 					p_since: startOfMonth(now).toISOString()
 				});
-				if (error || typeof data?.newPeople !== 'number' || typeof data?.newOrganizations !== 'number')
+				if (
+					error ||
+					!data ||
+					typeof data !== 'object' ||
+					Array.isArray(data) ||
+					typeof data.newPeople !== 'number' ||
+					typeof data?.newOrganizations !== 'number'
+				)
 					throw new Error('Inbox stats were unavailable');
 				return { status: 'ok', newPeople: data.newPeople, newOrganizations: data.newOrganizations };
 			} catch (cause) {

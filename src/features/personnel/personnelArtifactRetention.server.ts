@@ -24,7 +24,7 @@ export function createSupabasePersonnelArtifactRetentionSource(
 			.eq('organization_id', orgId)
 			.not('archived_at', 'is', null)
 			.lt('archived_at', cutoff);
-		if (table === 'personnel_follow_ups') query = query.eq('status', 'archived');
+		if (table === 'personnel_follow_ups') query = query.filter('status', 'eq', 'archived');
 		const { count, error } = await query;
 		if (error) throw new Error(error.message);
 		if (typeof count !== 'number' || !Number.isInteger(count) || count < 0)

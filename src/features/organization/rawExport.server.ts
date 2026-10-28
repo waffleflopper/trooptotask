@@ -22,7 +22,7 @@ export function createSupabaseOrganizationRawExportReader(client: SupabaseClient
 				const { data, error } = await client
 					.from(table)
 					.select(table === 'organizations' ? PROFILE_EXPORT_FIELDS : '*')
-					.eq(table === 'organizations' ? 'id' : 'organization_id', orgId)
+					.filter(table === 'organizations' ? 'id' : 'organization_id', 'eq', orgId)
 					.order('id', { ascending: true })
 					.range(from, to);
 				return { data: data as Record<string, unknown>[] | null, error };

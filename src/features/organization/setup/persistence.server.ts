@@ -1,5 +1,5 @@
 import type { SetupStepKey } from './registry';
-import type { SupabaseClient } from '$lib/server/database';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { RequestFailure } from '$lib/errors';
 import {
 	parseOrganizationSetup,
@@ -19,7 +19,10 @@ export interface OrganizationSetupPort {
 }
 
 export function createSupabaseOrganizationSetupPort(client: SupabaseClient): OrganizationSetupPort {
-	async function call(name: string, args: Record<string, unknown>) {
+	async function call<Name extends keyof Database['public']['Functions']>(
+		name: Name,
+		args: Database['public']['Functions'][Name]['Args']
+	) {
 		const { data, error } = await client.rpc(name, args);
 		if (error) {
 			if (error.code === '42501')

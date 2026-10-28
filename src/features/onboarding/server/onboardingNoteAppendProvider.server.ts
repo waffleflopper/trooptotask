@@ -1,6 +1,7 @@
+import { noteAppendResult } from './onboardingCommandResults.server';
 import type { SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
-import type { OnboardingNoteAppendPort, OnboardingNoteAppendResult } from '../contracts';
+import type { OnboardingNoteAppendPort } from '../contracts';
 
 /** The ordinary authenticated database request appends without replacing another writer's notes. */
 export function createSupabaseOnboardingNoteAppendPort(supabase: SupabaseClient): OnboardingNoteAppendPort {
@@ -17,7 +18,7 @@ export function createSupabaseOnboardingNoteAppendPort(supabase: SupabaseClient)
 				throw new Error(error.message);
 			}
 			if (!data) throw new Error('Onboarding note append returned no saved notes');
-			return data as OnboardingNoteAppendResult;
+			return noteAppendResult.parse(data);
 		}
 	};
 }

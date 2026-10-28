@@ -92,8 +92,8 @@ export function createSupabaseGroupPersistence(
 		async setOrder(ids, expectedIds) {
 			const { error } = await client.rpc('set_group_order', {
 				p_organization_id: orgId,
-				p_group_ids: ids,
-				p_expected_group_ids: expectedIds
+				p_group_ids: [...ids],
+				p_expected_group_ids: [...expectedIds]
 			});
 			if (error) throwGroupCommandError(error);
 		},

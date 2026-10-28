@@ -1,6 +1,7 @@
+import { reconciliationResult } from './onboardingCommandResults.server';
 import type { SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
-import type { OnboardingReconciliationPort, OnboardingReconciliationResult } from '../contracts';
+import type { OnboardingReconciliationPort } from '../contracts';
 
 /** Uses the ordinary authenticated client; SQL retains policy and atomic packet reconciliation. */
 export function createSupabaseOnboardingReconciliationPort(supabase: SupabaseClient): OnboardingReconciliationPort {
@@ -18,7 +19,7 @@ export function createSupabaseOnboardingReconciliationPort(supabase: SupabaseCli
 				throw new Error(error.message);
 			}
 			if (!data) throw new Error('Onboarding reconciliation returned no packet');
-			return data as OnboardingReconciliationResult;
+			return reconciliationResult.parse(data);
 		}
 	};
 }

@@ -134,7 +134,7 @@ export function createSupabasePersonnelArtifactWritePort(
 				personnelId
 			);
 			const admin = getAdminClient();
-			const base = (table: ArtifactTable) => {
+			const base = <Name extends ArtifactTable>(table: Name) => {
 				assertArtifactTable(table);
 				return admin.from(table);
 			};

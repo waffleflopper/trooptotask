@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '$lib/server/database';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
@@ -133,9 +133,12 @@ export function createSupabaseCalendarStaffingPersistence(
 	client: SupabaseClient,
 	orgId: string
 ): CalendarStaffingPersistence {
-	async function rpcRows(name: string, args: Record<string, unknown>): Promise<unknown[]> {
+	async function rpcRows<Name extends keyof Database['public']['Functions']>(
+		name: Name,
+		args: Database['public']['Functions'][Name]['Args']
+	): Promise<unknown[]> {
 		const { data, error } = await selectAllSupabaseRows<unknown>(
-			async (from, to) => await client.rpc(name, { p_organization_id: orgId, ...args }).range(from, to)
+			async (from, to) => await client.rpc(name, args).range(from, to).overrideTypes<unknown[], { merge: false }>()
 		);
 		if (error) throw new Error((error as { message: string }).message);
 		return data ?? [];
@@ -143,9 +146,9 @@ export function createSupabaseCalendarStaffingPersistence(
 
 	async function countRows(taskingIds: string[]) {
 		if (taskingIds.length === 0) return [];
-		return (await rpcRows('calendar_tasking_staffing', { p_tasking_ids: [...new Set(taskingIds)] })).map((row) =>
-			countRowSchema.parse(row)
-		);
+		return (
+			await rpcRows('calendar_tasking_staffing', { p_organization_id: orgId, p_tasking_ids: [...new Set(taskingIds)] })
+		).map((row) => countRowSchema.parse(row));
 	}
 
 	return {
@@ -153,7 +156,7 @@ export function createSupabaseCalendarStaffingPersistence(
 			// Picks read after the revision are never older than it, so a save naming it cannot drop a newer pick.
 			const [count] = await countRows([taskingId]);
 			if (!count) return null;
-			const picks = await rpcRows('calendar_tasking_people', { p_tasking_id: taskingId });
+			const picks = await rpcRows('calendar_tasking_people', { p_organization_id: orgId, p_tasking_id: taskingId });
 			return { ...counted(count), revision: count.revision, picks: picks.map((row) => pickRowSchema.parse(row)) };
 		},
 		async countStaffing(taskingIds) {
@@ -161,7 +164,10 @@ export function createSupabaseCalendarStaffingPersistence(
 		},
 		async listAdvisories(taskingId) {
 			const byPerson: Record<string, StaffingAdvisory[]> = {};
-			for (const row of await rpcRows('calendar_tasking_advisories', { p_tasking_id: taskingId })) {
+			for (const row of await rpcRows('calendar_tasking_advisories', {
+				p_organization_id: orgId,
+				p_tasking_id: taskingId
+			})) {
 				const [personnelId, advisory] = advisoryRowSchema.parse(row);
 				(byPerson[personnelId] ??= []).push(advisory);
 			}

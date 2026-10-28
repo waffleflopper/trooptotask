@@ -37,14 +37,19 @@ export async function passwordAttempt(
 			p_expires_at: new Date(identity.session.expires_at! * 1000).toISOString(),
 			p_id: id ?? null
 		});
-		if (result?.error !== null || !result.data || typeof result.data !== 'object') return 'unavailable';
+		if (result?.error !== null || !result.data || typeof result.data !== 'object' || Array.isArray(result.data))
+			return 'unavailable';
 		const value = result.data;
 		if (value.state === null) return null;
 		if (value.state === 'expired') return 'expired';
 		if (
-			!['started', 'pending', 'complete', 'failed'].includes(value.state) ||
+			(value.state !== 'started' &&
+				value.state !== 'pending' &&
+				value.state !== 'complete' &&
+				value.state !== 'failed') ||
+			typeof value.id !== 'string' ||
 			!uuid.test(value.id) ||
-			![null, 'recovery', 'invite'].includes(value.flow) ||
+			(value.flow !== null && value.flow !== 'recovery' && value.flow !== 'invite') ||
 			typeof value.expiresAt !== 'number' ||
 			!Number.isFinite(value.expiresAt) ||
 			typeof value.acquired !== 'boolean' ||
@@ -53,7 +58,7 @@ export async function passwordAttempt(
 			(value.flow !== (identity.authFlow ?? null) && !(value.state === 'complete' && !identity.authFlow))
 		)
 			return 'unavailable';
-		return value;
+		return { id: value.id, state: value.state, flow: value.flow, expiresAt: value.expiresAt, acquired: value.acquired };
 	} catch {
 		return 'unavailable';
 	}

@@ -1,29 +1,9 @@
+import type { Database } from '$lib/server/database';
 import { z } from 'zod';
 import { dateOnlySchema, isUuid, uuidSchema } from '$lib/utils/inputSchemas';
 import type { RatingSchemeCreateValues, RatingSchemePatchValues, SavedRatingSchemeEntry } from '../contracts';
 
-export interface RatingSchemeRow {
-	id: string;
-	organization_id: string;
-	rated_person_id: string;
-	eval_type: SavedRatingSchemeEntry['evalType'];
-	rater_person_id: string | null;
-	rater_name: string | null;
-	senior_rater_person_id: string | null;
-	senior_rater_name: string | null;
-	intermediate_rater_person_id: string | null;
-	intermediate_rater_name: string | null;
-	reviewer_person_id: string | null;
-	reviewer_name: string | null;
-	rating_period_start: string;
-	rating_period_end: string;
-	status: SavedRatingSchemeEntry['status'];
-	notes: string | null;
-	report_type: SavedRatingSchemeEntry['reportType'];
-	workflow_status: SavedRatingSchemeEntry['workflowStatus'];
-	created_at: string;
-	updated_at: string;
-}
+export type RatingSchemeRow = Database['public']['Tables']['rating_scheme_entries']['Row'];
 
 export const RATING_SCHEME_SELECT =
 	'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at';
@@ -57,7 +37,7 @@ export function mapRatingSchemeEntry(row: RatingSchemeRow): SavedRatingSchemeEnt
 		id: row.id,
 		organization_id: row.organization_id,
 		ratedPersonId: row.rated_person_id,
-		evalType: row.eval_type,
+		evalType: ratingSchemeEntryCreateSchema.shape.evalType.parse(row.eval_type),
 		raterPersonId: row.rater_person_id,
 		raterName: row.rater_name,
 		seniorRaterPersonId: row.senior_rater_person_id,
@@ -68,10 +48,10 @@ export function mapRatingSchemeEntry(row: RatingSchemeRow): SavedRatingSchemeEnt
 		reviewerName: row.reviewer_name,
 		ratingPeriodStart: row.rating_period_start,
 		ratingPeriodEnd: row.rating_period_end,
-		status: row.status,
+		status: ratingSchemeEntryCreateSchema.shape.status.parse(row.status),
 		notes: row.notes,
-		reportType: row.report_type,
-		workflowStatus: row.workflow_status,
+		reportType: row.report_type as SavedRatingSchemeEntry['reportType'],
+		workflowStatus: row.workflow_status as SavedRatingSchemeEntry['workflowStatus'],
 		created_at: row.created_at,
 		updated_at: row.updated_at
 	};
@@ -81,9 +61,9 @@ function emptyToNull(value: string | null | undefined) {
 	return value === '' ? null : value;
 }
 
-export function ratingSchemeCreateValues(input: RatingSchemeCreateValues): Record<string, unknown> {
+export function ratingSchemeCreateValues(input: RatingSchemeCreateValues) {
 	return {
-		rated_person_id: emptyToNull(input.ratedPersonId),
+		rated_person_id: emptyToNull(input.ratedPersonId) as string,
 		eval_type: input.evalType,
 		rater_person_id: emptyToNull(input.raterPersonId) ?? null,
 		rater_name: emptyToNull(input.raterName) ?? null,
@@ -93,8 +73,8 @@ export function ratingSchemeCreateValues(input: RatingSchemeCreateValues): Recor
 		intermediate_rater_name: emptyToNull(input.intermediateRaterName) ?? null,
 		reviewer_person_id: emptyToNull(input.reviewerPersonId) ?? null,
 		reviewer_name: emptyToNull(input.reviewerName) ?? null,
-		rating_period_start: emptyToNull(input.ratingPeriodStart),
-		rating_period_end: emptyToNull(input.ratingPeriodEnd),
+		rating_period_start: emptyToNull(input.ratingPeriodStart) as string,
+		rating_period_end: emptyToNull(input.ratingPeriodEnd) as string,
 		status: input.status,
 		notes: emptyToNull(input.notes) ?? null,
 		report_type: emptyToNull(input.reportType) ?? null,
@@ -102,9 +82,9 @@ export function ratingSchemeCreateValues(input: RatingSchemeCreateValues): Recor
 	};
 }
 
-export function ratingSchemePatchValues(input: RatingSchemePatchValues): Record<string, unknown> {
+export function ratingSchemePatchValues(input: RatingSchemePatchValues) {
 	const values = {
-		rated_person_id: emptyToNull(input.ratedPersonId),
+		rated_person_id: emptyToNull(input.ratedPersonId) as string | undefined,
 		eval_type: input.evalType,
 		rater_person_id: emptyToNull(input.raterPersonId),
 		rater_name: emptyToNull(input.raterName),
@@ -114,12 +94,15 @@ export function ratingSchemePatchValues(input: RatingSchemePatchValues): Record<
 		intermediate_rater_name: emptyToNull(input.intermediateRaterName),
 		reviewer_person_id: emptyToNull(input.reviewerPersonId),
 		reviewer_name: emptyToNull(input.reviewerName),
-		rating_period_start: emptyToNull(input.ratingPeriodStart),
-		rating_period_end: emptyToNull(input.ratingPeriodEnd),
+		rating_period_start: emptyToNull(input.ratingPeriodStart) as string | undefined,
+		rating_period_end: emptyToNull(input.ratingPeriodEnd) as string | undefined,
 		status: input.status,
 		notes: emptyToNull(input.notes),
 		report_type: emptyToNull(input.reportType),
 		workflow_status: emptyToNull(input.workflowStatus)
 	};
-	return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined));
+	const filtered: Partial<typeof values> = Object.fromEntries(
+		Object.entries(values).filter(([, value]) => value !== undefined)
+	);
+	return filtered;
 }

@@ -21,14 +21,14 @@ export interface SignInRosterSnapshotContext {
 	loadRankCatalog(): Promise<RankCatalogEntry[]>;
 }
 
-export interface CanonicalSignInRosterSnapshot {
+export type CanonicalSignInRosterSnapshot = {
 	id: string;
 	rank: string;
 	lastName: string;
 	firstName: string;
 	group: string;
 	groupId: string | null;
-}
+};
 
 export interface PreparedSignInRosterSnapshot {
 	personnelIds: string[];

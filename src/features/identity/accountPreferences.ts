@@ -8,7 +8,7 @@ export const TrainingMatrixCurrentMarkSchema = z.enum(['date', 'check', 'blank']
 
 export type TrainingMatrixCurrentMark = z.infer<typeof TrainingMatrixCurrentMarkSchema>;
 
-export interface UserOrgPreferences {
+export type UserOrgPreferences = {
 	calendar: {
 		showStatusText: boolean;
 		showPersonnelRoles: boolean;
@@ -22,7 +22,7 @@ export interface UserOrgPreferences {
 		matrixCurrentMark: TrainingMatrixCurrentMark;
 		matrixNeedsActionOnly: boolean;
 	};
-}
+};
 
 export interface UserOrgPreferencesPatch {
 	calendar?: Partial<UserOrgPreferences['calendar']>;

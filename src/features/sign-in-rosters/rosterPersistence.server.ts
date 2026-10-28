@@ -15,9 +15,9 @@ export interface SignInRosterListInput {
 
 export interface SignInRosterCreateInput {
 	title: string;
-	rosterDate: unknown;
-	blankDate: unknown;
-	separateByGroup: unknown;
+	rosterDate: string | null;
+	blankDate: boolean;
+	separateByGroup: boolean;
 	sortBy: PreparedSignInRosterSnapshot['sortBy'];
 	personnelSnapshot: PreparedSignInRosterSnapshot['personnelSnapshot'];
 	personnelIds: string[];

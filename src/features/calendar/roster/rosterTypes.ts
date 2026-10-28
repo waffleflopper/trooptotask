@@ -35,7 +35,7 @@ export type RosterCode = Exclude<RosterEffect, 'available'>;
 export type AssignmentSource = 'manual' | 'roster';
 
 /** Rules of different kinds AND together. Values within a kind OR together. An empty list leaves its kind unconstrained. */
-export interface PoolRules {
+export type PoolRules = {
 	/** Inclusive range in Organization rank catalog order. The ends may come in either order. */
 	readonly rank: { readonly from: string; readonly to: string } | null;
 	/** Exact match, ignoring case, against `personnel.mos`. */
@@ -43,7 +43,7 @@ export interface PoolRules {
 	/** Exact match, ignoring case, against `personnel.clinic_role`. */
 	readonly role: readonly string[];
 	readonly groupIds: readonly string[];
-}
+};
 
 /** Fixed for the life of a form. Changing either closes the form. A null pool means Everyone. */
 export interface RosterRules {

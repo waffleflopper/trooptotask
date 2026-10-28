@@ -1,4 +1,5 @@
-import type { SupabaseClient } from '$lib/server/database';
+import type { PoolRules } from './roster/rosterTypes';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
@@ -60,11 +61,19 @@ function holidayKeys(holidays: FederalHolidayDefault[]): string {
 	return JSON.stringify(holidays.map(({ date, name }) => JSON.stringify([date, name])).sort());
 }
 
+type JsonWritable<T> = T extends object ? { -readonly [Key in keyof T]: JsonWritable<T[Key]> } : T;
+
+function poolJson(rules: PoolRules | null) {
+	return rules === null
+		? null
+		: { ...rules, mos: [...rules.mos], role: [...rules.role], groupIds: [...rules.groupIds] };
+}
+
 // postgrest-js reports a failed fetch as an error with an empty code instead of rejecting.
-async function calendarCommand<T>(
+async function calendarCommand<T, Name extends keyof Database['public']['Functions']>(
 	client: SupabaseClient,
-	name: string,
-	args: Record<string, unknown>,
+	name: Name,
+	args: Database['public']['Functions'][Name]['Args'],
 	result: z.ZodType<T>
 ): Promise<T> {
 	const { data, error } = await client.rpc(name, args);
@@ -177,8 +186,8 @@ export function createSupabaseCalendarCatalogPersistence(
 				'set_status_type_order',
 				{
 					p_organization_id: orgId,
-					p_status_type_ids: statusTypeIds,
-					p_expected_status_type_ids: expectedStatusTypeIds
+					p_status_type_ids: [...statusTypeIds],
+					p_expected_status_type_ids: [...expectedStatusTypeIds]
 				},
 				z.null()
 			);
@@ -241,7 +250,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					assign_to: input.assignTo,
 					color: input.color ?? '#6b7280',
 					sort_order: last.data ? last.data.sort_order + 1 : 0,
-					roster_pool_rules: input.poolRules ?? null,
+					roster_pool_rules: poolJson(input.poolRules ?? null),
 					roster_weekend_mode: input.weekendMode ?? 'same'
 				})
 				.select(ASSIGNMENT_TYPE_FIELDS)
@@ -292,7 +301,7 @@ export function createSupabaseCalendarCatalogPersistence(
 			const rows = await calendarCommand(
 				client,
 				'add_closure_days',
-				{ p_organization_id: orgId, p_name: name, p_dates: dates },
+				{ p_organization_id: orgId, p_name: name, p_dates: [...dates] },
 				closureDayRows
 			);
 			const requested = new Set(dates);
@@ -334,7 +343,7 @@ export function createSupabaseCalendarCatalogPersistence(
 			const rows = await calendarCommand(
 				client,
 				'reset_federal_holidays',
-				{ p_organization_id: orgId, p_holidays: holidays },
+				{ p_organization_id: orgId, p_holidays: holidays.map((holiday) => ({ ...holiday })) },
 				federalHolidayRows
 			);
 			if (
@@ -351,8 +360,8 @@ export function createSupabaseCalendarCatalogPersistence(
 				'set_calendar_lanes',
 				{
 					p_organization_id: orgId,
-					p_lane_type_ids: laneTypeIds,
-					p_expected_lane_type_ids: expectedLaneTypeIds
+					p_lane_type_ids: [...laneTypeIds],
+					p_expected_lane_type_ids: [...expectedLaneTypeIds]
 				},
 				z.null()
 			);
@@ -458,9 +467,9 @@ export function createSupabaseCalendarCatalogPersistence(
 					p_assignment_type_id: input.assignmentTypeId,
 					p_form_id: input.formId,
 					p_today: input.today,
-					p_pool_rules: input.poolRules,
+					p_pool_rules: poolJson(input.poolRules),
 					p_weekend_mode: input.weekendMode,
-					p_record: input.record,
+					p_record: input.record as JsonWritable<typeof input.record>,
 					p_carry: input.carry.map(({ personId, track, count }) => ({
 						personnel_id: personId,
 						track,
@@ -483,7 +492,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					p_today: input.today,
 					p_pool_rules: null,
 					p_weekend_mode: null,
-					p_record: input.record,
+					p_record: input.record as JsonWritable<typeof input.record>,
 					p_carry: []
 				},
 				z.null()

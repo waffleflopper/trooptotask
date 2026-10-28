@@ -1,6 +1,7 @@
+import { packetCreationResult } from './onboardingCommandResults.server';
 import type { SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
-import type { OnboardingPacketCreationPort, OnboardingPacketCreationResult } from '../contracts';
+import type { OnboardingPacketCreationPort } from '../contracts';
 
 /** The ordinary request client saves the prepared packet in one database transaction. */
 export function createSupabaseOnboardingPacketCreationPort(supabase: SupabaseClient): OnboardingPacketCreationPort {
@@ -29,10 +30,8 @@ export function createSupabaseOnboardingPacketCreationPort(supabase: SupabaseCli
 				}
 				throw new Error(error.message);
 			}
-			if (typeof data?.onboarding?.id !== 'string' || !data.onboarding.id || !Array.isArray(data.steps)) {
-				throw new Error('Onboarding packet creation returned no saved packet');
-			}
-			return data as OnboardingPacketCreationResult;
+
+			return packetCreationResult.parse(data);
 		}
 	};
 }

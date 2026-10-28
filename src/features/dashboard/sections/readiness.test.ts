@@ -44,6 +44,7 @@ interface Loaded {
 	ratingSchemeEntries?: Partial<RatingSchemeDueEntry>[];
 	activeOnboardings?: Partial<PersonnelOnboarding>[];
 	lossWarningWindowDays?: number;
+	trainingReadinessGoalPercent?: number;
 }
 
 function inputs(loaded: Loaded = {}): DashboardInputs {
@@ -83,6 +84,7 @@ function inputs(loaded: Loaded = {}): DashboardInputs {
 					trainingTypes: [],
 					lossWarningWindowDays: loaded.lossWarningWindowDays ?? 180,
 					strengthFloorPercent: 80,
+					trainingReadinessGoalPercent: loaded.trainingReadinessGoalPercent ?? 90,
 					awardTrackingAcknowledgedPersonnelIds: [],
 					specialDays: []
 				},
@@ -139,7 +141,7 @@ describe('trainingReadiness', () => {
 			state: 'ready',
 			figure: '25%',
 			figureTone: 'critical',
-			suffix: 'current',
+			suffix: 'of Soldiers current',
 			graphic: {
 				kind: 'shares',
 				shares: [
@@ -149,7 +151,7 @@ describe('trainingReadiness', () => {
 					{ label: 'expired', count: 1, tone: 'critical' }
 				]
 			},
-			note: '1 Soldier expired and 2 expiring. Bravo is lowest at 0%.'
+			note: '1 Soldier expired and 2 expiring. Bravo is lowest at 0%. Goal 90%. Any training expired, missing or in its Expiring window makes a Soldier not current.'
 		});
 	});
 
@@ -173,7 +175,7 @@ describe('trainingReadiness', () => {
 					{ label: 'expired', count: 0, tone: 'critical' }
 				]
 			},
-			note: '1 Soldier missing training.'
+			note: expect.stringMatching(/^1 Soldier missing training\. Goal 90%\. /)
 		});
 
 		const mixed = trainingReadiness(
@@ -183,19 +185,23 @@ describe('trainingReadiness', () => {
 			}),
 			everything
 		);
-		expect(mixed).toMatchObject({ figure: '17%', note: '2 Soldiers expired, 2 missing training and 1 expiring.' });
+		expect(mixed).toMatchObject({
+			figure: '17%',
+			note: expect.stringMatching(/^2 Soldiers expired, 2 missing training and 1 expiring\. Goal 90%\./)
+		});
 	});
 
 	it.each([
-		{ total: 10, delinquent: 1, figure: '90%', tone: 'good' },
-		{ total: 199, delinquent: 20, figure: '90%', tone: 'good' },
-		{ total: 199, delinquent: 50, figure: '75%', tone: 'warning' },
-		{ total: 100, delinquent: 11, figure: '89%', tone: 'warning' },
-		{ total: 4, delinquent: 1, figure: '75%', tone: 'warning' },
-		{ total: 100, delinquent: 26, figure: '74%', tone: 'critical' }
-	])('colors $figure current $tone at the 90 and 75 percent cutoffs', ({ total, delinquent, figure, tone }) => {
+		{ goal: 90, total: 10, delinquent: 1, figure: '90%', tone: 'good' },
+		{ goal: 90, total: 100, delinquent: 11, figure: '89%', tone: 'warning' },
+		{ goal: 90, total: 100, delinquent: 30, figure: '70%', tone: 'warning' },
+		{ goal: 90, total: 100, delinquent: 31, figure: '69%', tone: 'critical' },
+		{ goal: 70, total: 100, delinquent: 30, figure: '70%', tone: 'good' },
+		{ goal: 70, total: 100, delinquent: 51, figure: '49%', tone: 'critical' }
+	])('colors $figure current $tone against a $goal% goal', ({ goal, total, delinquent, figure, tone }) => {
 		const column = trainingReadiness(
 			inputs({
+				trainingReadinessGoalPercent: goal,
 				personnel: Array.from({ length: total }, (_, index) => person(`p${index}`, null)),
 				trainingSummary: trainingSummary(0, [{ groupId: null, expired: 0, delinquent }])
 			}),
@@ -205,13 +211,29 @@ describe('trainingReadiness', () => {
 		expect(column).toMatchObject({ figure, figureTone: tone });
 	});
 
+	it('colors a share that rounds up to the goal by its exact count', () => {
+		const column = trainingReadiness(
+			inputs({
+				personnel: Array.from({ length: 199 }, (_, index) => person(`p${index}`, null)),
+				trainingSummary: trainingSummary(0, [{ groupId: null, expired: 0, delinquent: 20 }])
+			}),
+			everything
+		);
+
+		expect(column).toMatchObject({ figure: '90%', figureTone: 'warning' });
+	});
+
 	it.each([0, 1])('reads yellow-only Training as everyone current with %i People', (count) => {
 		const column = trainingReadiness(
 			inputs({ personnel: count ? [person('p1', null)] : [], trainingSummary: trainingSummary(0, []) }),
 			everything
 		);
 
-		expect(column).toMatchObject({ figure: '100%', figureTone: 'good', note: 'Everyone is current.' });
+		expect(column).toMatchObject({
+			figure: '100%',
+			figureTone: 'good',
+			note: expect.stringMatching(/^Everyone is current\. Goal 90%\./)
+		});
 	});
 
 	it('shows nothing when the summary withholds Training, and the failure only to a viewer who could read it', () => {
@@ -318,20 +340,21 @@ describe('evaluationsReadiness', () => {
 			state: 'ready',
 			figure: '2',
 			figureTone: 'critical',
-			suffix: 'overdue',
+			suffix: 'past thru',
 			graphic: {
 				kind: 'shares',
 				shares: [
-					{ label: 'overdue', count: 2, tone: 'critical' },
-					{ label: 'due within 30 days', count: 4, tone: 'warning' },
-					{ label: 'current', count: 2, tone: 'good' }
+					{ label: 'past thru', count: 2, tone: 'critical' },
+					{ label: 'thru in 30 days', count: 4, tone: 'warning' },
+					{ label: 'thru in 31 to 60 days', count: 1, tone: 'warning' },
+					{ label: 'current', count: 1, tone: 'good' }
 				]
 			},
-			note: '4 more due within 30 days and 1 within 60. 2 are current.'
+			note: '4 more thru in 30 days and 1 in 31 to 60. 1 current.'
 		});
 	});
 
-	it('counts an evaluation due in 45 days as current and one due in 20 days as due within 30 days', () => {
+	it('counts an evaluation due in 45 days as thru in 31 to 60 days and one due in 20 days as thru in 30 days', () => {
 		const ratingSchemeEntries = [
 			{ ratingPeriodEnd: '2026-12-03', status: 'active' },
 			{ ratingPeriodEnd: '2026-11-08', status: 'active' }
@@ -342,9 +365,10 @@ describe('evaluationsReadiness', () => {
 			graphic: {
 				kind: 'shares',
 				shares: [
-					{ label: 'overdue', count: 0, tone: 'critical' },
-					{ label: 'due within 30 days', count: 1, tone: 'warning' },
-					{ label: 'current', count: 1, tone: 'good' }
+					{ label: 'past thru', count: 0, tone: 'critical' },
+					{ label: 'thru in 30 days', count: 1, tone: 'warning' },
+					{ label: 'thru in 31 to 60 days', count: 1, tone: 'warning' },
+					{ label: 'current', count: 0, tone: 'good' }
 				]
 			}
 		});
@@ -354,7 +378,7 @@ describe('evaluationsReadiness', () => {
 		expect(evaluationsReadiness(inputs(), everything)).toMatchObject({
 			figure: '0',
 			figureTone: undefined,
-			note: 'None due within 60 days. 0 are current.'
+			note: 'None thru within 60 days. 0 current.'
 		});
 	});
 

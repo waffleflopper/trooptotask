@@ -1,14 +1,25 @@
 import { evaluateUpcomingLosses } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
+import { trainingReadinessBand, type BriefingBand } from '$features/training/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { formatDayMonth, parseDate } from '$lib/utils/dates';
 import type { DashboardInputs } from './dashboardInputs';
-import type { ReadinessSource } from './dashboardSections';
+import type { ReadinessSource, ReadinessTone } from './dashboardSections';
 import { LOSS_LABEL, orgPath, plural } from './needsYouSources';
 import { hasOnboardingTemplate } from './setupChecks';
 
 const { criticalTasks, onboarding, ratingScheme, training } = POLICY_ACTION_CATALOG;
 const NAMED_LOSSES = 3;
+
+/** The bands Training reports color by, read as the Dashboard's three tones. */
+const TONE_BY_BAND = {
+	goal: 'good',
+	near: 'warning',
+	below: 'warning',
+	far: 'critical',
+	critical: 'critical',
+	none: 'good'
+} as const satisfies Record<BriefingBand, ReadinessTone>;
 
 function percentOf(part: number, whole: number): number {
 	return whole === 0 ? 100 : Math.max(0, Math.round((part / whole) * 100));
@@ -38,6 +49,7 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	const expiring = delinquent - expired - missing;
 	const current = Math.max(0, total - delinquent);
 	const currentPercent = percentOf(current, total);
+	const goal = inputs.page.dashboard.data.trainingReadinessGoalPercent;
 
 	const sentences: string[] = [];
 	const counts = [
@@ -54,13 +66,14 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	else sentences.push(counts.length > 0 ? `${counts.join(', ')} and ${last}.` : `${last}.`);
 	const lowest = lowestGroupCurrency(inputs, delinquentByGroup);
 	if (lowest && lowest.percent < 100) sentences.push(`${lowest.name} is lowest at ${lowest.percent}%.`);
+	sentences.push(`Goal ${goal}%. Any training expired, missing or in its Expiring window makes a Soldier not current.`);
 
 	return {
 		...column,
 		state: 'ready',
 		figure: `${currentPercent}%`,
-		figureTone: currentPercent >= 90 ? 'good' : currentPercent >= 75 ? 'warning' : 'critical',
-		suffix: 'current',
+		figureTone: TONE_BY_BAND[trainingReadinessBand(current, total, goal)],
+		suffix: 'of Soldiers current',
 		graphic: {
 			kind: 'shares',
 			shares: [
@@ -149,11 +162,11 @@ export const evaluationsReadiness: ReadinessSource = (inputs, access) => {
 	const { overdue } = counts;
 	const due30 = counts['due-30'];
 	const due60 = counts['due-60'];
-	const current = counts.current + due60;
+	const { current } = counts;
 	const due =
 		due30 + due60 === 0
-			? 'None due within 60 days.'
-			: `${due30}${overdue > 0 ? ' more' : ''} due within 30 days and ${due60} within 60.`;
+			? 'None thru within 60 days.'
+			: `${due30}${overdue > 0 ? ' more' : ''} thru in 30 days and ${due60} in 31 to 60.`;
 
 	return {
 		id: 'evaluations',
@@ -162,16 +175,17 @@ export const evaluationsReadiness: ReadinessSource = (inputs, access) => {
 		state: 'ready',
 		figure: String(overdue),
 		figureTone: overdue > 0 ? 'critical' : undefined,
-		suffix: 'overdue',
+		suffix: 'past thru',
 		graphic: {
 			kind: 'shares',
 			shares: [
-				{ label: 'overdue', count: overdue, tone: 'critical' },
-				{ label: 'due within 30 days', count: due30, tone: 'warning' },
+				{ label: 'past thru', count: overdue, tone: 'critical' },
+				{ label: 'thru in 30 days', count: due30, tone: 'warning' },
+				{ label: 'thru in 31 to 60 days', count: due60, tone: 'warning' },
 				{ label: 'current', count: current, tone: 'good' }
 			]
 		},
-		note: `${due} ${current} ${current === 1 ? 'is' : 'are'} current.`
+		note: `${due} ${current} current.`
 	};
 };
 

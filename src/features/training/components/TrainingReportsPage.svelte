@@ -436,6 +436,7 @@
 									{percentLabel(bottomLine.today)}
 								</p>
 								<p class="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Ready today</p>
+								<p class="font-mono text-[11px] text-muted-foreground">of required training</p>
 							</div>
 							<div>
 								<p class={['font-heading text-[48px] leading-[44px] font-bold', tone(bottomLine.horizon)]}>

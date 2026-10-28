@@ -69,6 +69,7 @@ function unit(overrides: Partial<SetUp> = {}): DashboardInputs {
 				trainingTypes: setUp.trainingTypes ? [{ id: 'sharp', name: 'SHARP' } as TrainingType] : [],
 				lossWarningWindowDays: 180,
 				strengthFloorPercent: 80,
+				trainingReadinessGoalPercent: 90,
 				awardTrackingAcknowledgedPersonnelIds: [],
 				specialDays: []
 			},

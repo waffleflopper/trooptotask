@@ -43,6 +43,7 @@ export type {
 /** Matches the `training_types.color` column default and the seeded value, so a type saved without a color renders gray. */
 export const DEFAULT_TRAINING_TYPE_COLOR = '#6b7280';
 export { isTrainingApplicable } from './utils/applicability';
+export { bandFor as trainingReadinessBand } from './utils/trainingBriefing';
 export type {
 	PersonnelTrainingItem,
 	PersonnelTrainingReadiness,

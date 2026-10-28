@@ -82,6 +82,7 @@ const inputs: DashboardInputs = {
 				trainingTypes: [],
 				lossWarningWindowDays: 180,
 				strengthFloorPercent: 80,
+				trainingReadinessGoalPercent: 90,
 				awardTrackingAcknowledgedPersonnelIds: [],
 				specialDays: []
 			},

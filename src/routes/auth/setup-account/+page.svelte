@@ -106,7 +106,7 @@
 			: setupFinished
 				? 'Continue by signing in with the password you chose.'
 				: showPasswordForm && 'email' in data
-					? `This setup link is approved for ${data.email}.`
+					? `This setup link is ${invitedTo ? 'for' : 'approved for'} ${data.email}.`
 					: 'Request a fresh setup link if your approval is still eligible.'}
 >
 	<div class="flex flex-col gap-5">

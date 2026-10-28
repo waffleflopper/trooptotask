@@ -23,7 +23,7 @@ from urllib.parse import urlsplit
 
 EXCLUDED_SERVICES = (
     "studio,imgproxy,realtime,storage-api,edge-runtime,logflare,vector,"
-    "postgres-meta,mailpit,supavisor"
+    "mailpit,supavisor"
 )
 # Matches Supabase CLI 2.101.0's pgTAP runner. Unlike `test db <file>`,
 # mounting the copied tree lets migration tests resolve relative psql includes.
@@ -632,7 +632,8 @@ def startup_diagnostics(output):
     return '\n'.join(lines)
 
 
-def run(command, workdir, *, quiet=False, check=True, environment=None, input_text=None):
+def run(command, workdir, *, quiet=False, check=True, environment=None, input_text=None,
+        separate_stderr=False):
     global _spawning, _deferred_signal
     print("+ " + " ".join(command), flush=True)
     _spawning = True
@@ -641,7 +642,7 @@ def run(command, workdir, *, quiet=False, check=True, environment=None, input_te
         process = subprocess.Popen(
             command, cwd=workdir, env=clean_environment() if environment is None else environment,
             stdout=subprocess.PIPE if quiet else None,
-            stderr=subprocess.STDOUT if quiet else None,
+            stderr=(subprocess.PIPE if separate_stderr else subprocess.STDOUT) if quiet else None,
             stdin=subprocess.PIPE if input_text is not None else None,
             text=True, start_new_session=True,
         )
@@ -726,7 +727,46 @@ def validate_seeds(repository, workdir, execute, psql):
     print('SQL seeds rolled back and generated performance seed columns resolved.', flush=True)
 
 
-def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sql_tests=None):
+APP_SCHEMAS = ('public', 'calendar_private', 'member_access_private', 'onboarding_private',
+               'organization_private', 'personnel_private')
+
+
+def normalize_schema_dump(dump):
+    return '\n'.join(
+        line for line in dump.splitlines()
+        if not re.match(r'^\\(?:un)?restrict\b|^-- (?:Dumped (?:from|by) |Started on:|Completed on:)', line)
+    ).strip() + '\n'
+
+
+def generate_schema(repository, workdir, execute, container, *, write=False):
+    types = execute(['supabase', 'gen', 'types', 'typescript', '--local', '--schema', 'public'],
+                    workdir, quiet=True, separate_stderr=True).stdout
+    dump = execute(['docker', 'exec', '-e', 'PGPASSWORD=postgres', container,
+                    'pg_dump', '-U', 'supabase_admin',
+                    '-d', 'postgres', '--schema-only',
+                    *(f'--schema={schema}' for schema in APP_SCHEMAS)],
+                   workdir, quiet=True, separate_stderr=True).stdout
+    outputs = {
+        'src/lib/server/database.types.ts': types.rstrip() + '\n',
+        'supabase/current-schema.sql': normalize_schema_dump(dump),
+    }
+    drift = []
+    for name, content in outputs.items():
+        path = repository / name
+        if write:
+            path.write_text(content)
+            print(f'Generated {name}', flush=True)
+        elif not path.exists() or path.read_text() != content:
+            drift.append(name)
+    if drift:
+        raise ValueError('Generated database files differ from migrations: ' + ', '.join(drift)
+                         + '. Regenerate with: mise exec node@24 -- npm run db:schema')
+    if not write:
+        print('Generated database types and current schema match migrations.', flush=True)
+
+
+def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sql_tests=None,
+             write_schema=False):
     global _spawning, _deferred_signal
     execute = partial(run, environment=_receipt.environment() if _receipt else local_docker_environment(repository))
     source = tomllib.loads((repository / "supabase/config.toml").read_text())
@@ -819,6 +859,9 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 workdir, environment=_provider_environment(repository, workdir, execute))
             print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding, Organization Storage and account preference scope upgrades passed.", flush=True)
             return
+        generate_schema(repository, workdir, execute, container, write=write_schema)
+        if write_schema:
+            return
         if setup_people_explain:
             execute([*psql[:2], "-i", *psql[2:]], workdir,
                     input_text=(repository / "scripts/ci/setup_people_explain.sql").read_text())
@@ -895,6 +938,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--setup-people-explain', action='store_true')
     parser.add_argument('--sql-test', action='append', help='Rerun a named supabase/tests contract after a focused repair')
+    parser.add_argument('--write-schema', action='store_true',
+                        help='Regenerate database types and SQL snapshot in a fresh disposable project')
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--receipt', type=Path)
     modes.add_argument('--cleanup', type=Path)
@@ -918,6 +963,13 @@ def main():
                 return
             cleanup_owned_projects(JobReceipt(args.cleanup))
             return
+        if args.write_schema and not args.receipt:
+            runner_temp = Path.home() / '.cache/trooptotask-schema'
+            runner_temp.mkdir(parents=True, exist_ok=True, mode=0o700)
+            run_id = str(time.time_ns())
+            os.environ.update(GITHUB_RUN_ID=run_id, GITHUB_RUN_ATTEMPT='1', GITHUB_JOB='local',
+                              GITHUB_REPOSITORY='waffleflopsgg/trooptotask', RUNNER_TEMP=str(runner_temp))
+            args.receipt = runner_temp / f't2t-ci-db-{run_id}-1-local.json'
         if args.receipt:
             environment = local_docker_environment(repository)
             _receipt = JobReceipt(args.receipt, create=True, endpoint=environment['DOCKER_HOST'])
@@ -925,7 +977,10 @@ def main():
             for name in args.sql_test:
                 if Path(name).name != name or not name.endswith('.sql') or not (repository / 'supabase/tests' / name).is_file():
                     raise ValueError('SQL test must name an existing file under supabase/tests')
-        validate(repository, setup_people_explain=args.setup_people_explain, sql_tests=args.sql_test)
+        validate(repository, setup_people_explain=args.setup_people_explain, sql_tests=args.sql_test,
+                 write_schema=args.write_schema)
+        if args.write_schema:
+            return
         validate(repository, staged_upgrade=True)
     except (subprocess.CalledProcessError, OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
         print(f"Database validation failed: {error}", flush=True)

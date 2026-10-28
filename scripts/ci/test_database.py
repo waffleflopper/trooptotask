@@ -20,6 +20,47 @@ from unittest.mock import patch
 import database
 
 
+class SchemaGenerationTests(unittest.TestCase):
+    def test_normalizes_only_dump_metadata_and_random_restriction_keys(self):
+        self.assertEqual(database.normalize_schema_dump('''--
+-- PostgreSQL database dump
+--
+
+\\restrict random-key
+
+-- Dumped from database version 17.6
+-- Dumped by pg_dump version 17.6
+-- Started on: 2026-10-27 12:00:00 UTC
+
+CREATE SCHEMA public;
+COMMENT ON SCHEMA public IS 'Keep application comments';
+-- A function comment stays.
+CREATE FUNCTION public.example() RETURNS text AS $$
+SELECT '2026-10-27';
+$$ LANGUAGE sql;
+
+-- Completed on: 2026-10-27 12:01:00 UTC
+\\unrestrict random-key
+
+-- PostgreSQL database dump complete
+'''), '''--
+-- PostgreSQL database dump
+--
+
+
+
+CREATE SCHEMA public;
+COMMENT ON SCHEMA public IS 'Keep application comments';
+-- A function comment stays.
+CREATE FUNCTION public.example() RETURNS text AS $$
+SELECT '2026-10-27';
+$$ LANGUAGE sql;
+
+
+-- PostgreSQL database dump complete
+''')
+
+
 class StartupDiagnosticsTests(unittest.TestCase):
     def test_filters_errors_and_redacts_credentials(self):
         output = '''Starting containers
@@ -720,6 +761,9 @@ inspector_port = 8283
         (self.source / "migrations/20260101000000_initial.sql").write_text("SELECT 1;")
         (self.source / "private-seed.sql").write_text("DO NOT COPY")
         (self.source / ".env").write_text("SECRET=DO-NOT-COPY")
+        (self.repository / 'src/lib/server').mkdir(parents=True)
+        (self.repository / 'src/lib/server/database.types.ts').write_text('synthetic types\n')
+        (self.source / 'current-schema.sql').write_text('CREATE SCHEMA public;\n')
         (self.repository / "package.json").write_text(json.dumps({"scripts": {
             "db:test": "supabase test db supabase/tests",
             "prepare": "unsafe-install-hook",
@@ -831,6 +875,10 @@ inspector_port = 8283
                         raise subprocess.CalledProcessError(1, command)
                     if failure == "interruption" and command[:2] == ["npm", "run"]:
                         raise SystemExit(143)
+                    if command[:3] == ['supabase', 'gen', 'types']:
+                        return subprocess.CompletedProcess(command, 0, stdout='synthetic types\n')
+                    if 'pg_dump' in command:
+                        return subprocess.CompletedProcess(command, 0, stdout='CREATE SCHEMA public;\n')
                     return subprocess.CompletedProcess(command, 0)
 
                 expected = SystemExit if failure == "interruption" else subprocess.CalledProcessError

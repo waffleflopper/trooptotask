@@ -23,11 +23,13 @@ describe('CalendarTypesEmptyState', () => {
 		});
 
 		expect(screen.queryByRole('link')).toBeNull();
+		expect(screen.getByText(/Ask someone who manages Calendar settings/)).toBeTruthy();
 	});
 
 	it('offers no link when the page set no Calendar settings access', () => {
 		render(CalendarTypeSetupHost, { props: { kind: 'status' } });
 
 		expect(screen.queryByRole('link')).toBeNull();
+		expect(screen.getByText(/Ask someone who manages Calendar settings/)).toBeTruthy();
 	});
 });

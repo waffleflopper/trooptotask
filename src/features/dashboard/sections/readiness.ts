@@ -66,7 +66,9 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	else sentences.push(counts.length > 0 ? `${counts.join(', ')} and ${last}.` : `${last}.`);
 	const lowest = lowestGroupCurrency(inputs, delinquentByGroup);
 	if (lowest && lowest.percent < 100) sentences.push(`${lowest.name} is lowest at ${lowest.percent}%.`);
-	sentences.push(`Goal ${goal}%. Any training expired, missing or in its Expiring window makes a Soldier not current.`);
+	sentences.push(
+		`Goal ${goal}%. Any required training expired, missing or in its Expiring window makes a Soldier not current.`
+	);
 
 	return {
 		...column,

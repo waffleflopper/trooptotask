@@ -295,7 +295,7 @@
 				{batch.length === 1 ? 'person' : 'people'} · {datesLabel}
 			</span>
 		{:else}
-			<span class="text-chrome-text-muted"><CalendarTypesEmptyState kind="status" /></span>
+			<span class="text-chrome-text-muted [&_a]:text-chrome-text"><CalendarTypesEmptyState kind="status" /></span>
 		{/if}
 	</p>
 	{#if overlapping.length > 0}

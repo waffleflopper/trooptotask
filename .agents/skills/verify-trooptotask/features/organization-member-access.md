@@ -28,14 +28,14 @@ and its control on the right: `Role` and `Preset` as radio groups, `Area by area
 `Change an area only when the preset is too broad or too narrow for it.` and six lanes, `Calendar`, `Personnel`,
 `Training`, `Critical tasks`, `Onboarding` and `Evaluations`, of `None`/`View`/`Update`/`Manage` (a lane off the preset
 shows an amber dot in its gutter and `<preset> gives <level>`), and `Groups` as `Whole unit`/`Selected` with group chips
-and a restating sentence (`Works across all of <unit>, including Soldiers with no group.` or `Works in <list> only. Soldiers
-with no group aren't visible to them.`), visible without scrolling at 1440x1000. The footer has `Remove from <unit>` on the left and
-`Cancel` with `Save <n> changes` together on the right. At 390 a lane's control wraps under its label and stays
-right-aligned. Escape cancels without saving; a save returns focus to the row's `Manage` button. Below `md` the table
-keeps the member and actions columns and moves both lanes under the email. `Remove` lives in the row's
-`More actions for <email>` menu. For ownership, open `Settings` → `Danger Zone`, choose an eligible member under
-`Transfer ownership`, click `Transfer`, type that member's email in `Type <email> to confirm` in the
-`Make <email> the Owner?` dialog, and submit `Transfer ownership`.
+and a restating sentence (`Works across all of <unit>, including Soldiers with no group.` or
+`Works in <list> only. Soldiers with no group aren't visible to them.`), visible without scrolling at 1440x1000. The
+footer has `Remove from <unit>` on the left and `Cancel` with `Save <n> changes` together on the right. At 390 a lane's
+control wraps under its label and stays right-aligned. Escape cancels without saving; a save returns focus to the row's
+`Manage` button. Below `md` the table keeps the member and actions columns and moves both lanes under the email.
+`Remove` lives in the row's `More actions for <email>` menu. For ownership, open `Settings` → `Danger Zone`, choose an
+eligible member under `Transfer ownership`, click `Transfer`, type that member's email in `Type <email> to confirm` in
+the `Make <email> the Owner?` dialog, and submit `Transfer ownership`.
 
 ## Helper controls
 

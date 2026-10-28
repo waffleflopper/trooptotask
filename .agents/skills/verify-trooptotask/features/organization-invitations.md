@@ -82,11 +82,12 @@ helper provides invitation and membership readback for A/B. The owned app's outb
    restart the worker; an accepted invitation cannot be reused as a pending fixture.
 4. For a new-account email with no User Account, create the invitation and capture the owner-facing pending funnel.
    `$V mail state` must list two delivered messages for that address, one `account-setup` and one `invitation`, with the
-   setup path shown as `[redacted]`. In a fresh public context run `$V mail-link PAGE EMAIL setup` and require the page to read
-   `Unit invitation` with `<Organization> invited you.`, `Invitation sent` as step one and no `Request access` link, then complete
-   `/auth/setup-account` as `setup-link` does, then sign in and confirm that setup alone leaves A absent from the
-   account's Organizations. Open the invitation email's recovery link with `$V mail-link PAGE EMAIL invitation` and
-   require `/auth/renew-invite`, whose lede and email hint name the invitation as well as the approval. Accept the A invitation afterward, then reload and read the membership.
+   setup path shown as `[redacted]`. In a fresh public context run `$V mail-link PAGE EMAIL setup` and require the page
+   to read `Unit invitation` with `<Organization> invited you.`, `Invitation sent` as step one and no `Request access`
+   link, then complete `/auth/setup-account` as `setup-link` does, then sign in and confirm that setup alone leaves A
+   absent from the account's Organizations. Open the invitation email's recovery link with
+   `$V mail-link PAGE EMAIL invitation` and require `/auth/renew-invite`, whose lede and email hint name the invitation
+   as well as the approval. Accept the A invitation afterward, then reload and read the membership.
    `$V access-request EMAIL` shows the request, setup link, bridge row and invitation status at each step. Do not use a
    token-bearing URL in evidence.
 5. Exercise one denied owner action as `orgMember` with

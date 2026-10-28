@@ -386,7 +386,7 @@ Worked examples from `$V seed dashboard` on A:
 
 - `dashboardView` has four columns. Training reads `0%` in red with 0 current, 1 expiring, 1 missing training and 2
   expired, and `2 Soldiers expired, 1 missing training and 1 expiring. Alpha is lowest at 0%.` followed by the goal
-  sentence (`Goal 90%. Any training ...`). Critical tasks reads
+  sentence (`Goal 90%. Missing required training ...`). Critical tasks reads
   `14%` ready with all four People below the threshold (`4 of 4 Soldiers below the 70% threshold`). Evaluations reads
   `1` past thru with `1 more thru in 30 days and 1 in 31 to 60. 1 current.` Arriving and leaving reads `1` with the
   Loss Person's ETS by name and `1 Soldier in onboarding.`

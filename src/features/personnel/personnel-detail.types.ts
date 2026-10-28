@@ -6,6 +6,7 @@ import type { PersonnelAttention } from './personnelReadiness.types';
 
 export interface PersonnelDetailHeader {
 	person: Personnel;
+	dodId: string | null;
 	basd: string | null;
 	dateOfRank: string | null;
 }

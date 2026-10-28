@@ -46,23 +46,24 @@ The thesis: leaders spend hours chasing answers scattered across trackers. Troop
 
 ## Slides
 
-The deck picks up where the opener leaves off, with one slide per feature area for the deeper talk. It shares the video's type and color, and its status chips mark what's shipped and what's planned.
+The deck picks up where the opener leaves off, with one slide per feature area for the deeper talk. It shares the video's type and color, and its status chips mark what's shipped and what's planned. Every slide after the opener, except the close, carries the TroopToTask wordmark in its top-right corner.
 
 | # | Slide | Status |
 | --- | --- | --- |
 | 1 | Holding slide (TroopToTask · SSG Robert Baddeley, MEDDAC-AK · Arctic Ascent 2026) | |
-| 2 | The opener (plays the final video) | |
-| 3 | Calendar: Who's where. Every day. | Available today |
-| 4 | Personnel details: Every Soldier. One page. | Just landed |
-| 5 | Training & Training reports: Project drop-offs, maximize training impact. | |
-| 6 | Events & Taskings: Every tasking. Tracked to done. | In design |
-| 7 | Drop Zone & AI: Just say it. | In development |
-| 8 | Security & access: Built to maximize security. | |
-| 9 | Close: Less time on admin. More time with Soldiers. That's readiness. | |
+| 2 | Pain points: Every requirement costs time. The talk track's reminders, from inheriting Soldiers to the 2021 Day in the Life study | |
+| 3 | The opener (plays the final video) | |
+| 4 | Calendar: Who's where. Every day. | Available today |
+| 5 | Personnel details: Every Soldier. One page. | Just landed |
+| 6 | Training & Training reports: Project drop-offs, maximize training impact. | |
+| 7 | Events & Taskings: Every tasking. Tracked to done. | In design |
+| 8 | Drop Zone & AI: Just say it. | In development |
+| 9 | Security & access: Built to maximize security. | |
+| 10 | Close: Less time on admin. More time with Soldiers. That's readiness. trooptotask.org | |
 
 - `deck.html`: open it in Chrome and press F for full screen. → / Space / PageDown (most clickers) advance; ← goes back. The opener slide plays the video with sound when you land on it.
 - `deck-render.mjs`: `node deck-render.mjs` writes `out/slides/slide-NN.png`, the slide list and `out/troop-to-task-arctic-ascent-slides.pdf`.
-- `deck-pptx.py`: `~/.cache/t2t-pitch-audio/venv/bin/python deck-pptx.py` builds `out/troop-to-task-arctic-ascent-slides.pptx` from those images, with the video embedded on slide 2 (click once on that slide to start it).
+- `deck-pptx.py`: `~/.cache/t2t-pitch-audio/venv/bin/python deck-pptx.py` builds `out/troop-to-task-arctic-ascent-slides.pptx` from those images, with the video embedded on slide 3 (click once on that slide to start it).
 
 The deck carries no speaker notes; Robert keeps his own talk track.
 

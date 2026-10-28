@@ -46,7 +46,7 @@ html, body { background: #000; height: 100%; overflow: hidden; }
 .chip.design { color: var(--chrome-muted); border-color: oklch(40% 0.01 70); }
 .chip.design b { background: transparent; border: 1.5px solid var(--chrome-muted); }
 .folio { right: 80px; bottom: 50px; font-family: var(--mono); font-size: 18px; letter-spacing: 0.14em; color: oklch(50% 0.01 70); }
-.mark { left: 120px; bottom: 50px; font-family: var(--head); font-weight: 800; font-size: 26px; letter-spacing: 0.02em; text-transform: uppercase; color: oklch(55% 0.01 70); }
+.mark { right: 80px; top: 44px; font-family: var(--head); font-weight: 800; font-size: 26px; letter-spacing: 0.02em; text-transform: uppercase; color: oklch(62% 0.01 70); }
 
 /* Feature slide: copy left, product right */
 .copy { left: 120px; top: 110px; width: 700px; }
@@ -94,12 +94,17 @@ html, body { background: #000; height: 100%; overflow: hidden; }
 .ask .v { font-family: var(--head); font-weight: 800; font-size: 40px; text-transform: uppercase; color: var(--amber-hi); }
 .ask .q { font-size: 25px; color: var(--chrome-text); line-height: 1.3; }
 
+/* Pain points */
+.lede { font-size: 34px; line-height: 1.35; font-style: italic; color: var(--chrome-text); }
+.pain-end { border-top: 2px solid oklch(32% 0.01 70); padding-top: 30px; font-family: var(--head); font-weight: 700; font-size: 44px; letter-spacing: 0.01em; text-transform: uppercase; color: var(--ivory); }
+.pain-end span { color: var(--amber-hi); }
+
 /* Close */
 #close-1 { top: 250px; font-size: 140px; color: var(--chrome-muted); }
 #close-2 { top: 400px; font-size: 140px; color: var(--ivory); }
 #close-3s { top: 600px; font-size: 32px; }
 #close-3 { top: 650px; font-size: 190px; color: var(--amber-hi); }
-#close-url { bottom: 60px; font-family: var(--mono); font-size: 24px; letter-spacing: 0.14em; color: var(--chrome-muted); }
+#close-url { bottom: 70px; font-family: var(--mono); font-weight: 500; font-size: 40px; letter-spacing: 0.1em; color: var(--ivory); }
 
 /* Print: one slide per page */
 @page { size: 1920px 1080px; margin: 0; }
@@ -121,12 +126,33 @@ body.print #hint { display: none; }
     <div class="abs center" id="title-tag">Less admin. More time with Soldiers.</div>
   </section>
 
-  <!-- 1 · Opener video -->
+  <!-- 1 · Pain points (the intro's talk track) -->
+  <section class="slide">
+    <div class="abs copy" style="width:1680px;top:100px">
+      <h1 class="display" style="margin-bottom:28px">Every requirement costs time.</h1>
+      <div class="lede">Admin readiness and mission training draw from the same hours. It's zero-sum.</div>
+    </div>
+    <div class="abs" style="left:120px;right:120px;top:400px;display:grid;grid-template-columns:1fr 1fr;gap:0 80px">
+      <ul class="pts">
+        <li><b>Inheriting Soldiers.</b> Same data sheets, vehicle info and packets, collected all over again.</li>
+        <li><b>Command &amp; staff slides.</b> AFT, quals, 350-1, taskings, chased by text because the tracker is a week old.</li>
+        <li><b>The share drive.</b> Five copies of “Master Tracker copy of copy (1).xlsx”, three locked, formulas broken.</li>
+      </ul>
+      <ul class="pts">
+        <li><b>Taskings on a whiteboard.</b> “Need 2 for the CSM detail Thursday.” 45 minutes of texts, same two Soldiers again.</li>
+        <li><b>Duty rosters without a DA 6.</b> Staff duty every month for you; seven months off for your buddy.</li>
+        <li><b>2021 Day in the Life study.</b> Training wasn't happening. Team leaders were busy carrying admin up and down.</li>
+      </ul>
+    </div>
+    <div class="abs pain-end" style="left:120px;right:120px;top:900px">It's not that leaders don't care. <span>Keeping track is a job of its own.</span></div>
+  </section>
+
+  <!-- 2 · Opener video -->
   <section class="slide" id="s-video">
     <video src="out/troop-to-task-arctic-ascent-final.mp4" poster="out/poster.png" preload="auto" playsinline></video>
   </section>
 
-  <!-- 2 · Calendar -->
+  <!-- 3 · Calendar -->
   <section class="slide">
     <div class="abs copy">
       <div class="chip"><b></b>AVAILABLE TODAY</div>
@@ -139,9 +165,10 @@ body.print #hint { display: none; }
       </ul>
     </div>
     <div class="shot bleed" style="left:900px;top:110px;width:1020px;height:970px" data-src="assets/live/calendar-duty-picker.png" data-x="1" data-t="0.02" data-s="1.85"></div>
+    <div class="abs mark">TroopToTask</div>
   </section>
 
-  <!-- 3 · Personnel details -->
+  <!-- 4 · Personnel details -->
   <section class="slide">
     <div class="abs copy">
       <div class="chip"><b></b>JUST LANDED</div>
@@ -156,9 +183,10 @@ body.print #hint { display: none; }
       </ul>
     </div>
     <div class="shot bleed" style="left:900px;top:110px;width:1020px;height:970px" data-src="assets/live/personnel-overview.png" data-l="0.15" data-t="0.025" data-s="1.65"></div>
+    <div class="abs mark">TroopToTask</div>
   </section>
 
-  <!-- 4 · Training & Training reports -->
+  <!-- 5 · Training & Training reports -->
   <section class="slide">
     <div class="abs copy">
       <div class="kicker">Training · Training reports</div>
@@ -172,9 +200,10 @@ body.print #hint { display: none; }
     </div>
     <div class="shot" style="left:900px;top:110px;width:900px;height:600px" data-src="assets/training-reports.jpg" data-l="0.03" data-t="0.03" data-s="1.15"></div>
     <div class="shot inset" style="left:1220px;top:560px;width:640px;height:380px" data-src="assets/live/training.png" data-l="0.08" data-t="0.1" data-s="1.6"></div>
+    <div class="abs mark">TroopToTask</div>
   </section>
 
-  <!-- 5 · Events & Taskings -->
+  <!-- 6 · Events & Taskings -->
   <section class="slide">
     <div class="abs copy">
       <div class="chip design"><b></b>IN DESIGN</div>
@@ -188,9 +217,10 @@ body.print #hint { display: none; }
       </ul>
     </div>
     <div class="shot bleed" style="left:900px;top:140px;width:1020px;height:800px;border-radius:10px 0 0 10px" data-src="assets/taskings.jpg" data-l="0.15" data-t="0" data-s="1.3"></div>
+    <div class="abs mark">TroopToTask</div>
   </section>
 
-  <!-- 6 · AI -->
+  <!-- 7 · AI -->
   <section class="slide">
     <div class="abs copy">
       <div class="chip design"><b></b>IN DEVELOPMENT</div>
@@ -216,9 +246,10 @@ body.print #hint { display: none; }
       <div class="ask"><div class="v">Brief</div><div class="q">“Build my training meeting slides.”</div></div>
       <div class="ask"><div class="v">Forecast</div><div class="q">“Who still needs their AFT and Weapons Qual before JPMRC?”</div></div>
     </div>
+    <div class="abs mark">TroopToTask</div>
   </section>
 
-  <!-- 7 · Security and access -->
+  <!-- 8 · Security and access -->
   <section class="slide">
     <div class="abs copy" style="width:1680px;top:250px">
       <div class="kicker">Security · access</div>
@@ -236,9 +267,10 @@ body.print #hint { display: none; }
         <li><b>Aligned with NIST 800-171</b> on SOC 2 Type II hosting. FedRAMP is the next step.</li>
       </ul>
     </div>
+    <div class="abs mark">TroopToTask</div>
   </section>
 
-  <!-- 8 · Close -->
+  <!-- 9 · Close -->
   <section class="slide">
     <div class="abs display center" id="close-1">Less time on admin.</div>
     <div class="abs display center" id="close-2">More time with Soldiers.</div>

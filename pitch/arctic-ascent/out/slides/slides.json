@@ -5,11 +5,11 @@
   },
   {
     "file": "slide-02.png",
-    "video": true
+    "video": false
   },
   {
     "file": "slide-03.png",
-    "video": false
+    "video": true
   },
   {
     "file": "slide-04.png",
@@ -33,6 +33,10 @@
   },
   {
     "file": "slide-09.png",
+    "video": false
+  },
+  {
+    "file": "slide-10.png",
     "video": false
   }
 ]

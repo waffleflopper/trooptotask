@@ -1,9 +1,11 @@
 import type { Personnel } from './personnel.types';
 import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 import { isInLossWindow } from './upcomingLoss';
+import { normalizeDodId } from './dodId';
 
 /** The Data sheet form: basic info and extended info as the strings the fields edit. */
 export interface DataSheetValues {
+	dodId: string;
 	rank: string;
 	firstName: string;
 	lastName: string;
@@ -64,6 +66,7 @@ export function isDataSheetField(name: string): name is DataSheetField {
 
 export function dataSheetValues(person: Personnel, info: PersonnelExtendedInfo | null): DataSheetValues {
 	return {
+		dodId: info?.dodId ?? '',
 		rank: person.rank,
 		firstName: person.firstName,
 		lastName: person.lastName,
@@ -122,6 +125,7 @@ function childList(children: DataSheetValues['children']) {
 }
 
 function sameField(field: DataSheetField, saved: DataSheetValues, draft: DataSheetValues): boolean {
+	if (field === 'dodId') return normalizeDodId(saved.dodId) === normalizeDodId(draft.dodId);
 	if (field === 'children')
 		return JSON.stringify(childList(saved.children)) === JSON.stringify(childList(draft.children));
 	if (field === 'militaryEducation')
@@ -147,6 +151,7 @@ export function dataSheetSavePayload(draft: DataSheetValues): DataSheetSavePaylo
 	return {
 		basicInfo: { ...basic, groupId: basic.groupId || null, ets: basic.ets || null, deros: basic.deros || null },
 		extendedInfo: {
+			dodId: normalizeDodId(draft.dodId),
 			bloodType: draft.bloodType.trim(),
 			basd: draft.basd,
 			dateOfRank: draft.dateOfRank,
@@ -256,6 +261,7 @@ export function dataSheetReadModel(person: Personnel, info: PersonnelExtendedInf
 	const children = info?.children ?? [];
 	const cityLine = join([join([info?.addressCity, info?.addressState], ', '), info?.addressZip], ' ');
 	return {
+		dodId: info?.dodId ?? '',
 		basd: date(info?.basd),
 		dateOfRank: date(info?.dateOfRank),
 		ets: date(person.ets),

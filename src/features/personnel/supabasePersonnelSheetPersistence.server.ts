@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { PersonnelDodIdConflict } from './personnelSheetPersistence';
 import type {
 	PersonnelSheetEditableValues,
 	SavedPersonnelSheet,
@@ -8,12 +9,13 @@ import type {
 	PersonnelSheetExportFacts
 } from './personnelSheetPersistence';
 const SELECT =
-	'id,personnel_id,organization_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,created_at,updated_at,updated_by';
+	'id,personnel_id,organization_id,dod_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,created_at,updated_at,updated_by';
 function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 	return {
 		id: row.id,
 		personnel_id: row.personnel_id,
 		...(row.organization_id !== undefined ? { organization_id: row.organization_id } : {}),
+		...(row.dod_id !== undefined ? { dod_id: row.dod_id } : {}),
 		...(row.blood_type !== undefined ? { blood_type: row.blood_type } : {}),
 		...(row.basd !== undefined ? { basd: row.basd } : {}),
 		...(row.date_of_rank !== undefined ? { date_of_rank: row.date_of_rank } : {}),
@@ -46,6 +48,7 @@ function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 }
 function editable(input: PersonnelSheetEditableValues): PersonnelSheetEditableValues {
 	return {
+		dod_id: input.dod_id,
 		blood_type: input.blood_type,
 		basd: input.basd,
 		date_of_rank: input.date_of_rank,
@@ -71,6 +74,12 @@ function editable(input: PersonnelSheetEditableValues): PersonnelSheetEditableVa
 		address_zip: input.address_zip,
 		updated_by: input.updated_by
 	};
+}
+function throwSheetWriteError(error: { code: string; message: string }): never {
+	if (error.code === '23505' && error.message.includes('personnel_extended_info_organization_dod_id_key')) {
+		throw new PersonnelDodIdConflict();
+	}
+	throw new Error(error.message);
 }
 export function createSupabasePersonnelSheetPersistence(
 	client: SupabaseClient,
@@ -114,7 +123,7 @@ export function createSupabasePersonnelSheetPersistence(
 				.insert({ ...values, organization_id: orgId, personnel_id: personnelId })
 				.select(SELECT)
 				.single();
-			if (error) throw new Error(error.message);
+			if (error) throwSheetWriteError(error);
 			return saved(data);
 		},
 		async replaceEditableSheetFields(id, input) {
@@ -125,7 +134,7 @@ export function createSupabasePersonnelSheetPersistence(
 				.eq('id', id)
 				.select(SELECT)
 				.single();
-			if (error) throw new Error(error.message);
+			if (error) throwSheetWriteError(error);
 			return saved(data);
 		},
 		async setAwardAcknowledgedAt(id, value) {

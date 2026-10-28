@@ -1,4 +1,5 @@
 import type { PersonnelArtifactReadPersistence } from '$features/personnel/contracts';
+import { PersonnelDodIdConflict } from '$features/personnel/contracts';
 import type {
 	CounselingRecordRow,
 	PersonnelDocumentRow,
@@ -2046,6 +2047,11 @@ function createTestPersonnelPersistence(
 		delete sheet.award_tracking_acknowledged_at;
 		return sheet;
 	}
+	async function requireUniqueDodId(dodId: string | null, sheetId?: string) {
+		if (dodId === null) return;
+		const matches = await rawStore.findMany<StoredSheet>('personnel_extended_info', auth.orgId, { dod_id: dodId });
+		if (matches.some((sheet) => sheet.id !== sheetId)) throw new PersonnelDodIdConflict();
+	}
 	const personnelSheets: PersonnelSheetPersistence = {
 		listSheetsForPerson: async (personnelId) =>
 			(await rawStore.findMany<StoredSheet>('personnel_extended_info', auth.orgId, { personnel_id: personnelId })).map(
@@ -2057,14 +2063,17 @@ function createTestPersonnelPersistence(
 			});
 			return row ? sheetResult(row) : null;
 		},
-		createSheet: async (personnelId, values) =>
-			sheetResult(
+		createSheet: async (personnelId, values) => {
+			if ('dod_id' in values) await requireUniqueDodId(values.dod_id);
+			return sheetResult(
 				await rawStore.insert<StoredSheet>('personnel_extended_info', auth.orgId, {
 					...values,
 					personnel_id: personnelId
 				})
-			),
+			);
+		},
 		replaceEditableSheetFields: async (id, values) => {
+			await requireUniqueDodId(values.dod_id, id);
 			const row = await rawStore.update<StoredSheet>('personnel_extended_info', auth.orgId, id, { ...values });
 			return sheetResult(row);
 		},

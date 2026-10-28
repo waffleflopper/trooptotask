@@ -1,4 +1,5 @@
 export interface PersonnelSheetEditableValues {
+	dod_id: string | null;
 	blood_type: string | null;
 	basd: string | null;
 	date_of_rank: string | null;
@@ -24,6 +25,11 @@ export interface PersonnelSheetEditableValues {
 	address_zip: string | null;
 	/** The saving member's user id; readers resolve it to a label. */
 	updated_by: string | null;
+}
+export class PersonnelDodIdConflict extends Error {
+	constructor() {
+		super('Another Person in this Organization already has that DoD ID.');
+	}
 }
 export interface SavedPersonnelSheet extends Partial<PersonnelSheetEditableValues> {
 	id: string;

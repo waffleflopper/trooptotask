@@ -8,6 +8,7 @@ import {
 import { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
 import { createSupabasePersonnelArtifactWritePort } from './artifactWrites.server';
 import type { PersonnelArtifactWriter } from './contracts';
+import { PersonnelDodIdConflict } from './personnelSheetPersistence';
 import type { ActorStamp } from './personnelArtifactPersistence';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 
@@ -26,6 +27,7 @@ const rank = {
 	updated_at: null
 } as const;
 const sheet = {
+	dod_id: '0123456789',
 	id: 'sheet-a',
 	personnel_id: 'person-a',
 	organization_id: 'org-a',
@@ -445,6 +447,7 @@ describe('finite Personnel ordinary provider contracts', () => {
 		expect(await port.findSheetForPerson('missing')).toBeNull();
 		const values = {
 			...sheet,
+			dod_id: null,
 			personal_phone: null,
 			organization_id: 'org-b',
 			personnel_id: 'person-b',
@@ -452,10 +455,20 @@ describe('finite Personnel ordinary provider contracts', () => {
 			id: 'changed',
 			created_at: 'changed'
 		};
-		expect(await port.replaceEditableSheetFields('sheet-a', values)).toEqual({ ...sheet, personal_phone: null });
+		expect(await port.replaceEditableSheetFields('sheet-a', values)).toEqual({
+			...sheet,
+			dod_id: null,
+			personal_phone: null
+		});
 		await port.setAwardAcknowledgedAt('sheet-a', null);
 		expect(p.state.rows.personnel_extended_info).toEqual([
-			{ ...sheet, personal_phone: null, award_tracking_acknowledged_at: null, retained_metadata: 'history' }
+			{
+				...sheet,
+				dod_id: null,
+				personal_phone: null,
+				award_tracking_acknowledged_at: null,
+				retained_metadata: 'history'
+			}
 		]);
 		expect(await port.createSheet('person-new', { award_tracking_acknowledged_at: '2026-10-08T12:00:00Z' })).toEqual({
 			id: 'saved-1',
@@ -463,11 +476,25 @@ describe('finite Personnel ordinary provider contracts', () => {
 			organization_id: 'org-a',
 			created_at: '2026-10-08T12:00:00.123456Z'
 		});
+		await expect(port.createSheet('person-with-dod', sheet)).resolves.toMatchObject({ dod_id: '0123456789' });
 		p.state.failure = () => ({ code: '42501', message: 'Sheet denied', status: 403 });
 		await expect(port.findSheetForPerson('person-a')).rejects.toThrow('Sheet denied');
 		await expect(port.createSheet('person-new', values)).rejects.toThrow('Sheet denied');
 		await expect(port.replaceEditableSheetFields('sheet-a', values)).rejects.toThrow('Sheet denied');
 		await expect(port.setAwardAcknowledgedAt('sheet-a', null)).rejects.toThrow('Sheet denied');
+	});
+	it('maps a DoD ID uniqueness rejection on insert and replacement without treating other conflicts as DoD IDs', async () => {
+		const p = personnelProvider();
+		const port = createSupabasePersonnelSheetPersistence(p.client, 'org-a');
+		p.state.failure = () => ({
+			code: '23505',
+			status: 409,
+			message: 'duplicate key value violates unique constraint "personnel_extended_info_organization_dod_id_key"'
+		});
+		await expect(port.createSheet('person-a', sheet)).rejects.toBeInstanceOf(PersonnelDodIdConflict);
+		await expect(port.replaceEditableSheetFields('sheet-a', sheet)).rejects.toBeInstanceOf(PersonnelDodIdConflict);
+		p.state.failure = () => ({ code: '23505', status: 409, message: 'duplicate key violates another index' });
+		await expect(port.createSheet('person-a', sheet)).rejects.toThrow('duplicate key violates another index');
 	});
 	it('artifact archived state, primary sorting and limited results remain distinct', async () => {
 		const p = personnelProvider({

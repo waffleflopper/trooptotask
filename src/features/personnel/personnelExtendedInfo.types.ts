@@ -1,6 +1,7 @@
 import type { Personnel } from './personnel.types';
 
 export interface PersonnelExtendedInfo {
+	dodId: string;
 	bloodType: string;
 	basd: string;
 	dateOfRank: string;

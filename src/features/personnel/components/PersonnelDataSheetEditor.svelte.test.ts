@@ -32,6 +32,7 @@ const person: Personnel = {
 };
 
 const info: PersonnelExtendedInfo = {
+	dodId: '0123456789',
 	bloodType: 'O+',
 	basd: '',
 	dateOfRank: '',

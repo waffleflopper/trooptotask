@@ -51,6 +51,7 @@ async function mapExtendedInfoRow(
 		labels = await ctx.contributorLabels([row.updated_by]).catch(() => labels);
 	}
 	return {
+		dodId: row.dod_id ?? '',
 		bloodType: row.blood_type ?? '',
 		basd: row.basd ?? '',
 		dateOfRank: row.date_of_rank ?? '',
@@ -82,6 +83,7 @@ async function mapExtendedInfoRow(
 
 function toRowData(input: PersonnelExtendedInfoInput, updatedBy: string): PersonnelSheetEditableValues {
 	return {
+		dod_id: input.dodId || null,
 		blood_type: input.bloodType || null,
 		basd: input.basd || null,
 		date_of_rank: input.dateOfRank || null,
@@ -159,7 +161,7 @@ export async function applyExtendedInfoUpdate(
 		? await ctx.personnelSheets.replaceEditableSheetFields(existing.id, data)
 		: await ctx.personnelSheets.createSheet(input.personnelId, data);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.extended_info.updated',
 		resourceType: 'personnel',
 		resourceId: input.personnelId

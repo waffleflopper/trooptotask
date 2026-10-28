@@ -12,6 +12,9 @@ type InsertWithTriggerPosition<Name extends 'calendar_tasking_equipment' | 'cale
 };
 type AccessRequest = Public['Tables']['access_requests'];
 type Functions = GeneratedDatabase['public']['Functions'];
+type ObjectResult<Function extends { Returns: unknown }> = Omit<Function, 'Returns'> & {
+	Returns: Extract<Function['Returns'], Record<string, unknown>>;
+};
 type NullableArgs<Name extends keyof Functions, Keys extends keyof Functions[Name]['Args']> = Omit<
 	Functions[Name],
 	'Args'
@@ -21,6 +24,9 @@ type NullableArgs<Name extends keyof Functions, Keys extends keyof Functions[Nam
 
 // PostgreSQL accepts these explicit nulls. The generator does not describe argument nullability.
 type RpcOverrides = {
+	// These functions build JSON objects; the generated Json union also includes arrays and scalars.
+	start_onboarding_packet: ObjectResult<Functions['start_onboarding_packet']>;
+	append_onboarding_step_note: ObjectResult<Functions['append_onboarding_step_note']>;
 	save_organization_setup_answer: NullableArgs<'save_organization_setup_answer', 'p_answer'>;
 	save_organization_setup_branch: NullableArgs<'save_organization_setup_branch', 'p_branch'>;
 	close_roster_form: NullableArgs<'close_roster_form', 'p_weekend_mode'>;
@@ -54,7 +60,7 @@ type RpcOverrides = {
 		'latest_active_personnel_ict_completions',
 		'p_personnel_ids' | 'p_ict_task_ids'
 	>;
-	reconcile_onboarding_packet: NullableArgs<'reconcile_onboarding_packet', 'p_new_template_id'>;
+	reconcile_onboarding_packet: ObjectResult<NullableArgs<'reconcile_onboarding_packet', 'p_new_template_id'>>;
 };
 
 export type Database = Omit<GeneratedDatabase, 'public'> & {

@@ -203,5 +203,9 @@ it('swaps the access-request alternative for the invitation path when an Organiz
 		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: 'Alpha Company' },
 		form: null
 	});
+	expect(screen.getByRole('button', { name: 'Set Up Account' }).closest('form')).toHaveAttribute(
+		'action',
+		'?/complete'
+	);
 	expect(requestAccess()).toBeNull();
 });

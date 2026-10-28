@@ -445,7 +445,9 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
     `?section=assignments`; for anyone else it says `Ask someone who manages Calendar settings to add one.` The surfaces
     are the quick-add popover and the availability dialog (status types), the Bulk Status Add summary (status types), the
     Daily Assignments dialog and the duty planner (assignment types). The settings link opens on the named tab, and
-    `?section=closures` opens `Holidays & closures`; an unknown value opens `Status Types`. Capture one status-type and one
+    `?section=closures` opens `Holidays & closures`; an unknown value opens `Status Types`. To reach them, as `calendarConfigure` delete every status type and assignment type through their Delete
+    confirmations (`restart` restores the fixture), then open Bulk Status, a Calendar day's `Set Personnel Status` dialog
+    and `Daily Assignments` dialog, and the Duty planner; `calendarOperate` sees the `Ask someone` wording. Capture one status-type and one
     assignment-type empty state at 1280 px and 390 px, follow each link and read the selected tab.
 
 ## Gotchas

@@ -111,7 +111,8 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    against their accessible non-completed Evals entries: Organization-wide has one overdue and four within 30 days;
    Alpha has one overdue and two within 30 days. The archived Alpha entry (−2 days) is in neither count. The Dashboard's
    Evaluations column draws `past thru`, `thru in 30 days`, `thru in 31 to 60 days` and `current` as shares (org-wide
-   `1 past thru, 4 thru in 30 days, 1 thru in 31 to 60 days, 1 current`), and its note names the 30 and 31 to 60 day
+   `1 past thru, 4 thru in 30 days, 1 thru in 31 to 60 days, 1 current`; Alpha
+   `1 past thru, 2 thru in 30 days, 1 thru in 31 to 60 days, 1 current`), and its note names the 30 and 31 to 60 day
    counts separately (`4 more thru in 30 days and 1 in 31 to 60. 1 current.`). Needs you lists only past-thru entries,
    each as a Past thru row that names the rated Person,
    including for an actor without Personnel access (`ratingOperate`). Evals also displays the 60-day bucket. Completed

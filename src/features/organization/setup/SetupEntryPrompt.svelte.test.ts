@@ -39,9 +39,9 @@ function entry(prompt: SetupEntry['prompt'], orgId = 'org-1'): Promise<SetupEntr
 const progress = (overrides: Partial<SetupInvitationProgress> = {}): Promise<SetupInvitationProgress> =>
 	Promise.resolve({
 		orgId: 'org-1',
-		done: 2,
+		handled: 2,
 		total: 12,
-		completedSteps: [
+		handledSteps: [
 			{ key: 'ranks', slug: 'ranks', group: 'unit', title: 'Ranks', pitch: '', state: 'done', loadErrors: [] },
 			{
 				key: 'personnel',

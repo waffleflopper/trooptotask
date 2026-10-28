@@ -8,11 +8,11 @@ import { loadOrganizationSetupFacts, type SetupFactReads } from './facts.server'
 function emptyFacts(): SetupFacts {
 	return {
 		branch: null,
-		groups: { status: 'ready', value: 4 },
+		groups: { status: 'ready', value: 0 },
 		activeRanks: { status: 'ready', value: 42 },
 		activePeople: { status: 'ready', value: 0 },
-		statusTypes: { status: 'ready', value: 7 },
-		assignmentTypes: { status: 'ready', value: 2 },
+		statusTypes: { status: 'ready', value: 0 },
+		assignmentTypes: { status: 'ready', value: 0 },
 		trainingTypes: { status: 'ready', value: 0 },
 		criticalTasks: { status: 'ready', value: 0 },
 		evaluations: { status: 'ready', value: 0 },
@@ -41,7 +41,7 @@ const reviewed = {
 };
 
 describe('Organization setup', () => {
-	it('does not count seeded defaults as a new unit reviewing its configuration', () => {
+	it('keeps an empty new unit unanswered until its data or review completes a step', () => {
 		const model = buildSetupModel({ state: parseOrganizationSetup(null), facts: emptyFacts(), disabledFeatures: [] });
 		expect(model.steps.map((step) => [step.key, step.state])).toEqual([
 			['welcome', 'notAnswered'],
@@ -58,6 +58,48 @@ describe('Organization setup', () => {
 			['invite', 'notAnswered']
 		]);
 		expect([model.reviewed, model.total, model.firstUnansweredSlug]).toEqual([0, 12, 'welcome']);
+	});
+
+	it.each([
+		{ groups: 0, statuses: 0, assignments: 0, expected: ['notAnswered', 'notAnswered'] },
+		{ groups: 1, statuses: 0, assignments: 0, expected: ['done', 'notAnswered'] },
+		{ groups: 0, statuses: 1, assignments: 0, expected: ['notAnswered', 'done'] },
+		{ groups: 0, statuses: 0, assignments: 1, expected: ['notAnswered', 'done'] }
+	])('derives Groups and Calendar completion from their data', ({ groups, statuses, assignments, expected }) => {
+		const model = buildSetupModel({
+			state: parseOrganizationSetup(null),
+			disabledFeatures: [],
+			facts: {
+				...emptyFacts(),
+				groups: { status: 'ready', value: groups },
+				statusTypes: { status: 'ready', value: statuses },
+				assignmentTypes: { status: 'ready', value: assignments }
+			}
+		});
+		expect(
+			model.steps.filter((step) => step.key === 'groups' || step.key === 'calendar').map((step) => step.state)
+		).toEqual(expected);
+	});
+
+	it('does not treat unavailable Groups or Calendar facts as completed data', () => {
+		const model = buildSetupModel({
+			state: parseOrganizationSetup(null),
+			disabledFeatures: [],
+			facts: {
+				...emptyFacts(),
+				groups: { status: 'error', message: 'Unavailable' },
+				statusTypes: { status: 'error', message: 'Unavailable' },
+				assignmentTypes: { status: 'error', message: 'Unavailable' }
+			}
+		});
+		expect(
+			model.steps
+				.filter((step) => step.key === 'groups' || step.key === 'calendar')
+				.map((step) => [step.key, step.state, step.loadErrors.map(({ source }) => source)])
+		).toEqual([
+			['groups', 'notAnswered', ['groups']],
+			['calendar', 'notAnswered', ['statusTypes', 'assignmentTypes']]
+		]);
 	});
 
 	it('uses Off before Done before Later and restores the earlier answer when a feature is enabled', () => {
@@ -273,7 +315,9 @@ describe('Organization setup', () => {
 			expect(facts.activePeople).toEqual({ status: 'ready', value: 22 });
 			const model = buildSetupModel({ state: parseOrganizationSetup(null), facts, disabledFeatures: [] });
 			expect(model.steps.filter((step) => step.state === 'done').map((step) => step.key)).toEqual([
+				'groups',
 				'personnel',
+				'calendar',
 				'criticalTasks',
 				'eventsAndTaskings',
 				'invite'

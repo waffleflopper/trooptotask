@@ -121,16 +121,16 @@
 				</AppDialog.Header>
 				<AppDialog.Body class="grid gap-3">
 					{#if prompt.progress}
-						{@const { done, total, completedSteps, loadErrors } = prompt.progress}
+						{@const { handled, total, handledSteps, loadErrors } = prompt.progress}
 						<div>
 							<p class="flex flex-wrap items-baseline gap-x-2.5 border-b-2 border-foreground pb-2">
 								<span class="font-heading text-lg leading-[22px] font-bold" data-setup-done-count>
-									{loadErrors.length ? `At least ${done} of ${total}` : `${done} of ${total}`} already done
+									{loadErrors.length ? `At least ${handled} of ${total}` : `${handled} of ${total}`} already done
 								</span>
 								<span class="text-[13px] leading-[18px] text-muted-foreground">from what you’ve set up so far</span>
 							</p>
 							<ul class="grid">
-								{#each completedSteps as step (step.key)}
+								{#each handledSteps as step (step.key)}
 									<li class="flex h-[34px] items-center gap-2.5 border-b border-border">
 										<Check class="size-4 shrink-0 text-success-foreground" aria-hidden="true" />
 										<span class="min-w-0 flex-1 truncate font-semibold">{step.title}</span>

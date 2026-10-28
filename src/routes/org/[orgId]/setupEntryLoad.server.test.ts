@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { DashboardPageSummaryData, DashboardWorkspaceResult } from '$features/dashboard/contracts';
 import { parseOrganizationSetup, type OrganizationSetup } from '$features/organization/contracts';
 import { buildLayoutRequest } from '$lib/server/adapters/requestContexts.server';
@@ -14,7 +15,11 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: adminClient }));
 const ORG = '11111111-1111-4111-8111-111111111111';
 const empty = parseOrganizationSetup(null);
 
-function fixture(role: 'owner' | 'admin' | 'member' = 'owner', state: OrganizationSetup = empty) {
+function fixture(
+	role: 'owner' | 'admin' | 'member' = 'owner',
+	state: OrganizationSetup = empty,
+	disabledFeatures: FeatureKey[] = []
+) {
 	const requests: { path: string; method: string }[] = [];
 	const failures = new Set<string>();
 	const supabase = createClient('http://organization.invalid', 'synthetic-request-key', {
@@ -32,7 +37,7 @@ function fixture(role: 'owner' | 'admin' | 'member' = 'owner', state: Organizati
 						name: 'Alpha',
 						url_slug: 'alpha',
 						suspended_at: null,
-						disabled_features: [],
+						disabled_features: disabledFeatures,
 						created_at: '2020-01-01T12:00:00Z',
 						loss_warning_window_days: 90
 					});
@@ -122,8 +127,8 @@ describe('Dashboard invitation progress', () => {
 			workspace,
 			summary
 		});
-		await expect(result).resolves.toMatchObject({ orgId: ORG, done: 9, total: 12, loadErrors: [] });
-		expect((await result)?.completedSteps.map((step) => step.key)).toEqual([
+		await expect(result).resolves.toMatchObject({ orgId: ORG, handled: 9, total: 12, loadErrors: [] });
+		expect((await result)?.handledSteps.map((step) => step.key)).toEqual([
 			'welcome',
 			'groups',
 			'ranks',
@@ -145,6 +150,26 @@ describe('Dashboard invitation progress', () => {
 			'organization_invitations',
 			'organization_memberships',
 			'rating_scheme_entries'
+		]);
+	});
+
+	it('counts off steps as handled and preserves their state in registry order', async () => {
+		const event = fixture('owner', empty, ['training', 'criticalTasks', 'eventsAndTaskings']);
+		const request = await buildLayoutRequest(event.locals, ORG);
+		const result = await streamSetupInvitationProgress({
+			request,
+			entry: streamOrganizationSetupEntry(event),
+			workspace,
+			summary
+		});
+		expect(result).toMatchObject({ handled: 6, total: 12, loadErrors: [] });
+		expect(result?.handledSteps.map(({ key, state }) => [key, state])).toEqual([
+			['personnel', 'done'],
+			['training', 'off'],
+			['criticalTasks', 'off'],
+			['evaluations', 'done'],
+			['onboarding', 'done'],
+			['eventsAndTaskings', 'off']
 		]);
 	});
 
@@ -189,7 +214,7 @@ describe('Dashboard invitation progress', () => {
 				workspace,
 				summary
 			});
-			expect(result).toMatchObject({ done: 4, total: 12, loadErrors: [{ source: 'evaluations' }] });
+			expect(result).toMatchObject({ handled: 4, total: 12, loadErrors: [{ source: 'evaluations' }] });
 		} finally {
 			log.mockRestore();
 		}

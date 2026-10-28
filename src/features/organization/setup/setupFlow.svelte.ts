@@ -6,7 +6,11 @@ import { buildSetupModel, deriveSetupStepState, type SetupStepState } from './mo
 import type { OrganizationSetup, SetupAnswer } from './state';
 import { postSetup, setupErrorMessage } from './setupClient';
 import type { SetupBranch } from './branch';
-import type { SetupStarterPackResult, SetupTrainingSuggestionsResult } from './featureStepSupport';
+import type {
+	SetupCalendarSuggestionsResult,
+	SetupStarterPackResult,
+	SetupTrainingSuggestionsResult
+} from './featureStepSupport';
 import { saveOrganizationSettings } from '../saveOrganizationSettings';
 
 export interface SetupFlowSource {
@@ -247,6 +251,11 @@ export class SetupFlow {
 		return this.#refreshAfter(
 			this.#postJson<SetupTrainingSuggestionsResult>('training-types/suggestions', { branch, suggestionIds })
 		);
+	}
+
+	/** Resolves null when the owner has since navigated away. */
+	async addCalendarSuggestions(input: { statusIds: readonly string[]; assignmentIds: readonly string[] }) {
+		return this.#refreshAfter(this.#postJson<SetupCalendarSuggestionsResult>('calendar-suggestions', input));
 	}
 
 	/** Resolves null when the owner has since navigated away. */

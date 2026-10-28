@@ -54,6 +54,15 @@ export const [getSetupStepSupport, setSetupStepSupport] = createContext<SetupSte
 
 type FailedItem = { name: string; message: string };
 
+/** Importing Calendar's row types here would create a feature dependency cycle. */
+export interface SetupCalendarSuggestionsResult {
+	created: { id: string; name: string }[];
+	skipped: { id: string; name: string }[];
+	failed: FailedItem[];
+	statusTypes: unknown[];
+	assignmentTypes: unknown[];
+}
+
 /** The parts of Training's suggestions result that setup reads. */
 export interface SetupTrainingSuggestionsResult {
 	failed: FailedItem[];

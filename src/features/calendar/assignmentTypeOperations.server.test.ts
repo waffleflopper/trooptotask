@@ -210,7 +210,7 @@ describe('Calendar assignment-type operations', () => {
 			showOnCalendar: false,
 			sortOrder: 9
 		});
-		expect(created).toMatchObject({ name: 'Night', showOnCalendar: false, sortOrder: 0 });
+		expect(created).toMatchObject({ name: 'Night', showOnCalendar: false, sortOrder: 6 });
 		await expect(
 			createAssignmentType(ctx, { name: 'Day', shortName: 'D', assignTo: 'group', showOnCalendar: true })
 		).rejects.toMatchObject({ status: 400 });

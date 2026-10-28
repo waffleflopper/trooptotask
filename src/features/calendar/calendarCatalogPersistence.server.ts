@@ -140,6 +140,7 @@ export function createSupabaseCalendarCatalogPersistence(
 				})
 				.select(STATUS_TYPE_FIELDS)
 				.single<StatusTypeRow>();
+			if (error?.code === '23505') fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 			if (error) throw new Error(error.message);
 			return toStatusType(data);
 		},
@@ -223,6 +224,14 @@ export function createSupabaseCalendarCatalogPersistence(
 			return rows;
 		},
 		async createAssignmentType(input) {
+			const last = await client
+				.from('assignment_types')
+				.select('sort_order')
+				.eq('organization_id', orgId)
+				.order('sort_order', { ascending: false })
+				.limit(1)
+				.maybeSingle<{ sort_order: number }>();
+			if (last.error) throw new Error(last.error.message);
 			const { data, error } = await client
 				.from('assignment_types')
 				.insert({
@@ -231,11 +240,13 @@ export function createSupabaseCalendarCatalogPersistence(
 					short_name: input.shortName,
 					assign_to: input.assignTo,
 					color: input.color ?? '#6b7280',
+					sort_order: last.data ? last.data.sort_order + 1 : 0,
 					roster_pool_rules: input.poolRules ?? null,
 					roster_weekend_mode: input.weekendMode ?? 'same'
 				})
 				.select(ASSIGNMENT_TYPE_FIELDS)
 				.single<AssignmentTypeRow>();
+			if (error?.code === '23505') fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 			if (error) throw new Error(error.message);
 			return toAssignmentType(data);
 		},

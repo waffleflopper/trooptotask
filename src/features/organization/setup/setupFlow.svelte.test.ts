@@ -497,6 +497,29 @@ describe('Writes that change the unit', () => {
 		]);
 	});
 
+	it.each([false, true])('posts Calendar picks and ignores a response after leaving: %s', async (left) => {
+		const response = deferred<Response>();
+		const requests: { url: string; body: unknown }[] = [];
+		vi.stubGlobal('fetch', (url: string, init: RequestInit) => {
+			requests.push({ url, body: JSON.parse(String(init.body)) });
+			return response.promise;
+		});
+		const { flow } = setup('calendar');
+		await settle();
+		const adding = flow.addCalendarSuggestions({ statusIds: ['leave'], assignmentIds: ['staff-duty'] });
+		if (left) flow.leave();
+		response.resolve(
+			respond(200, { failed: [], statusTypes: [{ id: 'leave-saved' }], assignmentTypes: [{ id: 'duty-saved' }] })
+		);
+		expect(await adding).toEqual(
+			left ? null : { failed: [], statusTypes: [{ id: 'leave-saved' }], assignmentTypes: [{ id: 'duty-saved' }] }
+		);
+		expect(requests).toEqual([
+			{ url: '/org/alpha/api/calendar-suggestions', body: { statusIds: ['leave'], assignmentIds: ['staff-duty'] } }
+		]);
+		expect(invalidate).toHaveBeenCalledWith('app:organization-setup');
+	});
+
 	it('reloads the setup facts after suggestions the owner already left', async () => {
 		const response = deferred<Response>();
 		vi.stubGlobal(

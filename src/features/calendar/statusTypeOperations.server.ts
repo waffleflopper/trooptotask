@@ -20,7 +20,7 @@ export async function createStatusType(ctx: CalendarCatalogPorts, input: Record<
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.createStatusType(parsed.data);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'status_type.created',
 		resourceType: 'status_type',
 		resourceId: row.id

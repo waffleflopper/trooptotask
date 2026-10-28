@@ -3,6 +3,16 @@ import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
+import type { CalendarSuggestion } from './calendarSuggestions';
+export {
+	calendarStatusSuggestions,
+	calendarAssignmentSuggestions,
+	calendarSuggestionsInputSchema,
+	type CalendarStatusSuggestion,
+	type CalendarAssignmentSuggestion,
+	type CalendarSuggestion,
+	type CalendarSuggestionsInput
+} from './calendarSuggestions';
 import type {
 	AssignmentSource,
 	Da6Segment,
@@ -198,6 +208,14 @@ export interface AssignmentSlotChange {
 export type SavedAssignment = DailyAssignment & { organization_id?: string; created_at?: string };
 
 export type SavedStatusType = StatusType & { organization_id?: string; created_at?: string };
+
+export interface CalendarSuggestionsResult {
+	created: CalendarSuggestion[];
+	skipped: CalendarSuggestion[];
+	failed: Array<CalendarSuggestion & { message: string }>;
+	statusTypes: SavedStatusType[];
+	assignmentTypes: SavedAssignmentType[];
+}
 
 export type SavedAssignmentType = AssignmentType & {
 	organization_id?: string;

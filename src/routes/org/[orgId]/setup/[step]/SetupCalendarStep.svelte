@@ -12,12 +12,7 @@
 	} from '$features/calendar';
 	import CalendarSettingsPage from '$features/calendar/components/CalendarSettingsPage.svelte';
 	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
-	import {
-		assignmentTypesSchema,
-		calendarAssignmentSuggestions,
-		calendarStatusSuggestions,
-		statusTypesSchema
-	} from '$features/calendar/contracts';
+	import { calendarAssignmentSuggestions, calendarStatusSuggestions } from '$features/calendar/contracts';
 	import { getSetupFlow, SetupEditorNote, SetupStepFooter, SetupSuggestionPanel } from '$features/organization';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -71,8 +66,9 @@
 	$effect(() => () => calendarWorkspaceHydrator.reset());
 
 	// Statuses and assignments added here change setup's counts, so the Done page rereads them once the write lands.
-	const savedSizes = () => `${statusTypesStore.items.length}:${dailyAssignmentsStore.types.length}`;
-	const sizes = $derived(view === 'ready' && !saving ? savedSizes() : null);
+	const sizes = $derived(
+		view === 'ready' && !saving ? `${statusTypesStore.items.length}:${dailyAssignmentsStore.types.length}` : null
+	);
 	let seen: string | null = null;
 	$effect(() => {
 		if (sizes === null) return;
@@ -123,16 +119,8 @@
 			assignmentIds: picked.filter((pick) => pick.catalog === 'assignment').map((pick) => pick.id)
 		});
 		if (!result) return;
-		const statusTypes = statusTypesSchema.safeParse(result.statusTypes);
-		const assignmentTypes = assignmentTypesSchema.safeParse(result.assignmentTypes);
-		if (statusTypes.success && assignmentTypes.success) {
-			statusTypesStore.load(statusTypes.data, statusTypesStore.orgId);
-			dailyAssignmentsStore.load(assignmentTypes.data, dailyAssignmentsStore.assignments, dailyAssignmentsStore.orgId);
-			// The flow already reread setup's counts after the write.
-			seen = savedSizes();
-		} else {
-			void invalidate('app:calendar-data');
-		}
+		// A reread, not the reply's rows, so an editor change saved while this was pending isn't overwritten.
+		await invalidate('app:calendar-data');
 		if (result.failed.length > 0) {
 			throw new Error(`${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`);
 		}

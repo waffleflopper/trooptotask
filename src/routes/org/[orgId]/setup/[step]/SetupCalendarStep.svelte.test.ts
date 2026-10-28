@@ -92,7 +92,7 @@ it('hides a suggestion the unit already has under any casing', async () => {
 	expect(screen.queryByRole('checkbox', { name: /^Leave/ })).toBeNull();
 });
 
-it('keeps the owner on the step with the failed rows named and the saved rows in the editors', async () => {
+it('keeps the owner on the step with the failed rows named and rereads the saved rows', async () => {
 	const { navigate } = renderPicker([], (body) => ({
 		...created({ statusIds: body.statusIds.filter((id) => id !== 'sick') }),
 		failed: [{ id: 'sick', name: 'Sick', message: 'Timed out' }]
@@ -103,14 +103,7 @@ it('keeps the owner on the step with the failed rows named and the saved rows in
 
 	expect(await screen.findByRole('alert')).toHaveTextContent('Sick');
 	expect(navigate).not.toHaveBeenCalled();
-	expect(statusTypesStore.items.map((type) => type.name)).toEqual([
-		'leave',
-		'school',
-		'training-tdy',
-		'appointment',
-		'other-duty-detail',
-		'cq-sd'
-	]);
+	expect(invalidate).toHaveBeenCalledWith('app:calendar-data');
 });
 
 it('holds Continue while a calendar setting saves, then stays on the step when it fails', async () => {

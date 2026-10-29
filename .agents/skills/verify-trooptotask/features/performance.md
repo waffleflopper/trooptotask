@@ -308,7 +308,8 @@ each seed to see it grow.
   invalidation and reload.
 - The roster opens By Group and shows 100 rows a page unless the browser stored another size. Every actor's sentinel is the alphabetically last Person in the
   first Group, the last row of that Group on page 1, so `personnel-list` measures one rendered page at every size.
-  `personnel-large-table` switches to A-Z before it sorts.
+  `personnel-large-table` sorts the view the roster opens in, because an actor scoped to one Group has no A-Z/Group
+  choice.
 - `$V server-source arm TABLE hold` matches only a GET to `/rest/v1/TABLE` whose query carries exactly one
   `organization_id=eq.<Organization>` filter; other parameters are allowed. A read without that one filter is not held
   and reports `matches: 0`, so the lane resolves unheld. Read `matches` in `server-source state` before counting a hold

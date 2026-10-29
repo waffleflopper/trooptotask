@@ -42,7 +42,7 @@ const rosterShown = ({ sentinel }) => ({ present: [sentinel] });
 // Settled also waits out the signals lane's skeletons (Today's status and Needs attention).
 const roster = (terms) => ({ ...rosterShown(terms), absentSelector: [skeleton] });
 const search = { role: 'searchbox', name: 'Search by name, rank, MOS, role, or group' };
-const personRows = '[aria-label^="Open "]';
+const personRows = '[data-roster-row]';
 // The 3-Month view's virtual rows hold Group bands and People; only a Person row names its Person.
 const longRangeRows = '.roster-rows [data-person-id]';
 const monthRows = '.virtual-row--person';
@@ -294,7 +294,6 @@ export const journeys = {
 		actors: both,
 		path: (terms) => org(terms, '/personnel'),
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
-		prepare: () => [{ click: { role: 'button', name: 'A-Z' } }, { wait: ['Sort by Name'] }],
 		trigger: () => ({ click: { role: 'button', name: 'Sort by Name' } }),
 		milestones: () => [{ name: 'useful', presentSelector: ['th[aria-sort="descending"]', personRows] }]
 	},

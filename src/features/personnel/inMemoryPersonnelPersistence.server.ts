@@ -298,11 +298,12 @@ export function createInMemoryGroupPersistence(
 			}
 			if (parentId && subtree.has(parentId)) fail(400, 'A Group cannot move under one of its own sub-groups.');
 			const depth = parent ? parent.depth + 1 : 1;
-			const height = Math.max(...catalog.filter((other) => subtree.has(other.id)).map((other) => other.depth)) - group.depth;
+			const height =
+				Math.max(...catalog.filter((other) => subtree.has(other.id)).map((other) => other.depth)) - group.depth;
 			if (depth + height > 3) fail(400, 'Groups can nest at most three levels deep.');
 			const siblings = catalog.filter((other) => other.parentId === parentId && other.id !== id);
 			if (siblings.some((other) => other.name === group.name)) fail(409, GROUP_NAME_EXISTS_MESSAGE);
-			const moved = await store.update('groups', orgId, id, {
+			const moved = await store.update<Record<string, unknown>>('groups', orgId, id, {
 				parent_id: parentId,
 				sort_order: Math.max(-1, ...siblings.map((other) => other.sortOrder)) + 1,
 				depth
@@ -315,10 +316,7 @@ export function createInMemoryGroupPersistence(
 		},
 		async countActiveMembers() {
 			const ids = visibleGroupIds(scopeSet);
-			const people = await store.findMany<{ group_id: string | null; archived_at: string | null }>(
-				'personnel',
-				orgId
-			);
+			const people = await store.findMany<{ group_id: string | null; archived_at: string | null }>('personnel', orgId);
 			const counts = new Map<string, number>();
 			for (const person of people) {
 				if (!person.group_id || person.archived_at || (ids && !ids.includes(person.group_id))) continue;

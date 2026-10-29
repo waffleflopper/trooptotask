@@ -22,7 +22,7 @@ const TONE_BY_BAND = {
 } as const satisfies Record<BriefingBand, ReadinessTone>;
 
 function percentOf(part: number, whole: number): number {
-	return whole === 0 ? 100 : Math.max(0, Math.floor((part / whole) * 100));
+	return whole === 0 ? 100 : Math.max(0, Math.floor((part * 100) / whole));
 }
 
 /** Person-based currency: a Person with any expired, missing or orange-warning requirement is not current. */
@@ -103,10 +103,13 @@ function lowestGroupCurrency(
 		.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
 		.map((group) => {
 			const total = headcount.get(group.id)!;
-			return { name: group.name, percent: percentOf(total - (delinquentByGroup.get(group.id) ?? 0), total) };
+			return { name: group.name, current: total - (delinquentByGroup.get(group.id) ?? 0), total };
 		});
 	if (staffed.length < 2) return null;
-	return staffed.reduce((lowest, group) => (group.percent < lowest.percent ? group : lowest));
+	const lowest = staffed.reduce((lowest, group) =>
+		group.current * lowest.total < lowest.current * group.total ? group : lowest
+	);
+	return { name: lowest.name, percent: percentOf(lowest.current, lowest.total) };
 }
 
 /**

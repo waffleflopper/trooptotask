@@ -197,7 +197,8 @@ describe('trainingReadiness', () => {
 		{ goal: 90, total: 100, delinquent: 30, figure: '70%', tone: 'warning' },
 		{ goal: 90, total: 100, delinquent: 31, figure: '69%', tone: 'critical' },
 		{ goal: 70, total: 100, delinquent: 30, figure: '70%', tone: 'good' },
-		{ goal: 70, total: 100, delinquent: 51, figure: '49%', tone: 'critical' }
+		{ goal: 70, total: 100, delinquent: 51, figure: '49%', tone: 'critical' },
+		{ goal: 58, total: 50, delinquent: 21, figure: '58%', tone: 'good' }
 	])('colors $figure current $tone against a $goal% goal', ({ goal, total, delinquent, figure, tone }) => {
 		const column = trainingReadiness(
 			inputs({
@@ -209,6 +210,28 @@ describe('trainingReadiness', () => {
 		);
 
 		expect(column).toMatchObject({ figure, figureTone: tone });
+	});
+
+	it('names the Group with the lowest exact share when two display the same percent', () => {
+		const column = trainingReadiness(
+			inputs({
+				personnel: [
+					...Array.from({ length: 3 }, (_, index) => person(`a${index}`, 'alpha')),
+					...Array.from({ length: 50 }, (_, index) => person(`b${index}`, 'bravo'))
+				],
+				groups: [
+					{ id: 'alpha', name: 'Alpha', sortOrder: 0 },
+					{ id: 'bravo', name: 'Bravo', sortOrder: 1 }
+				],
+				trainingSummary: trainingSummary(0, [
+					{ groupId: 'alpha', expired: 0, delinquent: 1 },
+					{ groupId: 'bravo', expired: 0, delinquent: 17 }
+				])
+			}),
+			everything
+		);
+
+		expect(column).toMatchObject({ note: expect.stringContaining('Bravo is lowest at 66%.') });
 	});
 
 	it('shows a share just under the goal below it, not rounded up to it', () => {

@@ -36,8 +36,9 @@ Features `Events & Taskings` turns the whole feature off.
   writes. A member without Calendar access gets 403. Another Organization's Event is 404, and its id under the viewer's
   own Organization reads `This event is not available`.
 - `event-feature-off`: the toolbar action, the list, the detail and the API all go away with the switch.
-- `tasking-list`: count chips `Active`, `Overdue`, `Blocked`, `Needs people` and `Completed` that filter, plus search
-  and `Event`, `Responsible`, `Status` and `Due` selects; `Status` also offers `Cancelled`. Every filter lives in the
+- `tasking-list`: count chips `Active`, `Overdue`, `Blocked`, `Needs people` and `Completed` that filter, plus the
+  `Responsible: <label>` Group tree before the toolbar (`All`, the Organization, every Group by path), search and
+  `Event`, `Status` and `Due` selects; `Status` also offers `Cancelled`. Every filter lives in the
   URL (`view`, `q`, `event`, `for`, `within`) and survives Back. A row reads `STATUS`, `TASKING · EVENT` (the Event with
   `· prep` or `· closeout`, or `Standalone · no event`), `RESPONSIBLE`, `PEOPLE` (`picked / required`, amber when
   short), `EQUIPMENT` (`Ready`, `R of T ready` in red, or `R of Q returned` for closeout work) and `NEXT DATE`
@@ -46,7 +47,7 @@ Features `Events & Taskings` turns the whole feature off.
   `Sorted by next date`; closed views hold the 100 most recent, newest first.
 - `tasking-create`: the `Create tasking` sheet. `Required outcome`, `Who is responsible?` and `Suspense` are required.
   Event is optional: a filled row with `Make standalone` when chosen, an Event select when not. Responsible is two
-  cards, `A Group` with its Group select and `Organization level`. An Organization-wide operator starts on
+  cards, `A Group` with its `Group: <path>` tree button and `Organization level`. An Organization-wide operator starts on
   `Organization level`. A Group-scoped operator starts on their Group only when they manage exactly one, and
   `Organization level` is disabled for them. A hint under the cards names who may pick people. `People committed` sets
   the execution dates and report time in one range picker beside `Suspense`. `OPTIONAL` holds `People` (count and
@@ -107,8 +108,10 @@ hook lives in the page, so arm it after the last navigation; a reload removes it
 `$V rows calendar_tasking_activity orgA` read Taskings and their Activity; filter with `tasking_id ID` or
 `responsible_group_id ID`. `$V network arm-fail PAGE calendar-taskings` fails the next Tasking create, the same way.
 
-The toolbar's `Event`, `Responsible`, `Status` and `Due` listboxes show their options in a screenshot but not in a plain
+The toolbar's `Event`, `Status` and `Due` listboxes show their options in a screenshot but not in a plain
 `take_snapshot`. Take a `verbose` snapshot and click the option UIDs in order, or `navigate_page` with the filter query.
+The `Responsible` and Tasking `Group` trees open a popover (a `GROUP` sheet below 640 px) with `Find a Group` and
+`treeitem`s that a plain snapshot lists.
 
 ## Driving it with verify:app
 
@@ -194,6 +197,13 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     `Responsible` and `Next 7 days` in `Due`; the URL reads `?for=ALPHA_ID&within=7` and only Alpha Taskings due within
     a week remain. Open a row and press the browser's Back: the URL, the selects and the rows return unchanged. Search
     `lmtv` writes `?q=lmtv` without a new history entry. `Event` narrows to one Event or `Standalone`.
+    **Nested Groups.** With the [Group focus](group-focus.md) tree seeded, `Create tasking` › `A Group` opens a tree of
+    `2nd Platoon` (with `1st Squad`, `2nd Squad` and the teams under it), `Alpha` and `Bravo`. Picking `1st Squad` reads
+    `Group: 2nd Platoon › 1st Squad`, and the hint reads
+    `2nd Platoon › 1st Squad's leaders who manage the calendar can pick 2nd Platoon › 1st Squad people for this.` The
+    saved row's responsible pill and the detail read `2nd Platoon › 1st Squad`. `Responsible` › `1st Squad` writes
+    `?for=<1st Squad>` and lists only that squad's Taskings; `for` is an exact match, so a `2nd Platoon` filter does not
+    list them. `scrollWidth` equals the viewport at 1024 and 390.
 18. **Failed Tasking save.** On the list, arm `$V network arm-fail PAGE calendar-taskings`, open `Create tasking`, fill
     the three required fields and save. The sheet keeps every entry under a `Not saved` alert and
     `$V rows calendar_taskings orgA` has no new row. Press `Create tasking` again: it saves once and opens the detail.
@@ -202,7 +212,8 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     one line and the next date under them, the actions wrap under the title, and `scrollWidth` equals the viewport.
 20. **Scoped Tasking operator.** As `calendarScoped` (Alpha), the list shows only Alpha Taskings and no
     Organization-owned ones. `Create tasking` starts on `A Group` with `Alpha` chosen and `Organization level` disabled.
-    `Edit` on an Alpha Tasking shows both responsibility cards disabled. A Bravo Tasking's URL reads
+    `Edit` on an Alpha Tasking shows both responsibility cards disabled, a static `Group: Alpha` and
+    `Only an Organization-wide operator can move responsibility.` A Bravo Tasking's URL reads
     `This tasking is not available`. From the page, a create for Bravo or the Organization and a reroute of an Alpha
     Tasking to Bravo return 403; an edit or move of a Bravo or Organization Tasking returns 404.
     `$V rows calendar_taskings orgA` changes only for an allowed Alpha move.
@@ -291,7 +302,10 @@ Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Taskin
    `3 of 3 selected`, and Activity adds
    `Picked SPC Able, Synthetic; SPC Baker, Synthetic and SPC Unassigned, Synthetic`.
 2. **Group picker.** On the Alpha Tasking the picker has no `Group` select and lists only SPC Able, now carrying the
-   Organization Tasking's title and `26 – 28 Oct 2026`. Pick Able and save: `1 of 2 selected`.
+   Organization Tasking's title and `26 – 28 Oct 2026`. Pick Able and save: `1 of 2 selected`. When candidates span a
+   nested Group the list bands them under headings: the Group's own people first as `<path> HQ`, then each sub-group
+   depth-first by path (`2nd Platoon › 1st Squad`, `2nd Platoon › 1st Squad › Alpha Team`), and picks outside the
+   subtree last under their own Group. One band shows no heading.
 3. **List counts.** The Taskings list rows end `· 1 of 2 picked`, `· 3 of 3 picked` and `· 0 of 1 picked`.
 4. **Retry is a no-op.** From the page, `PUT` the same list with the same `expectedRevision` twice. The first answers
    `saved`, the second `unchanged` with the same revision, and the participant rows and audit rows do not grow.
@@ -363,7 +377,8 @@ Reyes and PFC Kim to Alpha, SFC Diaz and SPC Moore to Bravo, and SSG Park (68K) 
    `Equipment` `1 of 2 returned`.
 4. **Picker.** On `graders` press `+ Assign people`. The sheet reads `Assign people`, the outcome and dates, the
    `Organization-level tasking. You can pick from every Group.` banner, `2 of 3` with chips `SSG Hale · Alpha` and
-   `SFC Diaz · Bravo` and one dashed slot. Hale and Diaz lead the list. `Group` › `Bravo` leaves Diaz and Moore;
+   `SFC Diaz · Bravo` and one dashed slot. Hale and Diaz lead the list. The `Group: All` tree › `Bravo` leaves Diaz and
+   Moore, and a parent Group keeps its sub-groups' people;
    `Unassigned` leaves Park. `Save` is disabled. On `trauma` the sheet has a locked `Group Alpha`, an `MOS` toggle that
    leaves only 68W holders, `Other Groups are not listed.` and the footer `Only Alpha's roster appears…`.
    `Remove SGT Ortiz, Lena` on a chip unticks her row.

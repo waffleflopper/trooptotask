@@ -8,7 +8,7 @@ and manages a signed PDF scan without changing Training records.
 - `roster-entry`: open Sign-in rosters from the Training page and see saved rosters permitted by Training access and
   Group scope.
 - `roster-create`: filter candidates by Group, Rank, MOS and Role (a person must match every filter that is set, and any
-  choice within one filter counts), choose date, order and layout, check the print preview, print the PDF, and save the
+  choice within one filter counts; a Group includes its sub-groups), choose date, order and layout, check the print preview, print the PDF, and save the
   selected Personnel facts with the filters.
 - `roster-legacy`: a roster saved before MOS and Role filters, with no filter keys or only `groups` and `ranks`, still
   lists and reprints.
@@ -91,6 +91,14 @@ never confirmed absence.
    both ranks and inspect the PDF order. Generate a third roster with Alpha and Bravo to distinguish `Separate by group`
    from a flat layout. Read back both saved rows and delete them through the UI. Keep the temporary PFC until final seed
    cleanup in step 7.
+   **Nested Groups.** With the [Group focus](group-focus.md) tree seeded, the `Group` filter is the
+   `Group: <label>` tree button (`Group: Any group` when empty), a popover at 1440 and a bottom sheet titled `GROUP`
+   with `Done` at 390. Focus `Find a Group`, press ArrowDown to `2nd Platoon 9` and Enter: the trigger reads
+   `Group: 2nd Platoon`, and `1st Squad included 6` and `2nd Squad included 1` are checked and disabled. Picking
+   `1st Squad` first and `2nd Platoon` after keeps only `2nd Platoon`. With `Split by group` on, the preview and PDF
+   read `2nd Platoon HQ` (Diaz, Webb), then `2nd Platoon › 1st Squad` (Brooks, Kim, Lee, Moss, Nguyen, Ortiz, whose
+   teams fold into the squad), then `2nd Platoon › 2nd Squad` (Patel). The saved `filter_config.groups` is
+   `[<2nd Platoon>]`. At 390 `scrollWidth` stays 390 with the sheet open and after `Done`.
 3. Re-print the saved row and preserve that PDF. Change a selected synthetic Person's name or rank through the visible
    Personnel editor as `rosterManager`, retaining the original value for restoration. Reload Training and reprint the
    same saved roster. The PDF and `$V rows sign_in_rosters orgA id "$ROSTER_ID"` must still show the original snapshot

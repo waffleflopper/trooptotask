@@ -30,8 +30,12 @@ widths, in light and dark.
 ## How to get to it (user POV)
 
 Choose `Onboard` in Organization navigation for the Onboarding list. Choose a row to open its packet beside the list, or
-in a sheet below 1280. Search, the `Group` select (when the Organization has Groups), `History`, `Templates` and
-`Start onboarding` are in the `Onboarding controls` toolbar above the list. Sign-in Rosters: `Training`, then
+in a sheet below 1280. The `Group: <path> <count>` focus control (when the Organization has Groups) leads the row;
+search, `History`, `Templates` and `Start onboarding` are in the `Onboarding controls` toolbar above the list. The list
+follows the shared `?group=` focus: with the [Group focus](group-focus.md) tree and the packets from step 8 of the
+[History recipe](onboarding-history.md), `onboarding?group=<1st Squad>` at 1440, 1024 and 390 reads
+`Group: 2nd Platoon › 1st Squad 2` and lists Brooks (Alpha Team) and Lee (1st Squad) under `In processing` with no
+horizontal scroll, and a stale id shows `Group: Unavailable` and `Group unavailable` with `Clear` and no rows. Sign-in Rosters: `Training`, then
 `Sign-in rosters` in the `Training controls` toolbar (or `More Training controls` when it has folded).
 
 ## Driving it with verify:app

@@ -345,6 +345,10 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       `SPC`: the count reads `3 people on this roster`. Under `And also` choose `MOS`, focus the `MOS` combobox, type
       `68W` and press Enter: `2 people on this roster`, previewing `SPC Able, SPC Unassigned`. `See list` opens a
       popover listing the same two.
+    - **Group rule in a nested tree.** With the [Group focus](group-focus.md) tree seeded, `And also` › `Group` adds a
+      `Group: <label>` tree button with `Remove the group rule`. From `Find a Group`, pick `1st Squad` and then
+      `2nd Platoon` by keyboard: the trigger reads `Group: 2nd Platoon`, `1st Squad` shows `included` and is disabled,
+      and a stored id no longer in the catalog reads `Another group`. Remove the rule before the next step.
     - **Excusal needs a reason.** Choose `Excuse someone`, pick Able under `Person to excuse`, leave `Reason` empty and
       choose `Excuse`. Able is not excused and the field error reads `Add a reason. It prints as a remark on the DA 6.`
       Type `Profile` and choose `Excuse`. A chip reads `SPC Able Profile` with `Reinstate SPC Able`, and the count reads

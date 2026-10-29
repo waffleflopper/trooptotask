@@ -9,9 +9,12 @@ member's Organization and Group scope and the Organization's retention period.
 - `header`: title `History` and a subtitle of up to three parts: `N finished in the last 90 days`,
   `Typically N days to finish` and `N cancelled`. A part with nothing to say is absent, and the typical figure is absent
   below three recent completed packets. The counts cover packets finished in the last 90 days whatever the filters.
-- `toolbar`: `Onboarding history controls` hold the outcome view (`All`, `Completed`, `Cancelled`), search by name, rank
-  or MOS, the `Group` and `Template` selects and the `Active onboarding` link. There is no primary action. `Group` is
-  absent when the Organization has no Groups.
+- `toolbar`: the `Group: <path> <count>` focus control from [Group focus](group-focus.md) leads the row, then
+  `Onboarding history controls` hold the outcome view (`All`, `Completed`, `Cancelled`), search by name, rank or MOS,
+  the `Template` select and the `Active onboarding` link. There is no primary action. The focus control is absent when
+  the Organization has no Groups and no `?group=` is set.
+- `focus`: History follows the shared `?group=` focus. A Group keeps its whole subtree; a stale id shows
+  `Group unavailable` with `Clear` and no rows. The header counts stay Organization-wide.
 - `table`: `Finished packets`, the count of rows that match, and `most recent first`. Columns are Soldier (with Group
   and MOS), Template, Dates, Took, Final and Outcome. Rows sort by finish, newest first. A completed packet finishes on
   its stored completion day and a cancelled one at the time it was cancelled, shown as the viewer's local day (see
@@ -69,7 +72,7 @@ cancelled Alpha packet's first step. The fixture's March packet for Able is also
    Eight rows, newest finish first, with the 17:00 Bravo cancellation above the 09:00 Alpha one. The 46-day row has
    amber `Took` and both cancelled rows have amber `Final`.
 2. **Filters.** `Cancelled` leaves the two cancelled rows; `All` restores every row. Search `68w` keeps Persons with
-   that MOS. `Group` Alpha and `Template` the second template each narrow the rows. A combination with no match shows
+   that MOS. The Group focus on Alpha and `Template` the second template each narrow the rows. A combination with no match shows
    `No packets match`; `Clear filters` restores every row and the toolbar.
 3. **Expanded row.** Open the first completed Alpha packet. `Final packet · read only` lists its steps (both removed
    steps show `Removed from template` under their names and the paperwork step shows `Reviewed` at the right, clear of
@@ -89,6 +92,12 @@ cancelled Alpha packet's first step. The fixture's March packet for Able is also
    `Loading history` skeleton shows at once, the breadcrumb already reads History, and `release` replaces it with the
    loaded page; `restore`. `server-source arm personnel_onboardings fail-hard 1`, choose `History` again:
    `Unable to load History` with `Retry History`, which reloads into the page once the control is restored.
+8. **Group focus.** Seed the three-level tree from [Group focus](group-focus.md). As `orgOwner`, start packets through
+   `POST /org/<orgA>/api/onboarding` `{personnelId, templateId}` for Lee, Brooks, Patel, Diaz, Moss and Kim, then
+   `PUT` `{id, status:'completed', completedAt:<today>}` for Moss and Kim. Open `onboarding/history?group=<1st Squad>`
+   at 1440, 1024 and 390: the trigger reads `Group: 2nd Platoon › 1st Squad 2`, the rows are Moss (Alpha Team) then
+   Kim (Bravo Team), and `scrollWidth` equals the viewport. `?group=00000000-0000-4000-8000-000000000000` reads
+   `Group: Unavailable`, shows `Group unavailable` with `Clear` and no rows, and `Clear` drops `?group=`.
 
 Capture screenshots at 1280 and 390 in light and dark.
 

@@ -202,7 +202,9 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `$V network arm-fail $PAGE daily-assignments` is armed, choosing a Person leaves the picker open, the day empty and
    the failure toast visible; restore and press Enter again to save. Read back one A row for the date and
    `typePersonnel`; the day shows the chosen code. Clear it through `Daily Assignments`. Open Group's `+`: its search
-   reads `Find group` and lists Groups with no figures. Close it. A range that is still loading has no `+` (arm
+   reads `Find group` and lists Groups with no figures, each by its path in a nested tree (`2nd Platoon`,
+   `2nd Platoon › 1st Squad`). `Daily Assignments` picks a Group duty from the `Set <type> group` tree button, with
+   `No group` set apart to clear it. Close it. A range that is still loading has no `+` (arm
    `$V network arm-hold $PAGE calendar-range`, choose an uncovered month and read the lane before release). As
    `calendarView`, the lanes show the same names, but no day has a `+` or opens an editor. Read the accessibility
    snapshot of Staff's September 15 day: it names

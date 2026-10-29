@@ -465,6 +465,17 @@ export type {
 	RosterViewOptions
 } from './rosterReadModel';
 
+export { buildGroupTree } from './groupTree';
+export type { Band, Breakdown, BreakdownRow, GroupFocus, GroupNode, GroupTree, GroupTreeOptions } from './groupTree';
+export {
+	canonicalGroupFocus,
+	GROUP_FOCUS_PARAM,
+	groupFocusLabel,
+	groupFocusNavigation,
+	readGroupFocus
+} from './groupFocus';
+export type { GroupFocusRead, GroupFocusReader } from './groupFocus';
+
 export type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 
 export const personnelLeaderNoteInputSchema = z.object({

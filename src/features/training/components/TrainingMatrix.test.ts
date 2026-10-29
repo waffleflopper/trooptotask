@@ -298,8 +298,7 @@ describe('TrainingMatrix', () => {
 			}
 		});
 
-		const subBands = () =>
-			[/1st Squad/, /Alpha Team/].map((name) => screen.queryByRole('button', { name }) !== null);
+		const subBands = () => [/1st Squad/, /Alpha Team/].map((name) => screen.queryByRole('button', { name }) !== null);
 		expect(subBands()).toEqual([true, true]);
 		expect(mountedNames()).toEqual(['Diaz, Jane', 'Moss, Jane', 'Ortiz, Jane']);
 

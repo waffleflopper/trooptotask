@@ -87,8 +87,7 @@
 		if (!report.result) return null;
 		const groupsInReport = report.result.sets.map((set) => set.top);
 		const topGroup = groupsInReport.reduce<ReadinessGroupRow | null>(
-			(current, group) =>
-				!current || groupLowestShare(group) < groupLowestShare(current) ? group : current,
+			(current, group) => (!current || groupLowestShare(group) < groupLowestShare(current) ? group : current),
 			null
 		);
 		const topCell = topGroup ? groupLowestCell(topGroup) : null;

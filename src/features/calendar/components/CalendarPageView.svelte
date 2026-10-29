@@ -484,7 +484,7 @@
 						personnelByGroup={ctx.filteredPBG}
 						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
-						pinnedGroups={pinnedGroupsStore.list}
+						pinnedGroupIds={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
 						lanes={[...projectionLanes, ...lanes]}
@@ -500,7 +500,7 @@
 						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
 						onCellClick={(person, date) => ctx.handleCellClick(person, date)}
 						onPersonClick={(person) => ctx.handlePersonClick(person)}
-						onPinToggle={(group) => ctx.handlePinToggle(group)}
+						onPinToggle={ctx.canPinGroups ? (groupId) => ctx.handlePinToggle(groupId) : undefined}
 						onDateClick={(date) => ctx.handleDateClick(date)}
 						onMarkerClick={(date) => ctx.handleDateClick(date)}
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}

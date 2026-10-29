@@ -15,6 +15,7 @@ interface SignInRosterSnapshotRow {
 	lastName: string;
 	firstName: string;
 	group: string;
+	groupId: string | null;
 }
 
 interface Inputs {
@@ -54,7 +55,8 @@ export class NewRoster {
 					rank: person.rank,
 					lastName: person.lastName,
 					firstName: person.firstName,
-					group: person.groupName
+					group: person.groupName,
+					groupId: person.groupId
 				})),
 				this.sortBy,
 				inputs.rankCatalog()

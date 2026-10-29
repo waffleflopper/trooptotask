@@ -1,5 +1,5 @@
 import type { RowInput } from 'jspdf-autotable';
-import { rosterDateLine, rosterPrintRows, type RosterPrintPerson } from './rosterPrintRows';
+import { rosterDateLine, rosterPrintRows, type CompareRosterBands, type RosterPrintPerson } from './rosterPrintRows';
 
 export interface RosterPdfConfig {
 	title: string;
@@ -9,10 +9,7 @@ export interface RosterPdfConfig {
 	personnelSnapshot: readonly RosterPrintPerson[];
 }
 
-export async function generateRosterPdf(
-	config: RosterPdfConfig,
-	compareGroupNames: (a: string, b: string) => number
-): Promise<void> {
+export async function generateRosterPdf(config: RosterPdfConfig, compareBands: CompareRosterBands): Promise<void> {
 	const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
 	const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
 	const pageWidth = doc.internal.pageSize.getWidth();
@@ -23,21 +20,20 @@ export async function generateRosterPdf(
 	doc.setFontSize(12);
 	doc.text(rosterDateLine(config.rosterDate, config.blankDate), pageWidth / 2, 70, { align: 'center' });
 
-	const body: RowInput[] = rosterPrintRows(config.personnelSnapshot, config.separateByGroup, compareGroupNames).map(
-		(row) =>
-			row.kind === 'group'
-				? [
-						{
-							content: row.name,
-							colSpan: 4,
-							styles: {
-								fontStyle: 'bold' as const,
-								fillColor: [240, 240, 240] as [number, number, number],
-								cellPadding: { top: 8, bottom: 4, left: 4, right: 4 }
-							}
+	const body: RowInput[] = rosterPrintRows(config.personnelSnapshot, config.separateByGroup, compareBands).map((row) =>
+		row.kind === 'group'
+			? [
+					{
+						content: row.name,
+						colSpan: 4,
+						styles: {
+							fontStyle: 'bold' as const,
+							fillColor: [240, 240, 240] as [number, number, number],
+							cellPadding: { top: 8, bottom: 4, left: 4, right: 4 }
 						}
-					]
-				: [{ content: String(row.number), styles: { halign: 'center' as const } }, row.rank, row.name, '']
+					}
+				]
+			: [{ content: String(row.number), styles: { halign: 'center' as const } }, row.rank, row.name, '']
 	);
 
 	autoTable(doc, {

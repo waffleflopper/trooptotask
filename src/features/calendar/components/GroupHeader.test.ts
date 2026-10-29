@@ -55,9 +55,14 @@ describe('GroupHeader', () => {
 	});
 
 	it('exposes the pinned state on the pin control', () => {
-		renderHeader({ isPinned: true });
+		renderHeader({ isPinned: true, onPinToggle: vi.fn() });
 		const pin = screen.getByRole('button', { name: 'Pinned' });
 		expect(pin.getAttribute('aria-pressed')).toBe('true');
 		expect(pin.getAttribute('title')).toBe('Unpin group');
+	});
+
+	it('has no pin control when the viewer cannot pin', () => {
+		renderHeader({ groupName: 'Bravo' });
+		expect(screen.getAllByRole('button')).toEqual([screen.getByRole('button', { name: /Bravo/ })]);
 	});
 });

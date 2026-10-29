@@ -44,12 +44,12 @@ function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {
 	const props = {
 		groups,
 		people,
-		pinnedNames: ['2nd Platoon'],
+		pinnedGroupIds: ['g-2'],
 		initialSelection: 'g-2',
 		todayStatus: (p: Personnel) => statuses[p.id],
 		canMovePerson: () => true,
 		canMoveTo: () => true,
-		onAdd: vi.fn(async () => {}),
+		onAdd: vi.fn(async (name: string) => ({ id: 'g-new', name, sortOrder: 3 })),
 		onRename: vi.fn(async () => {}),
 		onReorder: vi.fn(async () => ({ status: 'saved' as const })),
 		onTogglePin: vi.fn(async () => true),
@@ -108,8 +108,11 @@ describe('GroupEditor', () => {
 	});
 
 	it('adds a Group on Enter and keeps the name beside its error when the add fails', async () => {
-		const reply = Promise.withResolvers<void>();
-		const onAdd = vi.fn().mockResolvedValueOnce(undefined).mockReturnValueOnce(reply.promise);
+		const reply = Promise.withResolvers<Group>();
+		const onAdd = vi
+			.fn()
+			.mockResolvedValueOnce({ id: 'g-weapons', name: 'Weapons', sortOrder: 3 })
+			.mockReturnValueOnce(reply.promise);
 		renderEditor({ onAdd });
 		const field = screen.getByRole('textbox', { name: 'New group name' }) as HTMLInputElement;
 
@@ -197,7 +200,7 @@ describe('GroupEditor', () => {
 				expect(onMove).toHaveBeenCalledWith(['p-banks'], null);
 			} else {
 				await fireEvent.click(screen.getByRole('button', { name: 'Pinned to top' }));
-				expect(onTogglePin).toHaveBeenCalledWith('2nd Platoon');
+				expect(onTogglePin).toHaveBeenCalledWith('g-2');
 			}
 			expect(screen.getByRole('button', { name: 'Add people to 2nd Platoon' }).hasAttribute('disabled')).toBe(true);
 

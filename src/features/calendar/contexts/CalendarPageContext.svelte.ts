@@ -193,7 +193,7 @@ export class CalendarPageContext {
 		createRosterReadModel({
 			personnel: this.calendarPersonnel,
 			groups: groupsStore.items,
-			pinnedGroups: pinnedGroupsStore.list,
+			pinnedGroupIds: pinnedGroupsStore.list,
 			fallbackGroupName: this.#data.orgName ?? ''
 		})
 	);
@@ -306,8 +306,13 @@ export class CalendarPageContext {
 		this.calendarPersonnelSearch = value;
 	}
 
-	handlePinToggle(group: string): void {
-		pinnedGroupsStore.toggle(group);
+	/** Pins belong to Organization-wide readers; a Group-scoped reader's saved pins are ignored. */
+	get canPinGroups(): boolean {
+		return this.#org.scopeSet.kind === 'organization';
+	}
+
+	handlePinToggle(groupId: string): void {
+		pinnedGroupsStore.toggle(groupId);
 	}
 
 	handleCellClick(person: Personnel, date: Date): void {

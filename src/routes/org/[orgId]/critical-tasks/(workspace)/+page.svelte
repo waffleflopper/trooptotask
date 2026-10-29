@@ -74,7 +74,7 @@
 	const rosterReadModel = $derived(
 		rosterStore.orgId === orgId
 			? rosterStore.readModel({ fallbackGroupName: orgName })
-			: createRosterReadModel({ personnel: [], groups: [], pinnedGroups: [], fallbackGroupName: orgName })
+			: createRosterReadModel({ personnel: [], groups: [], pinnedGroupIds: [], fallbackGroupName: orgName })
 	);
 	const activeRosterView = $derived(rosterReadModel.scoped(org.scopeSet, { status: 'active' }));
 	const activePersonnel = $derived(activeRosterView.flatPersonnel);
@@ -341,7 +341,7 @@
 							tasks={ictTasksStore.items}
 							completions={personnelIctCompletionsStore.items}
 							groups={groupsStore.items}
-							pinnedGroups={pinnedGroupsStore.orgId === orgId ? pinnedGroupsStore.list : []}
+							pinnedGroupIds={pinnedGroupsStore.orgId === orgId ? pinnedGroupsStore.list : []}
 							settings={criticalTasksSettings}
 							canEdit={canRecordCompletion}
 							onSelectCell={handleMatrixCellSelection}

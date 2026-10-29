@@ -48,7 +48,7 @@ function availabilityEntry(overrides: Partial<AvailabilityEntry> = {}): Availabi
 function renderRemove(overrides: Partial<Parameters<typeof render>[1]['props']> = {}) {
 	return render(BulkStatusRemove, {
 		props: {
-			personnelByGroup: [{ group: 'Alpha', personnel: [person] }],
+			personnelByGroup: [{ groupId: 'group-1', group: 'Alpha', personnel: [person] }],
 			statusTypes: [leave],
 			availabilityEntries: [],
 			personnelList: [person],

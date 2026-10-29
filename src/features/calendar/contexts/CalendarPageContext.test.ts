@@ -511,30 +511,30 @@ describe('CalendarPageContext', () => {
 		it('filters the visible roster to one group', () => {
 			ctx.setCalendarGroupFilter('g2');
 
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+			expect(ctx.filteredPBG).toEqual([{ groupId: 'g2', group: 'Bravo', personnel: [mockPersonnel[1]] }]);
 		});
 
 		it('filters the visible roster from typed personnel search text', () => {
 			ctx.setCalendarPersonnelSearch('med');
 
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+			expect(ctx.filteredPBG).toEqual([{ groupId: 'g2', group: 'Bravo', personnel: [mockPersonnel[1]] }]);
 		});
 
 		it('matches typed personnel search text against rank, MOS, name, role, and group', () => {
 			ctx.setCalendarPersonnelSearch('sgt');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Alpha', personnel: [mockPersonnel[0]] }]);
+			expect(ctx.filteredPBG).toEqual([{ groupId: 'g1', group: 'Alpha', personnel: [mockPersonnel[0]] }]);
 
 			ctx.setCalendarPersonnelSearch('68w');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+			expect(ctx.filteredPBG).toEqual([{ groupId: 'g2', group: 'Bravo', personnel: [mockPersonnel[1]] }]);
 
 			ctx.setCalendarPersonnelSearch('smith');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Alpha', personnel: [mockPersonnel[0]] }]);
+			expect(ctx.filteredPBG).toEqual([{ groupId: 'g1', group: 'Alpha', personnel: [mockPersonnel[0]] }]);
 
 			ctx.setCalendarPersonnelSearch('medic');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+			expect(ctx.filteredPBG).toEqual([{ groupId: 'g2', group: 'Bravo', personnel: [mockPersonnel[1]] }]);
 
 			ctx.setCalendarPersonnelSearch('bravo');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+			expect(ctx.filteredPBG).toEqual([{ groupId: 'g2', group: 'Bravo', personnel: [mockPersonnel[1]] }]);
 		});
 
 		it('combines group filtering with typed personnel search text', () => {
@@ -545,7 +545,7 @@ describe('CalendarPageContext', () => {
 			expect(ctx.filteredPBG).toEqual([]);
 
 			ctx.setCalendarPersonnelSearch('bob');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+			expect(ctx.filteredPBG).toEqual([{ groupId: 'g2', group: 'Bravo', personnel: [mockPersonnel[1]] }]);
 		});
 	});
 

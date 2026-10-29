@@ -510,7 +510,7 @@ export class TrainingPageContext {
 			return createRosterReadModel({
 				personnel: [],
 				groups: [],
-				pinnedGroups: [],
+				pinnedGroupIds: [],
 				fallbackGroupName: this.orgName
 			}).scoped(this.#org.scopeSet, { status: 'active', ...options });
 		}

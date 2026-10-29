@@ -207,7 +207,7 @@ describe('Group editor changes reach the roster in place', () => {
 		expect(screen.queryByRole('button', { name: 'Rename Alpha' })).toBeNull();
 	});
 
-	it("carries the viewer's pin through a rename and moves a removed member to Unassigned on the roster", async () => {
+	it("keeps the viewer's pin through a rename and moves a removed member to Unassigned on the roster", async () => {
 		const person = {
 			id: 'person-a',
 			slug: 'synthetic-person',
@@ -224,7 +224,7 @@ describe('Group editor changes reach the roster in place', () => {
 		} as Personnel;
 		groupCatalogHydration.load([{ id: 'group-a', name: 'Alpha', sortOrder: 0 }], 'org-a');
 		personnelStore.load([person], 'org-a');
-		pinnedGroupsHydration.load(['Alpha'], 'org-a');
+		pinnedGroupsHydration.load(['group-a'], 'org-a');
 		const requests: string[] = [];
 		vi.stubGlobal(
 			'fetch',
@@ -242,8 +242,8 @@ describe('Group editor changes reach the roster in place', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha' }));
 		await fireEvent.input(screen.getByDisplayValue('Alpha'), { target: { value: 'Weapons' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-		await waitFor(() => expect(pinnedGroupsStore.list).toEqual(['Weapons']));
-		expect(personnelStore.getById('person-a')?.groupName).toBe('Weapons');
+		await waitFor(() => expect(personnelStore.getById('person-a')?.groupName).toBe('Weapons'));
+		expect(pinnedGroupsStore.list).toEqual(['group-a']);
 
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SPC Person, Synthetic' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove from Group' }));

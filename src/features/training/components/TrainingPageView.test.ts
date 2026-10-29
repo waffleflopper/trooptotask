@@ -287,7 +287,7 @@ describe('TrainingPageView', () => {
 		const headers = [...screen.getByTestId('training-matrix').querySelectorAll('[data-row-group-id]')].map((row) =>
 			row.getAttribute('data-row-group-id')
 		);
-		expect(headers).toEqual(['Bravo', 'Alpha', '\u0000']);
+		expect(headers).toEqual(['group-2', 'group-1', '\u0000']);
 		expect(screen.getByRole('button', { name: /Unassigned/ }).getAttribute('aria-expanded')).toBe('true');
 	});
 
@@ -315,7 +315,7 @@ describe('TrainingPageView', () => {
 		const headers = [...screen.getByTestId('training-matrix').querySelectorAll('[data-row-group-id]')].map((row) =>
 			row.getAttribute('data-row-group-id')
 		);
-		expect(headers).toEqual(['Unassigned', 'Bravo', '\u0000']);
+		expect(headers).toEqual(['group-1', 'group-2', '\u0000']);
 	});
 
 	describe('Manage views', () => {

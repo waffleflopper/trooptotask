@@ -8,7 +8,7 @@ import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTr
 
 type LongRangeViewProps = {
 	startDate: Date;
-	personnelByGroup: { group: string; personnel: Personnel[] }[];
+	personnelByGroup: { groupId: string | null; group: string; personnel: Personnel[] }[];
 	availabilityEntries: AvailabilityEntry[];
 	specialDays: SpecialDay[];
 	onDateColumnClick?: (date: Date) => void;
@@ -56,7 +56,7 @@ function renderView({ availabilityEntries = [], ...overrides }: Partial<LongRang
 	const view = render(LongRangeView, {
 		props: {
 			startDate: new Date(2026, 2, 1),
-			personnelByGroup: [{ group: 'Alpha', personnel }],
+			personnelByGroup: [{ groupId: 'group-1', group: 'Alpha', personnel }],
 			tracks: buildAvailabilityTracks(availabilityEntries, statusTypes),
 			specialDays,
 			...overrides
@@ -89,7 +89,7 @@ describe('LongRangeView', () => {
 			lastName: `Person ${index + 1}`
 		}));
 		const { container } = renderView({
-			personnelByGroup: [{ group: 'Alpha', personnel: roster }],
+			personnelByGroup: [{ groupId: 'group-1', group: 'Alpha', personnel: roster }],
 			availabilityEntries: [
 				{
 					id: 'person-60-leave',

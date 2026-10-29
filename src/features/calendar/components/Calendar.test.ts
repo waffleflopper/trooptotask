@@ -92,7 +92,7 @@ function makePersonnel(count: number, overrides: Partial<Personnel> = {}): Perso
 
 function renderCalendar(
 	overrides: Partial<{
-		personnelByGroup: { group: string; personnel: Personnel[] }[];
+		personnelByGroup: { groupId: string | null; group: string; personnel: Personnel[] }[];
 		availabilityEntries: AvailabilityEntry[];
 		onOpenEntry: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
@@ -118,10 +118,10 @@ function renderCalendar(
 	return render(Calendar, {
 		props: {
 			dates: [new Date(2026, 2, 1), new Date(2026, 2, 2)],
-			personnelByGroup: overrides.personnelByGroup ?? [{ group: 'Alpha', personnel }],
+			personnelByGroup: overrides.personnelByGroup ?? [{ groupId: 'group-1', group: 'Alpha', personnel }],
 			tracks: buildAvailabilityTracks(overrides.availabilityEntries ?? [], statusTypes),
 			specialDays: overrides.specialDays ?? specialDays,
-			pinnedGroups: [],
+			pinnedGroupIds: [],
 			assignmentTypes: overrides.assignmentTypes ?? [],
 			assignments: overrides.assignments ?? [],
 			lanes: overrides.lanes,
@@ -361,7 +361,7 @@ describe('Calendar', () => {
 		const largeRoster = makePersonnel(120);
 		const onPersonClick = vi.fn();
 		const { container } = renderCalendar({
-			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }],
+			personnelByGroup: [{ groupId: 'group-1', group: 'Alpha', personnel: largeRoster }],
 			onPersonClick
 		});
 

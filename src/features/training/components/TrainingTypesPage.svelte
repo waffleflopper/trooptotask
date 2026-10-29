@@ -86,8 +86,9 @@
 	const personnel = $derived(
 		rosterStore.orgId === org.orgId
 			? rosterStore.readModel().full({ status: 'active' }).flatPersonnel
-			: createRosterReadModel({ personnel: fallbackPersonnel, groups: [], pinnedGroups: [] }).full({ status: 'active' })
-					.flatPersonnel
+			: createRosterReadModel({ personnel: fallbackPersonnel, groups: [], pinnedGroupIds: [] }).full({
+					status: 'active'
+				}).flatPersonnel
 	);
 	const rankCatalog = $derived(
 		Array.isArray(workspaceData?.rankCatalog)

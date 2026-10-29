@@ -3,7 +3,7 @@
 	import { GROUP_NAME_EXISTS_MESSAGE, GROUP_UNAVAILABLE_MESSAGE } from '$features/personnel/contracts';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
-	import { followPinnedGroupCatalogChange, pinnedGroupsStore } from '$features/personnel/stores/pinnedGroups.svelte';
+	import { forgetDeletedGroupPin, pinnedGroupsStore } from '$features/personnel/stores/pinnedGroups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import GroupEditor, { UNASSIGNED } from './GroupEditor.svelte';
 	import { rosterStatusDot } from '../rosterSignals';
@@ -39,24 +39,20 @@
 	}
 
 	async function renameGroup(id: string, name: string) {
-		const previous = groupManagementStore.getById(id)?.name;
 		const renamed = await groupManagementStore.rename(id, name).catch((failure: unknown) => {
 			if (failure instanceof Error && failure.message === GROUP_NAME_EXISTS_MESSAGE) throw failure;
 			throw new Error(rejectedRequestMessage(failure, 'Unable to rename Group. Try again.'));
 		});
 		if (!renamed) throw new Error(GROUP_UNAVAILABLE_MESSAGE);
-		const saved = groupManagementStore.getById(id)?.name ?? name.trim();
 		setLocalGroup((person) => person.groupId === id, id);
-		if (previous) followPinnedGroupCatalogChange(previous, saved);
 	}
 
 	async function deleteGroup(id: string, moveMembersTo: string | null) {
 		const orgId = groupManagementStore.orgId;
-		const name = groupManagementStore.getById(id)?.name;
 		await groupManagementStore.deleteWithReassignment(id, moveMembersTo);
 		if (groupManagementStore.orgId !== orgId) return;
 		setLocalGroup((person) => person.groupId === id, moveMembersTo);
-		if (name) followPinnedGroupCatalogChange(name, null);
+		forgetDeletedGroupPin(id);
 	}
 
 	async function moveMembers(personnelIds: string[], groupId: string | null) {
@@ -91,7 +87,7 @@
 	<GroupEditor
 		groups={editorGroups}
 		people={ctx.allActivePersonnel}
-		pinnedNames={pinnedGroupsStore.list}
+		pinnedGroupIds={pinnedGroupsStore.list}
 		loading={groupManagementStore.loading}
 		initialSelection={groupEditorPayload ? (groupEditorPayload.select ?? UNASSIGNED) : null}
 		todayStatus={ctx.canViewAvailability
@@ -100,11 +96,13 @@
 		canMovePerson={(person) => ctx.canManagePersonnelRecord(person)}
 		canMoveTo={(groupId) => ctx.canManagePersonnelInGroup(groupId)}
 		onAdd={async (name) => {
-			if (!(await groupManagementStore.add(name))) throw new Error(GROUP_NAME_EXISTS_MESSAGE);
+			const added = await groupManagementStore.add(name);
+			if (!added) throw new Error(GROUP_NAME_EXISTS_MESSAGE);
+			return added;
 		}}
 		onRename={renameGroup}
 		onReorder={(ids) => groupManagementStore.setOrder(ids)}
-		onTogglePin={(name) => pinnedGroupsStore.toggle(name)}
+		onTogglePin={(groupId) => pinnedGroupsStore.toggle(groupId)}
 		onDelete={deleteGroup}
 		onMove={moveMembers}
 		onClose={modals.closerFor('group-manager')}

@@ -43,16 +43,18 @@
 			<span class="w-3 shrink-0 text-[10px]">{isCollapsed ? '▶' : '▼'}</span>
 			<span class="truncate">{groupName}</span>
 		</Button>
-		<Button
-			variant="cell"
-			size="none"
-			class="h-full min-w-14.5 border-l border-border px-2 font-mono text-[11px] font-medium tracking-widest text-muted-foreground uppercase hover:bg-background hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground"
-			onclick={onPinToggle}
-			aria-pressed={isPinned}
-			title={isPinned ? 'Unpin group' : 'Pin group to top'}
-		>
-			{isPinned ? 'Pinned' : 'Pin'}
-		</Button>
+		{#if onPinToggle}
+			<Button
+				variant="cell"
+				size="none"
+				class="h-full min-w-14.5 border-l border-border px-2 font-mono text-[11px] font-medium tracking-widest text-muted-foreground uppercase hover:bg-background hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground"
+				onclick={onPinToggle}
+				aria-pressed={isPinned}
+				title={isPinned ? 'Unpin group' : 'Pin group to top'}
+			>
+				{isPinned ? 'Pinned' : 'Pin'}
+			</Button>
+		{/if}
 	</div>
 	{#if outCounts}
 		<div

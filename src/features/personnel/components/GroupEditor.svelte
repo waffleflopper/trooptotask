@@ -32,16 +32,16 @@
 	interface Props {
 		groups: Group[];
 		people: Personnel[];
-		pinnedNames: readonly string[];
+		pinnedGroupIds: readonly string[];
 		loading?: boolean;
 		initialSelection?: string | null;
 		todayStatus?: (person: Personnel) => RosterStatusDot;
 		canMovePerson: (person: Personnel) => boolean;
 		canMoveTo: (groupId: string | null) => boolean;
-		onAdd: (name: string) => Promise<void>;
+		onAdd: (name: string) => Promise<Group>;
 		onRename: (id: string, name: string) => Promise<void>;
 		onReorder: (ids: string[]) => Promise<GroupOrderChange>;
-		onTogglePin: (name: string) => Promise<boolean>;
+		onTogglePin: (groupId: string) => Promise<boolean>;
 		onDelete: (id: string, moveMembersTo: string | null) => Promise<void>;
 		onMove: (personnelIds: string[], groupId: string | null) => Promise<GroupMembershipChange>;
 		onClose: () => void;
@@ -50,7 +50,7 @@
 	let {
 		groups,
 		people,
-		pinnedNames,
+		pinnedGroupIds,
 		loading = false,
 		initialSelection = null,
 		todayStatus,
@@ -106,7 +106,7 @@
 	const movableMembers = $derived(members.filter(canMovePerson));
 	const checkedMembers = $derived(members.filter((person) => checked.includes(person.id)));
 	const targetGroupId = $derived(selectedGroup?.id ?? null);
-	const isPinned = $derived(selectedGroup ? pinnedNames.includes(selectedGroup.name) : false);
+	const isPinned = $derived(selectedGroup ? pinnedGroupIds.includes(selectedGroup.id) : false);
 	const entries = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
 	const busy = $derived(pending !== null || ordering > 0);
 	const noGroups = $derived(!loading && groups.length === 0);
@@ -195,9 +195,9 @@
 		const name = newGroupName.trim();
 		if (!name || pending) return;
 		hintDismissed = true;
-		if (await run('add', () => onAdd(name))) {
+		let added: Group | undefined;
+		if (await run('add', async () => void (added = await onAdd(name)))) {
 			newGroupName = '';
-			const added = groups.find((group) => group.name === name);
 			if (added) void select(added.id);
 		}
 	}
@@ -230,7 +230,7 @@
 		const group = selectedGroup;
 		if (!group) return;
 		await run('pin', async () => {
-			if (!(await onTogglePin(group.name))) throw new Error('The pin did not save. Try again.');
+			if (!(await onTogglePin(group.id))) throw new Error('The pin did not save. Try again.');
 		});
 	}
 
@@ -401,10 +401,10 @@
 											aria-hidden="true"
 											class={cn(
 												'size-3.5 shrink-0 fill-accent text-accent',
-												!pinnedNames.includes(group.name) && 'opacity-0'
+												!pinnedGroupIds.includes(group.id) && 'opacity-0'
 											)}
 										/>
-										{#if pinnedNames.includes(group.name)}<span class="sr-only">Pinned</span>{/if}
+										{#if pinnedGroupIds.includes(group.id)}<span class="sr-only">Pinned</span>{/if}
 										<span class="w-7 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
 											{membersByGroup.get(group.id)?.length ?? 0}
 										</span>

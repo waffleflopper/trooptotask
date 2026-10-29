@@ -1,7 +1,6 @@
 /**
- * All mutations (pin, unpin, reorder) are optimistic: the UI updates instantly and rolls
- * back on API failure, and a failed pin or unpin says so. A `#pendingMutations` counter prevents same-Organization hydration
- * from overwriting in-flight client changes. A response from another Organization or a shell lifetime the user has left
+ * Pin and unpin are optimistic: the UI updates instantly, rolls back on API failure, and says so. Pins hold Group ids.
+ * A `#pendingMutations` counter prevents same-Organization hydration from overwriting in-flight client changes. A response from another Organization or a shell lifetime the user has left
  * changes nothing and says nothing.
  */
 import { organizationLifetime, stillInOrganizationLifetime } from '$lib/stores/core';
@@ -40,13 +39,14 @@ export class PinnedGroupsStore {
 		this.#orgId = orgId;
 	}
 
-	followCatalogChange(from: string, to: string | null) {
-		if (!this.#pinnedGroups.includes(from)) return;
-		this.#pinnedGroups = this.#pinnedGroups.flatMap((name) => (name === to ? [] : name === from ? (to ?? []) : [name]));
+	/** The database drops a deleted Group's pins; this keeps the open page in step without a reload. */
+	forgetGroup(groupId: string) {
+		if (!this.#pinnedGroups.includes(groupId)) return;
+		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 	}
 
-	isPinned(group: string): boolean {
-		return this.#pinnedGroups.includes(group);
+	isPinned(groupId: string): boolean {
+		return this.#pinnedGroups.includes(groupId);
 	}
 
 	#mutationScope(): () => boolean {
@@ -55,33 +55,25 @@ export class PinnedGroupsStore {
 		return () => sameLifetime() && version === this.#organizationVersion;
 	}
 
-	#rollbackSwap(left: string, right: string) {
-		const index = this.#pinnedGroups.indexOf(left);
-		if (index < 0 || this.#pinnedGroups[index + 1] !== right) return;
-		const restored = [...this.#pinnedGroups];
-		[restored[index], restored[index + 1]] = [restored[index + 1], restored[index]];
-		this.#pinnedGroups = restored;
-	}
-
-	async pin(group: string): Promise<boolean> {
-		if (this.#pinnedGroups.includes(group)) return true;
+	async pin(groupId: string): Promise<boolean> {
+		if (this.#pinnedGroups.includes(groupId)) return true;
 
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
-		this.#pinnedGroups = [...this.#pinnedGroups, group];
+		this.#pinnedGroups = [...this.#pinnedGroups, groupId];
 
 		try {
 			const res = await fetch(`/org/${orgId}/api/pinned-groups`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ groupName: group, sortOrder: this.#pinnedGroups.length - 1 })
+				body: JSON.stringify({ groupId, sortOrder: this.#pinnedGroups.length - 1 })
 			});
 			if (!res.ok) throw new Error('Failed to pin group');
 			return current();
 		} catch {
 			if (current()) {
-				this.#pinnedGroups = this.#pinnedGroups.filter((g) => g !== group);
+				this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 				toastStore.error(PIN_FAILURE_MESSAGE);
 			}
 			return false;
@@ -90,25 +82,25 @@ export class PinnedGroupsStore {
 		}
 	}
 
-	async unpin(group: string): Promise<boolean> {
+	async unpin(groupId: string): Promise<boolean> {
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
-		const originalIndex = this.#pinnedGroups.indexOf(group);
-		this.#pinnedGroups = this.#pinnedGroups.filter((g) => g !== group);
+		const originalIndex = this.#pinnedGroups.indexOf(groupId);
+		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 
 		try {
 			const res = await fetch(`/org/${orgId}/api/pinned-groups`, {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ groupName: group })
+				body: JSON.stringify({ groupId })
 			});
 			if (!res.ok) throw new Error('Failed to unpin group');
 			return current();
 		} catch {
-			if (current() && originalIndex >= 0 && !this.#pinnedGroups.includes(group)) {
+			if (current() && originalIndex >= 0 && !this.#pinnedGroups.includes(groupId)) {
 				const restored = [...this.#pinnedGroups];
-				restored.splice(Math.min(originalIndex, restored.length), 0, group);
+				restored.splice(Math.min(originalIndex, restored.length), 0, groupId);
 				this.#pinnedGroups = restored;
 			}
 			if (current()) toastStore.error(PIN_FAILURE_MESSAGE);
@@ -118,67 +110,11 @@ export class PinnedGroupsStore {
 		}
 	}
 
-	async toggle(group: string): Promise<boolean> {
-		if (this.isPinned(group)) {
-			return this.unpin(group);
+	async toggle(groupId: string): Promise<boolean> {
+		if (this.isPinned(groupId)) {
+			return this.unpin(groupId);
 		} else {
-			return this.pin(group);
-		}
-	}
-
-	async moveUp(group: string): Promise<boolean> {
-		const index = this.#pinnedGroups.indexOf(group);
-		if (index <= 0) return false;
-
-		const precedingGroup = this.#pinnedGroups[index - 1];
-		const current = this.#mutationScope();
-		const orgId = this.#orgId;
-		this.#pendingMutations++;
-		const newList = [...this.#pinnedGroups];
-		[newList[index - 1], newList[index]] = [newList[index], newList[index - 1]];
-		this.#pinnedGroups = newList;
-
-		try {
-			const res = await fetch(`/org/${orgId}/api/pinned-groups`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'replace', groups: newList })
-			});
-			if (!res.ok) throw new Error('Failed to reorder pinned groups');
-			return current();
-		} catch {
-			if (current()) this.#rollbackSwap(group, precedingGroup);
-			return false;
-		} finally {
-			if (current()) this.#pendingMutations--;
-		}
-	}
-
-	async moveDown(group: string): Promise<boolean> {
-		const index = this.#pinnedGroups.indexOf(group);
-		if (index < 0 || index >= this.#pinnedGroups.length - 1) return false;
-
-		const followingGroup = this.#pinnedGroups[index + 1];
-		const current = this.#mutationScope();
-		const orgId = this.#orgId;
-		this.#pendingMutations++;
-		const newList = [...this.#pinnedGroups];
-		[newList[index], newList[index + 1]] = [newList[index + 1], newList[index]];
-		this.#pinnedGroups = newList;
-
-		try {
-			const res = await fetch(`/org/${orgId}/api/pinned-groups`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'replace', groups: newList })
-			});
-			if (!res.ok) throw new Error('Failed to reorder pinned groups');
-			return current();
-		} catch {
-			if (current()) this.#rollbackSwap(followingGroup, group);
-			return false;
-		} finally {
-			if (current()) this.#pendingMutations--;
+			return this.pin(groupId);
 		}
 	}
 }
@@ -193,13 +129,13 @@ export const pinnedGroupsStore = {
 	get orgId() {
 		return pinnedGroupManagementStore.orgId;
 	},
-	toggle(group: string) {
-		return pinnedGroupManagementStore.toggle(group);
+	toggle(groupId: string) {
+		return pinnedGroupManagementStore.toggle(groupId);
 	}
 };
 
-export function followPinnedGroupCatalogChange(from: string, to: string | null) {
-	pinnedGroupManagementStore.followCatalogChange(from, to);
+export function forgetDeletedGroupPin(groupId: string) {
+	pinnedGroupManagementStore.forgetGroup(groupId);
 }
 
 /** Workspace bootstraps supply the ordered pin snapshot without another request. */
@@ -210,7 +146,7 @@ export const pinnedGroupsHydration = {
 	get orgId() {
 		return pinnedGroupManagementStore.orgId;
 	},
-	load(names: string[], orgId: string) {
-		pinnedGroupManagementStore.load(names, orgId);
+	load(groupIds: string[], orgId: string) {
+		pinnedGroupManagementStore.load(groupIds, orgId);
 	}
 };

@@ -55,6 +55,7 @@ function mount(
 		pinned?: boolean;
 		selection?: CheckState | null;
 		canNote?: boolean;
+		canPin?: boolean;
 	} = {}
 ) {
 	const openGroupEditor = vi.fn();
@@ -65,12 +66,11 @@ function mount(
 	const ctx = {
 		summarizeSignals: () => summary,
 		canManageGroups: options.canManageGroups ?? true,
-		groupIdForName: (name: string) => (name === 'Alpha' ? 'group-alpha' : null),
 		openGroupEditor
 	} as unknown as PersonnelPageContext;
 	const unassigned = options.unassigned ?? false;
 	const group: GroupHeaderContext = {
-		key: unassigned ? 'Unassigned' : 'Alpha',
+		key: unassigned ? '' : 'group-alpha',
 		label: unassigned ? 'Unassigned' : 'Alpha',
 		count: 4,
 		collapsed: options.collapsed ?? false,
@@ -83,7 +83,7 @@ function mount(
 			ctx,
 			pinned: options.pinned ?? false,
 			unassigned,
-			onTogglePin,
+			onTogglePin: (options.canPin ?? true) ? onTogglePin : null,
 			selection: options.selection ? { state: options.selection, set: select } : null,
 			onNoteToEveryone: options.canNote ? onNoteToEveryone : null
 		}
@@ -146,7 +146,7 @@ describe('PersonnelGroupHeader', () => {
 	it('shows no counts while the signals load and none when they failed', () => {
 		const { unmount } = render(PersonnelGroupHeader, {
 			props: {
-				group: { key: 'Alpha', label: 'Alpha', count: 4, collapsed: false, toggle: vi.fn() },
+				group: { key: 'group-alpha', label: 'Alpha', count: 4, collapsed: false, toggle: vi.fn() },
 				people: [],
 				ctx: { summarizeSignals: () => ({ kind: 'pending' }) } as unknown as PersonnelPageContext,
 				pinned: false,
@@ -184,7 +184,7 @@ describe('PersonnelGroupHeader', () => {
 		await fireEvent.keyDown(screen.getByRole('button', { name: 'Group actions for Alpha' }), { key: 'Enter' });
 		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Unpin' }));
 
-		expect(onTogglePin.mock.calls).toEqual([['Alpha'], ['Alpha']]);
+		expect(onTogglePin.mock.calls).toEqual([['group-alpha'], ['group-alpha']]);
 	});
 
 	it('opens the Group editor on the Group from Rename and from Add people', async () => {
@@ -261,5 +261,14 @@ describe('PersonnelGroupHeader', () => {
 		await fireEvent.keyDown(screen.getByRole('button', { name: 'Group actions for Alpha' }), { key: 'Enter' });
 		await screen.findByRole('menuitem', { name: 'Pin' });
 		expect(screen.queryByRole('menuitem', { name: 'Note to everyone in the Group' })).toBeNull();
+	});
+
+	it('offers a viewer who cannot pin no pin toggle and no Pin item', async () => {
+		mount(ready({}), { canPin: false });
+
+		expect(screen.queryByRole('button', { name: /^(Pin|Unpin) / })).toBeNull();
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Group actions for Alpha' }), { key: 'Enter' });
+		await screen.findByRole('menuitem', { name: 'Rename' });
+		expect(screen.queryByRole('menuitem', { name: /^(Pin|Unpin)$/ })).toBeNull();
 	});
 });

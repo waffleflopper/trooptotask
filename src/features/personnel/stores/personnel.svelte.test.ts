@@ -129,7 +129,7 @@ describe('personnelStore', () => {
 			],
 			'org-1'
 		);
-		pinnedGroupsHydration.load(['Alpha'], 'org-1');
+		pinnedGroupsHydration.load(['g1'], 'org-1');
 
 		expect(
 			rosterStore
@@ -159,7 +159,7 @@ describe('personnelStore', () => {
 		});
 		flushSync();
 
-		pinnedGroupsHydration.load(['Bravo'], 'org-1');
+		pinnedGroupsHydration.load(['g2'], 'org-1');
 		flushSync();
 		stop();
 
@@ -168,7 +168,7 @@ describe('personnelStore', () => {
 
 	it('ignores Groups and pins loaded for another Organization', () => {
 		groupCatalogHydration.load([{ id: 'g2', name: 'Bravo', sortOrder: 0 }], 'org-2');
-		pinnedGroupsHydration.load(['Bravo'], 'org-2');
+		pinnedGroupsHydration.load(['g2'], 'org-2');
 
 		expect(
 			rosterStore

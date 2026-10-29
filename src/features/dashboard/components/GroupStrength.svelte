@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { Button } from '$lib/components/ui/button';
-	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import type { GroupStrength, GroupStrengthRow } from '../read-model/strengthBand';
 
 	let { groups, mode }: { groups: GroupStrength; mode: 'people' | 'counts' } = $props();
@@ -15,15 +13,6 @@
 	const visible = $derived(
 		(showAll ? groups.sets : groups.sets.slice(0, groups.shown)).flatMap((set) => [set.top, ...set.below])
 	);
-	const displayItems = $derived<ToolbarItem[]>([
-		{
-			kind: 'action',
-			id: 'group-strength-display',
-			label: 'Display',
-			icon: 'sliders',
-			menuItems: [showSubGroupsToggle()]
-		}
-	]);
 	const eyebrow = $derived(
 		folded && !showAll ? `By group · lowest ${groups.shown} of ${total}` : `By group · all ${total} · lowest first`
 	);
@@ -41,19 +30,8 @@
 
 {#if total > 0}
 	<div class="grid gap-2.5">
-		{#if mode === 'counts' || nested || groups.hasSubGroups}
-			<div class="flex min-h-8 items-center justify-between gap-2">
-				{#if mode === 'counts' || nested}
-					<h3 class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
-						{eyebrow}
-					</h3>
-				{/if}
-				{#if groups.hasSubGroups}
-					<div class="ml-auto">
-						<WorkspaceToolbar ariaLabel="Group strength display" bare items={displayItems} />
-					</div>
-				{/if}
-			</div>
+		{#if mode === 'counts' || nested}
+			<h3 class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{eyebrow}</h3>
 		{/if}
 		{#if mode === 'people' && !nested}
 			<ul

@@ -1,9 +1,13 @@
 import type { ImportReference, ReferenceOption } from '$lib/components/patterns/import-flow';
+import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Group } from '../contracts';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelDodId } from '../personnelSheetPersistence';
 import { normalizeDodId } from '../dodId';
 import type { RankCatalogEntry } from '../rankCatalog';
+import { GROUP_PATH_SEPARATOR, groupExportPath, resolveGroupPath } from '../groupPath';
+import { MAX_GROUP_DEPTH } from '../groupStructure';
+import { buildGroupTree } from '../groupTree';
 import { groupManagementStore } from '../stores/groups.svelte';
 import type { personnelImportColumns } from './personnelImportColumns';
 import {
@@ -20,6 +24,7 @@ type Columns = typeof personnelImportColumns;
 
 export const NEW_PERSON = 'new';
 const NO_GROUP = 'no-group';
+let groupCreation: { lifetime: number; done: Promise<void> } | null = null;
 function uniqueBy<T>(items: readonly T[], value: (item: T) => string): Map<string, T | null> {
 	const index = new Map<string, T | null>();
 	for (const item of items) {
@@ -118,32 +123,90 @@ export function groupReference(
 	groups: readonly Group[],
 	{ canCreate, allowUnassigned }: { canCreate: boolean; allowUnassigned: boolean }
 ): ImportReference<Columns, Group | null> {
-	const option = (group: Group): ReferenceOption<Group> => ({ id: group.id, label: group.name, value: group });
-	const byName = uniqueBy(groups, (group) => normalizeName(group.name));
+	const tree = buildGroupTree(groups);
+	const byId = new Map(groups.map((group) => [group.id, group]));
+	// Full display paths tell apart the Alpha Teams of two squads, a legacy "Clinic / Lab" from Clinic › Lab, and a
+	// root from a same-named child in a "Which group?" question.
+	const option = (group: Group): ReferenceOption<Group> => ({
+		id: group.id,
+		label: tree.label(group.id, { keepRoot: true }) || group.name,
+		value: group
+	});
+	const optionOf = (id: string) => option(byId.get(id)!);
 	const byWords = uniqueBy(groups, (group) => groupWords(group.name));
 	return {
 		label: 'group',
 		reads: ['groupName'],
 		whenMissing: 'ask',
-		options: [...groups.map(option), ...(allowUnassigned ? [{ id: NO_GROUP, label: 'No group', value: null }] : [])],
+		options: [
+			...tree.ordered.map((node) => optionOf(node.id)),
+			...(allowUnassigned ? [{ id: NO_GROUP, label: 'No group', value: null }] : [])
+		],
 		key: (raw) => {
 			const display = raw.groupName?.trim();
 			return display ? { key: normalizeName(display), display } : null;
 		},
 		find(key) {
-			const group = byName.get(key);
-			if (group) return { kind: 'one', option: option(group) };
+			const match = resolveGroupPath(tree, key, normalizeName);
+			if (match.kind === 'found') return { kind: 'one', option: optionOf(match.id) };
+			if (match.kind === 'ambiguous') return { kind: 'many', candidates: match.ids.map(optionOf) };
 			const guess = byWords.get(groupWords(key));
 			return guess ? { kind: 'none', suggestion: option(guess) } : { kind: 'none' };
 		},
 		create: canCreate
 			? async (name) => {
-					const wanted = normalizeName(name);
-					const existing = groupManagementStore.items.find((group) => normalizeName(group.name) === wanted);
-					const group = existing ?? (await groupManagementStore.add(name));
-					return group
-						? { kind: 'created', option: option(group) }
-						: { kind: 'refused', message: 'Enter a group name.' };
+					const lifetime = organizationLifetime();
+					const previous = groupCreation?.lifetime === lifetime ? groupCreation.done : Promise.resolve();
+					const finished = Promise.withResolvers<void>();
+					groupCreation = { lifetime, done: finished.promise };
+					try {
+						await withinOrganizationLifetime(previous);
+						let steps = name
+							.split(GROUP_PATH_SEPARATOR)
+							.map((step) => step.trim())
+							.filter(Boolean);
+						if (steps.length === 0) return { kind: 'refused', message: 'Enter a group name.' };
+						let parentId: string | null = null;
+						let created: Group | undefined;
+						const currentTree = buildGroupTree(groupManagementStore.items);
+						for (let length = steps.length; length > 0; length--) {
+							const prefix = normalizeName(steps.slice(0, length).join(GROUP_PATH_SEPARATOR));
+							const matches = currentTree.ordered.filter(
+								(group) => normalizeName(groupExportPath(currentTree, group.id)) === prefix
+							);
+							if (matches.length > 1)
+								return {
+									kind: 'refused',
+									message: `Which group? ${matches.map((group) => currentTree.label(group.id, { keepRoot: true })).join(', ')}`
+								};
+							if (matches.length === 1) {
+								created = matches[0];
+								parentId = created.id;
+								steps = steps.slice(length);
+								break;
+							}
+						}
+						if ((created?.depth ?? 0) + steps.length > MAX_GROUP_DEPTH)
+							return { kind: 'refused', message: 'Groups can nest at most three levels deep.' };
+						for (const step of steps) {
+							const wanted = normalizeName(step);
+							const under: string | null = parentId;
+							created =
+								groupManagementStore.items.find(
+									(existing) => existing.parentId === under && normalizeName(existing.name) === wanted
+								) ??
+								(await groupManagementStore.add(step, under)) ??
+								undefined;
+							if (!created) return { kind: 'refused', message: 'Enter a group name.' };
+							parentId = created.id;
+						}
+						if (!created) return { kind: 'refused', message: 'Enter a group name.' };
+						const label = buildGroupTree(groupManagementStore.items).label(created.id, { keepRoot: true });
+						return { kind: 'created', option: { ...option(created), label: label || created.name } };
+					} finally {
+						if (groupCreation?.done === finished.promise) groupCreation = null;
+						finished.resolve();
+					}
 				}
 			: undefined
 	};

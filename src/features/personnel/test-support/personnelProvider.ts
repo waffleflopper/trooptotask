@@ -136,15 +136,16 @@ export function personnelProvider(initial: Partial<Record<PersonnelTable, Row[]>
 					);
 				const projection = url.searchParams.get('select');
 				const result = selected.map((original) => {
+					const record = table === 'groups' ? { parent_id: null, depth: 1 as const, ...original } : original;
 					const row = projection?.includes('groups!')
 						? {
-								...original,
+								...record,
 								groups:
 									rows.groups.find(
 										(group) => group.id === original.group_id && group.organization_id === original.organization_id
 									) ?? null
 							}
-						: original;
+						: record;
 					return !projection || projection.startsWith('*')
 						? row
 						: Object.fromEntries(projection.split(',').map((column) => [column.trim(), row[column.trim()]]));

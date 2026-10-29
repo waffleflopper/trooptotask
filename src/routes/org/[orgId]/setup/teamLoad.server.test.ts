@@ -8,7 +8,10 @@ function fixture(role: 'owner' | 'admin' | 'member') {
 	const ctx = {
 		auth: base.auth,
 		disabledFeatures: [],
-		groups: { listCatalog: async () => [{ id: 'g-1', name: 'HQ PLT' }] },
+		groups: {
+			listCatalog: async () => [{ id: 'g-1', name: 'HQ PLT', sortOrder: 0, parentId: null, depth: 1 }],
+			countActiveMembers: async () => new Map([['g-1', 4]])
+		},
 		organizationSettings: {
 			listMemberAccess: vi.fn(async () => []),
 			listInvitations,
@@ -25,7 +28,7 @@ describe('readSetupTeam', () => {
 		expect(await readSetupTeam(ctx)).toEqual({
 			canInvite: true,
 			isOwner: true,
-			groups: [{ id: 'g-1', name: 'HQ PLT' }],
+			groups: [{ id: 'g-1', name: 'HQ PLT', parentId: null, memberCount: 4 }],
 			invitations: []
 		});
 	});

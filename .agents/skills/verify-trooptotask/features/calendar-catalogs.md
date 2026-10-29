@@ -47,8 +47,9 @@ one-day chip and the `More actions for <name>` menu with `Edit` and `Delete`. Th
 beside `Drag to set legend and picker order.` An assignment type row has a `Show <name> on the calendar` switch and a
 `More actions for <name>` menu with `Edit` and `Delete`. Assignment types sit in two lists: `On the calendar · N lanes`
 in lane order with a `Reorder <name>` grip on each row, and `Duty planner only` sorted by name. Assignment type Add and
-Edit open a side sheet. A deletion dialog says what the delete removes: schedule entries for a status, assigned days and saved DA 6 forms (and, for a Person type, its duty roster) for an assignment type. `Holidays & closures` is
-the third section and is driven in [Special days](special-days.md).
+Edit open a side sheet. A deletion dialog says what the delete removes: schedule entries for a status, assigned days and
+saved DA 6 forms (and, for a Person type, its duty roster) for an assignment type. `Holidays & closures` is the third
+section and is driven in [Special days](special-days.md).
 
 ## Helper controls
 
@@ -126,18 +127,19 @@ confirmation. Row actions are named, such as `More actions for Verification Leav
    `400`, the A lanes must stay Staff then Group and no `MARKER` row may exist; only the lane command writes
    `show_on_calendar` and lane order.
 4. **Status deletion:** Choose `More actions for Verification Retiring Status` → `Delete`. Capture the warning that
-   every schedule entry with this status will be removed, then confirm. A status with a roster effect adds that open DA 6
-   forms recalculate and closed forms keep their saved numbers; one that is `Still available` says neither. Read back absence of `statusDelete` and its linked
-   `availabilityDelete`, while the March historical entry remains. Compare A's `audit_logs` and `notifications`
-   before/after: expect a `status_type.deleted` event for that ID and a `Status Type Deleted` administrator
-   notification. Notification delivery is asynchronous, so observe it without claiming it committed atomically with
-   deletion.
+   every schedule entry with this status will be removed, then confirm. A status with a roster effect adds that open DA
+   6 forms recalculate and closed forms keep their saved numbers; one that is `Still available` says neither. Read back
+   absence of `statusDelete` and its linked `availabilityDelete`, while the March historical entry remains. Compare A's
+   `audit_logs` and `notifications` before/after: expect a `status_type.deleted` event for that ID and a
+   `Status Type Deleted` administrator notification. Notification delivery is asynchronous, so observe it without
+   claiming it committed atomically with deletion.
 5. **Assignment deletion:** Choose `More actions for Verification Retiring Duty` → `Delete`. Capture the warning that
    every day it is assigned will be removed, then confirm. A person-assigned type also names its duty roster and saved
-   DA 6 forms; a Group-assigned type names only its saved DA 6 forms. Read back absence of that type and its linked assignment; the Staff
-   assignment and archived type/assignment remain. Compare notifications before/after for `Assignment Type Deleted`. Do
-   not remove seeded Staff, Group or archived history. Before another journey needs either deleted fixture, run
-   `npm run --silent verify:app -- restart --worker "$WORKER"`, then `doctor` and `$V fixture` again.
+   DA 6 forms; a Group-assigned type names only its saved DA 6 forms. Read back absence of that type and its linked
+   assignment; the Staff assignment and archived type/assignment remain. Compare notifications before/after for
+   `Assignment Type Deleted`. Do not remove seeded Staff, Group or archived history. Before another journey needs either
+   deleted fixture, run `npm run --silent verify:app -- restart --worker "$WORKER"`, then `doctor` and `$V fixture`
+   again.
 6. **Settings appearance.** Run steps 6 to 9 before steps 4 and 5 so the seeded rows are present. As `calendarConfigure`
    on `/calendar/settings`, use `resize_page` for 1280x800 and the visible **Toggle theme** for light. For each of
    `Status Types` and `Assignment Types`, capture the section tab in `Calendar settings sections` with its count and
@@ -347,6 +349,11 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       `SPC`: the count reads `3 people on this roster`. Under `And also` choose `MOS`, focus the `MOS` combobox, type
       `68W` and press Enter: `2 people on this roster`, previewing `SPC Able, SPC Unassigned`. `See list` opens a
       popover listing the same two.
+    - **Group rule in a nested tree.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded,
+      `And also` › `Group` adds a `Group: <label>` tree button with `Remove the group rule`. From `Find a Group`, pick
+      `1st Squad` and then `2nd Platoon` by keyboard: the trigger reads `Group: 2nd Platoon`, `1st Squad` shows
+      `included` and is disabled, and a stored id no longer in the catalog reads `Another group`. Remove the rule before
+      the next step.
     - **Excusal needs a reason.** Choose `Excuse someone`, pick Able under `Person to excuse`, leave `Reason` empty and
       choose `Excuse`. Able is not excused and the field error reads `Add a reason. It prints as a remark on the DA 6.`
       Type `Profile` and choose `Excuse`. A chip reads `SPC Able Profile` with `Reinstate SPC Able`, and the count reads
@@ -443,11 +450,12 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
     `No status types yet.` or `No assignment types yet.` For a viewer with Calendar configure access it ends with a
     `Set up status types` or `Set up assignment types` link to `/org/ORG/calendar/settings?section=status` or
     `?section=assignments`; for anyone else it says `Ask someone who manages Calendar settings to add one.` The surfaces
-    are the quick-add popover and the availability dialog (status types), the Bulk Status Add summary (status types), the
-    Daily Assignments dialog and the duty planner (assignment types). The settings link opens on the named tab, and
-    `?section=closures` opens `Holidays & closures`; an unknown value opens `Status Types`. To reach them, as `calendarConfigure` delete every status type and assignment type through their Delete
-    confirmations (`restart` restores the fixture), then open Bulk Status, a Calendar day's `Set Personnel Status` dialog
-    and `Daily Assignments` dialog, and the Duty planner; `calendarOperate` sees the `Ask someone` wording. Capture one status-type and one
+    are the quick-add popover and the availability dialog (status types), the Bulk Status Add summary (status types),
+    the Daily Assignments dialog and the duty planner (assignment types). The settings link opens on the named tab, and
+    `?section=closures` opens `Holidays & closures`; an unknown value opens `Status Types`. To reach them, as
+    `calendarConfigure` delete every status type and assignment type through their Delete confirmations (`restart`
+    restores the fixture), then open Bulk Status, a Calendar day's `Set Personnel Status` dialog and `Daily Assignments`
+    dialog, and the Duty planner; `calendarOperate` sees the `Ask someone` wording. Capture one status-type and one
     assignment-type empty state at 1280 px and 390 px, follow each link and read the selected tab.
 
 ## Gotchas

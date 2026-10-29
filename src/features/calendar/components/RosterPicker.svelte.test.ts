@@ -57,6 +57,7 @@ describe('RosterPicker', () => {
 
 	const roster = [
 		{
+			groupId: 'group-1',
 			group: 'Alpha',
 			personnel: [
 				personnel({ id: 'p1', lastName: 'Able', mos: '11B' }),
@@ -108,6 +109,7 @@ describe('RosterPicker', () => {
 			props: {
 				personnelByGroup: [
 					{
+						groupId: 'group-1',
 						group: 'Alpha',
 						personnel: [personnel({ mos: '   ', clinicRole: ' ' })]
 					}
@@ -122,7 +124,7 @@ describe('RosterPicker', () => {
 	it('offers sorting on the data columns but not the selection column', () => {
 		render(RosterPicker, {
 			props: {
-				personnelByGroup: [{ group: 'Alpha', personnel: [personnel({})] }],
+				personnelByGroup: [{ groupId: 'group-1', group: 'Alpha', personnel: [personnel({})] }],
 				selection: makeSelection()
 			}
 		});
@@ -140,11 +142,16 @@ describe('RosterPicker', () => {
 			props: {
 				personnelByGroup: [
 					{
+						groupId: 'group-2',
 						group: 'Bravo',
 						personnel: [personnel({ id: 'p3', lastName: 'Zulu', groupId: 'group-2', groupName: 'Bravo' })]
 					},
-					{ group: 'Alpha', personnel: [personnel({ id: 'p1', lastName: 'Able' })] },
-					{ group: 'Unassigned', personnel: [personnel({ id: 'p4', lastName: 'Young', groupId: null, groupName: '' })] }
+					{ groupId: 'group-1', group: 'Alpha', personnel: [personnel({ id: 'p1', lastName: 'Able' })] },
+					{
+						groupId: null,
+						group: 'Unassigned',
+						personnel: [personnel({ id: 'p4', lastName: 'Young', groupId: null, groupName: '' })]
+					}
 				],
 				selection: makeSelection()
 			}
@@ -164,14 +171,20 @@ describe('RosterPicker', () => {
 			props: {
 				personnelByGroup: [
 					{
+						groupId: 'group-9',
 						group: 'Unassigned',
 						personnel: [personnel({ id: 'p5', lastName: 'Xray', groupId: 'group-9', groupName: 'Unassigned' })]
 					},
 					{
+						groupId: 'group-2',
 						group: 'Bravo',
 						personnel: [personnel({ id: 'p3', lastName: 'Zulu', groupId: 'group-2', groupName: 'Bravo' })]
 					},
-					{ group: 'Unassigned', personnel: [personnel({ id: 'p4', lastName: 'Young', groupId: null, groupName: '' })] }
+					{
+						groupId: null,
+						group: 'Unassigned',
+						personnel: [personnel({ id: 'p4', lastName: 'Young', groupId: null, groupName: '' })]
+					}
 				],
 				selection: makeSelection()
 			}
@@ -182,6 +195,26 @@ describe('RosterPicker', () => {
 				.getAllByRole('checkbox', { name: /^Select .* group$/ })
 				.map((checkbox) => checkbox.getAttribute('aria-label'))
 		).toEqual(['Select Unassigned group', 'Select Bravo group', 'Select Unassigned group']);
+	});
+
+	it('selects only the people of the Group whose checkbox is operated when two Groups share a name', async () => {
+		const bands = [
+			{ groupId: 'group-1', group: 'Alpha', personnel: [personnel({ id: 'p1', lastName: 'Able' })] },
+			{
+				groupId: 'group-7',
+				group: 'Alpha',
+				personnel: [personnel({ id: 'p7', lastName: 'Zulu', groupId: 'group-7' })]
+			}
+		];
+		const selection = useDataTableSelection<Personnel>({
+			rows: () => bands.flatMap((band) => band.personnel),
+			rowKey: (person) => person.id
+		});
+		render(RosterPicker, { props: { personnelByGroup: bands, selection } });
+
+		await fireEvent.click(screen.getAllByRole('checkbox', { name: 'Select Alpha group' })[1]);
+
+		expect([...selection.selectedKeys]).toEqual(['p7']);
 	});
 });
 
@@ -203,8 +236,8 @@ describe('RosterPicker with availability', () => {
 	const eve = personnel({ id: 'eve', lastName: 'Eve', firstName: 'Ed' });
 	const dale = personnel({ id: 'dale', lastName: 'Dale', firstName: 'Di', groupId: 'g2', groupName: 'Bravo' });
 	const roster = [
-		{ group: 'Alpha', personnel: [able, baker, cole, eve] },
-		{ group: 'Bravo', personnel: [dale] }
+		{ groupId: 'group-1', group: 'Alpha', personnel: [able, baker, cole, eve] },
+		{ groupId: 'g2', group: 'Bravo', personnel: [dale] }
 	];
 	const entries: AvailabilityEntry[] = [
 		{

@@ -4,7 +4,7 @@ import {
 	type CapabilityLevel,
 	type CapabilityMap,
 	type DurableFeatureLane,
-	type ScopeSet
+	type AdvisoryGroupScope
 } from '$lib/access/memberAccessShape';
 import {
 	policyEvaluator,
@@ -22,7 +22,7 @@ export interface ClientAccess {
 	readonly isAdmin: boolean;
 	readonly isPrivileged: boolean;
 	readonly capabilityMap: CapabilityMap;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: AdvisoryGroupScope;
 	readonly affordanceForFeatureAction: (action: FeatureLanePolicyAction, resource?: PolicyResource) => ClientAffordance;
 	readonly affordanceForGovernanceAction: (
 		action: OrganizationGovernancePolicyAction,
@@ -35,7 +35,7 @@ export interface ClientAccess {
 export interface ClientAccessFacts {
 	membershipRole: 'owner' | 'admin' | 'member';
 	capabilityMap?: CapabilityMap;
-	scopeSet?: ScopeSet;
+	scopeSet?: AdvisoryGroupScope;
 }
 
 export interface ClientAffordance {
@@ -102,7 +102,7 @@ export function createClientAccess(input: ClientAccessFacts | ClientAccessInputA
 	};
 }
 
-function isResourceAllowedByScope(scopeSet: ScopeSet, resource: PolicyResource): boolean {
+function isResourceAllowedByScope(scopeSet: AdvisoryGroupScope, resource: PolicyResource): boolean {
 	if (resource.kind === 'unscoped') return true;
 	if (scopeSet.kind === 'organization') return true;
 	if (resource.kind === 'group') return scopeSet.groupIds.includes(resource.groupId);
@@ -111,7 +111,7 @@ function isResourceAllowedByScope(scopeSet: ScopeSet, resource: PolicyResource):
 
 function evaluateClientAffordance(
 	input: ClientAccessFacts,
-	accessShape: { capabilityMap: CapabilityMap; scopeSet: ScopeSet },
+	accessShape: { capabilityMap: CapabilityMap; scopeSet: AdvisoryGroupScope },
 	action: PolicyAction,
 	resource: PolicyResource
 ): ClientAffordance {

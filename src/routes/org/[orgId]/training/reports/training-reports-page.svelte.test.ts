@@ -56,6 +56,7 @@ function report(
 				groupId: null,
 				groupName: ''
 			})),
+			groups: [],
 			types: [CPR],
 			records: [],
 			filters: {},

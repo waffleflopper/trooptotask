@@ -4,6 +4,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '../training.types';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import { buildTrainingMatrixWorkbook, type TrainingMatrixWorkbookInput } from './trainingMatrixWorkbook';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 
 const EXPORT_DATE = '2026-06-15';
 const NOTICE =
@@ -60,8 +61,14 @@ function addDays(date: string, days: number): string {
 	return next.toISOString().slice(0, 10);
 }
 
-async function exportSheet(input: Omit<TrainingMatrixWorkbookInput, 'exportDate'>): Promise<ExcelJS.Worksheet> {
-	const workbook = await buildTrainingMatrixWorkbook({ ...input, exportDate: EXPORT_DATE });
+async function exportSheet(
+	input: Omit<TrainingMatrixWorkbookInput, 'exportDate' | 'groups'>
+): Promise<ExcelJS.Worksheet> {
+	const workbook = await buildTrainingMatrixWorkbook({
+		...input,
+		exportDate: EXPORT_DATE,
+		groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }]
+	});
 	const parsed = new ExcelJS.Workbook();
 	await parsed.xlsx.load(
 		Buffer.from(await writeWorkbookBuffer(workbook)) as unknown as Parameters<ExcelJS.Workbook['xlsx']['load']>[0]
@@ -88,6 +95,16 @@ async function expiryColors(daysFromExport: number[], typeOverrides: Partial<Tra
 }
 
 describe('Training matrix workbook', () => {
+	it('writes the nested Group path from the export snapshot catalog', async () => {
+		const workbook = await buildTrainingMatrixWorkbook({
+			personnel: [person('p-1', 'Lee', 'Pat')],
+			groups: NESTED_GROUPS,
+			trainingTypes: [],
+			trainings: [],
+			exportDate: EXPORT_DATE
+		});
+		expect(workbook.getWorksheet('Training Matrix')?.getCell('C3').value).toBe('1st Platoon / 2nd Squad / Alpha Team');
+	});
 	it('exports one alphabetical row per person with all globally ordered types and literal recorded dates or completion states', async () => {
 		const sheet = await exportSheet({
 			personnel: [

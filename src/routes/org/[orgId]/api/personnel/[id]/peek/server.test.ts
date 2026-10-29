@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { PersonnelOpenFollowUps } from '$features/personnel/contracts';
@@ -265,7 +266,7 @@ describe('/api/personnel/[id]/peek', () => {
 	});
 
 	it('serves a Group-scoped leader their Group and refuses another Group before reading it', async () => {
-		const ctx = testContext({ scopeSet: { kind: 'groups', groupIds: ['group-2'] } });
+		const ctx = testContext({ scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-2'] }) });
 		const findMany = vi.spyOn(ctx.store, 'findMany');
 
 		await expect(read(ctx, 'note')).resolves.toEqual({ state: 'ready', value: null });

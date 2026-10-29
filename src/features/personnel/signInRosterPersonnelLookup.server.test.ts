@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '$lib/server/database';
@@ -56,11 +57,11 @@ describe('SupabaseSignInRosterPersonnelLookupPort', () => {
 		const port = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
 
 		await expect(
-			port.findPersonnelForRosterSnapshot('org-1', { kind: 'groups', groupIds: ['group-alpha'] }, [
-				'p-alpha',
-				'p-bravo',
-				'p-missing'
-			])
+			port.findPersonnelForRosterSnapshot(
+				'org-1',
+				groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
+				['p-alpha', 'p-bravo', 'p-missing']
+			)
 		).resolves.toEqual([
 			{ id: 'p-alpha', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: 'group-alpha', groupName: 'Alpha' }
 		]);

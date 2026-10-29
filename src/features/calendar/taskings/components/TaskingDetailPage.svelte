@@ -158,6 +158,7 @@
 		return current.state === 'ready' && current.value.status === 'loaded' ? current.value.value : ('failed' as const);
 	});
 	const groups = $derived(typeof loaded === 'object' && loaded ? loaded.groups : {});
+	const groupCatalog = $derived(typeof loaded === 'object' && loaded ? loaded.groupCatalog : []);
 	const members = $derived(typeof loaded === 'object' && loaded ? loaded.members : {});
 	const canManage = $derived(
 		tasking !== null &&
@@ -461,6 +462,7 @@
 						orgId={org.orgId}
 						{tasking}
 						{groups}
+						{groupCatalog}
 						{staffing}
 						{pickStates}
 						{canManage}
@@ -659,7 +661,7 @@
 	<AssignPeopleDialog
 		orgId={org.orgId}
 		tasking={current}
-		{groups}
+		groups={groupCatalog}
 		{today}
 		onSaved={(result, before) => {
 			if (before) staffing.saved(current, before, result, today);

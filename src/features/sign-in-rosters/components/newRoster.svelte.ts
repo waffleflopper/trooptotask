@@ -1,4 +1,4 @@
-import type { Personnel, RankCatalogEntry } from '$features/personnel/contracts';
+import type { GroupTree, Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import { formatToday } from '$lib/utils/dates';
 import { emptySignInRosterFilter, filterSignInRosterPersonnel, type SignInRosterFilter } from '../signInRosterFilter';
@@ -15,11 +15,13 @@ interface SignInRosterSnapshotRow {
 	lastName: string;
 	firstName: string;
 	group: string;
+	groupId: string | null;
 }
 
 interface Inputs {
 	orgId: string;
 	personnel: () => readonly Personnel[];
+	tree: () => GroupTree;
 	rankCatalog: () => readonly RankCatalogEntry[] | undefined;
 }
 
@@ -46,7 +48,7 @@ export class NewRoster {
 
 	constructor(inputs: Inputs) {
 		this.#inputs = inputs;
-		this.people = $derived(filterSignInRosterPersonnel(inputs.personnel(), this.filter));
+		this.people = $derived(filterSignInRosterPersonnel(inputs.personnel(), this.filter, inputs.tree()));
 		this.snapshot = $derived(
 			sortSignInRosterRows(
 				this.people.map((person) => ({
@@ -54,7 +56,8 @@ export class NewRoster {
 					rank: person.rank,
 					lastName: person.lastName,
 					firstName: person.firstName,
-					group: person.groupName
+					group: person.groupName,
+					groupId: person.groupId
 				})),
 				this.sortBy,
 				inputs.rankCatalog()

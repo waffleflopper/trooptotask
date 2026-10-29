@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildGroupTree } from '$features/personnel/contracts';
 import type { TaskingSummary } from './eventWorkModel';
 import { filterTaskings, DEFAULT_TASKING_FILTERS, type Tasking } from './taskingModel';
 import type { EventTaskingSummary, TaskingRowFacts } from './taskingReadModel';
@@ -114,7 +115,13 @@ describe('The Needs people view', () => {
 			medics: facts({ picked: 2, required: 2 }),
 			graders: facts({ picked: 1, required: 3, status: 'completed' })
 		};
-		const shown = filterTaskings(list, { ...DEFAULT_TASKING_FILTERS, view: 'needs_people' }, TODAY, rowFacts);
+		const shown = filterTaskings(
+			list,
+			{ ...DEFAULT_TASKING_FILTERS, view: 'needs_people' },
+			TODAY,
+			buildGroupTree([]),
+			rowFacts
+		);
 		expect(shown.map((row) => row.id).sort()).toEqual(['lane', 'roster']);
 	});
 });

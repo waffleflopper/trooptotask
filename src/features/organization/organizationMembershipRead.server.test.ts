@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
+import { projectEffectiveMemberAccess, projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import {
 	readOrganizationMembershipAccess,
 	readOrganizationMembershipForRequest
@@ -14,18 +14,35 @@ function provider(rows: Array<Record<string, unknown>>) {
 		global: {
 			fetch: async (input, init) => {
 				const url = new URL(String(input));
-				if (url.pathname !== '/rest/v1/organization_memberships' || init?.method !== 'GET')
+				if (url.pathname !== '/rest/v1/rpc/read_request_member_access' || init?.method !== 'POST')
 					throw new Error('Unexpected provider request');
 				if (state.fail)
 					return Response.json(
 						{ message: 'membership provider unavailable' },
 						{ status: 503, headers: { 'retry-after': '0' } }
 					);
-				const selected = rows.filter((row) =>
-					['user_id', 'organization_id'].every(
-						(column) => !url.searchParams.has(column) || url.searchParams.get(column) === `eq.${row[column]}`
-					)
-				);
+				const { p_organization_id: orgId } = JSON.parse(String(init.body));
+				const selected = rows
+					.filter((row) => row.user_id === 'actor' && row.organization_id === orgId)
+					.map(
+						({
+							id,
+							role,
+							member_preset,
+							capability_overrides,
+							access_scope_kind,
+							access_scope_group_ids,
+							covered_group_ids
+						}) => ({
+							id,
+							role,
+							member_preset,
+							capability_overrides,
+							access_scope_kind,
+							access_scope_group_ids,
+							covered_group_ids
+						})
+					);
 				const offset = Number(url.searchParams.get('offset') ?? 0);
 				const limit = Number(url.searchParams.get('limit') ?? selected.length);
 				const columns = (url.searchParams.get('select') ?? '*').split(',').map((column) => column.trim());
@@ -71,7 +88,8 @@ describe.each(membershipReaders)('$name membership read', ({ read }) => {
 				member_preset: 'operator',
 				capability_overrides: { training: 'view', calendar: 'none' },
 				access_scope_kind: 'groups',
-				access_scope_group_ids: ['clinic', 'clinic', 'aid-station']
+				access_scope_group_ids: ['clinic', 'clinic', 'aid-station'],
+				covered_group_ids: ['clinic', 'clinic-child', 'aid-station']
 			}
 		]);
 		const row = await read(client, 'actor', 'alpha');
@@ -81,7 +99,13 @@ describe.each(membershipReaders)('$name membership read', ({ read }) => {
 			member_preset: 'operator',
 			capability_overrides: { training: 'view', calendar: 'none' },
 			access_scope_kind: 'groups',
-			access_scope_group_ids: ['clinic', 'clinic', 'aid-station']
+			access_scope_group_ids: ['clinic', 'clinic', 'aid-station'],
+			covered_group_ids: ['clinic', 'clinic-child', 'aid-station']
+		});
+		expect(projectOrganizationAccessGrant(row, 'actor', 'alpha', { disabledFeatures: [] }).scopeSet).toEqual({
+			kind: 'groups',
+			groupIds: ['clinic', 'clinic-child', 'aid-station'],
+			grantedGroupIds: ['clinic', 'aid-station']
 		});
 		expect(projectEffectiveMemberAccess(row, { disabledFeatures: [] })).toMatchObject({
 			role: 'member',

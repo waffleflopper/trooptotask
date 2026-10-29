@@ -115,7 +115,11 @@ export function createOrganizationLoadEventData(
 						member_preset: 'viewer',
 						capability_overrides: membership?.capabilityMap ?? {},
 						access_scope_kind: membership?.scopeSet.kind ?? 'organization',
-						access_scope_group_ids: membership?.scopeSet.kind === 'groups' ? membership.scopeSet.groupIds : []
+						access_scope_group_ids:
+							membership?.scopeSet.kind === 'groups'
+								? (membership.scopeSet.grantedGroupIds ?? membership.scopeSet.groupIds)
+								: [],
+						covered_group_ids: membership?.scopeSet.kind === 'groups' ? membership.scopeSet.groupIds : []
 					})
 				]
 			])

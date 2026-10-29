@@ -157,16 +157,17 @@ it('shows Group names while submitting stable Group IDs, including after a renam
 		assignments: [{ id: 'saved', date: '2026-09-19', assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' }],
 		personnelByGroup: [],
 		groups: [
-			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 },
-			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
+			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		],
 		onSetAssignment,
 		onRemoveAssignment: vi.fn(),
 		onClose: vi.fn()
 	};
 	render(DailyAssignmentModal, { props });
-	expect(screen.getByRole('button', { name: 'Set Group Duty group' }).textContent).toContain('Alpha Renamed');
-	await fireEvent.click(screen.getByRole('button', { name: 'Set Group Duty group' }));
-	await fireEvent.click(screen.getByRole('option', { name: 'Bravo' }));
+	const picker = screen.getByRole('button', { name: /^Set Group Duty group/ });
+	expect(picker.textContent).toContain('Alpha Renamed');
+	await fireEvent.click(picker);
+	await fireEvent.click(screen.getByRole('treeitem', { name: /Bravo/ }));
 	expect(onSetAssignment).toHaveBeenCalledWith('2026-09-19', 'group-duty', 'group-bravo');
 });

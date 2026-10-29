@@ -11,10 +11,10 @@ import {
 	loadPendingInvitationsSettings
 } from '$features/organization/index.server';
 import type { SetupTeamData } from '$features/organization/contracts';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import { listScopeGroups } from '$features/personnel/index.server';
 
 type SetupTeamContext = Parameters<typeof loadPendingInvitationsSettings>[0] &
-	Parameters<typeof listGroupCatalog>[0] & {
+	Parameters<typeof listScopeGroups>[0] & {
 		auth: Pick<OrganizationAccessGrant, 'role' | 'userId' | 'capabilityMap' | 'scopeSet'>;
 	};
 
@@ -30,7 +30,7 @@ export async function readSetupTeam(ctx: SetupTeamContext): Promise<SetupTeamDat
 	}).allowed;
 	const isOwner = ctx.auth.role === 'owner';
 	if (!canInvite) return { canInvite, isOwner, groups: [], invitations: [] };
-	const { groups, invitations } = await loadPendingInvitationsSettings(ctx, { groups: listGroupCatalog(ctx) });
+	const { groups, invitations } = await loadPendingInvitationsSettings(ctx, { groups: listScopeGroups(ctx) });
 	return { canInvite, isOwner, groups, invitations };
 }
 

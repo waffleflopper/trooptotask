@@ -6,7 +6,7 @@ import {
 import { WHATS_NEW_VISIBLE_COUNT } from '$features/platform-admin/contracts';
 import { listActiveAnnouncementContent, listPublishedWhatsNew } from '$features/platform-admin/index.server';
 import type { SupabaseClient } from '$lib/server/database';
-import { projectEffectiveMemberAccess, type OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
+import { projectOrganizationAccessGrant, type OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import type { AccountProfileRead } from '$features/identity/contracts';
@@ -42,7 +42,7 @@ export function createSupabaseOrgAccessPort(config: {
 			const membership = await (config.wrapMembershipLoad?.(() =>
 				readOrganizationMembershipAccess(config.userSupabase, config.userId, config.orgId)
 			) ?? readOrganizationMembershipAccess(config.userSupabase, config.userId, config.orgId));
-			const access = projectEffectiveMemberAccess(membership, config);
+			const access = projectOrganizationAccessGrant(membership, config.userId, config.orgId, config);
 
 			return {
 				orgId: config.orgId,

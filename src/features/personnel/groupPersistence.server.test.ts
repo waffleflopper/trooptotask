@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { describe, it, expect } from 'vitest';
 import { personnelProvider } from './test-support/personnelProvider';
@@ -28,9 +29,6 @@ describe('ordinary Group persistence', () => {
 		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
 		expect((await port.listCatalog()).map((group) => group.id)).toEqual(ids);
 		expect(await port.findReference('foreign')).toBeNull();
-		const before = state.requests.length;
-		expect(await port.findNamesByIds([])).toEqual(new Map());
-		expect(state.requests).toHaveLength(before);
 	});
 	it("reads only the Groups in a Group-scoped actor's scope", async () => {
 		const { client, state } = personnelProvider({
@@ -40,17 +38,26 @@ describe('ordinary Group persistence', () => {
 				{ id: 'foreign', name: 'Foreign', sort_order: 0, organization_id: 'org-b' }
 			]
 		});
-		const port = createSupabaseGroupPersistence(client, 'org-a', { kind: 'groups', groupIds: ['alpha', 'foreign'] });
-		expect(await port.listCatalog()).toEqual([{ id: 'alpha', name: 'Alpha', sortOrder: 0 }]);
+		const port = createSupabaseGroupPersistence(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: ['alpha', 'foreign'] })
+		);
+		expect(await port.listCatalog()).toEqual([
+			{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }
+		]);
 		expect(await port.findReference('bravo')).toBeNull();
 		expect(await port.findReference('alpha')).toEqual({ id: 'alpha' });
-		expect(await port.findNamesByIds(['alpha', 'bravo'])).toEqual(new Map([['alpha', 'Alpha']]));
-		const empty = createSupabaseGroupPersistence(client, 'org-a', { kind: 'groups', groupIds: [] });
+		const empty = createSupabaseGroupPersistence(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		);
 		const before = state.requests.length;
 		expect([await empty.listCatalog(), await empty.findReference('alpha')]).toEqual([[], null]);
 		expect(state.requests).toHaveLength(before);
 	});
-	it('omits unknown names and never deletes foreign rows', async () => {
+	it('never deletes foreign rows', async () => {
 		const { client, state } = personnelProvider({
 			groups: [
 				{ id: 'unknown', name: null, organization_id: 'org-a' },
@@ -60,7 +67,6 @@ describe('ordinary Group persistence', () => {
 		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
 		const created = await port.create({ name: 'Alpha' });
 		expect(created).toMatchObject({ name: 'Alpha', sortOrder: 0 });
-		expect(await port.findNamesByIds([created.id, 'unknown', 'foreign'])).toEqual(new Map([[created.id, 'Alpha']]));
 		expect(state.rows.groups.find((row) => row.id === 'foreign')?.name).toBe('Foreign');
 	});
 	it('propagates later-page and mutation failure without publishing partial success', async () => {
@@ -86,7 +92,7 @@ describe('ordinary Group persistence', () => {
 		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
 		state.failure = () => ({
 			code: '23505',
-			message: 'duplicate key value violates unique constraint "groups_clinic_id_name_key"',
+			message: 'duplicate key value violates unique constraint "groups_sibling_name_key"',
 			status: 409
 		});
 		await expect(port.create({ name: 'Alpha' })).rejects.toMatchObject({
@@ -94,6 +100,91 @@ describe('ordinary Group persistence', () => {
 			message: 'A Group with that name already exists.'
 		});
 		expect(state.rows.groups).toEqual([{ id: 'alpha', name: 'Alpha', sort_order: 0, organization_id: 'org-a' }]);
+	});
+	it('returns a client error when the database rejects a new Group name', async () => {
+		const { client, state } = personnelProvider();
+		state.failure = () => ({ code: '22023', message: 'Group names cannot contain the path separator', status: 400 });
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		await expect(port.create({ name: 'HQ / Supply' })).rejects.toMatchObject({
+			name: 'RequestFailure',
+			status: 400
+		});
+		expect(state.rows.groups).toEqual([]);
+	});
+	it('returns a client error when a new Group would sit below the third level', async () => {
+		const { client, state } = personnelProvider();
+		state.failure = () => ({
+			code: '23514',
+			message: 'new row for relation "groups" violates check constraint "groups_path_shape"',
+			status: 400
+		});
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		await expect(port.create({ name: 'Fire team', parentId: 'team' })).rejects.toMatchObject({
+			name: 'RequestFailure',
+			status: 400
+		});
+		expect(state.rows.groups).toEqual([]);
+	});
+	it('answers a parent Group deleted elsewhere as a 400 that says so', async () => {
+		const { client, state } = personnelProvider({
+			groups: [{ id: 's1', name: '1st Squad', sort_order: 0, organization_id: 'org-a' }]
+		});
+		state.failure = (request) =>
+			request.method === 'GET'
+				? null
+				: { code: '23503', message: 'Parent Group not found', details: null, status: 409 };
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		const parentGone = {
+			name: 'RequestFailure',
+			status: 400,
+			message: 'The parent Group is no longer available. Choose another.'
+		};
+		await expect(port.create({ name: 'Alpha Team', parentId: 'deleted' })).rejects.toMatchObject(parentGone);
+		const command = groupRpc(() =>
+			Response.json(
+				{
+					code: '23503',
+					message: 'insert or update on table "groups" violates foreign key constraint "groups_parent_fkey"',
+					details: null,
+					hint: null
+				},
+				{ status: 409 }
+			)
+		);
+		await expect(command.port.setOrder(['alpha'], ['alpha'])).rejects.toMatchObject(parentGone);
+		await expect(command.port.move('s1', 'deleted')).rejects.toMatchObject(parentGone);
+	});
+	it('counts the active People directly in each visible Group', async () => {
+		const { client } = personnelProvider({
+			personnel: [
+				{ id: 'a', organization_id: 'org-a', group_id: 'squad', archived_at: null },
+				{ id: 'b', organization_id: 'org-a', group_id: 'squad', archived_at: null },
+				{ id: 'c', organization_id: 'org-a', group_id: 'team', archived_at: null },
+				{ id: 'd', organization_id: 'org-a', group_id: 'team', archived_at: '2026-10-01T00:00:00Z' },
+				{ id: 'e', organization_id: 'org-a', group_id: null, archived_at: null },
+				{ id: 'f', organization_id: 'org-a', group_id: 'other', archived_at: null },
+				{ id: 'g', organization_id: 'org-b', group_id: 'squad', archived_at: null }
+			]
+		});
+		const everyone = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		expect(await everyone.countActiveMembers()).toEqual(
+			new Map([
+				['squad', 2],
+				['team', 1],
+				['other', 1]
+			])
+		);
+		const scoped = createSupabaseGroupPersistence(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: ['squad', 'team'] })
+		);
+		expect(await scoped.countActiveMembers()).toEqual(
+			new Map([
+				['squad', 2],
+				['team', 1]
+			])
+		);
 	});
 });
 
@@ -114,17 +205,32 @@ function groupRpc(reply: () => Response | Promise<Response>) {
 
 describe('Group editor commands', () => {
 	it('renames, reorders and deletes through one call each, bound to the Organization', async () => {
-		const rename = groupRpc(() => Response.json([{ id: 'alpha', name: 'Weapons', sort_order: 2 }]));
+		const rename = groupRpc(() =>
+			Response.json([{ id: 'alpha', name: 'Weapons', sort_order: 2, parent_id: null, depth: 1 as const }])
+		);
 		await expect(rename.port.rename('alpha', 'Weapons')).resolves.toEqual({
 			id: 'alpha',
 			name: 'Weapons',
-			sortOrder: 2
+			sortOrder: 2,
+			parentId: null,
+			depth: 1 as const
 		});
 		const order = groupRpc(() => new Response(null, { status: 204 }));
 		await expect(order.port.setOrder(['bravo', 'alpha'], ['alpha', 'bravo'])).resolves.toBeUndefined();
 		const remove = groupRpc(() => Response.json(3));
 		await expect(remove.port.deleteWithReassignment('alpha', null)).resolves.toBe(3);
-		expect([...rename.calls, ...order.calls, ...remove.calls]).toEqual([
+		const move = groupRpc(() =>
+			Response.json([{ id: 'alpha', name: 'Weapons', sort_order: 4, parent_id: 'hq', depth: 2 as const }])
+		);
+		await expect(move.port.move('alpha', 'hq')).resolves.toEqual({
+			id: 'alpha',
+			name: 'Weapons',
+			sortOrder: 4,
+			parentId: 'hq',
+			depth: 2 as const
+		});
+		await move.port.move('alpha', null);
+		expect([...rename.calls, ...order.calls, ...remove.calls, ...move.calls]).toEqual([
 			{
 				path: '/rest/v1/rpc/rename_group',
 				body: { p_organization_id: 'org-a', p_group_id: 'alpha', p_name: 'Weapons' }
@@ -136,7 +242,12 @@ describe('Group editor commands', () => {
 			{
 				path: '/rest/v1/rpc/delete_group_with_reassignment',
 				body: { p_organization_id: 'org-a', p_group_id: 'alpha', p_target_group_id: null }
-			}
+			},
+			{
+				path: '/rest/v1/rpc/move_group',
+				body: { p_organization_id: 'org-a', p_group_id: 'alpha', p_parent_id: 'hq' }
+			},
+			{ path: '/rest/v1/rpc/move_group', body: { p_organization_id: 'org-a', p_group_id: 'alpha' } }
 		]);
 	});
 
@@ -157,7 +268,8 @@ describe('Group editor commands', () => {
 		for (const command of [
 			() => port.rename('alpha', 'Weapons'),
 			() => port.setOrder(['alpha'], ['alpha']),
-			() => port.deleteWithReassignment('alpha', 'bravo')
+			() => port.deleteWithReassignment('alpha', 'bravo'),
+			() => port.move('alpha', 'bravo')
 		]) {
 			const failure = await command().then(
 				() => undefined,
@@ -168,12 +280,29 @@ describe('Group editor commands', () => {
 		}
 	});
 
+	it('answers a move below the third level as a 400', async () => {
+		const { port } = groupRpc(() =>
+			Response.json(
+				{
+					code: '23514',
+					message: 'new row for relation "groups" violates check constraint "groups_path_shape"',
+					details: null,
+					hint: null
+				},
+				{ status: 400 }
+			)
+		);
+		await expect(port.setOrder(['alpha'], ['alpha'])).rejects.toMatchObject({ name: 'RequestFailure', status: 400 });
+		await expect(port.move('alpha', 'team')).rejects.toMatchObject({ name: 'RequestFailure', status: 400 });
+	});
+
 	it('says a lost reply is unconfirmed and treats a rename of a vanished Group as 404', async () => {
 		const lost = groupRpc(() => Promise.reject(new TypeError('fetch failed')));
 		for (const command of [
 			() => lost.port.rename('alpha', 'Weapons'),
 			() => lost.port.setOrder(['alpha'], ['alpha']),
-			() => lost.port.deleteWithReassignment('alpha', null)
+			() => lost.port.deleteWithReassignment('alpha', null),
+			() => lost.port.move('alpha', null)
 		]) {
 			await expect(command()).rejects.toMatchObject({
 				status: 503,
@@ -182,9 +311,21 @@ describe('Group editor commands', () => {
 			});
 		}
 		const vanished = groupRpc(() => Response.json([]));
-		await expect(vanished.port.rename('alpha', 'Weapons')).rejects.toMatchObject({
-			status: 404,
-			message: 'That Group is no longer available.'
+		for (const command of [() => vanished.port.rename('alpha', 'Weapons'), () => vanished.port.move('alpha', null)]) {
+			await expect(command()).rejects.toMatchObject({ status: 404, message: 'That Group is no longer available.' });
+		}
+	});
+
+	it('says a move under its own sub-group is not allowed', async () => {
+		const { port } = groupRpc(() =>
+			Response.json(
+				{ code: '22023', message: 'A Group cannot sit inside itself', details: null, hint: null },
+				{ status: 400 }
+			)
+		);
+		await expect(port.move('platoon', 'team')).rejects.toMatchObject({
+			status: 400,
+			message: 'A Group cannot move under one of its own sub-groups.'
 		});
 	});
 });

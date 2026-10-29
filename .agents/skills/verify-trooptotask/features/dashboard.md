@@ -131,7 +131,7 @@ records do not add to the expired/orange attention count. Do not silently redefi
    longest days late. This HTTP observation complements native counts; it does not prove a visible Critical Tasks widget
    or source-provider atomicity.
 3. **Scope and denial.** Repeat the visible Dashboard and reload with each actor in the table. `dashboardView` lists
-   Alpha and Bravo; `dashboardScoped` lists only Alpha, and a saved Bravo pin is not returned. Its Needs you has six
+   Alpha and Bravo; `dashboardScoped` lists only Alpha, and none of its saved pins are returned. Its Needs you has six
    rows without Baker's Expired row or return, and its Group Duty lane counts today as unfilled because Bravo's
    assignment is outside its scope, as its Calendar does; `dashboardEmpty` lists no Group. Inspect the page data as well
    as the visible Group rows. For `dashboardForeign`, make an ordinary authenticated request to A's Dashboard and
@@ -332,6 +332,19 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
   Dashboard's today, even if Calendar was left on another month.
 - `dashboardScoped` reads `2`, `of 2`, `AVAILABLE · 100%`, `Everyone is available today.` and
   `Steady: 2 available every day`, and the strip shows only `ALPHA 2/2`.
+- With the [nested Group tree](manage-groups.md#nested-group-tree) seeded as `orgOwner`, a `Group strength display`
+  menu sits beside the `Available · next 14 days` heading, out of the layout flow, and holds `Show sub-groups`. On,
+  the strip lists indented rows (`[data-band-level]`): `0: Bravo 0/1` below the floor, `0: 2nd Platoon 9/9`,
+  `1: 2nd Platoon HQ 2/2`, `1: 1st Squad 6/6`, `2: 1st Squad HQ 1/1`, `2: Alpha Team 4/4`, `2: Bravo Team 1/1`,
+  `1: 2nd Squad 1/1`, `0: Alpha 1/1` and `0: Unassigned 1/1`; each level sums to its parent and the top rows to the
+  headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1`, and the switch is absent
+  when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200 available is
+  flagged although it rounds to 80%.
+- Load-time layout shift, measured with a `layout-shift` `PerformanceObserver` after reload at 1440x900, 1024x640 and
+  390x844 on 2026-10-29: the nested tree read `0.0703`, `0.0297` and `0.1038` with `Show sub-groups` on, `0.0134`,
+  `0.0297` and `0.1038` with it off, and the flat fixture matched off. The skeleton reserves the compact strip, so the
+  nested list grows when it arrives; the forecast and Bottom line skeletons are also shorter than their content. Any
+  reading above these is a regression.
 
 Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and
 return dates, `ALPHA 7/10` amber and `BRAVO 8/10`), `86 of 100` (`typical`, one proportional bar, one row per status

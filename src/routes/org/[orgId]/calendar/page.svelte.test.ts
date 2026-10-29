@@ -114,8 +114,8 @@ function makeBootstrap(range = { rangeStart: '2026-01-01', rangeEnd: '2026-05-31
 				}
 			],
 			groups: [
-				{ id: 'g1', name: 'Alpha', sortOrder: 0 },
-				{ id: 'g2', name: 'Bravo', sortOrder: 1 }
+				{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			statusTypes: [],
 			activeOnboardingPersonnelIds: [],

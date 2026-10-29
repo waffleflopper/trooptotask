@@ -46,7 +46,7 @@ function build(overrides: Partial<CalendarLaneInput> = {}): CalendarLane[] {
 		assignments: [],
 		specialDays: [],
 		personnel: [pike],
-		groups: [{ id: 'g-alpha', name: 'Alpha', sortOrder: 0 }],
+		groups: [{ id: 'g-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }],
 		...overrides
 	});
 }

@@ -1,4 +1,10 @@
-import { createGroup, deleteGroup, readGroupEditorCatalog, renameGroup } from '$features/personnel/index.server';
+import {
+	createGroup,
+	deleteGroup,
+	moveGroup,
+	readGroupEditorCatalog,
+	renameGroup
+} from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestGroupContext } from '$lib/server/adapters/requestContexts.server';
@@ -24,6 +30,9 @@ export const POST = handle(_postConfig);
 
 export const _putConfig: GroupRoute<unknown> = { ...groupManagement, fn: renameGroup };
 export const PUT = handle(_putConfig);
+
+export const _patchConfig: GroupRoute<unknown> = { ...groupManagement, fn: moveGroup };
+export const PATCH = handle(_patchConfig);
 
 export const _deleteConfig: GroupRoute<{ movedCount: number }> = { ...groupManagement, fn: deleteGroup };
 export const DELETE = handle(_deleteConfig);

@@ -53,7 +53,7 @@ vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 }));
 vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
-	groupsStore: { items: [], loading: false }
+	groupsStore: { items: [], loading: false, orgId: 'org1' }
 }));
 
 afterEach(() => {
@@ -62,6 +62,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 	calendarStore.goToMonth(new Date().getFullYear(), new Date().getMonth());
+	(groupsStore as unknown as { items: unknown[] }).items = [];
 });
 
 function resizeGrip(bar: HTMLElement, edge: 'start' | 'end'): HTMLElement | null {
@@ -792,23 +793,84 @@ describe('CalendarPageView', () => {
 		]);
 	});
 
-	it('filters the roster from the folded Group submenu', async () => {
-		mutableAvailabilityStore.loading = false;
-		const { layOut } = stubToolbarWidths();
-		const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
-		const ctx = makeContext(data, makeMockOrg());
-		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
-		await layOut(1);
+	describe('Group bands', () => {
+		const catalog = (groups: { id: string; name: string; parentId?: string }[]) => {
+			(groupsStore as unknown as { items: unknown[] }).items = groups.map((group, index) => ({
+				sortOrder: index,
+				parentId: null,
+				depth: group.parentId ? 2 : 1,
+				...group
+			}));
+		};
+		const people = () =>
+			screen
+				.queryAllByRole('button', { name: /(Smith, Alice|Jones, Bob)$/ })
+				.map((b) => b.getAttribute('aria-label') ?? b.textContent);
+		const bands = (container: HTMLElement) =>
+			[...container.querySelectorAll<HTMLElement>('[data-band-level]')].map((band) => {
+				const toggle = band.querySelector('button[aria-expanded]')!.cloneNode(true) as HTMLElement;
+				toggle.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove());
+				const name = toggle.textContent?.replace(/\s+/g, ' ').trim();
+				return [band.dataset.bandLevel, toggle.getAttribute('aria-expanded'), name];
+			});
 
-		const menu = await openMore();
-		const group = within(menu).getByRole('menuitem', { name: 'Group, Group: All' });
-		group.focus();
-		await fireEvent.keyDown(group, { key: 'ArrowRight' });
-		await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Bravo (1)' }));
+		it('filters the roster from the folded Group submenu', async () => {
+			mutableAvailabilityStore.loading = false;
+			catalog([
+				{ id: 'g1', name: 'Alpha' },
+				{ id: 'g2', name: 'Bravo' }
+			]);
+			const { layOut } = stubToolbarWidths();
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			const ctx = makeContext(data, makeMockOrg());
+			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+			await layOut(1);
 
-		await waitFor(() => expect(screen.queryByRole('button', { name: /Smith, Alice/ })).toBeNull());
-		expect(screen.getByRole('button', { name: /Jones, Bob$/ })).toBeTruthy();
-		expect(ctx.calendarGroupFilter).toBe('g2');
+			const menu = await openMore();
+			const group = within(menu).getByRole('menuitem', { name: 'Group, Group: All' });
+			group.focus();
+			await fireEvent.keyDown(group, { key: 'ArrowRight' });
+			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Bravo (1)' }));
+
+			await waitFor(() => expect(screen.queryByRole('button', { name: /Smith, Alice/ })).toBeNull());
+			expect(screen.getByRole('button', { name: /Jones, Bob$/ })).toBeTruthy();
+			expect(ctx.calendarGroupFilter).toBe('g2');
+		});
+
+		it('lists a sub-group’s people after its parent’s own and hides both when the parent collapses', async () => {
+			mutableAvailabilityStore.loading = false;
+			catalog([
+				{ id: 'g1', name: 'Alpha' },
+				{ id: 'g2', name: 'Bravo', parentId: 'g1' }
+			]);
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			render(CalendarPageView, {
+				props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: 'org1', orgName: 'Test Org' } }
+			});
+
+			expect(people()).toEqual([expect.stringContaining('Smith, Alice'), expect.stringContaining('Jones, Bob')]);
+			expect(screen.getAllByRole('button', { name: 'Pin' })).toHaveLength(1);
+
+			await fireEvent.click(screen.getByRole('button', { name: /Alpha 2/ }));
+
+			expect(people()).toEqual([]);
+		});
+
+		it('gives a reader scoped to one Group no band header and no pins', () => {
+			mutableAvailabilityStore.loading = false;
+			catalog([{ id: 'g2', name: 'Bravo' }]);
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			const { container } = render(CalendarPageView, {
+				props: {
+					ctx: makeContext(data, makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g2'] } })),
+					data: { orgId: 'org1', orgName: 'Test Org' }
+				}
+			});
+
+			expect(bands(container)).toEqual([]);
+			expect(people()).toEqual([expect.stringContaining('Jones, Bob')]);
+			expect(screen.queryByRole('button', { name: /^Pin/ })).toBeNull();
+		});
 	});
 
 	it('keeps Calendar operations a viewer may not use off the row and out of More', async () => {

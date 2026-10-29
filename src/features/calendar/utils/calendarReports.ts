@@ -1,6 +1,6 @@
-import type { Personnel } from '$features/personnel/contracts';
+import type { Group, GroupRow, Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
-import { comparePersonnelByRankThenName } from '$features/personnel/contracts';
+import { buildGroupTree, comparePersonnelByRankThenName, groupRows } from '$features/personnel/contracts';
 
 function expandDateRange(entryStart: string, entryEnd: string, reportStart: string, reportEnd: string): string[] {
 	const start = clampDate(entryStart, reportStart, reportEnd);
@@ -271,49 +271,102 @@ export interface ReadinessCell {
 }
 
 export interface ReadinessGroupRow {
+	/** A Group id, or `hq:<id>` for a Group's direct people. */
 	groupId: string;
 	groupName: string;
+	level: number;
+	/** The row totals the rows below it. */
+	subtotal: boolean;
 	cells: ReadinessCell[];
 }
 
+/**
+ * Green at 80% available, amber at 50%, red below, on the exact fraction: 159 of 200 shows as 80% but is amber.
+ * An empty Group reads as fully available.
+ */
+export function readinessTone(cell: ReadinessCell): 'success' | 'warning' | 'destructive' {
+	const atLeast = (percent: number) => cell.availableCount * 100 >= percent * cell.totalPersonnel;
+	if (atLeast(80)) return 'success';
+	if (atLeast(50)) return 'warning';
+	return 'destructive';
+}
+
+export interface ReadinessGroupSet {
+	top: ReadinessGroupRow;
+	/** The top-level Group's HQ and sub-group rows in tree order. */
+	below: ReadinessGroupRow[];
+}
+
 export interface GroupReadinessResult {
+	/** One row per Group in the selected subtrees, counting its direct people, as the workbook writes them. */
 	groups: ReadinessGroupRow[];
+	/** One set per selected top-level Group, counting its whole subtree. */
+	sets: ReadinessGroupSet[];
 	dates: string[];
 }
 
+/** Availability per day for each selected top-level Group's subtree. */
 export function computeGroupReadiness(
 	personnel: Personnel[],
 	entries: AvailabilityEntry[],
-	groups: { id: string; name: string }[],
-	selectedGroupIds: Set<string>,
+	groups: readonly Group[],
+	selectedRootIds: ReadonlySet<string>,
 	startDate: string,
 	endDate: string
 ): GroupReadinessResult {
 	const dates = allDatesInRange(startDate, endDate);
 	const availabilityIndex = buildAvailabilityEntryDateIndex(entries, startDate, endDate);
+	const tree = buildGroupTree(groups);
+	const selected = (groupId: string | null) =>
+		groupId !== null && [...selectedRootIds].some((rootId) => tree.contains(rootId, groupId));
 
-	const selectedGroups = groups.filter((g) => selectedGroupIds.has(g.id));
-	const groupRows: ReadinessGroupRow[] = selectedGroups.map((group) => {
-		const groupPersonnel = personnel.filter((p) => p.groupId === group.id);
-		const total = groupPersonnel.length;
-
-		const cells: ReadinessCell[] = dates.map((dateStr) => {
-			let unavailableCount = 0;
-			for (const person of groupPersonnel) {
-				if (availabilityIndex.hasEntry(person.id, dateStr)) unavailableCount++;
-			}
-
-			const availableCount = total - unavailableCount;
+	const readinessRow = (
+		row: Omit<ReadinessGroupRow, 'cells'> & { items: readonly Personnel[] }
+	): ReadinessGroupRow => ({
+		groupId: row.groupId,
+		groupName: row.groupName,
+		level: row.level,
+		subtotal: row.subtotal,
+		cells: dates.map((date): ReadinessCell => {
+			const total = row.items.length;
+			const availableCount = row.items.filter((person) => !availabilityIndex.hasEntry(person.id, date)).length;
 			return {
-				date: dateStr,
+				date,
 				totalPersonnel: total,
 				availableCount,
 				availablePercent: total > 0 ? Math.round((availableCount / total) * 100) : 100
 			};
+		})
+	});
+	const fromGroupRow = (row: GroupRow<Personnel>) => readinessRow({ ...row, groupId: row.key, groupName: row.label });
+
+	const exact = groups
+		.filter((group) => selected(group.id))
+		.map((group) =>
+			readinessRow({
+				groupId: group.id,
+				groupName: group.name,
+				level: tree.node(group.id)?.level ?? 0,
+				subtotal: false,
+				items: personnel.filter((person) => person.groupId === group.id)
+			})
+		);
+
+	const inSelection = personnel.filter((person) => selected(person.groupId));
+	const setsByRoot = new Map(
+		groupRows(tree, inSelection, (person) => person.groupId, true).map((set) => [set.top.key, set])
+	);
+	const sets = tree.roots
+		.filter((root) => selectedRootIds.has(root.id))
+		.map((root): ReadinessGroupSet => {
+			const set = setsByRoot.get(root.id);
+			return {
+				top: set
+					? fromGroupRow(set.top)
+					: readinessRow({ groupId: root.id, groupName: tree.label(root.id), level: 0, subtotal: false, items: [] }),
+				below: set?.below.map(fromGroupRow) ?? []
+			};
 		});
 
-		return { groupId: group.id, groupName: group.name, cells };
-	});
-
-	return { groups: groupRows, dates };
+	return { groups: exact, sets, dates };
 }

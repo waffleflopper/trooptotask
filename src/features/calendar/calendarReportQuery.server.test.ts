@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect } from 'vitest';
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { createTestContext } from './calendarPersistence.test-support.server';
@@ -112,7 +113,7 @@ describe('fetchCalendarReportData', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['g1'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }),
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'none',
@@ -136,7 +137,7 @@ describe('fetchCalendarReportData', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }),
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'none',

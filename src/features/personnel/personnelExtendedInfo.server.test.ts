@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { readPersonnelExtendedInfo } from './personnelExtendedInfo.server';
@@ -123,7 +124,7 @@ function sheetContext(groups?: string[], personnel: 'view' | 'operate' = 'operat
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},
-			scopeSet: groups ? { kind: 'groups', groupIds: groups } : { kind: 'organization' }
+			scopeSet: groups ? groupCoverageForTest({ kind: 'groups', groupIds: groups }) : { kind: 'organization' }
 		}
 	});
 	ctx.rawStore.seed('personnel', [

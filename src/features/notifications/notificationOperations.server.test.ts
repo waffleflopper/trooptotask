@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	deleteAllOwnNotifications,
@@ -25,7 +26,7 @@ function selfPorts(provider: ReturnType<typeof notificationTestProvider>): Notif
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},
-			scopeSet: { kind: 'groups', groupIds: [] }
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] })
 		},
 		audit: { log: vi.fn() },
 		store: createSupabaseNotificationStore(provider.client)

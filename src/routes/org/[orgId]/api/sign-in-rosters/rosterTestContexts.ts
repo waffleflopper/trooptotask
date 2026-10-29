@@ -1,4 +1,4 @@
-import { findGroupNamesByIds, loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { SignInRosterPersistence, SignInRosterScanPort } from '$features/sign-in-rosters/index.server';
 import type { FileCleanup } from '$features/organization/contracts';
@@ -163,7 +163,7 @@ export function selectRosterCreationContext(
 		userId: ctx.auth.userId,
 		scopeSet: ctx.auth.scopeSet,
 		personnelLookup: ctx.personnelLookup,
-		findGroupNamesByIds: (groupIds: string[]) => findGroupNamesByIds({ groups: ctx.groups }, groupIds),
+		listGroupCatalog: () => listGroupCatalog({ groups: ctx.groups }),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog(
 				{ auth: ctx.auth, rankCatalog: ctx.rankCatalog },

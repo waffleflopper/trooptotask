@@ -28,7 +28,7 @@ export type {
 /** Personnel consumes routing, scope and live advisory decisions from Delivery. */
 export interface PersonnelPageAccess {
 	readonly orgUrlSegment?: string;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: AdvisoryGroupScope;
 	readonly affordanceForFeatureAction: (
 		action: FeatureLanePolicyAction,
 		resource?: PolicyResource
@@ -39,7 +39,8 @@ import type { FileCleanup, OrganizationFileUploadRegistration } from '$features/
 import { z } from 'zod';
 import { isDateOnly } from '$lib/utils/dates';
 import { DATE_ONLY_MESSAGE, uuidSchema } from '$lib/utils/inputSchemas';
-import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
+import type { OrganizationAccessGrant, AdvisoryGroupScope, GroupCoverage } from '$lib/access/memberAccessShape';
+import type { Group } from './group.types';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type { LossCandidate } from './upcomingLoss';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
@@ -75,13 +76,10 @@ export const GROUP_NAME_EXISTS_MESSAGE = 'A Group with that name already exists.
 export const GROUP_UNAVAILABLE_MESSAGE = 'That Group is no longer available.';
 export const GROUP_ORDER_CHANGED_MESSAGE = 'The Group order changed somewhere else. The list shows the saved order.';
 export const GROUP_CHANGE_UNCONFIRMED_MESSAGE = "We couldn't confirm the Group change. Reload to see what saved.";
+export const GROUP_PARENT_GONE_MESSAGE = 'The parent Group is no longer available. Choose another.';
 export const PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE = 'First name is required';
 
-export interface Group {
-	id: string;
-	name: string;
-	sortOrder: number;
-}
+export type { Group } from './group.types';
 
 export interface PersonnelRosterReader {
 	list(options?: { status?: 'active' | 'archived' | 'all'; order?: 'archived-newest' }): Promise<Personnel[]>;
@@ -152,14 +150,17 @@ export interface PersonnelRecordPersistence {
 export interface GroupPersistence {
 	listCatalog(): Promise<Group[]>;
 	findReference(id: string): Promise<{ id: string } | null>;
-	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
-	create(input: { name: string; sortOrder?: number }): Promise<Group>;
-	/** Renames the Group and carries every viewer's pin to the new name. Fails 404 when the Group is gone. */
+	create(input: { name: string; sortOrder?: number; parentId?: string | null }): Promise<Group>;
+	/** Renames the Group. Fails 404 when the Group is gone. */
 	rename(id: string, name: string): Promise<Group>;
-	/** Compare-and-replace of the whole display order; fails 409 when the saved order is no longer `expectedIds`. */
-	setOrder(ids: readonly string[], expectedIds: readonly string[]): Promise<void>;
+	/** Compares and replaces one sibling set's order; fails 409 when it differs from `expectedIds`. */
+	setOrder(ids: readonly string[], expectedIds: readonly string[], parentId?: string | null): Promise<void>;
+	/** Puts the Group last under `parentId` (null is the top level); its sub-groups move with it. Fails 404 when it is gone. */
+	move(id: string, parentId: string | null): Promise<Group>;
+	/** Active People directly in each Group the reader can see, keyed by Group id. */
+	countActiveMembers(): Promise<Map<string, number>>;
 	/**
-	 * Moves every member to `targetId` (null is Unassigned), deletes the Group and its pins in one transaction,
+	 * Moves every subtree member to `targetId` (null is Unassigned), deletes the subtree and its pins in one transaction,
 	 * and resolves how many People moved. Fails 404 when either Group is gone.
 	 */
 	deleteWithReassignment(id: string, targetId: string | null): Promise<number>;
@@ -199,15 +200,16 @@ export function deletionBlockedMessage(
 
 export interface PinnedGroupResult {
 	id: string;
-	groupName: string;
+	groupId: string;
 	sortOrder: number;
 }
 
+/** The signed-in user's Group pins. The database hides and refuses them for a Group-scoped reader. */
 export interface SelfPinPersistence {
-	listNames(): Promise<string[]>;
-	insert(input: { groupName: string; sortOrder?: number }): Promise<PinnedGroupResult>;
-	removeName(groupName: string): Promise<void>;
-	replaceNames(names: string[]): Promise<void>;
+	/** Pinned Group ids in pin order. */
+	listGroupIds(): Promise<string[]>;
+	insert(input: { groupId: string; sortOrder?: number }): Promise<PinnedGroupResult>;
+	remove(groupId: string): Promise<void>;
 }
 
 /** Calendar status facts admitted to Personnel workspace snapshots at delivery. */
@@ -258,7 +260,7 @@ export interface SignInRosterPersonnelLookupPort {
 	/** People outside the actor's scope are omitted like missing People. */
 	findPersonnelForRosterSnapshot(
 		orgId: string,
-		scopeSet: ScopeSet,
+		scopeSet: GroupCoverage,
 		personnelIds: string[]
 	): Promise<SignInRosterPersonnelLookupRecord[]>;
 }
@@ -442,16 +444,17 @@ export interface PersonnelCriticalTasksRosterPort {
 }
 
 export {
-	compareRosterGroupNames,
+	compareRosterBands,
 	createRosterReadModel,
 	formatRosterPersonDisplayName,
 	matchesRosterSearch,
-	organizationGroupNames,
+	organizationGroupOrder,
 	rosterGroupFilterValue
 } from './rosterReadModel';
 export type {
 	CreateRosterReadModelInput,
 	PersonnelGroup,
+	RosterBand,
 	RosterGroupCatalogEntry,
 	RosterGroupOrder,
 	RosterGroupFilterOption,
@@ -461,6 +464,18 @@ export type {
 	RosterStatus,
 	RosterViewOptions
 } from './rosterReadModel';
+
+export { groupExportPath } from './groupPath';
+export {
+	buildGroupTree,
+	groupFilterMatcher,
+	groupHeadcounts,
+	groupRows,
+	hasSubGroups,
+	soleLeafGroup
+} from './groupTree';
+export { nestRosterBands, type NestedRosterBand } from './rosterBands';
+export type { Band, GroupNode, GroupRow, GroupRowSet, GroupTree, GroupTreeOptions } from './groupTree';
 
 export type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 

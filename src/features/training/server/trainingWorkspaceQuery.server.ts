@@ -11,13 +11,13 @@ import { listTrainingCompletions } from './trainingCompletionRead.server';
 import type { TrainingCatalogPersistence } from '../contracts';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 import { withTrainingTiming, type TrainingLoadPhase } from './trainingTiming.server';
-import { visiblePinnedGroupNames } from '$features/personnel/index.server';
+import { listReaderPinnedGroupIds } from '$features/personnel/index.server';
 
 type TrainingWorkspaceQueryContext = TrainingCompletionReadContext & {
 	readonly loadRankCatalog: () => Promise<RankCatalogEntry[]>;
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes' | 'listViews'>;
 	readonly groups: Pick<GroupPersistence, 'listCatalog'>;
-	readonly selfPins: Pick<SelfPinPersistence, 'listNames'>;
+	readonly selfPins: Pick<SelfPinPersistence, 'listGroupIds'>;
 	readonly audit?: TrainingCompletionReadContext['audit'];
 	readonly personnelTrainingRoster: Pick<PersonnelTrainingRosterPort, 'listActiveForWorkspace'>;
 };
@@ -84,8 +84,8 @@ export function fetchTrainingWorkspaceData(
 		orgId: requestedOrgId,
 		label: 'pinned groups',
 		phase: 'pinned-groups',
-		load: () => Promise.all([ctx.selfPins.listNames(), groups]),
-		mapRows: ([names, visibleGroups]) => visiblePinnedGroupNames(names, visibleGroups)
+		load: () => listReaderPinnedGroupIds(ctx),
+		mapRows: (groupIds) => groupIds
 	});
 	const personnelTrainings = loadTrainingItems({
 		orgId: requestedOrgId,

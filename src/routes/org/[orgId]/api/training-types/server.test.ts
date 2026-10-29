@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -123,7 +124,7 @@ describe('Training catalog JSON routes', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] })
 			}
 		});
 

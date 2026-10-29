@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext as basecreateWritePortsContext } from '$lib/server/adapters/inMemory';
@@ -57,7 +58,7 @@ function buildScopedCreatorContext() {
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},
-			scopeSet: { kind: 'groups', groupIds: [GROUP_A] }
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] })
 		}
 	});
 }
@@ -363,7 +364,7 @@ describe('Personnel — create', () => {
 	});
 
 	it('checks slug collisions against the whole organization for group-scoped creators', async () => {
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } } });
+		const ctx = buildContext({ auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }) } });
 		ctx.store.seed('personnel', [
 			{
 				id: OTHER_GROUP_PERSON,
@@ -401,7 +402,7 @@ describe('Personnel — create', () => {
 	});
 
 	it('rejects create when scoped user targets wrong group', async () => {
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } } });
+		const ctx = buildContext({ auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }) } });
 
 		await expect(createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_B })).rejects.toMatchObject({
 			status: 403
@@ -421,7 +422,7 @@ describe('Personnel — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] })
 			}
 		});
 
@@ -442,7 +443,7 @@ describe('Personnel — create', () => {
 	});
 
 	it('allows configure-capable scoped user to create in their own group', async () => {
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } } });
+		const ctx = buildContext({ auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }) } });
 
 		const result = await createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_A });
 		expect(result).toMatchObject({ firstName: 'John' });
@@ -461,7 +462,7 @@ describe('Personnel — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] })
 			}
 		});
 
@@ -492,7 +493,7 @@ describe('Personnel — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A, GROUP_B] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A, GROUP_B] })
 			}
 		});
 
@@ -759,7 +760,7 @@ describe('Personnel — update', () => {
 	it('enforces group scope on update', async () => {
 		const ctx = buildContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] })
 			}
 		});
 		seedPersonnel(ctx);

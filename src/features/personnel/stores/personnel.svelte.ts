@@ -48,7 +48,7 @@ function enhance(base: Store<Personnel>): RosterStoreExtensions {
 			return createRosterReadModel({
 				personnel: base.rawItems,
 				groups: inOrganization(groupsStore.orgId) ? groupsStore.items : [],
-				pinnedGroups: inOrganization(pinnedGroupsStore.orgId) ? pinnedGroupsStore.list : [],
+				pinnedGroupIds: inOrganization(pinnedGroupsStore.orgId) ? pinnedGroupsStore.list : [],
 				...options
 			});
 		}

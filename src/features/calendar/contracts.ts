@@ -1,4 +1,4 @@
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
@@ -47,7 +47,7 @@ export const AVAILABILITY_BATCH_LIMIT = 500;
 /** Live advisory facts supplied by Delivery for Calendar operations. */
 export interface CalendarOperationsPageAccess {
 	readonly orgUrlSegment: string;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: AdvisoryGroupScope;
 	readonly affordanceForFeatureAction: (
 		action: FeatureLanePolicyAction,
 		resource?: PolicyResource

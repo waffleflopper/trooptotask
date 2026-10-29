@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '$lib/server/database';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type { PersonnelWriteSubject } from './contracts';
 
 const PAGE_SIZE = 500;
@@ -8,7 +8,7 @@ const PAGE_SIZE = 500;
 export async function queryScopedPersonnelRows(
 	getAdminClient: () => SupabaseClient,
 	orgId: string,
-	scopeSet: ScopeSet,
+	scopeSet: GroupCoverage,
 	options: { select: string; status: 'active' | 'archived' | 'all'; ids?: string[] }
 ): Promise<Record<string, unknown>[]> {
 	if (scopeSet.kind === 'groups' && scopeSet.groupIds.length === 0) return [];

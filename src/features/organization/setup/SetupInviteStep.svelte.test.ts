@@ -48,7 +48,7 @@ function facts(overrides: Partial<SetupFacts> = {}): SetupFacts {
 const team = (overrides: Partial<SetupTeamData> = {}): SetupTeamData => ({
 	canInvite: true,
 	isOwner: true,
-	groups: [{ id: 'g-1', name: 'HQ PLT' }],
+	groups: [{ id: 'g-1', name: 'HQ PLT', parentId: null, memberCount: 0 }],
 	invitations: [],
 	...overrides
 });

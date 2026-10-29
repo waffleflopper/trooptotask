@@ -2,7 +2,9 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { groupCatalogHydration, pinnedGroupsHydration } from '$features/personnel';
+import { groupCatalogHydration, groupsStore, pinnedGroupsHydration, pinnedGroupsStore } from '$features/personnel';
+import { buildGroupTree, soleLeafGroup } from '../groupTree';
+import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
@@ -223,8 +225,11 @@ function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageCo
 		canArchivePersonnelRecord: () => false,
 		canExportPersonnelRecord: () => false,
 		canManagePersonnelInGroup: () => false,
-		groupOrder: ['Alpha', 'Bravo'],
-		groupIdForName: (name: string) => ({ Alpha: 'group-1', Bravo: 'group-2' })[name] ?? null,
+		groupOrder: [
+			{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
+		],
+		canPinGroups: true,
 		personnelRecordAffordance: () => deniedAffordance(),
 		personnelArchiveAffordance: () => deniedAffordance(),
 		get viewMode() {
@@ -252,7 +257,19 @@ function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageCo
 		getPersonnelById: (id: string) => personnelStore.getById(id),
 		upcomingLossMap: new Map<string, UpcomingLossRecord>(),
 		handleAdd: vi.fn(),
-		openGroupEditor: vi.fn()
+		openGroupEditor: vi.fn(),
+		collapsedGroups: new SvelteSet<string>(),
+		toggleGroup(key: string): void {
+			if (!ctx.collapsedGroups.delete(key)) ctx.collapsedGroups.add(key);
+		},
+		get groupTree() {
+			return buildGroupTree(groupsStore.orgId === ctx.orgId ? groupsStore.items : [], {
+				pinnedIds: ctx.canPinGroups ? pinnedGroupsStore.list : []
+			});
+		},
+		get soleLeafGroup() {
+			return soleLeafGroup(ctx.groupTree, ctx.canPinGroups);
+		}
 	};
 
 	for (const override of overrides) {
@@ -317,6 +334,22 @@ describe('PersonnelPageView', () => {
 		});
 
 		expect(screen.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
+	});
+
+	it('opens Manage Groups on the first top-level Group when the catalog lists a sub-group first', async () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'squad', name: '1st Squad', sortOrder: 0, parentId: 'platoon', depth: 2 },
+				{ id: 'platoon', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 }
+			],
+			'org-1'
+		);
+		const ctx = makeCtx({ canManageGroups: true });
+
+		render(PersonnelPageView, { props: { ctx } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Manage Groups' }));
+
+		expect(ctx.openGroupEditor).toHaveBeenCalledWith('platoon');
 	});
 
 	it('keeps creation, group and detail controls hidden for operators who can edit existing personnel', async () => {
@@ -421,10 +454,95 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('button', { name: 'Pin Alpha' })).toBeTruthy();
 	});
 
-	describe('By Group view', () => {
-		function loadCatalogOrder(names: string[]): void {
+	describe('nested Groups', () => {
+		const person = (id: string, lastName: string, groupId: string | null, groupName: string): Personnel => ({
+			...personnel[0],
+			id,
+			lastName,
+			slug: id,
+			groupId,
+			groupName
+		});
+
+		beforeEach(() => {
+			personnelStore.load(
+				[
+					person('psg', 'Diaz', 'plt', '2nd Platoon'),
+					person('sl', 'Lee', 'sq1', '1st Squad'),
+					person('tl', 'Moss', 'alpha', 'Alpha Team'),
+					person('hq', 'Reyes', 'hq', 'HQ Section'),
+					person('none', 'Adams', null, '')
+				],
+				'org-1'
+			);
+		});
+
+		const unitCatalog = () =>
 			groupCatalogHydration.load(
-				names.map((name, sortOrder) => ({ id: `catalog-${name}`, name, sortOrder })),
+				[
+					{ id: 'hq', name: 'HQ Section', sortOrder: 0, parentId: null, depth: 1 },
+					{ id: 'plt', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 },
+					{ id: 'sq1', name: '1st Squad', sortOrder: 0, parentId: 'plt', depth: 2 },
+					{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq1', depth: 3 }
+				],
+				'org-1'
+			);
+		const bands = () =>
+			screen.getAllByRole('button', { name: /^(Collapse|Expand) / }).map((button) => button.getAttribute('aria-label'));
+		const shownPeople = () =>
+			['Diaz', 'Lee', 'Moss', 'Reyes', 'Adams'].filter((name) => screen.queryByRole('row', { name: new RegExp(name) }));
+
+		it('lets an Organization-wide reader pin only top-level Groups', () => {
+			unitCatalog();
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+
+			expect(
+				screen.getAllByRole('button', { name: /^(Pin|Unpin) / }).map((pin) => pin.getAttribute('aria-label'))
+			).toEqual(['Pin HQ Section', 'Pin 2nd Platoon']);
+		});
+
+		it('hides every sub-group of a collapsed Group', async () => {
+			unitCatalog();
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Collapse 2nd Platoon' }));
+
+			expect(bands()).toEqual(['Collapse HQ Section', 'Expand 2nd Platoon', 'Collapse Unassigned']);
+		});
+
+		it('shows an Organization-wide reader everyone, each sub-group under its parent', () => {
+			unitCatalog();
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+
+			expect(bands()).toEqual([
+				'Collapse HQ Section',
+				'Collapse 2nd Platoon',
+				'Collapse 2nd Platoon › 1st Squad',
+				'Collapse 2nd Platoon › 1st Squad › Alpha Team',
+				'Collapse Unassigned'
+			]);
+			expect(shownPeople()).toEqual(['Diaz', 'Lee', 'Moss', 'Reyes', 'Adams']);
+		});
+
+		it('gives a reader whose whole roster is one Group no bands and no A-Z or Group choice', () => {
+			groupCatalogHydration.load(
+				[{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq1', depth: 3 }],
+				'org-1'
+			);
+			personnelStore.load([person('tl', 'Moss', 'alpha', 'Alpha Team')], 'org-1');
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group', canPinGroups: false }) } });
+
+			expect(screen.queryByRole('button', { name: /^(Collapse|Expand) / })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Group' })).toBeNull();
+			expect(screen.getByRole('row', { name: /Moss/ })).toBeTruthy();
+		});
+	});
+
+	describe('By Group view', () => {
+		function loadCatalogOrder(groupIds: string[]): void {
+			const nameOf = (id: string) => personnelStore.items.find((person) => person.groupId === id)?.groupName ?? id;
+			groupCatalogHydration.load(
+				groupIds.map((id, sortOrder) => ({ id, name: nameOf(id), sortOrder, parentId: null, depth: 1 as const })),
 				'org-1'
 			);
 		}
@@ -469,7 +587,7 @@ describe('PersonnelPageView', () => {
 
 		it('lists Groups in the Organization order with Unassigned last and drops the Group column', () => {
 			loadTwoGroups();
-			loadCatalogOrder(['Bravo', 'Alpha']);
+			loadCatalogOrder(['group-2', 'group-1']);
 			const ctx = makeCtx({ viewMode: 'by-group' });
 
 			render(PersonnelPageView, { props: { ctx } });
@@ -480,7 +598,7 @@ describe('PersonnelPageView', () => {
 
 		it('keeps the controls of a Group named Unassigned apart from the People with no Group', () => {
 			loadTwoGroups('Unassigned');
-			loadCatalogOrder(['Alpha', 'Unassigned']);
+			loadCatalogOrder(['group-1', 'group-2']);
 			const ctx = makeCtx({ viewMode: 'by-group', canManageGroups: true });
 
 			render(PersonnelPageView, { props: { ctx } });
@@ -493,13 +611,24 @@ describe('PersonnelPageView', () => {
 
 		it("moves the viewer's pinned Group above the Organization order", () => {
 			loadTwoGroups();
-			loadCatalogOrder(['Bravo', 'Alpha']);
-			pinnedGroupsHydration.load(['Alpha'], 'org-1');
+			loadCatalogOrder(['group-2', 'group-1']);
+			pinnedGroupsHydration.load(['group-1'], 'org-1');
 			const ctx = makeCtx({ viewMode: 'by-group' });
 
 			render(PersonnelPageView, { props: { ctx } });
 
 			expect(headerOrder()).toEqual(['Collapse Alpha', 'Collapse Bravo', 'Collapse Unassigned']);
+		});
+
+		it('gives a viewer who cannot pin no pin control', () => {
+			loadTwoGroups();
+			loadCatalogOrder(['group-2', 'group-1']);
+			const ctx = makeCtx({ viewMode: 'by-group', canPinGroups: false });
+
+			render(PersonnelPageView, { props: { ctx } });
+
+			expect(headerOrder()).toEqual(['Collapse Bravo', 'Collapse Alpha', 'Collapse Unassigned']);
+			expect(screen.queryByRole('button', { name: /^(Pin|Unpin) / })).toBeNull();
 		});
 
 		describe('with more People than it renders at once', () => {
@@ -857,7 +986,12 @@ describe('PersonnelPageView', () => {
 	describe('quick edit', () => {
 		const young: Personnel = { ...makePerson(2), lastName: 'Young', slug: 'young-test' };
 
-		beforeEach(() => groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1'));
+		beforeEach(() =>
+			groupCatalogHydration.load(
+				[{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+				'org-1'
+			)
+		);
 		afterEach(() => {
 			vi.restoreAllMocks();
 			groupCatalogHydration.load([], 'org-test-reset');
@@ -2000,7 +2134,10 @@ describe('PersonnelPageView', () => {
 		});
 
 		it('leaves chips and headcount toggles as they were when a dirty quick edit holds the navigation', async () => {
-			groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+			groupCatalogHydration.load(
+				[{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+				'org-1'
+			);
 			gotoMock.mockImplementation((href: string) => {
 				const guard = beforeNavigateMock.mock.calls.at(-1)![0] as (navigation: unknown) => void;
 				guard({

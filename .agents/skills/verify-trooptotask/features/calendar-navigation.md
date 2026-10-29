@@ -12,7 +12,8 @@ long-range views.
 - `calendar-toolbar`: as the page narrows, `Duty planner`, `Reports`, `Display` and the group filter fold into
   `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings` and the exports always live in
   More, after any folded controls.
-- `calendar-filter`: narrow the grid with the group filter or searchbox.
+- `calendar-filter`: narrow the grid with the group filter, which lists the reader's top-level Groups and shows a picked
+  Group's whole subtree, or with the searchbox.
 - `calendar-saved-range`: the fixed September statuses and closure render in month and long range, and the historical
   March status remains reachable.
 - `calendar-picker-keyboard`: ArrowLeft changes focused month and Escape dismisses the picker.
@@ -29,7 +30,7 @@ long-range views.
   order; Enter and Space activate them.
 - `calendar-grid-groups`: a group collapses and expands, a collapsed group shows how many of its People are out each
   day, and a pin moves the group first and survives reload. Unpinned bands follow the Organization's Group order, not
-  the alphabet.
+  the alphabet. Nested Groups draw as indented sub-bands under their parent's own people (step 19).
 - `calendar-grid-affordances`: a view-only member's day cells, date headers and Person names open no editor, and a
   status bar opens a popover with no actions.
 - `calendar-grid-states`: the empty roster and the in-page Access Restricted state fit both widths.
@@ -101,10 +102,10 @@ filters and request controls between cases.
    length when it fits (Able's three-day Leave reads `VER · 3D`), overlapping entries in the screen's lanes, and Person
    duty codes on the Month PDF. Each page repeats the heading, carries a legend of the printed statuses, duties and
    closures, and ends with `Page N of M`. The workbook keeps per-day cells.
-4. Open `Calendar group filter` and select `Alpha`; confirm Able remains while Baker is absent. Clear the filter and
-   confirm both groups return. Fill the searchbox with `Able`, confirm Baker is absent, then focus it and press
-   `Control+A` followed by `Backspace` with `tool press_key`. Confirm all groups return; an empty native `fill` can
-   leave the previous filter applied.
+4. Open `Calendar group filter` (`Group: All`) and select `Alpha (1)`; confirm Able remains while Baker is absent and
+   the address is unchanged. Clear the filter and confirm both groups return. Fill the searchbox with `Able`, confirm
+   Baker is absent, then focus it and press `Control+A` followed by `Backspace` with `tool press_key`. Confirm all
+   groups return; an empty native `fill` can leave the previous filter applied.
 5. With the filter clear, click the month/year label, choose September 2026, and capture the named Able, Baker and
    Unassigned rows and `Verification Unit Closure` (a `Days` lane segment under the date headers, with a tint and the
    closure name as the title of its date header). Able's `Verification Leave` bar covers September 14–16 and Baker's
@@ -163,11 +164,12 @@ filters and request controls between cases.
     `Verification Leave` bar and press Enter: its popover opens with focus inside; press Escape and confirm focus
     returns to the bar. Visible focus must show on each control.
 12. **Groups and pins.** Click `BRAVO`'s `Pin`: it reads `Pinned` with `aria-pressed="true"` and the Bravo band moves
-    first. Reload; the pin and order persist. Click `Pinned` to unpin, reload, and confirm the original order. Click the
-    `ALPHA` band to collapse it: Able disappears and the band shows `−N` under each day where N of its People are out
-    (blank for none; the snapshot reads `<date>: N out`). Click it again to restore. After a Group editor reorder (see
-    [Group order everywhere](manage-groups.md#group-order-everywhere)), unpinned bands follow the saved order: with
-    Bravo moved above Alpha, sidebar navigation shows `BRAVO`, `ALPHA`, `UNASSIGNED`.
+    first. Reload; the pin and order persist. Click `Pinned` to unpin, reload, and confirm the original order. As
+    `calendarScoped`, whose whole view is Alpha, Calendar draws no `ALPHA` band and no `Pin`. Back as the first actor,
+    click the `ALPHA` band to collapse it: Able disappears and the band shows `−N` under each day where N of its People
+    are out (blank for none; the snapshot reads `<date>: N out`). Click it again to restore. After a Group editor
+    reorder (see [Group order everywhere](manage-groups.md#group-order-everywhere)), unpinned bands follow the saved
+    order: with Bravo moved above Alpha, sidebar navigation shows `BRAVO`, `ALPHA`, `UNASSIGNED`.
 13. **View-only affordances.** As `calendarView`, choose September 2026 and click an empty day in Able's row, the
     September 15 date header and Able's name. No dialog opens. Click Able's `Verification Leave` bar: its popover shows
     the status, dates and note with no `Edit details`, `Remove` or resize handles, and a drag across empty days draws no
@@ -261,6 +263,23 @@ filters and request controls between cases.
     December 2026 and clear resource timings. Reload: the title reads `December 2026`, `document.cookie` holds
     `ttt-calendar-anchor-date=2026-12-01`, and no `calendar-range` request follows. Click `Today` and reload again: the
     title reads the current month.
+19. **Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` at
+    1440x900 open `Calendar group filter`. A `verbose` snapshot lists `Group: All`, `2nd Platoon (9)`, `Alpha (1)`,
+    `Bravo (1)` and `Unassigned (1)`, and no sub-group. Click the `2nd Platoon (9)` option UID: the trigger reads
+    `2nd Platoon (9)`, the address is unchanged, nine rows remain and the bands run `0: 2nd Platoon 9 Pin`,
+    `1: 1st Squad 6`, `2: Alpha Team 4`, `2: Bravo Team 1`, `1: 2nd Squad 1`, with Diaz and Webb under the top band
+    before `1st Squad`. At 1024x640 and 390x844 the bands are the same, the filter sits in `More Calendar controls` at
+    390, and `scrollWidth` equals the viewport. With `Group: All`, `Calendar display` → `Show sub-groups` off draws one
+    band per top-level Group, `0: 2nd Platoon`, `0: Alpha`, `0: Bravo`, `0: Unassigned`, each holding its whole
+    subtree in name order with no count; on, it adds `1: 1st Squad 6`, `2: Alpha Team 4`, `2: Bravo Team 1` and
+    `1: 2nd Squad 1` under `2nd Platoon 9`. Reports → Group availability by day offers `2nd Platoon`, `Alpha` and
+    `Bravo` (`3 of 3 selected`). On it reads `0: Bravo 0%`, `0: 2nd Platoon 100%`, `1: 2nd Platoon HQ 2/2`,
+    `1: 1st Squad 6/6`, `2: 1st Squad HQ 1/1`, `2: Alpha Team 4/4`, `2: Bravo Team 1/1`, `1: 2nd Squad 1/1` and
+    `0: Alpha 100%`; off it reads only the three top-level rows. Cell colors come from the exact available fraction:
+    green at 80% or more, amber at 50% or more, red below. The summary's average availability is available People
+    over all People across the top-level rows and days, not a mean of row percentages. Status days by person
+    (`Filter personnel` → `By Group`) and Availability by day offer the same three top-level Groups; checking only
+    `2nd Platoon` selects 9 of 12 personnel, and the run lists or counts all nine.
 
 ## Gotchas
 

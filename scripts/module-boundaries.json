@@ -227,6 +227,8 @@
 			"files": [
 				"src/app.css",
 				"src/lib/utils.ts",
+				"src/lib/stores/showSubGroups.svelte.test.ts",
+				"src/lib/stores/showSubGroups.svelte.ts",
 				"src/lib/stores/theme.svelte.test.ts",
 				"src/lib/stores/theme.svelte.ts",
 				"src/lib/stores/toast.svelte.ts",
@@ -525,6 +527,7 @@
 		"web-ui": [
 			"src/app.css",
 			"src/lib/utils.ts",
+			"src/lib/stores/showSubGroups.svelte.ts",
 			"src/lib/stores/theme.svelte.ts",
 			"src/lib/stores/toast.svelte.ts",
 			"src/lib/utils/browserStorage.ts",

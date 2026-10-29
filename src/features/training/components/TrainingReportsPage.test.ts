@@ -71,6 +71,10 @@ function reportFor(
 		organizationName: 'Test Company',
 		briefing: buildTrainingBriefing({
 			personnel: [soldier('a1', 'alpha', 'Alpha'), soldier('a2', 'alpha', 'Alpha'), soldier('b1', 'bravo', 'Bravo')],
+			groups: [
+				{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
+			],
 			types,
 			records: [completion('a1', '2026-10-20'), completion('a2', '2030-01-01')],
 			filters: {},

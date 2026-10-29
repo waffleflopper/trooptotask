@@ -107,7 +107,6 @@
 		{#if ready.canInvite}
 			<MemberInviteForm
 				{workspace}
-				groups={ready.groups}
 				isOwner={ready.isOwner}
 				{action}
 				{submit}

@@ -4,6 +4,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { buildGroupTree, type Group } from '$features/personnel/contracts';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -31,6 +32,7 @@
 	} from '../staffingModel';
 	import { loadStaffingPickerRequest, saveStaffingRequest } from '../staffingRequests';
 	import PersonState from './PersonState.svelte';
+	import { pickerSections, type PickerSection } from './pickerSections';
 	import { groupLabel, personStateLine, qualificationTokens, reviewLabel } from './staffingLabels';
 
 	interface Props {
@@ -38,7 +40,7 @@
 		/** Title and dates are optional so a caller that only staffs can open it; they make the subtitle. */
 		tasking: Pick<Tasking, 'id' | 'responsibility' | 'requirement'> &
 			Partial<Pick<Tasking, 'title' | 'execution' | 'suspenseOn'>>;
-		groups: GroupLabels;
+		groups: readonly Group[];
 		/** The viewer's day, for date labels; the browser's day when omitted. */
 		today?: string;
 		/** `before` is the selection the picker opened on, so a caller can offer to put it back. */
@@ -84,26 +86,23 @@
 
 	onMount(load);
 
+	const tree = $derived(buildGroupTree(groups));
+	const labels = $derived<GroupLabels>(Object.fromEntries(tree.ordered.map((node) => [node.id, tree.label(node.id)])));
 	const responsibility = $derived(tasking.responsibility);
 	const organizationLevel = $derived(responsibility.kind === 'organization');
 	const ownerName = $derived(
-		responsibility.kind === 'organization' ? null : groupLabel(responsibility.groupId, groups)
+		responsibility.kind === 'organization' ? null : groupLabel(responsibility.groupId, labels)
 	);
 	// Who was picked when the sheet opened leads the list, so ticking someone never moves a row.
 	const rows = $derived.by(() => {
 		if (typeof picker !== 'object' || !picker) return [];
-		const all = pickerRows(picker, responsibility);
+		const all = pickerRows(picker, responsibility, tree);
 		const was = new Set(initial);
 		return [...all.filter((row) => was.has(row.personnelId)), ...all.filter((row) => !was.has(row.personnelId))];
 	});
 	const rowsById = $derived(new Map(rows.map((row) => [row.personnelId, row])));
-	const groupOptions = $derived(
-		Object.entries(groups)
-			.map(([id, name]) => ({ id, name }))
-			.sort((a, b) => a.name.localeCompare(b.name))
-	);
 	const groupFilterLabel = $derived(
-		groupFilter === ALL_GROUPS ? 'All' : groupFilter === UNASSIGNED ? 'Unassigned' : (groups[groupFilter] ?? 'All')
+		groupFilter === ALL_GROUPS ? 'All' : groupFilter === UNASSIGNED ? 'Unassigned' : (labels[groupFilter] ?? 'All')
 	);
 	// What the picker read is current; a caller's copy, such as a Calendar card's, may be partial.
 	const requirement = $derived(typeof picker === 'object' && picker ? picker.tasking.requirement : tasking.requirement);
@@ -120,10 +119,15 @@
 			(row) =>
 				(!query || `${row.rank} ${row.firstName} ${row.lastName} ${row.mos}`.toLowerCase().includes(query)) &&
 				(groupFilter === ALL_GROUPS ||
-					(groupFilter === UNASSIGNED ? row.groupId === null : row.groupId === groupFilter)) &&
+					(groupFilter === UNASSIGNED ? row.groupId === null : tree.contains(groupFilter, row.groupId))) &&
 				(!qualifiedOnly || qualifications.length === 0 || qualifications.includes(row.mos.trim().toUpperCase()))
 		);
 	});
+	const sections = $derived<PickerSection<PickerRow>[]>(
+		responsibility.kind === 'group'
+			? pickerSections(tree, responsibility.groupId, shown, labels)
+			: [{ key: 'all', label: '', rows: shown }]
+	);
 	const outsideScope = $derived(typeof picker === 'object' && picker ? picker.staffing.outsideScope : 0);
 	const dirty = $derived(
 		removeOutsideScope || selected.size !== initial.length || initial.some((id) => !selected.has(id))
@@ -148,7 +152,7 @@
 	function chipLabel(row: PickerRow) {
 		return [
 			shortPersonName(row),
-			organizationLevel && groupLabel(row.groupId, groups),
+			organizationLevel && groupLabel(row.groupId, labels),
 			!initial.includes(row.personnelId) && 'new'
 		]
 			.filter(Boolean)
@@ -156,7 +160,7 @@
 	}
 
 	const secondary = (row: PickerRow) =>
-		[groupLabel(row.groupId, groups), row.mos, row.clinicRole].filter(Boolean).join(' · ');
+		[groupLabel(row.groupId, labels), row.mos, row.clinicRole].filter(Boolean).join(' · ');
 
 	function toggle(personnelId: string, checked: boolean) {
 		if (checked) selected.add(personnelId);
@@ -199,7 +203,7 @@
 				{/if}
 			</div>
 			<div class="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
-				<ResponsibilityPill {responsibility} {groups} size="sm" />
+				<ResponsibilityPill {responsibility} groups={labels} size="sm" />
 				<p class="m-0 text-[13px] leading-[18px] text-foreground/80">
 					{ownerName
 						? `${ownerName}'s tasking. You can pick from ${ownerName}'s roster.`
@@ -255,7 +259,7 @@
 					</Select.Trigger>
 					<Select.Content align="end">
 						<Select.Item value={ALL_GROUPS} label="All Groups" />
-						{#each groupOptions as group (group.id)}
+						{#each tree.roots as group (group.id)}
 							<Select.Item value={group.id} label={group.name} />
 						{/each}
 						<Select.Item value={UNASSIGNED} label="Unassigned" />
@@ -335,40 +339,54 @@
 						{rows.length === 0 ? 'Nobody on this roster is active.' : 'Nobody matches these filters.'}
 					</p>
 				{:else}
-					<ul class="m-0 list-none p-0" aria-describedby={countId}>
-						{#each shown as row (row.personnelId)}
-							{@const inputId = `assign-${row.personnelId}`}
-							<li class="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border py-2">
-								<Checkbox
-									id={inputId}
-									class="size-[18px]"
-									checked={selected.has(row.personnelId)}
-									onCheckedChange={(checked) => toggle(row.personnelId, checked)}
-									disabled={saving.pending}
-								/>
-								<span class="w-9 shrink-0 font-mono text-xs text-muted-foreground">{row.rank}</span>
-								<label for={inputId} class="grid min-w-0 flex-1 basis-32 cursor-pointer gap-0.5">
-									<span class="truncate text-sm leading-[18px] font-medium">{row.lastName}, {row.firstName}</span>
-									<span class="truncate font-mono text-xs text-muted-foreground">{secondary(row)}</span>
-									{#if row.review}
-										<span class="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
-											<Badge variant="warning">Needs review</Badge>
-											{reviewLabel(row.review, row.groupId, groups)}
+					{#each sections as section (section.key)}
+						{@const headingId = `${countId}-${section.key}`}
+						<div role="group" aria-labelledby={sections.length > 1 ? headingId : undefined}>
+							{#if sections.length > 1}
+								<h3
+									id={headingId}
+									class="m-0 border-b border-border pt-3 pb-1.5 font-mono text-xs font-medium text-muted-foreground"
+								>
+									{section.label}
+									<span class="tabular-nums">{section.rows.length}</span>
+								</h3>
+							{/if}
+							<ul class="m-0 list-none p-0" aria-describedby={countId}>
+								{#each section.rows as row (row.personnelId)}
+									{@const inputId = `assign-${row.personnelId}`}
+									<li class="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border py-2">
+										<Checkbox
+											id={inputId}
+											class="size-[18px]"
+											checked={selected.has(row.personnelId)}
+											onCheckedChange={(checked) => toggle(row.personnelId, checked)}
+											disabled={saving.pending}
+										/>
+										<span class="w-9 shrink-0 font-mono text-xs text-muted-foreground">{row.rank}</span>
+										<label for={inputId} class="grid min-w-0 flex-1 basis-32 cursor-pointer gap-0.5">
+											<span class="truncate text-sm leading-[18px] font-medium">{row.lastName}, {row.firstName}</span>
+											<span class="truncate font-mono text-xs text-muted-foreground">{secondary(row)}</span>
+											{#if row.review}
+												<span class="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+													<Badge variant="warning">Needs review</Badge>
+													{reviewLabel(row.review, row.groupId, labels)}
+												</span>
+											{/if}
+										</label>
+										<span class="basis-full pl-[78px] sm:w-[230px] sm:shrink-0 sm:basis-auto sm:pl-0">
+											<PersonState
+												line={personStateLine(
+													picker.states[row.personnelId] ?? { kind: 'unknown', reason: 'failed' },
+													tasking.execution ?? null,
+													today
+												)}
+											/>
 										</span>
-									{/if}
-								</label>
-								<span class="basis-full pl-[78px] sm:w-[230px] sm:shrink-0 sm:basis-auto sm:pl-0">
-									<PersonState
-										line={personStateLine(
-											picker.states[row.personnelId] ?? { kind: 'unknown', reason: 'failed' },
-											tasking.execution ?? null,
-											today
-										)}
-									/>
-								</span>
-							</li>
-						{/each}
-					</ul>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/each}
 					{#if !organizationLevel}
 						<p class="m-0 py-2 text-center font-mono text-xs text-muted-foreground">Other Groups are not listed.</p>
 					{/if}

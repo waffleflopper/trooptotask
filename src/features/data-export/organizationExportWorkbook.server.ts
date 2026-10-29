@@ -1,3 +1,4 @@
+import { buildGroupTree, groupExportPath, type Group } from '$features/personnel/contracts';
 import {
 	addTableSheet,
 	createWorkbook,
@@ -58,12 +59,16 @@ export async function buildOrganizationDataExportWorkbook(
 export function buildOrganizationDataExportWorkbookPlan(
 	input: OrganizationDataExportWorkbookInput
 ): OrganizationDataExportWorkbookPlan {
-	const rawSections = ORGANIZATION_DATA_EXPORT_SECTIONS.filter((section) =>
-		Object.hasOwn(input.payload.sections, section.key)
-	);
+	const sections = { ...input.payload.sections };
+	if (sections.groups) {
+		sections.groups = sections.groups.map((group) =>
+			Object.fromEntries(Object.entries(group).filter(([key]) => key !== 'parentId'))
+		);
+	}
+	const rawSections = ORGANIZATION_DATA_EXPORT_SECTIONS.filter((section) => Object.hasOwn(sections, section.key));
 	const includedAreas = new Set(rawSections.map((section) => section.areaKey));
 	const readableSheets = ORGANIZATION_DATA_EXPORT_READABLE_SHEETS.filter((sheet) => includedAreas.has(sheet.areaKey));
-	const labels = buildLabels(input.payload.sections);
+	const labels = buildLabels(sections);
 
 	return {
 		inventorySheet: {
@@ -84,25 +89,37 @@ export function buildOrganizationDataExportWorkbookPlan(
 					table: section.table,
 					area: section.areaLabel,
 					areaKey: section.areaKey,
-					rowCount: input.payload.sections[section.key]?.length ?? 0
+					rowCount: sections[section.key]?.length ?? 0
 				})),
 				...(input.payload.notes ?? []).map((note) => ({ note }))
 			])
 		},
-		readableSheets: readableSheets.map((sheet) => toSheetPlan(sheet.name, sheet.rows(input.payload.sections, labels))),
-		rawArchiveSheets: rawSections.map((section) =>
-			toSheetPlan(`Raw - ${section.title}`, input.payload.sections[section.key] ?? [])
-		)
+		readableSheets: readableSheets.map((sheet) => toSheetPlan(sheet.name, sheet.rows(sections, labels))),
+		rawArchiveSheets: rawSections.map((section) => toSheetPlan(`Raw - ${section.title}`, sections[section.key] ?? []))
 	};
 }
 
 function buildLabels(sections: OrganizationExportPayload['sections']): OrganizationDataExportLabels {
 	const personnel = sections.personnel ?? [];
 	const personnelExtendedInfo = sections.personnelExtendedInfo ?? [];
+	const groups: Group[] = (sections.groups ?? []).flatMap((row) =>
+		typeof row.id === 'string' && typeof row.name === 'string'
+			? [
+					{
+						id: row.id,
+						name: row.name,
+						sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+						parentId: typeof row.parent_id === 'string' ? row.parent_id : null,
+						depth: row.depth === 2 || row.depth === 3 ? row.depth : 1
+					}
+				]
+			: []
+	);
+	const tree = buildGroupTree(groups);
 
 	return {
 		personnel: buildPersonnelLabels(personnel),
-		groups: buildLabelMap(sections.groups ?? [], 'name'),
+		groups: new Map(groups.map((group) => [group.id, groupExportPath(tree, group.id)])),
 		statusTypes: buildLabelMap(sections.statusTypes ?? [], 'name'),
 		assignmentTypes: buildLabelMap(sections.assignmentTypes ?? [], 'name'),
 		assignmentTargets: new Map(

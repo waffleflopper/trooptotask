@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import type { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createQueryPortsContext } from './calendarPersistence.test-support.server';
@@ -81,7 +82,7 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 		{ id: 'da1', organization_id: ORG, date: '2026-03-10', assignment_type_id: 'at1', assignee_id: 'p1' }
 	]);
 	store.seed('user_pinned_groups', [
-		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
+		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_id: 'g1', sort_order: 0 }
 	]);
 }
 
@@ -142,7 +143,7 @@ describe('fetchCalendarData', () => {
 			assigneeId: 'p1'
 		});
 
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual(['g1']);
 
 		expect((result as unknown as Record<string, unknown>).rosterHistory).toBeUndefined();
 	});
@@ -160,7 +161,7 @@ describe('fetchCalendarData', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['g1', 'g2'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1', 'g2'] })
 			}
 		});
 		ctx.store.seed('groups', [
@@ -327,13 +328,13 @@ describe('fetchCalendarData', () => {
 			{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
 		]);
 		ctx.store.seed('user_pinned_groups', [
-			{ id: 'pg1', organization_id: ORG, user_id: 'user-a', group_name: 'Alpha', sort_order: 0 },
-			{ id: 'pg2', organization_id: ORG, user_id: 'user-b', group_name: 'Bravo', sort_order: 0 }
+			{ id: 'pg1', organization_id: ORG, user_id: 'user-a', group_id: 'g1', sort_order: 0 },
+			{ id: 'pg2', organization_id: ORG, user_id: 'user-b', group_id: 'g2', sort_order: 0 }
 		]);
 
 		const result = await fetchCalendarData(ctx, RANGE);
 
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual(['g1']);
 	});
 });
 
@@ -357,7 +358,7 @@ describe('getActiveOnboardingPersonnelIds', () => {
 	});
 
 	it('preserves owner access to unassigned markers even with an empty Group scope', async () => {
-		const ctx = buildCtx({ auth: { role: 'owner', scopeSet: { kind: 'groups', groupIds: [] } } });
+		const ctx = buildCtx({ auth: { role: 'owner', scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }) } });
 		ctx.store.seed('personnel', [{ id: 'unassigned', organization_id: ORG, group_id: null }]);
 		ctx.store.seed('personnel_onboardings', [
 			{ id: 'ob-owner', organization_id: ORG, personnel_id: 'unassigned', status: 'in_progress' }
@@ -392,7 +393,7 @@ describe('fetchCalendarBootstrap', () => {
 		expect(result.personnel[0].groupName).toBe('Bravo');
 		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((statusType) => statusType.name)).toEqual(['Leave']);
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual(['g1']);
 	});
 
 	it('returns no Group choices for a Calendar viewer with an empty Group scope', async () => {
@@ -400,7 +401,7 @@ describe('fetchCalendarBootstrap', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }),
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'none',
@@ -423,18 +424,22 @@ describe('fetchCalendarBootstrap', () => {
 	it.each([
 		['bootstrap', fetchCalendarBootstrap],
 		['page', fetchCalendarData]
-	] as const)('returns only in-scope pinned Group names on the %s read', async (_read, read) => {
+	] as const)('reads no pins for a Group-scoped reader on the %s read', async (_read, read) => {
 		const ctx = buildCtx({
-			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['g1'] } }
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] })
+			}
 		});
 		seedCalendarData(ctx.store);
 		ctx.store.seed('user_pinned_groups', [
-			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 1 }
+			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_id: 'g2', sort_order: 1 }
 		]);
 
 		const result = await read(ctx, RANGE);
 
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual([]);
 	});
 
 	it.each([

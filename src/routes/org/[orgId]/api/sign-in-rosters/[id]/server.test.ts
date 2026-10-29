@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { selectRosterUploadContext } from '../rosterTestContexts';
@@ -46,7 +47,7 @@ function createScopedRosterContext() {
 				onboarding: 'view',
 				ratingScheme: 'view'
 			},
-			scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] })
 		}
 	});
 	ctx.rawStore.seed('sign_in_rosters', [

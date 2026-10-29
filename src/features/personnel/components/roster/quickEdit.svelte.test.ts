@@ -6,8 +6,8 @@ import type { Personnel } from '../../personnel.types';
 import { RosterQuickEdit, type QuickEditDeps } from './quickEdit.svelte';
 
 const groups: Group[] = [
-	{ id: 'g-1', name: '1st Platoon', sortOrder: 0 },
-	{ id: 'g-2', name: '2nd Platoon', sortOrder: 1 }
+	{ id: 'g-1', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'g-2', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 
 const okafor: Personnel = {

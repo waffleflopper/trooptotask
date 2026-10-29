@@ -15,7 +15,11 @@ person's record.
 - `roster-group-headers`: in `Group` view each header has a pin toggle, a collapse toggle, the Group name and count, a
   strength bar with `N of M present`, an attention count and a `⋯` menu, all operable by pointer and keyboard; a pin
   persists for the member and a collapse lasts for the page visit. Groups run pinned first, then the Organization's
-  Group order, then Unassigned. The Group column is absent in this view.
+  Group order, then Unassigned. The Group column is absent in this view. Only Organization-wide readers get the pin
+  toggle and the menu's `Pin`; a Group-scoped reader gets neither. Nested Groups draw as slimmer indented bands inside
+  their parent, with pins on top-level bands only and no Group filter: every reader sees their whole visible tree. The
+  [nested Group tree](manage-groups.md#nested-group-tree) recipe gives the expected bands for Organization-wide and
+  scoped readers.
 - `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state (only
   `?show=`).
 - `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
@@ -66,8 +70,8 @@ scoped actors retain their baseline grants.
    `$V fixture`. The first three must be present and the foreign ID absent.
 6. Sign in as `scoped` in another page. Its Alpha roster must show Able and exclude Baker, Unassigned, and Foreign. In
    `Group` view only the Alpha header appears. Repeat the page-data ID comparison: only `personA` may appear, and
-   neither the Bravo Group ID nor its name is in the Group catalog or pinned names. Save the visible and page-data
-   observations together. A blank or failed data response is not a passing scope check.
+   neither the Bravo Group ID nor its name is in the Group catalog, and the pinned Groups list is empty. Save the
+   visible and page-data observations together. A blank or failed data response is not a passing scope check.
 7. **Roster table sort, filter and row action.** As `manager` in `A-Z`, capture the `Personnel roster` table header
    buttons (`Sort by Rank`, `Sort by Name`, ...) and the initial Name order. Click `Sort by Name` and require the
    reversed order and changed sort indicator, click it again to restore ascending, then sort by MOS (every fixture
@@ -86,11 +90,11 @@ scoped actors retain their baseline grants.
    the rows back. Reload with Alpha collapsed and record that every group is expanded again (collapse is page state, not
    saved). Keyboard: Tab to `Pin Alpha` then `Collapse Alpha` with a visible focus ring, operate each with Enter and
    with Space, and require focus to stay on the same toggle after it flips. Enter, Space and a mouse click on a pin or
-   an Unpin all keep focus on that group's pin (`data-pin-group`) after the group moves, checked once while a held
-   `arm-hold` save keeps the reorder on screen and again after release; a sampler that logs `document.activeElement`
-   never reads `body`. Switch to `A-Z` and back: pin order is retained. Pin failure recovery stays in the
-   [Manage groups recipe](manage-groups.md#personal-group-pins). Do the same at 390 dark and require the headers
-   readable and tappable, with no page-level horizontal scroll.
+   an Unpin all keep focus on that group's pin (`data-pin-group` holds the Group ID) after the group moves, checked once
+   while a held `arm-hold` save keeps the reorder on screen and again after release; a sampler that logs
+   `document.activeElement` never reads `body`. Switch to `A-Z` and back: pin order is retained. Pin failure recovery
+   stays in the [Manage groups recipe](manage-groups.md#personal-group-pins). Do the same at 390 dark and require the
+   headers readable and tappable, with no page-level horizontal scroll.
 9. **Roster states and URL.** Empty: as `personnelEmpty` open Personnel and capture `No personnel on the active roster`
    or the access result the actor actually gets, with Add Person absent. Add Person appears in that state only for an
    actor who can add; record per actor. No match: type a name nobody has and require `No personnel match your search.`;
@@ -103,10 +107,11 @@ scoped actors retain their baseline grants.
    unchanged (only a filter writes `?show=`, step 17), and that choosing a row opens `/org/<org>/personnel/<slug>`.
    Capture 1280 light and 390 dark, including the `Personnel controls` toolbar at 390: one row with the search field,
    `More Personnel controls` and `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`,
-   `Manage Groups` and the `A-Z`/`Group` view fold into More in that order (at about 910 and 862px; below 768 the
-   sidebar collapses and they return, then fold again at about 656 and 584, with Import back between about 632 and 638
-   where the page gutter narrows, and the view folds at about 451px), so at 390 choose them from More. Archiving many
-   People is the `Selected people` bar's `Archive…` (step 19).
+   `Manage Groups` and the `A-Z`/`Group` view fold into More in that order at about 1100, 1052 and 920px and stay folded
+   down to 390
+   (`$V toolbar-sweep PAGE "Personnel controls" RUN_DIR --expect import,manage-groups,roster-view --pinned add-person --search --step 4`
+   as `orgOwner`), so at 390 choose them from More. Archiving many People is the `Selected people` bar's `Archive…`
+   (step 19).
 10. **Opening a record for operators.** A row opens its record, shows the chevron and `Note for <name>`, and is named
     `Open <name>` only to an actor who holds Personnel sensitive-record reading unscoped and record access to that row.
     As `personnelOperate`, `personnelScopedOperate` (Operator in Alpha) or `perfScoped` on its large workload each row
@@ -410,16 +415,16 @@ scoped actors retain their baseline grants.
     outside the name link (the `11B` text): the URL stays on Personnel and a complementary region
     `Preview of SPC Synthetic Baker` docks on the right. Its top bar reads `2 of 3 · J/K` in `Group` view with
     `Previous person`, `Next person`, `Open record` (the record URL) and `Close preview`. Identity reads `BRAVO · NCO`,
-    `SPC SYNTHETIC BAKER`, `11B`, the amber `Verification Training today` pill and `(910) 555-0148`.
-    A muted mono line directly under the name holds the Data sheet DoD ID; Baker has none, so it reads `No DoD ID`
-    and the identity block keeps the same height as for a Person with an ID. `Next 7 days` draws
-    today plus six days with the training bar and its legend; `Needs attention · 2` lists the two missing items with
-    `Missing · Not recorded` and a `Readiness` link; `Open follow-ups · 2` shows `Overdue 4 days` in red and the other's
-    weekday date; `Latest note` quotes the note. The page fetched exactly five requests,
-    `peek?section=identity|next7|attention|followUps|note`, and no `__data.json`. While it is open the `Duty Role` and
-    `Group` columns are hidden (a roster sorted by either keeps its order and page) and the `Today's headcount` strip is
-    gone, Baker's row has the accent left rule, and the row's Note and Quick edit buttons are hidden. The footer hints
-    read `Space preview`, `X select`, `N note`, `E quick edit` and `↵ open record`; below 1280 `Space preview` is gone.
+    `SPC SYNTHETIC BAKER`, `11B`, the amber `Verification Training today` pill and `(910) 555-0148`. A muted mono line
+    directly under the name holds the Data sheet DoD ID; Baker has none, so it reads `No DoD ID` and the identity block
+    keeps the same height as for a Person with an ID. `Next 7 days` draws today plus six days with the training bar and
+    its legend; `Needs attention · 2` lists the two missing items with `Missing · Not recorded` and a `Readiness` link;
+    `Open follow-ups · 2` shows `Overdue 4 days` in red and the other's weekday date; `Latest note` quotes the note. The
+    page fetched exactly five requests, `peek?section=identity|next7|attention|followUps|note`, and no `__data.json`.
+    While it is open the `Duty Role` and `Group` columns are hidden (a roster sorted by either keeps its order and page)
+    and the `Today's headcount` strip is gone, Baker's row has the accent left rule, and the row's Note and Quick edit
+    buttons are hidden. The footer hints read `Space preview`, `X select`, `N note`, `E quick edit` and `↵ open record`;
+    below 1280 `Space preview` is gone.
     - Keyboard: Baker's row keeps focus. J moves focus to `Open SPC Unassigned, Synthetic` and the panel to
       `3 of 3 · J/K` with five reads for Unassigned; K back to Baker reads nothing (cached). Two J presses within 40 ms
       from Able read only the Person browsing stops on (five reads, none for the Person skipped). Tab from the row
@@ -465,8 +470,8 @@ scoped actors retain their baseline grants.
       and 680 while held and the same after `release`. The legend then reads two truncated lines,
       `Verification Training` and `Verification Leave` each with the start of their note. Restore.
     - DoD ID loading: save `0123456789` on Able's Data sheet, arm
-      `$V server-source arm personnel_extended_info hold 1 90000`, reload and open Able: a skeleton line sits under
-      the name and another beside the `68W` chip until `release`, and at 1440 the tops of `Needs attention`,
+      `$V server-source arm personnel_extended_info hold 1 90000`, reload and open Able: a skeleton line sits under the
+      name and another beside the `68W` chip until `release`, and at 1440 the tops of `Needs attention`,
       `Open follow-ups` and `Latest note` read 287, 357 and 425 both while held and after. `fail-hard 1` instead shows
       `Couldn't load contact details.` with `Retry` beside `68W`, and after `restore` `Retry` shows the ID. `viewer`
       gets no panel; its `peek?section=identity` is 403.

@@ -1,3 +1,4 @@
+import { buildGroupTree, groupExportPath, type Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingStatus, TrainingType } from '../training.types';
 import { addTableSheet, createWorkbook, type Workbook, type WorkbookRow } from '$lib/utils/workbook';
@@ -5,6 +6,7 @@ import { getTrainingStatus } from './trainingStatus';
 import { filterColumnsByView } from './viewFiltering';
 
 export interface TrainingMatrixWorkbookInput {
+	groups: readonly Group[];
 	personnel: Personnel[];
 	trainingTypes: TrainingType[];
 	trainings: PersonnelTraining[];
@@ -50,6 +52,7 @@ function trainingCell(
 }
 
 export async function buildTrainingMatrixWorkbook(input: TrainingMatrixWorkbookInput): Promise<Workbook> {
+	const tree = buildGroupTree(input.groups);
 	const types = filterColumnsByView(input.trainingTypes, null);
 	const trainings = new Map(
 		input.trainings.map((training) => [`${training.personnelId}:${training.trainingTypeId}`, training])
@@ -63,7 +66,7 @@ export async function buildTrainingMatrixWorkbook(input: TrainingMatrixWorkbookI
 	const rows: WorkbookRow[] = personnel.map((person, index) => ({
 		name: `${person.lastName}, ${person.firstName}`,
 		rank: person.rank,
-		group: person.groupName || 'Unassigned',
+		group: groupExportPath(tree, person.groupId) || 'Unassigned',
 		...Object.fromEntries(types.map((type, column) => [`training_${type.id}`, cells[index][column].value]))
 	}));
 	const columns = [

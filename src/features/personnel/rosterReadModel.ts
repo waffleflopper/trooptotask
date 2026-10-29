@@ -1,8 +1,12 @@
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
+import type { Group } from './group.types';
+import { buildGroupTree, type GroupTree } from './groupTree';
 import { comparePersonnelByRankThenName } from './personnelRank';
 import type { Personnel } from './personnel.types';
 
 export interface PersonnelGroup {
+	/** `null` is the ungrouped band. */
+	groupId: string | null;
 	group: string;
 	personnel: Personnel[];
 }
@@ -13,7 +17,7 @@ export interface RosterGroupFilterOption {
 	count: number;
 }
 
-export type RosterScopeSelection = { scope: 'full' } | { scope: 'scope-set'; scopeSet: ScopeSet };
+export type RosterScopeSelection = { scope: 'full' } | { scope: 'scope-set'; scopeSet: AdvisoryGroupScope };
 export type RosterStatus = 'active' | 'archived' | 'all';
 
 export interface RosterGroupCatalogEntry {
@@ -24,17 +28,25 @@ export interface RosterGroupCatalogEntry {
 
 export interface RosterGroupOrder {
 	groups: readonly RosterGroupCatalogEntry[];
-	pinnedGroups: readonly string[];
+	pinnedGroupIds: readonly string[];
+}
+
+/** A roster band: a Group by id, or the ungrouped band (`groupId` null, empty name). */
+export interface RosterBand {
+	groupId: string | null;
+	name: string;
 }
 
 export interface CreateRosterReadModelInput extends RosterGroupOrder {
 	personnel: Personnel[];
+	groups: readonly Group[];
 	fallbackGroupName?: string;
 }
 
 export interface RosterViewOptions {
 	status?: RosterStatus;
 	groupId?: string | null;
+	/** A top-level Group, matching its subtree, or a band outside the tree such as Unassigned. Anything else is all. */
 	groupFilter?: string;
 	search?: string;
 }
@@ -52,16 +64,18 @@ export interface RosterReadModelView {
 
 export interface RosterReadModel {
 	full: (options?: RosterViewOptions) => RosterReadModelView;
-	scoped: (scopeSet: ScopeSet, options?: RosterViewOptions) => RosterReadModelView;
+	scoped: (scopeSet: AdvisoryGroupScope, options?: RosterViewOptions) => RosterReadModelView;
 	view: (scope: RosterScopeSelection, options?: RosterViewOptions) => RosterReadModelView;
 }
 
 export function createRosterReadModel(input: CreateRosterReadModelInput): RosterReadModel {
+	const tree = buildGroupTree(input.groups, { pinnedIds: input.pinnedGroupIds });
+
 	function view(scope: RosterScopeSelection, options: RosterViewOptions = {}): RosterReadModelView {
 		const scopedPersonnel = applyScope(input.personnel, scope);
 		const selectedPersonnel = applyRosterOptions(scopedPersonnel, options);
 		const baseGroups = groupRosterPersonnel(selectedPersonnel, input);
-		const filteredGroups = applyGroupFilter(baseGroups, options.groupFilter);
+		const filteredGroups = applyGroupFilter(baseGroups, options.groupFilter, tree);
 		const searchedGroups = applyRosterSearch(filteredGroups, options.search);
 		const flatPersonnel = searchedGroups.flatMap((group) => group.personnel);
 		const personnelById = new Map(flatPersonnel.map((person) => [person.id, person]));
@@ -70,7 +84,7 @@ export function createRosterReadModel(input: CreateRosterReadModelInput): Roster
 			personnel: flatPersonnel,
 			personnelByGroup: searchedGroups,
 			flatPersonnel,
-			groupFilterOptions: buildRosterGroupFilterOptions(baseGroups),
+			groupFilterOptions: buildRosterGroupFilterOptions(baseGroups, tree),
 			personnelById,
 			getById(personnelId) {
 				return personnelById.get(personnelId);
@@ -96,7 +110,7 @@ export function createRosterReadModel(input: CreateRosterReadModelInput): Roster
 }
 
 export function rosterGroupFilterValue(group: PersonnelGroup): string {
-	return group.personnel.find((person) => person.groupId)?.groupId ?? `name:${group.group}`;
+	return group.groupId ?? `name:${group.group}`;
 }
 
 export function matchesRosterSearch(person: Personnel, groupName: string, query: string): boolean {
@@ -139,9 +153,17 @@ function applyRosterOptions(personnel: Personnel[], options: RosterViewOptions):
 	});
 }
 
-function applyGroupFilter(groups: PersonnelGroup[], groupFilter: string | undefined): PersonnelGroup[] {
+const inTree = (tree: GroupTree, group: PersonnelGroup) => group.groupId !== null && !!tree.node(group.groupId);
+
+function applyGroupFilter(
+	groups: PersonnelGroup[],
+	groupFilter: string | undefined,
+	tree: GroupTree
+): PersonnelGroup[] {
 	if (!groupFilter) return groups;
-	return groups.filter((group) => rosterGroupFilterValue(group) === groupFilter);
+	if (tree.node(groupFilter)?.level === 0) return groups.filter((group) => tree.contains(groupFilter, group.groupId));
+	const outside = groups.filter((group) => !inTree(tree, group) && rosterGroupFilterValue(group) === groupFilter);
+	return outside.length > 0 ? outside : groups;
 }
 
 function applyRosterSearch(groups: PersonnelGroup[], search: string | undefined): PersonnelGroup[] {
@@ -155,16 +177,24 @@ function applyRosterSearch(groups: PersonnelGroup[], search: string | undefined)
 		.filter((group) => group.personnel.length > 0);
 }
 
-function buildRosterGroupFilterOptions(groups: PersonnelGroup[]): RosterGroupFilterOption[] {
-	const total = groups.reduce((sum, group) => sum + group.personnel.length, 0);
+/** All, then each top-level Group with people under it, then bands outside the tree such as Unassigned. */
+function buildRosterGroupFilterOptions(groups: PersonnelGroup[], tree: GroupTree): RosterGroupFilterOption[] {
+	const count = (bands: PersonnelGroup[]) => bands.reduce((sum, group) => sum + group.personnel.length, 0);
+	const roots = tree.roots.flatMap((root) => {
+		const total = count(groups.filter((group) => tree.contains(root.id, group.groupId)));
+		return total > 0 ? [{ value: root.id, label: root.name, count: total }] : [];
+	});
 
 	return [
-		{ value: '', label: 'All groups', count: total },
-		...groups.map((group) => ({
-			value: rosterGroupFilterValue(group),
-			label: group.group,
-			count: group.personnel.length
-		}))
+		{ value: '', label: 'All groups', count: count(groups) },
+		...roots,
+		...groups
+			.filter((group) => !inTree(tree, group))
+			.map((group) => ({
+				value: rosterGroupFilterValue(group),
+				label: group.group,
+				count: group.personnel.length
+			}))
 	];
 }
 
@@ -173,31 +203,41 @@ function normalizeRosterSearchTerm(value: string | null | undefined): string {
 }
 
 /** The Organization's Group order: `sortOrder`, then name, then id. */
-export function organizationGroupNames(groups: readonly RosterGroupCatalogEntry[]): string[] {
-	return [...groups]
-		.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-		.map((group) => group.name);
+export function organizationGroupOrder<T extends RosterGroupCatalogEntry>(groups: readonly T[]): T[] {
+	return [...groups].sort(
+		(a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+	);
 }
 
-/** Pinned Groups first in pin order, then the Organization's Group order, then names outside the catalog, then ungrouped. */
-export function compareRosterGroupNames({ groups, pinnedGroups }: RosterGroupOrder): (a: string, b: string) => number {
-	const groupOrder = organizationGroupNames(groups);
+/**
+ * Pinned Groups first in pin order, then the Organization's Group order, then bands outside the catalog by name,
+ * then the ungrouped band.
+ */
+export function compareRosterBands({
+	groups,
+	pinnedGroupIds
+}: RosterGroupOrder): (a: RosterBand, b: RosterBand) => number {
+	const groupOrder = new Map(organizationGroupOrder(groups).map((group, index) => [group.id, index]));
+	const pinOrder = new Map(pinnedGroupIds.map((id, index) => [id, index]));
+	const ungrouped = (band: RosterBand) => band.groupId === null && band.name === '';
+	const rank = (order: Map<string, number>, band: RosterBand) =>
+		band.groupId === null ? undefined : order.get(band.groupId);
 	return (a, b) => {
-		if (a === '' || b === '') return a === b ? 0 : a === '' ? 1 : -1;
+		if (ungrouped(a) || ungrouped(b)) return ungrouped(a) === ungrouped(b) ? 0 : ungrouped(a) ? 1 : -1;
 
-		const aPin = pinnedGroups.indexOf(a);
-		const bPin = pinnedGroups.indexOf(b);
-		if (aPin !== -1 || bPin !== -1) {
-			if (aPin === -1) return 1;
-			if (bPin === -1) return -1;
+		const aPin = rank(pinOrder, a);
+		const bPin = rank(pinOrder, b);
+		if (aPin !== undefined || bPin !== undefined) {
+			if (aPin === undefined) return 1;
+			if (bPin === undefined) return -1;
 			return aPin - bPin;
 		}
 
-		const aIdx = groupOrder.indexOf(a);
-		const bIdx = groupOrder.indexOf(b);
-		if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
-		if (aIdx === -1) return 1;
-		if (bIdx === -1) return -1;
+		const aIdx = rank(groupOrder, a);
+		const bIdx = rank(groupOrder, b);
+		if (aIdx === undefined && bIdx === undefined) return a.name.localeCompare(b.name);
+		if (aIdx === undefined) return 1;
+		if (bIdx === undefined) return -1;
 		return aIdx - bIdx;
 	};
 }
@@ -206,27 +246,31 @@ function groupRosterPersonnel(
 	personnel: Personnel[],
 	options: RosterGroupOrder & { fallbackGroupName?: string }
 ): PersonnelGroup[] {
-	const groupMap = new Map<string, Personnel[]>();
+	const bands = new Map<string, { band: RosterBand; personnel: Personnel[] }>();
 
 	for (const person of personnel) {
-		const group = person.groupName || '';
-		if (!groupMap.has(group)) {
-			groupMap.set(group, []);
+		const key = person.groupId ?? '';
+		let entry = bands.get(key);
+		if (!entry) {
+			entry = { band: { groupId: person.groupId, name: person.groupId ? person.groupName : '' }, personnel: [] };
+			bands.set(key, entry);
 		}
-		groupMap.get(group)!.push(person);
+		entry.personnel.push(person);
 	}
 
-	for (const people of groupMap.values()) {
-		people.sort(comparePersonnelByRankThenName);
+	for (const entry of bands.values()) {
+		entry.personnel.sort(comparePersonnelByRankThenName);
 	}
 
-	const sortedGroups = [...groupMap.keys()].sort(compareRosterGroupNames(options));
+	const compare = compareRosterBands(options);
+	const sorted = [...bands.values()].sort((a, b) => compare(a.band, b.band));
 
 	const fallback = options.fallbackGroupName ?? 'Unassigned';
-	const onlyUngrouped = sortedGroups.length === 1 && sortedGroups[0] === '';
+	const onlyUngrouped = sorted.length === 1 && sorted[0].band.groupId === null;
 
-	return sortedGroups.map((group) => ({
-		group: group === '' ? (onlyUngrouped ? fallback : 'Unassigned') : group,
-		personnel: groupMap.get(group)!
+	return sorted.map(({ band, personnel }) => ({
+		groupId: band.groupId,
+		group: band.groupId === null ? (onlyUngrouped ? fallback : 'Unassigned') : band.name,
+		personnel
 	}));
 }

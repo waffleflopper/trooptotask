@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from './calendarPersistence.test-support.server';
 import { fetchCalendarBootstrap, fetchCalendarData, fetchCalendarRangeData } from '$features/calendar/index.server';
@@ -118,7 +119,7 @@ function fixture() {
 		auth: {
 			role: 'member',
 			isPrivileged: false,
-			scopeSet: { kind: 'groups', groupIds: [G_ALPHA, G_BRAVO] }
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [G_ALPHA, G_BRAVO] })
 		}
 	});
 	ctx.rawStore.seed('groups', [

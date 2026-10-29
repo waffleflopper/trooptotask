@@ -62,6 +62,12 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 			{ id: UNGROUPED_PERSON, organization_id: ORG, group_id: null },
 			{ id: FOREIGN_PERSON, organization_id: FOREIGN_ORG, group_id: 'bravo' }
 		],
+		groups: [
+			{ id: 'company', organization_id: ORG, name: 'Company', parent_id: null, sort_order: 0, depth: 1 },
+			{ id: 'alpha', organization_id: ORG, name: 'Alpha', parent_id: 'company', sort_order: 0, depth: 2 },
+			{ id: 'bravo', organization_id: ORG, name: 'Bravo', parent_id: 'company', sort_order: 1, depth: 2 },
+			{ id: 'foreign-group', organization_id: FOREIGN_ORG, name: 'Foreign', parent_id: null, sort_order: 0, depth: 1 }
+		],
 		personnel_documents: [
 			{
 				id: DOC_B,
@@ -132,6 +138,15 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 						return Response.json({
 							signedURL: `${url.pathname.slice('/storage/v1'.length)}?token=synthetic-private-token`
 						});
+					}
+					if (url.pathname.endsWith('/rpc/read_request_member_access')) {
+						if (kind !== 'caller') throw new Error('Admission requires the caller session');
+						const row = tables.organization_memberships.find(
+							(row) => row.user_id === USER && row.organization_id === body.p_organization_id
+						);
+						return row
+							? Response.json({ ...row, covered_group_ids: row.access_scope_group_ids ?? [] })
+							: Response.json({ code: 'PGRST116' }, { status: 406 });
 					}
 					const table = url.pathname.split('/').at(-1)!;
 					if (isDeletionReceiptRead({ path: url.pathname, body })) return Response.json([]);
@@ -234,7 +249,13 @@ function expectNoPrivateEffects(f: ReturnType<typeof fixture>, before: Record<st
 	expect(f.tables.sign_in_rosters).toEqual(before.sign_in_rosters);
 	expect(f.requests.filter((r) => r.path.startsWith('/storage/'))).toEqual([]);
 	expect(
-		f.requests.filter((r) => r.method !== 'GET' && !r.path.endsWith('/audit_logs') && !isDeletionReceiptRead(r))
+		f.requests.filter(
+			(r) =>
+				r.method !== 'GET' &&
+				!r.path.endsWith('/rpc/read_request_member_access') &&
+				!r.path.endsWith('/audit_logs') &&
+				!isDeletionReceiptRead(r)
+		)
 	).toEqual([]);
 }
 
@@ -392,9 +413,18 @@ describe('private resource HTTP admission and provider ownership', () => {
 		);
 		expect(response.status).toBe(200);
 		expect((await response.json()).personnelSnapshot).toEqual([
-			{ id: PERSON_B, rank: 'SGT', firstName: 'Bea', lastName: 'Baker', groupId: 'bravo', group: 'Bravo' }
+			{
+				id: PERSON_B,
+				rank: 'SGT',
+				firstName: 'Bea',
+				lastName: 'Baker',
+				groupId: 'bravo',
+				group: 'Bravo',
+				groupAncestors: []
+			}
 		]);
 		expect(f.requests.filter((r) => r.path.endsWith('/personnel')).map((r) => r.client)).toEqual(['service']);
+		expect(f.requests.filter((r) => r.path.endsWith('/groups')).map((r) => r.client)).toEqual(['caller']);
 		expect(f.requests.find((r) => r.path.endsWith('/sign_in_rosters') && r.method === 'POST')?.client).toBe('caller');
 		expect(f.tables.sign_in_rosters.at(-1)).toMatchObject({
 			organization_id: ORG,

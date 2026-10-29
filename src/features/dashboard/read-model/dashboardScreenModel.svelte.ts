@@ -8,6 +8,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import { FORECAST_DAYS, type DashboardPageData } from '$features/dashboard/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import { showSubGroups } from '$lib/stores/showSubGroups.svelte';
 import type { DashboardInputs } from '../sections/dashboardInputs';
 import { buildStrengthBand, type StrengthBand } from './strengthBand';
 
@@ -57,7 +58,7 @@ export class DashboardScreenModel {
 		createRosterReadModel({
 			personnel: this.sources.personnel.items,
 			groups: this.sources.groups.items,
-			pinnedGroups: this.sources.pinnedGroups.list,
+			pinnedGroupIds: this.sources.pinnedGroups.list,
 			fallbackGroupName: this.data.orgName
 		}).full({ status: 'active' })
 	);
@@ -79,7 +80,11 @@ export class DashboardScreenModel {
 
 	/** The strength band: bottom line, forecast, headline and groups, rebuilt only when the loaded data changes. */
 	strength = $derived.by<StrengthBand>(() =>
-		buildStrengthBand({ ...this.inputs, floorPercent: this.data.dashboard.data.strengthFloorPercent })
+		buildStrengthBand({
+			...this.inputs,
+			floorPercent: this.data.dashboard.data.strengthFloorPercent,
+			showSubGroups: showSubGroups.current
+		})
 	);
 
 	constructor(data: DashboardPageData, options: DashboardScreenModelOptions = {}) {

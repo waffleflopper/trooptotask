@@ -1,8 +1,10 @@
 /**
- * `add` silently no-ops on empty strings or duplicate names (case-insensitive).
- * `rename` returns false for an empty name or a Group no longer loaded, and rejects a duplicate name.
- * `setOrder(ids)` saves a new order through one compare-and-replace command. Moves made while it is in flight fold into
- * one follow-up save; `add` and `deleteWithReassignment` wait for it to settle.
+ * `add` silently no-ops on empty strings or a sibling's name (case-insensitive).
+ * `rename` returns false for an empty name or a Group no longer loaded, and rejects a sibling's name.
+ * `setOrder(ids, parentId)` saves one sibling set's order through one compare-and-replace command. Moves in the same
+ * set made while it is in flight fold into one follow-up save; a move in another set waits for it. `add`, `move` and
+ * `deleteWithReassignment` wait for it to settle.
+ * `move` and `deleteWithReassignment` change a whole subtree, so they update every Group in it locally.
  */
 import {
 	buildRequestError,
@@ -16,6 +18,7 @@ import {
 	GROUP_CHANGE_UNCONFIRMED_MESSAGE,
 	GROUP_NAME_EXISTS_MESSAGE,
 	GROUP_ORDER_CHANGED_MESSAGE,
+	GROUP_UNAVAILABLE_MESSAGE,
 	type Group
 } from '$features/personnel/contracts';
 import { invalidate } from '$app/navigation';
@@ -24,29 +27,49 @@ export type GroupOrderChange = { status: 'saved' | 'stale' } | { status: 'failed
 
 type OrderFlight = {
 	readonly orgId: string;
+	readonly parentId: string | null;
 	readonly inLifetime: () => boolean;
 	readonly done: Promise<GroupOrderChange>;
 };
 
+export interface PendingGroupOrder {
+	readonly parentId: string | null;
+	readonly ids: readonly string[];
+}
+
+export interface GroupDeleteResult {
+	movedCount: number;
+	/** The Group and every sub-group under it. */
+	deletedIds: string[];
+}
+
 interface GroupExtensions extends Record<string, unknown> {
-	readonly pendingOrder: readonly string[] | null;
-	add: (name: string) => Promise<Group | null>;
+	readonly pendingOrder: PendingGroupOrder | null;
+	add: (name: string, parentId?: string | null) => Promise<Group | null>;
 	rename: (id: string, newName: string) => Promise<boolean>;
-	setOrder: (ids: readonly string[]) => Promise<GroupOrderChange>;
-	deleteWithReassignment: (id: string, moveMembersTo: string | null) => Promise<number>;
+	move: (id: string, parentId: string | null) => Promise<Group>;
+	setOrder: (ids: readonly string[], parentId?: string | null) => Promise<GroupOrderChange>;
+	deleteWithReassignment: (id: string, moveMembersTo: string | null) => Promise<GroupDeleteResult>;
 }
 
 const sameIds = (a: readonly string[], b: readonly string[]) =>
 	a.length === b.length && a.every((id, index) => id === b[index]);
 
+function isGroup(value: unknown): value is Group {
+	const group = value as Group | null;
+	return !!group && typeof group.id === 'string' && typeof group.name === 'string' && Number.isInteger(group.sortOrder);
+}
+
 function isGroupList(value: unknown): value is Group[] {
-	return (
-		Array.isArray(value) &&
-		value.every(
-			(group) =>
-				group && typeof group.id === 'string' && typeof group.name === 'string' && Number.isInteger(group.sortOrder)
-		)
-	);
+	return Array.isArray(value) && value.every(isGroup);
+}
+
+function subtreeIds(groups: readonly Group[], id: string): string[] {
+	const ids = [id];
+	for (let index = 0; index < ids.length; index++) {
+		for (const group of groups) if (group.parentId === ids[index]) ids.push(group.id);
+	}
+	return ids;
 }
 
 function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExtensions {
@@ -83,7 +106,9 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 
 	async function run(owner: OrderFlight): Promise<GroupOrderChange> {
 		const owns = () => currentFlight() === owner;
-		let expected: readonly string[] = base.items.map((group) => group.id);
+		let expected: readonly string[] = base.items
+			.filter((group) => group.parentId === owner.parentId)
+			.map((group) => group.id);
 		try {
 			for (;;) {
 				const sent = desired;
@@ -93,7 +118,7 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 						fetch(`/org/${owner.orgId}/api/groups/order`, {
 							method: 'PUT',
 							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ groupIds: sent, expectedGroupIds: expected })
+							body: JSON.stringify({ groupIds: sent, expectedGroupIds: expected, parentId: owner.parentId })
 						})
 					);
 				} catch {
@@ -125,63 +150,100 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 		}
 	}
 
+	function setOrder(ids: readonly string[], parentId: string | null = null): Promise<GroupOrderChange> {
+		const current = currentFlight();
+		if (current && current.parentId !== parentId) return current.done.then(() => setOrder(ids, parentId));
+		desired = [...ids];
+		if (current) return current.done;
+		const done = Promise.withResolvers<GroupOrderChange>();
+		const owner: OrderFlight = {
+			orgId: base.orgId,
+			parentId,
+			inLifetime: stillInOrganizationLifetime(),
+			done: done.promise
+		};
+		flight = owner;
+		done.resolve(run(owner));
+		return owner.done;
+	}
+
+	async function send(method: 'PATCH' | 'DELETE', body: unknown): Promise<unknown> {
+		let res: Response;
+		try {
+			res = await internals.withinOrganization(
+				fetch(`/org/${base.orgId}/api/groups`, {
+					method,
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(body)
+				})
+			);
+		} catch {
+			throw new Error(GROUP_CHANGE_UNCONFIRMED_MESSAGE);
+		}
+		if (!res.ok) {
+			const failure = await internals.withinOrganization(buildRequestError(res, method, 'groups'));
+			throw new Error(rejectedRequestMessage(failure, GROUP_CHANGE_UNCONFIRMED_MESSAGE));
+		}
+		return internals.withinOrganization(res.json()).catch(() => null);
+	}
+
 	return {
 		get pendingOrder() {
-			return currentFlight() ? desired : null;
+			const current = currentFlight();
+			return current ? { parentId: current.parentId, ids: desired } : null;
 		},
 
-		async add(name: string): Promise<Group | null> {
+		async add(name: string, parentId: string | null = null): Promise<Group | null> {
 			const trimmed = name.trim();
 			if (!trimmed) return null;
 			await settleOrder();
-			if (base.find((g) => g.name.toLowerCase() === trimmed.toLowerCase())) return null;
-			const nextSortOrder = Math.max(-1, ...base.rawItems.map((group) => group.sortOrder)) + 1;
-			return base.add({ name: trimmed, sortOrder: nextSortOrder } as Omit<Group, 'id'>);
+			const parent = parentId === null ? null : base.find((group) => group.id === parentId);
+			if (parent === undefined) throw new Error(GROUP_UNAVAILABLE_MESSAGE);
+			const siblings = base.rawItems.filter((group) => group.parentId === parentId);
+			if (siblings.some((group) => group.name.toLowerCase() === trimmed.toLowerCase())) return null;
+			const nextSortOrder = Math.max(-1, ...siblings.map((group) => group.sortOrder)) + 1;
+			const depth = (parent ? parent.depth + 1 : 1) as Group['depth'];
+			return base.add({ name: trimmed, sortOrder: nextSortOrder, parentId, depth });
 		},
 
 		async rename(id: string, newName: string): Promise<boolean> {
 			const trimmed = newName.trim();
 			if (!trimmed) return false;
-			if (base.find((group) => group.id !== id && group.name.toLowerCase() === trimmed.toLowerCase()))
+			const current = base.find((group) => group.id === id);
+			if (!current) return false;
+			if (
+				base.find(
+					(group) =>
+						group.id !== id && group.parentId === current.parentId && group.name.toLowerCase() === trimmed.toLowerCase()
+				)
+			)
 				throw new Error(GROUP_NAME_EXISTS_MESSAGE);
 			return base.updateOrThrow(id, { name: trimmed });
 		},
 
-		setOrder(ids: readonly string[]): Promise<GroupOrderChange> {
-			const current = currentFlight();
-			desired = [...ids];
-			if (current) return current.done;
-			const done = Promise.withResolvers<GroupOrderChange>();
-			const owner: OrderFlight = { orgId: base.orgId, inLifetime: stillInOrganizationLifetime(), done: done.promise };
-			flight = owner;
-			done.resolve(run(owner));
-			return owner.done;
+		setOrder,
+
+		async move(id: string, parentId: string | null): Promise<Group> {
+			await settleOrder();
+			const moved = await send('PATCH', { id, parentId });
+			if (!isGroup(moved)) throw new Error(GROUP_CHANGE_UNCONFIRMED_MESSAGE);
+			const before = base.find((group) => group.id === id);
+			const shift = before ? moved.depth - before.depth : 0;
+			const below = new Set(subtreeIds(base.rawItems, id).slice(1));
+			const descendants = base.rawItems
+				.filter((group) => below.has(group.id))
+				.map((group) => ({ ...group, depth: (group.depth + shift) as Group['depth'] }));
+			internals.commit({ saved: [moved, ...descendants] });
+			return moved;
 		},
 
-		async deleteWithReassignment(id: string, moveMembersTo: string | null): Promise<number> {
+		async deleteWithReassignment(id: string, moveMembersTo: string | null): Promise<GroupDeleteResult> {
 			await settleOrder();
-			const orgId = base.orgId;
-			const resource = `/org/${orgId}/api/groups`;
-			let res: Response;
-			try {
-				res = await internals.withinOrganization(
-					fetch(resource, {
-						method: 'DELETE',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ id, moveMembersTo })
-					})
-				);
-			} catch {
-				throw new Error(GROUP_CHANGE_UNCONFIRMED_MESSAGE);
-			}
-			if (!res.ok) {
-				const failure = await internals.withinOrganization(buildRequestError(res, 'DELETE', 'groups'));
-				throw new Error(rejectedRequestMessage(failure, GROUP_CHANGE_UNCONFIRMED_MESSAGE));
-			}
-			const body: unknown = await internals.withinOrganization(res.json()).catch(() => null);
+			const deletedIds = subtreeIds(base.rawItems, id);
+			const body = await send('DELETE', { id, moveMembersTo });
 			const movedCount = (body as { movedCount?: unknown } | null)?.movedCount;
-			internals.commit({ deleted: [id] });
-			return Number.isInteger(movedCount) ? (movedCount as number) : 0;
+			internals.commit({ deleted: deletedIds });
+			return { movedCount: Number.isInteger(movedCount) ? (movedCount as number) : 0, deletedIds };
 		}
 	};
 }

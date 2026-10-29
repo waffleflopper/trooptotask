@@ -1,8 +1,11 @@
+import { buildGroupTree, groupExportPath, type Group } from '$features/personnel/contracts';
 import type { TrainingBriefingDetailRow, TrainingBriefingReportData } from '../contracts';
 import { addTableSheet, createWorkbook, type Workbook, type WorkbookRow } from '$lib/utils/workbook';
 import { BRIEFING_ROWS_BY_LABELS, briefingFilterLabels } from './briefingFilterLabels';
 
 export interface TrainingReportWorkbookInput {
+	groups: readonly Group[];
+	personnel: readonly { id: string; groupId: string | null }[];
 	report: TrainingBriefingReportData;
 	/** Every affected requirement of the filtered briefing, unpaginated, in drill-down order. */
 	requirements: TrainingBriefingDetailRow[];
@@ -52,8 +55,9 @@ function forecastRows({ report }: TrainingReportWorkbookInput): WorkbookRow[] {
 	});
 }
 
-function hotSpotSheet(workbook: Workbook, { report }: TrainingReportWorkbookInput): void {
+function hotSpotSheet(workbook: Workbook, { report, groups }: TrainingReportWorkbookInput): void {
 	const { grid, bottomLine } = report.briefing;
+	const tree = buildGroupTree(groups);
 	addTableSheet(workbook, {
 		name: 'Hot spots',
 		columns: [
@@ -68,7 +72,7 @@ function hotSpotSheet(workbook: Workbook, { report }: TrainingReportWorkbookInpu
 			{ header: 'Drop', key: 'drop', width: 10 }
 		],
 		rows: [...grid.rows, grid.total].map((row) => ({
-			row: row.label,
+			row: grid.rowsBy === 'group' ? groupExportPath(tree, row.key) || row.label : row.label,
 			soldiers: row.soldierCount,
 			...Object.fromEntries(
 				row.cells.flatMap((cell, index) => [
@@ -101,6 +105,8 @@ function focusRows({ report }: TrainingReportWorkbookInput): WorkbookRow[] {
 
 /** The displayed briefing as five native sheets; every label stays a text cell. */
 export async function buildTrainingReportWorkbook(input: TrainingReportWorkbookInput): Promise<Workbook> {
+	const tree = buildGroupTree(input.groups);
+	const groupByPerson = new Map(input.personnel.map((person) => [person.id, person.groupId]));
 	const workbook = await createWorkbook();
 	addTableSheet(workbook, {
 		name: 'Summary',
@@ -153,7 +159,7 @@ export async function buildTrainingReportWorkbook(input: TrainingReportWorkbookI
 		rows: input.requirements.map((row) => ({
 			rank: row.rank,
 			name: row.name,
-			group: row.groupName,
+			group: groupExportPath(tree, groupByPerson.get(row.personId) ?? null) || 'Unassigned',
 			type: row.typeName,
 			status: row.label,
 			expiration: row.expirationDate,

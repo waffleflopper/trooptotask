@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { flushSync } from 'svelte';
@@ -90,10 +91,12 @@ describe('personnelStore', () => {
 
 	describe('readModel', () => {
 		it('exposes the explicit Roster Read Model over store items', () => {
-			const view = personnelStore.readModel().scoped({
-				kind: 'groups',
-				groupIds: ['g2']
-			});
+			const view = personnelStore.readModel().scoped(
+				groupCoverageForTest({
+					kind: 'groups',
+					groupIds: ['g2']
+				})
+			);
 
 			expect(view.personnel.map((person) => person.id)).toEqual(['3']);
 			expect(view.personnelByGroup.map((group) => group.group)).toEqual(['Bravo']);
@@ -103,8 +106,8 @@ describe('personnelStore', () => {
 	it("lists Groups in the Organization's Group order, not alphabetically, with Unassigned last", () => {
 		groupCatalogHydration.load(
 			[
-				{ id: 'g2', name: 'Bravo', sortOrder: 0 },
-				{ id: 'g1', name: 'Alpha', sortOrder: 1 }
+				{ id: 'g2', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'g1', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			'org-1'
 		);
@@ -124,12 +127,12 @@ describe('personnelStore', () => {
 	it("lists the viewer's pinned Group first", () => {
 		groupCatalogHydration.load(
 			[
-				{ id: 'g2', name: 'Bravo', sortOrder: 0 },
-				{ id: 'g1', name: 'Alpha', sortOrder: 1 }
+				{ id: 'g2', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'g1', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			'org-1'
 		);
-		pinnedGroupsHydration.load(['Alpha'], 'org-1');
+		pinnedGroupsHydration.load(['g1'], 'org-1');
 
 		expect(
 			rosterStore
@@ -143,8 +146,8 @@ describe('personnelStore', () => {
 		pinnedGroupsHydration.load([], 'org-0');
 		groupCatalogHydration.load(
 			[
-				{ id: 'g1', name: 'Alpha', sortOrder: 0 },
-				{ id: 'g2', name: 'Bravo', sortOrder: 1 }
+				{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			'org-1'
 		);
@@ -159,7 +162,7 @@ describe('personnelStore', () => {
 		});
 		flushSync();
 
-		pinnedGroupsHydration.load(['Bravo'], 'org-1');
+		pinnedGroupsHydration.load(['g2'], 'org-1');
 		flushSync();
 		stop();
 
@@ -167,8 +170,8 @@ describe('personnelStore', () => {
 	});
 
 	it('ignores Groups and pins loaded for another Organization', () => {
-		groupCatalogHydration.load([{ id: 'g2', name: 'Bravo', sortOrder: 0 }], 'org-2');
-		pinnedGroupsHydration.load(['Bravo'], 'org-2');
+		groupCatalogHydration.load([{ id: 'g2', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const }], 'org-2');
+		pinnedGroupsHydration.load(['g2'], 'org-2');
 
 		expect(
 			rosterStore

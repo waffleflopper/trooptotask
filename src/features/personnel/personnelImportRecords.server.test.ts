@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
@@ -285,7 +286,7 @@ describe('importPersonnelRecords', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
 			}
 		});
 		await ctx.store.update('personnel', 'test-org', 'archived', { group_id: 'bravo' });
@@ -704,7 +705,7 @@ describe('importPersonnelRecords', () => {
 	});
 
 	it('denies out-of-scope creates, current people and moves per row while saving allowed rows', async () => {
-		const ctx = context({ auth: { scopeSet: { kind: 'groups', groupIds: ['alpha'] } } });
+		const ctx = context({ auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }) } });
 		const result = await importPersonnelRecords(ctx, {
 			records: [
 				{ op: 'create', rank: 'SGT', firstName: 'New', lastName: 'Outside', groupId: 'bravo' },

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
@@ -149,7 +150,7 @@ describe('roster scan replacement through the actual SDK', () => {
 			...run.actor,
 			role: 'member' as const,
 			isPrivileged: false,
-			scopeSet: { kind: 'groups' as const, groupIds: ['group-alpha'] }
+			scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['group-alpha'] })
 		};
 		await expect(run.scans.replace(actor, rosterId, newPath, file)).rejects.toMatchObject({ status: 403 });
 		expect(run.calls).toEqual(['ordinary GET /rest/v1/sign_in_rosters']);

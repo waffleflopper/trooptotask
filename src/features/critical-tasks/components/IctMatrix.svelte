@@ -38,11 +38,13 @@
 		tasks: IctTask[];
 		completions: PersonnelIctCompletion[];
 		groups?: Group[];
-		pinnedGroups?: readonly string[];
+		pinnedGroupIds?: readonly string[];
 		settings?: CriticalTasksSettingsInput | null;
 		selectedGroupId?: string;
 		selectedGroupFilter?: string;
 		gapsOnly?: boolean;
+		/** False rolls each top-level Group's subtree into one band. */
+		showSubGroups?: boolean;
 		viewMode?: IctMatrixViewMode;
 		asOf?: string | Date;
 		orgName?: string;
@@ -60,11 +62,12 @@
 		tasks,
 		completions,
 		groups = [],
-		pinnedGroups = [],
+		pinnedGroupIds = [],
 		settings = null,
 		selectedGroupId = '',
 		selectedGroupFilter = '',
 		gapsOnly = false,
+		showSubGroups = true,
 		viewMode = 'by-group',
 		asOf,
 		orgName = 'Unassigned',
@@ -78,11 +81,12 @@
 			tasks,
 			completions,
 			groups,
-			pinnedGroups,
+			pinnedGroupIds,
 			settings,
 			selectedGroupId,
 			selectedGroupFilter,
 			gapsOnly,
+			showSubGroups,
 			asOf,
 			orgName
 		})
@@ -113,6 +117,8 @@
 						label: group.label,
 						rowIds: group.rows.map((row) => row.person.id)
 					},
+					level: group.level,
+					personnelCount: group.personnelCount,
 					readinessPercent: group.readinessPercent,
 					rows: group.rows.map(toMatrixRow)
 				}))
@@ -142,8 +148,9 @@
 						group: {
 							...groupBlock.group,
 							meta: {
+								level: groupBlock.level,
 								readinessPercent: groupBlock.readinessPercent,
-								rowCount: groupBlock.rows.length
+								rowCount: groupBlock.personnelCount
 							}
 						},
 						height: ICT_MATRIX_GROUP_HEIGHT
@@ -236,7 +243,7 @@
 
 	function groupMetaNumber(
 		group: OperationalMatrix.OperationalMatrixRowGroup,
-		key: 'readinessPercent' | 'rowCount'
+		key: 'level' | 'readinessPercent' | 'rowCount'
 	): number {
 		const value = group.meta?.[key];
 		return typeof value === 'number' ? value : 0;
@@ -418,7 +425,10 @@
 								virtualIndex={item.virtualIndex + VIRTUAL_BODY_ROW_INDEX_OFFSET}
 								class="h-8 bg-muted/50 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left"
 							>
-								{item.group.label}
+								<span
+									data-band-level={groupMetaNumber(item.group, 'level')}
+									style:padding-left="{groupMetaNumber(item.group, 'level')}rem">{item.group.label}</span
+								>
 								<span class="ml-2 normal-case tracking-normal">
 									{groupMetaNumber(item.group, 'rowCount')} personnel ({groupMetaNumber(
 										item.group,

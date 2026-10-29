@@ -10,7 +10,8 @@
 		type ToolbarItem,
 		type WorkspaceToolbarProps
 	} from '$lib/components/patterns/workspace-toolbar';
-	import { createRosterReadModel } from '$features/personnel/contracts';
+	import { buildGroupTree, createRosterReadModel, hasSubGroups } from '$features/personnel/contracts';
+	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
 	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
@@ -74,7 +75,7 @@
 	const rosterReadModel = $derived(
 		rosterStore.orgId === orgId
 			? rosterStore.readModel({ fallbackGroupName: orgName })
-			: createRosterReadModel({ personnel: [], groups: [], pinnedGroups: [], fallbackGroupName: orgName })
+			: createRosterReadModel({ personnel: [], groups: [], pinnedGroupIds: [], fallbackGroupName: orgName })
 	);
 	const activeRosterView = $derived(rosterReadModel.scoped(org.scopeSet, { status: 'active' }));
 	const activePersonnel = $derived(activeRosterView.flatPersonnel);
@@ -194,6 +195,16 @@
 			},
 			{ kind: 'action', id: 'reports', label: 'Reports', href: reportsHref }
 		];
+
+		if (viewMode === 'by-group' && hasSubGroups(buildGroupTree(groupsStore.items))) {
+			items.push({
+				kind: 'action',
+				id: 'matrix-display',
+				label: 'Display',
+				icon: 'sliders',
+				menuItems: [showSubGroupsToggle()]
+			});
+		}
 
 		if (canConfigureLibrary) {
 			items.push({
@@ -341,12 +352,13 @@
 							tasks={ictTasksStore.items}
 							completions={personnelIctCompletionsStore.items}
 							groups={groupsStore.items}
-							pinnedGroups={pinnedGroupsStore.orgId === orgId ? pinnedGroupsStore.list : []}
+							pinnedGroupIds={pinnedGroupsStore.orgId === orgId ? pinnedGroupsStore.list : []}
 							settings={criticalTasksSettings}
 							canEdit={canRecordCompletion}
 							onSelectCell={handleMatrixCellSelection}
 							selectedGroupFilter={effectiveSelectedGroupId}
 							{gapsOnly}
+							showSubGroups={showSubGroups.current}
 							{viewMode}
 							{orgName}
 						/>

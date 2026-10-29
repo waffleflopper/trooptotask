@@ -6,7 +6,7 @@ import { createPersonnel } from '$features/personnel';
 import { personnelScopeResource } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
-import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
+import { buildGroupTree, createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OnboardingPageAccess } from '../contracts';
@@ -44,11 +44,6 @@ export function getPersonDisplayName(personnelId: string, personnel: Personnel[]
 	return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
 }
 
-export function getPersonGroupDisplayName(personnelId: string, personnel: Personnel[]): string | null {
-	const p = personnel.find((pr) => pr.id === personnelId);
-	return p?.groupName || null;
-}
-
 export function getTemplateDisplayName(templateId: string | null, templates: OnboardingTemplate[]): string {
 	if (!templateId) return 'No template';
 	const tmpl = templates.find((t) => t.id === templateId);
@@ -84,7 +79,7 @@ export class OnboardingPageContext {
 	completingIncompleteCount = $state(0);
 	readonly #rosterView = $derived.by<RosterReadModelView>(() =>
 		rosterStore.orgId !== this.#org.orgId
-			? createRosterReadModel({ personnel: [], groups: [], pinnedGroups: [] }).scoped(this.#org.scopeSet, {
+			? createRosterReadModel({ personnel: [], groups: [], pinnedGroupIds: [] }).scoped(this.#org.scopeSet, {
 					status: 'active'
 				})
 			: rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' })
@@ -174,8 +169,12 @@ export class OnboardingPageContext {
 		return this.rosterView.displayName(personnelId);
 	}
 
+	/** The Group's path, such as "1st Platoon › 2nd Squad", or the saved name of a Group outside the reader's tree. */
 	getPersonGroupName(personnelId: string): string | null {
-		return this.rosterView.groupName(personnelId);
+		const groupId = this.rosterView.getById(personnelId)?.groupId;
+		return groupId && this.groupTree.node(groupId)
+			? this.groupTree.label(groupId)
+			: this.rosterView.groupName(personnelId);
 	}
 
 	getPerson(personnelId: string): Personnel | undefined {
@@ -450,6 +449,8 @@ export class OnboardingPageContext {
 	get groups() {
 		return groupsStore.items;
 	}
+
+	readonly groupTree = $derived(buildGroupTree(groupsStore.items));
 
 	get templates() {
 		return onboardingTemplateStore.templates;

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import {
 	createInMemoryTrainingCatalogPersistence,
@@ -8,7 +9,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { TrainingWorkspaceData } from '$features/training/contracts';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { GroupPersistence, Personnel, SelfPinPersistence } from '$features/personnel/contracts';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/index.server';
 import {
 	createInMemoryDataStore,
@@ -41,7 +42,7 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'organization' } as ScopeSet
+				scopeSet: { kind: 'organization' } as GroupCoverage
 			},
 			store: {
 				findMany: findManyMock
@@ -53,7 +54,7 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 			trainingCatalog: undefined as unknown as ReturnType<typeof createInMemoryTrainingCatalogPersistence>,
 			trainingCompletions: undefined as unknown as ReturnType<typeof createInMemoryTrainingCompletionPersistence>,
 			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
-			selfPins: undefined as unknown as Pick<SelfPinPersistence, 'listNames'>,
+			selfPins: undefined as unknown as Pick<SelfPinPersistence, 'listGroupIds'>,
 			personnelTrainingRoster: undefined as unknown as PersonnelTrainingRosterPort,
 			organizationSettings: undefined as unknown as OrganizationSettingsReader
 		}
@@ -187,7 +188,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			onboarding: 'view',
 			ratingScheme: 'view'
 		};
-		mockCtx.auth.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
+		mockCtx.auth.scopeSet = groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] });
 		listRosterCandidatesMock.mockResolvedValue(personnel);
 		const savedGroups = [
 			{ id: 'group-alpha', name: 'Alpha', sort_order: 0 },

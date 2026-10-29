@@ -16,6 +16,9 @@ archives or restores a record while keeping its identity, permissions and retain
   namesake who holds that rank suggested, because a row may be promoting one of them. Only the same name, Group and rank
   share a question. It updates only the fields a row fills and differs on, and shows a replay as Unchanged with nothing
   to save.
+- `record-import-group-path`: a Group cell matches a Group's whole name first, then a `/` path from the importer's
+  visible roots; a bare name several Groups share asks `Which group?` with each path, and `Create` builds a missing
+  path, reusing the Groups that exist.
 - `record-archive-restore`: single and bulk archive remove People from active views; restore retains their IDs and
   restores only artifacts archived by that parent event.
 - `record-approval`: an operate-only member requests archive approval without archiving the Person; an authorized
@@ -239,6 +242,25 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    SGT for both `Sgt.` and `SSG`, `2028-03-15` from `15MAR28`, first name `Jae` without the initial, `2027-02-28` for
    the corrected date and the new Group. The dedicated Person and Baker changed only ETS, only the Bravo duplicate got
    `2027-07-01`, and the Alpha and archived duplicates are unchanged.
+
+   **Group paths.** After the [Group tree](manage-groups.md#group-tree) steps plus a moved `2nd Squad` and a
+   `3rd Platoon › Weapons Squad`, upload a one-sheet workbook (`Rank, Last Name, First Name, MOS, Group`) whose Group
+   cells are `2nd Platoon / 2nd Squad / Bravo Team`, `Alpha Team`, `2nd Platoon / 3rd Squad / Charlie Team` and
+   `Weapons Squad`. Review reads `All · 4`, `Needs a fix · 2`, `New · 2`: the path and the unique bare name are New and
+   show `2nd Platoon › 2nd Squad › Bravo Team` and `3rd Platoon › Weapons Squad`. The rail asks `Which group?` for
+   `"Alpha Team"` with the radios `2nd Platoon › 2nd Squad › Alpha Team` and `3rd Platoon › 1st Squad › Alpha Team`
+   (display paths that keep the root, so a legacy `Clinic / Lab` root stays distinct from a `Clinic › Lab` branch),
+   and `Unknown group` for the Charlie path with `Create "2nd Platoon / 3rd Squad / Charlie Team"`. Apply the 2nd
+   Platoon path; `Create group` with the prefilled path saves `3rd Squad` (depth 2 under 2nd Platoon) and
+   `Charlie Team` (depth 3 under it) and no second 2nd Platoon. `Import 4 changes` (`4 added · 0 updated`) saves each
+   Person in the Group its path names. A path deeper than three levels is refused with
+   `Groups can nest at most three levels deep.`
+
+   Whole visible names match first, followed by complete export paths. A legacy `Clinic / Lab` Group's Alpha Team
+   resolves from `Clinic / Lab / Alpha Team`. If a separate Clinic, Lab and Alpha Team branch exports the same path,
+   the value is ambiguous. Create reuses the longest existing export-path prefix and counts actual Group depth.
+   Start Create for `New Platoon / Alpha Team` and `New Platoon / Bravo Team` together. Both children must save under
+   the same confirmed parent ID, with one parent created and no request containing a `temp-` parent ID.
 
    Re-import the same file and give the same answers. Once the second duplicate is skipped again, the other ten rows
    read Unchanged behind `10 rows already match. Nothing to save.` and `Show`, `Import 0 changes` stays disabled, and

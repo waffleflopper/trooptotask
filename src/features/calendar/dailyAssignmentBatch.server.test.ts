@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import { replaceDailyAssignmentSlotsBatch } from './dailyAssignmentOperations.server';
@@ -89,7 +90,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -117,7 +118,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -158,7 +159,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 
 	it('authorizes group assignees through Calendar group scope', async () => {
 		const ctx = buildContext({
-			auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } }
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }) }
 		});
 
 		ctx.store.seed('assignment_types', [
@@ -188,7 +189,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',

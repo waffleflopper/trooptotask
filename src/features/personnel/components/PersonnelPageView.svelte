@@ -5,14 +5,13 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
-	import { groupsStore } from '../stores/groups.svelte';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { useDataTable } from '$lib/components/ui/data-table';
-	import type { ColumnDef } from '$lib/components/ui/data-table';
+	import type { ColumnDef, DataTableGroup, DataTableState } from '$lib/components/ui/data-table';
 	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
@@ -25,7 +24,8 @@
 		serializeRosterFilter
 	} from '../rosterFilter';
 	import { matchesRosterFilter, type RosterFilter } from '../rosterSignals';
-	import { compareRosterGroupNames } from '../rosterReadModel';
+	import { hasSubGroups, type Band } from '../groupTree';
+	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import type { ComposerKind } from '../rosterComposer';
@@ -53,9 +53,19 @@
 	const ROSTER_PAGE_SIZE = 75;
 	const peekFits = new MediaQuery('min-width: 1280px', false);
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	const groupKey = (person: Personnel): string => person.groupName;
+	const groupOf = (person: Personnel): string | null => person.groupId;
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
+	const tree = $derived(ctx.groupTree);
+	const soleLeaf = $derived(ctx.soleLeafGroup);
+	// One Group with nothing under it is the reader's whole roster: no band to draw and no A-Z or Group choice to make.
+	const banded = $derived(soleLeaf === null);
+	const nestedTree = $derived(hasSubGroups(tree));
+	const nested = $derived(nestedTree && showSubGroups.current);
+	// With sub-groups hidden a root's band sorts its whole subtree as one list.
+	const groupKey = (person: Personnel): string =>
+		(nested ? person.groupId : (tree.rootOf(person.groupId)?.id ?? person.groupId)) ?? '';
+	const viewMode = $derived(banded ? ctx.viewMode : 'alphabetical');
 	let locallyArchivedIds = new SvelteSet<string>();
 	const visibleAllActivePersonnel = $derived(
 		ctx.allActivePersonnel.filter((person) => !locallyArchivedIds.has(person.id))
@@ -202,25 +212,81 @@
 		pageSize: ROSTER_PAGE_SIZE
 	});
 
-	const groupComparator = $derived(
-		compareRosterGroupNames({
-			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
-			pinnedGroups: pinnedGroupsStore.list
-		})
-	);
 	const groupedTable = useDataTable<Personnel>({
 		data: () => holdOrder(visibleFilteredPersonnel, 'grouped'),
 		columns: () => groupedColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
-		groupRowLimit: GROUPED_ROSTER_RENDER_LIMIT,
-		groupBy: {
-			key: groupKey,
-			label: (key) => key || 'Unassigned',
-			compare: (a, b) => groupComparator(a, b)
-		}
+		groupBy: { key: groupKey }
 	});
-	const peopleByGroup = $derived(Map.groupBy(visibleFilteredPersonnel, groupKey));
+
+	interface RosterSection extends DataTableGroup<Personnel> {
+		level: number;
+		name: string;
+		/** Everyone in the section's Group and its sub-groups, which the header counts and acts on. */
+		people: Personnel[];
+		topLevel: boolean;
+	}
+
+	// Each Group is a section of its own members in tree order, its sub-groups' sections after it. Collapsing a Group
+	// hides its members and every section below it.
+	const sections = $derived.by((): RosterSection[] => {
+		const sorted = new Map(groupedTable.groups.map((group) => [group.key, group.rows]));
+		const out: RosterSection[] = [];
+		let room = GROUPED_ROSTER_RENDER_LIMIT;
+		const take = (key: string, collapsed: boolean): Personnel[] => {
+			const rows = sorted.get(key) ?? [];
+			if (collapsed) return rows;
+			const shown = rows.slice(0, room);
+			room -= shown.length;
+			return shown;
+		};
+		const subtree = (band: Band<Personnel>): Personnel[] => [...band.hq, ...band.children.flatMap(subtree)];
+		const visit = (band: Band<Personnel>) => {
+			const { node } = band;
+			const collapsed = ctx.collapsedGroups.has(node.id);
+			out.push({
+				key: node.id,
+				label: tree.label(node.id),
+				name: node.level === 0 ? tree.label(node.id) : node.name,
+				level: node.level,
+				topLevel: node.parentId === null,
+				rows: take(node.id, collapsed),
+				people: subtree(band),
+				collapsed
+			});
+			if (!collapsed) band.children.forEach(visit);
+		};
+		tree.bands(visibleFilteredPersonnel, groupOf, { nested }).forEach(visit);
+		// People outside the tree: Unassigned last, and before it anyone whose Group left the catalog, by name, as today.
+		const loose = groupedTable.groups
+			.filter((group) => !tree.node(group.key))
+			.toSorted(
+				(a, b) => Number(a.key === '') - Number(b.key === '') || a.rows[0].groupName.localeCompare(b.rows[0].groupName)
+			);
+		for (const group of loose) {
+			const collapsed = ctx.collapsedGroups.has(group.key);
+			const label = group.key ? group.rows[0].groupName : 'Unassigned';
+			out.push({
+				key: group.key,
+				label,
+				name: label,
+				level: 0,
+				topLevel: true,
+				rows: take(group.key, collapsed),
+				people: group.rows,
+				collapsed
+			});
+		}
+		return out;
+	});
+	const sectionByKey = $derived(new Map(sections.map((section) => [section.key, section])));
+	const bandedTable: DataTableState<Personnel> = Object.create(groupedTable, {
+		groups: { get: () => sections },
+		toggleGroup: { value: (key: string) => ctx.toggleGroup(key) },
+		expandAll: { value: () => ctx.collapsedGroups.clear() },
+		collapseAll: { value: () => sections.forEach((section) => ctx.collapsedGroups.add(section.key)) }
+	});
 
 	let heldOrders = $state.raw<Record<'az' | 'grouped', Map<string, number>> | null>(null);
 
@@ -247,7 +313,7 @@
 			groupedTable.sortKey,
 			groupedTable.sortDirection,
 			groupedTable.search,
-			ctx.viewMode
+			viewMode
 		];
 		heldOrders = null;
 	});
@@ -272,17 +338,17 @@
 	);
 	const peekOpen = $derived(peekFits.current && canViewRoster && peekedPerson !== null);
 	const groupedRosterLimited = $derived(
-		ctx.viewMode === 'by-group' && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
+		viewMode === 'by-group' && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
 	const shouldGateGroupedRoster = $derived(groupedRosterLimited && !rosterSearch.trim());
-	const activeTable = $derived(ctx.viewMode === 'alphabetical' ? azTable : groupedTable);
+	const activeTable = $derived(viewMode === 'alphabetical' ? azTable : bandedTable);
 	const shownRows = $derived(
 		activeTable.groups.length > 0
 			? activeTable.groups.flatMap((group) => (group.collapsed ? [] : group.rows))
 			: activeTable.rows
 	);
 	const shownIds = $derived(shownRows.map((person) => person.id));
-	const peekSequence = $derived(ctx.viewMode === 'alphabetical' ? azTable.allRows : shownRows);
+	const peekSequence = $derived(viewMode === 'alphabetical' ? azTable.allRows : shownRows);
 	const peekPosition = $derived({
 		index: peekSequence.findIndex((person) => person.id === peekedId),
 		total: peekSequence.length
@@ -382,7 +448,7 @@
 	}
 
 	function noteToGroup(key: string, label: string): void {
-		const members = visibleAllActivePersonnel.filter((person) => groupKey(person) === key);
+		const members = visibleAllActivePersonnel.filter((person) => tree.contains(key, person.groupId));
 		openBulkCompose(members, 'note', `${label} · {count}`, `[data-roster-group="${CSS.escape(key)}"]`);
 	}
 
@@ -473,7 +539,7 @@
 			const next = sequence[index];
 			if (!ctx.canOpenPersonnelDetail(next)) continue;
 			showPeek(next, true, () => {
-				if (ctx.viewMode === 'alphabetical') azTable.setPage(Math.floor(index / ROSTER_PAGE_SIZE) + 1);
+				if (viewMode === 'alphabetical') azTable.setPage(Math.floor(index / ROSTER_PAGE_SIZE) + 1);
 				if (moveFocus) void focusRow(next.id);
 			});
 			return;
@@ -525,9 +591,10 @@
 
 	const toolbarItems = $derived(
 		personnelToolbarItems({
-			viewMode: ctx.viewMode,
+			viewMode: banded ? ctx.viewMode : null,
 			onViewModeChange: (mode) => (ctx.viewMode = mode),
-			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupEditor(groupsStore.items[0]?.id ?? null) : null,
+			showSubGroups: banded && nestedTree ? showSubGroupsToggle() : null,
+			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupEditor(tree.roots[0]?.id ?? null) : null,
 			importHref: ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null
 		})
 	);
@@ -568,6 +635,7 @@
 		>
 			<PersonnelRosterHeader
 				unitName={ctx.orgName}
+				scopeLabel={soleLeaf?.name ?? null}
 				activeCount={visibleAllActivePersonnel.length}
 				summary={signalSummary}
 				canViewAvailability={ctx.canViewAvailability && !peekOpen}
@@ -658,9 +726,14 @@
 				>
 					<DataTable.DataTable
 						table={activeTable}
-						columns={ctx.viewMode === 'by-group' ? groupedColumns : personnelColumns}
+						columns={viewMode === 'by-group' ? groupedColumns : personnelColumns}
 						ariaLabel="Personnel roster"
-						emptyMessage={rosterFilter ? 'No personnel match this filter.' : 'No personnel match your search.'}
+						stickyGroup={nested ? (key) => sectionByKey.get(key)?.level === 0 : undefined}
+						emptyMessage={rosterFilter
+							? 'No personnel match this filter.'
+							: rosterSearch.trim()
+								? 'No personnel match your search.'
+								: 'No personnel in this Group.'}
 						emptyLevel={2}
 						maxHeight="100%"
 					>
@@ -686,17 +759,20 @@
 							<PersonnelRosterRow {person} {columns} {ctx} controls={rowControls} />
 						{/snippet}
 						{#snippet groupHeader(group)}
-							{@const people = peopleByGroup.get(group.key) ?? []}
+							{@const section = sectionByKey.get(group.key)}
+							{@const people = section?.people ?? []}
 							{@const ids = people.map((person) => person.id)}
 							{@const unassigned = group.key === ''}
-							{@const groupId = unassigned ? null : ctx.groupIdForName(group.key)}
+							{@const groupId = unassigned ? null : group.key}
 							<PersonnelGroupHeader
 								{group}
+								level={section?.level ?? 0}
+								name={section?.name}
 								{people}
 								{ctx}
 								pinned={pinnedGroupsStore.list.includes(group.key)}
 								{unassigned}
-								onTogglePin={togglePin}
+								onTogglePin={ctx.canPinGroups && (unassigned || section?.topLevel) ? togglePin : null}
 								selection={canSelect
 									? { state: selection.state(ids), set: (selected) => selection.setAll(ids, selected) }
 									: null}

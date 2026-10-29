@@ -1,6 +1,7 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import type { AuditEvent } from '$lib/audit/contracts';
-import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityLevel, GroupCoverage } from '$lib/access/memberAccessShape';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { CalendarEvent } from './eventModel';
 import {
@@ -85,7 +86,7 @@ function slowAudit() {
 	};
 }
 
-function member(calendar: CapabilityLevel, scopeSet: ScopeSet = { kind: 'organization' }) {
+function member(calendar: CapabilityLevel, scopeSet: GroupCoverage = { kind: 'organization' }) {
 	const calendarEvents = memoryEvents();
 	const audit = slowAudit();
 	const ctx: CalendarEventPorts = {
@@ -149,7 +150,10 @@ describe('Event operations', () => {
 	);
 
 	it('refuses deletion for a viewer or a Group operator, preserving the Event', async () => {
-		for (const access of [member('view'), member('operate', { kind: 'groups', groupIds: ['g-1'] })]) {
+		for (const access of [
+			member('view'),
+			member('operate', groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] }))
+		]) {
 			access.calendarEvents.stored.set(EVENT, {
 				id: EVENT,
 				...draft,
@@ -213,7 +217,7 @@ describe('Event operations', () => {
 	});
 
 	it.each([
-		['a Group-scoped operator', member('configure', { kind: 'groups', groupIds: ['g-1'] })],
+		['a Group-scoped operator', member('configure', groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] }))],
 		['an Organization-wide viewer', member('view')]
 	])('refuses writes from %s and stores nothing', async (_who, { ctx, calendarEvents, audit }) => {
 		await expect(createEvent(ctx, { id: EVENT, draft })).rejects.toMatchObject({ status: 403 });
@@ -222,7 +226,7 @@ describe('Event operations', () => {
 	});
 
 	it('lets Group-scoped and view-only members read every event, and keeps out members without Calendar access', async () => {
-		const scoped = member('view', { kind: 'groups', groupIds: ['g-1'] });
+		const scoped = member('view', groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] }));
 		scoped.calendarEvents.stored.set(EVENT, {
 			id: EVENT,
 			...draft,

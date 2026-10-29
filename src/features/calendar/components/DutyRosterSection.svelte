@@ -7,6 +7,7 @@
 	import type { RosterPerson, WeekendMode } from '$features/calendar/roster/rosterTypes';
 	import { draftPoolRules, rosterDraftProblem, type RosterDraft } from '$features/calendar/utils/rosterDraft';
 	import {
+		buildGroupTree,
 		rankCodesForOptions,
 		type Group,
 		type Personnel,
@@ -21,6 +22,7 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import { TreeSelect, type TreeSelectOption } from '$lib/components/patterns/tree-select';
 	import StartingNumbersRow from './StartingNumbersRow.svelte';
 
 	interface Props {
@@ -77,6 +79,7 @@
 			people,
 			excusals: draft.excusals.map(({ personId, reason }) => ({ personId, reason, from: today, through: null })),
 			catalog,
+			groups,
 			on: today
 		}).members
 	);
@@ -106,8 +109,19 @@
 			label: value
 		}))
 	);
-	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
-	const groupNames = $derived(new Map(groups.map((group) => [group.id, group.name])));
+	const groupTree = $derived(buildGroupTree(groups));
+	// A Group deleted since the rule was saved stays listed so it can be taken off.
+	const groupOptions = $derived<TreeSelectOption[]>([
+		...groupTree.ordered.map((node) => ({ id: node.id, label: node.name, depth: node.level })),
+		...(draft.groupIds ?? [])
+			.filter((id) => !groupTree.node(id))
+			.map((id) => ({ id, label: 'Another group', depth: 0, aside: true }))
+	]);
+	const groupRuleLabel = $derived(
+		draft.groupIds?.length
+			? draft.groupIds.map((id) => (groupTree.node(id) ? groupTree.label(id) : 'Another group')).join(', ')
+			: null
+	);
 
 	const excusedIds = $derived(new Set(draft.excusals.map(({ personId }) => personId)));
 	const excuseOptions = $derived(
@@ -165,6 +179,21 @@
 	</div>
 {/snippet}
 
+{#snippet groupRule()}
+	<TreeSelect
+		multiple
+		options={groupOptions}
+		value={draft.groupIds ?? []}
+		onValueChange={(ids: string[]) => (draft.groupIds = ids)}
+		label="Group"
+		hideLabel
+		valueLabel={groupRuleLabel}
+		placeholder="Add a group"
+		searchPlaceholder="Find a Group"
+		class="w-full min-w-0 flex-1 justify-between"
+	/>
+{/snippet}
+
 {#snippet rankRange()}
 	{#if draft.rank}
 		<NativeSelect aria-label="From rank" bind:value={draft.rank.from} class="min-w-0 flex-1">
@@ -183,8 +212,7 @@
 	label: string,
 	items: { value: string; label: string }[],
 	values: string[],
-	set: (next: string[] | null) => void,
-	names?: Map<string, string>
+	set: (next: string[] | null) => void
 )}
 	{#snippet picker()}
 		<Combobox.Root
@@ -199,7 +227,7 @@
 				<Combobox.Value>
 					{#snippet children(selected)}
 						{#each selected as value (value)}
-							<Combobox.Chip {value}>{names?.get(value) ?? value}</Combobox.Chip>
+							<Combobox.Chip {value}>{value}</Combobox.Chip>
 						{/each}
 						<Combobox.ChipsInput
 							placeholder={`Add ${label === 'MOS' ? 'an MOS' : `a ${label.toLowerCase()}`}`}
@@ -272,7 +300,7 @@
 						{@render listRule('Role', roleOptions, draft.role, (next) => (draft.role = next))}
 					{/if}
 					{#if draft.groupIds}
-						{@render listRule('Group', groupOptions, draft.groupIds, (next) => (draft.groupIds = next), groupNames)}
+						{@render ruleRow('Group', () => (draft.groupIds = null), groupRule)}
 					{/if}
 					{#if !draft.rank || !draft.mos || !draft.role || !draft.groupIds}
 						<div class="flex flex-wrap items-center gap-2 border-t px-4 py-3 first:border-t-0">

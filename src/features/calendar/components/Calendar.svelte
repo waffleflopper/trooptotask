@@ -20,15 +20,23 @@
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	const GROUP_ROW_HEIGHT = 35;
+	// A top band, then the slimmer sub-group headers below it.
+	const GROUP_ROW_HEIGHTS = [35, 28, 26];
 	const PERSON_ROW_HEIGHT_WITH_ROLES = 46;
 	const PERSON_ROW_HEIGHT_WITHOUT_ROLES = 36;
 	const DEFAULT_VIEWPORT_HEIGHT = 720;
 	const ROW_OVERSCAN_COUNT = 8;
 
 	interface GroupData {
+		groupId: string | null;
 		group: string;
 		personnel: Personnel[];
+		/** 0 for a top band; sub-groups follow their parent at 1 and 2. */
+		level?: number;
+		name?: string;
+		/** Everyone in the Group and its sub-groups; defaults to `personnel`. */
+		people?: Personnel[];
+		pinnable?: boolean;
 	}
 
 	interface Props {
@@ -36,7 +44,7 @@
 		personnelByGroup: GroupData[];
 		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
-		pinnedGroups: string[];
+		pinnedGroupIds: readonly string[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		lanes?: readonly CalendarLane[];
@@ -54,7 +62,8 @@
 		upcomingLossMap?: ReadonlyMap<string, UpcomingLossRecord>;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
-		onPinToggle?: (group: string) => void;
+		/** Omitted for a Group-scoped reader, who has no pins. */
+		onPinToggle?: (groupId: string) => void;
 		onDateClick?: (date: Date) => void;
 		/** Opens the assignments for a marked date. Without it, row markers are not interactive. */
 		onMarkerClick?: (date: Date) => void;
@@ -68,6 +77,8 @@
 		onQuickAdd?: (person: Personnel, startDate: string, endDate: string, anchor: HTMLElement) => void;
 		onResize?: (person: Personnel, entry: AvailabilityEntry, startDate: string, endDate: string) => void;
 		personnelHref?: string;
+		/** Off for a reader whose whole view is one Group with no sub-groups; the title row names it instead. */
+		showGroupHeaders?: boolean;
 	}
 
 	let {
@@ -75,7 +86,7 @@
 		personnelByGroup,
 		tracks,
 		specialDays,
-		pinnedGroups,
+		pinnedGroupIds,
 		assignmentTypes,
 		assignments,
 		lanes = [],
@@ -101,7 +112,8 @@
 		saving = false,
 		onQuickAdd,
 		onResize,
-		personnelHref
+		personnelHref,
+		showGroupHeaders = true
 	}: Props = $props();
 
 	const collapsedGroups = new SvelteSet<string>();
@@ -161,24 +173,38 @@
 	}
 
 	const totalPersonnel = $derived(personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0));
+	const nested = $derived(personnelByGroup.some((grp) => (grp.level ?? 0) > 0));
 	const personRowHeight = $derived(showPersonnelRoles ? PERSON_ROW_HEIGHT_WITH_ROLES : PERSON_ROW_HEIGHT_WITHOUT_ROLES);
 	const rowOverscanPx = $derived(personRowHeight * ROW_OVERSCAN_COUNT);
 
 	const rosterRows = $derived.by(() => {
 		const rows: (
-			| { type: 'group'; key: string; group: string; height: number }
+			| { type: 'group'; key: string; band: string; data: GroupData; level: number; height: number }
 			| { type: 'person'; key: string; person: Personnel; height: number }
 		)[] = [];
 
+		// A collapsed band hides its own people and every sub-group band after it.
+		let collapsedLevel = Infinity;
 		for (const grp of personnelByGroup) {
-			rows.push({
-				type: 'group',
-				key: `group:${grp.group}`,
-				group: grp.group,
-				height: GROUP_ROW_HEIGHT
-			});
+			const band = grp.groupId ?? '';
+			const level = grp.level ?? 0;
+			if (level > collapsedLevel) continue;
+			collapsedLevel = Infinity;
+			if (showGroupHeaders) {
+				rows.push({
+					type: 'group',
+					key: `group:${band}`,
+					band,
+					data: grp,
+					level,
+					height: GROUP_ROW_HEIGHTS[level] ?? GROUP_ROW_HEIGHTS.at(-1)!
+				});
+			}
 
-			if (collapsedGroups.has(grp.group)) continue;
+			if (showGroupHeaders && collapsedGroups.has(band)) {
+				collapsedLevel = level;
+				continue;
+			}
 
 			for (const person of grp.personnel) {
 				rows.push({
@@ -195,8 +221,25 @@
 
 	const rosterLayout = $derived.by(() => buildVirtualRowLayout(rosterRows));
 
+	// In a nested tree the top band whose people fill the top of the viewport stays in view above them, pushed up by
+	// the next top band as it arrives. It takes the place of its own row, so the header is never rendered twice.
+	const stuckBand = $derived.by(() => {
+		if (!nested) return null;
+		let current: (typeof rosterLayout.rows)[number] | null = null;
+		for (const row of rosterLayout.rows) {
+			if (row.type !== 'group' || row.level !== 0) continue;
+			if (row.top >= scrollTop) {
+				return current && { row: current, offset: Math.min(0, row.top - scrollTop - current.height) };
+			}
+			current = row;
+		}
+		return current && { row: current, offset: 0 };
+	});
+
 	const visibleRosterRows = $derived.by(() =>
-		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, rowOverscanPx)
+		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, rowOverscanPx).filter(
+			(row) => row.key !== stuckBand?.row.key
+		)
 	);
 
 	const days = $derived(buildCalendarDays(dates, specialDays));
@@ -283,14 +326,30 @@
 		};
 	}
 
-	function groupOutCounts(group: string) {
-		const personnel = personnelByGroup.find((grp) => grp.group === group)?.personnel ?? [];
+	function groupOutCounts(grp: GroupData) {
 		return tracks.outCounts(
-			personnel.map((person) => person.id),
+			(grp.people ?? grp.personnel).map((person) => person.id),
 			visibleDays
 		);
 	}
 </script>
+
+{#snippet groupHeader(row: { band: string; data: GroupData; level: number })}
+	{@const grp = row.data}
+	{@const groupId = grp.groupId}
+	{@const collapsed = collapsedGroups.has(row.band)}
+	<GroupHeader
+		groupName={grp.name ?? grp.group}
+		level={row.level}
+		count={nested ? (grp.people ?? grp.personnel).length : undefined}
+		isCollapsed={collapsed}
+		isPinned={groupId !== null && pinnedGroupIds.includes(groupId)}
+		outCounts={collapsed ? groupOutCounts(grp) : undefined}
+		{days}
+		onToggle={() => toggleGroup(row.band)}
+		onPinToggle={groupId !== null && grp.pinnable !== false && onPinToggle ? () => onPinToggle(groupId) : undefined}
+	/>
+{/snippet}
 
 <div
 	class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-cell-width:30px] [--calendar-personnel-column-width:160px] max-[641px]:[--calendar-cell-width:32px] max-[641px]:[--calendar-personnel-column-width:120px]"
@@ -328,6 +387,17 @@
 					class="calendar-rows relative min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))]"
 					style:height={`${rosterLayout.totalHeight}px`}
 				>
+					{#if stuckBand}
+						<div
+							class="sticky top-0 z-[6] h-0"
+							style:transform={`translateY(${stuckBand.offset}px)`}
+							data-testid="calendar-stuck-band"
+						>
+							<div class="virtual-row virtual-row--group w-full" style:height={`${stuckBand.row.height}px`}>
+								{@render groupHeader(stuckBand.row)}
+							</div>
+						</div>
+					{/if}
 					{#each visibleRosterRows as row (row.key)}
 						<div
 							class={[
@@ -339,15 +409,7 @@
 							style:height={`${row.height}px`}
 						>
 							{#if row.type === 'group'}
-								<GroupHeader
-									groupName={row.group}
-									isCollapsed={collapsedGroups.has(row.group)}
-									isPinned={pinnedGroups.includes(row.group)}
-									outCounts={collapsedGroups.has(row.group) ? groupOutCounts(row.group) : undefined}
-									{days}
-									onToggle={() => toggleGroup(row.group)}
-									onPinToggle={() => onPinToggle?.(row.group)}
-								/>
+								{@render groupHeader(row)}
 							{:else}
 								<CalendarRow
 									person={row.person}

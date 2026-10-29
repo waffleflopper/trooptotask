@@ -49,6 +49,8 @@
 	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
+	import { hasSubGroups } from '$features/personnel/contracts';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -90,7 +92,8 @@
 
 	function getExportData() {
 		return {
-			personnelByGroup: ctx.filteredPBG,
+			personnelByGroup: ctx.exportPBG,
+			groups: ctx.scopedGroups,
 			availabilityEntries: availabilityStore.items,
 			statusTypes: statusTypesStore.items,
 			specialDays: specialDaysStore.items,
@@ -142,6 +145,7 @@
 			showStatusText: ctx.showStatusText,
 			showPersonnelRoles: ctx.showPersonnelRoles,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
+			showSubGroups: ctx.showGroupHeaders && hasSubGroups(ctx.groupTree) ? showSubGroupsToggle() : null,
 			highlightOnboarding: ctx.highlightOnboarding,
 			onGroupFilterChange: (value) => ctx.setCalendarGroupFilter(value),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
@@ -489,7 +493,7 @@
 						personnelByGroup={ctx.filteredPBG}
 						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
-						pinnedGroups={pinnedGroupsStore.list}
+						pinnedGroupIds={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
 						lanes={[...projectionLanes, ...lanes]}
@@ -503,9 +507,10 @@
 						showPersonnelRoles={ctx.showPersonnelRoles}
 						upcomingLossMap={ctx.upcomingLossMap}
 						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
+						showGroupHeaders={ctx.showGroupHeaders}
 						onCellClick={(person, date) => ctx.handleCellClick(person, date)}
 						onPersonClick={(person) => ctx.handlePersonClick(person)}
-						onPinToggle={(group) => ctx.handlePinToggle(group)}
+						onPinToggle={ctx.canPinGroups ? (groupId) => ctx.handlePinToggle(groupId) : undefined}
 						onDateClick={(date) => ctx.handleDateClick(date)}
 						onMarkerClick={(date) => ctx.handleDateClick(date)}
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
@@ -561,7 +566,7 @@
 				responsibility: tasking.responsibility,
 				requirement: tasking.required === null ? null : { count: tasking.required, qualifications: null }
 			}}
-			groups={groupNames}
+			groups={ctx.scopedGroups}
 			onSaved={() => {
 				assigning = null;
 				return refreshTaskings(stillInOrganizationLifetime());

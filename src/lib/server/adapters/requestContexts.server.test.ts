@@ -33,7 +33,10 @@ function createMembershipSupabase(membership: OrganizationMembershipFacts) {
 		maybeSingle: vi.fn().mockResolvedValue({ data: { id: ORG_ID, suspended_at: null }, error: null })
 	};
 	query.eq.mockReturnValue(query);
-	return { from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue(query) }) };
+	return {
+		from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue(query) }),
+		rpc: vi.fn().mockReturnValue({ single: query.single })
+	};
 }
 
 function buildRequest(kind: 'route' | 'layout', locals: App.Locals) {
@@ -86,7 +89,7 @@ describe('request-bound rank catalogs', () => {
 					if (request.headers.get('authorization') !== 'Bearer synthetic-request-key')
 						return Response.json({ message: 'Ordinary authority required' }, { status: 403 });
 					if (url.pathname === '/rest/v1/organizations') return Response.json({ id: ORG_ID, suspended_at: null });
-					if (url.pathname === '/rest/v1/organization_memberships') return Response.json({ role: 'owner' });
+					if (url.pathname === '/rest/v1/rpc/read_request_member_access') return Response.json({ role: 'owner' });
 					if (url.pathname !== '/rest/v1/organization_rank_catalog')
 						return Response.json({ message: 'Unexpected catalog read' }, { status: 400 });
 					return Response.json(
@@ -143,7 +146,11 @@ describe('request-bound sensitive-action authorization', () => {
 			const assurance = vi.fn().mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' }, error: null });
 			Object.assign(supabase, {
 				auth: { mfa: { getAuthenticatorAssuranceLevel: assurance } },
-				rpc: vi.fn().mockResolvedValue({ data: false, error: null })
+				rpc: vi.fn((name: string) =>
+					name === 'read_request_member_access'
+						? { single: async () => ({ data: { role: 'owner' }, error: null }) }
+						: Promise.resolve({ data: false, error: null })
+				)
 			});
 			const locals = {
 				supabase,
@@ -185,7 +192,7 @@ describe('request-bound export lifecycle persistence', () => {
 					if (request.headers.get('authorization') !== 'Bearer synthetic-request-key')
 						return Response.json({ message: 'Ordinary authority required' }, { status: 403 });
 					if (url.pathname === '/rest/v1/organizations') return Response.json({ id: ORG_ID, suspended_at: null });
-					if (url.pathname === '/rest/v1/organization_memberships' && request.method === 'GET')
+					if (url.pathname === '/rest/v1/rpc/read_request_member_access' && request.method === 'POST')
 						return Response.json({ role: 'owner' });
 					if (url.pathname !== '/rest/v1/data_exports') throw new Error('Unexpected lifecycle transport');
 					if (request.method === 'POST') {
@@ -249,14 +256,7 @@ describe('request-bound communications exports', () => {
 						const url = new URL(String(input));
 						const table = url.pathname.split('/').at(-1)!;
 						if (table === 'organizations') return Response.json({ id: ORG_ID, suspended_at: null });
-						if (table === 'organization_memberships') {
-							if (
-								url.searchParams.get('user_id') !== `eq.${USER_ID}` ||
-								url.searchParams.get('organization_id') !== `eq.${ORG_ID}`
-							)
-								return Response.json({ code: 'PGRST116' }, { status: 406 });
-							return Response.json({ role: 'owner' });
-						}
+						if (table === 'read_request_member_access') return Response.json({ role: 'owner' });
 						if (!['notifications', 'beta_feedback'].includes(table)) {
 							throw new Error('Unexpected request client read');
 						}

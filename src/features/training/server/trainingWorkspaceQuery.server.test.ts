@@ -1,5 +1,6 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { createQueryWithRawStorePortsContext } from './trainingPersistence.test-support.server';
 import { fetchTrainingWorkspaceData } from './trainingWorkspaceQuery.server';
 import { fetchTrainingBriefingReport } from './trainingReportsQuery.server';
@@ -9,7 +10,7 @@ import type { TrainingTypeRow } from './trainingPersistenceMapping.server';
 
 const ORG = 'test-org';
 
-async function loadGroupChoices(scopeSet: ScopeSet) {
+async function loadGroupChoices(scopeSet: GroupCoverage) {
 	const ctx = createQueryWithRawStorePortsContext({
 		auth: {
 			role: 'member',
@@ -30,8 +31,8 @@ async function loadGroupChoices(scopeSet: ScopeSet) {
 		{ id: 'bravo', organization_id: ORG, name: 'Bravo', sort_order: 1 }
 	]);
 	ctx.rawStore.seed('user_pinned_groups', [
-		{ id: 'pin-bravo', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 0 },
-		{ id: 'pin-alpha', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 1 }
+		{ id: 'pin-bravo', organization_id: ORG, user_id: 'test-user', group_id: 'bravo', sort_order: 0 },
+		{ id: 'pin-alpha', organization_id: ORG, user_id: 'test-user', group_id: 'alpha', sort_order: 1 }
 	]);
 	const workspace = fetchTrainingWorkspaceData(ctx, ORG);
 	await Promise.allSettled(Object.values(workspace));
@@ -174,15 +175,15 @@ describe('fetchTrainingWorkspaceData', () => {
 		});
 	});
 
-	it('returns only the Groups and pinned names in a Group-scoped viewer’s scope', async () => {
-		await expect(loadGroupChoices({ kind: 'groups', groupIds: ['alpha'] })).resolves.toEqual({
-			groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0 }],
-			pinnedGroups: ['Alpha']
+	it('returns only the Groups in a Group-scoped viewer’s scope and none of their pins', async () => {
+		await expect(loadGroupChoices(groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }))).resolves.toEqual({
+			groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+			pinnedGroups: []
 		});
 	});
 
 	it('returns no Groups or pinned names to an empty Group scope', async () => {
-		await expect(loadGroupChoices({ kind: 'groups', groupIds: [] })).resolves.toEqual({
+		await expect(loadGroupChoices(groupCoverageForTest({ kind: 'groups', groupIds: [] }))).resolves.toEqual({
 			groups: [],
 			pinnedGroups: []
 		});
@@ -192,6 +193,6 @@ describe('fetchTrainingWorkspaceData', () => {
 		const { groups, pinnedGroups } = await loadGroupChoices({ kind: 'organization' });
 
 		expect(groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
-		expect(pinnedGroups).toEqual(['Bravo', 'Alpha']);
+		expect(pinnedGroups).toEqual(['bravo', 'alpha']);
 	});
 });

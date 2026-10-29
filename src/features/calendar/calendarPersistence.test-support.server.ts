@@ -29,7 +29,7 @@ export function withCalendarPersistence(options?: Options) {
 						'personnel',
 						auth.orgId,
 						undefined,
-						auth.scopeSet.kind === 'groups' ? { inFilters: { group_id: auth.scopeSet.groupIds } } : undefined
+						auth.scopeSet.kind === 'groups' ? { inFilters: { group_id: [...auth.scopeSet.groupIds] } } : undefined
 					);
 					return rows.map((row) => row.id);
 				}

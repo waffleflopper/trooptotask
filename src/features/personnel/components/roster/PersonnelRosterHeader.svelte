@@ -9,6 +9,8 @@
 
 	interface Props {
 		unitName: string;
+		/** Names the reader's one Group in the eyebrow when that Group is their whole roster. */
+		scopeLabel?: string | null;
 		activeCount: number;
 		summary: SummaryState;
 		canViewAvailability: boolean;
@@ -17,7 +19,16 @@
 		onToggleFilter: (filter: RosterFilter) => void;
 	}
 
-	let { unitName, activeCount, summary, canViewAvailability, filter, statusTypes, onToggleFilter }: Props = $props();
+	let {
+		unitName,
+		scopeLabel = null,
+		activeCount,
+		summary,
+		canViewAvailability,
+		filter,
+		statusTypes,
+		onToggleFilter
+	}: Props = $props();
 
 	const presence = $derived(
 		summary.kind === 'ready' && summary.value.presence.kind === 'known' ? summary.value.presence.value : null
@@ -83,7 +94,7 @@
 {/snippet}
 
 <PageShell.Header
-	eyebrow="{unitName} · Active roster"
+	eyebrow="{unitName} · {scopeLabel ?? 'Active roster'}"
 	title="Personnel"
 	variant="display"
 	meta={count}

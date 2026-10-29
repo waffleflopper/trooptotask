@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { createRosterReadModel, type Group, type Personnel } from '$features/personnel/contracts';
-	import type { ScopeSet } from '$lib/access/memberAccessShape';
+	import { buildGroupTree, createRosterReadModel, type Group, type Personnel } from '$features/personnel/contracts';
+	import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 	import type { OnboardingTemplate, PersonnelOnboarding } from '../contracts';
 	import { getTemplateDisplayName } from '../contexts/OnboardingPageContext.svelte';
 	import {
@@ -31,7 +31,7 @@
 
 	interface Props {
 		orgUrlSegment: string;
-		scopeSet: ScopeSet;
+		scopeSet: AdvisoryGroupScope;
 		onboardings: PersonnelOnboarding[];
 		personnel: Personnel[];
 		templates: OnboardingTemplate[];
@@ -72,8 +72,9 @@
 	let templateId = $state(HISTORY_ALL);
 
 	const roster = $derived(
-		createRosterReadModel({ personnel, groups, pinnedGroups: [] }).scoped(scopeSet, { status: 'all' })
+		createRosterReadModel({ personnel, groups, pinnedGroupIds: [] }).scoped(scopeSet, { status: 'all' })
 	);
+	const tree = $derived(buildGroupTree(groups));
 	const history = $derived(buildHistory(onboardings, todayDate, timeZone));
 	const subtitleParts = $derived(historySubtitleParts(history.overview));
 
@@ -85,7 +86,7 @@
 	}
 
 	const visibleRows = $derived(
-		filterHistoryRows(history.rows, { outcome, query: search, groupId, templateId }, personOf)
+		filterHistoryRows(history.rows, { outcome, query: search, groupId, templateId }, personOf, tree)
 	);
 	const openId = $derived(visibleRows.some((row) => row.packet.id === expandedId) ? expandedId : '');
 	const filtered = $derived(
@@ -119,7 +120,7 @@
 				label: 'Group',
 				options: [
 					{ value: HISTORY_ALL, label: 'All groups' },
-					...groups.map((group) => ({ value: group.id, label: group.name }))
+					...tree.roots.map((group) => ({ value: group.id, label: group.name }))
 				],
 				value: groupId,
 				defaultValue: HISTORY_ALL,
@@ -162,9 +163,9 @@
 	}
 
 	function personMeta(onboarding: PersonnelOnboarding): string {
-		return [roster.groupName(onboarding.personnelId), roster.getById(onboarding.personnelId)?.mos]
-			.filter(Boolean)
-			.join(' · ');
+		const person = roster.getById(onboarding.personnelId);
+		const groupLabel = person?.groupId && tree.node(person.groupId) ? tree.label(person.groupId) : person?.groupName;
+		return [groupLabel, person?.mos].filter(Boolean).join(' · ');
 	}
 
 	function noteByline(stepName: string, userId: string, timestamp: string): string {

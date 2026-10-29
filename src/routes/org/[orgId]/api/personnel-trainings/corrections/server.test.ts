@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -85,7 +86,7 @@ const groupOperator = {
 			onboarding: 'none',
 			ratingScheme: 'none'
 		} as const,
-		scopeSet: { kind: 'groups' as const, groupIds: ['group-a'] }
+		scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['group-a'] })
 	}
 };
 

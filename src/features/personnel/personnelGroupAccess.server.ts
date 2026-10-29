@@ -1,9 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '$lib/server/database';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { isScopeSetMatchAllowed, matchScopeSet, scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 
-function requireAllowedGroup(scopeSet: ScopeSet, groupId: string | null): void {
+function requireAllowedGroup(scopeSet: GroupCoverage, groupId: string | null): void {
 	if (!isScopeSetMatchAllowed(matchScopeSet(scopeSet, scopeSetResourceForGroupId(groupId)))) {
 		throw error(403, 'You do not have access to personnel outside your group');
 	}
@@ -12,7 +12,7 @@ function requireAllowedGroup(scopeSet: ScopeSet, groupId: string | null): void {
 export async function requirePersonnelGroupAccess(
 	supabase: SupabaseClient,
 	orgId: string,
-	scopeSet: ScopeSet,
+	scopeSet: GroupCoverage,
 	personnelId: string
 ): Promise<void> {
 	if (scopeSet.kind === 'organization') return;
@@ -30,7 +30,7 @@ export async function requirePersonnelGroupAccess(
 export async function requirePersonnelGroupAccessBatch(
 	supabase: SupabaseClient,
 	orgId: string,
-	scopeSet: ScopeSet,
+	scopeSet: GroupCoverage,
 	personnelIds: string[]
 ): Promise<void> {
 	if (scopeSet.kind === 'organization' || personnelIds.length === 0) return;

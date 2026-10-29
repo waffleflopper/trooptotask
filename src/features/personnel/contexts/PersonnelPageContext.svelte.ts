@@ -4,7 +4,7 @@ import { personnelScopeResource } from '../personnelScopeResource';
 import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
-	organizationGroupNames,
+	organizationGroupOrder,
 	type PersonnelGroup,
 	type RosterReadModelView
 } from '$features/personnel/rosterReadModel';
@@ -25,6 +25,7 @@ import {
 } from '../rosterSignals';
 import { RosterPeek } from '../rosterPeek.svelte';
 import { RosterSignals } from '../rosterSignals.svelte';
+import { buildGroupTree, soleLeafGroup, type GroupNode, type GroupTree } from '../groupTree';
 
 export interface PersonnelPageData {
 	orgId: string;
@@ -305,12 +306,21 @@ export class PersonnelPageContext {
 		return this.#groupsStore.orgId === this.orgId ? this.#groupsStore.items : [];
 	}
 
-	get groupOrder(): string[] {
-		return organizationGroupNames(this.catalogGroups);
+	readonly groupTree: GroupTree = $derived.by(() =>
+		buildGroupTree(this.catalogGroups, { pinnedIds: this.canPinGroups ? this.#pinnedGroupsStore.list : [] })
+	);
+
+	get soleLeafGroup(): GroupNode | null {
+		return soleLeafGroup(this.groupTree, this.canPinGroups);
 	}
 
-	groupIdForName(name: string): string | null {
-		return this.#groupsStore.items.find((group) => group.name === name)?.id ?? null;
+	get groupOrder(): Group[] {
+		return organizationGroupOrder(this.catalogGroups);
+	}
+
+	/** Pins belong to Organization-wide readers; a Group-scoped reader's saved pins are ignored. */
+	get canPinGroups(): boolean {
+		return this.#org.scopeSet.kind === 'organization';
 	}
 
 	toggleGroup(group: string): void {
@@ -324,7 +334,7 @@ export class PersonnelPageContext {
 	private get rosterViewWithoutSearch(): RosterReadModelView {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
-			pinnedGroups: this.#pinnedGroupsStore.list,
+			pinnedGroupIds: this.#pinnedGroupsStore.list,
 			groups: this.catalogGroups,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active' });
@@ -333,7 +343,7 @@ export class PersonnelPageContext {
 	private get rosterView(): RosterReadModelView {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
-			pinnedGroups: this.#pinnedGroupsStore.list,
+			pinnedGroupIds: this.#pinnedGroupsStore.list,
 			groups: this.catalogGroups,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active', search: this.searchQuery });

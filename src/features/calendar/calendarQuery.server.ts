@@ -24,13 +24,13 @@ import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contrac
 import type { AuditPort } from '$lib/audit/contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { GroupPersistence, PersonnelCalendarRosterPort, SelfPinPersistence } from '$features/personnel/contracts';
-import { visiblePinnedGroupNames } from '$features/personnel/index.server';
+import { listReaderPinnedGroupIds } from '$features/personnel/index.server';
 
 interface CalendarQueryPorts {
 	auth: OrganizationAccessGrant;
 	audit?: AuditPort;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
-	selfPins: Pick<SelfPinPersistence, 'listNames'>;
+	selfPins: Pick<SelfPinPersistence, 'listGroupIds'>;
 	calendarCatalogs: CalendarCatalogPersistence;
 	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
 	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange'>;
@@ -86,23 +86,20 @@ export async function fetchCalendarData(ctx: CalendarQueryPorts, input: Calendar
 	const { rangeStart, rangeEnd } = input;
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
-	const [availabilityEntries, specialDays, assignmentTypes, dailyAssignments, pinnedGroups, groups] = await Promise.all(
-		[
-			listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
-			listSpecialDaysInRange(ctx.calendarCatalogs, input),
-			listAssignmentTypes(ctx.calendarCatalogs),
-			listDailyAssignments(ctx, input, calendarScope),
-			ctx.selfPins.listNames(),
-			ctx.groups.listCatalog()
-		]
-	);
+	const [availabilityEntries, specialDays, assignmentTypes, dailyAssignments, pinnedGroups] = await Promise.all([
+		listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
+		listSpecialDaysInRange(ctx.calendarCatalogs, input),
+		listAssignmentTypes(ctx.calendarCatalogs),
+		listDailyAssignments(ctx, input, calendarScope),
+		listReaderPinnedGroupIds(ctx)
+	]);
 
 	return {
 		availabilityEntries,
 		specialDays,
 		assignmentTypes,
 		dailyAssignments,
-		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups)
+		pinnedGroups
 	};
 }
 
@@ -180,7 +177,7 @@ export async function fetchCalendarBootstrap(
 
 	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, lossWarningWindowDays] = await Promise.all([
 		listAssignmentTypes(ctx.calendarCatalogs),
-		ctx.selfPins.listNames(),
+		listReaderPinnedGroupIds(ctx),
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
 		ctx.groups.listCatalog(),
 		listStatusTypes(ctx.calendarCatalogs),
@@ -196,7 +193,7 @@ export async function fetchCalendarBootstrap(
 		specialDaysRange: { rangeStart: specialDaysRange.rangeStart, rangeEnd: specialDaysRange.rangeEnd },
 		assignmentTypes,
 		dailyAssignments,
-		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups),
+		pinnedGroups,
 		personnel,
 		groups,
 		statusTypes,

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
@@ -100,7 +101,7 @@ describe('POST /api/rating-scheme', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

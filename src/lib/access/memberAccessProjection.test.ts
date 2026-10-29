@@ -136,7 +136,8 @@ describe('Organization access grant projection', () => {
 			member_preset: 'operator',
 			capability_overrides: { calendar: 'view', training: 'configure', criticalTasks: 'none' },
 			access_scope_kind: 'groups',
-			access_scope_group_ids: ['alpha', 'alpha', 'bravo']
+			access_scope_group_ids: ['alpha', 'alpha', 'bravo'],
+			covered_group_ids: ['alpha', 'bravo']
 		};
 
 		expect(projectOrganizationAccessGrant(membership, 'admitted-user', 'canonical-org', everyFeatureOn)).toEqual({
@@ -153,7 +154,7 @@ describe('Organization access grant projection', () => {
 				onboarding: 'operate',
 				ratingScheme: 'operate'
 			},
-			scopeSet: { kind: 'groups', groupIds: ['alpha', 'bravo'] }
+			scopeSet: { kind: 'groups', groupIds: ['alpha', 'bravo'], grantedGroupIds: ['alpha', 'bravo'] }
 		});
 	});
 
@@ -197,7 +198,8 @@ describe('Organization access grant projection', () => {
 					member_preset: 'editor',
 					capability_overrides: { criticalTasks: 'none', ratingScheme: 'none' },
 					access_scope_kind: 'groups',
-					access_scope_group_ids: []
+					access_scope_group_ids: [],
+					covered_group_ids: []
 				},
 				'admitted-user',
 				'canonical-org',
@@ -217,7 +219,7 @@ describe('Organization access grant projection', () => {
 				onboarding: 'configure',
 				ratingScheme: 'none'
 			},
-			scopeSet: { kind: 'groups', groupIds: [] }
+			scopeSet: { kind: 'groups', groupIds: [], grantedGroupIds: [] }
 		});
 	});
 

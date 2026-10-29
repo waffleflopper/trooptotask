@@ -1,5 +1,6 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _putConfig } from './+server';
@@ -8,7 +9,7 @@ const alpha = '0a000000-0000-4000-8000-000000000001';
 const bravo = '0b000000-0000-4000-8000-000000000002';
 const charlie = '0c000000-0000-4000-8000-000000000003';
 
-function context(scopeSet: ScopeSet = { kind: 'organization' }) {
+function context(scopeSet: GroupCoverage = { kind: 'organization' }) {
 	const ctx = createTestContext({
 		auth: {
 			role: 'member',
@@ -68,7 +69,7 @@ describe('PUT /api/groups/order', () => {
 	});
 
 	it('denies a Group-scoped Personnel configurer', async () => {
-		const ctx = context({ kind: 'groups', groupIds: [alpha, bravo, charlie] });
+		const ctx = context(groupCoverageForTest({ kind: 'groups', groupIds: [alpha, bravo, charlie] }));
 
 		await expect(reorder(ctx, [charlie, alpha, bravo])).rejects.toMatchObject({ status: 403 });
 		expect(await savedOrder(ctx)).toEqual([alpha, bravo, charlie]);

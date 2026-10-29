@@ -61,7 +61,7 @@ function strengthOf(assigned: number, group: { id: string; name: string } | null
 		availability: [],
 		statusTypes: [],
 		specialDays: [],
-		groups: group ? [{ ...group, sortOrder: 0 }] : [],
+		groups: group ? [{ ...group, sortOrder: 0, parentId: null, depth: 1 as const }] : [],
 		floorPercent: 80
 	});
 }

@@ -1,3 +1,5 @@
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -20,10 +22,10 @@ const COMPLETION_ARCHIVED_PERSON = '00000000-0000-4000-8000-00000000100d';
 const COMPLETION_ARCHIVED_TASK = '00000000-0000-4000-8000-00000000100e';
 
 function criticalTasksOnlyContext(
-	scopeSet: { kind: 'organization' } | { kind: 'groups'; groupIds: string[] } = {
+	scopeSet: GroupCoverage = groupCoverageForTest({
 		kind: 'groups',
 		groupIds: ['group-alpha']
-	}
+	})
 ) {
 	return createTestContext({
 		auth: {
@@ -860,7 +862,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('denies new completion writes for an empty Group scope without exposing Person references', async () => {
-		const ctx = criticalTasksOnlyContext({ kind: 'groups', groupIds: [] });
+		const ctx = criticalTasksOnlyContext(groupCoverageForTest({ kind: 'groups', groupIds: [] }));
 		seedCompletionReferences(ctx);
 		blockRequestPersonnelLookup(ctx);
 		await expect(

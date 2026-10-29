@@ -1,3 +1,5 @@
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
@@ -21,7 +23,7 @@ describe('Critical Tasks report queries', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
@@ -332,7 +334,7 @@ describe('Critical Tasks report queries', () => {
 	it("limits the report Group choices to a Group-scoped viewer's scope", async () => {
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
@@ -353,7 +355,9 @@ describe('Critical Tasks report queries', () => {
 
 		const pageModel = await fetchCriticalTasksReportsPageModel(ctx, { asOf: '2026-04-15' });
 
-		expect(pageModel.reportScope.groups).toEqual([{ id: 'group-alpha', name: 'Alpha' }]);
+		expect(pageModel.reportScope.groups.map(({ id, name }) => ({ id, name }))).toEqual([
+			{ id: 'group-alpha', name: 'Alpha' }
+		]);
 	});
 
 	it('builds the reports page model from one server-shaped report scope', async () => {
@@ -419,8 +423,8 @@ describe('Critical Tasks report queries', () => {
 				{ id: 'p-rifle', groupId: 'group-bravo', mos: '11B', rank: 'CPL', dutyRole: 'Rifleman' }
 			],
 			groups: [
-				{ id: 'group-alpha', name: 'Alpha' },
-				{ id: 'group-bravo', name: 'Bravo' }
+				{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
 			],
 			hasActiveTasks: true,
 			activeTaskCount: 1,
@@ -475,7 +479,7 @@ describe('Critical Tasks report queries', () => {
 
 	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {
 		const ctx = createTestContext({
-			auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } }
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }) }
 		});
 		ctx.store.seed('organizations', [
 			{
@@ -717,7 +721,9 @@ describe('buildCriticalTasksReportWorkbook', () => {
 			}
 		};
 
-		const workbook = await buildCriticalTasksReportWorkbook(dashboard);
+		const workbook = await buildCriticalTasksReportWorkbook(dashboard, NESTED_GROUPS, [
+			{ id: 'p-rifle', groupId: 'alpha' }
+		]);
 		const parsed = new ExcelJS.Workbook();
 		await parsed.xlsx.load(toWorkbookBuffer(await workbook.xlsx.writeBuffer()));
 		const sheet = parsed.getWorksheet('Critical Tasks Report')!;
@@ -728,7 +734,7 @@ describe('buildCriticalTasksReportWorkbook', () => {
 			'At-Risk Soldiers',
 			'Rifle, Ryan',
 			'40%',
-			'SGT 11B; Alpha; 1 expiring <=45d; 12 days since update'
+			'SGT 11B; 1st Platoon / 2nd Squad / Alpha Team; 1 expiring <=45d; 12 days since update'
 		]);
 		expect(sheet.getRow(3).values).toEqual([
 			undefined,
@@ -750,7 +756,7 @@ function createWideHistoryContext(
 ) {
 	const ctx = createTestContext({
 		auth: {
-			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 			role: 'member',
 			isPrivileged: false,
 			capabilityMap: {
@@ -858,10 +864,10 @@ describe('bounded Critical Tasks report history', () => {
 		}
 	);
 
-	it('returns an empty authorized report for an excluded group without reading history', async () => {
+	it('returns an empty authorized report for a filter that leaves nobody without reading history', async () => {
 		const ctx = createWideHistoryContext('people', { forbidHistory: true });
 		const dashboard = await fetchCriticalTasksReportDashboard(ctx, {
-			filters: { groupId: 'bravo' },
+			filters: { mos: '11B' },
 			asOf: '2026-03-20'
 		});
 		expect(dashboard.kpis.overallReadiness).toMatchObject({ percent: 0, readyCount: 0, applicableCount: 0 });

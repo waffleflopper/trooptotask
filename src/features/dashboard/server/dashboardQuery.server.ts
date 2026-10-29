@@ -26,7 +26,7 @@ import {
 import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence } from '$features/training/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
-import { visiblePinnedGroupNames } from '$features/personnel/index.server';
+import { listReaderPinnedGroupIds } from '$features/personnel/index.server';
 import { dashboardSourceAccess } from './dashboardSources.server';
 import { runEndsCovering } from '../read-model/availabilityRuns';
 
@@ -35,7 +35,7 @@ type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 		auth: OrganizationAccessGrant;
 		roster: Pick<PersonnelRosterReader, 'list'>;
 		groups: Pick<GroupPersistence, 'listCatalog'>;
-		selfPins: Pick<SelfPinPersistence, 'listNames'>;
+		selfPins: Pick<SelfPinPersistence, 'listGroupIds'>;
 		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes' | 'listSpecialDays'>;
 		onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listSavedActivePackets'>;
 		onboardingCatalog: Pick<OnboardingCatalogPersistence, 'hasAnyTemplate'>;
@@ -120,7 +120,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		specialDays
 	] = await Promise.all([
 		reads('assignmentTypes') ? listAssignmentTypes(ctx.calendarCatalogs) : [],
-		ctx.selfPins.listNames(),
+		listReaderPinnedGroupIds(ctx),
 		reads('ratingSchemeEntries') ? loadRatingSchemeDueEntries(ctx) : [],
 		reads('activeOnboardings') ? ctx.onboardingWorkflow.listSavedActivePackets() : [],
 		reads('onboardingTemplates') && ctx.onboardingCatalog.hasAnyTemplate(),
@@ -142,7 +142,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		assignmentTypes,
 		todayAssignments,
 		range,
-		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups),
+		pinnedGroups,
 		ratingSchemeEntries,
 		activeOnboardings,
 		hasAnyOnboardingTemplate,

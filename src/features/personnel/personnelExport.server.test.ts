@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
@@ -16,6 +17,34 @@ const listPersonnelTrainingExportRows =
 		);
 
 const listStatusTypeLabels = async () => [{ id: 'status-type-1', name: 'TDY' }];
+
+it('writes the nested Group path in the individual Personnel workbook', async () => {
+	const ctx = createTestContext();
+	seedPersonnelExportDataset(ctx);
+	await ctx.rawStore.update('groups', ctx.auth.orgId, 'group-1', {
+		name: 'Alpha Team',
+		sort_order: 0,
+		parent_id: 'squad',
+		depth: 3
+	});
+	ctx.rawStore.seed('groups', [
+		{ id: 'platoon', organization_id: ctx.auth.orgId, name: '1st Platoon', sort_order: 0, parent_id: null, depth: 1 },
+		{ id: 'squad', organization_id: ctx.auth.orgId, name: '2nd Squad', sort_order: 0, parent_id: 'platoon', depth: 2 }
+	]);
+	const result = await exportPersonnelWorkbook(
+		ctx,
+		{ personnelId: PERSONNEL_ID, asOf: '2026-05-20' },
+		listAvailabilityHistory,
+		listStatusTypeLabels,
+		listTrainingTypeLabels,
+		listPersonnelTrainingExportRows(ctx)
+	);
+	const rows = worksheetRows(worksheetByName(await parseWorkbook(result._buffer), 'Personnel Info'));
+	expect(rows.find((row) => row.Field === 'Group')).toEqual({
+		Field: 'Group',
+		Value: '1st Platoon / 2nd Squad / Alpha Team'
+	});
+});
 const listTrainingTypeLabels = async () => [{ id: 'training-type-1', name: 'Weapons Qual' }];
 
 type TestContext = ReturnType<typeof createTestContext>;
@@ -187,7 +216,7 @@ describe('Personnel export use case', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['allowed-group'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['allowed-group'] })
 			}
 		});
 		ctx.rawStore.seed('personnel', [
@@ -335,7 +364,7 @@ describe('Personnel export use case', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] })
 			}
 		});
 		seedPersonnelExportDataset(ctx);

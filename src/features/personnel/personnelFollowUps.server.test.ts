@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { testPersonnelArtifactsContext } from './personnelArtifacts.testHelper';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
@@ -342,7 +343,7 @@ describe('personnel follow-ups', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] })
 			},
 			scope: {
 				requireGroupAccess

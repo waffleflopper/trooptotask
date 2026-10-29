@@ -13,7 +13,12 @@ import { groupsStore } from '$features/personnel';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { rejectedRequestMessage } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$features/personnel/contracts';
+import {
+	buildGroupTree,
+	createRosterReadModel,
+	type PersonnelGroup,
+	type RosterReadModelView
+} from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type {
 	TrainingPageAccess,
@@ -199,9 +204,9 @@ export class TrainingPageContext {
 		const optionsByValue = new SvelteMap(rosterOptions.map((option) => [option.value, option]));
 		const orderedOptions = [optionsByValue.get('') ?? { value: '', label: 'Group: All' }];
 
-		for (const group of groupsStore.items) {
-			orderedOptions.push(optionsByValue.get(group.id) ?? { value: group.id, label: group.name });
-			optionsByValue.delete(group.id);
+		for (const root of buildGroupTree(groupsStore.items).roots) {
+			orderedOptions.push(optionsByValue.get(root.id) ?? { value: root.id, label: root.name });
+			optionsByValue.delete(root.id);
 		}
 
 		optionsByValue.delete('');
@@ -482,7 +487,7 @@ export class TrainingPageContext {
 
 	private isValidGroupId(groupId: string | null): boolean {
 		if (!groupId) return false;
-		if (groupsStore.orgId === this.orgId && groupsStore.items.some((group) => group.id === groupId)) {
+		if (groupsStore.orgId === this.orgId && buildGroupTree(groupsStore.items).node(groupId)?.level === 0) {
 			return true;
 		}
 		return this.groupFilterOptions.some((option) => option.value === groupId);
@@ -510,7 +515,7 @@ export class TrainingPageContext {
 			return createRosterReadModel({
 				personnel: [],
 				groups: [],
-				pinnedGroups: [],
+				pinnedGroupIds: [],
 				fallbackGroupName: this.orgName
 			}).scoped(this.#org.scopeSet, { status: 'active', ...options });
 		}

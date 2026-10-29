@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
@@ -159,7 +160,7 @@ describe('/api/onboarding-steps route config', () => {
 					onboarding: 'operate',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] })
 			},
 			onboardingNoteAppend: {
 				async append(orgId, stepId, text) {
@@ -240,7 +241,7 @@ describe('/api/onboarding-steps route config', () => {
 					onboarding: 'operate',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] })
 			}
 		});
 		seedOnboardingStep(ctx, { id: INACTIVE_STEP_1, active: false, completed: true });

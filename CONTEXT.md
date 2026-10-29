@@ -11,8 +11,16 @@ The boundary that owns operational data, Groups, membership, and settings.
 _Avoid_: Account, Unit, tenant, workspace as the product name
 
 **Group**:
-A configurable subdivision of an Organization's roster, used for grouping, filtering, and scoped access. A Personnel Record may belong to one Group or be ungrouped.
+A configurable subdivision of an Organization's roster, used for grouping, filtering, and scoped access. Groups nest up to three levels. A Personnel Record belongs to one Group at any level, or is ungrouped.
 _Avoid_: Element, squad, platoon, section, team as the product model name
+
+**Sub-group**:
+A Group inside another Group.
+_Avoid_: A separate permission model or membership role
+
+**Group HQ**:
+The People directly in a Group that has sub-groups. Rollups show them as their own row, named for the Group.
+_Avoid_: Leadership, staff
 
 **User Account**:
 A person's sign-in identity and authentication settings, independent of Organization membership and roster records.
@@ -73,7 +81,7 @@ The member's effective Capability Level for each Feature Lane after preset defau
 _Avoid_: Role permissions
 
 **Scope Set**:
-The positive grant of Organization-wide access or one or more whole Groups, shared across scoped Feature Lanes. Group grants exclude ungrouped Personnel Records; current scope has neither per-feature variations, person-specific grants, nor deny exceptions.
+The positive grant of Organization-wide access or one or more whole Groups, each including its sub-groups, shared across scoped Feature Lanes. Scope reaches down, never up. Group grants exclude ungrouped Personnel Records; current scope has neither per-feature variations, person-specific grants, nor deny exceptions.
 _Avoid_: Team Leader role, per-feature scope matrix
 
 **Policy Action**:
@@ -111,7 +119,7 @@ The military-facing person represented by a Personnel Record.
 _Avoid_: Personnel Record when referring to the person
 
 **Roster**:
-The collection of Personnel Records for an Organization, optionally narrowed by Group, person, or search.
+The collection of Personnel Records for an Organization, optionally narrowed by Group, person, or search. A screen's Group filter lists the reader's top-level Groups and matches each one's whole subtree.
 _Avoid_: List of users
 
 **Personnel**:
@@ -234,11 +242,11 @@ The record of a Tasking's creation, outcome, responsibility, date, Event link, r
 _Avoid_: Audit log, history
 
 **Pick**:
-A Person chosen to carry out a Tasking. A Group Tasking picks from the responsible Group's active roster and an Organization Tasking from the whole active roster. Picks are saved as one whole list, and the count reads picked of required.
+A Person chosen to carry out a Tasking. A Group Tasking picks from the active roster of the responsible Group and its sub-groups, and an Organization Tasking from the whole active roster. Picks are saved as one whole list, and the count reads picked of required.
 _Avoid_: Assignment, participant in product copy
 
 **Needs review**:
-A pick whose Person was archived or left the responsible Group after being picked. It stays on the list, does not count, and clears only when an operator keeps or removes it; restoring the Person does not clear it.
+A pick whose Person was archived or left the responsible Group and its sub-groups after being picked. A Group move can also put the Person outside that subtree. The pick stays on the list, does not count, and clears only when an operator keeps or removes it; restoring the Person does not clear it.
 _Avoid_: Invalid, stale
 
 **Staffing advisory**:

@@ -165,13 +165,30 @@ describe('dutyPickerOptions', () => {
 	it('lists Groups as usual for a Group duty whatever the roster read is doing', () => {
 		const groupDuty: AssignmentType = { ...staffDuty, assignTo: 'group' };
 		const groups = [
-			{ id: 'g-b', name: 'Bravo', sortOrder: 1 },
-			{ id: 'g-a', name: 'Alpha', sortOrder: 0 }
+			{ id: 'g-b', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const },
+			{ id: 'g-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }
 		];
 
 		expect(options({ type: groupDuty, groups, unreadRoster: 'error' }).map((option) => option.label)).toEqual([
 			'Alpha',
 			'Bravo'
+		]);
+	});
+
+	it('offers a Group at any level by its path, each under the Group above it', () => {
+		const groupDuty: AssignmentType = { ...staffDuty, assignTo: 'group' };
+		const groups = [
+			{ id: 'p2', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 as const },
+			{ id: 's1', name: '1st Squad', sortOrder: 0, parentId: 'p2', depth: 2 as const },
+			{ id: 'p1', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'p1s1', name: '1st Squad', sortOrder: 0, parentId: 'p1', depth: 2 as const }
+		];
+
+		expect(options({ type: groupDuty, groups }).map((option) => [option.id, option.label])).toEqual([
+			['p1', '1st Platoon'],
+			['p1s1', '1st Platoon › 1st Squad'],
+			['p2', '2nd Platoon'],
+			['s1', '2nd Platoon › 1st Squad']
 		]);
 	});
 
@@ -245,8 +262,8 @@ describe('dutyPickerOptions', () => {
 				excusals: [{ personId: 'g-b', reason: 'Excused', startsOn: '2026-01-01' }]
 			},
 			groups: [
-				{ id: 'g-b', name: 'Bravo', sortOrder: 0 },
-				{ id: 'g-a', name: 'Alpha', sortOrder: 1 }
+				{ id: 'g-b', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'g-a', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			currentAssigneeId: 'g-b'
 		});

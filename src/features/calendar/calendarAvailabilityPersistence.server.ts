@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '$lib/server/database';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { fail, RequestFailure } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { AvailabilityCreate, CalendarAvailabilityPersistence } from './contracts';
@@ -41,7 +41,7 @@ export function createSupabaseCalendarAvailabilityPersistence(
 		orgId,
 		scopeSet,
 		loadScopedPersonnelIds
-	}: { orgId: string; scopeSet: ScopeSet; loadScopedPersonnelIds: () => Promise<string[]> }
+	}: { orgId: string; scopeSet: GroupCoverage; loadScopedPersonnelIds: () => Promise<string[]> }
 ): CalendarAvailabilityPersistence {
 	const groups = scopeSet.kind === 'groups' ? [...new Set(scopeSet.groupIds.filter(Boolean))] : null;
 	let personnelIdsPromise: Promise<string[]> | undefined;

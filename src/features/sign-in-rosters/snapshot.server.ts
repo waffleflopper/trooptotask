@@ -1,5 +1,6 @@
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type {
+	Group,
 	RankCatalogEntry,
 	SignInRosterPersonnelLookupPort,
 	SignInRosterPersonnelLookupRecord
@@ -15,9 +16,10 @@ type PersonnelRow = SignInRosterPersonnelLookupRecord;
 
 export interface SignInRosterSnapshotContext {
 	orgId: string;
-	scopeSet: ScopeSet;
+	scopeSet: GroupCoverage;
 	personnelLookup?: SignInRosterPersonnelLookupPort;
-	findGroupNamesByIds(groupIds: string[]): Promise<Map<string, string>>;
+	/** The Groups this saver can see. */
+	listGroupCatalog(): Promise<Group[]>;
 	loadRankCatalog(): Promise<RankCatalogEntry[]>;
 }
 
@@ -28,7 +30,11 @@ export type CanonicalSignInRosterSnapshot = {
 	firstName: string;
 	group: string;
 	groupId: string | null;
+	/** The saver's visible Groups above `groupId`, top first, so a reprint labels every section as it was saved. */
+	groupAncestors: SavedGroup[];
 };
+
+export type SavedGroup = { id: string; name: string };
 
 export interface PreparedSignInRosterSnapshot {
 	personnelIds: string[];
@@ -43,18 +49,18 @@ export async function prepareSignInRosterSnapshot(
 	input: Record<string, unknown>
 ): Promise<PreparedSignInRosterSnapshot> {
 	const personnelIds = extractRequestedPersonnelIds(input);
-	const rows = await loadPersonnelRows(ctx, personnelIds);
+	const [rows, catalog] = await Promise.all([loadPersonnelRows(ctx, personnelIds), ctx.listGroupCatalog()]);
 
 	if (rows.length !== personnelIds.length) {
 		fail(400, 'Personnel selection includes unknown personnel');
 	}
 
-	const groupNames = await loadGroupNames(ctx, rows);
+	const groupsById = new Map(catalog.map((group) => [group.id, group]));
 	const sortBy = input.sortBy === 'rank' ? 'rank' : 'alphabetical';
 	const rankCatalog = sortBy === 'rank' ? await ctx.loadRankCatalog() : [];
 	const rowById = rowsById(rows);
 	const personnelSnapshot = sortSnapshot(
-		personnelIds.map((id) => canonicalSnapshotFor(rowById.get(id)!, groupNames)),
+		personnelIds.map((id) => canonicalSnapshotFor(rowById.get(id)!, groupsById)),
 		sortBy,
 		rankCatalog.length > 0 ? rankCatalog : undefined
 	);
@@ -113,26 +119,6 @@ async function loadPersonnelRows(ctx: SignInRosterSnapshotContext, personnelIds:
 	return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
 
-async function loadGroupNames(ctx: SignInRosterSnapshotContext, rows: PersonnelRow[]): Promise<Map<string, string>> {
-	const names = new Map<string, string>();
-	for (const row of rows) {
-		const groupName = row.groupName;
-		if (row.groupId && typeof groupName === 'string') {
-			names.set(row.groupId, groupName);
-		}
-	}
-
-	const missingGroupIds = uniqueStrings(
-		rows.map((row) => row.groupId).filter((id): id is string => typeof id === 'string' && !names.has(id))
-	);
-	if (missingGroupIds.length === 0) return names;
-
-	for (const [id, name] of await ctx.findGroupNamesByIds(missingGroupIds)) {
-		names.set(id, name);
-	}
-	return names;
-}
-
 function scopeGroupIdsForRows(rows: PersonnelRow[]): string[] {
 	if (rows.some((row) => !row.groupId)) return [];
 	return uniqueStrings(rows.map((row) => row.groupId).filter((id): id is string => typeof id === 'string'));
@@ -142,15 +128,22 @@ function rowsById(rows: PersonnelRow[]): Map<string, PersonnelRow> {
 	return new Map(rows.map((row) => [row.id, row]));
 }
 
-function canonicalSnapshotFor(row: PersonnelRow, groupNames: Map<string, string>): CanonicalSignInRosterSnapshot {
+function canonicalSnapshotFor(row: PersonnelRow, groupsById: Map<string, Group>): CanonicalSignInRosterSnapshot {
+	const group = row.groupId ? groupsById.get(row.groupId) : undefined;
 	return {
 		id: row.id,
 		rank: row.rank ?? '',
 		lastName: row.lastName ?? '',
 		firstName: row.firstName ?? '',
-		group: row.groupId ? (groupNames.get(row.groupId) ?? '') : '',
-		groupId: row.groupId ?? null
+		group: row.groupName ?? group?.name ?? '',
+		groupId: row.groupId ?? null,
+		groupAncestors: ancestorsOf(group, groupsById)
 	};
+}
+
+function ancestorsOf(group: Group | undefined, groupsById: Map<string, Group>): SavedGroup[] {
+	const parent = group?.parentId ? groupsById.get(group.parentId) : undefined;
+	return parent ? [...ancestorsOf(parent, groupsById), { id: parent.id, name: parent.name }] : [];
 }
 
 function sortSnapshot(

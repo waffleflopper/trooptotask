@@ -32,6 +32,7 @@ export interface PersonnelMemoryStore {
 import {
 	GROUP_NAME_EXISTS_MESSAGE,
 	GROUP_ORDER_CHANGED_MESSAGE,
+	GROUP_PARENT_GONE_MESSAGE,
 	GROUP_UNAVAILABLE_MESSAGE,
 	type PersonnelRecordPersistence,
 	type PersonnelRosterReader,
@@ -47,7 +48,7 @@ import {
 	personnelEditableRow,
 	personnelInsertRow
 } from './personnelPersistenceMapping.server';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { visibleGroupIds } from './groupCatalog.server';
 
 export function createInMemoryPersonnelRecordPersistence(
@@ -210,12 +211,14 @@ export function createInMemoryPersonnelRosterReader(store: PersonnelMemoryStore,
 export function createInMemoryGroupPersistence(
 	store: PersonnelMemoryStore,
 	orgId: string,
-	scopeSet: ScopeSet
+	scopeSet: GroupCoverage
 ): GroupPersistence {
 	const map = (row: Record<string, unknown>) => ({
 		id: row.id as string,
 		name: row.name as string,
-		sortOrder: row.sort_order as number
+		sortOrder: row.sort_order as number,
+		parentId: (row.parent_id as string | null) ?? null,
+		depth: (row.depth ?? 1) as 1 | 2 | 3
 	});
 	async function rows(select: string, requestedIds?: string[]) {
 		const ids = visibleGroupIds(scopeSet, requestedIds);
@@ -238,46 +241,100 @@ export function createInMemoryGroupPersistence(
 			const [row] = await rows('id', [id]);
 			return row ? { id: row.id as string } : null;
 		},
-		async findNamesByIds(ids) {
-			return new Map(
-				(await rows('id, name', ids))
-					.filter((row): row is Record<string, unknown> & { id: string; name: string } => typeof row.name === 'string')
-					.map((row) => [row.id, row.name])
-			);
-		},
 		async create(input) {
-			if (await store.findOne('groups', orgId, { name: input.name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
-			return map(await store.insert('groups', orgId, { name: input.name, sort_order: input.sortOrder ?? 0 }));
+			const parentId = input.parentId ?? null;
+			if ((await rows('*')).some((group) => (group.parent_id ?? null) === parentId && group.name === input.name))
+				fail(409, GROUP_NAME_EXISTS_MESSAGE);
+			const parent = parentId ? await store.findOne<Record<string, unknown>>('groups', orgId, { id: parentId }) : null;
+			if (parentId && !parent) fail(404, GROUP_UNAVAILABLE_MESSAGE);
+			const depth = parent ? Number(parent.depth ?? 1) + 1 : 1;
+			if (depth > 3) fail(400, 'Invalid Group change');
+			return map(
+				await store.insert('groups', orgId, {
+					name: input.name,
+					sort_order: input.sortOrder ?? 0,
+					parent_id: parentId,
+					depth
+				})
+			);
 		},
 		async rename(id, name) {
 			const group = await store.findOne<Record<string, unknown>>('groups', orgId, { id });
 			if (!group) fail(404, GROUP_UNAVAILABLE_MESSAGE);
 			if (group.name === name) return map(group);
-			if (await store.findOne('groups', orgId, { name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
-			const row = map(await store.update('groups', orgId, id, { name }));
-			for (const pin of await store.findMany<{ id: string; user_id: string }>('user_pinned_groups', orgId, {
-				group_name: group.name
-			})) {
-				await store.deleteWhere('user_pinned_groups', orgId, { user_id: pin.user_id, group_name: name });
-				await store.update('user_pinned_groups', orgId, pin.id, { group_name: name });
-			}
-			return row;
+			if (
+				(await rows('*')).some(
+					(other) => (other.parent_id ?? null) === (group.parent_id ?? null) && other.name === name
+				)
+			)
+				fail(409, GROUP_NAME_EXISTS_MESSAGE);
+			return map(await store.update('groups', orgId, id, { name }));
 		},
-		async setOrder(ids, expectedIds) {
-			const saved = (await rows('id')).map((row) => row.id as string);
+		async setOrder(ids, expectedIds, parentId = null) {
+			const saved = (await rows('id, parent_id'))
+				.filter((row) => (row.parent_id ?? null) === parentId)
+				.map((row) => row.id as string);
 			if (saved.join() === ids.join()) return;
 			if (saved.join() !== expectedIds.join()) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
 			if (ids.length !== saved.length || saved.some((id) => !ids.includes(id))) fail(400, 'Choose every Group once');
 			for (const [index, id] of ids.entries()) await store.update('groups', orgId, id, { sort_order: index });
 		},
+		async move(id, parentId) {
+			const catalog = (await rows('*')).map(map);
+			const group = catalog.find((candidate) => candidate.id === id);
+			if (!group) fail(404, GROUP_UNAVAILABLE_MESSAGE);
+			const parent = parentId ? catalog.find((candidate) => candidate.id === parentId) : null;
+			if (parentId && !parent) fail(400, GROUP_PARENT_GONE_MESSAGE);
+			const subtree = new Set([id]);
+			for (let pass = 1; pass < 3; pass++) {
+				for (const other of catalog) if (other.parentId && subtree.has(other.parentId)) subtree.add(other.id);
+			}
+			if (parentId && subtree.has(parentId)) fail(400, 'A Group cannot move under one of its own sub-groups.');
+			const depth = parent ? parent.depth + 1 : 1;
+			const height =
+				Math.max(...catalog.filter((other) => subtree.has(other.id)).map((other) => other.depth)) - group.depth;
+			if (depth + height > 3) fail(400, 'Groups can nest at most three levels deep.');
+			const siblings = catalog.filter((other) => other.parentId === parentId && other.id !== id);
+			if (siblings.some((other) => other.name === group.name)) fail(409, GROUP_NAME_EXISTS_MESSAGE);
+			const moved = await store.update<Record<string, unknown>>('groups', orgId, id, {
+				parent_id: parentId,
+				sort_order: Math.max(-1, ...siblings.map((other) => other.sortOrder)) + 1,
+				depth
+			});
+			for (const other of catalog) {
+				if (other.id !== id && subtree.has(other.id))
+					await store.update('groups', orgId, other.id, { depth: other.depth + depth - group.depth });
+			}
+			return map(moved);
+		},
+		async countActiveMembers() {
+			const ids = visibleGroupIds(scopeSet);
+			const people = await store.findMany<{ group_id: string | null; archived_at: string | null }>('personnel', orgId);
+			const counts = new Map<string, number>();
+			for (const person of people) {
+				if (!person.group_id || person.archived_at || (ids && !ids.includes(person.group_id))) continue;
+				counts.set(person.group_id, (counts.get(person.group_id) ?? 0) + 1);
+			}
+			return counts;
+		},
 		async deleteWithReassignment(id, targetId) {
-			const group = await store.findOne<{ name: string }>('groups', orgId, { id });
+			const group = await store.findOne('groups', orgId, { id });
 			if (!group || (targetId && !(await store.findOne('groups', orgId, { id: targetId }))))
 				fail(404, GROUP_UNAVAILABLE_MESSAGE);
-			const members = await store.findMany<{ id: string }>('personnel', orgId, { group_id: id });
+			const catalog = (await rows('*')).map(map);
+			const subtree = new Set([id]);
+			for (let depth = 1; depth < 3; depth++) {
+				for (const group of catalog) if (group.parentId && subtree.has(group.parentId)) subtree.add(group.id);
+			}
+			if (targetId && subtree.has(targetId)) fail(400, 'Choose another Group for the members');
+			const members = await store.findMany<{ id: string }>('personnel', orgId, undefined, {
+				inFilters: { group_id: [...subtree] }
+			});
 			for (const member of members) await store.update('personnel', orgId, member.id, { group_id: targetId });
-			await store.delete('groups', orgId, id);
-			await store.deleteWhere('user_pinned_groups', orgId, { group_name: group.name });
+			for (const group of catalog.filter((group) => subtree.has(group.id)).sort((a, b) => b.depth - a.depth)) {
+				await store.delete('groups', orgId, group.id);
+				await store.deleteWhere('user_pinned_groups', orgId, { group_id: group.id });
+			}
 			return members.length;
 		}
 	};
@@ -288,40 +345,32 @@ export function createInMemorySelfPinPersistence(
 	userId: string
 ): SelfPinPersistence {
 	return {
-		async listNames() {
+		async listGroupIds() {
 			return (
-				await store.findMany<{ group_name: string }>(
+				await store.findMany<{ group_id: string }>(
 					'user_pinned_groups',
 					orgId,
 					{ user_id: userId },
 					{
-						select: 'group_name',
+						select: 'group_id',
 						orderBy: [
 							{ column: 'sort_order', ascending: true },
 							{ column: 'id', ascending: true }
 						]
 					}
 				)
-			).map((row) => row.group_name);
+			).map((row) => row.group_id);
 		},
 		async insert(input) {
-			const row = await store.insert<{ id: string; group_name: string; sort_order: number }>(
+			const row = await store.insert<{ id: string; group_id: string; sort_order: number }>(
 				'user_pinned_groups',
 				orgId,
-				{ user_id: userId, group_name: input.groupName, sort_order: input.sortOrder ?? 0 }
+				{ user_id: userId, group_id: input.groupId, sort_order: input.sortOrder ?? 0 }
 			);
-			return { id: row.id, groupName: row.group_name, sortOrder: row.sort_order };
+			return { id: row.id, groupId: row.group_id, sortOrder: row.sort_order };
 		},
-		removeName: (groupName) =>
-			store.deleteWhere('user_pinned_groups', orgId, { user_id: userId, group_name: groupName }),
-		async replaceNames(names) {
-			await store.deleteWhere('user_pinned_groups', orgId, { user_id: userId });
-			if (names.length)
-				await store.insertMany(
-					'user_pinned_groups',
-					orgId,
-					names.map((groupName, sortOrder) => ({ user_id: userId, group_name: groupName, sort_order: sortOrder }))
-				);
+		async remove(groupId) {
+			await store.deleteWhere('user_pinned_groups', orgId, { user_id: userId, group_id: groupId });
 		}
 	};
 }

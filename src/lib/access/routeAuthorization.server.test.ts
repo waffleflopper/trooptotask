@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
@@ -19,7 +20,7 @@ describe('route authorization', () => {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: { ...NO_CAPABILITIES, criticalTasks: 'operate' },
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 			}
 		});
 
@@ -126,7 +127,7 @@ describe('route authorization', () => {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: NO_CAPABILITIES,
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 			}
 		});
 

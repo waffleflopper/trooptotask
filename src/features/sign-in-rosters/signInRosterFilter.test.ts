@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RankCatalogEntry } from '$features/personnel/contracts';
+import { buildGroupTree, type RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	emptySignInRosterFilter,
 	filterSignInRosterPersonnel,
@@ -19,6 +19,21 @@ const personnel = [
 	{ id: 'other-role', groupId: 'alpha', rank: 'SGT', mos: '68W', clinicRole: 'Cook' }
 ];
 
+const tree = buildGroupTree([
+	{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+	{ id: 'alpha-1', name: '1st Squad', sortOrder: 0, parentId: 'alpha', depth: 2 },
+	{ id: 'alpha-1-a', name: 'Alpha Team', sortOrder: 0, parentId: 'alpha-1', depth: 3 },
+	{ id: 'bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 },
+	{ id: 'charlie', name: 'Charlie', sortOrder: 2, parentId: null, depth: 1 }
+]);
+
+const squadPerson = (groupId: string | null): SignInRosterFilterPerson => ({
+	groupId,
+	rank: 'SGT',
+	mos: null,
+	clinicRole: null
+});
+
 describe('Sign-in roster audience filters', () => {
 	it('requires every selected dimension and accepts either selected value within each dimension', () => {
 		const filter: SignInRosterFilter = {
@@ -28,14 +43,14 @@ describe('Sign-in roster audience filters', () => {
 			roles: ['Medic', 'Driver']
 		};
 
-		expect(filterSignInRosterPersonnel(personnel, filter).map((person) => person.id)).toEqual([
+		expect(filterSignInRosterPersonnel(personnel, filter, tree).map((person) => person.id)).toEqual([
 			'alpha-medic',
 			'bravo-driver'
 		]);
 	});
 
 	it('leaves the audience unrestricted when every dimension is empty', () => {
-		expect(filterSignInRosterPersonnel(personnel, emptySignInRosterFilter()).map((person) => person.id)).toEqual([
+		expect(filterSignInRosterPersonnel(personnel, emptySignInRosterFilter(), tree).map((person) => person.id)).toEqual([
 			'alpha-medic',
 			'bravo-driver',
 			'other-group',
@@ -51,7 +66,7 @@ describe('Sign-in roster audience filters', () => {
 		{ filter: { groups: [], ranks: [], mos: ['11B'], roles: [] }, expected: ['other-mos'] },
 		{ filter: { groups: [], ranks: [], mos: [], roles: ['Cook'] }, expected: ['other-role'] }
 	])('applies a single dimension with the other dimensions empty, $filter', ({ filter, expected }) => {
-		expect(filterSignInRosterPersonnel(personnel, filter).map((person) => person.id)).toEqual(expected);
+		expect(filterSignInRosterPersonnel(personnel, filter, tree).map((person) => person.id)).toEqual(expected);
 	});
 
 	it.each<SignInRosterFilter>([
@@ -61,21 +76,45 @@ describe('Sign-in roster audience filters', () => {
 	])('requires a value for a selected dimension while allowing nulls in an unrestricted audience, %j', (filter) => {
 		const person: SignInRosterFilterPerson = { groupId: null, rank: 'SGT', mos: null, clinicRole: null };
 
-		expect(matchesSignInRosterFilter(person, emptySignInRosterFilter())).toBe(true);
-		expect(matchesSignInRosterFilter(person, filter)).toBe(false);
+		expect(matchesSignInRosterFilter(person, emptySignInRosterFilter(), tree)).toBe(true);
+		expect(matchesSignInRosterFilter(person, filter, tree)).toBe(false);
 	});
 
 	it('matches a stored rank with surrounding spaces to the rank it is offered as', () => {
 		const person: SignInRosterFilterPerson = { groupId: 'alpha', rank: ' SGT ', mos: '68W', clinicRole: 'Medic' };
 
-		expect(matchesSignInRosterFilter(person, { groups: [], ranks: ['SGT'], mos: [], roles: [] })).toBe(true);
+		expect(matchesSignInRosterFilter(person, { groups: [], ranks: ['SGT'], mos: [], roles: [] }, tree)).toBe(true);
 	});
 
 	it('matches group ids independently of group labels', () => {
 		const person = { ...personnel[0], groupName: 'bravo' };
 
-		expect(matchesSignInRosterFilter(person, { groups: ['alpha'], ranks: [], mos: [], roles: [] })).toBe(true);
-		expect(matchesSignInRosterFilter(person, { groups: ['bravo'], ranks: [], mos: [], roles: [] })).toBe(false);
+		expect(matchesSignInRosterFilter(person, { groups: ['alpha'], ranks: [], mos: [], roles: [] }, tree)).toBe(true);
+		expect(matchesSignInRosterFilter(person, { groups: ['bravo'], ranks: [], mos: [], roles: [] }, tree)).toBe(false);
+	});
+
+	it('takes in everyone under a chosen Group', () => {
+		const squad = { groupId: 'alpha-1', rank: 'SGT', mos: null, clinicRole: null };
+		const team = { ...squad, groupId: 'alpha-1-a' };
+		const bravo = { ...squad, groupId: 'bravo' };
+		const filter = { groups: ['alpha'], ranks: [], mos: [], roles: [] };
+
+		expect([squad, team, bravo].map((person) => matchesSignInRosterFilter(person, filter, tree))).toEqual([
+			true,
+			true,
+			false
+		]);
+	});
+
+	it('treats a stored Group that is no longer a top-level Group as any group', () => {
+		const people = [squadPerson('alpha-1'), squadPerson('bravo'), squadPerson(null)];
+		const filter = { groups: ['alpha-1'], ranks: [], mos: [], roles: [] };
+
+		expect(filterSignInRosterPersonnel(people, filter, tree).map((person) => person.groupId)).toEqual([
+			'alpha-1',
+			'bravo',
+			null
+		]);
 	});
 
 	it('creates independent empty drafts', () => {

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { buildGroupTree } from '$features/personnel/contracts';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import {
 	availableActions,
 	filterTaskings,
@@ -14,6 +16,7 @@ import {
 const TODAY = '2026-10-25';
 const EVENT = '00000000-0000-4000-8000-000000000301';
 const ALPHA = '00000000-0000-4000-8000-000000000201';
+const alphaTree = buildGroupTree([{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }]);
 
 function tasking(id: string, overrides: Partial<Tasking> = {}): Tasking {
 	return {
@@ -122,7 +125,7 @@ describe('Tasking list filters', () => {
 			tasking('far', { suspenseOn: '2026-12-20' })
 		];
 		const ids = (overrides: Partial<typeof DEFAULT_TASKING_FILTERS>) =>
-			filterTaskings(list, { ...DEFAULT_TASKING_FILTERS, ...overrides }, TODAY).map((shown) => shown.id);
+			filterTaskings(list, { ...DEFAULT_TASKING_FILTERS, ...overrides }, TODAY, alphaTree).map((shown) => shown.id);
 
 		expect(ids({})).toEqual(['late', 'roster', 'lanes', 'far']);
 		expect(ids({ view: 'overdue' })).toEqual(['late']);
@@ -132,6 +135,33 @@ describe('Tasking list filters', () => {
 		expect(ids({ responsibility: 'organization' })).toEqual(['late', 'roster', 'far']);
 		expect(ids({ within: '7' })).toEqual(['roster', 'lanes']);
 		expect(ids({ search: 'best medic' })).toEqual(['roster', 'lanes']);
+	});
+});
+
+describe('the Responsible filter on nested Groups', () => {
+	const tree = buildGroupTree(NESTED_GROUPS);
+	const owned = (id: string, groupId: string | null) =>
+		tasking(id, { responsibility: groupId ? { kind: 'group', groupId } : { kind: 'organization' } });
+	const list = [
+		owned('platoon', 'platoon'),
+		owned('squad', 'squad'),
+		owned('team', 'alpha'),
+		owned('sibling', 'other-platoon'),
+		owned('company', null)
+	];
+	const ids = (responsibility: string) =>
+		filterTaskings(list, { ...DEFAULT_TASKING_FILTERS, responsibility }, TODAY, tree).map((shown) => shown.id);
+
+	it('shows a squad-owned and a team-owned Tasking under their platoon and leaves out the other platoon', () => {
+		expect(ids('platoon')).toEqual(['platoon', 'squad', 'team']);
+	});
+
+	it('reads a Group that is not top-level as all', () => {
+		expect(ids('squad')).toEqual(['company', 'platoon', 'sibling', 'squad', 'team']);
+	});
+
+	it('keeps the Organization choice to Organization-owned Taskings', () => {
+		expect(ids('organization')).toEqual(['company']);
 	});
 });
 

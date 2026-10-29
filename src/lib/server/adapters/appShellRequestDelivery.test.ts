@@ -35,20 +35,28 @@ describe('AppShell admitted request composition', () => {
 			global: {
 				fetch: async (input, init) => {
 					const url = new URL(String(input));
-					if (init?.method !== 'GET') throw new Error('Only read requests are permitted');
+					if (init?.method !== 'GET' && !url.pathname.endsWith('/rpc/read_request_member_access'))
+						throw new Error('Only read requests are permitted');
 					if (url.pathname.endsWith('/organizations')) {
 						const id = url.searchParams.get('id')?.slice(3);
 						return Response.json([{ id, name: id === ORG_A ? 'Alpha' : 'Bravo', url_slug: null, suspended_at: null }]);
 					}
-					if (url.pathname.endsWith('/organization_memberships')) {
-						const userId = url.searchParams.get('user_id')?.slice(3);
-						const orgId = url.searchParams.get('organization_id')?.slice(3);
+					if (url.pathname.endsWith('/rpc/read_request_member_access')) {
+						const { p_organization_id: orgId } = JSON.parse(String(init?.body));
+						const userId = orgId === ORG_A ? 'account-a' : 'account-b';
 						memberReads.push(`${userId}:${orgId}`);
 						if (userId === 'account-a') {
 							started();
 							await held;
 						}
-						return Response.json(rows.filter((row) => row.user_id === userId && row.organization_id === orgId));
+						return Response.json(
+							rows
+								.filter((row) => row.user_id === userId && row.organization_id === orgId)
+								.map((row) => ({
+									...row,
+									covered_group_ids: 'access_scope_group_ids' in row ? row.access_scope_group_ids : []
+								}))[0]
+						);
 					}
 					if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
 					if (url.pathname.endsWith('/user_profiles')) return Response.json([]);
@@ -112,8 +120,8 @@ describe('AppShell admitted request composition', () => {
 						const url = new URL(String(input));
 						if (url.pathname.endsWith('/organizations'))
 							return Response.json([{ id: ORG_A, name: 'Alpha', url_slug: null, suspended_at: null }]);
-						if (url.pathname.endsWith('/organization_memberships'))
-							return Response.json([{ id: 'member-a', user_id: 'account-a', organization_id: ORG_A, role: 'owner' }]);
+						if (url.pathname.endsWith('/rpc/read_request_member_access'))
+							return Response.json({ id: 'member-a', user_id: 'account-a', organization_id: ORG_A, role: 'owner' });
 						if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
 						return Response.json([]);
 					}

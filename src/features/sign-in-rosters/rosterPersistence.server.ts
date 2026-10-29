@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '$lib/server/database';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type { SignInRoster } from './sign-in-rosters.types';
 import { sanitizeFilterConfig, type PreparedSignInRosterSnapshot } from './snapshot.server';
 
@@ -68,7 +68,7 @@ function toRoster(row: RosterRow): SignInRoster {
 
 export function createSupabaseSignInRosterPersistence(
 	client: SupabaseClient,
-	{ orgId, scopeSet }: { orgId: string; scopeSet: ScopeSet }
+	{ orgId, scopeSet }: { orgId: string; scopeSet: GroupCoverage }
 ): SignInRosterPersistence {
 	const groupIds = scopeSet.kind === 'groups' ? [...new Set(scopeSet.groupIds.filter(Boolean))] : null;
 

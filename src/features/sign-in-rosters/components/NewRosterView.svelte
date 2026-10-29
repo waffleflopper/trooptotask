@@ -3,9 +3,10 @@
 	import PrinterIcon from '@lucide/svelte/icons/printer';
 	import {
 		BUILT_IN_ARMY_RANK_OPTIONS,
+		type Group,
+		type GroupTree,
 		type Personnel,
-		type RankCatalogEntry,
-		type RosterGroupCatalogEntry
+		type RankCatalogEntry
 	} from '$features/personnel/contracts';
 	import * as SegmentedFilter from '$lib/components/patterns/segmented-filter';
 	import * as Alert from '$lib/components/ui/alert';
@@ -17,8 +18,8 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Switch } from '$lib/components/ui/switch';
 	import { cn } from '$lib/utils';
-	import { rosterDateLine, rosterPrintRows } from '../rosterPrintRows';
-	import { signInRosterFilterOptions, signInRosterRankCategoryGroups } from '../signInRosterFilter';
+	import { rosterDateLine, rosterPrintRows, rosterSplit } from '../rosterPrintRows';
+	import { chosenRosterGroups, signInRosterFilterOptions, signInRosterRankCategoryGroups } from '../signInRosterFilter';
 	import { signInRosterRankOptions } from '../signInRosterRankOrder';
 	import AudienceFilter from './AudienceFilter.svelte';
 	import type { NewRoster } from './newRoster.svelte';
@@ -27,16 +28,16 @@
 		draft,
 		personnel,
 		groups,
+		tree,
 		rankCatalog,
-		compareGroupNames,
 		onBack,
 		onSave
 	}: {
 		draft: NewRoster;
 		personnel: readonly Personnel[];
-		groups: readonly RosterGroupCatalogEntry[];
+		groups: readonly Group[];
+		tree: GroupTree;
 		rankCatalog: readonly RankCatalogEntry[] | undefined;
-		compareGroupNames: (a: string, b: string) => number;
 		onBack: () => void;
 		onSave: () => void;
 	} = $props();
@@ -52,11 +53,7 @@
 		{ key: 'civilian', label: 'Civilians' }
 	] as const;
 
-	const groupItems = $derived(
-		[...groups]
-			.sort((a, b) => compareGroupNames(a.name, b.name))
-			.map((group) => ({ value: group.id, label: group.name }))
-	);
+	const groupItems = $derived(tree.roots.map((node) => ({ value: node.id, label: node.name })));
 	const rankOptions = $derived(
 		signInRosterRankOptions(
 			rankCatalog,
@@ -69,7 +66,14 @@
 	const audienceOptions = $derived(signInRosterFilterOptions(personnel));
 	const mosItems = $derived(audienceOptions.mos.map((value) => ({ value, label: value })));
 	const roleItems = $derived(audienceOptions.roles.map((value) => ({ value, label: value })));
-	const printRows = $derived(rosterPrintRows(draft.snapshot, draft.separateByGroup, compareGroupNames));
+	const printRows = $derived(
+		rosterPrintRows(
+			draft.snapshot,
+			rosterSplit({ separateByGroup: draft.separateByGroup, filterConfig: draft.filter }),
+			tree,
+			groups
+		)
+	);
 	const nobody = $derived(draft.people.length === 0);
 </script>
 
@@ -171,7 +175,7 @@
 				label="Group"
 				anyLabel="Any group"
 				items={groupItems}
-				values={draft.filter.groups}
+				values={chosenRosterGroups(draft.filter, tree)}
 				onChange={(next) => draft.setFilter('groups', next)}
 				emptyText="No groups yet."
 			/>

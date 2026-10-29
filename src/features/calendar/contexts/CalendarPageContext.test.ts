@@ -13,6 +13,7 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
@@ -44,7 +45,7 @@ vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 }));
 vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
-	groupsStore: { items: [], loading: false }
+	groupsStore: { items: [], loading: false, orgId: 'org1' }
 }));
 
 const savePreferences = vi.fn<(patch: Partial<CalendarDisplayPreferences>) => void>();
@@ -109,6 +110,9 @@ function makeMockOrg(
 	};
 }
 
+/** The all-option's wording is incidental; its value and count are what the filter offers. */
+const groupOption = ({ value, label, count }: { value: string; label: string; count?: number }) =>
+	value ? [value, label, count] : [value, count];
 describe('CalendarPageContext', () => {
 	let ctx: CalendarPageContext;
 	let org: CalendarPageAccess;
@@ -500,52 +504,86 @@ describe('CalendarPageContext', () => {
 	});
 
 	describe('calendar roster filters', () => {
+		const mutableGroups = groupsStore as unknown as { items: unknown[] };
+		const shown = (context: CalendarPageContext) =>
+			context.filteredPBG.map((band) => [band.groupId, band.personnel.map((person) => person.id)]);
+
+		beforeEach(() => {
+			mutableGroups.items = [
+				{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
+			];
+		});
+
+		afterEach(() => {
+			mutableGroups.items = [];
+		});
+
 		it('builds group filter options from the scoped roster', () => {
-			expect(ctx.groupFilterOptions).toEqual([
-				{ value: '', label: 'All groups', count: 2 },
-				{ value: 'g1', label: 'Alpha', count: 1 },
-				{ value: 'g2', label: 'Bravo', count: 1 }
+			expect(makeContext(mockData, org).groupFilterOptions.map(groupOption)).toEqual([
+				['', 2],
+				['g1', 'Alpha', 1],
+				['g2', 'Bravo', 1]
 			]);
 		});
 
-		it('filters the visible roster to one group', () => {
-			ctx.setCalendarGroupFilter('g2');
+		it('shows the whole roster in Group bands until a Group is picked, then only that Group', () => {
+			const context = makeContext(mockData, org);
+			expect(shown(context)).toEqual([
+				['g1', ['p1']],
+				['g2', ['p2']]
+			]);
 
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
-		});
-
-		it('filters the visible roster from typed personnel search text', () => {
-			ctx.setCalendarPersonnelSearch('med');
-
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+			context.setCalendarGroupFilter('g2');
+			expect(shown(context)).toEqual([['g2', ['p2']]]);
 		});
 
 		it('matches typed personnel search text against rank, MOS, name, role, and group', () => {
-			ctx.setCalendarPersonnelSearch('sgt');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Alpha', personnel: [mockPersonnel[0]] }]);
+			const context = makeContext(mockData, org);
+			const matches = (search: string) => {
+				context.setCalendarPersonnelSearch(search);
+				return shown(context);
+			};
 
-			ctx.setCalendarPersonnelSearch('68w');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
-
-			ctx.setCalendarPersonnelSearch('smith');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Alpha', personnel: [mockPersonnel[0]] }]);
-
-			ctx.setCalendarPersonnelSearch('medic');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
-
-			ctx.setCalendarPersonnelSearch('bravo');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+			expect(matches('med')).toEqual([['g2', ['p2']]]);
+			expect(matches('sgt')).toEqual([['g1', ['p1']]]);
+			expect(matches('68w')).toEqual([['g2', ['p2']]]);
+			expect(matches('smith')).toEqual([['g1', ['p1']]]);
+			expect(matches('bravo')).toEqual([['g2', ['p2']]]);
 		});
 
 		it('combines group filtering with typed personnel search text', () => {
-			ctx.setCalendarGroupFilter('g2');
-			ctx.setCalendarPersonnelSearch('alice');
+			const context = makeContext(mockData, org);
+			context.setCalendarGroupFilter('g2');
 
-			expect(ctx.calendarPersonnelSearch).toBe('alice');
-			expect(ctx.filteredPBG).toEqual([]);
+			context.setCalendarPersonnelSearch('alice');
+			expect(shown(context)).toEqual([]);
+			context.setCalendarPersonnelSearch('bob');
+			expect(shown(context)).toEqual([['g2', ['p2']]]);
+		});
 
-			ctx.setCalendarPersonnelSearch('bob');
-			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+		it("offers the top-level Groups and shows a platoon's HQ, squads and teams without the other platoon", () => {
+			mutableGroups.items = NESTED_GROUPS;
+			const member = (id: string, groupId: string): Personnel => ({ ...mockPersonnel[0], id, groupId });
+			const roster = [
+				member('hq', 'platoon'),
+				member('squad-lead', 'squad'),
+				member('team', 'alpha'),
+				member('sibling', 'other-platoon')
+			];
+			const context = makeContext({ ...mockData, personnel: roster, allPersonnel: roster }, org);
+
+			expect(context.groupFilterOptions.map(groupOption)).toEqual([
+				['', 4],
+				['platoon', '1st Platoon', 3],
+				['other-platoon', '2nd Platoon', 1]
+			]);
+			context.setCalendarGroupFilter('platoon');
+			expect(shown(context)).toEqual([
+				['platoon', ['hq']],
+				['squad', ['squad-lead']],
+				['alpha', ['team']]
+			]);
 		});
 	});
 

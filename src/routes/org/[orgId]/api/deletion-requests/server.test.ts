@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { _createDeleteConfig, _createPostConfig } from './+server';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
@@ -48,7 +49,7 @@ function createRequesterContext(
 					onboarding: 'none',
 					ratingScheme: 'operate'
 				},
-				scopeSet: groups ? { kind: 'groups', groupIds: groups } : { kind: 'organization' }
+				scopeSet: groups ? groupCoverageForTest({ kind: 'groups', groupIds: groups }) : { kind: 'organization' }
 			}
 		})
 	);

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '$lib/server/database';
@@ -18,7 +19,7 @@ function member(personnel: 'view' | 'operate' | 'configure', groupIds: string[] 
 			onboarding: 'none',
 			ratingScheme: 'none'
 		},
-		scopeSet: { kind: 'groups', groupIds }
+		scopeSet: groupCoverageForTest({ kind: 'groups', groupIds })
 	});
 }
 

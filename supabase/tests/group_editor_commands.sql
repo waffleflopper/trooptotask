@@ -44,8 +44,10 @@ CREATE FUNCTION pg_temp.group_names() RETURNS text[] LANGUAGE sql AS $$
   SELECT coalesce(array_agg(name ORDER BY sort_order, name, id), '{}') FROM public.groups WHERE organization_id = pg_temp.id('alpha_org');
 $$;
 CREATE FUNCTION pg_temp.pins(org text DEFAULT 'alpha_org') RETURNS text[] LANGUAGE sql AS $$
-  SELECT coalesce(array_agg(right(user_id::text, 1) || ':' || group_name ORDER BY user_id, group_name), '{}')
-  FROM public.user_pinned_groups WHERE organization_id = pg_temp.id(org);
+  SELECT coalesce(array_agg(right(pin.user_id::text, 1) || ':' || g.name ORDER BY pin.user_id, g.name), '{}')
+  FROM public.user_pinned_groups AS pin
+  JOIN public.groups AS g ON g.organization_id = pin.organization_id AND g.id = pin.group_id
+  WHERE pin.organization_id = pg_temp.id(org);
 $$;
 CREATE FUNCTION pg_temp.members(g text) RETURNS text[] LANGUAGE sql AS $$
   SELECT coalesce(array_agg(last_name ORDER BY last_name), '{}') FROM public.personnel
@@ -89,25 +91,21 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
 (pg_temp.id('archived_person'), pg_temp.id('alpha_org'), pg_temp.id('alpha_second_platoon'), 'SPC', 'C', 'Archived', 'ge-archived', '68W', '', '2026-01-01'),
 (pg_temp.id('chen'), pg_temp.id('alpha_org'), pg_temp.id('alpha_first_platoon'), 'SPC', 'D', 'Chen', 'ge-chen', '68W', '', NULL),
 (pg_temp.id('okafor'), pg_temp.id('alpha_org'), pg_temp.id('alpha_hq_group'), 'SSG', 'E', 'Okafor', 'ge-okafor', '68W', '', NULL);
-INSERT INTO public.user_pinned_groups (user_id, organization_id, group_name, sort_order) VALUES
-(pg_temp.id('org_wide_configurer'), pg_temp.id('alpha_org'), '2nd Platoon', 0),
-(pg_temp.id('org_wide_operator'), pg_temp.id('alpha_org'), '2nd Platoon', 0),
-(pg_temp.id('org_wide_viewer'), pg_temp.id('alpha_org'), 'HQ', 0),
-(pg_temp.id('org_wide_viewer'), pg_temp.id('alpha_org'), 'Weapons', 1),
-(pg_temp.id('bravo_owner'), pg_temp.id('bravo_org'), '2nd Platoon', 0),
-(pg_temp.id('bravo_owner'), pg_temp.id('bravo_org'), 'Weapons', 1);
+INSERT INTO public.user_pinned_groups (user_id, organization_id, group_id, sort_order) VALUES
+(pg_temp.id('org_wide_configurer'), pg_temp.id('alpha_org'), pg_temp.id('alpha_second_platoon'), 0),
+(pg_temp.id('org_wide_operator'), pg_temp.id('alpha_org'), pg_temp.id('alpha_second_platoon'), 0),
+(pg_temp.id('org_wide_viewer'), pg_temp.id('alpha_org'), pg_temp.id('alpha_hq_group'), 0),
+(pg_temp.id('group_scoped_configurer'), pg_temp.id('alpha_org'), pg_temp.id('alpha_second_platoon'), 0),
+(pg_temp.id('bravo_owner'), pg_temp.id('bravo_org'), pg_temp.id('bravo_second_platoon'), 0);
 
 SELECT pg_temp.act('org_wide_configurer');
-SELECT ok(NOT has_function_privilege('anon', 'public.set_group_order(uuid, uuid[], uuid[])', 'EXECUTE')
+SELECT ok(NOT has_function_privilege('anon', 'public.set_group_order(uuid, uuid[], uuid[], uuid)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.rename_group(uuid, uuid, text)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.delete_group_with_reassignment(uuid, uuid, uuid)', 'EXECUTE')
-  AND has_function_privilege('authenticated', 'public.set_group_order(uuid, uuid[], uuid[])', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.set_group_order(uuid, uuid[], uuid[], uuid)', 'EXECUTE')
   AND has_function_privilege('authenticated', 'public.delete_group_with_reassignment(uuid, uuid, uuid)', 'EXECUTE'),
   'only signed-in members can run the Group commands');
-SELECT ok(NOT has_function_privilege('anon', 'personnel_private.sync_group_pins()', 'EXECUTE')
-  AND NOT has_function_privilege('authenticated', 'personnel_private.sync_group_pins()', 'EXECUTE')
-  AND NOT has_function_privilege('service_role', 'personnel_private.sync_group_pins()', 'EXECUTE'),
-  'API roles cannot execute the privileged pin trigger');
+SELECT hasnt_trigger('public', 'groups', 'sync_group_pins', 'no trigger rewrites pins on a Group rename');
 
 SELECT pg_temp.act('group_scoped_configurer');
 SELECT throws_ok(pg_temp.order_sql(
@@ -129,34 +127,43 @@ SELECT pg_temp.act('bravo_owner');
 SELECT throws_ok(format('SELECT * FROM public.rename_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_hq_group'), 'Taken'),
   '42501', NULL, 'another Organization''s owner cannot rename a Group');
 SELECT pg_temp.act('org_wide_configurer');
-SELECT throws_ok('SELECT personnel_private.sync_group_pins()', '42501', NULL,
-  'an authenticated manager cannot execute the pin trigger');
-SELECT throws_ok($$SELECT personnel_private.carry_group_pins(pg_temp.id('alpha_org'), 'Weapons', 'HQ')$$,
-  '42883', NULL, 'the former helper cannot carry another viewer''s leftover pin');
-SELECT throws_ok($$SELECT personnel_private.carry_group_pins(pg_temp.id('alpha_org'), 'Weapons', NULL)$$,
-  '42883', NULL, 'the former helper cannot delete another viewer''s leftover pin');
 SELECT lives_ok(format('SELECT personnel_private.require_group_manager(%L)', pg_temp.id('alpha_org')),
   'a manager can still check Group authority');
 SELECT lives_ok(format('SELECT personnel_private.lock_group_catalog(%L)', pg_temp.id('alpha_org')),
   'a manager can still lock the Group catalog');
 SELECT is((SELECT name FROM public.rename_group(pg_temp.id('alpha_org'), pg_temp.id('alpha_hq_group'), 'HQ')), 'HQ',
   'renaming to the saved name leaves the Group unchanged');
-UPDATE public.groups SET name = name WHERE organization_id = pg_temp.id('alpha_org');
 SELECT pg_temp.act('org_wide_viewer');
-SELECT is(pg_temp.pins(), ARRAY['4:HQ', '4:Weapons'],
-  'calls without a Group rename or delete keep both existing and leftover pins');
 WITH changed AS (
   UPDATE public.groups SET name = 'Taken' WHERE id = pg_temp.id('alpha_hq_group') RETURNING 1
 ) SELECT is(count(*)::integer, 0, 'RLS refuses a non-manager''s direct Group rename') FROM changed;
 SELECT is((SELECT name FROM public.groups WHERE id = pg_temp.id('alpha_hq_group')), 'HQ',
   'a refused direct rename leaves the Group name unchanged');
-SELECT is(pg_temp.pins(), ARRAY['4:HQ', '4:Weapons'],
-  'a refused direct rename leaves the viewer''s pins unchanged');
+SELECT is(pg_temp.pins(), ARRAY['4:HQ'], 'an Organization-wide viewer reads only their own pin');
+SELECT lives_ok(format('INSERT INTO public.user_pinned_groups (user_id, organization_id, group_id, sort_order) VALUES (%L, %L, %L, 1)',
+    pg_temp.id('org_wide_viewer'), pg_temp.id('alpha_org'), pg_temp.id('alpha_first_platoon')),
+  'an Organization-wide viewer pins a Group');
+SELECT throws_ok(format('INSERT INTO public.user_pinned_groups (user_id, organization_id, group_id, sort_order) VALUES (%L, %L, %L, 2)',
+    pg_temp.id('org_wide_viewer'), pg_temp.id('alpha_org'), pg_temp.id('bravo_hq_group')),
+  '23503', NULL, 'a pin cannot point at another Organization''s Group');
+SELECT throws_ok(format('INSERT INTO public.user_pinned_groups (user_id, organization_id, group_id, sort_order) VALUES (%L, %L, %L, 2)',
+    pg_temp.id('org_wide_operator'), pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group')),
+  '42501', NULL, 'a viewer cannot pin for another member');
+WITH removed AS (
+  DELETE FROM public.user_pinned_groups WHERE group_id = pg_temp.id('alpha_first_platoon') RETURNING 1
+) SELECT is(count(*)::integer, 1, 'an Organization-wide viewer unpins their own pin') FROM removed;
+SELECT pg_temp.act('group_scoped_configurer');
+SELECT is(pg_temp.pins(), ARRAY[]::text[], 'a Group-scoped reader reads none of their saved pins');
+SELECT throws_ok(format('INSERT INTO public.user_pinned_groups (user_id, organization_id, group_id, sort_order) VALUES (%L, %L, %L, 1)',
+    pg_temp.id('group_scoped_configurer'), pg_temp.id('alpha_org'), pg_temp.id('alpha_first_platoon')),
+  '42501', NULL, 'a Group-scoped reader cannot pin a Group');
+WITH removed AS (
+  DELETE FROM public.user_pinned_groups WHERE organization_id = pg_temp.id('alpha_org') RETURNING 1
+) SELECT is(count(*)::integer, 0, 'a Group-scoped reader cannot unpin') FROM removed;
 SELECT pg_temp.act('org_wide_configurer');
 WITH moved AS (
-  UPDATE public.user_pinned_groups SET group_name = 'Mine' WHERE organization_id = pg_temp.id('alpha_org') RETURNING 1
-) SELECT is(count(*)::integer, 1, 'row security alone lets a manager move only their own pins') FROM moved;
-UPDATE public.user_pinned_groups SET group_name = '2nd Platoon' WHERE group_name = 'Mine';
+  UPDATE public.user_pinned_groups SET sort_order = 7 WHERE organization_id = pg_temp.id('alpha_org') RETURNING 1
+) SELECT is(count(*)::integer, 1, 'row security alone lets a manager change only their own pins') FROM moved;
 SELECT is(pg_temp.group_names(), ARRAY['HQ', '1st Platoon', '2nd Platoon', 'Empty'], 'refused commands kept the order');
 
 SELECT pg_temp.act('org_wide_configurer');
@@ -187,11 +194,9 @@ SELECT throws_ok(pg_temp.order_sql(
   'an order that names a Group twice is refused');
 SELECT is(pg_temp.group_names(), ARRAY['2nd Platoon', 'HQ', '1st Platoon', 'Empty'], 'the display order saved');
 SELECT pg_temp.act('org_wide_viewer');
-SELECT is(pg_temp.pins(), ARRAY['4:HQ', '4:Weapons'], 'reordering leaves existing and leftover pins unchanged');
+SELECT is(pg_temp.pins(), ARRAY['4:HQ'], 'reordering leaves pins unchanged');
 
 SELECT pg_temp.act('org_wide_configurer');
-INSERT INTO public.user_pinned_groups (user_id, organization_id, group_name, sort_order)
-VALUES (pg_temp.id('org_wide_configurer'), pg_temp.id('alpha_org'), 'Weapons', 1);
 SELECT is((SELECT name FROM public.rename_group(pg_temp.id('alpha_org'), pg_temp.id('alpha_second_platoon'), '  Weapons ')), 'Weapons',
   'a rename trims and returns the saved name');
 SELECT throws_ok(format('SELECT * FROM public.rename_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_hq_group'), '1st Platoon'),
@@ -200,13 +205,38 @@ SELECT throws_ok(format('SELECT * FROM public.rename_group(%L, %L, %L)', pg_temp
   '22023', NULL, 'a blank name is refused');
 SELECT throws_ok(format('SELECT * FROM public.rename_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('bravo_hq_group'), 'Mine'),
   'P0002', NULL, 'another Organization''s Group cannot be renamed');
-SELECT is(pg_temp.pins(), ARRAY['1:Weapons'], 'the manager''s old pin follows the rename without duplicates');
+SELECT is(pg_temp.pins(), ARRAY['1:Weapons'], 'the manager''s pin stays on the renamed Group');
 SELECT pg_temp.act('org_wide_operator');
-SELECT is(pg_temp.pins(), ARRAY['3:Weapons'], 'another member''s old pin follows the rename');
+SELECT is(pg_temp.pins(), ARRAY['3:Weapons'], 'another member''s pin stays on the renamed Group');
 SELECT pg_temp.act('org_wide_viewer');
-SELECT is(pg_temp.pins(), ARRAY['4:HQ', '4:Weapons'], 'a viewer without an old pin keeps both existing pins');
+SELECT is(pg_temp.pins(), ARRAY['4:HQ'], 'a viewer who never pinned the Group keeps their own pin');
 SELECT pg_temp.act('bravo_owner');
-SELECT is(pg_temp.pins('bravo_org'), ARRAY['5:2nd Platoon', '5:Weapons'], 'rename leaves another Organization''s pins unchanged');
+SELECT is(pg_temp.pins('bravo_org'), ARRAY['5:2nd Platoon'], 'rename leaves another Organization''s pins unchanged');
+
+SELECT ok(NOT has_function_privilege('anon', 'public.move_group(uuid, uuid, uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.move_group(uuid, uuid, uuid)', 'EXECUTE'),
+  'only signed-in members can move a Group');
+SELECT pg_temp.act('group_scoped_configurer');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('alpha_first_platoon')),
+  '42501', NULL, 'a Group-scoped configurer cannot move a Group');
+SELECT pg_temp.act('org_wide_operator');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('alpha_first_platoon')),
+  '42501', NULL, 'an operator cannot move a Group');
+SELECT pg_temp.act('bravo_owner');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('alpha_first_platoon')),
+  '42501', NULL, 'another Organization''s owner cannot move a Group');
+SELECT pg_temp.act('org_wide_configurer');
+SELECT results_eq(format('SELECT parent_id, depth, sort_order FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('alpha_first_platoon')),
+  format('VALUES (%L::uuid, 2, 0)', pg_temp.id('alpha_first_platoon')), 'a move puts the Group first under a parent with no sub-groups');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_first_platoon'), pg_temp.id('alpha_empty_group')),
+  '22023', NULL, 'a move under its own sub-group is refused');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('bravo_hq_group')),
+  '23503', NULL, 'a parent in another Organization is refused');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, NULL)', pg_temp.id('alpha_org'), pg_temp.id('bravo_hq_group')),
+  'P0002', NULL, 'another Organization''s Group cannot be moved');
+SELECT results_eq(format('SELECT parent_id, depth, sort_order FROM public.move_group(%L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group')),
+  'VALUES (NULL::uuid, 1, 3)', 'a move to the top level puts the Group last there');
+SELECT is(pg_temp.group_names(), ARRAY['Weapons', 'HQ', '1st Platoon', 'Empty'], 'moves leave the other Groups in place');
 
 SELECT pg_temp.act('org_wide_configurer');
 SELECT throws_ok(format('SELECT public.delete_group_with_reassignment(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_second_platoon'),
@@ -223,7 +253,10 @@ SELECT is(pg_temp.pins(), ARRAY[]::text[], 'deleting a Group removes another mem
 SELECT pg_temp.act('org_wide_viewer');
 SELECT is(pg_temp.pins(), ARRAY['4:HQ'], 'deleting a Group removes its pin and preserves an unrelated pin');
 SELECT pg_temp.act('bravo_owner');
-SELECT is(pg_temp.pins('bravo_org'), ARRAY['5:2nd Platoon', '5:Weapons'], 'delete leaves another Organization''s pins unchanged');
+SELECT is(pg_temp.pins('bravo_org'), ARRAY['5:2nd Platoon'], 'delete leaves another Organization''s pins unchanged');
+RESET role;
+SELECT is((SELECT count(*)::integer FROM public.user_pinned_groups WHERE user_id = pg_temp.id('group_scoped_configurer')), 0,
+  'deleting a Group also removes a Group-scoped reader''s stored pin on it');
 SELECT pg_temp.act('org_wide_configurer');
 SELECT is((SELECT public.delete_group_with_reassignment(pg_temp.id('alpha_org'), pg_temp.id('alpha_hq_group'), NULL)), 1,
   'deleting HQ to Unassigned moves its one member');

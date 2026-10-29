@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import {
@@ -28,6 +29,38 @@ const VISIBLE_PERSON = '00000000-0000-4000-8000-000000000021';
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
+
+it('saves Group-assigned duties for a platoon, squad, and team', async () => {
+	const ctx = buildContext();
+	ctx.store.seed('groups', [
+		{ id: GROUP_A, organization_id: ctx.auth.orgId, name: 'Platoon', parent_id: null, depth: 1 },
+		{ id: GROUP_B, organization_id: ctx.auth.orgId, name: 'Squad', parent_id: GROUP_A, depth: 2 },
+		{ id: GROUP_C, organization_id: ctx.auth.orgId, name: 'Team', parent_id: GROUP_B, depth: 3 }
+	]);
+	ctx.store.seed('assignment_types', [
+		{
+			id: GROUP_TYPE,
+			organization_id: ctx.auth.orgId,
+			name: 'Detail',
+			short_name: 'D',
+			assign_to: 'group',
+			color: '#123456',
+			sort_order: 0,
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same',
+			show_on_calendar: false
+		}
+	]);
+	const saved = [];
+	for (const assigneeId of [GROUP_A, GROUP_B, GROUP_C]) {
+		saved.push(await setDailyAssignmentSlot(ctx, { date: '2026-10-01', assignmentTypeId: GROUP_TYPE, assigneeId }));
+	}
+	expect(saved).toEqual([
+		expect.objectContaining({ assigneeId: GROUP_A }),
+		expect.objectContaining({ assigneeId: GROUP_B }),
+		expect.objectContaining({ assigneeId: GROUP_C })
+	]);
+});
 
 describe('replaceDailyAssignmentDay', () => {
 	it('preserves surviving slot identity, removes omitted slots and creates new slots for the day', async () => {
@@ -107,7 +140,7 @@ describe('replaceDailyAssignmentDay', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -141,7 +174,7 @@ describe('replaceDailyAssignmentDay', () => {
 				auth: {
 					role: 'member',
 					isPrivileged: false,
-					scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }),
 					capabilityMap: {
 						calendar: 'operate',
 						personnel: 'view',
@@ -181,7 +214,7 @@ describe('replaceDailyAssignmentDay', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -235,7 +268,7 @@ describe('replaceDailyAssignmentDay', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A, GROUP_B] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A, GROUP_B] })
 			}
 		});
 		ctx.store.seed('personnel', [{ id: PERSON_OUTSIDE_GROUP, organization_id: 'test-org', group_id: GROUP_C }]);
@@ -296,7 +329,7 @@ describe('setDailyAssignmentSlot', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -319,7 +352,7 @@ describe('setDailyAssignmentSlot', () => {
 	});
 
 	it('allows group assignees through Calendar group-scope policy', async () => {
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } } });
+		const ctx = buildContext({ auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }) } });
 
 		ctx.store.seed('assignment_types', [
 			{
@@ -358,7 +391,7 @@ describe('setDailyAssignmentSlot', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A, GROUP_B] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A, GROUP_B] })
 			}
 		});
 		ctx.store.seed('assignment_types', [
@@ -403,7 +436,7 @@ describe('setDailyAssignmentSlot with an occupied slot', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A, GROUP_B] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A, GROUP_B] })
 			}
 		});
 		ctx.store.seed('personnel', [
@@ -440,7 +473,7 @@ describe('clearDailyAssignmentSlot', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_A] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',

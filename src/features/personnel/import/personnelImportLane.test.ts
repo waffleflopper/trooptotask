@@ -6,8 +6,8 @@ import { lastFirstSplitter } from './personnelImportColumns';
 import { createPersonnelImportLane, type PersonnelImportSource } from './personnelImportLane';
 
 const groups = [
-	{ id: 'g1', name: '1st Platoon', sortOrder: 0 },
-	{ id: 'g2', name: '2nd Platoon', sortOrder: 1 }
+	{ id: 'g1', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'g2', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 
 function person(id: string, overrides: Partial<Personnel> = {}): Personnel {
@@ -244,6 +244,22 @@ describe('personnel import lane', () => {
 		});
 		expect(lane().references.group.create).toBeUndefined();
 		expect(lane({ canManageGroups: true }).references.group.create).toBeTypeOf('function');
+	});
+
+	it('asks which Group a name means when two Groups share it, and suggests only a unique abbreviation', () => {
+		const source = lane({
+			groups: [
+				...groups,
+				{ id: 'g3', name: 'Weapons', sortOrder: 2, parentId: null, depth: 1 as const },
+				{ id: 'g4', name: 'Weapons', sortOrder: 3, parentId: null, depth: 1 as const },
+				{ id: 'g5', name: '2nd Plt', sortOrder: 4, parentId: null, depth: 1 as const }
+			]
+		});
+
+		const ambiguous = match(source, 'group', { groupName: 'weapons' });
+		expect(ambiguous?.kind === 'many' && ambiguous.candidates.map((option) => option.id)).toEqual(['g3', 'g4']);
+		expect(match(source, 'group', { groupName: '1st Platoon' })).toMatchObject({ kind: 'one', option: { id: 'g1' } });
+		expect(match(source, 'group', { groupName: '2nd Pltn' })).toEqual({ kind: 'none' });
 	});
 
 	it('updates only the fields a row fills and differs on', () => {

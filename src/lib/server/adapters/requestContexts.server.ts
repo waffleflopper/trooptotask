@@ -87,7 +87,7 @@ import {
 	createSupabasePersonnelRatingSchemeRosterPort,
 	createSupabasePersonnelTrainingRosterPort,
 	createSupabaseSignInRosterPersonnelLookupPort,
-	findGroupNamesByIds,
+	listGroupCatalog,
 	loadOrganizationRankCatalog,
 	createSupabaseRankCatalogPersistence
 } from '$features/personnel/index.server';
@@ -667,6 +667,7 @@ export function createRequestRosterSettingsContext(request: AdmittedOrganization
 	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		...createRequestAvailabilityContext(request),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId, {
 			admin: getAdminClient,
 			actorId: request.auth.userId
@@ -750,11 +751,10 @@ export function createRequestSignInRosterCreationContext(request: AdmittedOrgani
 		userId: request.auth.userId,
 		scopeSet: request.auth.scopeSet,
 		personnelLookup: createSupabaseSignInRosterPersonnelLookupPort(getAdminClient),
-		findGroupNamesByIds: (groupIds: string[]) =>
-			findGroupNamesByIds(
-				{ groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet) },
-				groupIds
-			),
+		listGroupCatalog: () =>
+			listGroupCatalog({
+				groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet)
+			}),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog(
 				{ auth: request.auth, rankCatalog: rankCatalog },

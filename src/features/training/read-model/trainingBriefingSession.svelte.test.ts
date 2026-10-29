@@ -17,6 +17,7 @@ function reportFor(
 		organizationName: 'Test Company',
 		briefing: buildTrainingBriefing({
 			personnel: [],
+			groups: [],
 			types: [],
 			records: [],
 			filters: {},

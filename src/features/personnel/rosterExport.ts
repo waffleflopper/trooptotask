@@ -1,3 +1,6 @@
+import { buildGroupTree } from './groupTree';
+import { groupExportPath } from './groupPath';
+import type { Group } from './group.types';
 import type { Personnel } from './personnel.types';
 import { rosterAttentionCell, rosterStatusDot, type RosterStatusType, type SignalRow } from './rosterSignals';
 import type { WorkbookColumn, WorkbookRow } from '$lib/utils/workbook';
@@ -18,8 +21,10 @@ export const ROSTER_EXPORT_COLUMNS: WorkbookColumn[] = [
 export function rosterExportRows(
 	people: readonly Personnel[],
 	signalRow: (person: Personnel) => SignalRow,
-	statusTypes: readonly RosterStatusType[]
+	statusTypes: readonly RosterStatusType[],
+	groups: readonly Group[]
 ): WorkbookRow[] {
+	const tree = buildGroupTree(groups);
 	return people.map((person) => {
 		const signal = signalRow(person);
 		const dot = rosterStatusDot(signal, statusTypes);
@@ -30,7 +35,7 @@ export function rosterExportRows(
 			firstName: person.firstName,
 			mos: person.mos,
 			role: person.clinicRole,
-			group: person.groupName,
+			group: groupExportPath(tree, person.groupId),
 			ets: person.ets ?? '',
 			deros: person.deros ?? '',
 			today: dot.kind === 'present' ? 'Present' : dot.kind === 'away' ? dot.type.name : '',

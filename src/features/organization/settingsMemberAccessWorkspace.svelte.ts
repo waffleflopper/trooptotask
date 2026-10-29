@@ -1,3 +1,4 @@
+import { scopeTree, type ScopeTree } from './scopeGroups';
 import {
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type CapabilityLevel,
@@ -8,7 +9,7 @@ import {
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
 import { defaultMemberAccessForRole } from '$lib/access/memberAccessCommands';
-import type { SettingsMemberRow } from './memberSettingsTypes';
+import type { ScopeGroup, SettingsMemberRow } from './memberSettingsTypes';
 import {
 	CAPABILITY_LEVEL_LABELS,
 	SETTINGS_ACCESS_LANES,
@@ -22,7 +23,7 @@ export type { EditableMembershipRole, EditablePreset };
 
 export interface SettingsMemberAccessData {
 	members: SettingsMemberRow[];
-	groups: Array<{ id: string; name: string }>;
+	groups: ScopeGroup[];
 	isOwner: boolean;
 	/** Lanes whose feature the unit turned off. Their stored level is shown and kept, never edited. */
 	offLanes: DurableFeatureLane[];
@@ -97,8 +98,15 @@ function editablePreset(memberPreset: MemberPreset): StoredMemberPreset {
 	return memberPreset === 'custom' ? 'editor' : memberPreset;
 }
 
-/** A lane whose feature is off shows the level on file, which differs from the projection for an Admin. */
-function savedDraft(member: SettingsMemberRow, offLanes: readonly DurableFeatureLane[]): MemberAccessDraft {
+/**
+ * A lane whose feature is off shows the level on file, which differs from the projection for an Admin. A stored scope
+ * reads as its roots, so a covered sub-group or a deleted Group left in it is not a change to save.
+ */
+function savedDraft(
+	member: SettingsMemberRow,
+	offLanes: readonly DurableFeatureLane[],
+	tree: ScopeTree
+): MemberAccessDraft {
 	return {
 		memberId: member.id,
 		role: member.membershipRole === 'admin' ? 'admin' : 'member',
@@ -111,7 +119,7 @@ function savedDraft(member: SettingsMemberRow, offLanes: readonly DurableFeature
 		) as CapabilityMap,
 		scope:
 			member.access.scopeSet.kind === 'groups'
-				? { kind: 'groups', groupIds: [...member.access.scopeSet.groupIds] }
+				? { kind: 'groups', groupIds: tree.canonical(member.access.scopeSet.groupIds) }
 				: { kind: 'organization' }
 	};
 }
@@ -128,9 +136,15 @@ export class SettingsMemberAccessWorkspace {
 	draft = $state<MemberAccessDraft | null>(null);
 	invite = $state<InviteDraft>({ email: '', role: 'member', preset: 'editor', groupIds: [] });
 	filter = $state('');
+	readonly #tree = $derived(scopeTree(this.#data.groups));
 
 	constructor(data: SettingsMemberAccessData | (() => SettingsMemberAccessData)) {
 		this.#getData = typeof data === 'function' ? data : () => data;
+	}
+
+	/** The Groups a scope can cover, as a tree. */
+	get scopeTree(): ScopeTree {
+		return this.#tree;
 	}
 
 	get #data(): SettingsMemberAccessData {
@@ -162,12 +176,12 @@ export class SettingsMemberAccessWorkspace {
 	}
 
 	groupName(groupId: string): string {
-		return this.#data.groups.find((group) => group.id === groupId)?.name ?? 'Unknown group';
+		return this.#tree.path(groupId);
 	}
 
 	open(member: SettingsMemberRow): void {
 		if (member.membershipRole === 'owner') return;
-		this.draft = savedDraft(member, this.#data.offLanes);
+		this.draft = savedDraft(member, this.#data.offLanes, this.#tree);
 	}
 
 	close(): void {
@@ -182,7 +196,7 @@ export class SettingsMemberAccessWorkspace {
 	setPreset(preset: EditablePreset): void {
 		const member = this.editingMember;
 		if (!this.draft || !member) return;
-		const saved = savedDraft(member, this.#data.offLanes);
+		const saved = savedDraft(member, this.#data.offLanes, this.#tree);
 		const levels = preset === saved.preset ? saved.levels : TARGET_MEMBER_PRESET_CAPABILITIES[preset];
 		this.draft.preset = preset;
 		this.draft.levels = Object.fromEntries(
@@ -199,12 +213,10 @@ export class SettingsMemberAccessWorkspace {
 		this.draft.scope = kind === 'groups' ? { kind: 'groups', groupIds: [] } : { kind: 'organization' };
 	}
 
-	toggleScopeGroup(groupId: string): void {
+	/** Stores the roots of the selection: a squad covers its teams, so the teams are not listed again. */
+	setScopeGroups(groupIds: readonly string[]): void {
 		const scope = this.draft?.scope;
-		if (scope?.kind !== 'groups') return;
-		scope.groupIds = scope.groupIds.includes(groupId)
-			? scope.groupIds.filter((id) => id !== groupId)
-			: [...scope.groupIds, groupId];
+		if (scope?.kind === 'groups') scope.groupIds = this.#tree.canonical(groupIds);
 	}
 
 	/** "<preset> gives <level>" for a lane that differs from the chosen preset, or null when it matches or is off. */
@@ -226,7 +238,7 @@ export class SettingsMemberAccessWorkspace {
 		const member = this.editingMember;
 		const draft = this.draft;
 		if (!draft || !member) return 0;
-		const saved = savedDraft(member, this.#data.offLanes);
+		const saved = savedDraft(member, this.#data.offLanes, this.#tree);
 		const next = draft.role === 'admin' ? adminDraft(draft.memberId) : draft;
 		return [
 			next.role !== saved.role,
@@ -236,10 +248,10 @@ export class SettingsMemberAccessWorkspace {
 		].filter(Boolean).length;
 	}
 
-	/** The groups select offers "Whole unit" beside each group; picking it clears the rest, and clearing the rest picks it. */
-	setInviteGroups(values: string[]): void {
+	/** The groups picker offers "Whole unit" beside the tree; picking it clears the rest, and clearing the rest picks it. */
+	setInviteGroups(values: readonly string[]): void {
 		const hadAll = this.invite.groupIds.length === 0;
-		const groupIds = values.filter((value) => value !== ALL_GROUPS);
+		const groupIds = this.#tree.canonical(values.filter((value) => value !== ALL_GROUPS));
 		this.invite.groupIds = !hadAll && values.includes(ALL_GROUPS) ? [] : groupIds;
 	}
 
@@ -250,7 +262,7 @@ export class SettingsMemberAccessWorkspace {
 	get inviteGroupsLabel(): string {
 		const ids = this.invite.groupIds;
 		if (ids.length === 0) return 'Whole unit';
-		return ids.length === 1 ? this.groupName(ids[0]) : `${ids.length} groups`;
+		return ids.length === 1 ? this.groupName(ids[0]) : `${ids.length} Groups`;
 	}
 
 	resetInvite(): void {

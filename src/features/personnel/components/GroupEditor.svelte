@@ -7,42 +7,35 @@
 	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '../personnel.types';
 	import type { RosterStatusDot } from '../rosterSignals';
-	import type { GroupOrderChange } from '../stores/groups.svelte';
+	import type { GroupStructureCommands } from '../groupStructureCommands';
+	import { groupPickerOptions, UNASSIGNED_OPTION } from '../groupStructure';
+	import { buildGroupTree } from '../groupTree';
 	import type { GroupMembershipChange } from '../utils/moveGroupMembers';
+	import GroupTreeEditor from './GroupTreeEditor.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Combobox from '$lib/components/ui/combobox';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import * as NativeSelect from '$lib/components/ui/native-select';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { CoachMark } from '$lib/components/patterns/coach-mark';
-	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
+	import { TreeSelect } from '$lib/components/patterns/tree-select';
 	import { cn } from '$lib/utils';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PinIcon from '@lucide/svelte/icons/pin';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
-	type Control = 'add' | 'order' | 'rename' | 'pin' | 'add-people' | 'members' | 'delete';
+	type Control = 'pin' | 'add-people' | 'members';
 
 	interface Props {
-		groups: Group[];
+		groups: readonly Group[];
 		people: Personnel[];
-		pinnedNames: readonly string[];
+		pinnedGroupIds: readonly string[];
 		loading?: boolean;
 		initialSelection?: string | null;
 		todayStatus?: (person: Personnel) => RosterStatusDot;
 		canMovePerson: (person: Personnel) => boolean;
 		canMoveTo: (groupId: string | null) => boolean;
-		onAdd: (name: string) => Promise<void>;
-		onRename: (id: string, name: string) => Promise<void>;
-		onReorder: (ids: string[]) => Promise<GroupOrderChange>;
-		onTogglePin: (name: string) => Promise<boolean>;
-		onDelete: (id: string, moveMembersTo: string | null) => Promise<void>;
+		commands: GroupStructureCommands;
+		onTogglePin: (groupId: string) => Promise<boolean>;
 		onMove: (personnelIds: string[], groupId: string | null) => Promise<GroupMembershipChange>;
 		onClose: () => void;
 	}
@@ -50,39 +43,30 @@
 	let {
 		groups,
 		people,
-		pinnedNames,
+		pinnedGroupIds,
 		loading = false,
 		initialSelection = null,
 		todayStatus,
 		canMovePerson,
 		canMoveTo,
-		onAdd,
-		onRename,
-		onReorder,
+		commands,
 		onTogglePin,
-		onDelete,
 		onMove,
 		onClose
 	}: Props = $props();
 
-	let selectedId = $state<string>(untrack(() => initialSelection ?? groups[0]?.id ?? UNASSIGNED));
-	let newGroupName = $state('');
-	let renameDraft = $state<string | null>(null);
+	let selectedId = $state<string>(untrack(() => initialSelection ?? buildGroupTree(groups).roots[0]?.id ?? UNASSIGNED));
 	let checked = $state<string[]>([]);
 	let pending = $state<Control | null>(null);
 	let requestVersion = 0;
 	let failures = $state<Partial<Record<Control, string>>>({});
 	let notice = $state<string | null>(null);
-	let confirmingDelete = $state(false);
-	let deleteTrigger = $state<HTMLElement | null>(null);
-	let deletePicker = $state<HTMLSelectElement | null>(null);
-	let deleteCancel = $state<HTMLElement | null>(null);
-	let moveTarget = $state(UNASSIGNED);
+	let treeBusy = $state(false);
+	let treeDirty = $state(false);
 	let addPeopleValue = $state('');
-	let ordering = $state(0);
 	let detailsRef = $state<HTMLElement | null>(null);
-	let hintDismissed = $state(false);
 
+	const tree = $derived(buildGroupTree(groups));
 	const groupIds = $derived(new Set(groups.map((group) => group.id)));
 	const membersByGroup = $derived.by(() => {
 		const members = new Map<string, Personnel[]>();
@@ -96,7 +80,7 @@
 	});
 	const selectedGroup = $derived(groups.find((group) => group.id === selectedId) ?? null);
 	const selectionKey = $derived(selectedGroup ? selectedGroup.id : UNASSIGNED);
-	const selectedName = $derived(selectedGroup?.name ?? 'Unassigned');
+	const selectedName = $derived(selectedGroup ? tree.label(selectedGroup.id) : 'Unassigned');
 	const members = $derived(membersByGroup.get(selectionKey) ?? []);
 	const memberColumns = $derived(
 		todayStatus
@@ -106,24 +90,21 @@
 	const movableMembers = $derived(members.filter(canMovePerson));
 	const checkedMembers = $derived(members.filter((person) => checked.includes(person.id)));
 	const targetGroupId = $derived(selectedGroup?.id ?? null);
-	const isPinned = $derived(selectedGroup ? pinnedNames.includes(selectedGroup.name) : false);
-	const entries = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
-	const busy = $derived(pending !== null || ordering > 0);
+	const isPinned = $derived(selectedGroup ? pinnedGroupIds.includes(selectedGroup.id) : false);
+	const busy = $derived(pending !== null || treeBusy);
 	const noGroups = $derived(!loading && groups.length === 0);
-	const showHint = $derived(noGroups && !hintDismissed);
-	const dirty = $derived(newGroupName.trim() !== '' || (renameDraft !== null && renameDraft !== selectedGroup?.name));
 
-	const moveTargets = $derived([
-		...groups
-			.filter((group) => group.id !== selectionKey && canMoveTo(group.id))
-			.map((g) => ({ id: g.id, name: g.name })),
-		...(selectionKey !== UNASSIGNED && canMoveTo(null) ? [{ id: UNASSIGNED, name: 'Unassigned' }] : [])
-	]);
+	const moveOptions = $derived(
+		groupPickerOptions(tree, {
+			disabled: (id) => id === selectionKey || !canMoveTo(id),
+			unassigned: selectionKey !== UNASSIGNED && canMoveTo(null) ? 'Unassigned' : undefined
+		})
+	);
+	const canMoveSomewhere = $derived(moveOptions.some((option) => !option.disabled));
 
-	const groupNames = $derived(new Map(groups.map((group) => [group.id, group.name])));
 	const addPeopleItems = $derived.by(() => {
 		if (!selectedGroup || !canMoveTo(selectedGroup.id)) return [];
-		const order = new Map(groups.map((group, index) => [group.id, index]));
+		const order = new Map(tree.ordered.map((group, index) => [group.id, index]));
 		const rank = (person: Personnel) =>
 			person.groupId && groupIds.has(person.groupId) ? (order.get(person.groupId) ?? 0) + 1 : 0;
 		return people
@@ -133,7 +114,7 @@
 				value: person.id,
 				label: personName(person),
 				description: person.clinicRole || undefined,
-				group: (person.groupId && groupNames.get(person.groupId)) || 'Unassigned'
+				group: person.groupId && groupIds.has(person.groupId) ? tree.label(person.groupId) : 'Unassigned'
 			}));
 	});
 
@@ -156,7 +137,7 @@
 			await change();
 			return true;
 		} catch (cause) {
-			if (control === 'add' || (request === requestVersion && selectionKey === groupId)) {
+			if (request === requestVersion && selectionKey === groupId) {
 				failures = { ...failures, [control]: messageOf(cause) };
 			}
 			return false;
@@ -165,72 +146,24 @@
 		}
 	}
 
-	function clearFailure(control: Control) {
-		if (failures[control]) failures = { ...failures, [control]: undefined };
-	}
-
 	async function select(id: string) {
 		if (id === selectedId) return;
 		requestVersion++;
 		selectedId = id;
 		checked = [];
-		renameDraft = null;
-		confirmingDelete = false;
 		notice = null;
-		failures = {
-			...failures,
-			rename: undefined,
-			pin: undefined,
-			'add-people': undefined,
-			members: undefined,
-			delete: undefined
-		};
+		failures = {};
 		if (!window.matchMedia('(min-width: 64rem)').matches) {
 			await tick();
 			detailsRef?.scrollIntoView({ block: 'start' });
 		}
 	}
 
-	async function addGroup() {
-		const name = newGroupName.trim();
-		if (!name || pending) return;
-		hintDismissed = true;
-		if (await run('add', () => onAdd(name))) {
-			newGroupName = '';
-			const added = groups.find((group) => group.name === name);
-			if (added) void select(added.id);
-		}
-	}
-
-	async function move(id: string, toIndex: number) {
-		const ids = groups.map((group) => group.id).filter((groupId) => groupId !== id);
-		ids.splice(toIndex, 0, id);
-		clearFailure('order');
-		ordering++;
-		try {
-			const result = await onReorder(ids);
-			if (result.status === 'failed') failures = { ...failures, order: result.message };
-		} finally {
-			ordering--;
-		}
-	}
-
-	async function saveRename() {
-		const group = selectedGroup;
-		const name = renameDraft?.trim();
-		if (!group || !name) return;
-		if (name === group.name) {
-			renameDraft = null;
-			return;
-		}
-		if ((await run('rename', () => onRename(group.id, name))) && selectedId === group.id) renameDraft = null;
-	}
-
 	async function togglePin() {
 		const group = selectedGroup;
 		if (!group) return;
 		await run('pin', async () => {
-			if (!(await onTogglePin(group.name))) throw new Error('The pin did not save. Try again.');
+			if (!(await onTogglePin(group.id))) throw new Error('The pin did not save. Try again.');
 		});
 	}
 
@@ -253,6 +186,14 @@
 		if (id) void moveMembers('add-people', [id], targetGroupId);
 	}
 
+	function moveChecked(value: string) {
+		void moveMembers(
+			'members',
+			checkedMembers.map((person) => person.id),
+			value === UNASSIGNED_OPTION ? null : value
+		);
+	}
+
 	function toggleMember(id: string, on: boolean) {
 		checked = on ? [...checked, id] : checked.filter((checkedId) => checkedId !== id);
 	}
@@ -260,40 +201,9 @@
 	function toggleAll(on: boolean) {
 		checked = on ? movableMembers.map((person) => person.id) : [];
 	}
-
-	async function startDelete() {
-		const index = groups.findIndex((group) => group.id === selectedGroup?.id);
-		moveTarget = groups[index + 1]?.id ?? UNASSIGNED;
-		clearFailure('delete');
-		confirmingDelete = true;
-		await tick();
-		(deletePicker ?? deleteCancel)?.focus();
-	}
-
-	async function cancelDelete() {
-		confirmingDelete = false;
-		clearFailure('delete');
-		await tick();
-		deleteTrigger?.focus();
-	}
-
-	async function confirmDelete() {
-		const group = selectedGroup;
-		if (!group) return;
-		const index = groups.findIndex((candidate) => candidate.id === group.id);
-		const target = members.length > 0 && moveTarget !== UNASSIGNED ? moveTarget : null;
-		if (await run('delete', () => onDelete(group.id, target))) {
-			confirmingDelete = false;
-			if (selectedId === group.id) {
-				selectedId =
-					target ?? groups.filter((candidate) => candidate.id !== group.id)[Math.max(0, index - 1)]?.id ?? UNASSIGNED;
-				checked = [];
-			}
-		}
-	}
 </script>
 
-<AppDialog.Root open {busy} closeBlocked={dirty} {onClose}>
+<AppDialog.Root open {busy} closeBlocked={treeDirty} {onClose}>
 	<AppDialog.Content
 		size="wide"
 		class="h-dvh max-h-dvh max-w-none grid-rows-[auto_minmax(0,1fr)_auto] rounded-none sm:max-w-none lg:h-[min(41rem,calc(100dvh-4rem))] lg:max-w-[62.5rem] lg:rounded-xl"
@@ -308,116 +218,35 @@
 			</AppDialog.Description>
 		</AppDialog.Header>
 
-		<div class="grid min-h-0 overflow-y-auto lg:grid-cols-[18.75rem_minmax(0,1fr)] lg:overflow-hidden">
-			<section aria-label="Groups" class="flex min-h-0 flex-col border-border bg-muted max-lg:border-b lg:border-r">
-				<Field.Root data-invalid={failures.add ? true : undefined} class="gap-1.5 p-4">
-					<CoachMark
-						open={showHint}
-						id="first-group-hint"
-						title="Type a Group name here, then select Add."
-						body="Enter works too. Add as many as you need, and drag them into order after."
-						onDismiss={() => (hintDismissed = true)}
-					>
-						<div class="flex gap-1.5">
-							<Input
-								bind:value={newGroupName}
-								aria-label="New group name"
-								aria-describedby={showHint ? 'first-group-hint' : undefined}
-								placeholder="New group name"
-								readonly={pending === 'add'}
-								class="bg-background"
-								oninput={() => {
-									hintDismissed = true;
-									clearFailure('add');
-								}}
-								onkeydown={(event) => {
-									if (event.key === 'Enter') {
-										event.preventDefault();
-										void addGroup();
-									}
-								}}
-							/>
-							<Button
-								type="button"
-								variant="outline"
-								onclick={addGroup}
-								disabled={!newGroupName.trim() || pending !== null}
-							>
-								Add
-							</Button>
-						</div>
-					</CoachMark>
-					{#if failures.add}<Field.Error>{failures.add}</Field.Error>{/if}
-				</Field.Root>
-
-				{#if !noGroups}
-					<p
-						class="px-4 pt-1 pb-2 font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase"
-					>
-						Drag to reorder
-					</p>
-				{/if}
-				{#if failures.order}
-					<p role="alert" class="px-4 pb-2 text-sm text-destructive-text">{failures.order}</p>
-				{/if}
-
-				<div class="min-h-0 lg:flex-1 lg:overflow-y-auto">
+		<div class="grid min-h-0 overflow-y-auto lg:grid-cols-[22rem_minmax(0,1fr)] lg:overflow-hidden">
+			<section aria-label="Groups" class="flex flex-col border-border bg-muted max-lg:border-b lg:min-h-0 lg:border-r">
+				<div class="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+					<GroupTreeEditor
+						{groups}
+						{people}
+						{commands}
+						{loading}
+						selectedId={selectionKey}
+						onSelect={select}
+						pinnedIds={pinnedGroupIds}
+						bind:busy={treeBusy}
+						bind:dirty={treeDirty}
+					/>
 					{#if noGroups}
-						<div class="flex h-full flex-col justify-end p-4 max-lg:pt-0">
+						<div class="p-4 pt-0">
 							<p
 								class="rounded-sm border border-dashed border-muted-foreground/40 p-3.5 text-[13px] leading-[18px] text-muted-foreground"
 							>
 								Your Groups line up here, in the order the roster shows them.
 							</p>
 						</div>
-					{:else if loading}
-						<div class="grid gap-3 px-4 py-3" aria-busy="true" aria-label="Loading Groups">
-							{#each [0, 1, 2, 3] as row (row)}
-								<Skeleton class="h-6 w-full" />
-							{/each}
-						</div>
-					{:else}
-						<ReorderList {entries} onmove={move} aria-label="Groups in display order">
-							{#each groups as group (group.id)}
-								{@const selected = group.id === selectedId}
-								<ReorderItem
-									id={group.id}
-									class={cn(
-										'flex h-[46px] items-center gap-2.5 border-y border-l-[3px] border-transparent pr-4 pl-2.5',
-										selected ? 'border-y-border border-l-accent bg-background' : 'hover:bg-background/60'
-									)}
-								>
-									<ReorderGrip />
-									<button
-										type="button"
-										aria-current={selected ? 'true' : undefined}
-										class="flex h-full min-w-0 flex-1 items-center gap-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-										onclick={() => select(group.id)}
-									>
-										<span class={cn('min-w-0 flex-1 truncate text-[15px] leading-5', selected && 'font-semibold')}>
-											{group.name}
-										</span>
-										<PinIcon
-											aria-hidden="true"
-											class={cn(
-												'size-3.5 shrink-0 fill-accent text-accent',
-												!pinnedNames.includes(group.name) && 'opacity-0'
-											)}
-										/>
-										{#if pinnedNames.includes(group.name)}<span class="sr-only">Pinned</span>{/if}
-										<span class="w-7 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
-											{membersByGroup.get(group.id)?.length ?? 0}
-										</span>
-									</button>
-								</ReorderItem>
-							{/each}
-						</ReorderList>
+					{:else if !loading}
 						<div class="border-t border-dashed border-border">
 							<button
 								type="button"
 								aria-current={selectionKey === UNASSIGNED ? 'true' : undefined}
 								class={cn(
-									'flex h-[46px] w-full items-center gap-2.5 border-l-[3px] pr-4 pl-[2.625rem] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring',
+									'flex h-11 w-full items-center gap-2.5 border-l-[3px] pr-[4.625rem] pl-9 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring',
 									selectionKey === UNASSIGNED
 										? 'border-l-accent bg-background'
 										: 'border-l-transparent hover:bg-background/60'
@@ -467,70 +296,10 @@
 					class="flex min-w-0 scroll-mt-4 flex-col gap-3 px-4 pb-4 sm:px-6 lg:min-h-0 lg:overflow-y-auto"
 				>
 					<div class="flex flex-wrap items-center gap-3 pt-[18px] pb-0.5">
-						{#if renameDraft !== null && selectedGroup}
-							<Field.Root data-invalid={failures.rename ? true : undefined} class="min-w-0 flex-1 gap-1.5">
-								<div class="flex flex-wrap items-center gap-2">
-									<Input
-										bind:value={renameDraft}
-										aria-label="Group name"
-										readonly={pending === 'rename'}
-										class="max-w-xs"
-										oninput={() => clearFailure('rename')}
-										onkeydown={(event) => {
-											if (event.key === 'Enter') {
-												event.preventDefault();
-												void saveRename();
-											} else if (event.key === 'Escape') {
-												event.preventDefault();
-												event.stopPropagation();
-												renameDraft = null;
-											}
-										}}
-									/>
-									<Button
-										type="button"
-										size="sm"
-										onclick={saveRename}
-										disabled={!renameDraft.trim() || pending !== null}
-									>
-										Save
-									</Button>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										disabled={pending === 'rename'}
-										onclick={() => {
-											renameDraft = null;
-											clearFailure('rename');
-										}}
-									>
-										Cancel
-									</Button>
-								</div>
-								{#if failures.rename}<Field.Error>{failures.rename}</Field.Error>{/if}
-							</Field.Root>
-						{:else}
-							<h3 class="min-w-0 truncate font-heading text-[26px] leading-[30px] font-bold text-foreground uppercase">
-								{selectedName}
-							</h3>
-							{#if selectedGroup}
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									aria-label="Rename {selectedGroup.name}"
-									title="Rename"
-									onclick={() => {
-										renameDraft = selectedGroup.name;
-										clearFailure('rename');
-									}}
-								>
-									<PencilIcon aria-hidden="true" />
-								</Button>
-							{/if}
-						{/if}
-						{#if selectedGroup}
+						<h3 class="min-w-0 truncate font-heading text-[26px] leading-[30px] font-bold text-foreground uppercase">
+							{selectedName}
+						</h3>
+						{#if selectedGroup && selectedGroup.parentId === null}
 							<Button
 								type="button"
 								variant="outline"
@@ -588,38 +357,18 @@
 						>
 							<span class="text-sm font-semibold">{checkedMembers.length} selected</span>
 							<span class="flex-1"></span>
-							{#if moveTargets.length > 0}
-								<DropdownMenu.Root>
-									<DropdownMenu.Trigger>
-										{#snippet child({ props })}
-											<Button
-												{...props}
-												type="button"
-												size="sm"
-												variant="outline"
-												disabled={pending !== null}
-												class="border-chrome-border bg-chrome-surface-muted text-chrome-text hover:bg-chrome-surface-muted/80 hover:text-chrome-text"
-											>
-												Move to…
-												<ChevronDownIcon aria-hidden="true" />
-											</Button>
-										{/snippet}
-									</DropdownMenu.Trigger>
-									<DropdownMenu.Content align="end">
-										{#each moveTargets as target (target.id)}
-											<DropdownMenu.Item
-												onSelect={() =>
-													moveMembers(
-														'members',
-														checkedMembers.map((person) => person.id),
-														target.id === UNASSIGNED ? null : target.id
-													)}
-											>
-												{target.name}
-											</DropdownMenu.Item>
-										{/each}
-									</DropdownMenu.Content>
-								</DropdownMenu.Root>
+							{#if canMoveSomewhere}
+								<TreeSelect
+									label="Move selected members to"
+									hideLabel
+									placeholder="Move to…"
+									searchPlaceholder="Search Groups"
+									value={null}
+									valueLabel={null}
+									options={moveOptions}
+									onValueChange={moveChecked}
+									class="h-8 w-auto max-w-60"
+								/>
 							{/if}
 							{#if selectedGroup && canMoveTo(null)}
 								<Button
@@ -737,77 +486,9 @@
 			{/if}
 		</div>
 
-		{#if confirmingDelete && selectedGroup}
-			<div
-				role="group"
-				aria-label="Delete {selectedGroup.name}"
-				class="flex flex-wrap items-center gap-4 border-t-2 border-destructive bg-destructive/5 px-6 py-4"
-			>
-				<div class="grid min-w-[min(100%,18rem)] flex-1 gap-0.5">
-					<p class="text-[15px] leading-5 font-semibold text-foreground">Delete {selectedGroup.name}?</p>
-					<p class="text-[13px] leading-[18px] text-muted-foreground">
-						{#if members.length > 0}
-							{members.length}
-							{members.length === 1 ? 'member needs' : 'members need'} a new Group. Their records, notes and history are not
-							affected.
-						{:else}
-							No one is in this Group.
-						{/if}
-					</p>
-					{#if failures.delete}<p role="alert" class="text-sm text-destructive-text">{failures.delete}</p>{/if}
-				</div>
-				{#if members.length > 0}
-					<label class="flex items-center gap-2 text-sm text-foreground">
-						Move members to
-						<NativeSelect.Root
-							bind:ref={deletePicker}
-							bind:value={moveTarget}
-							class="w-[10.625rem]"
-							disabled={pending === 'delete'}
-						>
-							{#each groups.filter((group) => group.id !== selectedGroup.id) as group (group.id)}
-								<NativeSelect.Option value={group.id}>{group.name}</NativeSelect.Option>
-							{/each}
-							<NativeSelect.Option value={UNASSIGNED}>Unassigned</NativeSelect.Option>
-						</NativeSelect.Root>
-					</label>
-				{/if}
-				<div class="flex gap-2">
-					<Button
-						bind:ref={deleteCancel}
-						type="button"
-						variant="outline"
-						disabled={pending === 'delete'}
-						onclick={cancelDelete}
-					>
-						Cancel
-					</Button>
-					<Button type="button" variant="destructive" disabled={pending !== null} onclick={confirmDelete}>
-						{members.length > 0 ? `Delete and move ${members.length}` : 'Delete'}
-					</Button>
-				</div>
-			</div>
-		{:else}
-			<AppDialog.Footer class="items-center border-t border-border bg-muted px-6 py-3.5 sm:justify-between">
-				{#if selectedGroup}
-					<Button
-						bind:ref={deleteTrigger}
-						type="button"
-						variant="ghost-destructive"
-						onclick={startDelete}
-						disabled={pending !== null}
-					>
-						<Trash2Icon aria-hidden="true" />
-						Delete {selectedGroup.name}…
-					</Button>
-				{:else}
-					<span></span>
-				{/if}
-				<div class="flex items-center gap-3.5">
-					<span class="font-mono text-xs text-muted-foreground max-sm:hidden">Changes save as you go</span>
-					<Button type="button" onclick={onClose} disabled={busy}>Done</Button>
-				</div>
-			</AppDialog.Footer>
-		{/if}
+		<AppDialog.Footer class="items-center border-t border-border bg-muted px-6 py-3.5 sm:justify-end">
+			<span class="font-mono text-xs text-muted-foreground max-sm:hidden">Changes save as you go</span>
+			<Button type="button" onclick={onClose} disabled={busy}>Done</Button>
+		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
-	import type { Personnel } from '$features/personnel/contracts';
+	import { buildGroupTree, groupFilterMatcher, type Group, type Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -19,7 +19,7 @@
 		orgId: string;
 		personnel: Personnel[];
 		statusTypes: StatusType[];
-		groups: { id: string; name: string }[];
+		groups: Group[];
 	}
 
 	interface AvailabilityForecastRunData {
@@ -43,12 +43,14 @@
 
 	const expandedDates = new SvelteSet<string>();
 
-	const groupSelect = ReportWorkspace.createMultiSelect(() => groups);
-	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
+	const tree = $derived(buildGroupTree(groups));
+	const groupSelect = ReportWorkspace.createMultiSelect(() => tree.roots);
+	const groupOptions = $derived(tree.roots.map((root) => ({ id: root.id, label: tree.label(root.id) })));
 
 	const filteredPersonnel = $derived.by(() => {
 		if (groupSelect.allSelected) return personnel;
-		return personnel.filter((person) => person.groupId && groupSelect.has(person.groupId));
+		const matchers = [...groupSelect.selectedIds].map((id) => groupFilterMatcher(tree, id));
+		return personnel.filter((person) => matchers.some((matches) => matches(person.groupId)));
 	});
 
 	const report = ReportWorkspace.createReportRun({

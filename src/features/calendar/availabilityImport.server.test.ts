@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import type { AvailabilityImportEntry } from './contracts';
 import { createWritePortsContext } from './calendarPersistence.test-support.server';
@@ -307,7 +308,7 @@ describe('importAvailabilityEntries', () => {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: OPERATOR,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 

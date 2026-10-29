@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import type { SupabaseClient } from '$lib/server/database';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
@@ -159,7 +160,7 @@ describe('duty swap operations', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
 			}
 		});
 		const write = vi.spyOn(ctx.calendarRosterSwaps, 'swap');

@@ -1,6 +1,7 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '$lib/server/database';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { createSupabaseScopeEnforcementAdapter } from './scopeEnforcement.server';
 
 class FakeQuery {
@@ -42,7 +43,7 @@ function fakeSupabase(rowsByTable: Record<string, Record<string, unknown>[]>, lo
 	return { supabase: { from } as unknown as SupabaseClient, from };
 }
 
-const groupScope: ScopeSet = { kind: 'groups', groupIds: ['group-a'] };
+const groupScope: GroupCoverage = groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] });
 
 describe('createSupabaseScopeEnforcementAdapter', () => {
 	it('allows only same-Organization Personnel in the actor Group', async () => {
@@ -97,7 +98,7 @@ describe('createSupabaseScopeEnforcementAdapter', () => {
 		const scope = createSupabaseScopeEnforcementAdapter({
 			supabase,
 			orgId: 'org-1',
-			scopeSet: { kind: 'groups', groupIds: [] }
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] })
 		});
 
 		await expect(scope.requireGroupAccess('any')).rejects.toMatchObject({ status: 403 });

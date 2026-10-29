@@ -47,6 +47,8 @@ export async function loadOrganizationExportPayload(
 		);
 	}
 	const sections = Object.fromEntries(entries) as OrganizationExportSections;
+	if (sections.groups)
+		sections.groups = sections.groups.map((group) => ({ ...group, parentId: group.parent_id ?? null }));
 	const sectionInventory = exportSections.map((section) => ({
 		key: section.key,
 		title: section.title,

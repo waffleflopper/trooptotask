@@ -10,15 +10,22 @@ import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { pinnedGroupsStore } from '$features/personnel';
-import { groupsStore } from '$features/personnel';
-import { createRosterReadModel } from '$features/personnel/contracts';
+import { groupsStore, pinnedGroupsStore } from '$features/personnel';
+import {
+	buildGroupTree,
+	createRosterReadModel,
+	nestRosterBands,
+	soleLeafGroup,
+	type GroupTree,
+	type NestedRosterBand
+} from '$features/personnel/contracts';
+import { showSubGroups } from '$lib/stores/showSubGroups.svelte';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { groupsInScope } from '$lib/access/scopeSetAccess';
 import { rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$lib/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
-import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityLevel, AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
@@ -70,7 +77,7 @@ export interface CalendarPageAccess {
 	readonly userId: string | null;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly capabilityMap: { readonly calendar: CapabilityLevel };
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: AdvisoryGroupScope;
 	readonly affordanceForFeatureAction: (
 		action: FeatureLanePolicyAction,
 		resource?: PolicyResource
@@ -197,7 +204,7 @@ export class CalendarPageContext {
 		createRosterReadModel({
 			personnel: this.calendarPersonnel,
 			groups: groupsStore.items,
-			pinnedGroups: pinnedGroupsStore.list,
+			pinnedGroupIds: pinnedGroupsStore.list,
 			fallbackGroupName: this.#data.orgName ?? ''
 		})
 	);
@@ -221,7 +228,16 @@ export class CalendarPageContext {
 		return this.#scopedRoster.groupFilterOptions;
 	}
 
-	readonly filteredPBG = $derived.by(
+	readonly groupTree: GroupTree = $derived.by(() =>
+		buildGroupTree(groupsStore.items, { pinnedIds: this.canPinGroups ? pinnedGroupsStore.list : [] })
+	);
+
+	/** One Group with nothing under it is the reader's whole Calendar, so the matrix draws no band header. */
+	get showGroupHeaders(): boolean {
+		return soleLeafGroup(this.groupTree, this.canPinGroups) === null;
+	}
+
+	readonly #filteredSections = $derived.by(
 		() =>
 			this.#calendarRoster.scoped(this.#org.scopeSet, {
 				status: 'active',
@@ -229,6 +245,15 @@ export class CalendarPageContext {
 				search: this.calendarPersonnelSearch
 			}).personnelByGroup
 	);
+
+	readonly filteredPBG: NestedRosterBand[] = $derived(
+		nestRosterBands(this.groupTree, this.#filteredSections, showSubGroups.current)
+	);
+
+	/** Exports always write each Group's own people under its path, whatever the screen shows. */
+	get exportPBG(): NestedRosterBand[] {
+		return nestRosterBands(this.groupTree, this.#filteredSections);
+	}
 
 	readonly availabilityTracks = $derived(buildAvailabilityTracks(availabilityStore.items, statusTypesStore.items));
 
@@ -310,8 +335,13 @@ export class CalendarPageContext {
 		this.calendarPersonnelSearch = value;
 	}
 
-	handlePinToggle(group: string): void {
-		pinnedGroupsStore.toggle(group);
+	/** Pins belong to Organization-wide readers; a Group-scoped reader's saved pins are ignored. */
+	get canPinGroups(): boolean {
+		return this.#org.scopeSet.kind === 'organization';
+	}
+
+	handlePinToggle(groupId: string): void {
+		pinnedGroupsStore.toggle(groupId);
 	}
 
 	handleCellClick(person: Personnel, date: Date): void {

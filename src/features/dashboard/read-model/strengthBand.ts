@@ -5,7 +5,14 @@ import {
 	type SpecialDay,
 	type StatusType
 } from '$features/calendar/contracts';
-import type { Group, Personnel } from '$features/personnel/contracts';
+import {
+	buildGroupTree,
+	groupRows,
+	hasSubGroups,
+	type Group,
+	type GroupRow,
+	type Personnel
+} from '$features/personnel/contracts';
 import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
 import { formatDayMonth } from '$lib/utils/dates';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
@@ -13,7 +20,7 @@ import { availabilityRuns, backDate, type AvailabilityRun } from './availability
 
 /** Up to this many people the strip draws a block and the out list a row per person. */
 export const PEOPLE_MODE_LIMIT = 40;
-/** Up to this many groups all are listed; past it, the lowest `GROUPS_FOLDED_TO` show. */
+/** Up to this many top-level groups all are listed; past it, the lowest `GROUPS_FOLDED_TO` show with their sub-groups. */
 export const GROUPS_SHOWN_LIMIT = 6;
 export const GROUPS_FOLDED_TO = 5;
 const ORIGINS_SHOWN = 2;
@@ -29,6 +36,8 @@ export interface StrengthInputs {
 	specialDays: readonly SpecialDay[];
 	groups: readonly Group[];
 	floorPercent: number;
+	/** Rows for sub-groups under each top-level Group; off rolls each subtree into one row. */
+	showSubGroups?: boolean;
 }
 
 export interface StatusCount {
@@ -99,17 +108,28 @@ export interface BottomLine {
 export interface GroupStrengthRow {
 	id: string;
 	name: string;
+	level: number;
+	/** The row totals the rows below it. */
+	subtotal: boolean;
 	available: number;
 	assigned: number;
 	percent: number;
 	belowFloor: boolean;
 }
 
+export interface GroupStrengthSet {
+	top: GroupStrengthRow;
+	/** The top row's HQ and sub-group rows in tree order; empty with sub-groups off. */
+	below: readonly GroupStrengthRow[];
+}
+
 export interface GroupStrength {
-	/** Lowest percent first. */
-	rows: readonly GroupStrengthRow[];
-	/** How many rows show before "All N groups". */
+	/** Lowest top-level percent first, Unassigned last. */
+	sets: readonly GroupStrengthSet[];
+	/** How many sets show before "All N groups". */
 	shown: number;
+	/** Whether the reader's Groups have sub-groups to show or roll up. */
+	hasSubGroups: boolean;
 }
 
 export interface StrengthBand {
@@ -188,7 +208,7 @@ export function buildForecastColumns(inputs: StrengthInputs, statuses = indexDay
 				const count = counts.get(type.id) ?? 0;
 				return count > 0 ? [{ statusTypeId: type.id, count }] : [];
 			}),
-			belowFloor: isDutyDay && isBelowStrengthFloor(availabilityPercent(available, assigned), inputs.floorPercent)
+			belowFloor: isDutyDay && isBelowStrengthFloor(available, assigned, inputs.floorPercent)
 		};
 	});
 }
@@ -277,9 +297,9 @@ function buildBottomLine(
 	const outByStatus = order.flatMap((type) => {
 		const people = outPeople.filter((row) => row.statusTypeId === type.id);
 		if (people.length === 0) return [];
-		const origins = countBy(
-			people,
-			(row) => groupNameById.get(personById.get(row.personnelId)!.groupId ?? '') ?? 'Unassigned'
+		const origins = countOrigins(
+			people.map((row) => personById.get(row.personnelId)!.groupId),
+			groupNameById
 		);
 		const soonest = people.reduce((low, row) => (row.back < low ? row.back : low), people[0].back);
 		const returning = people.filter((row) => row.back === soonest).length;
@@ -363,34 +383,36 @@ function runOn(runs: readonly AvailabilityRun[] | undefined, day: string): Avail
 }
 
 function buildGroupStrength(inputs: StrengthInputs, outToday: ReadonlyMap<string, AvailabilityEntry>): GroupStrength {
-	const assignedByGroup = new Map<string, number>();
-	const availableByGroup = new Map<string, number>();
-	for (const person of inputs.personnel) {
-		if (!person.groupId) continue;
-		assignedByGroup.set(person.groupId, (assignedByGroup.get(person.groupId) ?? 0) + 1);
-		if (!outToday.has(person.id)) availableByGroup.set(person.groupId, (availableByGroup.get(person.groupId) ?? 0) + 1);
-	}
+	const tree = buildGroupTree(inputs.groups);
+	const strengthRow = (row: GroupRow<Personnel>): GroupStrengthRow => {
+		const assigned = row.items.length;
+		const available = row.items.filter((person) => !outToday.has(person.id)).length;
+		return {
+			id: row.key,
+			name: row.label,
+			level: row.level,
+			subtotal: row.subtotal,
+			available,
+			assigned,
+			percent: availabilityPercent(available, assigned),
+			belowFloor: isBelowStrengthFloor(available, assigned, inputs.floorPercent)
+		};
+	};
 
-	const rows = inputs.groups
-		.flatMap((group) => {
-			const assigned = assignedByGroup.get(group.id) ?? 0;
-			if (assigned === 0) return [];
-			const available = availableByGroup.get(group.id) ?? 0;
-			const percent = availabilityPercent(available, assigned);
-			return [
-				{
-					id: group.id,
-					name: group.name,
-					available,
-					assigned,
-					percent,
-					belowFloor: isBelowStrengthFloor(percent, inputs.floorPercent)
-				}
-			];
-		})
-		.sort((a, b) => a.percent - b.percent || a.name.localeCompare(b.name));
+	const sets = groupRows(tree, inputs.personnel, (person) => person.groupId, inputs.showSubGroups ?? true)
+		.map((set) => ({ top: strengthRow(set.top), below: set.below.map(strengthRow) }))
+		.sort(
+			(a, b) =>
+				Number(a.top.id === 'unassigned') - Number(b.top.id === 'unassigned') ||
+				a.top.available * b.top.assigned - b.top.available * a.top.assigned ||
+				a.top.name.localeCompare(b.top.name)
+		);
 
-	return { rows, shown: rows.length <= GROUPS_SHOWN_LIMIT ? rows.length : GROUPS_FOLDED_TO };
+	return {
+		sets,
+		shown: sets.length <= GROUPS_SHOWN_LIMIT ? sets.length : GROUPS_FOLDED_TO,
+		hasSubGroups: hasSubGroups(tree)
+	};
 }
 
 function countByStatus(entries: Iterable<AvailabilityEntry>): Map<string, number> {
@@ -399,10 +421,16 @@ function countByStatus(entries: Iterable<AvailabilityEntry>): Map<string, number
 	return counts;
 }
 
-function countBy<T>(items: readonly T[], key: (item: T) => string): [string, number][] {
-	const counts = new Map<string, number>();
-	for (const item of items) counts.set(key(item), (counts.get(key(item)) ?? 0) + 1);
-	return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+/** Counts by Group id so Groups sharing a name, or named "Unassigned", stay apart from each other and from ungrouped people. */
+function countOrigins(
+	groupIds: readonly (string | null)[],
+	groupNameById: ReadonlyMap<string, string>
+): [string, number][] {
+	const counts = new Map<string | null, number>();
+	for (const id of groupIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+	return [...counts]
+		.map(([id, count]): [string, number] => [(id && groupNameById.get(id)) || 'Unassigned', count])
+		.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

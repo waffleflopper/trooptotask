@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '$lib/server/database';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
@@ -79,7 +80,9 @@ describe('Personnel Rating Scheme roster port', () => {
 		});
 		const port = createSupabasePersonnelRatingSchemeRosterPort({ rpc } as unknown as SupabaseClient, vi.fn());
 
-		const result = await port.listActiveReferences(ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] }));
+		const result = await port.listActiveReferences(
+			ratingSchemeActor(groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }))
+		);
 
 		expect(rpc).toHaveBeenCalledWith('list_rating_scheme_personnel_lookup', {
 			p_organization_id: 'org-1'
@@ -126,7 +129,9 @@ describe('Personnel Rating Scheme roster port', () => {
 		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, getAdminClient);
 
 		await expect(
-			port.listArchivedRatedPersonIds(ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] }))
+			port.listArchivedRatedPersonIds(
+				ratingSchemeActor(groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }))
+			)
 		).resolves.toEqual(['archived-alpha', 'archived-bravo', 'archived-loose']);
 		expect(selections).toEqual(['id, rating_scheme_entries!rating_scheme_entries_rated_person_id_fkey!inner(id)']);
 	});
@@ -180,7 +185,7 @@ describe('Personnel Rating Scheme roster port', () => {
 			{ id: 'foreign', organization_id: 'org-2', group_id: 'group-1', archived_at: null }
 		];
 		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, createPersonnelClient(rows));
-		const groupActor = ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] });
+		const groupActor = ratingSchemeActor(groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }));
 		groupActor.capabilityMap.ratingScheme = 'operate';
 
 		await expect(port.findRatedPersonForWrite(groupActor, 'alpha')).resolves.toEqual({
@@ -214,7 +219,7 @@ describe('Personnel Rating Scheme roster port', () => {
 		await expect(port.findRatedPersonForWrite(ratingSchemeActor(), 'alpha')).rejects.toMatchObject({
 			status: 403
 		});
-		const emptyActor = ratingSchemeActor({ kind: 'groups', groupIds: [] });
+		const emptyActor = ratingSchemeActor(groupCoverageForTest({ kind: 'groups', groupIds: [] }));
 		emptyActor.capabilityMap.ratingScheme = 'operate';
 		await expect(port.findRatedPersonForWrite(emptyActor, 'alpha')).resolves.toBeNull();
 		expect(getAdminClient).not.toHaveBeenCalled();
@@ -238,7 +243,7 @@ describe('Personnel evaluator references', () => {
 		];
 		const getAdminClient = createPersonnelClient(rows);
 		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, getAdminClient);
-		const actor = ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] });
+		const actor = ratingSchemeActor(groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }));
 		actor.capabilityMap.ratingScheme = 'operate';
 		await expect(
 			port.hasEvaluatorReferences(actor, [alphaEvaluator, bravoEvaluator, archivedEvaluator, unassignedEvaluator])

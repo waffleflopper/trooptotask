@@ -485,6 +485,16 @@ stores.
 Restore original fixture fields/task archive state and armed hooks. There is no visible completion-delete action;
 discard UI-created completions only through this owned worker's cleanup/restart.
 
+**Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` at 1440x900
+open `Critical Tasks group filter`: a `verbose` snapshot lists `All groups`, `2nd Platoon`, `Alpha`, `Bravo` and
+`Unassigned`. Pick `2nd Platoon`: the flat bands read `1st Squad 1 personnel`, `2nd Platoon 2 personnel`,
+`2nd Squad 1 personnel`, `Alpha Team 4 personnel` and `Bravo Team 1 personnel`. On Reports, `Filter by group` lists
+`All Groups`, `2nd Platoon`, `Alpha` and `Bravo`, and `2nd Platoon` moves `Population` from 12 to 9. With all Groups
+and `Show sub-groups` on (`Display` menu), the workspace bands run `0: 2nd Platoon`, `1: 1st Squad`, `2: Alpha Team`,
+`2: Bravo Team`, `1: 2nd Squad`, `0: Alpha`, then `Bravo`; off they run `0: 2nd Platoon`, `0: Alpha`, `0: Bravo`.
+Reports has no Group rows, so it has no switch. At 1024x640 and 390x844 `scrollWidth` equals the viewport on both
+pages.
+
 ## Gotchas
 
 - An impossible completion date such as `02/30/2026` is flagged during import review. A malformed import row is refused

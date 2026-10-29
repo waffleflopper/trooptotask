@@ -46,7 +46,7 @@ function inputs(loaded: Partial<DashboardInputs>): DashboardInputs {
 				sortOrder: 0
 			}
 		],
-		groups: [{ id: 'alpha', name: 'Alpha Platoon', sortOrder: 0 }],
+		groups: [{ id: 'alpha', name: 'Alpha Platoon', sortOrder: 0, parentId: null, depth: 1 as const }],
 		specialDays: [],
 		assignmentTypes: [],
 		assignments: [],

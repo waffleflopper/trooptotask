@@ -31,7 +31,7 @@ function createMembershipQueryBuilder(returnData: unknown, returnError: unknown 
 
 function createMockSupabase(builder: Record<string, unknown>): SupabaseClient {
 	return {
-		from: vi.fn(() => builder)
+		rpc: vi.fn(() => builder)
 	} as unknown as SupabaseClient;
 }
 
@@ -43,7 +43,8 @@ describe('createSupabaseOrgAccessPort', () => {
 			member_preset: 'viewer',
 			capability_overrides: { personnel: 'configure', training: 'none', criticalTasks: 'none' },
 			access_scope_kind: 'groups',
-			access_scope_group_ids: ['group-123']
+			access_scope_group_ids: ['group-123'],
+			covered_group_ids: ['group-123']
 		} satisfies OrganizationMembershipFacts;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const userSupabase = createMockSupabase(builder);
@@ -75,7 +76,7 @@ describe('createSupabaseOrgAccessPort', () => {
 				onboarding: 'view',
 				ratingScheme: 'view'
 			},
-			scopeSet: { kind: 'groups', groupIds: ['group-123'] },
+			scopeSet: { kind: 'groups', groupIds: ['group-123'], grantedGroupIds: ['group-123'] },
 			orgSuspended: false
 		});
 	});
@@ -86,7 +87,8 @@ describe('createSupabaseOrgAccessPort', () => {
 			member_preset: 'viewer',
 			capability_overrides: { training: 'operate', criticalTasks: 'configure' },
 			access_scope_kind: 'groups',
-			access_scope_group_ids: ['group-alpha', 'group-bravo']
+			access_scope_group_ids: ['group-alpha', 'group-bravo'],
+			covered_group_ids: ['group-alpha', 'group-bravo']
 		} satisfies OrganizationMembershipFacts;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const userSupabase = createMockSupabase(builder);
@@ -102,7 +104,11 @@ describe('createSupabaseOrgAccessPort', () => {
 
 		expect(result.capabilityMap.training).toBe('operate');
 		expect(result.capabilityMap.criticalTasks).toBe('configure');
-		expect(result.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
+		expect(result.scopeSet).toEqual({
+			kind: 'groups',
+			groupIds: ['group-alpha', 'group-bravo'],
+			grantedGroupIds: ['group-alpha', 'group-bravo']
+		});
 	});
 
 	it('exposes organization-wide configure capability for admin governance roles', async () => {
@@ -111,7 +117,8 @@ describe('createSupabaseOrgAccessPort', () => {
 			member_preset: 'viewer',
 			capability_overrides: {},
 			access_scope_kind: 'groups',
-			access_scope_group_ids: ['ignored-for-admin']
+			access_scope_group_ids: ['ignored-for-admin'],
+			covered_group_ids: ['ignored-for-admin']
 		} satisfies OrganizationMembershipFacts;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const port = createSupabaseOrgAccessPort({
@@ -141,7 +148,8 @@ describe('createSupabaseOrgAccessPort', () => {
 			member_preset: 'viewer',
 			capability_overrides: {},
 			access_scope_kind: 'organization',
-			access_scope_group_ids: []
+			access_scope_group_ids: [],
+			covered_group_ids: []
 		} satisfies OrganizationMembershipFacts;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const port = createSupabaseOrgAccessPort({

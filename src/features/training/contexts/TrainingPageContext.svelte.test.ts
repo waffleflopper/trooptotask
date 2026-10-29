@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -13,6 +14,7 @@ import type { PersonnelTraining, TrainingType } from '$features/training/trainin
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import { groupCatalogHydration } from '$features/personnel';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -135,9 +137,9 @@ const mockType: TrainingType = {
 };
 
 const mockGroups: Group[] = [
-	{ id: 'g-1', name: 'Alpha', sortOrder: 0 },
-	{ id: 'g-2', name: 'Bravo', sortOrder: 1 },
-	{ id: 'g-empty', name: 'Charlie', sortOrder: 2 }
+	{ id: 'g-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'g-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const },
+	{ id: 'g-empty', name: 'Charlie', sortOrder: 2, parentId: null, depth: 1 as const }
 ];
 
 function makeData(overrides: Record<string, unknown> = {}) {
@@ -212,7 +214,7 @@ describe('TrainingPageContext', () => {
 				...createClientAccess({
 					membershipRole: 'member',
 					capabilityMap: { ...createCapabilityMap('none'), training: 'configure' },
-					scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] })
 				})
 			};
 			const ctx = makeContext(makeData(), org);
@@ -331,6 +333,39 @@ describe('TrainingPageContext', () => {
 			expect(ctx.filteredPersonnel).toEqual([]);
 			expect(ctx.selectedGroupId).toBe('g-empty');
 			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('Group filter on nested Groups', () => {
+		const member = (id: string, groupId: string): Personnel => ({ ...mockPerson, id, lastName: id, groupId });
+
+		beforeEach(() => {
+			groupCatalogHydration.load(NESTED_GROUPS, 'org-1');
+			personnelRosterHydration.load(
+				[
+					member('Hale', 'platoon'),
+					member('Irwin', 'squad'),
+					member('Jones', 'alpha'),
+					member('Kemp', 'other-squad'),
+					member('Lowe', 'other-platoon')
+				],
+				'org-1'
+			);
+		});
+
+		it('offers exactly the top-level Groups', () => {
+			expect(makeContext(makeData(), makeOrg()).groupFilterOptions).toEqual([
+				{ value: '', label: 'Group: All' },
+				{ value: 'platoon', label: '1st Platoon' },
+				{ value: 'other-platoon', label: '2nd Platoon' }
+			]);
+		});
+
+		it("takes in a platoon's HQ, squads and teams and leaves out the other platoon", () => {
+			const ctx = makeContext(makeData(), makeOrg());
+			ctx.selectedGroupId = 'platoon';
+
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['Hale', 'Irwin', 'Jones', 'Kemp']);
 		});
 	});
 

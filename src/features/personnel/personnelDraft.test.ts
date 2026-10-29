@@ -10,8 +10,8 @@ import {
 } from './personnelDraft';
 
 const groups: Group[] = [
-	{ id: 'g-1', name: '1st Platoon', sortOrder: 0 },
-	{ id: 'g-2', name: '2nd Platoon', sortOrder: 1 }
+	{ id: 'g-1', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'g-2', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 
 const okafor: Personnel = {
@@ -37,6 +37,19 @@ describe('personnelDraftChanges', () => {
 			{ field: 'clinicRole', label: 'Duty role', from: 'Treatment NCO', to: 'Senior Treatment NCO' },
 			{ field: 'groupId', label: 'Group', from: '2nd Platoon', to: '1st Platoon' },
 			{ field: 'ets', label: 'ETS', from: 'Mar 14, 2027', to: 'None' }
+		]);
+	});
+
+	it('names a sub-group by its path, since teams in different squads share names', () => {
+		const teams: Group[] = [
+			...groups,
+			{ id: 'sq', name: '1st Squad', sortOrder: 0, parentId: 'g-2', depth: 2 as const },
+			{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq', depth: 3 as const }
+		];
+		const opening = personnelDraftOf(okafor);
+
+		expect(personnelDraftChanges(opening, { ...opening, groupId: 'alpha' }, teams)).toEqual([
+			{ field: 'groupId', label: 'Group', from: '2nd Platoon', to: '2nd Platoon › 1st Squad › Alpha Team' }
 		]);
 	});
 

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';
@@ -93,7 +94,7 @@ describe('PersonnelPageContext', () => {
 					onboarding: 'operate',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['g1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] })
 			});
 			const ctx = new PersonnelPageContext(makeData(), makeModals(), org);
 
@@ -112,7 +113,7 @@ describe('PersonnelPageContext', () => {
 				);
 
 			expect(configurer({ kind: 'organization' }).canManageGroups).toBe(true);
-			expect(configurer({ kind: 'groups', groupIds: ['g1'] }).canManageGroups).toBe(false);
+			expect(configurer(groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] })).canManageGroups).toBe(false);
 		});
 
 		it('predicts the chips a viewer can see from their permissions and the unit switches', () => {
@@ -264,7 +265,7 @@ describe('PersonnelPageContext', () => {
 						onboarding: 'none',
 						ratingScheme: 'none'
 					},
-					scopeSet: { kind: 'groups', groupIds }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds })
 				})
 			);
 			expect(ctx.canAddPersonnel).toBe(allowed);
@@ -290,7 +291,7 @@ describe('PersonnelPageContext', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds })
 			})
 		);
 		expect(ctx.canImportPersonnel).toBe(allowed);
@@ -300,14 +301,14 @@ describe('PersonnelPageContext', () => {
 		let facts: ClientAccessFacts = {
 			membershipRole: 'member',
 			capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
-			scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
 		};
 		const access = createClientAccess(() => facts);
 		const ctx = new PersonnelPageContext(makeData(), makeModals(), access);
 		expect(ctx.canAddPersonnel).toBe(true);
 		expect(ctx.allowUnassignedPersonnel).toBe(false);
 		expect(ctx.canManagePersonnelRecord(makePerson({ groupId: 'alpha' }))).toBe(true);
-		facts = { ...facts, scopeSet: { kind: 'groups', groupIds: ['bravo'] } };
+		facts = { ...facts, scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['bravo'] }) };
 		expect(ctx.canManagePersonnelRecord(makePerson({ groupId: 'alpha' }))).toBe(false);
 		expect(ctx.canManagePersonnelRecord(makePerson({ groupId: 'bravo' }))).toBe(true);
 		facts = { ...facts, capabilityMap: { ...createCapabilityMap('none'), personnel: 'view' } };
@@ -331,7 +332,7 @@ describe('PersonnelPageContext', () => {
 				createClientAccess({
 					membershipRole: 'member',
 					capabilityMap: { ...createCapabilityMap('none'), personnel },
-					scopeSet: { kind: 'groups', groupIds }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds })
 				})
 			);
 			expect(ctx.canOpenPersonnelDetail(makePerson({ groupId }))).toBe(allowed);
@@ -561,10 +562,10 @@ describe('PersonnelPageContext', () => {
 
 	describe('Group order', () => {
 		const groups = [
-			{ id: 'g-c', name: 'Charlie', sortOrder: 0 },
-			{ id: 'g-b', name: 'Bravo', sortOrder: 1 },
-			{ id: 'g-a', name: 'Alpha', sortOrder: 1 },
-			{ id: 'g-d', name: 'Delta', sortOrder: 0 }
+			{ id: 'g-c', name: 'Charlie', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'g-b', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const },
+			{ id: 'g-a', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 as const },
+			{ id: 'g-d', name: 'Delta', sortOrder: 0, parentId: null, depth: 1 as const }
 		];
 
 		it('follows sort_order, then name, and orders the By Group view by it ahead of Unassigned', () => {
@@ -577,7 +578,7 @@ describe('PersonnelPageContext', () => {
 				items: groups
 			});
 
-			expect(ctx.groupOrder).toEqual(['Charlie', 'Delta', 'Alpha', 'Bravo']);
+			expect(ctx.groupOrder.map((group) => group.id)).toEqual(['g-c', 'g-d', 'g-a', 'g-b']);
 			expect(ctx.personnelByGroup.map((group) => group.group)).toEqual([
 				'Charlie',
 				'Delta',
@@ -589,7 +590,7 @@ describe('PersonnelPageContext', () => {
 
 		it("puts the viewer's pins first and ignores a catalog loaded for another Organization", () => {
 			const people = groups.map((group) => makePerson({ id: group.id, groupId: group.id, groupName: group.name }));
-			const pinned = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, ['Bravo'], undefined, {
+			const pinned = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, ['g-b'], undefined, {
 				orgId: 'org1',
 				items: groups
 			});

@@ -31,8 +31,12 @@ widths, in light and dark.
 
 Choose `Onboard` in Organization navigation for the Onboarding list. Choose a row to open its packet beside the list, or
 in a sheet below 1280. Search, the `Group` select (when the Organization has Groups), `History`, `Templates` and
-`Start onboarding` are in the `Onboarding controls` toolbar above the list. Sign-in Rosters: `Training`, then
-`Sign-in rosters` in the `Training controls` toolbar (or `More Training controls` when it has folded).
+`Start onboarding` are in the `Onboarding controls` toolbar above the list. `Group` lists only top-level Groups and a
+pick keeps its whole subtree: with the [nested Group tree](manage-groups.md#nested-group-tree) and step 8 of the
+[History recipe](onboarding-history.md) before the cancellations, rows read `2nd Platoon › 1st Squad` (Lee) and
+`2nd Platoon › 1st Squad › Alpha Team` (Brooks), and `2nd Platoon` leaves `2 · stalled first` with Lee and Brooks at
+1440, 1024 and 390 with no horizontal scroll. Sign-in Rosters: `Training`, then `Sign-in rosters` in the
+`Training controls` toolbar (or `More Training controls` when it has folded).
 
 ## Driving it with verify:app
 

@@ -101,7 +101,6 @@ const scopes = { perfWide: 'wide', perfScoped: 'scoped', perfScopedLeader: 'scop
 export function journeyTerms(seeded, workload, actor) {
 	const item = seeded[workload];
 	const scope = scopes[actor];
-	const shape = workloads[workload];
 	const terms = {
 		organizationId: item.organizationId,
 		organizationName: item.name,
@@ -115,7 +114,6 @@ export function journeyTerms(seeded, workload, actor) {
 		...terms,
 		sentinel: item.sentinels[scope],
 		searchTerm: item.searchTerms[scope],
-		rosterPaused: scope === 'wide' && shape.groups * shape.personnelPerGroup > 250,
 		edit: item.journeyTerms.edit[scope],
 		population: item.journeyTerms.population[scope],
 		filter: { term: item.journeyTerms.filter.term, rows: item.journeyTerms.filter.rows[scope] },
@@ -578,9 +576,8 @@ async function load(ctx, positional, options) {
 	}
 }
 
-// The paused grouped roster repeats the toolbar search inside its notice; the toolbar one
-// comes first in document order in both states. A control `within` a row is the first match
-// nested below that row's line; a `partial` name matches an accessible name that contains it.
+// A control `within` a row is the first match nested below that row's line; a `partial` name
+// matches an accessible name that contains it.
 export function controlUid(snapshot, { role, name, within, partial }) {
 	let lines = snapshot.split('\n');
 	const depth = (line) => line.length - line.trimStart().length;

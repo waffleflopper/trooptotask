@@ -517,13 +517,16 @@ scoped actors retain their baseline grants.
   them from a screenshot or pick by typing then Enter.
 - `Import`, `Add Person`, and archive are separate mutation journeys; their presence in the toolbar does not prove them.
 - Native `click` sends no modifier keys, so a Shift range needs a dispatched `click` with `shiftKey: true` (step 19).
-- For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md). Above 250 People
-  the By Group view renders at most 250 rows. With an empty search it shows `Grouped roster paused` and `Use A-Z View`.
-  A search matching more than 250 shows the first 250 in group order, a footer `Showing 250 of N matches` and
-  `Use A-Z View`. On the `large` workload as `perfWide`, `s` matches 346 and `sp` 117. The toolbar search keeps focus
-  and its text as the count crosses 250 either way. A cut Group's header still counts all its matches. Every Group
-  header stays, including one past the 250th row. A collapsed Group uses none of the 250, so collapsing one brings rows
-  into the Groups below it; the footer's first number is the rows shown.
+- For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md).
+  Both views show 100 rows a page, with `Page N of M`, a `Rows per page` choice (50, 75, 100, 200) and
+  `Previous`/`Next` below the table inside its frame. The choice applies to both views and survives a reload in that
+  browser; pick it with Enter, ArrowDown and Enter, because the snapshot omits its options. A new search or filter
+  starts at page 1. By Group pages in Group order: a Group cut by a page break shows its header on both pages and still
+  counts all its People, and a page that starts inside a sub-group repeats its parent Group headers first. A collapsed
+  Group keeps its header on the page where its rows would start and uses none of the page, so collapsing one brings
+  rows from the Groups below it. On the `large` workload as `perfWide` the roster has 4 pages at 100; `s` matches 346
+  and `sp` 117, and the toolbar search keeps focus and its text as the count changes. With a preview open, `J` from a
+  page's last row turns to the next page and previews its first row.
 - A group header's controls repeat per group; name them by their `aria-label` (`Pin Alpha`, `Collapse Alpha`,
   `Group actions for Alpha`) rather than by position. The pin is a `Toggle` and the collapse a `Button`; record their
   focus ring and accessible names exactly as rendered.

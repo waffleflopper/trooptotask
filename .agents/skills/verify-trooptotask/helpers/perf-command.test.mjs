@@ -247,9 +247,7 @@ test('journey terms carry the actor scope and switch from another seeded workloa
 	assert.equal(scoped.sentinel, 'Baker, Bo');
 	assert.equal(scoped.population, 10);
 	assert.deepEqual(scoped.filter, { term: '68W', rows: 1 });
-	assert.equal(scoped.rosterPaused, false);
 	assert.deepEqual(scoped.switchFrom, { organizationId: 'typical-org', sentinel: 'Eve, Ed' });
-	assert.deepEqual(journeyTerms({ large: ledger }, 'large', 'perfWide').rosterPaused, true);
 	assert.equal(journeyTerms(seeded, 'small', 'platformReviewer').sentinel, undefined);
 	assert.deepEqual(journeyTerms(seeded, 'small', 'perfScopedLeader').edit, {
 		row: 'Open SPC Baker, Bo',

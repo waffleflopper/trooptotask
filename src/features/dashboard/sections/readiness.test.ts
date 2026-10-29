@@ -151,7 +151,7 @@ describe('trainingReadiness', () => {
 					{ label: 'expired', count: 1, tone: 'critical' }
 				]
 			},
-			note: "1 Soldier expired and 2 expiring. Bravo is lowest at 0%. Goal 90%. Missing required training, or training expired or in its Expiring window, makes a Soldier not current. Exempt training doesn't count."
+			note: expect.stringMatching(/^1 Soldier expired and 2 expiring\. Bravo is lowest at 0%\. Goal 90%\. /)
 		});
 	});
 

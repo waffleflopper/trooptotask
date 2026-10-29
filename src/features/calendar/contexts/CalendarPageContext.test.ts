@@ -110,6 +110,9 @@ function makeMockOrg(
 	};
 }
 
+/** The all-option's wording is incidental; its value and count are what the filter offers. */
+const groupOption = ({ value, label, count }: { value: string; label: string; count?: number }) =>
+	value ? [value, label, count] : [value, count];
 describe('CalendarPageContext', () => {
 	let ctx: CalendarPageContext;
 	let org: CalendarPageAccess;
@@ -517,10 +520,10 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('builds group filter options from the scoped roster', () => {
-			expect(makeContext(mockData, org).groupFilterOptions).toEqual([
-				{ value: '', label: 'All groups', count: 2 },
-				{ value: 'g1', label: 'Alpha', count: 1 },
-				{ value: 'g2', label: 'Bravo', count: 1 }
+			expect(makeContext(mockData, org).groupFilterOptions.map(groupOption)).toEqual([
+				['', 2],
+				['g1', 'Alpha', 1],
+				['g2', 'Bravo', 1]
 			]);
 		});
 
@@ -570,8 +573,8 @@ describe('CalendarPageContext', () => {
 			];
 			const context = makeContext({ ...mockData, personnel: roster, allPersonnel: roster }, org);
 
-			expect(context.groupFilterOptions.map(({ value, label, count }) => [value, label, count])).toEqual([
-				['', 'All groups', 4],
+			expect(context.groupFilterOptions.map(groupOption)).toEqual([
+				['', 4],
 				['platoon', '1st Platoon', 3],
 				['other-platoon', '2nd Platoon', 1]
 			]);

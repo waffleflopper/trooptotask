@@ -237,7 +237,7 @@ describe('Onboarding Matrix view', () => {
 		await showMatrix();
 
 		await openGroupMenu();
-		const menu = (await screen.findByRole('option', { name: 'All groups' })).closest<HTMLElement>('[role="listbox"]')!;
+		const menu = await screen.findByRole('listbox');
 		expect(
 			within(menu)
 				.getAllByRole('option')

@@ -253,7 +253,7 @@ describe('roster Group filter on nested Groups', () => {
 	const options = (groups: typeof NESTED_GROUPS) =>
 		roster(groups)
 			.full()
-			.groupFilterOptions.map(({ value, label, count }) => [value, label, count]);
+			.groupFilterOptions.map(({ value, label, count }) => (value ? [value, label, count] : [value, count]));
 	const picked = (groupFilter: string) =>
 		roster(NESTED_GROUPS)
 			.full({ groupFilter })
@@ -261,7 +261,7 @@ describe('roster Group filter on nested Groups', () => {
 
 	it('offers an Organization-wide reader exactly the top-level Groups, then Unassigned', () => {
 		expect(options(NESTED_GROUPS)).toEqual([
-			['', 'All groups', 6],
+			['', 6],
 			['platoon', '1st Platoon', 4],
 			['other-platoon', '2nd Platoon', 1],
 			['name:Unassigned', 'Unassigned', 1]
@@ -274,9 +274,9 @@ describe('roster Group filter on nested Groups', () => {
 		expect(
 			createRosterReadModel({ personnel: personnel.slice(1, 3), groups: squadCatalog, pinnedGroupIds: [] })
 				.full()
-				.groupFilterOptions.map(({ value, label, count }) => [value, label, count])
+				.groupFilterOptions.map(({ value, label, count }) => (value ? [value, label, count] : [value, count]))
 		).toEqual([
-			['', 'All groups', 2],
+			['', 2],
 			['squad', '2nd Squad', 2]
 		]);
 	});

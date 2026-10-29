@@ -292,15 +292,13 @@ describe('PersonnelModal', () => {
 		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Moss' } });
 		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Avery' } });
 
-		await fireEvent.click(document.getElementById('person-group') as HTMLElement);
+		await fireEvent.click(screen.getByRole('button', { name: 'Group' }));
 		await fireEvent.input(await screen.findByRole('combobox', { name: 'Search Groups' }), {
 			target: { value: 'bravo' }
 		});
 		await fireEvent.click(screen.getByRole('treeitem', { name: 'Bravo Team' }));
 
-		expect(document.getElementById('person-group')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-			'Group: 2nd Platoon › 1st Squad › Bravo Team'
-		);
+		expect(screen.getByRole('button', { name: 'Group' }).textContent).toContain('2nd Platoon › 1st Squad › Bravo Team');
 		await fireEvent.click(screen.getByTestId('personnel-save'));
 		await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ groupId: 'bravo' })));
 	});

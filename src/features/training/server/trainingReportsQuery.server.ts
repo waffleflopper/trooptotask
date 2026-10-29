@@ -128,6 +128,7 @@ async function loadBriefingSource(
 		filterOptions,
 		briefingInput: {
 			personnel,
+			groups,
 			types: columns,
 			records,
 			filters: {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from './contracts';
 import { buildGroupTree } from './groupTree';
-import { groupFocusLabel, groupFocusNavigation, readGroupFocus } from './groupFocus';
+import { canonicalGroupFocus, groupFocusLabel, groupFocusNavigation, readGroupFocus } from './groupFocus';
 
 const group = (id: string, name: string, parentId: string | null, depth: 1 | 2 | 3): Group => ({
 	id,
@@ -88,5 +88,24 @@ describe('groupFocusLabel', () => {
 
 	it('names a focused Group by its path', () => {
 		expect(groupFocusLabel(unitTree, { kind: 'group', id: 'sq1' }, orgWide)).toBe('2nd Platoon › 1st Squad');
+	});
+});
+
+describe('canonicalGroupFocus', () => {
+	it('treats a Group-scoped reader focusing their only root as their whole view', () => {
+		expect(canonicalGroupFocus(platoonTree, { kind: 'group', id: 'plt2' }, scoped)).toEqual({ kind: 'all' });
+		expect(canonicalGroupFocus(platoonTree, { kind: 'group', id: 'sq1' }, scoped)).toEqual({
+			kind: 'group',
+			id: 'sq1'
+		});
+	});
+
+	it('keeps an Organization-wide reader’s focus on a lone top-level Group, since Unassigned sits outside it', () => {
+		const oneGroup = buildGroupTree([group('plt2', '2nd Platoon', null, 1)]);
+
+		expect(canonicalGroupFocus(oneGroup, { kind: 'group', id: 'plt2' }, orgWide)).toEqual({
+			kind: 'group',
+			id: 'plt2'
+		});
 	});
 });

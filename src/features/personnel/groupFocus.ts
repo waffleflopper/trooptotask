@@ -20,9 +20,10 @@ export function readGroupFocus(url: URL, tree: GroupTree, reader: GroupFocusRead
 	return tree.node(value) ? { kind: 'focus', focus: { kind: 'group', id: value } } : { kind: 'unavailable' };
 }
 
-/** A lone visible root is the reader's whole view, so focusing it is the default focus. */
-export function canonicalGroupFocus(tree: GroupTree, focus: GroupFocus): GroupFocus {
-	return focus.kind === 'group' && tree.roots.length === 1 && tree.roots[0].id === focus.id ? { kind: 'all' } : focus;
+/** A Group-scoped reader's lone root is their whole view, so focusing it is the default focus and needs no address. */
+export function canonicalGroupFocus(tree: GroupTree, focus: GroupFocus, reader: GroupFocusReader): GroupFocus {
+	if (focus.kind !== 'group' || reader.organizationWide) return focus;
+	return tree.roots.length === 1 && tree.roots[0].id === focus.id ? { kind: 'all' } : focus;
 }
 
 export function groupFocusValue(focus: GroupFocus): string | null {

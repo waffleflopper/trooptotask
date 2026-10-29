@@ -25,6 +25,7 @@ import {
 } from '../rosterSignals';
 import { RosterPeek } from '../rosterPeek.svelte';
 import { RosterSignals } from '../rosterSignals.svelte';
+import { GroupFocusState } from '../groupFocusState.svelte';
 
 export interface PersonnelPageData {
 	orgId: string;
@@ -54,6 +55,7 @@ export interface PinnedGroupsAccessor {
 export interface GroupsAccessor {
 	readonly orgId: string | null;
 	readonly items: readonly Group[];
+	readonly loading?: boolean;
 }
 
 export class PersonnelPageContext {
@@ -304,6 +306,13 @@ export class PersonnelPageContext {
 	private get catalogGroups(): readonly Group[] {
 		return this.#groupsStore.orgId === this.orgId ? this.#groupsStore.items : [];
 	}
+
+	/** The Group focus narrows the roster on the client; the load always brings the reader's whole roster. */
+	readonly groupFocus = new GroupFocusState(() => ({
+		groups: this.#groupsStore.orgId === this.orgId && !this.#groupsStore.loading ? this.#groupsStore.items : null,
+		pinnedIds: this.#pinnedGroupsStore.list,
+		organizationWide: this.canPinGroups
+	}));
 
 	get groupOrder(): Group[] {
 		return organizationGroupOrder(this.catalogGroups);

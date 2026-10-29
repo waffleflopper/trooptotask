@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseSignInRosterPersistence } from './rosterPersistence.server';
@@ -129,7 +130,7 @@ const page = { title: '', createdFrom: null, createdBefore: null, limit: 20, off
 function persistence(run: ReturnType<typeof fixture>, groupIds?: string[]) {
 	return createSupabaseSignInRosterPersistence(run.client, {
 		orgId: ORG,
-		scopeSet: groupIds ? { kind: 'groups', groupIds } : { kind: 'organization' }
+		scopeSet: groupIds ? groupCoverageForTest({ kind: 'groups', groupIds }) : { kind: 'organization' }
 	});
 }
 

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -41,7 +42,7 @@ function groupOperator(criticalTasks: 'operate' | 'view') {
 		auth: {
 			role: 'member',
 			isPrivileged: false,
-			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
 			capabilityMap: {
 				calendar: 'none',
 				personnel: 'none',

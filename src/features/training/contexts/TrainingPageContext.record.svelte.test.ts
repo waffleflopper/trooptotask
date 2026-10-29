@@ -55,7 +55,10 @@ describe('TrainingPageContext record sheet', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
-		groupCatalogHydration.load([{ id: 'g-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+		groupCatalogHydration.load(
+			[{ id: 'g-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+			'org-1'
+		);
 		trainingRankCatalogStore.load([], 'org-1');
 		trainingViewsStore.load([], 'org-1');
 		trainingTypesStore.load([], 'org-1');

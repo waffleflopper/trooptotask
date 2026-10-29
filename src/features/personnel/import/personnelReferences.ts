@@ -121,7 +121,9 @@ export function groupReference(
 		create: canCreate
 			? async (name) => {
 					const wanted = normalizeName(name);
-					const existing = groupManagementStore.items.find((group) => normalizeName(group.name) === wanted);
+					const existing = groupManagementStore.items.find(
+						(group) => group.parentId === null && normalizeName(group.name) === wanted
+					);
 					const group = existing ?? (await groupManagementStore.add(name));
 					return group
 						? { kind: 'created', option: option(group) }

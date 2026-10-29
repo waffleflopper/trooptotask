@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '$lib/server/database';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
@@ -61,7 +62,7 @@ function actor(onboarding: 'none' | 'view' = 'view', groupIds: string[] = ['alph
 		orgId: 'org-1',
 		role: 'member',
 		isPrivileged: false,
-		scopeSet: { kind: 'groups', groupIds },
+		scopeSet: groupCoverageForTest({ kind: 'groups', groupIds }),
 		capabilityMap: {
 			calendar: 'none',
 			personnel: 'none',

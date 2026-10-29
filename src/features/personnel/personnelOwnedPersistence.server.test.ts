@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { personnelProvider } from './test-support/personnelProvider.server';
 import { createSupabaseRankCatalogPersistence } from './supabaseRankCatalogPersistence.server';
@@ -111,7 +112,7 @@ const actor = () =>
 		userId: 'user-a',
 		role: 'member',
 		isPrivileged: false,
-		scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+		scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 		capabilityMap: {
 			calendar: 'none',
 			personnel: 'configure',

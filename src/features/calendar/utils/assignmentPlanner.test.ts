@@ -60,7 +60,7 @@ describe('buildPlannerTable double-booking', () => {
 				range: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' }
 			}),
 			personnel: [person('p-kim', 'SGT', 'Kim', 'Jae-won'), person('p-okafor', 'SGT', 'Okafor', 'Ife')],
-			groups: [{ id: 'g-2nd', name: '2nd Platoon', sortOrder: 0 }],
+			groups: [{ id: 'g-2nd', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 as const }],
 			specialDays: [],
 			statusTypes: []
 		});
@@ -199,7 +199,7 @@ describe('buildPlannerTable', () => {
 				range: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' }
 			}),
 			personnel: roster,
-			groups: [{ id: 'g-2nd', name: '2nd Platoon', sortOrder: 0 }],
+			groups: [{ id: 'g-2nd', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 as const }],
 			specialDays: [{ id: 'sd-1', date: '2026-10-12', name: 'Columbus Day', type: 'federal-holiday' }],
 			statusTypes: [
 				{

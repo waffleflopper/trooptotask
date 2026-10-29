@@ -6,8 +6,8 @@ import { lastFirstSplitter } from './personnelImportColumns';
 import { createPersonnelImportLane, type PersonnelImportSource } from './personnelImportLane';
 
 const groups = [
-	{ id: 'g1', name: '1st Platoon', sortOrder: 0 },
-	{ id: 'g2', name: '2nd Platoon', sortOrder: 1 }
+	{ id: 'g1', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'g2', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 
 function person(id: string, overrides: Partial<Personnel> = {}): Personnel {
@@ -188,9 +188,9 @@ describe('personnel import lane', () => {
 		const source = lane({
 			groups: [
 				...groups,
-				{ id: 'g3', name: 'Weapons', sortOrder: 2 },
-				{ id: 'g4', name: 'Weapons', sortOrder: 3 },
-				{ id: 'g5', name: '2nd Plt', sortOrder: 4 }
+				{ id: 'g3', name: 'Weapons', sortOrder: 2, parentId: null, depth: 1 as const },
+				{ id: 'g4', name: 'Weapons', sortOrder: 3, parentId: null, depth: 1 as const },
+				{ id: 'g5', name: '2nd Plt', sortOrder: 4, parentId: null, depth: 1 as const }
 			]
 		});
 

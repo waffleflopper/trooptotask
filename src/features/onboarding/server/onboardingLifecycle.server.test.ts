@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import type {
@@ -485,7 +486,7 @@ describe('startOnboarding', () => {
 				role: 'member' as const,
 				isPrivileged: false,
 				capabilityMap: operatorCapabilityMap,
-				scopeSet: { kind: 'groups' as const, groupIds: [GROUP_1] },
+				scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: [GROUP_1] }),
 				requireEdit() {
 					throw new Error('Legacy edit gate must not run');
 				}
@@ -876,7 +877,7 @@ describe.each(transitions)('$kind lifecycle persistence boundary', ({ kind, run,
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: { ...operatorCapabilityMap, onboarding: reason === 'missing capability' ? 'view' : 'operate' },
-				scopeSet: { kind: 'groups', groupIds: [GROUP_1] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_1] })
 			}
 		});
 		ctx.store.seed('personnel', [

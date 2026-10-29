@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from './policyEvaluator';
 import {
@@ -34,7 +35,7 @@ describe('Access server policy', () => {
 				auth: {
 					...member,
 					capabilityMap: { ...noCapabilities, calendar: 'operate' },
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 				}
 			},
 			POLICY_ACTION_CATALOG.calendar.manageAssignments,
@@ -60,7 +61,7 @@ describe('Access server policy', () => {
 				auth: {
 					...member,
 					capabilityMap: { ...noCapabilities, personnel: 'operate' },
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 				},
 				audit
 			},

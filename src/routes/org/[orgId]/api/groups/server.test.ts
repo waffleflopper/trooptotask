@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -27,7 +28,13 @@ describe('/api/groups', () => {
 			}
 		});
 		const created = await handleUseCaseRequest(_postConfig, ctx, { name: 'Alpha' }, () => ctx);
-		expect(created).toMatchObject({ id: expect.any(String), name: 'Alpha', sortOrder: 0 });
+		expect(created).toMatchObject({
+			id: expect.any(String),
+			name: 'Alpha',
+			sortOrder: 0,
+			parentId: null,
+			depth: 1 as const
+		});
 		expect(await ctx.store.findMany('groups', ctx.auth.orgId)).toMatchObject([
 			{ organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }
 		]);
@@ -41,7 +48,9 @@ describe('/api/groups', () => {
 		).resolves.toMatchObject({
 			id: groupId,
 			name: 'After',
-			sortOrder: 1
+			sortOrder: 1,
+			parentId: null,
+			depth: 1 as const
 		});
 		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: groupId }, () => ctx)).resolves.toEqual({
 			movedCount: 0
@@ -80,7 +89,7 @@ describe('/api/groups', () => {
 			handleUseCaseRequest(_deleteConfig, ctx, { id: groupId, moveMembersTo: otherGroupId }, () => ctx)
 		).resolves.toEqual({ movedCount: 2 });
 		await expect(handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).resolves.toEqual([
-			{ id: otherGroupId, name: 'Bravo', sortOrder: 1 }
+			{ id: otherGroupId, name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		]);
 		expect(await ctx.store.findMany('personnel', orgId)).toMatchObject([
 			{ id: memberId, group_id: otherGroupId },
@@ -186,7 +195,7 @@ describe('/api/groups', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [groupId] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [groupId] })
 			}
 		});
 		ctx.store.seed('groups', [{ id: groupId, organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }]);

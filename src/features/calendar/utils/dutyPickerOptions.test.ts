@@ -165,8 +165,8 @@ describe('dutyPickerOptions', () => {
 	it('lists Groups as usual for a Group duty whatever the roster read is doing', () => {
 		const groupDuty: AssignmentType = { ...staffDuty, assignTo: 'group' };
 		const groups = [
-			{ id: 'g-b', name: 'Bravo', sortOrder: 1 },
-			{ id: 'g-a', name: 'Alpha', sortOrder: 0 }
+			{ id: 'g-b', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const },
+			{ id: 'g-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }
 		];
 
 		expect(options({ type: groupDuty, groups, unreadRoster: 'error' }).map((option) => option.label)).toEqual([
@@ -245,8 +245,8 @@ describe('dutyPickerOptions', () => {
 				excusals: [{ personId: 'g-b', reason: 'Excused', startsOn: '2026-01-01' }]
 			},
 			groups: [
-				{ id: 'g-b', name: 'Bravo', sortOrder: 0 },
-				{ id: 'g-a', name: 'Alpha', sortOrder: 1 }
+				{ id: 'g-b', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'g-a', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			currentAssigneeId: 'g-b'
 		});

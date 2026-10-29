@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { describe, it, expect } from 'vitest';
 import { personnelProvider } from './test-support/personnelProvider';
@@ -40,12 +41,22 @@ describe('ordinary Group persistence', () => {
 				{ id: 'foreign', name: 'Foreign', sort_order: 0, organization_id: 'org-b' }
 			]
 		});
-		const port = createSupabaseGroupPersistence(client, 'org-a', { kind: 'groups', groupIds: ['alpha', 'foreign'] });
-		expect(await port.listCatalog()).toEqual([{ id: 'alpha', name: 'Alpha', sortOrder: 0 }]);
+		const port = createSupabaseGroupPersistence(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: ['alpha', 'foreign'] })
+		);
+		expect(await port.listCatalog()).toEqual([
+			{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }
+		]);
 		expect(await port.findReference('bravo')).toBeNull();
 		expect(await port.findReference('alpha')).toEqual({ id: 'alpha' });
 		expect(await port.findNamesByIds(['alpha', 'bravo'])).toEqual(new Map([['alpha', 'Alpha']]));
-		const empty = createSupabaseGroupPersistence(client, 'org-a', { kind: 'groups', groupIds: [] });
+		const empty = createSupabaseGroupPersistence(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		);
 		const before = state.requests.length;
 		expect([await empty.listCatalog(), await empty.findReference('alpha')]).toEqual([[], null]);
 		expect(state.requests).toHaveLength(before);
@@ -86,7 +97,7 @@ describe('ordinary Group persistence', () => {
 		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
 		state.failure = () => ({
 			code: '23505',
-			message: 'duplicate key value violates unique constraint "groups_clinic_id_name_key"',
+			message: 'duplicate key value violates unique constraint "groups_sibling_name_key"',
 			status: 409
 		});
 		await expect(port.create({ name: 'Alpha' })).rejects.toMatchObject({
@@ -114,11 +125,15 @@ function groupRpc(reply: () => Response | Promise<Response>) {
 
 describe('Group editor commands', () => {
 	it('renames, reorders and deletes through one call each, bound to the Organization', async () => {
-		const rename = groupRpc(() => Response.json([{ id: 'alpha', name: 'Weapons', sort_order: 2 }]));
+		const rename = groupRpc(() =>
+			Response.json([{ id: 'alpha', name: 'Weapons', sort_order: 2, parent_id: null, depth: 1 as const }])
+		);
 		await expect(rename.port.rename('alpha', 'Weapons')).resolves.toEqual({
 			id: 'alpha',
 			name: 'Weapons',
-			sortOrder: 2
+			sortOrder: 2,
+			parentId: null,
+			depth: 1 as const
 		});
 		const order = groupRpc(() => new Response(null, { status: 204 }));
 		await expect(order.port.setOrder(['bravo', 'alpha'], ['alpha', 'bravo'])).resolves.toBeUndefined();

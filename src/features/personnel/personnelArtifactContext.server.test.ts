@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { testPersonnelArtifactsContext } from './personnelArtifacts.testHelper';
@@ -54,7 +55,7 @@ describe('Personnel artifact request admission', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 		seedPeople(ctx);
@@ -72,7 +73,11 @@ describe('Personnel artifact request admission', () => {
 
 	it('does not reuse an admitted Person grant for another Person or request actor', async () => {
 		const ctx = createTestContext({
-			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['group-a'] } }
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
+			}
 		});
 		seedPeople(ctx);
 		const context = testPersonnelArtifactsContext(ctx);

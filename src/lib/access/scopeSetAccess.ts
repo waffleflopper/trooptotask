@@ -1,4 +1,4 @@
-import type { ScopeSet } from './memberAccessShape';
+import type { AdvisoryGroupScope } from './memberAccessShape';
 
 export type ScopeSetResource =
 	| { kind: 'organization' }
@@ -16,7 +16,7 @@ export function scopeSetResourceForGroupId(groupId: unknown): ScopeSetResource {
 	return typeof groupId === 'string' && groupId.length > 0 ? { kind: 'group', groupId } : { kind: 'organization' };
 }
 
-export function matchScopeSet(scopeSet: ScopeSet, resource: ScopeSetResource): MatchedScope {
+export function matchScopeSet(scopeSet: AdvisoryGroupScope, resource: ScopeSetResource): MatchedScope {
 	if (resource.kind === 'unscoped') {
 		return { kind: 'unscoped' };
 	}
@@ -40,7 +40,10 @@ export function isScopeSetMatchAllowed(match: MatchedScope): boolean {
 	return match.kind !== 'out-of-scope';
 }
 
-export function groupsInScope<T extends { readonly id: string }>(groups: readonly T[], scopeSet: ScopeSet): T[] {
+export function groupsInScope<T extends { readonly id: string }>(
+	groups: readonly T[],
+	scopeSet: AdvisoryGroupScope
+): T[] {
 	return groups.filter((group) =>
 		isScopeSetMatchAllowed(matchScopeSet(scopeSet, { kind: 'group', groupId: group.id }))
 	);

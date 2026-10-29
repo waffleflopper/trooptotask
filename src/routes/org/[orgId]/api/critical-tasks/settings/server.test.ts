@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -50,7 +51,7 @@ describe('/api/critical-tasks/settings', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] })
 			}
 		});
 		const saveDefaults = vi.fn();

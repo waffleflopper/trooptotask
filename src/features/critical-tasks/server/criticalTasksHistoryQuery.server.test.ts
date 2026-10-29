@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createSupabaseCriticalTaskLibraryPersistence } from './criticalTaskLibraryPersistence.server';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
@@ -11,7 +12,7 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -109,7 +110,9 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 	});
 
 	it('denies out-of-scope personnel history through scoped store reads', async () => {
-		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
+		const ctx = createTestContext({
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] }) }
+		});
 		ctx.store.seed('personnel', [
 			{
 				id: 'p-outside',

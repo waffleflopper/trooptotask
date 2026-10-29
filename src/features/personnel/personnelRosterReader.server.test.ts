@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect } from 'vitest';
 import { personnelProvider } from './test-support/personnelProvider';
 import { createSupabasePersonnelRosterReader } from './personnelRosterReader.server';
@@ -27,9 +28,9 @@ describe('ordinary Personnel roster persistence', () => {
 			]
 		});
 		state.unstablePages = true;
-		const scope = { kind: 'groups' as const, groupIds: ['alpha'] };
+		const scope = groupCoverageForTest({ kind: 'groups' as const, groupIds: ['alpha'] });
 		const roster = createSupabasePersonnelRosterReader(client, 'org-a', scope);
-		scope.groupIds.push('bravo');
+		Object.defineProperty(scope, 'groupIds', { value: ['alpha', 'bravo'] });
 		expect((await roster.list()).map((person) => person.id)).toEqual(ids);
 		expect((await roster.list({ status: 'archived', order: 'archived-newest' })).map((person) => person.id)).toEqual([
 			'archived'
@@ -51,7 +52,11 @@ describe('ordinary Personnel roster persistence', () => {
 		state.nullCount = true;
 		expect(await roster.countArchived()).toBe(0);
 		const requests = state.requests.length;
-		const empty = createSupabasePersonnelRosterReader(client, 'org-a', { kind: 'groups', groupIds: [] });
+		const empty = createSupabasePersonnelRosterReader(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		);
 		expect(await empty.list({ status: 'all' })).toEqual([]);
 		expect(await empty.countArchived()).toBe(0);
 		expect(state.requests).toHaveLength(requests);
@@ -68,10 +73,18 @@ describe('ordinary Personnel roster persistence', () => {
 		expect(await createSupabasePersonnelRosterReader(client, 'org-a').findOldestArchivedAt()).toBe(
 			'2024-11-02T03:00:00.000Z'
 		);
-		const alpha = createSupabasePersonnelRosterReader(client, 'org-a', { kind: 'groups', groupIds: ['alpha'] });
+		const alpha = createSupabasePersonnelRosterReader(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
+		);
 		expect(await alpha.findOldestArchivedAt()).toBe('2026-03-01T10:00:00.000Z');
 		const requests = state.requests.length;
-		const empty = createSupabasePersonnelRosterReader(client, 'org-a', { kind: 'groups', groupIds: [] });
+		const empty = createSupabasePersonnelRosterReader(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		);
 		expect(await empty.findOldestArchivedAt()).toBeNull();
 		expect(state.requests).toHaveLength(requests);
 		expect(await createSupabasePersonnelRosterReader(client, 'org-c').findOldestArchivedAt()).toBeNull();
@@ -90,10 +103,18 @@ describe('ordinary Personnel roster persistence', () => {
 			{ id: 'kim', rank: 'SGT', lastName: 'Smith', ets: '2026-11-20', deros: null, groupId: 'alpha' },
 			{ id: 'reed', rank: 'SGT', lastName: 'Smith', ets: null, deros: '2027-03-02', groupId: 'bravo' }
 		]);
-		const alpha = createSupabasePersonnelRosterReader(client, 'org-a', { kind: 'groups', groupIds: ['alpha'] });
+		const alpha = createSupabasePersonnelRosterReader(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
+		);
 		expect((await alpha.listLossCandidates()).map((person) => person.id)).toEqual(['kim']);
 		const requests = state.requests.length;
-		const empty = createSupabasePersonnelRosterReader(client, 'org-a', { kind: 'groups', groupIds: [] });
+		const empty = createSupabasePersonnelRosterReader(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		);
 		expect(await empty.listLossCandidates()).toEqual([]);
 		expect(state.requests).toHaveLength(requests);
 	});

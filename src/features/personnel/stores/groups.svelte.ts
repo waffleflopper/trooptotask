@@ -134,15 +134,22 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 			const trimmed = name.trim();
 			if (!trimmed) return null;
 			await settleOrder();
-			if (base.find((g) => g.name.toLowerCase() === trimmed.toLowerCase())) return null;
+			if (base.find((g) => g.parentId === null && g.name.toLowerCase() === trimmed.toLowerCase())) return null;
 			const nextSortOrder = Math.max(-1, ...base.rawItems.map((group) => group.sortOrder)) + 1;
-			return base.add({ name: trimmed, sortOrder: nextSortOrder } as Omit<Group, 'id'>);
+			return base.add({ name: trimmed, sortOrder: nextSortOrder, parentId: null, depth: 1 });
 		},
 
 		async rename(id: string, newName: string): Promise<boolean> {
 			const trimmed = newName.trim();
 			if (!trimmed) return false;
-			if (base.find((group) => group.id !== id && group.name.toLowerCase() === trimmed.toLowerCase()))
+			const current = base.find((group) => group.id === id);
+			if (!current) return false;
+			if (
+				base.find(
+					(group) =>
+						group.id !== id && group.parentId === current.parentId && group.name.toLowerCase() === trimmed.toLowerCase()
+				)
+			)
 				throw new Error(GROUP_NAME_EXISTS_MESSAGE);
 			return base.updateOrThrow(id, { name: trimmed });
 		},

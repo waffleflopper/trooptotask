@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from './ratingSchemePersistence.test-support.server';
@@ -17,7 +18,7 @@ const actor = {
 		onboarding: 'none',
 		ratingScheme: 'view'
 	} as const,
-	scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] }
+	scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['alpha'] })
 };
 const person = { id: 'person-alpha', rank: 'SGT', firstName: 'Synthetic', lastName: 'Able' };
 function row(id: string, ratedPersonId = person.id) {

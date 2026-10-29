@@ -1,6 +1,7 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityLevel, GroupCoverage } from '$lib/access/memberAccessShape';
 import {
 	createTestAuditPort,
 	createTestAuthContext,
@@ -13,7 +14,11 @@ import { _deleteConfig } from './+server';
 const ORG = '00000000-0000-4000-8000-000000000001';
 const EVENT = '00000000-0000-4000-8000-000000000101';
 
-function route(calendar: CapabilityLevel = 'operate', scopeSet: ScopeSet = { kind: 'organization' }, failure?: string) {
+function route(
+	calendar: CapabilityLevel = 'operate',
+	scopeSet: GroupCoverage = { kind: 'organization' },
+	failure?: string
+) {
 	let exists = true;
 	const writes: unknown[] = [];
 	const audit = createTestAuditPort();
@@ -107,7 +112,10 @@ describe('DELETE /org/[orgId]/api/calendar-events/[eventId]', () => {
 	);
 
 	it('refuses viewers and Group-scoped operators before a provider mutation', async () => {
-		for (const request of [route('view'), route('operate', { kind: 'groups', groupIds: ['group-a'] })]) {
+		for (const request of [
+			route('view'),
+			route('operate', groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] }))
+		]) {
 			await expect(request.invoke({ taskings: 'delete' })).rejects.toMatchObject({ status: 403 });
 			expect(request.exists()).toBe(true);
 			expect(request.writes).toEqual([]);

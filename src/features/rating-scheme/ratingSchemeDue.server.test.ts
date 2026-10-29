@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '$lib/server/database';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
@@ -27,7 +28,7 @@ function actor(overrides: Partial<RatingSchemeDueActor> = {}): RatingSchemeDueAc
 			onboarding: 'none',
 			ratingScheme: 'view'
 		},
-		scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+		scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 		...overrides
 	};
 }
@@ -295,7 +296,9 @@ describe('Rating Scheme due projection', () => {
 
 	it('skips the provider for an empty Group scope', async () => {
 		const { port, from, listArchivedRatedPersonIds } = provider();
-		await expect(port.listDueEntries(actor({ scopeSet: { kind: 'groups', groupIds: [] } }))).resolves.toEqual([]);
+		await expect(
+			port.listDueEntries(actor({ scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }) }))
+		).resolves.toEqual([]);
 		expect(from).not.toHaveBeenCalled();
 		expect(listArchivedRatedPersonIds).not.toHaveBeenCalled();
 	});

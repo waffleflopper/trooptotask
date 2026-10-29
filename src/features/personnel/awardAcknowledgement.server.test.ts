@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '$lib/server/database';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
@@ -16,7 +17,7 @@ function actor(personnel: 'view' | 'none', groupIds?: string[]) {
 			onboarding: 'none',
 			ratingScheme: 'none'
 		},
-		scopeSet: groupIds ? { kind: 'groups', groupIds } : { kind: 'organization' }
+		scopeSet: groupIds ? groupCoverageForTest({ kind: 'groups', groupIds }) : { kind: 'organization' }
 	});
 }
 

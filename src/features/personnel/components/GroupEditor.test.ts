@@ -8,9 +8,9 @@ import type { RosterStatusDot } from '../rosterSignals';
 import GroupEditor from './GroupEditor.svelte';
 
 const groups: Group[] = [
-	{ id: 'g-hq', name: 'HQ', sortOrder: 0 },
-	{ id: 'g-2', name: '2nd Platoon', sortOrder: 1 },
-	{ id: 'g-empty', name: 'Empty', sortOrder: 2 }
+	{ id: 'g-hq', name: 'HQ', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'g-2', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 as const },
+	{ id: 'g-empty', name: 'Empty', sortOrder: 2, parentId: null, depth: 1 as const }
 ];
 
 function person(id: string, rank: string, lastName: string, groupId: string | null, clinicRole = ''): Personnel {
@@ -49,7 +49,7 @@ function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {
 		todayStatus: (p: Personnel) => statuses[p.id],
 		canMovePerson: () => true,
 		canMoveTo: () => true,
-		onAdd: vi.fn(async (name: string) => ({ id: 'g-new', name, sortOrder: 3 })),
+		onAdd: vi.fn(async (name: string) => ({ id: 'g-new', name, sortOrder: 3, parentId: null, depth: 1 as const })),
 		onRename: vi.fn(async () => {}),
 		onReorder: vi.fn(async () => ({ status: 'saved' as const })),
 		onTogglePin: vi.fn(async () => true),
@@ -111,7 +111,7 @@ describe('GroupEditor', () => {
 		const reply = Promise.withResolvers<Group>();
 		const onAdd = vi
 			.fn()
-			.mockResolvedValueOnce({ id: 'g-weapons', name: 'Weapons', sortOrder: 3 })
+			.mockResolvedValueOnce({ id: 'g-weapons', name: 'Weapons', sortOrder: 3, parentId: null, depth: 1 as const })
 			.mockReturnValueOnce(reply.promise);
 		renderEditor({ onAdd });
 		const field = screen.getByRole('textbox', { name: 'New group name' }) as HTMLInputElement;

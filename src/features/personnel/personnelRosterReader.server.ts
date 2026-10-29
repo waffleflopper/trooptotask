@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '$lib/server/database';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelRosterReader } from './contracts';
 import {
@@ -13,7 +13,7 @@ import {
 export function createSupabasePersonnelRosterReader(
 	client: SupabaseClient,
 	orgId: string,
-	scope?: ScopeSet
+	scope?: GroupCoverage
 ): PersonnelRosterReader {
 	const groupIds = scope?.kind === 'groups' ? [...new Set(scope.groupIds.filter(Boolean))] : null;
 	return {

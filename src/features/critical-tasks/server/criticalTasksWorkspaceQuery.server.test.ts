@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from './criticalTasksPersistence.test-support.server';
 import { fetchCriticalTasksBootstrap } from './criticalTasksWorkspaceQuery.server';
@@ -15,14 +16,16 @@ describe('criticalTasksWorkspaceQuery', () => {
 
 		const bootstrap = await fetchCriticalTasksBootstrap(ctx);
 
-		await expect(bootstrap.groups).resolves.toEqual([{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }]);
+		await expect(bootstrap.groups).resolves.toEqual([
+			{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }
+		]);
 		await expect(bootstrap.pinnedGroups).resolves.toEqual([]);
 	});
 
 	it('returns settings immediately while leaving workspace lists promise-backed', async () => {
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
@@ -137,7 +140,9 @@ describe('criticalTasksWorkspaceQuery', () => {
 				groupName: 'Alpha'
 			})
 		]);
-		await expect(bootstrap.groups).resolves.toEqual([{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }]);
+		await expect(bootstrap.groups).resolves.toEqual([
+			{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }
+		]);
 		await expect(bootstrap.pinnedGroups).resolves.toEqual([]);
 		await expect(bootstrap.ictTasks).resolves.toEqual([
 			expect.objectContaining({

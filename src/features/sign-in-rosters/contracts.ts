@@ -1,4 +1,4 @@
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityMap, GroupCoverage } from '$lib/access/memberAccessShape';
 import type { FileCleanup } from '$features/organization/contracts';
 
 export {
@@ -23,7 +23,7 @@ export interface SignInRosterFileActor {
 	role: 'owner' | 'admin' | 'member';
 	isPrivileged: boolean;
 	capabilityMap: CapabilityMap;
-	scopeSet: ScopeSet;
+	scopeSet: GroupCoverage;
 }
 
 export interface SignInRosterScanPort {

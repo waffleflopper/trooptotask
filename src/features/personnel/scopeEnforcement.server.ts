@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '$lib/server/database';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from './personnelGroupAccess.server';
 
 export function createSupabaseScopeEnforcementAdapter(config: {
 	supabase: SupabaseClient;
 	orgId: string;
-	scopeSet: ScopeSet;
+	scopeSet: GroupCoverage;
 }) {
 	return {
 		async requireGroupAccess(personnelId: string): Promise<void> {

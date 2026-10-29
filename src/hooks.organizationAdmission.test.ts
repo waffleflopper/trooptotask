@@ -78,6 +78,20 @@ function fixture() {
 	const transport = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = new URL(String(input));
 		expect(url.origin).toBe('http://organization.invalid');
+		if (url.pathname.endsWith('/rpc/read_request_member_access')) {
+			state.membershipReads++;
+			if (state.failedTable === 'organization_memberships')
+				return Response.json({ code: 'XX000', message: 'private provider detail' }, { status: 500 });
+			const { p_organization_id } = JSON.parse(String(init?.body));
+			const row = tables.organization_memberships.find(
+				(row) => row.user_id === USER && row.organization_id === p_organization_id
+			);
+			return row
+				? Response.json({ ...row, covered_group_ids: row.access_scope_group_ids ?? [] })
+				: new Headers(init?.headers).get('accept')?.includes('vnd.pgrst.object')
+					? Response.json({ code: 'PGRST116' }, { status: 406 })
+					: Response.json([]);
+		}
 		const table = url.pathname.split('/').at(-1)!;
 		if (!(table in tables)) throw new Error(`Unexpected table ${table}`);
 		if (table === 'organization_memberships') state.membershipReads++;
@@ -85,7 +99,7 @@ function fixture() {
 		if (table === state.failedTable)
 			return Response.json({ code: 'XX000', message: 'private provider detail' }, { status: 500 });
 		if (init?.method === 'POST') {
-			const row = { id: 'created-group', ...JSON.parse(String(init.body)) };
+			const row = { id: 'created-group', parent_id: null, depth: 1, ...JSON.parse(String(init.body)) };
 			tables[table].push(row);
 			return Response.json(row, { status: 201 });
 		}
@@ -131,10 +145,12 @@ function fixture() {
 	})}.synthetic`;
 	const client = {
 		from: provider.from.bind(provider),
-		rpc: vi.fn((name: string) =>
-			name === 'get_current_session_started_at'
-				? { setHeader: () => Promise.resolve({ data: now, error: null }) }
-				: Promise.resolve({ data: false, error: null })
+		rpc: vi.fn((name: string, args?: never) =>
+			name === 'read_request_member_access'
+				? provider.rpc(name, args)
+				: name === 'get_current_session_started_at'
+					? { setHeader: () => Promise.resolve({ data: now, error: null }) }
+					: Promise.resolve({ data: false, error: null })
 		),
 		auth: {
 			getSession: vi.fn().mockResolvedValue({
@@ -275,7 +291,7 @@ describe('Organization admission denial and recovery', () => {
 			const response = await handle({ event: f.event(), resolve: f.dispatch });
 			expect(response.status).toBe(200);
 			expect(f.tables.groups).toEqual([
-				{ id: 'created-group', organization_id: ORG, name: 'New Group', sort_order: 0 }
+				{ id: 'created-group', organization_id: ORG, name: 'New Group', sort_order: 0, parent_id: null, depth: 1 }
 			]);
 		}
 	);
@@ -434,7 +450,11 @@ describe('Organization shell admission with real provider mapping', () => {
 			state: { orgSuspended: false }
 		});
 		const child = await buildLayoutRequest(f.locals, ORG);
-		expect(child.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+		expect(child.auth.scopeSet).toEqual({
+			kind: 'groups',
+			groupIds: ['group-a', 'group-b'],
+			grantedGroupIds: ['group-a', 'group-b']
+		});
 		expect(f.state.membershipReads).toBe(1);
 	});
 
@@ -508,7 +528,11 @@ describe('Organization shell admission with real provider mapping', () => {
 			f.state.failedTable = table;
 			const { shell } = await f.load();
 			if (shell.kind !== 'ready') throw new Error('Expected a ready shell');
-			expect(shell.member.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+			expect(shell.member.scopeSet).toEqual({
+				kind: 'groups',
+				groupIds: ['group-a', 'group-b'],
+				grantedGroupIds: ['group-a', 'group-b']
+			});
 			expect(shell.announcements).toEqual([]);
 			expect(shell.whatsNew).toEqual([]);
 			expect(shell.preferences).toEqual(getDefaultUserOrgPreferences());

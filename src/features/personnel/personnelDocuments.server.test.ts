@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { testPersonnelArtifactsContext } from './personnelArtifacts.testHelper';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
@@ -260,7 +261,7 @@ describe('personnel documents', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['other-group'] })
 			}
 		});
 		seedPersonnel(outOfScope, 'group-1');

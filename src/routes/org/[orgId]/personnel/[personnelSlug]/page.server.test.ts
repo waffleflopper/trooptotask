@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { fail } from '$lib/errors';
@@ -299,7 +300,11 @@ describe('personnel Overview page server load', () => {
 	});
 
 	it('resolves the Person by slug once for the detail layout and the Overview in one request', async () => {
-		const ctx = detailTestContext('person-1', { scopeSet: { kind: 'groups', groupIds: ['group-1'] } }, 'group-1');
+		const ctx = detailTestContext(
+			'person-1',
+			{ scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }) },
+			'group-1'
+		);
 		const findBySlug = vi.spyOn(ctx.organizationPersonnel, 'findBySlug');
 		const findById = vi.spyOn(ctx.organizationPersonnel, 'findById');
 		const loadWithContext = loadWithSelectedContexts(ctx);
@@ -317,7 +322,12 @@ describe('personnel Overview page server load', () => {
 	});
 
 	it.each<[string, Parameters<typeof createTestAuthContext>[0], string, number]>([
-		['an out-of-Group target', { scopeSet: { kind: 'groups', groupIds: ['other-group'] } }, 'rivera-monica', 403],
+		[
+			'an out-of-Group target',
+			{ scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['other-group'] }) },
+			'rivera-monica',
+			403
+		],
 		['an unknown or foreign slug', {}, 'foreign-person', 404]
 	])('denies the Overview for %s before any section read', async (_, auth, slug, status) => {
 		const ctx = detailTestContext('person-1', auth);

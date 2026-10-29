@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -135,9 +136,9 @@ const mockType: TrainingType = {
 };
 
 const mockGroups: Group[] = [
-	{ id: 'g-1', name: 'Alpha', sortOrder: 0 },
-	{ id: 'g-2', name: 'Bravo', sortOrder: 1 },
-	{ id: 'g-empty', name: 'Charlie', sortOrder: 2 }
+	{ id: 'g-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'g-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const },
+	{ id: 'g-empty', name: 'Charlie', sortOrder: 2, parentId: null, depth: 1 as const }
 ];
 
 function makeData(overrides: Record<string, unknown> = {}) {
@@ -212,7 +213,7 @@ describe('TrainingPageContext', () => {
 				...createClientAccess({
 					membershipRole: 'member',
 					capabilityMap: { ...createCapabilityMap('none'), training: 'configure' },
-					scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] })
 				})
 			};
 			const ctx = makeContext(makeData(), org);

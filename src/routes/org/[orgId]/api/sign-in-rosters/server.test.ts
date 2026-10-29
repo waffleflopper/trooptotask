@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
@@ -241,7 +242,7 @@ describe('/api/sign-in-rosters route config', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -444,7 +445,7 @@ describe('/api/sign-in-rosters route config', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] })
 			}
 		});
 		ctx.rawStore.seed('organization_rank_catalog', [
@@ -737,7 +738,7 @@ describe('/api/sign-in-rosters route config', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] })
 			}
 		});
 		seedPersonnel(scoped);
@@ -769,7 +770,7 @@ describe('/api/sign-in-rosters route config', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] })
 			}
 		});
 		ctx.rawStore.seed('sign_in_rosters', [
@@ -844,7 +845,7 @@ describe('/api/sign-in-rosters route config', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] })
 			}
 		});
 		const seeded = (id: string, day: number, extra: Record<string, unknown> = {}) => ({

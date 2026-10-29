@@ -71,7 +71,7 @@ afterEach(() => {
 });
 
 const catalogs = {
-	groups: [{ id: 'group-1', name: 'Alpha', sortOrder: 0 }],
+	groups: [{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
 	rankCatalog: [
 		{
 			organizationId: 'org-1',

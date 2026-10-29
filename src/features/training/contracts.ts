@@ -1,5 +1,5 @@
 import type { FeatureKey } from '$lib/access/featureSwitches';
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityMap, GroupCoverage, AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type {
 	PersonnelTraining,
 	TrainingCompletionFacts,
@@ -89,7 +89,7 @@ export interface TrainingOnboardingActor {
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly isPrivileged: boolean;
 	readonly capabilityMap: CapabilityMap;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: GroupCoverage;
 }
 
 export type TrainingTypeLabel = Pick<TrainingType, 'id' | 'name'>;
@@ -271,7 +271,7 @@ export interface TrainingAffordance {
 export interface TrainingPageAccess {
 	readonly orgId: string;
 	readonly orgUrlSegment?: string;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: AdvisoryGroupScope;
 	readonly affordanceForFeatureAction: (
 		action: FeatureLanePolicyAction,
 		resource?: PolicyResource

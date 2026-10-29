@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
@@ -34,7 +35,7 @@ describe('Onboarding templates page admission', () => {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure' },
-				scopeSet: { kind: 'groups', groupIds: groups }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: groups })
 			}
 		});
 		await expect(load(event() as never)).rejects.toMatchObject({ status: 403 });

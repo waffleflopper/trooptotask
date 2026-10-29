@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 // @vitest-environment happy-dom
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
@@ -132,7 +133,10 @@ describe('AssignmentPlannerPage', () => {
 		mockOrg = makeOrg();
 		calendarStore.goToMonth(2026, 8);
 		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
-		groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+		groupCatalogHydration.load(
+			[{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+			'org-1'
+		);
 	});
 
 	afterEach(() => {
@@ -201,8 +205,8 @@ it('saves a Group duty chosen in a cell or the column menu by the Group id', asy
 	dailyAssignmentsStore.load([groupType], [], 'org-1');
 	groupCatalogHydration.load(
 		[
-			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 },
-			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
+			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		],
 		'org-1'
 	);
@@ -244,14 +248,14 @@ it('saves a Group duty chosen in a cell or the column menu by the Group id', asy
 });
 
 it('offers a Group-scoped member only the Groups in their scope, and no roster counts', async () => {
-	mockOrg = makeOrg({ scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } });
+	mockOrg = makeOrg({ scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }) });
 	calendarStore.goToMonth(2026, 8);
 	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
 	dailyAssignmentsStore.load([groupType], [], 'org-1');
 	groupCatalogHydration.load(
 		[
-			{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 },
-			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
+			{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		],
 		'org-1'
 	);
@@ -727,7 +731,7 @@ describe('planner duty swaps', () => {
 	});
 
 	it('offers no swap and sends no swap read to an operator limited to a Group', async () => {
-		mockOrg = makeOrg({ scopeSet: { kind: 'groups', groupIds: ['group-1'] } });
+		mockOrg = makeOrg({ scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }) });
 		const { fetcher, requests } = swapFetch({ swaps: [] }, () => new Response('', { status: 500 }));
 		vi.stubGlobal('fetch', fetcher);
 		renderPage();
@@ -745,7 +749,10 @@ describe('planner visible-month loading', () => {
 		mockOrg = makeOrg();
 		calendarStore.goToMonth(2026, 8);
 		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
-		groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+		groupCatalogHydration.load(
+			[{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+			'org-1'
+		);
 	});
 	afterEach(() => {
 		cleanup();

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createClient } from '@supabase/supabase-js';
@@ -129,7 +130,7 @@ describe('POST /api/export', () => {
 		{ label: 'ordinary member', scopeSet: { kind: 'organization' as const }, canManageMembers: false },
 		{
 			label: 'Group-scoped member',
-			scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] },
+			scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['alpha'] }),
 			canManageMembers: false
 		},
 		{ label: 'legacy member manager', scopeSet: { kind: 'organization' as const }, canManageMembers: true }

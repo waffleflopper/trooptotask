@@ -1,6 +1,7 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import type { AuditEvent } from '$lib/audit/contracts';
-import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityLevel, GroupCoverage } from '$lib/access/memberAccessShape';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { ChecklistItem, EquipmentRequirement } from './taskingListsModel';
 import {
@@ -100,7 +101,7 @@ function slowAudit() {
 
 function member(
 	calendar: CapabilityLevel,
-	scopeSet: ScopeSet = { kind: 'organization' },
+	scopeSet: GroupCoverage = { kind: 'organization' },
 	stored: Tasking | null = tasking(ALPHA)
 ) {
 	const lists = memoryLists();
@@ -147,7 +148,8 @@ function member(
 }
 
 const littersDraft = { name: 'Litters', quantity: 4, securedQuantity: 0 };
-const alphaOperator = (stored?: Tasking | null) => member('operate', { kind: 'groups', groupIds: [ALPHA] }, stored);
+const alphaOperator = (stored?: Tasking | null) =>
+	member('operate', groupCoverageForTest({ kind: 'groups', groupIds: [ALPHA] }), stored);
 const actions = (entries: AuditEvent[]) => entries.map((entry) => entry.action);
 
 describe('Tasking equipment and checklist operations', () => {

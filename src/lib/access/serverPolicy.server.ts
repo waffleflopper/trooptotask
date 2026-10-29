@@ -9,7 +9,7 @@ import {
 	type PolicyReasonCode,
 	type PolicyResource
 } from './policyEvaluator';
-import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from './memberAccessShape';
+import type { CapabilityMap, OrganizationAccessGrant, AdvisoryGroupScope } from './memberAccessShape';
 import type { PolicyAuditSink } from './policyAuditSink';
 import { scopeSetResourceForGroupId } from './scopeSetAccess';
 import { fail } from '$lib/errors';
@@ -293,7 +293,7 @@ export async function requirePolicyDecision(
 	});
 }
 
-function routePolicyDenialMessage(decision: PolicyDecision, scopeSet?: ScopeSet): string {
+function routePolicyDenialMessage(decision: PolicyDecision, scopeSet?: AdvisoryGroupScope): string {
 	if (decision.reasonCode === 'denied:out-of-scope') {
 		return scopeSet?.kind === 'groups'
 			? 'This action is outside your assigned Group scope'

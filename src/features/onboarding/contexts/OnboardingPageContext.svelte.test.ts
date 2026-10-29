@@ -1,8 +1,9 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { onboardingStore } from '../stores/onboarding.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
 const { invalidateMock } = vi.hoisted(() => ({
@@ -72,7 +73,11 @@ function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
 	return {
 		orgId: 'org-1',
 		orgUrlSegment: 'org-1',
-		...createClientAccess({ membershipRole: 'member', capabilityMap, scopeSet: { kind: 'groups', groupIds: ['g-1'] } })
+		...createClientAccess({
+			membershipRole: 'member',
+			capabilityMap,
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] })
+		})
 	};
 }
 
@@ -524,7 +529,7 @@ describe('OnboardingPageContext policy affordances', () => {
 			...createClientAccess({
 				membershipRole: 'member',
 				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure', personnel: 'configure' },
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
 			})
 		});
 		expect(ctx.canAddPerson).toBe(true);
@@ -541,9 +546,9 @@ describe('OnboardingPageContext policy affordances', () => {
 	it('requires Organization scope for the configuration navigation without borrowing other lanes', () => {
 		for (const scopeSet of [
 			{ kind: 'organization' },
-			{ kind: 'groups', groupIds: ['g-1'] },
-			{ kind: 'groups', groupIds: [] }
-		] satisfies ScopeSet[]) {
+			groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] }),
+			groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		] satisfies GroupCoverage[]) {
 			const context = new OnboardingPageContext({ open: vi.fn() } as never, {
 				orgId: 'org-1',
 				orgUrlSegment: 'org-1',

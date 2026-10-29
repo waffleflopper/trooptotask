@@ -35,7 +35,8 @@ function grant(
 			member_preset: 'viewer',
 			capability_overrides: capabilities,
 			access_scope_kind: scope,
-			access_scope_group_ids: scope === 'groups' ? ['group-1'] : []
+			access_scope_group_ids: scope === 'groups' ? ['group-1'] : [],
+			covered_group_ids: scope === 'groups' ? ['group-1'] : []
 		},
 		'user-1',
 		'org-1',

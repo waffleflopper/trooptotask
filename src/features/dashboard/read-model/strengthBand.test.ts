@@ -93,7 +93,7 @@ function band(overrides: Partial<StrengthInputs>) {
 		availability: [],
 		statusTypes: STATUS_TYPES,
 		specialDays: [],
-		groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0 }],
+		groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
 		floorPercent: 80,
 		...overrides
 	});
@@ -329,9 +329,9 @@ describe('bottom line scale (frame 02)', () => {
 		const result = band({
 			personnel,
 			groups: [
-				{ id: 'alpha', name: 'Alpha', sortOrder: 0 },
-				{ id: 'bravo', name: 'Bravo', sortOrder: 1 },
-				{ id: 'charlie', name: 'Charlie', sortOrder: 2 }
+				{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const },
+				{ id: 'charlie', name: 'Charlie', sortOrder: 2, parentId: null, depth: 1 as const }
 			],
 			availability: [
 				...away(['p1', 'p2'], 'leave', '2026-10-17', '2026-10-19'),
@@ -377,7 +377,9 @@ describe('by group', () => {
 		const groups: Group[] = Array.from({ length: groupCount }, (_, index) => ({
 			id: `g${index + 1}`,
 			name: `G${index + 1}`,
-			sortOrder: index
+			sortOrder: index,
+			parentId: null,
+			depth: 1 as const
 		}));
 		const personnel = groups.flatMap((group, index) => people(4, group.id, index * 4 + 1));
 		return band({

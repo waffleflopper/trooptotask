@@ -121,8 +121,8 @@ describe('trainingReadiness', () => {
 			inputs({
 				personnel: [person('a1', 'alpha'), person('a2', 'alpha'), person('b1', 'bravo'), person('b2', 'bravo')],
 				groups: [
-					{ id: 'bravo', name: 'Bravo', sortOrder: 1 },
-					{ id: 'alpha', name: 'Alpha', sortOrder: 0 }
+					{ id: 'bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const },
+					{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }
 				],
 				trainingSummary: trainingSummary(1, [
 					{ groupId: 'alpha', expired: 0, delinquent: 1 },

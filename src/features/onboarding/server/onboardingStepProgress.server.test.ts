@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import {
 	createTestContext,
@@ -328,7 +329,7 @@ describe('addNote', () => {
 					role: 'member',
 					isPrivileged: false,
 					capabilityMap: operateCapabilityMap,
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 				}
 			},
 			'group-bravo'
@@ -453,7 +454,7 @@ describe('removeInactiveStep', () => {
 					role: 'member',
 					isPrivileged: false,
 					capabilityMap: { ...operateCapabilityMap, onboarding },
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 				}
 			},
 			groupId

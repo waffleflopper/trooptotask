@@ -52,7 +52,7 @@ function eventFor<TEvent>(
 									disabled_features: disabledFeatures
 								}
 					);
-				if (url.pathname.endsWith('/organization_memberships'))
+				if (url.pathname.endsWith('/rpc/read_request_member_access'))
 					return Response.json(
 						state === 'nonmember'
 							? null

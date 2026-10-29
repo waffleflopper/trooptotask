@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { withOnboardingPersistence } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import {
@@ -205,7 +206,7 @@ describe('fetchDashboardBootstrap', () => {
 	});
 
 	it('returns only in-scope Groups and no pins beside scoped Personnel facts', async () => {
-		const ctx = buildCtx({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const ctx = buildCtx({ auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }) } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 		store.seed('groups', [
 			{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
@@ -223,7 +224,7 @@ describe('fetchDashboardBootstrap', () => {
 
 		const result = await fetchDashboardBootstrap(ctx);
 
-		expect(result.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
+		expect(result.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }]);
 		expect(result.pinnedGroups).toEqual([]);
 		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
 	});
@@ -566,7 +567,7 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 					onboarding: 'none',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
 			}
 		});
 		ctx.ratingSchemeDue = {
@@ -590,7 +591,7 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 
 	it.each([
 		['Organization', { kind: 'organization' as const }],
-		['Group', { kind: 'groups' as const, groupIds: ['g-1'] }]
+		['Group', groupCoverageForTest({ kind: 'groups' as const, groupIds: ['g-1'] })]
 	])('leaves archived People out of the in-memory %s-scoped projection', async (_label, scopeSet) => {
 		const ctx = buildCtx({
 			auth: {

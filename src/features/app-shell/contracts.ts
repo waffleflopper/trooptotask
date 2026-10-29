@@ -1,4 +1,4 @@
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityMap, AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { SignedInAccount, UserOrgPreferences } from '$features/identity/contracts';
 
@@ -25,7 +25,7 @@ export interface ReadyAppShell {
 		membershipId: string | null;
 		role: 'owner' | 'admin' | 'member';
 		capabilityMap: CapabilityMap;
-		scopeSet: ScopeSet;
+		scopeSet: AdvisoryGroupScope;
 		isOwner: boolean;
 		isAdmin: boolean;
 	};
@@ -139,7 +139,7 @@ export interface MembershipInfo {
 	userId: string;
 	role: 'owner' | 'admin' | 'member';
 	capabilityMap: CapabilityMap;
-	scopeSet: ScopeSet;
+	scopeSet: AdvisoryGroupScope;
 	orgSuspended?: boolean;
 }
 

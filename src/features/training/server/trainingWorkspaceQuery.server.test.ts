@@ -1,5 +1,6 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { createQueryWithRawStorePortsContext } from './trainingPersistence.test-support.server';
 import { fetchTrainingWorkspaceData } from './trainingWorkspaceQuery.server';
 import { fetchTrainingBriefingReport } from './trainingReportsQuery.server';
@@ -9,7 +10,7 @@ import type { TrainingTypeRow } from './trainingPersistenceMapping.server';
 
 const ORG = 'test-org';
 
-async function loadGroupChoices(scopeSet: ScopeSet) {
+async function loadGroupChoices(scopeSet: GroupCoverage) {
 	const ctx = createQueryWithRawStorePortsContext({
 		auth: {
 			role: 'member',
@@ -175,14 +176,14 @@ describe('fetchTrainingWorkspaceData', () => {
 	});
 
 	it('returns only the Groups in a Group-scoped viewer’s scope and none of their pins', async () => {
-		await expect(loadGroupChoices({ kind: 'groups', groupIds: ['alpha'] })).resolves.toEqual({
-			groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0 }],
+		await expect(loadGroupChoices(groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }))).resolves.toEqual({
+			groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
 			pinnedGroups: []
 		});
 	});
 
 	it('returns no Groups or pinned names to an empty Group scope', async () => {
-		await expect(loadGroupChoices({ kind: 'groups', groupIds: [] })).resolves.toEqual({
+		await expect(loadGroupChoices(groupCoverageForTest({ kind: 'groups', groupIds: [] }))).resolves.toEqual({
 			groups: [],
 			pinnedGroups: []
 		});

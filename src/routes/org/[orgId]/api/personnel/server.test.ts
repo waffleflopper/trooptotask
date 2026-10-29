@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
@@ -294,7 +295,7 @@ describe('Personnel route denied-write safety', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [alpha, bravo] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [alpha, bravo] }),
 				...overrides.auth
 			}
 		});

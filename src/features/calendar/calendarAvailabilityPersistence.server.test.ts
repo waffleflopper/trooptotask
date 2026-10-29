@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseCalendarAvailabilityPersistence } from './calendarAvailabilityPersistence.server';
@@ -77,7 +78,7 @@ describe('Calendar ordinary availability persistence', () => {
 			}
 		});
 		const port = persistence(client, {
-			scopeSet: { kind: 'groups', groupIds: [] },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }),
 			loadScopedPersonnelIds: async () => {
 				throw new Error('Removal must not use app read scope');
 			}
@@ -228,7 +229,7 @@ describe('Calendar ordinary availability persistence', () => {
 		const pending = Promise.withResolvers<string[]>();
 		const lookup = vi.fn(() => pending.promise);
 		const port = persistence(client, {
-			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 			loadScopedPersonnelIds: lookup
 		});
 		const first = port.listOverlapping(RANGE);
@@ -248,7 +249,7 @@ describe('Calendar ordinary availability persistence', () => {
 			availability_entries: [SAVED, { ...SAVED, id: 'entry-scoped', personnel_id: 'scoped-0' }]
 		});
 		const port = persistence(client, {
-			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 			loadScopedPersonnelIds: async () => scopedIds
 		});
 
@@ -271,7 +272,7 @@ describe('Calendar ordinary availability persistence', () => {
 		state.requests.length = 0;
 		expect(
 			await persistence(client, {
-				scopeSet: { kind: 'groups', groupIds: [] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }),
 				loadScopedPersonnelIds: lookup
 			}).listOverlapping(RANGE)
 		).toEqual([]);
@@ -291,7 +292,10 @@ describe('Calendar ordinary availability persistence', () => {
 			]
 		});
 		const lookup = vi.fn(async () => []);
-		const port = persistence(client, { scopeSet: { kind: 'groups', groupIds: [] }, loadScopedPersonnelIds: lookup });
+		const port = persistence(client, {
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }),
+			loadScopedPersonnelIds: lookup
+		});
 		expect((await port.listPersonnelHistory('person-a')).map(({ id }) => id)).toEqual(['entry-a', 'older']);
 		expect(await port.findReference('entry-a')).toEqual({ personnelId: 'person-a' });
 		expect(await port.findReference('foreign')).toBeNull();
@@ -339,7 +343,7 @@ describe('Calendar ordinary availability persistence', () => {
 			}))
 		});
 		const port = persistence(client, {
-			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 			loadScopedPersonnelIds: async () => ids
 		});
 		const result = await port.listOverlapping({ ...RANGE, orderByEndDate: true });

@@ -123,8 +123,8 @@ function renderPlanner(
 			specialDays: [],
 			personnelByGroup: [{ group: 'Alpha', personnel: props.personnel ?? [kim, okafor, hale] }],
 			groups: [
-				{ id: 'g-alpha', name: 'Alpha', sortOrder: 0 },
-				{ id: 'g-bravo', name: 'Bravo', sortOrder: 1 }
+				{ id: 'g-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'g-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			onSetAssignment,
 			onSetAssignmentBatch,

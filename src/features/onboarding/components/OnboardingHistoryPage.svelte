@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createRosterReadModel, type Group, type Personnel } from '$features/personnel/contracts';
-	import type { ScopeSet } from '$lib/access/memberAccessShape';
+	import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 	import type { OnboardingTemplate, PersonnelOnboarding } from '../contracts';
 	import { getTemplateDisplayName } from '../contexts/OnboardingPageContext.svelte';
 	import {
@@ -31,7 +31,7 @@
 
 	interface Props {
 		orgUrlSegment: string;
-		scopeSet: ScopeSet;
+		scopeSet: AdvisoryGroupScope;
 		onboardings: PersonnelOnboarding[];
 		personnel: Personnel[];
 		templates: OnboardingTemplate[];

@@ -1,6 +1,7 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import type { AuditEvent } from '$lib/audit/contracts';
-import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityLevel, GroupCoverage } from '$lib/access/memberAccessShape';
 import type { Personnel } from '$features/personnel/contracts';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { Tasking, TaskingResponsibility } from '../taskingModel';
@@ -90,7 +91,7 @@ function slowAudit() {
 function member(
 	calendar: CapabilityLevel,
 	work: Tasking,
-	options: { scopeSet?: ScopeSet; advisories?: () => Promise<Record<string, never>> } = {}
+	options: { scopeSet?: GroupCoverage; advisories?: () => Promise<Record<string, never>> } = {}
 ) {
 	const scopeSet = options.scopeSet ?? { kind: 'organization' };
 	const staffing = memoryStaffing(options.advisories);
@@ -131,7 +132,7 @@ function member(
 	return { ctx, saves: staffing.saves, audit, advisoryReads: () => advisoryReads };
 }
 
-const alpha: { scopeSet: ScopeSet } = { scopeSet: { kind: 'groups', groupIds: [ALPHA] } };
+const alpha: { scopeSet: GroupCoverage } = { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [ALPHA] }) };
 const save = (personnelIds: string[], expectedRevision: number) => ({
 	personnelIds,
 	keep: [],

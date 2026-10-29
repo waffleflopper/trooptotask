@@ -10,8 +10,8 @@ import { invalidate } from '$app/navigation';
 vi.mock('$app/navigation', () => ({ invalidate: vi.fn(async () => {}) }));
 
 const mockGroups: Group[] = [
-	{ id: '1', name: 'Alpha', sortOrder: 0 },
-	{ id: '2', name: 'Bravo', sortOrder: 1 }
+	{ id: '1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: '2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 
 describe('groupsStore', () => {
@@ -25,8 +25,8 @@ describe('groupsStore', () => {
 		it('shows the Organization catalog in configured order', () => {
 			groupCatalogHydration.load(
 				[
-					{ id: 'later', name: 'Later', sortOrder: 8 },
-					{ id: 'first', name: 'First', sortOrder: 1 }
+					{ id: 'later', name: 'Later', sortOrder: 8, parentId: null, depth: 1 as const },
+					{ id: 'first', name: 'First', sortOrder: 1, parentId: null, depth: 1 as const }
 				],
 				'org-2'
 			);
@@ -35,17 +35,20 @@ describe('groupsStore', () => {
 		it('breaks equal display positions by name, then id', () => {
 			groupCatalogHydration.load(
 				[
-					{ id: 'a', name: 'Zulu', sortOrder: 0 },
-					{ id: 'c', name: 'Alpha', sortOrder: 0 },
-					{ id: 'b', name: 'Alpha', sortOrder: 0 },
-					{ id: 'd', name: 'Earlier', sortOrder: -1 }
+					{ id: 'a', name: 'Zulu', sortOrder: 0, parentId: null, depth: 1 as const },
+					{ id: 'c', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+					{ id: 'b', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+					{ id: 'd', name: 'Earlier', sortOrder: -1, parentId: null, depth: 1 as const }
 				],
 				'org-1'
 			);
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['d', 'b', 'c', 'a']);
 		});
 		it('clears the public catalog when a new Organization is hydrated', () => {
-			groupCatalogHydration.load([{ id: 'new-org', name: 'New', sortOrder: 0 }], 'org-2');
+			groupCatalogHydration.load(
+				[{ id: 'new-org', name: 'New', sortOrder: 0, parentId: null, depth: 1 as const }],
+				'org-2'
+			);
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['new-org']);
 		});
 	});
@@ -96,7 +99,10 @@ describe('groupsStore', () => {
 		});
 
 		it('folds moves made during a save into one follow-up save of the latest order', async () => {
-			groupCatalogHydration.load([...structuredClone(mockGroups), { id: '3', name: 'Charlie', sortOrder: 2 }], 'org-1');
+			groupCatalogHydration.load(
+				[...structuredClone(mockGroups), { id: '3', name: 'Charlie', sortOrder: 2, parentId: null, depth: 1 as const }],
+				'org-1'
+			);
 			const first = Promise.withResolvers<Response>();
 			const fetchMock = vi
 				.fn()
@@ -122,9 +128,9 @@ describe('groupsStore', () => {
 				url.endsWith('/order')
 					? Response.json({ message: 'The Group order changed somewhere else.' }, { status: 409 })
 					: Response.json([
-							{ id: '2', name: 'Bravo', sortOrder: 0 },
-							{ id: '1', name: 'Alpha', sortOrder: 1 },
-							{ id: '3', name: 'Charlie', sortOrder: 2 }
+							{ id: '2', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const },
+							{ id: '1', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 as const },
+							{ id: '3', name: 'Charlie', sortOrder: 2, parentId: null, depth: 1 as const }
 						])
 			);
 			vi.stubGlobal('fetch', fetchMock);
@@ -173,8 +179,8 @@ describe('groupsStore', () => {
 		it('appends after the highest saved position when sort orders have a gap', async () => {
 			groupCatalogHydration.load(
 				[
-					{ id: '1', name: 'Alpha', sortOrder: 0 },
-					{ id: '2', name: 'Bravo', sortOrder: 4 }
+					{ id: '1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+					{ id: '2', name: 'Bravo', sortOrder: 4, parentId: null, depth: 1 as const }
 				],
 				'org-1'
 			);
@@ -187,6 +193,31 @@ describe('groupsStore', () => {
 			expect(result?.sortOrder).toBe(5);
 			expect(groupCatalog.items.map((group) => group.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
 		});
+	});
+
+	it('allows a top-level Group to share a sub-group name and limits rename collisions to siblings', async () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'root', name: 'Platoon', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'squad-one', name: 'First', sortOrder: 0, parentId: 'root', depth: 2 },
+				{ id: 'squad-two', name: 'Second', sortOrder: 1, parentId: 'root', depth: 2 },
+				{ id: 'team-one', name: 'Alpha', sortOrder: 0, parentId: 'squad-one', depth: 3 },
+				{ id: 'team-two', name: 'Bravo', sortOrder: 1, parentId: 'squad-one', depth: 3 },
+				{ id: 'cousin', name: 'Charlie', sortOrder: 0, parentId: 'squad-two', depth: 3 }
+			],
+			'org-1'
+		);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url, init) => {
+				const input = JSON.parse(init.body);
+				return Response.json({ id: input.id ?? 'new-root', parentId: null, depth: 1, sortOrder: 0, ...input });
+			})
+		);
+		expect((await groupsStore.add('Alpha'))?.id).toBe('new-root');
+		expect(await groupsStore.rename('cousin', 'Alpha')).toBe(true);
+		await expect(groupsStore.rename('team-two', 'Alpha')).rejects.toThrow();
+		expect(groupCatalog.items.find((group) => group.id === 'team-two')?.name).toBe('Bravo');
 	});
 
 	describe('rename', () => {

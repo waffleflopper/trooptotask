@@ -157,8 +157,8 @@ it('shows Group names while submitting stable Group IDs, including after a renam
 		assignments: [{ id: 'saved', date: '2026-09-19', assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' }],
 		personnelByGroup: [],
 		groups: [
-			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 },
-			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
+			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		],
 		onSetAssignment,
 		onRemoveAssignment: vi.fn(),

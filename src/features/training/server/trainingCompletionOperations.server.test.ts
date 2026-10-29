@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$features/training/server/trainingPersistence.test-support.server';
 import {
@@ -299,7 +300,7 @@ describe('createTrainingRecord', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 		seedPersonnel(ctx);
@@ -334,7 +335,7 @@ describe('createTrainingRecord', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-c'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a', 'group-c'] })
 			}
 		});
 		seedPersonnel(ctx);
@@ -352,7 +353,7 @@ describe('createTrainingRecord', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -541,7 +542,7 @@ describe('updateTrainingRecord', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-b'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-b'] })
 			}
 		});
 		seedPersonnel(ctx);
@@ -572,7 +573,7 @@ describe('completion write scope', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -631,7 +632,7 @@ describe('deleteTrainingRecord', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-b'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-b'] })
 			}
 		});
 		seedPersonnel(ctx);

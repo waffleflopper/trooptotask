@@ -1,11 +1,11 @@
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 
 /** Live routing, scope and advisory decisions supplied by Delivery. */
 export interface OnboardingPageAccess {
 	readonly orgId: string;
 	readonly orgUrlSegment?: string;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: AdvisoryGroupScope;
 	readonly affordanceForFeatureAction: (
 		action: FeatureLanePolicyAction,
 		resource?: PolicyResource

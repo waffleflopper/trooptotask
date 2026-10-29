@@ -180,7 +180,8 @@ async function pick(select: string, option: string) {
 
 async function pickGroups(trigger: RegExp, names: string[]) {
 	await fireEvent.click(screen.getByRole('button', { name: trigger }));
-	for (const name of names) await fireEvent.click(await screen.findByRole('treeitem', { name: new RegExp(`^${name}`) }));
+	for (const name of names)
+		await fireEvent.click(await screen.findByRole('treeitem', { name: new RegExp(`^${name}`) }));
 	await fireEvent.keyDown(screen.getByRole('combobox', { name: 'Search Groups' }), { key: 'Escape' });
 }
 

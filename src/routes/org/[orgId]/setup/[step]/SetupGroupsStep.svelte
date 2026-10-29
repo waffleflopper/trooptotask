@@ -43,9 +43,7 @@
 				>
 					{#snippet action()}
 						{#if ctx.canManageGroups && groupsStore.items.length > 0}
-							<Button size="sm" onclick={() => ctx.openGroupEditor(tree.roots[0]?.id ?? null)}>
-								Manage groups
-							</Button>
+							<Button size="sm" onclick={() => ctx.openGroupEditor(tree.roots[0]?.id ?? null)}>Manage groups</Button>
 						{/if}
 					{/snippet}
 				</PageShell.SectionHeader>

@@ -85,7 +85,14 @@ describe('/api/groups', () => {
 		const teamId = '77777777-7777-4777-8777-777777777777';
 		ctx.store.seed('groups', [
 			{ id: groupId, organization_id: ctx.auth.orgId, name: '1st Platoon', sort_order: 0, parent_id: null, depth: 1 },
-			{ id: otherGroupId, organization_id: ctx.auth.orgId, name: '2nd Platoon', sort_order: 1, parent_id: null, depth: 1 },
+			{
+				id: otherGroupId,
+				organization_id: ctx.auth.orgId,
+				name: '2nd Platoon',
+				sort_order: 1,
+				parent_id: null,
+				depth: 1
+			},
 			{ id: squadId, organization_id: ctx.auth.orgId, name: '1st Squad', sort_order: 0, parent_id: null, depth: 1 },
 			{ id: teamId, organization_id: ctx.auth.orgId, name: 'Alpha Team', sort_order: 0, parent_id: squadId, depth: 2 }
 		]);

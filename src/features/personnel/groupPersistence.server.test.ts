@@ -158,7 +158,11 @@ describe('ordinary Group persistence', () => {
 				? null
 				: { code: '23503', message: 'Parent Group not found', details: null, status: 409 };
 		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
-		const parentGone = { name: 'RequestFailure', status: 400, message: 'The parent Group is no longer available. Choose another.' };
+		const parentGone = {
+			name: 'RequestFailure',
+			status: 400,
+			message: 'The parent Group is no longer available. Choose another.'
+		};
 		await expect(port.create({ name: 'Alpha Team', parentId: 'deleted' })).rejects.toMatchObject(parentGone);
 		await expect(port.move('s1', 'deleted')).rejects.toMatchObject(parentGone);
 		const command = groupRpc(() =>

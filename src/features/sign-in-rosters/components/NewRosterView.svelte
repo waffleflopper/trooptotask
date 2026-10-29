@@ -69,7 +69,7 @@
 	const audienceOptions = $derived(signInRosterFilterOptions(personnel));
 	const mosItems = $derived(audienceOptions.mos.map((value) => ({ value, label: value })));
 	const roleItems = $derived(audienceOptions.roles.map((value) => ({ value, label: value })));
-	const printRows = $derived(rosterPrintRows(draft.snapshot, draft.separateByGroup, compareBands));
+	const printRows = $derived(rosterPrintRows(draft.snapshot, draft.separateByGroup, compareBands, groups));
 	const nobody = $derived(draft.people.length === 0);
 </script>
 

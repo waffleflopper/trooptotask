@@ -43,8 +43,11 @@ export interface GroupTree {
 	node(id: string): GroupNode | undefined;
 	/** True when `groupId` is `ancestorId` or below it. */
 	contains(ancestorId: string, groupId: string | null): boolean;
-	/** The path from the reader's visible root, such as "2nd Squad › Alpha Team". A single root is left out below it. */
-	label(id: string): string;
+	/**
+	 * The path from the reader's visible root, such as "2nd Squad › Alpha Team". A single root is left out below it
+	 * unless `keepRoot` asks for it, as a choice between a root and a same-named child must.
+	 */
+	label(id: string, options?: { keepRoot?: boolean }): string;
 	within<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): T[];
 	/** Nested bands for the focus; empty bands are dropped. Unassigned people are not in any band. */
 	bands<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): Band<T>[];
@@ -121,11 +124,11 @@ export function buildGroupTree(groups: readonly Group[], options: GroupTreeOptio
 		return false;
 	}
 
-	function label(id: string): string {
+	function label(id: string, { keepRoot = false }: { keepRoot?: boolean } = {}): string {
 		const path = ancestry(id);
 		if (path.length === 0) return byId.get(id)?.name ?? '';
 		const names = path.map((step, index) => (index === 0 ? rootLabels.get(step)! : nodes.get(step)!.name));
-		return (roots.length === 1 && names.length > 1 ? names.slice(1) : names).join(PATH_SEPARATOR);
+		return (!keepRoot && roots.length === 1 && names.length > 1 ? names.slice(1) : names).join(PATH_SEPARATOR);
 	}
 
 	function within<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): T[] {

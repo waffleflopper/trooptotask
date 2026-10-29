@@ -89,7 +89,7 @@ it('creates a missing path one level at a time, reusing the levels that exist', 
 
 	expect(await reference.create!('1st Platoon / 2nd Squad / Bravo Team')).toMatchObject({
 		kind: 'created',
-		option: { id: 'new-Bravo Team', label: '2nd Squad › Bravo Team' }
+		option: { id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' }
 	});
 	expect(await reference.create!('1st Platoon / 1st Squad / Alpha Team')).toMatchObject({
 		kind: 'created',
@@ -159,9 +159,24 @@ it('creates below the longest existing export path, preserving a legacy parent n
 
 	expect(await reference.create!('Clinic / Lab / Alpha Team')).toMatchObject({
 		kind: 'created',
-		option: { id: 'saved-Alpha Team', label: 'Alpha Team' }
+		option: { id: 'saved-Alpha Team', label: 'Clinic / Lab › Alpha Team' }
 	});
 	expect(sent).toEqual([{ name: 'Alpha Team', parentId: 'legacy', depth: 2, sortOrder: 0 }]);
+});
+
+it("names the root in a choice between a scoped reader's only root and its same-named child", () => {
+	const groups: Group[] = [
+		{ id: 'hq', name: 'HQ', parentId: null, depth: 1, sortOrder: 0 },
+		{ id: 'hq-hq', name: 'HQ', parentId: 'hq', depth: 2, sortOrder: 0 }
+	];
+	const reference = groupReference(groups, { canCreate: false, allowUnassigned: false });
+	expect(reference.find('HQ')).toMatchObject({
+		kind: 'many',
+		candidates: [
+			{ id: 'hq', label: 'HQ' },
+			{ id: 'hq-hq', label: 'HQ › HQ' }
+		]
+	});
 });
 
 it('offers every colliding legacy descendant export path as ambiguous, with choices a reader can tell apart', () => {

@@ -125,11 +125,11 @@ export function groupReference(
 ): ImportReference<Columns, Group | null> {
 	const tree = buildGroupTree(groups);
 	const byId = new Map(groups.map((group) => [group.id, group]));
-	// Display paths tell apart the Alpha Teams of two squads, and a legacy "Clinic / Lab" from Clinic › Lab, in a
-	// "Which group?" question.
+	// Full display paths tell apart the Alpha Teams of two squads, a legacy "Clinic / Lab" from Clinic › Lab, and a
+	// root from a same-named child in a "Which group?" question.
 	const option = (group: Group): ReferenceOption<Group> => ({
 		id: group.id,
-		label: tree.label(group.id) || group.name,
+		label: tree.label(group.id, { keepRoot: true }) || group.name,
 		value: group
 	});
 	const optionOf = (id: string) => option(byId.get(id)!);
@@ -177,7 +177,7 @@ export function groupReference(
 							if (matches.length > 1)
 								return {
 									kind: 'refused',
-									message: `Which group? ${matches.map((group) => currentTree.label(group.id)).join(', ')}`
+									message: `Which group? ${matches.map((group) => currentTree.label(group.id, { keepRoot: true })).join(', ')}`
 								};
 							if (matches.length === 1) {
 								created = matches[0];
@@ -201,7 +201,7 @@ export function groupReference(
 							parentId = created.id;
 						}
 						if (!created) return { kind: 'refused', message: 'Enter a group name.' };
-						const label = buildGroupTree(groupManagementStore.items).label(created.id);
+						const label = buildGroupTree(groupManagementStore.items).label(created.id, { keepRoot: true });
 						return { kind: 'created', option: { ...option(created), label: label || created.name } };
 					} finally {
 						if (groupCreation?.done === finished.promise) groupCreation = null;

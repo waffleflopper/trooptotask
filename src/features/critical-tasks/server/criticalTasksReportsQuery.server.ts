@@ -176,8 +176,9 @@ export async function generateCriticalTasksReportWorkbookExport(
 	ctx: CriticalTasksReportQueryContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<CriticalTasksWorkbookExport> {
-	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
-	const workbook = await buildCriticalTasksReportWorkbook(dashboard);
+	const source = await loadCriticalTasksReportSource(ctx);
+	const dashboard = await buildDashboardFromSource(ctx, source, input);
+	const workbook = await buildCriticalTasksReportWorkbook(dashboard, source.groups, source.personnel);
 	const date = formatDate(resolveCriticalTasksAsOfDate(input.asOf));
 	return {
 		buffer: await writeWorkbookBuffer(workbook),
@@ -211,7 +212,7 @@ export async function generateCriticalTasksMatrixWorkbookExport(
 		asOf: input.asOf,
 		orgName: 'Unassigned'
 	});
-	const workbook = await buildCriticalTasksMatrixWorkbook(matrix);
+	const workbook = await buildCriticalTasksMatrixWorkbook(matrix, source.groups);
 	const date = formatDate(resolveCriticalTasksAsOfDate(input.asOf));
 	return {
 		buffer: await writeWorkbookBuffer(workbook),

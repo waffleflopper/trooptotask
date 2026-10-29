@@ -36,8 +36,8 @@ const statusTypes: StatusType[] = [
 ];
 
 const groups = [
-	{ id: 'group-1', name: 'Alpha' },
-	{ id: 'group-2', name: 'Bravo' }
+	{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'group-2', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const }
 ];
 
 describe('calendar report filter defaults', () => {

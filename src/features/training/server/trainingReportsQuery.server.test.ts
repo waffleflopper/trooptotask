@@ -9,6 +9,7 @@ import {
 	createQueryWithRawStorePortsContext
 } from '$features/training/server/trainingPersistence.test-support.server';
 import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportInput } from '$features/training/contracts';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import {
 	fetchTrainingBriefingDetail,
 	fetchTrainingBriefingReport,
@@ -428,6 +429,20 @@ function sheetRows(workbook: ExcelJS.Workbook, name: string): unknown[][] {
 }
 
 describe('Training report workbook', () => {
+	it('writes nested paths in requirement and Group hot-spot cells', async () => {
+		const ctx = unitContext();
+		ctx.groups.listCatalog = async () => NESTED_GROUPS;
+		const { workbook } = await exportedWorkbook(ctx, input());
+		expect(sheetRows(workbook, 'Requirements').find((row) => row[1] === 'Able, Pat')?.[2]).toBe(
+			'1st Platoon / 2nd Squad / Alpha Team'
+		);
+		expect(
+			sheetRows(workbook, 'Hot spots')
+				.slice(1, -1)
+				.map((row) => row[0])
+				.sort()
+		).toEqual(['1st Platoon / 2nd Squad / Alpha Team', '1st Platoon / 2nd Squad / Bravo Team']);
+	});
 	it('exports the briefing on screen as five sheets with every affected requirement in drill-down order', async () => {
 		const { exported, workbook } = await exportedWorkbook(unitContext(), input());
 

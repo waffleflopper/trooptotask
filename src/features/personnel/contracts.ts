@@ -460,6 +460,7 @@ export type {
 	RosterViewOptions
 } from './rosterReadModel';
 
+export { groupExportPath } from './groupPath';
 export { buildGroupTree } from './groupTree';
 export type { Band, Breakdown, BreakdownRow, GroupFocus, GroupNode, GroupTree, GroupTreeOptions } from './groupTree';
 export {

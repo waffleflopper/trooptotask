@@ -1,3 +1,4 @@
+import { buildGroupTree, groupExportPath, type Group, type GroupTree } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AvailabilityEntry,
@@ -16,6 +17,7 @@ interface GroupData {
 }
 
 export interface CalendarExportOptions {
+	groups: readonly Group[];
 	personnelByGroup: GroupData[];
 	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
@@ -148,7 +150,9 @@ export async function buildMonthCalendarWorkbook(
 	const sheet = workbook.getWorksheet(1);
 	if (!sheet) return workbook;
 
-	populateCalendarWorkbookSheet(sheet, personnelByGroup, exportIndex, [{ name: `${monthName} ${year}`, dates }]);
+	populateCalendarWorkbookSheet(sheet, personnelByGroup, buildGroupTree(options.groups), exportIndex, [
+		{ name: `${monthName} ${year}`, dates }
+	]);
 	return workbook;
 }
 
@@ -183,6 +187,7 @@ export async function buildQuarterCalendarWorkbook(startDate: Date, options: Cal
 	populateCalendarWorkbookSheet(
 		sheet,
 		personnelByGroup,
+		buildGroupTree(options.groups),
 		exportIndex,
 		months.map((month) => ({ name: `${month.name} ${month.year}`, dates: month.dates }))
 	);
@@ -203,6 +208,7 @@ export async function exportQuarterToExcel(startDate: Date, options: CalendarExp
 function populateCalendarWorkbookSheet(
 	sheet: Worksheet,
 	personnelByGroup: GroupData[],
+	groups: GroupTree,
 	exportIndex: CalendarExportIndex,
 	monthGroups: Array<{ name: string; dates: Date[] }>
 ): void {
@@ -244,7 +250,7 @@ function populateCalendarWorkbookSheet(
 
 	for (const group of personnelByGroup) {
 		if (group.personnel.length === 0) continue;
-		const groupRow = sheet.addRow([group.group]);
+		const groupRow = sheet.addRow([groupExportPath(groups, group.personnel[0].groupId) || 'Unassigned']);
 		sheet.mergeCells(groupRow.number, 1, groupRow.number, allDates.length + 1);
 		groupRow.eachCell((cell) => {
 			cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };

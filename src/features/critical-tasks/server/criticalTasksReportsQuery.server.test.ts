@@ -1,3 +1,4 @@
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
@@ -718,7 +719,9 @@ describe('buildCriticalTasksReportWorkbook', () => {
 			}
 		};
 
-		const workbook = await buildCriticalTasksReportWorkbook(dashboard);
+		const workbook = await buildCriticalTasksReportWorkbook(dashboard, NESTED_GROUPS, [
+			{ id: 'p-rifle', groupId: 'alpha' }
+		]);
 		const parsed = new ExcelJS.Workbook();
 		await parsed.xlsx.load(toWorkbookBuffer(await workbook.xlsx.writeBuffer()));
 		const sheet = parsed.getWorksheet('Critical Tasks Report')!;
@@ -729,7 +732,7 @@ describe('buildCriticalTasksReportWorkbook', () => {
 			'At-Risk Soldiers',
 			'Rifle, Ryan',
 			'40%',
-			'SGT 11B; Alpha; 1 expiring <=45d; 12 days since update'
+			'SGT 11B; 1st Platoon / 2nd Squad / Alpha Team; 1 expiring <=45d; 12 days since update'
 		]);
 		expect(sheet.getRow(3).values).toEqual([
 			undefined,

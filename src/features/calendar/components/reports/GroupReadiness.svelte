@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
-	import type { Personnel } from '$features/personnel/contracts';
+	import type { Group, Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace/index.js';
@@ -16,7 +16,7 @@
 		orgId: string;
 		personnel: Personnel[];
 		statusTypes: StatusType[];
-		groups: { id: string; name: string }[];
+		groups: Group[];
 	}
 
 	let { orgId, personnel, groups }: Props = $props();
@@ -154,7 +154,7 @@
 
 	function handleExportExcel() {
 		if (!report.result) return;
-		return exportGroupReadinessWorkbook(report.result, startDate, endDate);
+		return exportGroupReadinessWorkbook(report.result, groups, startDate, endDate);
 	}
 
 	const readyExport = $derived<ToolbarAction | undefined>(

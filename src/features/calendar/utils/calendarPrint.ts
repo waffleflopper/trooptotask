@@ -1,3 +1,4 @@
+import { buildGroupTree, groupExportPath } from '$features/personnel/contracts';
 import type { jsPDF } from 'jspdf';
 import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
@@ -183,11 +184,17 @@ function buildSheet(
 	const policy = { view: 'print', dayWidth, fits: labelFit(doc, geometry.fullLabel) } as const;
 	const laneFits = labelFit(doc, geometry.laneLabel);
 
+	const groups = buildGroupTree(options.groups);
 	const lines: SheetLine[] = [];
 	let personnelCount = 0;
 	for (const group of options.personnelByGroup) {
 		if (group.personnel.length === 0) continue;
-		lines.push({ kind: 'group', name: group.group, count: group.personnel.length, continued: false });
+		lines.push({
+			kind: 'group',
+			name: groupExportPath(groups, group.personnel[0].groupId) || 'Unassigned',
+			count: group.personnel.length,
+			continued: false
+		});
 		for (const person of group.personnel) {
 			const personDuties = duties.get(person.id) ?? new Map<number, readonly CalendarCellMarkerState[]>();
 			const fitted = fitMarkers(tracks.layout(person.id, window, policy), [...personDuties.keys()]);

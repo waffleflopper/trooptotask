@@ -59,8 +59,8 @@ describe('GroupReadiness', () => {
 				personnel,
 				statusTypes: [],
 				groups: [
-					{ id: 'alpha', name: 'Alpha' },
-					{ id: 'bravo', name: 'Bravo' }
+					{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+					{ id: 'bravo', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const }
 				]
 			}
 		});

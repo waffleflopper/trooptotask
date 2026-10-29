@@ -17,6 +17,34 @@ const listPersonnelTrainingExportRows =
 		);
 
 const listStatusTypeLabels = async () => [{ id: 'status-type-1', name: 'TDY' }];
+
+it('writes the nested Group path in the individual Personnel workbook', async () => {
+	const ctx = createTestContext();
+	seedPersonnelExportDataset(ctx);
+	await ctx.rawStore.update('groups', ctx.auth.orgId, 'group-1', {
+		name: 'Alpha Team',
+		sort_order: 0,
+		parent_id: 'squad',
+		depth: 3
+	});
+	ctx.rawStore.seed('groups', [
+		{ id: 'platoon', organization_id: ctx.auth.orgId, name: '1st Platoon', sort_order: 0, parent_id: null, depth: 1 },
+		{ id: 'squad', organization_id: ctx.auth.orgId, name: '2nd Squad', sort_order: 0, parent_id: 'platoon', depth: 2 }
+	]);
+	const result = await exportPersonnelWorkbook(
+		ctx,
+		{ personnelId: PERSONNEL_ID, asOf: '2026-05-20' },
+		listAvailabilityHistory,
+		listStatusTypeLabels,
+		listTrainingTypeLabels,
+		listPersonnelTrainingExportRows(ctx)
+	);
+	const rows = worksheetRows(worksheetByName(await parseWorkbook(result._buffer), 'Personnel Info'));
+	expect(rows.find((row) => row.Field === 'Group')).toEqual({
+		Field: 'Group',
+		Value: '1st Platoon / 2nd Squad / Alpha Team'
+	});
+});
 const listTrainingTypeLabels = async () => [{ id: 'training-type-1', name: 'Weapons Qual' }];
 
 type TestContext = ReturnType<typeof createTestContext>;

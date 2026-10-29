@@ -14,6 +14,21 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
+it('includes parentId on every Group in the Organization JSON artifact', async () => {
+	const ctx = createExportTestContext();
+	ctx.rawStore.seed('groups', [
+		{ id: 'platoon', organization_id: ctx.auth.orgId, name: '1st Platoon', parent_id: null },
+		{ id: 'squad', organization_id: ctx.auth.orgId, name: '2nd Squad', parent_id: 'platoon' }
+	]);
+	const result = await handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' }, () => ctx);
+	const payload = JSON.parse(result.artifact.body);
+	expect(payload.sections.groups).toEqual([
+		{ id: 'platoon', organization_id: ctx.auth.orgId, name: '1st Platoon', parent_id: null, parentId: null },
+		{ id: 'squad', organization_id: ctx.auth.orgId, name: '2nd Squad', parent_id: 'platoon', parentId: 'platoon' }
+	]);
+	expect(payload.groups).toEqual(payload.sections.groups);
+});
+
 function createExportTestContext(overrides?: Parameters<typeof createTestContext>[0]) {
 	const ctx = createTestContext(overrides);
 	const communicationsRows: Record<'notifications' | 'beta_feedback', Record<string, unknown>[]> = {

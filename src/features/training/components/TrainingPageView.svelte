@@ -90,6 +90,7 @@
 		const exportDate = formatToday();
 		const input: TrainingMatrixWorkbookInput = $state.snapshot({
 			personnel: ctx.filteredPersonnel,
+			groups: ctx.groups,
 			trainingTypes: trainingTypesStore.items,
 			trainings: personnelTrainingsStore.items,
 			exportDate

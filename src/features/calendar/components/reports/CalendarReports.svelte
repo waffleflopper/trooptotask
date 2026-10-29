@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$features/personnel/contracts';
+	import type { Group, Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import StatusDaysSummary from './StatusDaysSummary.svelte';
 	import AvailabilityForecast from './AvailabilityForecast.svelte';
@@ -13,7 +13,7 @@
 		orgUrlSegment?: string;
 		personnel: Personnel[];
 		statusTypes: StatusType[];
-		groups: { id: string; name: string }[];
+		groups: Group[];
 	}
 
 	let { orgId, orgUrlSegment = orgId, personnel, statusTypes, groups }: Props = $props();

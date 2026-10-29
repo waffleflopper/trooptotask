@@ -4,6 +4,7 @@ import { fail } from '$lib/errors';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type {
+	Group,
 	GroupPersistence,
 	Personnel,
 	PersonnelTrainingRosterPort,
@@ -42,6 +43,7 @@ type TrainingReportReadContext = TrainingCompletionReadContext & {
 };
 
 interface BriefingSource {
+	groups: Group[];
 	input: TrainingBriefingReportInput;
 	organizationName: string;
 	filterOptions: TrainingBriefingFilterOptions;
@@ -117,6 +119,7 @@ async function loadBriefingSource(
 	return {
 		input,
 		organizationName: organization.name,
+		groups,
 		filterOptions,
 		briefingInput: {
 			personnel,
@@ -202,6 +205,8 @@ export async function generateTrainingReportWorkbookExport(
 ): Promise<TrainingReportWorkbookExport> {
 	const source = await loadBriefingSource(ctx, request, asOf);
 	const workbook = await buildTrainingReportWorkbook({
+		groups: source.groups,
+		personnel: source.briefingInput.personnel,
 		report: reportData(source),
 		requirements: detailRows(source, affectedBriefingRequirements(source.briefingInput))
 	});

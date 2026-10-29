@@ -1,3 +1,4 @@
+import { buildGroupTree, groupExportPath, type Group } from '$features/personnel/contracts';
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import { addTableSheet, createWorkbook, downloadWorkbook, type WorkbookRow } from '$lib/utils/workbook';
 import type {
@@ -112,11 +113,13 @@ export async function exportAssignmentCoverageWorkbook(
 
 export async function exportGroupReadinessWorkbook(
 	result: GroupReadinessResult,
+	groups: readonly Group[],
 	startDate: string,
 	endDate: string
 ): Promise<void> {
+	const tree = buildGroupTree(groups);
 	const rows = result.groups.map((group) => ({
-		group: group.groupName,
+		group: groupExportPath(tree, group.groupId) || 'Unassigned',
 		...Object.fromEntries(
 			group.cells.map((cell) => [
 				cell.date,

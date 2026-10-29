@@ -90,6 +90,7 @@
 	function getExportData() {
 		return {
 			personnelByGroup: ctx.filteredPBG,
+			groups: ctx.scopedGroups,
 			availabilityEntries: availabilityStore.items,
 			statusTypes: statusTypesStore.items,
 			specialDays: specialDaysStore.items,

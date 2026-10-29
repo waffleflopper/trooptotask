@@ -617,7 +617,11 @@
 								virtualIndex={item.virtualIndex + HEADER_ROW_COUNT}
 								class="h-8 bg-muted [&_th]:sticky [&_th]:left-0 [&_th]:z-10 [&_th]:w-32 [&_th]:min-w-32 [&_th]:bg-muted [&_th]:px-2 [&_th]:py-0 [&_th]:text-left sm:[&_th]:w-48 sm:[&_th]:min-w-48 sm:[&_th]:px-3"
 							>
-								<div class="flex items-center gap-2" style:padding-left="{band?.level ?? 0}rem">
+								<div
+									class="flex items-center gap-2"
+									data-band-level={band?.level ?? 0}
+									style:padding-left="{band?.level ?? 0}rem"
+								>
 									<button
 										type="button"
 										class="flex min-w-0 items-center gap-1.5 rounded-sm font-heading text-sm font-semibold tracking-wide uppercase focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"

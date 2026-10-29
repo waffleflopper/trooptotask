@@ -125,8 +125,9 @@ it('waits for the confirmed shared parent when missing paths are created togethe
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
 	const alpha = reference.create!('New Platoon / Alpha Team');
 	await parentPosted.promise;
-	const bravo = reference.create!('New Platoon / Bravo Team');
-	const sameAlpha = reference.create!('New Platoon / Alpha Team');
+	const refreshed = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
+	const bravo = refreshed.create!('New Platoon / Bravo Team');
+	const sameAlpha = refreshed.create!('New Platoon / Alpha Team');
 	parentReply.resolve(
 		Response.json({ id: 'saved-platoon', name: 'New Platoon', parentId: null, depth: 1, sortOrder: 0 })
 	);

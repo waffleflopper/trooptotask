@@ -59,6 +59,19 @@ describe('Create tasking from the Dashboard', () => {
 		await waitFor(() => expect(refreshTaskings).toHaveBeenCalledOnce());
 	});
 
+	it('fills the sheet it opened with the form once the choices arrive, without a second sheet', async () => {
+		let answer!: (response: Response) => void;
+		fetchMock.mockReturnValue(new Promise<Response>((resolve) => (answer = resolve)));
+		open();
+
+		const sheet = await screen.findByRole('dialog', { name: 'Create tasking' });
+		expect(within(sheet).queryByText('Alpha')).toBeNull();
+		answer(new Response(JSON.stringify(choices)));
+
+		expect(await within(sheet).findByText('Alpha')).toBeTruthy();
+		expect(screen.getAllByRole('dialog')).toEqual([sheet]);
+	});
+
 	it('holds a closable sheet open while the choices load', async () => {
 		fetchMock.mockReturnValue(new Promise(() => {}));
 		const { onClose } = open();

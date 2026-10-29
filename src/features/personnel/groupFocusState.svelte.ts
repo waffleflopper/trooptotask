@@ -1,7 +1,7 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { page } from '$app/state';
-import type { Group } from './contracts';
+import type { Group } from './group.types';
 import {
 	canonicalGroupFocus,
 	GROUP_FOCUS_PARAM,

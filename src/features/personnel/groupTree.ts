@@ -1,4 +1,4 @@
-import type { Group } from './contracts';
+import type { Group } from './group.types';
 
 export interface GroupNode extends Group {
 	readonly hasChildren: boolean;

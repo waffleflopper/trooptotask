@@ -39,6 +39,7 @@ import { z } from 'zod';
 import { isDateOnly } from '$lib/utils/dates';
 import { DATE_ONLY_MESSAGE, uuidSchema } from '$lib/utils/inputSchemas';
 import type { OrganizationAccessGrant, AdvisoryGroupScope, GroupCoverage } from '$lib/access/memberAccessShape';
+import type { Group } from './group.types';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type { LossCandidate } from './upcomingLoss';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
@@ -76,13 +77,7 @@ export const GROUP_ORDER_CHANGED_MESSAGE = 'The Group order changed somewhere el
 export const GROUP_CHANGE_UNCONFIRMED_MESSAGE = "We couldn't confirm the Group change. Reload to see what saved.";
 export const PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE = 'First name is required';
 
-export interface Group {
-	id: string;
-	name: string;
-	sortOrder: number;
-	parentId: string | null;
-	depth: 1 | 2 | 3;
-}
+export type { Group } from './group.types';
 
 export interface PersonnelRosterReader {
 	list(options?: { status?: 'active' | 'archived' | 'all'; order?: 'archived-newest' }): Promise<Personnel[]>;

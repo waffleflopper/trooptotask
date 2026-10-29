@@ -107,3 +107,24 @@ it('keeps the import mounted while its own refresh reloads the DoD IDs', async (
 
 	expect(personnelStubs.lane).not.toBeNull();
 });
+
+it('keeps the import and flags it stale when a later DoD ID refresh fails', async () => {
+	personnelStubs.ctx = {
+		orgId: 'alpha',
+		orgUrlSegment: 'alpha',
+		data: { personnel: [], rankCatalog: BUILT_IN_RANK_CATALOG },
+		allActivePersonnel: [added],
+		canAddPersonnel: false,
+		canImportPersonnel: true,
+		canManageGroups: false,
+		allowUnassignedPersonnel: true
+	} as unknown as PersonnelPageContext;
+	renderPersonnelStep();
+	await waitFor(() => expect(personnelStubs.lane).not.toBeNull());
+	expect(screen.queryByRole('alert')).toBeNull();
+
+	page.data = { ...page.data, personnelImport: Promise.reject(new Error('refresh failed')) };
+
+	expect(await screen.findByRole('alert')).toBeInTheDocument();
+	expect(personnelStubs.lane).not.toBeNull();
+});

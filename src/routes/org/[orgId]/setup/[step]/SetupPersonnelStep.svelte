@@ -22,7 +22,7 @@
 	});
 
 	type ImportIds =
-		| { orgId: string; state: 'ready'; dodIds: readonly PersonnelDodId[] }
+		| { orgId: string; state: 'ready'; dodIds: readonly PersonnelDodId[]; stale?: true }
 		| { orgId: string; state: 'denied' | 'failed' };
 	let importIds = $state<ImportIds | null>(null);
 	// An import's own refresh replaces this promise; keep the last IDs so the flow, and its receipt, stay mounted.
@@ -42,7 +42,10 @@
 			fallbackMessage: 'Failed to load the Personnel import',
 			onResolve: settle,
 			onReject: () => {
-				if (importIds?.orgId !== orgId || importIds.state !== 'ready') importIds = { orgId, state: 'failed' };
+				importIds =
+					importIds?.orgId === orgId && importIds.state === 'ready'
+						? { ...importIds, stale: true }
+						: { orgId, state: 'failed' };
 			},
 			isCancelled: () => cancelled
 		});
@@ -99,6 +102,9 @@
 				{#if currentImportIds?.state === 'failed'}
 					<SetupEditorLoadError subject="Personnel import" />
 				{:else if currentImportIds?.state !== 'denied'}
+					{#if currentImportIds?.state === 'ready' && currentImportIds.stale}
+						<SetupEditorLoadError subject="Personnel import" stale />
+					{/if}
 					<ImportFlow
 						lane={currentImportIds?.state === 'ready' ? lane(ctx, currentImportIds.dodIds) : null}
 						title="Import your roster"

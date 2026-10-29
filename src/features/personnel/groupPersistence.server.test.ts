@@ -125,25 +125,6 @@ describe('ordinary Group persistence', () => {
 		});
 		expect(state.rows.groups).toEqual([]);
 	});
-	it('moves a Group to the end of its new sibling set, or of the top level', async () => {
-		const { client, state } = personnelProvider({
-			groups: [
-				{ id: 'p1', name: '1st Platoon', sort_order: 0, organization_id: 'org-a' },
-				{ id: 'p2', name: '2nd Platoon', sort_order: 1, organization_id: 'org-a' },
-				{ id: 's1', name: '1st Squad', sort_order: 0, parent_id: 'p1', depth: 2, organization_id: 'org-a' },
-				{ id: 's2', name: '2nd Squad', sort_order: 0, parent_id: 'p2', depth: 2, organization_id: 'org-a' },
-				{ id: 's3', name: '3rd Squad', sort_order: 4, parent_id: 'p2', depth: 2, organization_id: 'org-a' }
-			]
-		});
-		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
-		expect(await port.move('s1', 'p2')).toMatchObject({ id: 's1', parentId: 'p2', sortOrder: 5 });
-		expect(await port.move('s2', null)).toMatchObject({ id: 's2', parentId: null, sortOrder: 2 });
-		expect(state.requests.filter((request) => request.method === 'PATCH').map((request) => request.body)).toEqual([
-			{ parent_id: 'p2', sort_order: 5 },
-			{ parent_id: null, sort_order: 2 }
-		]);
-		await expect(port.move('gone', null)).rejects.toMatchObject({ status: 404 });
-	});
 	it('answers a parent Group deleted elsewhere as a 400 that says so', async () => {
 		const { client, state } = personnelProvider({
 			groups: [{ id: 's1', name: '1st Squad', sort_order: 0, organization_id: 'org-a' }]
@@ -159,7 +140,6 @@ describe('ordinary Group persistence', () => {
 			message: 'The parent Group is no longer available. Choose another.'
 		};
 		await expect(port.create({ name: 'Alpha Team', parentId: 'deleted' })).rejects.toMatchObject(parentGone);
-		await expect(port.move('s1', 'deleted')).rejects.toMatchObject(parentGone);
 		const command = groupRpc(() =>
 			Response.json(
 				{
@@ -172,6 +152,7 @@ describe('ordinary Group persistence', () => {
 			)
 		);
 		await expect(command.port.setOrder(['alpha'], ['alpha'])).rejects.toMatchObject(parentGone);
+		await expect(command.port.move('s1', 'deleted')).rejects.toMatchObject(parentGone);
 	});
 	it('counts the active People directly in each visible Group', async () => {
 		const { client } = personnelProvider({
@@ -238,7 +219,18 @@ describe('Group editor commands', () => {
 		await expect(order.port.setOrder(['bravo', 'alpha'], ['alpha', 'bravo'])).resolves.toBeUndefined();
 		const remove = groupRpc(() => Response.json(3));
 		await expect(remove.port.deleteWithReassignment('alpha', null)).resolves.toBe(3);
-		expect([...rename.calls, ...order.calls, ...remove.calls]).toEqual([
+		const move = groupRpc(() =>
+			Response.json([{ id: 'alpha', name: 'Weapons', sort_order: 4, parent_id: 'hq', depth: 2 as const }])
+		);
+		await expect(move.port.move('alpha', 'hq')).resolves.toEqual({
+			id: 'alpha',
+			name: 'Weapons',
+			sortOrder: 4,
+			parentId: 'hq',
+			depth: 2 as const
+		});
+		await move.port.move('alpha', null);
+		expect([...rename.calls, ...order.calls, ...remove.calls, ...move.calls]).toEqual([
 			{
 				path: '/rest/v1/rpc/rename_group',
 				body: { p_organization_id: 'org-a', p_group_id: 'alpha', p_name: 'Weapons' }
@@ -250,7 +242,12 @@ describe('Group editor commands', () => {
 			{
 				path: '/rest/v1/rpc/delete_group_with_reassignment',
 				body: { p_organization_id: 'org-a', p_group_id: 'alpha', p_target_group_id: null }
-			}
+			},
+			{
+				path: '/rest/v1/rpc/move_group',
+				body: { p_organization_id: 'org-a', p_group_id: 'alpha', p_parent_id: 'hq' }
+			},
+			{ path: '/rest/v1/rpc/move_group', body: { p_organization_id: 'org-a', p_group_id: 'alpha' } }
 		]);
 	});
 
@@ -271,7 +268,8 @@ describe('Group editor commands', () => {
 		for (const command of [
 			() => port.rename('alpha', 'Weapons'),
 			() => port.setOrder(['alpha'], ['alpha']),
-			() => port.deleteWithReassignment('alpha', 'bravo')
+			() => port.deleteWithReassignment('alpha', 'bravo'),
+			() => port.move('alpha', 'bravo')
 		]) {
 			const failure = await command().then(
 				() => undefined,
@@ -295,6 +293,7 @@ describe('Group editor commands', () => {
 			)
 		);
 		await expect(port.setOrder(['alpha'], ['alpha'])).rejects.toMatchObject({ name: 'RequestFailure', status: 400 });
+		await expect(port.move('alpha', 'team')).rejects.toMatchObject({ name: 'RequestFailure', status: 400 });
 	});
 
 	it('says a lost reply is unconfirmed and treats a rename of a vanished Group as 404', async () => {
@@ -302,7 +301,8 @@ describe('Group editor commands', () => {
 		for (const command of [
 			() => lost.port.rename('alpha', 'Weapons'),
 			() => lost.port.setOrder(['alpha'], ['alpha']),
-			() => lost.port.deleteWithReassignment('alpha', null)
+			() => lost.port.deleteWithReassignment('alpha', null),
+			() => lost.port.move('alpha', null)
 		]) {
 			await expect(command()).rejects.toMatchObject({
 				status: 503,
@@ -311,9 +311,21 @@ describe('Group editor commands', () => {
 			});
 		}
 		const vanished = groupRpc(() => Response.json([]));
-		await expect(vanished.port.rename('alpha', 'Weapons')).rejects.toMatchObject({
-			status: 404,
-			message: 'That Group is no longer available.'
+		for (const command of [() => vanished.port.rename('alpha', 'Weapons'), () => vanished.port.move('alpha', null)]) {
+			await expect(command()).rejects.toMatchObject({ status: 404, message: 'That Group is no longer available.' });
+		}
+	});
+
+	it('says a move under its own sub-group is not allowed', async () => {
+		const { port } = groupRpc(() =>
+			Response.json(
+				{ code: '22023', message: 'A Group cannot sit inside itself', details: null, hint: null },
+				{ status: 400 }
+			)
+		);
+		await expect(port.move('platoon', 'team')).rejects.toMatchObject({
+			status: 400,
+			message: 'A Group cannot move under one of its own sub-groups.'
 		});
 	});
 });

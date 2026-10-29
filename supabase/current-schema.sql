@@ -7265,6 +7265,42 @@ $$;
 ALTER FUNCTION public.member_access_required_capability_rank(p_capability text) OWNER TO postgres;
 
 --
+-- Name: move_group(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.move_group(p_organization_id uuid, p_group_id uuid, p_parent_id uuid DEFAULT NULL::uuid) RETURNS TABLE(id uuid, name text, sort_order integer, parent_id uuid, depth integer)
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_sort_order integer;
+BEGIN
+  PERFORM personnel_private.lock_group_catalog(p_organization_id);
+  PERFORM 1 FROM public.groups AS g
+  WHERE g.organization_id = p_organization_id AND g.id = p_group_id
+  FOR NO KEY UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT coalesce(max(g.sort_order), -1) + 1 INTO v_sort_order FROM public.groups AS g
+  WHERE g.organization_id = p_organization_id AND g.parent_id IS NOT DISTINCT FROM p_parent_id AND g.id <> p_group_id;
+  UPDATE public.groups AS g SET parent_id = p_parent_id, sort_order = v_sort_order
+  WHERE g.organization_id = p_organization_id AND g.id = p_group_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Group management is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
+  SELECT g.id, g.name, g.sort_order, g.parent_id, g.depth FROM public.groups AS g
+  WHERE g.organization_id = p_organization_id AND g.id = p_group_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.move_group(p_organization_id uuid, p_group_id uuid, p_parent_id uuid) OWNER TO postgres;
+
+--
 -- Name: onboarding_template_training_type_matches(uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -20245,6 +20281,14 @@ GRANT ALL ON FUNCTION public.member_access_lane_capability(p_member_preset text,
 GRANT ALL ON FUNCTION public.member_access_required_capability_rank(p_capability text) TO anon;
 GRANT ALL ON FUNCTION public.member_access_required_capability_rank(p_capability text) TO authenticated;
 GRANT ALL ON FUNCTION public.member_access_required_capability_rank(p_capability text) TO service_role;
+
+
+--
+-- Name: FUNCTION move_group(p_organization_id uuid, p_group_id uuid, p_parent_id uuid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.move_group(p_organization_id uuid, p_group_id uuid, p_parent_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.move_group(p_organization_id uuid, p_group_id uuid, p_parent_id uuid) TO authenticated;
 
 
 --

@@ -52,8 +52,8 @@ export function rosterPrintRows(
 }
 
 /**
- * Sections for each top-level Group the Roster was drawn from, or each one when it was drawn from everyone. A Group with
- * sub-groups opens into its HQ and then each sub-group's whole subtree, path-labelled. A Roster prints under the Groups
+ * Sections for each top-level Group the Roster was drawn from, or each one when it was drawn from everyone. A Group whose
+ * sub-groups hold saved people opens into its HQ and then each such sub-group's whole subtree, path-labelled. A Roster prints under the Groups
  * and the nesting saved with it, so a reprint after a rename, move or delete reads as printed; Groups it never saved keep
  * today's names and parents. People whose Group is not in either keep their saved Group name, and the ungrouped print last.
  */
@@ -86,7 +86,7 @@ function sectionsByGroup(
 
 	for (const band of printed.bands(snapshot, groupOf)) {
 		if (chosen.length > 0 && !chosen.includes(band.node.id)) continue;
-		if (!band.node.hasChildren) {
+		if (band.children.length === 0) {
 			add(label(band.node.id), band.hq);
 			continue;
 		}

@@ -47,6 +47,11 @@
 	const rows = $derived(visibleRows(options, shape, expanded, query));
 	const unavailable = (option: TreeSelectOption) => option.disabled || implied.has(option.id);
 	const enabledRows = $derived(rows.filter((row) => !unavailable(row.option)));
+	// A disabled row still takes arrow keys when it has children, so they can be opened; included rows only hold more of
+	// the same.
+	const reachableRows = $derived(
+		rows.filter((row) => !unavailable(row.option) || (row.hasChildren && !implied.has(row.option.id)))
+	);
 	const active = $derived(
 		rows.find((row) => row.option.id === activeId) ?? enabledRows.find((row) => row.match) ?? enabledRows[0] ?? null
 	);
@@ -66,10 +71,10 @@
 	}
 
 	function move(step: 1 | -1) {
-		if (enabledRows.length === 0) return;
-		const index = active ? enabledRows.findIndex((row) => row.option.id === active.option.id) : -1;
-		const next = index === -1 ? (step === 1 ? 0 : enabledRows.length - 1) : index + step;
-		activeId = enabledRows[Math.max(0, Math.min(enabledRows.length - 1, next))].option.id;
+		if (reachableRows.length === 0) return;
+		const index = active ? reachableRows.findIndex((row) => row.option.id === active.option.id) : -1;
+		const next = index === -1 ? (step === 1 ? 0 : reachableRows.length - 1) : index + step;
+		activeId = reachableRows[Math.max(0, Math.min(reachableRows.length - 1, next))].option.id;
 	}
 
 	function onkeydown(event: KeyboardEvent) {

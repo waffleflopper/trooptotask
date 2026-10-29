@@ -170,6 +170,16 @@ describe('rosterPrintRows', () => {
 		});
 	});
 
+	it('keeps a plain heading for a Group that gained an empty sub-group after the save', () => {
+		const later = [...groups, group('group-b-team', 'Bravo Team', 0, 'group-b')];
+
+		expect(headings(rosterPrintRows(snapshot, whole, buildGroupTree(later), later))).toEqual([
+			'Bravo',
+			'Alpha',
+			'Unassigned'
+		]);
+	});
+
 	it('orders a Roster saved without Group ids by the current catalog and pins', () => {
 		const legacy = snapshot.map(({ groupId: _groupId, ...person }) => person);
 		const pinned = buildGroupTree(groups, { pinnedIds: ['group-a'] });

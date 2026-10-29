@@ -4385,6 +4385,20 @@ export type Database = {
         Args: { p_capability: string }
         Returns: number
       }
+      move_group: {
+        Args: {
+          p_group_id: string
+          p_organization_id: string
+          p_parent_id?: string
+        }
+        Returns: {
+          depth: number
+          id: string
+          name: string
+          parent_id: string
+          sort_order: number
+        }[]
+      }
       onboarding_template_training_type_matches: {
         Args: { p_organization_id: string; p_training_type_id: string }
         Returns: boolean

@@ -117,6 +117,22 @@ describe('TreeSelect', () => {
 		expect(onValueChange).not.toHaveBeenCalled();
 	});
 
+	it('reaches a disabled node with sub-nodes so the keyboard can open it and pick below it', async () => {
+		const list = options.map((option) => (option.id === 'p1' ? { ...option, disabled: true } : option));
+		const { onValueChange } = mount(null, list);
+		const field = await open();
+
+		await fireEvent.keyDown(field, { key: 'ArrowDown' });
+		expect(activeRow(field)).toBe('p1');
+		await fireEvent.keyDown(field, { key: 'Enter' });
+		await fireEvent.keyDown(field, { key: 'ArrowRight' });
+		await fireEvent.keyDown(field, { key: 'ArrowDown' });
+		expect(activeRow(field)).toBe('p1-a');
+		await fireEvent.keyDown(field, { key: 'Enter' });
+
+		expect(onValueChange.mock.calls).toEqual([['p1-a']]);
+	});
+
 	it('toggles several nodes from the keyboard and stays open, storing only the topmost', async () => {
 		const stored: string[][] = [];
 		const props = {

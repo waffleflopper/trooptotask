@@ -213,6 +213,31 @@ SELECT is(pg_temp.pins(), ARRAY['4:HQ'], 'a viewer who never pinned the Group ke
 SELECT pg_temp.act('bravo_owner');
 SELECT is(pg_temp.pins('bravo_org'), ARRAY['5:2nd Platoon'], 'rename leaves another Organization''s pins unchanged');
 
+SELECT ok(NOT has_function_privilege('anon', 'public.move_group(uuid, uuid, uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.move_group(uuid, uuid, uuid)', 'EXECUTE'),
+  'only signed-in members can move a Group');
+SELECT pg_temp.act('group_scoped_configurer');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('alpha_first_platoon')),
+  '42501', NULL, 'a Group-scoped configurer cannot move a Group');
+SELECT pg_temp.act('org_wide_operator');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('alpha_first_platoon')),
+  '42501', NULL, 'an operator cannot move a Group');
+SELECT pg_temp.act('bravo_owner');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('alpha_first_platoon')),
+  '42501', NULL, 'another Organization''s owner cannot move a Group');
+SELECT pg_temp.act('org_wide_configurer');
+SELECT results_eq(format('SELECT parent_id, depth, sort_order FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('alpha_first_platoon')),
+  format('VALUES (%L::uuid, 2, 0)', pg_temp.id('alpha_first_platoon')), 'a move puts the Group first under a parent with no sub-groups');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_first_platoon'), pg_temp.id('alpha_empty_group')),
+  '22023', NULL, 'a move under its own sub-group is refused');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group'), pg_temp.id('bravo_hq_group')),
+  '23503', NULL, 'a parent in another Organization is refused');
+SELECT throws_ok(format('SELECT * FROM public.move_group(%L, %L, NULL)', pg_temp.id('alpha_org'), pg_temp.id('bravo_hq_group')),
+  'P0002', NULL, 'another Organization''s Group cannot be moved');
+SELECT results_eq(format('SELECT parent_id, depth, sort_order FROM public.move_group(%L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_empty_group')),
+  'VALUES (NULL::uuid, 1, 3)', 'a move to the top level puts the Group last there');
+SELECT is(pg_temp.group_names(), ARRAY['Weapons', 'HQ', '1st Platoon', 'Empty'], 'moves leave the other Groups in place');
+
 SELECT pg_temp.act('org_wide_configurer');
 SELECT throws_ok(format('SELECT public.delete_group_with_reassignment(%L, %L, %L)', pg_temp.id('alpha_org'), pg_temp.id('alpha_second_platoon'),
   pg_temp.id('bravo_hq_group')), 'P0002', NULL, 'a target in another Organization is refused');

@@ -8,15 +8,17 @@ const ROSTER_VIEW_OPTIONS = [
 ];
 
 export interface PersonnelToolbarInput {
-	viewMode: RosterViewMode;
+	/** Null when the roster has one way to read it, so there is no choice to offer. */
+	viewMode: RosterViewMode | null;
 	onViewModeChange: (mode: RosterViewMode) => void;
 	onManageGroups: (() => void) | null;
 	importHref: string | null;
 }
 
 export function personnelToolbarItems(input: PersonnelToolbarInput): ToolbarItem[] {
-	const items: ToolbarItem[] = [
-		{
+	const items: ToolbarItem[] = [];
+	if (input.viewMode) {
+		items.push({
 			kind: 'view',
 			id: 'roster-view',
 			label: 'Roster sort mode',
@@ -25,8 +27,8 @@ export function personnelToolbarItems(input: PersonnelToolbarInput): ToolbarItem
 			onValueChange: (value) => {
 				if (value === 'alphabetical' || value === 'by-group') input.onViewModeChange(value);
 			}
-		}
-	];
+		});
+	}
 	if (input.onManageGroups) {
 		items.push({ kind: 'action', id: 'manage-groups', label: 'Manage Groups', onclick: input.onManageGroups });
 	}

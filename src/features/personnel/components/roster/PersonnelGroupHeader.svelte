@@ -14,6 +14,10 @@
 
 	interface Props {
 		group: GroupHeaderContext;
+		/** 0 for a top band, then 1 and 2 for the sub-groups drawn under it. */
+		level?: number;
+		/** The Group's own name; `group.label` is its full path, which names it for assistive technology. */
+		name?: string;
 		people: readonly Personnel[];
 		ctx: PersonnelPageContext;
 		pinned: boolean;
@@ -21,9 +25,24 @@
 		onTogglePin: ((groupId: string) => void) | null;
 		selection: { state: CheckState; set: (selected: boolean) => void } | null;
 		onNoteToEveryone: (() => void) | null;
+		onShowOnly?: (() => void) | null;
 	}
 
-	let { group, people, ctx, pinned, unassigned, onTogglePin, selection, onNoteToEveryone }: Props = $props();
+	let {
+		group,
+		level = 0,
+		name = group.label,
+		people,
+		ctx,
+		pinned,
+		unassigned,
+		onTogglePin,
+		selection,
+		onNoteToEveryone,
+		onShowOnly = null
+	}: Props = $props();
+
+	const sub = $derived(level > 0);
 
 	const summary = $derived(ctx.summarizeSignals(people));
 	const presence = $derived(
@@ -34,7 +53,9 @@
 	);
 	const groupId = $derived(unassigned ? null : group.key);
 	const canEditGroup = $derived(groupId !== null && ctx.canManageGroups);
-	const hasMenu = $derived(!unassigned && (canEditGroup || onNoteToEveryone !== null || onTogglePin !== null));
+	const hasMenu = $derived(
+		!unassigned && (canEditGroup || onNoteToEveryone !== null || onTogglePin !== null || onShowOnly !== null)
+	);
 	const segments = $derived(
 		presence
 			? [
@@ -53,6 +74,7 @@
 <div
 	class="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 @3xl/data-table:flex-nowrap"
 	data-roster-group={group.key}
+	data-band-level={level}
 >
 	<div class="flex min-w-0 flex-1 items-center gap-1">
 		{#if selection}
@@ -65,7 +87,9 @@
 				/>
 			</span>
 		{/if}
-		{#if onTogglePin && unassigned}
+		{#if sub}
+			<span class="shrink-0" style:width="{(onTogglePin === null ? 0 : 32) + 16 * level}px" aria-hidden="true"></span>
+		{:else if onTogglePin && unassigned}
 			<span class="w-8 shrink-0" aria-hidden="true"></span>
 		{:else if onTogglePin}
 			<Toggle
@@ -83,13 +107,26 @@
 		<Button
 			type="button"
 			variant="ghost"
-			class="h-8 min-w-0 gap-1.5 px-1.5 aria-expanded:bg-transparent"
+			class={[
+				'min-w-0 gap-1.5 px-1.5 aria-expanded:bg-transparent',
+				sub ? (level === 1 ? 'h-[18px]' : 'h-3.5') : 'h-8'
+			]}
 			onclick={group.toggle}
 			aria-expanded={!group.collapsed}
 			aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
 		>
-			<ChevronDownIcon class={['size-3 shrink-0', group.collapsed && '-rotate-90']} aria-hidden="true" />
-			<span class="truncate font-heading text-xl leading-6 font-bold uppercase">{group.label}</span>
+			<ChevronDownIcon
+				class={[sub ? 'size-[11px] text-muted-foreground' : 'size-3', 'shrink-0', group.collapsed && '-rotate-90']}
+				aria-hidden="true"
+			/>
+			<span
+				class={[
+					'truncate font-heading uppercase',
+					sub
+						? ['leading-5 font-semibold tracking-[0.02em]', level === 1 ? 'text-base' : 'text-[15px]']
+						: 'text-xl leading-6 font-bold'
+				]}>{name}</span
+			>
 		</Button>
 		<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
 			<span aria-hidden="true">{people.length}</span>
@@ -100,13 +137,21 @@
 	<div
 		class="flex shrink-0 items-center gap-3 @max-3xl/data-table:order-last @max-3xl/data-table:w-full @max-3xl/data-table:shrink @max-3xl/data-table:flex-wrap @max-3xl/data-table:pl-1.5"
 	>
-		<div class="flex h-5 min-w-0 items-center gap-2.5 @3xl/data-table:w-60 @3xl/data-table:shrink-0">
+		<div
+			class={['flex min-w-0 items-center gap-2.5 @3xl/data-table:w-60 @3xl/data-table:shrink-0', sub ? 'h-4' : 'h-5']}
+		>
 			{#if summary.kind === 'pending'}
 				<Skeleton class="h-1.5 w-20 shrink-0 rounded-[3px] @3xl/data-table:w-30" />
 				<Skeleton class="h-3.5 w-24" />
 			{:else if presence}
-				<ProportionBar label="Strength today" {segments} class="w-20 @3xl/data-table:w-30" />
-				<span class="truncate text-[13px] leading-[18px]">{presence.present} of {presence.statusRead} present</span>
+				<ProportionBar
+					label="Strength today"
+					{segments}
+					class={sub ? 'h-1 w-20 rounded-[2px] @3xl/data-table:w-30' : 'w-20 @3xl/data-table:w-30'}
+				/>
+				<span class={['truncate', sub ? 'text-xs text-muted-foreground' : 'text-[13px] leading-[18px]']}
+					>{presence.present} of {presence.statusRead} present</span
+				>
 			{/if}
 		</div>
 		<div
@@ -158,10 +203,13 @@
 						<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Rename</DropdownMenu.Item>
 						<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Add people</DropdownMenu.Item>
 					{/if}
+					{#if onShowOnly}
+						<DropdownMenu.Item onSelect={onShowOnly}>Show only this Group</DropdownMenu.Item>
+					{/if}
 					{#if onNoteToEveryone}
 						<DropdownMenu.Item onSelect={onNoteToEveryone}>Note to everyone in the Group</DropdownMenu.Item>
 					{/if}
-					{#if onTogglePin}
+					{#if onTogglePin && !sub}
 						<DropdownMenu.Item onSelect={() => onTogglePin(group.key)}>
 							{pinned ? 'Unpin' : 'Pin'}
 						</DropdownMenu.Item>

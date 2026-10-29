@@ -185,9 +185,7 @@
 	function scopeLabel(scope: BriefingScope): string {
 		if (scope.kind === 'focus')
 			return briefing.focus.areas.find((area) => area.key === scope.key)?.title ?? 'Focus area';
-		const row = grid.sets
-			.flatMap((set) => [set.top, ...set.below])
-			.find((candidate) => candidate.key === scope.rowKey);
+		const row = grid.sets.flatMap((set) => [set.top, ...set.below]).find((candidate) => candidate.key === scope.rowKey);
 		const column = grid.columns.find((candidate) => candidate.typeId === scope.typeId);
 		return `${row?.label ?? 'Total'}, ${column?.name ?? ''}`;
 	}

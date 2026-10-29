@@ -295,7 +295,12 @@
 		pageSize: { get: () => bandedPageSize },
 		setPage: { value: (page: number) => (bandedPage = Math.min(Math.max(1, page), bandedPages.totalPages)) },
 		setPageSize: { value: setPageSize },
-		toggleGroup: { value: (key: string) => ctx.toggleGroup(key) },
+		toggleGroup: {
+			value: (key: string) => {
+				ctx.toggleGroup(key);
+				void followGroup(key, `[data-roster-group="${CSS.escape(key)}"] [aria-expanded]`);
+			}
+		},
 		expandAll: { value: () => ctx.collapsedGroups.clear() },
 		collapseAll: { value: () => sections.forEach((section) => ctx.collapsedGroups.add(section.key)) }
 	});
@@ -575,17 +580,22 @@
 		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(personnelId)}"]`)?.focus();
 	}
 
-	// Pinning reorders the groups and the moved header drops focus; put it back on the pin unless focus moved elsewhere.
+	// Pinning or collapsing can move a Group's header to another page and drop focus. Turn to the page that shows
+	// the header and put focus back on the control unless focus moved elsewhere.
+	async function followGroup(groupKey: string, control: string) {
+		if (!bandedPages.sections.some((section) => section.key === groupKey))
+			bandedPage = bandedPages.opensOn.get(groupKey) ?? bandedPage;
+		await tick();
+		if (document.activeElement && document.activeElement !== document.body) return;
+		document.querySelector<HTMLElement>(control)?.focus();
+	}
+
 	async function togglePin(groupKey: string) {
-		const restoreFocus = async () => {
-			await tick();
-			if (document.activeElement && document.activeElement !== document.body) return;
-			document.querySelector<HTMLElement>(`[data-pin-group="${CSS.escape(groupKey)}"]`)?.focus();
-		};
+		const pin = `[data-pin-group="${CSS.escape(groupKey)}"]`;
 		const saved = pinnedGroupsStore.toggle(groupKey);
-		await restoreFocus();
+		await followGroup(groupKey, pin);
 		await saved;
-		await restoreFocus();
+		await followGroup(groupKey, pin);
 	}
 
 	function setRosterSearch(value: string): void {

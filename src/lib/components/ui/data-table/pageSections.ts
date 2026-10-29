@@ -13,6 +13,8 @@ export interface SectionPage<S, T> {
 	rows: T[];
 	page: number;
 	totalPages: number;
+	/** The page where each section's header first shows. */
+	opensOn: Map<string, number>;
 }
 
 /**
@@ -33,6 +35,7 @@ export function pageSections<T, S extends PageableSection<T>>(
 	const lastStart = (totalPages - 1) * size;
 
 	const onPage = new Map<string, T[]>();
+	const opensOn = new Map<string, number>();
 	let offset = 0;
 	for (const section of sections) {
 		const at = offset;
@@ -40,6 +43,7 @@ export function pageSections<T, S extends PageableSection<T>>(
 		offset += shown.length;
 		const slice = shown.slice(Math.max(0, start - at), Math.max(0, end - at));
 		const opensHere = shown.length === 0 && Math.min(at, lastStart) >= start && Math.min(at, lastStart) < end;
+		opensOn.set(section.key, Math.floor(Math.min(at, lastStart) / size) + 1);
 		if (slice.length > 0 || opensHere) onPage.set(section.key, section.collapsed ? section.rows : slice);
 	}
 
@@ -57,6 +61,7 @@ export function pageSections<T, S extends PageableSection<T>>(
 		}),
 		rows,
 		page: current,
-		totalPages
+		totalPages,
+		opensOn
 	};
 }

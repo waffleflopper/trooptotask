@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
-	import type { Personnel } from '$features/personnel/contracts';
+	import { buildGroupTree, groupFilterMatcher, type Group, type Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -18,7 +18,7 @@
 		orgId: string;
 		personnel: Personnel[];
 		statusTypes: StatusType[];
-		groups: { id: string; name: string }[];
+		groups: Group[];
 	}
 
 	let { orgId, personnel, statusTypes, groups }: Props = $props();
@@ -53,7 +53,8 @@
 		filterModeOptions.find((option) => option.value === filterMode)?.label ?? 'All Personnel'
 	);
 
-	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
+	const tree = $derived(buildGroupTree(groups));
+	const groupOptions = $derived(tree.roots.map((root) => ({ id: root.id, label: tree.label(root.id) })));
 	const mosOptions = $derived(uniqueMosCodes.map((mos) => ({ id: mos, label: mos })));
 	const roleOptions = $derived(uniqueRoles.map((role) => ({ id: role, label: role })));
 	const statusChipOptions = $derived(
@@ -64,8 +65,12 @@
 		switch (filterMode) {
 			case 'name':
 				return personnel.filter((person) => selectedPersonnelIds.has(person.id));
-			case 'group':
-				return personnel.filter((person) => person.groupId && selectedGroupIds.has(person.groupId));
+			case 'group': {
+				const matchers = tree.roots
+					.filter((root) => selectedGroupIds.has(root.id))
+					.map((root) => groupFilterMatcher(tree, root.id));
+				return personnel.filter((person) => matchers.some((matches) => matches(person.groupId)));
+			}
 			case 'mos':
 				return personnel.filter((person) => selectedMosCodes.has(person.mos));
 			case 'role':

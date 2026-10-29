@@ -281,6 +281,8 @@
 	});
 	const sectionByKey = $derived(new Map(sections.map((section) => [section.key, section])));
 	let bandedPage = $state(1);
+	// Counts the reader's own page changes, so a slow save can tell whether the reader has moved on.
+	let pageTurns = 0;
 	let bandedPageSize = $state<number>(ROSTER_PAGE_SIZE);
 	const bandedPages = $derived(pageSections<Personnel, RosterSection>(sections, bandedPageSize, bandedPage));
 	// A roster that shrinks past the page keeps the last page, so growing it again does not jump back.
@@ -293,11 +295,17 @@
 		page: { get: () => bandedPages.page },
 		totalPages: { get: () => bandedPages.totalPages },
 		pageSize: { get: () => bandedPageSize },
-		setPage: { value: (page: number) => (bandedPage = Math.min(Math.max(1, page), bandedPages.totalPages)) },
+		setPage: {
+			value: (page: number) => {
+				pageTurns++;
+				bandedPage = Math.min(Math.max(1, page), bandedPages.totalPages);
+			}
+		},
 		setPageSize: { value: setPageSize },
 		toggleSort: {
 			value: (key: string) => {
 				groupedTable.toggleSort(key);
+				pageTurns++;
 				bandedPage = 1;
 			}
 		},
@@ -592,7 +600,7 @@
 		if (!bandedPages.sections.some((section) => section.key === groupKey))
 			bandedPage = bandedPages.opensOn.get(groupKey) ?? bandedPage;
 		await tick();
-		if (document.activeElement && document.activeElement !== document.body) return;
+		if (!active || (document.activeElement && document.activeElement !== document.body)) return;
 		document.querySelector<HTMLElement>(control)?.focus();
 	}
 
@@ -601,10 +609,10 @@
 		const pinOrgId = orgId;
 		const saved = pinnedGroupsStore.toggle(groupKey);
 		await followGroup(groupKey, pin);
-		const shown = bandedPage;
+		const turns = pageTurns;
 		await saved;
 		// A failed save moves the Group back; follow it only if the reader has not turned the page or left meanwhile.
-		if (orgId === pinOrgId && bandedPage === shown) await followGroup(groupKey, pin);
+		if (active && orgId === pinOrgId && pageTurns === turns) await followGroup(groupKey, pin);
 	}
 
 	function setRosterSearch(value: string): void {
@@ -615,12 +623,14 @@
 
 	function showFirstPages(): void {
 		azTable.setPage(1);
+		pageTurns++;
 		bandedPage = 1;
 	}
 
 	function setPageSize(size: number): void {
 		azTable.setPageSize(size);
 		bandedPageSize = size;
+		pageTurns++;
 		bandedPage = 1;
 		try {
 			getBrowserLocalStorage()?.setItem(PAGE_SIZE_KEY, String(size));

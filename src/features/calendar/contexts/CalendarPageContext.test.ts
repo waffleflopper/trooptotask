@@ -13,6 +13,7 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
@@ -556,6 +557,30 @@ describe('CalendarPageContext', () => {
 			expect(shown(context)).toEqual([]);
 			context.setCalendarPersonnelSearch('bob');
 			expect(shown(context)).toEqual([['g2', ['p2']]]);
+		});
+
+		it("offers the top-level Groups and shows a platoon's HQ, squads and teams without the other platoon", () => {
+			mutableGroups.items = NESTED_GROUPS;
+			const member = (id: string, groupId: string): Personnel => ({ ...mockPersonnel[0], id, groupId });
+			const roster = [
+				member('hq', 'platoon'),
+				member('squad-lead', 'squad'),
+				member('team', 'alpha'),
+				member('sibling', 'other-platoon')
+			];
+			const context = makeContext({ ...mockData, personnel: roster, allPersonnel: roster }, org);
+
+			expect(context.groupFilterOptions.map(({ value, label, count }) => [value, label, count])).toEqual([
+				['', 'All groups', 4],
+				['platoon', '1st Platoon', 3],
+				['other-platoon', '2nd Platoon', 1]
+			]);
+			context.setCalendarGroupFilter('platoon');
+			expect(shown(context)).toEqual([
+				['platoon', ['hq']],
+				['squad', ['squad-lead']],
+				['alpha', ['team']]
+			]);
 		});
 	});
 

@@ -268,6 +268,8 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    Server tests separately cover a race after that check: if the Person write succeeds but the ID write conflicts,
    the receipt says the Person was saved but the DoD ID was not. Keep that Person and its other saved fields.
    Repeat an import with a DoD ID from Your unit, Personnel to prove the setup lane loads the same visible IDs.
+   Commit it and wait 4 seconds: the Done receipt stays with its counts and failed-row reasons while the step
+   refreshes, and browser Back and Forward still step through Review, Columns and File before the commit.
 
    Import `Rank, Last name, First name, Group` with one new name twice, once in Alpha and once in Bravo: both rows read
    New and save as two People. Import `Last name, First name` with a new name: Review adds a Rank column whose cell on

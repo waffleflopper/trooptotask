@@ -3,12 +3,6 @@ import type { ColumnSplitter, ImportColumn, ImportColumns } from '$lib/component
 export type PersonNameColumns = ImportColumns & Record<'lastName' | 'firstName', ImportColumn>;
 
 export const personnelImportColumns = {
-	dodId: {
-		label: 'DoD ID',
-		kind: 'text',
-		aliases: ['dod id', 'dodid', 'dod', 'dod id number', 'edipi', 'edipi number'],
-		example: '0123456789'
-	},
 	rank: {
 		label: 'Rank',
 		kind: 'text',
@@ -29,6 +23,12 @@ export const personnelImportColumns = {
 		required: true,
 		aliases: ['first name', 'firstname', 'first', 'given name'],
 		example: 'Luis'
+	},
+	dodId: {
+		label: 'DoD ID',
+		kind: 'text',
+		aliases: ['dod id', 'edipi', 'dodid', 'dod id number', 'dod', 'edipi number'],
+		example: '0123456789'
 	},
 	mos: {
 		label: 'MOS',

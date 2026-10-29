@@ -598,10 +598,13 @@
 
 	async function togglePin(groupKey: string) {
 		const pin = `[data-pin-group="${CSS.escape(groupKey)}"]`;
+		const pinOrgId = orgId;
 		const saved = pinnedGroupsStore.toggle(groupKey);
 		await followGroup(groupKey, pin);
+		const shown = bandedPage;
 		await saved;
-		await followGroup(groupKey, pin);
+		// A failed save moves the Group back; follow it only if the reader has not turned the page or left meanwhile.
+		if (orgId === pinOrgId && bandedPage === shown) await followGroup(groupKey, pin);
 	}
 
 	function setRosterSearch(value: string): void {

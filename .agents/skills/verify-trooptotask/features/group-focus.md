@@ -7,7 +7,8 @@ screens in the address, and nested Groups draw as bands inside their parent.
 
 - `focus-pick`: the `Group:` trigger opens a tree of the reader's Groups with subtree counts; picking one writes
   `?group=<id>` (or `?group=unassigned`) and replaces the history entry.
-- `focus-carry`: the sidebar's Home, Calendar and Personnel links carry `?group=`; Events & Taskings does not.
+- `focus-carry`: every top-level sidebar link the reader sees (Home, Calendar, Personnel, Evals, Training, Critical
+  Tasks, Onboarding) carries `?group=`; Calendar's child links (Events & Taskings, Duty planner) do not.
 - `focus-reload`: a reload keeps the focus.
 - `focus-drill`: a band's `Show only this Group` pushes a history entry, so Back returns to the wider focus.
 - `focus-unavailable`: a `?group=` for a deleted Group or one the reader cannot see shows `Group unavailable` with
@@ -51,15 +52,15 @@ Use `manager` with `$V calendar-grant manager view` for the Calendar steps and r
    `Group actions for 2nd Platoon › 1st Squad › Alpha Team` and choose `Show only this Group`: `?group=<Alpha Team>`,
    `history.length` grows by one and the trigger reads `Group: 2nd Platoon › 1st Squad › Alpha Team 4`. Back returns to
    `?group=<1st Squad>` with no dialog open.
-3. **Carry.** Read the sidebar links: Home, Calendar and Personnel end in `?group=<1st Squad>`, Events & Taskings does
-   not. Click `Calendar`: the eyebrow reads
-   `Calendar · Verification Organization A · 2nd Platoon › 1st Squad · 6 personnel`, the headline `6 of 6 available`,
-   and the bands (`[data-band-level]`) run `0: 2nd Platoon › 1st Squad 6`, `1: Alpha Team 4`, `1: Bravo Team 1`. Pick
-   `2nd Platoon 9`: bands `0: 2nd Platoon 9 Pin`, `1: 1st Squad 6`, `2: Alpha Team 4`, `2: Bravo Team 1`,
-   `1: 2nd Squad 1`; Diaz and Webb sit under the top band before `1ST SQUAD`. Band heights are 35, 28 and 26 px by
-   depth, and only the top band has `Pin`.
+3. **Carry.** Read the sidebar links: each top-level link shown (Home, Calendar, Personnel, Evals, Training, Critical
+   Tasks, Onboarding) ends in `?group=<1st Squad>`; Events & Taskings and Duty planner do not. Click `Calendar`: the
+   eyebrow reads `Calendar · Verification Organization A · 2nd Platoon › 1st Squad · 6 personnel`, the headline
+   `6 of 6 available`, and the bands (`[data-band-level]`) run `0: 2nd Platoon › 1st Squad 6`, `1: Alpha Team 4`,
+   `1: Bravo Team 1`. Pick `2nd Platoon 9`: bands `0: 2nd Platoon 9 Pin`, `1: 1st Squad 6`, `2: Alpha Team 4`,
+   `2: Bravo Team 1`, `1: 2nd Squad 1`; Diaz and Webb sit under the top band before `1ST SQUAD`. Band heights are 35, 28
+   and 26 px by depth, and only the top band has `Pin`.
 4. **Sticky top band.** At 1024x640 on Calendar set `.calendar-body` `scrollTop` to 200:
-   `[data-testid= calendar-stuck-band]` reads `2nd Platoon 9 Pin` at the body's top edge and the band is drawn once. On
+   `[data-testid=calendar-stuck-band]` reads `2nd Platoon 9 Pin` at the body's top edge and the band is drawn once. On
    Personnel at the same size scroll the roster: the level-0 band's row sticks 40 px below the roster top, under the
    column header. `scrollWidth` equals the viewport on both pages.
 5. **Unavailable.** Open `/org/<orgA>/personnel?group=00000000-0000-4000-8000-000000000000` at 390x844: the trigger

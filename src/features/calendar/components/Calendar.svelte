@@ -201,7 +201,7 @@
 				});
 			}
 
-			if (collapsedGroups.has(band)) {
+			if (showGroupHeaders && collapsedGroups.has(band)) {
 				collapsedLevel = level;
 				continue;
 			}

@@ -11,7 +11,15 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore, pinnedGroupsStore } from '$features/personnel';
-import { buildGroupTree, createRosterReadModel, soleLeafGroup, type GroupTree } from '$features/personnel/contracts';
+import {
+	buildGroupTree,
+	createRosterReadModel,
+	nestRosterBands,
+	soleLeafGroup,
+	type GroupTree,
+	type NestedRosterBand
+} from '$features/personnel/contracts';
+import { showSubGroups } from '$lib/stores/showSubGroups.svelte';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { groupsInScope } from '$lib/access/scopeSetAccess';
 import { rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
@@ -23,7 +31,6 @@ import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
-import { nestCalendarBands, type CalendarBand } from '$features/calendar/utils/calendarBands';
 
 const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
 
@@ -230,16 +237,23 @@ export class CalendarPageContext {
 		return soleLeafGroup(this.groupTree, this.canPinGroups) === null;
 	}
 
-	readonly filteredPBG: CalendarBand[] = $derived.by(() =>
-		nestCalendarBands(
-			this.groupTree,
+	readonly #filteredSections = $derived.by(
+		() =>
 			this.#calendarRoster.scoped(this.#org.scopeSet, {
 				status: 'active',
 				groupFilter: this.calendarGroupFilter,
 				search: this.calendarPersonnelSearch
 			}).personnelByGroup
-		)
 	);
+
+	readonly filteredPBG: NestedRosterBand[] = $derived(
+		nestRosterBands(this.groupTree, this.#filteredSections, showSubGroups.current)
+	);
+
+	/** Exports always write each Group's own people under its path, whatever the screen shows. */
+	get exportPBG(): NestedRosterBand[] {
+		return nestRosterBands(this.groupTree, this.#filteredSections);
+	}
 
 	readonly availabilityTracks = $derived(buildAvailabilityTracks(availabilityStore.items, statusTypesStore.items));
 

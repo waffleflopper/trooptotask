@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildGroupTree, type Group, type Personnel } from '$features/personnel/contracts';
-import { nestCalendarBands } from './calendarBands';
+import { buildGroupTree, type Group, type Personnel } from './contracts';
+import { nestRosterBands } from './rosterBands';
 
 const groups: Group[] = [
 	{ id: 'hq', name: 'HQ Section', sortOrder: 0, parentId: null, depth: 1 },
@@ -10,18 +10,19 @@ const groups: Group[] = [
 	{ id: 'bravo', name: 'Bravo Team', sortOrder: 1, parentId: 'sq1', depth: 3 }
 ];
 
-const person = (id: string, groupId: string | null) => ({ id, groupId }) as Personnel;
+const person = (id: string, groupId: string | null, rank = 'PVT') =>
+	({ id, groupId, rank, lastName: id, firstName: '' }) as Personnel;
 const sections = [
 	{ groupId: 'hq', group: 'HQ Section', personnel: [person('reyes', 'hq')] },
 	{ groupId: 'plt', group: '2nd Platoon', personnel: [person('park', 'plt'), person('diaz', 'plt')] },
-	{ groupId: 'sq1', group: '1st Squad', personnel: [person('lee', 'sq1')] },
+	{ groupId: 'sq1', group: '1st Squad', personnel: [person('lee', 'sq1', 'SSG')] },
 	{ groupId: 'alpha', group: 'Alpha Team', personnel: [person('moss', 'alpha'), person('ortiz', 'alpha')] },
 	{ groupId: 'gone', group: 'Old Section', personnel: [person('vance', 'gone')] },
 	{ groupId: null, group: 'Unassigned', personnel: [person('adams', null)] }
 ];
 
-function shape(tree = buildGroupTree(groups)) {
-	return nestCalendarBands(tree, sections).map((band) => [
+function shape(tree = buildGroupTree(groups), nested = true) {
+	return nestRosterBands(tree, sections, nested).map((band) => [
 		band.groupId,
 		band.level,
 		band.name,
@@ -32,13 +33,22 @@ function shape(tree = buildGroupTree(groups)) {
 	]);
 }
 
-describe('nestCalendarBands', () => {
+describe('nestRosterBands', () => {
 	it('puts each Group’s own people before its sub-groups and keeps people outside the tree last', () => {
 		expect(shape()).toEqual([
 			['hq', 0, 'HQ Section', 'HQ Section', 'reyes', 'reyes', true],
 			['plt', 0, '2nd Platoon', '2nd Platoon', 'park diaz', 'park diaz lee moss ortiz', true],
 			['sq1', 1, '1st Squad', '2nd Platoon › 1st Squad', 'lee', 'lee moss ortiz', false],
 			['alpha', 2, 'Alpha Team', '2nd Platoon › 1st Squad › Alpha Team', 'moss ortiz', 'moss ortiz', false],
+			['gone', 0, 'Old Section', 'Old Section', 'vance', 'vance', true],
+			[null, 0, 'Unassigned', 'Unassigned', 'adams', 'adams', false]
+		]);
+	});
+
+	it('rolls each root into one band of its whole subtree, by rank and then name, with sub-groups hidden', () => {
+		expect(shape(buildGroupTree(groups), false)).toEqual([
+			['hq', 0, 'HQ Section', 'HQ Section', 'reyes', 'reyes', true],
+			['plt', 0, '2nd Platoon', '2nd Platoon', 'lee diaz moss ortiz park', 'lee diaz moss ortiz park', true],
 			['gone', 0, 'Old Section', 'Old Section', 'vance', 'vance', true],
 			[null, 0, 'Unassigned', 'Unassigned', 'adams', 'adams', false]
 		]);

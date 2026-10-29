@@ -54,6 +54,11 @@ export function soleLeafGroup(tree: GroupTree, organizationWide: boolean): Group
 	return !organizationWide && root && others.length === 0 && !root.hasChildren ? root : null;
 }
 
+/** Whether any visible Group has sub-groups, so the Show sub-groups switch has something to change. */
+export function hasSubGroups(tree: GroupTree): boolean {
+	return tree.ordered.some((node) => node.hasChildren);
+}
+
 /**
  * A screen's Group filter offers the reader's top-level Groups, and a pick matches its whole subtree. Any other value,
  * such as a pick saved before the tree changed, matches everyone.

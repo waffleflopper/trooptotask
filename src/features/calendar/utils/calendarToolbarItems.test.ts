@@ -15,6 +15,7 @@ function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolb
 		showStatusText: false,
 		showPersonnelRoles: false,
 		showOnboardingToggle: false,
+		showSubGroups: null,
 		highlightOnboarding: true,
 		onGroupFilterChange: vi.fn(),
 		onToggleStatusText: vi.fn(),

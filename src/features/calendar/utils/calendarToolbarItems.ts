@@ -18,6 +18,8 @@ export interface CalendarToolbarInput {
 	showStatusText: boolean;
 	showPersonnelRoles: boolean;
 	showOnboardingToggle: boolean;
+	/** Null when no visible Group has sub-groups. */
+	showSubGroups: ToolbarMenuToggle | null;
 	highlightOnboarding: boolean;
 	onGroupFilterChange: (value: string) => void;
 	onToggleStatusText: () => void;
@@ -33,6 +35,7 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 } {
 	const calendarHref = `/org/${input.orgUrlSegment}/calendar`;
 	const displayOptions: ToolbarMenuToggle[] = [
+		...(input.showSubGroups ? [input.showSubGroups] : []),
 		...(input.showOnboardingToggle
 			? [
 					{

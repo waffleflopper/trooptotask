@@ -1,6 +1,9 @@
-import type { Band, GroupTree, Personnel, PersonnelGroup } from '$features/personnel/contracts';
+import type { Band, GroupTree } from './groupTree';
+import { comparePersonnelByRankThenName } from './personnelRank';
+import type { Personnel } from './personnel.types';
+import type { PersonnelGroup } from './rosterReadModel';
 
-export interface CalendarBand extends PersonnelGroup {
+export interface NestedRosterBand extends PersonnelGroup {
 	/** 0 for a top band, then 1 and 2 for the sub-groups below it. */
 	level: number;
 	/** The Group's own name; `group` is its full path, which flat views and exports print. */
@@ -14,16 +17,22 @@ export interface CalendarBand extends PersonnelGroup {
 const groupOf = (person: Personnel) => person.groupId;
 
 /**
- * The reader's roster sections in tree order: each Group's own people, then its sub-groups. People whose Group is
- * outside the tree, and Unassigned, keep the sections' order after them.
+ * The reader's roster sections in tree order: each Group's own people, then its sub-groups. Not `nested`, each root is
+ * one band of its whole subtree by rank and name. People whose Group is outside the tree, and Unassigned, keep the
+ * sections' order after them.
  */
-export function nestCalendarBands(tree: GroupTree, sections: readonly PersonnelGroup[]): CalendarBand[] {
+export function nestRosterBands(
+	tree: GroupTree,
+	sections: readonly PersonnelGroup[],
+	nested = true
+): NestedRosterBand[] {
 	const people = sections.flatMap((section) => section.personnel);
-	const out: CalendarBand[] = [];
+	if (!nested) people.sort(comparePersonnelByRankThenName);
+	const out: NestedRosterBand[] = [];
 	const visit = (band: Band<Personnel>): Personnel[] => {
 		const { node } = band;
 		const label = tree.label(node.id);
-		const entry: CalendarBand = {
+		const entry: NestedRosterBand = {
 			groupId: node.id,
 			group: label,
 			name: node.level === 0 ? label : node.name,
@@ -36,7 +45,7 @@ export function nestCalendarBands(tree: GroupTree, sections: readonly PersonnelG
 		entry.people = [...band.hq, ...band.children.flatMap(visit)];
 		return entry.people;
 	};
-	tree.bands(people, groupOf).forEach(visit);
+	tree.bands(people, groupOf, { nested }).forEach(visit);
 
 	for (const section of sections) {
 		if (section.groupId !== null && tree.node(section.groupId)) continue;

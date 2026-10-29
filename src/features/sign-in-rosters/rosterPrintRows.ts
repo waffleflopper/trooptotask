@@ -9,6 +9,11 @@ export interface RosterPrintPerson {
 	groupId?: string | null;
 }
 
+export interface RosterPrintGroup {
+	id: string;
+	name: string;
+}
+
 export type CompareRosterBands = (a: RosterBand, b: RosterBand) => number;
 
 export type RosterPrintRow =
@@ -19,9 +24,10 @@ export type RosterPrintRow =
 export function rosterPrintRows(
 	snapshot: readonly RosterPrintPerson[],
 	separateByGroup: boolean,
-	compareBands: CompareRosterBands
+	compareBands: CompareRosterBands,
+	groups: readonly RosterPrintGroup[]
 ): RosterPrintRow[] {
-	const sections = separateByGroup ? bucketByGroup(snapshot, compareBands) : [{ name: '', people: snapshot }];
+	const sections = separateByGroup ? bucketByGroup(snapshot, compareBands, groups) : [{ name: '', people: snapshot }];
 	const rows: RosterPrintRow[] = [];
 	let number = 0;
 	for (const section of sections) {
@@ -34,10 +40,17 @@ export function rosterPrintRows(
 	return rows;
 }
 
-function bucketByGroup(snapshot: readonly RosterPrintPerson[], compareBands: CompareRosterBands) {
+function bucketByGroup(
+	snapshot: readonly RosterPrintPerson[],
+	compareBands: CompareRosterBands,
+	groups: readonly RosterPrintGroup[]
+) {
+	const idsByName = new Map<string, string[]>();
+	for (const group of groups) idsByName.set(group.name, [...(idsByName.get(group.name) ?? []), group.id]);
 	const byGroup = new Map<string, { band: RosterBand; people: RosterPrintPerson[] }>();
 	for (const person of snapshot) {
-		const groupId = person.groupId ?? null;
+		const named = idsByName.get(person.group);
+		const groupId = person.groupId ?? (named?.length === 1 ? named[0] : null);
 		const key = groupId ?? `name:${person.group}`;
 		const section = byGroup.get(key);
 		if (section) section.people.push(person);

@@ -197,26 +197,24 @@ describe('RosterPicker', () => {
 		).toEqual(['Select Unassigned group', 'Select Bravo group', 'Select Unassigned group']);
 	});
 
-	it('keeps two Groups that share a name as separate bands', () => {
-		render(RosterPicker, {
-			props: {
-				personnelByGroup: [
-					{
-						groupId: 'group-1',
-						group: 'Alpha',
-						personnel: [personnel({ id: 'p1', lastName: 'Able' })]
-					},
-					{
-						groupId: 'group-7',
-						group: 'Alpha',
-						personnel: [personnel({ id: 'p7', lastName: 'Zulu', groupId: 'group-7' })]
-					}
-				],
-				selection: makeSelection()
+	it('selects only the people of the Group whose checkbox is operated when two Groups share a name', async () => {
+		const bands = [
+			{ groupId: 'group-1', group: 'Alpha', personnel: [personnel({ id: 'p1', lastName: 'Able' })] },
+			{
+				groupId: 'group-7',
+				group: 'Alpha',
+				personnel: [personnel({ id: 'p7', lastName: 'Zulu', groupId: 'group-7' })]
 			}
+		];
+		const selection = useDataTableSelection<Personnel>({
+			rows: () => bands.flatMap((band) => band.personnel),
+			rowKey: (person) => person.id
 		});
+		render(RosterPicker, { props: { personnelByGroup: bands, selection } });
 
-		expect(screen.getAllByRole('checkbox', { name: 'Select Alpha group' })).toHaveLength(2);
+		await fireEvent.click(screen.getAllByRole('checkbox', { name: 'Select Alpha group' })[1]);
+
+		expect([...selection.selectedKeys]).toEqual(['p7']);
 	});
 });
 

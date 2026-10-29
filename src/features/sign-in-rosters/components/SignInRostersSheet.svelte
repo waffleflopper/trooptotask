@@ -87,7 +87,7 @@
 	async function reprint(roster: SignInRoster) {
 		const inOrganization = stillInOrganizationLifetime();
 		try {
-			await generateRosterPdf(roster, compareBands);
+			await generateRosterPdf(roster, compareBands, groups);
 		} catch (err) {
 			if (!disposed && inOrganization())
 				toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');

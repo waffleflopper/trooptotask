@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Group } from '$features/personnel/contracts';
+	import { buildGroupTree, type Group } from '$features/personnel/contracts';
+	import { TreeSelect, type TreeSelectOption } from '$lib/components/patterns/tree-select';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
@@ -54,7 +55,17 @@
 			}))
 		)
 	);
-	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
+	const tree = $derived(buildGroupTree(groups));
+	// Group ids are UUIDs, so this never collides with one.
+	const NO_GROUP = '__none';
+	const groupLabel = (id: string) => (tree.node(id) ? tree.label(id) : 'Another group');
+
+	function groupChoices(current: string): TreeSelectOption[] {
+		const nodes = tree.ordered.map((node) => ({ id: node.id, label: node.name, depth: node.level }));
+		if (!current) return nodes;
+		const kept = tree.node(current) ? [] : [{ id: current, label: 'Another group', depth: 0, aside: true }];
+		return [...nodes, ...kept, { id: NO_GROUP, label: 'No group', depth: 0, aside: true }];
+	}
 
 	// A current excused assignee stays listed so the assignment can still be seen and cleared.
 	function personnelChoices(type: AssignmentType) {
@@ -88,7 +99,7 @@
 		<AppDialog.Body class="space-y-4">
 			<div class="flex flex-col gap-3">
 				{#each activeAssignmentTypes as type (type.id)}
-					{@const options = type.assignTo === 'personnel' ? personnelChoices(type) : groupOptions}
+					{@const current = getCurrentAssignee(type.id)}
 					<div class="bg-muted/30 flex flex-col gap-2 rounded-lg border p-3">
 						<div class="flex flex-wrap items-center gap-2">
 							<span
@@ -100,25 +111,39 @@
 							>
 						</div>
 
-						<Combobox.Root
-							items={options}
-							value={getCurrentAssignee(type.id)}
-							label={`Set ${type.name} ${type.assignTo === 'personnel' ? 'assignee' : 'group'}`}
-							onValueChange={(value) =>
-								handleAssignmentChange(type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
-							autoHighlight
-						>
-							<Combobox.Trigger
-								clearable
-								placeholder="Search assignments..."
-								aria-label={`Set ${type.name} ${type.assignTo === 'personnel' ? 'assignee' : 'group'}`}
+						{#if type.assignTo === 'group'}
+							<TreeSelect
+								options={groupChoices(current)}
+								value={current || null}
+								onValueChange={(id: string) => handleAssignmentChange(type.id, id === NO_GROUP ? '' : id)}
+								label={`Set ${type.name} group`}
+								hideLabel
+								valueLabel={current ? groupLabel(current) : null}
+								placeholder="No group"
+								searchPlaceholder="Find a Group"
+								class="h-9 w-full justify-between"
 							/>
-							<Combobox.Content>
-								<Combobox.Search placeholder="Search assignments..." />
-								<Combobox.Empty>No assignments found.</Combobox.Empty>
-								<Combobox.List />
-							</Combobox.Content>
-						</Combobox.Root>
+						{:else}
+							<Combobox.Root
+								items={personnelChoices(type)}
+								value={current}
+								label={`Set ${type.name} assignee`}
+								onValueChange={(value) =>
+									handleAssignmentChange(type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+								autoHighlight
+							>
+								<Combobox.Trigger
+									clearable
+									placeholder="Search assignments..."
+									aria-label={`Set ${type.name} assignee`}
+								/>
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search assignments..." />
+									<Combobox.Empty>No assignments found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
+						{/if}
 					</div>
 				{:else}
 					<p class="text-sm text-muted-foreground">

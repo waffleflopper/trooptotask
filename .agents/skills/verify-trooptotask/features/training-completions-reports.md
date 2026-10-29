@@ -454,6 +454,8 @@ clean only this owned disposable worker.
     `Alpha Team 4`, `Bravo Team 1`, `2nd Squad 1`, `Bravo 1`, `Unassigned 1`, `Alpha 1` and `Total 12`, so HQ, squads
     and teams sum to each parent and the parents sum to the total. Off, the rows run `2nd Platoon 9`, `Bravo 1`,
     `Unassigned 1`, `Alpha 1` and `Total 12`. The workbook export and print keep one row per exact Group either way.
+    Print columns and the detail Group column name each Group by its path from the visible root, such as
+    `2nd Platoon › 1st Squad › Alpha Team`, so same-named teams print apart.
     At 1024x640 and 390x844 both pages keep 9 and `scrollWidth` equals the viewport.
 
 ## Verify Print A with a dedicated cohort

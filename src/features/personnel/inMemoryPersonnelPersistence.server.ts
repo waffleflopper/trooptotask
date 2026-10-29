@@ -254,14 +254,7 @@ export function createInMemoryGroupPersistence(
 			if (!group) fail(404, GROUP_UNAVAILABLE_MESSAGE);
 			if (group.name === name) return map(group);
 			if (await store.findOne('groups', orgId, { name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
-			const row = map(await store.update('groups', orgId, id, { name }));
-			for (const pin of await store.findMany<{ id: string; user_id: string }>('user_pinned_groups', orgId, {
-				group_name: group.name
-			})) {
-				await store.deleteWhere('user_pinned_groups', orgId, { user_id: pin.user_id, group_name: name });
-				await store.update('user_pinned_groups', orgId, pin.id, { group_name: name });
-			}
-			return row;
+			return map(await store.update('groups', orgId, id, { name }));
 		},
 		async setOrder(ids, expectedIds) {
 			const saved = (await rows('id')).map((row) => row.id as string);
@@ -271,13 +264,13 @@ export function createInMemoryGroupPersistence(
 			for (const [index, id] of ids.entries()) await store.update('groups', orgId, id, { sort_order: index });
 		},
 		async deleteWithReassignment(id, targetId) {
-			const group = await store.findOne<{ name: string }>('groups', orgId, { id });
+			const group = await store.findOne('groups', orgId, { id });
 			if (!group || (targetId && !(await store.findOne('groups', orgId, { id: targetId }))))
 				fail(404, GROUP_UNAVAILABLE_MESSAGE);
 			const members = await store.findMany<{ id: string }>('personnel', orgId, { group_id: id });
 			for (const member of members) await store.update('personnel', orgId, member.id, { group_id: targetId });
 			await store.delete('groups', orgId, id);
-			await store.deleteWhere('user_pinned_groups', orgId, { group_name: group.name });
+			await store.deleteWhere('user_pinned_groups', orgId, { group_id: id });
 			return members.length;
 		}
 	};
@@ -288,40 +281,32 @@ export function createInMemorySelfPinPersistence(
 	userId: string
 ): SelfPinPersistence {
 	return {
-		async listNames() {
+		async listGroupIds() {
 			return (
-				await store.findMany<{ group_name: string }>(
+				await store.findMany<{ group_id: string }>(
 					'user_pinned_groups',
 					orgId,
 					{ user_id: userId },
 					{
-						select: 'group_name',
+						select: 'group_id',
 						orderBy: [
 							{ column: 'sort_order', ascending: true },
 							{ column: 'id', ascending: true }
 						]
 					}
 				)
-			).map((row) => row.group_name);
+			).map((row) => row.group_id);
 		},
 		async insert(input) {
-			const row = await store.insert<{ id: string; group_name: string; sort_order: number }>(
+			const row = await store.insert<{ id: string; group_id: string; sort_order: number }>(
 				'user_pinned_groups',
 				orgId,
-				{ user_id: userId, group_name: input.groupName, sort_order: input.sortOrder ?? 0 }
+				{ user_id: userId, group_id: input.groupId, sort_order: input.sortOrder ?? 0 }
 			);
-			return { id: row.id, groupName: row.group_name, sortOrder: row.sort_order };
+			return { id: row.id, groupId: row.group_id, sortOrder: row.sort_order };
 		},
-		removeName: (groupName) =>
-			store.deleteWhere('user_pinned_groups', orgId, { user_id: userId, group_name: groupName }),
-		async replaceNames(names) {
-			await store.deleteWhere('user_pinned_groups', orgId, { user_id: userId });
-			if (names.length)
-				await store.insertMany(
-					'user_pinned_groups',
-					orgId,
-					names.map((groupName, sortOrder) => ({ user_id: userId, group_name: groupName, sort_order: sortOrder }))
-				);
+		async remove(groupId) {
+			await store.deleteWhere('user_pinned_groups', orgId, { user_id: userId, group_id: groupId });
 		}
 	};
 }

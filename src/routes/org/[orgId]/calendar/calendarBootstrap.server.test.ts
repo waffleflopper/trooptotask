@@ -47,7 +47,7 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 	]);
 	store.seed('groups', [{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 }]);
 	store.seed('user_pinned_groups', [
-		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
+		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_id: 'g1', sort_order: 0 }
 	]);
 }
 
@@ -90,7 +90,7 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		expect(result.specialDays).toHaveLength(1);
 		expect(result.assignmentTypes).toHaveLength(1);
 		expect(result.dailyAssignments).toHaveLength(1);
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual(['g1']);
 		expect(result.activeOnboardingPersonnelIds).toEqual([]);
 	});
 

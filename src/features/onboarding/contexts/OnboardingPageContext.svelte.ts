@@ -84,7 +84,7 @@ export class OnboardingPageContext {
 	completingIncompleteCount = $state(0);
 	readonly #rosterView = $derived.by<RosterReadModelView>(() =>
 		rosterStore.orgId !== this.#org.orgId
-			? createRosterReadModel({ personnel: [], groups: [], pinnedGroups: [] }).scoped(this.#org.scopeSet, {
+			? createRosterReadModel({ personnel: [], groups: [], pinnedGroupIds: [] }).scoped(this.#org.scopeSet, {
 					status: 'active'
 				})
 			: rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' })

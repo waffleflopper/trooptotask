@@ -1,5 +1,11 @@
 import type { RowInput } from 'jspdf-autotable';
-import { rosterDateLine, rosterPrintRows, type RosterPrintPerson } from './rosterPrintRows';
+import {
+	rosterDateLine,
+	rosterPrintRows,
+	type CompareRosterBands,
+	type RosterPrintGroup,
+	type RosterPrintPerson
+} from './rosterPrintRows';
 
 export interface RosterPdfConfig {
 	title: string;
@@ -11,7 +17,8 @@ export interface RosterPdfConfig {
 
 export async function generateRosterPdf(
 	config: RosterPdfConfig,
-	compareGroupNames: (a: string, b: string) => number
+	compareBands: CompareRosterBands,
+	groups: readonly RosterPrintGroup[]
 ): Promise<void> {
 	const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
 	const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
@@ -23,7 +30,7 @@ export async function generateRosterPdf(
 	doc.setFontSize(12);
 	doc.text(rosterDateLine(config.rosterDate, config.blankDate), pageWidth / 2, 70, { align: 'center' });
 
-	const body: RowInput[] = rosterPrintRows(config.personnelSnapshot, config.separateByGroup, compareGroupNames).map(
+	const body: RowInput[] = rosterPrintRows(config.personnelSnapshot, config.separateByGroup, compareBands, groups).map(
 		(row) =>
 			row.kind === 'group'
 				? [

@@ -57,7 +57,7 @@ export class DashboardScreenModel {
 		createRosterReadModel({
 			personnel: this.sources.personnel.items,
 			groups: this.sources.groups.items,
-			pinnedGroups: this.sources.pinnedGroups.list,
+			pinnedGroupIds: this.sources.pinnedGroups.list,
 			fallbackGroupName: this.data.orgName
 		}).full({ status: 'active' })
 	);

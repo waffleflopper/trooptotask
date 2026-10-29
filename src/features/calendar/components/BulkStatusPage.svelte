@@ -90,7 +90,7 @@
 		createRosterReadModel({
 			personnel: calendarPersonnel,
 			groups: groupsStore.items,
-			pinnedGroups: pinnedGroupsStore.list,
+			pinnedGroupIds: pinnedGroupsStore.list,
 			fallbackGroupName: data.orgName ?? ''
 		}).scoped(org.scopeSet, { status: 'active' })
 	);

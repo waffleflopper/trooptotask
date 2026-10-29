@@ -11,7 +11,7 @@ const {
 	findManyMock,
 	findCriticalTasksDefaultsMock,
 	listActiveForReadinessMock,
-	listPinnedNamesMock,
+	listPinnedGroupIdsMock,
 	loadWithContextMock,
 	mockCtx
 } = vi.hoisted(() => {
@@ -20,7 +20,7 @@ const {
 	const findManyMock = vi.fn();
 	const findCriticalTasksDefaultsMock = vi.fn();
 	const listActiveForReadinessMock = vi.fn();
-	const listPinnedNamesMock = vi.fn();
+	const listPinnedGroupIdsMock = vi.fn();
 	const loadWithContextMock = vi.fn();
 
 	return {
@@ -29,7 +29,7 @@ const {
 		findManyMock,
 		findCriticalTasksDefaultsMock,
 		listActiveForReadinessMock,
-		listPinnedNamesMock,
+		listPinnedGroupIdsMock,
 		loadWithContextMock,
 		mockCtx: {
 			auth: {
@@ -50,7 +50,7 @@ const {
 				findCriticalTasksDefaults: findCriticalTasksDefaultsMock
 			},
 			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
-			selfPins: { listNames: listPinnedNamesMock } as Pick<SelfPinPersistence, 'listNames'>,
+			selfPins: { listGroupIds: listPinnedGroupIdsMock } as Pick<SelfPinPersistence, 'listGroupIds'>,
 			criticalTaskLibrary: { listCatalog: listCatalogMock },
 			criticalTasksReadModel: {
 				findLatestCompletions: findLatestCompletionsMock
@@ -92,7 +92,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 		findLatestCompletionsMock.mockResolvedValue([]);
 		listCatalogMock.mockResolvedValue([]);
 		listActiveForReadinessMock.mockResolvedValue([]);
-		listPinnedNamesMock.mockResolvedValue([]);
+		listPinnedGroupIdsMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -161,7 +161,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 		});
 	});
 
-	it('hydrates the viewer’s pinned Groups that are visible in the Critical Tasks scope', async () => {
+	it('hydrates the Organization-wide viewer’s pinned Groups by id', async () => {
 		findManyMock.mockImplementation((table: string) => {
 			if (table === 'groups') {
 				return Promise.resolve([
@@ -171,7 +171,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 			}
 			throw new Error(`Unexpected table ${table}`);
 		});
-		listPinnedNamesMock.mockResolvedValue(['Bravo', 'Hidden', 'Alpha']);
+		listPinnedGroupIdsMock.mockResolvedValue(['group-2', 'group-1']);
 
 		const routeData = await streamCriticalTasksWorkspaceBootstrap({
 			locals: {} as App.Locals,
@@ -180,7 +180,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 		});
 		const workspace = granted(await routeData.criticalTasks.data);
 
-		await expect(workspace.hydration.pinnedGroups.items).resolves.toEqual(['Bravo', 'Alpha']);
+		await expect(workspace.hydration.pinnedGroups.items).resolves.toEqual(['group-2', 'group-1']);
 		expect(workspace.hydration.pinnedGroups.mode).toBe('replace');
 	});
 });

@@ -27,6 +27,7 @@
 	const ROW_OVERSCAN_COUNT = 8;
 
 	interface GroupData {
+		groupId: string | null;
 		group: string;
 		personnel: Personnel[];
 	}
@@ -36,7 +37,7 @@
 		personnelByGroup: GroupData[];
 		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
-		pinnedGroups: string[];
+		pinnedGroupIds: readonly string[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		lanes?: readonly CalendarLane[];
@@ -54,7 +55,8 @@
 		upcomingLossMap?: ReadonlyMap<string, UpcomingLossRecord>;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
-		onPinToggle?: (group: string) => void;
+		/** Omitted for a Group-scoped reader, who has no pins. */
+		onPinToggle?: (groupId: string) => void;
 		onDateClick?: (date: Date) => void;
 		/** Opens the assignments for a marked date. Without it, row markers are not interactive. */
 		onMarkerClick?: (date: Date) => void;
@@ -75,7 +77,7 @@
 		personnelByGroup,
 		tracks,
 		specialDays,
-		pinnedGroups,
+		pinnedGroupIds,
 		assignmentTypes,
 		assignments,
 		lanes = [],
@@ -166,19 +168,22 @@
 
 	const rosterRows = $derived.by(() => {
 		const rows: (
-			| { type: 'group'; key: string; group: string; height: number }
+			| { type: 'group'; key: string; band: string; groupId: string | null; group: string; height: number }
 			| { type: 'person'; key: string; person: Personnel; height: number }
 		)[] = [];
 
 		for (const grp of personnelByGroup) {
+			const band = grp.groupId ?? '';
 			rows.push({
 				type: 'group',
-				key: `group:${grp.group}`,
+				key: `group:${band}`,
+				band,
+				groupId: grp.groupId,
 				group: grp.group,
 				height: GROUP_ROW_HEIGHT
 			});
 
-			if (collapsedGroups.has(grp.group)) continue;
+			if (collapsedGroups.has(band)) continue;
 
 			for (const person of grp.personnel) {
 				rows.push({
@@ -283,8 +288,8 @@
 		};
 	}
 
-	function groupOutCounts(group: string) {
-		const personnel = personnelByGroup.find((grp) => grp.group === group)?.personnel ?? [];
+	function groupOutCounts(band: string) {
+		const personnel = personnelByGroup.find((grp) => (grp.groupId ?? '') === band)?.personnel ?? [];
 		return tracks.outCounts(
 			personnel.map((person) => person.id),
 			visibleDays
@@ -339,14 +344,15 @@
 							style:height={`${row.height}px`}
 						>
 							{#if row.type === 'group'}
+								{@const groupId = row.groupId}
 								<GroupHeader
 									groupName={row.group}
-									isCollapsed={collapsedGroups.has(row.group)}
-									isPinned={pinnedGroups.includes(row.group)}
-									outCounts={collapsedGroups.has(row.group) ? groupOutCounts(row.group) : undefined}
+									isCollapsed={collapsedGroups.has(row.band)}
+									isPinned={groupId !== null && pinnedGroupIds.includes(groupId)}
+									outCounts={collapsedGroups.has(row.band) ? groupOutCounts(row.band) : undefined}
 									{days}
-									onToggle={() => toggleGroup(row.group)}
-									onPinToggle={() => onPinToggle?.(row.group)}
+									onToggle={() => toggleGroup(row.band)}
+									onPinToggle={groupId !== null && onPinToggle ? () => onPinToggle(groupId) : undefined}
 								/>
 							{:else}
 								<CalendarRow

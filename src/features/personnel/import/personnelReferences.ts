@@ -101,7 +101,6 @@ export function groupReference(
 	{ canCreate, allowUnassigned }: { canCreate: boolean; allowUnassigned: boolean }
 ): ImportReference<Columns, Group | null> {
 	const option = (group: Group): ReferenceOption<Group> => ({ id: group.id, label: group.name, value: group });
-	const byName = uniqueBy(groups, (group) => normalizeName(group.name));
 	const byWords = uniqueBy(groups, (group) => groupWords(group.name));
 	return {
 		label: 'group',
@@ -113,8 +112,9 @@ export function groupReference(
 			return display ? { key: normalizeName(display), display } : null;
 		},
 		find(key) {
-			const group = byName.get(key);
-			if (group) return { kind: 'one', option: option(group) };
+			const named = groups.filter((group) => normalizeName(group.name) === key);
+			if (named.length === 1) return { kind: 'one', option: option(named[0]) };
+			if (named.length > 1) return { kind: 'many', candidates: named.map(option) };
 			const guess = byWords.get(groupWords(key));
 			return guess ? { kind: 'none', suggestion: option(guess) } : { kind: 'none' };
 		},

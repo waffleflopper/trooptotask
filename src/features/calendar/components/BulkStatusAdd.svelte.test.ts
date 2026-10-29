@@ -30,7 +30,7 @@ function person(id: string, lastName: string): Personnel {
 const able = person('person-able', 'Able');
 const baker = person('person-baker', 'Baker');
 const cole = person('person-cole', 'Cole');
-const roster = [{ group: 'Alpha', personnel: [able, baker, cole] }];
+const roster = [{ groupId: 'alpha', group: 'Alpha', personnel: [able, baker, cole] }];
 
 const statusTypes: StatusType[] = [
 	{

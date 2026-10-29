@@ -1,5 +1,5 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { Group, GroupPersistence } from './contracts';
+import type { GroupPersistence, SelfPinPersistence } from './contracts';
 
 /** `undefined` lets an Organization-wide actor read the whole catalog. */
 export function visibleGroupIds(scopeSet: ScopeSet, requestedIds?: string[]): string[] | undefined {
@@ -8,10 +8,12 @@ export function visibleGroupIds(scopeSet: ScopeSet, requestedIds?: string[]): st
 	return requestedIds.filter((id) => scopeSet.groupIds.includes(id));
 }
 
-/** Pins are stored by name, so a stale pin never restores a hidden or deleted Group. */
-export function visiblePinnedGroupNames(pinnedNames: string[], groups: Pick<Group, 'name'>[]): string[] {
-	const visible = new Set(groups.map((group) => group.name));
-	return pinnedNames.filter((name) => visible.has(name));
+/** Pins order the whole Organization's bands, so a Group-scoped reader's saved pins stay stored but unread. */
+export async function listReaderPinnedGroupIds(ctx: {
+	auth: { scopeSet: ScopeSet };
+	selfPins: Pick<SelfPinPersistence, 'listGroupIds'>;
+}): Promise<string[]> {
+	return ctx.auth.scopeSet.kind === 'organization' ? ctx.selfPins.listGroupIds() : [];
 }
 
 export function listGroupCatalog(ctx: { groups: Pick<GroupPersistence, 'listCatalog'> }) {

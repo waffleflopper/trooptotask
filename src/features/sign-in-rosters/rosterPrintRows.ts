@@ -1,9 +1,20 @@
+import type { RosterBand } from '$features/personnel/contracts';
+
 export interface RosterPrintPerson {
 	rank: string;
 	lastName: string;
 	firstName: string;
 	group: string;
+	/** Absent on Rosters saved before snapshots carried the Group id. */
+	groupId?: string | null;
 }
+
+export interface RosterPrintGroup {
+	id: string;
+	name: string;
+}
+
+export type CompareRosterBands = (a: RosterBand, b: RosterBand) => number;
 
 export type RosterPrintRow =
 	| { kind: 'group'; name: string }
@@ -13,9 +24,10 @@ export type RosterPrintRow =
 export function rosterPrintRows(
 	snapshot: readonly RosterPrintPerson[],
 	separateByGroup: boolean,
-	compareGroupNames: (a: string, b: string) => number
+	compareBands: CompareRosterBands,
+	groups: readonly RosterPrintGroup[]
 ): RosterPrintRow[] {
-	const sections = separateByGroup ? bucketByGroup(snapshot, compareGroupNames) : [{ name: '', people: snapshot }];
+	const sections = separateByGroup ? bucketByGroup(snapshot, compareBands, groups) : [{ name: '', people: snapshot }];
 	const rows: RosterPrintRow[] = [];
 	let number = 0;
 	for (const section of sections) {
@@ -28,16 +40,25 @@ export function rosterPrintRows(
 	return rows;
 }
 
-function bucketByGroup(snapshot: readonly RosterPrintPerson[], compareGroupNames: (a: string, b: string) => number) {
-	const byGroup = new Map<string, RosterPrintPerson[]>();
+function bucketByGroup(
+	snapshot: readonly RosterPrintPerson[],
+	compareBands: CompareRosterBands,
+	groups: readonly RosterPrintGroup[]
+) {
+	const idsByName = new Map<string, string[]>();
+	for (const group of groups) idsByName.set(group.name, [...(idsByName.get(group.name) ?? []), group.id]);
+	const byGroup = new Map<string, { band: RosterBand; people: RosterPrintPerson[] }>();
 	for (const person of snapshot) {
-		const people = byGroup.get(person.group);
-		if (people) people.push(person);
-		else byGroup.set(person.group, [person]);
+		const named = idsByName.get(person.group);
+		const groupId = person.groupId ?? (named?.length === 1 ? named[0] : null);
+		const key = groupId ?? `name:${person.group}`;
+		const section = byGroup.get(key);
+		if (section) section.people.push(person);
+		else byGroup.set(key, { band: { groupId, name: person.group }, people: [person] });
 	}
-	return [...byGroup.entries()]
-		.sort(([a], [b]) => compareGroupNames(a, b))
-		.map(([name, people]) => ({ name: name || 'Unassigned', people }));
+	return [...byGroup.values()]
+		.sort((a, b) => compareBands(a.band, b.band))
+		.map(({ band, people }) => ({ name: band.name || 'Unassigned', people }));
 }
 
 export function rosterDateLine(rosterDate: string | null, blankDate: boolean): string {

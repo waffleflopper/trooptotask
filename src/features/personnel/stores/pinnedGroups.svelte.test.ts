@@ -84,9 +84,7 @@ describe('pinned Group state', () => {
 
 	it.each([
 		{ action: 'pin', initial: ['Alpha'], group: 'Bravo' },
-		{ action: 'unpin', initial: ['Alpha', 'Bravo'], group: 'Bravo' },
-		{ action: 'moveUp', initial: ['Alpha', 'Bravo'], group: 'Bravo' },
-		{ action: 'moveDown', initial: ['Alpha', 'Bravo'], group: 'Alpha' }
+		{ action: 'unpin', initial: ['Alpha', 'Bravo'], group: 'Bravo' }
 	] as const)('does not roll back a new Organization after failed $action', async ({ action, initial, group }) => {
 		store.load([...initial], 'org-1');
 		let rejectRequest!: (error: Error) => void;
@@ -185,9 +183,7 @@ describe('pinned Group state', () => {
 
 	it.each([
 		{ action: 'pin', group: 'Charlie', optimistic: ['Alpha', 'Bravo', 'Charlie'] },
-		{ action: 'unpin', group: 'Bravo', optimistic: ['Alpha'] },
-		{ action: 'moveUp', group: 'Bravo', optimistic: ['Bravo', 'Alpha'] },
-		{ action: 'moveDown', group: 'Alpha', optimistic: ['Bravo', 'Alpha'] }
+		{ action: 'unpin', group: 'Bravo', optimistic: ['Alpha'] }
 	] as const)(
 		'updates $action immediately and restores current order on failure',
 		async ({ action, group, optimistic }) => {
@@ -211,59 +207,48 @@ describe('pinned Group state', () => {
 		}
 	);
 
-	it.each([
-		{ action: 'unpin', group: 'Bravo' },
-		{ action: 'moveUp', group: 'Bravo' },
-		{ action: 'moveDown', group: 'Alpha' }
-	] as const)('preserves a newer pin when an earlier $action fails', async ({ action, group }) => {
-		store.load(['Alpha', 'Bravo'], 'org-1');
-		let rejectFirst!: (error: Error) => void;
-		let resolveSecond!: (response: { ok: boolean }) => void;
-		vi.stubGlobal(
-			'fetch',
-			vi
-				.fn()
-				.mockImplementationOnce(
-					() =>
-						new Promise((_resolve, reject) => {
-							rejectFirst = reject;
-						})
-				)
-				.mockImplementationOnce(
-					() =>
-						new Promise((resolve) => {
-							resolveSecond = resolve;
-						})
-				)
-		);
+	it.each([{ action: 'unpin', group: 'Bravo' }] as const)(
+		'preserves a newer pin when an earlier $action fails',
+		async ({ action, group }) => {
+			store.load(['Alpha', 'Bravo'], 'org-1');
+			let rejectFirst!: (error: Error) => void;
+			let resolveSecond!: (response: { ok: boolean }) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockImplementationOnce(
+						() =>
+							new Promise((_resolve, reject) => {
+								rejectFirst = reject;
+							})
+					)
+					.mockImplementationOnce(
+						() =>
+							new Promise((resolve) => {
+								resolveSecond = resolve;
+							})
+					)
+			);
 
-		const first = store[action](group);
-		const second = store.pin('Charlie');
-		rejectFirst(new Error('Earlier request failed'));
-		expect(await first).toBe(false);
-		expect(store.list).toEqual(['Alpha', 'Bravo', 'Charlie']);
+			const first = store[action](group);
+			const second = store.pin('Charlie');
+			rejectFirst(new Error('Earlier request failed'));
+			expect(await first).toBe(false);
+			expect(store.list).toEqual(['Alpha', 'Bravo', 'Charlie']);
 
-		resolveSecond({ ok: true });
-		expect(await second).toBe(true);
-		expect(store.list).toEqual(['Alpha', 'Bravo', 'Charlie']);
-	});
+			resolveSecond({ ok: true });
+			expect(await second).toBe(true);
+			expect(store.list).toEqual(['Alpha', 'Bravo', 'Charlie']);
+		}
+	);
 
-	it('keeps a target pin when the renamed Group was not pinned', () => {
-		store.load(['HQ', 'Weapons'], 'org-1');
+	it('forgets a deleted Group pin and keeps the rest in order', () => {
+		store.load(['group-hq', 'group-2', 'group-weapons'], 'org-1');
 
-		store.followCatalogChange('2nd Platoon', 'Weapons');
-
-		expect(store.list).toEqual(['HQ', 'Weapons']);
-	});
-
-	it('carries a source pin through a saved rename and delete, dropping a conflicting target pin', () => {
-		store.load(['HQ', '2nd Platoon', 'Weapons'], 'org-1');
-
-		store.followCatalogChange('2nd Platoon', 'Weapons');
-		expect(store.list).toEqual(['HQ', 'Weapons']);
-		store.followCatalogChange('HQ', null);
-		expect(store.list).toEqual(['Weapons']);
-		store.followCatalogChange('Mortars', 'Scouts');
-		expect(store.list).toEqual(['Weapons']);
+		store.forgetGroup('group-2');
+		expect(store.list).toEqual(['group-hq', 'group-weapons']);
+		store.forgetGroup('group-mortars');
+		expect(store.list).toEqual(['group-hq', 'group-weapons']);
 	});
 });

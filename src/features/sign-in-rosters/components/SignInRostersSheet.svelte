@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import {
-		compareRosterGroupNames,
+		compareRosterBands,
 		type Personnel,
 		type RankCatalogEntry,
 		type RosterGroupCatalogEntry
@@ -23,15 +23,24 @@
 		orgName: string;
 		personnel: Personnel[];
 		groups: RosterGroupCatalogEntry[];
-		pinnedGroups: readonly string[];
+		pinnedGroupIds: readonly string[];
 		rankCatalog?: RankCatalogEntry[];
 		canEdit: boolean;
 		onClose: () => void;
 	}
 
-	let { orgId, orgName, personnel, groups, pinnedGroups, rankCatalog = undefined, canEdit, onClose }: Props = $props();
+	let {
+		orgId,
+		orgName,
+		personnel,
+		groups,
+		pinnedGroupIds,
+		rankCatalog = undefined,
+		canEdit,
+		onClose
+	}: Props = $props();
 
-	const compareGroupNames = $derived(compareRosterGroupNames({ groups, pinnedGroups }));
+	const compareBands = $derived(compareRosterBands({ groups, pinnedGroupIds }));
 	const list = new RosterList(untrack(() => orgId));
 	let draft = $state.raw<NewRoster | null>(null);
 	let confirmDiscard = $state(false);
@@ -78,7 +87,7 @@
 	async function reprint(roster: SignInRoster) {
 		const inOrganization = stillInOrganizationLifetime();
 		try {
-			await generateRosterPdf(roster, compareGroupNames);
+			await generateRosterPdf(roster, compareBands, groups);
 		} catch (err) {
 			if (!disposed && inOrganization())
 				toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
@@ -93,15 +102,7 @@
 <AppDialog.Root open voice="editorial" busy={list.busy || !!draft?.saving} closeBlocked={!!draft?.dirty} {onClose}>
 	<AppDialog.Content presentation="sheet" size="wide">
 		{#if draft}
-			<NewRosterView
-				{draft}
-				{personnel}
-				{groups}
-				{rankCatalog}
-				{compareGroupNames}
-				onBack={back}
-				onSave={saveAndPrint}
-			/>
+			<NewRosterView {draft} {personnel} {groups} {rankCatalog} {compareBands} onBack={back} onSave={saveAndPrint} />
 		{:else}
 			<RosterListView
 				{list}

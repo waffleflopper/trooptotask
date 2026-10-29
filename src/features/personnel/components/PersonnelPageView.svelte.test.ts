@@ -223,8 +223,11 @@ function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageCo
 		canArchivePersonnelRecord: () => false,
 		canExportPersonnelRecord: () => false,
 		canManagePersonnelInGroup: () => false,
-		groupOrder: ['Alpha', 'Bravo'],
-		groupIdForName: (name: string) => ({ Alpha: 'group-1', Bravo: 'group-2' })[name] ?? null,
+		groupOrder: [
+			{ id: 'group-1', name: 'Alpha', sortOrder: 0 },
+			{ id: 'group-2', name: 'Bravo', sortOrder: 1 }
+		],
+		canPinGroups: true,
 		personnelRecordAffordance: () => deniedAffordance(),
 		personnelArchiveAffordance: () => deniedAffordance(),
 		get viewMode() {
@@ -422,9 +425,9 @@ describe('PersonnelPageView', () => {
 	});
 
 	describe('By Group view', () => {
-		function loadCatalogOrder(names: string[]): void {
+		function loadCatalogOrder(groupIds: string[]): void {
 			groupCatalogHydration.load(
-				names.map((name, sortOrder) => ({ id: `catalog-${name}`, name, sortOrder })),
+				groupIds.map((id, sortOrder) => ({ id, name: id, sortOrder })),
 				'org-1'
 			);
 		}
@@ -469,7 +472,7 @@ describe('PersonnelPageView', () => {
 
 		it('lists Groups in the Organization order with Unassigned last and drops the Group column', () => {
 			loadTwoGroups();
-			loadCatalogOrder(['Bravo', 'Alpha']);
+			loadCatalogOrder(['group-2', 'group-1']);
 			const ctx = makeCtx({ viewMode: 'by-group' });
 
 			render(PersonnelPageView, { props: { ctx } });
@@ -480,7 +483,7 @@ describe('PersonnelPageView', () => {
 
 		it('keeps the controls of a Group named Unassigned apart from the People with no Group', () => {
 			loadTwoGroups('Unassigned');
-			loadCatalogOrder(['Alpha', 'Unassigned']);
+			loadCatalogOrder(['group-1', 'group-2']);
 			const ctx = makeCtx({ viewMode: 'by-group', canManageGroups: true });
 
 			render(PersonnelPageView, { props: { ctx } });
@@ -493,13 +496,24 @@ describe('PersonnelPageView', () => {
 
 		it("moves the viewer's pinned Group above the Organization order", () => {
 			loadTwoGroups();
-			loadCatalogOrder(['Bravo', 'Alpha']);
-			pinnedGroupsHydration.load(['Alpha'], 'org-1');
+			loadCatalogOrder(['group-2', 'group-1']);
+			pinnedGroupsHydration.load(['group-1'], 'org-1');
 			const ctx = makeCtx({ viewMode: 'by-group' });
 
 			render(PersonnelPageView, { props: { ctx } });
 
 			expect(headerOrder()).toEqual(['Collapse Alpha', 'Collapse Bravo', 'Collapse Unassigned']);
+		});
+
+		it('gives a viewer who cannot pin no pin control', () => {
+			loadTwoGroups();
+			loadCatalogOrder(['group-2', 'group-1']);
+			const ctx = makeCtx({ viewMode: 'by-group', canPinGroups: false });
+
+			render(PersonnelPageView, { props: { ctx } });
+
+			expect(headerOrder()).toEqual(['Collapse Bravo', 'Collapse Alpha', 'Collapse Unassigned']);
+			expect(screen.queryByRole('button', { name: /^(Pin|Unpin) / })).toBeNull();
 		});
 
 		describe('with more People than it renders at once', () => {

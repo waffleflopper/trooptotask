@@ -25,7 +25,7 @@
 		serializeRosterFilter
 	} from '../rosterFilter';
 	import { matchesRosterFilter, type RosterFilter } from '../rosterSignals';
-	import { compareRosterGroupNames } from '../rosterReadModel';
+	import { compareRosterBands, type RosterBand } from '../rosterReadModel';
 	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import type { ComposerKind } from '../rosterComposer';
@@ -53,7 +53,7 @@
 	const ROSTER_PAGE_SIZE = 75;
 	const peekFits = new MediaQuery('min-width: 1280px', false);
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	const groupKey = (person: Personnel): string => person.groupName;
+	const groupKey = (person: Personnel): string => person.groupId ?? '';
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	let locallyArchivedIds = new SvelteSet<string>();
@@ -202,12 +202,14 @@
 		pageSize: ROSTER_PAGE_SIZE
 	});
 
-	const groupComparator = $derived(
-		compareRosterGroupNames({
+	const compareBands = $derived(
+		compareRosterBands({
 			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
-			pinnedGroups: pinnedGroupsStore.list
+			pinnedGroupIds: pinnedGroupsStore.list
 		})
 	);
+	const bandName = (key: string): string => peopleByGroup.get(key)?.[0]?.groupName ?? '';
+	const band = (key: string): RosterBand => ({ groupId: key || null, name: key ? bandName(key) : '' });
 	const groupedTable = useDataTable<Personnel>({
 		data: () => holdOrder(visibleFilteredPersonnel, 'grouped'),
 		columns: () => groupedColumns,
@@ -216,8 +218,8 @@
 		groupRowLimit: GROUPED_ROSTER_RENDER_LIMIT,
 		groupBy: {
 			key: groupKey,
-			label: (key) => key || 'Unassigned',
-			compare: (a, b) => groupComparator(a, b)
+			label: (key) => (key ? bandName(key) : 'Unassigned'),
+			compare: (a, b) => compareBands(band(a), band(b))
 		}
 	});
 	const peopleByGroup = $derived(Map.groupBy(visibleFilteredPersonnel, groupKey));
@@ -689,14 +691,14 @@
 							{@const people = peopleByGroup.get(group.key) ?? []}
 							{@const ids = people.map((person) => person.id)}
 							{@const unassigned = group.key === ''}
-							{@const groupId = unassigned ? null : ctx.groupIdForName(group.key)}
+							{@const groupId = unassigned ? null : group.key}
 							<PersonnelGroupHeader
 								{group}
 								{people}
 								{ctx}
 								pinned={pinnedGroupsStore.list.includes(group.key)}
 								{unassigned}
-								onTogglePin={togglePin}
+								onTogglePin={ctx.canPinGroups ? togglePin : null}
 								selection={canSelect
 									? { state: selection.state(ids), set: (selected) => selection.setAll(ids, selected) }
 									: null}

@@ -27,7 +27,7 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
-	import { compareRosterGroupNames } from '$features/personnel/contracts';
+	import { compareRosterBands, type RosterBand } from '$features/personnel/contracts';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { rosterStore } from '$features/personnel';
@@ -42,12 +42,15 @@
 	});
 
 	const NO_GROUP = '\u0000';
-	const compareGroups = $derived(
-		compareRosterGroupNames({
+	const compareBands = $derived(
+		compareRosterBands({
 			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
-			pinnedGroups: pinnedGroupsStore.list
+			pinnedGroupIds: pinnedGroupsStore.list
 		})
 	);
+	const bandNames = $derived(new Map(ctx.filteredPersonnel.map((person) => [person.groupId, person.groupName])));
+	const band = (key: string): RosterBand =>
+		key === NO_GROUP ? { groupId: null, name: '' } : { groupId: key, name: bandNames.get(key) ?? '' };
 
 	const storesHydratedForOrg = $derived(
 		rosterStore.orgId === ctx.orgId &&
@@ -370,9 +373,9 @@
 					display={ctx.matrixDisplay}
 					groupBy={ctx.viewMode === 'by-group'
 						? {
-								key: (p) => p.groupName || NO_GROUP,
-								label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
-								compare: (a, b) => compareGroups(a === NO_GROUP ? '' : a, b === NO_GROUP ? '' : b)
+								key: (p) => p.groupId ?? NO_GROUP,
+								label: (key) => (key === NO_GROUP ? 'Unassigned' : band(key).name),
+								compare: (a, b) => compareBands(band(a), band(b))
 							}
 						: undefined}
 				/>

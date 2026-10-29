@@ -26,6 +26,7 @@
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
 	interface GroupData {
+		groupId: string | null;
 		group: string;
 		personnel: Personnel[];
 	}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { _deleteConfig, _postConfig } from './+server';
 
 describe('/api/pinned-groups route config', () => {
@@ -11,8 +12,8 @@ describe('/api/pinned-groups route config', () => {
 		expect('permission' in _deleteConfig).toBe(false);
 	});
 
-	it('lets viewers pin groups as a user preference without calendar edit access', async () => {
-		const ctx = createTestContext({
+	const viewer = (scopeSet: ScopeSet) =>
+		createTestContext({
 			auth: {
 				role: 'member',
 				userId: 'user-1',
@@ -25,129 +26,77 @@ describe('/api/pinned-groups route config', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'organization' }
+				scopeSet
 			}
 		});
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, { groupName: 'Alpha', sortOrder: 0 }, () => ctx);
+	it('lets Organization-wide viewers pin a Group by id without calendar edit access', async () => {
+		const ctx = viewer({ kind: 'organization' });
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, { groupId: 'group-alpha', sortOrder: 0 }, () => ctx);
 
 		const stored = await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId);
-		expect(stored).toMatchObject([{ user_id: 'user-1', group_name: 'Alpha', sort_order: 0 }]);
-		expect(result).toMatchObject({ id: expect.any(String), groupName: 'Alpha', sortOrder: 0 });
+		expect(stored).toMatchObject([{ user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 }]);
+		expect(result).toMatchObject({ id: expect.any(String), groupId: 'group-alpha', sortOrder: 0 });
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({ action: 'pinned_group.created', resourceType: 'pinned_group' })
 		);
 	});
 
-	it('lets viewers unpin groups as a user preference', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				userId: 'user-1',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'view',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				},
-				scopeSet: { kind: 'organization' }
-			}
-		});
+	it('unpins only the current user and Organization pin for that Group', async () => {
+		const ctx = viewer({ kind: 'organization' });
 		ctx.store.seed('user_pinned_groups', [
-			{
-				id: 'pin-1',
-				organization_id: ctx.auth.orgId,
-				user_id: 'user-1',
-				group_name: 'Alpha',
-				sort_order: 0
-			},
-			{ id: 'other-user', organization_id: ctx.auth.orgId, user_id: 'user-2', group_name: 'Alpha', sort_order: 0 },
-			{ id: 'other-org', organization_id: 'other-org', user_id: 'user-1', group_name: 'Alpha', sort_order: 0 }
+			{ id: 'pin-1', organization_id: ctx.auth.orgId, user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 },
+			{ id: 'other-user', organization_id: ctx.auth.orgId, user_id: 'user-2', group_id: 'group-alpha', sort_order: 0 },
+			{ id: 'other-org', organization_id: 'other-org', user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 }
 		]);
 
-		const result = await handleUseCaseRequest(_deleteConfig, ctx, { groupName: 'Alpha' }, () => ctx);
+		const result = await handleUseCaseRequest(_deleteConfig, ctx, { groupId: 'group-alpha' }, () => ctx);
 
-		const stored = await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId);
 		expect(result).toEqual({ success: true });
-		expect(stored).toMatchObject([{ id: 'other-user', user_id: 'user-2', group_name: 'Alpha' }]);
-		expect(await ctx.store.findMany('user_pinned_groups', 'other-org')).toMatchObject([
-			{ id: 'other-org', user_id: 'user-1', group_name: 'Alpha' }
-		]);
+		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toMatchObject([{ id: 'other-user' }]);
+		expect(await ctx.store.findMany('user_pinned_groups', 'other-org')).toMatchObject([{ id: 'other-org' }]);
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({ action: 'pinned_group.deleted', resourceType: 'pinned_group' })
 		);
 	});
 
-	it('replaces only the current user and Organization pins in requested order', async () => {
-		const ctx = createTestContext({ auth: { userId: 'user-1' } });
+	it('refuses pin writes from a Group-scoped reader and keeps their saved pins', async () => {
+		const ctx = viewer({ kind: 'groups', groupIds: ['group-alpha'] });
 		ctx.store.seed('user_pinned_groups', [
-			{ id: 'old', organization_id: ctx.auth.orgId, user_id: 'user-1', group_name: 'Old', sort_order: 0 },
-			{ id: 'other-user', organization_id: ctx.auth.orgId, user_id: 'user-2', group_name: 'Other', sort_order: 0 },
-			{ id: 'other-org', organization_id: 'other-org', user_id: 'user-1', group_name: 'Remote', sort_order: 0 }
+			{ id: 'saved', organization_id: ctx.auth.orgId, user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 }
 		]);
 
-		const result = await handleUseCaseRequest(
-			_postConfig,
-			ctx,
-			{
-				action: 'replace',
-				groups: ['Bravo', 'Alpha']
-			},
-			() => ctx
+		await expect(handleUseCaseRequest(_postConfig, ctx, { groupId: 'group-bravo' }, () => ctx)).rejects.toMatchObject({
+			status: 403
+		});
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { groupId: 'group-alpha' }, () => ctx)).rejects.toMatchObject(
+			{ status: 403 }
 		);
-
-		expect(result).toEqual({ success: true, groups: ['Bravo', 'Alpha'] });
-		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId, { user_id: 'user-1' })).toMatchObject([
-			{ group_name: 'Bravo', sort_order: 0 },
-			{ group_name: 'Alpha', sort_order: 1 }
+		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toMatchObject([
+			{ id: 'saved', group_id: 'group-alpha' }
 		]);
-		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId, { user_id: 'user-2' })).toMatchObject([
-			{ id: 'other-user', group_name: 'Other' }
-		]);
-		expect(await ctx.store.findMany('user_pinned_groups', 'other-org')).toMatchObject([
-			{ id: 'other-org', user_id: 'user-1', group_name: 'Remote' }
-		]);
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({ action: 'pinned_group.replaced', resourceType: 'pinned_group' })
-		);
 	});
 
 	it('rejects malformed pin commands with 400 and keeps the saved pins', async () => {
 		const ctx = createTestContext({ auth: { userId: 'user-1' } });
 		ctx.store.seed('user_pinned_groups', [
-			{ id: 'saved', organization_id: ctx.auth.orgId, user_id: 'user-1', group_name: 'Alpha', sort_order: 0 }
+			{ id: 'saved', organization_id: ctx.auth.orgId, user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 }
 		]);
 
-		for (const body of [
-			{ action: 'replace', groups: 'oops' },
-			{ action: 'replace' },
-			{ action: 'replace', groups: [5] },
-			{ groupName: 5 },
-			{ groupName: 'Bravo', sortOrder: 'first' }
-		]) {
+		for (const body of [{}, { groupId: 5 }, { groupId: '' }, { groupId: 'group-bravo', sortOrder: 'first' }]) {
 			await expect(handleUseCaseRequest(_postConfig, ctx, body, () => ctx)).rejects.toMatchObject({ status: 400 });
 		}
 		await expect(handleUseCaseRequest(_deleteConfig, ctx, {}, () => ctx)).rejects.toMatchObject({ status: 400 });
 		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toMatchObject([
-			{ id: 'saved', group_name: 'Alpha' }
+			{ id: 'saved', group_id: 'group-alpha' }
 		]);
-
-		await expect(handleUseCaseRequest(_postConfig, ctx, { action: 'replace', groups: [] }, () => ctx)).resolves.toEqual(
-			{
-				success: true,
-				groups: []
-			}
-		);
-		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toEqual([]);
 	});
 
 	it('denies a preference write without an authenticated user', async () => {
 		const ctx = createTestContext({ auth: { userId: '' } });
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { groupName: 'Alpha' }, () => ctx)).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_postConfig, ctx, { groupId: 'group-alpha' }, () => ctx)).rejects.toMatchObject({
 			status: 403
 		});
 		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toEqual([]);

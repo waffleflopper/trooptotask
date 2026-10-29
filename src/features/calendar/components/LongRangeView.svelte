@@ -20,6 +20,7 @@
 	const ROW_OVERSCAN_PX = PERSON_ROW_HEIGHT * 8;
 
 	interface GroupData {
+		groupId: string | null;
 		group: string;
 		personnel: Personnel[];
 	}
@@ -94,7 +95,7 @@
 			if (grp.personnel.length === 0) continue;
 			rows.push({
 				type: 'group',
-				key: `group:${grp.group}`,
+				key: `group:${grp.groupId ?? ''}`,
 				group: grp.group,
 				height: GROUP_ROW_HEIGHT
 			});

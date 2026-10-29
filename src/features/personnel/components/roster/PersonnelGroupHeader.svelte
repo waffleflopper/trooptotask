@@ -18,7 +18,7 @@
 		ctx: PersonnelPageContext;
 		pinned: boolean;
 		unassigned: boolean;
-		onTogglePin: (groupKey: string) => void;
+		onTogglePin: ((groupId: string) => void) | null;
 		selection: { state: CheckState; set: (selected: boolean) => void } | null;
 		onNoteToEveryone: (() => void) | null;
 	}
@@ -32,9 +32,9 @@
 	const attention = $derived(
 		summary.kind === 'ready' && summary.value.attention.kind === 'known' ? summary.value.attention.value : null
 	);
-	const groupId = $derived(unassigned ? null : ctx.groupIdForName(group.key));
+	const groupId = $derived(unassigned ? null : group.key);
 	const canEditGroup = $derived(groupId !== null && ctx.canManageGroups);
-	const hasMenu = $derived(!unassigned);
+	const hasMenu = $derived(!unassigned && (canEditGroup || onNoteToEveryone !== null || onTogglePin !== null));
 	const segments = $derived(
 		presence
 			? [
@@ -65,9 +65,9 @@
 				/>
 			</span>
 		{/if}
-		{#if unassigned}
+		{#if onTogglePin && unassigned}
 			<span class="w-8 shrink-0" aria-hidden="true"></span>
-		{:else}
+		{:else if onTogglePin}
 			<Toggle
 				pressed={pinned}
 				size="sm"
@@ -161,9 +161,11 @@
 					{#if onNoteToEveryone}
 						<DropdownMenu.Item onSelect={onNoteToEveryone}>Note to everyone in the Group</DropdownMenu.Item>
 					{/if}
-					<DropdownMenu.Item onSelect={() => onTogglePin(group.key)}>
-						{pinned ? 'Unpin' : 'Pin'}
-					</DropdownMenu.Item>
+					{#if onTogglePin}
+						<DropdownMenu.Item onSelect={() => onTogglePin(group.key)}>
+							{pinned ? 'Unpin' : 'Pin'}
+						</DropdownMenu.Item>
+					{/if}
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 		{/if}

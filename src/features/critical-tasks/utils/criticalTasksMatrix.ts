@@ -7,7 +7,7 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import { createRosterReadModel } from '$features/personnel/contracts';
+import { createRosterReadModel, rosterGroupFilterValue } from '$features/personnel/contracts';
 import { getIctStatus } from './ictStatus';
 import { buildLatestIctCompletionLookup, ictCompletionKey, isCriticalTaskStatusReady } from './ictReadinessSnapshot';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
@@ -52,7 +52,7 @@ export interface BuildCriticalTasksMatrixOptions {
 	tasks: IctTask[];
 	completions: PersonnelIctCompletion[];
 	groups?: Group[];
-	pinnedGroups?: readonly string[];
+	pinnedGroupIds?: readonly string[];
 	settings?: CriticalTasksSettingsInput | null;
 	selectedGroupId?: string;
 	selectedGroupFilter?: string;
@@ -131,7 +131,7 @@ export function buildCriticalTasksMatrix({
 	tasks,
 	completions,
 	groups = [],
-	pinnedGroups = [],
+	pinnedGroupIds = [],
 	settings = null,
 	selectedGroupId = '',
 	selectedGroupFilter = '',
@@ -145,7 +145,7 @@ export function buildCriticalTasksMatrix({
 	const sortedGroups = createRosterReadModel({
 		personnel,
 		groups,
-		pinnedGroups,
+		pinnedGroupIds,
 		fallbackGroupName: orgName
 	}).full({
 		status: 'active',
@@ -196,7 +196,7 @@ export function buildCriticalTasksMatrix({
 			const groupApplicableCount = rows.reduce((total, row) => total + row.applicableCount, 0);
 
 			return {
-				key: group.group,
+				key: rosterGroupFilterValue(group),
 				label: group.group,
 				rows,
 				readinessPercent: readinessPercent(groupReadyCount, groupApplicableCount),

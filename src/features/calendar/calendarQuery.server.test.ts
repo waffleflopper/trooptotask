@@ -81,7 +81,7 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 		{ id: 'da1', organization_id: ORG, date: '2026-03-10', assignment_type_id: 'at1', assignee_id: 'p1' }
 	]);
 	store.seed('user_pinned_groups', [
-		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
+		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_id: 'g1', sort_order: 0 }
 	]);
 }
 
@@ -142,7 +142,7 @@ describe('fetchCalendarData', () => {
 			assigneeId: 'p1'
 		});
 
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual(['g1']);
 
 		expect((result as unknown as Record<string, unknown>).rosterHistory).toBeUndefined();
 	});
@@ -327,13 +327,13 @@ describe('fetchCalendarData', () => {
 			{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
 		]);
 		ctx.store.seed('user_pinned_groups', [
-			{ id: 'pg1', organization_id: ORG, user_id: 'user-a', group_name: 'Alpha', sort_order: 0 },
-			{ id: 'pg2', organization_id: ORG, user_id: 'user-b', group_name: 'Bravo', sort_order: 0 }
+			{ id: 'pg1', organization_id: ORG, user_id: 'user-a', group_id: 'g1', sort_order: 0 },
+			{ id: 'pg2', organization_id: ORG, user_id: 'user-b', group_id: 'g2', sort_order: 0 }
 		]);
 
 		const result = await fetchCalendarData(ctx, RANGE);
 
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual(['g1']);
 	});
 });
 
@@ -392,7 +392,7 @@ describe('fetchCalendarBootstrap', () => {
 		expect(result.personnel[0].groupName).toBe('Bravo');
 		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((statusType) => statusType.name)).toEqual(['Leave']);
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual(['g1']);
 	});
 
 	it('returns no Group choices for a Calendar viewer with an empty Group scope', async () => {
@@ -423,18 +423,18 @@ describe('fetchCalendarBootstrap', () => {
 	it.each([
 		['bootstrap', fetchCalendarBootstrap],
 		['page', fetchCalendarData]
-	] as const)('returns only in-scope pinned Group names on the %s read', async (_read, read) => {
+	] as const)('reads no pins for a Group-scoped reader on the %s read', async (_read, read) => {
 		const ctx = buildCtx({
 			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['g1'] } }
 		});
 		seedCalendarData(ctx.store);
 		ctx.store.seed('user_pinned_groups', [
-			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 1 }
+			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_id: 'g2', sort_order: 1 }
 		]);
 
 		const result = await read(ctx, RANGE);
 
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual([]);
 	});
 
 	it.each([

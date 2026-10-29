@@ -153,7 +153,7 @@ export interface GroupPersistence {
 	findReference(id: string): Promise<{ id: string } | null>;
 	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: { name: string; sortOrder?: number }): Promise<Group>;
-	/** Renames the Group and carries every viewer's pin to the new name. Fails 404 when the Group is gone. */
+	/** Renames the Group. Fails 404 when the Group is gone. */
 	rename(id: string, name: string): Promise<Group>;
 	/** Compare-and-replace of the whole display order; fails 409 when the saved order is no longer `expectedIds`. */
 	setOrder(ids: readonly string[], expectedIds: readonly string[]): Promise<void>;
@@ -198,15 +198,16 @@ export function deletionBlockedMessage(
 
 export interface PinnedGroupResult {
 	id: string;
-	groupName: string;
+	groupId: string;
 	sortOrder: number;
 }
 
+/** The signed-in user's Group pins. The database hides and refuses them for a Group-scoped reader. */
 export interface SelfPinPersistence {
-	listNames(): Promise<string[]>;
-	insert(input: { groupName: string; sortOrder?: number }): Promise<PinnedGroupResult>;
-	removeName(groupName: string): Promise<void>;
-	replaceNames(names: string[]): Promise<void>;
+	/** Pinned Group ids in pin order. */
+	listGroupIds(): Promise<string[]>;
+	insert(input: { groupId: string; sortOrder?: number }): Promise<PinnedGroupResult>;
+	remove(groupId: string): Promise<void>;
 }
 
 /** Calendar status facts admitted to Personnel workspace snapshots at delivery. */
@@ -441,16 +442,17 @@ export interface PersonnelCriticalTasksRosterPort {
 }
 
 export {
-	compareRosterGroupNames,
+	compareRosterBands,
 	createRosterReadModel,
 	formatRosterPersonDisplayName,
 	matchesRosterSearch,
-	organizationGroupNames,
+	organizationGroupOrder,
 	rosterGroupFilterValue
 } from './rosterReadModel';
 export type {
 	CreateRosterReadModelInput,
 	PersonnelGroup,
+	RosterBand,
 	RosterGroupCatalogEntry,
 	RosterGroupOrder,
 	RosterGroupFilterOption,

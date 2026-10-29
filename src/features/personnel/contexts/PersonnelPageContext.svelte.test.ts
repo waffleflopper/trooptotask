@@ -577,7 +577,7 @@ describe('PersonnelPageContext', () => {
 				items: groups
 			});
 
-			expect(ctx.groupOrder).toEqual(['Charlie', 'Delta', 'Alpha', 'Bravo']);
+			expect(ctx.groupOrder.map((group) => group.id)).toEqual(['g-c', 'g-d', 'g-a', 'g-b']);
 			expect(ctx.personnelByGroup.map((group) => group.group)).toEqual([
 				'Charlie',
 				'Delta',
@@ -589,7 +589,7 @@ describe('PersonnelPageContext', () => {
 
 		it("puts the viewer's pins first and ignores a catalog loaded for another Organization", () => {
 			const people = groups.map((group) => makePerson({ id: group.id, groupId: group.id, groupName: group.name }));
-			const pinned = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, ['Bravo'], undefined, {
+			const pinned = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, ['g-b'], undefined, {
 				orgId: 'org1',
 				items: groups
 			});

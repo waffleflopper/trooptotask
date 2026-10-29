@@ -37,10 +37,7 @@
 	const exportable = $derived(people.filter((person) => ctx.canExportPersonnelRecord(person)));
 	const archivable = $derived(people.filter((person) => ctx.canArchivePersonnelRecord(person)));
 	const moveTargets = $derived([
-		...ctx.groupOrder.flatMap((name) => {
-			const id = ctx.groupIdForName(name);
-			return id && ctx.canManagePersonnelInGroup(id) ? [{ id, name }] : [];
-		}),
+		...ctx.groupOrder.flatMap(({ id, name }) => (ctx.canManagePersonnelInGroup(id) ? [{ id, name }] : [])),
 		...(ctx.canManagePersonnelInGroup(null) ? [{ id: null, name: 'Unassigned' }] : [])
 	]);
 

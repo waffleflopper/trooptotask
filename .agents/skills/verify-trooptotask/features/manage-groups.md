@@ -8,7 +8,7 @@ then checks that each change saved on its own.
 - `groups-open`: open the Group editor from Personnel at 1440, as a full-height sheet below 1024 and at 390.
 - `groups-add`: create a uniquely named Group with Enter; a duplicate or failed add keeps the draft beside its error.
 - `groups-first`: with no Groups, a hint points at `New group name` and the editor teaches the first Group.
-- `groups-edit`: rename inline; the viewer's pin follows the new name.
+- `groups-edit`: rename inline; the viewer's pin stays on the renamed Group.
 - `groups-order`: reorder by drag and by Alt+Arrow; a stale order answers 409, adopts the saved catalog and reloads
   roster membership and pins.
 - `groups-order-everywhere`: after a reorder, Personnel, Calendar, Bulk status, Training, Critical Tasks and sign-in
@@ -21,7 +21,8 @@ then checks that each change saved on its own.
 - `groups-denied`: a reader's same-Organization and foreign-Organization writes are rejected with no saved change.
 - `groups-scope`: a Group-scoped Personnel configurer sees no `Manage Groups`; its Group writes are rejected, and its
   membership writes reach only its own Groups.
-- `groups-pin`: pin and unpin a Group, reload, and verify this member's saved preference.
+- `groups-pin`: pin and unpin a Group, reload, and verify this member's saved preference. A Group-scoped member sees no
+  pin control and the server refuses their pin writes.
 - `groups-pin-recovery`: preserve the current preference after a failed save and a late response from another
   Organization.
 
@@ -51,7 +52,7 @@ use native `evaluate_script` to install the existing [network control](../helper
 `/org/<orgA>/api/personnel/group-membership` suffix. Its state, release and restore use the same `$V network` commands.
 This holds the real response after persistence and does not change app state.
 `$V server-source arm rpc/roster_signals hold|fail-hard 1 [MS]` drives the Today column. Restore every control and each
-member's original ordered pin names; `rows groups|personnel|user_pinned_groups orgA ...` provides separate privileged
+member's original ordered pins; `rows groups|personnel|user_pinned_groups orgA ...` provides separate privileged
 readback.
 
 ## Driving it with verify:app
@@ -70,10 +71,11 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
    `network arm-fail PAGE groups`, an add of `Fail Proof` shows `Synthetic request failure`, keeps the draft, and saves
    no row; restore and press Enter again to save it.
 3. **Pin and rename.** Choose `Pin to top`. It becomes `Pinned to top` (pressed), the row reads
-   `Weapons Proof Pinned 0`, and `rows user_pinned_groups orgA` holds one row with `group_name` `Weapons Proof`. Choose
-   `Rename Weapons Proof`, fill `Group name` with `Weapons Squad`, and press Enter. The Group row keeps its ID, and the
-   pin row now reads `group_name` `Weapons Squad`. Escape cancels an open rename without closing the dialog. With
-   `arm-fail PAGE groups`, a rename shows `Unable to rename Group. Try again.` on the field with the draft kept.
+   `Weapons Proof Pinned 0`, and `rows user_pinned_groups orgA` holds one row whose `group_id` is the Weapons Proof
+   Group's ID. Choose `Rename Weapons Proof`, fill `Group name` with `Weapons Squad`, and press Enter. The Group row
+   keeps its ID, and the pin row is unchanged: same row ID, same `group_id`. Escape cancels an open rename without
+   closing the dialog. With `arm-fail PAGE groups`, a rename shows `Unable to rename Group. Try again.` on the field
+   with the draft kept.
 4. **Order.** Focus `Weapons Squad Pinned 0` and press Alt+ArrowUp. The live region reads
    `Weapons Squad moved to position 2 of 3`, focus stays on that button, and `rows groups orgA` shows Alpha 0, Weapons
    Squad 1, Bravo 2. Drag `Reorder Alpha` onto `Bravo 1`. The list reads Weapons Squad, Bravo, Alpha and saves 0, 1, 2.
@@ -84,9 +86,9 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
    members. Close the editor and confirm both on the roster; reload and compare `rows personnel`. A successful reorder
    makes no Personnel data reload. Separately start with a fresh fixture where Alpha and Bravo share `sort_order` 0. Add
    a third temporary Group, Order Proof, pin Alpha and keep a stale editor tab. Rename Alpha to Zulu in the second tab.
-   Move Order Proof up in the stale tab: the 409 recovery shows Bravo before Zulu, Able in Zulu and the pin naming Zulu.
-   Restore the name and original pins, and delete the empty Order Proof. Moving only Bravo above Alpha would already
-   match the saved order after the rename and correctly return 200 as a replay.
+   Move Order Proof up in the stale tab: the 409 recovery shows Bravo before Zulu, Able in Zulu and the pin still on
+   Zulu. Restore the name and original pins, and delete the empty Order Proof. Moving only Bravo above Alpha would
+   already match the saved order after the rename and correctly return 200 as a replay.
 5. **Members.** Select Weapons Squad, open `Add people to Weapons Squad` and pick `SPC Unassigned, Synthetic NCO`. The
    picker lists Unassigned first, then each Group's People in display order. Its `group_id` becomes Weapons Squad
    through one `POST /org/<orgA>/api/personnel/group-membership`, and the roster behind the dialog updates in place. Add
@@ -163,19 +165,19 @@ first).
 
 ## Personal Group pins
 
-Pins belong to the signed-in member and Organization. They store Group names in order. A rename or delete in the Group
-editor carries or drops every member's pin for that Group in the same transaction; another member's open page shows it
-on its next read. The pin helper changes only viewers who hold the old-name pin after that name leaves the catalog. A
-direct call with a nonexistent old name and an existing new name changes nothing, as the ordinary-role SQL contract
-proves. Preserve the complete original `user_pinned_groups` rows for A/B, including IDs, user IDs, names and sort order,
-before starting. Locate `Pin Alpha`, `Pin Bravo`, or the corresponding `Unpin` control in Personnel, or `Pin to top` in
-the editor. The UI has only Pin/Unpin; ordered replacement is API-only.
+Pins belong to the signed-in member and Organization and store Group IDs in order. A rename leaves every pin in place;
+deleting a Group removes every member's pin on it through the foreign key, and another member's open page shows it on
+its next read. Only Organization-wide readers (owner, admin, or Organization scope) read or write pins. A Group-scoped
+member sees no pin toggle, no `Pin` menu item and no Calendar `Pin`; their stored pins stay in the table, unread, and
+`POST` or `DELETE /org/<orgA>/api/pinned-groups` answers 403. Preserve the complete original `user_pinned_groups` rows
+for A/B, including IDs, user IDs, Group IDs and sort order, before starting. Locate `Pin Alpha`, `Pin Bravo`, or the
+corresponding `Unpin` control in Personnel, or `Pin to top` in the editor. The UI and API offer only Pin/Unpin.
 
 1. Sign in as `manager`, choose a visible Group whose original pin state is recorded, and arm
    `$V network arm-observe PAGE pinned-groups`. Click its named Pin or Unpin control. Capture the immediate pressed
    state, request status and complete self-user A rows. Reload Personnel and confirm the same preference and Group
    placement. Other users and B rows must remain unchanged. Calendar and Training should consume the same member's saved
-   names when those lanes are admitted; a denied lane supplies no consumer proof.
+   pins when those lanes are admitted; a denied lane supplies no consumer proof.
 2. Restore the observation control. Arm `$V network arm-fail PAGE pinned-groups`, then toggle a known Group. Preserve
    optimistic feedback followed by rollback, its 503 and exact unchanged provider rows. In the editor the toggle returns
    to `Pin to top` with `The pin did not save. Try again.` beside it and a `Failed to update pinned Groups. Try again.`
@@ -185,20 +187,25 @@ the editor. The UI has only Pin/Unpin; ordered replacement is API-only.
    Arm `$V network arm-hold PAGE pinned-groups`, toggle a known Group, and confirm its real 200 and saved A row while
    the response is held. Switch visibly to B, record B's settled roster/pins, release the A response and prove B remains
    unchanged. Restore the control, return to A and reload the acknowledged saved preference. For an undispatched late
-   failure, first restore or choose a safe currently unpinned name. Arm `arm-hold-fail` and click its named Pin control
+   failure, first restore or choose a safe currently unpinned Group. Arm `arm-hold-fail` and click its named Pin control
    to issue POST, then capture the held state/status 503 and unchanged A rows before B navigation. Unpin uses DELETE and
    is not selected by this delayed-failure mode. Release after B settles and distinguish 503/no A effects from the real
    held 200 case. If the pending UI prevents switching, use actual native Back through known history and preserve any
    unavailable path; scripted history is separate evidence.
-4. Restore each member's original names and order through explicit visible toggles or the ordinary own-preference
-   replace API. Provider-generated IDs for recreated pins may change, so record those intended replacements and compare
-   exact names/order plus the unaffected row IDs and values. Preserve the original captures. Restore network and
-   feedback hooks before cleanup. No helper may delete another member's pins or all Organization preferences.
+4. Restore each member's original pins and order through explicit visible toggles. Provider-generated IDs for recreated
+   pins may change, so record those intended replacements and compare exact Group IDs and order plus the unaffected row
+   IDs and values. Preserve the original captures. Restore network and feedback hooks before cleanup. No helper may
+   delete another member's pins or all Organization preferences.
+5. Sign in as `personnelScoped` and open Personnel in `Group` view. The Alpha header has `Collapse Alpha` and
+   `Group actions for Alpha` but no `Pin Alpha`, and its menu has no `Pin`. As `calendarScoped`, the Calendar `ALPHA`
+   band has no `Pin`. An authenticated `POST /org/<orgA>/api/pinned-groups` with `{ "groupId": "<Alpha ID>" }` from that
+   page answers 403, and `rows user_pinned_groups orgA user_id SCOPED_ID` is unchanged.
 
 `groups` and `pinned-groups` controls match only their exact A endpoint on this owned app origin. They do not intercept
 the other family, nested paths or B. A held response has already reached the app; a synthetic failure has not. Save
-control state before navigation can discard it. SDK, use-case and API tests cover ordered replacement,
-delete-then-insert partial failure and private user/Organization predicates.
+control state before navigation can discard it. SDK, use-case and API tests cover own-row and same-Organization
+predicates and the Group-scoped refusal; the `group_editor_commands` SQL contract proves the same as ordinary signed-in
+roles.
 
 ## Gotchas
 

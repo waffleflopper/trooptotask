@@ -53,7 +53,7 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 			trainingCatalog: undefined as unknown as ReturnType<typeof createInMemoryTrainingCatalogPersistence>,
 			trainingCompletions: undefined as unknown as ReturnType<typeof createInMemoryTrainingCompletionPersistence>,
 			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
-			selfPins: undefined as unknown as Pick<SelfPinPersistence, 'listNames'>,
+			selfPins: undefined as unknown as Pick<SelfPinPersistence, 'listGroupIds'>,
 			personnelTrainingRoster: undefined as unknown as PersonnelTrainingRosterPort,
 			organizationSettings: undefined as unknown as OrganizationSettingsReader
 		}

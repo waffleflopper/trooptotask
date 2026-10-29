@@ -2456,6 +2456,25 @@ $$;
 ALTER FUNCTION organization_private.valid_setup_prompts(p_prompts jsonb) OWNER TO postgres;
 
 --
+-- Name: can_use_group_pins(uuid); Type: FUNCTION; Schema: personnel_private; Owner: postgres
+--
+
+CREATE FUNCTION personnel_private.can_use_group_pins(p_organization_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT public.is_org_member(p_organization_id) AND EXISTS (
+    SELECT 1 FROM public.organization_memberships m
+    WHERE m.organization_id = p_organization_id
+      AND m.user_id = auth.uid()
+      AND (m.role IN ('owner', 'admin') OR m.access_scope_kind = 'organization')
+  );
+$$;
+
+
+ALTER FUNCTION personnel_private.can_use_group_pins(p_organization_id uuid) OWNER TO postgres;
+
+--
 -- Name: lock_group_catalog(uuid); Type: FUNCTION; Schema: personnel_private; Owner: postgres
 --
 
@@ -2490,34 +2509,6 @@ $$;
 
 
 ALTER FUNCTION personnel_private.require_group_manager(p_organization_id uuid) OWNER TO postgres;
-
---
--- Name: sync_group_pins(); Type: FUNCTION; Schema: personnel_private; Owner: postgres
---
-
-CREATE FUNCTION personnel_private.sync_group_pins() RETURNS trigger
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO ''
-    AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    DELETE FROM public.user_pinned_groups
-    WHERE organization_id = OLD.organization_id AND group_name = OLD.name;
-  ELSIF OLD.name IS DISTINCT FROM NEW.name THEN
-    DELETE FROM public.user_pinned_groups AS target
-    USING public.user_pinned_groups AS source
-    WHERE target.organization_id = OLD.organization_id AND target.group_name = NEW.name
-      AND source.organization_id = OLD.organization_id AND source.group_name = OLD.name
-      AND source.user_id = target.user_id;
-    UPDATE public.user_pinned_groups SET group_name = NEW.name
-    WHERE organization_id = OLD.organization_id AND group_name = OLD.name;
-  END IF;
-  RETURN NULL;
-END;
-$$;
-
-
-ALTER FUNCTION personnel_private.sync_group_pins() OWNER TO postgres;
 
 --
 -- Name: accept_organization_invitation(uuid); Type: FUNCTION; Schema: public; Owner: postgres
@@ -12876,9 +12867,9 @@ CREATE TABLE public.user_pinned_groups (
     id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
     user_id uuid NOT NULL,
     organization_id uuid NOT NULL,
-    group_name text NOT NULL,
     sort_order integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    group_id uuid NOT NULL
 );
 
 
@@ -13756,11 +13747,11 @@ ALTER TABLE ONLY public.user_pinned_groups
 
 
 --
--- Name: user_pinned_groups user_pinned_groups_user_id_clinic_id_group_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: user_pinned_groups user_pinned_groups_user_id_organization_id_group_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.user_pinned_groups
-    ADD CONSTRAINT user_pinned_groups_user_id_clinic_id_group_name_key UNIQUE (user_id, organization_id, group_name);
+    ADD CONSTRAINT user_pinned_groups_user_id_organization_id_group_id_key UNIQUE (user_id, organization_id, group_id);
 
 
 --
@@ -14510,13 +14501,6 @@ CREATE INDEX idx_training_types_org ON public.training_types USING btree (organi
 
 
 --
--- Name: idx_user_pinned_groups_user_org; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_user_pinned_groups_user_org ON public.user_pinned_groups USING btree (user_id, organization_id);
-
-
---
 -- Name: onboarding_step_progress_onboarding_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -14829,6 +14813,13 @@ CREATE INDEX training_views_organization_id_idx ON public.training_views USING b
 --
 
 CREATE INDEX user_org_preferences_user_org_idx ON public.user_org_preferences USING btree (user_id, organization_id);
+
+
+--
+-- Name: user_pinned_groups_group_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX user_pinned_groups_group_idx ON public.user_pinned_groups USING btree (organization_id, group_id);
 
 
 --
@@ -15340,13 +15331,6 @@ CREATE TRIGGER stamp_personnel_extended_info_saver BEFORE INSERT OR UPDATE ON pu
 --
 
 CREATE TRIGGER start_account_setup_attempt AFTER UPDATE OF claimed_at ON public.account_setup_links FOR EACH ROW EXECUTE FUNCTION public.start_account_setup_attempt();
-
-
---
--- Name: groups sync_group_pins; Type: TRIGGER; Schema: public; Owner: postgres
---
-
-CREATE TRIGGER sync_group_pins AFTER DELETE OR UPDATE OF name ON public.groups FOR EACH ROW EXECUTE FUNCTION personnel_private.sync_group_pins();
 
 
 --
@@ -16562,6 +16546,14 @@ ALTER TABLE ONLY public.user_pinned_groups
 
 
 --
+-- Name: user_pinned_groups user_pinned_groups_group_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_pinned_groups
+    ADD CONSTRAINT user_pinned_groups_group_fkey FOREIGN KEY (organization_id, group_id) REFERENCES public.groups(organization_id, id) ON DELETE CASCADE;
+
+
+--
 -- Name: user_pinned_groups user_pinned_groups_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -17267,6 +17259,13 @@ CREATE POLICY "Organization-wide Personnel configurers can update Groups" ON pub
 
 
 --
+-- Name: user_pinned_groups Organization-wide readers manage their own pinned groups; Type: POLICY; Schema: public; Owner: postgres
+--
+
+CREATE POLICY "Organization-wide readers manage their own pinned groups" ON public.user_pinned_groups TO authenticated USING (((( SELECT auth.uid() AS uid) = user_id) AND personnel_private.can_use_group_pins(organization_id))) WITH CHECK (((( SELECT auth.uid() AS uid) = user_id) AND personnel_private.can_use_group_pins(organization_id)));
+
+
+--
 -- Name: account_setup_links Platform admins can manage account setup links; Type: POLICY; Schema: public; Owner: postgres
 --
 
@@ -17414,13 +17413,6 @@ CREATE POLICY "Users can delete their own org preferences" ON public.user_org_pr
 
 
 --
--- Name: user_pinned_groups Users can delete their own pinned groups; Type: POLICY; Schema: public; Owner: postgres
---
-
-CREATE POLICY "Users can delete their own pinned groups" ON public.user_pinned_groups FOR DELETE USING (((( SELECT auth.uid() AS uid) = user_id) AND public.is_org_member(organization_id)));
-
-
---
 -- Name: availability_entries Users can insert availability if allowed by scoped calendar acc; Type: POLICY; Schema: public; Owner: postgres
 --
 
@@ -17481,13 +17473,6 @@ CREATE POLICY "Users can insert their own dashboard config" ON public.dashboard_
 --
 
 CREATE POLICY "Users can insert their own org preferences" ON public.user_org_preferences FOR INSERT WITH CHECK (((( SELECT auth.uid() AS uid) = user_id) AND public.is_org_member(organization_id)));
-
-
---
--- Name: user_pinned_groups Users can insert their own pinned groups; Type: POLICY; Schema: public; Owner: postgres
---
-
-CREATE POLICY "Users can insert their own pinned groups" ON public.user_pinned_groups FOR INSERT WITH CHECK (((( SELECT auth.uid() AS uid) = user_id) AND public.is_org_member(organization_id)));
 
 
 --
@@ -17593,13 +17578,6 @@ CREATE POLICY "Users can update their own dashboard config" ON public.dashboard_
 --
 
 CREATE POLICY "Users can update their own org preferences" ON public.user_org_preferences FOR UPDATE USING (((( SELECT auth.uid() AS uid) = user_id) AND public.is_org_member(organization_id)));
-
-
---
--- Name: user_pinned_groups Users can update their own pinned groups; Type: POLICY; Schema: public; Owner: postgres
---
-
-CREATE POLICY "Users can update their own pinned groups" ON public.user_pinned_groups FOR UPDATE USING (((( SELECT auth.uid() AS uid) = user_id) AND public.is_org_member(organization_id)));
 
 
 --
@@ -17741,13 +17719,6 @@ CREATE POLICY "Users can view status types if they can view calendar data" ON pu
 --
 
 CREATE POLICY "Users can view their own org preferences" ON public.user_org_preferences FOR SELECT USING (((( SELECT auth.uid() AS uid) = user_id) AND public.is_org_member(organization_id)));
-
-
---
--- Name: user_pinned_groups Users can view their own pinned groups; Type: POLICY; Schema: public; Owner: postgres
---
-
-CREATE POLICY "Users can view their own pinned groups" ON public.user_pinned_groups FOR SELECT USING (((( SELECT auth.uid() AS uid) = user_id) AND public.is_org_member(organization_id)));
 
 
 --
@@ -18904,6 +18875,14 @@ REVOKE ALL ON FUNCTION organization_private.valid_setup_prompts(p_prompts jsonb)
 
 
 --
+-- Name: FUNCTION can_use_group_pins(p_organization_id uuid); Type: ACL; Schema: personnel_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION personnel_private.can_use_group_pins(p_organization_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION personnel_private.can_use_group_pins(p_organization_id uuid) TO authenticated;
+
+
+--
 -- Name: FUNCTION lock_group_catalog(p_organization_id uuid); Type: ACL; Schema: personnel_private; Owner: postgres
 --
 
@@ -18917,13 +18896,6 @@ GRANT ALL ON FUNCTION personnel_private.lock_group_catalog(p_organization_id uui
 
 REVOKE ALL ON FUNCTION personnel_private.require_group_manager(p_organization_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION personnel_private.require_group_manager(p_organization_id uuid) TO authenticated;
-
-
---
--- Name: FUNCTION sync_group_pins(); Type: ACL; Schema: personnel_private; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION personnel_private.sync_group_pins() FROM PUBLIC;
 
 
 --

@@ -30,7 +30,7 @@ export {
 	loadRosterPersonnel
 } from './rosterRead.server';
 export { createSupabasePersonnelNamesReader } from './personnelNames.server';
-export { findGroupNamesByIds, listGroupCatalog, visiblePinnedGroupNames } from './groupCatalog.server';
+export { findGroupNamesByIds, listGroupCatalog, listReaderPinnedGroupIds } from './groupCatalog.server';
 export {
 	createGroup,
 	readGroupEditorCatalog,
@@ -40,8 +40,7 @@ export {
 	moveGroupMembers,
 	type GroupMembershipResult
 } from './groupOperations.server';
-export { listPinnedGroupNames } from './pinnedGroupNames.server';
-export { pinGroup, replacePinnedGroups, unpinGroup } from './pinnedGroupOperations.server';
+export { pinGroup, unpinGroup } from './pinnedGroupOperations.server';
 export { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from './personnelGroupAccess.server';
 export { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';
 export type { PersonnelCriticalTasksRosterPort } from './contracts';

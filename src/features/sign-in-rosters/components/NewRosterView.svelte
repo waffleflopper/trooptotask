@@ -17,7 +17,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Switch } from '$lib/components/ui/switch';
 	import { cn } from '$lib/utils';
-	import { rosterDateLine, rosterPrintRows } from '../rosterPrintRows';
+	import { rosterDateLine, rosterPrintRows, type CompareRosterBands } from '../rosterPrintRows';
 	import { signInRosterFilterOptions, signInRosterRankCategoryGroups } from '../signInRosterFilter';
 	import { signInRosterRankOptions } from '../signInRosterRankOrder';
 	import AudienceFilter from './AudienceFilter.svelte';
@@ -28,7 +28,7 @@
 		personnel,
 		groups,
 		rankCatalog,
-		compareGroupNames,
+		compareBands,
 		onBack,
 		onSave
 	}: {
@@ -36,7 +36,7 @@
 		personnel: readonly Personnel[];
 		groups: readonly RosterGroupCatalogEntry[];
 		rankCatalog: readonly RankCatalogEntry[] | undefined;
-		compareGroupNames: (a: string, b: string) => number;
+		compareBands: CompareRosterBands;
 		onBack: () => void;
 		onSave: () => void;
 	} = $props();
@@ -54,7 +54,7 @@
 
 	const groupItems = $derived(
 		[...groups]
-			.sort((a, b) => compareGroupNames(a.name, b.name))
+			.sort((a, b) => compareBands({ groupId: a.id, name: a.name }, { groupId: b.id, name: b.name }))
 			.map((group) => ({ value: group.id, label: group.name }))
 	);
 	const rankOptions = $derived(
@@ -69,7 +69,7 @@
 	const audienceOptions = $derived(signInRosterFilterOptions(personnel));
 	const mosItems = $derived(audienceOptions.mos.map((value) => ({ value, label: value })));
 	const roleItems = $derived(audienceOptions.roles.map((value) => ({ value, label: value })));
-	const printRows = $derived(rosterPrintRows(draft.snapshot, draft.separateByGroup, compareGroupNames));
+	const printRows = $derived(rosterPrintRows(draft.snapshot, draft.separateByGroup, compareBands, groups));
 	const nobody = $derived(draft.people.length === 0);
 </script>
 

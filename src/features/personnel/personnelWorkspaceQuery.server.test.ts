@@ -75,7 +75,7 @@ function seedPersonnel(store: ReturnType<typeof createInMemoryDataStore>) {
 		}
 	]);
 	store.seed('user_pinned_groups', [
-		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
+		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_id: 'g1', sort_order: 0 }
 	]);
 }
 
@@ -95,21 +95,20 @@ describe('loadPersonnelWorkspace', () => {
 		expect(result.groups.map((group) => group.name)).toEqual(['Earlier', 'Alpha', 'Bravo']);
 	});
 
-	it("returns only the Groups and pinned names in a Group-scoped member's scope", async () => {
+	it("returns only the Groups in a Group-scoped member's scope and none of their pins", async () => {
 		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
 		seedPersonnel(ctx.store);
 		ctx.store.seed('groups', [{ id: 'g0', organization_id: ORG, name: 'Earlier', sort_order: -1 }]);
 		ctx.store.seed('user_pinned_groups', [
-			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 1 },
-			{ id: 'pg3', organization_id: ORG, user_id: 'test-user', group_name: 'Earlier', sort_order: 2 }
+			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_id: 'g2', sort_order: 1 }
 		]);
 
 		const { data, hydration } = await loadPersonnelWorkspace(ctx, sourcesFor(ctx));
 
 		expect(data.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
 		expect(hydration.groups.items).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
-		expect(data.pinnedGroups).toEqual(['Alpha']);
-		expect(hydration.pinnedGroups.items).toEqual(['Alpha']);
+		expect(data.pinnedGroups).toEqual([]);
+		expect(hydration.pinnedGroups.items).toEqual([]);
 		expect(data.personnel.map((person) => person.id)).toEqual(['p1']);
 	});
 
@@ -120,19 +119,6 @@ describe('loadPersonnelWorkspace', () => {
 		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
 
 		expect([result.groups, result.pinnedGroups, result.personnel]).toEqual([[], [], []]);
-	});
-
-	it('drops a stale pin that names no current Group', async () => {
-		const ctx = createQueryWithRawStorePortsContext();
-		seedPersonnel(ctx.store);
-		ctx.store.seed('user_pinned_groups', [
-			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_name: 'Deleted', sort_order: 1 },
-			{ id: 'pg3', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 2 }
-		]);
-
-		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
-
-		expect(result.pinnedGroups).toEqual(['Alpha', 'Bravo']);
 	});
 
 	it('returns scoped personnel plus a minimal lookup projection for an unscoped member', async () => {
@@ -154,7 +140,7 @@ describe('loadPersonnelWorkspace', () => {
 			expect.objectContaining({ code: 'SGT', label: 'Sergeant', state: 'active' }),
 			expect.objectContaining({ code: 'PO3', label: 'Petty Officer Third Class', state: 'active' })
 		]);
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual(['g1']);
 		expect(result).not.toHaveProperty('ratingSchemeEntries');
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
 	});
@@ -197,7 +183,7 @@ describe('loadPersonnelWorkspace', () => {
 		expect(result).not.toHaveProperty('allPersonnel');
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
-		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.pinnedGroups).toEqual([]);
 		expect(result).not.toHaveProperty('ratingSchemeEntries');
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
 	});
@@ -355,8 +341,14 @@ describe('Personnel workspace isolation and failures', () => {
 			{ id: 'foreign-rank', organization_id: 'other-org', code: 'FOREIGN', state: 'active' }
 		]);
 		ctx.rawStore.seed('user_pinned_groups', [
-			{ id: 'peer-pin', organization_id: ORG, user_id: 'other-user', group_name: 'Bravo', sort_order: 0 },
-			{ id: 'foreign-pin', organization_id: 'other-org', user_id: 'test-user', group_name: 'Foreign', sort_order: 0 }
+			{ id: 'peer-pin', organization_id: ORG, user_id: 'other-user', group_id: 'g2', sort_order: 0 },
+			{
+				id: 'foreign-pin',
+				organization_id: 'other-org',
+				user_id: 'test-user',
+				group_id: 'foreign-group',
+				sort_order: 0
+			}
 		]);
 		ctx.rawStore.seed('personnel_extended_info', [
 			{ id: 'own-ack', organization_id: ORG, personnel_id: 'p1', award_tracking_acknowledged_at: '2026-01-01' },
@@ -375,7 +367,7 @@ describe('Personnel workspace isolation and failures', () => {
 		expect(data.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 		expect(data.statusTypes.map((status) => status.id)).toEqual(['st1', 'st2']);
 		expect(data.rankCatalog.map((rank) => rank.code)).toEqual(['SGT', 'PO3']);
-		expect(data.pinnedGroups).toEqual(['Alpha']);
+		expect(data.pinnedGroups).toEqual(['g1']);
 		expect(data.awardTrackingAcknowledgedPersonnelIds).toEqual(['p1']);
 	});
 
@@ -484,7 +476,7 @@ describe('Personnel workspace isolation and failures', () => {
 		expect((await hydration.personnel.items).map((person) => person.id)).toEqual(['p2', 'p1']);
 		expect((await hydration.groups.items).map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 		expect((await hydration.statusTypes.items).map((status) => status.id)).toEqual(['st1', 'st2']);
-		expect(await hydration.pinnedGroups.items).toEqual(['Alpha']);
+		expect(await hydration.pinnedGroups.items).toEqual(['g1']);
 		for (const target of [hydration.personnel, hydration.groups, hydration.statusTypes, hydration.pinnedGroups]) {
 			expect(target.mode).toBe('replace');
 			expect(target.snapshotKey).toMatch(/^resolved:/);

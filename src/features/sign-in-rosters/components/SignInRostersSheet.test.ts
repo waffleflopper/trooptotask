@@ -79,7 +79,7 @@ function listFetch(rosters: SignInRoster[], total = rosters.length) {
 
 function renderSheet(canEdit = true) {
 	return render(SignInRostersSheet, {
-		props: { orgId: 'org-1', orgName: 'C Co', personnel, groups, pinnedGroups: [], canEdit, onClose: vi.fn() }
+		props: { orgId: 'org-1', orgName: 'C Co', personnel, groups, pinnedGroupIds: [], canEdit, onClose: vi.fn() }
 	});
 }
 

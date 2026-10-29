@@ -22,6 +22,7 @@
 	 * `disabled` freezes the selection, for example while it is being saved.
 	 */
 	interface GroupData {
+		groupId: string | null;
 		group: string;
 		personnel: Personnel[];
 	}
@@ -71,12 +72,9 @@
 	}
 
 	const NO_GROUP = '\u0000';
-	const groupKey = (person: Personnel): string => person.groupName || NO_GROUP;
-	const groupPosition = $derived(
-		new Map(
-			personnelByGroup.map((group, index) => [group.personnel[0] ? groupKey(group.personnel[0]) : group.group, index])
-		)
-	);
+	const groupKey = (person: Personnel): string => person.groupId ?? NO_GROUP;
+	const groupPosition = $derived(new Map(personnelByGroup.map((group, index) => [group.groupId ?? NO_GROUP, index])));
+	const groupLabels = $derived(new Map(personnelByGroup.map((group) => [group.groupId ?? NO_GROUP, group.group])));
 
 	const table = useDataTable<Personnel>({
 		data: () => allPersonnel,
@@ -84,7 +82,7 @@
 		disabledRow: isBlocked,
 		groupBy: {
 			key: groupKey,
-			label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
+			label: (key) => (key === NO_GROUP ? 'Unassigned' : (groupLabels.get(key) ?? '')),
 			compare: (a, b) =>
 				(groupPosition.get(a) ?? personnelByGroup.length) - (groupPosition.get(b) ?? personnelByGroup.length)
 		}

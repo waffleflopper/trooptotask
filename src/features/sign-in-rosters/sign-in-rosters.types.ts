@@ -7,7 +7,14 @@ export interface SignInRoster {
 	blankDate: boolean;
 	separateByGroup: boolean;
 	sortBy: 'alphabetical' | 'rank';
-	personnelSnapshot: { id: string; rank: string; lastName: string; firstName: string; group: string }[];
+	personnelSnapshot: {
+		id: string;
+		rank: string;
+		lastName: string;
+		firstName: string;
+		group: string;
+		groupId?: string | null;
+	}[];
 	filterConfig: SignInRosterFilter | null;
 	signedFilePath: string | null;
 	createdBy: string;

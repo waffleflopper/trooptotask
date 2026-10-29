@@ -2,7 +2,7 @@ import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tick } from 'svelte';
 import { groupCatalogHydration, groupsStore, pinnedGroupsHydration, pinnedGroupsStore } from '$features/personnel';
@@ -317,6 +317,39 @@ describe('Group editor changes reach the roster in place', () => {
 			'in-team': null
 		});
 		expect(pinnedGroupsStore.list).toEqual(['hq']);
+	});
+
+	it('unpins a top-level Group once it moves under another Group', async () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'plt', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'hq', name: 'HQ', sortOrder: 1, parentId: null, depth: 1 as const }
+			],
+			'org-a'
+		);
+		personnelStore.load([], 'org-a');
+		pinnedGroupsHydration.load(['plt', 'hq'], 'org-a');
+		const bodies: unknown[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url: string, init: RequestInit) => {
+				bodies.push(JSON.parse(init.body as string));
+				return Response.json({ id: 'hq', name: 'HQ', sortOrder: 0, parentId: 'plt', depth: 2 as const });
+			})
+		);
+		const modals = new ModalRegistry();
+		modals.open('group-manager');
+		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals } });
+
+		await chooseGroupAction('HQ', 'Move under…');
+		const dialog = await screen.findByRole('alertdialog');
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Move under:/ }));
+		await screen.findByRole('combobox', { name: 'Search Groups' });
+		await fireEvent.click(screen.getByRole('treeitem', { name: /1st Platoon/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
+
+		await waitFor(() => expect(pinnedGroupsStore.list).toEqual(['plt']));
+		expect(bodies).toEqual([{ id: 'hq', parentId: 'plt' }]);
 	});
 
 	describe('for a Person whose preview is open', () => {

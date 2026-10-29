@@ -134,7 +134,7 @@ export const pinnedGroupsStore = {
 	}
 };
 
-export function forgetDeletedGroupPin(groupId: string) {
+export function forgetGroupPin(groupId: string) {
 	pinnedGroupManagementStore.forgetGroup(groupId);
 }
 

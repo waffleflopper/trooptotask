@@ -3,7 +3,7 @@ import type { Personnel } from './personnel.types';
 import type { RosterPeek } from './rosterPeek.svelte';
 import { rejectedRequestMessage } from '$lib/stores/core';
 import { groupManagementStore, type GroupOrderChange } from './stores/groups.svelte';
-import { forgetDeletedGroupPin } from './stores/pinnedGroups.svelte';
+import { forgetGroupPin } from './stores/pinnedGroups.svelte';
 import { personnelStore } from './stores/personnel.svelte';
 
 /** The Group structure changes Manage Groups and Organization setup make, with the roster kept in step. */
@@ -42,7 +42,11 @@ export function createGroupStructureCommands(peek: RosterPeek): GroupStructureCo
 		},
 
 		async move(id, parentId) {
+			const orgId = groupManagementStore.orgId;
 			await groupManagementStore.move(id, parentId);
+			if (groupManagementStore.orgId !== orgId) return;
+			// Only top-level Groups can be pinned, and the database drops the pin when one moves under a parent.
+			if (parentId !== null) forgetGroupPin(id);
 		},
 
 		reorder(ids, parentId) {
@@ -55,7 +59,7 @@ export function createGroupStructureCommands(peek: RosterPeek): GroupStructureCo
 			if (groupManagementStore.orgId !== orgId) return;
 			const deleted = new Set(deletedIds);
 			setLocalGroup(peek, (person) => person.groupId !== null && deleted.has(person.groupId), moveMembersTo);
-			for (const groupId of deletedIds) forgetDeletedGroupPin(groupId);
+			for (const groupId of deletedIds) forgetGroupPin(groupId);
 		}
 	};
 }

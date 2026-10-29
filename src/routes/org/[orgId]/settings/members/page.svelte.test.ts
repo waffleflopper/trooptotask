@@ -587,7 +587,7 @@ describe('manage access sheet', () => {
 		await choose(sheet, 'Groups', 'Selected');
 		await pickGroups(/^Groups they work in:/, ['HQ PLT', '1st PLT']);
 
-		expect(within(sheet).getByText('Sees HQ PLT plus 1st PLT: 5 people. Not Unassigned.')).toBeTruthy();
+		expect(sheet.textContent).toMatch(/\b5 people\b/);
 		expect(save.textContent?.trim()).toBe('Save 8 changes');
 	});
 

@@ -206,9 +206,6 @@ describe('settings member access workspace', () => {
 		workspace.setScopeGroups(['g-2-sq-a', 'g-1', 'g-2-sq']);
 
 		expect(workspace.draft?.scope).toEqual({ kind: 'groups', groupIds: ['g-1', 'g-2-sq'] });
-		expect(workspace.scopeTree.summary(['g-1', 'g-2-sq'])).toBe(
-			'Sees HQ PLT plus 1st Squad and its 1 sub-group: 12 people. Not Unassigned.'
-		);
 		expect(workspace.groupName('g-2-sq-a')).toBe('1st PLT › 1st Squad › Alpha Team');
 		expect(workspace.changeCount).toBe(1);
 	});

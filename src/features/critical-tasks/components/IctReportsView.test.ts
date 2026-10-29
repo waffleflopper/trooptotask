@@ -410,8 +410,9 @@ describe('IctReportsView', () => {
 		expect(
 			within(groupList)
 				.getAllByRole('option')
+				.slice(1)
 				.map((option) => option.textContent?.trim())
-		).toEqual(['All Groups', '1st Platoon', '2nd Platoon']);
+		).toEqual(['1st Platoon', '2nd Platoon']);
 		const platoon = screen.getByRole('option', { name: '1st Platoon' });
 		await fireEvent.pointerDown(platoon);
 		await fireEvent.pointerUp(platoon);

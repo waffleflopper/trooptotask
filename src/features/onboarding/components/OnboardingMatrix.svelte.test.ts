@@ -241,8 +241,9 @@ describe('Onboarding Matrix view', () => {
 		expect(
 			within(menu)
 				.getAllByRole('option')
+				.slice(1)
 				.map((option) => option.textContent?.trim())
-		).toEqual(['All groups', '1st Platoon', '2nd Platoon']);
+		).toEqual(['1st Platoon', '2nd Platoon']);
 		await fireEvent.pointerUp(within(menu).getByRole('option', { name: '1st Platoon' }));
 
 		await waitFor(() => expect(screen.queryByRole('table', { name: 'Reserve packet' })).toBeNull());

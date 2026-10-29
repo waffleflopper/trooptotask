@@ -557,14 +557,13 @@
 	{@const tasking = assigning}
 	{#await loadAssignPeople() then { default: AssignPeopleDialog }}
 		<AssignPeopleDialog
-			groupCatalog={ctx.scopedGroups}
 			orgId={data.orgId}
 			tasking={{
 				id: tasking.id,
 				responsibility: tasking.responsibility,
 				requirement: tasking.required === null ? null : { count: tasking.required, qualifications: null }
 			}}
-			groups={groupNames}
+			groups={ctx.scopedGroups}
 			onSaved={() => {
 				assigning = null;
 				return refreshTaskings(stillInOrganizationLifetime());

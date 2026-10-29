@@ -30,8 +30,11 @@ export interface GroupTree {
 	contains(ancestorId: string, groupId: string | null): boolean;
 	/** The path from the reader's visible root, such as "2nd Squad › Alpha Team". A single root is left out below it. */
 	label(id: string): string;
-	/** Nested bands from the roots; empty bands are dropped. Unassigned people are not in any band. */
-	bands<T>(items: readonly T[], groupOf: GroupOf<T>): Band<T>[];
+	/**
+	 * Nested bands from the roots, or from the `top` Group alone; empty bands are dropped. Unassigned people are not in
+	 * any band.
+	 */
+	bands<T>(items: readonly T[], groupOf: GroupOf<T>, top?: string): Band<T>[];
 }
 
 export interface GroupTreeOptions {
@@ -132,9 +135,10 @@ export function buildGroupTree(groups: readonly Group[], options: GroupTreeOptio
 		return count === 0 ? null : { node, hq, children, count };
 	}
 
-	function bands<T>(items: readonly T[], groupOf: GroupOf<T>): Band<T>[] {
+	function bands<T>(items: readonly T[], groupOf: GroupOf<T>, top?: string): Band<T>[] {
 		const members = directMembers(items, groupOf);
-		return roots.flatMap((node) => bandFor(node, members) ?? []);
+		const tops = top === undefined ? roots : [nodes.get(top)].filter((node) => node !== undefined);
+		return tops.flatMap((node) => bandFor(node, members) ?? []);
 	}
 
 	return {

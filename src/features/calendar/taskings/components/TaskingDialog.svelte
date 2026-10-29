@@ -5,6 +5,8 @@
 	import { tick, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { buildGroupTree } from '$features/personnel/contracts';
+	import { TreeSelect, type TreeSelectOption } from '$lib/components/patterns/tree-select';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -85,13 +87,20 @@
 	$effect(() => () => (open = false));
 
 	const rerouteLocked = $derived(initial !== undefined && !organizationWide);
+	const tree = $derived(buildGroupTree(choices.groups));
 	const groupOptions = $derived.by(() => {
-		const options = [...choices.groups];
-		if (form.groupId && !options.some((group) => group.id === form.groupId))
-			options.push({ id: form.groupId, name: 'Another group' });
-		return options.sort((a, b) => a.name.localeCompare(b.name));
+		const options: TreeSelectOption[] = tree.ordered.map((node) => ({
+			id: node.id,
+			label: node.name,
+			depth: node.level
+		}));
+		if (form.groupId && !tree.node(form.groupId))
+			options.push({ id: form.groupId, label: 'Another group', depth: 0, aside: true });
+		return options;
 	});
-	const chosenGroup = $derived(groupOptions.find((group) => group.id === form.groupId));
+	const chosenGroup = $derived(
+		form.groupId ? (tree.node(form.groupId) ? tree.label(form.groupId) : 'Another group') : null
+	);
 	const eventOptions = $derived.by(() => {
 		const options: TaskingEventOption[] = [...choices.events];
 		const linked = initial?.event ?? prefilled;
@@ -103,8 +112,8 @@
 		if (form.owner === 'organization')
 			return `Only Organization-wide staff who manage the calendar can pick people for this.${organizationWide ? ' You can too.' : ''}`;
 		if (form.owner !== 'group' || !chosenGroup) return '';
-		const yours = organizationWide || choices.groups.some((group) => group.id === chosenGroup.id);
-		return `${chosenGroup.name}'s leaders who manage the calendar can pick ${chosenGroup.name} people for this.${yours ? ' You can too.' : ''}`;
+		const yours = organizationWide || tree.node(form.groupId) !== undefined;
+		return `${chosenGroup}'s leaders who manage the calendar can pick ${chosenGroup} people for this.${yours ? ' You can too.' : ''}`;
 	});
 
 	const input = $derived({
@@ -334,32 +343,22 @@
 							bind:value={() => form.owner, chooseOwner}
 						>
 							<RadioGroup.Card id="tasking-owner-group" value="group" title="A Group" disabled={rerouteLocked}>
-								<Select.Root
-									type="single"
+								<TreeSelect
+									id="tasking-group"
+									options={groupOptions}
+									value={form.groupId || null}
+									onValueChange={(groupId: string) => {
+										form.groupId = groupId;
+										form.owner = 'group';
+									}}
+									label="Group"
+									hideLabel
+									valueLabel={chosenGroup}
+									placeholder="Choose a Group"
+									searchPlaceholder="Find a Group"
 									disabled={rerouteLocked}
-									bind:value={
-										() => form.groupId,
-										(groupId) => {
-											form.groupId = groupId;
-											if (groupId) form.owner = 'group';
-										}
-									}
-								>
-									<Select.Trigger
-										id="tasking-group"
-										aria-label="Group"
-										aria-invalid={problems.responsibility && form.owner === 'group' ? true : undefined}
-										class="w-full"
-									>
-										{#if chosenGroup}{chosenGroup.name}{:else}<span class="text-muted-foreground">Choose a Group</span
-											>{/if}
-									</Select.Trigger>
-									<Select.Content>
-										{#each groupOptions as group (group.id)}
-											<Select.Item value={group.id} label={group.name} />
-										{/each}
-									</Select.Content>
-								</Select.Root>
+									class="h-9 w-full justify-between"
+								/>
 							</RadioGroup.Card>
 							<RadioGroup.Card
 								id="tasking-owner-organization"

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
+import type { Group } from '$features/personnel/contracts';
 import type { MemberLabels } from '../events/eventModel';
 import type { TaskingListActivityFact, TaskingReadiness } from './taskingListsModel';
 import type { TaskingRowFacts } from './taskingReadModel';
@@ -101,7 +102,7 @@ export type TaskingActivityFact =
 
 export type TaskingActivity = TaskingActivityFact & { id: number; at: string; actorUserId: string | null };
 
-/** Groups the viewer's scope covers, by id. A responsible Group missing here is outside that scope. */
+/** Groups the viewer's scope covers, by id, labelled with their path. A responsible Group missing here is outside that scope. */
 export type GroupLabels = Record<string, string>;
 
 /** What the server loads; Overdue and Blocked narrow Active on the page. */
@@ -112,16 +113,19 @@ export interface TaskingList {
 	scope: TaskingListScope;
 	taskings: Tasking[];
 	groups: GroupLabels;
+	/** The same Groups with their parents, for pickers that show the tree. */
+	groupCatalog: Group[];
 	/** By Tasking id; a Tasking missing here has no picks. */
 	staffing: Record<string, StaffingCount>;
 }
 
 /** The Taskings under one Event that the reader's scope covers. */
-export type EventTaskingList = Omit<TaskingList, 'scope'>;
+export type EventTaskingList = Omit<TaskingList, 'scope' | 'groupCatalog'>;
 
 export interface TaskingDetail {
 	tasking: Tasking;
 	groups: GroupLabels;
+	groupCatalog: Group[];
 	members: MemberLabels;
 }
 
@@ -129,11 +133,6 @@ export interface TaskingActivityLog {
 	entries: TaskingActivity[];
 	/** Titles of the Events named by link and unlink entries. */
 	eventTitles: Record<string, string>;
-}
-
-export interface TaskingGroupOption {
-	id: string;
-	name: string;
 }
 
 export interface TaskingEventOption {
@@ -145,7 +144,7 @@ export interface TaskingEventOption {
 
 /** What the create and edit form offers: the Groups in the viewer's scope and the Events still ahead. */
 export interface TaskingChoices {
-	groups: TaskingGroupOption[];
+	groups: Group[];
 	events: TaskingEventOption[];
 }
 

@@ -3,8 +3,10 @@
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import Plus from '@lucide/svelte/icons/plus';
 	import { goto } from '$app/navigation';
+	import { buildGroupTree } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { TreeSelect, type TreeSelectOption } from '$lib/components/patterns/tree-select';
 	import { WorkspaceToolbar, type ToolbarItem, type ToolbarOption } from '$lib/components/patterns/workspace-toolbar';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -133,15 +135,26 @@
 				.map(([value, { label }]) => ({ value, label }))
 		];
 	});
-	const responsibilityOptions = $derived.by<ToolbarOption[]>(() => {
-		const groups = loaded && loaded !== 'failed' ? loaded.groups : {};
-		const options = Object.entries(groups)
-			.map(([value, label]) => ({ value, label }))
-			.sort((a, b) => a.label.localeCompare(b.label));
-		if (!['all', 'organization'].includes(filters.responsibility) && !(filters.responsibility in groups))
-			options.push({ value: filters.responsibility, label: 'Another group' });
-		return [{ value: 'all', label: 'All' }, { value: 'organization', label: org.orgName }, ...options];
+	const tree = $derived(buildGroupTree(loaded && loaded !== 'failed' ? loaded.groupCatalog : []));
+	const responsibilityOptions = $derived.by<TreeSelectOption[]>(() => {
+		const options: TreeSelectOption[] = [
+			{ id: 'all', label: 'All', depth: 0 },
+			{ id: 'organization', label: org.orgName, depth: 0 },
+			...tree.ordered.map((node) => ({ id: node.id, label: node.name, depth: node.level }))
+		];
+		if (!['all', 'organization'].includes(filters.responsibility) && !tree.node(filters.responsibility))
+			options.push({ id: filters.responsibility, label: 'Another group', depth: 0, aside: true });
+		return options;
 	});
+	const responsibilityLabel = $derived(
+		filters.responsibility === 'all'
+			? 'All'
+			: filters.responsibility === 'organization'
+				? org.orgName
+				: tree.node(filters.responsibility)
+					? tree.label(filters.responsibility)
+					: 'Another group'
+	);
 
 	const viewHref = (view: TaskingView) => `${taskingsHref}${taskingFiltersQuery({ ...filters, view })}`;
 
@@ -163,16 +176,6 @@
 			defaultValue: 'all',
 			showLabel: true,
 			onValueChange: (event) => show({ event })
-		},
-		{
-			kind: 'select',
-			id: 'responsibility',
-			label: 'Responsible',
-			options: responsibilityOptions,
-			value: filters.responsibility,
-			defaultValue: 'all',
-			showLabel: true,
-			onValueChange: (responsibility) => show({ responsibility })
 		},
 		{
 			kind: 'select',
@@ -243,19 +246,34 @@
 {/snippet}
 
 {#snippet strip()}
-	<div class="min-w-0 grow">
-		<WorkspaceToolbar
-			ariaLabel="Tasking filters"
-			bare
-			items={toolbarItems}
-			compactBelow="sm"
-			search={{
-				label: 'Search taskings',
-				placeholder: 'Search taskings',
-				value: filters.search,
-				onValueChange: (search) => show({ search }, true)
-			}}
-		/>
+	<div class="flex min-w-0 grow flex-wrap items-center gap-x-1 gap-y-2">
+		{#if loaded === null && !['all', 'organization'].includes(filters.responsibility)}
+			<Skeleton class="h-8 w-44 max-sm:h-9 max-sm:w-full" />
+		{:else}
+			<TreeSelect
+				options={responsibilityOptions}
+				value={filters.responsibility}
+				onValueChange={(responsibility: string) => show({ responsibility })}
+				label="Responsible"
+				valueLabel={responsibilityLabel}
+				placeholder="Another group"
+				searchPlaceholder="Find a Group"
+			/>
+		{/if}
+		<div class="min-w-0 grow">
+			<WorkspaceToolbar
+				ariaLabel="Tasking filters"
+				bare
+				items={toolbarItems}
+				compactBelow="sm"
+				search={{
+					label: 'Search taskings',
+					placeholder: 'Search taskings',
+					value: filters.search,
+					onValueChange: (search) => show({ search }, true)
+				}}
+			/>
+		</div>
 	</div>
 {/snippet}
 

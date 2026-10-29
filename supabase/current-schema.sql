@@ -2402,6 +2402,9 @@ CREATE FUNCTION organization_private.set_group_path() RETURNS trigger
 DECLARE
   v_parent_path uuid[];
 BEGIN
+  IF (TG_OP = 'INSERT' OR NEW.name IS DISTINCT FROM OLD.name) AND NEW.name LIKE '% / %' THEN
+    RAISE EXCEPTION 'Group names cannot contain the path separator' USING ERRCODE = '22023';
+  END IF;
   IF TG_OP = 'INSERT' OR NEW.parent_id IS DISTINCT FROM OLD.parent_id
     OR NEW.organization_id IS DISTINCT FROM OLD.organization_id THEN
     PERFORM 1 FROM public.organizations WHERE id = NEW.organization_id FOR UPDATE;
@@ -13466,14 +13469,6 @@ ALTER TABLE ONLY public.feedback_replies
 
 ALTER TABLE ONLY public.feedback_staff_notes
     ADD CONSTRAINT feedback_staff_notes_pkey PRIMARY KEY (feedback_id);
-
-
---
--- Name: groups groups_name_path_separator; Type: CHECK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE public.groups
-    ADD CONSTRAINT groups_name_path_separator CHECK ((name !~~ '% / %'::text)) NOT VALID;
 
 
 --

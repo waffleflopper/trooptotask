@@ -320,6 +320,22 @@ function checkDeletedRouteAuthorizationFramework() {
 	}
 }
 
+function mapSqlList(content, transform) {
+	const parts = [];
+	let depth = 0;
+	let start = 0;
+	for (const match of content.matchAll(/'(?:''|[^'])*'|[()[\],]/g)) {
+		if (match[0] === '(' || match[0] === '[') depth++;
+		if (match[0] === ')' || match[0] === ']') depth--;
+		if (match[0] === ',' && depth === 0) {
+			parts.push(transform(content.slice(start, match.index)));
+			start = match.index + 1;
+		}
+	}
+	parts.push(transform(content.slice(start)));
+	return parts.join(',');
+}
+
 function collectGroupScopeMigrationIssues(migrations) {
 	const issues = [];
 	const treeMigration = 'supabase/migrations/20261028100000_nested_groups_and_coverage.sql';
@@ -328,24 +344,47 @@ function collectGroupScopeMigrationIssues(migrations) {
 	const responsible = `\\b${identifier}responsible_group_id\\b`;
 	const comparison = String.raw`\s*(?:=|is\s+(?:not\s+)?distinct\s+from)\s*`;
 	const exactResponsibility = new RegExp(`(?:${group}${comparison}${responsible}|${responsible}${comparison}${group})`);
-	const exactScope = /=\s*any\s*\(\s*(?:coalesce\s*\(\s*)?(?:[a-z_][\w$]*\s*\.\s*)?access_scope_group_ids\b/;
+	const scopeColumn = `\\b${identifier}access_scope_group_ids\\b`;
+	const subtreeScope = new RegExp(`\\b${identifier}path\\s*&&\\s*${scopeColumn}`, 'g');
+	const plainScopeColumn = new RegExp(`^\\s*${scopeColumn}\\s*(?:uuid\\s*\\[\\s*\\])?\\s*$`);
+	const scopeAssignment = new RegExp(`^(\\s*)${scopeColumn}\\s*=(?!=)`);
+	const scopeVariableAssignment = new RegExp(`${scopeColumn}\\s*:=([^;]*)`, 'g');
+	const removePlainScopeColumn = (column) => (plainScopeColumn.test(column) ? '' : column);
 	const storedGroupReferenceValidation =
 		/\b(?:[a-z_][\w$]*\s*\.\s*)?id\s*=\s*any\s*\(\s*new\s*\.\s*access_scope_group_ids\s*\)\s+and\s+(?:[a-z_][\w$]*\s*\.\s*)?organization_id\s*<>\s*new\s*\.\s*organization_id\b/g;
 	for (const { path: file, content } of migrations.filter(
 		({ path: file }) => file.endsWith('.sql') && file > treeMigration
 	)) {
-		const sql = content
+		let sql = content
 			.replace(/\/\*[\s\S]*?\*\//g, ' ')
 			.replace(/--[^\n]*/g, ' ')
 			.replace(/"/g, '')
 			.toLowerCase()
 			.replace(storedGroupReferenceValidation, '');
-		if (exactScope.test(sql)) {
+		const responsibilitySql = sql;
+		sql = sql
+			.replace(subtreeScope, '')
+			.replace(scopeVariableAssignment, (_, value) => ':=' + removePlainScopeColumn(value))
+			.replace(
+				/(\b(?:insert\s+into\s+[\w.]+|returns\s+table)\s*\()([^)]*)(\))/g,
+				(_, prefix, columns, suffix) => prefix + mapSqlList(columns, removePlainScopeColumn) + suffix
+			)
+			.replace(
+				/(\bselect\s+)([\s\S]*?)(?=\bfrom\b|;|$)/g,
+				(_, prefix, columns) => prefix + mapSqlList(columns, removePlainScopeColumn)
+			)
+			.replace(
+				/(\bset\s+)([\s\S]*?)(?=\bwhere\b|\breturning\b|;|$)/g,
+				(_, prefix, assignments) =>
+					prefix +
+					mapSqlList(assignments, (assignment) => removePlainScopeColumn(assignment.replace(scopeAssignment, '$1')))
+			);
+		if (/\baccess_scope_group_ids\b/.test(sql)) {
 			issues.push(
 				`Exact Group grant comparison: ${file}. Use groups.path && access_scope_group_ids for subtree coverage.`
 			);
 		}
-		if (exactResponsibility.test(sql)) {
+		if (exactResponsibility.test(responsibilitySql)) {
 			issues.push(
 				`Exact Tasking roster comparison: ${file}. Use organization_private.group_within for subtree candidacy.`
 			);

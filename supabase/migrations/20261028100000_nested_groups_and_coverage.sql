@@ -17,8 +17,7 @@ ALTER TABLE public.groups
     AND path[pg_catalog.cardinality(path)] = id
   ),
   DROP CONSTRAINT groups_clinic_id_name_key,
-  ADD CONSTRAINT groups_sibling_name_key UNIQUE NULLS NOT DISTINCT (organization_id, parent_id, name),
-  ADD CONSTRAINT groups_name_path_separator CHECK (name NOT LIKE '% / %') NOT VALID;
+  ADD CONSTRAINT groups_sibling_name_key UNIQUE NULLS NOT DISTINCT (organization_id, parent_id, name);
 CREATE INDEX groups_children_idx ON public.groups (organization_id, parent_id, sort_order);
 
 CREATE FUNCTION organization_private.set_group_path() RETURNS trigger
@@ -26,6 +25,9 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_parent_path uuid[];
 BEGIN
+  IF (TG_OP = 'INSERT' OR NEW.name IS DISTINCT FROM OLD.name) AND NEW.name LIKE '% / %' THEN
+    RAISE EXCEPTION 'Group names cannot contain the path separator' USING ERRCODE = '22023';
+  END IF;
   IF TG_OP = 'INSERT' OR NEW.parent_id IS DISTINCT FROM OLD.parent_id
     OR NEW.organization_id IS DISTINCT FROM OLD.organization_id THEN
     PERFORM 1 FROM public.organizations WHERE id = NEW.organization_id FOR UPDATE;

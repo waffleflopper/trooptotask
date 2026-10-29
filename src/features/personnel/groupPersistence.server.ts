@@ -12,6 +12,7 @@ import {
 } from './contracts';
 import { visibleGroupIds } from './groupCatalog.server';
 function throwGroupWriteError(error: { code?: string; message: string }): never {
+	if (error.code === '22023') fail(400, 'Group names cannot contain " / ".');
 	if (error.code === '23505' && error.message.includes('"groups_sibling_name_key"')) {
 		fail(409, GROUP_NAME_EXISTS_MESSAGE);
 	}

@@ -2,6 +2,7 @@ import { capabilityMeets, type CapabilityMap, type DurableFeatureLane } from '$l
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { SETTINGS_PAGES, SETUP_STEPS } from '$features/organization/contracts';
+import { GROUP_FOCUS_PARAM } from '$features/personnel/contracts';
 
 export type OrgNavIcon =
 	| 'dashboard'
@@ -22,6 +23,8 @@ export interface OrgNavItem {
 	icon: OrgNavIcon;
 	visible: boolean;
 	exactMatch: boolean;
+	/** The screen narrows to the reader's Group focus, so following the link keeps it. */
+	followsGroupFocus: boolean;
 	children?: OrgNavSubItem[];
 }
 
@@ -101,7 +104,8 @@ export function getOrgNavigation(
 			compactLabel: 'Home',
 			icon: 'dashboard',
 			visible: true,
-			exactMatch: true
+			exactMatch: true,
+			followsGroupFocus: true
 		},
 		{
 			id: 'calendar',
@@ -110,6 +114,7 @@ export function getOrgNavigation(
 			icon: 'calendar',
 			visible: canView('calendar'),
 			exactMatch: false,
+			followsGroupFocus: true,
 			children: [
 				{
 					id: 'events-taskings',
@@ -133,7 +138,8 @@ export function getOrgNavigation(
 			label: 'Personnel',
 			icon: 'personnel',
 			visible: canView('personnel'),
-			exactMatch: false
+			exactMatch: false,
+			followsGroupFocus: true
 		},
 		{
 			id: 'rating-scheme',
@@ -142,7 +148,8 @@ export function getOrgNavigation(
 			breadcrumbLabel: 'Evaluations',
 			icon: 'rating-scheme',
 			visible: canView('ratingScheme'),
-			exactMatch: false
+			exactMatch: false,
+			followsGroupFocus: true
 		},
 		{
 			id: 'training',
@@ -150,7 +157,8 @@ export function getOrgNavigation(
 			label: 'Training',
 			icon: 'training',
 			visible: canView('training'),
-			exactMatch: false
+			exactMatch: false,
+			followsGroupFocus: true
 		},
 		{
 			id: 'critical-tasks',
@@ -159,7 +167,8 @@ export function getOrgNavigation(
 			compactLabel: 'ICTLs',
 			icon: 'critical-tasks',
 			visible: canView('criticalTasks'),
-			exactMatch: false
+			exactMatch: false,
+			followsGroupFocus: true
 		},
 		{
 			id: 'onboarding',
@@ -168,9 +177,17 @@ export function getOrgNavigation(
 			compactLabel: 'Onboard',
 			icon: 'onboarding',
 			visible: canView('onboarding'),
-			exactMatch: false
+			exactMatch: false,
+			followsGroupFocus: true
 		}
 	];
+}
+
+export function carryGroupFocus(items: OrgNavItem[], search: URLSearchParams): OrgNavItem[] {
+	const group = search.get(GROUP_FOCUS_PARAM);
+	if (!group) return items;
+	const query = new URLSearchParams({ [GROUP_FOCUS_PARAM]: group });
+	return items.map((item) => (item.followsGroupFocus ? { ...item, href: `${item.href}?${query}` } : item));
 }
 
 export function isOrgNavItemActive(pathname: string, item: Pick<OrgNavItem, 'href' | 'exactMatch'>): boolean {

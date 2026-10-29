@@ -15,7 +15,7 @@
 </script>
 
 <Sidebar.Menu>
-	{#each navItems as item (item.href)}
+	{#each navItems as item (item.id)}
 		{@const children = item.children?.filter((sub) => sub.visible) ?? []}
 		{@const childActive = children.some((sub) => isOrgNavSubItemActive(pathname, sub))}
 		{@const parentOfCurrent = childActive && showsSubItems}

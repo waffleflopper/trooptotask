@@ -15,7 +15,7 @@ export class PinnedGroupsStore {
 	#organizationVersion = 0;
 	#loadedLifetime = organizationLifetime();
 	#loadVersion = 0;
-	#forgotten = new Set<string>();
+	#changes = new Map<string, number>();
 
 	get list() {
 		return this.#pinnedGroups;
@@ -34,25 +34,29 @@ export class PinnedGroupsStore {
 			this.#organizationVersion++;
 			this.#pendingMutations = 0;
 			this.#loadedLifetime = organizationLifetime();
-			this.#forgotten.clear();
+			this.#changes.clear();
 		} else if (this.#pendingMutations > 0) return;
 		this.#loadVersion++;
 		this.#pinnedGroups = pinnedGroups;
 		this.#orgId = orgId;
 	}
 
-	/**
-	 * The database drops the pins of a Group that is deleted or moved under a parent; this keeps the open page in step
-	 * without a reload, and stops an unpin that is still in flight from restoring the pin when it fails.
-	 */
+	/** The database drops a deleted or moved-down Group's pins; this keeps the open page in step without a reload. */
 	forgetGroup(groupId: string) {
-		this.#forgotten.add(groupId);
+		this.#change(groupId);
 		if (!this.#pinnedGroups.includes(groupId)) return;
 		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 	}
 
 	isPinned(groupId: string): boolean {
 		return this.#pinnedGroups.includes(groupId);
+	}
+
+	/** A failed unpin restores the pin only when nothing has changed that Group's pin since it started. */
+	#change(groupId: string): number {
+		const change = (this.#changes.get(groupId) ?? 0) + 1;
+		this.#changes.set(groupId, change);
+		return change;
 	}
 
 	#mutationScope(): () => boolean {
@@ -64,7 +68,7 @@ export class PinnedGroupsStore {
 	async pin(groupId: string): Promise<boolean> {
 		if (this.#pinnedGroups.includes(groupId)) return true;
 
-		this.#forgotten.delete(groupId);
+		this.#change(groupId);
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
@@ -93,6 +97,7 @@ export class PinnedGroupsStore {
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
+		const change = this.#change(groupId);
 		const originalIndex = this.#pinnedGroups.indexOf(groupId);
 		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 
@@ -105,7 +110,7 @@ export class PinnedGroupsStore {
 			if (!res.ok) throw new Error('Failed to unpin group');
 			return current();
 		} catch {
-			if (current() && originalIndex >= 0 && !this.#pinnedGroups.includes(groupId) && !this.#forgotten.has(groupId)) {
+			if (current() && originalIndex >= 0 && this.#changes.get(groupId) === change) {
 				const restored = [...this.#pinnedGroups];
 				restored.splice(Math.min(originalIndex, restored.length), 0, groupId);
 				this.#pinnedGroups = restored;

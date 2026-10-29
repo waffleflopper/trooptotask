@@ -279,4 +279,36 @@ describe('pinned Group state', () => {
 		expect(await store.unpin('group-2')).toBe(false);
 		expect(store.list).toEqual(['group-hq', 'group-2']);
 	});
+
+	it('keeps a forgotten Group unpinned when a failed re-pin is followed by the earlier unpin failing', async () => {
+		store.load(['group-hq', 'group-2'], 'org-1');
+		let failUnpin!: (error: Error) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockReturnValueOnce(new Promise((_resolve, reject) => (failUnpin = reject)))
+				.mockResolvedValueOnce({ ok: false, status: 500 })
+		);
+		vi.spyOn(toastStore, 'error').mockImplementation(() => '');
+
+		const unpin = store.unpin('group-2');
+		store.forgetGroup('group-2');
+		expect(await store.pin('group-2')).toBe(false);
+		failUnpin(new Error('Network down'));
+
+		expect(await unpin).toBe(false);
+		expect(store.list).toEqual(['group-hq']);
+	});
+
+	it('restores a forgotten Group pinned again by a later load when its unpin fails', async () => {
+		store.load(['group-hq', 'group-2'], 'org-1');
+		store.forgetGroup('group-2');
+		store.load(['group-hq', 'group-2'], 'org-1');
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: false, status: 500 }));
+		vi.spyOn(toastStore, 'error').mockImplementation(() => '');
+
+		expect(await store.unpin('group-2')).toBe(false);
+		expect(store.list).toEqual(['group-hq', 'group-2']);
+	});
 });

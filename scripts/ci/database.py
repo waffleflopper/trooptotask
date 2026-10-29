@@ -36,6 +36,7 @@ ACCOUNT_SETUP_UPGRADE_MIGRATIONS = (
     "20260923000200_release_account_setup_claim_for_staff.sql",
     "20260926000100_reconcile_account_setup_attempts.sql",
 )
+GROUP_TREE_MIGRATION = "20261028100000_nested_groups_and_coverage.sql"
 STAGED_UPGRADE_MIGRATIONS = (
     *ACCOUNT_SETUP_UPGRADE_MIGRATIONS,
     "20260926000300_training_record_scope.sql",
@@ -135,6 +136,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261026120000_calendar_event_deletion.sql",
     "20261027090000_organization_setup.sql",
     "20261028090000_group_pins_by_id.sql",
+    GROUP_TREE_MIGRATION,
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -835,7 +837,7 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 fixture = workdir / "supabase/migration-tests" / name
                 execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
             for name in STAGED_UPGRADE_MIGRATIONS:
-                if name == "20261025160100_feedback_reporter_replies.sql":
+                if name in {"20261025160100_feedback_reporter_replies.sql", GROUP_TREE_MIGRATION}:
                     continue
                 shutil.copy2(repository / "supabase/migrations" / name,
                              workdir / "supabase/migrations" / name)
@@ -864,6 +866,22 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                     PG_PROVE_IMAGE, "pg_prove", "--verbose",
                     f"/tests/{path}",
                 ], workdir)
+            # Historical contracts compare whole Group rows before tree columns exist.
+            snapshot_sql = "SELECT json_build_object('groups', (SELECT json_agg(g ORDER BY id) FROM public.groups g), 'memberships', (SELECT json_agg(m ORDER BY id) FROM public.organization_memberships m));"
+            before = json.loads(execute([*psql, '-t', '-A', '-c', snapshot_sql], workdir, quiet=True).stdout)
+            shutil.copy2(repository / "supabase/migrations" / GROUP_TREE_MIGRATION,
+                         workdir / "supabase/migrations" / GROUP_TREE_MIGRATION)
+            execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
+            after = json.loads(execute([*psql, '-t', '-A', '-c', snapshot_sql], workdir, quiet=True).stdout)
+            retained = []
+            for group in after['groups'] or []:
+                if group['parent_id'] is not None or group['path'] != [group['id']] or group['depth'] != 1:
+                    raise ValueError('Existing Groups were not backfilled as top-level Groups')
+                retained.append({key: value for key, value in group.items() if key not in {'parent_id', 'path', 'depth'}})
+            if retained != (before['groups'] or []) or after['memberships'] != before['memberships']:
+                raise ValueError('Nested Groups upgrade changed existing Group values or stored membership grants')
+            print('Nested Groups upgrade retained every Group value and membership grant; all existing paths contain only their own id.', flush=True)
+            execute(["supabase", "test", "db", "supabase/tests/nested_group_scope.sql"], workdir)
             run(["node", str(repository / "scripts/ci/personnel_group_upgrade_provider_probe.mjs")],
                 workdir, environment=_provider_environment(repository, workdir, execute))
             run(["node", str(repository / "scripts/ci/personnel_retention_provider_probe.mjs"),

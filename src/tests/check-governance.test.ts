@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const governance = require('../../scripts/check-governance.mjs') as {
 	collectFeaturePermissionCouplingIssues(sourceFiles: Array<{ path: string; content: string }>): string[];
+	collectGroupScopeMigrationIssues(sourceFiles: Array<{ path: string; content: string }>): string[];
 	collectPermissionPatterns(content: string): string[];
 	hasRouteAdminProviderUsage(content: string): boolean;
 	hasRouteSupabaseUsage(content: string): boolean;
@@ -222,6 +223,48 @@ describe('governance feature permission coupling detection', () => {
 				{
 					path: 'src/features/rating-scheme/example.ts',
 					content: 'const action = POLICY_ACTION_CATALOG.ratingScheme.viewEntries;'
+				}
+			])
+		).toEqual([]);
+	});
+});
+
+describe('nested Group migration governance', () => {
+	const path = 'supabase/migrations/20261028110000_future_scope.sql';
+	it.each([
+		'person.group_id = ANY(m.access_scope_group_ids)',
+		'"g"."id" = ANY(\n"membership"."access_scope_group_ids"\n)',
+		'person.group_id = ANY(NEW.access_scope_group_ids)',
+		'person.group_id = ANY(OLD.access_scope_group_ids)'
+	])('rejects exact grant membership in a future migration %s', (comparison) => {
+		expect(governance.collectGroupScopeMigrationIssues([{ path, content: `SELECT ${comparison};` }])).toEqual([
+			expect.stringContaining('Use groups.path && access_scope_group_ids')
+		]);
+	});
+	it.each([
+		'person.group_id = tasking.responsible_group_id',
+		'tasking.responsible_group_id = person.group_id',
+		'person.group_id IS DISTINCT FROM tasking.responsible_group_id',
+		'NEW.responsible_group_id IS DISTINCT FROM person.group_id'
+	])('rejects exact Tasking candidacy in a future migration %s', (comparison) => {
+		expect(governance.collectGroupScopeMigrationIssues([{ path, content: `SELECT ${comparison};` }])).toEqual([
+			expect.stringContaining('Use organization_private.group_within')
+		]);
+	});
+	it.each([
+		'SELECT 1 FROM public.groups WHERE id = ANY(NEW.access_scope_group_ids) AND organization_id <> NEW.organization_id;',
+		'SELECT NEW.responsible_group_id IS DISTINCT FROM OLD.responsible_group_id;',
+		'SELECT g.path && m.access_scope_group_ids;',
+		'-- person.group_id = ANY(m.access_scope_group_ids)\nSELECT true;'
+	])('accepts storage validation, change detection and subtree rules %s', (content) => {
+		expect(governance.collectGroupScopeMigrationIssues([{ path, content }])).toEqual([]);
+	});
+	it('keeps historical migrations outside the new rule', () => {
+		expect(
+			governance.collectGroupScopeMigrationIssues([
+				{
+					path: 'supabase/migrations/20261028090000_group_pins_by_id.sql',
+					content: 'SELECT person.group_id = ANY(m.access_scope_group_ids);'
 				}
 			])
 		).toEqual([]);

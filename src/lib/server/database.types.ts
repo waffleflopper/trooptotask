@@ -1330,23 +1330,32 @@ export type Database = {
       groups: {
         Row: {
           created_at: string
+          depth: number | null
           id: string
           name: string
           organization_id: string
+          parent_id: string | null
+          path: string[]
           sort_order: number
         }
         Insert: {
           created_at?: string
+          depth?: number | null
           id?: string
           name: string
           organization_id: string
+          parent_id?: string | null
+          path?: string[]
           sort_order?: number
         }
         Update: {
           created_at?: string
+          depth?: number | null
           id?: string
           name?: string
           organization_id?: string
+          parent_id?: string | null
+          path?: string[]
           sort_order?: number
         }
         Relationships: [
@@ -1356,6 +1365,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "groups_parent_fkey"
+            columns: ["organization_id", "parent_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["organization_id", "id"]
           },
         ]
       }
@@ -4539,6 +4555,18 @@ export type Database = {
         Args: { p_organization_id: string }
         Returns: Json
       }
+      read_request_member_access: {
+        Args: { p_organization_id: string }
+        Returns: {
+          access_scope_group_ids: string[]
+          access_scope_kind: string
+          capability_overrides: Json
+          covered_group_ids: string[]
+          id: string
+          member_preset: string
+          role: string
+        }[]
+      }
       reconcile_account_setup_claim: {
         Args: {
           p_target_access_request_id: string
@@ -4607,8 +4635,10 @@ export type Database = {
       rename_group: {
         Args: { p_group_id: string; p_name: string; p_organization_id: string }
         Returns: {
+          depth: number
           id: string
           name: string
+          parent_id: string
           sort_order: number
         }[]
       }
@@ -4805,6 +4835,7 @@ export type Database = {
           p_expected_group_ids: string[]
           p_group_ids: string[]
           p_organization_id: string
+          p_parent_id?: string
         }
         Returns: undefined
       }

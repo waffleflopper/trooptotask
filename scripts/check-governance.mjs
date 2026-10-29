@@ -320,10 +320,56 @@ function checkDeletedRouteAuthorizationFramework() {
 	}
 }
 
+function collectGroupScopeMigrationIssues(migrations) {
+	const issues = [];
+	const treeMigration = 'supabase/migrations/20261028100000_nested_groups_and_coverage.sql';
+	const identifier = String.raw`(?:[a-z_][\w$]*\s*\.\s*)?`;
+	const group = `\\b${identifier}(?:p_)?group_id\\b`;
+	const responsible = `\\b${identifier}responsible_group_id\\b`;
+	const comparison = String.raw`\s*(?:=|is\s+(?:not\s+)?distinct\s+from)\s*`;
+	const exactResponsibility = new RegExp(`(?:${group}${comparison}${responsible}|${responsible}${comparison}${group})`);
+	const exactScope = /=\s*any\s*\(\s*(?:coalesce\s*\(\s*)?(?:[a-z_][\w$]*\s*\.\s*)?access_scope_group_ids\b/;
+	const storedGroupReferenceValidation =
+		/\b(?:[a-z_][\w$]*\s*\.\s*)?id\s*=\s*any\s*\(\s*new\s*\.\s*access_scope_group_ids\s*\)\s+and\s+(?:[a-z_][\w$]*\s*\.\s*)?organization_id\s*<>\s*new\s*\.\s*organization_id\b/g;
+	for (const { path: file, content } of migrations.filter(
+		({ path: file }) => file.endsWith('.sql') && file > treeMigration
+	)) {
+		const sql = content
+			.replace(/\/\*[\s\S]*?\*\//g, ' ')
+			.replace(/--[^\n]*/g, ' ')
+			.replace(/"/g, '')
+			.toLowerCase()
+			.replace(storedGroupReferenceValidation, '');
+		if (exactScope.test(sql)) {
+			issues.push(
+				`Exact Group grant comparison: ${file}. Use groups.path && access_scope_group_ids for subtree coverage.`
+			);
+		}
+		if (exactResponsibility.test(sql)) {
+			issues.push(
+				`Exact Tasking roster comparison: ${file}. Use organization_private.group_within for subtree candidacy.`
+			);
+		}
+	}
+	return issues;
+}
+
+function checkGroupScopeMigrations() {
+	errors.push(
+		...collectGroupScopeMigrationIssues(
+			walkRelative('supabase/migrations').map((file) => ({
+				path: file,
+				content: readRelativeFile(file)
+			}))
+		)
+	);
+}
+
 function runGovernanceChecks() {
 	checkRouteProviderUsage();
 	checkFeaturePermissionCouplings();
 	checkDeletedRouteAuthorizationFramework();
+	checkGroupScopeMigrations();
 	try {
 		for (const issue of runModuleGovernance()) {
 			errors.push(`Module ${issue.kind}: [${issue.packet}] ${issue.file}: ${issue.message}`);
@@ -350,6 +396,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 export {
 	collectDestructuredLocalSupabaseBindings,
 	collectFeaturePermissionCouplingIssues,
+	collectGroupScopeMigrationIssues,
 	collectPermissionPatterns,
 	hasRouteAdminProviderUsage,
 	hasRouteSupabaseUsage,

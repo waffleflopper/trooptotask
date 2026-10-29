@@ -19,6 +19,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { SignInRoster } from '../sign-in-rosters.types';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 
 function person(overrides: Partial<Personnel>): Personnel {
 	return {
@@ -40,8 +41,8 @@ const personnel: Personnel[] = [
 	person({ id: 'p3', lastName: 'Cole', mos: '11B', clinicRole: 'Medic', groupId: 'group-1', groupName: 'Alpha' })
 ];
 const groups = [
-	{ id: 'group-1', name: 'Alpha', sortOrder: 0 },
-	{ id: 'group-2', name: 'Bravo', sortOrder: 1 }
+	{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 const SAVED_SCAN = 'org-1/sign-in-rosters/roster-1/signed-roster.pdf';
 const pdf = () => new File(['%PDF'], 'signed-roster.pdf', { type: 'application/pdf' });
@@ -108,6 +109,67 @@ async function choose(filter: string, option: string) {
 	await fireEvent.focus(input);
 	await fireEvent.click(await screen.findByRole('option', { name: option }));
 }
+
+describe('SignInRostersSheet Group filter on nested Groups', () => {
+	const nestedPersonnel = [
+		person({ id: 'n1', lastName: 'Hale', groupId: 'platoon', groupName: '1st Platoon' }),
+		person({ id: 'n2', lastName: 'Irwin', groupId: 'squad', groupName: '2nd Squad' }),
+		person({ id: 'n3', lastName: 'Jones', groupId: 'alpha', groupName: 'Alpha Team' }),
+		person({ id: 'n4', lastName: 'Kemp', groupId: 'other-squad', groupName: '3rd Squad' }),
+		person({ id: 'n5', lastName: 'Lowe', groupId: 'other-platoon', groupName: '2nd Platoon' })
+	];
+
+	function renderNested(catalog: typeof NESTED_GROUPS) {
+		vi.stubGlobal('fetch', listFetch([]));
+		return render(SignInRostersSheet, {
+			props: {
+				orgId: 'org-1',
+				orgName: 'C Co',
+				personnel: nestedPersonnel,
+				groups: catalog,
+				pinnedGroupIds: [],
+				canEdit: true,
+				onClose: vi.fn()
+			}
+		});
+	}
+
+	async function groupOptions() {
+		await fireEvent.focus(screen.getByRole('combobox', { name: 'Group' }));
+		const list = await screen.findByRole('listbox', { name: 'Group' });
+		return within(list)
+			.getAllByRole('option')
+			.map((option) => option.textContent?.trim());
+	}
+
+	afterEach(() => {
+		cleanup();
+		vi.unstubAllGlobals();
+	});
+
+	it('offers an Organization-wide reader exactly the top-level Groups', async () => {
+		renderNested(NESTED_GROUPS);
+		await openNewRoster();
+
+		expect(await groupOptions()).toEqual(['1st Platoon', '2nd Platoon']);
+	});
+
+	it('offers a squad-scoped reader exactly that squad', async () => {
+		renderNested(NESTED_GROUPS.filter((group) => ['squad', 'alpha', 'bravo'].includes(group.id)));
+		await openNewRoster();
+
+		expect(await groupOptions()).toEqual(['2nd Squad']);
+	});
+
+	it("takes in a platoon's HQ, squads and teams and leaves out the other platoon", async () => {
+		renderNested(NESTED_GROUPS);
+		await openNewRoster();
+
+		await choose('Group', '1st Platoon');
+
+		expect(previewedNames()).toEqual(['Hale, Alex', 'Irwin, Alex', 'Jones, Alex', 'Kemp, Alex']);
+	});
+});
 
 describe('SignInRostersSheet list', () => {
 	beforeEach(() => {

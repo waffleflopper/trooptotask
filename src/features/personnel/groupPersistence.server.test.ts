@@ -130,6 +130,82 @@ describe('ordinary Group persistence', () => {
 		});
 		expect(state.rows.groups).toEqual([]);
 	});
+	it('moves a Group to the end of its new sibling set, or of the top level', async () => {
+		const { client, state } = personnelProvider({
+			groups: [
+				{ id: 'p1', name: '1st Platoon', sort_order: 0, organization_id: 'org-a' },
+				{ id: 'p2', name: '2nd Platoon', sort_order: 1, organization_id: 'org-a' },
+				{ id: 's1', name: '1st Squad', sort_order: 0, parent_id: 'p1', depth: 2, organization_id: 'org-a' },
+				{ id: 's2', name: '2nd Squad', sort_order: 0, parent_id: 'p2', depth: 2, organization_id: 'org-a' },
+				{ id: 's3', name: '3rd Squad', sort_order: 4, parent_id: 'p2', depth: 2, organization_id: 'org-a' }
+			]
+		});
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		expect(await port.move('s1', 'p2')).toMatchObject({ id: 's1', parentId: 'p2', sortOrder: 5 });
+		expect(await port.move('s2', null)).toMatchObject({ id: 's2', parentId: null, sortOrder: 2 });
+		expect(state.requests.filter((request) => request.method === 'PATCH').map((request) => request.body)).toEqual([
+			{ parent_id: 'p2', sort_order: 5 },
+			{ parent_id: null, sort_order: 2 }
+		]);
+		await expect(port.move('gone', null)).rejects.toMatchObject({ status: 404 });
+	});
+	it('answers a parent Group deleted elsewhere as a 400 that says so', async () => {
+		const { client, state } = personnelProvider({
+			groups: [{ id: 's1', name: '1st Squad', sort_order: 0, organization_id: 'org-a' }]
+		});
+		state.failure = (request) =>
+			request.method === 'GET'
+				? null
+				: { code: '23503', message: 'Parent Group not found', details: null, status: 409 };
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		const parentGone = { name: 'RequestFailure', status: 400, message: 'The parent Group is no longer available. Choose another.' };
+		await expect(port.create({ name: 'Alpha Team', parentId: 'deleted' })).rejects.toMatchObject(parentGone);
+		await expect(port.move('s1', 'deleted')).rejects.toMatchObject(parentGone);
+		const command = groupRpc(() =>
+			Response.json(
+				{
+					code: '23503',
+					message: 'insert or update on table "groups" violates foreign key constraint "groups_parent_fkey"',
+					details: null,
+					hint: null
+				},
+				{ status: 409 }
+			)
+		);
+		await expect(command.port.setOrder(['alpha'], ['alpha'])).rejects.toMatchObject(parentGone);
+	});
+	it('counts the active People directly in each visible Group', async () => {
+		const { client } = personnelProvider({
+			personnel: [
+				{ id: 'a', organization_id: 'org-a', group_id: 'squad', archived_at: null },
+				{ id: 'b', organization_id: 'org-a', group_id: 'squad', archived_at: null },
+				{ id: 'c', organization_id: 'org-a', group_id: 'team', archived_at: null },
+				{ id: 'd', organization_id: 'org-a', group_id: 'team', archived_at: '2026-10-01T00:00:00Z' },
+				{ id: 'e', organization_id: 'org-a', group_id: null, archived_at: null },
+				{ id: 'f', organization_id: 'org-a', group_id: 'other', archived_at: null },
+				{ id: 'g', organization_id: 'org-b', group_id: 'squad', archived_at: null }
+			]
+		});
+		const everyone = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		expect(await everyone.countActiveMembers()).toEqual(
+			new Map([
+				['squad', 2],
+				['team', 1],
+				['other', 1]
+			])
+		);
+		const scoped = createSupabaseGroupPersistence(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: ['squad', 'team'] })
+		);
+		expect(await scoped.countActiveMembers()).toEqual(
+			new Map([
+				['squad', 2],
+				['team', 1]
+			])
+		);
+	});
 });
 
 function groupRpc(reply: () => Response | Promise<Response>) {

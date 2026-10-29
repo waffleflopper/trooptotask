@@ -76,6 +76,7 @@ export const GROUP_NAME_EXISTS_MESSAGE = 'A Group with that name already exists.
 export const GROUP_UNAVAILABLE_MESSAGE = 'That Group is no longer available.';
 export const GROUP_ORDER_CHANGED_MESSAGE = 'The Group order changed somewhere else. The list shows the saved order.';
 export const GROUP_CHANGE_UNCONFIRMED_MESSAGE = "We couldn't confirm the Group change. Reload to see what saved.";
+export const GROUP_PARENT_GONE_MESSAGE = 'The parent Group is no longer available. Choose another.';
 export const PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE = 'First name is required';
 
 export type { Group } from './group.types';
@@ -155,6 +156,10 @@ export interface GroupPersistence {
 	rename(id: string, name: string): Promise<Group>;
 	/** Compares and replaces one sibling set's order; fails 409 when it differs from `expectedIds`. */
 	setOrder(ids: readonly string[], expectedIds: readonly string[], parentId?: string | null): Promise<void>;
+	/** Puts the Group last under `parentId` (null is the top level); its sub-groups move with it. Fails 404 when it is gone. */
+	move(id: string, parentId: string | null): Promise<Group>;
+	/** Active People directly in each Group the reader can see, keyed by Group id. */
+	countActiveMembers(): Promise<Map<string, number>>;
 	/**
 	 * Moves every subtree member to `targetId` (null is Unassigned), deletes the subtree and its pins in one transaction,
 	 * and resolves how many People moved. Fails 404 when either Group is gone.

@@ -16,7 +16,7 @@ import {
 interface GroupWriteContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	groups: Pick<GroupPersistence, 'listCatalog' | 'create' | 'rename' | 'setOrder' | 'deleteWithReassignment'>;
+	groups: Pick<GroupPersistence, 'listCatalog' | 'create' | 'rename' | 'move' | 'setOrder' | 'deleteWithReassignment'>;
 }
 const groupName = z
 	.string()
@@ -30,6 +30,7 @@ const createInput = z.object({
 	parentId: uuidSchema.nullable().optional()
 });
 const renameInput = z.object({ id: uuidSchema, name: groupName });
+const moveInput = z.object({ id: uuidSchema, parentId: uuidSchema.nullable() });
 const orderInput = z.object({
 	groupIds: z.array(uuidSchema).max(1000),
 	expectedGroupIds: z.array(uuidSchema).max(1000),
@@ -65,6 +66,15 @@ export async function renameGroup(ctx: GroupWriteContext, input: Record<string, 
 	await requireGroupManager(ctx, id);
 	const row = await ctx.groups.rename(id, name);
 	await ctx.audit.log({ action: 'group.updated', resourceType: 'group', resourceId: id });
+	return row;
+}
+
+export async function moveGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
+	const { id, parentId } = validatedInput(moveInput, input);
+	if (parentId === id) throw error(400, 'A Group cannot move under one of its own sub-groups.');
+	await requireGroupManager(ctx, id);
+	const row = await ctx.groups.move(id, parentId);
+	await ctx.audit.log({ action: 'group.moved', resourceType: 'group', resourceId: id, details: { parentId } });
 	return row;
 }
 

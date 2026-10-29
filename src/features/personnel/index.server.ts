@@ -35,6 +35,7 @@ export {
 	createGroup,
 	readGroupEditorCatalog,
 	renameGroup,
+	moveGroup,
 	setGroupOrder,
 	deleteGroup,
 	moveGroupMembers,

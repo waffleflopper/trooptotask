@@ -55,7 +55,7 @@
 		onClose
 	}: Props = $props();
 
-	let selectedId = $state<string>(untrack(() => initialSelection ?? groups[0]?.id ?? UNASSIGNED));
+	let selectedId = $state<string>(untrack(() => initialSelection ?? buildGroupTree(groups).roots[0]?.id ?? UNASSIGNED));
 	let checked = $state<string[]>([]);
 	let pending = $state<Control | null>(null);
 	let requestVersion = 0;

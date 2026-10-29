@@ -9,6 +9,7 @@ export { RosterSignals } from './rosterSignals.svelte';
 export { GroupFocusState } from './groupFocusState.svelte';
 export { default as GroupFocusControl } from './components/GroupFocusControl.svelte';
 export { default as GroupFocusUnavailable } from './components/GroupFocusUnavailable.svelte';
+export { default as GroupStructureEditor } from './components/GroupStructureEditor.svelte';
 
 export type { RequestPersonnelArchiveApproval } from './utils/archivePersonnel';
 export { acknowledgeAwardTracking } from './utils/awardTracking';

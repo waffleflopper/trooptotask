@@ -53,6 +53,8 @@
 		pageLabels?: PageLabels;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
+		/** A group whose header stays in view under the column header while its rows scroll, until the next one replaces it. */
+		stickyGroup?: (key: string) => boolean;
 		toolbar?: DataTableStateSnippet<T>;
 		footer?: DataTableStateSnippet<T>;
 	};
@@ -83,6 +85,7 @@
 		pageLabels,
 		headerCell,
 		groupHeader,
+		stickyGroup,
 		toolbar,
 		footer
 	}: Props = $props();
@@ -192,17 +195,25 @@
 			<Table.Body>
 				{#each table.groups as group (group.key)}
 					{@const shownCount = rowHidden ? group.rows.filter((row) => !rowHidden(row)).length : group.rows.length}
+					{@const sticky = stickyGroup?.(group.key) ?? false}
 					<Table.Row
 						data-slot="data-table-group-row"
 						hidden={group.rows.length > 0 && shownCount === 0}
-						class="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						class={cn(
+							'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+							sticky && 'sticky top-10 z-[5]'
+						)}
 						tabindex={0}
 						aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
 						aria-expanded={!group.collapsed}
 						onclick={(event) => handleGroupRowClick(event, group.key)}
 						onkeydown={(event) => handleGroupRowKeydown(event, group.key)}
 					>
-						<Table.Cell colspan={cols.length} class="bg-muted/45 p-0">
+						<!-- A sticky header covers the rows scrolling under it, so its tint is mixed opaque. -->
+						<Table.Cell
+							colspan={cols.length}
+							class={cn('p-0', sticky ? 'bg-[color-mix(in_oklab,var(--muted)_45%,var(--card))]' : 'bg-muted/45')}
+						>
 							{#if groupHeader}
 								<div class="flex items-center gap-2 px-3 py-2">
 									{@render groupHeader({

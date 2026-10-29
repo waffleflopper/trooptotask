@@ -743,19 +743,14 @@
 					<Button onclick={showAlphabetical}>Use A-Z View</Button>
 				</div>
 			{:else}
-				<!-- In a nested tree each top band sticks under the 40 px column header until the next one replaces it, so it
-				     needs an opaque fill. -->
 				<div
-					class={[
-						"flex min-h-0 min-w-0 flex-1 [&_[data-slot='data-table']]:min-h-0 [&_[data-slot='data-table']]:w-full [&_[data-slot='data-table']]:flex-1",
-						nestedTree &&
-							"[&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:sticky [&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:top-10 [&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:z-[5] [&_[data-slot='data-table-group-row']:has([data-band-level='0'])>td]:bg-[color-mix(in_oklab,var(--muted)_45%,var(--card))]"
-					]}
+					class="flex min-h-0 min-w-0 flex-1 [&_[data-slot='data-table']]:min-h-0 [&_[data-slot='data-table']]:w-full [&_[data-slot='data-table']]:flex-1"
 				>
 					<DataTable.DataTable
 						table={activeTable}
 						columns={viewMode === 'by-group' ? groupedColumns : personnelColumns}
 						ariaLabel="Personnel roster"
+						stickyGroup={nestedTree ? (key) => sectionByKey.get(key)?.level === 0 : undefined}
 						emptyMessage={rosterFilter
 							? 'No personnel match this filter.'
 							: rosterSearch.trim()

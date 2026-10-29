@@ -9,10 +9,10 @@ long-range views.
 - `calendar-month`: move with `Today`, `Previous month`, the month picker on the title and `Next month`; the same
   controls drive the Duty planner's month.
 - `calendar-range`: switch between `Month` and `3-Month` with `Calendar view` in the title row.
-- `calendar-toolbar`: as the page narrows, `Duty planner`, `Reports`, `Display` and the group filter fold into
-  `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings` and the exports always live in
-  More, after any folded controls.
-- `calendar-filter`: narrow the grid with the group filter or searchbox.
+- `calendar-toolbar`: as the page narrows, `Duty planner`, `Reports` and `Display` fold into `More Calendar controls` in
+  that order while `Bulk Status` stays on the row; `Settings` and the exports always live in More, after any folded
+  controls. The `Group:` focus control sits before the toolbar and never folds.
+- `calendar-filter`: narrow the grid with the [Group focus](group-focus.md) or the searchbox.
 - `calendar-saved-range`: the fixed September statuses and closure render in month and long range, and the historical
   March status remains reachable.
 - `calendar-picker-keyboard`: ArrowLeft changes focused month and Escape dismisses the picker.
@@ -29,7 +29,7 @@ long-range views.
   order; Enter and Space activate them.
 - `calendar-grid-groups`: a group collapses and expands, a collapsed group shows how many of its People are out each
   day, and a pin moves the group first and survives reload. Unpinned bands follow the Organization's Group order, not
-  the alphabet.
+  the alphabet. Nested Groups draw as indented sub-bands; [Group focus](group-focus.md) owns that journey.
 - `calendar-grid-affordances`: a view-only member's day cells, date headers and Person names open no editor, and a
   status bar opens a popover with no actions.
 - `calendar-grid-states`: the empty roster and the in-page Access Restricted state fit both widths.
@@ -56,12 +56,13 @@ heading level 1, e.g. `October 2026`), then `Previous month`, `Next month` and `
 planner's header (title `Duty planner`) carries `Today`, then a group of `Previous month`, the month/year button and
 `Next month`, then `Back to calendar`, from the same shared component with only the month view. In `3-Month` the title
 names the quarter and the arrows are `Previous 3 months` and `Next 3 months`. The `Calendar controls` toolbar below it
-holds `Calendar group filter`, the personnel searchbox, `Duty planner` (assignment managers), `Reports`, `Display`,
-`More Calendar controls` and the pinned `Bulk Status` menu. `Display` holds `Show Onboarding` (when onboarding People
-exist), `Show Status Text` and `Show Personnel Roles` as checkboxes that keep the menu open. `More Calendar controls`
-always holds `Settings` (configure access), `Export to Excel` and `Print / PDF`; the exports cover the shown quarter in
-`3-Month`. The legend under the grid lists statuses; in `Month` it adds `Duty (codes)` for Person duties and, for people
-who can add availability, `Drag across days to add`. A narrow page moves more controls into More; see
+follows the `Group: <label> <count>` focus control and holds the personnel searchbox, `Duty planner` (assignment
+managers), `Reports`, `Display`, `More Calendar controls` and the pinned `Bulk Status` menu. `Display` holds
+`Show Onboarding` (when onboarding People exist), `Show Status Text` and `Show Personnel Roles` as checkboxes that keep
+the menu open. `More Calendar controls` always holds `Settings` (configure access), `Export to Excel` and `Print / PDF`;
+the exports cover the shown quarter in `3-Month`. The legend under the grid lists statuses; in `Month` it adds
+`Duty (codes)` for Person duties and, for people who can add availability, `Drag across days to add`. A narrow page
+moves more controls into More; see
 [Find a toolbar control on the row or in More](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more).
 
 ## Helper controls
@@ -101,10 +102,11 @@ filters and request controls between cases.
    length when it fits (Able's three-day Leave reads `VER · 3D`), overlapping entries in the screen's lanes, and Person
    duty codes on the Month PDF. Each page repeats the heading, carries a legend of the printed statuses, duties and
    closures, and ends with `Page N of M`. The workbook keeps per-day cells.
-4. Open `Calendar group filter` and select `Alpha`; confirm Able remains while Baker is absent. Clear the filter and
-   confirm both groups return. Fill the searchbox with `Able`, confirm Baker is absent, then focus it and press
-   `Control+A` followed by `Backspace` with `tool press_key`. Confirm all groups return; an empty native `fill` can
-   leave the previous filter applied.
+4. Open `Group: Whole unit 3` and pick `Alpha 1`: the address gains `?group=<groupA>`, the eyebrow reads
+   `Calendar · Verification Organization A · Alpha · 1 personnel`, and Able remains while Baker is absent. Pick
+   `Whole unit 3` and confirm both groups return and `?group=` is gone. Fill the searchbox with `Able`, confirm Baker is
+   absent, then focus it and press `Control+A` followed by `Backspace` with `tool press_key`. Confirm all groups return;
+   an empty native `fill` can leave the previous filter applied.
 5. With the filter clear, click the month/year label, choose September 2026, and capture the named Able, Baker and
    Unassigned rows and `Verification Unit Closure` (a `Days` lane segment under the date headers, with a tint and the
    closure name as the title of its date header). Able's `Verification Leave` bar covers September 14–16 and Baker's
@@ -197,8 +199,8 @@ filters and request controls between cases.
       revision sees the same shape. After `launch`, `doctor` and the seed, run
       `node .agents/skills/verify-trooptotask/helpers/calendar-interaction-bench.mjs run --worker N --label A --out DIR`.
       It signs in as `calendarOperate`, sets 1440x900 light, reloads, refuses a dev server or a roster under 500, and
-      then runs 2 warm-ups plus 9 measured repetitions of each interaction: search keystroke and clear, group filter
-      (Bravo, then All), Next and Prev inside the loaded range, Next and Prev past it (each repetition one month
+      then runs 2 warm-ups plus 9 measured repetitions of each interaction: search keystroke and clear, Group focus
+      (Bravo, then Whole unit), Next and Prev inside the loaded range, Next and Prev past it (each repetition one month
       further, so each makes a `calendar-range` request), Month to 3-Month and back, the availability modal opened from
       a day cell, and the first status bar's popover (`popover`, which fails with `no availability bar on this revision`
       before bars; a repetition counts only when that bar reports `aria-expanded="true"` and a popover it newly opened
@@ -267,9 +269,9 @@ filters and request controls between cases.
 
 - Sweep `Calendar controls` as `calendarOperate` or `calendarConfigure`. `calendarView` has no `duty-planner` or
   `bulk-status`, so the sweep fails its start check at any `--from`. Use
-  `$V toolbar-sweep PAGE "Calendar controls" RUN_DIR --expect duty-planner,calendar-reports,calendar-display,group --pinned bulk-status --search --more-always --step 4`.
-  At 900 high, Duty planner folds at about 1072, Reports at about 944, Display at about 844 and the group filter at
-  about 468.
+  `$V toolbar-sweep PAGE "Calendar controls" RUN_DIR --expect duty-planner,calendar-reports,calendar-display --pinned bulk-status --search --more-always --step 4`.
+  At 900 high, Duty planner folds at about 1364, Reports at about 1236, Display at about 1136 and `Events & Taskings`
+  last at about 1016; the `Group:` focus control sits outside the swept toolbar.
 - The shared navigation steps from the first day of the displayed month, so a day-31 anchor (March 31) goes to February
   1 and April 1; that case lives in `CalendarPeriodNavigation.test.ts`, because the Calendar store opens on the first of
   the anchor cookie's month, so no live route displays a day-31 anchor.
@@ -279,9 +281,6 @@ filters and request controls between cases.
 - Month day cells are named `RANK Last, First, Weekday, Month D, YYYY` and long-range day numbers by their full date, so
   a cell can be found by name in a snapshot. Use named toolbar controls for navigation and the latest snapshot for any
   cell interaction.
-- If the Group select's options are absent from the accessibility snapshot, open the named filter and use native
-  `press_key` with `ArrowDown`/`ArrowUp` and `Enter`. Confirm the selected label and resulting Person rows after it
-  settles; a DOM `.click()` on its custom option does not reliably select it.
 - Use `$V fixture` for the fixed dates and today's local date; a current-month screenshot does not establish the
   September or March records.
 - Arm the range failure before requesting an uncovered range. A cached range may not call the endpoint, so record

@@ -16,9 +16,11 @@ person's record.
   strength bar with `N of M present`, an attention count and a `⋯` menu, all operable by pointer and keyboard; a pin
   persists for the member and a collapse lasts for the page visit. Groups run pinned first, then the Organization's
   Group order, then Unassigned. The Group column is absent in this view. Only Organization-wide readers get the pin
-  toggle and the menu's `Pin`; a Group-scoped reader gets neither.
-- `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state (only
-  `?show=`).
+  toggle and the menu's `Pin`; a Group-scoped reader gets neither. Nested Groups draw as slimmer indented bands inside
+  their parent, with pins on top-level bands only; the [Group focus recipe](group-focus.md) owns nesting and the
+  `Group:` focus control.
+- `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state
+  (`?show=`, and `?group=` from [Group focus](group-focus.md)).
 - `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
   keyboard and actions, and the signals lane's loading and failure states.
 - `roster-quick-edit`: a row's pencil or E opens that Person's fields in place under the row; one row edits at a time, a
@@ -101,13 +103,14 @@ scoped actors retain their baseline grants.
    `Selected people` action but `Clear selection` disable until release. Loading: Personnel loads in the Organization
    layout before the page renders, and no control holds that load, so record UNAVAILABLE with the attempted route unless
    a skeleton is observed on navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL
-   unchanged (only a filter writes `?show=`, step 17), and that choosing a row opens `/org/<org>/personnel/<slug>`.
-   Capture 1280 light and 390 dark, including the `Personnel controls` toolbar at 390: one row with the search field,
-   `More Personnel controls` and `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`,
-   `Manage Groups` and the `A-Z`/`Group` view fold into More in that order (at about 910 and 862px; below 768 the
-   sidebar collapses and they return, then fold again at about 656 and 584, with Import back between about 632 and 638
-   where the page gutter narrows, and the view folds at about 451px), so at 390 choose them from More. Archiving many
-   People is the `Selected people` bar's `Archive…` (step 19).
+   unchanged (only a filter writes `?show=`, step 17, and the Group focus `?group=`), and that choosing a row opens
+   `/org/<org>/personnel/<slug>`. Capture 1280 light and 390 dark, including the `Personnel controls` toolbar at 390:
+   the `Group:` focus trigger fills its own row, then one row with the search field, `More Personnel controls` and
+   `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`, `Manage Groups` and the
+   `A-Z`/`Group` view fold into More in that order at about 1100, 1052 and 920px and stay folded down to 390
+   (`$V toolbar-sweep PAGE "Personnel controls" RUN_DIR --expect import,manage-groups,roster-view --pinned add-person --search --step 4`
+   as `orgOwner`), so at 390 choose them from More. Archiving many People is the `Selected people` bar's `Archive…`
+   (step 19).
 10. **Opening a record for operators.** A row opens its record, shows the chevron and `Note for <name>`, and is named
     `Open <name>` only to an actor who holds Personnel sensitive-record reading unscoped and record access to that row.
     As `personnelOperate`, `personnelScopedOperate` (Operator in Alpha) or `perfScoped` on its large workload each row

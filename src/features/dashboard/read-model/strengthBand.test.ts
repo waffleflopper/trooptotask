@@ -443,7 +443,11 @@ describe('by group', () => {
 
 		expect(result.groups.sets).toHaveLength(7);
 		expect(result.groups.shown).toBe(5);
-		expect(groupRows(result).slice(0, 2).map((row) => row.name)).toEqual(['G1', 'G3']);
+		expect(
+			groupRows(result)
+				.slice(0, 2)
+				.map((row) => row.name)
+		).toEqual(['G1', 'G3']);
 	});
 });
 

@@ -5,7 +5,14 @@ import {
 	type SpecialDay,
 	type StatusType
 } from '$features/calendar/contracts';
-import { buildGroupTree, groupRows, hasSubGroups, type Group, type GroupRow, type Personnel } from '$features/personnel/contracts';
+import {
+	buildGroupTree,
+	groupRows,
+	hasSubGroups,
+	type Group,
+	type GroupRow,
+	type Personnel
+} from '$features/personnel/contracts';
 import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
 import { formatDayMonth } from '$lib/utils/dates';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';

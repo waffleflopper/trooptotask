@@ -61,7 +61,7 @@ it.each([
 	[
 		'a bare name two squads share, asking for the path',
 		'Alpha Team',
-		{ many: ['1st Platoon / 1st Squad / Alpha Team', '2nd Platoon / 1st Squad / Alpha Team'] }
+		{ many: ['1st Platoon › 1st Squad › Alpha Team', '2nd Platoon › 1st Squad › Alpha Team'] }
 	]
 ])('matches %s', (_case, value, expected) => {
 	expect(matchGroup(tree, value)).toEqual(expected);
@@ -89,7 +89,7 @@ it('creates a missing path one level at a time, reusing the levels that exist', 
 
 	expect(await reference.create!('1st Platoon / 2nd Squad / Bravo Team')).toMatchObject({
 		kind: 'created',
-		option: { id: 'new-Bravo Team', label: '1st Platoon / 2nd Squad / Bravo Team' }
+		option: { id: 'new-Bravo Team', label: '2nd Squad › Bravo Team' }
 	});
 	expect(await reference.create!('1st Platoon / 1st Squad / Alpha Team')).toMatchObject({
 		kind: 'created',
@@ -159,12 +159,12 @@ it('creates below the longest existing export path, preserving a legacy parent n
 
 	expect(await reference.create!('Clinic / Lab / Alpha Team')).toMatchObject({
 		kind: 'created',
-		option: { id: 'saved-Alpha Team', label: 'Clinic / Lab / Alpha Team' }
+		option: { id: 'saved-Alpha Team', label: 'Alpha Team' }
 	});
 	expect(sent).toEqual([{ name: 'Alpha Team', parentId: 'legacy', depth: 2, sortOrder: 0 }]);
 });
 
-it('offers every colliding legacy descendant export path as ambiguous', () => {
+it('offers every colliding legacy descendant export path as ambiguous, with choices a reader can tell apart', () => {
 	const groups: Group[] = [
 		...tree,
 		{ id: 'legacy-team', name: 'Alpha Team', parentId: 'legacy', depth: 2, sortOrder: 0 },
@@ -174,8 +174,8 @@ it('offers every colliding legacy descendant export path as ambiguous', () => {
 	expect(reference.find('Clinic / Lab / Alpha Team')).toMatchObject({
 		kind: 'many',
 		candidates: [
-			{ id: 'legacy-team', label: 'Clinic / Lab / Alpha Team' },
-			{ id: 'other-team', label: 'Clinic / Lab / Alpha Team' }
+			{ id: 'legacy-team', label: 'Clinic / Lab › Alpha Team' },
+			{ id: 'other-team', label: 'Clinic › Lab › Alpha Team' }
 		]
 	});
 });

@@ -213,6 +213,18 @@ describe('settings member access workspace', () => {
 		expect(workspace.changeCount).toBe(1);
 	});
 
+	it('opens a stored scope as its roots without counting the cleanup as a change', () => {
+		const stale = member('s', 's@example.com', 'member', {
+			scopeSet: { kind: 'groups', groupIds: ['g-2-sq-a', 'g-deleted', 'g-2-sq'] }
+		});
+		const workspace = makeWorkspace({ members: [stale] });
+
+		workspace.open(stale);
+
+		expect(workspace.draft?.scope).toEqual({ kind: 'groups', groupIds: ['g-2-sq'] });
+		expect(workspace.changeCount).toBe(0);
+	});
+
 	it('treats Whole unit and the group picks in the invite select as exclusive', () => {
 		const workspace = makeWorkspace();
 		expect(workspace.inviteGroupsValue).toEqual([ALL_GROUPS]);

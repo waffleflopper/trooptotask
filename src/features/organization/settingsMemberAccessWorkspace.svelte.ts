@@ -98,8 +98,15 @@ function editablePreset(memberPreset: MemberPreset): StoredMemberPreset {
 	return memberPreset === 'custom' ? 'editor' : memberPreset;
 }
 
-/** A lane whose feature is off shows the level on file, which differs from the projection for an Admin. */
-function savedDraft(member: SettingsMemberRow, offLanes: readonly DurableFeatureLane[]): MemberAccessDraft {
+/**
+ * A lane whose feature is off shows the level on file, which differs from the projection for an Admin. A stored scope
+ * reads as its roots, so a covered sub-group or a deleted Group left in it is not a change to save.
+ */
+function savedDraft(
+	member: SettingsMemberRow,
+	offLanes: readonly DurableFeatureLane[],
+	tree: ScopeTree
+): MemberAccessDraft {
 	return {
 		memberId: member.id,
 		role: member.membershipRole === 'admin' ? 'admin' : 'member',
@@ -112,7 +119,7 @@ function savedDraft(member: SettingsMemberRow, offLanes: readonly DurableFeature
 		) as CapabilityMap,
 		scope:
 			member.access.scopeSet.kind === 'groups'
-				? { kind: 'groups', groupIds: [...member.access.scopeSet.groupIds] }
+				? { kind: 'groups', groupIds: tree.canonical(member.access.scopeSet.groupIds) }
 				: { kind: 'organization' }
 	};
 }
@@ -174,8 +181,7 @@ export class SettingsMemberAccessWorkspace {
 
 	open(member: SettingsMemberRow): void {
 		if (member.membershipRole === 'owner') return;
-		this.draft = savedDraft(member, this.#data.offLanes);
-		if (this.draft.scope.kind === 'groups') this.setScopeGroups(this.draft.scope.groupIds);
+		this.draft = savedDraft(member, this.#data.offLanes, this.#tree);
 	}
 
 	close(): void {
@@ -190,7 +196,7 @@ export class SettingsMemberAccessWorkspace {
 	setPreset(preset: EditablePreset): void {
 		const member = this.editingMember;
 		if (!this.draft || !member) return;
-		const saved = savedDraft(member, this.#data.offLanes);
+		const saved = savedDraft(member, this.#data.offLanes, this.#tree);
 		const levels = preset === saved.preset ? saved.levels : TARGET_MEMBER_PRESET_CAPABILITIES[preset];
 		this.draft.preset = preset;
 		this.draft.levels = Object.fromEntries(
@@ -232,7 +238,7 @@ export class SettingsMemberAccessWorkspace {
 		const member = this.editingMember;
 		const draft = this.draft;
 		if (!draft || !member) return 0;
-		const saved = savedDraft(member, this.#data.offLanes);
+		const saved = savedDraft(member, this.#data.offLanes, this.#tree);
 		const next = draft.role === 'admin' ? adminDraft(draft.memberId) : draft;
 		return [
 			next.role !== saved.role,

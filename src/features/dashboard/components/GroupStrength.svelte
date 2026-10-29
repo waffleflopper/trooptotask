@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { Button } from '$lib/components/ui/button';
+	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import type { GroupStrength, GroupStrengthRow } from '../read-model/strengthBand';
 
 	let { groups, mode }: { groups: GroupStrength; mode: 'people' | 'counts' } = $props();
@@ -7,9 +9,21 @@
 	const uid = $props.id();
 	let showAll = $state(false);
 
-	const total = $derived(groups.rows.length);
+	const total = $derived(groups.sets.length);
 	const folded = $derived(groups.shown < total);
-	const visible = $derived(showAll ? groups.rows : groups.rows.slice(0, groups.shown));
+	const nested = $derived(groups.sets.some((set) => set.below.length > 0));
+	const visible = $derived(
+		(showAll ? groups.sets : groups.sets.slice(0, groups.shown)).flatMap((set) => [set.top, ...set.below])
+	);
+	const displayItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'action',
+			id: 'group-strength-display',
+			label: 'Display',
+			icon: 'sliders',
+			menuItems: [showSubGroupsToggle()]
+		}
+	]);
 	const eyebrow = $derived(
 		folded && !showAll ? `By group · lowest ${groups.shown} of ${total}` : `By group · all ${total} · lowest first`
 	);
@@ -27,7 +41,21 @@
 
 {#if total > 0}
 	<div class="grid gap-2.5">
-		{#if mode === 'people'}
+		{#if mode === 'counts' || nested || groups.hasSubGroups}
+			<div class="flex min-h-8 items-center justify-between gap-2">
+				{#if mode === 'counts' || nested}
+					<h3 class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+						{eyebrow}
+					</h3>
+				{/if}
+				{#if groups.hasSubGroups}
+					<div class="ml-auto">
+						<WorkspaceToolbar ariaLabel="Group strength display" bare items={displayItems} />
+					</div>
+				{/if}
+			</div>
+		{/if}
+		{#if mode === 'people' && !nested}
 			<ul
 				id="{uid}-groups"
 				class="flex flex-wrap gap-y-2 border-t border-border pt-3.5"
@@ -41,12 +69,16 @@
 				{/each}
 			</ul>
 		{:else}
-			<h3 class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{eyebrow}</h3>
 			<ul id="{uid}-groups" class="border-t border-foreground" aria-label="Available by group">
 				{#each visible as row (row.id)}
-					<li class="flex h-[38px] items-center gap-3.5 border-b border-border">
-						<span class="w-[110px] shrink-0 truncate font-heading text-base leading-5 font-bold uppercase"
-							>{row.name}</span
+					<li class="flex h-[38px] items-center gap-3.5 border-b border-border" data-band-level={row.level}>
+						<span
+							class={[
+								'shrink-0 truncate font-heading leading-5 uppercase',
+								nested ? 'w-[150px]' : 'w-[110px]',
+								row.level === 0 || row.subtotal ? 'text-base font-bold' : 'text-sm font-semibold'
+							]}
+							style:padding-left="{row.level}rem">{row.name}</span
 						>
 						<span class="h-2 flex-1 bg-border" aria-hidden="true">
 							<span

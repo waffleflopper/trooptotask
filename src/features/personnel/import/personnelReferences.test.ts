@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { groupCatalogHydration, groupManagementStore } from '../stores/groups.svelte';
 import { groupReference } from './personnelReferences';
+import type { Group } from '../group.types';
 
 vi.mock('$app/navigation', () => ({ invalidate: vi.fn(async () => {}) }));
 afterEach(() => vi.unstubAllGlobals());
@@ -102,4 +103,78 @@ it('creates a missing path one level at a time, reusing the levels that exist', 
 		{ name: '2nd Squad', sortOrder: 1, parentId: 'plt1', depth: 2 },
 		{ name: 'Bravo Team', sortOrder: 0, parentId: 'new-2nd Squad', depth: 3 }
 	]);
+});
+
+it('waits for the confirmed shared parent when missing paths are created together', async () => {
+	groupCatalogHydration.load([], 'org-1');
+	const parentReply = Promise.withResolvers<Response>();
+	const parentPosted = Promise.withResolvers<void>();
+	const sent: Array<{ name: string; parentId: string | null }> = [];
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async (_url, init) => {
+			const body = JSON.parse(init.body);
+			sent.push({ name: body.name, parentId: body.parentId });
+			if (body.name === 'New Platoon') {
+				parentPosted.resolve();
+				return parentReply.promise;
+			}
+			return Response.json({ ...body, id: `saved-${body.name}` });
+		})
+	);
+	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
+	const alpha = reference.create!('New Platoon / Alpha Team');
+	await parentPosted.promise;
+	const bravo = reference.create!('New Platoon / Bravo Team');
+	const sameAlpha = reference.create!('New Platoon / Alpha Team');
+	parentReply.resolve(
+		Response.json({ id: 'saved-platoon', name: 'New Platoon', parentId: null, depth: 1, sortOrder: 0 })
+	);
+
+	expect(await Promise.all([alpha, bravo, sameAlpha])).toMatchObject([
+		{ kind: 'created', option: { id: 'saved-Alpha Team' } },
+		{ kind: 'created', option: { id: 'saved-Bravo Team' } },
+		{ kind: 'created', option: { id: 'saved-Alpha Team' } }
+	]);
+	expect(sent).toEqual([
+		{ name: 'New Platoon', parentId: null },
+		{ name: 'Alpha Team', parentId: 'saved-platoon' },
+		{ name: 'Bravo Team', parentId: 'saved-platoon' }
+	]);
+});
+
+it('creates below the longest existing export path, preserving a legacy parent name', async () => {
+	groupCatalogHydration.load([{ id: 'legacy', name: 'Clinic / Lab', parentId: null, depth: 1, sortOrder: 0 }], 'org-1');
+	const sent: unknown[] = [];
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async (_url, init) => {
+			const body = JSON.parse(init.body);
+			sent.push(body);
+			return Response.json({ ...body, id: `saved-${body.name}` });
+		})
+	);
+	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
+
+	expect(await reference.create!('Clinic / Lab / Alpha Team')).toMatchObject({
+		kind: 'created',
+		option: { id: 'saved-Alpha Team', label: 'Clinic / Lab / Alpha Team' }
+	});
+	expect(sent).toEqual([{ name: 'Alpha Team', parentId: 'legacy', depth: 2, sortOrder: 0 }]);
+});
+
+it('offers every colliding legacy descendant export path as ambiguous', () => {
+	const groups: Group[] = [
+		...tree,
+		{ id: 'legacy-team', name: 'Alpha Team', parentId: 'legacy', depth: 2, sortOrder: 0 },
+		{ id: 'other-team', name: 'Alpha Team', parentId: 'clinic-lab', depth: 3, sortOrder: 0 }
+	];
+	const reference = groupReference(groups, { canCreate: false, allowUnassigned: false });
+	expect(reference.find('Clinic / Lab / Alpha Team')).toMatchObject({
+		kind: 'many',
+		candidates: [
+			{ id: 'legacy-team', label: 'Clinic / Lab / Alpha Team' },
+			{ id: 'other-team', label: 'Clinic / Lab / Alpha Team' }
+		]
+	});
 });

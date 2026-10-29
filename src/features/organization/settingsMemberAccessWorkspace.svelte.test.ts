@@ -115,6 +115,17 @@ describe('settings member access workspace', () => {
 		expect(workspace.changeCount).toBe(0);
 	});
 
+	it('opens stored scopes with only existing roots, even after a descendant moved under another grant', () => {
+		const scoped = member('scoped', 'scoped@example.com', 'member', {
+			scopeSet: { kind: 'groups', groupIds: ['deleted', 'g-2-sq-a', 'g-1', 'g-2-sq'] }
+		});
+		const workspace = makeWorkspace({ members: [scoped] });
+
+		workspace.open(scoped);
+
+		expect(workspace.draft?.scope).toEqual({ kind: 'groups', groupIds: ['g-1', 'g-2-sq'] });
+	});
+
 	it('keeps the stored level on a lane the unit turned off and leaves it out of every count', () => {
 		const workspace = makeWorkspace({ offLanes: ['training'] });
 		workspace.open(operator);

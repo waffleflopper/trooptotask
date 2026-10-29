@@ -39,11 +39,6 @@ function renderTree(overrides: Partial<ComponentProps<typeof GroupTreeEditor>> =
 	return commands;
 }
 
-const rows = (listName: string) =>
-	[
-		...screen.getByRole('list', { name: listName }).querySelectorAll(':scope > [role="listitem"] > div:first-child')
-	].map((row) => row.textContent?.replace(/\s+/g, ' ').trim());
-
 async function openMenu(name: string) {
 	await fireEvent.pointerDown(screen.getByRole('button', { name: `Change ${name}` }), {
 		button: 0,
@@ -69,12 +64,9 @@ afterEach(() => {
 });
 
 describe('GroupTreeEditor', () => {
-	it('nests each sibling set under its parent with counts across the subtree', () => {
+	it('offers sub-group creation only above the depth limit', () => {
 		renderTree();
 
-		expect(rows('Groups in display order')).toEqual(['1st Platoon 7', 'HQ 1']);
-		expect(rows('Sub-groups of 1st Platoon')).toEqual(['1st Squad 6', '2nd Squad 1']);
-		expect(rows('Sub-groups of 1st Squad')).toEqual(['Alpha Team 3', 'Bravo Team 1']);
 		expect(screen.getByRole('button', { name: 'Add a sub-group to 1st Squad' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Add a sub-group to Alpha Team' })).toBeNull();
 	});

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildGroupTree } from './groupTree';
 import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { groupExportPath, resolveGroupPath } from './groupPath';
+import type { Group } from './group.types';
 
 it.each([
 	['platoon', '1st Platoon'],
@@ -27,6 +28,26 @@ it('preserves a legacy whole name containing the path separator', () => {
 });
 
 describe('resolveGroupPath', () => {
+	it('matches descendants of legacy names by their full export path and reports collisions', () => {
+		const legacy: Group[] = [
+			{ id: 'legacy', name: 'Clinic / Lab', sortOrder: 0, parentId: null, depth: 1 },
+			{ id: 'legacy-team', name: 'Alpha Team', sortOrder: 0, parentId: 'legacy', depth: 2 }
+		];
+		expect(resolveGroupPath(buildGroupTree(legacy), 'Clinic / Lab / Alpha Team')).toEqual({
+			kind: 'found',
+			id: 'legacy-team'
+		});
+		const collision: Group[] = [
+			...legacy,
+			{ id: 'clinic', name: 'Clinic', sortOrder: 1, parentId: null, depth: 1 },
+			{ id: 'lab', name: 'Lab', sortOrder: 0, parentId: 'clinic', depth: 2 },
+			{ id: 'other-team', name: 'Alpha Team', sortOrder: 0, parentId: 'lab', depth: 3 }
+		];
+		expect(resolveGroupPath(buildGroupTree(collision), 'Clinic / Lab / Alpha Team')).toEqual({
+			kind: 'ambiguous',
+			ids: ['legacy-team', 'other-team']
+		});
+	});
 	const twoAlphas = [
 		...NESTED_GROUPS,
 		{ id: 'other-alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'other-squad', depth: 3 as const }

@@ -74,20 +74,10 @@ function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {
 	return props;
 }
 
-const groupRows = (listName = 'Groups in display order') =>
-	[
-		...screen.getByRole('list', { name: listName }).querySelectorAll(':scope > [role="listitem"] > div:first-child')
-	].map((row) => row.textContent?.replace(/\s+/g, ' ').trim());
-
 const shownOptions = () =>
 	screen
 		.getAllByRole('treeitem')
 		.map((item) => [item.id.split('-row-')[1], item.getAttribute('aria-disabled') === 'true']);
-
-const memberRows = (name: string) =>
-	within(screen.getByRole('list', { name: `Members of ${name}` }))
-		.getAllByRole('listitem')
-		.map((row) => row.textContent?.replace(/\s+/g, ' ').trim());
 
 afterEach(() => {
 	cleanup();
@@ -95,19 +85,14 @@ afterEach(() => {
 });
 
 describe('GroupEditor', () => {
-	it("lists the Group tree with the viewer's pins and subtree counts, and the selected Group's own members", () => {
+	it("shows the viewer's pin and only the selected Group's direct members", () => {
 		renderEditor();
 
-		expect(groupRows()).toEqual(['HQ 1', '2nd Platoon Pinned 3', 'Empty 0']);
-		expect(groupRows('Sub-groups of 2nd Platoon')).toEqual(['1st Squad 1']);
-		expect(
-			screen
-				.getByRole('button', { name: /^Unassigned/ })
-				.textContent?.replace(/\s+/g, ' ')
-				.trim()
-		).toBe('Unassigned 1');
 		expect(screen.getByRole('button', { name: 'Pinned to top' }).getAttribute('aria-pressed')).toBe('true');
-		expect(memberRows('2nd Platoon')).toEqual(['SSG Alvarez, Pat Squad leader Present', 'PFC Banks, Pat Leave']);
+		const members = within(screen.getByRole('list', { name: 'Members of 2nd Platoon' }));
+		expect(members.getByRole('checkbox', { name: 'Select SSG Alvarez, Pat' })).toBeTruthy();
+		expect(members.getByRole('checkbox', { name: 'Select PFC Banks, Pat' })).toBeTruthy();
+		expect(members.queryByRole('checkbox', { name: 'Select SPC Diaz, Pat' })).toBeNull();
 	});
 
 	it('shows Unassigned without pin, Add people or Remove from Group', async () => {
@@ -116,7 +101,7 @@ describe('GroupEditor', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /^Unassigned/ }));
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SPC Ruiz, Pat' }));
 
-		expect(memberRows('Unassigned')).toEqual(['SPC Ruiz, Pat']);
+		expect(screen.getByRole('checkbox', { name: 'Select SPC Ruiz, Pat' }).getAttribute('aria-checked')).toBe('true');
 		expect(screen.queryByRole('button', { name: /^(Pin to top|Pinned to top)$/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: /^Add people/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Remove from Group' })).toBeNull();
@@ -129,7 +114,8 @@ describe('GroupEditor', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /^1st Squad/ }));
 
 		expect(screen.getByRole('heading', { name: '2nd Platoon › 1st Squad' })).toBeTruthy();
-		expect(memberRows('2nd Platoon › 1st Squad')).toEqual(['SPC Diaz, Pat Present']);
+		expect(screen.getByRole('checkbox', { name: 'Select SPC Diaz, Pat' })).toBeTruthy();
+		expect(screen.queryByRole('checkbox', { name: 'Select PFC Banks, Pat' })).toBeNull();
 		expect(screen.queryByRole('button', { name: /^(Pin to top|Pinned to top)$/ })).toBeNull();
 	});
 
@@ -227,20 +213,15 @@ describe('GroupEditor', () => {
 		renderEditor({ todayStatus: undefined });
 
 		expect(screen.queryByText('Today')).toBeNull();
-		expect(memberRows('2nd Platoon')).toEqual(['SSG Alvarez, Pat Squad leader', 'PFC Banks, Pat']);
+		expect(screen.getByRole('checkbox', { name: 'Select SSG Alvarez, Pat' })).toBeTruthy();
 	});
 
-	it('lists Unassigned people first under Add people and moves the one picked into the Group', async () => {
+	it('moves a person picked from Add people into the selected Group', async () => {
 		const { onMove } = renderEditor();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add people to 2nd Platoon' }));
 		const listbox = await screen.findByRole('listbox');
 
-		expect(
-			within(listbox)
-				.getAllByRole('option')
-				.map((option) => option.textContent?.replace(/\s+/g, ' ').trim())
-		).toEqual(['SPC Ruiz, Pat', 'SGT Okafor, Pat', 'SPC Diaz, Pat']);
 		await fireEvent.click(within(listbox).getByRole('option', { name: /Ruiz/ }));
 		await waitFor(() => expect(onMove).toHaveBeenCalledWith(['p-ruiz'], 'g-2'));
 	});

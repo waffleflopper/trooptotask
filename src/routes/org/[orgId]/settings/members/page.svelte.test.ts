@@ -112,6 +112,7 @@ const closedInvite = {
 } as SettingsInvitationHistoryRow;
 
 type PageOptions = {
+	groups?: Array<{ id: string; name: string; parentId: string | null; memberCount: number }>;
 	isOwner?: boolean;
 	canInvite?: boolean;
 	invitations?: SettingsPendingInvitationRow[];
@@ -132,7 +133,7 @@ function pageData(options: PageOptions = {}) {
 					rows: options.rows ?? [owner, alpha],
 					invitations: options.invitations ?? [],
 					invitationHistory: options.history ?? Promise.resolve([]),
-					groups: [
+					groups: options.groups ?? [
 						{ id: 'g-1', name: 'HQ PLT', parentId: null, memberCount: 3 },
 						{ id: 'g-2', name: '1st PLT', parentId: null, memberCount: 2 }
 					],
@@ -664,6 +665,29 @@ describe('manage access sheet', () => {
 		expect(sent.get('capabilityOverride:calendar')).toBe('configure');
 		expect(sent.get('scopeSetKind')).toBe('groups');
 		expect(sent.getAll('scopeSetGroupIds')).toEqual(['g-1']);
+	});
+
+	it('submits existing canonical roots from stored scope without editing the picker', async () => {
+		const scoped = member('scoped', 'scoped@example.com', 'member', {
+			access: {
+				...alpha.access,
+				scopeSet: { kind: 'groups', groupIds: ['deleted', 'team', 'squad'] }
+			}
+		});
+		renderPage({
+			rows: [owner, scoped],
+			groups: [
+				{ id: 'squad', name: '1st Squad', parentId: null, memberCount: 0 },
+				{ id: 'team', name: 'Alpha Team', parentId: 'squad', memberCount: 2 }
+			]
+		});
+		const { sheet } = await openSheet('scoped');
+		await choose(sheet, 'Preset', 'Viewer');
+		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+
+		expect(submitted[0].get('memberPreset')).toBe('viewer');
+		expect(submitted[0].get('scopeSetKind')).toBe('groups');
+		expect(submitted[0].getAll('scopeSetGroupIds')).toEqual(['squad']);
 	});
 
 	it('shows the role as text to admins', async () => {

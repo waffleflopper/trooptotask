@@ -77,6 +77,8 @@
 		onQuickAdd?: (person: Personnel, startDate: string, endDate: string, anchor: HTMLElement) => void;
 		onResize?: (person: Personnel, entry: AvailabilityEntry, startDate: string, endDate: string) => void;
 		personnelHref?: string;
+		/** Off for a reader whose whole view is one Group with no sub-groups; the title row names it instead. */
+		showGroupHeaders?: boolean;
 	}
 
 	let {
@@ -110,7 +112,8 @@
 		saving = false,
 		onQuickAdd,
 		onResize,
-		personnelHref
+		personnelHref,
+		showGroupHeaders = true
 	}: Props = $props();
 
 	const collapsedGroups = new SvelteSet<string>();
@@ -187,14 +190,16 @@
 			const level = grp.level ?? 0;
 			if (level > collapsedLevel) continue;
 			collapsedLevel = Infinity;
-			rows.push({
-				type: 'group',
-				key: `group:${band}`,
-				band,
-				data: grp,
-				level,
-				height: GROUP_ROW_HEIGHTS[level] ?? GROUP_ROW_HEIGHTS.at(-1)!
-			});
+			if (showGroupHeaders) {
+				rows.push({
+					type: 'group',
+					key: `group:${band}`,
+					band,
+					data: grp,
+					level,
+					height: GROUP_ROW_HEIGHTS[level] ?? GROUP_ROW_HEIGHTS.at(-1)!
+				});
+			}
 
 			if (collapsedGroups.has(band)) {
 				collapsedLevel = level;

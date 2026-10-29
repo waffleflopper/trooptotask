@@ -812,7 +812,9 @@ describe('CalendarPageView', () => {
 			}));
 		};
 		const people = () =>
-			screen.queryAllByRole('button', { name: /^(Smith, Alice|Jones, Bob)/ }).map((b) => b.textContent);
+			screen
+				.queryAllByRole('button', { name: /(Smith, Alice|Jones, Bob)$/ })
+				.map((b) => b.getAttribute('aria-label') ?? b.textContent);
 		const bands = (container: HTMLElement) =>
 			[...container.querySelectorAll<HTMLElement>('[data-band-level]')].map((band) => [
 				band.dataset.bandLevel,
@@ -905,11 +907,11 @@ describe('CalendarPageView', () => {
 			).toEqual([expect.stringContaining('Alpha'), expect.stringContaining('Bravo')]);
 		});
 
-		it('gives a reader scoped to one Group a plain label and no pins', () => {
+		it('gives a reader scoped to one Group a plain label, no band header and no pins', () => {
 			mutableAvailabilityStore.loading = false;
 			catalog([{ id: 'g2', name: 'Bravo' }]);
 			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
-			render(CalendarPageView, {
+			const { container } = render(CalendarPageView, {
 				props: {
 					ctx: makeContext(data, makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g2'] } })),
 					data: { orgId: 'org1', orgName: 'Test Org' }
@@ -918,6 +920,8 @@ describe('CalendarPageView', () => {
 
 			expect(screen.queryByRole('button', { name: /^Group:/ })).toBeNull();
 			expect(screen.getByText('Bravo', { selector: 'p span' })).toBeTruthy();
+			expect(bands(container)).toEqual([]);
+			expect(people()).toEqual([expect.stringContaining('Jones, Bob')]);
 			expect(screen.queryByRole('button', { name: /^Pin/ })).toBeNull();
 		});
 	});

@@ -507,6 +507,7 @@
 						showPersonnelRoles={ctx.showPersonnelRoles}
 						upcomingLossMap={ctx.upcomingLossMap}
 						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
+						showGroupHeaders={!ctx.groupFocus.singleLeaf}
 						onCellClick={(person, date) => ctx.handleCellClick(person, date)}
 						onPersonClick={(person) => ctx.handlePersonClick(person)}
 						onPinToggle={ctx.canPinGroups ? (groupId) => ctx.handlePinToggle(groupId) : undefined}

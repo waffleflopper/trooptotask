@@ -11,8 +11,13 @@ import {
 	type GroupPersistence
 } from './contracts';
 import { visibleGroupIds } from './groupCatalog.server';
+const GROUP_DEPTH_MESSAGE = 'Groups can nest at most three levels deep.';
+function isDepthViolation(error: { code?: string; message: string }) {
+	return error.code === '23514' && error.message.includes('groups_path_shape');
+}
 function throwGroupWriteError(error: { code?: string; message: string }): never {
 	if (error.code === '22023') fail(400, 'Group names cannot contain " / ".');
+	if (isDepthViolation(error)) fail(400, GROUP_DEPTH_MESSAGE);
 	if (error.code === '23505' && error.message.includes('"groups_sibling_name_key"')) {
 		fail(409, GROUP_NAME_EXISTS_MESSAGE);
 	}
@@ -22,6 +27,7 @@ function throwGroupWriteError(error: { code?: string; message: string }): never 
 function throwGroupCommandError(error: { code?: string; message: string }): never {
 	if (error.code === '42501') fail(403, 'You do not have permission to manage Groups');
 	if (error.code === 'P0002') fail(404, GROUP_UNAVAILABLE_MESSAGE);
+	if (isDepthViolation(error)) fail(400, GROUP_DEPTH_MESSAGE);
 	if (error.code === '22023' || error.code === '22P02') fail(400, 'Invalid Group change');
 	if (['GRP01', '40P01', '40001', '55P03'].includes(error.code ?? '')) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
 	if (error.code === '23505') fail(409, GROUP_NAME_EXISTS_MESSAGE);

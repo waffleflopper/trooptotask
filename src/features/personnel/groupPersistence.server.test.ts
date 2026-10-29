@@ -116,6 +116,20 @@ describe('ordinary Group persistence', () => {
 		});
 		expect(state.rows.groups).toEqual([]);
 	});
+	it('returns a client error when a new Group would sit below the third level', async () => {
+		const { client, state } = personnelProvider();
+		state.failure = () => ({
+			code: '23514',
+			message: 'new row for relation "groups" violates check constraint "groups_path_shape"',
+			status: 400
+		});
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		await expect(port.create({ name: 'Fire team', parentId: 'team' })).rejects.toMatchObject({
+			name: 'RequestFailure',
+			status: 400
+		});
+		expect(state.rows.groups).toEqual([]);
+	});
 });
 
 function groupRpc(reply: () => Response | Promise<Response>) {
@@ -191,6 +205,21 @@ describe('Group editor commands', () => {
 			expect(failure).toMatchObject({ name: 'RequestFailure', status });
 			expect((failure as Error).message).not.toContain('synthetic database message');
 		}
+	});
+
+	it('answers a move below the third level as a 400', async () => {
+		const { port } = groupRpc(() =>
+			Response.json(
+				{
+					code: '23514',
+					message: 'new row for relation "groups" violates check constraint "groups_path_shape"',
+					details: null,
+					hint: null
+				},
+				{ status: 400 }
+			)
+		);
+		await expect(port.setOrder(['alpha'], ['alpha'])).rejects.toMatchObject({ name: 'RequestFailure', status: 400 });
 	});
 
 	it('says a lost reply is unconfirmed and treats a rename of a vanished Group as 404', async () => {

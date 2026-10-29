@@ -10,14 +10,27 @@
 		anchor: Date;
 		today: TodayAvailability | null;
 		orgName: string;
+		/** The focused Group, when the matrix shows less than the reader's whole view. */
+		scopeLabel?: string | null;
 		personnelCount: number;
 		onAnchorChange: (anchor: Date) => void;
 		onViewChange: (view: CalendarViewMode) => void;
 	}
 
-	let { view, anchor, today, orgName, personnelCount, onAnchorChange, onViewChange }: Props = $props();
+	let {
+		view,
+		anchor,
+		today,
+		orgName,
+		scopeLabel = null,
+		personnelCount,
+		onAnchorChange,
+		onViewChange
+	}: Props = $props();
 
-	const eyebrow = $derived(`Calendar · ${orgName} · ${personnelCount} personnel`);
+	const eyebrow = $derived(
+		['Calendar', orgName, scopeLabel, `${personnelCount} personnel`].filter((part) => part !== null).join(' · ')
+	);
 	const todayLabel = $derived(
 		today?.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 	);

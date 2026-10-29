@@ -4,6 +4,10 @@
 
 	interface Props {
 		groupName: string;
+		/** 0 for a top band; sub-group headers are slimmer, indented and unshaded. */
+		level?: number;
+		/** People in the Group and its sub-groups, shown in a nested tree. */
+		count?: number;
 		isCollapsed?: boolean;
 		isPinned?: boolean;
 		onToggle?: () => void;
@@ -14,6 +18,8 @@
 
 	let {
 		groupName,
+		level = 0,
+		count,
 		isCollapsed = false,
 		isPinned = false,
 		onToggle,
@@ -24,11 +30,16 @@
 </script>
 
 <div
-	class="relative flex h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] border-b border-border bg-muted text-foreground"
+	class={[
+		'relative flex h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] border-b border-border text-foreground',
+		level === 0 ? 'bg-muted' : 'bg-card'
+	]}
+	data-band-level={level}
 >
 	<div
 		class={[
-			'sticky left-0 z-[4] flex min-w-[var(--calendar-personnel-column-width)] shrink-0 items-stretch border-r border-border bg-muted',
+			'sticky left-0 z-[4] flex min-w-[var(--calendar-personnel-column-width)] shrink-0 items-stretch border-r border-border',
+			level === 0 ? 'bg-muted' : 'bg-card',
 			outCounts
 				? 'max-w-[var(--calendar-personnel-column-width)]'
 				: 'max-w-[calc(var(--calendar-personnel-column-width)*2)]'
@@ -37,11 +48,18 @@
 		<Button
 			variant="cell"
 			size="none"
-			class="h-full min-w-0 flex-1 justify-start gap-2 px-3 py-2 font-mono text-[11px] font-semibold tracking-widest text-foreground uppercase hover:bg-background hover:text-foreground"
+			class={[
+				'h-full min-w-0 flex-1 justify-start font-mono tracking-widest text-foreground uppercase hover:bg-background hover:text-foreground',
+				level === 0 ? 'gap-2 px-3 py-2 text-[11px] font-semibold' : 'gap-[7px] py-0 pr-3 text-[10px] font-bold'
+			]}
+			style={level === 0 ? undefined : `padding-left: ${14 + 16 * level}px`}
 			onclick={onToggle}
 		>
-			<span class="w-3 shrink-0 text-[10px]">{isCollapsed ? '▶' : '▼'}</span>
+			<span class={['shrink-0', level === 0 ? 'w-3 text-[10px]' : 'w-2.5 text-[8px]']}>{isCollapsed ? '▶' : '▼'}</span>
 			<span class="truncate">{groupName}</span>
+			{#if count !== undefined}
+				<span class="shrink-0 font-normal tracking-normal text-muted-foreground tabular-nums">{count}</span>
+			{/if}
 		</Button>
 		{#if onPinToggle}
 			<Button

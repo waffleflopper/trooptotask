@@ -53,7 +53,7 @@
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
-	import { pinnedGroupsStore } from '$features/personnel';
+	import { GroupFocusControl, GroupFocusUnavailable, pinnedGroupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 
 	interface Props {
@@ -133,16 +133,10 @@
 			canManageConfig: ctx.canManageConfig,
 			showEvents: ctx.showEvents,
 			taskingsNeedingAction: projectionStatus === 'ready' ? taskingFacts.needAction : 0,
-			groupOptions: ctx.groupFilterOptions.map((option) => ({
-				value: option.value,
-				label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`
-			})),
-			groupFilter: ctx.calendarGroupFilter,
 			showStatusText: ctx.showStatusText,
 			showPersonnelRoles: ctx.showPersonnelRoles,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
 			highlightOnboarding: ctx.highlightOnboarding,
-			onGroupFilterChange: (value) => ctx.setCalendarGroupFilter(value),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
@@ -423,23 +417,36 @@
 					anchor={calendarStore.currentDate}
 					today={ctx.todayAvailability}
 					orgName={data.orgName}
-					personnelCount={ctx.allPersonnelFlat.length}
+					scopeLabel={ctx.groupFocus.focus?.kind === 'all' ? null : ctx.groupFocus.label}
+					personnelCount={ctx.focusedPersonnel.length}
 					onAnchorChange={(anchor) => calendarStore.goToMonth(anchor.getFullYear(), anchor.getMonth())}
 					onViewChange={(view) => ctx.setViewMode(view)}
 				/>
 
-				<WorkspaceToolbar
-					ariaLabel="Calendar controls"
-					items={toolbar.items}
-					primary={toolbar.primary}
-					search={{
-						label: 'Search by name, rank, MOS, role, or group',
-						placeholder: 'Search name, rank, MOS, role, or group...',
-						value: ctx.calendarPersonnelSearch,
-						placement: 'after-filters',
-						onValueChange: (value) => ctx.setCalendarPersonnelSearch(value)
-					}}
-				/>
+				<div class="flex flex-wrap items-center gap-x-1 rounded-lg border border-border bg-card p-1 max-sm:flex-col">
+					<GroupFocusControl
+						focus={ctx.groupFocus}
+						people={ctx.allPersonnelFlat}
+						class="ml-1 max-sm:mx-1 max-sm:mt-1 max-sm:w-[calc(100%-0.5rem)]"
+					/>
+					<div class="min-w-0 flex-1 max-sm:w-full">
+						<WorkspaceToolbar
+							ariaLabel="Calendar controls"
+							items={toolbar.items}
+							primary={toolbar.primary}
+							search={{
+								label: 'Search by name, rank, MOS, role, or group',
+								placeholder: 'Search name, rank, MOS, role, or group...',
+								value: ctx.calendarPersonnelSearch,
+								placement: 'after-filters',
+								onValueChange: (value) => ctx.setCalendarPersonnelSearch(value)
+							}}
+							bare
+						/>
+					</div>
+				</div>
+
+				<GroupFocusUnavailable focus={ctx.groupFocus} />
 
 				{#if rangeStatus === 'loading'}
 					<Alert.Root role="status" aria-live="polite">
@@ -466,7 +473,9 @@
 					</Alert.Root>
 				{/if}
 
-				{#if ctx.viewMode === '3-month'}
+				{#if ctx.groupFocus.status.kind === 'unavailable'}
+					<!-- The notice above stands in for the matrix. -->
+				{:else if ctx.viewMode === '3-month'}
 					<LongRangeView
 						startDate={calendarStore.currentDate}
 						personnelByGroup={ctx.filteredPBG}

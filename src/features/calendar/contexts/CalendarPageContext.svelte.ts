@@ -10,8 +10,7 @@ import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { pinnedGroupsStore } from '$features/personnel';
-import { groupsStore } from '$features/personnel';
+import { GroupFocusState, groupsStore, pinnedGroupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { groupsInScope } from '$lib/access/scopeSetAccess';
@@ -24,14 +23,9 @@ import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
+import { nestCalendarBands, type CalendarBand } from '$features/calendar/utils/calendarBands';
 
 const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
-
-export interface CalendarRosterFilterOption {
-	value: string;
-	label: string;
-	count?: number;
-}
 
 export type CalendarPopover =
 	| {
@@ -114,7 +108,6 @@ export class CalendarPageContext {
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
 	highlightOnboarding = $state(true);
-	calendarGroupFilter = $state('');
 	calendarPersonnelSearch = $state('');
 
 	get #workspaceData() {
@@ -213,17 +206,24 @@ export class CalendarPageContext {
 		return groupsInScope(groupsStore.items, this.#org.scopeSet);
 	}
 
-	get groupFilterOptions(): CalendarRosterFilterOption[] {
-		return this.#scopedRoster.groupFilterOptions;
-	}
+	readonly groupFocus = new GroupFocusState(() => ({
+		groups: groupsStore.orgId === this.#data.orgId && !groupsStore.loading ? groupsStore.items : null,
+		pinnedIds: pinnedGroupsStore.list,
+		organizationWide: this.canPinGroups
+	}));
 
-	readonly filteredPBG = $derived.by(
-		() =>
-			this.#calendarRoster.scoped(this.#org.scopeSet, {
-				status: 'active',
-				groupFilter: this.calendarGroupFilter,
-				search: this.calendarPersonnelSearch
-			}).personnelByGroup
+	/** Everyone the focus shows, before search. */
+	readonly focusedPersonnel: Personnel[] = $derived(
+		this.groupFocus.within(this.#scopedRoster.flatPersonnel, (person) => person.groupId)
+	);
+
+	readonly filteredPBG: CalendarBand[] = $derived.by(() =>
+		nestCalendarBands(
+			this.groupFocus.tree,
+			this.groupFocus.focus,
+			this.#calendarRoster.scoped(this.#org.scopeSet, { status: 'active', search: this.calendarPersonnelSearch })
+				.personnelByGroup
+		)
 	);
 
 	readonly availabilityTracks = $derived(buildAvailabilityTracks(availabilityStore.items, statusTypesStore.items));
@@ -242,7 +242,8 @@ export class CalendarPageContext {
 	readonly todayAvailability: TodayAvailability | null = $derived.by(() => {
 		const availabilityRange = this.#workspaceData?.availabilityRange;
 		if (!availabilityRange || !rangeCoversDate(availabilityRange)({ date: this.#today })) return null;
-		const people = this.allPersonnelFlat;
+		if (!this.groupFocus.focus) return null;
+		const people = this.focusedPersonnel;
 		const [out = 0] = this.availabilityTracks.outCounts(
 			people.map((person) => person.id),
 			dayWindow(this.#today, 1)
@@ -296,10 +297,6 @@ export class CalendarPageContext {
 	toggleShowPersonnelRoles(): void {
 		this.showPersonnelRoles = !this.showPersonnelRoles;
 		this.#savePreferences({ showPersonnelRoles: this.showPersonnelRoles });
-	}
-
-	setCalendarGroupFilter(value: string): void {
-		this.calendarGroupFilter = value;
 	}
 
 	setCalendarPersonnelSearch(value: string): void {

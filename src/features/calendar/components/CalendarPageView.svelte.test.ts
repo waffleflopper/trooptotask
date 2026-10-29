@@ -29,6 +29,15 @@ const exportMocks = vi.hoisted(() => ({
 
 vi.mock('$features/calendar/utils/calendarExport', () => exportMocks);
 vi.mock('$features/calendar/utils/calendarPrint', () => exportMocks);
+const pageMock = $state({ url: new URL('http://localhost/org/org1/calendar') });
+
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return pageMock.url;
+		}
+	}
+}));
 vi.mock('$app/navigation', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$app/navigation')>()),
 	goto: gotoMock
@@ -53,7 +62,7 @@ vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 }));
 vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
-	groupsStore: { items: [], loading: false }
+	groupsStore: { items: [], loading: false, orgId: 'org1' }
 }));
 
 afterEach(() => {
@@ -62,6 +71,8 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 	calendarStore.goToMonth(new Date().getFullYear(), new Date().getMonth());
+	pageMock.url = new URL('http://localhost/org/org1/calendar');
+	(groupsStore as unknown as { items: unknown[] }).items = [];
 });
 
 function resizeGrip(bar: HTMLElement, edge: 'start' | 'end'): HTMLElement | null {
@@ -755,7 +766,6 @@ describe('CalendarPageView', () => {
 		expect(within(toolbar()).queryByRole('link', { name: 'Reports' })).toBeNull();
 		expect(within(toolbar()).getByRole('button', { name: 'Bulk Status' }), 'the primary stays on the row').toBeTruthy();
 		const menu = await openMore();
-		expect(within(menu).getByRole('menuitem', { name: 'Group, Group: All' })).toBeTruthy();
 		expect(within(menu).getByRole('menuitem', { name: 'Duty planner' })).toBeTruthy();
 		expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
 		expect(within(menu).getByRole('menuitem', { name: 'Display' })).toBeTruthy();
@@ -792,23 +802,124 @@ describe('CalendarPageView', () => {
 		]);
 	});
 
-	it('filters the roster from the folded Group submenu', async () => {
-		mutableAvailabilityStore.loading = false;
-		const { layOut } = stubToolbarWidths();
-		const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
-		const ctx = makeContext(data, makeMockOrg());
-		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
-		await layOut(1);
+	describe('Group focus', () => {
+		const catalog = (groups: { id: string; name: string; parentId?: string }[]) => {
+			(groupsStore as unknown as { items: unknown[] }).items = groups.map((group, index) => ({
+				sortOrder: index,
+				parentId: null,
+				depth: group.parentId ? 2 : 1,
+				...group
+			}));
+		};
+		const people = () =>
+			screen.queryAllByRole('button', { name: /^(Smith, Alice|Jones, Bob)/ }).map((b) => b.textContent);
+		const bands = (container: HTMLElement) =>
+			[...container.querySelectorAll<HTMLElement>('[data-band-level]')].map((band) => [
+				band.dataset.bandLevel,
+				band.querySelector('button')?.textContent?.replace(/\s+/g, ' ').trim()
+			]);
 
-		const menu = await openMore();
-		const group = within(menu).getByRole('menuitem', { name: 'Group, Group: All' });
-		group.focus();
-		await fireEvent.keyDown(group, { key: 'ArrowRight' });
-		await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Bravo (1)' }));
+		it('narrows the matrix to the Group the reader picks, replacing the history entry', async () => {
+			mutableAvailabilityStore.loading = false;
+			catalog([
+				{ id: 'g1', name: 'Alpha' },
+				{ id: 'g2', name: 'Bravo' }
+			]);
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			render(CalendarPageView, {
+				props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: 'org1', orgName: 'Test Org' } }
+			});
 
-		await waitFor(() => expect(screen.queryByRole('button', { name: /Smith, Alice/ })).toBeNull());
-		expect(screen.getByRole('button', { name: /Jones, Bob$/ })).toBeTruthy();
-		expect(ctx.calendarGroupFilter).toBe('g2');
+			await fireEvent.click(screen.getByRole('button', { name: /^Group:/ }));
+			await fireEvent.click(await screen.findByRole('treeitem', { name: /Bravo/ }));
+			expect(gotoMock.mock.calls).toEqual([
+				['/org/org1/calendar?group=g2', { replaceState: true, keepFocus: true, noScroll: true }]
+			]);
+
+			pageMock.url = new URL('http://localhost/org/org1/calendar?group=g2');
+			await waitFor(() => expect(screen.queryByRole('button', { name: /Smith, Alice/ })).toBeNull());
+			expect(screen.getByRole('button', { name: /Jones, Bob$/ })).toBeTruthy();
+		});
+
+		it('says a Group it cannot show is unavailable, shows nobody, and Clear goes back to the whole view', async () => {
+			mutableAvailabilityStore.loading = false;
+			catalog([{ id: 'g1', name: 'Alpha' }]);
+			pageMock.url = new URL('http://localhost/org/org1/calendar?group=deleted');
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			render(CalendarPageView, {
+				props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: 'org1', orgName: 'Test Org' } }
+			});
+
+			expect(screen.getByText('Group unavailable')).toBeTruthy();
+			expect(people()).toEqual([]);
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+			expect(gotoMock.mock.calls).toEqual([
+				['/org/org1/calendar', { replaceState: true, keepFocus: true, noScroll: true }]
+			]);
+		});
+
+		it('draws a sub-group under its parent’s own people and hides it when the parent collapses', async () => {
+			mutableAvailabilityStore.loading = false;
+			catalog([
+				{ id: 'g1', name: 'Alpha' },
+				{ id: 'g2', name: 'Bravo', parentId: 'g1' }
+			]);
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			const { container } = render(CalendarPageView, {
+				props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: 'org1', orgName: 'Test Org' } }
+			});
+
+			expect(bands(container)).toEqual([
+				['0', '▼ Alpha 2'],
+				['1', '▼ Bravo 1']
+			]);
+			expect(
+				screen
+					.getAllByRole('button', { name: 'Pin' })
+					.map((pin) => pin.closest('[data-band-level]')?.getAttribute('data-band-level'))
+			).toEqual(['0']);
+			await fireEvent.click(screen.getByRole('button', { name: /Alpha 2/ }));
+
+			expect(bands(container)).toEqual([['0', '▶ Alpha 2']]);
+			expect(people()).toEqual([]);
+		});
+
+		it('draws one level of bands for a flat Organization, with no counts', () => {
+			mutableAvailabilityStore.loading = false;
+			catalog([
+				{ id: 'g1', name: 'Alpha' },
+				{ id: 'g2', name: 'Bravo' }
+			]);
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			const { container } = render(CalendarPageView, {
+				props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: 'org1', orgName: 'Test Org' } }
+			});
+
+			expect(bands(container)).toEqual([
+				['0', '▼ Alpha'],
+				['0', '▼ Bravo']
+			]);
+			expect(
+				screen.getAllByRole('button', { name: 'Pin' }).map((pin) => pin.closest('[data-band-level]')?.textContent)
+			).toEqual([expect.stringContaining('Alpha'), expect.stringContaining('Bravo')]);
+		});
+
+		it('gives a reader scoped to one Group a plain label and no pins', () => {
+			mutableAvailabilityStore.loading = false;
+			catalog([{ id: 'g2', name: 'Bravo' }]);
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			render(CalendarPageView, {
+				props: {
+					ctx: makeContext(data, makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g2'] } })),
+					data: { orgId: 'org1', orgName: 'Test Org' }
+				}
+			});
+
+			expect(screen.queryByRole('button', { name: /^Group:/ })).toBeNull();
+			expect(screen.getByText('Bravo', { selector: 'p span' })).toBeTruthy();
+			expect(screen.queryByRole('button', { name: /^Pin/ })).toBeNull();
+		});
 	});
 
 	it('keeps Calendar operations a viewer may not use off the row and out of More', async () => {

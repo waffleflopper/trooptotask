@@ -184,6 +184,22 @@ describe('personnel import lane', () => {
 		expect(lane({ canManageGroups: true }).references.group.create).toBeTypeOf('function');
 	});
 
+	it('asks which Group a name means when two Groups share it, and suggests only a unique abbreviation', () => {
+		const source = lane({
+			groups: [
+				...groups,
+				{ id: 'g3', name: 'Weapons', sortOrder: 2 },
+				{ id: 'g4', name: 'Weapons', sortOrder: 3 },
+				{ id: 'g5', name: '2nd Plt', sortOrder: 4 }
+			]
+		});
+
+		const ambiguous = match(source, 'group', { groupName: 'weapons' });
+		expect(ambiguous?.kind === 'many' && ambiguous.candidates.map((option) => option.id)).toEqual(['g3', 'g4']);
+		expect(match(source, 'group', { groupName: '1st Platoon' })).toMatchObject({ kind: 'one', option: { id: 'g1' } });
+		expect(match(source, 'group', { groupName: '2nd Pltn' })).toEqual({ kind: 'none' });
+	});
+
 	it('updates only the fields a row fills and differs on', () => {
 		const result = resolve(lane(), { rank: 'SSG', lastName: 'Smith', firstName: 'Ana', mos: '', ets: '' });
 		expect(result).toMatchObject({

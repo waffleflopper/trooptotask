@@ -216,10 +216,10 @@ describe('createRosterReadModel', () => {
 		const order = [band('c', 'Zulu'), band('a2', 'Alpha'), band('b', 'Alpha 2'), band('a1', 'Alpha')].sort(
 			compareRosterBands({
 				groups: [
-					{ id: 'c', name: 'Zulu', sortOrder: 0, parentId: null, depth: 1 },
-					{ id: 'b', name: 'Alpha 2', sortOrder: 0, parentId: null, depth: 1 },
-					{ id: 'a2', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
-					{ id: 'a1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }
+					{ id: 'c', name: 'Zulu', sortOrder: 0 },
+					{ id: 'b', name: 'Alpha 2', sortOrder: 0 },
+					{ id: 'a2', name: 'Alpha', sortOrder: 0 },
+					{ id: 'a1', name: 'Alpha', sortOrder: 0 }
 				],
 				pinnedGroupIds: []
 			})

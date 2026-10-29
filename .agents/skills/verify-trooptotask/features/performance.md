@@ -161,8 +161,8 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `calendar-month-next`         | Calendar in Month             | interaction, read  | both             | `Next month` to the next month's label and date cells, nothing loading                    |
 | `calendar-month-previous`     | Calendar in Month             | interaction, read  | both             | `Previous month` to the previous month's label and date cells, nothing loading            |
 | `calendar-month-search`       | Calendar in Month             | interaction, read  | both             | Search fill to exactly one Person row                                                     |
-| `calendar-month-group-filter` | Calendar in Month             | interaction, read  | perfWide         | Enter on `Bravo` in the group filter to Bravo's band as the only group band               |
-| `calendar-group-filter`       | Calendar in 3-Month           | interaction, read  | perfWide         | Enter on `Bravo` in the group filter to Bravo's band as the first row                     |
+| `calendar-month-group-filter` | Calendar in Month             | interaction, read  | perfWide         | Enter on `Bravo` in the Group focus to Bravo's band as the only group band                |
+| `calendar-group-filter`       | Calendar in 3-Month           | interaction, read  | perfWide         | Enter on `Bravo` in the Group focus to Bravo's band as the first row                      |
 | `assignment-save`             | Duty planner                  | interaction, write | both             | Enter on the picked assignee to the slot showing that Person and the picker closed        |
 | `personnel-list`              | Personnel                     | load, read         | both             | Sentinel row or paused-roster notice (`rows`), then no skeleton (`useful`)                |
 | `personnel-search`            | Personnel                     | interaction, read  | both             | Search fill to the term's row with the sentinel gone                                      |
@@ -198,12 +198,11 @@ only after the Dashboard is useful and idle.
 
 The Month journeys open on the anchor month. The bootstrap holds the month after it, so `calendar-month-next` renders
 without a read, and `calendar-month-previous` reads the missing collections of the month before. Both move the anchor
-cookie, so each sample ends with `Today`, as `calendar-range` does. The group filter's options are not in the
-accessibility snapshot, so its preparation opens `Calendar group filter` and presses ArrowDown twice from `Group: All`
-to `Bravo`, and the timed step is Enter. Bravo is every workload's second Group, so the first band is Alpha's until the
-filter lands. `perfScoped` sees one Group, so the group filter has nothing to narrow for it. The listbox leaves the page
-about 110 ms after Enter and the page's scroll lock is released about 20 ms later, so the filter's settled time includes
-that exit while its useful time is the filtered grid.
+cookie, so each sample ends with `Today`, as `calendar-range` does. The Group focus preparation opens
+`Group: Whole unit`, whose `Find a Group` field takes focus on `Whole unit`, and presses ArrowDown twice to `Bravo`; the
+timed step is Enter, which writes `?group=` with a replaced history entry. Bravo is every workload's second Group, so
+the first band is Alpha's until the focus lands. `perfScoped` sees one Group, so the Group focus has nothing to narrow
+for it.
 
 `perf --help` lists the registry with each journey's kind, effect and actors. The ordinary page GET of the request path
 is the `personnel-list` warm load; `sidebar-navigation` is its client navigation.

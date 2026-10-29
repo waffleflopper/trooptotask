@@ -8,48 +8,49 @@
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
 	import { cn } from '$lib/utils.js';
 	import TreeSelectList from './tree-select-list.svelte';
-	import type { TreeSelectOption } from './treeSelectRows.js';
+	import { toggleSelection, treeShape, type TreeSelectOption } from './treeSelectRows.js';
 
-	interface Props {
+	type Selection =
+		| { multiple?: false; value: string | null; onValueChange: (id: string) => void }
+		/** Checkboxes. `value` and every change are canonical: no node is listed with one of its ancestors. */
+		| { multiple: true; value: readonly string[]; onValueChange: (ids: string[]) => void };
+
+	type Props = Selection & {
 		options: readonly TreeSelectOption[];
-		value: string | null;
-		onValueChange: (id: string) => void;
 		/** Names the control: the trigger's prefix and the sheet's title. */
 		label: string;
+		/** Keeps the trigger's prefix for screen readers only, for a form field that already shows its label. */
+		hideLabel?: boolean;
 		/** What the trigger shows. Null when the value names nothing, which shows `placeholder` in italic. */
 		valueLabel: string | null;
 		valueCount?: number;
 		placeholder: string;
 		searchPlaceholder: string;
 		class?: ClassValue;
-	}
+	};
 
-	let {
-		options,
-		value,
-		onValueChange,
-		label,
-		valueLabel,
-		valueCount,
-		placeholder,
-		searchPlaceholder,
-		class: className
-	}: Props = $props();
+	let props: Props = $props();
+	const { options, label, valueLabel, valueCount, placeholder, searchPlaceholder, class: className } = $derived(props);
 
 	const isMobile = new IsMobile(640);
 	let open = $state(false);
+	const chosen = $derived(props.multiple ? props.value : props.value === null ? [] : [props.value]);
 	// A reader with one choice has nothing to pick, so the control is just a label.
-	const isStatic = $derived(options.length <= 1 && valueLabel !== null);
+	const isStatic = $derived(!props.multiple && options.length <= 1 && valueLabel !== null);
 
 	function select(id: string) {
+		if (props.multiple) {
+			props.onValueChange(toggleSelection(options, treeShape(options), props.value, id));
+			return;
+		}
 		open = false;
-		if (id !== value) onValueChange(id);
+		if (id !== props.value) props.onValueChange(id);
 	}
 </script>
 
 {#snippet triggerContent(touch: boolean)}
 	<span class={cn('flex min-w-0 items-baseline', touch ? 'gap-1.5' : 'gap-2')}>
-		<span class="shrink-0 text-muted-foreground">{label}:</span>
+		<span class={cn('shrink-0 text-muted-foreground', props.hideLabel && 'sr-only')}>{label}:</span>
 		{#if valueLabel === null}
 			<span class="truncate font-medium italic">{placeholder}</span>
 		{:else}
@@ -101,7 +102,20 @@
 					{/snippet}
 				</Sheet.Close>
 			</div>
-			<TreeSelectList {options} {value} onSelect={select} {searchPlaceholder} touch autofocus={false} />
+			<TreeSelectList
+				{options}
+				value={chosen}
+				multiple={!!props.multiple}
+				onSelect={select}
+				{searchPlaceholder}
+				touch
+				autofocus={false}
+			/>
+			{#if props.multiple}
+				<div class="shrink-0 px-4 pt-3">
+					<Button class="h-11 w-full" onclick={() => (open = false)}>Done</Button>
+				</div>
+			{/if}
 		</Sheet.Content>
 	</Sheet.Root>
 {:else}
@@ -121,7 +135,15 @@
 			{/snippet}
 		</Popover.Trigger>
 		<Popover.Content align="start" class="max-h-[min(28rem,70dvh)] w-[340px] gap-0 rounded-md p-1">
-			<TreeSelectList {options} {value} onSelect={select} {searchPlaceholder} touch={false} autofocus />
+			<TreeSelectList
+				{options}
+				value={chosen}
+				multiple={!!props.multiple}
+				onSelect={select}
+				{searchPlaceholder}
+				touch={false}
+				autofocus
+			/>
 		</Popover.Content>
 	</Popover.Root>
 {/if}

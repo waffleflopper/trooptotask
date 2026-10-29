@@ -3,33 +3,50 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { cn } from '$lib/utils.js';
-	import { ancestorsOf, treeShape, visibleRows, type TreeSelectOption, type TreeSelectRow } from './treeSelectRows.js';
+	import {
+		ancestorsOf,
+		impliedIds,
+		treeShape,
+		visibleRows,
+		type TreeSelectOption,
+		type TreeSelectRow
+	} from './treeSelectRows.js';
 
 	interface Props {
 		options: readonly TreeSelectOption[];
-		value: string | null;
+		/** The chosen nodes: at most one unless `multiple`. */
+		value: readonly string[];
+		/** Rows carry checkboxes and stay open on a pick; nodes under a chosen node show as included. */
+		multiple: boolean;
 		onSelect: (id: string) => void;
 		searchPlaceholder: string;
 		touch: boolean;
 		autofocus: boolean;
 	}
 
-	let { options, value, onSelect, searchPlaceholder, touch, autofocus }: Props = $props();
+	let { options, value, multiple, onSelect, searchPlaceholder, touch, autofocus }: Props = $props();
 
 	const uid = $props.id();
 	const shape = $derived(treeShape(options));
-	// svelte-ignore state_referenced_locally
-	const expanded = new SvelteSet(value ? [...ancestorsOf(treeShape(options), value), value] : []);
+	const chosen = $derived(new Set(value));
+	const implied = $derived(multiple ? impliedIds(shape, value) : new Set<string>());
+	// A single pick opens on itself; several open only far enough to show each one.
+	const expanded = new SvelteSet(
+		untrack(() => {
+			const initial = treeShape(options);
+			return value.flatMap((id) => [...ancestorsOf(initial, id), ...(multiple ? [] : [id])]);
+		})
+	);
 	let query = $state('');
-	// svelte-ignore state_referenced_locally
-	let activeId = $state<string | null>(value);
+	let activeId = $state<string | null>(untrack(() => value[0] ?? null));
 	let list = $state<HTMLElement | null>(null);
 
 	const rows = $derived(visibleRows(options, shape, expanded, query));
-	const enabledRows = $derived(rows.filter((row) => !row.option.disabled));
+	const unavailable = (option: TreeSelectOption) => option.disabled || implied.has(option.id);
+	const enabledRows = $derived(rows.filter((row) => !unavailable(row.option)));
 	const active = $derived(
 		rows.find((row) => row.option.id === activeId) ?? enabledRows.find((row) => row.match) ?? enabledRows[0] ?? null
 	);
@@ -76,7 +93,7 @@
 				else if (row.parentId) activeId = row.parentId;
 				return;
 			case 'Enter':
-				if (!row || row.option.disabled) return;
+				if (!row || unavailable(row.option)) return;
 				event.preventDefault();
 				onSelect(row.option.id);
 				return;
@@ -121,12 +138,15 @@
 		id="{uid}-tree"
 		role="tree"
 		aria-label={searchPlaceholder}
+		aria-multiselectable={multiple || undefined}
 		tabindex="-1"
 		class={cn('min-h-0 overflow-y-auto overscroll-contain', touch ? 'px-2' : 'pt-1')}
 	>
 		{#each rows as row (row.option.id)}
 			{@const option = row.option}
-			{@const selected = option.id === value}
+			{@const included = implied.has(option.id)}
+			{@const selected = chosen.has(option.id) || included}
+			{@const blocked = unavailable(option)}
 			{#if option.aside}
 				<div role="none" class="my-1 border-t border-border"></div>
 			{/if}
@@ -138,22 +158,35 @@
 				aria-level={option.depth + 1}
 				aria-selected={selected}
 				aria-expanded={row.hasChildren ? row.expanded : undefined}
-				aria-disabled={option.disabled || undefined}
+				aria-disabled={blocked || undefined}
 				data-active={active?.option.id === option.id || undefined}
 				tabindex="-1"
 				class={cn(
 					'flex cursor-default items-center select-none',
 					touch ? 'h-11 rounded-md px-1' : 'h-8 rounded-sm px-2',
 					'data-active:bg-muted data-active:ring-1 data-active:ring-border data-active:ring-inset',
-					selected && 'bg-border data-active:bg-border',
+					selected && !multiple && 'bg-border data-active:bg-border',
 					option.disabled && 'text-muted-foreground opacity-60'
 				)}
 				onmousedown={(event) => event.preventDefault()}
-				onmouseenter={() => !option.disabled && (activeId = option.id)}
-				onclick={() => !option.disabled && onSelect(option.id)}
+				onmouseenter={() => !blocked && (activeId = option.id)}
+				onclick={() => !blocked && onSelect(option.id)}
 			>
 				<span class={cn('flex shrink-0 items-center justify-center', touch ? 'w-6' : 'w-4')}>
-					{#if selected}<CheckIcon class={touch ? 'size-4' : 'size-3.5'} aria-hidden="true" />{/if}
+					{#if multiple}
+						<span
+							class={cn(
+								'flex size-4 items-center justify-center rounded-[4px] border border-input',
+								selected && 'border-primary bg-primary text-primary-foreground',
+								included && 'opacity-50'
+							)}
+							aria-hidden="true"
+						>
+							{#if selected}<CheckIcon class="size-3.5" />{/if}
+						</span>
+					{:else if selected}
+						<CheckIcon class={touch ? 'size-4' : 'size-3.5'} aria-hidden="true" />
+					{/if}
 				</span>
 				<span class={cn('shrink-0', !touch && 'w-1.5')}></span>
 				<span class="shrink-0" style:width="{indent(option.depth)}px"></span>
@@ -175,16 +208,20 @@
 					class={cn(
 						'min-w-0 flex-1 truncate',
 						touch ? 'text-base leading-5' : 'pl-1.5 text-sm leading-[18px]',
-						selected && 'font-semibold',
+						selected && !included && 'font-semibold',
+						included && 'text-muted-foreground',
 						option.aside && 'italic'
 					)}>{option.label}</span
 				>
+				{#if included}
+					<span class="shrink-0 pl-2 text-xs text-muted-foreground">included</span>
+				{/if}
 				{#if option.count !== undefined}
 					<span
 						class={cn(
 							'shrink-0 text-right font-mono text-xs tabular-nums',
 							touch ? 'w-10 pr-2' : 'w-9',
-							selected ? 'text-foreground' : 'text-muted-foreground'
+							selected && !included ? 'text-foreground' : 'text-muted-foreground'
 						)}>{option.count}</span
 					>
 				{/if}

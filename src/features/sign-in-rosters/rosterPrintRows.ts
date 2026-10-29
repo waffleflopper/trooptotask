@@ -53,9 +53,9 @@ export function rosterPrintRows(
 
 /**
  * Sections for each top-level Group the Roster was drawn from, or each one when it was drawn from everyone. A Group with
- * sub-groups opens into its HQ and then each sub-group's whole subtree, path-labelled. Labels use the Group names saved
- * with the Roster, so a reprint after a rename reads as printed; current names fill only Groups it never saved. People
- * whose Group is no longer in the tree keep their saved Group name, and the ungrouped print last.
+ * sub-groups opens into its HQ and then each sub-group's whole subtree, path-labelled. A Roster prints under the Groups
+ * and the nesting saved with it, so a reprint after a rename, move or delete reads as printed; Groups it never saved keep
+ * today's names and parents. People whose Group is not in either keep their saved Group name, and the ungrouped print last.
  */
 function sectionsByGroup(
 	snapshot: readonly RosterPrintPerson[],
@@ -63,23 +63,16 @@ function sectionsByGroup(
 	tree: GroupTree,
 	groups: readonly Group[]
 ): { name: string; people: readonly RosterPrintPerson[] }[] {
+	const printed = buildGroupTree(savedGroups(snapshot, groups), { pinnedIds: tree.roots.map((root) => root.id) });
 	const idsByName = new Map<string, string[]>();
 	for (const group of groups) idsByName.set(group.name, [...(idsByName.get(group.name) ?? []), group.id]);
 	const groupOf = (person: RosterPrintPerson): string | null => {
 		const named = idsByName.get(person.group);
 		const id = person.groupId ?? (named?.length === 1 ? named[0] : null);
-		return id && tree.node(id) ? id : null;
+		return id && printed.node(id) ? id : null;
 	};
 
-	const savedNames = new Map(
-		snapshot.flatMap((person) => [
-			...(person.groupAncestors ?? []).map((group) => [group.id, group.name] as const),
-			...(person.groupId ? [[person.groupId, person.group] as const] : [])
-		])
-	);
-	const printed = buildGroupTree(groups.map((group) => ({ ...group, name: savedNames.get(group.id) ?? group.name })));
-
-	const chosen = chosenRosterGroups({ groups: [...groupIds] }, tree);
+	const chosen = chosenRosterGroups({ groups: [...groupIds] }, printed);
 	const sections: { name: string; people: readonly RosterPrintPerson[] }[] = [];
 	const placed = new Set<RosterPrintPerson>();
 	const add = (name: string, people: readonly RosterPrintPerson[]) => {
@@ -87,9 +80,9 @@ function sectionsByGroup(
 		sections.push({ name, people });
 		for (const person of people) placed.add(person);
 	};
-	const subtree = (id: string) => snapshot.filter((person) => tree.contains(id, groupOf(person)));
+	const subtree = (id: string) => snapshot.filter((person) => printed.contains(id, groupOf(person)));
 
-	for (const band of tree.bands(snapshot, groupOf)) {
+	for (const band of printed.bands(snapshot, groupOf)) {
 		if (chosen.length > 0 && !chosen.includes(band.node.id)) continue;
 		const label = printed.label(band.node.id);
 		if (!band.node.hasChildren) {
@@ -111,6 +104,32 @@ function sectionsByGroup(
 		add(name || 'Unassigned', leftovers.get(name)!);
 	}
 	return sections;
+}
+
+/**
+ * Today's catalog with every Group the Roster saved restored to its saved name and, where the snapshot carries ancestry,
+ * its saved parent. The top of each saved chain was a root for the saver. Rosters saved before Groups nested restore
+ * names only.
+ */
+function savedGroups(snapshot: readonly RosterPrintPerson[], groups: readonly Group[]): Group[] {
+	const byId = new Map(groups.map((group) => [group.id, group]));
+	for (const person of snapshot) {
+		if (!person.groupId) continue;
+		const chain = [...(person.groupAncestors ?? []), { id: person.groupId, name: person.group }];
+		const known = person.groupAncestors !== undefined;
+		chain.forEach((saved, index) => {
+			const today = byId.get(saved.id);
+			if (!today && !known) return;
+			byId.set(saved.id, {
+				id: saved.id,
+				name: saved.name,
+				sortOrder: today?.sortOrder ?? 0,
+				parentId: known ? (chain[index - 1]?.id ?? null) : today!.parentId,
+				depth: today?.depth ?? (Math.min(index + 1, 3) as Group['depth'])
+			});
+		});
+	}
+	return [...byId.values()];
 }
 
 export function rosterDateLine(rosterDate: string | null, blankDate: boolean): string {

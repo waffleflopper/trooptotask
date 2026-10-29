@@ -131,11 +131,27 @@ describe('rosterPrintRows', () => {
 			]);
 		});
 
-		it("prints a deleted Group's people under its saved name", () => {
+		it("prints a deleted Group's people where the Roster saved them", () => {
 			expect(print(saved, platoon)).toEqual([
 				{ kind: 'group', name: '2nd Platoon HQ' },
 				{ kind: 'person', number: 1, rank: 'SFC', name: 'Platoon, Cy' },
-				{ kind: 'group', name: 'Alpha Team' },
+				{ kind: 'group', name: '2nd Platoon › 1st Squad' },
+				{ kind: 'person', number: 2, rank: 'SPC', name: 'Team, Ann' }
+			]);
+		});
+
+		it('keeps the saved platoon after the squad moves to another platoon', () => {
+			const moved = [
+				group('p2', '2nd Platoon', 0),
+				group('p3', '3rd Platoon', 2),
+				group('p2-s1', '1st Squad', 0, 'p3'),
+				group('p2-s1-a', 'Alpha Team', 0, 'p2-s1')
+			];
+
+			expect(print(saved, moved)).toEqual([
+				{ kind: 'group', name: '2nd Platoon HQ' },
+				{ kind: 'person', number: 1, rank: 'SFC', name: 'Platoon, Cy' },
+				{ kind: 'group', name: '2nd Platoon › 1st Squad' },
 				{ kind: 'person', number: 2, rank: 'SPC', name: 'Team, Ann' }
 			]);
 		});

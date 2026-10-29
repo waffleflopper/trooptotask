@@ -15,6 +15,8 @@ export interface TreeSelectRow {
 	hasChildren: boolean;
 	expanded: boolean;
 	parentId: string | null;
+	/** False for an ancestor shown only as context for a query match. */
+	match: boolean;
 }
 
 export interface TreeShape {
@@ -55,11 +57,12 @@ export function visibleRows(
 	query: string
 ): TreeSelectRow[] {
 	const needle = query.trim().toLocaleLowerCase();
-	const row = (option: TreeSelectOption, open: boolean): TreeSelectRow => ({
+	const row = (option: TreeSelectOption, open: boolean, match = true): TreeSelectRow => ({
 		option,
 		hasChildren: shape.withChildren.has(option.id),
 		expanded: open && shape.withChildren.has(option.id),
-		parentId: shape.parentOf.get(option.id) ?? null
+		parentId: shape.parentOf.get(option.id) ?? null,
+		match
 	});
 	if (needle) {
 		const matches = new Set<string>();
@@ -71,7 +74,7 @@ export function visibleRows(
 		}
 		return options
 			.filter((option) => matches.has(option.id) || opened.has(option.id))
-			.map((option) => row(option, opened.has(option.id)));
+			.map((option) => row(option, opened.has(option.id), matches.has(option.id)));
 	}
 	return options
 		.filter((option) => ancestorsOf(shape, option.id).every((ancestor) => expanded.has(ancestor)))

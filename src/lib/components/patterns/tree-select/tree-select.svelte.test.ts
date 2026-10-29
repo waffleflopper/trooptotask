@@ -86,8 +86,8 @@ describe('TreeSelect', () => {
 		await waitFor(() => expect(screen.queryByRole('tree')).toBeNull());
 	});
 
-	it('finds a deep node by name and keeps its ancestors in view', async () => {
-		mount('all');
+	it('finds a deep node by name, keeps its ancestors in view and picks the match with Enter', async () => {
+		const { onValueChange } = mount('all');
 		const field = await open();
 
 		await fireEvent.input(field, { target: { value: 'a x' } });
@@ -97,7 +97,10 @@ describe('TreeSelect', () => {
 			['p1-a', 'true'],
 			['p1-a-x', null]
 		]);
-		expect(activeRow(field)).toBe('p1');
+		expect(activeRow(field)).toBe('p1-a-x');
+		await fireEvent.keyDown(field, { key: 'Enter' });
+
+		expect(onValueChange.mock.calls).toEqual([['p1-a-x']]);
 	});
 
 	it('skips a disabled node and will not pick it', async () => {

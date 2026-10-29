@@ -30,7 +30,9 @@
 
 	const rows = $derived(visibleRows(options, shape, expanded, query));
 	const enabledRows = $derived(rows.filter((row) => !row.option.disabled));
-	const active = $derived(rows.find((row) => row.option.id === activeId) ?? enabledRows[0] ?? null);
+	const active = $derived(
+		rows.find((row) => row.option.id === activeId) ?? enabledRows.find((row) => row.match) ?? enabledRows[0] ?? null
+	);
 	const rowId = (id: string) => `${uid}-row-${id}`;
 	const indent = (depth: number) => (touch ? Math.min(depth * 12, 24) : depth * 16);
 

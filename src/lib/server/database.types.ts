@@ -4405,6 +4405,10 @@ export type Database = {
         }
         Returns: Json
       }
+      personnel_dod_ids_in_use: {
+        Args: { p_dod_ids: string[]; p_organization_id: string }
+        Returns: string[]
+      }
       personnel_extended_info_scope_matches: {
         Args: { p_organization_id: string; p_personnel_id: string }
         Returns: boolean

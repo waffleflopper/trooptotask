@@ -8,6 +8,7 @@ import type {
 } from '$features/personnel/contracts';
 import type {
 	PersonnelSheetPersistence,
+	PersonnelDodIdSaveFailure,
 	PersonnelWorkbookHistoryReader,
 	SavedPersonnelSheet
 } from '$features/personnel/contracts';
@@ -2053,6 +2054,44 @@ function createTestPersonnelPersistence(
 		if (matches.some((sheet) => sheet.id !== sheetId)) throw new PersonnelDodIdConflict();
 	}
 	const personnelSheets: PersonnelSheetPersistence = {
+		findDodIdsInUse: async (dodIds) => {
+			if (!auth.isPrivileged && !['operate', 'configure'].includes(auth.capabilityMap.personnel)) return [];
+			const wanted = new Set(dodIds);
+			const sheets = await rawStore.findMany<StoredSheet>('personnel_extended_info', auth.orgId);
+			return [
+				...new Set(sheets.flatMap((sheet) => (sheet.dod_id && wanted.has(sheet.dod_id) ? [sheet.dod_id] : [])))
+			].sort();
+		},
+		listDodIds: async (only) => {
+			if (!auth.isPrivileged && !['operate', 'configure'].includes(auth.capabilityMap.personnel)) return [];
+			const [people, sheets] = await Promise.all([
+				inMemoryPersonnelRows(rawStore, auth, 'all'),
+				rawStore.findMany<StoredSheet>('personnel_extended_info', auth.orgId)
+			]);
+			const visibleIds = new Set(people.map((person) => person.id));
+			return sheets.flatMap((sheet) =>
+				visibleIds.has(sheet.personnel_id) && sheet.dod_id && (!only || only.includes(sheet.dod_id))
+					? [{ personnelId: sheet.personnel_id, dodId: sheet.dod_id }]
+					: []
+			);
+		},
+		saveDodIds: async (rows) => {
+			const failures: PersonnelDodIdSaveFailure[] = [];
+			for (const { personnelId, dodId } of rows) {
+				try {
+					const sheet = await rawStore.findOne<StoredSheet>('personnel_extended_info', auth.orgId, {
+						personnel_id: personnelId
+					});
+					await requireUniqueDodId(dodId, sheet?.id);
+					const values = { dod_id: dodId, updated_by: auth.userId };
+					if (sheet) await rawStore.update('personnel_extended_info', auth.orgId, sheet.id, values);
+					else await rawStore.insert('personnel_extended_info', auth.orgId, { ...values, personnel_id: personnelId });
+				} catch (error) {
+					failures.push({ personnelId, reason: error instanceof PersonnelDodIdConflict ? 'conflict' : 'failed' });
+				}
+			}
+			return failures;
+		},
 		listSheetsForPerson: async (personnelId) =>
 			(await rawStore.findMany<StoredSheet>('personnel_extended_info', auth.orgId, { personnel_id: personnelId })).map(
 				sheetResult

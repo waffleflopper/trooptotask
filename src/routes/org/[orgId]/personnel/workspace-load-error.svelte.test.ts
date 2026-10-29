@@ -92,3 +92,33 @@ it.each([['import', ImportPage]])(
 		expect(reload).toHaveBeenCalledTimes(1);
 	}
 );
+
+function loadedImportData(personnelImport: Promise<unknown>) {
+	personnelImport.catch(() => {});
+	return {
+		shell: { org: { id: 'org-1', name: 'Unit' } },
+		personnel: { data: { laneKey: 'personnel', data: { personnel: [person], groups: [], rankCatalog: [] } } },
+		personnelImport
+	};
+}
+
+it('shows the import load error instead of a loading import when its first DoD ID read rejects', async () => {
+	render(ImportPage as unknown as Component<{ data: unknown }>, {
+		props: { data: loadedImportData(Promise.reject(new Error('ids failed'))) }
+	});
+
+	await screen.findByRole('alert');
+	expect(screen.queryByLabelText('Loading import')).toBeNull();
+	expect(screen.queryByRole('complementary')).toBeNull();
+});
+
+it('keeps the import on screen with a refresh error when a later DoD ID read rejects', async () => {
+	const Page = ImportPage as unknown as Component<{ data: unknown }>;
+	const view = render(Page, { props: { data: loadedImportData(Promise.resolve({ dodIds: [] })) } });
+	const fileStep = await screen.findByRole('complementary');
+
+	await view.rerender({ data: loadedImportData(Promise.reject(new Error('refresh failed'))) });
+
+	await screen.findByRole('alert');
+	expect(screen.getByRole('complementary')).toBe(fileStep);
+});

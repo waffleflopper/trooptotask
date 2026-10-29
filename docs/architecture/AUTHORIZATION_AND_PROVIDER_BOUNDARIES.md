@@ -91,6 +91,10 @@ An Organization feature switch ([`featureSwitches.ts`](../../src/lib/access/feat
 ### Sensitive Personnel artifacts and files
 
 - Reading counseling records, leader notes, follow-ups and documents needs Personnel `configure` and an in-scope Person ([`20260926001100_personnel_sensitive_artifact_reads.sql`](../../supabase/migrations/20260926001100_personnel_sensitive_artifact_reads.sql)). Writing them needs `operate`. The Soldier Data Sheet needs `operate` for reads and writes.
+- Personnel import checks submitted DoD IDs through `personnel_dod_ids_in_use`, an `operate`-gated function that
+  returns only occupied submitted IDs across the Organization, including archived People and other Groups. It never
+  returns holder identities or grants access to their Data Sheets. A hidden holder stops that import row before any
+  Person write and directs the importer to ask an Organization admin to move the Soldier into their Group.
 - Files live in the private `counseling-files` and `personnel-documents` buckets. The browser never authenticates to Storage. Downloads go through app routes that mint short-lived signed URLs. Sign-in Roster files follow the Training lane.
 - A counseling or document `file_path` must sit under its own Person's prefix, which a trigger enforces. Only the server removes those files. Every new upload first registers its exact key through `register_organization_file_upload`, and a retired key is never reused.
 - A current unsuspended owner can list and delete Storage objects under the Organization prefix for Organization cleanup ([`20261002001000_organization_storage_cleanup.sql`](../../supabase/migrations/20261002001000_organization_storage_cleanup.sql)).

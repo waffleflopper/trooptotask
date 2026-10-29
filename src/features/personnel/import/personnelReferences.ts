@@ -1,10 +1,20 @@
 import type { ImportReference, ReferenceOption } from '$lib/components/patterns/import-flow';
 import type { Group } from '../contracts';
 import type { Personnel } from '../personnel.types';
+import type { PersonnelDodId } from '../personnelSheetPersistence';
+import { normalizeDodId } from '../dodId';
 import type { RankCatalogEntry } from '../rankCatalog';
 import { groupManagementStore } from '../stores/groups.svelte';
 import type { personnelImportColumns } from './personnelImportColumns';
-import { compactRank, groupWords, indexByName, normalizeName, personNameKey, personOption } from './personMatching';
+import {
+	compactRank,
+	groupWords,
+	indexByName,
+	indexByDodId,
+	normalizeName,
+	personNameKey,
+	personOption
+} from './personMatching';
 
 type Columns = typeof personnelImportColumns;
 
@@ -20,7 +30,8 @@ function uniqueBy<T>(items: readonly T[], value: (item: T) => string): Map<strin
 }
 
 export function personMatchReference(
-	roster: readonly Personnel[]
+	roster: readonly Personnel[],
+	dodIds: readonly PersonnelDodId[] = []
 ): ImportReference<Columns, Personnel | typeof NEW_PERSON> & { whenMissing: 'none-is-new' } {
 	const newOption: ReferenceOption<typeof NEW_PERSON> = {
 		id: NEW_PERSON,
@@ -28,6 +39,7 @@ export function personMatchReference(
 		value: NEW_PERSON
 	};
 	const byName = indexByName(roster);
+	const byDodId = indexByDodId(roster, dodIds);
 	return {
 		label: 'person',
 		reads: ['lastName', 'firstName'],
@@ -38,14 +50,20 @@ export function personMatchReference(
 			const firstName = raw.firstName?.trim();
 			if (!lastName || !firstName) return null;
 			return {
-				key: [personNameKey(lastName, firstName), groupWords(raw.groupName ?? ''), compactRank(raw.rank ?? '')].join(
-					'|'
-				),
+				key: [
+					personNameKey(lastName, firstName),
+					groupWords(raw.groupName ?? ''),
+					compactRank(raw.rank ?? ''),
+					normalizeDodId(raw.dodId ?? '')
+				].join('|'),
 				display: `${lastName}, ${firstName}`
 			};
 		},
 		find(key) {
 			const parts = key.split('|');
+			const dodId = parts.pop();
+			const byId = dodId ? byDodId.get(dodId) : null;
+			if (byId) return { kind: 'one', option: personOption(byId) };
 			const rank = parts.pop();
 			const group = parts.pop();
 			const people = byName.get(parts.join('|')) ?? [];

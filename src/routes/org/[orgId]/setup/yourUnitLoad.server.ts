@@ -3,6 +3,8 @@ import type { SetupStepKey } from '$features/organization/contracts';
 import { requireActiveOrganization } from '$features/organization/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelRecordContext } from '$lib/server/adapters/requestContexts.server';
+import { settleWorkspaceDenial } from '$lib/server/adapters/streamedWorkspace';
 import { viewerToday } from '$lib/server/viewerDay.server';
 import { streamCalendarWorkspaceBootstrap } from '../calendar/calendarWorkspaceDelivery.server';
 import { loadCalendarSettingsRankCatalog } from '../calendar/settings/calendarSettingsLoad.server';
@@ -24,9 +26,26 @@ interface YourUnitStepEvent {
 export async function loadYourUnitStep(key: SetupStepKey, event: YourUnitStepEvent) {
 	switch (key) {
 		case 'groups':
-		case 'personnel':
 			event.depends('app:setup-editor', 'app:personnel-data');
 			return { asOf: viewerToday(event.cookies), ...(await streamPersonnelWorkspace(event)) };
+		case 'personnel': {
+			event.depends('app:setup-editor', 'app:personnel-data');
+			const [workspace, imported] = await Promise.all([
+				streamPersonnelWorkspace(event),
+				loadWithContext(event.locals, event.cookies, event.params.orgId, {
+					context: createRequestPersonnelRecordContext,
+					policyAction: POLICY_ACTION_CATALOG.personnel.importRecords,
+					policyResource: { kind: 'unscoped' },
+					defer: true,
+					fn: async (ctx) => ({ dodIds: await ctx.personnelSheets.listDodIds() })
+				})
+			]);
+			return {
+				asOf: viewerToday(event.cookies),
+				...workspace,
+				personnelImport: settleWorkspaceDenial(imported.data, 'personnel')
+			};
+		}
 		case 'ranks': {
 			event.depends('app:setup-editor', 'app:org-core');
 			const { data } = await loadWithContext(event.locals, event.cookies, event.params.orgId, {

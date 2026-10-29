@@ -497,6 +497,68 @@ describe('finite Personnel ordinary provider contracts', () => {
 		p.state.failure = () => ({ code: '23505', status: 409, message: 'duplicate key violates another index' });
 		await expect(port.createSheet('person-a', sheet)).rejects.toThrow('duplicate key violates another index');
 	});
+	it('imports DoD IDs without replacing other sheet fields or crossing Organizations', async () => {
+		const p = personnelProvider({
+			personnel_extended_info: [
+				{ ...sheet, personal_phone: '555-0100', award_tracking_acknowledged_at: '2026-10-01T10:00:00Z' },
+				{ id: 'archived-sheet', organization_id: 'org-a', personnel_id: 'archived', dod_id: '0000000001' },
+				{ id: 'empty-sheet', organization_id: 'org-a', personnel_id: 'empty', dod_id: null },
+				{ id: 'foreign-sheet', organization_id: 'org-b', personnel_id: 'foreign', dod_id: '0000000002' }
+			]
+		});
+		const port = createSupabasePersonnelSheetPersistence(p.client, 'org-a');
+		expect(await port.listDodIds()).toEqual([
+			{ personnelId: 'archived', dodId: '0000000001' },
+			{ personnelId: 'person-a', dodId: '0123456789' }
+		]);
+		expect(
+			await port.saveDodIds([
+				{ personnelId: 'person-a', dodId: '0000000003' },
+				{ personnelId: 'person-new', dodId: '0000000004' }
+			])
+		).toEqual([]);
+		expect(p.state.rows.personnel_extended_info).toEqual([
+			{
+				...sheet,
+				dod_id: '0000000003',
+				personal_phone: '555-0100',
+				award_tracking_acknowledged_at: '2026-10-01T10:00:00Z'
+			},
+			{ id: 'archived-sheet', organization_id: 'org-a', personnel_id: 'archived', dod_id: '0000000001' },
+			{ id: 'empty-sheet', organization_id: 'org-a', personnel_id: 'empty', dod_id: null },
+			{ id: 'foreign-sheet', organization_id: 'org-b', personnel_id: 'foreign', dod_id: '0000000002' },
+			{
+				id: 'saved-1',
+				organization_id: 'org-a',
+				personnel_id: 'person-new',
+				dod_id: '0000000004',
+				created_at: '2026-10-08T12:00:00.123456Z'
+			}
+		]);
+	});
+	it('isolates an ID conflict in a sheet batch and saves the other IDs', async () => {
+		const p = personnelProvider();
+		p.state.failure = ({ method, body }) =>
+			method === 'POST' && JSON.stringify(body).includes('0000000001')
+				? {
+						code: '23505',
+						status: 409,
+						message: 'duplicate key violates personnel_extended_info_organization_dod_id_key'
+					}
+				: null;
+		const port = createSupabasePersonnelSheetPersistence(p.client, 'org-a');
+		expect(
+			await port.saveDodIds([
+				{ personnelId: 'conflict', dodId: '0000000001' },
+				{ personnelId: 'free', dodId: '0000000002' }
+			])
+		).toEqual([{ personnelId: 'conflict', reason: 'conflict' }]);
+		expect(await port.listDodIds()).toEqual([{ personnelId: 'free', dodId: '0000000002' }]);
+		p.state.failure = () => ({ code: '42501', status: 403, message: 'Private provider diagnostics' });
+		expect(await port.saveDodIds([{ personnelId: 'denied', dodId: '0000000003' }])).toEqual([
+			{ personnelId: 'denied', reason: 'failed' }
+		]);
+	});
 	it('artifact archived state, primary sorting and limited results remain distinct', async () => {
 		const p = personnelProvider({
 			counseling_records: [

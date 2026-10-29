@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupCatalogHydration, groupsStore, pinnedGroupsHydration, pinnedGroupsStore } from '$features/personnel';
-import { GroupFocusState } from '../groupFocusState.svelte';
+import { GroupFocusState, type GroupFocusSource } from '../groupFocusState.svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -259,10 +259,10 @@ function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageCo
 		handleAdd: vi.fn(),
 		openGroupEditor: vi.fn(),
 		collapsedGroups: new SvelteSet<string>(),
-		toggleGroup(key: string) {
+		toggleGroup(key: string): void {
 			if (!ctx.collapsedGroups.delete(key)) ctx.collapsedGroups.add(key);
 		},
-		groupFocus: new GroupFocusState(() => ({
+		groupFocus: new GroupFocusState((): GroupFocusSource => ({
 			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : null,
 			pinnedIds: pinnedGroupsStore.list,
 			organizationWide: ctx.canPinGroups

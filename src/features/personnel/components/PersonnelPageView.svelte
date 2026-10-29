@@ -27,6 +27,7 @@
 	import { matchesRosterFilter, type RosterFilter } from '../rosterSignals';
 	import type { Band } from '../groupTree';
 	import GroupFocusControl from './GroupFocusControl.svelte';
+	import GroupFocusUnavailable from './GroupFocusUnavailable.svelte';
 	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import type { ComposerKind } from '../rosterComposer';
@@ -62,6 +63,7 @@
 	const focusUnavailable = $derived(focus.status.kind === 'unavailable');
 	// One Group with nothing under it is the reader's whole roster: no band to draw and no A-Z or Group choice to make.
 	const banded = $derived(!focus.singleLeaf);
+	const nestedTree = $derived(focus.tree.ordered.some((node) => node.hasChildren));
 	const viewMode = $derived(banded ? ctx.viewMode : 'alphabetical');
 	let locallyArchivedIds = new SvelteSet<string>();
 	const readerPersonnel = $derived(ctx.allActivePersonnel.filter((person) => !locallyArchivedIds.has(person.id)));
@@ -245,14 +247,17 @@
 			return shown;
 		};
 		const subtree = (band: Band<Personnel>): Personnel[] => [...band.hq, ...band.children.flatMap(subtree)];
+		// The focused Group draws as the top band, named by its path when its parent is not on screen.
+		const base = current.kind === 'group' ? (tree.node(current.id)?.level ?? 0) : 0;
 		const visit = (band: Band<Personnel>) => {
 			const { node } = band;
 			const collapsed = ctx.collapsedGroups.has(node.id);
+			const level = node.level - base;
 			out.push({
 				key: node.id,
 				label: tree.label(node.id),
-				name: node.name,
-				level: node.level,
+				name: level === 0 ? tree.label(node.id) : node.name,
+				level,
 				topLevel: node.parentId === null,
 				rows: take(node.id, collapsed),
 				people: subtree(band),
@@ -664,19 +669,7 @@
 				</div>
 			</div>
 
-			{#if focusUnavailable}
-				<Alert.Root variant="warning">
-					<Alert.Title>Group unavailable</Alert.Title>
-					<Alert.Description>
-						This link points to a Group that was deleted or that you can no longer see. Nothing is shown for it.
-					</Alert.Description>
-					<Alert.Action>
-						<Button type="button" variant="outline" size="xs" onclick={() => focus.go({ kind: 'all' }, 'pick')}
-							>Clear</Button
-						>
-					</Alert.Action>
-				</Alert.Root>
-			{/if}
+			<GroupFocusUnavailable {focus} />
 
 			<PersonnelFilterChips
 				summary={signalSummary}
@@ -750,9 +743,14 @@
 					<Button onclick={showAlphabetical}>Use A-Z View</Button>
 				</div>
 			{:else}
-				<!-- Each top band sticks under the 40 px column header until the next one replaces it, so it needs an opaque fill. -->
+				<!-- In a nested tree each top band sticks under the 40 px column header until the next one replaces it, so it
+				     needs an opaque fill. -->
 				<div
-					class="flex min-h-0 min-w-0 flex-1 [&_[data-slot='data-table']]:min-h-0 [&_[data-slot='data-table']]:w-full [&_[data-slot='data-table']]:flex-1 [&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:sticky [&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:top-10 [&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:z-[5] [&_[data-slot='data-table-group-row']:has([data-band-level='0'])>td]:bg-[color-mix(in_oklab,var(--muted)_45%,var(--card))]"
+					class={[
+						"flex min-h-0 min-w-0 flex-1 [&_[data-slot='data-table']]:min-h-0 [&_[data-slot='data-table']]:w-full [&_[data-slot='data-table']]:flex-1",
+						nestedTree &&
+							"[&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:sticky [&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:top-10 [&_[data-slot='data-table-group-row']:has([data-band-level='0'])]:z-[5] [&_[data-slot='data-table-group-row']:has([data-band-level='0'])>td]:bg-[color-mix(in_oklab,var(--muted)_45%,var(--card))]"
+					]}
 				>
 					<DataTable.DataTable
 						table={activeTable}

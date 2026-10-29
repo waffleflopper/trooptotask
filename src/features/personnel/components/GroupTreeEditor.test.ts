@@ -53,10 +53,12 @@ async function choose(name: string, item: string) {
 	return screen.findByRole('alertdialog');
 }
 
-const shownOptions = () =>
-	screen
-		.getAllByRole('treeitem')
-		.map((item) => [item.id.split('-row-')[1], item.getAttribute('aria-disabled') === 'true']);
+const choice = (name: string) => screen.getByRole('treeitem', { name });
+
+const shownChoices = (...names: string[]) => {
+	expect(screen.getAllByRole('treeitem')).toEqual(names.map(choice));
+	return names.map((name) => choice(name).getAttribute('aria-disabled') === 'true');
+};
 
 afterEach(() => {
 	cleanup();
@@ -145,12 +147,8 @@ describe('GroupTreeEditor', () => {
 		await fireEvent.click(within(dialog).getByRole('button', { name: /^Move under:/ }));
 		await screen.findByRole('combobox', { name: 'Search Groups' });
 
-		expect(shownOptions()).toEqual([
-			['top-level', false],
-			['plt1', true],
-			['hq', false]
-		]);
-		await fireEvent.click(screen.getAllByRole('treeitem')[2]);
+		expect(shownChoices('Top level', '1st Platoon', 'HQ')).toEqual([false, true, false]);
+		await fireEvent.click(choice('HQ'));
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
 
 		await waitFor(() => expect(commands.move.mock.calls).toEqual([['sq1', 'hq']]));
@@ -162,7 +160,7 @@ describe('GroupTreeEditor', () => {
 		const dialog = await choose('Alpha Team', 'Move under…');
 		await fireEvent.click(within(dialog).getByRole('button', { name: /^Move under:/ }));
 		await screen.findByRole('combobox', { name: 'Search Groups' });
-		await fireEvent.click(screen.getAllByRole('treeitem')[0]);
+		await fireEvent.click(choice('Top level'));
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
 
 		await waitFor(() => expect(commands.move.mock.calls).toEqual([['alpha', null]]));
@@ -216,11 +214,8 @@ describe('GroupTreeEditor', () => {
 		await fireEvent.click(within(dialog).getByRole('button', { name: /^Move them to:/ }));
 		await screen.findByRole('combobox', { name: 'Search Groups' });
 
-		expect(shownOptions()).toEqual([
-			['hq', false],
-			['unassigned', false]
-		]);
-		await fireEvent.click(screen.getAllByRole('treeitem')[0]);
+		expect(shownChoices('HQ', 'Unassigned')).toEqual([false, false]);
+		await fireEvent.click(choice('HQ'));
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete and move 7' }));
 		await waitFor(() => expect(commands.remove.mock.calls).toEqual([['plt1', 'hq']]));
 	});

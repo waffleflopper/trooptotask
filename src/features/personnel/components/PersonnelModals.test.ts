@@ -415,9 +415,7 @@ describe('Group editor changes reach the roster in place', () => {
 
 			await chooseGroupAction('Alpha', 'Delete…');
 			await fireEvent.click(screen.getByRole('button', { name: /^Move them to:/ }));
-			await fireEvent.click(
-				screen.getAllByRole('treeitem').find((item) => item.id.endsWith('-row-group-b')) as HTMLElement
-			);
+			await fireEvent.click(screen.getByRole('treeitem', { name: 'Bravo' }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Delete and move 1' }));
 
 			await waitFor(() => expect(personnelStore.getById('person-a')?.groupId).toBe('group-b'));

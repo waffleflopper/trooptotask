@@ -74,10 +74,12 @@ function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {
 	return props;
 }
 
-const shownOptions = () =>
-	screen
-		.getAllByRole('treeitem')
-		.map((item) => [item.id.split('-row-')[1], item.getAttribute('aria-disabled') === 'true']);
+const choice = (name: string | RegExp) => screen.getByRole('treeitem', { name });
+
+const shownChoices = (...names: string[]) => {
+	expect(screen.getAllByRole('treeitem')).toEqual(names.map(choice));
+	return names.map((name) => choice(name).getAttribute('aria-disabled') === 'true');
+};
 
 afterEach(() => {
 	cleanup();
@@ -186,15 +188,9 @@ describe('GroupEditor', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /^Move selected members to:/ }));
 		const search = await screen.findByRole('combobox', { name: 'Search Groups' });
 
-		expect(shownOptions()).toEqual([
-			['g-hq', false],
-			['g-2', true],
-			['g-empty', false],
-			['unassigned', false]
-		]);
+		expect(shownChoices('HQ', '2nd Platoon', 'Empty', 'Unassigned')).toEqual([false, true, false, false]);
 		await fireEvent.input(search, { target: { value: 'squad' } });
-		const squad = screen.getAllByRole('treeitem').find((item) => item.id.endsWith('-row-g-2-sq1'));
-		await fireEvent.click(squad!);
+		await fireEvent.click(choice(/1st Squad/));
 		await waitFor(() => expect(onMove).toHaveBeenCalledWith(['p-banks'], 'g-2-sq1'));
 	});
 

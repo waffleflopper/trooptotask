@@ -42,6 +42,14 @@ function groupEditorContext(modals: ModalRegistry, peek?: RosterPeek) {
 	);
 }
 
+async function chooseGroupAction(name: string, item: string) {
+	await fireEvent.pointerDown(screen.getByRole('button', { name: `Change ${name}` }), {
+		button: 0,
+		pointerType: 'mouse'
+	});
+	await fireEvent.click(await screen.findByRole('menuitem', { name: item }));
+}
+
 describe('Group mutation denial through Personnel modal consumers', () => {
 	it.each(['add', 'rename', 'delete'] as const)(
 		'preserves Group and Personnel state on denied %s and supports retry',
@@ -84,11 +92,11 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 				await fireEvent.input(screen.getByLabelText('New group name'), { target: { value: 'New Group' } });
 				submit = () => fireEvent.keyDown(screen.getByLabelText('New group name'), { key: 'Enter' });
 			} else if (operation === 'rename') {
-				await fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha' }));
+				await chooseGroupAction('Alpha', 'Rename');
 				await fireEvent.input(screen.getByDisplayValue('Alpha'), { target: { value: 'Renamed Group' } });
 				submit = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 			} else {
-				await fireEvent.click(screen.getByRole('button', { name: 'Delete Alpha…' }));
+				await chooseGroupAction('Alpha', 'Delete…');
 				submit = () => fireEvent.click(screen.getByRole('button', { name: 'Delete and move 1' }));
 			}
 			await submit();
@@ -98,7 +106,7 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 			if (operation === 'add')
 				expect((screen.getByLabelText('New group name') as HTMLInputElement).value).toBe('New Group');
 			if (operation === 'rename') expect(screen.getByDisplayValue('Renamed Group')).toBeTruthy();
-			if (operation === 'delete') expect(screen.getByRole('group', { name: 'Delete Alpha' })).toBeTruthy();
+			if (operation === 'delete') expect(screen.getByRole('alertdialog', { name: 'Delete Alpha?' })).toBeTruthy();
 			await waitFor(() =>
 				expect(
 					(
@@ -208,7 +216,7 @@ describe('Group editor changes reach the roster in place', () => {
 		ctx.openGroupEditor(null);
 		render(PersonnelModals, { props: { ctx, modals } });
 		expect(screen.getByRole('list', { name: 'Members of Unassigned' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Rename Alpha' })).toBeNull();
+		expect(screen.getByRole('heading', { name: 'Unassigned' })).toBeTruthy();
 	});
 
 	it("keeps the viewer's pin through a rename and moves a removed member to Unassigned on the roster", async () => {
@@ -246,7 +254,7 @@ describe('Group editor changes reach the roster in place', () => {
 		modals.open('group-manager');
 		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha' }));
+		await chooseGroupAction('Alpha', 'Rename');
 		await fireEvent.input(screen.getByDisplayValue('Alpha'), { target: { value: 'Weapons' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		await waitFor(() => expect(personnelStore.getById('person-a')?.groupName).toBe('Weapons'));
@@ -256,6 +264,59 @@ describe('Group editor changes reach the roster in place', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove from Group' }));
 		await waitFor(() => expect(personnelStore.getById('person-a')).toMatchObject({ groupId: null, groupName: '' }));
 		expect(requests).toEqual(['PUT /org/org-a/api/groups', 'POST /org/org-a/api/personnel/group-membership']);
+	});
+
+	it('drops a deleted subtree and its pins, and moves everyone in it, without a reload', async () => {
+		const member = (id: string, groupId: string) =>
+			({
+				id,
+				rank: 'SPC',
+				firstName: 'Synthetic',
+				lastName: id,
+				mos: '',
+				clinicRole: '',
+				groupId,
+				groupName: '',
+				archivedAt: null
+			}) as Personnel;
+		groupCatalogHydration.load(
+			[
+				{ id: 'plt', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'sq', name: '1st Squad', sortOrder: 0, parentId: 'plt', depth: 2 as const },
+				{ id: 'team', name: 'Alpha Team', sortOrder: 0, parentId: 'sq', depth: 3 as const },
+				{ id: 'hq', name: 'HQ', sortOrder: 1, parentId: null, depth: 1 as const }
+			],
+			'org-a'
+		);
+		personnelStore.load(
+			[member('in-plt', 'plt'), member('in-sq', 'sq'), member('in-team', 'team'), member('in-hq', 'hq')],
+			'org-a'
+		);
+		pinnedGroupsHydration.load(['plt', 'hq'], 'org-a');
+		const bodies: unknown[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url: string, init: RequestInit) => {
+				bodies.push(JSON.parse(init.body as string));
+				return Response.json({ movedCount: 3 });
+			})
+		);
+		const modals = new ModalRegistry();
+		modals.open('group-manager');
+		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals } });
+
+		await chooseGroupAction('1st Platoon', 'Delete…');
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete and move 3' }));
+
+		await waitFor(() => expect(groupsStore.items.map((group) => group.id)).toEqual(['hq']));
+		expect(bodies).toEqual([{ id: 'plt', moveMembersTo: null }]);
+		expect(Object.fromEntries(personnelStore.items.map((person) => [person.id, person.groupId]))).toEqual({
+			'in-hq': 'hq',
+			'in-plt': null,
+			'in-sq': null,
+			'in-team': null
+		});
+		expect(pinnedGroupsStore.list).toEqual(['hq']);
 	});
 
 	describe('for a Person whose preview is open', () => {
@@ -319,7 +380,11 @@ describe('Group editor changes reach the roster in place', () => {
 				vi.fn(async () => Response.json({ movedCount: 1 }))
 			);
 
-			await fireEvent.click(screen.getByRole('button', { name: 'Delete Alpha…' }));
+			await chooseGroupAction('Alpha', 'Delete…');
+			await fireEvent.click(screen.getByRole('button', { name: /^Move them to:/ }));
+			await fireEvent.click(
+				screen.getAllByRole('treeitem').find((item) => item.id.endsWith('-row-group-b')) as HTMLElement
+			);
 			await fireEvent.click(screen.getByRole('button', { name: 'Delete and move 1' }));
 
 			await waitFor(() => expect(personnelStore.getById('person-a')?.groupId).toBe('group-b'));
@@ -431,7 +496,7 @@ describe('rejected Group rename feedback', () => {
 		modals.open('group-manager');
 		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha' }));
+		await chooseGroupAction('Alpha', 'Rename');
 		await fireEvent.input(screen.getByDisplayValue('Alpha'), { target: { value: name } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 

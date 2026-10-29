@@ -257,7 +257,7 @@ describe('PersonnelModal', () => {
 	it('warns that an unassigned person is seen only with whole-unit access, until a Group is picked', async () => {
 		render(PersonnelModal, {
 			props: {
-				groups: [{ id: 'g-1', name: 'Alpha', sortOrder: 0 }],
+				groups: [{ id: 'g-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }],
 				allowUnassigned: true,
 				rankCatalog: navyRankCatalog,
 				onSubmit: vi.fn(),

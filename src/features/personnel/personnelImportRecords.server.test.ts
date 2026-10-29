@@ -286,7 +286,7 @@ describe('importPersonnelRecords', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
 			}
 		});
 		await ctx.store.update('personnel', 'test-org', 'archived', { group_id: 'bravo' });

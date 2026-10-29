@@ -220,8 +220,8 @@ describe('trainingReadiness', () => {
 					...Array.from({ length: 50 }, (_, index) => person(`b${index}`, 'bravo'))
 				],
 				groups: [
-					{ id: 'alpha', name: 'Alpha', sortOrder: 0 },
-					{ id: 'bravo', name: 'Bravo', sortOrder: 1 }
+					{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+					{ id: 'bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
 				],
 				trainingSummary: trainingSummary(0, [
 					{ groupId: 'alpha', expired: 0, delinquent: 1 },

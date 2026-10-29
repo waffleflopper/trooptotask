@@ -17,6 +17,12 @@ import type {
 	PersonnelRecordPersistence
 } from './contracts';
 import { createActivePersonnelRankResolver } from './rankValidation.server';
+import { dodIdInputSchema } from './dodId';
+import {
+	PersonnelDodIdConflict,
+	type PersonnelSheetPersistence,
+	type PersonnelDodId
+} from './personnelSheetPersistence';
 import {
 	buildAvailablePersonnelSlug,
 	buildPersonnelSlugBase,
@@ -32,6 +38,7 @@ interface PersonnelImportRecordsContext {
 		'listImportSlugs' | 'createMany' | 'listArchiveCandidates' | 'updateEditable'
 	>;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
+	personnelSheets: Pick<PersonnelSheetPersistence, 'listDodIds' | 'saveDodIds'>;
 	loadRankCatalog: Parameters<typeof createActivePersonnelRankResolver>[0]['loadRankCatalog'];
 }
 
@@ -39,6 +46,7 @@ interface ImportCreateRow {
 	index: number;
 	slugBase: string;
 	row: PersonnelInsert;
+	dodId?: string;
 }
 
 function invalidDate(changes: PersonnelImportRecordsChanges): string | null {
@@ -67,17 +75,26 @@ export async function importPersonnelRecords(
 		referenceReads.push(ctx.personnel.listArchiveCandidates(updateIds.slice(start, start + 100)));
 	}
 	const hasCreates = input.records.some((record) => record.op === 'create');
-	const [groups, references, slugs, ranks] = await Promise.all([
+	const [groups, references, slugs, ranks, dodIds] = await Promise.all([
 		ctx.groups.listCatalog(),
 		Promise.all(referenceReads),
 		hasCreates ? ctx.personnel.listImportSlugs() : [],
-		createActivePersonnelRankResolver(ctx)
+		createActivePersonnelRankResolver(ctx),
+		ctx.personnelSheets.listDodIds()
 	]);
 	const groupIds = new Set(groups.map((group) => group.id));
 	const people = new Map(references.flat().map((person) => [person.id, person]));
 	const creates: ImportCreateRow[] = [];
-	const updates: Array<{ index: number; personnelId: string; patch: Partial<PersonnelEditableFields> }> = [];
+	const updates: Array<{
+		index: number;
+		personnelId: string;
+		patch: Partial<PersonnelEditableFields>;
+		dodId?: string;
+	}> = [];
 	const seenUpdateIds = new Set<string>();
+	const seenDodIds = new Set<string>();
+	const dodIdOwners = new Map(dodIds.map(({ personnelId, dodId }) => [dodId, personnelId]));
+	const sheetWrites: Array<PersonnelDodId & { index: number }> = [];
 	const updated: Personnel[] = [];
 	const errors: PersonnelBatchMessage[] = [];
 
@@ -97,6 +114,24 @@ export async function importPersonnelRecords(
 		}
 		const person = record.op === 'update' ? people.get(record.personnelId) : undefined;
 		const fields = record.op === 'create' ? record : record.changes;
+		const parsedDodId = dodIdInputSchema.optional().safeParse(fields.dodId);
+		if (!parsedDodId.success) {
+			errors.push({ kind: 'failed', index, message: 'Enter a 10-digit DoD ID' });
+			continue;
+		}
+		const dodId = parsedDodId.data || undefined;
+		if (dodId) {
+			if (seenDodIds.has(dodId)) {
+				errors.push({ kind: 'failed', index, message: 'This DoD ID is already used by an earlier row in this import' });
+				continue;
+			}
+			seenDodIds.add(dodId);
+			const owner = dodIdOwners.get(dodId);
+			if (owner && (record.op === 'create' || owner !== record.personnelId)) {
+				errors.push({ kind: 'failed', index, message: new PersonnelDodIdConflict().message });
+				continue;
+			}
+		}
 		const dateError = invalidDate(fields);
 		if (dateError) {
 			errors.push({ kind: 'failed', index, message: dateError });
@@ -131,6 +166,7 @@ export async function importPersonnelRecords(
 			}
 			creates.push({
 				index,
+				dodId,
 				slugBase: buildPersonnelSlugBase({ firstName, lastName }),
 				row: {
 					rank,
@@ -165,21 +201,24 @@ export async function importPersonnelRecords(
 		if (fields.groupId !== undefined) patch.groupId = fields.groupId;
 		if (fields.ets !== undefined) patch.ets = fields.ets;
 		if (fields.deros !== undefined) patch.deros = fields.deros;
-		if (Object.keys(patch).length === 0) {
+		if (Object.keys(patch).length === 0 && !dodId) {
 			errors.push({ kind: 'failed', index, message: 'An update must include at least one changed field' });
 			continue;
 		}
+		// A DoD-only update still needs a real Person write to recheck the active-row guard.
+		if (Object.keys(patch).length === 0) patch.rank = person.rank;
 
-		updates.push({ index, personnelId: record.personnelId, patch });
+		updates.push({ index, personnelId: record.personnelId, patch, dodId });
 	}
 
 	for (let start = 0; start < updates.length; start += 12) {
 		const savedRows = await Promise.all(
-			updates.slice(start, start + 12).map(async ({ index, personnelId, patch }) => {
+			updates.slice(start, start + 12).map(async ({ index, personnelId, patch, dodId }) => {
 				try {
 					const saved = await ctx.personnel.updateEditable(personnelId, patch, { onlyActive: true });
 					if (!saved)
 						errors.push({ kind: 'failed', index, message: 'No active personnel row is available in your scope' });
+					if (saved && dodId) sheetWrites.push({ index, personnelId, dodId });
 					return saved;
 				} catch {
 					errors.push({
@@ -194,7 +233,18 @@ export async function importPersonnelRecords(
 		updated.push(...savedRows.filter((row) => row !== null));
 	}
 
-	const created = await createImportRows(ctx, creates, slugs, errors);
+	const created = await createImportRows(ctx, creates, slugs, errors, sheetWrites);
+	const sheetFailures = await ctx.personnelSheets.saveDodIds(sheetWrites);
+	const sheetIndices = new Map(sheetWrites.map(({ personnelId, index }) => [personnelId, index]));
+	for (const { personnelId, reason } of sheetFailures) {
+		const index = sheetIndices.get(personnelId);
+		if (index === undefined) continue;
+		errors.push({
+			kind: 'failed',
+			index,
+			message: `The Person was saved, but the DoD ID was not. ${reason === 'conflict' ? new PersonnelDodIdConflict().message : 'Review the Data sheet before retrying.'}`
+		});
+	}
 	errors.sort((left, right) => left.index - right.index);
 	await ctx.audit.log({
 		action: 'personnel.bulk_merged',
@@ -208,7 +258,8 @@ async function createImportRows(
 	ctx: PersonnelImportRecordsContext,
 	rows: ImportCreateRow[],
 	slugs: Array<{ slug: string | null }>,
-	errors: PersonnelBatchMessage[]
+	errors: PersonnelBatchMessage[],
+	sheetWrites: Array<PersonnelDodId & { index: number }>
 ): Promise<Personnel[]> {
 	const reserved = new Set(slugs.flatMap(({ slug }) => (slug ? [slug] : [])));
 	const created: Personnel[] = [];
@@ -220,7 +271,13 @@ async function createImportRows(
 
 	async function insert(subset: ImportCreateRow[], attempt = 1): Promise<void> {
 		try {
-			created.push(...(await ctx.personnel.createMany(subset.map(({ row }) => row))));
+			const saved = await ctx.personnel.createMany(subset.map(({ row }) => row));
+			created.push(...saved);
+			const bySlug = new Map(saved.map((person) => [person.slug, person]));
+			for (const { index, row, dodId } of subset) {
+				const person = bySlug.get(row.slug);
+				if (person && dodId) sheetWrites.push({ index, personnelId: person.id, dodId });
+			}
 		} catch (error) {
 			const confirmed =
 				isRedactedPersonnelSlugConstraintError(error) ||

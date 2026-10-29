@@ -3,10 +3,12 @@
 	import PrinterIcon from '@lucide/svelte/icons/printer';
 	import {
 		BUILT_IN_ARMY_RANK_OPTIONS,
+		type Group,
+		type GroupTree,
 		type Personnel,
-		type RankCatalogEntry,
-		type RosterGroupCatalogEntry
+		type RankCatalogEntry
 	} from '$features/personnel/contracts';
+	import { TreeSelect, type TreeSelectOption } from '$lib/components/patterns/tree-select';
 	import * as SegmentedFilter from '$lib/components/patterns/segmented-filter';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -17,7 +19,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Switch } from '$lib/components/ui/switch';
 	import { cn } from '$lib/utils';
-	import { rosterDateLine, rosterPrintRows, type CompareRosterBands } from '../rosterPrintRows';
+	import { rosterDateLine, rosterPrintRows, rosterSplit } from '../rosterPrintRows';
 	import { signInRosterFilterOptions, signInRosterRankCategoryGroups } from '../signInRosterFilter';
 	import { signInRosterRankOptions } from '../signInRosterRankOrder';
 	import AudienceFilter from './AudienceFilter.svelte';
@@ -27,16 +29,16 @@
 		draft,
 		personnel,
 		groups,
+		tree,
 		rankCatalog,
-		compareBands,
 		onBack,
 		onSave
 	}: {
 		draft: NewRoster;
 		personnel: readonly Personnel[];
-		groups: readonly RosterGroupCatalogEntry[];
+		groups: readonly Group[];
+		tree: GroupTree;
 		rankCatalog: readonly RankCatalogEntry[] | undefined;
-		compareBands: CompareRosterBands;
 		onBack: () => void;
 		onSave: () => void;
 	} = $props();
@@ -52,11 +54,18 @@
 		{ key: 'civilian', label: 'Civilians' }
 	] as const;
 
-	const groupItems = $derived(
-		[...groups]
-			.sort((a, b) => compareBands({ groupId: a.id, name: a.name }, { groupId: b.id, name: b.name }))
-			.map((group) => ({ value: group.id, label: group.name }))
+	const groupCounts = $derived(tree.subtreeCounts(personnel, (person) => person.groupId));
+	const groupOptions = $derived(
+		tree.ordered.map(
+			(node): TreeSelectOption => ({
+				id: node.id,
+				label: node.name,
+				depth: node.level,
+				count: groupCounts.get(node.id) ?? 0
+			})
+		)
 	);
+	const chosenGroups = $derived(draft.filter.groups.filter((id) => tree.node(id)));
 	const rankOptions = $derived(
 		signInRosterRankOptions(
 			rankCatalog,
@@ -69,7 +78,14 @@
 	const audienceOptions = $derived(signInRosterFilterOptions(personnel));
 	const mosItems = $derived(audienceOptions.mos.map((value) => ({ value, label: value })));
 	const roleItems = $derived(audienceOptions.roles.map((value) => ({ value, label: value })));
-	const printRows = $derived(rosterPrintRows(draft.snapshot, draft.separateByGroup, compareBands, groups));
+	const printRows = $derived(
+		rosterPrintRows(
+			draft.snapshot,
+			rosterSplit({ separateByGroup: draft.separateByGroup, filterConfig: draft.filter }),
+			tree,
+			groups
+		)
+	);
 	const nobody = $derived(draft.people.length === 0);
 </script>
 
@@ -167,14 +183,23 @@
 					</Button>
 				{/if}
 			</div>
-			<AudienceFilter
-				label="Group"
-				anyLabel="Any group"
-				items={groupItems}
-				values={draft.filter.groups}
-				onChange={(next) => draft.setFilter('groups', next)}
-				emptyText="No groups yet."
-			/>
+			{#if groupOptions.length > 0}
+				<Field.Root class="gap-1.5 sm:grid sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:items-start sm:gap-x-3">
+					<Field.Title class="sm:min-h-8 sm:items-center">Group</Field.Title>
+					<TreeSelect
+						multiple
+						options={groupOptions}
+						value={draft.filter.groups}
+						onValueChange={(next) => draft.setFilter('groups', next)}
+						label="Group"
+						hideLabel
+						valueLabel={chosenGroups.length > 0 ? chosenGroups.map((id) => tree.label(id)).join(', ') : 'Any group'}
+						placeholder="Any group"
+						searchPlaceholder="Find a Group"
+						class="w-full justify-between"
+					/>
+				</Field.Root>
+			{/if}
 			<AudienceFilter
 				label="Rank"
 				anyLabel="Any rank"

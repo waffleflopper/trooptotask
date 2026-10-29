@@ -1,6 +1,12 @@
-import { BUILT_IN_RANK_CATALOG, type Personnel, type RankCatalogEntry } from '$features/personnel/contracts';
+import {
+	BUILT_IN_RANK_CATALOG,
+	type GroupTree,
+	type Personnel,
+	type RankCatalogEntry
+} from '$features/personnel/contracts';
 
 export type SignInRosterFilter = {
+	/** Canonical: a Group covers its sub-groups, so none is listed with its ancestor. */
 	groups: string[];
 	ranks: string[];
 	mos: string[];
@@ -23,9 +29,15 @@ export function emptySignInRosterFilter(): SignInRosterFilter {
 	return { groups: [], ranks: [], mos: [], roles: [] };
 }
 
-export function matchesSignInRosterFilter(person: SignInRosterFilterPerson, filter: SignInRosterFilter): boolean {
+type GroupContains = Pick<GroupTree, 'contains'>;
+
+export function matchesSignInRosterFilter(
+	person: SignInRosterFilterPerson,
+	filter: SignInRosterFilter,
+	tree: GroupContains
+): boolean {
 	return (
-		matchesDimension(person.groupId, filter.groups) &&
+		(filter.groups.length === 0 || filter.groups.some((groupId) => tree.contains(groupId, person.groupId))) &&
 		matchesDimension(person.rank.trim(), filter.ranks) &&
 		matchesDimension(person.mos, filter.mos) &&
 		matchesDimension(person.clinicRole, filter.roles)
@@ -38,9 +50,10 @@ function matchesDimension(value: string | null, selected: readonly string[]): bo
 
 export function filterSignInRosterPersonnel<T extends SignInRosterFilterPerson>(
 	personnel: readonly T[],
-	filter: SignInRosterFilter
+	filter: SignInRosterFilter,
+	tree: GroupContains
 ): T[] {
-	return personnel.filter((person) => matchesSignInRosterFilter(person, filter));
+	return personnel.filter((person) => matchesSignInRosterFilter(person, filter, tree));
 }
 
 export function signInRosterFilterOptions(personnel: readonly FilterOptionPerson[]): {

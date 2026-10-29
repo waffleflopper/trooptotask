@@ -40,8 +40,8 @@ const personnel: Personnel[] = [
 	person({ id: 'p3', lastName: 'Cole', mos: '11B', clinicRole: 'Medic', groupId: 'group-1', groupName: 'Alpha' })
 ];
 const groups = [
-	{ id: 'group-1', name: 'Alpha', sortOrder: 0 },
-	{ id: 'group-2', name: 'Bravo', sortOrder: 1 }
+	{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 const SAVED_SCAN = 'org-1/sign-in-rosters/roster-1/signed-roster.pdf';
 const pdf = () => new File(['%PDF'], 'signed-roster.pdf', { type: 'application/pdf' });

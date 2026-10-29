@@ -47,8 +47,10 @@ function makeWorkspace(
 	return createSettingsMemberAccessWorkspace({
 		members: options.members ?? [operator],
 		groups: [
-			{ id: 'g-1', name: 'HQ PLT' },
-			{ id: 'g-2', name: '1st PLT' }
+			{ id: 'g-1', name: 'HQ PLT', parentId: null, memberCount: 3 },
+			{ id: 'g-2', name: '1st PLT', parentId: null, memberCount: 2 },
+			{ id: 'g-2-sq', name: '1st Squad', parentId: 'g-2', memberCount: 4 },
+			{ id: 'g-2-sq-a', name: 'Alpha Team', parentId: 'g-2-sq', memberCount: 5 }
 		],
 		isOwner: options.isOwner ?? true,
 		offLanes: options.offLanes ?? []
@@ -183,18 +185,20 @@ describe('settings member access workspace', () => {
 		expect(workspace.draft?.role).toBe('member');
 	});
 
-	it('starts Selected groups empty and toggles group chips', () => {
+	it('starts Selected groups empty and saves only the roots of what is picked', () => {
 		const workspace = makeWorkspace({ members: [member('m', 'm@example.com', 'member')] });
 		workspace.open(member('m', 'm@example.com', 'member'));
 
 		workspace.setScopeKind('groups');
 		expect(workspace.draft?.scope).toEqual({ kind: 'groups', groupIds: [] });
 
-		workspace.toggleScopeGroup('g-2');
-		workspace.toggleScopeGroup('g-1');
-		workspace.toggleScopeGroup('g-2');
+		workspace.setScopeGroups(['g-2-sq-a', 'g-1', 'g-2-sq']);
 
-		expect(workspace.draft?.scope).toEqual({ kind: 'groups', groupIds: ['g-1'] });
+		expect(workspace.draft?.scope).toEqual({ kind: 'groups', groupIds: ['g-1', 'g-2-sq'] });
+		expect(workspace.scopeTree.summary(['g-1', 'g-2-sq'])).toBe(
+			'Sees HQ PLT plus 1st Squad and its 1 sub-group: 12 people. Not Unassigned.'
+		);
+		expect(workspace.groupName('g-2-sq-a')).toBe('1st PLT › 1st Squad › Alpha Team');
 		expect(workspace.changeCount).toBe(1);
 	});
 
@@ -207,8 +211,9 @@ describe('settings member access workspace', () => {
 		expect(workspace.invite.groupIds).toEqual(['g-1']);
 		expect(workspace.inviteGroupsLabel).toBe('HQ PLT');
 
-		workspace.setInviteGroups(['g-1', 'g-2']);
-		expect(workspace.inviteGroupsLabel).toBe('2 groups');
+		workspace.setInviteGroups(['g-1', 'g-2', 'g-2-sq-a']);
+		expect(workspace.invite.groupIds).toEqual(['g-1', 'g-2']);
+		expect(workspace.inviteGroupsLabel).toBe('2 Groups');
 
 		workspace.setInviteGroups(['g-1', 'g-2', ALL_GROUPS]);
 		expect(workspace.invite.groupIds).toEqual([]);

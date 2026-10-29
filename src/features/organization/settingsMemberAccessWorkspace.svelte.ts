@@ -1,3 +1,4 @@
+import { scopeTree, type ScopeGroup, type ScopeTree } from './scopeGroups';
 import {
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type CapabilityLevel,
@@ -22,7 +23,7 @@ export type { EditableMembershipRole, EditablePreset };
 
 export interface SettingsMemberAccessData {
 	members: SettingsMemberRow[];
-	groups: Array<{ id: string; name: string }>;
+	groups: ScopeGroup[];
 	isOwner: boolean;
 	/** Lanes whose feature the unit turned off. Their stored level is shown and kept, never edited. */
 	offLanes: DurableFeatureLane[];
@@ -128,9 +129,15 @@ export class SettingsMemberAccessWorkspace {
 	draft = $state<MemberAccessDraft | null>(null);
 	invite = $state<InviteDraft>({ email: '', role: 'member', preset: 'editor', groupIds: [] });
 	filter = $state('');
+	readonly #tree = $derived(scopeTree(this.#data.groups));
 
 	constructor(data: SettingsMemberAccessData | (() => SettingsMemberAccessData)) {
 		this.#getData = typeof data === 'function' ? data : () => data;
+	}
+
+	/** The Groups a scope can cover, as a tree. */
+	get scopeTree(): ScopeTree {
+		return this.#tree;
 	}
 
 	get #data(): SettingsMemberAccessData {
@@ -162,7 +169,7 @@ export class SettingsMemberAccessWorkspace {
 	}
 
 	groupName(groupId: string): string {
-		return this.#data.groups.find((group) => group.id === groupId)?.name ?? 'Unknown group';
+		return this.#tree.path(groupId);
 	}
 
 	open(member: SettingsMemberRow): void {
@@ -199,12 +206,10 @@ export class SettingsMemberAccessWorkspace {
 		this.draft.scope = kind === 'groups' ? { kind: 'groups', groupIds: [] } : { kind: 'organization' };
 	}
 
-	toggleScopeGroup(groupId: string): void {
+	/** Stores the roots of the selection: a squad covers its teams, so the teams are not listed again. */
+	setScopeGroups(groupIds: readonly string[]): void {
 		const scope = this.draft?.scope;
-		if (scope?.kind !== 'groups') return;
-		scope.groupIds = scope.groupIds.includes(groupId)
-			? scope.groupIds.filter((id) => id !== groupId)
-			: [...scope.groupIds, groupId];
+		if (scope?.kind === 'groups') scope.groupIds = this.#tree.canonical(groupIds);
 	}
 
 	/** "<preset> gives <level>" for a lane that differs from the chosen preset, or null when it matches or is off. */
@@ -236,10 +241,10 @@ export class SettingsMemberAccessWorkspace {
 		].filter(Boolean).length;
 	}
 
-	/** The groups select offers "Whole unit" beside each group; picking it clears the rest, and clearing the rest picks it. */
-	setInviteGroups(values: string[]): void {
+	/** The groups picker offers "Whole unit" beside the tree; picking it clears the rest, and clearing the rest picks it. */
+	setInviteGroups(values: readonly string[]): void {
 		const hadAll = this.invite.groupIds.length === 0;
-		const groupIds = values.filter((value) => value !== ALL_GROUPS);
+		const groupIds = this.#tree.canonical(values.filter((value) => value !== ALL_GROUPS));
 		this.invite.groupIds = !hadAll && values.includes(ALL_GROUPS) ? [] : groupIds;
 	}
 
@@ -250,7 +255,7 @@ export class SettingsMemberAccessWorkspace {
 	get inviteGroupsLabel(): string {
 		const ids = this.invite.groupIds;
 		if (ids.length === 0) return 'Whole unit';
-		return ids.length === 1 ? this.groupName(ids[0]) : `${ids.length} groups`;
+		return ids.length === 1 ? this.groupName(ids[0]) : `${ids.length} Groups`;
 	}
 
 	resetInvite(): void {

@@ -1,3 +1,4 @@
+import { scopeTree, type ScopeGroup, type ScopeTree } from './scopeGroups';
 import {
 	DURABLE_FEATURE_LANES,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
@@ -24,7 +25,7 @@ import { ACCESS_LANE_LABELS, CAPABILITY_LEVEL_LABELS } from './settingsMemberAcc
 
 export interface LoadMembersSettingsInput {
 	isAdmin: boolean;
-	groups: Promise<Array<{ id: string; name: string }>>;
+	groups: Promise<ScopeGroup[]>;
 	/** Invitations whose status left `pending`. Streams into the history row, so the roster does not wait on it. */
 	closedInvitations: Promise<SettingsAccessSourceRow[]>;
 }
@@ -40,7 +41,7 @@ export interface BuildMembersSettingsDataInput {
 	invitationDeliveries?: OrganizationSettingsInvitationDeliveryRow[];
 	/** Platform Account Setup state per invitation id. Absent entries mean no Access Request exists. */
 	invitationSetupStates?: Map<string, AccessRequestSetupState>;
-	groups: Array<{ id: string; name: string }>;
+	groups: ScopeGroup[];
 	disabledFeatures: readonly FeatureKey[];
 	now?: Date;
 }
@@ -82,13 +83,13 @@ export async function loadMembersSettings(
 
 export interface PendingInvitationsSettings {
 	invitations: SettingsPendingInvitationRow[];
-	groups: Array<{ id: string; name: string }>;
+	groups: ScopeGroup[];
 }
 
 /** What the invite form and the list of pending invitations need, without the member roster or history. */
 export async function loadPendingInvitationsSettings(
 	ctx: MembersSettingsLoadContext,
-	input: { groups: Promise<Array<{ id: string; name: string }>> }
+	input: { groups: Promise<ScopeGroup[]> }
 ): Promise<PendingInvitationsSettings> {
 	const [invitationRows, invitationDeliveryRows, groups] = await Promise.all([
 		ctx.organizationSettings.listInvitations(ctx.auth.orgId, 'pending'),
@@ -161,19 +162,20 @@ export function buildMembersSettingsData(input: BuildMembersSettingsDataInput): 
 
 export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput): SettingsMembersSectionData {
 	const canManageMembers = input.canManageMembers;
-	const groups = input.groups.map(({ id, name }) => ({ id, name }));
+	const groups = input.groups.map(({ id, name, parentId, memberCount }) => ({ id, name, parentId, memberCount }));
+	const tree = scopeTree(groups);
 	const now = input.now ?? new Date();
 	const latestDeliveryByInvitationId = buildLatestDeliveryByInvitationId(input.invitationDeliveries ?? []);
 	const pendingInvitations = input.invitations.map(buildSettingsInvitationAccessRow);
 	const invitations = pendingInvitations
 		.filter((invitation) => isActionableInvitation(invitation, now))
-		.map((invitation) => shapeInvitationRow(invitation, groups, latestDeliveryByInvitationId, now))
+		.map((invitation) => shapeInvitationRow(invitation, tree, latestDeliveryByInvitationId, now))
 		.map((invitation) => withInvitationFunnelStatus(invitation, input.invitationSetupStates));
 	const lapsedInvitations = pendingInvitations.filter((invitation) => !isActionableInvitation(invitation, now));
 	const offLanes = disabledFeatureLanes(input.disabledFeatures);
 
 	return {
-		rows: input.members.map((row) => shapeMemberRow(buildSettingsMemberAccessRow(row), groups, offLanes)),
+		rows: input.members.map((row) => shapeMemberRow(buildSettingsMemberAccessRow(row), tree, offLanes)),
 		invitations,
 		invitationHistory: input.closedInvitations.then((closed) =>
 			[...lapsedInvitations, ...closed.map(buildSettingsInvitationAccessRow)]
@@ -189,19 +191,19 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 
 function shapeMemberRow(
 	member: ReturnType<typeof buildSettingsMemberAccessRow>,
-	groups: Array<{ id: string; name: string }>,
+	tree: ScopeTree,
 	offLanes: readonly DurableFeatureLane[]
 ): SettingsMemberRow {
 	return {
 		...member,
-		scopeDisplayLabel: formatScopeSet(member.access.scopeSet, groups),
+		scopeDisplayLabel: formatScopeSet(member.access.scopeSet, tree),
 		overriddenCapabilityLabels: overriddenCapabilityLabels(member, offLanes)
 	};
 }
 
 function shapeInvitationRow(
 	invitation: ReturnType<typeof buildSettingsInvitationAccessRow>,
-	groups: Array<{ id: string; name: string }>,
+	tree: ScopeTree,
 	deliveryByInvitationId: Map<string, OrganizationSettingsInvitationDeliveryRow>,
 	now: Date
 ): SettingsInvitationRow {
@@ -210,7 +212,7 @@ function shapeInvitationRow(
 
 	return {
 		...invitation,
-		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups),
+		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, tree),
 		deliveryStatus,
 		deliveryStatusLabel: invitationDeliveryStatusLabel(deliveryStatus),
 		deliveryAttemptCount: delivery?.attempt_count ?? 0,
@@ -417,11 +419,9 @@ function overriddenCapabilityLabels(
 
 function formatScopeSet(
 	scopeSet: ReturnType<typeof buildSettingsMemberAccessRow>['access']['scopeSet'],
-	groups: Array<{ id: string; name: string }>
+	tree: ScopeTree
 ): string {
 	if (scopeSet.kind === 'organization') return 'Whole unit';
 	if (scopeSet.groupIds.length === 0) return 'No groups';
-	return scopeSet.groupIds
-		.map((groupId) => groups.find((group) => group.id === groupId)?.name ?? 'Unknown group')
-		.join(', ');
+	return scopeSet.groupIds.map((groupId) => tree.path(groupId)).join(', ');
 }

@@ -30,7 +30,12 @@ export {
 	loadRosterPersonnel
 } from './rosterRead.server';
 export { createSupabasePersonnelNamesReader } from './personnelNames.server';
-export { findGroupNamesByIds, listGroupCatalog, listReaderPinnedGroupIds } from './groupCatalog.server';
+export {
+	findGroupNamesByIds,
+	listGroupCatalog,
+	listReaderPinnedGroupIds,
+	listScopeGroups
+} from './groupCatalog.server';
 export {
 	createGroup,
 	readGroupEditorCatalog,

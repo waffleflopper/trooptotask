@@ -19,7 +19,7 @@ import { createSupabaseOrganizationSettingsReader } from '$features/organization
 import type { loadMembersSettings } from '$features/organization/index.server';
 import { fetchTrainingBriefingReport } from '$features/training/index.server';
 import { createRequestTrainingBriefingContext } from '$lib/server/adapters/featureRequestContexts.server';
-import type { listGroupCatalog } from '$features/personnel/index.server';
+import type { listScopeGroups } from '$features/personnel/index.server';
 import type { streamSettingsNavCounts } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
 import type { FeaturesSettingsPorts } from './settingsFeatures.server';
@@ -51,7 +51,7 @@ export function createSettingsArchivesContext(
 export function createSettingsMembersContext(request: AdmittedOrganizationRequest): Parameters<
 	typeof loadMembersSettings
 >[0] &
-	Parameters<typeof listGroupCatalog>[0] & {
+	Parameters<typeof listScopeGroups>[0] & {
 		auth: AdmittedOrganizationRequest['auth'];
 		audit: AdmittedOrganizationRequest['audit'];
 	} {

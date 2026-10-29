@@ -196,10 +196,10 @@ corresponding `Unpin` control in Personnel, or `Pin to top` in the editor. The U
    pins may change, so record those intended replacements and compare exact Group IDs and order plus the unaffected row
    IDs and values. Preserve the original captures. Restore network and feedback hooks before cleanup. No helper may
    delete another member's pins or all Organization preferences.
-5. Sign in as `personnelScoped` and open Personnel in `Group` view. The Alpha header has `Collapse Alpha` and
-   `Group actions for Alpha` but no `Pin Alpha`, and its menu has no `Pin`. As `calendarScoped`, the Calendar `ALPHA`
-   band has no `Pin`. An authenticated `POST /org/<orgA>/api/pinned-groups` with `{ "groupId": "<Alpha ID>" }` from that
-   page answers 403, and `rows user_pinned_groups orgA user_id SCOPED_ID` is unchanged.
+5. Sign in as `personnelScoped` and open Personnel. Alpha is the whole view, so the roster draws no Alpha band and no
+   `Pin`; the toolbar shows the static `Alpha` label. As `calendarScoped`, Calendar draws no `ALPHA` band and no `Pin`.
+   An authenticated `POST /org/<orgA>/api/pinned-groups` with `{ "groupId": "<Alpha ID>" }` from that page answers 403,
+   and `rows user_pinned_groups orgA user_id SCOPED_ID` is unchanged.
 
 `groups` and `pinned-groups` controls match only their exact A endpoint on this owned app origin. They do not intercept
 the other family, nested paths or B. A held response has already reached the app; a synthetic failure has not. Save

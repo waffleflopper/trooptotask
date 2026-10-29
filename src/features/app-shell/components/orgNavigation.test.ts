@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
-import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive, isOrgNavSubItemActive } from './orgNavigation';
+import {
+	carryGroupFocus,
+	getOrgBreadcrumbs,
+	getOrgNavigation,
+	isOrgNavItemActive,
+	isOrgNavSubItemActive,
+	type OrgNavItem
+} from './orgNavigation';
 import { SETUP_STEPS } from '$features/organization/contracts';
 
 const baseCapabilities: CapabilityMap = {
@@ -173,6 +180,40 @@ describe('Calendar sub-items', () => {
 		expect(isOrgNavSubItemActive('/org/org-1/calendar/events/e-1', eventsAndTaskings)).toBe(true);
 		expect(isOrgNavSubItemActive('/org/org-1/calendar', eventsAndTaskings)).toBe(false);
 		expect(isOrgNavSubItemActive('/org/org-1/calendar/eventsx', eventsAndTaskings)).toBe(false);
+	});
+});
+
+describe('carryGroupFocus', () => {
+	const owner = projectEffectiveMemberAccess({ role: 'owner' }, { disabledFeatures: [] }).capabilityMap;
+	const nav = getOrgNavigation('org-1', owner, []);
+	const hrefs = (items: OrgNavItem[]) => items.map((item) => item.href);
+
+	it('keeps the reader’s Group focus on every Group-aware section link and nowhere else', () => {
+		const carried = carryGroupFocus(nav, new URLSearchParams('group=sq-1&view=month'));
+
+		expect(hrefs(carried)).toEqual([
+			'/org/org-1?group=sq-1',
+			'/org/org-1/calendar?group=sq-1',
+			'/org/org-1/personnel?group=sq-1',
+			'/org/org-1/evals?group=sq-1',
+			'/org/org-1/training?group=sq-1',
+			'/org/org-1/critical-tasks?group=sq-1',
+			'/org/org-1/onboarding?group=sq-1'
+		]);
+		expect(carried.find((item) => item.id === 'calendar')?.children?.map((child) => child.href)).toEqual([
+			'/org/org-1/calendar/taskings',
+			'/org/org-1/calendar/assignments'
+		]);
+		expect(isOrgNavItemActive('/org/org-1', carried[0])).toBe(true);
+	});
+
+	it('leaves a link that does not follow focus alone, and every link bare without a focus', () => {
+		const settings = { ...nav[0], id: 'settings', href: '/org/org-1/settings', followsGroupFocus: false };
+
+		expect(hrefs(carryGroupFocus([settings], new URLSearchParams('group=unassigned')))).toEqual([
+			'/org/org-1/settings'
+		]);
+		expect(hrefs(carryGroupFocus(nav, new URLSearchParams('view=month')))).toEqual(hrefs(nav));
 	});
 });
 

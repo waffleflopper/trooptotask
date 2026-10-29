@@ -105,6 +105,7 @@ means the workspace reloaded.
 - [Personnel Overview](personnel-overview.md): the Overview tab's streamed sections.
 - [Personnel Readiness tab](personnel-readiness.md): training and critical-task tables and the drawer.
 - [Manage groups](manage-groups.md): Group editor, order, batch membership, delete with reassignment, pins and denial.
+- [Group focus and nested bands](group-focus.md): `?group=` focus across Personnel and Calendar, nested bands, pins.
 - [Rank catalog](rank-settings.md): rank packs, custom ranks and retirement.
 - [Invalid, stale and conflicting input](invalid-input.md): malformed, missing and conflicting input.
 - [Personnel, Groups and settings forms](personnel-form-states.md): form failure and screen states.

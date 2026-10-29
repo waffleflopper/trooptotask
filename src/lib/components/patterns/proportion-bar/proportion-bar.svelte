@@ -15,11 +15,14 @@
 	let {
 		segments,
 		label,
+		size = 'default',
 		class: className
 	}: {
 		segments: ProportionBarSegment[];
 		/** Names the bar for assistive technology, which hears each segment's label and count. */
 		label: string;
+		/** `compact` sits in a slim row, such as a sub-group header. */
+		size?: 'default' | 'compact';
 		class?: string;
 	} = $props();
 
@@ -27,7 +30,11 @@
 </script>
 
 <div
-	class={cn('flex h-1.5 w-30 shrink-0 gap-px overflow-clip rounded-[3px] bg-muted-foreground/15', className)}
+	class={cn(
+		'flex w-30 shrink-0 gap-px overflow-clip bg-muted-foreground/15',
+		size === 'compact' ? 'h-1 rounded-[2px]' : 'h-1.5 rounded-[3px]',
+		className
+	)}
 	role="img"
 	aria-label="{label}: {shown.map((segment) => `${segment.count} ${segment.label}`).join(', ')}"
 >

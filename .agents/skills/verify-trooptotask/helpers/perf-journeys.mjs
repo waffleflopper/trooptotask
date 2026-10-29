@@ -58,10 +58,10 @@ const org = (terms, path = '') => `/org/${terms.organizationId}${path}`;
 const count = (rows) => rows.toLocaleString('en-US');
 const groupFilterActors = {
 	perfWide: null,
-	perfScoped: 'perfScoped sees one Group, so the group filter has nothing to narrow.'
+	perfScoped: 'perfScoped sees one Group, so the Group focus has nothing to narrow.'
 };
 const openGroupFilterOnBravo = [
-	{ click: { role: 'button', name: 'Calendar group filter' } },
+	{ click: { role: 'button', name: 'Group: Whole unit', partial: true } },
 	{ press: 'ArrowDown' },
 	{ press: 'ArrowDown' }
 ];
@@ -195,9 +195,9 @@ export const journeys = {
 		trigger: ({ searchTerm }) => ({ fill: search, value: searchTerm }),
 		milestones: ({ searchTerm }) => [{ name: 'useful', present: [searchTerm], count: { [monthRows]: 1 } }]
 	},
-	// The group filter's options are not in the accessibility snapshot, so the preparation opens it
-	// and moves the highlight from `Group: All` past Alpha to Bravo, and Enter picks it. Bravo is
-	// the second Group in every workload; the first visible band is Alpha's until the filter lands.
+	// The preparation opens the Group focus, whose search field takes focus on `Whole unit`, and moves
+	// past Alpha to Bravo; Enter picks it. Bravo is the second Group in every workload; the first
+	// visible band is Alpha's until the focus lands.
 	'calendar-month-group-filter': {
 		area: 'calendar',
 		kind: 'interaction',

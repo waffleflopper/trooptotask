@@ -15,8 +15,8 @@ export const BLOCKS = ['search', 'group', 'nav-within', 'nav-past-next', 'nav-pa
 export const INTERACTIONS = {
 	'search-type': 'Type one character into the personnel search',
 	'search-clear': 'Clear the personnel search',
-	'group-select': 'Choose the Bravo group filter',
-	'group-clear': 'Choose Group: All',
+	'group-select': 'Focus the Bravo Group',
+	'group-clear': 'Focus the whole unit',
 	'next-within': 'Next month inside the loaded range',
 	'prev-within': 'Previous month inside the loaded range',
 	'next-past': 'Next month past the loaded range (range request)',
@@ -46,6 +46,9 @@ export async function runBlock(config) {
 	const firstVisible = (selector) => all(selector).find(visible);
 	const buttonNamed = (text) => all('button').find((button) => visible(button) && button.textContent.trim() === text);
 	const labelled = (name) => firstVisible(`[aria-label="${name}"]`);
+	const text = (element) => element?.textContent.replace(/\s+/g, ' ').trim() ?? '';
+	const groupFocus = () =>
+		all('button[aria-haspopup]').find((button) => visible(button) && text(button).startsWith('Group:'));
 	const monthLabel = () => document.querySelector('[data-testid="calendar-month-label"]')?.textContent.trim() ?? null;
 	const longRangeLabel = () => document.querySelector('[data-testid="long-range-date-label"]');
 	const personNames = () =>
@@ -105,34 +108,14 @@ export async function runBlock(config) {
 		);
 	};
 	const chooseGroup = async (name) => {
-		const trigger = labelled('Calendar group filter');
-		trigger.dispatchEvent(
-			new PointerEvent('pointerdown', {
-				bubbles: true,
-				cancelable: true,
-				button: 0,
-				pointerType: 'mouse',
-				isPrimary: true
-			})
-		);
-		let option;
-		for (let waited = 0; !option && waited < 2000; waited += 25) {
+		groupFocus().click();
+		let row;
+		for (let waited = 0; !row && waited < 2000; waited += 25) {
 			await sleep(25);
-			option = all('[role="option"]').find((candidate) => candidate.textContent.trim().startsWith(name));
+			row = all('[role="treeitem"]').find((candidate) => text(candidate).startsWith(`${name} `));
 		}
-		if (!option) throw new Error(`group option ${name} not found`);
-		return () => {
-			option.dispatchEvent(
-				new PointerEvent('pointerup', {
-					bubbles: true,
-					cancelable: true,
-					button: 0,
-					pointerType: 'mouse',
-					isPrimary: true
-				})
-			);
-			option.click();
-		};
+		if (!row) throw new Error(`Group focus row ${name} not found`);
+		return () => row.click();
 	};
 	const dialog = () =>
 		all('[role="dialog"]').find((element) => visible(element) && element.textContent.includes('Set Personnel Status'));
@@ -241,12 +224,9 @@ export async function runBlock(config) {
 				'search cleared'
 			);
 		}
-		if (!labelled('Calendar group filter').textContent.trim().startsWith('Group: All')) {
-			(await chooseGroup('Group: All'))();
-			await waitFor(
-				() => labelled('Calendar group filter').textContent.trim().startsWith('Group: All'),
-				'group cleared'
-			);
+		if (!text(groupFocus()).startsWith('Group: Whole unit')) {
+			(await chooseGroup('Whole unit'))();
+			await waitFor(() => text(groupFocus()).startsWith('Group: Whole unit'), 'group cleared');
 		}
 		if (monthLabel() !== anchorLabel) {
 			buttonNamed('Today').click();
@@ -303,19 +283,19 @@ export async function runBlock(config) {
 					await measure(
 						'group-select',
 						select,
-						() => labelled('Calendar group filter').textContent.includes(otherGroup) && headerIs(otherGroup)(),
+						() => text(groupFocus()).startsWith(`Group: ${otherGroup} `) && headerIs(otherGroup)(),
 						{
 							detail: () => ({ headers: groupHeaders().slice(0, 2), rows: personNames().length })
 						}
 					),
 					round
 				);
-				select = await chooseGroup('Group: All');
+				select = await chooseGroup('Whole unit');
 				record(
 					await measure(
 						'group-clear',
 						select,
-						() => labelled('Calendar group filter').textContent.trim().startsWith('Group: All') && headerIs('Alpha')(),
+						() => text(groupFocus()).startsWith('Group: Whole unit') && headerIs('Alpha')(),
 						{
 							detail: () => ({ headers: groupHeaders().slice(0, 2), rows: personNames().length })
 						}
@@ -461,8 +441,8 @@ export async function runBlock(config) {
 
 export function readPageFacts() {
 	const resources = performance.getEntriesByType('resource').map((entry) => entry.name);
-	const group = [...document.querySelectorAll('[aria-label="Calendar group filter"]')].find(
-		(element) => element.offsetParent
+	const group = [...document.querySelectorAll('button[aria-haspopup]')].find(
+		(element) => element.offsetParent && element.textContent.trim().startsWith('Group:')
 	);
 	return {
 		userAgent: navigator.userAgent,
@@ -477,35 +457,30 @@ export function readPageFacts() {
 		dateCells: document.querySelectorAll('[data-slot="date-cell"]').length,
 		virtualRows: document.querySelectorAll('.virtual-row').length,
 		domNodes: document.getElementsByTagName('*').length,
-		groupFilter: group?.textContent.trim() ?? null
+		groupFocus: group?.textContent.replace(/\s+/g, ' ').trim() ?? null
 	};
 }
 
 export async function readRoster() {
 	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-	const trigger = [...document.querySelectorAll('[aria-label="Calendar group filter"]')].find(
-		(element) => element.offsetParent
+	const trigger = [...document.querySelectorAll('button[aria-haspopup]')].find(
+		(element) => element.offsetParent && element.textContent.trim().startsWith('Group:')
 	);
-	trigger.dispatchEvent(
-		new PointerEvent('pointerdown', {
-			bubbles: true,
-			cancelable: true,
-			button: 0,
-			pointerType: 'mouse',
-			isPrimary: true
-		})
-	);
+	trigger.click();
 	await sleep(300);
-	const groups = [...document.querySelectorAll('[role="option"]')]
-		.map((option) => /^(.*) \((\d+)\)$/.exec(option.textContent.trim()))
+	const rows = [...document.querySelectorAll('[role="treeitem"]')]
+		.map((row) => /^(.*) (\d+)$/.exec(row.textContent.replace(/\s+/g, ' ').trim()))
 		.filter(Boolean)
 		.map(([, name, count]) => ({ name, count: Number(count) }));
 	document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 	await sleep(300);
+	const groups = rows.filter((row) => row.name !== 'Whole unit');
+	// Counts are per subtree, so only the whole-unit row sums the roster once in a nested tree.
+	const whole = rows.find((row) => row.name === 'Whole unit');
 	return {
 		groups,
-		total: groups.reduce((sum, group) => sum + group.count, 0),
-		menuClosed: document.querySelectorAll('[role="option"]').length === 0
+		total: whole?.count ?? groups.reduce((sum, group) => sum + group.count, 0),
+		menuClosed: document.querySelectorAll('[role="treeitem"]').length === 0
 	};
 }
 
@@ -685,7 +660,7 @@ async function run(options) {
 			...(options.cpuThrottle > 1 ? { cpuThrottlingRate: options.cpuThrottle } : {})
 		});
 		await tool(worker, 'navigate_page', { pageId, type: 'reload' });
-		const ready = `() => document.querySelectorAll('[data-slot="date-cell"]').length > 0 && [...document.querySelectorAll('[aria-label="Calendar group filter"]')].some((e) => e.offsetParent && /\\(\\d+\\)|Group/.test(e.textContent))`;
+		const ready = `() => document.querySelectorAll('[data-slot="date-cell"]').length > 0 && [...document.querySelectorAll('button[aria-haspopup]')].some((e) => e.offsetParent && e.textContent.trim().startsWith('Group:'))`;
 		for (let attempt = 0; ; attempt += 1) {
 			if (await evaluate(worker, pageId, ready)) break;
 			if (attempt > 120) throw new Error('Calendar never rendered after reload');

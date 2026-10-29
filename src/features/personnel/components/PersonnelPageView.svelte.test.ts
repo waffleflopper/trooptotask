@@ -2,7 +2,9 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { groupCatalogHydration, pinnedGroupsHydration } from '$features/personnel';
+import { groupCatalogHydration, groupsStore, pinnedGroupsHydration, pinnedGroupsStore } from '$features/personnel';
+import { GroupFocusState, type GroupFocusSource } from '../groupFocusState.svelte';
+import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
@@ -255,7 +257,18 @@ function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageCo
 		getPersonnelById: (id: string) => personnelStore.getById(id),
 		upcomingLossMap: new Map<string, UpcomingLossRecord>(),
 		handleAdd: vi.fn(),
-		openGroupEditor: vi.fn()
+		openGroupEditor: vi.fn(),
+		collapsedGroups: new SvelteSet<string>(),
+		toggleGroup(key: string): void {
+			if (!ctx.collapsedGroups.delete(key)) ctx.collapsedGroups.add(key);
+		},
+		groupFocus: new GroupFocusState(
+			(): GroupFocusSource => ({
+				groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : null,
+				pinnedIds: pinnedGroupsStore.list,
+				organizationWide: ctx.canPinGroups
+			})
+		)
 	};
 
 	for (const override of overrides) {
@@ -424,10 +437,103 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('button', { name: 'Pin Alpha' })).toBeTruthy();
 	});
 
+	describe('nested Groups', () => {
+		const person = (id: string, lastName: string, groupId: string | null, groupName: string): Personnel => ({
+			...personnel[0],
+			id,
+			lastName,
+			slug: id,
+			groupId,
+			groupName
+		});
+
+		beforeEach(() => {
+			personnelStore.load(
+				[
+					person('psg', 'Diaz', 'plt', '2nd Platoon'),
+					person('sl', 'Lee', 'sq1', '1st Squad'),
+					person('tl', 'Moss', 'alpha', 'Alpha Team'),
+					person('hq', 'Reyes', 'hq', 'HQ Section'),
+					person('none', 'Adams', null, '')
+				],
+				'org-1'
+			);
+		});
+
+		const unitCatalog = () =>
+			groupCatalogHydration.load(
+				[
+					{ id: 'hq', name: 'HQ Section', sortOrder: 0, parentId: null, depth: 1 },
+					{ id: 'plt', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 },
+					{ id: 'sq1', name: '1st Squad', sortOrder: 0, parentId: 'plt', depth: 2 },
+					{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq1', depth: 3 }
+				],
+				'org-1'
+			);
+		const bands = () =>
+			screen.getAllByRole('button', { name: /^(Collapse|Expand) / }).map((button) => button.getAttribute('aria-label'));
+		const shownPeople = () =>
+			['Diaz', 'Lee', 'Moss', 'Reyes', 'Adams'].filter((name) => screen.queryByRole('row', { name: new RegExp(name) }));
+
+		it('lets an Organization-wide reader pin only top-level Groups', () => {
+			unitCatalog();
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+
+			expect(
+				screen.getAllByRole('button', { name: /^(Pin|Unpin) / }).map((pin) => pin.getAttribute('aria-label'))
+			).toEqual(['Pin HQ Section', 'Pin 2nd Platoon']);
+		});
+
+		it('hides every sub-group of a collapsed Group', async () => {
+			unitCatalog();
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Collapse 2nd Platoon' }));
+
+			expect(bands()).toEqual(['Collapse HQ Section', 'Expand 2nd Platoon', 'Collapse Unassigned']);
+		});
+
+		it('narrows the roster to the focused Group and its sub-groups', () => {
+			unitCatalog();
+			pageMock.url = new URL('http://localhost/org/org-1/personnel?group=sq1');
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+
+			expect(shownPeople()).toEqual(['Lee', 'Moss']);
+		});
+
+		it('says a Group it cannot show is unavailable and shows nobody rather than the whole unit', async () => {
+			unitCatalog();
+			pageMock.url = new URL('http://localhost/org/org-1/personnel?group=deleted');
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+
+			expect(screen.getByText('Group unavailable')).toBeTruthy();
+			expect(screen.queryByRole('table')).toBeNull();
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+			expect(gotoMock.mock.calls).toEqual([
+				['/org/org-1/personnel', { replaceState: true, keepFocus: true, noScroll: true }]
+			]);
+		});
+
+		it('gives a reader whose whole roster is one Group no bands and no A-Z or Group choice', () => {
+			groupCatalogHydration.load(
+				[{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq1', depth: 3 }],
+				'org-1'
+			);
+			personnelStore.load([person('tl', 'Moss', 'alpha', 'Alpha Team')], 'org-1');
+			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group', canPinGroups: false }) } });
+
+			expect(screen.queryByRole('button', { name: /^(Collapse|Expand) / })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Group' })).toBeNull();
+			expect(screen.getByRole('row', { name: /Moss/ })).toBeTruthy();
+		});
+	});
+
 	describe('By Group view', () => {
 		function loadCatalogOrder(groupIds: string[]): void {
+			const nameOf = (id: string) => personnelStore.items.find((person) => person.groupId === id)?.groupName ?? id;
 			groupCatalogHydration.load(
-				groupIds.map((id, sortOrder) => ({ id, name: id, sortOrder, parentId: null, depth: 1 as const })),
+				groupIds.map((id, sortOrder) => ({ id, name: nameOf(id), sortOrder, parentId: null, depth: 1 as const })),
 				'org-1'
 			);
 		}

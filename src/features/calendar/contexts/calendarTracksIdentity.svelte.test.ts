@@ -55,7 +55,7 @@ afterEach(() => {
 	statusTypesStore.load([], '');
 });
 
-it('publishes the availability tracks once through search, group filter and onboarding changes, and again for new entries', () => {
+it('publishes the availability tracks once through search and onboarding changes, and again for new entries', () => {
 	statusTypesStore.load([leave], 'org1');
 	availabilityStore.load([entry('a', '2026-04-07')], 'org1');
 	const ctx = new CalendarPageContext(
@@ -77,7 +77,7 @@ it('publishes the availability tracks once through search, group filter and onbo
 	ctx.setCalendarPersonnelSearch('jones');
 	flushSync();
 	expect(ctx.filteredPBG.map((group) => group.group)).toEqual(['Bravo']);
-	ctx.setCalendarGroupFilter('Alpha');
+	ctx.setCalendarPersonnelSearch('nobody');
 	flushSync();
 	expect(ctx.filteredPBG).toEqual([]);
 	ctx.toggleHighlightOnboarding();

@@ -28,7 +28,7 @@
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import AppShellNavigation from './AppShellNavigation.svelte';
-	import { getOrgBreadcrumbs, getOrgNavigation } from './orgNavigation';
+	import { carryGroupFocus, getOrgBreadcrumbs, getOrgNavigation } from './orgNavigation';
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
@@ -106,7 +106,12 @@
 		typeof $page.data?.breadcrumbLabel === 'string' ? $page.data.breadcrumbLabel : undefined
 	);
 	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap, disabledFeatures));
-	const navItems = $derived(allNavItems.filter((item) => item.visible));
+	const navItems = $derived(
+		carryGroupFocus(
+			allNavItems.filter((item) => item.visible),
+			$page.url.searchParams
+		)
+	);
 	const settingsPath = $derived(`/org/${orgUrlSegment}/settings`);
 	const inSettings = (path: string) => path === settingsPath || path.startsWith(`${settingsPath}/`);
 	const accountPath = $derived(`/org/${orgUrlSegment}/account`);

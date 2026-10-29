@@ -52,6 +52,8 @@
 		pageLabels?: PageLabels;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
+		/** A group whose header stays in view under the column header while its rows scroll, until the next one replaces it. */
+		stickyGroup?: (key: string) => boolean;
 		toolbar?: DataTableStateSnippet<T>;
 		footer?: DataTableStateSnippet<T>;
 	};
@@ -91,6 +93,7 @@
 		pageLabels,
 		headerCell,
 		groupHeader,
+		stickyGroup,
 		toolbar,
 		footer
 	}: Props = $props();
@@ -144,6 +147,7 @@
 	{pageLabels}
 	{headerCell}
 	{groupHeader}
+	{stickyGroup}
 	{toolbar}
 	{footer}
 />

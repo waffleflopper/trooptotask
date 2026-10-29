@@ -2,12 +2,17 @@
 	import { page } from '$app/state';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { getSetupFlow, SetupStepFooter } from '$features/organization';
-	import { createPersonnelImportLane, groupsStore, rosterStore, type PersonnelPageContext } from '$features/personnel';
+	import {
+		createPersonnelImportLane,
+		groupsStore,
+		retainImportDodIds,
+		rosterStore,
+		type PersonnelPageContext
+	} from '$features/personnel';
 	import type { PersonnelDodId } from '$features/personnel/contracts';
 	import { ImportFlow } from '$lib/components/patterns/import-flow';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import SetupPersonnelWorkspace from './SetupPersonnelWorkspace.svelte';
 	import SetupEditorLoadError from './SetupEditorLoadError.svelte';
 
@@ -21,39 +26,7 @@
 		return flow.facts?.activePeople.status === 'ready' ? flow.facts.activePeople.value : null;
 	});
 
-	type ImportIds =
-		| { orgId: string; state: 'ready'; dodIds: readonly PersonnelDodId[]; stale?: true }
-		| { orgId: string; state: 'denied' | 'failed' };
-	let importIds = $state<ImportIds | null>(null);
-	// An import's own refresh replaces this promise; keep the last IDs so the flow, and its receipt, stay mounted.
-	$effect(() => {
-		const orgId: string = page.data.orgId;
-		const streamed = page.data.personnelImport;
-		let cancelled = false;
-		const settle = (value: { dodIds: readonly PersonnelDodId[] } | { access: unknown } | null | undefined) => {
-			importIds =
-				value && 'dodIds' in value ? { orgId, state: 'ready', dodIds: value.dodIds } : { orgId, state: 'denied' };
-		};
-		if (!isPromiseLike(streamed)) {
-			settle(streamed);
-			return;
-		}
-		void observeDeferred(streamed, {
-			fallbackMessage: 'Failed to load the Personnel import',
-			onResolve: settle,
-			onReject: () => {
-				importIds =
-					importIds?.orgId === orgId && importIds.state === 'ready'
-						? { ...importIds, stale: true }
-						: { orgId, state: 'failed' };
-			},
-			isCancelled: () => cancelled
-		});
-		return () => {
-			cancelled = true;
-		};
-	});
-	const currentImportIds = $derived(importIds?.orgId === page.data.orgId ? importIds : null);
+	const importIds = retainImportDodIds(() => ({ orgId: page.data.orgId, streamed: page.data.personnelImport }));
 
 	function lane(ctx: PersonnelPageContext, dodIds: readonly PersonnelDodId[]) {
 		const base = createPersonnelImportLane({
@@ -99,14 +72,14 @@
 				</section>
 			{/if}
 			{#if ctx.canImportPersonnel}
-				{#if currentImportIds?.state === 'failed'}
+				{#if importIds.current?.state === 'failed'}
 					<SetupEditorLoadError subject="Personnel import" />
-				{:else if currentImportIds?.state !== 'denied'}
-					{#if currentImportIds?.state === 'ready' && currentImportIds.stale}
+				{:else if importIds.current?.state !== 'denied'}
+					{#if importIds.current?.state === 'ready' && importIds.current.stale}
 						<SetupEditorLoadError subject="Personnel import" stale />
 					{/if}
 					<ImportFlow
-						lane={currentImportIds?.state === 'ready' ? lane(ctx, currentImportIds.dodIds) : null}
+						lane={importIds.current?.state === 'ready' ? lane(ctx, importIds.current.dodIds) : null}
 						title="Import your roster"
 						embedded
 					/>

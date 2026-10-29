@@ -72,7 +72,7 @@ Use accessible shared controls, dialogs and menus. Preserve labels, keyboard and
 
 - The status fills (`--success`, `--warning`, `--info`, `--destructive`) are not text colors. Status text uses `text-*-foreground`, which meets 4.5:1 on page and muted surfaces.
 - Small amber text on paper, including links, uses `text-accent-text`, because `text-accent` is about 3:1 on the light card. Red text on a destructive tint uses `text-destructive-text`.
-- Fixed layers use `z-banner` and `z-sheet` below shadcn's `z-50` overlays. A sheet sits below the dialogs it can open. Bits portals mount on component mount, not on open, so same-layer overlays paint in mount order. Do not add new z-values. Use the `below-banner` utility rather than reading `--banner-height`.
+- Fixed layers use `z-banner` and `z-sheet` below shadcn's `z-50` overlays. A sheet sits below the dialogs it can open; a sheet opened from inside a dialog, such as TreeSelect's phone sheet, takes `layer="dialog"` to paint above it. Bits portals mount on component mount, not on open, so same-layer overlays paint in mount order. Do not add new z-values. Use the `below-banner` utility rather than reading `--banner-height`.
 
 `themeStore` is the only theme source. It sets `documentElement[data-theme]` and persists the `theme` key, and the `app.html` pre-paint script applies the same key before hydration. Tailwind's `dark:` variant and the dark token block select on `[data-theme='dark']` only. Sonner reads `themeStore.current`, so toasts follow the app theme rather than the system preference.
 

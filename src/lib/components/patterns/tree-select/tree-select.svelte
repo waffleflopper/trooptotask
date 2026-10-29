@@ -105,7 +105,7 @@
 				</button>
 			{/snippet}
 		</Sheet.Trigger>
-		<Sheet.Content side="bottom" showCloseButton={false} class="max-h-[85dvh] gap-0 rounded-t-xl pb-5">
+		<Sheet.Content side="bottom" layer="dialog" showCloseButton={false} class="max-h-[85dvh] gap-0 rounded-t-xl pb-5">
 			<div class="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border" aria-hidden="true"></div>
 			<div class="flex shrink-0 items-center justify-between px-4 pt-2 pb-1">
 				<Sheet.Title class="font-heading text-[22px] leading-7 font-bold uppercase">{label}</Sheet.Title>

@@ -837,29 +837,26 @@ describe('CalendarPageView', () => {
 			expect(ctx.calendarGroupFilter).toBe('g2');
 		});
 
-		it('draws a sub-group under its parent’s own people and hides it when the parent collapses', async () => {
+		it('lists a sub-group’s people after its parent’s own and hides both when the parent collapses', async () => {
 			mutableAvailabilityStore.loading = false;
 			catalog([
 				{ id: 'g1', name: 'Alpha' },
 				{ id: 'g2', name: 'Bravo', parentId: 'g1' }
 			]);
 			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
-			const { container } = render(CalendarPageView, {
+			render(CalendarPageView, {
 				props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: 'org1', orgName: 'Test Org' } }
 			});
 
-			expect(bands(container)).toEqual([
-				['0', 'true', 'Alpha 2'],
-				['1', 'true', 'Bravo 1']
-			]);
+			expect(people()).toEqual([expect.stringContaining('Smith, Alice'), expect.stringContaining('Jones, Bob')]);
 			expect(
 				screen
 					.getAllByRole('button', { name: 'Pin' })
-					.map((pin) => pin.closest('[data-band-level]')?.getAttribute('data-band-level'))
-			).toEqual(['0']);
+					.map((pin) => pin.parentElement?.querySelector('[aria-expanded]')?.textContent?.match(/Alpha|Bravo/)?.[0])
+			).toEqual(['Alpha']);
+
 			await fireEvent.click(screen.getByRole('button', { name: /Alpha 2/ }));
 
-			expect(bands(container)).toEqual([['0', 'false', 'Alpha 2']]);
 			expect(people()).toEqual([]);
 		});
 

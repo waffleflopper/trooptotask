@@ -41,7 +41,7 @@ const added: Personnel = {
 };
 
 function renderPersonnelStep(setupFacts?: Promise<never>) {
-	page.data = { orgId: 'alpha' };
+	page.data = { orgId: 'alpha', personnelImport: Promise.resolve({ dodIds: [] }) };
 	const fetch = vi.fn(answerEndpoint());
 	vi.stubGlobal('fetch', fetch);
 	const navigate = vi.fn(async () => {});

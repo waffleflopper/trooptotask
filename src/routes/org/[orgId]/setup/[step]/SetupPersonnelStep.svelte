@@ -3,10 +3,12 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { getSetupFlow, SetupStepFooter } from '$features/organization';
 	import { createPersonnelImportLane, groupsStore, rosterStore, type PersonnelPageContext } from '$features/personnel';
+	import type { PersonnelDodId } from '$features/personnel/contracts';
 	import { ImportFlow } from '$lib/components/patterns/import-flow';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import SetupPersonnelWorkspace from './SetupPersonnelWorkspace.svelte';
+	import SetupEditorLoadError from './SetupEditorLoadError.svelte';
 
 	const flow = getSetupFlow();
 
@@ -18,11 +20,12 @@
 		return flow.facts?.activePeople.status === 'ready' ? flow.facts.activePeople.value : null;
 	});
 
-	function lane(ctx: PersonnelPageContext) {
+	function lane(ctx: PersonnelPageContext, dodIds: readonly PersonnelDodId[]) {
 		const base = createPersonnelImportLane({
 			orgId: ctx.orgId,
 			orgUrlSegment: ctx.orgUrlSegment,
 			personnel: ctx.allActivePersonnel,
+			dodIds,
 			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
 			rankCatalog: ctx.data.rankCatalog ?? [],
 			canManageGroups: ctx.canManageGroups,
@@ -61,7 +64,15 @@
 				</section>
 			{/if}
 			{#if ctx.canImportPersonnel}
-				<ImportFlow lane={lane(ctx)} title="Import your roster" embedded />
+				{#await page.data.personnelImport}
+					<ImportFlow lane={null} title="Import your roster" embedded />
+				{:then imported}
+					{#if imported && !('access' in imported)}
+						<ImportFlow lane={lane(ctx, imported.dodIds)} title="Import your roster" embedded />
+					{/if}
+				{:catch}
+					<SetupEditorLoadError subject="Personnel import" />
+				{/await}
 			{:else if !ctx.canAddPersonnel}
 				<p class="text-sm leading-5 text-muted-foreground">Your access does not include adding people.</p>
 			{/if}

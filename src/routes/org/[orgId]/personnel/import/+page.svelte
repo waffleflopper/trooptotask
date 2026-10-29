@@ -52,6 +52,7 @@
 					orgId: org.orgId,
 					orgUrlSegment: org.orgUrlSegment ?? org.orgId,
 					personnel: workspace.data.personnel,
+					dodIds: data.personnelImport.dodIds,
 					groups: groupsStore.orgId === org.orgId ? groupsStore.items : workspace.data.groups,
 					rankCatalog: workspace.data.rankCatalog,
 					canManageGroups: org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageGroups).allowed,

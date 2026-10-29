@@ -66,14 +66,7 @@ helper provides invitation and membership readback for A/B. The owned app's outb
 [helper controls](#helper-controls). Restore both controls between cases.
 
 1. As `orgOwner`, capture the invite strip. Enter `orgInvitee`'s synthetic email, choose member access and `Groups` →
-   `Alpha`, then click `Send invite`. With the [Group tree](manage-groups.md#group-tree) built, choose `Operator` and
-   check `Alpha Team` under `2nd Platoon › 1st Squad` (search `alpha team`; rows read `<name> <subtree count>`). The
-   trigger reads `Groups: 2nd Platoon › 1st Squad › Alpha Team` and the helper line
-   `Can view work and complete daily tasks in the selected areas. Sees Alpha Team: 2 people. Not Unassigned. They accept
-the invite after signing in.` The pending row stores `member_preset: operator`, `access_scope_kind: groups` and
-   only Alpha Team's ID. After `Accept`, the invitee's Personnel shows `Group: Alpha Team 2` and only Alpha Team's
-   People, Calendar and Training list only them, and a Quick edit of one saves; their `Group` field is the static
-   `Alpha Team`. A person moved out of Alpha Team leaves their roster on reload. Save the result and a reload of `Waiting on them`, including email, access label
+   `Alpha`, then click `Send invite`. Save the result and a reload of `Waiting on them`, including email, access label
    and funnel status. Confirm the invitee is absent from `Members` and from the owned A membership readback before
    acceptance. A duplicate pending invite must show a visible error and leave one pending invitation.
 2. As `orgInvitee`, open `/dashboard`; save a before snapshot with A under `Invitations` and `Nothing yet.` under
@@ -83,11 +76,21 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    history. Open A and verify Alpha access without Bravo access using a retained Personnel or Calendar view;
    Organization B stays absent. Record the exact A membership/access snapshot and invitation state from the owned
    provider.
-3. On a separate fresh invitation, choose `Decline` from the invitee's Dashboard. Reload both Dashboard and owner
+3. A sub-group invitation is its own case: restart the worker so `orgInvitee` has no A membership or pending
+   invitation, and build the [Group tree](manage-groups.md#group-tree). As `orgOwner`, enter `orgInvitee`'s email,
+   choose `Operator` and check `Alpha Team` under `2nd Platoon › 1st Squad` (search `alpha team`; rows read
+   `<name> <subtree count>`). The trigger reads `Groups: 2nd Platoon › 1st Squad › Alpha Team` and the helper line
+   `Can view work and complete daily tasks in the selected areas. Sees Alpha Team: 2 people. Not Unassigned. They accept
+the invite after signing in.` The pending row stores `member_preset: operator`, `access_scope_kind: groups` and
+   only Alpha Team's ID. Accept it as in step 2. The invitee's Personnel shows `Group: Alpha Team 2` and only Alpha
+   Team's People, Calendar and Training list only them, and a Quick edit of one saves; their `Group` field is the
+   static `Alpha Team`. A person moved out of Alpha Team leaves their roster on reload. A grant covers its sub-groups,
+   not its ancestors, so the invitee sees neither 1st Squad's other People nor top-level Alpha.
+4. On a separate fresh invitation, choose `Decline` from the invitee's Dashboard. Reload both Dashboard and owner
    Members; no membership is created and the owner sees the closed invitation after expanding `Invitation history`. A
    revoked invitation likewise cannot grant membership after reload. Keep each case on its own synthetic email or
    restart the worker; an accepted invitation cannot be reused as a pending fixture.
-4. For a new-account email with no User Account, create the invitation and capture the owner-facing pending funnel.
+5. For a new-account email with no User Account, create the invitation and capture the owner-facing pending funnel.
    `$V mail state` must list two delivered messages for that address, one `account-setup` and one `invitation`, with the
    setup path shown as `[redacted]`. In a fresh public context run `$V mail-link PAGE EMAIL setup` and require the page
    to read `Unit invitation` with `<Organization> invited you.`, `Invitation sent` as step one and no `Request access`
@@ -97,7 +100,7 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    as well as the approval. Accept the A invitation afterward, then reload and read the membership.
    `$V access-request EMAIL` shows the request, setup link, bridge row and invitation status at each step. Do not use a
    token-bearing URL in evidence.
-5. Exercise one denied owner action as `orgMember` with
+6. Exercise one denied owner action as `orgMember` with
    `$V settings-request PAGE orgA settings/members/invite '{"email":"…@example.test","membershipRole":"member","memberPreset":"viewer"}'`,
    and one foreign-Organization invitation ID against the current form action using that signed-in actor's request
    context. Record the action failure status and no new invitation rows or `$V rows organization_memberships orgA`

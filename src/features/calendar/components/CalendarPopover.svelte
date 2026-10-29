@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CalendarTypesEmptyState from './CalendarTypesEmptyState.svelte';
 	import { untrack } from 'svelte';
 	import type { StatusType } from '$features/calendar/contracts';
 	import type {
@@ -164,7 +165,7 @@
 				</Popover.Title>
 			</Popover.Header>
 			{#if statusTypes.length === 0}
-				<p class="px-3 pb-3 text-sm text-muted-foreground">No status types yet. Add one in Calendar settings.</p>
+				<p class="px-3 pb-3 text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></p>
 			{:else}
 				<ul class="flex max-h-72 flex-col overflow-y-auto px-1.5 pb-1.5" aria-label="Status types">
 					{#each statusTypes as status (status.id)}

@@ -120,7 +120,7 @@ function compareText(a: string, b: string): number {
 	return a < b ? -1 : a > b ? 1 : 0;
 }
 
-function bandFor(ready: number, applicable: number, goal: number): BriefingBand {
+export function bandFor(ready: number, applicable: number, goal: number): BriefingBand {
 	if (applicable === 0) return 'none';
 	const scaled = ready * 100;
 	if (scaled >= goal * applicable) return 'goal';

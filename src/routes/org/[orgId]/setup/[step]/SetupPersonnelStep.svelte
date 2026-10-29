@@ -2,11 +2,19 @@
 	import { page } from '$app/state';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { getSetupFlow, SetupStepFooter } from '$features/organization';
-	import { createPersonnelImportLane, groupsStore, rosterStore, type PersonnelPageContext } from '$features/personnel';
+	import {
+		createPersonnelImportLane,
+		groupsStore,
+		retainImportDodIds,
+		rosterStore,
+		type PersonnelPageContext
+	} from '$features/personnel';
+	import type { PersonnelDodId } from '$features/personnel/contracts';
 	import { ImportFlow } from '$lib/components/patterns/import-flow';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import SetupPersonnelWorkspace from './SetupPersonnelWorkspace.svelte';
+	import SetupEditorLoadError from './SetupEditorLoadError.svelte';
 
 	const flow = getSetupFlow();
 
@@ -18,11 +26,14 @@
 		return flow.facts?.activePeople.status === 'ready' ? flow.facts.activePeople.value : null;
 	});
 
-	function lane(ctx: PersonnelPageContext) {
+	const importIds = retainImportDodIds(() => ({ orgId: page.data.orgId, streamed: page.data.personnelImport }));
+
+	function lane(ctx: PersonnelPageContext, dodIds: readonly PersonnelDodId[]) {
 		const base = createPersonnelImportLane({
 			orgId: ctx.orgId,
 			orgUrlSegment: ctx.orgUrlSegment,
 			personnel: ctx.allActivePersonnel,
+			dodIds,
 			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
 			rankCatalog: ctx.data.rankCatalog ?? [],
 			canManageGroups: ctx.canManageGroups,
@@ -61,7 +72,18 @@
 				</section>
 			{/if}
 			{#if ctx.canImportPersonnel}
-				<ImportFlow lane={lane(ctx)} title="Import your roster" embedded />
+				{#if importIds.current?.state === 'failed'}
+					<SetupEditorLoadError subject="Personnel import" />
+				{:else if importIds.current?.state !== 'denied'}
+					{#if importIds.current?.state === 'ready' && importIds.current.stale}
+						<SetupEditorLoadError subject="Personnel import" stale />
+					{/if}
+					<ImportFlow
+						lane={importIds.current?.state === 'ready' ? lane(ctx, importIds.current.dodIds) : null}
+						title="Import your roster"
+						embedded
+					/>
+				{/if}
 			{:else if !ctx.canAddPersonnel}
 				<p class="text-sm leading-5 text-muted-foreground">Your access does not include adding people.</p>
 			{/if}

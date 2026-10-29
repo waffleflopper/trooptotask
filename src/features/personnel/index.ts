@@ -21,6 +21,7 @@ export function loadPersonnelModals() {
 export { personnelWorkspaceHydrator } from './personnelWorkspaceHydration.svelte';
 export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.svelte';
 export { createPersonnelImportLane } from './import/personnelImportLane';
+export { retainImportDodIds } from './import/retainedImportDodIds.svelte';
 export { lastFirstSplitter } from './import/personnelImportColumns';
 export { rosterPersonReference } from './import/personMatching';
 export { readinessDrawerFromSearch } from './readinessDrawerTarget';

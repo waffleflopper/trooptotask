@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
@@ -34,7 +35,11 @@
 	const canManageConfig = $derived(configureAffordance.visible);
 	const canMutate = $derived(configureAffordance.allowed);
 
-	let activeSection = $state<string>('status');
+	const SECTION_KEYS = ['status', 'assignments', 'closures'];
+	// Read once: a link from an empty state picks the section the viewer lands on, then the tabs own it.
+	// svelte-ignore state_referenced_locally
+	const requestedSection = embedded ? null : page.url.searchParams.get('section');
+	let activeSection = $state<string>(SECTION_KEYS.find((key) => key === requestedSection) ?? 'status');
 	let searchQuery = $state('');
 	let statusSection = $state<CalendarStatusSettingsSection>();
 	let assignmentSection = $state<CalendarAssignmentSettingsSection>();

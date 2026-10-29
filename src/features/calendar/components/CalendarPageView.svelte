@@ -4,6 +4,7 @@
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import CalendarLegend from '$features/calendar/components/calendar-legend/CalendarLegend.svelte';
 	import CalendarPopover from '$features/calendar/components/CalendarPopover.svelte';
+	import { setCalendarTypeSetup } from '$features/calendar/components/calendarTypeSetup';
 	import CalendarTitleRow from '$features/calendar/components/CalendarTitleRow.svelte';
 	import { untrack } from 'svelte';
 	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
@@ -197,6 +198,10 @@
 	let opened = $state.raw<{ request: ProjectionCardRequest; anchor: HTMLElement; period: string } | null>(null);
 	const card = $derived(opened?.period === period ? opened : null);
 	let assigning = $state.raw<TaskingCard | null>(null);
+	setCalendarTypeSetup(() => ({
+		orgUrlSegment: data.orgUrlSegment ?? data.orgId,
+		canSetUp: { status: ctx.canManageConfig, assignments: ctx.canConfigureAssignmentTypes }
+	}));
 	setProjectionCards({ open: (request, anchor) => (opened = { request, anchor, period }) });
 
 	const TRANSITIONS: Record<CardStatusAction, TaskingTransition> = {

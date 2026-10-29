@@ -1,5 +1,6 @@
 import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 export interface PersonnelSheetEditableValues {
+	dod_id: string | null;
 	blood_type: string | null;
 	basd: string | null;
 	date_of_rank: string | null;
@@ -26,6 +27,11 @@ export interface PersonnelSheetEditableValues {
 	/** The saving member's user id; readers resolve it to a label. */
 	updated_by: string | null;
 }
+export class PersonnelDodIdConflict extends Error {
+	constructor() {
+		super('Another Person in this Organization already has that DoD ID.');
+	}
+}
 export interface SavedPersonnelSheet extends Partial<
 	Omit<PersonnelSheetEditableValues, 'children' | 'military_education'>
 > {
@@ -38,6 +44,9 @@ export interface SavedPersonnelSheet extends Partial<
 	updated_at?: string | null;
 }
 export interface PersonnelSheetPersistence {
+	listDodIds(only?: readonly string[]): Promise<PersonnelDodId[]>;
+	findDodIdsInUse(dodIds: readonly string[]): Promise<string[]>;
+	saveDodIds(rows: readonly PersonnelDodId[]): Promise<PersonnelDodIdSaveFailure[]>;
 	listSheetsForPerson(personnelId: string): Promise<SavedPersonnelSheet[]>;
 	findSheetForPerson(personnelId: string): Promise<SavedPersonnelSheet | null>;
 	createSheet(
@@ -46,6 +55,14 @@ export interface PersonnelSheetPersistence {
 	): Promise<SavedPersonnelSheet>;
 	replaceEditableSheetFields(id: string, values: PersonnelSheetEditableValues): Promise<SavedPersonnelSheet>;
 	setAwardAcknowledgedAt(id: string, value: string | null): Promise<void>;
+}
+export interface PersonnelDodId {
+	personnelId: string;
+	dodId: string;
+}
+export interface PersonnelDodIdSaveFailure {
+	personnelId: string;
+	reason: 'conflict' | 'failed';
 }
 export interface PersonnelCounselingExportFacts {
 	date_conducted?: string | null;
@@ -59,6 +76,7 @@ export interface PersonnelCounselingExportFacts {
 export type PersonnelSheetExportFacts = Partial<
 	Pick<
 		PersonnelSheetEditableValues,
+		| 'dod_id'
 		| 'emergency_contact_name'
 		| 'emergency_contact_relationship'
 		| 'emergency_contact_phone'

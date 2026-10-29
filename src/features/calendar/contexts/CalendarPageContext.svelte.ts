@@ -142,6 +142,10 @@ export class CalendarPageContext {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes).allowed;
 	}
 
+	get canConfigureAssignmentTypes(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes).allowed;
+	}
+
 	get showEvents(): boolean {
 		return !this.#getData().disabledFeatures?.includes('eventsAndTaskings');
 	}

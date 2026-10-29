@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { calendarTypeSetupFor, setCalendarTypeSetup } from './calendarTypeSetup';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import { Button } from '$lib/components/ui/button';
@@ -45,6 +46,7 @@
 	let { data, org }: Props = $props();
 
 	const orgUrlSegment = $derived(org.orgUrlSegment);
+	setCalendarTypeSetup(() => calendarTypeSetupFor(org));
 	const assignmentAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments, { kind: 'unscoped' })
 	);

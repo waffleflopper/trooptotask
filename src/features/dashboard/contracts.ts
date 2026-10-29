@@ -126,6 +126,8 @@ export interface DashboardBootstrap {
 	lossWarningWindowDays: number;
 	/** Duty strength at or above this percent reads as healthy (default: 80). */
 	strengthFloorPercent: number;
+	/** Share of Soldiers the unit wants current on Training (default: 90). */
+	trainingReadinessGoalPercent: number;
 	/** Personnel IDs whose award tracking has been acknowledged. */
 	awardTrackingAcknowledgedPersonnelIds: string[];
 	/** Stored federal holidays and closures within `range`; the forecast never flags them. */

@@ -236,7 +236,7 @@ export class SettingsMemberAccessWorkspace {
 		].filter(Boolean).length;
 	}
 
-	/** The groups select offers "All groups" beside each group; picking it clears the rest, and clearing the rest picks it. */
+	/** The groups select offers "Whole unit" beside each group; picking it clears the rest, and clearing the rest picks it. */
 	setInviteGroups(values: string[]): void {
 		const hadAll = this.invite.groupIds.length === 0;
 		const groupIds = values.filter((value) => value !== ALL_GROUPS);
@@ -249,7 +249,7 @@ export class SettingsMemberAccessWorkspace {
 
 	get inviteGroupsLabel(): string {
 		const ids = this.invite.groupIds;
-		if (ids.length === 0) return 'All groups';
+		if (ids.length === 0) return 'Whole unit';
 		return ids.length === 1 ? this.groupName(ids[0]) : `${ids.length} groups`;
 	}
 

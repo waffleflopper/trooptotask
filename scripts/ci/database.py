@@ -135,6 +135,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261026110000_calendar_tasking_detail.sql",
     "20261026120000_calendar_event_deletion.sql",
     "20261027090000_organization_setup.sql",
+    "20261028000100_personnel_dod_id.sql",
+    "20261028000200_personnel_dod_id_occupancy.sql",
     "20261028090000_group_pins_by_id.sql",
     GROUP_TREE_MIGRATION,
 )
@@ -228,6 +230,8 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
+    "personnel_dod_id.sql",
+    "personnel_dod_id_occupancy.sql",
     "calendar_event_deletion.sql",
     "calendar_taskings.sql",
     "calendar_tasking_equipment_checklist.sql",

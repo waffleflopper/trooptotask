@@ -9,6 +9,7 @@ import {
 import { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
 import { createSupabasePersonnelArtifactWritePort } from './artifactWrites.server';
 import type { PersonnelArtifactWriter } from './contracts';
+import { PersonnelDodIdConflict } from './personnelSheetPersistence';
 import type { ActorStamp } from './personnelArtifactPersistence';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 
@@ -27,6 +28,7 @@ const rank = {
 	updated_at: null
 } as const;
 const sheet = {
+	dod_id: '0123456789',
 	id: 'sheet-a',
 	personnel_id: 'person-a',
 	organization_id: 'org-a',
@@ -324,6 +326,7 @@ const readCases = [
 		read: (p: ReturnType<typeof personnelProvider>) =>
 			createSupabasePersonnelWorkbookHistoryReader(p.client, 'org-a').listExtendedInfoExportFacts('person-a'),
 		expected: {
+			dod_id: '0123456789',
 			emergency_contact_name: 'Sam',
 			emergency_contact_relationship: 'Sibling',
 			emergency_contact_phone: '555-0101',
@@ -446,6 +449,7 @@ describe('finite Personnel ordinary provider contracts', () => {
 		expect(await port.findSheetForPerson('missing')).toBeNull();
 		const values = {
 			...sheet,
+			dod_id: null,
 			personal_phone: null,
 			organization_id: 'org-b',
 			personnel_id: 'person-b',
@@ -453,10 +457,20 @@ describe('finite Personnel ordinary provider contracts', () => {
 			id: 'changed',
 			created_at: 'changed'
 		};
-		expect(await port.replaceEditableSheetFields('sheet-a', values)).toEqual({ ...sheet, personal_phone: null });
+		expect(await port.replaceEditableSheetFields('sheet-a', values)).toEqual({
+			...sheet,
+			dod_id: null,
+			personal_phone: null
+		});
 		await port.setAwardAcknowledgedAt('sheet-a', null);
 		expect(p.state.rows.personnel_extended_info).toEqual([
-			{ ...sheet, personal_phone: null, award_tracking_acknowledged_at: null, retained_metadata: 'history' }
+			{
+				...sheet,
+				dod_id: null,
+				personal_phone: null,
+				award_tracking_acknowledged_at: null,
+				retained_metadata: 'history'
+			}
 		]);
 		expect(await port.createSheet('person-new', { award_tracking_acknowledged_at: '2026-10-08T12:00:00Z' })).toEqual({
 			id: 'saved-1',
@@ -464,11 +478,87 @@ describe('finite Personnel ordinary provider contracts', () => {
 			organization_id: 'org-a',
 			created_at: '2026-10-08T12:00:00.123456Z'
 		});
+		await expect(port.createSheet('person-with-dod', sheet)).resolves.toMatchObject({ dod_id: '0123456789' });
 		p.state.failure = () => ({ code: '42501', message: 'Sheet denied', status: 403 });
 		await expect(port.findSheetForPerson('person-a')).rejects.toThrow('Sheet denied');
 		await expect(port.createSheet('person-new', values)).rejects.toThrow('Sheet denied');
 		await expect(port.replaceEditableSheetFields('sheet-a', values)).rejects.toThrow('Sheet denied');
 		await expect(port.setAwardAcknowledgedAt('sheet-a', null)).rejects.toThrow('Sheet denied');
+	});
+	it('maps a DoD ID uniqueness rejection on insert and replacement without treating other conflicts as DoD IDs', async () => {
+		const p = personnelProvider();
+		const port = createSupabasePersonnelSheetPersistence(p.client, 'org-a');
+		p.state.failure = () => ({
+			code: '23505',
+			status: 409,
+			message: 'duplicate key value violates unique constraint "personnel_extended_info_organization_dod_id_key"'
+		});
+		await expect(port.createSheet('person-a', sheet)).rejects.toBeInstanceOf(PersonnelDodIdConflict);
+		await expect(port.replaceEditableSheetFields('sheet-a', sheet)).rejects.toBeInstanceOf(PersonnelDodIdConflict);
+		p.state.failure = () => ({ code: '23505', status: 409, message: 'duplicate key violates another index' });
+		await expect(port.createSheet('person-a', sheet)).rejects.toThrow('duplicate key violates another index');
+	});
+	it('imports DoD IDs without replacing other sheet fields or crossing Organizations', async () => {
+		const p = personnelProvider({
+			personnel_extended_info: [
+				{ ...sheet, personal_phone: '555-0100', award_tracking_acknowledged_at: '2026-10-01T10:00:00Z' },
+				{ id: 'archived-sheet', organization_id: 'org-a', personnel_id: 'archived', dod_id: '0000000001' },
+				{ id: 'empty-sheet', organization_id: 'org-a', personnel_id: 'empty', dod_id: null },
+				{ id: 'foreign-sheet', organization_id: 'org-b', personnel_id: 'foreign', dod_id: '0000000002' }
+			]
+		});
+		const port = createSupabasePersonnelSheetPersistence(p.client, 'org-a');
+		expect(await port.listDodIds()).toEqual([
+			{ personnelId: 'archived', dodId: '0000000001' },
+			{ personnelId: 'person-a', dodId: '0123456789' }
+		]);
+		expect(
+			await port.saveDodIds([
+				{ personnelId: 'person-a', dodId: '0000000003' },
+				{ personnelId: 'person-new', dodId: '0000000004' }
+			])
+		).toEqual([]);
+		expect(p.state.rows.personnel_extended_info).toEqual([
+			{
+				...sheet,
+				dod_id: '0000000003',
+				personal_phone: '555-0100',
+				award_tracking_acknowledged_at: '2026-10-01T10:00:00Z'
+			},
+			{ id: 'archived-sheet', organization_id: 'org-a', personnel_id: 'archived', dod_id: '0000000001' },
+			{ id: 'empty-sheet', organization_id: 'org-a', personnel_id: 'empty', dod_id: null },
+			{ id: 'foreign-sheet', organization_id: 'org-b', personnel_id: 'foreign', dod_id: '0000000002' },
+			{
+				id: 'saved-1',
+				organization_id: 'org-a',
+				personnel_id: 'person-new',
+				dod_id: '0000000004',
+				created_at: '2026-10-08T12:00:00.123456Z'
+			}
+		]);
+	});
+	it('isolates an ID conflict in a sheet batch and saves the other IDs', async () => {
+		const p = personnelProvider();
+		p.state.failure = ({ method, body }) =>
+			method === 'POST' && JSON.stringify(body).includes('0000000001')
+				? {
+						code: '23505',
+						status: 409,
+						message: 'duplicate key violates personnel_extended_info_organization_dod_id_key'
+					}
+				: null;
+		const port = createSupabasePersonnelSheetPersistence(p.client, 'org-a');
+		expect(
+			await port.saveDodIds([
+				{ personnelId: 'conflict', dodId: '0000000001' },
+				{ personnelId: 'free', dodId: '0000000002' }
+			])
+		).toEqual([{ personnelId: 'conflict', reason: 'conflict' }]);
+		expect(await port.listDodIds()).toEqual([{ personnelId: 'free', dodId: '0000000002' }]);
+		p.state.failure = () => ({ code: '42501', status: 403, message: 'Private provider diagnostics' });
+		expect(await port.saveDodIds([{ personnelId: 'denied', dodId: '0000000003' }])).toEqual([
+			{ personnelId: 'denied', reason: 'failed' }
+		]);
 	});
 	it('artifact archived state, primary sorting and limited results remain distinct', async () => {
 		const p = personnelProvider({

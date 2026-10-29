@@ -66,7 +66,7 @@ function member(
 			scopeSet: { kind: 'organization' },
 			organizationGovernanceActions: []
 		},
-		scopeDisplayLabel: 'All groups',
+		scopeDisplayLabel: 'Whole unit',
 		overriddenCapabilityLabels: [],
 		storedLevels: row.access?.capabilityMap ?? createCapabilityMap('configure'),
 		...row
@@ -581,7 +581,9 @@ describe('manage access sheet', () => {
 		await fireEvent.click(within(sheet).getByRole('button', { name: 'HQ PLT' }));
 		await fireEvent.click(within(sheet).getByRole('button', { name: '1st PLT' }));
 
-		expect(within(sheet).getByText('Works in HQ PLT and 1st PLT only.')).toBeTruthy();
+		expect(
+			within(sheet).getByText("Works in HQ PLT and 1st PLT only. Soldiers with no group aren't visible to them.")
+		).toBeTruthy();
 		expect(save.textContent?.trim()).toBe('Save 8 changes');
 	});
 
@@ -605,7 +607,7 @@ describe('manage access sheet', () => {
 				.getAllByRole('radio')
 				.every((radio) => (radio as HTMLButtonElement).disabled)
 		).toBe(true);
-		expect(within(sheet).getByText('Editor · All groups · 1 area change')).toBeTruthy();
+		expect(within(sheet).getByText('Editor · Whole unit · 1 area change')).toBeTruthy();
 		expect(within(sheet).getByText('1 change from Editor')).toBeTruthy();
 		expect(within(sheet).getAllByText('Editor gives Manage')).toHaveLength(1);
 

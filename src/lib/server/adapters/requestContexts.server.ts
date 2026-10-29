@@ -370,6 +370,7 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),

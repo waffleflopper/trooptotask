@@ -349,6 +349,7 @@ describe('Dashboard sections', () => {
 					trainingTypes: [{ id: 'training-1', name: 'SHARP' } as TrainingType],
 					lossWarningWindowDays: 180,
 					strengthFloorPercent: 80,
+					trainingReadinessGoalPercent: 90,
 					awardTrackingAcknowledgedPersonnelIds: [],
 					specialDays: []
 				},
@@ -993,7 +994,7 @@ describe('Dashboard sections', () => {
 		expect(readinessTitles()).toEqual(['Training', 'Critical tasks', 'Evaluations', 'Arriving and leaving']);
 		expect(within(row).getByText("Couldn't load Training currency. Reload the page to try again.")).toBeTruthy();
 		expect(within(row).getByText("Couldn't load Critical Tasks readiness. Reload the page to try again.")).toBeTruthy();
-		expect(within(row).getByText('None due within 60 days. 0 are current.')).toBeTruthy();
+		expect(within(row).getByText('past thru')).toBeTruthy();
 		expect(bands().map((band) => band?.getAttribute('aria-busy'))).toEqual(['false', 'false', 'false']);
 	});
 });

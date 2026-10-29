@@ -7467,6 +7467,24 @@ $$;
 ALTER FUNCTION public.password_change_attempt(p_actor uuid, p_session uuid, p_action text, p_flow text, p_expires_at timestamp with time zone, p_id uuid) OWNER TO postgres;
 
 --
+-- Name: personnel_dod_ids_in_use(uuid, text[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) RETURNS text[]
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT coalesce(array_agg(DISTINCT sheet.dod_id ORDER BY sheet.dod_id), ARRAY[]::text[])
+  FROM public.personnel_extended_info AS sheet
+  WHERE public.member_access_has_capability(p_organization_id, 'personnel', 'operate')
+    AND sheet.organization_id = p_organization_id
+    AND sheet.dod_id = ANY(p_dod_ids);
+$$;
+
+
+ALTER FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) OWNER TO postgres;
+
+--
 -- Name: personnel_extended_info_scope_matches(uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -12690,6 +12708,8 @@ CREATE TABLE public.personnel_extended_info (
     military_education jsonb,
     marital_status_date date,
     updated_by text,
+    dod_id text,
+    CONSTRAINT personnel_extended_info_dod_id_check CHECK ((dod_id ~ '^[0-9]{10}$'::text)),
     CONSTRAINT personnel_extended_info_number_of_dependents_nonnegative CHECK (((number_of_dependents IS NULL) OR (number_of_dependents >= 0)))
 );
 
@@ -14788,6 +14808,13 @@ CREATE INDEX personnel_attribute_history_org_idx ON public.personnel_attribute_h
 --
 
 CREATE INDEX personnel_documents_file_path_idx ON public.personnel_documents USING btree (file_path);
+
+
+--
+-- Name: personnel_extended_info_organization_dod_id_key; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX personnel_extended_info_organization_dod_id_key ON public.personnel_extended_info USING btree (organization_id, dod_id) WHERE (dod_id IS NOT NULL);
 
 
 --
@@ -20288,6 +20315,15 @@ GRANT ALL ON FUNCTION public.password_change_attempt(p_actor uuid, p_session uui
 
 
 --
+-- Name: FUNCTION personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) TO authenticated;
+GRANT ALL ON FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) TO service_role;
+
+
+--
 -- Name: FUNCTION personnel_extended_info_scope_matches(p_organization_id uuid, p_personnel_id uuid); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -22128,6 +22164,13 @@ GRANT SELECT(marital_status_date) ON TABLE public.personnel_extended_info TO aut
 --
 
 GRANT SELECT(updated_by) ON TABLE public.personnel_extended_info TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_extended_info.dod_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT(dod_id),INSERT(dod_id),UPDATE(dod_id) ON TABLE public.personnel_extended_info TO authenticated;
 
 
 --

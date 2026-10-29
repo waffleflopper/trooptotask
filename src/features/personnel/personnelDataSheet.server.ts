@@ -4,6 +4,7 @@ import { applyExtendedInfoUpdate, prepareExtendedInfoUpdate } from './personnelE
 import { applyPersonnelRecordUpdate, preparePersonnelRecordUpdate } from './personnelRecordOperations.server';
 import { failParse, fieldFromFailureReason } from './personnelFieldFailure';
 import type { PersonnelDataSheetSaveResult } from './personnelExtendedInfo.types';
+import { PersonnelDodIdConflict } from './personnelSheetPersistence';
 
 type DataSheetContext = Parameters<typeof prepareExtendedInfoUpdate>[0] &
 	Parameters<typeof preparePersonnelRecordUpdate>[0];
@@ -40,7 +41,13 @@ export async function savePersonnelDataSheet(
 	}
 
 	// The Person write goes last because a name change replaces the slug the client navigates to.
-	const savedExtendedInfo = await applyExtendedInfoUpdate(ctx, prepared.extended);
+	let savedExtendedInfo;
+	try {
+		savedExtendedInfo = await applyExtendedInfoUpdate(ctx, prepared.extended);
+	} catch (error) {
+		if (!(error instanceof PersonnelDodIdConflict)) throw error;
+		return { saved: false, field: 'dodId', message: error.message };
+	}
 	const person = await applyPersonnelRecordUpdate(ctx, prepared.basic);
 	return { saved: true, person, extendedInfo: savedExtendedInfo };
 }

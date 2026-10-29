@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CalendarTypesEmptyState from './CalendarTypesEmptyState.svelte';
 	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
@@ -121,9 +122,7 @@
 						</Combobox.Root>
 					</div>
 				{:else}
-					<p class="text-sm text-muted-foreground">
-						No assignment types are set up yet. Add one in Calendar settings to assign daily duties.
-					</p>
+					<p class="text-sm text-muted-foreground"><CalendarTypesEmptyState kind="assignments" /></p>
 				{/each}
 			</div>
 		</AppDialog.Body>

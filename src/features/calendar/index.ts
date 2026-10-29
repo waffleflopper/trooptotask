@@ -104,9 +104,9 @@ export type {
 export function loadAssignPeopleDialog() {
 	return import('./taskings/staffing/components/AssignPeopleDialog.svelte');
 }
-/** The Create tasking sheet, loaded on first open. */
-export function loadTaskingDialog() {
-	return import('./taskings/components/TaskingDialog.svelte');
+/** The Create tasking form, loaded on first open. */
+export function loadTaskingForm() {
+	return import('./taskings/components/TaskingForm.svelte');
 }
 export { parseTaskingFilters, parseTaskingView, scopeOfView } from './taskings/taskingModel';
 export type { StaffingPicker, TaskingPick, TaskingStaffing } from './taskings/staffing/staffingModel';

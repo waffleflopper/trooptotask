@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { loadTaskingDialog, type Tasking, type TaskingChoices } from '$features/calendar';
+	import { loadTaskingForm, type Tasking, type TaskingChoices } from '$features/calendar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -12,14 +12,16 @@
 
 	let { model, access, updates, onClose }: QuickAddDialogProps = $props();
 
-	type Dialog = Awaited<ReturnType<typeof loadTaskingDialog>>['default'];
+	type Form = Awaited<ReturnType<typeof loadTaskingForm>>['default'];
 
 	const orgId = untrack(() => model.data.orgId);
 	const orgName = untrack(() => model.inputs.page.orgName);
 	const organizationWide = untrack(() =>
 		access.can(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'organization' })
 	);
-	let sheet = $state.raw<{ Dialog: Dialog; choices: TaskingChoices } | 'loading' | 'failed'>('loading');
+	let sheet = $state.raw<{ Form: Form; choices: TaskingChoices } | 'loading' | 'failed'>('loading');
+	let busy = $state(false);
+	let dirty = $state(false);
 	let active = true;
 	onDestroy(() => {
 		active = false;
@@ -36,8 +38,8 @@
 	onMount(async () => {
 		const current = stillInOrganizationLifetime();
 		try {
-			const [{ default: Dialog }, choices] = await Promise.all([loadTaskingDialog(), readChoices()]);
-			if (active && current()) sheet = { Dialog, choices };
+			const [{ default: Form }, choices] = await Promise.all([loadTaskingForm(), readChoices()]);
+			if (active && current()) sheet = { Form, choices };
 		} catch {
 			if (!active || !current()) return;
 			sheet = 'failed';
@@ -57,25 +59,37 @@
 	}
 </script>
 
-{#if sheet === 'loading'}
-	<AppDialog.Root voice="form" {onClose}>
+{#if sheet !== 'failed'}
+	<AppDialog.Root open voice="form" {busy} closeBlocked={dirty} {onClose}>
 		<AppDialog.Content presentation="sheet" size="wide">
-			<AppDialog.Header>
-				<AppDialog.Title>Create tasking</AppDialog.Title>
-				<AppDialog.Description>Loading the groups and events to choose from.</AppDialog.Description>
-			</AppDialog.Header>
-			<AppDialog.Body>
-				<div class="grid gap-4" aria-hidden="true">
-					<Skeleton class="h-10 w-full" />
-					<Skeleton class="h-24 w-full" />
-					<Skeleton class="h-10 w-full" />
-				</div>
-			</AppDialog.Body>
-			<AppDialog.Footer>
-				<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
-			</AppDialog.Footer>
+			{#if sheet === 'loading'}
+				<AppDialog.Header>
+					<AppDialog.Title>Create tasking</AppDialog.Title>
+					<AppDialog.Description>Loading the groups and events to choose from.</AppDialog.Description>
+				</AppDialog.Header>
+				<AppDialog.Body class="grid content-start gap-4.5">
+					<div class="grid gap-4" aria-hidden="true">
+						<Skeleton class="h-10 w-full" />
+						<Skeleton class="h-24 w-full" />
+						<Skeleton class="h-10 w-full" />
+					</div>
+				</AppDialog.Body>
+				<AppDialog.Footer>
+					<Button variant="ghost" type="button" onclick={onClose}>Cancel</Button>
+					<Button type="button" disabled>Create tasking</Button>
+				</AppDialog.Footer>
+			{:else}
+				<sheet.Form
+					{orgId}
+					{orgName}
+					choices={sheet.choices}
+					{organizationWide}
+					onSaved={saved}
+					{onClose}
+					bind:busy
+					bind:dirty
+				/>
+			{/if}
 		</AppDialog.Content>
 	</AppDialog.Root>
-{:else if sheet !== 'failed'}
-	<sheet.Dialog {orgId} {orgName} choices={sheet.choices} {organizationWide} onSaved={saved} {onClose} />
 {/if}

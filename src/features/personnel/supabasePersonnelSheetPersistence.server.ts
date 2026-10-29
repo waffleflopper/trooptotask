@@ -1,19 +1,23 @@
 import type { SupabaseClient } from '$lib/server/database';
+import { PersonnelDodIdConflict } from './personnelSheetPersistence';
 import type {
 	PersonnelSheetEditableValues,
 	SavedPersonnelSheet,
 	PersonnelSheetPersistence,
 	PersonnelWorkbookHistoryReader,
 	PersonnelCounselingExportFacts,
-	PersonnelSheetExportFacts
+	PersonnelSheetExportFacts,
+	PersonnelDodId,
+	PersonnelDodIdSaveFailure
 } from './personnelSheetPersistence';
 const SELECT =
-	'id,personnel_id,organization_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,created_at,updated_at,updated_by';
+	'id,personnel_id,organization_id,dod_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,created_at,updated_at,updated_by';
 function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 	return {
 		id: row.id,
 		personnel_id: row.personnel_id,
 		...(row.organization_id !== undefined ? { organization_id: row.organization_id } : {}),
+		...(row.dod_id !== undefined ? { dod_id: row.dod_id } : {}),
 		...(row.blood_type !== undefined ? { blood_type: row.blood_type } : {}),
 		...(row.basd !== undefined ? { basd: row.basd } : {}),
 		...(row.date_of_rank !== undefined ? { date_of_rank: row.date_of_rank } : {}),
@@ -46,6 +50,7 @@ function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 }
 function editable(input: PersonnelSheetEditableValues): PersonnelSheetEditableValues {
 	return {
+		dod_id: input.dod_id,
 		blood_type: input.blood_type,
 		basd: input.basd,
 		date_of_rank: input.date_of_rank,
@@ -72,11 +77,69 @@ function editable(input: PersonnelSheetEditableValues): PersonnelSheetEditableVa
 		updated_by: input.updated_by
 	};
 }
+function throwSheetWriteError(error: { code: string; message: string }): never {
+	if (error.code === '23505' && error.message.includes('personnel_extended_info_organization_dod_id_key')) {
+		throw new PersonnelDodIdConflict();
+	}
+	throw new Error(error.message);
+}
 export function createSupabasePersonnelSheetPersistence(
 	client: SupabaseClient,
 	orgId: string
 ): PersonnelSheetPersistence {
+	async function saveDodIds(rows: readonly PersonnelDodId[]): Promise<PersonnelDodIdSaveFailure[]> {
+		if (rows.length === 0) return [];
+		try {
+			const { error } = await client.from('personnel_extended_info').upsert(
+				rows.map(({ personnelId, dodId }) => ({
+					organization_id: orgId,
+					personnel_id: personnelId,
+					dod_id: dodId
+				})),
+				{ onConflict: 'personnel_id' }
+			);
+			if (error) throwSheetWriteError(error);
+			return [];
+		} catch (error) {
+			if (error instanceof PersonnelDodIdConflict && rows.length > 1) {
+				// A rejected statement wrote nothing. Split it so an ID race does not block unrelated People.
+				const midpoint = Math.floor(rows.length / 2);
+				return [...(await saveDodIds(rows.slice(0, midpoint))), ...(await saveDodIds(rows.slice(midpoint)))];
+			}
+			return rows.map(({ personnelId }) => ({
+				personnelId,
+				reason: error instanceof PersonnelDodIdConflict ? 'conflict' : 'failed'
+			}));
+		}
+	}
 	return {
+		async findDodIdsInUse(dodIds) {
+			const { data, error } = await client.rpc('personnel_dod_ids_in_use', {
+				p_organization_id: orgId,
+				p_dod_ids: [...dodIds]
+			});
+			if (error) throw new Error(error.message);
+			return data ?? [];
+		},
+		async listDodIds(only) {
+			const rows: PersonnelDodId[] = [];
+			for (let offset = 0; ; offset += 1000) {
+				let query = client
+					.from('personnel_extended_info')
+					.select('personnel_id,dod_id')
+					.eq('organization_id', orgId)
+					.not('dod_id', 'is', null);
+				if (only) query = query.in('dod_id', [...only]);
+				const { data, error } = await query.order('id', { ascending: true }).range(offset, offset + 999);
+				if (error) throw new Error(error.message);
+				const page = data ?? [];
+				rows.push(
+					...page.flatMap((row) => (row.dod_id === null ? [] : [{ personnelId: row.personnel_id, dodId: row.dod_id }]))
+				);
+				if (page.length < 1000) return rows;
+			}
+		},
+		saveDodIds,
 		async listSheetsForPerson(personnelId) {
 			const rows: SavedPersonnelSheet[] = [];
 			for (let offset = 0; ; offset += 1000) {
@@ -114,7 +177,7 @@ export function createSupabasePersonnelSheetPersistence(
 				.insert({ ...values, organization_id: orgId, personnel_id: personnelId })
 				.select(SELECT)
 				.single();
-			if (error) throw new Error(error.message);
+			if (error) throwSheetWriteError(error);
 			return saved(data);
 		},
 		async replaceEditableSheetFields(id, input) {
@@ -125,7 +188,7 @@ export function createSupabasePersonnelSheetPersistence(
 				.eq('id', id)
 				.select(SELECT)
 				.single();
-			if (error) throw new Error(error.message);
+			if (error) throwSheetWriteError(error);
 			return saved(data);
 		},
 		async setAwardAcknowledgedAt(id, value) {
@@ -176,7 +239,7 @@ export function createSupabasePersonnelWorkbookHistoryReader(
 				const { data, error } = await client
 					.from('personnel_extended_info')
 					.select(
-						'emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip'
+						'dod_id,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip'
 					)
 					.eq('organization_id', orgId)
 					.eq('personnel_id', personnelId)
@@ -186,6 +249,7 @@ export function createSupabasePersonnelWorkbookHistoryReader(
 				const page = data ?? [];
 				rows.push(
 					...page.map((row: PersonnelSheetExportFacts) => ({
+						...(row.dod_id !== undefined ? { dod_id: row.dod_id } : {}),
 						...(row.emergency_contact_name !== undefined ? { emergency_contact_name: row.emergency_contact_name } : {}),
 						...(row.emergency_contact_relationship !== undefined
 							? { emergency_contact_relationship: row.emergency_contact_relationship }

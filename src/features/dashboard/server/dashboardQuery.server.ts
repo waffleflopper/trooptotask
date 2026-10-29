@@ -1,4 +1,8 @@
-import { DEFAULT_LOSS_WARNING_WINDOW_DAYS, DEFAULT_STRENGTH_FLOOR_PERCENT } from '$features/organization/contracts';
+import {
+	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+	DEFAULT_STRENGTH_FLOOR_PERCENT,
+	DEFAULT_TRAINING_READINESS_GOAL_PERCENT
+} from '$features/organization/contracts';
 import type { DashboardBootstrap } from '../contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';
@@ -148,6 +152,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		trainingTypes,
 		lossWarningWindowDays: policies?.lossWarningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 		strengthFloorPercent: policies?.strengthFloorPercent ?? DEFAULT_STRENGTH_FLOOR_PERCENT,
+		trainingReadinessGoalPercent: policies?.trainingReadinessGoalPercent ?? DEFAULT_TRAINING_READINESS_GOAL_PERCENT,
 		awardTrackingAcknowledgedPersonnelIds,
 		specialDays
 	};

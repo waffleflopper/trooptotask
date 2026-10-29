@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, expect, it, vi } from 'vitest';
 import { BUILT_IN_RANK_CATALOG, type Personnel } from '$features/personnel/contracts';
 import type { PersonnelPageContext } from '$features/personnel';
@@ -24,6 +25,7 @@ afterEach(() => {
 	cleanup();
 	personnelStubs.ctx = null;
 	personnelStubs.lane = null;
+	personnelStubs.flow = null;
 	vi.unstubAllGlobals();
 });
 
@@ -40,8 +42,13 @@ const added: Personnel = {
 	groupName: ''
 };
 
+/** Lets a replaced load promise reach the step's blocks and effects. */
+async function settle() {
+	for (let turn = 0; turn < 5; turn++) await tick();
+}
+
 function renderPersonnelStep(setupFacts?: Promise<never>) {
-	page.data = { orgId: 'alpha' };
+	page.data = { orgId: 'alpha', personnelImport: Promise.resolve({ dodIds: [] }) };
 	const fetch = vi.fn(answerEndpoint());
 	vi.stubGlobal('fetch', fetch);
 	const navigate = vi.fn(async () => {});
@@ -86,4 +93,49 @@ it('records Later when the owner continues before the roster count loads', async
 		'/org/alpha/api/organization/setup/answer',
 		expect.objectContaining({ body: JSON.stringify({ step: 'personnel', answer: 'later' }) })
 	);
+});
+
+it('keeps the import mounted while its own refresh reloads the DoD IDs', async () => {
+	personnelStubs.ctx = {
+		orgId: 'alpha',
+		orgUrlSegment: 'alpha',
+		data: { personnel: [], rankCatalog: BUILT_IN_RANK_CATALOG },
+		allActivePersonnel: [added],
+		canAddPersonnel: false,
+		canImportPersonnel: true,
+		canManageGroups: false,
+		allowUnassignedPersonnel: true
+	} as unknown as PersonnelPageContext;
+	renderPersonnelStep();
+	await waitFor(() => expect(personnelStubs.lane).not.toBeNull());
+	const mounted = personnelStubs.flow;
+
+	page.data = { ...page.data, personnelImport: new Promise<never>(() => {}) };
+	await settle();
+
+	expect(personnelStubs.flow).toBe(mounted);
+	expect(personnelStubs.lane).not.toBeNull();
+});
+
+it('keeps the import and flags it stale when a later DoD ID refresh fails', async () => {
+	personnelStubs.ctx = {
+		orgId: 'alpha',
+		orgUrlSegment: 'alpha',
+		data: { personnel: [], rankCatalog: BUILT_IN_RANK_CATALOG },
+		allActivePersonnel: [added],
+		canAddPersonnel: false,
+		canImportPersonnel: true,
+		canManageGroups: false,
+		allowUnassignedPersonnel: true
+	} as unknown as PersonnelPageContext;
+	renderPersonnelStep();
+	await waitFor(() => expect(personnelStubs.lane).not.toBeNull());
+	const mounted = personnelStubs.flow;
+	expect(screen.queryByRole('alert')).toBeNull();
+
+	page.data = { ...page.data, personnelImport: Promise.reject(new Error('refresh failed')) };
+
+	expect(await screen.findByRole('alert')).toBeInTheDocument();
+	expect(personnelStubs.flow).toBe(mounted);
+	expect(personnelStubs.lane).not.toBeNull();
 });

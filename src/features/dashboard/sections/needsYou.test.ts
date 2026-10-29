@@ -115,6 +115,10 @@ describe('Tasking kinds in the queue', () => {
 		expect(ids(queue.rows)).toEqual(['soon', 'duty', 'short']);
 	});
 
+	it('labels an evaluation past its thru date with the Evals page wording', () => {
+		expect(needsYouKindInfo('overdue')).toMatchObject({ label: 'Past thru', severity: 'danger' });
+	});
+
 	it('labels each kind and colours it by severity', () => {
 		expect(
 			(['taskingOverdue', 'taskingBlocked', 'taskingShort', 'taskingConflict'] as const).map((kind) => {

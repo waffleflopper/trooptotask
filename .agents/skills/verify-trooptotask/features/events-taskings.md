@@ -684,10 +684,11 @@ rpc/calendar_tasking_dashboard hold 1 60000` records `matches: 0` after a reload
     block shows three skeleton rows; when it fails it reads `Taskings could not be loaded.` and keeps the
     `Events & Taskings` link, and the Needs you `Try again` rereads both. The block is absent with the switch off and
     for a viewer without Calendar access.
-12. **Create tasking.** Quick add's filled `+ Tasking` reads `GET api/calendar-taskings/choices` and opens the
-    `Create tasking` sheet with the Organization, Groups and upcoming Events. Create one due D+3: the sheet closes, a
-    toast offers `Open`, one `GET api/dashboard/taskings` follows, and the new Tasking shows in On track. When the
-    choices read fails, a toast says `Create tasking` could not open and no sheet opens.
+12. **Create tasking.** Quick add's filled `+ Tasking` opens the `Create tasking` sheet at once and, when
+    `GET api/calendar-taskings/choices` answers, fills it with the Organization, Groups and upcoming Events. Create one
+    due D+3: the sheet closes, a toast offers `Open`, one `GET api/dashboard/taskings` follows, and the new Tasking
+    shows in On track. When the choices read fails, the skeleton sheet closes at once and a toast says
+    `Create tasking` could not open.
 
 ### Forecast lane
 

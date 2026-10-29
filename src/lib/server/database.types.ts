@@ -2311,6 +2311,7 @@ export type Database = {
           civilian_education: string | null
           created_at: string
           date_of_rank: string | null
+          dod_id: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
@@ -2343,6 +2344,7 @@ export type Database = {
           civilian_education?: string | null
           created_at?: string
           date_of_rank?: string | null
+          dod_id?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
@@ -2375,6 +2377,7 @@ export type Database = {
           civilian_education?: string | null
           created_at?: string
           date_of_rank?: string | null
+          dod_id?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
@@ -4424,6 +4427,10 @@ export type Database = {
           p_session: string
         }
         Returns: Json
+      }
+      personnel_dod_ids_in_use: {
+        Args: { p_dod_ids: string[]; p_organization_id: string }
+        Returns: string[]
       }
       personnel_extended_info_scope_matches: {
         Args: { p_organization_id: string; p_personnel_id: string }

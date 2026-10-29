@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { archivePersonnelBatch as deliverArchivePersonnelBatch } from './personnelArchiveBatchDelivery';
@@ -22,7 +23,7 @@ function memberWith(personnel: 'view' | 'operate' | 'configure', groupIds?: stri
 				onboarding: 'view' as const,
 				ratingScheme: 'view' as const
 			},
-			...(groupIds ? { scopeSet: { kind: 'groups' as const, groupIds } } : {})
+			...(groupIds ? { scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds }) } : {})
 		}
 	};
 }

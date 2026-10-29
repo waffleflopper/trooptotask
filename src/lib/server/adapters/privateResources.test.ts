@@ -133,6 +133,15 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 							signedURL: `${url.pathname.slice('/storage/v1'.length)}?token=synthetic-private-token`
 						});
 					}
+					if (url.pathname.endsWith('/rpc/read_request_member_access')) {
+						if (kind !== 'caller') throw new Error('Admission requires the caller session');
+						const row = tables.organization_memberships.find(
+							(row) => row.user_id === USER && row.organization_id === body.p_organization_id
+						);
+						return row
+							? Response.json({ ...row, covered_group_ids: row.access_scope_group_ids ?? [] })
+							: Response.json({ code: 'PGRST116' }, { status: 406 });
+					}
 					const table = url.pathname.split('/').at(-1)!;
 					if (isDeletionReceiptRead({ path: url.pathname, body })) return Response.json([]);
 					if (!(table in tables)) throw new Error(`Unexpected table: ${table}`);
@@ -234,7 +243,13 @@ function expectNoPrivateEffects(f: ReturnType<typeof fixture>, before: Record<st
 	expect(f.tables.sign_in_rosters).toEqual(before.sign_in_rosters);
 	expect(f.requests.filter((r) => r.path.startsWith('/storage/'))).toEqual([]);
 	expect(
-		f.requests.filter((r) => r.method !== 'GET' && !r.path.endsWith('/audit_logs') && !isDeletionReceiptRead(r))
+		f.requests.filter(
+			(r) =>
+				r.method !== 'GET' &&
+				!r.path.endsWith('/rpc/read_request_member_access') &&
+				!r.path.endsWith('/audit_logs') &&
+				!isDeletionReceiptRead(r)
+		)
 	).toEqual([]);
 }
 

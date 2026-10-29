@@ -224,8 +224,8 @@ function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageCo
 		canExportPersonnelRecord: () => false,
 		canManagePersonnelInGroup: () => false,
 		groupOrder: [
-			{ id: 'group-1', name: 'Alpha', sortOrder: 0 },
-			{ id: 'group-2', name: 'Bravo', sortOrder: 1 }
+			{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		],
 		canPinGroups: true,
 		personnelRecordAffordance: () => deniedAffordance(),
@@ -427,7 +427,7 @@ describe('PersonnelPageView', () => {
 	describe('By Group view', () => {
 		function loadCatalogOrder(groupIds: string[]): void {
 			groupCatalogHydration.load(
-				groupIds.map((id, sortOrder) => ({ id, name: id, sortOrder })),
+				groupIds.map((id, sortOrder) => ({ id, name: id, sortOrder, parentId: null, depth: 1 as const })),
 				'org-1'
 			);
 		}
@@ -871,7 +871,12 @@ describe('PersonnelPageView', () => {
 	describe('quick edit', () => {
 		const young: Personnel = { ...makePerson(2), lastName: 'Young', slug: 'young-test' };
 
-		beforeEach(() => groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1'));
+		beforeEach(() =>
+			groupCatalogHydration.load(
+				[{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+				'org-1'
+			)
+		);
 		afterEach(() => {
 			vi.restoreAllMocks();
 			groupCatalogHydration.load([], 'org-test-reset');
@@ -2014,7 +2019,10 @@ describe('PersonnelPageView', () => {
 		});
 
 		it('leaves chips and headcount toggles as they were when a dirty quick edit holds the navigation', async () => {
-			groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+			groupCatalogHydration.load(
+				[{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+				'org-1'
+			);
 			gotoMock.mockImplementation((href: string) => {
 				const guard = beforeNavigateMock.mock.calls.at(-1)![0] as (navigation: unknown) => void;
 				guard({

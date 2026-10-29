@@ -1,4 +1,4 @@
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import { comparePersonnelByRankThenName } from './personnelRank';
 import type { Personnel } from './personnel.types';
 
@@ -15,7 +15,7 @@ export interface RosterGroupFilterOption {
 	count: number;
 }
 
-export type RosterScopeSelection = { scope: 'full' } | { scope: 'scope-set'; scopeSet: ScopeSet };
+export type RosterScopeSelection = { scope: 'full' } | { scope: 'scope-set'; scopeSet: AdvisoryGroupScope };
 export type RosterStatus = 'active' | 'archived' | 'all';
 
 export interface RosterGroupCatalogEntry {
@@ -60,7 +60,7 @@ export interface RosterReadModelView {
 
 export interface RosterReadModel {
 	full: (options?: RosterViewOptions) => RosterReadModelView;
-	scoped: (scopeSet: ScopeSet, options?: RosterViewOptions) => RosterReadModelView;
+	scoped: (scopeSet: AdvisoryGroupScope, options?: RosterViewOptions) => RosterReadModelView;
 	view: (scope: RosterScopeSelection, options?: RosterViewOptions) => RosterReadModelView;
 }
 

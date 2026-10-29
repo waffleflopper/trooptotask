@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '$lib/server/database';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
@@ -9,7 +10,7 @@ function actor(criticalTasks: 'none' | 'view' | 'operate' = 'view', groupIds: st
 		orgId: 'org-1',
 		role: 'member',
 		isPrivileged: false,
-		scopeSet: groupIds === null ? { kind: 'organization' } : { kind: 'groups', groupIds },
+		scopeSet: groupIds === null ? { kind: 'organization' } : groupCoverageForTest({ kind: 'groups', groupIds }),
 		capabilityMap: {
 			calendar: 'none',
 			personnel: 'none',
@@ -135,7 +136,8 @@ describe('Personnel Critical Tasks roster', () => {
 				member_preset: 'viewer',
 				capability_overrides: { criticalTasks: 'operate', personnel: 'none', training: 'none' },
 				access_scope_kind: 'groups',
-				access_scope_group_ids: []
+				access_scope_group_ids: [],
+				covered_group_ids: []
 			},
 			'test-user',
 			'org-1',

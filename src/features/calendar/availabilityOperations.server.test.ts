@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from './calendarPersistence.test-support.server';
 import { createAvailability, deleteAvailability, updateAvailability } from './availabilityOperations.server';
@@ -28,7 +29,7 @@ describe('Calendar availability operations', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 			}
 		});
 		await expect(updateAvailability(scoped, { id: MISSING_ENTRY, note: 'Updated' })).rejects.toMatchObject({

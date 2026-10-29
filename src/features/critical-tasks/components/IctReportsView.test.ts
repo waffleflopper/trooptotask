@@ -15,8 +15,8 @@ import type {
 	IctReportScope
 } from '$features/critical-tasks/utils/ictReports';
 
-const alpha: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
-const bravo: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
+const alpha: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const };
+const bravo: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const };
 
 const medic: Personnel = {
 	id: 'person-medic',

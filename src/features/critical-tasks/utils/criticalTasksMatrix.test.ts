@@ -53,8 +53,8 @@ function completion(overrides: Partial<PersonnelIctCompletion>): PersonnelIctCom
 }
 
 const groups: Group[] = [
-	{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 },
-	{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
+	{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 
 const settings: CriticalTasksSettings = {
@@ -228,7 +228,7 @@ describe('buildCriticalTasksMatrix', () => {
 			personnel: [assigned, unassigned],
 			tasks: [task({ id: 'universal', taskCode: 'A', title: 'Universal task', mos: [] })],
 			completions: [],
-			groups: [{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }],
+			groups: [{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
 			settings,
 			selectedGroupFilter: 'name:Unassigned',
 			orgName: 'Test Unit'

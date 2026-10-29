@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { setPersonnelAwardTrackingAcknowledged } from './awardTracking.server';
@@ -123,7 +124,7 @@ describe('setPersonnelAwardTrackingAcknowledged', () => {
 		const requireGroupAccess = vi.fn(async () => {});
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] })
 			},
 			scope: {
 				requireGroupAccess
@@ -149,7 +150,7 @@ describe('setPersonnelAwardTrackingAcknowledged', () => {
 		(groupAccessError as unknown as Record<string, unknown>).status = 403;
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] })
 			},
 			scope: {
 				async requireGroupAccess() {
@@ -212,7 +213,7 @@ function awardContext(groups?: string[], personnel: 'view' | 'operate' = 'operat
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},
-			scopeSet: groups ? { kind: 'groups', groupIds: groups } : { kind: 'organization' }
+			scopeSet: groups ? groupCoverageForTest({ kind: 'groups', groupIds: groups }) : { kind: 'organization' }
 		}
 	});
 	ctx.rawStore.seed('personnel', [

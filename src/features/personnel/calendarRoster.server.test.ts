@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '$lib/server/database';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
@@ -56,7 +57,7 @@ describe('Personnel Calendar roster provider', () => {
 			],
 			error: null
 		});
-		const people = await roster.listActive(calendarActor({ kind: 'groups', groupIds: ['g-1'] }));
+		const people = await roster.listActive(calendarActor(groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] })));
 
 		expect(client.from).toHaveBeenCalledWith('personnel');
 		expect(query.eq).toHaveBeenCalledWith('organization_id', 'org-1');
@@ -70,7 +71,7 @@ describe('Personnel Calendar roster provider', () => {
 			data: [{ id: 'p-old', group_id: 'g-1', archived_at: '2026-01-01' }],
 			error: null
 		});
-		const actor = calendarActor({ kind: 'groups', groupIds: ['g-1'] });
+		const actor = calendarActor(groupCoverageForTest({ kind: 'groups', groupIds: ['g-1'] }));
 
 		await expect(roster.listAssigneeIds(actor)).resolves.toEqual(['p-old']);
 		await expect(roster.findGroupIds(actor, ['p-old', 'p-outside'])).resolves.toEqual(new Map([['p-old', 'g-1']]));
@@ -113,8 +114,12 @@ describe('Personnel Calendar roster provider', () => {
 
 	it('does not open the admin client for an empty Group scope', async () => {
 		const { roster, getAdminClient } = provider({ data: [], error: null });
-		await expect(roster.listActive(calendarActor({ kind: 'groups', groupIds: [] }))).resolves.toEqual([]);
-		await expect(roster.listAssigneeIds(calendarActor({ kind: 'groups', groupIds: [] }))).resolves.toEqual([]);
+		await expect(
+			roster.listActive(calendarActor(groupCoverageForTest({ kind: 'groups', groupIds: [] })))
+		).resolves.toEqual([]);
+		await expect(
+			roster.listAssigneeIds(calendarActor(groupCoverageForTest({ kind: 'groups', groupIds: [] })))
+		).resolves.toEqual([]);
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 

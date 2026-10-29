@@ -1,6 +1,7 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
-import { createCapabilityMap, type ScopeSet } from '$lib/access/memberAccessShape';
+import { createCapabilityMap, type GroupCoverage } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingPageView from './TrainingPageView.svelte';
@@ -59,8 +60,8 @@ const trainingType: TrainingType = {
 };
 
 const groups: Group[] = [
-	{ id: 'group-1', name: 'Alpha', sortOrder: 0 },
-	{ id: 'group-2', name: 'Bravo', sortOrder: 1 }
+	{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+	{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 ];
 
 const personnel: Personnel[] = [
@@ -269,8 +270,8 @@ describe('TrainingPageView', () => {
 	it("groups the matrix in the Organization's Group order with Unassigned last when nothing is pinned", () => {
 		groupCatalogHydration.load(
 			[
-				{ id: 'group-1', name: 'Alpha', sortOrder: 1 },
-				{ id: 'group-2', name: 'Bravo', sortOrder: 0 }
+				{ id: 'group-1', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 as const },
+				{ id: 'group-2', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const }
 			],
 			'org-1'
 		);
@@ -294,8 +295,8 @@ describe('TrainingPageView', () => {
 	it('keeps a real Group named Unassigned apart from People without a Group', () => {
 		groupCatalogHydration.load(
 			[
-				{ id: 'group-1', name: 'Unassigned', sortOrder: 0 },
-				{ id: 'group-2', name: 'Bravo', sortOrder: 1 }
+				{ id: 'group-1', name: 'Unassigned', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			'org-1'
 		);
@@ -401,7 +402,7 @@ describe('TrainingPageView', () => {
 			...createClientAccess({
 				membershipRole: 'member',
 				capabilityMap: { ...createCapabilityMap('none'), training },
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] })
 			})
 		};
 		return new TrainingPageContext(
@@ -438,7 +439,7 @@ describe('TrainingPageView', () => {
 	function exportContext(
 		capability: 'view' | 'none' = 'view',
 		orgId = 'org-1',
-		getScope: () => ScopeSet = () => ({ kind: 'organization' })
+		getScope: () => GroupCoverage = () => ({ kind: 'organization' })
 	): TrainingPageContext {
 		const access = createClientAccess(() => ({
 			membershipRole: 'member',
@@ -641,7 +642,7 @@ describe('TrainingPageView', () => {
 	});
 
 	it('suppresses an old-scope workbook when same-Organization access narrows while Training view remains allowed', async () => {
-		const scope = writable<ScopeSet>({ kind: 'organization' });
+		const scope = writable<GroupCoverage>({ kind: 'organization' });
 		const liveScope = fromStore(scope);
 		const ctx = exportContext('view', 'org-1', () => liveScope.current);
 		const { filenames } = captureDownload();
@@ -658,7 +659,7 @@ describe('TrainingPageView', () => {
 			[undefined, 'Adams, John', 'SPC', 'Bravo', 'missing'],
 			[undefined, 'Smith, Jane', 'SGT', 'Alpha', 'missing']
 		]);
-		scope.set({ kind: 'groups', groupIds: ['group-1'] });
+		scope.set(groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }));
 		await tick();
 		expect(ctx.personnel.map((person) => person.id)).toEqual(['person-1']);
 		expect(ctx.canViewTraining).toBe(true);

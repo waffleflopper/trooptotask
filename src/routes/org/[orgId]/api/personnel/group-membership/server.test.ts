@@ -1,5 +1,6 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
@@ -14,7 +15,7 @@ const unassigned = '1d000000-0000-4000-8000-000000000004';
 const charlieMember = '1e000000-0000-4000-8000-000000000005';
 const missing = '1f000000-0000-4000-8000-000000000006';
 
-function context(personnel: 'view' | 'operate', scopeSet: ScopeSet = { kind: 'organization' }) {
+function context(personnel: 'view' | 'operate', scopeSet: GroupCoverage = { kind: 'organization' }) {
 	const ctx = createTestContext({
 		auth: {
 			role: 'member',
@@ -106,7 +107,7 @@ describe('POST /api/personnel/group-membership', () => {
 	});
 
 	it('lets a Group-scoped operator move People only between their own Groups', async () => {
-		const ctx = context('operate', { kind: 'groups', groupIds: [alpha, bravo] });
+		const ctx = context('operate', groupCoverageForTest({ kind: 'groups', groupIds: [alpha, bravo] }));
 
 		await expect(move(ctx, { personnelIds: [able], groupId: bravo })).resolves.toMatchObject({
 			movedIds: [able],

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -113,7 +114,9 @@ describe('PUT Training type order', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				...(actor === 'scoped' ? { scopeSet: { kind: 'groups' as const, groupIds: ['group-1'] } } : {})
+				...(actor === 'scoped'
+					? { scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['group-1'] }) }
+					: {})
 			}
 		});
 		await expect(put(ctx, choice)).rejects.toMatchObject({ status: 403 });

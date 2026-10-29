@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { fetchOnboardingBootstrap } from './onboardingQuery.server';
@@ -155,7 +156,7 @@ describe('fetchOnboardingBootstrap', () => {
 
 		it('names no one outside the packets a Group-scoped member sees', async () => {
 			const ctx = createWritePortsContext({
-				auth: { orgId: ORG, userId: VIEWER, scopeSet: { kind: 'groups', groupIds: ['g1'] } }
+				auth: { orgId: ORG, userId: VIEWER, scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }) }
 			});
 			seedMembersAndNotes(ctx);
 			ctx.store.seed('personnel', [
@@ -291,7 +292,7 @@ describe('fetchOnboardingBootstrap', () => {
 				orgId: ORG,
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'configure',
@@ -322,8 +323,11 @@ describe('fetchOnboardingBootstrap', () => {
 
 	it.each([
 		{ capability: 'none' as const, scope: { kind: 'organization' as const } },
-		{ capability: 'view' as const, scope: { kind: 'groups' as const, groupIds: ['alpha'] } },
-		{ capability: 'configure' as const, scope: { kind: 'groups' as const, groupIds: [] as string[] } }
+		{ capability: 'view' as const, scope: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['alpha'] }) },
+		{
+			capability: 'configure' as const,
+			scope: groupCoverageForTest({ kind: 'groups' as const, groupIds: [] as string[] })
+		}
 	])(
 		'keeps Onboarding available without rank access when Personnel creation is denied (%j)',
 		async ({ capability, scope }) => {
@@ -477,7 +481,9 @@ describe('fetchOnboardingBootstrap', () => {
 	});
 
 	it('returns only in-scope Groups to a Group-scoped member', async () => {
-		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const ctx = createWritePortsContext({
+			auth: { orgId: ORG, scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }) }
+		});
 		ctx.store.seed('groups', [
 			{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
 			{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
@@ -485,7 +491,7 @@ describe('fetchOnboardingBootstrap', () => {
 
 		const result = await fetchOnboardingBootstrap(ctx);
 
-		expect(result.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
+		expect(result.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }]);
 	});
 
 	it('returns all onboardings for an unscoped member', async () => {
@@ -564,7 +570,7 @@ describe('fetchOnboardingBootstrap', () => {
 				orgId: ORG,
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['g1'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -625,7 +631,7 @@ describe('fetchOnboardingBootstrap', () => {
 				orgId: ORG,
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['g1'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -653,7 +659,9 @@ describe('fetchOnboardingBootstrap', () => {
 	});
 
 	it('filters onboardings to scoped group personnel only', async () => {
-		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const ctx = createWritePortsContext({
+			auth: { orgId: ORG, scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }) }
+		});
 		ctx.store.seed('personnel', [
 			{
 				id: 'p1',
@@ -713,7 +721,9 @@ describe('fetchOnboardingBootstrap', () => {
 	});
 
 	it('applies group-scoped personnel filtering after the active status query', async () => {
-		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const ctx = createWritePortsContext({
+			auth: { orgId: ORG, scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }) }
+		});
 		ctx.store.seed('personnel', [
 			{
 				id: 'p1',
@@ -873,7 +883,7 @@ describe('fetchOnboardingBootstrap', () => {
 				orgId: ORG,
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['g1'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

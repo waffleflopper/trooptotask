@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
@@ -20,7 +21,7 @@ describe('policy denial', () => {
 				auth: {
 					role: 'member',
 					capabilityMap: { ...baseCapabilityMap, personnel: 'operate' },
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 				}
 			},
 			POLICY_ACTION_CATALOG.personnel.manageRecords,
@@ -48,7 +49,7 @@ describe('policy denial', () => {
 				auth: {
 					role: 'member',
 					capabilityMap: { ...baseCapabilityMap, personnel: 'operate' },
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 				}
 			},
 			POLICY_ACTION_CATALOG.personnel.manageRecords,

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import {
 	createPersonnelIctCompletion,
@@ -65,7 +66,7 @@ describe('Critical Tasks completion policy boundary', () => {
 		const outsideId = '22222222-2222-4222-8222-222222222222';
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

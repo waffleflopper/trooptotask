@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchCriticalTasksDashboardSummary } from '$features/critical-tasks/index.server';
@@ -14,7 +15,7 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 		auth: {
 			role: 'member',
 			isPrivileged: false,
-			scopeSet: { kind: 'groups', groupIds },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds }),
 			capabilityMap: {
 				calendar: 'none',
 				personnel: 'none',
@@ -26,7 +27,9 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 		}
 	});
 	ctx.store.seed('organizations', [{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 12 }]);
-	ctx.store.seed('groups', [{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha' }]);
+	ctx.store.seed('groups', [
+		{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha', parent_id: null, depth: 1 }
+	]);
 	ctx.store.seed('ict_tasks', [
 		{
 			id: 'task-common',
@@ -37,6 +40,8 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 			mos: [],
 			expiration_months: 12,
 			sort_order: 0,
+			parent_id: null,
+			depth: 1,
 			archived_at: null,
 			created_at: '2026-01-01T00:00:00Z'
 		}
@@ -68,7 +73,7 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 				rank: 'SGT',
 				mos: '68W',
 				archived_at: null,
-				groups: { name: 'Alpha' }
+				groups: { name: 'Alpha', parent_id: null, depth: 1 }
 			}
 		]);
 	});

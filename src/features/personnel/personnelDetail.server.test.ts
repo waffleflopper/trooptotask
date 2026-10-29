@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext as basecreateTestContext } from '$lib/server/adapters/inMemory';
@@ -143,7 +144,9 @@ describe('personnel detail header reads', () => {
 		['outside the member Group scope', ['other-group']],
 		['for an empty Group scope', []]
 	])('denies the header %s, so no section is built', async (_, groupIds) => {
-		const ctx = createTestContext({ auth: { role: 'member', scopeSet: { kind: 'groups', groupIds } } });
+		const ctx = createTestContext({
+			auth: { role: 'member', scopeSet: groupCoverageForTest({ kind: 'groups', groupIds }) }
+		});
 		await seedPerson(ctx, { slug: 'rivera-monica' });
 		await expect(loadPersonnelDetailHeader(ctx, 'rivera-monica')).rejects.toMatchObject({ status: 403 });
 	});

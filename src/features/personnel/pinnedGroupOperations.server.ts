@@ -1,9 +1,9 @@
 import { fail } from '$lib/errors';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type { SelfPinPersistence, PinnedGroupResult } from './contracts';
 export type { PinnedGroupResult } from './contracts';
 interface PinnedGroupWriteContext {
-	auth: { scopeSet: ScopeSet };
+	auth: { scopeSet: GroupCoverage };
 	selfPins: Pick<SelfPinPersistence, 'insert' | 'remove'>;
 	audit: { log(event: { action: string; resourceType: string }): void | Promise<void> };
 }

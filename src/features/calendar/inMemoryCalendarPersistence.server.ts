@@ -10,7 +10,7 @@ type CalendarMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
 	'findOne' | 'findMany' | 'insert' | 'update' | 'delete' | 'deleteWhere' | 'insertMany'
 >;
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type { PoolRules, TrackId, WeekendMode } from './roster/rosterTypes';
 import type {
 	AvailabilityCreate,
@@ -447,7 +447,7 @@ export function createInMemoryCalendarAvailabilityPersistence(
 		removal
 	}: {
 		orgId: string;
-		scopeSet: ScopeSet;
+		scopeSet: GroupCoverage;
 		loadScopedPersonnelIds: () => Promise<string[]>;
 		removal: CalendarAvailabilityRemovalPort;
 	}

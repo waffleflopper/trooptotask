@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { lastFirstSplitter, rosterPersonReference } from '$features/personnel';
@@ -94,7 +95,7 @@ function fixture() {
 				orgId: ORG,
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'none',

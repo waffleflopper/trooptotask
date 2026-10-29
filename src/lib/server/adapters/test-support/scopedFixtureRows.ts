@@ -1,4 +1,4 @@
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type {
 	FixtureRowStore,
 	FixtureFindOptions,
@@ -8,7 +8,7 @@ import type {
 
 export function createScopedFixtureRows(
 	inner: FixtureRowStore,
-	scope: ScopeSet | string[] | string | null,
+	scope: AdvisoryGroupScope | string[] | string | null,
 	scopeRules: Map<string, FixtureGroupScopeRule>
 ): FixtureRowStore {
 	const groupScopeIds = normalizeScopedGroupIds(scope);
@@ -156,7 +156,7 @@ export function createScopedFixtureRows(
 	};
 }
 
-function normalizeScopedGroupIds(scope: ScopeSet | string[] | string | null): string[] | null {
+function normalizeScopedGroupIds(scope: AdvisoryGroupScope | string[] | string | null): string[] | null {
 	if (!scope) return null;
 	if (Array.isArray(scope)) {
 		const groupIds = Array.from(new Set(scope.filter(Boolean)));

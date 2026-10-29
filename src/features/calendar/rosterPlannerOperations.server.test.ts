@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';
 import {
@@ -268,7 +269,11 @@ describe('loadPlannerRosters', () => {
 
 	it('keeps roster counts from a Group-scoped operator', async () => {
 		const ctx = createWriteWithNotificationsPortsContext({
-			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['group-a'] } }
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
+			}
 		});
 		seedR4(ctx);
 
@@ -787,7 +792,11 @@ describe('Find replacement', () => {
 
 	it('keeps Find replacement from a Group-scoped operator', async () => {
 		const ctx = createWriteWithNotificationsPortsContext({
-			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['group-a'] } }
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
+			}
 		});
 		seedR4(ctx);
 

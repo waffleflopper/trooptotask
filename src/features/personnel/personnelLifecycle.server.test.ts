@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, it, expect, vi } from 'vitest';
 import {
@@ -132,7 +133,7 @@ describe('Personnel — archive', () => {
 		async (archivedAt) => {
 			const ctx = buildContext({
 				auth: {
-					scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 				}
 			});
 			seedPersonnel(ctx);
@@ -240,7 +241,7 @@ describe('Personnel — restore', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 		seedArchivedPersonnel(ctx, { archived_at: null, group_id: 'group-b' });
@@ -272,7 +273,7 @@ describe('Personnel — restore', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 		seedArchivedPersonnel(ctx, { group_id: 'group-b' });
@@ -442,7 +443,7 @@ describe('Personnel — permanent delete', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 		seedPersonnel(ctx, { archived_at: null, group_id: 'group-b' });
@@ -478,7 +479,7 @@ describe('Personnel — permanent delete', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 		seedPersonnel(ctx, { group_id: 'group-b' });

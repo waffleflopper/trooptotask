@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { trainingProvider } from './test-support/trainingProvider.server';
 import { createSupabaseTrainingCompletionPersistence } from './trainingCompletionPersistence.server';
@@ -275,7 +276,7 @@ describe('Training briefing report', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 				capabilityMap: { ...NO_CAPABILITIES, training: 'view' }
 			}
 		});

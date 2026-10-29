@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import { createAvailabilityBatch, deleteAvailabilityBatch } from './availabilityBatch.server';
@@ -93,7 +94,7 @@ describe('createAvailabilityBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -175,7 +176,7 @@ describe('createAvailabilityBatch', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a', 'group-b'] })
 			}
 		});
 		ctx.store.seed('personnel', [
@@ -272,7 +273,7 @@ describe('deleteAvailabilityBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',

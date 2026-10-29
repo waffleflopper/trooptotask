@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
@@ -186,7 +187,7 @@ describe('Personnel export use case', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['allowed-group'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['allowed-group'] })
 			}
 		});
 		ctx.rawStore.seed('personnel', [
@@ -333,7 +334,7 @@ describe('Personnel export use case', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-1'] })
 			}
 		});
 		seedPersonnelExportDataset(ctx);

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import type { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createQueryPortsContext } from './calendarPersistence.test-support.server';
@@ -160,7 +161,7 @@ describe('fetchCalendarData', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['g1', 'g2'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1', 'g2'] })
 			}
 		});
 		ctx.store.seed('groups', [
@@ -357,7 +358,7 @@ describe('getActiveOnboardingPersonnelIds', () => {
 	});
 
 	it('preserves owner access to unassigned markers even with an empty Group scope', async () => {
-		const ctx = buildCtx({ auth: { role: 'owner', scopeSet: { kind: 'groups', groupIds: [] } } });
+		const ctx = buildCtx({ auth: { role: 'owner', scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }) } });
 		ctx.store.seed('personnel', [{ id: 'unassigned', organization_id: ORG, group_id: null }]);
 		ctx.store.seed('personnel_onboardings', [
 			{ id: 'ob-owner', organization_id: ORG, personnel_id: 'unassigned', status: 'in_progress' }
@@ -400,7 +401,7 @@ describe('fetchCalendarBootstrap', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }),
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'none',
@@ -425,7 +426,11 @@ describe('fetchCalendarBootstrap', () => {
 		['page', fetchCalendarData]
 	] as const)('reads no pins for a Group-scoped reader on the %s read', async (_read, read) => {
 		const ctx = buildCtx({
-			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['g1'] } }
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] })
+			}
 		});
 		seedCalendarData(ctx.store);
 		ctx.store.seed('user_pinned_groups', [

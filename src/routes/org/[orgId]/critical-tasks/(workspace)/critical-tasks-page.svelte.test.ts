@@ -89,8 +89,8 @@ function completion(overrides: Partial<PersonnelIctCompletion>): PersonnelIctCom
 	};
 }
 
-const alphaGroup: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
-const bravoGroup: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
+const alphaGroup: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const };
+const bravoGroup: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const };
 
 describe('critical tasks page', () => {
 	beforeEach(() => {

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
@@ -21,7 +22,7 @@ describe('Critical Tasks report queries', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
@@ -332,7 +333,7 @@ describe('Critical Tasks report queries', () => {
 	it("limits the report Group choices to a Group-scoped viewer's scope", async () => {
 		const ctx = createTestContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
@@ -475,7 +476,7 @@ describe('Critical Tasks report queries', () => {
 
 	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {
 		const ctx = createTestContext({
-			auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } }
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }) }
 		});
 		ctx.store.seed('organizations', [
 			{
@@ -750,7 +751,7 @@ function createWideHistoryContext(
 ) {
 	const ctx = createTestContext({
 		auth: {
-			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 			role: 'member',
 			isPrivileged: false,
 			capabilityMap: {

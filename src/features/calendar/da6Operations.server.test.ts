@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';
 import { loadDa6View } from './da6Operations.server';
@@ -189,7 +190,7 @@ describe('loadDa6View', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP] }),
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'view',

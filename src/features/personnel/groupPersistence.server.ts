@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
 	GROUP_CHANGE_UNCONFIRMED_MESSAGE,
@@ -11,8 +11,14 @@ import {
 	type GroupPersistence
 } from './contracts';
 import { visibleGroupIds } from './groupCatalog.server';
+const GROUP_DEPTH_MESSAGE = 'Groups can nest at most three levels deep.';
+function isDepthViolation(error: { code?: string; message: string }) {
+	return error.code === '23514' && error.message.includes('groups_path_shape');
+}
 function throwGroupWriteError(error: { code?: string; message: string }): never {
-	if (error.code === '23505' && error.message.includes('"groups_clinic_id_name_key"')) {
+	if (error.code === '22023') fail(400, 'Group names cannot contain " / ".');
+	if (isDepthViolation(error)) fail(400, GROUP_DEPTH_MESSAGE);
+	if (error.code === '23505' && error.message.includes('"groups_sibling_name_key"')) {
 		fail(409, GROUP_NAME_EXISTS_MESSAGE);
 	}
 	throw new Error(error.message);
@@ -21,6 +27,7 @@ function throwGroupWriteError(error: { code?: string; message: string }): never 
 function throwGroupCommandError(error: { code?: string; message: string }): never {
 	if (error.code === '42501') fail(403, 'You do not have permission to manage Groups');
 	if (error.code === 'P0002') fail(404, GROUP_UNAVAILABLE_MESSAGE);
+	if (isDepthViolation(error)) fail(400, GROUP_DEPTH_MESSAGE);
 	if (error.code === '22023' || error.code === '22P02') fail(400, 'Invalid Group change');
 	if (['GRP01', '40P01', '40001', '55P03'].includes(error.code ?? '')) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
 	if (error.code === '23505') fail(409, GROUP_NAME_EXISTS_MESSAGE);
@@ -30,12 +37,20 @@ function throwGroupCommandError(error: { code?: string; message: string }): neve
 	throw new Error(error.message);
 }
 function toGroup(row: Record<string, unknown>): Group {
-	return { id: row.id as string, name: row.name as string, sortOrder: row.sort_order as number };
+	const depth = row.depth;
+	if (depth !== 1 && depth !== 2 && depth !== 3) throw new Error('Invalid Group depth');
+	return {
+		id: row.id as string,
+		name: row.name as string,
+		sortOrder: row.sort_order as number,
+		parentId: row.parent_id as string | null,
+		depth
+	};
 }
 export function createSupabaseGroupPersistence(
 	client: SupabaseClient,
 	orgId: string,
-	scopeSet: ScopeSet
+	scopeSet: GroupCoverage
 ): GroupPersistence {
 	async function rows(select: string, requestedIds?: string[]) {
 		const ids = visibleGroupIds(scopeSet, requestedIds);
@@ -72,7 +87,12 @@ export function createSupabaseGroupPersistence(
 		async create(input) {
 			const { data, error } = await client
 				.from('groups')
-				.insert({ organization_id: orgId, name: input.name, sort_order: input.sortOrder ?? 0 })
+				.insert({
+					organization_id: orgId,
+					name: input.name,
+					sort_order: input.sortOrder ?? 0,
+					parent_id: input.parentId ?? null
+				})
 				.select('*')
 				.single<Record<string, unknown>>();
 			if (error) throwGroupWriteError(error);
@@ -89,11 +109,12 @@ export function createSupabaseGroupPersistence(
 			if (!row) fail(404, GROUP_UNAVAILABLE_MESSAGE);
 			return toGroup(row);
 		},
-		async setOrder(ids, expectedIds) {
+		async setOrder(ids, expectedIds, parentId = null) {
 			const { error } = await client.rpc('set_group_order', {
 				p_organization_id: orgId,
 				p_group_ids: [...ids],
-				p_expected_group_ids: [...expectedIds]
+				p_expected_group_ids: [...expectedIds],
+				p_parent_id: parentId ?? undefined
 			});
 			if (error) throwGroupCommandError(error);
 		},

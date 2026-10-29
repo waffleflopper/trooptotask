@@ -59,7 +59,7 @@ const settings: CriticalTasksSettings = {
 	expiringSoonWarningDays: 60
 };
 
-const groups: Group[] = [{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }];
+const groups: Group[] = [{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }];
 
 afterEach(() => {
 	cleanup();

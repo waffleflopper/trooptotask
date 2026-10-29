@@ -1,6 +1,7 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import type { AuditEvent } from '$lib/audit/contracts';
-import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityLevel, GroupCoverage } from '$lib/access/memberAccessShape';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { TASKING_TRANSITIONS, type Tasking, type TaskingDraft, type TaskingStatus } from './taskingModel';
 import {
@@ -104,7 +105,7 @@ function slowAudit() {
 	};
 }
 
-function member(calendar: CapabilityLevel, scopeSet: ScopeSet = { kind: 'organization' }) {
+function member(calendar: CapabilityLevel, scopeSet: GroupCoverage = { kind: 'organization' }) {
 	const calendarTaskings = memoryTaskings();
 	const audit = slowAudit();
 	const ctx: CalendarTaskingPorts = {
@@ -130,10 +131,10 @@ function member(calendar: CapabilityLevel, scopeSet: ScopeSet = { kind: 'organiz
 			listCatalog: async () =>
 				scopeSet.kind === 'organization'
 					? [
-							{ id: ALPHA, name: 'Alpha', sortOrder: 0 },
-							{ id: BRAVO, name: 'Bravo', sortOrder: 1 }
+							{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+							{ id: BRAVO, name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 						]
-					: [{ id: ALPHA, name: 'Alpha', sortOrder: 0 }]
+					: [{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }]
 		},
 		memberLabels: async () => ({ [ACTOR]: 'sgt.kim@example.mil' }),
 		calendarStaffing: { countStaffing: async () => ({}) }
@@ -141,7 +142,7 @@ function member(calendar: CapabilityLevel, scopeSet: ScopeSet = { kind: 'organiz
 	return { ctx, calendarTaskings, audit };
 }
 
-const alphaOperator = () => member('operate', { kind: 'groups', groupIds: [ALPHA] });
+const alphaOperator = () => member('operate', groupCoverageForTest({ kind: 'groups', groupIds: [ALPHA] }));
 
 describe('Tasking operations', () => {
 	it('lets an Organization-wide operator create at Organization level and reroute to a Group', async () => {
@@ -265,7 +266,7 @@ describe('Tasking operations', () => {
 			suspenseOn: '2026-10-22',
 			execution: null
 		} as const;
-		const viewer = member('view', { kind: 'groups', groupIds: [ALPHA] });
+		const viewer = member('view', groupCoverageForTest({ kind: 'groups', groupIds: [ALPHA] }));
 		viewer.calendarTaskings.listEventTaskingSummaries = async () => [bravo];
 
 		expect(await listEventTaskingSummaries(viewer.ctx, EVENT)).toEqual([bravo]);

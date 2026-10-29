@@ -978,10 +978,11 @@ inspector_port = 8283
                 return subprocess.CompletedProcess(command, 0, stdout='2.101.0\n')
             if command[:3] == ["supabase", "migration", "up"]:
                 self.assertEqual(command, ["supabase", "migration", "up", "--local", "--yes", "--include-all"])
+                held_back = {"20261025160100_feedback_reporter_replies.sql", database.GROUP_TREE_MIGRATION}
                 self.assertTrue(all((workdir / "supabase/migrations" / name).exists()
                                     for name in database.STAGED_UPGRADE_MIGRATIONS
-                                    if name != "20261025160100_feedback_reporter_replies.sql"))
-                self.assertFalse((workdir / "supabase/migrations/20261025160100_feedback_reporter_replies.sql").exists())
+                                    if name not in held_back))
+                self.assertTrue(all(not (workdir / "supabase/migrations" / name).exists() for name in held_back))
                 raise subprocess.CalledProcessError(1, command)
             if command[:2] == ["supabase", "start"]:
                 self.assertTrue(all(not (workdir / "supabase/migrations" / name).exists()

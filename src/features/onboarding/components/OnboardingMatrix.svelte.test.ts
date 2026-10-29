@@ -221,8 +221,8 @@ describe('Onboarding Matrix view', () => {
 	it('applies the search and Group filter to the grids and keeps the header and toolbar', async () => {
 		groupCatalogHydration.load(
 			[
-				{ id: 'g-alpha', name: 'Alpha', sortOrder: 0 },
-				{ id: 'g-bravo', name: 'Bravo', sortOrder: 1 }
+				{ id: 'g-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'g-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			'org-1'
 		);

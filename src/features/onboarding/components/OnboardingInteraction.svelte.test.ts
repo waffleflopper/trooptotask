@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
@@ -725,7 +726,7 @@ describe('Onboarding packet panel', () => {
 				...createClientAccess({
 					membershipRole: 'member',
 					capabilityMap: { ...createCapabilityMap('none'), onboarding: level },
-					scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
 				})
 			});
 			render(OnboardingActiveView, { props: { ctx, typicalDaysToFinish: null } });

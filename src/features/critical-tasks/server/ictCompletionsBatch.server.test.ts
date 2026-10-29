@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
@@ -339,7 +340,7 @@ describe('importIctCompletionsBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

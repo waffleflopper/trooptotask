@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createIctTask, reorderIctTasks, updateIctTask } from './ictTaskOperations.server';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
@@ -155,7 +156,10 @@ describe('owned task library operations', () => {
 
 	it.each([
 		{ criticalTasks: 'view' as const, scopeSet: { kind: 'organization' as const } },
-		{ criticalTasks: 'configure' as const, scopeSet: { kind: 'groups' as const, groupIds: ['group-a'] } }
+		{
+			criticalTasks: 'configure' as const,
+			scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['group-a'] })
+		}
 	])('denies library writes outside the Organization configure lane %j', async ({ criticalTasks, scopeSet }) => {
 		const ctx = createWritePortsContext({
 			auth: {

@@ -6,6 +6,8 @@ import {
 	type CapabilityOverrideMap,
 	type MemberPreset,
 	type OrganizationAccessGrant,
+	type GroupCoverage,
+	type AdvisoryGroupScope,
 	type ScopeSet
 } from './memberAccessShape';
 
@@ -20,6 +22,7 @@ export interface MemberAccessProjectionRow {
 
 export interface OrganizationMembershipFacts extends MemberAccessProjectionRow {
 	id?: string;
+	covered_group_ids?: unknown;
 }
 
 export interface MemberAccessInvitationProjectionRow {
@@ -101,7 +104,7 @@ function withFeatureLanesOff(capabilityMap: CapabilityMap, disabledFeatures: rea
 }
 
 export function projectOrganizationAccessGrant(
-	membership: MemberAccessProjectionRow,
+	membership: OrganizationMembershipFacts,
 	userId: string,
 	orgId: string,
 	switches: OrganizationFeatureSwitches
@@ -114,8 +117,21 @@ export function projectOrganizationAccessGrant(
 		isPrivileged: access.isPrivileged,
 		canManageMembers: access.canManageMembers,
 		capabilityMap: access.capabilityMap,
-		scopeSet: access.scopeSet
+		scopeSet: projectGroupCoverage(access.scopeSet, membership.covered_group_ids)
 	};
+}
+
+function projectGroupCoverage(scopeSet: ScopeSet, coveredGroupIds: unknown): GroupCoverage {
+	if (scopeSet.kind === 'organization') return { kind: 'organization' };
+	if (!Array.isArray(coveredGroupIds) || !coveredGroupIds.every((id): id is string => typeof id === 'string')) {
+		throw new Error('Request member access requires SQL Group coverage');
+	}
+	const coverage: Required<Extract<AdvisoryGroupScope, { kind: 'groups' }>> = {
+		kind: 'groups',
+		groupIds: [...new Set(coveredGroupIds)],
+		grantedGroupIds: scopeSet.groupIds
+	};
+	return coverage as GroupCoverage;
 }
 
 export function projectEffectiveInvitationAccess(

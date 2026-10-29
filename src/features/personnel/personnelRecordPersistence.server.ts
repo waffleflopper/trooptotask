@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelLifecycleReference, PersonnelRecordPersistence } from './contracts';
 import {
@@ -24,7 +24,7 @@ function lifecycle(row: Record<string, unknown>): PersonnelLifecycleReference {
 export function createSupabasePersonnelRecordPersistence(
 	client: SupabaseClient,
 	orgId: string,
-	scope?: ScopeSet
+	scope?: GroupCoverage
 ): PersonnelRecordPersistence {
 	const groupIds = scope?.kind === 'groups' ? [...new Set(scope.groupIds.filter(Boolean))] : null;
 	function read(select: string) {

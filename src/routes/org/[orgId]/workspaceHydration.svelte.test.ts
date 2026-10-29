@@ -46,7 +46,7 @@ describe('Shared workspace lane navigation', () => {
 				groups: {
 					mode: 'replace',
 					snapshotKey: 'allowed-groups',
-					items: [{ id: 'alpha', name: 'Alpha', sortOrder: 0 }]
+					items: [{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }]
 				},
 				pinnedGroups: { mode: 'replace', snapshotKey: 'allowed-pins', items: ['Alpha'] }
 			});

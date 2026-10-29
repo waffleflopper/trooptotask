@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { savePersonnelDataSheet } from './personnelDataSheet.server';
@@ -95,7 +96,9 @@ function buildContext(
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},
-			scopeSet: options.groups ? { kind: 'groups', groupIds: options.groups } : { kind: 'organization' }
+			scopeSet: options.groups
+				? groupCoverageForTest({ kind: 'groups', groupIds: options.groups })
+				: { kind: 'organization' }
 		}
 	});
 	const orgId = ctx.auth.orgId;

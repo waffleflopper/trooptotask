@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
@@ -169,7 +170,7 @@ describe('Onboarding reconciliation application boundary', () => {
 					role: 'member',
 					isPrivileged: false,
 					capabilityMap: configureCapabilityMap,
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 				}
 			},
 			'group-bravo'
@@ -191,7 +192,7 @@ describe('Onboarding reconciliation application boundary', () => {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: configureCapabilityMap,
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 			}
 		});
 		await resyncOnboarding(ctx, 'ob-1');

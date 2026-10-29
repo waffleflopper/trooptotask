@@ -18,7 +18,7 @@ import { groupsInScope } from '$lib/access/scopeSetAccess';
 import { rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$lib/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
-import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityLevel, AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
@@ -70,7 +70,7 @@ export interface CalendarPageAccess {
 	readonly userId: string | null;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly capabilityMap: { readonly calendar: CapabilityLevel };
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: AdvisoryGroupScope;
 	readonly affordanceForFeatureAction: (
 		action: FeatureLanePolicyAction,
 		resource?: PolicyResource

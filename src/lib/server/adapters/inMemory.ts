@@ -993,7 +993,7 @@ async function inMemoryPersonnelRows(
 		select: '*, groups:groups!personnel_organization_group_fkey(name)',
 		...(status === 'active' ? { isNull: { archived_at: true } } : {}),
 		inFilters: {
-			...(actor.scopeSet.kind === 'groups' ? { group_id: actor.scopeSet.groupIds } : {}),
+			...(actor.scopeSet.kind === 'groups' ? { group_id: [...actor.scopeSet.groupIds] } : {}),
 			...(ids ? { id: ids } : {})
 		},
 		orderBy: [

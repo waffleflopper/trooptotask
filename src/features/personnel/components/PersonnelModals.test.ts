@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
@@ -45,7 +46,7 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 	it.each(['add', 'rename', 'delete'] as const)(
 		'preserves Group and Personnel state on denied %s and supports retry',
 		async (operation) => {
-			const originalGroup = { id: 'group-a', name: 'Alpha', sortOrder: 0 };
+			const originalGroup = { id: 'group-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const };
 			const originalPerson = {
 				id: 'person-a',
 				slug: 'synthetic-person',
@@ -134,8 +135,8 @@ describe('Group editor changes reach the roster in place', () => {
 			archivedAt: null
 		};
 		const groups = [
-			{ id: 'group-a', name: 'Alpha', sortOrder: 0 },
-			{ id: 'group-b', name: 'Bravo', sortOrder: 1 }
+			{ id: 'group-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'group-b', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		];
 		groupCatalogHydration.load(groups, 'org-a');
 		personnelStore.load([person], 'org-a');
@@ -182,7 +183,10 @@ describe('Group editor changes reach the roster in place', () => {
 	});
 
 	it('opens Unassigned through the context entry point with null', () => {
-		groupCatalogHydration.load([{ id: 'group-a', name: 'Alpha', sortOrder: 0 }], 'org-a');
+		groupCatalogHydration.load(
+			[{ id: 'group-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+			'org-a'
+		);
 		personnelStore.load(
 			[
 				{
@@ -222,7 +226,10 @@ describe('Group editor changes reach the roster in place', () => {
 			deros: null,
 			archivedAt: null
 		} as Personnel;
-		groupCatalogHydration.load([{ id: 'group-a', name: 'Alpha', sortOrder: 0 }], 'org-a');
+		groupCatalogHydration.load(
+			[{ id: 'group-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+			'org-a'
+		);
 		personnelStore.load([person], 'org-a');
 		pinnedGroupsHydration.load(['group-a'], 'org-a');
 		const requests: string[] = [];
@@ -232,7 +239,7 @@ describe('Group editor changes reach the roster in place', () => {
 				requests.push(`${init.method} ${url}`);
 				if (url.endsWith('/group-membership'))
 					return Response.json({ groupId: null, movedIds: ['person-a'], unavailableIds: [] });
-				return Response.json({ id: 'group-a', name: 'Weapons', sortOrder: 0 });
+				return Response.json({ id: 'group-a', name: 'Weapons', sortOrder: 0, parentId: null, depth: 1 as const });
 			})
 		);
 		const modals = new ModalRegistry();
@@ -270,8 +277,8 @@ describe('Group editor changes reach the roster in place', () => {
 		function openPreview() {
 			groupCatalogHydration.load(
 				[
-					{ id: 'group-a', name: 'Alpha', sortOrder: 0 },
-					{ id: 'group-b', name: 'Bravo', sortOrder: 1 }
+					{ id: 'group-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+					{ id: 'group-b', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 				],
 				'org-a'
 			);
@@ -325,8 +332,8 @@ describe('scoped Personnel creation', () => {
 	it('requires an explicit permitted Group and retains the draft through a failed save', async () => {
 		groupCatalogHydration.load(
 			[
-				{ id: 'alpha', name: 'Alpha', sortOrder: 0 },
-				{ id: 'bravo', name: 'Bravo', sortOrder: 1 }
+				{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+				{ id: 'bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
 			'org-a'
 		);
@@ -354,7 +361,7 @@ describe('scoped Personnel creation', () => {
 			createClientAccess({
 				membershipRole: 'member',
 				capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
-				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
 			})
 		);
 		let fail = true;
@@ -407,8 +414,8 @@ describe('rejected Group rename feedback', () => {
 		['a server failure', 'Charlie', 500, 'Unable to rename Group. Try again.']
 	] as const)('keeps a Group rename open and explains %s', async (_case, name, status, shown) => {
 		const groups = [
-			{ id: 'group-a', name: 'Alpha', sortOrder: 0 },
-			{ id: 'group-b', name: 'Bravo', sortOrder: 1 }
+			{ id: 'group-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'group-b', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		];
 		groupCatalogHydration.load(groups, 'org-a');
 		personnelStore.load([], 'org-a');

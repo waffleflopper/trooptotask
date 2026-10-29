@@ -1,7 +1,8 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { _deleteConfig, _postConfig } from './+server';
 
 describe('/api/pinned-groups route config', () => {
@@ -12,7 +13,7 @@ describe('/api/pinned-groups route config', () => {
 		expect('permission' in _deleteConfig).toBe(false);
 	});
 
-	const viewer = (scopeSet: ScopeSet) =>
+	const viewer = (scopeSet: GroupCoverage) =>
 		createTestContext({
 			auth: {
 				role: 'member',
@@ -62,7 +63,7 @@ describe('/api/pinned-groups route config', () => {
 	});
 
 	it('refuses pin writes from a Group-scoped reader and keeps their saved pins', async () => {
-		const ctx = viewer({ kind: 'groups', groupIds: ['group-alpha'] });
+		const ctx = viewer(groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }));
 		ctx.store.seed('user_pinned_groups', [
 			{ id: 'saved', organization_id: ctx.auth.orgId, user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 }
 		]);

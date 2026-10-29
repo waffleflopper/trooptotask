@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { importTrainingRecords } from './trainingCompletionBatch.server';
@@ -523,7 +524,7 @@ describe('importTrainingRecords', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 		seedPersonnel(ctx);
@@ -577,7 +578,7 @@ describe('importTrainingRecords', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-c'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a', 'group-c'] })
 			}
 		});
 		seedPersonnel(ctx);
@@ -598,7 +599,7 @@ describe('importTrainingRecords', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

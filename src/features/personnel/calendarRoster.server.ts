@@ -89,7 +89,7 @@ export function createSupabasePersonnelCalendarRosterPort(
 						p_organization_id: actor.orgId,
 						p_from: span.from,
 						p_through: span.through,
-						p_group_ids: actor.scopeSet.kind === 'groups' ? actor.scopeSet.groupIds : null
+						p_group_ids: actor.scopeSet.kind === 'groups' ? [...actor.scopeSet.groupIds] : null
 					})
 					.order('last_name')
 					.order('first_name')

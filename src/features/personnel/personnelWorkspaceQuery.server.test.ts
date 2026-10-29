@@ -1,7 +1,8 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect } from 'vitest';
 import { createQueryWithRawStorePortsContext, createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { loadPersonnelWorkspace, type PersonnelWorkspaceSources } from './personnelWorkspaceQuery.server';
-import { createCapabilityMap, type ScopeSet } from '$lib/access/memberAccessShape';
+import { createCapabilityMap, type GroupCoverage } from '$lib/access/memberAccessShape';
 
 function sourcesFor(ctx: ReturnType<typeof createQueryWithRawStorePortsContext>): PersonnelWorkspaceSources {
 	return {
@@ -96,7 +97,9 @@ describe('loadPersonnelWorkspace', () => {
 	});
 
 	it("returns only the Groups in a Group-scoped member's scope and none of their pins", async () => {
-		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }) }
+		});
 		seedPersonnel(ctx.store);
 		ctx.store.seed('groups', [{ id: 'g0', organization_id: ORG, name: 'Earlier', sort_order: -1 }]);
 		ctx.store.seed('user_pinned_groups', [
@@ -105,15 +108,19 @@ describe('loadPersonnelWorkspace', () => {
 
 		const { data, hydration } = await loadPersonnelWorkspace(ctx, sourcesFor(ctx));
 
-		expect(data.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
-		expect(hydration.groups.items).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
+		expect(data.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }]);
+		expect(hydration.groups.items).toEqual([
+			{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }
+		]);
 		expect(data.pinnedGroups).toEqual([]);
 		expect(hydration.pinnedGroups.items).toEqual([]);
 		expect(data.personnel.map((person) => person.id)).toEqual(['p1']);
 	});
 
 	it('returns no Groups or pinned names to an empty Group scope', async () => {
-		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: [] } } });
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }) }
+		});
 		seedPersonnel(ctx.store);
 
 		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
@@ -171,7 +178,9 @@ describe('loadPersonnelWorkspace', () => {
 	});
 
 	it('scoped member receives only scoped records in the lookup projection', async () => {
-		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }) }
+		});
 		seedPersonnel(ctx.rawStore);
 
 		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
@@ -201,7 +210,7 @@ describe('loadPersonnelWorkspace', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['g1', 'g3'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['g1', 'g3'] })
 			}
 		});
 		seedPersonnel(ctx.rawStore);
@@ -227,9 +236,9 @@ describe('loadPersonnelWorkspace', () => {
 });
 
 describe('loadPersonnelWorkspace roster reads', () => {
-	it.each<[string, ScopeSet, string[]]>([
+	it.each<[string, GroupCoverage, string[]]>([
 		['an Organization-wide', { kind: 'organization' }, ['p2', 'p1']],
-		['a Group-scoped', { kind: 'groups', groupIds: ['g1'] }, ['p1']]
+		['a Group-scoped', groupCoverageForTest({ kind: 'groups', groupIds: ['g1'] }), ['p1']]
 	])(
 		'reads the active roster once for %s member and serves the roster and lookup from it',
 		async (_, scopeSet, ids) => {
@@ -313,7 +322,7 @@ describe('loadPersonnelWorkspace — loss warning window', () => {
 describe('Personnel workspace isolation and failures', () => {
 	it('keeps an explicit empty scope empty, including Groups and pins, while retaining Organization catalogs', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
-			auth: { scopeSet: { kind: 'groups', groupIds: [] } }
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }) }
 		});
 		seedPersonnel(ctx.rawStore);
 		ctx.rawStore.seed('personnel_extended_info', [

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
@@ -265,7 +266,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 
 	it('does not leak other-group readiness data for scoped viewers', async () => {
 		const ctx = createTestContext({
-			auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } }
+			auth: { scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }) }
 		});
 		ctx.store.seed('organizations', [
 			{

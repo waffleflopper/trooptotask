@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -112,7 +113,7 @@ describe('single-record Calendar availability', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [GROUP_ALPHA] }),
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'none',

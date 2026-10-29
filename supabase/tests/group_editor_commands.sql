@@ -99,10 +99,10 @@ INSERT INTO public.user_pinned_groups (user_id, organization_id, group_id, sort_
 (pg_temp.id('bravo_owner'), pg_temp.id('bravo_org'), pg_temp.id('bravo_second_platoon'), 0);
 
 SELECT pg_temp.act('org_wide_configurer');
-SELECT ok(NOT has_function_privilege('anon', 'public.set_group_order(uuid, uuid[], uuid[])', 'EXECUTE')
+SELECT ok(NOT has_function_privilege('anon', 'public.set_group_order(uuid, uuid[], uuid[], uuid)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.rename_group(uuid, uuid, text)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.delete_group_with_reassignment(uuid, uuid, uuid)', 'EXECUTE')
-  AND has_function_privilege('authenticated', 'public.set_group_order(uuid, uuid[], uuid[])', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.set_group_order(uuid, uuid[], uuid[], uuid)', 'EXECUTE')
   AND has_function_privilege('authenticated', 'public.delete_group_with_reassignment(uuid, uuid, uuid)', 'EXECUTE'),
   'only signed-in members can run the Group commands');
 SELECT hasnt_trigger('public', 'groups', 'sync_group_pins', 'no trigger rewrites pins on a Group rename');

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
@@ -167,7 +168,7 @@ describe('personnel leader notes', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['other-group'] })
 			}
 		});
 		seedPersonnel(ctx, 'group-1');
@@ -279,7 +280,7 @@ describe('personnel leader notes', () => {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: capabilities('operate'),
-				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['other-group'] })
 			}
 		});
 		seedPersonnel(outsideGroup, 'group-1');

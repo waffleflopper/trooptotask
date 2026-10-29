@@ -4,7 +4,7 @@ import {
 	type CapabilityMap,
 	type DurableFeatureLane,
 	type MembershipRole,
-	type ScopeSet
+	type AdvisoryGroupScope
 } from './memberAccessShape';
 import type { FeatureKey } from './featureSwitches';
 import { matchScopeSet, type MatchedScope, type ScopeSetResource } from './scopeSetAccess';
@@ -86,7 +86,7 @@ export interface PolicyEvaluationInput {
 	actor: PolicyActor;
 	action: PolicyAction;
 	capabilityMap: CapabilityMap;
-	scopeSet: ScopeSet;
+	scopeSet: AdvisoryGroupScope;
 	resource: PolicyResource;
 }
 

@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from './ratingSchemePersistence.test-support.server';
 import {
@@ -157,7 +158,7 @@ describe('Rating scheme entry — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'operate'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-c'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a', 'group-c'] })
 			}
 		});
 		ctx.store.seed('personnel', [
@@ -190,7 +191,7 @@ describe('Rating scheme entry — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'operate'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] })
 			}
 		});
 		ctx.store.seed('personnel', [
@@ -228,7 +229,7 @@ describe('Rating scheme entry — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'operate'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-c'] }
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a', 'group-c'] })
 			}
 		});
 		ctx.store.seed('personnel', [
@@ -472,7 +473,7 @@ function evaluatorContext() {
 		auth: {
 			role: 'member',
 			isPrivileged: false,
-			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] }),
 			capabilityMap: {
 				ratingScheme: 'operate',
 				personnel: 'none',

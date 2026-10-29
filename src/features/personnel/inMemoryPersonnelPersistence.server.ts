@@ -47,7 +47,7 @@ import {
 	personnelEditableRow,
 	personnelInsertRow
 } from './personnelPersistenceMapping.server';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { visibleGroupIds } from './groupCatalog.server';
 
 export function createInMemoryPersonnelRecordPersistence(
@@ -210,12 +210,14 @@ export function createInMemoryPersonnelRosterReader(store: PersonnelMemoryStore,
 export function createInMemoryGroupPersistence(
 	store: PersonnelMemoryStore,
 	orgId: string,
-	scopeSet: ScopeSet
+	scopeSet: GroupCoverage
 ): GroupPersistence {
 	const map = (row: Record<string, unknown>) => ({
 		id: row.id as string,
 		name: row.name as string,
-		sortOrder: row.sort_order as number
+		sortOrder: row.sort_order as number,
+		parentId: (row.parent_id as string | null) ?? null,
+		depth: (row.depth ?? 1) as 1 | 2 | 3
 	});
 	async function rows(select: string, requestedIds?: string[]) {
 		const ids = visibleGroupIds(scopeSet, requestedIds);
@@ -246,18 +248,38 @@ export function createInMemoryGroupPersistence(
 			);
 		},
 		async create(input) {
-			if (await store.findOne('groups', orgId, { name: input.name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
-			return map(await store.insert('groups', orgId, { name: input.name, sort_order: input.sortOrder ?? 0 }));
+			const parentId = input.parentId ?? null;
+			if ((await rows('*')).some((group) => (group.parent_id ?? null) === parentId && group.name === input.name))
+				fail(409, GROUP_NAME_EXISTS_MESSAGE);
+			const parent = parentId ? await store.findOne<Record<string, unknown>>('groups', orgId, { id: parentId }) : null;
+			if (parentId && !parent) fail(404, GROUP_UNAVAILABLE_MESSAGE);
+			const depth = parent ? Number(parent.depth ?? 1) + 1 : 1;
+			if (depth > 3) fail(400, 'Invalid Group change');
+			return map(
+				await store.insert('groups', orgId, {
+					name: input.name,
+					sort_order: input.sortOrder ?? 0,
+					parent_id: parentId,
+					depth
+				})
+			);
 		},
 		async rename(id, name) {
 			const group = await store.findOne<Record<string, unknown>>('groups', orgId, { id });
 			if (!group) fail(404, GROUP_UNAVAILABLE_MESSAGE);
 			if (group.name === name) return map(group);
-			if (await store.findOne('groups', orgId, { name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
+			if (
+				(await rows('*')).some(
+					(other) => (other.parent_id ?? null) === (group.parent_id ?? null) && other.name === name
+				)
+			)
+				fail(409, GROUP_NAME_EXISTS_MESSAGE);
 			return map(await store.update('groups', orgId, id, { name }));
 		},
-		async setOrder(ids, expectedIds) {
-			const saved = (await rows('id')).map((row) => row.id as string);
+		async setOrder(ids, expectedIds, parentId = null) {
+			const saved = (await rows('id, parent_id'))
+				.filter((row) => (row.parent_id ?? null) === parentId)
+				.map((row) => row.id as string);
 			if (saved.join() === ids.join()) return;
 			if (saved.join() !== expectedIds.join()) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
 			if (ids.length !== saved.length || saved.some((id) => !ids.includes(id))) fail(400, 'Choose every Group once');
@@ -267,10 +289,20 @@ export function createInMemoryGroupPersistence(
 			const group = await store.findOne('groups', orgId, { id });
 			if (!group || (targetId && !(await store.findOne('groups', orgId, { id: targetId }))))
 				fail(404, GROUP_UNAVAILABLE_MESSAGE);
-			const members = await store.findMany<{ id: string }>('personnel', orgId, { group_id: id });
+			const catalog = (await rows('*')).map(map);
+			const subtree = new Set([id]);
+			for (let depth = 1; depth < 3; depth++) {
+				for (const group of catalog) if (group.parentId && subtree.has(group.parentId)) subtree.add(group.id);
+			}
+			if (targetId && subtree.has(targetId)) fail(400, 'Choose another Group for the members');
+			const members = await store.findMany<{ id: string }>('personnel', orgId, undefined, {
+				inFilters: { group_id: [...subtree] }
+			});
 			for (const member of members) await store.update('personnel', orgId, member.id, { group_id: targetId });
-			await store.delete('groups', orgId, id);
-			await store.deleteWhere('user_pinned_groups', orgId, { group_id: id });
+			for (const group of catalog.filter((group) => subtree.has(group.id)).sort((a, b) => b.depth - a.depth)) {
+				await store.delete('groups', orgId, group.id);
+				await store.deleteWhere('user_pinned_groups', orgId, { group_id: group.id });
+			}
 			return members.length;
 		}
 	};

@@ -22,6 +22,19 @@ describe('createRootOrgLayoutLoad', () => {
 	it('loads member identity and Group permissions when commercial storage is unavailable', async () => {
 		function clientWithRetainedRow(table: string, row: Record<string, unknown>): SupabaseClient {
 			return {
+				rpc(name: string, args: { p_organization_id: string }) {
+					if (name !== 'read_request_member_access' || table !== 'organization_memberships')
+						throw new Error('Unexpected admission RPC');
+					return {
+						maybeSingle: async () => ({
+							data:
+								args.p_organization_id === row.organization_id
+									? { ...row, covered_group_ids: row.access_scope_group_ids ?? [] }
+									: null,
+							error: null
+						})
+					};
+				},
 				from(requestedTable: string) {
 					if (requestedTable !== table) throw new Error(`Storage unavailable: ${requestedTable}`);
 					const filters: Record<string, unknown> = {};

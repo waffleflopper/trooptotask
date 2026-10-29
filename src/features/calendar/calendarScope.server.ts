@@ -31,6 +31,6 @@ export async function resolveCalendarAssigneeScope(ctx: {
 	return { groupIds, personnelIds };
 }
 
-function uniqueNonEmptyIds(ids: string[]): string[] {
+function uniqueNonEmptyIds(ids: readonly string[]): string[] {
 	return [...new Set(ids.filter(Boolean))];
 }

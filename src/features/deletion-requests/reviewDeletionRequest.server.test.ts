@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect, vi } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { approveDeletionRequest, denyDeletionRequest } from './reviewDeletionRequest.server';
@@ -175,7 +176,7 @@ describe('approveDeletionRequest', () => {
 			auth: {
 				role: 'admin',
 				isPrivileged: true,
-				scopeSet: { kind: 'groups', groupIds: [] },
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] }),
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',

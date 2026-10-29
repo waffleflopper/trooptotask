@@ -320,7 +320,7 @@ BEGIN
     AND t.organization_id = p.organization_id AND t.id = p.tasking_id
     AND t.status NOT IN ('completed', 'cancelled')
     AND (NEW.archived_at IS NOT NULL
-      OR (t.responsible_group_id IS NOT NULL AND NEW.group_id IS DISTINCT FROM t.responsible_group_id));
+      OR (t.responsible_group_id IS NOT NULL AND NOT organization_private.group_within(NEW.organization_id, NEW.group_id, t.responsible_group_id)));
   RETURN NULL;
 END;
 $$;
@@ -343,7 +343,7 @@ BEGIN
     WHERE p.organization_id = NEW.organization_id AND p.tasking_id = NEW.id AND p.review_since IS NULL
       AND person.organization_id = p.organization_id AND person.id = p.personnel_id
       AND (person.archived_at IS NOT NULL
-        OR (NEW.responsible_group_id IS NOT NULL AND person.group_id IS DISTINCT FROM NEW.responsible_group_id));
+        OR (NEW.responsible_group_id IS NOT NULL AND NOT organization_private.group_within(NEW.organization_id, person.group_id, NEW.responsible_group_id)));
   END IF;
   RETURN NULL;
 END;
@@ -761,6 +761,27 @@ $$;
 ALTER FUNCTION calendar_private.require_roster_swap_access(p_organization_id uuid, p_today date) OWNER TO postgres;
 
 --
+-- Name: review_picks_after_group_move(uuid, uuid); Type: FUNCTION; Schema: calendar_private; Owner: postgres
+--
+
+CREATE FUNCTION calendar_private.review_picks_after_group_move(p_organization_id uuid, p_group_id uuid) RETURNS void
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  UPDATE public.calendar_tasking_participants p SET review_since = pg_catalog.now()
+  FROM public.calendar_taskings t, public.personnel person
+  WHERE p.organization_id = p_organization_id AND p.review_since IS NULL
+    AND t.organization_id = p.organization_id AND t.id = p.tasking_id
+    AND t.status NOT IN ('completed', 'cancelled')
+    AND person.organization_id = p.organization_id AND person.id = p.personnel_id
+    AND person.group_id = p_group_id
+    AND NOT organization_private.group_within(p_organization_id, person.group_id, t.responsible_group_id);
+$$;
+
+
+ALTER FUNCTION calendar_private.review_picks_after_group_move(p_organization_id uuid, p_group_id uuid) OWNER TO postgres;
+
+--
 -- Name: stamp_calendar_event(); Type: FUNCTION; Schema: calendar_private; Owner: postgres
 --
 
@@ -1035,7 +1056,7 @@ CREATE FUNCTION calendar_private.viewable_assignees() RETURNS TABLE(organization
     AND (
       m.role IN ('owner', 'admin')
       OR m.access_scope_kind = 'organization'
-      OR (m.access_scope_kind = 'groups' AND g.id = ANY(m.access_scope_group_ids))
+      OR (m.access_scope_kind = 'groups' AND g.path && m.access_scope_group_ids)
     );
 $$;
 
@@ -1053,12 +1074,13 @@ CREATE FUNCTION member_access_private.viewable_personnel(p_lane text) RETURNS TA
   SELECT p.organization_id, p.id
   FROM public.organization_memberships m
   JOIN public.personnel p ON p.organization_id = m.organization_id
+  LEFT JOIN public.groups g ON g.organization_id = p.organization_id AND g.id = p.group_id
   WHERE m.user_id = auth.uid()
     AND public.member_access_has_capability(m.organization_id, p_lane, 'view')
     AND (
       m.role IN ('owner', 'admin')
       OR m.access_scope_kind = 'organization'
-      OR (m.access_scope_kind = 'groups' AND p.group_id = ANY(m.access_scope_group_ids))
+      OR (m.access_scope_kind = 'groups' AND g.path && m.access_scope_group_ids)
     );
 $$;
 
@@ -1386,6 +1408,28 @@ $$;
 ALTER FUNCTION organization_private.artifact_file_referenced(p_kind text, p_path text) OWNER TO postgres;
 
 --
+-- Name: cascade_group_path(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.cascade_group_path() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  UPDATE public.groups SET parent_id = parent_id
+  WHERE organization_id = NEW.organization_id AND parent_id = NEW.id;
+  PERFORM calendar_private.review_picks_after_group_move(NEW.organization_id, NEW.id);
+  IF NEW.parent_id IS NOT NULL THEN
+    DELETE FROM public.user_pinned_groups WHERE organization_id = NEW.organization_id AND group_id = NEW.id;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.cascade_group_path() OWNER TO postgres;
+
+--
 -- Name: fence_inserted_artifact_files(); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -1558,6 +1602,23 @@ $$;
 
 
 ALTER FUNCTION organization_private.file_key_retired(p_bucket_id text, p_object_name text) OWNER TO postgres;
+
+--
+-- Name: group_within(uuid, uuid, uuid); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.group_within(p_organization_id uuid, p_group_id uuid, p_ancestor_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+  SELECT p_ancestor_id IS NULL OR EXISTS (
+    SELECT 1 FROM public.groups g
+    WHERE g.organization_id = p_organization_id AND g.id = p_group_id AND p_ancestor_id = ANY(g.path)
+  );
+$$;
+
+
+ALTER FUNCTION organization_private.group_within(p_organization_id uuid, p_group_id uuid, p_ancestor_id uuid) OWNER TO postgres;
 
 --
 -- Name: guard_sign_in_roster(); Type: FUNCTION; Schema: organization_private; Owner: postgres
@@ -2331,6 +2392,42 @@ $$;
 ALTER FUNCTION organization_private.retire_unreferenced_file(p_kind text, p_path text) OWNER TO postgres;
 
 --
+-- Name: set_group_path(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.set_group_path() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_parent_path uuid[];
+BEGIN
+  IF (TG_OP = 'INSERT' OR NEW.name IS DISTINCT FROM OLD.name) AND NEW.name LIKE '% / %' THEN
+    RAISE EXCEPTION 'Group names cannot contain the path separator' USING ERRCODE = '22023';
+  END IF;
+  IF TG_OP = 'INSERT' OR NEW.parent_id IS DISTINCT FROM OLD.parent_id
+    OR NEW.organization_id IS DISTINCT FROM OLD.organization_id THEN
+    PERFORM 1 FROM public.organizations WHERE id = NEW.organization_id FOR UPDATE;
+  END IF;
+  IF NEW.parent_id IS NOT NULL THEN
+    SELECT g.path INTO v_parent_path FROM public.groups g
+    WHERE g.organization_id = NEW.organization_id AND g.id = NEW.parent_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Parent Group not found' USING ERRCODE = '23503', CONSTRAINT = 'groups_parent_fkey';
+    END IF;
+    IF NEW.id = ANY(v_parent_path) THEN
+      RAISE EXCEPTION 'A Group cannot sit inside itself' USING ERRCODE = '22023';
+    END IF;
+  END IF;
+  NEW.path := coalesce(v_parent_path, ARRAY[]::uuid[]) || NEW.id;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.set_group_path() OWNER TO postgres;
+
+--
 -- Name: stamp_archived_by(); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -2479,12 +2576,13 @@ ALTER FUNCTION personnel_private.can_use_group_pins(p_organization_id uuid) OWNE
 --
 
 CREATE FUNCTION personnel_private.lock_group_catalog(p_organization_id uuid) RETURNS void
-    LANGUAGE sql
+    LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  SELECT pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('personnel-group-catalog:' || p_organization_id::text, 0)
-  );
+BEGIN
+  PERFORM personnel_private.require_group_manager(p_organization_id);
+  PERFORM 1 FROM public.organizations WHERE id = p_organization_id FOR UPDATE;
+END;
 $$;
 
 
@@ -2509,6 +2607,29 @@ $$;
 
 
 ALTER FUNCTION personnel_private.require_group_manager(p_organization_id uuid) OWNER TO postgres;
+
+--
+-- Name: require_top_level_group_pin(); Type: FUNCTION; Schema: personnel_private; Owner: postgres
+--
+
+CREATE FUNCTION personnel_private.require_top_level_group_pin() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE v_parent_id uuid;
+BEGIN
+  SELECT parent_id INTO v_parent_id FROM public.groups
+  WHERE organization_id = NEW.organization_id AND id = NEW.group_id
+  FOR SHARE;
+  IF v_parent_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Only top-level Groups can be pinned' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION personnel_private.require_top_level_group_pin() OWNER TO postgres;
 
 --
 -- Name: accept_organization_invitation(uuid); Type: FUNCTION; Schema: public; Owner: postgres
@@ -3118,7 +3239,7 @@ CREATE FUNCTION public.calendar_deletion_references(p_organization_id uuid, p_pe
   ) AS access
   WHERE t.organization_id = p_organization_id
     AND (
-      (p_group_id IS NOT NULL AND t.responsible_group_id = p_group_id
+      (p_group_id IS NOT NULL AND organization_private.group_within(t.organization_id, t.responsible_group_id, p_group_id)
         AND public.can_manage_groups(p_organization_id))
       OR (p_personnel_id IS NOT NULL AND EXISTS (
         SELECT 1 FROM public.calendar_tasking_participants AS p
@@ -3291,7 +3412,7 @@ CREATE FUNCTION public.calendar_tasking_advisories(p_organization_id uuid, p_tas
     JOIN public.personnel person ON person.organization_id = v.organization_id AND person.id = v.personnel_id
     JOIN tasking t ON t.organization_id = person.organization_id
     WHERE person.archived_at IS NULL
-      AND (t.responsible_group_id IS NULL OR person.group_id = t.responsible_group_id
+      AND (organization_private.group_within(t.organization_id, person.group_id, t.responsible_group_id)
         OR EXISTS (SELECT 1 FROM public.calendar_tasking_participants p
           WHERE p.tasking_id = t.id AND p.personnel_id = person.id))
   )
@@ -3618,8 +3739,9 @@ CREATE FUNCTION public.calendar_tasking_workspace(p_organization_id uuid, p_toda
       CASE WHEN t.status IN ('open', 'in_progress', 'blocked') AND t.execution_starts_on >= p_today
         AND t.execution_starts_on < t.suspense_on THEN t.execution_starts_on ELSE t.suspense_on END AS next_date,
       m.role IN ('owner', 'admin') OR m.access_scope_kind = 'organization'
-        OR t.responsible_group_id = ANY(m.access_scope_group_ids) AS visible
+        OR rg.path && m.access_scope_group_ids AS visible
     FROM public.calendar_taskings t CROSS JOIN membership m
+    LEFT JOIN public.groups rg ON rg.organization_id = t.organization_id AND rg.id = t.responsible_group_id
     LEFT JOIN public.calendar_events e ON e.organization_id = t.organization_id AND e.id = t.event_id
     LEFT JOIN picked p ON p.tasking_id = t.id
     LEFT JOIN equipment q ON q.tasking_id = t.id
@@ -5647,6 +5769,8 @@ CREATE FUNCTION public.delete_group_with_reassignment(p_organization_id uuid, p_
     AS $$
 DECLARE
   v_moved integer;
+  v_group uuid;
+  v_subtree uuid[];
 BEGIN
   PERFORM personnel_private.require_group_manager(p_organization_id);
   IF p_group_id IS NULL OR p_group_id = p_target_group_id THEN
@@ -5669,14 +5793,25 @@ BEGIN
     END IF;
   END IF;
 
+  SELECT array_agg(g.id) INTO v_subtree FROM public.groups g
+  WHERE g.organization_id = p_organization_id AND p_group_id = ANY(g.path);
+  IF p_target_group_id = ANY(v_subtree) THEN
+    RAISE EXCEPTION 'Choose another Group for the members' USING ERRCODE = '22023';
+  END IF;
+
   UPDATE public.personnel AS p SET group_id = p_target_group_id
-  WHERE p.organization_id = p_organization_id AND p.group_id = p_group_id;
+  WHERE p.organization_id = p_organization_id AND p.group_id = ANY(v_subtree);
   GET DIAGNOSTICS v_moved = ROW_COUNT;
 
-  DELETE FROM public.groups AS g WHERE g.organization_id = p_organization_id AND g.id = p_group_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Group management is not allowed' USING ERRCODE = '42501';
-  END IF;
+  FOR v_group IN SELECT g.id FROM public.groups g
+    WHERE g.organization_id = p_organization_id AND g.id = ANY(v_subtree)
+    ORDER BY pg_catalog.cardinality(g.path) DESC, g.id
+  LOOP
+    DELETE FROM public.groups AS g WHERE g.organization_id = p_organization_id AND g.id = v_group;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Group management is not allowed' USING ERRCODE = '42501';
+    END IF;
+  END LOOP;
   RETURN v_moved;
 END;
 $$;
@@ -7052,19 +7187,14 @@ CREATE FUNCTION public.member_access_group_scope_matches(p_organization_id uuid,
     SET search_path TO ''
     AS $$
   SELECT EXISTS (
-    SELECT 1
-    FROM "public"."organization_memberships"
-    WHERE "organization_memberships"."organization_id" = "p_organization_id"
-      AND "organization_memberships"."user_id" = "auth"."uid"()
+    SELECT 1 FROM public.organization_memberships m
+    WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
       AND (
-        "organization_memberships"."role" IN ('owner', 'admin')
-        OR "organization_memberships"."access_scope_kind" = 'organization'
-        OR "p_group_id" IS NULL
-        OR (
-          "organization_memberships"."access_scope_kind" = 'groups'
-          AND array_length("organization_memberships"."access_scope_group_ids", 1) > 0
-          AND "p_group_id" = ANY("organization_memberships"."access_scope_group_ids")
-        )
+        m.role IN ('owner', 'admin') OR m.access_scope_kind = 'organization'
+        OR (m.access_scope_kind = 'groups' AND EXISTS (
+          SELECT 1 FROM public.groups g WHERE g.organization_id = p_organization_id AND g.id = p_group_id
+            AND g.path && m.access_scope_group_ids
+        ))
       )
   );
 $$;
@@ -7978,6 +8108,27 @@ $$;
 ALTER FUNCTION public.read_organization_setup(p_organization_id uuid) OWNER TO postgres;
 
 --
+-- Name: read_request_member_access(uuid); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.read_request_member_access(p_organization_id uuid) RETURNS TABLE(id uuid, role text, member_preset text, capability_overrides jsonb, access_scope_kind text, access_scope_group_ids uuid[], covered_group_ids uuid[])
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT m.id, m.role, m.member_preset, m.capability_overrides, m.access_scope_kind, m.access_scope_group_ids,
+    CASE WHEN m.role = 'member' AND m.access_scope_kind = 'groups' THEN ARRAY(
+      SELECT g.id FROM public.groups g
+      WHERE g.organization_id = m.organization_id AND g.path && m.access_scope_group_ids ORDER BY g.id
+    ) ELSE NULL::uuid[] END
+  FROM public.organization_memberships m
+  WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
+    AND public.organization_access_admitted(p_organization_id);
+$$;
+
+
+ALTER FUNCTION public.read_request_member_access(p_organization_id uuid) OWNER TO postgres;
+
+--
 -- Name: reconcile_account_setup_claim(uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -8546,7 +8697,7 @@ ALTER FUNCTION public.remove_sign_in_roster_scan(p_organization_id uuid, p_roste
 -- Name: rename_group(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.rename_group(p_organization_id uuid, p_group_id uuid, p_name text) RETURNS TABLE(id uuid, name text, sort_order integer)
+CREATE FUNCTION public.rename_group(p_organization_id uuid, p_group_id uuid, p_name text) RETURNS TABLE(id uuid, name text, sort_order integer, parent_id uuid, depth integer)
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
@@ -8576,7 +8727,7 @@ BEGIN
   END IF;
 
   RETURN QUERY
-  SELECT g.id, g.name, g.sort_order FROM public.groups AS g
+  SELECT g.id, g.name, g.sort_order, g.parent_id, g.depth FROM public.groups AS g
   WHERE g.organization_id = p_organization_id AND g.id = p_group_id;
 END;
 $$;
@@ -9590,6 +9741,8 @@ BEGIN
     RAISE EXCEPTION 'Pick each person once' USING ERRCODE = '22023';
   END IF;
 
+  -- A structure move reviews committed picks, so hold it out until this save commits.
+  PERFORM 1 FROM public.organizations WHERE id = p_organization_id FOR SHARE;
   SELECT t.status, t.responsible_group_id, t.staffing_revision INTO v_status, v_group, v_revision
   FROM public.calendar_taskings AS t
   WHERE t.organization_id = p_organization_id AND t.id = p_tasking_id
@@ -9634,7 +9787,7 @@ BEGIN
     SELECT 1 FROM public.personnel AS person
     WHERE person.organization_id = p_organization_id AND person.id = ANY (v_checked)
       AND person.archived_at IS NULL
-      AND (v_group IS NULL OR person.group_id = v_group)
+      AND organization_private.group_within(person.organization_id, person.group_id, v_group)
     FOR SHARE
   ) AS eligible;
   IF v_eligible <> cardinality(v_checked) THEN
@@ -10051,10 +10204,10 @@ $$;
 ALTER FUNCTION public.set_critical_tasks_defaults(p_organization_id uuid, p_default_expiration_months integer, p_expiring_soon_warning_days integer) OWNER TO postgres;
 
 --
--- Name: set_group_order(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: set_group_order(uuid, uuid[], uuid[], uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[]) RETURNS void
+CREATE FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid DEFAULT NULL::uuid) RETURNS void
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
@@ -10075,14 +10228,14 @@ BEGIN
 
   PERFORM personnel_private.lock_group_catalog(p_organization_id);
   PERFORM 1 FROM public.groups
-  WHERE organization_id = p_organization_id
+  WHERE organization_id = p_organization_id AND parent_id IS NOT DISTINCT FROM p_parent_id
   ORDER BY id
   FOR NO KEY UPDATE;
   PERFORM personnel_private.require_group_manager(p_organization_id);
 
   SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, name, id), '{}') INTO v_saved
   FROM public.groups
-  WHERE organization_id = p_organization_id;
+  WHERE organization_id = p_organization_id AND parent_id IS NOT DISTINCT FROM p_parent_id;
   IF v_saved = p_group_ids THEN
     RETURN;
   END IF;
@@ -10097,11 +10250,11 @@ BEGIN
 
   UPDATE public.groups AS g SET sort_order = (o.ordinal - 1)::integer
   FROM pg_catalog.unnest(p_group_ids) WITH ORDINALITY AS o(id, ordinal)
-  WHERE g.organization_id = p_organization_id AND g.id = o.id AND g.sort_order <> o.ordinal - 1;
+  WHERE g.organization_id = p_organization_id AND g.parent_id IS NOT DISTINCT FROM p_parent_id AND g.id = o.id AND g.sort_order <> o.ordinal - 1;
 
   -- Row security silently hides rows from a write whose author lost authority.
   IF (SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, name, id), '{}')
-      FROM public.groups WHERE organization_id = p_organization_id)
+      FROM public.groups WHERE organization_id = p_organization_id AND parent_id IS NOT DISTINCT FROM p_parent_id)
      IS DISTINCT FROM p_group_ids
   THEN
     RAISE EXCEPTION 'Group order was not saved' USING ERRCODE = 'GRP01';
@@ -10110,7 +10263,7 @@ END;
 $$;
 
 
-ALTER FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[]) OWNER TO postgres;
+ALTER FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid) OWNER TO postgres;
 
 --
 -- Name: set_roster_excusals(uuid, uuid, date, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
@@ -12155,7 +12308,11 @@ CREATE TABLE public.groups (
     organization_id uuid NOT NULL,
     name text NOT NULL,
     sort_order integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    parent_id uuid,
+    path uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    depth integer GENERATED ALWAYS AS (cardinality(path)) STORED,
+    CONSTRAINT groups_path_shape CHECK (((array_ndims(path) = 1) AND (array_lower(path, 1) = 1) AND ((cardinality(path) >= 1) AND (cardinality(path) <= 3)) AND (array_position(path, NULL::uuid) IS NULL) AND (path[cardinality(path)] = id)))
 );
 
 
@@ -13315,14 +13472,6 @@ ALTER TABLE ONLY public.feedback_staff_notes
 
 
 --
--- Name: groups groups_clinic_id_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.groups
-    ADD CONSTRAINT groups_clinic_id_name_key UNIQUE (organization_id, name);
-
-
---
 -- Name: groups groups_organization_id_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -13336,6 +13485,14 @@ ALTER TABLE ONLY public.groups
 
 ALTER TABLE ONLY public.groups
     ADD CONSTRAINT groups_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: groups groups_sibling_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.groups
+    ADD CONSTRAINT groups_sibling_name_key UNIQUE NULLS NOT DISTINCT (organization_id, parent_id, name);
 
 
 --
@@ -14029,6 +14186,13 @@ CREATE INDEX durable_rate_limits_reset_at_idx ON public.durable_rate_limits USIN
 --
 
 CREATE INDEX feedback_replies_thread ON public.feedback_replies USING btree (feedback_id, sent_at, id);
+
+
+--
+-- Name: groups_children_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX groups_children_idx ON public.groups USING btree (organization_id, parent_id, sort_order);
 
 
 --
@@ -14963,6 +15127,20 @@ CREATE TRIGGER flag_calendar_tasking_picks_on_change AFTER UPDATE OF responsible
 
 
 --
+-- Name: groups groups_cascade_path; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER groups_cascade_path AFTER UPDATE ON public.groups FOR EACH ROW WHEN ((old.path IS DISTINCT FROM new.path)) EXECUTE FUNCTION organization_private.cascade_group_path();
+
+
+--
+-- Name: groups groups_set_path; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER groups_set_path BEFORE INSERT OR UPDATE ON public.groups FOR EACH ROW EXECUTE FUNCTION organization_private.set_group_path();
+
+
+--
 -- Name: onboarding_step_progress guard_onboarding_step_progress_identity; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -15184,6 +15362,13 @@ CREATE TRIGGER require_onboarding_operation_rules BEFORE UPDATE ON public.person
 --
 
 CREATE TRIGGER require_personnel_lifecycle_authority BEFORE UPDATE OF archived_at ON public.personnel FOR EACH ROW EXECUTE FUNCTION organization_private.require_personnel_lifecycle_authority();
+
+
+--
+-- Name: user_pinned_groups require_top_level_group_pin; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER require_top_level_group_pin BEFORE INSERT OR UPDATE ON public.user_pinned_groups FOR EACH ROW EXECUTE FUNCTION personnel_private.require_top_level_group_pin();
 
 
 --
@@ -15871,6 +16056,14 @@ ALTER TABLE ONLY public.feedback_staff_notes
 
 ALTER TABLE ONLY public.groups
     ADD CONSTRAINT groups_clinic_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: groups groups_parent_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.groups
+    ADD CONSTRAINT groups_parent_fkey FOREIGN KEY (organization_id, parent_id) REFERENCES public.groups(organization_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -18449,6 +18642,13 @@ REVOKE ALL ON FUNCTION calendar_private.require_roster_swap_access(p_organizatio
 
 
 --
+-- Name: FUNCTION review_picks_after_group_move(p_organization_id uuid, p_group_id uuid); Type: ACL; Schema: calendar_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION calendar_private.review_picks_after_group_move(p_organization_id uuid, p_group_id uuid) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION stamp_calendar_event(); Type: ACL; Schema: calendar_private; Owner: postgres
 --
 
@@ -18614,6 +18814,13 @@ REVOKE ALL ON FUNCTION organization_private.artifact_file_referenced(p_kind text
 
 
 --
+-- Name: FUNCTION cascade_group_path(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.cascade_group_path() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION fence_inserted_artifact_files(); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
@@ -18667,6 +18874,14 @@ REVOKE ALL ON FUNCTION organization_private.file_key_lock(p_bucket_id text, p_ob
 --
 
 REVOKE ALL ON FUNCTION organization_private.file_key_retired(p_bucket_id text, p_object_name text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION group_within(p_organization_id uuid, p_group_id uuid, p_ancestor_id uuid); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.group_within(p_organization_id uuid, p_group_id uuid, p_ancestor_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION organization_private.group_within(p_organization_id uuid, p_group_id uuid, p_ancestor_id uuid) TO authenticated;
 
 
 --
@@ -18840,6 +19055,13 @@ REVOKE ALL ON FUNCTION organization_private.retire_unreferenced_file(p_kind text
 
 
 --
+-- Name: FUNCTION set_group_path(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.set_group_path() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION stamp_archived_by(); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
@@ -18896,6 +19118,13 @@ GRANT ALL ON FUNCTION personnel_private.lock_group_catalog(p_organization_id uui
 
 REVOKE ALL ON FUNCTION personnel_private.require_group_manager(p_organization_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION personnel_private.require_group_manager(p_organization_id uuid) TO authenticated;
+
+
+--
+-- Name: FUNCTION require_top_level_group_pin(); Type: ACL; Schema: personnel_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION personnel_private.require_top_level_group_pin() FROM PUBLIC;
 
 
 --
@@ -20206,6 +20435,14 @@ GRANT ALL ON FUNCTION public.read_organization_setup(p_organization_id uuid) TO 
 
 
 --
+-- Name: FUNCTION read_request_member_access(p_organization_id uuid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.read_request_member_access(p_organization_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.read_request_member_access(p_organization_id uuid) TO authenticated;
+
+
+--
 -- Name: FUNCTION reconcile_account_setup_claim(p_target_setup_link_id uuid, p_target_access_request_id uuid); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -20501,11 +20738,11 @@ GRANT ALL ON FUNCTION public.set_critical_tasks_defaults(p_organization_id uuid,
 
 
 --
--- Name: FUNCTION set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[]); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[]) TO authenticated;
+REVOKE ALL ON FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid) TO authenticated;
 
 
 --

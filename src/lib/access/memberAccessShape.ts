@@ -20,6 +20,16 @@ export type CapabilityOverrideMap = Partial<Record<DurableFeatureLane, Capabilit
 
 export type ScopeSet = { kind: 'organization' } | { kind: 'groups'; groupIds: string[] };
 
+/** Read-only scope facts for advisory consumers. SQL has already resolved the covered ids. */
+export type AdvisoryGroupScope =
+	| { readonly kind: 'organization' }
+	| { readonly kind: 'groups'; readonly groupIds: readonly string[]; readonly grantedGroupIds?: readonly string[] };
+
+declare const groupCoverageBrand: unique symbol;
+export type GroupCoverage =
+	| { readonly kind: 'organization' }
+	| (Required<Extract<AdvisoryGroupScope, { kind: 'groups' }>> & { readonly [groupCoverageBrand]: true });
+
 export interface OrganizationAccessGrant {
 	readonly userId: string;
 	readonly orgId: string;
@@ -27,7 +37,7 @@ export interface OrganizationAccessGrant {
 	readonly isPrivileged: boolean;
 	readonly canManageMembers: boolean;
 	readonly capabilityMap: CapabilityMap;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: GroupCoverage;
 }
 
 export const DURABLE_FEATURE_LANES: DurableFeatureLane[] = [
@@ -137,7 +147,10 @@ export function capabilityMeets(actual: CapabilityLevel, required: Exclude<Capab
 	return CAPABILITY_RANK[actual] >= CAPABILITY_RANK[required];
 }
 
-export function hasOrganizationWideConfigureAccess(capabilityMap: CapabilityMap, scopeSet: ScopeSet): boolean {
+export function hasOrganizationWideConfigureAccess(
+	capabilityMap: CapabilityMap,
+	scopeSet: AdvisoryGroupScope
+): boolean {
 	return scopeSet.kind === 'organization' && DURABLE_FEATURE_LANES.every((lane) => capabilityMap[lane] === 'configure');
 }
 

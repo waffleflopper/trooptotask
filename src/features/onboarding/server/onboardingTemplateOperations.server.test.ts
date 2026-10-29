@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
@@ -322,7 +323,7 @@ describe('Onboarding Template Step ordering', () => {
 					role: 'member',
 					isPrivileged: false,
 					capabilityMap: { ...operateOnlyCapabilityMap, onboarding: 'configure' },
-					scopeSet: { kind: 'groups', groupIds }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds })
 				}
 			});
 			ctx.store.seed('onboarding_template_steps', [
@@ -519,7 +520,7 @@ describe('Onboarding configuration admission', () => {
 					role: 'member',
 					isPrivileged: false,
 					capabilityMap: { ...operateOnlyCapabilityMap, onboarding: 'configure' },
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] })
 				}
 			});
 			ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Original', organization_id: 'test-org' }]);

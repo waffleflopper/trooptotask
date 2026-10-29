@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '$lib/server/database';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type { SignInRosterPersonnelLookupPort, SignInRosterPersonnelLookupRecord } from './contracts';
 import { queryScopedPersonnelRows } from './scopedRosterQuery.server';
 
@@ -18,7 +18,7 @@ export function createSupabaseSignInRosterPersonnelLookupPort(
 	return {
 		async findPersonnelForRosterSnapshot(
 			orgId: string,
-			scopeSet: ScopeSet,
+			scopeSet: GroupCoverage,
 			personnelIds: string[]
 		): Promise<SignInRosterPersonnelLookupRecord[]> {
 			const rows = await queryScopedPersonnelRows(getAdminClient, orgId, scopeSet, {

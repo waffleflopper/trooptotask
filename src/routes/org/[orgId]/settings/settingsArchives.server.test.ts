@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createQueryWithRawStorePortsContext } from '$lib/server/adapters/inMemory';
 import { loadArchivesSettings } from './settingsArchives.server';
@@ -19,7 +20,7 @@ describe('loadArchivesSettings', () => {
 
 	it('shows only in-Group archived personnel, newest first', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
-			auth: { role: 'member', scopeSet: { kind: 'groups', groupIds: ['group-a'] } }
+			auth: { role: 'member', scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-a'] }) }
 		});
 		ctx.rawStore.seed('organizations', [{ id: ctx.auth.orgId, archive_retention_months: 12 }]);
 		ctx.rawStore.seed('personnel', [

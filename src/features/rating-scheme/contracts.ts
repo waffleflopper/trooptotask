@@ -1,4 +1,4 @@
-import type { CapabilityMap, MembershipRole, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityMap, MembershipRole, GroupCoverage } from '$lib/access/memberAccessShape';
 import type { PersonnelLookup } from '$features/personnel/contracts';
 import type { RatingSchemeEntry } from './rating-scheme.types';
 import type {
@@ -144,7 +144,7 @@ export interface RatingSchemeDueActor {
 	readonly role: MembershipRole;
 	readonly isPrivileged: boolean;
 	readonly capabilityMap: CapabilityMap;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: GroupCoverage;
 }
 
 /** Optional Dashboard projection governed by Rating Scheme's own lane and row scope. */

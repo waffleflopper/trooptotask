@@ -64,6 +64,20 @@ function fixture(membership: OrganizationMembershipFacts = member) {
 	const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = new URL(String(input));
 		expect(url.origin).toBe('http://membership.invalid');
+		if (url.pathname.endsWith('/rpc/read_request_member_access')) {
+			state.membershipReads++;
+			state.membershipStarted?.();
+			await state.membershipGate;
+			if (state.failedTable === 'organization_memberships')
+				return Response.json({ code: 'XX000', message: 'synthetic provider failure' }, { status: 500 });
+			const { p_organization_id } = JSON.parse(String(init?.body));
+			const row = tables.organization_memberships.find(
+				(row) => row.user_id === locals.actor?.userId && row.organization_id === p_organization_id
+			);
+			return row
+				? Response.json({ ...row, covered_group_ids: row.access_scope_group_ids ?? [] })
+				: Response.json({ code: 'PGRST116' }, { status: 406 });
+		}
 		const table = url.pathname.split('/').at(-1)!;
 		if (!(table in tables)) throw new Error(`Unexpected provider table: ${table}`);
 		if (table === 'organization_memberships') {
@@ -156,7 +170,7 @@ describe('request membership admission through real request construction', () =>
 					onboarding: 'operate',
 					ratingScheme: 'configure'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'], grantedGroupIds: ['group-a', 'group-b'] }
 			});
 			const visible = await createSupabasePersonnelRecordPersistence(
 				f.locals.supabase,
@@ -318,7 +332,11 @@ describe('request membership admission through real request construction', () =>
 		cachedFacts.access_scope_group_ids = ['group-c'];
 		cachedFacts.member_preset = null;
 		expect(request.auth.capabilityMap.personnel).toBe('configure');
-		expect(request.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+		expect(request.auth.scopeSet).toEqual({
+			kind: 'groups',
+			groupIds: ['group-a', 'group-b'],
+			grantedGroupIds: ['group-a', 'group-b']
+		});
 		const before = structuredClone(f.tables.personnel);
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		await expect(write(event(f.locals))).rejects.toMatchObject({
@@ -333,7 +351,11 @@ describe('request membership admission through real request construction', () =>
 		const f = fixture();
 		await buildLayoutRequest(f.locals, ORG);
 		const ctx = await buildRouteRequest(event(f.locals));
-		expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+		expect(ctx.auth.scopeSet).toEqual({
+			kind: 'groups',
+			groupIds: ['group-a', 'group-b'],
+			grantedGroupIds: ['group-a', 'group-b']
+		});
 		expect(ctx.auth.capabilityMap.training).toBe('none');
 		expect(f.state.membershipReads).toBe(1);
 	});
@@ -352,8 +374,14 @@ describe('request membership admission through real request construction', () =>
 		release();
 		const [route, layout] = await requests;
 		expect(f.state.membershipReads).toBe(1);
-		expect(route.auth).toMatchObject({ orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] } });
-		expect(layout.auth).toMatchObject({ orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] } });
+		expect(route.auth).toMatchObject({
+			orgId: ORG,
+			scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'], grantedGroupIds: ['group-a', 'group-b'] }
+		});
+		expect(layout.auth).toMatchObject({
+			orgId: ORG,
+			scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'], grantedGroupIds: ['group-a', 'group-b'] }
+		});
 	});
 
 	it('does not reuse an owner grant across users or Organizations within request locals', async () => {
@@ -366,7 +394,11 @@ describe('request membership admission through real request construction', () =>
 		f.locals.user = { id: USER } as App.Locals['user'];
 		const ctx = await buildLayoutRequest(f.locals, ORG);
 		expect(ctx.auth.role).toBe('member');
-		expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+		expect(ctx.auth.scopeSet).toEqual({
+			kind: 'groups',
+			groupIds: ['group-a', 'group-b'],
+			grantedGroupIds: ['group-a', 'group-b']
+		});
 		expect(f.state.membershipReads).toBe(3);
 	});
 

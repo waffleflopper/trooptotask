@@ -1,5 +1,6 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig as followUpBatch } from './+server';
@@ -13,7 +14,7 @@ const archived = '1c000000-0000-4000-8000-000000000003';
 const unassigned = '1d000000-0000-4000-8000-000000000004';
 const missing = '1f000000-0000-4000-8000-000000000006';
 
-function context(personnel: 'view' | 'operate', scopeSet: ScopeSet = { kind: 'organization' }) {
+function context(personnel: 'view' | 'operate', scopeSet: GroupCoverage = { kind: 'organization' }) {
 	const ctx = createTestContext({
 		auth: {
 			role: 'member',
@@ -104,7 +105,7 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 	});
 
 	it('writes only inside a Group-scoped operator’s Groups and reports the others as unavailable', async () => {
-		const ctx = context('operate', { kind: 'groups', groupIds: [alpha] });
+		const ctx = context('operate', groupCoverageForTest({ kind: 'groups', groupIds: [alpha] }));
 
 		await expect(
 			post(followUpBatch, ctx, { personnelIds: [able, baker, unassigned], title: 'Weapons card' })
@@ -113,7 +114,7 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 	});
 
 	it('writes nothing and logs no event when nobody can be written', async () => {
-		const ctx = context('operate', { kind: 'groups', groupIds: [alpha] });
+		const ctx = context('operate', groupCoverageForTest({ kind: 'groups', groupIds: [alpha] }));
 
 		await expect(post(followUpBatch, ctx, { personnelIds: [baker], title: 'Weapons card' })).resolves.toEqual({
 			writtenIds: [],
@@ -160,7 +161,7 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 
 describe('POST /api/personnel/leader-notes/batch', () => {
 	it('writes the same note on each writable Person, authored by the actor', async () => {
-		const ctx = context('operate', { kind: 'groups', groupIds: [alpha, bravo] });
+		const ctx = context('operate', groupCoverageForTest({ kind: 'groups', groupIds: [alpha, bravo] }));
 
 		await expect(
 			post(noteBatch, ctx, { personnelIds: [able, baker, unassigned], text: ' Great range day ', author: 'x' })

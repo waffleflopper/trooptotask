@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { describe, it, expect, vi } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
@@ -78,7 +79,7 @@ describe('handleUseCaseRequest', () => {
 						onboarding: 'none',
 						ratingScheme: 'none'
 					},
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+					scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] })
 				}
 			});
 
@@ -388,7 +389,7 @@ describe('policy dispatch write safety', () => {
 	] as const)('allows $lane writes with no $otherLane capability', async ({ lane, action }) => {
 		const f = fixture({
 			capabilityMap: { ...noCapabilities, [lane]: 'operate' },
-			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] })
 		});
 		f.config.policyAction = action;
 		await handleUseCaseRequest(f.config, f.request, undefined, f.selectContext);
@@ -416,7 +417,7 @@ describe('policy dispatch write safety', () => {
 	] as const)('rejects a multi-Group member writing $name', async ({ resource }) => {
 		const f = fixture({
 			capabilityMap: { ...noCapabilities, criticalTasks: 'operate' },
-			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] })
 		});
 		f.config.policyResource = resource;
 		await expectDenied(f, 'denied:out-of-scope');

@@ -235,7 +235,7 @@ describe('PersonnelModal', () => {
 	it('ties missing rank and Group errors to their comboboxes', async () => {
 		render(PersonnelModal, {
 			props: {
-				groups: [{ id: 'g-1', name: 'Alpha', sortOrder: 0 }],
+				groups: [{ id: 'g-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
 				allowUnassigned: false,
 				rankCatalog: navyRankCatalog,
 				onSubmit: vi.fn(),
@@ -255,7 +255,7 @@ describe('PersonnelModal', () => {
 		expect(describedText(group)).toBe('Select a permitted Group.');
 	});
 	describe('Add and add another', () => {
-		const groups = [{ id: 'g-supply', name: 'Supply section', sortOrder: 0 }];
+		const groups = [{ id: 'g-supply', name: 'Supply section', sortOrder: 0, parentId: null, depth: 1 as const }];
 
 		async function typePerson(lastName: string, firstName: string) {
 			await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: lastName } });

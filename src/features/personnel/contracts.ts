@@ -27,7 +27,7 @@ export type {
 /** Personnel consumes routing, scope and live advisory decisions from Delivery. */
 export interface PersonnelPageAccess {
 	readonly orgUrlSegment?: string;
-	readonly scopeSet: ScopeSet;
+	readonly scopeSet: AdvisoryGroupScope;
 	readonly affordanceForFeatureAction: (
 		action: FeatureLanePolicyAction,
 		resource?: PolicyResource
@@ -38,7 +38,7 @@ import type { FileCleanup, OrganizationFileUploadRegistration } from '$features/
 import { z } from 'zod';
 import { isDateOnly } from '$lib/utils/dates';
 import { DATE_ONLY_MESSAGE, uuidSchema } from '$lib/utils/inputSchemas';
-import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
+import type { OrganizationAccessGrant, AdvisoryGroupScope, GroupCoverage } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type { LossCandidate } from './upcomingLoss';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
@@ -80,6 +80,8 @@ export interface Group {
 	id: string;
 	name: string;
 	sortOrder: number;
+	parentId: string | null;
+	depth: 1 | 2 | 3;
 }
 
 export interface PersonnelRosterReader {
@@ -152,13 +154,13 @@ export interface GroupPersistence {
 	listCatalog(): Promise<Group[]>;
 	findReference(id: string): Promise<{ id: string } | null>;
 	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
-	create(input: { name: string; sortOrder?: number }): Promise<Group>;
+	create(input: { name: string; sortOrder?: number; parentId?: string | null }): Promise<Group>;
 	/** Renames the Group. Fails 404 when the Group is gone. */
 	rename(id: string, name: string): Promise<Group>;
-	/** Compare-and-replace of the whole display order; fails 409 when the saved order is no longer `expectedIds`. */
-	setOrder(ids: readonly string[], expectedIds: readonly string[]): Promise<void>;
+	/** Compares and replaces one sibling set's order; fails 409 when it differs from `expectedIds`. */
+	setOrder(ids: readonly string[], expectedIds: readonly string[], parentId?: string | null): Promise<void>;
 	/**
-	 * Moves every member to `targetId` (null is Unassigned), deletes the Group and its pins in one transaction,
+	 * Moves every subtree member to `targetId` (null is Unassigned), deletes the subtree and its pins in one transaction,
 	 * and resolves how many People moved. Fails 404 when either Group is gone.
 	 */
 	deleteWithReassignment(id: string, targetId: string | null): Promise<number>;
@@ -258,7 +260,7 @@ export interface SignInRosterPersonnelLookupPort {
 	/** People outside the actor's scope are omitted like missing People. */
 	findPersonnelForRosterSnapshot(
 		orgId: string,
-		scopeSet: ScopeSet,
+		scopeSet: GroupCoverage,
 		personnelIds: string[]
 	): Promise<SignInRosterPersonnelLookupRecord[]>;
 }

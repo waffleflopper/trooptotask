@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, it, expect } from 'vitest';
 import { personnelProvider } from './test-support/personnelProvider';
 import { createSupabasePersonnelRecordPersistence } from './personnelRecordPersistence.server';
@@ -53,9 +54,9 @@ describe('ordinary Personnel records', () => {
 				{ ...SAVED, id: 'bravo', slug: 'smith-jamie-3', group_id: 'bravo', rank: 'SSG' }
 			]
 		});
-		const scope = { kind: 'groups' as const, groupIds: ['alpha'] };
+		const scope = groupCoverageForTest({ kind: 'groups' as const, groupIds: ['alpha'] });
 		const scoped = createSupabasePersonnelRecordPersistence(client, 'org-a', scope);
-		scope.groupIds.push('bravo');
+		Object.defineProperty(scope, 'groupIds', { value: ['alpha', 'bravo'] });
 		expect(await scoped.findWriteReference('bravo')).toBeNull();
 		expect(await scoped.listBackfillCandidates()).toEqual([
 			{
@@ -87,7 +88,11 @@ describe('ordinary Personnel records', () => {
 		expect((await ordinary.listRankReferences()).map((row) => row.rank).sort()).toEqual(['CPL', 'SGT', 'SSG']);
 		const before = state.requests.length;
 		expect(await scoped.listArchiveCandidates([])).toEqual([]);
-		const empty = createSupabasePersonnelRecordPersistence(client, 'org-a', { kind: 'groups', groupIds: [] });
+		const empty = createSupabasePersonnelRecordPersistence(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		);
 		expect(await empty.findById('person-a')).toBeNull();
 		expect(await empty.listSlugCandidates('smith')).toEqual([]);
 		expect(state.requests).toHaveLength(before);
@@ -107,7 +112,11 @@ describe('ordinary Personnel records', () => {
 			personnel: [SAVED, { ...SAVED, id: 'foreign', organization_id: 'org-b' }],
 			groups: [{ id: 'alpha', organization_id: 'org-a', name: 'Alpha' }]
 		});
-		const port = createSupabasePersonnelRecordPersistence(client, 'org-a', { kind: 'groups', groupIds: [] });
+		const port = createSupabasePersonnelRecordPersistence(
+			client,
+			'org-a',
+			groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		);
 		const created = await port.create(INPUT);
 		expect(created).toMatchObject({ ...INPUT, mos: '', ets: null, deros: null, groupId: null, groupName: '' });
 		const [bulk] = await port.createMany([{ ...INPUT, slug: 'second', groupId: 'alpha' }]);

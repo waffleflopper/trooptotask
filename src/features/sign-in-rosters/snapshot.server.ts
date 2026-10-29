@@ -1,4 +1,4 @@
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type {
 	RankCatalogEntry,
 	SignInRosterPersonnelLookupPort,
@@ -15,7 +15,7 @@ type PersonnelRow = SignInRosterPersonnelLookupRecord;
 
 export interface SignInRosterSnapshotContext {
 	orgId: string;
-	scopeSet: ScopeSet;
+	scopeSet: GroupCoverage;
 	personnelLookup?: SignInRosterPersonnelLookupPort;
 	findGroupNamesByIds(groupIds: string[]): Promise<Map<string, string>>;
 	loadRankCatalog(): Promise<RankCatalogEntry[]>;

@@ -22,12 +22,18 @@ const groupName = z
 	.string()
 	.trim()
 	.min(1, 'Group name is required')
-	.max(100, 'Group name must be 100 characters or fewer');
-const createInput = z.object({ name: groupName, sortOrder: z.number().int().optional() });
+	.max(100, 'Group name must be 100 characters or fewer')
+	.refine((name) => !name.includes(' / '), 'Group name cannot contain the path separator');
+const createInput = z.object({
+	name: groupName,
+	sortOrder: z.number().int().optional(),
+	parentId: uuidSchema.nullable().optional()
+});
 const renameInput = z.object({ id: uuidSchema, name: groupName });
 const orderInput = z.object({
 	groupIds: z.array(uuidSchema).max(1000),
-	expectedGroupIds: z.array(uuidSchema).max(1000)
+	expectedGroupIds: z.array(uuidSchema).max(1000),
+	parentId: uuidSchema.nullable().optional()
 });
 const deleteInput = z.object({ id: uuidSchema, moveMembersTo: uuidSchema.nullable().default(null) });
 
@@ -63,9 +69,9 @@ export async function renameGroup(ctx: GroupWriteContext, input: Record<string, 
 }
 
 export async function setGroupOrder(ctx: GroupWriteContext, input: Record<string, unknown>): Promise<void> {
-	const { groupIds, expectedGroupIds } = validatedInput(orderInput, input);
+	const { groupIds, expectedGroupIds, parentId } = validatedInput(orderInput, input);
 	await requireGroupManager(ctx);
-	await ctx.groups.setOrder(groupIds, expectedGroupIds);
+	await ctx.groups.setOrder(groupIds, expectedGroupIds, parentId);
 	await ctx.audit.log({
 		action: 'group.reordered',
 		resourceType: 'organization',

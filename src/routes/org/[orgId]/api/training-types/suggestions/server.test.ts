@@ -1,3 +1,4 @@
+import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SetupBranch } from '$features/organization/contracts';
 import { getTrainingSuggestions } from '$features/training/contracts';
@@ -129,7 +130,9 @@ describe('apply Training suggestions', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				...(actor === 'scoped' ? { scopeSet: { kind: 'groups' as const, groupIds: ['group-1'] } } : {})
+				...(actor === 'scoped'
+					? { scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['group-1'] }) }
+					: {})
 			}
 		});
 		if (actor === 'off') ctx.disabledFeatures = ['training'];

@@ -114,6 +114,75 @@ describe('TreeSelect', () => {
 		expect(onValueChange).not.toHaveBeenCalled();
 	});
 
+	it('toggles several nodes from the keyboard and stays open, storing only the topmost', async () => {
+		const stored: string[][] = [];
+		const props = {
+			multiple: true as const,
+			options,
+			value: ['p1-a'],
+			onValueChange: (ids: string[]) => {
+				stored.push(ids);
+				void view.rerender({ ...props, value: ids });
+			},
+			label: 'Part',
+			valueLabel: 'North A',
+			placeholder: 'Any part',
+			searchPlaceholder: 'Find a part'
+		};
+		const view = render(TreeSelect, { props });
+		const field = await open();
+		expect(screen.getByRole('tree').getAttribute('aria-multiselectable')).toBe('true');
+
+		await fireEvent.keyDown(field, { key: 'ArrowLeft' });
+		expect(activeRow(field)).toBe('p1');
+		await fireEvent.keyDown(field, { key: 'Enter' });
+		await fireEvent.keyDown(field, { key: 'ArrowDown' });
+		expect(activeRow(field)).toBe('p2');
+		await fireEvent.keyDown(field, { key: 'Enter' });
+		await fireEvent.keyDown(field, { key: 'ArrowUp' });
+		await fireEvent.keyDown(field, { key: 'Enter' });
+
+		expect(stored).toEqual([['p1'], ['p1', 'p2'], ['p2']]);
+		expect(screen.getByRole('tree')).toBeTruthy();
+	});
+
+	it('shows nodes under a chosen node as chosen and locked, and will not pick them', async () => {
+		const onValueChange = vi.fn();
+		render(TreeSelect, {
+			props: {
+				multiple: true,
+				options,
+				value: ['p1'],
+				onValueChange,
+				label: 'Part',
+				valueLabel: 'North',
+				placeholder: 'Any part',
+				searchPlaceholder: 'Find a part'
+			}
+		});
+		const field = await open();
+		await fireEvent.input(field, { target: { value: 'north' } });
+
+		const state = screen
+			.getAllByRole('treeitem')
+			.map((item) => [
+				item.id.split('-row-')[1],
+				item.getAttribute('aria-selected'),
+				item.getAttribute('aria-disabled')
+			]);
+		expect(state).toEqual([
+			['p1', 'true', null],
+			['p1-a', 'true', 'true'],
+			['p1-a-x', 'true', 'true'],
+			['p1-b', 'true', 'true']
+		]);
+		await fireEvent.click(screen.getByRole('treeitem', { name: /North B/ }));
+		await fireEvent.keyDown(field, { key: 'ArrowDown' });
+		expect(activeRow(field)).toBe('p1');
+
+		expect(onValueChange).not.toHaveBeenCalled();
+	});
+
 	it('shows a reader with one choice a label with nothing to open', () => {
 		mount('only', [{ id: 'only', label: 'Lone', depth: 0, count: 4 }]);
 

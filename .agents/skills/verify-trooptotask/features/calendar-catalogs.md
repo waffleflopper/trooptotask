@@ -47,7 +47,7 @@ one-day chip and the `More actions for <name>` menu with `Edit` and `Delete`. Th
 beside `Drag to set legend and picker order.` An assignment type row has a `Show <name> on the calendar` switch and a
 `More actions for <name>` menu with `Edit` and `Delete`. Assignment types sit in two lists: `On the calendar · N lanes`
 in lane order with a `Reorder <name>` grip on each row, and `Duty planner only` sorted by name. Assignment type Add and
-Edit open a side sheet. A deletion dialog says what the delete removes: schedule entries for a status, assigned days (and, for a Person type, its duty roster and saved DA 6 forms) for an assignment type. `Holidays & closures` is
+Edit open a side sheet. A deletion dialog says what the delete removes: schedule entries for a status, assigned days and saved DA 6 forms (and, for a Person type, its duty roster) for an assignment type. `Holidays & closures` is
 the third section and is driven in [Special days](special-days.md).
 
 ## Helper controls

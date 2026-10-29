@@ -45,14 +45,14 @@
 	panelEyebrow="Setup link"
 	panelTitle={form?.success ? 'Check your email' : 'Request a fresh setup link'}
 	panelDescription={form?.success
-		? 'If your invitation or approval is still waiting on setup, a new setup email is on the way.'
+		? 'If your invitation or approval is still eligible, a new setup email is on the way.'
 		: 'Enter the email address your invitation or approval email was sent to.'}
 >
 	<div class="flex flex-col gap-5">
 		{#if form?.success}
 			<AuthNotice bind:ref={confirmation} tone="success" title="Check your email" centered>
 				<p>
-					If <strong>{form.email}</strong> still has an invitation or approval waiting on setup, a fresh setup email is on
+					If <strong>{form.email}</strong> has an invitation or approval that is still eligible, a fresh setup email is on
 					the way.
 				</p>
 				<p>For security, that new link will expire after 14 days.</p>

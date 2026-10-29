@@ -151,7 +151,7 @@ describe('trainingReadiness', () => {
 					{ label: 'expired', count: 1, tone: 'critical' }
 				]
 			},
-			note: '1 Soldier expired and 2 expiring. Bravo is lowest at 0%. Goal 90%. Missing required training, or any recorded training expired or in its Expiring window, makes a Soldier not current.'
+			note: "1 Soldier expired and 2 expiring. Bravo is lowest at 0%. Goal 90%. Missing required training, or training expired or in its Expiring window, makes a Soldier not current. Exempt training doesn't count."
 		});
 	});
 
@@ -186,7 +186,7 @@ describe('trainingReadiness', () => {
 			everything
 		);
 		expect(mixed).toMatchObject({
-			figure: '17%',
+			figure: '16%',
 			note: expect.stringMatching(/^2 Soldiers expired, 2 missing training and 1 expiring\. Goal 90%\./)
 		});
 	});
@@ -211,7 +211,7 @@ describe('trainingReadiness', () => {
 		expect(column).toMatchObject({ figure, figureTone: tone });
 	});
 
-	it('colors a share that rounds up to the goal by its exact count', () => {
+	it('shows a share just under the goal below it, not rounded up to it', () => {
 		const column = trainingReadiness(
 			inputs({
 				personnel: Array.from({ length: 199 }, (_, index) => person(`p${index}`, null)),
@@ -220,7 +220,7 @@ describe('trainingReadiness', () => {
 			everything
 		);
 
-		expect(column).toMatchObject({ figure: '90%', figureTone: 'warning' });
+		expect(column).toMatchObject({ figure: '89%', figureTone: 'warning' });
 	});
 
 	it.each([0, 1])('reads yellow-only Training as everyone current with %i People', (count) => {

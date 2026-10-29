@@ -22,7 +22,7 @@ const TONE_BY_BAND = {
 } as const satisfies Record<BriefingBand, ReadinessTone>;
 
 function percentOf(part: number, whole: number): number {
-	return whole === 0 ? 100 : Math.max(0, Math.round((part / whole) * 100));
+	return whole === 0 ? 100 : Math.max(0, Math.floor((part / whole) * 100));
 }
 
 /** Person-based currency: a Person with any expired, missing or orange-warning requirement is not current. */
@@ -67,7 +67,7 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	const lowest = lowestGroupCurrency(inputs, delinquentByGroup);
 	if (lowest && lowest.percent < 100) sentences.push(`${lowest.name} is lowest at ${lowest.percent}%.`);
 	sentences.push(
-		`Goal ${goal}%. Missing required training, or any recorded training expired or in its Expiring window, makes a Soldier not current.`
+		`Goal ${goal}%. Missing required training, or training expired or in its Expiring window, makes a Soldier not current. Exempt training doesn't count.`
 	);
 
 	return {

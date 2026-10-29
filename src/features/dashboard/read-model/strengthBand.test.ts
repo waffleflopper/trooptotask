@@ -327,7 +327,7 @@ describe('bottom line scale (frame 02)', () => {
 	it('counts a Group named Unassigned apart from ungrouped people', () => {
 		const result = band({
 			personnel: [...people(25, 'unassigned-group', 1), ...people(16, null, 26)],
-			groups: [{ id: 'unassigned-group', name: 'Unassigned', sortOrder: 0 }],
+			groups: [{ id: 'unassigned-group', name: 'Unassigned', sortOrder: 0, parentId: null, depth: 1 as const }],
 			availability: [
 				...away(['p1', 'p2'], 'leave', '2026-10-19', '2026-10-22'),
 				...away(['p26'], 'leave', '2026-10-19', '2026-10-22')

@@ -47,7 +47,11 @@ function bodyCells(tableName: string): string[][] {
 	return within(screen.getByRole('table', { name: tableName }))
 		.getAllByRole('row')
 		.slice(1)
-		.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent?.trim() ?? ''));
+		.map((row) =>
+			within(row)
+				.getAllByRole('cell')
+				.map((cell) => cell.textContent?.trim() ?? '')
+		);
 }
 
 describe('Calendar report Group filters', () => {

@@ -321,7 +321,7 @@ function analyze(input: TrainingBriefingInput): Analysis {
 		columns,
 		entries,
 		rows: [...rows.values()],
-		sets: rowSets(input, tree, population, [...rows.values()], entries),
+		sets: rowSets(input, population, [...rows.values()], entries),
 		horizonEnd: addDays(input.asOf, horizonDays),
 		bucketEnds,
 		bucketLapses,
@@ -329,13 +329,7 @@ function analyze(input: TrainingBriefingInput): Analysis {
 	};
 }
 
-function rowSets(
-	input: TrainingBriefingInput,
-	tree: GroupTree,
-	population: Personnel[],
-	rows: Row[],
-	entries: Entry[]
-): RowSet[] {
+function rowSets(input: TrainingBriefingInput, population: Personnel[], rows: Row[], entries: Entry[]): RowSet[] {
 	if (input.rowsBy !== 'group') return rows.map((row) => ({ top: { ...row, level: 0, subtotal: false }, below: [] }));
 	const entriesOf = new Map<string, Entry[]>();
 	for (const entry of entries) entriesOf.set(entry.person.id, [...(entriesOf.get(entry.person.id) ?? []), entry]);
@@ -347,7 +341,7 @@ function rowSets(
 		soldierCount: row.items.length,
 		entries: row.items.flatMap((person) => entriesOf.get(person.id) ?? [])
 	});
-	return groupRows(tree, population, (person) => person.groupId, true).map((set) => ({
+	return groupRows(buildGroupTree(input.groups), population, (person) => person.groupId, true).map((set) => ({
 		top: treeRow(set.top),
 		below: set.below.map(treeRow)
 	}));

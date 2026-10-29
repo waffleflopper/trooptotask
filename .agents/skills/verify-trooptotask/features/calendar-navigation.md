@@ -278,7 +278,7 @@ filters and request controls between cases.
     `0: Alpha 100%`; off it reads only the three top-level rows. Cell colors come from the exact available fraction:
     green at 80% or more, amber at 50% or more, red below. The summary's average availability is available People
     over all People across the top-level rows and days, not a mean of row percentages. Status days by person (`Filter
-    personnel` → `By Group`) and Availability by day offer the same three top-level Groups; checking only
+personnel` → `By Group`) and Availability by day offer the same three top-level Groups; checking only
     `2nd Platoon` selects 9 of 12 personnel, and the run lists or counts all nine.
 
 ## Gotchas

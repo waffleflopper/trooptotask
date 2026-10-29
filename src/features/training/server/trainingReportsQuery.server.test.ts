@@ -405,6 +405,21 @@ describe('Training briefing detail', () => {
 		expect(detail.totalPages).toBe(1);
 	});
 
+	it('names the Group of each detail row by its path from the visible root', async () => {
+		const ctx = unitContext();
+		ctx.groups.listCatalog = async () => NESTED_GROUPS;
+		const detail = await fetchTrainingBriefingDetail(
+			ctx,
+			{ report: input(), scope: { kind: 'cell', rowKey: null, typeId: 'cpr' }, page: 1, pageSize: 25 },
+			AS_OF
+		);
+
+		expect(detail.rows.map((row) => [row.name, row.groupName])).toEqual([
+			['Baker, Pat', '1st Platoon › 2nd Squad › Bravo Team'],
+			['Cole, Pat', '1st Platoon › 2nd Squad › Alpha Team']
+		]);
+	});
+
 	it('judges currency on the day it is given, so a record expiring that day is still current', async () => {
 		const ableBls = async (asOf: string) => {
 			const detail = await fetchTrainingBriefingDetail(

@@ -158,6 +158,7 @@ function reportData(source: BriefingSource): TrainingBriefingReportData {
 
 function detailRows(source: BriefingSource, requirements: BriefingRequirement[]): TrainingBriefingDetailRow[] {
 	const people = new Map(source.briefingInput.personnel.map((person) => [person.id, person]));
+	const tree = buildGroupTree(source.groups);
 	const typeNames = new Map(source.briefingInput.types.map((type) => [type.id, type.name]));
 	return requirements.map((requirement) => {
 		const person = people.get(requirement.personId) as Personnel;
@@ -165,7 +166,7 @@ function detailRows(source: BriefingSource, requirements: BriefingRequirement[])
 			personId: person.id,
 			rank: person.rank,
 			name: `${person.lastName}, ${person.firstName}`,
-			groupName: person.groupName,
+			groupName: (person.groupId && tree.label(person.groupId)) || person.groupName,
 			typeId: requirement.typeId,
 			typeName: typeNames.get(requirement.typeId) ?? '',
 			status: requirement.status,

@@ -1,4 +1,10 @@
-import { buildGroupTree, groupRows, type GroupRow, type Personnel } from '$features/personnel/contracts';
+import {
+	buildGroupTree,
+	groupRows,
+	type GroupRow,
+	type GroupTree,
+	type Personnel
+} from '$features/personnel/contracts';
 import type { TrainingStatus, TrainingType } from '$features/training/training.types';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { filterPersonnel } from './reportCalculations';
@@ -190,8 +196,12 @@ function soldiers(count: number): string {
 	return `${count} ${count === 1 ? 'soldier' : 'soldiers'}`;
 }
 
-function rowIdentity(person: Personnel, rowsBy: BriefingRowsBy): { key: string; label: string } {
-	if (rowsBy === 'group') return { key: person.groupId ?? 'unassigned', label: person.groupName || 'Unassigned' };
+/** A Group row is labelled by its path from the reader's visible root, so same-named teams print apart. */
+function rowIdentity(person: Personnel, rowsBy: BriefingRowsBy, tree?: GroupTree): { key: string; label: string } {
+	if (rowsBy === 'group') {
+		const path = person.groupId ? tree?.label(person.groupId) : '';
+		return { key: person.groupId ?? 'unassigned', label: path || person.groupName || 'Unassigned' };
+	}
 	if (rowsBy === 'mos') return { key: person.mos, label: person.mos || 'No MOS' };
 	return { key: person.clinicRole, label: person.clinicRole || 'No duty role' };
 }
@@ -283,9 +293,10 @@ function analyze(input: TrainingBriefingInput): Analysis {
 		(type) => !type.isOptional && (selectedTypeIds.length === 0 || selectedTypeIds.includes(type.id))
 	);
 	const entries = requirementEntries({ ...input, personnel: population, types: columns }, input.rowsBy);
+	const tree = buildGroupTree(input.groups);
 	const rows = new Map<string, Row>();
 	for (const person of population) {
-		const identity = rowIdentity(person, input.rowsBy);
+		const identity = rowIdentity(person, input.rowsBy, tree);
 		const row = rows.get(identity.key) ?? { ...identity, soldierCount: 0, entries: [] };
 		row.soldierCount += 1;
 		rows.set(identity.key, row);
@@ -310,7 +321,7 @@ function analyze(input: TrainingBriefingInput): Analysis {
 		columns,
 		entries,
 		rows: [...rows.values()],
-		sets: rowSets(input, population, [...rows.values()], entries),
+		sets: rowSets(input, tree, population, [...rows.values()], entries),
 		horizonEnd: addDays(input.asOf, horizonDays),
 		bucketEnds,
 		bucketLapses,
@@ -318,7 +329,13 @@ function analyze(input: TrainingBriefingInput): Analysis {
 	};
 }
 
-function rowSets(input: TrainingBriefingInput, population: Personnel[], rows: Row[], entries: Entry[]): RowSet[] {
+function rowSets(
+	input: TrainingBriefingInput,
+	tree: GroupTree,
+	population: Personnel[],
+	rows: Row[],
+	entries: Entry[]
+): RowSet[] {
 	if (input.rowsBy !== 'group') return rows.map((row) => ({ top: { ...row, level: 0, subtotal: false }, below: [] }));
 	const entriesOf = new Map<string, Entry[]>();
 	for (const entry of entries) entriesOf.set(entry.person.id, [...(entriesOf.get(entry.person.id) ?? []), entry]);
@@ -330,7 +347,7 @@ function rowSets(input: TrainingBriefingInput, population: Personnel[], rows: Ro
 		soldierCount: row.items.length,
 		entries: row.items.flatMap((person) => entriesOf.get(person.id) ?? [])
 	});
-	return groupRows(buildGroupTree(input.groups), population, (person) => person.groupId, true).map((set) => ({
+	return groupRows(tree, population, (person) => person.groupId, true).map((set) => ({
 		top: treeRow(set.top),
 		below: set.below.map(treeRow)
 	}));

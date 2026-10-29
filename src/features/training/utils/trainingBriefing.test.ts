@@ -1316,4 +1316,20 @@ describe('buildTrainingBriefing Group rows', () => {
 		expect(people('hq:plt')).toEqual(['p2']);
 		expect(people('ta')).toEqual(['t3']);
 	});
+
+	it('labels the printed rows of same-named teams by their path from the visible root', () => {
+		const otherAlpha = group('ta2', 'Alpha Team', 'sq2', 3, 0);
+		const teams = [member('a1', alpha), member('a2', otherAlpha)];
+		const input = briefingInput({
+			personnel: teams,
+			groups: [...catalog, otherAlpha],
+			types: [trainingType('cpr')],
+			records: [record('a2', 'cpr', VALID)]
+		});
+
+		expect(buildTrainingBriefing(input).grid.rows.map((row) => [row.label, row.today.percent])).toEqual([
+			['1st Platoon › 1st Squad › Alpha Team', 0],
+			['1st Platoon › 2nd Squad › Alpha Team', 100]
+		]);
+	});
 });

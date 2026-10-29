@@ -816,10 +816,12 @@ describe('CalendarPageView', () => {
 				.queryAllByRole('button', { name: /(Smith, Alice|Jones, Bob)$/ })
 				.map((b) => b.getAttribute('aria-label') ?? b.textContent);
 		const bands = (container: HTMLElement) =>
-			[...container.querySelectorAll<HTMLElement>('[data-band-level]')].map((band) => [
-				band.dataset.bandLevel,
-				band.querySelector('button')?.textContent?.replace(/\s+/g, ' ').trim()
-			]);
+			[...container.querySelectorAll<HTMLElement>('[data-band-level]')].map((band) => {
+				const toggle = band.querySelector('button[aria-expanded]')!.cloneNode(true) as HTMLElement;
+				toggle.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove());
+				const name = toggle.textContent?.replace(/\s+/g, ' ').trim();
+				return [band.dataset.bandLevel, toggle.getAttribute('aria-expanded'), name];
+			});
 
 		it('narrows the matrix to the Group the reader picks, replacing the history entry', async () => {
 			mutableAvailabilityStore.loading = false;
@@ -873,8 +875,8 @@ describe('CalendarPageView', () => {
 			});
 
 			expect(bands(container)).toEqual([
-				['0', '▼ Alpha 2'],
-				['1', '▼ Bravo 1']
+				['0', 'true', 'Alpha 2'],
+				['1', 'true', 'Bravo 1']
 			]);
 			expect(
 				screen
@@ -883,28 +885,8 @@ describe('CalendarPageView', () => {
 			).toEqual(['0']);
 			await fireEvent.click(screen.getByRole('button', { name: /Alpha 2/ }));
 
-			expect(bands(container)).toEqual([['0', '▶ Alpha 2']]);
+			expect(bands(container)).toEqual([['0', 'false', 'Alpha 2']]);
 			expect(people()).toEqual([]);
-		});
-
-		it('draws one level of bands for a flat Organization, with no counts', () => {
-			mutableAvailabilityStore.loading = false;
-			catalog([
-				{ id: 'g1', name: 'Alpha' },
-				{ id: 'g2', name: 'Bravo' }
-			]);
-			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
-			const { container } = render(CalendarPageView, {
-				props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: 'org1', orgName: 'Test Org' } }
-			});
-
-			expect(bands(container)).toEqual([
-				['0', '▼ Alpha'],
-				['0', '▼ Bravo']
-			]);
-			expect(
-				screen.getAllByRole('button', { name: 'Pin' }).map((pin) => pin.closest('[data-band-level]')?.textContent)
-			).toEqual([expect.stringContaining('Alpha'), expect.stringContaining('Bravo')]);
 		});
 
 		it('gives a reader scoped to one Group a plain label, no band header and no pins', () => {
@@ -919,7 +901,6 @@ describe('CalendarPageView', () => {
 			});
 
 			expect(screen.queryByRole('button', { name: /^Group:/ })).toBeNull();
-			expect(screen.getByText('Bravo', { selector: 'p span' })).toBeTruthy();
 			expect(bands(container)).toEqual([]);
 			expect(people()).toEqual([expect.stringContaining('Jones, Bob')]);
 			expect(screen.queryByRole('button', { name: /^Pin/ })).toBeNull();

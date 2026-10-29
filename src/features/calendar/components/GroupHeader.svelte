@@ -53,9 +53,12 @@
 				level === 0 ? 'gap-2 px-3 py-2 text-[11px] font-semibold' : 'gap-[7px] py-0 pr-3 text-[10px] font-bold'
 			]}
 			style={level === 0 ? undefined : `padding-left: ${14 + 16 * level}px`}
+			aria-expanded={!isCollapsed}
 			onclick={onToggle}
 		>
-			<span class={['shrink-0', level === 0 ? 'w-3 text-[10px]' : 'w-2.5 text-[8px]']}>{isCollapsed ? '▶' : '▼'}</span>
+			<span class={['shrink-0', level === 0 ? 'w-3 text-[10px]' : 'w-2.5 text-[8px]']} aria-hidden="true"
+				>{isCollapsed ? '▶' : '▼'}</span
+			>
 			<span class="truncate">{groupName}</span>
 			{#if count !== undefined}
 				<span class="shrink-0 font-normal tracking-normal text-muted-foreground tabular-nums">{count}</span>

@@ -147,7 +147,8 @@
 				<ProportionBar
 					label="Strength today"
 					{segments}
-					class={sub ? 'h-1 w-20 rounded-[2px] @3xl/data-table:w-30' : 'w-20 @3xl/data-table:w-30'}
+					size={sub ? 'compact' : 'default'}
+					class="w-20 @3xl/data-table:w-30"
 				/>
 				<span class={['truncate', sub ? 'text-xs text-muted-foreground' : 'text-[13px] leading-[18px]']}
 					>{presence.present} of {presence.statusRead} present</span

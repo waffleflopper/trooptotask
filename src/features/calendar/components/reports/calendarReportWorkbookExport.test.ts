@@ -170,9 +170,12 @@ describe('calendar report workbook exports', () => {
 						{
 							groupId: 'g1',
 							groupName: 'Alpha',
+							level: 2,
+							subtotal: false,
 							cells: [{ date: '2026-03-02', totalPersonnel: 10, availableCount: 8, availablePercent: 80 }]
 						}
-					]
+					],
+					sets: []
 				},
 				NESTED_GROUPS.map((group) => (group.id === 'alpha' ? { ...group, id: 'g1' } : group)),
 				'2026-03-02',

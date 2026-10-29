@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGroupTree, type Group, type GroupFocus, type Personnel } from '$features/personnel/contracts';
+import { buildGroupTree, type Group, type Personnel } from '$features/personnel/contracts';
 import { nestCalendarBands } from './calendarBands';
 
 const groups: Group[] = [
@@ -20,8 +20,8 @@ const sections = [
 	{ groupId: null, group: 'Unassigned', personnel: [person('adams', null)] }
 ];
 
-function shape(focus: GroupFocus | null, tree = buildGroupTree(groups)) {
-	return nestCalendarBands(tree, focus, sections).map((band) => [
+function shape(tree = buildGroupTree(groups)) {
+	return nestCalendarBands(tree, sections).map((band) => [
 		band.groupId,
 		band.level,
 		band.name,
@@ -34,7 +34,7 @@ function shape(focus: GroupFocus | null, tree = buildGroupTree(groups)) {
 
 describe('nestCalendarBands', () => {
 	it('puts each Group’s own people before its sub-groups and keeps people outside the tree last', () => {
-		expect(shape({ kind: 'all' })).toEqual([
+		expect(shape()).toEqual([
 			['hq', 0, 'HQ Section', 'HQ Section', 'reyes', 'reyes', true],
 			['plt', 0, '2nd Platoon', '2nd Platoon', 'park diaz', 'park diaz lee moss ortiz', true],
 			['sq1', 1, '1st Squad', '2nd Platoon › 1st Squad', 'lee', 'lee moss ortiz', false],
@@ -44,21 +44,9 @@ describe('nestCalendarBands', () => {
 		]);
 	});
 
-	it('makes the focused Group the top band, named by its path', () => {
-		expect(shape({ kind: 'group', id: 'sq1' })).toEqual([
-			['sq1', 0, '2nd Platoon › 1st Squad', '2nd Platoon › 1st Squad', 'lee', 'lee moss ortiz', false],
-			['alpha', 1, 'Alpha Team', '2nd Platoon › 1st Squad › Alpha Team', 'moss ortiz', 'moss ortiz', false]
-		]);
-	});
-
-	it('shows only Unassigned people for the Unassigned focus and nobody while the focus is unknown', () => {
-		expect(shape({ kind: 'unassigned' })).toEqual([[null, 0, 'Unassigned', 'Unassigned', 'adams', 'adams', false]]);
-		expect(shape(null)).toEqual([]);
-	});
-
 	it('draws a flat Organization as one level of top bands in its own order', () => {
 		const flat = buildGroupTree(groups.map((group) => ({ ...group, parentId: null, depth: 1 as const })));
-		expect(shape({ kind: 'all' }, flat).map(([id, level, name]) => [id, level, name])).toEqual([
+		expect(shape(flat).map(([id, level, name]) => [id, level, name])).toEqual([
 			['sq1', 0, '1st Squad'],
 			['alpha', 0, 'Alpha Team'],
 			['hq', 0, 'HQ Section'],

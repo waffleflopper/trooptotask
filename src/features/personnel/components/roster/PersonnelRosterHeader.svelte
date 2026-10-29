@@ -11,8 +11,7 @@
 		unitName: string;
 		/** Names the reader's one Group in the eyebrow when that Group is their whole roster. */
 		scopeLabel?: string | null;
-		/** Null when the page has nothing to count, such as a Group focus that is unavailable. */
-		activeCount: number | null;
+		activeCount: number;
 		summary: SummaryState;
 		canViewAvailability: boolean;
 		filter: RosterFilter | null;
@@ -98,6 +97,6 @@
 	eyebrow="{unitName} · {scopeLabel ?? 'Active roster'}"
 	title="Personnel"
 	variant="display"
-	meta={activeCount === null ? undefined : count}
+	meta={count}
 	aside={showStrip ? strip : undefined}
 />

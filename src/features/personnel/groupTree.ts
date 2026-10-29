@@ -6,9 +6,6 @@ export interface GroupNode extends Group {
 	readonly level: number;
 }
 
-/** The part of the unit a screen shows. Lives in the URL as `?group=<id>` or `?group=unassigned`. Grants nothing. */
-export type GroupFocus = { kind: 'all' } | { kind: 'group'; id: string } | { kind: 'unassigned' };
-
 export interface Band<T> {
 	readonly node: GroupNode;
 	/** People directly in this Group, in the caller's order. */
@@ -16,18 +13,6 @@ export interface Band<T> {
 	readonly children: readonly Band<T>[];
 	/** The whole subtree. */
 	readonly count: number;
-}
-
-export type BreakdownRow<T> =
-	| { kind: 'hq'; key: string; label: string; items: readonly T[] }
-	| { kind: 'group'; key: string; label: string; items: readonly T[]; drill: GroupFocus }
-	| { kind: 'unassigned'; key: 'unassigned'; label: 'Unassigned'; items: readonly T[] };
-
-/** Rows partition `total`: each item appears in exactly one row. Empty rows are dropped. */
-export interface Breakdown<T> {
-	readonly total: readonly T[];
-	/** Empty when the focus is a Group with no sub-groups, or Unassigned. */
-	readonly rows: readonly BreakdownRow<T>[];
 }
 
 type GroupOf<T> = (item: T) => string | null;
@@ -45,19 +30,19 @@ export interface GroupTree {
 	contains(ancestorId: string, groupId: string | null): boolean;
 	/** The path from the reader's visible root, such as "2nd Squad › Alpha Team". A single root is left out below it. */
 	label(id: string): string;
-	within<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): T[];
-	/** Nested bands for the focus; empty bands are dropped. Unassigned people are not in any band. */
-	bands<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): Band<T>[];
-	breakdown<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): Breakdown<T>;
-	/** People in each Group's subtree, keyed by Group id; every node has an entry. */
-	subtreeCounts<T>(items: readonly T[], groupOf: GroupOf<T>): ReadonlyMap<string, number>;
-	/** Drops any id whose ancestor is also listed, keeping first-seen order. */
-	canonicalRoots(ids: readonly string[]): string[];
+	/** Nested bands from the roots; empty bands are dropped. Unassigned people are not in any band. */
+	bands<T>(items: readonly T[], groupOf: GroupOf<T>): Band<T>[];
 }
 
 export interface GroupTreeOptions {
 	/** Pins of an Organization-wide reader. Only top-level Groups can be pinned; other ids are ignored. */
 	pinnedIds?: readonly string[];
+}
+
+/** A Group-scoped reader whose whole view is one Group with nothing under it; screens name it and draw no band. */
+export function soleLeafGroup(tree: GroupTree, organizationWide: boolean): GroupNode | null {
+	const [root, ...others] = tree.roots;
+	return !organizationWide && root && others.length === 0 && !root.hasChildren ? root : null;
 }
 
 const PATH_SEPARATOR = ' › ';
@@ -128,17 +113,6 @@ export function buildGroupTree(groups: readonly Group[], options: GroupTreeOptio
 		return (roots.length === 1 && names.length > 1 ? names.slice(1) : names).join(PATH_SEPARATOR);
 	}
 
-	function within<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): T[] {
-		switch (focus.kind) {
-			case 'all':
-				return [...items];
-			case 'unassigned':
-				return items.filter((item) => groupOf(item) === null);
-			case 'group':
-				return items.filter((item) => contains(focus.id, groupOf(item)));
-		}
-	}
-
 	function directMembers<T>(items: readonly T[], groupOf: GroupOf<T>): Map<string, T[]> {
 		const members = new Map<string, T[]>();
 		for (const item of items) {
@@ -158,68 +132,9 @@ export function buildGroupTree(groups: readonly Group[], options: GroupTreeOptio
 		return count === 0 ? null : { node, hq, children, count };
 	}
 
-	function bands<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): Band<T>[] {
+	function bands<T>(items: readonly T[], groupOf: GroupOf<T>): Band<T>[] {
 		const members = directMembers(items, groupOf);
-		const tops = focus.kind === 'all' ? roots : focus.kind === 'group' ? [nodes.get(focus.id)].filter((n) => !!n) : [];
-		return tops.flatMap((node) => bandFor(node, members) ?? []);
-	}
-
-	function breakdown<T>(focus: GroupFocus, items: readonly T[], groupOf: GroupOf<T>): Breakdown<T> {
-		const total = within(focus, items, groupOf);
-		const groupRow = (node: GroupNode): BreakdownRow<T> => ({
-			kind: 'group',
-			key: node.id,
-			label: node.name,
-			items: total.filter((item) => contains(node.id, groupOf(item))),
-			drill: { kind: 'group', id: node.id }
-		});
-		const insideRows = (node: GroupNode | undefined): BreakdownRow<T>[] =>
-			node?.hasChildren
-				? [
-						{
-							kind: 'hq',
-							key: `${node.id}:hq`,
-							label: `${node.name} HQ`,
-							items: total.filter((item) => groupOf(item) === node.id)
-						},
-						...(childrenOf.get(node.id) ?? []).map((child) => groupRow(nodes.get(child.id)!))
-					]
-				: [];
-		let rows: BreakdownRow<T>[] = [];
-		if (focus.kind === 'all') {
-			rows = roots.length === 1 ? insideRows(roots[0]) : roots.map(groupRow);
-			rows.push({
-				kind: 'unassigned',
-				key: 'unassigned',
-				label: 'Unassigned',
-				items: total.filter((item) => groupOf(item) === null)
-			});
-		} else if (focus.kind === 'group') {
-			rows = insideRows(nodes.get(focus.id));
-		}
-		return { total, rows: rows.filter((row) => row.items.length > 0) };
-	}
-
-	function subtreeCounts<T>(items: readonly T[], groupOf: GroupOf<T>): ReadonlyMap<string, number> {
-		const counts = new Map(ordered.map((node) => [node.id, 0]));
-		for (const item of items) {
-			for (let current = groupOf(item) ?? undefined; current; current = parentOf.get(current) ?? undefined) {
-				if (counts.has(current)) counts.set(current, counts.get(current)! + 1);
-			}
-		}
-		return counts;
-	}
-
-	function canonicalRoots(ids: readonly string[]): string[] {
-		const listed = new Set(ids);
-		const kept: string[] = [];
-		for (const id of listed) {
-			const covered = ancestry(id)
-				.slice(0, -1)
-				.some((ancestor) => listed.has(ancestor));
-			if (!covered) kept.push(id);
-		}
-		return kept;
+		return roots.flatMap((node) => bandFor(node, members) ?? []);
 	}
 
 	return {
@@ -228,10 +143,6 @@ export function buildGroupTree(groups: readonly Group[], options: GroupTreeOptio
 		node: (id) => nodes.get(id),
 		contains,
 		label,
-		within,
-		bands,
-		breakdown,
-		subtreeCounts,
-		canonicalRoots
+		bands
 	};
 }

@@ -462,16 +462,8 @@ export type {
 } from './rosterReadModel';
 
 export { groupExportPath } from './groupPath';
-export { buildGroupTree } from './groupTree';
-export type { Band, Breakdown, BreakdownRow, GroupFocus, GroupNode, GroupTree, GroupTreeOptions } from './groupTree';
-export {
-	canonicalGroupFocus,
-	GROUP_FOCUS_PARAM,
-	groupFocusLabel,
-	groupFocusNavigation,
-	readGroupFocus
-} from './groupFocus';
-export type { GroupFocusRead, GroupFocusReader } from './groupFocus';
+export { buildGroupTree, soleLeafGroup } from './groupTree';
+export type { Band, GroupNode, GroupTree, GroupTreeOptions } from './groupTree';
 
 export type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 

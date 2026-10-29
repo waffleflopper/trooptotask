@@ -6,9 +6,6 @@ export { pinnedGroupsStore, pinnedGroupsHydration } from './stores/pinnedGroups.
 export { PersonnelPageContext } from './contexts/PersonnelPageContext.svelte';
 export type { PersonnelPageData } from './contexts/PersonnelPageContext.svelte';
 export { RosterSignals } from './rosterSignals.svelte';
-export { GroupFocusState } from './groupFocusState.svelte';
-export { default as GroupFocusControl } from './components/GroupFocusControl.svelte';
-export { default as GroupFocusUnavailable } from './components/GroupFocusUnavailable.svelte';
 
 export type { RequestPersonnelArchiveApproval } from './utils/archivePersonnel';
 export { acknowledgeAwardTracking } from './utils/awardTracking';

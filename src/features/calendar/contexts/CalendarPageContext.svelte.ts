@@ -10,8 +10,8 @@ import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { GroupFocusState, groupsStore, pinnedGroupsStore } from '$features/personnel';
-import { createRosterReadModel } from '$features/personnel/contracts';
+import { groupsStore, pinnedGroupsStore } from '$features/personnel';
+import { buildGroupTree, createRosterReadModel, soleLeafGroup, type GroupTree } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { groupsInScope } from '$lib/access/scopeSetAccess';
 import { rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
@@ -26,6 +26,12 @@ import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contrac
 import { nestCalendarBands, type CalendarBand } from '$features/calendar/utils/calendarBands';
 
 const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
+
+export interface CalendarRosterFilterOption {
+	value: string;
+	label: string;
+	count?: number;
+}
 
 export type CalendarPopover =
 	| {
@@ -108,6 +114,7 @@ export class CalendarPageContext {
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
 	highlightOnboarding = $state(true);
+	calendarGroupFilter = $state('');
 	calendarPersonnelSearch = $state('');
 
 	get #workspaceData() {
@@ -210,23 +217,27 @@ export class CalendarPageContext {
 		return groupsInScope(groupsStore.items, this.#org.scopeSet);
 	}
 
-	readonly groupFocus = new GroupFocusState(() => ({
-		groups: groupsStore.orgId === this.#data.orgId && !groupsStore.loading ? groupsStore.items : null,
-		pinnedIds: pinnedGroupsStore.list,
-		organizationWide: this.canPinGroups
-	}));
+	get groupFilterOptions(): CalendarRosterFilterOption[] {
+		return this.#scopedRoster.groupFilterOptions;
+	}
 
-	/** Everyone the focus shows, before search. */
-	readonly focusedPersonnel: Personnel[] = $derived(
-		this.groupFocus.within(this.#scopedRoster.flatPersonnel, (person) => person.groupId)
+	readonly groupTree: GroupTree = $derived.by(() =>
+		buildGroupTree(groupsStore.items, { pinnedIds: this.canPinGroups ? pinnedGroupsStore.list : [] })
 	);
+
+	/** One Group with nothing under it is the reader's whole Calendar, so the matrix draws no band header. */
+	get showGroupHeaders(): boolean {
+		return soleLeafGroup(this.groupTree, this.canPinGroups) === null;
+	}
 
 	readonly filteredPBG: CalendarBand[] = $derived.by(() =>
 		nestCalendarBands(
-			this.groupFocus.tree,
-			this.groupFocus.focus,
-			this.#calendarRoster.scoped(this.#org.scopeSet, { status: 'active', search: this.calendarPersonnelSearch })
-				.personnelByGroup
+			this.groupTree,
+			this.#calendarRoster.scoped(this.#org.scopeSet, {
+				status: 'active',
+				groupFilter: this.calendarGroupFilter,
+				search: this.calendarPersonnelSearch
+			}).personnelByGroup
 		)
 	);
 
@@ -246,8 +257,7 @@ export class CalendarPageContext {
 	readonly todayAvailability: TodayAvailability | null = $derived.by(() => {
 		const availabilityRange = this.#workspaceData?.availabilityRange;
 		if (!availabilityRange || !rangeCoversDate(availabilityRange)({ date: this.#today })) return null;
-		if (!this.groupFocus.focus) return null;
-		const people = this.focusedPersonnel;
+		const people = this.allPersonnelFlat;
 		const [out = 0] = this.availabilityTracks.outCounts(
 			people.map((person) => person.id),
 			dayWindow(this.#today, 1)
@@ -301,6 +311,10 @@ export class CalendarPageContext {
 	toggleShowPersonnelRoles(): void {
 		this.showPersonnelRoles = !this.showPersonnelRoles;
 		this.#savePreferences({ showPersonnelRoles: this.showPersonnelRoles });
+	}
+
+	setCalendarGroupFilter(value: string): void {
+		this.calendarGroupFilter = value;
 	}
 
 	setCalendarPersonnelSearch(value: string): void {

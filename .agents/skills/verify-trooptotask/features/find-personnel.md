@@ -17,10 +17,9 @@ person's record.
   persists for the member and a collapse lasts for the page visit. Groups run pinned first, then the Organization's
   Group order, then Unassigned. The Group column is absent in this view. Only Organization-wide readers get the pin
   toggle and the menu's `Pin`; a Group-scoped reader gets neither. Nested Groups draw as slimmer indented bands inside
-  their parent, with pins on top-level bands only; the [Group focus recipe](group-focus.md) owns nesting and the
-  `Group:` focus control.
+  their parent, with pins on top-level bands only and no Group filter: every reader sees their whole visible tree.
 - `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state
-  (`?show=`, and `?group=` from [Group focus](group-focus.md)).
+  (only `?show=`).
 - `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
   keyboard and actions, and the signals lane's loading and failure states.
 - `roster-quick-edit`: a row's pencil or E opens that Person's fields in place under the row; one row edits at a time, a
@@ -103,9 +102,9 @@ scoped actors retain their baseline grants.
    `Selected people` action but `Clear selection` disable until release. Loading: Personnel loads in the Organization
    layout before the page renders, and no control holds that load, so record UNAVAILABLE with the attempted route unless
    a skeleton is observed on navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL
-   unchanged (only a filter writes `?show=`, step 17, and the Group focus `?group=`), and that choosing a row opens
+   unchanged (only a filter writes `?show=`, step 17), and that choosing a row opens
    `/org/<org>/personnel/<slug>`. Capture 1280 light and 390 dark, including the `Personnel controls` toolbar at 390:
-   the `Group:` focus trigger fills its own row, then one row with the search field, `More Personnel controls` and
+   one row with the search field, `More Personnel controls` and
    `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`, `Manage Groups` and the
    `A-Z`/`Group` view fold into More in that order at about 1100, 1052 and 920px and stay folded down to 390
    (`$V toolbar-sweep PAGE "Personnel controls" RUN_DIR --expect import,manage-groups,roster-view --pinned add-person --search --step 4`

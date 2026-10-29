@@ -69,7 +69,7 @@
 		const row =
 			scope.rowKey === null
 				? `All ${noun.many}`
-				: ([...grid.rows, ...grid.sets.flatMap((set) => set.below)].find((candidate) => candidate.key === scope.rowKey)
+				: (grid.sets.flatMap((set) => [set.top, ...set.below]).find((candidate) => candidate.key === scope.rowKey)
 						?.label ?? BRIEFING_ROWS_BY_LABELS[grid.rowsBy]);
 		const type = grid.columns.find((column) => column.typeId === scope.typeId)?.name ?? 'Training type';
 		return `${row} · ${type}`;

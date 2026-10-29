@@ -71,6 +71,76 @@ describe('rosterPrintRows', () => {
 		]);
 	});
 
+	describe('a platoon Roster whose squad holds only team members', () => {
+		const platoon = [group('p2', '2nd Platoon', 0), group('p2-s1', '1st Squad', 0, 'p2')];
+		const saved = [
+			{
+				rank: 'SFC',
+				lastName: 'Platoon',
+				firstName: 'Cy',
+				group: '2nd Platoon',
+				groupId: 'p2',
+				groupAncestors: []
+			},
+			{
+				rank: 'SPC',
+				lastName: 'Team',
+				firstName: 'Ann',
+				group: 'Alpha Team',
+				groupId: 'p2-s1-a',
+				groupAncestors: [
+					{ id: 'p2', name: '2nd Platoon' },
+					{ id: 'p2-s1', name: '1st Squad' }
+				]
+			}
+		];
+		const split = { separateByGroup: true, groupIds: ['p2'] } as const;
+		const print = (people: typeof saved | Omit<(typeof saved)[number], 'groupAncestors'>[], live: Group[]) => {
+			const catalog = [...live, group('p1', '1st Platoon', 1)];
+			return rosterPrintRows(people, split, buildGroupTree(catalog), catalog);
+		};
+
+		it('labels the squad with its saved name after the squad is renamed', () => {
+			const renamed = [
+				group('p2', '2nd Platoon', 0),
+				group('p2-s1', 'Renamed Squad', 0, 'p2'),
+				group('p2-s1-a', 'Alpha Team', 0, 'p2-s1')
+			];
+
+			expect(print(saved, renamed)).toEqual([
+				{ kind: 'group', name: '2nd Platoon HQ' },
+				{ kind: 'person', number: 1, rank: 'SFC', name: 'Platoon, Cy' },
+				{ kind: 'group', name: '2nd Platoon › 1st Squad' },
+				{ kind: 'person', number: 2, rank: 'SPC', name: 'Team, Ann' }
+			]);
+		});
+
+		it('prints a Roster saved before Groups nested, filling the never-saved squad with its current name', () => {
+			const legacy = saved.map(({ groupAncestors: _ancestors, ...person }) => person);
+			const renamed = [
+				group('p2', '2nd Platoon', 0),
+				group('p2-s1', 'Renamed Squad', 0, 'p2'),
+				group('p2-s1-a', 'Renamed Team', 0, 'p2-s1')
+			];
+
+			expect(print(legacy, renamed)).toEqual([
+				{ kind: 'group', name: '2nd Platoon HQ' },
+				{ kind: 'person', number: 1, rank: 'SFC', name: 'Platoon, Cy' },
+				{ kind: 'group', name: '2nd Platoon › Renamed Squad' },
+				{ kind: 'person', number: 2, rank: 'SPC', name: 'Team, Ann' }
+			]);
+		});
+
+		it("prints a deleted Group's people under its saved name", () => {
+			expect(print(saved, platoon)).toEqual([
+				{ kind: 'group', name: '2nd Platoon HQ' },
+				{ kind: 'person', number: 1, rank: 'SFC', name: 'Platoon, Cy' },
+				{ kind: 'group', name: 'Alpha Team' },
+				{ kind: 'person', number: 2, rank: 'SPC', name: 'Team, Ann' }
+			]);
+		});
+	});
+
 	it('orders a Roster saved without Group ids by the current catalog and pins', () => {
 		const legacy = snapshot.map(({ groupId: _groupId, ...person }) => person);
 		const pinned = buildGroupTree(groups, { pinnedIds: ['group-a'] });

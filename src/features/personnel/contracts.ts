@@ -462,7 +462,7 @@ export type {
 } from './rosterReadModel';
 
 export { groupExportPath } from './groupPath';
-export { buildGroupTree, soleLeafGroup } from './groupTree';
+export { buildGroupTree, groupFilterMatcher, soleLeafGroup } from './groupTree';
 export type { Band, GroupNode, GroupTree, GroupTreeOptions } from './groupTree';
 
 export type { PersonnelLeaderNote } from './personnelLeaderNote.types';

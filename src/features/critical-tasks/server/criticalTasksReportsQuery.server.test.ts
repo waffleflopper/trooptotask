@@ -355,7 +355,9 @@ describe('Critical Tasks report queries', () => {
 
 		const pageModel = await fetchCriticalTasksReportsPageModel(ctx, { asOf: '2026-04-15' });
 
-		expect(pageModel.reportScope.groups).toEqual([{ id: 'group-alpha', name: 'Alpha' }]);
+		expect(pageModel.reportScope.groups.map(({ id, name }) => ({ id, name }))).toEqual([
+			{ id: 'group-alpha', name: 'Alpha' }
+		]);
 	});
 
 	it('builds the reports page model from one server-shaped report scope', async () => {
@@ -421,8 +423,8 @@ describe('Critical Tasks report queries', () => {
 				{ id: 'p-rifle', groupId: 'group-bravo', mos: '11B', rank: 'CPL', dutyRole: 'Rifleman' }
 			],
 			groups: [
-				{ id: 'group-alpha', name: 'Alpha' },
-				{ id: 'group-bravo', name: 'Bravo' }
+				{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
 			],
 			hasActiveTasks: true,
 			activeTaskCount: 1,
@@ -862,10 +864,10 @@ describe('bounded Critical Tasks report history', () => {
 		}
 	);
 
-	it('returns an empty authorized report for an excluded group without reading history', async () => {
+	it('returns an empty authorized report for a filter that leaves nobody without reading history', async () => {
 		const ctx = createWideHistoryContext('people', { forbidHistory: true });
 		const dashboard = await fetchCriticalTasksReportDashboard(ctx, {
-			filters: { groupId: 'bravo' },
+			filters: { mos: '11B' },
 			asOf: '2026-03-20'
 		});
 		expect(dashboard.kpis.overallReadiness).toMatchObject({ percent: 0, readyCount: 0, applicableCount: 0 });

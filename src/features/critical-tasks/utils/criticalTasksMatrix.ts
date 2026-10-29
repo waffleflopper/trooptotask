@@ -149,8 +149,7 @@ export function buildCriticalTasksMatrix({
 		fallbackGroupName: orgName
 	}).full({
 		status: 'active',
-		groupId: selectedGroupFilter ? undefined : selectedGroupId || undefined,
-		groupFilter: selectedGroupFilter || undefined
+		groupFilter: selectedGroupFilter || selectedGroupId || undefined
 	}).personnelByGroup;
 
 	const allGroups = sortedGroups

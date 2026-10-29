@@ -4,7 +4,7 @@ import type {
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$features/personnel/contracts';
+import { groupFilterMatcher, type Group, type GroupTree, type Personnel } from '$features/personnel/contracts';
 import { calculateIctExpirationDate, normalizeCriticalTasksSettings } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 import { formatDate } from '$lib/utils/dates';
@@ -66,7 +66,7 @@ export interface IctReportFilterPersonnel {
 
 export interface IctReportScope {
 	personnel: IctReportFilterPersonnel[];
-	groups: Array<{ id: string; name: string }>;
+	groups: Group[];
 	hasActiveTasks: boolean;
 	activeTaskCount: number;
 	totalPersonnelCount: number;
@@ -818,11 +818,16 @@ function buildDashboardTasksBelowThreshold(input: {
 	};
 }
 
-export function filterIctReportPersonnel(personnel: Personnel[], filters: IctReportFilters): Personnel[] {
+export function filterIctReportPersonnel(
+	personnel: Personnel[],
+	filters: IctReportFilters,
+	tree: GroupTree
+): Personnel[] {
 	const mosFilters = normalizeReportMosFilter(filters.mos);
+	const inGroup = groupFilterMatcher(tree, filters.groupId);
 	return personnel.filter((person) => {
 		if (person.archivedAt) return false;
-		if (filters.groupId && person.groupId !== filters.groupId) return false;
+		if (!inGroup(person.groupId)) return false;
 		if (mosFilters.length > 0 && !mosFilters.includes(person.mos)) return false;
 		if (filters.role && person.clinicRole !== filters.role) return false;
 		if (filters.rank && person.rank.trim() !== filters.rank.trim()) return false;

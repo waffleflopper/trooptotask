@@ -48,6 +48,18 @@ export function soleLeafGroup(tree: GroupTree, organizationWide: boolean): Group
 	return !organizationWide && root && others.length === 0 && !root.hasChildren ? root : null;
 }
 
+/**
+ * A screen's Group filter offers the reader's top-level Groups, and a pick matches its whole subtree. Any other value,
+ * such as a pick saved before the tree changed, matches everyone.
+ */
+export function groupFilterMatcher(
+	tree: GroupTree,
+	value: string | null | undefined
+): (groupId: string | null) => boolean {
+	const root = value ? tree.node(value) : undefined;
+	return root?.level === 0 ? (groupId) => tree.contains(root.id, groupId) : () => true;
+}
+
 const PATH_SEPARATOR = ' › ';
 
 function siblingOrder(a: Group, b: Group): number {

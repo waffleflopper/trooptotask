@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compareRosterBands, createRosterReadModel, rosterGroupFilterValue } from './rosterReadModel';
 import type { Personnel } from './personnel.types';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 
 function makePerson(overrides: Partial<Personnel>): Personnel {
 	return {
@@ -156,10 +157,10 @@ describe('createRosterReadModel', () => {
 			],
 			pinnedGroupIds: ['group-4', 'group-2'],
 			groups: [
-				{ id: 'group-1', name: 'Alpha', sortOrder: 2 },
-				{ id: 'group-2', name: 'Bravo', sortOrder: 1 },
-				{ id: 'group-3', name: 'Charlie', sortOrder: 0 },
-				{ id: 'group-4', name: 'Delta', sortOrder: 3 }
+				{ id: 'group-1', name: 'Alpha', sortOrder: 2, parentId: null, depth: 1 },
+				{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 },
+				{ id: 'group-3', name: 'Charlie', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'group-4', name: 'Delta', sortOrder: 3, parentId: null, depth: 1 }
 			]
 		});
 
@@ -180,8 +181,8 @@ describe('createRosterReadModel', () => {
 				makePerson({ id: 'second', groupId: 'group-2', groupName: 'Alpha' })
 			],
 			groups: [
-				{ id: 'group-1', name: 'Alpha', sortOrder: 1 },
-				{ id: 'group-2', name: 'Alpha', sortOrder: 0 }
+				{ id: 'group-1', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 },
+				{ id: 'group-2', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }
 			],
 			pinnedGroupIds: []
 		});
@@ -201,8 +202,8 @@ describe('createRosterReadModel', () => {
 				makePerson({ id: 'bravo-1', groupId: 'group-b', groupName: 'Renamed Bravo' })
 			],
 			groups: [
-				{ id: 'group-a', name: 'Alpha', sortOrder: 0 },
-				{ id: 'group-b', name: 'Renamed Bravo', sortOrder: 1 }
+				{ id: 'group-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: 'group-b', name: 'Renamed Bravo', sortOrder: 1, parentId: null, depth: 1 }
 			],
 			pinnedGroupIds: ['group-b']
 		});
@@ -215,10 +216,10 @@ describe('createRosterReadModel', () => {
 		const order = [band('c', 'Zulu'), band('a2', 'Alpha'), band('b', 'Alpha 2'), band('a1', 'Alpha')].sort(
 			compareRosterBands({
 				groups: [
-					{ id: 'c', name: 'Zulu', sortOrder: 0 },
-					{ id: 'b', name: 'Alpha 2', sortOrder: 0 },
-					{ id: 'a2', name: 'Alpha', sortOrder: 0 },
-					{ id: 'a1', name: 'Alpha', sortOrder: 0 }
+					{ id: 'c', name: 'Zulu', sortOrder: 0, parentId: null, depth: 1 },
+					{ id: 'b', name: 'Alpha 2', sortOrder: 0, parentId: null, depth: 1 },
+					{ id: 'a2', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+					{ id: 'a1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }
 				],
 				pinnedGroupIds: []
 			})
@@ -236,5 +237,55 @@ describe('createRosterReadModel', () => {
 		].sort(compareRosterBands({ groups: [], pinnedGroupIds: [] }));
 
 		expect(order.map((entry) => entry.name)).toEqual(['Alpha', 'Bravo', 'Charlie', '']);
+	});
+});
+
+describe('roster Group filter on nested Groups', () => {
+	const personnel = [
+		makePerson({ id: 'hq', groupId: 'platoon', groupName: '1st Platoon' }),
+		makePerson({ id: 'squad-lead', groupId: 'squad', groupName: '2nd Squad' }),
+		makePerson({ id: 'alpha-1', groupId: 'alpha', groupName: 'Alpha Team' }),
+		makePerson({ id: 'third', groupId: 'other-squad', groupName: '3rd Squad' }),
+		makePerson({ id: 'sibling', groupId: 'other-platoon', groupName: '2nd Platoon' }),
+		makePerson({ id: 'loose' })
+	];
+	const roster = (groups: typeof NESTED_GROUPS) => createRosterReadModel({ personnel, groups, pinnedGroupIds: [] });
+	const options = (groups: typeof NESTED_GROUPS) =>
+		roster(groups)
+			.full()
+			.groupFilterOptions.map(({ value, label, count }) => [value, label, count]);
+	const picked = (groupFilter: string) =>
+		roster(NESTED_GROUPS)
+			.full({ groupFilter })
+			.personnel.map((person) => person.id);
+
+	it('offers an Organization-wide reader exactly the top-level Groups, then Unassigned', () => {
+		expect(options(NESTED_GROUPS)).toEqual([
+			['', 'All groups', 6],
+			['platoon', '1st Platoon', 4],
+			['other-platoon', '2nd Platoon', 1],
+			['name:Unassigned', 'Unassigned', 1]
+		]);
+	});
+
+	it('offers a squad-scoped reader exactly that squad', () => {
+		const squadCatalog = NESTED_GROUPS.filter((group) => ['squad', 'alpha', 'bravo'].includes(group.id));
+
+		expect(
+			createRosterReadModel({ personnel: personnel.slice(1, 3), groups: squadCatalog, pinnedGroupIds: [] })
+				.full()
+				.groupFilterOptions.map(({ value, label, count }) => [value, label, count])
+		).toEqual([
+			['', 'All groups', 2],
+			['squad', '2nd Squad', 2]
+		]);
+	});
+
+	it("takes in a platoon's HQ, squads and teams and leaves out the other platoon", () => {
+		expect(picked('platoon')).toEqual(['hq', 'squad-lead', 'alpha-1', 'third']);
+	});
+
+	it('reads a value that is not a top-level Group as all', () => {
+		expect(picked('squad')).toEqual(['hq', 'squad-lead', 'alpha-1', 'sibling', 'third', 'loose']);
 	});
 });

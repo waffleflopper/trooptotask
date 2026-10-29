@@ -415,32 +415,6 @@ function buildGroupStrength(inputs: StrengthInputs, outToday: ReadonlyMap<string
 	};
 }
 
-/** What the by-group list draws with sub-groups shown, known from the roster before today's availability arrives. */
-export interface GroupStrengthOutline {
-	rows: number;
-	/** More top-level sets than show at once, so "All N groups" follows the rows. */
-	folded: boolean;
-}
-
-/**
- * The by-group list's outline with sub-groups shown, or null when it draws no sub-group row. Which sets show when folded
- * depends on today's availability, so a folded outline counts the smallest sets, the fewest rows the list can draw.
- */
-export function groupStrengthOutline(
-	personnel: readonly Pick<Personnel, 'groupId'>[],
-	groups: readonly Group[]
-): GroupStrengthOutline | null {
-	const sets = groupRows(buildGroupTree(groups), personnel, (person) => person.groupId, true);
-	if (!sets.some((set) => set.below.length > 0)) return null;
-	const folded = sets.length > GROUPS_SHOWN_LIMIT;
-	const rows = sets
-		.map((set) => 1 + set.below.length)
-		.sort((a, b) => a - b)
-		.slice(0, folded ? GROUPS_FOLDED_TO : sets.length)
-		.reduce((sum, count) => sum + count, 0);
-	return { rows, folded };
-}
-
 function countByStatus(entries: Iterable<AvailabilityEntry>): Map<string, number> {
 	const counts = new Map<string, number>();
 	for (const entry of entries) counts.set(entry.statusTypeId, (counts.get(entry.statusTypeId) ?? 0) + 1);

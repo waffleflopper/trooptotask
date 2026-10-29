@@ -209,7 +209,6 @@ export interface StarterConfigurationPackApplyResult {
 }
 
 export { formatDashboardDisplayDate, formatDashboardTitleDate } from './dashboardDate';
-export type { GroupStrengthOutline } from './read-model/strengthBand';
 export interface DashboardPageSummaryData {
 	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
-import { buildStrengthBand, formatForecastHeadline, groupStrengthOutline, type StrengthInputs } from './strengthBand';
+import { buildStrengthBand, formatForecastHeadline, type StrengthInputs } from './strengthBand';
 
 const TODAY = '2026-10-19';
 const DAYS = [
@@ -525,23 +525,6 @@ describe('sub-groups', () => {
 			leafTotal: '10/14',
 			headline: '10/14'
 		});
-	});
-
-	it('outlines the rows the list draws with sub-groups shown before availability arrives', () => {
-		expect(groupStrengthOutline(personnel, catalog)).toEqual({ rows: 9, folded: false });
-		expect(groupStrengthOutline(personnel.slice(2, 8), [squad1, alpha, bravo])).toEqual({ rows: 4, folded: false });
-		expect(groupStrengthOutline(personnel.slice(10, 13), [section])).toBeNull();
-	});
-
-	it('outlines a folded list by its smallest sets, since availability picks which show', () => {
-		const companies = [1, 2, 3, 4, 5].map((n) => group(`co${n}`, `Company ${n}`, null, 1, 1 + n));
-
-		expect(
-			groupStrengthOutline(
-				[...personnel, ...companies.flatMap((company, index) => people(1, company.id, 20 + index))],
-				[...catalog, ...companies]
-			)
-		).toEqual({ rows: 5, folded: true });
 	});
 
 	it('off, rolls each top-level Group into one row', () => {

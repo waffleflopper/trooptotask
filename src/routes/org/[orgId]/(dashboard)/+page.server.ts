@@ -14,7 +14,7 @@ import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
 import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
-import { loadDashboardGroupStrengthOutline, streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
+import { streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
 import { streamOrganizationSetupEntry, streamSetupInvitationProgress } from '../setupEntryLoad.server';
 
 export const load = async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
@@ -24,8 +24,7 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 	const asOf = viewerToday(cookies);
 	const timeZone = viewerTimeZone(cookies);
 	const ctx = await buildLayoutRequest(locals, orgId);
-	const workspace = { locals, cookies, orgId: ctx.auth.orgId };
-	const { dashboard } = await streamDashboardWorkspaceBootstrap(workspace);
+	const { dashboard } = await streamDashboardWorkspaceBootstrap({ locals, cookies, orgId: ctx.auth.orgId });
 	const { data: summary } = loadWithContextCore(
 		ctx,
 		{
@@ -64,8 +63,6 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 					summary
 				})
 			: null,
-		// Awaited so the skeleton reserves the by-group rows; it settles with the roster reads, not the whole workspace.
-		groupStrengthOutline: await loadDashboardGroupStrengthOutline(workspace),
 		breadcrumbLabel: formatDashboardDisplayDate(asOf),
 		viewerDay: { date: asOf, timeZone } satisfies DashboardViewerDay
 	};

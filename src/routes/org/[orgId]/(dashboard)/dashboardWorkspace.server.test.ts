@@ -21,9 +21,7 @@ const {
 		auth: {
 			userId: 'user-1',
 			orgId: '11111111-1111-1111-1111-111111111111'
-		},
-		roster: { list: vi.fn() },
-		groups: { listCatalog: vi.fn() }
+		}
 	}
 }));
 
@@ -54,7 +52,7 @@ vi.mock('$features/dashboard/index.server', async () => {
 	};
 });
 
-import { loadDashboardGroupStrengthOutline, streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
+import { streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
 import { _createDashboardLayoutLoad } from './+layout.server';
 import { createReadyAppShellRouteData, createUrlBlindLayoutEvent } from '../appShell.test-support';
 
@@ -84,8 +82,6 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		fetchDashboardBootstrapMock.mockResolvedValue(dashboardData);
-		mockCtx.roster.list.mockResolvedValue([]);
-		mockCtx.groups.listCatalog.mockResolvedValue([]);
 		createRequestDashboardWorkspaceContextMock.mockReturnValue(mockCtx);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = Promise.resolve().then(() => config.fn(config.context(mockRequest)));
@@ -224,36 +220,5 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 
 		expect(changedWorkspace.hydration.personnel.snapshotKey).not.toBe(firstWorkspace.hydration.personnel.snapshotKey);
 		expect(changedWorkspace.hydration.personnel.snapshotKey).not.toContain('Jane');
-	});
-	it("outlines the nested by-group rows from the workspace's own roster reads", async () => {
-		const groups: Group[] = [
-			{ id: 'plt', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 },
-			{ id: 'sqd', name: '1st Squad', sortOrder: 0, parentId: 'plt', depth: 2 },
-			{ id: 'alpha', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 }
-		];
-		const personnel = [
-			{ id: 'p1', groupId: 'plt' },
-			{ id: 'p2', groupId: 'sqd' },
-			{ id: 'p3', groupId: 'alpha' }
-		] as Personnel[];
-		mockCtx.groups.listCatalog.mockResolvedValue(groups);
-		mockCtx.roster.list.mockResolvedValue(personnel);
-		const context = { locals: {} as App.Locals, cookies: { getAll: () => [] } as unknown as Cookies, orgId: 'org-1' };
-
-		const [route, outline] = await Promise.all([
-			streamDashboardWorkspaceBootstrap(context),
-			loadDashboardGroupStrengthOutline(context)
-		]);
-
-		expect(outline).toEqual({ rows: 4, folded: false });
-		await route.dashboard.data;
-		expect(await fetchDashboardBootstrapMock.mock.calls[0][1].personnel).toBe(personnel);
-	});
-
-	it('keeps the compact skeleton when the roster read fails', async () => {
-		mockCtx.groups.listCatalog.mockRejectedValue(new Error('groups unavailable'));
-		const context = { locals: {} as App.Locals, cookies: { getAll: () => [] } as unknown as Cookies, orgId: 'org-1' };
-
-		expect(await loadDashboardGroupStrengthOutline(context)).toBeNull();
 	});
 });

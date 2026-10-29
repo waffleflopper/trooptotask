@@ -9,15 +9,11 @@ import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { CalendarCatalogPersistence, CalendarDateRange } from '$features/calendar/contracts';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
-import {
-	buildGroupTree,
-	hasSubGroups,
-	type Group,
-	type GroupPersistence,
-	type Personnel,
-	type PersonnelAwardAcknowledgementPort,
-	type PersonnelRosterReader,
-	type SelfPinPersistence
+import type {
+	GroupPersistence,
+	PersonnelAwardAcknowledgementPort,
+	PersonnelRosterReader,
+	SelfPinPersistence
 } from '$features/personnel/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import {
@@ -33,7 +29,6 @@ import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import { listReaderPinnedGroupIds } from '$features/personnel/index.server';
 import { dashboardSourceAccess } from './dashboardSources.server';
 import { runEndsCovering } from '../read-model/availabilityRuns';
-import { groupStrengthOutline, type GroupStrengthOutline } from '../read-model/strengthBand';
 
 type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 	Parameters<typeof listDailyAssignments>[0] & {
@@ -97,26 +92,7 @@ async function listAvailabilityThroughReturns(ctx: DashboardQueryContext, range:
 	}
 }
 
-export interface DashboardRosterReads {
-	personnel: Promise<Personnel[]>;
-	groups: Promise<Group[]>;
-}
-
-/** The roster reads the bootstrap shares with the by-group loading outline, so neither reads twice. */
-export function readDashboardRoster(ctx: Pick<DashboardQueryContext, 'roster' | 'groups'>): DashboardRosterReads {
-	return { personnel: ctx.roster.list({ status: 'active' }), groups: ctx.groups.listCatalog() };
-}
-
-/** Waits for Personnel only when the reader's Groups nest; a flat catalog has no sub-group rows to reserve. */
-export async function loadGroupStrengthOutline(roster: DashboardRosterReads): Promise<GroupStrengthOutline | null> {
-	const groups = await roster.groups;
-	return hasSubGroups(buildGroupTree(groups)) ? groupStrengthOutline(await roster.personnel, groups) : null;
-}
-
-export async function fetchDashboardBootstrap(
-	ctx: DashboardQueryContext,
-	roster: DashboardRosterReads = readDashboardRoster(ctx)
-): Promise<DashboardBootstrap> {
+export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promise<DashboardBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const range = viewerDayWindowCoverage(new Date());
 	const reads = dashboardSourceAccess(ctx);
@@ -148,8 +124,8 @@ export async function fetchDashboardBootstrap(
 		reads('ratingSchemeEntries') ? loadRatingSchemeDueEntries(ctx) : [],
 		reads('activeOnboardings') ? ctx.onboardingWorkflow.listSavedActivePackets() : [],
 		reads('onboardingTemplates') && ctx.onboardingCatalog.hasAnyTemplate(),
-		roster.personnel,
-		roster.groups,
+		ctx.roster.list({ status: 'active' }),
+		ctx.groups.listCatalog(),
 		reads('statusTypes') ? listStatusTypes(ctx.calendarCatalogs) : [],
 		reads('trainingTypes') ? ctx.trainingCatalog.listTypes() : [],
 		ctx.organizationSettings.findPolicies(orgId),

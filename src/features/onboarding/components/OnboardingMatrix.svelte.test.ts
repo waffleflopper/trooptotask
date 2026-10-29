@@ -15,6 +15,16 @@ import type { OnboardingStepProgress, OnboardingTemplateStep, PersonnelOnboardin
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn(), invalidateAll: vi.fn() }));
 
+const pageMock = $state({ url: new URL('http://localhost/org/org-1/onboarding') });
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return pageMock.url;
+		},
+		state: {}
+	}
+}));
+
 const NOW = '2026-06-15T12:00:00.000Z';
 const STAGES = ['Submitted', 'At Finance', 'Signed'];
 
@@ -129,12 +139,6 @@ async function showMatrix() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Matrix' }));
 }
 
-async function openGroupMenu() {
-	const trigger = screen.getByRole('button', { name: 'Group' });
-	trigger.focus();
-	await fireEvent.keyDown(trigger, { key: 'Enter' });
-}
-
 function grid(template: string) {
 	return screen.getByRole('table', { name: `${template} packet` });
 }
@@ -168,6 +172,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+	pageMock.url = new URL('http://localhost/org/org-1/onboarding');
 	cleanup();
 	await waitFor(() => expect(document.body.style.overflow).not.toBe('hidden'));
 	await new Promise((resolve) => setTimeout(resolve, 30));
@@ -218,7 +223,7 @@ describe('Onboarding Matrix view', () => {
 		expect(within(confirmation).getByText('Mark this onboarding as complete?')).toBeTruthy();
 	});
 
-	it('applies the search and Group filter to the grids and keeps the header and toolbar', async () => {
+	it('applies the search and Group focus to the grids and keeps the header and toolbar', async () => {
 		groupCatalogHydration.load(
 			[
 				{ id: 'g-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
@@ -236,25 +241,21 @@ describe('Onboarding Matrix view', () => {
 			],
 			'org-1'
 		);
+		pageMock.url = new URL('http://localhost/org/org-1/onboarding?group=g-bravo');
 		const { layOut } = stubToolbarWidths();
 		mount();
 		await layOut(4000);
 		await showMatrix();
 
-		await openGroupMenu();
-		await fireEvent.pointerUp(await screen.findByRole('option', { name: 'Bravo' }));
-
 		await waitFor(() => expect(screen.queryByRole('table', { name: 'Standard packet' })).toBeNull());
 		expect(within(grid('Reserve')).getByText('PFC Diaz, Sam')).toBeTruthy();
 
-		await openGroupMenu();
-		await fireEvent.pointerUp(await screen.findByRole('option', { name: 'Alpha' }));
+		pageMock.url = new URL('http://localhost/org/org-1/onboarding?group=g-alpha');
 
 		await waitFor(() => expect(screen.queryByRole('table', { name: 'Reserve packet' })).toBeNull());
 		expect(within(grid('Standard')).getByText('SGT Smith, Jane')).toBeTruthy();
 
-		await openGroupMenu();
-		await fireEvent.pointerUp(await screen.findByRole('option', { name: 'All groups' }));
+		pageMock.url = new URL('http://localhost/org/org-1/onboarding');
 
 		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
 			target: { value: 'diaz' }
@@ -270,6 +271,18 @@ describe('Onboarding Matrix view', () => {
 		});
 		expect(screen.getByText('No Soldiers match')).toBeTruthy();
 		expect(screen.queryByRole('table')).toBeNull();
+	});
+
+	it('says a Group it cannot show is unavailable and shows no packets rather than everyone in processing', async () => {
+		groupCatalogHydration.load([{ id: 'g-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }], 'org-1');
+		pageMock.url = new URL('http://localhost/org/org-1/onboarding?group=deleted');
+		mount();
+
+		expect(await screen.findByText('Group unavailable')).toBeTruthy();
+		expect(screen.queryByRole('list', { name: 'Soldiers in processing' })).toBeNull();
+
+		pageMock.url = new URL('http://localhost/org/org-1/onboarding');
+		expect(await screen.findByRole('list', { name: 'Soldiers in processing' })).toBeTruthy();
 	});
 });
 

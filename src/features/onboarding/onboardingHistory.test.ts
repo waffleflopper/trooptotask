@@ -269,9 +269,9 @@ describe("buildHistory on the viewer's day", () => {
 
 describe('filterHistoryRows', () => {
 	const people: Record<string, HistoryPerson> = {
-		'person-ortiz': { name: 'PV2 Ortiz, Lucas', rank: 'PV2', mos: '88M', groupId: 'third' },
-		'person-kim': { name: 'SPC Kim, Grace', rank: 'SPC', mos: '68W', groupId: 'first' },
-		'person-shah': { name: '1LT Shah, Priya', rank: '1LT', mos: '70B', groupId: 'hq' }
+		'person-ortiz': { name: 'PV2 Ortiz, Lucas', rank: 'PV2', mos: '88M' },
+		'person-kim': { name: 'SPC Kim, Grace', rank: 'SPC', mos: '68W' },
+		'person-shah': { name: '1LT Shah, Priya', rank: '1LT', mos: '70B' }
 	};
 	const { rows } = buildHistory(
 		[
@@ -287,7 +287,7 @@ describe('filterHistoryRows', () => {
 		TODAY,
 		ZONE
 	);
-	const all: HistoryFilters = { outcome: 'all', query: '', groupId: HISTORY_ALL, templateId: HISTORY_ALL };
+	const all: HistoryFilters = { outcome: 'all', query: '', templateId: HISTORY_ALL };
 	const ids = (filters: Partial<HistoryFilters>) =>
 		filterHistoryRows(rows, { ...all, ...filters }, (id) => people[id]).map((row) => row.packet.id);
 
@@ -300,10 +300,9 @@ describe('filterHistoryRows', () => {
 		expect(ids({ outcome: 'completed' })).toEqual(['ortiz', 'kim', 'shah']);
 	});
 
-	it('filters by group and by template', () => {
-		expect(ids({ groupId: 'first' })).toEqual(['kim', 'stopped']);
+	it('filters by template', () => {
 		expect(ids({ templateId: 'officer' })).toEqual(['shah']);
-		expect(ids({ groupId: 'first', templateId: 'officer' })).toEqual([]);
+		expect(ids({ outcome: 'cancelled', templateId: 'officer' })).toEqual([]);
 	});
 
 	it('searches name, rank and MOS without regard to case', () => {

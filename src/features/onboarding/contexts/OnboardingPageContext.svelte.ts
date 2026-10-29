@@ -5,7 +5,7 @@ import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingT
 import { createPersonnel } from '$features/personnel';
 import { personnelScopeResource } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
-import { groupsStore } from '$features/personnel';
+import { GroupFocusState, groupsStore } from '$features/personnel';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -89,6 +89,13 @@ export class OnboardingPageContext {
 				})
 			: rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' })
 	);
+
+	/** The Group focus from the address; the load always brings everyone in processing the reader can see. */
+	readonly groupFocus = new GroupFocusState(() => ({
+		groups: groupsStore.orgId === this.#org.orgId && !groupsStore.loading ? groupsStore.items : null,
+		pinnedIds: [],
+		organizationWide: this.#org.scopeSet.kind === 'organization'
+	}));
 
 	/** Who wrote a note: "You", the author's name, or "Former member" when no name is known. */
 	readonly noteAuthorName: NoteAuthorLookup;

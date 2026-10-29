@@ -6,7 +6,7 @@ import { calendarDaysBetween, tookLong, typicalDaysToFinish, typicalWindowStart 
 export type HistoryOutcome = 'completed' | 'cancelled';
 export type OutcomeFilter = 'all' | HistoryOutcome;
 
-/** The "All groups" and "All templates" choice. */
+/** The "All templates" choice. */
 export const HISTORY_ALL = 'all';
 
 /** One finished packet with what the table shows about it. */
@@ -40,7 +40,6 @@ export interface History {
 export interface HistoryFilters {
 	outcome: OutcomeFilter;
 	query: string;
-	groupId: string;
 	templateId: string;
 }
 
@@ -48,7 +47,6 @@ export interface HistoryPerson {
 	name: string;
 	rank: string;
 	mos: string;
-	groupId: string | null;
 }
 
 /** A step as the packet ended: done or open, with the paperwork stage it reached. */
@@ -142,7 +140,6 @@ export function filterHistoryRows(
 		if (filters.outcome !== 'all' && row.outcome !== filters.outcome) return false;
 		if (filters.templateId !== HISTORY_ALL && row.packet.templateId !== filters.templateId) return false;
 		const person = personOf(row.packet.personnelId);
-		if (filters.groupId !== HISTORY_ALL && person?.groupId !== filters.groupId) return false;
 		if (!query) return true;
 		return [person?.name, person?.rank, person?.mos].some((field) => field?.toLowerCase().includes(query));
 	});

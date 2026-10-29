@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { GroupFocusControl, GroupFocusState, GroupFocusUnavailable } from '$features/personnel';
 	import { createRosterReadModel, type Group, type Personnel } from '$features/personnel/contracts';
 	import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
 	import type { OnboardingTemplate, PersonnelOnboarding } from '../contracts';
@@ -68,7 +69,6 @@
 	let expandedId = $state('');
 	let outcome = $state<OutcomeFilter>('all');
 	let search = $state('');
-	let groupId = $state(HISTORY_ALL);
 	let templateId = $state(HISTORY_ALL);
 
 	const roster = $derived(
@@ -77,25 +77,27 @@
 	const history = $derived(buildHistory(onboardings, todayDate, timeZone));
 	const subtitleParts = $derived(historySubtitleParts(history.overview));
 
+	const focus = new GroupFocusState(() => ({
+		groups,
+		pinnedIds: [],
+		organizationWide: scopeSet.kind === 'organization'
+	}));
+	const groupOf = (row: HistoryRow) => roster.getById(row.packet.personnelId)?.groupId ?? null;
+	const focusPeople = $derived(history.rows.map((row) => ({ groupId: groupOf(row) })));
+	const focusedRows = $derived(focus.within(history.rows, groupOf));
+
 	function personOf(personnelId: string): HistoryPerson | undefined {
 		const person = roster.getById(personnelId);
-		return (
-			person && { name: roster.displayName(personnelId), rank: person.rank, mos: person.mos, groupId: person.groupId }
-		);
+		return person && { name: roster.displayName(personnelId), rank: person.rank, mos: person.mos };
 	}
 
-	const visibleRows = $derived(
-		filterHistoryRows(history.rows, { outcome, query: search, groupId, templateId }, personOf)
-	);
+	const visibleRows = $derived(filterHistoryRows(focusedRows, { outcome, query: search, templateId }, personOf));
 	const openId = $derived(visibleRows.some((row) => row.packet.id === expandedId) ? expandedId : '');
-	const filtered = $derived(
-		outcome !== 'all' || search.trim() !== '' || groupId !== HISTORY_ALL || templateId !== HISTORY_ALL
-	);
+	const filtered = $derived(outcome !== 'all' || search.trim() !== '' || templateId !== HISTORY_ALL);
 
 	function clearFilters() {
 		outcome = 'all';
 		search = '';
-		groupId = HISTORY_ALL;
 		templateId = HISTORY_ALL;
 	}
 
@@ -112,20 +114,6 @@
 				}
 			}
 		];
-		if (groups.length > 0) {
-			items.push({
-				kind: 'select',
-				id: 'group',
-				label: 'Group',
-				options: [
-					{ value: HISTORY_ALL, label: 'All groups' },
-					...groups.map((group) => ({ value: group.id, label: group.name }))
-				],
-				value: groupId,
-				defaultValue: HISTORY_ALL,
-				onValueChange: (value) => (groupId = value)
-			});
-		}
 		if (templates.length > 0) {
 			items.push({
 				kind: 'select',
@@ -197,11 +185,27 @@
 <div class="flex h-full min-h-0 flex-col bg-background">
 	<div class="grid shrink-0 gap-4 border-b border-border p-3 md:px-6 md:pt-6 md:pb-4">
 		<PageShell.Header title="History" subtitle={subtitleParts.length > 0 ? subtitle : undefined} />
-		<WorkspaceToolbar ariaLabel="Onboarding history controls" items={toolbarItems} search={toolbarSearch} />
+		{#if groups.length > 0 || focus.focus?.kind !== 'all'}
+			<div class="flex flex-wrap items-center gap-x-1 rounded-lg border border-border bg-card p-1 max-sm:flex-col">
+				<GroupFocusControl
+					{focus}
+					people={focusPeople}
+					class="ml-1 max-sm:mx-1 max-sm:mt-1 max-sm:w-[calc(100%-0.5rem)]"
+				/>
+				<div class="min-w-0 flex-1 max-sm:w-full">
+					<WorkspaceToolbar ariaLabel="Onboarding history controls" items={toolbarItems} search={toolbarSearch} bare />
+				</div>
+			</div>
+		{:else}
+			<WorkspaceToolbar ariaLabel="Onboarding history controls" items={toolbarItems} search={toolbarSearch} />
+		{/if}
 	</div>
 
 	<div class="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto p-3 md:p-6">
-		{#if history.rows.length === 0}
+		<GroupFocusUnavailable {focus} />
+		{#if focus.status.kind === 'unavailable'}
+			<!-- The notice above says why; a stale focus never widens to the whole unit. -->
+		{:else if history.rows.length === 0}
 			<Empty.Root>
 				<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
 				<Empty.Header>

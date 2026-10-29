@@ -16,6 +16,15 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 	goto: gotoMock
 }));
 
+const pageMock = $state({ url: new URL('http://localhost/org/org-1/onboarding/history') });
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return pageMock.url;
+		}
+	}
+}));
+
 vi.mock('$features/app-shell', () => ({
 	getAppShellContext: () => ({
 		orgId: 'org-1',
@@ -37,6 +46,7 @@ afterEach(() => {
 	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	gotoMock.mockReset();
+	pageMock.url = new URL('http://localhost/org/org-1/onboarding/history');
 });
 
 const groups: Group[] = [{ id: 'alpha', name: 'Alpha' } as Group, { id: 'bravo', name: 'Bravo' } as Group];
@@ -310,7 +320,7 @@ describe('onboarding history page', () => {
 		expect(panelOf(1)?.textContent).toBe('');
 	});
 
-	it('filters by outcome, search, Group and Template and offers a way back from an empty result', async () => {
+	it('filters by outcome, search and Template and offers a way back from an empty result', async () => {
 		await renderHistory();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancelled' }));
@@ -322,7 +332,8 @@ describe('onboarding history page', () => {
 		});
 		expect(rowNames()).toEqual(['CPL Cancelled, Drew', 'PFC Fast, Finn']);
 
-		await choose('Group', 'Alpha');
+		await choose('Template', 'PCS In-Processing');
+		await fireEvent.click(screen.getByRole('button', { name: 'Completed' }));
 		expect(await screen.findByText('No packets match')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
@@ -330,6 +341,27 @@ describe('onboarding history page', () => {
 
 		await choose('Template', 'New Arrival Packet');
 		expect(rowNames()).toEqual(['PFC Fast, Finn', 'SGT Complete, Casey']);
+	});
+
+	it('narrows to the focused Group, and a pick replaces the address rather than adding to history', async () => {
+		pageMock.url = new URL('http://localhost/org/org-1/onboarding/history?group=alpha');
+		await renderHistory();
+
+		expect(rowNames()).toEqual(['SPC Early, Ellis', 'SGT Complete, Casey', 'SGT Slow, Gray']);
+		await fireEvent.click(screen.getByRole('button', { name: /^Group:/ }));
+		await fireEvent.click(await screen.findByRole('treeitem', { name: /Bravo/ }));
+
+		expect(gotoMock.mock.calls).toEqual([
+			['/org/org-1/onboarding/history?group=bravo', { replaceState: true, keepFocus: true, noScroll: true }]
+		]);
+	});
+
+	it('says a Group it cannot show is unavailable and lists nothing rather than every packet', async () => {
+		pageMock.url = new URL('http://localhost/org/org-1/onboarding/history?group=deleted');
+		await renderHistory();
+
+		expect(screen.getByText('Group unavailable')).toBeTruthy();
+		expect(rowNames()).toEqual([]);
 	});
 
 	it('explains an Organization with no finished packets', async () => {

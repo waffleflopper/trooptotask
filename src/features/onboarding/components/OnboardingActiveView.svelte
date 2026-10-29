@@ -24,6 +24,8 @@
 	import OnboardingPacketRow from './OnboardingPacketRow.svelte';
 	import OnboardingPacketPanel from './OnboardingPacketPanel.svelte';
 	import OnboardingMatrixView from './OnboardingMatrixView.svelte';
+	import { GroupFocusControl, GroupFocusUnavailable } from '$features/personnel';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { NoteDraft } from './noteDraft.svelte';
 
 	interface Props {
@@ -33,7 +35,6 @@
 
 	let { ctx, typicalDaysToFinish }: Props = $props();
 
-	const ALL_GROUPS = 'all';
 	type View = 'list' | 'matrix';
 	const VIEW_OPTIONS = [
 		{ value: 'list', label: 'List' },
@@ -44,19 +45,24 @@
 	const today = todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone, new Date());
 
 	let search = $state('');
-	let groupId = $state(ALL_GROUPS);
 	// `?packet=<id>` opens that packet, as a link from the Dashboard; an id no longer in processing selects nothing.
 	let selectedId = $state<string | null>(page.url.searchParams.get('packet'));
 	let view = $state<View>('list');
 
-	const active = $derived(ctx.filteredOnboardings);
+	const focus = $derived(ctx.groupFocus);
+	const groupOf = (onboarding: PersonnelOnboarding) => ctx.getPerson(onboarding.personnelId)?.groupId ?? null;
+	/** Everyone in processing the reader can see, before the focus; the focus control counts from it. */
+	const everyone = $derived(ctx.filteredOnboardings);
+	const focusPeople = $derived(everyone.map((onboarding) => ({ groupId: groupOf(onboarding) })));
+	// The control replaces the old Group select, so a flat Organization with no Groups still shows none.
+	const showFocus = $derived(ctx.groups.length > 0 || focus.focus?.kind !== 'all');
+	const active = $derived(focus.within(everyone, groupOf));
 	const stalledTotal = $derived(
 		active.filter((onboarding) => summarizePacket(onboarding, today).status === 'stalled').length
 	);
 
 	function matches(onboarding: PersonnelOnboarding): boolean {
 		const person = ctx.getPerson(onboarding.personnelId);
-		if (groupId !== ALL_GROUPS && person?.groupId !== groupId) return false;
 		const query = search.trim().toLowerCase();
 		if (!query) return true;
 		return [ctx.getPersonName(onboarding.personnelId), person?.rank, person?.mos].some((field) =>
@@ -124,7 +130,6 @@
 
 	function clearFilters() {
 		search = '';
-		groupId = ALL_GROUPS;
 	}
 
 	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
@@ -140,22 +145,6 @@
 				}
 			}
 		];
-		if (ctx.groups.length > 0) {
-			items.push({
-				kind: 'select',
-				id: 'group',
-				label: 'Group',
-				options: [
-					{ value: ALL_GROUPS, label: 'All groups' },
-					...ctx.groups.map((group) => ({ value: group.id, label: group.name }))
-				],
-				value: groupId,
-				defaultValue: ALL_GROUPS,
-				onValueChange: (value) => {
-					groupId = value;
-				}
-			});
-		}
 		items.push({ kind: 'action', id: 'history', label: 'History', href: ctx.historyUrl });
 		if (ctx.canManageConfig)
 			items.push({ kind: 'action', id: 'templates', label: 'Templates', href: ctx.templatesUrl });
@@ -209,15 +198,35 @@
 	{:else}
 		<div class="grid shrink-0 gap-4 border-b border-border p-3 md:px-6 md:pt-6 md:pb-4">
 			<PageShell.Header title="Onboarding" subtitle={subtitleParts.length > 0 ? subtitle : undefined} />
-			<WorkspaceToolbar
-				ariaLabel="Onboarding controls"
-				items={toolbarItems}
-				search={toolbarSearch}
-				primary={toolbarPrimary}
-			/>
+			{#if showFocus}
+				<div class="flex flex-wrap items-center gap-x-1 rounded-lg border border-border bg-card p-1 max-sm:flex-col">
+					<GroupFocusControl
+						{focus}
+						people={focusPeople}
+						class="ml-1 max-sm:mx-1 max-sm:mt-1 max-sm:w-[calc(100%-0.5rem)]"
+					/>
+					<div class="min-w-0 flex-1 max-sm:w-full">
+						<WorkspaceToolbar
+							ariaLabel="Onboarding controls"
+							items={toolbarItems}
+							search={toolbarSearch}
+							primary={toolbarPrimary}
+							bare
+						/>
+					</div>
+				</div>
+			{:else}
+				<WorkspaceToolbar
+					ariaLabel="Onboarding controls"
+					items={toolbarItems}
+					search={toolbarSearch}
+					primary={toolbarPrimary}
+				/>
+			{/if}
 		</div>
 
 		<div class="grid min-h-0 min-w-0 flex-1 content-start gap-6 overflow-y-auto p-3 md:p-6">
+			<GroupFocusUnavailable {focus} />
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<Alert.Root variant="warning">
 					<TriangleAlert />
@@ -244,7 +253,22 @@
 				</Alert.Root>
 			{/each}
 
-			{#if active.length === 0}
+			{#if focus.status.kind === 'unavailable'}
+				<!-- The notice above says why; a stale focus never widens to the whole unit. -->
+			{:else if focus.status.kind === 'pending'}
+				<div class="grid gap-3" role="status" aria-label="Loading Group">
+					<Skeleton class="h-24 w-full" />
+					<Skeleton class="h-64 w-full" />
+				</div>
+			{:else if active.length === 0 && everyone.length > 0}
+				<Empty.Root>
+					<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+					<Empty.Header>
+						<Empty.Title>No one in processing</Empty.Title>
+						<Empty.Description>Nobody in {focus.label} is in processing.</Empty.Description>
+					</Empty.Header>
+				</Empty.Root>
+			{:else if active.length === 0}
 				{#if !ctx.hasTemplateSteps && ctx.onboardings.length === 0}
 					{#if ctx.canManageWorkflows}
 						<Empty.Root>

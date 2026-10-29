@@ -149,7 +149,6 @@ export interface PersonnelRecordPersistence {
 export interface GroupPersistence {
 	listCatalog(): Promise<Group[]>;
 	findReference(id: string): Promise<{ id: string } | null>;
-	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: { name: string; sortOrder?: number; parentId?: string | null }): Promise<Group>;
 	/** Renames the Group. Fails 404 when the Group is gone. */
 	rename(id: string, name: string): Promise<Group>;

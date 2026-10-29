@@ -94,10 +94,9 @@
 		const totalPersonnel = groupsInReport.reduce((sum, group) => sum + (group.cells[0]?.totalPersonnel ?? 0), 0);
 		const allCells = groupsInReport.flatMap((group) => group.cells);
 		const lowCellCount = allCells.filter((cell) => readinessTone(cell) !== 'success').length;
-		const averageAvailability =
-			allCells.length > 0
-				? Math.round(allCells.reduce((sum, cell) => sum + cell.availablePercent, 0) / allCells.length)
-				: 100;
+		const personDays = allCells.reduce((sum, cell) => sum + cell.totalPersonnel, 0);
+		const availablePersonDays = allCells.reduce((sum, cell) => sum + cell.availableCount, 0);
+		const averageAvailability = personDays > 0 ? Math.round((availablePersonDays / personDays) * 100) : 100;
 		const emptyGroupCount = groupsInReport.filter((group) => (group.cells[0]?.totalPersonnel ?? 0) === 0).length;
 
 		return {

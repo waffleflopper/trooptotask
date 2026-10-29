@@ -128,4 +128,41 @@ describe('GroupReadiness', () => {
 
 		expect(rowOrder()).toEqual(['Bravo', 'Alpha']);
 	});
+
+	it('averages availability over people, so 1 of 100 available reads 1% however the Groups split', async () => {
+		const platoon = Array.from({ length: 99 }, (_, index) => ({
+			...personnel[0],
+			id: `platoon-${index}`,
+			groupId: 'platoon'
+		}));
+		vi.mocked(fetchCalendarReportData).mockResolvedValueOnce({
+			entries: platoon.map((person) => ({
+				id: `leave-${person.id}`,
+				personnelId: person.id,
+				statusTypeId: 'leave',
+				startDate: '2000-01-01',
+				endDate: '2100-12-31'
+			}))
+		} as Awaited<ReturnType<typeof fetchCalendarReportData>>);
+		render(GroupReadiness, {
+			props: {
+				orgId: 'org-1',
+				personnel: [...platoon, personnel[0]],
+				statusTypes: [],
+				groups: [
+					{ id: 'platoon', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+					{ id: 'alpha', name: 'Alpha', sortOrder: 1, parentId: null, depth: 1 as const }
+				]
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Run group availability report' }));
+		const summary = await screen.findByLabelText('Report summary');
+		const average = within(summary)
+			.getAllByRole('listitem')
+			.map((item) => item.textContent ?? '')
+			.find((finding) => finding.includes('average'));
+
+		expect(average?.match(/\d+%/)?.[0]).toBe('1%');
+	});
 });

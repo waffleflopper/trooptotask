@@ -88,8 +88,8 @@ export async function importPersonnelRecords(
 		Promise.all(referenceReads),
 		hasCreates ? ctx.personnel.listImportSlugs() : [],
 		createActivePersonnelRankResolver(ctx),
-		ctx.personnelSheets.listDodIds(),
-		ctx.personnelSheets.findDodIdsInUse(proposedDodIds)
+		proposedDodIds.length ? ctx.personnelSheets.listDodIds(proposedDodIds) : [],
+		proposedDodIds.length ? ctx.personnelSheets.findDodIdsInUse(proposedDodIds) : []
 	]);
 	const groupIds = new Set(groups.map((group) => group.id));
 	const people = new Map(references.flat().map((person) => [person.id, person]));

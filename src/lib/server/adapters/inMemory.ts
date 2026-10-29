@@ -2062,7 +2062,7 @@ function createTestPersonnelPersistence(
 				...new Set(sheets.flatMap((sheet) => (sheet.dod_id && wanted.has(sheet.dod_id) ? [sheet.dod_id] : [])))
 			].sort();
 		},
-		listDodIds: async () => {
+		listDodIds: async (only) => {
 			if (!auth.isPrivileged && !['operate', 'configure'].includes(auth.capabilityMap.personnel)) return [];
 			const [people, sheets] = await Promise.all([
 				inMemoryPersonnelRows(rawStore, auth, 'all'),
@@ -2070,7 +2070,7 @@ function createTestPersonnelPersistence(
 			]);
 			const visibleIds = new Set(people.map((person) => person.id));
 			return sheets.flatMap((sheet) =>
-				visibleIds.has(sheet.personnel_id) && sheet.dod_id
+				visibleIds.has(sheet.personnel_id) && sheet.dod_id && (!only || only.includes(sheet.dod_id))
 					? [{ personnelId: sheet.personnel_id, dodId: sheet.dod_id }]
 					: []
 			);

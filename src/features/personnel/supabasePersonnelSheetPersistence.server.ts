@@ -121,16 +121,16 @@ export function createSupabasePersonnelSheetPersistence(
 			if (error) throw new Error(error.message);
 			return data ?? [];
 		},
-		async listDodIds() {
+		async listDodIds(only) {
 			const rows: PersonnelDodId[] = [];
 			for (let offset = 0; ; offset += 1000) {
-				const { data, error } = await client
+				let query = client
 					.from('personnel_extended_info')
 					.select('personnel_id,dod_id')
 					.eq('organization_id', orgId)
-					.not('dod_id', 'is', null)
-					.order('id', { ascending: true })
-					.range(offset, offset + 999);
+					.not('dod_id', 'is', null);
+				if (only) query = query.in('dod_id', [...only]);
+				const { data, error } = await query.order('id', { ascending: true }).range(offset, offset + 999);
 				if (error) throw new Error(error.message);
 				const page = data ?? [];
 				rows.push(

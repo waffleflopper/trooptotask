@@ -1,4 +1,3 @@
-import type { ToolbarMenuToggle } from '$lib/components/patterns/workspace-toolbar';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 
 /** The head script in `app.html` reads the same key. */
@@ -49,13 +48,13 @@ export class ShowSubGroupsPreference {
 
 export const showSubGroups = new ShowSubGroupsPreference();
 
-/** The one switch every Group-aware screen puts in its Display menu. */
-export function showSubGroupsToggle(preference: ShowSubGroupsPreference = showSubGroups): ToolbarMenuToggle {
+/** The one switch every Group-aware screen puts in its Display menu, shaped as a workspace toolbar menu toggle. */
+export function showSubGroupsToggle(preference: ShowSubGroupsPreference = showSubGroups) {
 	return {
-		kind: 'toggle',
+		kind: 'toggle' as const,
 		id: 'show-sub-groups',
 		label: 'Show sub-groups',
 		pressed: preference.current,
-		onPressedChange: (pressed) => preference.set(pressed)
+		onPressedChange: (pressed: boolean) => preference.set(pressed)
 	};
 }

@@ -196,6 +196,15 @@ describe('Data sheet save', () => {
 		expect(cleared.extendedInfo.dodId).toBe('');
 		await expect(ctx.personnelSheets.findSheetForPerson(PERSON_1)).resolves.toMatchObject({ dod_id: null });
 	});
+	it('keeps a saved DoD ID when a save omits the field', async () => {
+		const ctx = buildContext({ withSheet: false });
+		await savedResult(ctx, { basicInfo, extendedInfo });
+		const saved = await savedResult(ctx, {
+			basicInfo,
+			extendedInfo: { ...extendedInfo, dodId: undefined, bloodType: 'O+' }
+		});
+		expect(saved.extendedInfo).toMatchObject({ dodId: '0123456789', bloodType: 'O+' });
+	});
 	it('writes basic info and extended info together and returns both', async () => {
 		const ctx = buildContext();
 		const result = await savedResult(ctx, {

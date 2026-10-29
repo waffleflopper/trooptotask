@@ -575,7 +575,7 @@ const optionalEmailInputSchema = z.string().email();
 
 export const personnelExtendedInfoInputSchema = z.object({
 	personnelId: z.string().min(1),
-	dodId: dodIdInputSchema.optional().default(''),
+	dodId: dodIdInputSchema.optional(),
 	bloodType: z.string().trim().max(12).optional().default(''),
 	basd: dateInputSchema,
 	dateOfRank: dateInputSchema,

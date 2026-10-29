@@ -156,7 +156,8 @@ export async function applyExtendedInfoUpdate(
 	{ input }: PreparedExtendedInfoUpdate
 ): Promise<PersonnelExtendedInfo> {
 	const existing = await ctx.personnelSheets.findSheetForPerson(input.personnelId);
-	const data = toRowData(input, ctx.auth.userId);
+	// A tab opened before DoD IDs existed omits the field; keep the stored ID rather than clear it.
+	const data = toRowData({ ...input, dodId: input.dodId ?? existing?.dod_id ?? '' }, ctx.auth.userId);
 	const row = existing
 		? await ctx.personnelSheets.replaceEditableSheetFields(existing.id, data)
 		: await ctx.personnelSheets.createSheet(input.personnelId, data);

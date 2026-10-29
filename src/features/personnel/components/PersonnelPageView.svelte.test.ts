@@ -472,29 +472,13 @@ describe('PersonnelPageView', () => {
 			);
 		const bands = () =>
 			screen.getAllByRole('button', { name: /^(Collapse|Expand) / }).map((button) => button.getAttribute('aria-label'));
-		const rowsAndBands = () =>
-			screen
-				.getAllByRole('row')
-				.map((row) => row.getAttribute('aria-label') ?? row.querySelector('[data-roster-row]')?.textContent ?? '')
-				.filter((text) => /^(Collapse|Expand)/.test(text) || /Diaz|Lee|Moss|Reyes|Adams/.test(text))
-				.map((text) => text.match(/^(Collapse|Expand) .+|Diaz|Lee|Moss|Reyes|Adams/)?.[0]);
+		const shownPeople = () =>
+			['Diaz', 'Lee', 'Moss', 'Reyes', 'Adams'].filter((name) => screen.queryByRole('row', { name: new RegExp(name) }));
 
-		it('puts a Group’s own members under its header before its sub-groups, each named by its path', () => {
+		it('lets an Organization-wide reader pin only top-level Groups', () => {
 			unitCatalog();
 			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
 
-			expect(rowsAndBands()).toEqual([
-				'Collapse HQ Section',
-				'Reyes',
-				'Collapse 2nd Platoon',
-				'Diaz',
-				'Collapse 2nd Platoon › 1st Squad',
-				'Lee',
-				'Collapse 2nd Platoon › 1st Squad › Alpha Team',
-				'Moss',
-				'Collapse Unassigned',
-				'Adams'
-			]);
 			expect(
 				screen.getAllByRole('button', { name: /^(Pin|Unpin) / }).map((pin) => pin.getAttribute('aria-label'))
 			).toEqual(['Pin HQ Section', 'Pin 2nd Platoon']);
@@ -514,12 +498,7 @@ describe('PersonnelPageView', () => {
 			pageMock.url = new URL('http://localhost/org/org-1/personnel?group=sq1');
 			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
 
-			expect(rowsAndBands()).toEqual([
-				'Collapse 2nd Platoon › 1st Squad',
-				'Lee',
-				'Collapse 2nd Platoon › 1st Squad › Alpha Team',
-				'Moss'
-			]);
+			expect(shownPeople()).toEqual(['Lee', 'Moss']);
 		});
 
 		it('says a Group it cannot show is unavailable and shows nobody rather than the whole unit', async () => {

@@ -1,4 +1,5 @@
 import type { ImportReference, ReferenceOption } from '$lib/components/patterns/import-flow';
+import { withinOrganizationLifetime } from '$lib/stores/core';
 import type { Group } from '../contracts';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelDodId } from '../personnelSheetPersistence';
@@ -131,6 +132,7 @@ export function groupReference(
 	});
 	const optionOf = (id: string) => option(byId.get(id)!);
 	const byWords = uniqueBy(groups, (group) => groupWords(group.name));
+	let creation = Promise.resolve();
 	return {
 		label: 'group',
 		reads: ['groupName'],
@@ -152,30 +154,56 @@ export function groupReference(
 		},
 		create: canCreate
 			? async (name) => {
-					const steps = name
-						.split(GROUP_PATH_SEPARATOR)
-						.map((step) => step.trim())
-						.filter(Boolean);
-					if (steps.length === 0) return { kind: 'refused', message: 'Enter a group name.' };
-					if (steps.length > MAX_GROUP_DEPTH)
-						return { kind: 'refused', message: 'Groups can nest at most three levels deep.' };
-					let parentId: string | null = null;
-					let created: Group | undefined;
-					for (const step of steps) {
-						const wanted = normalizeName(step);
-						const under: string | null = parentId;
-						created =
-							groupManagementStore.items.find(
-								(existing) => existing.parentId === under && normalizeName(existing.name) === wanted
-							) ??
-							(await groupManagementStore.add(step, under)) ??
-							undefined;
+					const previous = creation;
+					const finished = Promise.withResolvers<void>();
+					creation = finished.promise;
+					try {
+						await withinOrganizationLifetime(previous);
+						let steps = name
+							.split(GROUP_PATH_SEPARATOR)
+							.map((step) => step.trim())
+							.filter(Boolean);
+						if (steps.length === 0) return { kind: 'refused', message: 'Enter a group name.' };
+						let parentId: string | null = null;
+						let created: Group | undefined;
+						const currentTree = buildGroupTree(groupManagementStore.items);
+						for (let length = steps.length; length > 0; length--) {
+							const prefix = normalizeName(steps.slice(0, length).join(GROUP_PATH_SEPARATOR));
+							const matches = currentTree.ordered.filter(
+								(group) => normalizeName(groupExportPath(currentTree, group.id)) === prefix
+							);
+							if (matches.length > 1)
+								return {
+									kind: 'refused',
+									message: `Which group? ${matches.map((group) => groupExportPath(currentTree, group.id)).join(', ')}`
+								};
+							if (matches.length === 1) {
+								created = matches[0];
+								parentId = created.id;
+								steps = steps.slice(length);
+								break;
+							}
+						}
+						if ((created?.depth ?? 0) + steps.length > MAX_GROUP_DEPTH)
+							return { kind: 'refused', message: 'Groups can nest at most three levels deep.' };
+						for (const step of steps) {
+							const wanted = normalizeName(step);
+							const under: string | null = parentId;
+							created =
+								groupManagementStore.items.find(
+									(existing) => existing.parentId === under && normalizeName(existing.name) === wanted
+								) ??
+								(await groupManagementStore.add(step, under)) ??
+								undefined;
+							if (!created) return { kind: 'refused', message: 'Enter a group name.' };
+							parentId = created.id;
+						}
 						if (!created) return { kind: 'refused', message: 'Enter a group name.' };
-						parentId = created.id;
+						const label = groupExportPath(buildGroupTree(groupManagementStore.items), created.id);
+						return { kind: 'created', option: { ...option(created), label: label || created.name } };
+					} finally {
+						finished.resolve();
 					}
-					if (!created) return { kind: 'refused', message: 'Enter a group name.' };
-					const label = groupExportPath(buildGroupTree(groupManagementStore.items), created.id);
-					return { kind: 'created', option: { ...option(created), label: label || created.name } };
 				}
 			: undefined
 	};

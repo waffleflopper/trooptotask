@@ -112,6 +112,11 @@ never its teams. Signed in as `orgMember`, Personnel's toolbar reads `Group: 1st
 `Group Alpha Team → Bravo Team` (paths start below the member's visible root) and saves Bravo Team's ID. At 390 the
 picker is a bottom sheet above the access sheet with `Done`; at 1024 it is a popover inside the 560 px sheet.
 
+If a granted Group has since been deleted, reopening Manage drops its ID from the picker and submitted scope. If a
+granted team moved under another granted Group, only the ancestor is submitted. Change a preset without touching the
+picker, save and reload to check the canonical roots. A Group scope with no remaining Groups stays empty and never
+becomes Whole unit. Repeat with a Group removed while its sheet is open to check the current catalog is used at save.
+
 ## Gotchas
 
 - Members and ownership candidates load all pages in ascending membership ID order. Compare saved records by ID and full

@@ -175,6 +175,7 @@ export class SettingsMemberAccessWorkspace {
 	open(member: SettingsMemberRow): void {
 		if (member.membershipRole === 'owner') return;
 		this.draft = savedDraft(member, this.#data.offLanes);
+		if (this.draft.scope.kind === 'groups') this.setScopeGroups(this.draft.scope.groupIds);
 	}
 
 	close(): void {

@@ -54,6 +54,11 @@
 
 	const member = $derived(workspace.editingMember);
 	const draft = $derived(workspace.draft);
+	const scope = $derived<ScopeSet>(
+		draft?.scope.kind === 'groups'
+			? { kind: 'groups', groupIds: workspace.scopeTree.canonical(draft.scope.groupIds) }
+			: { kind: 'organization' }
+	);
 	const changeCount = $derived(workspace.changeCount);
 	const areaChangeCount = $derived(workspace.areaChangeCount);
 	const shownError = $derived(requestError ?? (errorMemberId === member?.id ? accessError : undefined));
@@ -236,12 +241,12 @@
 								<SegmentedFilter.Root
 									label="Groups"
 									options={SCOPE_OPTIONS}
-									bind:value={() => draft.scope.kind, (kind: ScopeSet['kind']) => workspace.setScopeKind(kind)}
+									bind:value={() => scope.kind, (kind: ScopeSet['kind']) => workspace.setScopeKind(kind)}
 								/>
 							</div>
-							<input type="hidden" name="scopeSetKind" value={draft.scope.kind} />
-							{#if draft.scope.kind === 'groups'}
-								{@const selected = draft.scope.groupIds}
+							<input type="hidden" name="scopeSetKind" value={scope.kind} />
+							{#if scope.kind === 'groups'}
+								{@const selected = scope.groupIds}
 								{#each selected as groupId (groupId)}
 									<input type="hidden" name="scopeSetGroupIds" value={groupId} />
 								{/each}
@@ -265,12 +270,12 @@
 							<p
 								class={cn(
 									'text-sm',
-									draft.scope.kind === 'groups' && draft.scope.groupIds.length === 0
+									scope.kind === 'groups' && scope.groupIds.length === 0
 										? 'text-warning-foreground'
 										: 'text-muted-foreground'
 								)}
 							>
-								{scopeSentence(draft.scope)}
+								{scopeSentence(scope)}
 							</p>
 						</section>
 					{:else}

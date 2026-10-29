@@ -255,6 +255,12 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    Person in the Group its path names. A path deeper than three levels is refused with
    `Groups can nest at most three levels deep.`
 
+   Whole visible names match first, followed by complete export paths. A legacy `Clinic / Lab` Group's Alpha Team
+   resolves from `Clinic / Lab / Alpha Team`. If a separate Clinic, Lab and Alpha Team branch exports the same path,
+   the value is ambiguous. Create reuses the longest existing export-path prefix and counts actual Group depth.
+   Start Create for `New Platoon / Alpha Team` and `New Platoon / Bravo Team` together. Both children must save under
+   the same confirmed parent ID, with one parent created and no request containing a `temp-` parent ID.
+
    Re-import the same file and give the same answers. Once the second duplicate is skipped again, the other ten rows
    read Unchanged behind `10 rows already match. Nothing to save.` and `Show`, `Import 0 changes` stays disabled, and
    the active roster keeps the same count and IDs with no duplicate.

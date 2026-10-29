@@ -5,7 +5,7 @@ export const GROUP_PATH_SEPARATOR = ' / ';
 /**
  * Includes the reader's visible root, even when display labels omit a single root.
  * Legacy names containing " / " stay literal. Import must match a whole visible name first,
- * and only split the value as a path when no whole-name match exists.
+ * then match the full export path so separators inside a name remain literal.
  */
 export function groupExportPath(groups: GroupTree, id: string | null): string {
 	if (id === null) return '';
@@ -23,7 +23,7 @@ export type GroupPathMatch =
 
 /**
  * Reads a Group value the way `groupExportPath` writes it. A whole visible name wins, so a legacy name containing
- * " / " still matches itself; only when no name matches is the value split and walked down from the reader's roots.
+ * " / " still matches itself. Otherwise every visible Group's export path participates, including legacy names.
  */
 export function resolveGroupPath(
 	groups: GroupTree,
@@ -38,12 +38,8 @@ export function resolveGroupPath(
 			: ids.length > 1
 				? { kind: 'ambiguous', ids }
 				: { kind: 'missing' };
-	if (named.length > 0 || !text.includes(GROUP_PATH_SEPARATOR)) return answer(named.map((group) => group.id));
-	let level: readonly { id: string; name: string }[] = groups.roots;
-	let matched: string[] = [];
-	for (const step of text.split(GROUP_PATH_SEPARATOR).map(normalize)) {
-		matched = level.filter((group) => normalize(group.name) === step).map((group) => group.id);
-		level = groups.ordered.filter((group) => group.parentId !== null && matched.includes(group.parentId));
-	}
-	return answer(matched);
+	if (named.length > 0) return answer(named.map((group) => group.id));
+	return answer(
+		groups.ordered.filter((group) => normalize(groupExportPath(groups, group.id)) === wanted).map((group) => group.id)
+	);
 }

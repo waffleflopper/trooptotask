@@ -690,6 +690,21 @@ describe('manage access sheet', () => {
 		expect(submitted[0].getAll('scopeSetGroupIds')).toEqual(['squad']);
 	});
 
+	it('keeps a group scope empty when its last Group disappears while the sheet is open', async () => {
+		const scoped = member('scoped', 'scoped@example.com', 'member', {
+			access: { ...alpha.access, scopeSet: { kind: 'groups', groupIds: ['g-1'] } }
+		});
+		const rows = [owner, scoped];
+		const { rerender } = renderPage({ rows });
+		const { sheet } = await openSheet('scoped');
+		await choose(sheet, 'Preset', 'Viewer');
+		await rerender({ data: pageData({ rows, groups: [] }), form: null, params: { orgId: 'org-1' } } as never);
+		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+
+		expect(submitted[0].get('scopeSetKind')).toBe('groups');
+		expect(submitted[0].getAll('scopeSetGroupIds')).toEqual([]);
+	});
+
 	it('shows the role as text to admins', async () => {
 		renderPage({ isOwner: false });
 		const { sheet } = await openSheet('alpha');

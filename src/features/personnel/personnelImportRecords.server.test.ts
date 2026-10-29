@@ -253,6 +253,25 @@ describe('importPersonnelRecords', () => {
 		]);
 	});
 
+	it('does not count an ID-only update whose ID write conflicts after validation', async () => {
+		const ctx = context();
+		const save = ctx.personnelSheets.saveDodIds;
+		ctx.personnelSheets.saveDodIds = async (rows) => {
+			ctx.store.seed('personnel_extended_info', [
+				{ id: 'racing-sheet', organization_id: 'test-org', personnel_id: 'archived', dod_id: '0123456789' }
+			]);
+			return save(rows);
+		};
+		const result = await importPersonnelRecords(ctx, {
+			records: [{ op: 'update', personnelId: 'person-a', changes: { dodId: '0123456789' } }]
+		});
+		expect(result).toMatchObject({ updated: [], errors: [{ kind: 'failed', index: 0 }] });
+		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toBeNull();
+		expect(ctx.audit.events).toMatchObject([
+			{ action: 'personnel.bulk_merged', details: { created: 0, updated: 0, errors: 1 } }
+		]);
+	});
+
 	it('stops hidden active and archived ID conflicts before creating or updating a Person', async () => {
 		const ctx = context({
 			auth: {

@@ -105,7 +105,7 @@ export async function importPersonnelRecords(
 	const dodIdOwners = new Map(dodIds.map(({ personnelId, dodId }) => [dodId, personnelId]));
 	const occupiedIds = new Set(occupiedDodIds);
 	const sheetWrites: Array<PersonnelDodId & { index: number }> = [];
-	let idOnlyUpdates = 0;
+	const idOnlyUpdates = new Set<string>();
 	const updated: Personnel[] = [];
 	const errors: PersonnelBatchMessage[] = [];
 
@@ -228,7 +228,7 @@ export async function importPersonnelRecords(
 		if (Object.keys(patch).length === 0) {
 			// The Person was read active and in scope above; rewriting a field from that read could undo a concurrent edit.
 			sheetWrites.push({ index, personnelId: record.personnelId, dodId: dodId! });
-			idOnlyUpdates++;
+			idOnlyUpdates.add(record.personnelId);
 			continue;
 		}
 
@@ -263,17 +263,18 @@ export async function importPersonnelRecords(
 	for (const { personnelId, reason } of sheetFailures) {
 		const index = sheetIndices.get(personnelId);
 		if (index === undefined) continue;
+		const idOnly = idOnlyUpdates.delete(personnelId);
 		errors.push({
 			kind: 'failed',
 			index,
-			message: `The Person was saved, but the DoD ID was not. ${reason === 'conflict' ? new PersonnelDodIdConflict().message : 'Review the Data sheet before retrying.'}`
+			message: `${idOnly ? 'The DoD ID was not saved.' : 'The Person was saved, but the DoD ID was not.'} ${reason === 'conflict' ? new PersonnelDodIdConflict().message : 'Review the Data sheet before retrying.'}`
 		});
 	}
 	errors.sort((left, right) => left.index - right.index);
 	await ctx.audit.log({
 		action: 'personnel.bulk_merged',
 		resourceType: 'personnel',
-		details: { created: created.length, updated: updated.length + idOnlyUpdates, errors: errors.length }
+		details: { created: created.length, updated: updated.length + idOnlyUpdates.size, errors: errors.length }
 	});
 	return { created, updated, errors };
 }

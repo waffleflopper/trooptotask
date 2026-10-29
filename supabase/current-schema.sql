@@ -7190,7 +7190,7 @@ CREATE FUNCTION public.member_access_group_scope_matches(p_organization_id uuid,
     SELECT 1 FROM public.organization_memberships m
     WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
       AND (
-        m.role IN ('owner', 'admin') OR m.access_scope_kind = 'organization' OR p_group_id IS NULL
+        m.role IN ('owner', 'admin') OR m.access_scope_kind = 'organization'
         OR (m.access_scope_kind = 'groups' AND EXISTS (
           SELECT 1 FROM public.groups g WHERE g.organization_id = p_organization_id AND g.id = p_group_id
             AND g.path && m.access_scope_group_ids

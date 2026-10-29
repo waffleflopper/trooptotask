@@ -280,7 +280,7 @@ describe('pinned Group state', () => {
 		expect(store.list).toEqual(['group-hq', 'group-2']);
 	});
 
-	it('keeps a forgotten Group unpinned when a failed re-pin is followed by the earlier unpin failing', async () => {
+	it('keeps a forgotten Group unpinned when its re-pin and the earlier unpin both fail', async () => {
 		store.load(['group-hq', 'group-2'], 'org-1');
 		let failUnpin!: (error: Error) => void;
 		vi.stubGlobal(
@@ -294,11 +294,53 @@ describe('pinned Group state', () => {
 
 		const unpin = store.unpin('group-2');
 		store.forgetGroup('group-2');
-		expect(await store.pin('group-2')).toBe(false);
+		const repin = store.pin('group-2');
 		failUnpin(new Error('Network down'));
 
-		expect(await unpin).toBe(false);
+		expect([await unpin, await repin]).toEqual([false, false]);
 		expect(store.list).toEqual(['group-hq']);
+	});
+
+	it('keeps a saved pin when an unpin and the re-pin behind it both fail', async () => {
+		store.load(['group-hq', 'group-2'], 'org-1');
+		let failUnpin!: (error: Error) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockReturnValueOnce(new Promise((_resolve, reject) => (failUnpin = reject)))
+				.mockResolvedValueOnce({ ok: false, status: 500 })
+		);
+		vi.spyOn(toastStore, 'error').mockImplementation(() => '');
+
+		const unpin = store.unpin('group-2');
+		const repin = store.pin('group-2');
+		failUnpin(new Error('Network down'));
+
+		expect([await unpin, await repin]).toEqual([false, false]);
+		expect(store.list).toEqual(['group-hq', 'group-2']);
+	});
+
+	it('keeps a newer saved pin when an earlier pin of the same Group fails', async () => {
+		store.load(['group-hq'], 'org-1');
+		let failPin!: (error: Error) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockReturnValueOnce(new Promise((_resolve, reject) => (failPin = reject)))
+				.mockResolvedValueOnce({ ok: true })
+				.mockResolvedValueOnce({ ok: true })
+		);
+		vi.spyOn(toastStore, 'error').mockImplementation(() => '');
+
+		const pin = store.pin('group-2');
+		const unpin = store.unpin('group-2');
+		const repin = store.pin('group-2');
+		failPin(new Error('Network down'));
+
+		expect([await pin, await unpin, await repin]).toEqual([false, true, true]);
+		expect(store.list).toEqual(['group-hq', 'group-2']);
 	});
 
 	it('restores a forgotten Group pinned again by a later load when its unpin fails', async () => {

@@ -105,6 +105,7 @@ export async function importPersonnelRecords(
 	const dodIdOwners = new Map(dodIds.map(({ personnelId, dodId }) => [dodId, personnelId]));
 	const occupiedIds = new Set(occupiedDodIds);
 	const sheetWrites: Array<PersonnelDodId & { index: number }> = [];
+	let idOnlyUpdates = 0;
 	const updated: Personnel[] = [];
 	const errors: PersonnelBatchMessage[] = [];
 
@@ -224,8 +225,12 @@ export async function importPersonnelRecords(
 			errors.push({ kind: 'failed', index, message: 'An update must include at least one changed field' });
 			continue;
 		}
-		// A DoD-only update still needs a real Person write to recheck the active-row guard.
-		if (Object.keys(patch).length === 0) patch.rank = person.rank;
+		if (Object.keys(patch).length === 0) {
+			// The Person was read active and in scope above; rewriting a field from that read could undo a concurrent edit.
+			sheetWrites.push({ index, personnelId: record.personnelId, dodId: dodId! });
+			idOnlyUpdates++;
+			continue;
+		}
 
 		updates.push({ index, personnelId: record.personnelId, patch, dodId });
 	}
@@ -268,7 +273,7 @@ export async function importPersonnelRecords(
 	await ctx.audit.log({
 		action: 'personnel.bulk_merged',
 		resourceType: 'personnel',
-		details: { created: created.length, updated: updated.length, errors: errors.length }
+		details: { created: created.length, updated: updated.length + idOnlyUpdates, errors: errors.length }
 	});
 	return { created, updated, errors };
 }

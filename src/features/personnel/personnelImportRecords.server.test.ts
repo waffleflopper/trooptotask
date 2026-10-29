@@ -124,10 +124,28 @@ describe('importPersonnelRecords', () => {
 		const ctx = context();
 		const result = await importPersonnelRecords(ctx, input);
 		expect(result).toMatchObject({
-			updated: [{ id: 'person-a' }, { id: 'person-b', mos: '68V' }],
+			updated: [{ id: 'person-b', mos: '68V' }],
 			errors: [{ kind: 'failed', index: 2 }]
 		});
 		await expect(ctx.personnel.findById('person-c')).resolves.toMatchObject({ mos: '68W' });
+		await expect(ctx.personnelSheets.listDodIds()).resolves.toEqual([{ personnelId: 'person-a', dodId: '0123456789' }]);
+	});
+
+	it('saves an ID-only update without rewriting a field another save just changed', async () => {
+		const ctx = context();
+		const read = ctx.personnel.listArchiveCandidates.bind(ctx.personnel);
+		ctx.personnel.listArchiveCandidates = async (ids) => {
+			const people = await read(ids);
+			await ctx.personnel.updateEditable('person-a', { rank: 'SSG' });
+			return people;
+		};
+
+		const result = await importPersonnelRecords(ctx, {
+			records: [{ op: 'update', personnelId: 'person-a', changes: { dodId: '0123456789' } }]
+		});
+
+		expect(result.errors).toEqual([]);
+		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ rank: 'SSG' });
 		await expect(ctx.personnelSheets.listDodIds()).resolves.toEqual([{ personnelId: 'person-a', dodId: '0123456789' }]);
 	});
 
@@ -184,10 +202,7 @@ describe('importPersonnelRecords', () => {
 		});
 		expect(result).toMatchObject({
 			created: [{ firstName: 'New' }],
-			updated: [
-				{ id: 'person-a', rank: 'SGT', mos: '68W' },
-				{ id: 'person-b', mos: '68V' }
-			],
+			updated: [{ id: 'person-b', mos: '68V' }],
 			errors: []
 		});
 		await expect(ctx.personnelSheets.findSheetForPerson(result.created[0].id)).resolves.toMatchObject({

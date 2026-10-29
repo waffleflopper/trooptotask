@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ImportFlow from './import-flow.svelte';
 import { personnelColumns, personnelLane, type PersonnelChange } from './importFlow.test-support';
 import { defineImportLane, questionKey, type ChunkReply, type RowReview } from './types';
-import { go, resetHistory } from './importFlowHistory.test-support.svelte';
+import { go, historyEntry, invalidate, resetHistory } from './importFlowHistory.test-support.svelte';
 import { beforeNavigate } from '$app/navigation';
 import { toastStore } from '$lib/stores/toast.svelte';
 
@@ -21,6 +21,7 @@ beforeEach(() => {
 	resetHistory();
 	vi.spyOn(window.history, 'go').mockImplementation((delta = 0) => go(delta));
 	vi.spyOn(window.history, 'back').mockImplementation(() => go(-1));
+	vi.spyOn(window.history, 'state', 'get').mockImplementation(historyEntry);
 });
 const Flow = ImportFlow<typeof personnelColumns, ReturnType<typeof personnelLane>['references'], PersonnelChange>;
 
@@ -299,6 +300,18 @@ describe('ImportFlow', () => {
 		expect(await metric('Unchanged')).toContain('1');
 		expect(await metric('Skipped')).toContain('1');
 		expect(screen.queryByText('Added')).toBeNull();
+	});
+
+	it('keeps the Done receipt when a data refresh resets the page state', async () => {
+		render(Flow, { lane: personnelLane(), title: 'Import', eyebrow: 'Test' });
+		await toReview(['Smith,Alex,SGT,']);
+		await fireEvent.click(importButton());
+		await waitFor(() => expect(currentStep()).toBe(3));
+
+		invalidate();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(currentStep()).toBe(3);
 	});
 
 	it('lists a long option set in a searchable box with the suggested option first', async () => {

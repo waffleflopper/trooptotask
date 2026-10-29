@@ -21,3 +21,12 @@ export function go(delta: number): void {
 	index = Math.max(0, Math.min(entries.length - 1, index + delta));
 	page.state = entries[index];
 }
+
+export function historyEntry(): HistoryState {
+	return entries[index];
+}
+
+/** SvelteKit's invalidate() resets page.state and leaves history where it is. */
+export function invalidate(): void {
+	page.state = {};
+}

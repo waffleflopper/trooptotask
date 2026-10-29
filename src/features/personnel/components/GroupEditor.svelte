@@ -219,8 +219,8 @@
 		</AppDialog.Header>
 
 		<div class="grid min-h-0 overflow-y-auto lg:grid-cols-[22rem_minmax(0,1fr)] lg:overflow-hidden">
-			<section aria-label="Groups" class="flex min-h-0 flex-col border-border bg-muted max-lg:border-b lg:border-r">
-				<div class="min-h-0 lg:flex-1 lg:overflow-y-auto">
+			<section aria-label="Groups" class="flex flex-col border-border bg-muted max-lg:border-b lg:min-h-0 lg:border-r">
+				<div class="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
 					<GroupTreeEditor
 						{groups}
 						{people}

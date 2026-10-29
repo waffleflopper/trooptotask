@@ -1,12 +1,5 @@
 import type { TreeSelectOption } from '$lib/components/patterns/tree-select';
-
-/** A Group a member's access can cover, with the active people filed directly in it. */
-export interface ScopeGroup {
-	id: string;
-	name: string;
-	parentId: string | null;
-	memberCount: number;
-}
+import type { ScopeGroup } from './memberSettingsTypes';
 
 export interface ScopeTree {
 	/** Depth first, siblings in the order given. */

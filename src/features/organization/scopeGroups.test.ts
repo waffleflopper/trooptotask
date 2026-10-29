@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { scopeTree, type ScopeGroup } from './scopeGroups';
+import type { ScopeGroup } from './memberSettingsTypes';
+import { scopeTree } from './scopeGroups';
 
 const groups: ScopeGroup[] = [
 	{ id: 'plt2', name: '2nd Platoon', parentId: null, memberCount: 2 },

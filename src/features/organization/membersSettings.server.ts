@@ -1,4 +1,4 @@
-import { scopeTree, type ScopeGroup, type ScopeTree } from './scopeGroups';
+import { scopeTree, type ScopeTree } from './scopeGroups';
 import {
 	DURABLE_FEATURE_LANES,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
@@ -17,7 +17,8 @@ import type {
 	MembersSettingsData,
 	SettingsMembersSectionData,
 	SettingsMemberRow,
-	SettingsPendingInvitationRow
+	SettingsPendingInvitationRow,
+	ScopeGroup
 } from './memberSettingsTypes';
 import { disabledFeatureLanes, type FeatureKey } from '$lib/access/featureSwitches';
 import type { SettingsInvitationAccessRow } from './settingsMemberAccessModel';

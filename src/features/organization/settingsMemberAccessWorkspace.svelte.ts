@@ -1,4 +1,4 @@
-import { scopeTree, type ScopeGroup, type ScopeTree } from './scopeGroups';
+import { scopeTree, type ScopeTree } from './scopeGroups';
 import {
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type CapabilityLevel,
@@ -9,7 +9,7 @@ import {
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
 import { defaultMemberAccessForRole } from '$lib/access/memberAccessCommands';
-import type { SettingsMemberRow } from './memberSettingsTypes';
+import type { ScopeGroup, SettingsMemberRow } from './memberSettingsTypes';
 import {
 	CAPABILITY_LEVEL_LABELS,
 	SETTINGS_ACCESS_LANES,

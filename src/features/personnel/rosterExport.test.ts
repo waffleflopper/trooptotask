@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnel } from './personnel.types';
 import { rosterExportFilename, rosterExportRows } from './rosterExport';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { buildPersonSignalCore, type RosterStatusType, type SignalRow } from './rosterSignals';
+
+const groups = [{ id: 'group-1', name: '1st Squad', sortOrder: 0, parentId: null, depth: 1 as const }];
 
 const LEAVE: RosterStatusType = { id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff', sortOrder: 0 };
 
@@ -45,6 +48,10 @@ function ready(away: boolean, overdueFollowUps: number): SignalRow {
 }
 
 describe('rosterExportRows', () => {
+	it('writes nested Group paths from the supplied catalog', () => {
+		const rows = rosterExportRows([person('p-1', { groupId: 'alpha' })], () => ready(false, 0), [LEAVE], NESTED_GROUPS);
+		expect(rows[0].group).toBe('1st Platoon / 2nd Squad / Alpha Team');
+	});
 	it('writes one row per Person with the roster’s Today and Needs attention', () => {
 		const signals = new Map<string, SignalRow>([
 			['p-1', ready(false, 2)],
@@ -56,7 +63,8 @@ describe('rosterExportRows', () => {
 				person('p-2', { rank: 'SPC', lastName: 'Diaz', firstName: 'Ana', ets: null, deros: '2027-06-15' })
 			],
 			(row) => signals.get(row.id)!,
-			[LEAVE]
+			[LEAVE],
+			groups
 		);
 
 		expect(rows).toEqual([
@@ -88,8 +96,8 @@ describe('rosterExportRows', () => {
 	});
 
 	it('leaves Today and Needs attention blank while the signals load or after they fail', () => {
-		const [pending] = rosterExportRows([person('p-1')], () => ({ kind: 'pending' }), [LEAVE]);
-		const [failed] = rosterExportRows([person('p-1')], () => ({ kind: 'failed' }), [LEAVE]);
+		const [pending] = rosterExportRows([person('p-1')], () => ({ kind: 'pending' }), [LEAVE], groups);
+		const [failed] = rosterExportRows([person('p-1')], () => ({ kind: 'failed' }), [LEAVE], groups);
 
 		expect([pending.today, pending.attention, failed.today, failed.attention]).toEqual(['', '', '', '']);
 	});

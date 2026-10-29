@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { buildGroupTree } from '$features/personnel/contracts';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import type { OnboardingStepProgress, PersonnelOnboarding } from './onboarding.types';
 import {
 	buildHistory,
@@ -268,6 +270,9 @@ describe("buildHistory on the viewer's day", () => {
 });
 
 describe('filterHistoryRows', () => {
+	const flatTree = buildGroupTree(
+		['first', 'third', 'hq'].map((id, sortOrder) => ({ id, name: id, sortOrder, parentId: null, depth: 1 as const }))
+	);
 	const people: Record<string, HistoryPerson> = {
 		'person-ortiz': { name: 'PV2 Ortiz, Lucas', rank: 'PV2', mos: '88M', groupId: 'third' },
 		'person-kim': { name: 'SPC Kim, Grace', rank: 'SPC', mos: '68W', groupId: 'first' },
@@ -289,7 +294,7 @@ describe('filterHistoryRows', () => {
 	);
 	const all: HistoryFilters = { outcome: 'all', query: '', groupId: HISTORY_ALL, templateId: HISTORY_ALL };
 	const ids = (filters: Partial<HistoryFilters>) =>
-		filterHistoryRows(rows, { ...all, ...filters }, (id) => people[id]).map((row) => row.packet.id);
+		filterHistoryRows(rows, { ...all, ...filters }, (id) => people[id], flatTree).map((row) => row.packet.id);
 
 	it('keeps every row with no filter set', () => {
 		expect(ids({})).toEqual(['ortiz', 'kim', 'shah', 'stopped']);
@@ -315,6 +320,20 @@ describe('filterHistoryRows', () => {
 
 	it('combines filters', () => {
 		expect(ids({ outcome: 'completed', query: 'kim' })).toEqual(['kim']);
+	});
+
+	it("takes in a platoon's HQ, squads and teams, leaves out the other platoon and reads a sub-group as all", () => {
+		const nested = buildGroupTree(NESTED_GROUPS);
+		const placed: Record<string, HistoryPerson> = {
+			'person-ortiz': { ...people['person-ortiz'], groupId: 'alpha' },
+			'person-kim': { ...people['person-kim'], groupId: 'platoon' },
+			'person-shah': { ...people['person-shah'], groupId: 'other-platoon' }
+		};
+		const nestedIds = (groupId: string) =>
+			filterHistoryRows(rows, { ...all, groupId }, (id) => placed[id], nested).map((row) => row.packet.id);
+
+		expect(nestedIds('platoon')).toEqual(['ortiz', 'kim', 'stopped']);
+		expect(nestedIds('squad')).toEqual(['ortiz', 'kim', 'shah', 'stopped']);
 	});
 });
 

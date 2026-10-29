@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { GroupTree } from '$features/personnel/contracts';
 import { uuidSchema } from '$lib/utils/inputSchemas';
 import { TASKING_STAFFING_MAX, type StaffingCount, type Tasking, type TaskingResponsibility } from '../taskingModel';
 
@@ -36,10 +37,14 @@ export interface TaskingStaffing extends StaffingCount {
 /** Why a pick is under review, from the roster facts as they stand now. */
 export type PickReview = 'archived' | 'left_group' | 'eligible_again';
 
-export function pickReview(pick: TaskingPick, responsibility: TaskingResponsibility): PickReview | null {
+export function pickReview(
+	pick: TaskingPick,
+	responsibility: TaskingResponsibility,
+	tree: GroupTree
+): PickReview | null {
 	if (pick.reviewSince === null) return null;
 	if (pick.archived) return 'archived';
-	if (responsibility.kind === 'group' && pick.groupId !== responsibility.groupId) return 'left_group';
+	if (!isCandidateFor(responsibility, pick, tree)) return 'left_group';
 	return 'eligible_again';
 }
 
@@ -54,8 +59,12 @@ export interface StaffingCandidate {
 	clinicRole: string;
 }
 
-export function isCandidateFor(responsibility: TaskingResponsibility, person: { groupId: string | null }): boolean {
-	return responsibility.kind === 'organization' || person.groupId === responsibility.groupId;
+export function isCandidateFor(
+	responsibility: TaskingResponsibility,
+	person: { groupId: string | null },
+	tree: GroupTree
+): boolean {
+	return responsibility.kind === 'organization' || tree.contains(responsibility.groupId, person.groupId);
 }
 
 /** Another fact over the execution dates. An inaccessible Tasking is only "committed elsewhere". */
@@ -107,7 +116,11 @@ export interface PickerRow extends StaffingCandidate {
 }
 
 /** Candidates plus every current pick, so an operator can see and drop a pick that stopped qualifying. */
-export function pickerRows(picker: StaffingPicker, responsibility: TaskingResponsibility): PickerRow[] {
+export function pickerRows(
+	picker: StaffingPicker,
+	responsibility: TaskingResponsibility,
+	tree: GroupTree
+): PickerRow[] {
 	const rows = new Map<string, PickerRow>();
 	for (const pick of picker.staffing.picks)
 		rows.set(pick.personnelId, {
@@ -118,7 +131,7 @@ export function pickerRows(picker: StaffingPicker, responsibility: TaskingRespon
 			groupId: pick.groupId,
 			mos: pick.mos,
 			clinicRole: pick.clinicRole,
-			review: pickReview(pick, responsibility)
+			review: pickReview(pick, responsibility, tree)
 		});
 	for (const candidate of picker.candidates)
 		if (!rows.has(candidate.personnelId)) rows.set(candidate.personnelId, { ...candidate, review: null });

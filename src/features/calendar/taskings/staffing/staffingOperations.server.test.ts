@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AuditEvent } from '$lib/audit/contracts';
 import type { CapabilityLevel, GroupCoverage } from '$lib/access/memberAccessShape';
 import type { Personnel } from '$features/personnel/contracts';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { Tasking, TaskingResponsibility } from '../taskingModel';
 import type { StaffingSave, TaskingStaffing } from './staffingModel';
@@ -114,6 +115,12 @@ function member(
 			scopeSet
 		}),
 		audit,
+		groups: {
+			listCatalog: async () => [
+				{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+				{ id: BRAVO, name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
+			]
+		},
 		calendarTaskings: { findTasking: async (id) => (id === work.id ? work : null) },
 		calendarStaffing: {
 			...staffing.port,
@@ -141,6 +148,21 @@ const save = (personnelIds: string[], expectedRevision: number) => ({
 });
 
 describe('Tasking staffing operations', () => {
+	it('offers squad HQ and both teams, and builds advisory states for every descendant candidate', async () => {
+		const { ctx } = member('operate', tasking({ kind: 'group', groupId: 'squad' }));
+		ctx.groups.listCatalog = async () => NESTED_GROUPS;
+		ctx.personnelCalendarRoster.listActive = async () => [
+			person('hq', 'squad'),
+			person('alpha', 'alpha'),
+			person('bravo', 'bravo'),
+			person('platoon-hq', 'platoon'),
+			person('neighbor', 'other-squad'),
+			person('unassigned', null)
+		];
+		const picker = await loadStaffingPicker(ctx, TASKING);
+		expect(picker.candidates.map((candidate) => candidate.personnelId)).toEqual(['hq', 'alpha', 'bravo']);
+		expect(picker.states).toEqual({ hq: { kind: 'clear' }, alpha: { kind: 'clear' }, bravo: { kind: 'clear' } });
+	});
 	it('offers a Group Tasking only its Group’s roster', async () => {
 		const { ctx } = member('operate', tasking({ kind: 'group', groupId: ALPHA }));
 

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupCatalogHydration, groupsStore, pinnedGroupsHydration, pinnedGroupsStore } from '$features/personnel';
-import { GroupFocusState, type GroupFocusSource } from '../groupFocusState.svelte';
+import { buildGroupTree, soleLeafGroup } from '../groupTree';
 import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -262,13 +262,14 @@ function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageCo
 		toggleGroup(key: string): void {
 			if (!ctx.collapsedGroups.delete(key)) ctx.collapsedGroups.add(key);
 		},
-		groupFocus: new GroupFocusState(
-			(): GroupFocusSource => ({
-				groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : null,
-				pinnedIds: pinnedGroupsStore.list,
-				organizationWide: ctx.canPinGroups
-			})
-		)
+		get groupTree() {
+			return buildGroupTree(groupsStore.orgId === ctx.orgId ? groupsStore.items : [], {
+				pinnedIds: ctx.canPinGroups ? pinnedGroupsStore.list : []
+			});
+		},
+		get soleLeafGroup() {
+			return soleLeafGroup(ctx.groupTree, ctx.canPinGroups);
+		}
 	};
 
 	for (const override of overrides) {
@@ -493,26 +494,18 @@ describe('PersonnelPageView', () => {
 			expect(bands()).toEqual(['Collapse HQ Section', 'Expand 2nd Platoon', 'Collapse Unassigned']);
 		});
 
-		it('narrows the roster to the focused Group and its sub-groups', () => {
+		it('shows an Organization-wide reader everyone, each sub-group under its parent', () => {
 			unitCatalog();
-			pageMock.url = new URL('http://localhost/org/org-1/personnel?group=sq1');
 			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
 
-			expect(shownPeople()).toEqual(['Lee', 'Moss']);
-		});
-
-		it('says a Group it cannot show is unavailable and shows nobody rather than the whole unit', async () => {
-			unitCatalog();
-			pageMock.url = new URL('http://localhost/org/org-1/personnel?group=deleted');
-			render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
-
-			expect(screen.getByText('Group unavailable')).toBeTruthy();
-			expect(screen.queryByRole('table')).toBeNull();
-			await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
-
-			expect(gotoMock.mock.calls).toEqual([
-				['/org/org-1/personnel', { replaceState: true, keepFocus: true, noScroll: true }]
+			expect(bands()).toEqual([
+				'Collapse HQ Section',
+				'Collapse 2nd Platoon',
+				'Collapse 2nd Platoon › 1st Squad',
+				'Collapse 2nd Platoon › 1st Squad › Alpha Team',
+				'Collapse Unassigned'
 			]);
+			expect(shownPeople()).toEqual(['Diaz', 'Lee', 'Moss', 'Reyes', 'Adams']);
 		});
 
 		it('gives a reader whose whole roster is one Group no bands and no A-Z or Group choice', () => {

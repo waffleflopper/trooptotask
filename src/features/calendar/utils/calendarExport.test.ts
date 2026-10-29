@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ExcelJS from 'exceljs';
 
-import { exportMonthToExcel, exportQuarterToExcel } from './calendarExport';
+import {
+	buildMonthCalendarWorkbook,
+	buildQuarterCalendarWorkbook,
+	exportMonthToExcel,
+	exportQuarterToExcel
+} from './calendarExport';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
@@ -12,6 +18,18 @@ import type {
 } from '$features/calendar/contracts';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
+
+it('writes full nested Group band names in month and quarter workbooks', async () => {
+	const input = makeOverlappingExportOptions();
+	const nested = {
+		...input,
+		groups: NESTED_GROUPS.map((group) => (group.id === 'alpha' ? { ...group, id: 'g1' } : group))
+	};
+	const month = await buildMonthCalendarWorkbook(2026, 2, nested);
+	const quarter = await buildQuarterCalendarWorkbook(new Date(2026, 2, 1), nested);
+	expect(month.getWorksheet(1)?.getCell('A3').value).toBe('1st Platoon / 2nd Squad / Alpha Team');
+	expect(quarter.getWorksheet(1)?.getCell('A3').value).toBe('1st Platoon / 2nd Squad / Alpha Team');
+});
 
 function makeOverlappingExportOptions() {
 	const personnel = [
@@ -104,6 +122,7 @@ function makeOverlappingExportOptions() {
 	];
 
 	return {
+		groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
 		personnelByGroup: [{ group: 'Alpha', personnel }],
 		availabilityEntries,
 		statusTypes,

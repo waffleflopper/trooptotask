@@ -13,11 +13,11 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { page } from '$app/state';
 
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
@@ -47,7 +47,6 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
 	groupsStore: { items: [], loading: false, orgId: 'org1' }
 }));
-vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/org/org1/calendar') } }));
 
 const savePreferences = vi.fn<(patch: Partial<CalendarDisplayPreferences>) => void>();
 function makeContext(data: CalendarPageData | (() => CalendarPageData), org: CalendarPageAccess, today?: string) {
@@ -111,6 +110,9 @@ function makeMockOrg(
 	};
 }
 
+/** The all-option's wording is incidental; its value and count are what the filter offers. */
+const groupOption = ({ value, label, count }: { value: string; label: string; count?: number }) =>
+	value ? [value, label, count] : [value, count];
 describe('CalendarPageContext', () => {
 	let ctx: CalendarPageContext;
 	let org: CalendarPageAccess;
@@ -501,15 +503,10 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	describe('calendar roster and Group focus', () => {
+	describe('calendar roster filters', () => {
 		const mutableGroups = groupsStore as unknown as { items: unknown[] };
-		const mutablePage = page as unknown as { url: URL };
 		const shown = (context: CalendarPageContext) =>
 			context.filteredPBG.map((band) => [band.groupId, band.personnel.map((person) => person.id)]);
-		const focusedOn = (search: string) => {
-			mutablePage.url = new URL(`http://localhost/org/org1/calendar${search}`);
-			return makeContext(mockData, org);
-		};
 
 		beforeEach(() => {
 			mutableGroups.items = [
@@ -520,32 +517,29 @@ describe('CalendarPageContext', () => {
 
 		afterEach(() => {
 			mutableGroups.items = [];
-			mutablePage.url = new URL('http://localhost/org/org1/calendar');
 		});
 
-		it('shows the whole roster in Group bands when nothing is focused', () => {
-			expect(shown(focusedOn(''))).toEqual([
-				['g1', ['p1']],
-				['g2', ['p2']]
+		it('builds group filter options from the scoped roster', () => {
+			expect(makeContext(mockData, org).groupFilterOptions.map(groupOption)).toEqual([
+				['', 2],
+				['g1', 'Alpha', 1],
+				['g2', 'Bravo', 1]
 			]);
 		});
 
-		it('narrows the roster to the Group in the address', () => {
-			const context = focusedOn('?group=g2');
+		it('shows the whole roster in Group bands until a Group is picked, then only that Group', () => {
+			const context = makeContext(mockData, org);
+			expect(shown(context)).toEqual([
+				['g1', ['p1']],
+				['g2', ['p2']]
+			]);
 
+			context.setCalendarGroupFilter('g2');
 			expect(shown(context)).toEqual([['g2', ['p2']]]);
-			expect(context.focusedPersonnel.map((person) => person.id)).toEqual(['p2']);
-		});
-
-		it('shows nobody for a Group the reader cannot see, rather than the whole unit', () => {
-			const context = focusedOn('?group=deleted');
-
-			expect(context.groupFocus.status).toEqual({ kind: 'unavailable' });
-			expect(shown(context)).toEqual([]);
 		});
 
 		it('matches typed personnel search text against rank, MOS, name, role, and group', () => {
-			const context = focusedOn('');
+			const context = makeContext(mockData, org);
 			const matches = (search: string) => {
 				context.setCalendarPersonnelSearch(search);
 				return shown(context);
@@ -558,13 +552,38 @@ describe('CalendarPageContext', () => {
 			expect(matches('bravo')).toEqual([['g2', ['p2']]]);
 		});
 
-		it('searches only within the focused Group', () => {
-			const context = focusedOn('?group=g2');
+		it('combines group filtering with typed personnel search text', () => {
+			const context = makeContext(mockData, org);
+			context.setCalendarGroupFilter('g2');
 
 			context.setCalendarPersonnelSearch('alice');
 			expect(shown(context)).toEqual([]);
 			context.setCalendarPersonnelSearch('bob');
 			expect(shown(context)).toEqual([['g2', ['p2']]]);
+		});
+
+		it("offers the top-level Groups and shows a platoon's HQ, squads and teams without the other platoon", () => {
+			mutableGroups.items = NESTED_GROUPS;
+			const member = (id: string, groupId: string): Personnel => ({ ...mockPersonnel[0], id, groupId });
+			const roster = [
+				member('hq', 'platoon'),
+				member('squad-lead', 'squad'),
+				member('team', 'alpha'),
+				member('sibling', 'other-platoon')
+			];
+			const context = makeContext({ ...mockData, personnel: roster, allPersonnel: roster }, org);
+
+			expect(context.groupFilterOptions.map(groupOption)).toEqual([
+				['', 4],
+				['platoon', '1st Platoon', 3],
+				['other-platoon', '2nd Platoon', 1]
+			]);
+			context.setCalendarGroupFilter('platoon');
+			expect(shown(context)).toEqual([
+				['platoon', ['hq']],
+				['squad', ['squad-lead']],
+				['alpha', ['team']]
+			]);
 		});
 	});
 
@@ -621,30 +640,13 @@ describe('CalendarPageContext', () => {
 			stores.availability.items = [];
 		});
 
-		it('counts each person out today once and ignores search', () => {
+		it('counts each person out today once and ignores Group filter and search', () => {
 			const today = makeContext(loaded('2026-09-01', '2026-11-30'), org, TODAY);
 
 			expect(today.todayAvailability).toEqual({ date: new Date(2026, 9, 16), available: 2, total: 3 });
+			today.setCalendarGroupFilter('g2');
 			today.setCalendarPersonnelSearch('bob');
 			expect(today.todayAvailability).toEqual({ date: new Date(2026, 9, 16), available: 2, total: 3 });
-		});
-
-		it('counts only the focused Group', () => {
-			const mutablePage = page as unknown as { url: URL };
-			mutablePage.url = new URL('http://localhost/org/org1/calendar?group=g2');
-			(groupsStore as unknown as { items: unknown[] }).items = [
-				{ id: 'g2', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 }
-			];
-			try {
-				expect(makeContext(loaded('2026-09-01', '2026-11-30'), org, TODAY).todayAvailability).toEqual({
-					date: new Date(2026, 9, 16),
-					available: 1,
-					total: 1
-				});
-			} finally {
-				mutablePage.url = new URL('http://localhost/org/org1/calendar');
-				(groupsStore as unknown as { items: unknown[] }).items = [];
-			}
 		});
 
 		it('counts only the people in the viewer scope', () => {

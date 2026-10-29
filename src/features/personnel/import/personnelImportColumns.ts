@@ -24,6 +24,12 @@ export const personnelImportColumns = {
 		aliases: ['first name', 'firstname', 'first', 'given name'],
 		example: 'Luis'
 	},
+	dodId: {
+		label: 'DoD ID',
+		kind: 'text',
+		aliases: ['dod id', 'edipi', 'dodid', 'dod id number', 'dod', 'edipi number'],
+		example: '0123456789'
+	},
 	mos: {
 		label: 'MOS',
 		kind: 'text',

@@ -27,7 +27,14 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
-	import { compareRosterBands, type RosterBand } from '$features/personnel/contracts';
+	import {
+		buildGroupTree,
+		compareRosterBands,
+		hasSubGroups,
+		type Personnel,
+		type RosterBand
+	} from '$features/personnel/contracts';
+	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { rosterStore } from '$features/personnel';
@@ -51,6 +58,21 @@
 	const bandNames = $derived(new Map(ctx.filteredPersonnel.map((person) => [person.groupId, person.groupName])));
 	const band = (key: string): RosterBand =>
 		key === NO_GROUP ? { groupId: null, name: '' } : { groupId: key, name: bandNames.get(key) ?? '' };
+	const matrixTree = $derived(
+		buildGroupTree(groupsStore.orgId === ctx.orgId ? groupsStore.items : [], { pinnedIds: pinnedGroupsStore.list })
+	);
+	const nestedMatrix = $derived(hasSubGroups(matrixTree) && showSubGroups.current);
+	const treeOrder = $derived(new Map(matrixTree.ordered.map((node, index) => [node.id, index])));
+	// With sub-groups hidden a root's band holds and sorts its whole subtree.
+	const bandKey = (person: Personnel): string =>
+		(nestedMatrix ? person.groupId : (matrixTree.rootOf(person.groupId)?.id ?? person.groupId)) ?? NO_GROUP;
+	const bandLabel = (key: string): string => {
+		const node = matrixTree.node(key);
+		if (node) return node.level === 0 ? matrixTree.label(key) : node.name;
+		return key === NO_GROUP ? 'Unassigned' : band(key).name;
+	};
+	const compareBandKeys = (a: string, b: string): number =>
+		(treeOrder.get(a) ?? Infinity) - (treeOrder.get(b) ?? Infinity) || compareBands(band(a), band(b));
 
 	const storesHydratedForOrg = $derived(
 		rosterStore.orgId === ctx.orgId &&
@@ -90,6 +112,7 @@
 		const exportDate = formatToday();
 		const input: TrainingMatrixWorkbookInput = $state.snapshot({
 			personnel: ctx.filteredPersonnel,
+			groups: ctx.groups,
 			trainingTypes: trainingTypesStore.items,
 			trainings: personnelTrainingsStore.items,
 			exportDate
@@ -159,6 +182,7 @@
 		{ value: 'blank', label: 'Blank' }
 	];
 	const displayOptions = $derived<ToolbarMenuItem[]>([
+		...(ctx.viewMode === 'by-group' && hasSubGroups(matrixTree) ? [showSubGroupsToggle()] : []),
 		{
 			kind: 'toggle',
 			id: 'color-all',
@@ -372,12 +396,9 @@
 					onRowOrderChange={(ids) => (ctx.rowOrder = ids)}
 					display={ctx.matrixDisplay}
 					groupBy={ctx.viewMode === 'by-group'
-						? {
-								key: (p) => p.groupId ?? NO_GROUP,
-								label: (key) => (key === NO_GROUP ? 'Unassigned' : band(key).name),
-								compare: (a, b) => compareBands(band(a), band(b))
-							}
+						? { key: bandKey, label: bandLabel, compare: compareBandKeys }
 						: undefined}
+					groupTree={ctx.viewMode === 'by-group' && nestedMatrix ? matrixTree : undefined}
 				/>
 			</div>
 		{/if}

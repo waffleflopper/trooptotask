@@ -22,6 +22,8 @@ export type AccountSetupClaimReconciliation =
 	| { state: 'support-required' };
 
 export interface AccountSetupCompletionStore extends AccountSetupLinkStore {
+	/** Name of the Organization behind the newest invitation linked to this Access Request, if any. */
+	readInvitedOrganizationName(accessRequestId: string): Promise<string | null>;
 	readAttemptId(setupLinkId: string): Promise<string | null>;
 	reconcileClaim(input: { setupLinkId: string; accessRequestId: string }): Promise<AccountSetupClaimReconciliation>;
 	completeRecovery(input: {

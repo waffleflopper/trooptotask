@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import type { Personnel } from './personnel.types';
+import { normalizeDodId } from './dodId';
 
 const importFields = {
+	dodId: z
+		.string()
+		.transform((value) => normalizeDodId(value) || undefined)
+		.optional(),
 	rank: z.string(),
 	mos: z.string().optional(),
 	clinicRole: z.string().optional(),

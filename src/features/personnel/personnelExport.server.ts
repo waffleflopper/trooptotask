@@ -15,6 +15,8 @@ import { fail } from '$lib/errors';
 import type { PersonnelRecordPersistence, GroupPersistence, PersonnelAvailabilityPeriod } from './contracts';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+import { buildGroupTree } from './groupTree';
+import { groupExportPath } from './groupPath';
 import { listGroupCatalog } from './groupCatalog.server';
 
 interface PersonnelExportContext {
@@ -85,8 +87,7 @@ export async function exportPersonnelWorkbook(
 	for (const t of trainingTypes) trainingTypeMap.set(t.id, t.name);
 	const statusTypeMap = new Map<string, string>();
 	for (const s of statusTypes) statusTypeMap.set(s.id as string, s.name as string);
-	const groupMap = new Map<string, string>();
-	for (const g of groups) groupMap.set(g.id, g.name);
+	const groupTree = buildGroupTree(groups);
 
 	const workbook = await createWorkbook();
 
@@ -96,13 +97,14 @@ export async function exportPersonnelWorkbook(
 		{ field: 'First Name', value: (person.firstName as string) ?? '' },
 		{ field: 'MOS', value: (person.mos as string) ?? '' },
 		{ field: 'Duty Role', value: (person.clinicRole as string) ?? '' },
-		{ field: 'Group', value: person.groupId ? (groupMap.get(person.groupId as string) ?? '') : '' },
+		{ field: 'Group', value: groupExportPath(groupTree, person.groupId) },
 		{ field: 'ETS', value: (person.ets as string) ?? '' },
 		{ field: 'PCS / DEROS', value: (person.deros as string) ?? '' },
 		{ field: 'Archived At', value: (person.archivedAt as string) ?? '' }
 	];
 	if (ext) {
 		infoRows.push(
+			{ field: 'DoD ID', value: ext.dod_id ?? '' },
 			{ field: 'Emergency Contact Name', value: (ext.emergency_contact_name as string) ?? '' },
 			{ field: 'Emergency Contact Relationship', value: (ext.emergency_contact_relationship as string) ?? '' },
 			{ field: 'Emergency Contact Phone', value: (ext.emergency_contact_phone as string) ?? '' },
@@ -201,7 +203,7 @@ export async function exportPersonnelWorkbook(
 			.trim()
 			.replace(/\s+/g, '_');
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.exported',
 		resourceType: 'personnel',
 		resourceId: id,

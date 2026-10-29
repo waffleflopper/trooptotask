@@ -208,7 +208,9 @@
 {#if confirmDelete}
 	<ConfirmDialog
 		title="Delete Assignment Type"
-		message={`Remove "${confirmDelete.name}"? All assignments using this type will also be removed. This cannot be undone.`}
+		message={confirmDelete.assignTo === 'personnel'
+			? `Remove "${confirmDelete.name}"? This removes every day it's assigned, its duty roster and its saved DA 6 forms. This cannot be undone.`
+			: `Remove "${confirmDelete.name}"? This removes every day it's assigned and any saved DA 6 forms. This cannot be undone.`}
 		confirmLabel="Delete"
 		onConfirm={() => {
 			if (confirmDelete) return deleteType(confirmDelete);

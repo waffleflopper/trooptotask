@@ -30,6 +30,38 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 	return createWritePortsContext(overrides);
 }
 
+it('saves Group-assigned duties for a platoon, squad, and team', async () => {
+	const ctx = buildContext();
+	ctx.store.seed('groups', [
+		{ id: GROUP_A, organization_id: ctx.auth.orgId, name: 'Platoon', parent_id: null, depth: 1 },
+		{ id: GROUP_B, organization_id: ctx.auth.orgId, name: 'Squad', parent_id: GROUP_A, depth: 2 },
+		{ id: GROUP_C, organization_id: ctx.auth.orgId, name: 'Team', parent_id: GROUP_B, depth: 3 }
+	]);
+	ctx.store.seed('assignment_types', [
+		{
+			id: GROUP_TYPE,
+			organization_id: ctx.auth.orgId,
+			name: 'Detail',
+			short_name: 'D',
+			assign_to: 'group',
+			color: '#123456',
+			sort_order: 0,
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same',
+			show_on_calendar: false
+		}
+	]);
+	const saved = [];
+	for (const assigneeId of [GROUP_A, GROUP_B, GROUP_C]) {
+		saved.push(await setDailyAssignmentSlot(ctx, { date: '2026-10-01', assignmentTypeId: GROUP_TYPE, assigneeId }));
+	}
+	expect(saved).toEqual([
+		expect.objectContaining({ assigneeId: GROUP_A }),
+		expect.objectContaining({ assigneeId: GROUP_B }),
+		expect.objectContaining({ assigneeId: GROUP_C })
+	]);
+});
+
 describe('replaceDailyAssignmentDay', () => {
 	it('preserves surviving slot identity, removes omitted slots and creates new slots for the day', async () => {
 		const ctx = buildContext();

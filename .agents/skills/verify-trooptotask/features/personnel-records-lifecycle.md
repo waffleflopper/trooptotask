@@ -10,7 +10,8 @@ archives or restores a record while keeping its identity, permissions and retain
 - `record-import`: upload a roster workbook with several tabs and a header below a title, confirm the sheets and
   columns, fix a cell inline or answer a rail question once for many rows, skip rows, commit and download the rows not
   imported.
-- `record-backfill`: the same import matches active People by name, uses the Group to break a tie and asks
+- `record-backfill`: a normalized DoD ID with one active holder wins over name, Group and rank. Otherwise the import
+  matches active People by name, uses the Group to break a tie and asks
   `Which person?` when it cannot. Namesakes in one Group always get a question, keyed by the row's rank and with the
   namesake who holds that rank suggested, because a row may be promoting one of them. Only the same name, Group and rank
   share a question. It updates only the fields a row fills and differs on, and shows a replay as Unchanged with nothing
@@ -203,13 +204,14 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    unknown Group `1st PLT`, the impossible ETS `2027-02-30`, the military date `15MAR28`, a middle initial
    (`ImportTAGB, Jae M.`) and the same new Person twice. `2nd PLT` holds the seed's dedicated Person and `Baker` with
    new ETS dates, and the seed duplicate name with no Group. `HQ` holds one `SSG` row, a rank outside the catalog, and
-   one clean row, both in Alpha. Upload it as `manager` on `Drop a spreadsheet here`.
+   one clean row, both in Alpha. Leave DOD ID blank for this workbook; exercise IDs separately below. Upload it as
+   `manager` on `Drop a spreadsheet here`.
 
    Columns: `Read sheets` checks the three roster tabs. `Cover` reads `No recognizable header in the first 15 rows` and
    `Lookups` reads `Hidden in Excel`; both stay unchecked. The summary reads `3 sheets read · 11 rows`. The preview
    marks row 3 `Header`, hatches the two rows above it and maps Name to `Last, First`, PLT to Group, Duty Position to
-   Duty role, DEROS to PCS / DEROS and DOD ID to `Don't import`. The footer reads
-   `7 of 8 columns used · DOD ID not imported`. `Use row 4 as the header` unmaps every column, shows
+   Duty role, DEROS to PCS / DEROS and DOD ID to DoD ID. The footer reports all eight columns used.
+   `Use row 4 as the header` unmaps every column, shows
    `Map a column to Last name on every included sheet.` and disables Review; `Use row 3 as the header` restores the
    mapping. Set `Import Duty Position as` to `Don't import` and back, and require the footer to follow. Nothing is
    written before the commit.
@@ -229,7 +231,8 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    moves focus to the SSG question; `Change` there and map SSG to SGT. `Import 10 changes` (`7 added · 3 updated`) stays
    disabled while any row waits for a fix.
 
-   The commit sends one `POST api/personnel/import`, then `personnel/import/__data.json` with `0010`. Done reads
+   The commit sends one `POST api/personnel/import`, then refreshes the roster workspace and import page's ID list.
+   Done reads
    `10 changes saved.` with Added 7, Updated 3 and Skipped 1 and no zero counts, and lists the skipped row as
    `1st PLT · row 9` with `You skipped this row.` Capture `Download these rows (.xlsx)` with `$V export`: one sheet
    named `1st PLT` with the original columns, DOD ID included, plus `Reason`. Read the rows back. Seven new People have
@@ -240,6 +243,33 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    Re-import the same file and give the same answers. Once the second duplicate is skipped again, the other ten rows
    read Unchanged behind `10 rows already match. Nothing to save.` and `Show`, `Import 0 changes` stays disabled, and
    the active roster keeps the same count and IDs with no duplicate.
+
+   DoD ID: use only synthetic `0123456789` and `0000000001` through `0000000004`. As `personnelOperate`, import a
+   new Alpha Person with `EDIPI` as the header and `012-345 6789` as its value. Columns maps it to DoD ID; Review
+   includes normalized `0123456789`, and commit saves that ID. Open the Person's Data sheet and reload to confirm
+   the leading zero and saved Person ID. Fill an unrelated Data sheet field, then import an ID-only change to
+   `0000000001`; Review shows the old and new IDs, and the saved sheet retains the unrelated field. Import equal
+   and blank IDs separately: an otherwise equal row is Unchanged, and a blank never clears the saved ID.
+
+   Import that saved ID with a different name, Group and rank: matching still chooses the same active Person,
+   and any filled Group/rank changes remain visible for review. Skip this row after observing its target if those
+   changes are not wanted. Repeat the column mapping with `DoD ID number` and `EDIPI number`. An invalid ID such
+   as `short` shows a DoD ID problem that can be corrected inline before saving. As `manager`, give the archived
+   duplicate `0000000002` on its Data sheet before archiving it. Import that ID against a new or another existing
+   Person: Review needs a fix and names the Organization-wide conflict. Archived People keep their IDs reserved.
+
+   In a file with two different new People using free `0000000003`, commit saves the first and rejects the second
+   through the normal failed-row receipt. Read both names back to prove that only the first Person exists. As an
+   Alpha-scoped operator, import an ID already held in Bravo, including an archived holder. The row fails before
+   creating or updating a Person. Its guidance explains that the holder is outside the Groups you can manage and
+   says to ask an Organization admin to move that Soldier, then import again. The response never identifies the
+   holder. Read the submitted names and update target back to prove no write. The server checks only IDs supplied in
+   this batch across the Organization; its visible ID list stays Group-scoped.
+   Server tests separately cover a race after that check: if the Person write succeeds but the ID write conflicts,
+   the receipt says the Person was saved but the DoD ID was not. Keep that Person and its other saved fields.
+   Repeat an import with a DoD ID from Your unit, Personnel to prove the setup lane loads the same visible IDs.
+   Commit it and wait 4 seconds: the Done receipt stays with its counts and failed-row reasons while the step
+   refreshes, and browser Back and Forward still step through Review, Columns and File before the commit.
 
    Import `Rank, Last name, First name, Group` with one new name twice, once in Alpha and once in Bravo: both rows read
    New and save as two People. Import `Last name, First name` with a new name: Review adds a Rank column whose cell on
@@ -478,7 +508,13 @@ from authenticated HTTP/provider checks and lower-level deferred/rejected-lane t
    no row change after discarding. Reopen, arm `$V network arm-fail PAGE personnel/PERSON_ID/data-sheet`, submit Save
    changes and preserve the useful error, retained form values, network state and unchanged full row. Restore the
    control and retry through Save changes. For a refusal, enter a changed MOS and an invalid personal email: the email
-   shows its message inline, focus moves to it, and both the Person row and the sheet row stay unchanged. Capture the
+   shows its message inline, focus moves to it, and both the Person row and the sheet row stay unchanged. The Identity
+   section's `DoD ID` input (mono, numeric keyboard) refuses `12345` with `Enter a 10-digit DoD ID` beside it, `aria-invalid`
+   and focus; `0123456789` saves, the read view's Identity section shows it in mono, and the record heading reads
+   `SPC SYNTHETIC ABLE (0123456789)` with the ID muted, mono and not uppercased while the tab title stays
+   `SPC Able, Synthetic - Personnel`. A name that wraps at 390 px keeps the ID on its own line with no horizontal
+   scroll. A second Person in the Organization saving the same ID is refused beside the field. `viewer` cannot open the
+   record or its `peek?section=identity` (403). Capture the
    success, reopen after reload and compare every explicit saved value with
    `$V rows personnel_extended_info orgA personnel_id PERSON_ID`, including `marital_status_date` and `updated_by` (the
    saving member's id). Set an ETS across the loss window and require the line

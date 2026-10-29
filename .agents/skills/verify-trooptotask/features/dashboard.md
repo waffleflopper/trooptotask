@@ -83,7 +83,7 @@ strength/losses and its saved evaluation is omitted from the due projection but 
 local date and timezone.
 
 | Actor | Strength (present/total) | Training attention and currency
-| Evals overdue/due within 30 days | Active packet |
+| Evals past thru/thru in 30 days | Active packet |
 | ------------------------ | ------------------------------ |
 ----------------------------------------------------------------------------------------------- |
 --------------------------------------------- | ------------------------------ |
@@ -105,12 +105,12 @@ Person counts once, as expired before missing before expiring. Yellow warnings d
 records do not add to the expired/orange attention count. Do not silently redefine a failing example.
 
 1. **Combined native read.** Run `$V actor dashboardView home` and capture the page. Strength is 3/4 with Baker's
-   Training status. Needs you lists seven rows, most urgent first. `NCOER for SPC Able, Synthetic` is Overdue, 5 days
+   Training status. Needs you lists seven rows, most urgent first. `NCOER for SPC Able, Synthetic` is Past thru, 5 days
    late; the archived Person's overdue evaluation and the completed one are absent. Expired rows name Able on
    Verification Targeted Training and Baker on Verification Required Training. Each Calendar lane has an Unfilled row
    for 13 of the 14 forecast days, tomorrow first. Able's packet is Stalled with
    `Dashboard Paperwork · waiting 8 days · 2 of 3` and `day 9`. Leaving names the new Alpha Person's ETS in 30 days with
-   no award started; the archived Person is absent. Each row's link opens its owning page at that record. Overdue opens
+   no award started; the archived Person is absent. Each row's link opens its owning page at that record. Past thru opens
    that evaluation's editor. Expired opens Training Reports filtered to that type. Unfilled opens the Calendar at the
    month of its first open day, even when the Calendar was last left on another month. Stalled opens Onboarding with
    that packet open at its waiting step. Leaving opens that Person's data sheet. On duty names Able on Verification
@@ -332,6 +332,19 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
   Dashboard's today, even if Calendar was left on another month.
 - `dashboardScoped` reads `2`, `of 2`, `AVAILABLE · 100%`, `Everyone is available today.` and
   `Steady: 2 available every day`, and the strip shows only `ALPHA 2/2`.
+- With the [nested Group tree](manage-groups.md#nested-group-tree) seeded as `orgOwner`, a `Group strength display`
+  menu sits beside the `Available · next 14 days` heading, out of the layout flow, and holds `Show sub-groups`. On,
+  the strip lists indented rows (`[data-band-level]`): `0: Bravo 0/1` below the floor, `0: 2nd Platoon 9/9`,
+  `1: 2nd Platoon HQ 2/2`, `1: 1st Squad 6/6`, `2: 1st Squad HQ 1/1`, `2: Alpha Team 4/4`, `2: Bravo Team 1/1`,
+  `1: 2nd Squad 1/1`, `0: Alpha 1/1` and `0: Unassigned 1/1`; each level sums to its parent and the top rows to the
+  headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1`, and the switch is absent
+  when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200 available is
+  flagged although it rounds to 80%.
+- Load-time layout shift, measured with a `layout-shift` `PerformanceObserver` after reload at 1440x900, 1024x640 and
+  390x844 on 2026-10-29: the nested tree read `0.0703`, `0.0297` and `0.1038` with `Show sub-groups` on, `0.0134`,
+  `0.0297` and `0.1038` with it off, and the flat fixture matched off. The skeleton reserves the compact strip, so the
+  nested list grows when it arrives; the forecast and Bottom line skeletons are also shorter than their content. Any
+  reading above these is a regression.
 
 Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and
 return dates, `ALPHA 7/10` amber and `BRAVO 8/10`), `86 of 100` (`typical`, one proportional bar, one row per status
@@ -366,16 +379,19 @@ amber for warning and red only for the worst. Columns share the width equally an
 none. From 640 to 1023 they wrap two to a row; below 640 they stack.
 
 - **Training** is Person-based currency: a Person with any expired, orange or missing applicable required record is not
-  current. The figure is green at 90% or more, amber from 75% and red below. The bar splits current, expiring (orange
-  only), missing training and expired People, each Person once in the worst of expired, missing and expiring. The note
-  names the lowest Group when two or more Groups have People and that Group is below 100%.
+  current. The figure reads `N% of Soldiers current`, rounded down so it never shows the goal before the exact share
+  reaches it, and takes the same goal-relative color as Training reports'
+  Hot-spot grid, from the unit's Training readiness goal (default 90%): green at the goal, amber within 20 points below
+  it, red further down. The bar splits current, expiring (orange only), missing training and expired People, each
+  Person once in the worst of expired, missing and expiring. The note names the lowest Group when two or more Groups
+  have People and that Group is below 100%, and always ends `Goal 90%. Missing required training, or training expired or in its Expiring window, makes a Soldier not current. Exempt training doesn't count.` with the unit's goal.
 - **Critical tasks** shows the summary's overall readiness as `N%` ready, with the 30-day change in points. The bar
   splits the People with an applicable task into three disjoint shares: below the 70% threshold (red), at or above it
   with a task lapsing soon (amber), and ready (green). The note gives the People below the threshold and the tasks
   lapsing within the window.
-- **Evaluations** shows the overdue count, red above zero. The bar splits overdue, due within 30 days and current,
-  counted on the viewer day, so an evaluation due in 45 days is current. The note gives those due within 30 and within
-  60 days and the current count, which includes the 31 to 60 day ones.
+- **Evaluations** shows the `past thru` count, red above zero, with the Evals page's own wording. The bar splits
+  `past thru`, `thru in 30 days`, `thru in 31 to 60 days` and `current`, counted on the viewer day, so an evaluation
+  due in 45 days is `thru in 31 to 60 days`. The note gives the 30 and 31 to 60 day counts, then the current count.
 - **Arriving and leaving** shows the losses in the loss window, a tick per loss on a line the length of the window, and
   the nearest three by name. With Onboarding access it adds the active packet count and links to Onboarding; otherwise
   it links to Personnel.
@@ -383,12 +399,13 @@ none. From 640 to 1023 they wrap two to a row; below 640 they stack.
 Worked examples from `$V seed dashboard` on A:
 
 - `dashboardView` has four columns. Training reads `0%` in red with 0 current, 1 expiring, 1 missing training and 2
-  expired, and `2 Soldiers expired, 1 missing training and 1 expiring. Alpha is lowest at 0%.` Critical tasks reads
+  expired, and `2 Soldiers expired, 1 missing training and 1 expiring. Alpha is lowest at 0%.` followed by the goal
+  sentence (`Goal 90%. Missing required training ...`). Critical tasks reads
   `14%` ready with all four People below the threshold (`4 of 4 Soldiers below the 70% threshold`). Evaluations reads
-  `1` overdue with `1 more due within 30 days and 1 within 60. 2 are current.` Arriving and leaving reads `1` with the
+  `1` past thru with `1 more thru in 30 days and 1 in 31 to 60. 1 current.` Arriving and leaving reads `1` with the
   Loss Person's ETS by name and `1 Soldier in onboarding.`
 - `dashboardScoped` reads Training `0%` with `1 Soldier expired and 1 missing training.`, Critical tasks `25%` with
-  `2 of 2 Soldiers below the 70% threshold`, and Evaluations `1` with `None due within 60 days. 1 is current.`
+  `2 of 2 Soldiers below the 70% threshold`, and Evaluations `1` with `None thru within 60 days. 1 current.`
 - `dashboardNone` has only Arriving and leaving. Without Training, Critical Tasks or rating access the other three
   columns are absent, not empty, and the page data carries no Critical Tasks summary.
 
@@ -415,10 +432,10 @@ Status and Training record open a picker (`Add status`, `Add training record`) w
 the viewer may act on, by last name, then the shared `Set Personnel Status` dialog, or `Add Training Record`
 (`Edit Training Record` when the Person already has a record of that type). Status starts on the viewer day. A Person
 exempt from the chosen Training type keeps `Continue` off, with a note that exemptions change on the Training page.
-Start onboarding opens `Start Onboarding` directly, and Tasking opens `Create tasking` once
-`GET api/calendar-taskings/choices` answers. None of these reads anything at page load: Training record reads the
-Person's records on `Continue` and Start onboarding reads templates and ranks (`GET api/onboarding/start-options`) as it
-opens.
+Start onboarding opens `Start Onboarding` directly, and Tasking opens the `Create tasking` sheet at once with a
+skeleton that fills with the form when `GET api/calendar-taskings/choices` answers. None of these reads anything at page
+load: Training record reads the Person's records on `Continue` and Start onboarding reads templates and ranks
+(`GET api/onboarding/start-options`) as it opens.
 
 On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out, Training reads `0%` current with
 `3 Soldiers missing training.` and Arriving and leaving reads `No one in onboarding.`
@@ -447,17 +464,27 @@ On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out
    One `GET api/dashboard/summary` refreshes Training currency for the updated population. The returned completion stays
    visible while that read is pending and after a stale summary; a failed refresh keeps the last values. Reload and read
    again.
-5. **Header.** Capture it at 1440 light and dark, at 900 and at 390. Below 1024 the group wraps under the title and
+5. **Tasking.** Arm `$V network arm-hold PAGE calendar-taskings/choices` and open Tasking: one sheet slides in with the
+   skeleton and `Cancel`. `network release`: the same sheet fills with the form, with no second slide, and focus on
+   `Required outcome`. Native recording shows one slide. `network restore`, arm the hold again and open Tasking, then
+   press Escape while held: the sheet closes and focus returns to `Tasking`. A later release opens nothing.
+   `network restore`, arm `arm-fail` on the same family and open Tasking: the skeleton sheet closes at once, the
+   `Could not open Create tasking. Try again.` toast shows, no form appears and focus returns to `Tasking`. Capture one
+   continuous sheet at 1440, 1024, 900 and 390. A fresh `orgOwner` Dashboard opens the owner setup prompt, whose
+   overlay takes the first click; press Escape before Quick add. For a late answer after a switch, as `calendarSwitch`
+   switch to B, go Back to A, hold the read and open Tasking, then go Forward: B shows no sheet, and after release no
+   sheet or toast.
+6. **Header.** Capture it at 1440 light and dark, at 900 and at 390. Below 1024 the group wraps under the title and
    stays right-aligned, as every `PageHeader` aside does; at 390 the primary button wraps to its own line.
-6. **Same dialogs.** `AvailabilityModal`, `TrainingRecordModal` and `StartOnboardingModal` each exist once, and the
+7. **Same dialogs.** `AvailabilityModal`, `TrainingRecordModal` and `StartOnboardingModal` each exist once, and the
    Dashboard loads them through their feature's `index.ts`. Calendar's empty day, a Training matrix cell and
    Onboarding's `Start onboarding` still open them, and Training's keeps `Delete`.
-7. **Page-load cost.** Opening the Dashboard sends the same requests as before Quick add, cold (a new `actor` context)
+8. **Page-load cost.** Opening the Dashboard sends the same requests as before Quick add, cold (a new `actor` context)
    and warm (reload). The reads above happen only when a dialog opens.
 
 ## Actions
 
-A Needs you row offers one action when the viewer may take it; otherwise only its link remains. Overdue offers
+A Needs you row offers one action when the viewer may take it; otherwise only its link remains. Past thru offers
 `Update status` (`ratingScheme.updateEntries`), Expired `Record class` (`training.recordCompletions`), Unfilled
 `Fill N days` (`calendar.manageAssignments`, N at most 7), Stalled `Check off` (`onboarding.manageWorkflows`) and
 Leaving `Award started` (`personnel.manageRecords` on that Person). A Short Tasking offers `Pick N` and a Conflict

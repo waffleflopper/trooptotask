@@ -196,6 +196,7 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 					ets: person.ets ?? '',
 					deros: person.deros ?? '',
 					archived_at: person.archived_at ?? '',
+					dod_id: ext?.dod_id ?? '',
 					emergency_contact: ext?.emergency_contact_name ?? '',
 					emergency_phone: ext?.emergency_contact_phone ?? '',
 					phone: ext?.personal_phone ?? '',

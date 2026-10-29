@@ -1,4 +1,6 @@
 import {
+	buildGroupTree,
+	type Group,
 	comparePersonnelByCatalogRankThenName,
 	compareRankCodes,
 	type RankCatalogEntry
@@ -7,22 +9,24 @@ import { fromDayNumber, toDayNumber, type DayNumber } from '$lib/utils/dayNumber
 import { matchesFacets } from '../utils/dutyPickerFilter';
 import type { EntryCause, Excusal, LeaveCause, PersonState, PoolChange, PoolRules, RosterPerson } from './rosterTypes';
 
-type PoolFacet = 'rank' | 'mos' | 'role' | 'group';
+type PoolFacet = 'rank' | 'mos' | 'role';
 
 export function compilePoolRules(
 	rules: PoolRules | null,
-	catalog: readonly RankCatalogEntry[]
+	catalog: readonly RankCatalogEntry[],
+	groups: readonly Group[]
 ): (state: PersonState) => boolean {
 	if (!rules) return (state) => state.active;
 	const selection: Record<PoolFacet, readonly string[]> = {
 		rank: rules.rank ? ranksBetween(rules.rank.from, rules.rank.to, catalog) : [],
 		mos: rules.mos,
-		role: rules.role,
-		group: rules.groupIds
+		role: rules.role
 	};
+	const tree = buildGroupTree(groups);
 	return (state) =>
 		state.active &&
-		matchesFacets({ rank: state.rank, mos: state.mos, role: state.clinicRole, group: state.groupId ?? '' }, selection);
+		(rules.groupIds.length === 0 || rules.groupIds.some((id) => tree.contains(id, state.groupId))) &&
+		matchesFacets({ rank: state.rank, mos: state.mos, role: state.clinicRole }, selection);
 }
 
 function ranksBetween(a: string, b: string, catalog: readonly RankCatalogEntry[]): string[] {
@@ -138,9 +142,10 @@ export function poolOn(input: {
 	people: readonly RosterPerson[];
 	excusals: readonly Excusal[];
 	catalog: readonly RankCatalogEntry[];
+	groups: readonly Group[];
 	on: string;
 }): { members: RosterPerson[]; excused: Excusal[] } {
-	const matches = compilePoolRules(input.rules, input.catalog);
+	const matches = compilePoolRules(input.rules, input.catalog, input.groups);
 	const day = toDayNumber(input.on);
 	const members = input.people.filter((person) => inPoolOn(timeline(person, input.excusals), matches, day));
 	const excused = input.excusals.filter(

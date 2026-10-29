@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OrganizationExportPayload } from './organizationExport.server';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import {
 	buildOrganizationDataExportWorkbook,
 	buildOrganizationDataExportWorkbookPlan
@@ -26,6 +27,7 @@ function payload(overrides: Partial<OrganizationExportPayload['sections']> = {})
 			personnelExtendedInfo: [
 				{
 					id: 'extended-1',
+					dod_id: '0123456789',
 					personnel_id: 'person-1',
 					emergency_contact_name: 'Taylor Smith',
 					personal_phone: '555-0101'
@@ -56,6 +58,38 @@ function payload(overrides: Partial<OrganizationExportPayload['sections']> = {})
 }
 
 describe('Organization Data Export workbook', () => {
+	it('keeps the JSON parentId alias out of workbook Group columns', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				groups: [{ id: 'squad', name: '2nd Squad', parent_id: 'platoon', parentId: 'platoon' }]
+			})
+		});
+		expect(plan.readableSheets.find((sheet) => sheet.name === 'Groups')?.columns.map((column) => column.key)).toEqual([
+			'id',
+			'name',
+			'parent_id'
+		]);
+		expect(
+			plan.rawArchiveSheets.find((sheet) => sheet.name === 'Raw - Groups')?.columns.map((column) => column.key)
+		).toEqual(['id', 'name', 'parent_id']);
+	});
+	it('writes nested Group paths in the readable Personnel sheet', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				groups: NESTED_GROUPS.map((group) => ({
+					id: group.id,
+					name: group.name,
+					parent_id: group.parentId,
+					sort_order: group.sortOrder,
+					depth: group.depth
+				})),
+				personnel: [{ id: 'person', group_id: 'alpha' }]
+			})
+		});
+		expect(plan.readableSheets.find((sheet) => sheet.name === 'Personnel')?.rows[0].group).toBe(
+			'1st Platoon / 2nd Squad / Alpha Team'
+		);
+	});
 	it('plans the supplied source sections with readable and raw Training data', () => {
 		const plan = buildOrganizationDataExportWorkbookPlan({
 			payload: payload()
@@ -92,10 +126,14 @@ describe('Organization Data Export workbook', () => {
 		expect(plan.rawArchiveSheets.map((sheet) => sheet.name)).toContain('Raw - Availability Entries');
 		expect(personnel?.columns.map((column) => column.header)).toContain('Duty Role');
 		expect(personnel?.rows[0]).toMatchObject({
+			dod_id: '0123456789',
 			group: 'Alpha',
 			emergency_contact: 'Taylor Smith',
 			phone: '555-0101'
 		});
+		expect(
+			plan.rawArchiveSheets.find((sheet) => sheet.name === 'Raw - Personnel Extended Info')?.rows[0]
+		).toMatchObject({ personnel_id: 'person-1', dod_id: '0123456789' });
 	});
 
 	it('keeps empty readable sheets visible with the existing no-records column', () => {

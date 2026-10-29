@@ -25,9 +25,8 @@
 		serializeRosterFilter
 	} from '../rosterFilter';
 	import { matchesRosterFilter, type RosterFilter } from '../rosterSignals';
-	import type { Band } from '../groupTree';
-	import GroupFocusControl from './GroupFocusControl.svelte';
-	import GroupFocusUnavailable from './GroupFocusUnavailable.svelte';
+	import { hasSubGroups, type Band } from '../groupTree';
+	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import type { ComposerKind } from '../rosterComposer';
@@ -55,19 +54,23 @@
 	const ROSTER_PAGE_SIZE = 75;
 	const peekFits = new MediaQuery('min-width: 1280px', false);
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	const groupKey = (person: Personnel): string => person.groupId ?? '';
 	const groupOf = (person: Personnel): string | null => person.groupId;
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
-	const focus = $derived(ctx.groupFocus);
-	const focusUnavailable = $derived(focus.status.kind === 'unavailable');
+	const tree = $derived(ctx.groupTree);
+	const soleLeaf = $derived(ctx.soleLeafGroup);
 	// One Group with nothing under it is the reader's whole roster: no band to draw and no A-Z or Group choice to make.
-	const banded = $derived(!focus.singleLeaf);
-	const nestedTree = $derived(focus.tree.ordered.some((node) => node.hasChildren));
+	const banded = $derived(soleLeaf === null);
+	const nestedTree = $derived(hasSubGroups(tree));
+	const nested = $derived(nestedTree && showSubGroups.current);
+	// With sub-groups hidden a root's band sorts its whole subtree as one list.
+	const groupKey = (person: Personnel): string =>
+		(nested ? person.groupId : (tree.rootOf(person.groupId)?.id ?? person.groupId)) ?? '';
 	const viewMode = $derived(banded ? ctx.viewMode : 'alphabetical');
 	let locallyArchivedIds = new SvelteSet<string>();
-	const readerPersonnel = $derived(ctx.allActivePersonnel.filter((person) => !locallyArchivedIds.has(person.id)));
-	const visibleAllActivePersonnel = $derived(focus.within(readerPersonnel, groupOf));
+	const visibleAllActivePersonnel = $derived(
+		ctx.allActivePersonnel.filter((person) => !locallyArchivedIds.has(person.id))
+	);
 	const signalSummary = $derived(ctx.summarizeSignals(visibleAllActivePersonnel));
 
 	const requestedFilter = $derived(parseRosterFilter(page.url.searchParams.get(ROSTER_FILTER_PARAM)));
@@ -91,14 +94,10 @@
 		return row.kind !== 'ready' || matchesRosterFilter(row.value, rosterFilter);
 	}
 	const visibleAlphabeticalPersonnel = $derived(
-		focus
-			.within(ctx.alphabeticalPersonnel, groupOf)
-			.filter((person) => !locallyArchivedIds.has(person.id) && shownByFilter(person))
+		ctx.alphabeticalPersonnel.filter((person) => !locallyArchivedIds.has(person.id) && shownByFilter(person))
 	);
 	const visibleFilteredPersonnel = $derived(
-		focus
-			.within(ctx.filteredPersonnel, groupOf)
-			.filter((person) => !locallyArchivedIds.has(person.id) && shownByFilter(person))
+		ctx.filteredPersonnel.filter((person) => !locallyArchivedIds.has(person.id) && shownByFilter(person))
 	);
 
 	function showFilter(next: RosterFilter | null): void {
@@ -233,10 +232,7 @@
 	// Each Group is a section of its own members in tree order, its sub-groups' sections after it. Collapsing a Group
 	// hides its members and every section below it.
 	const sections = $derived.by((): RosterSection[] => {
-		const current = focus.focus;
-		if (!current) return [];
 		const sorted = new Map(groupedTable.groups.map((group) => [group.key, group.rows]));
-		const tree = focus.tree;
 		const out: RosterSection[] = [];
 		let room = GROUPED_ROSTER_RENDER_LIMIT;
 		const take = (key: string, collapsed: boolean): Personnel[] => {
@@ -247,17 +243,14 @@
 			return shown;
 		};
 		const subtree = (band: Band<Personnel>): Personnel[] => [...band.hq, ...band.children.flatMap(subtree)];
-		// The focused Group draws as the top band, named by its path when its parent is not on screen.
-		const base = current.kind === 'group' ? (tree.node(current.id)?.level ?? 0) : 0;
 		const visit = (band: Band<Personnel>) => {
 			const { node } = band;
 			const collapsed = ctx.collapsedGroups.has(node.id);
-			const level = node.level - base;
 			out.push({
 				key: node.id,
 				label: tree.label(node.id),
-				name: level === 0 ? tree.label(node.id) : node.name,
-				level,
+				name: node.level === 0 ? tree.label(node.id) : node.name,
+				level: node.level,
 				topLevel: node.parentId === null,
 				rows: take(node.id, collapsed),
 				people: subtree(band),
@@ -265,7 +258,7 @@
 			});
 			if (!collapsed) band.children.forEach(visit);
 		};
-		tree.bands(current, visibleFilteredPersonnel, groupOf).forEach(visit);
+		tree.bands(visibleFilteredPersonnel, groupOf, { nested }).forEach(visit);
 		// People outside the tree: Unassigned last, and before it anyone whose Group left the catalog, by name, as today.
 		const loose = groupedTable.groups
 			.filter((group) => !tree.node(group.key))
@@ -456,7 +449,7 @@
 	}
 
 	function noteToGroup(key: string, label: string): void {
-		const members = visibleAllActivePersonnel.filter((person) => focus.tree.contains(key, person.groupId));
+		const members = visibleAllActivePersonnel.filter((person) => tree.contains(key, person.groupId));
 		openBulkCompose(members, 'note', `${label} · {count}`, `[data-roster-group="${CSS.escape(key)}"]`);
 	}
 
@@ -601,6 +594,7 @@
 		personnelToolbarItems({
 			viewMode: banded ? ctx.viewMode : null,
 			onViewModeChange: (mode) => (ctx.viewMode = mode),
+			showSubGroups: banded && nestedTree ? showSubGroupsToggle() : null,
 			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupEditor(groupsStore.items[0]?.id ?? null) : null,
 			importHref: ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null
 		})
@@ -642,34 +636,21 @@
 		>
 			<PersonnelRosterHeader
 				unitName={ctx.orgName}
-				scopeLabel={focus.singleLeaf ? focus.label : null}
-				activeCount={focusUnavailable ? null : visibleAllActivePersonnel.length}
+				scopeLabel={soleLeaf?.name ?? null}
+				activeCount={visibleAllActivePersonnel.length}
 				summary={signalSummary}
-				canViewAvailability={ctx.canViewAvailability && !peekOpen && !focusUnavailable}
+				canViewAvailability={ctx.canViewAvailability && !peekOpen}
 				filter={rosterFilter}
 				statusTypes={ctx.signals.statusTypes}
 				onToggleFilter={toggleFilter}
 			/>
 
-			<!-- The focus control leads the toolbar card and takes its own row on a phone, as in the Group focus frames. -->
-			<div class="flex flex-wrap items-center gap-x-1 rounded-lg border border-border bg-card p-1 max-sm:flex-col">
-				<GroupFocusControl
-					{focus}
-					people={readerPersonnel}
-					class="ml-1 max-sm:mx-1 max-sm:mt-1 max-sm:w-[calc(100%-0.5rem)]"
-				/>
-				<div class="min-w-0 flex-1 max-sm:w-full">
-					<WorkspaceToolbar
-						ariaLabel="Personnel controls"
-						items={toolbarItems}
-						search={toolbarSearch}
-						primary={toolbarPrimary}
-						bare
-					/>
-				</div>
-			</div>
-
-			<GroupFocusUnavailable {focus} />
+			<WorkspaceToolbar
+				ariaLabel="Personnel controls"
+				items={toolbarItems}
+				search={toolbarSearch}
+				primary={toolbarPrimary}
+			/>
 
 			<PersonnelFilterChips
 				summary={signalSummary}
@@ -710,9 +691,7 @@
 				</Alert.Root>
 			{/if}
 
-			{#if focusUnavailable}
-				<!-- The notice above says what happened; showing anyone here would widen the focus. -->
-			{:else if readerPersonnel.length === 0}
+			{#if visibleAllActivePersonnel.length === 0}
 				<Empty.Root class="border-border bg-card">
 					<Empty.Header>
 						<Empty.Media variant="icon">
@@ -750,7 +729,7 @@
 						table={activeTable}
 						columns={viewMode === 'by-group' ? groupedColumns : personnelColumns}
 						ariaLabel="Personnel roster"
-						stickyGroup={nestedTree ? (key) => sectionByKey.get(key)?.level === 0 : undefined}
+						stickyGroup={nested ? (key) => sectionByKey.get(key)?.level === 0 : undefined}
 						emptyMessage={rosterFilter
 							? 'No personnel match this filter.'
 							: rosterSearch.trim()
@@ -786,7 +765,6 @@
 							{@const ids = people.map((person) => person.id)}
 							{@const unassigned = group.key === ''}
 							{@const groupId = unassigned ? null : group.key}
-							{@const inTree = groupId !== null && focus.tree.node(groupId) !== undefined}
 							<PersonnelGroupHeader
 								{group}
 								level={section?.level ?? 0}
@@ -801,9 +779,6 @@
 									: null}
 								onNoteToEveryone={!unassigned && groupId && ctx.canManagePersonnelInGroup(groupId)
 									? () => noteToGroup(group.key, group.label)
-									: null}
-								onShowOnly={inTree && !(focus.focus?.kind === 'group' && focus.focus.id === groupId)
-									? () => focus.go({ kind: 'group', id: group.key }, 'drill')
 									: null}
 							/>
 						{/snippet}

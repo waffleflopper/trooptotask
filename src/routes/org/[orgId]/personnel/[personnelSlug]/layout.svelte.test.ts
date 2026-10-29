@@ -41,7 +41,7 @@ function renderAt(routeId: string) {
 	page.route.id = routeId;
 	return render(Layout, {
 		data: {
-			personnelDetailHeader: { person, basd: null, dateOfRank: null },
+			personnelDetailHeader: { person, dodId: null, basd: null, dateOfRank: null },
 			personnelDetailLayout: {
 				availabilityToday: Promise.resolve(null),
 				tabCounts: Promise.resolve(null),

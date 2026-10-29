@@ -29,7 +29,7 @@
 	const editorReads = $derived(Promise.all([sheet, catalogs]));
 
 	const skeletonColumns = [
-		[5, 2],
+		[1, 5, 2],
 		[3, 3, 2]
 	];
 </script>

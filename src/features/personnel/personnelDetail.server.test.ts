@@ -102,6 +102,7 @@ describe('personnel detail header reads', () => {
 				id: 'sheet-1',
 				organization_id: ctx.auth.orgId,
 				personnel_id: 'person-1',
+				dod_id: '0123456789',
 				basd: '2019-06-11',
 				date_of_rank: '2023-02-01'
 			}
@@ -122,6 +123,7 @@ describe('personnel detail header reads', () => {
 				archivedAt: '2026-01-02T03:04:05.123456+00:00'
 			},
 			basd: '2019-06-11',
+			dodId: '0123456789',
 			dateOfRank: '2023-02-01'
 		});
 	});
@@ -130,6 +132,7 @@ describe('personnel detail header reads', () => {
 		const ctx = createTestContext();
 		await seedPerson(ctx, { slug: 'rivera-monica' });
 		await expect(loadPersonnelDetailHeader(ctx, 'rivera-monica')).resolves.toMatchObject({
+			dodId: null,
 			basd: null,
 			dateOfRank: null
 		});
@@ -139,6 +142,26 @@ describe('personnel detail header reads', () => {
 		const ctx = createTestContext();
 		await seedPerson(ctx, { slug: 'rivera-monica', organization_id: 'foreign-org' });
 		await expect(loadPersonnelDetailHeader(ctx, 'rivera-monica')).rejects.toMatchObject({ status: 404 });
+	});
+	it('refuses the header and its DoD ID to a Personnel view-only member', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'view',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		await seedPerson(ctx, { slug: 'rivera-monica' });
+		ctx.store.seed('personnel_extended_info', [
+			{ id: 'sheet-1', organization_id: ctx.auth.orgId, personnel_id: 'person-1', dod_id: '0123456789' }
+		]);
+		await expect(loadPersonnelDetailHeader(ctx, 'rivera-monica')).rejects.toMatchObject({ status: 403 });
 	});
 	it.each([
 		['outside the member Group scope', ['other-group']],

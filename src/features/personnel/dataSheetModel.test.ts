@@ -27,6 +27,7 @@ const person: Personnel = {
 };
 
 const info: PersonnelExtendedInfo = {
+	dodId: '0123456789',
 	bloodType: 'O+',
 	basd: '2020-06-02',
 	dateOfRank: '2024-02-01',
@@ -58,8 +59,9 @@ const info: PersonnelExtendedInfo = {
 describe('Data sheet changes', () => {
 	it('lists nothing for an untouched draft, however the saved values were spaced', () => {
 		const saved = dataSheetValues(person, info);
-		const draft = { ...saved, mos: ' 68W ', militaryEducation: '68W AIT\n\n  Air Assault  ' };
+		const draft = { ...saved, dodId: ' 012-345 6789 ', mos: ' 68W ', militaryEducation: '68W AIT\n\n  Air Assault  ' };
 		expect(changedDataSheetFields(saved, draft)).toEqual([]);
+		expect(changedDataSheetFields(saved, { ...draft, dodId: '1123456789' })).toEqual(['dodId']);
 	});
 
 	it('lists each changed field once', () => {
@@ -107,6 +109,7 @@ describe('Data sheet save payload', () => {
 	it('sends every field, with empty Group and dates as null and counts as numbers', () => {
 		const draft = {
 			...dataSheetValues(person, info),
+			dodId: ' 012-345 6789 ',
 			groupId: '',
 			ets: '',
 			numberOfDependents: ' 2 ',
@@ -129,6 +132,7 @@ describe('Data sheet save payload', () => {
 			deros: null
 		});
 		expect(payload.extendedInfo).toMatchObject({
+			dodId: '0123456789',
 			numberOfDependents: 2,
 			children: [
 				{ name: 'Avery', age: 7 },
@@ -183,6 +187,7 @@ describe('Data sheet read model', () => {
 			bloodType: 'O+',
 			civilianEducation: "Associate's, Fayetteville Tech",
 			militaryEducation: '68W AIT · Air Assault',
+			dodId: '0123456789',
 			personalPhone: '(910) 555-0148',
 			personalEmail: 'daniel.okafor@example.test',
 			addressLines: ['412 Longleaf Dr, Apt 3B', 'Fayetteville, NC 28314'],

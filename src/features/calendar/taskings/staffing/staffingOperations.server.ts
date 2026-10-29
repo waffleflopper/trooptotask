@@ -2,7 +2,7 @@ import type { z } from 'zod';
 import { fail } from '$lib/errors';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { AuditPort } from '$lib/audit/contracts';
-import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import { buildGroupTree, type GroupPersistence, type PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../../calendarPolicy.server';
 import type { Tasking } from '../taskingModel';
@@ -24,6 +24,7 @@ export interface CalendarStaffingPorts {
 	audit: AuditPort;
 	calendarTaskings: Pick<CalendarTaskingPersistence, 'findTasking'>;
 	calendarStaffing: CalendarStaffingPersistence;
+	groups: Pick<GroupPersistence, 'listCatalog'>;
 	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'listActive'>;
 }
 
@@ -55,9 +56,10 @@ export async function loadTaskingStaffing(ctx: CalendarStaffingPorts, id: string
 export async function loadStaffingPicker(ctx: CalendarStaffingPorts, id: string): Promise<StaffingPicker> {
 	const tasking = await requireTasking(ctx, id);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, tasking.responsibility);
-	const [staffing, people, advisories] = await Promise.all([
+	const [staffing, people, groups, advisories] = await Promise.all([
 		requireStaffing(ctx, tasking.id),
 		ctx.personnelCalendarRoster.listActive(ctx.auth),
+		ctx.groups.listCatalog(),
 		tasking.execution
 			? ctx.calendarStaffing.listAdvisories(tasking.id).then(
 					(byPerson): StaffingAdvisories => ({ kind: 'loaded', byPerson }),
@@ -68,28 +70,26 @@ export async function loadStaffingPicker(ctx: CalendarStaffingPorts, id: string)
 				)
 			: ({ kind: 'no_execution' } as const)
 	]);
+	const tree = buildGroupTree(groups);
+	const candidates = people.filter((person) => isCandidateFor(tasking.responsibility, person, tree));
 	return {
 		tasking: { requirement: tasking.requirement, execution: tasking.execution },
 		staffing,
-		candidates: people
-			.filter((person) => isCandidateFor(tasking.responsibility, person))
-			.map(({ id, rank, firstName, lastName, groupId, mos, clinicRole }) => ({
-				personnelId: id,
-				rank,
-				firstName,
-				lastName,
-				groupId,
-				mos,
-				clinicRole
-			})),
+		candidates: candidates.map(({ id, rank, firstName, lastName, groupId, mos, clinicRole }) => ({
+			personnelId: id,
+			rank,
+			firstName,
+			lastName,
+			groupId,
+			mos,
+			clinicRole
+		})),
 		advisories,
 		states: Object.fromEntries(
-			[
-				...new Set([
-					...people.filter((p) => isCandidateFor(tasking.responsibility, p)).map((p) => p.id),
-					...staffing.picks.map((p) => p.personnelId)
-				])
-			].map((id) => [id, staffingPersonState(id, advisories)])
+			[...new Set([...candidates.map((p) => p.id), ...staffing.picks.map((p) => p.personnelId)])].map((id) => [
+				id,
+				staffingPersonState(id, advisories)
+			])
 		)
 	};
 }

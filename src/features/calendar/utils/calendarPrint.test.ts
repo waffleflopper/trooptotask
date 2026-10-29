@@ -3,6 +3,7 @@ import type { jsPDF } from 'jspdf';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { buildMonthCalendarPdf, buildQuarterCalendarPdf, type CalendarPrintOptions } from './calendarPrint';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 
 const leave: StatusType = {
 	id: 'leave',
@@ -45,6 +46,7 @@ function entry(id: string, personnelId: string, statusTypeId: string, startDate:
 
 function options(overrides: Partial<CalendarPrintOptions> = {}): CalendarPrintOptions {
 	return {
+		groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }],
 		personnelByGroup: [{ group: 'Alpha', personnel: [person('smith', 'Smith')] }],
 		availabilityEntries: [],
 		statusTypes: [leave, school],
@@ -67,6 +69,13 @@ function printedPages(doc: jsPDF): string[][] {
 }
 
 describe('calendar Print/PDF', () => {
+	it('writes the nested Group path in month and quarter PDFs', async () => {
+		const input = options({ groups: NESTED_GROUPS });
+		const month = await buildMonthCalendarPdf(2026, 2, input);
+		const quarter = await buildQuarterCalendarPdf(new Date(2026, 2, 1), input);
+		for (const doc of [month, quarter])
+			expect(printedPages(doc).flat()).toContain('1ST PLATOON / 2ND SQUAD / ALPHA TEAM');
+	});
 	it('prints a multi-day entry once as a bar labeled with its length, not once per day', async () => {
 		const doc = await buildMonthCalendarPdf(
 			2026,

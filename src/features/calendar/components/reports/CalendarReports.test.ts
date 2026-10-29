@@ -36,7 +36,12 @@ afterEach(() => {
 
 function renderReports() {
 	render(CalendarReports, {
-		props: { orgId: 'org-1', personnel, statusTypes: [], groups: [{ id: 'alpha', name: 'Alpha' }] }
+		props: {
+			orgId: 'org-1',
+			personnel,
+			statusTypes: [],
+			groups: [{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }]
+		}
 	});
 }
 

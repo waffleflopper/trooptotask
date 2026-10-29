@@ -19,6 +19,3 @@ export async function listReaderPinnedGroupIds(ctx: {
 export function listGroupCatalog(ctx: { groups: Pick<GroupPersistence, 'listCatalog'> }) {
 	return ctx.groups.listCatalog();
 }
-export function findGroupNamesByIds(ctx: { groups: Pick<GroupPersistence, 'findNamesByIds'> }, ids: string[]) {
-	return ctx.groups.findNamesByIds(ids);
-}

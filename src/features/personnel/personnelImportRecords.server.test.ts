@@ -5,6 +5,7 @@ import { withPersonnelPersistence } from './personnelPersistence.test-support.se
 import { importPersonnelRecords } from './personnelImportRecords.server';
 import { createSupabasePersonnelRecordPersistence } from './personnelRecordPersistence.server';
 import { personnelProvider } from './test-support/personnelProvider';
+import { personnelImportRecordsInputSchema } from './personnelImportRecords.contracts';
 
 function context(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	const ctx = withPersonnelPersistence(createWritePortsContext(overrides));
@@ -108,6 +109,233 @@ function context(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 }
 
 describe('importPersonnelRecords', () => {
+	it('normalizes ID input and treats blank IDs as omitted while retaining row-level format failures', async () => {
+		const input = personnelImportRecordsInputSchema.parse({
+			records: [
+				{ op: 'update', personnelId: 'person-a', changes: { dodId: ' 012-345 6789 ' } },
+				{ op: 'update', personnelId: 'person-b', changes: { dodId: ' - ', mos: '68V' } },
+				{ op: 'update', personnelId: 'person-c', changes: { dodId: 'bad', mos: 'BAD' } }
+			]
+		});
+		expect(input.records).toEqual([
+			{ op: 'update', personnelId: 'person-a', changes: { dodId: '0123456789' } },
+			{ op: 'update', personnelId: 'person-b', changes: { dodId: undefined, mos: '68V' } },
+			{ op: 'update', personnelId: 'person-c', changes: { dodId: 'bad', mos: 'BAD' } }
+		]);
+		const ctx = context();
+		const result = await importPersonnelRecords(ctx, input);
+		expect(result).toMatchObject({
+			updated: [{ id: 'person-b', mos: '68V' }],
+			errors: [{ kind: 'failed', index: 2 }]
+		});
+		await expect(ctx.personnel.findById('person-c')).resolves.toMatchObject({ mos: '68W' });
+		await expect(ctx.personnelSheets.listDodIds()).resolves.toEqual([{ personnelId: 'person-a', dodId: '0123456789' }]);
+	});
+
+	it('saves an ID-only update without rewriting a field another save just changed', async () => {
+		const ctx = context();
+		const read = ctx.personnel.listArchiveCandidates.bind(ctx.personnel);
+		ctx.personnel.listArchiveCandidates = async (ids) => {
+			const people = await read(ids);
+			await ctx.personnel.updateEditable('person-a', { rank: 'SSG' });
+			return people;
+		};
+
+		const result = await importPersonnelRecords(ctx, {
+			records: [{ op: 'update', personnelId: 'person-a', changes: { dodId: '0123456789' } }]
+		});
+
+		expect(result.errors).toEqual([]);
+		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ rank: 'SSG' });
+		await expect(ctx.personnelSheets.listDodIds()).resolves.toEqual([{ personnelId: 'person-a', dodId: '0123456789' }]);
+	});
+
+	it('rejects duplicate and occupied IDs, including archived holders, before their Person writes', async () => {
+		const ctx = context();
+		ctx.store.seed('personnel_extended_info', [
+			{ id: 'archived-sheet', organization_id: 'test-org', personnel_id: 'archived', dod_id: '0000000001' },
+			{ id: 'active-sheet', organization_id: 'test-org', personnel_id: 'person-b', dod_id: '0000000002' }
+		]);
+		const result = await importPersonnelRecords(ctx, {
+			records: [
+				{ op: 'create', rank: 'SGT', firstName: 'Free', lastName: 'Synthetic', dodId: '0123456789' },
+				{ op: 'update', personnelId: 'person-a', changes: { dodId: '012-3456789', mos: 'BAD' } },
+				{ op: 'create', rank: 'SGT', firstName: 'Taken', lastName: 'Archived', dodId: '0000000001' },
+				{ op: 'update', personnelId: 'person-c', changes: { dodId: '0000000002', mos: 'BAD' } },
+				{ op: 'update', personnelId: 'person-d', changes: { dodId: '123', mos: 'BAD' } }
+			]
+		});
+		expect(result).toMatchObject({
+			created: [{ firstName: 'Free', lastName: 'Synthetic' }],
+			updated: [],
+			errors: [
+				{ kind: 'failed', index: 1 },
+				{ kind: 'failed', index: 2 },
+				{ kind: 'failed', index: 3 },
+				{ kind: 'failed', index: 4 }
+			]
+		});
+		for (const id of ['person-a', 'person-c', 'person-d']) {
+			await expect(ctx.personnel.findById(id)).resolves.toMatchObject({ mos: '68W' });
+		}
+		await expect(ctx.store.findMany('personnel', 'test-org', { first_name: 'Taken' })).resolves.toEqual([]);
+	});
+
+	it('writes IDs on create and update, preserving unrelated Data Sheet values and omitted IDs', async () => {
+		const ctx = context();
+		ctx.store.seed('personnel_extended_info', [
+			{
+				id: 'sheet-a',
+				organization_id: 'test-org',
+				personnel_id: 'person-a',
+				dod_id: '0000000001',
+				blood_type: 'O+',
+				children: [{ name: 'Synthetic' }],
+				award_tracking_acknowledged_at: '2026-10-01T10:00:00Z'
+			}
+		]);
+		const result = await importPersonnelRecords(ctx, {
+			records: [
+				{ op: 'create', rank: 'SGT', firstName: 'New', lastName: 'Synthetic', dodId: '0123456789' },
+				{ op: 'update', personnelId: 'person-a', changes: { dodId: '0000000002' } },
+				{ op: 'update', personnelId: 'person-b', changes: { dodId: ' - ', mos: '68V' } }
+			]
+		});
+		expect(result).toMatchObject({
+			created: [{ firstName: 'New' }],
+			updated: [{ id: 'person-b', mos: '68V' }],
+			errors: []
+		});
+		await expect(ctx.personnelSheets.findSheetForPerson(result.created[0].id)).resolves.toMatchObject({
+			dod_id: '0123456789',
+			updated_by: ctx.auth.userId
+		});
+		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toMatchObject({
+			id: 'sheet-a',
+			dod_id: '0000000002',
+			blood_type: 'O+',
+			children: [{ name: 'Synthetic' }],
+			updated_by: ctx.auth.userId
+		});
+		await importPersonnelRecords(ctx, {
+			records: [{ op: 'update', personnelId: 'person-a', changes: { dodId: '', mos: '68V' } }]
+		});
+		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toMatchObject({ dod_id: '0000000002' });
+		await expect(ctx.personnelSheets.findSheetForPerson('person-b')).resolves.toBeNull();
+	});
+
+	it('keeps Person writes and reports exact rows when ID writes conflict after validation', async () => {
+		const ctx = context();
+		const save = ctx.personnelSheets.saveDodIds;
+		ctx.personnelSheets.saveDodIds = async (rows) => {
+			ctx.store.seed('personnel_extended_info', [
+				{ id: 'racing-sheet', organization_id: 'test-org', personnel_id: 'archived', dod_id: '0123456789' }
+			]);
+			return save(rows);
+		};
+		const result = await importPersonnelRecords(ctx, {
+			records: [
+				{ op: 'create', rank: 'SGT', firstName: 'New', lastName: 'Synthetic', dodId: '0123456789' },
+				{ op: 'update', personnelId: 'person-a', changes: { dodId: '0000000001', mos: '68V' } }
+			]
+		});
+		expect(result).toMatchObject({
+			created: [{ firstName: 'New' }],
+			updated: [{ id: 'person-a', mos: '68V' }],
+			errors: [
+				{ kind: 'failed', index: 0, message: expect.stringMatching(/Person was saved.*DoD ID was not.*already has/) }
+			]
+		});
+		await expect(ctx.personnel.findById(result.created[0].id)).resolves.toMatchObject({ firstName: 'New' });
+		await expect(ctx.personnelSheets.findSheetForPerson(result.created[0].id)).resolves.toBeNull();
+		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toMatchObject({ dod_id: '0000000001' });
+		expect(ctx.audit.events).toMatchObject([
+			{ action: 'personnel.bulk_merged', details: { created: 1, updated: 1, errors: 1 } }
+		]);
+	});
+
+	it('does not count an ID-only update whose ID write conflicts after validation', async () => {
+		const ctx = context();
+		const save = ctx.personnelSheets.saveDodIds;
+		ctx.personnelSheets.saveDodIds = async (rows) => {
+			ctx.store.seed('personnel_extended_info', [
+				{ id: 'racing-sheet', organization_id: 'test-org', personnel_id: 'archived', dod_id: '0123456789' }
+			]);
+			return save(rows);
+		};
+		const result = await importPersonnelRecords(ctx, {
+			records: [{ op: 'update', personnelId: 'person-a', changes: { dodId: '0123456789' } }]
+		});
+		expect(result).toMatchObject({ updated: [], errors: [{ kind: 'failed', index: 0 }] });
+		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toBeNull();
+		expect(ctx.audit.events).toMatchObject([
+			{ action: 'personnel.bulk_merged', details: { created: 0, updated: 0, errors: 1 } }
+		]);
+	});
+
+	it('stops hidden active and archived ID conflicts before creating or updating a Person', async () => {
+		const ctx = context({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					personnel: 'operate',
+					calendar: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['alpha'] })
+			}
+		});
+		await ctx.store.update('personnel', 'test-org', 'archived', { group_id: 'bravo' });
+		ctx.store.seed('personnel_extended_info', [
+			{ id: 'hidden-active', organization_id: 'test-org', personnel_id: 'person-b', dod_id: '0000000001' },
+			{ id: 'hidden-archived', organization_id: 'test-org', personnel_id: 'archived', dod_id: '0000000002' },
+			{ id: 'foreign', organization_id: 'other-org', personnel_id: 'foreign-person', dod_id: '0000000003' }
+		]);
+		await expect(ctx.personnelSheets.listDodIds()).resolves.toEqual([]);
+		await expect(
+			ctx.personnelSheets.findDodIdsInUse(['0000000001', '0000000002', '0000000003', '0000000004'])
+		).resolves.toEqual(['0000000001', '0000000002']);
+		const result = await importPersonnelRecords(ctx, {
+			records: [
+				{
+					op: 'create',
+					rank: 'SGT',
+					firstName: 'Rejected',
+					lastName: 'Synthetic',
+					groupId: 'alpha',
+					dodId: '0000000001'
+				},
+				{ op: 'update', personnelId: 'person-a', changes: { dodId: '0000000002', mos: 'BAD' } },
+				{ op: 'create', rank: 'SGT', firstName: 'Free', lastName: 'Synthetic', groupId: 'alpha', dodId: '0000000003' }
+			]
+		});
+		expect(result).toMatchObject({
+			created: [{ firstName: 'Free' }],
+			updated: [],
+			errors: [
+				{
+					kind: 'failed',
+					index: 0,
+					message: expect.stringMatching(/outside the Groups.*Organization admin.*move them.*import again/)
+				},
+				{
+					kind: 'failed',
+					index: 1,
+					message: expect.stringMatching(/outside the Groups.*Organization admin.*move them.*import again/)
+				}
+			]
+		});
+		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ mos: '68W' });
+		await expect(ctx.store.findMany('personnel', 'test-org', { first_name: 'Rejected' })).resolves.toEqual([]);
+		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toBeNull();
+		await expect(ctx.personnelSheets.findSheetForPerson(result.created[0].id)).resolves.toMatchObject({
+			dod_id: '0000000003'
+		});
+	});
 	it('updates a person created by an earlier import', async () => {
 		const ctx = context();
 		const first = await importPersonnelRecords(ctx, {

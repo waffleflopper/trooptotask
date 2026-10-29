@@ -11,6 +11,7 @@ function members(people: RosterPerson[], rules: Partial<PoolRules>, on = '2026-1
 		people,
 		excusals: [],
 		catalog: BUILT_IN_RANK_CATALOG,
+		groups: [],
 		on
 	}).members.map((member) => member.id);
 }
@@ -51,9 +52,14 @@ describe('pool rules', () => {
 		];
 
 		expect(
-			poolOn({ rules: null, people, excusals: [], catalog: BUILT_IN_RANK_CATALOG, on: '2026-10-07' }).members.map(
-				(member) => member.id
-			)
+			poolOn({
+				groups: [],
+				rules: null,
+				people,
+				excusals: [],
+				catalog: BUILT_IN_RANK_CATALOG,
+				on: '2026-10-07'
+			}).members.map((member) => member.id)
 		).toEqual(['clark']);
 	});
 });
@@ -62,7 +68,8 @@ describe('excusals', () => {
 	it('remove a person only on the excused days', () => {
 		const people = [person('SGT', 'Adams'), person('SGT', 'Baker')];
 		const excusals = [{ personId: 'adams', reason: 'Profile', from: '2026-10-05', through: '2026-10-09' }];
-		const on = (date: string) => poolOn({ rules: null, people, excusals, catalog: BUILT_IN_RANK_CATALOG, on: date });
+		const on = (date: string) =>
+			poolOn({ groups: [], rules: null, people, excusals, catalog: BUILT_IN_RANK_CATALOG, on: date });
 
 		expect(on('2026-10-07').members.map((member) => member.id)).toEqual(['baker']);
 		expect(on('2026-10-07').excused).toEqual(excusals);

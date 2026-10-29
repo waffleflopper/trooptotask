@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { showSubGroups } from '$lib/stores/showSubGroups.svelte';
 	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
 	import { deferToIdle } from '$lib/utils/deferToIdle';
@@ -11,6 +12,7 @@
 
 	onMount(() => {
 		themeStore.init();
+		showSubGroups.init();
 		if (rememberViewerTimeZone()) void invalidate(VIEWER_DAY_DEPENDENCY);
 
 		const cancelIdle = deferToIdle(() => {

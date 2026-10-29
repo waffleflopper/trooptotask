@@ -11,6 +11,7 @@ import type {
 	ActorStamp
 } from './personnelArtifactPersistence';
 import type { ClientAffordance } from '$lib/access/clientAccess';
+import { dodIdInputSchema } from './dodId';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 
 export type PersonnelAffordance = Pick<ClientAffordance, 'allowed'>;
@@ -148,7 +149,6 @@ export interface PersonnelRecordPersistence {
 export interface GroupPersistence {
 	listCatalog(): Promise<Group[]>;
 	findReference(id: string): Promise<{ id: string } | null>;
-	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: { name: string; sortOrder?: number; parentId?: string | null }): Promise<Group>;
 	/** Renames the Group. Fails 404 when the Group is gone. */
 	rename(id: string, name: string): Promise<Group>;
@@ -460,16 +460,10 @@ export type {
 	RosterViewOptions
 } from './rosterReadModel';
 
-export { buildGroupTree } from './groupTree';
-export type { Band, Breakdown, BreakdownRow, GroupFocus, GroupNode, GroupTree, GroupTreeOptions } from './groupTree';
-export {
-	canonicalGroupFocus,
-	GROUP_FOCUS_PARAM,
-	groupFocusLabel,
-	groupFocusNavigation,
-	readGroupFocus
-} from './groupFocus';
-export type { GroupFocusRead, GroupFocusReader } from './groupFocus';
+export { groupExportPath } from './groupPath';
+export { buildGroupTree, groupFilterMatcher, groupRows, hasSubGroups, soleLeafGroup } from './groupTree';
+export { nestRosterBands, type NestedRosterBand } from './rosterBands';
+export type { Band, GroupNode, GroupRow, GroupRowSet, GroupTree, GroupTreeOptions } from './groupTree';
 
 export type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 
@@ -584,6 +578,7 @@ const optionalEmailInputSchema = z.string().email();
 
 export const personnelExtendedInfoInputSchema = z.object({
 	personnelId: z.string().min(1),
+	dodId: dodIdInputSchema.optional(),
 	bloodType: z.string().trim().max(12).optional().default(''),
 	basd: dateInputSchema,
 	dateOfRank: dateInputSchema,
@@ -646,10 +641,13 @@ export type {
 } from './rankCatalogPersistence';
 export type {
 	PersonnelSheetPersistence,
+	PersonnelDodId,
+	PersonnelDodIdSaveFailure,
 	PersonnelWorkbookHistoryReader,
 	PersonnelSheetEditableValues,
 	SavedPersonnelSheet
 } from './personnelSheetPersistence';
+export { PersonnelDodIdConflict } from './personnelSheetPersistence';
 export type {
 	PersonnelArtifactReadPersistence,
 	CounselingRecordRow,

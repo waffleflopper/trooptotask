@@ -4,12 +4,13 @@ import { fail } from '$lib/errors';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type {
+	Group,
 	GroupPersistence,
 	Personnel,
 	PersonnelTrainingRosterPort,
 	RankCatalogEntry
 } from '$features/personnel/contracts';
-import { observedRankCodesForOptions } from '$features/personnel/contracts';
+import { buildGroupTree, observedRankCodesForOptions } from '$features/personnel/contracts';
 import type {
 	BriefingRequirement,
 	TrainingBriefingDetail,
@@ -42,6 +43,7 @@ type TrainingReportReadContext = TrainingCompletionReadContext & {
 };
 
 interface BriefingSource {
+	groups: Group[];
 	input: TrainingBriefingReportInput;
 	organizationName: string;
 	filterOptions: TrainingBriefingFilterOptions;
@@ -78,10 +80,15 @@ async function loadBriefingSource(
 
 	const view = views.find((candidate) => candidate.id === request.viewId) ?? null;
 	const columns = filterColumnsByView(types, view).filter((type) => !type.isOptional);
-	const group = groups.find((candidate) => candidate.id === request.groupId) ?? null;
+	const tree = buildGroupTree(groups);
+	const picked = request.groupId ? tree.node(request.groupId) : undefined;
+	const group = picked?.level === 0 ? picked : null;
+	const groupIds = group
+		? tree.ordered.filter((node) => tree.contains(group.id, node.id)).map((node) => node.id)
+		: undefined;
 	const filterOptions: TrainingBriefingFilterOptions = {
 		views: views.map(({ id, name }) => ({ id, name })),
-		groups: groups.map(({ id, name }) => ({ id, name })),
+		groups: tree.roots.map(({ id, name }) => ({ id, name })),
 		ranks: observedRankCodesForOptions({
 			rankCatalog: rankCatalog.length > 0 ? rankCatalog : undefined,
 			observedRanks: personnel.map((person) => person.rank)
@@ -106,7 +113,7 @@ async function loadBriefingSource(
 
 	const records = await listTrainingReadinessCompletions(ctx, {
 		personnelIds: filterPersonnel(personnel, {
-			groupId: input.groupId ?? undefined,
+			groupIds,
 			rank: input.rank ?? undefined,
 			mos: input.mos,
 			role: input.roles
@@ -117,13 +124,15 @@ async function loadBriefingSource(
 	return {
 		input,
 		organizationName: organization.name,
+		groups,
 		filterOptions,
 		briefingInput: {
 			personnel,
+			groups,
 			types: columns,
 			records,
 			filters: {
-				groupId: input.groupId ?? undefined,
+				groupIds,
 				rank: input.rank ?? undefined,
 				mos: input.mos,
 				role: input.roles,
@@ -202,6 +211,8 @@ export async function generateTrainingReportWorkbookExport(
 ): Promise<TrainingReportWorkbookExport> {
 	const source = await loadBriefingSource(ctx, request, asOf);
 	const workbook = await buildTrainingReportWorkbook({
+		groups: source.groups,
+		personnel: source.briefingInput.personnel,
 		report: reportData(source),
 		requirements: detailRows(source, affectedBriefingRequirements(source.briefingInput))
 	});

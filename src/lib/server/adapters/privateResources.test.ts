@@ -62,6 +62,12 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 			{ id: UNGROUPED_PERSON, organization_id: ORG, group_id: null },
 			{ id: FOREIGN_PERSON, organization_id: FOREIGN_ORG, group_id: 'bravo' }
 		],
+		groups: [
+			{ id: 'company', organization_id: ORG, name: 'Company', parent_id: null, sort_order: 0, depth: 1 },
+			{ id: 'alpha', organization_id: ORG, name: 'Alpha', parent_id: 'company', sort_order: 0, depth: 2 },
+			{ id: 'bravo', organization_id: ORG, name: 'Bravo', parent_id: 'company', sort_order: 1, depth: 2 },
+			{ id: 'foreign-group', organization_id: FOREIGN_ORG, name: 'Foreign', parent_id: null, sort_order: 0, depth: 1 }
+		],
 		personnel_documents: [
 			{
 				id: DOC_B,
@@ -407,9 +413,18 @@ describe('private resource HTTP admission and provider ownership', () => {
 		);
 		expect(response.status).toBe(200);
 		expect((await response.json()).personnelSnapshot).toEqual([
-			{ id: PERSON_B, rank: 'SGT', firstName: 'Bea', lastName: 'Baker', groupId: 'bravo', group: 'Bravo' }
+			{
+				id: PERSON_B,
+				rank: 'SGT',
+				firstName: 'Bea',
+				lastName: 'Baker',
+				groupId: 'bravo',
+				group: 'Bravo',
+				groupAncestors: []
+			}
 		]);
 		expect(f.requests.filter((r) => r.path.endsWith('/personnel')).map((r) => r.client)).toEqual(['service']);
+		expect(f.requests.filter((r) => r.path.endsWith('/groups')).map((r) => r.client)).toEqual(['caller']);
 		expect(f.requests.find((r) => r.path.endsWith('/sign_in_rosters') && r.method === 'POST')?.client).toBe('caller');
 		expect(f.tables.sign_in_rosters.at(-1)).toMatchObject({
 			organization_id: ORG,

@@ -53,10 +53,16 @@
 		});
 	});
 
+	// invalidate() clears page.state but keeps the history entry, so only a new entry may change the step.
+	// Track the state object, not the step: Back to File after a refresh leaves the step at 'file'.
+	let historyEntry: unknown;
 	$effect(() => {
+		void page.state;
 		const step = historyStep;
 		untrack(() => {
-			if (step === shownStep || step === 'done') return;
+			const moved = history.state !== historyEntry;
+			historyEntry = history.state;
+			if (step === shownStep || step === 'done' || !moved) return;
 			if (session.phase.step === 'committing') pushState('', { importStep: 'review' });
 			else session.goTo(step);
 		});

@@ -130,14 +130,26 @@ describe('/api/personnel/[id]/peek', () => {
 		expect(() => _getConfig.parseInput(event('note', 'okafor'))).toThrow(expect.objectContaining({ status: 404 }));
 	});
 
-	it("returns the phone on the Person's Data sheet", async () => {
+	it("returns the phone and DoD ID on the Person's Data sheet", async () => {
 		const ctx = testContext();
 		ctx.store.seed('personnel_extended_info', [
-			{ id: 'info-1', organization_id: 'org-1', personnel_id: OKAFOR, personal_phone: '(910) 555-0148' }
+			{
+				id: 'info-1',
+				organization_id: 'org-1',
+				personnel_id: OKAFOR,
+				personal_phone: '(910) 555-0148',
+				dod_id: '0123456789'
+			}
 		]);
 
-		await expect(read(ctx, 'identity')).resolves.toEqual({ state: 'ready', value: { phone: '(910) 555-0148' } });
-		await expect(read(ctx, 'identity', BANKS)).resolves.toEqual({ state: 'ready', value: { phone: null } });
+		await expect(read(ctx, 'identity')).resolves.toEqual({
+			state: 'ready',
+			value: { phone: '(910) 555-0148', dodId: '0123456789' }
+		});
+		await expect(read(ctx, 'identity', BANKS)).resolves.toEqual({
+			state: 'ready',
+			value: { phone: null, dodId: null }
+		});
 	});
 
 	it('reads the Calendar for seven days from the viewer day', async () => {
@@ -265,6 +277,7 @@ describe('/api/personnel/[id]/peek', () => {
 
 	it('refuses a viewer who cannot read sensitive records, and an archived or unknown Person', async () => {
 		const viewer = testContext({ capabilityMap: { ...leaderAuth.capabilityMap, personnel: 'view' } });
+		await expect(read(viewer, 'identity')).rejects.toMatchObject({ status: 403 });
 		await expect(read(viewer, 'note')).rejects.toMatchObject({ status: 403 });
 
 		const ctx = testContext();

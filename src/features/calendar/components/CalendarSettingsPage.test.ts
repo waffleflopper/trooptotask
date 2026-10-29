@@ -8,8 +8,9 @@ import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, SpecialDay, StatusType } from '$features/calendar/contracts';
 
-const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, specialDaysStoreMock } = vi.hoisted(
-	() => ({
+const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, specialDaysStoreMock, pageMock } =
+	vi.hoisted(() => ({
+		pageMock: { url: new URL('http://localhost/org/org-1/calendar/settings'), params: { orgId: 'org-1' } },
 		statusTypesStoreMock: {
 			items: [] as StatusType[],
 			pendingOrder: null,
@@ -40,8 +41,7 @@ const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, s
 			remove: vi.fn(),
 			resetFederalHolidays: vi.fn()
 		}
-	})
-);
+	}));
 
 let accessFacts: ClientAccessFacts = { membershipRole: 'owner' };
 const orgUrlSegment = 'org-1';
@@ -55,6 +55,8 @@ const org = {
 	},
 	affordanceForFeatureAction: access.affordanceForFeatureAction
 };
+
+vi.mock('$app/state', () => ({ page: pageMock }));
 
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: statusTypesStoreMock
@@ -88,6 +90,7 @@ async function pickDay(composer: HTMLElement, picker: 'First day' | 'Last day', 
 describe('CalendarSettingsPage', () => {
 	beforeEach(() => {
 		cleanup();
+		pageMock.url = new URL('http://localhost/org/org-1/calendar/settings');
 		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 		statusTypesStoreMock.items = [];
 		statusTypesStoreMock.add.mockReset();
@@ -687,6 +690,59 @@ describe('CalendarSettingsPage', () => {
 		expect(errorToast).toHaveBeenCalledOnce();
 	});
 
+	it.each([
+		['A', true],
+		['available', false]
+	] as const)(
+		'warns about open DA 6 forms when deleting a status with roster effect %s: %s',
+		async (rosterEffect, warns) => {
+			statusTypesStoreMock.items = [
+				{
+					id: 's1',
+					name: 'Leave',
+					color: '#48bb78',
+					textColor: '#ffffff',
+					shortLabel: null,
+					rosterEffect,
+					sortOrder: 0
+				}
+			];
+
+			render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+			await openRowAction('Leave', 'Delete');
+			const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
+			expect(/DA 6/.test(dialog.textContent ?? '')).toBe(warns);
+		}
+	);
+
+	it.each([
+		['personnel', true],
+		['group', false]
+	] as const)('warns about the duty roster only when deleting a %s-assigned type: %s', async (assignTo, warns) => {
+		assignmentTypesStoreMock.types = [
+			{
+				id: 'cq',
+				name: 'Charge of Quarters',
+				shortName: 'CQ',
+				assignTo,
+				color: '#2563eb',
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
+				showOnCalendar: false,
+				sortOrder: 0
+			}
+		];
+
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
+		await openRowAction('Charge of Quarters', 'Delete');
+		const dialog = screen.getByRole('alertdialog', { name: 'Delete Assignment Type' });
+		expect(/duty roster/.test(dialog.textContent ?? '')).toBe(warns);
+	});
+
 	it('keeps the add-assignment dialog open when creation fails', async () => {
 		assignmentTypesStoreMock.addType.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
@@ -772,6 +828,26 @@ describe('CalendarSettingsPage', () => {
 		await waitFor(() => expect(assignmentTypesStoreMock.removeType).toHaveBeenCalledWith('cq'));
 		expect(screen.getByRole('alertdialog', { name: 'Delete Assignment Type' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'More actions for Charge of Quarters' })).toBeTruthy();
+	});
+
+	it.each([
+		['assignments', /Assignment Types/],
+		['closures', /Holidays & closures/],
+		['status', /Status Types/]
+	])('opens on the %s section named in the link', (section, tab) => {
+		pageMock.url = new URL(`http://localhost/org/org-1/calendar/settings?section=${section}`);
+
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+		expect(screen.getByRole('tab', { name: tab }).getAttribute('aria-selected')).toBe('true');
+	});
+
+	it('opens on Status Types when the link names no known section', () => {
+		pageMock.url = new URL('http://localhost/org/org-1/calendar/settings?section=nonsense');
+
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+		expect(screen.getByRole('tab', { name: /Status Types/ }).getAttribute('aria-selected')).toBe('true');
 	});
 
 	it('switches settings sections as tabs and shows only the chosen panel', async () => {

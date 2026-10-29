@@ -1,3 +1,4 @@
+import { buildGroupTree, groupExportPath, type Group } from '$features/personnel/contracts';
 import { addTableSheet, createWorkbook, type Workbook, type WorkbookRow } from '$lib/utils/workbook';
 import type { CriticalTasksMatrix } from './criticalTasksMatrix';
 import type { IctReportDashboard } from './ictReports';
@@ -32,7 +33,13 @@ function formatApplicableSoldiers(count: number): string {
 	return `${count} applicable ${count === 1 ? 'Soldier' : 'Soldiers'}`;
 }
 
-function criticalTasksReportRows(dashboard: IctReportDashboard): WorkbookRow[] {
+function criticalTasksReportRows(
+	dashboard: IctReportDashboard,
+	groups: readonly Group[],
+	personnel: readonly { id: string; groupId: string | null }[]
+): WorkbookRow[] {
+	const tree = buildGroupTree(groups);
+	const groupByPerson = new Map(personnel.map((person) => [person.id, person.groupId]));
 	const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = dashboard.kpis;
 	const expiringSoonWindowLabel = `<=${tasksExpiringSoon.windowDays}d`;
 	const rows: WorkbookRow[] = [];
@@ -42,7 +49,7 @@ function criticalTasksReportRows(dashboard: IctReportDashboard): WorkbookRow[] {
 			section: 'At-Risk Soldiers',
 			metric: row.soldierName,
 			value: `${row.readinessPercent}%`,
-			subtitle: `${row.rank} ${row.mos}; ${row.groupName}; ${row.tasksExpiringSoonCount} expiring ${expiringSoonWindowLabel}; ${formatDaysSinceLastIctUpdate(row.daysSinceLastIctUpdate)}`
+			subtitle: `${row.rank} ${row.mos}; ${groupExportPath(tree, groupByPerson.get(row.personnelId) ?? null) || 'Unassigned'}; ${row.tasksExpiringSoonCount} expiring ${expiringSoonWindowLabel}; ${formatDaysSinceLastIctUpdate(row.daysSinceLastIctUpdate)}`
 		});
 	}
 
@@ -85,7 +92,11 @@ function criticalTasksReportRows(dashboard: IctReportDashboard): WorkbookRow[] {
 	return rows;
 }
 
-export async function buildCriticalTasksReportWorkbook(dashboard: IctReportDashboard): Promise<Workbook> {
+export async function buildCriticalTasksReportWorkbook(
+	dashboard: IctReportDashboard,
+	groups: readonly Group[],
+	personnel: readonly { id: string; groupId: string | null }[]
+): Promise<Workbook> {
 	const workbook = await createWorkbook();
 	addTableSheet(workbook, {
 		name: 'Critical Tasks Report',
@@ -95,12 +106,16 @@ export async function buildCriticalTasksReportWorkbook(dashboard: IctReportDashb
 			{ header: 'Value', key: 'value', width: 16 },
 			{ header: 'Subtitle', key: 'subtitle', width: 64 }
 		],
-		rows: criticalTasksReportRows(dashboard)
+		rows: criticalTasksReportRows(dashboard, groups, personnel)
 	});
 	return workbook;
 }
 
-export async function buildCriticalTasksMatrixWorkbook(matrix: CriticalTasksMatrix): Promise<Workbook> {
+export async function buildCriticalTasksMatrixWorkbook(
+	matrix: CriticalTasksMatrix,
+	groups: readonly Group[]
+): Promise<Workbook> {
+	const tree = buildGroupTree(groups);
 	const workbook = await createWorkbook();
 	addTableSheet(workbook, {
 		name: 'Critical Task Matrix',
@@ -122,7 +137,7 @@ export async function buildCriticalTasksMatrixWorkbook(matrix: CriticalTasksMatr
 				rank: row.person.rank,
 				mos: row.person.mos,
 				dutyRole: row.person.clinicRole,
-				group: row.person.groupName
+				group: groupExportPath(tree, row.person.groupId)
 			};
 
 			for (const cell of row.cells) {

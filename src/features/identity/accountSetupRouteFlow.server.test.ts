@@ -33,7 +33,8 @@ function makeSetupSession(overrides: Partial<AccountSetupSession> = {}): Account
 function makeFlow() {
 	const store = {
 		getAccessRequest: vi.fn(),
-		getSetupLink: vi.fn()
+		getSetupLink: vi.fn(),
+		readInvitedOrganizationName: vi.fn()
 	};
 	const setupLinks = {
 		validateToken: vi.fn()
@@ -112,6 +113,7 @@ describe('createAccountSetupRouteFlow', () => {
 			setupCompletedAt: '2026-05-18T11:59:30.000Z'
 		});
 		store.getSetupLink.mockResolvedValueOnce(link);
+		store.readInvitedOrganizationName.mockResolvedValueOnce('Alpha Company');
 
 		expect(
 			await flow.resolveLoad({
@@ -130,7 +132,7 @@ describe('createAccountSetupRouteFlow', () => {
 				rawToken: '',
 				setupSession: makeSetupSession()
 			})
-		).toEqual({ state: 'recovery-available', email: 'soldier@example.mil' });
+		).toEqual({ state: 'recovery-available', email: 'soldier@example.mil', invitedTo: 'Alpha Company' });
 	});
 
 	it('redirects authenticated users without resolving setup providers', async () => {
@@ -479,6 +481,44 @@ describe('createAccountSetupRouteFlow', () => {
 			message:
 				'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.',
 			clearSession: true
+		});
+	});
+
+	describe('valid setup session', () => {
+		function loadValid(invitation: { name: string | null } | Error) {
+			const { flow, store } = makeFlow();
+			store.getAccessRequest.mockResolvedValueOnce({
+				id: 'request-1',
+				email: 'soldier@example.mil',
+				status: 'approved',
+				setupCompletedAt: null,
+				setupGrantLive: true
+			});
+			store.getSetupLink.mockResolvedValueOnce(makeSetupLink());
+			if (invitation instanceof Error) store.readInvitedOrganizationName.mockRejectedValueOnce(invitation);
+			else store.readInvitedOrganizationName.mockResolvedValueOnce(invitation.name);
+			return flow.resolveLoad({
+				session: null,
+				authFlow: null,
+				mfaPending: false,
+				rawToken: '',
+				setupSession: makeSetupSession()
+			});
+		}
+
+		it('carries the Organization that invited the email', async () => {
+			await expect(loadValid({ name: 'Alpha Company' })).resolves.toEqual({
+				state: 'valid',
+				email: 'soldier@example.mil',
+				invitedTo: 'Alpha Company'
+			});
+		});
+
+		it.each([
+			['has no invitation link', { name: null }],
+			['cannot read the invitation link', new Error('read failed')]
+		])('leaves invitedTo empty when the request %s', async (_case, invitation) => {
+			await expect(loadValid(invitation)).resolves.toMatchObject({ state: 'valid', invitedTo: null });
 		});
 	});
 

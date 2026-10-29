@@ -1,10 +1,15 @@
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
-import type { OrganizationRankCatalogEntry, PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import type {
+	GroupPersistence,
+	OrganizationRankCatalogEntry,
+	PersonnelCalendarRosterPort
+} from '$features/personnel/contracts';
 import type { CalendarCatalogPorts } from './calendarPolicy.server';
 import type { CalendarAssignmentReader, CalendarAvailabilityPersistence, SavedAssignmentType } from './contracts';
 import type { DateKey, DateSpan, Excusal, OpenForm, RosterAssignment, RosterFacts } from './roster/rosterTypes';
 
 export interface RosterFactsPorts extends CalendarCatalogPorts {
+	groups: Pick<GroupPersistence, 'listCatalog'>;
 	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
 	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange' | 'listRosterDetailDays'>;
 	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'listAttributeTimelines'>;
@@ -13,15 +18,16 @@ export interface RosterFactsPorts extends CalendarCatalogPorts {
 
 export const addDays = (date: DateKey, days: number) => fromDayNumber(toDayNumber(date) + days);
 
-type PeopleFacts = Pick<RosterFacts, 'people' | 'rankCatalog' | 'statusTypes'>;
+type PeopleFacts = Pick<RosterFacts, 'people' | 'rankCatalog' | 'statusTypes' | 'groups'>;
 type CalendarFacts = Pick<RosterFacts, 'availability' | 'holidays'>;
 
 /** Shared people and catalogs for the period being simulated. */
 export async function readRosterPeople(ctx: RosterFactsPorts, span: DateSpan): Promise<PeopleFacts> {
-	const [timelines, rankCatalog, statusTypes] = await Promise.all([
+	const [timelines, rankCatalog, statusTypes, groups] = await Promise.all([
 		ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth, span),
 		ctx.loadRankCatalog(),
-		ctx.calendarCatalogs.listStatusTypes()
+		ctx.calendarCatalogs.listStatusTypes(),
+		ctx.groups.listCatalog()
 	]);
 	return {
 		people: timelines.map((person) => ({
@@ -34,6 +40,7 @@ export async function readRosterPeople(ctx: RosterFactsPorts, span: DateSpan): P
 				...RosterFacts['people'][number]['states']
 			]
 		})),
+		groups,
 		rankCatalog,
 		statusTypes: statusTypes.map(({ id, name, rosterEffect }) => ({ id, name, rosterEffect }))
 	};

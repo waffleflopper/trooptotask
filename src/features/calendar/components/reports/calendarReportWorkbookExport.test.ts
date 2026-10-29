@@ -1,3 +1,4 @@
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import type { Personnel } from '$features/personnel/contracts';
@@ -169,10 +170,14 @@ describe('calendar report workbook exports', () => {
 						{
 							groupId: 'g1',
 							groupName: 'Alpha',
+							level: 2,
+							subtotal: false,
 							cells: [{ date: '2026-03-02', totalPersonnel: 10, availableCount: 8, availablePercent: 80 }]
 						}
-					]
+					],
+					sets: []
 				},
+				NESTED_GROUPS.map((group) => (group.id === 'alpha' ? { ...group, id: 'g1' } : group)),
 				'2026-03-02',
 				'2026-03-08'
 			)
@@ -180,6 +185,7 @@ describe('calendar report workbook exports', () => {
 
 		const sheet = workbook.getWorksheet('Group Readiness');
 		expect(filename).toBe('group-readiness_2026-03-02_2026-03-08.xlsx');
+		expect(sheet?.getCell('A2').value).toBe('1st Platoon / 2nd Squad / Alpha Team');
 		expect(sheet?.getCell('B1').value).toBe('Mon 3/2');
 		expect(sheet?.getCell('B2').value).toBe('8/10 (80%)');
 	});

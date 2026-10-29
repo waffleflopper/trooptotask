@@ -6,9 +6,6 @@ export { pinnedGroupsStore, pinnedGroupsHydration } from './stores/pinnedGroups.
 export { PersonnelPageContext } from './contexts/PersonnelPageContext.svelte';
 export type { PersonnelPageData } from './contexts/PersonnelPageContext.svelte';
 export { RosterSignals } from './rosterSignals.svelte';
-export { GroupFocusState } from './groupFocusState.svelte';
-export { default as GroupFocusControl } from './components/GroupFocusControl.svelte';
-export { default as GroupFocusUnavailable } from './components/GroupFocusUnavailable.svelte';
 
 export type { RequestPersonnelArchiveApproval } from './utils/archivePersonnel';
 export { acknowledgeAwardTracking } from './utils/awardTracking';
@@ -21,6 +18,7 @@ export function loadPersonnelModals() {
 export { personnelWorkspaceHydrator } from './personnelWorkspaceHydration.svelte';
 export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.svelte';
 export { createPersonnelImportLane } from './import/personnelImportLane';
+export { retainImportDodIds } from './import/retainedImportDodIds.svelte';
 export { lastFirstSplitter } from './import/personnelImportColumns';
 export { rosterPersonReference } from './import/personMatching';
 export { readinessDrawerFromSearch } from './readinessDrawerTarget';

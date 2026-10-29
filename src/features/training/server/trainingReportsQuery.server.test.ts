@@ -9,6 +9,7 @@ import {
 	createQueryWithRawStorePortsContext
 } from '$features/training/server/trainingPersistence.test-support.server';
 import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportInput } from '$features/training/contracts';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import {
 	fetchTrainingBriefingDetail,
 	fetchTrainingBriefingReport,
@@ -271,6 +272,26 @@ describe('Training briefing report', () => {
 		expect(report.organizationName).toBe('Test Company');
 	});
 
+	it('offers the top-level Groups and briefs a picked platoon with everyone under it', async () => {
+		const ctx = unitContext();
+		ctx.groups.listCatalog = async () =>
+			NESTED_GROUPS.map((group) =>
+				group.id === 'bravo' ? { ...group, parentId: 'other-platoon', depth: 2 as const } : group
+			);
+		const brief = async (groupId: string) => {
+			const report = await fetchTrainingBriefingReport(ctx, input({ groupId }), AS_OF);
+			return [report.input.groupId, report.briefing.bottomLine.scopeName, report.briefing.bottomLine.soldierCount];
+		};
+
+		const report = await fetchTrainingBriefingReport(ctx, input(), AS_OF);
+		expect(report.filterOptions.groups).toEqual([
+			{ id: 'platoon', name: '1st Platoon' },
+			{ id: 'other-platoon', name: '2nd Platoon' }
+		]);
+		expect(await brief('platoon')).toEqual(['platoon', '1st Platoon', 2]);
+		expect(await brief('squad')).toEqual([null, 'Test Company', 3]);
+	});
+
 	it('briefs only the scoped roster of a Training-only member and cannot open a hidden row', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
 			auth: {
@@ -428,6 +449,20 @@ function sheetRows(workbook: ExcelJS.Workbook, name: string): unknown[][] {
 }
 
 describe('Training report workbook', () => {
+	it('writes nested paths in requirement and Group hot-spot cells', async () => {
+		const ctx = unitContext();
+		ctx.groups.listCatalog = async () => NESTED_GROUPS;
+		const { workbook } = await exportedWorkbook(ctx, input());
+		expect(sheetRows(workbook, 'Requirements').find((row) => row[1] === 'Able, Pat')?.[2]).toBe(
+			'1st Platoon / 2nd Squad / Alpha Team'
+		);
+		expect(
+			sheetRows(workbook, 'Hot spots')
+				.slice(1, -1)
+				.map((row) => row[0])
+				.sort()
+		).toEqual(['1st Platoon / 2nd Squad / Alpha Team', '1st Platoon / 2nd Squad / Bravo Team']);
+	});
 	it('exports the briefing on screen as five sheets with every affected requirement in drill-down order', async () => {
 		const { exported, workbook } = await exportedWorkbook(unitContext(), input());
 

@@ -45,7 +45,8 @@ const SECTION_READS: {
 } = {
 	identity: (ctx, person) =>
 		readPersonnelExtendedInfo(ctx.overview.extendedInfo, person.id).then((info) => ({
-			phone: info?.personalPhone || null
+			phone: info?.personalPhone || null,
+			dodId: info?.dodId || null
 		})),
 	next7: (ctx, person, asOf) =>
 		loadPersonnelCalendarWindow(ctx.overview.calendar, person, {

@@ -110,6 +110,7 @@ async function readSetup(
 		people: people.people,
 		excusals,
 		catalog: people.rankCatalog,
+		groups: people.groups,
 		on: day
 	});
 	const ref = ({ id, rank, lastName, firstName }: RosterPerson): PersonRef => ({

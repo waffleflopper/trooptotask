@@ -239,6 +239,41 @@ describe('buildCriticalTasksMatrix', () => {
 		expect(matrix.alphabeticalRows.map((row) => row.person.id)).toEqual(['nogroup']);
 	});
 
+	it('nests sub-group bands under a platoon, or rolls the platoon into one band', () => {
+		const tree: Group[] = [
+			{ id: 'plt', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 },
+			{ id: 'sq1', name: '1st Squad', sortOrder: 0, parentId: 'plt', depth: 2 },
+			{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq1', depth: 3 }
+		];
+		const roster = [
+			person({ id: 'psg', rank: 'SFC', lastName: 'Diaz', groupId: 'plt', groupName: '2nd Platoon' }),
+			person({ id: 'tl', rank: 'SGT', lastName: 'Moss', groupId: 'alpha', groupName: 'Alpha Team' }),
+			person({ id: 'rfl', rank: 'PFC', lastName: 'Ortiz', groupId: 'alpha', groupName: 'Alpha Team', mos: '11B' })
+		];
+		const bands = (showSubGroups: boolean) =>
+			buildCriticalTasksMatrix({
+				personnel: roster,
+				tasks: [task({ mos: ['68W'] })],
+				completions: [completion({ personnelId: 'psg' })],
+				groups: tree,
+				showSubGroups,
+				asOf: '2026-05-01'
+			}).groups.map((group) => [
+				group.label,
+				group.level,
+				group.rows.map((row) => row.person.id),
+				group.personnelCount,
+				group.readinessPercent
+			]);
+
+		expect(bands(true)).toEqual([
+			['2nd Platoon', 0, ['psg'], 3, 50],
+			['1st Squad', 1, [], 2, 0],
+			['Alpha Team', 2, ['tl', 'rfl'], 2, 0]
+		]);
+		expect(bands(false)).toEqual([['2nd Platoon', 0, ['psg', 'tl', 'rfl'], 3, 50]]);
+	});
+
 	it('matches personnel search against name, rank, and MOS fields', () => {
 		const subject = person({
 			rank: 'SSG',

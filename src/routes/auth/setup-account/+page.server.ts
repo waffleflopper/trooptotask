@@ -76,7 +76,7 @@ export const load: PageServerLoad = async ({ cookies, locals, url }) => {
 	if (result.state === 'valid') {
 		if (supportRequired) cookies.delete(SUPPORT_COOKIE, { path: SUPPORT_COOKIE_PATH });
 		if (setupSession && recoveryCookie === `${setupSession.setupLinkId}:pending`) {
-			return { state: 'recovery-available' as const, email: result.email };
+			return { state: 'recovery-available' as const, email: result.email, invitedTo: result.invitedTo };
 		}
 		return result;
 	}

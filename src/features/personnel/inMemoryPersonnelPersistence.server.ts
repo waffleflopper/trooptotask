@@ -240,13 +240,6 @@ export function createInMemoryGroupPersistence(
 			const [row] = await rows('id', [id]);
 			return row ? { id: row.id as string } : null;
 		},
-		async findNamesByIds(ids) {
-			return new Map(
-				(await rows('id, name', ids))
-					.filter((row): row is Record<string, unknown> & { id: string; name: string } => typeof row.name === 'string')
-					.map((row) => [row.id, row.name])
-			);
-		},
 		async create(input) {
 			const parentId = input.parentId ?? null;
 			if ((await rows('*')).some((group) => (group.parent_id ?? null) === parentId && group.name === input.name))

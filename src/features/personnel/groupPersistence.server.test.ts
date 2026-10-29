@@ -29,9 +29,6 @@ describe('ordinary Group persistence', () => {
 		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
 		expect((await port.listCatalog()).map((group) => group.id)).toEqual(ids);
 		expect(await port.findReference('foreign')).toBeNull();
-		const before = state.requests.length;
-		expect(await port.findNamesByIds([])).toEqual(new Map());
-		expect(state.requests).toHaveLength(before);
 	});
 	it("reads only the Groups in a Group-scoped actor's scope", async () => {
 		const { client, state } = personnelProvider({
@@ -51,7 +48,6 @@ describe('ordinary Group persistence', () => {
 		]);
 		expect(await port.findReference('bravo')).toBeNull();
 		expect(await port.findReference('alpha')).toEqual({ id: 'alpha' });
-		expect(await port.findNamesByIds(['alpha', 'bravo'])).toEqual(new Map([['alpha', 'Alpha']]));
 		const empty = createSupabaseGroupPersistence(
 			client,
 			'org-a',
@@ -61,7 +57,7 @@ describe('ordinary Group persistence', () => {
 		expect([await empty.listCatalog(), await empty.findReference('alpha')]).toEqual([[], null]);
 		expect(state.requests).toHaveLength(before);
 	});
-	it('omits unknown names and never deletes foreign rows', async () => {
+	it('never deletes foreign rows', async () => {
 		const { client, state } = personnelProvider({
 			groups: [
 				{ id: 'unknown', name: null, organization_id: 'org-a' },
@@ -71,7 +67,6 @@ describe('ordinary Group persistence', () => {
 		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
 		const created = await port.create({ name: 'Alpha' });
 		expect(created).toMatchObject({ name: 'Alpha', sortOrder: 0 });
-		expect(await port.findNamesByIds([created.id, 'unknown', 'foreign'])).toEqual(new Map([[created.id, 'Alpha']]));
 		expect(state.rows.groups.find((row) => row.id === 'foreign')?.name).toBe('Foreign');
 	});
 	it('propagates later-page and mutation failure without publishing partial success', async () => {

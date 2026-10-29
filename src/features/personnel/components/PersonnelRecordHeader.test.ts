@@ -44,19 +44,21 @@ async function renderHeader({
 	],
 	streams = {},
 	edit = null,
-	activeTab = ''
+	activeTab = '',
+	dodId = null
 }: {
 	allowed?: string[];
 	streams?: Partial<PersonnelDetailLayoutStreams>;
 	edit?: DataSheetEditSession | null;
 	activeTab?: string;
+	dodId?: string | null;
 } = {}) {
 	const widths = stubToolbarWidths();
 	render(PersonnelRecordHeader, {
 		props: {
 			orgId: 'org-1',
 			orgUrlSegment: 'org-alpha',
-			header: { person, basd: '2020-02-10', dateOfRank: '2025-08-01' },
+			header: { person, dodId, basd: '2020-02-10', dateOfRank: '2025-08-01' },
 			streams: {
 				availabilityToday: Promise.resolve(null),
 				tabCounts: Promise.resolve(null),
@@ -87,6 +89,21 @@ describe('PersonnelRecordHeader', () => {
 		expect(screen.getByRole('heading', { level: 1, name: 'SGT Monica Rivera' })).toBeTruthy();
 		expect(screen.getByText('6 yrs 4 mo service')).toBeTruthy();
 		expect(screen.getByText('10 mo in grade')).toBeTruthy();
+	});
+
+	it('puts the DoD ID in the heading and keeps it out of the tab title', async () => {
+		await renderHeader({ dodId: '0123456789' });
+
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('SGT Monica Rivera');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('(0123456789)');
+		expect(document.title).toContain('Rivera');
+		expect(document.title).not.toContain('0123456789');
+	});
+
+	it('leaves the heading as the name alone when the Person has no DoD ID', async () => {
+		await renderHeader();
+
+		expect(screen.getByRole('heading', { level: 1 }).textContent?.trim()).toBe('SGT Monica Rivera');
 	});
 
 	it('offers each record addition only to a viewer allowed to make it', async () => {

@@ -175,6 +175,23 @@ describe('dutyPickerOptions', () => {
 		]);
 	});
 
+	it('offers a Group at any level by its path, each under the Group above it', () => {
+		const groupDuty: AssignmentType = { ...staffDuty, assignTo: 'group' };
+		const groups = [
+			{ id: 'p2', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 as const },
+			{ id: 's1', name: '1st Squad', sortOrder: 0, parentId: 'p2', depth: 2 as const },
+			{ id: 'p1', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'p1s1', name: '1st Squad', sortOrder: 0, parentId: 'p1', depth: 2 as const }
+		];
+
+		expect(options({ type: groupDuty, groups }).map((option) => [option.id, option.label])).toEqual([
+			['p1', '1st Platoon'],
+			['p1s1', '1st Platoon › 1st Squad'],
+			['p2', '2nd Platoon'],
+			['s1', '2nd Platoon › 1st Squad']
+		]);
+	});
+
 	it('keeps an excused person out of the off-roster search list, as it does without a roster', () => {
 		const roster: RosterDay = { track: null, pool: ['p-reed'] };
 

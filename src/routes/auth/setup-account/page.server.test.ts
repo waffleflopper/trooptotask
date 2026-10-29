@@ -117,8 +117,12 @@ describe('/auth/setup-account transport', () => {
 			expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/auth/setup-account' })
 		);
 
-		resolveLoad.mockResolvedValueOnce({ state: 'valid', email: 'soldier@example.mil' });
-		expect(await load(loadEvent(cookies))).toEqual({ state: 'recovery-available', email: 'soldier@example.mil' });
+		resolveLoad.mockResolvedValueOnce({ state: 'valid', email: 'soldier@example.mil', invitedTo: 'Alpha Company' });
+		expect(await load(loadEvent(cookies))).toEqual({
+			state: 'recovery-available',
+			email: 'soldier@example.mil',
+			invitedTo: 'Alpha Company'
+		});
 	});
 
 	it('requires a signed setup session for status checking and never reads a posted password', async () => {

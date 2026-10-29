@@ -88,7 +88,13 @@ function serveFrom(loaded: StaffingPicker, ...saves: Response[]) {
 }
 
 function open(onSaved = vi.fn()) {
-	render(AssignPeopleDialog, { orgId: 'org-a', tasking, groups: { [ALPHA]: 'Alpha' }, onSaved, onClose: vi.fn() });
+	render(AssignPeopleDialog, {
+		orgId: 'org-a',
+		tasking,
+		groups: [{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
+		onSaved,
+		onClose: vi.fn()
+	});
 	return onSaved;
 }
 

@@ -79,7 +79,7 @@ async function popoverBlock({ opens, staleDialog = false }) {
 	};
 	document.body.innerHTML = `
 		<span data-testid="calendar-month-label">October 2026</span>
-		<button aria-haspopup="dialog">Group: Whole unit 3</button>
+		<button aria-label="Calendar group filter">Group: All</button>
 		<div data-slot="bar-track"><button data-entry-id="entry-1" aria-expanded="false">Leave</button></div>`;
 	const bar = document.querySelector('[data-entry-id]');
 	const popover = (label) => {

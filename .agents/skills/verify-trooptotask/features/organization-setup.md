@@ -168,7 +168,8 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
     while a status type, assignment type, lane order or closure saves.
 14. After step 8 (add Jane Fixround, MOS `68W`), import a CSV with the header `Last name,First name,Rank,MOS` and the
     row `Fixround,Jane,SPC,25B`. Review reads `Update · 1` and `0 added · 1 updated`, with MOS `68W` becoming `25B`.
-    After `Import 1 change` and a reload the footer still reads `1 person so far`.
+    After `Import 1 change` the Done receipt stays on screen with `Updated 1` while the step refreshes; it does not
+    fall back to the File step. After a reload the footer still reads `1 person so far`.
 
 ## Feature steps
 

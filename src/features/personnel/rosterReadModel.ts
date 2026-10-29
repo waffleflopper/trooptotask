@@ -1,4 +1,6 @@
 import type { AdvisoryGroupScope } from '$lib/access/memberAccessShape';
+import type { Group } from './group.types';
+import { buildGroupTree, type GroupTree } from './groupTree';
 import { comparePersonnelByRankThenName } from './personnelRank';
 import type { Personnel } from './personnel.types';
 
@@ -37,12 +39,14 @@ export interface RosterBand {
 
 export interface CreateRosterReadModelInput extends RosterGroupOrder {
 	personnel: Personnel[];
+	groups: readonly Group[];
 	fallbackGroupName?: string;
 }
 
 export interface RosterViewOptions {
 	status?: RosterStatus;
 	groupId?: string | null;
+	/** A top-level Group, matching its subtree, or a band outside the tree such as Unassigned. Anything else is all. */
 	groupFilter?: string;
 	search?: string;
 }
@@ -65,11 +69,13 @@ export interface RosterReadModel {
 }
 
 export function createRosterReadModel(input: CreateRosterReadModelInput): RosterReadModel {
+	const tree = buildGroupTree(input.groups, { pinnedIds: input.pinnedGroupIds });
+
 	function view(scope: RosterScopeSelection, options: RosterViewOptions = {}): RosterReadModelView {
 		const scopedPersonnel = applyScope(input.personnel, scope);
 		const selectedPersonnel = applyRosterOptions(scopedPersonnel, options);
 		const baseGroups = groupRosterPersonnel(selectedPersonnel, input);
-		const filteredGroups = applyGroupFilter(baseGroups, options.groupFilter);
+		const filteredGroups = applyGroupFilter(baseGroups, options.groupFilter, tree);
 		const searchedGroups = applyRosterSearch(filteredGroups, options.search);
 		const flatPersonnel = searchedGroups.flatMap((group) => group.personnel);
 		const personnelById = new Map(flatPersonnel.map((person) => [person.id, person]));
@@ -78,7 +84,7 @@ export function createRosterReadModel(input: CreateRosterReadModelInput): Roster
 			personnel: flatPersonnel,
 			personnelByGroup: searchedGroups,
 			flatPersonnel,
-			groupFilterOptions: buildRosterGroupFilterOptions(baseGroups),
+			groupFilterOptions: buildRosterGroupFilterOptions(baseGroups, tree),
 			personnelById,
 			getById(personnelId) {
 				return personnelById.get(personnelId);
@@ -147,9 +153,17 @@ function applyRosterOptions(personnel: Personnel[], options: RosterViewOptions):
 	});
 }
 
-function applyGroupFilter(groups: PersonnelGroup[], groupFilter: string | undefined): PersonnelGroup[] {
+const inTree = (tree: GroupTree, group: PersonnelGroup) => group.groupId !== null && !!tree.node(group.groupId);
+
+function applyGroupFilter(
+	groups: PersonnelGroup[],
+	groupFilter: string | undefined,
+	tree: GroupTree
+): PersonnelGroup[] {
 	if (!groupFilter) return groups;
-	return groups.filter((group) => rosterGroupFilterValue(group) === groupFilter);
+	if (tree.node(groupFilter)?.level === 0) return groups.filter((group) => tree.contains(groupFilter, group.groupId));
+	const outside = groups.filter((group) => !inTree(tree, group) && rosterGroupFilterValue(group) === groupFilter);
+	return outside.length > 0 ? outside : groups;
 }
 
 function applyRosterSearch(groups: PersonnelGroup[], search: string | undefined): PersonnelGroup[] {
@@ -163,16 +177,24 @@ function applyRosterSearch(groups: PersonnelGroup[], search: string | undefined)
 		.filter((group) => group.personnel.length > 0);
 }
 
-function buildRosterGroupFilterOptions(groups: PersonnelGroup[]): RosterGroupFilterOption[] {
-	const total = groups.reduce((sum, group) => sum + group.personnel.length, 0);
+/** All, then each top-level Group with people under it, then bands outside the tree such as Unassigned. */
+function buildRosterGroupFilterOptions(groups: PersonnelGroup[], tree: GroupTree): RosterGroupFilterOption[] {
+	const count = (bands: PersonnelGroup[]) => bands.reduce((sum, group) => sum + group.personnel.length, 0);
+	const roots = tree.roots.flatMap((root) => {
+		const total = count(groups.filter((group) => tree.contains(root.id, group.groupId)));
+		return total > 0 ? [{ value: root.id, label: root.name, count: total }] : [];
+	});
 
 	return [
-		{ value: '', label: 'All groups', count: total },
-		...groups.map((group) => ({
-			value: rosterGroupFilterValue(group),
-			label: group.group,
-			count: group.personnel.length
-		}))
+		{ value: '', label: 'All groups', count: count(groups) },
+		...roots,
+		...groups
+			.filter((group) => !inTree(tree, group))
+			.map((group) => ({
+				value: rosterGroupFilterValue(group),
+				label: group.group,
+				count: group.personnel.length
+			}))
 	];
 }
 

@@ -8,7 +8,10 @@ vi.mock('$app/forms', () => ({ enhance: () => undefined }));
 afterEach(cleanup);
 
 it('allows a 72-character setup password but blocks a matching 73-character password before submission', async () => {
-	render(Page, { data: { viewer: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
+	render(Page, {
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
+		form: null
+	});
 	const password = screen.getByLabelText(/^Password/);
 	const confirm = screen.getByLabelText(/^Confirm Password/);
 	const submit = screen.getByRole('button', { name: 'Set Up Account' });
@@ -24,7 +27,10 @@ it('allows a 72-character setup password but blocks a matching 73-character pass
 });
 
 it('offers an optional password-free status check on a fresh valid link without hiding normal setup', () => {
-	render(Page, { data: { viewer: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
+	render(Page, {
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
+		form: null
+	});
 	const setupForm = screen.getByRole('button', { name: 'Set Up Account' }).closest('form');
 	const statusForm = screen.getByRole('button', { name: 'Check setup status' }).closest('form');
 	expect(setupForm).toHaveAttribute('action', '?/complete');
@@ -35,7 +41,7 @@ it('offers an optional password-free status check on a fresh valid link without 
 
 it('offers a password-free status check after a held claim and keeps it available after reload', async () => {
 	const page = render(Page, {
-		data: { viewer: null, state: 'valid', email: 'synthetic@example.test' },
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
 		form: { recoveryState: 'recovery-available', message: 'Check setup status to continue safely.' }
 	});
 	const statusForm = screen.getByRole('button', { name: 'Check setup status' }).closest('form');
@@ -44,7 +50,7 @@ it('offers a password-free status check after a held claim and keeps it availabl
 	expect(screen.queryByRole('button', { name: 'Set Up Account' })).not.toBeInTheDocument();
 
 	await page.rerender({
-		data: { viewer: null, state: 'recovery-available', email: 'synthetic@example.test' },
+		data: { viewer: null, state: 'recovery-available', email: 'synthetic@example.test', invitedTo: null },
 		form: null
 	});
 	expect(screen.getByRole('button', { name: 'Check setup status' })).toBeInTheDocument();
@@ -64,7 +70,7 @@ it('does not keep offering status checks if the link expires while an action res
 
 it('shows the password form again only after a fenced attempt leaves this link valid', () => {
 	render(Page, {
-		data: { viewer: null, state: 'valid', email: 'synthetic@example.test' },
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
 		form: { recoveryState: 'retry-password', message: 'You can choose a password with this link.' }
 	});
 	expect(screen.getByRole('button', { name: 'Set Up Account' }).closest('form')).toHaveAttribute(
@@ -96,7 +102,10 @@ it('shows completed setup instead of a stale action error or another setup link'
 });
 
 it('keeps the submission failure visible when claiming the link clears the setup session', async () => {
-	const page = render(Page, { data: { viewer: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
+	const page = render(Page, {
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
+		form: null
+	});
 	const error = 'Choose a different password, then request a fresh setup link.';
 
 	await page.rerender({
@@ -114,7 +123,10 @@ it('keeps the submission failure visible when claiming the link clears the setup
 });
 
 it('keeps staff recovery visible after an uncertain claim without offering a new link as the fix', async () => {
-	const page = render(Page, { data: { viewer: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
+	const page = render(Page, {
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
+		form: null
+	});
 	await page.rerender({
 		data: { viewer: null, state: 'missing', message: 'This setup session has expired.' },
 		form: { error: 'Contact platform support. Give support request ID request-1.', supportRequired: true }
@@ -148,7 +160,7 @@ it('keeps staff recovery guidance after reloading a cleared setup session', () =
 
 it('does not resubmit an uncertain claim when the loaded link still appears valid', async () => {
 	render(Page, {
-		data: { viewer: null, state: 'valid', email: 'synthetic@example.test' },
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
 		form: { error: 'Contact platform support. Give support request ID request-2.', supportRequired: true }
 	});
 
@@ -159,7 +171,10 @@ it('does not resubmit an uncertain claim when the loaded link still appears vali
 });
 
 it('names the confirmation field when the setup passwords differ', async () => {
-	render(Page, { data: { viewer: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
+	render(Page, {
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
+		form: null
+	});
 	const confirm = screen.getByLabelText(/^Confirm Password/);
 
 	await fireEvent.input(screen.getByLabelText(/^Password/), { target: { value: 'NewPassword12' } });
@@ -173,4 +188,32 @@ it('names the confirmation field when the setup passwords differ', async () => {
 
 	expect(confirm).toBeValid();
 	expect(screen.queryByText('Passwords do not match')).toBeNull();
+});
+
+it('swaps the access-request alternative for the invitation path when an Organization invited the email', () => {
+	const requestAccess = () => document.querySelector('a[href="/auth/request-access"]');
+	const { unmount } = render(Page, {
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
+		form: null
+	});
+	expect(requestAccess()).not.toBeNull();
+	unmount();
+
+	render(Page, {
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: 'Alpha Company' },
+		form: null
+	});
+	expect(screen.getByRole('button', { name: 'Set Up Account' }).closest('form')).toHaveAttribute(
+		'action',
+		'?/complete'
+	);
+	expect(requestAccess()).toBeNull();
+	cleanup();
+
+	render(Page, {
+		data: { viewer: null, state: 'recovery-available', email: 'synthetic@example.test', invitedTo: 'Alpha Company' },
+		form: null
+	});
+	expect(screen.getByRole('button', { name: 'Check setup status' })).toBeInTheDocument();
+	expect(requestAccess()).toBeNull();
 });

@@ -16,6 +16,9 @@
 
 <div class="grid items-start gap-x-16 gap-y-10 lg:grid-cols-2">
 	<div class="grid gap-10">
+		<PageShell.FactSection title="Identity">
+			<PageShell.FactRow label="DoD ID" value={sheet.dodId} mono />
+		</PageShell.FactSection>
 		<PageShell.FactSection title="Service">
 			<PageShell.FactRow label="BASD" value={sheet.basd} mono />
 			<PageShell.FactRow label="Date of rank" value={sheet.dateOfRank} mono />

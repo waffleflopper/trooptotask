@@ -285,6 +285,11 @@
 		border-color: var(--border);
 	}
 
+	/* Server-rendered sub-group rows stay hidden until the stored "Show sub-groups" choice reaches the page. */
+	:root[data-sub-groups-hidden] [data-sub-group-row] {
+		display: none;
+	}
+
 	html,
 	body {
 		min-height: 100%;

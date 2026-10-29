@@ -1,4 +1,5 @@
-import type { RosterBand } from '$features/personnel/contracts';
+import { buildGroupTree, type Group, type GroupTree } from '$features/personnel/contracts';
+import { chosenRosterGroups } from './signInRosterFilter';
 
 export interface RosterPrintPerson {
 	rank: string;
@@ -7,14 +8,22 @@ export interface RosterPrintPerson {
 	group: string;
 	/** Absent on Rosters saved before snapshots carried the Group id. */
 	groupId?: string | null;
+	/** The Groups above `groupId` when it was saved; absent on Rosters saved before Groups nested. */
+	groupAncestors?: readonly { id: string; name: string }[];
 }
 
-export interface RosterPrintGroup {
-	id: string;
-	name: string;
-}
+/** How a printed Roster splits. `groupIds` are the top-level Groups it was drawn from; none means the whole view. */
+export type RosterSplit = { separateByGroup: false } | { separateByGroup: true; groupIds: readonly string[] };
 
-export type CompareRosterBands = (a: RosterBand, b: RosterBand) => number;
+/** A saved Roster splits by the Groups its filter chose; an old filter without them splits like the whole view. */
+export function rosterSplit(roster: {
+	separateByGroup: boolean;
+	filterConfig: { groups?: readonly string[] } | null;
+}): RosterSplit {
+	return roster.separateByGroup
+		? { separateByGroup: true, groupIds: roster.filterConfig?.groups ?? [] }
+		: { separateByGroup: false };
+}
 
 export type RosterPrintRow =
 	| { kind: 'group'; name: string }
@@ -23,11 +32,13 @@ export type RosterPrintRow =
 /** The page's rows in print order, shared by the PDF and the preview so the two cannot drift. */
 export function rosterPrintRows(
 	snapshot: readonly RosterPrintPerson[],
-	separateByGroup: boolean,
-	compareBands: CompareRosterBands,
-	groups: readonly RosterPrintGroup[]
+	split: RosterSplit,
+	tree: GroupTree,
+	groups: readonly Group[]
 ): RosterPrintRow[] {
-	const sections = separateByGroup ? bucketByGroup(snapshot, compareBands, groups) : [{ name: '', people: snapshot }];
+	const sections = split.separateByGroup
+		? sectionsByGroup(snapshot, split.groupIds, tree, groups)
+		: [{ name: '', people: snapshot }];
 	const rows: RosterPrintRow[] = [];
 	let number = 0;
 	for (const section of sections) {
@@ -40,25 +51,66 @@ export function rosterPrintRows(
 	return rows;
 }
 
-function bucketByGroup(
+/**
+ * Sections for each top-level Group the Roster was drawn from, or each one when it was drawn from everyone. A Group with
+ * sub-groups opens into its HQ and then each sub-group's whole subtree, path-labelled. Labels use the Group names saved
+ * with the Roster, so a reprint after a rename reads as printed; current names fill only Groups it never saved. People
+ * whose Group is no longer in the tree keep their saved Group name, and the ungrouped print last.
+ */
+function sectionsByGroup(
 	snapshot: readonly RosterPrintPerson[],
-	compareBands: CompareRosterBands,
-	groups: readonly RosterPrintGroup[]
-) {
+	groupIds: readonly string[],
+	tree: GroupTree,
+	groups: readonly Group[]
+): { name: string; people: readonly RosterPrintPerson[] }[] {
 	const idsByName = new Map<string, string[]>();
 	for (const group of groups) idsByName.set(group.name, [...(idsByName.get(group.name) ?? []), group.id]);
-	const byGroup = new Map<string, { band: RosterBand; people: RosterPrintPerson[] }>();
-	for (const person of snapshot) {
+	const groupOf = (person: RosterPrintPerson): string | null => {
 		const named = idsByName.get(person.group);
-		const groupId = person.groupId ?? (named?.length === 1 ? named[0] : null);
-		const key = groupId ?? `name:${person.group}`;
-		const section = byGroup.get(key);
-		if (section) section.people.push(person);
-		else byGroup.set(key, { band: { groupId, name: person.group }, people: [person] });
+		const id = person.groupId ?? (named?.length === 1 ? named[0] : null);
+		return id && tree.node(id) ? id : null;
+	};
+
+	const savedNames = new Map(
+		snapshot.flatMap((person) => [
+			...(person.groupAncestors ?? []).map((group) => [group.id, group.name] as const),
+			...(person.groupId ? [[person.groupId, person.group] as const] : [])
+		])
+	);
+	const printed = buildGroupTree(groups.map((group) => ({ ...group, name: savedNames.get(group.id) ?? group.name })));
+
+	const chosen = chosenRosterGroups({ groups: [...groupIds] }, tree);
+	const sections: { name: string; people: readonly RosterPrintPerson[] }[] = [];
+	const placed = new Set<RosterPrintPerson>();
+	const add = (name: string, people: readonly RosterPrintPerson[]) => {
+		if (people.length === 0) return;
+		sections.push({ name, people });
+		for (const person of people) placed.add(person);
+	};
+	const subtree = (id: string) => snapshot.filter((person) => tree.contains(id, groupOf(person)));
+
+	for (const band of tree.bands(snapshot, groupOf)) {
+		if (chosen.length > 0 && !chosen.includes(band.node.id)) continue;
+		const label = printed.label(band.node.id);
+		if (!band.node.hasChildren) {
+			add(label, band.hq);
+			continue;
+		}
+		add(`${label} HQ`, band.hq);
+		for (const child of band.children) add(printed.label(child.node.id), subtree(child.node.id));
 	}
-	return [...byGroup.values()]
-		.sort((a, b) => compareBands(a.band, b.band))
-		.map(({ band, people }) => ({ name: band.name || 'Unassigned', people }));
+
+	const leftovers = new Map<string, RosterPrintPerson[]>();
+	for (const person of snapshot) {
+		if (placed.has(person)) continue;
+		const id = groupOf(person);
+		const name = id ? printed.label(id) : person.group;
+		leftovers.set(name, [...(leftovers.get(name) ?? []), person]);
+	}
+	for (const name of [...leftovers.keys()].sort((a, b) => (a && b ? a.localeCompare(b) : a ? -1 : 1))) {
+		add(name || 'Unassigned', leftovers.get(name)!);
+	}
+	return sections;
 }
 
 export function rosterDateLine(rosterDate: string | null, blankDate: boolean): string {

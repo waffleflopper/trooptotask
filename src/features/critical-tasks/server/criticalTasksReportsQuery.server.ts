@@ -4,7 +4,7 @@ import type { Group, GroupPersistence } from '$features/personnel/contracts';
 import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
-import { observedRankCodesForOptions } from '$features/personnel/contracts';
+import { buildGroupTree, observedRankCodesForOptions } from '$features/personnel/contracts';
 import { buildCriticalTasksMatrix, matchesCriticalTasksPersonnelSearch } from '../utils/criticalTasksMatrix';
 import { buildCriticalTasksMatrixWorkbook, buildCriticalTasksReportWorkbook } from '../utils/ictWorkbookExport';
 import {
@@ -56,7 +56,7 @@ function buildCriticalTasksReportScope(source: CriticalTasksReportSource): IctRe
 			rank: person.rank,
 			dutyRole: person.clinicRole
 		})),
-		groups: source.groups.map((group) => ({ id: group.id, name: group.name })),
+		groups: source.groups,
 		hasActiveTasks: activeTasks.length > 0,
 		activeTaskCount: activeTasks.length,
 		totalPersonnelCount: source.personnel.length,
@@ -76,7 +76,11 @@ async function buildDashboardFromSource(
 	source: CriticalTasksReportSource,
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboard> {
-	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
+	const filteredPersonnel = filterIctReportPersonnel(
+		source.personnel,
+		input.filters ?? {},
+		buildGroupTree(source.groups)
+	);
 	const completions = await ctx.criticalTaskCompletions.listReportHistory({
 		personnelIds: filteredPersonnel.map((person) => person.id),
 		taskIds: source.tasks.map((task) => task.id)
@@ -144,7 +148,11 @@ export async function fetchCriticalTasksDashboardSummary(
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboardSummary> {
 	const source = await loadCriticalTasksReportSource(ctx);
-	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
+	const filteredPersonnel = filterIctReportPersonnel(
+		source.personnel,
+		input.filters ?? {},
+		buildGroupTree(source.groups)
+	);
 	const completions = await ctx.criticalTaskCompletions.listReportHistory({
 		personnelIds: filteredPersonnel.map((person) => person.id),
 		taskIds: source.tasks.map((task) => task.id)
@@ -176,8 +184,9 @@ export async function generateCriticalTasksReportWorkbookExport(
 	ctx: CriticalTasksReportQueryContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<CriticalTasksWorkbookExport> {
-	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
-	const workbook = await buildCriticalTasksReportWorkbook(dashboard);
+	const source = await loadCriticalTasksReportSource(ctx);
+	const dashboard = await buildDashboardFromSource(ctx, source, input);
+	const workbook = await buildCriticalTasksReportWorkbook(dashboard, source.groups, source.personnel);
 	const date = formatDate(resolveCriticalTasksAsOfDate(input.asOf));
 	return {
 		buffer: await writeWorkbookBuffer(workbook),
@@ -211,7 +220,7 @@ export async function generateCriticalTasksMatrixWorkbookExport(
 		asOf: input.asOf,
 		orgName: 'Unassigned'
 	});
-	const workbook = await buildCriticalTasksMatrixWorkbook(matrix);
+	const workbook = await buildCriticalTasksMatrixWorkbook(matrix, source.groups);
 	const date = formatDate(resolveCriticalTasksAsOfDate(input.asOf));
 	return {
 		buffer: await writeWorkbookBuffer(workbook),

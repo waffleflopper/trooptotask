@@ -2770,6 +2770,7 @@ async function main() {
 					'special-days',
 					'calendar-events',
 					'calendar-taskings',
+					'calendar-taskings/choices',
 					'sign-in-rosters',
 					'training-types',
 					'training-types/editor',

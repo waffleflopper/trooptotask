@@ -14,6 +14,7 @@
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { filenameFromContentDisposition } from '$lib/utils/workbook';
 	import type { IctReportDashboard, IctReportScope } from '$features/critical-tasks/utils/ictReports';
+	import { buildGroupTree, groupFilterMatcher } from '$features/personnel/contracts';
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
 	import IctReadinessDistributionHistogram from './IctReadinessDistributionHistogram.svelte';
@@ -42,9 +43,10 @@
 	const dashboard = $derived(fetchedDashboard ?? initialDashboard);
 
 	const availableMosOptions = $derived(reportScope.filterOptions.mos.map((mos) => ({ value: mos, label: mos })));
+	const groupTree = $derived(buildGroupTree(reportScope.groups));
 	const groupOptions = $derived([
 		{ value: '', label: 'All Groups' },
-		...reportScope.groups.map((group) => ({ value: group.id, label: group.name }))
+		...groupTree.roots.map((group) => ({ value: group.id, label: group.name }))
 	]);
 	const rankOptions = $derived([
 		{ value: '', label: 'All Ranks' },
@@ -77,15 +79,16 @@
 	const activeFilterCount = $derived(
 		(filterGroupId ? 1 : 0) + filterMosValues.length + (filterRole ? 1 : 0) + (filterRank ? 1 : 0)
 	);
-	const filteredPersonnelCount = $derived(
-		reportScope.personnel.filter((person) => {
-			if (filterGroupId && person.groupId !== filterGroupId) return false;
+	const filteredPersonnelCount = $derived.by(() => {
+		const inGroup = groupFilterMatcher(groupTree, filterGroupId);
+		return reportScope.personnel.filter((person) => {
+			if (!inGroup(person.groupId)) return false;
 			if (filterMosValues.length > 0 && !filterMosValues.includes(person.mos)) return false;
 			if (filterRole && person.dutyRole !== filterRole) return false;
 			if (filterRank && person.rank !== filterRank) return false;
 			return true;
-		}).length
-	);
+		}).length;
+	});
 	const reportMeta = $derived([
 		{ label: 'Filters', value: activeFilterCount },
 		{ label: 'Population', value: filteredPersonnelCount }

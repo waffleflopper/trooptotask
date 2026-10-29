@@ -1,5 +1,5 @@
 import type { AssignmentType, RosterDay, StatusType } from '$features/calendar/contracts';
-import type { Group, Personnel } from '$features/personnel/contracts';
+import { buildGroupTree, type Group, type Personnel } from '$features/personnel/contracts';
 import { availabilityEntryLabel } from './availabilityLabels';
 import type { DutyAvailabilityIndex } from './dutyReadModel';
 import { effectLabel } from './plannerRosters';
@@ -41,16 +41,20 @@ export interface DutyPickerInput {
 	currentAssigneeId?: string;
 }
 
-/** A Group type offers every Group. A person type offers everyone it does not excuse. */
+/**
+ * A Group type offers every Group at any level, labelled by path; sorting the paths keeps each Group above the
+ * ones under it. A person type offers everyone it does not excuse.
+ */
 export function eligibleAssignees(
 	type: AssignmentType,
 	personnel: readonly Personnel[],
 	groups: readonly Group[]
 ): AssigneeChoice[] {
 	if (type.assignTo === 'group') {
-		return [...groups]
-			.sort((a, b) => a.name.localeCompare(b.name) || compareIds(a.id, b.id))
-			.map((group) => ({ kind: 'group', id: group.id, label: group.name }));
+		const tree = buildGroupTree(groups);
+		return groups
+			.map((group) => ({ kind: 'group' as const, id: group.id, label: tree.label(group.id) }))
+			.sort((a, b) => a.label.localeCompare(b.label) || compareIds(a.id, b.id));
 	}
 	return notExcused(type, personnel).map(personChoice);
 }

@@ -84,7 +84,12 @@
 		const orgId = ctx.orgId;
 		const inLifetime = stillInOrganizationLifetime();
 		const isCurrent = () => inLifetime() && rosterIsCurrent(orgId);
-		const rows = rosterExportRows(exportable, (person) => ctx.signalRow(person), ctx.signals.statusTypes);
+		const rows = rosterExportRows(
+			exportable,
+			(person) => ctx.signalRow(person),
+			ctx.signals.statusTypes,
+			ctx.groupOrder
+		);
 		const filename = rosterExportFilename(ctx.orgUrlSegment, ctx.data.asOf);
 		const skipped = people.length - exportable.length;
 		const exportedCount = exportable.length;

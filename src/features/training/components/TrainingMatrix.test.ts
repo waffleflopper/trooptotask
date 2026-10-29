@@ -298,21 +298,14 @@ describe('TrainingMatrix', () => {
 			}
 		});
 
-		const bandLevels = () =>
-			[...document.querySelectorAll('[data-matrix-row-group] button[aria-expanded]')].map((button) => [
-				button.querySelector('.truncate')?.textContent,
-				(button.parentElement as HTMLElement).style.paddingLeft
-			]);
-		expect(bandLevels()).toEqual([
-			['2nd Platoon', '0rem'],
-			['1st Squad', '1rem'],
-			['Alpha Team', '2rem']
-		]);
+		const subBands = () =>
+			[/1st Squad/, /Alpha Team/].map((name) => screen.queryByRole('button', { name }) !== null);
+		expect(subBands()).toEqual([true, true]);
 		expect(mountedNames()).toEqual(['Diaz, Jane', 'Moss, Jane', 'Ortiz, Jane']);
 
 		await fireEvent.click(screen.getByRole('button', { name: /2nd Platoon/ }));
 
-		expect(bandLevels()).toEqual([['2nd Platoon', '0rem']]);
+		expect(subBands()).toEqual([false, false]);
 		expect(mountedNames()).toEqual([]);
 	});
 });

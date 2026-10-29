@@ -88,7 +88,7 @@
 		const groupsInReport = report.result.sets.map((set) => set.top);
 		const topGroup = groupsInReport.reduce<ReadinessGroupRow | null>(
 			(current, group) =>
-				!current || groupLowestAvailability(group) < groupLowestAvailability(current) ? group : current,
+				!current || groupLowestShare(group) < groupLowestShare(current) ? group : current,
 			null
 		);
 		const topCell = topGroup ? groupLowestCell(topGroup) : null;
@@ -137,12 +137,18 @@
 	}
 
 	function sortByGroupRisk(a: ReadinessGroupRow, b: ReadinessGroupRow): number {
-		const riskDifference = groupLowestAvailability(a) - groupLowestAvailability(b);
+		const riskDifference = groupLowestShare(a) - groupLowestShare(b);
 		return riskDifference === 0 ? sortByGroupName(a, b) : riskDifference;
 	}
 
 	function groupLowestAvailability(group: ReadinessGroupRow): number {
 		return groupLowestCell(group)?.availablePercent ?? 100;
+	}
+
+	/** The exact share, so 159 of 200 ranks below 4 of 5 although both read 80%. */
+	function groupLowestShare(group: ReadinessGroupRow): number {
+		const cell = groupLowestCell(group);
+		return cell ? availableShare(cell) : 1;
 	}
 
 	function groupLowestCell(group: ReadinessGroupRow) {

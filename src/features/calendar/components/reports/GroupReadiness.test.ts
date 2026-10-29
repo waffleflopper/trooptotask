@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
+import { fetchCalendarReportData } from './calendarReportData';
 import GroupReadiness from './GroupReadiness.svelte';
 
 vi.mock('./calendarReportData', () => ({
@@ -87,5 +88,44 @@ describe('GroupReadiness', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Sort by lowest availability' }));
 		expect(rowOrder()).toEqual(['Alpha', 'Bravo']);
 		expect(sortState()).toEqual(['none', 'descending']);
+	});
+
+	it('ranks 159 of 200 below 4 of 5 although both read 80%', async () => {
+		const people = (groupId: string, count: number): Personnel[] =>
+			Array.from({ length: count }, (_, index) => ({
+				...personnel[0],
+				id: `${groupId}-${index}`,
+				groupId,
+				groupName: groupId
+			}));
+		const away = (ids: string[]) =>
+			ids.map((personnelId) => ({
+				id: `leave-${personnelId}`,
+				personnelId,
+				statusTypeId: 'leave',
+				startDate: '2000-01-01',
+				endDate: '2100-12-31'
+			}));
+		const alpha = people('alpha', 5);
+		const bravo = people('bravo', 200);
+		vi.mocked(fetchCalendarReportData).mockResolvedValueOnce({
+			entries: away([alpha[0].id, ...bravo.slice(0, 41).map((person) => person.id)])
+		} as Awaited<ReturnType<typeof fetchCalendarReportData>>);
+		render(GroupReadiness, {
+			props: {
+				orgId: 'org-1',
+				personnel: [...alpha, ...bravo],
+				statusTypes: [],
+				groups: [
+					{ id: 'alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+					{ id: 'bravo', name: 'Bravo', sortOrder: 0, parentId: null, depth: 1 as const }
+				]
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Run group availability report' }));
+		await screen.findByRole('table', { name: 'Group availability heat map' });
+
+		expect(rowOrder()).toEqual(['Bravo', 'Alpha']);
 	});
 });

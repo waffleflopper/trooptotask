@@ -295,6 +295,12 @@
 		pageSize: { get: () => bandedPageSize },
 		setPage: { value: (page: number) => (bandedPage = Math.min(Math.max(1, page), bandedPages.totalPages)) },
 		setPageSize: { value: setPageSize },
+		toggleSort: {
+			value: (key: string) => {
+				groupedTable.toggleSort(key);
+				bandedPage = 1;
+			}
+		},
 		toggleGroup: {
 			value: (key: string) => {
 				ctx.toggleGroup(key);

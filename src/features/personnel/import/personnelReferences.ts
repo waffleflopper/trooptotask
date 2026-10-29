@@ -4,6 +4,9 @@ import type { Personnel } from '../personnel.types';
 import type { PersonnelDodId } from '../personnelSheetPersistence';
 import { normalizeDodId } from '../dodId';
 import type { RankCatalogEntry } from '../rankCatalog';
+import { GROUP_PATH_SEPARATOR, groupExportPath, resolveGroupPath } from '../groupPath';
+import { MAX_GROUP_DEPTH } from '../groupStructure';
+import { buildGroupTree } from '../groupTree';
 import { groupManagementStore } from '../stores/groups.svelte';
 import type { personnelImportColumns } from './personnelImportColumns';
 import {
@@ -118,34 +121,61 @@ export function groupReference(
 	groups: readonly Group[],
 	{ canCreate, allowUnassigned }: { canCreate: boolean; allowUnassigned: boolean }
 ): ImportReference<Columns, Group | null> {
-	const option = (group: Group): ReferenceOption<Group> => ({ id: group.id, label: group.name, value: group });
+	const tree = buildGroupTree(groups);
+	const byId = new Map(groups.map((group) => [group.id, group]));
+	// Paths tell apart the Alpha Teams of two squads in a "Which group?" question.
+	const option = (group: Group): ReferenceOption<Group> => ({
+		id: group.id,
+		label: groupExportPath(tree, group.id) || group.name,
+		value: group
+	});
+	const optionOf = (id: string) => option(byId.get(id)!);
 	const byWords = uniqueBy(groups, (group) => groupWords(group.name));
 	return {
 		label: 'group',
 		reads: ['groupName'],
 		whenMissing: 'ask',
-		options: [...groups.map(option), ...(allowUnassigned ? [{ id: NO_GROUP, label: 'No group', value: null }] : [])],
+		options: [
+			...tree.ordered.map((node) => optionOf(node.id)),
+			...(allowUnassigned ? [{ id: NO_GROUP, label: 'No group', value: null }] : [])
+		],
 		key: (raw) => {
 			const display = raw.groupName?.trim();
 			return display ? { key: normalizeName(display), display } : null;
 		},
 		find(key) {
-			const named = groups.filter((group) => normalizeName(group.name) === key);
-			if (named.length === 1) return { kind: 'one', option: option(named[0]) };
-			if (named.length > 1) return { kind: 'many', candidates: named.map(option) };
+			const match = resolveGroupPath(tree, key, normalizeName);
+			if (match.kind === 'found') return { kind: 'one', option: optionOf(match.id) };
+			if (match.kind === 'ambiguous') return { kind: 'many', candidates: match.ids.map(optionOf) };
 			const guess = byWords.get(groupWords(key));
 			return guess ? { kind: 'none', suggestion: option(guess) } : { kind: 'none' };
 		},
 		create: canCreate
 			? async (name) => {
-					const wanted = normalizeName(name);
-					const existing = groupManagementStore.items.find(
-						(group) => group.parentId === null && normalizeName(group.name) === wanted
-					);
-					const group = existing ?? (await groupManagementStore.add(name));
-					return group
-						? { kind: 'created', option: option(group) }
-						: { kind: 'refused', message: 'Enter a group name.' };
+					const steps = name
+						.split(GROUP_PATH_SEPARATOR)
+						.map((step) => step.trim())
+						.filter(Boolean);
+					if (steps.length === 0) return { kind: 'refused', message: 'Enter a group name.' };
+					if (steps.length > MAX_GROUP_DEPTH)
+						return { kind: 'refused', message: 'Groups can nest at most three levels deep.' };
+					let parentId: string | null = null;
+					let created: Group | undefined;
+					for (const step of steps) {
+						const wanted = normalizeName(step);
+						const under: string | null = parentId;
+						created =
+							groupManagementStore.items.find(
+								(existing) => existing.parentId === under && normalizeName(existing.name) === wanted
+							) ??
+							(await groupManagementStore.add(step, under)) ??
+							undefined;
+						if (!created) return { kind: 'refused', message: 'Enter a group name.' };
+						parentId = created.id;
+					}
+					if (!created) return { kind: 'refused', message: 'Enter a group name.' };
+					const label = groupExportPath(buildGroupTree(groupManagementStore.items), created.id);
+					return { kind: 'created', option: { ...option(created), label: label || created.name } };
 				}
 			: undefined
 	};

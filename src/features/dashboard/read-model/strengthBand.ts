@@ -277,9 +277,9 @@ function buildBottomLine(
 	const outByStatus = order.flatMap((type) => {
 		const people = outPeople.filter((row) => row.statusTypeId === type.id);
 		if (people.length === 0) return [];
-		const origins = countBy(
-			people,
-			(row) => groupNameById.get(personById.get(row.personnelId)!.groupId ?? '') ?? 'Unassigned'
+		const origins = countOrigins(
+			people.map((row) => personById.get(row.personnelId)!.groupId),
+			groupNameById
 		);
 		const soonest = people.reduce((low, row) => (row.back < low ? row.back : low), people[0].back);
 		const returning = people.filter((row) => row.back === soonest).length;
@@ -399,10 +399,16 @@ function countByStatus(entries: Iterable<AvailabilityEntry>): Map<string, number
 	return counts;
 }
 
-function countBy<T>(items: readonly T[], key: (item: T) => string): [string, number][] {
-	const counts = new Map<string, number>();
-	for (const item of items) counts.set(key(item), (counts.get(key(item)) ?? 0) + 1);
-	return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+/** Counts by Group id so Groups sharing a name, or named "Unassigned", stay apart from each other and from ungrouped people. */
+function countOrigins(
+	groupIds: readonly (string | null)[],
+	groupNameById: ReadonlyMap<string, string>
+): [string, number][] {
+	const counts = new Map<string | null, number>();
+	for (const id of groupIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+	return [...counts]
+		.map(([id, count]): [string, number] => [(id && groupNameById.get(id)) || 'Unassigned', count])
+		.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

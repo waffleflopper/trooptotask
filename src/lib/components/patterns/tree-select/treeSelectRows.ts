@@ -80,3 +80,33 @@ export function visibleRows(
 		.filter((option) => ancestorsOf(shape, option.id).every((ancestor) => expanded.has(ancestor)))
 		.map((option) => row(option, expanded.has(option.id)));
 }
+
+/** Nodes under a chosen ancestor: shown chosen, never stored, since the ancestor already covers them. */
+export function impliedIds(shape: TreeShape, value: readonly string[]): Set<string> {
+	const chosen = new Set(value);
+	const implied = new Set<string>();
+	for (const id of shape.parentOf.keys()) {
+		if (ancestorsOf(shape, id).some((ancestor) => chosen.has(ancestor))) implied.add(id);
+	}
+	return implied;
+}
+
+/**
+ * Flips one node and returns the canonical value: chosen nodes in tree order with no node under another, then any ids
+ * the tree does not know, untouched. Unchoosing a node never brings back what it covered.
+ */
+export function toggleSelection(
+	options: readonly TreeSelectOption[],
+	shape: TreeShape,
+	value: readonly string[],
+	id: string
+): string[] {
+	const chosen = new Set(value);
+	if (chosen.has(id)) chosen.delete(id);
+	else if (ancestorsOf(shape, id).some((ancestor) => chosen.has(ancestor))) return [...value];
+	else chosen.add(id);
+	const covered = (node: string) => ancestorsOf(shape, node).some((ancestor) => chosen.has(ancestor));
+	const known = options.filter((option) => chosen.has(option.id) && !covered(option.id)).map((option) => option.id);
+	const unknown = value.filter((node) => chosen.has(node) && !shape.parentOf.has(node));
+	return [...known, ...unknown];
+}

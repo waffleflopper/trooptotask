@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { flushSync } from 'svelte';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -694,15 +695,59 @@ describe('PersonnelPageView', () => {
 				]);
 			});
 
-			it('stays on the page it showed when a collapse shortened the roster and an expand restores it', async () => {
+			it('keeps the last page it showed when the roster shrank, after the roster grows back', async () => {
+				renderLargeGroupedRoster();
+				const everyone = [...personnelStore.items];
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
+				personnelStore.load(everyone.slice(0, 200), 'org-1');
+				await waitFor(() => expect(row(201)).toBeNull());
+				personnelStore.load(everyone, 'org-1');
+				flushSync();
+
+				expect([row(101) !== null, row(201) !== null]).toEqual([true, false]);
+			});
+
+			it('follows a Group pinned from a later page to its new page and keeps focus on its pin', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(async () => new Response(JSON.stringify({ groupIds: ['group-2'] })))
+				);
+				groupCatalogHydration.load(
+					[
+						{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+						{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
+					],
+					'org-1'
+				);
 				renderLargeGroupedRoster();
 				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
 				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
 
-				await fireEvent.click(screen.getByRole('button', { name: 'Collapse Bravo' }));
-				await fireEvent.click(screen.getByRole('button', { name: 'Expand Bravo' }));
+				const pin = screen.getByRole('button', { name: 'Pin Bravo' });
+				pin.focus();
+				await fireEvent.click(pin);
 
-				expect([row(101) !== null, row(201) !== null]).toEqual([true, false]);
+				await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Unpin Bravo' })));
+			});
+
+			it('follows a Group collapsed from its continuation page and keeps focus on its toggle', async () => {
+				personnelStore.load(
+					Array.from({ length: 400 }, (_, index) => ({
+						...makePerson(index + 1),
+						...(index >= 200 ? { groupId: 'group-2', groupName: 'Bravo' } : {})
+					})),
+					'org-1'
+				);
+				render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
+				const collapse = screen.getByRole('button', { name: 'Collapse Alpha' });
+				collapse.focus();
+				await fireEvent.click(collapse);
+
+				await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Expand Alpha' })));
 			});
 
 			it('searches the whole roster from the first page', async () => {

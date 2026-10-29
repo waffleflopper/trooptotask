@@ -51,6 +51,8 @@
 		 */
 		rowHidden?: (row: T) => boolean;
 		pageLabels?: PageLabels;
+		pageSizeOptions?: readonly number[];
+		onPageSizeChange?: (size: number) => void;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		/** A group whose header stays in view under the column header while its rows scroll, until the next one replaces it. */
@@ -83,6 +85,8 @@
 		rowDetailVisible,
 		rowHidden,
 		pageLabels,
+		pageSizeOptions,
+		onPageSizeChange,
 		headerCell,
 		groupHeader,
 		stickyGroup,
@@ -307,8 +311,14 @@
 		<DataTableEmpty message={emptyMessage} level={emptyLevel} />
 	{/if}
 
-	{#if !loading && table.groups.length === 0}
-		<DataTablePagination {table} {variant} labels={pageLabels} />
+	{#if !loading}
+		<DataTablePagination
+			{table}
+			{variant}
+			labels={pageLabels}
+			sizes={pageSizeOptions}
+			onSizeChange={onPageSizeChange}
+		/>
 	{/if}
 
 	{#if footer}

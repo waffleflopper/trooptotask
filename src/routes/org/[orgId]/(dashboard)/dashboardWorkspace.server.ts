@@ -1,4 +1,8 @@
-import { fetchDashboardBootstrap } from '$features/dashboard/index.server';
+import {
+	fetchDashboardBootstrap,
+	loadGroupStrengthOutline,
+	readDashboardRoster
+} from '$features/dashboard/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestDashboardWorkspaceContext } from '$lib/server/adapters/requestContexts.server';
@@ -20,7 +24,8 @@ import {
 	type DashboardWorkspaceData,
 	type DashboardWorkspaceHydration,
 	type DashboardWorkspaceHydrationTarget,
-	type DashboardWorkspaceResult
+	type DashboardWorkspaceResult,
+	type GroupStrengthOutline
 } from '$features/dashboard/contracts';
 export interface DashboardWorkspaceRequestContext {
 	locals: App.Locals;
@@ -92,15 +97,25 @@ function createDashboardWorkspaceHydration(
 	};
 }
 
+interface DashboardRequestWorkspace {
+	route: DashboardWorkspaceRouteData;
+	/** Settles with the roster reads, before the rest of the workspace; null when unknown. */
+	groupStrengthOutline: Promise<GroupStrengthOutline | null>;
+}
+
 async function createDashboardWorkspaceBootstrap(
 	context: DashboardWorkspaceRequestContext
-): Promise<DashboardWorkspaceRouteData> {
+): Promise<DashboardRequestWorkspace> {
+	let settleOutline!: (outline: Promise<GroupStrengthOutline | null>) => void;
+	const groupStrengthOutline = new Promise<GroupStrengthOutline | null>((resolve) => (settleOutline = resolve));
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
 		context: createRequestDashboardWorkspaceContext,
 		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 		defer: true,
 		fn: async (ctx) => {
-			const data = await fetchDashboardBootstrap(ctx);
+			const roster = readDashboardRoster(ctx);
+			settleOutline(loadGroupStrengthOutline(roster).catch(() => null));
+			const data = await fetchDashboardBootstrap(ctx, roster);
 			return {
 				workspaceKey: DASHBOARD_WORKSPACE_KEY,
 				data,
@@ -113,16 +128,28 @@ async function createDashboardWorkspaceBootstrap(
 		}
 	});
 
-	return {
-		dashboard: deferred
-	};
+	// The workspace's own load error reports a failure; the outline only falls back to the compact skeleton.
+	deferred.data.catch(() => settleOutline(Promise.resolve(null)));
+
+	return { route: { dashboard: deferred }, groupStrengthOutline };
 }
 
-const requestWorkspaces = new WeakMap<App.Locals, Map<string, Promise<DashboardWorkspaceRouteData>>>();
+const requestWorkspaces = new WeakMap<App.Locals, Map<string, Promise<DashboardRequestWorkspace>>>();
 
-export function streamDashboardWorkspaceBootstrap(
+export async function streamDashboardWorkspaceBootstrap(
 	context: DashboardWorkspaceRequestContext
 ): Promise<DashboardWorkspaceRouteData> {
+	return (await requestWorkspace(context)).route;
+}
+
+/** The Dashboard's by-group outline from the same roster reads as its workspace. */
+export async function loadDashboardGroupStrengthOutline(
+	context: DashboardWorkspaceRequestContext
+): Promise<GroupStrengthOutline | null> {
+	return (await requestWorkspace(context)).groupStrengthOutline;
+}
+
+function requestWorkspace(context: DashboardWorkspaceRequestContext): Promise<DashboardRequestWorkspace> {
 	let workspaces = requestWorkspaces.get(context.locals);
 	if (!workspaces) {
 		workspaces = new Map();

@@ -98,7 +98,10 @@ vi.mock('$features/critical-tasks/index.server', () => ({
 	fetchCriticalTasksDashboardSummary: fetchCriticalTasksDashboardSummaryMock
 }));
 
-vi.mock('./dashboardWorkspace.server', () => ({ streamDashboardWorkspaceBootstrap: streamDashboardWorkspaceMock }));
+vi.mock('./dashboardWorkspace.server', () => ({
+	streamDashboardWorkspaceBootstrap: streamDashboardWorkspaceMock,
+	loadDashboardGroupStrengthOutline: async () => null
+}));
 
 import { actions, load } from './+page.server';
 import { RequestFailure } from '$lib/errors';

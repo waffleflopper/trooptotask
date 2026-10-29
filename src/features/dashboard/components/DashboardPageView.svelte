@@ -7,7 +7,7 @@
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
+	import { formatDashboardTitleDate, type DashboardViewerDay, type GroupStrengthOutline } from '../contracts';
 	import { openCalendarAt } from '../calendarLink';
 	import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
@@ -39,9 +39,20 @@
 		updates: DashboardPageUpdates;
 		/** Offered once above the bands when a summary source failed; the bands that do not need it stay. */
 		summaryFailure?: Snippet;
+		/** The by-group rows to reserve while loading with sub-groups shown; null keeps the compact strip. */
+		groupStrengthOutline?: GroupStrengthOutline | null;
 	}
 
-	let { orgName, viewerDay, ctx, sections, access, updates, summaryFailure }: Props = $props();
+	let {
+		orgName,
+		viewerDay,
+		ctx,
+		sections,
+		access,
+		updates,
+		summaryFailure,
+		groupStrengthOutline = null
+	}: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -230,7 +241,30 @@
 										</div>
 									{/each}
 								</div>
-								<div class="grid grid-cols-4 gap-4 border-t border-border pt-3.5">
+								{#if groupStrengthOutline}
+									<!-- The stored Show sub-groups choice is on the root before paint, so each shape shows only under its own. -->
+									<div class="grid gap-2.5 [:root[data-sub-groups-hidden]_&]:hidden">
+										<div class="flex h-[16.5px] items-center"><Skeleton class="h-3 w-44" /></div>
+										<div class="border-t border-foreground">
+											{#each { length: groupStrengthOutline.rows }, index (index)}
+												<div class="flex h-[38px] items-center gap-3.5 border-b border-border">
+													<Skeleton class="h-3.5 w-[150px]" />
+													<Skeleton class="h-2 flex-1" />
+													<Skeleton class="h-3.5 w-14" />
+												</div>
+											{/each}
+										</div>
+										{#if groupStrengthOutline.folded}
+											<Skeleton class="h-5 w-28" />
+										{/if}
+									</div>
+								{/if}
+								<div
+									class={[
+										'grid grid-cols-4 gap-4 border-t border-border pt-3.5',
+										groupStrengthOutline && '[:root:not([data-sub-groups-hidden])_&]:hidden'
+									]}
+								>
 									{#each { length: 4 }, index (index)}
 										<Skeleton class="h-4 w-20" />
 									{/each}

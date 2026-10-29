@@ -201,6 +201,7 @@
 		{updates}
 		sections={DASHBOARD_SECTIONS}
 		summaryFailure={loadFailure}
+		groupStrengthOutline={data.groupStrengthOutline}
 	/>
 {/if}
 {#if data.organizationSetup}

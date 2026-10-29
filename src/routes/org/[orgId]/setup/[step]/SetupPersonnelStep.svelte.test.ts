@@ -87,3 +87,23 @@ it('records Later when the owner continues before the roster count loads', async
 		expect.objectContaining({ body: JSON.stringify({ step: 'personnel', answer: 'later' }) })
 	);
 });
+
+it('keeps the import mounted while its own refresh reloads the DoD IDs', async () => {
+	personnelStubs.ctx = {
+		orgId: 'alpha',
+		orgUrlSegment: 'alpha',
+		data: { personnel: [], rankCatalog: BUILT_IN_RANK_CATALOG },
+		allActivePersonnel: [added],
+		canAddPersonnel: false,
+		canImportPersonnel: true,
+		canManageGroups: false,
+		allowUnassignedPersonnel: true
+	} as unknown as PersonnelPageContext;
+	renderPersonnelStep();
+	await waitFor(() => expect(personnelStubs.lane).not.toBeNull());
+
+	page.data = { ...page.data, personnelImport: new Promise<never>(() => {}) };
+	await new Promise((resolve) => setTimeout(resolve, 0));
+
+	expect(personnelStubs.lane).not.toBeNull();
+});

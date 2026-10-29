@@ -7,6 +7,7 @@
 	import { ImportFlow } from '$lib/components/patterns/import-flow';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import SetupPersonnelWorkspace from './SetupPersonnelWorkspace.svelte';
 	import SetupEditorLoadError from './SetupEditorLoadError.svelte';
 
@@ -19,6 +20,37 @@
 		}
 		return flow.facts?.activePeople.status === 'ready' ? flow.facts.activePeople.value : null;
 	});
+
+	type ImportIds =
+		| { orgId: string; state: 'ready'; dodIds: readonly PersonnelDodId[] }
+		| { orgId: string; state: 'denied' | 'failed' };
+	let importIds = $state<ImportIds | null>(null);
+	// An import's own refresh replaces this promise; keep the last IDs so the flow, and its receipt, stay mounted.
+	$effect(() => {
+		const orgId: string = page.data.orgId;
+		const streamed = page.data.personnelImport;
+		let cancelled = false;
+		const settle = (value: { dodIds: readonly PersonnelDodId[] } | { access: unknown } | null | undefined) => {
+			importIds =
+				value && 'dodIds' in value ? { orgId, state: 'ready', dodIds: value.dodIds } : { orgId, state: 'denied' };
+		};
+		if (!isPromiseLike(streamed)) {
+			settle(streamed);
+			return;
+		}
+		void observeDeferred(streamed, {
+			fallbackMessage: 'Failed to load the Personnel import',
+			onResolve: settle,
+			onReject: () => {
+				if (importIds?.orgId !== orgId || importIds.state !== 'ready') importIds = { orgId, state: 'failed' };
+			},
+			isCancelled: () => cancelled
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+	const currentImportIds = $derived(importIds?.orgId === page.data.orgId ? importIds : null);
 
 	function lane(ctx: PersonnelPageContext, dodIds: readonly PersonnelDodId[]) {
 		const base = createPersonnelImportLane({
@@ -64,15 +96,15 @@
 				</section>
 			{/if}
 			{#if ctx.canImportPersonnel}
-				{#await page.data.personnelImport}
-					<ImportFlow lane={null} title="Import your roster" embedded />
-				{:then imported}
-					{#if imported && !('access' in imported)}
-						<ImportFlow lane={lane(ctx, imported.dodIds)} title="Import your roster" embedded />
-					{/if}
-				{:catch}
+				{#if currentImportIds?.state === 'failed'}
 					<SetupEditorLoadError subject="Personnel import" />
-				{/await}
+				{:else if currentImportIds?.state !== 'denied'}
+					<ImportFlow
+						lane={currentImportIds?.state === 'ready' ? lane(ctx, currentImportIds.dodIds) : null}
+						title="Import your roster"
+						embedded
+					/>
+				{/if}
 			{:else if !ctx.canAddPersonnel}
 				<p class="text-sm leading-5 text-muted-foreground">Your access does not include adding people.</p>
 			{/if}

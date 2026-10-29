@@ -1,5 +1,5 @@
 import type { ImportReference, ReferenceOption } from '$lib/components/patterns/import-flow';
-import { withinOrganizationLifetime } from '$lib/stores/core';
+import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Group } from '../contracts';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelDodId } from '../personnelSheetPersistence';
@@ -24,6 +24,7 @@ type Columns = typeof personnelImportColumns;
 
 export const NEW_PERSON = 'new';
 const NO_GROUP = 'no-group';
+let groupCreation: { lifetime: number; done: Promise<void> } | null = null;
 function uniqueBy<T>(items: readonly T[], value: (item: T) => string): Map<string, T | null> {
 	const index = new Map<string, T | null>();
 	for (const item of items) {
@@ -132,7 +133,6 @@ export function groupReference(
 	});
 	const optionOf = (id: string) => option(byId.get(id)!);
 	const byWords = uniqueBy(groups, (group) => groupWords(group.name));
-	let creation = Promise.resolve();
 	return {
 		label: 'group',
 		reads: ['groupName'],
@@ -154,9 +154,10 @@ export function groupReference(
 		},
 		create: canCreate
 			? async (name) => {
-					const previous = creation;
+					const lifetime = organizationLifetime();
+					const previous = groupCreation?.lifetime === lifetime ? groupCreation.done : Promise.resolve();
 					const finished = Promise.withResolvers<void>();
-					creation = finished.promise;
+					groupCreation = { lifetime, done: finished.promise };
 					try {
 						await withinOrganizationLifetime(previous);
 						let steps = name
@@ -202,6 +203,7 @@ export function groupReference(
 						const label = groupExportPath(buildGroupTree(groupManagementStore.items), created.id);
 						return { kind: 'created', option: { ...option(created), label: label || created.name } };
 					} finally {
+						if (groupCreation?.done === finished.promise) groupCreation = null;
 						finished.resolve();
 					}
 				}

@@ -1,22 +1,30 @@
 # Manage groups
 
-A manager adds, renames, orders and deletes Organization Groups and moves People between them in one two-pane editor,
-then checks that each change saved on its own.
+A manager builds the Organization's Group tree (Groups, their sub-groups and theirs, three levels at most), renames,
+orders, moves and deletes Groups, and moves People between them in one two-pane editor, then checks that each change
+saved on its own.
 
 ## Sub-features
 
 - `groups-open`: open the Group editor from Personnel at 1440, as a full-height sheet below 1024 and at 390.
 - `groups-add`: create a uniquely named Group with Enter; a duplicate or failed add keeps the draft beside its error.
+- `groups-tree`: add sub-groups from a Group's `+`, two levels below a top-level Group; a team has no `+`.
+- `groups-squads`: `Add standard squads…` on a top-level Group adds the chosen number of squads, each with an Alpha
+  Team and a Bravo Team, keeping squads and teams that already exist.
+- `groups-move-under`: move a Group and its sub-groups under another Group or to the top level; a target that would nest
+  deeper than three levels is disabled.
+- `groups-parent-gone`: an add under a Group another session deleted answers 400 and saves nothing.
 - `groups-first`: with no Groups, a hint points at `New group name` and the editor teaches the first Group.
 - `groups-edit`: rename inline; the viewer's pin stays on the renamed Group.
-- `groups-order`: reorder by drag and by Alt+Arrow; a stale order answers 409, adopts the saved catalog and reloads
+- `groups-order`: reorder siblings by dragging a grip or pressing ArrowUp/ArrowDown on it; a stale order answers 409, adopts the saved catalog and reloads
   roster membership and pins.
 - `groups-order-everywhere`: after a reorder, Personnel, Calendar, Bulk status, Training, Critical Tasks and sign-in
   roster PDFs list Groups as pins, then the saved order, then Unassigned. Group filters, including Onboarding's, follow
   the saved order without pins.
-- `groups-members`: Add people, Move to… and Remove from Group, each in one request.
-- `groups-remove`: delete a Group after choosing where its members go; an empty Group gets a plain confirmation. A Group
-  still responsible for a Calendar Tasking is refused with the Tasking named.
+- `groups-members`: Add people, Move selected members to and Remove from Group, each in one request.
+- `groups-remove`: delete a Group and its sub-groups after choosing where their members go; an empty subtree gets a plain
+  confirmation, and the roster reconciles without a reload. A Group still responsible for a Calendar Tasking is
+  refused with the Tasking named.
 - `groups-today`: the Today column's skeleton, failure and hidden states.
 - `groups-denied`: a reader's same-Organization and foreign-Organization writes are rejected with no saved change.
 - `groups-scope`: a Group-scoped Personnel configurer sees no `Manage Groups`; its Group writes are rejected, and its
@@ -30,11 +38,15 @@ then checks that each change saved on its own.
 
 Sign in as a member with Organization-wide Personnel configuration access, choose `Personnel`, then `Manage Groups`. At
 390 it is under `More Personnel controls`. The dialog `Manage Groups` reads
-`2 Groups · 3 personnel · the order here is the order everywhere`. The left pane holds `New group name` with `Add`, the
-Groups in display order and a dashed `Unassigned` row. Each Group row has a `Reorder <name>` grip and a `<name> <count>`
-button, with `Pinned` read before the count when pinned. The right pane shows the selected Group: `Rename <name>`,
-`Pin to top` or `Pinned to top`, `Add people to <name>`, and the member table with `Select <rank> <last>, <first>`
-checkboxes. The footer holds `Delete <name>…`, `Changes save as you go` and `Done`. Every change saves as it is made;
+`2 Groups · 3 personnel · the order here is the order everywhere`. The left pane holds `New group name` with `Add`, `Drag to
+reorder within a level`, the Group tree (`Groups in display order`, each sub-group list `Sub-groups of <name>`, indented
+one step per level) and a dashed `Unassigned` row. Each Group row has a `Reorder <name>` grip, a `<name>` button, `Pinned`
+when pinned, the count of people in its whole subtree, `Add a sub-group to <name>` (absent on a third-level team) and
+`Change <name>`, a menu of `Rename`, `Move under…`, `Add standard squads…` (top-level Groups only) and `Delete…`. The
+right pane is headed with the selected Group's path (`2ND PLATOON › 1ST SQUAD`), `Pin to top` or `Pinned to top` (top-level
+Groups only), `Add people to <name>`, and the member table with `Select <rank> <last>, <first>` checkboxes; checked
+members show `Move selected members to` (a tree picker with path labels) and `Remove from Group`. The footer holds
+`Changes save as you go` and `Done`. Every change saves as it is made;
 `Done` only closes. A Group-scoped configurer and a viewer have no `Manage Groups` button or menu item.
 
 Seeded Organization A has Alpha (SPC Able, Medic) and Bravo (SPC Baker, NCO), both at `sort_order` 0, plus SPC
@@ -64,21 +76,21 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
 1. **Open.** `npm run --silent verify:app -- login manager`; record its page ID as `PAGE`, `resize_page` to 1440x900 and
    click `Manage Groups`. Opening adds no network requests. The first Group is selected; Able reads `SPC`,
    `Able, Synthetic`, `Medic`, `Present`.
-2. **Add.** Fill `New group name` with `Weapons Proof` and press Enter. The field clears, keeps focus, and
-   `Weapons Proof 0` is selected with `No one is in this Group yet.` `rows groups orgA name "Weapons Proof"` returns one
+2. **Add.** Fill `New group name` with `Weapons Proof` and press Enter. The field clears, keeps focus, and the
+   tree gains `Weapons Proof` with count 0; select it to read `No one is in this Group yet.` `rows groups orgA name "Weapons Proof"` returns one
    row with the next `sort_order` (1). Filling `alpha` and pressing Enter shows `A Group with that name already exists.`
    on the field with `aria-invalid="true"` and `aria-describedby`, and saves nothing. With
    `network arm-fail PAGE groups`, an add of `Fail Proof` shows `Synthetic request failure`, keeps the draft, and saves
    no row; restore and press Enter again to save it.
 3. **Pin and rename.** Choose `Pin to top`. It becomes `Pinned to top` (pressed), the row reads
-   `Weapons Proof Pinned 0`, and `rows user_pinned_groups orgA` holds one row whose `group_id` is the Weapons Proof
-   Group's ID. Choose `Rename Weapons Proof`, fill `Group name` with `Weapons Squad`, and press Enter. The Group row
+   `Weapons Proof`, `Pinned`, `0`, and `rows user_pinned_groups orgA` holds one row whose `group_id` is the Weapons Proof
+   Group's ID. Choose `Change Weapons Proof` → `Rename`, fill `Group name` with `Weapons Squad`, and press Enter. The Group row
    keeps its ID, and the pin row is unchanged: same row ID, same `group_id`. Escape cancels an open rename without
    closing the dialog. With `arm-fail PAGE groups`, a rename shows `Unable to rename Group. Try again.` on the field
    with the draft kept.
-4. **Order.** Focus `Weapons Squad Pinned 0` and press Alt+ArrowUp. The live region reads
-   `Weapons Squad moved to position 2 of 3`, focus stays on that button, and `rows groups orgA` shows Alpha 0, Weapons
-   Squad 1, Bravo 2. Drag `Reorder Alpha` onto `Bravo 1`. The list reads Weapons Squad, Bravo, Alpha and saves 0, 1, 2.
+4. **Order.** Focus `Reorder Weapons Squad` and press ArrowUp. The live region reads
+   `Weapons Squad moved to position 2 of 3`, focus stays on that grip, and `rows groups orgA` shows Alpha 0, Weapons
+   Squad 1, Bravo 2. Drag `Reorder Alpha` onto the `Bravo` row. The list reads Weapons Squad, Bravo, Alpha and saves 0, 1, 2.
    For stale recovery, keep the editor open and use a second manager tab to delete a temporary Group containing
    Unassigned, moving its member to Bravo. Reorder in the first tab. Its PUT answers 409, followed by the saved catalog
    GET and a Personnel data reload. The pane shows
@@ -92,21 +104,20 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
 5. **Members.** Select Weapons Squad, open `Add people to Weapons Squad` and pick `SPC Unassigned, Synthetic NCO`. The
    picker lists Unassigned first, then each Group's People in display order. Its `group_id` becomes Weapons Squad
    through one `POST /org/<orgA>/api/personnel/group-membership`, and the roster behind the dialog updates in place. Add
-   Baker the same way, check `Select all members of Weapons Squad` (`2 selected`), and choose `Move to…`. The menu lists
-   the other Groups and `Unassigned`. Choose Bravo: both rows move to Bravo in one request. Select Bravo, check
+   Baker the same way, check `Select all members of Weapons Squad` (`2 selected`), and open `Move selected members to`
+   (`Move to…`). The tree picker lists the other Groups by path and `Unassigned`. Choose Bravo: both rows move to Bravo in one request. Select Bravo, check
    Unassigned, and choose `Remove from Group`; its `group_id` is null again.
 6. **Membership failure.** Add a Group `Stale Target`, delete it with an authenticated `DELETE /org/<orgA>/api/groups`
-   (`{id, moveMembersTo: null}`), then move Able to `Stale Target` with `Move to…`. The toolbar shows
+   (`{id, moveMembersTo: null}`), then move Able to `Stale Target` with `Move selected members to`. The toolbar shows
    `That Group is no longer available.`, and Able's `group_id` stays Alpha. Stale Target stays listed until a reload.
-7. **Delete.** Move Baker into a new Group, then choose `Delete <name>…`. The footer becomes a strip:
-   `Delete <name>? 1 member needs a new Group. Their records, notes and history are not affected.` `Move members to`
-   receives focus and defaults to the next Group, or `Unassigned` for the last Group. Choose Bravo and press
-   `Delete and move 1`. The Group row is gone, Baker's `group_id` is Bravo, the pin row is gone, and Bravo is selected.
-   For an empty Group the strip reads `No one is in this Group.` with `Cancel` (focused) and `Delete`; Cancel returns
-   focus to `Delete <name>…`. With `arm-fail PAGE groups`, `Delete` shows
-   `We couldn't confirm the Group change. Reload to see what saved.` in the strip, and the row remains. With a Tasking
-   owned by the Group (see [Events & Taskings](events-taskings.md) Staffing step 11), `Delete` answers 409 and the strip
-   shows
+7. **Delete.** Move Baker into a new top-level Group, then choose `Change <name>` → `Delete…`. The confirmation
+   `Delete <name>?` reads `1 person moves to the Group you choose. Their records, notes and history are not affected.`
+   `Move them to` defaults to the parent, or `Unassigned` for a top-level Group. Choose Bravo and press
+   `Delete and move 1`. The Group row is gone, Baker's `group_id` is Bravo, and the pin row is gone. For an empty Group
+   it reads `No one is in it.` with `Cancel` and `Delete`. With `arm-fail PAGE groups`, `Delete` shows
+   `We couldn't confirm the Group change. Reload to see what saved.` in the confirmation, and the row remains. With a
+   Tasking owned by the Group (see [Events & Taskings](events-taskings.md) Staffing step 11), `Delete` answers 409 and
+   the confirmation shows
    `This Group is responsible for “TITLE”. Move that tasking to another Group or the organization before deleting.`; the
    Group, its members and the Tasking are unchanged.
 8. **Retired membership reply.** As `personnelSwitch`, establish A/B browser history. Hold the first real
@@ -120,8 +131,8 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
    the editor has no Today column.
 10. **Sheet and phone.** At 900x900 the dialog fills the viewport (900x900, no horizontal overflow) with the Groups list
     above the selected Group's details. At 390x844 open it from `More Personnel controls`. The selection toolbar keeps
-    `Move to…` and `Remove from Group` on one line, the delete strip wraps its copy above the picker, and nothing
-    overflows.
+    `Move selected members to` and `Remove from Group` on one line, and nothing overflows. See
+    [Group tree](#group-tree) step 7 for the tree at 390.
 11. **Viewer.** Sign in as `viewer`. Personnel shows no `Manage Groups`. From that page send authenticated
     `GET /org/<orgA>/api/groups`, `PUT .../api/groups/order`, `PUT .../api/groups`, `DELETE .../api/groups` and
     `POST .../api/personnel/group-membership`, each with a well-formed body. Each answers 403; the same membership POST
@@ -139,13 +150,56 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
     the field is cleared and focused, and the right pane reads `No one in HQ Section yet`. Reload and reopen: no hint.
     Capture 1440, 1024 and 390; at 390 the hint sits under the field and covers nothing.
 
+## Group tree
+
+Start from a fresh fixture as `orgOwner` (or `manager`) at 1440x900 and open `Manage Groups`
+(`2 Groups · 3 personnel · the order here is the order everywhere`). Read every saved change with
+`rows groups orgA`; a row's `depth` is 1 for a top-level Group, 2 for its sub-group and 3 below that.
+
+1. **Build.** Add `2nd Platoon` with Enter. `Add a sub-group to 2nd Platoon` opens `New sub-group in 2nd Platoon` with
+   `Add` and `Cancel`; add `1st Squad`. The field stays open and focused for the next name; Escape closes it and keeps
+   the dialog open. Under `1st Squad` add `Alpha Team` and `Bravo Team`. The rows read depth 1, 2, 3, 3, with
+   `parent_id` naming the row above and the teams at `sort_order` 0 and 1. A team row has no `Add a sub-group`.
+2. **Standard squads.** Add `3rd Platoon`, then `Change 3rd Platoon` → `Add standard squads…`. The confirmation reads
+   `Each squad gets an Alpha Team and a Bravo Team. Squads and teams that already exist stay as they are.` with `Squads`
+   (1 to 6, default 2) and `Add 2 squads`. Choosing 3 shows `Add 3 squads`. Adding 2 saves `1st Squad` and `2nd Squad`
+   (depth 2, sort 0 and 1) and an `Alpha Team` and `Bravo Team` under each (depth 3): 13 Groups in all.
+3. **Assign at any level.** The Personnel Quick edit and Add a person `Group` field is a tree picker with
+   `Search Groups`; searching `alpha team` shows each matching team under its ancestors. Picking
+   `2nd Platoon › 1st Squad › Alpha Team` reads `Group: 2nd Platoon › 1st Squad › Alpha Team`, and Quick edit's change
+   line reads `Group Alpha → 2nd Platoon › 1st Squad › Alpha Team`. The bulk bar's `Move to Group` menu lists every
+   Group by path in tree order, then `Unassigned`; moving one person shows
+   `Moved 1 person to 2nd Platoon › 1st Squad › Alpha Team`. Each saves the chosen Group's ID as `group_id`.
+4. **Move under.** `Change 2nd Squad` (under 3rd Platoon) → `Move under…` opens `Move 2nd Squad`:
+   `2nd Squad and its 2 sub-groups move together. Choose the Group it goes under.` `Move` stays disabled until
+   `Move under` has a choice. The picker offers `Top level` and every Group outside the moving subtree; the squads are
+   disabled (a squad with teams under a squad would nest four deep) and so is the current parent. Choose `2nd Platoon`
+   and `Move`: the squad and both teams keep their IDs, `2nd Squad` takes `parent_id` 2nd Platoon and the next
+   `sort_order`, and the teams stay at depth 3.
+5. **Subtree delete.** With Able in Alpha Team and two people in Bravo Team, `Change 1st Squad` → `Delete…` opens
+   `Delete 1st Squad and its 2 sub-groups?`:
+   `Alpha Team and Bravo Team are deleted with it. 3 people move to the Group you choose. Their records, notes and
+history are not affected.` `Move them to` defaults to the parent, `2nd Platoon`, and lists no Group inside the
+   subtree; `Unassigned` is last. `Delete and move 3` deletes the three rows, the three people take `group_id` 2nd
+   Platoon, and after `Done` the roster shows them in the 2nd Platoon band with no page reload (`performance.timeOrigin`
+   unchanged). An empty subtree reads `No one is in it.` and confirms with `Delete`. Pins on any deleted Group go with it.
+6. **Parent gone.** From the signed-in page, add a Group, delete it with `DELETE /org/<orgA>/api/groups`
+   (`{id, moveMembersTo: null}`), then `POST` the same endpoint with `{name: "Orphan Team", parentId: <deleted id>}`. It
+   answers 400 `The parent Group is no longer available. Choose another.` and `rows groups orgA name "Orphan Team"`
+   is empty.
+7. **Narrow.** At 1024 the list and details sit side by side. At 390x844, from `More Personnel controls`, the tree sits
+   above the selected Group's details with no overlap and no horizontal overflow. Every tree picker opened from a
+   dialog at 390 (Move under, Move them to, Add a person `Group`, member access `Groups they work in`) is a bottom sheet
+   painted above that dialog (both at z-index 50, the sheet's `elementFromPoint` hit at the bottom of the screen); Escape
+   closes the sheet and leaves the dialog open.
+
 ## Group order everywhere
 
 Every page that groups People uses one rule: the viewer's pinned Groups in pin order, then the Organization's
 `sort_order` (ties by name, then ID), then Unassigned. Start from a fresh fixture (Alpha and Bravo both 0, so Alpha
 first).
 
-1. As `manager` with `calendar-grant manager view`, open `Manage Groups`, select `Bravo 1` and press Alt+ArrowUp. The
+1. As `manager` with `calendar-grant manager view`, open `Manage Groups`, focus `Reorder Bravo` and press ArrowUp. The
    live region reads `Bravo moved to position 1 of 2` and `rows groups orgA` shows Bravo 0, Alpha 1. Choose `Done`: the
    roster rows read `Collapse Bravo`, `Collapse Alpha`, `Collapse Unassigned`.
 2. Click the sidebar `Calendar` link, with no reload. The group bands read `BRAVO`, `ALPHA`, `UNASSIGNED` at 1440x900,
@@ -216,5 +270,9 @@ roles.
   blocked. Clear a draft with Control+A and Backspace, because a native `fill` with an empty string does not update the
   bound value.
 - Options in `Add people` appear only in a `verbose` snapshot; click the option UID from there.
+- Tree picker rows are `treeitem`s named `<name>` (Group fields) or `<name> <count>` (scope pickers), so two teams named
+  `Alpha Team` match the same name; search, then click the UID under the right ancestor. Clearing the search with a
+  native `fill` of an empty string does not update the list.
+- Names repeat across squads, so read `rows groups` by ID and `parent_id`, not by name.
 - Denial needs server response and no-effect readback; a hidden button alone cannot prove it. Route, store and component
   tests cover the remaining verbs, keyboard paths and pending states.

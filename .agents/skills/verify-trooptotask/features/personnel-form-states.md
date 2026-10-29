@@ -129,9 +129,10 @@ values.
 - `arm-fail` on `personnel` matches every method of that endpoint, so Add, Edit, Archive and Archives Restore all use
   the same control; arm it immediately before the action and restore it afterward.
 - The modal's `Group` select shares its name with the toolbar's `Group` view toggle: pick the dialog's with the second
-  match, because a click on the toolbar button closes the dialog and drops the draft. Rank and Group are comboboxes:
-  type the value into the combobox and press Enter. `take_snapshot` omits their open options; read them with
-  `evaluate_script` over `[role=option]`. `upload_file` takes `filePaths` (an array) inside the workspace roots, so keep
+  match, because a click on the toolbar button closes the dialog and drops the draft. Rank is a combobox:
+  type the value and press Enter. `take_snapshot` omits its open options; read them with `evaluate_script` over
+  `[role=option]`. Group is a tree picker: open it, type into `Search Groups` and click the `treeitem` under the right
+  ancestor; the trigger reads `Group: <path>`, and a member with one permitted Group sees static text instead. `upload_file` takes `filePaths` (an array) inside the workspace roots, so keep
   fixture files under `.verification/evidence/` and delete them before packaging. Counseling dates are chosen through
   the date picker (click the day cell). The `rows` allowlist includes `leader_notes` and `counseling_records`, so read
   their no-write proof with `$V rows leader_notes orgA personnel_id ID` and

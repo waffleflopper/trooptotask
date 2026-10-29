@@ -14,8 +14,8 @@ correct account and invitation steps.
 ## How to get to it (user POV)
 
 Sign in as the Organization owner, open `Settings` → `Members`, and use the invite strip at the top: the `Invite` email
-field, `Role` (owner only), `Preset`, and `Groups` (`Whole unit` or one or more groups in a multi-select; clearing the
-last group returns to `Whole unit`), then `Send invite` (`Sending...` while pending). The line under the strip restates
+field, `Role` (owner only), `Preset`, and `Groups` (a tree picker headed by `Whole unit`; checking Groups clears
+`Whole unit`, a squad covers its teams, and clearing the last Group returns to `Whole unit`), then `Send invite` (`Sending...` while pending). The line under the strip restates
 the preset's helper; with `Role` set to `Admin`, `Preset` reads `Uses Admin authority` and the line describes admin
 authority. `Waiting on them` appears above `Members` only while invitations are pending. Each row shows the email,
 `<preset> · sent <relative>`, the funnel status and its detail (failed delivery in the destructive color), `Resend` and
@@ -66,7 +66,14 @@ helper provides invitation and membership readback for A/B. The owned app's outb
 [helper controls](#helper-controls). Restore both controls between cases.
 
 1. As `orgOwner`, capture the invite strip. Enter `orgInvitee`'s synthetic email, choose member access and `Groups` →
-   `Alpha`, then click `Send invite`. Save the result and a reload of `Waiting on them`, including email, access label
+   `Alpha`, then click `Send invite`. With the [Group tree](manage-groups.md#group-tree) built, choose `Operator` and
+   check `Alpha Team` under `2nd Platoon › 1st Squad` (search `alpha team`; rows read `<name> <subtree count>`). The
+   trigger reads `Groups: 2nd Platoon › 1st Squad › Alpha Team` and the helper line
+   `Can view work and complete daily tasks in the selected areas. Sees Alpha Team: 2 people. Not Unassigned. They accept
+the invite after signing in.` The pending row stores `member_preset: operator`, `access_scope_kind: groups` and
+   only Alpha Team's ID. After `Accept`, the invitee's Personnel shows `Group: Alpha Team 2` and only Alpha Team's
+   People, Calendar and Training list only them, and a Quick edit of one saves; their `Group` field is the static
+   `Alpha Team`. A person moved out of Alpha Team leaves their roster on reload. Save the result and a reload of `Waiting on them`, including email, access label
    and funnel status. Confirm the invitee is absent from `Members` and from the owned A membership readback before
    acceptance. A duplicate pending invite must show a visible error and leave one pending invitation.
 2. As `orgInvitee`, open `/dashboard`; save a before snapshot with A under `Invitations` and `Nothing yet.` under

@@ -27,9 +27,9 @@ summary line (`Operator · HQ PLT · 2 area changes`) and a 2px rule. Each secti
 and its control on the right: `Role` and `Preset` as radio groups, `Area by area` with the sentence
 `Change an area only when the preset is too broad or too narrow for it.` and six lanes, `Calendar`, `Personnel`,
 `Training`, `Critical tasks`, `Onboarding` and `Evaluations`, of `None`/`View`/`Update`/`Manage` (a lane off the preset
-shows an amber dot in its gutter and `<preset> gives <level>`), and `Groups` as `Whole unit`/`Selected` with group chips
-and a restating sentence (`Works across all of <unit>, including Soldiers with no group.` or
-`Works in <list> only. Soldiers with no group aren't visible to them.`), visible without scrolling at 1440x1000. The
+shows an amber dot in its gutter and `<preset> gives <level>`), and `Groups` as `Whole unit`/`Selected` with the tree picker
+`Groups they work in` and a restating sentence (`Works across all of <unit>, including Soldiers with no group.`, or for
+a selection `Sees <Group> and its <n> sub-groups plus <Group>: <people> people. Not Unassigned.`), visible without scrolling at 1440x1000. The
 footer has `Remove from <unit>` on the left and `Cancel` with `Save <n> changes` together on the right. At 390 a lane's
 control wraps under its label and stays right-aligned. Escape cancels without saving; a save returns focus to the row's
 `Manage` button. Below `md` the table keeps the member and actions columns and moves both lanes under the email.
@@ -52,15 +52,16 @@ overrides and Group scope from the owned disposable provider so changes can be c
 ordinary access checks because it intentionally changes the seeded owner.
 
 1. As `orgOwner`, find `orgMember`'s row and open `Manage`. Change its `Preset` or one `Area by area` lane and choose
-   `Groups` → `Selected` → the `Alpha` chip; submit the named `Save <n> changes` button. Capture the action result and
+   `Groups` → `Selected`, open `Groups they work in` and check `Alpha`; submit the named `Save <n> changes` button. Capture the action result and
    `Access updated.` feedback, then reload Members and reopen that row. The same membership ID must show the saved
    values and Alpha scope. Read the exact A membership row again; B's matching rows remain unchanged.
 2. In the already-open `orgMember` context, reload and visit a retained Personnel or Calendar entry for Alpha and Bravo.
    Expect access consistent with the saved capability and Alpha scope; Bravo must not leak through stale page state.
    Capture route, visible result and, for a denied write/read, the actual HTTP status. Restore the original member
    access through the owner UI and verify the same ID and original values after reload before a later journey uses this
-   fixture. For the empty selection boundary, clear the last pressed Group chip while keeping `Selected`, save, reload
-   and reopen. The row must show amber `No groups`, the sheet must retain `Selected` with no chip pressed and the amber
+   fixture. For the empty selection boundary, uncheck the last Group in `Groups they work in` while keeping `Selected`,
+   save, reload and reopen. The row must show amber `No groups`, the sheet must retain `Selected` with the picker reading
+   `Choose Groups` and the amber
    sign-in-but-see-nothing sentence, and the same stored membership must retain `access_scope_kind: groups` with
    `access_scope_group_ids: []`. The member's reloaded Personnel workspace must contain no People. Restore Alpha and
    check that only Alpha returns; then explicitly choose `Whole unit` and verify Organization access separately.
@@ -96,6 +97,20 @@ ordinary access checks because it intentionally changes the seeded owner.
    UI interaction. For a positive exit, use an expendable accepted member: the sidebar name card → Account →
    `Leave unit` (absent for an owner) → type `YES` in the Leave Organization dialog → submit, then confirm the redirect
    and absence of that membership after reload. Restart the worker after this seeded deletion.
+
+## Group tree scope
+
+After the [Group tree](manage-groups.md#group-tree) build steps, as `orgOwner` open `Manage` for `orgMember`, choose
+`Operator`, open `Groups they work in`, uncheck `Alpha`, search `1st squad` and check the `1st Squad 3` row under
+`2nd Platoon`. Rows read `<name> <subtree count>`; checking a squad checks and disables its teams. Escape closes the
+picker. The trigger reads `Groups they work in: 2nd Platoon › 1st Squad`, the sentence
+`Sees 1st Squad and its 2 sub-groups: 3 people. Not Unassigned.`, and Save reads `Save 8 changes` (preset, six lanes and
+scope). The saved membership has `member_preset: operator` and `access_scope_group_ids` holding only the squad's ID,
+never its teams. Signed in as `orgMember`, Personnel's toolbar reads `Group: 1st Squad 3` with `1st Squad`,
+`Alpha Team` and `Bravo Team` bands, and Quick edit's `Group` picker offers only `1st Squad`, `Alpha Team` and
+`Bravo Team` with no `No Group Assigned`. Moving Baker from Alpha Team to Bravo Team there reads
+`Group Alpha Team → Bravo Team` (paths start below the member's visible root) and saves Bravo Team's ID. At 390 the
+picker is a bottom sheet above the access sheet with `Done`; at 1024 it is a popover inside the 560 px sheet.
 
 ## Gotchas
 

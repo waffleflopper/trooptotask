@@ -694,6 +694,17 @@ describe('PersonnelPageView', () => {
 				]);
 			});
 
+			it('stays on the page it showed when a collapse shortened the roster and an expand restores it', async () => {
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
+				await fireEvent.click(screen.getByRole('button', { name: 'Collapse Bravo' }));
+				await fireEvent.click(screen.getByRole('button', { name: 'Expand Bravo' }));
+
+				expect([row(101) !== null, row(201) !== null]).toEqual([true, false]);
+			});
+
 			it('searches the whole roster from the first page', async () => {
 				renderLargeGroupedRoster();
 				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));

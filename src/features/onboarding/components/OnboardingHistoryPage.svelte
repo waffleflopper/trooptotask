@@ -186,7 +186,9 @@
 	<div class="grid shrink-0 gap-4 border-b border-border p-3 md:px-6 md:pt-6 md:pb-4">
 		<PageShell.Header title="History" subtitle={subtitleParts.length > 0 ? subtitle : undefined} />
 		{#if groups.length > 0 || focus.focus?.kind !== 'all'}
-			<div class="flex min-w-0 flex-wrap items-center gap-x-1 rounded-lg border border-border bg-card p-1 max-sm:flex-col">
+			<div
+				class="flex min-w-0 flex-wrap items-center gap-x-1 rounded-lg border border-border bg-card p-1 max-sm:flex-col"
+			>
 				<GroupFocusControl
 					{focus}
 					people={focusPeople}

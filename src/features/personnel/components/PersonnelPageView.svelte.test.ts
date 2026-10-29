@@ -262,11 +262,13 @@ function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageCo
 		toggleGroup(key: string): void {
 			if (!ctx.collapsedGroups.delete(key)) ctx.collapsedGroups.add(key);
 		},
-		groupFocus: new GroupFocusState((): GroupFocusSource => ({
-			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : null,
-			pinnedIds: pinnedGroupsStore.list,
-			organizationWide: ctx.canPinGroups
-		}))
+		groupFocus: new GroupFocusState(
+			(): GroupFocusSource => ({
+				groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : null,
+				pinnedIds: pinnedGroupsStore.list,
+				organizationWide: ctx.canPinGroups
+			})
+		)
 	};
 
 	for (const override of overrides) {

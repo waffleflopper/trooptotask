@@ -4305,6 +4305,7 @@ export type Database = {
         Args: { p_organization_id: string }
         Returns: {
           first_name: string
+          group_id: string
           id: string
           last_name: string
           rank: string

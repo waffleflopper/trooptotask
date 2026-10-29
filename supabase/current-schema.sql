@@ -7043,11 +7043,11 @@ ALTER FUNCTION public.list_platform_owner_membership_metrics(p_org_ids uuid[]) O
 -- Name: list_rating_scheme_personnel_lookup(uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.list_rating_scheme_personnel_lookup(p_organization_id uuid) RETURNS TABLE(id uuid, rank text, last_name text, first_name text)
+CREATE FUNCTION public.list_rating_scheme_personnel_lookup(p_organization_id uuid) RETURNS TABLE(id uuid, rank text, last_name text, first_name text, group_id uuid)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  SELECT p.id, p.rank, p.last_name, p.first_name
+  SELECT p.id, p.rank, p.last_name, p.first_name, p.group_id
   FROM public.personnel p
   WHERE p.organization_id = p_organization_id
     AND p.archived_at IS NULL

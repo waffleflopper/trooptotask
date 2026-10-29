@@ -137,6 +137,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261027090000_organization_setup.sql",
     "20261028090000_group_pins_by_id.sql",
     GROUP_TREE_MIGRATION,
+    "20261029100000_rating_scheme_lookup_group.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

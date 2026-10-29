@@ -566,7 +566,7 @@
 				responsibility: tasking.responsibility,
 				requirement: tasking.required === null ? null : { count: tasking.required, qualifications: null }
 			}}
-			groups={groupNames}
+			groups={ctx.scopedGroups}
 			onSaved={() => {
 				assigning = null;
 				return refreshTaskings(stillInOrganizationLifetime());

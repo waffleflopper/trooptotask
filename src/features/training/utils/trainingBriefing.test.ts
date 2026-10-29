@@ -711,7 +711,7 @@ describe('buildTrainingBriefing hot-spot grid', () => {
 
 		expect(filtered({ mos: ['68W'] }).total).toBe(50);
 		expect(filtered({ mos: ['68W', ''] }).rows.map((row) => row[0])).toEqual(['bravo', 'alpha', 'unassigned']);
-		expect(filtered({ groupId: 'alpha', role: ['Ops: Night'] }).rows).toEqual([['alpha', 'Alpha', 50]]);
+		expect(filtered({ groupIds: ['alpha'], role: ['Ops: Night'] }).rows).toEqual([['alpha', 'Alpha', 50]]);
 		expect(filtered({ rank: 'SPC', mos: [], role: [] }).rows.map((row) => row[0])).toEqual(['bravo', 'alpha']);
 		expect(filtered({ trainingTypeIds: ['cpr'] })).toMatchObject({ columns: ['cpr'], total: 50 });
 		expect(filtered({ trainingTypeIds: ['opt'] })).toMatchObject({ columns: [], total: null });

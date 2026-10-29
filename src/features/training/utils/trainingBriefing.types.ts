@@ -10,7 +10,8 @@ export type FocusCandidateKey = 'wave' | `gap:${string}` | `row:${BriefingRowsBy
 
 /** Group and rank select one value; MOS, duty role and training types are multi-selections where empty means all. */
 export interface TrainingBriefingFilters {
-	groupId?: string;
+	/** A picked Group and every Group below it. */
+	groupIds?: readonly string[];
 	rank?: string;
 	mos?: string[];
 	role?: string[];

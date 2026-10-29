@@ -764,6 +764,63 @@ describe('PersonnelPageView', () => {
 				expect(screen.queryByRole('button', { name: 'Unpin Bravo' })).toBeNull();
 			});
 
+			it('keeps a search typed while a pin was saving on its first page when the save fails', async () => {
+				let failSave!: () => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(
+						() =>
+							new Promise((_resolve, reject) => {
+								failSave = () => reject(new Error('Save denied'));
+							})
+					)
+				);
+				groupCatalogHydration.load(
+					[
+						{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+						{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
+					],
+					'org-1'
+				);
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(screen.getByRole('button', { name: 'Pin Bravo' }));
+				await waitFor(() => expect(screen.getByRole('button', { name: 'Unpin Bravo' })).toBeTruthy());
+
+				await fireEvent.input(screen.getByRole('searchbox', { name: searchName }), { target: { value: 'Soldier' } });
+				failSave();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+
+				expect(pager().getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
+			});
+
+			it('leaves focus alone in a roster opened after the one where a pin was saving', async () => {
+				let failSave!: () => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(
+						() =>
+							new Promise((_resolve, reject) => {
+								failSave = () => reject(new Error('Save denied'));
+							})
+					)
+				);
+				renderLargeGroupedRoster();
+				await fireEvent.click(screen.getByRole('button', { name: 'Pin Alpha' }));
+				await waitFor(() => expect(screen.getByRole('button', { name: 'Unpin Alpha' })).toBeTruthy());
+
+				cleanup();
+				renderLargeGroupedRoster();
+				(document.activeElement as HTMLElement | null)?.blur();
+				failSave();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+
+				expect(document.activeElement).toBe(document.body);
+			});
+
 			it('follows a Group collapsed from its continuation page and keeps focus on its toggle', async () => {
 				personnelStore.load(
 					Array.from({ length: 400 }, (_, index) => ({

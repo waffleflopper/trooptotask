@@ -40,6 +40,19 @@ describe('personnelDraftChanges', () => {
 		]);
 	});
 
+	it('names a sub-group by its path, since teams in different squads share names', () => {
+		const teams: Group[] = [
+			...groups,
+			{ id: 'sq', name: '1st Squad', sortOrder: 0, parentId: 'g-2', depth: 2 as const },
+			{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq', depth: 3 as const }
+		];
+		const opening = personnelDraftOf(okafor);
+
+		expect(personnelDraftChanges(opening, { ...opening, groupId: 'alpha' }, teams)).toEqual([
+			{ field: 'groupId', label: 'Group', from: '2nd Platoon', to: '2nd Platoon › 1st Squad › Alpha Team' }
+		]);
+	});
+
 	it('reports nothing for edits that save as the same value', () => {
 		const opening = personnelDraftOf(okafor);
 

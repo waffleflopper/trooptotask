@@ -1,6 +1,7 @@
 import { rejectedRequestMessage, StoreRequestError } from '$lib/stores/core';
 import { formatDisplayDate } from '$lib/utils/dates';
 import type { Group, RankCatalogEntry } from './contracts';
+import { buildGroupTree } from './groupTree';
 import type { Personnel } from './personnel.types';
 
 export interface PersonnelDraft {
@@ -168,7 +169,8 @@ export interface PersonnelDraftChange {
 
 function shown(field: PersonnelDraftField, value: string, groups: readonly Group[]): string {
 	if (value === '') return 'None';
-	if (field === 'groupId') return groups.find((group) => group.id === value)?.name ?? 'None';
+	if (field === 'groupId')
+		return groups.some((group) => group.id === value) ? buildGroupTree(groups).label(value) : 'None';
 	if (field === 'ets' || field === 'deros') return formatDisplayDate(value);
 	return value;
 }

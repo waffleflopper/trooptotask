@@ -84,10 +84,10 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
    | Matrix type header buttons                        | `Verification Targeted Training 12 MO` (then with `▲` or `▼`); the color square is `aria-hidden`                                                    | 210.3x55 at 1280 and 99x55 at 390. `aria-sort` follows the active column; Enter and Space toggle and keep focus                                                                                                                                |
 
    The matrix `table` is named `Training status matrix`. Matrix view mode (`A–Z`, `Groups`), `Training view filter` and
-   `Training group filter` leave the URL empty and survive a reload. Reset them to `Groups`, `All trainings` and
-   `Group: All` afterward. The `Training controls` toolbar stays on one row: `scrollWidth` equals `clientWidth`, and the
-   controls that do not fit move into `More Training controls`, which is 32x32 at 390. `Manage types` lives only in
-   More.
+   `Training group filter` leave the URL empty and survive a reload. The group filter lists only top-level Groups, and a
+   pick keeps its whole subtree. Reset them to `Groups`, `All trainings` and `Group: All` afterward. The
+   `Training controls` toolbar stays on one row: `scrollWidth` equals `clientWidth`, and the controls that do not fit
+   move into `More Training controls`, which is 32x32 at 390. `Manage types` lives only in More.
 
    Matrix headings and cells, on `Groups` with the seeded fixture: the corner header is left-aligned and reads
    `Personnel` and the person count (`Personnel ▲ 3`). A Group band shows its readiness as bare tone text with no chip

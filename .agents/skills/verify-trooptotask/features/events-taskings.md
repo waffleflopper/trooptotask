@@ -25,11 +25,11 @@ Features `Events & Taskings` turns the whole feature off.
 - `event-edit`: the same sheet, filled. `Save changes` stays disabled until something changes.
 - `event-cancel`: a confirmation with an optional reason. The detail then shows who cancelled it and when, and Edit and
   Cancel are gone.
-- `event-delete`: `Delete event`, red, below a separator in the detail's `...` menu, for an active or a cancelled
-  Event. The dialog names the Event. With linked Taskings it lists up to four with their status badges, then
-  `and N more`, and asks `What happens to its N taskings?` with two cards, `Keep them as standalone` (chosen) and
-  `Delete them too`. The confirm button reads `Delete event`, or `Delete event and N taskings` for the second card.
-  Without Taskings it only confirms. Success lands on the Events list with a toast.
+- `event-delete`: `Delete event`, red, below a separator in the detail's `...` menu, for an active or a cancelled Event.
+  The dialog names the Event. With linked Taskings it lists up to four with their status badges, then `and N more`, and
+  asks `What happens to its N taskings?` with two cards, `Keep them as standalone` (chosen) and `Delete them too`. The
+  confirm button reads `Delete event`, or `Delete event and N taskings` for the second card. Without Taskings it only
+  confirms. Success lands on the Events list with a toast.
 - `event-activity`: the detail card's `History` list, newest first, written by the database for created, dates changed,
   coordination changed and cancelled.
 - `event-access`: Group-scoped operators and Calendar viewers read Events with no controls, and the server refuses their
@@ -46,8 +46,8 @@ Features `Events & Taskings` turns the whole feature off.
   `Sorted by next date`; closed views hold the 100 most recent, newest first.
 - `tasking-create`: the `Create tasking` sheet. `Required outcome`, `Who is responsible?` and `Suspense` are required.
   Event is optional: a filled row with `Make standalone` when chosen, an Event select when not. Responsible is two
-  cards, `A Group` with its Group select and `Organization level`. An Organization-wide operator starts on
-  `Organization level`. A Group-scoped operator starts on their Group only when they manage exactly one, and
+  cards, `A Group` with its `Group: <path>` tree button and `Organization level`. An Organization-wide operator starts
+  on `Organization level`. A Group-scoped operator starts on their Group only when they manage exactly one, and
   `Organization level` is disabled for them. A hint under the cards names who may pick people. `People committed` sets
   the execution dates and report time in one range picker beside `Suspense`. `OPTIONAL` holds `People` (count and
   qualifications), `Equipment` rows (name, `×`, quantity, `Add item`) and the `Checklist` and `Instructions` adders.
@@ -79,11 +79,11 @@ the right, then a row with `Calendar` (back to the month) and an `Events` / `Tas
 list adds `Upcoming` / `Past` to that row, with `Create event` and `+ Create tasking` for an operator. A row opens
 `/org/ORG/calendar/events/EVENT_ID`, whose header has the title, `Edit event` and `+ Add tasking` for an operator, and
 `All events`, `Show on availability` and a `...` menu holding `Cancel event` and a red `Delete event` in the row; a
-cancelled Event's menu holds only `Delete event`. The left card shows a countdown
-(`Starts in N days`, amber), the dates, the location, `HOSTED BY`, `SOURCE`, `COORDINATOR`, the description and
-`HISTORY`. The right column is `What ORG owes` with the Tasking count, a summary line (`N overdue`, `N blocked`,
-`N need people`, an amber triangle with `N conflicts`, `N fully staffed and ready`) and the groups. Below about 830 px
-of content the card stacks over the groups. `Show on availability` opens the Calendar on the Event's start month.
+cancelled Event's menu holds only `Delete event`. The left card shows a countdown (`Starts in N days`, amber), the
+dates, the location, `HOSTED BY`, `SOURCE`, `COORDINATOR`, the description and `HISTORY`. The right column is
+`What ORG owes` with the Tasking count, a summary line (`N overdue`, `N blocked`, `N need people`, an amber triangle
+with `N conflicts`, `N fully staffed and ready`) and the groups. Below about 830 px of content the card stacks over the
+groups. `Show on availability` opens the Calendar on the Event's start month.
 
 The Taskings list is `/org/ORG/calendar/taskings` with `Create event` and `+ Create tasking` for an operator. A row
 opens `/org/ORG/calendar/taskings/TASKING_ID`. Its header has the outcome, `Edit` and `+ Assign people` for an operator
@@ -94,8 +94,8 @@ side by side. The rail holds `STATUS` (a status select and the next actions), `R
 `WHO CAN PICK PEOPLE` and `ACTIVITY`. At 900 the rail stacks under the main column; at 390 everything stacks. At 900 the
 list selects move into `Filters`; at 390 the view switch joins them.
 
-Member labels use `RANK First Last` from the member profile, then membership email, then the first eight characters
-of the user id and `...`. The Event list and detail provide `memberOptions` in name order and `currentUserId` for the
+Member labels use `RANK First Last` from the member profile, then membership email, then the first eight characters of
+the user id and `...`. The Event list and detail provide `memberOptions` in name order and `currentUserId` for the
 coordinator sheet. The same label read supplies coordinators, Activity actors and lifecycle attribution.
 
 ## Helper controls
@@ -193,7 +193,15 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
 17. **Filters and Back.** With Taskings across both Groups, the Organization and every status, choose `Alpha` in
     `Responsible` and `Next 7 days` in `Due`; the URL reads `?for=ALPHA_ID&within=7` and only Alpha Taskings due within
     a week remain. Open a row and press the browser's Back: the URL, the selects and the rows return unchanged. Search
-    `lmtv` writes `?q=lmtv` without a new history entry. `Event` narrows to one Event or `Standalone`.
+    `lmtv` writes `?q=lmtv` without a new history entry. `Event` narrows to one Event or `Standalone`. **Nested
+    Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` choose
+    `Create tasking` › `A Group`: `Find a Group` lists `2nd Platoon`, `Alpha` and `Bravo`, and typing `1st` shows
+    `1st Squad` under `2nd Platoon`. Pick it, fill the outcome and a suspense, and save: the trigger reads
+    `Group: 2nd Platoon › 1st Squad`, and the detail and the list's responsible pill read `2nd Platoon › 1st Squad`.
+    `Responsible` lists `All`, `Verification Organization A`, `2nd Platoon`, `Alpha` and `Bravo`. `2nd Platoon` writes
+    `?for=<2nd Platoon>` and keeps the squad's Tasking, `Alpha` shows `No taskings match these filters`, and
+    `?for=<1st Squad>` reads `Responsible All` and lists every Tasking. At 1024x640 and 390x844 `scrollWidth` equals the
+    viewport.
 18. **Failed Tasking save.** On the list, arm `$V network arm-fail PAGE calendar-taskings`, open `Create tasking`, fill
     the three required fields and save. The sheet keeps every entry under a `Not saved` alert and
     `$V rows calendar_taskings orgA` has no new row. Press `Create tasking` again: it saves once and opens the detail.
@@ -291,7 +299,10 @@ Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Taskin
    `3 of 3 selected`, and Activity adds
    `Picked SPC Able, Synthetic; SPC Baker, Synthetic and SPC Unassigned, Synthetic`.
 2. **Group picker.** On the Alpha Tasking the picker has no `Group` select and lists only SPC Able, now carrying the
-   Organization Tasking's title and `26 – 28 Oct 2026`. Pick Able and save: `1 of 2 selected`.
+   Organization Tasking's title and `26 – 28 Oct 2026`. Pick Able and save: `1 of 2 selected`. When candidates span a
+   nested Group the list bands them under headings: the Group's own people first as `<path> HQ`, then each sub-group
+   depth-first by path (`2nd Platoon › 1st Squad`, `2nd Platoon › 1st Squad › Alpha Team`), and picks outside the
+   subtree last under their own Group. One band shows no heading.
 3. **List counts.** The Taskings list rows end `· 1 of 2 picked`, `· 3 of 3 picked` and `· 0 of 1 picked`.
 4. **Retry is a no-op.** From the page, `PUT` the same list with the same `expectedRevision` twice. The first answers
    `saved`, the second `unchanged` with the same revision, and the participant rows and audit rows do not grow.
@@ -363,10 +374,11 @@ Reyes and PFC Kim to Alpha, SFC Diaz and SPC Moore to Bravo, and SSG Park (68K) 
    `Equipment` `1 of 2 returned`.
 4. **Picker.** On `graders` press `+ Assign people`. The sheet reads `Assign people`, the outcome and dates, the
    `Organization-level tasking. You can pick from every Group.` banner, `2 of 3` with chips `SSG Hale · Alpha` and
-   `SFC Diaz · Bravo` and one dashed slot. Hale and Diaz lead the list. `Group` › `Bravo` leaves Diaz and Moore;
-   `Unassigned` leaves Park. `Save` is disabled. On `trauma` the sheet has a locked `Group Alpha`, an `MOS` toggle that
-   leaves only 68W holders, `Other Groups are not listed.` and the footer `Only Alpha's roster appears…`.
-   `Remove SGT Ortiz, Lena` on a chip unticks her row.
+   `SFC Diaz · Bravo` and one dashed slot. Hale and Diaz lead the list. `Group` lists `All Groups`, the top-level Groups
+   and `Unassigned`; `Bravo` leaves Diaz and Moore, and a top-level Group keeps its sub-groups' people; `Unassigned`
+   leaves Park. `Save` is disabled. On `trauma` the sheet has a locked `Group Alpha`, an `MOS` toggle that leaves only
+   68W holders, `Other Groups are not listed.` and the footer `Only Alpha's roster appears…`. `Remove SGT Ortiz, Lena`
+   on a chip unticks her row.
 5. **Undo.** On `trauma` tick Nguyen and press `Save 4 people`. The sheet closes, `People` reads `4 of 4 selected` with
    Nguyen marked `new`, and a toast reads `4 of 4 selected`, `SPC Nguyen now shows a commitment…` and `Undo`. Press
    `Undo`: `The earlier selection is back` and `3 of 4 selected`; `$V rows calendar_tasking_participants` lists Able,
@@ -422,8 +434,7 @@ all linked to it; add a standalone Bravo Tasking.
 25. **Date review.** On the Event press `Edit`, move the dates to 17 – 19 Nov and save. `Review taskings` lists the
     Alpha, Bravo and Organization Taskings with notes, and the Event's rows regroup. Open the Alpha link: its edit sheet
     opens on arrival and the URL has no `edit` left. Back returns to the Event with the list still there, without
-    reopening the edit. Edit only the title of the Event and
-    save: no review list appears.
+    reopening the edit. Edit only the title of the Event and save: no review list appears.
 26. **Cancel review.** Press `Cancel event`. The dialog lists the three active Taskings as links; complete one first and
     it drops off the list. Confirm. The detail shows the cancellation banner and the notice that the Taskings stay open,
     with every Tasking still `Open`, `In progress` or `Blocked`.
@@ -513,8 +524,8 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
    the form and `$V rows` has no new row. `network restore PAGE`, press `Add to equipment` again: it saves once.
 5. **Remove.** `Remove` a row and an item: each disappears, the heading counts fall, and Activity gains a removed entry.
    With no items left the headings read `None needed` and `No items`, and the Tasking list row loses its summary.
-6. **List rows.** On the Taskings list the Alpha row reads `Equipment 1 of 3 ready · 2 partial` and
-   `Checklist 1/2` in the title column, with no layout shift when it appears, and rows without items show nothing.
+6. **List rows.** On the Taskings list the Alpha row reads `Equipment 1 of 3 ready · 2 partial` and `Checklist 1/2` in
+   the title column, with no layout shift when it appears, and rows without items show nothing.
 7. **Widths.** Capture the list, the detail and the `Equipment` and `Checklist` sections at 1440, 900 and 390;
    `scrollWidth` equals the viewport. At 390 the two cards stack and each row keeps its checkbox, name, count and menu
    on one line.
@@ -617,10 +628,10 @@ users.
 
 ## Dashboard
 
-The Dashboard request returns `attention.rows`, `attention.total` and `attention.onTrack`, plus the forecast.
-Needs you receives Overdue, Blocked and Short Taskings and one Conflict row per visible Person and Tasking. A Conflict
-row names the Person, status label and start, and the Tasking title. Picks under review and archived People never
-conflict. Another overlapping Tasking is an advisory, not a conflict. On-track work due within seven days appears in
+The Dashboard request returns `attention.rows`, `attention.total` and `attention.onTrack`, plus the forecast. Needs you
+receives Overdue, Blocked and Short Taskings and one Conflict row per visible Person and Tasking. A Conflict row names
+the Person, status label and start, and the Tasking title. Picks under review and archived People never conflict.
+Another overlapping Tasking is an advisory, not a conflict. On-track work due within seven days appears in
 `attention.onTrack` with its title, responsibility, suspense, picked and required counts, and is absent from Needs you.
 The source keeps its pending and failed states separate from an empty queue. Each row acts in place: Overdue offers
 `Mark done`, Blocked `Unblock`, Short `Pick N` for the People still needed, and Conflict `Swap`. On duty lists
@@ -629,9 +640,9 @@ The source keeps its pending and failed states separate from an empty queue. Eac
 Seed as `calendarOperate` through `/org/A/api/calendar-taskings` with dates relative to the viewer day D. Create Alpha
 Overdue due D-3, Alpha Blocked due D+3, Alpha needing two People executing D+3 through D+7, and on-track Alpha work due
 D+4 with no staffing requirement. Add Bravo needing one Person executing D+2 through D+3 and due D+3, and an
-Organization Tasking needing three executing D+7 through D+8 and due D+8. Pick Able on the Alpha executing Tasking.
-Add Leave for Able on D+5 through D+7 without a Tasking reference. Keep the Alpha Tasking's equipment ready. Before
-staffing Bravo, expect six Tasking attention rows and the two seeded Unfilled duty rows, eight Needs you rows total.
+Organization Tasking needing three executing D+7 through D+8 and due D+8. Pick Able on the Alpha executing Tasking. Add
+Leave for Able on D+5 through D+7 without a Tasking reference. Keep the Alpha Tasking's equipment ready. Before staffing
+Bravo, expect six Tasking attention rows and the two seeded Unfilled duty rows, eight Needs you rows total.
 
 1. **Operator.** The eight Needs you rows include Overdue, Blocked, Short and Conflict. The Conflict reads
    `SPC Synthetic Able is on leave from WEEKDAY DAY` with `Committed to TITLE` under it, in amber with `Swap`. The
@@ -660,18 +671,18 @@ staffing Bravo, expect six Tasking attention rows and the two seeded Unfilled du
    Home: `Needs you · 2` keeps the two Unfilled duty rows, `Needs you is incomplete. Tasking items could not load.` and
    `Try again` show under them, and Strength, On duty and Readiness render as usual. `server-source restore`, press
    `Try again`: one `GET api/dashboard/taskings` and the eight original rows. For the pending state arm
-   `server-source arm rpc/calendar_tasking_dashboard hold 1 40000` and reload: the two duty rows show with one
-   skeleton row under them and no `Nothing needs you right now.`; `release` replaces the skeleton with the rows.
+   `server-source arm rpc/calendar_tasking_dashboard hold 1 40000` and reload: the two duty rows show with one skeleton
+   row under them and no `Nothing needs you right now.`; `release` replaces the skeleton with the rows.
 6. **Group-scoped and read-only.** As `calendarScoped` the queue is six rows, with Alpha's four Taskings only (no Bravo,
    no Organization row), and `GET api/dashboard/taskings` returns those four titles. `Range safety detail` and
    `Gate guard rotation` are absent from its `__data.json`. As `calendarView` all eight original rows show with no
    action. As the `viewer` login the same `GET` answers `null` and no Tasking row shows.
 7. **Switch off.** As `orgOwner`, Settings › Features, turn `Events & Taskings` off. The operator's Dashboard shows
-   `Needs you · 2` with no Tasking row, no `api/dashboard/taskings` request, and `server-source arm
-rpc/calendar_tasking_dashboard hold 1 60000` records `matches: 0` after a reload. Turn it back on.
+   `Needs you · 2` with no Tasking row, no `api/dashboard/taskings` request, and
+   `server-source arm rpc/calendar_tasking_dashboard hold 1 60000` records `matches: 0` after a reload. Turn it back on.
 8. **Widths.** Capture the queue for the operator, `calendarScoped`, `calendarView`, the failed state, the pending state
-   and the switch off at 1440, 900 and 390. At 390 each action sits beside the title and the timing stays on the
-   first line. `scrollWidth` equals the viewport.
+   and the switch off at 1440, 900 and 390. At 390 each action sits beside the title and the timing stays on the first
+   line. `scrollWidth` equals the viewport.
 9. **Mark done and Unblock.** Choose `Mark done` on the Overdue row: one `POST .../ID/status` with
    `{ action: 'complete', note: null }`, then one `GET api/dashboard/taskings`, and the row leaves without a page
    reload. `rows calendar_taskings orgA title TITLE` reads `completed`. Choose `Unblock` on the Blocked row: it leaves
@@ -687,8 +698,8 @@ rpc/calendar_tasking_dashboard hold 1 60000` records `matches: 0` after a reload
 12. **Create tasking.** Quick add's filled `+ Tasking` opens the `Create tasking` sheet at once and, when
     `GET api/calendar-taskings/choices` answers, fills it with the Organization, Groups and upcoming Events. Create one
     due D+3: the sheet closes, a toast offers `Open`, one `GET api/dashboard/taskings` follows, and the new Tasking
-    shows in On track. When the choices read fails, the skeleton sheet closes at once and a toast says
-    `Create tasking` could not open.
+    shows in On track. When the choices read fails, the skeleton sheet closes at once and a toast says `Create tasking`
+    could not open.
 
 ### Forecast lane
 
@@ -734,9 +745,9 @@ Bravo Tasking due D+3; `Post cleanup week` D+7 to D+11 with no Tasking; `Range c
 
 Not covered by the harness: more than 100 rows needing attention, which the unit tests cover with
 `N more Tasking items are not listed`. `supabase/tests/calendar_tasking_attention.sql` and
-`supabase/tests/calendar_tasking_parity.sql` prove the ranking, scope, the
-viewer's day and the switch as ordinary signed-in users, and `supabase/tests/calendar_range_projection.sql` proves that
-an Event's work in scope differs for Organization-wide and Alpha readers.
+`supabase/tests/calendar_tasking_parity.sql` prove the ranking, scope, the viewer's day and the switch as ordinary
+signed-in users, and `supabase/tests/calendar_range_projection.sql` proves that an Event's work in scope differs for
+Organization-wide and Alpha readers.
 
 ## Set availability
 
@@ -746,17 +757,18 @@ own validation and write. Left of it, one quiet line counts the picked people wh
 cover every execution day: `N of M picked people have no Availability covering every execution day.`, or
 `Availability covers every execution day for everyone picked.` It is derived on every load from one read of the
 Tasking's picks and dates, using only entries whose `set_for_tasking_id` is this Tasking, never stored, and never
-creates anything. Picks under review and archived people are left
-out. Only people the reader may write Availability for are counted and prefilled, so a viewer sees neither the line nor
-the action, and a Group-scoped operator is told only about their Groups. A completed or cancelled Tasking offers
-neither. The line has its own skeleton and load error with `Retry`, and `People` stays usable when it fails.
+creates anything. Picks under review and archived people are left out. Only people the reader may write Availability for
+are counted and prefilled, so a viewer sees neither the line nor the action, and a Group-scoped operator is told only
+about their Groups. A completed or cancelled Tasking offers neither. The line has its own skeleton and load error with
+`Retry`, and `People` stays usable when it fails.
 
 ### Driving it
 
 As `calendarOperate`, create an Organization Tasking executing 27 – 29 Oct 2026 and an Alpha Tasking, then `PUT` picks
-to `/org/A/api/calendar-taskings/ID/people` with `{ personnelIds, keep: [], removeOutsideScope: false,
-expectedRevision: 0 }`: SPC Able, SPC Baker and SPC Unassigned on the Organization Tasking, Able on the Alpha one. The
-fixture's Baker has `Verification Training` 25 – 27 Oct, which covers one day only.
+to `/org/A/api/calendar-taskings/ID/people` with
+`{ personnelIds, keep: [], removeOutsideScope: false, expectedRevision: 0 }`: SPC Able, SPC Baker and SPC Unassigned on
+the Organization Tasking, Able on the Alpha one. The fixture's Baker has `Verification Training` 25 – 27 Oct, which
+covers one day only.
 
 1. **Action and advisory.** At 1440 the Organization Tasking's `People` section ends with
    `3 of 3 picked people have no Availability covering every execution day.` and `Set availability…`. The link carries
@@ -766,11 +778,11 @@ fixture's Baker has `Verification Training` 25 – 27 Oct, which covers one day 
    `VERIFICATION TRAINING 25–27 OCT OVERLAPS`. With `Verification Leave` chosen press `Add to 3 people`.
 3. **Return and clearing.** The page lands on the Tasking and the line reads
    `Availability covers every execution day for everyone picked.` `$V rows availability_entries orgA` has three new
-   Leave rows for 2026-10-27 to 2026-10-29 with `set_for_tasking_id` equal to the source Tasking, and the Calendar month shows their bars on
-   27 – 29 Oct. Editing the picks afterwards changes none of them.
-4. **Part covered.** Create a Tasking executing 27 – 31 Oct with the same three picks. The line reads
-   `3 of 3 …`. Open Set availability, choose `Verification Training` (Baker is disabled as already on it), save: back on
-   the Tasking the line reads `1 of 3 picked people have no Availability covering every execution day.`
+   Leave rows for 2026-10-27 to 2026-10-29 with `set_for_tasking_id` equal to the source Tasking, and the Calendar month
+   shows their bars on 27 – 29 Oct. Editing the picks afterwards changes none of them.
+4. **Part covered.** Create a Tasking executing 27 – 31 Oct with the same three picks. The line reads `3 of 3 …`. Open
+   Set availability, choose `Verification Training` (Baker is disabled as already on it), save: back on the Tasking the
+   line reads `1 of 3 picked people have no Availability covering every execution day.`
 5. **Failed check.** In the disposable database only, rename `public.calendar_tasking_availability_gaps` and load the
    Tasking. `Availability could not be checked.` with `Retry` replaces the line, `People` still lists everyone and
    `Set availability…` still works. Rename it back and press `Retry`: the line returns. To see the skeleton, wrap the
@@ -793,14 +805,14 @@ review exclusion, scope and the feature switch as ordinary signed-in users.
 
 ## Conflict and summary data contracts
 
-The Events list, Event detail and Taskings list stream `workspace` as an `EventRead<TaskingWorkspace>`. A failed read
-is `status: failed`, never a zero-conflict answer. `workspace.taskings` holds only visible Taskings. Each value has
+The Events list, Event detail and Taskings list stream `workspace` as an `EventRead<TaskingWorkspace>`. A failed read is
+`status: failed`, never a zero-conflict answer. `workspace.taskings` holds only visible Taskings. Each value has
 `eventRelation` (`standalone`, `preparation`, `execution`, `closeout`), `status`, `responsibleGroupId`, `picked`,
 `required`, `equipment`, `conflicts`, `nextDate` and `suspenseOn`. Equipment has ready/total requirement counts and
 returnedQuantity/totalQuantity unit counts. `workspace.counts` supplies active, overdue, blocked, needsPeople and
 completed chips without additional requests. `workspace.events` includes permitted Event aggregates, even for work
-outside a Group reader's scope. Need action counts each active Tasking once when overdue, blocked or short of People.
-An Event with total zero is awareness only.
+outside a Group reader's scope. Need action counts each active Tasking once when overdue, blocked or short of People. An
+Event with total zero is awareness only.
 
 Tasking detail streams `pickStates`. The picker returns `states` beside `advisories`. States are `clear`, `conflict`
 with Availability dates and overlap-day counts, `committed_elsewhere` with visible Tasking facts or an anonymous
@@ -808,27 +820,27 @@ commitment, or `unknown` with reason `failed` or `no_execution`. Calendar commit
 
 Use `supabase/tests/calendar_tasking_parity.sql` in the disposable database checks. As ordinary Organization-wide and
 Group-scoped users it proves own-Tasking and available statuses do not conflict, leave is not coverage, hidden and
-foreign provenance is refused, and scoped readers do not learn hidden people or Tasking details. For five execution
-days and three days of unrelated Leave, expect one conflicting pick and overlap 3 of 5. Recording the same entry for
-this Tasking removes its conflict without changing it when picks change. Another overlapping Tasking stays advisory.
+foreign provenance is refused, and scoped readers do not learn hidden people or Tasking details. For five execution days
+and three days of unrelated Leave, expect one conflicting pick and overlap 3 of 5. Recording the same entry for this
+Tasking removes its conflict without changing it when picks change. Another overlapping Tasking stays advisory.
 
 ## Event deletion API
 
-Permanent deletion uses `DELETE /org/ORG/api/calendar-events/EVENT` with
-`{"taskings":"standalone"}` or `{"taskings":"delete"}`. The JSON response is
-`{"taskings":"standalone","count":N}` or `{"taskings":"delete","count":N}`. Only an Organization-wide Calendar
-operator can use it, for either an active or a cancelled Event. Cancellation still preserves linked Taskings.
+Permanent deletion uses `DELETE /org/ORG/api/calendar-events/EVENT` with `{"taskings":"standalone"}` or
+`{"taskings":"delete"}`. The JSON response is `{"taskings":"standalone","count":N}` or
+`{"taskings":"delete","count":N}`. Only an Organization-wide Calendar operator can use it, for either an active or a
+cancelled Event. Cancellation still preserves linked Taskings.
 
 1. Create a synthetic Event and linked Tasking using the existing creation recipe. As `calendarOperate`, send a
    same-origin deletion request in the owned browser with `taskings: 'standalone'`. Expect 200 and the linked count.
    Reload the Tasking detail. Its Event is `Standalone` and Activity reads
-   `Unlinked from Best Medic Competition, which was deleted` when that was the Event title. Reload again and confirm
-   the same identity, status, picks, equipment and checklist. The Event detail now shows the existing unavailable state.
+   `Unlinked from Best Medic Competition, which was deleted` when that was the Event title. Reload again and confirm the
+   same identity, status, picks, equipment and checklist. The Event detail now shows the existing unavailable state.
 2. Repeat with a synthetic cancelled Event and `taskings: 'delete'`. Expect 200 and the linked count. Its Taskings,
    picks, equipment, checklist and Activity are gone; existing Availability retains its dates and status. An Event
    without Taskings returns count zero in either mode.
-3. As `calendarScoped` and `calendarView`, try each mode against another synthetic Event. Expect 403 and unchanged
-   Event and Tasking rows. An unsupported mode returns 400. Repeating a successful deletion returns 404 with
+3. As `calendarScoped` and `calendarView`, try each mode against another synthetic Event. Expect 403 and unchanged Event
+   and Tasking rows. An unsupported mode returns 400. Repeating a successful deletion returns 404 with
    `That event is no longer available.`
 
 `supabase/tests/calendar_event_deletion.sql` proves both modes across all Tasking statuses, retained attribution and

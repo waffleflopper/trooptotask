@@ -8,8 +8,8 @@ and manages a signed PDF scan without changing Training records.
 - `roster-entry`: open Sign-in rosters from the Training page and see saved rosters permitted by Training access and
   Group scope.
 - `roster-create`: filter candidates by Group, Rank, MOS and Role (a person must match every filter that is set, and any
-  choice within one filter counts), choose date, order and layout, check the print preview, print the PDF, and save the
-  selected Personnel facts with the filters.
+  choice within one filter counts; a top-level Group includes its sub-groups), choose date, order and layout, check the
+  print preview, print the PDF, and save the selected Personnel facts with the filters.
 - `roster-legacy`: a roster saved before MOS and Role filters, with no filter keys or only `groups` and `ranks`, still
   lists and reprints.
 - `roster-snapshot`: reprint from the saved facts after a selected Person changes; later Personnel edits must not
@@ -81,16 +81,21 @@ never confirmed absence.
    `N of M personnel match` line and the print preview before `Save and print`. Repeat once with an observed MOS and
    Role instead (the fixture holds `68W` and `11B`, role `NCO`): the saved `filter_config` must hold `mos` and `roles`
    with those values, and the preview must list only the people who match both. Capture the PDF itself. Expect its
-   title, date or intentionally blank date, selected Person and signature column. The PDF downloads only once the
-   save has succeeded. Reload Training, reopen Sign-in rosters, search for
-   the title, and read `$V rows sign_in_rosters orgA title "$TITLE"`. Expect one row with `personnel_ids`,
-   `personnel_snapshot`, `scope_group_ids`, filter and sort fields matching the selection, and no foreign Person.
-   Capture the row ID as `ROSTER_ID` and a second visible read after reload. A single included Person proves the saved
-   sort/layout selections, not their effect on PDF ordering. For that proof, use `$V seed duplicate-able` to add a PFC
-   in Alpha alongside the seeded SPC, reload Training so the PFC joins the loaded roster, generate a second roster with
-   both ranks and inspect the PDF order. Generate a third roster with Alpha and Bravo to distinguish `Separate by group`
-   from a flat layout. Read back both saved rows and delete them through the UI. Keep the temporary PFC until final seed
-   cleanup in step 7.
+   title, date or intentionally blank date, selected Person and signature column. The PDF downloads only once the save
+   has succeeded. Reload Training, reopen Sign-in rosters, search for the title, and read
+   `$V rows sign_in_rosters orgA title "$TITLE"`. Expect one row with `personnel_ids`, `personnel_snapshot`,
+   `scope_group_ids`, filter and sort fields matching the selection, and no foreign Person. Capture the row ID as
+   `ROSTER_ID` and a second visible read after reload. A single included Person proves the saved sort/layout selections,
+   not their effect on PDF ordering. For that proof, use `$V seed duplicate-able` to add a PFC in Alpha alongside the
+   seeded SPC, reload Training so the PFC joins the loaded roster, generate a second roster with both ranks and inspect
+   the PDF order. Generate a third roster with Alpha and Bravo to distinguish `Separate by group` from a flat layout.
+   Read back both saved rows and delete them through the UI. Keep the temporary PFC until final seed cleanup in step 7.
+   **Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` the `Group`
+   combobox lists only `2nd Platoon`, `Alpha` and `Bravo`. Type `2nd` and press Enter: the description reads
+   `9 of 12 personnel match the filters below`. With `Split by group` on, the preview reads `2nd Platoon HQ` (Diaz,
+   Webb), then `2nd Platoon › 1st Squad` (Brooks, Kim, Lee, Moss, Nguyen, Ortiz, whose teams fold into the squad), then
+   `2nd Platoon › 2nd Squad` (Patel). The dialog fits at 1024x640 and 390x844 with `scrollWidth` equal to the viewport.
+   `Cancel` asks `Discard this roster?`.
 3. Re-print the saved row and preserve that PDF. Change a selected synthetic Person's name or rank through the visible
    Personnel editor as `rosterManager`, retaining the original value for restoration. Reload Training and reprint the
    same saved roster. The PDF and `$V rows sign_in_rosters orgA id "$ROSTER_ID"` must still show the original snapshot
@@ -170,12 +175,12 @@ provider error is a failed readback, never a missing or correctly configured buc
 - The sheet opens as soon as the button is chosen. While its code downloads it shows a `Sign-in rosters` sheet with a
   loading skeleton (`Loading Sign-in rosters`). If the download fails it shows `Unable to open Sign-in rosters` with
   `Retry`, and Retry loads it without a page reload.
-- `Save and print` saves first and downloads the PDF only after the save succeeds, from the saved roster's snapshot,
-  the same page `Reprint` makes. A refused or failed save shows its error, keeps the form and downloads nothing. Hold
-  the POST with `$V network` to prove no download appears while it waits.
-- The header's `N waiting on a signed scan` is the server's count of rosters without a signed scan under the same
-  search and date filters, so it is right before `Show more`. It drops after an attach, rises after a scan is removed,
-  and drops when a roster without a scan is deleted.
+- `Save and print` saves first and downloads the PDF only after the save succeeds, from the saved roster's snapshot, the
+  same page `Reprint` makes. A refused or failed save shows its error, keeps the form and downloads nothing. Hold the
+  POST with `$V network` to prove no download appears while it waits.
+- The header's `N waiting on a signed scan` is the server's count of rosters without a signed scan under the same search
+  and date filters, so it is right before `Show more`. It drops after an attach, rises after a scan is removed, and
+  drops when a roster without a scan is deleted.
 - While a save is held, Escape and the overlay do nothing, `Close` is absent and the form is disabled. A form with a
   title or any filter also ignores Escape, and its back arrow opens `Discard this roster?`.
 - The roster list shows 20 rows and `Show more` loads the next 20. With `$V seed roster-pages` the footer reads

@@ -149,22 +149,22 @@ percentage.
 1. **Unchanged matrix and report:** Run `$V actor trainingConfigure training`, save its page ID, and capture the loaded
    matrix. Require Able Required Current, Able Targeted Not Done, Baker/Unassigned Required Not Done, and
    Baker/Unassigned Targeted N/A. Optional has no completion and is N/A. Use the visible `Reports` link and capture the
-   Bottom line at 25% ready today (the `Ready today` label has the caption `counted per training` under it) with Ready 1, Not ready (expired) 0, Not ready (not recorded) 3 and Lapse 0, the
-   subtitle's three soldiers, and the Hot-spot grid's Alpha 50%, Bravo 0%, Unassigned 0% rows with the Required/Targeted
-   Total cells above. The first paint must come from the server: the page HTML already holds these numbers and no
-   `training-reports` summary request runs on load. Reload for a second visible read.
-   `$V rows personnel_trainings orgA personnel_id <personA>` separately confirms the original `trainingCurrent` ID and
-   literal completion/expiration dates; B data must be absent from A's matrix and report. **Main matrix export:** Return
-   to Training and arm `$V export arm PAGE`, choose `Export`, then save the captured file with
-   `$V export save PAGE .verification/evidence/verify-trooptotask/<run-name>/training-matrix.xlsx`. Inspect it with
-   `$V workbook FILE 'Training Matrix'` and restore the capture. Require one sheet, Name/Rank/Group identity columns and
-   Required, Targeted, Optional in catalog order; Optional has `(completion only)` in its header. There are exactly
-   three alphabetical Person rows. Able Required holds the literal `trainingCompleted` date, not its expiration date.
-   Able Targeted and Baker/Unassigned Required say `missing`; Baker/Unassigned Targeted and all empty Optional cells say
-   `not required`. No foreign Person or type appears. Select Focus View and repeat: all three training columns still
-   export, including hidden Optional. Select Alpha and repeat: only Able exports, with every training column. Grouping,
-   collapsed groups and matrix sorting do not omit records or change the alphabetical export order. Reload and repeat to
-   prove the visible filters and export still agree.
+   Bottom line at 25% ready today (the `Ready today` label has the caption `counted per training` under it) with Ready
+   1, Not ready (expired) 0, Not ready (not recorded) 3 and Lapse 0, the subtitle's three soldiers, and the Hot-spot
+   grid's Alpha 50%, Bravo 0%, Unassigned 0% rows with the Required/Targeted Total cells above. The first paint must
+   come from the server: the page HTML already holds these numbers and no `training-reports` summary request runs on
+   load. Reload for a second visible read. `$V rows personnel_trainings orgA personnel_id <personA>` separately confirms
+   the original `trainingCurrent` ID and literal completion/expiration dates; B data must be absent from A's matrix and
+   report. **Main matrix export:** Return to Training and arm `$V export arm PAGE`, choose `Export`, then save the
+   captured file with `$V export save PAGE .verification/evidence/verify-trooptotask/<run-name>/training-matrix.xlsx`.
+   Inspect it with `$V workbook FILE 'Training Matrix'` and restore the capture. Require one sheet, Name/Rank/Group
+   identity columns and Required, Targeted, Optional in catalog order; Optional has `(completion only)` in its header.
+   There are exactly three alphabetical Person rows. Able Required holds the literal `trainingCompleted` date, not its
+   expiration date. Able Targeted and Baker/Unassigned Required say `missing`; Baker/Unassigned Targeted and all empty
+   Optional cells say `not required`. No foreign Person or type appears. Select Focus View and repeat: all three
+   training columns still export, including hidden Optional. Select Alpha and repeat: only Able exports, with every
+   training column. Grouping, collapsed groups and matrix sorting do not omit records or change the alphabetical export
+   order. Reload and repeat to prove the visible filters and export still agree.
 
    Repeat as Training view-only and Alpha-scoped actors. View-only can export without write controls; Alpha scope
    exports only Able. The foreign actor's workbook contains only B's Person and type. Training-none has no usable
@@ -440,6 +440,14 @@ percentage.
 
 Restore every network/export control, use `$V rows personnel_trainings orgA|orgB` for narrowly scoped readback, and
 clean only this owned disposable worker.
+
+12. **Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` at
+    1440x900 open `Training group filter`: a `verbose` snapshot lists `Group: All`, `2nd Platoon`, `Alpha`, `Bravo` and
+    `Unassigned`. Pick `2nd Platoon`: the subtitle reads `9 personnel × 3 types · by group` and the matrix keeps its
+    flat bands `1st Squad 1`, `2nd Platoon 2`, `2nd Squad 1`, `Alpha Team 4`, `Bravo Team 1`. On Reports,
+    `Filter by group` lists `All groups`, `2nd Platoon`, `Alpha` and `Bravo`; `2nd Platoon` writes
+    `?group=<2nd Platoon>` and the header reads `Verification Organization A · 9 soldiers`. `?group=<1st Squad>` reads
+    as `All groups` with 12 soldiers. At 1024x640 and 390x844 both pages keep 9 and `scrollWidth` equals the viewport.
 
 ## Verify Print A with a dedicated cohort
 

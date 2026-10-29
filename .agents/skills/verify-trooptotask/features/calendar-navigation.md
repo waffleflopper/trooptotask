@@ -12,8 +12,8 @@ long-range views.
 - `calendar-toolbar`: as the page narrows, `Duty planner`, `Reports`, `Display` and the group filter fold into
   `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings` and the exports always live in
   More, after any folded controls.
-- `calendar-filter`: narrow the grid with the group filter, which lists the reader's top-level Groups and shows a
-  picked Group's whole subtree, or with the searchbox.
+- `calendar-filter`: narrow the grid with the group filter, which lists the reader's top-level Groups and shows a picked
+  Group's whole subtree, or with the searchbox.
 - `calendar-saved-range`: the fixed September statuses and closure render in month and long range, and the historical
   March status remains reachable.
 - `calendar-picker-keyboard`: ArrowLeft changes focused month and Escape dismisses the picker.
@@ -57,12 +57,12 @@ heading level 1, e.g. `October 2026`), then `Previous month`, `Next month` and `
 planner's header (title `Duty planner`) carries `Today`, then a group of `Previous month`, the month/year button and
 `Next month`, then `Back to calendar`, from the same shared component with only the month view. In `3-Month` the title
 names the quarter and the arrows are `Previous 3 months` and `Next 3 months`. The `Calendar controls` toolbar below it
-holds `Calendar group filter`, the personnel searchbox, `Duty planner` (assignment managers), `Reports`, `Display`, `More Calendar controls` and the pinned `Bulk Status` menu. `Display` holds
-`Show Onboarding` (when onboarding People exist), `Show Status Text` and `Show Personnel Roles` as checkboxes that keep
-the menu open. `More Calendar controls` always holds `Settings` (configure access), `Export to Excel` and `Print / PDF`;
-the exports cover the shown quarter in `3-Month`. The legend under the grid lists statuses; in `Month` it adds
-`Duty (codes)` for Person duties and, for people who can add availability, `Drag across days to add`. A narrow page
-moves more controls into More; see
+holds `Calendar group filter`, the personnel searchbox, `Duty planner` (assignment managers), `Reports`, `Display`,
+`More Calendar controls` and the pinned `Bulk Status` menu. `Display` holds `Show Onboarding` (when onboarding People
+exist), `Show Status Text` and `Show Personnel Roles` as checkboxes that keep the menu open. `More Calendar controls`
+always holds `Settings` (configure access), `Export to Excel` and `Print / PDF`; the exports cover the shown quarter in
+`3-Month`. The legend under the grid lists statuses; in `Month` it adds `Duty (codes)` for Person duties and, for people
+who can add availability, `Drag across days to add`. A narrow page moves more controls into More; see
 [Find a toolbar control on the row or in More](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more).
 
 ## Helper controls
@@ -103,9 +103,9 @@ filters and request controls between cases.
    duty codes on the Month PDF. Each page repeats the heading, carries a legend of the printed statuses, duties and
    closures, and ends with `Page N of M`. The workbook keeps per-day cells.
 4. Open `Calendar group filter` (`Group: All`) and select `Alpha (1)`; confirm Able remains while Baker is absent and
-   the address is unchanged. Clear the filter and confirm both groups return. Fill the searchbox with `Able`, confirm Baker is
-   absent, then focus it and press `Control+A` followed by `Backspace` with `tool press_key`. Confirm all groups return;
-   an empty native `fill` can leave the previous filter applied.
+   the address is unchanged. Clear the filter and confirm both groups return. Fill the searchbox with `Able`, confirm
+   Baker is absent, then focus it and press `Control+A` followed by `Backspace` with `tool press_key`. Confirm all
+   groups return; an empty native `fill` can leave the previous filter applied.
 5. With the filter clear, click the month/year label, choose September 2026, and capture the named Able, Baker and
    Unassigned rows and `Verification Unit Closure` (a `Days` lane segment under the date headers, with a tint and the
    closure name as the title of its date header). Able's `Verification Leave` bar covers September 14–16 and Baker's
@@ -263,6 +263,13 @@ filters and request controls between cases.
     December 2026 and clear resource timings. Reload: the title reads `December 2026`, `document.cookie` holds
     `ttt-calendar-anchor-date=2026-12-01`, and no `calendar-range` request follows. Click `Today` and reload again: the
     title reads the current month.
+19. **Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` at
+    1440x900 open `Calendar group filter`. A `verbose` snapshot lists `Group: All`, `2nd Platoon (9)`, `Alpha (1)`,
+    `Bravo (1)` and `Unassigned (1)`, and no sub-group. Click the `2nd Platoon (9)` option UID: the trigger reads
+    `2nd Platoon (9)`, the address is unchanged, nine rows remain and the bands run `0: 2nd Platoon 9 Pin`,
+    `1: 1st Squad 6`, `2: Alpha Team 4`, `2: Bravo Team 1`, `1: 2nd Squad 1`, with Diaz and Webb under the top band
+    before `1st Squad`. At 1024x640 and 390x844 the bands are the same, the filter sits in `More Calendar controls` at
+    390, and `scrollWidth` equals the viewport.
 
 ## Gotchas
 

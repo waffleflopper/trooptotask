@@ -76,23 +76,23 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
 ## How to get to it (user POV)
 
 Sign in with Calendar operation access and choose `Duty planner` under `Calendar` in the sidebar, or the Calendar
-toolbar's `Duty planner`. Either opens the page headed `Duty planner` under the eyebrow `Calendar · Planning`.
-Its header holds `Today`, `Previous month`, the month title
-button (it opens the month picker) and `Next month`, then `Back to calendar`. The table has one column per assignment
-type (Calendar lane types first, then planner-only types, archived types left out) and one row per date. A column header
-shows the type's chip and name with a `<type> column actions` button beside the name, and `N OF M DAYS` under the name.
-For an Organization-wide operator, a Person type also has a `Fill` button (named `Fill <type> from roster`) beside the
-count. An empty cell is an `Assign` button named `Assign <type>, <Tue 22 Sept>`; a filled one is a button named
-`<type>, <date>: <rank last, first>`, with `, unavailable: <status and dates>` when an availability entry covers the
-date. Either opens the duty picker for that slot. The `Conflicts` panel beside the table (below it on a narrow page)
-lists every flagged slot with `Find replacement`. Below `Conflicts`, an Organization-wide operator sees the
-`Roster · count today` panel: a `Duty roster` toggle group of type codes (each named by its type) and a table named
-`<type> roster` whose `Up next` rows show the rank and last name and a `Count` (a code such as `A 0` for someone a
-roster code covers today, `Today` for today's assignee), split into `Weekdays` and `Weekends & holidays` tables for a
-split roster, and a footer sentence such as `<rank> <last name> is excused.` for excused people. Click a Calendar date
-header, an assigned lane day or a row marker to see the `Daily Assignments` modal for that date. An open lane day's `+`
-opens the same duty picker. `Reports` shows assignment coverage and other Calendar projections. A Calendar reader may
-see saved assignments but cannot manage them.
+toolbar's `Duty planner`. Either opens the page headed `Duty planner` under the eyebrow `Calendar · Planning`. Its
+header holds `Today`, `Previous month`, the month title button (it opens the month picker) and `Next month`, then
+`Back to calendar`. The table has one column per assignment type (Calendar lane types first, then planner-only types,
+archived types left out) and one row per date. A column header shows the type's chip and name with a
+`<type> column actions` button beside the name, and `N OF M DAYS` under the name. For an Organization-wide operator, a
+Person type also has a `Fill` button (named `Fill <type> from roster`) beside the count. An empty cell is an `Assign`
+button named `Assign <type>, <Tue 22 Sept>`; a filled one is a button named `<type>, <date>: <rank last, first>`, with
+`, unavailable: <status and dates>` when an availability entry covers the date. Either opens the duty picker for that
+slot. The `Conflicts` panel beside the table (below it on a narrow page) lists every flagged slot with
+`Find replacement`. Below `Conflicts`, an Organization-wide operator sees the `Roster · count today` panel: a
+`Duty roster` toggle group of type codes (each named by its type) and a table named `<type> roster` whose `Up next` rows
+show the rank and last name and a `Count` (a code such as `A 0` for someone a roster code covers today, `Today` for
+today's assignee), split into `Weekdays` and `Weekends & holidays` tables for a split roster, and a footer sentence such
+as `<rank> <last name> is excused.` for excused people. Click a Calendar date header, an assigned lane day or a row
+marker to see the `Daily Assignments` modal for that date. An open lane day's `+` opens the same duty picker. `Reports`
+shows assignment coverage and other Calendar projections. A Calendar reader may see saved assignments but cannot manage
+them.
 
 ## Helper controls
 
@@ -202,7 +202,9 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `$V network arm-fail $PAGE daily-assignments` is armed, choosing a Person leaves the picker open, the day empty and
    the failure toast visible; restore and press Enter again to save. Read back one A row for the date and
    `typePersonnel`; the day shows the chosen code. Clear it through `Daily Assignments`. Open Group's `+`: its search
-   reads `Find group` and lists Groups with no figures. Close it. A range that is still loading has no `+` (arm
+   reads `Find group` and lists Groups with no figures, each by its path in a nested tree (`2nd Platoon`,
+   `2nd Platoon › 1st Squad`). `Daily Assignments` picks a Group duty from the `Set <type> group` tree button, with
+   `No group` set apart to clear it. Close it. A range that is still loading has no `+` (arm
    `$V network arm-hold $PAGE calendar-range`, choose an uncovered month and read the lane before release). As
    `calendarView`, the lanes show the same names, but no day has a `+` or opens an editor. Read the accessibility
    snapshot of Staff's September 15 day: it names

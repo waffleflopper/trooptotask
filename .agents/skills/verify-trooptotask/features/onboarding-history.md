@@ -11,7 +11,7 @@ member's Organization and Group scope and the Organization's retention period.
   below three recent completed packets. The counts cover packets finished in the last 90 days whatever the filters.
 - `toolbar`: `Onboarding history controls` hold the outcome view (`All`, `Completed`, `Cancelled`), search by name, rank
   or MOS, the `Group` and `Template` selects and the `Active onboarding` link. There is no primary action. `Group` is
-  absent when the Organization has no Groups.
+  absent when the Organization has no Groups; it lists only top-level Groups, and a pick keeps its whole subtree.
 - `table`: `Finished packets`, the count of rows that match, and `most recent first`. Columns are Soldier (with Group
   and MOS), Template, Dates, Took, Final and Outcome. Rows sort by finish, newest first. A completed packet finishes on
   its stored completion day and a cancelled one at the time it was cancelled, shown as the viewer's local day (see
@@ -89,6 +89,12 @@ cancelled Alpha packet's first step. The fixture's March packet for Able is also
    `Loading history` skeleton shows at once, the breadcrumb already reads History, and `release` replaces it with the
    loaded page; `restore`. `server-source arm personnel_onboardings fail-hard 1`, choose `History` again:
    `Unable to load History` with `Retry History`, which reloads into the page once the control is restored.
+8. **Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` start
+   packets for Able, Lee and Brooks from `Onboard` (`Start onboarding`, focus the `Member` combobox, type the name and
+   press Enter), then cancel each through `More packet actions` › `Cancel onboarding`. History lists Lee under
+   `2nd Platoon › 1st Squad` and Brooks under `2nd Platoon › 1st Squad › Alpha Team`. `Group` lists `All groups`,
+   `2nd Platoon`, `Alpha` and `Bravo`; `2nd Platoon` leaves `2 · most recent first` with Brooks then Lee and no URL
+   change. At 1024x640 and 390x844 `scrollWidth` equals the viewport.
 
 Capture screenshots at 1280 and 390 in light and dark.
 

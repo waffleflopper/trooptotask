@@ -315,6 +315,18 @@ describe('ImportFlow', () => {
 		expect(currentStep()).toBe(3);
 	});
 
+	it('returns to File on browser Back after a data refresh on Columns', async () => {
+		render(Flow, { lane: personnelLane(), title: 'Import', eyebrow: 'Test' });
+		await upload(['Smith,Alex,SGT,']);
+
+		invalidate();
+		await tick();
+		expect(currentStep()).toBe(1);
+		go(-1);
+
+		await waitFor(() => expect(currentStep()).toBe(0));
+	});
+
 	it('lists a long option set in a searchable box with the suggested option first', async () => {
 		const base = personnelLane();
 		const ranks = ['PVT', 'PV2', 'PFC', 'SPC', 'CPL', 'SSG', 'SFC', 'SGT'];

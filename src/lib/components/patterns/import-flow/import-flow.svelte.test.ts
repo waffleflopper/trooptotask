@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ImportFlow from './import-flow.svelte';
 import { personnelColumns, personnelLane, type PersonnelChange } from './importFlow.test-support';
@@ -309,7 +310,7 @@ describe('ImportFlow', () => {
 		await waitFor(() => expect(currentStep()).toBe(3));
 
 		invalidate();
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
 
 		expect(currentStep()).toBe(3);
 	});

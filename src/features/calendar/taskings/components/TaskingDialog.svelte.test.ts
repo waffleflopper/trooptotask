@@ -11,11 +11,12 @@ vi.mock('$app/state', () => ({ page: { params: { orgId: 'c-co' } } }));
 
 const ALPHA = '00000000-0000-4000-8000-000000000201';
 const BRAVO = '00000000-0000-4000-8000-000000000202';
+const SQUAD = '00000000-0000-4000-8000-000000000203';
 const EVENT = '00000000-0000-4000-8000-000000000301';
 const choices: TaskingChoices = {
 	groups: [
-		{ id: ALPHA, name: 'Alpha' },
-		{ id: BRAVO, name: 'Bravo' }
+		{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+		{ id: BRAVO, name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
 	],
 	events: [{ id: EVENT, title: 'Best Medic Competition', startsOn: '2026-11-02', endsOn: '2026-11-06' }]
 };
@@ -179,14 +180,32 @@ describe('TaskingDialog', () => {
 	});
 
 	it('preselects the only Group of a Group-scoped operator and locks responsibility when editing', () => {
-		open({ organizationWide: false, choices: { ...choices, groups: [{ id: ALPHA, name: 'Alpha' }] } });
+		open({ organizationWide: false, choices: { ...choices, groups: [choices.groups[0]] } });
 		expect(groupCard().getAttribute('aria-checked')).toBe('true');
-		expect(screen.getByLabelText('Group').textContent).toContain('Alpha');
+		expect(screen.getByText('Alpha')).toBeTruthy();
 		cleanup();
 
 		open({ organizationWide: false, tasking: saved });
 		expect(groupCard().hasAttribute('disabled')).toBe(true);
 		expect(organizationCard().hasAttribute('disabled')).toBe(true);
+		expect((document.getElementById('tasking-group') as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('makes a Group below another responsible when it is picked from the tree', async () => {
+		const send = vi.fn(async () => Response.json(saved));
+		vi.stubGlobal('fetch', send);
+		const squad = { id: SQUAD, name: '1st Squad', sortOrder: 0, parentId: ALPHA, depth: 2 as const };
+		open({ choices: { ...choices, groups: [...choices.groups, squad] } });
+
+		await fireEvent.input(outcome(), { target: { value: 'Provide 3 lane graders' } });
+		await chooseSuspense();
+		await fireEvent.click(document.getElementById('tasking-group') as HTMLElement);
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Find a Group' }), { target: { value: '1st' } });
+		await fireEvent.keyDown(screen.getByRole('combobox', { name: 'Find a Group' }), { key: 'Enter' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create tasking' }));
+
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		expect(sentBody(send)).toMatchObject({ draft: { responsibility: { kind: 'group', groupId: SQUAD } } });
 	});
 
 	it('adds equipment then checklist after the Tasking, and lands on its page naming what did not save', async () => {

@@ -237,6 +237,70 @@ describe('importPersonnelRecords', () => {
 			{ action: 'personnel.bulk_merged', details: { created: 1, updated: 1, errors: 1 } }
 		]);
 	});
+
+	it('stops hidden active and archived ID conflicts before creating or updating a Person', async () => {
+		const ctx = context({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					personnel: 'operate',
+					calendar: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			}
+		});
+		await ctx.store.update('personnel', 'test-org', 'archived', { group_id: 'bravo' });
+		ctx.store.seed('personnel_extended_info', [
+			{ id: 'hidden-active', organization_id: 'test-org', personnel_id: 'person-b', dod_id: '0000000001' },
+			{ id: 'hidden-archived', organization_id: 'test-org', personnel_id: 'archived', dod_id: '0000000002' },
+			{ id: 'foreign', organization_id: 'other-org', personnel_id: 'foreign-person', dod_id: '0000000003' }
+		]);
+		await expect(ctx.personnelSheets.listDodIds()).resolves.toEqual([]);
+		await expect(
+			ctx.personnelSheets.findDodIdsInUse(['0000000001', '0000000002', '0000000003', '0000000004'])
+		).resolves.toEqual(['0000000001', '0000000002']);
+		const result = await importPersonnelRecords(ctx, {
+			records: [
+				{
+					op: 'create',
+					rank: 'SGT',
+					firstName: 'Rejected',
+					lastName: 'Synthetic',
+					groupId: 'alpha',
+					dodId: '0000000001'
+				},
+				{ op: 'update', personnelId: 'person-a', changes: { dodId: '0000000002', mos: 'BAD' } },
+				{ op: 'create', rank: 'SGT', firstName: 'Free', lastName: 'Synthetic', groupId: 'alpha', dodId: '0000000003' }
+			]
+		});
+		expect(result).toMatchObject({
+			created: [{ firstName: 'Free' }],
+			updated: [],
+			errors: [
+				{
+					kind: 'failed',
+					index: 0,
+					message: expect.stringMatching(/outside the Groups.*Organization admin.*move them.*import again/)
+				},
+				{
+					kind: 'failed',
+					index: 1,
+					message: expect.stringMatching(/outside the Groups.*Organization admin.*move them.*import again/)
+				}
+			]
+		});
+		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ mos: '68W' });
+		await expect(ctx.store.findMany('personnel', 'test-org', { first_name: 'Rejected' })).resolves.toEqual([]);
+		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toBeNull();
+		await expect(ctx.personnelSheets.findSheetForPerson(result.created[0].id)).resolves.toMatchObject({
+			dod_id: '0000000003'
+		});
+	});
 	it('updates a person created by an earlier import', async () => {
 		const ctx = context();
 		const first = await importPersonnelRecords(ctx, {

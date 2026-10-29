@@ -259,8 +259,13 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    Person: Review needs a fix and names the Organization-wide conflict. Archived People keep their IDs reserved.
 
    In a file with two different new People using free `0000000003`, commit saves the first and rejects the second
-   through the normal failed-row receipt. Read both names back to prove that only the first Person exists. Server
-   tests separately cover a race or a hidden Group holder: if the Person write succeeds but the ID write conflicts,
+   through the normal failed-row receipt. Read both names back to prove that only the first Person exists. As an
+   Alpha-scoped operator, import an ID already held in Bravo, including an archived holder. The row fails before
+   creating or updating a Person. Its guidance explains that the holder is outside the Groups you can manage and
+   says to ask an Organization admin to move that Soldier, then import again. The response never identifies the
+   holder. Read the submitted names and update target back to prove no write. The server checks only IDs supplied in
+   this batch across the Organization; its visible ID list stays Group-scoped.
+   Server tests separately cover a race after that check: if the Person write succeeds but the ID write conflicts,
    the receipt says the Person was saved but the DoD ID was not. Keep that Person and its other saved fields.
    Repeat an import with a DoD ID from Your unit, Personnel to prove the setup lane loads the same visible IDs.
 

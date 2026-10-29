@@ -2054,6 +2054,14 @@ function createTestPersonnelPersistence(
 		if (matches.some((sheet) => sheet.id !== sheetId)) throw new PersonnelDodIdConflict();
 	}
 	const personnelSheets: PersonnelSheetPersistence = {
+		findDodIdsInUse: async (dodIds) => {
+			if (!auth.isPrivileged && !['operate', 'configure'].includes(auth.capabilityMap.personnel)) return [];
+			const wanted = new Set(dodIds);
+			const sheets = await rawStore.findMany<StoredSheet>('personnel_extended_info', auth.orgId);
+			return [
+				...new Set(sheets.flatMap((sheet) => (sheet.dod_id && wanted.has(sheet.dod_id) ? [sheet.dod_id] : [])))
+			].sort();
+		},
 		listDodIds: async () => {
 			if (!auth.isPrivileged && !['operate', 'configure'].includes(auth.capabilityMap.personnel)) return [];
 			const [people, sheets] = await Promise.all([

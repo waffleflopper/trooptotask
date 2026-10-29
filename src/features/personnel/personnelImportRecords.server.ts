@@ -38,7 +38,7 @@ interface PersonnelImportRecordsContext {
 		'listImportSlugs' | 'createMany' | 'listArchiveCandidates' | 'updateEditable'
 	>;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
-	personnelSheets: Pick<PersonnelSheetPersistence, 'listDodIds' | 'saveDodIds'>;
+	personnelSheets: Pick<PersonnelSheetPersistence, 'listDodIds' | 'findDodIdsInUse' | 'saveDodIds'>;
 	loadRankCatalog: Parameters<typeof createActivePersonnelRankResolver>[0]['loadRankCatalog'];
 }
 
@@ -75,12 +75,21 @@ export async function importPersonnelRecords(
 		referenceReads.push(ctx.personnel.listArchiveCandidates(updateIds.slice(start, start + 100)));
 	}
 	const hasCreates = input.records.some((record) => record.op === 'create');
-	const [groups, references, slugs, ranks, dodIds] = await Promise.all([
+	const proposedDodIds = [
+		...new Set(
+			input.records.flatMap((record) => {
+				const parsed = dodIdInputSchema.optional().safeParse((record.op === 'create' ? record : record.changes).dodId);
+				return parsed.success && parsed.data ? [parsed.data] : [];
+			})
+		)
+	];
+	const [groups, references, slugs, ranks, dodIds, occupiedDodIds] = await Promise.all([
 		ctx.groups.listCatalog(),
 		Promise.all(referenceReads),
 		hasCreates ? ctx.personnel.listImportSlugs() : [],
 		createActivePersonnelRankResolver(ctx),
-		ctx.personnelSheets.listDodIds()
+		ctx.personnelSheets.listDodIds(),
+		ctx.personnelSheets.findDodIdsInUse(proposedDodIds)
 	]);
 	const groupIds = new Set(groups.map((group) => group.id));
 	const people = new Map(references.flat().map((person) => [person.id, person]));
@@ -94,6 +103,7 @@ export async function importPersonnelRecords(
 	const seenUpdateIds = new Set<string>();
 	const seenDodIds = new Set<string>();
 	const dodIdOwners = new Map(dodIds.map(({ personnelId, dodId }) => [dodId, personnelId]));
+	const occupiedIds = new Set(occupiedDodIds);
 	const sheetWrites: Array<PersonnelDodId & { index: number }> = [];
 	const updated: Personnel[] = [];
 	const errors: PersonnelBatchMessage[] = [];
@@ -129,6 +139,15 @@ export async function importPersonnelRecords(
 			const owner = dodIdOwners.get(dodId);
 			if (owner && (record.op === 'create' || owner !== record.personnelId)) {
 				errors.push({ kind: 'failed', index, message: new PersonnelDodIdConflict().message });
+				continue;
+			}
+			if (!owner && occupiedIds.has(dodId)) {
+				errors.push({
+					kind: 'failed',
+					index,
+					message:
+						'This DoD ID belongs to someone in this Organization outside the Groups you can manage. If that Soldier belongs in your Group, ask an Organization admin to move them, then import again.'
+				});
 				continue;
 			}
 		}

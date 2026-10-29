@@ -113,6 +113,14 @@ export function createSupabasePersonnelSheetPersistence(
 		}
 	}
 	return {
+		async findDodIdsInUse(dodIds) {
+			const { data, error } = await client.rpc('personnel_dod_ids_in_use', {
+				p_organization_id: orgId,
+				p_dod_ids: [...dodIds]
+			});
+			if (error) throw new Error(error.message);
+			return data ?? [];
+		},
 		async listDodIds() {
 			const rows: PersonnelDodId[] = [];
 			for (let offset = 0; ; offset += 1000) {

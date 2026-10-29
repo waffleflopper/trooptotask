@@ -45,6 +45,7 @@ export interface SavedPersonnelSheet extends Partial<
 }
 export interface PersonnelSheetPersistence {
 	listDodIds(): Promise<PersonnelDodId[]>;
+	findDodIdsInUse(dodIds: readonly string[]): Promise<string[]>;
 	saveDodIds(rows: readonly PersonnelDodId[]): Promise<PersonnelDodIdSaveFailure[]>;
 	listSheetsForPerson(personnelId: string): Promise<SavedPersonnelSheet[]>;
 	findSheetForPerson(personnelId: string): Promise<SavedPersonnelSheet | null>;

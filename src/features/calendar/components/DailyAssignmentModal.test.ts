@@ -165,8 +165,9 @@ it('shows Group names while submitting stable Group IDs, including after a renam
 		onClose: vi.fn()
 	};
 	render(DailyAssignmentModal, { props });
-	expect(screen.getByRole('button', { name: 'Set Group Duty group' }).textContent).toContain('Alpha Renamed');
-	await fireEvent.click(screen.getByRole('button', { name: 'Set Group Duty group' }));
-	await fireEvent.click(screen.getByRole('option', { name: 'Bravo' }));
+	const picker = screen.getByRole('button', { name: /^Set Group Duty group/ });
+	expect(picker.textContent).toContain('Alpha Renamed');
+	await fireEvent.click(picker);
+	await fireEvent.click(screen.getByRole('treeitem', { name: /Bravo/ }));
 	expect(onSetAssignment).toHaveBeenCalledWith('2026-09-19', 'group-duty', 'group-bravo');
 });

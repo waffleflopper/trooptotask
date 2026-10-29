@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { DeletionRequest } from './contracts';
 import type { DeletionRequestStore, DeletionRequestSubmissionPort } from './contracts.server';
@@ -20,14 +20,19 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 			return data as DeletionRequest | null;
 		},
 		async listRequests(orgId, filter) {
-			const result = await selectAllSupabaseRows<DeletionRequest>(async (from, to) => {
-				let query = supabase.from(TABLE).select('*').eq('organization_id', orgId);
-				if (filter.status) query = query.eq('status', filter.status);
-				if (filter.requestedBy) query = query.eq('requested_by', filter.requestedBy);
-				return query.order('created_at', { ascending: false }).order('id', { ascending: true }).range(from, to);
-			});
+			const result = await selectAllSupabaseRows<Omit<DeletionRequest, 'status'> & { status: string }>(
+				async (from, to) => {
+					let query = supabase.from(TABLE).select('*').eq('organization_id', orgId);
+					if (filter.status) query = query.eq('status', filter.status);
+					if (filter.requestedBy) query = query.eq('requested_by', filter.requestedBy);
+					return query.order('created_at', { ascending: false }).order('id', { ascending: true }).range(from, to);
+				}
+			);
 			if (result.error) throw new Error((result.error as { message: string }).message);
-			return result.data ?? [];
+			return (result.data ?? []).map((row) => ({
+				...row,
+				status: row.status as DeletionRequest['status']
+			}));
 		},
 		async readPendingSummary(orgId, requestedBy) {
 			let query = supabase
@@ -69,7 +74,10 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 				supabase.from(TABLE).select('*').eq('organization_id', orgId).order('id', { ascending: true }).range(from, to)
 			);
 			if (result.error) throw new Error((result.error as { message: string }).message);
-			return result.data ?? [];
+			return (result.data ?? []).map((row) => ({
+				...row,
+				status: row.status as DeletionRequest['status']
+			}));
 		}
 	};
 }

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { AdmittedActor } from './contracts';
 import { admitMfaCodeAttempt, type MfaCodeAdmission } from './mfaCodeRateLimit.server';
 

@@ -1,5 +1,5 @@
 import { assertAuditQuerySuccess } from './providerError.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { createPlatformAudit, type PlatformAuditRecord, type PlatformAuditStore } from './platformAudit.server';
 import type { PlatformActivityEvent, PlatformAudit, PlatformAuditDashboardActivity } from './platformContracts';
 

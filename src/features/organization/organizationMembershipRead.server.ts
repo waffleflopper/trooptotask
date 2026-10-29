@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 

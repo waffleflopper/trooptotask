@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseOrgAccessPort } from './appShellProvider.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 
 type Call = { method: string; args: unknown[] };

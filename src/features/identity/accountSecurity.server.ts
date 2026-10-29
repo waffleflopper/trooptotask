@@ -1,4 +1,5 @@
-import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { checkDurableRateLimit } from '$lib/access/index.server';
 import { validateEmail } from '$lib/server/validation';
 import type { AccountSecurityOverview, AdmittedActor } from './contracts';

@@ -1,3 +1,4 @@
+import type { Database } from '$lib/server/database';
 import type {
 	OnboardingTemplate,
 	OnboardingStepProgress,
@@ -112,13 +113,27 @@ export function toPacket(row: PacketRow): PersonnelOnboarding {
 		steps: [...(row.onboarding_step_progress ?? [])].sort((a, b) => a.sort_order - b.sort_order).map(toProgress)
 	};
 }
+export function templatePatch(
+	data: OnboardingTemplateData
+): Omit<Database['public']['Tables']['onboarding_templates']['Insert'], 'organization_id'>;
+export function templatePatch(
+	data: Partial<OnboardingTemplateData>
+): Database['public']['Tables']['onboarding_templates']['Update'];
 export function templatePatch(data: Partial<OnboardingTemplateData>) {
 	return {
 		...(data.name !== undefined ? { name: data.name } : {}),
 		...(data.description !== undefined ? { description: data.description } : {})
 	};
 }
-export function stepPatch(data: Partial<OnboardingTemplateStepData>) {
+export function stepPatch(
+	data: OnboardingTemplateStepData
+): Omit<Database['public']['Tables']['onboarding_template_steps']['Insert'], 'organization_id'>;
+export function stepPatch(
+	data: Partial<OnboardingTemplateStepData>
+): Database['public']['Tables']['onboarding_template_steps']['Update'];
+export function stepPatch(
+	data: Partial<OnboardingTemplateStepData>
+): Database['public']['Tables']['onboarding_template_steps']['Update'] {
 	return {
 		...(data.templateId !== undefined ? { template_id: data.templateId } : {}),
 		...(data.name !== undefined ? { name: data.name } : {}),

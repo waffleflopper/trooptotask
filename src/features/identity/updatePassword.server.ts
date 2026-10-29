@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { mapProviderPasswordError, validatePassword } from './passwordPolicy';
 import type { PasswordCompletionState, PendingAuthFlow } from './contracts';
 import { passwordAttempt, type PasswordAttempt } from './passwordCompletion.server';

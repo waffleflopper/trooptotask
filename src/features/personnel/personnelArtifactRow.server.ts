@@ -31,13 +31,13 @@ export const documentRow = (row: PersonnelDocumentRow): PersonnelDocumentRow => 
 	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {}),
 	...(row.archived_by !== undefined ? { archived_by: row.archived_by } : {})
 });
-export const followUpRow = (row: FollowUpRow): FollowUpRow => ({
+export const followUpRow = (row: Omit<FollowUpRow, 'status'> & { status: string }): FollowUpRow => ({
 	id: row.id,
 	personnel_id: row.personnel_id,
 	title: row.title,
 	notes: row.notes,
 	due_date: row.due_date,
-	status: row.status,
+	status: row.status as FollowUpRow['status'],
 	created_by: row.created_by,
 	created_at: row.created_at,
 	updated_at: row.updated_at,

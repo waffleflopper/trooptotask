@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { RequestEvent } from '@sveltejs/kit';
 import { createIdentityPersonReader, createIdentitySetupEmailInboxReader } from '$features/identity/index.server';
 import {

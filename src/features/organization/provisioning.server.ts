@@ -1,7 +1,7 @@
 import { sanitizeString } from '$lib/server/validation';
 import { fail } from '$lib/errors';
 
-export interface OrganizationDefaults {
+export type OrganizationDefaults = {
 	groups: Array<{ name: string; sort_order: number }>;
 	status_types: Array<{ name: string; color: string; text_color: string; sort_order: number }>;
 	assignment_types: Array<{ name: string; short_name: string; assign_to: string; color: string; sort_order: number }>;
@@ -16,7 +16,7 @@ export interface OrganizationDefaults {
 		source: string;
 		sort_order: number;
 	}>;
-}
+};
 
 export interface OrgProvisioningPort {
 	createOrganization(input: { name: string; requestId: string }): Promise<{ orgId: string } | { failure: string }>;

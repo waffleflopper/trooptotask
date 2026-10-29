@@ -39,6 +39,7 @@ describe('CI job selection', () => {
 		for (const file of [
 			'supabase/config.toml',
 			'supabase/tests/scope.sql',
+			'src/lib/server/database.types.ts',
 			'scripts/ci/database.py',
 			'scripts/demo-clinic/seed.sql',
 			'.agents/skills/verify-trooptotask/helpers/perf-workloads.mjs',

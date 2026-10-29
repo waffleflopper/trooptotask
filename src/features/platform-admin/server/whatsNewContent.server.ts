@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { PublishedWhatsNewEntry } from '../whatsNewTypes';
 
 /** Platform owns the entries. The caller's own client reads them, so row security keeps drafts private. */

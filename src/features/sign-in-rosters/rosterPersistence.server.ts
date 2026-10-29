@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { SignInRoster } from './sign-in-rosters.types';
 import { sanitizeFilterConfig, type PreparedSignInRosterSnapshot } from './snapshot.server';
@@ -15,9 +15,9 @@ export interface SignInRosterListInput {
 
 export interface SignInRosterCreateInput {
 	title: string;
-	rosterDate: unknown;
-	blankDate: unknown;
-	separateByGroup: unknown;
+	rosterDate: string | null;
+	blankDate: boolean;
+	separateByGroup: boolean;
 	sortBy: PreparedSignInRosterSnapshot['sortBy'];
 	personnelSnapshot: PreparedSignInRosterSnapshot['personnelSnapshot'];
 	personnelIds: string[];

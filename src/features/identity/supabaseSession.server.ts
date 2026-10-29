@@ -1,6 +1,6 @@
 import type { Cookies } from '@sveltejs/kit';
 import type { JwtPayload, User } from '@supabase/auth-js';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { z } from 'zod';
 
 const sessionStartTimestamp = z.iso.datetime({ offset: true });

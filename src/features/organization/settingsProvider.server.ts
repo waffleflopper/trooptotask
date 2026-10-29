@@ -6,7 +6,7 @@ import type {
 } from './organizationSettingsTypes';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from './memberLabels.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import type {
 	OrganizationSettingsReader,
 	OrganizationPolicyChanges,
@@ -208,7 +208,7 @@ export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClie
 		async updatePolicies(orgId, changes, ifDisabledFeatures) {
 			const updates = toOrganizationPolicyColumns(changes);
 			let write = supabase.from('organizations').update(updates).eq('id', orgId);
-			if (ifDisabledFeatures) write = write.eq('disabled_features', toTextArrayLiteral(ifDisabledFeatures));
+			if (ifDisabledFeatures) write = write.filter('disabled_features', 'eq', toTextArrayLiteral(ifDisabledFeatures));
 			const { data, error } = await write
 				.select(['id', ...Object.keys(updates)].join(', '))
 				.single<{ id: string; [field: string]: unknown }>();
@@ -230,8 +230,18 @@ function toTextArrayLiteral(values: readonly string[]): string {
 	return `{${values.map((value) => JSON.stringify(value)).join(',')}}`;
 }
 
-export function toOrganizationPolicyColumns(changes: OrganizationPolicyChanges): Record<string, number | string[]> {
-	const updates: Record<string, number | string[]> = {};
+type OrganizationPolicyColumns = {
+	[Key in
+		| 'archive_retention_months'
+		| 'loss_warning_window_days'
+		| 'training_readiness_goal_percent'
+		| 'personnel_document_storage_cap_bytes'
+		| 'disabled_features'
+		| 'strength_floor_percent']?: NonNullable<Database['public']['Tables']['organizations']['Update'][Key]>;
+};
+
+export function toOrganizationPolicyColumns(changes: OrganizationPolicyChanges): OrganizationPolicyColumns {
+	const updates: OrganizationPolicyColumns = {};
 	if (changes.archiveRetentionMonths !== undefined) updates.archive_retention_months = changes.archiveRetentionMonths;
 	if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
 	if (changes.trainingReadinessGoalPercent !== undefined)

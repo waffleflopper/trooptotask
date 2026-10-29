@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
 import { ATTENTION_ROW_LIMIT, taskingDashboardSchema, type TaskingAttentionProjection } from './taskingAttentionModel';

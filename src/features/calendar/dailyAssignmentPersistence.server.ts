@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
 import type { SavedAssignment } from '$features/calendar/contracts';

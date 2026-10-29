@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { z } from 'zod';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { FeedbackReply, FeedbackStaffNote, ReporterFeedback, ReporterFeedbackSummary } from '../contracts';

@@ -19,10 +19,10 @@ export type UnitCountKey = (typeof UNIT_COUNT_KEYS)[number];
 export type UnitCounts<K extends UnitCountKey> = { [P in K]: number };
 
 /** `archived` narrows a table with an `archived_at` column; leave it out to count every row. */
-export interface UnitCountRowSource {
-	table: string;
+export type UnitCountRowSource = {
+	table: (typeof UNIT_COUNT_ROW_SOURCES)[keyof typeof UNIT_COUNT_ROW_SOURCES]['table'] | 'groups' | 'calendar_taskings';
 	archived?: boolean;
-}
+};
 
 /** One table and predicate per key, shared by every adapter. Rating Scheme entries come from their owner. */
 export const UNIT_COUNT_ROW_SOURCES = {
@@ -37,4 +37,4 @@ export const UNIT_COUNT_ROW_SOURCES = {
 	criticalTaskLists: { table: 'ict_tasks', archived: false },
 	onboardingTemplates: { table: 'onboarding_templates' },
 	calendarEvents: { table: 'calendar_events' }
-} as const satisfies Record<Exclude<UnitCountKey, 'ratingSchemeEntries'>, UnitCountRowSource>;
+} as const satisfies Record<Exclude<UnitCountKey, 'ratingSchemeEntries'>, { table: string; archived?: boolean }>;

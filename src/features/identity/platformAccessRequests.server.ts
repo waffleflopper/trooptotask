@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
 	rejectAccessRequestAndBlockLinkedInvitations,
@@ -19,9 +19,16 @@ const LINK_COLUMNS =
 const DELIVERY_COLUMNS =
 	'access_request_id, id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at';
 
-type RequestRow = Omit<IdentitySupportAccessRequestRow, 'account_setup_links' | 'auth_email_outbox'>;
-type LinkRow = AccessRequestSetupLink & { access_request_id: string };
-type DeliveryRow = AccessRequestAuthEmailOutbox & { access_request_id: string };
+type RequestRow = Omit<
+	IdentitySupportAccessRequestRow,
+	'account_setup_links' | 'auth_email_outbox' | 'status' | 'approval_basis'
+> & { status: string; approval_basis: string | null };
+type LinkRow = Omit<AccessRequestSetupLink, 'failure_reason' | 'revocation_reason'> & {
+	access_request_id: string;
+	failure_reason: string | null;
+	revocation_reason: string | null;
+};
+type DeliveryRow = Omit<AccessRequestAuthEmailOutbox, 'status'> & { access_request_id: string; status: string };
 
 /** Identity's source reads/effects; caller policy and Organization origin projection stay outside. */
 export function createIdentityPlatformAccessRequestStore(client: SupabaseClient): IdentityPlatformAccessRequestStore {
@@ -56,8 +63,13 @@ export function createIdentityPlatformAccessRequestStore(client: SupabaseClient)
 				return result;
 			});
 			if (error || !data) throw new Error('Unable to read Access Requests');
-			const requests: IdentitySupportAccessRequestRow[] = data.map((request) => ({
+			const requests: (Omit<IdentitySupportAccessRequestRow, 'account_setup_links' | 'auth_email_outbox'> & {
+				account_setup_links: AccessRequestSetupLink[];
+				auth_email_outbox: AccessRequestAuthEmailOutbox[];
+			})[] = data.map((request) => ({
 				...request,
+				status: request.status as IdentitySupportAccessRequestRow['status'],
+				approval_basis: request.approval_basis as IdentitySupportAccessRequestRow['approval_basis'],
 				account_setup_links: [],
 				auth_email_outbox: []
 			}));
@@ -95,12 +107,19 @@ export function createIdentityPlatformAccessRequestStore(client: SupabaseClient)
 				for (const { access_request_id: requestId, ...link } of links.data ?? []) {
 					const request = byId.get(requestId);
 					if (!request || !batch.includes(requestId)) throw new Error('Unexpected setup link request');
-					(request.account_setup_links as AccessRequestSetupLink[]).push(link);
+					request.account_setup_links.push({
+						...link,
+						failure_reason: link.failure_reason as AccessRequestSetupLink['failure_reason'],
+						revocation_reason: link.revocation_reason as AccessRequestSetupLink['revocation_reason']
+					});
 				}
 				for (const { access_request_id: requestId, ...delivery } of deliveries.data ?? []) {
 					const request = byId.get(requestId);
 					if (!request || !batch.includes(requestId)) throw new Error('Unexpected setup delivery request');
-					(request.auth_email_outbox as AccessRequestAuthEmailOutbox[]).push(delivery);
+					request.auth_email_outbox.push({
+						...delivery,
+						status: delivery.status as AccessRequestAuthEmailOutbox['status']
+					});
 				}
 			}
 			return requests;

@@ -10,7 +10,7 @@ import {
 import { isUnconfirmedWrite } from './criticalTaskWriteOutcome.server';
 import { importIctTasksBatch } from './ictTasksBatch.server';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 type Row = Record<string, unknown>;
 

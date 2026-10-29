@@ -1,7 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { CalendarAssignmentReader } from './contracts';
-import type { AssignmentSource } from './roster/rosterTypes';
+import type { AssignmentSource, CalendarAssignmentReader } from './contracts';
 import { ASSIGNMENT_FIELDS, toAssignment, type AssignmentRow } from './calendarPersistenceMapping.server';
 
 export function createSupabaseCalendarAssignmentReader(
@@ -47,7 +46,7 @@ export function createSupabaseCalendarAssignmentReader(
 			}));
 		},
 		async listRosterDetailDays(assignmentTypeId, span) {
-			const result = await selectAllSupabaseRows<{ date: string; assignee_id: string; source: AssignmentSource }>(
+			const result = await selectAllSupabaseRows<{ date: string; assignee_id: string; source: string }>(
 				async (from, to) =>
 					client
 						.rpc('list_roster_detail_days', {
@@ -61,7 +60,11 @@ export function createSupabaseCalendarAssignmentReader(
 						.range(from, to)
 			);
 			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map((row) => ({ date: row.date, assigneeId: row.assignee_id, source: row.source }));
+			return (result.data ?? []).map((row) => ({
+				date: row.date,
+				assigneeId: row.assignee_id,
+				source: row.source as AssignmentSource
+			}));
 		},
 		async listSlotReferences(slots) {
 			const pairs = [...new Map(slots.map((slot) => [`${slot.date}/${slot.assignmentTypeId}`, slot])).values()];

@@ -9,7 +9,7 @@ import {
 	findUserEmailIdentityByEmail,
 	normalizeUserEmailIdentity
 } from '$features/identity/index.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { validateUUID } from '$lib/server/validation';
 import { storedCapabilityMap } from '$lib/access/memberAccessProjection';
 

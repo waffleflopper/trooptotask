@@ -1,8 +1,12 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
 import type { PersonnelLifecycleCommandPort } from './contracts';
 
-async function command(supabase: SupabaseClient, name: string, args: Record<string, unknown>): Promise<unknown> {
+async function command<Name extends keyof Database['public']['Functions']>(
+	supabase: SupabaseClient,
+	name: Name,
+	args: Database['public']['Functions'][Name]['Args']
+): Promise<unknown> {
 	const { data, error } = await supabase.rpc(name, args);
 	if (error) {
 		if (error.code === 'P0002') fail(404, error.message);

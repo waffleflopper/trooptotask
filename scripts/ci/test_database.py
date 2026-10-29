@@ -20,7 +20,86 @@ from unittest.mock import patch
 import database
 
 
+class SchemaGenerationTests(unittest.TestCase):
+    def test_reads_cli_pin_from_its_workflow_step(self):
+        self.assertEqual(database.supabase_cli_pin('''jobs:
+  database:
+    steps:
+      - uses: actions/setup-node@synthetic
+        with:
+          version: 24
+      - name: Install Supabase
+        uses: supabase/setup-cli@synthetic
+        with:
+          version: '2.101.0'
+          github-token: ${{ github.token }}
+      - uses: another/action@synthetic
+        with:
+          version: 9.9.9
+'''), '2.101.0')
+
+    def test_normalizes_only_dump_metadata_and_random_restriction_keys(self):
+        self.assertEqual(database.normalize_schema_dump('''--
+-- PostgreSQL database dump
+--
+
+\\restrict random-key
+
+-- Dumped from database version 17.6
+-- Dumped by pg_dump version 17.6
+-- Started on: 2026-10-27 12:00:00 UTC
+
+CREATE SCHEMA public;
+COMMENT ON SCHEMA public IS 'Keep application comments';
+-- A function comment stays.
+CREATE FUNCTION public.example() RETURNS text AS $$
+SELECT '2026-10-27';
+$$ LANGUAGE sql;
+
+-- Completed on: 2026-10-27 12:01:00 UTC
+\\unrestrict random-key
+
+-- PostgreSQL database dump complete
+'''), '''--
+-- PostgreSQL database dump
+--
+
+
+
+CREATE SCHEMA public;
+COMMENT ON SCHEMA public IS 'Keep application comments';
+-- A function comment stays.
+CREATE FUNCTION public.example() RETURNS text AS $$
+SELECT '2026-10-27';
+$$ LANGUAGE sql;
+
+
+-- PostgreSQL database dump complete
+''')
+
+
 class StartupDiagnosticsTests(unittest.TestCase):
+    def test_failed_generation_prints_sanitized_stderr_without_generated_output(self):
+        output = io.StringIO()
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / 'supabase'
+            executable.write_text(f'''#!{sys.executable}
+import sys
+print('partial-generated-output')
+print('toomanyrequests: registry rate limit', file=sys.stderr)
+print('error: token=synthetic-token', file=sys.stderr)
+sys.exit(7)
+''')
+            executable.chmod(0o700)
+            with contextlib.redirect_stdout(output), self.assertRaises(subprocess.CalledProcessError) as error:
+                database.run(['supabase', 'gen', 'types', 'typescript'], Path(directory), quiet=True,
+                             separate_stderr=True, environment={'PATH': directory})
+        self.assertEqual(error.exception.returncode, 7)
+        self.assertIn('toomanyrequests: registry rate limit', output.getvalue().splitlines())
+        self.assertIn('error: token=[REDACTED]', output.getvalue().splitlines())
+        self.assertNotIn('synthetic-token', output.getvalue())
+        self.assertNotIn('partial-generated-output', output.getvalue())
+
     def test_filters_errors_and_redacts_credentials(self):
         output = '''Starting containers
 API key: hidden-success-output
@@ -720,10 +799,43 @@ inspector_port = 8283
         (self.source / "migrations/20260101000000_initial.sql").write_text("SELECT 1;")
         (self.source / "private-seed.sql").write_text("DO NOT COPY")
         (self.source / ".env").write_text("SECRET=DO-NOT-COPY")
+        (self.repository / 'src/lib/server').mkdir(parents=True)
+        (self.repository / 'src/lib/server/database.types.ts').write_text('synthetic types\n')
+        (self.source / 'current-schema.sql').write_text('CREATE SCHEMA public;\n')
         (self.repository / "package.json").write_text(json.dumps({"scripts": {
             "db:test": "supabase test db supabase/tests",
             "prepare": "unsafe-install-hook",
         }}))
+
+    def test_schema_drift_reports_failure_after_contracts_probes_and_seeds(self):
+        completed = set()
+        output = io.StringIO()
+
+        def process(command, _workdir, **_kwargs):
+            stdout = ''
+            if command[:3] == ['docker', 'context', 'inspect']:
+                stdout = 'unix:///var/run/docker.sock'
+            elif command == ['supabase', '--version']:
+                stdout = '2.101.0\n'
+            elif command[:3] == ['supabase', 'gen', 'types']:
+                stdout = 'changed synthetic types\n'
+            elif 'pg_dump' in command:
+                stdout = 'CREATE SCHEMA public;\n'
+            elif command[:3] == ['npm', 'run', 'db:test']:
+                completed.add('contracts')
+            elif command[:2] == ['docker', 'run']:
+                completed.add('migration regressions')
+            elif command[0] == 'node':
+                completed.add('provider probes')
+            return subprocess.CompletedProcess(command, 0, stdout=stdout)
+
+        with patch.object(database, 'run', side_effect=process), \
+                patch.object(database, '_provider_environment', return_value={}), \
+                patch.object(database, 'validate_seeds', side_effect=lambda *_args: completed.add('seeds')), \
+                contextlib.redirect_stdout(output), self.assertRaisesRegex(ValueError, 'Generated database files differ'):
+            database.validate(self.repository)
+        self.assertEqual(completed, {'contracts', 'migration regressions', 'provider probes', 'seeds'})
+        self.assertIn('Supabase CLI 2.101.0', output.getvalue())
 
     def test_project_copy_cannot_load_existing_seeds_or_environment(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -822,6 +934,8 @@ inspector_port = 8283
                     calls.append((command, workdir))
                     if command[:3] == ["docker", "context", "inspect"]:
                         return subprocess.CompletedProcess(command, 0, stdout="unix:///var/run/docker.sock")
+                    if command == ['supabase', '--version']:
+                        return subprocess.CompletedProcess(command, 0, stdout='2.101.0\n')
                     fails = (
                         failure == "startup" and command[:2] == ["supabase", "start"]
                         or failure == "sql" and command[:2] == ["npm", "run"]
@@ -831,6 +945,10 @@ inspector_port = 8283
                         raise subprocess.CalledProcessError(1, command)
                     if failure == "interruption" and command[:2] == ["npm", "run"]:
                         raise SystemExit(143)
+                    if command[:3] == ['supabase', 'gen', 'types']:
+                        return subprocess.CompletedProcess(command, 0, stdout='synthetic types\n')
+                    if 'pg_dump' in command:
+                        return subprocess.CompletedProcess(command, 0, stdout='CREATE SCHEMA public;\n')
                     return subprocess.CompletedProcess(command, 0)
 
                 expected = SystemExit if failure == "interruption" else subprocess.CalledProcessError
@@ -856,6 +974,8 @@ inspector_port = 8283
             calls.append((command, workdir, kwargs))
             if command[:3] == ["docker", "context", "inspect"]:
                 return subprocess.CompletedProcess(command, 0, stdout="unix:///var/run/docker.sock")
+            if command == ['supabase', '--version']:
+                return subprocess.CompletedProcess(command, 0, stdout='2.101.0\n')
             if command[:3] == ["supabase", "migration", "up"]:
                 self.assertEqual(command, ["supabase", "migration", "up", "--local", "--yes", "--include-all"])
                 self.assertTrue(all((workdir / "supabase/migrations" / name).exists()

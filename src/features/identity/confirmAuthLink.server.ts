@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { getAuthConfirmState } from './authConfirm.server';
 import { createAuthSessionMarker } from './mfaGate.server';
 

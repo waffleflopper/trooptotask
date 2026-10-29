@@ -1,4 +1,5 @@
-import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';

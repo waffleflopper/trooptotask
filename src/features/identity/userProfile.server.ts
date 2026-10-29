@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { requireString, sanitizeString, validateEnum } from '$lib/server/validation';
 
 import type { UserProfile } from './contracts';

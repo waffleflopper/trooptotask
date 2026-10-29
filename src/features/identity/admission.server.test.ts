@@ -1,4 +1,5 @@
-import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { describe, expect, it } from 'vitest';
 import { readIdentityAdmission } from './admission.server';
 

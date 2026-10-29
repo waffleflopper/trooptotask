@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { StoragePort } from '$lib/storage/contracts';
 
 export function createSupabaseStorageAdapter(supabase: SupabaseClient): StoragePort {

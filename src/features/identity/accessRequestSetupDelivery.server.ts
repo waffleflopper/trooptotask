@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { addUtcDays } from './accountSetupDates';
 import {
 	createAccountSetupLinkIssuance,
@@ -50,7 +50,7 @@ interface AccessRequestSetupDeliveryOptions {
 interface AccessRequestRow {
 	id: string;
 	email: string;
-	status: AccessRequestStatus;
+	status: string;
 	created_at: string;
 	reviewed_at: string | null;
 	setup_completed_at: string | null;
@@ -65,7 +65,7 @@ function mapAccessRequest(row: AccessRequestRow): AccessRequestSetupRequest {
 	return {
 		id: row.id,
 		email: row.email,
-		status: row.status,
+		status: row.status as AccessRequestStatus,
 		createdAt: new Date(row.created_at),
 		reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
 		setupCompletedAt: row.setup_completed_at ? new Date(row.setup_completed_at) : null,
@@ -189,7 +189,7 @@ export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseCl
 				throw error;
 			}
 
-			return ((data ?? []) as AccessRequestRow[]).map(mapAccessRequest);
+			return (data ?? []).map(mapAccessRequest);
 		},
 
 		async insertPendingAccessRequest(input) {

@@ -12,6 +12,8 @@ supabase/.temp/
 supabase/seed.sql
 
 # Generated
+src/lib/server/database.types.ts
+supabase/current-schema.sql
 .vercel/
 .env*
 .sandcastle/

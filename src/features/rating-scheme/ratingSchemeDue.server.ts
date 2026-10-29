@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -9,9 +9,9 @@ import type { RatingSchemeDueEntry, RatingSchemeDuePort } from './contracts';
 interface RatingSchemeDueRow {
 	id: string;
 	rated_person_id: string;
-	eval_type: RatingSchemeDueEntry['evalType'];
+	eval_type: string;
 	rating_period_end: string;
-	status: RatingSchemeDueEntry['status'];
+	status: string;
 }
 
 /** The authenticated request client retains Rating Scheme RLS without a Personnel SELECT. */
@@ -56,8 +56,8 @@ function toDueEntry(row: RatingSchemeDueRow, ratedPersonName: string | undefined
 		id: row.id,
 		ratedPersonId: row.rated_person_id,
 		...(ratedPersonName === undefined ? {} : { ratedPersonName }),
-		evalType: row.eval_type,
+		evalType: row.eval_type as RatingSchemeDueEntry['evalType'],
 		ratingPeriodEnd: row.rating_period_end,
-		status: row.status
+		status: row.status as RatingSchemeDueEntry['status']
 	};
 }

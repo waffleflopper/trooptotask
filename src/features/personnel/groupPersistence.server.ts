@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
@@ -92,8 +92,8 @@ export function createSupabaseGroupPersistence(
 		async setOrder(ids, expectedIds) {
 			const { error } = await client.rpc('set_group_order', {
 				p_organization_id: orgId,
-				p_group_ids: ids,
-				p_expected_group_ids: expectedIds
+				p_group_ids: [...ids],
+				p_expected_group_ids: [...expectedIds]
 			});
 			if (error) throwGroupCommandError(error);
 		},

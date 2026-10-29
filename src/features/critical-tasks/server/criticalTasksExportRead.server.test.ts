@@ -4,7 +4,7 @@ import {
 	createSupabaseCriticalTasksExportReader,
 	type CriticalTasksExportTable
 } from './criticalTasksExportRead.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';

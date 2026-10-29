@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
@@ -47,10 +47,10 @@ const stepRow = z.object({
 });
 const duplicateResult = z.object({ template: templateRow, steps: z.array(stepRow), created: z.boolean() });
 
-async function templateCommand<T>(
+async function templateCommand<T, Name extends keyof Database['public']['Functions']>(
 	client: SupabaseClient,
-	name: string,
-	args: Record<string, unknown>,
+	name: Name,
+	args: Database['public']['Functions'][Name]['Args'],
 	result: z.ZodType<T>
 ): Promise<T> {
 	const { data, error } = await client.rpc(name, args);

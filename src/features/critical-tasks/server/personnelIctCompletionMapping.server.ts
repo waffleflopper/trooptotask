@@ -43,7 +43,7 @@ export function mapPersonnelIctCompletion(row: SavedPersonnelIctCompletion): Per
 	};
 }
 
-export function completionPatchValues(input: PersonnelIctCompletionPatch): Record<string, unknown> {
+export function completionPatchValues(input: PersonnelIctCompletionPatch) {
 	const values = {
 		personnel_id: input.personnelId,
 		ict_task_id: input.ictTaskId,
@@ -52,10 +52,13 @@ export function completionPatchValues(input: PersonnelIctCompletionPatch): Recor
 		validated_by: input.validatedBy,
 		notes: input.notes
 	};
-	return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined));
+	const filtered: Partial<typeof values> = Object.fromEntries(
+		Object.entries(values).filter(([, value]) => value !== undefined)
+	);
+	return filtered;
 }
 
-export function completionCreateValues(input: PersonnelIctCompletionCreate): Record<string, unknown> {
+export function completionCreateValues(input: PersonnelIctCompletionCreate) {
 	return {
 		personnel_id: input.personnelId,
 		ict_task_id: input.ictTaskId,

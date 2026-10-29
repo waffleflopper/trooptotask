@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { AccessRequestStatus } from './contracts';
 
 const INBOX_COLUMNS = 'id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at';
@@ -74,7 +74,14 @@ export function createIdentityAccessRequestInboxReader(client: SupabaseClient): 
 			const { data, error } = await client.rpc('search_users_by_email', { search_query: email, max_results: 20 });
 			if (error || !Array.isArray(data)) throw new Error('Unable to search platform accounts');
 			const wanted = email.trim().toLowerCase();
-			return data.some((row: { email: string | null }) => row.email?.trim().toLowerCase() === wanted);
+			return data.some(
+				(row) =>
+					row !== null &&
+					typeof row === 'object' &&
+					!Array.isArray(row) &&
+					typeof row.email === 'string' &&
+					row.email.trim().toLowerCase() === wanted
+			);
 		}
 	};
 }

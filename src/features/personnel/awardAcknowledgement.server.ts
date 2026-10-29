@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import type { PersonnelAwardAcknowledgementPort } from './contracts';

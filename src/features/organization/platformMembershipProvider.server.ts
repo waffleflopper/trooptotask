@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { validateUUID } from '$lib/server/validation';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
@@ -17,7 +17,10 @@ const sameUuid = (value: unknown, expected: string): boolean =>
 export function createSupabaseOrganizationPlatformMembershipPort(
 	supabase: SupabaseClient
 ): OrganizationPlatformMembershipPort {
-	async function command(name: string, args: Record<string, string>): Promise<Record<string, unknown>> {
+	async function command<Name extends keyof Database['public']['Functions']>(
+		name: Name,
+		args: Database['public']['Functions'][Name]['Args']
+	): Promise<Record<string, unknown>> {
 		try {
 			const result = await supabase.rpc(name, args);
 			if (result.error) return result.error.code === '42501' ? { status: 'forbidden' } : failure;

@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { expect, it, vi } from 'vitest';
 import { createSupabaseAccountSetupRouteFlow } from './accountSetupRouteFlow.server';
 

@@ -1,6 +1,6 @@
 import { buildRouteRequest } from '$lib/server/adapters/requestContexts.server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createRequestAccountPreferencesProvider } from '$lib/server/adapters/httpAdapter';
 import { PATCH } from './+server';

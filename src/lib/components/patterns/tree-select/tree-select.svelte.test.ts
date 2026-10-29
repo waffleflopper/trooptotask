@@ -38,10 +38,15 @@ async function open() {
 	return screen.findByRole('combobox', { name: 'Find a part' });
 }
 
-const shown = () =>
-	screen.getAllByRole('treeitem').map((item) => [item.id.split('-row-')[1], item.getAttribute('aria-expanded')]);
+/** The option a row stands for, found through the row's accessible name. */
+const optionOf = (item: Element | null) =>
+	options.find(
+		(option) =>
+			screen.queryByRole('treeitem', { name: new RegExp(`^${option.label}( included)?( ${option.count})?$`) }) === item
+	)?.id;
+const shown = () => screen.getAllByRole('treeitem').map((item) => [optionOf(item), item.getAttribute('aria-expanded')]);
 const activeRow = (field: HTMLElement) =>
-	document.getElementById(field.getAttribute('aria-activedescendant') ?? '')?.id.split('-row-')[1];
+	optionOf(document.getElementById(field.getAttribute('aria-activedescendant') ?? ''));
 
 describe('TreeSelect', () => {
 	it('opens on the chosen node with its ancestors open and the rest collapsed', async () => {
@@ -57,9 +62,7 @@ describe('TreeSelect', () => {
 			['p2', 'false'],
 			['none', null]
 		]);
-		expect(screen.getAllByRole('treeitem', { selected: true }).map((item) => item.id.split('-row-')[1])).toEqual([
-			'p1-a'
-		]);
+		expect(screen.getAllByRole('treeitem', { selected: true }).map(optionOf)).toEqual(['p1-a']);
 	});
 
 	it('walks the tree from the keyboard and picks with Enter', async () => {
@@ -165,11 +168,7 @@ describe('TreeSelect', () => {
 
 		const state = screen
 			.getAllByRole('treeitem')
-			.map((item) => [
-				item.id.split('-row-')[1],
-				item.getAttribute('aria-selected'),
-				item.getAttribute('aria-disabled')
-			]);
+			.map((item) => [optionOf(item), item.getAttribute('aria-selected'), item.getAttribute('aria-disabled')]);
 		expect(state).toEqual([
 			['p1', 'true', null],
 			['p1-a', 'true', 'true'],

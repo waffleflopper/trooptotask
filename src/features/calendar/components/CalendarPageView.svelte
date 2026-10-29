@@ -49,12 +49,14 @@
 	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
+	import { hasSubGroups } from '$features/personnel/contracts';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
-	import { GroupFocusControl, GroupFocusUnavailable, pinnedGroupsStore } from '$features/personnel';
+	import { pinnedGroupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 
 	interface Props {
@@ -90,7 +92,7 @@
 
 	function getExportData() {
 		return {
-			personnelByGroup: ctx.filteredPBG,
+			personnelByGroup: ctx.exportPBG,
 			groups: ctx.scopedGroups,
 			availabilityEntries: availabilityStore.items,
 			statusTypes: statusTypesStore.items,
@@ -135,10 +137,17 @@
 			canManageConfig: ctx.canManageConfig,
 			showEvents: ctx.showEvents,
 			taskingsNeedingAction: projectionStatus === 'ready' ? taskingFacts.needAction : 0,
+			groupOptions: ctx.groupFilterOptions.map((option) => ({
+				value: option.value,
+				label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`
+			})),
+			groupFilter: ctx.calendarGroupFilter,
 			showStatusText: ctx.showStatusText,
 			showPersonnelRoles: ctx.showPersonnelRoles,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
+			showSubGroups: ctx.showGroupHeaders && hasSubGroups(ctx.groupTree) ? showSubGroupsToggle() : null,
 			highlightOnboarding: ctx.highlightOnboarding,
+			onGroupFilterChange: (value) => ctx.setCalendarGroupFilter(value),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
@@ -423,36 +432,23 @@
 					anchor={calendarStore.currentDate}
 					today={ctx.todayAvailability}
 					orgName={data.orgName}
-					scopeLabel={ctx.groupFocus.focus?.kind === 'all' ? null : ctx.groupFocus.label}
-					personnelCount={ctx.focusedPersonnel.length}
+					personnelCount={ctx.allPersonnelFlat.length}
 					onAnchorChange={(anchor) => calendarStore.goToMonth(anchor.getFullYear(), anchor.getMonth())}
 					onViewChange={(view) => ctx.setViewMode(view)}
 				/>
 
-				<div class="flex flex-wrap items-center gap-x-1 rounded-lg border border-border bg-card p-1 max-sm:flex-col">
-					<GroupFocusControl
-						focus={ctx.groupFocus}
-						people={ctx.allPersonnelFlat}
-						class="ml-1 max-sm:mx-1 max-sm:mt-1 max-sm:w-[calc(100%-0.5rem)]"
-					/>
-					<div class="min-w-0 flex-1 max-sm:w-full">
-						<WorkspaceToolbar
-							ariaLabel="Calendar controls"
-							items={toolbar.items}
-							primary={toolbar.primary}
-							search={{
-								label: 'Search by name, rank, MOS, role, or group',
-								placeholder: 'Search name, rank, MOS, role, or group...',
-								value: ctx.calendarPersonnelSearch,
-								placement: 'after-filters',
-								onValueChange: (value) => ctx.setCalendarPersonnelSearch(value)
-							}}
-							bare
-						/>
-					</div>
-				</div>
-
-				<GroupFocusUnavailable focus={ctx.groupFocus} />
+				<WorkspaceToolbar
+					ariaLabel="Calendar controls"
+					items={toolbar.items}
+					primary={toolbar.primary}
+					search={{
+						label: 'Search by name, rank, MOS, role, or group',
+						placeholder: 'Search name, rank, MOS, role, or group...',
+						value: ctx.calendarPersonnelSearch,
+						placement: 'after-filters',
+						onValueChange: (value) => ctx.setCalendarPersonnelSearch(value)
+					}}
+				/>
 
 				{#if rangeStatus === 'loading'}
 					<Alert.Root role="status" aria-live="polite">
@@ -479,9 +475,7 @@
 					</Alert.Root>
 				{/if}
 
-				{#if ctx.groupFocus.status.kind === 'unavailable'}
-					<!-- The notice above stands in for the matrix. -->
-				{:else if ctx.viewMode === '3-month'}
+				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
 						startDate={calendarStore.currentDate}
 						personnelByGroup={ctx.filteredPBG}
@@ -513,7 +507,7 @@
 						showPersonnelRoles={ctx.showPersonnelRoles}
 						upcomingLossMap={ctx.upcomingLossMap}
 						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
-						showGroupHeaders={!ctx.groupFocus.singleLeaf}
+						showGroupHeaders={ctx.showGroupHeaders}
 						onCellClick={(person, date) => ctx.handleCellClick(person, date)}
 						onPersonClick={(person) => ctx.handlePersonClick(person)}
 						onPinToggle={ctx.canPinGroups ? (groupId) => ctx.handlePinToggle(groupId) : undefined}
@@ -566,14 +560,13 @@
 	{@const tasking = assigning}
 	{#await loadAssignPeople() then { default: AssignPeopleDialog }}
 		<AssignPeopleDialog
-			groupCatalog={ctx.scopedGroups}
 			orgId={data.orgId}
 			tasking={{
 				id: tasking.id,
 				responsibility: tasking.responsibility,
 				requirement: tasking.required === null ? null : { count: tasking.required, qualifications: null }
 			}}
-			groups={groupNames}
+			groups={ctx.scopedGroups}
 			onSaved={() => {
 				assigning = null;
 				return refreshTaskings(stillInOrganizationLifetime());

@@ -1,3 +1,4 @@
+import { groupFilterMatcher, type GroupTree } from '$features/personnel/contracts';
 import { localDateIn } from '$lib/utils/dates';
 import type { OnboardingStepProgress, PersonnelOnboarding } from './onboarding.types';
 import { getProgress } from './onboardingProgress';
@@ -135,14 +136,16 @@ export function buildHistory(packets: readonly PersonnelOnboarding[], todayDate:
 export function filterHistoryRows(
 	rows: readonly HistoryRow[],
 	filters: HistoryFilters,
-	personOf: (personnelId: string) => HistoryPerson | undefined
+	personOf: (personnelId: string) => HistoryPerson | undefined,
+	tree: GroupTree
 ): HistoryRow[] {
 	const query = filters.query.trim().toLowerCase();
+	const inGroup = groupFilterMatcher(tree, filters.groupId);
 	return rows.filter((row) => {
 		if (filters.outcome !== 'all' && row.outcome !== filters.outcome) return false;
 		if (filters.templateId !== HISTORY_ALL && row.packet.templateId !== filters.templateId) return false;
 		const person = personOf(row.packet.personnelId);
-		if (filters.groupId !== HISTORY_ALL && person?.groupId !== filters.groupId) return false;
+		if (!inGroup(person?.groupId ?? null)) return false;
 		if (!query) return true;
 		return [person?.name, person?.rank, person?.mos].some((field) => field?.toLowerCase().includes(query));
 	});

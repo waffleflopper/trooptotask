@@ -9,6 +9,7 @@ import { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte'
 import { onboardingStore } from '../stores/onboarding.svelte';
 import { onboardingTemplateStore } from '../stores/onboardingTemplate.svelte';
 import { groupCatalogHydration, personnelRosterHydration } from '$features/personnel';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OnboardingStepProgress, OnboardingTemplateStep, PersonnelOnboarding } from '../onboarding.types';
@@ -216,6 +217,43 @@ describe('Onboarding Matrix view', () => {
 
 		const confirmation = await screen.findByRole('alertdialog', { name: 'Complete Onboarding' });
 		expect(within(confirmation).getByText('Mark this onboarding as complete?')).toBeTruthy();
+	});
+
+	it('offers the top-level Groups, takes in a platoon with its squads and teams, and labels each by path', async () => {
+		groupCatalogHydration.load(NESTED_GROUPS, 'org-1');
+		personnelRosterHydration.load(
+			[
+				{ ...person('person-1', 'SGT', 'Smith', 'Jane'), groupId: 'platoon', groupName: '1st Platoon' },
+				{ ...person('person-2', 'CPL', 'Jones', 'Alex'), groupId: 'squad', groupName: '2nd Squad' },
+				{ ...person('person-3', 'SPC', 'Lee', 'Pat', '68W'), groupId: 'alpha', groupName: 'Alpha Team' },
+				{ ...person('person-4', 'PFC', 'Diaz', 'Sam'), groupId: 'other-platoon', groupName: '2nd Platoon' },
+				person('person-5', 'PV2', 'Park', 'Kim')
+			],
+			'org-1'
+		);
+		const { layOut } = stubToolbarWidths();
+		mount();
+		await layOut(4000);
+		await showMatrix();
+
+		await openGroupMenu();
+		const menu = await screen.findByRole('listbox');
+		expect(
+			within(menu)
+				.getAllByRole('option')
+				.slice(1)
+				.map((option) => option.textContent?.trim())
+		).toEqual(['1st Platoon', '2nd Platoon']);
+		await fireEvent.pointerUp(within(menu).getByRole('option', { name: '1st Platoon' }));
+
+		await waitFor(() => expect(screen.queryByRole('table', { name: 'Reserve packet' })).toBeNull());
+		const standard = within(grid('Standard'));
+		expect(['SGT Smith, Jane', 'CPL Jones, Alex', 'SPC Lee, Pat'].map((name) => !!standard.getByText(name))).toEqual([
+			true,
+			true,
+			true
+		]);
+		expect(standard.getByText('1st Platoon › 2nd Squad')).toBeTruthy();
 	});
 
 	it('applies the search and Group filter to the grids and keeps the header and toolbar', async () => {

@@ -20,6 +20,11 @@
 			} catch {
 				document.documentElement.setAttribute('data-theme', 'light');
 			}
+			try {
+				if (localStorage.getItem('t2t:show-sub-groups') === 'false') {
+					document.documentElement.setAttribute('data-sub-groups-hidden', '');
+				}
+			} catch {}
 		</script>
 		%sveltekit.head%
 	</head>

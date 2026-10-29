@@ -10,7 +10,7 @@ import type {
 	PersonnelTrainingRosterPort,
 	RankCatalogEntry
 } from '$features/personnel/contracts';
-import { observedRankCodesForOptions } from '$features/personnel/contracts';
+import { buildGroupTree, observedRankCodesForOptions } from '$features/personnel/contracts';
 import type {
 	BriefingRequirement,
 	TrainingBriefingDetail,
@@ -80,10 +80,15 @@ async function loadBriefingSource(
 
 	const view = views.find((candidate) => candidate.id === request.viewId) ?? null;
 	const columns = filterColumnsByView(types, view).filter((type) => !type.isOptional);
-	const group = groups.find((candidate) => candidate.id === request.groupId) ?? null;
+	const tree = buildGroupTree(groups);
+	const picked = request.groupId ? tree.node(request.groupId) : undefined;
+	const group = picked?.level === 0 ? picked : null;
+	const groupIds = group
+		? tree.ordered.filter((node) => tree.contains(group.id, node.id)).map((node) => node.id)
+		: undefined;
 	const filterOptions: TrainingBriefingFilterOptions = {
 		views: views.map(({ id, name }) => ({ id, name })),
-		groups: groups.map(({ id, name }) => ({ id, name })),
+		groups: tree.roots.map(({ id, name }) => ({ id, name })),
 		ranks: observedRankCodesForOptions({
 			rankCatalog: rankCatalog.length > 0 ? rankCatalog : undefined,
 			observedRanks: personnel.map((person) => person.rank)
@@ -108,7 +113,7 @@ async function loadBriefingSource(
 
 	const records = await listTrainingReadinessCompletions(ctx, {
 		personnelIds: filterPersonnel(personnel, {
-			groupId: input.groupId ?? undefined,
+			groupIds,
 			rank: input.rank ?? undefined,
 			mos: input.mos,
 			role: input.roles
@@ -123,10 +128,11 @@ async function loadBriefingSource(
 		filterOptions,
 		briefingInput: {
 			personnel,
+			groups,
 			types: columns,
 			records,
 			filters: {
-				groupId: input.groupId ?? undefined,
+				groupIds,
 				rank: input.rank ?? undefined,
 				mos: input.mos,
 				role: input.roles,

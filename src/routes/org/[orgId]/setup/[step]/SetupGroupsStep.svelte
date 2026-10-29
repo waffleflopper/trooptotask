@@ -2,7 +2,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { getSetupFlow, SetupEditorNote, SetupStepFooter } from '$features/organization';
 	import { GroupStructureEditor, groupsStore, type PersonnelPageContext } from '$features/personnel';
-	import { buildGroupTree } from '$features/personnel/contracts';
+	import { buildGroupTree, groupHeadcounts } from '$features/personnel/contracts';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -10,7 +10,7 @@
 
 	const tree = $derived(buildGroupTree(groupsStore.items));
 	const memberCounts = (ctx: PersonnelPageContext) =>
-		tree.subtreeCounts(ctx.allActivePersonnel, (person) => person.groupId);
+		groupHeadcounts(tree, ctx.allActivePersonnel, (person) => person.groupId);
 	const indent = ['', 'pl-5', 'pl-10'];
 
 	const people = (count: number) => `${count} ${count === 1 ? 'person' : 'people'}`;

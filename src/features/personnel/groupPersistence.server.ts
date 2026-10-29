@@ -89,13 +89,6 @@ export function createSupabaseGroupPersistence(
 			const [row] = await rows('id', [id]);
 			return row ? { id: row.id as string } : null;
 		},
-		async findNamesByIds(ids) {
-			return new Map(
-				(await rows('id, name', ids))
-					.filter((row): row is Record<string, unknown> & { id: string; name: string } => typeof row.name === 'string')
-					.map((row) => [row.id, row.name])
-			);
-		},
 		async create(input) {
 			const { data, error } = await client
 				.from('groups')

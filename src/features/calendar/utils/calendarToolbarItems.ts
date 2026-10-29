@@ -1,4 +1,9 @@
-import type { ToolbarItem, ToolbarMenuToggle, WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
+import type {
+	ToolbarItem,
+	ToolbarMenuToggle,
+	ToolbarOption,
+	WorkspaceToolbarProps
+} from '$lib/components/patterns/workspace-toolbar';
 
 export interface CalendarToolbarInput {
 	orgUrlSegment: string;
@@ -8,10 +13,15 @@ export interface CalendarToolbarInput {
 	showEvents: boolean;
 	/** Active Taskings that are overdue, blocked or short of people. */
 	taskingsNeedingAction: number;
+	groupOptions: ToolbarOption[];
+	groupFilter: string;
 	showStatusText: boolean;
 	showPersonnelRoles: boolean;
 	showOnboardingToggle: boolean;
+	/** Null when no visible Group has sub-groups. */
+	showSubGroups: ToolbarMenuToggle | null;
 	highlightOnboarding: boolean;
+	onGroupFilterChange: (value: string) => void;
 	onToggleStatusText: () => void;
 	onTogglePersonnelRoles: () => void;
 	onToggleHighlightOnboarding: () => void;
@@ -25,6 +35,7 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 } {
 	const calendarHref = `/org/${input.orgUrlSegment}/calendar`;
 	const displayOptions: ToolbarMenuToggle[] = [
+		...(input.showSubGroups ? [input.showSubGroups] : []),
 		...(input.showOnboardingToggle
 			? [
 					{
@@ -68,6 +79,16 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 					} satisfies ToolbarItem
 				]
 			: []),
+		{
+			kind: 'select',
+			id: 'group',
+			label: 'Group',
+			ariaLabel: 'Calendar group filter',
+			options: input.groupOptions,
+			value: input.groupFilter,
+			defaultValue: '',
+			onValueChange: input.onGroupFilterChange
+		},
 		{ kind: 'action', id: 'calendar-display', label: 'Display', icon: 'sliders', menuItems: displayOptions },
 		{ kind: 'action', id: 'calendar-reports', label: 'Reports', icon: 'chart', href: `${calendarHref}/reports` }
 	];

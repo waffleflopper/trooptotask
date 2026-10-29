@@ -122,7 +122,10 @@ describe('TaskingDetailPage', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark blocked' }));
 		const reason = (await screen.findByLabelText('Reason')) as HTMLTextAreaElement;
 		await fireEvent.input(reason, { target: { value: 'Litters short' } });
-		resolveChoices({ status: 'loaded', value: { groups: [{ id: ALPHA, name: 'Alpha' }], events: [] } });
+		resolveChoices({
+			status: 'loaded',
+			value: { groups: [{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }], events: [] }
+		});
 
 		await new Promise((settled) => setTimeout(settled));
 

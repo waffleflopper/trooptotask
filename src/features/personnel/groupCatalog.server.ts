@@ -20,6 +20,7 @@ export async function listReaderPinnedGroupIds(ctx: {
 export function listGroupCatalog(ctx: { groups: Pick<GroupPersistence, 'listCatalog'> }) {
 	return ctx.groups.listCatalog();
 }
+
 /** The catalog depth first with the active people filed directly in each Group, for access scope pickers. */
 export async function listScopeGroups(ctx: { groups: Pick<GroupPersistence, 'listCatalog' | 'countActiveMembers'> }) {
 	const [catalog, counts] = await Promise.all([ctx.groups.listCatalog(), ctx.groups.countActiveMembers()]);
@@ -29,8 +30,4 @@ export async function listScopeGroups(ctx: { groups: Pick<GroupPersistence, 'lis
 		parentId: group.parentId,
 		memberCount: counts.get(group.id) ?? 0
 	}));
-}
-
-export function findGroupNamesByIds(ctx: { groups: Pick<GroupPersistence, 'findNamesByIds'> }, ids: string[]) {
-	return ctx.groups.findNamesByIds(ids);
 }

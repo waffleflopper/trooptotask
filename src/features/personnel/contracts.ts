@@ -150,7 +150,6 @@ export interface PersonnelRecordPersistence {
 export interface GroupPersistence {
 	listCatalog(): Promise<Group[]>;
 	findReference(id: string): Promise<{ id: string } | null>;
-	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: { name: string; sortOrder?: number; parentId?: string | null }): Promise<Group>;
 	/** Renames the Group. Fails 404 when the Group is gone. */
 	rename(id: string, name: string): Promise<Group>;
@@ -467,16 +466,16 @@ export type {
 } from './rosterReadModel';
 
 export { groupExportPath } from './groupPath';
-export { buildGroupTree } from './groupTree';
-export type { Band, Breakdown, BreakdownRow, GroupFocus, GroupNode, GroupTree, GroupTreeOptions } from './groupTree';
 export {
-	canonicalGroupFocus,
-	GROUP_FOCUS_PARAM,
-	groupFocusLabel,
-	groupFocusNavigation,
-	readGroupFocus
-} from './groupFocus';
-export type { GroupFocusRead, GroupFocusReader } from './groupFocus';
+	buildGroupTree,
+	groupFilterMatcher,
+	groupHeadcounts,
+	groupRows,
+	hasSubGroups,
+	soleLeafGroup
+} from './groupTree';
+export { nestRosterBands, type NestedRosterBand } from './rosterBands';
+export type { Band, GroupNode, GroupRow, GroupRowSet, GroupTree, GroupTreeOptions } from './groupTree';
 
 export type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 

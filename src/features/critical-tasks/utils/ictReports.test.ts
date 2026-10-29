@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$features/personnel/contracts';
+import { buildGroupTree, type Personnel } from '$features/personnel/contracts';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { buildIctReportDashboard, buildIctReportDashboardSummary, filterIctReportPersonnel } from './ictReports';
 
 const medic: Personnel = {
@@ -24,6 +25,11 @@ const infantry: Personnel = {
 	groupId: 'group-bravo',
 	groupName: 'Bravo'
 };
+
+const flatTree = buildGroupTree([
+	{ id: 'group-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 },
+	{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 }
+]);
 
 const medicTask: IctTask = {
 	id: 'task-medic',
@@ -441,7 +447,7 @@ describe('ictReports', () => {
 			{ ...infantry, id: '12n-1', mos: '12N', groupId: 'group-alpha', groupName: 'Alpha' },
 			{ ...infantry, id: '88m-1', mos: '88M', groupId: 'group-alpha', groupName: 'Alpha' }
 		];
-		const filteredPersonnel = filterIctReportPersonnel(people, { groupId: 'group-alpha' });
+		const filteredPersonnel = filterIctReportPersonnel(people, { groupId: 'group-alpha' }, flatTree);
 
 		const dashboard = buildIctReportDashboard({
 			personnel: filteredPersonnel,
@@ -494,7 +500,7 @@ describe('ictReports', () => {
 			{ ...medic, id: 'sgt', rank: 'SGT' }
 		];
 
-		const filteredPersonnel = filterIctReportPersonnel(people, { rank: 'SFC' });
+		const filteredPersonnel = filterIctReportPersonnel(people, { rank: 'SFC' }, flatTree);
 
 		expect(filteredPersonnel.map((person) => person.id)).toEqual(['sfc']);
 	});
@@ -527,7 +533,7 @@ describe('ictReports', () => {
 			{ ...infantry, id: '25u-partial', lastName: 'Foxtrot', mos: '25U', groupId: 'group-alpha', groupName: 'Alpha' },
 			{ ...infantry, id: '12n-filtered-out', mos: '12N', groupId: 'group-bravo', groupName: 'Bravo' }
 		];
-		const filteredPersonnel = filterIctReportPersonnel(people, { groupId: 'group-alpha' });
+		const filteredPersonnel = filterIctReportPersonnel(people, { groupId: 'group-alpha' }, flatTree);
 
 		const dashboard = buildIctReportDashboard({
 			personnel: filteredPersonnel,
@@ -1040,5 +1046,21 @@ describe('ictReports', () => {
 				lastIctUpdateAt: '2026-02-10T00:00:00Z'
 			}
 		]);
+	});
+});
+
+describe('filterIctReportPersonnel on nested Groups', () => {
+	const tree = buildGroupTree(NESTED_GROUPS);
+	const people = ['platoon', 'squad', 'alpha', 'other-squad', 'other-platoon'].map(
+		(groupId): Personnel => ({ ...medic, id: groupId, groupId })
+	);
+	const ids = (groupId: string) => filterIctReportPersonnel(people, { groupId }, tree).map((person) => person.id);
+
+	it("takes in a platoon's HQ, squads and teams and leaves out the other platoon", () => {
+		expect(ids('platoon')).toEqual(['platoon', 'squad', 'alpha', 'other-squad']);
+	});
+
+	it('reads a Group that is not top-level as all', () => {
+		expect(ids('squad')).toEqual(['platoon', 'squad', 'alpha', 'other-squad', 'other-platoon']);
 	});
 });

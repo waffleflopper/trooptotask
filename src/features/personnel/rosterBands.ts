@@ -1,6 +1,9 @@
-import type { Band, GroupFocus, GroupTree, Personnel, PersonnelGroup } from '$features/personnel/contracts';
+import type { Band, GroupTree } from './groupTree';
+import { comparePersonnelByRankThenName } from './personnelRank';
+import type { Personnel } from './personnel.types';
+import type { PersonnelGroup } from './rosterReadModel';
 
-export interface CalendarBand extends PersonnelGroup {
+export interface NestedRosterBand extends PersonnelGroup {
 	/** 0 for a top band, then 1 and 2 for the sub-groups below it. */
 	level: number;
 	/** The Group's own name; `group` is its full path, which flat views and exports print. */
@@ -14,28 +17,27 @@ export interface CalendarBand extends PersonnelGroup {
 const groupOf = (person: Personnel) => person.groupId;
 
 /**
- * The sections of the reader's roster that the focus shows, in tree order: each Group's own people, then its
- * sub-groups. People whose Group is outside the tree, and Unassigned, keep the sections' order after them.
+ * The reader's roster sections in tree order: each Group's own people, then its sub-groups. Not `nested`, each root is
+ * one band of its whole subtree by rank and name. People whose Group is outside the tree, and Unassigned, keep the
+ * sections' order after them.
  */
-export function nestCalendarBands(
+export function nestRosterBands(
 	tree: GroupTree,
-	focus: GroupFocus | null,
-	sections: readonly PersonnelGroup[]
-): CalendarBand[] {
-	if (!focus) return [];
+	sections: readonly PersonnelGroup[],
+	nested = true
+): NestedRosterBand[] {
 	const people = sections.flatMap((section) => section.personnel);
-	const base = focus.kind === 'group' ? (tree.node(focus.id)?.level ?? 0) : 0;
-	const out: CalendarBand[] = [];
+	if (!nested) people.sort(comparePersonnelByRankThenName);
+	const out: NestedRosterBand[] = [];
 	const visit = (band: Band<Personnel>): Personnel[] => {
 		const { node } = band;
 		const label = tree.label(node.id);
-		const level = node.level - base;
-		const entry: CalendarBand = {
+		const entry: NestedRosterBand = {
 			groupId: node.id,
 			group: label,
-			name: level === 0 ? label : node.name,
+			name: node.level === 0 ? label : node.name,
 			personnel: [...band.hq],
-			level,
+			level: node.level,
 			people: [],
 			pinnable: node.parentId === null
 		};
@@ -43,19 +45,15 @@ export function nestCalendarBands(
 		entry.people = [...band.hq, ...band.children.flatMap(visit)];
 		return entry.people;
 	};
-	tree.bands(focus, people, groupOf).forEach(visit);
+	tree.bands(people, groupOf, { nested }).forEach(visit);
 
-	const shown = new Set(tree.within(focus, people, groupOf));
 	for (const section of sections) {
 		if (section.groupId !== null && tree.node(section.groupId)) continue;
-		const personnel = section.personnel.filter((person) => shown.has(person));
-		if (personnel.length === 0) continue;
 		out.push({
 			...section,
-			personnel,
 			level: 0,
 			name: section.group,
-			people: personnel,
+			people: section.personnel,
 			pinnable: section.groupId !== null
 		});
 	}

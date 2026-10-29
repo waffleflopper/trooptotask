@@ -1,4 +1,4 @@
-import type { Personnel } from '$features/personnel/contracts';
+import type { Group, Personnel } from '$features/personnel/contracts';
 import type { TrainingCompletionFacts, TrainingStatus, TrainingType } from '$features/training/training.types';
 
 export type BriefingRowsBy = 'group' | 'mos' | 'role';
@@ -10,7 +10,8 @@ export type FocusCandidateKey = 'wave' | `gap:${string}` | `row:${BriefingRowsBy
 
 /** Group and rank select one value; MOS, duty role and training types are multi-selections where empty means all. */
 export interface TrainingBriefingFilters {
-	groupId?: string;
+	/** A picked Group and every Group below it. */
+	groupIds?: readonly string[];
 	rank?: string;
 	mos?: string[];
 	role?: string[];
@@ -19,6 +20,8 @@ export interface TrainingBriefingFilters {
 
 export interface TrainingBriefingInput {
 	personnel: Personnel[];
+	/** The reader's Group catalog, which nests the grid's Group rows. */
+	groups: readonly Group[];
 	/** Selected-view training types, already resolved and ordered as columns. */
 	types: TrainingType[];
 	records: TrainingCompletionFacts[];
@@ -164,6 +167,18 @@ export interface BriefingGridRow {
 	drop: number | null;
 }
 
+export interface BriefingGridTreeRow extends BriefingGridRow {
+	level: number;
+	/** The row totals the rows below it. */
+	subtotal: boolean;
+}
+
+export interface BriefingGridSet {
+	top: BriefingGridTreeRow;
+	/** The top-level Group's HQ and sub-group rows in tree order. */
+	below: BriefingGridTreeRow[];
+}
+
 export interface BriefingLegendItem {
 	band: Exclude<BriefingBand, 'none'>;
 	label: string;
@@ -172,7 +187,10 @@ export interface BriefingLegendItem {
 export interface BriefingGrid {
 	rowsBy: BriefingRowsBy;
 	columns: Array<{ typeId: string; name: string }>;
+	/** One row per exact Group, MOS or duty role, as the workbook and print show them. */
 	rows: BriefingGridRow[];
+	/** The screen's rows, readiness order: by Group, each top-level Group with the rows Show sub-groups reveals. */
+	sets: BriefingGridSet[];
 	total: BriefingGridRow;
 	legend: BriefingLegendItem[];
 	/** A cell losing at least this many points by the horizon end is an upcoming hot spot. */

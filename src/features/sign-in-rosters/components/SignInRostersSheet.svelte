@@ -1,11 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import {
-		compareRosterBands,
-		type Personnel,
-		type RankCatalogEntry,
-		type RosterGroupCatalogEntry
-	} from '$features/personnel/contracts';
+	import { buildGroupTree, type Group, type Personnel, type RankCatalogEntry } from '$features/personnel/contracts';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -22,7 +17,7 @@
 		orgId: string;
 		orgName: string;
 		personnel: Personnel[];
-		groups: RosterGroupCatalogEntry[];
+		groups: Group[];
 		pinnedGroupIds: readonly string[];
 		rankCatalog?: RankCatalogEntry[];
 		canEdit: boolean;
@@ -40,7 +35,7 @@
 		onClose
 	}: Props = $props();
 
-	const compareBands = $derived(compareRosterBands({ groups, pinnedGroupIds }));
+	const tree = $derived(buildGroupTree(groups, { pinnedIds: pinnedGroupIds }));
 	const list = new RosterList(untrack(() => orgId));
 	let draft = $state.raw<NewRoster | null>(null);
 	let confirmDiscard = $state(false);
@@ -60,6 +55,7 @@
 		draft = new NewRoster({
 			orgId: untrack(() => orgId),
 			personnel: () => personnel,
+			tree: () => tree,
 			rankCatalog: () => rankCatalog
 		});
 	}
@@ -87,7 +83,7 @@
 	async function reprint(roster: SignInRoster) {
 		const inOrganization = stillInOrganizationLifetime();
 		try {
-			await generateRosterPdf(roster, compareBands, groups);
+			await generateRosterPdf(roster, tree, groups);
 		} catch (err) {
 			if (!disposed && inOrganization())
 				toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
@@ -102,7 +98,7 @@
 <AppDialog.Root open voice="editorial" busy={list.busy || !!draft?.saving} closeBlocked={!!draft?.dirty} {onClose}>
 	<AppDialog.Content presentation="sheet" size="wide">
 		{#if draft}
-			<NewRosterView {draft} {personnel} {groups} {rankCatalog} {compareBands} onBack={back} onSave={saveAndPrint} />
+			<NewRosterView {draft} {personnel} {groups} {tree} {rankCatalog} onBack={back} onSave={saveAndPrint} />
 		{:else}
 			<RosterListView
 				{list}

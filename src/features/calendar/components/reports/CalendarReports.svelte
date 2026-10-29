@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Group, Personnel } from '$features/personnel/contracts';
+	import { buildGroupTree, hasSubGroups, type Group, type Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import StatusDaysSummary from './StatusDaysSummary.svelte';
 	import AvailabilityForecast from './AvailabilityForecast.svelte';
@@ -7,6 +7,7 @@
 	import AssignmentCoverage from './AssignmentCoverage.svelte';
 	import GroupReadiness from './GroupReadiness.svelte';
 	import { WorkspaceToolbar, type ToolbarAction, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 
 	interface Props {
 		orgId: string;
@@ -36,6 +37,7 @@
 
 	let activeReport = $state<{ exportAction(): ToolbarAction | undefined } | null>(null);
 	const exportAction = $derived(activeReport?.exportAction());
+	const nestedGroups = $derived(hasSubGroups(buildGroupTree(groups)));
 
 	const toolbarItems = $derived<ToolbarItem[]>([
 		{
@@ -47,6 +49,17 @@
 			defaultValue: 'status-days',
 			onValueChange: (value) => (selectedReport = value as ReportType)
 		},
+		...(selectedReport === 'group-readiness' && nestedGroups
+			? [
+					{
+						kind: 'action',
+						id: 'report-display',
+						label: 'Display',
+						icon: 'sliders',
+						menuItems: [showSubGroupsToggle()]
+					} satisfies ToolbarItem
+				]
+			: []),
 		...(exportAction ? [exportAction] : []),
 		{ kind: 'action', id: 'calendar', label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
 	]);

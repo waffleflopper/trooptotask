@@ -5,7 +5,7 @@ import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'svelte-sonner';
 import TrainingMatrix from './TrainingMatrix.svelte';
-import type { Personnel } from '$features/personnel/contracts';
+import { buildGroupTree, type Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 
 const person: Personnel = {
@@ -278,6 +278,34 @@ describe('TrainingMatrix', () => {
 		expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('392');
 		expect(mountedNames()[0]).toBe('P025, Test');
 		expect(mountedNames()).not.toContain('P000, Test');
+	});
+
+	it('nests sub-group bands under their Group and collapses the whole subtree', async () => {
+		const tree = buildGroupTree([
+			{ id: 'plt', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 },
+			{ id: 'sq1', name: '1st Squad', sortOrder: 0, parentId: 'plt', depth: 2 },
+			{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq1', depth: 3 }
+		]);
+		const at = (lastName: string, groupId: string) => ({ ...named(lastName), groupId });
+		render(TrainingMatrix, {
+			props: {
+				...matrixProps,
+				personnel: [at('Moss', 'alpha'), at('Diaz', 'plt'), at('Ortiz', 'alpha')],
+				trainingTypes: [trainingType],
+				trainings: [],
+				groupBy: { key: (p) => p.groupId ?? '' },
+				groupTree: tree
+			}
+		});
+
+		const subBands = () => [/1st Squad/, /Alpha Team/].map((name) => screen.queryByRole('button', { name }) !== null);
+		expect(subBands()).toEqual([true, true]);
+		expect(mountedNames()).toEqual(['Diaz, Jane', 'Moss, Jane', 'Ortiz, Jane']);
+
+		await fireEvent.click(screen.getByRole('button', { name: /2nd Platoon/ }));
+
+		expect(subBands()).toEqual([false, false]);
+		expect(mountedNames()).toEqual([]);
 	});
 });
 

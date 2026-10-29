@@ -87,7 +87,7 @@ import {
 	createSupabasePersonnelRatingSchemeRosterPort,
 	createSupabasePersonnelTrainingRosterPort,
 	createSupabaseSignInRosterPersonnelLookupPort,
-	findGroupNamesByIds,
+	listGroupCatalog,
 	loadOrganizationRankCatalog,
 	createSupabaseRankCatalogPersistence
 } from '$features/personnel/index.server';
@@ -751,11 +751,10 @@ export function createRequestSignInRosterCreationContext(request: AdmittedOrgani
 		userId: request.auth.userId,
 		scopeSet: request.auth.scopeSet,
 		personnelLookup: createSupabaseSignInRosterPersonnelLookupPort(getAdminClient),
-		findGroupNamesByIds: (groupIds: string[]) =>
-			findGroupNamesByIds(
-				{ groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet) },
-				groupIds
-			),
+		listGroupCatalog: () =>
+			listGroupCatalog({
+				groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet)
+			}),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog(
 				{ auth: request.auth, rankCatalog: rankCatalog },

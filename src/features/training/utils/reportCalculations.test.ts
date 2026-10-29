@@ -28,8 +28,8 @@ describe('filterPersonnel', () => {
 		expect(result).toHaveLength(3);
 	});
 
-	it('filters by groupId', () => {
-		const result = filterPersonnel(people, { groupId: 'g-1' });
+	it('filters by Group', () => {
+		const result = filterPersonnel(people, { groupIds: ['g-1'] });
 		expect(result).toHaveLength(2);
 		expect(result.every((p) => p.groupId === 'g-1')).toBe(true);
 	});
@@ -66,11 +66,13 @@ describe('filterPersonnel', () => {
 		expect(filterPersonnel(mixed, { mos: ['11B', ''] }).map((p) => p.id)).toEqual(['p-1', 'p-3', 'p-4']);
 		expect(filterPersonnel(mixed, { role: ['Medic', 'Officer'] }).map((p) => p.id)).toEqual(['p-2', 'p-3']);
 		expect(filterPersonnel(mixed, { mos: [], role: [] })).toHaveLength(4);
-		expect(filterPersonnel(mixed, { groupId: 'g-1', mos: ['11B'], role: ['NCO'] }).map((p) => p.id)).toEqual(['p-1']);
+		expect(filterPersonnel(mixed, { groupIds: ['g-1'], mos: ['11B'], role: ['NCO'] }).map((p) => p.id)).toEqual([
+			'p-1'
+		]);
 	});
 
 	it('combines multiple filters with AND logic', () => {
-		const result = filterPersonnel(people, { groupId: 'g-1', role: 'NCO' });
+		const result = filterPersonnel(people, { groupIds: ['g-1'], role: 'NCO' });
 		expect(result).toHaveLength(1);
 		expect(result[0].id).toBe('p-1');
 	});

@@ -25,7 +25,6 @@
 		onTogglePin: ((groupId: string) => void) | null;
 		selection: { state: CheckState; set: (selected: boolean) => void } | null;
 		onNoteToEveryone: (() => void) | null;
-		onShowOnly?: (() => void) | null;
 	}
 
 	let {
@@ -38,8 +37,7 @@
 		unassigned,
 		onTogglePin,
 		selection,
-		onNoteToEveryone,
-		onShowOnly = null
+		onNoteToEveryone
 	}: Props = $props();
 
 	const sub = $derived(level > 0);
@@ -53,9 +51,7 @@
 	);
 	const groupId = $derived(unassigned ? null : group.key);
 	const canEditGroup = $derived(groupId !== null && ctx.canManageGroups);
-	const hasMenu = $derived(
-		!unassigned && (canEditGroup || onNoteToEveryone !== null || onTogglePin !== null || onShowOnly !== null)
-	);
+	const hasMenu = $derived(!unassigned && (canEditGroup || onNoteToEveryone !== null || onTogglePin !== null));
 	const segments = $derived(
 		presence
 			? [
@@ -203,9 +199,6 @@
 					{#if canEditGroup}
 						<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Rename</DropdownMenu.Item>
 						<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Add people</DropdownMenu.Item>
-					{/if}
-					{#if onShowOnly}
-						<DropdownMenu.Item onSelect={onShowOnly}>Show only this Group</DropdownMenu.Item>
 					{/if}
 					{#if onNoteToEveryone}
 						<DropdownMenu.Item onSelect={onNoteToEveryone}>Note to everyone in the Group</DropdownMenu.Item>

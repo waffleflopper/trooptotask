@@ -22,10 +22,6 @@ _Avoid_: A separate permission model or membership role
 The People directly in a Group that has sub-groups. Rollups show them as their own row, named for the Group.
 _Avoid_: Leadership, staff
 
-**Group focus**:
-The part of the unit a screen shows, either the whole unit, one Group with its sub-groups, or Unassigned. It lives in the address and follows across Group-aware screens. It never grants access.
-_Avoid_: Filter preference, view scope
-
 **User Account**:
 A person's sign-in identity and authentication settings, independent of Organization membership and roster records.
 _Avoid_: Organization, Personnel Record
@@ -123,7 +119,7 @@ The military-facing person represented by a Personnel Record.
 _Avoid_: Personnel Record when referring to the person
 
 **Roster**:
-The collection of Personnel Records for an Organization, optionally narrowed by Group focus, person, or search.
+The collection of Personnel Records for an Organization, optionally narrowed by Group, person, or search. A screen's Group filter lists the reader's top-level Groups and matches each one's whole subtree.
 _Avoid_: List of users
 
 **Personnel**:

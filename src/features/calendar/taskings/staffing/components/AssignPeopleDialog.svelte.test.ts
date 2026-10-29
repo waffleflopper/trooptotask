@@ -91,8 +91,7 @@ function open(onSaved = vi.fn()) {
 	render(AssignPeopleDialog, {
 		orgId: 'org-a',
 		tasking,
-		groupCatalog: [{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }],
-		groups: { [ALPHA]: 'Alpha' },
+		groups: [{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const }],
 		onSaved,
 		onClose: vi.fn()
 	});

@@ -115,7 +115,7 @@ export function holdsLane(holds: FeatureHolds, on: boolean): HoldsLane {
 	return { text: `No ${holds.missing}`, notSetUp: false };
 }
 
-/** States the unit-wide cutoff the dashboard applies, using the dashboard's own rounding. */
+/** States the unit-wide cutoff the dashboard applies. */
 export function strengthFloorSentence(floorPercent: number, activePersonnel: number): string {
 	const flagged = highestFlaggedAvailable(activePersonnel, floorPercent);
 	if (flagged === null) return 'No one is on the roster yet, so nothing is flagged.';

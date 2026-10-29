@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { fail } from '$lib/errors';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { AuditPort } from '$lib/audit/contracts';
-import type { GroupPersistence } from '$features/personnel/contracts';
+import { buildGroupTree, type Group, type GroupPersistence } from '$features/personnel/contracts';
 import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
 import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
@@ -67,8 +67,10 @@ const audited = (verb: string, tasking: Tasking) => ({
 	details: { title: tasking.title }
 });
 
-async function groupLabels(ctx: CalendarTaskingPorts): Promise<GroupLabels> {
-	return Object.fromEntries((await ctx.groups.listCatalog()).map((group) => [group.id, group.name]));
+async function groupReads(ctx: CalendarTaskingPorts): Promise<{ groups: GroupLabels; groupCatalog: Group[] }> {
+	const groupCatalog = await ctx.groups.listCatalog();
+	const tree = buildGroupTree(groupCatalog);
+	return { groups: Object.fromEntries(tree.ordered.map((node) => [node.id, tree.label(node.id)])), groupCatalog };
 }
 
 async function requireExisting(ctx: CalendarTaskingPorts, id: string): Promise<Tasking> {
@@ -79,16 +81,16 @@ async function requireExisting(ctx: CalendarTaskingPorts, id: string): Promise<T
 
 export async function listTaskings(ctx: CalendarTaskingPorts, scope: TaskingListScope): Promise<TaskingList> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
-	const [taskings, groups] = await Promise.all([ctx.calendarTaskings.listTaskings(scope), groupLabels(ctx)]);
+	const [taskings, groupRead] = await Promise.all([ctx.calendarTaskings.listTaskings(scope), groupReads(ctx)]);
 	const staffing = await ctx.calendarStaffing.countStaffing(taskings.map((tasking) => tasking.id));
-	return { scope, taskings, groups, staffing };
+	return { scope, taskings, ...groupRead, staffing };
 }
 
 /** The Taskings under one Event that the viewer's scope covers. */
 export async function listEventTaskings(ctx: CalendarTaskingPorts, eventId: string): Promise<EventTaskingList> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
 	if (!uuidSchema.safeParse(eventId).success) return { taskings: [], groups: {}, staffing: {} };
-	const [taskings, groups] = await Promise.all([ctx.calendarTaskings.listEventTaskings(eventId), groupLabels(ctx)]);
+	const [taskings, { groups }] = await Promise.all([ctx.calendarTaskings.listEventTaskings(eventId), groupReads(ctx)]);
 	const staffing = await ctx.calendarStaffing.countStaffing(taskings.map((tasking) => tasking.id));
 	return { taskings, groups, staffing };
 }
@@ -139,18 +141,13 @@ export async function listEventContributions(
 
 export async function loadTaskingDetail(ctx: CalendarTaskingPorts, id: string): Promise<TaskingDetail> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
-	const [tasking, groupCatalog, members] = await Promise.all([
+	const [tasking, groupRead, members] = await Promise.all([
 		ctx.calendarTaskings.findTasking(taskingId(id)),
-		ctx.groups.listCatalog(),
+		groupReads(ctx),
 		ctx.memberLabels()
 	]);
 	if (!tasking) fail(404, TASKING_GONE);
-	return {
-		tasking,
-		groups: Object.fromEntries(groupCatalog.map((group) => [group.id, group.name])),
-		groupCatalog,
-		members
-	};
+	return { tasking, ...groupRead, members };
 }
 
 export async function listTaskingActivity(ctx: CalendarTaskingPorts, id: string): Promise<TaskingActivityLog> {
@@ -174,7 +171,7 @@ export async function loadTaskingChoices(ctx: CalendarTaskingPorts, today: strin
 		ctx.calendarEvents.listEvents('upcoming', today)
 	]);
 	return {
-		groups: groups.map(({ id, name }) => ({ id, name })),
+		groups,
 		events: events
 			.filter((event) => event.cancellation === null)
 			.map(({ id, title, startsOn, endsOn }) => ({ id, title, startsOn, endsOn }))

@@ -79,8 +79,8 @@ means the workspace reloaded.
 - [Platform announcements, Feedback and Audit support](platform-support-content.md): admin content lifecycle and
   recovery.
 - [Platform Inbox](platform-inbox.md): approve or reject an access request and close Feedback from `/admin`.
-- [Platform Feedback](platform-feedback.md): reply to Feedback, keep a staff note, make a GitHub issue, and the
-  person's thread and reply under Account.
+- [Platform Feedback](platform-feedback.md): reply to Feedback, keep a staff note, make a GitHub issue, and the person's
+  thread and reply under Account.
 - [Platform admin states](platform-admin-states.md): admin screens in every state.
 - [Sign in and sign out](sign-in.md): public gate, session and sign-out.
 - [Public and marketing pages](public-pages.md): public pages and their navigation.
@@ -104,8 +104,8 @@ means the workspace reloaded.
 - [Personnel artifacts](personnel-artifacts.md): counseling, documents, follow-ups and notes.
 - [Personnel Overview](personnel-overview.md): the Overview tab's streamed sections.
 - [Personnel Readiness tab](personnel-readiness.md): training and critical-task tables and the drawer.
-- [Manage groups](manage-groups.md): Group editor, order, batch membership, delete with reassignment, pins and denial.
-- [Group focus and nested bands](group-focus.md): `?group=` focus across Personnel and Calendar, nested bands, pins.
+- [Manage groups](manage-groups.md): Group editor, order, batch membership, delete with reassignment, pins, denial and
+  the nested Group tree seed.
 - [Rank catalog](rank-settings.md): rank packs, custom ranks and retirement.
 - [Invalid, stale and conflicting input](invalid-input.md): malformed, missing and conflicting input.
 - [Personnel, Groups and settings forms](personnel-form-states.md): form failure and screen states.
@@ -146,8 +146,8 @@ means the workspace reloaded.
 - [Manual assignments](calendar-assignments.md): assignment planner and quick fill.
 - [DA 6](calendar-da6.md): one duty roster's read-only DA 6 for a month, Show the work and print.
 - [Special days](special-days.md): holidays, closures and federal reset.
-- [Events & Taskings](events-taskings.md): Events list and detail, create, edit and cancel, denied roles and the
-  feature switch.
+- [Events & Taskings](events-taskings.md): Events list and detail, create, edit and cancel, denied roles and the feature
+  switch.
 - [Reports and history](reports-history.md): Calendar reports and workbooks.
 - [Organization switching](organization-switching.md): A/B isolation and delayed responses.
 

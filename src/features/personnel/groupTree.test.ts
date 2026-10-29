@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from './contracts';
-import { buildGroupTree, type Band } from './groupTree';
+import {
+	buildGroupTree,
+	groupHeadcounts,
+	groupRows,
+	soleLeafGroup,
+	type Band,
+	type GroupRow,
+	type GroupRowSet
+} from './groupTree';
 
 function group(id: string, name: string, sortOrder: number, parentId: string | null, depth: 1 | 2 | 3): Group {
 	return { id, name, sortOrder, parentId, depth };
@@ -79,15 +87,8 @@ describe('buildGroupTree', () => {
 		expect(tree.contains('plt2', null)).toBe(false);
 	});
 
-	it('keeps the people inside a focus, Unassigned included only when focused', () => {
-		expect(ids(tree.within({ kind: 'group', id: 'sq1' }, people, groupOf))).toEqual(['sl1', 'a1', 'a2', 'b1']);
-		expect(ids(tree.within({ kind: 'unassigned' }, people, groupOf))).toEqual(['u1']);
-		expect(tree.within({ kind: 'all' }, people, groupOf)).toHaveLength(9);
-		expect(tree.within({ kind: 'group', id: 'gone' }, people, groupOf)).toEqual([]);
-	});
-
 	it('bands HQ people under their Group before its sub-groups, counts the subtree, and drops empty Groups', () => {
-		expect(tree.bands({ kind: 'all' }, people, groupOf).map(shape)).toEqual([
+		expect(tree.bands(people, groupOf).map(shape)).toEqual([
 			{ id: 'hq', hq: ['h1'], count: 1, children: [] },
 			{
 				id: 'plt2',
@@ -107,63 +108,25 @@ describe('buildGroupTree', () => {
 				]
 			}
 		]);
-		expect(tree.bands({ kind: 'group', id: 'sq2' }, people, groupOf).map(shape)).toEqual([
-			{ id: 'sq2', hq: [], count: 1, children: [{ id: 'sq2-alpha', hq: ['c1'], count: 1, children: [] }] }
-		]);
-		expect(tree.bands({ kind: 'unassigned' }, people, groupOf)).toEqual([]);
 	});
 
-	it('breaks the whole unit into top-level Groups and Unassigned, each person in one row', () => {
-		const breakdown = tree.breakdown({ kind: 'all' }, people, groupOf);
-
-		expect(breakdown.rows.map((row) => [row.kind, row.label, ids(row.items)])).toEqual([
-			['group', 'HQ Section', ['h1']],
-			['group', '2nd Platoon', ['psg', 'plt-ldr', 'sl1', 'a1', 'a2', 'b1', 'c1']],
-			['unassigned', 'Unassigned', ['u1']]
+	it('rolls each root band up to its whole subtree, in the caller’s order, when bands are not nested', () => {
+		expect(tree.bands(people, groupOf, { nested: false }).map(shape)).toEqual([
+			{ id: 'hq', hq: ['h1'], count: 1, children: [] },
+			{ id: 'plt2', hq: ['psg', 'plt-ldr', 'sl1', 'a1', 'a2', 'b1', 'c1'], count: 7, children: [] }
 		]);
-		expect(breakdown.total).toHaveLength(9);
+		expect(tree.bands(people, groupOf, { top: 'sq1', nested: false }).map(shape)).toEqual([
+			{ id: 'sq1', hq: ['sl1', 'a1', 'a2', 'b1'], count: 4, children: [] }
+		]);
 	});
 
-	it('breaks a Group into its HQ and its sub-groups, each drilling into that sub-group', () => {
-		const breakdown = tree.breakdown({ kind: 'group', id: 'plt2' }, people, groupOf);
-
-		expect(breakdown.rows.map((row) => [row.kind, row.label, ids(row.items)])).toEqual([
-			['hq', '2nd Platoon HQ', ['psg', 'plt-ldr']],
-			['group', '1st Squad', ['sl1', 'a1', 'a2', 'b1']],
-			['group', '2nd Squad', ['c1']]
+	it('finds the root above a Group', () => {
+		expect([tree.rootOf('sq1-bravo')?.id, tree.rootOf('plt2')?.id, tree.rootOf(null), tree.rootOf('gone')]).toEqual([
+			'plt2',
+			'plt2',
+			undefined,
+			undefined
 		]);
-		expect(breakdown.rows.flatMap((row) => (row.kind === 'group' ? [row.drill] : []))).toEqual([
-			{ kind: 'group', id: 'sq1' },
-			{ kind: 'group', id: 'sq2' }
-		]);
-		expect(ids(breakdown.total)).toEqual(['psg', 'plt-ldr', 'sl1', 'a1', 'a2', 'b1', 'c1']);
-	});
-
-	it('drops an empty HQ row and gives a Group without sub-groups no rows', () => {
-		expect(tree.breakdown({ kind: 'group', id: 'sq2' }, people, groupOf).rows.map((row) => row.label)).toEqual([
-			'Alpha Team'
-		]);
-		expect(tree.breakdown({ kind: 'group', id: 'sq1-bravo' }, people, groupOf)).toEqual({
-			total: [{ id: 'b1', groupId: 'sq1-bravo' }],
-			rows: []
-		});
-	});
-
-	it('counts every Group subtree, including empty ones', () => {
-		expect(Object.fromEntries(tree.subtreeCounts(people, groupOf))).toEqual({
-			hq: 1,
-			plt1: 0,
-			plt2: 7,
-			sq1: 4,
-			'sq1-alpha': 2,
-			'sq1-bravo': 1,
-			sq2: 1,
-			'sq2-alpha': 1
-		});
-	});
-
-	it('keeps only the outermost of the listed Groups', () => {
-		expect(tree.canonicalRoots(['sq1-alpha', 'plt2', 'hq', 'sq1', 'hq'])).toEqual(['plt2', 'hq']);
 	});
 
 	it('leads with pinned top-level Groups and ignores pins below the top', () => {
@@ -188,22 +151,16 @@ describe('buildGroupTree for a Group-scoped reader', () => {
 
 		expect(tree.roots.map((node) => [node.id, node.level])).toEqual([['sq1-alpha', 0]]);
 		expect(tree.label('sq1-alpha')).toBe('Alpha Team');
-		expect(tree.bands({ kind: 'all' }, people, groupOf).map(shape)).toEqual([
+		expect(tree.bands(people, groupOf).map(shape)).toEqual([
 			{ id: 'sq1-alpha', hq: ['a1', 'a2'], count: 2, children: [] }
 		]);
 	});
 
 	it('labels below a single root without repeating the root', () => {
 		const tree = buildGroupTree(catalog.filter((entry) => entry.id !== 'hq' && entry.id !== 'plt1'));
-		const visible = people.filter((person) => tree.contains('plt2', person.groupId));
 
 		expect(tree.label('sq2-alpha')).toBe('2nd Squad › Alpha Team');
 		expect(tree.label('plt2')).toBe('2nd Platoon');
-		expect(tree.breakdown({ kind: 'all' }, visible, groupOf).rows.map((row) => row.label)).toEqual([
-			'2nd Platoon HQ',
-			'1st Squad',
-			'2nd Squad'
-		]);
 	});
 
 	it('tells apart two visible roots that share a name', () => {
@@ -213,5 +170,94 @@ describe('buildGroupTree for a Group-scoped reader', () => {
 		]);
 
 		expect([tree.label('sq1-alpha'), tree.label('sq2-alpha')]).toEqual(['Alpha Team', 'Alpha Team (2)']);
+	});
+});
+
+type RowShape = [key: string, label: string, level: number, subtotal: boolean, items: string[]];
+const rowShape = (row: GroupRow<Person>): RowShape => [row.key, row.label, row.level, row.subtotal, ids(row.items)];
+const flatRows = (sets: GroupRowSet<Person>[]) => sets.flatMap((set) => [set.top, ...set.below]).map(rowShape);
+const counted = (sets: GroupRowSet<Person>[]) =>
+	sets.flatMap((set) => [set.top, ...set.below]).reduce((sum, row) => sum + (row.subtotal ? 0 : row.items.length), 0);
+
+describe('groupRows', () => {
+	const tree = buildGroupTree(catalog);
+
+	it('nests subtotals, HQ rows and sub-groups under each root when sub-groups show', () => {
+		const sets = groupRows(tree, people, groupOf, true);
+
+		expect(flatRows(sets)).toEqual([
+			['hq', 'HQ Section', 0, false, ['h1']],
+			['plt2', '2nd Platoon', 0, true, ['psg', 'plt-ldr', 'sl1', 'a1', 'a2', 'b1', 'c1']],
+			['hq:plt2', '2nd Platoon HQ', 1, false, ['psg', 'plt-ldr']],
+			['sq1', '1st Squad', 1, true, ['sl1', 'a1', 'a2', 'b1']],
+			['hq:sq1', '1st Squad HQ', 2, false, ['sl1']],
+			['sq1-alpha', 'Alpha Team', 2, false, ['a1', 'a2']],
+			['sq1-bravo', 'Bravo Team', 2, false, ['b1']],
+			['sq2', '2nd Squad', 1, true, ['c1']],
+			['sq2-alpha', 'Alpha Team', 2, false, ['c1']],
+			['unassigned', 'Unassigned', 0, false, ['u1']]
+		]);
+		expect(counted(sets)).toBe(9);
+	});
+
+	it('gives one row per root counting its subtree when sub-groups are hidden', () => {
+		const sets = groupRows(tree, people, groupOf, false);
+
+		expect(flatRows(sets)).toEqual([
+			['hq', 'HQ Section', 0, false, ['h1']],
+			['plt2', '2nd Platoon', 0, false, ['psg', 'plt-ldr', 'sl1', 'a1', 'a2', 'b1', 'c1']],
+			['unassigned', 'Unassigned', 0, false, ['u1']]
+		]);
+		expect(counted(sets)).toBe(9);
+	});
+
+	it('gives a squad leader their squad’s rows, or one row with sub-groups hidden, and no Unassigned row', () => {
+		const squad = buildGroupTree(catalog.filter((entry) => entry.id.startsWith('sq1')));
+		const mine = people.filter((person) => person.groupId?.startsWith('sq1'));
+
+		expect(flatRows(groupRows(squad, mine, groupOf, true))).toEqual([
+			['sq1', '1st Squad', 0, true, ['sl1', 'a1', 'a2', 'b1']],
+			['hq:sq1', '1st Squad HQ', 1, false, ['sl1']],
+			['sq1-alpha', 'Alpha Team', 1, false, ['a1', 'a2']],
+			['sq1-bravo', 'Bravo Team', 1, false, ['b1']]
+		]);
+		expect(flatRows(groupRows(squad, mine, groupOf, false))).toEqual([
+			['sq1', '1st Squad', 0, false, ['sl1', 'a1', 'a2', 'b1']]
+		]);
+	});
+
+	it('gives a team leader one row either way', () => {
+		const team = buildGroupTree([group('sq1-alpha', 'Alpha Team', 0, 'sq1', 3)]);
+		const mine = people.filter((person) => person.groupId === 'sq1-alpha');
+		const only: RowShape[] = [['sq1-alpha', 'Alpha Team', 0, false, ['a1', 'a2']]];
+
+		expect(flatRows(groupRows(team, mine, groupOf, true))).toEqual(only);
+		expect(flatRows(groupRows(team, mine, groupOf, false))).toEqual(only);
+	});
+});
+
+describe('groupHeadcounts', () => {
+	it('counts each Group with everyone below it and leaves empty Groups out', () => {
+		expect(Object.fromEntries(groupHeadcounts(buildGroupTree(catalog), people, groupOf))).toEqual({
+			plt2: 7,
+			sq1: 4,
+			'sq1-alpha': 2,
+			'sq1-bravo': 1,
+			sq2: 1,
+			'sq2-alpha': 1,
+			hq: 1
+		});
+	});
+});
+
+describe('soleLeafGroup', () => {
+	it('names the one Group a scoped reader sees only when nothing sits under it', () => {
+		const team = buildGroupTree([group('sq1-alpha', 'Alpha Team', 0, 'sq1', 3)]);
+		const squad = buildGroupTree(catalog.filter((entry) => ['sq1', 'sq1-alpha'].includes(entry.id)));
+
+		expect(soleLeafGroup(team, false)?.id).toBe('sq1-alpha');
+		expect(soleLeafGroup(team, true)).toBeNull();
+		expect(soleLeafGroup(squad, false)).toBeNull();
+		expect(soleLeafGroup(buildGroupTree(catalog), false)).toBeNull();
 	});
 });

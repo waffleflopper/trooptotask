@@ -19,12 +19,14 @@ saved on its own.
 - `groups-order`: reorder siblings by dragging a grip or pressing ArrowUp/ArrowDown on it; a stale order answers 409, adopts the saved catalog and reloads
   roster membership and pins.
 - `groups-order-everywhere`: after a reorder, Personnel, Calendar, Bulk status, Training, Critical Tasks and sign-in
-  roster PDFs list Groups as pins, then the saved order, then Unassigned. Group filters, including Onboarding's, follow
-  the saved order without pins.
+  roster PDFs list Groups as pins, then the saved order, then Unassigned. Group filters, including Onboarding's, list
+  only top-level Groups in the saved order, and a pick keeps its whole subtree.
 - `groups-members`: Add people, Move selected members to and Remove from Group, each in one request.
 - `groups-remove`: delete a Group and its sub-groups after choosing where their members go; an empty subtree gets a plain
   confirmation, and the roster reconciles without a reload. A Group still responsible for a Calendar Tasking is
   refused with the Tasking named.
+- `groups-nested`: a three-level tree draws nested bands and offers only its top-level Groups to each screen's Group
+  filter; other feature recipes reuse its seed.
 - `groups-today`: the Today column's skeleton, failure and hidden states.
 - `groups-denied`: a reader's same-Organization and foreign-Organization writes are rejected with no saved change.
 - `groups-scope`: a Group-scoped Personnel configurer sees no `Manage Groups`; its Group writes are rejected, and its
@@ -260,6 +262,40 @@ the other family, nested paths or B. A held response has already reached the app
 control state before navigation can discard it. SDK, use-case and API tests cover own-row and same-Organization
 predicates and the Group-scoped refusal; the `group_editor_commands` SQL contract proves the same as ordinary signed-in
 roles.
+
+## Nested Group tree
+
+Recipes that read nested bands, path labels or top-level Group filters share this seed. As `orgOwner` on Personnel
+(`$V actor orgOwner personnel`), run native `evaluate_script` `fetch` calls in that page: `POST /org/<orgA>/api/groups`
+with `{"name","parentId"}` for `2nd Platoon` (root), `1st Squad` and `2nd Squad` under it, and `Alpha Team` and
+`Bravo Team` under `1st Squad`; then `POST /org/<orgA>/api/personnel` with
+`{rank:"SPC",firstName:"Test",lastName,groupId,clinicRole:""}` for Diaz and Webb in 2nd Platoon, Lee in 1st Squad,
+Brooks, Moss, Nguyen and Ortiz in Alpha Team, Kim in Bravo Team and Patel in 2nd Squad. Keep the returned IDs. With the
+fixture's Able (Alpha), Baker (Bravo) and SPC Unassigned, Organization A holds 12 People.
+
+1. **Bands.** At 1440x900 on Personnel in `Group` view, the bands (`[data-band-level]`) run `0: 2nd Platoon 9`,
+   `1: 1st Squad 6`, `2: Alpha Team 4`, `2: Bravo Team 1`, `1: 2nd Squad 1`, `0: Alpha 1`, `0: Bravo 1`,
+   `0: Unassigned 1`. No sidebar link's `href` carries a query, and `scrollWidth` equals the viewport.
+2. **Scoped readers.** In `Settings` → `Members`, set `orgMember`'s Groups to `Selected` → `1st Squad` only and save. In
+   `$V actor orgMember personnel` at 1440 the bands run `0: 1st Squad 6`, `1: Alpha Team 4`, `1: Bravo Team 1` with no
+   pin, and at 390 `scrollWidth` is 390. With `Show sub-groups` off (step 3) the member sees one band, `0: 1st Squad 6`,
+   at 1440, 1024 and 390. Set the Groups to `Alpha Team` only and reload that page: the eyebrow reads
+   `Verification Organization A · Alpha Team`, the roster lists Brooks, Moss, Nguyen and Ortiz with `Alpha Team` in the
+   `Group` column, and there is no band and no `A-Z`/`Group` switch. Restore the Groups to `Alpha` and read
+   `access_scope_group_ids` back with `$V rows organization_memberships orgA id <orgMemberMembership>`.
+3. **Show sub-groups.** On Personnel in `Group` view open `Display`: `Show sub-groups` is a checked menu toggle. Turn it
+   off: the bands run `0: 2nd Platoon 9`, `0: Alpha 1`, `0: Bravo 1`, `0: Unassigned 1`, the address is unchanged and
+   `localStorage['t2t:show-sub-groups']` reads `false`. Reload: the document carries `data-sub-groups-hidden` before
+   hydration, the same four bands render and the layout-shift sum stays 0 at 1440. Calendar, Training, Critical Tasks,
+   Training reports, Calendar Group availability and Home's `Available · next 14 days` by-group strip all open with
+   sub-group rows hidden after navigation and after reload. `A-Z` view ignores the switch. A reader whose scope is one
+   leaf Group sees no band and no switch. Turn it back on before leaving.
+
+Clean up from the owner's page: `POST /org/<orgA>/api/personnel/archive-batch` with `{ids}` for the nine People,
+`DELETE /org/<orgA>/api/personnel/permanent` with `{id}` for each, then `DELETE /org/<orgA>/api/groups` with `{id}` for
+the teams, the squads and the platoon, one request at a time. A Group still responsible for a Tasking answers 409 naming
+it; move that Tasking to `Organization level` and cancel it first. Read back with `$V rows groups orgA` and
+`$V rows personnel orgA`.
 
 ## Gotchas
 

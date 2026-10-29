@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctReportsView from './IctReportsView.svelte';
 import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
@@ -81,7 +82,7 @@ function makeReportScope(
 			rank: person.rank,
 			dutyRole: person.clinicRole
 		})),
-		groups: groups.map((group) => ({ id: group.id, name: group.name })),
+		groups,
 		hasActiveTasks: tasks.some((task) => !task.archivedAt),
 		activeTaskCount: tasks.filter((task) => !task.archivedAt).length,
 		totalPersonnelCount: personnel.length,
@@ -389,6 +390,37 @@ describe('IctReportsView', () => {
 			expect(within(report).getAllByText('100%').length).toBeGreaterThan(0);
 			expect(within(report).getByLabelText('Critical task report scope').textContent).toMatch(/Population\s*1/);
 		});
+	});
+
+	it('offers the top-level Groups and counts a platoon with its squads and teams', async () => {
+		const member = (id: string, groupId: string): Personnel => ({ ...medic, id, groupId });
+		render(IctReportsView, {
+			props: {
+				orgId: 'org-1',
+				reportScope: makeReportScope({
+					personnel: [member('hq', 'platoon'), member('team', 'alpha'), member('sibling', 'other-platoon')],
+					groups: NESTED_GROUPS
+				}),
+				initialDashboard
+			}
+		});
+
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter by group' }));
+		const groupList = screen.getByRole('option', { name: 'All Groups' }).closest<HTMLElement>('[role="listbox"]')!;
+		expect(
+			within(groupList)
+				.getAllByRole('option')
+				.slice(1)
+				.map((option) => option.textContent?.trim())
+		).toEqual(['1st Platoon', '2nd Platoon']);
+		const platoon = screen.getByRole('option', { name: '1st Platoon' });
+		await fireEvent.pointerDown(platoon);
+		await fireEvent.pointerUp(platoon);
+
+		const report = screen.getByRole('region', { name: 'Critical task analysis console' });
+		await waitFor(() =>
+			expect(within(report).getByLabelText('Critical task report scope').textContent).toMatch(/Population\s*2/)
+		);
 	});
 
 	it('moves focus to the group filter when Clear filters removes itself from the row', async () => {

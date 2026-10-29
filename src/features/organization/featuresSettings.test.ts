@@ -58,7 +58,7 @@ describe('strengthFloorSentence', () => {
 	it.each([
 		[80, 22, '80% of 22 is 17.6, so 17 or fewer available is flagged.'],
 		[80, 40, '80% of 40 is 32, so 31 or fewer available is flagged.'],
-		[80, 200, '80% of 200 is 160, so 158 or fewer available is flagged.'],
+		[80, 200, '80% of 200 is 160, so 159 or fewer available is flagged.'],
 		[1, 22, '1% of 22 is 0.22, so the unit is flagged only when no one is available.'],
 		[80, 0, 'No one is on the roster yet, so nothing is flagged.']
 	])('states floor %i%% over %i people', (floor, people, sentence) => {

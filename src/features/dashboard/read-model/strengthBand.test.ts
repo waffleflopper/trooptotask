@@ -103,6 +103,10 @@ function headlineOf(result: ReturnType<typeof band>) {
 	return { headline: result.headline, text: formatForecastHeadline(result.headline, TODAY) };
 }
 
+function groupRows(result: ReturnType<typeof band>) {
+	return result.groups.sets.flatMap((set) => [set.top, ...set.below]);
+}
+
 function flaggedDates(result: ReturnType<typeof band>): string[] {
 	return result.forecast.filter((column) => column.belowFloor).map((column) => column.date);
 }
@@ -243,7 +247,7 @@ describe('duty days', () => {
 		});
 	});
 
-	it('moves the flags with the floor alone, on the rounded percent', () => {
+	it('moves the flags with the floor alone', () => {
 		const availability = away(ids(1, 5), 'sick', '2026-10-20', '2026-10-20');
 
 		expect(flaggedDates(band({ availability, floorPercent: 80 }))).toEqual(['2026-10-20']);
@@ -289,8 +293,20 @@ describe('people, not entries', () => {
 			{ statusTypeId: 'leave', count: 1 },
 			{ statusTypeId: 'tdy', count: 1 }
 		]);
-		expect(result.groups.rows).toEqual([
-			{ id: 'alpha', name: 'Alpha', available: 20, assigned: 22, percent: 91, belowFloor: false }
+		expect(result.groups.sets).toEqual([
+			{
+				top: {
+					id: 'alpha',
+					name: 'Alpha',
+					level: 0,
+					subtotal: false,
+					available: 20,
+					assigned: 22,
+					percent: 91,
+					belowFloor: false
+				},
+				below: []
+			}
 		]);
 	});
 
@@ -375,7 +391,7 @@ describe('bottom line scale (frame 02)', () => {
 			{ statusTypeId: 'tdy', count: 1, originsLabel: 'Alpha 1', moreOrigins: 0, returnLabel: 'back 22 Oct' }
 		]);
 		expect(result.bottomLine.tomorrow).toBe('Tomorrow 36. 2 return.');
-		expect(result.groups.rows.map((row) => [row.name, `${row.available}/${row.assigned}`, row.belowFloor])).toEqual([
+		expect(groupRows(result).map((row) => [row.name, `${row.available}/${row.assigned}`, row.belowFloor])).toEqual([
 			['Alpha', '16/20', false],
 			['Charlie', '5/6', false],
 			['Bravo', '13/15', false]
@@ -412,7 +428,7 @@ describe('by group', () => {
 		const result = groupsBand(6);
 
 		expect(result.groups.shown).toBe(6);
-		expect(result.groups.rows.map((row) => [row.name, row.percent, row.belowFloor])).toEqual([
+		expect(groupRows(result).map((row) => [row.name, row.percent, row.belowFloor])).toEqual([
 			['G1', 50, true],
 			['G3', 75, true],
 			['G2', 100, false],
@@ -425,8 +441,127 @@ describe('by group', () => {
 	it('shows the lowest 5 when there are more than 6', () => {
 		const result = groupsBand(7);
 
-		expect(result.groups.rows).toHaveLength(7);
+		expect(result.groups.sets).toHaveLength(7);
 		expect(result.groups.shown).toBe(5);
-		expect(result.groups.rows.slice(0, 2).map((row) => row.name)).toEqual(['G1', 'G3']);
+		expect(
+			groupRows(result)
+				.slice(0, 2)
+				.map((row) => row.name)
+		).toEqual(['G1', 'G3']);
+	});
+});
+
+describe('the floor compares the exact fraction', () => {
+	it('flags 159 of 200, which shows as 80%, under an 80% floor', () => {
+		const result = band({ personnel: people(200), availability: away(ids(1, 41), 'sick', TODAY, TODAY) });
+
+		expect(result.bottomLine).toMatchObject({ available: 159, assigned: 200, percent: 80, belowFloor: true });
+		expect(groupRows(result).map((row) => [row.percent, row.belowFloor])).toEqual([[80, true]]);
+	});
+
+	it('does not flag 160 of 200, exactly at an 80% floor', () => {
+		const result = band({ personnel: people(200), availability: away(ids(1, 40), 'sick', TODAY, TODAY) });
+
+		expect(result.bottomLine).toMatchObject({ available: 160, assigned: 200, percent: 80, belowFloor: false });
+		expect(groupRows(result).map((row) => [row.percent, row.belowFloor])).toEqual([[80, false]]);
+	});
+});
+
+describe('sub-groups', () => {
+	const group = (id: string, name: string, parentId: string | null, depth: 1 | 2 | 3, sortOrder = 0): Group => ({
+		id,
+		name,
+		sortOrder,
+		parentId,
+		depth
+	});
+	const platoon = group('plt', '1st Platoon', null, 1, 0);
+	const squad1 = group('sq1', '1st Squad', 'plt', 2, 0);
+	const alpha = group('ta', 'Alpha Team', 'sq1', 3, 0);
+	const bravo = group('tb', 'Bravo Team', 'sq1', 3, 1);
+	const squad2 = group('sq2', '2nd Squad', 'plt', 2, 1);
+	const section = group('hq', 'HQ Section', null, 1, 1);
+	const personnel = [
+		...people(2, 'plt', 1),
+		...people(1, 'sq1', 3),
+		...people(3, 'ta', 4),
+		...people(2, 'tb', 7),
+		...people(2, 'sq2', 9),
+		...people(3, 'hq', 11),
+		...people(1, null, 14)
+	];
+	const availability = away(['p1', 'p4', 'p9', 'p11'], 'sick', TODAY, TODAY);
+
+	function strength(
+		groups: Group[],
+		showSubGroups: boolean,
+		scoped: Personnel[] = personnel
+	): { rows: (string | number | boolean)[][]; leafTotal: string; headline: string } {
+		const result = band({ personnel: scoped, groups, availability, showSubGroups });
+		const rows = groupRows(result);
+		const leaves = rows.filter((row) => !row.subtotal);
+		return {
+			rows: rows.map((row) => [row.name, row.level, row.subtotal, `${row.available}/${row.assigned}`]),
+			leafTotal: `${leaves.reduce((sum, row) => sum + row.available, 0)}/${leaves.reduce((sum, row) => sum + row.assigned, 0)}`,
+			headline: `${result.bottomLine.available}/${result.bottomLine.assigned}`
+		};
+	}
+
+	const catalog = [platoon, squad1, alpha, bravo, squad2, section];
+
+	it('on, lists each top-level Group lowest first with its HQ and sub-groups in tree order', () => {
+		expect(strength(catalog, true)).toEqual({
+			rows: [
+				['HQ Section', 0, false, '2/3'],
+				['1st Platoon', 0, true, '7/10'],
+				['1st Platoon HQ', 1, false, '1/2'],
+				['1st Squad', 1, true, '5/6'],
+				['1st Squad HQ', 2, false, '1/1'],
+				['Alpha Team', 2, false, '2/3'],
+				['Bravo Team', 2, false, '2/2'],
+				['2nd Squad', 1, false, '1/2'],
+				['Unassigned', 0, false, '1/1']
+			],
+			leafTotal: '10/14',
+			headline: '10/14'
+		});
+	});
+
+	it('off, rolls each top-level Group into one row', () => {
+		expect(strength(catalog, false)).toEqual({
+			rows: [
+				['HQ Section', 0, false, '2/3'],
+				['1st Platoon', 0, false, '7/10'],
+				['Unassigned', 0, false, '1/1']
+			],
+			leafTotal: '10/14',
+			headline: '10/14'
+		});
+	});
+
+	it('gives a squad leader their teams on and one squad row off, with no Unassigned row', () => {
+		const squad = personnel.slice(2, 8);
+
+		expect(strength([squad1, alpha, bravo], true, squad)).toEqual({
+			rows: [
+				['1st Squad', 0, true, '5/6'],
+				['1st Squad HQ', 1, false, '1/1'],
+				['Alpha Team', 1, false, '2/3'],
+				['Bravo Team', 1, false, '2/2']
+			],
+			leafTotal: '5/6',
+			headline: '5/6'
+		});
+		expect(strength([squad1, alpha, bravo], false, squad).rows).toEqual([['1st Squad', 0, false, '5/6']]);
+	});
+
+	it('gives a team leader one row either way and no switch', () => {
+		const team = personnel.slice(3, 6);
+
+		for (const show of [true, false]) {
+			expect(strength([alpha], show, team).rows).toEqual([['Alpha Team', 0, false, '2/3']]);
+		}
+		expect(band({ personnel: team, groups: [alpha], availability }).groups.hasSubGroups).toBe(false);
+		expect(band({ personnel, groups: catalog, availability }).groups.hasSubGroups).toBe(true);
 	});
 });

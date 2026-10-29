@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Group } from '$features/personnel/contracts';
+import type { Group, GroupTree } from '$features/personnel/contracts';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { MemberLabels } from '../events/eventModel';
 import type { TaskingListActivityFact, TaskingReadiness } from './taskingListsModel';
@@ -102,7 +102,7 @@ export type TaskingActivityFact =
 
 export type TaskingActivity = TaskingActivityFact & { id: number; at: string; actorUserId: string | null };
 
-/** Groups the viewer's scope covers, by id. A responsible Group missing here is outside that scope. */
+/** Groups the viewer's scope covers, by id, labelled with their path. A responsible Group missing here is outside that scope. */
 export type GroupLabels = Record<string, string>;
 
 /** What the server loads; Overdue and Blocked narrow Active on the page. */
@@ -113,17 +113,19 @@ export interface TaskingList {
 	scope: TaskingListScope;
 	taskings: Tasking[];
 	groups: GroupLabels;
+	/** The same Groups with their parents, for pickers that show the tree. */
+	groupCatalog: Group[];
 	/** By Tasking id; a Tasking missing here has no picks. */
 	staffing: Record<string, StaffingCount>;
 }
 
 /** The Taskings under one Event that the reader's scope covers. */
-export type EventTaskingList = Omit<TaskingList, 'scope'>;
+export type EventTaskingList = Omit<TaskingList, 'scope' | 'groupCatalog'>;
 
 export interface TaskingDetail {
-	groupCatalog: Group[];
 	tasking: Tasking;
 	groups: GroupLabels;
+	groupCatalog: Group[];
 	members: MemberLabels;
 }
 
@@ -131,11 +133,6 @@ export interface TaskingActivityLog {
 	entries: TaskingActivity[];
 	/** Titles of the Events named by link and unlink entries. */
 	eventTitles: Record<string, string>;
-}
-
-export interface TaskingGroupOption {
-	id: string;
-	name: string;
 }
 
 export interface TaskingEventOption {
@@ -147,7 +144,7 @@ export interface TaskingEventOption {
 
 /** What the create and edit form offers: the Groups in the viewer's scope and the Events still ahead. */
 export interface TaskingChoices {
-	groups: TaskingGroupOption[];
+	groups: Group[];
 	events: TaskingEventOption[];
 }
 
@@ -284,14 +281,26 @@ function touchesWindow(tasking: Tasking, from: string, to: string): boolean {
 	return tasking.execution !== null && tasking.execution.startsOn <= to && tasking.execution.endsOn >= from;
 }
 
+/**
+ * The Responsible filter: the Organization's own Taskings, or a top-level Group's Taskings and those of every Group
+ * under it. Any other value is all.
+ */
+function responsibleMatcher(value: string, tree: GroupTree): (responsibility: TaskingResponsibility) => boolean {
+	if (value === 'organization') return (responsibility) => responsibility.kind === 'organization';
+	if (tree.node(value)?.level !== 0) return () => true;
+	return (responsibility) => responsibility.kind === 'group' && tree.contains(value, responsibility.groupId);
+}
+
 /** Narrows a loaded list to the filters. Active views sort by the date each row shows; closed views keep the newest first. */
 export function filterTaskings(
 	taskings: Tasking[],
 	filters: TaskingFilters,
 	today: string,
+	tree: GroupTree,
 	facts: Record<string, TaskingRowFacts> = {}
 ): Tasking[] {
 	const search = filters.search.trim().toLocaleLowerCase();
+	const responsible = responsibleMatcher(filters.responsibility, tree);
 	const windowEnd = filters.within === 'any' ? null : addDays(today, Number(filters.within) - 1);
 	const shown = taskings.filter(
 		(tasking) =>
@@ -300,7 +309,7 @@ export function filterTaskings(
 			(filters.view !== 'needs_people' || (tasking.id in facts && needsPeople(facts[tasking.id]))) &&
 			(filters.event === 'all' ||
 				(filters.event === 'standalone' ? tasking.event === null : tasking.event?.id === filters.event)) &&
-			(filters.responsibility === 'all' || responsibilityKey(tasking.responsibility) === filters.responsibility) &&
+			responsible(tasking.responsibility) &&
 			(windowEnd === null || touchesWindow(tasking, today, windowEnd)) &&
 			(!search ||
 				tasking.title.toLocaleLowerCase().includes(search) ||

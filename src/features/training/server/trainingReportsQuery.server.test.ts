@@ -272,6 +272,26 @@ describe('Training briefing report', () => {
 		expect(report.organizationName).toBe('Test Company');
 	});
 
+	it('offers the top-level Groups and briefs a picked platoon with everyone under it', async () => {
+		const ctx = unitContext();
+		ctx.groups.listCatalog = async () =>
+			NESTED_GROUPS.map((group) =>
+				group.id === 'bravo' ? { ...group, parentId: 'other-platoon', depth: 2 as const } : group
+			);
+		const brief = async (groupId: string) => {
+			const report = await fetchTrainingBriefingReport(ctx, input({ groupId }), AS_OF);
+			return [report.input.groupId, report.briefing.bottomLine.scopeName, report.briefing.bottomLine.soldierCount];
+		};
+
+		const report = await fetchTrainingBriefingReport(ctx, input(), AS_OF);
+		expect(report.filterOptions.groups).toEqual([
+			{ id: 'platoon', name: '1st Platoon' },
+			{ id: 'other-platoon', name: '2nd Platoon' }
+		]);
+		expect(await brief('platoon')).toEqual(['platoon', '1st Platoon', 2]);
+		expect(await brief('squad')).toEqual([null, 'Test Company', 3]);
+	});
+
 	it('briefs only the scoped roster of a Training-only member and cannot open a hidden row', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
 			auth: {

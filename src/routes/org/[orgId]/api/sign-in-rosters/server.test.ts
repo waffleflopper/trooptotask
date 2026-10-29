@@ -288,7 +288,15 @@ describe('/api/sign-in-rosters route config', () => {
 					title: 'Independent training attendance',
 					rosterDate: '2026-03-15',
 					personnelSnapshot: [
-						{ id: P_ALPHA, rank: 'SGT', lastName: 'Smith', firstName: 'Jane', group: 'Alpha', groupId: GROUP_ALPHA }
+						{
+							id: P_ALPHA,
+							rank: 'SGT',
+							lastName: 'Smith',
+							firstName: 'Jane',
+							group: 'Alpha',
+							groupId: GROUP_ALPHA,
+							groupAncestors: []
+						}
 					]
 				})
 			]
@@ -299,7 +307,7 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 	});
 
-	it('looks up only missing same-Organization Group labels and leaves unknown labels blank', async () => {
+	it("fills missing Group labels from the saver's Organization and leaves unknown labels blank", async () => {
 		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
@@ -332,8 +340,6 @@ describe('/api/sign-in-rosters route config', () => {
 				}
 			]
 		};
-		const groupRead = vi.spyOn(ctx.rawStore, 'findMany');
-
 		await handleUseCaseRequest(
 			_postConfig,
 			ctx,
@@ -349,11 +355,71 @@ describe('/api/sign-in-rosters route config', () => {
 			expect.objectContaining({ id: P_KNOWN, group: 'Alpha' }),
 			expect.objectContaining({ id: P_UNKNOWN, group: '' })
 		]);
-		expect(groupRead.mock.calls.find(([table]) => table === 'groups')).toMatchObject([
-			'groups',
-			ctx.auth.orgId,
-			undefined,
-			{ select: 'id, name', inFilters: { id: [GROUP_ALPHA, 'foreign'] } }
+	});
+
+	it.each([
+		{
+			saver: 'an Organization-wide saver',
+			scopeSet: { kind: 'organization' as const },
+			ancestors: [
+				{ id: 'plt', name: '2nd Platoon' },
+				{ id: 'sqd', name: '1st Squad' }
+			]
+		},
+		{
+			saver: 'a squad-scoped saver from their squad',
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: ['sqd', 'team'] }),
+			ancestors: [{ id: 'sqd', name: '1st Squad' }]
+		}
+	])('saves the Groups above each person as $saver sees them', async ({ scopeSet, ancestors }) => {
+		const ctx = createRosterTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.rawStore.seed('groups', [
+			{ id: 'plt', organization_id: ctx.auth.orgId, name: '2nd Platoon', parent_id: null },
+			{ id: 'sqd', organization_id: ctx.auth.orgId, name: '1st Squad', parent_id: 'plt' },
+			{ id: 'team', organization_id: ctx.auth.orgId, name: 'Alpha Team', parent_id: 'sqd' }
+		]);
+		ctx.personnelLookup = {
+			findPersonnelForRosterSnapshot: async () => [
+				{ id: P_ALPHA, rank: 'SPC', lastName: 'Team', firstName: 'Ann', groupId: 'team', groupName: 'Alpha Team' }
+			]
+		};
+
+		await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				title: 'Squad sign-in',
+				separateByGroup: true,
+				personnelSnapshot: [{ id: P_ALPHA, group: 'Posted Team', groupAncestors: [{ id: 'plt', name: 'Posted' }] }]
+			},
+			() => selectRosterCreationContext(ctx)
+		);
+
+		const [stored] = await ctx.store.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
+		expect(stored.personnel_snapshot).toEqual([
+			{
+				id: P_ALPHA,
+				rank: 'SPC',
+				lastName: 'Team',
+				firstName: 'Ann',
+				group: 'Alpha Team',
+				groupId: 'team',
+				groupAncestors: ancestors
+			}
 		]);
 	});
 

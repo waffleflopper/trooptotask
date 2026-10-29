@@ -14,6 +14,7 @@ import type { PersonnelTraining, TrainingType } from '$features/training/trainin
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import { groupCatalogHydration } from '$features/personnel';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -332,6 +333,39 @@ describe('TrainingPageContext', () => {
 			expect(ctx.filteredPersonnel).toEqual([]);
 			expect(ctx.selectedGroupId).toBe('g-empty');
 			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('Group filter on nested Groups', () => {
+		const member = (id: string, groupId: string): Personnel => ({ ...mockPerson, id, lastName: id, groupId });
+
+		beforeEach(() => {
+			groupCatalogHydration.load(NESTED_GROUPS, 'org-1');
+			personnelRosterHydration.load(
+				[
+					member('Hale', 'platoon'),
+					member('Irwin', 'squad'),
+					member('Jones', 'alpha'),
+					member('Kemp', 'other-squad'),
+					member('Lowe', 'other-platoon')
+				],
+				'org-1'
+			);
+		});
+
+		it('offers exactly the top-level Groups', () => {
+			expect(makeContext(makeData(), makeOrg()).groupFilterOptions).toEqual([
+				{ value: '', label: 'Group: All' },
+				{ value: 'platoon', label: '1st Platoon' },
+				{ value: 'other-platoon', label: '2nd Platoon' }
+			]);
+		});
+
+		it("takes in a platoon's HQ, squads and teams and leaves out the other platoon", () => {
+			const ctx = makeContext(makeData(), makeOrg());
+			ctx.selectedGroupId = 'platoon';
+
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['Hale', 'Irwin', 'Jones', 'Kemp']);
 		});
 	});
 

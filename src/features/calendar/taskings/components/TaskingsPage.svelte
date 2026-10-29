@@ -27,6 +27,7 @@
 		type TaskingView,
 		type TaskingWithin
 	} from '../taskingModel';
+	import { buildGroupTree } from '$features/personnel/contracts';
 	import type { TaskingWorkspace } from '../taskingReadModel';
 	import type { FactTone } from '../taskingRowModel';
 	import EventsTaskingsHeader from './EventsTaskingsHeader.svelte';
@@ -74,9 +75,10 @@
 		return current.value.value.scope === scopeOfView(filters.view) ? current.value.value : null;
 	});
 	const counts = $derived(facts === null || facts === 'failed' ? facts : facts.counts);
+	const tree = $derived(buildGroupTree(loaded && loaded !== 'failed' ? loaded.groupCatalog : []));
 	const shown = $derived(
 		loaded && loaded !== 'failed' && facts && facts !== 'failed'
-			? filterTaskings(loaded.taskings, filters, today, facts.taskings)
+			? filterTaskings(loaded.taskings, filters, today, tree, facts.taskings)
 			: []
 	);
 	const filtered = $derived(
@@ -133,15 +135,16 @@
 				.map(([value, { label }]) => ({ value, label }))
 		];
 	});
-	const responsibilityOptions = $derived.by<ToolbarOption[]>(() => {
-		const groups = loaded && loaded !== 'failed' ? loaded.groups : {};
-		const options = Object.entries(groups)
-			.map(([value, label]) => ({ value, label }))
-			.sort((a, b) => a.label.localeCompare(b.label));
-		if (!['all', 'organization'].includes(filters.responsibility) && !(filters.responsibility in groups))
-			options.push({ value: filters.responsibility, label: 'Another group' });
-		return [{ value: 'all', label: 'All' }, { value: 'organization', label: org.orgName }, ...options];
-	});
+	const responsibilityOptions = $derived<ToolbarOption[]>([
+		{ value: 'all', label: 'All' },
+		{ value: 'organization', label: org.orgName },
+		...tree.roots.map((root) => ({ value: root.id, label: root.name }))
+	]);
+	const responsible = $derived(
+		loaded === null || responsibilityOptions.some((option) => option.value === filters.responsibility)
+			? filters.responsibility
+			: 'all'
+	);
 
 	const viewHref = (view: TaskingView) => `${taskingsHref}${taskingFiltersQuery({ ...filters, view })}`;
 
@@ -169,7 +172,7 @@
 			id: 'responsibility',
 			label: 'Responsible',
 			options: responsibilityOptions,
-			value: filters.responsibility,
+			value: responsible,
 			defaultValue: 'all',
 			showLabel: true,
 			onValueChange: (responsibility) => show({ responsibility })

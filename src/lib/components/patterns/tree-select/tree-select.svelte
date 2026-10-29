@@ -29,6 +29,7 @@
 		searchPlaceholder: string;
 		/** The trigger's id, for a field label. Inside a Field, the trigger also takes its description and error. */
 		id?: string;
+		disabled?: boolean;
 		class?: ClassValue;
 	};
 
@@ -41,6 +42,7 @@
 		placeholder,
 		searchPlaceholder,
 		id,
+		disabled,
 		class: className
 	} = $derived(props);
 
@@ -95,9 +97,10 @@
 					{...props}
 					{id}
 					{...fieldAria}
+					{disabled}
 					type="button"
 					class={cn(
-						'flex h-9 w-full min-w-0 items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:border-accent',
+						'flex h-9 w-full min-w-0 items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-expanded:border-accent',
 						className
 					)}
 				>
@@ -142,9 +145,10 @@
 					{...props}
 					{id}
 					{...fieldAria}
+					{disabled}
 					type="button"
 					class={cn(
-						'flex h-8 max-w-full min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:border-accent',
+						'flex h-8 max-w-full min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-expanded:border-accent',
 						className
 					)}
 				>

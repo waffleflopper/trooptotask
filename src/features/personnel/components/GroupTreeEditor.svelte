@@ -12,7 +12,7 @@
 		MAX_GROUP_DEPTH,
 		UNASSIGNED_OPTION
 	} from '../groupStructure';
-	import { buildGroupTree, type GroupNode } from '../groupTree';
+	import { buildGroupTree, groupHeadcounts, type GroupNode } from '../groupTree';
 	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -74,7 +74,7 @@
 
 	const tree = $derived(buildGroupTree(groups));
 	const childrenOf = $derived(Map.groupBy(tree.ordered, (node) => node.parentId));
-	const counts = $derived(tree.subtreeCounts(people, (person) => person.groupId));
+	const counts = $derived(groupHeadcounts(tree, people, (person) => person.groupId));
 	const noGroups = $derived(!loading && groups.length === 0);
 	const showHint = $derived(noGroups && !hintDismissed);
 	const acting = $derived(action ? tree.node(action.id) : undefined);

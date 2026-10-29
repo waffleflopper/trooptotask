@@ -248,7 +248,15 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 			separateByGroup: false,
 			sortBy: 'alphabetical' as const,
 			personnelSnapshot: [
-				{ id: 'current-person', rank: 'PFC', firstName: 'New', lastName: 'Person', group: 'Bravo', groupId: 'bravo' }
+				{
+					id: 'current-person',
+					rank: 'PFC',
+					firstName: 'New',
+					lastName: 'Person',
+					group: 'Bravo',
+					groupId: 'bravo',
+					groupAncestors: []
+				}
 			],
 			personnelIds: ['current-person'],
 			scopeGroupIds: ['bravo'],
@@ -265,7 +273,15 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 			separateByGroup: false,
 			sortBy: 'alphabetical',
 			personnelSnapshot: [
-				{ id: 'current-person', rank: 'PFC', firstName: 'New', lastName: 'Person', group: 'Bravo', groupId: 'bravo' }
+				{
+					id: 'current-person',
+					rank: 'PFC',
+					firstName: 'New',
+					lastName: 'Person',
+					group: 'Bravo',
+					groupId: 'bravo',
+					groupAncestors: []
+				}
 			],
 			filterConfig: { groups: ['bravo'], ranks: ['PFC'], mos: ['68W'], roles: ['Driver'] },
 			signedFilePath: null,
@@ -283,7 +299,15 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 				separate_by_group: false,
 				sort_by: 'alphabetical',
 				personnel_snapshot: [
-					{ id: 'current-person', rank: 'PFC', firstName: 'New', lastName: 'Person', group: 'Bravo', groupId: 'bravo' }
+					{
+						id: 'current-person',
+						rank: 'PFC',
+						firstName: 'New',
+						lastName: 'Person',
+						group: 'Bravo',
+						groupId: 'bravo',
+						groupAncestors: []
+					}
 				],
 				personnel_ids: ['current-person'],
 				scope_group_ids: ['bravo'],

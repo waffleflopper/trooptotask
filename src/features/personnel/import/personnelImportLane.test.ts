@@ -35,6 +35,7 @@ function lane(overrides: Partial<PersonnelImportSource> = {}) {
 			person('p2', { groupId: 'g2', groupName: '2nd Platoon', ets: null }),
 			person('p3', { lastName: 'Smith', firstName: 'Ana', rank: 'SPC', groupId: null, groupName: '' })
 		],
+		dodIds: [],
 		groups,
 		rankCatalog: BUILT_IN_RANK_CATALOG,
 		canManageGroups: false,
@@ -52,13 +53,14 @@ function match(source: Lane, name: keyof Lane['references'], raw: Raw) {
 	return lookup ? reference.find(lookup.key) : null;
 }
 
-function resolve(source: Lane, raw: Raw) {
+function resolve(source: Lane, raw: Raw, pickedPerson?: Personnel) {
 	const one = (name: keyof Lane['references']) => {
 		const found = match(source, name, raw);
 		return found?.kind === 'one' ? found.option : null;
 	};
 	return source.review({
 		values: {
+			dodId: raw.dodId ?? null,
 			rank: raw.rank ?? null,
 			lastName: raw.lastName ?? '',
 			firstName: raw.firstName ?? '',
@@ -68,7 +70,11 @@ function resolve(source: Lane, raw: Raw) {
 			ets: (raw.ets ?? null) as IsoDate | null,
 			deros: (raw.deros ?? null) as IsoDate | null
 		},
-		refs: { person: one('person'), rank: one('rank'), group: one('group') } as never,
+		refs: {
+			person: pickedPerson ? { id: pickedPerson.id, label: pickedPerson.lastName, value: pickedPerson } : one('person'),
+			rank: one('rank'),
+			group: one('group')
+		} as never,
 		ask: () => undefined,
 		parseDate: (value) => value as IsoDate
 	});
@@ -77,6 +83,62 @@ function resolve(source: Lane, raw: Raw) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('personnel import lane', () => {
+	it.each(['DoD ID', 'dodid', 'dod', 'DoD ID number', 'EDIPI', 'EDIPI number'])(
+		'maps the %s header and keeps a leading zero',
+		async (header) => {
+			const session = new ImportSession(() => lane({ personnel: [] }));
+			await session.chooseFile([
+				new File([`Last name,First name,Rank,${header}\nSynthetic,New,SGT,0123456789`], 'ids.csv')
+			]);
+			session.goTo('review');
+			expect(session.review.rows).toMatchObject([
+				{ outcome: 'new', change: { op: 'create', dodId: '0123456789', lastName: 'Synthetic' } }
+			]);
+		}
+	);
+
+	it('uses the DoD ID before the name, group, or rank when matching an active Person', () => {
+		const source = lane({ dodIds: [{ personnelId: 'p1', dodId: '0123456789' }] });
+		expect(
+			match(source, 'person', {
+				lastName: 'Smith',
+				firstName: 'Ana',
+				groupName: 'HQ',
+				rank: 'PFC',
+				dodId: '012-345 6789'
+			})
+		).toMatchObject({ kind: 'one', option: { id: 'p1' } });
+	});
+
+	it('requires a valid free ID and rejects one held by an archived Person', () => {
+		const source = lane({ dodIds: [{ personnelId: 'archived', dodId: '0123456789' }] });
+		for (const dodId of ['short', '0123456789']) {
+			expect(resolve(source, { lastName: 'Synthetic', firstName: 'New', rank: 'PFC', dodId })).toMatchObject({
+				outcome: 'fix',
+				problems: [{ field: 'dodId' }]
+			});
+		}
+		const activeSource = lane({ dodIds: [{ personnelId: 'p1', dodId: '0123456789' }] });
+		expect(
+			resolve(activeSource, { lastName: 'Smith', firstName: 'Ana', dodId: '0123456789' }, person('p3'))
+		).toMatchObject({ outcome: 'fix', problems: [{ field: 'dodId' }] });
+	});
+
+	it('shows an ID-only diff and leaves equal or blank IDs unchanged', () => {
+		const source = lane({ dodIds: [{ personnelId: 'p3', dodId: '0000000001' }] });
+		expect(resolve(source, { lastName: 'Smith', firstName: 'Ana', dodId: '012-3456789' })).toEqual({
+			outcome: 'update',
+			key: 'p3',
+			change: { op: 'update', personnelId: 'p3', changes: { dodId: '0123456789' } },
+			diff: [{ label: 'DoD ID', before: '0000000001', after: '0123456789' }]
+		});
+		for (const dodId of ['', ' - ', '0000000001']) {
+			expect(resolve(source, { lastName: 'Smith', firstName: 'Ana', dodId })).toEqual({
+				outcome: 'unchanged',
+				key: 'p3'
+			});
+		}
+	});
 	it('splits a Last, First column and drops a middle initial', () => {
 		expect(lastFirstSplitter().split('Garcia, Luis A.')).toEqual({ lastName: 'Garcia', firstName: 'Luis' });
 		expect(lastFirstSplitter().split('Garcia')).toBeNull();

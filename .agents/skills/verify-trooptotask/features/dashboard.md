@@ -332,6 +332,14 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
   Dashboard's today, even if Calendar was left on another month.
 - `dashboardScoped` reads `2`, `of 2`, `AVAILABLE · 100%`, `Everyone is available today.` and
   `Steady: 2 available every day`, and the strip shows only `ALPHA 2/2`.
+- With the [nested Group tree](manage-groups.md#nested-group-tree) seeded as `orgOwner`, a `Group strength display`
+  menu sits beside the `Available · next 14 days` heading, out of the layout flow, and holds `Show sub-groups`. On,
+  the strip lists indented rows (`[data-band-level]`): `0: Bravo 0/1` below the floor, `0: 2nd Platoon 9/9`,
+  `1: 2nd Platoon HQ 2/2`, `1: 1st Squad 6/6`, `2: 1st Squad HQ 1/1`, `2: Alpha Team 4/4`, `2: Bravo Team 1/1`,
+  `1: 2nd Squad 1/1`, `0: Alpha 1/1` and `0: Unassigned 1/1`; each level sums to its parent and the top rows to the
+  headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1`, and the switch is absent
+  when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200 available is
+  flagged although it rounds to 80%.
 
 Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and
 return dates, `ALPHA 7/10` amber and `BRAVO 8/10`), `86 of 100` (`typical`, one proportional bar, one row per status

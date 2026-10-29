@@ -15,7 +15,8 @@ person's record.
 - `roster-group-headers`: in `Group` view each header has a pin toggle, a collapse toggle, the Group name and count, a
   strength bar with `N of M present`, an attention count and a `⋯` menu, all operable by pointer and keyboard; a pin
   persists for the member and a collapse lasts for the page visit. Groups run pinned first, then the Organization's
-  Group order, then Unassigned. The Group column is absent in this view.
+  Group order, then Unassigned. The Group column is absent in this view. Only Organization-wide readers get the pin
+  toggle and the menu's `Pin`; a Group-scoped reader gets neither.
 - `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state (only
   `?show=`).
 - `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
@@ -66,8 +67,8 @@ scoped actors retain their baseline grants.
    `$V fixture`. The first three must be present and the foreign ID absent.
 6. Sign in as `scoped` in another page. Its Alpha roster must show Able and exclude Baker, Unassigned, and Foreign. In
    `Group` view only the Alpha header appears. Repeat the page-data ID comparison: only `personA` may appear, and
-   neither the Bravo Group ID nor its name is in the Group catalog or pinned names. Save the visible and page-data
-   observations together. A blank or failed data response is not a passing scope check.
+   neither the Bravo Group ID nor its name is in the Group catalog, and the pinned Groups list is empty. Save the
+   visible and page-data observations together. A blank or failed data response is not a passing scope check.
 7. **Roster table sort, filter and row action.** As `manager` in `A-Z`, capture the `Personnel roster` table header
    buttons (`Sort by Rank`, `Sort by Name`, ...) and the initial Name order. Click `Sort by Name` and require the
    reversed order and changed sort indicator, click it again to restore ascending, then sort by MOS (every fixture
@@ -86,11 +87,11 @@ scoped actors retain their baseline grants.
    the rows back. Reload with Alpha collapsed and record that every group is expanded again (collapse is page state, not
    saved). Keyboard: Tab to `Pin Alpha` then `Collapse Alpha` with a visible focus ring, operate each with Enter and
    with Space, and require focus to stay on the same toggle after it flips. Enter, Space and a mouse click on a pin or
-   an Unpin all keep focus on that group's pin (`data-pin-group`) after the group moves, checked once while a held
-   `arm-hold` save keeps the reorder on screen and again after release; a sampler that logs `document.activeElement`
-   never reads `body`. Switch to `A-Z` and back: pin order is retained. Pin failure recovery stays in the
-   [Manage groups recipe](manage-groups.md#personal-group-pins). Do the same at 390 dark and require the headers
-   readable and tappable, with no page-level horizontal scroll.
+   an Unpin all keep focus on that group's pin (`data-pin-group` holds the Group ID) after the group moves, checked once
+   while a held `arm-hold` save keeps the reorder on screen and again after release; a sampler that logs
+   `document.activeElement` never reads `body`. Switch to `A-Z` and back: pin order is retained. Pin failure recovery
+   stays in the [Manage groups recipe](manage-groups.md#personal-group-pins). Do the same at 390 dark and require the
+   headers readable and tappable, with no page-level horizontal scroll.
 9. **Roster states and URL.** Empty: as `personnelEmpty` open Personnel and capture `No personnel on the active roster`
    or the access result the actor actually gets, with Add Person absent. Add Person appears in that state only for an
    actor who can add; record per actor. No match: type a name nobody has and require `No personnel match your search.`;

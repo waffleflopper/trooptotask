@@ -131,7 +131,7 @@ records do not add to the expired/orange attention count. Do not silently redefi
    longest days late. This HTTP observation complements native counts; it does not prove a visible Critical Tasks widget
    or source-provider atomicity.
 3. **Scope and denial.** Repeat the visible Dashboard and reload with each actor in the table. `dashboardView` lists
-   Alpha and Bravo; `dashboardScoped` lists only Alpha, and a saved Bravo pin is not returned. Its Needs you has six
+   Alpha and Bravo; `dashboardScoped` lists only Alpha, and none of its saved pins are returned. Its Needs you has six
    rows without Baker's Expired row or return, and its Group Duty lane counts today as unfilled because Bravo's
    assignment is outside its scope, as its Calendar does; `dashboardEmpty` lists no Group. Inspect the page data as well
    as the visible Group rows. For `dashboardForeign`, make an ordinary authenticated request to A's Dashboard and

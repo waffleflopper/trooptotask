@@ -11,7 +11,7 @@
 	<Alert.Root variant="destructive">
 		{#if stale}
 			<Alert.Title>{subject} could not be refreshed</Alert.Title>
-			<Alert.Description>What you see may be out of date. Your change was saved.</Alert.Description>
+			<Alert.Description>What you see may be out of date. Retry to read it again.</Alert.Description>
 		{:else}
 			<Alert.Title>Unable to load {subject}</Alert.Title>
 			<Alert.Description>{subject} data could not be loaded. Please try again.</Alert.Description>

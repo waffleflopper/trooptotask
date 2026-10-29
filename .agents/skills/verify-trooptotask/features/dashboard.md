@@ -419,10 +419,10 @@ Status and Training record open a picker (`Add status`, `Add training record`) w
 the viewer may act on, by last name, then the shared `Set Personnel Status` dialog, or `Add Training Record`
 (`Edit Training Record` when the Person already has a record of that type). Status starts on the viewer day. A Person
 exempt from the chosen Training type keeps `Continue` off, with a note that exemptions change on the Training page.
-Start onboarding opens `Start Onboarding` directly, and Tasking opens `Create tasking` once
-`GET api/calendar-taskings/choices` answers. None of these reads anything at page load: Training record reads the
-Person's records on `Continue` and Start onboarding reads templates and ranks (`GET api/onboarding/start-options`) as it
-opens.
+Start onboarding opens `Start Onboarding` directly, and Tasking opens the `Create tasking` sheet at once with a
+skeleton that fills with the form when `GET api/calendar-taskings/choices` answers. None of these reads anything at page
+load: Training record reads the Person's records on `Continue` and Start onboarding reads templates and ranks
+(`GET api/onboarding/start-options`) as it opens.
 
 On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out, Training reads `0%` current with
 `3 Soldiers missing training.` and Arriving and leaving reads `No one in onboarding.`
@@ -451,12 +451,22 @@ On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out
    One `GET api/dashboard/summary` refreshes Training currency for the updated population. The returned completion stays
    visible while that read is pending and after a stale summary; a failed refresh keeps the last values. Reload and read
    again.
-5. **Header.** Capture it at 1440 light and dark, at 900 and at 390. Below 1024 the group wraps under the title and
+5. **Tasking.** Arm `$V network arm-hold PAGE calendar-taskings/choices` and open Tasking: one sheet slides in with the
+   skeleton and `Cancel`. `network release`: the same sheet fills with the form, with no second slide, and focus on
+   `Required outcome`. Native recording shows one slide. `network restore`, arm the hold again and open Tasking, then
+   press Escape while held: the sheet closes and focus returns to `Tasking`. A later release opens nothing.
+   `network restore`, arm `arm-fail` on the same family and open Tasking: the skeleton sheet closes at once, the
+   `Could not open Create tasking. Try again.` toast shows, no form appears and focus returns to `Tasking`. Capture one
+   continuous sheet at 1440, 1024, 900 and 390. A fresh `orgOwner` Dashboard opens the owner setup prompt, whose
+   overlay takes the first click; press Escape before Quick add. For a late answer after a switch, as `calendarSwitch`
+   switch to B, go Back to A, hold the read and open Tasking, then go Forward: B shows no sheet, and after release no
+   sheet or toast.
+6. **Header.** Capture it at 1440 light and dark, at 900 and at 390. Below 1024 the group wraps under the title and
    stays right-aligned, as every `PageHeader` aside does; at 390 the primary button wraps to its own line.
-6. **Same dialogs.** `AvailabilityModal`, `TrainingRecordModal` and `StartOnboardingModal` each exist once, and the
+7. **Same dialogs.** `AvailabilityModal`, `TrainingRecordModal` and `StartOnboardingModal` each exist once, and the
    Dashboard loads them through their feature's `index.ts`. Calendar's empty day, a Training matrix cell and
    Onboarding's `Start onboarding` still open them, and Training's keeps `Delete`.
-7. **Page-load cost.** Opening the Dashboard sends the same requests as before Quick add, cold (a new `actor` context)
+8. **Page-load cost.** Opening the Dashboard sends the same requests as before Quick add, cold (a new `actor` context)
    and warm (reload). The reads above happen only when a dialog opens.
 
 ## Actions

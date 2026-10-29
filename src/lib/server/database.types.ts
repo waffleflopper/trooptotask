@@ -2295,6 +2295,7 @@ export type Database = {
           civilian_education: string | null
           created_at: string
           date_of_rank: string | null
+          dod_id: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
@@ -2327,6 +2328,7 @@ export type Database = {
           civilian_education?: string | null
           created_at?: string
           date_of_rank?: string | null
+          dod_id?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
@@ -2359,6 +2361,7 @@ export type Database = {
           civilian_education?: string | null
           created_at?: string
           date_of_rank?: string | null
+          dod_id?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null

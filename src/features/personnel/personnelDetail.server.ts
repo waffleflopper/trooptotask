@@ -44,7 +44,7 @@ export async function loadPersonnelDetailHeader(
 		ctx.scope.requireGroupAccess(person.id),
 		ctx.personnelSheets.findSheetForPerson(person.id)
 	]);
-	return { person, basd: sheet?.basd ?? null, dateOfRank: sheet?.date_of_rank ?? null };
+	return { person, dodId: sheet?.dod_id ?? null, basd: sheet?.basd ?? null, dateOfRank: sheet?.date_of_rank ?? null };
 }
 
 export async function loadPersonnelPeekPerson(

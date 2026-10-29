@@ -53,6 +53,7 @@ const basicInfo = {
 };
 
 const extendedInfo = {
+	dodId: ' 012-345 6789 ',
 	bloodType: 'A-',
 	basd: '2019-02-03',
 	dateOfRank: '2023-08-01',
@@ -167,6 +168,43 @@ function savedEvents(ctx: ReturnType<typeof buildContext>) {
 }
 
 describe('Data sheet save', () => {
+	it.each([true, false])(
+		"rejects an archived Person's duplicate DoD ID on save, existing sheet %s",
+		async (withSheet) => {
+			const ctx = buildContext({ withSheet, groups: [ALPHA] });
+			await ctx.rawStore.insert('personnel_extended_info', ctx.auth.orgId, {
+				id: 'sheet-2',
+				personnel_id: PERSON_2,
+				dod_id: '0123456789'
+			});
+			await ctx.rawStore.update('personnel', ctx.auth.orgId, PERSON_2, { archived_at: '2026-01-01' });
+			const before = await storedState(ctx);
+			await expect(
+				savePersonnelDataSheet(ctx, PERSON_1, { basicInfo: { ...basicInfo, mos: '68X' }, extendedInfo })
+			).resolves.toEqual({ saved: false, field: 'dodId', message: expect.any(String) });
+			expect(await storedState(ctx)).toEqual(before);
+		}
+	);
+
+	it('retains a normalized DoD ID on reload, permits saving it again, and clears it to null', async () => {
+		const ctx = buildContext({ withSheet: false });
+		await savedResult(ctx, { basicInfo, extendedInfo });
+		await expect(ctx.personnelSheets.findSheetForPerson(PERSON_1)).resolves.toMatchObject({ dod_id: '0123456789' });
+		const again = await savedResult(ctx, { basicInfo, extendedInfo });
+		expect(again.extendedInfo.dodId).toBe('0123456789');
+		const cleared = await savedResult(ctx, { basicInfo, extendedInfo: { ...extendedInfo, dodId: ' ' } });
+		expect(cleared.extendedInfo.dodId).toBe('');
+		await expect(ctx.personnelSheets.findSheetForPerson(PERSON_1)).resolves.toMatchObject({ dod_id: null });
+	});
+	it('keeps a saved DoD ID when a save omits the field', async () => {
+		const ctx = buildContext({ withSheet: false });
+		await savedResult(ctx, { basicInfo, extendedInfo });
+		const saved = await savedResult(ctx, {
+			basicInfo,
+			extendedInfo: { ...extendedInfo, dodId: undefined, bloodType: 'O+' }
+		});
+		expect(saved.extendedInfo).toMatchObject({ dodId: '0123456789', bloodType: 'O+' });
+	});
 	it('writes basic info and extended info together and returns both', async () => {
 		const ctx = buildContext();
 		const result = await savedResult(ctx, {
@@ -176,6 +214,7 @@ describe('Data sheet save', () => {
 
 		expect(result.person).toMatchObject({ id: PERSON_1, mos: '68X', clinicRole: 'Senior Medic', ets: '2027-03-14' });
 		expect(result.extendedInfo).toMatchObject({
+			dodId: '0123456789',
 			bloodType: 'A-',
 			maritalStatus: 'Single',
 			maritalStatusDate: '',
@@ -201,6 +240,7 @@ describe('Data sheet save', () => {
 			id: 'sheet-1',
 			organization_id: 'test-org',
 			personnel_id: PERSON_1,
+			dod_id: null,
 			blood_type: 'AB+',
 			basd: null,
 			date_of_rank: null,
@@ -259,6 +299,12 @@ describe('Data sheet save', () => {
 	});
 
 	it.each([
+		{
+			label: 'a malformed DoD ID',
+			basic: basicInfo,
+			extended: { ...extendedInfo, dodId: '123456789a' },
+			field: 'dodId'
+		},
 		{
 			label: 'a malformed sheet email',
 			basic: basicInfo,

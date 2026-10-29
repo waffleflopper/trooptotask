@@ -32,6 +32,7 @@ const person: Personnel = {
 };
 
 const info: PersonnelExtendedInfo = {
+	dodId: '0123456789',
 	bloodType: 'O+',
 	basd: '',
 	dateOfRank: '',
@@ -122,6 +123,7 @@ describe('PersonnelDataSheetEditor', () => {
 
 	it.each([
 		{ field: 'lastName', label: 'Last name' },
+		{ field: 'dodId', label: 'DoD ID' },
 		{ field: 'spouseName', label: 'Spouse name' },
 		{ field: 'vehiclePlate', label: 'Plate' }
 	])('names the $field message from the input it refuses', async ({ field, label }) => {

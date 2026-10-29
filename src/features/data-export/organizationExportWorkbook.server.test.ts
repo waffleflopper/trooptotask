@@ -26,6 +26,7 @@ function payload(overrides: Partial<OrganizationExportPayload['sections']> = {})
 			personnelExtendedInfo: [
 				{
 					id: 'extended-1',
+					dod_id: '0123456789',
 					personnel_id: 'person-1',
 					emergency_contact_name: 'Taylor Smith',
 					personal_phone: '555-0101'
@@ -92,10 +93,14 @@ describe('Organization Data Export workbook', () => {
 		expect(plan.rawArchiveSheets.map((sheet) => sheet.name)).toContain('Raw - Availability Entries');
 		expect(personnel?.columns.map((column) => column.header)).toContain('Duty Role');
 		expect(personnel?.rows[0]).toMatchObject({
+			dod_id: '0123456789',
 			group: 'Alpha',
 			emergency_contact: 'Taylor Smith',
 			phone: '555-0101'
 		});
+		expect(
+			plan.rawArchiveSheets.find((sheet) => sheet.name === 'Raw - Personnel Extended Info')?.rows[0]
+		).toMatchObject({ personnel_id: 'person-1', dod_id: '0123456789' });
 	});
 
 	it('keeps empty readable sheets visible with the existing no-records column', () => {

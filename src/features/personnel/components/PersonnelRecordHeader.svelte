@@ -241,7 +241,7 @@
 </svelte:head>
 
 <header class="grid gap-4 px-6 pt-5">
-	<PageShell.Header {eyebrow} {title} variant="display">
+	<PageShell.Header {eyebrow} {title} titleNote={header.dodId ?? undefined} variant="display">
 		{#snippet subtitle()}
 			<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
 				{#if person.mos}

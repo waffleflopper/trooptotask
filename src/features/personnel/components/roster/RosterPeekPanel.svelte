@@ -263,6 +263,13 @@
 				<p class="font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase">{eyebrow}</p>
 			{/if}
 			<h2 class="font-heading text-[34px] leading-9 font-extrabold uppercase">{name}</h2>
+			{#if sections.identity.state === 'loading'}
+				<Skeleton class="h-4 w-28" />
+			{:else if sections.identity.state === 'ready'}
+				<p class="font-mono text-[13px] leading-4 text-muted-foreground">
+					{sections.identity.value.dodId ?? 'No DoD ID'}
+				</p>
+			{/if}
 			<div class="flex min-h-6 flex-wrap items-center gap-2.5">
 				{#if person.mos}
 					<Badge variant="outline" class="font-mono">{person.mos}</Badge>
@@ -286,7 +293,7 @@
 					<span class="font-mono text-[13px] leading-4 text-muted-foreground">{sections.identity.value.phone}</span>
 				{:else if sections.identity.state === 'failed'}
 					<span class="flex items-center gap-2 text-sm text-muted-foreground">
-						Couldn't load the phone.
+						Couldn't load contact details.
 						<Button type="button" variant="outline" size="xs" onclick={() => ctx.peek.retry(person.id, 'identity')}
 							>Retry</Button
 						>

@@ -194,6 +194,16 @@
 				<PageShell.FactRow label="MOS" labelFor="sheet-mos" changed={changed('mos')} error={error('mos')}>
 					<Input id="sheet-mos" class="w-32" {...fieldAria('mos', 'sheet-mos')} bind:value={values.mos} />
 				</PageShell.FactRow>
+				<PageShell.FactRow label="DoD ID" labelFor="sheet-dod-id" changed={changed('dodId')} error={error('dodId')}>
+					<Input
+						id="sheet-dod-id"
+						class="w-44 font-mono"
+						inputmode="numeric"
+						autocomplete="off"
+						{...fieldAria('dodId', 'sheet-dod-id')}
+						bind:value={values.dodId}
+					/>
+				</PageShell.FactRow>
 				<PageShell.FactRow
 					label="Duty role"
 					labelFor="sheet-duty-role"

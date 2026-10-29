@@ -10,7 +10,7 @@ export const ROSTER_PEEK_DAYS = 7;
 export const ROSTER_PEEK_FOLLOW_UPS = 5;
 
 export interface RosterPeekValues {
-	identity: { phone: string | null };
+	identity: { phone: string | null; dodId: string | null };
 	next7: unknown;
 	attention: PersonnelAttention;
 	followUps: PersonnelOpenFollowUps;

@@ -410,7 +410,9 @@ scoped actors retain their baseline grants.
     outside the name link (the `11B` text): the URL stays on Personnel and a complementary region
     `Preview of SPC Synthetic Baker` docks on the right. Its top bar reads `2 of 3 · J/K` in `Group` view with
     `Previous person`, `Next person`, `Open record` (the record URL) and `Close preview`. Identity reads `BRAVO · NCO`,
-    `SPC SYNTHETIC BAKER`, `11B`, the amber `Verification Training today` pill and `(910) 555-0148`. `Next 7 days` draws
+    `SPC SYNTHETIC BAKER`, `11B`, the amber `Verification Training today` pill and `(910) 555-0148`.
+    A muted mono line directly under the name holds the Data sheet DoD ID; Baker has none, so it reads `No DoD ID`
+    and the identity block keeps the same height as for a Person with an ID. `Next 7 days` draws
     today plus six days with the training bar and its legend; `Needs attention · 2` lists the two missing items with
     `Missing · Not recorded` and a `Readiness` link; `Open follow-ups · 2` shows `Overdue 4 days` in red and the other's
     weekday date; `Latest note` quotes the note. The page fetched exactly five requests,
@@ -462,6 +464,12 @@ scoped actors retain their baseline grants.
       and at 1440 the tops of `Next 7 days`, `Needs attention`, `Open follow-ups` and `Latest note` read 255, 444, 570
       and 680 while held and the same after `release`. The legend then reads two truncated lines,
       `Verification Training` and `Verification Leave` each with the start of their note. Restore.
+    - DoD ID loading: save `0123456789` on Able's Data sheet, arm
+      `$V server-source arm personnel_extended_info hold 1 90000`, reload and open Able: a skeleton line sits under
+      the name and another beside the `68W` chip until `release`, and at 1440 the tops of `Needs attention`,
+      `Open follow-ups` and `Latest note` read 287, 357 and 425 both while held and after. `fail-hard 1` instead shows
+      `Couldn't load contact details.` with `Retry` beside `68W`, and after `restore` `Retry` shows the ID. `viewer`
+      gets no panel; its `peek?section=identity` is 403.
     - Failure: `$V server-source arm leader_notes fail-hard 1`, reload and open Baker: `Latest note` reads
       `Couldn't load notes.` with `Retry` and the rest loads. `restore`, then `Retry` sends one `peek?section=note` and
       the note shows.

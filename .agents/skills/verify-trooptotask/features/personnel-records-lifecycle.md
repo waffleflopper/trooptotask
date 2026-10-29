@@ -478,7 +478,13 @@ from authenticated HTTP/provider checks and lower-level deferred/rejected-lane t
    no row change after discarding. Reopen, arm `$V network arm-fail PAGE personnel/PERSON_ID/data-sheet`, submit Save
    changes and preserve the useful error, retained form values, network state and unchanged full row. Restore the
    control and retry through Save changes. For a refusal, enter a changed MOS and an invalid personal email: the email
-   shows its message inline, focus moves to it, and both the Person row and the sheet row stay unchanged. Capture the
+   shows its message inline, focus moves to it, and both the Person row and the sheet row stay unchanged. The Identity
+   section's `DoD ID` input (mono, numeric keyboard) refuses `12345` with `Enter a 10-digit DoD ID` beside it, `aria-invalid`
+   and focus; `0123456789` saves, the read view's Identity section shows it in mono, and the record heading reads
+   `SPC SYNTHETIC ABLE (0123456789)` with the ID muted, mono and not uppercased while the tab title stays
+   `SPC Able, Synthetic - Personnel`. A name that wraps at 390 px keeps the ID on its own line with no horizontal
+   scroll. A second Person in the Organization saving the same ID is refused beside the field. `viewer` cannot open the
+   record or its `peek?section=identity` (403). Capture the
    success, reopen after reload and compare every explicit saved value with
    `$V rows personnel_extended_info orgA personnel_id PERSON_ID`, including `marital_status_date` and `updated_by` (the
    saving member's id). Set an ETS across the loss window and require the line

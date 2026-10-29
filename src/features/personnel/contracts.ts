@@ -11,6 +11,7 @@ import type {
 	ActorStamp
 } from './personnelArtifactPersistence';
 import type { ClientAffordance } from '$lib/access/clientAccess';
+import { dodIdInputSchema } from './dodId';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 
 export type PersonnelAffordance = Pick<ClientAffordance, 'allowed'>;
@@ -574,6 +575,7 @@ const optionalEmailInputSchema = z.string().email();
 
 export const personnelExtendedInfoInputSchema = z.object({
 	personnelId: z.string().min(1),
+	dodId: dodIdInputSchema.optional(),
 	bloodType: z.string().trim().max(12).optional().default(''),
 	basd: dateInputSchema,
 	dateOfRank: dateInputSchema,
@@ -640,6 +642,7 @@ export type {
 	PersonnelSheetEditableValues,
 	SavedPersonnelSheet
 } from './personnelSheetPersistence';
+export { PersonnelDodIdConflict } from './personnelSheetPersistence';
 export type {
 	PersonnelArtifactReadPersistence,
 	CounselingRecordRow,

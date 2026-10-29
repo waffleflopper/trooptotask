@@ -9,6 +9,7 @@ interface RatingSchemePersonnelLookupRow {
 	rank: string | null;
 	last_name: string | null;
 	first_name: string | null;
+	group_id: string | null;
 }
 
 export function createSupabasePersonnelRatingSchemeRosterPort(
@@ -35,7 +36,8 @@ export function createSupabasePersonnelRatingSchemeRosterPort(
 				id: row.id,
 				rank: row.rank ?? '',
 				lastName: row.last_name ?? '',
-				firstName: row.first_name ?? ''
+				firstName: row.first_name ?? '',
+				groupId: row.group_id
 			}));
 		},
 		async listArchivedRatedPersonIds(actor) {

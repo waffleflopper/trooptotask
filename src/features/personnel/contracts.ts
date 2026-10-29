@@ -313,11 +313,15 @@ export interface PersonnelTrainingRosterPort {
 	findWriteSubjects(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, PersonnelWriteSubject>>;
 }
 
+export interface PersonnelRatingSchemeReference extends PersonnelLookup {
+	groupId: string | null;
+}
+
 /** Scoped Personnel references for the independently authorized Rating Scheme lane. */
 export interface PersonnelRatingSchemeRosterPort {
 	listActiveReferences(
 		actor: Pick<PersonnelRosterActor, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'>
-	): Promise<PersonnelLookup[]>;
+	): Promise<PersonnelRatingSchemeReference[]>;
 	/** Archived People rated in an evaluation, IDs only, so Rating can hide their entries without Personnel access. */
 	listArchivedRatedPersonIds(
 		actor: Pick<PersonnelRosterActor, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'>

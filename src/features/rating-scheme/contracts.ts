@@ -1,5 +1,5 @@
 import type { CapabilityMap, MembershipRole, GroupCoverage } from '$lib/access/memberAccessShape';
-import type { PersonnelLookup } from '$features/personnel/contracts';
+import type { Group, PersonnelLookup, PersonnelRatingSchemeReference } from '$features/personnel/contracts';
 import type { RatingSchemeEntry } from './rating-scheme.types';
 import type {
 	FeatureLanePolicyAction,
@@ -47,7 +47,7 @@ export const RATING_SCHEME_WORKSPACE_LANE_KEY = 'ratingScheme' as const;
 
 /** Authorized Evals facts; Personnel owns the active reference lookup. */
 export interface RatingSchemeWorkspaceData {
-	personnelLookup: PersonnelLookup[];
+	personnelLookup: PersonnelRatingSchemeReference[];
 	ratingSchemeEntries: RatingSchemeEntry[];
 }
 
@@ -116,7 +116,7 @@ export interface RatingSchemeWorkspaceHydration {
 }
 export interface RatingSchemeWorkspaceResult {
 	laneKey: typeof RATING_SCHEME_WORKSPACE_LANE_KEY;
-	data: RatingSchemeWorkspaceData;
+	data: RatingSchemeWorkspaceData & { groups: Group[] };
 	hydration: RatingSchemeWorkspaceHydration;
 }
 export interface RatingSchemeWorkspaceRestricted {

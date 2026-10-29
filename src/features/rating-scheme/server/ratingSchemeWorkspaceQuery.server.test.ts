@@ -20,7 +20,7 @@ const actor = {
 	} as const,
 	scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: ['alpha'] })
 };
-const person = { id: 'person-alpha', rank: 'SGT', firstName: 'Synthetic', lastName: 'Able' };
+const person = { id: 'person-alpha', rank: 'SGT', firstName: 'Synthetic', lastName: 'Able', groupId: 'alpha' };
 function row(id: string, ratedPersonId = person.id) {
 	return {
 		id,
@@ -101,7 +101,9 @@ describe('Rating-owned Evals workspace', () => {
 		const ids = Array.from({ length: 1001 }, (_, i) => `entry-${String(i).padStart(4, '0')}`);
 		const provider = pagedStore(ids.map((id) => row(id)).reverse());
 		const result = await loadRatingSchemeWorkspace({ ...ctx, ratingScheme: provider.ratingScheme });
-		expect(result.personnelLookup).toEqual([person]);
+		expect(result.personnelLookup).toEqual([
+			{ id: 'person-alpha', rank: 'SGT', firstName: 'Synthetic', lastName: 'Able', groupId: 'alpha' }
+		]);
 		expect(result.ratingSchemeEntries.map((entry) => entry.id)).toEqual(ids);
 		expect(result.ratingSchemeEntries[1000]).toMatchObject({
 			ratedPersonId: 'person-alpha',

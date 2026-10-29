@@ -1506,7 +1506,8 @@ function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: FixtureRowStore
 				id: row.id as string,
 				rank: (row.rank as string) ?? '',
 				lastName: (row.last_name as string) ?? '',
-				firstName: (row.first_name as string) ?? ''
+				firstName: (row.first_name as string) ?? '',
+				groupId: (row.group_id as string | null) ?? null
 			}));
 		},
 		async listArchivedRatedPersonIds(actor) {

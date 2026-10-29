@@ -1,7 +1,7 @@
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '$lib/server/database';
-import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createTestAuthContext, createTestContext } from '$lib/server/adapters/inMemory';
 import { createSupabasePersonnelRatingSchemeRosterPort } from './ratingSchemeRoster.server';
 
 function ratingSchemeActor(scopeSet: ReturnType<typeof createTestAuthContext>['scopeSet'] = { kind: 'organization' }) {
@@ -60,20 +60,22 @@ function createPersonnelClient(rows: Array<Record<string, unknown>>, selections:
 }
 
 describe('Personnel Rating Scheme roster port', () => {
-	it('calls the rating-scheme personnel lookup RPC and maps minimal roster fields', async () => {
+	it('maps rating-scheme references with assigned and Unassigned Group identities', async () => {
 		const rpc = vi.fn().mockResolvedValue({
 			data: [
 				{
 					id: 'person-1',
 					rank: 'SGT',
 					last_name: 'Smith',
-					first_name: 'Jane'
+					first_name: 'Jane',
+					group_id: 'group-1'
 				},
 				{
 					id: 'person-2',
 					rank: null,
 					last_name: null,
-					first_name: null
+					first_name: null,
+					group_id: null
 				}
 			],
 			error: null
@@ -88,8 +90,36 @@ describe('Personnel Rating Scheme roster port', () => {
 			p_organization_id: 'org-1'
 		});
 		expect(result).toEqual([
-			{ id: 'person-1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' },
-			{ id: 'person-2', rank: '', lastName: '', firstName: '' }
+			{ id: 'person-1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: 'group-1' },
+			{ id: 'person-2', rank: '', lastName: '', firstName: '', groupId: null }
+		]);
+	});
+
+	it('preserves assigned and Unassigned Group identities in the in-memory port', async () => {
+		const ctx = createTestContext({ auth: { ...ratingSchemeActor() } });
+		ctx.rawStore.seed('personnel', [
+			{
+				id: 'person-1',
+				organization_id: 'org-1',
+				rank: 'SGT',
+				last_name: 'Able',
+				first_name: 'Jane',
+				group_id: 'group-1',
+				archived_at: null
+			},
+			{
+				id: 'person-2',
+				organization_id: 'org-1',
+				rank: null,
+				last_name: null,
+				first_name: null,
+				group_id: null,
+				archived_at: null
+			}
+		]);
+		await expect(ctx.personnelRatingSchemeRoster.listActiveReferences(ctx.auth)).resolves.toEqual([
+			{ id: 'person-2', rank: '', lastName: '', firstName: '', groupId: null },
+			{ id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Jane', groupId: 'group-1' }
 		]);
 	});
 

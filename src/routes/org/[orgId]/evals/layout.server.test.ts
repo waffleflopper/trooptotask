@@ -37,17 +37,56 @@ const entry = {
 
 describe('Evals workspace delivery', () => {
 	beforeEach(() => vi.clearAllMocks());
-	it('streams authorized entries and hydrates the admitted Organization', async () => {
-		loadWorkspace.mockResolvedValue({ personnelLookup: [], ratingSchemeEntries: [entry] });
+	it('streams rated Person Groups and the reader catalog with entries for the admitted Organization', async () => {
+		loadWorkspace.mockResolvedValue({
+			personnelLookup: [
+				{ id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Jane', groupId: 'team-1' },
+				{ id: 'person-2', rank: 'SPC', lastName: 'Baker', firstName: 'Sam', groupId: null }
+			],
+			ratingSchemeEntries: [entry]
+		});
 		loadWithContext.mockImplementation((_locals, _cookies, _orgId, config) => ({
-			data: config.fn({ auth: { orgId: 'admitted-org' } })
+			data: config.fn({
+				auth: { orgId: 'admitted-org' },
+				groups: {
+					listCatalog: async () => [
+						{ id: 'squad-1', name: 'First Squad', sortOrder: 0, parentId: 'platoon-1', depth: 2 },
+						{ id: 'team-1', name: 'Alpha Team', sortOrder: 0, parentId: 'squad-1', depth: 3 }
+					]
+				}
+			})
 		}));
 		const route = await _streamRatingSchemeWorkspace(context);
 		await expect(route.ratingScheme.data).resolves.toMatchObject({
 			laneKey: 'ratingScheme',
-			data: { ratingSchemeEntries: [entry] },
+			data: {
+				ratingSchemeEntries: [entry],
+				personnelLookup: [
+					{ id: 'person-1', rank: 'SGT', lastName: 'Able', firstName: 'Jane', groupId: 'team-1' },
+					{ id: 'person-2', rank: 'SPC', lastName: 'Baker', firstName: 'Sam', groupId: null }
+				],
+				groups: [
+					{ id: 'squad-1', name: 'First Squad', sortOrder: 0, parentId: 'platoon-1', depth: 2 },
+					{ id: 'team-1', name: 'Alpha Team', sortOrder: 0, parentId: 'squad-1', depth: 3 }
+				]
+			},
 			hydration: { orgId: 'admitted-org', ratingSchemeEntries: { mode: 'replace', deferred: false, items: [entry] } }
 		});
+	});
+	it('propagates a Group catalog failure instead of publishing an incomplete focus catalog', async () => {
+		loadWorkspace.mockResolvedValue({ personnelLookup: [], ratingSchemeEntries: [entry] });
+		loadWithContext.mockImplementation((_locals, _cookies, _orgId, config) => ({
+			data: config.fn({
+				auth: { orgId: 'admitted-org' },
+				groups: {
+					listCatalog: async () => {
+						throw new Error('Groups unavailable');
+					}
+				}
+			})
+		}));
+		const route = await _streamRatingSchemeWorkspace(context);
+		await expect(route.ratingScheme.data).rejects.toThrow('Groups unavailable');
 	});
 	it('settles explicit access denial without loading private workspace facts', async () => {
 		loadWithContext.mockReturnValue({ data: Promise.reject(httpFailure(403, 'Denied')) });

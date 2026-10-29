@@ -1,4 +1,5 @@
 import { createRequestRatingSchemeWorkspaceContext } from '$lib/server/adapters/featureRequestContexts.server';
+import { createRequestGroupContext } from '$lib/server/adapters/requestContexts.server';
 import type { LayoutServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -20,12 +21,16 @@ export async function _streamRatingSchemeWorkspace(
 	context: FeatureLaneWorkspaceRequestContext
 ): Promise<RatingSchemeWorkspaceRouteData> {
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
-		context: createRequestRatingSchemeWorkspaceContext,
+		context: (request) => ({
+			...createRequestRatingSchemeWorkspaceContext(request),
+			groups: createRequestGroupContext(request).groups
+		}),
 		policyAction: POLICY_ACTION_CATALOG.ratingScheme.viewEntries,
 		policyResource: { kind: 'unscoped' },
 		defer: true,
 		fn: async (ctx) => {
-			const data = await loadRatingSchemeWorkspace(ctx);
+			const [workspace, groups] = await Promise.all([loadRatingSchemeWorkspace(ctx), ctx.groups.listCatalog()]);
+			const data = { ...workspace, groups };
 			return {
 				laneKey: RATING_SCHEME_WORKSPACE_LANE_KEY,
 				data,

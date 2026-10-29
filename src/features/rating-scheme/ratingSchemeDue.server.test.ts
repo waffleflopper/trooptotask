@@ -177,7 +177,9 @@ describe('Rating Scheme due projection', () => {
 				status: 'active'
 			}
 		]);
-		listActiveReferences.mockResolvedValue([{ id: 'person-a', rank: 'SGT', lastName: 'Able', firstName: 'Synthetic' }]);
+		listActiveReferences.mockResolvedValue([
+			{ id: 'person-a', rank: 'SGT', lastName: 'Able', firstName: 'Synthetic', groupId: 'alpha' }
+		]);
 		await expect(port.listDueEntries(actor())).resolves.toEqual([
 			{
 				id: 'evaluation-1',

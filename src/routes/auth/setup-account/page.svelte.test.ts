@@ -50,7 +50,7 @@ it('offers a password-free status check after a held claim and keeps it availabl
 	expect(screen.queryByRole('button', { name: 'Set Up Account' })).not.toBeInTheDocument();
 
 	await page.rerender({
-		data: { viewer: null, state: 'recovery-available', email: 'synthetic@example.test' },
+		data: { viewer: null, state: 'recovery-available', email: 'synthetic@example.test', invitedTo: null },
 		form: null
 	});
 	expect(screen.getByRole('button', { name: 'Check setup status' })).toBeInTheDocument();
@@ -207,5 +207,13 @@ it('swaps the access-request alternative for the invitation path when an Organiz
 		'action',
 		'?/complete'
 	);
+	expect(requestAccess()).toBeNull();
+	cleanup();
+
+	render(Page, {
+		data: { viewer: null, state: 'recovery-available', email: 'synthetic@example.test', invitedTo: 'Alpha Company' },
+		form: null
+	});
+	expect(screen.getByRole('button', { name: 'Check setup status' })).toBeInTheDocument();
 	expect(requestAccess()).toBeNull();
 });

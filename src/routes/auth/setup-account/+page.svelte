@@ -37,7 +37,7 @@
 	const supportRequired = $derived(
 		data.state === 'claimed' || data.state === 'support-required' || form?.supportRequired === true
 	);
-	const invitedTo = $derived(data.state === 'valid' ? data.invitedTo : null);
+	const invitedTo = $derived(data.state === 'valid' || data.state === 'recovery-available' ? data.invitedTo : null);
 	const canSubmit = $derived(
 		showPasswordForm && !supportRequired && requirements.valid && passwordsMatch && !loading && !checkingStatus
 	);

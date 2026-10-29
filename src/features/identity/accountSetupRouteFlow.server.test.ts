@@ -113,6 +113,7 @@ describe('createAccountSetupRouteFlow', () => {
 			setupCompletedAt: '2026-05-18T11:59:30.000Z'
 		});
 		store.getSetupLink.mockResolvedValueOnce(link);
+		store.readInvitedOrganizationName.mockResolvedValueOnce('Alpha Company');
 
 		expect(
 			await flow.resolveLoad({
@@ -131,7 +132,7 @@ describe('createAccountSetupRouteFlow', () => {
 				rawToken: '',
 				setupSession: makeSetupSession()
 			})
-		).toEqual({ state: 'recovery-available', email: 'soldier@example.mil' });
+		).toEqual({ state: 'recovery-available', email: 'soldier@example.mil', invitedTo: 'Alpha Company' });
 	});
 
 	it('redirects authenticated users without resolving setup providers', async () => {

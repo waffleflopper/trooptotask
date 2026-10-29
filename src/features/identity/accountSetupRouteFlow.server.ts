@@ -38,7 +38,7 @@ export type AccountSetupLoadResult =
 	| { state: 'redirect-authenticated'; path: string }
 	| { state: 'redirect-setup'; session: AccountSetupSession; path: string }
 	| { state: 'valid'; email: string; invitedTo: string | null }
-	| { state: 'recovery-available'; email: string }
+	| { state: 'recovery-available'; email: string; invitedTo: string | null }
 	| { state: AccountSetupPageState; message: string; clearSession?: true };
 
 export type AccountSetupCompletionResult =
@@ -349,7 +349,11 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 
 			const setupLinkState = getSetupLinkState(setupLink, now());
 			if (setupLinkState === 'claimed') {
-				return { state: 'recovery-available', email: accessRequest.email };
+				return {
+					state: 'recovery-available',
+					email: accessRequest.email,
+					invitedTo: await readInvitedTo(dependencies.store(), accessRequest.id)
+				};
 			}
 
 			if (accessRequest.setupCompletedAt) {

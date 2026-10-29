@@ -10,14 +10,14 @@ import type {
 	PersonnelCriticalTasksRosterPort,
 	SelfPinPersistence
 } from '$features/personnel/contracts';
-import { visiblePinnedGroupNames } from '$features/personnel/index.server';
+import { listReaderPinnedGroupIds } from '$features/personnel/index.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
 
 interface CriticalTasksWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
 	organizationSettings: Pick<OrganizationSettingsReader, 'findCriticalTasksDefaults'>;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
-	selfPins: Pick<SelfPinPersistence, 'listNames'>;
+	selfPins: Pick<SelfPinPersistence, 'listGroupIds'>;
 	personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
@@ -53,14 +53,13 @@ export async function fetchCriticalTasksBootstrap(
 	});
 	const groups = loadCriticalTasksItems(orgId, 'groups', ctx.groups.listCatalog());
 	// Pins only reorder Groups, so a failed read shows the Organization's order instead of failing the workspace.
-	const pinNames = ctx.selfPins.listNames().catch((error) => {
-		console.error('[critical-tasks-workspace] Failed to load pinned groups', { orgId, error });
-		return [];
-	});
 	const pinnedGroups = loadCriticalTasksItems(
 		orgId,
 		'pinned groups',
-		Promise.all([pinNames, groups]).then(([names, visibleGroups]) => visiblePinnedGroupNames(names, visibleGroups))
+		listReaderPinnedGroupIds(ctx).catch((error) => {
+			console.error('[critical-tasks-workspace] Failed to load pinned groups', { orgId, error });
+			return [];
+		})
 	);
 	const ictTasks = loadCriticalTasksItems(
 		orgId,

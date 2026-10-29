@@ -134,6 +134,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261026110000_calendar_tasking_detail.sql",
     "20261026120000_calendar_event_deletion.sql",
     "20261027090000_organization_setup.sql",
+    "20261028090000_group_pins_by_id.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

@@ -9,8 +9,7 @@ import type {
 	PersonnelAwardAcknowledgementPort
 } from './contracts';
 import { loadRosterPersonnel } from './rosterRead.server';
-import { listPinnedGroupNames } from './pinnedGroupNames.server';
-import { listGroupCatalog, visiblePinnedGroupNames } from './groupCatalog.server';
+import { listGroupCatalog, listReaderPinnedGroupIds } from './groupCatalog.server';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
 import type { PersonnelRosterReader, GroupPersistence, SelfPinPersistence } from './contracts';
 import {
@@ -24,7 +23,7 @@ interface PersonnelWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
 	roster: PersonnelRosterReader;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
-	selfPins: Pick<SelfPinPersistence, 'listNames'>;
+	selfPins: Pick<SelfPinPersistence, 'listGroupIds'>;
 	loadRankCatalog(): Promise<OrganizationRankCatalogEntry[]>;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	disabledFeatures: readonly FeatureKey[];
@@ -57,20 +56,19 @@ export async function loadPersonnelWorkspace(
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 	if (!ctx.personnelAwardAcknowledgement) throw new Error('Personnel award acknowledgement port is required');
 
-	const [personnel, groups, statusTypes, rankCatalog, pinnedNames, lossWarningWindowDays, acknowledged] =
+	const [personnel, groups, statusTypes, rankCatalog, pinnedGroups, lossWarningWindowDays, acknowledged] =
 		await Promise.all([
 			loadRosterPersonnel(ctx, { status: 'active' }),
 			listGroupCatalog(ctx),
 			sources.listStatusTypes(orgId),
 			ctx.loadRankCatalog(),
-			ctx.auth.userId ? listPinnedGroupNames(ctx) : Promise.resolve([]),
+			ctx.auth.userId ? listReaderPinnedGroupIds(ctx) : Promise.resolve([]),
 			readLossWarningWindowDays(sources.loadLossWarningWindowDays(orgId)),
 			ctx.disabledFeatures.includes('lossesAndAwards')
 				? []
 				: ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
 		]);
 
-	const pinnedGroups = visiblePinnedGroupNames(pinnedNames, groups);
 	const data: PersonnelWorkspaceData = {
 		personnel,
 		personnelLookup: toPersonnelLookup(personnel),

@@ -3404,7 +3404,7 @@ export type Database = {
       user_pinned_groups: {
         Row: {
           created_at: string
-          group_name: string
+          group_id: string
           id: string
           organization_id: string
           sort_order: number
@@ -3412,7 +3412,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          group_name: string
+          group_id: string
           id?: string
           organization_id: string
           sort_order?: number
@@ -3420,7 +3420,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          group_name?: string
+          group_id?: string
           id?: string
           organization_id?: string
           sort_order?: number
@@ -3433,6 +3433,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_pinned_groups_group_fkey"
+            columns: ["organization_id", "group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["organization_id", "id"]
           },
         ]
       }

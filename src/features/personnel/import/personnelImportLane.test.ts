@@ -280,6 +280,22 @@ describe('personnel import lane', () => {
 		expect(newKey('1st Platoon')).toBe(newKey('1st Platoon'));
 	});
 
+	it('keeps same-name new people with different DoD IDs apart', () => {
+		const source = lane({ personnel: [] });
+		const newKey = (dodId: string) => {
+			const result = resolve(source, {
+				rank: 'SGT',
+				lastName: 'Garcia',
+				firstName: 'Luis',
+				groupName: '1st Platoon',
+				dodId
+			});
+			return result.outcome === 'new' ? result.key : result.outcome;
+		};
+		expect(newKey('0000000001')).not.toBe(newKey('0000000002'));
+		expect(newKey('0000000001')).toBe(newKey('000-000 0001'));
+	});
+
 	it('asks for a group on a new person when the user cannot add unassigned people', () => {
 		const result = resolve(lane({ allowUnassigned: false }), { rank: 'PFC', lastName: 'Nguyen', firstName: 'Kim' });
 		expect(result.outcome).toBe('fix');

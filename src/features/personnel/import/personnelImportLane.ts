@@ -54,6 +54,9 @@ function newPersonKey(lastName: string, firstName: string, groupId: string | nul
 	return `new:${personNameKey(lastName, firstName)}|${groupId ?? ''}|${rank}`;
 }
 
+const keyCounts = (keys: readonly string[]) =>
+	keys.reduce((counts, key) => counts.set(key, (counts.get(key) ?? 0) + 1), new Map<string, number>());
+
 function isSavedPerson(value: unknown): value is Personnel {
 	if (typeof value !== 'object' || value === null) return false;
 	const { id, rank, lastName, firstName } = value as Record<string, unknown>;
@@ -98,20 +101,25 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 		records: readonly PersonnelImportRecordsRecord[],
 		failed: ReadonlySet<number>
 	) => {
-		if (saved.length === 0) return;
 		const knownIds = new Set(roster.map((person) => person.id));
 		const savedCreates = new Map(
 			saved
 				.filter((person) => !knownIds.has(person.id))
 				.map((person) => [newPersonKey(person.lastName, person.firstName, person.groupId, person.rank), person.id])
 		);
+		// Namesakes told apart only by DoD ID cannot be paired with the saved rows; the server keeps their IDs anyway.
+		const createKey = (record: Extract<PersonnelImportRecordsRecord, { op: 'create' }>) =>
+			newPersonKey(record.lastName, record.firstName, record.groupId, record.rank);
+		const createCounts = keyCounts(records.flatMap((record) => (record.op === 'create' ? [createKey(record)] : [])));
 		for (const [index, record] of records.entries()) {
 			if (failed.has(index)) continue;
 			const fields = record.op === 'create' ? record : record.changes;
 			const personId =
 				record.op === 'update'
 					? record.personnelId
-					: savedCreates.get(newPersonKey(record.lastName, record.firstName, record.groupId, record.rank));
+					: createCounts.get(createKey(record)) === 1
+						? savedCreates.get(createKey(record))
+						: undefined;
 			if (personId && fields.dodId) dodIds.set(personId, normalizeDodId(fields.dodId));
 		}
 		const savedIds = new Set(saved.map((person) => person.id));
@@ -166,7 +174,7 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 					return { outcome: 'fix', problems: [{ field: 'groupName', message: 'Choose a group for a new person.' }] };
 				return {
 					outcome: 'new',
-					key: newPersonKey(values.lastName, values.firstName, group?.id, rank.code),
+					key: `${newPersonKey(values.lastName, values.firstName, group?.id, rank.code)}${dodId ? `|${dodId}` : ''}`,
 					change: {
 						op: 'create',
 						...(dodId ? { dodId } : {}),

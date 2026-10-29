@@ -3,6 +3,19 @@ import type { AssignmentType, AvailabilityEntry, RosterDay } from '$features/cal
 import type { Personnel } from '$features/personnel/contracts';
 import { dutyPickerOptions, dutySearchScore, type DutyPickerInput } from './dutyPickerOptions';
 import { indexDutyAvailability } from './dutyReadModel';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
+
+it('offers platoons, squads, and teams for Group-assigned duties', () => {
+	const choices = options({ type: { ...staffDuty, assignTo: 'group' }, groups: NESTED_GROUPS });
+	expect(choices.map((choice) => choice.id).sort()).toEqual([
+		'alpha',
+		'bravo',
+		'other-platoon',
+		'other-squad',
+		'platoon',
+		'squad'
+	]);
+});
 
 const staffDuty: AssignmentType = {
 	id: 'sd',

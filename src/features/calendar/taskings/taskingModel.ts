@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Group } from '$features/personnel/contracts';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { MemberLabels } from '../events/eventModel';
 import type { TaskingListActivityFact, TaskingReadiness } from './taskingListsModel';
@@ -120,6 +121,7 @@ export interface TaskingList {
 export type EventTaskingList = Omit<TaskingList, 'scope'>;
 
 export interface TaskingDetail {
+	groupCatalog: Group[];
 	tasking: Tasking;
 	groups: GroupLabels;
 	members: MemberLabels;

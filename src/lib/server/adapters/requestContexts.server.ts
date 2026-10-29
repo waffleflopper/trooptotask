@@ -666,6 +666,7 @@ export function createRequestRosterSettingsContext(request: AdmittedOrganization
 	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		...createRequestAvailabilityContext(request),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId, {
 			admin: getAdminClient,
 			actorId: request.auth.userId

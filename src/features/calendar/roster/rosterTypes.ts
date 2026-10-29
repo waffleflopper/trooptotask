@@ -1,4 +1,4 @@
-import type { RankCatalogEntry } from '$features/personnel/contracts';
+import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 
 /** 'YYYY-MM-DD' in the Organization's calendar. */
 export type DateKey = string;
@@ -161,6 +161,7 @@ export interface RosterFacts {
 	readonly people: readonly RosterPerson[];
 	readonly excusals: readonly Excusal[];
 	readonly swaps: readonly RosterSwap[];
+	readonly groups: readonly Group[];
 	/** The Organization's catalog. Ties and rank ranges read only this. */
 	readonly rankCatalog: readonly RankCatalogEntry[];
 	readonly statusTypes: readonly RosterStatusType[];

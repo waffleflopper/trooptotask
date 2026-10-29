@@ -70,6 +70,7 @@ export function rosterFacts(
 		people: [],
 		excusals: [],
 		swaps: [],
+		groups: [],
 		rankCatalog: BUILT_IN_RANK_CATALOG,
 		statusTypes: [
 			{ id: 'tdy', name: 'TDY', rosterEffect: 'A' },

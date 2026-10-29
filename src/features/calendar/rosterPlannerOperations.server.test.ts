@@ -14,6 +14,25 @@ import { setDailyAssignmentSlot } from './index.server';
 import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
 import type { PlannerRoster, RosterDay, RosterReplacement } from './contracts';
 
+it('reads the nested catalog for server Pool selection', async () => {
+	const ctx = createWriteWithNotificationsPortsContext();
+	const platoon = '00000000-0000-4000-a000-000000000301';
+	const squad = '00000000-0000-4000-a000-000000000302';
+	const team = '00000000-0000-4000-a000-000000000303';
+	seedR4(ctx, { rules: { pool: { rank: null, mos: [], role: [], groupIds: [platoon] }, weekendMode: 'same' } });
+	ctx.store.seed('groups', [
+		{ id: platoon, organization_id: ctx.auth.orgId, name: 'Platoon', sort_order: 0, parent_id: null, depth: 1 },
+		{ id: squad, organization_id: ctx.auth.orgId, name: 'Squad', sort_order: 0, parent_id: platoon, depth: 2 },
+		{ id: team, organization_id: ctx.auth.orgId, name: 'Team', sort_order: 0, parent_id: squad, depth: 3 }
+	]);
+	await ctx.store.update('personnel', ctx.auth.orgId, idOf('kim'), { group_id: team });
+	const day = await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2026-10-17' });
+	expect(day?.track).toBe('all');
+	expect(day && 'standing' in day ? day.standing.map((person) => person.personId) : null).toEqual([
+		'00000000-0000-4000-a000-000000000102'
+	]);
+});
+
 const TYPE = '00000000-0000-4000-a000-000000000001';
 const TDY = '00000000-0000-4000-a000-000000000021';
 const LEAVE = '00000000-0000-4000-a000-000000000022';

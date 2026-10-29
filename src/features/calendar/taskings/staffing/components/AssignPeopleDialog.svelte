@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { buildGroupTree, type Group } from '$features/personnel/contracts';
 	import Lock from '@lucide/svelte/icons/lock';
 	import Search from '@lucide/svelte/icons/search';
 	import X from '@lucide/svelte/icons/x';
@@ -39,6 +40,7 @@
 		tasking: Pick<Tasking, 'id' | 'responsibility' | 'requirement'> &
 			Partial<Pick<Tasking, 'title' | 'execution' | 'suspenseOn'>>;
 		groups: GroupLabels;
+		groupCatalog: readonly Group[];
 		/** The viewer's day, for date labels; the browser's day when omitted. */
 		today?: string;
 		/** `before` is the selection the picker opened on, so a caller can offer to put it back. */
@@ -46,7 +48,9 @@
 		onClose: () => void;
 	}
 
-	let { orgId, tasking, groups, today = formatDate(new Date()), onSaved, onClose }: Props = $props();
+	let { orgId, tasking, groups, groupCatalog, today = formatDate(new Date()), onSaved, onClose }: Props = $props();
+
+	const groupTree = $derived(buildGroupTree(groupCatalog));
 
 	const ALL_GROUPS = 'all';
 	const UNASSIGNED = 'unassigned';
@@ -92,7 +96,7 @@
 	// Who was picked when the sheet opened leads the list, so ticking someone never moves a row.
 	const rows = $derived.by(() => {
 		if (typeof picker !== 'object' || !picker) return [];
-		const all = pickerRows(picker, responsibility);
+		const all = pickerRows(picker, responsibility, groupTree);
 		const was = new Set(initial);
 		return [...all.filter((row) => was.has(row.personnelId)), ...all.filter((row) => !was.has(row.personnelId))];
 	});

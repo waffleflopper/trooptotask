@@ -1,6 +1,9 @@
+import { buildGroupTree } from '$features/personnel/contracts';
+import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 import { describe, expect, it } from 'vitest';
 import { pickReview, type TaskingPick } from './staffingModel';
 
+const tree = buildGroupTree(NESTED_GROUPS);
 const ALPHA = 'alpha';
 const pick = (overrides: Partial<TaskingPick>): TaskingPick => ({
 	personnelId: 'p1',
@@ -23,10 +26,10 @@ describe('pickReview', () => {
 		['someone who left the responsible Group', pick({ groupId: 'bravo' }), 'left_group'],
 		['someone restored to the Group, still awaiting a decision', pick({}), 'eligible_again']
 	] as const)('names %s', (_who, flagged, expected) => {
-		expect(pickReview(flagged, { kind: 'group', groupId: ALPHA })).toBe(expected);
+		expect(pickReview(flagged, { kind: 'group', groupId: ALPHA }, tree)).toBe(expected);
 	});
 
 	it('never calls a Group move a reason on Organization-level work', () => {
-		expect(pickReview(pick({ groupId: null }), { kind: 'organization' })).toBe('eligible_again');
+		expect(pickReview(pick({ groupId: null }), { kind: 'organization' }, tree)).toBe('eligible_again');
 	});
 });

@@ -560,6 +560,7 @@
 	{@const tasking = assigning}
 	{#await loadAssignPeople() then { default: AssignPeopleDialog }}
 		<AssignPeopleDialog
+			groupCatalog={ctx.scopedGroups}
 			orgId={data.orgId}
 			tasking={{
 				id: tasking.id,

@@ -139,13 +139,18 @@ export async function listEventContributions(
 
 export async function loadTaskingDetail(ctx: CalendarTaskingPorts, id: string): Promise<TaskingDetail> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
-	const [tasking, groups, members] = await Promise.all([
+	const [tasking, groupCatalog, members] = await Promise.all([
 		ctx.calendarTaskings.findTasking(taskingId(id)),
-		groupLabels(ctx),
+		ctx.groups.listCatalog(),
 		ctx.memberLabels()
 	]);
 	if (!tasking) fail(404, TASKING_GONE);
-	return { tasking, groups, members };
+	return {
+		tasking,
+		groups: Object.fromEntries(groupCatalog.map((group) => [group.id, group.name])),
+		groupCatalog,
+		members
+	};
 }
 
 export async function listTaskingActivity(ctx: CalendarTaskingPorts, id: string): Promise<TaskingActivityLog> {

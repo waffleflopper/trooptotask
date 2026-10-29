@@ -77,6 +77,7 @@
 			people,
 			excusals: draft.excusals.map(({ personId, reason }) => ({ personId, reason, from: today, through: null })),
 			catalog,
+			groups,
 			on: today
 		}).members
 	);

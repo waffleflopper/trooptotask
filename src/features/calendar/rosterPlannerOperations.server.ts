@@ -160,6 +160,7 @@ export async function loadRosterDay(
 		people: facts.people,
 		excusals: facts.excusals,
 		catalog: facts.rankCatalog,
+		groups: facts.groups,
 		on: date
 	});
 	return { track: null, pool: members.map((person) => person.id) };
@@ -309,6 +310,7 @@ async function planReplacement(
 		people: facts.people,
 		excusals: facts.excusals,
 		catalog: facts.rankCatalog,
+		groups: facts.groups,
 		on: date
 	});
 	const selected =

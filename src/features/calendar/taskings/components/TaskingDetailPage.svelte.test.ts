@@ -68,7 +68,12 @@ function open(
 	choices = never<EventRead<TaskingChoices | null>>(),
 	activity: TaskingActivityLog = { entries: [], eventTitles: {} }
 ) {
-	const detail: TaskingDetail = { tasking: shown, groups: { [ALPHA]: 'Alpha' }, members: {} };
+	const detail: TaskingDetail = {
+		tasking: shown,
+		groupCatalog: [{ id: ALPHA, name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }],
+		groups: { [ALPHA]: 'Alpha' },
+		members: {}
+	};
 	render(TaskingDetailPage, {
 		org,
 		today: '2026-10-26',

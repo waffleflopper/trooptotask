@@ -114,7 +114,7 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 	const events = poolEvents({
 		people,
 		excusals: facts.excusals,
-		matches: compilePoolRules(facts.form.rules.pool, facts.rankCatalog),
+		matches: compilePoolRules(facts.form.rules.pool, facts.rankCatalog, facts.groups),
 		from: start,
 		through: end
 	});

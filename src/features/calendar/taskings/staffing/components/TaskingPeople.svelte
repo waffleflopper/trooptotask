@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { buildGroupTree, type Group } from '$features/personnel/contracts';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -31,6 +32,7 @@
 		orgId: string;
 		tasking: Tasking;
 		groups: GroupLabels;
+		groupCatalog: readonly Group[];
 		staffing: TaskingStaffingState;
 		pickStates: Promise<EventRead<Record<string, StaffingPersonState>>>;
 		canManage: boolean;
@@ -45,6 +47,7 @@
 		orgId,
 		tasking,
 		groups,
+		groupCatalog,
 		staffing,
 		pickStates,
 		canManage,
@@ -53,6 +56,8 @@
 		canSetAvailability,
 		availabilityGaps
 	}: Props = $props();
+
+	const groupTree = $derived(buildGroupTree(groupCatalog));
 
 	const streamedStates = new StreamedValue(() => pickStates);
 	let resolvingId = $state<string | null>(null);
@@ -171,7 +176,7 @@
 				required !== null && isActiveStatus(tasking.status.kind) ? Math.max(0, required - current.picked) : 0}
 			<ul class="m-0 list-none p-0">
 				{#each current.picks as pick (pick.personnelId)}
-					{@const review = pickReview(pick, tasking.responsibility)}
+					{@const review = pickReview(pick, tasking.responsibility, groupTree)}
 					<li
 						class={[
 							'flex min-h-[46px] flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-4 py-2',
@@ -258,7 +263,7 @@
 					Overlaps could not be checked, so nothing is claimed about them.
 				</p>
 			{/if}
-			{#if current.picks.some((pick) => pickReview(pick, tasking.responsibility))}
+			{#if current.picks.some((pick) => pickReview(pick, tasking.responsibility, groupTree))}
 				<p class="m-0 border-t border-border px-4 py-2.5 text-[13px] text-muted-foreground">
 					People under review stay on the list but do not count toward the requirement until someone keeps or removes
 					them.

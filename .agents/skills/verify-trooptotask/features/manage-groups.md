@@ -224,10 +224,18 @@ fixture's Able (Alpha), Baker (Bravo) and SPC Unassigned, Organization A holds 1
    `0: Unassigned 1`. No sidebar link's `href` carries a query, and `scrollWidth` equals the viewport.
 2. **Scoped readers.** In `Settings` → `Members`, set `orgMember`'s Groups to `Selected` → `1st Squad` only and save. In
    `$V actor orgMember personnel` at 1440 the bands run `0: 1st Squad 6`, `1: Alpha Team 4`, `1: Bravo Team 1` with no
-   pin, and at 390 `scrollWidth` is 390. Set the Groups to `Alpha Team` only and reload that page: the eyebrow reads
+   pin, and at 390 `scrollWidth` is 390. With `Show sub-groups` off (step 3) the member sees one band, `0: 1st Squad 6`,
+   at 1440, 1024 and 390. Set the Groups to `Alpha Team` only and reload that page: the eyebrow reads
    `Verification Organization A · Alpha Team`, the roster lists Brooks, Moss, Nguyen and Ortiz with `Alpha Team` in the
    `Group` column, and there is no band and no `A-Z`/`Group` switch. Restore the Groups to `Alpha` and read
    `access_scope_group_ids` back with `$V rows organization_memberships orgA id <orgMemberMembership>`.
+3. **Show sub-groups.** On Personnel in `Group` view open `Display`: `Show sub-groups` is a checked menu toggle. Turn it
+   off: the bands run `0: 2nd Platoon 9`, `0: Alpha 1`, `0: Bravo 1`, `0: Unassigned 1`, the address is unchanged and
+   `localStorage['t2t:show-sub-groups']` reads `false`. Reload: the document carries `data-sub-groups-hidden` before
+   hydration, the same four bands render and the layout-shift sum stays 0 at 1440. Calendar, Training, Critical Tasks,
+   Training reports, Calendar Group availability and Home's `Available · next 14 days` by-group strip all open with
+   sub-group rows hidden after navigation and after reload. `A-Z` view ignores the switch. A reader whose scope is one
+   leaf Group sees no band and no switch. Turn it back on before leaving.
 
 Clean up from the owner's page: `POST /org/<orgA>/api/personnel/archive-batch` with `{ids}` for the nine People,
 `DELETE /org/<orgA>/api/personnel/permanent` with `{id}` for each, then `DELETE /org/<orgA>/api/groups` with `{id}` for

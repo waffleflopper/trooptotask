@@ -49,6 +49,8 @@
 	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
+	import { hasSubGroups } from '$features/personnel/contracts';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -90,7 +92,7 @@
 
 	function getExportData() {
 		return {
-			personnelByGroup: ctx.filteredPBG,
+			personnelByGroup: ctx.exportPBG,
 			groups: ctx.scopedGroups,
 			availabilityEntries: availabilityStore.items,
 			statusTypes: statusTypesStore.items,
@@ -143,6 +145,7 @@
 			showStatusText: ctx.showStatusText,
 			showPersonnelRoles: ctx.showPersonnelRoles,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
+			showSubGroups: ctx.showGroupHeaders && hasSubGroups(ctx.groupTree) ? showSubGroupsToggle() : null,
 			highlightOnboarding: ctx.highlightOnboarding,
 			onGroupFilterChange: (value) => ctx.setCalendarGroupFilter(value),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),

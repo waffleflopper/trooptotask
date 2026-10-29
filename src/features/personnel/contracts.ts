@@ -462,8 +462,9 @@ export type {
 } from './rosterReadModel';
 
 export { groupExportPath } from './groupPath';
-export { buildGroupTree, groupFilterMatcher, soleLeafGroup } from './groupTree';
-export type { Band, GroupNode, GroupTree, GroupTreeOptions } from './groupTree';
+export { buildGroupTree, groupFilterMatcher, groupRows, hasSubGroups, soleLeafGroup } from './groupTree';
+export { nestRosterBands, type NestedRosterBand } from './rosterBands';
+export type { Band, GroupNode, GroupRow, GroupRowSet, GroupTree, GroupTreeOptions } from './groupTree';
 
 export type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 

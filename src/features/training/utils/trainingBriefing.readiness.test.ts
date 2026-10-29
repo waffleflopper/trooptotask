@@ -100,7 +100,13 @@ describe('Training readiness', () => {
 			notRecorded: 3,
 			lapsing: 2
 		});
-		const briefing = buildTrainingBriefing({ ...input, filters: {}, rowsBy: 'group', scopeName: 'Test Company' });
+		const briefing = buildTrainingBriefing({
+			...input,
+			groups: [],
+			filters: {},
+			rowsBy: 'group',
+			scopeName: 'Test Company'
+		});
 		expect(briefing.bottomLine).toMatchObject({
 			asOf: summary.asOf,
 			horizonEnd: summary.horizonEnd,

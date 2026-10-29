@@ -1,14 +1,20 @@
 <script lang="ts">
 	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
-	import type { Group, Personnel } from '$features/personnel/contracts';
+	import { buildGroupTree, type Group, type Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { useDataTable } from '$lib/components/ui/data-table/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
-	import type { GroupReadinessResult, ReadinessGroupRow } from '../../utils/calendarReports';
-	import { computeGroupReadiness } from '../../utils/calendarReports';
+	import { showSubGroups } from '$lib/stores/showSubGroups.svelte';
+	import type {
+		GroupReadinessResult,
+		ReadinessCell,
+		ReadinessGroupRow,
+		ReadinessGroupSet
+	} from '../../utils/calendarReports';
+	import { computeGroupReadiness, readinessTone } from '../../utils/calendarReports';
 	import { exportGroupReadinessWorkbook } from './calendarReportWorkbookExport';
 	import { fetchCalendarReportData } from './calendarReportData';
 
@@ -25,8 +31,9 @@
 	let startDate = $state(initialRange.start);
 	let endDate = $state(initialRange.end);
 
-	const groupSelect = ReportWorkspace.createMultiSelect(() => groups);
-	const groupOptions = $derived(groups.map((group) => ({ id: group.id, label: group.name })));
+	const tree = $derived(buildGroupTree(groups));
+	const groupSelect = ReportWorkspace.createMultiSelect(() => tree.roots);
+	const groupOptions = $derived(tree.roots.map((root) => ({ id: root.id, label: tree.label(root.id) })));
 	const report = ReportWorkspace.createReportRun({
 		validate: () => {
 			if (!startDate || !endDate) return 'Select a date range.';
@@ -39,47 +46,46 @@
 	});
 
 	const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+	const SUMMARY_TONE = { success: 'success', warning: 'warning', destructive: 'danger' } as const;
 
-	const tableColumns = $derived<ColumnDef<ReadinessGroupRow>[]>([
+	const tableColumns = $derived<ColumnDef<ReadinessGroupSet>[]>([
 		{
 			key: 'group',
 			header: 'Group',
 			headerAriaLabel: 'Sort by group',
-			value: (group) => group.groupName,
-			compare: sortByGroupName
+			value: (set) => set.top.groupName,
+			compare: (a, b) => sortByGroupName(a.top, b.top)
 		},
 		{
 			key: 'lowest',
 			header: 'Lowest',
 			headerAriaLabel: 'Sort by lowest availability',
-			value: groupLowestAvailability,
-			compare: sortByGroupRisk,
+			value: (set) => groupLowestAvailability(set.top),
+			compare: (a, b) => sortByGroupRisk(a.top, b.top),
 			align: 'center'
 		},
 		...(report.result?.dates ?? []).map(
-			(dateStr, index): ColumnDef<ReadinessGroupRow> => ({
+			(dateStr, index): ColumnDef<ReadinessGroupSet> => ({
 				key: dateStr,
 				header: formatShortDate(dateStr),
-				value: (group) => group.cells[index]?.availablePercent,
+				value: (set) => set.top.cells[index]?.availablePercent,
 				sortable: false,
 				align: 'center'
 			})
 		)
 	]);
 	const table = useDataTable({
-		data: () => report.result?.groups ?? [],
+		data: () => report.result?.sets ?? [],
 		columns: () => tableColumns,
 		initialSortKey: 'lowest',
 		initialSortDirection: 'asc',
-		rowKey: (group) => group.groupId
+		rowKey: (set) => set.top.groupId
 	});
-	const resultMeta = $derived(
-		report.result ? `${report.result.groups.length} groups · ${startDate} to ${endDate}` : ''
-	);
+	const resultMeta = $derived(report.result ? `${report.result.sets.length} groups · ${startDate} to ${endDate}` : '');
 
 	const reportSummary = $derived.by(() => {
 		if (!report.result) return null;
-		const groupsInReport = report.result.groups;
+		const groupsInReport = report.result.sets.map((set) => set.top);
 		const topGroup = groupsInReport.reduce<ReadinessGroupRow | null>(
 			(current, group) =>
 				!current || groupLowestAvailability(group) < groupLowestAvailability(current) ? group : current,
@@ -88,13 +94,12 @@
 		const topCell = topGroup ? groupLowestCell(topGroup) : null;
 		const totalPersonnel = groupsInReport.reduce((sum, group) => sum + (group.cells[0]?.totalPersonnel ?? 0), 0);
 		const allCells = groupsInReport.flatMap((group) => group.cells);
-		const lowCellCount = allCells.filter((cell) => cell.availablePercent < 80).length;
+		const lowCellCount = allCells.filter((cell) => readinessTone(cell) !== 'success').length;
 		const averageAvailability =
 			allCells.length > 0
 				? Math.round(allCells.reduce((sum, cell) => sum + cell.availablePercent, 0) / allCells.length)
 				: 100;
 		const emptyGroupCount = groupsInReport.filter((group) => (group.cells[0]?.totalPersonnel ?? 0) === 0).length;
-		const lowestAvailability = topCell?.availablePercent ?? 100;
 
 		return {
 			topRisk:
@@ -112,12 +117,7 @@
 					? `${emptyGroupCount} selected ${emptyGroupCount === 1 ? 'group has' : 'groups have'} no assigned personnel.`
 					: 'All selected groups have assigned personnel.'
 			],
-			riskTone:
-				lowestAvailability < 50
-					? ('danger' as const)
-					: lowestAvailability < 80
-						? ('warning' as const)
-						: ('success' as const)
+			riskTone: topCell ? SUMMARY_TONE[readinessTone(topCell)] : ('success' as const)
 		};
 	});
 
@@ -126,11 +126,11 @@
 		return `${dayNames[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
 	}
 
-	function cellTone(percent: number): string {
-		if (percent >= 80) return 'bg-success/15';
-		if (percent >= 50) return 'bg-warning/15';
-		return 'bg-destructive/15';
+	function availableShare(cell: ReadinessCell): number {
+		return cell.totalPersonnel > 0 ? cell.availableCount / cell.totalPersonnel : 1;
 	}
+
+	const toneClass = { success: 'bg-success/15', warning: 'bg-warning/15', destructive: 'bg-destructive/15' };
 
 	function sortByGroupName(a: ReadinessGroupRow, b: ReadinessGroupRow): number {
 		return a.groupName.localeCompare(b.groupName);
@@ -147,7 +147,7 @@
 
 	function groupLowestCell(group: ReadinessGroupRow) {
 		return group.cells.reduce<ReadinessGroupRow['cells'][number] | null>(
-			(current, cell) => (!current || cell.availablePercent < current.availablePercent ? cell : current),
+			(current, cell) => (!current || availableShare(cell) < availableShare(current) ? cell : current),
 			null
 		);
 	}
@@ -197,7 +197,7 @@
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<span class="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"> Groups </span>
 				<div class="flex items-center gap-2">
-					<span class="text-xs text-muted-foreground">{groupSelect.count} of {groups.length} selected</span>
+					<span class="text-xs text-muted-foreground">{groupSelect.count} of {tree.roots.length} selected</span>
 					<Button type="button" variant="ghost" size="xs" onclick={groupSelect.toggleAll}>
 						{groupSelect.allSelected ? 'Clear' : 'Select all'}
 					</Button>
@@ -245,16 +245,22 @@
 				{/if}
 			{/snippet}
 
-			{#snippet row(group)}
-				<Table.Row>
-					<Table.Cell class="font-semibold" title={group.groupName}>{group.groupName}</Table.Cell>
-					<Table.Cell class="text-center font-semibold tabular-nums">{groupLowestAvailability(group)}%</Table.Cell>
-					{#each group.cells as cell (cell.date)}
-						<Table.Cell class={['text-center tabular-nums', cellTone(cell.availablePercent)]}>
-							{cell.availableCount}/{cell.totalPersonnel}
-						</Table.Cell>
-					{/each}
-				</Table.Row>
+			{#snippet row(set)}
+				{#each [set.top, ...(showSubGroups.current ? set.below : [])] as group (group.groupId)}
+					<Table.Row data-band-level={group.level}>
+						<Table.Cell
+							class={group.level === 0 || group.subtotal ? 'font-semibold' : 'font-normal'}
+							style="padding-left: {0.5 + group.level}rem"
+							title={group.groupName}>{group.groupName}</Table.Cell
+						>
+						<Table.Cell class="text-center font-semibold tabular-nums">{groupLowestAvailability(group)}%</Table.Cell>
+						{#each group.cells as cell (cell.date)}
+							<Table.Cell class={['text-center tabular-nums', toneClass[readinessTone(cell)]]}>
+								{cell.availableCount}/{cell.totalPersonnel}
+							</Table.Cell>
+						{/each}
+					</Table.Row>
+				{/each}
 			{/snippet}
 		</ReportWorkspace.Table>
 	{/if}

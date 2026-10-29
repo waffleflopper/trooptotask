@@ -17,6 +17,13 @@ export interface Band<T> {
 
 type GroupOf<T> = (item: T) => string | null;
 
+export interface BandOptions {
+	/** Bands from this Group alone instead of the roots. */
+	top?: string;
+	/** False rolls each top band's whole subtree into its `hq`, with no sub-bands. Defaults to true. */
+	nested?: boolean;
+}
+
 /**
  * The Groups one reader can see, as a tree. The catalog is already trimmed to covered Groups, so a Group whose parent
  * is not in it is a root: a team leader's tree is one root. Pure and cheap; rebuild it with `$derived`.
@@ -28,13 +35,12 @@ export interface GroupTree {
 	node(id: string): GroupNode | undefined;
 	/** True when `groupId` is `ancestorId` or below it. */
 	contains(ancestorId: string, groupId: string | null): boolean;
+	/** The visible root at or above `groupId`. */
+	rootOf(groupId: string | null): GroupNode | undefined;
 	/** The path from the reader's visible root, such as "2nd Squad › Alpha Team". A single root is left out below it. */
 	label(id: string): string;
-	/**
-	 * Nested bands from the roots, or from the `top` Group alone; empty bands are dropped. Unassigned people are not in
-	 * any band.
-	 */
-	bands<T>(items: readonly T[], groupOf: GroupOf<T>, top?: string): Band<T>[];
+	/** Nested bands from the roots; empty bands are dropped. Unassigned people are not in any band. */
+	bands<T>(items: readonly T[], groupOf: GroupOf<T>, options?: BandOptions): Band<T>[];
 }
 
 export interface GroupTreeOptions {
@@ -48,6 +54,11 @@ export function soleLeafGroup(tree: GroupTree, organizationWide: boolean): Group
 	return !organizationWide && root && others.length === 0 && !root.hasChildren ? root : null;
 }
 
+/** Whether any visible Group has sub-groups, so the Show sub-groups switch has something to change. */
+export function hasSubGroups(tree: GroupTree): boolean {
+	return tree.ordered.some((node) => node.hasChildren);
+}
+
 /**
  * A screen's Group filter offers the reader's top-level Groups, and a pick matches its whole subtree. Any other value,
  * such as a pick saved before the tree changed, matches everyone.
@@ -58,6 +69,77 @@ export function groupFilterMatcher(
 ): (groupId: string | null) => boolean {
 	const root = value ? tree.node(value) : undefined;
 	return root?.level === 0 ? (groupId) => tree.contains(root.id, groupId) : () => true;
+}
+
+export interface GroupRow<T> {
+	/** The Group's id, `hq:` and the id for a Group's own people, or `unassigned`. */
+	key: string;
+	label: string;
+	/** 0 on a top-level row. */
+	level: number;
+	/** A Group row that sums the rows below it rather than adding to them. */
+	subtotal: boolean;
+	items: T[];
+}
+
+export interface GroupRowSet<T> {
+	top: GroupRow<T>;
+	/** The sub-group rows under `top` in tree order; empty while sub-groups are hidden. */
+	below: GroupRow<T>[];
+}
+
+/**
+ * Report rows: one per visible root counting its whole subtree, then Unassigned for anyone outside the tree. With
+ * sub-groups shown, a Group whose sub-groups have people is a subtotal, its own people form a "<Group> HQ" row, and
+ * every item sits in exactly one row that is not a subtotal.
+ */
+export function groupRows<T>(
+	tree: GroupTree,
+	items: readonly T[],
+	groupOf: GroupOf<T>,
+	showSubGroups: boolean
+): GroupRowSet<T>[] {
+	const subtree = (band: Band<T>): T[] => [...band.hq, ...band.children.flatMap(subtree)];
+	const labelOf = (node: GroupNode) => (node.level === 0 ? tree.label(node.id) : node.name);
+	const rowFor = (band: Band<T>, subtotal: boolean): GroupRow<T> => ({
+		key: band.node.id,
+		label: labelOf(band.node),
+		level: band.node.level,
+		subtotal,
+		items: subtree(band)
+	});
+	const below = (band: Band<T>): GroupRow<T>[] =>
+		band.children.flatMap((child) => {
+			const subtotal = child.children.length > 0;
+			return [rowFor(child, subtotal), ...(subtotal ? hqAndBelow(child) : [])];
+		});
+	const hqAndBelow = (band: Band<T>): GroupRow<T>[] => [
+		...(band.hq.length > 0
+			? [
+					{
+						key: `hq:${band.node.id}`,
+						label: `${labelOf(band.node)} HQ`,
+						level: band.node.level + 1,
+						subtotal: false,
+						items: [...band.hq]
+					}
+				]
+			: []),
+		...below(band)
+	];
+
+	const sets = tree.bands(items, groupOf).map((band): GroupRowSet<T> => {
+		const nested = showSubGroups && band.children.length > 0;
+		return { top: rowFor(band, nested), below: nested ? hqAndBelow(band) : [] };
+	});
+	const unassigned = items.filter((item) => !tree.node(groupOf(item) ?? ''));
+	if (unassigned.length > 0) {
+		sets.push({
+			top: { key: 'unassigned', label: 'Unassigned', level: 0, subtotal: false, items: unassigned },
+			below: []
+		});
+	}
+	return sets;
 }
 
 const PATH_SEPARATOR = ' › ';
@@ -147,9 +229,15 @@ export function buildGroupTree(groups: readonly Group[], options: GroupTreeOptio
 		return count === 0 ? null : { node, hq, children, count };
 	}
 
-	function bands<T>(items: readonly T[], groupOf: GroupOf<T>, top?: string): Band<T>[] {
-		const members = directMembers(items, groupOf);
+	function bands<T>(items: readonly T[], groupOf: GroupOf<T>, { top, nested = true }: BandOptions = {}): Band<T>[] {
 		const tops = top === undefined ? roots : [nodes.get(top)].filter((node) => node !== undefined);
+		if (!nested) {
+			return tops.flatMap((node) => {
+				const hq = items.filter((item) => contains(node.id, groupOf(item)));
+				return hq.length === 0 ? [] : [{ node, hq, children: [], count: hq.length }];
+			});
+		}
+		const members = directMembers(items, groupOf);
 		return tops.flatMap((node) => bandFor(node, members) ?? []);
 	}
 
@@ -158,6 +246,7 @@ export function buildGroupTree(groups: readonly Group[], options: GroupTreeOptio
 		roots,
 		node: (id) => nodes.get(id),
 		contains,
+		rootOf: (groupId) => (groupId === null ? undefined : nodes.get(ancestry(groupId)[0] ?? '')),
 		label,
 		bands
 	};

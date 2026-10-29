@@ -25,6 +25,7 @@
 		type ToolbarItem,
 		type WorkspaceToolbarProps
 	} from '$lib/components/patterns/workspace-toolbar';
+	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { filenameFromContentDisposition } from '$lib/utils/workbook';
 	import {
@@ -154,16 +155,24 @@
 		};
 	});
 
-	type MatrixRow = OperationalMatrixRow & { source: BriefingGridRow };
+	type MatrixRow = OperationalMatrixRow & { source: BriefingGridRow; level: number; subGroupRow: boolean };
 	type MatrixColumn = OperationalMatrixColumn & { typeId: string };
 
-	const matrixRows = $derived<MatrixRow[]>(
-		[...grid.rows, grid.total].map((row) => ({
-			id: row.key === null ? TOTAL_ROW_ID : `row:${row.key}`,
-			label: row.label,
-			source: row
-		}))
-	);
+	const matrixRow = (source: BriefingGridRow, level = 0, subGroupRow = false): MatrixRow => ({
+		id: source.key === null ? TOTAL_ROW_ID : `row:${source.key}`,
+		label: source.label,
+		source,
+		level,
+		subGroupRow
+	});
+	const hasSubGroupRows = $derived(grid.sets.some((set) => set.below.length > 0));
+	const matrixRows = $derived<MatrixRow[]>([
+		...grid.sets.flatMap((set) => [
+			matrixRow(set.top),
+			...(showSubGroups.current ? set.below.map((row) => matrixRow(row, row.level, true)) : [])
+		]),
+		matrixRow(grid.total)
+	]);
 	const matrixColumns = $derived<MatrixColumn[]>(
 		grid.columns.map((column) => ({ id: column.typeId, label: column.name, typeId: column.typeId }))
 	);
@@ -176,7 +185,7 @@
 	function scopeLabel(scope: BriefingScope): string {
 		if (scope.kind === 'focus')
 			return briefing.focus.areas.find((area) => area.key === scope.key)?.title ?? 'Focus area';
-		const row = matrixRows.find((candidate) => candidate.source.key === scope.rowKey);
+		const row = grid.sets.flatMap((set) => [set.top, ...set.below]).find((candidate) => candidate.key === scope.rowKey);
 		const column = grid.columns.find((candidate) => candidate.typeId === scope.typeId);
 		return `${row?.label ?? 'Total'}, ${column?.name ?? ''}`;
 	}
@@ -312,7 +321,18 @@
 			options: Object.entries(ROWS_BY_LABEL).map(([value, label]) => ({ value, label })),
 			value: selected.rowsBy,
 			onValueChange: (value) => update({ rowsBy: value as BriefingRowsBy })
-		}
+		},
+		...(hasSubGroupRows
+			? [
+					{
+						kind: 'action',
+						id: 'hot-spot-display',
+						label: 'Display',
+						icon: 'sliders',
+						menuItems: [showSubGroupsToggle()]
+					} satisfies ToolbarItem
+				]
+			: [])
 	]);
 
 	function tone(readiness: BriefingReadiness): string {
@@ -553,12 +573,14 @@
 										{@const total = row.id === TOTAL_ROW_ID}
 										<OperationalMatrix.Row
 											{row}
+											data-sub-group-row={row.subGroupRow || undefined}
 											class={total ? '[&>*]:border-t-2 [&>*]:border-foreground [&>*]:pt-1.5' : undefined}
 										>
 											<OperationalMatrix.RowHeader
 												{row}
 												sticky
 												class="sticky left-0 z-10 bg-background pr-3 text-left align-middle"
+												style="padding-left: {row.level}rem"
 											>
 												<span class="block font-serif text-[15px] font-medium">{row.label}</span>
 												<span class="block font-mono text-[11px] text-muted-foreground">

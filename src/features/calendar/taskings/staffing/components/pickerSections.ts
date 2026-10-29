@@ -25,7 +25,7 @@ export function pickerSections<T extends { groupId: string | null }>(
 			sections.push({ key: band.node.id, label: band.children.length > 0 ? `${label} HQ` : label, rows: [...band.hq] });
 		band.children.forEach(visit);
 	};
-	tree.bands(rows, (row) => row.groupId, responsibleId).forEach(visit);
+	tree.bands(rows, (row) => row.groupId, { top: responsibleId }).forEach(visit);
 
 	const outside = new Map<string, PickerSection<T>>();
 	for (const row of rows) {

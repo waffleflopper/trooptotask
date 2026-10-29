@@ -7,7 +7,12 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import { createRosterReadModel, rosterGroupFilterValue } from '$features/personnel/contracts';
+import {
+	buildGroupTree,
+	createRosterReadModel,
+	nestRosterBands,
+	rosterGroupFilterValue
+} from '$features/personnel/contracts';
 import { getIctStatus } from './ictStatus';
 import { buildLatestIctCompletionLookup, ictCompletionKey, isCriticalTaskStatusReady } from './ictReadinessSnapshot';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
@@ -33,8 +38,14 @@ export interface CriticalTasksMatrixRow {
 
 export interface CriticalTasksMatrixGroup {
 	key: string;
+	/** The Group's own name below a top band. */
 	label: string;
+	/** 0 for a top band, then 1 and 2 for the sub-groups below it. */
+	level: number;
+	/** The band's own people; its sub-groups' people follow in their own bands. */
 	rows: CriticalTasksMatrixRow[];
+	/** Everyone in the band's Group and its sub-groups. */
+	personnelCount: number;
 	readinessPercent: number;
 	readyCount: number;
 	applicableCount: number;
@@ -57,6 +68,8 @@ export interface BuildCriticalTasksMatrixOptions {
 	selectedGroupId?: string;
 	selectedGroupFilter?: string;
 	gapsOnly?: boolean;
+	/** False rolls each top-level Group's subtree into one band. */
+	showSubGroups?: boolean;
 	asOf?: string | Date;
 	orgName?: string;
 }
@@ -136,13 +149,14 @@ export function buildCriticalTasksMatrix({
 	selectedGroupId = '',
 	selectedGroupFilter = '',
 	gapsOnly = false,
+	showSubGroups = true,
 	asOf,
 	orgName = 'Unassigned'
 }: BuildCriticalTasksMatrixOptions): CriticalTasksMatrix {
 	const activeTasks = getActiveIctTasksForLibrary(tasks);
 	// The matrix shows the latest saved capture; asOf only evaluates its status.
 	const latestCompletions = buildLatestIctCompletionLookup(completions);
-	const sortedGroups = createRosterReadModel({
+	const sections = createRosterReadModel({
 		personnel,
 		groups,
 		pinnedGroupIds,
@@ -151,100 +165,81 @@ export function buildCriticalTasksMatrix({
 		status: 'active',
 		groupFilter: selectedGroupFilter || selectedGroupId || undefined
 	}).personnelByGroup;
+	const bands = nestRosterBands(buildGroupTree(groups, { pinnedIds: pinnedGroupIds }), sections, showSubGroups);
 
-	const allGroups = sortedGroups
-		.map((group) => {
-			const rows = group.personnel.map((person) => {
-				let readyCount = 0;
-				let applicableCount = 0;
-				const cells = activeTasks.map((task) => {
-					const applicable = isIctTaskApplicableToMos(task, person.mos);
-					const completion = applicable ? latestCompletions.get(ictCompletionKey(person.id, task.id)) : undefined;
-					const statusInfo = getIctStatus(completion?.completedAt ?? null, task, settings, asOf);
-					const isGap = applicable && (statusInfo.status === 'expired' || statusInfo.status === 'not-recorded');
-					const detailLabel = buildDetailLabel(task, completion, statusInfo);
-					if (applicable) {
-						applicableCount += 1;
-						if (isCriticalTaskStatusReady(statusInfo.status)) {
-							readyCount += 1;
-						}
-					}
+	const rowFor = (person: Personnel): CriticalTasksMatrixRow => {
+		let readyCount = 0;
+		let applicableCount = 0;
+		const cells = activeTasks.map((task) => {
+			const applicable = isIctTaskApplicableToMos(task, person.mos);
+			const completion = applicable ? latestCompletions.get(ictCompletionKey(person.id, task.id)) : undefined;
+			const statusInfo = getIctStatus(completion?.completedAt ?? null, task, settings, asOf);
+			const isGap = applicable && (statusInfo.status === 'expired' || statusInfo.status === 'not-recorded');
+			const detailLabel = buildDetailLabel(task, completion, statusInfo);
+			if (applicable) {
+				applicableCount += 1;
+				if (isCriticalTaskStatusReady(statusInfo.status)) {
+					readyCount += 1;
+				}
+			}
 
-					return {
-						task,
-						applicable,
-						completion,
-						statusInfo,
-						detailLabel,
-						isGap
-					};
-				});
-				const hasGap = cells.some((cell) => cell.isGap);
+			return {
+				task,
+				applicable,
+				completion,
+				statusInfo,
+				detailLabel,
+				isGap
+			};
+		});
 
-				return {
-					person,
-					cells,
-					cellsByTaskId: buildCellLookup(cells),
-					hasGap,
+		return {
+			person,
+			cells,
+			cellsByTaskId: buildCellLookup(cells),
+			hasGap: cells.some((cell) => cell.isGap),
+			readinessPercent: readinessPercent(readyCount, applicableCount),
+			readyCount,
+			applicableCount
+		};
+	};
+	const rowsByPerson = new Map(bands.flatMap((band) => band.personnel).map((person) => [person.id, rowFor(person)]));
+
+	// A band's header counts its whole subtree, so a Group with only sub-group people still heads them.
+	const groupsOf = (keep: (row: CriticalTasksMatrixRow) => CriticalTasksMatrixRow | null) =>
+		bands.flatMap((band): CriticalTasksMatrixGroup[] => {
+			const pick = (people: Personnel[]) => people.flatMap((person) => keep(rowsByPerson.get(person.id)!) ?? []);
+			const subtree = pick(band.people);
+			if (subtree.length === 0) return [];
+			const readyCount = subtree.reduce((total, row) => total + row.readyCount, 0);
+			const applicableCount = subtree.reduce((total, row) => total + row.applicableCount, 0);
+			return [
+				{
+					key: rosterGroupFilterValue(band),
+					label: band.name,
+					level: band.level,
+					rows: pick(band.personnel),
+					personnelCount: subtree.length,
 					readinessPercent: readinessPercent(readyCount, applicableCount),
 					readyCount,
 					applicableCount
-				};
-			});
-			const groupReadyCount = rows.reduce((total, row) => total + row.readyCount, 0);
-			const groupApplicableCount = rows.reduce((total, row) => total + row.applicableCount, 0);
-
-			return {
-				key: rosterGroupFilterValue(group),
-				label: group.group,
-				rows,
-				readinessPercent: readinessPercent(groupReadyCount, groupApplicableCount),
-				readyCount: groupReadyCount,
-				applicableCount: groupApplicableCount
-			};
-		})
-		.filter((group) => group.rows.length > 0);
-	const allRows = allGroups.flatMap((group) => group.rows);
-	const alphabeticalRows = [...allRows].sort((a, b) => comparePersonnelAlphabetically(a.person, b.person));
+				}
+			];
+		});
 
 	if (gapsOnly) {
 		const gapTaskIds = new Set<string>();
-
-		for (const group of allGroups) {
-			for (const row of group.rows) {
-				if (!row.hasGap) continue;
-
-				for (const cell of row.cells) {
-					if (cell.isGap) {
-						gapTaskIds.add(cell.task.id);
-					}
-				}
+		for (const row of rowsByPerson.values()) {
+			for (const cell of row.cells) {
+				if (cell.isGap) gapTaskIds.add(cell.task.id);
 			}
 		}
 
-		const gapGroups = allGroups
-			.map((group) => {
-				const rows = group.rows
-					.filter((row) => row.hasGap)
-					.map((row) => {
-						const cells = row.cells.filter((cell) => gapTaskIds.has(cell.task.id));
-						return {
-							...row,
-							cells,
-							cellsByTaskId: buildCellLookup(cells)
-						};
-					});
-				const groupReadyCount = rows.reduce((total, row) => total + row.readyCount, 0);
-				const groupApplicableCount = rows.reduce((total, row) => total + row.applicableCount, 0);
-				return {
-					...group,
-					rows,
-					readinessPercent: readinessPercent(groupReadyCount, groupApplicableCount),
-					readyCount: groupReadyCount,
-					applicableCount: groupApplicableCount
-				};
-			})
-			.filter((group) => group.rows.length > 0);
+		const gapGroups = groupsOf((row) => {
+			if (!row.hasGap) return null;
+			const cells = row.cells.filter((cell) => gapTaskIds.has(cell.task.id));
+			return { ...row, cells, cellsByTaskId: buildCellLookup(cells) };
+		});
 		const gapRows = gapGroups.flatMap((group) => group.rows);
 
 		return {
@@ -255,10 +250,12 @@ export function buildCriticalTasksMatrix({
 		};
 	}
 
+	const allGroups = groupsOf((row) => row);
+	const allRows = allGroups.flatMap((group) => group.rows);
 	return {
 		tasks: activeTasks,
 		rows: allRows,
-		alphabeticalRows,
+		alphabeticalRows: [...allRows].sort((a, b) => comparePersonnelAlphabetically(a.person, b.person)),
 		groups: allGroups
 	};
 }

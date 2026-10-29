@@ -269,7 +269,14 @@ filters and request controls between cases.
     `2nd Platoon (9)`, the address is unchanged, nine rows remain and the bands run `0: 2nd Platoon 9 Pin`,
     `1: 1st Squad 6`, `2: Alpha Team 4`, `2: Bravo Team 1`, `1: 2nd Squad 1`, with Diaz and Webb under the top band
     before `1st Squad`. At 1024x640 and 390x844 the bands are the same, the filter sits in `More Calendar controls` at
-    390, and `scrollWidth` equals the viewport.
+    390, and `scrollWidth` equals the viewport. With `Group: All`, `Calendar display` → `Show sub-groups` off draws one
+    band per top-level Group, `0: 2nd Platoon`, `0: Alpha`, `0: Bravo`, `0: Unassigned`, each holding its whole
+    subtree in name order with no count; on, it adds `1: 1st Squad 6`, `2: Alpha Team 4`, `2: Bravo Team 1` and
+    `1: 2nd Squad 1` under `2nd Platoon 9`. Reports → Group availability by day offers `2nd Platoon`, `Alpha` and
+    `Bravo` (`3 of 3 selected`). On it reads `0: Bravo 0%`, `0: 2nd Platoon 100%`, `1: 2nd Platoon HQ 2/2`,
+    `1: 1st Squad 6/6`, `2: 1st Squad HQ 1/1`, `2: Alpha Team 4/4`, `2: Bravo Team 1/1`, `1: 2nd Squad 1/1` and
+    `0: Alpha 100%`; off it reads only the three top-level rows. Cell colors come from the exact available fraction:
+    green at 80% or more, amber at 50% or more, red below.
 
 ## Gotchas
 

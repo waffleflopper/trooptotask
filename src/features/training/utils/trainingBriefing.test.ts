@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Personnel } from '$features/personnel/contracts';
+import type { Group, Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import { affectedBriefingRequirements, buildTrainingBriefing, matchBriefingRequirements } from './trainingBriefing';
 import type { TrainingBriefingInput } from './trainingBriefing.types';
@@ -86,9 +86,16 @@ function validRecords(people: Personnel[], typeIds: string[]): PersonnelTraining
 	return people.flatMap((p) => typeIds.map((typeId) => record(p.id, typeId, VALID)));
 }
 
+/** Each Group the people name, as top-level Groups. */
+function flatCatalog(personnel: readonly Personnel[]): Group[] {
+	const names = new Map(personnel.flatMap((p) => (p.groupId ? [[p.groupId, p.groupName] as const] : [])));
+	return [...names].map(([id, name], sortOrder) => ({ id, name, sortOrder, parentId: null, depth: 1 }));
+}
+
 function briefingInput(overrides: Partial<TrainingBriefingInput>): TrainingBriefingInput {
 	return {
 		personnel: [],
+		groups: flatCatalog(overrides.personnel ?? []),
 		types: [],
 		records: [],
 		filters: {},
@@ -1190,5 +1197,123 @@ describe('buildTrainingBriefing focus areas', () => {
 			['wave', 6],
 			['row:group:bravo', 6]
 		]);
+	});
+});
+
+describe('buildTrainingBriefing Group rows', () => {
+	const group = (id: string, name: string, parentId: string | null, depth: 1 | 2 | 3, sortOrder = 0): Group => ({
+		id,
+		name,
+		sortOrder,
+		parentId,
+		depth
+	});
+	const platoon = group('plt', '1st Platoon', null, 1, 0);
+	const squad1 = group('sq1', '1st Squad', 'plt', 2, 0);
+	const alpha = group('ta', 'Alpha Team', 'sq1', 3, 0);
+	const bravo = group('tb', 'Bravo Team', 'sq1', 3, 1);
+	const squad2 = group('sq2', '2nd Squad', 'plt', 2, 1);
+	const section = group('hq', 'HQ Section', null, 1, 1);
+	const catalog = [platoon, squad1, alpha, bravo, squad2, section];
+	const member = (id: string, home: Group | null) =>
+		person(id, { groupId: home?.id ?? null, groupName: home?.name ?? '' });
+	const personnel = [
+		member('p1', platoon),
+		member('p2', platoon),
+		member('s1', squad1),
+		member('t1', alpha),
+		member('t2', alpha),
+		member('t3', alpha),
+		member('b1', bravo),
+		member('b2', bravo),
+		member('q1', squad2),
+		member('q2', squad2),
+		member('h1', section),
+		member('h2', section),
+		member('h3', section),
+		member('u1', null)
+	];
+	const ready = ['p1', 's1', 't1', 't2', 'b1', 'b2', 'q2', 'h1', 'h3', 'u1'];
+
+	function grid(groups: Group[], scoped: Personnel[] = personnel) {
+		const input = briefingInput({
+			personnel: scoped,
+			groups,
+			types: [trainingType('cpr')],
+			records: ready.map((id) => record(id, 'cpr', VALID))
+		});
+		const { sets, total } = buildTrainingBriefing(input).grid;
+		const line = (row: (typeof sets)[number]['top']) => [
+			row.label,
+			row.level,
+			row.subtotal,
+			row.soldierCount,
+			`${row.today.ready}/${row.today.applicable}`
+		];
+		const leaves = sets.flatMap((set) => [set.top, ...set.below]).filter((row) => !row.subtotal);
+		return {
+			input,
+			on: sets.flatMap((set) => [set.top, ...set.below]).map(line),
+			off: sets.map((set) => line(set.top)),
+			leafTotal: `${leaves.reduce((sum, row) => sum + row.soldierCount, 0)} ${leaves.reduce((sum, row) => sum + row.today.ready, 0)}/${leaves.reduce((sum, row) => sum + row.today.applicable, 0)}`,
+			total: `${total.soldierCount} ${total.today.ready}/${total.today.applicable}`
+		};
+	}
+
+	it('nests each top-level Group, lowest first, with its HQ and sub-groups in tree order', () => {
+		const result = grid(catalog);
+
+		expect(result.on).toEqual([
+			['HQ Section', 0, false, 3, '2/3'],
+			['1st Platoon', 0, true, 10, '7/10'],
+			['1st Platoon HQ', 1, false, 2, '1/2'],
+			['1st Squad', 1, true, 6, '5/6'],
+			['1st Squad HQ', 2, false, 1, '1/1'],
+			['Alpha Team', 2, false, 3, '2/3'],
+			['Bravo Team', 2, false, 2, '2/2'],
+			['2nd Squad', 1, false, 2, '1/2'],
+			['Unassigned', 0, false, 1, '1/1']
+		]);
+		expect(result.leafTotal).toBe('14 10/14');
+		expect(result.total).toBe('14 10/14');
+	});
+
+	it('rolls each top-level Group into one row when sub-groups are off', () => {
+		expect(grid(catalog).off).toEqual([
+			['HQ Section', 0, false, 3, '2/3'],
+			['1st Platoon', 0, true, 10, '7/10'],
+			['Unassigned', 0, false, 1, '1/1']
+		]);
+	});
+
+	it('gives a squad leader their teams on and one squad row off, with no Unassigned row', () => {
+		const result = grid([squad1, alpha, bravo], personnel.slice(2, 8));
+
+		expect(result.on).toEqual([
+			['1st Squad', 0, true, 6, '5/6'],
+			['1st Squad HQ', 1, false, 1, '1/1'],
+			['Alpha Team', 1, false, 3, '2/3'],
+			['Bravo Team', 1, false, 2, '2/2']
+		]);
+		expect(result.off).toEqual([['1st Squad', 0, true, 6, '5/6']]);
+		expect(result.leafTotal).toBe('6 5/6');
+		expect(result.total).toBe('6 5/6');
+	});
+
+	it('gives a team leader one row either way', () => {
+		const result = grid([alpha], personnel.slice(3, 6));
+
+		expect(result.on).toEqual([['Alpha Team', 0, false, 3, '2/3']]);
+		expect(result.off).toEqual([['Alpha Team', 0, false, 3, '2/3']]);
+	});
+
+	it('opens a cell on the subtree of a Group row and on the HQ row alone', () => {
+		const { input } = grid(catalog);
+		const people = (rowKey: string) =>
+			matchBriefingRequirements(input, { kind: 'cell', rowKey, typeId: 'cpr' })?.map((row) => row.personId);
+
+		expect(people('plt')).toEqual(['p2', 'q1', 't3']);
+		expect(people('hq:plt')).toEqual(['p2']);
+		expect(people('ta')).toEqual(['t3']);
 	});
 });

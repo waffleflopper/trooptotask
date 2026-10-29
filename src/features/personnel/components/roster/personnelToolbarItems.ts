@@ -1,4 +1,4 @@
-import type { ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+import type { ToolbarItem, ToolbarMenuToggle } from '$lib/components/patterns/workspace-toolbar';
 
 export type RosterViewMode = 'alphabetical' | 'by-group';
 
@@ -11,6 +11,8 @@ export interface PersonnelToolbarInput {
 	/** Null when the roster has one way to read it, so there is no choice to offer. */
 	viewMode: RosterViewMode | null;
 	onViewModeChange: (mode: RosterViewMode) => void;
+	/** Null when no visible Group has sub-groups. */
+	showSubGroups: ToolbarMenuToggle | null;
 	onManageGroups: (() => void) | null;
 	importHref: string | null;
 }
@@ -27,6 +29,15 @@ export function personnelToolbarItems(input: PersonnelToolbarInput): ToolbarItem
 			onValueChange: (value) => {
 				if (value === 'alphabetical' || value === 'by-group') input.onViewModeChange(value);
 			}
+		});
+	}
+	if (input.showSubGroups) {
+		items.push({
+			kind: 'action',
+			id: 'roster-display',
+			label: 'Display',
+			icon: 'sliders',
+			menuItems: [input.showSubGroups]
 		});
 	}
 	if (input.onManageGroups) {

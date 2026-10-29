@@ -16,6 +16,7 @@ function report(groupId: string | null = null): TrainingBriefingReportData {
 		filterOptions: { views: [], groups: [], ranks: [], mos: [], roles: [], types: [] },
 		briefing: buildTrainingBriefing({
 			personnel: [],
+			groups: [],
 			types: [],
 			records: [],
 			filters: {},

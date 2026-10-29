@@ -1,4 +1,4 @@
-import type { Personnel } from '$features/personnel/contracts';
+import { buildGroupTree, groupRows, type GroupRow, type Personnel } from '$features/personnel/contracts';
 import type { TrainingStatus, TrainingType } from '$features/training/training.types';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { filterPersonnel } from './reportCalculations';
@@ -12,6 +12,8 @@ import type {
 	BriefingGrid,
 	BriefingGridCell,
 	BriefingGridRow,
+	BriefingGridSet,
+	BriefingGridTreeRow,
 	BriefingLegendItem,
 	BriefingReadiness,
 	BriefingRequirement,
@@ -68,6 +70,16 @@ interface Row {
 	entries: Entry[];
 }
 
+interface TreeRow extends Row {
+	level: number;
+	subtotal: boolean;
+}
+
+interface RowSet {
+	top: TreeRow;
+	below: TreeRow[];
+}
+
 interface Cliff {
 	firstBucket: number;
 	lastBucket: number;
@@ -84,6 +96,8 @@ interface Analysis {
 	columns: TrainingType[];
 	entries: Entry[];
 	rows: Row[];
+	/** The grid's rows: each top-level Group with its HQ and sub-group rows, or the `rows` themselves. */
+	sets: RowSet[];
 	horizonEnd: string;
 	bucketEnds: number[];
 	bucketLapses: number[];
@@ -296,11 +310,30 @@ function analyze(input: TrainingBriefingInput): Analysis {
 		columns,
 		entries,
 		rows: [...rows.values()],
+		sets: rowSets(input, population, [...rows.values()], entries),
 		horizonEnd: addDays(input.asOf, horizonDays),
 		bucketEnds,
 		bucketLapses,
 		cliff: findCliff(bucketEnds, bucketLapses, lapsing)
 	};
+}
+
+function rowSets(input: TrainingBriefingInput, population: Personnel[], rows: Row[], entries: Entry[]): RowSet[] {
+	if (input.rowsBy !== 'group') return rows.map((row) => ({ top: { ...row, level: 0, subtotal: false }, below: [] }));
+	const entriesOf = new Map<string, Entry[]>();
+	for (const entry of entries) entriesOf.set(entry.person.id, [...(entriesOf.get(entry.person.id) ?? []), entry]);
+	const treeRow = (row: GroupRow<Personnel>): TreeRow => ({
+		key: row.key,
+		label: row.label,
+		level: row.level,
+		subtotal: row.subtotal,
+		soldierCount: row.items.length,
+		entries: row.items.flatMap((person) => entriesOf.get(person.id) ?? [])
+	});
+	return groupRows(buildGroupTree(input.groups), population, (person) => person.groupId, true).map((set) => ({
+		top: treeRow(set.top),
+		below: set.below.map(treeRow)
+	}));
 }
 
 function cliffRange(analysis: Analysis, cliff: Cliff): { start: string; end: string } {
@@ -405,13 +438,21 @@ function compareRowsByReadiness(a: BriefingGridRow, b: BriefingGridRow): number 
 }
 
 function buildGrid(analysis: Analysis): BriefingGrid {
-	const { input, columns, rows, entries } = analysis;
+	const { input, columns, rows, sets, entries } = analysis;
+	const treeRow = (row: TreeRow): BriefingGridTreeRow => ({
+		...gridRow(row.key, row.label, row.soldierCount, row.entries, analysis),
+		level: row.level,
+		subtotal: row.subtotal
+	});
 	return {
 		rowsBy: input.rowsBy,
 		columns: columns.map((type) => ({ typeId: type.id, name: type.name })),
 		rows: rows
 			.map((row) => gridRow(row.key, row.label, row.soldierCount, row.entries, analysis))
 			.sort(compareRowsByReadiness),
+		sets: sets
+			.map((set): BriefingGridSet => ({ top: treeRow(set.top), below: set.below.map(treeRow) }))
+			.sort((a, b) => compareRowsByReadiness(a.top, b.top)),
 		total: gridRow(null, 'Total', analysis.population.length, entries, analysis),
 		legend: legendFor(input.goalPercent),
 		dropAlertPoints: DROP_ALERT_POINTS
@@ -762,7 +803,9 @@ export function matchBriefingRequirements(
 	if (scope.kind === 'cell') {
 		const column = analysis.columns.findIndex((type) => type.id === scope.typeId);
 		const pool =
-			scope.rowKey === null ? analysis.entries : analysis.rows.find((row) => row.key === scope.rowKey)?.entries;
+			scope.rowKey === null
+				? analysis.entries
+				: analysis.sets.flatMap((set) => [set.top, ...set.below]).find((row) => row.key === scope.rowKey)?.entries;
 		if (column === -1 || !pool) return null;
 		matched = pool.filter((entry) => entry.column === column && isAffected(entry));
 	} else {

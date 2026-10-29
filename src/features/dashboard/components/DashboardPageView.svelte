@@ -4,6 +4,8 @@
 	import { AttentionActionRowSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
 	import { openCalendarAt } from '../calendarLink';
@@ -103,6 +105,15 @@
 		}
 	}
 
+	const strengthDisplayItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'action',
+			id: 'group-strength-display',
+			label: 'Display',
+			icon: 'sliders',
+			menuItems: [showSubGroupsToggle()]
+		}
+	]);
 	const EYEBROW = 'font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase';
 	const BAND = 'grid grid-cols-[minmax(0,1fr)] border-t-2 border-foreground pt-6';
 	const LEDGER = 'grid gap-x-7 gap-y-9 sm:grid-cols-2 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none lg:gap-0';
@@ -184,7 +195,15 @@
 						{/if}
 					</div>
 					<div class="grid min-w-0 content-start gap-[18px]">
-						<h2 class={EYEBROW}>Available · next 14 days</h2>
+						<div class="relative">
+							<h2 class={EYEBROW}>Available · next 14 days</h2>
+							{#if model?.strength.groups.hasSubGroups}
+								<!-- Out of flow, so the switch arriving with the data moves nothing. -->
+								<div class="absolute top-1/2 right-0 -translate-y-1/2">
+									<WorkspaceToolbar ariaLabel="Group strength display" bare items={strengthDisplayItems} />
+								</div>
+							{/if}
+						</div>
 						{#if model && parts}
 							<StrengthForecast
 								band={model.strength}

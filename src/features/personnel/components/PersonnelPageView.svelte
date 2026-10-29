@@ -25,7 +25,8 @@
 		serializeRosterFilter
 	} from '../rosterFilter';
 	import { matchesRosterFilter, type RosterFilter } from '../rosterSignals';
-	import type { Band } from '../groupTree';
+	import { hasSubGroups, type Band } from '../groupTree';
+	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import type { ComposerKind } from '../rosterComposer';
@@ -53,7 +54,6 @@
 	const ROSTER_PAGE_SIZE = 75;
 	const peekFits = new MediaQuery('min-width: 1280px', false);
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	const groupKey = (person: Personnel): string => person.groupId ?? '';
 	const groupOf = (person: Personnel): string | null => person.groupId;
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
@@ -61,7 +61,11 @@
 	const soleLeaf = $derived(ctx.soleLeafGroup);
 	// One Group with nothing under it is the reader's whole roster: no band to draw and no A-Z or Group choice to make.
 	const banded = $derived(soleLeaf === null);
-	const nestedTree = $derived(tree.ordered.some((node) => node.hasChildren));
+	const nestedTree = $derived(hasSubGroups(tree));
+	const nested = $derived(nestedTree && showSubGroups.current);
+	// With sub-groups hidden a root's band sorts its whole subtree as one list.
+	const groupKey = (person: Personnel): string =>
+		(nested ? person.groupId : (tree.rootOf(person.groupId)?.id ?? person.groupId)) ?? '';
 	const viewMode = $derived(banded ? ctx.viewMode : 'alphabetical');
 	let locallyArchivedIds = new SvelteSet<string>();
 	const visibleAllActivePersonnel = $derived(
@@ -254,7 +258,7 @@
 			});
 			if (!collapsed) band.children.forEach(visit);
 		};
-		tree.bands(visibleFilteredPersonnel, groupOf).forEach(visit);
+		tree.bands(visibleFilteredPersonnel, groupOf, { nested }).forEach(visit);
 		// People outside the tree: Unassigned last, and before it anyone whose Group left the catalog, by name, as today.
 		const loose = groupedTable.groups
 			.filter((group) => !tree.node(group.key))
@@ -590,6 +594,7 @@
 		personnelToolbarItems({
 			viewMode: banded ? ctx.viewMode : null,
 			onViewModeChange: (mode) => (ctx.viewMode = mode),
+			showSubGroups: banded && nestedTree ? showSubGroupsToggle() : null,
 			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupEditor(groupsStore.items[0]?.id ?? null) : null,
 			importHref: ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null
 		})
@@ -724,7 +729,7 @@
 						table={activeTable}
 						columns={viewMode === 'by-group' ? groupedColumns : personnelColumns}
 						ariaLabel="Personnel roster"
-						stickyGroup={nestedTree ? (key) => sectionByKey.get(key)?.level === 0 : undefined}
+						stickyGroup={nested ? (key) => sectionByKey.get(key)?.level === 0 : undefined}
 						emptyMessage={rosterFilter
 							? 'No personnel match this filter.'
 							: rosterSearch.trim()

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { evaluateUpcomingLosses, type Personnel } from '$features/personnel/contracts';
+	import { evaluateUpcomingLosses, type Band, type GroupTree, type Personnel } from '$features/personnel/contracts';
 	import {
 		DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 		DEFAULT_TRAINING_READINESS_GOAL_PERCENT
@@ -50,6 +50,8 @@
 		/** Reports the rows in the order the matrix shows them, collapsed groups left out. */
 		onRowOrderChange?: (personnelIds: string[]) => void;
 		groupBy?: GroupDef<Personnel>;
+		/** Nests the Group bands, keyed by Group id, under their parents. */
+		groupTree?: GroupTree;
 		display?: TrainingMatrixDisplay;
 	}
 
@@ -86,6 +88,7 @@
 		onPersonClick,
 		onRowOrderChange,
 		groupBy,
+		groupTree,
 		display = { matrixColorAll: false, matrixCurrentMark: 'date', matrixNeedsActionOnly: false }
 	}: Props = $props();
 
@@ -213,11 +216,62 @@
 		});
 	}
 
-	// A group's readiness counts everyone in it, including the rows that "needing action" hides.
+	interface MatrixBand {
+		key: string;
+		label: string;
+		level: number;
+		/** The band's own shown rows, in the table's sort. */
+		rows: Personnel[];
+		/** Shown rows in the band and its sub-bands. */
+		shown: number;
+		/** Everyone in the band and its sub-bands, including the rows that "needing action" hides. */
+		members: Personnel[];
+		collapsed: boolean;
+	}
+
 	const groupMembers = $derived(groupBy ? Map.groupBy(personnel, groupBy.key) : new Map<string, Personnel[]>());
-	const groupGaps = $derived(
-		new Map(table.groups.map((group) => [group.key, gapsFor(groupMembers.get(group.key) ?? group.rows)]))
-	);
+	const collapsedBands = new SvelteSet<string>();
+	// Collapsing a nested band hides its rows and every band below it.
+	const bands = $derived.by((): MatrixBand[] => {
+		const flat = (group: (typeof table.groups)[number]): MatrixBand => ({
+			key: group.key,
+			label: group.label,
+			level: 0,
+			rows: group.rows,
+			shown: group.rows.length,
+			members: groupMembers.get(group.key) ?? group.rows,
+			collapsed: group.collapsed
+		});
+		if (!groupTree) return table.groups.map(flat);
+		const rowsByKey = new Map(table.groups.map((group) => [group.key, group.rows]));
+		const out: MatrixBand[] = [];
+		const visit = (band: Band<Personnel>) => {
+			const { node } = band;
+			const collapsed = collapsedBands.has(node.id);
+			out.push({
+				key: node.id,
+				label: node.level === 0 ? groupTree.label(node.id) : node.name,
+				level: node.level,
+				rows: rowsByKey.get(node.id) ?? [],
+				shown: band.count,
+				members: personnel.filter((person) => groupTree.contains(node.id, person.groupId)),
+				collapsed
+			});
+			if (!collapsed) band.children.forEach(visit);
+		};
+		groupTree.bands(shownPersonnel, (person) => person.groupId).forEach(visit);
+		out.push(...table.groups.filter((group) => !groupTree.node(group.key)).map(flat));
+		return out;
+	});
+
+	function toggleBand(key: string) {
+		if (!groupTree?.node(key)) table.toggleGroup(key);
+		else if (collapsedBands.has(key)) collapsedBands.delete(key);
+		else collapsedBands.add(key);
+	}
+
+	const groupGaps = $derived(new Map(bands.map((band) => [band.key, gapsFor(band.members)])));
+	const bandByKey = $derived(new Map(bands.map((band) => [band.key, band])));
 
 	const departureTags = $derived(
 		new Map(
@@ -323,21 +377,21 @@
 
 	const matrixRows = $derived<MatrixRow[]>(table.rows.map(toMatrixRow));
 	const virtualItems = $derived<OperationalMatrix.VirtualMatrixItem<MatrixRow>[]>(
-		table.groups.length === 0
+		bands.length === 0
 			? table.rows.map(rowItem)
-			: table.groups.flatMap((group) => [
+			: bands.flatMap((band) => [
 					{
 						kind: 'group' as const,
-						key: `group:${group.key}`,
+						key: `group:${band.key}`,
 						group: {
-							id: group.key,
-							label: group.label,
-							rowIds: group.rows.map((person) => person.id),
-							collapsed: group.collapsed
+							id: band.key,
+							label: band.label,
+							rowIds: band.rows.map((person) => person.id),
+							collapsed: band.collapsed
 						},
 						height: groupHeight
 					},
-					...(group.collapsed ? [] : group.rows.map(rowItem))
+					...(band.collapsed ? [] : band.rows.map(rowItem))
 				])
 	);
 	$effect(() => {
@@ -556,18 +610,23 @@
 						{/if}
 						{#if item.kind === 'group'}
 							{@const gaps = groupGaps.get(item.group.id)}
+							{@const band = bandByKey.get(item.group.id)}
 							<OperationalMatrix.RowGroup
 								group={item.group}
 								columnSpan={1}
 								virtualIndex={item.virtualIndex + HEADER_ROW_COUNT}
 								class="h-8 bg-muted [&_th]:sticky [&_th]:left-0 [&_th]:z-10 [&_th]:w-32 [&_th]:min-w-32 [&_th]:bg-muted [&_th]:px-2 [&_th]:py-0 [&_th]:text-left sm:[&_th]:w-48 sm:[&_th]:min-w-48 sm:[&_th]:px-3"
 							>
-								<div class="flex items-center gap-2">
+								<div
+									class="flex items-center gap-2"
+									data-band-level={band?.level ?? 0}
+									style:padding-left="{band?.level ?? 0}rem"
+								>
 									<button
 										type="button"
 										class="flex min-w-0 items-center gap-1.5 rounded-sm font-heading text-sm font-semibold tracking-wide uppercase focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
 										aria-expanded={!item.group.collapsed}
-										onclick={() => table.toggleGroup(item.group.id)}
+										onclick={() => toggleBand(item.group.id)}
 									>
 										{#if item.group.collapsed}
 											<ChevronRightIcon class="size-4 shrink-0" aria-hidden="true" />
@@ -577,8 +636,8 @@
 										<span class="truncate">{item.group.label}</span>
 										<span class="font-mono text-xs font-normal text-muted-foreground max-sm:hidden"
 											>{display.matrixNeedsActionOnly
-												? `${item.group.rowIds.length} of ${groupMembers.get(item.group.id)?.length ?? item.group.rowIds.length}`
-												: item.group.rowIds.length}</span
+												? `${band?.shown ?? 0} of ${band?.members.length ?? 0}`
+												: (band?.shown ?? 0)}</span
 										>
 									</button>
 									{#if gaps && goalPercent !== null}

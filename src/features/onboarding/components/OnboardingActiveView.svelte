@@ -4,6 +4,7 @@
 	import { replaceState } from '$app/navigation';
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { MODAL_IDS, STEP_TYPE_LABELS } from '../contexts/OnboardingPageContext.svelte';
+	import { groupFilterMatcher } from '$features/personnel/contracts';
 	import type { PersonnelOnboarding } from '../onboarding.types';
 	import { comparePacketSummaries, summarizePacket, todayIn, waitingBySteps } from '../onboardingStatus';
 	import { Button } from '$lib/components/ui/button';
@@ -54,9 +55,11 @@
 		active.filter((onboarding) => summarizePacket(onboarding, today).status === 'stalled').length
 	);
 
+	const inGroup = $derived(groupFilterMatcher(ctx.groupTree, groupId));
+
 	function matches(onboarding: PersonnelOnboarding): boolean {
 		const person = ctx.getPerson(onboarding.personnelId);
-		if (groupId !== ALL_GROUPS && person?.groupId !== groupId) return false;
+		if (!inGroup(person?.groupId ?? null)) return false;
 		const query = search.trim().toLowerCase();
 		if (!query) return true;
 		return [ctx.getPersonName(onboarding.personnelId), person?.rank, person?.mos].some((field) =>
@@ -147,7 +150,7 @@
 				label: 'Group',
 				options: [
 					{ value: ALL_GROUPS, label: 'All groups' },
-					...ctx.groups.map((group) => ({ value: group.id, label: group.name }))
+					...ctx.groupTree.roots.map((group) => ({ value: group.id, label: group.name }))
 				],
 				value: groupId,
 				defaultValue: ALL_GROUPS,

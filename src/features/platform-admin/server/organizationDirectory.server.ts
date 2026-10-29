@@ -1,5 +1,5 @@
 import { ORGANIZATION_SORT, parseAdminSort } from '../adminSort';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { z } from 'zod';
 import {
 	PLATFORM_ORGANIZATION_FILTERS,

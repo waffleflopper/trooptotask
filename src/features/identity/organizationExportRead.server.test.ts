@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseIdentityExportReader, type IdentityExportTable } from './organizationExportRead.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';

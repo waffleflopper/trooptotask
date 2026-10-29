@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { getAdminClient } from '$lib/server/supabase';
 
 export interface DurableRateLimitStore {

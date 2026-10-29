@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { createSupabaseFeedbackInboxReader } from './feedbackInbox.server';
 
 const stored = (id: string, userId: string) => ({

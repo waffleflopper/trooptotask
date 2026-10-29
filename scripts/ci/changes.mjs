@@ -6,7 +6,7 @@ import { parseArgs } from 'node:util';
 
 const prose = /^(?:README|AGENTS|CLAUDE|CONTEXT)\.md$|^docs\/.*\.md$/;
 const databaseInput =
-	/^(?:supabase\/|scripts\/(?:ci|demo-clinic)\/|\.agents\/skills\/verify-trooptotask\/helpers\/perf-workloads\.mjs$|\.depot\/|\.github\/workflows\/ci\.yml$|package(?:-lock)?\.json$|\.nvmrc$)/;
+	/^(?:supabase\/|src\/lib\/server\/database\.types\.ts$|scripts\/(?:ci|demo-clinic)\/|\.agents\/skills\/verify-trooptotask\/helpers\/perf-workloads\.mjs$|\.depot\/|\.github\/workflows\/ci\.yml$|package(?:-lock)?\.json$|\.nvmrc$)/;
 
 export function classifyChanges(files, full = false) {
 	return {

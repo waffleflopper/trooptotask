@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createSupabasePersonnelAwardAcknowledgementPort } from './awardAcknowledgement.server';
 

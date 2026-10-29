@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { evaluatePolicyDecision } from '$lib/access/policyEvaluator';
@@ -113,7 +113,7 @@ export function createSupabaseRosterSignalSlices(
 			p_as_of: asOf,
 			p_since: coverageWindowStart(asOf),
 			p_sources: (Object.keys(SIGNAL_SOURCES) as SignalSource[]).filter((source) => access[source]),
-			p_personnel_ids: personnelIds
+			p_personnel_ids: personnelIds === null ? null : [...personnelIds]
 		});
 		if (error) throw new Error(error.message);
 		return data as SignalSlice;

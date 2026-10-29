@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 
 export async function cleanupReadNotifications(client: SupabaseClient, now = new Date()): Promise<number> {
 	const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();

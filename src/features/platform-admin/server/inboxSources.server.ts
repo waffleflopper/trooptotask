@@ -1,5 +1,5 @@
 import { readSetupEmailInviters } from './setupEmailOperations.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { getAccessRequestHeardAboutLabel } from '$features/identity/contracts';
 import {
 	createIdentityAccessRequestInboxReader,

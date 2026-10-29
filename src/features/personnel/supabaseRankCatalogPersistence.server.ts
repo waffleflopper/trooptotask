@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import type {
 	RankCatalogPersistence,
 	RankCatalogSave,
@@ -22,7 +22,15 @@ function values(row: Omit<RankCatalogValues, 'state'> & { state?: RankCatalogVal
 		sort_order: row.sort_order
 	};
 }
-function saved(row: SavedRankCatalogEntry): SavedRankCatalogEntry {
+function saved(raw: Database['public']['Tables']['organization_rank_catalog']['Row']): SavedRankCatalogEntry {
+	const row = {
+		...raw,
+		service: raw.service as RankCatalogValues['service'],
+		category: raw.category as RankCatalogValues['category'],
+		pay_grade: raw.pay_grade as RankCatalogValues['pay_grade'],
+		state: raw.state as RankCatalogValues['state'],
+		source: raw.source as RankCatalogValues['source']
+	};
 	return {
 		...values(row),
 		id: row.id,
@@ -65,8 +73,8 @@ export function createSupabaseRankCatalogPersistence(client: SupabaseClient, org
 				...values(row),
 				organization_id: orgId,
 				...(row.id !== undefined ? { id: row.id } : {}),
-				...(row.created_at !== undefined ? { created_at: row.created_at } : {}),
-				...(row.updated_at !== undefined ? { updated_at: row.updated_at } : {})
+				...(row.created_at !== undefined ? { created_at: row.created_at as string } : {}),
+				...(row.updated_at !== undefined ? { updated_at: row.updated_at as string } : {})
 			}));
 			const { data, error } = await client
 				.from('organization_rank_catalog')

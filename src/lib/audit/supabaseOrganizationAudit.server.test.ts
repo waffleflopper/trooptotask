@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseOrganizationAuditStore } from './supabaseOrganizationAudit.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 function reader(fetch: typeof globalThis.fetch) {
 	return createSupabaseOrganizationAuditStore(

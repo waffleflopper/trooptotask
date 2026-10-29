@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { Announcement } from '$features/notifications/contracts';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 

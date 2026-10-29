@@ -32,10 +32,10 @@ export interface PersonnelExtendedInfo {
 	updatedBy: string | null;
 }
 
-export interface PersonnelChild {
+export type PersonnelChild = {
 	name: string;
 	age: number | null;
-}
+};
 
 /** What one Data sheet save answers. A rejected field is shown beside that field. */
 export type PersonnelDataSheetSaveResult =

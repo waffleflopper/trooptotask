@@ -31,7 +31,7 @@ export function mapIctTask(row: SavedIctTask): IctTask {
 	};
 }
 
-export function taskPatchValues(input: IctTaskPatch): Record<string, unknown> {
+export function taskPatchValues(input: IctTaskPatch) {
 	const values = {
 		task_code: input.taskCode,
 		title: input.title,
@@ -42,10 +42,13 @@ export function taskPatchValues(input: IctTaskPatch): Record<string, unknown> {
 		sort_order: input.sortOrder,
 		archived_at: input.archivedAt
 	};
-	return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined));
+	const filtered: Partial<typeof values> = Object.fromEntries(
+		Object.entries(values).filter(([, value]) => value !== undefined)
+	);
+	return filtered;
 }
 
-export function taskCreateValues(input: IctTaskCreate): Record<string, unknown> {
+export function taskCreateValues(input: IctTaskCreate) {
 	return {
 		task_code: input.taskCode,
 		title: input.title,

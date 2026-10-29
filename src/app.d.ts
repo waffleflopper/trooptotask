@@ -1,4 +1,5 @@
-import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { AdmittedActor, IdentityViewer, PendingAuthFlow } from '$features/identity/contracts';
 import type { MembershipRequestCache } from '$lib/access/requestMembershipCache.server';
 import type { OrganizationAdmissionRequest } from '$features/organization/index.server';

@@ -1,3 +1,4 @@
+import type { Json } from '$lib/server/database.types';
 import { getAdminClient } from '$lib/server/supabase';
 
 import type { AuditEvent } from './contracts';
@@ -242,7 +243,7 @@ export async function auditLog(
 			resource_id: event.resourceId ?? null,
 			ip_address: requestInfo.ip ?? null,
 			user_agent: requestInfo.userAgent ?? null,
-			details,
+			details: details as Json | undefined,
 			severity: event.severity ?? 'info'
 		});
 		if (result.error) throw new Error('Audit log write failed');

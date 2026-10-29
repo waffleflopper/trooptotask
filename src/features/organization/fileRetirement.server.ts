@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import type { FileCleanup } from './contracts';
 

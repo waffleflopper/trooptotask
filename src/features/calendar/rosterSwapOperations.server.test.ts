@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
 import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';

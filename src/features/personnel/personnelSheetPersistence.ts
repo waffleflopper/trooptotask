@@ -1,3 +1,4 @@
+import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 export interface PersonnelSheetEditableValues {
 	dod_id: string | null;
 	blood_type: string | null;
@@ -6,9 +7,9 @@ export interface PersonnelSheetEditableValues {
 	marital_status: string | null;
 	marital_status_date: string | null;
 	number_of_dependents: number | null;
-	children: unknown;
+	children: PersonnelExtendedInfo['children'];
 	civilian_education: string | null;
-	military_education: unknown;
+	military_education: string[];
 	emergency_contact_name: string | null;
 	emergency_contact_relationship: string | null;
 	emergency_contact_phone: string | null;
@@ -31,7 +32,11 @@ export class PersonnelDodIdConflict extends Error {
 		super('Another Person in this Organization already has that DoD ID.');
 	}
 }
-export interface SavedPersonnelSheet extends Partial<PersonnelSheetEditableValues> {
+export interface SavedPersonnelSheet extends Partial<
+	Omit<PersonnelSheetEditableValues, 'children' | 'military_education'>
+> {
+	children?: unknown;
+	military_education?: unknown;
 	id: string;
 	personnel_id: string;
 	organization_id?: string;

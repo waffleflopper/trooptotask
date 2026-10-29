@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseSignInRosterPersistence } from './rosterPersistence.server';
 import { createSupabaseSignInRosterRankReferenceReader } from './signInRosterRankReferences.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 const ORG = 'ordinary-org';
 const KEY = 'synthetic-ordinary-key';

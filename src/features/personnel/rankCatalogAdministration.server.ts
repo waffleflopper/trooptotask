@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { getAdminClient } from '$lib/server/supabase';
 import type { RankCatalogAdministrationPort } from './rankCatalogOperations.server';
 import { fail } from '$lib/errors';

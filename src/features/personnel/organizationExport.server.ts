@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from './contracts';

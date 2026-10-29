@@ -71,6 +71,8 @@ export default ts.config(
 	},
 	{
 		ignores: [
+			'src/lib/server/database.types.ts',
+			'supabase/current-schema.sql',
 			'.svelte-kit/',
 			'.pi/',
 			'build/',

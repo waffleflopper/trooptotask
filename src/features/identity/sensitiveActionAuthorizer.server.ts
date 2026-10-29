@@ -1,4 +1,5 @@
-import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type {
 	SensitiveAction,
 	SensitiveActionTarget,

@@ -5,7 +5,7 @@ import { CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE } from '../contracts';
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 type Row = Record<string, unknown>;
 function provider(initial: Row[] = []) {

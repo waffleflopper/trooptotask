@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { DEVICE_DATE_MESSAGE } from './calendarCatalogPersistence.server';
@@ -34,8 +34,12 @@ export function createSupabaseRosterSwapPersistence(
 	client: SupabaseClient,
 	orgId: string
 ): CalendarRosterSwapPersistence {
-	async function command(name: string, args: Record<string, unknown>, undo = false) {
-		const { data, error } = await client.rpc(name, { p_organization_id: orgId, ...args });
+	async function command<Name extends keyof Database['public']['Functions']>(
+		name: Name,
+		args: Database['public']['Functions'][Name]['Args'],
+		undo = false
+	) {
+		const { data, error } = await client.rpc(name, args);
 		if (error) {
 			switch (error.code) {
 				case '42501':
@@ -70,6 +74,7 @@ export function createSupabaseRosterSwapPersistence(
 	return {
 		swap: ({ assignmentTypeId, today, days: [first, second] }) =>
 			command('swap_roster_days', {
+				p_organization_id: orgId,
 				p_assignment_type_id: assignmentTypeId,
 				p_today: today,
 				p_first_date: first.date,
@@ -77,6 +82,7 @@ export function createSupabaseRosterSwapPersistence(
 				p_second_date: second.date,
 				p_second_was: second.was
 			}),
-		undo: ({ today, swapId }) => command('undo_roster_swap', { p_today: today, p_swap_id: swapId }, true)
+		undo: ({ today, swapId }) =>
+			command('undo_roster_swap', { p_organization_id: orgId, p_today: today, p_swap_id: swapId }, true)
 	};
 }

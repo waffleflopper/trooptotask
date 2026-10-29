@@ -5,7 +5,7 @@ import {
 } from '$features/notifications/index.server';
 import { WHATS_NEW_VISIBLE_COUNT } from '$features/platform-admin/contracts';
 import { listActiveAnnouncementContent, listPublishedWhatsNew } from '$features/platform-admin/index.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { projectEffectiveMemberAccess, type OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';

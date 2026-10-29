@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { env } from '$env/dynamic/private';
 import { getAdminClient } from '$lib/server/supabase';
 

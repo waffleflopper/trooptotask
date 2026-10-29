@@ -1,5 +1,5 @@
 import { readAccountDirectory } from './platformPeople.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
 	IdentityPlatformSupportReader,
@@ -99,8 +99,14 @@ export function createIdentityPlatformSupportReader(client: SupabaseClient): Ide
 				max_results: input.maxResults
 			});
 			if (error || !Array.isArray(data)) throw new Error('Unable to search platform accounts');
-			return data.map((row: { id: string; email: string | null }) => {
-				if (!row || typeof row.id !== 'string' || (row.email !== null && typeof row.email !== 'string'))
+			return data.map((row) => {
+				if (
+					!row ||
+					typeof row !== 'object' ||
+					Array.isArray(row) ||
+					typeof row.id !== 'string' ||
+					(row.email !== null && typeof row.email !== 'string')
+				)
 					throw new Error('Unable to search platform accounts');
 				return { id: row.id, email: row.email };
 			});

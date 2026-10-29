@@ -1,3 +1,4 @@
+import type { Database } from '$lib/server/database';
 import type { LossCandidate, Personnel, PersonnelEditableFields, PersonnelInsert } from './contracts';
 
 export const PERSONNEL_FIELDS = '*, groups:groups!personnel_organization_group_fkey(name)';
@@ -21,7 +22,7 @@ export function toPersonnel(row: Record<string, unknown>): Personnel {
 
 export function personnelEditableRow(
 	input: Partial<PersonnelEditableFields> & { slug?: string }
-): Record<string, unknown> {
+): Database['public']['Tables']['personnel']['Update'] {
 	return {
 		rank: input.rank,
 		last_name: input.lastName,
@@ -35,14 +36,18 @@ export function personnelEditableRow(
 	};
 }
 
-export function personnelInsertRow(input: PersonnelInsert, orgId: string): Record<string, unknown> {
+export function personnelInsertRow(input: PersonnelInsert, orgId: string) {
 	return {
-		...personnelEditableRow(input),
-		organization_id: orgId,
+		rank: input.rank,
+		last_name: input.lastName,
+		first_name: input.firstName,
 		mos: input.mos ?? '',
+		clinic_role: input.clinicRole,
 		ets: input.ets ?? null,
 		deros: input.deros ?? null,
-		group_id: input.groupId ?? null
+		group_id: input.groupId ?? null,
+		slug: input.slug,
+		organization_id: orgId
 	};
 }
 

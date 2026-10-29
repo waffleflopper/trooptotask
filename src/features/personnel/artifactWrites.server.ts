@@ -1,5 +1,5 @@
 import { counselingRow, documentRow, followUpRow, leaderNoteRow } from './personnelArtifactRow.server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
@@ -134,7 +134,7 @@ export function createSupabasePersonnelArtifactWritePort(
 				personnelId
 			);
 			const admin = getAdminClient();
-			const base = (table: ArtifactTable) => {
+			const base = <Name extends ArtifactTable>(table: Name) => {
 				assertArtifactTable(table);
 				return admin.from(table);
 			};

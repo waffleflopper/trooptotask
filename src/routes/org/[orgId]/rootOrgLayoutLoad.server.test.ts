@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import type { AppShellFirstPaintChromePort, OrgAccessPort } from '$features/app-shell/contracts';
 import { createRootOrgLayoutLoad } from './rootOrgLayoutLoad.server';

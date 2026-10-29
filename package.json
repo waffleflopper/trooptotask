@@ -29,6 +29,7 @@
 		"gate": "npm run format:check && npm run lint && npm run governance:check && npm run check && npm run test",
 		"governance:check": "node ./scripts/check-governance.mjs",
 		"db:test": "sh -c 'for file in supabase/tests/*.sql; do supabase test db \"$file\" || exit 1; done'",
+		"db:schema": "python3 scripts/ci/database.py --write-schema",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"format": "prettier --write .",

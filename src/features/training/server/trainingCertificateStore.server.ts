@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { buildSensitiveFilePath } from '$lib/storage/sensitiveFiles';
 import { registerOrganizationFileUpload, removeRetiredOrganizationFiles } from '$features/organization/index.server';

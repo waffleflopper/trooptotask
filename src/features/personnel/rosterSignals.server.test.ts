@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import type { CapabilityLevel } from '$lib/access/memberAccessShape';

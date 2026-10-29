@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type { AuditEvent } from './contracts';
 
 const NAME_MAX_LENGTH = 200;

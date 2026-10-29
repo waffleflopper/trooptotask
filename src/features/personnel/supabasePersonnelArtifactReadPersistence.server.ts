@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import type {
 	PersonnelArtifactReadPersistence,
 	CounselingRecordRow,
@@ -19,15 +19,15 @@ export function createSupabasePersonnelArtifactReadPersistence(
 ): PersonnelArtifactReadPersistence {
 	return {
 		async countRecords(personnelId) {
-			const rows = (table: string) =>
+			const rows = (table: 'personnel_follow_ups' | 'counseling_records' | 'personnel_documents' | 'leader_notes') =>
 				client
 					.from(table)
 					.select('id', { count: 'exact', head: true })
 					.eq('organization_id', orgId)
 					.eq('personnel_id', personnelId);
 			const counts = await Promise.all([
-				rows('personnel_follow_ups').eq('status', 'open'),
-				rows('personnel_follow_ups').eq('status', 'archived'),
+				rows('personnel_follow_ups').filter('status', 'eq', 'open'),
+				rows('personnel_follow_ups').filter('status', 'eq', 'archived'),
 				rows('counseling_records').not('archived_at', 'is', null),
 				rows('personnel_documents').not('archived_at', 'is', null),
 				rows('leader_notes').not('archived_at', 'is', null)

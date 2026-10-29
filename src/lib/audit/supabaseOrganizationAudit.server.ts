@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { assertAuditQuerySuccess } from './providerError.server';
 import {
 	ORGANIZATION_AUDIT_EXCLUDED_ACTIONS,

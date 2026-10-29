@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '$lib/server/database';
 import { SUPABASE_PAGE_SIZE, selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { TrainingCompletionPersistence, TrainingCompletionReadScope } from '../contracts';
 import {

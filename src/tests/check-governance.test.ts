@@ -4,7 +4,10 @@ import { describe, expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const governance = require('../../scripts/check-governance.mjs') as {
 	collectFeaturePermissionCouplingIssues(sourceFiles: Array<{ path: string; content: string }>): string[];
-	collectGroupScopeMigrationIssues(sourceFiles: Array<{ path: string; content: string }>): string[];
+	collectGroupScopeMigrationIssues(
+		sourceFiles: Array<{ path: string; content: string }>,
+		reviewed?: Map<string, string>
+	): string[];
 	collectPermissionPatterns(content: string): string[];
 	hasRouteAdminProviderUsage(content: string): boolean;
 	hasRouteSupabaseUsage(content: string): boolean;
@@ -242,7 +245,9 @@ describe('nested Group migration governance', () => {
 		'p.group_id IN (SELECT unnest(m.access_scope_group_ids))',
 		'm.access_scope_group_ids = ARRAY[p.group_id]',
 		'access_scope_group_ids = ARRAY[p.group_id]',
-		'cardinality(m.access_scope_group_ids) > 0'
+		'cardinality(m.access_scope_group_ids) > 0',
+		'p.id FROM public.personnel p WHERE p.group_id = ANY ((SELECT m.access_scope_group_ids FROM public.organization_memberships m))',
+		'm.id, m.access_scope_group_ids FROM public.organization_memberships m'
 	])('rejects exact grant membership in a future migration %s', (comparison) => {
 		expect(governance.collectGroupScopeMigrationIssues([{ path, content: `SELECT ${comparison};` }])).toEqual([
 			expect.stringContaining('Use groups.path && access_scope_group_ids')
@@ -259,20 +264,30 @@ describe('nested Group migration governance', () => {
 		]);
 	});
 	it.each([
+		"UPDATE public.personnel p SET status = 'x' WHERE p.group_id = ANY((SELECT m.access_scope_group_ids FROM public.organization_memberships m));",
+		'UPDATE public.organization_memberships SET access_scope_group_ids = ARRAY[]::uuid[];',
+		'NEW.access_scope_group_ids := OLD.access_scope_group_ids;',
+		'INSERT INTO public.organization_memberships (organization_id, access_scope_group_ids) VALUES (p_id, p_groups);'
+	])('rejects any other grant use outside a reviewed migration %s', (content) => {
+		expect(governance.collectGroupScopeMigrationIssues([{ path, content }])).toEqual([
+			expect.stringContaining('Use groups.path && access_scope_group_ids')
+		]);
+	});
+	it.each([
 		'SELECT 1 FROM public.groups WHERE id = ANY(NEW.access_scope_group_ids) AND organization_id <> NEW.organization_id;',
 		'SELECT NEW.responsible_group_id IS DISTINCT FROM OLD.responsible_group_id;',
 		'SELECT g.path && m.access_scope_group_ids;',
-		'UPDATE public.organization_memberships SET access_scope_group_ids = ARRAY[]::uuid[];',
-		"UPDATE public.organization_memberships SET access_scope_kind = 'organization', access_scope_group_ids = ARRAY[]::uuid[] WHERE id = p_id;",
-		'NEW.access_scope_group_ids := ARRAY[]::uuid[];',
-		'NEW.access_scope_group_ids := OLD.access_scope_group_ids;',
-		'UPDATE public.organization_memberships SET access_scope_group_ids = m.access_scope_group_ids;',
-		'INSERT INTO public.organization_memberships (organization_id, access_scope_group_ids) VALUES (p_id, p_groups);',
-		'SELECT m.id, m.access_scope_group_ids FROM public.organization_memberships m;',
-		'RETURNS TABLE (id uuid, access_scope_group_ids uuid[])',
 		'-- person.group_id = ANY(m.access_scope_group_ids)\nSELECT true;'
 	])('accepts storage validation, change detection and subtree rules %s', (content) => {
 		expect(governance.collectGroupScopeMigrationIssues([{ path, content }])).toEqual([]);
+	});
+	it('accepts grant storage in a reviewed migration', () => {
+		expect(
+			governance.collectGroupScopeMigrationIssues(
+				[{ path, content: 'UPDATE public.organization_memberships SET access_scope_group_ids = p_groups;' }],
+				new Map([[path, 'stores submitted roots']])
+			)
+		).toEqual([]);
 	});
 	it('keeps historical migrations outside the new rule', () => {
 		expect(

@@ -64,6 +64,8 @@ function sectionsByGroup(
 	groups: readonly Group[]
 ): { name: string; people: readonly RosterPrintPerson[] }[] {
 	const printed = buildGroupTree(savedGroups(snapshot, groups), { pinnedIds: tree.roots.map((root) => root.id) });
+	// How many roots the printed tree has depends on who reprints it, so the root stays in every path.
+	const label = (id: string) => printed.label(id, { keepRoot: true });
 	const idsByName = new Map<string, string[]>();
 	for (const group of groups) idsByName.set(group.name, [...(idsByName.get(group.name) ?? []), group.id]);
 	const groupOf = (person: RosterPrintPerson): string | null => {
@@ -84,20 +86,19 @@ function sectionsByGroup(
 
 	for (const band of printed.bands(snapshot, groupOf)) {
 		if (chosen.length > 0 && !chosen.includes(band.node.id)) continue;
-		const label = printed.label(band.node.id);
 		if (!band.node.hasChildren) {
-			add(label, band.hq);
+			add(label(band.node.id), band.hq);
 			continue;
 		}
-		add(`${label} HQ`, band.hq);
-		for (const child of band.children) add(printed.label(child.node.id), subtree(child.node.id));
+		add(`${label(band.node.id)} HQ`, band.hq);
+		for (const child of band.children) add(label(child.node.id), subtree(child.node.id));
 	}
 
 	const leftovers = new Map<string, RosterPrintPerson[]>();
 	for (const person of snapshot) {
 		if (placed.has(person)) continue;
 		const id = groupOf(person);
-		const name = id ? printed.label(id) : person.group;
+		const name = id ? label(id) : person.group;
 		leftovers.set(name, [...(leftovers.get(name) ?? []), person]);
 	}
 	for (const name of [...leftovers.keys()].sort((a, b) => (a && b ? a.localeCompare(b) : a ? -1 : 1))) {

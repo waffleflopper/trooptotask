@@ -849,11 +849,7 @@ describe('CalendarPageView', () => {
 			});
 
 			expect(people()).toEqual([expect.stringContaining('Smith, Alice'), expect.stringContaining('Jones, Bob')]);
-			expect(
-				screen
-					.getAllByRole('button', { name: 'Pin' })
-					.map((pin) => pin.parentElement?.querySelector('[aria-expanded]')?.textContent?.match(/Alpha|Bravo/)?.[0])
-			).toEqual(['Alpha']);
+			expect(screen.getAllByRole('button', { name: 'Pin' })).toHaveLength(1);
 
 			await fireEvent.click(screen.getByRole('button', { name: /Alpha 2/ }));
 

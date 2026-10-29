@@ -100,7 +100,8 @@ never confirmed absence.
    whatever names the request posted. Rename `1st Squad` in the Group editor and reprint: the sections still read
    `2nd Platoon › 1st Squad`, including for a squad whose saved People all sit in its teams. Rename it back. Move
    `1st Squad` under another top-level Group and reprint: the sections still read `2nd Platoon › 1st Squad` under
-   the saved nesting. Move it back. A Group-scoped saver's ancestry starts at the first Group they can see.
+   the saved nesting. Move it back. A Group-scoped saver's ancestry starts at the first Group they can see. Every
+   section path keeps its top Group, so a reprint reads the same whoever prints it.
 3. Re-print the saved row and preserve that PDF. Change a selected synthetic Person's name or rank through the visible
    Personnel editor as `rosterManager`, retaining the original value for restoration. Reload Training and reprint the
    same saved roster. The PDF and `$V rows sign_in_rosters orgA id "$ROSTER_ID"` must still show the original snapshot

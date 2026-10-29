@@ -40,7 +40,7 @@ afterEach(cleanup);
 function optionNames(groupName: string): string[] {
 	return within(screen.getByRole('group', { name: groupName }))
 		.getAllByRole('checkbox')
-		.map((box) => box.closest('label')?.textContent?.trim() ?? '');
+		.map((box) => (box as HTMLInputElement).labels?.[0]?.textContent?.trim() ?? '');
 }
 
 function bodyCells(tableName: string): string[][] {

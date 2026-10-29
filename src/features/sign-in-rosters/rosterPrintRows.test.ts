@@ -155,6 +155,19 @@ describe('rosterPrintRows', () => {
 				{ kind: 'person', number: 2, rank: 'SPC', name: 'Team, Ann' }
 			]);
 		});
+
+		it.each([
+			{ reader: 'scoped to the squad', live: [group('p2-s1', '1st Squad', 0, 'p2')] },
+			{
+				reader: 'who sees only the platoon',
+				live: [group('p2', '2nd Platoon', 0), group('p2-s1', '1st Squad', 0, 'p2')]
+			}
+		])('keeps the saved platoon in the path for a reader $reader', ({ live }) => {
+			expect(headings(rosterPrintRows(saved, split, buildGroupTree(live), live))).toEqual([
+				'2nd Platoon HQ',
+				'2nd Platoon › 1st Squad'
+			]);
+		});
 	});
 
 	it('orders a Roster saved without Group ids by the current catalog and pins', () => {

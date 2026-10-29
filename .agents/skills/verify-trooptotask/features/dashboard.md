@@ -340,6 +340,12 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
   headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1`, and the switch is absent
   when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200 available is
   flagged although it rounds to 80%.
+- While the workspace streams in a nested Organization with `Show sub-groups` on, the strip's skeleton already draws
+  one row per by-group row the page will show (the server sends the count with the page), so the list arrives without
+  moving the bands below it. Measure load-time layout shift with a `layout-shift` `PerformanceObserver` after reload at
+  1440x900, 1024x640 and 390x844: on 2026-10-29 the nested tree read `0`, `0.0297` and `0.1038` with the switch on,
+  `0.0134`, `0.0297` and `0.1038` with it off, and the flat fixture matched off. The remaining shift comes from the
+  forecast and Bottom line skeletons, which are shorter than their content. On must never exceed off at any width.
 
 Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and
 return dates, `ALPHA 7/10` amber and `BRAVO 8/10`), `86 of 100` (`typical`, one proportional bar, one row per status

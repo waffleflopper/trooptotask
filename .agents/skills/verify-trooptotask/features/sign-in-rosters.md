@@ -95,7 +95,11 @@ never confirmed absence.
    `9 of 12 personnel match the filters below`. With `Split by group` on, the preview reads `2nd Platoon HQ` (Diaz,
    Webb), then `2nd Platoon › 1st Squad` (Brooks, Kim, Lee, Moss, Nguyen, Ortiz, whose teams fold into the squad), then
    `2nd Platoon › 2nd Squad` (Patel). The dialog fits at 1024x640 and 390x844 with `scrollWidth` equal to the viewport.
-   `Cancel` asks `Discard this roster?`.
+   `Cancel` asks `Discard this roster?`. Save and print it, then read the row: each `personnel_snapshot` entry holds
+   `groupAncestors` from the saver's root down to its Group's parent (`[2nd Platoon, 1st Squad]` for a team member),
+   whatever names the request posted. Rename `1st Squad` in the Group editor and reprint: the sections still read
+   `2nd Platoon › 1st Squad`, including for a squad whose saved People all sit in its teams. Rename it back. A
+   Group-scoped saver's ancestry starts at the first Group they can see.
 3. Re-print the saved row and preserve that PDF. Change a selected synthetic Person's name or rank through the visible
    Personnel editor as `rosterManager`, retaining the original value for restoration. Reload Training and reprint the
    same saved roster. The PDF and `$V rows sign_in_rosters orgA id "$ROSTER_ID"` must still show the original snapshot

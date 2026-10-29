@@ -11,7 +11,7 @@
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import * as Empty from '$lib/components/ui/empty/index.js';
-	import { useDataTable } from '$lib/components/ui/data-table';
+	import { pageSections, useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef, DataTableGroup, DataTableState } from '$lib/components/ui/data-table';
 	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -26,7 +26,6 @@
 	} from '../rosterFilter';
 	import { matchesRosterFilter, type RosterFilter } from '../rosterSignals';
 	import { hasSubGroups, type Band } from '../groupTree';
-	import { pageSections } from '../rosterPages';
 	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, onMount, tick, untrack, type Snippet } from 'svelte';
@@ -284,6 +283,10 @@
 	let bandedPage = $state(1);
 	let bandedPageSize = $state<number>(ROSTER_PAGE_SIZE);
 	const bandedPages = $derived(pageSections<Personnel, RosterSection>(sections, bandedPageSize, bandedPage));
+	// A roster that shrinks past the page keeps the last page, so growing it again does not jump back.
+	$effect(() => {
+		if (bandedPage !== bandedPages.page) bandedPage = bandedPages.page;
+	});
 	const bandedTable: DataTableState<Personnel> = Object.create(groupedTable, {
 		groups: { get: () => bandedPages.sections },
 		allRows: { get: () => bandedPages.rows },

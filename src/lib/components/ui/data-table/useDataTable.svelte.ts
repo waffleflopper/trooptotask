@@ -1,4 +1,5 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { pageSections } from './pageSections.js';
 import type {
 	ColumnDef,
 	DataTableGroup,
@@ -65,7 +66,6 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 		return [...filteredRows].sort((a, b) => compareRows(a, b, column, direction));
 	});
 	const totalRows = $derived(sortedRows.length);
-	const totalPages = $derived(currentPageSize > 0 ? Math.max(1, Math.ceil(totalRows / currentPageSize)) : 1);
 	const pagedRows = $derived.by((): T[] => {
 		if (currentPageSize <= 0) return sortedRows;
 
@@ -94,6 +94,12 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 		}));
 	});
 	const groups = $derived(groupRows.map((group) => ({ ...group, collapsed: collapsedGroups.has(group.key) })));
+	const pagedGroups = $derived(
+		currentPageSize > 0 && groupDef ? pageSections<T, DataTableGroup<T>>(groups, currentPageSize, page) : null
+	);
+	const totalPages = $derived(
+		pagedGroups?.totalPages ?? (currentPageSize > 0 ? Math.max(1, Math.ceil(totalRows / currentPageSize)) : 1)
+	);
 
 	function getColumn(key: string): ColumnDef<T> | undefined {
 		return columnsByKey.get(key) ?? options.resolveColumn?.(key);
@@ -125,7 +131,8 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			return sortedRows;
 		},
 		get groups() {
-			return groups;
+			repairPage();
+			return pagedGroups?.sections ?? groups;
 		},
 		get totalRows() {
 			return totalRows;

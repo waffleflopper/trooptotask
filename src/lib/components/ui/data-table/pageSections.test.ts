@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pageSections, type PageableSection } from './rosterPages';
+import { pageSections, type PageableSection } from './pageSections';
 
 const section = (key: string, rows: number, parentKey: string | null = null, collapsed = false) => ({
 	key,

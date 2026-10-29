@@ -1,6 +1,7 @@
 export interface PageableSection<T> {
 	key: string;
-	parentKey: string | null;
+	/** The enclosing section, which leads a page that starts inside this one. */
+	parentKey?: string | null;
 	rows: T[];
 	collapsed: boolean;
 }

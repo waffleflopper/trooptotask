@@ -90,6 +90,16 @@ describe('rosterPrintRows', () => {
 		expect(headings(rosterPrintRows(legacy, whole, buildGroupTree(repeated), repeated))).toEqual(['Bravo', 'Zulu']);
 	});
 
+	it('labels sections with the Group names saved with the Roster', () => {
+		const renamed = [group('group-b', 'Bravo', 0), group('group-a', 'Renamed Alpha', 1)];
+
+		expect(headings(rosterPrintRows(snapshot, whole, buildGroupTree(renamed), renamed))).toEqual([
+			'Bravo',
+			'Alpha',
+			'Unassigned'
+		]);
+	});
+
 	it('is empty for nobody', () => {
 		expect(rosterPrintRows([], whole, tree, groups)).toEqual([]);
 	});

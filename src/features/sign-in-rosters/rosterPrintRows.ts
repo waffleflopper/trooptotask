@@ -1,4 +1,4 @@
-import type { Group, GroupTree } from '$features/personnel/contracts';
+import { buildGroupTree, type Group, type GroupTree } from '$features/personnel/contracts';
 import { chosenRosterGroups } from './signInRosterFilter';
 
 export interface RosterPrintPerson {
@@ -9,8 +9,6 @@ export interface RosterPrintPerson {
 	/** Absent on Rosters saved before snapshots carried the Group id. */
 	groupId?: string | null;
 }
-
-export type RosterPrintGroup = Pick<Group, 'id' | 'name'>;
 
 /** How a printed Roster splits. `groupIds` are the top-level Groups it was drawn from; none means the whole view. */
 export type RosterSplit = { separateByGroup: false } | { separateByGroup: true; groupIds: readonly string[] };
@@ -34,7 +32,7 @@ export function rosterPrintRows(
 	snapshot: readonly RosterPrintPerson[],
 	split: RosterSplit,
 	tree: GroupTree,
-	groups: readonly RosterPrintGroup[]
+	groups: readonly Group[]
 ): RosterPrintRow[] {
 	const sections = split.separateByGroup
 		? sectionsByGroup(snapshot, split.groupIds, tree, groups)
@@ -53,14 +51,15 @@ export function rosterPrintRows(
 
 /**
  * Sections for each top-level Group the Roster was drawn from, or each one when it was drawn from everyone. A Group with
- * sub-groups opens into its HQ and then each sub-group's whole subtree, path-labelled. People whose Group is no longer
- * in the tree keep their saved Group name, and the ungrouped print last.
+ * sub-groups opens into its HQ and then each sub-group's whole subtree, path-labelled. Labels use the Group names saved
+ * with the Roster, so a reprint after a rename reads as printed. People whose Group is no longer in the tree keep their
+ * saved Group name, and the ungrouped print last.
  */
 function sectionsByGroup(
 	snapshot: readonly RosterPrintPerson[],
 	groupIds: readonly string[],
 	tree: GroupTree,
-	groups: readonly RosterPrintGroup[]
+	groups: readonly Group[]
 ): { name: string; people: readonly RosterPrintPerson[] }[] {
 	const idsByName = new Map<string, string[]>();
 	for (const group of groups) idsByName.set(group.name, [...(idsByName.get(group.name) ?? []), group.id]);
@@ -69,6 +68,9 @@ function sectionsByGroup(
 		const id = person.groupId ?? (named?.length === 1 ? named[0] : null);
 		return id && tree.node(id) ? id : null;
 	};
+
+	const savedNames = new Map(snapshot.flatMap((person) => (person.groupId ? [[person.groupId, person.group]] : [])));
+	const printed = buildGroupTree(groups.map((group) => ({ ...group, name: savedNames.get(group.id) ?? group.name })));
 
 	const chosen = chosenRosterGroups({ groups: [...groupIds] }, tree);
 	const sections: { name: string; people: readonly RosterPrintPerson[] }[] = [];
@@ -82,20 +84,20 @@ function sectionsByGroup(
 
 	for (const band of tree.bands(snapshot, groupOf)) {
 		if (chosen.length > 0 && !chosen.includes(band.node.id)) continue;
-		const label = tree.label(band.node.id);
+		const label = printed.label(band.node.id);
 		if (!band.node.hasChildren) {
 			add(label, band.hq);
 			continue;
 		}
 		add(`${label} HQ`, band.hq);
-		for (const child of band.children) add(tree.label(child.node.id), subtree(child.node.id));
+		for (const child of band.children) add(printed.label(child.node.id), subtree(child.node.id));
 	}
 
 	const leftovers = new Map<string, RosterPrintPerson[]>();
 	for (const person of snapshot) {
 		if (placed.has(person)) continue;
 		const id = groupOf(person);
-		const name = id ? tree.label(id) : person.group;
+		const name = id ? printed.label(id) : person.group;
 		leftovers.set(name, [...(leftovers.get(name) ?? []), person]);
 	}
 	for (const name of [...leftovers.keys()].sort((a, b) => (a && b ? a.localeCompare(b) : a ? -1 : 1))) {

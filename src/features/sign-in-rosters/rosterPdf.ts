@@ -1,12 +1,6 @@
 import type { RowInput } from 'jspdf-autotable';
-import type { GroupTree } from '$features/personnel/contracts';
-import {
-	rosterDateLine,
-	rosterPrintRows,
-	rosterSplit,
-	type RosterPrintGroup,
-	type RosterPrintPerson
-} from './rosterPrintRows';
+import type { Group, GroupTree } from '$features/personnel/contracts';
+import { rosterDateLine, rosterPrintRows, rosterSplit, type RosterPrintPerson } from './rosterPrintRows';
 import type { SignInRosterFilter } from './signInRosterFilter';
 
 export interface RosterPdfConfig {
@@ -21,7 +15,7 @@ export interface RosterPdfConfig {
 export async function generateRosterPdf(
 	config: RosterPdfConfig,
 	tree: GroupTree,
-	groups: readonly RosterPrintGroup[]
+	groups: readonly Group[]
 ): Promise<void> {
 	const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
 	const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });

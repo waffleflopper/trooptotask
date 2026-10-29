@@ -203,7 +203,9 @@ SELECT lives_ok($$INSERT INTO public.groups (id, organization_id, parent_id, nam
 SELECT throws_ok($$INSERT INTO public.groups (organization_id, name) VALUES (pg_temp.id(101), 'Platoon')$$,
   '23505', NULL, 'root names remain unique');
 SELECT throws_ok($$INSERT INTO public.groups (organization_id, name) VALUES (pg_temp.id(101), 'Bad / name')$$,
-  '23514', NULL, 'new names cannot use the path separator');
+  '22023', NULL, 'new names cannot use the path separator');
+SELECT throws_ok($$SELECT public.rename_group(pg_temp.id(101), pg_temp.id(209), 'Bad / name')$$,
+  '22023', NULL, 'renamed Groups cannot use the path separator');
 SELECT throws_ok($$INSERT INTO public.groups (organization_id, parent_id, name) VALUES (pg_temp.id(101), pg_temp.id(207), 'Cross Organization')$$,
   '23503', NULL, 'a parent must belong to the same Organization');
 

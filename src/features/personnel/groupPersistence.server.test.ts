@@ -106,6 +106,16 @@ describe('ordinary Group persistence', () => {
 		});
 		expect(state.rows.groups).toEqual([{ id: 'alpha', name: 'Alpha', sort_order: 0, organization_id: 'org-a' }]);
 	});
+	it('returns a client error when the database rejects a new Group name', async () => {
+		const { client, state } = personnelProvider();
+		state.failure = () => ({ code: '22023', message: 'Group names cannot contain the path separator', status: 400 });
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		await expect(port.create({ name: 'HQ / Supply' })).rejects.toMatchObject({
+			name: 'RequestFailure',
+			status: 400
+		});
+		expect(state.rows.groups).toEqual([]);
+	});
 });
 
 function groupRpc(reply: () => Response | Promise<Response>) {

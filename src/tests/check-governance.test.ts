@@ -235,7 +235,14 @@ describe('nested Group migration governance', () => {
 		'person.group_id = ANY(m.access_scope_group_ids)',
 		'"g"."id" = ANY(\n"membership"."access_scope_group_ids"\n)',
 		'person.group_id = ANY(NEW.access_scope_group_ids)',
-		'person.group_id = ANY(OLD.access_scope_group_ids)'
+		'person.group_id = ANY(OLD.access_scope_group_ids)',
+		'm.access_scope_group_ids @> ARRAY[p.group_id]',
+		'ARRAY[p.group_id] <@ m.access_scope_group_ids',
+		'ARRAY[p.group_id] && m.access_scope_group_ids',
+		'p.group_id IN (SELECT unnest(m.access_scope_group_ids))',
+		'm.access_scope_group_ids = ARRAY[p.group_id]',
+		'access_scope_group_ids = ARRAY[p.group_id]',
+		'cardinality(m.access_scope_group_ids) > 0'
 	])('rejects exact grant membership in a future migration %s', (comparison) => {
 		expect(governance.collectGroupScopeMigrationIssues([{ path, content: `SELECT ${comparison};` }])).toEqual([
 			expect.stringContaining('Use groups.path && access_scope_group_ids')
@@ -255,6 +262,14 @@ describe('nested Group migration governance', () => {
 		'SELECT 1 FROM public.groups WHERE id = ANY(NEW.access_scope_group_ids) AND organization_id <> NEW.organization_id;',
 		'SELECT NEW.responsible_group_id IS DISTINCT FROM OLD.responsible_group_id;',
 		'SELECT g.path && m.access_scope_group_ids;',
+		'UPDATE public.organization_memberships SET access_scope_group_ids = ARRAY[]::uuid[];',
+		"UPDATE public.organization_memberships SET access_scope_kind = 'organization', access_scope_group_ids = ARRAY[]::uuid[] WHERE id = p_id;",
+		'NEW.access_scope_group_ids := ARRAY[]::uuid[];',
+		'NEW.access_scope_group_ids := OLD.access_scope_group_ids;',
+		'UPDATE public.organization_memberships SET access_scope_group_ids = m.access_scope_group_ids;',
+		'INSERT INTO public.organization_memberships (organization_id, access_scope_group_ids) VALUES (p_id, p_groups);',
+		'SELECT m.id, m.access_scope_group_ids FROM public.organization_memberships m;',
+		'RETURNS TABLE (id uuid, access_scope_group_ids uuid[])',
 		'-- person.group_id = ANY(m.access_scope_group_ids)\nSELECT true;'
 	])('accepts storage validation, change detection and subtree rules %s', (content) => {
 		expect(governance.collectGroupScopeMigrationIssues([{ path, content }])).toEqual([]);

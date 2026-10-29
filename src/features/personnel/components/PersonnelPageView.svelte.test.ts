@@ -732,6 +732,38 @@ describe('PersonnelPageView', () => {
 				await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Unpin Bravo' })));
 			});
 
+			it('keeps the page turned while a pin was saving', async () => {
+				let finishSave!: () => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(
+						() =>
+							new Promise((resolve) => {
+								finishSave = () => resolve(new Response(JSON.stringify({ groupIds: ['group-2'] })));
+							})
+					)
+				);
+				groupCatalogHydration.load(
+					[
+						{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+						{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
+					],
+					'org-1'
+				);
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(screen.getByRole('button', { name: 'Pin Bravo' }));
+				await waitFor(() => expect(screen.getByRole('button', { name: 'Unpin Bravo' })).toBeTruthy());
+
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				finishSave();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+
+				expect(screen.queryByRole('button', { name: 'Unpin Bravo' })).toBeNull();
+			});
+
 			it('follows a Group collapsed from its continuation page and keeps focus on its toggle', async () => {
 				personnelStore.load(
 					Array.from({ length: 400 }, (_, index) => ({

@@ -638,6 +638,8 @@ export type {
 } from './rankCatalogPersistence';
 export type {
 	PersonnelSheetPersistence,
+	PersonnelDodId,
+	PersonnelDodIdSaveFailure,
 	PersonnelWorkbookHistoryReader,
 	PersonnelSheetEditableValues,
 	SavedPersonnelSheet

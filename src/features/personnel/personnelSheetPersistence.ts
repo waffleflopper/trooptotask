@@ -44,6 +44,8 @@ export interface SavedPersonnelSheet extends Partial<
 	updated_at?: string | null;
 }
 export interface PersonnelSheetPersistence {
+	listDodIds(): Promise<PersonnelDodId[]>;
+	saveDodIds(rows: readonly PersonnelDodId[]): Promise<PersonnelDodIdSaveFailure[]>;
 	listSheetsForPerson(personnelId: string): Promise<SavedPersonnelSheet[]>;
 	findSheetForPerson(personnelId: string): Promise<SavedPersonnelSheet | null>;
 	createSheet(
@@ -52,6 +54,14 @@ export interface PersonnelSheetPersistence {
 	): Promise<SavedPersonnelSheet>;
 	replaceEditableSheetFields(id: string, values: PersonnelSheetEditableValues): Promise<SavedPersonnelSheet>;
 	setAwardAcknowledgedAt(id: string, value: string | null): Promise<void>;
+}
+export interface PersonnelDodId {
+	personnelId: string;
+	dodId: string;
+}
+export interface PersonnelDodIdSaveFailure {
+	personnelId: string;
+	reason: 'conflict' | 'failed';
 }
 export interface PersonnelCounselingExportFacts {
 	date_conducted?: string | null;

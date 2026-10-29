@@ -6,7 +6,9 @@ import type {
 	PersonnelSheetPersistence,
 	PersonnelWorkbookHistoryReader,
 	PersonnelCounselingExportFacts,
-	PersonnelSheetExportFacts
+	PersonnelSheetExportFacts,
+	PersonnelDodId,
+	PersonnelDodIdSaveFailure
 } from './personnelSheetPersistence';
 const SELECT =
 	'id,personnel_id,organization_id,dod_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,created_at,updated_at,updated_by';
@@ -85,7 +87,51 @@ export function createSupabasePersonnelSheetPersistence(
 	client: SupabaseClient,
 	orgId: string
 ): PersonnelSheetPersistence {
+	async function saveDodIds(rows: readonly PersonnelDodId[]): Promise<PersonnelDodIdSaveFailure[]> {
+		if (rows.length === 0) return [];
+		try {
+			const { error } = await client.from('personnel_extended_info').upsert(
+				rows.map(({ personnelId, dodId }) => ({
+					organization_id: orgId,
+					personnel_id: personnelId,
+					dod_id: dodId
+				})),
+				{ onConflict: 'personnel_id' }
+			);
+			if (error) throwSheetWriteError(error);
+			return [];
+		} catch (error) {
+			if (error instanceof PersonnelDodIdConflict && rows.length > 1) {
+				// A rejected statement wrote nothing. Split it so an ID race does not block unrelated People.
+				const midpoint = Math.floor(rows.length / 2);
+				return [...(await saveDodIds(rows.slice(0, midpoint))), ...(await saveDodIds(rows.slice(midpoint)))];
+			}
+			return rows.map(({ personnelId }) => ({
+				personnelId,
+				reason: error instanceof PersonnelDodIdConflict ? 'conflict' : 'failed'
+			}));
+		}
+	}
 	return {
+		async listDodIds() {
+			const rows: PersonnelDodId[] = [];
+			for (let offset = 0; ; offset += 1000) {
+				const { data, error } = await client
+					.from('personnel_extended_info')
+					.select('personnel_id,dod_id')
+					.eq('organization_id', orgId)
+					.not('dod_id', 'is', null)
+					.order('id', { ascending: true })
+					.range(offset, offset + 999);
+				if (error) throw new Error(error.message);
+				const page = data ?? [];
+				rows.push(
+					...page.flatMap((row) => (row.dod_id === null ? [] : [{ personnelId: row.personnel_id, dodId: row.dod_id }]))
+				);
+				if (page.length < 1000) return rows;
+			}
+		},
+		saveDodIds,
 		async listSheetsForPerson(personnelId) {
 			const rows: SavedPersonnelSheet[] = [];
 			for (let offset = 0; ; offset += 1000) {

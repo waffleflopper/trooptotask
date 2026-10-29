@@ -108,9 +108,10 @@ export function personnelProvider(initial: Partial<Record<PersonnelTable, Row[]>
 				);
 				if (request.method === 'POST') {
 					const inputs: Row[] = Array.isArray(body) ? body : [body];
+					const conflictColumns = url.searchParams.get('on_conflict')?.split(',');
 					selected = inputs.map((input) => {
-						const existing = url.searchParams.has('on_conflict')
-							? rows[table].find((row) => ['organization_id', 'code'].every((key) => row[key] === input[key]))
+						const existing = conflictColumns
+							? rows[table].find((row) => conflictColumns.every((key) => row[key] === input[key]))
 							: null;
 						if (existing) {
 							Object.assign(existing, input);

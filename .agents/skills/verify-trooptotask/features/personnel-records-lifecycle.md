@@ -247,8 +247,9 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    `3rd Platoon › Weapons Squad`, upload a one-sheet workbook (`Rank, Last Name, First Name, MOS, Group`) whose Group
    cells are `2nd Platoon / 2nd Squad / Bravo Team`, `Alpha Team`, `2nd Platoon / 3rd Squad / Charlie Team` and
    `Weapons Squad`. Review reads `All · 4`, `Needs a fix · 2`, `New · 2`: the path and the unique bare name are New and
-   show `2nd Platoon / 2nd Squad / Bravo Team` and `3rd Platoon / Weapons Squad`. The rail asks `Which group?` for
-   `"Alpha Team"` with the radios `2nd Platoon / 2nd Squad / Alpha Team` and `3rd Platoon / 1st Squad / Alpha Team`,
+   show `2nd Platoon › 2nd Squad › Bravo Team` and `3rd Platoon › Weapons Squad`. The rail asks `Which group?` for
+   `"Alpha Team"` with the radios `2nd Platoon › 2nd Squad › Alpha Team` and `3rd Platoon › 1st Squad › Alpha Team`
+   (display paths that keep the root, so a legacy `Clinic / Lab` root stays distinct from a `Clinic › Lab` branch),
    and `Unknown group` for the Charlie path with `Create "2nd Platoon / 3rd Squad / Charlie Team"`. Apply the 2nd
    Platoon path; `Create group` with the prefilled path saves `3rd Squad` (depth 2 under 2nd Platoon) and
    `Charlie Team` (depth 3 under it) and no second 2nd Platoon. `Import 4 changes` (`4 added · 0 updated`) saves each

@@ -3,6 +3,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import type { ClassValue } from 'clsx';
 	import { Button } from '$lib/components/ui/button';
+	import { getFieldContext } from '$lib/components/ui/field/index.js';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
@@ -26,12 +27,25 @@
 		valueCount?: number;
 		placeholder: string;
 		searchPlaceholder: string;
+		/** The trigger's id, for a field label. Inside a Field, the trigger also takes its description and error. */
+		id?: string;
 		class?: ClassValue;
 	};
 
 	let props: Props = $props();
-	const { options, label, valueLabel, valueCount, placeholder, searchPlaceholder, class: className } = $derived(props);
+	const {
+		options,
+		label,
+		valueLabel,
+		valueCount,
+		placeholder,
+		searchPlaceholder,
+		id,
+		class: className
+	} = $derived(props);
 
+	const field = getFieldContext();
+	const fieldAria = $derived(field?.controlAria(undefined, undefined) ?? {});
 	const isMobile = new IsMobile(640);
 	let open = $state(false);
 	const chosen = $derived(props.multiple ? props.value : props.value === null ? [] : [props.value]);
@@ -79,6 +93,8 @@
 			{#snippet child({ props })}
 				<button
 					{...props}
+					{id}
+					{...fieldAria}
 					type="button"
 					class={cn(
 						'flex h-9 w-full min-w-0 items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:border-accent',
@@ -124,6 +140,8 @@
 			{#snippet child({ props })}
 				<button
 					{...props}
+					{id}
+					{...fieldAria}
 					type="button"
 					class={cn(
 						'flex h-8 max-w-full min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:border-accent',

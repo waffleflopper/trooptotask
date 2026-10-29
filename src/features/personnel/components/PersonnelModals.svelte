@@ -23,7 +23,7 @@
 	const groupEditorPayload = $derived(modals.payload<{ select: string | null }>('group-manager'));
 
 	const editorGroups = $derived(withPendingOrder(groupManagementStore.items, groupManagementStore.pendingOrder));
-	const groupCommands = createGroupStructureCommands(ctx.peek);
+	const groupCommands = $derived(createGroupStructureCommands(ctx.peek));
 
 	async function moveMembers(personnelIds: string[], groupId: string | null) {
 		const orgId = ctx.orgId;

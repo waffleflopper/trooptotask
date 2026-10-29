@@ -268,8 +268,41 @@ describe('PersonnelModal', () => {
 		expect(describedText(group())).toMatch(/whole-unit access/);
 
 		await fireEvent.click(group());
-		await fireEvent.click(await screen.findByRole('option', { name: 'Alpha' }));
+		await fireEvent.click(await screen.findByRole('treeitem', { name: 'Alpha' }));
 		await waitFor(() => expect(describedText(group())).not.toMatch(/whole-unit access/));
+	});
+
+	it('assigns a team inside a squad from the Group tree and shows its path', async () => {
+		const onSubmit = vi.fn().mockResolvedValue(undefined);
+		render(PersonnelModal, {
+			props: {
+				groups: [
+					{ id: 'plt', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 },
+					{ id: 'sq', name: '1st Squad', sortOrder: 0, parentId: 'plt', depth: 2 },
+					{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq', depth: 3 },
+					{ id: 'bravo', name: 'Bravo Team', sortOrder: 1, parentId: 'sq', depth: 3 },
+					{ id: 'hq', name: 'HQ', sortOrder: 1, parentId: null, depth: 1 }
+				],
+				allowUnassigned: true,
+				rankCatalog: armyRankCatalog,
+				onSubmit,
+				onClose: vi.fn()
+			}
+		});
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Moss' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Avery' } });
+
+		await fireEvent.click(document.getElementById('person-group') as HTMLElement);
+		await fireEvent.input(await screen.findByRole('combobox', { name: 'Search Groups' }), {
+			target: { value: 'bravo' }
+		});
+		await fireEvent.click(screen.getByRole('treeitem', { name: 'Bravo Team' }));
+
+		expect(document.getElementById('person-group')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+			'Group: 2nd Platoon › 1st Squad › Bravo Team'
+		);
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ groupId: 'bravo' })));
 	});
 
 	describe('Add and add another', () => {
@@ -288,7 +321,7 @@ describe('PersonnelModal', () => {
 			await fireEvent.input(screen.getByLabelText(/MOS/i), { target: { value: '92Y' } });
 			await fireEvent.input(screen.getByLabelText(/Duty Role/i), { target: { value: 'Supply clerk' } });
 			await fireEvent.click(screen.getByRole('button', { name: 'Group' }));
-			await fireEvent.click(await screen.findByRole('option', { name: 'Supply section' }));
+			await fireEvent.click(await screen.findByRole('treeitem', { name: 'Supply section' }));
 
 			await fireEvent.click(screen.getByRole('button', { name: /Add and add another/ }));
 

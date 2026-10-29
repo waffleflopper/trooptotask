@@ -4,7 +4,6 @@
 	import type { Group } from '$features/personnel/contracts';
 	import {
 		defaultNewPersonnelRank,
-		groupOptionsFor,
 		nextPersonnelDraft,
 		personnelDraftChanges,
 		personnelDraftOf,
@@ -20,6 +19,7 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
+	import GroupSelect from './GroupSelect.svelte';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -69,7 +69,6 @@
 
 	const errors = $derived(validatePersonnelDraft(draft, { allowUnassigned, groups }));
 	const shownErrors = $derived<PersonnelDraftErrors>(submitAttempted ? errors : {});
-	const groupOptions = $derived(groupOptionsFor(groups, allowUnassigned));
 	const noGroups = $derived(groups.length === 0 && allowUnassigned);
 	const kept = $derived(added.length > 0);
 
@@ -329,19 +328,7 @@
 						{:else}
 							<Field.Root data-invalid={shownErrors.groupId ? true : undefined}>
 								<Field.Label for="person-group">Group {@render keptMark()}</Field.Label>
-								<Combobox.Root items={groupOptions} bind:value={draft.groupId} label="Group" autoHighlight>
-									<Combobox.Trigger
-										id="person-group"
-										clearable={allowUnassigned}
-										placeholder={allowUnassigned ? 'No Group Assigned' : 'Select a Group'}
-										aria-label="Group"
-									/>
-									<Combobox.Content>
-										<Combobox.Search placeholder="Search Groups" />
-										<Combobox.Empty>No Group matches.</Combobox.Empty>
-										<Combobox.List />
-									</Combobox.Content>
-								</Combobox.Root>
+								<GroupSelect {groups} bind:value={draft.groupId} {allowUnassigned} id="person-group" />
 								{#if allowUnassigned && !draft.groupId}
 									<Field.Description>Only members with whole-unit access will see this person.</Field.Description>
 								{/if}

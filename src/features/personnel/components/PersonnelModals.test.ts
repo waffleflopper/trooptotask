@@ -449,16 +449,17 @@ describe('scoped Personnel creation', () => {
 		expect(requests).toEqual([]);
 		expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-invalid')).toBe('true');
 		await fireEvent.click(screen.getByRole('button', { name: 'Group' }));
-		expect(screen.queryByRole('option', { name: 'Bravo' })).toBeNull();
-		expect(screen.queryByRole('option', { name: 'No Group Assigned' })).toBeNull();
-		await fireEvent.click(await screen.findByRole('option', { name: 'Alpha' }));
+		expect(screen.queryByRole('treeitem', { name: 'Bravo' })).toBeNull();
+		expect(screen.queryByRole('treeitem', { name: 'No Group Assigned' })).toBeNull();
+		await fireEvent.click(await screen.findByRole('treeitem', { name: 'Alpha' }));
 		expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
 		await fireEvent.click(screen.getByTestId('personnel-save'));
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy());
 		expect(personnelStore.items).toEqual([]);
 		expect(modals.isOpen('personnel-modal')).toBe(true);
 		expect((screen.getByLabelText('Last name') as HTMLInputElement).value).toBe('Scoped');
-		expect(screen.getByRole('button', { name: 'Group' }).textContent).toContain('Alpha');
+		// The only permitted Group, once chosen, leaves nothing to pick, so the field reads as text.
+		expect(screen.getByText('Group:').parentElement?.textContent?.trim()).toBe('Group: Alpha');
 		fail = false;
 		await fireEvent.click(screen.getByTestId('personnel-save'));
 		await waitFor(() => expect(modals.isOpen('personnel-modal')).toBe(false));

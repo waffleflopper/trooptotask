@@ -110,13 +110,6 @@ export function defaultNewPersonnelRank(options: readonly PersonnelDraftOption[]
 	return options.find((option) => normalizeRankCode(option.value) === COMMON_NEW_PERSONNEL_RANK)?.value ?? '';
 }
 
-export function groupOptionsFor(groups: readonly Group[], allowUnassigned: boolean): PersonnelDraftOption[] {
-	return [
-		...(allowUnassigned ? [{ value: '', label: 'No Group Assigned' }] : []),
-		...groups.map((group) => ({ value: group.id, label: group.name }))
-	];
-}
-
 export type PersonnelDraftErrors = Partial<Record<'rank' | 'lastName' | 'firstName' | 'groupId', string>>;
 
 export interface PersonnelDraftRules {

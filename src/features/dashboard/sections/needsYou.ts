@@ -84,7 +84,7 @@ export type NeedsYouKind = NeedsYouItem['kind'];
 
 /** A lower tier always ranks above a higher one; kinds in one tier rank together by urgency. */
 export const NEEDS_YOU_KINDS = [
-	{ kind: 'overdue', label: 'Overdue', severity: 'danger', tier: 0 },
+	{ kind: 'overdue', label: 'Past thru', severity: 'danger', tier: 0 },
 	{ kind: 'taskingOverdue', label: 'Overdue', severity: 'danger', tier: 0 },
 	{ kind: 'expired', label: 'Expired', severity: 'danger', tier: 1 },
 	{ kind: 'taskingBlocked', label: 'Blocked', severity: 'danger', tier: 2 },

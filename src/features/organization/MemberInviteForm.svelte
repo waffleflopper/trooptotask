@@ -122,7 +122,7 @@
 						<span class="truncate">{workspace.inviteGroupsLabel}</span>
 					</Select.Trigger>
 					<Select.Content>
-						<Select.Item value={ALL_GROUPS} label="All groups" />
+						<Select.Item value={ALL_GROUPS} label="Whole unit" />
 						{#each groups as group (group.id)}
 							<Select.Item value={group.id} label={group.name} />
 						{/each}

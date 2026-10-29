@@ -24,11 +24,11 @@
 <AuthShell
 	eyebrow="Setup Link Recovery"
 	headline={['Link expired?', 'Get a fresh one.']}
-	lede="Approved but never finished setup? We'll send a new Account Setup Link to the same address."
+	lede="Invited or approved but never finished setup? We'll send a new Account Setup Link to the same address."
 	steps={{
 		label: 'How it works',
 		items: [
-			{ title: 'Enter your email', detail: 'The one on your access request.' },
+			{ title: 'Enter your email', detail: 'The one your invitation or approval email went to.' },
 			{ title: 'Open the newest email', detail: 'Older unused links stop working.' },
 			{ title: 'Finish setup', detail: 'The link works for 14 days.' }
 		]
@@ -36,19 +36,24 @@
 	alternatives={[
 		{ prompt: 'Already set up?', label: 'Sign in', href: resolve('/auth/login') },
 		{ prompt: 'Forgot your password?', label: 'Reset your password', href: resolve('/auth/forgot-password') },
-		{ prompt: 'Never requested access?', label: 'Request access', href: resolve('/auth/request-access') }
+		{
+			prompt: 'Not invited and never requested access?',
+			label: 'Request access',
+			href: resolve('/auth/request-access')
+		}
 	]}
 	panelEyebrow="Setup link"
 	panelTitle={form?.success ? 'Check your email' : 'Request a fresh setup link'}
 	panelDescription={form?.success
-		? 'If your request is still eligible, a new setup email is on the way.'
-		: 'Enter the same email address you used on your access request.'}
+		? 'If your invitation or approval is still eligible, a new setup email is on the way.'
+		: 'Enter the email address your invitation or approval email was sent to.'}
 >
 	<div class="flex flex-col gap-5">
 		{#if form?.success}
 			<AuthNotice bind:ref={confirmation} tone="success" title="Check your email" centered>
 				<p>
-					If <strong>{form.email}</strong> still has an approved, incomplete request, a fresh setup email is on the way.
+					If <strong>{form.email}</strong> has an invitation or approval that is still eligible, a fresh setup email is on
+					the way.
 				</p>
 				<p>For security, that new link will expire after 14 days.</p>
 			</AuthNotice>

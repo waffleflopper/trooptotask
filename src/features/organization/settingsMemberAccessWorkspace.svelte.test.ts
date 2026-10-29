@@ -30,7 +30,7 @@ function member(
 			...access
 		},
 		storedLevels: storedLevels ?? access.capabilityMap ?? createCapabilityMap('configure'),
-		scopeDisplayLabel: 'All groups',
+		scopeDisplayLabel: 'Whole unit',
 		overriddenCapabilityLabels: []
 	};
 }
@@ -198,10 +198,10 @@ describe('settings member access workspace', () => {
 		expect(workspace.changeCount).toBe(1);
 	});
 
-	it('treats All groups and the group picks in the invite select as exclusive', () => {
+	it('treats Whole unit and the group picks in the invite select as exclusive', () => {
 		const workspace = makeWorkspace();
 		expect(workspace.inviteGroupsValue).toEqual([ALL_GROUPS]);
-		expect(workspace.inviteGroupsLabel).toBe('All groups');
+		expect(workspace.inviteGroupsLabel).toBe('Whole unit');
 
 		workspace.setInviteGroups([ALL_GROUPS, 'g-1']);
 		expect(workspace.invite.groupIds).toEqual(['g-1']);

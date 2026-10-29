@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CalendarTypesEmptyState from './CalendarTypesEmptyState.svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
@@ -294,7 +295,7 @@
 				{batch.length === 1 ? 'person' : 'people'} · {datesLabel}
 			</span>
 		{:else}
-			<span class="text-chrome-text-muted">No status types are configured.</span>
+			<span class="text-chrome-text-muted [&_a]:text-chrome-text"><CalendarTypesEmptyState kind="status" /></span>
 		{/if}
 	</p>
 	{#if overlapping.length > 0}

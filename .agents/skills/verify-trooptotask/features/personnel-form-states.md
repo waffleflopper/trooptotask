@@ -108,16 +108,17 @@ values.
    `Add person`: the dialog closes with an `Added <Rank Last>` toast. Reload Personnel and read
    `$V rows personnel orgA`: three rows with rank `SPC` and MOS `92Y`, the Duty Role (`clinic_role`) only on the first
    and the Group only on the third. Submitting with both names empty shows `Enter a last name.` and
-   `Enter a first name.` on their fields and focuses `Last name`. A failed save (`network arm-fail PAGE personnel`)
-   is a 503 the client cannot tell from a lost reply, so it keeps the dialog open with `<Rank Last> may already be
-saved` in an `Alert` at the top of the body, every value in place, `Add and add another` disabled and `Reload roster`
-   as the only primary action; Enter and Ctrl+Enter send nothing (`network state` keeps one request). Restore and press
+   `Enter a first name.` on their fields and focuses `Last name`. A failed save (`network arm-fail PAGE personnel`) is a
+   503 the client cannot tell from a lost reply, so it keeps the dialog open with `<Rank Last> may already be saved` in
+   an `Alert` at the top of the body, every value in place, `Add and add another` disabled and `Reload roster` as the
+   only primary action; Enter and Ctrl+Enter send nothing (`network state` keeps one request). Restore and press
    `Reload roster`: the page reloads and `$V rows personnel orgA` has no new row. A 4xx refusal instead reads
-   `<Rank Last> wasn't added` with the server's message and `Try again`. Where the actor may
-   leave people unassigned and the Organization has no Groups, a `No Groups yet` note replaces the Group select. Every
-   text input carries `autocomplete="off"`, `data-1p-ignore`, `data-lpignore` and `data-bwignore`. At 390 the dialog
-   fills the screen, the section labels sit above their fields, the footer's second button reads `Add another`, and the
-   page has no horizontal scroll. Start Onboarding's Add Person has no `Add and add another`.
+   `<Rank Last> wasn't added` with the server's message and `Try again`. Where the actor may leave people unassigned,
+   the Group field says `Only members with whole-unit access will see this person.` until a Group is picked, and when
+   the Organization has no Groups, a `No Groups yet` note replaces the Group select. Every text input carries
+   `autocomplete="off"`, `data-1p-ignore`, `data-lpignore` and `data-bwignore`. At 390 the dialog fills the screen, the
+   section labels sit above their fields, the footer's second button reads `Add another`, and the page has no horizontal
+   scroll. Start Onboarding's Add Person has no `Add and add another`.
 
 ## Gotchas
 

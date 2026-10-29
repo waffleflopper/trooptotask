@@ -165,6 +165,7 @@ function inputs(loaded: Loaded): DashboardInputs {
 					],
 					lossWarningWindowDays: 180,
 					strengthFloorPercent: 80,
+					trainingReadinessGoalPercent: 90,
 					awardTrackingAcknowledgedPersonnelIds: loaded.awardTrackingAcknowledgedPersonnelIds ?? []
 				},
 				hydration: {

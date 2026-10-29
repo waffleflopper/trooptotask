@@ -37,6 +37,7 @@
 	const supportRequired = $derived(
 		data.state === 'claimed' || data.state === 'support-required' || form?.supportRequired === true
 	);
+	const invitedTo = $derived(data.state === 'valid' || data.state === 'recovery-available' ? data.invitedTo : null);
 	const canSubmit = $derived(
 		showPasswordForm && !supportRequired && requirements.valid && passwordsMatch && !loading && !checkingStatus
 	);
@@ -47,19 +48,27 @@
 </svelte:head>
 
 <AuthShell
-	eyebrow="Reviewed Access"
-	headline={["You're approved.", 'Set it up.']}
-	lede="Choose your own password and your User Account is ready. Unit membership comes next, inside TroopToTask."
+	eyebrow={invitedTo ? 'Unit invitation' : 'Reviewed Access'}
+	headline={invitedTo ? [`${invitedTo} invited you.`, 'Set it up.'] : ["You're approved.", 'Set it up.']}
+	lede={invitedTo
+		? 'Choose your own password. Then sign in and accept the invitation from your Dashboard.'
+		: 'Choose your own password and your User Account is ready. Unit membership comes next, inside TroopToTask.'}
 	steps={{
 		label: 'Account setup',
 		items: [
-			{ title: 'Request approved', detail: 'A person reviewed it.', state: 'done' },
+			invitedTo
+				? { title: 'Invitation sent', detail: 'Your unit added this email.', state: 'done' }
+				: { title: 'Request approved', detail: 'A person reviewed it.', state: 'done' },
 			{
 				title: 'Choose a password',
 				detail: 'TroopToTask never emails one.',
 				state: setupFinished ? 'done' : 'current'
 			},
-			{ title: 'Sign in', detail: 'Then join your unit.', state: setupFinished ? 'current' : 'upcoming' }
+			{
+				title: 'Sign in',
+				detail: invitedTo ? 'Then accept the invitation.' : 'Then join your unit.',
+				state: setupFinished ? 'current' : 'upcoming'
+			}
 		]
 	}}
 	alternatives={[
@@ -76,7 +85,9 @@
 					}
 				]
 			: []),
-		{ prompt: 'Still waiting on approval?', label: 'Request access', href: resolve('/auth/request-access') }
+		...(invitedTo
+			? []
+			: [{ prompt: 'Still waiting on approval?', label: 'Request access', href: resolve('/auth/request-access') }])
 	]}
 	panelEyebrow="Account setup"
 	panelTitle={supportRequired
@@ -95,7 +106,7 @@
 			: setupFinished
 				? 'Continue by signing in with the password you chose.'
 				: showPasswordForm && 'email' in data
-					? `This setup link is approved for ${data.email}.`
+					? `This setup link is ${invitedTo ? 'for' : 'approved for'} ${data.email}.`
 					: 'Request a fresh setup link if your approval is still eligible.'}
 >
 	<div class="flex flex-col gap-5">

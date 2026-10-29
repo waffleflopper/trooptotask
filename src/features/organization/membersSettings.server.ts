@@ -419,7 +419,7 @@ function formatScopeSet(
 	scopeSet: ReturnType<typeof buildSettingsMemberAccessRow>['access']['scopeSet'],
 	groups: Array<{ id: string; name: string }>
 ): string {
-	if (scopeSet.kind === 'organization') return 'All groups';
+	if (scopeSet.kind === 'organization') return 'Whole unit';
 	if (scopeSet.groupIds.length === 0) return 'No groups';
 	return scopeSet.groupIds
 		.map((groupId) => groups.find((group) => group.id === groupId)?.name ?? 'Unknown group')

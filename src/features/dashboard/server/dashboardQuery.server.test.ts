@@ -501,6 +501,16 @@ describe('fetchDashboardBootstrap', () => {
 		]);
 	});
 
+	it('defaults the Training readiness goal to 90 percent and reads the one the unit set', async () => {
+		expect((await fetchDashboardBootstrap(buildCtx())).trainingReadinessGoalPercent).toBe(90);
+
+		const ctx = buildCtx();
+		(ctx.store as ReturnType<typeof createInMemoryDataStore>).seed('organizations', [
+			{ id: ORG, training_readiness_goal_percent: 75 }
+		]);
+		expect((await fetchDashboardBootstrap(ctx)).trainingReadinessGoalPercent).toBe(75);
+	});
+
 	it('defaults the strength floor to 80 percent', async () => {
 		const result = await fetchDashboardBootstrap(buildCtx());
 

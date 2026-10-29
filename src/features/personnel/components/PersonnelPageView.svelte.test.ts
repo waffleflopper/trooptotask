@@ -750,6 +750,15 @@ describe('PersonnelPageView', () => {
 				await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Expand Alpha' })));
 			});
 
+			it('starts a sorted grouped roster at the first page', async () => {
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
+				await fireEvent.click(screen.getByRole('button', { name: 'Sort by MOS' }));
+
+				expect(pager().getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
+			});
+
 			it('searches the whole roster from the first page', async () => {
 				renderLargeGroupedRoster();
 				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));

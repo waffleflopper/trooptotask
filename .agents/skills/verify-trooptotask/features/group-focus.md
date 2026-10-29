@@ -73,7 +73,8 @@ Use `manager` with `$V calendar-grant manager view` for the Calendar steps and r
    only (see [member access](organization-member-access.md)). In `$V actor orgMember personnel` at 1440 and 390 the
    eyebrow reads `Verification Organization A · Alpha Team`, the toolbar shows the static `Alpha Team 4` with nothing to
    open, the roster lists Brooks, Moss, Nguyen and Ortiz with no band and no pin, and `scrollWidth` equals the viewport.
-   Restore `orgMember`'s Groups to `Alpha` and reload Members to confirm.
+   `$V actor orgMember calendar` at 1440 shows the same four rows with no band header and no pin. Restore `orgMember`'s
+   Groups to `Alpha` and reload Members to confirm.
 8. **390.** As `manager` on Personnel at 390x844 open the trigger: a bottom sheet titled `GROUP` with `Find a Group` and
    the tree, `scrollWidth` 390 with the sheet open; Escape closes it.
 

@@ -166,11 +166,11 @@ filters and request controls between cases.
     returns to the bar. Visible focus must show on each control.
 12. **Groups and pins.** Click `BRAVO`'s `Pin`: it reads `Pinned` with `aria-pressed="true"` and the Bravo band moves
     first. Reload; the pin and order persist. Click `Pinned` to unpin, reload, and confirm the original order. As
-    `calendarScoped`, the `ALPHA` band has no `Pin`. Back as the first actor, click the `ALPHA` band to collapse it:
-    Able disappears and the band shows `−N` under each day where N of its People are out (blank for none; the snapshot
-    reads `<date>: N out`). Click it again to restore. After a Group editor reorder (see
-    [Group order everywhere](manage-groups.md#group-order-everywhere)), unpinned bands follow the saved order: with
-    Bravo moved above Alpha, sidebar navigation shows `BRAVO`, `ALPHA`, `UNASSIGNED`.
+    `calendarScoped`, whose whole view is Alpha, Calendar draws no `ALPHA` band and no `Pin`. Back as the first actor,
+    click the `ALPHA` band to collapse it: Able disappears and the band shows `−N` under each day where N of its People
+    are out (blank for none; the snapshot reads `<date>: N out`). Click it again to restore. After a Group editor
+    reorder (see [Group order everywhere](manage-groups.md#group-order-everywhere)), unpinned bands follow the saved
+    order: with Bravo moved above Alpha, sidebar navigation shows `BRAVO`, `ALPHA`, `UNASSIGNED`.
 13. **View-only affordances.** As `calendarView`, choose September 2026 and click an empty day in Able's row, the
     September 15 date header and Able's name. No dialog opens. Click Able's `Verification Leave` bar: its popover shows
     the status, dates and note with no `Edit details`, `Remove` or resize handles, and a drag across empty days draws no

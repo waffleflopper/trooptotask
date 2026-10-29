@@ -3,6 +3,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import type { ClassValue } from 'clsx';
 	import { Button } from '$lib/components/ui/button';
+	import { getFieldContext } from '$lib/components/ui/field/index.js';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
@@ -26,6 +27,7 @@
 		valueCount?: number;
 		placeholder: string;
 		searchPlaceholder: string;
+		/** The trigger's id, for a field label. Inside a Field, the trigger also takes its description and error. */
 		id?: string;
 		disabled?: boolean;
 		class?: ClassValue;
@@ -44,6 +46,8 @@
 		class: className
 	} = $derived(props);
 
+	const field = getFieldContext();
+	const fieldAria = $derived(field?.controlAria(undefined, undefined) ?? {});
 	const isMobile = new IsMobile(640);
 	let open = $state(false);
 	const chosen = $derived(props.multiple ? props.value : props.value === null ? [] : [props.value]);
@@ -92,6 +96,7 @@
 				<button
 					{...props}
 					{id}
+					{...fieldAria}
 					{disabled}
 					type="button"
 					class={cn(
@@ -103,7 +108,7 @@
 				</button>
 			{/snippet}
 		</Sheet.Trigger>
-		<Sheet.Content side="bottom" showCloseButton={false} class="max-h-[85dvh] gap-0 rounded-t-xl pb-5">
+		<Sheet.Content side="bottom" layer="dialog" showCloseButton={false} class="max-h-[85dvh] gap-0 rounded-t-xl pb-5">
 			<div class="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border" aria-hidden="true"></div>
 			<div class="flex shrink-0 items-center justify-between px-4 pt-2 pb-1">
 				<Sheet.Title class="font-heading text-[22px] leading-7 font-bold uppercase">{label}</Sheet.Title>
@@ -139,6 +144,7 @@
 				<button
 					{...props}
 					{id}
+					{...fieldAria}
 					{disabled}
 					type="button"
 					class={cn(

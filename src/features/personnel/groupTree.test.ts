@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from './contracts';
-import { buildGroupTree, groupRows, soleLeafGroup, type Band, type GroupRow, type GroupRowSet } from './groupTree';
+import {
+	buildGroupTree,
+	groupHeadcounts,
+	groupRows,
+	soleLeafGroup,
+	type Band,
+	type GroupRow,
+	type GroupRowSet
+} from './groupTree';
 
 function group(id: string, name: string, sortOrder: number, parentId: string | null, depth: 1 | 2 | 3): Group {
 	return { id, name, sortOrder, parentId, depth };
@@ -225,6 +233,20 @@ describe('groupRows', () => {
 
 		expect(flatRows(groupRows(team, mine, groupOf, true))).toEqual(only);
 		expect(flatRows(groupRows(team, mine, groupOf, false))).toEqual(only);
+	});
+});
+
+describe('groupHeadcounts', () => {
+	it('counts each Group with everyone below it and leaves empty Groups out', () => {
+		expect(Object.fromEntries(groupHeadcounts(buildGroupTree(catalog), people, groupOf))).toEqual({
+			plt2: 7,
+			sq1: 4,
+			'sq1-alpha': 2,
+			'sq1-bravo': 1,
+			sq2: 1,
+			'sq2-alpha': 1,
+			hq: 1
+		});
 	});
 });
 

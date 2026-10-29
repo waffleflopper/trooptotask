@@ -10,6 +10,7 @@ import GroupEditor from './GroupEditor.svelte';
 const groups: Group[] = [
 	{ id: 'g-hq', name: 'HQ', sortOrder: 0, parentId: null, depth: 1 as const },
 	{ id: 'g-2', name: '2nd Platoon', sortOrder: 1, parentId: null, depth: 1 as const },
+	{ id: 'g-2-sq1', name: '1st Squad', sortOrder: 0, parentId: 'g-2', depth: 2 as const },
 	{ id: 'g-empty', name: 'Empty', sortOrder: 2, parentId: null, depth: 1 as const }
 ];
 
@@ -30,14 +31,16 @@ const people = [
 	person('p-alvarez', 'SSG', 'Alvarez', 'g-2', 'Squad leader'),
 	person('p-banks', 'PFC', 'Banks', 'g-2'),
 	person('p-okafor', 'SGT', 'Okafor', 'g-hq'),
-	person('p-ruiz', 'SPC', 'Ruiz', null)
+	person('p-ruiz', 'SPC', 'Ruiz', null),
+	person('p-diaz', 'SPC', 'Diaz', 'g-2-sq1')
 ];
 
 const statuses: Record<string, RosterStatusDot> = {
 	'p-alvarez': { kind: 'present' },
 	'p-banks': { kind: 'away', type: { id: 'leave', name: 'Leave', color: '#c80' } as never },
 	'p-okafor': { kind: 'skeleton' },
-	'p-ruiz': { kind: 'none' }
+	'p-ruiz': { kind: 'none' },
+	'p-diaz': { kind: 'present' }
 };
 
 function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {}) {
@@ -49,11 +52,20 @@ function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {
 		todayStatus: (p: Personnel) => statuses[p.id],
 		canMovePerson: () => true,
 		canMoveTo: () => true,
-		onAdd: vi.fn(async (name: string) => ({ id: 'g-new', name, sortOrder: 3, parentId: null, depth: 1 as const })),
-		onRename: vi.fn(async () => {}),
-		onReorder: vi.fn(async () => ({ status: 'saved' as const })),
+		commands: {
+			add: vi.fn(async (name: string, parentId: string | null) => ({
+				id: 'g-new',
+				name,
+				sortOrder: 3,
+				parentId,
+				depth: 1 as const
+			})),
+			rename: vi.fn(async () => {}),
+			move: vi.fn(async () => {}),
+			reorder: vi.fn(async () => ({ status: 'saved' as const })),
+			remove: vi.fn(async () => {})
+		},
 		onTogglePin: vi.fn(async () => true),
-		onDelete: vi.fn(async () => {}),
 		onMove: vi.fn(async (ids: string[], groupId: string | null) => ({ groupId, movedIds: ids, unavailableIds: [] })),
 		onClose: vi.fn(),
 		...overrides
@@ -62,15 +74,12 @@ function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {
 	return props;
 }
 
-const groupRows = () =>
-	within(screen.getByRole('list', { name: 'Groups in display order' }))
-		.getAllByRole('listitem')
-		.map((row) => row.textContent?.replace(/\s+/g, ' ').trim());
+const choice = (name: string | RegExp) => screen.getByRole('treeitem', { name });
 
-const memberRows = (name: string) =>
-	within(screen.getByRole('list', { name: `Members of ${name}` }))
-		.getAllByRole('listitem')
-		.map((row) => row.textContent?.replace(/\s+/g, ' ').trim());
+const shownChoices = (...names: string[]) => {
+	expect(screen.getAllByRole('treeitem')).toEqual(names.map(choice));
+	return names.map((name) => choice(name).getAttribute('aria-disabled') === 'true');
+};
 
 afterEach(() => {
 	cleanup();
@@ -78,86 +87,38 @@ afterEach(() => {
 });
 
 describe('GroupEditor', () => {
-	it("lists Groups in display order with the viewer's pins and counts, and the selected Group's members", () => {
+	it("shows the viewer's pin and only the selected Group's direct members", () => {
 		renderEditor();
 
-		expect(groupRows()).toEqual(['HQ 1', '2nd Platoon Pinned 2', 'Empty 0']);
-		expect(
-			screen
-				.getByRole('button', { name: /^Unassigned/ })
-				.textContent?.replace(/\s+/g, ' ')
-				.trim()
-		).toBe('Unassigned 1');
 		expect(screen.getByRole('button', { name: 'Pinned to top' }).getAttribute('aria-pressed')).toBe('true');
-		expect(memberRows('2nd Platoon')).toEqual(['SSG Alvarez, Pat Squad leader Present', 'PFC Banks, Pat Leave']);
+		const members = within(screen.getByRole('list', { name: 'Members of 2nd Platoon' }));
+		expect(members.getByRole('checkbox', { name: 'Select SSG Alvarez, Pat' })).toBeTruthy();
+		expect(members.getByRole('checkbox', { name: 'Select PFC Banks, Pat' })).toBeTruthy();
+		expect(members.queryByRole('checkbox', { name: 'Select SPC Diaz, Pat' })).toBeNull();
 	});
 
-	it('shows Unassigned without rename, pin, Add people, Remove from Group or delete', async () => {
+	it('shows Unassigned without pin, Add people or Remove from Group', async () => {
 		renderEditor();
 
 		await fireEvent.click(screen.getByRole('button', { name: /^Unassigned/ }));
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SPC Ruiz, Pat' }));
 
-		expect(memberRows('Unassigned')).toEqual(['SPC Ruiz, Pat']);
-		expect(screen.queryByRole('button', { name: /^Rename/ })).toBeNull();
+		expect(screen.getByRole('checkbox', { name: 'Select SPC Ruiz, Pat' }).getAttribute('aria-checked')).toBe('true');
 		expect(screen.queryByRole('button', { name: /^(Pin to top|Pinned to top)$/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: /^Add people/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Remove from Group' })).toBeNull();
-		expect(screen.queryByRole('button', { name: /^Delete/ })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Move to…' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /^Move selected members to:/ })).toBeTruthy();
 	});
 
-	it('adds a Group on Enter and keeps the name beside its error when the add fails', async () => {
-		const reply = Promise.withResolvers<Group>();
-		const onAdd = vi
-			.fn()
-			.mockResolvedValueOnce({ id: 'g-weapons', name: 'Weapons', sortOrder: 3, parentId: null, depth: 1 as const })
-			.mockReturnValueOnce(reply.promise);
-		renderEditor({ onAdd });
-		const field = screen.getByRole('textbox', { name: 'New group name' }) as HTMLInputElement;
+	it('names a sub-group by its path and offers no pin, since only top-level Groups pin', async () => {
+		renderEditor();
 
-		await fireEvent.input(field, { target: { value: '  Weapons  ' } });
-		await fireEvent.keyDown(field, { key: 'Enter' });
-		await waitFor(() => expect(field.value).toBe(''));
-		await fireEvent.input(field, { target: { value: 'HQ' } });
-		await fireEvent.keyDown(field, { key: 'Enter' });
-		await fireEvent.click(screen.getByRole('button', { name: /^HQ/ }));
-		reply.reject(new Error('A Group with that name already exists.'));
+		await fireEvent.click(screen.getByRole('button', { name: /^1st Squad/ }));
 
-		expect(await screen.findByText('A Group with that name already exists.')).toBeTruthy();
-		expect(field.value).toBe('HQ');
-		expect(onAdd.mock.calls).toEqual([['Weapons'], ['HQ']]);
-	});
-
-	it('reorders with Alt+Arrow on a Group and shows why an order did not save', async () => {
-		const onReorder = vi.fn().mockResolvedValue({
-			status: 'failed',
-			message: 'The Group order changed somewhere else. The list shows the saved order.'
-		});
-		renderEditor({ onReorder });
-
-		await fireEvent.keyDown(screen.getByRole('button', { name: /^Empty/ }), { key: 'ArrowUp', altKey: true });
-
-		expect(onReorder).toHaveBeenCalledWith(['g-hq', 'g-empty', 'g-2']);
-		expect(
-			await screen.findByText('The Group order changed somewhere else. The list shows the saved order.')
-		).toBeTruthy();
-	});
-
-	it('renames inline on Enter, keeps the draft beside a failure, and cancels on Escape', async () => {
-		const onRename = vi.fn().mockRejectedValueOnce(new Error('A Group with that name already exists.'));
-		renderEditor({ onRename });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Rename 2nd Platoon' }));
-		const field = screen.getByRole('textbox', { name: 'Group name' }) as HTMLInputElement;
-		await fireEvent.input(field, { target: { value: ' HQ ' } });
-		await fireEvent.keyDown(field, { key: 'Enter' });
-
-		expect(await screen.findByText('A Group with that name already exists.')).toBeTruthy();
-		expect(field.value).toBe(' HQ ');
-		await fireEvent.keyDown(field, { key: 'Escape' });
-		expect(screen.queryByRole('textbox', { name: 'Group name' })).toBeNull();
-		expect(onRename).toHaveBeenCalledWith('g-2', 'HQ');
+		expect(screen.getByRole('heading', { name: '2nd Platoon › 1st Squad' })).toBeTruthy();
+		expect(screen.getByRole('checkbox', { name: 'Select SPC Diaz, Pat' })).toBeTruthy();
+		expect(screen.queryByRole('checkbox', { name: 'Select PFC Banks, Pat' })).toBeNull();
+		expect(screen.queryByRole('button', { name: /^(Pin to top|Pinned to top)$/ })).toBeNull();
 	});
 
 	it('moves checked members in one write and says who could not be moved', async () => {
@@ -220,20 +181,17 @@ describe('GroupEditor', () => {
 		}
 	);
 
-	it('offers the other Groups and Unassigned under Move to…', async () => {
+	it('moves checked members to any level of the tree or to Unassigned', async () => {
 		const { onMove } = renderEditor();
 
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select PFC Banks, Pat' }));
-		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Move to…' }), { button: 0, pointerType: 'mouse' });
-		const menu = await screen.findByRole('menu');
+		await fireEvent.click(screen.getByRole('button', { name: /^Move selected members to:/ }));
+		const search = await screen.findByRole('combobox', { name: 'Search Groups' });
 
-		expect(
-			within(menu)
-				.getAllByRole('menuitem')
-				.map((item) => item.textContent?.trim())
-		).toEqual(['HQ', 'Empty', 'Unassigned']);
-		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'HQ' }));
-		await waitFor(() => expect(onMove).toHaveBeenCalledWith(['p-banks'], 'g-hq'));
+		expect(shownChoices('HQ', '2nd Platoon', 'Empty', 'Unassigned')).toEqual([false, true, false, false]);
+		await fireEvent.input(search, { target: { value: 'squad' } });
+		await fireEvent.click(choice(/1st Squad/));
+		await waitFor(() => expect(onMove).toHaveBeenCalledWith(['p-banks'], 'g-2-sq1'));
 	});
 
 	it('hides member checkboxes and Remove from Group the viewer may not use', async () => {
@@ -251,58 +209,25 @@ describe('GroupEditor', () => {
 		renderEditor({ todayStatus: undefined });
 
 		expect(screen.queryByText('Today')).toBeNull();
-		expect(memberRows('2nd Platoon')).toEqual(['SSG Alvarez, Pat Squad leader', 'PFC Banks, Pat']);
+		expect(screen.getByRole('checkbox', { name: 'Select SSG Alvarez, Pat' })).toBeTruthy();
 	});
 
-	it('lists Unassigned people first under Add people and moves the one picked into the Group', async () => {
+	it('moves a person picked from Add people into the selected Group', async () => {
 		const { onMove } = renderEditor();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add people to 2nd Platoon' }));
 		const listbox = await screen.findByRole('listbox');
 
-		expect(
-			within(listbox)
-				.getAllByRole('option')
-				.map((option) => option.textContent?.replace(/\s+/g, ' ').trim())
-		).toEqual(['SPC Ruiz, Pat', 'SGT Okafor, Pat']);
 		await fireEvent.click(within(listbox).getByRole('option', { name: /Ruiz/ }));
 		await waitFor(() => expect(onMove).toHaveBeenCalledWith(['p-ruiz'], 'g-2'));
 	});
 
-	it('deletes a Group after asking where its members go, defaulting to the next Group', async () => {
-		const onDelete = vi.fn().mockRejectedValueOnce(new Error('That Group is no longer available.'));
-		renderEditor({ onDelete });
+	it('shows Unassigned once the selected Group is deleted', async () => {
+		const props = { ...renderEditor() };
+		cleanup();
+		render(GroupEditor, { props: { ...props, groups: groups.filter((group) => !group.id.startsWith('g-2')) } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete 2nd Platoon…' }));
-		const strip = screen.getByRole('group', { name: 'Delete 2nd Platoon' });
-		const picker = within(strip).getByRole('combobox', { name: 'Move members to' }) as HTMLSelectElement;
-		expect(picker.value).toBe('g-empty');
-		await waitFor(() => expect(document.activeElement).toBe(picker));
-		await fireEvent.click(within(strip).getByRole('button', { name: 'Delete and move 2' }));
-
-		expect(await within(strip).findByText('That Group is no longer available.')).toBeTruthy();
-		expect(onDelete).toHaveBeenCalledWith('g-2', 'g-empty');
-		await fireEvent.change(within(strip).getByRole('combobox', { name: 'Move members to' }), {
-			target: { value: 'unassigned' }
-		});
-		await fireEvent.click(within(strip).getByRole('button', { name: 'Delete and move 2' }));
-		await waitFor(() => expect(onDelete).toHaveBeenLastCalledWith('g-2', null));
-	});
-
-	it('deletes an empty Group with a plain confirmation and returns focus on Cancel', async () => {
-		const { onDelete } = renderEditor({ initialSelection: 'g-empty' });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete Empty…' }));
-		const strip = screen.getByRole('group', { name: 'Delete Empty' });
-
-		expect(within(strip).queryByRole('combobox')).toBeNull();
-		await waitFor(() => expect(document.activeElement).toBe(within(strip).getByRole('button', { name: 'Cancel' })));
-		await fireEvent.click(within(strip).getByRole('button', { name: 'Cancel' }));
-		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Delete Empty…' })));
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete Empty…' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-		await waitFor(() => expect(onDelete).toHaveBeenCalledWith('g-empty', null));
+		expect(screen.getByRole('heading', { name: 'Unassigned' })).toBeTruthy();
 	});
 });
 

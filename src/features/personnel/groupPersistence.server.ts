@@ -6,6 +6,7 @@ import {
 	GROUP_CHANGE_UNCONFIRMED_MESSAGE,
 	GROUP_NAME_EXISTS_MESSAGE,
 	GROUP_ORDER_CHANGED_MESSAGE,
+	GROUP_PARENT_GONE_MESSAGE,
 	GROUP_UNAVAILABLE_MESSAGE,
 	type Group,
 	type GroupPersistence
@@ -15,9 +16,19 @@ const GROUP_DEPTH_MESSAGE = 'Groups can nest at most three levels deep.';
 function isDepthViolation(error: { code?: string; message: string }) {
 	return error.code === '23514' && error.message.includes('groups_path_shape');
 }
+// `set_group_path` raises the parent key's 23503 itself, before the constraint runs, so the message may not name it.
+function isMissingParent(error: { code?: string; message: string }) {
+	return (
+		error.code === '23503' &&
+		(error.message.includes('groups_parent_fkey') || error.message.includes('Parent Group not found'))
+	);
+}
 function throwGroupWriteError(error: { code?: string; message: string }): never {
+	if (error.code === '22023' && error.message.includes('inside itself'))
+		fail(400, 'A Group cannot move under one of its own sub-groups.');
 	if (error.code === '22023') fail(400, 'Group names cannot contain " / ".');
 	if (isDepthViolation(error)) fail(400, GROUP_DEPTH_MESSAGE);
+	if (isMissingParent(error)) fail(400, GROUP_PARENT_GONE_MESSAGE);
 	if (error.code === '23505' && error.message.includes('"groups_sibling_name_key"')) {
 		fail(409, GROUP_NAME_EXISTS_MESSAGE);
 	}
@@ -28,6 +39,7 @@ function throwGroupCommandError(error: { code?: string; message: string }): neve
 	if (error.code === '42501') fail(403, 'You do not have permission to manage Groups');
 	if (error.code === 'P0002') fail(404, GROUP_UNAVAILABLE_MESSAGE);
 	if (isDepthViolation(error)) fail(400, GROUP_DEPTH_MESSAGE);
+	if (isMissingParent(error)) fail(400, GROUP_PARENT_GONE_MESSAGE);
 	if (error.code === '22023' || error.code === '22P02') fail(400, 'Invalid Group change');
 	if (['GRP01', '40P01', '40001', '55P03'].includes(error.code ?? '')) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
 	if (error.code === '23505') fail(409, GROUP_NAME_EXISTS_MESSAGE);
@@ -110,6 +122,50 @@ export function createSupabaseGroupPersistence(
 				p_parent_id: parentId ?? undefined
 			});
 			if (error) throwGroupCommandError(error);
+		},
+		async move(id, parentId) {
+			let siblings = client
+				.from('groups')
+				.select('id, sort_order')
+				.eq('organization_id', orgId)
+				.order('sort_order', { ascending: false })
+				.limit(2);
+			siblings = parentId ? siblings.eq('parent_id', parentId) : siblings.is('parent_id', null);
+			const last = await siblings.returns<{ id: string; sort_order: number }[]>();
+			if (last.error) throwGroupWriteError(last.error);
+			const lastSortOrder = last.data.find((row) => row.id !== id)?.sort_order ?? -1;
+			const { data, error } = await client
+				.from('groups')
+				.update({ parent_id: parentId, sort_order: lastSortOrder + 1 })
+				.eq('organization_id', orgId)
+				.eq('id', id)
+				.select('*')
+				.returns<Record<string, unknown>[]>();
+			if (error) throwGroupWriteError(error);
+			if (!data[0]) fail(404, GROUP_UNAVAILABLE_MESSAGE);
+			return toGroup(data[0]);
+		},
+		async countActiveMembers() {
+			const ids = visibleGroupIds(scopeSet);
+			if (ids?.length === 0) return new Map();
+			const result = await selectAllSupabaseRows<{ id: string; group_id: string }>(async (from, to) => {
+				let query = client
+					.from('personnel')
+					.select('id, group_id')
+					.eq('organization_id', orgId)
+					.is('archived_at', null)
+					.not('group_id', 'is', null);
+				if (ids) query = query.in('group_id', ids);
+				const { data, error } = await query
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<{ id: string; group_id: string }[]>();
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			const counts = new Map<string, number>();
+			for (const row of result.data ?? []) counts.set(row.group_id, (counts.get(row.group_id) ?? 0) + 1);
+			return counts;
 		},
 		async deleteWithReassignment(id, targetId) {
 			const { data, error } = await client.rpc('delete_group_with_reassignment', {

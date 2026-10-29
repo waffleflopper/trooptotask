@@ -336,6 +336,22 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
 	});
 
+	it('opens Manage Groups on the first top-level Group when the catalog lists a sub-group first', async () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'squad', name: '1st Squad', sortOrder: 0, parentId: 'platoon', depth: 2 },
+				{ id: 'platoon', name: '2nd Platoon', sortOrder: 0, parentId: null, depth: 1 }
+			],
+			'org-1'
+		);
+		const ctx = makeCtx({ canManageGroups: true });
+
+		render(PersonnelPageView, { props: { ctx } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Manage Groups' }));
+
+		expect(ctx.openGroupEditor).toHaveBeenCalledWith('platoon');
+	});
+
 	it('keeps creation, group and detail controls hidden for operators who can edit existing personnel', async () => {
 		const ctx = makeCtx({
 			canAddPersonnel: false,

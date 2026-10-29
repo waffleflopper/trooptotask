@@ -8,7 +8,8 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as InlineEditRow from '$lib/components/patterns/inline-edit-row';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
-	import { groupOptionsFor, rankOptionsFor } from '../../personnelDraft';
+	import { rankOptionsFor } from '../../personnelDraft';
+	import GroupSelect from '../GroupSelect.svelte';
 	import { groupManagementStore } from '../../stores/groups.svelte';
 	import type { Personnel } from '../../personnel.types';
 	import type { QuickEditSession, RosterQuickEdit } from './quickEdit.svelte';
@@ -25,7 +26,11 @@
 
 	const id = (field: string) => `quick-edit-${field}-${session.personnelId}`;
 	const rankOptions = $derived(rankOptionsFor(ctx.data.rankCatalog ?? [], session.opening.rank));
-	const groupOptions = $derived(groupOptionsFor(groupManagementStore.items, true));
+	const groupChoices = $derived(
+		groupManagementStore.items.filter(
+			(group) => group.id === session.opening.groupId || ctx.canManagePersonnelInGroup(group.id)
+		)
+	);
 	const shownError = (field: keyof typeof session.errors) => (session.attempted ? session.errors[field] : undefined);
 	const canOpenDataSheet = $derived(ctx.canOpenPersonnelDetail(person));
 
@@ -80,14 +85,12 @@
 							</Field.Root>
 							<Field.Root class="md:w-44">
 								<Field.Label for={id('groupId')}>Group</Field.Label>
-								<Combobox.Root items={groupOptions} bind:value={session.draft.groupId} label="Group" autoHighlight>
-									<Combobox.Trigger id={id('groupId')} clearable placeholder="No Group Assigned" aria-label="Group" />
-									<Combobox.Content>
-										<Combobox.Search placeholder="Search Groups..." />
-										<Combobox.Empty>No groups found.</Combobox.Empty>
-										<Combobox.List />
-									</Combobox.Content>
-								</Combobox.Root>
+								<GroupSelect
+									groups={groupChoices}
+									bind:value={session.draft.groupId}
+									allowUnassigned={!session.opening.groupId || ctx.canManagePersonnelInGroup(null)}
+									id={id('groupId')}
+								/>
 							</Field.Root>
 						</div>
 						<div class="grid gap-3 md:flex md:flex-wrap md:items-start">

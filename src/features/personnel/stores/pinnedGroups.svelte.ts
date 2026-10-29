@@ -39,7 +39,7 @@ export class PinnedGroupsStore {
 		this.#orgId = orgId;
 	}
 
-	/** The database drops a deleted Group's pins; this keeps the open page in step without a reload. */
+	/** The database drops a deleted or moved-down Group's pins; this keeps the open page in step without a reload. */
 	forgetGroup(groupId: string) {
 		if (!this.#pinnedGroups.includes(groupId)) return;
 		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
@@ -134,7 +134,7 @@ export const pinnedGroupsStore = {
 	}
 };
 
-export function forgetDeletedGroupPin(groupId: string) {
+export function forgetGroupPin(groupId: string) {
 	pinnedGroupManagementStore.forgetGroup(groupId);
 }
 

@@ -218,7 +218,6 @@
 	{#if section.canInvite}
 		<MemberInviteForm
 			{workspace}
-			groups={section.groups}
 			{isOwner}
 			submit={invitationEnhance}
 			pending={invitationPending}
@@ -409,7 +408,6 @@
 	{workspace}
 	{unit}
 	{isOwner}
-	groups={section.groups}
 	accessError={form?.accessError}
 	opener={accessOpener}
 	fallbackFocus={() => filterInput}

@@ -1,6 +1,14 @@
 import type { DurableFeatureLane, MembershipRole } from '$lib/access/memberAccessShape';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
+/** A Group a member's access can cover, with the active people filed directly in it. */
+export interface ScopeGroup {
+	id: string;
+	name: string;
+	parentId: string | null;
+	memberCount: number;
+}
+
 export type SettingsMemberRow = SettingsMemberAccessRow & {
 	scopeDisplayLabel: string;
 	overriddenCapabilityLabels: string[];
@@ -41,7 +49,7 @@ export type SettingsMembersSectionData = {
 	invitations: SettingsPendingInvitationRow[];
 	/** Streams after first paint; closed invitations sit behind a collapsed row. */
 	invitationHistory: Promise<SettingsInvitationHistoryRow[]>;
-	groups: Array<{ id: string; name: string }>;
+	groups: ScopeGroup[];
 	/** Lanes whose feature the unit turned off. Members keep their stored level in these lanes. */
 	offLanes: DurableFeatureLane[];
 	canInvite: boolean;

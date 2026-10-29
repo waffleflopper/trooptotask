@@ -17,6 +17,7 @@
 	import { downloadRosterExport, rosterExportFilename, rosterExportRows } from '../../rosterExport';
 	import { personnelStore } from '../../stores/personnel.svelte';
 	import { moveGroupMembers } from '../../utils/moveGroupMembers';
+	import { buildGroupTree } from '../../groupTree';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -36,15 +37,19 @@
 	const writable = $derived(people.filter((person) => ctx.canManagePersonnelRecord(person)));
 	const exportable = $derived(people.filter((person) => ctx.canExportPersonnelRecord(person)));
 	const archivable = $derived(people.filter((person) => ctx.canArchivePersonnelRecord(person)));
+	const groupTree = $derived(buildGroupTree(ctx.groupOrder));
 	const moveTargets = $derived([
-		...ctx.groupOrder.flatMap(({ id, name }) => (ctx.canManagePersonnelInGroup(id) ? [{ id, name }] : [])),
-		...(ctx.canManagePersonnelInGroup(null) ? [{ id: null, name: 'Unassigned' }] : [])
+		...groupTree.ordered.flatMap(({ id, name, level }) =>
+			ctx.canManagePersonnelInGroup(id) ? [{ id, name, level, path: groupTree.label(id) }] : []
+		),
+		...(ctx.canManagePersonnelInGroup(null) ? [{ id: null, name: 'Unassigned', level: 0, path: 'Unassigned' }] : [])
 	]);
+	const indent = ['', 'pl-6', 'pl-10'];
 
 	const count = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 	const skippedNote = (n: number) => (n > 0 ? ` · ${count(n)} skipped` : '');
 
-	async function moveTo(target: { id: string | null; name: string }): Promise<void> {
+	async function moveTo(target: { id: string | null; name: string; path: string }): Promise<void> {
 		const orgId = ctx.orgId;
 		const submitted = writable.map((person) => ({ id: person.id, groupId: person.groupId }));
 		const previousGroup = new Map(submitted.map((person) => [person.id, person.groupId]));
@@ -72,7 +77,7 @@
 				(person) => ({ ...person, groupId: target.id, groupName: target.id ? target.name : '' })
 			);
 			const skipped = selectedCount - result.movedIds.length;
-			toastStore.success(`Moved ${count(result.movedIds.length)} to ${target.name}${skippedNote(skipped)}`);
+			toastStore.success(`Moved ${count(result.movedIds.length)} to ${target.path}${skippedNote(skipped)}`);
 		} catch (caught) {
 			if (isCurrent()) toastStore.error(caught instanceof Error ? caught.message : 'Unable to move People.');
 		} finally {
@@ -211,7 +216,11 @@
 				<DropdownMenu.Content side="top" align="start" class="max-h-80">
 					<DropdownMenu.Label>Move {count(writable.length)} to</DropdownMenu.Label>
 					{#each moveTargets as target (target.id ?? '')}
-						<DropdownMenu.Item onSelect={() => void moveTo(target)}>{target.name}</DropdownMenu.Item>
+						<DropdownMenu.Item
+							class={indent[target.level] ?? 'pl-10'}
+							aria-label={target.path}
+							onSelect={() => void moveTo(target)}>{target.name}</DropdownMenu.Item
+						>
 					{/each}
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>

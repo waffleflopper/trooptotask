@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { TreeSelect } from '$lib/components/patterns/tree-select';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -22,7 +23,6 @@
 	/** The invitation strip Settings › Members and Organization setup share. The caller owns the request's state. */
 	type Props = {
 		workspace: SettingsMemberAccessWorkspace;
-		groups: Array<{ id: string; name: string }>;
 		isOwner: boolean;
 		/** The Members page action that creates the invitation. Another route may post to it by full path. */
 		action?: string;
@@ -38,7 +38,6 @@
 
 	let {
 		workspace,
-		groups,
 		isOwner,
 		action = '?/invite',
 		submit,
@@ -54,8 +53,15 @@
 	const helper = $derived(
 		workspace.invite.role === 'admin'
 			? roleHelper('admin')
-			: `${presetHelper(workspace.invite.preset)} They accept the invite after signing in.`
+			: [
+					presetHelper(workspace.invite.preset),
+					workspace.invite.groupIds.length > 0 && workspace.scopeTree.summary(workspace.invite.groupIds),
+					'They accept the invite after signing in.'
+				]
+					.filter(Boolean)
+					.join(' ')
 	);
+	const groupOptions = $derived([{ id: ALL_GROUPS, label: 'Whole unit', depth: 0 }, ...workspace.scopeTree.options]);
 </script>
 
 <section aria-label="Invite a member">
@@ -114,20 +120,18 @@
 						{/each}
 					</Select.Content>
 				</Select.Root>
-				<Select.Root
-					type="multiple"
-					bind:value={() => workspace.inviteGroupsValue, (values: string[]) => workspace.setInviteGroups(values)}
-				>
-					<Select.Trigger aria-label="Groups" class="w-34 bg-background">
-						<span class="truncate">{workspace.inviteGroupsLabel}</span>
-					</Select.Trigger>
-					<Select.Content>
-						<Select.Item value={ALL_GROUPS} label="Whole unit" />
-						{#each groups as group (group.id)}
-							<Select.Item value={group.id} label={group.name} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
+				<TreeSelect
+					multiple
+					label="Groups"
+					hideLabel
+					placeholder="Whole unit"
+					searchPlaceholder="Search Groups"
+					value={workspace.inviteGroupsValue}
+					valueLabel={workspace.inviteGroupsLabel}
+					options={groupOptions}
+					onValueChange={(values: string[]) => workspace.setInviteGroups(values)}
+					class="h-8 w-40 justify-between max-sm:w-full"
+				/>
 			{:else}
 				<p class="flex h-8 w-62 items-center rounded-lg border bg-background px-2.5 text-sm text-muted-foreground">
 					Uses Admin authority

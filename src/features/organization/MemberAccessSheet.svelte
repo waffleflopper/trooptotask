@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { TreeSelect } from '$lib/components/patterns/tree-select';
 	import { onDestroy } from 'svelte';
-	import Check from '@lucide/svelte/icons/check';
 	import { enhance } from '$app/forms';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -31,7 +31,6 @@
 		workspace: SettingsMemberAccessWorkspace;
 		unit: string;
 		isOwner: boolean;
-		groups: Array<{ id: string; name: string }>;
 		/** The server's answer to the last save, shown only for the member it was about. */
 		accessError: string | undefined;
 		/** The row's Manage button, where focus returns after a save. */
@@ -41,7 +40,7 @@
 		onRemove: (member: SettingsMemberRow) => void;
 	};
 
-	let { workspace, unit, isOwner, groups, accessError, opener, fallbackFocus, onSaveStart, onRemove }: Props = $props();
+	let { workspace, unit, isOwner, accessError, opener, fallbackFocus, onSaveStart, onRemove }: Props = $props();
 
 	let active = true;
 	onDestroy(() => {
@@ -55,6 +54,11 @@
 
 	const member = $derived(workspace.editingMember);
 	const draft = $derived(workspace.draft);
+	const scope = $derived<ScopeSet>(
+		draft?.scope.kind === 'groups'
+			? { kind: 'groups', groupIds: workspace.scopeTree.canonical(draft.scope.groupIds) }
+			: { kind: 'organization' }
+	);
 	const changeCount = $derived(workspace.changeCount);
 	const areaChangeCount = $derived(workspace.areaChangeCount);
 	const shownError = $derived(requestError ?? (errorMemberId === member?.id ? accessError : undefined));
@@ -87,9 +91,7 @@
 	function scopeSentence(scope: ScopeSet): string {
 		if (scope.kind === 'organization') return `Works across all of ${unit}, including Soldiers with no group.`;
 		if (scope.groupIds.length === 0) return 'Pick at least one group. With none, they can sign in but see no records.';
-		const names = scope.groupIds.map((id) => workspace.groupName(id));
-		const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-		return `Works in ${list} only. Soldiers with no group aren't visible to them.`;
+		return workspace.scopeTree.summary(scope.groupIds);
 	}
 </script>
 
@@ -239,41 +241,41 @@
 								<SegmentedFilter.Root
 									label="Groups"
 									options={SCOPE_OPTIONS}
-									bind:value={() => draft.scope.kind, (kind: ScopeSet['kind']) => workspace.setScopeKind(kind)}
+									bind:value={() => scope.kind, (kind: ScopeSet['kind']) => workspace.setScopeKind(kind)}
 								/>
 							</div>
-							<input type="hidden" name="scopeSetKind" value={draft.scope.kind} />
-							{#if draft.scope.kind === 'groups'}
-								{@const selected = draft.scope.groupIds}
-								<div class="flex flex-wrap gap-1.5">
-									{#each groups as group (group.id)}
-										{@const chosen = selected.includes(group.id)}
-										{#if chosen}
-											<input type="hidden" name="scopeSetGroupIds" value={group.id} />
-										{/if}
-										<Button
-											type="button"
-											size="sm"
-											variant={chosen ? 'default' : 'outline'}
-											class="rounded-full text-[13px]"
-											aria-pressed={chosen}
-											onclick={() => workspace.toggleScopeGroup(group.id)}
-										>
-											{#if chosen}<Check data-icon="inline-start" aria-hidden="true" />{/if}
-											{group.name}
-										</Button>
-									{/each}
-								</div>
+							<input type="hidden" name="scopeSetKind" value={scope.kind} />
+							{#if scope.kind === 'groups'}
+								{@const selected = scope.groupIds}
+								{#each selected as groupId (groupId)}
+									<input type="hidden" name="scopeSetGroupIds" value={groupId} />
+								{/each}
+								<TreeSelect
+									multiple
+									label="Groups they work in"
+									hideLabel
+									placeholder="Choose Groups"
+									searchPlaceholder="Search Groups"
+									value={selected}
+									valueLabel={selected.length === 0
+										? null
+										: selected.length === 1
+											? workspace.groupName(selected[0])
+											: `${selected.length} Groups`}
+									options={workspace.scopeTree.options}
+									onValueChange={(ids: string[]) => workspace.setScopeGroups(ids)}
+									class="h-9 w-full justify-between"
+								/>
 							{/if}
 							<p
 								class={cn(
 									'text-sm',
-									draft.scope.kind === 'groups' && draft.scope.groupIds.length === 0
+									scope.kind === 'groups' && scope.groupIds.length === 0
 										? 'text-warning-foreground'
 										: 'text-muted-foreground'
 								)}
 							>
-								{scopeSentence(draft.scope)}
+								{scopeSentence(scope)}
 							</p>
 						</section>
 					{:else}

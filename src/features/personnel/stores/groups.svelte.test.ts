@@ -58,7 +58,10 @@ describe('groupsStore', () => {
 			const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => Response.json({ movedCount: 22 }));
 			vi.stubGlobal('fetch', fetchMock);
 
-			await expect(groupsStore.deleteWithReassignment('1', '2')).resolves.toBe(22);
+			await expect(groupsStore.deleteWithReassignment('1', '2')).resolves.toEqual({
+				movedCount: 22,
+				deletedIds: ['1']
+			});
 			expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method, init?.body])).toEqual([
 				['/org/org-1/api/groups', 'DELETE', JSON.stringify({ id: '1', moveMembersTo: '2' })]
 			]);
@@ -88,13 +91,13 @@ describe('groupsStore', () => {
 			vi.stubGlobal('fetch', fetchMock);
 
 			const saving = groupsStore.setOrder(['2', '1']);
-			expect(groupsStore.pendingOrder).toEqual(['2', '1']);
+			expect(groupsStore.pendingOrder).toEqual({ parentId: null, ids: ['2', '1'] });
 			reply.resolve(Response.json({ success: true }));
 
 			await expect(saving).resolves.toEqual({ status: 'saved' });
 			expect(groupsStore.pendingOrder).toBeNull();
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['2', '1']);
-			expect(orderBodies(fetchMock)).toEqual([{ groupIds: ['2', '1'], expectedGroupIds: ['1', '2'] }]);
+			expect(orderBodies(fetchMock)).toEqual([{ groupIds: ['2', '1'], expectedGroupIds: ['1', '2'], parentId: null }]);
 			expect(invalidate).not.toHaveBeenCalled();
 		});
 
@@ -117,8 +120,8 @@ describe('groupsStore', () => {
 
 			await expect(saving).resolves.toEqual({ status: 'saved' });
 			expect(orderBodies(fetchMock)).toEqual([
-				{ groupIds: ['2', '1', '3'], expectedGroupIds: ['1', '2', '3'] },
-				{ groupIds: ['3', '1', '2'], expectedGroupIds: ['2', '1', '3'] }
+				{ groupIds: ['2', '1', '3'], expectedGroupIds: ['1', '2', '3'], parentId: null },
+				{ groupIds: ['3', '1', '2'], expectedGroupIds: ['2', '1', '3'], parentId: null }
 			]);
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['3', '1', '2']);
 		});
@@ -143,6 +146,40 @@ describe('groupsStore', () => {
 			expect(invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data');
 		});
 
+		it('orders one sibling set under its parent, after a save in another set settles', async () => {
+			groupCatalogHydration.load(
+				[
+					...structuredClone(mockGroups),
+					{ id: 's1', name: '1st Squad', sortOrder: 0, parentId: '1', depth: 2 as const },
+					{ id: 's2', name: '2nd Squad', sortOrder: 1, parentId: '1', depth: 2 as const }
+				],
+				'org-1'
+			);
+			const first = Promise.withResolvers<Response>();
+			const fetchMock = vi
+				.fn()
+				.mockReturnValueOnce(first.promise)
+				.mockResolvedValue(Response.json({ success: true }));
+			vi.stubGlobal('fetch', fetchMock);
+
+			void groupsStore.setOrder(['2', '1']);
+			const squads = groupsStore.setOrder(['s2', 's1'], '1');
+			expect(orderBodies(fetchMock)).toHaveLength(1);
+			first.resolve(Response.json({ success: true }));
+
+			await expect(squads).resolves.toEqual({ status: 'saved' });
+			expect(orderBodies(fetchMock)).toEqual([
+				{ groupIds: ['2', '1'], expectedGroupIds: ['1', '2'], parentId: null },
+				{ groupIds: ['s2', 's1'], expectedGroupIds: ['s1', 's2'], parentId: '1' }
+			]);
+			expect(Object.fromEntries(groupCatalog.items.map((group) => [group.id, group.sortOrder]))).toEqual({
+				'1': 1,
+				'2': 0,
+				s1: 1,
+				s2: 0
+			});
+		});
+
 		it('says an order it could not confirm is unconfirmed and keeps the last saved order', async () => {
 			vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
 
@@ -151,6 +188,85 @@ describe('groupsStore', () => {
 				message: "We couldn't confirm the Group change. Reload to see what saved."
 			});
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['1', '2']);
+		});
+	});
+
+	describe('subtree commands', () => {
+		const platoon: Group[] = [
+			{ id: 'plt', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
+			{ id: 'sq', name: '1st Squad', sortOrder: 0, parentId: 'plt', depth: 2 as const },
+			{ id: 'alpha', name: 'Alpha Team', sortOrder: 0, parentId: 'sq', depth: 3 as const },
+			{ id: 'bravo', name: 'Bravo Team', sortOrder: 4, parentId: 'sq', depth: 3 as const },
+			{ id: 'hq', name: 'HQ Section', sortOrder: 1, parentId: null, depth: 1 as const }
+		];
+		const shape = () =>
+			groupCatalog.items.map((group) => [group.id, group.parentId, group.depth, group.sortOrder] as const);
+
+		beforeEach(() => groupCatalogHydration.load(structuredClone(platoon), 'org-1'));
+
+		it('adds a sub-group after its siblings, one level below its parent', async () => {
+			const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+				Response.json({ id: 'charlie', ...JSON.parse(init?.body as string) })
+			);
+			vi.stubGlobal('fetch', fetchMock);
+
+			await groupsStore.add(' Charlie Team ', 'sq');
+			expect(await groupsStore.add('alpha team', 'sq')).toBeNull();
+			expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method, JSON.parse(init?.body as string)])).toEqual([
+				['/org/org-1/api/groups', 'POST', { name: 'Charlie Team', sortOrder: 5, parentId: 'sq', depth: 3 }]
+			]);
+		});
+
+		it('moves a Group with its sub-groups and shifts their levels', async () => {
+			const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+				Response.json({ id: 'sq', name: '1st Squad', sortOrder: 0, parentId: null, depth: 1 })
+			);
+			vi.stubGlobal('fetch', fetchMock);
+
+			await groupsStore.move('sq', null);
+			expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method, init?.body])).toEqual([
+				['/org/org-1/api/groups', 'PATCH', JSON.stringify({ id: 'sq', parentId: null })]
+			]);
+			expect(shape()).toEqual([
+				['plt', null, 1, 0],
+				['sq', null, 1, 0],
+				['alpha', 'sq', 2, 0],
+				['hq', null, 1, 1],
+				['bravo', 'sq', 2, 4]
+			]);
+		});
+
+		it('keeps the tree and rejects with the server reason when a move is refused', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () =>
+					Response.json({ message: 'The parent Group is no longer available. Choose another.' }, { status: 400 })
+				)
+			);
+
+			await expect(groupsStore.move('sq', 'hq')).rejects.toThrow(
+				'The parent Group is no longer available. Choose another.'
+			);
+			expect(shape()).toEqual([
+				['plt', null, 1, 0],
+				['sq', 'plt', 2, 0],
+				['alpha', 'sq', 3, 0],
+				['hq', null, 1, 1],
+				['bravo', 'sq', 3, 4]
+			]);
+		});
+
+		it('drops every Group in a deleted subtree', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () => Response.json({ movedCount: 5 }))
+			);
+
+			await expect(groupsStore.deleteWithReassignment('plt', 'hq')).resolves.toEqual({
+				movedCount: 5,
+				deletedIds: ['plt', 'sq', 'alpha', 'bravo']
+			});
+			expect(shape()).toEqual([['hq', null, 1, 1]]);
 		});
 	});
 

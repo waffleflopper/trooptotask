@@ -112,6 +112,7 @@ const closedInvite = {
 } as SettingsInvitationHistoryRow;
 
 type PageOptions = {
+	groups?: Array<{ id: string; name: string; parentId: string | null; memberCount: number }>;
 	isOwner?: boolean;
 	canInvite?: boolean;
 	invitations?: SettingsPendingInvitationRow[];
@@ -132,9 +133,9 @@ function pageData(options: PageOptions = {}) {
 					rows: options.rows ?? [owner, alpha],
 					invitations: options.invitations ?? [],
 					invitationHistory: options.history ?? Promise.resolve([]),
-					groups: [
-						{ id: 'g-1', name: 'HQ PLT' },
-						{ id: 'g-2', name: '1st PLT' }
+					groups: options.groups ?? [
+						{ id: 'g-1', name: 'HQ PLT', parentId: null, memberCount: 3 },
+						{ id: 'g-2', name: '1st PLT', parentId: null, memberCount: 2 }
 					],
 					offLanes: options.offLanes ?? [],
 					canInvite: options.canInvite ?? true,
@@ -176,6 +177,13 @@ async function pick(select: string, option: string) {
 	const item = within(await screen.findByRole('listbox', { name: select })).getByRole('option', { name: option });
 	await fireEvent.pointerDown(item);
 	await fireEvent.pointerUp(item);
+}
+
+async function pickGroups(trigger: RegExp, names: string[]) {
+	await fireEvent.click(screen.getByRole('button', { name: trigger }));
+	for (const name of names)
+		await fireEvent.click(await screen.findByRole('treeitem', { name: new RegExp(`^${name}`) }));
+	await fireEvent.keyDown(screen.getByRole('combobox', { name: 'Search Groups' }), { key: 'Escape' });
 }
 
 async function openRowMenu(id: string) {
@@ -314,9 +322,8 @@ describe('invite strip', () => {
 		expect(submitted[0].get('scopeSetKind')).toBe('organization');
 		await settle(0);
 
-		await pick('Groups', '1st PLT');
-		await fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' });
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Groups' }).textContent?.trim()).toBe('1st PLT'));
+		await pickGroups(/^Groups: Whole unit/, ['1st PLT']);
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Groups: 1st PLT' })).toBeTruthy());
 		await fireEvent.input(screen.getByLabelText('Invite'), { target: { value: 'next@example.com' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Send invite' }));
 
@@ -578,12 +585,9 @@ describe('manage access sheet', () => {
 		expect(within(sheet).getByText('Matches Viewer')).toBeTruthy();
 
 		await choose(sheet, 'Groups', 'Selected');
-		await fireEvent.click(within(sheet).getByRole('button', { name: 'HQ PLT' }));
-		await fireEvent.click(within(sheet).getByRole('button', { name: '1st PLT' }));
+		await pickGroups(/^Groups they work in:/, ['HQ PLT', '1st PLT']);
 
-		expect(
-			within(sheet).getByText("Works in HQ PLT and 1st PLT only. Soldiers with no group aren't visible to them.")
-		).toBeTruthy();
+		expect(sheet.textContent).toMatch(/\b5 people\b/);
 		expect(save.textContent?.trim()).toBe('Save 8 changes');
 	});
 
@@ -650,7 +654,7 @@ describe('manage access sheet', () => {
 		const { sheet } = await openSheet('alpha');
 		await choose(sheet, 'Personnel access', 'View');
 		await choose(sheet, 'Groups', 'Selected');
-		await fireEvent.click(within(sheet).getByRole('button', { name: 'HQ PLT' }));
+		await pickGroups(/^Groups they work in:/, ['HQ PLT']);
 		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
 
 		const sent = submitted[0];
@@ -661,6 +665,44 @@ describe('manage access sheet', () => {
 		expect(sent.get('capabilityOverride:calendar')).toBe('configure');
 		expect(sent.get('scopeSetKind')).toBe('groups');
 		expect(sent.getAll('scopeSetGroupIds')).toEqual(['g-1']);
+	});
+
+	it('submits existing canonical roots from stored scope without editing the picker', async () => {
+		const scoped = member('scoped', 'scoped@example.com', 'member', {
+			access: {
+				...alpha.access,
+				scopeSet: { kind: 'groups', groupIds: ['deleted', 'team', 'squad'] }
+			}
+		});
+		renderPage({
+			rows: [owner, scoped],
+			groups: [
+				{ id: 'squad', name: '1st Squad', parentId: null, memberCount: 0 },
+				{ id: 'team', name: 'Alpha Team', parentId: 'squad', memberCount: 2 }
+			]
+		});
+		const { sheet } = await openSheet('scoped');
+		await choose(sheet, 'Preset', 'Viewer');
+		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+
+		expect(submitted[0].get('memberPreset')).toBe('viewer');
+		expect(submitted[0].get('scopeSetKind')).toBe('groups');
+		expect(submitted[0].getAll('scopeSetGroupIds')).toEqual(['squad']);
+	});
+
+	it('keeps a group scope empty when its last Group disappears while the sheet is open', async () => {
+		const scoped = member('scoped', 'scoped@example.com', 'member', {
+			access: { ...alpha.access, scopeSet: { kind: 'groups', groupIds: ['g-1'] } }
+		});
+		const rows = [owner, scoped];
+		const { rerender } = renderPage({ rows });
+		const { sheet } = await openSheet('scoped');
+		await choose(sheet, 'Preset', 'Viewer');
+		await rerender({ data: pageData({ rows, groups: [] }), form: null, params: { orgId: 'org-1' } } as never);
+		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+
+		expect(submitted[0].get('scopeSetKind')).toBe('groups');
+		expect(submitted[0].getAll('scopeSetGroupIds')).toEqual([]);
 	});
 
 	it('shows the role as text to admins', async () => {
@@ -713,7 +755,7 @@ describe('manage access sheet', () => {
 		const view = renderPage();
 		const { sheet } = await openSheet('alpha');
 		await choose(sheet, 'Groups', 'Selected');
-		await fireEvent.click(within(sheet).getByRole('button', { name: 'HQ PLT' }));
+		await pickGroups(/^Groups they work in:/, ['HQ PLT']);
 		const save = within(sheet).getByRole('button', { name: /^Save/ });
 		save.focus();
 		await fireEvent.click(save);
@@ -721,7 +763,7 @@ describe('manage access sheet', () => {
 		await heldSubmissions[0](frameworkOutcome(serverError, { applyForm: (form) => view.rerender({ form } as never) }));
 
 		await waitFor(() => expect(within(sheet).getByRole('alert').textContent?.trim()).toBe(requestErrorText));
-		expect(within(sheet).getByRole('button', { name: 'HQ PLT' }).getAttribute('aria-pressed')).toBe('true');
+		expect(within(sheet).getByRole('button', { name: 'Groups they work in: HQ PLT' })).toBeTruthy();
 		expect(document.activeElement).toBe(within(sheet).getByRole('button', { name: 'Save 1 change' }));
 	});
 

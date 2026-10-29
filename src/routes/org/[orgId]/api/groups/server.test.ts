@@ -2,7 +2,7 @@ import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _deleteConfig, _getConfig, _postConfig, _putConfig } from './+server';
+import { _deleteConfig, _getConfig, _patchConfig, _postConfig, _putConfig } from './+server';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const otherGroupId = '33333333-3333-4333-8333-333333333333';
@@ -61,6 +61,56 @@ describe('/api/groups', () => {
 			expect.objectContaining({ action: 'group.created', resourceType: 'group', resourceId: expect.any(String) }),
 			expect.objectContaining({ action: 'group.updated', resourceType: 'group', resourceId: groupId }),
 			expect.objectContaining({ action: 'group.deleted', resourceType: 'group', resourceId: groupId })
+		]);
+	});
+
+	it('moves a Group and its sub-groups under another parent, within three levels', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		const squadId = '66666666-6666-4666-8666-666666666666';
+		const teamId = '77777777-7777-4777-8777-777777777777';
+		ctx.store.seed('groups', [
+			{ id: groupId, organization_id: ctx.auth.orgId, name: '1st Platoon', sort_order: 0, parent_id: null, depth: 1 },
+			{
+				id: otherGroupId,
+				organization_id: ctx.auth.orgId,
+				name: '2nd Platoon',
+				sort_order: 1,
+				parent_id: null,
+				depth: 1
+			},
+			{ id: squadId, organization_id: ctx.auth.orgId, name: '1st Squad', sort_order: 0, parent_id: null, depth: 1 },
+			{ id: teamId, organization_id: ctx.auth.orgId, name: 'Alpha Team', sort_order: 0, parent_id: squadId, depth: 2 }
+		]);
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, { id: squadId, parentId: groupId }, () => ctx)
+		).resolves.toEqual({ id: squadId, name: '1st Squad', sortOrder: 0, parentId: groupId, depth: 2 });
+		expect(await ctx.store.findOne('groups', ctx.auth.orgId, { id: teamId })).toMatchObject({
+			parent_id: squadId,
+			depth: 3
+		});
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, { id: groupId, parentId: teamId }, () => ctx)
+		).rejects.toMatchObject({ status: 400, message: 'A Group cannot move under one of its own sub-groups.' });
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, { id: otherGroupId, parentId: teamId }, () => ctx)
+		).rejects.toMatchObject({ status: 400, message: 'Groups can nest at most three levels deep.' });
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({ action: 'group.moved', resourceId: squadId, details: { parentId: groupId } })
 		]);
 	});
 
@@ -203,6 +253,7 @@ describe('/api/groups', () => {
 			() => handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx),
 			() => handleUseCaseRequest(_postConfig, ctx, { name: 'Scoped Created' }, () => ctx),
 			() => handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'Scoped Renamed' }, () => ctx),
+			() => handleUseCaseRequest(_patchConfig, ctx, { id: groupId, parentId: null }, () => ctx),
 			() => handleUseCaseRequest(_deleteConfig, ctx, { id: groupId }, () => ctx)
 		]) {
 			await expect(run()).rejects.toMatchObject({ status: 403 });

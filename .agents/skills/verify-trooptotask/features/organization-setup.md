@@ -128,6 +128,13 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
    `HQ Section` with `0 people`, the footer reads `1 group · changes save as you make them` and `Manage groups` shows.
    The rail marks Groups Done as soon as `HQ Section` saves. On another new unit `Skip, keep one roster` goes to
    `/setup/ranks` with Groups Done and `2 of 12`.
+   On a unit that has Groups, the step embeds the same Group tree editor as Manage Groups, under
+   `This is the same Group manager as the Personnel page. Anything you change here is there later, and nothing is
+locked in.`: a `Groups` region with `<n> groups`, `Manage groups`, `New group name` and the tree with
+   `Add a sub-group to <name>` and `Change <name>` on each row (see [Manage groups](manage-groups.md#group-tree)). After
+   the Group tree steps (10 Groups), `Add a sub-group to 3rd Platoon` → `Weapons Squad` saves a depth-2 row under 3rd
+   Platoon and the header reads `11 groups` without a reload. `Manage groups` opens the dialog on the first top-level
+   Group. At 1024 and 390 the step has no horizontal overflow.
 6. Continue from Ranks to Personnel: `0 people so far`, `A handful of people?` with `Add a person`, and the import drop
    zone with `Columns we look for`. `Continue to Calendar` with nobody on the roster, or before the count loads, marks
    Personnel `later`.

@@ -37,8 +37,11 @@ export interface GroupTree {
 	contains(ancestorId: string, groupId: string | null): boolean;
 	/** The visible root at or above `groupId`. */
 	rootOf(groupId: string | null): GroupNode | undefined;
-	/** The path from the reader's visible root, such as "2nd Squad › Alpha Team". A single root is left out below it. */
-	label(id: string): string;
+	/**
+	 * The path from the reader's visible root, such as "2nd Squad › Alpha Team". A single root is left out below it
+	 * unless `keepRoot` asks for it, as a choice between a root and a same-named child must.
+	 */
+	label(id: string, options?: { keepRoot?: boolean }): string;
 	/** Nested bands from the roots; empty bands are dropped. Unassigned people are not in any band. */
 	bands<T>(items: readonly T[], groupOf: GroupOf<T>, options?: BandOptions): Band<T>[];
 }
@@ -57,6 +60,17 @@ export function soleLeafGroup(tree: GroupTree, organizationWide: boolean): Group
 /** Whether any visible Group has sub-groups, so the Show sub-groups switch has something to change. */
 export function hasSubGroups(tree: GroupTree): boolean {
 	return tree.ordered.some((node) => node.hasChildren);
+}
+
+/** People in each Group's whole subtree, keyed by Group id; a Group with nobody in it has no entry. */
+export function groupHeadcounts<T>(tree: GroupTree, items: readonly T[], groupOf: GroupOf<T>): Map<string, number> {
+	const counts = new Map<string, number>();
+	const visit = (band: Band<T>) => {
+		counts.set(band.node.id, band.count);
+		band.children.forEach(visit);
+	};
+	tree.bands(items, groupOf).forEach(visit);
+	return counts;
 }
 
 /**
@@ -203,11 +217,11 @@ export function buildGroupTree(groups: readonly Group[], options: GroupTreeOptio
 		return false;
 	}
 
-	function label(id: string): string {
+	function label(id: string, { keepRoot = false }: { keepRoot?: boolean } = {}): string {
 		const path = ancestry(id);
 		if (path.length === 0) return byId.get(id)?.name ?? '';
 		const names = path.map((step, index) => (index === 0 ? rootLabels.get(step)! : nodes.get(step)!.name));
-		return (roots.length === 1 && names.length > 1 ? names.slice(1) : names).join(PATH_SEPARATOR);
+		return (!keepRoot && roots.length === 1 && names.length > 1 ? names.slice(1) : names).join(PATH_SEPARATOR);
 	}
 
 	function directMembers<T>(items: readonly T[], groupOf: GroupOf<T>): Map<string, T[]> {

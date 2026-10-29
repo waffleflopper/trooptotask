@@ -1,15 +1,17 @@
 <script lang="ts">
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { getSetupFlow, SetupEditorNote, SetupStepFooter } from '$features/organization';
-	import { groupsStore, type PersonnelPageContext } from '$features/personnel';
+	import { GroupStructureEditor, groupsStore, type PersonnelPageContext } from '$features/personnel';
+	import { buildGroupTree, groupHeadcounts } from '$features/personnel/contracts';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import SetupPersonnelWorkspace from './SetupPersonnelWorkspace.svelte';
 
-	function members(ctx: PersonnelPageContext, groupId: string) {
-		return ctx.allActivePersonnel.filter((person) => person.groupId === groupId).length;
-	}
+	const tree = $derived(buildGroupTree(groupsStore.items));
+	const memberCounts = (ctx: PersonnelPageContext) =>
+		groupHeadcounts(tree, ctx.allActivePersonnel, (person) => person.groupId);
+	const indent = ['', 'pl-5', 'pl-10'];
 
 	const people = (count: number) => `${count} ${count === 1 ? 'person' : 'people'}`;
 	const groupCount = (count: number) => `${count} ${count === 1 ? 'group' : 'groups'}`;
@@ -41,9 +43,7 @@
 				>
 					{#snippet action()}
 						{#if ctx.canManageGroups && groupsStore.items.length > 0}
-							<Button size="sm" onclick={() => ctx.openGroupEditor(groupsStore.items[0]?.id ?? null)}>
-								Manage groups
-							</Button>
+							<Button size="sm" onclick={() => ctx.openGroupEditor(tree.roots[0]?.id ?? null)}>Manage groups</Button>
 						{/if}
 					{/snippet}
 				</PageShell.SectionHeader>
@@ -95,22 +95,18 @@
 							</ul>
 						</div>
 					</div>
+				{:else if ctx.canManageGroups}
+					<div class="border-b">
+						<GroupStructureEditor {ctx} />
+					</div>
 				{:else}
-					<ul>
-						{#each groupsStore.items as group (group.id)}
-							<li class="flex items-center justify-between gap-4 border-b py-2.5">
-								{#if ctx.canManageGroups}
-									<button
-										type="button"
-										class="min-w-0 truncate rounded-sm text-left text-sm font-semibold outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-										onclick={() => ctx.openGroupEditor(group.id)}
-									>
-										{group.name}
-									</button>
-								{:else}
-									<span class="min-w-0 truncate text-sm font-semibold">{group.name}</span>
-								{/if}
-								<span class="shrink-0 font-mono text-xs text-muted-foreground">{people(members(ctx, group.id))}</span>
+					{@const counts = memberCounts(ctx)}
+					<ul aria-label="Groups">
+						{#each tree.ordered as group (group.id)}
+							<li class="flex items-center justify-between gap-4 border-b py-2.5 {indent[group.level] ?? 'pl-10'}">
+								<span class="min-w-0 truncate text-sm font-semibold">{group.name}</span>
+								<span class="shrink-0 font-mono text-xs text-muted-foreground">{people(counts.get(group.id) ?? 0)}</span
+								>
 							</li>
 						{/each}
 					</ul>

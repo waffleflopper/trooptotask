@@ -9,7 +9,7 @@ import {
 	createRequestNotificationContext,
 	createOrganizationInvitationPorts
 } from '$lib/server/adapters/requestContexts.server';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import { listScopeGroups } from '$features/personnel/index.server';
 import {
 	createSupabaseOrgSettingsMemberManagementPort,
 	loadMembersSettings,
@@ -29,7 +29,7 @@ export const load: PageServerLoad = (event) =>
 	loadSettingsPage(event, createSettingsMembersContext, async (ctx, { common }) => {
 		const membersSettings = await loadMembersSettings(ctx, {
 			isAdmin: common.isAdmin,
-			groups: listGroupCatalog(ctx),
+			groups: listScopeGroups(ctx),
 			closedInvitations: keepStreamedRejectionObserved(
 				ctx.organizationSettings.listInvitations(ctx.auth.orgId, 'closed')
 			)

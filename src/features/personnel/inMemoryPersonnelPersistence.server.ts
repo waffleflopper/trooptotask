@@ -32,6 +32,7 @@ export interface PersonnelMemoryStore {
 import {
 	GROUP_NAME_EXISTS_MESSAGE,
 	GROUP_ORDER_CHANGED_MESSAGE,
+	GROUP_PARENT_GONE_MESSAGE,
 	GROUP_UNAVAILABLE_MESSAGE,
 	type PersonnelRecordPersistence,
 	type PersonnelRosterReader,
@@ -277,6 +278,44 @@ export function createInMemoryGroupPersistence(
 			if (saved.join() !== expectedIds.join()) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
 			if (ids.length !== saved.length || saved.some((id) => !ids.includes(id))) fail(400, 'Choose every Group once');
 			for (const [index, id] of ids.entries()) await store.update('groups', orgId, id, { sort_order: index });
+		},
+		async move(id, parentId) {
+			const catalog = (await rows('*')).map(map);
+			const group = catalog.find((candidate) => candidate.id === id);
+			if (!group) fail(404, GROUP_UNAVAILABLE_MESSAGE);
+			const parent = parentId ? catalog.find((candidate) => candidate.id === parentId) : null;
+			if (parentId && !parent) fail(400, GROUP_PARENT_GONE_MESSAGE);
+			const subtree = new Set([id]);
+			for (let pass = 1; pass < 3; pass++) {
+				for (const other of catalog) if (other.parentId && subtree.has(other.parentId)) subtree.add(other.id);
+			}
+			if (parentId && subtree.has(parentId)) fail(400, 'A Group cannot move under one of its own sub-groups.');
+			const depth = parent ? parent.depth + 1 : 1;
+			const height =
+				Math.max(...catalog.filter((other) => subtree.has(other.id)).map((other) => other.depth)) - group.depth;
+			if (depth + height > 3) fail(400, 'Groups can nest at most three levels deep.');
+			const siblings = catalog.filter((other) => other.parentId === parentId && other.id !== id);
+			if (siblings.some((other) => other.name === group.name)) fail(409, GROUP_NAME_EXISTS_MESSAGE);
+			const moved = await store.update<Record<string, unknown>>('groups', orgId, id, {
+				parent_id: parentId,
+				sort_order: Math.max(-1, ...siblings.map((other) => other.sortOrder)) + 1,
+				depth
+			});
+			for (const other of catalog) {
+				if (other.id !== id && subtree.has(other.id))
+					await store.update('groups', orgId, other.id, { depth: other.depth + depth - group.depth });
+			}
+			return map(moved);
+		},
+		async countActiveMembers() {
+			const ids = visibleGroupIds(scopeSet);
+			const people = await store.findMany<{ group_id: string | null; archived_at: string | null }>('personnel', orgId);
+			const counts = new Map<string, number>();
+			for (const person of people) {
+				if (!person.group_id || person.archived_at || (ids && !ids.includes(person.group_id))) continue;
+				counts.set(person.group_id, (counts.get(person.group_id) ?? 0) + 1);
+			}
+			return counts;
 		},
 		async deleteWithReassignment(id, targetId) {
 			const group = await store.findOne('groups', orgId, { id });

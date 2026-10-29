@@ -8,6 +8,8 @@ export interface RosterPrintPerson {
 	group: string;
 	/** Absent on Rosters saved before snapshots carried the Group id. */
 	groupId?: string | null;
+	/** The Groups above `groupId` when it was saved; absent on Rosters saved before Groups nested. */
+	groupAncestors?: readonly { id: string; name: string }[];
 }
 
 /** How a printed Roster splits. `groupIds` are the top-level Groups it was drawn from; none means the whole view. */
@@ -52,8 +54,8 @@ export function rosterPrintRows(
 /**
  * Sections for each top-level Group the Roster was drawn from, or each one when it was drawn from everyone. A Group with
  * sub-groups opens into its HQ and then each sub-group's whole subtree, path-labelled. Labels use the Group names saved
- * with the Roster, so a reprint after a rename reads as printed. People whose Group is no longer in the tree keep their
- * saved Group name, and the ungrouped print last.
+ * with the Roster, so a reprint after a rename reads as printed; current names fill only Groups it never saved. People
+ * whose Group is no longer in the tree keep their saved Group name, and the ungrouped print last.
  */
 function sectionsByGroup(
 	snapshot: readonly RosterPrintPerson[],
@@ -69,7 +71,12 @@ function sectionsByGroup(
 		return id && tree.node(id) ? id : null;
 	};
 
-	const savedNames = new Map(snapshot.flatMap((person) => (person.groupId ? [[person.groupId, person.group]] : [])));
+	const savedNames = new Map(
+		snapshot.flatMap((person) => [
+			...(person.groupAncestors ?? []).map((group) => [group.id, group.name] as const),
+			...(person.groupId ? [[person.groupId, person.group] as const] : [])
+		])
+	);
 	const printed = buildGroupTree(groups.map((group) => ({ ...group, name: savedNames.get(group.id) ?? group.name })));
 
 	const chosen = chosenRosterGroups({ groups: [...groupIds] }, tree);

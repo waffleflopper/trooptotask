@@ -14,6 +14,7 @@ export interface SignInRoster {
 		firstName: string;
 		group: string;
 		groupId?: string | null;
+		groupAncestors?: { id: string; name: string }[];
 	}[];
 	filterConfig: SignInRosterFilter | null;
 	signedFilePath: string | null;

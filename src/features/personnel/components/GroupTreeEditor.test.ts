@@ -124,7 +124,8 @@ describe('GroupTreeEditor', () => {
 
 		const alert = await screen.findByRole('alert');
 		expect(alert.textContent?.trim()).toBe('Order failed.');
-		expect(alert.closest('[data-reorder-id]')?.getAttribute('data-reorder-id')).toBe('plt1');
+		const itemOf = (element: Element) => element.closest('[role="listitem"]');
+		expect(itemOf(alert)).toBe(itemOf(screen.getByRole('button', { name: 'Change 1st Platoon' })));
 	});
 
 	it('renames a Group in place', async () => {

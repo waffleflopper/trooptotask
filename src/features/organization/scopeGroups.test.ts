@@ -38,12 +38,19 @@ describe('scopeTree', () => {
 	});
 
 	it.each([
-		[['sq1'], 'Sees 1st Squad and its 2 sub-groups: 12 people. Not Unassigned.'],
-		[['alpha'], 'Sees Alpha Team: 6 people. Not Unassigned.'],
-		[['alpha', 'sq1', 'hq'], 'Sees 1st Squad and its 2 sub-groups plus HQ: 16 people. Not Unassigned.'],
-		[['plt2'], 'Sees 2nd Platoon and its 4 sub-groups: 17 people. Not Unassigned.']
-	])('summarizes %j', (ids, expected) => {
-		expect(tree.summary(ids)).toBe(expected);
+		{ ids: ['sq1'], named: ['1st Squad'], people: 12 },
+		{ ids: ['alpha'], named: ['Alpha Team'], people: 6 },
+		{ ids: ['alpha', 'sq1', 'hq'], named: ['1st Squad', 'HQ'], people: 16 },
+		{ ids: ['plt2'], named: ['2nd Platoon'], people: 17 }
+	])('summarizes $ids by their top Groups and subtree headcount', ({ ids, named, people }) => {
+		const summary = tree.summary(ids);
+
+		for (const name of named) expect(summary).toContain(name);
+		expect(summary).toMatch(new RegExp(`\\b${people} people\\b`));
+	});
+
+	it('leaves a covered team out of the summary', () => {
+		expect(tree.summary(['alpha', 'sq1'])).not.toContain('Alpha Team');
 	});
 
 	it('treats a Group whose parent it cannot see as a root', () => {

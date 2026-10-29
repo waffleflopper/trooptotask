@@ -7346,6 +7346,24 @@ $$;
 ALTER FUNCTION public.password_change_attempt(p_actor uuid, p_session uuid, p_action text, p_flow text, p_expires_at timestamp with time zone, p_id uuid) OWNER TO postgres;
 
 --
+-- Name: personnel_dod_ids_in_use(uuid, text[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) RETURNS text[]
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT coalesce(array_agg(DISTINCT sheet.dod_id ORDER BY sheet.dod_id), ARRAY[]::text[])
+  FROM public.personnel_extended_info AS sheet
+  WHERE public.member_access_has_capability(p_organization_id, 'personnel', 'operate')
+    AND sheet.organization_id = p_organization_id
+    AND sheet.dod_id = ANY(p_dod_ids);
+$$;
+
+
+ALTER FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) OWNER TO postgres;
+
+--
 -- Name: personnel_extended_info_scope_matches(uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -20093,6 +20111,15 @@ GRANT ALL ON FUNCTION public.organization_storage_object_is_owner_removable(buck
 
 REVOKE ALL ON FUNCTION public.password_change_attempt(p_actor uuid, p_session uuid, p_action text, p_flow text, p_expires_at timestamp with time zone, p_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.password_change_attempt(p_actor uuid, p_session uuid, p_action text, p_flow text, p_expires_at timestamp with time zone, p_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) TO authenticated;
+GRANT ALL ON FUNCTION public.personnel_dod_ids_in_use(p_organization_id uuid, p_dod_ids text[]) TO service_role;
 
 
 --

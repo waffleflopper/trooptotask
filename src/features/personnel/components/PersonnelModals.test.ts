@@ -75,6 +75,7 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn(async (_url, init) => {
+					if (!init) return Response.json({ count: 0 });
 					if (denied) return Response.json({ message: 'Organization is suspended' }, { status: 403 });
 					if (operation === 'delete') return Response.json({ movedCount: 1 });
 					return Response.json({
@@ -97,7 +98,7 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 				submit = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 			} else {
 				await chooseGroupAction('Alpha', 'Delete…');
-				submit = () => fireEvent.click(screen.getByRole('button', { name: 'Delete and move 1' }));
+				submit = async () => fireEvent.click(await screen.findByRole('button', { name: 'Delete and move 1' }));
 			}
 			await submit();
 			await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('Organization is suspended'));
@@ -296,7 +297,8 @@ describe('Group editor changes reach the roster in place', () => {
 		const bodies: unknown[] = [];
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async (_url: string, init: RequestInit) => {
+			vi.fn(async (_url: string, init?: RequestInit) => {
+				if (!init) return Response.json({ count: 0 });
 				bodies.push(JSON.parse(init.body as string));
 				return Response.json({ movedCount: 3 });
 			})
@@ -306,7 +308,7 @@ describe('Group editor changes reach the roster in place', () => {
 		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals } });
 
 		await chooseGroupAction('1st Platoon', 'Delete…');
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete and move 3' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Delete and move 3' }));
 
 		await waitFor(() => expect(groupsStore.items.map((group) => group.id)).toEqual(['hq']));
 		expect(bodies).toEqual([{ id: 'plt', moveMembersTo: null }]);
@@ -410,13 +412,13 @@ describe('Group editor changes reach the roster in place', () => {
 			await waitFor(() => expect(reads).toHaveLength(5));
 			vi.stubGlobal(
 				'fetch',
-				vi.fn(async () => Response.json({ movedCount: 1 }))
+				vi.fn(async (_url: string, init?: RequestInit) => Response.json(init ? { movedCount: 1 } : { count: 0 }))
 			);
 
 			await chooseGroupAction('Alpha', 'Delete…');
-			await fireEvent.click(screen.getByRole('button', { name: /^Move them to:/ }));
+			await fireEvent.click(await screen.findByRole('button', { name: /^Move them to:/ }));
 			await fireEvent.click(screen.getByRole('treeitem', { name: 'Bravo' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Delete and move 1' }));
+			await fireEvent.click(await screen.findByRole('button', { name: 'Delete and move 1' }));
 
 			await waitFor(() => expect(personnelStore.getById('person-a')?.groupId).toBe('group-b'));
 			expect(reads.slice(5).toSorted()).toEqual(['attention', 'next7']);

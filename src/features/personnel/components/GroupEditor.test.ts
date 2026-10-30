@@ -63,7 +63,8 @@ function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {
 			rename: vi.fn(async () => {}),
 			move: vi.fn(async () => {}),
 			reorder: vi.fn(async () => ({ status: 'saved' as const })),
-			remove: vi.fn(async () => {})
+			remove: vi.fn(async () => {}),
+			archivedMemberCount: vi.fn(async () => 0)
 		},
 		onTogglePin: vi.fn(async () => true),
 		onMove: vi.fn(async (ids: string[], groupId: string | null) => ({ groupId, movedIds: ids, unavailableIds: [] })),

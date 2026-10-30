@@ -56,14 +56,21 @@
 
 	// Group ids are UUIDs, so this never collides with one.
 	const TOP_LEVEL = 'top-level';
+	const ARCHIVED_LOAD_FAILED_MESSAGE = 'Could not check for archived people in this Group. Try again.';
 	const SQUAD_COUNTS = [1, 2, 3, 4, 5, 6];
+
+	/** Archived People are not on the roster the editor holds, so a delete asks the server how many it moves. */
+	type ArchivedMembers =
+		| { status: 'loading' }
+		| { status: 'ready'; count: number }
+		| { status: 'failed'; message: string };
 
 	type Action =
 		| { kind: 'rename'; id: string; draft: string }
 		| { kind: 'add-child'; id: string; draft: string }
 		| { kind: 'move'; id: string; target: string | null }
 		| { kind: 'squads'; id: string; count: number }
-		| { kind: 'delete'; id: string; target: string };
+		| { kind: 'delete'; id: string; target: string; archived: ArchivedMembers };
 
 	let newName = $state('');
 	let hintDismissed = $state(false);
@@ -169,8 +176,18 @@
 		}
 	}
 
-	function startDelete(node: GroupNode) {
-		open({ kind: 'delete', id: node.id, target: node.parentId ?? UNASSIGNED_OPTION });
+	async function startDelete(node: GroupNode) {
+		open({ kind: 'delete', id: node.id, target: node.parentId ?? UNASSIGNED_OPTION, archived: { status: 'loading' } });
+		const current = action;
+		if (current?.kind !== 'delete') return;
+		try {
+			const count = await commands.archivedMemberCount(node.id);
+			if (action === current) current.archived = { status: 'ready', count };
+		} catch (cause) {
+			if (action !== current) return;
+			const message = cause instanceof Error && cause.message ? cause.message : ARCHIVED_LOAD_FAILED_MESSAGE;
+			current.archived = { status: 'failed', message };
+		}
 	}
 
 	const indent = ['pl-1', 'pl-5 max-sm:pl-4', 'pl-9 max-sm:pl-7'];
@@ -474,28 +491,36 @@
 {:else if action?.kind === 'delete' && deletion}
 	{@const current = action}
 	{@const { group, descendants, memberCount } = deletion}
+	{@const archivedCount = current.archived.status === 'ready' ? current.archived.count : 0}
+	{@const total = memberCount + archivedCount}
 	<ConfirmDialog
 		title={descendants.length > 0
 			? `Delete ${group.name} and its ${plural(descendants.length, 'sub-group')}?`
 			: `Delete ${group.name}?`}
 		message={[
 			descendants.length > 0 && `${names(descendants)} ${descendants.length === 1 ? 'is' : 'are'} deleted with it.`,
-			memberCount > 0
-				? `${plural(memberCount, 'person', 'people')} ${memberCount === 1 ? 'moves' : 'move'} to the Group you choose. Their records, notes and history are not affected.`
-				: 'No one is in it.'
+			current.archived.status === 'ready' &&
+				(total > 0
+					? `${plural(total, 'person', 'people')} ${total === 1 ? 'moves' : 'move'} to the Group you choose${archivedCount > 0 ? `, ${archivedCount} of them archived` : ''}. Their records, notes and history are not affected.`
+					: 'No one is in it.')
 		]
 			.filter(Boolean)
 			.join(' ')}
-		confirmLabel={memberCount > 0 ? `Delete and move ${memberCount}` : 'Delete'}
+		confirmLabel={current.archived.status === 'ready' && total > 0 ? `Delete and move ${total}` : 'Delete'}
+		disabled={current.archived.status !== 'ready'}
 		loading={pending === keyOf('delete', current.id)}
 		onCancel={() => (action = null)}
 		onConfirm={() =>
 			confirm(current, () =>
-				commands.remove(current.id, memberCount > 0 && current.target !== UNASSIGNED_OPTION ? current.target : null)
+				commands.remove(current.id, total > 0 && current.target !== UNASSIGNED_OPTION ? current.target : null)
 			)}
 	>
 		<div class="grid gap-1.5">
-			{#if memberCount > 0}
+			{#if current.archived.status === 'loading'}
+				<Skeleton class="h-9 w-full" />
+			{:else if current.archived.status === 'failed'}
+				<p role="alert" class="text-sm text-destructive-text">{current.archived.message}</p>
+			{:else if total > 0}
 				<TreeSelect
 					label="Move them to"
 					placeholder="Choose a Group"

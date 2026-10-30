@@ -159,6 +159,8 @@ export interface GroupPersistence {
 	move(id: string, parentId: string | null): Promise<Group>;
 	/** Active People directly in each Group the reader can see, keyed by Group id. */
 	countActiveMembers(): Promise<Map<string, number>>;
+	/** Archived People filed directly in any of these Groups. */
+	countArchivedMembers(groupIds: readonly string[]): Promise<number>;
 	/**
 	 * Moves every subtree member to `targetId` (null is Unassigned), deletes the subtree and its pins in one transaction,
 	 * and resolves how many People moved. Fails 404 when either Group is gone.

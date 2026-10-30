@@ -156,6 +156,17 @@ export function createSupabaseGroupPersistence(
 			for (const row of result.data ?? []) counts.set(row.group_id, (counts.get(row.group_id) ?? 0) + 1);
 			return counts;
 		},
+		async countArchivedMembers(groupIds) {
+			if (groupIds.length === 0) return 0;
+			const { count, error } = await client
+				.from('personnel')
+				.select('id', { count: 'exact', head: true })
+				.eq('organization_id', orgId)
+				.not('archived_at', 'is', null)
+				.in('group_id', [...groupIds]);
+			if (error) throw new Error(error.message);
+			return count ?? 0;
+		},
 		async deleteWithReassignment(id, targetId) {
 			const { data, error } = await client.rpc('delete_group_with_reassignment', {
 				p_organization_id: orgId,

@@ -24,6 +24,8 @@ import {
 } from '$features/personnel/contracts';
 import { invalidate } from '$app/navigation';
 
+const ARCHIVED_COUNT_FAILED_MESSAGE = 'Could not check for archived people in this Group. Try again.';
+
 export type GroupOrderChange = { status: 'saved' | 'stale' } | { status: 'failed'; message: string };
 
 type OrderFlight = {
@@ -235,6 +237,20 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 				.map((group) => ({ ...group, depth: (group.depth + shift) as Group['depth'] }));
 			internals.commit({ saved: [moved, ...descendants] });
 			return moved;
+		},
+
+		/** Archived People in the Group and its sub-groups, which a delete moves with the active ones. */
+		async archivedMemberCount(id: string): Promise<number> {
+			const orgId = base.orgId;
+			const res = await fetch(`/org/${orgId}/api/groups/archived-members?groupId=${encodeURIComponent(id)}`);
+			if (!res.ok) {
+				const failure = await buildRequestError(res, 'GET', 'groups/archived-members');
+				throw new Error(rejectedRequestMessage(failure, ARCHIVED_COUNT_FAILED_MESSAGE));
+			}
+			const body: unknown = await res.json().catch(() => null);
+			const count = (body as { count?: unknown } | null)?.count;
+			if (!Number.isInteger(count)) throw new Error(ARCHIVED_COUNT_FAILED_MESSAGE);
+			return count as number;
 		},
 
 		async deleteWithReassignment(id: string, moveMembersTo: string | null): Promise<GroupDeleteResult> {

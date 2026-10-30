@@ -555,6 +555,7 @@ export function expandWorkload(name, { anchor, owner, scoped, scopedLeader, memb
 
 	const label = (person) => `${person.last_name}, ${person.first_name}`;
 	const scopedPeople = active.filter((person) => person.group_id === scopedGroup.id);
+	const firstGroupLast = label(scopedPeople.toSorted((a, b) => label(a).localeCompare(label(b))).at(-1));
 	const searched = {
 		wide: active[Math.floor(active.length / 2)],
 		scoped: scopedPeople[Math.floor(scopedPeople.length / 2)]
@@ -567,11 +568,9 @@ export function expandWorkload(name, { anchor, owner, scoped, scopedLeader, memb
 		},
 		rows,
 		scopedGroup: { id: scopedGroup.id, name: scopedGroup.name },
-		// The alphabetically last active name each actor can see; its rendering marks a full roster.
-		sentinels: {
-			wide: label(active.toSorted((a, b) => label(a).localeCompare(label(b))).at(-1)),
-			scoped: label(scopedPeople.toSorted((a, b) => label(a).localeCompare(label(b))).at(-1))
-		},
+		// The roster opens By Group on its first page, which starts with the first Group in full. Its alphabetically last
+		// active name is that Group's last row for either actor, so its rendering marks the first page rendered.
+		sentinels: { wide: firstGroupLast, scoped: firstGroupLast },
 		// A unique last name in each actor's scope; searching it leaves one row.
 		searchTerms: { wide: searched.wide.last_name, scoped: searched.scoped.last_name },
 		journeyTerms: journeyTerms({ anchor, rows, active, scopedPeople, searched }),

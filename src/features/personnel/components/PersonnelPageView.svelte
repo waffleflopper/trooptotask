@@ -9,8 +9,9 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
+	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import * as Empty from '$lib/components/ui/empty/index.js';
-	import { useDataTable } from '$lib/components/ui/data-table';
+	import { pageSections, useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef, DataTableGroup, DataTableState } from '$lib/components/ui/data-table';
 	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -27,7 +28,7 @@
 	import { hasSubGroups, type Band } from '../groupTree';
 	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
-	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
+	import { onDestroy, onMount, tick, untrack, type Snippet } from 'svelte';
 	import type { ComposerKind } from '../rosterComposer';
 	import PersonnelBulkBar from './roster/PersonnelBulkBar.svelte';
 	import PersonnelFilterChips from './roster/PersonnelFilterChips.svelte';
@@ -50,9 +51,10 @@
 	let { ctx, nextDays }: Props = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
-	const ROSTER_PAGE_SIZE = 75;
+	const ROSTER_PAGE_SIZES = [50, 75, 100, 200] as const;
+	const ROSTER_PAGE_SIZE = 100;
+	const PAGE_SIZE_KEY = 't2t:personnel-roster-page-size';
 	const peekFits = new MediaQuery('min-width: 1280px', false);
-	const GROUPED_ROSTER_RENDER_LIMIT = 250;
 	const groupOf = (person: Personnel): string | null => person.groupId;
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
@@ -103,6 +105,7 @@
 		const url = new URL(page.url);
 		if (next) url.searchParams.set(ROSTER_FILTER_PARAM, serializeRosterFilter(next));
 		else url.searchParams.delete(ROSTER_FILTER_PARAM);
+		showFirstPages();
 		const target = `${url.pathname}${url.search}` as `/org/${string}/personnel`;
 		void goto(resolve(target), { replaceState: true, keepFocus: true, noScroll: true });
 	}
@@ -226,6 +229,7 @@
 		/** Everyone in the section's Group and its sub-groups, which the header counts and acts on. */
 		people: Personnel[];
 		topLevel: boolean;
+		parentKey: string | null;
 	}
 
 	// Each Group is a section of its own members in tree order, its sub-groups' sections after it. Collapsing a Group
@@ -233,14 +237,7 @@
 	const sections = $derived.by((): RosterSection[] => {
 		const sorted = new Map(groupedTable.groups.map((group) => [group.key, group.rows]));
 		const out: RosterSection[] = [];
-		let room = GROUPED_ROSTER_RENDER_LIMIT;
-		const take = (key: string, collapsed: boolean): Personnel[] => {
-			const rows = sorted.get(key) ?? [];
-			if (collapsed) return rows;
-			const shown = rows.slice(0, room);
-			room -= shown.length;
-			return shown;
-		};
+		const take = (key: string): Personnel[] => sorted.get(key) ?? [];
 		const subtree = (band: Band<Personnel>): Personnel[] => [...band.hq, ...band.children.flatMap(subtree)];
 		const visit = (band: Band<Personnel>) => {
 			const { node } = band;
@@ -251,7 +248,8 @@
 				name: node.level === 0 ? tree.label(node.id) : node.name,
 				level: node.level,
 				topLevel: node.parentId === null,
-				rows: take(node.id, collapsed),
+				parentKey: node.parentId,
+				rows: take(node.id),
 				people: subtree(band),
 				collapsed
 			});
@@ -273,7 +271,8 @@
 				name: label,
 				level: 0,
 				topLevel: true,
-				rows: take(group.key, collapsed),
+				parentKey: null,
+				rows: take(group.key),
 				people: group.rows,
 				collapsed
 			});
@@ -281,9 +280,41 @@
 		return out;
 	});
 	const sectionByKey = $derived(new Map(sections.map((section) => [section.key, section])));
+	let bandedPage = $state(1);
+	// Counts the reader's own page changes, so a slow save can tell whether the reader has moved on.
+	let pageTurns = 0;
+	let bandedPageSize = $state<number>(ROSTER_PAGE_SIZE);
+	const bandedPages = $derived(pageSections<Personnel, RosterSection>(sections, bandedPageSize, bandedPage));
+	// A roster that shrinks past the page keeps the last page, so growing it again does not jump back.
+	$effect(() => {
+		if (bandedPage !== bandedPages.page) bandedPage = bandedPages.page;
+	});
 	const bandedTable: DataTableState<Personnel> = Object.create(groupedTable, {
-		groups: { get: () => sections },
-		toggleGroup: { value: (key: string) => ctx.toggleGroup(key) },
+		groups: { get: () => bandedPages.sections },
+		allRows: { get: () => bandedPages.rows },
+		page: { get: () => bandedPages.page },
+		totalPages: { get: () => bandedPages.totalPages },
+		pageSize: { get: () => bandedPageSize },
+		setPage: {
+			value: (page: number) => {
+				pageTurns++;
+				bandedPage = Math.min(Math.max(1, page), bandedPages.totalPages);
+			}
+		},
+		setPageSize: { value: setPageSize },
+		toggleSort: {
+			value: (key: string) => {
+				groupedTable.toggleSort(key);
+				pageTurns++;
+				bandedPage = 1;
+			}
+		},
+		toggleGroup: {
+			value: (key: string) => {
+				ctx.toggleGroup(key);
+				void followGroup(key, `[data-roster-group="${CSS.escape(key)}"] [aria-expanded]`);
+			}
+		},
 		expandAll: { value: () => ctx.collapsedGroups.clear() },
 		collapseAll: { value: () => sections.forEach((section) => ctx.collapsedGroups.add(section.key)) }
 	});
@@ -337,10 +368,6 @@
 		peekedId && !locallyArchivedIds.has(peekedId) ? (ctx.getPersonnelById(peekedId) ?? null) : null
 	);
 	const peekOpen = $derived(peekFits.current && canViewRoster && peekedPerson !== null);
-	const groupedRosterLimited = $derived(
-		viewMode === 'by-group' && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
-	);
-	const shouldGateGroupedRoster = $derived(groupedRosterLimited && !rosterSearch.trim());
 	const activeTable = $derived(viewMode === 'alphabetical' ? azTable : bandedTable);
 	const shownRows = $derived(
 		activeTable.groups.length > 0
@@ -348,7 +375,7 @@
 			: activeTable.rows
 	);
 	const shownIds = $derived(shownRows.map((person) => person.id));
-	const peekSequence = $derived(viewMode === 'alphabetical' ? azTable.allRows : shownRows);
+	const peekSequence = $derived(activeTable.allRows);
 	const peekPosition = $derived({
 		index: peekSequence.findIndex((person) => person.id === peekedId),
 		total: peekSequence.length
@@ -539,7 +566,7 @@
 			const next = sequence[index];
 			if (!ctx.canOpenPersonnelDetail(next)) continue;
 			showPeek(next, true, () => {
-				if (viewMode === 'alphabetical') azTable.setPage(Math.floor(index / ROSTER_PAGE_SIZE) + 1);
+				activeTable.setPage(Math.floor(index / activeTable.pageSize) + 1);
 				if (moveFocus) void focusRow(next.id);
 			});
 			return;
@@ -567,27 +594,56 @@
 		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(personnelId)}"]`)?.focus();
 	}
 
-	// Pinning reorders the groups and the moved header drops focus; put it back on the pin unless focus moved elsewhere.
-	async function togglePin(groupKey: string) {
-		const restoreFocus = async () => {
-			await tick();
-			if (document.activeElement && document.activeElement !== document.body) return;
-			document.querySelector<HTMLElement>(`[data-pin-group="${CSS.escape(groupKey)}"]`)?.focus();
-		};
-		const saved = pinnedGroupsStore.toggle(groupKey);
-		await restoreFocus();
-		await saved;
-		await restoreFocus();
+	// Pinning or collapsing can move a Group's header to another page and drop focus. Turn to the page that shows
+	// the header and put focus back on the control unless focus moved elsewhere.
+	async function followGroup(groupKey: string, control: string) {
+		if (!bandedPages.sections.some((section) => section.key === groupKey))
+			bandedPage = bandedPages.opensOn.get(groupKey) ?? bandedPage;
+		await tick();
+		if (!active || (document.activeElement && document.activeElement !== document.body)) return;
+		document.querySelector<HTMLElement>(control)?.focus();
 	}
 
-	function showAlphabetical(): void {
-		ctx.viewMode = 'alphabetical';
+	async function togglePin(groupKey: string) {
+		const pin = `[data-pin-group="${CSS.escape(groupKey)}"]`;
+		const pinOrgId = orgId;
+		const saved = pinnedGroupsStore.toggle(groupKey);
+		await followGroup(groupKey, pin);
+		const turns = pageTurns;
+		await saved;
+		// A failed save moves the Group back; follow it only if the reader has not turned the page or left meanwhile.
+		if (active && orgId === pinOrgId && pageTurns === turns) await followGroup(groupKey, pin);
 	}
 
 	function setRosterSearch(value: string): void {
 		rosterSearch = value;
 		ctx.searchQuery = value;
+		showFirstPages();
 	}
+
+	function showFirstPages(): void {
+		azTable.setPage(1);
+		pageTurns++;
+		bandedPage = 1;
+	}
+
+	function setPageSize(size: number): void {
+		azTable.setPageSize(size);
+		bandedPageSize = size;
+		pageTurns++;
+		bandedPage = 1;
+		try {
+			getBrowserLocalStorage()?.setItem(PAGE_SIZE_KEY, String(size));
+		} catch {
+			// A browser that cannot store keeps the size until the page reloads.
+		}
+	}
+
+	// Applied after mount so the server-rendered first page matches hydration.
+	onMount(() => {
+		const stored = Number(getBrowserLocalStorage()?.getItem(PAGE_SIZE_KEY));
+		if (stored !== ROSTER_PAGE_SIZE && ROSTER_PAGE_SIZES.some((size) => size === stored)) setPageSize(stored);
+	});
 
 	const toolbarItems = $derived(
 		personnelToolbarItems({
@@ -705,21 +761,6 @@
 						</Empty.Content>
 					{/if}
 				</Empty.Root>
-			{:else if shouldGateGroupedRoster}
-				<div
-					class="flex items-center justify-between gap-4 rounded-lg border bg-card p-5 max-sm:flex-col max-sm:items-stretch"
-				>
-					<div>
-						<span class="text-xs font-medium tracking-widest text-muted-foreground uppercase"
-							>Grouped roster paused</span
-						>
-						<p class="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
-							{groupedTable.totalRows} personnel are loaded. Search within the roster or switch to the paged A-Z view to keep
-							this page fast.
-						</p>
-					</div>
-					<Button onclick={showAlphabetical}>Use A-Z View</Button>
-				</div>
 			{:else}
 				<div
 					class="flex min-h-0 min-w-0 flex-1 [&_[data-slot='data-table']]:min-h-0 [&_[data-slot='data-table']]:w-full [&_[data-slot='data-table']]:flex-1"
@@ -736,6 +777,8 @@
 								: 'No personnel in this Group.'}
 						emptyLevel={2}
 						maxHeight="100%"
+						pageSizeOptions={ROSTER_PAGE_SIZES}
+						onPageSizeChange={setPageSize}
 					>
 						{#snippet headerCell(column)}
 							{#if column.key === 'select'}
@@ -784,18 +827,9 @@
 					</DataTable.DataTable>
 				</div>
 				<div class="flex min-h-6 items-center justify-between gap-4 font-mono text-xs text-muted-foreground">
-					<span class="flex flex-wrap items-center gap-x-2">
-						<span aria-live="polite">
-							{#if groupedRosterLimited}
-								Showing {shownRows.length} of {groupedTable.totalRows} matches. Keep typing to narrow.
-							{:else}
-								{activeTable.totalRows} of {visibleAllActivePersonnel.length}
-								{rosterFilter ? 'match' : 'shown'}
-							{/if}
-						</span>
-						{#if groupedRosterLimited}
-							<Button type="button" variant="outline" size="xs" onclick={showAlphabetical}>Use A-Z View</Button>
-						{/if}
+					<span aria-live="polite">
+						{activeTable.totalRows} of {visibleAllActivePersonnel.length}
+						{rosterFilter ? 'match' : 'shown'}
 					</span>
 					<span class="flex gap-4 whitespace-nowrap max-md:hidden @max-xl/roster:hidden" aria-hidden="true">
 						{#if ctx.canReadPersonnelDetails && peekFits.current}<span>Space preview</span>{/if}

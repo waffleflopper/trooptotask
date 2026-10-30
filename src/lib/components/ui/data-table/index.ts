@@ -3,6 +3,7 @@ export { default as SelectionCheckbox } from './data-table-selection-checkbox.sv
 export { default as SortableHeader } from './data-table-sortable-header.svelte';
 export { default as RowActions } from './data-table-row-actions.svelte';
 export { useDataTable } from './useDataTable.svelte.js';
+export { pageSections } from './pageSections.js';
 export { useServerDataTable } from './useServerDataTable.svelte.js';
 export type { ServerDataTableOptions } from './useServerDataTable.svelte.js';
 export { columnCellClass } from './column-class.js';

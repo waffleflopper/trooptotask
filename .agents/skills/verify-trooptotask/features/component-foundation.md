@@ -279,5 +279,4 @@ so it proves the Field family's own association. Manage Groups also blocks closi
 the draft before Done. Its duplicate-name check runs before any request, so a duplicate never reaches a `groups` network
 control. Feedback writes a real row; use a unique message and read it back with `$V communications manager`. Critical
 Tasks Reports' Filter by group options may be absent from the snapshot; open the filter and choose a Group with
-ArrowDown and Enter. With the `bulk-501` cohort the grouped roster pauses, so `login manager` and `actor` can time out
-waiting for the page; the page still opens, so continue from `list_pages`.
+ArrowDown and Enter.

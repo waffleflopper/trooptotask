@@ -45,10 +45,10 @@
 	data-constrained={constrained || undefined}
 	style:max-height={maxHeight}
 	class={cn(
-		'@container/data-table w-full min-w-0 overflow-hidden',
+		'@container/data-table flex w-full min-w-0 flex-col overflow-hidden',
 		variant === 'framed' && 'rounded-md border border-border bg-card text-card-foreground',
 		'data-[constrained=true]:max-w-full',
-		'[&_[data-slot=table-container]]:max-h-[inherit] [&_[data-slot=table-container]]:overflow-auto',
+		'[&_[data-slot=table-container]]:min-h-0 [&_[data-slot=table-container]]:overflow-auto',
 		'[&_[data-slot=table]]:text-sm',
 		'[&_[data-slot=table-head]]:bg-muted/70 [&_[data-slot=table-head]]:font-mono [&_[data-slot=table-head]]:text-[0.6875rem] [&_[data-slot=table-head]]:font-semibold [&_[data-slot=table-head]]:uppercase [&_[data-slot=table-head]]:tracking-[0.08em] [&_[data-slot=table-head]]:text-muted-foreground [&_[data-slot=table-head]]:[overflow-wrap:anywhere]',
 		'[&_[data-slot=table-cell]]:max-w-80 [&_[data-slot=table-cell]]:text-foreground [&_[data-slot=table-cell]]:[overflow-wrap:anywhere]',

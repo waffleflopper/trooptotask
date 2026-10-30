@@ -2,6 +2,7 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import type { DataTableState, PageLabels } from './types.js';
 
 	type Props = {
@@ -9,14 +10,27 @@
 		label?: string;
 		labels?: PageLabels;
 		variant?: 'framed' | 'editorial';
+		/** Page sizes the reader may choose from; the pager stays while a smaller size would still split the rows. */
+		sizes?: readonly number[];
+		onSizeChange?: (size: number) => void;
 	};
 
 	let {
 		table,
 		label = 'Table pagination',
 		labels = { previous: 'Previous', next: 'Next' },
-		variant = 'framed'
+		variant = 'framed',
+		sizes = [],
+		onSizeChange
 	}: Props = $props();
+
+	const sizeChoosable = $derived(sizes.length > 1 && table.totalRows > Math.min(...sizes));
+
+	function chooseSize(value: string) {
+		const size = Number(value);
+		table.setPageSize(size);
+		onSizeChange?.(size);
+	}
 
 	const firstRow = $derived((table.page - 1) * table.pageSize + 1);
 	const lastRow = $derived(Math.min(table.page * table.pageSize, table.totalRows));
@@ -71,7 +85,7 @@
 	}
 </script>
 
-{#if table.pageSize > 0 && table.totalPages > 1}
+{#if table.pageSize > 0 && (table.totalPages > 1 || sizeChoosable)}
 	<nav
 		aria-label={label}
 		{@attach keepFocusInTable}
@@ -79,13 +93,25 @@
 		data-variant={variant}
 		class={variant === 'editorial'
 			? 'flex items-center justify-between gap-3 py-4 text-sm'
-			: 'flex items-center justify-between gap-3 border-t border-border bg-muted/30 px-3 py-2 text-sm'}
+			: 'flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-3 py-2 text-sm'}
 	>
-		{#if variant === 'editorial'}
-			<p class="font-mono text-xs text-muted-foreground">{rangeLine}</p>
-		{:else}
-			<p class="text-muted-foreground">Page {table.page} of {table.totalPages}</p>
-		{/if}
+		<div class="flex items-center gap-3">
+			{#if variant === 'editorial'}
+				<p class="font-mono text-xs text-muted-foreground">{rangeLine}</p>
+			{:else}
+				<p class="text-muted-foreground">Page {table.page} of {table.totalPages}</p>
+			{/if}
+			{#if sizeChoosable}
+				<Select.Root type="single" value={String(table.pageSize)} onValueChange={chooseSize}>
+					<Select.Trigger size="sm" aria-label="Rows per page">{table.pageSize} per page</Select.Trigger>
+					<Select.Content>
+						{#each sizes as size (size)}
+							<Select.Item value={String(size)} label={`${size} per page`} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			{/if}
+		</div>
 		<div class="flex items-center gap-2">
 			<Button
 				type="button"

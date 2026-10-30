@@ -164,7 +164,7 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `calendar-month-group-filter` | Calendar in Month             | interaction, read  | perfWide         | Enter on `Bravo` in the group filter to Bravo's band as the only group band               |
 | `calendar-group-filter`       | Calendar in 3-Month           | interaction, read  | perfWide         | Enter on `Bravo` in the group filter to Bravo's band as the first row                     |
 | `assignment-save`             | Duty planner                  | interaction, write | both             | Enter on the picked assignee to the slot showing that Person and the picker closed        |
-| `personnel-list`              | Personnel                     | load, read         | both             | Sentinel row or paused-roster notice (`rows`), then no skeleton (`useful`)                |
+| `personnel-list`              | Personnel                     | load, read         | both             | Sentinel row (`rows`), then no skeleton (`useful`)                                        |
 | `personnel-search`            | Personnel                     | interaction, read  | both             | Search fill to the term's row with the sentinel gone                                      |
 | `personnel-filter`            | Personnel                     | interaction, read  | both             | Search fill `68W` to exactly the matching row count                                       |
 | `personnel-large-table`       | Personnel A-Z                 | interaction, read  | both             | `Sort by Name` to the descending table                                                    |
@@ -306,9 +306,10 @@ each seed to see it grow.
   `/auth/login` probe gets a 429. Sending a captured session as a request header does not work: the first post-hydration
   invalidation is answered signed-out. A session cookie stays signed in through hydration, client navigation,
   invalidation and reload.
-- Above 250 People the By Group roster shows `Grouped roster paused` instead of rows. A large wide `personnel-list`
-  sample therefore settles on that notice and renders no Person rows; compare it with large scoped and typical wide, not
-  as a like-for-like row count.
+- The roster opens By Group and shows 100 rows a page unless the browser stored another size. Every actor's sentinel is the alphabetically last Person in the
+  first Group, the last row of that Group on page 1, so `personnel-list` measures one rendered page at every size.
+  `personnel-large-table` sorts the view the roster opens in, because an actor scoped to one Group has no A-Z/Group
+  choice.
 - `$V server-source arm TABLE hold` matches only a GET to `/rest/v1/TABLE` whose query carries exactly one
   `organization_id=eq.<Organization>` filter; other parameters are allowed. A read without that one filter is not held
   and reports `matches: 0`, so the lane resolves unheld. Read `matches` in `server-source state` before counting a hold

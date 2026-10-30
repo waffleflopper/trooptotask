@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { flushSync } from 'svelte';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -32,6 +33,7 @@ const {
 	downloadRosterExportMock: vi.fn()
 }));
 
+vi.mock('$lib/utils/browserStorage', () => ({ getBrowserLocalStorage: () => globalThis.localStorage }));
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	beforeNavigate: beforeNavigateMock,
@@ -631,102 +633,242 @@ describe('PersonnelPageView', () => {
 			expect(screen.queryByRole('button', { name: /^(Pin|Unpin) / })).toBeNull();
 		});
 
-		describe('with more People than it renders at once', () => {
+		describe('with more People than one page holds', () => {
 			const searchName = 'Search by name, rank, MOS, role, or group';
 			const row = (index: number) => screen.queryByRole('row', { name: `SGT ${makePerson(index).lastName}, Test` });
+			const pager = () => within(screen.getByRole('navigation', { name: 'Table pagination' }));
+			const nextDisabled = () => pager().getByRole('button', { name: 'Next' }).hasAttribute('disabled');
+			const groupHeaders = () =>
+				screen
+					.getAllByRole('button', { name: /^(Collapse|Expand) (Alpha|Bravo)$/ })
+					.map((button) => button.getAttribute('aria-label'));
 
 			function renderLargeGroupedRoster(): void {
 				personnelStore.load(
-					Array.from({ length: 300 }, (_, index) => makePerson(index + 1)),
-					'org-1'
-				);
-				const ctx = makeCtx();
-				ctx.viewMode = 'by-group';
-				render(PersonnelPageView, { props: { ctx } });
-			}
-
-			it('shows the first 250 matches of a broad search and the rest once the search narrows', async () => {
-				renderLargeGroupedRoster();
-				const search = screen.getByRole('searchbox', { name: searchName });
-
-				await fireEvent.input(search, { target: { value: 'Soldier' } });
-				expect([row(1), row(250), row(251), row(300)].map(Boolean)).toEqual([true, true, false, false]);
-				expect(screen.getByText('300 people')).toBeTruthy();
-
-				await fireEvent.input(search, { target: { value: 'Soldier29' } });
-				expect([row(250), row(291), row(299)].map(Boolean)).toEqual([false, true, true]);
-			});
-
-			it('keeps focus in the search field the paused roster offers while typing brings rows in and out', async () => {
-				renderLargeGroupedRoster();
-
-				const fields = () => screen.getAllByRole('searchbox', { name: searchName });
-				for (let index = 0; index < fields().length; index++) {
-					const search = fields()[index];
-					search.focus();
-					for (const [value, rowsShown] of [
-						['S', true],
-						['Soldier00', true],
-						['Soldier', true],
-						['', false]
-					] as const) {
-						await fireEvent.input(search, { target: { value } });
-						expect([document.activeElement === search, row(1) !== null]).toEqual([true, rowsShown]);
-					}
-				}
-			});
-
-			it("keeps every Group header and gives a collapsed Group's share of the rows to the Groups below it", async () => {
-				personnelStore.load(
 					[
-						...Array.from({ length: 300 }, (_, index) => makePerson(index + 1)),
+						...Array.from({ length: 200 }, (_, index) => makePerson(index + 1)),
 						...Array.from({ length: 5 }, (_, index) => ({
-							...makePerson(index + 301),
+							...makePerson(index + 201),
 							groupId: 'group-2',
 							groupName: 'Bravo'
 						}))
 					],
 					'org-1'
 				);
-				const ctx = makeCtx();
-				ctx.viewMode = 'by-group';
-				render(PersonnelPageView, { props: { ctx } });
-				await fireEvent.input(screen.getByRole('searchbox', { name: searchName }), { target: { value: 'Soldier' } });
-				const groupHeaders = () =>
-					screen
-						.getAllByRole('button', { name: /^(Collapse|Expand) (Alpha|Bravo)$/ })
-						.map((button) => button.getAttribute('aria-label'));
+				render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+			}
 
-				expect([groupHeaders(), row(250) !== null, row(301) !== null]).toEqual([
-					['Collapse Alpha', 'Collapse Bravo'],
+			async function choosePageSize(size: number): Promise<void> {
+				await fireEvent.pointerDown(pager().getByRole('button', { name: 'Rows per page' }));
+				const option = within(screen.getByRole('listbox')).getByRole('option', { name: `${size} per page` });
+				await fireEvent.pointerDown(option);
+				await fireEvent.pointerUp(option);
+			}
+
+			afterEach(() => localStorage.clear());
+
+			it('pages the grouped roster in Group order, 100 rows at a time', async () => {
+				renderLargeGroupedRoster();
+
+				expect([row(1) !== null, row(100) !== null, row(101) !== null]).toEqual([true, true, false]);
+
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				expect([groupHeaders(), row(200) !== null, row(205) !== null, nextDisabled()]).toEqual([
+					['Collapse Bravo'],
+					false,
 					true,
-					false
+					true
 				]);
+			});
+
+			it("keeps a collapsed Group's header and gives its page space to the Groups below it", async () => {
+				renderLargeGroupedRoster();
 
 				await fireEvent.click(screen.getByRole('button', { name: 'Collapse Alpha' }));
-				expect([groupHeaders(), row(1) !== null, row(301) !== null, row(305) !== null]).toEqual([
+
+				expect([groupHeaders(), row(1) !== null, row(201) !== null, nextDisabled()]).toEqual([
 					['Expand Alpha', 'Collapse Bravo'],
 					false,
 					true,
 					true
 				]);
-
-				await fireEvent.click(screen.getByRole('button', { name: 'Expand Alpha' }));
-				expect([groupHeaders(), row(250) !== null, row(301) !== null]).toEqual([
-					['Collapse Alpha', 'Collapse Bravo'],
-					true,
-					false
-				]);
 			});
 
-			it('switches to the paged A-Z view from a broad search', async () => {
+			it('keeps the last page it showed when the roster shrank, after the roster grows back', async () => {
 				renderLargeGroupedRoster();
+				const everyone = [...personnelStore.items];
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
+				personnelStore.load(everyone.slice(0, 200), 'org-1');
+				await waitFor(() => expect(row(201)).toBeNull());
+				personnelStore.load(everyone, 'org-1');
+				flushSync();
+
+				expect([row(101) !== null, row(201) !== null]).toEqual([true, false]);
+			});
+
+			it('follows a Group pinned from a later page to its new page and keeps focus on its pin', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(async () => new Response(JSON.stringify({ groupIds: ['group-2'] })))
+				);
+				groupCatalogHydration.load(
+					[
+						{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+						{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
+					],
+					'org-1'
+				);
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
+				const pin = screen.getByRole('button', { name: 'Pin Bravo' });
+				pin.focus();
+				await fireEvent.click(pin);
+
+				await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Unpin Bravo' })));
+			});
+
+			it('keeps the page turned while a pin was saving', async () => {
+				let finishSave!: () => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(
+						() =>
+							new Promise((resolve) => {
+								finishSave = () => resolve(new Response(JSON.stringify({ groupIds: ['group-2'] })));
+							})
+					)
+				);
+				groupCatalogHydration.load(
+					[
+						{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+						{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
+					],
+					'org-1'
+				);
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(screen.getByRole('button', { name: 'Pin Bravo' }));
+				await waitFor(() => expect(screen.getByRole('button', { name: 'Unpin Bravo' })).toBeTruthy());
+
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				finishSave();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+
+				expect(screen.queryByRole('button', { name: 'Unpin Bravo' })).toBeNull();
+			});
+
+			it('keeps a search typed while a pin was saving on its first page when the save fails', async () => {
+				let failSave!: () => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(
+						() =>
+							new Promise((_resolve, reject) => {
+								failSave = () => reject(new Error('Save denied'));
+							})
+					)
+				);
+				groupCatalogHydration.load(
+					[
+						{ id: 'group-1', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
+						{ id: 'group-2', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
+					],
+					'org-1'
+				);
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+				await fireEvent.click(screen.getByRole('button', { name: 'Pin Bravo' }));
+				await waitFor(() => expect(screen.getByRole('button', { name: 'Unpin Bravo' })).toBeTruthy());
+
+				await fireEvent.input(screen.getByRole('searchbox', { name: searchName }), { target: { value: 'Soldier' } });
+				failSave();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+
+				expect(pager().getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
+			});
+
+			it('leaves focus alone in a roster opened after the one where a pin was saving', async () => {
+				let failSave!: () => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(
+						() =>
+							new Promise((_resolve, reject) => {
+								failSave = () => reject(new Error('Save denied'));
+							})
+					)
+				);
+				renderLargeGroupedRoster();
+				await fireEvent.click(screen.getByRole('button', { name: 'Pin Alpha' }));
+				await waitFor(() => expect(screen.getByRole('button', { name: 'Unpin Alpha' })).toBeTruthy());
+
+				cleanup();
+				renderLargeGroupedRoster();
+				(document.activeElement as HTMLElement | null)?.blur();
+				failSave();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+
+				expect(document.activeElement).toBe(document.body);
+			});
+
+			it('follows a Group collapsed from its continuation page and keeps focus on its toggle', async () => {
+				personnelStore.load(
+					Array.from({ length: 400 }, (_, index) => ({
+						...makePerson(index + 1),
+						...(index >= 200 ? { groupId: 'group-2', groupName: 'Bravo' } : {})
+					})),
+					'org-1'
+				);
+				render(PersonnelPageView, { props: { ctx: makeCtx({ viewMode: 'by-group' }) } });
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
+				const collapse = screen.getByRole('button', { name: 'Collapse Alpha' });
+				collapse.focus();
+				await fireEvent.click(collapse);
+
+				await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Expand Alpha' })));
+			});
+
+			it('starts a sorted grouped roster at the first page', async () => {
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
+				await fireEvent.click(screen.getByRole('button', { name: 'Sort by MOS' }));
+
+				expect(pager().getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
+			});
+
+			it('searches the whole roster from the first page', async () => {
+				renderLargeGroupedRoster();
+				await fireEvent.click(pager().getByRole('button', { name: 'Next' }));
+
 				await fireEvent.input(screen.getByRole('searchbox', { name: searchName }), { target: { value: 'Soldier' } });
 
-				await fireEvent.click(screen.getByRole('button', { name: 'Use A-Z View' }));
+				expect([row(1) !== null, row(101) !== null]).toEqual([true, false]);
+			});
 
-				expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
-				expect(row(1)).not.toBeNull();
+			it('shows the chosen number of rows on each page and remembers it for the next visit', async () => {
+				renderLargeGroupedRoster();
+
+				await choosePageSize(200);
+				expect([row(200) !== null, row(201) !== null]).toEqual([true, false]);
+
+				cleanup();
+				renderLargeGroupedRoster();
+				await waitFor(() => expect([row(200) !== null, row(201) !== null]).toEqual([true, false]));
+
+				await choosePageSize(50);
+				expect([row(50) !== null, row(51) !== null]).toEqual([true, false]);
 			});
 		});
 
@@ -2666,11 +2808,11 @@ describe('PersonnelPageView', () => {
 	});
 
 	it('selects only the current A-Z page from the header checkbox', async () => {
-		const roster = Array.from({ length: 76 }, (_, index) => makePerson(index + 1));
+		const roster = Array.from({ length: 101 }, (_, index) => makePerson(index + 1));
 		personnelStore.load(roster, 'org-1');
 		const fetchMock = vi.fn().mockResolvedValue(
 			batchResponse({
-				archivedIds: roster.slice(0, 75).map((person) => person.id),
+				archivedIds: roster.slice(0, 100).map((person) => person.id),
 				approvalRequestedIds: [],
 				errors: []
 			})
@@ -2679,14 +2821,14 @@ describe('PersonnelPageView', () => {
 		render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select everyone shown' }));
-		expect(bulkBar().getByText('75 selected')).toBeTruthy();
+		expect(bulkBar().getByText('100 selected')).toBeTruthy();
 		await submitBulkSelection();
 
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 		const request = JSON.parse(String(fetchMock.mock.calls[0][1].body)) as { ids: string[] };
-		expect(request.ids).toHaveLength(75);
+		expect(request.ids).toHaveLength(100);
 		expect(request.ids).toContain('person-1');
-		expect(request.ids).not.toContain('person-76');
+		expect(request.ids).not.toContain('person-101');
 	});
 
 	it('shows an approval-request toast for selected personnel that need admin approval', async () => {

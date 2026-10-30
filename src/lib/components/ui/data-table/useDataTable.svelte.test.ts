@@ -45,58 +45,27 @@ describe('useDataTable', () => {
 		cleanup();
 	});
 
-	test('fills groups in display order up to the group row limit', () => {
+	test('pages grouped rows in group order and keeps a collapsed group on the page where it starts', () => {
 		const cleanup = $effect.root(() => {
-			const table = useDataTable({
-				data: () => [...rows, { id: '4', name: 'Diana', age: 28, group: 'C' }],
-				columns: [{ key: 'name', header: 'Name', value: (row: Row) => row.name }],
-				initialSortKey: 'name',
-				groupBy: { key: (row) => row.group },
-				groupRowLimit: 2
-			});
+			const data: Row[] = [
+				...rows,
+				{ id: '4', name: 'Diana', age: 28, group: 'B' },
+				{ id: '5', name: 'Eve', age: 32, group: 'C' }
+			];
+			const columns: ColumnDef<Row>[] = [{ key: 'name', header: 'Name', value: (row) => row.name }];
+			const table = useDataTable({ data: () => data, columns, pageSize: 2, groupBy: { key: (row) => row.group } });
+			const shown = () => table.groups.map((group) => [group.key, group.rows.map((row) => row.name)]);
 
-			expect(table.groups.map((group) => [group.key, group.rows.map((row) => row.name)])).toEqual([
-				['A', ['Alice', 'Charlie']],
-				['B', []],
-				['C', []]
-			]);
-			expect(table.totalRows).toBe(4);
-
-			table.toggleSort('name');
-			expect(table.groups.map((group) => [group.key, group.rows.map((row) => row.name)])).toEqual([
-				['C', ['Diana']],
-				['A', ['Charlie']],
-				['B', []]
-			]);
-		});
-
-		cleanup();
-	});
-
-	test('gives the group row limit to expanded groups only', () => {
-		const cleanup = $effect.root(() => {
-			const table = useDataTable({
-				data: () => [...rows, { id: '4', name: 'Diana', age: 28, group: 'C' }],
-				columns: [{ key: 'name', header: 'Name', value: (row: Row) => row.name }],
-				initialSortKey: 'name',
-				groupBy: { key: (row) => row.group },
-				groupRowLimit: 2
-			});
-			const expandedRows = () =>
-				table.groups.map((group) => [group.key, group.collapsed ? 'collapsed' : group.rows.map((row) => row.name)]);
+			expect([shown(), table.totalPages]).toEqual([[['A', ['Alice', 'Charlie']]], 3]);
+			table.setPage(2);
+			expect(shown()).toEqual([['B', ['Bob', 'Diana']]]);
 
 			table.toggleGroup('A');
-			expect(expandedRows()).toEqual([
-				['A', 'collapsed'],
-				['B', ['Bob']],
-				['C', ['Diana']]
-			]);
-
-			table.toggleGroup('A');
-			expect(expandedRows()).toEqual([
+			expect([table.page, table.totalPages]).toEqual([2, 2]);
+			table.setPage(1);
+			expect(shown()).toEqual([
 				['A', ['Alice', 'Charlie']],
-				['B', []],
-				['C', []]
+				['B', ['Bob', 'Diana']]
 			]);
 		});
 

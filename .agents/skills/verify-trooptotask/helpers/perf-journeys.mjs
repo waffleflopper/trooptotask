@@ -37,13 +37,12 @@ const platformOnly = {
 	perfScoped: 'Platform administration needs the operator.'
 };
 
-// Above 250 People the By Group roster renders a pause notice instead of rows, so for a
-// large Organization-wide actor that notice is the useful roster.
-const rosterShown = ({ sentinel }) => ({ anyPresent: [sentinel, 'personnel are loaded'] });
+// The sentinel is the last row of the first Group, which the roster's first page always shows.
+const rosterShown = ({ sentinel }) => ({ present: [sentinel] });
 // Settled also waits out the signals lane's skeletons (Today's status and Needs attention).
 const roster = (terms) => ({ ...rosterShown(terms), absentSelector: [skeleton] });
 const search = { role: 'searchbox', name: 'Search by name, rank, MOS, role, or group' };
-const personRows = '[aria-label^="Open "]';
+const personRows = '[data-roster-row]';
 // The 3-Month view's virtual rows hold Group bands and People; only a Person row names its Person.
 const longRangeRows = '.roster-rows [data-person-id]';
 const monthRows = '.virtual-row--person';
@@ -78,8 +77,8 @@ const quickEditField = ({ row }, role, name) => ({
 	within: { role: 'form', name: `Quick edit ${row.replace(/^Open /, '')}` }
 });
 
-// The roster stays paused for a large wide actor, so its row journeys first narrow the roster
-// to one Person with the search term, as that user would.
+// The roster shows one page at a time, so its row journeys first narrow the roster to one Person
+// with the search term, as that user would.
 const findPerson = ({ searchTerm }) => [{ fill: search, value: searchTerm }, { wait: [searchTerm] }];
 // From 1280 px a row click opens the peek, so the record opens through the Person's name link.
 const recordLink = ({ row }) => ({
@@ -295,8 +294,6 @@ export const journeys = {
 		actors: both,
 		path: (terms) => org(terms, '/personnel'),
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
-		prepare: ({ rosterPaused }) =>
-			rosterPaused ? [{ click: { role: 'button', name: 'A-Z' } }, { wait: ['Sort by Name'] }] : [],
 		trigger: () => ({ click: { role: 'button', name: 'Sort by Name' } }),
 		milestones: () => [{ name: 'useful', presentSelector: ['th[aria-sort="descending"]', personRows] }]
 	},

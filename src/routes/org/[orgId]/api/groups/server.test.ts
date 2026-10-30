@@ -64,6 +64,30 @@ describe('/api/groups', () => {
 		]);
 	});
 
+	it('files a new Group last among its siblings unless the caller gives an order', async () => {
+		const ctx = createTestContext();
+		const orgId = ctx.auth.orgId;
+		ctx.store.seed('groups', [
+			{ id: groupId, organization_id: orgId, name: '1st Platoon', sort_order: 3, parent_id: null, depth: 1 },
+			{ id: otherGroupId, organization_id: orgId, name: '2nd Platoon', sort_order: 5, parent_id: null, depth: 1 },
+			{ id: memberId, organization_id: orgId, name: 'Alpha Team', sort_order: 9, parent_id: groupId, depth: 2 }
+		]);
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, { name: '3rd Platoon' }, () => ctx)).resolves.toMatchObject({
+			sortOrder: 6,
+			parentId: null
+		});
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { name: 'Bravo Team', parentId: groupId }, () => ctx)
+		).resolves.toMatchObject({ sortOrder: 10, parentId: groupId });
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { name: 'Squad', parentId: otherGroupId }, () => ctx)
+		).resolves.toMatchObject({ sortOrder: 0, parentId: otherGroupId });
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { name: '4th Platoon', sortOrder: 2 }, () => ctx)
+		).resolves.toMatchObject({ sortOrder: 2 });
+	});
+
 	it('moves a Group and its sub-groups under another parent, within three levels', async () => {
 		const ctx = createTestContext({
 			auth: {

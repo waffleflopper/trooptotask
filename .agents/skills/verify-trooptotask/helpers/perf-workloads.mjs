@@ -614,7 +614,7 @@ function journeyTerms({ anchor, rows, active, scopedPeople, searched }) {
 		.find((person) => person !== holder);
 	const otherMos = (mos) => (mos === '42A' ? '88M' : '42A');
 	const edit = (person) => ({
-		row: `Open ${rankedLabel(person)}`,
+		label: rankedLabel(person),
 		slug: person.slug,
 		original: person.mos,
 		alternate: otherMos(person.mos)

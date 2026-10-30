@@ -582,7 +582,11 @@ export function controlUid(snapshot, { role, name, within, partial }) {
 	let lines = snapshot.split('\n');
 	const depth = (line) => line.length - line.trimStart().length;
 	if (within) {
-		const start = lines.findIndex((line) => line.includes(`${within.role} ${JSON.stringify(within.name)}`));
+		const named = (line) =>
+			within.partial
+				? line.includes(`${within.role} "`) && line.split(`${within.role} "`)[1].includes(within.name)
+				: line.includes(`${within.role} ${JSON.stringify(within.name)}`);
+		const start = lines.findIndex(named);
 		if (start < 0) throw new Error(`No ${within.role} "${within.name}" on the page.`);
 		const end = lines.findIndex((line, index) => index > start && depth(line) <= depth(lines[start]));
 		lines = lines.slice(start + 1, end < 0 ? undefined : end);

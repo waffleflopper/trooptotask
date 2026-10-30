@@ -647,7 +647,7 @@ async function main() {
 		});
 		const ready = text(await tool(state, 'take_snapshot', { pageId }));
 		await tool(state, 'click', { pageId, uid: namedUid(ready, 'button', 'Sign In') });
-		await tool(state, 'wait_for', { pageId, text: ['Destructive Actions'], timeout: 20000 });
+		await tool(state, 'wait_for', { pageId, text: ['Danger zone'], timeout: 20000 });
 		note({
 			pageId,
 			role,
@@ -964,10 +964,10 @@ async function main() {
 						"You don't have permission to view this page"
 					]
 				: destination === 'settings/logs'
-					? ['Audit Log', "You don't have permission to view this page"]
+					? ['Logs', "You don't have permission to view this page"]
 					: destination.startsWith('onboarding')
 						? [
-								'STEPS',
+								'Steps',
 								'No templates yet.',
 								'In processing',
 								'No active onboardings',
@@ -993,7 +993,7 @@ async function main() {
 										: destination === 'settings/approvals'
 											? ['Pending requests', "You don't have permission to view this page"]
 											: destination === 'settings/policies'
-												? ['Archive Retention', "You don't have permission to view this page"]
+												? ['Archive retention', "You don't have permission to view this page"]
 												: destination === 'settings/general'
 													? ['Unit name', "You don't have permission to view this page"]
 													: destination === 'settings/members'
@@ -1001,11 +1001,11 @@ async function main() {
 														: destination === 'settings/exports'
 															? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
 															: destination === 'settings/danger'
-																? ['Destructive Actions', "You don't have permission to view this page"]
+																? ['Danger zone', "You don't have permission to view this page"]
 																: destination === 'dashboard'
 																	? ['Pending Invitations', 'Organizations']
 																	: destination === 'org/new'
-																		? ['Create your first Organization', 'Confirm your email first']
+																		? ['Create Organization', 'Confirm your email first']
 																		: [
 																				'Calendar',
 																				'Evaluation controls',
@@ -2774,6 +2774,7 @@ async function main() {
 					'sign-in-rosters',
 					'training-types',
 					'training-types/editor',
+					'training-types/order',
 					'training-views',
 					'onboarding',
 					'onboarding/start-options',
@@ -2867,6 +2868,7 @@ async function main() {
 				action === 'arm-hold-fail' &&
 				![
 					'organization/settings',
+					'settings/ranks/setRankStates',
 					'deletion-requests/review',
 					'personnel/archive-batch',
 					'user-preferences',

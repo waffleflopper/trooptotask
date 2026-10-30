@@ -27,7 +27,7 @@ confirmation and current identity verification.
 Open `Unit settings` in the sidebar or the `Switch organization` menu. Both enter `/settings/general` directly,
 without a bare `/settings` request or a 303. Confirm the sidebar entry stays active on General and the other settings
 pages. `General` contains `Unit name` with its `Edit`, `Web address` and the
-Calendar signpost. `Policies` contains `Archive Retention`, `Loss Warning Window` and `Training Readiness`, each with
+Calendar signpost. `Policies` contains `Archive retention`, `Loss warning window` and `Training readiness goal`, each with
 its own `Save` button. Owners also see `Danger zone` below the other settings pages. Its `Delete <Organization name>`
 row counts what deletion destroys (people, training records, members who lose access and archived records) in a tinted
 strip that streams after first paint. The counts include records of a turned-off feature: with Training off,

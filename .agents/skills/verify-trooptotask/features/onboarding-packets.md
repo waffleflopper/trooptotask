@@ -48,7 +48,7 @@ authenticated packet API; History has no visible Reopen control. Templates opens
 signed-in owned app page. It permits `onboarding` POST/PUT, `onboarding-steps` PUT/DELETE and `onboarding-resync` POST,
 with only their scalar input fields; it reports exact submitted values, transport status and full business body without
 credential headers. It does not apply results to the UI. Start fields are `personnelId`, `templateId` and optional
-`startedAt`. Lifecycle PUT uses `id` and `status` for Cancel, Complete or Reopen; the app validates the transition and
+`startedAt`. Lifecycle PUT uses `id` and `status` for Cancel or Reopen, and adds a `completedAt` date (`YYYY-MM-DD`) for Complete; the app validates the transition and
 its ordinary permissions. Step PUT fields are `action`, `stepId`, `completed`, `stageName` and `text`; DELETE uses `id`.
 Reconciliation uses `onboardingId` and optional `newTemplateId`, with no action discriminator. Label this API proof
 separately from native clicks and privileged setup/readback.

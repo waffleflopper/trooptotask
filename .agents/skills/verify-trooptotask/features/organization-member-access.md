@@ -73,14 +73,14 @@ ordinary access checks because it intentionally changes the seeded owner.
    the Members route shows a permission error and an authenticated direct form submission is denied. A SvelteKit action
    may return HTTP 200 with a `failure` envelope carrying status 403; inspect both. Repeat with B's member/Organization
    ID and record no A/B mutation. A hidden control alone is insufficient for authorization proof. For `off-lane`, turn
-   Training off with `$V settings-request PAGE orgA organization/settings '{"disabledFeatures":["training"]}'`, reload,
+   Training off with `$V settings-request PAGE orgA organization/settings '{"featureSwitch":{"feature":"training","on":false}}'`, reload,
    then open `Manage` for a member whose stored Training level differs from the preset level. The Training lane reads
    `Off for <unit>`, its four radios are disabled, and the stored level stays checked. The row's `+<n> area changes`,
    the sheet's `<n> changes from <preset>` and its `gives` lines leave Training out. Change the preset and save; the
    stored Training level for that membership ID is unchanged in the owned provider while the other lanes follow the
    preset. As `orgOwner`, promote the member to Admin and save, then make them a member again and save; read the row
    after each save and require the same stored Training level. Restore with the same request and
-   `'{"disabledFeatures":[]}'`, then restore the member's role, preset and lanes.
+   `'{"featureSwitch":{"feature":"training","on":true}}'`, then restore the member's role, preset and lanes.
 4. As `orgOwner`, open `Settings` → `Danger Zone` and select `orgAdmin` as the transfer target. In
    `Make <email> the Owner?`, try a mismatched confirmation email: submit remains disabled and owner rows do not change.
    Enter the exact target email and submit; capture the result, then reload both actors' Dashboard and Danger Zone. The

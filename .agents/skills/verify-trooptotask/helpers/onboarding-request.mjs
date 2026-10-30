@@ -4,7 +4,7 @@ export async function requestOnboarding(target, { origin, organizationSegment, m
 	if (target.location.origin !== origin) throw new Error('Use an owned app page');
 	if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(organizationSegment)) throw new Error('Invalid Organization segment');
 	const fields = {
-		onboarding: { POST: ['personnelId', 'templateId', 'startedAt'], PUT: ['id', 'status'] },
+		onboarding: { POST: ['personnelId', 'templateId', 'startedAt'], PUT: ['id', 'status', 'completedAt'] },
 		'onboarding-steps': {
 			PUT: ['action', 'stepId', 'completed', 'stageName', 'text'],
 			DELETE: ['id']

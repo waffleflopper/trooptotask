@@ -11,7 +11,7 @@ Organizations without disclosing those privileged details to anyone else.
   100 loaded records, counts and reload.
 - `safe-labels`: authorized page data resolves only same-Organization Personnel, Training and Calendar labels, preserves
   saved masked values and strips remaining top-level string UUID details.
-- `platform-log`: operator-only full records, stored details, server paging and action/severity/Organization filters.
+- `platform-log`: operator-only Activity at `/admin/activity`, stored details, paging and category/search/date filters.
 - `denial-and-recovery`: admin/member/foreign denial, failed page navigation and retry, and target changes without
   cross-Organization disclosure.
 
@@ -20,8 +20,8 @@ Organizations without disclosing those privileged details to anyone else.
 As an Organization owner, open Settings and Logs. Narrow it with the All, Access, Records and Deletions scopes, search
 or sort the table and use its Newer and Older paging controls. Rows sit under day heads in the viewer's time zone. The
 screen shows one-sentence summaries (Time, Area, Event and Actor), with before and after values only where the saved
-details carry them, not event details. As the platform operator, open Admin and Audit Log; filter events, navigate
-pages and open a row's `View` disclosure. Organization administrators have no Audit Log admission.
+details carry them, not event details. As the platform operator, open Admin and Activity; filter by category, search or
+date, navigate pages and open a row's `Details` disclosure. Organization administrators have no Audit Log admission.
 
 ## Helper controls
 
@@ -45,7 +45,7 @@ not freeze the application clock. External schedules are uninspected.
 
 Audit verification uses the [capture/projection recipe](audit-capture-projections.md), existing Organization
 owner/admin/member roles, the platform operator and `seed audit`. The seed records all temporary A/B audit
-IDs before writes; `clean-seeds` uses their `org_id` scope. `actor` accepts `settings/logs` and `admin/audit`; ordinary
+IDs before writes; `clean-seeds` uses their `org_id` scope. `actor` accepts `settings/logs` and `admin/audit` (which redirects to `/admin/activity`); ordinary
 Organization actors may attempt the admin destination for denial. `rows audit_logs orgA|orgB` also accepts `action`. The
 `audit-page` network family matches only A's `settings/logs/__data.json` navigation request, using its current canonical
 URL segment. It establishes client failure/retry separately from provider failures.
@@ -90,11 +90,10 @@ stored-event prerequisites, not producer sanitization or ordinary authorization 
    cohort. As the admitted A owner, navigate to B and confirm denial rather than accepting A's stale summaries as B
    data. `platformSupport` and an ordinary member must be denied full `/admin/audit`, including page-data responses. UI
    affordances, authenticated HTTP and provider reads are distinct evidence.
-4. **Platform paging and filters.** Sign in as `platformReviewer`, select the returned seed action's visible option
-   label using the native Action control, and inspect its 50-row first server page. Choose Next, verify the page
-   query/record identities change, then Previous. Change Severity on a later page: page resets to 1 and the result
-   matches both filters. Repeat an ordinary URL target with `org=ORG_A_ID`, then B, checking matching events/counts
-   without treating this query parameter as authority for an Organization owner. Open the label witness's `View`,
+4. **Platform paging and filters.** Sign in as `platformReviewer`; `admin/audit` lands on `/admin/activity`. Activity
+   lists registered actions only, so `seed audit`'s `verification.audit_*` rows do not appear here; use real events such
+   as the failed sign-in below. Choose a category radio and a search term, check the URL holds them and the rows match
+   both, then reload. Open a row's `Details` disclosure,
    inspect saved masked details (platform reads retain raw saved identifiers), and reload. The
    User/Organization detail pages show recent activity references but must return no event details/IP/user-agent in
    their reduced activity DTOs; capture both separately from full Audit admission.

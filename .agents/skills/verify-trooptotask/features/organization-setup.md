@@ -105,7 +105,7 @@ $V fault arm org-setup-ranks-references # next training_types rank-reference rea
 
 `org-setup-ranks-references` fails only the Ranks editor's read of training rank references; the setup facts still load.
 
-1. `/setup/welcome` on the new unit: `0 of 12 reviewed`; the unit name with `Rename in Settings`; service buttons Army,
+1. `/setup/welcome` on the new unit: `0 of 12 reviewed`; the unit name; service buttons Army,
    Navy, Air Force, Marine Corps, Coast Guard, Space Force and `Mixed or joint` (no Civilian); `Start with Groups` is
    disabled with `Choose a service to continue`.
 2. Choose `Mixed or joint`. Expect the status `Saved. Every service's ranks are active (140 active ranks).`, Welcome

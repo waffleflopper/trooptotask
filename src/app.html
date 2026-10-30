@@ -26,17 +26,24 @@
 				}
 			} catch {}
 			try {
-				// The Dashboard skeleton reserves the forecast column's last height; forecastHeightHint.ts owns the key and the cap.
+				// The Dashboard skeleton reserves the forecast column's last height; forecastHeightHint.ts owns the key, the value format and the cap.
 				var orgPath = location.pathname.match(/^\/org\/([^/]+)/);
 				var forecastHeight =
 					orgPath &&
-					localStorage.getItem(
-						't2t:dashboard-forecast-height:' +
-							orgPath[1] +
-							(document.documentElement.hasAttribute('data-sub-groups-hidden') ? ':top-level' : ':sub-groups')
+					/^(\d+)@(\d+)$/.exec(
+						localStorage.getItem(
+							't2t:dashboard-forecast-height:' +
+								orgPath[1] +
+								(document.documentElement.hasAttribute('data-sub-groups-hidden') ? ':top-level' : ':sub-groups')
+						)
 					);
-				if (/^\d+$/.test(forecastHeight) && forecastHeight > 0 && forecastHeight <= 10000) {
-					document.documentElement.style.setProperty('--dashboard-forecast-height', forecastHeight + 'px');
+				if (
+					forecastHeight &&
+					+forecastHeight[2] === innerWidth &&
+					forecastHeight[1] > 0 &&
+					forecastHeight[1] <= 10000
+				) {
+					document.documentElement.style.setProperty('--dashboard-forecast-height', forecastHeight[1] + 'px');
 				}
 			} catch {}
 		</script>

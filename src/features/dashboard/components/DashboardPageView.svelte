@@ -88,7 +88,7 @@
 
 	$effect(() => {
 		if (!orgSegment) return;
-		const height = readForecastHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current);
+		const height = readForecastHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current, window.innerWidth);
 		if (height) document.documentElement.style.setProperty(FORECAST_HEIGHT_VARIABLE, `${height}px`);
 		else document.documentElement.style.removeProperty(FORECAST_HEIGHT_VARIABLE);
 	});
@@ -99,7 +99,7 @@
 		// Effects run after the DOM update, so this reads the column as rendered for the current choice.
 		const height = forecast?.getBoundingClientRect().height ?? 0;
 		if (height <= 0) return;
-		rememberForecastHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current, height);
+		rememberForecastHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current, height, window.innerWidth);
 		rememberedForecast = key;
 	});
 

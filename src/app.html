@@ -26,17 +26,17 @@
 				}
 			} catch {}
 			try {
-				// The Dashboard skeleton reserves the by-group strip's last height; stripHeightHint.ts owns the key and the cap.
+				// The Dashboard skeleton reserves the forecast column's last height; forecastHeightHint.ts owns the key and the cap.
 				var orgPath = location.pathname.match(/^\/org\/([^/]+)/);
-				var stripHeight =
+				var forecastHeight =
 					orgPath &&
 					localStorage.getItem(
-						't2t:dashboard-strip-height:' +
+						't2t:dashboard-forecast-height:' +
 							orgPath[1] +
 							(document.documentElement.hasAttribute('data-sub-groups-hidden') ? ':top-level' : ':sub-groups')
 					);
-				if (/^\d+$/.test(stripHeight) && stripHeight > 0 && stripHeight <= 10000) {
-					document.documentElement.style.setProperty('--dashboard-strip-height', stripHeight + 'px');
+				if (/^\d+$/.test(forecastHeight) && forecastHeight > 0 && forecastHeight <= 10000) {
+					document.documentElement.style.setProperty('--dashboard-forecast-height', forecastHeight + 'px');
 				}
 			} catch {}
 		</script>

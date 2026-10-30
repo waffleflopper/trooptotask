@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
-import { buildStrengthBand, formatForecastHeadline, groupStripLayout, type StrengthInputs } from './strengthBand';
+import { buildStrengthBand, formatForecastHeadline, type StrengthInputs } from './strengthBand';
 
 const TODAY = '2026-10-19';
 const DAYS = [
@@ -563,44 +563,5 @@ describe('sub-groups', () => {
 		}
 		expect(band({ personnel: team, groups: [alpha], availability }).groups.hasSubGroups).toBe(false);
 		expect(band({ personnel, groups: catalog, availability }).groups.hasSubGroups).toBe(true);
-	});
-});
-
-describe('by-group strip layout', () => {
-	const group = (id: string, name: string, parentId: string | null, depth: 1 | 2 | 3): Group => ({
-		id,
-		name,
-		sortOrder: 0,
-		parentId,
-		depth
-	});
-	const flat = [group('alpha', 'Alpha', null, 1), group('bravo', 'Bravo', null, 1)];
-	const nested = [...flat, group('alpha-sq', 'Alpha Squad', 'alpha', 2)];
-	const personnel = [...people(2, 'alpha', 1), ...people(2, 'bravo', 3), ...people(1, 'alpha-sq', 5)];
-
-	it('is a compact wrapping strip for a flat tree of a few people', () => {
-		const result = band({ personnel, groups: flat });
-
-		expect(result.bottomLine.mode).toBe('people');
-		expect(groupStripLayout(result.groups, result.bottomLine.mode)).toBe('compact');
-	});
-
-	it('is a list of fixed-height rows once sub-groups show', () => {
-		const result = band({ personnel, groups: nested, showSubGroups: true });
-
-		expect(groupStripLayout(result.groups, result.bottomLine.mode)).toBe('list');
-	});
-
-	it('goes back to the compact strip when sub-groups are hidden', () => {
-		const result = band({ personnel, groups: nested, showSubGroups: false });
-
-		expect(groupStripLayout(result.groups, result.bottomLine.mode)).toBe('compact');
-	});
-
-	it('is a list for a flat tree once the strength reads as counts', () => {
-		const result = band({ personnel: people(60, 'alpha'), groups: flat });
-
-		expect(result.bottomLine.mode).toBe('counts');
-		expect(groupStripLayout(result.groups, result.bottomLine.mode)).toBe('list');
 	});
 });

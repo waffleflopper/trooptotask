@@ -22,8 +22,7 @@
 	import ForecastLaneLegend from './ForecastLaneLegend.svelte';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import GroupStrength from './GroupStrength.svelte';
-	import { groupStripLayout } from '../read-model/strengthBand';
-	import { forgetStripHeight, readStripHeight, rememberStripHeight, STRIP_HEIGHT_VARIABLE } from '../stripHeightHint';
+	import { FORECAST_HEIGHT_VARIABLE, readForecastHeight, rememberForecastHeight } from '../forecastHeightHint';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
 	import ReadinessColumn from './ReadinessColumn.svelte';
@@ -33,7 +32,7 @@
 
 	interface Props {
 		orgName: string;
-		/** The Organization's URL segment (an id or a slug), which keys the strip height the head script also reads. */
+		/** The Organization's URL segment (an id or a slug), which keys the forecast height the head script also reads. */
 		orgSegment?: string;
 		viewerDay: DashboardViewerDay;
 		/** Null until the workspace and the summary, or its failure, have arrived. */
@@ -82,28 +81,26 @@
 					: null
 	);
 
-	// The skeleton reserves the by-group strip's last height on this device, so a nested list does not push the bands
-	// below it down when it arrives. Only the list layout has a width-independent height worth remembering.
-	let strip = $state<HTMLElement>();
-	const stripLayout = $derived(model ? groupStripLayout(model.strength.groups, model.strength.bottomLine.mode) : null);
-	let rememberedStrip = '';
+	// The skeleton reserves the forecast column's last height on this device, so lanes and Group rows arriving with the
+	// data do not push the bands below them down.
+	let forecast = $state<HTMLElement>();
+	let rememberedForecast = '';
 
 	$effect(() => {
 		if (!orgSegment) return;
-		const height = readStripHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current);
-		if (height) document.documentElement.style.setProperty(STRIP_HEIGHT_VARIABLE, `${height}px`);
-		else document.documentElement.style.removeProperty(STRIP_HEIGHT_VARIABLE);
+		const height = readForecastHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current);
+		if (height) document.documentElement.style.setProperty(FORECAST_HEIGHT_VARIABLE, `${height}px`);
+		else document.documentElement.style.removeProperty(FORECAST_HEIGHT_VARIABLE);
 	});
-	// Once per Organization and choice, so opening "All N groups" does not teach the next load a taller strip.
+	// Once per Organization and choice, so opening a Group or "All N groups" does not teach the next load a taller column.
 	$effect(() => {
 		const key = `${orgSegment}:${showSubGroups.current}`;
-		if (!orgSegment || !stripLayout || rememberedStrip === key) return;
-		// Effects run after the DOM update, so this reads the strip as rendered for the current choice.
-		const height = strip?.getBoundingClientRect().height ?? 0;
-		if (stripLayout === 'compact') forgetStripHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current);
-		else if (height > 0) rememberStripHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current, height);
-		else return;
-		rememberedStrip = key;
+		if (!orgSegment || !model || rememberedForecast === key) return;
+		// Effects run after the DOM update, so this reads the column as rendered for the current choice.
+		const height = forecast?.getBoundingClientRect().height ?? 0;
+		if (height <= 0) return;
+		rememberForecastHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current, height);
+		rememberedForecast = key;
 	});
 
 	// The last hint can take the Readiness band with it when no column is left.
@@ -234,26 +231,30 @@
 							{/if}
 						</div>
 						{#if model && parts}
-							<StrengthForecast
-								band={model.strength}
-								today={model.today}
-								calendarHref="/org/{model.data.orgId}/calendar"
-								onOpenCalendar={() => openCalendarAt(model.today)}
-							>
-								{#snippet lanes()}
-									<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} {updates} />
-								{/snippet}
-								{#snippet laneLegend()}
-									<ForecastLaneLegend lanes={parts.forecastLanes} />
-								{/snippet}
-							</StrengthForecast>
-							{#if model.strength.groups.sets.length > 0}
-								<div bind:this={strip}>
+							<div class="grid gap-[18px]" bind:this={forecast}>
+								<StrengthForecast
+									band={model.strength}
+									today={model.today}
+									calendarHref="/org/{model.data.orgId}/calendar"
+									onOpenCalendar={() => openCalendarAt(model.today)}
+								>
+									{#snippet lanes()}
+										<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} {updates} />
+									{/snippet}
+									{#snippet laneLegend()}
+										<ForecastLaneLegend lanes={parts.forecastLanes} />
+									{/snippet}
+								</StrengthForecast>
+								{#if model.strength.groups.sets.length > 0}
 									<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />
-								</div>
-							{/if}
+								{/if}
+							</div>
 						{:else}
-							<div class="grid gap-[18px]" aria-hidden="true">
+							<div
+								class="grid content-start gap-[18px]"
+								style:min-height="var({FORECAST_HEIGHT_VARIABLE}, 0px)"
+								aria-hidden="true"
+							>
 								<Skeleton class="h-7 w-[60%]" />
 								<div class="grid grid-cols-14 items-end gap-1.5 border-b border-border">
 									{#each { length: 14 }, index (index)}
@@ -263,10 +264,7 @@
 										</div>
 									{/each}
 								</div>
-								<div
-									class="grid grid-cols-4 content-start gap-4 border-t border-border pt-3.5"
-									style:min-height="var({STRIP_HEIGHT_VARIABLE}, 0px)"
-								>
+								<div class="grid grid-cols-4 gap-4 border-t border-border pt-3.5">
 									{#each { length: 4 }, index (index)}
 										<Skeleton class="h-4 w-20" />
 									{/each}

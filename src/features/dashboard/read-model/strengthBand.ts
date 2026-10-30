@@ -123,14 +123,6 @@ export interface GroupStrengthSet {
 	below: readonly GroupStrengthRow[];
 }
 
-/**
- * `compact` wraps the rows into a flowing strip whose height follows the width; `list` draws one fixed-height row per
- * Group, so its height is the same at every width.
- */
-export function groupStripLayout(groups: GroupStrength, mode: 'people' | 'counts'): 'compact' | 'list' {
-	return mode === 'people' && !groups.sets.some((set) => set.below.length > 0) ? 'compact' : 'list';
-}
-
 export interface GroupStrength {
 	/** Lowest top-level percent first, Unassigned last. */
 	sets: readonly GroupStrengthSet[];

@@ -343,12 +343,14 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
 - Load-time layout shift, measured with a buffered `layout-shift` `PerformanceObserver` installed by `navigate_page`
   `initScript` on reload at 1440x900, 1024x640 and 390x844 on 2026-10-29: the nested tree read `0`, `0.0297` and
   `0.1038` with `Show sub-groups` on, and `0.0134`, `0.0297` and `0.1038` with it off. The page remembers the by-group
-  strip's height on this device per Organization and choice (`localStorage` `t2t:dashboard-strip-height:<orgId>:sub-groups`
-  or `:top-level`, set only for the list layout), and a head script reserves it in the skeleton before first paint:
+  strip's height on this device per Organization URL segment and choice (`localStorage`
+  `t2t:dashboard-strip-height:<id or slug>:sub-groups` or `:top-level`, set only for the list layout; at a slug URL the
+  key uses the slug), and a head script reserves it in the skeleton before first paint:
   with `availability_entries` held (`$V server-source arm availability_entries hold 1 30000`) the skeleton's strip
   block measures the stored height (408 px for the nested fixture) at every width. A first visit on a device has no
   hint and reads `0.0703` on at 1440; a stale taller hint reads `0` and is replaced by the measured height on that
-  load. The 1024 and 390 readings come from the forecast and Bottom line skeletons. Any reading above these is a
+  load. Turning `Show sub-groups` on from a loaded page with no hint stores the list's height (408), not the compact
+  strip's. The 1024 and 390 readings come from the forecast and Bottom line skeletons. Any reading above these is a
   regression.
 
 Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and

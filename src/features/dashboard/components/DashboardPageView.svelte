@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
-	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
+	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
 	import { openCalendarAt } from '../calendarLink';
@@ -22,6 +22,8 @@
 	import ForecastLaneLegend from './ForecastLaneLegend.svelte';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import GroupStrength from './GroupStrength.svelte';
+	import { FORECAST_HEIGHT_VARIABLE, readForecastHeight, rememberForecastHeight } from '../forecastHeightHint';
+	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
 	import ReadinessColumn from './ReadinessColumn.svelte';
 	import SetupHints from './SetupHints.svelte';
@@ -30,6 +32,8 @@
 
 	interface Props {
 		orgName: string;
+		/** The Organization's URL segment (an id or a slug), which keys the forecast height the head script also reads. */
+		orgSegment?: string;
 		viewerDay: DashboardViewerDay;
 		/** Null until the workspace and the summary, or its failure, have arrived. */
 		ctx: DashboardScreenModel | null;
@@ -41,7 +45,7 @@
 		summaryFailure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, sections, access, updates, summaryFailure }: Props = $props();
+	let { orgName, orgSegment, viewerDay, ctx, sections, access, updates, summaryFailure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -76,6 +80,28 @@
 					? 'No active personnel yet. Strength shows here once people are on the roster.'
 					: null
 	);
+
+	// The skeleton reserves the forecast column's last height on this device, so lanes and Group rows arriving with the
+	// data do not push the bands below them down.
+	let forecast = $state<HTMLElement>();
+	let rememberedForecast = '';
+
+	$effect(() => {
+		if (!orgSegment) return;
+		const height = readForecastHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current, window.innerWidth);
+		if (height) document.documentElement.style.setProperty(FORECAST_HEIGHT_VARIABLE, `${height}px`);
+		else document.documentElement.style.removeProperty(FORECAST_HEIGHT_VARIABLE);
+	});
+	// Once per Organization and choice, so opening a Group or "All N groups" does not teach the next load a taller column.
+	$effect(() => {
+		const key = `${orgSegment}:${showSubGroups.current}`;
+		if (!orgSegment || !model || rememberedForecast === key) return;
+		// Effects run after the DOM update, so this reads the column as rendered for the current choice.
+		const height = forecast?.getBoundingClientRect().height ?? 0;
+		if (height <= 0) return;
+		rememberForecastHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current, height, window.innerWidth);
+		rememberedForecast = key;
+	});
 
 	// The last hint can take the Readiness band with it when no column is left.
 	async function focusAfterHints() {
@@ -205,22 +231,30 @@
 							{/if}
 						</div>
 						{#if model && parts}
-							<StrengthForecast
-								band={model.strength}
-								today={model.today}
-								calendarHref="/org/{model.data.orgId}/calendar"
-								onOpenCalendar={() => openCalendarAt(model.today)}
-							>
-								{#snippet lanes()}
-									<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} {updates} />
-								{/snippet}
-								{#snippet laneLegend()}
-									<ForecastLaneLegend lanes={parts.forecastLanes} />
-								{/snippet}
-							</StrengthForecast>
-							<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />
+							<div class="grid gap-[18px]" bind:this={forecast}>
+								<StrengthForecast
+									band={model.strength}
+									today={model.today}
+									calendarHref="/org/{model.data.orgId}/calendar"
+									onOpenCalendar={() => openCalendarAt(model.today)}
+								>
+									{#snippet lanes()}
+										<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} {updates} />
+									{/snippet}
+									{#snippet laneLegend()}
+										<ForecastLaneLegend lanes={parts.forecastLanes} />
+									{/snippet}
+								</StrengthForecast>
+								{#if model.strength.groups.sets.length > 0}
+									<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />
+								{/if}
+							</div>
 						{:else}
-							<div class="grid gap-[18px]" aria-hidden="true">
+							<div
+								class="grid content-start gap-[18px]"
+								style:min-height="var({FORECAST_HEIGHT_VARIABLE}, 0px)"
+								aria-hidden="true"
+							>
 								<Skeleton class="h-7 w-[60%]" />
 								<div class="grid grid-cols-14 items-end gap-1.5 border-b border-border">
 									{#each { length: 14 }, index (index)}

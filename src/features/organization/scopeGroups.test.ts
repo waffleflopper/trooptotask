@@ -49,6 +49,42 @@ describe('scopeTree', () => {
 		expect(summary).toMatch(new RegExp(`\\b${people} people\\b`));
 	});
 
+	describe('when two Groups share a name', () => {
+		const twins: ScopeGroup[] = [
+			{ id: 'plt1', name: '1st Platoon', parentId: null, memberCount: 0 },
+			{ id: 'sq1', name: '1st Squad', parentId: 'plt1', memberCount: 0 },
+			{ id: 'alpha1', name: 'Alpha Team', parentId: 'sq1', memberCount: 2 },
+			{ id: 'plt2', name: '2nd Platoon', parentId: null, memberCount: 0 },
+			{ id: 'sq2', name: '2nd Squad', parentId: 'plt2', memberCount: 0 },
+			{ id: 'alpha2', name: '  alpha team ', parentId: 'sq2', memberCount: 3 },
+			{ id: 'hq', name: 'HQ', parentId: null, memberCount: 4 }
+		];
+		const duplicated = scopeTree(twins);
+
+		it('names each by its path, ignoring case and surrounding spaces, and leaves unique names bare', () => {
+			const first = duplicated.summary(['alpha1', 'hq']);
+			expect(first).toContain('1st Platoon › 1st Squad › Alpha Team');
+			expect(first).not.toContain('Platoon › HQ');
+			expect(first).toMatch(/\bHQ\b/);
+			expect(first).toMatch(/\b6 people\b/);
+			expect(duplicated.summary(['alpha2'])).toMatch(/2nd Platoon › 2nd Squad ›\s+alpha team/);
+		});
+
+		it('names a Group that has sub-groups by its path too', () => {
+			const nested = scopeTree([
+				{ id: 'a', name: 'Alpha', parentId: null, memberCount: 1 },
+				{ id: 'a-sq', name: 'Squad', parentId: 'a', memberCount: 1 },
+				{ id: 'b', name: 'Bravo', parentId: null, memberCount: 1 },
+				{ id: 'b-alpha', name: 'ALPHA', parentId: 'b', memberCount: 1 },
+				{ id: 'b-alpha-t', name: 'Team', parentId: 'b-alpha', memberCount: 1 }
+			]);
+
+			const summary = nested.summary(['b-alpha']);
+			expect(summary).toContain('Bravo › ALPHA');
+			expect(summary).toMatch(/\b2 people\b/);
+		});
+	});
+
 	it('leaves a covered team out of the summary', () => {
 		expect(tree.summary(['alpha', 'sq1'])).not.toContain('Alpha Team');
 	});

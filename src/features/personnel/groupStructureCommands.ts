@@ -12,6 +12,8 @@ export interface GroupStructureCommands {
 	rename(id: string, name: string): Promise<void>;
 	move(id: string, parentId: string | null): Promise<void>;
 	reorder(ids: string[], parentId: string | null): Promise<GroupOrderChange>;
+	/** Archived People in the Group and its sub-groups, whom a delete moves along with the active ones. */
+	archivedMemberCount(id: string): Promise<number>;
 	/** Deletes the Group and its sub-groups, and moves everyone in them to `moveMembersTo` (null is Unassigned). */
 	remove(id: string, moveMembersTo: string | null): Promise<void>;
 }
@@ -51,6 +53,10 @@ export function createGroupStructureCommands(peek: RosterPeek): GroupStructureCo
 
 		reorder(ids, parentId) {
 			return groupManagementStore.setOrder(ids, parentId);
+		},
+
+		archivedMemberCount(id) {
+			return groupManagementStore.archivedMemberCount(id);
 		},
 
 		async remove(id, moveMembersTo) {

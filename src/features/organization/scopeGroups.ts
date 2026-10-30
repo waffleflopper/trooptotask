@@ -44,6 +44,8 @@ export function scopeTree(groups: readonly ScopeGroup[]): ScopeTree {
 	const counts = new Map(
 		ordered.map((group) => [group.id, group.memberCount + below(group.id).reduce((sum, g) => sum + g.memberCount, 0)])
 	);
+	const nameKey = (name: string) => name.trim().toLowerCase();
+	const nameCounts = Map.groupBy(groups, (group) => nameKey(group.name));
 	const path = (id: string) =>
 		ancestors(id)
 			.map((group) => group.name)
@@ -63,8 +65,9 @@ export function scopeTree(groups: readonly ScopeGroup[]): ScopeTree {
 			const roots = canonical(ids);
 			const parts = roots.map((id) => {
 				const subGroups = below(id).length;
-				const name = byId.get(id)!.name;
-				return subGroups > 0 ? `${name} and its ${plural(subGroups, 'sub-group')}` : name;
+				const { name } = byId.get(id)!;
+				const label = nameCounts.get(nameKey(name))!.length > 1 ? path(id) : name;
+				return subGroups > 0 ? `${label} and its ${plural(subGroups, 'sub-group')}` : label;
 			});
 			const people = roots.reduce((sum, id) => sum + (counts.get(id) ?? 0), 0);
 			return `Sees ${list(parts)}: ${plural(people, 'person', 'people')}. Not Unassigned.`;

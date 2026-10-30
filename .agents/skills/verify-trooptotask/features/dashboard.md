@@ -339,14 +339,22 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
   indented rows (`[data-band-level]`): `0: Bravo 0/1` below the floor, `0: 2nd Platoon 9/9`,
   `1: 2nd Platoon HQ 2/2`, `1: 1st Squad 6/6`, `2: 1st Squad HQ 1/1`, `2: Alpha Team 4/4`, `2: Bravo Team 1/1`,
   `1: 2nd Squad 1/1`, `0: Alpha 1/1` and `0: Unassigned 1/1`; each level sums to its parent and the top rows to the
-  headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1` with no button, and the
-  switch is absent when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200
-  available is flagged although it rounds to 80%.
-- Load-time layout shift, measured with a `layout-shift` `PerformanceObserver` after reload at 1440x900, 1024x640 and
-  390x844 on 2026-10-29: the nested tree read `0.0703`, `0.0297` and `0.1038` with `Show sub-groups` on, `0.0134`,
-  `0.0297` and `0.1038` with it off, and the flat fixture matched off. The skeleton reserves the compact strip, so the
-  nested list grows when it arrives; the forecast and Bottom line skeletons are also shorter than their content. Any
-  reading above these is a regression.
+  headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1` with no button, and the switch
+  is absent when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200 available is
+  flagged although it rounds to 80%.
+- Load-time layout shift, measured with a buffered `layout-shift` `PerformanceObserver` installed by `navigate_page`
+  `initScript` on reload at 1440x900, 1024x640 and 390x844 on 2026-10-29 (after #1968): the nested tree read `0`,
+  `0.0297` and `0.1038` with `Show sub-groups` on and the same with it off. The page remembers the Strength forecast
+  column's height (forecast, lanes and by-group strip) on this device per Organization URL segment and choice
+  (`localStorage` `t2t:dashboard-forecast-height:<id or slug>:sub-groups` or `:top-level`, value `<height>@<window
+width>`; at a slug URL the key uses the slug), once per load, so opening a Group does not teach the next load a taller column. A head script reserves it
+  in the skeleton before first paint: with `availability_entries` held
+  (`$V server-source arm availability_entries hold 1 30000`, then `release` and `restore`) the skeleton column measures
+  the stored height (417 px off for the nested fixture at 1440; on stores 558). A first visit on a device has no hint
+  and reads `0.0351` on at 1440, as does the first load after the window width changes, since a hint holds only at the
+  width it was measured at; a stale taller hint (900, as after Groups were removed) reads `0.0497` once and is replaced
+  by the measured height on that load. The 1024 and 390 readings come from the Bottom line skeleton and the stacked layout. Any reading above
+  these is a regression.
 
 Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and
 return dates, `ALPHA 7/10` amber and `BRAVO 8/10`), `86 of 100` (`typical`, one proportional bar, one row per status

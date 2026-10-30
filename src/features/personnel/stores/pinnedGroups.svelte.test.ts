@@ -192,9 +192,10 @@ describe('pinned Group state', () => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn(
-					() =>
-						new Promise((_resolve, reject) => {
-							rejectRequest = reject;
+					(_url: string, init?: RequestInit) =>
+						new Promise((resolve, reject) => {
+							if (init?.method) rejectRequest = reject;
+							else resolve({ ok: true, status: 200, json: () => Promise.resolve(['Alpha', 'Bravo']) });
 						})
 				)
 			);
@@ -242,6 +243,205 @@ describe('pinned Group state', () => {
 			expect(store.list).toEqual(['Alpha', 'Bravo', 'Charlie']);
 		}
 	);
+
+	describe('after a failed pin or unpin', () => {
+		const jsonResponse = (body: unknown) => ({ ok: true, status: 200, json: () => Promise.resolve(body) });
+
+		it.each([
+			{ action: 'pin', group: 'Charlie' },
+			{ action: 'unpin', group: 'Bravo' }
+		] as const)('adopts the server pins in order after a failed $action', async ({ action, group }) => {
+			store.load(['Alpha', 'Bravo'], 'org-1');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) =>
+					init?.method === 'POST' || init?.method === 'DELETE'
+						? Promise.reject(new Error('Write failed'))
+						: Promise.resolve(jsonResponse(['Delta', 'Alpha']))
+				)
+			);
+
+			expect(await store[action](group)).toBe(false);
+			await vi.waitFor(() => expect(store.list).toEqual(['Delta', 'Alpha']));
+		});
+
+		it('keeps the local rollback and the toast when the reread fails', async () => {
+			store.load(['Alpha', 'Bravo'], 'org-1');
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) =>
+					init?.method === 'POST'
+						? Promise.reject(new Error('Write failed'))
+						: Promise.resolve({ ok: false, status: 500 })
+				)
+			);
+
+			expect(await store.pin('Charlie')).toBe(false);
+			expect(store.list).toEqual(['Alpha', 'Bravo']);
+			expect(errorToast).toHaveBeenCalledTimes(1);
+		});
+
+		it('ignores the reread when another pin starts before it returns', async () => {
+			store.load(['Alpha'], 'org-1');
+			let resolveReread!: (response: unknown) => void;
+			let resolveSecondWrite!: (response: unknown) => void;
+			let writes = 0;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) => {
+					if (init?.method !== 'POST') return new Promise((resolve) => (resolveReread = resolve));
+					if (writes++ === 0) return Promise.reject(new Error('Write failed'));
+					return new Promise((resolve) => (resolveSecondWrite = resolve));
+				})
+			);
+
+			const failed = store.pin('Bravo');
+			await vi.waitFor(() => expect(resolveReread).toBeDefined());
+			const second = store.pin('Charlie');
+			resolveReread(jsonResponse(['Zulu']));
+			expect(await failed).toBe(false);
+
+			const discarded = resolveReread;
+			resolveSecondWrite({ ok: true });
+			expect(await second).toBe(true);
+			await vi.waitFor(() => expect(resolveReread).not.toBe(discarded));
+			expect(store.list).toEqual(['Alpha', 'Charlie']);
+			resolveReread(jsonResponse(['Charlie', 'Alpha']));
+			await vi.waitFor(() => expect(store.list).toEqual(['Charlie', 'Alpha']));
+		});
+
+		it('rereads once the last pin in flight settles', async () => {
+			store.load(['Alpha'], 'org-1');
+			let resolveSecondWrite!: (response: unknown) => void;
+			let writes = 0;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) => {
+					if (init?.method !== 'POST') return Promise.resolve(jsonResponse(['Zulu']));
+					if (writes++ === 0) return Promise.reject(new Error('Write failed'));
+					return new Promise((resolve) => (resolveSecondWrite = resolve));
+				})
+			);
+
+			const failed = store.pin('Bravo');
+			const second = store.pin('Charlie');
+			expect(await failed).toBe(false);
+			expect(store.list).toEqual(['Alpha', 'Charlie']);
+
+			resolveSecondWrite({ ok: true });
+			expect(await second).toBe(true);
+			await vi.waitFor(() => expect(store.list).toEqual(['Zulu']));
+		});
+
+		it('ignores the reread when the user moved to another Organization meanwhile', async () => {
+			store.load(['Alpha'], 'org-1');
+			let resolveReread!: (response: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) =>
+					init?.method === 'POST'
+						? Promise.reject(new Error('Write failed'))
+						: new Promise((resolve) => (resolveReread = resolve))
+				)
+			);
+
+			const failed = store.pin('Bravo');
+			await vi.waitFor(() => expect(resolveReread).toBeDefined());
+			store.load(['Charlie'], 'org-2');
+			resolveReread(jsonResponse(['Zulu']));
+
+			expect(await failed).toBe(false);
+			expect(store.orgId).toBe('org-2');
+			expect(store.list).toEqual(['Charlie']);
+		});
+
+		describe('when the saved pins change while the reread is out', () => {
+			let rereads: ((response: unknown) => void)[];
+
+			beforeEach(() => {
+				rereads = [];
+				let writes = 0;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn((_url: string, init?: RequestInit) => {
+						if (!init?.method) return new Promise((resolve) => rereads.push(resolve));
+						return writes++ === 0 ? Promise.reject(new Error('Write failed')) : Promise.resolve({ ok: true });
+					})
+				);
+			});
+
+			async function answerReread(index: number, pins: string[]) {
+				await vi.waitFor(() => expect(rereads).toHaveLength(index + 1));
+				rereads[index](jsonResponse(pins));
+			}
+
+			it.each([
+				{ action: 'pin', group: 'Charlie', rolledBack: ['Alpha', 'Bravo'] },
+				{ action: 'unpin', group: 'Bravo', rolledBack: ['Alpha', 'Bravo'] }
+			] as const)('reports a failed $action while the reread is still out', async ({ action, group, rolledBack }) => {
+				store.load(['Alpha', 'Bravo'], 'org-1');
+				let outcome: boolean | undefined;
+				void store[action](group).then((result) => (outcome = result));
+
+				await vi.waitFor(() => expect(outcome).toBe(false));
+				expect(store.list).toEqual(rolledBack);
+				expect(rereads).toHaveLength(1);
+			});
+
+			it('rereads again when a pin settles before the first reread returns', async () => {
+				store.load(['Alpha'], 'org-1');
+				const failed = store.pin('Bravo');
+				await vi.waitFor(() => expect(rereads).toHaveLength(1));
+				expect(await store.pin('Charlie')).toBe(true);
+
+				await answerReread(0, ['Zulu']);
+				await answerReread(1, ['Alpha', 'Charlie']);
+
+				expect(await failed).toBe(false);
+				expect(store.list).toEqual(['Alpha', 'Charlie']);
+			});
+
+			it('keeps a newer saved snapshot over an older reread', async () => {
+				store.load(['Alpha'], 'org-1');
+				const failed = store.pin('Bravo');
+				await vi.waitFor(() => expect(rereads).toHaveLength(1));
+				store.load(['Delta', 'Alpha'], 'org-1');
+
+				await answerReread(0, ['Alpha']);
+				await answerReread(1, ['Delta', 'Alpha']);
+
+				expect(await failed).toBe(false);
+				expect(store.list).toEqual(['Delta', 'Alpha']);
+			});
+
+			it('does not bring back the pin of a Group deleted meanwhile', async () => {
+				store.load(['Alpha', 'Bravo'], 'org-1');
+				const failed = store.pin('Charlie');
+				await vi.waitFor(() => expect(rereads).toHaveLength(1));
+				store.forgetGroup('Bravo');
+
+				await answerReread(0, ['Alpha', 'Bravo']);
+				await answerReread(1, ['Alpha']);
+
+				expect(await failed).toBe(false);
+				expect(store.list).toEqual(['Alpha']);
+			});
+
+			it('does not bring back the failed pin of a Group deleted meanwhile', async () => {
+				store.load(['Alpha'], 'org-1');
+				const failed = store.pin('Bravo');
+				await vi.waitFor(() => expect(rereads).toHaveLength(1));
+				store.forgetGroup('Bravo');
+
+				await answerReread(0, ['Alpha', 'Bravo']);
+				await answerReread(1, ['Alpha']);
+
+				expect(await failed).toBe(false);
+				expect(store.list).toEqual(['Alpha']);
+			});
+		});
+	});
 
 	it('forgets a deleted Group pin and keeps the rest in order', () => {
 		store.load(['group-hq', 'group-2', 'group-weapons'], 'org-1');

@@ -104,7 +104,8 @@ After the [Group tree](manage-groups.md#group-tree) build steps, as `orgOwner` o
 `Operator`, open `Groups they work in`, uncheck `Alpha`, search `1st squad` and check the `1st Squad 3` row under
 `2nd Platoon`. Rows read `<name> <subtree count>`; checking a squad checks and disables its teams. Escape closes the
 picker. The trigger reads `Groups they work in: 2nd Platoon › 1st Squad`, the sentence
-`Sees 1st Squad and its 2 sub-groups: 3 people. Not Unassigned.`, and Save reads `Save 8 changes` (preset, six lanes and
+`Sees 2nd Platoon › 1st Squad and its 2 sub-groups: 3 people. Not Unassigned.` (3rd Platoon has a `1st Squad` too, so
+the sentence names it by path; a name no other Group shares stays bare, as in `Sees Alpha: 1 person. Not Unassigned.`), and Save reads `Save 8 changes` (preset, six lanes and
 scope). The saved membership has `member_preset: operator` and `access_scope_group_ids` holding only the squad's ID,
 never its teams. Signed in as `orgMember`, Personnel's toolbar reads `Group: 1st Squad 3` with `1st Squad`,
 `Alpha Team` and `Bravo Team` bands, and Quick edit's `Group` picker offers only `1st Squad`, `Alpha Team` and

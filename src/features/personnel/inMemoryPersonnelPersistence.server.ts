@@ -317,6 +317,11 @@ export function createInMemoryGroupPersistence(
 			}
 			return counts;
 		},
+		async countArchivedMembers(groupIds) {
+			const people = await store.findMany<{ group_id: string | null; archived_at: string | null }>('personnel', orgId);
+			return people.filter((person) => person.archived_at && person.group_id && groupIds.includes(person.group_id))
+				.length;
+		},
 		async deleteWithReassignment(id, targetId) {
 			const group = await store.findOne('groups', orgId, { id });
 			if (!group || (targetId && !(await store.findOne('groups', orgId, { id: targetId }))))

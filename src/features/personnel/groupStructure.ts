@@ -5,6 +5,14 @@ import type { GroupNode, GroupTree } from './groupTree';
 export const MAX_GROUP_DEPTH = 3;
 export const STANDARD_TEAMS = ['Alpha Team', 'Bravo Team'] as const;
 
+/** Where a new Group goes to land last among the Groups sharing its parent (null is the top level). */
+export function nextSortOrder(
+	groups: readonly Pick<Group, 'parentId' | 'sortOrder'>[],
+	parentId: string | null
+): number {
+	return Math.max(-1, ...groups.filter((group) => group.parentId === parentId).map((group) => group.sortOrder)) + 1;
+}
+
 /** What deleting one Group takes with it: the SQL command deletes the whole subtree and moves everyone in it. */
 export interface GroupDeletion {
 	readonly group: GroupNode;

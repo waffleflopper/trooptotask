@@ -12,11 +12,16 @@ import {
 	type PersonnelDeletionReferencesPort,
 	type PersonnelRecordPersistence
 } from './contracts';
+import { nextSortOrder } from './groupStructure';
+import { buildGroupTree } from './groupTree';
 
 interface GroupWriteContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	groups: Pick<GroupPersistence, 'listCatalog' | 'create' | 'rename' | 'move' | 'setOrder' | 'deleteWithReassignment'>;
+	groups: Pick<
+		GroupPersistence,
+		'listCatalog' | 'countArchivedMembers' | 'create' | 'rename' | 'move' | 'setOrder' | 'deleteWithReassignment'
+	>;
 }
 const groupName = z
 	.string()
@@ -36,6 +41,7 @@ const orderInput = z.object({
 	expectedGroupIds: z.array(uuidSchema).max(1000),
 	parentId: uuidSchema.nullable().optional()
 });
+const archivedMembersInput = z.object({ groupId: uuidSchema });
 const deleteInput = z.object({ id: uuidSchema, moveMembersTo: uuidSchema.nullable().default(null) });
 
 function validatedInput<T>(schema: z.ZodType<T>, input: unknown): T {
@@ -53,10 +59,21 @@ export async function readGroupEditorCatalog(ctx: GroupWriteContext) {
 	return ctx.groups.listCatalog();
 }
 
+/** Archived People in the Group and every Group under it: the ones a delete moves that the roster does not show. */
+export async function countArchivedGroupMembers(ctx: GroupWriteContext, input: Record<string, unknown>) {
+	const { groupId } = validatedInput(archivedMembersInput, input);
+	await requireGroupManager(ctx, groupId);
+	const tree = buildGroupTree(await ctx.groups.listCatalog());
+	if (!tree.node(groupId)) throw error(404, GROUP_UNAVAILABLE_MESSAGE);
+	const subtree = tree.ordered.filter((node) => tree.contains(groupId, node.id)).map((node) => node.id);
+	return { count: await ctx.groups.countArchivedMembers(subtree) };
+}
+
 export async function createGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
 	const data = validatedInput(createInput, input);
 	await requireGroupManager(ctx);
-	const row = await ctx.groups.create(data);
+	const sortOrder = data.sortOrder ?? nextSortOrder(await ctx.groups.listCatalog(), data.parentId ?? null);
+	const row = await ctx.groups.create({ ...data, sortOrder });
 	await ctx.audit.log({ action: 'group.created', resourceType: 'group', resourceId: row.id });
 	return row;
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
 	import {
 		DASHBOARD_SECTIONS,
@@ -194,6 +195,7 @@
 
 {#if data.dashboard?.data}
 	<DashboardPageView
+		orgSegment={page.params.orgId}
 		orgName={data.shell.org.name}
 		viewerDay={data.viewerDay}
 		{ctx}

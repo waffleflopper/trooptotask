@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import type { GroupCoverage } from '$lib/access/memberAccessShape';
-import { _deleteConfig, _postConfig } from './+server';
+import { _deleteConfig, _getConfig, _postConfig } from './+server';
 
 describe('/api/pinned-groups route config', () => {
 	it('uses policy-first identity preference authorization', () => {
@@ -60,6 +60,36 @@ describe('/api/pinned-groups route config', () => {
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({ action: 'pinned_group.deleted', resourceType: 'pinned_group' })
 		);
+	});
+
+	it('lists only the current user and Organization pins in saved order', async () => {
+		const ctx = viewer({ kind: 'organization' });
+		ctx.store.seed('user_pinned_groups', [
+			{ id: 'pin-b', organization_id: ctx.auth.orgId, user_id: 'user-1', group_id: 'group-bravo', sort_order: 1 },
+			{ id: 'pin-a', organization_id: ctx.auth.orgId, user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 },
+			{
+				id: 'other-user',
+				organization_id: ctx.auth.orgId,
+				user_id: 'user-2',
+				group_id: 'group-charlie',
+				sort_order: 0
+			},
+			{ id: 'other-org', organization_id: 'other-org', user_id: 'user-1', group_id: 'group-delta', sort_order: 0 }
+		]);
+
+		const result = await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx);
+
+		expect(result).toEqual(['group-alpha', 'group-bravo']);
+		expect(_getConfig.mutation).toBe(false);
+	});
+
+	it('lists no pins for a Group-scoped reader, as the workspace does', async () => {
+		const ctx = viewer(groupCoverageForTest({ kind: 'groups', groupIds: ['group-alpha'] }));
+		ctx.store.seed('user_pinned_groups', [
+			{ id: 'saved', organization_id: ctx.auth.orgId, user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 }
+		]);
+
+		expect(await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).toEqual([]);
 	});
 
 	it('refuses pin writes from a Group-scoped reader and keeps their saved pins', async () => {

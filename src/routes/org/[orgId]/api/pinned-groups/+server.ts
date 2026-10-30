@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { pinGroup, unpinGroup } from '$features/personnel/index.server';
+import { listReaderPinnedGroupIds, pinGroup, unpinGroup } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestSelfPinContext } from '$lib/server/adapters/requestContexts.server';
@@ -7,6 +7,16 @@ import { createRequestSelfPinContext } from '$lib/server/adapters/requestContext
 const groupId = z.string('Choose a Group').min(1, 'Choose a Group');
 
 const postInput = z.object({ groupId, sortOrder: z.number().int().nonnegative().optional() });
+
+export const _getConfig: RouteConfig<void, string[], ReturnType<typeof createRequestSelfPinContext>> = {
+	context: createRequestSelfPinContext,
+	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+	mutation: false,
+
+	fn: listReaderPinnedGroupIds
+};
+
+export const GET = handle(_getConfig);
 
 export const _postConfig: RouteConfig<
 	z.infer<typeof postInput>,

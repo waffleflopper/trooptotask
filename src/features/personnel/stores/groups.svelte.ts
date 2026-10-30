@@ -14,6 +14,7 @@ import {
 	withinOrganizationLifetime
 } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
+import { nextSortOrder } from '../groupStructure';
 import {
 	GROUP_CHANGE_UNCONFIRMED_MESSAGE,
 	GROUP_NAME_EXISTS_MESSAGE,
@@ -22,6 +23,8 @@ import {
 	type Group
 } from '$features/personnel/contracts';
 import { invalidate } from '$app/navigation';
+
+const ARCHIVED_COUNT_FAILED_MESSAGE = 'Could not check for archived people in this Group. Try again.';
 
 export type GroupOrderChange = { status: 'saved' | 'stale' } | { status: 'failed'; message: string };
 
@@ -49,6 +52,7 @@ interface GroupExtensions extends Record<string, unknown> {
 	rename: (id: string, newName: string) => Promise<boolean>;
 	move: (id: string, parentId: string | null) => Promise<Group>;
 	setOrder: (ids: readonly string[], parentId?: string | null) => Promise<GroupOrderChange>;
+	archivedMemberCount: (id: string) => Promise<number>;
 	deleteWithReassignment: (id: string, moveMembersTo: string | null) => Promise<GroupDeleteResult>;
 }
 
@@ -201,9 +205,8 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 			if (parent === undefined) throw new Error(GROUP_UNAVAILABLE_MESSAGE);
 			const siblings = base.rawItems.filter((group) => group.parentId === parentId);
 			if (siblings.some((group) => group.name.toLowerCase() === trimmed.toLowerCase())) return null;
-			const nextSortOrder = Math.max(-1, ...siblings.map((group) => group.sortOrder)) + 1;
 			const depth = (parent ? parent.depth + 1 : 1) as Group['depth'];
-			return base.add({ name: trimmed, sortOrder: nextSortOrder, parentId, depth });
+			return base.add({ name: trimmed, sortOrder: nextSortOrder(siblings, parentId), parentId, depth });
 		},
 
 		async rename(id: string, newName: string): Promise<boolean> {
@@ -235,6 +238,20 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 				.map((group) => ({ ...group, depth: (group.depth + shift) as Group['depth'] }));
 			internals.commit({ saved: [moved, ...descendants] });
 			return moved;
+		},
+
+		/** Archived People in the Group and its sub-groups, which a delete moves with the active ones. */
+		async archivedMemberCount(id: string): Promise<number> {
+			const orgId = base.orgId;
+			const res = await fetch(`/org/${orgId}/api/groups/archived-members?groupId=${encodeURIComponent(id)}`);
+			if (!res.ok) {
+				const failure = await buildRequestError(res, 'GET', 'groups/archived-members');
+				throw new Error(rejectedRequestMessage(failure, ARCHIVED_COUNT_FAILED_MESSAGE));
+			}
+			const body: unknown = await res.json().catch(() => null);
+			const count = (body as { count?: unknown } | null)?.count;
+			if (!Number.isInteger(count)) throw new Error(ARCHIVED_COUNT_FAILED_MESSAGE);
+			return count as number;
 		},
 
 		async deleteWithReassignment(id: string, moveMembersTo: string | null): Promise<GroupDeleteResult> {

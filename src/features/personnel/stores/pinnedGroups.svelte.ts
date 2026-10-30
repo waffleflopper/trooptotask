@@ -1,6 +1,8 @@
 /**
  * Pin and unpin are optimistic: the UI updates instantly, rolls back on API failure, and says so. Pins hold Group ids.
- * A `#pendingMutations` counter prevents same-Organization hydration from overwriting in-flight client changes. A response from another Organization or a shell lifetime the user has left
+ * A `#pendingMutations` counter prevents same-Organization hydration from overwriting in-flight client changes.
+ * A failed write rolls back locally; once no write is in flight the store rereads the saved pins, so a race with another
+ * pin, a move or a delete cannot leave them out of step. A response from another Organization or a shell lifetime the user has left
  * changes nothing and says nothing.
  */
 import { organizationLifetime, stillInOrganizationLifetime } from '$lib/stores/core';
@@ -12,6 +14,9 @@ export class PinnedGroupsStore {
 	#pinnedGroups = $state.raw<string[]>([]);
 	#orgId = $state('');
 	#pendingMutations = 0;
+	/** Advances whenever the list changes from somewhere other than a reread: a write, a hydration or a forgotten Group. */
+	#version = 0;
+	#rereadAfterSettle = false;
 	#organizationVersion = 0;
 	#loadedLifetime = organizationLifetime();
 	#loadVersion = 0;
@@ -32,8 +37,10 @@ export class PinnedGroupsStore {
 		if (orgId !== this.#orgId || this.#loadedLifetime !== organizationLifetime()) {
 			this.#organizationVersion++;
 			this.#pendingMutations = 0;
+			this.#rereadAfterSettle = false;
 			this.#loadedLifetime = organizationLifetime();
 		} else if (this.#pendingMutations > 0) return;
+		this.#version++;
 		this.#loadVersion++;
 		this.#pinnedGroups = pinnedGroups;
 		this.#orgId = orgId;
@@ -41,6 +48,8 @@ export class PinnedGroupsStore {
 
 	/** The database drops a deleted or moved-down Group's pins; this keeps the open page in step without a reload. */
 	forgetGroup(groupId: string) {
+		// Even when this tab does not show the pin, a reread still out may hold it.
+		this.#version++;
 		if (!this.#pinnedGroups.includes(groupId)) return;
 		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 	}
@@ -55,12 +64,44 @@ export class PinnedGroupsStore {
 		return () => sameLifetime() && version === this.#organizationVersion;
 	}
 
+	/**
+	 * Ends one write. After a failure, the last write to settle rereads the saved pins in the background, so the write
+	 * reports at once. A reread overtaken by a newer write, hydration or forgotten Group is discarded and asked again, at
+	 * most three times, or left to the next write.
+	 */
+	async #settle(orgId: string, current: () => boolean) {
+		if (!current()) return;
+		this.#pendingMutations--;
+		if (this.#pendingMutations > 0 || !this.#rereadAfterSettle) return;
+		this.#rereadAfterSettle = false;
+		for (let attempt = 0; attempt < 3; attempt++) {
+			const version = this.#version;
+			let saved: unknown;
+			try {
+				const res = await fetch(`/org/${orgId}/api/pinned-groups`);
+				saved = res.ok ? await res.json() : null;
+			} catch {
+				return;
+			}
+			if (!current() || !Array.isArray(saved) || !saved.every((id) => typeof id === 'string')) return;
+			if (this.#pendingMutations > 0) {
+				this.#rereadAfterSettle = true;
+				return;
+			}
+			if (this.#version === version) {
+				this.#pinnedGroups = saved;
+				return;
+			}
+		}
+	}
+
 	async pin(groupId: string): Promise<boolean> {
 		if (this.#pinnedGroups.includes(groupId)) return true;
 
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
+		this.#version++;
 		this.#pinnedGroups = [...this.#pinnedGroups, groupId];
 
 		try {
@@ -75,10 +116,11 @@ export class PinnedGroupsStore {
 			if (current()) {
 				this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 				toastStore.error(PIN_FAILURE_MESSAGE);
+				this.#rereadAfterSettle = true;
 			}
 			return false;
 		} finally {
-			if (current()) this.#pendingMutations--;
+			void this.#settle(orgId, current);
 		}
 	}
 
@@ -86,6 +128,7 @@ export class PinnedGroupsStore {
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
+		this.#version++;
 		const originalIndex = this.#pinnedGroups.indexOf(groupId);
 		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 
@@ -103,10 +146,13 @@ export class PinnedGroupsStore {
 				restored.splice(Math.min(originalIndex, restored.length), 0, groupId);
 				this.#pinnedGroups = restored;
 			}
-			if (current()) toastStore.error(PIN_FAILURE_MESSAGE);
+			if (current()) {
+				toastStore.error(PIN_FAILURE_MESSAGE);
+				this.#rereadAfterSettle = true;
+			}
 			return false;
 		} finally {
-			if (current()) this.#pendingMutations--;
+			void this.#settle(orgId, current);
 		}
 	}
 

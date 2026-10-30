@@ -12,6 +12,7 @@ import {
 	type PersonnelDeletionReferencesPort,
 	type PersonnelRecordPersistence
 } from './contracts';
+import { nextSortOrder } from './groupStructure';
 
 interface GroupWriteContext {
 	auth: OrganizationAccessGrant;
@@ -56,7 +57,8 @@ export async function readGroupEditorCatalog(ctx: GroupWriteContext) {
 export async function createGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
 	const data = validatedInput(createInput, input);
 	await requireGroupManager(ctx);
-	const row = await ctx.groups.create(data);
+	const sortOrder = data.sortOrder ?? nextSortOrder(await ctx.groups.listCatalog(), data.parentId ?? null);
+	const row = await ctx.groups.create({ ...data, sortOrder });
 	await ctx.audit.log({ action: 'group.created', resourceType: 'group', resourceId: row.id });
 	return row;
 }

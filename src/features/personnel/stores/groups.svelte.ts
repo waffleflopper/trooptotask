@@ -14,6 +14,7 @@ import {
 	withinOrganizationLifetime
 } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
+import { nextSortOrder } from '../groupStructure';
 import {
 	GROUP_CHANGE_UNCONFIRMED_MESSAGE,
 	GROUP_NAME_EXISTS_MESSAGE,
@@ -201,9 +202,8 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 			if (parent === undefined) throw new Error(GROUP_UNAVAILABLE_MESSAGE);
 			const siblings = base.rawItems.filter((group) => group.parentId === parentId);
 			if (siblings.some((group) => group.name.toLowerCase() === trimmed.toLowerCase())) return null;
-			const nextSortOrder = Math.max(-1, ...siblings.map((group) => group.sortOrder)) + 1;
 			const depth = (parent ? parent.depth + 1 : 1) as Group['depth'];
-			return base.add({ name: trimmed, sortOrder: nextSortOrder, parentId, depth });
+			return base.add({ name: trimmed, sortOrder: nextSortOrder(siblings, parentId), parentId, depth });
 		},
 
 		async rename(id: string, newName: string): Promise<boolean> {

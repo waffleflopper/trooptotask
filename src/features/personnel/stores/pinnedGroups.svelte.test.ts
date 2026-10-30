@@ -192,9 +192,10 @@ describe('pinned Group state', () => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn(
-					() =>
-						new Promise((_resolve, reject) => {
-							rejectRequest = reject;
+					(_url: string, init?: RequestInit) =>
+						new Promise((resolve, reject) => {
+							if (init?.method) rejectRequest = reject;
+							else resolve({ ok: true, status: 200, json: () => Promise.resolve(['Alpha', 'Bravo']) });
 						})
 				)
 			);

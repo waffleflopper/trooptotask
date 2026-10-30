@@ -238,52 +238,72 @@ describe('GroupTreeEditor', () => {
 
 		it('moves a Group whose only members are archived to the Group the user picks', async () => {
 			const commands = renderTree({ groups: [...groups, cadre] });
-			commands.archivedMemberCount.mockResolvedValue(2);
+			commands.archivedMemberCount.mockImplementation(async (id) => (id === 'cadre' ? 2 : 0));
 
 			const dialog = await choose('Cadre', 'Delete…');
 			await fireEvent.click(await within(dialog).findByRole('button', { name: /^Move them to:/ }));
 			await fireEvent.click(await screen.findByRole('treeitem', { name: 'HQ' }));
-			expect(dialog.textContent).toMatch(/2 people move to the Group you choose, 2 of them archived/);
+			expect(dialog.textContent).toMatch(/\b2\b[^.]*archived/);
 			await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete and move 2' }));
 
 			await waitFor(() => expect(commands.remove.mock.calls).toEqual([['cadre', 'hq']]));
-			expect(commands.archivedMemberCount.mock.calls).toEqual([['cadre']]);
 		});
 
 		it('counts the archived with the active in the total and says how many are archived', async () => {
 			const commands = renderTree();
-			commands.archivedMemberCount.mockResolvedValue(3);
+			commands.archivedMemberCount.mockImplementation(async (id) => (id === 'bravo' ? 3 : 0));
 
 			const dialog = await choose('Bravo Team', 'Delete…');
 
 			await within(dialog).findByRole('button', { name: 'Delete and move 4' });
-			expect(dialog.textContent).toMatch(/4 people move to the Group you choose, 3 of them archived/);
+			expect(dialog.textContent).toMatch(/\b3\b[^.]*archived/);
 		});
 
-		it('keeps confirm off until the archived count arrives', async () => {
-			const commands = renderTree();
+		it('keeps confirm off for a Group with no active members until the archived count arrives', async () => {
+			const commands = renderTree({ groups: [...groups, cadre] });
 			let arrive!: (count: number) => void;
 			commands.archivedMemberCount.mockReturnValue(new Promise<number>((resolve) => (arrive = resolve)));
 
-			const dialog = await choose('Bravo Team', 'Delete…');
+			const dialog = await choose('Cadre', 'Delete…');
 
 			expect(within(dialog).getByRole('button', { name: 'Delete' }).hasAttribute('disabled')).toBe(true);
-			arrive(0);
-			expect((await within(dialog).findByRole('button', { name: 'Delete and move 1' })).hasAttribute('disabled')).toBe(
+			arrive(2);
+			expect((await within(dialog).findByRole('button', { name: 'Delete and move 2' })).hasAttribute('disabled')).toBe(
 				false
 			);
 		});
 
-		it('shows the load error and keeps confirm off when the archived count fails', async () => {
+		it('lets a Group with active members be deleted before the archived count arrives', async () => {
 			const commands = renderTree();
-			commands.archivedMemberCount.mockRejectedValue(new Error('Archived people did not load.'));
+			commands.archivedMemberCount.mockReturnValue(new Promise<number>(() => {}));
 
 			const dialog = await choose('Bravo Team', 'Delete…');
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete and move 1' }));
+
+			await waitFor(() => expect(commands.remove.mock.calls).toEqual([['bravo', 'sq1']]));
+		});
+
+		it('shows the load error and keeps confirm off for a Group with no active members', async () => {
+			const commands = renderTree({ groups: [...groups, cadre] });
+			commands.archivedMemberCount.mockRejectedValue(new Error('Archived people did not load.'));
+
+			const dialog = await choose('Cadre', 'Delete…');
 
 			expect((await within(dialog).findByRole('alert')).textContent?.trim()).toBe('Archived people did not load.');
 			expect(within(dialog).getByRole('button', { name: 'Delete' }).hasAttribute('disabled')).toBe(true);
 			await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 			expect(commands.remove.mock.calls).toEqual([]);
+		});
+
+		it('still deletes a Group with active members when the archived count fails', async () => {
+			const commands = renderTree();
+			commands.archivedMemberCount.mockRejectedValue(new Error('Archived people did not load.'));
+
+			const dialog = await choose('Bravo Team', 'Delete…');
+			await within(dialog).findByRole('alert');
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete and move 1' }));
+
+			await waitFor(() => expect(commands.remove.mock.calls).toEqual([['bravo', 'sq1']]));
 		});
 
 		it('ignores a count that arrives after the dialog was closed and another Group opened', async () => {

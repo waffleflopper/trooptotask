@@ -376,6 +376,19 @@ describe('pinned Group state', () => {
 				rereads[index](jsonResponse(pins));
 			}
 
+			it.each([
+				{ action: 'pin', group: 'Charlie', rolledBack: ['Alpha', 'Bravo'] },
+				{ action: 'unpin', group: 'Bravo', rolledBack: ['Alpha', 'Bravo'] }
+			] as const)('reports a failed $action while the reread is still out', async ({ action, group, rolledBack }) => {
+				store.load(['Alpha', 'Bravo'], 'org-1');
+				let outcome: boolean | undefined;
+				void store[action](group).then((result) => (outcome = result));
+
+				await vi.waitFor(() => expect(outcome).toBe(false));
+				expect(store.list).toEqual(rolledBack);
+				expect(rereads).toHaveLength(1);
+			});
+
 			it('rereads again when a pin settles before the first reread returns', async () => {
 				store.load(['Alpha'], 'org-1');
 				const failed = store.pin('Bravo');

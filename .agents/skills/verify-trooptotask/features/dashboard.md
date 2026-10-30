@@ -334,12 +334,14 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
   `Steady: 2 available every day`, and the strip shows only `ALPHA 2/2`.
 - With the [nested Group tree](manage-groups.md#nested-group-tree) seeded as `orgOwner`, a `Group strength display`
   menu sits beside the `Available · next 14 days` heading, out of the layout flow, and holds `Show sub-groups`. On,
-  the strip lists indented rows (`[data-band-level]`): `0: Bravo 0/1` below the floor, `0: 2nd Platoon 9/9`,
+  each Group with sub-groups is a collapsed `aria-expanded="false"` button, so the strip lists `Bravo 0/1`,
+  `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1`; a reload collapses it again. Opening `2nd Platoon` lists
+  indented rows (`[data-band-level]`): `0: Bravo 0/1` below the floor, `0: 2nd Platoon 9/9`,
   `1: 2nd Platoon HQ 2/2`, `1: 1st Squad 6/6`, `2: 1st Squad HQ 1/1`, `2: Alpha Team 4/4`, `2: Bravo Team 1/1`,
   `1: 2nd Squad 1/1`, `0: Alpha 1/1` and `0: Unassigned 1/1`; each level sums to its parent and the top rows to the
-  headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1`, and the switch is absent
-  when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200 available is
-  flagged although it rounds to 80%.
+  headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1` with no button, and the
+  switch is absent when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200
+  available is flagged although it rounds to 80%.
 - Load-time layout shift, measured with a `layout-shift` `PerformanceObserver` after reload at 1440x900, 1024x640 and
   390x844 on 2026-10-29: the nested tree read `0.0703`, `0.0297` and `0.1038` with `Show sub-groups` on, `0.0134`,
   `0.0297` and `0.1038` with it off, and the flat fixture matched off. The skeleton reserves the compact strip, so the

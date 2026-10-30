@@ -243,6 +243,116 @@ describe('pinned Group state', () => {
 		}
 	);
 
+	describe('after a failed pin or unpin', () => {
+		const jsonResponse = (body: unknown) => ({ ok: true, status: 200, json: () => Promise.resolve(body) });
+
+		it.each([
+			{ action: 'pin', group: 'Charlie' },
+			{ action: 'unpin', group: 'Bravo' }
+		] as const)('adopts the server pins in order after a failed $action', async ({ action, group }) => {
+			store.load(['Alpha', 'Bravo'], 'org-1');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) =>
+					init?.method === 'POST' || init?.method === 'DELETE'
+						? Promise.reject(new Error('Write failed'))
+						: Promise.resolve(jsonResponse(['Delta', 'Alpha']))
+				)
+			);
+
+			expect(await store[action](group)).toBe(false);
+			expect(store.list).toEqual(['Delta', 'Alpha']);
+		});
+
+		it('keeps the local rollback and the toast when the reread fails', async () => {
+			store.load(['Alpha', 'Bravo'], 'org-1');
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) =>
+					init?.method === 'POST'
+						? Promise.reject(new Error('Write failed'))
+						: Promise.resolve({ ok: false, status: 500 })
+				)
+			);
+
+			expect(await store.pin('Charlie')).toBe(false);
+			expect(store.list).toEqual(['Alpha', 'Bravo']);
+			expect(errorToast).toHaveBeenCalledTimes(1);
+		});
+
+		it('ignores the reread when another pin starts before it returns', async () => {
+			store.load(['Alpha'], 'org-1');
+			let resolveReread!: (response: unknown) => void;
+			let resolveSecondWrite!: (response: unknown) => void;
+			let writes = 0;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) => {
+					if (init?.method !== 'POST') return new Promise((resolve) => (resolveReread = resolve));
+					if (writes++ === 0) return Promise.reject(new Error('Write failed'));
+					return new Promise((resolve) => (resolveSecondWrite = resolve));
+				})
+			);
+
+			const failed = store.pin('Bravo');
+			await vi.waitFor(() => expect(resolveReread).toBeDefined());
+			const second = store.pin('Charlie');
+			resolveReread(jsonResponse(['Zulu']));
+			expect(await failed).toBe(false);
+			expect(store.list).toEqual(['Alpha', 'Charlie']);
+
+			resolveSecondWrite({ ok: true });
+			expect(await second).toBe(true);
+			expect(store.list).toEqual(['Alpha', 'Charlie']);
+		});
+
+		it('does not reread while another pin is still in flight', async () => {
+			store.load(['Alpha'], 'org-1');
+			let resolveSecondWrite!: (response: unknown) => void;
+			let writes = 0;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) => {
+					if (init?.method !== 'POST') return Promise.resolve(jsonResponse(['Zulu']));
+					if (writes++ === 0) return Promise.reject(new Error('Write failed'));
+					return new Promise((resolve) => (resolveSecondWrite = resolve));
+				})
+			);
+
+			const failed = store.pin('Bravo');
+			const second = store.pin('Charlie');
+			expect(await failed).toBe(false);
+			expect(store.list).toEqual(['Alpha', 'Charlie']);
+
+			resolveSecondWrite({ ok: true });
+			expect(await second).toBe(true);
+			expect(store.list).toEqual(['Alpha', 'Charlie']);
+		});
+
+		it('ignores the reread when the user moved to another Organization meanwhile', async () => {
+			store.load(['Alpha'], 'org-1');
+			let resolveReread!: (response: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url: string, init?: RequestInit) =>
+					init?.method === 'POST'
+						? Promise.reject(new Error('Write failed'))
+						: new Promise((resolve) => (resolveReread = resolve))
+				)
+			);
+
+			const failed = store.pin('Bravo');
+			await vi.waitFor(() => expect(resolveReread).toBeDefined());
+			store.load(['Charlie'], 'org-2');
+			resolveReread(jsonResponse(['Zulu']));
+
+			expect(await failed).toBe(false);
+			expect(store.orgId).toBe('org-2');
+			expect(store.list).toEqual(['Charlie']);
+		});
+	});
+
 	it('forgets a deleted Group pin and keeps the rest in order', () => {
 		store.load(['group-hq', 'group-2', 'group-weapons'], 'org-1');
 

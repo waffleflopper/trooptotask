@@ -48,8 +48,9 @@ export class PinnedGroupsStore {
 
 	/** The database drops a deleted or moved-down Group's pins; this keeps the open page in step without a reload. */
 	forgetGroup(groupId: string) {
-		if (!this.#pinnedGroups.includes(groupId)) return;
+		// Even when this tab does not show the pin, a reread still out may hold it.
 		this.#version++;
+		if (!this.#pinnedGroups.includes(groupId)) return;
 		this.#pinnedGroups = this.#pinnedGroups.filter((id) => id !== groupId);
 	}
 

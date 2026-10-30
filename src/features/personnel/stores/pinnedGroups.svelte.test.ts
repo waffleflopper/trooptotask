@@ -303,12 +303,15 @@ describe('pinned Group state', () => {
 			expect(await failed).toBe(false);
 			expect(store.list).toEqual(['Alpha', 'Charlie']);
 
+			const discarded = resolveReread;
 			resolveSecondWrite({ ok: true });
+			await vi.waitFor(() => expect(resolveReread).not.toBe(discarded));
+			resolveReread(jsonResponse(['Charlie', 'Alpha']));
 			expect(await second).toBe(true);
-			expect(store.list).toEqual(['Alpha', 'Charlie']);
+			expect(store.list).toEqual(['Charlie', 'Alpha']);
 		});
 
-		it('does not reread while another pin is still in flight', async () => {
+		it('rereads once the last pin in flight settles', async () => {
 			store.load(['Alpha'], 'org-1');
 			let resolveSecondWrite!: (response: unknown) => void;
 			let writes = 0;
@@ -328,7 +331,7 @@ describe('pinned Group state', () => {
 
 			resolveSecondWrite({ ok: true });
 			expect(await second).toBe(true);
-			expect(store.list).toEqual(['Alpha', 'Charlie']);
+			expect(store.list).toEqual(['Zulu']);
 		});
 
 		it('ignores the reread when the user moved to another Organization meanwhile', async () => {

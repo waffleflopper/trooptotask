@@ -20,7 +20,9 @@ Sign in as a Calendar member and choose `Calendar`. A member's Organization and 
 and status bars appear. `calendarLane` has Calendar access without Personnel access; `calendarScoped` has Alpha, while
 `calendarEmpty` has an empty Group grant. The modal and `Bulk Status` are write entry points for an operator.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 ```bash
 $V calendar-grant calendarOperate view # simulate an open page losing operate access
@@ -30,7 +32,7 @@ $V calendar-grant calendarOperate restore
 `calendar-grant` changes only the named synthetic member's Organization A Calendar capability and records its original
 value for restoration.
 
-## Driving it with verify:app
+### Journey
 
 Preconditions: doctor passes; `$V fixture` gives `orgA`, `orgB`, known Person/availability/status IDs, and September
 14–16, 2026. Use `$V actor ROLE calendar`; use `$V actor manager personnel` for the no-Calendar member's authenticated
@@ -62,13 +64,21 @@ server probes.
    `403` or `404`, with no `availabilityForeign` or `Foreign Private Status` in the body. Capture the denied response
    and a B readback using `$V rows availability_entries orgB id <availabilityForeign>` to confirm the protected fixture
    still exists.
+5. With `calendarView` and then `manager`, repeat the A denial using Able's existing availability ID. Save its full
+   row first with `$V rows availability_entries orgA id ID`. Send `PUT /org/<orgA>/api/availability` with
+   `{id: ID, note: MARKER}`, `DELETE` to that endpoint with `{id: ID}`, then
+   `DELETE /org/<orgA>/api/availability/batch` with `{ids: [ID]}`. Use the same authenticated JSON-fetch pattern as
+   step 2, changing the method and body. Every request must return `403`; after each, read back the same row and require
+   every field unchanged. These checks cover update and both removal methods, not only denied creation.
 
 ## Gotchas
 
 - `calendarLane` and `calendarEmpty` cannot be reliably reached with the public `login ROLE` command's Personnel landing
   page; use `$V actor` with the Calendar path.
 - Compare Calendar range response IDs against the synthetic fixture IDs. A `200` with an empty or mixed response can
-  still be wrong.
+  still be wrong. Without `collections`, the range endpoint reads availability and assignments only. For Events/Taskings
+  projection access, use [Events & Taskings](events-taskings.md#calendar-markers), which explicitly requests
+  `collections=events`; the default-range probes here do not establish that boundary.
 - The browser's authenticated `fetch` proves application endpoint policy. Run
   `supabase/tests/calendar_lane_unassigned_scope.sql`, `calendar_catalog_scope.sql` and `group_catalog_scope.sql`
   separately under the approved disposable database procedure for direct row-policy and foreign-reference protection.

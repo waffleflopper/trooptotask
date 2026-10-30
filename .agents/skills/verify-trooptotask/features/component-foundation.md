@@ -34,7 +34,7 @@ must come from its central component and hold in light and dark themes at narrow
 
 ## How to get to it (user POV)
 
-As a Personnel manager, Quick edit a roster row for its Rank and Group comboboxes and its ETS date popover, and use Add
+As a Personnel manager, Quick edit a roster row for its Rank combobox, Group tree picker and ETS date popover, and use Add
 Person for the Personnel dialog; use Manage Groups for Group creation; use the sidebar Switch organization menu and
 account menu (the name card), Toggle theme and Send feedback. An Organization owner opens Settings, Members, the invite
 strip's Role select and a row's Manage sheet with its Role radio group. A Critical Tasks operator records a completion
@@ -140,8 +140,10 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    with a read-only `evaluate_script` that fetches `location.href` and parses the text with `DOMParser`: Training
    readiness goal's `aria-describedby` must resolve to its visible help text there.
 2. **Combobox and Select dismissal (`manager`, `orgOwner`).** In Able's Quick edit, focus Rank and press Enter. Press
-   Escape: the listbox closes, the form stays open, focus returns to Rank and the value is unchanged. Reopen Group with
-   a click and click the Personnel page heading: the listbox closes, the form stays open and Group keeps its value.
+   Escape: the listbox closes, the form stays open, focus returns to Rank and the value is unchanged. Open Group's tree
+   picker: at wide width it is a popover; at 390 px it is a bottom sheet titled `Group`, with `Search Groups` and a
+   `Close` button. Escape closes only the picker and returns focus to Group without changing its value. At wide width,
+   reopen and click the Personnel page heading: the popover closes and the form and Group value remain.
    Cancel. As `orgOwner` on `settings/members`, focus the invite strip's `Role` select and press Enter, then Escape: the
    listbox closes, focus returns to `Role` and the value is unchanged. Reopen it and use ArrowDown to move between
    options without committing. The open listbox is named `Role`, never the selected value. Close it and require no
@@ -149,8 +151,9 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
 3. **Multiple selection (`trainingConfigure`, Training Reports).** Open a WorkspaceToolbar multi-select filter. Require
    each option to expose its checked state and accessible name, ArrowDown/ArrowUp to reach every option, Space to toggle
    one, and the trigger's accessible name to report the selected count. Press Escape and require focus on the trigger.
-   Clear the filter. Combobox chip Backspace removal needs a production `Combobox.Root multiple` consumer; when the
-   source census finds none, record UNAVAILABLE with the census and keep the component test as the only proof.
+   Clear the filter. On `training/types`, open `New type`, choose `Only some` under `Who needs it`, and add two choices
+   to `Only these roles, MOS and ranks`. With its input empty, press Backspace: only the last chip is removed. Escape
+   closes the options without closing the type sheet; discard the unsaved draft. Repeat at 390 px.
 4. **Dialog dismissal and busy close (`manager`, Personnel).** Open Add Person and click outside the dialog: it closes
    without saving and focus returns to Add Person. Reopen and use the close button: same result. Reopen and type a
    unique Last name and First name: the close button disappears and Escape and an outside click leave the dialog open,
@@ -165,11 +168,11 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    Restore it through Settings → Archives → Restore, or `verify:app restart`, before relying on the fixture again. In
    Manage Groups, type a draft: the close button disappears and Escape is blocked, with no `aria-busy`. Arm
    `$V network arm-hold PAGE groups`, replace the draft with a unique name and press Add: while held the dialog is busy
-   and focused. Release, restore, and remove the new Group through its Remove control. As `ictOperator`, choose Import
-   Completions (on the row, or inside `More Critical Tasks controls` when folded; the dialog opens after the menu
-   closes) and upload a CSV that repeats Able's seeded Alpha completion (same Person, task, date and method). Arm
-   `$V network arm-hold PAGE personnel-ict-completions/batch` and press Import Checked Rows: while held the dialog is
-   busy and focused and Escape is blocked. Release: the result reports 1 updated with the same completion ID and values.
+   and focused. Release, restore, then open `Change <new Group>` → `Delete…` and confirm `Delete` to remove the empty
+   Group. As `ictOperator`, `Import Completions` opens `critical-tasks/import`, a page with File, Columns, Review and
+   Done steps. Follow the [completion import recipe](critical-tasks-completions-readiness.md#driving-it-with-verifyapp)
+   for file mapping, changed-row review and a held save. Its review button reads `Import N changes`; while saving it
+   disables and a `role="status"` region reports progress. An exact re-import is Unchanged and sends no save.
    A dialog that is not busy must also keep focus when its focused control disables: as `onboardingOperate` on
    `onboarding`, open Start Onboarding, choose Able, arm `$V network arm-hold PAGE onboarding` and press Start
    Onboarding. While held, Start is disabled, focus is on the dialog rather than `body`, there is no `aria-busy`, and

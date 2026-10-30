@@ -94,8 +94,9 @@ Sign in normally as `manager` and retain its page/Organization IDs. Preserve the
    usable focus inside the dialog. Use Tab and Shift+Tab at its boundaries to check focus containment. Open ETS, move to
    the previous month and back, and select a literal named date from the grid. Record the selected-date announcement and
    the draft value through read-only DOM inspection. Keyboard date movement/activation must retain usable grid focus
-   until selection closes the popover. Cancel with Escape and require `Add Person` focused, no remaining modal and no
-   new roster row. Reopen to confirm the canceled draft is absent.
+   until selection closes the popover. Press Escape after selection: the changed draft and dialog stay open. Choose
+   `Cancel` and require `Add Person` focused, no remaining modal and no new roster row. Reopen to confirm the canceled
+   draft is absent.
 5. **Confirmation.** On Able's record choose `More Personnel record` → `Archive`. Require an alertdialog naming Able
    with the retained-history explanation and Cancel/Archive actions. Choose Cancel, require focus restored to the same
    menu button and verify Able remains active with unchanged dates. This cancel probe supplies no archive-mutation or

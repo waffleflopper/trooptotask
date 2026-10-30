@@ -24,11 +24,12 @@ definitions.
 
 Choose `Training` in the Organization navigation. The `Training controls` toolbar holds the `A–Z` and `Groups` toggle,
 `Search name, rank, or MOS`, `Training view filter`, `Training group filter`, `Reports`, `Sign-in rosters` and `Export`.
-Its `More Training controls` menu holds `Import`, `Manage views` and `Manage types`; the first three controls on the
+Its `More Training controls` menu holds `Display`, `Import`, `Manage views` and `Manage types`; the first three
+controls on the
 right fold into it as the page narrows (find them with the
 [shared UI recipe](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more)). `Training view filter` ends with
 `Manage views…`, which opens the `Manage views` sheet; More's `Manage views` opens the same sheet. Manage Types shows
-the page header `TRAINING TYPES` with `Back to matrix` and `New type`, over one table named
+the page header `TRAINING TYPES` with `Back to matrix` and `New type`, over one list named
 `Training types, in column order`; choosing a row's name opens the type sheet. The sheet lists the saved views A to Z,
 each with `N of M columns`, and a `New view` button; a member who cannot configure sees no `New view` and cannot open a
 view. Choosing a view opens its editor in the same sheet: `All views · Edit view` above the name, a `View name` field,
@@ -39,7 +40,7 @@ Alpha. A direct link (a full page load) to `training/types` must enforce the sam
 `training/views` redirects (308) to `training`. Moving between the matrix, `Manage types` and opening `Manage views`
 reuses the loaded workspace and is not access proof.
 
-## Helper controls
+### Helper controls
 
 ```bash
 $V network arm-fail "$PAGE" training-types # fail one Training catalog request; training-views also supported
@@ -54,7 +55,8 @@ completion, while Baker and Unassigned have no record. Targeted applies to MOS `
 required and incomplete; Baker and Unassigned are not required. Optional does not require a missing record. The saved
 Focus View orders Targeted before Required and omits Optional.
 
-1. **Read the unchanged catalog and matrix:** From Training, open Manage Types. Read the table at 1440: the columns
+1. **Read the unchanged catalog and matrix:** From Training, open Manage Types. Read the list at 1440: its visual
+   columns
    `Training`, `Renews`, `Warns at`, `Who needs it`, `Applies to` and `Exempt`, one row per seeded type. Required reads
    `Every 12 months`, `60d · 30d`, `Everyone`, `3 of 3` and `—`. Targeted reads `Every 12 months`, `60d · 30d`,
    `MOS: 68W except Role NCO`, `1 of 3` and `—`. Optional reads `Never expires`, `—`, `Optional`, `0 of 3` and `—`.
@@ -100,7 +102,7 @@ Focus View orders Targeted before Required and omits Optional.
    warning is 90: each returns `400` `Make the final warning shorter than the first.` and writes no row. POST a legacy
    card-date type (`expirationMonths:24, expirationDateOnly:true, warningDaysYellow:120, warningDaysOrange:15`) and seed
    a legacy never type (`warningDaysYellow:10, warningDaysOrange:20`, seeded through the disposable provider API because
-   the app's create route rejects that invalid pair), open each through the table and choose `Save changes` untouched:
+   the app's create route rejects that invalid pair), open each through the list and choose `Save changes` untouched:
    the sheet shows `Date on the card` with `120` and `15`, and `Never expires`; `$V rows` shows `expiration_months` 24
    and the warning days unchanged. Rename the never type and save again. The PUT omits both warning fields, the row
    retains `10` and `20`, and the new name persists after reload. Untouched invalid warnings on months and card-date
@@ -161,7 +163,7 @@ Focus View orders Targeted before Required and omits Optional.
    `$V network state $PAGE` lists two `PUT`s with `200`, and `sort_order` reads the row two places up. Repeat
    add/edit/cancel-then-confirm delete for a temporary view in the `Manage views` sheet: `Delete view` opens the
    `Delete Saved View` alertdialog, Cancel keeps the editor, and Delete returns to the list without the view. Capture
-   the Types page and the sheet at 1440, 1024 and 390 wide once; the Types table stacks each row into two lines below a
+   the Types page and the sheet at 1440, 1024 and 390 wide once; the Types list stacks each row into two lines below a
    58rem (928 px) container, and from 928 px every column through `Exempt` is visible with no clipping.
 
 8. **Matrix readout:** As `trainingConfigure` at 1440 wide on a fresh seed, read the matrix before recording anything.
@@ -223,7 +225,8 @@ Focus View orders Targeted before Required and omits Optional.
      the list (`SAVED VIEWS · 1`) and `$V rows training_views orgA name <marker>` is empty. Deleting the view selected
      in the matrix selects `All trainings`.
    - Access: `trainingView` and `trainingScopedConfig` see `All trainings | Verification Focus View` in the View menu
-     (no `Manage views…`); `trainingView` has no More button and `trainingScopedConfig` More holds only `Import`.
+     (no `Manage views…`); `trainingView` still has More with `Display`; `trainingScopedConfig` also has `Import`.
+     Reports, Sign-in rosters and Export fold into More as the toolbar narrows.
    - Redirect and load: a full load of `/org/<org>/training/views` ends on `/org/<org>/training`. With
      `$V server-source arm personnel_trainings fail-hard` a full load of `/training` shows `Unable to load Training`
      with `Retry Training` instead of the matrix, so the sheet is unreachable; `server-source restore` recovers.

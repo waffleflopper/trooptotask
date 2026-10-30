@@ -9,9 +9,9 @@ long-range views.
 - `calendar-month`: move with `Today`, `Previous month`, the month picker on the title and `Next month`; the same
   controls drive the Duty planner's month.
 - `calendar-range`: switch between `Month` and `3-Month` with `Calendar view` in the title row.
-- `calendar-toolbar`: as the page narrows, `Duty planner`, `Reports`, `Display` and the group filter fold into
-  `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings` and the exports always live in
-  More, after any folded controls.
+- `calendar-toolbar`: as the page narrows, `Duty planner`, `Reports`, `Display`, `Events & Taskings` (when enabled)
+  and the group filter fold into `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings`
+  and the exports always live in More, after any folded controls.
 - `calendar-filter`: narrow the grid with the group filter, which lists the reader's top-level Groups and shows a picked
   Group's whole subtree, or with the searchbox.
 - `calendar-saved-range`: the fixed September statuses and closure render in month and long range, and the historical
@@ -57,8 +57,10 @@ heading level 1, e.g. `October 2026`), then `Previous month`, `Next month` and `
 planner's header (title `Duty planner`) carries `Today`, then a group of `Previous month`, the month/year button and
 `Next month`, then `Back to calendar`, from the same shared component with only the month view. In `3-Month` the title
 names the quarter and the arrows are `Previous 3 months` and `Next 3 months`. The `Calendar controls` toolbar below it
-holds `Calendar group filter`, the personnel searchbox, `Duty planner` (assignment managers), `Reports`, `Display`,
-`More Calendar controls` and the pinned `Bulk Status` menu. `Display` holds `Show Onboarding` (when onboarding People
+holds `Calendar group filter`, the personnel searchbox, `Events & Taskings` (when enabled, with a need-action badge),
+`Duty planner` (assignment managers), `Reports`, `Display`,
+`More Calendar controls` and the pinned `Bulk Status` menu. `Events & Taskings` opens `/calendar/taskings`;
+`Bulk Status` includes `Import CSV`, which opens `/calendar/import`. `Display` holds `Show Onboarding` (when onboarding People
 exist), `Show Status Text` and `Show Personnel Roles` as checkboxes that keep the menu open. `More Calendar controls`
 always holds `Settings` (configure access), `Export to Excel` and `Print / PDF`; the exports cover the shown quarter in
 `3-Month`. The legend under the grid lists statuses; in `Month` it adds `Duty (codes)` for Person duties and, for people
@@ -114,7 +116,10 @@ filters and request controls between cases.
    `3-Month` and confirm these bars by accessible name in the September–November view; the closure there has no `Days`
    lane, so read the closure's date header `title`. Move `Previous 3 months` twice: March–May shows the one
    `Historical retained` leave day. Move forward twice and confirm the September facts return. Wait for the range to
-   settle; a loading label is not proof.
+   settle; a loading label is not proof. In September–November, select an October date header: expect Month showing
+   October with the route unchanged. Restore September before continuing. Open `Bulk Status` and follow `Import CSV`
+   to `/calendar/import`, then return to Calendar. When enabled, follow `Events & Taskings` to `/calendar/taskings`
+   and return; its badge counts taskings needing action.
 6. Open the `Month and year picker`; record the focused month, press `ArrowLeft` through `tool press_key`, confirm focus
    moves, then press `Escape` and confirm the dialog closes without changing the selected month. Capture before/after
    snapshots.
@@ -285,9 +290,9 @@ filters and request controls between cases.
 
 - Sweep `Calendar controls` as `calendarOperate` or `calendarConfigure`. `calendarView` has no `duty-planner` or
   `bulk-status`, so the sweep fails its start check at any `--from`. Use
-  `$V toolbar-sweep PAGE "Calendar controls" RUN_DIR --expect duty-planner,calendar-reports,calendar-display,group --pinned bulk-status --search --more-always --step 4`.
-  At 900 high, Duty planner folds at about 1072, Reports at about 944, Display at about 844 and the group filter at
-  about 468.
+  `$V toolbar-sweep PAGE "Calendar controls" RUN_DIR --expect duty-planner,calendar-reports,calendar-display,calendar-events,group --pinned bulk-status --search --more-always --step 4`
+  when `Events & Taskings` is enabled; otherwise omit `calendar-events` from `--expect`. Folding widths depend on the
+  controls present; retain the sweep's observed widths rather than assuming fixed thresholds.
 - The shared navigation steps from the first day of the displayed month, so a day-31 anchor (March 31) goes to February
   1 and April 1; that case lives in `CalendarPeriodNavigation.test.ts`, because the Calendar store opens on the first of
   the anchor cookie's month, so no live route displays a day-31 anchor.

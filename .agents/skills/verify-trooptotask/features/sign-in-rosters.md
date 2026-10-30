@@ -38,7 +38,9 @@ follows, then choose `Save and print`. On a saved row, choose `Reprint`, attach 
 by dropping the PDF on the row, download it from `Signed scan`, replace or remove it from the row menu, or delete the
 roster after confirmation.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 Sign-in Roster actors are `rosterManager`, `rosterViewer`, `rosterScoped`, and `rosterForeign`.
 
@@ -52,10 +54,10 @@ $V signed-download orgA ROSTER_ID .verification/evidence/verify-trooptotask/RUN/
 ```
 
 `roster-files` checks only the named synthetic roster's private Storage path. `signed-download` saves the PDF page
-opened by a visible scan button without printing its token-bearing URL; use native `upload_file` on the visible
-`Signed Scan` input.
+opened by a visible scan button without printing its token-bearing URL; use native `upload_file` on the
+`Signed scan file for <title>` input.
 
-## Driving it with verify:app
+### Journey
 
 Preconditions: `$V fixture` supplies `orgA`, `orgB`, Group, Person and seeded roster IDs. The synthetic roles are
 `rosterManager` (A, Training `operate`, Personnel `configure`, Organization scope), `rosterViewer` (A, Training `view`,
@@ -63,7 +65,8 @@ Organization scope), `rosterScoped` (A, Training `operate`, Personnel `none`, Al
 `rosterForeign` (B, Training `operate`, Organization scope). The existing `viewer` has Training `none`. The Alpha
 fixture has a signed PDF and a saved snapshot of `PFC Able, Prior`, while the current Person is `SPC Able, Synthetic`;
 the mixed Alpha/Bravo and foreign fixtures establish scope. Generate a small valid synthetic PDF under the run evidence
-directory, for example with the installed `jspdf` package. Use native `upload_file` on the current `Signed Scan` UID.
+directory, for example with the installed `jspdf` package. Use native `upload_file` on the current
+`Signed scan file for <title>` UID.
 Capture generated/reprinted PDFs with `$V export arm PAGE`, the visible button, `$V export save PAGE ...pdf`, then
 `$V export restore PAGE`. After clicking a named signed scan, use `$V signed-download orgA ROSTER_ID ...pdf` to preserve
 the browser-opened PDF without exposing its signed URL. `$V roster-files orgA ROSTER_ID` supplies separate private
@@ -88,7 +91,7 @@ never confirmed absence.
    `ROSTER_ID` and a second visible read after reload. A single included Person proves the saved sort/layout selections,
    not their effect on PDF ordering. For that proof, use `$V seed duplicate-able` to add a PFC in Alpha alongside the
    seeded SPC, reload Training so the PFC joins the loaded roster, generate a second roster with both ranks and inspect
-   the PDF order. Generate a third roster with Alpha and Bravo to distinguish `Separate by group` from a flat layout.
+   the PDF order. Generate a third roster with Alpha and Bravo to distinguish `Split by group` from a flat layout.
    Read back both saved rows and delete them through the UI. Keep the temporary PFC until final seed cleanup in step 7.
    **Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` the `Group`
    combobox lists only `2nd Platoon`, `Alpha` and `Bravo`. Type `2nd` and press Enter: the description reads
@@ -205,7 +208,7 @@ provider error is a failed readback, never a missing or correctly configured buc
 - Keep Alpha/Bravo/Unassigned seed rows and private files disposable. Do not edit the maintenance or production
   database. Restore seeded Person changes and remove UI-created rosters before worker cleanup.
 
-## Bounded scan lifecycle baseline
+### Bounded scan lifecycle baseline
 
 Finish reusable controls and this recipe before launch. Freeze executable inputs until final doctor and cleanup. Select
 only affected scan cases for a lifecycle repair.
@@ -308,7 +311,7 @@ only affected scan cases for a lifecycle repair.
    cleanup, including orphan witnesses. Worker disposal removes synthetic failure leftovers without asserting that
    ordinary recovery removed them.
 
-## Shared stored keys
+### Shared stored keys
 
 These cases prove that a stored key is retired only after its final reference clears, across rosters, counseling and
 documents. `$V seed roster-shared-keys` stages synthetic rows on new owner and reference Personnel. It journals every
@@ -363,7 +366,7 @@ Require no roster feedback in B, unchanged B records, and a cleared scan after r
 response hold begins after the command commits. It proves late response suppression, not a command still running during
 the switch. Run an unheld Remove with the same feedback observer as a positive control.
 
-## Viewer day
+### Viewer day
 
 With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), create a roster, then set `From`
 and `To` to the browser day. The new roster must be listed, and setting both to the UTC day (when different) must not

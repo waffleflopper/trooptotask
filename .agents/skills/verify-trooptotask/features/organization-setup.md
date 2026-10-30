@@ -44,17 +44,19 @@ held, so open the page with a `navigate_page` timeout of about 3000 ms and drive
 Preconditions: `doctor` passes; use `orgOwner`, `orgAdmin` and `orgMember` from `$V fixture`, each in its own context.
 
 1. `$V actor orgOwner settings/general` (setup is not an actor destination). Expect an `Organization setup` row with
-   `Open setup`. Choose it. Expect `/setup/welcome` on fresh seed, title `Welcome`, no Back button, `Continue to Groups`
-   and `7 of 12 reviewed`: seed data already makes Groups, Personnel, Calendar, Training, Critical tasks, Onboarding and
-   Invite your team Done. The rail shows skeleton glyphs first, then states; a reload records no layout shift.
-2. Choose `Continue to Groups`, then `Continue to Ranks`. Expect `/setup/ranks`, Welcome and Groups Done and
-   `8 of 12 reviewed`; Groups was already Done, so its Continue writes nothing. Reload: the same counter and glyphs
-   return.
+   `Open setup`. Choose it. Expect `/setup/welcome` on fresh seed, title `Let's set up Verification Organization A`, no
+   Back button, and `Start with Groups` disabled until a service is chosen. The counter reads `7 of 12 reviewed`:
+   seed data already makes Groups, Personnel, Calendar, Training, Critical tasks, Onboarding and Invite your team Done.
+   The rail shows skeleton glyphs first, then states; a reload records no layout shift.
+2. Choose `Army` and wait for its saved status, then `Start with Groups` and `Continue to Ranks`. Expect `/setup/ranks`,
+   Welcome and Groups Done and `8 of 12 reviewed`; Groups was already Done, so its Continue writes nothing. Reload:
+   the same counter and glyphs return.
 3. Browser Back: `/setup/groups`. Forward: `/setup/ranks`. The rail's current row follows the URL.
 4. Open `/setup/done`. With every step reviewed the headline names the Organization; otherwise it reads
-   `K steps still open` and links each open step. Seed counts: Groups 2, Ranks 4, People 3, Statuses 3, Invites
-   pending 0. The On column lists Training `3 training types`, Critical tasks `2 task lists` and Onboarding
-   `1 template`; Later and Off read `None`. Choose `Finish`; expect the Dashboard at `/org/<seg>`.
+   `K steps still open` and links each open step. Counts: Groups 2, People 3, Statuses 3, Invites pending 0; Ranks matches
+   the active count in Settings › Ranks after choosing Army. The On column lists Training `3 training types`, Critical
+   tasks `2 task lists` and Onboarding `1 template`; Later and Off read `None`. Choose `Finish`; expect the Dashboard at
+   `/org/<seg>`.
 5. As `orgAdmin`, `Open setup` lands on the first open step (Ranks after step 2's owner answers). Continue, reload,
    Back and Forward behave as in steps 2 and 3, and Finish lands on the Dashboard.
 6. `$V actor orgMember settings/general` reports `access: denied`: General itself is 403, so no setup link shows.
@@ -323,8 +325,8 @@ Dashboard visit opens at most one prompt; the What's New dialog waits for a late
 Writes go to `POST /org/<seg>/api/organization/setup/prompt` with `{ key, choice }`; progress is
 `GET /org/<seg>/api/organization/setup/progress`. Both answer 403 for anyone but the owner.
 
-1. New unit: as `orgOwner`, create a unit at `/org/new`. Expect `/org/<new seg>/setup/welcome` with the `Welcome`
-   heading, not the Dashboard.
+1. New unit: as `orgOwner`, create a unit at `/org/new`. Expect `/org/<new seg>/setup/welcome` with the heading
+   `Let's set up <Organization>`.
 2. Existing unit: `$V actor orgOwner dashboard` on fresh seed, then open `/org/<seg>`. The Dashboard renders first; the
    invitation dialog then opens once with `7 of 12 already done` and rows Groups, Personnel, Calendar, Training,
    Critical tasks, Onboarding and Invite your team, each with a check and its group (`Your unit`, `Features`, `Team`).

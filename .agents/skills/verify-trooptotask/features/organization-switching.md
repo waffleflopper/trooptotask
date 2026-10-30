@@ -17,6 +17,8 @@ statuses, late responses or feedback into the second.
   B.
 - `permission-narrowing`: an already-open A Calendar loses access when its grant narrows; a denied range/reload stops
   exposing A labels, presents a settled access state, and preserves historical data.
+- `late-planner-save`: a Duty planner `Fill N days` held with `network arm-hold PAGE duty-rosters/fill` does not block
+  `Switch organization`; the page moves to B and `feedback state` stays empty after release.
 
 ## How to get to it (user POV)
 
@@ -54,9 +56,10 @@ was held or released.
    the menu transition as unreachable, separately from the History Back result.
 4. Late assignment saves. Preflight an empty A Planner date with `$V rows daily_assignments orgA date DATE`; use
    September 22, 2026 unless fixtures changed. Start with `$V actor calendarSwitch calendar`, open `Duty planner`, press
-   `Previous month` until the month button reads `September 2026` (the Planner reopens on the current month after each
-   reload, but keeps September after a client switch back to A, so read the month button before pressing; the heading is
-   always `Duty planner`) and arm `$V feedback arm $PAGE` for rendered toasts. The switcher keeps the route, so B opens
+   `Previous month` or `Next month` until the month button reads `September 2026` (the Planner remembers its selected
+   month in a cookie across reloads and keeps it after a client switch back to A, so read the month button before
+   pressing; the heading is always `Duty planner`) and arm `$V feedback arm $PAGE` for rendered toasts. The switcher keeps
+   the route, so B opens
    on its restricted Planner; follow B's `Calendar` link to reach B Calendar. The switch is client-side and keeps the
    armed hook. Each table cell is a button named `Assign <duty>, <date>` while open, or `<duty>, <date>: <person>` once
    assigned. Click the cell for September 22, `type_text` the name (for example `Able`) in the `Find person` box of the

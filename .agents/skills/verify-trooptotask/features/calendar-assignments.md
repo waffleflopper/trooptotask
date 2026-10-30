@@ -94,7 +94,9 @@ marker to see the `Daily Assignments` modal for that date. An open lane day's `+
 shows assignment coverage and other Calendar projections. A Calendar reader may see saved assignments but cannot manage
 them.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 ```bash
 $V network arm-hold 2 calendar-reports/status-days # Calendar report data; daily-assignments is the single slot save
@@ -103,7 +105,7 @@ $V workbook .verification/evidence/verify-trooptotask/RUN/assignment-load.xlsx '
 
 For `daily_assignments`, the filter also accepts `date`, `assignee_id`, and `assignment_type_id`.
 
-## Driving it with verify:app
+### Journeys
 
 Preconditions: doctor passes on a fresh worker; `$V fixture` supplies `orgA`, `orgB` and September 15 seeded
 assignment/type/assignee IDs. Use September 22, 2026 for the temporary Planner slots only after
@@ -187,15 +189,14 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `+` for a preflighted empty day on or after today the options are the Staff roster pool, highest count going into
    that day first, ties in DA 6 order: on today with no Staff details yet, `SPC Able, Synthetic, count 1` and
    `SPC Unassigned, Synthetic, count 1`, and the planner's picker for the same day reads the same. Search with `fill` on
-   `Find person` keeps that order. Search `baker` and require
-   `SPC Baker, Synthetic, unavailable: Verification Training <dates>, not on this roster` with `Not on this roster`
-   under the name; Baker can still be chosen. A pool member a roster code covers reads
-   `count N, unavailable: <status> (<code>)` with the status under the name in red. Opening the picker sends one
+   `Find person` keeps that order. Search `baker`: Baker stays absent because Staff excuses Baker. Step 13 checks a
+   selectable `Not on this roster` person on Retiring, which does not excuse Baker. A pool member a roster code covers
+   reads `count N, unavailable: <status> (<code>)` with the status under the name in red. Opening the picker sends one
    `duty-rosters/day?typeId=…&date=…` read, and closing and reopening the same slot sends none. While that read is held
    (`$V network arm-hold $PAGE duty-rosters/day`) on a fresh slot, the picker reads `Loading roster counts…` above a
    skeleton with no options; release. With `$V network arm-fail $PAGE duty-rosters/day` armed, open another fresh slot:
-   the picker reads `Roster counts could not be loaded.` with `Retry` and lists no one until a search, when `baker`
-   reads `Count unavailable` instead of `Not on this roster`; after five seconds open `list_network_requests` still
+   the picker reads `Roster counts could not be loaded.` with `Retry` and lists no one until a search, when `able`
+   reads `Count unavailable`; searching `baker` still offers nobody. After five seconds open `list_network_requests` still
    shows exactly one day read for it. Restore and press `Retry`: one more read and the counts. Then save an availability
    entry for a pool member covering that day through the Calendar editor, or an assignment on an earlier day through
    `Daily Assignments`, and reopen the slot: one new day read, and the moved count or code shows. While
@@ -270,7 +271,10 @@ action and keep its page ID. The date format in every name is the browser's en-G
     For loading, arm `$V network arm-hold $PAGE duty-rosters` and reload: the panel shows `Loading roster counts` with
     skeleton rows while every `Assign` cell is already usable; release. For failure, arm
     `$V network arm-fail $PAGE duty-rosters` and reload: the panel reads `Roster counts could not be loaded.` with
-    `Retry roster counts`, the grid still saves; restore and press Retry to recover the counts. The default fixture has
+    `Retry roster counts`, the grid still saves; restore and press Retry to recover the counts. Separately, with counts
+    already loaded, arm the same `duty-rosters` failure and save a temporary assignment. The saved cell updates, the old
+    counts stay visible with `These counts may miss the latest change.` and `Refresh`. Restore, press `Refresh` and
+    compare refreshed counts with the saved assignment; remove that assignment. The default fixture has
     10 or fewer rows, so the panel shows no `Show all` button. For the large roster, run `$V seed bulk-501`, reload and
     require 10 rows with `Show all <N>`; press it and require the rest with the button now `Show fewer`; switching type
     folds it again. Then `clean-seeds` and reload.
@@ -302,9 +306,14 @@ action and keep its page ID. The date format in every name is the browser's en-G
     `Quick fill`, and an authenticated `POST /org/<orgA>/api/duty-rosters/fill/preview` or `/fill` returns `403` with
     nothing written. Clear the month's rows through `Clear month` before leaving.
 
-13. **Find replacement.** As `calendarOperate` on October 2026 at 1440x900 light, fill Verification Staff Duty from 23
-    to 31 Oct with `Fill 9 days` (Able on odd days, Unassigned on even days), hand-assign Able on Fri 30 Oct through its
-    cell's picker, and add Verification Leave for Able on 25 Oct (an authenticated `POST /api/availability` is fine
+13. **Find replacement.** The dates below are a weekday template, not fixed fixture dates. Before starting, choose a
+    future month and a Friday F with all nine days F through F+8 in that month. Substitute F for 23 Oct, F+1 for 24 Oct,
+    through F+8 for 31 Oct in every control name, request and readback in the ordinary-fixture portion below. The later
+    `workload large` portion keeps its own fixture dates. Preflight an empty Staff/Retiring range and record existing
+    availability before adding any; clear only the temporary assignments and availability created by this step.
+    Roster fill cannot start before the browser's today. As `calendarOperate` at 1440x900 light, fill Verification Staff
+    Duty from F through F+8 with `Fill 9 days` (Able first, then Unassigned, alternating), hand-assign Able on Fri 30 Oct
+    through its cell's picker, and add Verification Leave for Able on 25 Oct (an authenticated `POST /api/availability` is fine
     setup). Reload. `Conflicts` lists `SPC Able, Synthetic is on Verification Leave (A).` Focus
     `Find replacement for Verification Staff Duty, Sun 25 Oct` and press Enter. A dialog named
     `Replace SPC Able, Verification Staff Duty, Sun 25 Oct` opens right of the 25 Oct cell without covering it, with

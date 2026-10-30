@@ -20,8 +20,8 @@ suspension screen.
   Account setup complete. Expired, replaced, failed and unapproved links show their unavailable messages. A link whose
   access was withdrawn (a revoked or blocked invitation, or a platform rescind) shows the withdrawn message, and a
   claimed link offers Check setup status.
-- `request-access`: Sign Up redirects to Request Access. Submit stays disabled until the required fields are set, and a
-  submission stores one pending Access Request.
+- `request-access`: Sign Up redirects to Request Access. Submit stays disabled until a referral source is selected;
+  browser validation enforces the required name and email fields. A submission stores one pending Access Request.
 - `account-security`: a signed-in member requests an email change and sees it pending, is rejected for an incorrect
   current password with the draft kept, changes their password, and sets up a TOTP authenticator on the full-page MFA
   setup (`/auth/mfa-setup`) then removes it. Without a verified factor the account menu offers Turn on two-factor, which
@@ -149,7 +149,10 @@ The private-credential controls fill visible fields without printing values:
    `identityRecovery`'s address (`identityEmails` in `$V fixture`) and then an unknown `nobody-RUN@example.test`: each
    shows `Check your email` with `If an account exists for` and the entered address. The visible confirmation must not
    reveal whether the account exists. `$V mail state` shows whether an `auth` message was produced for each address, and
-   `$V mail fail auth` exercises a delivery failure.
+   `$V mail fail auth` exercises a delivery failure. After the mail checks, reach three valid submissions from this
+   worker's IP within an hour, then submit once more: require 429 with
+   `Too many password recovery requests. Please wait before trying again.` A fresh public context or different email
+   does not clear the IP budget; run this limiter case after the other recovery-mail checks.
 3. **Recovery link and new password.** In a fresh public context run `$V auth-link PAGE recovery identityRecovery`. Its
    redacted snapshot shows `Confirm your password reset` and `Continue to Password Reset`; capture a native screenshot.
    Click Continue with the printed UID. Require `/auth/reset-password` with New Password and Confirm New Password. Fill
@@ -165,8 +168,12 @@ The private-credential controls fill visible fields without printing values:
 4. **Invite activation and renewal.** In a fresh public context run `$V auth-link PAGE invite`; continue with
    `Continue to Invite Setup` and require Accept Invite's Password and Confirm Password. Native `fill` may use a
    run-local synthetic password here because the new address has no fixture credentials; keep it out of notes. Submit
-   and require `Account activated`, then the dashboard without any Organization membership. Separately open Request a
-   fresh setup link (`/auth/renew-invite`): submit an empty and malformed email for validation, then a synthetic
+   and require `Account activated`, then the dashboard without any Organization membership for this helper-created
+   invite. If activation remains unfinished after the password is set, `Finish account activation` offers
+   `Finish activation`; a setup-required result also offers `Request an Account Setup Link`. If activation reports
+   unavailable Organization invitations, the success screen stays open, explains that they granted no membership and
+   offers `Continue to dashboard` instead of navigating automatically. Separately open Request a fresh setup link
+   (`/auth/renew-invite`): submit an empty and malformed email for validation, then a synthetic
    address, and capture `Check your email`. The reply is the same for an address whose invitation grant was withdrawn,
    but `$V mail state` then shows no new `account-setup` message.
 5. **Account setup.** Open `/auth/setup-account` without a link and capture `Setup link unavailable` with its recovery
@@ -195,10 +202,11 @@ The private-credential controls fill visible fields without printing values:
    `used_at`. Completion and Check setup status are `/auth/*` POSTs and count toward the shared limit.
    [Platform administration](platform-administration.md) owns approval and real setup-link issuance.
 6. **Request access.** Open `/auth/sign-up` and require a redirect to `/auth/request-access`. Submit Request stays
-   disabled until First Name, Last Name, Email Address and the source are set. Fill First Name, Last Name, a unique
-   `access-RUN@example.test`, open `How did you hear about us?` and choose a source with ArrowDown and Enter, and fill
-   Unit and role. Arm `$V network arm-fail PAGE access-requests` and submit: the endpoint's failure shows in an alert
-   with every field kept. Restore, arm `network arm-reject PAGE access-requests` and submit:
+   disabled until a source is selected. With First Name, Last Name and Email Address empty, open
+   `How did you hear about us?` and choose a source with ArrowDown and Enter: Submit Request becomes enabled, but
+   pressing it triggers browser validation without a submission. Fill First Name, Last Name, a unique
+   `access-RUN@example.test` and Unit and role. Arm `$V network arm-fail PAGE access-requests` and submit: the endpoint's
+   failure shows in an alert with every field kept. Restore, arm `network arm-reject PAGE access-requests` and submit:
    `Something went wrong. Please try again.` with the fields kept. Restore; `$V access-request EMAIL` returns no row.
    Submit again and require `Request submitted` with the name, email and submitted time (`24 Oct 2026 · 1432` form, from
    the browser clock), `The link works for 14 days`, Back to sign in, and the steps Submitted (done), Under review
@@ -407,7 +415,9 @@ from visible UI. Owned worker cleanup discards the changed identity accounts.
   limit, including percent-encoded spellings of those paths; `/api/*` calls and Renew Invite (its own 5 per hour) do
   not. Authenticator codes have a separate durable limit of 10 per account per 15 minutes. A limited Continue shows
   `Too many requests. Please wait and try again.` before the action runs, so the link is not consumed. Budget the run
-  across windows and record the 429 rather than retrying in a loop. Provider limits apply separately.
+  across windows and record the 429 rather than retrying in a loop. Forgot Password also has its own durable limit of
+  three requests per hour across normalized email and IP dimensions, independent of the shared auth limit. Provider
+  limits apply separately.
 - Native `get_network_request` prints request bodies, including filled passwords and codes. Never save its output for
   identity forms; use `list_network_requests` for status.
 - `/auth/confirm` intentionally waits for an explicit button; a link prefetch does not consume the token. A used or

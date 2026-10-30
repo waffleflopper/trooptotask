@@ -31,7 +31,7 @@ usable, so both formats can run at once. A successful request downloads the requ
 status region and re-reads the Audit log. For an owner the last export line then shows the newest `export.created` or
 `export.excel_created` event with its Audit actor, never the browser's time. It shows a skeleton while the read is in
 flight. With both formats running, the line shows the newest event whichever response lands last. An admin sees no line.
-A failed count keeps the chips and adds `What an export of <unit> contains could not be counted.` while both export
+A failed count keeps the chips and adds `Records could not be counted.` while both export
 buttons stay usable.
 
 Owners see `Last export · <format> · <date>, <time> by <actor>` from the newer `export.created` or

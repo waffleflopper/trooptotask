@@ -16,9 +16,12 @@ links to the place a leader fixes it.
   and relative timing, and opens the Readiness drawer (`readiness?item=<kind>:<id>`), the Evals entry editor
   (`evals?entry=<id>`) or the Data sheet. Sources that failed or were denied each read
   `Couldn't check <source>. Reload the page to try again.`; what was checked and fine collapses into `Also checked: …`,
-  which leaves out a source with nothing current.
-- `open-follow-ups`: up to three open follow-ups with `N open · N overdue` and `Open log`. Ticking one completes it at
-  once and refreshes the Log badge.
+  which leaves out a source with nothing current. Onboarding contributes `onboarding complete` or
+  `onboarding in progress` to that line, or its own failed-check message; it adds no ranked attention row.
+- `open-follow-ups`: initially up to three open follow-ups with `N open · N overdue` and `Open log`. Ticking one
+  completes it at
+  once and refreshes the Log badge. Completed rows stay pinned with `Reopen` while replacement open rows fill in, so
+  more than three rows can remain visible.
 - `rail`: `Reach` (personal phone, email, emergency contact from the Data sheet), `Rating chain · <eval type>` (hidden
   with no active evaluation or no Evals access), `Last counseled` (the newest counseling held on or before the viewer's
   day: relative day, date, title and who held it, or the uploader when no conductor was recorded; a counseling dated
@@ -39,6 +42,7 @@ Cases 2 and 3 can stage Able's data through the app API (`availability`, `daily-
 `rating-scheme`, `data-sheet`) instead of the Calendar and Evals UI.
 
 Preconditions: owned launch and `doctor` pass; set `V` per the index. `$V actor orgOwner personnel` signs in the owner.
+Opening Overview requires Personnel `configure` for sensitive records; roster `view` access alone is insufficient.
 Baker (`verify-baker`, Bravo) holds `Verification Training` across today and two missing readiness items.
 
 1. **Loaded.** Open `personnel/verify-baker`. Expect `Next 14 days` with the Training bar from today and its legend
@@ -61,7 +65,8 @@ Baker (`verify-baker`, Bravo) holds `Verification Training` across today and two
    `Couldn't check training. Reload the page to try again.` with the rest loaded. Restore.
 6. **Follow-up completion.** With an open follow-up on the Person, tick it on the Overview. Expect the `PATCH` to
    `api/personnel/<id>/follow-ups/<id>`, the row struck through with `Reopen`, the counts down by one and the Log badge
-   refreshed without a reload.
+   refreshed without a reload. With more than three open follow-ups, a replacement appears while the completed row
+   stays pinned; the visible total may exceed three. After reload, only the first three remaining open rows appear.
 
 ## Gotchas
 

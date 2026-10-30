@@ -36,13 +36,15 @@ its days. Months before the viewer's current month sit behind one `January – <
 year collapses entirely and a future year collapses nothing. The Calendar month grid shows a closure in its `Days` lane
 under the date headers (read as `<name>, closure, <range>`) and tints the date's cells with the name as their title.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 `federal-holiday-reset` stops `rpc/reset_federal_holidays` before dispatch. For this fault and the
 [Calendar catalog faults](calendar-catalogs.md#helper-controls), `-lost-ack` lets the command commit and loses the
 reply; `-hold` holds before dispatch until `fault release NAME`.
 
-## Driving it with verify:app
+### Journeys
 
 Preconditions: `$V actor calendarConfigure calendar/settings` returns `PAGE`; `resize_page` to 1440x900 and use the
 visible **Toggle theme** for light. `$V fixture` gives `closureA` (`Verification Unit Closure`, 2026-09-15), `closureB`
@@ -101,7 +103,9 @@ unsuccessful request.
    `Name` to `Verification Block Leave Moved <tag>` and `Save Changes`. Only that ID changes name; the list regroups
    into `23`, the renamed `24` and a collapsed `25–26` range. Expand `Verification Block Leave <tag>, 2 days from …`,
    choose `More actions for Verification Block Leave <tag>, Thu, Nov 26` → `Remove` and confirm `Remove Special Day`.
-   `$V rows` shows that ID gone and the other leave days unchanged.
+   `$V rows` shows that ID gone and the other leave days unchanged. Edit the renamed 24th again, change `Type` to
+   `Federal Holiday` and save: the same ID/date appears under `Federal`, not `Closures`, after reload. Restore its Type
+   to `Closure` before continuing and confirm that only this row changed.
 6. **Days lane without reload.** From Settings click `Back to Calendar` (no `navigate_page` reload), choose November
    2026 and capture the `Days` lane: `Verification DONSA <tag>` on the 27th, the leave segments on the 23rd, 25th and
    from the 30th, and `Verification Block Leave Moved <tag>` on the 24th. Read
@@ -150,9 +154,9 @@ unsuccessful request.
     range row expanded, the open composer with its preview and note, and the `Federal holidays` card. Repeat at 390x844
     dark: the controls, composer and card stack above the list, and `document.documentElement.scrollWidth` equals
     `innerWidth`. Type `zzz` in the filter and capture `No holidays or closures for 2026.`, then clear it with Control+A
-    and Backspace; a native `fill` with an empty value leaves the old text. Below `sm` the range arrow hides and the
-    date pickers stack, and the preview still shows all seven days. The Settings content scrolls inside its panel, so a
-    full-page screenshot shows only the viewport; scroll the composer into view first.
+    and Backspace; a native `fill` with an empty value leaves the old text. Below `sm` the composer's date arrow hides
+    and the date pickers wrap as space requires; the range row's chevron stays visible and the preview shows all seven
+    days. The Settings content scrolls inside its panel, so a full-page screenshot shows only the viewport; scroll the composer into view first.
 12. **Scope.** Reload `/calendar` with `navigate_page`, choose September 2026, and confirm `Verification Unit Closure`
     appears while `Foreign Private Closure` does not. From the A configurator's signed-in page send an authenticated
     `POST /org/<orgB>/api/special-days` with `{action: 'addClosureDays', name: 'UNIQUE_MARKER', dates: ['2026-09-23']}`

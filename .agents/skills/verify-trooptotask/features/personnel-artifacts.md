@@ -35,10 +35,9 @@ retained history through archive, restore, export and scheduled retention.
 
 Choose Personnel, find a Soldier and choose the Soldier's row. The record header names the Person and holds Edit,
 `More Personnel record` (Export records, Archive) and `Add to record`; the tabs below it are Overview, Readiness, Log,
-Files, Data sheet and Archived. Overview provides Follow-up, Counseling PDF, Document and Leader note forms and
-recent-item previews. Use Show all, or Log (follow-ups and notes) and Files (counselings and documents), for their
-complete lists. The Log tab badge counts open follow-ups and the Archived tab shows its item count. Log shows follow-ups
-on the left and leader notes on the right. A follow-up's checkbox completes it in one click, `Reopen` reverses it, and
+Files, Data sheet and Archived. Overview shows open follow-ups, the last counseling and the latest note. Use Log
+(follow-ups and notes) and Files (counselings and documents) for creation and their complete lists. The Log tab badge
+counts open follow-ups and the Archived tab shows its item count. Log shows follow-ups on the left and leader notes on the right. A follow-up's checkbox completes it in one click, `Reopen` reverses it, and
 clicking its title opens an inline editor (title, notes, Due date, Archive, Cancel, Save) where Archive lives. Clicking
 a note's text opens its inline editor the same way. Only one Log row edits at a time; Enter in a follow-up title saves
 and Escape cancels. Counselings and documents provide Archive on Files; documents provide Open. Archived combines all
@@ -64,7 +63,9 @@ owner/admin uses Settings → Exports for complete Organization JSON and Excel, 
 Personnel restore. Scheduled retention has no user-facing run button; its admitted job call and provider/file effects
 are separate from the visible Archived list.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 Personnel file lifecycle faults use `fault arm document-file-remove|counseling-file-remove` to reject one DELETE to the
 named bucket on this worker's provider before dispatch. The corresponding `-lost-ack` names dispatch the removal and
@@ -171,7 +172,7 @@ old/recent/active behavior without claiming a live equality boundary. Preserve p
 Run `node --test .agents/skills/verify-trooptotask/helpers/artifact-retention.test.mjs` for interrupted-insert/upload
 cleanup recovery.
 
-## Driving it with verify:app
+### Journeys
 
 Record baseline, failed, final and unrun paths separately.
 
@@ -218,7 +219,12 @@ newly created IDs through admitted ordinary artifact requests before seed cleanu
    load all nonarchived rows (open first by due date, then a `Completed · N` section previewing two with Show all), and
    its notes load the newest five with `Show N older notes` paging twenty at a time through the leader-notes collection
    GET (`limit`, `beforeCreatedAt`, `beforeId`). Capture a second read after reload. A preview count alone does not
-   establish complete-list coverage. A denied or failed artifact stream must not be counted as a successful empty list;
+   establish complete-list coverage. Files initially shows the newest three counselings and three documents. With at
+   least four real uploads in each family, use `Show N older counselings` and `Show N more` to fetch the older rows
+   through the corresponding collection GET with `offset` equal to the number already shown. Fail one paging read with
+   the exact collection's `network arm-fail` hook: the shown rows stay, an inline alert appears and the same Show button
+   retries after restore. Compare all returned IDs without duplicates, then reload and page again. A denied or failed
+   artifact stream must not be counted as a successful empty list;
    record its actual rendering separately from the unaffected Overview sections.
 
 2. **Follow-up create, edit and status recovery:** On Log, type a unique title and pick a Due date in the quick-add row,
@@ -235,7 +241,7 @@ newly created IDs through admitted ordinary artifact requests before seed cleanu
    with `Archived <date> · <name>`. Completed follow-ups stay visible until individually archived; parent archive
    handles only open follow-ups.
 
-3. **Leader-note create and retry:** Create a unique note through the Log composer (or Overview → Add note), fail the
+3. **Leader-note create and retry:** Create a unique note through the Log composer (or `Add to record` → Note), fail the
    exact collection POST, preserve the entered text/error and zero saved effect, restore and retry. Reload Log and
    require exactly the saved ID, trimmed text, author display/fallback, date derived from `createdAt`, timestamp string
    and null `archivedAt`. Click the note's text, change it and Save: require the same ID and author, the new text and a
@@ -269,8 +275,7 @@ newly created IDs through admitted ordinary artifact requests before seed cleanu
    download-endpoint status and opened PDF or downloaded bytes. The signed URL lasts 300 seconds; receiving a URL alone
    does not prove the object is readable or exact. Fail the exact download endpoint separately and require useful error
    without file/row changes, then restore and retry. Require the Storage meter to move by the uploaded bytes after the
-   refresh. Repeat a separate Overview upload/Open for its distinct form. PDFs, JPEG, PNG and supported HEIC/HEIF may be
-   at most 10 MiB; unsupported types, mismatched signatures, oversized files and the per-Soldier cap must preserve saved
+   refresh. PDFs, JPEG, PNG and supported HEIC/HEIF may be at most 10 MiB; unsupported types, mismatched signatures, oversized files and the per-Soldier cap must preserve saved
    data. The default cap is 100 MiB and counts active documents. Provider/SQL checks establish the concurrent cap
    boundary; an ordinary small upload is not cap proof. The isolated SQL contract
    `supabase/tests/personnel_document_cap_concurrency.sql` uses two real sessions waiting on the same dedicated Person
@@ -298,9 +303,9 @@ newly created IDs through admitted ordinary artifact requests before seed cleanu
    Extend it with newly uploaded real files and exact all-family rows. Active note/counseling/document and open
    follow-up share the parent's saved archive timestamp; completed follow-up and independently archived August items
    remain unchanged. Parent restore reopens only items with that exact parent event; original historical archive dates
-   remain. Compare Training/ICT and A/B sentinels. This cascade is nontransactional and ordered; retain any partial
-   failure and its repaired retry rather than claiming SQL atomicity. Parent file retention is separately owned proof
-   and does not establish independently archived artifact retention.
+   remain. Compare Training/ICT and A/B sentinels. Parent and child archive/restore changes commit together through the
+   lifecycle database commands; browser observations do not establish rollback or concurrent-writer guarantees.
+   Parent file retention is separately owned proof and does not establish independently archived artifact retention.
 
 8. **Configure reads, operate writes and denied scope:** As personnelScoped, open Alpha's same tabs and actual document
    Open; require only the recorded Alpha artifacts/file. Bravo, unassigned, empty-scope and foreign resources are denied
@@ -368,14 +373,6 @@ newly created IDs through admitted ordinary artifact requests before seed cleanu
     the same row: hold a follow-up Save, click a note, reopen the follow-up, type, then release; the newer draft stays
     open with its text. Ordinary provider/file readbacks are separate from native interactions.
 
-    For a same-Person Overview refresh, enter counseling/document drafts and select their PDFs, then use Data sheet →
-    Edit on the dedicated seeded Person to change its name and canonical slug. Preserve the same Organization/Person IDs
-    and the actual saved parent change. After the resulting navigation reloads artifact streams, require both drafts and
-    both native picker filenames/FileLists to remain visible; submit through their ordinary buttons without reselecting
-    files, then compare exact saved rows and stored PDF hashes. Change that seeded Person's name again after successful
-    uploads and require the refreshed native pickers to stay empty. Do not edit an original fixture Person for this
-    probe.
-
     Repeat a same-Organization Person change through the visible roster and return to the same tab. That path unmounts
     the artifact page; it proves destination isolation but does not establish mounted prop reuse. Component checks cover
     Person-only mounted reuse and A→B→A while native matched-slug Organization navigation covers the actual reused
@@ -442,7 +439,7 @@ HEIF; `counseling-files` accepts PDF only. Compare MIME sets without relying on 
 configuration readback is separate from native uploads, ordinary file authorization and hosted configuration parity. A
 provider error is a failed readback, never a missing or correctly configured bucket.
 
-## Provider faults and recovery
+### Provider faults and recovery
 
 These cases expect recoverable file cleanup and preserved committed uploads. Use the owned provider controls documented
 in the skill, preserve every `fault state` receipt and restore each fault before retry or cleanup.
@@ -504,9 +501,9 @@ in the skill, preserve every `fault state` receipt and restore each fault before
 - Before cleanup, compare retained rows/files and run a final `doctor`. Record unrun retention and provider boundaries
   as unrun.
 
-## Viewer day
+### Viewer day
 
 With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), add a leader note and attach a
-document. The Log tab's notes (`14 Oct` over `2026`) and the Overview Documents card must show the browser day, matching
-the Files tab's documents (`14 Oct 2026`) and counseling uploads (`uploaded 14 Oct`), not the UTC date of the stored
+document. The Log tab's notes (`14 Oct` over `2026`), Overview's latest note and Files tab's documents
+(`14 Oct 2026`) and counseling uploads (`uploaded 14 Oct`) must show the browser day, not the UTC date of the stored
 timestamp.

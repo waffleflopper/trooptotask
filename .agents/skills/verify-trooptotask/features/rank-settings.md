@@ -6,14 +6,14 @@ removes unused ones; no other member can change the catalog. Setup's Ranks step 
 ## Sub-features
 
 - `rank-board`: `Your ranks` heads the page with `N on · N off · N custom` and an On/Off legend, then one tab per added
-  branch reading `X of Y on`, each tab split into Officer, Warrant, Enlisted and Civilian blocks, then a Custom block.
-  Every rank is a chip showing its code and pay grade.
+  branch reading `X of Y on`, each tab split into its nonempty category blocks, then a separate Custom block.
+  Categories are Officer, Warrant, Enlisted and Civilian. Every rank is a chip showing its code and pay grade.
 - `rank-toggle`: a chip is a toggle button (`aria-pressed`) named by the rank's label. Pressing it turns the rank on or
   off at once and saves it; a failure puts the chip back and shows the reason under its block. When several presses
   overlap, the last one wins. Leaving the page cancels unsent changes and ignores late responses.
-- `rank-bulk`: each block's `Turn all on` and `Turn all off` (named `Turn all <block> ranks on|off`) change every rank
-  of the block in one write. A note under the block reads `Turned on|off N <block> ranks.`, names each held rank it
-  turned off with its count, and `Undo` restores each rank's exact previous state.
+- `rank-bulk`: each branch category block's `Turn all on` and `Turn all off` (named `Turn all <block> ranks on|off`)
+  change every rank of the block in one write. A note under the block reads `Turned on|off N <block> ranks.`, names each
+  held rank it turned off with its count, and `Undo` restores each rank's exact previous state.
 - `rank-in-use`: turning off one rank people hold shows a note with `Undo`, for example
   `SPC is off. 3 people keep it on their records. New picks and imports won't offer it.` Their records keep the rank.
 - `rank-branch`: `+ Add a branch` lists the branches not yet added with their rank counts; choosing one adds its ranks
@@ -95,9 +95,9 @@ reaches the provider. Use `arm-hold` and `release` to hold one. Restore every co
 10. **Denied access and no effect.** Sign in as `orgMember` and as `manager` and open `settings/ranks`: record the
     screen, HTTP status and that no rank data appears. From the same page `fetch` a POST to
     `<ORG_URL>/settings/ranks?/setRankStates` with `code=VFY-ACTIVE-A`, `state=retired` and the `x-sveltekit-action`
-    header; require a non-success result and `$V rows` still active. The `View only` alert with disabled chips and no
-    Turn all, branch or names controls is reachable only for a member who passes the Settings layout but is not owner or
-    admin; record UNAVAILABLE with the roles tried if none exists.
+    header; require a non-success result and `$V rows` still active. The alert requiring Organization admin or owner
+    access, with disabled chips and no Turn all, branch or names controls, is reachable only for a member who passes the
+    Settings layout but is not owner or admin; record UNAVAILABLE with the roles tried if none exists.
 11. **Common states.** Empty: zero catalog rows is unreachable on the A fixture; record UNAVAILABLE. Loading: the route
     has no streamed region; Setup's Ranks step shows a skeleton until its data arrives. Load failure has no control on
     this route; record UNAVAILABLE. Keyboard: Tab reaches the branch tabs (arrow keys move between them),

@@ -98,7 +98,9 @@ Member labels use `RANK First Last` from the member profile, then membership ema
 the user id and `...`. The Event list and detail provide `memberOptions` in name order and `currentUserId` for the
 coordinator sheet. The same label read supplies coordinators, Activity actors and lifecycle attribution.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 `$V rows calendar_events orgA` and `$V rows calendar_event_activity orgA` read the stored rows; filter Activity with
 `event_id ID`. `$V rows audit_logs orgA` shows `calendar_event.created`, `.updated` and `.cancelled`.
@@ -110,7 +112,7 @@ hook lives in the page, so arm it after the last navigation; a reload removes it
 The toolbar's `Event`, `Responsible`, `Status` and `Due` listboxes show their options in a screenshot but not in a plain
 `take_snapshot`. Take a `verbose` snapshot and click the option UIDs in order, or `navigate_page` with the filter query.
 
-## Driving it with verify:app
+### Journey
 
 Preconditions: worker 1 launched and `doctor` clean. `$V actor calendarOperate calendar` returns the operator's `PAGE`;
 `calendarScoped`, `calendarView`, `calendarForeign` and `orgOwner` take the same `calendar` destination. A member with
@@ -225,7 +227,7 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
 Restore network hooks, then run `$V clean-seeds` before `verify:app cleanup`. Events and Taskings created by the drive
 stay in the disposable database until `verify:app restart`.
 
-## Staffing
+### Staffing
 
 A Calendar operator picks the people for a Tasking from its detail page. A Group Tasking draws on the responsible
 Group's active roster and an Organization Tasking on the whole active roster, ungrouped people included. The picker
@@ -256,11 +258,11 @@ Group stays on the list as `Needs review`, drops out of the count and waits for 
 - `staffing-review`: archive or a Group move flags a pick `Needs review` with `Archived`, `Moved to GROUP` or
   `No longer in a Group`. Restoring or moving back reads `Eligible again` and adds `Keep`; the flag stays until someone
   acts. A Completed or Cancelled Tasking keeps its picks as they stood; reopening flags whoever changed meanwhile.
-- `staffing-counts`: the Taskings list row's muted line ends `· N of R picked`. Picks under review never count.
+- `staffing-counts`: the Taskings list row's `PEOPLE` cell reads `N / R`. Picks under review never count.
 - `staffing-delete-guard`: permanently deleting a picked Person, or deleting a Group responsible for a Tasking, is
   refused with 409 and a message naming the Taskings.
 
-### Helper controls
+#### Helper controls
 
 `$V rows calendar_tasking_participants orgA tasking_id ID` reads the stored picks with `selected_by`, `selected_at` and
 `review_since`; `$V rows calendar_taskings orgA` shows `staffing_revision`, and `$V rows audit_logs orgA` shows
@@ -286,7 +288,7 @@ Unassigned. Group moves go through `POST /org/A/api/personnel/group-membership` 
 the `orgOwner` page; archive with `$V personnel-archive-batch PAGE orgA '["ID"]'` and restore with a `PATCH` of
 `{ action: 'restore', id }` to `/org/A/api/personnel`.
 
-### Driving it
+#### Driving it
 
 Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Tasking needing 3 and a Bravo Tasking needing
 1, each executing 26 – 28 Oct 2026, through `Create tasking` or a `POST` to `/org/A/api/calendar-taskings`.
@@ -303,7 +305,7 @@ Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Taskin
    nested Group the list bands them under headings: the Group's own people first as `<path> HQ`, then each sub-group
    depth-first by path (`2nd Platoon › 1st Squad`, `2nd Platoon › 1st Squad › Alpha Team`), and picks outside the
    subtree last under their own Group. One band shows no heading.
-3. **List counts.** The Taskings list rows end `· 1 of 2 picked`, `· 3 of 3 picked` and `· 0 of 1 picked`.
+3. **List counts.** The Taskings list rows show `1 / 2`, `3 / 3` and `0 / 1` in their `PEOPLE` cells.
 4. **Retry is a no-op.** From the page, `PUT` the same list with the same `expectedRevision` twice. The first answers
    `saved`, the second `unchanged` with the same revision, and the participant rows and audit rows do not grow.
 5. **Concurrent edit.** Open a second `calendarOperate` page. Open the Organization Tasking's picker in both. In the
@@ -342,7 +344,7 @@ Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Taskin
 failed-save handling; `supabase/tests/calendar_tasking_staffing.sql` covers candidates, concealment, refused writes,
 revisions, review flags and the delete guards as ordinary signed-in users.
 
-## Tasking detail
+### Tasking detail
 
 Seed as `calendarOperate`, with same-origin `fetch` from the page, pausing about 2.5 s between writes: the app allows 60
 requests a minute per IP, shared with actor logins, so wait a minute after logging in several actors. Ranks such as
@@ -397,7 +399,7 @@ Reyes and PFC Kim to Alpha, SFC Diaz and SPC Moore to Bravo, and SSG Park (68K) 
    main column; at 390 the strip, the cards and the rail stack, the picker fills the screen, and `scrollWidth` equals
    the viewport.
 
-## Event detail and shared Events
+### Event detail and shared Events
 
 Event detail groups its Taskings under `BEFORE · PREP`, `DURING · DATES` and `AFTER · CLOSEOUT`, each a region named by
 its heading. A row reads the status badge, the outcome, the responsible pill with `x of y picked`, the equipment state
@@ -448,7 +450,7 @@ all linked to it; add a standalone Bravo Tasking.
     390 the card stacks over the groups, a row stacks the outcome and its line beside the badge with the dates under
     them, and `scrollWidth` equals the viewport.
 
-## List facts and conflict markers
+### List facts and conflict markers
 
 The Taskings and Events lists read their counts and row facts from the one `workspace` batch, so a failed batch fails
 the region instead of reading zero. Seed a conflict: pick a Person on a Tasking with execution dates, then from the page
@@ -467,25 +469,14 @@ the region instead of reading zero. Seed a conflict: pick a Person on a Tasking 
    `TASKINGS` cell; a failed one reads `Tasking counts could not be loaded` over the rows, each `TASKINGS` cell `—`. Arm
    `calendar_taskings` or `calendar_events` for the list itself. Restore after each.
 
-## Lower-level checks
-
-`src/features/calendar/events/eventModel.test.ts`, `eventOperations.server.test.ts`,
-`components/EventDialog.svelte.test.ts` and `components/eventLabels.test.ts` cover the draft rules, the operations and
-the dialog below the UI. The Tasking counterparts live under `src/features/calendar/taskings/`, and
-`supabase/tests/calendar_taskings.sql` covers Tasking access, attribution, Activity and the transition function.
-`supabase/tests/calendar_event_tasking_summaries.sql` proves, as ordinary Organization-wide and Group-scoped users, that
-the summary read returns only its eight summary fields and conceals everything else.
-`supabase/tests/calendar_events.sql` proves the RLS, the database-written attribution and Activity, and the cancel
-function as ordinary signed-in users; run it with the disposable database procedure in the Definition of Done.
-
-## Equipment and checklist
+### Equipment and checklist
 
 A Tasking's detail carries an `Equipment` card (a name, a quantity and how many are secured) and a `Checklist` card
 (flat, ordered, open or done) side by side, each with its own add form. The headings read `N of M ready` (green when all
-are, red on a Blocked Tasking, amber otherwise) and `D of N`. A Tasking list row repeats them as
-`Equipment N of M ready · P partial` and `Checklist D/N`, and only when the Tasking has items. Neither list moves the
-Tasking's status. Completed and cancelled Taskings keep both lists on record, read-only, except that a Completed Tasking
-counts returned equipment.
+are, red on a Blocked Tasking, amber otherwise) and `D of N`. The Taskings list has a separate `EQUIPMENT` cell
+reading `Ready`, `R of T ready`, or `R of Q returned` for closeout work; without equipment it reads `—`. It shows no
+partial or checklist summary. Neither list moves the Tasking's status. Completed and cancelled Taskings keep both lists
+on record, read-only, except that a Completed Tasking counts returned equipment.
 
 - `equipment-edit`: `+ Add equipment` opens `Equipment` and `Quantity` with `Add` (named `Add to equipment`) and
   `Cancel`. A row is a checkbox named after the item (ticked secures all, unticked none), then `× N`, or
@@ -522,10 +513,13 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
 4. **Failed add.** After the last navigation arm `$V network arm-fail PAGE calendar-taskings/ID/equipment`. Add
    `Stretchers` x 3: an alert reads `The equipment was not added. Your entry is kept, so try again.`, the entry stays in
    the form and `$V rows` has no new row. `network restore PAGE`, press `Add to equipment` again: it saves once.
-5. **Remove.** `Remove` a row and an item: each disappears, the heading counts fall, and Activity gains a removed entry.
-   With no items left the headings read `None needed` and `No items`, and the Tasking list row loses its summary.
-6. **List rows.** On the Taskings list the Alpha row reads `Equipment 1 of 3 ready · 2 partial` and `Checklist 1/2` in
-   the title column, with no layout shift when it appears, and rows without items show nothing.
+5. **Remove.** `Remove` every equipment row and checklist item: each disappears, the heading counts fall, and
+   Activity gains a removed entry.
+   With no items left the headings read `None needed` and `No items`, and the Taskings list
+   `EQUIPMENT` cell reads `—`.
+6. **List rows.** Re-add `Litters` x 4 and `Radios` x 2. Fully secure Litters and set Radios to 1 secured.
+   On the Taskings list the Alpha row reads `1 of 2 ready` in its `EQUIPMENT` cell, with no partial or checklist
+   summary under the title. Rows without equipment read `—`.
 7. **Widths.** Capture the list, the detail and the `Equipment` and `Checklist` sections at 1440, 900 and 390;
    `scrollWidth` equals the viewport. At 390 the two cards stack and each row keeps its checkbox, name, count and menu
    on one line.
@@ -545,7 +539,7 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
     Excel `Tasking Equipment` and `Tasking Checklist` sheets name each Tasking by its outcome and each completer by
     email. Settings › Logs reads `Added equipment Litters on Provide four trauma-lane medics` and its siblings.
 
-## Calendar markers
+### Calendar markers
 
 The Calendar shows Events, suspenses and picked execution dates beside availability, behind the `Events & Taskings`
 switch. One `calendar-range` read with `collections=events` carries them with the visible range, together with the
@@ -626,7 +620,7 @@ Expected values are written here, never read from a design file. `src/features/c
 cards, and `supabase/tests/calendar_range_projection.sql` proves the read as ordinary Organization-wide and Group-scoped
 users.
 
-## Dashboard
+### Dashboard
 
 The Dashboard request returns `attention.rows`, `attention.total` and `attention.onTrack`, plus the forecast. Needs you
 receives Overdue, Blocked and Short Taskings and one Conflict row per visible Person and Tasking. A Conflict row names
@@ -688,8 +682,8 @@ Bravo, expect six Tasking attention rows and the two seeded Unfilled duty rows, 
    reload. `rows calendar_taskings orgA title TITLE` reads `completed`. Choose `Unblock` on the Blocked row: it leaves
    Needs you, its status reads `in_progress`, and as it has no staffing requirement it joins On track. Wrap
    `window.fetch` so the status `POST` answers 409 with a `message`: the row stays and shows that message.
-10. **Swap.** Choose `Swap` on the Conflict row: the `Assign people` sheet opens for that Tasking with Able ticked and
-    the Leave dates in amber under the name. Cancel leaves the row as it was.
+10. **Swap.** Choose `Swap` on the Conflict row: the row expands in place with Able's replacement slot open in amber
+    and every other pick kept as `Selected`, as in step 4. Cancel folds the row without saving.
 11. **On track.** The block lists the due-D+4 Tasking as `Alpha · open` with its weekday date, each title linking to its
     detail. A Tasking with a staffing requirement reads `N / N people` in green. While the Tasking read is held the
     block shows three skeleton rows; when it fails it reads `Taskings could not be loaded.` and keeps the
@@ -701,7 +695,7 @@ Bravo, expect six Tasking attention rows and the two seeded Unfilled duty rows, 
     shows in On track. When the choices read fails, the skeleton sheet closes at once and a toast says `Create tasking`
     could not open.
 
-### Forecast lane
+#### Forecast lane
 
 The strength forecast has one `Events and suspenses` lane under its day labels, read by the same
 `GET api/dashboard/taskings` as the Tasking rows, so it shares their pending, failed and retry state. Each Event the
@@ -749,7 +743,7 @@ Not covered by the harness: more than 100 rows needing attention, which the unit
 signed-in users, and `supabase/tests/calendar_range_projection.sql` proves that an Event's work in scope differs for
 Organization-wide and Alpha readers.
 
-## Set availability
+### Set availability
 
 Below `People`, a Tasking that has execution dates and at least one pick that counts offers `Set availability…`. It
 opens Bulk Status Add with those people and dates filled in; the leader picks the status and saves through Bulk Status's
@@ -762,7 +756,7 @@ are counted and prefilled, so a viewer sees neither the line nor the action, and
 about their Groups. A completed or cancelled Tasking offers neither. The line has its own skeleton and load error with
 `Retry`, and `People` stays usable when it fails.
 
-### Driving it
+#### Driving it
 
 As `calendarOperate`, create an Organization Tasking executing 27 – 29 Oct 2026 and an Alpha Tasking, then `PUT` picks
 to `/org/A/api/calendar-taskings/ID/people` with
@@ -803,7 +797,7 @@ covers one day only.
 `supabase/tests/calendar_tasking_availability_gaps.sql` covers coverage across adjacent, overlapping and nested entries,
 review exclusion, scope and the feature switch as ordinary signed-in users.
 
-## Conflict and summary data contracts
+### Conflict and summary data contracts
 
 The Events list, Event detail and Taskings list stream `workspace` as an `EventRead<TaskingWorkspace>`. A failed read is
 `status: failed`, never a zero-conflict answer. `workspace.taskings` holds only visible Taskings. Each value has
@@ -824,7 +818,7 @@ foreign provenance is refused, and scoped readers do not learn hidden people or 
 and three days of unrelated Leave, expect one conflicting pick and overlap 3 of 5. Recording the same entry for this
 Tasking removes its conflict without changing it when picks change. Another overlapping Tasking stays advisory.
 
-## Event deletion API
+### Event deletion API
 
 Permanent deletion uses `DELETE /org/ORG/api/calendar-events/EVENT` with `{"taskings":"standalone"}` or
 `{"taskings":"delete"}`. The JSON response is `{"taskings":"standalone","count":N}` or
@@ -846,7 +840,7 @@ cancelled Event. Cancellation still preserves linked Taskings.
 `supabase/tests/calendar_event_deletion.sql` proves both modes across all Tasking statuses, retained attribution and
 Activity, cascade cleanup, Availability provenance, Organization isolation and denied roles in the disposable database.
 
-### Deleting from the detail page
+#### Deleting from the detail page
 
 Seed as `calendarOperate` the frame data under [Calendar markers](#calendar-markers): `Best Medic Competition` with its
 six Taskings (one with a pick, equipment and a checklist item) and `Post cleanup week` with none. Add a completed
@@ -877,3 +871,16 @@ Tasking under `Brigade CG visit`, then cancel that Event. Note the Tasking ids.
 35. **Widths.** Capture the dialog with Taskings and without at 1440, 900 and 390. At 390 the dialog fits the viewport
     without scrolling the page, the buttons stack with the confirm on top, and long Tasking titles truncate beside their
     badges.
+
+## Gotchas
+
+### Lower-level checks
+
+`src/features/calendar/events/eventModel.test.ts`, `eventOperations.server.test.ts`,
+`components/EventDialog.svelte.test.ts` and `components/eventLabels.test.ts` cover the draft rules, the operations and
+the dialog below the UI. The Tasking counterparts live under `src/features/calendar/taskings/`, and
+`supabase/tests/calendar_taskings.sql` covers Tasking access, attribution, Activity and the transition function.
+`supabase/tests/calendar_event_tasking_summaries.sql` proves, as ordinary Organization-wide and Group-scoped users, that
+the summary read returns only its nine summary fields, including `staffing_picked`, and conceals everything else.
+`supabase/tests/calendar_events.sql` proves the RLS, the database-written attribution and Activity, and the cancel
+function as ordinary signed-in users; run it with the disposable database procedure in the Definition of Done.

@@ -41,9 +41,10 @@ instead.
 
 ## Driving it with verify:app
 
-Use the origin from `doctor`. These pages are static, so loading, empty, error and denied states do not apply. The only
-access state is signed out versus signed in. Public tabs use `tool new_page` in a fresh context; the signed-in tab comes
-from `login viewer`. Reuse [sign in](sign-in.md) for `/auth/login` and the sign-in form itself, and
+Use the origin from `doctor`. The static page content has no loading, empty or denied state. Public requests still
+verify the session and can return 503 before rendering; record that failure rather than treating it as page content.
+The rendered access state is signed out versus signed in. Public tabs use `tool new_page` in a fresh context; the
+signed-in tab comes from `login viewer`. Reuse [sign in](sign-in.md) for `/auth/login` and the sign-in form itself, and
 [identity recovery](identity-recovery-security.md) for the Request Access form.
 
 Public pages scroll inside the public shell (an `overflow:auto` child of a full-height layout), not the window:
@@ -126,9 +127,9 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
    captions in 32px condensed type, each a muted feature name over its claim: `CALENDAR.` / `WHO'S WHERE. EVERY DAY.`,
    `EVENTS & TASKINGS.` / `EVERY TASKING. TRACKED TO DONE.`, `PERSONNEL.`, `TRAINING REPORTS.`, `TRAINING.`, `EVALS.`
    and `ONBOARDING.`, each with a serif paragraph and no number. Layout at 1440: Calendar full width; Events & Taskings
-   with a 420px text column beside its image and the rows `STAFFED 3 / 4 medics`, `EQUIPPED 3 of 4 ready` in red and
-   `ON TIME Starts Mon 19 Oct`; Personnel and Training reports side by side; Training, Evals and Onboarding in three
-   columns. Below 768 every block stacks to one column. Every `img` has a non-empty `alt`, a `width` and `height`
+   with a 420px text column beside its image and the rows `STAFFED 3 / 4 medics` in the normal text color,
+   `EQUIPPED 3 of 4 ready` in red and `ON TIME Starts Mon 19 Oct`; Personnel and Training reports side by side; Training,
+   Evals and Onboarding in three columns. Below 768 every block stacks to one column. Every `img` has a non-empty `alt`, a `width` and `height`
    attribute, and `loading="lazy"`, and none is wider than its column. The section element has `id="platform"`.
 
 9. **Scoped access.** Scroll to the second dark band. Expect no eyebrow and the heading
@@ -154,8 +155,8 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
     in this section. Last a row under a 2px rule reads `Ask in plain words. Answers come from your unit's live data.`
     and shows four verbs `ASK`, `BRIEF`, `FORECAST` and `FILL` in amber, each with a quoted prompt and a result line.
     Every verb is on one line at 1440 (about 79px there, capped so `FORECAST` fits its column; 80px from about 1600
-    wide), and the verbs form two columns below 1280. The section element has `id="whats-next"`. Nothing in this section
-    claims the product does these things today.
+    wide), and the verbs form two columns from 640 to below 1280px, then one column below 640px. The section element
+    has `id="whats-next"`. Nothing in this section claims the product does these things today.
 
 11. **Testimonials.** Scroll to the third dark band. Expect no visible eyebrow or location strip; a visually hidden `h2`
     reads `From leaders using TroopToTask`. The large two-tone quote ends in `DISAPPEARED OVERNIGHT.` in amber with

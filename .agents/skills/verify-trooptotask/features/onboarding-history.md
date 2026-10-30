@@ -29,9 +29,9 @@ member's Organization and Group scope and the Organization's retention period.
   member, `Member` for a membership with no email or name (the seeded `onboardingConfigure`, `onboardingOperate` and
   `onboardingView` memberships carry no email) and `Former member` when no membership row is readable. A bare user id
   never appears. The Active packet panel shows the same names.
-- `retention`: `Kept N months after finishing, then deleted. Set in Organization settings.` N is the Organization's
-  retention setting. `Organization settings` is a link to Settings → Policies only for a member who can open
-  Organization settings.
+- `retention`: when finished packets exist and the retention setting is available,
+  `Kept N months after finishing, then deleted. Set in Unit settings.` N is the Organization's retention setting.
+  `Unit settings` is a link to Settings → Policies only for a member who can open Organization settings.
 - `states`: `Loading history` (a status with a skeleton of the header, toolbar and table rows while the History read
   resolves; the previous page does not stay frozen), `No finished packets yet` (nothing finished), `No packets match`
   with `Clear filters` (filters hide everything), `Unable to load History` with `Retry History` for a failed read, `403`
@@ -39,10 +39,10 @@ member's Organization and Group scope and the Organization's retention period.
 
 ## How to get to it (user POV)
 
-Choose `Onboard` in Organization navigation, then `History`, or open `/onboarding/history` with
-`$V actor onboardingConfigure onboarding/history`. `Active onboarding` returns to the list. Below `md` (768) the table
-stacks each row as a card with labelled cells (Template, Dates, Took, Final, Outcome). The toolbar folds items into
-`More` as the available width requires, at any viewport width.
+Choose `Onboard` in Organization navigation, then `History`, or open `/org/<seg>/onboarding/history`. The helper
+`$V actor onboardingConfigure onboarding/history` adds the Organization prefix. `Active onboarding` returns to the
+list. Below `md` (768) the table stacks each row as a card with labelled cells (Template, Dates, Took, Final, Outcome).
+The toolbar folds items into `More` as the available width requires, at any viewport width.
 
 ## Helper controls
 
@@ -80,8 +80,8 @@ cancelled Alpha packet's first step. The fixture's March packet for Able is also
 4. **Active panel.** Open an active packet on `Onboard` whose step carries a note by the signed-in member and one by
    another member. The panel names both as in History.
 5. **Retention.** The line carries the setting read in the preconditions (36 months by default). Change it with Settings
-   → Policies as `orgOwner`, reload History and read the new figure. `Organization settings` is a link for `orgAdmin`
-   and plain text for `onboardingConfigure`.
+   → Policies as `orgOwner`, reload History and read the new figure. `Unit settings` is a link for `orgAdmin`
+   and plain text for `onboardingConfigure`. `onboardingEmpty` sees no retention line with `No finished packets yet`.
 6. **Scope.** `onboardingScoped` sees only Alpha rows and the counts in the header follow. `onboardingEmpty` sees
    `No finished packets yet`. `calendarView` receives `403`. `onboardingView` can read but nothing changes.
 7. **States.** Open `/onboarding` first, since the Onboarding layout reads the same table on a full load.

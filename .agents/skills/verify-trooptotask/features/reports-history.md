@@ -33,8 +33,8 @@ access, which supplies the visible roster summary.
 1. Read
    `GET /org/<orgA>/api/calendar-range?rangeStart=2026-09-14&rangeEnd=2026-09-16&collections=availability,assignments`
    through authenticated `tool evaluate_script`, then the same read from March 11 through October 14, 2026. A read
-   without `collections` receives every collection. Each response has `rangeStart`, `rangeEnd`, `availabilityEntries`,
-   `specialDays` and `dailyAssignments`; status and assignment type catalogs come with the Calendar page, not this read.
+   without `collections` receives `availability` and `assignments`, not `events`. Each response has `rangeStart`,
+   `rangeEnd`, `availabilityEntries`, `specialDays` and `dailyAssignments`; status and assignment type catalogs come with the Calendar page, not this read.
    The first includes Alpha, Bravo and Unassigned seeded availability; the second also includes `availabilityHistorical`
    and any current Baker row overlapping those dates. Seeded leave rows name A's Leave type by `statusTypeId`,
    `specialDays` includes `closureA`, and neither response contains B's availability, status type or closure IDs. Save
@@ -58,11 +58,11 @@ access, which supplies the visible roster summary.
    launch on 2026-10-20 reads `5` (September 15, October 14 and 19 to 21); a launch whose span covers October 14 reads
    `4`. The workbook has no Foreign row, foreign status column, or Organization closure status column. A click or toast
    without captured workbook bytes does not prove export contents.
-5. In the `calendarView` page, visit Organization A's Dashboard and capture Baker's current `Verification Training` and
-   `Verification Retiring Status` badges. The `out` badge counts today's entries, so it reads `2 out` with Baker's two
-   entries against `2 Present` of `3`; it reads `1 out` only when Baker has one entry today, with no B labels or Person.
-   Reload and confirm the same scope. If the fixture's local date no longer overlaps Baker's seeded `uiBefore..uiAfter`
-   after a long run, check the fixture date and relaunch rather than revising the expected product rule.
+5. In the `calendarView` page, visit Organization A's Dashboard and capture `2` of `3` `Available` and Baker once in
+   `Out today`, with `Verification Training`. Overlapping entries select one displayed status per Person in catalog
+   order; Baker remains one unavailable Person even when `Verification Retiring Status` also overlaps today. Require no
+   B labels or Person. Reload and confirm the same scope. If the fixture's local date no longer overlaps Baker's seeded
+   `uiBefore..uiAfter` after a long run, check the fixture date and relaunch rather than revising the expected product rule.
 6. Open `Report type` and drive the other four modes with their visible `Run` controls. **Availability by day** shows
    Baker unavailable on the fixture's current training days and no foreign Person. **Away days by person** shows Able's
    three September Leave days, Baker's current Training overlap and Unassigned's one September Leave day when those

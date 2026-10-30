@@ -20,7 +20,8 @@ or Training capability.
 
 ## How to get to it (user POV)
 
-Choose `Onboard` in Organization navigation, then the `Templates` action in the Active page toolbar (configurers only).
+Choose `Onboarding` (`Onboard` in compact navigation), then the `Templates` action in the Active page toolbar
+(configurers only).
 The page opens with the `Templates` title (an `h1`) and the line
 `The steps each new arrival works through. Edits apply to new packets right away; active packets update when you sync them.`;
 the toolbar sits under it. It holds the search `Search templates and steps`, the `Active onboarding` link back to the
@@ -35,7 +36,7 @@ Below 1024 the list and the editor swap and a `Templates` back button returns. T
 requires Organization-scoped configuration authority; every other actor gets a 403 page. View/operate members read
 shared definitions through the ordinary Onboarding workspace and its template labels instead.
 
-## Helper controls
+### Helper controls
 
 Onboarding actors are `onboardingConfigure`, `onboardingOperate`, `onboardingView`, `onboardingScoped`,
 `onboardingEmpty`, `onboardingForeign` and `onboardingSwitch`, with all other feature lanes absent.
@@ -67,7 +68,7 @@ Training Step linked to Required Training, in order 0/1/2. B's private Training 
 type. Use `$V actor ROLE onboarding` (or `onboarding/templates`, `onboarding/history`), record its page/Organization,
 and inspect actual loaded data.
 
-1. **Entry and independent lookups:** As `onboardingConfigure`, enter through Onboard → Templates. Capture seeded
+1. **Entry and independent lookups:** As `onboardingConfigure`, enter through Onboarding → Templates. Capture seeded
    names/descriptions, all three step meanings and order. In a temporary Training step, open the Training Type selector
    and verify A's Required/Targeted/Optional labels, no B label, despite Training and Personnel being absent. Cancel
    without a write. In Onboarding, open Start Onboarding and inspect Personnel choices: Able, Baker and Unassigned are

@@ -1132,7 +1132,7 @@ async function main() {
 			? checked(
 					await client
 						.from('feedback_replies')
-						.select('id,feedback_id,body,sent_by,sent_at')
+						.select('id,feedback_id,body,author,sent_by,sent_at')
 						.in('feedback_id', feedbackIds)
 						.order('sent_at')
 						.order('id')
@@ -2785,6 +2785,9 @@ async function main() {
 					'onboarding-template-steps/reorder',
 					'personnel-trainings',
 					'personnel-trainings/batch',
+					'personnel-trainings/completions',
+					'personnel-trainings/corrections',
+					'personnel-trainings/certificate',
 					'deletion-requests',
 					'deletion-requests/review',
 					'training-reports',

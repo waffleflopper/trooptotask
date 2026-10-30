@@ -51,7 +51,7 @@ Edit open a side sheet. A deletion dialog says what the delete removes: schedule
 saved DA 6 forms (and, for a Person type, its duty roster) for an assignment type. `Holidays & closures` is the third
 section and is driven in [Special days](special-days.md).
 
-## Helper controls
+### Helper controls
 
 `calendar-lanes` and `status-order` stop `rpc/set_calendar_lanes` and `rpc/set_status_type_order` before dispatch. Their
 `-lost-ack` and `-hold` forms follow the [shared fault variants](special-days.md#helper-controls).
@@ -428,7 +428,9 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       reload reads both back. No `daily_assignments`, `availability_entries` or `roster_forms` row changed.
     - **Planned days and a slow save.** Staff excuses Baker, so seed Unassigned instead: POST `api/availability` for
       personUnassigned and statusLeave on tomorrow, and POST `api/daily-assignments` for tomorrow to Able, so Unassigned
-      is away on a planned duty day. Edit `Verification Leave` to `Other duty` and `Save changes`: the dialog also lists
+      is away on a planned duty day. Run the held-save and failed-save variants separately. Before each, set
+      `Verification Leave` back to `Away`, confirm the change, reload and read back `roster_effect` `A`. Then edit it
+      to `Other duty` and `Save changes`: the dialog also lists
       `SPC Unassigned: 1 day changes on the Verification Staff Duty DA 6` (`earlier` wording only when every changed day
       is before today). Run `$V network arm-hold $PAGE status-types`, choose `Save changes` in the dialog and see it
       stay open and busy (`Loading Save changes`, Cancel disabled), with `Name`, the effect cards and the composer's
@@ -476,7 +478,7 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
   `supabase/tests/calendar_catalog_scope.sql` in a separate disposable database run; the browser endpoint check does not
   replace it.
 - Native `fill` with an empty string leaves the `Filter <section>` list filtered, because the empty value fires no input
-  event and each section keeps its own filter. To clear one, `type_text` a character and press Backspace.
+  event. The same search carries across section tabs. To clear it, `type_text` a character and press Backspace.
 - The duty roster's `MOS`, `Role` and `Group` comboboxes and `Person to excuse` render their options without exposing
   them in `take_snapshot`. Type the value and press Enter, or read them with the `evaluate_script` below.
 - The status `Select` in the availability dialog lists its options only while open, and `take_snapshot` leaves them out.

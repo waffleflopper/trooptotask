@@ -1,6 +1,7 @@
 # Invite and accept Organization members
 
-An owner invites an existing account or a new person, sees the pending invitation, and the invitee joins through the
+An owner or admin invites an existing account or a new person, sees the pending invitation, and the invitee joins
+through the
 correct account and invitation steps.
 
 ## Sub-features
@@ -13,7 +14,8 @@ correct account and invitation steps.
 
 ## How to get to it (user POV)
 
-Sign in as the Organization owner, open `Settings` → `Members`, and use the invite strip at the top: the `Invite` email
+Sign in as the Organization owner or admin, open `Settings` → `Members`, and use the invite strip at the top: the
+`Invite` email
 field, `Role` (owner only), `Preset`, and `Groups` (a tree picker headed by `Whole unit`; checking Groups clears
 `Whole unit`, a squad covers its teams, and clearing the last Group returns to `Whole unit`), then `Send invite` (`Sending...` while pending). The line under the strip restates
 the preset's helper; with `Role` set to `Admin`, `Preset` reads `Uses Admin authority` and the line describes admin
@@ -24,7 +26,7 @@ streams after first paint behind a skeleton. An existing invited account signs i
 Organizations list shows each pending invitation first, under `Invitations`, with `Decline` and `Accept` on its row. A
 new account uses the private Account Setup Link first, signs in, then accepts the separate Organization invitation.
 
-## Helper controls
+### Helper controls
 
 ```bash
 $V actor orgInvitee dashboard # confirmed account without a membership
@@ -95,11 +97,23 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    setup path shown as `[redacted]`. In a fresh public context run `$V mail-link PAGE EMAIL setup` and require the page
    to read `Unit invitation` with `<Organization> invited you.`, `Invitation sent` as step one and no `Request access`
    link, then complete `/auth/setup-account` as `setup-link` does, then sign in and confirm that setup alone leaves A
-   absent from the account's Organizations. Open the invitation email's recovery link with
-   `$V mail-link PAGE EMAIL invitation` and require `/auth/renew-invite`, whose lede and email hint name the invitation
-   as well as the approval. Accept the A invitation afterward, then reload and read the membership.
+   absent from the account's Organizations. In a separate signed-out owned context, open the invitation email's
+   recovery link with `$V mail-link PUBLIC_PAGE EMAIL invitation` and require `/auth/renew-invite`, whose lede and
+   email hint name the invitation
+   as well as the approval. Return to the original signed-in context and accept the A invitation afterward, then
+   reload and read the membership.
    `$V access-request EMAIL` shows the request, setup link, bridge row and invitation status at each step. Do not use a
    token-bearing URL in evidence.
+
+   In a separate case as `orgAdmin`, invite a unique synthetic email with role `member` and verify one pending
+   invitation with no membership. Revoke it through the visible row and read back its closed state. From the same
+   admin context, submit an Admin invitation with the command below; require the denied action status and no invitation
+   for that email. Only an owner may grant Admin.
+
+   ```bash
+   $V settings-request PAGE orgA settings/members/invite '{"email":"admin-denial-MARKER@example.test","membershipRole":"admin","memberPreset":"viewer"}'
+   ```
+
 6. Exercise one denied owner action as `orgMember` with
    `$V settings-request PAGE orgA settings/members/invite '{"email":"…@example.test","membershipRole":"member","memberPreset":"viewer"}'`,
    and one foreign-Organization invitation ID against the current form action using that signed-in actor's request
@@ -111,7 +125,7 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    `Waiting on them`. Verify the original invitation ID remains pending and no new invitation or membership is created.
    Record expiry/replay as unverified unless the fixture can safely make those states.
 
-## Invitation grant liveness
+### Invitation grant liveness
 
 Use a unique synthetic new email per case, `$V access-request EMAIL` after each step, and restore `mail` and `fault`
 controls afterward. For invitation-origin platform access, `setup_grant_live` stays true only while the request is
@@ -164,6 +178,8 @@ withdraws nothing.
 
 ## Gotchas
 
+- Foreign invitation denial: as `orgOwner` in A, `$V settings-request PAGE orgA settings/members/revokeInvite
+'{"inviteId":"B_INVITE_ID"}'` returns a `failure` envelope with status 404 and leaves B's invitation unchanged.
 - `/auth/renew-invite` allows three requests per hour per client IP across all emails, and every owned-worker request
   shares one IP. Budget renewals across cases or wait out the window; a `Too many fresh-link requests` response is the
   app's rate limit, not a grant result.

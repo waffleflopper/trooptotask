@@ -41,7 +41,7 @@ steps through File, Columns, Review and Done. The operator needs Calendar operat
 selected people; creating a status type from the import also needs Calendar configure access. The seeded
 Able/Baker/Unassigned records belong to A, while Foreign belongs to B.
 
-## Helper controls
+### Helper controls
 
 ```bash
 $V seed duplicate-able # or overlap, bulk-501, availability-volume, training-pages; returns a tag
@@ -223,8 +223,9 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    `Add <Status> to 1 person · <dates>`. Arm `$V network arm-fail $PAGE availability/batch 1`, then click
    `Add to 1 person`. Require one actual one-record request with synthetic `503`, zero marked A/B rows, and the same
    one-Person draft with `Add to 1 person` enabled again. Restore the hook before retry. Observe the next native save;
-   require one one-record `200`, one exact A row, B zero effects and the form returning to its empty state. Retain that
-   separate-note row unchanged throughout the following check. For the partial check, search the returned `MapChunk`
+   require one one-record `200`, one exact A row, B zero effects and selection cleared with status, dates and note
+   retained. Retain that separate-note row unchanged throughout the following check. For the partial check, search the
+   returned `MapChunk`
    names by appending the tag directly (`2b1e98e5`, no angle brackets; a two-word search such as `MapChunk… Synthetic`
    matches nothing) and choose `Select available`. Confirm exactly 501 selected People. Choose the nondefault fields and
    second unique note. Arm `$V network arm-fail $PAGE availability/batch 2` immediately before `Add to 501 people`.
@@ -297,8 +298,10 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    selected, and the summary bar repeats it, `Preview` must ask for valid dates, the hints and strip must drop out, and
    `Add to N people` must be disabled; restore the dates. In Remove, with a Person selected, clear `Start Date` (choose
    its current day again), then restore it and clear `End Date`: the alert and summary must name the missing date, no
-   `Invalid Date` may appear and Review stays disabled. Using the keyboard, Tab to a `Select <Group> group` checkbox and
-   press Space: every enabled Person in it becomes selected and the count updates (a Group whose people are all disabled
+   `Invalid Date` may appear and Review stays disabled. Set Remove's dates to 2026-01-01 through 2027-01-02 (367
+   inclusive days): `Remove date range cannot exceed 366 days` appears and `Review Matching Entries` stays disabled.
+   Restore valid dates. Using the keyboard, Tab to a `Select <Group> group` checkbox and press Space: every enabled
+   Person in it becomes selected and the count updates (a Group whose people are all disabled
    has a disabled checkbox, and a disabled Person is never selected through it). Press Enter on `Collapse <Group> <N>`:
    its rows hide while the selection count stays; press Enter again. Select Baker, search `Able` and choose
    `Select available`: only Able's Group shows, its `N of M` counts the shown rows, and the selected count still
@@ -309,8 +312,9 @@ saving, and keep helper-created rows marked for `clean-seeds`.
 9. **Busy, loading, empty and denied.** Select Unassigned, choose `Verification Leave`, a later date and a unique note,
    arm `$V network arm-hold $PAGE availability/batch` and click `Add to 1 person`. While held capture the busy state:
    the save button reads `Applying...` and the status chips, both date pickers, `Note`, every roster and Group checkbox,
-   `Select available` and `Clear` are disabled. Release, require the success message and the emptied form, then restore
-   the hook and remove the created entry. For the workspace loading state start `calendarOperate` on Personnel, arm
+   `Select available` and `Clear` are disabled. Release, require the success message and cleared selection with status,
+   dates and note retained, then restore the hook and remove the created entry. For the workspace loading state start
+   `calendarOperate` on Personnel, arm
    `$V server-source arm availability_entries hold 1 120000`, follow an in-app link to `/calendar/bulk` (a native
    `navigate_page` waits on the held document and stalls the page) and capture the Calendar layout's
    `Loading Calendar data` skeleton before `$V server-source release` and `restore`. As `calendarEmpty` capture Add with

@@ -112,3 +112,23 @@ test('a feature switch submits one key and its state, and no other field may be 
 	await assert.rejects(requestSettings(page, { ...input, body: { featureSwitch: ['training'] } }));
 	await assert.rejects(requestSettings(page, { ...input, body: { lossWarningWindowDays: [30] } }));
 });
+
+test('the revoke invite action submits only the invite ID', async () => {
+	const calls = [];
+	const page = {
+		location: { origin: 'http://127.0.0.1:1' },
+		fetch: async (path, init) => {
+			calls.push({ path, body: String(init.body) });
+			return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+		}
+	};
+	const input = {
+		origin: 'http://127.0.0.1:1',
+		organizationSegment: 'alpha',
+		family: 'settings/members/revokeInvite',
+		body: { inviteId: 'invite-1' }
+	};
+	await requestSettings(page, input);
+	assert.deepEqual(calls, [{ path: '/org/alpha/settings/members?/revokeInvite', body: 'inviteId=invite-1' }]);
+	await assert.rejects(requestSettings(page, { ...input, body: { id: 'invite-1' } }), /Unsupported settings field/);
+});

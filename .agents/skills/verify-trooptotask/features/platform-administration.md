@@ -88,9 +88,10 @@ delivery payloads.
    `$V platform-request PAGE suspend platformReviewer '{"type":"user","action":"suspend"}'` must be refused with no
    `user_suspensions` row for the operator, whatever the page shows.
 5. **Suspension and retry.** Start with `$V actor --stale-mfa platformReviewer admin/organizations` and press
-   `Suspend organization` once on the temporary Organization: the dialog says `Nothing has been changed yet.`, the
-   browser lands on `Enter your code` with the Organization's path in `next`, and `platform-state` shows no suspension.
-   Enter the code with `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its event in
+   `Suspend organization` on the temporary Organization. Enter a unique `Reason` and press `Suspend`: the dialog
+   reports `Nothing has been changed yet.`, the browser lands on `Enter your code` with the Organization's path in
+   `next`, and `platform-state` shows no suspension. Enter the code with `mfa-code`; on returning to the Organization,
+   reopen `Suspend organization`, re-enter the reason and press `Suspend`. The save now succeeds, with its event in
    Activity: open `$V actor platformReviewer admin/activity`, and the newest row reads
    `You suspended <Organization name>`. An Organization's owners can read their own audit rows, so the typed reason is
    not stored in Organization audit details. Activity joins the current private suspension note at read time and shows
@@ -154,9 +155,9 @@ delivery payloads.
    `operator` email, the eyebrow and `Status` to read `Suspended`, and the header button to read
    `Unsuspend organization`. Reload and read the same alert. `$V platform-state` shows `suspended_at` set, and `rows` on
    `organization_suspensions` shows the reason and `platformReviewer` as `suspended_by`. Open `Organizations`: the row
-   reads `Suspended` and `Suspended` in `Show` lists it. The Platform audit entry for the suspension must not carry the
-   reason in its details. Open Activity and require `You suspended <Organization name>` with `Reason: <typed reason>`
-   below it, including after reload. Then sign in as the Organization's owner and require the suspension notice, not the
+   reads `Suspended` and choosing `Suspended` in `Filter Organizations` lists it. The Platform audit entry for the
+   suspension must not carry the reason in its details. Open Activity and require `You suspended <Organization name>`
+   with `Reason: <typed reason>` below it, including after reload. Then sign in as the Organization's owner and require the suspension notice, not the
    reason. Unsuspend visibly and require the alert gone and the `organization_suspensions` row removed. Before the first
    suspension, open the same Organization in a second tab; once the first tab has suspended it, submit `Suspend` with a
    different reason in the second tab: the dialog reads `Another operator already suspended this    organization`,

@@ -17,8 +17,8 @@ open.
 - `github-issue`: `Make it a GitHub issue` opens a dialog with a prefilled title and description, default labels, a
   checkbox for the Organization name and `Create issue`. Once an issue exists the item shows its link instead.
 - `reporter`: the person sees the notification `A reply to your feedback`, the thread at `/org/ORG/account/feedback/ID`
-  and every Feedback they sent at `/org/ORG/account/feedback`. They reply from the item until it is closed; a closed
-  item says so and has no composer. Old `/feedback` and `/feedback/ID` links redirect there.
+  and their newest 50 Feedback items at `/org/ORG/account/feedback`, without pagination. They reply from the item until
+  it is closed; a closed item says so and has no composer. Old `/feedback` and `/feedback/ID` links redirect there.
 - `states`: a skeleton for the replies and notes region while it loads, one `Try again` alert for that region when it
   fails, a draft kept after a failed command, and a composer locked while a command runs.
 
@@ -33,7 +33,9 @@ redirects there.
 ## Helper controls
 
 Use `platformReviewer` as the operator (`$V actor platformReviewer admin`) and `notificationMember` as the person who
-sends (`$V actor notificationMember home`). `$V seed communications` or the member's `Send Feedback` creates rows.
+sends (`$V actor notificationMember home`). Submit uniquely tagged items through the member's account-menu
+`Send feedback` control before the journeys below. `$V seed communications` creates notifications and announcements,
+but no Feedback items.
 `$V communications notificationMember` reads the member's Feedback (`status`, `updated_by`, GitHub issue columns), the
 replies and the staff notes. `$V network arm-fail|arm-hold|arm-hold-fail PAGE admin-feedback-command/UUID` binds the
 operator's POST (reply, reply and close, note, issue) for that item; `admin-feedback-read/UUID` binds the GET for its
@@ -57,7 +59,9 @@ tests only.
 3. **Close without replying.** Choose it on an untouched item. Expected: the item closes with no reply row and status
    `resolved`; the person sees `Closed` with no replies.
 4. **Staff note.** Type a note and choose `Save note`. Expected: `Note saved.`, one staff note row for the item. The
-   person's thread and Account → Feedback never contain its text.
+   person's thread and Account → Feedback never contain its text. Clear the saved note with native Control+A and
+   Backspace, then choose `Save note`; reopen the item and require an empty note field and no staff note row in
+   `communications notificationMember`.
 5. **Failure.** `arm-fail PAGE admin-feedback-command/UUID`, send a reply. Expected: an alert reading
    `Synthetic request failure`, the typed text still in the field, the buttons enabled again and no reply row; after
    `restore` the same text sends once. A failed reply may have been saved, so the thread reloads behind it and the Inbox
@@ -85,8 +89,8 @@ tests only.
    and the operator's thread shows it under the person's email. A failed send keeps the text and shows the error under
    the field. Close the item as the operator, then send from the person's page that still shows the composer: the server
    refuses it (409), the page reloads the item, and the composer is replaced by
-   `This feedback is closed, so it takes no more replies.` with no reply row added. Account → Feedback lists every item
-   with its status and reply count (`Closed`, `2 replies`); an unknown ID answers 404.
+   `This feedback is closed, so it takes no more replies.` with no reply row added. Account → Feedback lists the newest
+   50 items with their status and reply count (`Closed`, `2 replies`); an unknown ID answers 404.
 8. **Loading, errors and stale responses.** `arm-hold-fail PAGE admin-feedback-read/UUID`, then pick the item from the
    list. Expected: the message shows at once and the replies and notes region shows a skeleton
    (`Loading replies and notes`); release and the region shows
@@ -99,5 +103,6 @@ tests only.
 
 ## Gotchas
 
-- Clean the Feedback rows, replies and notes with `clean-seeds`; replies and notes go with their row.
+- `clean-seeds` removes helper-created rows, not Feedback submitted through the UI. Use an owned worker restart to
+  clear these temporary Feedback items, replies and notes before a journey needs the original fixture.
 - `Close without replying` does not set `updated_by`; the audit row records who closed it.

@@ -49,9 +49,9 @@ repeat only the affected clearing/restoration action.
 ## How to get to it (user POV)
 
 Choose `Training` in the Organization navigation. Choose a Person's Training cell to add or edit that record, or open
-the record sheet by selecting the person's name in the Training matrix. Use the `Import` link in the `Training controls`
-toolbar to open the import page. Use `Export` in that toolbar for the full training matrix, keeping the selected Group
-and including every Training column even when a saved view hides some. At narrow widths, open `More Training controls`
+the record sheet by selecting the person's name in the Training matrix. Open `More Training controls` and choose
+`Import` to open the import page, even at wide widths. Use `Export` in that toolbar for the full training matrix,
+keeping the selected Group and including every Training column even when a saved view hides some. At narrow widths, open `More Training controls`
 if the action has folded. Open `Reports` for the `Training Reports` briefing: the single-row `Training report controls`
 toolbar (the `Forecast horizon` buttons `30 D`, `60 D`, `90 D` and `180 D` (named `30 days` to `180 days`) as pressed
 toggles, which show as `30 days` to `180 days` radio items in More once the horizon folds, `Filter by view`,
@@ -185,39 +185,42 @@ percentage.
    cleanup.
 
 2. **Save, edit, cancel and failed-save retry:** Return to the Training matrix. As `trainingOperate`, open Baker
-   Optional; its never-expiring form offers `Mark as Complete` and an optional completion date. Mark it complete, add a
-   unique Notes marker and a valid synthetic Certificate URL such as `https://example.test/training`, then Save. Require
-   confirmed success, the Optional cell's Current state and the same values after reload/reopening; read back exactly
-   one Baker/Optional row and keep its new ID. Edit the notes and URL, save, and require that same ID. Cancel a further
-   draft and require unchanged values. Arm `$V network arm-fail PAGE personnel-trainings`, edit again and Save. Capture
-   the actual failed request, feedback and entered values; provider readback must retain the preceding saved row.
-   Restore with `$V network restore PAGE`, retry through the form, and require the new values on the same ID after
-   reload. In the modal and the record sheet the failure is an Alert titled `Training record was not saved` inside the
-   dialog, focus is on `Save`, Escape is blocked while the draft is dirty and closes a pristine dialog (`closeBlocked`),
-   and `Record all N today` failures remain toasts. A lost draft, a toast-only save failure or a closed form without
-   useful error is a failure. This temporary Optional record must not change the required report's 25% readiness.
+   Optional; its popover defaults `Completed` to today and requires a date for a new completion, including a
+   never-expiring type. Choose `Add a note or certificate link…`, add a unique Notes marker and a valid synthetic
+   Certificate URL such as `https://example.test/training`, then Save. Require confirmed success, the Optional cell's
+   Current state and the same values after reload/reopening; read back exactly one Baker/Optional row and keep its new
+   ID. Edit the notes and URL, save, and require that same ID. Close a further unsaved popover draft with Escape and
+   require unchanged values. Arm `$V network arm-fail PAGE personnel-trainings`, edit again and Save. Capture the
+   actual failed request, feedback and entered values; provider readback must retain the preceding saved row. Restore
+   with `$V network restore PAGE`, retry through the form, and require the new values on the same ID after reload. In
+   the popover and the record sheet the failure is an Alert titled `Training record was not saved` inside the form,
+   and focus is on `Save`. The popover closes with Escape; the record sheet blocks Escape while its draft is dirty and
+   closes when pristine (`closeBlocked`). `Record all N today` failures remain toasts. A lost draft, a toast-only save
+   failure or a closed form without useful error is a failure. This temporary Optional record must not change the
+   required report's 25% readiness.
 3. **Removal and approval distinction:** On that temporary Baker/Optional record, capture the original row before each
-   attempt. As `trainingConfigure`, arm a one-request `personnel-trainings` failure, choose Delete and confirm
-   `Delete Training Record`. Require useful failure feedback, unchanged saved row and an available retry; record the
-   actual dialog behavior instead of treating a closed dialog as success. Restore the control and retry visibly. A
-   successful configure removal must leave no row after reload. Repeat failure/retry from the named Person row: choose
-   `More actions for TYPE`, `Delete`, confirm, and require the record sheet and confirmation to remain with the saved
-   dates/notes after failure; retry must remove that exact record after reload. For a separate temporary completion
-   created as `trainingOperate`, Delete may return **202 `{requiresApproval:true}`** and submit a Resource Deletion
-   Request. Require the completion to remain and capture the pending-request outcome with
-   `$V rows deletion_requests orgA`; 202 is neither a failed permission probe nor a completed removal. Before
-   submission, arm `$V network arm-fail PAGE deletion-requests`: require failed-request feedback, a retryable
-   confirmation, the saved completion unchanged and no new pending request. Restore and retry, then reopen and repeat
-   the removal request: 409 already-pending is accepted without duplicating the request, and the record sheet retains
-   the saved dates/notes. When approved-completion deletion is affected, sign in separately as `orgAdmin` on
-   `settings/members`, then choose Approvals and locate the exact temporary completion request. Arm
-   `$V network arm-fail REVIEW_PAGE deletion-requests/review` before Approve: capture the matched 503 and unchanged
-   completion/pending request, restore, then retry visibly. Require review 200, the exact completion absent, the request
-   approved, no other completion changed, and both Approvals and the original Training page consistent after reload. The
+   attempt. As `trainingConfigure`, open the cell's `Open record`, then `More actions for TYPE`, `Delete`. Arm a
+   one-request `personnel-trainings` failure and confirm `Remove Training Record` with `Delete`. Require useful
+   failure feedback, unchanged saved row and an available retry; record the actual dialog behavior instead of treating
+   a closed dialog as success. Restore the control and retry visibly. A successful configure removal must leave no row
+   after reload. Recreate the temporary Optional completion and record its new ID. Repeat failure/retry from the named
+   Person row: choose `More actions for TYPE`, `Delete`, confirm, and require the record sheet and confirmation to
+   remain with the saved dates/notes after failure; retry must remove that exact record after reload. For a separate
+   temporary completion created as `trainingOperate`, Delete may return **202 `{requiresApproval:true}`** and submit a
+   Resource Deletion Request. Require the completion to remain and capture the pending-request outcome with `$V rows
+deletion_requests orgA`; 202 is neither a failed permission probe nor a completed removal. Before submission, arm
+   `$V network arm-fail PAGE deletion-requests`: require failed-request feedback, a retryable confirmation, the saved
+   completion unchanged and no new pending request. Restore and retry, then reopen and repeat the removal request: 409
+   already-pending is accepted without duplicating the request, and the record sheet retains the saved dates/notes.
+   When approved-completion deletion is affected, sign in separately as `orgAdmin` on `settings/members`, then choose
+   Approvals and locate the exact temporary completion request. Arm `$V network arm-fail REVIEW_PAGE
+deletion-requests/review` before Approve: capture the matched 503 and unchanged completion/pending request,
+   restore, then retry visibly. Require review 200, the exact completion absent, the request approved, no other
+   completion changed, and both Approvals and the original Training page consistent after reload. The
    `deletion-requests` control matches submission only; it does not match `/review`. A request-status failure after
-   deletion is separate lower-level retry proof, not simulated by this pre-request 503. Preserve failures in submission
-   or repeated pending requests. Use an owned worker restart for pending-request cleanup rather than deleting request
-   rows through the helper.
+   deletion is separate lower-level retry proof, not simulated by this pre-request 503. Preserve failures in
+   submission or repeated pending requests. Use an owned worker restart for pending-request cleanup rather than
+   deleting request rows through the helper.
 4. **Tracker import, failure, re-import and same-ID update:** This journey must start with Baker Required and Able
    Targeted absent. Record any intervening mutations and restore or restart the owned worker first if necessary. Build
    `tracker.xlsx` with the tabs `Alpha`, `Bravo` and `HQ`. Each tab has two banner rows (`<TAB> — TRAINING TRACKER`,
@@ -226,7 +229,7 @@ percentage.
    Alpha `Able, Synthetic`, `SPC`, `TRAINING_COMPLETED`, `2025-11-31`, blank; Bravo `Baker, Synthetic`, `SPC`, `X`,
    blank, `Verification expired`; HQ `Unassigned, Synthetic`, `SPC`, `N/A`, blank, blank.
 
-   As `trainingConfigure`, choose the `Import` link in `Training controls` and upload the workbook on
+   As `trainingConfigure`, choose `More Training controls` → `Import` and upload the workbook on
    `Drop a spreadsheet here`. Columns: `Read sheets` checks the three tabs at `1 row` each and reads
    `3 sheets read · 3 rows`. Each tab marks row 3 `Header` and hatches the banner rows. Soldier maps to `Last, First`,
    GR to Rank, Notes to Notes and `Verification Required Training` to that training type. `Import Targeted as` reads

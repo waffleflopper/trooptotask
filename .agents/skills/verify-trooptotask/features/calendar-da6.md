@@ -51,9 +51,10 @@ Brooks, PFC Ortiz, PV2 Diaz) and two person-assigned types matching MOS `92Y`, `
 every day d0–d20, Charge of Quarters on d1, d5, d9 and d14, both picked by the DA 6 rule, and Okafor has
 `Verification Leave` on d8–d9. The seed returns both type IDs, the people's IDs and the dated picks. Their attribute
 history starts 30 days before d0, so days before the forms have a pool. `clean-seeds` removes it. `$V seed da6 YYYY-MM`
-(a month within 120 days) instead gives Staff Duty a detail on every day of that month and seeds no CQ or leave, for the
-widest grid: open the month's DA 6 and print it. A third argument, `$V seed da6 YYYY-MM 60`, adds synthetic
-`Recruit01`... People (8 to 80 in all) for a roster that spans printed sheets.
+(a month intersecting d0 through d119) instead gives Staff Duty a detail on each day of that month within that window
+and seeds no CQ or leave. Choose a month wholly within d0 through d119 for the widest grid, then open that month's
+DA 6 and print it. Past dates and dates after d119 are not seeded. A third argument, `$V seed da6 YYYY-MM 60`, adds
+synthetic `Recruit01`... People (8 to 80 in all) for a roster that spans printed sheets.
 
 The DA 6 data read lists assignment types, so `$V server-source arm assignment_types hold|fail-hard 1` reaches it on a
 client navigation (month change). On a full page load the Calendar layout reads assignment types first and the layout's
@@ -83,8 +84,10 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
    same month.
 3. **Switch and month.** Choose `Charge of Quarters`: the URL keeps `?month=`, the title reads
    `DA 6 · Charge of Quarters`, and the columns are d1, d5 and d9 when they share d0's month. Choose `Next month`:
-   `?month=` advances and From reads the month's first day. Back twice returns to the previous month, then to Staff
-   Duty.
+   `?month=` advances. If that month has seeded duty, From reads its first day; otherwise it shows
+   `No duty days in <Month YYYY>` with `Print DA 6` disabled. Back twice returns to the previous month, then to Staff
+   Duty. For a guaranteed empty month, open the month after the last seeded assignment, confirm the same empty state,
+   then return to d0's month.
 4. **Rule change.** In Settings → `Assignment Types`, choose `More actions for Staff Duty` → `Edit`, then
    `Separate count` and `Save Changes`. `Start a new DA 6?` names d1. Choose `Save changes`.
    `$V rows roster_forms orgA assignment_type_id <staffDuty>` shows a form d0–d0 with a `record`, and an open one from
@@ -163,9 +166,10 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
 
 ## Gotchas
 
-- Forms open on the UTC day a type becomes person-assigned. `roster_forms` and `roster_starting_numbers` accept writes
-  only inside `close_roster_form` and `set_roster_starting_numbers`, even from the service role, so the seed cannot
-  backdate history and a malformed saved record cannot be planted. `src/features/calendar/da6Operations.server.test.ts`
+- Forms are stored from the UTC day a type becomes person-assigned. An inaugural open form with no closed predecessor
+  or carried starting numbers uses the earlier of that date and its first person assignment, so earlier duty appears.
+  `roster_forms` and `roster_starting_numbers` accept writes only inside `close_roster_form` and
+  `set_roster_starting_numbers`, even from the service role, so the seed cannot backdate history and a malformed saved record cannot be planted. `src/features/calendar/da6Operations.server.test.ts`
   and `components/da6/Da6Page.test.ts` prove the unreadable-record load error.
 - A full-page `take_screenshot` captures only the viewport, because the app scrolls inside its main region. Scroll the
   main region for the lower part.

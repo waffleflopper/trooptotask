@@ -216,8 +216,9 @@ People, deletes them and reads back their absence. The file is written under the
 writes a `data_exports` history row, and the workload journals it for `clean-seeds`.
 
 `perfScopedLeader` is an Editor scoped to the same Group as `perfScoped`, a role Settings Members can assign. It holds
-personnel configure, so it opens a Person's detail in its Group, and it measures only the two detail journeys. It adds
-one membership to each workload (6, 13 and 37).
+personnel configure, so it opens a Person's detail in its Group. It measures `personnel-detail`,
+`personnel-detail-direct`, `personnel-detail-tab`, `personnel-detail-tab-hover` and `personnel-detail-edit`. It adds one
+membership to each workload (6, 13 and 37).
 
 The Training briefing detail is the affected-soldiers section below the report. Each open and each page is one
 `/api/training-reports/detail` request. A scoped Group holds at most 25 soldiers, so its widest cell has one page; the

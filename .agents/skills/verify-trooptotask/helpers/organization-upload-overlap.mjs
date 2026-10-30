@@ -1,6 +1,6 @@
 // Provider proof around an actual native document upload. The caller owns and
 // authenticates the disposable worker; this helper accepts no URL or credentials.
-const buckets = ['counseling-files', 'personnel-documents'];
+const buckets = ['counseling-files', 'personnel-documents', 'training-certificates'];
 
 function checked(result) {
 	if (result.error) throw new Error('Owned overlap provider operation failed.');

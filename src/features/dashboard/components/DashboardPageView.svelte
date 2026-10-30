@@ -33,8 +33,8 @@
 
 	interface Props {
 		orgName: string;
-		/** Keys what the page remembers about this Organization before its model arrives. */
-		orgId?: string;
+		/** The Organization's URL segment (an id or a slug), which keys the strip height the head script also reads. */
+		orgSegment?: string;
 		viewerDay: DashboardViewerDay;
 		/** Null until the workspace and the summary, or its failure, have arrived. */
 		ctx: DashboardScreenModel | null;
@@ -46,7 +46,7 @@
 		summaryFailure?: Snippet;
 	}
 
-	let { orgName, orgId, viewerDay, ctx, sections, access, updates, summaryFailure }: Props = $props();
+	let { orgName, orgSegment, viewerDay, ctx, sections, access, updates, summaryFailure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -84,24 +84,24 @@
 
 	// The skeleton reserves the by-group strip's last height on this device, so a nested list does not push the bands
 	// below it down when it arrives. Only the list layout has a width-independent height worth remembering.
-	let stripHeight = $state(0);
+	let strip = $state<HTMLElement>();
 	const stripLayout = $derived(model ? groupStripLayout(model.strength.groups, model.strength.bottomLine.mode) : null);
-	const stripOrgId = $derived(model?.data.orgId ?? orgId);
 	let rememberedStrip = '';
 
 	$effect(() => {
-		if (!stripOrgId) return;
-		const height = readStripHeight(getBrowserLocalStorage(), stripOrgId, showSubGroups.current);
+		if (!orgSegment) return;
+		const height = readStripHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current);
 		if (height) document.documentElement.style.setProperty(STRIP_HEIGHT_VARIABLE, `${height}px`);
 		else document.documentElement.style.removeProperty(STRIP_HEIGHT_VARIABLE);
 	});
 	// Once per Organization and choice, so opening "All N groups" does not teach the next load a taller strip.
 	$effect(() => {
-		const key = `${stripOrgId}:${showSubGroups.current}`;
-		if (!stripOrgId || !stripLayout || rememberedStrip === key) return;
-		if (stripLayout === 'compact') forgetStripHeight(getBrowserLocalStorage(), stripOrgId, showSubGroups.current);
-		else if (stripHeight > 0)
-			rememberStripHeight(getBrowserLocalStorage(), stripOrgId, showSubGroups.current, stripHeight);
+		const key = `${orgSegment}:${showSubGroups.current}`;
+		if (!orgSegment || !stripLayout || rememberedStrip === key) return;
+		// Effects run after the DOM update, so this reads the strip as rendered for the current choice.
+		const height = strip?.getBoundingClientRect().height ?? 0;
+		if (stripLayout === 'compact') forgetStripHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current);
+		else if (height > 0) rememberStripHeight(getBrowserLocalStorage(), orgSegment, showSubGroups.current, height);
 		else return;
 		rememberedStrip = key;
 	});
@@ -248,7 +248,7 @@
 								{/snippet}
 							</StrengthForecast>
 							{#if model.strength.groups.sets.length > 0}
-								<div bind:clientHeight={stripHeight}>
+								<div bind:this={strip}>
 									<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />
 								</div>
 							{/if}

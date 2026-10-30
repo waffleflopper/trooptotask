@@ -18,29 +18,40 @@ function memoryStorage(initial: Record<string, string> = {}): Storage {
 describe('remembered forecast column height', () => {
 	it('is read back for the same Organization and sub-group choice only', () => {
 		const storage = memoryStorage();
-		rememberForecastHeight(storage, 'org-1', true, 474);
+		rememberForecastHeight(storage, 'org-1', true, 474, 1440);
 
-		expect(readForecastHeight(storage, 'org-1', true)).toBe(474);
-		expect(readForecastHeight(storage, 'org-1', false)).toBeNull();
-		expect(readForecastHeight(storage, 'org-2', true)).toBeNull();
+		expect(readForecastHeight(storage, 'org-1', true, 1440)).toBe(474);
+		expect(readForecastHeight(storage, 'org-1', false, 1440)).toBeNull();
+		expect(readForecastHeight(storage, 'org-2', true, 1440)).toBeNull();
 	});
 
 	it('rounds a measured height up so the skeleton never reserves less than the column', () => {
 		const storage = memoryStorage();
-		rememberForecastHeight(storage, 'org-1', false, 237.2);
+		rememberForecastHeight(storage, 'org-1', false, 237.2, 1440);
 
-		expect(readForecastHeight(storage, 'org-1', false)).toBe(238);
+		expect(readForecastHeight(storage, 'org-1', false, 1440)).toBe(238);
 	});
 
-	it.each(['', 'tall', 'NaN', '-40', '0', '4.5e9', '12px'])('ignores a stored value of %j', (stored) => {
+	it('is not read back at another window width, where the column wraps differently', () => {
 		const storage = memoryStorage();
-		storage.setItem('t2t:dashboard-forecast-height:org-1:sub-groups', stored);
+		rememberForecastHeight(storage, 'org-1', false, 497, 390);
 
-		expect(readForecastHeight(storage, 'org-1', true)).toBeNull();
+		expect(readForecastHeight(storage, 'org-1', false, 1440)).toBeNull();
+		expect(readForecastHeight(storage, 'org-1', false, 390)).toBe(497);
 	});
+
+	it.each(['', 'tall', 'NaN', '-40', '0', '4.5e9', '12px', '474', '0@1440', '20000@1440', '474@'])(
+		'ignores a stored value of %j',
+		(stored) => {
+			const storage = memoryStorage();
+			storage.setItem('t2t:dashboard-forecast-height:org-1:sub-groups', stored);
+
+			expect(readForecastHeight(storage, 'org-1', true, 1440)).toBeNull();
+		}
+	);
 
 	it('reads nothing and writes nothing when the browser has no storage', () => {
-		expect(readForecastHeight(null, 'org-1', true)).toBeNull();
-		expect(() => rememberForecastHeight(null, 'org-1', true, 474)).not.toThrow();
+		expect(readForecastHeight(null, 'org-1', true, 1440)).toBeNull();
+		expect(() => rememberForecastHeight(null, 'org-1', true, 474, 1440)).not.toThrow();
 	});
 });

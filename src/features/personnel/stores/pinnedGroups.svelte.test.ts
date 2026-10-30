@@ -262,7 +262,7 @@ describe('pinned Group state', () => {
 			);
 
 			expect(await store[action](group)).toBe(false);
-			expect(store.list).toEqual(['Delta', 'Alpha']);
+			await vi.waitFor(() => expect(store.list).toEqual(['Delta', 'Alpha']));
 		});
 
 		it('keeps the local rollback and the toast when the reread fails', async () => {
@@ -301,14 +301,14 @@ describe('pinned Group state', () => {
 			const second = store.pin('Charlie');
 			resolveReread(jsonResponse(['Zulu']));
 			expect(await failed).toBe(false);
-			expect(store.list).toEqual(['Alpha', 'Charlie']);
 
 			const discarded = resolveReread;
 			resolveSecondWrite({ ok: true });
-			await vi.waitFor(() => expect(resolveReread).not.toBe(discarded));
-			resolveReread(jsonResponse(['Charlie', 'Alpha']));
 			expect(await second).toBe(true);
-			expect(store.list).toEqual(['Charlie', 'Alpha']);
+			await vi.waitFor(() => expect(resolveReread).not.toBe(discarded));
+			expect(store.list).toEqual(['Alpha', 'Charlie']);
+			resolveReread(jsonResponse(['Charlie', 'Alpha']));
+			await vi.waitFor(() => expect(store.list).toEqual(['Charlie', 'Alpha']));
 		});
 
 		it('rereads once the last pin in flight settles', async () => {
@@ -331,7 +331,7 @@ describe('pinned Group state', () => {
 
 			resolveSecondWrite({ ok: true });
 			expect(await second).toBe(true);
-			expect(store.list).toEqual(['Zulu']);
+			await vi.waitFor(() => expect(store.list).toEqual(['Zulu']));
 		});
 
 		it('ignores the reread when the user moved to another Organization meanwhile', async () => {

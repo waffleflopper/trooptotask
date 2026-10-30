@@ -493,21 +493,21 @@
 	{@const { group, descendants, memberCount } = deletion}
 	{@const archivedCount = current.archived.status === 'ready' ? current.archived.count : 0}
 	{@const total = memberCount + archivedCount}
+	{@const awaitingCount = memberCount === 0 && current.archived.status !== 'ready'}
 	<ConfirmDialog
 		title={descendants.length > 0
 			? `Delete ${group.name} and its ${plural(descendants.length, 'sub-group')}?`
 			: `Delete ${group.name}?`}
 		message={[
 			descendants.length > 0 && `${names(descendants)} ${descendants.length === 1 ? 'is' : 'are'} deleted with it.`,
-			current.archived.status === 'ready' &&
-				(total > 0
-					? `${plural(total, 'person', 'people')} ${total === 1 ? 'moves' : 'move'} to the Group you choose${archivedCount > 0 ? `, ${archivedCount} of them archived` : ''}. Their records, notes and history are not affected.`
-					: 'No one is in it.')
+			total > 0
+				? `${plural(total, 'person', 'people')} ${total === 1 ? 'moves' : 'move'} to the Group you choose${archivedCount > 0 ? `, ${archivedCount} of them archived` : ''}. Their records, notes and history are not affected.`
+				: !awaitingCount && 'No one is in it.'
 		]
 			.filter(Boolean)
 			.join(' ')}
-		confirmLabel={current.archived.status === 'ready' && total > 0 ? `Delete and move ${total}` : 'Delete'}
-		disabled={current.archived.status !== 'ready'}
+		confirmLabel={total > 0 ? `Delete and move ${total}` : 'Delete'}
+		disabled={awaitingCount}
 		loading={pending === keyOf('delete', current.id)}
 		onCancel={() => (action = null)}
 		onConfirm={() =>
@@ -516,10 +516,8 @@
 			)}
 	>
 		<div class="grid gap-1.5">
-			{#if current.archived.status === 'loading'}
-				<Skeleton class="h-9 w-full" />
-			{:else if current.archived.status === 'failed'}
-				<p role="alert" class="text-sm text-destructive-text">{current.archived.message}</p>
+			{#if total === 0 && current.archived.status === 'loading'}
+				<Skeleton class="h-5 w-2/3" />
 			{:else if total > 0}
 				<TreeSelect
 					label="Move them to"
@@ -534,6 +532,9 @@
 					onValueChange={(id: string) => (current.target = id)}
 					class="w-full"
 				/>
+			{/if}
+			{#if current.archived.status === 'failed'}
+				<p role="alert" class="text-sm text-destructive-text">{current.archived.message}</p>
 			{/if}
 			{#if errorFor(keyOf('delete', current.id))}
 				<p role="alert" class="text-sm text-destructive-text">{errorFor(keyOf('delete', current.id))}</p>

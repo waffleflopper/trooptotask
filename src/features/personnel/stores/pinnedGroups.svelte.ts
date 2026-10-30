@@ -64,8 +64,9 @@ export class PinnedGroupsStore {
 	}
 
 	/**
-	 * Ends one write. After a failure, the last write to settle rereads the saved pins. A reread overtaken by a newer
-	 * write, hydration or forgotten Group is discarded and asked again, at most three times, or left to the next write.
+	 * Ends one write. After a failure, the last write to settle rereads the saved pins in the background, so the write
+	 * reports at once. A reread overtaken by a newer write, hydration or forgotten Group is discarded and asked again, at
+	 * most three times, or left to the next write.
 	 */
 	async #settle(orgId: string, current: () => boolean) {
 		if (!current()) return;
@@ -118,7 +119,7 @@ export class PinnedGroupsStore {
 			}
 			return false;
 		} finally {
-			await this.#settle(orgId, current);
+			void this.#settle(orgId, current);
 		}
 	}
 
@@ -150,7 +151,7 @@ export class PinnedGroupsStore {
 			}
 			return false;
 		} finally {
-			await this.#settle(orgId, current);
+			void this.#settle(orgId, current);
 		}
 	}
 

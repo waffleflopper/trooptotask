@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import { Button } from '$lib/components/ui/button';
 	import type { GroupStrength, GroupStrengthRow } from '../read-model/strengthBand';
 
@@ -6,12 +7,16 @@
 
 	const uid = $props.id();
 	let showAll = $state(false);
+	const expanded = new SvelteSet<string>();
 
 	const total = $derived(groups.sets.length);
 	const folded = $derived(groups.shown < total);
 	const nested = $derived(groups.sets.some((set) => set.below.length > 0));
 	const visible = $derived(
-		(showAll ? groups.sets : groups.sets.slice(0, groups.shown)).flatMap((set) => [set.top, ...set.below])
+		(showAll ? groups.sets : groups.sets.slice(0, groups.shown)).flatMap((set) => [
+			{ row: set.top, parent: set.below.length > 0 },
+			...(expanded.has(set.top.id) ? set.below.map((row) => ({ row, parent: false })) : [])
+		])
 	);
 	const eyebrow = $derived(
 		folded && !showAll ? `By group · lowest ${groups.shown} of ${total}` : `By group · all ${total} · lowest first`
@@ -39,7 +44,7 @@
 				class="flex flex-wrap gap-y-2 border-t border-border pt-3.5"
 				aria-label="Available by group"
 			>
-				{#each visible as row (row.id)}
+				{#each visible as { row } (row.id)}
 					<li class="flex min-w-24 flex-1 items-baseline gap-2">
 						<span class="font-heading text-base font-bold tracking-[0.02em] uppercase">{row.name}</span>
 						{@render count(row)}
@@ -48,16 +53,30 @@
 			</ul>
 		{:else}
 			<ul id="{uid}-groups" class="border-t border-foreground" aria-label="Available by group">
-				{#each visible as row (row.id)}
+				{#each visible as { row, parent } (row.id)}
+					{@const open = expanded.has(row.id)}
 					<li class="flex h-[38px] items-center gap-3.5 border-b border-border" data-band-level={row.level}>
-						<span
-							class={[
-								'shrink-0 truncate font-heading leading-5 uppercase',
-								nested ? 'w-[150px]' : 'w-[110px]',
-								row.level === 0 || row.subtotal ? 'text-base font-bold' : 'text-sm font-semibold'
-							]}
-							style:padding-left="{row.level}rem">{row.name}</span
-						>
+						{#if parent}
+							<Button
+								variant="cell"
+								size="none"
+								class="h-full w-[150px] shrink-0 justify-start gap-1.5 font-heading text-base leading-5 font-bold uppercase"
+								aria-expanded={open}
+								onclick={() => (open ? expanded.delete(row.id) : expanded.add(row.id))}
+							>
+								<span class="w-3 shrink-0 font-mono text-[10px]" aria-hidden="true">{open ? '▼' : '▶'}</span>
+								<span class="truncate">{row.name}</span>
+							</Button>
+						{:else}
+							<span
+								class={[
+									'shrink-0 truncate font-heading leading-5 uppercase',
+									nested ? 'w-[150px]' : 'w-[110px]',
+									row.level === 0 || row.subtotal ? 'text-base font-bold' : 'text-sm font-semibold'
+								]}
+								style:padding-left={nested ? `calc(${row.level}rem + 18px)` : undefined}>{row.name}</span
+							>
+						{/if}
 						<span class="h-2 flex-1 bg-border" aria-hidden="true">
 							<span
 								class={['block h-full', row.belowFloor ? 'bg-accent-text' : 'bg-foreground']}

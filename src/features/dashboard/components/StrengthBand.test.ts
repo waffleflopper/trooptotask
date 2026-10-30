@@ -81,3 +81,53 @@ describe.each(['people', 'counts'] as const)('GroupStrength at %s scale', (mode)
 		expect(within(list).getByText('Group 6')).toBeTruthy();
 	});
 });
+
+describe('GroupStrength with sub-groups', () => {
+	function nestedBand(showSubGroups: boolean) {
+		const groups = [
+			{ id: 'plt', name: '2nd Platoon', sortOrder: 0, parentId: null },
+			{ id: 'sqd', name: '1st Squad', sortOrder: 0, parentId: 'plt' },
+			{ id: 'hq', name: 'Headquarters', sortOrder: 1, parentId: null }
+		] as Group[];
+		const personnel = ['plt', 'sqd', 'sqd', 'hq'].map(
+			(groupId, index) =>
+				({ id: `p${index}`, rank: 'SPC', firstName: 'Pat', lastName: `Last${index}`, groupId }) as Personnel
+		);
+		return buildStrengthBand({
+			today: '2026-10-19',
+			forecastDays: ['2026-10-19'],
+			personnel,
+			availability: [],
+			statusTypes: [leave],
+			specialDays: [],
+			groups,
+			floorPercent: 80,
+			showSubGroups
+		}).groups;
+	}
+
+	it('opens a collapsed Group to its sub-group rows and closes it again', async () => {
+		render(GroupStrength, { props: { groups: nestedBand(true), mode: 'counts' } });
+		const list = screen.getByRole('list', { name: 'Available by group' });
+		expect(within(list).queryByText('1st Squad')).toBeNull();
+
+		const toggle = within(list).getByRole('button', { name: '2nd Platoon' });
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		await fireEvent.click(toggle);
+
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		expect(within(list).getByText('1st Squad')).toBeTruthy();
+		expect(within(list).queryByRole('button', { name: 'Headquarters' })).toBeNull();
+
+		await fireEvent.click(toggle);
+		expect(within(list).queryByText('1st Squad')).toBeNull();
+	});
+
+	it('offers no disclosure with sub-groups off', () => {
+		render(GroupStrength, { props: { groups: nestedBand(false), mode: 'counts' } });
+		const list = screen.getByRole('list', { name: 'Available by group' });
+
+		expect(within(list).getByText('2nd Platoon')).toBeTruthy();
+		expect(within(list).queryByRole('button')).toBeNull();
+	});
+});

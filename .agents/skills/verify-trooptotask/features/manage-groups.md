@@ -116,13 +116,15 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
    `Delete <name>?` reads `1 person moves to the Group you choose. Their records, notes and history are not affected.`
    `Move them to` defaults to the parent, or `Unassigned` for a top-level Group. Choose Bravo and press
    `Delete and move 1`. The Group row is gone, Baker's `group_id` is Bravo, and the pin row is gone. For an empty Group
-   it reads `No one is in it.` with `Cancel` and `Delete`. Archived People count too: the dialog opens with a skeleton
-   in place of the picker and `Delete` disabled while `GET /org/<orgA>/api/groups/archived-members?groupId=<id>` reads
-   the subtree's archived count. For a Group whose only member is archived (archive them with
+   it reads `No one is in it.` with `Cancel` and `Delete`. Archived People count too:
+   `GET /org/<orgA>/api/groups/archived-members?groupId=<id>` reads the subtree's archived count. A Group with active
+   members shows its picker and `Delete and move N` at once and adds `, M of them archived` (and M to N) when the count
+   arrives. A Group with no active members shows a one-line skeleton with `Delete` disabled until the count decides
+   whether anyone moves. For a Group whose only member is archived (archive them with
    `POST /org/<orgA>/api/personnel/archive-batch`), it reads
    `1 person moves to the Group you choose, 1 of them archived. Their records, notes and history are not affected.`
    with `Move them to` and `Delete and move 1`; choose Alpha and confirm, and the archived person's `group_id` is
-   Alpha, not null. If the count fails, the confirmation shows its error and `Delete` stays disabled. With `arm-fail PAGE groups`, `Delete` shows
+   Alpha, not null. If the count fails, the confirmation shows its error; `Delete` stays disabled only for a Group with no active members. With `arm-fail PAGE groups`, `Delete` shows
    `We couldn't confirm the Group change. Reload to see what saved.` in the confirmation, and the row remains. With a
    Tasking owned by the Group (see [Events & Taskings](events-taskings.md) Staffing step 11), `Delete` answers 409 and
    the confirmation shows
@@ -245,7 +247,7 @@ corresponding `Unpin` control in Personnel, or `Pin to top` in the editor. The U
 2. Restore the observation control. Arm `$V network arm-fail PAGE pinned-groups`, then toggle a known Group. Preserve
    optimistic feedback followed by rollback, its 503 and exact unchanged provider rows. In the editor the toggle returns
    to `Pin to top` with `The pin did not save. Try again.` beside it and a `Failed to update pinned Groups. Try again.`
-   toast. `network state` then shows a `GET` 200 on `pinned-groups`: once no pin write is in flight, a failed write
+   toast without waiting for the reread. `network state` then shows a `GET` 200 on `pinned-groups`: once no pin write is in flight, a failed write
    rereads the saved pins. For a write that fails against saved state, pin Bravo in one tab, then press `Pin Bravo`
    in a second tab of the same member opened before it: the `POST` answers 500, the `GET` reread follows and the
    second tab shows `Unpin Bravo` pressed with Bravo at the top, matching the saved row. Restore the control and retry explicitly; reload to confirm the acknowledged preference. Do not call a failed

@@ -392,11 +392,11 @@ test('journey terms count each scope and every membership', () => {
 	assert.deepEqual(journeyTerms.filter, { term: '68W', rows: { wide: 3, scoped: 1 } });
 });
 
-test('each detail target names the seeded Person its row opens', () => {
+test('each edit target names a seeded active Person', () => {
 	const { rows, journeyTerms } = expand('small');
 	for (const target of Object.values(journeyTerms.edit)) {
 		const person = rows.personnel.find((row) => row.slug === target.slug);
-		assert.equal(target.row, `Open ${person.rank} ${person.last_name}, ${person.first_name}`);
+		assert.equal(target.label, `${person.rank} ${person.last_name}, ${person.first_name}`);
 		assert.equal(person.archived_at, null);
 	}
 });

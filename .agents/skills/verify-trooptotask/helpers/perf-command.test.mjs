@@ -46,8 +46,8 @@ const ledger = {
 			alternate: { label: '2LT Cole, Cy', search: 'Cole' }
 		},
 		edit: {
-			wide: { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' },
-			scoped: { row: 'Open SPC Baker, Bo', original: '11B', alternate: '42A' }
+			wide: { label: 'SPC Able, Alex', original: '68W', alternate: '42A' },
+			scoped: { label: 'SPC Baker, Bo', original: '11B', alternate: '42A' }
 		},
 		population: { wide: 20, scoped: 10 },
 		members: 5,
@@ -219,6 +219,8 @@ const snapshot = [
 	'    uid=1_4 button "Details"',
 	'  uid=1_5 row "Open PVT Cole, Cy"',
 	'    uid=1_6 button "Edit"',
+	'  uid=1_8 row "SSG Dee, Dan"',
+	'    uid=1_9 button "Edit"',
 	'  uid=1_7 menuitem "PW Performance Workload Typical Owner"'
 ].join('\n');
 
@@ -229,6 +231,9 @@ test('a control is found by its exact name, inside a named row, or by part of it
 		'1_6'
 	);
 	assert.equal(controlUid(snapshot, { role: 'menuitem', name: 'Performance Workload Typical', partial: true }), '1_7');
+	const inRow = (name) => ({ role: 'button', name: 'Edit', within: { role: 'row', name, partial: true } });
+	assert.equal(controlUid(snapshot, inRow('PVT Cole, Cy')), '1_6');
+	assert.equal(controlUid(snapshot, inRow('SSG Dee, Dan')), '1_9');
 	assert.throws(() => controlUid(snapshot, { role: 'menuitem', name: 'Performance Workload Typical' }), {
 		message: 'No menuitem "Performance Workload Typical" on the page.'
 	});
@@ -250,7 +255,7 @@ test('journey terms carry the actor scope and switch from another seeded workloa
 	assert.deepEqual(scoped.switchFrom, { organizationId: 'typical-org', sentinel: 'Eve, Ed' });
 	assert.equal(journeyTerms(seeded, 'small', 'platformReviewer').sentinel, undefined);
 	assert.deepEqual(journeyTerms(seeded, 'small', 'perfScopedLeader').edit, {
-		row: 'Open SPC Baker, Bo',
+		label: 'SPC Baker, Bo',
 		original: '11B',
 		alternate: '42A'
 	});

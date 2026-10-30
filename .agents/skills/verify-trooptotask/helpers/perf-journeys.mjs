@@ -71,21 +71,23 @@ const openBriefingCell = { click: { role: 'button', name: 'Total, Workload Train
 const calendarReportReady = () => [{ name: 'ready', present: ['Run status-day report'], absentSelector: [skeleton] }];
 const runStatusDays = { click: { role: 'button', name: 'Run status-day report' } };
 
-const quickEditField = ({ row }, role, name) => ({
+// A row is named `Open <Person>` only for an actor who can open the record, so rows are found by the Person.
+const personRow = (label) => ({ role: 'row', name: label, partial: true });
+const quickEditField = ({ label }, role, name) => ({
 	role,
 	name,
-	within: { role: 'form', name: `Quick edit ${row.replace(/^Open /, '')}` }
+	within: { role: 'form', name: `Quick edit ${label}` }
 });
 
 // The roster shows one page at a time, so its row journeys first narrow the roster to one Person
 // with the search term, as that user would.
 const findPerson = ({ searchTerm }) => [{ fill: search, value: searchTerm }, { wait: [searchTerm] }];
 // From 1280 px a row click opens the peek, so the record opens through the Person's name link.
-const recordLink = ({ row }) => ({
+const recordLink = ({ label }) => ({
 	role: 'link',
-	name: row.replace(/^Open \S+ /, ''),
+	name: label.replace(/^\S+ /, ''),
 	partial: true,
-	within: { role: 'row', name: row }
+	within: personRow(label)
 });
 const openDetail = (terms) => [...findPerson(terms), { click: recordLink(terms.edit) }, { wait: ['Add to record'] }];
 const detailTabs = 'nav[aria-label="Personnel detail sections"]';
@@ -337,8 +339,8 @@ export const journeys = {
 			{
 				click: {
 					role: 'button',
-					name: `Quick edit ${terms.edit.row.replace(/^Open /, '')}`,
-					within: { role: 'row', name: terms.edit.row }
+					name: `Quick edit ${terms.edit.label}`,
+					within: personRow(terms.edit.label)
 				}
 			},
 			{ wait: ['No changes'] },
@@ -348,7 +350,7 @@ export const journeys = {
 		milestones: ({ edit }, sample) => [
 			{
 				name: 'useful',
-				inside: { [`[aria-label="${edit.row}"]`]: [edited(edit, sample)] },
+				inside: { [`[data-roster-row][aria-label$="${edit.label}"]`]: [edited(edit, sample)] },
 				absentSelector: ['[data-roster-editor]']
 			}
 		]

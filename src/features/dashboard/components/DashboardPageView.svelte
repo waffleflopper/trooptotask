@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
-	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
+	import { showSubGroups, showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
 	import { openCalendarAt } from '../calendarLink';
@@ -22,6 +22,9 @@
 	import ForecastLaneLegend from './ForecastLaneLegend.svelte';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import GroupStrength from './GroupStrength.svelte';
+	import { groupStripLayout } from '../read-model/strengthBand';
+	import { forgetStripHeight, readStripHeight, rememberStripHeight, STRIP_HEIGHT_VARIABLE } from '../stripHeightHint';
+	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
 	import ReadinessColumn from './ReadinessColumn.svelte';
 	import SetupHints from './SetupHints.svelte';
@@ -30,6 +33,8 @@
 
 	interface Props {
 		orgName: string;
+		/** Keys what the page remembers about this Organization before its model arrives. */
+		orgId?: string;
 		viewerDay: DashboardViewerDay;
 		/** Null until the workspace and the summary, or its failure, have arrived. */
 		ctx: DashboardScreenModel | null;
@@ -41,7 +46,7 @@
 		summaryFailure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, sections, access, updates, summaryFailure }: Props = $props();
+	let { orgName, orgId, viewerDay, ctx, sections, access, updates, summaryFailure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -76,6 +81,30 @@
 					? 'No active personnel yet. Strength shows here once people are on the roster.'
 					: null
 	);
+
+	// The skeleton reserves the by-group strip's last height on this device, so a nested list does not push the bands
+	// below it down when it arrives. Only the list layout has a width-independent height worth remembering.
+	let stripHeight = $state(0);
+	const stripLayout = $derived(model ? groupStripLayout(model.strength.groups, model.strength.bottomLine.mode) : null);
+	const stripOrgId = $derived(model?.data.orgId ?? orgId);
+	let rememberedStrip = '';
+
+	$effect(() => {
+		if (!stripOrgId) return;
+		const height = readStripHeight(getBrowserLocalStorage(), stripOrgId, showSubGroups.current);
+		if (height) document.documentElement.style.setProperty(STRIP_HEIGHT_VARIABLE, `${height}px`);
+		else document.documentElement.style.removeProperty(STRIP_HEIGHT_VARIABLE);
+	});
+	// Once per Organization and choice, so opening "All N groups" does not teach the next load a taller strip.
+	$effect(() => {
+		const key = `${stripOrgId}:${showSubGroups.current}`;
+		if (!stripOrgId || !stripLayout || rememberedStrip === key) return;
+		if (stripLayout === 'compact') forgetStripHeight(getBrowserLocalStorage(), stripOrgId, showSubGroups.current);
+		else if (stripHeight > 0)
+			rememberStripHeight(getBrowserLocalStorage(), stripOrgId, showSubGroups.current, stripHeight);
+		else return;
+		rememberedStrip = key;
+	});
 
 	// The last hint can take the Readiness band with it when no column is left.
 	async function focusAfterHints() {
@@ -218,7 +247,11 @@
 									<ForecastLaneLegend lanes={parts.forecastLanes} />
 								{/snippet}
 							</StrengthForecast>
-							<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />
+							{#if model.strength.groups.sets.length > 0}
+								<div bind:clientHeight={stripHeight}>
+									<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />
+								</div>
+							{/if}
 						{:else}
 							<div class="grid gap-[18px]" aria-hidden="true">
 								<Skeleton class="h-7 w-[60%]" />
@@ -230,7 +263,10 @@
 										</div>
 									{/each}
 								</div>
-								<div class="grid grid-cols-4 gap-4 border-t border-border pt-3.5">
+								<div
+									class="grid grid-cols-4 content-start gap-4 border-t border-border pt-3.5"
+									style:min-height="var({STRIP_HEIGHT_VARIABLE}, 0px)"
+								>
 									{#each { length: 4 }, index (index)}
 										<Skeleton class="h-4 w-20" />
 									{/each}

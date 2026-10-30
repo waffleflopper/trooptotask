@@ -52,6 +52,7 @@ interface GroupExtensions extends Record<string, unknown> {
 	rename: (id: string, newName: string) => Promise<boolean>;
 	move: (id: string, parentId: string | null) => Promise<Group>;
 	setOrder: (ids: readonly string[], parentId?: string | null) => Promise<GroupOrderChange>;
+	archivedMemberCount: (id: string) => Promise<number>;
 	deleteWithReassignment: (id: string, moveMembersTo: string | null) => Promise<GroupDeleteResult>;
 }
 

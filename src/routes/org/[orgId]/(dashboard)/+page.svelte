@@ -194,6 +194,7 @@
 
 {#if data.dashboard?.data}
 	<DashboardPageView
+		{orgId}
 		orgName={data.shell.org.name}
 		viewerDay={data.viewerDay}
 		{ctx}

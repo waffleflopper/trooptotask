@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import type { GroupStrength, GroupStrengthRow } from '../read-model/strengthBand';
+	import { groupStripLayout, type GroupStrength, type GroupStrengthRow } from '../read-model/strengthBand';
 
 	let { groups, mode }: { groups: GroupStrength; mode: 'people' | 'counts' } = $props();
 
@@ -10,6 +10,7 @@
 	const total = $derived(groups.sets.length);
 	const folded = $derived(groups.shown < total);
 	const nested = $derived(groups.sets.some((set) => set.below.length > 0));
+	const compact = $derived(groupStripLayout(groups, mode) === 'compact');
 	const visible = $derived(
 		(showAll ? groups.sets : groups.sets.slice(0, groups.shown)).flatMap((set) => [set.top, ...set.below])
 	);
@@ -30,10 +31,10 @@
 
 {#if total > 0}
 	<div class="grid gap-2.5">
-		{#if mode === 'counts' || nested}
+		{#if !compact}
 			<h3 class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{eyebrow}</h3>
 		{/if}
-		{#if mode === 'people' && !nested}
+		{#if compact}
 			<ul
 				id="{uid}-groups"
 				class="flex flex-wrap gap-y-2 border-t border-border pt-3.5"

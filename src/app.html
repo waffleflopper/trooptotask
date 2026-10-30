@@ -25,6 +25,20 @@
 					document.documentElement.setAttribute('data-sub-groups-hidden', '');
 				}
 			} catch {}
+			try {
+				// The Dashboard skeleton reserves the by-group strip's last height; see stripHeightHint.ts for the key.
+				var orgPath = location.pathname.match(/^\/org\/([^/]+)/);
+				var stripHeight =
+					orgPath &&
+					localStorage.getItem(
+						't2t:dashboard-strip-height:' +
+							orgPath[1] +
+							(document.documentElement.hasAttribute('data-sub-groups-hidden') ? ':top-level' : ':sub-groups')
+					);
+				if (stripHeight && /^\d{1,5}$/.test(stripHeight)) {
+					document.documentElement.style.setProperty('--dashboard-strip-height', stripHeight + 'px');
+				}
+			} catch {}
 		</script>
 		%sveltekit.head%
 	</head>

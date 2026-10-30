@@ -355,6 +355,66 @@ describe('pinned Group state', () => {
 			expect(store.orgId).toBe('org-2');
 			expect(store.list).toEqual(['Charlie']);
 		});
+
+		describe('when the saved pins change while the reread is out', () => {
+			let rereads: ((response: unknown) => void)[];
+
+			beforeEach(() => {
+				rereads = [];
+				let writes = 0;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn((_url: string, init?: RequestInit) => {
+						if (!init?.method) return new Promise((resolve) => rereads.push(resolve));
+						return writes++ === 0 ? Promise.reject(new Error('Write failed')) : Promise.resolve({ ok: true });
+					})
+				);
+			});
+
+			async function answerReread(index: number, pins: string[]) {
+				await vi.waitFor(() => expect(rereads).toHaveLength(index + 1));
+				rereads[index](jsonResponse(pins));
+			}
+
+			it('rereads again when a pin settles before the first reread returns', async () => {
+				store.load(['Alpha'], 'org-1');
+				const failed = store.pin('Bravo');
+				await vi.waitFor(() => expect(rereads).toHaveLength(1));
+				expect(await store.pin('Charlie')).toBe(true);
+
+				await answerReread(0, ['Zulu']);
+				await answerReread(1, ['Alpha', 'Charlie']);
+
+				expect(await failed).toBe(false);
+				expect(store.list).toEqual(['Alpha', 'Charlie']);
+			});
+
+			it('keeps a newer saved snapshot over an older reread', async () => {
+				store.load(['Alpha'], 'org-1');
+				const failed = store.pin('Bravo');
+				await vi.waitFor(() => expect(rereads).toHaveLength(1));
+				store.load(['Delta', 'Alpha'], 'org-1');
+
+				await answerReread(0, ['Alpha']);
+				await answerReread(1, ['Delta', 'Alpha']);
+
+				expect(await failed).toBe(false);
+				expect(store.list).toEqual(['Delta', 'Alpha']);
+			});
+
+			it('does not bring back the pin of a Group deleted meanwhile', async () => {
+				store.load(['Alpha', 'Bravo'], 'org-1');
+				const failed = store.pin('Charlie');
+				await vi.waitFor(() => expect(rereads).toHaveLength(1));
+				store.forgetGroup('Bravo');
+
+				await answerReread(0, ['Alpha', 'Bravo']);
+				await answerReread(1, ['Alpha']);
+
+				expect(await failed).toBe(false);
+				expect(store.list).toEqual(['Alpha']);
+			});
+		});
 	});
 
 	it('forgets a deleted Group pin and keeps the rest in order', () => {

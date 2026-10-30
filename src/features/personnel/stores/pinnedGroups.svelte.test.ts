@@ -427,6 +427,19 @@ describe('pinned Group state', () => {
 				expect(await failed).toBe(false);
 				expect(store.list).toEqual(['Alpha']);
 			});
+
+			it('does not bring back the failed pin of a Group deleted meanwhile', async () => {
+				store.load(['Alpha'], 'org-1');
+				const failed = store.pin('Bravo');
+				await vi.waitFor(() => expect(rereads).toHaveLength(1));
+				store.forgetGroup('Bravo');
+
+				await answerReread(0, ['Alpha', 'Bravo']);
+				await answerReread(1, ['Alpha']);
+
+				expect(await failed).toBe(false);
+				expect(store.list).toEqual(['Alpha']);
+			});
 		});
 	});
 

@@ -95,9 +95,9 @@ stored-event prerequisites, not producer sanitization or ordinary authorization 
    affordances, authenticated HTTP and provider reads are distinct evidence.
 4. **Platform paging and filters.** Sign in as `platformReviewer`; `admin/audit` lands on `/admin/activity`. Activity
    lists registered actions, plus platform prefixes such as `security.` at the `All` scope, so `seed audit`'s
-   `verification.audit_*` rows do not appear here; use real events such as the failed sign-in below. Choose a category radio and a search term, check the URL holds them and the rows match
-   both, then reload. Open a row's `Details` disclosure,
-   inspect saved masked details (platform reads retain raw saved identifiers), and reload. The
+   `verification.audit_*` rows do not appear here; use real events such as the failed sign-in below. Choose a category
+   radio and a search term, check the URL holds them and the rows match both, then reload. Open a row's `Details`
+   disclosure, inspect saved masked details (platform reads retain raw saved identifiers), and reload. The
    People detail returns recent activity with saved `details` and `ipAddress` after platform-administrator admission;
    the Organization detail projection omits details/IP/user-agent. Capture both separately from full Activity and keep
    ordinary-member/support denial checks separate.

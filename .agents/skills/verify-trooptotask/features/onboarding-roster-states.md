@@ -23,7 +23,7 @@ widths, in light and dark.
   upload through the native file input, download, remove and delete confirmation; viewer denial; list failure with
   retry; empty list.
 - `screen-states`: loading, empty, error, denied, disabled, 1280x800 light and 390x844 dark for the Onboarding list,
-  History, Templates and the roster modal.
+  History, Templates and the roster sheet.
 - `workspace-load-error`: a rejected Onboarding workspace source shows one `WorkspaceLoadError`
   (`Unable to load Onboarding` with `Retry Onboarding`), never a stuck skeleton.
 

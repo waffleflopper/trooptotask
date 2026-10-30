@@ -116,7 +116,13 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
    `Delete <name>?` reads `1 person moves to the Group you choose. Their records, notes and history are not affected.`
    `Move them to` defaults to the parent, or `Unassigned` for a top-level Group. Choose Bravo and press
    `Delete and move 1`. The Group row is gone, Baker's `group_id` is Bravo, and the pin row is gone. For an empty Group
-   it reads `No one is in it.` with `Cancel` and `Delete`. With `arm-fail PAGE groups`, `Delete` shows
+   it reads `No one is in it.` with `Cancel` and `Delete`. Archived People count too: the dialog opens with a skeleton
+   in place of the picker and `Delete` disabled while `GET /org/<orgA>/api/groups/archived-members?groupId=<id>` reads
+   the subtree's archived count. For a Group whose only member is archived (archive them with
+   `POST /org/<orgA>/api/personnel/archive-batch`), it reads
+   `1 person moves to the Group you choose, 1 of them archived. Their records, notes and history are not affected.`
+   with `Move them to` and `Delete and move 1`; choose Alpha and confirm, and the archived person's `group_id` is
+   Alpha, not null. If the count fails, the confirmation shows its error and `Delete` stays disabled. With `arm-fail PAGE groups`, `Delete` shows
    `We couldn't confirm the Group change. Reload to see what saved.` in the confirmation, and the row remains. With a
    Tasking owned by the Group (see [Events & Taskings](events-taskings.md) Staffing step 11), `Delete` answers 409 and
    the confirmation shows
@@ -185,11 +191,13 @@ history are not affected.` `Move them to` defaults to the parent, `2nd Platoon`,
    subtree; `Unassigned` is last. `Delete and move 3` deletes the three rows, the three people take `group_id` 2nd
    Platoon, and after `Done` the roster shows them in the 2nd Platoon band with no page reload (`performance.timeOrigin`
    unchanged). An empty subtree reads `No one is in it.` and confirms with `Delete`. Pins on any deleted Group go with it.
-6. **Parent gone.** From the signed-in page, add a Group, delete it with `DELETE /org/<orgA>/api/groups`
+6. **API order.** `POST /org/<orgA>/api/groups` with only `{"name"}` (or `{name, parentId}`) saves the next
+   `sort_order` among that parent's Groups, so the new Group lists last; an explicit `sortOrder` is kept.
+7. **Parent gone.** From the signed-in page, add a Group, delete it with `DELETE /org/<orgA>/api/groups`
    (`{id, moveMembersTo: null}`), then `POST` the same endpoint with `{name: "Orphan Team", parentId: <deleted id>}`. It
    answers 400 `The parent Group is no longer available. Choose another.` and `rows groups orgA name "Orphan Team"`
    is empty.
-7. **Narrow.** At 1024 the list and details sit side by side. At 390x844, from `More Personnel controls`, the tree sits
+8. **Narrow.** At 1024 the list and details sit side by side. At 390x844, from `More Personnel controls`, the tree sits
    above the selected Group's details with no overlap and no horizontal overflow. Every tree picker opened from a
    dialog at 390 (Move under, Move them to, Add a person `Group`, member access `Groups they work in`) is a bottom sheet
    painted above that dialog (both at z-index 50, the sheet's `elementFromPoint` hit at the bottom of the screen); Escape
@@ -237,7 +245,10 @@ corresponding `Unpin` control in Personnel, or `Pin to top` in the editor. The U
 2. Restore the observation control. Arm `$V network arm-fail PAGE pinned-groups`, then toggle a known Group. Preserve
    optimistic feedback followed by rollback, its 503 and exact unchanged provider rows. In the editor the toggle returns
    to `Pin to top` with `The pin did not save. Try again.` beside it and a `Failed to update pinned Groups. Try again.`
-   toast. Restore the control and retry explicitly; reload to confirm the acknowledged preference. Do not call a failed
+   toast. `network state` then shows a `GET` 200 on `pinned-groups`: once no pin write is in flight, a failed write
+   rereads the saved pins. For a write that fails against saved state, pin Bravo in one tab, then press `Pin Bravo`
+   in a second tab of the same member opened before it: the `POST` answers 500, the `GET` reread follows and the
+   second tab shows `Unpin Bravo` pressed with Bravo at the top, matching the saved row. Restore the control and retry explicitly; reload to confirm the acknowledged preference. Do not call a failed
    response a saved pin.
 3. Use `personnelSwitch` for the A/B lifetime case. Capture its complete original preference sets and open A Personnel.
    Arm `$V network arm-hold PAGE pinned-groups`, toggle a known Group, and confirm its real 200 and saved A row while
@@ -267,7 +278,8 @@ roles.
 
 Recipes that read nested bands, path labels or top-level Group filters share this seed. As `orgOwner` on Personnel
 (`$V actor orgOwner personnel`), run native `evaluate_script` `fetch` calls in that page: `POST /org/<orgA>/api/groups`
-with `{"name","parentId"}` for `2nd Platoon` (root), `1st Squad` and `2nd Squad` under it, and `Alpha Team` and
+with `{"name","parentId"}` for `2nd Platoon` (root, also `"sortOrder": 0` so it sorts by name ahead of Alpha and
+Bravo), `1st Squad` and `2nd Squad` under it, and `Alpha Team` and
 `Bravo Team` under `1st Squad`; then `POST /org/<orgA>/api/personnel` with
 `{rank:"SPC",firstName:"Test",lastName,groupId,clinicRole:""}` for Diaz and Webb in 2nd Platoon, Lee in 1st Squad,
 Brooks, Moss, Nguyen and Ortiz in Alpha Team, Kim in Bravo Team and Patel in 2nd Squad. Keep the returned IDs. With the

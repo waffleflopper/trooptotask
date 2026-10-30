@@ -340,11 +340,16 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
   headline. Off, it lists `Bravo 0/1`, `2nd Platoon 9/9`, `Alpha 1/1` and `Unassigned 1/1`, and the switch is absent
   when no Group has a child. The floor compares the exact fraction, so at 80% a Group with 159 of 200 available is
   flagged although it rounds to 80%.
-- Load-time layout shift, measured with a `layout-shift` `PerformanceObserver` after reload at 1440x900, 1024x640 and
-  390x844 on 2026-10-29: the nested tree read `0.0703`, `0.0297` and `0.1038` with `Show sub-groups` on, `0.0134`,
-  `0.0297` and `0.1038` with it off, and the flat fixture matched off. The skeleton reserves the compact strip, so the
-  nested list grows when it arrives; the forecast and Bottom line skeletons are also shorter than their content. Any
-  reading above these is a regression.
+- Load-time layout shift, measured with a buffered `layout-shift` `PerformanceObserver` installed by `navigate_page`
+  `initScript` on reload at 1440x900, 1024x640 and 390x844 on 2026-10-29: the nested tree read `0`, `0.0297` and
+  `0.1038` with `Show sub-groups` on, and `0.0134`, `0.0297` and `0.1038` with it off. The page remembers the by-group
+  strip's height on this device per Organization and choice (`localStorage` `t2t:dashboard-strip-height:<orgId>:sub-groups`
+  or `:top-level`, set only for the list layout), and a head script reserves it in the skeleton before first paint:
+  with `availability_entries` held (`$V server-source arm availability_entries hold 1 30000`) the skeleton's strip
+  block measures the stored height (408 px for the nested fixture) at every width. A first visit on a device has no
+  hint and reads `0.0703` on at 1440; a stale taller hint reads `0` and is replaced by the measured height on that
+  load. The 1024 and 390 readings come from the forecast and Bottom line skeletons. Any reading above these is a
+  regression.
 
 Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and
 return dates, `ALPHA 7/10` amber and `BRAVO 8/10`), `86 of 100` (`typical`, one proportional bar, one row per status

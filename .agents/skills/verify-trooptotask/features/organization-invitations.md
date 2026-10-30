@@ -80,7 +80,7 @@ helper provides invitation and membership readback for A/B. The owned app's outb
    invitation, and build the [Group tree](manage-groups.md#group-tree). As `orgOwner`, enter `orgInvitee`'s email,
    choose `Operator` and check `Alpha Team` under `2nd Platoon › 1st Squad` (search `alpha team`; rows read
    `<name> <subtree count>`). The trigger reads `Groups: 2nd Platoon › 1st Squad › Alpha Team` and the helper line
-   `Can view work and complete daily tasks in the selected areas. Sees Alpha Team: 2 people. Not Unassigned. They accept
+   `Can view work and complete daily tasks in the selected areas. Sees 2nd Platoon › 1st Squad › Alpha Team: 2 people. Not Unassigned. They accept
 the invite after signing in.` The pending row stores `member_preset: operator`, `access_scope_kind: groups` and
    only Alpha Team's ID. Accept it as in step 2. The invitee's Personnel shows `Group: Alpha Team 2` and only Alpha
    Team's People, Calendar and Training list only them, and a Quick edit of one saves; their `Group` field is the

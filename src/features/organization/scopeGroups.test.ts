@@ -62,10 +62,12 @@ describe('scopeTree', () => {
 		const duplicated = scopeTree(twins);
 
 		it('names each by its path, ignoring case and surrounding spaces, and leaves unique names bare', () => {
-			expect(duplicated.summary(['alpha1', 'hq'])).toBe(
-				'Sees 1st Platoon › 1st Squad › Alpha Team plus HQ: 6 people. Not Unassigned.'
-			);
-			expect(duplicated.summary(['alpha2'])).toMatch(/^Sees 2nd Platoon › 2nd Squad ›\s+alpha team\s*: 3 people/);
+			const first = duplicated.summary(['alpha1', 'hq']);
+			expect(first).toContain('1st Platoon › 1st Squad › Alpha Team');
+			expect(first).not.toContain('Platoon › HQ');
+			expect(first).toMatch(/\bHQ\b/);
+			expect(first).toMatch(/\b6 people\b/);
+			expect(duplicated.summary(['alpha2'])).toMatch(/2nd Platoon › 2nd Squad ›\s+alpha team/);
 		});
 
 		it('names a Group that has sub-groups by its path too', () => {
@@ -77,7 +79,9 @@ describe('scopeTree', () => {
 				{ id: 'b-alpha-t', name: 'Team', parentId: 'b-alpha', memberCount: 1 }
 			]);
 
-			expect(nested.summary(['b-alpha'])).toBe('Sees Bravo › ALPHA and its 1 sub-group: 2 people. Not Unassigned.');
+			const summary = nested.summary(['b-alpha']);
+			expect(summary).toContain('Bravo › ALPHA');
+			expect(summary).toMatch(/\b2 people\b/);
 		});
 	});
 

@@ -17,6 +17,9 @@ export interface CalendarToolbarInput {
 	groupFilter: string;
 	showStatusText: boolean;
 	showPersonnelRoles: boolean;
+	showDaysLane: boolean;
+	showEventLanes: boolean;
+	showAssignmentLanes: boolean;
 	showOnboardingToggle: boolean;
 	/** Null when no visible Group has sub-groups. */
 	showSubGroups: ToolbarMenuToggle | null;
@@ -24,6 +27,9 @@ export interface CalendarToolbarInput {
 	onGroupFilterChange: (value: string) => void;
 	onToggleStatusText: () => void;
 	onTogglePersonnelRoles: () => void;
+	onToggleDaysLane: () => void;
+	onToggleEventLanes: () => void;
+	onToggleAssignmentLanes: () => void;
 	onToggleHighlightOnboarding: () => void;
 	onExportExcel: () => void;
 	onExportPDF: () => void;
@@ -60,6 +66,31 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 			label: 'Show Personnel Roles',
 			pressed: input.showPersonnelRoles,
 			onPressedChange: input.onTogglePersonnelRoles
+		},
+		{
+			kind: 'toggle',
+			id: 'show-days',
+			label: 'Show Days',
+			pressed: input.showDaysLane,
+			onPressedChange: input.onToggleDaysLane
+		},
+		...(input.showEvents
+			? [
+					{
+						kind: 'toggle',
+						id: 'show-events',
+						label: 'Show Events & Suspenses',
+						pressed: input.showEventLanes,
+						onPressedChange: input.onToggleEventLanes
+					} satisfies ToolbarMenuToggle
+				]
+			: []),
+		{
+			kind: 'toggle',
+			id: 'show-assignments',
+			label: 'Show Assignments',
+			pressed: input.showAssignmentLanes,
+			onPressedChange: input.onToggleAssignmentLanes
 		}
 	];
 

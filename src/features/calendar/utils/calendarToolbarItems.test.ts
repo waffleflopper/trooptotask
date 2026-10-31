@@ -14,12 +14,18 @@ function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolb
 		groupFilter: '',
 		showStatusText: false,
 		showPersonnelRoles: false,
+		showDaysLane: true,
+		showEventLanes: true,
+		showAssignmentLanes: true,
 		showOnboardingToggle: false,
 		showSubGroups: null,
 		highlightOnboarding: true,
 		onGroupFilterChange: vi.fn(),
 		onToggleStatusText: vi.fn(),
 		onTogglePersonnelRoles: vi.fn(),
+		onToggleDaysLane: vi.fn(),
+		onToggleEventLanes: vi.fn(),
+		onToggleAssignmentLanes: vi.fn(),
 		onToggleHighlightOnboarding: vi.fn(),
 		onExportExcel: vi.fn(),
 		onExportPDF: vi.fn(),
@@ -97,12 +103,46 @@ describe('buildCalendarToolbar', () => {
 
 	it('shows each display preference as pressed or not in the Display menu', () => {
 		const options = display(
-			buildCalendarToolbar(makeInput({ showStatusText: true, showOnboardingToggle: true, highlightOnboarding: false }))
-				.items
+			buildCalendarToolbar(
+				makeInput({
+					showStatusText: true,
+					showOnboardingToggle: true,
+					highlightOnboarding: false
+				})
+			).items
 		);
 
 		expect(options.find((item) => item.label === 'Show Status Text')).toMatchObject({ pressed: true });
 		expect(options.find((item) => item.label === 'Show Personnel Roles')).toMatchObject({ pressed: false });
 		expect(options.find((item) => item.label === 'Show Onboarding')).toMatchObject({ pressed: false });
+	});
+
+	it('lists a Display toggle per lane group, pressed as the preference says, and routes each to its handler', () => {
+		const input = makeInput({ showDaysLane: false, showEventLanes: true, showAssignmentLanes: false });
+		const options = display(buildCalendarToolbar(input).items);
+		const toggle = (label: string) => options.find((item) => item.label === label);
+
+		expect(toggle('Show Days')).toMatchObject({ kind: 'toggle', pressed: false });
+		expect(toggle('Show Events & Suspenses')).toMatchObject({ kind: 'toggle', pressed: true });
+		expect(toggle('Show Assignments')).toMatchObject({ kind: 'toggle', pressed: false });
+
+		for (const [label, handler] of [
+			['Show Days', input.onToggleDaysLane],
+			['Show Events & Suspenses', input.onToggleEventLanes],
+			['Show Assignments', input.onToggleAssignmentLanes]
+		] as const) {
+			const item = toggle(label);
+			if (item?.kind !== 'toggle') throw new Error(`${label} is a toggle`);
+			item.onPressedChange(!item.pressed);
+			expect(handler).toHaveBeenCalledTimes(1);
+		}
+	});
+
+	it('offers Show Events & Suspenses only while the Organization uses Events & Taskings', () => {
+		const labelsWith = (showEvents: boolean) => labels(display(buildCalendarToolbar(makeInput({ showEvents })).items));
+
+		expect(labelsWith(true)).toContain('Show Events & Suspenses');
+		expect(labelsWith(false)).not.toContain('Show Events & Suspenses');
+		expect(labelsWith(false)).toEqual(expect.arrayContaining(['Show Days', 'Show Assignments']));
 	});
 });

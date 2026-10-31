@@ -193,7 +193,14 @@ describe('organization layout scope lifetime', () => {
 			submitted.push(JSON.parse(init.body as string));
 			if (submitted.length === 1) return firstSave.promise;
 			return Response.json({
-				calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+				calendar: {
+					showStatusText: true,
+					showPersonnelRoles: false,
+					highlightOnboarding: true,
+					showDaysLane: true,
+					showEventLanes: true,
+					showAssignmentLanes: true
+				},
 				training: {
 					selectedGroupId: null,
 					selectedViewId: null,
@@ -224,7 +231,14 @@ describe('organization layout scope lifetime', () => {
 		expect(submitted).toEqual([{ calendar: { showStatusText: true } }]);
 		firstSave.resolve(
 			Response.json({
-				calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+				calendar: {
+					showStatusText: true,
+					showPersonnelRoles: false,
+					highlightOnboarding: true,
+					showDaysLane: true,
+					showEventLanes: true,
+					showAssignmentLanes: true
+				},
 				training: {
 					selectedGroupId: null,
 					selectedViewId: null,

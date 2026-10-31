@@ -11,7 +11,14 @@ vi.mock('$app/navigation', () => ({ invalidate, invalidateAll }));
 
 function preferences(): UserOrgPreferences {
 	return {
-		calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
+		calendar: {
+			showStatusText: false,
+			showPersonnelRoles: false,
+			highlightOnboarding: true,
+			showDaysLane: true,
+			showEventLanes: true,
+			showAssignmentLanes: true
+		},
 		training: getDefaultUserOrgPreferences().training
 	};
 }
@@ -87,7 +94,14 @@ describe('AccountPreferencesState', () => {
 		await vi.advanceTimersByTimeAsync(10_000);
 		expect(server.requests).toHaveLength(0);
 		expect(state.value).toEqual({
-			calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
+			calendar: {
+				showStatusText: false,
+				showPersonnelRoles: false,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'seed-group',
 				selectedViewId: null,
@@ -127,12 +141,22 @@ describe('AccountPreferencesState', () => {
 	it('coalesces latest choices across sections after 350ms and saves without ambient invalidation', async () => {
 		const server = transport();
 		const { state, onError } = createState(server);
-		state.patch({ training: { selectedGroupId: 'alpha' }, calendar: { highlightOnboarding: false } });
+		state.patch({
+			training: { selectedGroupId: 'alpha' },
+			calendar: { highlightOnboarding: false, showDaysLane: true, showEventLanes: true, showAssignmentLanes: true }
+		});
 		await vi.advanceTimersByTimeAsync(200);
 		state.patch({ training: { selectedGroupId: 'bravo', selectedViewId: 'focus' } });
 		state.patch({ calendar: { highlightOnboarding: true, showStatusText: true } });
 		expect(state.value).toEqual({
-			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+			calendar: {
+				showStatusText: true,
+				showPersonnelRoles: false,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'bravo',
 				selectedViewId: 'focus',
@@ -156,7 +180,14 @@ describe('AccountPreferencesState', () => {
 		server.requests[0].confirm();
 		await settleReplies();
 		expect(server.saved).toEqual({
-			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+			calendar: {
+				showStatusText: true,
+				showPersonnelRoles: false,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'bravo',
 				selectedViewId: 'focus',
@@ -183,7 +214,14 @@ describe('AccountPreferencesState', () => {
 		await vi.advanceTimersByTimeAsync(350);
 		expect(server.requests).toHaveLength(1);
 		expect(state.value).toEqual({
-			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+			calendar: {
+				showStatusText: true,
+				showPersonnelRoles: false,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'bravo',
 				selectedViewId: 'focus',
@@ -201,7 +239,14 @@ describe('AccountPreferencesState', () => {
 			training: { selectedGroupId: 'bravo', matrixViewMode: 'alphabetical' }
 		});
 		expect(state.value).toEqual({
-			calendar: { showStatusText: true, showPersonnelRoles: true, highlightOnboarding: true },
+			calendar: {
+				showStatusText: true,
+				showPersonnelRoles: true,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'bravo',
 				selectedViewId: 'focus',
@@ -214,7 +259,14 @@ describe('AccountPreferencesState', () => {
 		server.requests[1].confirm();
 		await settleReplies();
 		expect(server.saved).toEqual({
-			calendar: { showStatusText: true, showPersonnelRoles: true, highlightOnboarding: true },
+			calendar: {
+				showStatusText: true,
+				showPersonnelRoles: true,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'bravo',
 				selectedViewId: 'focus',
@@ -251,7 +303,14 @@ describe('AccountPreferencesState', () => {
 			'malformed success',
 			(request: PendingSave) =>
 				request.respond({
-					calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+					calendar: {
+						showStatusText: true,
+						showPersonnelRoles: false,
+						highlightOnboarding: true,
+						showDaysLane: true,
+						showEventLanes: true,
+						showAssignmentLanes: true
+					},
 					training: { selectedGroupId: 'alpha', selectedViewId: null, matrixViewMode: 'unexpected' }
 				})
 		],
@@ -266,7 +325,14 @@ describe('AccountPreferencesState', () => {
 		await settleReplies();
 		expect(onError).toHaveBeenCalledTimes(1);
 		expect(state.value).toEqual({
-			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+			calendar: {
+				showStatusText: true,
+				showPersonnelRoles: false,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'alpha',
 				selectedViewId: null,
@@ -287,7 +353,14 @@ describe('AccountPreferencesState', () => {
 		server.requests[1].confirm();
 		await settleReplies();
 		expect(server.saved).toEqual({
-			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+			calendar: {
+				showStatusText: true,
+				showPersonnelRoles: false,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'alpha',
 				selectedViewId: 'focus',
@@ -318,7 +391,14 @@ describe('AccountPreferencesState', () => {
 		server.requests[1].confirm();
 		await settleReplies();
 		expect(server.saved).toEqual({
-			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+			calendar: {
+				showStatusText: true,
+				showPersonnelRoles: false,
+				highlightOnboarding: true,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			},
 			training: {
 				selectedGroupId: 'bravo',
 				selectedViewId: 'focus',
@@ -358,7 +438,14 @@ describe('AccountPreferencesState', () => {
 			await vi.advanceTimersByTimeAsync(10_000);
 			expect(server.requests).toHaveLength(1);
 			expect(state.value).toEqual({
-				calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
+				calendar: {
+					showStatusText: false,
+					showPersonnelRoles: false,
+					highlightOnboarding: true,
+					showDaysLane: true,
+					showEventLanes: true,
+					showAssignmentLanes: true
+				},
 				training: {
 					selectedGroupId: 'bravo',
 					selectedViewId: 'focus',

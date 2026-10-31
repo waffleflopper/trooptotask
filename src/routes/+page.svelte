@@ -33,13 +33,21 @@
 		content="One system for calendar, personnel, training, evaluations and onboarding, built for the company."
 	/>
 	<meta property="og:url" content="https://trooptotask.org" />
-	<meta property="og:image" content="https://trooptotask.org/og-image.png" />
+	<meta property="og:image" content="https://trooptotask.org/og-image.png?v=2" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
+	<meta
+		property="og:image:alt"
+		content="TroopToTask: less time on admin, more time with Soldiers. Above a view of the unit dashboard showing 19 of 22 Soldiers available."
+	/>
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="TroopToTask — Less Time on Admin, More Time with Soldiers" />
 	<meta name="twitter:description" content="One system that keeps the whole formation current." />
-	<meta name="twitter:image" content="https://trooptotask.org/og-image.png" />
+	<meta name="twitter:image" content="https://trooptotask.org/og-image.png?v=2" />
+	<meta
+		name="twitter:image:alt"
+		content="TroopToTask: less time on admin, more time with Soldiers. Above a view of the unit dashboard showing 19 of 22 Soldiers available."
+	/>
 </svelte:head>
 
 <PublicShell signedIn={data.signedIn}>

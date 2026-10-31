@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onMount, type Snippet } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import { endOrganizationLifetime } from '$lib/stores/core';
 	import AccountPreferencesProvider from '$features/identity/AccountPreferencesProvider.svelte';
@@ -59,7 +59,7 @@
 		showWhatsNew = true;
 	}
 	function openFeedback() {
-		feedbackPageUrl = $page.url.pathname;
+		feedbackPageUrl = page.url.pathname;
 		showFeedback = true;
 	}
 	function closeWhatsNew() {

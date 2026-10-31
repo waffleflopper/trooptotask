@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
-import type { ActionResult } from '@sveltejs/kit';
+import type { ActionResult } from '$app/forms';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
@@ -140,7 +140,7 @@ it.each(['failure', 'redirect'] as const)(
 	}
 );
 
-const serverError: ActionResult = { type: 'error', status: 500, error: { message: 'Internal Error' } };
+const serverError: ActionResult = { type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } };
 
 async function chooseTransferTarget() {
 	const data = makeData();
@@ -172,7 +172,12 @@ async function openTransfer() {
 it.each([
 	[
 		'failure',
-		{ type: 'failure', status: 409, data: { transferError: 'Member is no longer eligible' } } as ActionResult
+		{
+			type: 'failure',
+			status: 409,
+			location: '/',
+			data: { transferError: 'Member is no longer eligible' }
+		} as ActionResult
 	],
 	['error', serverError]
 ])('shows a %s transfer in an Alert inside its dialog and keeps the confirmation', async (_kind, result) => {

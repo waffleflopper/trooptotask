@@ -88,7 +88,7 @@
 	}
 
 	function navigate(next: Partial<ActivityQuery>, options: { replace?: boolean } = {}) {
-		goto(href({ ...query, page: 1, ...next }), { keepFocus: true, noScroll: true, replaceState: options.replace });
+		goto(href({ ...query, page: 1, ...next }), { reset: false, replace: options.replace });
 	}
 
 	const search = createAdminUrlSearch(

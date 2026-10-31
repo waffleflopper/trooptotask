@@ -253,8 +253,7 @@ export class TrainingPageContext {
 		this.#recordOpener = opener;
 		this.#steppedFrom = person.id;
 		void goto(this.#recordTarget(person.id), {
-			noScroll: true,
-			keepFocus: true,
+			reset: false,
 			state: { trainingRecord: true }
 		});
 	}
@@ -264,9 +263,8 @@ export class TrainingPageContext {
 		const target = direction === -1 ? previous : next;
 		if (!target) return;
 		void goto(this.#recordTarget(target.id), {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true,
+			replace: true,
+			reset: false,
 			state: { ...page.state }
 		});
 	}
@@ -278,7 +276,7 @@ export class TrainingPageContext {
 	}
 
 	dropRecordParam(): void {
-		void goto(this.#recordTarget(null), { replaceState: true, noScroll: true, keepFocus: true });
+		void goto(this.#recordTarget(null), { replace: true, reset: false });
 	}
 
 	/** Puts focus back on the name (or cell) that opened the record, or on the open Soldier's name if that scrolled away. */
@@ -297,7 +295,7 @@ export class TrainingPageContext {
 		if (personId) params.set(RECORD_PARAM, personId);
 		else params.delete(RECORD_PARAM);
 		const query = params.toString();
-		return resolve(`${page.url.pathname}${query ? `?${query}` : ''}` as `/org/${string}/training`);
+		return resolve(`${page.url.pathname}${query ? `?${query}` : ''}` as '/');
 	}
 
 	setSelectedGroupId(groupId: string): void {

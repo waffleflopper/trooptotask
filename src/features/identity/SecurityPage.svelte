@@ -14,7 +14,7 @@
 	import Check from '@lucide/svelte/icons/check';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';

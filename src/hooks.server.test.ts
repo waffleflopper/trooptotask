@@ -5,7 +5,8 @@ vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 's
 import { passwordSessionToken } from './tests/fixtures/passwordSession';
 import { setCompletedAuthFlowCookie, setPendingAuthFlowCookie } from './features/identity/index.server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Cookies, Handle, RequestHandler } from '@sveltejs/kit';
+import type { Cookies, RequestHandler } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
 import { POST as enrollMfa } from './routes/api/auth/mfa/enroll/+server';
 import { POST as verifyMfaEnrollment } from './routes/api/auth/mfa/enroll/verify/+server';
 import { POST as cancelMfaEnrollment } from './routes/api/auth/mfa/enroll/cancel/+server';
@@ -342,8 +343,8 @@ describe('server auth hook', () => {
 				}
 			);
 			const request = harness.createEvent('/admin/organizations/org-a');
-			request.params = { orgId: 'org-a' };
-			request.route = { id: '/admin/organizations/[orgId]' };
+			Object.assign(request, { params: { orgId: 'org-a' } });
+			Object.assign(request, { route: { id: '/admin/organizations/[orgId]' } });
 			await expect(harness.handle({ event: request, resolve: harness.resolve })).resolves.toBeInstanceOf(Response);
 			expect(harness.organizationLookup).not.toHaveBeenCalled();
 			expect(harness.resolve).toHaveBeenCalledOnce();
@@ -364,9 +365,9 @@ describe('server auth hook', () => {
 			async (method, route, organizationResult, status) => {
 				const harness = await createAuthenticatedHookHarness({ data: false, error: null }, { organizationResult });
 				const request = harness.createEvent('/org/org-a/settings/members');
-				request.request = new Request(request.url, { method });
-				request.params = { orgId: 'org-a' };
-				request.route = { id: route };
+				Object.assign(request, { request: new Request(request.url, { method }) });
+				Object.assign(request, { params: { orgId: 'org-a' } });
+				Object.assign(request, { route: { id: route } });
 				await expect(harness.handle({ event: request, resolve: harness.resolve })).rejects.toMatchObject({ status });
 				expect(harness.resolve).not.toHaveBeenCalled();
 			}
@@ -380,9 +381,9 @@ describe('server auth hook', () => {
 				}
 			);
 			const request = harness.createEvent('/org/org-a');
-			request.request = new Request(request.url);
-			request.params = { orgId: 'org-a' };
-			request.route = { id: '/org/[orgId]' };
+			Object.assign(request, { request: new Request(request.url) });
+			Object.assign(request, { params: { orgId: 'org-a' } });
+			Object.assign(request, { route: { id: '/org/[orgId]' } });
 			await expect(harness.handle({ event: request, resolve: harness.resolve })).resolves.toBeInstanceOf(Response);
 			expect(harness.resolve).toHaveBeenCalledOnce();
 		});
@@ -432,7 +433,7 @@ describe('server auth hook', () => {
 					'sb-example-auth-token': 'session',
 					ttt_pending_auth_flow: signedFlow('invite')
 				});
-				const dispatch = (event: Parameters<Handle>[0]['event']) => POST(event as Parameters<typeof POST>[0]);
+				const dispatch = async (event: Parameters<Handle>[0]['event']) => POST(event as Parameters<typeof POST>[0]);
 				const response = await h.handle({ event, resolve: dispatch });
 				expect(response.status).toBe(mode === 'unavailable after hook' ? 503 : 403);
 				expect(profile).not.toHaveBeenCalled();
@@ -468,11 +469,13 @@ describe('server auth hook', () => {
 				'sb-example-auth-token': 'session',
 				ttt_pending_auth_flow: 'recovery'
 			});
-			event.request = new Request(event.url, {
-				method: 'POST',
-				body: JSON.stringify({ password: 'NewSecurePass12' })
+			Object.assign(event, {
+				request: new Request(event.url, {
+					method: 'POST',
+					body: JSON.stringify({ password: 'NewSecurePass12' })
+				})
 			});
-			const response = await h.handle({ event, resolve: (event) => POST(event as Parameters<typeof POST>[0]) });
+			const response = await h.handle({ event, resolve: async (event) => POST(event as Parameters<typeof POST>[0]) });
 			expect(response.status).toBe(400);
 			expect(await response.json()).toEqual({ error: 'Current password is required' });
 			expect(h.updateUser).not.toHaveBeenCalled();
@@ -486,20 +489,22 @@ describe('server auth hook', () => {
 				'sb-example-auth-token': 'session',
 				...(flow ? { ttt_pending_auth_flow: signedFlow(flow) } : {})
 			});
-			event.request = new Request(event.url, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(
-					flow
-						? { password: 'NewSecurePass12' }
-						: {
-								currentPassword: 'OldSecurePass12',
-								password: 'NewSecurePass12',
-								confirmPassword: 'NewSecurePass12'
-							}
-				)
+			Object.assign(event, {
+				request: new Request(event.url, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(
+						flow
+							? { password: 'NewSecurePass12' }
+							: {
+									currentPassword: 'OldSecurePass12',
+									password: 'NewSecurePass12',
+									confirmPassword: 'NewSecurePass12'
+								}
+					)
+				})
 			});
-			const response = await h.handle({ event, resolve: (event) => POST(event as Parameters<typeof POST>[0]) });
+			const response = await h.handle({ event, resolve: async (event) => POST(event as Parameters<typeof POST>[0]) });
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({ ok: true });
 			expect(limit).toHaveBeenCalledWith({ userId: 'user-1', ip: '127.0.0.1' });
@@ -530,18 +535,20 @@ describe('server auth hook', () => {
 						'sb-example-auth-token': 'session',
 						...(flow ? { ttt_pending_auth_flow: signedFlow(flow) } : {})
 					});
-					event.request = new Request(event.url, {
-						method: 'POST',
-						body: JSON.stringify({
-							currentPassword: 'OldSecurePass12',
-							password: 'NewSecurePass12',
-							confirmPassword: 'NewSecurePass12'
+					Object.assign(event, {
+						request: new Request(event.url, {
+							method: 'POST',
+							body: JSON.stringify({
+								currentPassword: 'OldSecurePass12',
+								password: 'NewSecurePass12',
+								confirmPassword: 'NewSecurePass12'
+							})
 						})
 					});
 					return event;
 				};
 				const event = request();
-				const response = await h.handle({ event, resolve: (event) => POST(event as Parameters<typeof POST>[0]) });
+				const response = await h.handle({ event, resolve: async (event) => POST(event as Parameters<typeof POST>[0]) });
 				expect(response.status).toBe(403);
 				expect(await response.json()).toMatchObject({ code: 'mfa_required' });
 				expect(h.updateUser).not.toHaveBeenCalled();
@@ -549,7 +556,7 @@ describe('server auth hook', () => {
 				expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow ? signedFlow(flow) : undefined);
 				const retry = await h.handle({
 					event: request(),
-					resolve: (event) => POST(event as Parameters<typeof POST>[0])
+					resolve: async (event) => POST(event as Parameters<typeof POST>[0])
 				});
 				expect(retry.status).toBe(200);
 				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({
@@ -569,13 +576,15 @@ describe('server auth hook', () => {
 					'sb-example-auth-token': 'session',
 					ttt_pending_auth_flow: signedFlow(flow)
 				});
-				initial.request = new Request(initial.url, {
-					method: 'POST',
-					body: JSON.stringify({ password: 'NewSecurePass12' })
+				Object.assign(initial, {
+					request: new Request(initial.url, {
+						method: 'POST',
+						body: JSON.stringify({ password: 'NewSecurePass12' })
+					})
 				});
 				const partial = await h.handle({
 					event: initial,
-					resolve: (event) => POST(event as Parameters<typeof POST>[0])
+					resolve: async (event) => POST(event as Parameters<typeof POST>[0])
 				});
 				expect(partial.status).toBe(202);
 				expect(initial.cookies.get('ttt_pending_auth_flow')).toBe(signedFlow(flow));
@@ -583,10 +592,12 @@ describe('server auth hook', () => {
 					'/api/auth/update-password',
 					Object.fromEntries(initial.cookies.getAll().map(({ name, value }) => [name, value]))
 				);
-				reloaded.request = new Request(reloaded.url, { method: 'POST', body: JSON.stringify({ action: 'complete' }) });
+				Object.assign(reloaded, {
+					request: new Request(reloaded.url, { method: 'POST', body: JSON.stringify({ action: 'complete' }) })
+				});
 				const completed = await h.handle({
 					event: reloaded,
-					resolve: (event) => POST(event as Parameters<typeof POST>[0])
+					resolve: async (event) => POST(event as Parameters<typeof POST>[0])
 				});
 				expect(completed.status).toBe(200);
 				expect(h.updateUser).toHaveBeenCalledExactlyOnceWith({
@@ -607,8 +618,10 @@ describe('server auth hook', () => {
 			const h = await createAuthenticatedHookHarness({ data: false, error: null });
 			const { POST } = await import('./routes/api/auth/update-password/+server');
 			const event = h.createEvent('/api/auth/update-password', {});
-			event.request = new Request(event.url, { method: 'POST', body: JSON.stringify({ password: 'NewSecurePass12' }) });
-			const response = await h.handle({ event, resolve: (event) => POST(event as Parameters<typeof POST>[0]) });
+			Object.assign(event, {
+				request: new Request(event.url, { method: 'POST', body: JSON.stringify({ password: 'NewSecurePass12' }) })
+			});
+			const response = await h.handle({ event, resolve: async (event) => POST(event as Parameters<typeof POST>[0]) });
 			expect(response.status).toBe(401);
 			expect(limit).not.toHaveBeenCalled();
 			expect(h.signInWithPassword).not.toHaveBeenCalled();
@@ -638,7 +651,7 @@ describe('server auth hook', () => {
 				if (anonymous) harness.getSession.mockResolvedValue({ data: { session: null }, error: null });
 				const request = (ip = '198.51.100.1') => {
 					const event = harness.createEvent(path, anonymous ? {} : undefined);
-					event.getClientAddress = () => ip;
+					Object.assign(event, { getClientAddress: () => ip });
 					return event;
 				};
 				for (let attempt = 0; attempt < limit; attempt++) {
@@ -676,10 +689,12 @@ describe('server auth hook', () => {
 			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
 			const request = () => {
 				const event = harness.createEvent('/auth/login', {});
-				event.getClientAddress = () => '198.51.100.15';
-				event.request = new Request(event.url, {
-					method: 'POST',
-					headers: { 'x-sveltekit-action': 'true' }
+				Object.assign(event, { getClientAddress: () => '198.51.100.15' });
+				Object.assign(event, {
+					request: new Request(event.url, {
+						method: 'POST',
+						headers: { 'x-sveltekit-action': 'true' }
+					})
 				});
 				return event;
 			};
@@ -701,16 +716,18 @@ describe('server auth hook', () => {
 	describe('MFA endpoint request admission', () => {
 		function dispatch(route: (typeof mfaRoutes)[number]) {
 			return vi.fn(async (event: Parameters<Handle>[0]['event']) => {
-				event.request = new Request(
-					event.url,
-					route.body === undefined
-						? {}
-						: {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify(route.body)
-							}
-				);
+				Object.assign(event, {
+					request: new Request(
+						event.url,
+						route.body === undefined
+							? {}
+							: {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify(route.body)
+								}
+					)
+				});
 				return (route.handler as RequestHandler)(event);
 			});
 		}

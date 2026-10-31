@@ -149,9 +149,8 @@ describe('BulkStatusPage', () => {
 		await fireEvent.click(screen.getByRole('radio', { name: 'Remove' }));
 
 		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar/bulk?tab=remove', {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
+			replace: true,
+			reset: false
 		});
 	});
 

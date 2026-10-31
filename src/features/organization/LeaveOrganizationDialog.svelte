@@ -40,7 +40,7 @@
 			<form
 				id="leave-organization-form"
 				method="POST"
-				action={resolve(`/org/${orgUrlSegment}?/leaveOrganization`)}
+				action={resolve(`/org/${orgUrlSegment}?/leaveOrganization` as '/')}
 				class="grid gap-3"
 				onsubmit={(event) => {
 					if (!canSubmit) event.preventDefault();

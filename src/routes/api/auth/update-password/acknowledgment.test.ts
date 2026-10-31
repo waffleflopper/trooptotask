@@ -90,9 +90,11 @@ it('keeps a rejected mutation retryable and completes only an acknowledged retry
 	expect(h.auth.admin.signOut).not.toHaveBeenCalled();
 	expect(h.cookies.delete).not.toHaveBeenCalled();
 	const restart = h.event();
-	restart.request = new Request('https://app.invalid/api/auth/update-password', {
-		method: 'POST',
-		body: JSON.stringify({ action: 'restart' })
+	Object.assign(restart, {
+		request: new Request('https://app.invalid/api/auth/update-password', {
+			method: 'POST',
+			body: JSON.stringify({ action: 'restart' })
+		})
 	});
 	expect((await POST(restart)).status).toBe(200);
 	attemptStore.committed = true;
@@ -120,9 +122,11 @@ it('recovers a committed mutation despite a lost provider response and without r
 	expect((await POST(h.event())).status).toBe(202);
 	expect(h.cookies.set).not.toHaveBeenCalled();
 	const retry = h.event();
-	retry.request = new Request('https://app.invalid/api/auth/update-password', {
-		method: 'POST',
-		body: JSON.stringify({ action: 'complete' })
+	Object.assign(retry, {
+		request: new Request('https://app.invalid/api/auth/update-password', {
+			method: 'POST',
+			body: JSON.stringify({ action: 'complete' })
+		})
 	});
 	expect((await POST(retry)).status).toBe(200);
 	expect(h.auth.updateUser).toHaveBeenCalledOnce();

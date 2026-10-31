@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import type { SubmitFunction } from '@sveltejs/kit';
+import type { SubmitFunction } from '$app/forms';
 import type { InboxDetailOf } from '../../inboxTypes';
 
 const forms = vi.hoisted(() => ({ submits: [] as SubmitFunction[] }));

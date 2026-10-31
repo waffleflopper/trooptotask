@@ -132,7 +132,7 @@
 					loading = true;
 					return async ({ update }) => {
 						loading = false;
-						await update();
+						await update({ navigate: false });
 					};
 				}}
 			>
@@ -169,7 +169,7 @@
 					loading = true;
 					return async ({ update }) => {
 						loading = false;
-						await update();
+						await update({ navigate: false });
 					};
 				}}
 				class="flex flex-col gap-5"
@@ -239,7 +239,7 @@
 							checkingStatus = true;
 							return async ({ update }) => {
 								checkingStatus = false;
-								await update();
+								await update({ navigate: false });
 							};
 						}}
 					>

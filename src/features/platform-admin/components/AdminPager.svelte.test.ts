@@ -34,7 +34,7 @@ describe('AdminPager', () => {
 		await fireEvent.click(next);
 
 		await waitFor(() => expect(screen.getByText('Page 2 of 3')).toBeTruthy());
-		expect(goto).toHaveBeenCalledWith('/admin/people?page=2', { keepFocus: true });
+		expect(goto).toHaveBeenCalledWith('/admin/people?page=2', { reset: false });
 		expect(document.activeElement).toBe(next);
 	});
 

@@ -80,7 +80,7 @@ describe('DA 6 setup mode', () => {
 				])
 			})
 		);
-		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replaceState: true });
+		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replace: true });
 	});
 
 	it('sends every shown box, with an empty one as a clear, so a number with no box is never touched', async () => {
@@ -111,7 +111,7 @@ describe('DA 6 setup mode', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Skip, start everyone even' }));
 
 		expect(saveMock).not.toHaveBeenCalled();
-		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replaceState: true });
+		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replace: true });
 	});
 
 	it('offers Cancel instead of Skip once starting numbers are saved, and leaves them as they are', async () => {
@@ -121,7 +121,7 @@ describe('DA 6 setup mode', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
 		expect(saveMock).not.toHaveBeenCalled();
-		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replaceState: true });
+		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replace: true });
 	});
 
 	it('shows the record, not the unsaved numbers, when a save is refused because duty was pulled', async () => {

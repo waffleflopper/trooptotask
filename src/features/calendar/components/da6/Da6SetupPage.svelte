@@ -87,7 +87,7 @@
 	}
 
 	function leave() {
-		void goto(resolve(da6 as `/org/${string}`), { replaceState: true });
+		void goto(resolve(da6 as '/'), { replace: true });
 	}
 
 	async function save(current: Da6SetupForm, roster: Da6Setup['roster']) {

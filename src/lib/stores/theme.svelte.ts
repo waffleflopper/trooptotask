@@ -2,7 +2,7 @@
  * Starts with the server-rendered default, then reads `localStorage` on mount.
  * Call `themeStore.init()` in the root layout's `onMount` to sync the DOM after hydration.
  */
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 class ThemeStore {
 	#theme = $state<'light' | 'dark'>('light');

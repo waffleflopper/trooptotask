@@ -67,7 +67,7 @@
 
 	function show(next: Partial<PeopleView>, replaceState = false) {
 		const target = href({ search: data.search, filter: data.filter, sort: data.sort, page: 1, ...next });
-		return goto(resolve(target as '/admin/people'), { keepFocus: true, noScroll: true, replaceState });
+		return goto(resolve(target as '/admin/people'), { reset: false, replace: replaceState });
 	}
 
 	const search = createAdminUrlSearch(

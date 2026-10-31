@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { onDestroy } from 'svelte';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';

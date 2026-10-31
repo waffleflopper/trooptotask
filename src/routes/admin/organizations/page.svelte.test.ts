@@ -112,8 +112,7 @@ describe('admin organizations page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Members' }));
 
 		expect(goto).toHaveBeenCalledWith('/admin/organizations?q=able&filter=quiet&sort=members&dir=desc', {
-			keepFocus: true,
-			noScroll: true
+			reset: false
 		});
 	});
 
@@ -156,8 +155,7 @@ describe('admin organizations page', () => {
 		renderPage(directoryPage(), { q: 'Able', pages: 3 });
 		await fireEvent.click(await screen.findByRole('radio', { name: /^Quiet 30\+ days/ }));
 		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?q=Able&filter=quiet', {
-			keepFocus: true,
-			noScroll: true
+			reset: false
 		});
 	});
 
@@ -172,9 +170,8 @@ describe('admin organizations page', () => {
 			await vi.advanceTimersByTimeAsync(300);
 			expect(goto).toHaveBeenCalledOnce();
 			expect(goto).toHaveBeenLastCalledWith('/admin/organizations?q=Able+%26+Baker&filter=active-week', {
-				keepFocus: true,
-				noScroll: true,
-				replaceState: true
+				reset: false,
+				replace: true
 			});
 			expect(document.activeElement).toBe(search);
 		} finally {
@@ -211,9 +208,8 @@ describe('admin organizations page', () => {
 		expect(await screen.findByText('Showing 1 of 60')).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
 		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?pages=2&q=Able&filter=suspended', {
-			keepFocus: true,
-			noScroll: true,
-			replaceState: true
+			reset: false,
+			replace: true
 		});
 		await view.rerender({
 			data: pageData(new Promise<Directory>(() => {}), { pages: 2, q: 'Able', filter: 'suspended' })

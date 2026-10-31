@@ -92,7 +92,7 @@ export class PersonnelRecordActions {
 			});
 			if (this.#disposed) return;
 			if (result === 'archived') {
-				await this.#deps.goto(this.#deps.resolve(`/org/${orgUrlSegment}/personnel`), {
+				await this.#deps.goto(this.#deps.resolve(`/org/${orgUrlSegment}/personnel` as '/'), {
 					invalidate: ['app:personnel-data']
 				});
 			} else {

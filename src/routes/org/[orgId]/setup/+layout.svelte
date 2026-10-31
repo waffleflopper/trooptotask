@@ -14,7 +14,7 @@
 				stepKey: page.data.setupStepKey ?? null,
 				navigating: navigating.to !== null && navigating.to.url.pathname !== navigating.from?.url.pathname
 			}),
-			(href, options) => goto(resolve(href), options)
+			(href, options) => goto(resolve(href as '/'), options)
 		)
 	);
 	beforeNavigate(({ from, to }) => flow.leave(from?.url.pathname, to?.url.pathname));

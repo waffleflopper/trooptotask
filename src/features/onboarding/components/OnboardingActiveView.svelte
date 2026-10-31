@@ -97,7 +97,7 @@
 	// The param is dropped once read, so a reload does not reopen a packet the viewer closed.
 	onMount(() => {
 		if (!page.url.searchParams.has('packet')) return;
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('packet');
 		replaceState(url, page.state);
 	});

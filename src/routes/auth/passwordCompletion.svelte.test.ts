@@ -2,8 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { writable } from 'svelte/store';
-import { page } from '$app/stores';
+import { page } from '$app/state';
 import SecurityPage from '$features/identity/SecurityPage.svelte';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
@@ -13,7 +12,7 @@ import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
-vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
+vi.mock('$app/state', () => ({ page: { data: { hasSession: true }, state: {} } }));
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
@@ -36,7 +35,7 @@ function renderSecurity(passwordCompletion: PasswordCompletionState = null) {
 describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed completion', (flow) => {
 	function mount(state: 'started' | 'pending' | 'complete' | 'failed' | 'expired' | null = null) {
 		const data = { hasSession: true, passwordCompletion: state };
-		(page as unknown as { set: (x: unknown) => void }).set({ data, state: {} });
+		Object.assign(page, { data, state: {} });
 		if (flow === 'security') return renderSecurity(state);
 		return flow === 'recovery' ? render(Recovery) : render(Invite);
 	}

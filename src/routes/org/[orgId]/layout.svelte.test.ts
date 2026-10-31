@@ -20,25 +20,26 @@ const { pageStore, invalidate } = vi.hoisted(() => {
 		route: { id: '/org/[orgId]/(dashboard)' },
 		error: null
 	};
-	const subscribers = new Set<(value: typeof current) => void>();
 	return {
 		invalidate: vi.fn(),
 		pageStore: {
-			subscribe(fn: (value: typeof current) => void) {
-				subscribers.add(fn);
-				fn(current);
-				return () => subscribers.delete(fn);
+			get page() {
+				return current;
 			},
 			setPath(path: string, routeId = '/org/[orgId]/(dashboard)', error: App.Error | null = null) {
 				current = { url: new URL(`https://example.test${path}`), data: {}, route: { id: routeId }, error };
-				for (const subscriber of subscribers) subscriber(current);
 			}
 		}
 	};
 });
 vi.mock('$app/navigation', () => ({ invalidate, goto: vi.fn(), afterNavigate: vi.fn() }));
-vi.mock('$app/stores', () => ({ page: { subscribe: pageStore.subscribe } }));
-vi.mock('$app/environment', () => ({ browser: true, dev: true, building: false, version: 'test' }));
+vi.mock('$app/state', () => ({
+	navigating: { to: null },
+	get page() {
+		return pageStore.page;
+	}
+}));
+vi.mock('$app/env', () => ({ browser: true, dev: true, building: false, version: 'test' }));
 // The neutral browser-storage adapter intentionally refuses Node, including happy-dom.
 vi.mock('$lib/utils/browserStorage', () => ({ getBrowserLocalStorage: () => window.localStorage }));
 
@@ -465,6 +466,7 @@ describe('organization layout feature off state', () => {
 
 	it('shows the off state a route reports when this shell still shows the feature on, and refreshes the shell', () => {
 		pageStore.setPath('/org/alpha/training/reports', '/org/[orgId]/training/reports', {
+			status: 403,
 			message: trainingOffMessage,
 			featureOff: 'training'
 		});

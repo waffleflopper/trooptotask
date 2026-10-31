@@ -2,7 +2,7 @@
 	import { AppShell } from '$features/app-shell';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { invalidate } from '$app/navigation';
 	import { findDisabledFeatureRoute } from '$lib/access/featureSwitches';
 	import WorkspaceFeatureOff from './WorkspaceFeatureOff.svelte';
@@ -10,7 +10,7 @@
 	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const suspendedShell = $derived(data.shell.kind === 'suspended' ? data.shell : null);
 	const featureOff = $derived(
-		readyShell && ($page.error?.featureOff ?? findDisabledFeatureRoute($page.route.id, readyShell.org.disabledFeatures))
+		readyShell && (page.error?.featureOff ?? findDisabledFeatureRoute(page.route.id, readyShell.org.disabledFeatures))
 	);
 
 	// A route that found its feature turned off after this shell loaded refreshes the shell, so navigation drops the feature too.

@@ -111,7 +111,7 @@
 	let listScroll = 0;
 
 	function show(state: { tab: InboxTab; filter: InboxFilter; item: InboxItemRef | null }, replaceState: boolean) {
-		return goto(resolve(inboxHref(state) as '/admin'), { replaceState, noScroll: true, keepFocus: true });
+		return goto(resolve(inboxHref(state) as '/admin'), { replace: replaceState, reset: false });
 	}
 
 	function showTab(next: InboxTab) {

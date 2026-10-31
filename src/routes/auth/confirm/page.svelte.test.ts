@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import type { SubmitFunction } from '@sveltejs/kit';
+import type { SubmitFunction } from '$app/forms';
 import Page from './+page.svelte';
 
 const transport = vi.hoisted(() => ({ send: vi.fn(), update: vi.fn() }));

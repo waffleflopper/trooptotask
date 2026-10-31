@@ -176,7 +176,7 @@
 								class="grid gap-x-4 gap-y-1 border-b border-border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_10rem] sm:items-center"
 							>
 								<a
-									href={resolve(`/admin/people/${member.userId}` as `/admin/people/${string}`)}
+									href={resolve(`/admin/people/${member.userId}` as '/')}
 									class="font-semibold wrap-anywhere text-foreground underline-offset-4 hover:underline"
 									>{member.email ?? '(unknown)'}</a
 								>

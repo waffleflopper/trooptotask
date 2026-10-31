@@ -126,7 +126,7 @@ describe('/org/new page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Create and start setup' }));
 		await enhanceRequests[0](
 			frameworkOutcome(
-				{ type: 'failure', status: 400, data: { error: 'Organization name is required' } },
+				{ type: 'failure', status: 400, location: '/', data: { error: 'Organization name is required' } },
 				{ applyForm: (form) => view.rerender({ form: form as never }) }
 			)
 		);
@@ -140,7 +140,7 @@ describe('/org/new page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Create and start setup' }));
 		await enhanceRequests[0](
 			frameworkOutcome(
-				{ type: 'error', status: 500, error: { message: 'Internal Error' } },
+				{ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } },
 				{ applyForm: (form) => view.rerender({ form: form as never }) }
 			)
 		);
@@ -185,7 +185,7 @@ describe('/org/new page', () => {
 
 		await enhanceRequests[0](
 			frameworkOutcome(
-				{ type: 'error', status: 500, error: { message: 'Internal Error' } },
+				{ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } },
 				{ applyForm: (form) => view.rerender({ form: form as never }) }
 			)
 		);
@@ -203,14 +203,14 @@ describe('/org/new page', () => {
 		await fireEvent.input(name, { target: { value: 'Taken' } });
 		await fireEvent.click(create);
 		await enhanceRequests[0](
-			frameworkOutcome({ type: 'failure', status: 400, data: { error: 'Name is already in use' } }, page)
+			frameworkOutcome({ type: 'failure', status: 400, location: '/', data: { error: 'Name is already in use' } }, page)
 		);
 		await waitFor(() => expect(name.getAttribute('aria-invalid')).toBe('true'));
 
 		await fireEvent.input(name, { target: { value: '2nd Battalion' } });
 		await fireEvent.click(create);
 		await enhanceRequests[1](
-			frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page)
+			frameworkOutcome({ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } }, page)
 		);
 
 		await waitFor(() =>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Mail from '@lucide/svelte/icons/mail';
 	import Search from '@lucide/svelte/icons/search';

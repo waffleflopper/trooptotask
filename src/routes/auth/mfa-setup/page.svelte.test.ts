@@ -72,7 +72,7 @@ it('turns MFA on from the sixth digit and returns to the continuation with fresh
 	renderPage();
 	await waitFor(() => expect(codeField()).toBeEnabled());
 	await fireEvent.input(codeField(), { target: { value: '123456' } });
-	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { refreshAll: true }));
 	expect(fetchMock).toHaveBeenLastCalledWith(
 		'/api/auth/mfa/enroll/verify',
 		expect.objectContaining({ body: JSON.stringify({ factorId: 'factor-1', code: '123456' }) })
@@ -94,7 +94,7 @@ it('ties a rejected code to the field and lets a new code retry', async () => {
 	expect(codeField()).toHaveValue('123456');
 	expect(goto).not.toHaveBeenCalled();
 	await fireEvent.input(codeField(), { target: { value: '654321' } });
-	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { refreshAll: true }));
 });
 
 it('shows an expired session as a form alert rather than a wrong code', async () => {
@@ -118,7 +118,7 @@ it('says MFA is already on instead of offering a second factor', async () => {
 	expect(await screen.findByRole('heading', { level: 1, name: 'MFA is on' })).toBeVisible();
 	expect(screen.queryByLabelText('6-digit code from the app')).toBeNull();
 	await fireEvent.click(screen.getByRole('button', { name: 'Back to security' }));
-	expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true });
+	expect(goto).toHaveBeenCalledWith(next, { refreshAll: true });
 });
 
 it('offers a retry when setup cannot start', async () => {
@@ -153,7 +153,7 @@ it('discards the pending factor when setup is cancelled', async () => {
 	renderPage();
 	await screen.findByRole('img', { name: 'QR code for your authenticator app' });
 	await fireEvent.click(screen.getByRole('button', { name: 'Cancel setup' }));
-	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { refreshAll: true }));
 	expect(fetchMock).toHaveBeenLastCalledWith(
 		'/api/auth/mfa/enroll/cancel',
 		expect.objectContaining({ body: JSON.stringify({ factorId: 'factor-1' }) })
@@ -175,7 +175,7 @@ it('holds Cancel while the sixth digit turns MFA on, so only the verification re
 	expect(codeField()).toBeDisabled();
 	await fireEvent.click(cancel);
 	finishVerify(Response.json({ ok: true }));
-	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { refreshAll: true }));
 	expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/auth/mfa/enroll', '/api/auth/mfa/enroll/verify']);
 });
 
@@ -193,7 +193,7 @@ it('holds the code field and Verify while a cancellation runs', async () => {
 	expect(screen.getByRole('button', { name: 'Verify and turn on' })).toBeDisabled();
 	await fireEvent.input(codeField(), { target: { value: '123456' } });
 	finishCancel(Response.json({ ok: true }));
-	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { refreshAll: true }));
 	expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/auth/mfa/enroll', '/api/auth/mfa/enroll/cancel']);
 });
 
@@ -220,7 +220,7 @@ it.each([
 	);
 	expect(codeField()).toHaveValue('12');
 	await fireEvent.click(screen.getByRole('button', { name: 'Cancel setup' }));
-	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { refreshAll: true }));
 	expect(fetchMock.mock.calls.slice(1).map(([url, init]) => [url, init.body])).toEqual([
 		['/api/auth/mfa/enroll/cancel', JSON.stringify({ factorId: 'factor-1' })],
 		['/api/auth/mfa/enroll/cancel', JSON.stringify({ factorId: 'factor-1' })]

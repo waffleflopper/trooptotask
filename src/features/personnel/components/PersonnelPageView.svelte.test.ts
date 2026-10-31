@@ -2269,9 +2269,8 @@ describe('PersonnelPageView', () => {
 
 			await fireEvent.click(await screen.findByRole('button', { name: /Expired or missing/ }));
 			expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel?show=expired', {
-				replaceState: true,
-				keepFocus: true,
-				noScroll: true
+				replace: true,
+				reset: false
 			});
 		});
 
@@ -2358,9 +2357,8 @@ describe('PersonnelPageView', () => {
 
 			await fireEvent.click(screen.getByRole('button', { name: /Not present/ }));
 			expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel', {
-				replaceState: true,
-				keepFocus: true,
-				noScroll: true
+				replace: true,
+				reset: false
 			});
 		});
 
@@ -2400,9 +2398,8 @@ describe('PersonnelPageView', () => {
 
 			await fireEvent.click(active);
 			expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel', {
-				replaceState: true,
-				keepFocus: true,
-				noScroll: true
+				replace: true,
+				reset: false
 			});
 		});
 
@@ -2423,9 +2420,8 @@ describe('PersonnelPageView', () => {
 
 			await waitFor(() =>
 				expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel', {
-					replaceState: true,
-					keepFocus: true,
-					noScroll: true
+					replace: true,
+					reset: false
 				})
 			);
 			expect(rowNames()).toEqual(['SGT Smith, Jane', 'SGT Young, Test']);

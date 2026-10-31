@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '$lib/server/database';
-import { type Handle, error, redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
 import { stringify } from 'devalue';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/access/rateLimit.server';
@@ -116,7 +117,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Layouts do not protect endpoints/actions. Keep page GETs available for the
 	// suspended shell, but admit every Organization write/API request on fresh status.
 	const orgSegment = event.params?.orgId;
-	const organizationRoute = '/org/[orgId]';
+	const organizationRoute: string = '/org/[orgId]';
 	const isOrganizationRoute =
 		event.route?.id === organizationRoute || event.route?.id?.startsWith(`${organizationRoute}/`);
 	const isOrganizationApi = event.route?.id?.startsWith('/org/[orgId]/api/');

@@ -13,7 +13,7 @@
 	// The request to add a tasking is spent on arrival, so Back or a reload never reopens the dialog.
 	onMount(() => {
 		if (!addTasking) return;
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('addTasking');
 		replaceState(url, page.state);
 	});

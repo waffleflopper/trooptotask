@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+import type { ActionResult, SubmitFunction } from '$app/forms';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import type { WhatsNewListEntry } from '$features/platform-admin/contracts';
 import type { PageData } from './$types';
@@ -28,8 +28,10 @@ vi.mock('$app/forms', () => ({
 	}
 }));
 
-import { page as pageState } from '$app/state';
+import { page } from '$app/state';
 import WhatsNew from './+page.svelte';
+
+const pageState = page as unknown as { url: URL };
 
 const draft: WhatsNewListEntry = {
 	id: 'draft-1',
@@ -185,7 +187,12 @@ describe('admin What’s New', () => {
 		const publish = await screen.findByRole('button', { name: 'Publish' });
 		const published = await submit(publish);
 		expect(published.input.formData.get('publishOn')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-		await published.finish({ type: 'failure', status: 400, data: { error: 'Add a paragraph before publishing' } });
+		await published.finish({
+			type: 'failure',
+			status: 400,
+			location: '/',
+			data: { error: 'Add a paragraph before publishing' }
+		});
 		const saved = await submit(screen.getByRole('button', { name: 'Save draft' }));
 		expect(saved.input.formData.has('publishOn')).toBe(false);
 	});
@@ -207,7 +214,7 @@ describe('admin What’s New', () => {
 		const title = screen.getByLabelText('Title') as HTMLInputElement;
 		expect(title.readOnly).toBe(true);
 		expect(screen.getByRole('button', { name: 'Move paragraph 2 up' })).toHaveProperty('disabled', true);
-		await request.finish({ type: 'success', status: 200, data: { id: 'live-1' } });
+		await request.finish({ type: 'success', status: 200, location: '/', data: { id: 'live-1' } });
 		expect(title.readOnly).toBe(true);
 		expect(screen.getByRole('button', { name: /Save changes/ }).getAttribute('aria-busy')).toBe('true');
 
@@ -232,7 +239,7 @@ describe('admin What’s New', () => {
 		const view = await renderPage('?entry=new');
 		await fireEvent.input(await screen.findByLabelText('Title'), { target: { value: 'Brand new' } });
 		const request = await submit(screen.getByRole('button', { name: 'Save draft' }));
-		await request.finish({ type: 'success', status: 200, data: { id: 'created-1' } });
+		await request.finish({ type: 'success', status: 200, location: '/', data: { id: 'created-1' } });
 		expect(gotoMock).not.toHaveBeenCalled();
 
 		await act(async () => {
@@ -250,7 +257,7 @@ describe('admin What’s New', () => {
 		const view = await renderPage('?entry=live-1');
 		await (
 			await submit(await screen.findByRole('button', { name: 'Save changes' }))
-		).finish({ type: 'success', status: 200, data: { id: 'live-1' } });
+		).finish({ type: 'success', status: 200, location: '/', data: { id: 'live-1' } });
 		await act(async () => {
 			await view.rerender({ data: data(Promise.resolve({ status: 'failed' as const })), form: null });
 		});
@@ -278,6 +285,7 @@ describe('admin What’s New', () => {
 		).finish({
 			type: 'failure',
 			status: 400,
+			location: '/',
 			data: { error: 'Title is required' }
 		});
 		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Typed title');
@@ -291,7 +299,7 @@ describe('admin What’s New', () => {
 		).finish({
 			type: 'error',
 			status: 500,
-			error: new Error('Private transport detail')
+			error: { status: 500, message: 'Private transport detail' }
 		});
 		expect(screen.queryByText(/Private transport detail/)).toBeNull();
 		expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true);
@@ -311,7 +319,7 @@ describe('admin What’s New', () => {
 		await fireEvent.input(screen.getByLabelText('Paragraph 1'), { target: { value: 'Typed body' } });
 		await (
 			await submit(screen.getByRole('button', { name: 'Save draft' }))
-		).finish({ type: 'error', status: 500, error: new Error('dropped') });
+		).finish({ type: 'error', status: 500, error: { status: 500, message: 'dropped' } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload entries' }));
 		await act(async () => {
@@ -353,7 +361,7 @@ describe('admin What’s New', () => {
 			await callback!({
 				...input,
 				...frameworkOutcome(
-					{ type: 'success', status: 200, data: { deleted: true } },
+					{ type: 'success', status: 200, location: '/', data: { deleted: true } },
 					{ form: deleteForm, applyForm: async () => {}, invalidate: () => invalidateAll() }
 				)
 			});
@@ -381,7 +389,7 @@ describe('admin What’s New', () => {
 		await act(() =>
 			navigation[0]({ to: { url: new URL('http://localhost/admin/audit') }, from: { url: pageState.url } })
 		);
-		await old.finish({ type: 'failure', status: 400, data: { error: 'Stale reply' } });
+		await old.finish({ type: 'failure', status: 400, location: '/', data: { error: 'Stale reply' } });
 		expect(screen.queryByText('Stale reply')).toBeNull();
 	});
 });

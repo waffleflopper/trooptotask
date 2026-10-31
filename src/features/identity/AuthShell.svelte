@@ -86,7 +86,7 @@
 			{#if signedIn}
 				<nav aria-label="Account" class="flex items-center gap-6 sm:gap-8">
 					{#if signedIn.account}
-						<a href={resolve('/account')} class={mastheadLink}>Account</a>
+						<a href={resolve('/account' as '/')} class={mastheadLink}>Account</a>
 					{/if}
 					<form method="POST" action={resolve('/auth/logout')} class="flex">
 						<button type="submit" class={cn(mastheadLink, 'cursor-pointer')}>Sign out</button>

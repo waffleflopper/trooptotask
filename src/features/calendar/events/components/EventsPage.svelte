@@ -84,8 +84,7 @@
 			label: 'Show',
 			options: VIEWS,
 			value: when,
-			onValueChange: (value) =>
-				void goto(value === 'past' ? `${eventsHref}?when=past` : eventsHref, { keepFocus: true, noScroll: true })
+			onValueChange: (value) => void goto(value === 'past' ? `${eventsHref}?when=past` : eventsHref, { reset: false })
 		}
 	]);
 

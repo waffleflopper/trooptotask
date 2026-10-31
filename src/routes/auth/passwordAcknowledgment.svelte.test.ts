@@ -2,7 +2,6 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { writable } from 'svelte/store';
 import { goto } from '$app/navigation';
 import SecurityPage from '$features/identity/SecurityPage.svelte';
 import Recovery from './reset-password/+page.svelte';
@@ -10,7 +9,7 @@ import Invite from './accept-invite/+page.svelte';
 import type { PasswordCompletionState } from '$features/identity/contracts';
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
-vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
+vi.mock('$app/state', () => ({ page: { data: { hasSession: true }, state: {} } }));
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();

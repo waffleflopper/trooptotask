@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onDestroy } from 'svelte';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
@@ -47,7 +47,7 @@
 				// Without show=all the reload would send someone left with one Organization straight into it.
 				const stay =
 					result.type === 'success' && page.url.searchParams.get('show') !== 'all'
-						? () => goto(listHref, { replaceState: true, keepFocus: true, noScroll: true, invalidateAll: true })
+						? () => goto(listHref, { replace: true, reset: false, refreshAll: true })
 						: update;
 				// A resolved invitation leaves the list; a failed one keeps its row and button.
 				await settleAction(
@@ -220,7 +220,7 @@
 					{#each filteredOrgs as org (org.id)}
 						<li class="border-b">
 							<a
-								href={resolve(`/org/${org.urlSegment ?? org.id}` as `/org/${string}`)}
+								href={resolve(`/org/${org.urlSegment ?? org.id}` as '/')}
 								class="flex min-h-14 items-center gap-4 py-3 pr-1 text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
 							>
 								<span class="min-w-0 grow text-base leading-[22px] font-medium">{org.name}</span>

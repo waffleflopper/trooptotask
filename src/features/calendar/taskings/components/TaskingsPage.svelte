@@ -150,9 +150,8 @@
 
 	function show(next: Partial<TaskingFilters>, replaceState = false) {
 		void goto(`${taskingsHref}${taskingFiltersQuery({ ...filters, ...next })}`, {
-			keepFocus: true,
-			noScroll: true,
-			replaceState
+			reset: false,
+			replace: replaceState
 		});
 	}
 
@@ -285,8 +284,7 @@
 					{@const current = filters.view === chip.view}
 					<a
 						href={viewHref(chip.view)}
-						data-sveltekit-keepfocus
-						data-sveltekit-noscroll
+						data-sveltekit-reset="false"
 						aria-current={current ? 'page' : undefined}
 						class={[
 							'inline-flex h-[30px] items-center gap-2 rounded-full px-3 text-[13px] font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',

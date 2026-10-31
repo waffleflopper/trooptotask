@@ -160,7 +160,7 @@ describe('PersonnelDataSheetEditor', () => {
 
 		await waitFor(() =>
 			expect(gotoMock).toHaveBeenCalledWith('/org/org-alpha/personnel/rivera-cole-monica/data-sheet', {
-				replaceState: true,
+				replace: true,
 				invalidate: ['app:personnel-detail-header', 'app:personnel-detail-data-sheet']
 			})
 		);
@@ -209,7 +209,7 @@ describe('PersonnelDataSheetEditor', () => {
 
 		await waitFor(() =>
 			expect(gotoMock).toHaveBeenCalledWith('/org/org-alpha/personnel/rivera-monica/data-sheet', {
-				replaceState: true
+				replace: true
 			})
 		);
 	});

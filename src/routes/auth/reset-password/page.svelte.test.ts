@@ -2,8 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { writable, type Writable } from 'svelte/store';
-import { page } from '$app/stores';
+import { page } from '$app/state';
 import { goto } from '$app/navigation';
 import { tick } from 'svelte';
 import Page from './+page.svelte';
@@ -12,13 +11,9 @@ import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 controlCodeFieldTimers();
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
-vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
-const recoveryPage = page as unknown as Writable<{
-	data: { hasSession: boolean; passwordCompletion?: 'complete' | null };
-	state: object;
-}>;
+vi.mock('$app/state', () => ({ page: { data: { hasSession: true }, state: {} } }));
 afterEach(() => {
-	recoveryPage.set({ data: { hasSession: true }, state: {} });
+	Object.assign(page, { data: { hasSession: true }, state: {} });
 	window.history.replaceState({}, '', '/auth/reset-password');
 	cleanup();
 	vi.unstubAllGlobals();
@@ -26,7 +21,7 @@ afterEach(() => {
 });
 
 it('takes a completed recovery reload to the dashboard without navigating after the page is left', async () => {
-	recoveryPage.set({ data: { hasSession: true, passwordCompletion: 'complete' }, state: {} });
+	Object.assign(page, { data: { hasSession: true, passwordCompletion: 'complete' }, state: {} });
 	const first = render(Page);
 	await tick();
 	expect(screen.getByRole('heading', { name: 'Password updated' })).toBeVisible();
@@ -189,7 +184,7 @@ it.each([
 );
 
 it('keeps a missing recovery session unavailable without offering a status retry', async () => {
-	recoveryPage.set({ data: { hasSession: false }, state: {} });
+	Object.assign(page, { data: { hasSession: false }, state: {} });
 	const fetchMock = vi.fn();
 	vi.stubGlobal('fetch', fetchMock);
 	render(Page);

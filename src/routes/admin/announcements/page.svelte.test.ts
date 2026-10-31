@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+import type { ActionResult, SubmitFunction } from '$app/forms';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import type { PlatformAnnouncement } from '$features/platform-admin/contracts';
 import Banners from './+page.svelte';
@@ -60,11 +60,11 @@ async function land(view: Awaited<ReturnType<typeof renderBanners>>, data = bann
 		await view.rerender({ data, form: null });
 	});
 }
-const failed: ActionResult = { type: 'failure', status: 400, data: { error: 'Current request failed' } };
-const succeeded: ActionResult = { type: 'success', status: 200, data: { success: true } };
+const failed: ActionResult = { type: 'failure', status: 400, location: '/', data: { error: 'Current request failed' } };
+const succeeded: ActionResult = { type: 'success', status: 200, location: '/', data: { success: true } };
 const uncertainResults: ActionResult[] = [
-	{ type: 'error', status: 500, error: new Error('Private transport detail') },
-	{ type: 'failure', status: 500, data: { error: 'Private provider detail' } }
+	{ type: 'error', status: 500, error: { status: 500, message: 'Private transport detail' } },
+	{ type: 'failure', status: 500, location: '/', data: { error: 'Private provider detail' } }
 ];
 
 beforeEach(() => {

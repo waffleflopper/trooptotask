@@ -7,7 +7,7 @@
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { navigating } from '$app/state';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onDestroy, tick, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import Bell from '@lucide/svelte/icons/bell';
@@ -101,9 +101,9 @@
 	let notificationCountLoading = $state(false);
 	let localUnreadCount = $state(0);
 	const notificationScope = $derived(`${userId}/${orgId}/${orgUrlSegment}/${membershipId ?? ''}`);
-	const pathname = $derived($page.url.pathname);
+	const pathname = $derived(page.url.pathname);
 	const routeLeafLabel = $derived(
-		typeof $page.data?.breadcrumbLabel === 'string' ? $page.data.breadcrumbLabel : undefined
+		typeof page.data?.breadcrumbLabel === 'string' ? page.data.breadcrumbLabel : undefined
 	);
 	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap, disabledFeatures));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
@@ -156,7 +156,7 @@
 
 		const orgPrefix = `/org/${orgUrlSegment}`;
 		const suffix = pathname.startsWith(orgPrefix) ? pathname.slice(orgPrefix.length) : '';
-		void goto(resolve(`/org/${targetOrgUrlSegment}${suffix}`));
+		void goto(resolve(`/org/${targetOrgUrlSegment}${suffix}` as '/'));
 	}
 
 	async function loadOrgSwitcherOrgs() {
@@ -271,7 +271,7 @@
 		notificationsOpen = false;
 
 		if (isCurrentNotificationRequest(scope, generation) && notification.link) {
-			void goto(resolve(notificationHref(notification.link, segment)));
+			void goto(resolve(notificationHref(notification.link, segment) as '/'));
 		}
 
 		if (!notification.read) {
@@ -466,7 +466,7 @@
 								</DropdownMenu.Group>
 								{#if canAccessOrganizationSettings}
 									<DropdownMenu.Separator />
-									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings/general`))}>
+									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings/general` as '/'))}>
 										<Settings />
 										Unit settings
 									</DropdownMenu.Item>
@@ -503,7 +503,7 @@
 								{#snippet child({ props })}
 									<a
 										{...props}
-										href={resolve(`/org/${orgUrlSegment}/settings/general`)}
+										href={resolve(`/org/${orgUrlSegment}/settings/general` as '/')}
 										aria-current={inSettings(pathname) ? 'page' : undefined}
 									>
 										<Settings />
@@ -553,7 +553,7 @@
 								<DropdownMenu.Group>
 									<DropdownMenu.Item>
 										{#snippet child({ props })}
-											<a {...props} href={resolve(`/org/${orgUrlSegment}/account/profile`)}>
+											<a {...props} href={resolve(`/org/${orgUrlSegment}/account/profile` as '/')}>
 												<CircleUser />
 												Account
 											</a>
@@ -617,7 +617,7 @@
 						{#each breadcrumbs as crumb, index (`${crumb.label}:${index}`)}
 							<Breadcrumb.Item class={crumbClass(index, breadcrumbs.length)}>
 								{#if crumb.href && index < breadcrumbs.length - 1}
-									<Breadcrumb.Link href={resolve(crumb.href as `/org/${string}`)} class="truncate">
+									<Breadcrumb.Link href={resolve(crumb.href as '/')} class="truncate">
 										{crumb.label}
 									</Breadcrumb.Link>
 								{:else}
@@ -719,7 +719,7 @@
 							<DropdownMenu.Separator />
 							<DropdownMenu.Item data-view-all>
 								{#snippet child({ props })}
-									<a {...props} href={resolve(`/org/${orgUrlSegment}/account/notifications`)}>View all</a>
+									<a {...props} href={resolve(`/org/${orgUrlSegment}/account/notifications` as '/')}>View all</a>
 								{/snippet}
 							</DropdownMenu.Item>
 						</DropdownMenu.Content>

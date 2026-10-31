@@ -6,11 +6,10 @@ import { redirectToSensitiveActionStepUp } from '$features/identity';
 import TransferOwnershipModal from './TransferOwnershipModal.svelte';
 
 vi.mock('$features/identity', () => ({ redirectToSensitiveActionStepUp: vi.fn(() => false) }));
-// Supply the empty framework decoder registry; the action envelope uses real deserialize.
-vi.mock('../../../../node_modules/@sveltejs/kit/src/runtime/server/app.js', () => ({ app: { decoders: {} } }));
-vi.mock('../../../../node_modules/@sveltejs/kit/src/runtime/client/client.js', async (importOriginal) => ({
+// The client entry normally initializes the transport that real deserialize uses.
+vi.mock('../../../../node_modules/@sveltejs/kit/src/runtime/app/internal/transport.js', async (importOriginal) => ({
 	...(await importOriginal<Record<string, unknown>>()),
-	app: { decoders: {} }
+	parse: (await import('devalue')).parse
 }));
 afterEach(() => {
 	cleanup();

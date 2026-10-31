@@ -1,4 +1,4 @@
-import type { ActionResult } from '@sveltejs/kit';
+import type { ActionResult } from '$app/forms';
 
 export interface FrameworkPage {
 	/** Applies an action's data to the component's `form` prop, like `applyAction` does. */
@@ -11,11 +11,13 @@ export interface FrameworkPage {
 	away?: boolean;
 	form?: HTMLFormElement;
 	location?: string;
+	/** The page the form is on; an action result from another page navigates there unless `navigate` is false. */
+	path?: string;
 	errorPage?: boolean;
 }
 
 /**
- * The `update` that SvelteKit 2 passes to a `use:enhance` callback, reduced to its observable effects:
+ * The `update` that SvelteKit 3 passes to a `use:enhance` callback, reduced to its observable effects:
  * a success resets the form, reloads page data, applies `form` and moves focus to the body; a failure applies
  * `form`; neither applies `form` once the user left the page; an error swaps the document for the error page;
  * a redirect navigates and moves focus to the body.
@@ -23,7 +25,11 @@ export interface FrameworkPage {
 export function frameworkOutcome(result: ActionResult, page: FrameworkPage) {
 	return {
 		result,
-		update: async ({ reset = true, invalidateAll = true }: { reset?: boolean; invalidateAll?: boolean } = {}) => {
+		update: async ({
+			reset = true,
+			invalidateAll = true,
+			navigate = true
+		}: { reset?: boolean; invalidateAll?: boolean; navigate?: boolean } = {}) => {
 			if (result.type === 'redirect') {
 				page.location = result.location;
 				await page.navigate?.(result.location);
@@ -35,6 +41,11 @@ export function frameworkOutcome(result: ActionResult, page: FrameworkPage) {
 				const errorPage = document.createElement('h1');
 				errorPage.textContent = String(result.status ?? 500);
 				document.body.replaceChildren(errorPage);
+				return;
+			}
+			if (navigate && page.path && result.location !== page.path) {
+				page.location = result.location;
+				await page.navigate?.(result.location);
 				return;
 			}
 			if (result.type === 'success') {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
-	import type { PathnameWithSearchOrHash } from '$app/types';
 	import { resolve } from '$app/paths';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -16,7 +15,7 @@
 
 	export type RouteTabItem = {
 		label: string;
-		href: PathnameWithSearchOrHash;
+		href: `/${string}`;
 		active?: boolean;
 		icon?: Component<{ class?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
 		/** A streamed badge shows a skeleton while pending; `null` shows no badge. */

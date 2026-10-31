@@ -11,11 +11,10 @@ const navigation = vi.hoisted(() => ({
 	pathname: '/admin/people'
 }));
 
-vi.mock('$app/stores', () => ({
+vi.mock('$app/state', () => ({
 	page: {
-		subscribe: (run: (value: { url: URL }) => void) => {
-			run({ url: new URL(`http://localhost${navigation.pathname}`) });
-			return () => {};
+		get url() {
+			return new URL(`http://localhost${navigation.pathname}`);
 		}
 	}
 }));

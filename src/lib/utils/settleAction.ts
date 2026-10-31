@@ -1,9 +1,9 @@
 import { tick } from 'svelte';
-import type { ActionResult } from '@sveltejs/kit';
+import type { ActionResult } from '$app/forms';
 
 export interface ActionOutcome {
 	result: ActionResult;
-	update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void>;
+	update: (options?: { reset?: boolean; invalidateAll?: boolean; navigate?: boolean }) => Promise<void>;
 }
 
 export interface SettleOptions {
@@ -31,7 +31,8 @@ const REFRESH_FAILED_MESSAGE = "The page couldn't refresh after this request. Re
 /**
  * Settles a `use:enhance` result in place. An unexpected error yields a message for an in-context Alert instead
  * of replacing the page with the error page, so drafts survive. Success, failure and redirect go through
- * SvelteKit's `update`. Focus then returns to the first usable candidate, scrolled into view, rather than the
+ * SvelteKit's `update`, without the navigation to the action's URL that SvelteKit 3 adds by default: `?/save` drops
+ * the page's own query string, which would close whatever it selects. A redirect still navigates. Focus then returns to the first usable candidate, scrolled into view, rather than the
  * document body, where SvelteKit leaves it after a success or a navigation. A redirect to another page leaves
  * no candidate, so that page keeps SvelteKit's navigation focus and route announcement.
  */
@@ -43,7 +44,7 @@ export async function settleAction(
 	let error = result.type === 'error' ? UNEXPECTED_ERROR_MESSAGE : null;
 	if (result.type !== 'error') {
 		try {
-			await update(reset === undefined ? undefined : { reset });
+			await update({ reset, navigate: false });
 		} catch {
 			error = REFRESH_FAILED_MESSAGE;
 		}

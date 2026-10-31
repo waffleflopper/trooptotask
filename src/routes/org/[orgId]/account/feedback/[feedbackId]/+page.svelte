@@ -18,7 +18,7 @@
 
 <div class="grid gap-7">
 	<a
-		href={resolve(`/org/${shell.orgUrlSegment}/account/feedback`)}
+		href={resolve(`/org/${shell.orgUrlSegment}/account/feedback` as '/')}
 		class="inline-flex w-fit items-center gap-1.5 font-mono text-xs tracking-[0.08em] text-accent-text uppercase underline-offset-4 hover:underline"
 	>
 		<ArrowLeft class="size-3.5" aria-hidden="true" /> All feedback

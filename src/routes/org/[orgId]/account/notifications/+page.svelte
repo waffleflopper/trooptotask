@@ -62,7 +62,7 @@
 
 	function open(notification: Notification) {
 		if (pending) return;
-		if (notification.link) void goto(resolve(notificationHref(notification.link, shell.orgUrlSegment)));
+		if (notification.link) void goto(resolve(notificationHref(notification.link, shell.orgUrlSegment) as '/'));
 		if (notification.read) return;
 		void run(
 			{ id: notification.id },

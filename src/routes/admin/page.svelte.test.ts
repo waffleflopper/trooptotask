@@ -181,7 +181,7 @@ describe('Inbox page', () => {
 
 		expect(goto).toHaveBeenCalledWith(
 			`/admin?item=accessRequest%3A${REQUEST_ID}`,
-			expect.objectContaining({ replaceState: false })
+			expect.objectContaining({ replace: false })
 		);
 	});
 
@@ -191,7 +191,7 @@ describe('Inbox page', () => {
 
 		await fireEvent.click(screen.getByRole('radio', { name: /^Feedback/ }));
 
-		expect(goto).toHaveBeenCalledWith('/admin?kind=feedback', expect.objectContaining({ replaceState: true }));
+		expect(goto).toHaveBeenCalledWith('/admin?kind=feedback', expect.objectContaining({ replace: true }));
 	});
 
 	it('switches to Done without keeping an item from the Open tab', async () => {
@@ -200,7 +200,7 @@ describe('Inbox page', () => {
 
 		await fireEvent.click(screen.getByRole('tab', { name: 'Done' }));
 
-		expect(goto).toHaveBeenCalledWith('/admin?tab=done', expect.objectContaining({ replaceState: true }));
+		expect(goto).toHaveBeenCalledWith('/admin?tab=done', expect.objectContaining({ replace: true }));
 	});
 
 	it('shows the Done skeleton at once while its read is still on the way, never the Open rows', async () => {

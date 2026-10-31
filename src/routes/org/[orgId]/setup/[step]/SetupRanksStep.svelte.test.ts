@@ -97,7 +97,7 @@ async function renderRanksStep() {
 const failOnSettingsRoute = () =>
 	enhanceRequests[0](
 		frameworkOutcome(
-			{ type: 'failure', status: 409, data: { rankError: DUPLICATE } },
+			{ type: 'failure', status: 409, location: '/', data: { rankError: DUPLICATE } },
 			{ away: true, applyForm: async () => {} }
 		)
 	);

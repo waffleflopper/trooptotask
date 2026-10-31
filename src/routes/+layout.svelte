@@ -6,6 +6,7 @@
 	import { invalidate } from '$app/navigation';
 	import { deferToIdle } from '$lib/utils/deferToIdle';
 	import { rememberViewerTimeZone, VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
+	import { navigateWithoutRefreshOnSameUrlClick } from '$lib/utils/sameUrlLinkClick';
 	import { Toaster } from '$lib/components/ui/sonner';
 
 	let { children } = $props();
@@ -31,6 +32,8 @@
 		};
 	});
 </script>
+
+<svelte:body onclick={navigateWithoutRefreshOnSameUrlClick} />
 
 <div class="flex h-screen flex-col">
 	{@render children()}

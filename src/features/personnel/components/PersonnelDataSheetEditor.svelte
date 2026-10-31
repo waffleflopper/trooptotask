@@ -90,7 +90,7 @@
 	async function leave(target: { url: URL; delta?: number }) {
 		leaving = true;
 		if (target.delta) history.go(target.delta);
-		else await goto(resolve((target.url.pathname + target.url.search) as '/'), { replaceState: true });
+		else await goto(resolve((target.url.pathname + target.url.search) as '/'), { replace: true });
 	}
 
 	function requestCancel() {
@@ -111,8 +111,8 @@
 		}
 		leaving = true;
 		toastStore.success('Data sheet saved');
-		await goto(resolve(`/org/${orgUrlSegment}/personnel/${saved.person.slug}/data-sheet`), {
-			replaceState: true,
+		await goto(resolve(`/org/${orgUrlSegment}/personnel/${saved.person.slug}/data-sheet` as '/'), {
+			replace: true,
 			invalidate: DETAIL_KEYS
 		});
 	}

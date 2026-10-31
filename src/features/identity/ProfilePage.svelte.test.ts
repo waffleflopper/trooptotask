@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ActionResult } from '@sveltejs/kit';
+import type { ActionResult } from '$app/forms';
 import ProfilePage from './ProfilePage.svelte';
 import type { SignedInAccount } from './contracts';
 
@@ -71,7 +71,7 @@ describe('account profile page', () => {
 	});
 
 	it('flags an empty rank without saving, and clears it once a rank is chosen', async () => {
-		transport.result = { type: 'success', status: 200 };
+		transport.result = { type: 'success', status: 200, location: '/' };
 		renderPage({ account: { email: null, profile: { status: 'loaded', profile: null } } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add name and rank' }));
 		const rank = screen.getByLabelText('Rank') as HTMLSelectElement;
@@ -86,7 +86,12 @@ describe('account profile page', () => {
 	});
 
 	it('keeps the draft open after a failed save', async () => {
-		transport.result = { type: 'failure', status: 400, data: { error: 'First and last name are required.' } };
+		transport.result = {
+			type: 'failure',
+			status: 400,
+			location: '/',
+			data: { error: 'First and last name are required.' }
+		};
 		renderPage();
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit name and rank' }));
 		await fireEvent.input(screen.getByLabelText('First name'), { target: { value: 'Emily' } });
@@ -112,14 +117,14 @@ describe('account profile page', () => {
 		expect(screen.getByLabelText('Rank')).toBeDisabled();
 		expect(screen.getByRole('button', { name: /Saving/ })).toBeDisabled();
 
-		answer({ type: 'failure', status: 503, data: { error: 'Unable to save your profile.' } });
+		answer({ type: 'failure', status: 503, location: '/', data: { error: 'Unable to save your profile.' } });
 		await waitFor(() => expect(firstName).toBeEnabled());
 		expect(firstName).toHaveValue('Emily');
 		await waitFor(() => expect(screen.getByLabelText('Rank')).toHaveFocus());
 	});
 
 	it('closes the editor after a successful save and returns focus to Edit', async () => {
-		transport.result = { type: 'success', status: 200 };
+		transport.result = { type: 'success', status: 200, location: '/' };
 		renderPage();
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit name and rank' }));
 

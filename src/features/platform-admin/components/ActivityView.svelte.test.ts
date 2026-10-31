@@ -205,17 +205,15 @@ describe('ActivityView', () => {
 
 		await fireEvent.click(screen.getByRole('radio', { name: 'Accounts' }));
 		expect(goto).toHaveBeenLastCalledWith('/admin/activity?category=accounts', {
-			keepFocus: true,
-			noScroll: true,
-			replaceState: undefined
+			reset: false,
+			replace: undefined
 		});
 
 		await fireEvent.input(screen.getByLabelText('Search'), { target: { value: ' Alpha ' } });
 		await waitFor(() =>
 			expect(goto).toHaveBeenLastCalledWith('/admin/activity?category=accounts&q=Alpha', {
-				keepFocus: true,
-				noScroll: true,
-				replaceState: true
+				reset: false,
+				replace: true
 			})
 		);
 
@@ -223,9 +221,8 @@ describe('ActivityView', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: 'Last 7 days' }));
 		await waitFor(() =>
 			expect(goto).toHaveBeenLastCalledWith('/admin/activity?category=accounts&q=Alpha&from=2026-10-16&to=2026-10-22', {
-				keepFocus: true,
-				noScroll: true,
-				replaceState: undefined
+				reset: false,
+				replace: undefined
 			})
 		);
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Start' }).textContent).toContain('Oct 16, 2026'));
@@ -238,9 +235,8 @@ describe('ActivityView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
 
 		expect(goto).toHaveBeenLastCalledWith('/admin/activity', {
-			keepFocus: true,
-			noScroll: true,
-			replaceState: undefined
+			reset: false,
+			replace: undefined
 		});
 	});
 
@@ -279,7 +275,7 @@ describe('ActivityView', () => {
 		expect(screen.getByText('Page 1 of 3')).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
-		expect(goto).toHaveBeenLastCalledWith('/admin/activity?category=access&page=2', { keepFocus: true });
+		expect(goto).toHaveBeenLastCalledWith('/admin/activity?category=access&page=2', { reset: false });
 	});
 
 	it('keeps the pager in place while the next page loads', async () => {

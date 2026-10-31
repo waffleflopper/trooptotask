@@ -81,7 +81,7 @@
 
 	const search = createAdminUrlSearch(
 		() => data.query.q,
-		(q) => goto(listHref({ q, filter: data.query.filter }), { keepFocus: true, noScroll: true, replaceState: true })
+		(q) => goto(listHref({ q, filter: data.query.filter }), { reset: false, replace: true })
 	);
 
 	const filterOptions = $derived(
@@ -103,7 +103,7 @@
 
 	function loadMore() {
 		const { q, filter, pages } = data.query;
-		void goto(listHref({ pages: pages + 1, q, filter }), { keepFocus: true, noScroll: true, replaceState: true });
+		void goto(listHref({ pages: pages + 1, q, filter }), { reset: false, replace: true });
 	}
 
 	const table = useServerDataTable<PlatformOrganizationRow>({
@@ -112,7 +112,7 @@
 		sort: () => data.query.sort,
 		onSort: (key) => {
 			const sort = nextAdminSort(ORGANIZATION_SORT, data.query.sort, key as PlatformOrganizationSort['key']);
-			void goto(listHref({ q: data.query.q, filter: data.query.filter, sort }), { keepFocus: true, noScroll: true });
+			void goto(listHref({ q: data.query.q, filter: data.query.filter, sort }), { reset: false });
 		}
 	});
 
@@ -130,7 +130,7 @@
 {#snippet cell(org: PlatformOrganizationRow, column: ColumnDef<PlatformOrganizationRow>)}
 	{#if column.key === 'name'}
 		<a
-			href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
+			href={resolve(`/admin/organizations/${org.id}` as '/')}
 			class="block truncate font-semibold @2xl/data-table:w-0 @2xl/data-table:min-w-full text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 			title={org.name}>{org.name}</a
 		>
@@ -173,8 +173,7 @@
 			label="Filter Organizations"
 			options={filterOptions}
 			bind:value={
-				() => data.query.filter,
-				(filter) => void goto(listHref({ q: search.value, filter }), { keepFocus: true, noScroll: true })
+				() => data.query.filter, (filter) => void goto(listHref({ q: search.value, filter }), { reset: false })
 			}
 		/>
 	</div>

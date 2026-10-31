@@ -241,12 +241,12 @@ export function scopeOfView(view: TaskingView): TaskingListScope {
 	return view === 'completed' || view === 'cancelled' ? view : 'active';
 }
 
-export function parseTaskingView(params: URLSearchParams): TaskingView {
+export function parseTaskingView(params: Pick<URLSearchParams, 'get'>): TaskingView {
 	const view = params.get(PARAMS.view);
 	return VIEWS.find((known) => known === view) ?? 'active';
 }
 
-export function parseTaskingFilters(params: URLSearchParams): TaskingFilters {
+export function parseTaskingFilters(params: Pick<URLSearchParams, 'get'>): TaskingFilters {
 	const within = params.get(PARAMS.within);
 	return {
 		view: parseTaskingView(params),

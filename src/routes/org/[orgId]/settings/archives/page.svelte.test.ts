@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import { writable } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import type { SettingsArchivesSectionData } from '../settingsSectionTypes';
@@ -14,7 +13,7 @@ const { invalidateMock, toastError, toastSuccess, saveDownload } = vi.hoisted(()
 }));
 
 vi.mock('$app/navigation', () => ({ invalidate: invalidateMock }));
-vi.mock('$app/stores', () => ({ page: writable({ params: { orgId: 'org-1' } }) }));
+vi.mock('$app/state', () => ({ page: { params: { orgId: 'org-1' } } }));
 vi.mock('$lib/stores/toast.svelte', () => ({
 	toastStore: { success: toastSuccess, error: toastError }
 }));

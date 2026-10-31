@@ -117,7 +117,12 @@ describe('Invite your team step', () => {
 		const form = (await emailField()).closest('form')!;
 		expect(form.getAttribute('action')).toBe('/org/alpha/settings/members?/invite');
 
-		await settle({ type: 'success', status: 200, data: { inviteSuccess: true, inviteMessage: 'Invited.' } });
+		await settle({
+			type: 'success',
+			status: 200,
+			location: '/',
+			data: { inviteSuccess: true, inviteMessage: 'Invited.' }
+		});
 
 		expect(invalidate).toHaveBeenCalledWith('app:organization-setup');
 		expect(await emailField()).toHaveValue('');
@@ -127,8 +132,16 @@ describe('Invite your team step', () => {
 	it('keeps the draft and shows the reason when the invitation fails', async () => {
 		renderStep(Promise.resolve(team()));
 		await send('new.person@example.com');
+		framework.path = stepPath;
 
-		await settle({ type: 'failure', status: 400, data: { inviteError: 'That address is already a member.' } });
+		await settle({
+			type: 'failure',
+			status: 400,
+			location: '/org/alpha/settings/members',
+			data: { inviteError: 'That address is already a member.' }
+		});
+
+		expect(framework.location).toBeUndefined();
 
 		expect(screen.getByRole('alert')).toHaveTextContent('That address is already a member.');
 		expect(await emailField()).toHaveValue('new.person@example.com');
@@ -140,7 +153,7 @@ describe('Invite your team step', () => {
 		renderStep(Promise.resolve(team()));
 		await send('new.person@example.com');
 
-		await settle({ type: 'error', status: 500, error: { message: 'boom' } });
+		await settle({ type: 'error', status: 500, error: { status: 500, message: 'boom' } });
 
 		expect(screen.getByRole('alert')).toBeInTheDocument();
 		expect(await emailField()).toHaveValue('new.person@example.com');
@@ -151,7 +164,7 @@ describe('Invite your team step', () => {
 		await send('new.person@example.com');
 
 		flow.leave(stepPath, '/org/alpha/setup/done');
-		await settle({ type: 'success', status: 200, data: { inviteSuccess: true } });
+		await settle({ type: 'success', status: 200, location: '/', data: { inviteSuccess: true } });
 
 		expect(invalidate).not.toHaveBeenCalled();
 		expect(await emailField()).toHaveValue('new.person@example.com');
@@ -163,7 +176,7 @@ describe('Invite your team step', () => {
 		await send('new.person@example.com');
 
 		flow.leave(stepPath, stepPath);
-		await settle({ type: 'success', status: 200, data: { inviteSuccess: true } });
+		await settle({ type: 'success', status: 200, location: '/', data: { inviteSuccess: true } });
 
 		expect(invalidate).toHaveBeenCalledWith('app:organization-setup');
 		await waitFor(() => expect(screen.getByRole('button', { name: /^Continue/ })).toBeEnabled());
@@ -186,7 +199,7 @@ describe('Invite your team step', () => {
 		await send('new.person@example.com');
 
 		expect(screen.getByRole('button', { name: /^Continue/ })).toBeDisabled();
-		await settle({ type: 'success', status: 200, data: { inviteSuccess: true } });
+		await settle({ type: 'success', status: 200, location: '/', data: { inviteSuccess: true } });
 		await waitFor(() => expect(screen.getByRole('button', { name: /^Continue/ })).toBeEnabled());
 	});
 

@@ -19,7 +19,7 @@ const mutableAvailabilityStore = availabilityStore as unknown as {
 const mutableDailyAssignmentsStore = dailyAssignmentsStore as unknown as { loading: boolean };
 const mutableGroupsStore = groupsStore as unknown as { loading: boolean };
 
-vi.mock('$app/environment', () => ({ browser: false }));
+vi.mock('$app/env', () => ({ browser: false }));
 
 vi.mock('$features/personnel', () => ({
 	rosterStore: { items: [] },

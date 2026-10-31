@@ -1,5 +1,5 @@
 import { tick } from 'svelte';
-import type { SubmitFunction } from '@sveltejs/kit';
+import type { SubmitFunction } from '$app/forms';
 import { toastStore, type ToastId } from '$lib/stores/toast.svelte';
 import { settleAction, type SettleOptions } from '$lib/utils/settleAction';
 

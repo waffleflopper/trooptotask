@@ -194,7 +194,7 @@
 					{account.email ?? 'Not available'}
 				</p>
 				<a
-					href={resolve(securityHref)}
+					href={resolve(securityHref as '/')}
 					class="inline-flex w-fit shrink-0 items-center gap-1 text-sm text-accent-text underline-offset-4 hover:underline"
 				>
 					Change in Sign-in &amp; security <ArrowRight class="size-3.5" aria-hidden="true" />

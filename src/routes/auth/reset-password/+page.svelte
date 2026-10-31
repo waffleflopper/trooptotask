@@ -17,12 +17,12 @@
 	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import type { MfaStatus } from '$features/identity/contracts';
 
-	const hasSession = $derived($page.data.hasSession);
+	const hasSession = $derived(page.data.hasSession);
 
 	let password = $state('');
 	let confirmPassword = $state('');
@@ -101,10 +101,10 @@
 	onMount(() => {
 		// Provider fragments cannot prove whether a session came from recovery.
 		if (window.location.hash) {
-			replaceState(resolve('/auth/reset-password'), $page.state);
+			replaceState(resolve('/auth/reset-password'), page.state);
 			tokenError = true;
 		} else if (hasSession) {
-			completion = $page.data.passwordCompletion ?? null;
+			completion = page.data.passwordCompletion ?? null;
 			if (completion === 'complete') {
 				finishPassword();
 				return;

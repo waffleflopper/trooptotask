@@ -1,6 +1,6 @@
 import type { Database } from '$lib/server/database';
 import { z } from 'zod';
-import { dateOnlySchema, isUuid, uuidSchema } from '$lib/utils/inputSchemas';
+import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { RatingSchemeCreateValues, RatingSchemePatchValues, SavedRatingSchemeEntry } from '../contracts';
 
 export type RatingSchemeRow = Database['public']['Tables']['rating_scheme_entries']['Row'];
@@ -8,11 +8,8 @@ export type RatingSchemeRow = Database['public']['Tables']['rating_scheme_entrie
 export const RATING_SCHEME_SELECT =
 	'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at';
 
-/** An empty rated Person leaves the entry unassigned. */
-const ratedPersonIdSchema = z.string().refine((value) => value === '' || isUuid(value), 'Invalid ID');
-
 export const ratingSchemeEntryCreateSchema = z.object({
-	ratedPersonId: ratedPersonIdSchema,
+	ratedPersonId: uuidSchema,
 	evalType: z.enum(['OER', 'NCOER', 'WOER']),
 	raterPersonId: z.string().nullable().optional(),
 	raterName: z.string().nullable().optional(),
@@ -63,7 +60,7 @@ function emptyToNull(value: string | null | undefined) {
 
 export function ratingSchemeCreateValues(input: RatingSchemeCreateValues) {
 	return {
-		rated_person_id: emptyToNull(input.ratedPersonId) as string,
+		rated_person_id: input.ratedPersonId,
 		eval_type: input.evalType,
 		rater_person_id: emptyToNull(input.raterPersonId) ?? null,
 		rater_name: emptyToNull(input.raterName) ?? null,
@@ -73,8 +70,8 @@ export function ratingSchemeCreateValues(input: RatingSchemeCreateValues) {
 		intermediate_rater_name: emptyToNull(input.intermediateRaterName) ?? null,
 		reviewer_person_id: emptyToNull(input.reviewerPersonId) ?? null,
 		reviewer_name: emptyToNull(input.reviewerName) ?? null,
-		rating_period_start: emptyToNull(input.ratingPeriodStart) as string,
-		rating_period_end: emptyToNull(input.ratingPeriodEnd) as string,
+		rating_period_start: input.ratingPeriodStart,
+		rating_period_end: input.ratingPeriodEnd,
 		status: input.status,
 		notes: emptyToNull(input.notes) ?? null,
 		report_type: emptyToNull(input.reportType) ?? null,
@@ -84,7 +81,7 @@ export function ratingSchemeCreateValues(input: RatingSchemeCreateValues) {
 
 export function ratingSchemePatchValues(input: RatingSchemePatchValues) {
 	const values = {
-		rated_person_id: emptyToNull(input.ratedPersonId) as string | undefined,
+		rated_person_id: input.ratedPersonId,
 		eval_type: input.evalType,
 		rater_person_id: emptyToNull(input.raterPersonId),
 		rater_name: emptyToNull(input.raterName),
@@ -94,8 +91,8 @@ export function ratingSchemePatchValues(input: RatingSchemePatchValues) {
 		intermediate_rater_name: emptyToNull(input.intermediateRaterName),
 		reviewer_person_id: emptyToNull(input.reviewerPersonId),
 		reviewer_name: emptyToNull(input.reviewerName),
-		rating_period_start: emptyToNull(input.ratingPeriodStart) as string | undefined,
-		rating_period_end: emptyToNull(input.ratingPeriodEnd) as string | undefined,
+		rating_period_start: input.ratingPeriodStart,
+		rating_period_end: input.ratingPeriodEnd,
 		status: input.status,
 		notes: emptyToNull(input.notes),
 		report_type: emptyToNull(input.reportType),

@@ -85,6 +85,11 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 				return { status: 'validation_error', message: 'Invalid category' };
 			}
 
+			const userEmail = input.userEmail?.trim();
+			if (!userEmail) {
+				return { status: 'validation_error', message: 'An account email is required to send feedback' };
+			}
+
 			let organizationContext: FeedbackOrganizationContext | null = null;
 			if (input.organizationId) {
 				if (typeof input.organizationId !== 'string' || !validateUUID(input.organizationId)) {
@@ -117,7 +122,6 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 				: [];
 			const pageUrl = normalizeFeedbackPageUrl(input.pageUrl, organizationSegments);
 			const pageSection = getPageSection(pageUrl);
-			const userEmail = input.userEmail ?? null;
 			const organizationId = organizationContext?.organizationId ?? null;
 			const organizationName = organizationContext?.organizationName ?? null;
 

@@ -59,6 +59,36 @@ describe('POST /api/rating-scheme', () => {
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toEqual([]);
 	});
 
+	it('answers 400 for an empty rated Person on create and update and leaves the entry unchanged', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				}
+			}
+		});
+		ctx.store.seed('personnel', [
+			{ id: RATED_PERSON, organization_id: ctx.auth.orgId, rank: 'SGT', last_name: 'Smith', first_name: 'John' }
+		]);
+		const created = (await handleUseCaseRequest(_postConfig, ctx, validInput, () => ctx)) as { id: string };
+		const before = await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { ...validInput, ratedPersonId: '' }, () => ctx)
+		).rejects.toMatchObject({ status: 400 });
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: created.id, ratedPersonId: '' }, () => ctx)
+		).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toEqual(before);
+	});
+
 	it('authorizes through Rating Scheme policy decisions instead of legacy route permissions', async () => {
 		const ctx = createTestContext({
 			auth: {

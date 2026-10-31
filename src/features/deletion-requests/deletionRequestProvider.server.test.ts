@@ -57,6 +57,12 @@ describe('ordinary deletion request provider', () => {
 		expect(await store.listExportRows('org-a')).toEqual([savedRequest('peer', { requested_by: 'peer' }), ...rows]);
 	});
 
+	it('refuses to list a request whose saved status is outside the contract', async () => {
+		const provider = deletionRequestTestProvider([Object.assign(savedRequest('stale'), { status: 'withdrawn' })]);
+		const store = createSupabaseDeletionRequestStore(provider.client);
+		await expect(store.listRequests('org-a', {})).rejects.toThrow('unknown status');
+	});
+
 	it('counts all pending rows and reads only the oldest date in one request, preserving own visibility', async () => {
 		const provider = deletionRequestTestProvider([
 			savedRequest('new'),

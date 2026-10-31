@@ -5,7 +5,7 @@ archives or restores a record while keeping its identity, permissions and retain
 
 ## Sub-features
 
-- `record-create-edit`: create through Personnel and Onboarding, edit through the roster modal and detail page, cancel
+- `record-create-edit`: create through Personnel and Onboarding, edit through the inline roster form and detail page, cancel
   or recover a failed save, and retain the Person ID through name, rank and Group changes.
 - `record-import`: upload a roster workbook with several tabs and a header below a title, confirm the sheets and
   columns, fix a cell inline or answer a rail question once for many rows, skip rows, commit and download the rows not
@@ -41,7 +41,9 @@ archives or restores a record while keeping its identity, permissions and retain
 ## How to get to it (user POV)
 
 Choose `Personnel` in the Organization navigation. Use `Add Person`, a named row (it opens the record) or its
-`Quick edit`, or `Import`. The import page steps through File, Columns, Review and Done; browser Back steps back through
+`Quick edit`, or `Import`. At 1280 px and wider, clicking a row background opens its preview; the name link
+opens the record. Repeated entry through `Add and add another` is covered in the
+[form recipe](personnel-form-states.md#driving-it-with-verifyapp). The import page steps through File, Columns, Review and Done; browser Back steps back through
 them. Archive from the detail page's `More Personnel record` menu or the roster's bulk bar (check a row, then choose
 `Archive…`); a row's `Quick edit` has no Archive. An Organization owner/admin restores records through Settings →
 `Archives`; archive requests appear under Settings → `Approvals`. The reverse creation path is Onboard →
@@ -152,8 +154,10 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
 1. **Create, cancel and failed save:** As `manager`, choose Add Person. Enter a unique `MapCreated<tag>` last name,
    Synthetic first name, active SPC rank, 68W, Medic, Alpha, ETS `2027-05-01` and PCS / DEROS `2027-06-01`. Cancel once
    and require no row with that last name. Reopen, enter the same draft, arm `$V network arm-fail PAGE personnel` and
-   submit `Add person`. Save network state, visible error and draft; no matching Person may exist. Restore the hook and
-   retry visibly. Require exactly one saved row, capture its ID/slug/Group ID and reopen after reload with the submitted
+   submit `Add person`. Save network state, visible error and draft; no matching Person may exist. The 503 leaves
+   `<Rank Last> may already be saved` and `Reload roster`; another submit sends nothing. Restore the hook, choose
+   `Reload roster` and confirm no matching row. Reopen Add Person and submit the draft again. Require exactly one saved
+   row, capture its ID/slug/Group ID and reopen after reload with the submitted
    values. A closed dialog or success toast alone is insufficient. Independently prove required rank/name validation
    without a saved row. Duplicate names are supported: a deliberate second create may get another ID and distinct slug;
    create/import are not same-ID upserts.
@@ -594,8 +598,8 @@ from authenticated HTTP/provider checks and lower-level deferred/rejected-lane t
    `performance.clearResourceTimings()`, act through the UI, then list `__data.json` (with `x-sveltekit-invalidated`)
    and `/api/*` entries. Node order is root, Organization, Personnel layout, `[personnelSlug]` layout, `[personnelSlug]`
    page; the list page has root, Organization, Personnel layout, page; import has root, Organization, Personnel layout,
-   page. `1` means that node's server load reran. Roster Edit save and Add Person: the write only. Roster single
-   archive, Edit-dialog archive and bulk archive: the write, then `personnel/__data.json` `0010` and no
+   page. `1` means that node's server load reran. Roster Edit save and Add Person: the write only. Roster bulk
+   archive: the write, then `personnel/__data.json` `0010` and no
    `/api/app-shell-chrome` request. Import commit: one `personnel/import` request per 500 rows, then
    `import/__data.json` `0010`. Data sheet save with the same slug: the write, then `<slug>/data-sheet/__data.json`
    `00011` and no `/api/app-shell-chrome` request; the header and the roster row show the saved values with no reload.

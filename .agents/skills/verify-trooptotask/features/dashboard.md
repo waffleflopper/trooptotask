@@ -35,6 +35,8 @@ workspace/summary load, and old responses must never restore another Organizatio
   source workspaces.
 - `navigation-recovery`: an exact A Dashboard navigation fails once, remains recoverable, and a delayed A navigation
   cannot overwrite B.
+- `owner-prompts`: Home can open the owner's setup invitation or new-feature dialog. Deferral and reload checks are
+  under [Setup entry and prompts](organization-setup.md#setup-entry-and-prompts).
 - `feature-states`: a feature that is off contributes nothing and its sources are not read; a feature that is on but not
   set up is hidden for everyone and gives owners and admins a dismissible hint. Steps are under
   [Features off or not set up](#features-off-or-not-set-up).
@@ -70,9 +72,9 @@ process through a private Node preload; `state`, `release` and `restore` retain 
 Holds dispatch the real provider read, then delay its response; `fail` returns a marked synthetic PostgREST 503 before
 dispatch (the SDK may retry); `fail-hard` returns one marked 500 to observe propagated source errors. B, writes, auth
 and unrelated reads pass through. Restore before another arm or cleanup; finite deadlines and process cleanup release
-waits. `dashboard-access dashboardView|dashboardSwitch alpha|no-training|restore` journals and changes only an owned A
-membership, with cleanup restoring original scope/grants. These are fixture controls, not ordinary actor mutations or
-production outages.
+waits. `dashboard-access dashboardView|dashboardSwitch alpha|no-training|no-critical-tasks|restore` journals and changes
+only an owned A membership, with cleanup restoring original scope/grants. These are fixture controls, not ordinary
+actor mutations or production outages.
 
 ## Driving it with verify:app
 
@@ -243,14 +245,15 @@ and preservation of complete original A/B rows.
 
 ## Gotchas
 
-Starter pack apply has an authenticated endpoint but no rendered Apply control. When changing the apply request
-composition, verify the ordinary signed-in
-`POST /org/ORG_ID/api/starter-configuration-packs/first-week-operations/apply` separately from native Dashboard
-interaction. An Organization owner must create "Complete unit orientation" as a Training step linked to "Unit
-Orientation"; reload and reapply must skip existing artifacts without duplicates. A view-only actor must receive 403
-with unchanged Types/Templates/Steps. Preserve provider readbacks and remove only recorded synthetic artifacts through
-the ordinary delete endpoints before seed cleanup. These observations establish API/provider behavior; they do not
-establish a native Apply journey.
+Setup's Onboarding step offers `First Week Operations` when Training is on and the member can configure both
+features. Follow the [Setup feature steps](organization-setup.md#feature-steps) for its native
+`Add First Week Operations and continue` journey. When changing the apply request composition, also verify the ordinary
+signed-in `POST /org/ORG_ID/api/starter-configuration-packs/first-week-operations/apply` separately from native
+Dashboard interaction. Applying as an Organization owner must create "Complete unit orientation" as a Training step
+linked to "Unit Orientation"; reload and reapply must skip existing artifacts without duplicates. A view-only actor
+must receive 403 with unchanged Types/Templates/Steps. Preserve provider readbacks and remove only recorded synthetic
+artifacts through the ordinary delete endpoints before seed cleanup. API/provider observations alone do not establish
+the native Setup journey.
 
 - Page-data responses include session credentials. Redact access/refresh token values before saving or sharing captures,
   including flattened credential slots; preserve all source facts and error outcomes.

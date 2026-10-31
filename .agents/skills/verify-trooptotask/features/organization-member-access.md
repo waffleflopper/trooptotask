@@ -37,7 +37,7 @@ control wraps under its label and stays right-aligned. Escape cancels without sa
 eligible member under `Transfer ownership`, click `Transfer`, type that member's email in `Type <email> to confirm` in
 the `Make <email> the Owner?` dialog, and submit `Transfer ownership`.
 
-## Helper controls
+### Helper controls
 
 ```bash
 $V actor orgOwner settings/members # owner entry to member management
@@ -73,14 +73,16 @@ ordinary access checks because it intentionally changes the seeded owner.
    the Members route shows a permission error and an authenticated direct form submission is denied. A SvelteKit action
    may return HTTP 200 with a `failure` envelope carrying status 403; inspect both. Repeat with B's member/Organization
    ID and record no A/B mutation. A hidden control alone is insufficient for authorization proof. For `off-lane`, turn
-   Training off with `$V settings-request PAGE orgA organization/settings '{"disabledFeatures":["training"]}'`, reload,
+   Training off with `$V settings-request PAGE orgA organization/settings '{"featureSwitch":{"feature":"training","on":false}}'`, reload,
    then open `Manage` for a member whose stored Training level differs from the preset level. The Training lane reads
    `Off for <unit>`, its four radios are disabled, and the stored level stays checked. The row's `+<n> area changes`,
    the sheet's `<n> changes from <preset>` and its `gives` lines leave Training out. Change the preset and save; the
    stored Training level for that membership ID is unchanged in the owned provider while the other lanes follow the
-   preset. As `orgOwner`, promote the member to Admin and save, then make them a member again and save; read the row
+   preset. Admin promotion and demotion require sensitive-action assurance; follow any sign-in step-up and reopen the
+   member before retrying, with no role change before assurance succeeds. As `orgOwner`, promote the member to Admin
+   and save, then make them a member again and save; read the row
    after each save and require the same stored Training level. Restore with the same request and
-   `'{"disabledFeatures":[]}'`, then restore the member's role, preset and lanes.
+   `'{"featureSwitch":{"feature":"training","on":true}}'`, then restore the member's role, preset and lanes.
 4. As `orgOwner`, open `Settings` → `Danger Zone` and select `orgAdmin` as the transfer target. In
    `Make <email> the Owner?`, try a mismatched confirmation email: submit remains disabled and owner rows do not change.
    Enter the exact target email and submit; capture the result, then reload both actors' Dashboard and Danger Zone. The
@@ -98,7 +100,7 @@ ordinary access checks because it intentionally changes the seeded owner.
    `Leave unit` (absent for an owner) → type `YES` in the Leave Organization dialog → submit, then confirm the redirect
    and absence of that membership after reload. Restart the worker after this seeded deletion.
 
-## Group tree scope
+### Group tree scope
 
 After the [Group tree](manage-groups.md#group-tree) build steps, as `orgOwner` open `Manage` for `orgMember`, choose
 `Operator`, open `Groups they work in`, uncheck `Alpha`, search `1st squad` and check the `1st Squad 3` row under
@@ -127,6 +129,8 @@ becomes Whole unit. Repeat with a Group removed while its sheet is open to check
   transfer ownership; normal capability edits do not make a second owner.
 - Owner transfer requires an existing eligible member and sensitive-action assurance. If step-up is required, follow the
   visible verification path and record it; bypassing it does not prove the transfer.
+- Admin access changes and removal of a high-privilege member also require sensitive-action assurance. Follow any
+  step-up before retrying; a denied attempt must leave the membership unchanged.
 - Member removal is a separate action with a confirmation dialog and ends access while retaining Personnel/Calendar
   records. Exercise it only with an expendable synthetic member; do not remove the seeded owner, admin or cross-feature
   fixture.

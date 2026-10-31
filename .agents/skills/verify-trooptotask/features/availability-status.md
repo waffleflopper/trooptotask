@@ -21,11 +21,12 @@ with the result visible again after reload.
 Sign in with Calendar operation access and choose `Calendar`. Each entry draws as one bar across its days, named
 `RANK Last, First, Status, D to D Month YYYY, N days, Note`. Clicking a bar opens a popover with the status, dates and
 note plus `Edit details` and `Remove`; the bar shows end handles while it is selected. Clicking an empty day opens
-`Set Personnel Status` for that person and date. Dragging across empty days draws a dashed `N days` box and opens
-`Add status, <range>` with the status types numbered 1 to 9 and `Add a note or edit dates…`. A row with more than two
+`Set Personnel Status` for that person and date; clicking the person's name opens it for today. Dragging across empty
+days draws a dashed `N days` box and opens `Add status, <range>` with the status types numbered 1 to 9 and
+`Add a note or edit dates…`. A row with more than two
 overlapping entries ends its bottom lane with a `+N` button that lists the rest.
 
-## Helper controls
+### Helper controls
 
 ```bash
 $V rows availability_entries orgA note 'Unique synthetic note'
@@ -54,7 +55,7 @@ restore any temporarily narrowed grant.
    with `$V calendar-grant calendarOperate restore`, reload, and reopen the day before another action.
 4. Add the same unique note with operation access. Capture the action, result and
    `$V rows availability_entries orgA note "$NOTE"`: exactly one row for `personA`, `statusLeave`, today's start/end
-   date. Reload, reopen, and confirm the note visibly persists.
+   date. Reload, click Able's name, and confirm the editor shows today's start/end dates and the saved note.
 5. Click the new bar, choose `Edit details`, fill a different note, narrow access to `view` while the editor stays open,
    and click `Update Status`. The `403` is a definite refusal, so the page sends no re-read. Capture one error toast
    carrying the server's permission reason, the editor still open with the draft, the original note still shown on the
@@ -96,6 +97,12 @@ restore any temporarily narrowed grant.
     pending entry whose popover shows dates and note with no `Edit details`, `Remove` or grips; navigate to Personnel
     while held, `network release`, return to Calendar and expect one real bar and an `added —` toast. Restore every
     control and run `doctor` after any unexpected result. `arm-drop` matches POST, PUT and DELETE.
+    **Failed reconciliation.** Restore the network control, open an empty day's editor and fill a unique note. Arm
+    `$V network arm-drop $PAGE availability` and `$V server-source arm availability_entries fail-hard 1 120000`, then
+    `Add Status`. The write commits but its reply is lost and the follow-up availability read fails. Require the alert
+    `Saved status could not be confirmed. Reload the calendar before making another change.`, disabled `Add Status`
+    and a `Close` button. Capture `network state` and `server-source state`; restore both controls before `rows`
+    confirms exactly one saved row. Close, reload, inspect the saved bar and remove only that unique entry.
 11. **Overlaps and the `+N` list.** After `$V seed availability-volume`, search for `Volume040`. Two overlapping entries
     stack in two lanes; a third overlapping day shows a `+2` button, and clicking it opens a dialog named
     `2 more entries, <rank> Volume040` listing each entry. Choosing one opens that entry's popover with `Edit details`
@@ -127,11 +134,12 @@ restore any temporarily narrowed grant.
     the Calendar last showed December, and rewrites the anchor cookie to it. As `personnelScoped` (Alpha configure, no
     Calendar access) the section is absent, not failed. `$V server-source arm availability_entries hold` holds the
     section on its skeleton while `Needs attention` and the right rail render; `fail` shows
-    `Couldn't load the Calendar.` in that section only. As `perfScopedLeader` (Group-scoped configure, small workload) a
-    Person with an entry covering today, such as Baker002, shows that status (`Appointment through Oct 19, 2026` on
+    `Couldn't load the Calendar.` in that section only. Run `$V seed workload small`, then
+    `$V actor perfScopedLeader personnel small` (Group-scoped configure). A Person with an entry covering today, such as
+    Baker002, shows that status (`Appointment through Oct 19, 2026` on
     2026-10-18) from the single-Person read; scan the roster slugs with
     `<slug>/__data.json?x-sveltekit-invalidated=00011` to find one. A status saved through the Calendar UI appearing
-    here is not covered.
+    here is not covered. Run `clean-seeds` after the workload check.
 
 ## Gotchas
 
@@ -150,7 +158,7 @@ restore any temporarily narrowed grant.
 - Permission changes are made only on this disposable worker. Always restore the Calendar grant after a failed
   iteration; a doctor pass does not restore a member's capability.
 
-## Viewer day
+### Viewer day
 
 Launch with `--browser-timezone America/New_York`. Open a cell and set a range from March 1 to March 10, 2026, across
 the spring daylight-saving change. Before saving, the form must show `10 days`; after saving, the listed status must

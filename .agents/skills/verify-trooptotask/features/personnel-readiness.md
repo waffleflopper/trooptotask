@@ -3,7 +3,7 @@
 A leader opens one Soldier's Readiness tab to see every training requirement and critical task with its status, the
 active evaluation, loss dates and onboarding progress. From the same tab they log a completion with a certificate,
 correct a past completion, mark an item exempt and record a critical-task validation. The tab badge in the record header
-counts the items that need attention.
+counts training requirements and critical tasks that need attention.
 
 ## Sub-features
 
@@ -11,17 +11,21 @@ counts the items that need attention.
   `CURRENT · N` group, with `N of M ready` and a footer naming not-required and exempt counts.
 - `readiness-rail`: Evaluation, Loss and Onboarding blocks beside the tables.
 - `readiness-sources`: each of the five sources streams and fails on its own. A failed or denied source reads
-  `Couldn't check <source>. Reload the page to try again.` and never reads as clear.
-- `readiness-badge`: the layout streams the badge. Complete: `N item(s) need(s) attention`, hidden at zero. Incomplete:
+  `Couldn't check <source>. Reload the page to try again.` and never reads as clear. Organization switches that disable
+  Training, Critical Tasks, Evals or Onboarding omit their blocks without an error; Loss still renders.
+- `readiness-badge`: the layout streams the badge, counting only training and critical-task problems. Only failures
+  of those two sources make it incomplete; evaluation, loss and onboarding failures do not. Complete:
+  `N item(s) need(s) attention`, hidden at zero. Incomplete:
   `N+` labelled `N or more items need attention`, or `–` labelled `not every item could be checked`. Hidden from a
   viewer who cannot read the Person's sensitive records.
-- `training-drawer`: log a completion with an optional certificate (a PDF or a JPG, PNG or HEIC photo, up to 10 MB,
+- `training-drawer`: log a completion (`Expires on` for expiration-date-only types, `Completed on` otherwise) with an
+  optional certificate (a PDF or a JPG, PNG or HEIC photo, up to 10 MB,
   checked by its leading bytes), see History with certificate links, correct a past completion in place, and mark exempt
   with a ten-second Undo. A new completion's Notes are exactly what the form sent, so blank Notes clear the current note
   while History keeps the old one. A completion saved without dates still lands in History when a new completion
   replaces it, even after its type gains a cycle. An uploaded certificate opens through the app; a legacy certificate
   URL shows as `Certificate on <host>` and links straight to that site, and the app's certificate route refuses it.
-- `critical-task-drawer`: record a validation with method, validator and notes.
+- `critical-task-drawer`: record a validation with method, validator and notes, or correct a History entry in place.
 - `readiness-intents`: `?item=training:<typeId>` or `?item=critical-task:<taskId>` opens that item's drawer;
   `?add=training` or `?add=critical-task` opens the picker. An id that no longer applies opens the picker. Closing
   removes the parameter without a navigation.
@@ -56,7 +60,10 @@ then confirm with `$V rows training_types orgA`.
    marker intact, the row's new dates, and History with the current row (`Certificate` link) above the superseded row.
    The link opens a `storage/v1/object/sign/training-certificates/...` URL; click it, because a scripted `fetch` fails
    on the cross-origin redirect. `$V rows personnel_trainings orgA` shows the certificate path;
-   `$V rows personnel_training_history orgA` shows the superseded row.
+   `$V rows personnel_training_history orgA` shows the superseded row. Repeat with a temporary type configured as
+   `Date on the card` through the [type recipe](training-catalog-views.md#driving-it-with-verifyapp). Its drawer asks
+   `Expires on`; save a future date and require null `completion_date` and that `expiration_date` in the current row.
+   Correct the date in History and require the same row ID with the changed expiry.
 5. **Blank notes and undated history after a cycle change.** As the owner create a required, never-expiring, exemptible
    type in Training → Types. In the Training matrix open Able's cell for it, tick `Mark as Complete` without a date, add
    Notes and a synthetic Certificate URL such as `https://legacy.example.test/never.pdf`, and Save. Open
@@ -79,7 +86,10 @@ then confirm with `$V rows training_types orgA`.
    `1 or more items need attention`. That is expected, not an outage.
 9. **Critical-task validation.** As the owner, open the missing critical task. The method is a native select; set it
    with `fill` and the option's value. `Save validation`. Expect `POST api/personnel-ict-completions`, then `00011`, the
-   row moved to Current with `<method> by <validator>`, the badge down by one and the marker intact.
+   row moved to Current with `<method> by <validator>`, the badge down by one and the marker intact. Reopen it and
+   choose the History entry's `Edit <dates>`, change Notes and choose `Save correction`. Expect
+   `PUT api/personnel-ict-completions`, the drawer still open and the same completion ID with changed notes in
+   `$V rows personnel_ict_completions orgA`. Reload and reopen to confirm the correction without an extra completion.
 
 ## Gotchas
 

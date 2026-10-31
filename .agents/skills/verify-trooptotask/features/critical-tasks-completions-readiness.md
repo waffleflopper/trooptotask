@@ -46,7 +46,7 @@ task library (`ICT task library controls`) use the same toolbar: `Input Task` an
 controls fold into More. An authorized Personnel detail lists the Person's critical tasks on its Readiness tab. A
 view-only member can inspect results without recording them.
 
-## Helper controls
+### Helper controls
 
 The [completion/readiness recipe](critical-tasks-completions-readiness.md#driving-it-with-verifyapp) owns
 `ict-completions-insert-lost-ack` and `ict-completions-update-lost-ack`. They apply the
@@ -116,8 +116,9 @@ pre-populating extra completions.
    empty draft, save and require stored null on the same ID. Native `fill` with an empty string may leave text intact; a
    retained value without an empty submitted draft is not an application failure. Run one keyboard submit/cancel and
    verify dialog focus returns to its trigger.
-4. **Import and history:** Run `$V seed duplicate-able` first: it adds a PFC `Able, Synthetic` in Alpha beside the
-   fixture's SPC. Build a synthetic workbook with exceljs. Give tabs `Alpha` and `Bravo` two banner rows above the
+4. **Import and history:** Run step 5 before these imports change the readiness baseline. Run `$V seed duplicate-able`
+   first: it adds a PFC `Able, Synthetic` in Alpha beside the fixture's SPC. Build a synthetic workbook with exceljs.
+   Give tabs `Alpha` and `Bravo` two banner rows above the
    header `Soldier, Task #, Date, Method, Graded by, Remarks`. `Alpha` holds
    Able/`VERIFY-ICT-ALPHA`/`2026-09-14`/Demonstration (the seeded completion),
    Able/`VERIFY-ICT-ALL`/`2026-10-01`/Demonstration/`SFC Lee`/`Range day`, and
@@ -182,9 +183,10 @@ pre-populating extra completions.
    automatic resend. Exact saved-row readback can show all 501 committed while only 500 are confirmed in the UI. Keep
    confirmed, unconfirmed and not-imported counts distinct.
 
-5. **Reports and downloaded values:** With the warning Able and current Baker rows, All Groups is 60%, Alpha 100%, Bravo
-   100%, and MOS 68W **2/4 (50%)**. Unassigned remains 0/2 because its imported All-MOS is expired. Preserve report and
-   matrix workbooks; inspect `Critical Tasks Report` and `Critical Task Matrix` using `$V workbook FILE SHEET`. The
+5. **Reports and downloaded values:** Run after step 3 and before step 4. With the warning Able and current Baker rows,
+   All Groups is 60%, Alpha 100%, Bravo 100%, and MOS 68W **2/4 (50%)**. Unassigned remains 0/2 with no completions.
+   Preserve report and matrix workbooks; inspect `Critical Tasks Report` and `Critical Task Matrix` using
+   `$V workbook FILE SHEET`. The
    matrix workbook must retain scoped names/task columns and status/completion-date cells; the report workbook must
    retain readiness summaries and risk/task rows. The matrix has no readiness-total column, and the report has no
    completion-date cells. Archived/foreign data must be absent. Arm a summary failure before changing a filter; require
@@ -199,7 +201,7 @@ pre-populating extra completions.
    (33%)**, Alpha+68W+Medic+SGT is **2/2 (100%)**, 68W+NCO+SPC is Unassigned alone at **0/2**, Bravo+68W has **0/0
    (0%)**, and selecting both 68W and 11B is a union at **3/5 (60%)**. Capture visible compound controls and their
    workbook, separately from authenticated summary API responses. Matrix Gaps only (on the row, or in More's Filters
-   section when folded) plus search Unassigned exports only that Person, Alpha Not Recorded and All-MOS Expired with its
+   section when folded) plus search Unassigned exports only that Person, Alpha and All-MOS both Not Recorded with no
    completion date. Restore Able's rank to SPC; editing the Data sheet name can also regenerate its slug while retaining
    the Person ID.
 
@@ -245,8 +247,9 @@ pre-populating extra completions.
    retains its ID. Restore the exact original membership scope/capabilities. Archive Able through the owner's Personnel
    UI, then open its ID-based Critical Tasks record: all retained dates remain in read-only history with no log/edit
    controls. Valid create/edit/delete requests and batch attempts cannot alter its records (batch may return 200 with a
-   row error). Active matrix/reports exclude Able; with the dated fixture above, the remaining population is **1/3
-   (33%)**. Restore the Person through Organization Settings → Archives and read back the same ID.
+   row error). Active matrix/reports exclude Able and its two applicable task assignments. Calculate readiness from the
+   remaining active Person/task pairs and their latest completions, including any retained step 8 cohort. Restore the
+   Person through Organization Settings → Archives and read back the same ID.
 
 10. **Wide reads and provider pagination:** With registered `bulk-501` People, import the same 501 names for both Alpha
     and All-MOS tasks at `dates.ui` (1,002 rows). The existing seed plus those rows gives 1,003 distinct latest
@@ -476,6 +479,17 @@ pre-populating extra completions.
         choosing `Archived` lists archived tasks and adds `Clear filters`. `Import` navigates to
         `critical-tasks/library/import`. `New Task` is disabled with its loading reason while the library loads
 
+12. **Personnel validation drawer.** Run independently on a fresh worker as `orgOwner`: open Able's Personnel record →
+    Readiness → `Record validation`. Choose All-MOS in `Task`, today's `Validated on`, `Demonstration` as
+    `Validation method`, and a unique `Notes` marker, then `Save validation`. Reload and require Able 2/2 ready,
+    Reports 2/5 (40%), and exactly one matching `personnel_ict_completions` row. Open All-MOS from the Readiness table,
+    choose that dated entry's `Edit` under `History`, change its note and `Save correction`; require the same row ID
+    and the corrected note after reload. Close, record the plain Readiness URL, then navigate to that URL with
+    `?item=critical-task:<ictTaskGeneral>` from `$V fixture`. The All-MOS drawer opens; native Back returns to the plain
+    URL and closes it. Repeat with `?add=critical-task`: the task picker opens and Back closes it. Closing either
+    URL-opened drawer through `Cancel` removes its `item` or `add` query parameter. This drawer is separate from the
+    matrix modal; keep its proof separate and restart this worker before any baseline-dependent recipe.
+
 Use the documented narrow `network arm-fail|arm-hold PAGE FAMILY`, `state`, `release`, `restore`,
 `feedback arm|state|restore` and `export arm|save|restore` controls. Critical Tasks families are
 `personnel-ict-completions`, `personnel-ict-completions/batch`, `critical-tasks/reports/summary`,
@@ -517,7 +531,7 @@ pages.
 - A successful UI write or report does not prove denial, RLS, atomic batch behavior, stale-response safety or another
   feature's math. Keep direct API/provider and existing component/application/SQL checks separately identified.
 
-## Viewer day
+### Viewer day
 
 Launch with `--browser-timezone` chosen per the [skill](../SKILL.md#launch) and record the browser and UTC days. Choose
 or record a completion whose task expires on the browser day. After a reload, the Critical Tasks matrix, Critical Tasks

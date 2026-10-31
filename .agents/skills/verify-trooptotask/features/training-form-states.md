@@ -96,9 +96,9 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
    reads in the muted tone; non-zero counts keep their tone, and the thin separators between counts stay. A current cell
    of a type with no expiry shows the completion month (`Nov ’25`); its popover status line reads `Never expires`.
 
-   In the cell popover the date control is the shared date picker (a button named `Completion date`, not a native date
-   input). Opening a cell that already has a record fills the notes and the certificate URL from it; saving only the
-   date keeps both, and saving a card-date type keeps its stored completion date. The note link
+   In the cell popover the date control is the shared calendar-opening button labelled `Completed`, or `Expires on`
+   for a card-date type, not a segmented or native date input. Opening a cell that already has a record fills the notes
+   and the certificate URL from it; saving only the date keeps both, and saving a card-date type keeps its stored completion date. The note link
    `Add a note or certificate link…` is underlined. At 390 the search field in `Training controls` takes its own full
    row above the other controls; at 1024 and 1440 it stays on the row.
 
@@ -117,7 +117,8 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
    | Import page                       | `Import`, upload the tracker from training-completions-reports step 4, answer the rail, `Import 2 changes`  | `personnel-trainings/batch` | Done reads `0 changes saved.` with `Not confirmed 2` and the warning `The last batch was not confirmed`; no row is written. `Import another file` and the same answers save each completion once. While held (`arm-hold`), the bar reads `Saving 0 of 2 changes` and Import is disabled                  |
 
    Retry once after each failure and read the row back. Remove every temporary record through the visible controls
-   (`Remove <type> record`, then `Delete`) and read the original rows back before cleanup.
+   (the row's `More actions for <type>` → `Delete`, then `Delete` in `Remove Training Record`) and read the original rows
+   back before cleanup.
 
 4. **Field error association.** Read `aria-invalid` and the resolved `aria-describedby` for the field the message
    belongs to.
@@ -158,7 +159,7 @@ failures and loading use the `$V server-source arm` hooks named in steps 1 and 5
    | Dialog                                                          | Open lands on                    | Escape or close returns to                                                        |
    | --------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
    | Record sheet (`?person=<id>`)                                   | `Record all N today`             | the matrix person button, or the cell that opened it through `Open record`        |
-   | `Record · <type>` (cell popover)                                | the date field's month segment   | the matrix cell button after a save, an Escape or `Open record` closes it         |
+   | `Record · <type>` (cell popover)                                | the date-picker button           | the matrix cell button after a save, an Escape or `Open record` closes it         |
    | `Delete Training Type`, `Delete Saved View`                     | the alertdialog container itself | the opening `Delete type` or `Delete view` button                                 |
    | Training type sheet (`New training type`, `Edit training type`) | `Name`                           | the opening `New type` button, the row's name button, or the new row after Create |
    | `Manage views` sheet                                            | the sheet container itself       | `More Training controls` (More) or `Training view filter` (View menu)             |

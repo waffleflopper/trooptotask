@@ -15,14 +15,15 @@ appearance, structure and keyboard behavior unchanged unless the issue's accepta
 - `readiness-band`: Training Reports and Critical Tasks Reports render ramp and semantic tiles, drop markers and a
   legend.
 - `report-chart`: Critical Tasks Reports render Bar, Line and ChartTable charts, Training Reports renders the Forecast
-  chart, and the platform admin dashboard renders a Bar chart.
+  chart. Platform `/admin` renders Inbox rather than a report chart.
 - `requirement-status-badge`: the Training matrix, record modal and Critical Tasks screens render Current, Expiring,
   Expiring Soon, Expired, Exempt, N/A, Not Done and Not Required.
 - `route-tabs`: Organization settings, Personnel detail and Account pages render link navigation as tabs, including
   count badges.
 - `workspace-toolbar`: Critical Tasks renders one fitted row at every width, folding its least important controls into
-  `More Critical Tasks controls` and its search into an icon last. Calendar, Personnel and Training render the same
-  fitted row, folding their least important controls into `More <toolbar label> controls` as the container narrows.
+  `More Critical Tasks controls` and its search into an icon last. Calendar, Personnel and Training fold their least
+  important controls into `More <toolbar label> controls` as the container narrows. Calendar and Personnel keep one
+  fitted row; Training's search takes its own row below a 480px toolbar width.
 - `shared-defects`: empty-state titles are headings, an Organization page has one `main` landmark, a dialog has one
   Close control, and the type-management grid moves between rows with arrow keys.
 
@@ -33,7 +34,9 @@ Use Organization navigation to reach Training (Types, Views, Reports, the matrix
 detail), Calendar (Bulk, Reports) and settings (General, Members, Ranks). Account Profile and Security and platform
 `admin` use the same shell. Switch the theme with `Toggle theme`, and the width with `resize_page`.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 Styling-migration equivalence uses the [shared composition recipe](shared-compositions.md).
 `style-probe PAGE FILE.json [SELECTOR ...]` writes a new evidence-root `.json` of tag, role, text, attributes, size and
@@ -41,7 +44,7 @@ computed styles for the default shared-composition selectors and any extras, wit
 scrolling. `style-diff BEFORE.json AFTER.json` lists every difference between two such files. Run
 `node --test .agents/skills/verify-trooptotask/helpers/style-probe.test.mjs` for its boundaries.
 
-## Driving it with verify:app
+### Journeys
 
 The [component contracts](component-foundation.md) apply. Record each step PASS, FAIL, UNREACHABLE or UNRUN with actor,
 width and theme. A FAIL stays FAIL until the same step passes on a later candidate. Never edit the application while a
@@ -77,20 +80,26 @@ run holds a candidate: edit, commit and relaunch first.
    Rerun a probe against the same page to prove the read is deterministic; a reload and a second read must also give
    `0`. State the matched counts, because a selector that matches nothing proves nothing.
 
-5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Types, Views and Templates: Tab order,
+5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Onboarding Templates: Tab order,
    ArrowDown/ArrowUp/Home/End and the disclosure trigger `button` with Enter and Space, reading its `aria-expanded`
-   after each key. Route tabs: Tab, ArrowLeft and ArrowRight. Record the focused element's tag, role and name, and the
-   `aria-selected` of its `row`, after each key. Right moves from a row to its actions, Left back, and Enter selects the
-   row. After a successful create, `document.activeElement` is the new row. At 390 wide the list and detail take turns:
-   selecting a row leaves `document.activeElement` on the detail heading (`tabindex="-1"`), Back leaves it on the
-   selected row, and a successful create leaves it on the new item's detail heading.
+   after each key. Record the focused element's tag, role and name, and the `aria-selected` of its `row`, after each key.
+   Right moves from a row to its actions, Left back, and Enter selects the row. After a successful create,
+   `document.activeElement` is the new row. At 390 wide the list and detail take turns: selecting a row leaves
+   `document.activeElement` on the detail heading (`tabindex="-1"`), Back leaves it on the selected row, and a successful
+   create leaves it on the new item's detail heading. Training Types instead uses a reorderable list: focus a grip and
+   use Alt+ArrowUp/ArrowDown, then restore the order. Enter/Space on a type name opens its edit sheet; closing returns
+   focus to the opener, and successful creation returns to the new type's name. Manage views uses list buttons inside
+   a sheet: Enter/Space opens an editor, and `Back to all views` returns to the list. Route tabs are links: Tab and
+   Shift+Tab move focus, Enter navigates and the active link carries `aria-current="page"`. They have no arrow-key
+   selection contract.
 6. Shared defects: count `main` and nested `main` on an Organization page and an admin page; read the tag of each
    `[data-slot="empty-title"]` in the empty states; read the Close controls of the Training roster dialog.
 7. Toolbar: read the `workspace-toolbar`, its select trigger, input group and action label at 1280, 820 and 390 widths.
    The Critical Tasks toolbar is one row at all three widths (no action labels to hide); read its row buttons and More
    button through the default `[data-toolbar-item]`/`[data-toolbar-more]` selectors, which skip the hidden measuring
-   copies, and prove the folding with `toolbar-sweep`. Calendar, Personnel and Training share the same row and More
-   structure and expose the same selectors, with no action labels to hide.
+   copies, and prove the folding with `toolbar-sweep`. Calendar, Personnel and Training expose the same row and More
+   selectors, with no action labels to hide. Training's search stacks above the row below a 480px toolbar width;
+   compare that state separately from controls folding into More.
 8. Failure states: `network arm-fail` for the Types and Templates create, then `network restore`.
 
 Run `node --test .agents/skills/verify-trooptotask/helpers/style-probe.test.mjs` for the probe and diff boundaries.

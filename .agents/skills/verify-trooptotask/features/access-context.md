@@ -1,7 +1,8 @@
 # Trusted access and request isolation
 
 An authenticated member's current Organization membership supplies role, feature capabilities and Group scope. The
-requested route supplies the resource target. Browser fields never supply authority.
+requested route supplies the resource target. Organization feature switches can also deny a request before ordinary
+authorization. Browser fields never supply authority.
 
 ## Sub-features
 
@@ -104,10 +105,11 @@ promise invalidation while the same request is running.
 For shared persistence/provider changes, use [Personnel artifacts](personnel-artifacts.md) and
 [Sign-in Rosters](sign-in-rosters.md) for actual uploads, saved-file reads, removal and allowed/denied scope. Personnel
 documents use `personnel-documents`; counseling PDFs and roster scans share the private `counseling-files` bucket with
-separate path and permission rules. A successful roster scan read does not establish counseling access. Counseling has
-no native download action, so label its authenticated Storage/SQL proof separately. Keep saved rows, exact bytes/hashes
-and denial witnesses before and after any mutation. An empty removal acknowledgment or provider error cannot establish
-that an existing object was removed.
+separate path and permission rules. A successful roster scan read does not establish counseling access. For an uploaded
+counseling record, choose its `Open <title> PDF` button and confirm the PDF opens; keep that native action separate from
+authenticated Storage/SQL proof of bytes and denied access. Keep saved rows, exact bytes/hashes and denial witnesses
+before and after any mutation. An empty removal acknowledgment or provider error cannot establish that an existing
+object was removed.
 
 `src/features/personnel/personnelRosterReader.server.test.ts` exercises the roster reader against a synthetic provider
 for Organization binding, Personnel Group scope captured at construction, an empty scope without provider access,

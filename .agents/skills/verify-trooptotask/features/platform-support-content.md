@@ -11,7 +11,8 @@ is refused.
   cancellation, activate/deactivate, confirmed deletion, a per-banner dismissal count, and persisted member banners and
   account-wide dismissals.
 - `whats-new-publishing`: draft, reorder paragraphs, save, publish and delete a What's New entry; drafts stay invisible,
-  the newest three published entries fill the member dialog, and every published entry is on the all-updates page.
+  the newest three published entries fill the member dialog, and the newest 200 appear on the all-updates page in
+  publication order.
 - `feedback-review`: retain submitter/context/message while closing Feedback from the Inbox without a reply, reload and
   recover from failure ([Platform Inbox](platform-inbox.md) owns the journey); replies, staff notes and GitHub issues
   belong to the [Feedback recipe](platform-feedback.md).
@@ -125,8 +126,10 @@ create/toggle/delete/close requests preserve rows, separately from native contro
    menu's What's new and the all-updates page: the draft is absent in both. Choose Publish; the row becomes Published
    with today's date and a Shown in app mark, and it is the first entry in the member dialog and on the all-updates
    page. Publish three more unique entries: only the newest three fill the dialog, the older ones remain on the
-   all-updates page. Open the dialog after clearing nothing: no entry reads as unseen after the move to stored entries,
-   because the last-seen key still holds the newest published id. Edit a published entry and Save changes: its publish
+   all-updates page. Ordinary `$V actor orgMember home` sign-in marks the current newest entry seen, so it does not
+   exercise automatic opening. Separately use `$V actor --show-whats-new orgMember home`: the newest entry differs
+   from the account's browser-local last-seen ID and the dialog opens automatically. Close it, reload the same page
+   without signing in again, and require no automatic reopening. Edit a published entry and Save changes: its publish
    date and place in the list do not change. While a held save is in flight, the title and paragraph fields are
    read-only, the paragraph controls are disabled and the button shows its spinner; they unlock once the saved entry is
    listed, and a new entry opens in the editor only then. A draft offers Delete draft and a published entry offers

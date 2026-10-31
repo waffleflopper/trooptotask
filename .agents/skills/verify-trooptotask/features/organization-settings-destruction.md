@@ -27,7 +27,7 @@ confirmation and current identity verification.
 Open `Unit settings` in the sidebar or the `Switch organization` menu. Both enter `/settings/general` directly,
 without a bare `/settings` request or a 303. Confirm the sidebar entry stays active on General and the other settings
 pages. `General` contains `Unit name` with its `Edit`, `Web address` and the
-Calendar signpost. `Policies` contains `Archive Retention`, `Loss Warning Window` and `Training Readiness`, each with
+Calendar signpost. `Policies` contains `Archive retention`, `Loss warning window` and `Training readiness goal`, each with
 its own `Save` button. Owners also see `Danger zone` below the other settings pages. Its `Delete <Organization name>`
 row counts what deletion destroys (people, training records, members who lose access and archived records) in a tinted
 strip that streams after first paint. The counts include records of a turned-off feature: with Training off,
@@ -175,9 +175,9 @@ during its pending DOM update have separate mounted component checks; do not des
    value and require successful feedback, the saved value after reload, and an unchanged warning window/document
    cap/Critical Tasks defaults. Open Archives and compare its displayed retention with the saved setting; this readback
    does not execute retention cleanup. Save a valid loss-warning value separately and require the inverse partial-update
-   behavior after reload. Values outside 1–120 months or 1–365 days must prevent a normal UI save; valid direct API
-   boundary values and malformed numeric inputs belong in separate request/lower-level observations. For a failure, arm
-   `$V network arm-fail $PAGE organization/settings`, change a valid value and click that section's `Save`. Require
+   behavior after reload. Enter values outside 1–120 months or 1–365 days and click that field's `Save`: require an
+   associated field error and no settings request. Valid direct API boundary values and malformed numeric inputs belong
+   in separate request/lower-level observations. For a failure, arm `$V network arm-fail $PAGE organization/settings`, change a valid value and click that section's `Save`. Require
    error-only feedback, retained entered value and unsaved state, no success claim and unchanged A/B storage. Restore
    the control, retry through the same visible button and require persistence. Restore the original policy values
    through the UI. For loss-warning reverse consumers, use a dedicated `seed personnel-lifecycle` parent from the
@@ -191,11 +191,12 @@ during its pending DOM update have separate mounted component checks; do not des
    original dates/window. Evals does not display or use this setting. Source mapping or a saved scalar alone cannot
    establish these four displayed outcomes.
 
-   **Training readiness goal.** As owner or admin, open Policies and require `Training readiness goal (%)` at the saved
-   value, 90 for an Organization that never changed it, with the help text
-   `Used for goal lines and heat-map bands on Training Reports.` Enter blank, `0`, `101` and `90.5` in turn: each must
-   show the field error, mark the input invalid with that error in its accessible description, keep `Save` disabled and
-   send no settings request. For blank, focus the field and use native Control+A then Backspace; an empty `fill` may
+   **Training readiness goal.** As owner or admin, open Policies and require `Training readiness goal` with a separate
+   `%` adornment at the saved value, 90 for an Organization that never changed it, with the description
+   `The goal line on Training Reports and the break between green and amber in the heat map.` Enter blank, `0`, `101`
+   and `90.5` in turn, then click `Save training readiness goal`: each must show the field error, mark the input invalid
+   with that error in its accessible description and send no settings request. Save remains available for retry. For
+   blank, focus the field and use native Control+A then Backspace; an empty `fill` may
    show a blank field without establishing a changed draft. Capture the actual invalid/error state. Enter `85`, use the
    section's `Save`, and require success feedback, `Saved`, 85 after reload and `training_readiness_goal_percent` 85 in
    `rows organizations orgA`, with retention, warning window, document cap and B unchanged. Repeat one failed save with

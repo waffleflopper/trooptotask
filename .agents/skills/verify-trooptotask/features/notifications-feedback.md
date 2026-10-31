@@ -1,7 +1,7 @@
 # Notifications, feedback and announcements
 
-Members read their own Organization notifications, send feedback about the current page, and dismiss global
-announcements without affecting another User Account.
+Members read their own notifications for the current Organization and their account-wide notifications, send feedback
+about the current page, and dismiss global announcements without affecting another User Account.
 
 ## Sub-features
 
@@ -30,7 +30,9 @@ in the Organization header, or in the account menu (sidebar name card) at any wi
 category, enter a message and Submit. An active announcement appears above the workspace with
 `Dismiss announcement: <title>`. Switch Organizations through the header switcher.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 Notifications actors are `notificationMember`, `notificationOther`, `notificationForeign` and `notificationSwitch`, with
 every feature lane absent. Switch belongs to A/B; the others belong only to their named Organization. `actor ROLE home`
@@ -48,7 +50,7 @@ endpoints. Their failure/hold controls exercise the same page's real UI response
 delivery or automatic retry. Restore hooks before cleanup. The owned app excludes external feedback tokens, so real
 GitHub mirroring is not a live-verified path.
 
-## Driving it with verify:app
+### Journey
 
 Preconditions: `doctor` passes. `$V actor notificationMember home` enters A with every feature lane absent;
 `notificationOther` is a peer, `notificationForeign` belongs only to B, and `notificationSwitch` belongs to A/B with
@@ -102,10 +104,11 @@ endpoints).
    horizontal scroll.
 5. **Separate API authorization/deletion.** From that same authenticated page, issue direct fetches to the known
    notification endpoint for peer/foreign IDs and read back rows. Peer writes must be denied without effects; foreign
-   resources remain concealed. Request single own deletion and then `deleteAll`; only the requesting account in the
-   requested Organization may change. Test B through `notificationSwitch` and use known IDs to prove same-account A/B
-   independence. Record HTTP status/body and persistence separately from UI proof. An anonymous page cannot list/mutate
-   notifications, submit feedback or dismiss announcements.
+   resources remain concealed. Request single own deletion and then `deleteAll`; only the requesting account's rows
+   for the requested Organization or with no Organization may change. Test B through `notificationSwitch` and use
+   known Organization-bound IDs to prove same-account A/B independence. Record HTTP status/body and persistence
+   separately from UI proof. An anonymous page cannot list/mutate notifications, submit feedback or dismiss
+   announcements.
 6. **Feedback success and recovery.** Open Send Feedback, confirm blank/whitespace cannot submit and Cancel creates no
    row. Submit a unique General Feedback message and verify one row with the signed-in user, selected Organization,
    server-derived Organization name, category, exact message and normalized current page. Capture modal closure,
@@ -157,8 +160,11 @@ disposable provider until owned worker cleanup; its replies and staff notes go w
 
 ## Gotchas
 
-- Notifications combine requested Organization and signed-in User Account. Feature edit permission is unnecessary; being
-  an Organization admin does not permit reading another account's inbox.
+- Inbox reads, unread counts and bulk read/delete include the signed-in account's current-Organization rows and rows
+  with `organization_id=NULL`. Account-wide rows follow the account across Organizations; other Organization-bound
+  rows stay separate. The communications seed supplies Organization-bound rows only, so it does not prove the
+  account-wide case. Feature edit permission is unnecessary; being an Organization admin does not permit reading
+  another account's inbox. Organization exports include only rows bound to the exported Organization.
 - Announcements are global; a dismissal belongs to the User Account and follows it across Organizations. A foreign
   Organization's private notification is different from a global banner.
 - Twenty visible notifications do not prove bulk mutations cover all saved notifications. The larger fixture supplies an

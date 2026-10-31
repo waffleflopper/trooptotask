@@ -22,7 +22,7 @@ reads `Stand up your unit.` with a three-row `What happens next` list from 1024 
 there is no Cancel. After success the new Organization opens on Setup at `/org/<orgId>/setup/welcome`; the Organizations
 list shows it as `Owner`.
 
-## Helper controls
+### Helper controls
 
 ```bash
 $V actor orgCreator org/new # confirmed account for creation
@@ -62,7 +62,7 @@ without membership. Use `$V actor orgCreator dashboard` and its returned page ID
    either existing tenant.
 4. Run the [recoverable creation](#recoverable-creation) cases for failed, unconfirmed and retried creation.
 
-## Recoverable creation
+### Recoverable creation
 
 Use a unique synthetic name per case and `$V created-org NAME` after every submission. Creation is one
 `create_organization` RPC: the Organization, owner membership with the account's email and every default commit together
@@ -88,7 +88,7 @@ assignment types, four years of federal holidays and the default rank catalog.
   `$V created-org NAME` (case 2 and step 3).
 - (d) After any success, open `/org/new` again and create a second Organization with the same name. Both exist; names
   are not unique.
-- (e) Reload `/dashboard` after each recovered case: exactly one `Owner` entry per intended Organization.
+- (e) Reload `/dashboard?show=all` after each recovered case: exactly one `Owner` entry per intended Organization.
 - Competing submissions of one form are a race the UI cannot make deterministic. Two-session SQL proves that one request
   identity creates one Organization.
 

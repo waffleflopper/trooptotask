@@ -53,7 +53,7 @@ members show `Move selected members to` (a tree picker with path labels) and `Re
 
 Seeded Organization A has Alpha (SPC Able, Medic) and Bravo (SPC Baker, NCO), both at `sort_order` 0, plus SPC
 Unassigned (NCO) without a Group. Groups sort by `sort_order`, then name, then ID. A fresh fixture lists Alpha before
-Bravo, and deleting Alpha defaults to Bravo.
+Bravo, and deleting Alpha defaults to `Unassigned`.
 
 ## Helper controls
 
@@ -185,7 +185,9 @@ Start from a fresh fixture as `orgOwner` (or `manager`) at 1440x900 and open `Ma
    `Move under` has a choice. The picker offers `Top level` and every Group outside the moving subtree; the squads are
    disabled (a squad with teams under a squad would nest four deep) and so is the current parent. Choose `2nd Platoon`
    and `Move`: the squad and both teams keep their IDs, `2nd Squad` takes `parent_id` 2nd Platoon and the next
-   `sort_order`, and the teams stay at depth 3.
+   `sort_order`, and the teams stay at depth 3. Separately create and pin an empty top-level Group, then move it under
+   `2nd Platoon`. Its saved `user_pinned_groups` rows disappear for every member. Move it back to `Top level`: the pin
+   does not return. Delete the temporary Group.
 5. **Subtree delete.** With Able in Alpha Team and two people in Bravo Team, `Change 1st Squad` → `Delete…` opens
    `Delete 1st Squad and its 2 sub-groups?`:
    `Alpha Team and Bravo Team are deleted with it. 3 people move to the Group you choose. Their records, notes and

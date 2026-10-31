@@ -12,8 +12,8 @@ choices persist for their own user and Organization without resetting a newer se
 - `optional-chrome`: a failed optional read leaves the screen, the sidebar's account name card and its menu and
   permitted navigation usable; explicit switcher close/reopen retries without a request loop; a fresh load recovers
   other optional reads.
-- `training-preferences`: Group, saved View and matrix mode filter loaded data immediately; preference-only saves cause
-  no Training workspace request or loading reset.
+- `training-preferences`: Group, saved View, matrix mode and Display choices update loaded data immediately;
+  preference-only saves cause no Training workspace request or loading reset.
 - `pending-preferences`: edits within the debounce window and while an earlier save is held preserve the latest
   Group/View after settlement, navigation and full reload.
 - `concurrent-preferences`: separate requests for the same user/Organization preserve disjoint fields, including initial
@@ -43,12 +43,15 @@ choices persist for their own user and Organization without resetting a newer se
 ## How to get to it (user POV)
 
 Sign in normally and choose Training or Calendar in the app navigation. Training has Group, saved View and matrix-view
-controls. Calendar's `Display` menu contains Show Status Text and Show Personnel Roles, and Show Onboarding when
-onboarding Personnel exist; when the row folds, `Display` moves into `More Calendar controls` as a submenu. Use the
+controls. Training's `Display` menu has `Color every status`, `Only Soldiers needing action` and `Current cells show`
+with `Date`, `Check mark` and `Blank`. Calendar's `Display` menu contains Show Status Text and Show Personnel Roles,
+and Show Onboarding when onboarding Personnel exist; when the row folds, `Display` moves into `More Calendar controls` as a submenu. Use the
 sidebar's Switch organization menu and the account name card at its foot, which opens the account menu (Account, What's
 new, Send feedback, Sign out), for scope/session changes.
 
-## Helper controls
+## Driving it with verify:app
+
+### Helper controls
 
 Shell and preference verification uses the [shell/preference recipe](shell-preferences.md). `preferences ROLE orgA|orgB`
 reads only the named synthetic user's saved preference rows.
@@ -62,7 +65,7 @@ process. Use it for first-paint fallback, strict save/read failure and Organizat
 control before retry. Run `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for method,
 query, origin, tenant and response-order isolation.
 
-## Driving it with verify:app
+### Journey
 
 Preconditions: launch and doctor pass on the owned worker. Use `$V actor trainingSwitch training` for A/B Training,
 `trainingOperate` for an independent A user, `trainingForeign` for B-only denial, and `$V actor calendarSwitch calendar`
@@ -74,7 +77,14 @@ distinct from ordinary UI or authorization proof.
    `$V network arm-observe PAGE user-preferences`; choose Focus View and Alpha from fresh native snapshots. The filtered
    matrix must update immediately. Save network state and native `list_network_requests` before/after; require
    successful PATCH, no subsequent Training `__data.json` workspace navigation caused solely by that save, and no
-   loading reset. Reload and compare visible choices and exact saved IDs. Restore the control.
+   loading reset. Also record the original Training Display choices. Toggle `Color every status`, capture its immediate
+   matrix change and successful PATCH, then reload and verify the choice. Repeat with `Only Soldiers needing action`;
+   turn it off before checking current-cell marks. Choose `Current cells show` → `Check mark` and `Blank` in turn,
+   requiring Able's current cell to change immediately and each choice to survive reload. Compare `matrixColorAll`,
+   `matrixNeedsActionOnly` and `matrixCurrentMark` in `$V preferences trainingSwitch orgA`; the network hook
+   records them under `preferencePatch`, and reload removes that hook. Confirm B retains its own
+   choices, then return to A, restore its original Display values and verify readback. Reload and compare visible
+   choices and exact saved IDs. Restore the control.
 2. Arm `$V network arm-hold PAGE user-preferences`, change only View, and require state to report the real PATCH `200`
    held after dispatch. While it remains held, change Group and matrix mode. Capture the immediate latest visible
    choices and saved first-patch rows. Before releasing, visit Reports and return to Training through native navigation;
@@ -235,7 +245,7 @@ System-preference emulation must not replace the explicit choice.
 
 Restore every control before reload or cleanup. Restore original preferences with native controls and verify exact rows.
 
-## What's New fixture state
+### What's New fixture state
 
 The owned session writes `changelog-last-seen-USER_ID` in local storage with the id of the newest published What's New
 entry before navigation. AppShell writes that same key and value when a real user closes the dialog. There is no

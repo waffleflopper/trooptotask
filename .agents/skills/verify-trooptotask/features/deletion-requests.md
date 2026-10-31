@@ -26,7 +26,9 @@ archive** (Personnel), **Approve delete** (other kinds) or **Deny**. Deny opens 
 revisit the source to confirm the effect. Cancellation and retained Training type/counseling submission use the
 authenticated HTTP interface; they have no visible UI.
 
-## Helper controls
+## Driving it with verify:app
+
+Set `V="node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"` for the owned worker.
 
 Deletion review uses the [request/review recipe](deletion-requests.md), dedicated `deletionRequester`, `deletionPeer`,
 `deletionScoped`, `deletionReviewer` and `deletionForeign` actors, `actor ROLE settings/approvals`, and
@@ -48,15 +50,11 @@ provider. It rejects only that recorded synthetic request's transition to approv
 requests admissible. Arm requires a pending A/B request targeting an exact saved `deletion-sources` seed ID; it cannot
 target original fixtures or another database. `deletion-review-failure state` returns sanitized ownership/phase/target
 information. Preserve state and request/source/file reads before native approval. The resulting real provider rejection
-can establish effect-before-status failure and counseling Storage-before-RPC ordering; it is distinct from synthetic
-browser 503/rejection. `deletion-review-failure restore` removes only the receipt-bound owned constraint, including
-interrupted-install recovery, and never alters row data. Restore before retry or cleanup; `clean-seeds` also restores
+can establish row/status rollback on rejection. Counseling approval runs the RPC before Storage cleanup; a rejected
+RPC must retain the PDF. This is distinct from synthetic browser 503/rejection. `deletion-review-failure restore` removes
+only the receipt-bound owned constraint, including interrupted-install recovery, and never alters row data. Restore before retry or cleanup; `clean-seeds` also restores
 before removing recorded source rows. Run `python3 -m unittest scripts.verification.test_environment` for this control's
 denied and interrupted paths. This fixture DDL is not a migration or remote database action.
-
-## Driving it with verify:app
-
-Set `V="node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"` for the owned worker.
 
 `deletionRequester` operates Personnel, Training and Rating Scheme in A; it has no configure or Organization-review
 authority. `deletionPeer` views those lanes, `deletionScoped` operates Alpha only, `deletionReviewer` is an A admin with
@@ -93,7 +91,10 @@ preserve their original rows. Setup is provider seeding, not native creation/upl
    after acknowledged review; capture Settings counts and source/provider persistence after reload. If readback fails
    after acknowledgment, report completed review with refresh uncertainty and do not offer the same mutation again.
    Synthetic response/rejection controls establish client recovery, not provider atomicity; component tests own
-   malformed/null error bodies and refresh failure.
+   malformed/null error bodies and refresh failure. As `orgOwner`, open `Settings → Logs`, select `Deletions` and use
+   `Search audit log` to find the reviewed description. Require the approved or denied event with its actor after
+   reload; reviewed requests no longer appear in Approvals. Logs is owner-only, so use a separate owner page rather
+   than the admin `deletionReviewer` page.
 3. **Every approved source.** Submit retained `training_type` and `counseling_record` through
    `$V deletion-request PAGE orgA submit JSON` with the seed's exact type/id and the source URL. A Training type request
    needs Organization-wide Training configure; a counseling request needs Personnel operate on the record's Person

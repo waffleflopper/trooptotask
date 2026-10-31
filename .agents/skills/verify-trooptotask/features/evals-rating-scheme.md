@@ -33,9 +33,10 @@ upcoming evaluations. A member with Personnel access alone cannot enter Evals.
 Rating Scheme actors are `ratingConfigure`, `ratingOperate`, `ratingView`, `ratingScoped`, `ratingEmpty`,
 `ratingForeign` and `ratingSwitch`, with every other feature lane absent. Scoped operates only Alpha, Empty has no
 Groups, and Switch operates A but only views B. `actor ROLE evals|home` enters Evals or the Organization Dashboard
-through the normal sign-in form. `seed rating-scheme` creates four temporary Alpha People (Officer, Warrant, NCO and
-archived) and ten dated evaluation records across A/B; it returns exact IDs and examples, records every ID before
-insertion, and uses `clean-seeds`. `rows rating_scheme_entries orgA|orgB id ID` reads their
+through a provider-created authenticated session; `actor --form ROLE evals|home` uses the visible sign-in form.
+`seed rating-scheme` creates four temporary Alpha People (Officer, Warrant, NCO and archived) and ten dated evaluation
+records across A/B; it returns exact IDs and examples, records every ID before insertion, and uses `clean-seeds`.
+`rows rating_scheme_entries orgA|orgB id ID` reads their
 evaluator/status/workflow/date/notes fields; `rated_person_id` is also supported. `network` accepts the exact A
 `rating-scheme` endpoint; use the existing `deletion-requests` control separately for approval submission. Inspect real
 downloads with `workbook FILE 'Rating Scheme'`. The [Evals recipe](evals-rating-scheme.md) owns expectations.
@@ -63,15 +64,18 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    examples cover the displayed buckets.
 2. **Create/edit, required fields and recovery.** With `ratingOperate`, open Add Entry, press **Add entry** with every
    field empty and inspect the inline required-field errors and the focus on the first missing field. Select the seeded
-   Officer/Warrant/NCO to check rank-based OER/WOER/NCOER suggestions, without rewriting the rank catalog. Annual start
-   changes fill the anniversary-minus-one-day thru date; an explicitly edited thru date remains. Pick an internal Alpha
-   rater, or type a synthetic name into the Rater combobox and choose `Use "<name>" as an external rater` (the saved row
+   Officer/Warrant/NCO to check rank-based OER/WOER/NCOER suggestions, without rewriting the rank catalog. On a new
+   entry, Annual start changes fill the anniversary-minus-one-day thru date; an explicitly edited thru date remains.
+   Editing an existing entry's start never autofills its thru date. Pick an internal Alpha rater, or type a synthetic
+   name into the Rater combobox and choose `Use "<name>" as an external rater` (the saved row
    has `rater_name` set and `rater_person_id` null); populate senior rater and optional intermediate/reviewer. Add
    workflow and notes, save, read the exact row with `$V rows rating_scheme_entries orgA id ID`, reload and reopen. Edit
    record status independently from workflow. Removing an optional evaluator clears its relationship and associated
-   workflow. Cancel an edited draft and confirm stored values remain. Arm `$V network arm-fail PAGE rating-scheme`
-   before a save; observe the failed request, unchanged provider row and preserved visible draft, then restore and
-   retry. Delayed save should prevent duplicate submission/closing until completion.
+   workflow. Change a field: Escape and an outside click leave the dirty sheet open, and its close button is absent.
+   Cancel discards the draft and leaves stored values unchanged. Reopen the entry and change a field, then arm
+   `$V network arm-fail PAGE rating-scheme` before a save; observe the failed request, unchanged provider row and
+   preserved visible draft, then restore and retry. Delayed save should prevent duplicate submission/closing until
+   completion.
 3. **Scope and security.** With `ratingScoped`, expect only Alpha entries, without the archived Person's record (six
    rows; four when the default active filter applies, which also excludes the completed and change-of-rater entries);
    its lookup includes active Alpha People and excludes Bravo, unassigned, archived and foreign People. With
@@ -178,9 +182,10 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
      and the first row of a rater is not stretched to the rater column's height; below that the rows keep two lines
      (Soldier and due text, then eval and workflow) with nothing clipped. The first row is the most urgent. Each row is
      one `Button` whose name carries every visible cell; Tab reaches it, Enter and Space open the sheet, and focus
-     returns to that row after Escape or Save, or to `Add Entry` when the row is gone. `Group order` offers
-     `Sort: Most urgent` and `Sort: Senior rater A to Z` and exists only in Grouped. With at least three Senior raters,
-     one whose surname sorts last, whatever the rank, holding the most overdue entry comes first by urgency and last A
+     returns to that row after Escape on an unchanged draft or after Save, or to `Add Entry` when the row is gone.
+     `Group order` offers `Sort: Most urgent` and `Sort: Senior rater A to Z` and exists only in Grouped. With at least
+     three Senior raters, one whose surname sorts last, whatever the rank, holding the most overdue entry comes first by
+     urgency and last A
      to Z (add them through the sheet). Typing `zzzz` into `Search by Soldier or rater` shows `No entries match` and
      `0 of 8 shown`; `Clear search and filters` restores `6 of 8 shown`. Search also finds a Soldier by any label the
      page shows: `SPC Able`, `SPC Able, Synthetic` and `Able, Synthetic` each keep the Able rows
@@ -204,9 +209,9 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
        Each missing control is `aria-invalid="true"` with a resolving `aria-describedby` and its own message below it
        (`Rated Soldier is required.`, `Start date is required.`, `Thru date is required.`, `Rater is required.`,
        `Senior rater is required.`) and focus moves to `Rated Soldier`. Type is a segmented control with the selected
-       item raised. Escape and Cancel return focus to `Add Entry`. Sections (`Rated Soldier`, `Evaluation`,
-       `Rating period`, `Rating chain`, `Tracking`) are divided by rules. The Report trigger reads the code and label
-       (`AN · Annual`). Editing a row shows `Edit entry · SR <name>`, the rated Soldier as the title
+       item raised. Escape closes an unchanged draft; Cancel also discards a dirty draft. Both return focus to
+       `Add Entry`. Sections (`Rated Soldier`, `Evaluation`, `Rating period`, `Rating chain`, `Tracking`) are divided by
+       rules. The Report trigger reads the code and label (`AN · Annual`). Editing a row shows `Edit entry · SR <name>`, the rated Soldier as the title
        (`SPC Able, Synthetic`), a tone dot with `Thru 20 Oct 2026 · 5 days past` (an entry due in 15 days reads
        `Thru in 15 days`), and a `Delete entry` link only for an actor who may delete. The link opens
        `Delete this entry?`; confirming submits the approval request and closes the sheet

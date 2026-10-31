@@ -48,7 +48,7 @@ authenticated packet API; History has no visible Reopen control. Templates opens
 signed-in owned app page. It permits `onboarding` POST/PUT, `onboarding-steps` PUT/DELETE and `onboarding-resync` POST,
 with only their scalar input fields; it reports exact submitted values, transport status and full business body without
 credential headers. It does not apply results to the UI. Start fields are `personnelId`, `templateId` and optional
-`startedAt`. Lifecycle PUT uses `id` and `status` for Cancel, Complete or Reopen; the app validates the transition and
+`startedAt`. Lifecycle PUT uses `id` and `status` for Cancel or Reopen, and adds a `completedAt` date (`YYYY-MM-DD`) for Complete; the app validates the transition and
 its ordinary permissions. Step PUT fields are `action`, `stepId`, `completed`, `stageName` and `text`; DELETE uses `id`.
 Reconciliation uses `onboardingId` and optional `newTemplateId`, with no action discriminator. Label this API proof
 separately from native clicks and privileged setup/readback.
@@ -215,8 +215,9 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    or require a particular winner/request ordering. Clean the native temporary templates and helper cohort after
    retaining the failure or accepted outcome. It does not establish note or lifecycle concurrency.
 8. **Workspace reuse:** As `onboardingOperate` on a settled list, clear resource timings and visit `History`, then its
-   `Onboarding` link back. The page-data probe from the skill's Drive section shows one `onboarding/history/__data.json`
-   whose Onboarding layout digit is `0`, and nothing for the return. As Configure, `Templates` likewise loads only its
+   `Active onboarding` link back. The page-data probe from the skill's Drive section shows one
+   `onboarding/history/__data.json` whose Onboarding layout digit is `0`, and nothing for the return. As Configure,
+   `Templates` likewise loads only its
    own page and the return sends nothing; a template saved there appears in the Start Onboarding dialog without a
    reload.
 9. **Packet link:** Take an active packet ID from `$V rows personnel_onboardings orgA`. From the org's Onboarding URL,
@@ -459,6 +460,12 @@ Person/type**. Each keeps distinct marked notes. Positive active Bravo A and For
 exclusion from empty data. Setup is privileged disposable data; all exact IDs enter the existing ledger before any
 insert. It is not native creation or ordinary authority proof.
 
+Before the lifecycle changes below, as `onboardingPersonnelScoped`, open the tagged Alpha packet and choose
+`Open profile`, then the Person's Readiness tab. Its Onboarding summary shows the latest packet's start date and
+completed/total steps. After that packet's native completion below, reload Readiness: the summary shows its completion
+date and retained step count. Compare the same packet/progress IDs with the saved rows. As Onboarding-only
+`onboardingOperate`, `Open profile` is absent.
+
 As Calendar-only `calendarLane`, fresh-load Calendar and inspect the Alpha and Bravo active markers; completed March
 history supplies no marker and B remains absent. Use the visible Show Onboarding control: turning it off removes the
 cell tint while the header dot remains; restore it to on. Through the separately authorized Onboarding session, cancel
@@ -499,6 +506,13 @@ follow the active ones with their completed/pending labels. `Notes · N` lists e
 included, with step, author and date; reload and reopen. History has no note editor. Provider readback still owns each
 note's retained text, timestamp and author id. Confirm the terminal packet/progress rows are unchanged by reads and
 navigation.
+
+Use `Outcome` to select `Completed`, then `Cancelled`, and compare the retained cohort rows with each result. Return to
+`All`, choose Alpha in `Group` and the cohort's saved template in `Template`, then search by one cohort Person's name,
+rank and MOS separately. A search nobody matches shows `No packets match`; `Clear filters` restores all outcomes,
+Groups, templates and an empty search. When retention is configured, the notice names its saved month count and says
+finished packets are then deleted. `Unit settings` is plain text for `onboardingView`; as `orgOwner` it opens
+`/org/<seg>/settings/policies`. This notice is not proof that the cleanup job ran.
 
 Repeat as `onboardingScoped`: both Alpha names, including the archived Person, remain; Bravo and B are absent.
 `onboardingEmpty` has no history. Switch A → B → A through the visible Organization menu as `onboardingSwitch`: B

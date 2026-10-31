@@ -5,8 +5,8 @@ without gaining library write access, and one Organization's tasks must not appe
 
 ## Sub-features
 
-- `task-library`: create and edit a task's code, title, category, MOS applicability, expiration override and order; save
-  and read it again after reload.
+- `task-library`: create and edit a task's code, title, description, category, MOS applicability, expiration override and
+  order; save and read it again after reload.
 - `task-import`: import a multi-tab workbook on its own page: map columns, review New, Update, Restore and Unchanged
   rows matched by task code, fix a value inline, skip a row, commit, download the rows not imported and read the import
   back as Unchanged.
@@ -77,19 +77,20 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
    Demonstration method, while the All-MOS task is not recorded. Capture the loaded matrix, individual record, report
    and Personnel Readiness tab, then revisit the library to confirm Active and Archived still separate after reload.
    This journey does not replace completion-write checks.
-3. **Create and edit:** Use `New Task` to enter a unique code and title, category, comma-separated MOS values,
-   expiration and sort order, then `Create Task`. Expect the new code and normalized values in the selected details.
-   Reload; find the same ID with `$V rows ict_tasks orgA task_code CODE`. Edit its title and expiration, save, reload,
-   and require the same ID and new values. Cancel a second edit and require no change. `New Task` and `Edit` move focus
-   to Task Code, and `Cancel` returns it to the button that opened the form. A duplicate code must show a save error and
-   leave the prior row unchanged; retry with a new code. Do not treat a toast or enabled button alone as persistence
-   proof. **Direct-edit lost reply.** Record the original task ID and title, then edit its title. Arm
-   `$V fault arm ict-tasks-update-lost-ack` before Save Changes. Require the public not-confirmed message with check and
-   reload guidance, a neutral alert heading, the retained title draft and no success feedback. Capture the provider
-   PATCH receipt and same-ID readback separately. Restore the fault, reload to inspect the saved title, then restore the
-   original through Edit and a normally acknowledged Save Changes. A duplicate-code refusal must keep its specific
-   reason and draft. For archive reply loss, require uncertainty feedback with the current view and confirmation
-   retained until reload; inspect the actual saved archive state and restore visibly.
+3. **Create and edit:** Use `New Task` to enter a unique code and title, a Description marker, category,
+   comma-separated MOS values, expiration and sort order, then `Create Task`. Expect the new code and normalized
+   values in the selected details. Reload; find the same ID and description with `$V rows ict_tasks orgA task_code
+CODE`. Edit its title, Description and expiration, save, reload, and require the same ID and new values. Cancel a
+   second edit and require no change. `New Task` and `Edit` move focus to Task Code, and `Cancel` returns it to the
+   button that opened the form. A duplicate code must show a save error and leave the prior row unchanged; retry with
+   a new code. Do not treat a toast or enabled button alone as persistence proof. **Direct-edit lost reply.** Record
+   the original task ID and title, then edit its title. Arm `$V fault arm ict-tasks-update-lost-ack` before Save
+   Changes. Require the public not-confirmed message with check and reload guidance, a neutral alert heading, the
+   retained title draft and no success feedback. Capture the provider PATCH receipt and same-ID readback separately.
+   Restore the fault, reload to inspect the saved title, then restore the original through Edit and a normally
+   acknowledged Save Changes. A duplicate-code refusal must keep its specific reason and draft. For archive reply
+   loss, require uncertainty feedback with the current view and confirmation retained until reload; inspect the actual
+   saved archive state and restore visibly.
 
    **Atomic reorder.** Record exact task IDs and original sort orders with `$V rows ict_tasks orgA`. With no filters,
    use a visible Move up or Move down button. Native network observations must show one
@@ -161,6 +162,11 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
 
    Choose `Import another file` and drop the same workbook with the same mapping. Review reads `Unchanged · 4` behind
    `4 rows already match. Nothing to save.`, BADMOS and NOTITLE still need a fix, and `Import 0 changes` stays disabled.
+   For description/order mapping, reload the import page and upload a CSV headed `Task code,Description,Sort order`
+   with a `VERIFY-ICT-NEW1` row containing a unique description and order `42`. Require Update, save, then verify the
+   same ID and both values with `$V rows ict_tasks orgA task_code VERIFY-ICT-NEW1`. Reload the import page and upload a
+   second CSV for that code with the same headers and blank Description and Sort order cells. Require Unchanged and
+   verify the saved description and order remain. Blank cells preserve saved values rather than clearing them.
    Restart the owned worker to clean up imported rows.
 
    **Committed import with a lost provider reply.** As `ictConfigurator`, import a CSV with header `Task code,Title` and

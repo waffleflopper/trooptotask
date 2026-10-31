@@ -6,14 +6,16 @@ existing generic text. Provider, constraint and foreign-Organization details nev
 
 ## Sub-features
 
-- `ids`: a non-UUID id in a body answers `400 Invalid ID`; a non-UUID Personnel path id answers `404`. A well-formed id
-  that is missing or belongs to another Organization answers `404` with the resource's own message.
+- `ids`: schema-validated non-UUID body IDs answer `400 Invalid ID`; Calendar status/assignment type and Training
+  type/view DELETE handlers answer `400 Invalid resource ID`. A non-UUID Personnel path id answers `404`. A well-formed
+  id that is missing or belongs to another Organization answers `404` with the resource's own message, except for the
+  retryable catalog deletes below.
 - `dates`: a date-only field accepts only a real `YYYY-MM-DD` day. `not-a-date`, `2026-02-30` and `2026-13-01` answer
   `400 Use a valid date (YYYY-MM-DD)`; a range whose end precedes its start answers `400`.
 - `types`: a field of the wrong JSON type, a missing required field, malformed JSON, a `null` body, or JSON sent to a
   file upload answers `400`. `mos: null` stays a `400`; Personnel MOS is a string or omitted.
-- `conflicts`: a duplicate Training type, Onboarding template or Group name answers `409` with a message naming the
-  conflict.
+- `conflicts`: a duplicate Training type or Onboarding template name, or a Group name duplicated under the same
+  parent, answers `409` with a message naming the conflict. Different parents can have Groups with the same name.
 - `deletes`: deleting a missing Calendar status or assignment type still answers `200`, so a retried delete recovers,
   but records no audit event and sends no administrator notification.
 - `imports`: a malformed Critical Tasks completion import record, or a Training import status other than `completed` or
@@ -70,7 +72,7 @@ Training`: the sheet stays open with `A Training type with that name already exi
    `More actions for Verification Leave`, enter a 101-character name in the inline composer and choose `Save changes`.
    The composer stays open with the draft, the error toast reads `Name must be 100 characters or fewer` and the row is
    unchanged. As `manager`, rename a Group to `Bravo` from Manage Groups: the message names the duplicate and both
-   Groups keep their names. Capture `$V feedback` and `network arm-observe` state for each save.
+   sibling Groups keep their names. Capture `$V feedback` and `network arm-observe` state for each save.
 3. **Stale records.** In each case, open the form first, change the record from a second signed-in session, then save.
    Each save keeps its draft and shows the server's reason:
    - **Personnel detail Data sheet.** Use a temporary Person deleted elsewhere (archive, then

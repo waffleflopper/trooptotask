@@ -62,7 +62,14 @@ export function installNetworkControl(
 				call.preferencePatch = Object.fromEntries(
 					Object.entries({
 						calendar: ['showStatusText', 'showPersonnelRoles', 'highlightOnboarding'],
-						training: ['selectedGroupId', 'selectedViewId', 'matrixViewMode']
+						training: [
+							'selectedGroupId',
+							'selectedViewId',
+							'matrixViewMode',
+							'matrixColorAll',
+							'matrixNeedsActionOnly',
+							'matrixCurrentMark'
+						]
 					})
 						.filter(([family]) => body[family] && typeof body[family] === 'object')
 						.map(([family, keys]) => [

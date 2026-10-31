@@ -16,8 +16,9 @@ person's record.
   strength bar with `N of M present`, an attention count and a `⋯` menu, all operable by pointer and keyboard; a pin
   persists for the member and a collapse lasts for the page visit. Groups run pinned first, then the Organization's
   Group order, then Unassigned. The Group column is absent in this view. Only Organization-wide readers get the pin
-  toggle and the menu's `Pin`; a Group-scoped reader gets neither. Nested Groups draw as slimmer indented bands inside
-  their parent, with pins on top-level bands only and no Group filter: every reader sees their whole visible tree. The
+  toggle and the menu's `Pin`; a Group-scoped reader gets neither. With `Display` → `Show sub-groups` on, nested Groups
+  draw as slimmer indented bands inside their parent, with pins on top-level bands only and no Group filter: every
+  reader sees their whole visible tree. The setting persists across screens and Organizations on this device. The
   [nested Group tree](manage-groups.md#nested-group-tree) recipe gives the expected bands for Organization-wide and
   scoped readers.
 - `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state (only
@@ -68,8 +69,9 @@ scoped actors retain their baseline grants.
    absent. Capture the visible rows and an authenticated read-only request to the current `/personnel/__data.json`;
    compare the returned text against `personA`, `personB`, `personUnassigned`, and `personForeign` IDs from
    `$V fixture`. The first three must be present and the foreign ID absent.
-6. Sign in as `scoped` in another page. Its Alpha roster must show Able and exclude Baker, Unassigned, and Foreign. In
-   `Group` view only the Alpha header appears. Repeat the page-data ID comparison: only `personA` may appear, and
+6. Sign in as `scoped` in another page. Its Alpha roster must show Able and exclude Baker, Unassigned, and Foreign.
+   Alpha appears in the page header; there is no Group band or `Group`/`A-Z` switch because Alpha is its only
+   visible Group and has no sub-groups. Repeat the page-data ID comparison: only `personA` may appear, and
    neither the Bravo Group ID nor its name is in the Group catalog, and the pinned Groups list is empty. Save the
    visible and page-data observations together. A blank or failed data response is not a passing scope check.
 7. **Roster table sort, filter and row action.** As `manager` in `A-Z`, capture the `Personnel roster` table header
@@ -101,10 +103,10 @@ scoped actors retain their baseline grants.
    clear with focused `Control+A`/`Backspace`. Restricted: sign in as `ictViewer` (Personnel none) and require
    `Access Restricted` with the permission message and no roster. Disabled: select a row, choose `Archive…` and confirm
    while `arm-hold-fail PAGE personnel/archive-batch` holds the batch: the dialog's `Cancel` and `Archive` and every
-   `Selected people` action but `Clear selection` disable until release. Loading: Personnel loads in the Organization
-   layout before the page renders, and no control holds that load, so record UNAVAILABLE with the attempted route unless
-   a skeleton is observed on navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL
-   unchanged (only a filter writes `?show=`, step 17), and that choosing a row opens `/org/<org>/personnel/<slug>`.
+   `Selected people` action but `Clear selection` disable until release. Loading: navigate to Personnel and capture
+   its roster skeleton while the deferred workspace loads. No dedicated control holds this workspace read; if it
+   finishes before capture, record UNAVAILABLE with the attempted route. URL: record that search text, view mode, sort,
+   pins and collapse leave the URL unchanged (only a filter writes `?show=`, step 17), and that choosing a row opens `/org/<org>/personnel/<slug>`.
    Capture 1280 light and 390 dark, including the `Personnel controls` toolbar at 390: one row with the search field,
    `More Personnel controls` and `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`,
    `Manage Groups` and the `A-Z`/`Group` view fold into More in that order at about 1100, 1052 and 920px and stay folded

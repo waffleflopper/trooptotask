@@ -34,8 +34,9 @@ Keep public and signed-in pages in separate contexts.
    visible form with the private synthetic account. Record its returned page ID and organization ID, then take a
    snapshot. Expect an `/org/<orgId>/personnel` page, `Verification Organization A`, and a `Personnel` navigation link.
 3. In that page's latest snapshot, click the sidebar button whose name ends in `account menu`. Expect a `menu` with the
-   menuitems Account, What's new, Send feedback and Sign out. Choose Account: expect `/org/<orgId>/account/profile` with
-   the Account nav (Profile, Sign-in & security) and a Sign out button.
+   menuitems Account, What's new, Send feedback and Sign out, plus `Turn on two-factor` when two-factor authentication
+   is off. Choose Account: expect `/org/<orgId>/account/profile` with the Account nav (Profile, Sign-in & security,
+   Notifications, Feedback) and a Sign out button.
 4. Open the account menu again and click the fresh `Sign out` menuitem UID. Snapshot again: the URL is `/`, the public
    `Sign In` link returns, and the organization navigation is absent. A fresh login is needed for later feature files.
 5. In a separate public tab, submit an incorrect synthetic password once. Capture the form before and after: it remains
@@ -56,14 +57,20 @@ Keep public and signed-in pages in separate contexts.
    discards them. The select offers no invalid value; the profile server tests cover invalid-rank rejection.
 
 7. **Auth Shell appearance, keyboard and logout entry.** Capture Sign In at 1280x800 light and dark, 1023x900 light, and
-   390x844 light and dark. Auth Shell pages have no theme control: run `evaluate_script`
+   390x844 light and dark. Signed-out Auth Shell pages have no theme control; signed-in ones expose `Toggle theme`.
+   For Sign In run `evaluate_script`
    `localStorage.setItem('theme', 'dark')` and reload. From the Email Address field, Tab reaches Password, Show
    password, Forgot password and Sign In in visible order with a focus ring; Show password switches the field to text
    and renames itself Hide password; Enter in Password submits. A submit with both fields empty shows the required-field
-   state without a request. After a member signs in, opening `/auth/login` redirects to the dashboard. A GET of
-   `/auth/logout` returns to `/`; its page renders only after a sign-out POST that fails or completes locally, which no
+   state without a request. After a member signs in, opening `/auth/login` without `reauth=1` redirects to the dashboard.
+   A GET of `/auth/logout` returns to `/`; its page renders only after a sign-out POST that fails or completes locally, which no
    visible signed-out control reaches. MFA, recovery, invite, request access and suspension journeys live in
    [identity recovery and security](identity-recovery-security.md).
+
+8. **Login notices.** In the signed-in page open `/auth/login?reauth=1`: the form remains available and shows
+   `Re-enter your password to confirm your identity and continue.` In a separate public context open
+   `/auth/login?error=auth_link_invalid`: the form shows the invalid-or-expired email-link notice and directs the
+   visitor to request a fresh account setup link or password reset email.
 
 ## Gotchas
 

@@ -1,4 +1,5 @@
-export type DeletionRequestStatus = 'pending' | 'approved' | 'denied' | 'cancelled';
+export const DELETION_REQUEST_STATUSES = ['pending', 'approved', 'denied', 'cancelled'] as const;
+export type DeletionRequestStatus = (typeof DELETION_REQUEST_STATUSES)[number];
 export type DeletionRequestResourceType =
 	| 'personnel'
 	| 'counseling_record'

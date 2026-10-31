@@ -68,12 +68,9 @@ async function ratedPersonForWrite(
 
 async function policyResourceForRatedPerson(
 	ctx: RatingSchemeEntryWriteContext,
-	personnelId: string | null | undefined,
+	personnelId: string,
 	denialAction: FeatureLanePolicyAction = POLICY_ACTION_CATALOG.ratingScheme.updateEntries
 ): Promise<PolicyResource> {
-	if (!personnelId) {
-		return { kind: 'unscoped' };
-	}
 	return policyResourceForGroup((await ratedPersonForWrite(ctx, personnelId, denialAction)).groupId);
 }
 
@@ -212,16 +209,10 @@ export async function describeRatingSchemeEntryDeletionRequest(
 ): Promise<{ description: string; url: string }> {
 	const action = POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion;
 	const { ratedPersonId } = await findRatingSchemeEntry(ctx, id);
-	const person = ratedPersonId ? await ratedPersonForWrite(ctx, ratedPersonId, action) : null;
-	await requireFeaturePolicy(
-		ctx,
-		action,
-		person ? policyResourceForGroup(person.groupId) : { kind: 'unscoped' },
-		AUDIT_RESOURCE,
-		id
-	);
+	const person = await ratedPersonForWrite(ctx, ratedPersonId, action);
+	await requireFeaturePolicy(ctx, action, policyResourceForGroup(person.groupId), AUDIT_RESOURCE, id);
 	return {
-		description: person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry',
+		description: `Rating scheme entry for ${person.rank} ${person.lastName}`,
 		url: `/org/${ctx.auth.orgId}/evals`
 	};
 }

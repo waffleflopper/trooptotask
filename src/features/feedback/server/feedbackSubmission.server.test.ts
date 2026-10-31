@@ -198,15 +198,32 @@ describe('Feedback submission', () => {
 		}
 	);
 
-	it('retains nullable email, default category and the existing five-thousand-character normalized message limit', async () => {
+	it.each([undefined, null, '', '   '])(
+		'rejects a missing or blank account email %j before organization lookup or persistence',
+		async (userEmail) => {
+			const store = createInMemoryFeedbackStore();
+			const resolveOrganizationContext = vi.fn();
+			const feedback = createFeedbackSubmission({ store, resolveOrganizationContext });
+
+			await expect(
+				feedback.submit({ userId: USER_ID, userEmail, organizationId: ORG_ID, message: 'Please help' })
+			).resolves.toMatchObject({ status: 'validation_error' });
+			expect(resolveOrganizationContext).not.toHaveBeenCalled();
+			expect(store.submittedFeedback).toEqual([]);
+		}
+	);
+
+	it('retains the default category and the existing five-thousand-character normalized message limit', async () => {
 		const { feedback, store } = makeSubmissionFeedback();
 
-		await expect(feedback.submit({ userId: USER_ID, message: `  ${'x'.repeat(5001)}\n extra  ` })).resolves.toEqual({
+		await expect(
+			feedback.submit({ userId: USER_ID, userEmail: 'member@example.com', message: `  ${'x'.repeat(5001)}\n extra  ` })
+		).resolves.toEqual({
 			status: 'submitted',
 			githubIssue: null
 		});
 		expect(store.submittedFeedback[0]).toMatchObject({
-			userEmail: null,
+			userEmail: 'member@example.com',
 			category: 'general',
 			message: 'x'.repeat(5000)
 		});
@@ -217,6 +234,7 @@ describe('Feedback submission', () => {
 
 		await feedback.submit({
 			userId: USER_ID,
+			userEmail: 'member@example.com',
 			message: 'Please help',
 			organizationId: ORG_ID,
 			pageUrl: `/org/${OTHER_ORG_ID}/personnel`
@@ -238,19 +256,23 @@ describe('Feedback submission', () => {
 			resolveOrganizationContext: (input) => store.resolveOrganizationContext(input)
 		});
 
-		await expect(feedback.submit({ userId: USER_ID, message: 'Please help', organizationId: ORG_ID })).resolves.toEqual(
-			{ status: 'submission_failed', message: 'Failed to submit feedback' }
-		);
+		await expect(
+			feedback.submit({
+				userId: USER_ID,
+				userEmail: 'member@example.com',
+				message: 'Please help',
+				organizationId: ORG_ID
+			})
+		).resolves.toEqual({ status: 'submission_failed', message: 'Failed to submit feedback' });
 		expect(store.submittedFeedback).toEqual([]);
 	});
 
 	it('stores feedback without making any GitHub request', async () => {
 		const fetcher = vi.spyOn(globalThis, 'fetch');
 		const { feedback, store } = makeSubmissionFeedback();
-		await expect(feedback.submit({ userId: USER_ID, message: 'Keep this feedback' })).resolves.toEqual({
-			status: 'submitted',
-			githubIssue: null
-		});
+		await expect(
+			feedback.submit({ userId: USER_ID, userEmail: 'member@example.com', message: 'Keep this feedback' })
+		).resolves.toEqual({ status: 'submitted', githubIssue: null });
 		expect(store.submittedFeedback[0]).toMatchObject({
 			message: 'Keep this feedback'
 		});

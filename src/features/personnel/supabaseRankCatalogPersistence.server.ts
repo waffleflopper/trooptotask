@@ -73,8 +73,8 @@ export function createSupabaseRankCatalogPersistence(client: SupabaseClient, org
 				...values(row),
 				organization_id: orgId,
 				...(row.id !== undefined ? { id: row.id } : {}),
-				...(row.created_at !== undefined ? { created_at: row.created_at as string } : {}),
-				...(row.updated_at !== undefined ? { updated_at: row.updated_at as string } : {})
+				...(row.created_at !== undefined ? { created_at: row.created_at } : {}),
+				...(row.updated_at !== undefined ? { updated_at: row.updated_at } : {})
 			}));
 			const { data, error } = await client
 				.from('organization_rank_catalog')

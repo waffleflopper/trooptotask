@@ -1,8 +1,17 @@
-import type { SupabaseClient } from '$lib/server/database';
+import type { Database, SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { DeletionRequest } from './contracts';
+import { DELETION_REQUEST_STATUSES, type DeletionRequest } from './contracts';
 import type { DeletionRequestStore, DeletionRequestSubmissionPort } from './contracts.server';
 import { TABLE } from './deletionRequestSupport.server';
+
+type DeletionRequestRow = Database['public']['Tables']['deletion_requests']['Row'];
+
+/** The column's CHECK constraint keeps every saved status inside the union; a value outside it is a broken contract. */
+function toDeletionRequest(row: DeletionRequestRow): DeletionRequest {
+	const status = DELETION_REQUEST_STATUSES.find((known) => known === row.status);
+	if (!status) throw new Error(`Deletion request ${row.id} has an unknown status`);
+	return { ...row, status };
+}
 
 /** The supplied request-user client preserves RLS; this factory creates no privileged client. */
 export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): DeletionRequestStore {
@@ -17,22 +26,17 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 			if (target) query = query.eq('resource_type', target.resourceType).eq('resource_id', target.resourceId);
 			const { data, error } = await query.maybeSingle();
 			if (error) throw new Error(error.message);
-			return data as DeletionRequest | null;
+			return data ? toDeletionRequest(data) : null;
 		},
 		async listRequests(orgId, filter) {
-			const result = await selectAllSupabaseRows<Omit<DeletionRequest, 'status'> & { status: string }>(
-				async (from, to) => {
-					let query = supabase.from(TABLE).select('*').eq('organization_id', orgId);
-					if (filter.status) query = query.eq('status', filter.status);
-					if (filter.requestedBy) query = query.eq('requested_by', filter.requestedBy);
-					return query.order('created_at', { ascending: false }).order('id', { ascending: true }).range(from, to);
-				}
-			);
+			const result = await selectAllSupabaseRows<DeletionRequestRow>(async (from, to) => {
+				let query = supabase.from(TABLE).select('*').eq('organization_id', orgId);
+				if (filter.status) query = query.eq('status', filter.status);
+				if (filter.requestedBy) query = query.eq('requested_by', filter.requestedBy);
+				return query.order('created_at', { ascending: false }).order('id', { ascending: true }).range(from, to);
+			});
 			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map((row) => ({
-				...row,
-				status: row.status as DeletionRequest['status']
-			}));
+			return (result.data ?? []).map(toDeletionRequest);
 		},
 		async readPendingSummary(orgId, requestedBy) {
 			let query = supabase
@@ -74,10 +78,7 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 				supabase.from(TABLE).select('*').eq('organization_id', orgId).order('id', { ascending: true }).range(from, to)
 			);
 			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map((row) => ({
-				...row,
-				status: row.status as DeletionRequest['status']
-			}));
+			return result.data ?? [];
 		}
 	};
 }

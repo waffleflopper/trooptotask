@@ -12386,7 +12386,8 @@ CREATE TABLE public.deletion_requests (
     reviewed_by uuid,
     reviewed_at timestamp with time zone,
     denial_reason text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT deletion_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'denied'::text, 'cancelled'::text])))
 );
 
 

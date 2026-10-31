@@ -11,6 +11,7 @@ import { TRAINING_CERTIFICATE_BUCKET } from './trainingCertificateStore.server';
 import {
 	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
 	TRAINING_TYPE_ORDER_CHANGED_MESSAGE,
+	TRAINING_TYPE_ORDER_INVALID_MESSAGE,
 	toTrainingType,
 	toTrainingView,
 	toTrainingCompletion,
@@ -142,11 +143,22 @@ export function createInMemoryTrainingCatalogPersistence(
 		deleteType(id) {
 			return store.delete('training_types', orgId, id);
 		},
-		async writeTypePositions(positions) {
-			for (const { id, sortOrder } of positions) {
-				if (!(await store.findOne('training_types', orgId, { id }))) fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);
-				await store.update('training_types', orgId, id, { sort_order: sortOrder });
-			}
+		async setTypeOrder(ids, expectedIds) {
+			const saved = (
+				await store.findMany<TrainingTypeRow>('training_types', orgId, undefined, {
+					orderBy: [
+						{ column: 'sort_order', ascending: true },
+						{ column: 'id', ascending: true }
+					]
+				})
+			).map((row) => toTrainingType(row).id);
+			if (saved.length === ids.length && saved.every((id, index) => id === ids[index])) return;
+			if (saved.length !== expectedIds.length || saved.some((id, index) => id !== expectedIds[index]))
+				fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);
+			if (ids.length !== saved.length || saved.some((id) => !ids.includes(id)))
+				fail(400, TRAINING_TYPE_ORDER_INVALID_MESSAGE);
+			for (const [position, id] of ids.entries())
+				await store.update('training_types', orgId, id, { sort_order: position });
 		},
 		async createView(input) {
 			return toTrainingView(

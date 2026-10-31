@@ -10713,6 +10713,92 @@ $$;
 ALTER FUNCTION public.set_training_exemption(p_organization_id uuid, p_training_type_id uuid, p_personnel_id uuid, p_exempt boolean) OWNER TO postgres;
 
 --
+-- Name: set_training_type_order(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.set_training_type_order(p_organization_id uuid, p_training_type_ids uuid[], p_expected_training_type_ids uuid[]) RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_saved uuid[];
+BEGIN
+  IF auth.uid() IS NULL OR p_organization_id IS NULL
+    OR public.can_manage_training_configuration(p_organization_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Training configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+  IF p_training_type_ids IS NULL OR p_expected_training_type_ids IS NULL
+    OR pg_catalog.array_ndims(p_training_type_ids) > 1
+    OR pg_catalog.array_ndims(p_expected_training_type_ids) > 1
+    OR pg_catalog.array_position(p_training_type_ids, NULL) IS NOT NULL
+    OR pg_catalog.array_position(p_expected_training_type_ids, NULL) IS NOT NULL
+    OR pg_catalog.cardinality(p_training_type_ids) <> (
+      SELECT pg_catalog.count(DISTINCT ids.id) FROM pg_catalog.unnest(p_training_type_ids) AS ids(id))
+  THEN
+    RAISE EXCEPTION 'Choose every Training type once' USING ERRCODE = '22023';
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('training-type-order:' || p_organization_id::text, 0)
+  );
+  -- NO KEY UPDATE on every type holds the set against delete and edits without
+  -- blocking foreign-key checks from rows that reference a type. It also
+  -- applies the update policy, so authority is rechecked after the waits.
+  PERFORM 1 FROM public.training_types
+  WHERE organization_id = p_organization_id
+  ORDER BY id
+  FOR NO KEY UPDATE;
+  IF public.can_manage_training_configuration(p_organization_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Training configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, id), '{}') INTO v_saved
+  FROM public.training_types
+  WHERE organization_id = p_organization_id;
+  -- A replay after a lost reply, or the same change from two people, converges
+  -- before the precondition can report a false conflict.
+  IF v_saved = p_training_type_ids THEN
+    IF public.can_manage_training_configuration(p_organization_id) IS NOT TRUE THEN
+      RAISE EXCEPTION 'Training configuration is not allowed' USING ERRCODE = '42501';
+    END IF;
+    RETURN;
+  END IF;
+  -- TTO01, not 40001: PostgREST silently retries a serialization failure, so a
+  -- stale command would loop and could later commit over the newer order. A
+  -- type created or deleted since the client read also lands here, so a stale
+  -- order never drops a new type.
+  IF v_saved IS DISTINCT FROM p_expected_training_type_ids THEN
+    RAISE EXCEPTION 'Training type order changed' USING ERRCODE = 'TTO01';
+  END IF;
+  IF pg_catalog.cardinality(p_training_type_ids) <> pg_catalog.cardinality(v_saved)
+    OR NOT (p_training_type_ids @> v_saved)
+  THEN
+    RAISE EXCEPTION 'Choose every Training type once' USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE public.training_types AS t SET sort_order = (o.ordinal - 1)::integer
+  FROM pg_catalog.unnest(p_training_type_ids) WITH ORDINALITY AS o(id, ordinal)
+  WHERE t.organization_id = p_organization_id AND t.id = o.id AND t.sort_order <> o.ordinal - 1;
+
+  -- Row security silently hides rows from a write whose author lost authority
+  -- after the check above.
+  IF public.can_manage_training_configuration(p_organization_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Training configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+  IF (SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, id), '{}')
+      FROM public.training_types WHERE organization_id = p_organization_id)
+     IS DISTINCT FROM p_training_type_ids
+  THEN
+    RAISE EXCEPTION 'Training type order was not saved' USING ERRCODE = 'TTO01';
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION public.set_training_type_order(p_organization_id uuid, p_training_type_ids uuid[], p_expected_training_type_ids uuid[]) OWNER TO postgres;
+
+--
 -- Name: settle_organization_file_upload(uuid, uuid, uuid, text, text); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -20856,6 +20942,14 @@ GRANT ALL ON FUNCTION public.set_status_type_order(p_organization_id uuid, p_sta
 REVOKE ALL ON FUNCTION public.set_training_exemption(p_organization_id uuid, p_training_type_id uuid, p_personnel_id uuid, p_exempt boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.set_training_exemption(p_organization_id uuid, p_training_type_id uuid, p_personnel_id uuid, p_exempt boolean) TO authenticated;
 GRANT ALL ON FUNCTION public.set_training_exemption(p_organization_id uuid, p_training_type_id uuid, p_personnel_id uuid, p_exempt boolean) TO service_role;
+
+
+--
+-- Name: FUNCTION set_training_type_order(p_organization_id uuid, p_training_type_ids uuid[], p_expected_training_type_ids uuid[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.set_training_type_order(p_organization_id uuid, p_training_type_ids uuid[], p_expected_training_type_ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_training_type_order(p_organization_id uuid, p_training_type_ids uuid[], p_expected_training_type_ids uuid[]) TO authenticated;
 
 
 --

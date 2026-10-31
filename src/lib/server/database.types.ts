@@ -4912,6 +4912,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_training_type_order: {
+        Args: {
+          p_expected_training_type_ids: string[]
+          p_organization_id: string
+          p_training_type_ids: string[]
+        }
+        Returns: undefined
+      }
       settle_organization_file_upload: {
         Args: {
           p_actor_id: string

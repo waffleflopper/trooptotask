@@ -6,6 +6,7 @@ import {
 	TRAINING_TYPE_FIELDS,
 	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
 	TRAINING_TYPE_ORDER_CHANGED_MESSAGE,
+	TRAINING_TYPE_ORDER_INVALID_MESSAGE,
 	TRAINING_VIEW_FIELDS,
 	toTrainingType,
 	toTrainingView,
@@ -206,18 +207,17 @@ export function createSupabaseTrainingCatalogPersistence(
 			const { error } = await client.from('training_types').delete().eq('organization_id', orgId).eq('id', id);
 			if (error) throw new Error(error.message);
 		},
-		async writeTypePositions(positions) {
-			for (const { id, sortOrder } of positions) {
-				const { data, error } = await client
-					.from('training_types')
-					.update({ sort_order: sortOrder })
-					.eq('organization_id', orgId)
-					.eq('id', id)
-					.select('id')
-					.maybeSingle<{ id: string }>();
-				if (error) throw new Error(error.message);
-				if (!data) fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);
-			}
+		async setTypeOrder(ids, expectedIds) {
+			const { error } = await client.rpc('set_training_type_order', {
+				p_organization_id: orgId,
+				p_training_type_ids: [...ids],
+				p_expected_training_type_ids: [...expectedIds]
+			});
+			if (!error) return;
+			if (error.code === '42501') fail(403, 'You do not have access to configure Training');
+			if (error.code === '22023') fail(400, TRAINING_TYPE_ORDER_INVALID_MESSAGE);
+			if (error.code === 'TTO01') fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);
+			throw new Error(error.message);
 		},
 		async createView(input) {
 			const { data, error } = await client

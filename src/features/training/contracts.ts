@@ -329,7 +329,7 @@ export type SavedTrainingCompletion = PersonnelTraining & {
 };
 
 export type TrainingTypeCreate = Pick<TrainingType, 'name'> & Partial<Omit<TrainingType, 'id' | 'name'>>;
-export type TrainingTypePatch = Partial<Omit<TrainingType, 'id'>>;
+export type TrainingTypePatch = Partial<Omit<TrainingType, 'id' | 'sortOrder'>>;
 export type TrainingViewCreate = Pick<TrainingView, 'name'> & Partial<Pick<TrainingView, 'columnIds'>>;
 export type TrainingViewPatch = Partial<Pick<TrainingView, 'name' | 'columnIds'>>;
 export type TrainingTypeTiming = {
@@ -360,7 +360,8 @@ export interface TrainingCatalogPersistence {
 	createType(input: TrainingTypeCreate): Promise<SavedTrainingType>;
 	/** Resolves null when no Training type with this id exists in the Organization. */
 	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType | null>;
-	writeTypePositions(positions: readonly Pick<TrainingType, 'id' | 'sortOrder'>[]): Promise<void>;
+	/** Saves every position at once, or refuses with 409 when `expectedIds` is no longer the saved order. */
+	setTypeOrder(ids: readonly string[], expectedIds: readonly string[]): Promise<void>;
 	deleteType(id: string): Promise<void>;
 	createView(input: TrainingViewCreate): Promise<SavedTrainingView>;
 	patchView(id: string, fields: TrainingViewPatch): Promise<SavedTrainingView | null>;

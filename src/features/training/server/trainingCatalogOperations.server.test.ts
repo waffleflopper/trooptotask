@@ -97,9 +97,9 @@ describe('Training catalog operations', () => {
 			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
 				{ id: REQUIRED_TYPE, warningDaysYellow: 10, warningDaysOrange: 20 }
 			]);
-			await updateTrainingType(ctx, { id: REQUIRED_TYPE, sortOrder: 4 });
+			await updateTrainingType(ctx, { id: REQUIRED_TYPE, color: '#123456' });
 			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
-				{ id: REQUIRED_TYPE, sortOrder: 4, warningDaysYellow: 10, warningDaysOrange: 20 }
+				{ id: REQUIRED_TYPE, color: '#123456', warningDaysYellow: 10, warningDaysOrange: 20 }
 			]);
 			await expect(updateTrainingType(ctx, { id: REQUIRED_TYPE, warningDaysYellow: 15 })).rejects.toMatchObject({
 				status: 400
@@ -122,7 +122,8 @@ describe('Training catalog operations', () => {
 			const [saved] = await ctx.trainingCatalog.listTypes();
 			const draft = trainingTypeDraftFrom(saved);
 			draft.name = 'Renamed never';
-			await updateTrainingType(ctx, { id: saved.id, ...trainingTypeInputFromDraft(draft, 'update') });
+			const { sortOrder: _sortOrder, ...fields } = trainingTypeInputFromDraft(draft, 'update');
+			await updateTrainingType(ctx, { id: saved.id, ...fields });
 			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
 				{ id: saved.id, name: 'Renamed never', expirationMonths: null, warningDaysYellow: 10, warningDaysOrange: 20 }
 			]);
@@ -165,6 +166,13 @@ describe('Training catalog operations', () => {
 			await expect(updateTrainingType(ctx, { id: REQUIRED_TYPE, warningDaysOrange: 20 })).rejects.toMatchObject({
 				status: 404
 			});
+		});
+
+		it('refuses to move a saved Training type outside the order command', async () => {
+			const ctx = createWritePortsContext();
+			const created = await createTrainingType(ctx, { name: 'CLS', sortOrder: 3 });
+			await expect(updateTrainingType(ctx, { id: created.id, sortOrder: 0 })).rejects.toMatchObject({ status: 400 });
+			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([{ id: created.id, sortOrder: 3 }]);
 		});
 
 		it('requires configuration capability before reading a saved warning counterpart', async () => {

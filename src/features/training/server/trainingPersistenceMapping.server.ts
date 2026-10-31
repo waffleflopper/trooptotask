@@ -217,7 +217,6 @@ export function trainingTypePatchRow(input: TrainingTypePatch) {
 		excluded_mos: input.excludedMos,
 		excluded_ranks: input.excludedRanks,
 		color: input.color,
-		sort_order: input.sortOrder,
 		expiration_date_only: input.expirationDateOnly,
 		can_be_exempted: input.canBeExempted,
 		exempt_personnel_ids: input.exemptPersonnelIds,
@@ -296,6 +295,7 @@ export function trainingCompletedRow(input: TrainingCompletedUpsert, orgId: stri
 export const TRAINING_TYPE_UNAVAILABLE_MESSAGE = 'That Training type is no longer available.';
 export const TRAINING_TYPE_NAME_EXISTS_MESSAGE = 'A Training type with that name already exists.';
 export const TRAINING_TYPE_ORDER_CHANGED_MESSAGE = 'The Training type order changed. Reload and try again.';
+export const TRAINING_TYPE_ORDER_INVALID_MESSAGE = 'Choose every Training type once';
 
 const trainingTypeIds = z.array(uuidSchema).refine((ids) => new Set(ids).size === ids.length);
 export const trainingTypeOrderInput = z.object({ trainingTypeIds, expectedTrainingTypeIds: trainingTypeIds }).strict();
@@ -338,9 +338,12 @@ export const trainingTypeCreateInput = trainingTypeFieldsInput.refine(
 		}).success,
 	warningOrderError
 );
+// Strict so a sortOrder is refused: set_training_type_order alone moves a saved type.
 export const trainingTypeUpdateInput = trainingTypeFieldsInput
+	.omit({ sortOrder: true })
 	.partial()
 	.extend({ id: uuidSchema })
+	.strict()
 	.refine(
 		(input) =>
 			input.warningDaysYellow === undefined ||

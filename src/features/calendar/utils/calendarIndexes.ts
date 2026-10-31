@@ -19,7 +19,7 @@ export function indexAssignmentsBySlot(assignments: readonly DailyAssignment[]):
 	return bySlot;
 }
 
-/** A Calendar lane's open days: dates with no assignment of the type, weekends and closures included. */
+/** The dates, of those the caller passes, with no assignment of the type. */
 export function openAssignmentDates(
 	assignedSlots: { has(slot: string): boolean },
 	assignmentTypeId: string,

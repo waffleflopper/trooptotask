@@ -220,11 +220,32 @@ describe('CalendarPageContext', () => {
 
 	describe('syncUserPreferences', () => {
 		it('honors a saved personnel role display preference', () => {
-			ctx.syncUserPreferences({ showStatusText: true, showPersonnelRoles: true, highlightOnboarding: false });
+			ctx.syncUserPreferences({
+				showStatusText: true,
+				showPersonnelRoles: true,
+				highlightOnboarding: false,
+				showDaysLane: true,
+				showEventLanes: true,
+				showAssignmentLanes: true
+			});
 
 			expect(ctx.showStatusText).toBe(true);
 			expect(ctx.showPersonnelRoles).toBe(true);
 			expect(ctx.highlightOnboarding).toBe(false);
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
+		it('honors saved lane choices', () => {
+			ctx.syncUserPreferences({
+				showStatusText: false,
+				showPersonnelRoles: false,
+				highlightOnboarding: true,
+				showDaysLane: false,
+				showEventLanes: true,
+				showAssignmentLanes: false
+			});
+
+			expect([ctx.showDaysLane, ctx.showEventLanes, ctx.showAssignmentLanes]).toEqual([false, true, false]);
 			expect(savePreferences).not.toHaveBeenCalled();
 		});
 	});
@@ -259,6 +280,8 @@ describe('CalendarPageContext', () => {
 		it('showStatusText starts false', () => expect(ctx.showStatusText).toBe(false));
 		it('showPersonnelRoles starts false', () => expect(ctx.showPersonnelRoles).toBe(false));
 		it('highlightOnboarding starts true', () => expect(ctx.highlightOnboarding).toBe(true));
+		it('shows every lane group until the reader hides one', () =>
+			expect([ctx.showDaysLane, ctx.showEventLanes, ctx.showAssignmentLanes]).toEqual([true, true, true]));
 	});
 
 	const operateCapabilities = {
@@ -468,6 +491,22 @@ describe('CalendarPageContext', () => {
 
 			expect(ctx.showPersonnelRoles).toBe(true);
 			expect(savePreferences).toHaveBeenCalledWith({ showPersonnelRoles: true });
+		});
+	});
+
+	describe('lane display toggles', () => {
+		it.each([
+			['toggleShowDaysLane', 'showDaysLane'],
+			['toggleShowEventLanes', 'showEventLanes'],
+			['toggleShowAssignmentLanes', 'showAssignmentLanes']
+		] as const)('%s hides and restores its lanes, saving each choice alone', (toggle, field) => {
+			ctx[toggle]();
+			expect(ctx[field]).toBe(false);
+			expect(savePreferences).toHaveBeenLastCalledWith({ [field]: false });
+
+			ctx[toggle]();
+			expect(ctx[field]).toBe(true);
+			expect(savePreferences).toHaveBeenLastCalledWith({ [field]: true });
 		});
 	});
 

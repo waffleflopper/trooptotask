@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { formatDate as formatLocal } from '$lib/utils/dates';
 import type { AssignmentType, DailyAssignment, SpecialDay } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import {
@@ -174,6 +175,98 @@ describe('buildCalendarLanes', () => {
 		for (const part of ['Closure', 'closure', 'Columbus Day', 'federal holiday']) {
 			expect(shared.value.label).toContain(part);
 		}
+	});
+});
+
+describe('assignment lanes on days a type takes no duty', () => {
+	const actions = { editDay: () => {}, openDay: () => {} };
+	// 3 and 4 October 2026 are the Saturday and Sunday; the closure makes Friday the 2nd a holiday.
+	const closure = specialDay('2026-10-02', 'Training holiday');
+	const buttons = (lane: CalendarLane) => days(lane).filter((day) => day.open).length;
+
+	function laneOf(weekendMode: AssignmentType['weekendMode'], overrides: Partial<CalendarLaneInput> = {}) {
+		return build({
+			assignmentTypes: [type({ id: 'sd', name: 'Staff Duty', weekendMode })],
+			specialDays: [closure],
+			actions,
+			...overrides
+		})[0];
+	}
+
+	it('offers no assign button on weekends or closures under No duty, and counts only the days that take duty', () => {
+		const lane = laneOf('none');
+
+		expect(days(lane).map((day) => !!day.open)).toEqual([true, false, false, false, true]);
+		expect(lane.detail).toBe('2 open');
+		expect(lane.summary).toMatch(/\b0\b.*\b2\b/);
+	});
+
+	it.each(['same', 'separate'] as const)('keeps every unassigned day open under %s', (mode) => {
+		const lane = laneOf(mode);
+
+		expect(days(lane).map((day) => !!day.open)).toEqual([true, true, true, true, true]);
+		expect(lane.detail).toBe('5 open');
+	});
+
+	it('ignores a stale No duty setting on a Group duty', () => {
+		const [lane] = build({
+			assignmentTypes: [type({ id: 'cq', name: 'CQ', assignTo: 'group', weekendMode: 'none' })],
+			specialDays: [closure],
+			actions
+		});
+
+		expect(buttons(lane)).toBe(5);
+		expect(lane.detail).toBe('5 open');
+	});
+
+	it('keeps a stored assignment on a No duty day shown and editable, and counts it as assigned', () => {
+		const edited: string[] = [];
+		const lane = laneOf('none', {
+			assignments: [assignment('2026-10-03', 'sd', 'p-pike'), assignment('2026-10-01', 'sd', 'p-pike')],
+			actions: { ...actions, editDay: (date) => edited.push(formatLocal(date)) }
+		});
+
+		const saturday = days(lane)[2];
+		expect(saturday.assignee?.short).toBe('PIKE');
+		saturday.edit?.();
+		expect(edited).toEqual(['2026-10-03']);
+		expect(lane.detail).toBe('1 open');
+		expect(lane.summary).toMatch(/\b2\b.*\b3\b/);
+	});
+
+	it('reports Full once every day that takes duty is assigned, whatever the weekend holds', () => {
+		const lane = laneOf('none', {
+			assignments: [assignment('2026-10-01', 'sd', 'p-pike'), assignment('2026-10-05', 'sd', 'p-pike')]
+		});
+
+		expect(lane.detail).toBe('Full');
+		expect(buttons(lane)).toBe(0);
+	});
+
+	it.each([
+		['none', 2],
+		['same', 5]
+	] as const)('shows as many assign buttons as the "N open" label says under %s', (mode, expected) => {
+		const lane = laneOf(mode);
+
+		expect(lane.detail).toBe(`${expected} open`);
+		expect(buttons(lane)).toBe(expected);
+	});
+
+	it('shows no count while the range has not loaded, and keeps the label', () => {
+		const lane = laneOf('none', { assignmentsLoaded: false, actions: { editDay: () => {} } });
+
+		expect(lane.label).toBe('Staff Duty');
+		expect(lane.detail).toBeUndefined();
+		expect(lane.summary).not.toMatch(/\d/);
+		expect(buttons(lane)).toBe(0);
+	});
+
+	it('keeps the open count for a reader with no actions on a loaded range', () => {
+		const lane = laneOf('none', { actions: undefined });
+
+		expect(lane.detail).toBe('2 open');
+		expect(buttons(lane)).toBe(0);
 	});
 });
 

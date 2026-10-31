@@ -144,17 +144,31 @@
 			groupFilter: ctx.calendarGroupFilter,
 			showStatusText: ctx.showStatusText,
 			showPersonnelRoles: ctx.showPersonnelRoles,
+			showDaysLane: ctx.showDaysLane,
+			showEventLanes: ctx.showEventLanes,
+			showAssignmentLanes: ctx.showAssignmentLanes,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
 			showSubGroups: ctx.showGroupHeaders && hasSubGroups(ctx.groupTree) ? showSubGroupsToggle() : null,
 			highlightOnboarding: ctx.highlightOnboarding,
 			onGroupFilterChange: (value) => ctx.setCalendarGroupFilter(value),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
+			onToggleDaysLane: () => ctx.toggleShowDaysLane(),
+			onToggleEventLanes: () => ctx.toggleShowEventLanes(),
+			onToggleAssignmentLanes: () => ctx.toggleShowAssignmentLanes(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
 			onExportExcel: exportExcel,
 			onExportPDF: exportPDF
 		})
 	);
+
+	// Commitments stay on the Person rows, so only the suspense entry follows the lanes.
+	const shownEventsLegend = $derived.by(() => {
+		const legend = eventsLegend();
+		return ctx.showEventLanes
+			? legend
+			: { ...legend, entries: legend.entries.filter((entry) => entry.key !== 'suspense') };
+	});
 
 	const legend = $derived([
 		...(ctx.viewMode === 'month'
@@ -163,7 +177,7 @@
 					dutyMarkerLegend(dailyAssignmentsStore.types)
 				]
 			: [statusLegend(statusTypesStore.items)]),
-		...(ctx.showEvents ? [eventsLegend()] : [])
+		...(ctx.showEvents ? [shownEventsLegend] : [])
 	]);
 
 	const projectionLinks = $derived.by((): ProjectionLinks => {
@@ -185,7 +199,7 @@
 		return { kind: 'ready', projection, facts: taskingFacts };
 	});
 	const projectionLanes = $derived(
-		ctx.showEvents && projectionDates.length > 0
+		ctx.showEvents && ctx.showEventLanes && projectionDates.length > 0
 			? buildProjectionLanes({
 					dates: projectionDates,
 					region: projectionRegion,
@@ -196,7 +210,7 @@
 			: []
 	);
 	const headerSuspenses = $derived(
-		ctx.showEvents && ctx.viewMode === 'month' && projectionRegion.kind === 'ready'
+		ctx.showEvents && ctx.showEventLanes && ctx.viewMode === 'month' && projectionRegion.kind === 'ready'
 			? suspenseDays({ dates: projectionDates, links: projectionLinks, today }, projectionRegion.projection)
 			: undefined
 	);
@@ -269,7 +283,7 @@
 	);
 
 	// Built apart from the roster rows so search and Group filter changes do not rebuild lanes.
-	const lanes = $derived(
+	const allLanes = $derived(
 		buildCalendarLanes({
 			dates: calendarStore.dates,
 			assignmentTypes: dailyAssignmentsStore.types,
@@ -277,6 +291,7 @@
 			specialDays: specialDaysStore.items,
 			personnel: ctx.allPersonnelFlat,
 			groups: ctx.scopedGroups,
+			assignmentsLoaded: rangeStatus === 'ready',
 			actions: ctx.canManageAssignments
 				? {
 						// An open day offers no picker until the shown range has loaded, so it knows the slot's assignee.
@@ -286,6 +301,9 @@
 					}
 				: undefined
 		})
+	);
+	const lanes = $derived(
+		allLanes.filter((lane) => (lane.kind === 'days' ? ctx.showDaysLane : ctx.showAssignmentLanes))
 	);
 
 	const barPopover = $derived(ctx.popover?.kind === 'duty' ? null : ctx.popover);

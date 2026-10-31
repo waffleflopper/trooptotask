@@ -13,6 +13,9 @@ export type UserOrgPreferences = {
 		showStatusText: boolean;
 		showPersonnelRoles: boolean;
 		highlightOnboarding: boolean;
+		showDaysLane: boolean;
+		showEventLanes: boolean;
+		showAssignmentLanes: boolean;
 	};
 	training: {
 		selectedGroupId: string | null;
@@ -34,7 +37,10 @@ export const UserOrgPreferencesSchema = z.object({
 	calendar: z.object({
 		showStatusText: z.boolean(),
 		showPersonnelRoles: z.boolean(),
-		highlightOnboarding: z.boolean()
+		highlightOnboarding: z.boolean(),
+		showDaysLane: z.boolean(),
+		showEventLanes: z.boolean(),
+		showAssignmentLanes: z.boolean()
 	}),
 	training: z.object({
 		selectedGroupId: z.string().nullable(),
@@ -51,7 +57,10 @@ export const UserOrgPreferencesPatchSchema = z.object({
 		.object({
 			showStatusText: z.boolean().optional(),
 			showPersonnelRoles: z.boolean().optional(),
-			highlightOnboarding: z.boolean().optional()
+			highlightOnboarding: z.boolean().optional(),
+			showDaysLane: z.boolean().optional(),
+			showEventLanes: z.boolean().optional(),
+			showAssignmentLanes: z.boolean().optional()
 		})
 		.optional(),
 	training: z
@@ -71,7 +80,10 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 		calendar: {
 			showStatusText: false,
 			showPersonnelRoles: false,
-			highlightOnboarding: true
+			highlightOnboarding: true,
+			showDaysLane: true,
+			showEventLanes: true,
+			showAssignmentLanes: true
 		},
 		training: {
 			selectedGroupId: null,

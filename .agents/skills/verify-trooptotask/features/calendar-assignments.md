@@ -15,8 +15,9 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
 - `duty-picker-order`: for an Organization-wide operator, the lane picker and the planner picker for one slot list the
   same roster pool in the same order, highest count going into that day first, each with `count N` and any roster code;
   exempt people are absent, and anyone else outside the pool appears only for a name search, marked
-  `Not on this roster`. On a day the roster does not detail, such as a No duty weekend, the pool still comes first, in
-  DA 6 order without counts, and everyone outside it stays search-only and marked. Each picker reads its own day when it
+  `Not on this roster`. On a day the roster does not detail, such as a No duty weekend in the Duty planner (the
+  Calendar lane offers no `+` there), the pool still comes first, in DA 6 order without counts, and everyone outside it
+  stays search-only and marked. Each picker reads its own day when it
   opens, reads `Loading roster counts…` over a skeleton with no options meanwhile, and on failure reads
   `Roster counts could not be loaded.` with `Retry`, lists no one until a name search, then offers anyone not excused
   marked `Count unavailable`, and never reads again on its own. A Group-scoped operator gets name order with no counts.
@@ -25,8 +26,8 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   there does, so a past date never shows a bare `No one matches.` On a form that can still move back (no closed form
   before it and no carried starting numbers), a day the roster details with someone in the pool reads `Counts.`, names
   the form's current start, and lists the pool with counts as if the form began that day; saving moves the DA 6 start
-  there and the counts today move with it. On such a form, a day with no one in the pool, or a No duty weekend or
-  holiday, reads `Not counted,` and that saving still moves the DA 6 start. On a roster already running it reads
+  there and the counts today move with it. On such a form, a day with no one in the pool, or in the Duty planner a No
+  duty weekend or holiday, reads `Not counted,` and that saving still moves the DA 6 start. On a roster already running it reads
   `Not counted, before this roster's DA 6 (starts <day>)`, lists everyone not excused in name order without counts, and
   saving there moves neither the start nor any count.
 - `planner-conflicts`: a person assigned on a day an availability entry with roster code A, D or U covers is flagged in
@@ -67,7 +68,10 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   their authority.
 - `calendar-lanes`: each shown assignment type is a lane under the Calendar dates, followed by the Days lane; an open
   day's `+` opens the duty picker (only once its range has loaded), an assigned day and a row marker open
-  `Daily Assignments`, and readers see names without actions.
+  `Daily Assignments`, and readers see names without actions. A Person type whose `Weekends & holidays` is `No duty`
+  offers no `+` on a weekend, holiday or closure and does not count it in `N open`, `Full` or the screen-reader summary;
+  a day it is still assigned keeps its name and edit action, and a Group type ignores the setting. A range that has not
+  loaded shows no count.
 - `assignment-reentry`: an assignment saved while the Calendar re-entry snapshot is in flight stays visible after it
   applies; [Calendar navigation](calendar-navigation.md) step 16 drives it.
 - `planner-states`: the monthly table, loading, failed save, keyboard and focus, denied and scoped states, and
@@ -206,11 +210,20 @@ action and keep its page ID. The date format in every name is the browser's en-G
    reads `Find group` and lists Groups with no figures, each by its path in a nested tree (`2nd Platoon`,
    `2nd Platoon › 1st Squad`). `Daily Assignments` picks a Group duty from the `Set <type> group` tree button, with
    `No group` set apart to clear it. Close it. A range that is still loading has no `+` (arm
-   `$V network arm-hold $PAGE calendar-range`, choose an uncovered month and read the lane before release). As
+   `$V network arm-hold $PAGE calendar-range`, choose an uncovered month and read the lane before release: no `+`, no
+   `N open` or `Full`, and the lane's summary says how many days are assigned is not known yet). As
    `calendarView`, the lanes show the same names, but no day has a `+` or opens an editor. Read the accessibility
    snapshot of Staff's September 15 day: it names
    `Verification Staff Duty for Tuesday, September 15, 2026: SPC Able, Synthetic` without `Edit assignments`, and the
    row marker is not a button. Capture the picker at both combinations and read its bounds against `innerWidth` at 390.
+   **No duty.** As `calendarConfigure` in Settings → `Assignment Types`, add a Person type `Temp No duty` with
+   `Weekends & holidays` set to `No duty` and a Group type with the same choice made before switching it to Group. On
+   Calendar September 2026 the Person lane has a `+` on no weekend, no September 15 closure and no September 18 holiday,
+   and its label's `N open` equals the number of `Assign Temp No duty for …` buttons (20 of 30 days, with a lane summary
+   of `Temp No duty: 0 of 20 days assigned`). The Group lane keeps all 30 and reads `30 open`. Assign the Person type on
+   a Saturday through `Daily Assignments`: that day shows the name and its edit action and the summary reads
+   `1 of 21 days assigned`, with `N open` unchanged. Clear it and delete both types. Hold `calendar-range` as above: the
+   lanes show no `+` and no count. Read `scrollWidth` against `innerWidth` at 1440, 1024 and 390.
 9. **Planner states.** As `calendarOperate` open `Duty planner` on October 2026 at 1440x900 light and at 390x844 dark.
    Do not scroll by script before a capture. Record the document title (`Duty planner - Troop to Task`), the
    `CALENDAR · PLANNING` eyebrow, the `Duty planner` heading, the header's `Today`, then the `Previous month`, month

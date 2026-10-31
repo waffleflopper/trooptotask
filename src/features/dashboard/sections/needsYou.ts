@@ -1,5 +1,5 @@
 import type { Component } from 'svelte';
-import { indexAssignmentsBySlot, openAssignmentDates, trackOf, type AssignmentType } from '$features/calendar';
+import { indexAssignmentsBySlot, openAssignmentDates, takesDutyOn, type AssignmentType } from '$features/calendar';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardPageUpdates } from '../dashboardPageUpdates';
@@ -112,10 +112,7 @@ export const DUTY_FILL_DAYS = 7;
  */
 export function openDutyDates(inputs: DashboardInputs, type: AssignmentType): string[] {
 	const holidays = new Set(inputs.specialDays.map((day) => toDayNumber(day.date)));
-	const dutyDays =
-		type.assignTo === 'personnel'
-			? inputs.forecastDays.filter((date) => trackOf(type.weekendMode, toDayNumber(date), holidays) !== null)
-			: inputs.forecastDays;
+	const dutyDays = inputs.forecastDays.filter((date) => takesDutyOn(type, toDayNumber(date), holidays));
 	return openAssignmentDates(indexAssignmentsBySlot(inputs.assignments), type.id, dutyDays);
 }
 

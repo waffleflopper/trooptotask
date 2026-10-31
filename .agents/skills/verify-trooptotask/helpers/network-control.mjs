@@ -61,7 +61,14 @@ export function installNetworkControl(
 			if (control.suffix.endsWith('/user-preferences')) {
 				call.preferencePatch = Object.fromEntries(
 					Object.entries({
-						calendar: ['showStatusText', 'showPersonnelRoles', 'highlightOnboarding'],
+						calendar: [
+							'showStatusText',
+							'showPersonnelRoles',
+							'highlightOnboarding',
+							'showDaysLane',
+							'showEventLanes',
+							'showAssignmentLanes'
+						],
 						training: [
 							'selectedGroupId',
 							'selectedViewId',

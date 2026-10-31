@@ -17,7 +17,14 @@ function requestContext(options?: Parameters<typeof createTestContext>[0]) {
 }
 
 const preferences = {
-	calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
+	calendar: {
+		showStatusText: false,
+		showPersonnelRoles: false,
+		highlightOnboarding: true,
+		showDaysLane: true,
+		showEventLanes: true,
+		showAssignmentLanes: true
+	},
 	training: {
 		selectedGroupId: null,
 		selectedViewId: null,

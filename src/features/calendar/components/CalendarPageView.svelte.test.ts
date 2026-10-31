@@ -273,7 +273,8 @@ describe('CalendarPageView', () => {
 
 		function renderWithDutyLane(
 			rangeStatus: 'loading' | 'ready',
-			org: ReturnType<typeof makeMockOrg> = makeMockOrg({ userRole: 'admin' })
+			org: ReturnType<typeof makeMockOrg> = makeMockOrg({ userRole: 'admin' }),
+			weekendMode: 'same' | 'none' = 'same'
 		) {
 			mutableAvailabilityStore.loading = false;
 			mutableAssignmentTypes.types = [
@@ -284,7 +285,7 @@ describe('CalendarPageView', () => {
 					assignTo: 'personnel',
 					color: '#2563eb',
 					poolRules: null,
-					weekendMode: 'same',
+					weekendMode,
 					excusals: [],
 					showOnCalendar: true,
 					sortOrder: 0
@@ -311,6 +312,25 @@ describe('CalendarPageView', () => {
 			renderWithDutyLane('ready');
 
 			expect(screen.getAllByRole('button', { name: /^Assign Staff Duty for / }).length).toBeGreaterThan(0);
+		});
+
+		it('offers Assign only on the days a No duty roster takes duty, and counts exactly those', async () => {
+			calendarStore.goToMonth(2026, 4);
+			renderWithDutyLane('ready', makeMockOrg({ userRole: 'admin' }), 'none');
+
+			const lane = screen.getByRole('group', { name: 'Staff Duty' });
+			const buttons = within(lane).getAllByRole('button', { name: /^Assign Staff Duty for / });
+			expect(buttons).toHaveLength(21);
+			expect(buttons.some((button) => /Saturday|Sunday/.test(button.getAttribute('aria-label') ?? ''))).toBe(false);
+			expect(lane.textContent).toContain('21 open');
+		});
+
+		it('claims no count in the lane while the duty history is still loading', () => {
+			calendarStore.goToMonth(2026, 4);
+			renderWithDutyLane('loading');
+
+			const lane = screen.getByRole('group', { name: 'Staff Duty' });
+			expect(lane.textContent).not.toMatch(/\d+ open|Full/);
 		});
 
 		it('offers no one while the roster day loads', async () => {
@@ -358,6 +378,117 @@ describe('CalendarPageView', () => {
 					.map((option) => option.getAttribute('aria-label'))
 			).toEqual(['SSG Jones, Bob', 'SGT Smith, Alice']);
 			expect(fetchSpy).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('lane Display toggles', () => {
+		const mutableAssignmentTypes = dailyAssignmentsStore as unknown as { types: unknown[] };
+		const projection = {
+			...EMPTY_PROJECTION,
+			suspenses: [{ taskingId: 't1', title: 'Litter team', suspenseOn: '2026-05-10', status: 'open' as const }]
+		};
+
+		afterEach(() => {
+			mutableAssignmentTypes.types = [];
+		});
+
+		async function renderLanes(view: 'Month' | '3-Month' = 'Month') {
+			mutableAvailabilityStore.loading = false;
+			calendarStore.goToMonth(2026, 4);
+			mutableAssignmentTypes.types = [
+				{
+					id: 'sd',
+					name: 'Staff Duty',
+					shortName: 'SD',
+					assignTo: 'personnel',
+					color: '#2563eb',
+					poolRules: null,
+					weekendMode: 'same',
+					excusals: [],
+					showOnCalendar: true,
+					sortOrder: 0
+				}
+			];
+			const { layOut } = stubToolbarWidths();
+			const ctx = makeContext(
+				{ ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel },
+				makeMockOrg()
+			);
+			render(CalendarPageView, {
+				props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' }, projection, taskingFacts: EMPTY_TASKING_FACTS }
+			});
+			await layOut(4000);
+			if (view === '3-Month') await showView('3-Month');
+			return ctx;
+		}
+
+		async function toggle(name: string) {
+			const display = within(toolbar()).getByRole('button', { name: 'Display' });
+			display.focus();
+			await fireEvent.keyDown(display, { key: 'Enter' });
+			await fireEvent.click(await screen.findByRole('menuitemcheckbox', { name }));
+			await fireEvent.keyDown(await screen.findByRole('menu'), { key: 'Escape' });
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+		}
+
+		const lane = (name: string) => screen.queryByRole('group', { name });
+
+		it('shows the Days, Events and Assignment lanes and the suspense markers until a reader hides them', async () => {
+			await renderLanes();
+
+			expect([lane('Days'), lane('Events'), lane('Staff Duty')].map(Boolean)).toEqual([true, true, true]);
+			expect(screen.getByRole('link', { name: /Litter team/ })).toBeTruthy();
+		});
+
+		it('hides the Days lane alone', async () => {
+			const ctx = await renderLanes();
+
+			await toggle('Show Days');
+
+			expect(ctx.showDaysLane).toBe(false);
+			expect([lane('Days'), lane('Events'), lane('Staff Duty')].map(Boolean)).toEqual([false, true, true]);
+		});
+
+		it('hides every assignment lane alone', async () => {
+			const ctx = await renderLanes();
+
+			await toggle('Show Assignments');
+
+			expect(ctx.showAssignmentLanes).toBe(false);
+			expect([lane('Days'), lane('Events'), lane('Staff Duty')].map(Boolean)).toEqual([true, true, false]);
+		});
+
+		it('hides the Events lane and the header suspense markers, and drops the Suspense legend entry', async () => {
+			const ctx = await renderLanes();
+			const legend = () => within(screen.getByRole('list', { name: 'Events and Taskings' }));
+			expect(legend().getByText(/suspense/i)).toBeTruthy();
+
+			await toggle('Show Events & Suspenses');
+
+			expect(ctx.showEventLanes).toBe(false);
+			expect([lane('Days'), lane('Events'), lane('Staff Duty')].map(Boolean)).toEqual([true, false, true]);
+			expect(screen.queryByRole('link', { name: /Litter team/ })).toBeNull();
+			expect(legend().queryByText(/suspense/i)).toBeNull();
+			expect(legend().getByText(/tasking commitment/i)).toBeTruthy();
+		});
+
+		it('hides the Suspenses lane in 3-Month, where the markers are a lane', async () => {
+			await renderLanes('3-Month');
+			expect(lane('Suspenses')).toBeTruthy();
+
+			await toggle('Show Events & Suspenses');
+
+			expect(lane('Suspenses')).toBeNull();
+			expect(lane('Events')).toBeNull();
+		});
+
+		it('leaves Show Days and Show Assignments with nothing to hide in 3-Month', async () => {
+			await renderLanes('3-Month');
+
+			await toggle('Show Days');
+			await toggle('Show Assignments');
+
+			expect([lane('Events'), lane('Suspenses')].map(Boolean)).toEqual([true, true]);
 		});
 	});
 

@@ -110,7 +110,14 @@ function writer(supabase: SupabaseClient) {
 }
 const scope = { userId: 'test-user', orgId: 'test-org' };
 const defaults = {
-	calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
+	calendar: {
+		showStatusText: false,
+		showPersonnelRoles: false,
+		highlightOnboarding: true,
+		showDaysLane: true,
+		showEventLanes: true,
+		showAssignmentLanes: true
+	},
 	training: {
 		selectedGroupId: null,
 		selectedViewId: null,
@@ -137,6 +144,27 @@ describe('Identity account/Organization preferences', () => {
 		).rejects.toThrow('Unable to load');
 		expect(legacy.state.methods).not.toContain('POST');
 		expect(legacy.state.rows[0].preferences).toEqual({ calendar: { showStatusText: true, dutyStartDayOnly: false } });
+	});
+
+	it('loads a row saved before the lane toggles with every lane shown, and saves over it without failing', async () => {
+		const beforeLaneToggles = { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true };
+		const old = row({ preferences: { calendar: beforeLaneToggles, training: defaults.training } });
+		const p = provider([old]);
+
+		const loaded = await loadUserOrgPreferences(p, scope);
+		expect([loaded.calendar.showDaysLane, loaded.calendar.showEventLanes, loaded.calendar.showAssignmentLanes]).toEqual(
+			[true, true, true]
+		);
+
+		const saved = await patchUserOrgPreferences(writer(p.supabase), { calendar: { showEventLanes: false } });
+		expect(saved.calendar).toEqual({ ...defaults.calendar, showEventLanes: false });
+		expect(p.state.rows[0].preferences).toEqual({
+			calendar: { ...defaults.calendar, showEventLanes: false },
+			training: defaults.training
+		});
+		await expect(loadUserOrgPreferences(p, scope)).resolves.toMatchObject({
+			calendar: { showDaysLane: true, showEventLanes: false, showAssignmentLanes: true }
+		});
 	});
 
 	it('rejects a bound provider row with omitted preferences before dispatching any save', async () => {
@@ -176,7 +204,14 @@ describe('Identity account/Organization preferences', () => {
 				id: 'new-row',
 				created_at: '2026-01-01T00:00:00Z',
 				preferences: {
-					calendar: { showStatusText: true, showPersonnelRoles: true, highlightOnboarding: true },
+					calendar: {
+						showStatusText: true,
+						showPersonnelRoles: true,
+						highlightOnboarding: true,
+						showDaysLane: true,
+						showEventLanes: true,
+						showAssignmentLanes: true
+					},
 					training: {
 						selectedGroupId: 'group-1',
 						selectedViewId: 'view-1',

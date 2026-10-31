@@ -71,6 +71,9 @@ export interface CalendarDisplayPreferences {
 	showStatusText: boolean;
 	showPersonnelRoles: boolean;
 	highlightOnboarding: boolean;
+	showDaysLane: boolean;
+	showEventLanes: boolean;
+	showAssignmentLanes: boolean;
 }
 
 export interface CalendarPageAccess {
@@ -121,6 +124,9 @@ export class CalendarPageContext {
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
 	highlightOnboarding = $state(true);
+	showDaysLane = $state(true);
+	showEventLanes = $state(true);
+	showAssignmentLanes = $state(true);
 	calendarGroupFilter = $state('');
 	calendarPersonnelSearch = $state('');
 
@@ -301,6 +307,9 @@ export class CalendarPageContext {
 		this.showStatusText = preferences.showStatusText;
 		this.showPersonnelRoles = preferences.showPersonnelRoles;
 		this.highlightOnboarding = preferences.highlightOnboarding;
+		this.showDaysLane = preferences.showDaysLane;
+		this.showEventLanes = preferences.showEventLanes;
+		this.showAssignmentLanes = preferences.showAssignmentLanes;
 	}
 
 	setViewMode(view: CalendarViewMode): void {
@@ -325,6 +334,21 @@ export class CalendarPageContext {
 	toggleShowPersonnelRoles(): void {
 		this.showPersonnelRoles = !this.showPersonnelRoles;
 		this.#savePreferences({ showPersonnelRoles: this.showPersonnelRoles });
+	}
+
+	toggleShowDaysLane(): void {
+		this.showDaysLane = !this.showDaysLane;
+		this.#savePreferences({ showDaysLane: this.showDaysLane });
+	}
+
+	toggleShowEventLanes(): void {
+		this.showEventLanes = !this.showEventLanes;
+		this.#savePreferences({ showEventLanes: this.showEventLanes });
+	}
+
+	toggleShowAssignmentLanes(): void {
+		this.showAssignmentLanes = !this.showAssignmentLanes;
+		this.#savePreferences({ showAssignmentLanes: this.showAssignmentLanes });
 	}
 
 	setCalendarGroupFilter(value: string): void {

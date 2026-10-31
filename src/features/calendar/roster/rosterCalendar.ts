@@ -1,3 +1,4 @@
+import type { AssignmentType } from '$features/calendar/contracts';
 import type { DayNumber } from '$lib/utils/dayNumber';
 import type { TrackId, WeekendMode } from './rosterTypes';
 
@@ -19,4 +20,16 @@ export function trackOf(mode: WeekendMode, day: DayNumber, holidays: ReadonlySet
 	const weekendOrHoliday = weekday === 0 || weekday === 6 || holidays.has(day);
 	if (!weekendOrHoliday) return 'weekday';
 	return mode === 'separate' ? 'weekend' : null;
+}
+
+/**
+ * Whether a duty is detailed on a date. Under No duty a person-assigned roster details nobody on weekends or
+ * Special Days. A Group duty ignores the setting, which it may keep from before it became a Group duty.
+ */
+export function takesDutyOn(
+	type: Pick<AssignmentType, 'assignTo' | 'weekendMode'>,
+	day: DayNumber,
+	holidays: ReadonlySet<number>
+): boolean {
+	return type.assignTo !== 'personnel' || trackOf(type.weekendMode, day, holidays) !== null;
 }

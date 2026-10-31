@@ -9,6 +9,8 @@ import DaysLaneSegmentView, {
 } from '$features/calendar/components/calendar-lanes/DaysLaneSegment.svelte';
 import { CALENDAR_DATE_LABEL } from '$features/calendar/utils/calendarRenderState';
 import { assignmentSlotKey, openAssignmentDates } from '$features/calendar/utils/calendarIndexes';
+import { takesDutyOn } from '$features/calendar/roster/rosterCalendar';
+import { toDayNumber } from '$lib/utils/dayNumber';
 import { formatDate } from '$lib/utils/dates';
 
 function bySortOrder(a: AssignmentType, b: AssignmentType): number {
@@ -97,6 +99,8 @@ export interface CalendarLaneInput {
 	specialDays: readonly SpecialDay[];
 	personnel: readonly Personnel[];
 	groups: readonly Group[];
+	/** False while the range's assignments are unread or failed to load, so no lane claims a count. Defaults to true. */
+	assignmentsLoaded?: boolean;
 	actions?: CalendarLaneActions;
 }
 
@@ -118,6 +122,9 @@ export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 	);
 	const personById = new Map(input.personnel.map((person) => [person.id, person]));
 	const groupById = new Map(input.groups.map((group) => [group.id, group]));
+	const dayNumbers = dateKeys.map(toDayNumber);
+	const holidays = new Set(input.specialDays.map((day) => toDayNumber(day.date)));
+	const assignmentsLoaded = input.assignmentsLoaded ?? true;
 
 	function assigneeLabel(type: AssignmentType, assigneeId: string): { short: string; full: string } {
 		if (type.assignTo === 'group') {
@@ -132,24 +139,33 @@ export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 
 	function assignmentLane(type: AssignmentType): CalendarLane {
 		const actions = input.actions;
+		const dutyDay = dayNumbers.map((day) => takesDutyOn(type, day, holidays));
 		const days = input.dates.map((date, index): AssignmentLaneDay => {
 			const assigneeId = assigneeBySlot.get(assignmentSlotKey(dateKeys[index], type.id));
 			const day = { dateLabel: dateLabels[index], typeName: type.name };
 			if (assigneeId === undefined) {
 				const openDay = actions?.openDay;
-				return openDay ? { ...day, open: (anchor) => openDay(type.id, date, anchor) } : day;
+				return openDay && dutyDay[index] ? { ...day, open: (anchor) => openDay(type.id, date, anchor) } : day;
 			}
 			const assignee = assigneeLabel(type, assigneeId);
 			return actions ? { ...day, assignee, edit: () => actions.editDay(date) } : { ...day, assignee };
 		});
-		const open = openAssignmentDates(assigneeBySlot, type.id, dateKeys).length;
+		const open = openAssignmentDates(
+			assigneeBySlot,
+			type.id,
+			dateKeys.filter((_, index) => dutyDay[index])
+		).length;
+		// A stored assignment on a day the type takes no duty still counts as assigned, so the counts stay consistent.
+		const assigned = dateKeys.filter((key) => assigneeBySlot.has(assignmentSlotKey(key, type.id))).length;
 		return {
 			key: `assignment:${type.id}`,
 			kind: 'assignment-type',
 			label: type.name,
 			color: type.color,
-			detail: open === 0 ? 'Full' : `${open} open`,
-			summary: `${type.name}: ${days.length - open} of ${days.length} days assigned`,
+			detail: assignmentsLoaded ? (open === 0 ? 'Full' : `${open} open`) : undefined,
+			summary: assignmentsLoaded
+				? `${type.name}: ${assigned} of ${assigned + open} days assigned`
+				: `${type.name}: how many days are assigned is not known yet`,
 			track: dayTrack(AssignmentLaneCell, days)
 		};
 	}

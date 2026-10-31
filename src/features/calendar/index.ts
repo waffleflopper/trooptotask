@@ -56,7 +56,7 @@ export { dutyPickerOptions, type DutyPickerOption } from './utils/dutyPickerOpti
 export { CalendarRangeCoordinator } from './contexts/CalendarRangeCoordinator.svelte';
 export { PlannerRosterRead, previewRosterFill } from './contexts/PlannerRosterRead.svelte';
 export { rosterSkipNote } from './utils/plannerRosters';
-export { trackOf } from './roster/rosterCalendar';
+export { takesDutyOn, trackOf } from './roster/rosterCalendar';
 
 /** The duty picker popover, loaded when a slot first opens it. */
 export function loadDutyPicker() {

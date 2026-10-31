@@ -4,9 +4,9 @@
 
 Music: "Vanguard" by Scott Buckley, released under CC BY 4.0 (www.scottbuckley.com.au).
 The video's cuts sit on this track's bar grid (133⅓ BPM, 1.8 s bars). Three pieces, no repeats:
-v = m − 10.111 (intro build), m − 26.311 from 41.8 (break, melodic middle), m − 91.111 from 58.0
+v = m − 10.111 (intro build), m − 15.511 from 52.6 (break, melodic middle), m − 80.311 from 68.8
 (closing section, entering under Drop Zone's low-pass). Hits land on WHO'S READY (2.2), the logo (13.0),
-Personnel details (45.4), WHAT'S NEXT (54.4), READINESS (129.96) and the end logo (135.53).
+Personnel details (56.2), WHAT'S NEXT (65.2), READINESS (140.76) and the end logo (146.33).
 """
 from pathlib import Path
 
@@ -18,7 +18,7 @@ from pedalboard import Compressor, HighpassFilter, HighShelfFilter, Limiter, Pea
 from scipy.signal import butter, sosfilt
 
 SR = 48000
-DUR = 140.0
+DUR = 150.8
 HERE = Path(__file__).parent
 OUT = HERE / 'out'
 OUT.mkdir(exist_ok=True)
@@ -207,82 +207,82 @@ put(whoosh(0.5, 6000, 300, (0.5, -0.5), peak=0.85), 12.35, -14)
 put(boom(1.4, f0=130, f1=30, tau=1.2, crack=0.5), 13.0, -1.5)
 
 # Available today: cut whooshes
-for at in (16.6, 20.2, 23.8, 27.4):
+for at in (16.6, 20.2, 23.8, 27.4, 31.0, 34.6, 38.2):
     put(whoosh(0.45, 300, 7000), at - 0.35, -17)
 
 # Scoped access: entrance, dots, zoom steps, caption on the break
-put(boom(0.7, f0=90, f1=40, crack=0.15), 31.0, -11)
+put(boom(0.7, f0=90, f1=40, crack=0.15), 41.8, -11)
 for i in range(14):
-    put(click(rng.uniform(3200, 4200), tau=0.012, body=0.1), 31.1 + rng.uniform(0, 0.75), -30)
-for at in (33.7, 36.4, 39.1):
+    put(click(rng.uniform(3200, 4200), tau=0.012, body=0.1), 41.9 + rng.uniform(0, 0.75), -30)
+for at in (44.5, 47.2, 49.9):
     put(whoosh(0.55, 120, 1600, (0.3, -0.3), q=0.9), at - 0.3, -15)
     put(blip(1760), at + 0.2, -24)
-put(tonal_hit(55), 41.8, -10)
+put(tonal_hit(55), 52.6, -10)
 
 # Personnel details lands on the music's re-entry; What's next gets its own hit
-put(boom(1.0, f0=110, f1=36, crack=0.3), 45.4, -5)
-put(shimmer(), 45.45, -20)
-put(whoosh(0.45, 300, 7000, (0.6, -0.6)), 49.9 - 0.35, -17)
-put(whoosh(0.5, 6000, 300, (0.5, -0.5), peak=0.85), 54.4 - 0.3, -16)
-put(boom(0.9, f0=105, f1=38, crack=0.25), 54.4, -7)
-put(shimmer(), 54.45, -22)
+put(boom(1.0, f0=110, f1=36, crack=0.3), 56.2, -5)
+put(shimmer(), 56.25, -20)
+put(whoosh(0.45, 300, 7000, (0.6, -0.6)), 60.7 - 0.35, -17)
+put(whoosh(0.5, 6000, 300, (0.5, -0.5), peak=0.85), 65.2 - 0.3, -16)
+put(boom(0.9, f0=105, f1=38, crack=0.25), 65.2, -7)
+put(shimmer(), 65.25, -22)
 
-# Drop Zone (starts 58.0: Robert speaks 58.7–64.7, parse 64.8, approve 69.4)
-put(whoosh(0.6, 500, 9000, (-0.5, 0.5)), 57.6, -16)
-put(chime([880, 1318.5], gap=0.12, dur=0.9), 58.3, -18)
+# Drop Zone (starts 68.8: Robert speaks 69.5–75.5, parse 75.6, approve 80.2)
+put(whoosh(0.6, 500, 9000, (-0.5, 0.5)), 68.4, -16)
+put(chime([880, 1318.5], gap=0.12, dur=0.9), 69.1, -18)
 for i in range(9):
-    put(blip(rng.choice([1320, 1568, 1760, 2093, 2349])), 64.8 + i * 0.075, -25)
+    put(blip(rng.choice([1320, 1568, 1760, 2093, 2349])), 75.6 + i * 0.075, -25)
 for i in range(3):
-    put(pop(pan=0.4), 65.5 + i * 0.4, -18)
-put(click(1800, tau=0.004, body=0.9), 69.35, -14)
-put(chime([1046.5, 1318.5, 1568, 2093], gap=0.06, dur=1.4), 69.45, -13)
+    put(pop(pan=0.4), 76.3 + i * 0.4, -18)
+put(click(1800, tau=0.004, body=0.9), 80.15, -14)
+put(chime([1046.5, 1318.5, 1568, 2093], gap=0.06, dur=1.4), 80.25, -13)
 for i in range(3):
-    put(tonal_hit(98), 69.65 + i * 0.18, -17)
-put(boom(1.0, f0=110, f1=36, crack=0.3), 70.6, -6)
+    put(tonal_hit(98), 80.45 + i * 0.18, -17)
+put(boom(1.0, f0=110, f1=36, crack=0.3), 81.4, -6)
 
 # Events & Taskings
-for at in (74.2, 78.7):
+for at in (85.0, 89.5):
     put(whoosh(0.45, 300, 7000), at - 0.35, -17)
 
 # AI: one hit per verb (two bars each), then the recap
 for i, f in enumerate((55, 61.7, 65.4, 73.4)):
-    put(tonal_hit(f), 83.2 + i * 3.6, -8)
-put(boom(0.7, f0=95, f1=42, crack=0.15), 83.2, -12)
-put(boom(0.8, f0=100, f1=40, crack=0.2), 97.6, -9)
+    put(tonal_hit(f), 94.0 + i * 3.6, -8)
+put(boom(0.7, f0=95, f1=42, crack=0.15), 94.0, -12)
+put(boom(0.8, f0=100, f1=40, crack=0.2), 108.4, -9)
 for i in range(4):
-    put(click(1500 + 300 * i, tau=0.01, body=0.6), 97.6 + i * 0.225, -16)
+    put(click(1500 + 300 * i, tau=0.01, body=0.6), 108.4 + i * 0.225, -16)
 
-# Bookend (starts 99.4): the opening's typing and question, then the dashboard answers it
+# Bookend (starts 110.2): the opening's typing and question, then the dashboard answers it
 for k in range(22):
-    put(key(), 99.5 + k * 0.8 / 22 + rng.uniform(-0.008, 0.008), -27)
-put(boom(1.0, f0=120, f1=38), 101.2, -6)
-put(whoosh(0.5, 6000, 300, (0.5, -0.5), peak=0.85), 102.55, -14)
-put(boom(1.4, f0=130, f1=30, tau=1.2, crack=0.5), 103.0, -3)
-put(shimmer(), 103.05, -16)
+    put(key(), 110.3 + k * 0.8 / 22 + rng.uniform(-0.008, 0.008), -27)
+put(boom(1.0, f0=120, f1=38), 112.0, -6)
+put(whoosh(0.5, 6000, 300, (0.5, -0.5), peak=0.85), 113.35, -14)
+put(boom(1.4, f0=130, f1=30, tau=1.2, crack=0.5), 113.8, -3)
+put(shimmer(), 113.85, -16)
 
-# Testimonials (starts 110.2): each quote's lines stamp down two beats apart
-for qi, q0 in enumerate((110.2, 114.7, 119.2)):
+# Testimonials (starts 121.0): each quote's lines stamp down two beats apart
+for qi, q0 in enumerate((121.0, 125.5, 130.0)):
     put(tonal_hit((55, 61.7, 73.4)[qi]), q0, -10)
     for k in range(3):
         put(boom(0.55 if k else 0.8, f0=95, f1=42, crack=0.3), q0 + k * 0.9, -9 if k else -7)
         put(click(1400, tau=0.006, body=0.8), q0 + k * 0.9, -17)
 
-# Close (starts 124.6): lines, the drop, READINESS at 129.96, tagline, the logo on the final hit at 135.53
-for at in (124.7, 125.6):
+# Close (starts 135.4): lines, the drop, READINESS at 140.76, tagline, the logo on the final hit at 146.33
+for at in (135.5, 136.4):
     put(whoosh(0.4, 300, 5000, (-0.4, 0.4)), at - 0.15, -21)
-put(riser(1.1), 128.86, -15)
-put(boom(1.5, f0=140, f1=30, tau=1.3, crack=0.55), 129.96, -1)
+put(riser(1.1), 139.66, -15)
+put(boom(1.5, f0=140, f1=30, tau=1.3, crack=0.55), 140.76, -1)
 for i in range(3):
-    put(blip(880 * (1.5 ** i)), 131.76 + i * 0.9, -24)
-put(boom(1.2, f0=100, f1=32, tau=1.4, crack=0.25), 135.53, -5)
-put(shimmer(), 135.58, -14)
+    put(blip(880 * (1.5 ** i)), 142.56 + i * 0.9, -24)
+put(boom(1.2, f0=100, f1=32, tau=1.4, crack=0.25), 146.33, -5)
+put(shimmer(), 146.38, -14)
 
 # ---------------------------------------------------------------- music bed
 # Three bar-aligned pieces of Vanguard, no repeats: the intro build, the break and melodic middle,
 # and the closing section through the composer's own ending. Downbeats sit 37 ms before the
 # analysis grid (1.548 + 1.8k), so the offsets land them on the video's bar lines.
 y, msr = librosa.load(HERE / 'assets/music/scott-buckley-vanguard.mp3', sr=SR, mono=False)
-PIECES = [(0.0, 10.111), (41.8, 26.311), (58.0, 91.111)]  # (video start, music − video offset)
+PIECES = [(0.0, 10.111), (52.6, 15.511), (68.8, 80.311)]  # (video start, music − video offset)
 xf = n(0.025)
 music = np.zeros((2, sfx.shape[1]))
 for i, (v0, off) in enumerate(PIECES):
@@ -300,7 +300,7 @@ for i, (v0, off) in enumerate(PIECES):
 music[:, : n(0.3)] *= np.linspace(0, 1, n(0.3)) ** 2  # starts mid-intro
 
 # Drop Zone: the music drops behind a wall while the leader speaks, then opens as the changes land
-keys = [57.9, 58.35, 64.75, 65.5]
+keys = [68.7, 69.15, 75.55, 76.3]
 r0, r1 = n(keys[0]), n(keys[-1] + 0.3)
 tt = np.arange(r1 - r0) / SR + keys[0]
 cut = np.exp(np.interp(tt, keys, np.log([18000, 520, 520, 18000])))
@@ -308,8 +308,8 @@ gain = np.interp(tt, keys, [1, db(-5), db(-5), 1])
 for ch in range(2):
     music[ch, r0:r1] = svf(music[ch, r0:r1].astype(np.float64), cut, q=0.9, mode='lp') * gain
 
-# Bookend: the music muffles under the callback, then opens on the dashboard's downbeat (103.0)
-keys = [99.35, 99.7, 102.8, 103.0]
+# Bookend: the music muffles under the callback, then opens on the dashboard's downbeat (113.8)
+keys = [110.15, 110.5, 113.6, 113.8]
 r0, r1 = n(keys[0]), n(keys[-1] + 0.05)
 tt = np.arange(r1 - r0) / SR + keys[0]
 cut = np.exp(np.interp(tt, keys, np.log([18000, 700, 700, 18000])))
@@ -318,13 +318,13 @@ for ch in range(2):
     music[ch, r0:r1] = svf(music[ch, r0:r1].astype(np.float64), cut, q=0.9, mode='lp') * gain
 
 # fade the ending's tail under the end card
-f0, f1 = n(138.4), n(DUR)
+f0, f1 = n(149.2), n(DUR)
 music[:, f0:f1] *= np.linspace(1, 0, f1 - f0) ** 1.5
 music[:, f1:] = 0
 
 # ---------------------------------------------------------------- voice
-# Robert's Drop Zone line: trimmed, cleaned up, a little room, placed so his first word lands at 58.7.
-VOICE_AT = 58.16
+# Robert's Drop Zone line: trimmed, cleaned up, a little room, placed so his first word lands at 69.5.
+VOICE_AT = 68.96
 v, _ = librosa.load(HERE / 'assets/voice/drop-zone-robert.wav', sr=SR, mono=True)
 v = v[n(0.4): n(6.75)]
 v[: n(0.08)] *= np.linspace(0, 1, n(0.08))

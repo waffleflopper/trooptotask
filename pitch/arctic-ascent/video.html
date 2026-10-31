@@ -182,10 +182,6 @@ canvas#snow { position: absolute; inset: 0; pointer-events: none; z-index: 50; }
 .vo .line { display: block; width: max-content; font-size: 100px; line-height: 1.02; color: var(--ivory); transform-origin: left center; }
 .vo .line b { font-weight: inherit; color: var(--amber-hi); }
 .vo .who { font-size: 28px; color: var(--chrome-muted); margin-top: 40px; }
-#vo-units { left: 150px; top: 920px; display: flex; gap: 64px; font-family: var(--mono); font-size: 26px;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome-muted); }
-#vo-units span::before { content: ''; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
-  background: currentColor; margin-right: 16px; vertical-align: 2px; }
 
 /* Close */
 .close-line { left: 0; right: 0; text-align: center; }
@@ -316,21 +312,20 @@ body.rendering #controls { display: none; }
       <span class="display line">“There are so many times in my career</span>
       <span class="display line">that I could <b>really have benefited</b></span>
       <span class="display line">from this website.”</span>
-      <div class="kicker who">CPT · Former company commander · MEDDAC-AK</div>
+      <div class="kicker who">Fort Wainwright, Alaska</div>
     </div>
     <div class="vo">
       <span class="display line">“It really feels like our company’s</span>
       <span class="display line">MEDPROS and training delinquencies</span>
       <span class="display line"><b>disappeared overnight.</b>”</span>
-      <div class="kicker who">18th CSSB</div>
+      <div class="kicker who">Grafenwöhr, Germany</div>
     </div>
     <div class="vo">
       <span class="display line">“It’s like I have a cheat code.</span>
       <span class="display line">I went from spending half my day<br>on administrative tasks to nearly</span>
       <span class="display line"><b>all my day with the Soldiers.</b>”</span>
-      <div class="kicker who">SFC · 1-43 ADA</div>
+      <div class="kicker who">Fort Bliss, Texas</div>
     </div>
-    <div class="abs" id="vo-units"><span>JBER, Alaska</span><span>Grafenwöhr, Germany</span><span>Fort Bliss, Texas</span></div>
   </section>
 
   <!-- 13 · Close -->
@@ -347,7 +342,7 @@ body.rendering #controls { display: none; }
   </section>
 </div>
 
-<div id="controls"><button id="play">▶</button><input id="scrub" type="range" min="0" max="140" step="0.01" value="0"><span id="tlabel">0.00</span></div>
+<div id="controls"><button id="play">▶</button><input id="scrub" type="range" min="0" max="150.8" step="0.01" value="0"><span id="tlabel">0.00</span></div>
 
 <script>
 // ---------- Timing helpers ----------
@@ -380,11 +375,11 @@ function wipe(el, t, a, d = 0.4, o = Infinity, od = 0.25) {
 // ---------- Timeline ----------
 // Cut to Vanguard's bar grid (133⅓ BPM, 1.8 s bars): every scene boundary is a downbeat.
 const T = {
-  cold: [0, 4], chaos: [4, 13], logo: [13, 16.6], today: [16.6, 31], scope: [31, 45.4], pdetail: [45.4, 54.4],
-  next: [54.4, 58], drop: [58, 74.2], tasking: [74.2, 83.2], ai: [83.2, 99.4], bookend: [99.4, 110.2],
-  voices: [110.2, 124.6], close: [124.6, 140],
+  cold: [0, 4], chaos: [4, 13], logo: [13, 16.6], today: [16.6, 41.8], scope: [41.8, 56.2], pdetail: [56.2, 65.2],
+  next: [65.2, 68.8], drop: [68.8, 85], tasking: [85, 94], ai: [94, 110.2], bookend: [110.2, 121],
+  voices: [121, 135.4], close: [135.4, 150.8],
 };
-const DURATION = 140;
+const DURATION = 150.8;
 
 // ---------- Snow ----------
 const snow = $('snow').getContext('2d');
@@ -445,10 +440,16 @@ const TODAY_SHOTS = [
     from: { x: 0.55, y: 0.30, s: 1.15 }, to: { x: 0.648, y: 0.26, s: 1.5 } },
   { a: 3.6, b: 7.2, shot: makeShot(today, 'assets/calendar.jpg', 2000, 1372, 'Calendar', "Who's where.<br>Every day.", 'AVAILABLE TODAY'),
     from: { x: 0.62, y: 0.52, s: 1.15 }, to: { x: 0.56, y: 0.55, s: 1.55 } },
-  { a: 7.2, b: 10.8, shot: makeShot(today, 'assets/training-live.jpg', 1732, 1028, 'Training · critical tasks · onboarding · evals', 'Nothing expires<br>quietly.', 'AVAILABLE TODAY'),
+  { a: 7.2, b: 10.8, shot: makeShot(today, 'assets/live/duty-roster-planner.png', 2708, 1666, 'Duty rosters', 'Duty roster.<br>Generated.', 'AVAILABLE TODAY'),
+    from: { x: 0.5, y: 0.58, s: 1.1 }, to: { x: 0.6, y: 0.55, s: 1.5 } },
+  { a: 10.8, b: 14.4, shot: makeShot(today, 'assets/live/da6.png', 2708, 1466, 'DA Form 6 · DA PAM 220-45', 'Fair by the rule.<br>Ready to print.', 'AVAILABLE TODAY'),
+    from: { x: 0.42, y: 0.56, s: 1.2 }, to: { x: 0.62, y: 0.6, s: 1.35 } },
+  { a: 14.4, b: 18, shot: makeShot(today, 'assets/training-live.jpg', 1732, 1028, 'Training · critical tasks · onboarding', 'Nothing expires<br>quietly.', 'AVAILABLE TODAY'),
     from: { x: 0.45, y: 0.28, s: 1.2 }, to: { x: 0.5, y: 0.42, s: 1.45 } },
-  { a: 10.8, b: 14.4, shot: makeShot(today, 'assets/training-reports.jpg', 1555, 1316, 'Training reports · 180-day forecast', 'See the drop<br>before it lands.', 'AVAILABLE TODAY'),
+  { a: 18, b: 21.6, shot: makeShot(today, 'assets/training-reports.jpg', 1555, 1316, 'Training reports · 180-day forecast', 'See the drop<br>before it lands.', 'AVAILABLE TODAY'),
     from: { x: 0.385, y: 0.256, s: 1.3 }, to: { x: 0.5, y: 0.34, s: 1.0 } },
+  { a: 21.6, b: 25.2, shot: makeShot(today, 'assets/live/evals.png', 2708, 1706, 'Evals · rating scheme', "Every eval.<br>Before it's late.", 'AVAILABLE TODAY'),
+    from: { x: 0.44, y: 0.45, s: 1.15 }, to: { x: 0.5, y: 0.45, s: 1.25 } },
 ];
 
 const pdetail = $('pdetail');
@@ -859,10 +860,6 @@ function render(t) {
       q.style.opacity = 1 - out;
       q.style.transform = `translate(${Math.sin(l * 90) * shake}px, ${Math.cos(l * 77) * shake}px) scale(${lerp(1, 1.04, out)})`;
       reveal(q.querySelector('.who'), l, 2.1, 0.35, Infinity, 0.3, 12);
-    });
-    [...$('vo-units').children].forEach((u, i) => {
-      reveal(u, lt, starts[i] + 2.1, 0.35, 14.1, 0.3, 12);
-      u.style.color = lt >= starts[i] + 2.1 && lt < starts[i + 1] ? 'var(--amber-hi)' : '';
     });
     $('vo-mark').style.opacity = 0.07 * eOut(prog(lt, 0, 0.6));
     $('voices').style.opacity = 1 - prog(lt, 14.1, 14.4);

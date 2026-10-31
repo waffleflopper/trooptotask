@@ -51,13 +51,16 @@ describe('Rating Scheme entry validation', () => {
 		expect(ratingSchemeEntryUpdateSchema.safeParse({ id: ENTRY, status }).success).toBe(true);
 	});
 
-	it.each([{ evalType: 'unsupported' }, { status: 'inactive' }, { notes: 123 }, { ratedPersonId: null }])(
-		'rejects unsupported field values %j',
-		(values) => {
-			expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, ...values }).success).toBe(false);
-			expect(ratingSchemeEntryUpdateSchema.safeParse({ id: ENTRY, ...values }).success).toBe(false);
-		}
-	);
+	it.each([
+		{ evalType: 'unsupported' },
+		{ status: 'inactive' },
+		{ notes: 123 },
+		{ ratedPersonId: null },
+		{ ratedPersonId: '' }
+	])('rejects unsupported field values %j', (values) => {
+		expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, ...values }).success).toBe(false);
+		expect(ratingSchemeEntryUpdateSchema.safeParse({ id: ENTRY, ...values }).success).toBe(false);
+	});
 
 	it('requires update identity and excludes supplied protected and unknown fields', () => {
 		expect(ratingSchemeEntryUpdateSchema.safeParse({ notes: 'changed' }).success).toBe(false);

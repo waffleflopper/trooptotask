@@ -289,7 +289,7 @@ describe('Feedback provider', () => {
 		await expect(
 			createSupabaseFeedbackSubmissionStore(() => client).insertFeedbackSubmission({
 				userId: 'member-a',
-				userEmail: null,
+				userEmail: 'member@example.test',
 				organizationId: null,
 				organizationName: null,
 				category: 'general',

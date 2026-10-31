@@ -34,7 +34,7 @@ export interface FeedbackOrganizationContext {
 
 export interface FeedbackSubmissionRecord {
 	userId: string;
-	userEmail: string | null;
+	userEmail: string;
 	organizationId: string | null;
 	organizationName: string | null;
 	category: FeedbackCategory;

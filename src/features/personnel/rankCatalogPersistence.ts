@@ -14,13 +14,13 @@ export interface RankCatalogValues {
 export interface SavedRankCatalogEntry extends RankCatalogValues {
 	id: string;
 	organization_id: string;
-	created_at?: string | null;
-	updated_at?: string | null;
+	created_at?: string;
+	updated_at?: string;
 }
 export type RankCatalogSave = RankCatalogValues & {
 	id?: string;
-	created_at?: string | null;
-	updated_at?: string | null;
+	created_at?: string;
+	updated_at?: string;
 };
 export interface RankCatalogPersistence {
 	listEntries(): Promise<SavedRankCatalogEntry[]>;

@@ -85,7 +85,7 @@ export interface RatingSchemeCreateValues {
 export type RatingSchemePatchValues = Partial<RatingSchemeCreateValues>;
 
 export interface RatingSchemeWriteReference {
-	ratedPersonId: string | null;
+	ratedPersonId: string;
 	raterPersonId: string | null;
 	seniorRaterPersonId: string | null;
 	intermediateRaterPersonId: string | null;

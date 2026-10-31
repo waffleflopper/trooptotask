@@ -16,6 +16,7 @@ vi.mock('$lib/server/adapters/httpAdapter', async (importOriginal) => ({
 	createRequestFeedbackSubmission: createFeedbackMock
 }));
 
+import { createFeedbackSubmission, type FeedbackSubmissionRecord } from '$features/feedback/index.server';
 import { POST } from './+server';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
@@ -106,6 +107,25 @@ describe('POST /api/feedback', () => {
 			organizationId: ORG_ID
 		});
 	});
+
+	it.each([undefined, '', '   '])(
+		'answers 400 for an account email of %j without an Organization lookup or a write',
+		async (email) => {
+			const written: FeedbackSubmissionRecord[] = [];
+			const resolveOrganizationContext = vi.fn();
+			const submission = createFeedbackSubmission({
+				store: { insertFeedbackSubmission: async (record) => void written.push(record) },
+				resolveOrganizationContext
+			});
+			feedbackMock.submit.mockImplementationOnce(submission.submit);
+
+			await expect(
+				POST(makeEvent({ user: { id: USER_ID, email }, body: { organizationId: ORG_ID } }))
+			).rejects.toMatchObject({ status: 400 });
+			expect(resolveOrganizationContext).not.toHaveBeenCalled();
+			expect(written).toEqual([]);
+		}
+	);
 
 	it('rejects a malformed JSON body with 400 before submitting', async () => {
 		const event = makeEvent();

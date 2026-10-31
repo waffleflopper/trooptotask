@@ -89,8 +89,7 @@ function provider(initial: Row[] = []) {
 		failOffset: -1,
 		rejectMethod: '',
 		omitCount: false,
-		revokeDelete: false,
-		rejectNullRequired: false
+		revokeDelete: false
 	};
 	const client = createClient('http://rating-ledger.invalid', 'ordinary-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -141,11 +140,6 @@ function provider(initial: Row[] = []) {
 					affected = affected.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000));
 				} else if (request.method === 'POST' || request.method === 'PATCH') {
 					const values = body as Row;
-					if (
-						state.rejectNullRequired &&
-						['rated_person_id', 'rating_period_start', 'rating_period_end'].some((field) => values[field] === null)
-					)
-						return Response.json({ code: '23502', message: 'Required Rating value is null' }, { status: 400 });
 					if (request.method === 'POST') {
 						affected = [
 							{
@@ -332,29 +326,6 @@ describe('owned Rating Scheme provider', () => {
 		});
 		expect(state.requests[0].body).toEqual({ rater_person_id: null, intermediate_rater_name: null, notes: null });
 		expect(rows[1]).toEqual({ ...saved, organization_id: 'org-b' });
-	});
-
-	it('passes required empty strings as null to the provider and propagates its existing rejection', async () => {
-		const { ratingScheme, rows, state } = provider([saved]);
-		state.rejectNullRequired = true;
-		const before = structuredClone(rows);
-		await expect(
-			ratingScheme.create({ ...input, ratedPersonId: '', ratingPeriodStart: '', ratingPeriodEnd: '' })
-		).rejects.toThrow('Required Rating value is null');
-		expect(state.requests[0].body).toMatchObject({
-			rated_person_id: null,
-			rating_period_start: null,
-			rating_period_end: null
-		});
-		await expect(
-			ratingScheme.update('entry-a', { ratedPersonId: '', ratingPeriodStart: '', ratingPeriodEnd: '' })
-		).rejects.toThrow('Required Rating value is null');
-		expect(state.requests[1].body).toEqual({
-			rated_person_id: null,
-			rating_period_start: null,
-			rating_period_end: null
-		});
-		expect(rows).toEqual(before);
 	});
 
 	it('propagates failed create/update, answers null for a missing update and leaves unrelated rows unchanged', async () => {

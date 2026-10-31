@@ -44,6 +44,10 @@ long-range views.
   range read.
 - `calendar-markers`: Events, Suspenses and picked execution dates on the Month and 3-Month views behind the
   `Events & Taskings` switch; see [Events and Taskings](events-taskings.md#calendar-markers).
+- `calendar-lane-display`: `Show Days`, `Show Events & Suspenses` and `Show Assignments` each hide only their lanes
+  (all on by default), save per user and Organization and survive a reload. Weekend, holiday and closure shading stays
+  with Days hidden. Hiding Events & Suspenses also hides the header suspense diamonds and the legend's `Suspense` entry.
+  `3-Month` has only Events and Suspenses lanes, so Days and Assignments change nothing there.
 - `calendar-reentry`: after leaving Calendar and coming back, another member's deletes and edits show; a save or delete
   confirmed while the new workspace snapshot was in flight survives it, including over another member's row the server
   replaced in the same slot; entries outside the snapshot's range stay.
@@ -61,7 +65,8 @@ holds `Calendar group filter`, the personnel searchbox, `Events & Taskings` (whe
 `Duty planner` (assignment managers), `Reports`, `Display`,
 `More Calendar controls` and the pinned `Bulk Status` menu. `Events & Taskings` opens `/calendar/taskings`;
 `Bulk Status` includes `Import CSV`, which opens `/calendar/import`. `Display` holds `Show Onboarding` (when onboarding People
-exist), `Show Status Text` and `Show Personnel Roles` as checkboxes that keep the menu open. `More Calendar controls`
+exist), `Show Status Text`, `Show Personnel Roles`, `Show Days`, `Show Events & Suspenses` (only when Events & Taskings is
+on) and `Show Assignments` as checkboxes that keep the menu open. `More Calendar controls`
 always holds `Settings` (configure access), `Export to Excel` and `Print / PDF`; the exports cover the shown quarter in
 `3-Month`. The legend under the grid lists statuses; in `Month` it adds `Duty (codes)` for Person duties and, for people
 who can add availability, `Drag across days to add`. A narrow page moves more controls into More; see
@@ -285,6 +290,20 @@ filters and request controls between cases.
     over all People across the top-level rows and days, not a mean of row percentages. Status days by person
     (`Filter personnel` → `By Group`) and Availability by day offer the same three top-level Groups; checking only
     `2nd Platoon` selects 9 of 12 personnel, and the run lists or counts all nine.
+
+20. **Lane display.** As `calendarConfigure` on Calendar September 2026 at 1440x900, 1024x768 and 390x844, record the
+    `[data-lane-kind]` lanes and the date-header rects. Choose `Display` → `Show Days`, reload and read
+    `$V rows user_org_preferences orgA`: `calendar.showDaysLane` is false for this user alone, the Days lane is gone, the
+    person rows move up by exactly its height (26px, 24px under 641px), the header rects are unchanged, and weekends,
+    the September 15 closure and the September 18 holiday keep their tint in the headers and the rows. Turn it back on:
+    the row offset returns to zero. Repeat for `Show Assignments` (the assignment lanes go) and `Show Events &
+Suspenses` with a suspense due in the month (the Events lane and the header diamonds go, the legend loses
+    `Suspense` and keeps `Tasking commitment` and `Commitment conflict`). Turn all three off: no lane remains and
+    `scrollWidth` equals `innerWidth`. In `3-Month`, `Show Days` and `Show Assignments` off change nothing, and
+    `Show Events & Suspenses` off leaves no lanes. As `calendarConfigureSwitch` in Organization B every lane is on and no
+    preference row exists. Open the `New closure` composer in Settings with `Show Days` off: its preview still has a
+    Days lane. With Events & Taskings off, `Display` has no `Show Events & Suspenses`. Opening `Display` closes an open
+    suspense card or duty picker. Restore every toggle.
 
 ## Gotchas
 

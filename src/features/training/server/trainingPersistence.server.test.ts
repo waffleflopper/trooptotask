@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseTrainingCatalogPersistence } from './trainingCatalogPersistence.server';
 import { createSupabaseTrainingCompletionPersistence } from './trainingCompletionPersistence.server';
@@ -6,6 +7,9 @@ import { createWritePortsContext } from './trainingPersistence.test-support.serv
 import { trainingProvider } from './test-support/trainingProvider.server';
 
 const ORG = 'org-a';
+const A = 'e6110000-0000-0000-0000-000000000401';
+const B = 'e6110000-0000-0000-0000-000000000402';
+const C = 'e6110000-0000-0000-0000-000000000403';
 const TIME = '2026-10-07T12:00:00.123456Z';
 
 function ports(initial: Parameters<typeof trainingProvider>[0]) {
@@ -17,34 +21,68 @@ function ports(initial: Parameters<typeof trainingProvider>[0]) {
 	};
 }
 
+function orderRpc(reply: () => Response) {
+	const calls: Array<{ path: string; body: unknown }> = [];
+	const client = createClient('http://127.0.0.1:9', 'synthetic-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const request = new Request(input, init);
+				calls.push({ path: new URL(request.url).pathname, body: await request.json() });
+				return reply();
+			}
+		}
+	});
+	return { calls, catalog: createSupabaseTrainingCatalogPersistence(client, ORG) };
+}
+
 describe('ordinary Training persistence', () => {
-	it('writes changed order positions without rewriting other fields or another Organization', async () => {
-		const A = 'e6110000-0000-0000-0000-000000000401';
-		const B = 'e6110000-0000-0000-0000-000000000402';
-		const C = 'e6110000-0000-0000-0000-000000000403';
-		const { catalog, state } = ports({
-			training_types: [
-				{ id: A, organization_id: ORG, name: 'A', sort_order: 0, warning_days_yellow: 10, warning_days_orange: 20 },
-				{ id: B, organization_id: ORG, name: 'B', sort_order: 1 },
-				{ id: C, organization_id: ORG, name: 'C', sort_order: 2 },
-				{ id: C, organization_id: 'other-org', name: 'Other', sort_order: 9 }
-			]
-		});
+	it('saves the Training type order in one database command for the Organization', async () => {
+		const { calls, catalog } = orderRpc(() => new Response(null, { status: 204 }));
 		const ctx = createWritePortsContext();
 		await setTrainingTypeOrder(
 			{ ...ctx, trainingCatalog: catalog },
 			{ trainingTypeIds: [A, C, B], expectedTrainingTypeIds: [A, B, C] }
 		);
-		expect(state.rows.training_types).toEqual([
-			{ id: A, organization_id: ORG, name: 'A', sort_order: 0, warning_days_yellow: 10, warning_days_orange: 20 },
-			{ id: B, organization_id: ORG, name: 'B', sort_order: 2 },
-			{ id: C, organization_id: ORG, name: 'C', sort_order: 1 },
-			{ id: C, organization_id: 'other-org', name: 'Other', sort_order: 9 }
+		expect(calls).toEqual([
+			{
+				path: '/rest/v1/rpc/set_training_type_order',
+				body: { p_organization_id: ORG, p_training_type_ids: [A, C, B], p_expected_training_type_ids: [A, B, C] }
+			}
 		]);
-		expect(state.requests.filter(({ method }) => method === 'PATCH').map(({ body }) => body)).toEqual([
-			{ sort_order: 1 },
-			{ sort_order: 2 }
-		]);
+	});
+
+	it.each([
+		['TTO01', 409, 'The Training type order changed. Reload and try again.'],
+		['22023', 400, 'Choose every Training type once'],
+		['42501', 403, 'You do not have access to configure Training']
+	])(
+		'answers a refused order save with %s as %i without forwarding the database message',
+		async (code, status, message) => {
+			const { catalog } = orderRpc(() =>
+				Response.json({ code, message: 'synthetic database message', details: null, hint: null }, { status: 400 })
+			);
+			await expect(catalog.setTypeOrder([A, B], [B, A])).rejects.toMatchObject({
+				name: 'RequestFailure',
+				status,
+				message
+			});
+		}
+	);
+
+	it('does not report an unexpected database failure as a conflict', async () => {
+		const { catalog } = orderRpc(() =>
+			Response.json(
+				{ code: 'XX000', message: 'synthetic database message', details: null, hint: null },
+				{ status: 500 }
+			)
+		);
+		const failure = await catalog.setTypeOrder([A, B], [B, A]).then(
+			() => undefined,
+			(error: unknown) => error
+		);
+		expect(failure).toMatchObject({ message: 'synthetic database message' });
+		expect(failure).not.toMatchObject({ name: 'RequestFailure' });
 	});
 
 	it('retains saved metadata and known present-null defaults without materializing omitted leaves', async () => {

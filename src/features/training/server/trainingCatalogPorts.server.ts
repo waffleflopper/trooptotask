@@ -17,7 +17,7 @@ export type TrainingTypeUpdateContext = Omit<TrainingTypeCreateContext, 'trainin
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'patchType' | 'listTypes'>;
 };
 export type TrainingTypeOrderContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
-	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes' | 'writeTypePositions'>;
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'setTypeOrder'>;
 };
 export type TrainingExemptionContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'setPersonExemption'>;

@@ -21,7 +21,7 @@ import {
 	trainingTypeUpdateInput,
 	trainingTypeWarningsInput,
 	trainingTypeOrderInput,
-	TRAINING_TYPE_ORDER_CHANGED_MESSAGE,
+	TRAINING_TYPE_ORDER_INVALID_MESSAGE,
 	trainingViewCreateInput,
 	trainingViewUpdateInput,
 	trainingExemptionInput,
@@ -46,24 +46,10 @@ export async function setTrainingTypeOrder(
 	input: Record<string, unknown>
 ): Promise<void> {
 	const parsed = trainingTypeOrderInput.safeParse(input);
-	if (!parsed.success) error(400, 'Choose every Training type once');
+	if (!parsed.success) error(400, TRAINING_TYPE_ORDER_INVALID_MESSAGE);
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
 	const { trainingTypeIds, expectedTrainingTypeIds } = parsed.data;
-	const saved = await ctx.trainingCatalog.listTypes();
-	if (
-		saved.length !== expectedTrainingTypeIds.length ||
-		saved.some((type, index) => type.id !== expectedTrainingTypeIds[index])
-	) {
-		fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);
-	}
-	const savedById = new Map(saved.map((type) => [type.id, type]));
-	if (trainingTypeIds.length !== saved.length || trainingTypeIds.some((id) => !savedById.has(id))) {
-		error(400, 'Choose every Training type once');
-	}
-	const positions = trainingTypeIds
-		.map((id, sortOrder) => ({ id, sortOrder }))
-		.filter(({ id, sortOrder }) => savedById.get(id)?.sortOrder !== sortOrder);
-	await ctx.trainingCatalog.writeTypePositions(positions);
+	await ctx.trainingCatalog.setTypeOrder(trainingTypeIds, expectedTrainingTypeIds);
 	await ctx.audit.log({
 		action: 'training_type.reordered',
 		resourceType: 'organization',

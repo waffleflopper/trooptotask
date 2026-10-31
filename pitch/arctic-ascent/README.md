@@ -1,12 +1,12 @@
 # Arctic Ascent opener — TroopToTask
 
-A 2:31 scored opener for the five-minute pitch. Every scene boundary is a downbeat of the music (1.8-second bars), so the big hits land on WHO'S READY, the logo, Personnel details, WHAT'S NEXT, READINESS and the end logo.
+A 2:31 scored opener for the five-minute pitch. Every scene boundary is a downbeat of the music (1.8-second bars), so the big hits land on WHO'S READY, the logo, Personnel details, the Events & Taskings cut, WHAT'S NEXT, the AI cut, READINESS and the end logo.
 
 - `video.html`: the composition. Open it in a browser to scrub and preview.
 - `render.mjs`: `node render.mjs` writes the silent `out/troop-to-task-arctic-ascent.mp4` (1080p30, 2:31). `--stills 12 50` writes review frames; `--fps 60` renders at 60 fps.
 - `audio.py`: builds the soundtrack (music edit, synthesized sound design, mix and master). Run it with `~/.cache/t2t-pitch-audio/venv/bin/python audio.py` (about 3 seconds).
 - `thumbnail.html`: the LinkedIn video thumbnail. `chromium --headless --disable-gpu --hide-scrollbars --window-size=1920,1080 --virtual-time-budget=3000 --screenshot="$PWD/out/thumbnail.png" "file://$PWD/thumbnail.html"` writes `out/thumbnail.png`.
-- `assets/`: Paper mockups (TroopToTask file), the live training screenshots, brand fonts and the music source. `assets/live/` holds captures of the shipped app with synthetic data: Calendar and its duty picker, Personnel details (Overview, Readiness, Log), Training, Training reports and the roster (origin/main, 20 Oct 2026), the redesigned Dashboard (origin/main, 22 Oct 2026), and the Duty roster planner, DA Form 6 and Evals (origin/main, 31 Oct 2026). `assets/training-reports.jpg` is the Training reports capture with the unit name and sub-unit names replaced by neutral Group labels.
+- `assets/`: Paper mockups (TroopToTask file), the live training screenshots, brand fonts and the music source. `assets/live/` holds captures of the shipped app with synthetic data: Calendar and its duty picker, Personnel details (Overview, Readiness, Log), Training, Training reports and the roster (origin/main, 20 Oct 2026), the redesigned Dashboard (origin/main, 22 Oct 2026), and the Duty roster planner, DA Form 6 and Evals (origin/main, 31 Oct 2026), and Events & Taskings: the Taskings list and the Assign people sheet (origin/main, 31 Oct 2026). `assets/training-reports.jpg` is the Training reports capture with the unit name and sub-unit names replaced by neutral Group labels.
 
 ## Outputs (`out/`)
 
@@ -38,12 +38,12 @@ The thesis: leaders spend hours chasing answers scattered across trackers. Troop
 | 0:17 | Available today | Seven shots, one per two bars: Dashboard → Calendar → Duty roster (the planner's Fill from roster) → DA Form 6 (DA PAM 220-45) → Training matrix → Training reports (79% → 63% if no one renews, the 180-day forecast) → Evals (rating scheme) |
 | 0:42 | Scoped access | Commander · 1SG → Platoon Sergeant → Squad Leader → Team Leader. The music drops into its break under "Every leader owns their piece." |
 | 0:56 | Personnel details | **Just shipped**, on the music's re-entry: the camera leaves the team leader's Soldiers for one Soldier's page, then what needs action, most urgent first |
-| 1:05 | What's next | In design now · built on the same foundation |
-| 1:09 | Drop Zone | Robert's recorded brain dump plays as the music ducks under a filter; the transcript types in time with his words and the waveform follows his voice. It becomes three reviewed changes, approved at 0:11 on the stopwatch; approval launches the closing section |
-| 1:25 | Events & Taskings | Taskings list → Alpha-scoped staffing |
+| 1:05 | Events & Taskings | **Just shipped**: the live Taskings list (status counts, people and equipment per row) → the Assign people sheet staffing an Alpha tasking |
+| 1:14 | What's next | In design now · built on the same foundation |
+| 1:18 | Drop Zone | Robert's recorded brain dump plays as the music ducks under a filter; the transcript types in time with his words and the waveform follows his voice. It becomes three reviewed changes, approved at 0:11 on the stopwatch; approval launches the closing section |
 | 1:34 | AI across the platform | One verb per two bars (3.6 seconds): Ask, Brief, Forecast, Fill, each with a one-line question and answer, then the recap |
 | 1:50 | Bookend | The cold open returns: 0547 · First formation, **WHO'S READY?** The music muffles, then opens as the dashboard answers it on one screen: 0548 · Answered. Before formation. |
-| 2:01 | Testimonials | "From leaders using it today": three quotes stamped down line by line on the beat, each credited by place only: Fort Wainwright, Alaska · Grafenwöhr, Germany · Fort Bliss, Texas. The last quote's "all my day with the Soldiers" hands straight to the close |
+| 2:01 | Testimonials | "From leaders using it today": three quotes stamped down line by line on the beat, each credited by rank and place, with no names, roles or units: CPT · Fort Wainwright, Alaska · Grafenwöhr, Germany (no rank given) · SFC · Fort Bliss, Texas. The last quote's "all my day with the Soldiers" hands straight to the close |
 | 2:15 | Close | Less time on admin. More time with Soldiers. The music drops out under "That's", slams on **READINESS** (2:21), and the tagline builds through the swell to the end logo on the final hit (2:26) |
 
 ## Slides
@@ -73,7 +73,7 @@ The deck carries no speaker notes; Robert keeps his own talk track.
 
 "[Vanguard](https://www.scottbuckley.com.au/library/vanguard/)" by Scott Buckley, released under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Commercial use and edits are allowed with attribution. The end card carries the credit; in slides, descriptions or written materials use his format: *'Vanguard' by Scott Buckley – released under CC-BY 4.0. www.scottbuckley.com.au*
 
-The 3:54 track is cut down to three bar-aligned pieces with nothing repeated: the intro build (video 0:00–0:52.6), the break and melodic middle (to 1:08.8), and the closing section through the composer's own ending, entering as Drop Zone's low-pass closes over the cut. Each cut hands over 10–35 ms before a downbeat. The music is low-passed under Drop Zone's speaking beat and the bookend's question, and fades under the end card. The offsets are in `audio.py`.
+The 3:54 track is cut down to four bar-aligned pieces with nothing repeated: the intro build (video 0:00–0:52.6), the break and melodic middle (to 1:17.8), the closing section's opening, entering as Drop Zone's low-pass closes over the cut (to 1:34), and the closing section through the composer's own ending, entering under the AI boom. Each cut hands over 10–35 ms before a downbeat. The music is low-passed under Drop Zone's speaking beat and the bookend's question, and fades under the end card. The offsets are in `audio.py`.
 
 ## Optional voiceover (≈130 words)
 
@@ -83,15 +83,15 @@ The video stands on its own, and the Drop Zone line is already Robert's own reco
 > The answer exists. It's in a leave tracker, a training export, three group chats and a whiteboard.
 > TroopToTask puts it in one place. Who's where, every day. Training that never expires quietly.
 > And it works the way the Army does. The commander sees the company. The platoon sergeant sees their platoon. The team leader keeps their Soldiers current.
-> Next: Drop Zone. Just say what happened, and TroopToTask turns it into updates you approve.
-> Events and taskings, staffed and tracked to done. AI that answers questions, builds the brief and flags what expires before the next big event.
+> Events and taskings are live: staffed, equipped and tracked to done.
+> Next: Drop Zone. Just say what happened, and TroopToTask turns it into updates you approve. AI that answers questions, builds the brief and flags what expires before the next big event.
 > Less time on admin. More time with Soldiers. That's readiness.
 
 ## Before showing judges
 
 - Play it once on the room's speakers. Sound effects that feel right on headphones can be too loud on a PA; the music-only version is the fallback.
-- Personnel details shipped on 19 October 2026 and is labeled "Just shipped" in the video and "Just landed" on its slide. Drop Zone, Events & Taskings and the AI tiles are labeled "Next", "In design" or "In development". They show planned work, not shipped features.
+- Personnel details shipped on 19 October 2026 and is labeled "Just shipped" in the video and "Just landed" on its slide. Events & Taskings shipped and is labeled "Just shipped" in the video, with live captures. Drop Zone and the AI tiles are labeled "Next" or "In design"; they show planned work, not shipped features (checked against origin/main on 31 Oct 2026: no Drop Zone or AI verbs in the app).
 - The racing clock and the Drop Zone stopwatch are dramatizations. Swap in a real number if you have one (for example, your own time to build a training meeting slide deck).
 - If CPT Zugg agrees, quote the October 2026 feedback asking for a "brain dump" AI in the live pitch. It shows that a commander asked for Drop Zone.
-- The testimonials are real quotes from leaders using the app. Each is credited by place only (no names, ranks or units). Confirm each leader is comfortable being quoted and credited that way before the post goes up.
-- The Training reports shot is the live page with its unit name and sub-unit names replaced by neutral Group labels (percentages and Soldier counts unchanged; no Soldier names). The new Duty roster, DA Form 6 and Evals shots are live captures of origin/main with synthetic Soldiers and a synthetic organization. Apart from the testimonials, all names, units and numbers are synthetic. Both Dashboard shots in the video are the live redesigned Dashboard (`assets/live/dashboard.png`, C Co, 526th BSB); the rest of the video uses the Paper mockups. The video's Personnel details shots stay on the Paper mockup of SGT Okafor so the Soldier matches the scope zoom and your Drop Zone line; the shipped page has the same sections. The slides use the live captures in `assets/live/` (synthetic Soldiers, C Co, 526th BSB) for Calendar, Personnel details and the Training matrix, plus the same retouched Training reports shot.
+- The testimonials are real quotes from leaders using the app. Each is credited by rank and place (no names, roles or units); the Grafenwöhr quote has no rank. Confirm each leader is comfortable being quoted and credited that way before the post goes up.
+- The Training reports shot is the live page with its unit name and sub-unit names replaced by neutral Group labels (percentages and Soldier counts unchanged; no Soldier names). The new Duty roster, DA Form 6 and Evals shots are live captures of origin/main with synthetic Soldiers and a synthetic organization. Apart from the testimonials, all names, units and numbers are synthetic. Both Dashboard shots in the video are the live redesigned Dashboard (`assets/live/dashboard.png`, C Co, 526th BSB). The two Events & Taskings shots are live captures of origin/main from a disposable synthetic organization renamed C Co, 526th BSB: `assets/live/taskings.png` (the Taskings list) and `assets/live/tasking-assign.png` (the Assign people sheet), at 2x scale. The Paper mockups `assets/taskings.jpg` and `assets/assign-alpha.jpg` are no longer used by the video; the rest of the video uses Paper mockups. The video's Personnel details shots stay on the Paper mockup of SGT Okafor so the Soldier matches the scope zoom and your Drop Zone line; the shipped page has the same sections. The slides use the live captures in `assets/live/` (synthetic Soldiers, C Co, 526th BSB) for Calendar, Personnel details and the Training matrix, plus the same retouched Training reports shot.

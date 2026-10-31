@@ -3,10 +3,11 @@
     ~/.cache/t2t-pitch-audio/venv/bin/python audio.py   → out/soundtrack.wav, out/music.wav, out/sfx.wav
 
 Music: "Vanguard" by Scott Buckley, released under CC BY 4.0 (www.scottbuckley.com.au).
-The video's cuts sit on this track's bar grid (133⅓ BPM, 1.8 s bars). Three pieces, no repeats:
-v = m − 10.111 (intro build), m − 15.511 from 52.6 (break, melodic middle), m − 80.311 from 68.8
-(closing section, entering under Drop Zone's low-pass). Hits land on WHO'S READY (2.2), the logo (13.0),
-Personnel details (56.2), WHAT'S NEXT (65.2), READINESS (140.76) and the end logo (146.33).
+The video's cuts sit on this track's bar grid (133⅓ BPM, 1.8 s bars). Four pieces, no repeats:
+v = m − 10.111 (intro build), m − 15.511 from 52.6 (break, melodic middle), m − 71.311 from 77.8
+(closing section, entering under Drop Zone's low-pass), m − 80.311 from 94.0 (AI and the ending, entering under
+the AI boom). Hits land on WHO'S READY (2.2), the logo (13.0), Personnel details (56.2), the Events & Taskings
+cut (65.2), WHAT'S NEXT (74.2), the AI cut (94.0), READINESS (140.76) and the end logo (146.33).
 """
 from pathlib import Path
 
@@ -219,30 +220,32 @@ for at in (44.5, 47.2, 49.9):
     put(blip(1760), at + 0.2, -24)
 put(tonal_hit(55), 52.6, -10)
 
-# Personnel details lands on the music's re-entry; What's next gets its own hit
+# Personnel details lands on the music's re-entry
 put(boom(1.0, f0=110, f1=36, crack=0.3), 56.2, -5)
 put(shimmer(), 56.25, -20)
 put(whoosh(0.45, 300, 7000, (0.6, -0.6)), 60.7 - 0.35, -17)
-put(whoosh(0.5, 6000, 300, (0.5, -0.5), peak=0.85), 65.2 - 0.3, -16)
-put(boom(0.9, f0=105, f1=38, crack=0.25), 65.2, -7)
-put(shimmer(), 65.25, -22)
 
-# Drop Zone (starts 68.8: Robert speaks 69.5–75.5, parse 75.6, approve 80.2)
-put(whoosh(0.6, 500, 9000, (-0.5, 0.5)), 68.4, -16)
-put(chime([880, 1318.5], gap=0.12, dur=0.9), 69.1, -18)
-for i in range(9):
-    put(blip(rng.choice([1320, 1568, 1760, 2093, 2349])), 75.6 + i * 0.075, -25)
-for i in range(3):
-    put(pop(pan=0.4), 76.3 + i * 0.4, -18)
-put(click(1800, tau=0.004, body=0.9), 80.15, -14)
-put(chime([1046.5, 1318.5, 1568, 2093], gap=0.06, dur=1.4), 80.25, -13)
-for i in range(3):
-    put(tonal_hit(98), 80.45 + i * 0.18, -17)
-put(boom(1.0, f0=110, f1=36, crack=0.3), 81.4, -6)
-
-# Events & Taskings
-for at in (85.0, 89.5):
+# Events & Taskings: cut whooshes
+for at in (65.2, 69.7):
     put(whoosh(0.45, 300, 7000), at - 0.35, -17)
+
+# What's next gets its own hit
+put(whoosh(0.5, 6000, 300, (0.5, -0.5), peak=0.85), 74.2 - 0.3, -16)
+put(boom(0.9, f0=105, f1=38, crack=0.25), 74.2, -7)
+put(shimmer(), 74.25, -22)
+
+# Drop Zone (starts 77.8: Robert speaks 78.5–84.5, parse 84.6, approve 89.2)
+put(whoosh(0.6, 500, 9000, (-0.5, 0.5)), 77.4, -16)
+put(chime([880, 1318.5], gap=0.12, dur=0.9), 78.1, -18)
+for i in range(9):
+    put(blip(rng.choice([1320, 1568, 1760, 2093, 2349])), 84.6 + i * 0.075, -25)
+for i in range(3):
+    put(pop(pan=0.4), 85.3 + i * 0.4, -18)
+put(click(1800, tau=0.004, body=0.9), 89.15, -14)
+put(chime([1046.5, 1318.5, 1568, 2093], gap=0.06, dur=1.4), 89.25, -13)
+for i in range(3):
+    put(tonal_hit(98), 89.45 + i * 0.18, -17)
+put(boom(1.0, f0=110, f1=36, crack=0.3), 90.4, -6)
 
 # AI: one hit per verb (two bars each), then the recap
 for i, f in enumerate((55, 61.7, 65.4, 73.4)):
@@ -278,11 +281,11 @@ put(boom(1.2, f0=100, f1=32, tau=1.4, crack=0.25), 146.33, -5)
 put(shimmer(), 146.38, -14)
 
 # ---------------------------------------------------------------- music bed
-# Three bar-aligned pieces of Vanguard, no repeats: the intro build, the break and melodic middle,
-# and the closing section through the composer's own ending. Downbeats sit 37 ms before the
+# Four bar-aligned pieces of Vanguard, no repeats: the intro build, the break and melodic middle,
+# the closing section's opening, and the closing section through the composer's own ending. Downbeats sit 37 ms before the
 # analysis grid (1.548 + 1.8k), so the offsets land them on the video's bar lines.
 y, msr = librosa.load(HERE / 'assets/music/scott-buckley-vanguard.mp3', sr=SR, mono=False)
-PIECES = [(0.0, 10.111), (52.6, 15.511), (68.8, 80.311)]  # (video start, music − video offset)
+PIECES = [(0.0, 10.111), (52.6, 15.511), (77.8, 71.311), (94.0, 80.311)]  # (video start, music − video offset)
 xf = n(0.025)
 music = np.zeros((2, sfx.shape[1]))
 for i, (v0, off) in enumerate(PIECES):
@@ -300,7 +303,7 @@ for i, (v0, off) in enumerate(PIECES):
 music[:, : n(0.3)] *= np.linspace(0, 1, n(0.3)) ** 2  # starts mid-intro
 
 # Drop Zone: the music drops behind a wall while the leader speaks, then opens as the changes land
-keys = [68.7, 69.15, 75.55, 76.3]
+keys = [77.7, 78.15, 84.55, 85.3]
 r0, r1 = n(keys[0]), n(keys[-1] + 0.3)
 tt = np.arange(r1 - r0) / SR + keys[0]
 cut = np.exp(np.interp(tt, keys, np.log([18000, 520, 520, 18000])))
@@ -323,8 +326,8 @@ music[:, f0:f1] *= np.linspace(1, 0, f1 - f0) ** 1.5
 music[:, f1:] = 0
 
 # ---------------------------------------------------------------- voice
-# Robert's Drop Zone line: trimmed, cleaned up, a little room, placed so his first word lands at 69.5.
-VOICE_AT = 68.96
+# Robert's Drop Zone line: trimmed, cleaned up, a little room, placed so his first word lands at 78.5.
+VOICE_AT = 77.96
 v, _ = librosa.load(HERE / 'assets/voice/drop-zone-robert.wav', sr=SR, mono=True)
 v = v[n(0.4): n(6.75)]
 v[: n(0.08)] *= np.linspace(0, 1, n(0.08))

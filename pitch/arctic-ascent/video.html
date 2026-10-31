@@ -252,13 +252,16 @@ body.rendering #controls { display: none; }
   <!-- 6 · Personnel details (live) -->
   <section class="scene" id="pdetail"></section>
 
-  <!-- 7 · Next -->
+  <!-- 7 · Events & Taskings (live) -->
+  <section class="scene" id="tasking"></section>
+
+  <!-- 8 · Next -->
   <section class="scene" id="next">
     <div class="abs display" id="next-word">What's next</div>
     <div class="abs kicker" id="next-sub">In design now · built on the same foundation</div>
   </section>
 
-  <!-- 8 · Drop Zone -->
+  <!-- 9 · Drop Zone -->
   <section class="scene" id="drop">
     <div class="abs" id="dz-head"><div class="kicker">Next · Drop Zone · AI</div><div class="display">Just say it.</div></div>
     <div class="abs" id="dz-left">
@@ -285,9 +288,6 @@ body.rendering #controls { display: none; }
     </div>
   </section>
 
-  <!-- 9 · Events & Taskings -->
-  <section class="scene" id="tasking"></section>
-
   <!-- 10 · AI rapid fire -->
   <section class="scene" id="ai">
     <div class="abs kicker" id="ai-kick">Next · AI across the platform</div>
@@ -312,7 +312,7 @@ body.rendering #controls { display: none; }
       <span class="display line">“There are so many times in my career</span>
       <span class="display line">that I could <b>really have benefited</b></span>
       <span class="display line">from this website.”</span>
-      <div class="kicker who">Fort Wainwright, Alaska</div>
+      <div class="kicker who">CPT · Fort Wainwright, Alaska</div>
     </div>
     <div class="vo">
       <span class="display line">“It really feels like our company’s</span>
@@ -324,7 +324,7 @@ body.rendering #controls { display: none; }
       <span class="display line">“It’s like I have a cheat code.</span>
       <span class="display line">I went from spending half my day<br>on administrative tasks to nearly</span>
       <span class="display line"><b>all my day with the Soldiers.</b>”</span>
-      <div class="kicker who">Fort Bliss, Texas</div>
+      <div class="kicker who">SFC · Fort Bliss, Texas</div>
     </div>
   </section>
 
@@ -376,7 +376,7 @@ function wipe(el, t, a, d = 0.4, o = Infinity, od = 0.25) {
 // Cut to Vanguard's bar grid (133⅓ BPM, 1.8 s bars): every scene boundary is a downbeat.
 const T = {
   cold: [0, 4], chaos: [4, 13], logo: [13, 16.6], today: [16.6, 41.8], scope: [41.8, 56.2], pdetail: [56.2, 65.2],
-  next: [65.2, 68.8], drop: [68.8, 85], tasking: [85, 94], ai: [94, 110.2], bookend: [110.2, 121],
+  tasking: [65.2, 74.2], next: [74.2, 77.8], drop: [77.8, 94], ai: [94, 110.2], bookend: [110.2, 121],
   voices: [121, 135.4], close: [135.4, 150.8],
 };
 const DURATION = 150.8;
@@ -462,10 +462,10 @@ const PDETAIL_SHOTS = [
 
 const tasking = $('tasking');
 const TASKING_SHOTS = [
-  { a: 0, b: 4.5, shot: makeShot(tasking, 'assets/taskings.jpg', 2000, 1250, 'Next · Events & Taskings', 'Every tasking.<br>Tracked to done.', 'IN DESIGN'),
-    from: { x: 0.55, y: 0.40, s: 1.3 }, to: { x: 0.52, y: 0.48, s: 1.55 } },
-  { a: 4.5, b: 9, shot: makeShot(tasking, 'assets/assign-alpha.jpg', 2000, 1250, 'Next · Events & Taskings', 'Staffed, equipped,<br>on time.', 'IN DESIGN'),
-    from: { x: 0.5, y: 0.45, s: 1.0 }, to: { x: 0.56, y: 0.4, s: 1.15 } },
+  { a: 0, b: 4.5, shot: makeShot(tasking, 'assets/live/taskings.png', 2708, 1692, 'Events & Taskings', 'Every tasking.<br>Tracked to done.', 'JUST SHIPPED'),
+    from: { x: 0.5, y: 0.437, s: 1.05 }, to: { x: 0.5, y: 0.425, s: 1.07 } },
+  { a: 4.5, b: 9, shot: makeShot(tasking, 'assets/live/tasking-assign.png', 2708, 1692, 'Events & Taskings', 'Staffed, equipped,<br>on time.', 'JUST SHIPPED'),
+    from: { x: 0.6, y: 0.36, s: 1.25 }, to: { x: 0.615, y: 0.36, s: 1.3 } },
 ];
 
 const BOOKEND_SHOTS = [
@@ -737,7 +737,10 @@ function render(t) {
   // 6 · Personnel details
   if ((lt = show('pdetail', t)) !== null) playShots(PDETAIL_SHOTS, lt);
 
-  // 7 · Next
+  // 7 · Events & Taskings
+  if ((lt = show('tasking', t)) !== null) playShots(TASKING_SHOTS, lt);
+
+  // 8 · Next
   if ((lt = show('next', t)) !== null) {
     snowAlpha = 0.6;
     const p = eExpo(prog(lt, 0, 0.4));
@@ -746,7 +749,7 @@ function render(t) {
     reveal($('next-sub'), lt, 0.4, 0.4, 3.3, 0.25, 20);
   }
 
-  // 8 · Drop Zone
+  // 9 · Drop Zone
   if ((lt = show('drop', t)) !== null) {
     const enter = eOut(prog(lt, 0, 0.4));
     $('drop').style.opacity = enter;
@@ -798,9 +801,6 @@ function render(t) {
     reveal($('dz-timer'), lt, 0.5, 0.4, Infinity, 0.3, -10);
     reveal($('dz-cap'), lt, 12.6, 0.5, 15.75, 0.35, 40);
   }
-
-  // 9 · Taskings
-  if ((lt = show('tasking', t)) !== null) playShots(TASKING_SHOTS, lt);
 
   // 10 · AI
   if ((lt = show('ai', t)) !== null) {

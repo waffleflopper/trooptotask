@@ -329,7 +329,7 @@ export type SavedTrainingCompletion = PersonnelTraining & {
 };
 
 export type TrainingTypeCreate = Pick<TrainingType, 'name'> & Partial<Omit<TrainingType, 'id' | 'name'>>;
-export type TrainingTypePatch = Partial<Omit<TrainingType, 'id'>>;
+export type TrainingTypePatch = Partial<Omit<TrainingType, 'id' | 'sortOrder'>>;
 export type TrainingViewCreate = Pick<TrainingView, 'name'> & Partial<Pick<TrainingView, 'columnIds'>>;
 export type TrainingViewPatch = Partial<Pick<TrainingView, 'name' | 'columnIds'>>;
 export type TrainingTypeTiming = {

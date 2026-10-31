@@ -114,7 +114,8 @@ Focus View orders Targeted before Required and omits Optional.
    one PUT to `api/training-types/order` sends the full `trainingTypeIds` and the previous `expectedTrainingTypeIds`.
    Reload and read every `sort_order` as unique consecutive positions `0` through `N - 1`. A stale expected list returns
    `409` without a write, unless the requested order is already saved, which returns `200` without a write. An omitted,
-   repeated or foreign selected ID returns `400`. A refused reorder shows an error
+   repeated or foreign selected ID returns `400`. `PUT api/training-types` with a `sortOrder` returns `400` without a
+   write, since only the order command moves a saved type. A refused reorder shows an error
    and restores the saved order. Remove only temporary types after the check.
 
 3. **Access and isolation:** As `trainingView`, `trainingOperate`, `trainingScoped` and `trainingScopedConfig`, open the

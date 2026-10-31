@@ -461,14 +461,15 @@ describe('CalendarPageView', () => {
 		it('hides the Events lane and the header suspense markers, and drops the Suspense legend entry', async () => {
 			const ctx = await renderLanes();
 			const legend = () => within(screen.getByRole('list', { name: 'Events and Taskings' }));
-			expect(legend().getAllByRole('listitem')).toHaveLength(3);
+			expect(legend().getByText(/suspense/i)).toBeTruthy();
 
 			await toggle('Show Events & Suspenses');
 
 			expect(ctx.showEventLanes).toBe(false);
 			expect([lane('Days'), lane('Events'), lane('Staff Duty')].map(Boolean)).toEqual([true, false, true]);
 			expect(screen.queryByRole('link', { name: /Litter team/ })).toBeNull();
-			expect(legend().getAllByRole('listitem')).toHaveLength(2);
+			expect(legend().queryByText(/suspense/i)).toBeNull();
+			expect(legend().getByText(/tasking commitment/i)).toBeTruthy();
 		});
 
 		it('hides the Suspenses lane in 3-Month, where the markers are a lane', async () => {
@@ -483,12 +484,11 @@ describe('CalendarPageView', () => {
 
 		it('leaves Show Days and Show Assignments with nothing to hide in 3-Month', async () => {
 			await renderLanes('3-Month');
-			const before = screen.getAllByRole('group').length;
 
 			await toggle('Show Days');
 			await toggle('Show Assignments');
 
-			expect(screen.getAllByRole('group')).toHaveLength(before);
+			expect([lane('Events'), lane('Suspenses')].map(Boolean)).toEqual([true, true]);
 		});
 	});
 

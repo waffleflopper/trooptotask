@@ -10,6 +10,9 @@ Organizations without disclosing those privileged details to anyone else.
   labels; those without an Organization also retain the actor's email and typed reason.
 - `organization-log`: owner-only summaries, newest-first ordering, search, sorting, 25-row client pages over the latest
   100 loaded records, counts and reload.
+- `actor-label`: an event's Actor is the member's stored membership email, else their account identity email. A former
+  member with no membership row stays `Unknown member`. Most fixture memberships have a null email, which exercises the
+  fallback; `deletionRequester` and `deletionReviewer` must show their addresses after a denied bulk archive.
 - `safe-labels`: authorized page data resolves only same-Organization Personnel, Training and Calendar labels, preserves
   saved masked values and strips remaining top-level string UUID details.
 - `platform-log`: operator-only Activity at `/admin/activity`, stored details, paging and category/search/date filters.

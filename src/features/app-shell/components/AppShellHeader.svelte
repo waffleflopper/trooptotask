@@ -53,6 +53,7 @@
 		onWhatsNew?: () => void;
 		/** Quiet top-bar actions placed before Feedback. */
 		actions?: Snippet;
+		sidebarOpen?: boolean;
 		banner?: Snippet;
 		children?: Snippet;
 	}
@@ -72,6 +73,7 @@
 		onFeedback,
 		onWhatsNew,
 		actions,
+		sidebarOpen = true,
 		banner,
 		children
 	}: Props = $props();
@@ -408,7 +410,7 @@
 		>Skip to main content</a
 	>
 	{@render banner?.()}
-	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden">
+	<Sidebar.Provider open={sidebarOpen} class="below-banner min-h-0 overflow-hidden">
 		<Sidebar.Root collapsible="icon" variant="inset">
 			<Sidebar.Header>
 				<Sidebar.Menu>

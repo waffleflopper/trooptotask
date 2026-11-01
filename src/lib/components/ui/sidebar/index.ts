@@ -1,4 +1,5 @@
 import { useSidebar } from './context.svelte.js';
+import { SIDEBAR_COOKIE_NAME } from './constants.js';
 import Content from './sidebar-content.svelte';
 import Footer from './sidebar-footer.svelte';
 import GroupAction from './sidebar-group-action.svelte';
@@ -24,6 +25,7 @@ import Trigger from './sidebar-trigger.svelte';
 import Root from './sidebar.svelte';
 
 export {
+	SIDEBAR_COOKIE_NAME,
 	Content,
 	Footer,
 	Group,

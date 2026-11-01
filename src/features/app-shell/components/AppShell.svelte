@@ -18,9 +18,11 @@
 		feedback,
 		headerActions,
 		onToggleTheme,
-		isDarkTheme
+		isDarkTheme,
+		sidebarOpen = true
 	}: {
 		shell: ReadyAppShell;
+		sidebarOpen?: boolean;
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		children: Snippet;
@@ -130,6 +132,7 @@
 	onFeedback={openFeedback}
 	onWhatsNew={openWhatsNew}
 	actions={headerActions}
+	{sidebarOpen}
 >
 	{#snippet banner()}
 		<BannerStack>

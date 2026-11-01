@@ -32,7 +32,8 @@ export async function readIdentityAdmission({
 	user,
 	cookies,
 	pathname,
-	method
+	method,
+	signInPath
 }: {
 	supabase: SupabaseClient;
 	session: Session | null;
@@ -40,6 +41,7 @@ export async function readIdentityAdmission({
 	cookies: Pick<Cookies, 'get' | 'delete'>;
 	pathname: string;
 	method: string;
+	signInPath: string;
 }): Promise<AdmissionResult> {
 	const hasFlowCookie = cookies.get(getPendingAuthFlowCookieName()) !== undefined;
 	const marker = session && user ? readAuthSessionMarker(cookies, session, user) : null;
@@ -72,7 +74,7 @@ export async function readIdentityAdmission({
 
 	const isMfaEndpoint = pathname === '/api/auth/mfa' || pathname.startsWith('/api/auth/mfa/');
 	if (!session && (isMfaEndpoint || !isPublicRoute(pathname))) {
-		return { status: 'redirect', code: 303, location: '/auth/login' };
+		return { status: 'redirect', code: 303, location: signInPath };
 	}
 	const platformMfaAdmission = (pathname === '/admin' || pathname.startsWith('/admin/')) && mfaPending && !authFlow;
 	if (shouldRedirectIncompleteAuthSession(pathname, !!session, mfaPending, authFlow) && !platformMfaAdmission) {

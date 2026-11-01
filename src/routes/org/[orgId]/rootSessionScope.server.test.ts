@@ -6,13 +6,14 @@ vi.mock('./rootOrgLayoutLoad.server', () => ({ createRootOrgLayoutLoad: () => lo
 import { load } from './+layout.server';
 
 type Event = Parameters<typeof load>[0];
-function event(userId = 'user-1', sessionId = '00000000-0000-4000-8000-000000000001'): Event {
+function event(userId = 'user-1', sessionId = '00000000-0000-4000-8000-000000000001', sidebarCookie?: string): Event {
 	const user = { id: userId };
 	// Admission is already established by loadShell; these are unsigned synthetic metadata claims.
 	const claims = Buffer.from(JSON.stringify({ sub: userId, session_id: sessionId })).toString('base64url');
 	return {
-		locals: { user, session: { user, access_token: `synthetic.${claims}.unsigned` } }
-	} as Event;
+		locals: { user, session: { user, access_token: `synthetic.${claims}.unsigned` } },
+		cookies: { get: () => sidebarCookie }
+	} as unknown as Event;
 }
 
 beforeEach(() => {
@@ -33,6 +34,15 @@ describe('fresh admitted Organization session composition', () => {
 			identitySessionScope: { userId: 'user-1', sessionId: '00000000-0000-4000-8000-000000000002' }
 		});
 	});
+	it.each([
+		[undefined, true],
+		['true', true],
+		['false', false],
+		['garbled', true]
+	])('opens the sidebar for saved preference %s: %s', async (cookie, sidebarOpen) => {
+		loadShell.mockResolvedValue(createReadyAppShellRouteData());
+		await expect(load(event(undefined, undefined, cookie))).resolves.toMatchObject({ sidebarOpen });
+	});
 	it.each(['missing-session', 'wrong-account', 'invalid-binding'] as const)(
 		'fails ready shell recoverably for %s',
 		async (kind) => {
@@ -52,6 +62,6 @@ describe('fresh admitted Organization session composition', () => {
 		const request = event();
 		request.locals.user = null;
 		request.locals.session = null;
-		expect(await load(request)).toEqual({ ...suspended, identitySessionScope: null });
+		expect(await load(request)).toEqual({ ...suspended, identitySessionScope: null, sidebarOpen: true });
 	});
 });

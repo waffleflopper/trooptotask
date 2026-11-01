@@ -7,6 +7,7 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { checkRateLimit } from '$lib/access/rateLimit.server';
 import { auditLog } from '$lib/audit/index.server';
 import { createAuthCookieWriter, readIdentitySession, readIdentityAdmission } from '$features/identity/index.server';
+import { signInPathFor } from '$features/identity/contracts';
 import { requireActiveOrganization } from '$features/organization/index.server';
 import '$lib/server/env'; // validate env vars on startup
 
@@ -102,7 +103,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		user,
 		cookies: event.cookies,
 		pathname: event.url.pathname,
-		method: event.request.method
+		method: event.request.method,
+		signInPath: signInPathFor({
+			url: event.url,
+			method: event.request.method,
+			accept: event.request.headers.get('accept'),
+			isDataRequest: event.isDataRequest
+		})
 	});
 	if (admission.status === 'unavailable') error(admission.code, admission.message);
 	if (admission.status === 'redirect') {

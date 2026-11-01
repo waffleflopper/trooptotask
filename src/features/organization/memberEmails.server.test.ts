@@ -6,7 +6,7 @@ import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-suppo
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
 
-function provider(rows: Row[]) {
+function provider(rows: Row[], identities: Row[] = []) {
 	const state = {
 		failFrom: null as number | null,
 		response: null as { data: unknown } | null,
@@ -22,7 +22,7 @@ function provider(rows: Row[]) {
 				const url = new URL(request.url);
 				if (
 					url.origin !== 'http://labels.invalid' ||
-					url.pathname !== '/rest/v1/organization_memberships' ||
+					!['/rest/v1/organization_memberships', '/rest/v1/user_email_identities'].includes(url.pathname) ||
 					request.method !== 'GET'
 				)
 					throw new Error('Unexpected label provider operation');
@@ -35,7 +35,7 @@ function provider(rows: Row[]) {
 				if (state.failFrom !== null && offset >= state.failFrom)
 					return Response.json({ code: '42501', message: 'Label rows unavailable' }, { status: 403 });
 				if (state.response) return Response.json(state.response.data);
-				let visible = rows;
+				let visible = url.pathname.endsWith('/user_email_identities') ? identities : rows;
 				for (const [column, filter] of url.searchParams) {
 					if (filter.startsWith('eq.')) visible = visible.filter((row) => String(row[column]) === filter.slice(3));
 					else if (filter.startsWith('in.(') && filter.endsWith(')')) {
@@ -89,6 +89,28 @@ describe('Organization current member emails with supplied Supabase authority', 
 		).toEqual(new Set(['user_id', 'email']));
 		expect(await createSupabaseOrganizationMemberEmailsReader(client, 'org-b')(['referenced'])).toEqual(
 			new Map([['referenced', 'foreign@example.test']])
+		);
+	});
+
+	it('names a current member with no stored email from their account identity, and no one else', async () => {
+		const { client } = provider(
+			[
+				{ user_id: 'null-email', organization_id: ORG, email: null },
+				{ user_id: 'stored', organization_id: ORG, email: 'stored@example.test' }
+			],
+			[
+				{ user_id: 'null-email', normalized_email: 'account@example.test' },
+				{ user_id: 'stored', normalized_email: 'newer@example.test' },
+				{ user_id: 'former-member', normalized_email: 'former@example.test' }
+			]
+		);
+		expect(
+			await createSupabaseOrganizationMemberEmailsReader(client, ORG)(['null-email', 'stored', 'former-member'])
+		).toEqual(
+			new Map([
+				['stored', 'stored@example.test'],
+				['null-email', 'account@example.test']
+			])
 		);
 	});
 

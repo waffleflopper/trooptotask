@@ -53,6 +53,7 @@
 	{#key `${readyShell.user.id}:${readyShell.org.id}:${data.identitySessionScope.sessionId}`}
 		<AppShell
 			shell={readyShell}
+			sidebarOpen={data.sidebarOpen}
 			children={featureOff ? featureOffState : children}
 			onToggleTheme={() => themeStore.toggle()}
 			isDarkTheme={themeStore.isDark}

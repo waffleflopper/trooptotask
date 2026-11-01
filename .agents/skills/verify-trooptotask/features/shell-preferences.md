@@ -32,6 +32,9 @@ choices persist for their own user and Organization without resetting a newer se
 - `section-navigation`: Calendar lists `Events & Taskings` and `Duty planner` as always-open sub-items. Each stays
   current on its own routes, including detail pages, and Calendar then reads as their parent. Collapsed to icons, the
   sub-items hide and the Calendar icon carries the current page.
+- `sidebar-preference`: the desktop sidebar's collapsed or expanded state is saved in the year-long `sidebar:state`
+  cookie and read by the Organization layout, so the server-rendered first paint already matches after a reload. The
+  mobile drawer always opens at full width and ignores it.
 - `sidebar-slide`: Toggle Sidebar slides the sidebar and the content beside it together in 125 ms. Reduced motion, page
   load and navigation never animate it.
 - `admission`: a nonmember cannot read shell data or save another Organization's preferences; the server derives the

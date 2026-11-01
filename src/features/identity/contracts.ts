@@ -48,7 +48,7 @@ export function getAccessRequestHeardAboutLabel(value: string | null | undefined
 	return ACCESS_REQUEST_HEARD_ABOUT_OPTIONS.find((option) => option.value === value)?.label ?? null;
 }
 
-export { sanitizeAuthNextPath } from './redirects';
+export { sanitizeAuthNextPath, signInPathFor } from './redirects';
 
 export interface MfaStatus {
 	currentLevel: 'aal1' | 'aal2';

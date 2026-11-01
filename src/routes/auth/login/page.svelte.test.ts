@@ -6,6 +6,9 @@ import type { SubmitFunction } from '$app/forms';
 import { frameworkOutcome, type FrameworkPage } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
+const pageState = vi.hoisted(() => ({ url: new URL('http://app.invalid/auth/login') }));
+vi.mock('$app/state', () => ({ page: pageState }));
+
 // Form submission transport is covered by the real action tests; inspect the
 // rendered successful controls here without bootstrapping SvelteKit navigation.
 const { submit } = vi.hoisted(() => ({ submit: vi.fn() }));
@@ -98,4 +101,23 @@ it('serializes submissions, contains transport errors and keeps entered credenti
 	});
 	expect(await screen.findByRole('alert')).toBeTruthy();
 	expect(password).toHaveValue('synthetic-password');
+});
+
+it('adds a fragment the sign-in redirect kept in the address bar to the destination', async () => {
+	pageState.url = new URL('http://app.invalid/auth/login?next=%2Fdashboard#invitation');
+	render(Page, { data: { viewer: null, reauth: false, nextPath: '/dashboard' }, form: null });
+	expect(new FormData(screen.getByLabelText(/Email Address/).closest('form')!).get('next')).toBe(
+		'/dashboard#invitation'
+	);
+	pageState.url = new URL('http://app.invalid/auth/login');
+});
+
+it('keeps the destination returned by a failed sign-in that has no next in its address', () => {
+	const form = {
+		error: 'Email or password is incorrect',
+		email: 'owner@example.test',
+		nextPath: '/dashboard?show=all'
+	};
+	render(Page, { data: { viewer: null, reauth: false, nextPath: null }, form });
+	expect(new FormData(screen.getByLabelText(/Email Address/).closest('form')!).get('next')).toBe('/dashboard?show=all');
 });

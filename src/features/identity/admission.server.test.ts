@@ -11,6 +11,7 @@ function admission(pathname: string) {
 	return readIdentityAdmission({
 		pathname,
 		method: 'GET',
+		signInPath: '/auth/login',
 		cookies: { get: () => undefined, delete: () => {} },
 		session: { access_token: `header.${claims}.signature`, user: { id: userId } } as Session,
 		user: { id: userId, factors: [{ status: 'verified' }] } as User,

@@ -36,6 +36,13 @@ suspension screen.
 - `link-errors`: an incomplete or used confirmation link shows Link unavailable; Reset Password and Accept Invite
   without their flow show their unavailable states.
 
+## Signed-out deep links
+
+A signed-out page visit redirects to `/auth/login?next=<path and query>`, and sign-in, including a failed attempt first
+and MFA, returns there. A fragment stays in the address bar across the redirect and the sign-in form adds it. A form
+action, `__data.json` request, `/api/` path or non-HTML fetch goes to plain `/auth/login`. Prove a real visit with
+`tool new_page` and an `isolatedContext` name, then the visible form. The `password` helper fills identity roles only.
+
 ## How to get to it (user POV)
 
 From Sign In, follow Forgot password, Request access or Request a fresh setup link. Recovery and invite emails open

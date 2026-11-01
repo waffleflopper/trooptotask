@@ -35,3 +35,6 @@ export class RequestFailure extends Error implements RequestFailureDetails {
 export function fail(status: number, message: string, details?: RequestFailureDetails): never {
 	throw new RequestFailure(status, message, details);
 }
+
+/** Set on a response whose failure was captured, so the browser can offer a report for exactly that failure. */
+export const ERROR_REFERENCE_HEADER = 'x-error-reference';

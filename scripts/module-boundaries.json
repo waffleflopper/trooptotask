@@ -594,6 +594,7 @@
 		],
 		"platform-admin": [
 			"src/features/platform-admin/contracts.ts",
+			"src/features/platform-admin/errorTypes.ts",
 			"src/features/platform-admin/index.server.ts",
 			"src/features/platform-admin/inboxTypes.ts",
 			"src/features/platform-admin/sections.ts",

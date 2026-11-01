@@ -195,6 +195,7 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	announcement_activate: entry(null, 'info', (s) => `${s.actor} turned on the announcement ${s.target}`),
 	announcement_deactivate: entry(null, 'info', (s) => `${s.actor} turned off the announcement ${s.target}`),
 	announcement_delete: entry(null, 'warning', (s) => `${s.actor} deleted the announcement ${s.target}`),
+	'error_group.resolved': entry(null, 'info', (s) => `${s.actor} resolved an error`),
 	'feedback.replied': entry(null, 'info', (s) => `${s.actor} replied to ${s.target}`),
 	'feedback.replied_and_closed': entry(null, 'info', (s) => `${s.actor} replied to and closed ${s.target}`),
 	'feedback.staff_note_saved': entry(null, 'info', (s) => `${s.actor} saved a staff note on ${s.target}`),
@@ -237,7 +238,15 @@ const REGISTRY: Record<string, RegistryEntry> = {
 };
 
 /** An action with no entry yet still belongs to Activity when it starts with one of these. It shows under All, by its name. */
-const PLATFORM_PREFIXES = ['access_request.', 'account_setup.', 'admin.', 'announcement_', 'security.', 'whats_new_'];
+const PLATFORM_PREFIXES = [
+	'access_request.',
+	'account_setup.',
+	'admin.',
+	'announcement_',
+	'error_group.',
+	'security.',
+	'whats_new_'
+];
 
 export function isActivityCategory(value: unknown): value is ActivityCategory {
 	return (ACTIVITY_CATEGORIES as readonly unknown[]).includes(value);

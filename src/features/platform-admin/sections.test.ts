@@ -13,6 +13,7 @@ describe('admin sections', () => {
 		['/admin/users/abc', ['people']],
 		['/admin/audit', ['activity']],
 		['/admin/activity', ['activity']],
+		['/admin/errors', ['errors']],
 		['/admin/announcements', ['announcements']],
 		['/admin/organizationsX', []]
 	])('%s selects %j', (pathname, expected) => {

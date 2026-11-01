@@ -11,6 +11,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../../personnel.types';
 	import type { ComposerKind } from '../../rosterComposer';
@@ -102,7 +103,8 @@
 		try {
 			await downloadRosterExport(filename, rows);
 			if (isCurrent() && skipped > 0) toastStore.info(`Exported ${count(exportedCount)}${skippedNote(skipped)}`);
-		} catch {
+		} catch (err) {
+			reportClientFailure(err);
 			if (isCurrent()) toastStore.error('The export could not be created. Try again.');
 		} finally {
 			if (isCurrent()) busy = false;

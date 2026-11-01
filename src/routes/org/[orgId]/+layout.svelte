@@ -1,17 +1,29 @@
 <script lang="ts">
 	import { AppShell } from '$features/app-shell';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { registerErrorReportHandler } from '$lib/stores/toast.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { page } from '$app/state';
 	import { invalidate } from '$app/navigation';
 	import { findDisabledFeatureRoute } from '$lib/access/featureSwitches';
 	import WorkspaceFeatureOff from './WorkspaceFeatureOff.svelte';
 	let { children, data } = $props();
+	let appShell = $state<ReturnType<typeof AppShell>>();
 	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const suspendedShell = $derived(data.shell.kind === 'suspended' ? data.shell : null);
 	const featureOff = $derived(
 		readyShell && (page.error?.featureOff ?? findDisabledFeatureRoute(page.route.id, readyShell.org.disabledFeatures))
 	);
+
+	// Failure toasts on Organization routes offer "Report error" while this shell can take the report.
+	$effect(() => {
+		const shell = appShell;
+		if (!shell) return;
+		return registerErrorReportHandler({
+			org: page.params.orgId ?? null,
+			open: (reference) => shell.reportError(reference)
+		});
+	});
 
 	// A route that found its feature turned off after this shell loaded refreshes the shell, so navigation drops the feature too.
 	$effect(() => {
@@ -52,6 +64,7 @@
 {:else if readyShell && data.identitySessionScope?.userId === readyShell.user.id}
 	{#key `${readyShell.user.id}:${readyShell.org.id}:${data.identitySessionScope.sessionId}`}
 		<AppShell
+			bind:this={appShell}
 			shell={readyShell}
 			sidebarOpen={data.sidebarOpen}
 			children={featureOff ? featureOffState : children}

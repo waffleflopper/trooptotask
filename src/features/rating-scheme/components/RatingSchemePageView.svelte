@@ -8,6 +8,7 @@
 	import { ratingDueTone } from '$features/rating-scheme/utils/ratingDueTone';
 	import type { GroupedSort } from '$features/rating-scheme/utils/ratingSchemeGroups';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -105,6 +106,7 @@
 			const { exportRatingScheme } = await import('$features/rating-scheme/utils/ratingSchemeExport');
 			await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
 		} catch (err) {
+			reportClientFailure(err);
 			if (current()) toastStore.error(err instanceof Error ? err.message : 'Export failed');
 		} finally {
 			exportLoading = false;

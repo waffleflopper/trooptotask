@@ -10,6 +10,7 @@
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';
+	import type { PendingErrorReference } from '$lib/stores/errorReportLedger';
 	import type { ReadyAppShell } from '../contracts';
 
 	let {
@@ -27,10 +28,21 @@
 		isDarkTheme: boolean;
 		children: Snippet;
 		headerActions?: Snippet;
-		feedback: Snippet<[{ onClose: () => void; orgId: string; orgName: string; pageUrl: string }]>;
+		feedback: Snippet<
+			[
+				{
+					onClose: () => void;
+					orgId: string;
+					orgName: string;
+					pageUrl: string;
+					errorReference?: PendingErrorReference;
+				}
+			]
+		>;
 	} = $props();
 	let showFeedback = $state(false);
 	let feedbackPageUrl = $state('');
+	let feedbackErrorReference = $state<PendingErrorReference>();
 	let showWhatsNew = $state(false);
 	let hasAutoShownWhatsNew = false;
 	const newestWhatsNewId = $derived(shell.whatsNew[0]?.id);
@@ -62,6 +74,13 @@
 	}
 	function openFeedback() {
 		feedbackPageUrl = page.url.pathname;
+		feedbackErrorReference = undefined;
+		showFeedback = true;
+	}
+	/** Opens Feedback as a bug report about one captured failure, from a failure toast. */
+	export function reportError(reference: PendingErrorReference) {
+		feedbackPageUrl = page.url.pathname;
+		feedbackErrorReference = reference;
 		showFeedback = true;
 	}
 	function closeWhatsNew() {
@@ -150,7 +169,8 @@
 		onClose: () => (showFeedback = false),
 		orgId: shell.org.id,
 		orgName: shell.org.name,
-		pageUrl: feedbackPageUrl
+		pageUrl: feedbackPageUrl,
+		errorReference: feedbackErrorReference
 	})}
 {/if}
 {#if showWhatsNew}

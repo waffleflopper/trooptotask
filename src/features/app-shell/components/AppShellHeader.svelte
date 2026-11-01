@@ -77,6 +77,8 @@
 		banner,
 		children
 	}: Props = $props();
+	// Seeds from the first paint only: a later layout response must not undo a newer toggle.
+	let sidebarIsOpen = $state(untrack(() => sidebarOpen));
 
 	// The mobile drawer leaves no room beside it, so its menus open vertically as in the shadcn sidebar blocks.
 	const isMobile = new IsMobile();
@@ -410,7 +412,7 @@
 		>Skip to main content</a
 	>
 	{@render banner?.()}
-	<Sidebar.Provider open={sidebarOpen} class="below-banner min-h-0 overflow-hidden">
+	<Sidebar.Provider bind:open={sidebarIsOpen} class="below-banner min-h-0 overflow-hidden">
 		<Sidebar.Root collapsible="icon" variant="inset">
 			<Sidebar.Header>
 				<Sidebar.Menu>

@@ -66,7 +66,12 @@ describe('signInPathFor', () => {
 		);
 	});
 
+	it('carries a page whose own slug is api', () => {
+		expect(signInPathFor(visit('/org/alpha/personnel/api'))).toBe('/auth/login?next=%2Forg%2Falpha%2Fpersonnel%2Fapi');
+	});
+
 	it.each([
+		['an admin API path', visit('/admin/api/suspend')],
 		['a data request', { ...visit('/dashboard'), isDataRequest: true }],
 		['a form action', { ...visit('/dashboard?/create'), method: 'POST' }],
 		['an API path opened in a tab', visit('/org/alpha/api/deletion-requests')],

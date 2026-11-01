@@ -1,4 +1,4 @@
-const API_PATH = /(^|\/)api(\/|$)/;
+const API_PATH = /^(\/org\/[^/]+|\/admin)?\/api(\/|$)/;
 
 /**
  * Where a signed-out request goes to sign in. Only a browser page visit is a place to return to:

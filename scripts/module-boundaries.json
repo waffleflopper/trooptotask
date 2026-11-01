@@ -88,6 +88,8 @@
 				"src/lib/server/adapters/inMemory.ts",
 				"src/lib/server/adapters/privateResources.test.ts",
 				"src/lib/server/adapters/onboardingRequestPersistence.server.test.ts",
+				"src/hooks.client.ts",
+				"src/hooks.client.test.ts",
 				"src/lib/server/adapters/errorCapture.server.ts",
 				"src/lib/server/adapters/errorCapture.server.test.ts",
 				"src/lib/server/adapters/clientErrorReports.server.ts",
@@ -252,7 +254,10 @@
 				"src/lib/utils/modalRegistry.svelte.ts",
 				"src/lib/utils/pendingSave.svelte.ts",
 				"src/lib/utils/settleAction.test.ts",
-				"src/lib/utils/settleAction.ts"
+				"src/lib/utils/settleAction.ts",
+				"src/lib/stores/errorReportLedger.ts",
+				"src/lib/stores/errorReportLedger.test.ts",
+				"src/lib/stores/toast.svelte.test.ts"
 			],
 			"packet": "08-M16"
 		}
@@ -500,6 +505,7 @@
 		],
 		"error-reporting": [
 			"src/features/error-reporting/contracts.ts",
+			"src/features/error-reporting/index.ts",
 			"src/features/error-reporting/index.server.ts"
 		],
 		"onboarding": [
@@ -554,7 +560,8 @@
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts",
 			"src/lib/utils/pendingSave.svelte.ts",
-			"src/lib/utils/settleAction.ts"
+			"src/lib/utils/settleAction.ts",
+			"src/lib/stores/errorReportLedger.ts"
 		],
 		"audit": ["src/lib/audit/index.server.ts", "src/lib/audit/contracts.ts"],
 		"identity": [

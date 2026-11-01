@@ -9,6 +9,7 @@ import { auditLog } from '$lib/audit/index.server';
 import { createAuthCookieWriter, readIdentitySession, readIdentityAdmission } from '$features/identity/index.server';
 import { signInPathFor } from '$features/identity/contracts';
 import { requireActiveOrganization } from '$features/organization/index.server';
+import { captureHandle, handleServerError } from '$lib/server/adapters/errorCapture.server';
 import '$lib/server/env'; // validate env vars on startup
 
 const securityHeaders: Record<string, string> = {
@@ -21,7 +22,7 @@ const securityHeaders: Record<string, string> = {
 	'X-DNS-Prefetch-Control': 'off'
 };
 
-export const handle: Handle = async ({ event, resolve }) => {
+const appHandle: Handle = async ({ event, resolve }) => {
 	const clientIp = event.getClientAddress();
 	const rateCheck = checkRateLimit(clientIp, event.url.pathname, event.request.method);
 	if (rateCheck.limited) {
@@ -150,3 +151,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	return response;
 };
+
+/** Capture wraps the app's handle, so it sees its failures and the status of every response it produces. */
+export const handle: Handle = ({ event, resolve }) =>
+	captureHandle({ event, resolve: async (scopedEvent) => appHandle({ event: scopedEvent, resolve }) });
+
+export const handleError = handleServerError;

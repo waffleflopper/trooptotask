@@ -4,6 +4,7 @@ import { env } from '$env/dynamic/private';
 import { assertCronEndpointAuthorized } from '$features/scheduled-maintenance/index.server';
 import {
 	cleanupRetainedAuditLogs,
+	cleanupRetainedPlatformErrors,
 	cleanupRetainedReadNotifications
 } from '$lib/server/adapters/scheduledMaintenanceSources.server';
 
@@ -12,7 +13,8 @@ export const GET: RequestHandler = async ({ request }) => {
 	try {
 		const auditLogsDeleted = await cleanupRetainedAuditLogs();
 		const notificationsDeleted = await cleanupRetainedReadNotifications();
-		return json({ auditLogsDeleted, notificationsDeleted });
+		const errorOccurrencesDeleted = await cleanupRetainedPlatformErrors();
+		return json({ auditLogsDeleted, notificationsDeleted, errorOccurrencesDeleted });
 	} catch {
 		console.error('Old data cleanup failed');
 		throw error(500, 'Failed to cleanup old data');

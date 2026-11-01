@@ -11,6 +11,8 @@ declare global {
 			message: string;
 			/** Set when a route stopped because its Organization turned the feature off. */
 			featureOff?: FeatureKey;
+			/** Names the captured failure behind this error, so a report can point at exactly it. */
+			errorReference?: string;
 		}
 		interface Locals extends MembershipRequestCache, OrganizationAdmissionRequest {
 			actor: AdmittedActor | null;

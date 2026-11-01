@@ -1,5 +1,6 @@
 import { getAdminClient } from '$lib/server/supabase';
 import { cleanupAuditLogs } from '$lib/audit/index.server';
+import { cleanupPlatformErrors } from '$features/error-reporting/index.server';
 import { createSupabaseAssignmentTypeRetention } from '$features/calendar/index.server';
 import { createSupabaseCriticalTaskRetentionSource } from '$features/critical-tasks/index.server';
 import { createSupabaseNotificationDelivery, cleanupReadNotifications } from '$features/notifications/index.server';
@@ -53,4 +54,8 @@ export function cleanupRetainedAuditLogs() {
 
 export function cleanupRetainedReadNotifications() {
 	return cleanupReadNotifications(getAdminClient());
+}
+
+export function cleanupRetainedPlatformErrors() {
+	return cleanupPlatformErrors(getAdminClient());
 }

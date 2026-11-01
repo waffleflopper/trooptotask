@@ -87,9 +87,18 @@
 				"src/tests/security-posture.test.ts",
 				"src/lib/server/adapters/inMemory.ts",
 				"src/lib/server/adapters/privateResources.test.ts",
-				"src/lib/server/adapters/onboardingRequestPersistence.server.test.ts"
+				"src/lib/server/adapters/onboardingRequestPersistence.server.test.ts",
+				"src/lib/server/adapters/errorCapture.server.ts",
+				"src/lib/server/adapters/errorCapture.server.test.ts",
+				"src/lib/server/adapters/clientErrorReports.server.ts",
+				"src/lib/server/adapters/clientErrorReports.server.test.ts"
 			],
 			"packet": "08-M15"
+		},
+		"error-reporting": {
+			"roots": ["src/features/error-reporting/"],
+			"files": [],
+			"packet": "08-M13"
 		},
 		"feedback": {
 			"roots": ["src/features/feedback/"],
@@ -345,6 +354,7 @@
 			"dashboard",
 			"data-export",
 			"deletion-requests",
+			"error-reporting",
 			"feedback",
 			"identity",
 			"notifications",
@@ -362,6 +372,7 @@
 			"web-ui",
 			"web-patterns"
 		],
+		"error-reporting": ["provider", "shared", "web-ui"],
 		"feedback": ["organization", "provider", "shared", "web-ui"],
 		"identity": ["access", "audit", "provider", "shared", "web-ui", "web-patterns"],
 		"notifications": ["identity", "access", "audit", "provider", "shared", "web-ui"],
@@ -389,6 +400,7 @@
 			"rating-scheme",
 			"audit",
 			"notifications",
+			"error-reporting",
 			"feedback",
 			"access",
 			"provider",
@@ -485,6 +497,10 @@
 			"src/features/deletion-requests/index.ts",
 			"src/features/deletion-requests/index.server.ts",
 			"src/features/deletion-requests/testing.server.ts"
+		],
+		"error-reporting": [
+			"src/features/error-reporting/contracts.ts",
+			"src/features/error-reporting/index.server.ts"
 		],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",

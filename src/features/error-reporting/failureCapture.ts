@@ -46,8 +46,7 @@ export function normalizeFailureMessage(raw: string): string {
 
 export function sanitizeFailureForCapture(failure: unknown): CapturedFailure {
 	const rawName = readField(failure, 'name');
-	const name =
-		typeof rawName === 'string' && NAME_SHAPE.test(rawName) ? rawName.slice(0, MAX_NAME_LENGTH) : 'Error';
+	const name = typeof rawName === 'string' && NAME_SHAPE.test(rawName) ? rawName.slice(0, MAX_NAME_LENGTH) : 'Error';
 
 	const rawMessage = readField(failure, 'message');
 	const message = normalizeFailureMessage(typeof rawMessage === 'string' ? rawMessage : '');

@@ -96,6 +96,7 @@ function workspace(userId = 'user-a', orgId = 'org-a', sessionId = 'session-1') 
 	};
 	return {
 		organizationSetup: null,
+		sidebarOpen: true,
 		viewer: null,
 		shell,
 		identitySessionScope: { userId, sessionId }
@@ -396,6 +397,7 @@ describe('organization layout suspended contact', () => {
 			children,
 			data: {
 				organizationSetup: null,
+				sidebarOpen: true,
 				viewer: null,
 				identitySessionScope: null,
 				shell: {
@@ -415,6 +417,7 @@ describe('organization layout suspended contact', () => {
 			children,
 			data: {
 				organizationSetup: null,
+				sidebarOpen: true,
 				viewer: null,
 				identitySessionScope: null,
 				shell: {

@@ -17,7 +17,8 @@ function admitAnonymous(pathname: string) {
 		user: null,
 		cookies: { get: () => undefined, delete: () => {} },
 		pathname,
-		method: 'GET'
+		method: 'GET',
+		signInPath: '/auth/login'
 	});
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeAuthNextPath } from './redirects';
+import { sanitizeAuthNextPath, signInPathFor } from './redirects';
 
 describe('sanitizeAuthNextPath', () => {
 	it('keeps safe app-relative paths with query strings and hashes', () => {
@@ -49,4 +49,37 @@ describe('sanitizeAuthNextPath', () => {
 		'/%2e%2e//external.invalid',
 		'/account\\security'
 	])('rejects a non-app destination %s', (input) => expect(sanitizeAuthNextPath(input)).toBeNull());
+});
+
+describe('signInPathFor', () => {
+	const visit = (path: string) => ({
+		url: new URL(path, 'http://app.invalid'),
+		method: 'GET',
+		accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+		isDataRequest: false
+	});
+
+	it('carries a page visit and its query', () => {
+		expect(signInPathFor(visit('/dashboard'))).toBe('/auth/login?next=%2Fdashboard');
+		expect(signInPathFor(visit('/org/alpha/calendar?view=month&label=A%26B'))).toBe(
+			'/auth/login?next=%2Forg%2Falpha%2Fcalendar%3Fview%3Dmonth%26label%3DA%2526B'
+		);
+	});
+
+	it('carries a page whose own slug is api', () => {
+		expect(signInPathFor(visit('/org/alpha/personnel/api'))).toBe('/auth/login?next=%2Forg%2Falpha%2Fpersonnel%2Fapi');
+	});
+
+	it.each([
+		['an admin API path', visit('/admin/api/suspend')],
+		['a data request', { ...visit('/dashboard'), isDataRequest: true }],
+		['a form action', { ...visit('/dashboard?/create'), method: 'POST' }],
+		['an API path opened in a tab', visit('/org/alpha/api/deletion-requests')],
+		['a top-level API path', visit('/api/auth/mfa')],
+		['an endpoint fetch', { ...visit('/org/alpha/training/views'), accept: '*/*' }],
+		['an image request', { ...visit('/favicon.ico'), accept: 'image/avif,image/*' }],
+		['a path that could leave the app', visit('http://app.invalid//evil.example')]
+	])('records no destination for %s', (_name, request) => {
+		expect(signInPathFor(request)).toBe('/auth/login');
+	});
 });

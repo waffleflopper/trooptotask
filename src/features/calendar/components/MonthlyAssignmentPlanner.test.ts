@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
 	AssignmentType,
 	AvailabilityEntry,
@@ -139,6 +139,15 @@ async function openColumnMenu(typeName = 'Staff Duty') {
 	await fireEvent.click(screen.getByRole('button', { name: `${typeName} column actions` }));
 	return screen.findByRole('dialog', { name: `Quick fill, ${typeName}` });
 }
+
+// The planner offers fills only from today on, so the shown October must not depend on the real date.
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date(2026, 9, 1));
+});
+afterEach(() => {
+	vi.useRealTimers();
+});
 
 describe('MonthlyAssignmentPlanner Clear month', () => {
 	async function startClear() {

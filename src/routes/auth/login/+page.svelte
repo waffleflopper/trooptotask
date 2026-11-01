@@ -6,11 +6,18 @@
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
 	let { form, data } = $props();
 	let loading = $state(false);
 	let showPassword = $state(false);
 	let transportError = $state('');
+	// A browser keeps the visited fragment across the sign-in redirect but never sends it to the server.
+	const carriedNext = $derived.by(() => {
+		const nextPath = form?.nextPath ?? data.nextPath;
+		if (!nextPath) return '';
+		return nextPath.includes('#') ? nextPath : `${nextPath}${page.url.hash}`;
+	});
 </script>
 
 <svelte:head>
@@ -68,7 +75,7 @@
 			}}
 			class="flex flex-col gap-8"
 		>
-			<input type="hidden" name="next" value={data.nextPath ?? ''} />
+			<input type="hidden" name="next" value={carriedNext} />
 
 			<div class="flex flex-col gap-5">
 				<AuthField

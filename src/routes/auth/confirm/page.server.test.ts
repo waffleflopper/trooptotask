@@ -355,7 +355,8 @@ describe('POST /auth/confirm', () => {
 			user: verifiedUser as never,
 			cookies: { get: vi.fn(), delete: vi.fn() },
 			pathname: '/auth/confirm',
-			method: 'POST'
+			method: 'POST',
+			signInPath: '/auth/login'
 		});
 		expect(admission).toMatchObject({ status: 'allowed', actor: null, authFlow: null });
 		if (admission.status !== 'allowed') throw new Error('Expected confirmation route admission');

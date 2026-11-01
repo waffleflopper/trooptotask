@@ -109,10 +109,12 @@ export interface FeedbackSubmissionInput {
 	message?: unknown;
 	pageUrl?: unknown;
 	organizationId?: unknown;
+	/** The reference of a captured failure this report is about. */
+	errorReference?: unknown;
 }
 
 export type FeedbackSubmitResult =
-	| { status: 'submitted'; githubIssue: null }
+	| { status: 'submitted'; githubIssue: null; linked: boolean }
 	| { status: 'validation_error'; message: string }
 	| { status: 'organization_access_denied'; message: string }
 	| { status: 'submission_failed'; message: string };

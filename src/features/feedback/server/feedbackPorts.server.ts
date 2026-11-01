@@ -41,6 +41,8 @@ export interface FeedbackSubmissionRecord {
 	message: string;
 	pageUrl: string | null;
 	pageSection: string | null;
+	/** A captured failure this report names, already proven to belong to the submitter. */
+	errorReference: string | null;
 }
 
 export interface FeedbackSubmissionStore {
@@ -49,6 +51,8 @@ export interface FeedbackSubmissionStore {
 
 export interface FeedbackSubmissionDependencies {
 	store: FeedbackSubmissionStore;
+	/** Whether the captured failure exists and was attributed to this account. */
+	isOwnedErrorReference?(input: { reference: string; userId: string }): Promise<boolean>;
 	resolveOrganizationContext?(input: {
 		userId: string;
 		organizationId: string;

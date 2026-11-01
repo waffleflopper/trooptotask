@@ -3,7 +3,11 @@ import {
 	createSupabaseDeletionRequestStore,
 	createSupabaseDeletionRequestSubmission
 } from '$features/deletion-requests/index.server';
-import { classifyFailure, noteServerFailure } from '$features/error-reporting/index.server';
+import {
+	classifyFailure,
+	createSupabaseErrorReferenceStore,
+	noteServerFailure
+} from '$features/error-reporting/index.server';
 import { createFeedbackSubmission, createSupabaseFeedbackSubmissionStore } from '$features/feedback/index.server';
 import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
 import { createSupabaseFeedbackOrganizationContextPort } from '$features/organization/index.server';
@@ -33,8 +37,10 @@ import { issueMessage } from '$lib/utils/inputSchemas';
 /** Construct Feedback collaborators only after the route admits the account. */
 export function createRequestFeedbackSubmission() {
 	const context = createSupabaseFeedbackOrganizationContextPort(getAdminClient);
+	const errorReferences = createSupabaseErrorReferenceStore(getAdminClient);
 	return createFeedbackSubmission({
 		store: createSupabaseFeedbackSubmissionStore(getAdminClient),
+		isOwnedErrorReference: (input) => errorReferences.isOwnedBy(input),
 		resolveOrganizationContext: (input) => context.resolveOrganizationContext(input)
 	});
 }

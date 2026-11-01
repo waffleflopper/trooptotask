@@ -38,7 +38,7 @@ export function setAvailabilityHref(
 }
 
 /** Anything malformed is dropped; a prefill without a Tasking or valid dates is no prefill at all. */
-export function readAvailabilityPrefill(params: URLSearchParams): AvailabilityPrefill | null {
+export function readAvailabilityPrefill(params: Pick<URLSearchParams, 'get'>): AvailabilityPrefill | null {
 	const taskingId = params.get('tasking');
 	const startDate = dateOnlySchema.safeParse(params.get('from'));
 	const endDate = dateOnlySchema.safeParse(params.get('to'));

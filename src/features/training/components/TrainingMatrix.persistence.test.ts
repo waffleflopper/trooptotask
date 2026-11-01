@@ -8,6 +8,10 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import TrainingMatrix from './TrainingMatrix.svelte';
 
+vi.mock('$env/static/public', () => ({
+	PUBLIC_SUPABASE_URL: 'http://service.invalid',
+	PUBLIC_SUPABASE_ANON_KEY: 'anon'
+}));
 vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('$lib/components/ui/date-picker', async () => ({
 	DatePicker: (await import('$features/calendar/test-support/DatePickerInputStub.svelte')).default

@@ -238,9 +238,11 @@ it.each(['duplicate email', 'duplicate password', 'file password', 'oversized em
 		if (kind === 'duplicate email') body.append('email', 'other@example.test');
 		if (kind === 'duplicate password') body.append('currentPassword', 'other');
 		if (kind === 'file password') body.set('currentPassword', new Blob(['secret']), 'password.txt');
-		event.request = new Request('https://app.invalid/account/security?/updateEmail', {
-			method: 'POST',
-			body: kind === 'malformed body' ? '{' : body
+		Object.assign(event, {
+			request: new Request('https://app.invalid/account/security?/updateEmail', {
+				method: 'POST',
+				body: kind === 'malformed body' ? '{' : body
+			})
 		});
 		expect(await POST(event)).toMatchObject({ status: 400 });
 		h.denied();

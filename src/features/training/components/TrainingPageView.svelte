@@ -371,7 +371,7 @@
 				</Empty.Header>
 				{#if ctx.canManageConfig}
 					<Empty.Content>
-						<Button onclick={() => goto(resolve(`/org/${orgUrlSegment}/training/types`))}>Manage types</Button>
+						<Button onclick={() => goto(resolve(`/org/${orgUrlSegment}/training/types` as '/'))}>Manage types</Button>
 					</Empty.Content>
 				{/if}
 			</Empty.Root>

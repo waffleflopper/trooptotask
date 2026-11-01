@@ -58,7 +58,7 @@
 							transportError = 'Unable to complete sign in. Please try again.';
 							return;
 						}
-						await update({ reset: false });
+						await update({ reset: false, navigate: false });
 					} catch {
 						transportError = 'Unable to complete sign in. Please try again.';
 					} finally {

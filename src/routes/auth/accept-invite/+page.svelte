@@ -17,11 +17,11 @@
 	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount, onDestroy, tick } from 'svelte';
 
-	const hasSession = $derived($page.data.hasSession);
+	const hasSession = $derived(page.data.hasSession);
 
 	let requiresMfa = $state(false);
 	let passwordSet = $state(false);
@@ -82,11 +82,11 @@
 	onMount(() => {
 		// Provider fragments cannot prove whether a session came from an invite.
 		if (window.location.hash) {
-			replaceState(resolve('/auth/accept-invite'), $page.state);
+			replaceState(resolve('/auth/accept-invite'), page.state);
 			tokenError = true;
 		} else if (hasSession) {
-			noPendingInvite = $page.data.invitePending === false;
-			completion = $page.data.passwordCompletion ?? null;
+			noPendingInvite = page.data.invitePending === false;
+			completion = page.data.passwordCompletion ?? null;
 			if (completion === 'complete') {
 				completion = null;
 				passwordSet = true;

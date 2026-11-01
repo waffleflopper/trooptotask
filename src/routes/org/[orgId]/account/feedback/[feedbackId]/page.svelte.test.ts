@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ActionResult } from '@sveltejs/kit';
+import type { ActionResult } from '$app/forms';
 import type { FeedbackStatus, ReporterFeedback } from '$features/feedback/contracts';
 import Page from './+page.svelte';
 
@@ -59,7 +59,12 @@ describe('reporter reply composer', () => {
 	});
 
 	it('keeps the draft and shows a failed send beside the field', async () => {
-		actionResult.current = { type: 'failure', status: 503, data: { message: 'Unable to send your reply. Try again.' } };
+		actionResult.current = {
+			type: 'failure',
+			status: 503,
+			location: '/',
+			data: { message: 'Unable to send your reply. Try again.' }
+		};
 		renderPage('reviewed');
 		const field = screen.getByRole('textbox', { name: 'Reply' });
 		await fireEvent.input(field, { target: { value: 'One more detail' } });
@@ -72,7 +77,12 @@ describe('reporter reply composer', () => {
 	});
 
 	it('reloads the item when the send is refused because it closed meanwhile', async () => {
-		actionResult.current = { type: 'failure', status: 409, data: { message: 'This feedback is closed.' } };
+		actionResult.current = {
+			type: 'failure',
+			status: 409,
+			location: '/',
+			data: { message: 'This feedback is closed.' }
+		};
 		renderPage('reviewed');
 		await fireEvent.input(screen.getByRole('textbox', { name: 'Reply' }), { target: { value: 'One more detail' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));

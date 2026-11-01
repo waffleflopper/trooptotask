@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 export function getBrowserLocalStorage(): Storage | null {
 	if (typeof process !== 'undefined' && process.versions?.node) return null;

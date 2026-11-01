@@ -234,7 +234,7 @@ describe('Organization admission denial and recovery', () => {
 		const noteEvent = () => {
 			const request = f.event('alpha', 'GET', `/api/personnel/${PERSON_A}/leader-notes`);
 			request.params.id = PERSON_A;
-			request.route = { id: '/org/[orgId]/api/personnel/[id]/leader-notes' };
+			Object.assign(request, { route: { id: '/org/[orgId]/api/personnel/[id]/leader-notes' } });
 			return request;
 		};
 		const dispatch = vi.fn(async (event: RequestEvent) => listLeaderNotes!(event));
@@ -267,17 +267,19 @@ describe('Organization admission denial and recovery', () => {
 			const request = f.event('alpha', method, suffix);
 			request.params.id = PERSON_A;
 			if (method === 'PATCH') request.params.noteId = NOTE_A;
-			request.route = {
-				id:
-					method === 'PATCH'
-						? '/org/[orgId]/api/personnel/[id]/leader-notes/[noteId]'
-						: '/org/[orgId]/api/personnel/[id]/leader-notes'
-			};
-			request.request = new Request(request.url, { method, body: '{' });
+			Object.assign(request, {
+				route: {
+					id:
+						method === 'PATCH'
+							? '/org/[orgId]/api/personnel/[id]/leader-notes/[noteId]'
+							: '/org/[orgId]/api/personnel/[id]/leader-notes'
+				}
+			});
+			Object.assign(request, { request: new Request(request.url, { method, body: '{' }) });
 			await expect(
 				handle({
 					event: request,
-					resolve: (event) => (method === 'PATCH' ? updateLeaderNote!(event) : createLeaderNote!(event))
+					resolve: async (event) => (method === 'PATCH' ? updateLeaderNote!(event) : createLeaderNote!(event))
 				})
 			).rejects.toMatchObject({ status: 400, body: { message: 'Invalid JSON in request body' } });
 			expect(f.tables.leader_notes).toHaveLength(1);
@@ -418,10 +420,10 @@ describe('Organization admission denial and recovery', () => {
 		f.state.failedTable = 'organizations';
 		for (const path of ['/account', '/admin/api/suspend'] as const) {
 			const event = f.event();
-			event.params = {};
-			event.route = { id: path };
-			event.url = new URL(`http://app.invalid${path}`);
-			event.request = new Request(event.url, { method: 'POST' });
+			Object.assign(event, { params: {} });
+			Object.assign(event, { route: { id: path } });
+			Object.assign(event, { url: new URL(`http://app.invalid${path}`) });
+			Object.assign(event, { request: new Request(event.url, { method: 'POST' }) });
 			const response = await handle({ event, resolve: async () => new Response('dispatched') });
 			expect(response.status).toBe(200);
 		}

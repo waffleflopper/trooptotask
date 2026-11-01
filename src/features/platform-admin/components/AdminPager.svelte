@@ -10,7 +10,7 @@
 
 	// A button that reaches the end of the range disables; hand focus to the other one instead of the page.
 	async function goTo(target: number, from: HTMLButtonElement | null, other: HTMLButtonElement | null) {
-		await goto(pageHref(target), { keepFocus: true });
+		await goto(pageHref(target), { reset: false });
 		if (from?.disabled && (document.activeElement === from || document.activeElement === document.body)) other?.focus();
 	}
 </script>

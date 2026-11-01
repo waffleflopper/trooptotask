@@ -175,6 +175,8 @@
 			"roots": ["src/lib/stores/core/", "src/lib/test-support/"],
 			"files": [
 				"src/d3-scale.d.ts",
+				"src/env.ts",
+				"src/env-modules.d.ts",
 				"src/lib/domain/currencyStatus.test.ts",
 				"src/lib/domain/currencyStatus.ts",
 				"src/lib/domain/readinessItem.test.ts",
@@ -187,6 +189,8 @@
 				"src/lib/utils/featureLaneWorkspaceHydration.svelte.test.ts",
 				"src/lib/utils/featureLaneWorkspaceHydration.svelte.ts",
 				"src/lib/utils/mergeById.ts",
+				"src/lib/utils/sameUrlLinkClick.test.ts",
+				"src/lib/utils/sameUrlLinkClick.ts",
 				"src/lib/utils/streamedRouteData.test.ts",
 				"src/lib/utils/streamedRouteData.ts",
 				"src/lib/utils/streamedValue.svelte.test.ts",

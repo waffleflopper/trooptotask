@@ -1,6 +1,5 @@
 <script lang="ts" module>
 	import type { Component } from 'svelte';
-	import type { PathnameWithSearchOrHash } from '$app/types';
 
 	export type SectionNavCount = {
 		value: number;
@@ -10,7 +9,7 @@
 
 	export type SectionNavItem = {
 		label: string;
-		href: PathnameWithSearchOrHash;
+		href: `/${string}`;
 		active?: boolean;
 		/** Something waiting on the reader, in amber. Zero shows nothing; a promise shows a skeleton while pending. */
 		count?: SectionNavCount | Promise<SectionNavCount>;
@@ -27,7 +26,7 @@
 	export type SectionNavAction = {
 		label: string;
 		icon?: Component<{ class?: string; 'aria-hidden'?: 'true' }>;
-		action: PathnameWithSearchOrHash;
+		action: `/${string}`;
 	};
 </script>
 

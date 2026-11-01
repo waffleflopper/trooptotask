@@ -87,7 +87,7 @@
 		if (!id) return;
 		const entry = ratingSchemeStore.items.find((item) => item.id === id);
 		if (!entry) return;
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('entry');
 		replaceState(url, page.state);
 		if (canUseRatingSchemeWriteActions) ctx.handleEditRatingEntry(entry);

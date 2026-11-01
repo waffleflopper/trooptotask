@@ -24,7 +24,7 @@ export interface ActivityPage {
 }
 
 /** Reads the filter state from a URL. Anything unrecognized falls back to its default instead of failing. */
-export function parseActivityQuery(params: URLSearchParams): ActivityQuery {
+export function parseActivityQuery(params: Pick<URLSearchParams, 'get'>): ActivityQuery {
 	const category = params.get('category');
 	const from = params.get('from') ?? '';
 	const to = params.get('to') ?? '';

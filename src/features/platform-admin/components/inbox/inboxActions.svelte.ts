@@ -1,5 +1,5 @@
 import { applyAction } from '$app/forms';
-import type { SubmitFunction } from '@sveltejs/kit';
+import type { SubmitFunction } from '$app/forms';
 import { redirectToSensitiveActionStepUp } from '$features/identity';
 import { toastStore } from '$lib/stores/toast.svelte';
 

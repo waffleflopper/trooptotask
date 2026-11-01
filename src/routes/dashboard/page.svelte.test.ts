@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import type { ActionResult } from '@sveltejs/kit';
+import type { ActionResult } from '$app/forms';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { enhanceRequests, frameworkOutcome, simulateEnhance } from '$lib/test-support/sveltekitEnhance';
 import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
@@ -99,7 +99,7 @@ describe('/dashboard page', () => {
 		const view = render(Page, { props: { data: invitationData(), form: null } });
 		await respond(
 			'?/declineInvitation',
-			{ type: 'failure', status: 409, data: { error: 'Invitation expired' } },
+			{ type: 'failure', status: 409, location: '/', data: { error: 'Invitation expired' } },
 			(form) => view.rerender({ data: invitationData(), form: form as never })
 		);
 		const row = screen.getByText('Bravo Company').closest('li')!;
@@ -114,7 +114,7 @@ describe('/dashboard page', () => {
 		const { default: Page } = await import('./+page.svelte');
 		const view = render(Page, { props: { data: invitationData(), form: null } });
 
-		await respond('?/declineInvitation', { type: 'success', status: 200 }, (form) =>
+		await respond('?/declineInvitation', { type: 'success', status: 200, location: '/' }, (form) =>
 			view.rerender({ data: invitationData([]), form: form as never })
 		);
 
@@ -129,7 +129,7 @@ describe('/dashboard page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Accept invitation to Bravo Company' }));
 		await enhanceRequests[0](
 			frameworkOutcome(
-				{ type: 'success', status: 200 },
+				{ type: 'success', status: 200, location: '/' },
 				{ applyForm: async () => {}, invalidate: async () => void refreshes.push('open') }
 			)
 		);
@@ -139,7 +139,7 @@ describe('/dashboard page', () => {
 		view.unmount();
 		await enhanceRequests[1](
 			frameworkOutcome(
-				{ type: 'success', status: 200 },
+				{ type: 'success', status: 200, location: '/' },
 				{ applyForm: async () => {}, away: true, invalidate: async () => void refreshes.push('left') }
 			)
 		);
@@ -153,12 +153,13 @@ describe('/dashboard page', () => {
 		const refreshes: string[] = [];
 		render(Page, { props: { data: invitationData(), form: null } });
 
-		await respond('?/acceptInvitation', { type: 'success', status: 200 }, async () => void refreshes.push('update'));
-
-		expect(navigation.goto).toHaveBeenCalledWith(
-			'/dashboard?show=all',
-			expect.objectContaining({ replaceState: true })
+		await respond(
+			'?/acceptInvitation',
+			{ type: 'success', status: 200, location: '/' },
+			async () => void refreshes.push('update')
 		);
+
+		expect(navigation.goto).toHaveBeenCalledWith('/dashboard?show=all', expect.objectContaining({ replace: true }));
 		expect(refreshes).toEqual([]);
 	});
 
@@ -168,7 +169,7 @@ describe('/dashboard page', () => {
 
 		await respond(
 			'?/acceptInvitation',
-			{ type: 'failure', status: 400, data: { error: 'Invitation expired' } },
+			{ type: 'failure', status: 400, location: '/', data: { error: 'Invitation expired' } },
 			(form) => view.rerender({ data: invitationData(), form: form as never })
 		);
 
@@ -183,22 +184,32 @@ describe('/dashboard page', () => {
 			'?/acceptInvitation',
 			'Accept',
 			'failure',
-			{ type: 'failure', status: 409, data: { error: 'Invitation expired' } }
+			{ type: 'failure', status: 409, location: '/', data: { error: 'Invitation expired' } }
 		],
-		['?/acceptInvitation', 'Accept', 'error', { type: 'error', status: 500, error: { message: 'Internal Error' } }],
+		[
+			'?/acceptInvitation',
+			'Accept',
+			'error',
+			{ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } }
+		],
 		[
 			'?/acceptInvitation',
 			'Accept',
 			'setup-required failure',
-			{ type: 'failure', status: 403, data: { error: 'Complete account setup' } }
+			{ type: 'failure', status: 403, location: '/', data: { error: 'Complete account setup' } }
 		],
 		[
 			'?/declineInvitation',
 			'Decline',
 			'failure',
-			{ type: 'failure', status: 409, data: { error: 'Invitation expired' } }
+			{ type: 'failure', status: 409, location: '/', data: { error: 'Invitation expired' } }
 		],
-		['?/declineInvitation', 'Decline', 'error', { type: 'error', status: 500, error: { message: 'Internal Error' } }]
+		[
+			'?/declineInvitation',
+			'Decline',
+			'error',
+			{ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } }
+		]
 	] as const)(
 		'keeps the invitation with an Alert in its row after a %s %s %s',
 		async (action, label, _kind, result) => {

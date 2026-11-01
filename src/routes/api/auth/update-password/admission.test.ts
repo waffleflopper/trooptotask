@@ -148,7 +148,7 @@ describe.each(flows)('password update request admission: %s', (flow) => {
 	it('rejects malformed JSON without throwing or altering the session', async () => {
 		const h = fixture(flow);
 		const event = h.event();
-		event.request = new Request(event.request.url, { method: 'POST', body: '{' });
+		Object.assign(event, { request: new Request(event.request.url, { method: 'POST', body: '{' }) });
 		expect((await POST(event)).status).toBe(400);
 		expect(limit).not.toHaveBeenCalled();
 		h.expectNoEffects();

@@ -100,7 +100,10 @@ async function confirmSlug(value: string) {
 	return lastCallback();
 }
 
-const success = { result: { type: 'success', status: 200, data: { nameSuccess: true } }, update: async () => {} };
+const success = {
+	result: { type: 'success', status: 200, location: '/', data: { nameSuccess: true } },
+	update: async () => {}
+};
 
 describe('General settings unit name', () => {
 	it('saves a new name without asking first, and Undo writes the previous name back through the same save', async () => {
@@ -132,7 +135,10 @@ describe('General settings unit name', () => {
 		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
 
 		const save = await saveName('Taken Name');
-		await save({ result: { type: 'failure', status: 400, data: { error: 'Name is taken' } }, update: async () => {} });
+		await save({
+			result: { type: 'failure', status: 400, location: '/', data: { error: 'Name is taken' } },
+			update: async () => {}
+		});
 
 		expect(toasts).toEqual([]);
 	});
@@ -201,7 +207,9 @@ describe('General settings unit name', () => {
 		const save = await saveName('Draft Name');
 		const page = { applyForm: (form: unknown) => view.rerender({ form: form as never }) };
 
-		await save(frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page));
+		await save(
+			frameworkOutcome({ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } }, page)
+		);
 		await tick();
 
 		const nameForm = screen.getByLabelText('Unit name').closest('form')!;
@@ -223,7 +231,7 @@ describe('General settings unit name', () => {
 
 		await save(
 			frameworkOutcome(
-				{ type: 'error', status: 500, error: { message: 'x' } },
+				{ type: 'error', status: 500, error: { status: 500, message: 'x' } },
 				{ applyForm: (form) => view.rerender({ form: form as never }) }
 			)
 		);
@@ -241,12 +249,12 @@ describe('General settings unit name', () => {
 		const newSave = await saveName('New Request');
 		const update = vi.fn();
 
-		await oldSave({ result: { type: 'success', status: 200, data: { nameSuccess: true } }, update });
+		await oldSave({ result: { type: 'success', status: 200, location: '/', data: { nameSuccess: true } }, update });
 
 		expect(update).not.toHaveBeenCalled();
 		expect(toasts).toEqual([]);
 		expect(screen.getByRole('button', { name: 'Saving...' })).toBeTruthy();
-		await newSave({ result: { type: 'success', status: 200, data: { nameSuccess: true } }, update });
+		await newSave({ result: { type: 'success', status: 200, location: '/', data: { nameSuccess: true } }, update });
 		expect(update).toHaveBeenCalledOnce();
 		expect(toasts).toHaveLength(1);
 		expect(toasts[0].message).toContain('New Request');
@@ -364,7 +372,9 @@ describe('General settings web address', () => {
 		const save = await confirmSlug('draft-path');
 		const page = { applyForm: (form: unknown) => view.rerender({ form: form as never }) };
 
-		await save(frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page));
+		await save(
+			frameworkOutcome({ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } }, page)
+		);
 		await tick();
 
 		const slugForm = screen.getByLabelText('Web address').closest('form')!;

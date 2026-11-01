@@ -13,6 +13,10 @@ import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import { dailyAssignmentsStore, type CalendarWorkspaceResult } from '$features/calendar';
 
+vi.mock('$env/static/public', () => ({
+	PUBLIC_SUPABASE_URL: 'http://service.invalid',
+	PUBLIC_SUPABASE_ANON_KEY: 'anon'
+}));
 vi.mock('$lib/server/adapters/httpAdapter', () => ({ loadWithContext: vi.fn() }));
 vi.mock('$lib/server/adapters/requestContexts.server', () => ({ createRequestCalendarWorkspaceContext: vi.fn() }));
 vi.mock('$features/app-shell', async (importOriginal) => ({

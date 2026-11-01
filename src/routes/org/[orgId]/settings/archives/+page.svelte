@@ -2,7 +2,7 @@
 	import { SettingsPageHeader } from '$features/organization';
 	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -32,7 +32,7 @@
 
 	let { data }: PageProps = $props();
 
-	const orgId = $derived($page.params.orgId ?? '');
+	const orgId = $derived(page.params.orgId ?? '');
 	const archived = createSettingsArchivedPersonnelState(() => data.archivesSettings.sections.archivedPersonnel);
 	let now = $state(new Date());
 	$effect(() => {

@@ -33,7 +33,7 @@
 
 	async function leave() {
 		left = true;
-		await goto(data.next, { invalidateAll: true });
+		await goto(data.next, { refreshAll: true });
 	}
 
 	// Resolves to null once the page is gone: unmounted, leaving, or following an admission redirect.

@@ -194,7 +194,7 @@ export function loadWithContextCore<T, TContext>(
 	selectContext: () => TContext
 ): Promise<T> | { data: Promise<T> } {
 	const feature = disabledPolicyFeature(request, config);
-	if (feature) error(403, { message: featureOffMessage(feature), featureOff: feature });
+	if (feature) error(403, featureOffMessage(feature), { featureOff: feature });
 	const data = withRequestFailureBoundary(
 		Promise.resolve().then(async () => {
 			await enforceLoadAuthorization(request, config);

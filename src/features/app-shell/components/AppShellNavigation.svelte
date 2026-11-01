@@ -27,7 +27,7 @@
 				tooltipContent={linkName(item)}
 			>
 				{#snippet child({ props })}
-					<a {...props} href={resolve(item.href as `/org/${string}`)} aria-current={current ? 'page' : undefined}>
+					<a {...props} href={resolve(item.href as '/')} aria-current={current ? 'page' : undefined}>
 						<OrgNavIcon icon={item.icon} />
 						<span>{linkName(item)}</span>
 						{#if item.badgeLabel}
@@ -43,7 +43,7 @@
 						<Sidebar.MenuSubItem>
 							<Sidebar.MenuSubButton isActive={active}>
 								{#snippet child({ props })}
-									<a {...props} href={resolve(sub.href as `/org/${string}`)} aria-current={active ? 'page' : undefined}>
+									<a {...props} href={resolve(sub.href as '/')} aria-current={active ? 'page' : undefined}>
 										<span>{sub.label}</span>
 									</a>
 								{/snippet}

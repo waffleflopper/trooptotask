@@ -102,7 +102,7 @@
 				{#snippet calendarLink()}
 					<a
 						href="{orgPath}/calendar"
-						data-sveltekit-preload-data="off"
+						data-sveltekit-preload-data={false}
 						class="text-sm underline underline-offset-2"
 						onclick={openCalendarToday}>Open in calendar</a
 					>

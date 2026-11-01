@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
-import type { Handle } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
 import { afterEach, expect, it, vi } from 'vitest';
 import { handle } from './hooks.server';
 import { actions } from './routes/auth/logout/+page.server';

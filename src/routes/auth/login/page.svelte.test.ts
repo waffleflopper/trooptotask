@@ -2,7 +2,8 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import type { SubmitFunction } from '@sveltejs/kit';
+import type { SubmitFunction } from '$app/forms';
+import { frameworkOutcome, type FrameworkPage } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
 // Form submission transport is covered by the real action tests; inspect the
@@ -36,6 +37,25 @@ it('submits the supplied continuation unchanged before and after a rejected logi
 	await page.rerender({ data, form: rejectedForm });
 	expect(screen.getByRole('alert')).toBeTruthy();
 	expect(new FormData(screen.getByLabelText(/Email Address/).closest('form')!).get('next')).toBe(nextPath);
+});
+
+it('keeps the continuation in the address after a rejected login', async () => {
+	const nextPath = '/org/alpha/calendar';
+	render(Page, { data: { viewer: null, reauth: false, nextPath }, form: null });
+	const framework: FrameworkPage = {
+		path: `/auth/login?next=${encodeURIComponent(nextPath)}`,
+		applyForm: async () => {}
+	};
+
+	const complete = submit({ cancel: vi.fn() });
+	await complete(
+		frameworkOutcome(
+			{ type: 'failure', status: 400, location: '/auth/login', data: { error: 'Email or password is incorrect' } },
+			framework
+		)
+	);
+
+	expect(framework.location).toBeUndefined();
 });
 
 it('serializes submissions, contains transport errors and keeps entered credentials for retry', async () => {

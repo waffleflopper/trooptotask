@@ -3,7 +3,7 @@
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onDestroy, tick, untrack } from 'svelte';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Alert from '$lib/components/ui/alert';
@@ -122,7 +122,7 @@
 	function select(id: string | null) {
 		actionError = null;
 		const query = id === null ? '' : `?entry=${encodeURIComponent(id)}`;
-		return goto(`/admin/announcements/whats-new${query}`, { keepFocus: true, noScroll: true });
+		return goto(`/admin/announcements/whats-new${query}`, { reset: false });
 	}
 
 	async function reload() {

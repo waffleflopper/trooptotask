@@ -156,9 +156,11 @@ describe('user detail request admission and retained projections', () => {
 			suspendDisabledReason: expect.any(String)
 		});
 		const request = event();
-		request.request = new Request(request.url, {
-			method: 'POST',
-			body: new URLSearchParams({ reason: 'Forged self suspend' })
+		Object.assign(request, {
+			request: new Request(request.url, {
+				method: 'POST',
+				body: new URLSearchParams({ reason: 'Forged self suspend' })
+			})
 		});
 		const result = await actions.suspend(request as never);
 		expect(result).toMatchObject({ status: 403 });

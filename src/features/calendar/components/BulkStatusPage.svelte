@@ -81,10 +81,10 @@
 		// A single toggle group emits '' when the pressed item is clicked again.
 		if (!TABS.some((option) => option.value === tab)) return;
 		formGeneration++;
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('tab', tab);
 		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
-		goto(resolve(target), { replaceState: true, noScroll: true, keepFocus: true });
+		goto(resolve(target as '/'), { replace: true, reset: false });
 	}
 
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
@@ -167,7 +167,7 @@
 		const returnTo = prefill && sameForm && active && data.orgId === applyingOrgId ? backHref : null;
 		// A separate invalidate would cancel a navigation started before it, so refresh as part of leaving.
 		if (returnTo) {
-			void goto(resolve(returnTo as `/org/${string}/calendar/taskings/${string}`), {
+			void goto(resolve(returnTo as '/'), {
 				invalidate: ['app:calendar-data']
 			});
 			return;

@@ -102,12 +102,12 @@
 	);
 
 	function showFilter(next: RosterFilter | null): void {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		if (next) url.searchParams.set(ROSTER_FILTER_PARAM, serializeRosterFilter(next));
 		else url.searchParams.delete(ROSTER_FILTER_PARAM);
 		showFirstPages();
 		const target = `${url.pathname}${url.search}` as `/org/${string}/personnel`;
-		void goto(resolve(target), { replaceState: true, keepFocus: true, noScroll: true });
+		void goto(resolve(target as '/'), { replace: true, reset: false });
 	}
 
 	function toggleFilter(next: RosterFilter): void {

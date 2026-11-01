@@ -705,6 +705,9 @@ def _provider_environment(repository, workdir, execute):
         "T2T_PROBE_API_URL": status["API_URL"],
         "T2T_PROBE_SERVICE_KEY": status["SERVICE_ROLE_KEY"],
         "T2T_PROBE_ANON_KEY": status["ANON_KEY"],
+        # The probes that load app modules through Vite run SvelteKit's check of src/env.ts.
+        "PUBLIC_SUPABASE_URL": status["API_URL"],
+        "PUBLIC_SUPABASE_ANON_KEY": status["ANON_KEY"],
     })
     return environment
 

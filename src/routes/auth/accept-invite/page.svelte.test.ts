@@ -2,17 +2,16 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { writable } from 'svelte/store';
 import { goto } from '$app/navigation';
 import Page from './+page.svelte';
 import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
 controlCodeFieldTimers();
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
-vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
+vi.mock('$app/state', () => ({ page: { data: { hasSession: true }, state: {} } }));
 beforeEach(async () => {
-	const { page } = await import('$app/stores');
-	(page as unknown as ReturnType<typeof writable>).set({ data: { hasSession: true, invitePending: true }, state: {} });
+	const { page } = await import('$app/state');
+	Object.assign(page, { data: { hasSession: true, invitePending: true }, state: {} });
 });
 afterEach(() => {
 	cleanup();
@@ -174,8 +173,8 @@ it('shows unavailable invitations separately from account activation with an exp
 	expect(goto).not.toHaveBeenCalled();
 });
 it('revisits a cleared invite without offering another password write or activation request', async () => {
-	const { page } = await import('$app/stores');
-	(page as unknown as ReturnType<typeof writable>).set({
+	const { page } = await import('$app/state');
+	Object.assign(page, {
 		data: { hasSession: true, invitePending: false, passwordCompletion: null },
 		state: {}
 	});
@@ -188,8 +187,8 @@ it('revisits a cleared invite without offering another password write or activat
 	expect(fetchMock).not.toHaveBeenCalled();
 });
 it('offers reviewed Account Setup Link recovery without repeating the completed password', async () => {
-	const { page } = await import('$app/stores');
-	(page as unknown as ReturnType<typeof writable>).set({
+	const { page } = await import('$app/state');
+	Object.assign(page, {
 		data: { hasSession: true, invitePending: true, passwordCompletion: 'complete' },
 		state: {}
 	});

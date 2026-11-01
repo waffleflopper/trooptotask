@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ActionResult } from '@sveltejs/kit';
+import type { ActionResult } from '$app/forms';
 import { createCapabilityMap, type DurableFeatureLane } from '$lib/access/memberAccessShape';
 import type {
 	SettingsInvitationHistoryRow,
@@ -193,9 +193,9 @@ async function openRowMenu(id: string) {
 }
 
 const settle = (index: number) =>
-	heldSubmissions[index]({ result: { type: 'success', status: 200 }, update: async () => {} });
+	heldSubmissions[index]({ result: { type: 'success', status: 200, location: '/' }, update: async () => {} });
 
-const serverError: ActionResult = { type: 'error', status: 500, error: { message: 'Internal Error' } };
+const serverError: ActionResult = { type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } };
 const requestErrorText = "The request didn't complete. Try again.";
 
 afterEach(() => {
@@ -350,7 +350,7 @@ describe('invite strip', () => {
 	it.each([
 		[
 			'failure',
-			{ type: 'failure', status: 400, data: { inviteError: 'Already invited' } } as ActionResult,
+			{ type: 'failure', status: 400, location: '/', data: { inviteError: 'Already invited' } } as ActionResult,
 			'Already invited'
 		],
 		['error', serverError, requestErrorText]
@@ -376,7 +376,12 @@ describe('invite strip', () => {
 
 		await heldSubmissions[0](
 			frameworkOutcome(
-				{ type: 'success', status: 200, data: { inviteSuccess: true, inviteMessage: 'Invitation created.' } },
+				{
+					type: 'success',
+					status: 200,
+					location: '/',
+					data: { inviteSuccess: true, inviteMessage: 'Invitation created.' }
+				},
 				{ applyForm: (form) => view.rerender({ form } as never) }
 			)
 		);
@@ -404,7 +409,7 @@ describe('waiting on them', () => {
 	it.each([
 		[
 			'failure',
-			{ type: 'failure', status: 503, data: { inviteError: 'Unable to resend' } } as ActionResult,
+			{ type: 'failure', status: 503, location: '/', data: { inviteError: 'Unable to resend' } } as ActionResult,
 			'Unable to resend'
 		],
 		['error', serverError, requestErrorText]
@@ -452,7 +457,7 @@ describe('waiting on them', () => {
 		expect(heldSubmissions).toHaveLength(1);
 
 		await heldSubmissions[0](
-			frameworkOutcome({ type: 'failure', status: 503, data: { inviteError: 'Unable to resend' } }, page)
+			frameworkOutcome({ type: 'failure', status: 503, location: '/', data: { inviteError: 'Unable to resend' } }, page)
 		);
 
 		await waitFor(() =>
@@ -477,13 +482,18 @@ describe('waiting on them', () => {
 
 		await late(
 			frameworkOutcome(
-				{ type: 'success', status: 200, data: { inviteSuccess: true, inviteMessage: 'Invitation revoked.' } },
+				{
+					type: 'success',
+					status: 200,
+					location: '/',
+					data: { inviteSuccess: true, inviteMessage: 'Invitation revoked.' }
+				},
 				{ applyForm: async () => {}, away: true }
 			)
 		);
 		await late(
 			frameworkOutcome(
-				{ type: 'failure', status: 403, data: { requiresStepUp: true } },
+				{ type: 'failure', status: 403, location: '/', data: { requiresStepUp: true } },
 				{ applyForm: async () => {}, away: true }
 			)
 		);
@@ -498,7 +508,12 @@ describe('waiting on them', () => {
 
 		await heldSubmissions[0](
 			frameworkOutcome(
-				{ type: 'success', status: 200, data: { inviteSuccess: true, inviteMessage: 'Invitation revoked.' } },
+				{
+					type: 'success',
+					status: 200,
+					location: '/',
+					data: { inviteSuccess: true, inviteMessage: 'Invitation revoked.' }
+				},
 				{ applyForm: (form) => view.rerender({ form, data: pageData() } as never) }
 			)
 		);
@@ -532,7 +547,7 @@ describe('removing a member', () => {
 	it.each([
 		[
 			'failure',
-			{ type: 'failure', status: 400, data: { memberError: 'Unable to remove member' } } as ActionResult,
+			{ type: 'failure', status: 400, location: '/', data: { memberError: 'Unable to remove member' } } as ActionResult,
 			'Unable to remove member'
 		],
 		['error', serverError, requestErrorText]
@@ -774,7 +789,7 @@ describe('manage access sheet', () => {
 		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
 
 		await heldSubmissions[0]({
-			result: { type: 'failure', status: 400, data: { accessError: 'Access could not be saved' } },
+			result: { type: 'failure', status: 400, location: '/', data: { accessError: 'Access could not be saved' } },
 			update: () => view.rerender({ data: pageData(), form: { accessError: 'Access could not be saved' } })
 		});
 
@@ -789,7 +804,7 @@ describe('manage access sheet', () => {
 
 		await heldSubmissions[0](
 			frameworkOutcome(
-				{ type: 'success', status: 200, data: { accessSuccess: true } },
+				{ type: 'success', status: 200, location: '/', data: { accessSuccess: true } },
 				{ applyForm: (form) => view.rerender({ form } as never) }
 			)
 		);
@@ -807,7 +822,7 @@ describe('manage access sheet', () => {
 
 		await heldSubmissions[0](
 			frameworkOutcome(
-				{ type: 'success', status: 200, data: { accessSuccess: true } },
+				{ type: 'success', status: 200, location: '/', data: { accessSuccess: true } },
 				{
 					applyForm: (form) => view.rerender({ form } as never),
 					invalidate: () => Promise.reject(new Error('offline'))

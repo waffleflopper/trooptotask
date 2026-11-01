@@ -2,7 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import { FeedbackThread, FEEDBACK_CATEGORY_LABELS, REPORTER_FEEDBACK_STATUS } from '$features/feedback';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { Badge } from '$lib/components/ui/badge';

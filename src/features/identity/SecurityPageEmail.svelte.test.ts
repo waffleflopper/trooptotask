@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+import type { ActionResult, SubmitFunction } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import SecurityPage from './SecurityPage.svelte';
 import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
@@ -71,10 +71,10 @@ it.each(['failure', 'error', 'invalid-success'])(
 	async (kind) => {
 		const result =
 			kind === 'failure'
-				? { type: 'failure', status: 401, data: { emailError: 'Current password is incorrect' } }
+				? { type: 'failure', status: 401, location: '/', data: { emailError: 'Current password is incorrect' } }
 				: kind === 'error'
-					? { type: 'error', status: 500, error: new Error('private transport detail') }
-					: { type: 'success', status: 200, data: {} };
+					? { type: 'error', status: 500, error: { status: 500, message: 'private transport detail' } }
+					: { type: 'success', status: 200, location: '/', data: {} };
 		transport.send.mockResolvedValueOnce(result);
 		const h = await fixture();
 		await fireEvent.submit(h.form);
@@ -108,6 +108,7 @@ it.each(['failure', 'error', 'invalid-success'])(
 		finish({
 			type: 'success',
 			status: 200,
+			location: '/',
 			data: { emailSuccess: 'Follow both inbox confirmations.', pendingEmail: 'new@example.test' }
 		});
 		expect(await screen.findByText('Follow both inbox confirmations.')).toBeTruthy();
@@ -130,6 +131,7 @@ it('keeps focus in a row opened while an accepted email change refreshes the pag
 	transport.send.mockResolvedValueOnce({
 		type: 'success',
 		status: 200,
+		location: '/',
 		data: { emailSuccess: 'Follow both inbox confirmations.', pendingEmail: 'new@example.test' }
 	});
 	const h = await fixture();
@@ -149,6 +151,7 @@ it('shows a global throttle as an email action error without losing the draft', 
 	transport.send.mockResolvedValueOnce({
 		type: 'failure',
 		status: 429,
+		location: '/',
 		data: { error: 'Too many requests. Please wait and try again.' }
 	});
 	const h = await fixture();
@@ -174,6 +177,7 @@ it('retains the email draft through inline MFA and requires explicit retry', asy
 	transport.send.mockResolvedValueOnce({
 		type: 'failure',
 		status: 403,
+		location: '/',
 		data: { emailError: 'Verify authenticator', code: 'mfa_required' }
 	});
 	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })));
@@ -196,6 +200,7 @@ it.each([
 	transport.send.mockResolvedValueOnce({
 		type: 'failure',
 		status: 400,
+		location: '/',
 		data: { emailError, email: 'new@example.test' }
 	});
 	const h = await fixture();
@@ -211,10 +216,16 @@ it.each([
 });
 it('clears a field error when the next request is sent and keeps a provider outage as a form alert', async () => {
 	transport.send
-		.mockResolvedValueOnce({ type: 'failure', status: 401, data: { emailError: 'Current password is incorrect' } })
+		.mockResolvedValueOnce({
+			type: 'failure',
+			status: 401,
+			location: '/',
+			data: { emailError: 'Current password is incorrect' }
+		})
 		.mockResolvedValueOnce({
 			type: 'failure',
 			status: 503,
+			location: '/',
 			data: { emailError: 'Unable to verify your current password. Please try again.' }
 		});
 	const h = await fixture();
@@ -243,6 +254,7 @@ it('keeps an accepted email change when another row opens before the answer', as
 	finish({
 		type: 'success',
 		status: 200,
+		location: '/',
 		data: { emailSuccess: 'Follow both inbox confirmations.', pendingEmail: 'new@example.test' }
 	});
 	expect(await screen.findByText(/Pending: new@example\.test\./)).toBeTruthy();
@@ -263,7 +275,7 @@ it('drops a late email failure instead of showing it in a reopened row', async (
 	await fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
 	await fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
 
-	finish({ type: 'failure', status: 401, data: { emailError: 'Current password is incorrect' } });
+	finish({ type: 'failure', status: 401, location: '/', data: { emailError: 'Current password is incorrect' } });
 	const reopened = document.getElementById('email-current-password')!;
 	await waitFor(() => expect(reopened).toBeEnabled());
 	expect(reopened).not.toHaveAttribute('aria-invalid');

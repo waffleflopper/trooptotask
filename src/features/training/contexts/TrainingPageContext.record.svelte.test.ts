@@ -84,7 +84,7 @@ describe('TrainingPageContext record sheet', () => {
 					url: new URL(href, 'http://localhost'),
 					state: (options.state as Record<string, unknown> | undefined) ?? {}
 				};
-				if (options.replaceState) entries[at] = entry;
+				if (options.replace) entries[at] = entry;
 				else entries.splice(++at, entries.length, entry);
 				show(entries[at]);
 			});

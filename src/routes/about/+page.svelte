@@ -67,7 +67,7 @@
 		</div>
 		<figure class="m-0 flex w-full max-w-[360px] shrink-0 flex-col gap-4">
 			<img
-				src={asset('/me.jpeg')}
+				src={asset('me.jpeg')}
 				alt="SSG Baddeley, founder and sole developer of TroopToTask"
 				width="768"
 				height="1024"

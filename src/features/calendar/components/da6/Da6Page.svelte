@@ -41,7 +41,7 @@
 	function open(nextTypeId: string, nextMonth: string) {
 		// A single toggle group emits '' when the pressed item is clicked again.
 		if (!nextTypeId) return;
-		goto(resolve(da6Href(orgUrlSegment, nextTypeId, nextMonth) as `/org/${string}`));
+		goto(resolve(da6Href(orgUrlSegment, nextTypeId, nextMonth) as '/'));
 	}
 </script>
 

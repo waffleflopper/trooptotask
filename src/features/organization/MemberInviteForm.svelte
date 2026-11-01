@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { TreeSelect } from '$lib/components/patterns/tree-select';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';

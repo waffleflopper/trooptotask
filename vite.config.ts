@@ -1,6 +1,8 @@
 import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
@@ -12,7 +14,21 @@ if (projectRoot.includes(`${sep}.worktrees${sep}`)) {
 }
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [
+		tailwindcss(),
+		sveltekit({
+			preprocess: vitePreprocess(),
+			adapter: adapter(),
+			alias: {
+				$lib: 'src/lib',
+				$features: 'src/features'
+			}
+		})
+	],
+	ssr: {
+		// Kit is inlined into the server bundle, and a bare `cookie` import would load express's hoisted 0.7.
+		noExternal: ['cookie']
+	},
 	server: {
 		fs: {
 			allow: fsAllow

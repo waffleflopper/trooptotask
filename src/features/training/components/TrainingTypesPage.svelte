@@ -45,7 +45,7 @@
 			.allowed
 	);
 	const workspaceData = $derived(data.training?.data);
-	const matrixHref = $derived(resolve(`/org/${org.orgUrlSegment ?? org.orgId}/training`));
+	const matrixHref = $derived(resolve(`/org/${org.orgUrlSegment ?? org.orgId}/training` as '/'));
 
 	/** The edited type is kept as it was opened, so a delete that removes it from the store does not unmount the sheet early. */
 	type Sheet = { type: TrainingType | null };

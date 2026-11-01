@@ -8,6 +8,6 @@ export async function requireFeatureOn(
 ): Promise<void> {
 	const organization = await requireActiveOrganization(event.locals, event.params.orgId);
 	if (organization.disabledFeatures.includes(feature)) {
-		error(403, { message: featureOffMessage(feature), featureOff: feature });
+		error(403, featureOffMessage(feature), { featureOff: feature });
 	}
 }

@@ -41,7 +41,7 @@
 				<li class="border-b border-border">
 					<a
 						class="grid gap-2 py-4 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-						href={resolve(`/org/${shell.orgUrlSegment}/account/feedback/${item.id}`)}
+						href={resolve(`/org/${shell.orgUrlSegment}/account/feedback/${item.id}` as '/')}
 					>
 						<span class="font-mono text-[11px] leading-4 tracking-[0.08em] text-muted-foreground uppercase">
 							{FEEDBACK_CATEGORY_LABELS[item.category]} · {formatDisplayDate(item.createdAt)}

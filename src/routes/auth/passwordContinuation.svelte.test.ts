@@ -2,7 +2,6 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { writable } from 'svelte/store';
 import SecurityPage from '$features/identity/SecurityPage.svelte';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
@@ -12,7 +11,7 @@ import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
-vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
+vi.mock('$app/state', () => ({ page: { data: { hasSession: true }, state: {} } }));
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();

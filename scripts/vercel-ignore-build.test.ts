@@ -71,7 +71,6 @@ describe('Vercel build selection', () => {
 		'package.json',
 		'package-lock.json',
 		'vercel.json',
-		'svelte.config.js',
 		'vite.config.ts',
 		'static/robots.txt',
 		'.github/copilot-instructions.md',

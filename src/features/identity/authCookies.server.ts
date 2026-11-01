@@ -10,7 +10,7 @@ export function getAuthCookieOptions<T extends { path?: string; httpOnly?: boole
 	};
 }
 
-type AuthCookie = { name: string; value: string; options: Partial<Parameters<Cookies['set']>[2]> };
+type AuthCookie = { name: string; value: string; options: NonNullable<Parameters<Cookies['set']>[2]> };
 
 // cookies.set throws once the response exists, and a streamed load can still refresh the provider
 // session then. That throw is an unhandled rejection that exits the process, so late cookies are dropped.

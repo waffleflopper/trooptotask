@@ -12,21 +12,17 @@ const { pageStore } = vi.hoisted(() => {
 		url: new URL('https://example.test/org/org-1/personnel'),
 		data: {} as Record<string, unknown>
 	};
-	const subscribers = new Set<(value: typeof current) => void>();
 
 	return {
 		pageStore: {
-			subscribe(fn: (value: typeof current) => void) {
-				subscribers.add(fn);
-				fn(current);
-				return () => subscribers.delete(fn);
+			get page() {
+				return current;
 			},
 			setPath(pathname: string, data: Record<string, unknown> = {}) {
 				current = {
 					url: new URL(`https://example.test${pathname}`),
 					data
 				};
-				for (const subscriber of subscribers) subscriber(current);
 			}
 		}
 	};
@@ -36,6 +32,9 @@ const navigation = vi.hoisted(() => ({ to: null as { url: URL } | null }));
 vi.mock('$app/state', () => ({
 	get navigating() {
 		return navigation;
+	},
+	get page() {
+		return pageStore.page;
 	}
 }));
 
@@ -45,14 +44,6 @@ const { goto, invalidate } = vi.hoisted(() => {
 
 vi.mock('$app/navigation', () => {
 	return { goto, invalidate, afterNavigate: vi.fn() };
-});
-
-vi.mock('$app/stores', () => {
-	return {
-		page: {
-			subscribe: pageStore.subscribe
-		}
-	};
 });
 
 const baseCapabilityMap: CapabilityMap = {

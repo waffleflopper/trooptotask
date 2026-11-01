@@ -47,11 +47,14 @@ describe('settleAction', () => {
 		input.value = 'draft@example.mil';
 		button.focus();
 
-		await settleAction(frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page), {
-			isCurrent: current,
-			settled: (error) => showAlert(form, error),
-			focus: () => [button]
-		});
+		await settleAction(
+			frameworkOutcome({ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } }, page),
+			{
+				isCurrent: current,
+				settled: (error) => showAlert(form, error),
+				focus: () => [button]
+			}
+		);
 
 		expect(form.querySelector('[role="alert"]')?.textContent).toBe(requestErrorText);
 		expect(page.errorPage).toBeUndefined();
@@ -66,11 +69,14 @@ describe('settleAction', () => {
 		button.focus();
 		const errors: Array<string | null> = [];
 
-		await settleAction(frameworkOutcome({ type: 'success', status: 200, data: { inviteSuccess: true } }, page), {
-			isCurrent: current,
-			settled: (error) => errors.push(error),
-			focus: () => [button]
-		});
+		await settleAction(
+			frameworkOutcome({ type: 'success', status: 200, location: '/', data: { inviteSuccess: true } }, page),
+			{
+				isCurrent: current,
+				settled: (error) => errors.push(error),
+				focus: () => [button]
+			}
+		);
 
 		expect(errors).toEqual([null]);
 		expect(page.applied).toEqual([{ inviteSuccess: true }]);
@@ -83,14 +89,34 @@ describe('settleAction', () => {
 		const { input, button, page } = mount();
 		input.value = 'kept@example.mil';
 
-		await settleAction(frameworkOutcome({ type: 'success', status: 200, data: { inviteSuccess: true } }, page), {
-			isCurrent: current,
-			settled: () => {},
-			focus: () => [button],
-			reset: false
-		});
+		await settleAction(
+			frameworkOutcome({ type: 'success', status: 200, location: '/', data: { inviteSuccess: true } }, page),
+			{
+				isCurrent: current,
+				settled: () => {},
+				focus: () => [button],
+				reset: false
+			}
+		);
 
 		expect(input.value).toBe('kept@example.mil');
+	});
+
+	it('stays on the page when the action URL lacks its query string, and still follows a redirect', async () => {
+		const { button, page } = mount();
+		page.path = '/admin/announcements/whats-new?entry=draft-1';
+		const settle = (result: Parameters<typeof frameworkOutcome>[0]) =>
+			settleAction(frameworkOutcome(result, page), { isCurrent: current, settled: () => {}, focus: () => [button] });
+
+		await settle({ type: 'failure', status: 400, location: '/admin/announcements/whats-new', data: { error: 'No' } });
+		await settle({ type: 'success', status: 200, location: '/admin/announcements/whats-new', data: { id: 'a' } });
+
+		expect(page.location).toBeUndefined();
+		expect(page.applied).toEqual([{ error: 'No' }, { id: 'a' }]);
+
+		await settle({ type: 'redirect', status: 303, location: '/org/alpha' });
+
+		expect(page.location).toBe('/org/alpha');
 	});
 
 	it('applies a failure so its field message renders', async () => {
@@ -98,7 +124,10 @@ describe('settleAction', () => {
 		const errors: Array<string | null> = [];
 
 		await settleAction(
-			frameworkOutcome({ type: 'failure', status: 400, data: { inviteError: 'Email is invalid' } }, page),
+			frameworkOutcome(
+				{ type: 'failure', status: 400, location: '/', data: { inviteError: 'Email is invalid' } },
+				page
+			),
 			{ isCurrent: current, settled: (error) => errors.push(error), focus: () => [button] }
 		);
 
@@ -113,12 +142,12 @@ describe('settleAction', () => {
 		button.disabled = true;
 		const options = { isCurrent: current, settled: () => {}, focus: () => [button, heading] };
 
-		await settleAction(frameworkOutcome({ type: 'success', status: 200 }, page), options);
+		await settleAction(frameworkOutcome({ type: 'success', status: 200, location: '/' }, page), options);
 		expect(document.activeElement).toBe(heading);
 
 		button.disabled = false;
 		form.remove();
-		await settleAction(frameworkOutcome({ type: 'success', status: 200 }, page), options);
+		await settleAction(frameworkOutcome({ type: 'success', status: 200, location: '/' }, page), options);
 		expect(document.activeElement).toBe(heading);
 	});
 
@@ -134,7 +163,7 @@ describe('settleAction', () => {
 		document.body.append(panel);
 		button.remove();
 
-		await settleAction(frameworkOutcome({ type: 'success', status: 200 }, page), {
+		await settleAction(frameworkOutcome({ type: 'success', status: 200, location: '/' }, page), {
 			isCurrent: current,
 			settled: () => {},
 			focus: () => [button, hiddenTrigger, heading]
@@ -147,7 +176,7 @@ describe('settleAction', () => {
 		const { button, heading, page } = mount();
 		button.disabled = true;
 
-		await settleAction(frameworkOutcome({ type: 'failure', status: 503, data: {} }, page), {
+		await settleAction(frameworkOutcome({ type: 'failure', status: 503, location: '/', data: {} }, page), {
 			isCurrent: current,
 			settled: () => (button.disabled = false),
 			focus: () => [button, heading]
@@ -163,11 +192,14 @@ describe('settleAction', () => {
 		button.scrollIntoView = (options) =>
 			void scrolls.push([form.querySelector('[role="alert"]')?.textContent, options]);
 
-		await settleAction(frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page), {
-			isCurrent: current,
-			settled: (error) => showAlert(form, error),
-			focus: () => [button]
-		});
+		await settleAction(
+			frameworkOutcome({ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } }, page),
+			{
+				isCurrent: current,
+				settled: (error) => showAlert(form, error),
+				focus: () => [button]
+			}
+		);
 
 		expect(scrolls).toEqual([[requestErrorText, { block: 'nearest' }]]);
 		expect(document.activeElement).toBe(button);
@@ -179,7 +211,7 @@ describe('settleAction', () => {
 		button.disabled = true;
 		page.invalidate = () => Promise.reject(new Error('offline'));
 
-		await settleAction(frameworkOutcome({ type: 'success', status: 200 }, page), {
+		await settleAction(frameworkOutcome({ type: 'success', status: 200, location: '/' }, page), {
 			isCurrent: current,
 			settled: (error) => {
 				button.disabled = false;
@@ -202,14 +234,20 @@ describe('settleAction', () => {
 		const errors: Array<string | null> = [];
 
 		await settleAction(
-			frameworkOutcome({ type: 'failure', status: 400, data: { inviteError: 'Email is invalid' } }, page),
+			frameworkOutcome(
+				{ type: 'failure', status: 400, location: '/', data: { inviteError: 'Email is invalid' } },
+				page
+			),
 			{ isCurrent: () => false, settled: (error) => errors.push(error), focus: () => [button] }
 		);
-		await settleAction(frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page), {
-			isCurrent: () => false,
-			settled: (error) => errors.push(error),
-			focus: () => [button]
-		});
+		await settleAction(
+			frameworkOutcome({ type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } }, page),
+			{
+				isCurrent: () => false,
+				settled: (error) => errors.push(error),
+				focus: () => [button]
+			}
+		);
 
 		expect(errors).toEqual([]);
 		expect(page.applied).toEqual([]);
@@ -226,7 +264,7 @@ describe('settleAction', () => {
 		const errors: Array<string | null> = [];
 		button.focus();
 
-		const settling = settleAction(frameworkOutcome({ type: 'success', status: 200 }, page), {
+		const settling = settleAction(frameworkOutcome({ type: 'success', status: 200, location: '/' }, page), {
 			isCurrent: () => live,
 			settled: (error) => errors.push(error),
 			focus: () => [button]

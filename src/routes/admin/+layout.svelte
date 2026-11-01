@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import AdminSearch from '$features/platform-admin/components/AdminSearch.svelte';
 	import { ADMIN_SECTIONS, isAdminSectionActive, type AdminSection } from '$features/platform-admin/sections';
 	import { BrandWordmark } from '$lib/components/patterns/brand-wordmark';
@@ -11,10 +11,10 @@
 
 	let { children, data } = $props();
 
-	const isActive = (section: AdminSection) => isAdminSectionActive(section, $page.url.pathname);
+	const isActive = (section: AdminSection) => isAdminSectionActive(section, page.url.pathname);
 	const currentSection = $derived(ADMIN_SECTIONS.find(isActive));
 	const leafLabel = $derived(
-		typeof $page.data?.breadcrumbLabel === 'string' ? ($page.data.breadcrumbLabel as string) : undefined
+		typeof page.data?.breadcrumbLabel === 'string' ? (page.data.breadcrumbLabel as string) : undefined
 	);
 
 	// Dialogs, menus and toasts mount on the document body, outside this layout's serif.
@@ -43,7 +43,7 @@
 	// A link chosen in the menu closes it; focus returns to the Menu button rather than the top of the document.
 	let returnFocusToMenu = false;
 	beforeNavigate(({ type }) => {
-		returnFocusToMenu = menuOpen && type === 'link';
+		returnFocusToMenu = menuOpen && (type === 'link' || type === 'goto');
 		menuOpen = false;
 	});
 	afterNavigate(() => {

@@ -9,7 +9,7 @@
 		RANK_TIE_BREAK_RANGE_MESSAGE,
 		RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
 	} from '$features/personnel/contracts';
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import { onDestroy, tick } from 'svelte';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import type { Attachment } from 'svelte/attachments';
@@ -202,7 +202,7 @@
 				const succeeded = result.type === 'success';
 				try {
 					if (!current()) return;
-					await update({ reset: false });
+					await update({ reset: false, navigate: false });
 					if (!current()) return;
 					// SvelteKit applies `form` only on the action's own page, so the page embedding the editor applies it.
 					if (actionBase && (succeeded || result.type === 'failure')) {

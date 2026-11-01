@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SubmitFunction } from '@sveltejs/kit';
+	import type { SubmitFunction } from '$app/forms';
 	import Mail from '@lucide/svelte/icons/mail';
 	import { invalidate } from '$app/navigation';
 	import { page } from '$app/state';

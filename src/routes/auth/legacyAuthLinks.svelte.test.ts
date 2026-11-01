@@ -2,18 +2,16 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
-import { writable, type Writable } from 'svelte/store';
-import { page } from '$app/stores';
+import { page } from '$app/state';
 import { replaceState } from '$app/navigation';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
-vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: false }, state: {} }) }));
-const store = page as unknown as Writable<{ data: { hasSession: boolean }; state: object }>;
+vi.mock('$app/state', () => ({ page: { data: { hasSession: false }, state: {} } }));
 afterEach(() => {
 	cleanup();
-	store.set({ data: { hasSession: false }, state: {} });
+	Object.assign(page, { data: { hasSession: false }, state: {} });
 	window.history.replaceState({}, '', '/');
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
@@ -24,7 +22,7 @@ for (const [Page, path, label] of [
 	[Invite, '/auth/accept-invite', /^Password/]
 ] as const) {
 	it(`${path} refuses an unverified provider fragment even when another session exists`, async () => {
-		store.set({ data: { hasSession: true }, state: {} });
+		Object.assign(page, { data: { hasSession: true }, state: {} });
 		window.history.replaceState({}, '', `${path}#access_token=synthetic-access&refresh_token=synthetic-refresh`);
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);

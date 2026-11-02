@@ -6,6 +6,7 @@ import type { OrganizationAdmissionRequest } from '$features/organization/index.
 import type { FeatureKey } from '$lib/access/featureSwitches';
 
 declare global {
+	const __APP_ROUTE_IDS__: readonly string[];
 	namespace App {
 		interface Error {
 			message: string;

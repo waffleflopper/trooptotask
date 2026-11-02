@@ -34,6 +34,13 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('receiving a client error report', () => {
+	it('refuses a concrete path offered as a route id', async () => {
+		await expect(
+			receiveClientErrorReport(makeEvent({ ...REPORT, routeId: '/org/alpha/personnel/Jane-Smith' }), 'organization')
+		).rejects.toMatchObject({ status: 400 });
+		expect(rpc).not.toHaveBeenCalled();
+	});
+
 	it('stores it as client reported, attributed from the session and the admitted organization', async () => {
 		const response = await receiveClientErrorReport(makeEvent({ ...REPORT, method: 'GET' }), 'organization');
 		const { reference } = await response.json();

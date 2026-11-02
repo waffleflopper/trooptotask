@@ -10,6 +10,8 @@ import { getAdminClient } from '$lib/server/supabase';
 import { issueMessage } from '$lib/utils/inputSchemas';
 import { readJsonBody, rethrowOrWrap } from './httpAdapter';
 
+const KNOWN_ROUTE_IDS = new Set(__APP_ROUTE_IDS__);
+
 /**
  * Receive one failure a signed-in browser saw: a render error, a transport failure or a write whose result it never
  * learned. The body is strict, so it cannot name a user, Organization, origin or reference. The server generates the
@@ -26,6 +28,8 @@ export async function receiveClientErrorReport(
 	const parsed = clientErrorReportSchema.safeParse(body);
 	if (!parsed.success) error(400, issueMessage(parsed.error));
 	const report = parsed.data;
+	// A shaped path such as /org/alpha/personnel/Jane-Smith is not a route id and would store its values.
+	if (report.routeId !== null && !KNOWN_ROUTE_IDS.has(report.routeId)) error(400, 'Invalid route');
 
 	let organizationId: string | null = null;
 	try {

@@ -55,6 +55,56 @@ describe('reading the organization from the path', () => {
 });
 
 describe('watching requests', () => {
+	it('offers a reference from a failed form action that answered 200', async () => {
+		const { win } = setup(() => new Response('{}', { status: 200, headers: { 'x-error-reference': REFERENCE } }));
+
+		await win.fetch('/org/alpha/settings?/save', { method: 'POST' });
+
+		expect(takeFreshErrorReference('alpha', clock)).toBe(REFERENCE);
+	});
+
+	it('attributes a late failure to the Organization that made the request', async () => {
+		let reject: (reason: unknown) => void = () => {};
+		const { win } = setup(() => new Promise<Response>((_, rej) => (reject = rej)));
+
+		const request = win.fetch('/org/alpha/api/save', { method: 'POST' });
+		win.location.pathname = '/org/bravo/calendar';
+		reject(new TypeError('Failed to fetch'));
+		await expect(request).rejects.toThrow('Failed to fetch');
+
+		expect(sent.mock.calls[0][0]).toBe('/org/alpha/api/errors');
+		expect(takeFreshErrorReference('bravo', clock)).toBeNull();
+		expect(takeFreshErrorReference('alpha', clock)).not.toBeNull();
+	});
+
+	it('reports the same failure again under another Organization', async () => {
+		const { win } = setup(() => Promise.reject(new TypeError('Failed to fetch')));
+
+		await expect(win.fetch('/x', { method: 'POST' })).rejects.toThrow();
+		win.location.pathname = '/org/bravo/calendar';
+		await expect(win.fetch('/x', { method: 'POST' })).rejects.toThrow();
+
+		expect(sent.mock.calls.map(([url]) => url)).toEqual(['/org/alpha/api/errors', '/org/bravo/api/errors']);
+	});
+
+	it('sends a report the network refused once the browser is back online', async () => {
+		let online = false;
+		const posted: string[] = [];
+		const network = (async (input: RequestInfo | URL) => {
+			if (!online) throw new TypeError('Failed to fetch');
+			posted.push(String(input));
+			return new Response(JSON.stringify({ reference: REFERENCE }), { status: 200 });
+		}) as typeof fetch;
+		const win = new FakeWindow(network);
+		installClientErrorCapture(win, { routeId: () => '/org/[orgId]/calendar', now: () => clock });
+
+		await expect(win.fetch('/x', { method: 'POST' })).rejects.toThrow();
+		await takeFreshErrorReference('alpha', clock);
+		online = true;
+		win.emit('online');
+		await vi.waitFor(() => expect(posted).toEqual(['/org/alpha/api/errors']));
+	});
+
 	it('remembers the reference a failed response carries, for the failure toast', async () => {
 		const { win } = setup(() => new Response('{}', { status: 500, headers: { 'x-error-reference': REFERENCE } }));
 
@@ -218,7 +268,7 @@ describe('limits', () => {
 		);
 
 		for (let index = 0; index < MAX_REPORTS_PER_PAGE + 5; index++) {
-			await win.fetch(`/org/alpha/api/resource-${index}`).catch(() => {});
+			await win.fetch(`/api/resource-${index}`).catch(() => {});
 		}
 
 		expect(sent).toHaveBeenCalledTimes(MAX_REPORTS_PER_PAGE);

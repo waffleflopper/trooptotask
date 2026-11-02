@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { classifyFailure, sanitizeFailureForCapture } from './failureCapture';
 
 describe('sanitizeFailureForCapture', () => {
+	it.each([
+		['Request failed: https://service.test/export?token=secret', 'Request failed: [url]'],
+		['Could not load /org/alpha/personnel/Jane-Smith now', 'Could not load [url] now'],
+		['Could not save Jane Smith', 'Could not save [name]'],
+		['Could not save SMITH, JOHN', 'Could not save [name]']
+	])('removes values from %s', (message, expected) => {
+		expect(sanitizeFailureForCapture({ message }).message).toBe(expected);
+	});
+
 	it('drops Postgres row values from message and ignores details, hint and stack', () => {
 		const failure = Object.assign(
 			new Error(

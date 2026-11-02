@@ -23,7 +23,7 @@ export const handleError: HandleClientError = (input) => {
 	const status = input.kind === 'unknown' ? 500 : (input.error.status ?? 500);
 	const kind = classifyFailure({ source: 'client-navigation', caught: input.kind, status });
 	if (kind !== 'render' && kind !== 'server_exception') return;
-	capture?.reporter.report({
+	capture?.report({
 		failure: input.kind === 'unknown' ? input.error : { name: 'HttpError', message: input.error.message },
 		kind,
 		status: input.kind === 'unknown' ? null : status

@@ -14,6 +14,9 @@ const MAX_NAME_LENGTH = 80;
 const MAX_CODE_LENGTH = 40;
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const URL_OR_APP_PATH = /\bhttps?:\/\/\S+|\/org\/\S+/gi;
+/** Best effort: two or more capitalized words read as a person's name. A lone surname in free text can still pass. */
+const PERSON_NAME = /\b[A-Z][a-z'-]+(?:\s+[A-Z]\.?)?(?:\s+[A-Z][a-z'-]+)+\b|\b[A-Z]{2,},?\s+[A-Z]{2,}\b/g;
 const QUOTED = /"[^"]*"|'[^']*'|`[^`]*`/g;
 const KEY_VALUE_PAIR = /\([^()]*\)\s*=\s*\([^()]*\)/g;
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
@@ -34,9 +37,11 @@ function cutAt(text: string, marker: RegExp): string {
 export function normalizeFailureMessage(raw: string): string {
 	const withoutValues = cutAt(cutAt(raw, /Failing row contains/i), /\bDETAIL\b/);
 	return withoutValues
+		.replace(URL_OR_APP_PATH, '[url]')
 		.replace(EMAIL, '[email]')
 		.replace(QUOTED, '?')
 		.replace(KEY_VALUE_PAIR, '?')
+		.replace(PERSON_NAME, '[name]')
 		.replace(UUID, '[id]')
 		.replace(DIGIT_RUN, '[n]')
 		.replace(/\s+/g, ' ')

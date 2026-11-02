@@ -10,6 +10,8 @@ import {
 /** The same failure inside this window is reported once, so a retry loop or a re-render does not flood the page. */
 export const DUPLICATE_WINDOW_MS = 60_000;
 export const MAX_REPORTS_PER_PAGE = 20;
+/** A stalled report must not hold the person's Feedback open; it is treated as not sent. */
+export const REPORT_DEADLINE_MS = 5000;
 
 const ORG_PATH = /^\/org\/([^/]+)(?:\/|$)/;
 const REPORT_PATH = /^(?:\/org\/[^/]+)?\/api\/errors$/;
@@ -21,20 +23,26 @@ export interface ClientFailure {
 	status?: number | null;
 }
 
+/** Where a failure happened, read before any await so a later navigation cannot change who it belongs to. */
+export interface FailureContext {
+	org: string | null;
+	routeId: string | null;
+}
+
 export interface ClientErrorReporter {
 	/**
 	 * Send one failure. Returns its reference, which settles once the server stored it, or null when the page already
 	 * reported too many or there is no route to attribute it to.
 	 */
-	report(input: ClientFailure): PendingErrorReference | null;
+	report(input: ClientFailure, context: FailureContext): PendingErrorReference | null;
+	/** Send again the reports the network refused, once the browser is back online. */
+	resendUnsent(): void;
 }
 
 interface ReporterEnvironment {
 	/** Not the instrumented fetch: a report must not report its own failure. */
 	fetch: typeof fetch;
 	now(): number;
-	pathname(): string;
-	routeId(): string | null;
 }
 
 export function orgSegmentOf(pathname: string): string | null {
@@ -44,12 +52,20 @@ export function orgSegmentOf(pathname: string): string | null {
 export function createClientErrorReporter(env: ReporterEnvironment): ClientErrorReporter {
 	const recent = new Map<string, { at: number; reference: PendingErrorReference }>();
 	let sent = 0;
+	let unsent: UnsentReport[] = [];
+	const keep = (report: UnsentReport) => {
+		if (unsent.length < MAX_REPORTS_PER_PAGE) unsent.push(report);
+	};
 
 	return {
-		report({ failure, kind, method = null, status = null }) {
+		resendUnsent() {
+			const waiting = unsent;
+			unsent = [];
+			for (const report of waiting) void send(env.fetch, report, keep);
+		},
+		report({ failure, kind, method = null, status = null }, { org, routeId }) {
 			const captured = sanitizeFailureForCapture(failure);
-			const routeId = env.routeId();
-			const key = `${kind}\n${routeId ?? ''}\n${captured.name}\n${captured.message}`;
+			const key = `${org ?? ''}\n${kind}\n${routeId ?? ''}\n${captured.name}\n${captured.message}`;
 			const now = env.now();
 
 			const earlier = recent.get(key);
@@ -57,29 +73,51 @@ export function createClientErrorReporter(env: ReporterEnvironment): ClientError
 			if (sent >= MAX_REPORTS_PER_PAGE) return null;
 			sent += 1;
 
-			const org = orgSegmentOf(env.pathname());
-			const reference = send(env.fetch, org ? `/org/${encodeURIComponent(org)}/api/errors` : '/api/errors', {
-				kind,
-				routeId: routeId && isRouteId(routeId) ? routeId : null,
-				name: captured.name,
-				message: captured.message,
-				method: method ?? null,
-				status
-			});
+			const reference = send(
+				env.fetch,
+				{
+					url: org ? `/org/${encodeURIComponent(org)}/api/errors` : '/api/errors',
+					body: JSON.stringify({
+						kind,
+						routeId: routeId && isRouteId(routeId) ? routeId : null,
+						name: captured.name,
+						message: captured.message,
+						method: method ?? null,
+						status
+					})
+				},
+				keep
+			);
 			recent.set(key, { at: now, reference });
 			return reference;
 		}
 	};
 }
 
-async function send(fetchImpl: typeof fetch, url: string, body: Record<string, unknown>): Promise<string | null> {
+interface UnsentReport {
+	url: string;
+	body: string;
+}
+
+async function send(
+	fetchImpl: typeof fetch,
+	report: UnsentReport,
+	keepUnsent: (report: UnsentReport) => void
+): Promise<string | null> {
+	let res: Response;
 	try {
-		const res = await fetchImpl(url, {
+		res = await fetchImpl(report.url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body)
+			body: report.body,
+			signal: AbortSignal.timeout(REPORT_DEADLINE_MS)
 		});
-		if (!res.ok) return null;
+	} catch {
+		keepUnsent(report);
+		return null;
+	}
+	if (!res.ok) return null;
+	try {
 		const data: unknown = await res.json();
 		const reference = (data as { reference?: unknown } | null)?.reference;
 		return typeof reference === 'string' ? reference : null;
@@ -120,15 +158,18 @@ type CaptureWindow = EventTarget & {
 export function installClientErrorCapture(
 	win: CaptureWindow,
 	options: { routeId(): string | null; now?: () => number; ignoreRejection?(reason: unknown): boolean }
-): { reporter: ClientErrorReporter; reportFailure(failure: unknown): void; uninstall(): void } {
+): { report(input: ClientFailure): void; reportFailure(failure: unknown): void; uninstall(): void } {
 	const now = options.now ?? Date.now;
 	const nativeFetch = win.fetch.bind(win);
 	const reporter = createClientErrorReporter({
 		fetch: nativeFetch,
-		now,
-		pathname: () => win.location.pathname,
-		routeId: options.routeId
+		now
 	});
+	const currentContext = (): FailureContext => ({
+		org: orgSegmentOf(win.location.pathname),
+		routeId: options.routeId()
+	});
+	const resendUnsent = () => reporter.resendUnsent();
 	let leaving = false;
 	const onLeaving = () => {
 		leaving = true;
@@ -137,9 +178,9 @@ export function installClientErrorCapture(
 		leaving = false;
 	};
 
-	function note(input: ClientFailure) {
-		const reference = reporter.report(input);
-		if (reference) recordErrorReference(reference, orgSegmentOf(win.location.pathname), now());
+	function note(input: ClientFailure, context = currentContext()) {
+		const reference = reporter.report(input, context);
+		if (reference) recordErrorReference(reference, context.org, now());
 	}
 
 	const instrumentedFetch: typeof fetch = async (input, init) => {
@@ -147,7 +188,7 @@ export function installClientErrorCapture(
 		if (!target || target.url.origin !== win.location.origin || REPORT_PATH.test(target.url.pathname)) {
 			return nativeFetch(input, init);
 		}
-		const org = orgSegmentOf(win.location.pathname);
+		const context = currentContext();
 		const method = target.method;
 		let response: Response;
 		try {
@@ -156,22 +197,26 @@ export function installClientErrorCapture(
 			const aborted = isAbort(thrown) || init?.signal?.aborted || (input instanceof Request && input.signal.aborted);
 			const kind = classifyFailure({ source: 'fetch-rejection', method });
 			if (!aborted && !leaving && kind && (kind === 'transport' || kind === 'unconfirmed_write')) {
-				note({ failure: thrown, kind, method });
+				note({ failure: thrown, kind, method }, context);
 			}
 			throw thrown;
 		}
-		if (response.status >= 500) {
-			const reference = response.headers.get(ERROR_REFERENCE_HEADER);
-			if (reference) recordErrorReference(reference, org, now());
-			else if (!leaving) {
+		// A failed form action answers HTTP 200 with its status in the body, so the header decides, not the status.
+		const reference = response.headers.get(ERROR_REFERENCE_HEADER);
+		if (reference) recordErrorReference(reference, context.org, now());
+		else if (response.status >= 500) {
+			if (!leaving) {
 				const kind = classifyFailure({ source: 'fetch-rejection', method });
 				if (kind === 'transport' || kind === 'unconfirmed_write') {
-					note({
-						failure: { name: 'HttpError', message: `The server did not confirm the request (${response.status})` },
-						kind,
-						method,
-						status: response.status
-					});
+					note(
+						{
+							failure: { name: 'HttpError', message: `The server did not confirm the request (${response.status})` },
+							kind,
+							method,
+							status: response.status
+						},
+						context
+					);
 				}
 			}
 		}
@@ -194,16 +239,18 @@ export function installClientErrorCapture(
 	};
 
 	win.fetch = instrumentedFetch;
+	win.addEventListener('online', resendUnsent);
 	win.addEventListener('pagehide', onLeaving);
 	win.addEventListener('beforeunload', onLeaving);
 	win.addEventListener('pageshow', onReturning);
 	win.addEventListener('error', onError);
 	win.addEventListener('unhandledrejection', onRejection);
 	return {
-		reporter,
+		report: (input) => void reporter.report(input, currentContext()),
 		reportFailure: (failure) => note({ failure, kind: 'render' }),
 		uninstall() {
 			if (win.fetch === instrumentedFetch) win.fetch = nativeFetch;
+			win.removeEventListener('online', resendUnsent);
 			win.removeEventListener('pagehide', onLeaving);
 			win.removeEventListener('beforeunload', onLeaving);
 			win.removeEventListener('pageshow', onReturning);

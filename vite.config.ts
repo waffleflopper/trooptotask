@@ -1,4 +1,5 @@
-import { dirname, resolve, sep } from 'node:path';
+import { readdirSync } from 'node:fs';
+import { dirname, posix, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
@@ -13,7 +14,21 @@ if (projectRoot.includes(`${sep}.worktrees${sep}`)) {
 	fsAllow.push(resolve(projectRoot, '..', '..'));
 }
 
+/** Every route id in the app, so a browser's error report can be held to a real route template rather than a path. */
+function appRouteIds(): string[] {
+	const root = resolve(projectRoot, 'src/routes');
+	const ids = new Set<string>();
+	for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
+		if (!entry.isFile() || !entry.name.startsWith('+')) continue;
+		ids.add(posix.join('/', relative(root, entry.parentPath).split(sep).join('/')));
+	}
+	return [...ids];
+}
+
 export default defineConfig({
+	define: {
+		__APP_ROUTE_IDS__: JSON.stringify(appRouteIds())
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({

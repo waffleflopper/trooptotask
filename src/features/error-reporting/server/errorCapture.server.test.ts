@@ -156,10 +156,15 @@ describe('the request scope', () => {
 
 	it('awaits every recording before it settles and reports the newest reference', async () => {
 		let finish: () => void = () => {};
+		let recordingStarted: () => void = () => {};
+		const started = new Promise<void>((resolve) => {
+			recordingStarted = resolve;
+		});
 		const stored: string[] = [];
 		const { config } = makeConfig({
 			record: (occurrence) =>
 				new Promise<void>((resolve) => {
+					recordingStarted();
 					finish = () => {
 						stored.push(occurrence.reference);
 						resolve();
@@ -176,7 +181,8 @@ describe('the request scope', () => {
 			return result;
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 10));
+		await started;
+		await Promise.resolve();
 		expect(settled).toBe(false);
 		finish();
 		const { result, reference } = await scoped;
@@ -204,14 +210,21 @@ describe('the request scope', () => {
 		let lateReference: string | null = null;
 		let lateRecording: Promise<boolean> | null = null;
 
+		let responseSent: () => void = () => {};
+		const afterResponse = new Promise<void>((resolve) => {
+			responseSent = resolve;
+		});
+		let lateWork: Promise<void> = Promise.resolve();
+
 		await runInErrorScope(config, async () => {
-			setTimeout(() => {
+			lateWork = afterResponse.then(() => {
 				lateReference = noteServerFailure({ failure: new Error('Streamed'), kind: 'server_exception', status: 500 });
 				lateRecording = lateReference ? recordingAfterResponse(lateReference) : null;
-			}, 5);
+			});
 			return 'response';
 		});
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		responseSent();
+		await lateWork;
 
 		expect(lateReference).toMatch(REFERENCE);
 		await expect(lateRecording).resolves.toBe(true);

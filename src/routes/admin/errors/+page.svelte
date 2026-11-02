@@ -204,8 +204,11 @@
 	{:else if result?.groups.length === 0}
 		<Empty.Root>
 			<Empty.Header>
-				<Empty.Title>{emptyTitle}</Empty.Title>
+				<Empty.Title>{data.page > 1 ? 'Nothing on this page.' : emptyTitle}</Empty.Title>
 			</Empty.Header>
+			{#if data.page > 1}
+				<Button variant="outline" onclick={() => void show({ page: 1 })}>Go to first page</Button>
+			{/if}
 		</Empty.Root>
 	{:else}
 		{#if settled === null}<p class="sr-only" role="status" aria-label="Loading errors">Loading errors</p>{/if}

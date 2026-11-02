@@ -114,8 +114,9 @@
 			if (ctx.viewMode === '3-month') await exportQuarterToExcel(quarterStart(), getExportData());
 			else await exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData());
 		} catch (err) {
+			if (!current()) return;
 			reportClientFailure(err);
-			if (current()) toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
+			toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
 		}
 	}
 
@@ -127,8 +128,9 @@
 			if (ctx.viewMode === '3-month') await printQuarterCalendar(quarterStart(), options);
 			else await printMonthCalendar(calendarStore.year, calendarStore.month, options);
 		} catch (err) {
+			if (!current()) return;
 			reportClientFailure(err);
-			if (current()) toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
+			toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
 		}
 	}
 

@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { classifyFailure, sanitizeFailureForCapture } from './failureCapture';
 
 describe('sanitizeFailureForCapture', () => {
+	it('bounds the message it stores however long the failure is', () => {
+		const { message } = sanitizeFailureForCapture({ message: 'a'.repeat(100_000) });
+		expect(message).toBe('a'.repeat(300));
+	});
+
 	it.each([
 		['Request failed: https://service.test/export?token=secret', 'Request failed: [url]'],
 		['Could not load /org/alpha/personnel/Jane-Smith now', 'Could not load [url] now'],

@@ -104,8 +104,10 @@
 			await downloadRosterExport(filename, rows);
 			if (isCurrent() && skipped > 0) toastStore.info(`Exported ${count(exportedCount)}${skippedNote(skipped)}`);
 		} catch (err) {
-			reportClientFailure(err);
-			if (isCurrent()) toastStore.error('The export could not be created. Try again.');
+			if (isCurrent()) {
+				reportClientFailure(err);
+				toastStore.error('The export could not be created. Try again.');
+			}
 		} finally {
 			if (isCurrent()) busy = false;
 		}

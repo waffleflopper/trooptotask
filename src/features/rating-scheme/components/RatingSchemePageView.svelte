@@ -106,8 +106,10 @@
 			const { exportRatingScheme } = await import('$features/rating-scheme/utils/ratingSchemeExport');
 			await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
 		} catch (err) {
-			reportClientFailure(err);
-			if (current()) toastStore.error(err instanceof Error ? err.message : 'Export failed');
+			if (current()) {
+				reportClientFailure(err);
+				toastStore.error(err instanceof Error ? err.message : 'Export failed');
+			}
 		} finally {
 			exportLoading = false;
 		}

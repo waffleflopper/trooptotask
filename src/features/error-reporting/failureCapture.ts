@@ -10,6 +10,7 @@ export interface CapturedFailure {
 }
 
 export const MAX_CAPTURED_MESSAGE_LENGTH = 300;
+const MAX_NORMALIZED_INPUT_LENGTH = 2000;
 const MAX_NAME_LENGTH = 80;
 const MAX_CODE_LENGTH = 40;
 
@@ -35,7 +36,8 @@ function cutAt(text: string, marker: RegExp): string {
 }
 
 export function normalizeFailureMessage(raw: string): string {
-	const withoutValues = cutAt(cutAt(raw, /Failing row contains/i), /\bDETAIL\b/);
+	// A failure's message can be any size; the patterns below only ever need the start of it.
+	const withoutValues = cutAt(cutAt(raw.slice(0, MAX_NORMALIZED_INPUT_LENGTH), /Failing row contains/i), /\bDETAIL\b/);
 	return withoutValues
 		.replace(URL_OR_APP_PATH, '[url]')
 		.replace(EMAIL, '[email]')

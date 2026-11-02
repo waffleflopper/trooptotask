@@ -98,6 +98,14 @@ describe('Errors page', () => {
 		expect(await screen.findByText('No open errors in the last 30 days.')).toBeTruthy();
 	});
 
+	it('offers the first page when the page it is on has emptied', async () => {
+		render(ErrorsPage, { props: { data: data(ok([]), { page: 2 }), form: null } });
+
+		await fireEvent.click(await screen.findByRole('button', { name: 'Go to first page' }));
+
+		expect(goto.mock.calls[0][0]).toBe('/admin/errors');
+	});
+
 	it('switches to Resolved through the URL, from the first page', async () => {
 		render(ErrorsPage, { data: data(ok([group()]), { page: 2 }), form: null });
 

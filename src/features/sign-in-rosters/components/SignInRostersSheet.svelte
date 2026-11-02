@@ -86,9 +86,10 @@
 		try {
 			await generateRosterPdf(roster, tree, groups);
 		} catch (err) {
-			reportClientFailure(err);
-			if (!disposed && inOrganization())
+			if (!disposed && inOrganization()) {
+				reportClientFailure(err);
 				toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
+			}
 		}
 	}
 

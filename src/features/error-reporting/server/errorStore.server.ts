@@ -15,10 +15,12 @@ export interface ErrorGroupReader {
 	list(input: { status: ErrorGroupStatus; limit: number; offset: number }): Promise<ErrorGroupPage>;
 }
 
-export type ResolveErrorGroupResult = { status: 'resolved' } | { status: 'not_open' };
+export type ResolveErrorGroupResult = { status: 'resolved'; resolvedAt: string } | { status: 'not_open' };
 
 export interface ErrorGroupResolver {
 	resolve(input: { groupId: string; actorUserId: string }): Promise<ResolveErrorGroupResult>;
+	/** Undo exactly one resolution, so a resolve whose required audit failed can be retried. */
+	reopen(input: { groupId: string; actorUserId: string; resolvedAt: string }): Promise<void>;
 }
 
 /** The generated RPC types mark every argument non-null although the function accepts NULL for these. */
@@ -121,15 +123,27 @@ export function createSupabaseErrorGroupReader(client: SupabaseClient): ErrorGro
 export function createSupabaseErrorGroupResolver(client: SupabaseClient): ErrorGroupResolver {
 	return {
 		async resolve({ groupId, actorUserId }) {
+			const resolvedAt = new Date().toISOString();
 			const { data, error } = await client
 				.from('platform_error_groups')
-				.update({ status: 'resolved', resolved_at: new Date().toISOString(), resolved_by: actorUserId })
+				.update({ status: 'resolved', resolved_at: resolvedAt, resolved_by: actorUserId })
 				.eq('id', groupId)
 				.eq('status', 'open')
 				.select('id')
 				.maybeSingle();
 			if (error) throw new Error('Failed to resolve error', { cause: error });
-			return data ? { status: 'resolved' } : { status: 'not_open' };
+			return data ? { status: 'resolved', resolvedAt } : { status: 'not_open' };
+		},
+
+		async reopen({ groupId, actorUserId, resolvedAt }) {
+			const { error } = await client
+				.from('platform_error_groups')
+				.update({ status: 'open', resolved_at: null, resolved_by: null })
+				.eq('id', groupId)
+				.eq('status', 'resolved')
+				.eq('resolved_by', actorUserId)
+				.eq('resolved_at', resolvedAt);
+			if (error) throw new Error('Failed to reopen error', { cause: error });
 		}
 	};
 }

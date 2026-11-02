@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseErrorPage, parseErrorStatus } from '$features/platform-admin/errorTypes';
 import { createPlatformErrorOperations } from '$features/platform-admin/index.server';
+import { noteUnhandledFailure } from '$lib/server/adapters/httpAdapter';
 import { validateUUID } from '$lib/server/validation';
 
 export const load: PageServerLoad = async (event) => {
@@ -21,7 +22,8 @@ export const actions: Actions = {
 			const result = await operations.resolve(id);
 			if (result.status === 'not_open') return fail(409, { error: 'This error is already resolved.' });
 		} catch (cause) {
-			console.error('Failed to resolve error', cause);
+			// An enhanced action failure answers HTTP 200, so the response status alone would not capture it.
+			noteUnhandledFailure(cause);
 			return fail(500, { error: 'Could not resolve this error. Reload before trying again.' });
 		}
 		return { success: true };

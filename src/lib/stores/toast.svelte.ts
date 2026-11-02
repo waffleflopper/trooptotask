@@ -49,17 +49,23 @@ class ToastStore {
 		const handler = errorReportHandler;
 		const reference = !action && handler ? takeFreshErrorReference(handler.org) : null;
 		if (handler && reference) {
-			const id = sonnerToast.error(
-				message,
-				this.#options(
+			// Sonner reports a swipe, close or expiry here, but not the action's own click.
+			const forget = () => void reportToasts.delete(id);
+			const id = sonnerToast.error(message, {
+				...this.#options(
 					Math.max(duration ?? 6000, REPORTABLE_ERROR_TOAST_MS),
 					{
 						label: 'Report error',
-						onClick: () => handler.open(reference)
+						onClick: () => {
+							forget();
+							handler.open(reference);
+						}
 					},
 					description
-				)
-			);
+				),
+				onDismiss: forget,
+				onAutoClose: forget
+			});
 			reportToasts.add(id);
 			return id;
 		}

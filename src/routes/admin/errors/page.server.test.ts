@@ -5,6 +5,7 @@ const { createOperations, list, resolveGroup } = vi.hoisted(() => ({
 	resolveGroup: vi.fn()
 }));
 vi.mock('$features/platform-admin/index.server', () => ({ createPlatformErrorOperations: createOperations }));
+import { runInErrorScope, type StoredErrorOccurrence } from '$features/error-reporting/index.server';
 import { actions, load } from './+page.server';
 
 const GROUP_ID = '33333333-3333-4333-8333-333333333333';
@@ -82,9 +83,20 @@ describe('Resolve action', () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		resolveGroup.mockRejectedValue(new Error('audit unavailable'));
 
-		const result = await actions.resolve(resolveEvent(GROUP_ID) as never);
+		const stored: StoredErrorOccurrence[] = [];
+		const config = {
+			record: async (occurrence: StoredErrorOccurrence) => void stored.push(occurrence),
+			routeId: '/admin/errors',
+			method: 'POST',
+			userId: () => 'operator-1',
+			organizationId: async () => null
+		};
+
+		const { result } = await runInErrorScope(config, async () => actions.resolve(resolveEvent(GROUP_ID) as never));
 
 		expect(result).toMatchObject({ status: 500, data: { error: expect.stringContaining('Reload') } });
+		// An enhanced action failure answers HTTP 200, so the action itself must record it.
+		expect(stored).toMatchObject([{ kind: 'server_exception', routeId: '/admin/errors' }]);
 	});
 
 	it('is not reachable without operator admission', async () => {

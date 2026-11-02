@@ -43,6 +43,8 @@
 	let showFeedback = $state(false);
 	let feedbackPageUrl = $state('');
 	let feedbackErrorReference = $state<PendingErrorReference>();
+	/** Each opening is a new report, so Feedback remounts rather than keep an earlier report's reference. */
+	let feedbackOpening = $state(0);
 	let showWhatsNew = $state(false);
 	let hasAutoShownWhatsNew = false;
 	const newestWhatsNewId = $derived(shell.whatsNew[0]?.id);
@@ -75,12 +77,14 @@
 	function openFeedback() {
 		feedbackPageUrl = page.url.pathname;
 		feedbackErrorReference = undefined;
+		feedbackOpening += 1;
 		showFeedback = true;
 	}
 	/** Opens Feedback as a bug report about one captured failure, from a failure toast. */
 	export function reportError(reference: PendingErrorReference) {
 		feedbackPageUrl = page.url.pathname;
 		feedbackErrorReference = reference;
+		feedbackOpening += 1;
 		showFeedback = true;
 	}
 	function closeWhatsNew() {
@@ -165,13 +169,15 @@
 	</AccountPreferencesProvider>
 </AppShellHeader>
 {#if showFeedback}
-	{@render feedback({
-		onClose: () => (showFeedback = false),
-		orgId: shell.org.id,
-		orgName: shell.org.name,
-		pageUrl: feedbackPageUrl,
-		errorReference: feedbackErrorReference
-	})}
+	{#key feedbackOpening}
+		{@render feedback({
+			onClose: () => (showFeedback = false),
+			orgId: shell.org.id,
+			orgName: shell.org.name,
+			pageUrl: feedbackPageUrl,
+			errorReference: feedbackErrorReference
+		})}
+	{/key}
 {/if}
 {#if showWhatsNew}
 	{#await import('./WhatsNewModal.svelte') then { default: WhatsNewModal }}

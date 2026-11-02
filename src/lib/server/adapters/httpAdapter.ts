@@ -85,13 +85,19 @@ function toPublicFailure(err: unknown): PublicFailure {
 		const { reason, requiresStepUp, stepUpPath } = err;
 		return { status: err.status, message: err.message, details: { reason, requiresStepUp, stepUpPath } };
 	}
-	console.error('[http-adapter] Unhandled route error:', sanitizeErrorForLog(err));
 	const appRaised5xx = err instanceof RequestFailure && err.status >= 500 && err.status <= 599;
 	const status = appRaised5xx ? err.status : 500;
 	const message = appRaised5xx && err.publicMessage ? err.message : INTERNAL_ERROR_MESSAGE;
+	return { status, message, details: {}, errorReference: noteUnhandledFailure(err) };
+}
+
+/** Log and capture a failure the app did not raise as a 4xx, for a handler that answers it in its own words. */
+export function noteUnhandledFailure(err: unknown): string | undefined {
+	console.error('[http-adapter] Unhandled route error:', sanitizeErrorForLog(err));
+	const appRaised5xx = err instanceof RequestFailure && err.status >= 500 && err.status <= 599;
+	const status = appRaised5xx ? err.status : 500;
 	const kind = classifyFailure({ source: 'server', status, unknownException: !appRaised5xx });
-	const errorReference = (kind && noteServerFailure({ failure: err, kind, status })) || undefined;
-	return { status, message, details: {}, errorReference };
+	return (kind && noteServerFailure({ failure: err, kind, status })) || undefined;
 }
 
 export function rethrowOrWrap(err: unknown): never {

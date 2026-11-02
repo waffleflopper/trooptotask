@@ -5,12 +5,24 @@ import type { ErrorGroup } from '$features/error-reporting/contracts';
 import type { ErrorGroupRegion } from '$features/platform-admin/errorTypes';
 import ErrorsPage from './+page.svelte';
 
-const { goto, invalidate } = vi.hoisted(() => ({
+type ResolveReply = (input: { result: { type: string }; update: () => Promise<void> }) => Promise<void>;
+const { goto, invalidate, navigations, submissions } = vi.hoisted(() => ({
 	goto: vi.fn(async (..._args: unknown[]) => {}),
-	invalidate: vi.fn(async (..._args: unknown[]) => {})
+	invalidate: vi.fn(async (..._args: unknown[]) => {}),
+	navigations: [] as Array<() => void>,
+	submissions: [] as Array<() => ResolveReply>
 }));
-vi.mock('$app/navigation', () => ({ goto, invalidate }));
-vi.mock('$app/forms', () => ({ enhance: () => ({ destroy() {} }) }));
+vi.mock('$app/navigation', () => ({
+	goto,
+	invalidate,
+	beforeNavigate: (callback: () => void) => navigations.push(callback)
+}));
+vi.mock('$app/forms', () => ({
+	enhance: (_form: HTMLFormElement, submit: () => ResolveReply) => {
+		submissions.push(submit);
+		return { destroy() {} };
+	}
+}));
 
 const FEEDBACK_ID = '44444444-4444-4444-8444-444444444444';
 
@@ -43,6 +55,8 @@ function data(errors: Promise<ErrorGroupRegion>, overrides: Record<string, unkno
 beforeEach(() => {
 	goto.mockClear();
 	invalidate.mockClear();
+	navigations.length = 0;
+	submissions.length = 0;
 });
 afterEach(cleanup);
 
@@ -119,6 +133,22 @@ describe('Errors page', () => {
 		});
 		expect(await screen.findByText(/Resolved Nov 1, 2026/)).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Resolve HttpError/ })).toBeNull();
+	});
+
+	it.each([
+		['shows a failed resolve while the page is still open', false, true],
+		['ignores a resolve reply that arrives after leaving the page', true, false]
+	])('%s', async (_name, leave, shown) => {
+		render(ErrorsPage, { data: data(ok([group()])), form: null });
+		await screen.findByRole('button', { name: /Resolve HttpError/ });
+		const reply = submissions.at(-1)!();
+		const update = vi.fn(async () => {});
+
+		if (leave) for (const navigate of navigations) navigate();
+		await reply({ result: { type: 'failure' }, update });
+
+		await waitFor(() => expect(screen.queryByRole('alert') !== null).toBe(shown));
+		expect(update).not.toHaveBeenCalled();
 	});
 
 	it('shows a failed resolve from the server action', async () => {

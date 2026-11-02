@@ -27,6 +27,8 @@ function shownOptions() {
 	return sonner.error.mock.calls.at(-1)?.[1] as unknown as {
 		duration: number;
 		action?: { label: string; onClick(): void };
+		onDismiss?(toast: { id: number }): void;
+		onAutoClose?(toast: { id: number }): void;
 	};
 }
 
@@ -49,6 +51,20 @@ describe('failure toast report action', () => {
 		unregister();
 
 		expect(sonner.dismiss).toHaveBeenCalledWith(1);
+	});
+
+	it.each([
+		['expires', (options: ReturnType<typeof shownOptions>) => options.onAutoClose?.({ id: 1 })],
+		['is dismissed', (options: ReturnType<typeof shownOptions>) => options.onDismiss?.({ id: 1 })],
+		['is used', (options: ReturnType<typeof shownOptions>) => options.action?.onClick()]
+	])('stops tracking a report toast once it %s', (_closing, close) => {
+		recordErrorReference('ref-1', 'alpha');
+		toastStore.error('Failed to save');
+		close(shownOptions());
+
+		unregister();
+
+		expect(sonner.dismiss).not.toHaveBeenCalled();
 	});
 
 	it('keeps a longer requested duration', () => {

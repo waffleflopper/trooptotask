@@ -35,13 +35,21 @@ export function createPlatformErrors(deps: PlatformErrorsDependencies): Platform
 			// The resolver attributes the resolution to the admitted operator; a client never supplies it.
 			const result = await deps.resolver.resolve({ groupId, actorUserId: deps.actorUserId });
 			if (result.status === 'not_open') return result;
-			await deps.audit({
-				action: 'error_group.resolved',
-				resourceType: 'platform_error_group',
-				resourceId: groupId,
-				severity: 'info'
-			});
-			return result;
+			try {
+				await deps.audit({
+					action: 'error_group.resolved',
+					resourceType: 'platform_error_group',
+					resourceId: groupId,
+					severity: 'info'
+				});
+			} catch (cause) {
+				// Without its audit the resolution must not stand, or a retry would find it resolved and never audit it.
+				await deps.resolver
+					.reopen({ groupId, actorUserId: deps.actorUserId, resolvedAt: result.resolvedAt })
+					.catch((reopenCause) => console.error('Failed to reopen an unaudited resolution', reopenCause));
+				throw cause;
+			}
+			return { status: 'resolved' };
 		}
 	};
 }

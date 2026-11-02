@@ -5,6 +5,7 @@ import { createPlatformErrors } from './errors.server';
 afterEach(() => vi.restoreAllMocks());
 
 const GROUP_ID = '33333333-3333-4333-8333-333333333333';
+const RESOLVED_AT = '2026-11-02T08:00:00.000Z';
 
 function group(overrides: Partial<ErrorGroup> = {}): ErrorGroup {
 	return {
@@ -29,18 +30,18 @@ function group(overrides: Partial<ErrorGroup> = {}): ErrorGroup {
 
 function setup({
 	list = async () => ({ groups: [group()], total: 1 }),
-	resolve = async () => ({ status: 'resolved' as const }),
+	resolve = async () => ({ status: 'resolved' as const, resolvedAt: RESOLVED_AT }),
 	audit = async () => {}
 }: {
 	list?: (input: { status: string; limit: number; offset: number }) => Promise<{ groups: ErrorGroup[]; total: number }>;
 	resolve?: (input: {
 		groupId: string;
 		actorUserId: string;
-	}) => Promise<{ status: 'resolved' } | { status: 'not_open' }>;
+	}) => Promise<{ status: 'resolved'; resolvedAt: string } | { status: 'not_open' }>;
 	audit?: (event: unknown) => Promise<void>;
 } = {}) {
 	const reader = { list: vi.fn(list) };
-	const resolver = { resolve: vi.fn(resolve) };
+	const resolver = { resolve: vi.fn(resolve), reopen: vi.fn(async () => {}) };
 	const auditEvents = vi.fn(audit);
 	const errors = createPlatformErrors({
 		reader: reader as never,
@@ -81,7 +82,7 @@ describe('platform errors', () => {
 		const { errors, resolver, auditEvents } = setup({
 			resolve: async () => {
 				order.push('resolved');
-				return { status: 'resolved' };
+				return { status: 'resolved', resolvedAt: RESOLVED_AT };
 			},
 			audit: async () => {
 				order.push('audited');
@@ -107,12 +108,29 @@ describe('platform errors', () => {
 		expect(auditEvents).not.toHaveBeenCalled();
 	});
 
-	it('fails the resolve when its required audit cannot be written', async () => {
-		const { errors } = setup({
+	it('fails the resolve and reopens exactly that resolution when its required audit cannot be written', async () => {
+		const { errors, resolver } = setup({
 			audit: async () => {
 				throw new Error('audit unavailable');
 			}
 		});
+
+		await expect(errors.resolve(GROUP_ID)).rejects.toThrow('audit unavailable');
+		expect(resolver.reopen).toHaveBeenCalledWith({
+			groupId: GROUP_ID,
+			actorUserId: 'operator-1',
+			resolvedAt: RESOLVED_AT
+		});
+	});
+
+	it('still reports the audit failure when the group cannot be reopened', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { errors, resolver } = setup({
+			audit: async () => {
+				throw new Error('audit unavailable');
+			}
+		});
+		resolver.reopen.mockRejectedValue(new Error('database unavailable'));
 
 		await expect(errors.resolve(GROUP_ID)).rejects.toThrow('audit unavailable');
 	});

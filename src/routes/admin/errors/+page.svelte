@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import { goto, invalidate } from '$app/navigation';
+	import { onDestroy } from 'svelte';
+	import { beforeNavigate, goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { ErrorGroup, ErrorGroupStatus } from '$features/error-reporting/contracts';
 	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
@@ -83,13 +84,23 @@
 		data.status === 'open' ? 'No open errors in the last 30 days.' : 'Nothing resolved recently.'
 	);
 
+	let pageLifetime = 0;
+	function retirePage() {
+		pageLifetime += 1;
+		resolving = null;
+	}
+	beforeNavigate(retirePage);
+	onDestroy(retirePage);
+
 	function resolveGroup(groupId: string) {
 		const onView = view;
 		const actor = data.adminUserId;
+		const lifetime = pageLifetime;
 		resolving = groupId;
 		actionError = null;
 		return async ({ result: reply, update }: { result: { type: string }; update: () => Promise<void> }) => {
-			// A reply for another filter, page or operator no longer belongs on screen.
+			// A reply for an earlier visit, another filter, page or operator no longer belongs on screen.
+			if (lifetime !== pageLifetime) return;
 			if (resolving === groupId) resolving = null;
 			if (onView !== view || actor !== data.adminUserId) return;
 			if (reply.type === 'failure' || reply.type === 'error') {

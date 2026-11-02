@@ -158,7 +158,11 @@ type CaptureWindow = EventTarget & {
 export function installClientErrorCapture(
 	win: CaptureWindow,
 	options: { routeId(): string | null; now?: () => number; ignoreRejection?(reason: unknown): boolean }
-): { report(input: ClientFailure): void; reportFailure(failure: unknown): void; uninstall(): void } {
+): {
+	report(input: ClientFailure, context?: FailureContext): void;
+	reportFailure(failure: unknown): void;
+	uninstall(): void;
+} {
 	const now = options.now ?? Date.now;
 	const nativeFetch = win.fetch.bind(win);
 	const reporter = createClientErrorReporter({
@@ -245,7 +249,7 @@ export function installClientErrorCapture(
 	win.addEventListener('error', onError);
 	win.addEventListener('unhandledrejection', onRejection);
 	return {
-		report: (input) => void reporter.report(input, currentContext()),
+		report: (input, context = currentContext()) => void reporter.report(input, context),
 		reportFailure: (failure) => note({ failure, kind: 'render' }),
 		uninstall() {
 			if (win.fetch === instrumentedFetch) win.fetch = nativeFetch;

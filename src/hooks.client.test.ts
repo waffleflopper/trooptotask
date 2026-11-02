@@ -23,7 +23,11 @@ function reportsSent() {
 	return network.mock.calls.map(([, init]) => JSON.parse(String((init as RequestInit).body)));
 }
 
-const navigation: { event: never } = { event: {} as never };
+const navigationTo = (pathname: string, routeId: string) =>
+	({ event: { url: new URL(`https://app.example.test${pathname}`), route: { id: routeId } } }) as never as {
+		event: never;
+	};
+const navigation = navigationTo('/org/alpha/calendar', '/org/[orgId]/calendar');
 
 beforeEach(() => {
 	network.mockClear();
@@ -54,6 +58,18 @@ describe('client error hook', () => {
 				status: null
 			}
 		]);
+	});
+
+	it('files a failed navigation under its destination, not the page being left', () => {
+		handleError({
+			kind: 'unknown',
+			error: new TypeError('Load failed'),
+			...navigationTo('/org/bravo/personnel', '/org/[orgId]/personnel')
+		});
+
+		const [url] = network.mock.calls[0];
+		expect(url).toBe('/org/bravo/api/errors');
+		expect(reportsSent()[0].routeId).toBe('/org/[orgId]/personnel');
 	});
 
 	it('does not report an error the server already stored under a reference', () => {

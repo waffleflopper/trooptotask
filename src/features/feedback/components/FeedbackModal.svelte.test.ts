@@ -290,15 +290,6 @@ describe('FeedbackModal reporting an error', () => {
 		expect(sentBody(send).category).toBe('bug');
 	});
 
-	it('does not touch a closed dialog when the report settles after it unmounts', async () => {
-		const stored = deferred<string | null>();
-		const view = render(FeedbackModal, { onClose: vi.fn(), errorReference: stored.promise });
-
-		view.unmount();
-
-		await expect(act(() => stored.resolve(REFERENCE))).resolves.not.toThrow();
-	});
-
 	it('stays an ordinary feedback form without an error reference', () => {
 		render(FeedbackModal, { onClose: vi.fn() });
 

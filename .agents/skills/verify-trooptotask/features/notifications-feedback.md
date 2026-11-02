@@ -15,7 +15,8 @@ about the current page, and dismiss global announcements without affecting anoth
 - `notification-recovery`: failed loads/writes remain recoverable, and delayed responses cannot populate another
   Organization's bell or choose its mutation target.
 - `feedback`: blank/cancel, categories, exact saved account/Organization/page context, failure retention and retry,
-  denied foreign context, and ignored completions after the submitting modal's scope retires.
+  denied foreign context, ignored completions after the submitting modal's scope retires, and Feedback opened from a
+  failure toast's `Report error` with its read-only error reference.
 - `support-review-and-export`: Platform review preserves status/notes, and both Organization export formats retain
   complete scoped communications fields.
 - `announcements`: active/unexpired banners, per-account dismissal persistence across Organizations, peer isolation and
@@ -122,7 +123,11 @@ endpoints).
    account/Organization/page rather than treating disposal as server cancellation. The helper does not support
    `arm-hold-fail` for Feedback; record that limitation without crediting a delivered native failure. `FeedbackModal`
    component tests cover late nonOK/error-body/transport continuations after unmount. Restore both controls. The owned
-   app has no GitHub feedback token; live external mirroring is not proved.
+   app has no GitHub feedback token; live external mirroring is not proved. From a failure toast, `Report error` opens
+   the same dialog as a Bug Report with a read-only `Error reference` and the message labelled `What were you doing?`;
+   `Submit` stays disabled while the reference is attaching. Cancel creates no row. The
+   [Errors recipe](platform-errors.md) produces the toast and owns the linked-report proof. A saved row keeps the
+   signed-in user, Organization and page like any other Feedback; with a reference the response reports `linked: true`.
 7. **Announcement persistence/isolation.** Reload after seeding: only the active banner appears. Dismiss as one account,
    verify one dismissal and continued absence after reload and an A→B switch for `notificationSwitch`. A peer still sees
    it. Pending dismissal remains account-wide during an Organization refresh; late completions after account replacement

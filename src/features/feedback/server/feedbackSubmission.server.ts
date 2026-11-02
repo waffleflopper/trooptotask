@@ -1,4 +1,5 @@
 import { sanitizeString, validateUUID } from '$lib/server/validation';
+import { isUuid } from '$lib/utils/inputSchemas';
 import type { FeedbackCategory } from '../contracts';
 import type {
 	FeedbackOrganizationContext,
@@ -115,6 +116,20 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 				}
 			}
 
+			let errorReference: string | null = null;
+			if (input.errorReference !== undefined && input.errorReference !== null) {
+				if (!isUuid(input.errorReference)) {
+					return { status: 'validation_error', message: 'Invalid error reference' };
+				}
+				// A reference that is missing and one that belongs to someone else look the same to the caller.
+				try {
+					const owned = await deps.isOwnedErrorReference?.({ reference: input.errorReference, userId: input.userId });
+					if (owned) errorReference = input.errorReference;
+				} catch (error) {
+					console.error('Failed to verify feedback error reference:', error);
+				}
+			}
+
 			const organizationSegments = organizationContext
 				? [organizationContext.organizationId, organizationContext.organizationUrlSlug].filter(
 						(segment): segment is string => Boolean(segment)
@@ -134,14 +149,15 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 					category,
 					message,
 					pageUrl,
-					pageSection
+					pageSection,
+					errorReference
 				});
 			} catch (error) {
 				console.error('Failed to insert feedback:', error);
 				return { status: 'submission_failed', message: 'Failed to submit feedback' };
 			}
 
-			return { status: 'submitted', githubIssue: null };
+			return { status: 'submitted', githubIssue: null, linked: errorReference !== null };
 		}
 	};
 }

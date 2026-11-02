@@ -91,7 +91,7 @@ describe('admin layout', () => {
 		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
 	});
 
-	it('lists the five sections in order and marks only the current one', () => {
+	it('lists the sections in order and marks only the current one', () => {
 		renderLayout();
 
 		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
@@ -101,6 +101,7 @@ describe('admin layout', () => {
 			['Organizations', '/admin/organizations'],
 			['People', '/admin/people'],
 			['Activity', '/admin/activity'],
+			['Errors', '/admin/errors'],
 			['Announcements', '/admin/announcements']
 		]);
 		const current = links.filter((link) => link.getAttribute('aria-current') === 'page');

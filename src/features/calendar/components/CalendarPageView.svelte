@@ -49,6 +49,7 @@
 	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { hasSubGroups } from '$features/personnel/contracts';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
@@ -113,7 +114,9 @@
 			if (ctx.viewMode === '3-month') await exportQuarterToExcel(quarterStart(), getExportData());
 			else await exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData());
 		} catch (err) {
-			if (current()) toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
+			if (!current()) return;
+			reportClientFailure(err);
+			toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
 		}
 	}
 
@@ -125,7 +128,9 @@
 			if (ctx.viewMode === '3-month') await printQuarterCalendar(quarterStart(), options);
 			else await printMonthCalendar(calendarStore.year, calendarStore.month, options);
 		} catch (err) {
-			if (current()) toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
+			if (!current()) return;
+			reportClientFailure(err);
+			toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
 		}
 	}
 

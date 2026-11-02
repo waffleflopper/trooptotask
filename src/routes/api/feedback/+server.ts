@@ -13,11 +13,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		category: body.category,
 		message: body.message,
 		pageUrl: body.pageUrl,
-		organizationId: body.organizationId
+		organizationId: body.organizationId,
+		errorReference: body.errorReference
 	});
 
 	if (result.status === 'submitted') {
-		return json({ success: true, githubIssue: result.githubIssue });
+		return json({ success: true, githubIssue: result.githubIssue, linked: result.linked });
 	}
 
 	if (result.status === 'validation_error') {

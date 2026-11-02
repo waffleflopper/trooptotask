@@ -6,11 +6,14 @@ import type { OrganizationAdmissionRequest } from '$features/organization/index.
 import type { FeatureKey } from '$lib/access/featureSwitches';
 
 declare global {
+	const __APP_ROUTE_IDS__: readonly string[];
 	namespace App {
 		interface Error {
 			message: string;
 			/** Set when a route stopped because its Organization turned the feature off. */
 			featureOff?: FeatureKey;
+			/** Names the captured failure behind this error, so a report can point at exactly it. */
+			errorReference?: string;
 		}
 		interface Locals extends MembershipRequestCache, OrganizationAdmissionRequest {
 			actor: AdmittedActor | null;

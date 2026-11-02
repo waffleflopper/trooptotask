@@ -35,6 +35,21 @@ describe('describeAuditEvent', () => {
 		]);
 	});
 
+	it('reads a resolved error as a sentence by the operator, shown under All', () => {
+		const described = describeAuditEvent(
+			event({
+				action: 'error_group.resolved',
+				severity: 'info',
+				resourceType: 'platform_error_group',
+				details: { actorEmail: 'robert@example.test' }
+			})
+		);
+
+		expect(described.sentence).toBe('robert@example.test resolved an error');
+		expect(described.category).toBeNull();
+		expect(activityScope(null).actions).toContain('error_group.resolved');
+	});
+
 	it('reads a Feedback item closed from the Inbox as a sentence shown under All', () => {
 		const described = describeAuditEvent(
 			event({

@@ -77,7 +77,8 @@ export function createSupabaseFeedbackSubmissionStore(getClient: () => SupabaseC
 				category: input.category,
 				message: input.message,
 				page_url: input.pageUrl,
-				page_section: input.pageSection
+				page_section: input.pageSection,
+				error_reference: input.errorReference
 			});
 			if (error) throw new Error('Failed to insert feedback', { cause: error });
 		}

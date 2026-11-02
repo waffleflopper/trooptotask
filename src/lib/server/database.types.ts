@@ -513,6 +513,7 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          error_reference: string | null
           github_issue_number: number | null
           github_issue_url: string | null
           id: string
@@ -530,6 +531,7 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
+          error_reference?: string | null
           github_issue_number?: number | null
           github_issue_url?: string | null
           id?: string
@@ -547,6 +549,7 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          error_reference?: string | null
           github_issue_number?: number | null
           github_issue_url?: string | null
           id?: string
@@ -562,6 +565,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "beta_feedback_error_reference_fkey"
+            columns: ["error_reference"]
+            isOneToOne: false
+            referencedRelation: "platform_error_occurrences"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "beta_feedback_organization_id_fkey"
             columns: ["organization_id"]
@@ -2775,6 +2785,99 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_error_groups: {
+        Row: {
+          code: string | null
+          fingerprint: string
+          first_seen_at: string
+          id: string
+          kind: string
+          last_seen_at: string
+          message: string
+          method: string | null
+          name: string
+          origin: string
+          resolved_at: string | null
+          resolved_by: string | null
+          route_id: string | null
+          status: string
+        }
+        Insert: {
+          code?: string | null
+          fingerprint: string
+          first_seen_at?: string
+          id?: string
+          kind: string
+          last_seen_at?: string
+          message: string
+          method?: string | null
+          name: string
+          origin: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          route_id?: string | null
+          status?: string
+        }
+        Update: {
+          code?: string | null
+          fingerprint?: string
+          first_seen_at?: string
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          message?: string
+          method?: string | null
+          name?: string
+          origin?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          route_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      platform_error_occurrences: {
+        Row: {
+          group_id: string
+          http_status: number | null
+          id: string
+          occurred_at: string
+          organization_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          group_id: string
+          http_status?: number | null
+          id: string
+          occurred_at?: string
+          organization_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          group_id?: string
+          http_status?: number | null
+          id?: string
+          occurred_at?: string
+          organization_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_error_occurrences_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "platform_error_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_error_occurrences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_operators: {
         Row: {
           created_at: string
@@ -3984,6 +4087,7 @@ export type Database = {
         }[]
       }
       cleanup_old_audit_logs: { Args: never; Returns: number }
+      cleanup_old_platform_errors: { Args: never; Returns: number }
       close_roster_form: {
         Args: {
           p_actor: string
@@ -4293,6 +4397,27 @@ export type Database = {
           timestamp: string
           total_count: number
           user_id: string
+        }[]
+      }
+      list_platform_error_groups: {
+        Args: { p_limit: number; p_offset: number; p_status: string }
+        Returns: {
+          affected_users: number
+          code: string
+          first_seen_at: string
+          id: string
+          kind: string
+          last_seen_at: string
+          message: string
+          method: string
+          name: string
+          occurrence_count: number
+          origin: string
+          reports: Json
+          resolved_at: string
+          route_id: string
+          status: string
+          total_count: number
         }[]
       }
       list_platform_owner_membership_metrics: {
@@ -4611,6 +4736,23 @@ export type Database = {
           p_personnel_id: string
         }
         Returns: string
+      }
+      record_platform_error: {
+        Args: {
+          p_code: string
+          p_fingerprint: string
+          p_http_status: number
+          p_kind: string
+          p_message: string
+          p_method: string
+          p_name: string
+          p_organization_id: string
+          p_origin: string
+          p_reference: string
+          p_route_id: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       register_organization_file_upload: {
         Args: {

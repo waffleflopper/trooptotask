@@ -16,7 +16,7 @@
 		<Table.Row>
 			{#each { length: columns } as _, columnIndex (columnIndex)}
 				<Table.Cell>
-					<Skeleton class="h-4 w-full max-w-40" />
+					<Skeleton class="h-4 w-full min-w-16 max-w-40" />
 				</Table.Cell>
 			{/each}
 		</Table.Row>

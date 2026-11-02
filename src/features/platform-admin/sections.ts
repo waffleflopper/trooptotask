@@ -1,9 +1,10 @@
-/** The five sections of the platform admin. `matches` lists the path prefixes that keep a section selected. */
+/** The sections of the platform admin. `matches` lists the path prefixes that keep a section selected. */
 export const ADMIN_SECTIONS = [
 	{ key: 'inbox', label: 'Inbox', href: '/admin', matches: [] },
 	{ key: 'organizations', label: 'Organizations', href: '/admin/organizations', matches: ['/admin/organizations'] },
 	{ key: 'people', label: 'People', href: '/admin/people', matches: ['/admin/people', '/admin/users'] },
 	{ key: 'activity', label: 'Activity', href: '/admin/activity', matches: ['/admin/activity', '/admin/audit'] },
+	{ key: 'errors', label: 'Errors', href: '/admin/errors', matches: ['/admin/errors'] },
 	{
 		key: 'announcements',
 		label: 'Announcements',

@@ -218,3 +218,83 @@ describe('FeedbackModal submission lifetime', () => {
 		expect((screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 });
+
+describe('FeedbackModal reporting an error', () => {
+	const REFERENCE = 'a0000000-0000-4000-8000-000000190001';
+
+	function sentBody(send: ReturnType<typeof vi.fn>) {
+		return JSON.parse(String((send.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+	}
+
+	it('opens a bug report with the reference shown read-only and sends it with the message', async () => {
+		const send = vi.fn(async (..._args: unknown[]) => Response.json({ success: true, linked: true }));
+		vi.stubGlobal('fetch', send);
+		const onClose = vi.fn();
+		render(FeedbackModal, { onClose, orgId: 'org-1', errorReference: REFERENCE });
+
+		const reference = screen.getByLabelText('Error reference') as HTMLInputElement;
+		expect(reference.value).toBe(REFERENCE);
+		expect(reference.readOnly).toBe(true);
+		expect(screen.getByLabelText('Category').textContent).toContain('Bug Report');
+		expect((screen.getByLabelText('Category') as HTMLButtonElement).disabled).toBe(true);
+
+		await fireEvent.input(screen.getByRole('textbox', { name: 'What were you doing?' }), {
+			target: { value: 'Saving the roster' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+		await waitFor(() => expect(onClose).toHaveBeenCalled());
+		expect(sentBody(send)).toMatchObject({ category: 'bug', message: 'Saving the roster', errorReference: REFERENCE });
+	});
+
+	it('waits for a report still being sent, holding the same space, then attaches its reference', async () => {
+		const stored = deferred<string | null>();
+		const send = vi.fn(async (..._args: unknown[]) => Response.json({ success: true, linked: true }));
+		vi.stubGlobal('fetch', send);
+		render(FeedbackModal, { onClose: vi.fn(), errorReference: stored.promise });
+
+		const reference = screen.getByLabelText('Error reference') as HTMLInputElement;
+		expect(reference.value).toBe('Attaching error details...');
+		await fireEvent.input(screen.getByRole('textbox', { name: 'What were you doing?' }), {
+			target: { value: 'Opening the calendar' }
+		});
+		expect((screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled).toBe(true);
+
+		await act(() => stored.resolve(REFERENCE));
+
+		await waitFor(() => expect(reference.value).toBe(REFERENCE));
+		await fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		expect(sentBody(send)).toMatchObject({ errorReference: REFERENCE });
+	});
+
+	it('sends a plain bug report when the pending report ends without a reference', async () => {
+		const stored = deferred<string | null>();
+		const send = vi.fn(async (..._args: unknown[]) => Response.json({ success: true, linked: false }));
+		vi.stubGlobal('fetch', send);
+		render(FeedbackModal, { onClose: vi.fn(), errorReference: stored.promise });
+		await fireEvent.input(screen.getByRole('textbox', { name: 'What were you doing?' }), {
+			target: { value: 'Opening the calendar' }
+		});
+
+		await act(() => stored.resolve(null));
+
+		await waitFor(() =>
+			expect((screen.getByLabelText('Error reference') as HTMLInputElement).value).toBe(
+				'No error details could be attached'
+			)
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		expect(sentBody(send).errorReference).toBeUndefined();
+		expect(sentBody(send).category).toBe('bug');
+	});
+
+	it('stays an ordinary feedback form without an error reference', () => {
+		render(FeedbackModal, { onClose: vi.fn() });
+
+		expect(screen.queryByLabelText('Error reference')).toBeNull();
+		expect(screen.getByRole('textbox', { name: 'Message' })).toBeTruthy();
+		expect((screen.getByLabelText('Category') as HTMLButtonElement).disabled).toBe(false);
+	});
+});

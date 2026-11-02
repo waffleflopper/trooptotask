@@ -6,6 +6,7 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import { generateRosterPdf } from '../rosterPdf';
 	import type { SignInRoster } from '../sign-in-rosters.types';
 	import NewRosterView from './NewRosterView.svelte';
@@ -85,8 +86,10 @@
 		try {
 			await generateRosterPdf(roster, tree, groups);
 		} catch (err) {
-			if (!disposed && inOrganization())
+			if (!disposed && inOrganization()) {
+				reportClientFailure(err);
 				toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
+			}
 		}
 	}
 

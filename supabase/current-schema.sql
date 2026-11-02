@@ -4787,6 +4787,28 @@ $$;
 ALTER FUNCTION public.cleanup_old_audit_logs() OWNER TO postgres;
 
 --
+-- Name: cleanup_old_platform_errors(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.cleanup_old_platform_errors() RETURNS integer
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+DECLARE
+	deleted_count integer;
+BEGIN
+	DELETE FROM public.platform_error_occurrences WHERE occurred_at < pg_catalog.now() - interval '30 days';
+	GET DIAGNOSTICS deleted_count = ROW_COUNT;
+	DELETE FROM public.platform_error_groups g
+	WHERE NOT EXISTS (SELECT 1 FROM public.platform_error_occurrences o WHERE o.group_id = g.id);
+	RETURN deleted_count;
+END;
+$$;
+
+
+ALTER FUNCTION public.cleanup_old_platform_errors() OWNER TO postgres;
+
+--
 -- Name: close_roster_form(uuid, uuid, uuid, uuid, date, jsonb, text, jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -7006,6 +7028,46 @@ $$;
 ALTER FUNCTION public.list_platform_activity(p_actions text[], p_prefixes text[], p_search text, p_from timestamp with time zone, p_to timestamp with time zone, p_limit integer, p_offset integer) OWNER TO postgres;
 
 --
+-- Name: list_platform_error_groups(text, integer, integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.list_platform_error_groups(p_status text, p_limit integer, p_offset integer) RETURNS TABLE(id uuid, origin text, kind text, name text, code text, message text, route_id text, method text, status text, first_seen_at timestamp with time zone, last_seen_at timestamp with time zone, resolved_at timestamp with time zone, occurrence_count bigint, affected_users bigint, reports jsonb, total_count bigint)
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+	WITH recent AS (
+		SELECT o.group_id, pg_catalog.count(*) AS occurrence_count, pg_catalog.count(DISTINCT o.user_id) AS affected_users
+		FROM public.platform_error_occurrences o
+		WHERE o.occurred_at >= pg_catalog.now() - interval '30 days'
+		GROUP BY o.group_id
+	), page AS (
+		SELECT g.*, r.occurrence_count, r.affected_users, pg_catalog.count(*) OVER () AS total_count
+		FROM public.platform_error_groups g
+		JOIN recent r ON r.group_id = g.id
+		WHERE g.status = p_status
+		ORDER BY g.last_seen_at DESC, g.id
+		LIMIT GREATEST(p_limit, 0) OFFSET GREATEST(p_offset, 0)
+	)
+	SELECT page.id, page.origin, page.kind, page.name, page.code, page.message, page.route_id, page.method, page.status,
+		page.first_seen_at, page.last_seen_at, page.resolved_at, page.occurrence_count, page.affected_users,
+		COALESCE((
+			SELECT pg_catalog.jsonb_agg(
+				pg_catalog.jsonb_build_object('id', f.id, 'category', f.category, 'createdAt', f.created_at)
+				ORDER BY f.created_at DESC, f.id
+			)
+			FROM public.platform_error_occurrences o
+			JOIN public.beta_feedback f ON f.error_reference = o.id
+			WHERE o.group_id = page.id AND o.occurred_at >= pg_catalog.now() - interval '30 days'
+		), '[]'::jsonb),
+		page.total_count
+	FROM page
+	ORDER BY page.last_seen_at DESC, page.id;
+$$;
+
+
+ALTER FUNCTION public.list_platform_error_groups(p_status text, p_limit integer, p_offset integer) OWNER TO postgres;
+
+--
 -- Name: list_platform_owner_membership_metrics(uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -8457,6 +8519,30 @@ $$;
 
 
 ALTER FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) OWNER TO postgres;
+
+--
+-- Name: record_platform_error(uuid, text, text, text, text, text, text, text, text, smallint, uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.record_platform_error(p_reference uuid, p_fingerprint text, p_origin text, p_kind text, p_name text, p_code text, p_message text, p_route_id text, p_method text, p_http_status smallint, p_user_id uuid, p_organization_id uuid) RETURNS void
+    LANGUAGE sql
+    SET search_path TO ''
+    AS $$
+	WITH upserted AS (
+		INSERT INTO public.platform_error_groups AS g (fingerprint, origin, kind, name, code, message, route_id, method)
+		SELECT p_fingerprint, p_origin, p_kind, p_name, p_code, p_message, p_route_id, p_method
+		ON CONFLICT (fingerprint) DO UPDATE
+			SET last_seen_at = pg_catalog.now(), status = 'open', resolved_at = NULL, resolved_by = NULL
+			WHERE NOT EXISTS (SELECT 1 FROM public.platform_error_occurrences seen WHERE seen.id = p_reference)
+		RETURNING g.id
+	)
+	INSERT INTO public.platform_error_occurrences (id, group_id, user_id, organization_id, http_status)
+	SELECT p_reference, upserted.id, p_user_id, p_organization_id, p_http_status FROM upserted
+	ON CONFLICT (id) DO NOTHING;
+$$;
+
+
+ALTER FUNCTION public.record_platform_error(p_reference uuid, p_fingerprint text, p_origin text, p_kind text, p_name text, p_code text, p_message text, p_route_id text, p_method text, p_http_status smallint, p_user_id uuid, p_organization_id uuid) OWNER TO postgres;
 
 --
 -- Name: record_superseded_training_completion(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -12076,6 +12162,7 @@ CREATE TABLE public.beta_feedback (
     github_issue_url text,
     page_section text,
     updated_by uuid DEFAULT auth.uid(),
+    error_reference uuid,
     CONSTRAINT beta_feedback_category_check CHECK ((category = ANY (ARRAY['bug'::text, 'feature'::text, 'general'::text]))),
     CONSTRAINT beta_feedback_status_check CHECK ((status = ANY (ARRAY['new'::text, 'reviewed'::text, 'resolved'::text])))
 );
@@ -12950,6 +13037,50 @@ CREATE TABLE public.platform_announcements (
 
 
 ALTER TABLE public.platform_announcements OWNER TO postgres;
+
+--
+-- Name: platform_error_groups; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.platform_error_groups (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fingerprint text NOT NULL,
+    origin text NOT NULL,
+    kind text NOT NULL,
+    name text NOT NULL,
+    code text,
+    message text NOT NULL,
+    route_id text,
+    method text,
+    status text DEFAULT 'open'::text NOT NULL,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    resolved_at timestamp with time zone,
+    resolved_by uuid,
+    CONSTRAINT platform_error_groups_kind_check CHECK ((kind = ANY (ARRAY['server_response'::text, 'server_exception'::text, 'render'::text, 'transport'::text, 'unconfirmed_write'::text]))),
+    CONSTRAINT platform_error_groups_origin_check CHECK ((origin = ANY (ARRAY['server'::text, 'client_reported'::text]))),
+    CONSTRAINT platform_error_groups_resolution_check CHECK (((status = 'resolved'::text) OR ((resolved_at IS NULL) AND (resolved_by IS NULL)))),
+    CONSTRAINT platform_error_groups_status_check CHECK ((status = ANY (ARRAY['open'::text, 'resolved'::text])))
+);
+
+
+ALTER TABLE public.platform_error_groups OWNER TO postgres;
+
+--
+-- Name: platform_error_occurrences; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.platform_error_occurrences (
+    id uuid NOT NULL,
+    group_id uuid NOT NULL,
+    occurred_at timestamp with time zone DEFAULT now() NOT NULL,
+    user_id uuid,
+    organization_id uuid,
+    http_status smallint
+);
+
+
+ALTER TABLE public.platform_error_occurrences OWNER TO postgres;
 
 --
 -- Name: platform_operators; Type: TABLE; Schema: public; Owner: postgres
@@ -13887,6 +14018,30 @@ ALTER TABLE ONLY public.platform_announcements
 
 
 --
+-- Name: platform_error_groups platform_error_groups_fingerprint_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.platform_error_groups
+    ADD CONSTRAINT platform_error_groups_fingerprint_key UNIQUE (fingerprint);
+
+
+--
+-- Name: platform_error_groups platform_error_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.platform_error_groups
+    ADD CONSTRAINT platform_error_groups_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: platform_error_occurrences platform_error_occurrences_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.platform_error_occurrences
+    ADD CONSTRAINT platform_error_occurrences_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: platform_operators platform_operators_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -14231,6 +14386,13 @@ CREATE INDEX auth_email_outbox_status_idx ON public.auth_email_outbox USING btre
 --
 
 CREATE INDEX availability_entries_tasking_idx ON public.availability_entries USING btree (organization_id, set_for_tasking_id) WHERE (set_for_tasking_id IS NOT NULL);
+
+
+--
+-- Name: beta_feedback_error_reference_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX beta_feedback_error_reference_idx ON public.beta_feedback USING btree (error_reference) WHERE (error_reference IS NOT NULL);
 
 
 --
@@ -14994,6 +15156,48 @@ CREATE INDEX personnel_training_history_type_idx ON public.personnel_training_hi
 --
 
 CREATE INDEX personnel_trainings_certificate_url_idx ON public.personnel_trainings USING btree (certificate_url) WHERE (certificate_url IS NOT NULL);
+
+
+--
+-- Name: platform_error_groups_resolved_by_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX platform_error_groups_resolved_by_idx ON public.platform_error_groups USING btree (resolved_by) WHERE (resolved_by IS NOT NULL);
+
+
+--
+-- Name: platform_error_groups_status_last_seen_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX platform_error_groups_status_last_seen_idx ON public.platform_error_groups USING btree (status, last_seen_at DESC, id);
+
+
+--
+-- Name: platform_error_occurrences_group_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX platform_error_occurrences_group_idx ON public.platform_error_occurrences USING btree (group_id, occurred_at DESC);
+
+
+--
+-- Name: platform_error_occurrences_occurred_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX platform_error_occurrences_occurred_idx ON public.platform_error_occurrences USING btree (occurred_at);
+
+
+--
+-- Name: platform_error_occurrences_org_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX platform_error_occurrences_org_idx ON public.platform_error_occurrences USING btree (organization_id) WHERE (organization_id IS NOT NULL);
+
+
+--
+-- Name: platform_error_occurrences_user_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX platform_error_occurrences_user_idx ON public.platform_error_occurrences USING btree (user_id) WHERE (user_id IS NOT NULL);
 
 
 --
@@ -15929,6 +16133,14 @@ ALTER TABLE ONLY public.availability_entries
 
 
 --
+-- Name: beta_feedback beta_feedback_error_reference_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.beta_feedback
+    ADD CONSTRAINT beta_feedback_error_reference_fkey FOREIGN KEY (error_reference) REFERENCES public.platform_error_occurrences(id) ON DELETE SET NULL;
+
+
+--
 -- Name: beta_feedback beta_feedback_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -16654,6 +16866,38 @@ ALTER TABLE ONLY public.platform_announcements
 
 ALTER TABLE ONLY public.platform_announcements
     ADD CONSTRAINT platform_announcements_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: platform_error_groups platform_error_groups_resolved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.platform_error_groups
+    ADD CONSTRAINT platform_error_groups_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: platform_error_occurrences platform_error_occurrences_group_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.platform_error_occurrences
+    ADD CONSTRAINT platform_error_occurrences_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.platform_error_groups(id) ON DELETE CASCADE;
+
+
+--
+-- Name: platform_error_occurrences platform_error_occurrences_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.platform_error_occurrences
+    ADD CONSTRAINT platform_error_occurrences_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE SET NULL;
+
+
+--
+-- Name: platform_error_occurrences platform_error_occurrences_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.platform_error_occurrences
+    ADD CONSTRAINT platform_error_occurrences_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --
@@ -18463,6 +18707,18 @@ ALTER TABLE public.personnel_trainings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_announcements ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: platform_error_groups; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.platform_error_groups ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: platform_error_occurrences; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.platform_error_occurrences ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: platform_operators; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
 
@@ -19840,6 +20096,14 @@ GRANT ALL ON FUNCTION public.cleanup_old_audit_logs() TO service_role;
 
 
 --
+-- Name: FUNCTION cleanup_old_platform_errors(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.cleanup_old_platform_errors() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.cleanup_old_platform_errors() TO service_role;
+
+
+--
 -- Name: FUNCTION close_roster_form(p_actor uuid, p_organization_id uuid, p_assignment_type_id uuid, p_form_id uuid, p_today date, p_pool_rules jsonb, p_weekend_mode text, p_record jsonb, p_carry jsonb); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -20276,6 +20540,14 @@ GRANT ALL ON FUNCTION public.list_platform_activity(p_actions text[], p_prefixes
 
 
 --
+-- Name: FUNCTION list_platform_error_groups(p_status text, p_limit integer, p_offset integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.list_platform_error_groups(p_status text, p_limit integer, p_offset integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.list_platform_error_groups(p_status text, p_limit integer, p_offset integer) TO service_role;
+
+
+--
 -- Name: FUNCTION list_platform_owner_membership_metrics(p_org_ids uuid[]); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -20631,6 +20903,14 @@ GRANT ALL ON FUNCTION public.reconcile_onboarding_packet(p_organization_id uuid,
 
 REVOKE ALL ON FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) TO service_role;
+
+
+--
+-- Name: FUNCTION record_platform_error(p_reference uuid, p_fingerprint text, p_origin text, p_kind text, p_name text, p_code text, p_message text, p_route_id text, p_method text, p_http_status smallint, p_user_id uuid, p_organization_id uuid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.record_platform_error(p_reference uuid, p_fingerprint text, p_origin text, p_kind text, p_name text, p_code text, p_message text, p_route_id text, p_method text, p_http_status smallint, p_user_id uuid, p_organization_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.record_platform_error(p_reference uuid, p_fingerprint text, p_origin text, p_kind text, p_name text, p_code text, p_message text, p_route_id text, p_method text, p_http_status smallint, p_user_id uuid, p_organization_id uuid) TO service_role;
 
 
 --
@@ -22383,6 +22663,20 @@ GRANT ALL ON TABLE public.personnel_trainings TO service_role;
 GRANT SELECT,MAINTAIN ON TABLE public.platform_announcements TO anon;
 GRANT SELECT,MAINTAIN ON TABLE public.platform_announcements TO authenticated;
 GRANT ALL ON TABLE public.platform_announcements TO service_role;
+
+
+--
+-- Name: TABLE platform_error_groups; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.platform_error_groups TO service_role;
+
+
+--
+-- Name: TABLE platform_error_occurrences; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON TABLE public.platform_error_occurrences TO service_role;
 
 
 --

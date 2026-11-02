@@ -19,6 +19,10 @@ open.
 - `reporter`: the person sees the notification `A reply to your feedback`, the thread at `/org/ORG/account/feedback/ID`
   and their newest 50 Feedback items at `/org/ORG/account/feedback`, without pagination. They reply from the item until
   it is closed; a closed item says so and has no composer. Old `/feedback` and `/feedback/ID` links redirect there.
+- `error-reference`: Feedback sent from a failure toast's `Report error` is saved with the error reference. The item
+  looks like any other Bug Report; the link runs the other way, from the error group on `/admin/errors` to this item. An
+  unknown or foreign reference saves the Feedback unlinked. The [Errors recipe](platform-errors.md) owns producing the
+  failure.
 - `states`: a skeleton for the replies and notes region while it loads, one `Try again` alert for that region when it
   fails, a draft kept after a failed command, and a composer locked while a command runs.
 

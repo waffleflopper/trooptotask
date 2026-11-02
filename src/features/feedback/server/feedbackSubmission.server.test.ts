@@ -33,6 +33,68 @@ function makeSubmissionFeedback({
 }
 
 describe('Feedback submission', () => {
+	describe('error reference', () => {
+		const REFERENCE = 'a0000000-0000-4000-8000-000000190001';
+		const base = { userId: USER_ID, userEmail: 'member@example.com', message: 'Saving failed' };
+
+		function submitWith(isOwnedErrorReference: (input: { reference: string; userId: string }) => Promise<boolean>) {
+			const store = createInMemoryFeedbackStore();
+			const feedback = createFeedbackSubmission({ store, isOwnedErrorReference });
+			return { feedback, store };
+		}
+
+		it('links a reference that belongs to the submitter', async () => {
+			const owned = vi.fn().mockResolvedValue(true);
+			const { feedback, store } = submitWith(owned);
+
+			await expect(feedback.submit({ ...base, errorReference: REFERENCE })).resolves.toEqual({
+				status: 'submitted',
+				githubIssue: null,
+				linked: true
+			});
+
+			expect(owned).toHaveBeenCalledWith({ reference: REFERENCE, userId: USER_ID });
+			expect(store.submittedFeedback[0]).toMatchObject({ errorReference: REFERENCE });
+		});
+
+		it('saves the report unlinked when the reference is missing or belongs to someone else', async () => {
+			const { feedback, store } = submitWith(async () => false);
+
+			await expect(feedback.submit({ ...base, errorReference: REFERENCE })).resolves.toEqual({
+				status: 'submitted',
+				githubIssue: null,
+				linked: false
+			});
+
+			expect(store.submittedFeedback[0]).toMatchObject({ errorReference: null });
+		});
+
+		it('saves the report unlinked when ownership cannot be verified', async () => {
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			const { feedback, store } = submitWith(async () => {
+				throw new Error('database unavailable');
+			});
+
+			await expect(feedback.submit({ ...base, errorReference: REFERENCE })).resolves.toMatchObject({
+				status: 'submitted',
+				linked: false
+			});
+
+			expect(store.submittedFeedback[0]).toMatchObject({ errorReference: null });
+		});
+
+		it('rejects a value that is not a reference without saving', async () => {
+			const { feedback, store } = submitWith(async () => true);
+
+			await expect(feedback.submit({ ...base, errorReference: 'not-a-uuid' })).resolves.toEqual({
+				status: 'validation_error',
+				message: 'Invalid error reference'
+			});
+
+			expect(store.submittedFeedback).toEqual([]);
+		});
+	});
+
 	it('inserts null organization fields when no organization id is supplied', async () => {
 		const { feedback, store } = makeSubmissionFeedback();
 
@@ -44,7 +106,7 @@ describe('Feedback submission', () => {
 				message: '  This workflow needs a little polish.  ',
 				pageUrl: '/feedback'
 			})
-		).resolves.toEqual({ status: 'submitted', githubIssue: null });
+		).resolves.toEqual({ status: 'submitted', githubIssue: null, linked: false });
 
 		expect(store.submittedFeedback).toEqual([
 			expect.objectContaining({
@@ -72,7 +134,7 @@ describe('Feedback submission', () => {
 				message: 'This is not tied to an organization.',
 				pageUrl: '/feedback'
 			})
-		).resolves.toEqual({ status: 'submitted', githubIssue: null });
+		).resolves.toEqual({ status: 'submitted', githubIssue: null, linked: false });
 
 		expect(store.submittedFeedback).toEqual([
 			expect.objectContaining({
@@ -119,7 +181,7 @@ describe('Feedback submission', () => {
 
 		const result = await feedback.submit(input);
 
-		expect(result).toEqual({ status: 'submitted', githubIssue: null });
+		expect(result).toEqual({ status: 'submitted', githubIssue: null, linked: false });
 		expect(store.submittedFeedback).toEqual([
 			expect.objectContaining({
 				organizationId: ORG_ID,
@@ -220,7 +282,8 @@ describe('Feedback submission', () => {
 			feedback.submit({ userId: USER_ID, userEmail: 'member@example.com', message: `  ${'x'.repeat(5001)}\n extra  ` })
 		).resolves.toEqual({
 			status: 'submitted',
-			githubIssue: null
+			githubIssue: null,
+			linked: false
 		});
 		expect(store.submittedFeedback[0]).toMatchObject({
 			userEmail: 'member@example.com',
@@ -272,7 +335,7 @@ describe('Feedback submission', () => {
 		const { feedback, store } = makeSubmissionFeedback();
 		await expect(
 			feedback.submit({ userId: USER_ID, userEmail: 'member@example.com', message: 'Keep this feedback' })
-		).resolves.toEqual({ status: 'submitted', githubIssue: null });
+		).resolves.toEqual({ status: 'submitted', githubIssue: null, linked: false });
 		expect(store.submittedFeedback[0]).toMatchObject({
 			message: 'Keep this feedback'
 		});

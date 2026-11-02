@@ -17,6 +17,8 @@ admin is entered only at MFA level aal2.
   transfer and denial without mutation.
 - `activity`: each platform command writes an event naming the operator's email and the target, which Activity reads as
   a sentence that calls the signed-in operator `You` (the states recipe owns the page itself).
+- `errors`: the operator reads grouped failures under Errors and resolves them (see
+  [Platform Errors](platform-errors.md)); a resolve writes `error_group.resolved` to Activity.
 - `recovery`: retained drafts, failed requests, explicit retry, persistence and correct target after navigation.
 
 ## How to get to it (user POV)

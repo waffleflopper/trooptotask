@@ -10,6 +10,7 @@ export { loadPlatformAdminNavigation } from './server/navigation.server';
 export { createPlatformAnnouncementOperations } from './server/announcementOperations.server';
 export { createPlatformWhatsNewOperations, readPublishedWhatsNew } from './server/whatsNewOperations.server';
 export { validatePlatformAnnouncement } from './server/announcements.server';
+export { createPlatformErrorOperations } from './server/errorOperations.server';
 export { createPlatformInboxOperations } from './server/inboxOperations.server';
 export { mapApproveResult, mapRejectResult } from './server/accessRequestActionResults.server';
 export { createPlatformActivityOperations } from './server/activityOperations.server';

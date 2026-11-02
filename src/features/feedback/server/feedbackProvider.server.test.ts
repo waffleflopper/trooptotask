@@ -160,7 +160,8 @@ describe('Feedback provider', () => {
 			category: 'bug',
 			message: 'Calendar selection disappeared',
 			pageUrl: '/org/alpha/calendar',
-			pageSection: 'Calendar'
+			pageSection: 'Calendar',
+			errorReference: 'a0000000-0000-4000-8000-000000190001'
 		});
 
 		expect(state.inserted).toEqual([
@@ -172,7 +173,8 @@ describe('Feedback provider', () => {
 				category: 'bug',
 				message: 'Calendar selection disappeared',
 				page_url: '/org/alpha/calendar',
-				page_section: 'Calendar'
+				page_section: 'Calendar',
+				error_reference: 'a0000000-0000-4000-8000-000000190001'
 			}
 		]);
 	});
@@ -295,7 +297,8 @@ describe('Feedback provider', () => {
 				category: 'general',
 				message: 'Keep the failed attempt visible',
 				pageUrl: null,
-				pageSection: null
+				pageSection: null,
+				errorReference: null
 			})
 		).rejects.toThrow('Failed to insert feedback');
 		expect(state.rows[0].status).toBe('new');

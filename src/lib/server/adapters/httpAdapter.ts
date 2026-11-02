@@ -3,6 +3,11 @@ import {
 	createSupabaseDeletionRequestStore,
 	createSupabaseDeletionRequestSubmission
 } from '$features/deletion-requests/index.server';
+import {
+	classifyFailure,
+	createSupabaseErrorReferenceStore,
+	noteServerFailure
+} from '$features/error-reporting/index.server';
 import { createFeedbackSubmission, createSupabaseFeedbackSubmissionStore } from '$features/feedback/index.server';
 import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
 import { createSupabaseFeedbackOrganizationContextPort } from '$features/organization/index.server';
@@ -32,8 +37,10 @@ import { issueMessage } from '$lib/utils/inputSchemas';
 /** Construct Feedback collaborators only after the route admits the account. */
 export function createRequestFeedbackSubmission() {
 	const context = createSupabaseFeedbackOrganizationContextPort(getAdminClient);
+	const errorReferences = createSupabaseErrorReferenceStore(getAdminClient);
 	return createFeedbackSubmission({
 		store: createSupabaseFeedbackSubmissionStore(getAdminClient),
+		isOwnedErrorReference: (input) => errorReferences.isOwnedBy(input),
 		resolveOrganizationContext: (input) => context.resolveOrganizationContext(input)
 	});
 }
@@ -64,23 +71,42 @@ export function createRequestDeletionRequestCancellation(locals: Pick<App.Locals
 
 const INTERNAL_ERROR_MESSAGE = 'Internal server error';
 
-/** Only an app-created 4xx carries its message to the client; anything else is logged and generic. */
-function toPublicFailure(err: unknown): { status: number; message: string; details: RequestFailureDetails } {
+interface PublicFailure {
+	status: number;
+	message: string;
+	details: RequestFailureDetails;
+	/** Set when the failure was captured; the response names it so a report can point at exactly this failure. */
+	errorReference?: string;
+}
+
+/** Only an app-created 4xx carries its message to the client; anything else is logged, captured and generic. */
+function toPublicFailure(err: unknown): PublicFailure {
 	if (err instanceof RequestFailure && err.status >= 400 && err.status <= 499) {
 		const { reason, requiresStepUp, stepUpPath } = err;
 		return { status: err.status, message: err.message, details: { reason, requiresStepUp, stepUpPath } };
 	}
+	const appRaised5xx = err instanceof RequestFailure && err.status >= 500 && err.status <= 599;
+	const status = appRaised5xx ? err.status : 500;
+	const message = appRaised5xx && err.publicMessage ? err.message : INTERNAL_ERROR_MESSAGE;
+	return { status, message, details: {}, errorReference: noteUnhandledFailure(err) };
+}
+
+/** Log and capture a failure the app did not raise as a 4xx, for a handler that answers it in its own words. */
+export function noteUnhandledFailure(err: unknown): string | undefined {
 	console.error('[http-adapter] Unhandled route error:', sanitizeErrorForLog(err));
-	if (err instanceof RequestFailure && err.status >= 500 && err.status <= 599) {
-		return { status: err.status, message: err.publicMessage ? err.message : INTERNAL_ERROR_MESSAGE, details: {} };
-	}
-	return { status: 500, message: INTERNAL_ERROR_MESSAGE, details: {} };
+	const appRaised5xx = err instanceof RequestFailure && err.status >= 500 && err.status <= 599;
+	const status = appRaised5xx ? err.status : 500;
+	const kind = classifyFailure({ source: 'server', status, unknownException: !appRaised5xx });
+	return (kind && noteServerFailure({ failure: err, kind, status })) || undefined;
 }
 
 export function rethrowOrWrap(err: unknown): never {
 	if (isHttpError(err) || isRedirect(err)) throw err;
 	const failure = toPublicFailure(err);
-	throw error(failure.status, failure.message);
+	throw error(failure.status, {
+		message: failure.message,
+		...(failure.errorReference ? { errorReference: failure.errorReference } : {})
+	});
 }
 
 export function toActionFailure(errorKey: string, err: unknown) {

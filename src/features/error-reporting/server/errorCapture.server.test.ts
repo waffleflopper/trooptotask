@@ -191,6 +191,45 @@ describe('the request scope', () => {
 		expect(stored).toEqual([reference]);
 	});
 
+	it('also awaits a failure noted while it waits on an earlier recording', async () => {
+		const finishes: Array<() => void> = [];
+		let recordingStarted: () => void = () => {};
+		const firstStarted = new Promise<void>((resolve) => {
+			recordingStarted = resolve;
+		});
+		const { config } = makeConfig({
+			record: () =>
+				new Promise<void>((resolve) => {
+					finishes.push(resolve);
+					recordingStarted();
+				})
+		});
+		let noteLater: () => void = () => {};
+
+		let settled = false;
+		const scoped = runInErrorScope(config, async () => {
+			noteServerFailure({ failure: new Error('First'), kind: 'server_exception', status: 500 });
+			const later = new Promise<void>((resolve) => {
+				noteLater = resolve;
+			});
+			void later.then(() => noteServerFailure({ failure: new Error('Second'), kind: 'server_exception', status: 500 }));
+			return 'response';
+		}).then(() => {
+			settled = true;
+		});
+
+		await firstStarted;
+		noteLater();
+		await vi.waitFor(() => expect(finishes).toHaveLength(2));
+		finishes[0]();
+		await new Promise((resolve) => setImmediate(resolve));
+		expect(settled).toBe(false);
+
+		finishes[1]();
+		await scoped;
+		expect(settled).toBe(true);
+	});
+
 	it('records the failure and rethrows the original when the work throws', async () => {
 		const { config, stored } = makeConfig();
 		const original = new Error('Render blew up');

@@ -158,14 +158,22 @@ export async function runInErrorScope<T>(
 	};
 	try {
 		const result = await scopes.run(scope, () => work(handle));
-		await Promise.all(scope.recordings.values());
+		await settleRecordings(scope);
 		return { result, reference: scope.references.at(-1) ?? null };
 	} catch (thrown) {
-		await Promise.all(scope.recordings.values());
+		await settleRecordings(scope);
 		throw thrown;
-	} finally {
-		scope.closed = true;
 	}
+}
+
+/** A streamed rejection can note another failure during the wait, so this waits until none is new, then closes. */
+async function settleRecordings(scope: ErrorScope): Promise<void> {
+	let settled = -1;
+	while (settled !== scope.recordings.size) {
+		settled = scope.recordings.size;
+		await Promise.all(scope.recordings.values());
+	}
+	scope.closed = true;
 }
 
 function noteInScope(scope: ErrorScope, input: Omit<CaptureInput, 'origin'>): string {

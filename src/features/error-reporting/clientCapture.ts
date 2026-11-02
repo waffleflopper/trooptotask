@@ -241,7 +241,6 @@ export function installClientErrorCapture(
 	win.fetch = instrumentedFetch;
 	win.addEventListener('online', resendUnsent);
 	win.addEventListener('pagehide', onLeaving);
-	win.addEventListener('beforeunload', onLeaving);
 	win.addEventListener('pageshow', onReturning);
 	win.addEventListener('error', onError);
 	win.addEventListener('unhandledrejection', onRejection);
@@ -252,7 +251,6 @@ export function installClientErrorCapture(
 			if (win.fetch === instrumentedFetch) win.fetch = nativeFetch;
 			win.removeEventListener('online', resendUnsent);
 			win.removeEventListener('pagehide', onLeaving);
-			win.removeEventListener('beforeunload', onLeaving);
 			win.removeEventListener('pageshow', onReturning);
 			win.removeEventListener('error', onError);
 			win.removeEventListener('unhandledrejection', onRejection);

@@ -55,6 +55,15 @@ describe('reading the organization from the path', () => {
 });
 
 describe('watching requests', () => {
+	it('keeps reporting after a cancelled unload', async () => {
+		const { win } = setup(() => Promise.reject(new TypeError('Failed to fetch')));
+
+		win.emit('beforeunload');
+		await expect(win.fetch('/x', { method: 'POST' })).rejects.toThrow();
+
+		expect(sent).toHaveBeenCalledTimes(1);
+	});
+
 	it('offers a reference from a failed form action that answered 200', async () => {
 		const { win } = setup(() => new Response('{}', { status: 200, headers: { 'x-error-reference': REFERENCE } }));
 

@@ -214,13 +214,13 @@ describe('watching requests', () => {
 		expect(network).toHaveBeenCalledTimes(1);
 	});
 
-	it('restores the original fetch when uninstalled', async () => {
-		const { win, capture } = setup(() => new Response('{}'));
-		const instrumented = win.fetch;
+	it('stops watching requests once uninstalled, and they still reach the network', async () => {
+		const { win, capture } = setup(() => Promise.reject(new TypeError('Failed to fetch')));
 
 		capture.uninstall();
 
-		expect(win.fetch).not.toBe(instrumented);
+		await expect(win.fetch('/org/alpha/api/save', { method: 'POST' })).rejects.toThrow('Failed to fetch');
+		expect(sent).not.toHaveBeenCalled();
 	});
 });
 

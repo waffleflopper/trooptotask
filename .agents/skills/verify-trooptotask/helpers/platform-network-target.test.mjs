@@ -40,7 +40,8 @@ for (const [family, route, action] of [
 	['admin-announcements/delete', '/admin/announcements', 'delete'],
 	['admin-whats-new/save', '/admin/announcements/whats-new', 'save'],
 	['admin-whats-new/delete', '/admin/announcements/whats-new', 'delete'],
-	['admin-inbox/close', '/admin', 'close']
+	['admin-inbox/close', '/admin', 'close'],
+	['admin-errors/resolve', '/admin/errors', 'resolve']
 ]) {
 	test(`${family} fails only the selected same-origin form action and permits retry`, async () => {
 		const dispatched = [];
@@ -76,6 +77,7 @@ for (const [family, route] of [
 	['admin-inbox-item-read', '/admin/api/inbox/item'],
 	['admin-people-read', '/admin/people/__data.json'],
 	['admin-organizations-read', '/admin/organizations/__data.json'],
+	['admin-errors-read', '/admin/errors/__data.json'],
 	['admin-announcements-read', '/admin/announcements/__data.json'],
 	['admin-whats-new-read', '/admin/announcements/whats-new/__data.json']
 ]) {

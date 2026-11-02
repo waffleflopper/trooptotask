@@ -11,7 +11,8 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 		'admin-inbox/close': ['/admin', 'close'],
 		'admin-inbox/resendSetup': ['/admin', 'resendSetup'],
 		'admin-inbox/rescindAccess': ['/admin', 'rescindAccess'],
-		'admin-inbox/askInviter': ['/admin', 'askInviter']
+		'admin-inbox/askInviter': ['/admin', 'askInviter'],
+		'admin-errors/resolve': ['/admin/errors', 'resolve']
 	};
 	if (Object.hasOwn(contentActions, family)) {
 		const [suffix, action] = contentActions[family];
@@ -22,6 +23,7 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 		'admin-inbox-item-read': '/admin/api/inbox/item',
 		'admin-people-read': '/admin/people/__data.json',
 		'admin-organizations-read': '/admin/organizations/__data.json',
+		'admin-errors-read': '/admin/errors/__data.json',
 		'admin-announcements-read': '/admin/announcements/__data.json',
 		'admin-whats-new-read': '/admin/announcements/whats-new/__data.json'
 	};

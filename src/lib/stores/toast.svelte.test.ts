@@ -42,6 +42,15 @@ describe('failure toast report action', () => {
 		expect(open).toHaveBeenCalledWith('ref-1');
 	});
 
+	it('removes a report toast when its handler goes away', () => {
+		recordErrorReference('ref-1', 'alpha');
+		toastStore.error('Failed to save');
+
+		unregister();
+
+		expect(sonner.dismiss).toHaveBeenCalledWith(1);
+	});
+
 	it('keeps a longer requested duration', () => {
 		recordErrorReference('ref-1', 'alpha');
 

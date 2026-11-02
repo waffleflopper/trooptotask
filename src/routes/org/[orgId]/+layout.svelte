@@ -16,11 +16,12 @@
 	);
 
 	// Failure toasts on Organization routes offer "Report error" while this shell can take the report.
+	const reportOrg = $derived(page.params.orgId ?? null);
 	$effect(() => {
 		const shell = appShell;
 		if (!shell) return;
 		return registerErrorReportHandler({
-			org: page.params.orgId ?? null,
+			org: reportOrg,
 			open: (reference) => shell.reportError(reference)
 		});
 	});

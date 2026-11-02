@@ -18,12 +18,17 @@ export interface ErrorReportHandler {
 }
 
 let errorReportHandler: ErrorReportHandler | null = null;
+/** Toasts whose action needs the current handler; they go with it, so no button is left that can open nothing. */
+const reportToasts = new Set<ToastId>();
 
 /** Let failure toasts offer "Report error" while a surface that can take the report is mounted. Returns its unregister. */
 export function registerErrorReportHandler(handler: ErrorReportHandler): () => void {
 	errorReportHandler = handler;
 	return () => {
-		if (errorReportHandler === handler) errorReportHandler = null;
+		if (errorReportHandler !== handler) return;
+		errorReportHandler = null;
+		for (const id of reportToasts) sonnerToast.dismiss(id);
+		reportToasts.clear();
 	};
 }
 
@@ -44,7 +49,7 @@ class ToastStore {
 		const handler = errorReportHandler;
 		const reference = !action && handler ? takeFreshErrorReference(handler.org) : null;
 		if (handler && reference) {
-			return sonnerToast.error(
+			const id = sonnerToast.error(
 				message,
 				this.#options(
 					Math.max(duration ?? 6000, REPORTABLE_ERROR_TOAST_MS),
@@ -55,6 +60,8 @@ class ToastStore {
 					description
 				)
 			);
+			reportToasts.add(id);
+			return id;
 		}
 		return sonnerToast.error(message, this.#options(duration ?? 6000, action, description));
 	}

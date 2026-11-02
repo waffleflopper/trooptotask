@@ -14,9 +14,16 @@ import PreferenceProbe from '$features/app-shell/test-support/PreferenceProbe.sv
 import type { LayoutData } from './$types';
 
 const { pageStore, invalidate } = vi.hoisted(() => {
-	let current: { url: URL; data: object; route: { id: string }; error: App.Error | null } = {
+	let current: {
+		url: URL;
+		data: object;
+		params: { orgId: string };
+		route: { id: string };
+		error: App.Error | null;
+	} = {
 		url: new URL('https://example.test/org/alpha'),
 		data: {},
+		params: { orgId: 'alpha' },
 		route: { id: '/org/[orgId]/(dashboard)' },
 		error: null
 	};
@@ -27,7 +34,13 @@ const { pageStore, invalidate } = vi.hoisted(() => {
 				return current;
 			},
 			setPath(path: string, routeId = '/org/[orgId]/(dashboard)', error: App.Error | null = null) {
-				current = { url: new URL(`https://example.test${path}`), data: {}, route: { id: routeId }, error };
+				current = {
+					url: new URL(`https://example.test${path}`),
+					data: {},
+					params: { orgId: 'alpha' },
+					route: { id: routeId },
+					error
+				};
 			}
 		}
 	};

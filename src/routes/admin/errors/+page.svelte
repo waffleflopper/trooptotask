@@ -117,9 +117,9 @@
 			<span class="truncate font-mono text-xs text-muted-foreground">{describeErrorLocation(group)}</span>
 		</span>
 	{:else if column.key === 'count'}
-		{group.occurrenceCount}
+		{group.occurrenceCount} {group.occurrenceCount === 1 ? 'time' : 'times'}
 	{:else if column.key === 'people'}
-		{group.affectedUsers}
+		{group.affectedUsers} {group.affectedUsers === 1 ? 'person' : 'people'}
 	{:else if column.key === 'seen'}
 		{#if clock.now}
 			{formatAgo(group.lastSeenAt, clock.now)}
@@ -138,6 +138,7 @@
 						href={resolve(
 							inboxHref({ tab: 'open', filter: 'all', item: { kind: 'feedback', id: report.id } }) as '/admin'
 						)}
+						aria-label={`Feedback report from ${formatDisplayDate(report.createdAt)}`}
 						class="text-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 					>
 						{formatDisplayDate(report.createdAt)}

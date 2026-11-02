@@ -58,7 +58,8 @@ describe('Errors page', () => {
 		expect(screen.queryByRole('status', { name: 'Loading errors' })).toBeNull();
 		expect(screen.getByText('POST /org/[orgId]/api/availability')).toBeTruthy();
 		expect(screen.getByText('Server error')).toBeTruthy();
-		expect(screen.getAllByText('7').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('7 times').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('3 people').length).toBeGreaterThan(0);
 	});
 
 	it('links the feedback reports attached to a group to the Inbox item', async () => {

@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { classifyFailure, sanitizeFailureForCapture } from './failureCapture';
 
 describe('sanitizeFailureForCapture', () => {
+	it('drops a quoted value the length limit cuts before its closing quote', () => {
+		const { message } = sanitizeFailureForCapture({ message: `Save failed "token=secret ${'x'.repeat(3000)}"` });
+		expect(message).toBe('Save failed');
+	});
+
 	it('bounds the message it stores however long the failure is', () => {
 		const { message } = sanitizeFailureForCapture({ message: 'a'.repeat(100_000) });
 		expect(message).toBe('a'.repeat(300));

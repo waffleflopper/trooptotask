@@ -19,6 +19,7 @@ const URL_OR_APP_PATH = /\bhttps?:\/\/\S+|\/org\/\S+/gi;
 /** Best effort: two or more capitalized words read as a person's name. A lone surname in free text can still pass. */
 const PERSON_NAME = /\b[A-Z][a-z'-]+(?:\s+[A-Z]\.?)?(?:\s+[A-Z][a-z'-]+)+\b|\b[A-Z]{2,},?\s+[A-Z]{2,}\b/g;
 const QUOTED = /"[^"]*"|'[^']*'|`[^`]*`/g;
+const UNCLOSED_QUOTE = /["'`]/;
 const KEY_VALUE_PAIR = /\([^()]*\)\s*=\s*\([^()]*\)/g;
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 const DIGIT_RUN = /\d+/g;
@@ -38,10 +39,10 @@ function cutAt(text: string, marker: RegExp): string {
 export function normalizeFailureMessage(raw: string): string {
 	// A failure's message can be any size; the patterns below only ever need the start of it.
 	const withoutValues = cutAt(cutAt(raw.slice(0, MAX_NORMALIZED_INPUT_LENGTH), /Failing row contains/i), /\bDETAIL\b/);
-	return withoutValues
-		.replace(URL_OR_APP_PATH, '[url]')
-		.replace(EMAIL, '[email]')
-		.replace(QUOTED, '?')
+	const quotesMasked = withoutValues.replace(URL_OR_APP_PATH, '[url]').replace(EMAIL, '[email]').replace(QUOTED, '?');
+	// The limit can cut a quoted value before its closing quote, so a remaining quote may open one: drop what follows.
+	const closed = raw.length > MAX_NORMALIZED_INPUT_LENGTH ? cutAt(quotesMasked, UNCLOSED_QUOTE) : quotesMasked;
+	return closed
 		.replace(KEY_VALUE_PAIR, '?')
 		.replace(PERSON_NAME, '[name]')
 		.replace(UUID, '[id]')

@@ -51,8 +51,16 @@ An invitation to join a specific Organization with defined member access, separa
 _Avoid_: Access Request, Account Setup Link
 
 **Platform Administration**:
-Administration of TroopToTask-wide concerns such as accounts, Organizations, reviewed access, announcements, audit visibility, and suspension. One platform operator holds this authority through `platform_operators`, separate from Organization membership. Admin pages and endpoints require MFA at `aal2`. Suspension changes require an MFA verification within ten minutes, and the operator cannot suspend their own account. Platform commands await their audit writes before reporting success.
+Administration of TroopToTask-wide concerns such as accounts, Organizations, reviewed access, announcements, audit visibility, error visibility, and suspension. One platform operator holds this authority through `platform_operators`, separate from Organization membership. Admin pages and endpoints require MFA at `aal2`. Suspension changes require an MFA verification within ten minutes, and the operator cannot suspend their own account. Platform commands await their audit writes before reporting success.
 _Avoid_: Organization admin
+
+**Error Group**:
+Failures that share an origin, kind, route, method, name, code and message, counted once for the platform operator. A group stays Open until the operator resolves it, and the same failure recurring reopens it. Only failures the platform could not serve belong to a group, never a 4xx answer. Occurrences are kept 30 days.
+_Avoid_: Bug report, error log
+
+**Error Reference**:
+The UUID the server gives one recorded failure. A failure toast offers it to Feedback, and the Feedback links to the Error Group only when the sender owns the reference.
+_Avoid_: Request ID, ticket number
 
 ### Member authority and scope
 

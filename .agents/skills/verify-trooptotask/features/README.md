@@ -81,6 +81,7 @@ means the workspace reloaded.
 - [Platform Inbox](platform-inbox.md): approve or reject an access request and close Feedback from `/admin`.
 - [Platform Feedback](platform-feedback.md): reply to Feedback, keep a staff note, make a GitHub issue, and the person's
   thread and reply under Account.
+- [Platform Errors](platform-errors.md): capture, the toast's Report error, error groups, Resolve and recurrence.
 - [Platform admin states](platform-admin-states.md): admin screens in every state.
 - [Sign in and sign out](sign-in.md): public gate, session and sign-out.
 - [Public and marketing pages](public-pages.md): public pages and their navigation.

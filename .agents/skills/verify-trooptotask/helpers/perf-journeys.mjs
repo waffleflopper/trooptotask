@@ -68,8 +68,8 @@ const openGroupFilterOnBravo = [
 // this Training type, and its Total cell is the widest cell an actor can open.
 const affected = '#training-affected-soldiers';
 const openBriefingCell = { click: { role: 'button', name: 'Total, Workload Training 01:', partial: true } };
-const calendarReportReady = () => [{ name: 'ready', present: ['Run status-day report'], absentSelector: [skeleton] }];
-const runStatusDays = { click: { role: 'button', name: 'Run status-day report' } };
+const timeAwayPath = (terms) => org(terms, '/calendar/reports?lens=time-away');
+const timeAwayShown = { presentSelector: ['ol[aria-label="Days away by person"]'], absentSelector: [skeleton] };
 
 // A row is named `Open <Person>` only for an actor who can open the record, so rows are found by the Person.
 const personRow = (label) => ({ role: 'row', name: label, partial: true });
@@ -497,34 +497,23 @@ export const journeys = {
 			}
 		]
 	},
-	// The report UI caps no range; the longest preset that holds workload data is the current
-	// calendar year, which is also the Status days default.
+	// Time away is the report's widest read: 90 days back plus the days after for Next out, in one request.
 	'calendar-report': {
 		area: 'reports',
-		kind: 'interaction',
+		kind: 'load',
 		effect: 'read',
 		actors: both,
-		path: (terms) => org(terms, '/calendar/reports'),
-		ready: calendarReportReady,
-		trigger: () => runStatusDays,
-		milestones: ({ population }) => [
-			{
-				name: 'useful',
-				present: [`${population} personnel`],
-				presentSelector: ['table[aria-label="Status days by person"]'],
-				absent: ['Counting status days']
-			}
-		]
+		path: timeAwayPath,
+		milestones: () => [{ name: 'useful', ...timeAwayShown }]
 	},
 	'calendar-report-export': {
 		area: 'reports',
 		kind: 'interaction',
 		effect: 'read',
 		actors: both,
-		path: (terms) => org(terms, '/calendar/reports'),
-		ready: calendarReportReady,
-		prepare: () => [runStatusDays, { wait: ['Export status days'] }],
-		trigger: () => ({ click: { role: 'button', name: 'Export status days' } }),
+		path: timeAwayPath,
+		ready: () => [{ name: 'ready', ...timeAwayShown }],
+		trigger: () => ({ click: { role: 'button', name: 'Export time away' } }),
 		milestones: () => [{ name: 'useful', download: true }]
 	},
 	'members-list': {

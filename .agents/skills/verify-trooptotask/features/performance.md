@@ -187,8 +187,8 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `organization-switch`         | Personnel of another workload | interaction, read  | both             | Switcher item to the destination roster and breadcrumb                                    |
 | `briefing-detail`             | Training Reports              | interaction, read  | both             | `Total, Workload Training 01` cell to the affected-soldiers table, not busy               |
 | `briefing-detail-page`        | Training Reports detail       | interaction, read  | perfWide         | Pager `Next` to `Page 2 of` and `Rows 26–50 of`                                           |
-| `calendar-report`             | Calendar Reports              | interaction, read  | both             | `Run status-day report` (current year) to the table with the actor's personnel count      |
-| `calendar-report-export`      | Calendar Reports              | interaction, read  | both             | `Export status days` to the workbook download                                             |
+| `calendar-report`             | Calendar Reports              | load, read         | both             | Time away (90 days back) to the ranked people list, with no skeleton left                 |
+| `calendar-report-export`      | Calendar Reports              | interaction, read  | both             | `Export time away` to the workbook download                                               |
 
 `dashboard-navigation` is the Dashboard's measured input: the Dashboard's own Needs you links and `+N more` toggles
 depend on each workload's data, so the sidebar link is the one control present in every cell. The Dashboard's lists
@@ -222,10 +222,9 @@ membership to each workload (6, 13 and 37).
 
 The Training briefing detail is the affected-soldiers section below the report. Each open and each page is one
 `/api/training-reports/detail` request. A scoped Group holds at most 25 soldiers, so its widest cell has one page; the
-page change is measured for the wide actor on typical and large. The Calendar report UI caps no range: its date pickers
-accept any span. The longest preset that holds workload data is the current calendar year, the Assignment load default, so
-`calendar-report` measures that. Rows outside the ±90-day workload window are empty, so a longer custom range adds no
-server rows; only the two by-day modes expand per day in the browser.
+page change is measured for the wide actor on typical and large. Calendar Reports spans are at most 90 days. Time away
+is the widest read: one request covers its 90 days back plus the days after them for Next out, so `calendar-report`
+measures that lens.
 
 `members-list` and `organization-export` need Organization settings, which the Group-scoped operator cannot open (403).
 `admin-people` is the platform user directory, the largest list the product shows: it spans every Organization, so its

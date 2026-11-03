@@ -189,8 +189,8 @@ or a detail and fill them in the duty planner."`). The crumb is `button "HELP ·
     URL ends `?help=` and the drawer is open. Open `Import your roster from a spreadsheet`, press the crumb and press
     `Close help`: the drawer is gone, `state` shows no dialog, the stepper still reads `COLUMNS` and the file's rows are
     still on the page. Press Help again and use `back` instead of the close button: also no dialog. Then choose the `Home`
-    link: `Leave this import?` appears, and `Keep importing` stays on Columns. With Help opened and closed on Review (`Review 2 rows`), browser Back steps Review to Columns to File with no
-    confirmation; one more Back to `/personnel` asks `Leave this import?`. Reach the import from the `Import` button, not
+    link: `Leave this import?` appears; choose `Keep importing` to close it, and the import stays on Columns. With Help opened and closed on Review (`Review 2 rows`), browser Back steps Review to Columns to File with no
+    confirmation; one more Back to `/personnel` asks `Leave this import?`; choose `Keep importing` again before going on. Reach the import from the `Import` button, not
     `navigate_page`, because a document load before it makes that Back unload the page instead of asking. Repeat on `/personnel` with a row's
     `Quick edit`: change MOS, press Help, open a guide, press `Close help`: the edit is still open with the changed MOS
     and no dialog; then choose the `Home` link, and `Save changes first?` appears. Choose its `Cancel`, then `Cancel` the

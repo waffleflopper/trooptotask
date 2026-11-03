@@ -130,7 +130,7 @@ describe('CalendarReports Availability lens', () => {
 });
 
 describe('CalendarReports lenses', () => {
-	it('links each lens tab through the address, keeping the span', () => {
+	it('links each lens tab through the address, and a lens that looks back opens on its own default span', () => {
 		renderReports('?start=2026-11-10&days=60');
 		const tabs = within(screen.getByRole('navigation', { name: 'Report lenses' }));
 
@@ -138,10 +138,10 @@ describe('CalendarReports lenses', () => {
 			'/org/org-1/calendar/reports?days=60&start=2026-11-10'
 		);
 		expect(tabs.getByRole('link', { name: 'Time away' }).getAttribute('href')).toBe(
-			'/org/org-1/calendar/reports?lens=time-away&days=60&start=2026-11-10'
+			'/org/org-1/calendar/reports?lens=time-away'
 		);
 		expect(tabs.getByRole('link', { name: 'Assignment load' }).getAttribute('href')).toBe(
-			'/org/org-1/calendar/reports?lens=assignment-load&days=60&start=2026-11-10'
+			'/org/org-1/calendar/reports?lens=assignment-load'
 		);
 	});
 

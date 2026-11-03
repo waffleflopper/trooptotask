@@ -20,7 +20,10 @@ export interface LensProps {
 	statusTypes: StatusType[];
 	groups: Group[];
 	filters: ReportFilters;
+	/** The span on screen; a lens counts only these days. */
 	range: ReportRange | null;
+	/** The feed key of the data this lens asked for, which the span plus its `loadAfterDays` decide; null until known. */
+	feedKey: string | null;
 	/** The viewer's day, or null before the page has mounted. */
 	today: string | null;
 	feed: CalendarReportFeedState;

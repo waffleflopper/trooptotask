@@ -111,6 +111,14 @@ export interface RosterExcusal {
 	startsOn: string;
 }
 
+/** Days one person was kept off one duty roster, as Assignment load reads them; `through` is null while still excused. */
+export interface RosterExcusalSpan {
+	assignmentTypeId: string;
+	personId: string;
+	from: string;
+	through: string | null;
+}
+
 export interface AssignmentType {
 	id: string;
 	name: string;
@@ -628,6 +636,8 @@ export interface CalendarCatalogPersistence {
 	listClosedRosterForms(assignmentTypeId: string, month: MonthKey): Promise<ClosedFormMonth[]>;
 	/** Excusals overlapping the simulated period, including reinstated ones. */
 	listRosterExcusals(assignmentTypeId: string, span: DateSpan): Promise<Excusal[]>;
+	/** Every roster's excusals overlapping `span`, including reinstated ones, without their reasons. */
+	listRosterExcusalSpans(span: DateSpan): Promise<RosterExcusalSpan[]>;
 	/** Swaps with either day inside the simulated span. */
 	listRosterSwaps(assignmentTypeId: string, span: DateSpan): Promise<RosterSwap[]>;
 	/** Makes `excusals` the open set from `today` on, ending the others yesterday. */

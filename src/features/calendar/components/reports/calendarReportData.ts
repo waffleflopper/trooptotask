@@ -1,9 +1,16 @@
-import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	DailyAssignment,
+	RosterExcusalSpan
+} from '$features/calendar/contracts';
 
 export interface CalendarReportData {
 	entries: AvailabilityEntry[];
 	assignments?: DailyAssignment[];
 	assignmentTypes?: AssignmentType[];
+	/** Every excusal overlapping the span, reinstated ones included. */
+	excusals?: RosterExcusalSpan[];
 }
 
 export async function fetchCalendarReportData(

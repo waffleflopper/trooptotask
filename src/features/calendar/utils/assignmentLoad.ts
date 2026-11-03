@@ -1,4 +1,9 @@
-import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	DailyAssignment,
+	RosterExcusalSpan
+} from '$features/calendar/contracts';
 import {
 	comparePersonnelByRankThenName,
 	type Group,
@@ -13,9 +18,9 @@ import type { PersonState } from '../roster/rosterTypes';
 export const ON_SHARE_BAND = 1;
 /** How many duties over fair share a person is flagged at. */
 export const OVER_FLAG = 2;
-
-/** A difference as the page shows it, to a tenth of a duty, so every count and color agrees with the number on screen. */
-const tenth = (value: number) => Math.round(value * 10) / 10 + 0;
+// Fair shares are sums of fractions, so a difference that is exactly a whole duty can land a hair either side of it.
+// Bands read the exact difference, never the rounded one the page shows.
+const EPSILON = 1e-9;
 
 export interface AssignmentLoadInput {
 	/** Everyone the reader can see. Each duty is shared among the people of this list who are eligible and present. */
@@ -24,6 +29,8 @@ export interface AssignmentLoadInput {
 	shown: readonly Personnel[];
 	assignments: readonly DailyAssignment[];
 	assignmentTypes: readonly AssignmentType[];
+	/** Every excusal that overlaps the span, reinstated ones included; a person excused on a day does not share it. */
+	excusals: readonly RosterExcusalSpan[];
 	/** The duty types counted; a type outside `dutyTypes(...)` is ignored. */
 	typeIds: ReadonlySet<string>;
 	entries: readonly AvailabilityEntry[];
@@ -48,7 +55,7 @@ export interface PersonLoad {
 	byType: TypeCount[];
 	/** The duties the person would have drawn had each day's duty been shared evenly among those eligible and present. */
 	expected: number;
-	/** `total` minus `expected` to a tenth of a duty: positive means more than a fair share. */
+	/** `total` minus `expected`, exact: positive means more than a fair share. */
 	difference: number;
 	/** Days of the span the person was not away. */
 	presentDays: number;
@@ -142,6 +149,7 @@ function awayDays(
 /** Expected duties per person for one duty type, summed over the days it was assigned. */
 function expectedShares(
 	type: AssignmentType,
+	excusals: readonly RosterExcusalSpan[],
 	dailyCounts: ReadonlyMap<string, number>,
 	roster: readonly Personnel[],
 	away: ReadonlyMap<string, Set<number>>,
@@ -151,13 +159,18 @@ function expectedShares(
 ): Map<string, number> {
 	const matches = compilePoolRules(type.poolRules, rankCatalog, groups);
 	const pool = roster.filter((person) => matches(stateOf(person)));
-	const excusedFrom = new Map(type.excusals.map((excusal) => [excusal.personId, excusal.startsOn]));
+	const excusedBy = Map.groupBy(
+		excusals.filter((excusal) => excusal.assignmentTypeId === type.id),
+		(excusal) => excusal.personId
+	);
 	const shares = new Map<string, number>();
 	for (const [date, count] of dailyCounts) {
 		const offset = toDayNumber(date) - start;
 		const sharing = pool.filter((person) => {
-			const excused = excusedFrom.get(person.id);
-			return (excused === undefined || excused > date) && !away.get(person.id)?.has(offset);
+			const excused = excusedBy
+				.get(person.id)
+				?.some((excusal) => excusal.from <= date && (excusal.through === null || date <= excusal.through));
+			return !excused && !away.get(person.id)?.has(offset);
 		});
 		for (const person of sharing) shares.set(person.id, (shares.get(person.id) ?? 0) + count / sharing.length);
 	}
@@ -165,7 +178,7 @@ function expectedShares(
 }
 
 function onShare(difference: number): boolean {
-	return Math.abs(difference) <= ON_SHARE_BAND;
+	return Math.abs(difference) <= ON_SHARE_BAND + EPSILON;
 }
 
 export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoadReport {
@@ -194,6 +207,7 @@ export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoa
 			type.id,
 			expectedShares(
 				type,
+				input.excusals,
 				dailyByType.get(type.id) ?? new Map(),
 				input.roster,
 				away,
@@ -228,7 +242,7 @@ export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoa
 			total,
 			byType,
 			expected,
-			difference: tenth(total - expected),
+			difference: total - expected,
 			presentDays: spanDays - (away.get(person.id)?.size ?? 0),
 			lastDuty: lastDuty.get(person.id) ?? null
 		};
@@ -252,7 +266,7 @@ export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoa
 				const count = countsByPerson.get(entry.person.id)?.get(type.id) ?? 0;
 				const share = expected.get(entry.person.id) ?? 0;
 				if (count === 0 && share === 0) continue;
-				const difference = tenth(count - share);
+				const difference = count - share;
 				load.duties += count;
 				load.eligible++;
 				if (count === 0) load.never++;
@@ -276,10 +290,10 @@ function summarize(people: readonly PersonLoad[]): AssignmentLoadSummary {
 		duties: people.reduce((sum, entry) => sum + entry.total, 0),
 		eligible: people.length,
 		never: none.length,
-		overFlagged: people.filter((entry) => entry.difference >= OVER_FLAG).length,
+		overFlagged: people.filter((entry) => entry.difference >= OVER_FLAG - EPSILON).length,
 		onShareFraction: people.length > 0 ? onShareCount / people.length : null,
 		onShare: onShareCount,
-		heaviest: heaviest && heaviest.difference > 0 ? heaviest : null,
+		heaviest: heaviest && heaviest.difference > EPSILON ? heaviest : null,
 		owedMost: best((a, b) => a.expected > b.expected, none)
 	};
 }

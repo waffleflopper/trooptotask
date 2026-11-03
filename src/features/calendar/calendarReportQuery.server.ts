@@ -1,5 +1,5 @@
 import type { Personnel } from '$features/personnel/contracts';
-import type { StatusType } from '$features/calendar/contracts';
+import type { CalendarCatalogPersistence, StatusType } from '$features/calendar/contracts';
 import type { Group, GroupPersistence, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 import type { AuditPort } from '$lib/audit/contracts';
 import { listAssignmentTypes } from './assignmentTypeRead.server';
@@ -46,7 +46,8 @@ type CalendarStatusDaysPorts = Parameters<typeof requireCalendarPolicy>[0] &
 	Parameters<typeof resolveCalendarAssigneeScope>[0] &
 	Parameters<typeof listAvailabilityEntries>[0] &
 	Parameters<typeof listDailyAssignments>[0] & {
-		calendarCatalogs: Parameters<typeof listAssignmentTypes>[0];
+		calendarCatalogs: Parameters<typeof listAssignmentTypes>[0] &
+			Pick<CalendarCatalogPersistence, 'listRosterExcusalSpans'>;
 		audit: AuditPort;
 	};
 
@@ -58,17 +59,25 @@ export async function fetchCalendarStatusDaysReport(
 
 	const scope = await resolveCalendarAssigneeScope(ctx);
 
-	const [entries, assignments, assignmentTypes] = await Promise.all([
+	const [entries, assignments, assignmentTypes, excusals] = await Promise.all([
 		listAvailabilityEntries(ctx, {
 			rangeStart: range.startDate,
 			rangeEnd: range.endDate,
 			personnelIds: scope?.personnelIds
 		}),
 		listDailyAssignments(ctx, { rangeStart: range.startDate, rangeEnd: range.endDate }, scope),
-		listAssignmentTypes(ctx.calendarCatalogs)
+		listAssignmentTypes(ctx.calendarCatalogs),
+		// Includes people since reinstated, whom a type's open excusals leave out.
+		ctx.calendarCatalogs.listRosterExcusalSpans({ from: range.startDate, through: range.endDate })
 	]);
+	const inScope = scope && new Set(scope.personnelIds);
 
 	ctx.audit.log({ action: 'calendar_report.viewed', resourceType: 'calendar_report' });
 
-	return { entries, assignments, assignmentTypes };
+	return {
+		entries,
+		assignments,
+		assignmentTypes,
+		excusals: inScope ? excusals.filter((excusal) => inScope.has(excusal.personId)) : excusals
+	};
 }

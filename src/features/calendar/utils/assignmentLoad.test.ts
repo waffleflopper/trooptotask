@@ -56,6 +56,7 @@ function load(overrides: Partial<AssignmentLoadInput>) {
 		shown: roster,
 		assignments: [],
 		assignmentTypes: [duty('cq')],
+		excusals: [],
 		typeIds: new Set(['cq']),
 		entries: [],
 		awayStatusTypeIds: new Set(['leave']),
@@ -86,8 +87,8 @@ describe('fair share', () => {
 			['c', 0]
 		]);
 		for (const entry of people) expect(entry.expected).toBeCloseTo(4 / 3, 9);
-		expect(byId(people, 'a')?.difference).toBe(1.7);
-		expect(byId(people, 'c')?.difference).toBe(-1.3);
+		expect(byId(people, 'a')?.difference).toBeCloseTo(5 / 3, 9);
+		expect(byId(people, 'c')?.difference).toBeCloseTo(-4 / 3, 9);
 		expect(summary).toMatchObject({ duties: 4, eligible: 3, never: 1, overFlagged: 0, onShare: 1 });
 		expect(summary.heaviest?.person.id).toBe('a');
 		expect(summary.owedMost?.person.id).toBe('c');
@@ -126,12 +127,40 @@ describe('fair share', () => {
 		// With c excused from 3 March, that day belongs to a alone.
 		const excused = load({
 			roster: medics,
-			assignmentTypes: [{ ...nurse, excusals: [{ personId: 'c', reason: 'Profile', startsOn: '2026-03-03' }] }],
+			assignmentTypes: [nurse],
+			excusals: [{ assignmentTypeId: 'range', personId: 'c', from: '2026-03-03', through: null }],
 			typeIds: new Set(['range']),
 			assignments: [assign('2026-03-01', 'a', 'range'), assign('2026-03-03', 'a', 'range')]
 		});
 		expect(byId(excused.people, 'a')?.expected).toBeCloseTo(1.5, 9);
 		expect(byId(excused.people, 'c')?.expected).toBeCloseTo(0.5, 9);
+	});
+
+	it('keeps a reinstated person out of the days they were excused and back in the days after', () => {
+		// Four days of one duty among a, b and c. c is excused on 2 and 3 March and reinstated for the 4th.
+		const { people } = load({
+			assignments,
+			excusals: [{ assignmentTypeId: 'cq', personId: 'c', from: '2026-03-02', through: '2026-03-03' }]
+		});
+		// Days 1 and 4 split three ways, days 2 and 3 between a and b.
+		expect(byId(people, 'a')?.expected).toBeCloseTo(2 / 3 + 1, 9);
+		expect(byId(people, 'b')?.expected).toBeCloseTo(2 / 3 + 1, 9);
+		expect(byId(people, 'c')?.expected).toBeCloseTo(2 / 3, 9);
+	});
+
+	it('counts an excusal only against the duty it was made for and for the days it covers', () => {
+		const { people } = load({
+			assignments,
+			excusals: [
+				{ assignmentTypeId: 'other', personId: 'c', from: '2026-03-01', through: null },
+				{ assignmentTypeId: 'cq', personId: 'c', from: '2026-02-20', through: '2026-02-28' },
+				{ assignmentTypeId: 'cq', personId: 'b', from: '2026-03-04', through: null }
+			]
+		});
+		// Only b's excusal bites, on 4 March.
+		expect(byId(people, 'a')?.expected).toBeCloseTo(3 / 3 + 1 / 2, 9);
+		expect(byId(people, 'b')?.expected).toBeCloseTo(3 / 3, 9);
+		expect(byId(people, 'c')?.expected).toBeCloseTo(3 / 3 + 1 / 2, 9);
 	});
 
 	it('applies a rank range from the rank catalog', () => {
@@ -180,9 +209,9 @@ describe('fair share', () => {
 		expect(summary.onShareFraction).toBeCloseTo(2 / 3, 9);
 	});
 
-	it('flags and bands each person by the difference to a tenth of a duty, as the page shows it', () => {
-		// 22 days of one duty over 21 people is a fair share of 22/21 each: a drew 3 (+1.95, shown +2.0), b drew
-		// none (-1.05, shown -1.0) and everyone else drew 1 (-0.05, shown 0.0).
+	it('bands each person by the exact difference, not the tenth the page shows', () => {
+		// 22 days of one duty over 21 people is a fair share of 22/21 each: a drew 3 (+1.95, shown +2.0, not 2+ over),
+		// b drew none (-1.05, shown -1.0, but under) and everyone else drew 1 (-0.05, shown 0.0, on share).
 		const roster = Array.from({ length: 21 }, (_, i) => person(i === 0 ? 'a' : i === 1 ? 'b' : `p${i}`));
 		const days = Array.from({ length: 22 }, (_, i) => `2026-03-${String(i + 1).padStart(2, '0')}`);
 		const drawn = ['a', 'a', 'a', ...roster.slice(2).map((entry) => entry.id)];
@@ -191,11 +220,22 @@ describe('fair share', () => {
 			endDate: '2026-03-22',
 			assignments: days.map((date, i) => assign(date, drawn[i]))
 		});
-		expect([byId(people, 'a')?.difference, byId(people, 'b')?.difference, byId(people, 'p2')?.difference]).toEqual([
-			2, -1, 0
-		]);
-		expect(summary).toMatchObject({ overFlagged: 1, onShare: 20 });
-		expect(duties[0]).toMatchObject({ over: 1, onShare: 20, under: 0 });
+		expect(byId(people, 'a')?.difference).toBeCloseTo(3 - 22 / 21, 9);
+		expect(byId(people, 'b')?.difference).toBeCloseTo(-22 / 21, 9);
+		expect(byId(people, 'p2')?.difference).toBeCloseTo(1 - 22 / 21, 9);
+		expect(summary).toMatchObject({ overFlagged: 0, onShare: 19 });
+		expect(summary.heaviest?.person.id).toBe('a');
+		expect(duties[0]).toMatchObject({ over: 1, onShare: 19, under: 1 });
+	});
+
+	it('still lands a difference that is exactly a whole duty on the boundary', () => {
+		// 3 days over 3 people: a draws all three and is exactly 2 over; b and c are exactly 1 under.
+		const { summary, duties } = load({
+			endDate: '2026-03-03',
+			assignments: [assign('2026-03-01', 'a'), assign('2026-03-02', 'a'), assign('2026-03-03', 'a')]
+		});
+		expect(summary).toMatchObject({ overFlagged: 1, onShare: 2 });
+		expect(duties[0]).toMatchObject({ over: 1, onShare: 2, under: 0 });
 	});
 
 	it('reports each duty separately, counting people over, on and under their share of it', () => {

@@ -341,6 +341,17 @@ export function createInMemoryCalendarCatalogPersistence(
 				.sort((a, b) => a.starts_on.localeCompare(b.starts_on) || compareIds(a.id, b.id))
 				.map((row) => ({ personId: row.personnel_id, reason: row.reason, from: row.starts_on, through: row.ends_on }));
 		},
+		async listRosterExcusalSpans(span) {
+			return (await store.findMany<RosterExcusalMemoryRow>('roster_excusals', orgId))
+				.filter((row) => row.starts_on <= span.through && (row.ends_on === null || row.ends_on >= span.from))
+				.sort((a, b) => a.starts_on.localeCompare(b.starts_on) || compareIds(a.id, b.id))
+				.map((row) => ({
+					assignmentTypeId: row.assignment_type_id,
+					personId: row.personnel_id,
+					from: row.starts_on,
+					through: row.ends_on
+				}));
+		},
 		// Mirrors public.set_roster_excusals.
 		async setRosterExcusals(assignmentTypeId, today, excusals) {
 			checkDeviceDate(today);

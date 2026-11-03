@@ -193,6 +193,7 @@ describe('calendar report workbook exports', () => {
 				{ id: 'd2', date: '2026-03-02', assignmentTypeId: 'staff-duty', assigneeId: 'p1' }
 			],
 			assignmentTypes: [staffDuty],
+			excusals: [],
 			typeIds: new Set(['staff-duty']),
 			entries: [],
 			awayStatusTypeIds: new Set(),
@@ -269,6 +270,7 @@ describe('calendar report workbook exports', () => {
 			shown: [smith, brown],
 			assignments: [{ id: 'd1', date: '2026-03-01', assignmentTypeId: 'staff-duty', assigneeId: 'p1' }],
 			assignmentTypes: [staffDuty],
+			excusals: [],
 			typeIds: new Set(['staff-duty']),
 			entries: [{ id: 'e1', personnelId: 'p3', statusTypeId: 'leave', startDate: '2026-03-01', endDate: '2026-03-02' }],
 			awayStatusTypeIds: new Set(['leave']),

@@ -30,6 +30,7 @@
 					shown: filters.personnel,
 					assignments: data.assignments ?? [],
 					assignmentTypes: data.assignmentTypes ?? [],
+					excusals: data.excusals ?? [],
 					typeIds,
 					entries: data.entries,
 					awayStatusTypeIds: filters.awayStatusTypeIds,

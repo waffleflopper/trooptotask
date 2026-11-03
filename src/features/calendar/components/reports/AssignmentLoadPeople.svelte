@@ -23,7 +23,11 @@
 	// Half the bar is the largest gap on screen, at least one duty, so a small gap never fills it.
 	const scale = $derived(Math.max(1, Math.ceil(Math.max(...people.map((entry) => Math.abs(entry.difference)), 0))));
 	const duties = (value: number) => value.toFixed(1);
-	const signed = (value: number) => (value > 0 ? `+${duties(value)}` : duties(value));
+	// A gap under a twentieth of a duty shows as 0.0 with no sign.
+	const signed = (value: number) => {
+		const shown = duties(value);
+		return Number(shown) === 0 ? duties(0) : value > 0 ? `+${shown}` : shown;
+	};
 
 	function dutyLine(entry: PersonLoad): string {
 		return entry.byType

@@ -10,7 +10,10 @@ numbered steps to the pages they name, and closes the drawer with Back, the clos
 - `history`: the `?help` search param is the state. An empty value is the list and `?help=<id>` is a guide. Pressing Help
   pushes the list, opening a guide from the list pushes one more entry, and closing steps back over what Help pushed.
   Back goes guide, then list, then closed. The crumb from a guide that was pushed from the list steps back to the list
-  instead of pushing, so history does not grow however often the list and a guide are swapped.
+  instead of pushing, so history does not grow however often the list and a guide are swapped. A save that calls
+  `invalidate()` resets SvelteKit's page state; Help puts its view and depth back on the same entry, so closing still
+  steps back and Back does not reopen Help. A navigation to another path, or a step's link to the same page, is not
+  restored.
 - `focus`: opening puts focus in the drawer, opening a guide moves it to the guide title, and Escape or the close button
   returns it to the Help button, also when the drawer was opened from a load on `?help=` and nothing else had focus.
   After `Go there` lands, focus is inside the drawer.
@@ -19,7 +22,9 @@ numbered steps to the pages they name, and closes the drawer with Back, the clos
   `Add your own assignment types`.
 - `steps`: a step on another page has a `Go there` link that keeps the guide open on that page. A step on the page you
   are already on reads `You're here`, judged by the page and by the step's own query params. A missing param counts as
-  the page default, so `section` on Calendar settings defaults to `status` and `tab` on Bulk status to `add`. The setup
+  the page default, so `section` on Calendar settings defaults to `status` and `tab` on Bulk status to `add`. Both pages
+  keep that param in the address bar: choosing a tab rewrites it in place (no new history entry, focus stays on the
+  tab, Help keeps its depth) and the step follows. Embedded in Organization setup, the section stays local. The setup
   steps that embed an editor read `You're here` on their own `/setup/<slug>` page. A step whose feature is off is hidden
   and the others renumber. A step whose access the member lacks shows a short lock line under it.
 - `deep-link`: a page loaded on `?help=<id>` opens that guide. Closing it drops the param and keeps other params.
@@ -27,7 +32,7 @@ numbered steps to the pages they name, and closes the drawer with Back, the clos
   that works across the whole unit tells a member limited to Groups so.
 - `setup-page`: the Calendar step of Organization setup (`/setup/calendar`) lists the Calendar guides under `On this page`,
   and the Groups, Personnel, Training and Invite steps do the same for their guides.
-- `load-failure`: if the Help chunk fails to load, the drawer frame stays with `Help could not load` plus `Try again`
+- `load-failure`: if the Help chunk fails to load, the drawer frame stays with `Help could not load` plus `Reload page`
   and `Close help`. This is covered by unit tests only, because the owned production build serves the chunk.
 - `feature-off`: a guide for a feature the unit switched off is hidden everywhere, and its `?help=` id shows the list.
 - `layout`: no horizontal scroll at 1440, 900 or 390 px, and the header Help button stays visible, icon only at 390.
@@ -109,7 +114,16 @@ or a detail and fill them in the duty planner."`). The crumb is `button "HELP ·
    this page now read `You're here`, and the `tab=remove` step still reads `Go there` because `tab` is `add`. Open
    `Make your own status types` on `/calendar/settings`: its first step already reads `You're here` because `section`
    defaults to `status`, and it has no `Go there` link. In step 2's guide the first step reads `Go there` until the URL
-   has `?section=assignments`.
+   has `?section=assignments`. On `/calendar/settings` open `Add your own assignment types` from the list and press its
+   `Go there`: the page switches to `Assignment Types`, the URL is `?section=assignments&help=add-assignment-types` and
+   step 1 reads `You're here`. Choose the `Status Types` tab by hand: the URL becomes `?section=status&...`, step 1
+   reads `Go there`, `history.length` is unchanged and focus stays on the tab. Back twice then goes to the list and
+   closes Help.
+   **Save keeps Help's depth.** On `/calendar/bulk?tab=add` press Help, open `Add one status to many people`, select
+   `SPC Able, Synthetic` and use `Add to 1 person` (it calls `invalidate`). The drawer stays open on the guide. Press
+   `Close help`: the URL is `?tab=add` and one `back` lands on the entry before Bulk status, not on a `?help` entry.
+   Undo the row with the `Remove` tab (`Review Matching Entries`, `Confirm Removal`) and confirm
+   `$V rows availability_entries orgA` is back to its six seeded rows.
 7. **Reload.** On the Bulk status URL from step 6, `$T navigate_page "{\"pageId\":$PAGE,\"type\":\"reload\"}"`. The
    guide is open again with the same title and focus is on `ASIDE|Help`. Choose `Close help`: the URL becomes
    `/calendar/bulk?tab=add`, with `tab` kept and `help` dropped.
@@ -160,7 +174,7 @@ or a detail and fill them in the duty planner."`). The crumb is `button "HELP ·
     Calendar guides (`Add your own assignment types`, `Choose who pulls a duty`, `Show a duty as a calendar lane`,
     `Make your own status types`). Open `Add your own assignment types`: step 1 reads `You're here` even though the
     embedded editor shows `Status Types`, because the setup page keeps the section in local state and the URL says
-    nothing. Capture the list and the guide.
+    nothing; choosing the `Assignment Types` tab there leaves the URL as it was. Capture the list and the guide.
 13. **Focus.** Load `/calendar/settings?help=` in a fresh `navigate_page` (so nothing but the page body had focus), press
     `Close help` and read `state`: `active` is `BUTTON|Help`. Then open `Add one status to many people`, click its first
     `Go there` and read `state` right after the page changes: `active` is inside the drawer (the guide title or a control

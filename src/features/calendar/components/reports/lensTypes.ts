@@ -1,6 +1,6 @@
 import type { Group, Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
-import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
+import type { ToolbarAction, ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 import type { CalendarReportFeedState } from './calendarReportFeed.svelte';
 import type { ReportRange } from './reportQuery';
 
@@ -31,5 +31,7 @@ export interface LensProps {
 }
 
 export interface LensHandle {
+	/** Controls only this lens has, such as Time away's flag; they sit after the shared filters. */
+	controls?(): ToolbarItem[];
 	exportActions(): ToolbarAction[];
 }

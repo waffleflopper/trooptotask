@@ -169,6 +169,7 @@
 					} satisfies ToolbarItem
 				]
 			: []),
+		...(handle?.controls?.() ?? []),
 		...(handle?.exportActions() ?? []),
 		{
 			kind: 'action',

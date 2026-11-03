@@ -5,10 +5,8 @@ import {
 	computeAssignmentCoverage,
 	computeAvailabilityForecast,
 	computeGroupReadiness,
-	readinessTone,
-	computePersonnelTempo
+	readinessTone
 } from './calendarReports';
-import { computeStatusDays } from './statusDaysReport';
 
 function person(overrides: Partial<Personnel>): Personnel {
 	return {
@@ -271,45 +269,7 @@ describe('computeGroupReadiness', () => {
 	});
 });
 
-describe('report columns follow the catalog order', () => {
-	const catalog: StatusType[] = [
-		...statusTypes,
-		{
-			id: 'medical',
-			name: 'Medical',
-			color: '#dc2626',
-			textColor: '#ffffff',
-			shortLabel: null,
-			rosterEffect: 'A',
-			sortOrder: 2
-		}
-	];
-	const reverseCatalogEntries = [
-		availability({ id: 'medical-1', statusTypeId: 'medical', startDate: '2026-03-01', endDate: '2026-03-01' }),
-		availability({ id: 'school-1', statusTypeId: 'school', startDate: '2026-03-02', endDate: '2026-03-02' }),
-		availability({ id: 'leave-1', statusTypeId: 'leave', startDate: '2026-03-03', endDate: '2026-03-03' })
-	];
-
-	it('orders Status days columns by status type catalog, not entry arrival', () => {
-		const result = computeStatusDays([person({})], reverseCatalogEntries, catalog, '2026-03-01', '2026-03-31');
-
-		expect(result.activeStatusTypeIds).toEqual(['leave', 'school', 'medical']);
-	});
-
-	it('orders Personnel tempo columns by status type catalog, not entry arrival', () => {
-		const result = computePersonnelTempo(
-			[person({})],
-			reverseCatalogEntries,
-			catalog,
-			new Set(['medical', 'leave']),
-			'2026-03-01',
-			'2026-03-31',
-			90
-		);
-
-		expect(result.activeStatusTypeIds).toEqual(['leave', 'medical']);
-	});
-
+describe('Assignment coverage columns follow the catalog order', () => {
 	it('orders Assignment coverage columns by assignment type catalog, not assignment arrival', () => {
 		const assignmentTypes: AssignmentType[] = ['staff-duty', 'cq', 'guard'].map((id) => ({
 			id,

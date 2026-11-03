@@ -124,6 +124,19 @@ describe('computeTimeAway', () => {
 		expect(people.bell.nextOut).toBeNull();
 	});
 
+	it("orders a person's statuses by the catalog, not by the order entries arrived", () => {
+		const result = report({
+			personnel: [able],
+			entries: [
+				away('r1', 'able', 'appt', '2026-03-01', '2026-03-01'),
+				away('r2', 'able', 'tdy', '2026-03-02', '2026-03-02'),
+				away('r3', 'able', 'leave', '2026-03-03', '2026-03-03')
+			]
+		});
+
+		expect(result.people[0].byStatus.map((status) => status.statusTypeId)).toEqual(['leave', 'tdy', 'appt']);
+	});
+
 	it('splits the days by status, the largest status first', () => {
 		expect(report().byStatus).toEqual([
 			{ statusTypeId: 'leave', days: 15, share: 15 / 19 },

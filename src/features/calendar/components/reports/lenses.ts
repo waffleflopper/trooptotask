@@ -2,6 +2,7 @@ import type { Component } from 'svelte';
 import AssignmentLoadLens from './AssignmentLoadLens.svelte';
 import AvailabilityLens from './AvailabilityLens.svelte';
 import TimeAwayLens from './TimeAwayLens.svelte';
+import { NEXT_OUT_WINDOW_DAYS } from '../../utils/timeAway';
 import type { LensHandle, LensProps } from './lensTypes';
 import type { LensId, LensSpan } from './reportQuery';
 
@@ -33,9 +34,9 @@ export const LENSES: readonly LensDefinition[] = [
 		id: 'time-away',
 		label: 'Time away',
 		component: TimeAwayLens,
-		sharedControls: false,
+		sharedControls: true,
 		span: BACK_90,
-		loadAfterDays: 0
+		loadAfterDays: NEXT_OUT_WINDOW_DAYS
 	},
 	{
 		id: 'assignment-load',

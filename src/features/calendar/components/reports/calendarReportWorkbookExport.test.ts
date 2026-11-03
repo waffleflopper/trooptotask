@@ -4,11 +4,11 @@ import ExcelJS from 'exceljs';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import { computeAvailabilityBoard } from '../../utils/availabilityBoard';
+import { computeTimeAway } from '../../utils/timeAway';
 import {
 	exportAssignmentCoverageWorkbook,
 	exportAvailabilityWorkbook,
-	exportPersonnelTempoWorkbook,
-	exportStatusDaysWorkbook
+	exportTimeAwayWorkbook
 } from './calendarReportWorkbookExport';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
@@ -126,27 +126,60 @@ describe('calendar report workbook exports', () => {
 		expect(rows['Total']).toEqual(['1/2 (50%)', '2/2 (100%)']);
 	});
 
-	it('exports Personnel Tempo as a native workbook', async () => {
+	it('exports Time away as a per-person sheet and a per-group sheet', async () => {
+		const tdyStatus = { ...leaveStatus, id: 'tdy', name: 'TDY' } as StatusType;
+		const jones = { ...smith, id: 'p2', lastName: 'Jones', groupId: 'alpha' } as Personnel;
+		const report = computeTimeAway({
+			personnel: [{ ...smith, groupId: 'alpha' } as Personnel, jones],
+			entries: [
+				{ id: 'e1', personnelId: 'p1', statusTypeId: 'leave', startDate: '2026-03-01', endDate: '2026-03-03' },
+				{ id: 'e2', personnelId: 'p1', statusTypeId: 'tdy', startDate: '2026-03-04', endDate: '2026-03-20' }
+			],
+			statusTypes: [leaveStatus, tdyStatus],
+			awayStatusTypeIds: new Set(['leave', 'tdy']),
+			groups: NESTED_GROUPS,
+			showSubGroups: false,
+			startDate: '2026-03-01',
+			endDate: '2026-03-10'
+		});
 		const { workbook, filename } = await captureWorkbook(() =>
-			exportPersonnelTempoWorkbook(
-				{
-					activeStatusTypeIds: ['leave'],
-					totalDaysInPeriod: 31,
-					rows: [
-						{ person: smith, totalAwayDays: 3, awayByStatus: new Map([['leave', 3]]), percentAway: 10, flagged: false }
-					]
-				},
-				[leaveStatus],
-				'2026-03-01',
-				'2026-03-31'
-			)
+			exportTimeAwayWorkbook(report, [leaveStatus, tdyStatus], 5, '2026-03-01', '2026-03-10')
 		);
 
-		const sheet = workbook.getWorksheet('Personnel Tempo');
-		expect(filename).toBe('personnel-tempo_2026-03-01_2026-03-31.xlsx');
-		expect(sheet?.getCell('D1').value).toBe('Leave');
-		expect(sheet?.getCell('D2').value).toBe(3);
-		expect(sheet?.getCell('F2').value).toBe(10);
+		expect(filename).toBe('time-away_2026-03-01_2026-03-10.xlsx');
+		const people = workbook.getWorksheet('Time away by person');
+		expect(people?.getRow(1).values).toEqual([
+			undefined,
+			'Rank',
+			'Last Name',
+			'First Name',
+			'Group',
+			'Leave',
+			'TDY',
+			'Total days away',
+			'Percent of span',
+			'Flagged (5+ days)',
+			'Next out',
+			'Next out day'
+		]);
+		expect(people?.getRow(2).values).toEqual([
+			undefined,
+			'SGT',
+			'Smith',
+			'John',
+			'Alpha',
+			3,
+			7,
+			10,
+			100,
+			'Yes',
+			'TDY (continues)',
+			'2026-03-11'
+		]);
+		expect(people?.getRow(3).values).toEqual([undefined, 'SGT', 'Jones', 'John', 'Alpha', 0, 0, 0, 0]);
+
+		const groups = workbook.getWorksheet('Time away by group');
+		expect(groups?.getRow(2).values).toEqual([undefined, '1st Platoon', 2, 10, 5]);
 	});
 
 	it('exports Assignment Coverage as a native workbook with the average row', async () => {
@@ -169,26 +202,5 @@ describe('calendar report workbook exports', () => {
 		expect(sheet?.getCell('F2').value).toBe('0');
 		expect(sheet?.getCell('C3').value).toBe('Average');
 		expect(sheet?.getCell('E3').value).toBe(2);
-	});
-
-	it('exports Status Days as a native workbook', async () => {
-		const { workbook, filename } = await captureWorkbook(() =>
-			exportStatusDaysWorkbook(
-				{
-					activeStatusTypeIds: ['leave'],
-					rows: [{ person: smith, statusDays: new Map([['leave', 4]]), totalDays: 4 }]
-				},
-				[leaveStatus],
-				'2026-01-01',
-				'2026-12-31'
-			)
-		);
-
-		const sheet = workbook.getWorksheet('Status Days');
-		expect(filename).toBe('status-days-2026-01-01-to-2026-12-31.xlsx');
-		expect(sheet?.getCell('D1').value).toBe('Leave');
-		expect(sheet?.getCell('D2').value).toBe(4);
-		expect(sheet?.getCell('E1').value).toBe('Total status days');
-		expect(sheet?.getCell('E2').value).toBe(4);
 	});
 });

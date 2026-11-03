@@ -2,39 +2,8 @@ import { buildGroupTree, groupExportPath, type Group } from '$features/personnel
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import { addTableSheet, createWorkbook, downloadWorkbook, type WorkbookRow } from '$lib/utils/workbook';
 import type { AvailabilityBoard } from '../../utils/availabilityBoard';
-import type { AssignmentCoverageResult, PersonnelTempoResult, ReadinessCell } from '../../utils/calendarReports';
-import type { StatusDaysResult } from '../../utils/statusDaysReport';
-
-export async function exportPersonnelTempoWorkbook(
-	result: PersonnelTempoResult,
-	statusTypes: StatusType[],
-	startDate: string,
-	endDate: string
-): Promise<void> {
-	const columns = statusColumns(result.activeStatusTypeIds, statusTypes);
-	const rows = result.rows.map((row) => ({
-		rank: row.person.rank,
-		lastName: row.person.lastName,
-		firstName: row.person.firstName,
-		...Object.fromEntries(columns.map((statusType) => [statusType.id, row.awayByStatus.get(statusType.id) ?? 0])),
-		totalAway: row.totalAwayDays,
-		percentAway: row.percentAway
-	}));
-	const workbook = await createWorkbook();
-	addTableSheet(workbook, {
-		name: 'Personnel Tempo',
-		columns: [
-			{ header: 'Rank', key: 'rank', width: 12 },
-			{ header: 'Last Name', key: 'lastName', width: 18 },
-			{ header: 'First Name', key: 'firstName', width: 18 },
-			...columns.map((statusType) => ({ header: statusType.name, key: statusType.id, width: 14 })),
-			{ header: 'Total away days', key: 'totalAway', width: 18 },
-			{ header: 'Away percent', key: 'percentAway', width: 16 }
-		],
-		rows
-	});
-	await downloadWorkbook(workbook, `personnel-tempo_${startDate}_${endDate}.xlsx`);
-}
+import type { AssignmentCoverageResult, ReadinessCell } from '../../utils/calendarReports';
+import type { NextOut, TimeAwayReport } from '../../utils/timeAway';
 
 export async function exportAssignmentCoverageWorkbook(
 	result: AssignmentCoverageResult,
@@ -141,38 +110,76 @@ export async function exportAvailabilityWorkbook(
 	await downloadWorkbook(workbook, `availability_${startDate}_${endDate}.xlsx`);
 }
 
-export async function exportStatusDaysWorkbook(
-	result: StatusDaysResult,
-	statusTypes: StatusType[],
+export async function exportTimeAwayWorkbook(
+	report: TimeAwayReport,
+	statusTypes: readonly StatusType[],
+	flagDays: number,
 	startDate: string,
 	endDate: string
 ): Promise<void> {
-	const columns = statusColumns(result.activeStatusTypeIds, statusTypes);
-	const rows = result.rows.map((row) => ({
-		rank: row.person.rank,
-		lastName: row.person.lastName,
-		firstName: row.person.firstName,
-		...Object.fromEntries(columns.map((statusType) => [statusType.id, row.statusDays.get(statusType.id) ?? ''])),
-		totalDays: row.totalDays || ''
-	}));
+	const statusById = new Map(statusTypes.map((statusType) => [statusType.id, statusType]));
+	const columns = statusTypes.filter((statusType) => report.byStatus.some((s) => s.statusTypeId === statusType.id));
+	const nextOutText = (nextOut: NextOut | null) =>
+		nextOut === null
+			? ''
+			: `${statusById.get(nextOut.statusTypeId)?.name ?? 'Unknown'}${nextOut.ongoing ? ' (continues)' : ''}`;
+
+	const people = [...report.people]
+		.sort((a, b) => b.totalDays - a.totalDays)
+		.map((entry) => ({
+			rank: entry.person.rank,
+			lastName: entry.person.lastName,
+			firstName: entry.person.firstName,
+			group: entry.person.groupName,
+			...Object.fromEntries(
+				columns.map((statusType) => [
+					statusType.id,
+					entry.byStatus.find((status) => status.statusTypeId === statusType.id)?.days ?? 0
+				])
+			),
+			totalDays: entry.totalDays,
+			percentOfSpan: Math.round((entry.totalDays / report.spanDays) * 100),
+			flagged: entry.totalDays >= flagDays ? 'Yes' : '',
+			nextOut: nextOutText(entry.nextOut),
+			nextOutDay: entry.nextOut?.date ?? ''
+		}));
+	const groups = report.groups
+		.flatMap((set) => [set.top, ...set.below])
+		.map((group) => ({
+			group: group.label,
+			people: group.people,
+			totalDays: group.totalDays,
+			perPerson: Math.round(group.perPerson * 10) / 10
+		}));
+
 	const workbook = await createWorkbook();
 	addTableSheet(workbook, {
-		name: 'Status Days',
+		name: 'Time away by person',
 		columns: [
 			{ header: 'Rank', key: 'rank', width: 12 },
 			{ header: 'Last Name', key: 'lastName', width: 18 },
 			{ header: 'First Name', key: 'firstName', width: 18 },
+			{ header: 'Group', key: 'group', width: 20 },
 			...columns.map((statusType) => ({ header: statusType.name, key: statusType.id, width: 14 })),
-			{ header: 'Total status days', key: 'totalDays', width: 18 }
+			{ header: 'Total days away', key: 'totalDays', width: 18 },
+			{ header: 'Percent of span', key: 'percentOfSpan', width: 16 },
+			{ header: `Flagged (${flagDays}+ days)`, key: 'flagged', width: 18 },
+			{ header: 'Next out', key: 'nextOut', width: 22 },
+			{ header: 'Next out day', key: 'nextOutDay', width: 14 }
 		],
-		rows
+		rows: people
 	});
-	await downloadWorkbook(workbook, `status-days-${startDate}-to-${endDate}.xlsx`);
-}
-
-function statusColumns(ids: string[], statusTypes: StatusType[]): StatusType[] {
-	const statusTypeMap = new Map(statusTypes.map((statusType) => [statusType.id, statusType]));
-	return ids.map((id) => statusTypeMap.get(id)).filter((statusType): statusType is StatusType => !!statusType);
+	addTableSheet(workbook, {
+		name: 'Time away by group',
+		columns: [
+			{ header: 'Group', key: 'group', width: 24 },
+			{ header: 'People', key: 'people', width: 10 },
+			{ header: 'Total days away', key: 'totalDays', width: 18 },
+			{ header: 'Days away per person', key: 'perPerson', width: 22 }
+		],
+		rows: groups
+	});
+	await downloadWorkbook(workbook, `time-away_${startDate}_${endDate}.xlsx`);
 }
 
 function assignmentColumns(ids: string[], assignmentTypes: AssignmentType[]): AssignmentType[] {

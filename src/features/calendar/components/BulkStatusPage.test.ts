@@ -32,7 +32,8 @@ const org = {
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	invalidate: vi.fn(),
-	invalidateAll: vi.fn()
+	invalidateAll: vi.fn(),
+	afterNavigate: vi.fn()
 }));
 
 vi.mock('$app/state', () => ({

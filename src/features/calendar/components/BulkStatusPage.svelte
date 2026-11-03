@@ -15,7 +15,7 @@
 	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { navigating } from '$app/state';
-	import { goto, invalidate } from '$app/navigation';
+	import { afterNavigate, goto, invalidate } from '$app/navigation';
 	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -59,10 +59,13 @@
 		{ value: 'remove', label: 'Remove' }
 	];
 
-	const activeTab = $derived.by<Tab>(() => {
-		const param = visibleUrl().searchParams.get('tab');
-		if (param === 'remove') return param;
-		return 'add';
+	const tabFrom = (params: Pick<URLSearchParams, 'get'>): Tab => (params.get('tab') === 'remove' ? 'remove' : 'add');
+
+	// Read on navigation only. Closing Help steps back through the entry it opened from before restoring the tab, and
+	// following the URL there would swap the form out and drop its selection.
+	let activeTab = $state<Tab>(tabFrom(visibleUrl().searchParams));
+	afterNavigate(() => {
+		activeTab = tabFrom(visibleUrl().searchParams);
 	});
 
 	// Only the Add form takes a prefill, and only while Taskings exist; it travels in the link so a reload keeps it.
@@ -82,6 +85,7 @@
 		// A single toggle group emits '' when the pressed item is clicked again.
 		if (!TABS.some((option) => option.value === tab)) return;
 		formGeneration++;
+		activeTab = tab as Tab;
 		replaceVisibleSearchParam('tab', tab);
 	}
 

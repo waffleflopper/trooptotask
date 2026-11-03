@@ -24,7 +24,12 @@ const org = {
 	affordanceForFeatureAction: access.affordanceForFeatureAction
 };
 
-vi.mock('$app/navigation', () => ({ goto: gotoMock, invalidate: invalidateMock, invalidateAll: vi.fn() }));
+vi.mock('$app/navigation', () => ({
+	goto: gotoMock,
+	invalidate: invalidateMock,
+	invalidateAll: vi.fn(),
+	afterNavigate: vi.fn()
+}));
 vi.mock('$app/state', () => ({ page: pageMock, navigating: navigatingMock }));
 vi.mock('./BulkStatusAdd.svelte', async () => ({
 	default: (await import('../test-support/BulkStatusAddFinishStub.svelte')).default

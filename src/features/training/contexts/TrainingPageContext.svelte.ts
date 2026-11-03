@@ -35,7 +35,6 @@ import type { TrainingBatchRecord } from '../contracts';
 import { recordTrainingCompletions } from '../personnelTrainingRequests';
 import { matchesPersonnelSearch } from '../utils/personnelSearch';
 import { trainingReadinessSource } from '../webSources.svelte';
-import { historyBack } from '$lib/utils/historyBack';
 
 const RECORD_PARAM = 'person';
 const DEFAULT_MATRIX_DISPLAY: TrainingMatrixDisplay = {
@@ -272,7 +271,7 @@ export class TrainingPageContext {
 
 	/** Closes the sheet: back to the entry that opened it, or off the param when the page was loaded on it. */
 	closeRecord(): void {
-		if (page.state.trainingRecord) historyBack();
+		if (page.state.trainingRecord) history.back();
 		else this.dropRecordParam();
 	}
 

@@ -10,6 +10,7 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { staysOnPage } from '$lib/utils/staysOnPage';
+	import { historyBack } from '$lib/utils/historyBack';
 	import type { ImportLane } from './types';
 	import { ImportSession } from './importSession.svelte';
 	import { STEPS, stepIndex, type FlowSession, type FlowStep } from './flowTypes';
@@ -50,7 +51,7 @@
 			if (step === current) return;
 			const distance = stepIndex(step) - stepIndex(current);
 			if (distance > 0) pushState('', { importStep: step === 'file' ? undefined : step });
-			else history.go(distance);
+			else historyBack(-distance);
 		});
 	});
 
@@ -93,7 +94,7 @@
 	function back() {
 		const previous = STEPS[stepIndex(shownStep) - 1]?.step;
 		if (!previous || previous === 'done') return;
-		if (historyStep === shownStep) history.back();
+		if (historyStep === shownStep) historyBack();
 		else session.goTo(previous);
 	}
 

@@ -239,6 +239,21 @@ describe('Help across a whole visit', () => {
 		expect(browser.depth).toBe(1);
 	});
 
+	it('keeps a tab the page switched to while a guide was open when returning to the list', () => {
+		const browser = browserHistory('https://example.test/org/c-co/calendar/bulk?tab=add');
+		openHelp();
+		openHelpGuide('a');
+		void goto('/org/c-co/calendar/bulk?tab=remove&help=a', { replace: true, state: current.state });
+		showHelpList();
+		keepHelpState();
+		expect(browser.here).toBe('/org/c-co/calendar/bulk?tab=remove&help=');
+		expect(browser.depth).toBe(2);
+		closeHelp();
+		keepHelpState();
+		expect(browser.here).toBe('/org/c-co/calendar/bulk?tab=remove');
+		expect(browser.depth).toBe(1);
+	});
+
 	it('closes over every pushed entry from a revisited list', () => {
 		const browser = browserHistory(page0);
 		openHelp();

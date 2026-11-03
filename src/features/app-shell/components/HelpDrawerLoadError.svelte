@@ -8,7 +8,7 @@
 <aside
 	aria-label="Help"
 	data-print-chrome
-	class="fixed right-0 bottom-0 top-[calc(var(--banner-height,0px)+3.5rem)] z-sheet flex w-full flex-col border-l border-border bg-background shadow-xl sm:w-[440px]"
+	class="fixed right-0 bottom-0 top-[calc(var(--banner-height,0px)+3.5rem)] md:top-[calc(var(--banner-height,0px)+4rem)] md:right-2 md:bottom-2 md:overflow-hidden md:rounded-br-md z-sheet flex w-full flex-col border-l border-border bg-background shadow-xl sm:w-[440px]"
 >
 	<header class="shrink-0 border-b border-chrome-border bg-chrome px-6 pt-4 pb-5 text-chrome-text">
 		<div class="flex items-start justify-between gap-3">

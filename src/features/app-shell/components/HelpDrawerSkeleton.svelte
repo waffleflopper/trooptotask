@@ -6,7 +6,7 @@
 	aria-label="Help"
 	aria-busy="true"
 	data-print-chrome
-	class="fixed right-0 bottom-0 top-[calc(var(--banner-height,0px)+3.5rem)] z-sheet flex w-full flex-col border-l border-border bg-background shadow-xl sm:w-[440px]"
+	class="fixed right-0 bottom-0 top-[calc(var(--banner-height,0px)+3.5rem)] md:top-[calc(var(--banner-height,0px)+4rem)] md:right-2 md:bottom-2 md:overflow-hidden md:rounded-br-md z-sheet flex w-full flex-col border-l border-border bg-background shadow-xl sm:w-[440px]"
 >
 	<div class="shrink-0 border-b border-chrome-border bg-chrome px-6 pt-4 pb-5">
 		<Skeleton class="h-3 w-10 bg-chrome-surface-muted" />

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeHelp, keepHelpState, openHelp, openHelpGuide, showHelpList } from './helpNavigation';
 import { visibleUrl } from '$lib/utils/visibleUrl';
 
@@ -237,6 +237,8 @@ describe('Help across a whole visit', () => {
 });
 
 describe('Help after an invalidation resets the page state', () => {
+	beforeEach(() => vi.stubGlobal('history', { length: 3 }));
+
 	const guide = { guide: 'a', depth: 2 };
 
 	/** What `invalidate()` leaves behind: the shallow entry and its URL, without the state. */
@@ -257,6 +259,21 @@ describe('Help after an invalidation resets the page state', () => {
 			replace: true,
 			state: { help: guide }
 		});
+	});
+
+	it('does not restore over a new entry the page pushed, such as the next import step', () => {
+		vi.stubGlobal('history', { length: 3 });
+		atShallow(
+			'https://example.test/org/c-co/personnel/import',
+			'https://example.test/org/c-co/personnel/import?help=a',
+			guide
+		);
+		keepHelpState();
+
+		vi.stubGlobal('history', { length: 4 });
+		invalidated('https://example.test/org/c-co/personnel/import?help=a');
+		keepHelpState();
+		expect(goto).not.toHaveBeenCalled();
 	});
 
 	it('does not restore after a navigation to another path', () => {

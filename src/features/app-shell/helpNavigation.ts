@@ -57,25 +57,27 @@ export function closeHelp() {
 
 type HelpState = NonNullable<App.PageState['help']>;
 
-let lastHelp: { pathname: string; help: HelpState } | null = null;
+let lastHelp: { pathname: string; entries: number; help: HelpState } | null = null;
 
 /**
  * `invalidate()` resets `page.state` unless the caller opts out, and the app invalidates after most saves. The shallow
  * entry survives, so the URL still shows Help but its history depth is gone. This remembers the last Help state and puts
  * it back while the shallow entry for the same path remains. A navigation drops the shallow entry, so a step's link
- * to the same page is never mistaken for a reset.
+ * to the same page is never mistaken for a reset, and a page's own history push, such as an import moving to its next
+ * step, adds an entry, so it is not mistaken for one either.
  */
 export function keepHelpState() {
 	const help = page.state.help;
 	const url = visibleUrl();
 	if (help) {
-		lastHelp = { pathname: url.pathname, help };
+		lastHelp = { pathname: url.pathname, entries: history.length, help };
 		return;
 	}
 	const lost =
 		help === undefined &&
 		page.shallow !== null &&
 		lastHelp?.pathname === url.pathname &&
+		lastHelp.entries === history.length &&
 		url.searchParams.has(HELP_PARAM);
 	if (lost) {
 		void goto(`${url.pathname}${url.search}${url.hash}`, {

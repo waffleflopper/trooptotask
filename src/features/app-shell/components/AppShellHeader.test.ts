@@ -937,7 +937,7 @@ describe('notification deletion and Account links', () => {
 		await waitFor(() => expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy());
 		expect(requests).toEqual([{ method: 'DELETE', body: { id: 'stale-note' } }]);
 		expect(goto).not.toHaveBeenCalled();
-		expect(invalidate).toHaveBeenCalledWith('app:account-notifications');
+		expect(invalidate).toHaveBeenCalledWith('app:account-notifications', true);
 		expect(screen.queryByRole('menuitem', { name: /^Stale notification/ })).toBeNull();
 		expect(screen.getByRole('menuitem', { name: /^Kept notification/ })).toBeTruthy();
 	});

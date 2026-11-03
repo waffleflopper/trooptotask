@@ -1,6 +1,6 @@
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
-import { helpLocation, type HelpPageUrl } from '$features/help/contracts';
+import { HELP_PARAM, helpLocation, type HelpPageUrl } from '$features/help/contracts';
 
 /**
  * Help lives in history as shallow entries. A Help button press pushes the list, a guide opened from the list pushes
@@ -52,4 +52,37 @@ export function closeHelp() {
 	const depth = helpDepth();
 	if (depth > 0) history.go(-depth);
 	else void goto(helpLocation(visibleUrl(), undefined), { shallow: true, replace: true, state: { help: null } });
+}
+
+type HelpState = NonNullable<App.PageState['help']>;
+
+let lastHelp: { pathname: string; help: HelpState } | null = null;
+
+/**
+ * `invalidate()` resets `page.state` unless the caller opts out, and the app invalidates after most saves. The shallow
+ * entry survives, so the URL still shows Help but its history depth is gone. This remembers the last Help state and puts
+ * it back while the shallow entry for the same path remains. A navigation drops the shallow entry, so a step's link
+ * to the same page is never mistaken for a reset.
+ */
+export function keepHelpState() {
+	const help = page.state.help;
+	const url = visibleUrl();
+	if (help) {
+		lastHelp = { pathname: url.pathname, help };
+		return;
+	}
+	const lost =
+		help === undefined &&
+		page.shallow !== null &&
+		lastHelp?.pathname === url.pathname &&
+		url.searchParams.has(HELP_PARAM);
+	if (lost) {
+		void goto(`${url.pathname}${url.search}${url.hash}`, {
+			shallow: true,
+			replace: true,
+			state: { help: lastHelp!.help }
+		});
+		return;
+	}
+	lastHelp = null;
 }

@@ -263,7 +263,7 @@
 				notificationCountLoading = false;
 				notifications = notifications.map((notification) => ({ ...notification, read: true }));
 				localUnreadCount = 0;
-				void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY);
+				void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY, true);
 			}
 		} catch {
 			if (isCurrentNotificationRequest(scope, generation))
@@ -298,7 +298,7 @@
 					++notificationCountRequest;
 					notification.read = true;
 					localUnreadCount = Math.max(0, localUnreadCount - 1);
-					void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY);
+					void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY, true);
 					if (countWasLoading) void loadUnreadNotificationCount(segment, scope, generation);
 				}
 			} catch {
@@ -335,7 +335,7 @@
 				if (countWasLoading) void loadUnreadNotificationCount(segment, scope, generation);
 			}
 			notificationsWriting = false;
-			void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY);
+			void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY, true);
 			// The removed row held focus; keep it in the menu on the row that took its place.
 			await tick();
 			const rows = menu?.querySelectorAll<HTMLElement>('[data-notification-open]');

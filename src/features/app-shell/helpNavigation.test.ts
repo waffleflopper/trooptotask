@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { closeHelp, openHelp, openHelpGuide, showHelpList, visibleUrl } from './helpNavigation';
+import { closeHelp, keepHelpState, openHelp, openHelpGuide, showHelpList, visibleUrl } from './helpNavigation';
 
 type HelpState = { guide: string | null; depth: number };
 type GotoOptions = { replace?: boolean; state?: { help?: HelpState | null } };
@@ -214,5 +214,58 @@ describe('Help across a whole visit', () => {
 		showHelpList();
 		closeHelp();
 		expect(browser.here).toBe(page0);
+	});
+});
+
+describe('Help after an invalidation resets the page state', () => {
+	const guide = { guide: 'a', depth: 2 };
+
+	/** What `invalidate()` leaves behind: the shallow entry and its URL, without the state. */
+	function invalidated(visible: string) {
+		current.shallow = { url: new URL(visible) };
+		current.state = {};
+	}
+
+	it('puts the remembered state back on the same shallow entry', () => {
+		atShallow('https://example.test/org/c-co/calendar', 'https://example.test/org/c-co/calendar?help=a', guide);
+		keepHelpState();
+		expect(goto).not.toHaveBeenCalled();
+
+		invalidated('https://example.test/org/c-co/calendar?help=a');
+		keepHelpState();
+		expect(goto).toHaveBeenCalledWith('/org/c-co/calendar?help=a', {
+			shallow: true,
+			replace: true,
+			state: { help: guide }
+		});
+	});
+
+	it('does not restore after a navigation to another path', () => {
+		atShallow('https://example.test/org/c-co/calendar', 'https://example.test/org/c-co/calendar?help=a', guide);
+		keepHelpState();
+
+		at('https://example.test/org/c-co/personnel?help=a');
+		keepHelpState();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('does not restore a step link to the same page, which leaves the shallow entry', () => {
+		atShallow('https://example.test/org/c-co/calendar', 'https://example.test/org/c-co/calendar?help=a', guide);
+		keepHelpState();
+
+		at('https://example.test/org/c-co/calendar?help=a&section=assignments');
+		keepHelpState();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('does not restore once Help was closed', () => {
+		atShallow('https://example.test/org/c-co/calendar', 'https://example.test/org/c-co/calendar?help=a', guide);
+		keepHelpState();
+
+		at('https://example.test/org/c-co/calendar', null);
+		keepHelpState();
+		invalidated('https://example.test/org/c-co/calendar?help=a');
+		keepHelpState();
+		expect(goto).not.toHaveBeenCalled();
 	});
 });

@@ -5,10 +5,10 @@ export const addTrainingTypes: HelpGuide = {
 	title: 'Add the training your unit tracks',
 	summary: 'Set up each training, how long it is good for, and who needs it.',
 	area: 'training',
-	routes: ['training', 'training/types'],
+	routes: ['training', 'training/types', 'setup/training'],
 	keywords: ['training type', 'requirement', 'expiration', 'renewal', 'annual', 'sharp', 'cpr', 'license', 'exempt'],
 	feature: 'training',
-	access: { lane: 'training', level: 'configure' },
+	access: { lane: 'training', level: 'configure', wholeUnit: true },
 	lead: 'Training types are the classes and qualifications your unit tracks, such as annual briefings or licenses. Each one sets how long it lasts and who needs it.',
 	steps: [
 		{ text: 'On the Training page, open the menu and choose **Manage types**.', to: 'training/types' },

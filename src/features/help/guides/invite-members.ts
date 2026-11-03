@@ -5,7 +5,7 @@ export const inviteMembers: HelpGuide = {
 	title: 'Invite members and set their access',
 	summary: 'Send an invite by email and choose what the new member can see and do.',
 	area: 'settings',
-	routes: ['settings/members'],
+	routes: ['settings/members', 'setup/invite'],
 	keywords: ['invite', 'add user', 'new user', 'email', 'preset', 'viewer', 'operator', 'editor', 'admin', 'access'],
 	access: { role: 'admin' },
 	lead: 'Members sign in to TroopToTask to work with the unit. Each invite sets what they can do and which Groups they see.',

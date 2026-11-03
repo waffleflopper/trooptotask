@@ -12,8 +12,11 @@ export const openSoldierRecord: HelpGuide = {
 	steps: [
 		{ text: "Select the Soldier's name on the Personnel roster.", to: 'personnel' },
 		{ text: 'Move between **Overview**, **Readiness**, **Log**, **Files** and **Data sheet** with the tabs.' },
+		{ text: 'Press **Add to record** to add a **Follow-up**, **Note**, **Counseling** or **Document**.' },
 		{
-			text: 'Press **Add to record** to add a **Follow-up**, **Note**, **Counseling**, **Document** or **Training completion**.'
+			text: 'To log a completed course, choose **Training completion** under **Add to record**.',
+			access: { lane: 'training', level: 'operate' },
+			feature: 'training'
 		},
 		{ text: 'Press **Edit** to change their details.' }
 	],

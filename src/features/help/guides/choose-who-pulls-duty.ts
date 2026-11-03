@@ -5,7 +5,7 @@ export const chooseWhoPullsDuty: HelpGuide = {
 	title: 'Choose who pulls a duty',
 	summary: 'Narrow a duty roster by rank, MOS, role or Group, and excuse people for a standing reason.',
 	area: 'calendar',
-	routes: ['calendar', 'calendar/settings', 'calendar/assignments'],
+	routes: ['calendar', 'calendar/settings', 'calendar/assignments', 'setup/calendar'],
 	keywords: [
 		'staff duty',
 		'soldiers',
@@ -18,7 +18,7 @@ export const chooseWhoPullsDuty: HelpGuide = {
 		'mos',
 		'rotation'
 	],
-	access: { lane: 'calendar', level: 'configure' },
+	access: { lane: 'calendar', level: 'configure', wholeUnit: true },
 	missed: true,
 	lead: 'Every Person assignment type keeps a duty roster of who can be picked for it. It starts as everyone in the unit, and you narrow it with rules.',
 	steps: [

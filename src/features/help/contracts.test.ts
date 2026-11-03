@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import {
+	accessGap,
 	canFollowGuide,
 	guidesForRoute,
 	helpLocation,
+	helpPagePath,
 	helpRouteKey,
 	isGuideAvailable,
+	isStepAvailable,
+	isStepHere,
 	readHelpView,
 	searchGuides,
 	stepHref,
@@ -37,7 +41,7 @@ const noAccess: CapabilityMap = {
 };
 
 function viewer(overrides: Partial<HelpViewer> = {}): HelpViewer {
-	return { role: 'member', capabilityMap: noAccess, disabledFeatures: [], ...overrides };
+	return { role: 'member', capabilityMap: noAccess, scopeKind: 'organization', disabledFeatures: [], ...overrides };
 }
 
 describe('helpRouteKey', () => {
@@ -95,6 +99,38 @@ describe('guidesForRoute', () => {
 	});
 });
 
+describe('helpPagePath', () => {
+	it('is the path under the Organization, without slashes at the ends', () => {
+		expect(helpPagePath('c-co', '/org/c-co/setup/calendar')).toBe('setup/calendar');
+		expect(helpPagePath('c-co', '/org/c-co/setup/calendar/')).toBe('setup/calendar');
+		expect(helpPagePath('c-co', '/org/c-co')).toBe('');
+	});
+
+	it('is null for another Organization or a page outside one', () => {
+		expect(helpPagePath('c-co', '/org/c-co-2/calendar')).toBeNull();
+		expect(helpPagePath('c-co', '/dashboard')).toBeNull();
+	});
+});
+
+describe('guidesForRoute by concrete path', () => {
+	const setupCalendar = guide('setup-calendar', { routes: ['setup/calendar'] });
+	const anySetup = guide('any-setup', { routes: ['setup/[step]'] });
+	const calendar = guide('calendar', { routes: ['calendar'] });
+
+	it('lists a guide named for the page path on that page only', () => {
+		const guides = [setupCalendar, anySetup, calendar];
+		expect(guidesForRoute(guides, 'setup/[step]', 'setup/calendar').map((g) => g.id)).toEqual([
+			'setup-calendar',
+			'any-setup'
+		]);
+		expect(guidesForRoute(guides, 'setup/[step]', 'setup/groups').map((g) => g.id)).toEqual(['any-setup']);
+	});
+
+	it('does not let a calendar guide cover a setup page that merely ends in calendar', () => {
+		expect(guidesForRoute([calendar], 'setup/[step]', 'setup/calendar')).toEqual([]);
+	});
+});
+
 describe('searchGuides', () => {
 	const duty = guide('duty', { title: 'Print the DA 6', summary: 'Fill the roster first', keywords: ['cq'] });
 	const roster = guide('roster', { title: 'Fill a roster', summary: 'Print the DA 6 afterwards' });
@@ -141,6 +177,103 @@ describe('canFollowGuide', () => {
 		expect(canFollowGuide(adminOnly, viewer({ role: 'owner' }))).toBe(true);
 		expect(canFollowGuide(adminOnly, viewer({ role: 'admin' }))).toBe(true);
 		expect(canFollowGuide(adminOnly, viewer({ role: 'member' }))).toBe(false);
+	});
+});
+
+describe('whole-unit access', () => {
+	const wholeUnit = guide('g', { access: { lane: 'calendar', level: 'configure', wholeUnit: true } });
+	const manage = { ...noAccess, calendar: 'configure' } as const;
+
+	it('admits a viewer whose access covers the whole unit', () => {
+		expect(canFollowGuide(wholeUnit, viewer({ capabilityMap: manage, scopeKind: 'organization' }))).toBe(true);
+	});
+
+	it('refuses a viewer limited to Groups even with the lane level', () => {
+		expect(canFollowGuide(wholeUnit, viewer({ capabilityMap: manage, scopeKind: 'groups' }))).toBe(false);
+	});
+
+	it('lets a guide without the requirement through for a group-limited viewer', () => {
+		const plain = guide('g', { access: { lane: 'calendar', level: 'configure' } });
+		expect(canFollowGuide(plain, viewer({ capabilityMap: manage, scopeKind: 'groups' }))).toBe(true);
+	});
+});
+
+describe('accessGap', () => {
+	const manage = { ...noAccess, calendar: 'configure' } as const;
+
+	it('is undefined when the viewer meets the requirement or there is none', () => {
+		expect(accessGap(undefined, viewer())).toBeUndefined();
+		expect(accessGap({ lane: 'calendar', level: 'configure' }, viewer({ capabilityMap: manage }))).toBeUndefined();
+	});
+
+	it('names the lane and level the viewer lacks', () => {
+		expect(accessGap({ lane: 'calendar', level: 'configure' }, viewer())).toBe('You need Calendar Manage access.');
+		expect(accessGap({ lane: 'training', level: 'operate' }, viewer())).toBe('You need Training Update access.');
+	});
+
+	it('adds the whole unit to a missing level, and explains a Group limit when the level is held', () => {
+		const access = { lane: 'calendar', level: 'configure', wholeUnit: true } as const;
+		expect(accessGap(access, viewer())).toBe('You need Calendar Manage access across the whole unit.');
+		expect(accessGap(access, viewer({ capabilityMap: manage, scopeKind: 'groups' }))).toBe(
+			'This works across the whole unit, and your access covers only your Groups.'
+		);
+	});
+
+	it('names the role a role requirement admits', () => {
+		expect(accessGap({ role: 'admin' }, viewer())).toBe('Only owners and admins can do this.');
+		expect(accessGap({ role: 'owner' }, viewer({ role: 'admin' }))).toBe('Only owners can do this.');
+	});
+});
+
+describe('isStepAvailable', () => {
+	it('hides a step whose feature is switched off', () => {
+		const step = { text: 'x', feature: 'training' } as const;
+		expect(isStepAvailable(step, viewer({ disabledFeatures: ['training'] }))).toBe(false);
+		expect(isStepAvailable(step, viewer())).toBe(true);
+		expect(isStepAvailable({ text: 'x' }, viewer({ disabledFeatures: ['training'] }))).toBe(true);
+	});
+});
+
+describe('isStepHere', () => {
+	const on = (routeKey: string | null, search = '', path: string | null = routeKey) => ({
+		routeKey,
+		path,
+		params: new URLSearchParams(search)
+	});
+
+	it('is true for a step with no query on the same page, and false on another', () => {
+		expect(isStepHere('calendar/settings', on('calendar/settings'))).toBe(true);
+		expect(isStepHere('calendar/settings', on('calendar'))).toBe(false);
+	});
+
+	it('needs the same value for each param the step names', () => {
+		const assignments = 'calendar/settings?section=assignments';
+		expect(isStepHere(assignments, on('calendar/settings', 'section=assignments'))).toBe(true);
+		expect(isStepHere(assignments, on('calendar/settings', 'section=status-types'))).toBe(false);
+		expect(isStepHere(assignments, on('calendar/settings', 'section=closures&help=g'))).toBe(false);
+	});
+
+	it('reads a missing param as the value the page defaults to', () => {
+		expect(isStepHere('calendar/settings?section=status', on('calendar/settings'))).toBe(true);
+		expect(isStepHere('calendar/settings?section=assignments', on('calendar/settings'))).toBe(false);
+		expect(isStepHere('calendar/bulk?tab=add', on('calendar/bulk'))).toBe(true);
+		expect(isStepHere('calendar/bulk?tab=remove', on('calendar/bulk'))).toBe(false);
+	});
+
+	it('ignores params the step does not name', () => {
+		expect(isStepHere('calendar', on('calendar', 'month=2026-03&help='))).toBe(true);
+	});
+
+	it('matches a concrete path as well as a route key', () => {
+		expect(isStepHere('setup/calendar', on('setup/[step]', '', 'setup/calendar'))).toBe(true);
+		expect(isStepHere('setup/groups', on('setup/[step]', '', 'setup/calendar'))).toBe(false);
+	});
+
+	it('counts the page a Setup step embeds as here', () => {
+		const setup = on('setup/[step]', '', 'setup/calendar');
+		expect(isStepHere('calendar/settings?section=assignments', setup)).toBe(true);
+		expect(isStepHere('calendar', setup)).toBe(false);
+		expect(isStepHere('calendar/settings', on('setup/[step]', '', 'setup/groups'))).toBe(false);
 	});
 });
 

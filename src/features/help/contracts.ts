@@ -1,6 +1,9 @@
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import {
+	ACCESS_LANE_LABELS,
+	CAPABILITY_LEVEL_LABELS,
 	capabilityMeets,
+	type AdvisoryGroupScope,
 	type CapabilityLevel,
 	type CapabilityMap,
 	type DurableFeatureLane,
@@ -34,9 +37,12 @@ export const HELP_AREA_LABELS: Record<HelpArea, string> = {
  */
 export type HelpRouteKey = string;
 
-/** Who can follow a guide. Lane access is judged with `capabilityMeets`; a role requirement admits that role or above. */
+/**
+ * Who can follow a guide or a step. Lane access is judged with `capabilityMeets`; a role requirement admits that role
+ * or above. `wholeUnit` is for work the server refuses a member limited to certain Groups, such as a unit-wide catalog.
+ */
 export type HelpAccess =
-	| { lane: DurableFeatureLane; level: Exclude<CapabilityLevel, 'none'> }
+	| { lane: DurableFeatureLane; level: Exclude<CapabilityLevel, 'none'>; wholeUnit?: true }
 	| { role: Exclude<MembershipRole, 'member'> };
 
 export interface HelpStep {
@@ -44,6 +50,10 @@ export interface HelpStep {
 	text: string;
 	/** An Organization page, written as `HelpRouteKey` plus an optional query, that the step happens on. */
 	to?: string;
+	/** For a step whose control needs more than the guide does. A viewer without it reads a short note on the step. */
+	access?: HelpAccess;
+	/** The step is hidden while this feature is switched off. */
+	feature?: FeatureKey;
 }
 
 export interface HelpGuide {
@@ -53,7 +63,10 @@ export interface HelpGuide {
 	/** One line shown in lists and matched by search. */
 	summary: string;
 	area: HelpArea;
-	/** Pages whose Help opens with this guide listed. A route also covers the pages below it. */
+	/**
+	 * Pages whose Help opens with this guide listed, as a route key or as the page's concrete path such as
+	 * `setup/calendar`. A route also covers the pages below it.
+	 */
 	routes: readonly HelpRouteKey[];
 	/** Words people type that the title and summary do not already contain. */
 	keywords: readonly string[];
@@ -72,6 +85,8 @@ export interface HelpGuide {
 export interface HelpViewer {
 	role: MembershipRole;
 	capabilityMap: CapabilityMap;
+	/** `groups` for a member limited to certain Groups. Owners and admins always cover the whole unit. */
+	scopeKind: AdvisoryGroupScope['kind'];
 	disabledFeatures: readonly FeatureKey[];
 }
 
@@ -86,16 +101,36 @@ export function helpRouteKey(routeId: string | null): HelpRouteKey | null {
 		.join('/');
 }
 
+/** `/org/c-co/setup/calendar` becomes `setup/calendar`, the page's own path under its Organization. */
+export function helpPagePath(orgUrlSegment: string, pathname: string): HelpRouteKey | null {
+	const prefix = `/org/${orgUrlSegment}`;
+	if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) return null;
+	return pathname.slice(prefix.length).split('/').filter(Boolean).join('/');
+}
+
 function routeDepth(guideRoute: HelpRouteKey, current: HelpRouteKey): number {
 	if (guideRoute === current) return Number.MAX_SAFE_INTEGER;
 	if (guideRoute && current.startsWith(`${guideRoute}/`)) return guideRoute.split('/').length;
 	return -1;
 }
 
-/** Guides for the current page, the closest route first and registry order within a route. */
-export function guidesForRoute(guides: readonly HelpGuide[], current: HelpRouteKey): HelpGuide[] {
+/**
+ * Guides for the current page, the closest route first and registry order within a route. A guide's route may name the
+ * page by its route key (`current`) or by its concrete `path`, which is how one dynamic route such as `setup/[step]`
+ * gets a different guide on each of its pages.
+ */
+export function guidesForRoute(
+	guides: readonly HelpGuide[],
+	current: HelpRouteKey,
+	path?: HelpRouteKey | null
+): HelpGuide[] {
+	const pages = path && path !== current ? [current, path] : [current];
 	return guides
-		.map((guide, order) => ({ guide, order, depth: Math.max(...guide.routes.map((r) => routeDepth(r, current))) }))
+		.map((guide, order) => ({
+			guide,
+			order,
+			depth: Math.max(...guide.routes.flatMap((route) => pages.map((page) => routeDepth(route, page))))
+		}))
 		.filter((entry) => entry.depth >= 0)
 		.sort((a, b) => b.depth - a.depth || a.order - b.order)
 		.map((entry) => entry.guide);
@@ -121,11 +156,32 @@ export function isGuideAvailable(guide: HelpGuide, viewer: HelpViewer): boolean 
 	return !guide.feature || !viewer.disabledFeatures.includes(guide.feature);
 }
 
-export function canFollowGuide(guide: HelpGuide, viewer: HelpViewer): boolean {
-	const access = guide.access;
+export function isStepAvailable(step: HelpStep, viewer: HelpViewer): boolean {
+	return !step.feature || !viewer.disabledFeatures.includes(step.feature);
+}
+
+export function canMeetAccess(access: HelpAccess | undefined, viewer: HelpViewer): boolean {
 	if (!access) return true;
 	if ('role' in access) return viewer.role === 'owner' || viewer.role === access.role;
-	return capabilityMeets(viewer.capabilityMap[access.lane], access.level);
+	if (!capabilityMeets(viewer.capabilityMap[access.lane], access.level)) return false;
+	return !access.wholeUnit || viewer.scopeKind === 'organization';
+}
+
+export function canFollowGuide(guide: HelpGuide, viewer: HelpViewer): boolean {
+	return canMeetAccess(guide.access, viewer);
+}
+
+/** What the viewer lacks for `access`, in a sentence, or undefined when they have it. */
+export function accessGap(access: HelpAccess | undefined, viewer: HelpViewer): string | undefined {
+	if (!access || canMeetAccess(access, viewer)) return undefined;
+	if ('role' in access) {
+		return access.role === 'owner' ? 'Only owners can do this.' : 'Only owners and admins can do this.';
+	}
+	if (!capabilityMeets(viewer.capabilityMap[access.lane], access.level)) {
+		const need = `${ACCESS_LANE_LABELS[access.lane]} ${CAPABILITY_LEVEL_LABELS[access.level]} access`;
+		return `You need ${need}${access.wholeUnit ? ' across the whole unit' : ''}.`;
+	}
+	return 'This works across the whole unit, and your access covers only your Groups.';
 }
 
 /** The search param that opens Help and names its guide, so a shared link or a reload opens the same view. */
@@ -158,6 +214,40 @@ export function helpLocation(url: HelpPageUrl, guide: string | null | undefined)
 export function splitStepTarget(to: string): { key: HelpRouteKey; query: string } {
 	const [key, ...rest] = to.split('?');
 	return { key, query: rest.join('?') };
+}
+
+/** Setup steps that embed another page's editor. Steps for that page are already "here" on the Setup step. */
+export const SETUP_EMBEDS: Readonly<Record<HelpRouteKey, HelpRouteKey>> = {
+	'setup/groups': 'personnel',
+	'setup/personnel': 'personnel/import',
+	'setup/calendar': 'calendar/settings',
+	'setup/training': 'training/types',
+	'setup/invite': 'settings/members'
+};
+
+/** What a page shows when a step's query param is missing, for pages that read a param once and default the rest. */
+const STEP_QUERY_DEFAULTS: Readonly<Record<HelpRouteKey, Readonly<Record<string, string>>>> = {
+	'calendar/settings': { section: 'status' },
+	'calendar/bulk': { tab: 'add' }
+};
+
+export interface HelpPage {
+	/** The page's route key, or null outside an Organization page. */
+	routeKey: HelpRouteKey | null;
+	/** The page's concrete path under its Organization, as `helpPagePath` returns it. */
+	path: HelpRouteKey | null;
+	/** The visible URL's params. */
+	params: Pick<URLSearchParams, 'get'>;
+}
+
+/** Whether the visible page already is the step's page, with the same value for every param the step names. */
+export function isStepHere(to: string, page: HelpPage): boolean {
+	const { key, query } = splitStepTarget(to);
+	if (page.path !== null && SETUP_EMBEDS[page.path] === key) return true;
+	if (key !== page.routeKey && key !== page.path) return false;
+	return [...new URLSearchParams(query)].every(
+		([name, value]) => (page.params.get(name) ?? STEP_QUERY_DEFAULTS[key]?.[name]) === value
+	);
 }
 
 /** Where a step's "Go there" link points, keeping the guide open. Null when the page has a dynamic segment. */

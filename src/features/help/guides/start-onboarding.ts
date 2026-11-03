@@ -18,6 +18,6 @@ export const startOnboarding: HelpGuide = {
 		},
 		{ text: 'Press **Start Onboarding**.' }
 	],
-	note: 'The button stays off until a template has at least one step.',
+	note: 'The button stays off until a template has at least one step. A Training step the Soldier already has recorded starts checked off.',
 	next: 'build-onboarding-template'
 };

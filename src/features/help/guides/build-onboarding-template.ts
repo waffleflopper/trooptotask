@@ -8,7 +8,7 @@ export const buildOnboardingTemplate: HelpGuide = {
 	routes: ['onboarding', 'onboarding/templates'],
 	keywords: ['template', 'checklist', 'inprocessing', 'in-processing', 'reception', 'steps', 'newcomer', 'sponsor'],
 	feature: 'onboarding',
-	access: { lane: 'onboarding', level: 'configure' },
+	access: { lane: 'onboarding', level: 'configure', wholeUnit: true },
 	lead: 'A template is the checklist each new arrival works through. You build it once, and every packet you start uses it.',
 	steps: [
 		{ text: 'On the Onboarding page, press **Templates**.', to: 'onboarding/templates' },
@@ -19,6 +19,6 @@ export const buildOnboardingTemplate: HelpGuide = {
 		{ text: 'For a Training step, pick its **Training Type**. Add **Instructions** for anything the step needs.' },
 		{ text: 'Press **Save step**, then drag the steps into order.' }
 	],
-	note: 'Edits apply to new packets right away. Active packets update when you sync them.',
+	note: 'Edits apply to new packets right away. Active packets update when you sync them. While Training is on, a Training step checks itself off once that training is recorded for the Soldier.',
 	next: 'start-onboarding'
 };

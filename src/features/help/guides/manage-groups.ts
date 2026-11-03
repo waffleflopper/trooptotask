@@ -5,9 +5,9 @@ export const manageGroups: HelpGuide = {
 	title: 'Set up groups and sub-groups',
 	summary: 'Build platoons, sections and squads, and put Soldiers in them.',
 	area: 'personnel',
-	routes: ['personnel'],
+	routes: ['personnel', 'setup/groups'],
 	keywords: ['group', 'platoon', 'section', 'squad', 'team', 'sub-group', 'unassigned', 'organize', 'move soldier'],
-	access: { lane: 'personnel', level: 'configure' },
+	access: { lane: 'personnel', level: 'configure', wholeUnit: true },
 	lead: 'Groups are your platoons, sections and squads, and a Group can hold smaller Groups inside it. Rosters, reports, duty rules and member access all follow them.',
 	steps: [
 		{ text: 'On the Personnel page, press **Manage Groups**.', to: 'personnel' },

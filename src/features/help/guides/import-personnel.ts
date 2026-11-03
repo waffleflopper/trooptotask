@@ -5,7 +5,7 @@ export const importPersonnel: HelpGuide = {
 	title: 'Import your roster from a spreadsheet',
 	summary: 'Add and update many Soldiers at once from an Excel or CSV file.',
 	area: 'personnel',
-	routes: ['personnel', 'personnel/import'],
+	routes: ['personnel', 'personnel/import', 'setup/personnel'],
 	keywords: ['import', 'csv', 'excel', 'xlsx', 'upload', 'roster', 'alpha roster', 'add soldiers', 'bulk add'],
 	access: { lane: 'personnel', level: 'operate' },
 	lead: 'One file adds new Soldiers and updates the ones already in the unit. Blank cells never clear a saved value, and nobody missing from the file is touched.',

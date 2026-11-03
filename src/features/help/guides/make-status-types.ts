@@ -5,9 +5,9 @@ export const makeStatusTypes: HelpGuide = {
 	title: 'Make your own status types',
 	summary: 'Add statuses like leave, TDY or appointments and set what each one does to duty rosters.',
 	area: 'calendar',
-	routes: ['calendar', 'calendar/settings'],
+	routes: ['calendar', 'calendar/settings', 'setup/calendar'],
 	keywords: ['leave', 'tdy', 'school', 'pass', 'appointment', 'color', 'legend', 'away', 'new status', 'da 6'],
-	access: { lane: 'calendar', level: 'configure' },
+	access: { lane: 'calendar', level: 'configure', wholeUnit: true },
 	lead: 'Status types are the reasons someone is out, such as leave, TDY or a medical appointment. Each one also sets what happens to that Soldier on a duty roster.',
 	steps: [
 		{ text: 'Open calendar settings and select **Status Types**.', to: 'calendar/settings?section=status' },

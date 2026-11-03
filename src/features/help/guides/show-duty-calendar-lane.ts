@@ -5,9 +5,9 @@ export const showDutyCalendarLane: HelpGuide = {
 	title: 'Show a duty as a calendar lane',
 	summary: 'Put who has Staff Duty or CQ each day in a row under the dates on the calendar.',
 	area: 'calendar',
-	routes: ['calendar', 'calendar/settings'],
+	routes: ['calendar', 'calendar/settings', 'setup/calendar'],
 	keywords: ['lane', 'row', 'staff duty', 'cq', 'show on calendar', 'who has duty', 'assignment'],
-	access: { lane: 'calendar', level: 'configure' },
+	access: { lane: 'calendar', level: 'configure', wholeUnit: true },
 	lead: 'A duty can show as its own lane under the dates, so everyone sees who has it each day. A duty you leave off still gets assigned and reported in the duty planner.',
 	steps: [
 		{ text: 'Open calendar settings and select **Assignment Types**.', to: 'calendar/settings?section=assignments' },

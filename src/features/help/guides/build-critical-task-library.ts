@@ -8,7 +8,7 @@ export const buildCriticalTaskLibrary: HelpGuide = {
 	routes: ['critical-tasks', 'critical-tasks/library'],
 	keywords: ['task library', 'critical task', 'mos', 'cttl', 'individual task', 'expiration', 'import tasks'],
 	feature: 'criticalTasks',
-	access: { lane: 'criticalTasks', level: 'configure' },
+	access: { lane: 'criticalTasks', level: 'configure', wholeUnit: true },
 	lead: 'The task library is the list of critical tasks your unit tracks. Each task can apply to certain MOSs and expire on its own schedule.',
 	steps: [
 		{ text: 'On the Critical Tasks page, press **Task Library**.', to: 'critical-tasks/library' },

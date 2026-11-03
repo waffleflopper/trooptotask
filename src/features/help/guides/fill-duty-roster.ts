@@ -7,7 +7,7 @@ export const fillDutyRoster: HelpGuide = {
 	area: 'calendar',
 	routes: ['calendar', 'calendar/assignments', 'calendar/rosters/[typeId]'],
 	keywords: ['da 6', 'da form 6', 'staff duty', 'auto fill', 'rotation', 'count', 'print', 'schedule duty', 'cq'],
-	access: { lane: 'calendar', level: 'operate' },
+	access: { lane: 'calendar', level: 'operate', wholeUnit: true },
 	missed: true,
 	lead: 'The duty planner fills open days from the duty roster and picks the available Soldier with the highest count. It keeps the counts and builds the DA 6 as you go.',
 	steps: [

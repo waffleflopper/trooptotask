@@ -5,9 +5,9 @@ export const addAssignmentTypes: HelpGuide = {
 	title: 'Add your own assignment types',
 	summary: 'Create duties like Staff Duty, CQ or a detail and fill them in the duty planner.',
 	area: 'calendar',
-	routes: ['calendar', 'calendar/settings', 'calendar/assignments'],
+	routes: ['calendar', 'calendar/settings', 'calendar/assignments', 'setup/calendar'],
 	keywords: ['staff duty', 'soldiers', 'duty', 'add people', 'cq', 'charge of quarters', 'detail', 'new duty', 'sd'],
-	access: { lane: 'calendar', level: 'configure' },
+	access: { lane: 'calendar', level: 'configure', wholeUnit: true },
 	missed: true,
 	lead: 'Assignment types are the daily duties your unit fills, such as Staff Duty, CQ or a range detail. Staff Duty is one of them, and you can add as many more as you need.',
 	steps: [

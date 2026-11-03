@@ -9,15 +9,26 @@ numbered steps to the pages they name, and closes the drawer with Back, the clos
   `Browse all N guides` footer. A guide that is already listed for the page is not repeated under `Things people miss`.
 - `history`: the `?help` search param is the state. An empty value is the list and `?help=<id>` is a guide. Pressing Help
   pushes the list, opening a guide from the list pushes one more entry, and closing steps back over what Help pushed.
-  Back goes guide, then list, then closed.
+  Back goes guide, then list, then closed. The crumb from a guide that was pushed from the list steps back to the list
+  instead of pushing, so history does not grow however often the list and a guide are swapped.
 - `focus`: opening puts focus in the drawer, opening a guide moves it to the guide title, and Escape or the close button
-  returns it to the Help button.
+  returns it to the Help button, also when the drawer was opened from a load on `?help=` and nothing else had focus.
+  After `Go there` lands, focus is inside the drawer.
+- `scroll`: the drawer body is at the top whenever the list or a different guide shows.
 - `search`: every word must appear in a guide's title, summary, area or keywords. `staff duty soldiers` finds
   `Add your own assignment types`.
 - `steps`: a step on another page has a `Go there` link that keeps the guide open on that page. A step on the page you
-  are already on reads `You're here`.
+  are already on reads `You're here`, judged by the page and by the step's own query params. A missing param counts as
+  the page default, so `section` on Calendar settings defaults to `status` and `tab` on Bulk status to `add`. The setup
+  steps that embed an editor read `You're here` on their own `/setup/<slug>` page. A step whose feature is off is hidden
+  and the others renumber. A step whose access the member lacks shows a short lock line under it.
 - `deep-link`: a page loaded on `?help=<id>` opens that guide. Closing it drops the param and keeps other params.
-- `access-note`: a member who cannot follow a guide still reads it and sees a lock note naming what they need.
+- `access-note`: a member who cannot follow a guide still reads it and sees a lock note naming what they need. A guide
+  that works across the whole unit tells a member limited to Groups so.
+- `setup-page`: the Calendar step of Organization setup (`/setup/calendar`) lists the Calendar guides under `On this page`,
+  and the Groups, Personnel, Training and Invite steps do the same for their guides.
+- `load-failure`: if the Help chunk fails to load, the drawer frame stays with `Help could not load` plus `Try again`
+  and `Close help`. This is covered by unit tests only, because the owned production build serves the chunk.
 - `feature-off`: a guide for a feature the unit switched off is hidden everywhere, and its `?help=` id shows the list.
 - `layout`: no horizontal scroll at 1440, 900 or 390 px, and the header Help button stays visible, icon only at 390.
 
@@ -67,15 +78,19 @@ or a detail and fill them in the duty planner."`). The crumb is `button "HELP ·
    `ev $PAGE '() => document.querySelector("aside[aria-label=Help] section[aria-label=\"Things people miss\"]").scrollIntoView({block:"end"})'`
    and capture the list at the top and that section.
 2. **History.** From the list open `Add your own assignment types`. The URL ends `?help=add-assignment-types`, focus
-   is on the guide title, and the guide's first step reads `You're here`. Run
+   is on the guide title, and the guide's first step reads `Go there` (the step points at
+   `?section=assignments` and the page shows `Status Types`). Run
    `$T navigate_page "{\"pageId\":$PAGE,\"type\":\"back\"}" --worker "$WORKER"`: the URL ends `?help=`, the title reads
    `HOW DO I…` and the drawer is open. Run it again: the URL has no `help`, the drawer is gone and focus is on the Help
-   button. A guide opens at its top. Reopen Help, scroll the list with
+   button. Then press Help, open a guide, press the crumb, open another guide and run `back` twice: the first lands on
+   the list and the second leaves Help, with no `?help` entry left behind. A guide opens at its top. Reopen Help, scroll
+   the list with
    `ev $PAGE '() => { document.querySelector("aside[aria-label=Help] .overflow-y-auto").scrollTop = 100 }'`, open the
    fifth row with a DOM click
    (`ev $PAGE '() => { [...document.querySelectorAll("aside[aria-label=Help] .overflow-y-auto a")][5].click() }'`; a
    native click scrolls the row into view first and changes the offset) and read the scroller's `scrollTop`, which is 0,
-   so the lead paragraph is visible.
+   so the lead paragraph is visible. Do the same with a guide scrolled to its end and `Next:`, and read 0 again.
+   `state` reports the same scroller as `data-help-scroller`.
 3. **Crumb, then close.** Press Help, open `Make your own status types`, choose `button "HELP · CALENDAR"` and then
    `button "Close help"`. The URL after the crumb ends `?help=`. After the close it has no `help`, the drawer is gone
    and focus is on the Help button. `history.length` is unchanged, so the close stepped back rather than pushed. Run
@@ -91,8 +106,10 @@ or a detail and fill them in the duty planner."`). The crumb is `button "HELP ·
 6. **Steps.** On `/calendar/settings` open `Add one status to many people` from the list. Its two `Go there` links point
    to `/calendar/bulk?tab=add&help=bulk-statuses` and `?tab=remove&help=bulk-statuses`. Click the first. The page becomes
    `Bulk status`, the URL keeps `help=bulk-statuses`, the drawer stays open on that guide, and the steps that target
-   this page now read `You're here`. On the Assignment Types guide of step 2 the matching step already reads
-   `You're here` and has no `Go there` link.
+   this page now read `You're here`, and the `tab=remove` step still reads `Go there` because `tab` is `add`. Open
+   `Make your own status types` on `/calendar/settings`: its first step already reads `You're here` because `section`
+   defaults to `status`, and it has no `Go there` link. In step 2's guide the first step reads `Go there` until the URL
+   has `?section=assignments`.
 7. **Reload.** On the Bulk status URL from step 6, `$T navigate_page "{\"pageId\":$PAGE,\"type\":\"reload\"}"`. The
    guide is open again with the same title and focus is on `ASIDE|Help`. Choose `Close help`: the URL becomes
    `/calendar/bulk?tab=add`, with `tab` kept and `help` dropped.
@@ -105,7 +122,13 @@ or a detail and fill them in the duty planner."`). The crumb is `button "HELP ·
    `Only owners and admins can do this. Don't see the button? Ask a unit admin.` Scroll the drawer's scroller to its end
    before the screenshot, because the note sits below the first screen. `$V actor orgAdmin settings/members` on
    `?help=limit-member-to-groups` shows no lock note. A lane guide uses the lane wording:
-   `viewer` on `/calendar?help=add-assignment-types` reads `You need Calendar Manage access.`
+   `viewer` on `/calendar?help=add-assignment-types` reads `You need Calendar Manage access across the whole unit.`
+   A Group-limited member sees the whole-unit note. `$V actor calendarScoped calendar` (Calendar Update, Groups scope),
+   then navigate to `/calendar?help=fill-duty-roster`, scroll the drawer to its end and read the lock note:
+   `This works across the whole unit, and your access covers only your Groups. Don't see the button? Ask a unit admin.`
+   `$V actor calendarScopedConfig calendar/settings` with `?help=add-assignment-types` reads the same note, because
+   Manage in Groups scope is still not the whole unit. In `open-soldier-record`, the Training completion step shows a
+   lock line for a member without Training Update access and is gone when Training is off.
 9. **Feature off.** As `orgOwner` on `?help=add-training-types`, the title reads
    `ADD THE TRAINING YOUR UNIT TRACKS`. Switch Training off in the owned provider with
    `$V settings-request $PAGE orgA organization/settings '{"featureSwitch":{"feature":"training","on":false}}'`
@@ -131,7 +154,18 @@ or a detail and fill them in the duty planner."`). The crumb is `button "HELP ·
     `Misconduct`, `Add status type`), then Cancel. `Add one status to many people`: on `/calendar`, `Bulk Status` opens a
     menu with `Add Bulk` and `Remove Bulk`; `/calendar/bulk?tab=add` has `Status`, `Dates`, `Note`, `Who` and
     `Add to N people`, and a `Remove` radio. `Limit a member to their own section` is read in step 8.
-12. **Dark theme.** Choose `Toggle theme`, capture a guide and the list, then choose it again. The drawer's black header
+12. **Setup page.** `$V actor orgOwner settings/general`, then
+    `$T navigate_page "{\"pageId\":$PAGE,\"type\":\"url\",\"url\":\"<origin>/org/<org>/setup/calendar\"}" --worker "$WORKER"`
+    (`actor` does not accept `setup/calendar` as a destination). Press Help: the list says `On this page` with the four
+    Calendar guides (`Add your own assignment types`, `Choose who pulls a duty`, `Show a duty as a calendar lane`,
+    `Make your own status types`). Open `Add your own assignment types`: step 1 reads `You're here` even though the
+    embedded editor shows `Status Types`, because the setup page keeps the section in local state and the URL says
+    nothing. Capture the list and the guide.
+13. **Focus.** Load `/calendar/settings?help=` in a fresh `navigate_page` (so nothing but the page body had focus), press
+    `Close help` and read `state`: `active` is `BUTTON|Help`. Then open `Add one status to many people`, click its first
+    `Go there` and read `state` right after the page changes: `active` is inside the drawer (the guide title or a control
+    in it), not `BODY`.
+14. **Dark theme.** Choose `Toggle theme`, capture a guide and the list, then choose it again. The drawer's black header
     and its body keep readable contrast.
 
 ## Gotchas
@@ -142,8 +176,12 @@ or a detail and fill them in the duty planner."`). The crumb is `button "HELP ·
   screen, scroll the drawer's `.overflow-y-auto` scroller with `evaluate_script` and click the row from the DOM.
 - `history.length` does not fall when an entry is popped. Prove what Back did from the URL and the drawer state, and
   prove how many entries a close removed by the one extra Back in step 3.
-- `Go there` and `You're here` are judged from the page path alone. A guide opened on `/calendar/settings` reads
-  `You're here` on a step that says to select `Assignment Types` even while the `Status Types` tab shows.
+- `Go there` and `You're here` are judged from the page path and the step's query params, with a missing param counting
+  as the page default. The one exception is a setup page, which cannot expose its editor's section, so a step that
+  embeds an editor reads `You're here` on `/setup/<slug>` whatever section shows.
+- `take_screenshot --save` writes the MCP response as JSON with the image as base64, not a PNG. Decode the `image` item
+  with `base64 -d` or Python, and delete the saved JSON between shots, because a leftover file gives you the previous
+  picture again.
 - An id in `?help=` that names no available guide, such as a switched-off feature's, shows the list and leaves the URL as
   typed.
 - Switching a feature uses the disposable provider only. Restore it before the next journey, and `$V rows` the change

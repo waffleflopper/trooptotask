@@ -104,7 +104,7 @@
 					{#if board && board.lowest}
 						<AvailabilityBottomLine {board} lowest={board.lowest} {statusTypes} {today} />
 					{:else}
-						<div class="min-h-[28rem] space-y-6" aria-hidden="true">
+						<div class="min-h-[23.5rem] space-y-6" aria-hidden="true">
 							<Skeleton class="h-[88px] w-56" />
 							<Skeleton class="h-24 w-full" />
 							<Skeleton class="h-36 w-full" />
@@ -148,7 +148,7 @@
 						onSelect={select}
 					/>
 				{:else}
-					<Skeleton class="w-full" style="height: calc({gridRows} * 2.9rem + 2.5rem)" aria-hidden="true" />
+					<Skeleton class="w-full" style="height: calc({gridRows} * 2.9rem + 1.6rem)" aria-hidden="true" />
 				{/if}
 			</ReportWorkspace.Section>
 
@@ -163,7 +163,7 @@
 				{#if selectedDay}
 					<AvailabilityWhoIsOut day={selectedDay} {statusTypes} />
 				{:else}
-					<Skeleton class="h-24 w-full" aria-hidden="true" />
+					<Skeleton class="h-16 w-full" aria-hidden="true" />
 				{/if}
 			</ReportWorkspace.Section>
 		</div>

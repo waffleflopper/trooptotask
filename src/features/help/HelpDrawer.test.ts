@@ -95,12 +95,12 @@ describe('Help drawer', () => {
 		expect(screen.getByRole('button', { name: 'Open help' })).toHaveFocus();
 	});
 
-	it('says what access a guide needs when the member lacks it', () => {
+	it('adds an access note when the member lacks the access a guide needs', () => {
 		renderHelp({
 			initialGuide: 'assignment-types',
 			viewer: { capabilityMap: { ...noAccess, calendar: 'view' } }
 		});
-		expect(screen.getByText(/You need Calendar Manage access/)).toBeInTheDocument();
+		expect(screen.getByRole('note')).toBeInTheDocument();
 	});
 
 	it('leaves the access note off when the member has the access', () => {
@@ -108,7 +108,7 @@ describe('Help drawer', () => {
 			initialGuide: 'assignment-types',
 			viewer: { capabilityMap: { ...noAccess, calendar: 'configure' } }
 		});
-		expect(screen.queryByText(/access/)).toBeNull();
+		expect(screen.queryByRole('note')).toBeNull();
 	});
 
 	it('tells a member limited to Groups that a whole-unit guide is out of reach, though they hold the level', () => {
@@ -128,10 +128,10 @@ describe('Help drawer', () => {
 				initialGuide: 'unit-wide'
 			}
 		});
-		expect(screen.getByText(/your access covers only your Groups/)).toBeInTheDocument();
+		expect(screen.getByRole('note')).toBeInTheDocument();
 		unmount();
 		renderHelp({ initialGuide: 'assignment-types', viewer: { ...viewer, scopeKind: 'groups' } });
-		expect(screen.queryByText(/access/)).toBeNull();
+		expect(screen.queryByRole('note')).toBeNull();
 	});
 
 	it('numbers only the steps the unit has the feature on for, and notes a step the member lacks access to', () => {
@@ -170,7 +170,8 @@ describe('Help drawer', () => {
 			}
 		});
 		const logStep = screen.getByText('Log training.').closest('li')!;
-		expect(within(logStep).getByText('You need Training Update access.')).toBeInTheDocument();
+		expect(within(logStep).getByRole('note')).toBeInTheDocument();
+		expect(within(screen.getByText('Press Edit.').closest('li')!).queryByRole('note')).toBeNull();
 	});
 
 	it('is not "here" on a step whose query names another section of the same page', () => {

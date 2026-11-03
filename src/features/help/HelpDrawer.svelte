@@ -272,7 +272,7 @@
 									{/each}
 								</p>
 								{#if gap}
-									<p class="flex items-start gap-1.5 text-sm leading-snug text-muted-foreground">
+									<p role="note" class="flex items-start gap-1.5 text-sm leading-snug text-muted-foreground">
 										<Lock class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
 										<span>{gap}</span>
 									</p>
@@ -303,7 +303,7 @@
 						<p class="rounded-md border border-accent/30 bg-accent/10 p-3 text-sm leading-relaxed">{guide.note}</p>
 					{/if}
 					{#if guideGap}
-						<p class="flex items-start gap-2 rounded-md bg-muted p-3 text-sm leading-relaxed">
+						<p role="note" class="flex items-start gap-2 rounded-md bg-muted p-3 text-sm leading-relaxed">
 							<Lock class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 							<span>{guideGap} Don't see the button? Ask a unit admin.</span>
 						</p>

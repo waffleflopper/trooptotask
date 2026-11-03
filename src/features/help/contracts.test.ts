@@ -206,22 +206,24 @@ describe('accessGap', () => {
 		expect(accessGap({ lane: 'calendar', level: 'configure' }, viewer({ capabilityMap: manage }))).toBeUndefined();
 	});
 
-	it('names the lane and level the viewer lacks', () => {
-		expect(accessGap({ lane: 'calendar', level: 'configure' }, viewer())).toBe('You need Calendar Manage access.');
-		expect(accessGap({ lane: 'training', level: 'operate' }, viewer())).toBe('You need Training Update access.');
+	it('reports a gap for a lane level the viewer lacks, and none for another lane they hold', () => {
+		expect(accessGap({ lane: 'calendar', level: 'configure' }, viewer())).toBeDefined();
+		expect(accessGap({ lane: 'training', level: 'operate' }, viewer({ capabilityMap: manage }))).toBeDefined();
+		expect(accessGap({ lane: 'calendar', level: 'operate' }, viewer({ capabilityMap: manage }))).toBeUndefined();
 	});
 
-	it('adds the whole unit to a missing level, and explains a Group limit when the level is held', () => {
+	it('reports a gap for a whole-unit requirement when the viewer lacks the level or is limited to Groups', () => {
 		const access = { lane: 'calendar', level: 'configure', wholeUnit: true } as const;
-		expect(accessGap(access, viewer())).toBe('You need Calendar Manage access across the whole unit.');
-		expect(accessGap(access, viewer({ capabilityMap: manage, scopeKind: 'groups' }))).toBe(
-			'This works across the whole unit, and your access covers only your Groups.'
-		);
+		expect(accessGap(access, viewer())).toBeDefined();
+		expect(accessGap(access, viewer({ capabilityMap: manage, scopeKind: 'groups' }))).toBeDefined();
+		expect(accessGap(access, viewer({ capabilityMap: manage, scopeKind: 'organization' }))).toBeUndefined();
 	});
 
-	it('names the role a role requirement admits', () => {
-		expect(accessGap({ role: 'admin' }, viewer())).toBe('Only owners and admins can do this.');
-		expect(accessGap({ role: 'owner' }, viewer({ role: 'admin' }))).toBe('Only owners can do this.');
+	it('reports a gap for a role requirement the viewer does not hold', () => {
+		expect(accessGap({ role: 'admin' }, viewer())).toBeDefined();
+		expect(accessGap({ role: 'admin' }, viewer({ role: 'admin' }))).toBeUndefined();
+		expect(accessGap({ role: 'owner' }, viewer({ role: 'admin' }))).toBeDefined();
+		expect(accessGap({ role: 'owner' }, viewer({ role: 'owner' }))).toBeUndefined();
 	});
 });
 

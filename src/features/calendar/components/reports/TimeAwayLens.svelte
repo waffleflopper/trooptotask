@@ -136,7 +136,7 @@
 					{#if report}
 						<TimeAwayComposition {report} {statusTypes} />
 					{:else}
-						<Skeleton class="w-full" style="height: calc(15rem + {groupRows} * 3.1rem)" aria-hidden="true" />
+						<Skeleton class="w-full" style="height: calc(17rem + {groupRows} * 3.2rem)" aria-hidden="true" />
 					{/if}
 				</ReportWorkspace.Section>
 			</div>
@@ -170,7 +170,7 @@
 						{statusTypes}
 					/>
 				{:else}
-					<Skeleton class="w-full" style="height: calc(2.5rem + {personRows} * 4.6rem + 2.5rem)" aria-hidden="true" />
+					<Skeleton class="w-full" style="height: calc(4rem + {personRows} * 3.9rem)" aria-hidden="true" />
 				{/if}
 			</ReportWorkspace.Section>
 		</div>

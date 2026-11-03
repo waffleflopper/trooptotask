@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -38,14 +39,20 @@
 	const SECTION_KEYS = ['status', 'assignments', 'closures'];
 	const sectionFrom = (key: string | null) => SECTION_KEYS.find((candidate) => candidate === key) ?? 'status';
 	// The page owns its section in the address bar, so a link, Back and Help's "You're here" agree with what is shown.
-	// Embedded in another flow, the section stays local.
-	let embeddedSection = $state('status');
-	const activeSection = $derived(embedded ? embeddedSection : sectionFrom(visibleUrl().searchParams.get('section')));
+	// It reads the URL on navigation only: closing Help steps back through an entry with the older section before
+	// restoring this one, and following the URL there would unmount an open draft. Embedded in another flow, the section
+	// stays local.
+	const urlSection = () => sectionFrom(visibleUrl().searchParams.get('section'));
+	// svelte-ignore state_referenced_locally
+	let activeSection = $state(embedded ? 'status' : urlSection());
+	afterNavigate(() => {
+		if (!embedded) activeSection = urlSection();
+	});
 
 	function selectSection(key: string) {
 		if (key === activeSection) return;
-		if (embedded) embeddedSection = key;
-		else replaceVisibleSearchParam('section', sectionFrom(key));
+		activeSection = sectionFrom(key);
+		if (!embedded) replaceVisibleSearchParam('section', activeSection);
 	}
 	let searchQuery = $state('');
 	let statusSection = $state<CalendarStatusSettingsSection>();

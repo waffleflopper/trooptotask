@@ -16,7 +16,8 @@ vi.mock('$app/state', () => ({ page: pageMock }));
 vi.mock('$app/navigation', () => ({
 	goto: async (href: string) => {
 		pageMock.url.search = new URL(href, 'http://localhost').search;
-	}
+	},
+	afterNavigate: () => {}
 }));
 
 function type(id: string, name: string, showOnCalendar: boolean, sortOrder: number): AssignmentType {

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { tick } from 'svelte';
 import { SvelteURL } from 'svelte/reactivity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
@@ -15,9 +16,11 @@ const {
 	assignmentTypesStoreMock,
 	specialDaysStoreMock,
 	pageMock,
-	gotoMock
+	gotoMock,
+	navigated
 } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
+	navigated: { callbacks: [] as (() => void)[] },
 	pageMock: {
 		url: new URL('http://localhost/org/org-1/calendar/settings') as URL,
 		shallow: null as { url: URL } | null,
@@ -70,7 +73,10 @@ const org = {
 };
 
 vi.mock('$app/state', () => ({ page: pageMock }));
-vi.mock('$app/navigation', () => ({ goto: gotoMock }));
+vi.mock('$app/navigation', () => ({
+	goto: gotoMock,
+	afterNavigate: (callback: () => void) => navigated.callbacks.push(callback)
+}));
 
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: statusTypesStoreMock
@@ -104,6 +110,7 @@ async function pickDay(composer: HTMLElement, picker: 'First day' | 'Last day', 
 describe('CalendarSettingsPage', () => {
 	beforeEach(() => {
 		cleanup();
+		navigated.callbacks = [];
 		pageMock.url = new SvelteURL('http://localhost/org/org-1/calendar/settings');
 		pageMock.shallow = null;
 		pageMock.state = {};
@@ -870,14 +877,24 @@ describe('CalendarSettingsPage', () => {
 		expect(screen.getByRole('tab', { name: /Status Types/ }).getAttribute('aria-selected')).toBe('true');
 	});
 
-	it('follows the section in the address bar when it changes under the page', async () => {
+	it('follows the section in the address bar after a navigation', async () => {
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		pageMock.url.search = '?section=assignments&help=assignment-types';
+		navigated.callbacks.forEach((callback) => callback());
 
 		await waitFor(() =>
 			expect(screen.getByRole('tab', { name: /Assignment Types/ }).getAttribute('aria-selected')).toBe('true')
 		);
+	});
+
+	it('keeps its section while the address bar passes through another one without a navigation', async () => {
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+		pageMock.url.search = '?section=assignments';
+		await tick();
+
+		expect(screen.getByRole('tab', { name: /Status Types/ }).getAttribute('aria-selected')).toBe('true');
 	});
 
 	it('writes the chosen section to the address bar in place, keeping the open drawer', async () => {

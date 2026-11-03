@@ -5,6 +5,7 @@ import {
 	isOffCurrentSpan,
 	parseReportQuery,
 	reportRange,
+	resizeSpan,
 	serializeReportQuery,
 	shiftReportStart,
 	switchLens,
@@ -138,6 +139,50 @@ describe('shiftReportStart', () => {
 
 	it('cannot move a back lens later while today is unknown', () => {
 		expect(shiftReportStart({ start: '2026-05-07', end: '2026-08-04' }, 90, 1, back, null)).toBeNull();
+	});
+});
+
+describe('resizeSpan', () => {
+	const today = '2026-11-03';
+
+	it('keeps the last day of an earlier back span, so a longer span looks further back', () => {
+		const query = { lens: 'time-away' as const, days: 14 as const, start: '2026-10-06' };
+		const range = { start: '2026-10-06', end: '2026-10-19' };
+		expect(resizeSpan(query, range, 90, back, today)).toEqual({
+			lens: 'time-away',
+			days: 90,
+			start: '2026-07-22'
+		});
+	});
+
+	it('returns a back span that would reach past yesterday to the current span', () => {
+		const query = { lens: 'time-away' as const, days: 14 as const, start: '2026-10-06' };
+		const range = { start: '2026-10-06', end: '2026-10-19' };
+		const resized = resizeSpan(
+			{ ...query, start: '2026-10-21' },
+			{ start: '2026-10-21', end: '2026-11-03' },
+			30,
+			back,
+			today
+		);
+		expect(resized).toEqual({ lens: 'time-away', days: 30, start: null });
+		expect(reportRange(resizeSpan(query, range, 30, back, today), today, back)).toEqual({
+			start: '2026-09-20',
+			end: '2026-10-19'
+		});
+	});
+
+	it('keeps the first day of an ahead span and the current span of either lens', () => {
+		const query = { lens: 'availability' as const, days: 30 as const, start: '2026-12-01' };
+		expect(resizeSpan(query, { start: '2026-12-01', end: '2026-12-30' }, 14, ahead, today)).toEqual({
+			...query,
+			days: 14
+		});
+		expect(resizeSpan({ lens: 'time-away', days: 90, start: null }, null, 30, back, today)).toEqual({
+			lens: 'time-away',
+			days: 30,
+			start: null
+		});
 	});
 });
 

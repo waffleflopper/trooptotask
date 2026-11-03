@@ -26,6 +26,7 @@
 		isOffCurrentSpan,
 		parseReportQuery,
 		reportRange,
+		resizeSpan,
 		serializeReportQuery,
 		shiftReportStart,
 		SPAN_DAYS,
@@ -195,7 +196,11 @@
 		}))
 	);
 	const spanTabs = $derived(
-		SPAN_DAYS.map((days) => ({ label: `${days} D`, href: hrefFor({ days }), active: days === query.days }))
+		SPAN_DAYS.map((days) => ({
+			label: `${days} D`,
+			href: hrefForQuery(resizeSpan(query, range, days, lens.span, today)),
+			active: days === query.days
+		}))
 	);
 	const earlierStart = $derived(range ? shiftReportStart(range, query.days, -1, lens.span, today) : null);
 	const laterStart = $derived(range ? shiftReportStart(range, query.days, 1, lens.span, today) : null);

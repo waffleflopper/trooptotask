@@ -209,6 +209,18 @@ describe('CalendarReports Time away lens', () => {
 		expect(screen.getByRole('button', { name: 'Next 90 days' }).getAttribute('aria-disabled')).toBe('true');
 	});
 
+	it('lengthens an earlier span backward from its last day instead of into the days to come', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 10, 3, 12));
+		renderReports('?lens=time-away&days=14&start=2026-10-06');
+
+		await screen.findByRole('region', { name: 'Bottom line' });
+		const spans = within(screen.getByRole('navigation', { name: 'Report span' }));
+		expect(spans.getByRole('link', { name: '90 D' }).getAttribute('href')).toBe(
+			'/org/org-1/calendar/reports?lens=time-away&start=2026-07-22'
+		);
+	});
+
 	it('recomputes for a Group filter without fetching again', async () => {
 		renderReports('?lens=time-away&start=2026-11-03&days=14');
 		await screen.findByText('4 of 70 person-days');

@@ -98,6 +98,23 @@ export function shiftReportStart(
 	return shifted < current ? shifted : current;
 }
 
+/**
+ * The query for a span of `days` at the place the viewer is looking. An ahead span keeps its first day and a back span
+ * keeps its last, so a back lens never stretches past yesterday.
+ */
+export function resizeSpan(
+	query: ReportQuery,
+	range: ReportRange | null,
+	days: SpanDays,
+	span: LensSpan,
+	today: string | null
+): ReportQuery {
+	if (query.start === null || range === null || span.direction === 'ahead') return { ...query, days };
+	const start = fromDayNumber(toDayNumber(range.end) - days + 1);
+	const current = currentSpanStart(span, days, today);
+	return { ...query, days, start: current !== null && start >= current ? null : start };
+}
+
 /** Whether `query` names a span other than the lens's current one, so the page can offer a way back to it. */
 export function isOffCurrentSpan(query: ReportQuery, today: string | null, span: LensSpan): boolean {
 	return query.start !== null && query.start !== currentSpanStart(span, query.days, today);

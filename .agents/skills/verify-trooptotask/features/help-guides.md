@@ -224,6 +224,9 @@ and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` 
     - Calendar settings: on `/calendar/settings` press Help, open `Add your own assignment types`, choose the
       `Assignment Types` tab by hand (not the step's `Go there`) and press `Close help`. Expect `?section=assignments`,
       the `Assignment Types` tab selected and no `help`. One `back` leaves Settings the same way.
+    - Settings draft: on `/calendar/settings?section=assignments` press Help, open the guide, choose `Status Types` by
+      hand, open `Add new` with an `ev` DOM click (the drawer covers it at 1440), `fill` a `Name` and press
+      `Close help`. Expect `?section=status`, the composer still open with the typed name, then `Cancel` it.
     - Crumb: this case needs a guide, so it runs once. On Bulk status open `Add one status to many people`, switch to
       `Remove`, tick `SPC Able, Synthetic` and press `button "HELP · CALENDAR"`. Expect the list (`HOW DO I…`),
       `?help=&tab=remove`, the `Remove` tab and `1 of 3 selected` with Able still ticked. Then `Close help`: `?tab=remove`,

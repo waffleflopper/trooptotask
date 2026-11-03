@@ -15,8 +15,13 @@ function helpDepth(): number {
 	return page.state.help?.depth ?? 0;
 }
 
+/** Help shares `page.state` with the page under it, such as an import's step, so its writes keep the other fields. */
+function withHelp(help: App.PageState['help']): App.PageState {
+	return { ...page.state, help };
+}
+
 export function openHelp() {
-	void goto(helpLocation(visibleUrl(), ''), { shallow: true, state: { help: { guide: null, depth: 1 } } });
+	void goto(helpLocation(visibleUrl(), ''), { shallow: true, state: withHelp({ guide: null, depth: 1 }) });
 }
 
 /** From a pushed list a guide takes a new entry, so Back returns to the list. Anywhere else it takes the current one. */
@@ -26,7 +31,7 @@ export function openHelpGuide(id: string) {
 	void goto(helpLocation(visibleUrl(), id), {
 		shallow: true,
 		replace: !push,
-		state: depth > 0 ? { help: { guide: id, depth: push ? depth + 1 : depth } } : {}
+		state: withHelp(depth > 0 ? { guide: id, depth: push ? depth + 1 : depth } : undefined)
 	});
 }
 
@@ -40,14 +45,14 @@ export function showHelpList() {
 	void goto(helpLocation(visibleUrl(), ''), {
 		shallow: true,
 		replace: true,
-		state: depth > 0 ? { help: { guide: null, depth } } : {}
+		state: withHelp(depth > 0 ? { guide: null, depth } : undefined)
 	});
 }
 
 export function closeHelp() {
 	const depth = helpDepth();
 	if (depth > 0) history.go(-depth);
-	else void goto(helpLocation(visibleUrl(), undefined), { shallow: true, replace: true, state: { help: null } });
+	else void goto(helpLocation(visibleUrl(), undefined), { shallow: true, replace: true, state: withHelp(null) });
 }
 
 type HelpState = NonNullable<App.PageState['help']>;
@@ -76,7 +81,7 @@ export function keepHelpState() {
 		void goto(`${url.pathname}${url.search}${url.hash}`, {
 			shallow: true,
 			replace: true,
-			state: { help: lastHelp!.help }
+			state: withHelp(lastHelp!.help)
 		});
 		return;
 	}

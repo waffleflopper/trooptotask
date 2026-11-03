@@ -7,7 +7,7 @@ type GotoOptions = { replace?: boolean; state?: { help?: HelpState | null } };
 
 const current = vi.hoisted(() => ({
 	url: new URL('https://example.test/org/c-co/calendar?month=2026-03'),
-	state: {} as { help?: HelpState | null },
+	state: {} as { help?: HelpState | null; importStep?: 'columns' | 'review' | 'done' },
 	shallow: null as { url: URL } | null
 }));
 vi.mock('$app/state', () => ({
@@ -37,6 +37,24 @@ afterEach(() => {
 });
 
 describe('opening Help', () => {
+	it('keeps the page state, such as an import step, when Help opens and closes in place', () => {
+		at('https://example.test/org/c-co/personnel/import');
+		current.state = { importStep: 'review' };
+		openHelp();
+		expect(goto).toHaveBeenLastCalledWith('/org/c-co/personnel/import?help=', {
+			shallow: true,
+			state: { importStep: 'review', help: { guide: null, depth: 1 } }
+		});
+		at('https://example.test/org/c-co/personnel/import?help=a');
+		current.state = { importStep: 'review' };
+		closeHelp();
+		expect(goto).toHaveBeenLastCalledWith('/org/c-co/personnel/import', {
+			shallow: true,
+			replace: true,
+			state: { importStep: 'review', help: null }
+		});
+	});
+
 	it('pushes the guide list onto history without leaving the page', () => {
 		at('https://example.test/org/c-co/calendar?month=2026-03');
 		openHelp();

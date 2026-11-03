@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { closeHelp, openHelp, openHelpGuide, showHelpList, visibleUrl } from './helpNavigation';
 
 type HelpState = { guide: string | null; depth: number };
+type GotoOptions = { replace?: boolean; state?: { help?: HelpState | null } };
 
 const current = vi.hoisted(() => ({
 	url: new URL('https://example.test/org/c-co/calendar?month=2026-03'),
@@ -13,7 +14,7 @@ vi.mock('$app/state', () => ({
 		return current;
 	}
 }));
-const goto = vi.hoisted(() => vi.fn(async () => {}));
+const goto = vi.hoisted(() => vi.fn<(url: string, options: GotoOptions) => Promise<void>>(async () => {}));
 vi.mock('$app/navigation', () => ({ goto }));
 
 function at(url: string, help?: HelpState | null) {
@@ -140,7 +141,7 @@ function browserHistory(startUrl: string) {
 		current.shallow = null;
 		current.state = entries[index].state;
 	};
-	goto.mockImplementation(async (url: string, options: { replace?: boolean; state?: Entry['state'] }) => {
+	goto.mockImplementation(async (url, options) => {
 		const entry = { url, state: options.state ?? {} };
 		if (options.replace) entries[index] = entry;
 		else entries.splice(index + 1, entries.length, entry);

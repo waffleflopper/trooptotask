@@ -42,7 +42,7 @@ const guides: HelpGuide[] = [
 ];
 
 function renderHelp(
-	props: { viewer?: Partial<HelpViewer>; routeKey?: string | null; initialGuide?: string | null } = {}
+	props: { viewer?: Partial<HelpViewer>; routeKey?: string | null; initialGuide?: string | null; url?: URL } = {}
 ) {
 	const { viewer, ...rest } = props;
 	return render(Harness, {

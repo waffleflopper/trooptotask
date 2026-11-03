@@ -119,7 +119,7 @@
 					{#if report && summary && range}
 						<TimeAwayBottomLine {report} {summary} {flag} {statusTypes} start={range.start} end={range.end} />
 					{:else}
-						<div class="min-h-[23.25rem] space-y-6" aria-hidden="true">
+						<div class="min-h-[24.7rem] space-y-6" aria-hidden="true">
 							<Skeleton class="h-[88px] w-56" />
 							<Skeleton class="h-24 w-full" />
 							<Skeleton class="h-36 w-full" />

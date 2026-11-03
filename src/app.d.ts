@@ -32,9 +32,9 @@ declare global {
 			importStep?: 'columns' | 'review' | 'done';
 			/** The Training record sheet was opened from this page, so closing it steps back one entry. */
 			trainingRecord?: boolean;
-			/** The Event dates a save just changed, so Back from a Tasking's edit returns to the same review list. */
 			/** Help was opened from this page: `null` closed, `{ guide: null }` the guide list, otherwise one guide. Back steps through it. */
 			help?: { guide: string | null } | null;
+			/** The Event dates a save just changed, so Back from a Tasking's edit returns to the same review list. */
 			eventDateReview?: { before: { startsOn: string; endsOn: string }; after: { startsOn: string; endsOn: string } };
 		}
 	}

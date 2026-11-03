@@ -127,3 +127,44 @@ export function canFollowGuide(guide: HelpGuide, viewer: HelpViewer): boolean {
 	if ('role' in access) return viewer.role === 'owner' || viewer.role === access.role;
 	return capabilityMeets(viewer.capabilityMap[access.lane], access.level);
 }
+
+/** The search param that opens Help and names its guide, so a shared link or a reload opens the same view. */
+export const HELP_PARAM = 'help';
+
+export type HelpView = { guide: string | null };
+
+/** The part of `page.url` Help reads, so SvelteKit's read-only URL fits as well as a `URL`. */
+export type HelpPageUrl = Pick<URL, 'origin' | 'pathname' | 'search' | 'hash'> & {
+	searchParams: Pick<URLSearchParams, 'get'>;
+};
+
+/** What the page asks Help to show: the entry's own state first, else the URL, else closed. */
+export function readHelpView(state: { help?: HelpView | null }, url: HelpPageUrl): HelpView | null {
+	if (state.help !== undefined) return state.help;
+	const param = url.searchParams.get(HELP_PARAM);
+	return param === null ? null : { guide: param || null };
+}
+
+/** `url` with Help pointed at one guide (`''` for the list) or, with `undefined`, removed. */
+export function helpLocation(url: HelpPageUrl, guide: string | null | undefined): string {
+	const params = new URLSearchParams(url.search);
+	if (guide === undefined) params.delete(HELP_PARAM);
+	else params.set(HELP_PARAM, guide ?? '');
+	const query = params.toString();
+	return `${url.pathname}${query ? `?${query}` : ''}${url.hash}`;
+}
+
+/** A step's page path and query, as written in `HelpStep.to`. */
+export function splitStepTarget(to: string): { key: HelpRouteKey; query: string } {
+	const [key, ...rest] = to.split('?');
+	return { key, query: rest.join('?') };
+}
+
+/** Where a step's "Go there" link points, keeping the guide open. Null when the page has a dynamic segment. */
+export function stepHref(orgUrlSegment: string, to: string, guideId: string): string | null {
+	const { key, query } = splitStepTarget(to);
+	if (key.includes('[')) return null;
+	const params = new URLSearchParams(query);
+	params.set(HELP_PARAM, guideId);
+	return `/org/${orgUrlSegment}${key ? `/${key}` : ''}?${params}`;
+}

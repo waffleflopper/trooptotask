@@ -1,5 +1,6 @@
 import { scopeTree, type ScopeTree } from './scopeGroups';
 import {
+	CAPABILITY_LEVEL_LABELS,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type CapabilityLevel,
 	type CapabilityMap,
@@ -11,7 +12,6 @@ import {
 import { defaultMemberAccessForRole } from '$lib/access/memberAccessCommands';
 import type { ScopeGroup, SettingsMemberRow } from './memberSettingsTypes';
 import {
-	CAPABILITY_LEVEL_LABELS,
 	SETTINGS_ACCESS_LANES,
 	SETTINGS_ACCESS_OPTIONS,
 	SETTINGS_GOVERNANCE_ROLE_OPTIONS,

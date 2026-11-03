@@ -14,6 +14,7 @@
 	import Building2 from '@lucide/svelte/icons/building-2';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+	import CircleHelp from '@lucide/svelte/icons/circle-help';
 	import CircleUser from '@lucide/svelte/icons/circle-user';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Megaphone from '@lucide/svelte/icons/megaphone';
@@ -50,6 +51,9 @@
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
+		/** Opens, or closes, the Help drawer. */
+		onHelp?: () => void;
+		helpOpen?: boolean;
 		onWhatsNew?: () => void;
 		/** Quiet top-bar actions placed before Feedback. */
 		actions?: Snippet;
@@ -71,6 +75,8 @@
 		onToggleTheme,
 		isDarkTheme,
 		onFeedback,
+		onHelp,
+		helpOpen = false,
 		onWhatsNew,
 		actions,
 		sidebarOpen = true,
@@ -636,6 +642,19 @@
 				</Breadcrumb.Root>
 				<div class="ml-auto flex items-center gap-1">
 					{@render actions?.()}
+					{#if onHelp}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={onHelp}
+							aria-label="Help"
+							aria-expanded={helpOpen}
+							data-help-trigger
+						>
+							<CircleHelp />
+							<span class="hidden sm:inline">Help</span>
+						</Button>
+					{/if}
 					{#if onFeedback}
 						<Button
 							variant="outline"

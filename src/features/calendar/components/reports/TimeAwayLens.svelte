@@ -49,9 +49,9 @@
 	const report = $derived(data && range ? computeTimeAway({ ...input, entries: data.entries }) : null);
 	// The skeleton's shape depends on the people and Groups, not on the data, so it holds the height the sections take;
 	// the rem figures were measured from the loaded sections at 390, 900 and 1280 px.
-	const shape = $derived(report ? null : computeTimeAway({ ...input, entries: [] }));
-	const groupRows = $derived(shape ? shape.groups.reduce((rows, set) => rows + 1 + set.below.length, 0) : 0);
-	const personRows = $derived(Math.min(shape?.peopleCount ?? 0, ROWS_SHOWN));
+	const shape = $derived(report ?? computeTimeAway({ ...input, entries: [] }));
+	const groupRows = $derived(shape.groups.reduce((rows, set) => rows + 1 + set.below.length, 0));
+	const personRows = $derived(Math.min(shape.peopleCount, ROWS_SHOWN));
 
 	const flag = $derived(flagDays(spanDays, flagChoice));
 	const summary = $derived(report ? summarizeTimeAway(report, flag) : null);
@@ -134,15 +134,17 @@
 						? `${largestName} is ${Math.round(largest.share * 100)}% of time away`
 						: 'Where the days went'}
 				>
-					{#if report}
-						<TimeAwayComposition {report} {statusTypes} />
-					{:else}
-						<Skeleton
-							class="h-[calc(21.2rem_+_var(--rows)*3.2rem)] w-full md:h-[calc(15.3rem_+_var(--rows)*3.2rem)] lg:h-[calc(17rem_+_var(--rows)*3.2rem)]"
-							style="--rows: {groupRows}"
-							aria-hidden="true"
-						/>
-					{/if}
+					<!-- A short result, such as nobody away, keeps the skeleton height so the sections below do not move. -->
+					<div
+						class="min-h-[calc(21.2rem_+_var(--rows)*3.2rem)] md:min-h-[calc(15.3rem_+_var(--rows)*3.2rem)] lg:min-h-[calc(17rem_+_var(--rows)*3.2rem)]"
+						style="--rows: {groupRows}"
+					>
+						{#if report}
+							<TimeAwayComposition {report} {statusTypes} />
+						{:else}
+							<Skeleton class="min-h-[inherit] w-full" aria-hidden="true" />
+						{/if}
+					</div>
 				</ReportWorkspace.Section>
 			</div>
 

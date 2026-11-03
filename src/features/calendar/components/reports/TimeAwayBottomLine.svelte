@@ -48,7 +48,7 @@
 		{formatDayMonth(start)} to {formatDayMonth(end)} · {report.spanDays} days
 	</p>
 </div>
-<p class="mt-6 font-serif text-[17px] leading-[26px]">{sentence}</p>
+<p class="mt-6 min-h-[52px] font-serif text-[17px] leading-[26px]">{sentence}</p>
 <dl class="mt-6 border-t border-border text-sm" aria-label="Time away facts">
 	<div class="flex min-h-9 items-center justify-between gap-3 border-b border-border">
 		<dt>{flag}+ days away</dt>

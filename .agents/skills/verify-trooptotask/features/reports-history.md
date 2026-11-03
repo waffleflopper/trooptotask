@@ -113,7 +113,8 @@ day` has one row per Group and a Total row of `available/total (percent%)` cells
    alert `Could not load availability` with `Retry`. Restore the control, click `Retry` and require the result. For no
    data, uncheck every Group and require `No personnel match these filters.` with no `Export availability` action. Time
    away repeats the checks on the same endpoint: hold it and click `60 D` for the skeletons (the sections `Bottom line`,
-   `Where the days went` and `Who was away` keep their heights when the result lands), arm `arm-fail` and click `14 D`
+   `Where the days went` and `Who was away` keep their heights when the result lands, also on a span nobody was away
+   in, such as `?lens=time-away&days=14&start=2025-01-06` then `30 D`), arm `arm-fail` and click `14 D`
    for the alert `Could not load time away` with `Retry`, and uncheck every Group for `No personnel match these
 filters.` with no `Export time away` action. Assignment load keeps its own validation, loading, error and no-data
    states (clear the start date; arm and release the same endpoint; `Run again`). At 390 the day labels of a 30-day chart show every second day, and the grid

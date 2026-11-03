@@ -236,6 +236,18 @@ describe('CalendarReports Time away lens', () => {
 		expect(fetchDataMock).toHaveBeenCalledTimes(1);
 	});
 
+	it('keeps every Group row, at zero, when nobody was away in the span', async () => {
+		fetchDataMock.mockResolvedValue({ entries: [] });
+		renderReports('?lens=time-away&start=2026-11-03&days=14');
+
+		const byGroup = await screen.findByRole('list', { name: 'Days away per person, by group' });
+		expect(
+			within(byGroup)
+				.getAllByRole('listitem')
+				.map((row) => row.querySelector('p')?.textContent)
+		).toEqual(['Alpha', 'Bravo']);
+	});
+
 	it('ranks people by days away with the next time out, and reverses for least away', async () => {
 		renderReports('?lens=time-away&start=2026-11-03&days=14');
 		await screen.findByText('4 of 70 person-days');

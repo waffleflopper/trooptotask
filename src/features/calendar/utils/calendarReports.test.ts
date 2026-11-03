@@ -159,10 +159,34 @@ describe('computeAvailabilityForecast', () => {
 		const result = computeAvailabilityForecast(
 			personnel,
 			[
-				availability({ id: 'a', personnelId: 'person-1', statusTypeId: 'school', startDate: '2026-03-02', endDate: '2026-03-04' }),
-				availability({ id: 'b', personnelId: 'person-1', statusTypeId: 'leave', startDate: '2026-03-05', endDate: '2026-03-06' }),
-				availability({ id: 'c', personnelId: 'person-2', statusTypeId: 'leave', startDate: '2026-03-03', endDate: '2026-03-03' }),
-				availability({ id: 'd', personnelId: 'person-3', statusTypeId: 'school', startDate: '2026-03-03', endDate: '2026-03-03' })
+				availability({
+					id: 'a',
+					personnelId: 'person-1',
+					statusTypeId: 'school',
+					startDate: '2026-03-02',
+					endDate: '2026-03-04'
+				}),
+				availability({
+					id: 'b',
+					personnelId: 'person-1',
+					statusTypeId: 'leave',
+					startDate: '2026-03-05',
+					endDate: '2026-03-06'
+				}),
+				availability({
+					id: 'c',
+					personnelId: 'person-2',
+					statusTypeId: 'leave',
+					startDate: '2026-03-03',
+					endDate: '2026-03-03'
+				}),
+				availability({
+					id: 'd',
+					personnelId: 'person-3',
+					statusTypeId: 'school',
+					startDate: '2026-03-03',
+					endDate: '2026-03-03'
+				})
 			],
 			statusTypes,
 			'2026-03-01',
@@ -445,7 +469,9 @@ describe('computeGroupReadiness unassigned people', () => {
 			true
 		);
 
-		expect(result.sets.map((set) => [set.top.groupName, set.top.cells[0].availableCount, set.top.cells[0].totalPersonnel])).toEqual([
+		expect(
+			result.sets.map((set) => [set.top.groupName, set.top.cells[0].availableCount, set.top.cells[0].totalPersonnel])
+		).toEqual([
 			['Alpha', 2, 2],
 			['Unassigned', 0, 1]
 		]);

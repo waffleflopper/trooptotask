@@ -160,10 +160,7 @@ export function computeAvailabilityForecast(
 			unavailablePersonnel,
 			awayByStatus: [...countByStatus]
 				.map(([statusTypeId, count]) => ({ statusTypeId, count }))
-				.sort(
-					(a, b) =>
-						(statusOrder.get(a.statusTypeId) ?? Infinity) - (statusOrder.get(b.statusTypeId) ?? Infinity)
-				)
+				.sort((a, b) => (statusOrder.get(a.statusTypeId) ?? Infinity) - (statusOrder.get(b.statusTypeId) ?? Infinity))
 		};
 	});
 

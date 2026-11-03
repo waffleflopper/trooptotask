@@ -25,7 +25,15 @@ function away(
 }
 
 function status(id: string, name: string, sortOrder: number): StatusType {
-	return { id, name, color: `#00000${sortOrder}`, textColor: '#ffffff', shortLabel: null, rosterEffect: 'A', sortOrder };
+	return {
+		id,
+		name,
+		color: `#00000${sortOrder}`,
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder
+	};
 }
 
 const statusTypes = [status('leave', 'Leave', 0), status('tdy', 'TDY', 1), status('appt', 'Appt', 2)];
@@ -70,9 +78,12 @@ describe('computeAvailabilityBoard', () => {
 
 		expect(result.lowest?.date).toBe('2026-03-04');
 		expect(result.lowest).toMatchObject({ availableCount: 2, totalPersonnel: 6 });
-		expect(board([away('1', 'a1', 'leave', '2026-03-03', '2026-03-03'), away('2', 'b1', 'leave', '2026-03-05', '2026-03-05')]).lowest?.date).toBe(
-			'2026-03-03'
-		);
+		expect(
+			board([
+				away('1', 'a1', 'leave', '2026-03-03', '2026-03-03'),
+				away('2', 'b1', 'leave', '2026-03-05', '2026-03-05')
+			]).lowest?.date
+		).toBe('2026-03-03');
 	});
 
 	it('counts only the statuses picked as away', () => {

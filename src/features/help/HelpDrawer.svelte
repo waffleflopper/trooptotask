@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Check from '@lucide/svelte/icons/check';
@@ -8,18 +9,19 @@
 	import Lock from '@lucide/svelte/icons/lock';
 	import Search from '@lucide/svelte/icons/search';
 	import X from '@lucide/svelte/icons/x';
-	import { ACCESS_LANE_LABELS, CAPABILITY_LEVEL_LABELS } from '$lib/access/memberAccessShape';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import {
 		HELP_AREA_LABELS,
-		canFollowGuide,
+		accessGap,
 		guidesForRoute,
 		helpLocation,
+		helpPagePath,
 		isGuideAvailable,
+		isStepAvailable,
+		isStepHere,
 		searchGuides,
-		splitStepTarget,
 		stepHref,
 		type HelpArea,
 		type HelpPageUrl,
@@ -49,6 +51,7 @@
 		$props();
 
 	let panel: HTMLElement | undefined;
+	let scroller: HTMLElement | undefined;
 	let heading = $state<HTMLElement>();
 	let allGuidesSection = $state<HTMLElement>();
 	let query = $state('');
@@ -57,7 +60,8 @@
 	const available = $derived(guides.filter((guide) => isGuideAvailable(guide, viewer)));
 	const guide = $derived(guideId ? available.find((candidate) => candidate.id === guideId) : undefined);
 	const nextGuide = $derived(guide?.next ? available.find((candidate) => candidate.id === guide.next) : undefined);
-	const onPage = $derived(routeKey === null ? [] : guidesForRoute(available, routeKey));
+	const pagePath = $derived(helpPagePath(orgUrlSegment, url.pathname));
+	const onPage = $derived(routeKey === null ? [] : guidesForRoute(available, routeKey, pagePath));
 	const missed = $derived(
 		available.filter((candidate) => candidate.missed && !onPage.some((entry) => entry.id === candidate.id))
 	);
@@ -67,29 +71,34 @@
 			.map((area) => ({ area, guides: available.filter((candidate) => candidate.area === area) }))
 			.filter((group) => group.guides.length)
 	);
-	const access = $derived(guide && !canFollowGuide(guide, viewer) ? guide.access : undefined);
+	const guideGap = $derived(guide && accessGap(guide.access, viewer));
+	const steps = $derived(guide ? guide.steps.filter((step) => isStepAvailable(step, viewer)) : []);
 
-	function accessNote(requirement: NonNullable<HelpGuide['access']>): string {
-		if ('role' in requirement) {
-			return requirement.role === 'owner' ? 'Only owners can do this.' : 'Only owners and admins can do this.';
-		}
-		return `You need ${ACCESS_LANE_LABELS[requirement.lane]} ${CAPABILITY_LEVEL_LABELS[requirement.level]} access.`;
-	}
-
-	/** A plain click stays inside Help's history; a modified click keeps the link's own behavior. */
-	function follow(event: MouseEvent, id: string) {
-		if (
+	function isPlainClick(event: MouseEvent) {
+		return !(
 			event.defaultPrevented ||
 			event.button !== 0 ||
 			event.metaKey ||
 			event.ctrlKey ||
 			event.shiftKey ||
 			event.altKey
-		)
-			return;
+		);
+	}
+
+	/** A plain click stays inside Help's history; a modified click keeps the link's own behavior. */
+	function follow(event: MouseEvent, id: string) {
+		if (!isPlainClick(event)) return;
 		event.preventDefault();
 		onOpenGuide(id);
 	}
+
+	/** A "Go there" click moves to another page; SvelteKit then drops focus on the body, so Help takes it back. */
+	let leavingFromStep = false;
+	afterNavigate(() => {
+		const lost = !document.activeElement || document.activeElement === document.body;
+		if (leavingFromStep && lost) heading?.focus();
+		leavingFromStep = false;
+	});
 
 	function guideHref(id: string) {
 		return resolve(helpLocation(url, id) as '/');
@@ -121,11 +130,13 @@
 	}
 
 	onMount(() => {
-		const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		// A page loaded on `?help` opens with focus on the body, which is no place to return to.
+		const active = document.activeElement;
+		const opener = active instanceof HTMLElement && active !== document.body ? active : null;
 		panel?.focus();
 		return () => {
-			const active = document.activeElement;
-			if (active && active !== document.body && !panel?.contains(active)) return;
+			const current = document.activeElement;
+			if (current && current !== document.body && !panel?.contains(current)) return;
 			const target = opener?.isConnected ? opener : document.querySelector<HTMLElement>('[data-help-trigger]');
 			target?.focus();
 		};
@@ -136,6 +147,7 @@
 		const id = guide?.id;
 		if (id === shownGuide) return;
 		shownGuide = id;
+		if (scroller) scroller.scrollTop = 0;
 		void tick().then(() => heading?.focus());
 	});
 </script>
@@ -241,14 +253,16 @@
 		{/if}
 	</header>
 
-	<div class="min-h-0 flex-1 overflow-y-auto">
+	<div bind:this={scroller} data-help-scroller class="min-h-0 flex-1 overflow-y-auto">
 		{#if guide}
 			<article>
 				<p class="mx-6 mt-5 border-b border-foreground pb-5 text-base leading-relaxed">{guide.lead}</p>
 				<ol class="mx-6 list-none p-0">
-					{#each guide.steps as step, index (index)}
-						{@const target = step.to === undefined ? undefined : splitStepTarget(step.to)}
+					{#each steps as step, index (index)}
+						{@const here =
+							step.to !== undefined && isStepHere(step.to, { routeKey, path: pagePath, params: url.searchParams })}
 						{@const href = step.to === undefined ? null : stepHref(orgUrlSegment, step.to, guide.id)}
+						{@const gap = accessGap(step.access, viewer)}
 						<li class="grid grid-cols-[2rem_1fr] gap-x-3 border-b border-border py-4">
 							<span class="font-heading text-3xl leading-none font-extrabold text-accent">{index + 1}</span>
 							<div class="grid gap-2 text-base leading-relaxed">
@@ -257,7 +271,13 @@
 										{#if segment.bold}<strong class="font-bold">{segment.text}</strong>{:else}{segment.text}{/if}
 									{/each}
 								</p>
-								{#if target && routeKey !== null && target.key === routeKey}
+								{#if gap}
+									<p class="flex items-start gap-1.5 text-sm leading-snug text-muted-foreground">
+										<Lock class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+										<span>{gap}</span>
+									</p>
+								{/if}
+								{#if here}
 									<p
 										class="inline-flex items-center gap-1 font-mono text-[11px] tracking-[0.08em] text-success-foreground uppercase"
 									>
@@ -267,6 +287,7 @@
 								{:else if href}
 									<a
 										href={resolve(href as '/')}
+										onclick={(event) => (leavingFromStep = isPlainClick(event))}
 										class="inline-flex w-fit items-center gap-1 text-sm font-medium text-accent-text underline underline-offset-2 hover:no-underline"
 									>
 										Go there
@@ -281,10 +302,10 @@
 					{#if guide.note}
 						<p class="rounded-md border border-accent/30 bg-accent/10 p-3 text-sm leading-relaxed">{guide.note}</p>
 					{/if}
-					{#if access}
+					{#if guideGap}
 						<p class="flex items-start gap-2 rounded-md bg-muted p-3 text-sm leading-relaxed">
 							<Lock class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-							<span>{accessNote(access)} Don't see the button? Ask a unit admin.</span>
+							<span>{guideGap} Don't see the button? Ask a unit admin.</span>
 						</p>
 					{/if}
 				</div>

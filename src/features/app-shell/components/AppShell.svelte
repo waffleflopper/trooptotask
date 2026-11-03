@@ -9,7 +9,7 @@
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
-	import HelpDrawerSkeleton from './HelpDrawerSkeleton.svelte';
+	import HelpDrawerHost from './HelpDrawerHost.svelte';
 	import { closeHelp, openHelp, openHelpGuide, showHelpList, visibleUrl } from '../helpNavigation';
 	import { helpRouteKey, readHelpView, type HelpViewer } from '$features/help/contracts';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';
@@ -57,6 +57,7 @@
 	const helpViewer = $derived<HelpViewer>({
 		role: shell.member.role,
 		capabilityMap: shell.member.capabilityMap,
+		scopeKind: shell.member.scopeSet.kind,
 		disabledFeatures: shell.org.disabledFeatures
 	});
 	setAppShellContext(
@@ -192,22 +193,17 @@
 	{/key}
 {/if}
 {#if helpView}
-	{#await import('$features/help')}
-		<HelpDrawerSkeleton />
-	{:then { HelpDrawer, HELP_GUIDES }}
-		<HelpDrawer
-			guides={HELP_GUIDES}
-			viewer={helpViewer}
-			routeKey={helpRouteKey(page.route.id)}
-			orgUrlSegment={shell.org.urlSegment}
-			url={helpUrl}
-			guideId={helpView.guide}
-			onOpenGuide={openHelpGuide}
-			onShowList={showHelpList}
-			onClose={closeHelp}
-			onFeedback={openFeedback}
-		/>
-	{/await}
+	<HelpDrawerHost
+		viewer={helpViewer}
+		routeKey={helpRouteKey(page.route.id)}
+		orgUrlSegment={shell.org.urlSegment}
+		url={helpUrl}
+		guideId={helpView.guide}
+		onOpenGuide={openHelpGuide}
+		onShowList={showHelpList}
+		onClose={closeHelp}
+		onFeedback={openFeedback}
+	/>
 {/if}
 {#if showWhatsNew}
 	{#await import('./WhatsNewModal.svelte') then { default: WhatsNewModal }}

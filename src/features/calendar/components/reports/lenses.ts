@@ -42,7 +42,7 @@ export const LENSES: readonly LensDefinition[] = [
 		id: 'assignment-load',
 		label: 'Assignment load',
 		component: AssignmentLoadLens,
-		sharedControls: false,
+		sharedControls: true,
 		span: BACK_90,
 		loadAfterDays: 0
 	}

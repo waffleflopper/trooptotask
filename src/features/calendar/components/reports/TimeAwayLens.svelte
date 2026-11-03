@@ -47,7 +47,8 @@
 	});
 	const spanDays = $derived(range ? toDayNumber(range.end) - toDayNumber(range.start) + 1 : 90);
 	const report = $derived(data && range ? computeTimeAway({ ...input, entries: data.entries }) : null);
-	// The skeleton's shape depends on the people and Groups, not on the data, so it holds the height the sections take.
+	// The skeleton's shape depends on the people and Groups, not on the data, so it holds the height the sections take;
+	// the rem figures were measured from the loaded sections at 390, 900 and 1280 px.
 	const shape = $derived(report ? null : computeTimeAway({ ...input, entries: [] }));
 	const groupRows = $derived(shape ? shape.groups.reduce((rows, set) => rows + 1 + set.below.length, 0) : 0);
 	const personRows = $derived(Math.min(shape?.peopleCount ?? 0, ROWS_SHOWN));
@@ -118,7 +119,7 @@
 					{#if report && summary && range}
 						<TimeAwayBottomLine {report} {summary} {flag} {statusTypes} start={range.start} end={range.end} />
 					{:else}
-						<div class="min-h-[22rem] space-y-6" aria-hidden="true">
+						<div class="min-h-[23.25rem] space-y-6" aria-hidden="true">
 							<Skeleton class="h-[88px] w-56" />
 							<Skeleton class="h-24 w-full" />
 							<Skeleton class="h-36 w-full" />
@@ -136,7 +137,11 @@
 					{#if report}
 						<TimeAwayComposition {report} {statusTypes} />
 					{:else}
-						<Skeleton class="w-full" style="height: calc(17rem + {groupRows} * 3.2rem)" aria-hidden="true" />
+						<Skeleton
+							class="h-[calc(21.2rem_+_var(--rows)*3.2rem)] w-full md:h-[calc(15.3rem_+_var(--rows)*3.2rem)] lg:h-[calc(17rem_+_var(--rows)*3.2rem)]"
+							style="--rows: {groupRows}"
+							aria-hidden="true"
+						/>
 					{/if}
 				</ReportWorkspace.Section>
 			</div>
@@ -170,7 +175,11 @@
 						{statusTypes}
 					/>
 				{:else}
-					<Skeleton class="w-full" style="height: calc(4rem + {personRows} * 3.9rem)" aria-hidden="true" />
+					<Skeleton
+						class="h-[calc(4.55rem_+_var(--rows)*6.5rem)] w-full md:h-[calc(11.1rem_+_var(--rows)*3.85rem)] lg:h-[calc(3.8rem_+_var(--rows)*3.85rem)]"
+						style="--rows: {personRows}"
+						aria-hidden="true"
+					/>
 				{/if}
 			</ReportWorkspace.Section>
 		</div>

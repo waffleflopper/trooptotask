@@ -10,7 +10,8 @@ export type CalendarReportFeedState =
 
 type FetchData = (orgId: string, start: string, end: string, signal: AbortSignal) => Promise<CalendarReportData>;
 
-function keyOf(range: ReportRange): string {
+/** The `key` a feed state carries for `range`. */
+export function reportFeedKey(range: ReportRange): string {
 	return `${range.start}|${range.end}`;
 }
 
@@ -33,13 +34,13 @@ export class CalendarReportFeed {
 	}
 
 	load(range: ReportRange): void {
-		const key = keyOf(range);
+		const key = reportFeedKey(range);
 		if (this.state.status !== 'idle' && this.state.status !== 'error' && this.state.key === key) return;
 		this.#start(range, key);
 	}
 
 	retry(): void {
-		if (this.#range) this.#start(this.#range, keyOf(this.#range));
+		if (this.#range) this.#start(this.#range, reportFeedKey(this.#range));
 	}
 
 	dispose(): void {

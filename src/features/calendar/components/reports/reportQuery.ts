@@ -16,7 +16,7 @@ export interface ReportQuery {
 
 export const DEFAULT_REPORT_QUERY: ReportQuery = { lens: 'availability', days: 30, start: null };
 
-export function parseReportQuery(params: URLSearchParams): ReportQuery {
+export function parseReportQuery(params: Pick<URLSearchParams, 'get'>): ReportQuery {
 	const lens = LENS_IDS.find((id) => id === params.get('lens')) ?? DEFAULT_REPORT_QUERY.lens;
 	const days = SPAN_DAYS.find((value) => String(value) === params.get('days')) ?? DEFAULT_REPORT_QUERY.days;
 	const start = params.get('start');

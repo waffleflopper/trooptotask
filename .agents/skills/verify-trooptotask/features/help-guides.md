@@ -95,7 +95,9 @@ and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` 
    `$T navigate_page "{\"pageId\":$PAGE,\"type\":\"back\"}" --worker "$WORKER"`: the URL ends `?help=`, the title reads
    `HOW DO I…` and the drawer is open. Run it again: the URL has no `help`, the drawer is gone and focus is on the Help
    button. Then press Help, open a guide, press the crumb, open another guide and run `back` twice: the first lands on
-   the list and the second leaves Help, with no `?help` entry left behind. A guide opens at its top. Reopen Help, scroll
+   the list and the second leaves Help, with no `?help` entry left behind. After the crumb alone, one `back` lands on a
+   `?help=` list that looks like the one just shown, because the crumb replaced the guide and the list's own entry is
+   below it; the second `back` leaves Help. A guide opens at its top. Reopen Help, scroll
    the list with
    `ev $PAGE '() => { document.querySelector("aside[aria-label=Help] .overflow-y-auto").scrollTop = 100 }'`, open the
    fifth row with a DOM click
@@ -224,10 +226,10 @@ and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` 
       the `Assignment Types` tab selected and no `help`. One `back` leaves Settings the same way.
     - Crumb: this case needs a guide, so it runs once. On Bulk status open `Add one status to many people`, switch to
       `Remove`, tick `SPC Able, Synthetic` and press `button "HELP · CALENDAR"`. Expect the list (`HOW DO I…`),
-      `?tab=remove&help=`, the `Remove` tab and `1 of 3 selected` with Able still ticked. Then `Close help`: `?tab=remove`,
+      `?help=&tab=remove`, the `Remove` tab and `1 of 3 selected` with Able still ticked. Then `Close help`: `?tab=remove`,
       the selection kept and no drawer, and one `back` lands on the entry before Bulk status. On Calendar settings open
       `Add your own assignment types`, choose `Assignment Types` by hand and press the crumb: the list,
-      `?section=assignments&help=` and the tab selected. `Close help` then leaves `?section=assignments`.
+      `?help=&section=assignments` and the tab selected. `Close help` then leaves `?section=assignments`.
     - No change: press Help and `Close help` without switching a tab, on Settings and on Bulk status with Able ticked on
       `Add`. The URL is `/calendar/settings` or `/calendar/bulk` with no `tab` or `section`, the Add selection stays
       `1 of 3 selected`, and one `back` leaves the page as before.

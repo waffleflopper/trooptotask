@@ -71,8 +71,8 @@ $T resize_page "{\"pageId\":$PAGE,\"width\":1440,\"height\":900}" --worker "$WOR
 
 The page has other `aside` elements, so every read of the drawer uses `aside[aria-label=Help]`. `$V click PAGE ROLE NAME`
 needs the exact accessible name, so a guide row is its title plus summary. `take_snapshot` and a UID `click` match by
-looking up the line, which is easier for rows (`link "Add your own assignment types Create duties like Staff Duty, CQ
-or a detail and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` and the close button is
+looking up the line, which is easier for rows (`link "Add your own assignment types Create duties like Staff Duty or CQ
+and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` and the close button is
 `button "Close help"`. Capture each state with `state`, a snapshot and a screenshot under
 `.verification/evidence/verify-trooptotask/help-guides/`.
 

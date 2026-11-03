@@ -70,14 +70,19 @@ describe('opening Help', () => {
 		expect(goto).toHaveBeenCalledWith('/org/c-co/calendar?help=a', { shallow: true, replace: true, state: {} });
 	});
 
-	it('returns from a guide to the list in place', () => {
+	it('returns from a guide pushed from the list by stepping back to it', () => {
+		const back = vi.fn();
+		vi.stubGlobal('history', { back });
 		at('https://example.test/org/c-co/calendar?help=a', { guide: 'a', depth: 2 });
 		showHelpList();
-		expect(goto).toHaveBeenCalledWith('/org/c-co/calendar?help=', {
-			shallow: true,
-			replace: true,
-			state: { help: { guide: null, depth: 2 } }
-		});
+		expect(back).toHaveBeenCalledOnce();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('returns to the list in place when the page was loaded on a guide', () => {
+		at('https://example.test/org/c-co/calendar?help=a');
+		showHelpList();
+		expect(goto).toHaveBeenCalledWith('/org/c-co/calendar?help=', { shallow: true, replace: true, state: {} });
 	});
 });
 
@@ -111,16 +116,6 @@ describe('closing Help', () => {
 		expect(go).toHaveBeenCalledWith(-2);
 	});
 
-	it('still steps back over both entries after returning from a guide to the list', () => {
-		const go = vi.fn();
-		vi.stubGlobal('history', { go });
-		at('https://example.test/org/c-co/calendar?help=a', { guide: 'a', depth: 2 });
-		showHelpList();
-		current.state = { help: { guide: null, depth: 2 } };
-		closeHelp();
-		expect(go).toHaveBeenCalledWith(-2);
-	});
-
 	it('drops the param in place when the page was loaded on it', () => {
 		const go = vi.fn();
 		vi.stubGlobal('history', { go });
@@ -132,5 +127,91 @@ describe('closing Help', () => {
 			replace: true,
 			state: { help: null }
 		});
+	});
+});
+
+/** A browser history stack that applies what helpNavigation asks of `goto` and `history`. */
+function browserHistory(startUrl: string) {
+	type Entry = { url: string; state: { help?: HelpState | null } };
+	const entries: Entry[] = [{ url: startUrl, state: {} }];
+	let index = 0;
+	const show = () => {
+		current.url = new URL(entries[index].url, 'https://example.test');
+		current.shallow = null;
+		current.state = entries[index].state;
+	};
+	goto.mockImplementation(async (url: string, options: { replace?: boolean; state?: Entry['state'] }) => {
+		const entry = { url, state: options.state ?? {} };
+		if (options.replace) entries[index] = entry;
+		else entries.splice(index + 1, entries.length, entry);
+		if (!options.replace) index += 1;
+		show();
+	});
+	const go = (delta: number) => {
+		index += delta;
+		show();
+	};
+	vi.stubGlobal('history', { go, back: () => go(-1) });
+	show();
+	return {
+		back: () => go(-1),
+		get urls() {
+			return entries.map((entry) => entry.url);
+		},
+		/** The entries from the first page up to the one showing, which Back would have to cross to leave. */
+		get depth() {
+			return index + 1;
+		},
+		get here() {
+			return entries[index].url;
+		}
+	};
+}
+
+describe('Help across a whole visit', () => {
+	const page0 = 'https://example.test/org/c-co/calendar';
+
+	it('steps Back guide, then list, then closed after the crumb and a second guide', () => {
+		const browser = browserHistory(page0);
+		openHelp();
+		openHelpGuide('a');
+		showHelpList();
+		expect(browser.here).toBe('/org/c-co/calendar?help=');
+		openHelpGuide('b');
+		expect(browser.here).toBe('/org/c-co/calendar?help=b');
+
+		browser.back();
+		expect(browser.here).toBe('/org/c-co/calendar?help=');
+		browser.back();
+		expect(browser.here).toBe(page0);
+	});
+
+	it('does not grow history when the crumb and a new guide are repeated', () => {
+		const browser = browserHistory(page0);
+		openHelp();
+		for (const id of ['a', 'b', 'c']) {
+			openHelpGuide(id);
+			showHelpList();
+		}
+		expect(browser.depth).toBe(2);
+		expect(browser.here).toBe('/org/c-co/calendar?help=');
+	});
+
+	it('closes over every pushed entry from a guide reached with Next', () => {
+		const browser = browserHistory(page0);
+		openHelp();
+		openHelpGuide('a');
+		openHelpGuide('b');
+		closeHelp();
+		expect(browser.here).toBe(page0);
+	});
+
+	it('closes over every pushed entry from a revisited list', () => {
+		const browser = browserHistory(page0);
+		openHelp();
+		openHelpGuide('a');
+		showHelpList();
+		closeHelp();
+		expect(browser.here).toBe(page0);
 	});
 });

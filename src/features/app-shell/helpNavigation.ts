@@ -4,8 +4,9 @@ import { helpLocation, type HelpPageUrl } from '$features/help/contracts';
 
 /**
  * Help lives in history as shallow entries. A Help button press pushes the list, a guide opened from the list pushes
- * one more, and closing steps back over both. A page loaded on `?help` or reached through a step's link has no such
- * entries, so there Help changes the URL in place and closing only drops the param.
+ * one more, and closing steps back over both. A guide pushed from the list returns to it by stepping back, so the list
+ * stays one entry. A page loaded on `?help` or reached through a step's link has no such entries, so there Help
+ * changes the URL in place and closing only drops the param.
  */
 
 /** The address bar's URL. During a shallow entry `page.url` is still the page that was loaded, not the one shown. */
@@ -33,8 +34,13 @@ export function openHelpGuide(id: string) {
 	});
 }
 
+/** A guide pushed from the list sits one entry above it, so the list is one step back. Elsewhere the URL changes in place. */
 export function showHelpList() {
 	const depth = helpDepth();
+	if (depth >= 2 && page.state.help?.guide) {
+		history.back();
+		return;
+	}
 	void goto(helpLocation(visibleUrl(), ''), {
 		shallow: true,
 		replace: true,

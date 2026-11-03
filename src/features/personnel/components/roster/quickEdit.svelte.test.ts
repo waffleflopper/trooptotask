@@ -339,6 +339,28 @@ describe('leaving the roster', () => {
 		expect(edit.prompt).toBeNull();
 	});
 
+	it('stays silent while Help opens, changes guide or closes over unsaved changes, and still asks to leave the page', () => {
+		const { edit } = setup();
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		const page = 'http://localhost/personnel';
+		const helpOpening = { ...leaving(`${page}?help=`), shallow: true, from: { url: new URL(page) } };
+		const helpGuide = { ...leaving(`${page}?help=import-personnel`), shallow: true, from: { url: new URL(page) } };
+		const helpBack = { ...helpOpening, type: 'popstate', delta: -1 };
+		for (const navigation of [helpOpening, helpGuide, helpBack]) edit.guardNavigation(navigation);
+
+		expect(helpOpening.cancel).not.toHaveBeenCalled();
+		expect(helpGuide.cancel).not.toHaveBeenCalled();
+		expect(helpBack.cancel).not.toHaveBeenCalled();
+		expect(edit.prompt).toBeNull();
+
+		const away = { ...leaving('http://localhost/calendar'), shallow: false, from: { url: new URL(page) } };
+		edit.guardNavigation(away);
+
+		expect(away.cancel).toHaveBeenCalledTimes(1);
+		expect(edit.prompt).toEqual({ kind: 'leave', href: '/calendar' });
+	});
+
 	it('cancels a navigation with unsaved changes and asks where it was going', () => {
 		const { edit } = setup();
 		edit.open(okafor);

@@ -10,7 +10,9 @@ const { gotoMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, pageM
 	loadCalendarRangeMock: vi.fn(),
 	mergeCalendarRangeIntoStoresMock: vi.fn(),
 	pageMock: {
-		url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add')
+		url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add'),
+		shallow: null as { url: URL } | null,
+		state: {} as App.PageState
 	}
 }));
 
@@ -30,7 +32,8 @@ const org = {
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	invalidate: vi.fn(),
-	invalidateAll: vi.fn()
+	invalidateAll: vi.fn(),
+	afterNavigate: vi.fn()
 }));
 
 vi.mock('$app/state', () => ({
@@ -100,6 +103,8 @@ describe('BulkStatusPage', () => {
 		});
 		mergeCalendarRangeIntoStoresMock.mockReset();
 		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=add');
+		pageMock.shallow = null;
+		pageMock.state = {};
 		orgUrlSegment = 'org-1';
 		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 	});
@@ -143,14 +148,17 @@ describe('BulkStatusPage', () => {
 		expect(screen.getByRole('link', { name: 'Back to calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 	});
 
-	it('switches tabs without resetting focus or scroll, and replaces the history entry', async () => {
+	it('switches tabs in place on the address bar, keeping an open drawer and its history', async () => {
+		pageMock.shallow = { url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add&help=bulk-statuses') };
+		pageMock.state = { help: { guide: 'bulk-statuses', depth: 2 } };
 		renderPage();
 
 		await fireEvent.click(screen.getByRole('radio', { name: 'Remove' }));
 
-		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar/bulk?tab=remove', {
+		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar/bulk?tab=remove&help=bulk-statuses', {
+			shallow: true,
 			replace: true,
-			reset: false
+			state: { help: { guide: 'bulk-statuses', depth: 2 } }
 		});
 	});
 

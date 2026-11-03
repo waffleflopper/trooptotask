@@ -439,6 +439,45 @@ describe('ImportFlow', () => {
 		await waitFor(() => expect(committed.map((change) => change.name)).toEqual(['Jones, Pat']));
 	});
 
+	it('lets Help open, change guide and close over a chosen file, and still asks before the user leaves', async () => {
+		render(Flow, { lane: personnelLane(), title: 'Import', eyebrow: 'Test' });
+		await upload(['Smith,Alex,SGT,']);
+
+		const guard = vi.mocked(beforeNavigate).mock.calls.at(-1)![0];
+		const page = new URL('http://localhost/org/a/personnel/import');
+		const help = (search: string, type: string) => ({
+			cancel: vi.fn(),
+			type,
+			shallow: true,
+			willUnload: false,
+			from: { url: page },
+			to: { url: new URL(`${page.href}${search}`) }
+		});
+		const opening = help('?help=', 'goto');
+		const guide = help('?help=import-personnel', 'goto');
+		const back = { ...help('?help=', 'popstate'), delta: -1 };
+		for (const navigation of [opening, guide, back]) guard(navigation as never);
+
+		expect(opening.cancel).not.toHaveBeenCalled();
+		expect(guide.cancel).not.toHaveBeenCalled();
+		expect(back.cancel).not.toHaveBeenCalled();
+		expect(screen.queryByText('Leave this import?')).toBeNull();
+
+		const away = {
+			cancel: vi.fn(),
+			type: 'link',
+			shallow: false,
+			willUnload: false,
+			from: { url: page },
+			to: { url: new URL('http://localhost/org/a/calendar') }
+		};
+		guard(away as never);
+
+		expect(away.cancel).toHaveBeenCalledTimes(1);
+		expect(await screen.findByText('Leave this import?')).toBeTruthy();
+		expect(currentStep()).toBe(1);
+	});
+
 	it('tells the user why leaving is blocked while a commit is saving, and keeps saving', async () => {
 		const lane = { ...personnelLane(), commitChunk: () => new Promise<ChunkReply>(() => {}) };
 		render(Flow, { lane, title: 'Import', eyebrow: 'Test' });

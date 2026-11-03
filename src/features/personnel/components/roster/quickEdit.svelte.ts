@@ -1,5 +1,6 @@
 import { stillInOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { staysOnPage } from '$lib/utils/staysOnPage';
 import type { Group } from '../../contracts';
 import {
 	personnelDraftChanges,
@@ -63,6 +64,8 @@ export type QuickEditPrompt =
 	| { kind: 'leave'; href: string; delta?: number };
 
 export interface LeavingNavigation {
+	readonly shallow?: boolean;
+	readonly from?: { readonly url: URL } | null;
 	readonly to: { readonly url: URL } | null;
 	readonly type?: string;
 	readonly delta?: number;
@@ -134,7 +137,7 @@ export class RosterQuickEdit {
 
 	guardNavigation(navigation: LeavingNavigation): void {
 		const current = this.session;
-		if (this.#disposed || !current?.dirty || current.saving) return;
+		if (this.#disposed || !current?.dirty || current.saving || staysOnPage(navigation)) return;
 		navigation.cancel();
 		if (navigation.willUnload || !navigation.to) return;
 		const { pathname, search, hash } = navigation.to.url;

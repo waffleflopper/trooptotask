@@ -5,6 +5,7 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import { withinOrganizationLifetime } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { staysOnPage } from '$lib/utils/staysOnPage';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { ComposerEntry, ComposerKind } from '../../rosterComposer';
 	import { saveRosterEntryBatch } from '../../workspace/rosterEntrySave';
@@ -58,7 +59,7 @@
 	}
 
 	beforeNavigate((navigation) => {
-		if (leaving || !composer?.hasDraft()) return;
+		if (leaving || !composer?.hasDraft() || staysOnPage(navigation)) return;
 		navigation.cancel();
 		if (navigation.willUnload || !navigation.to) return;
 		const { url } = navigation.to;

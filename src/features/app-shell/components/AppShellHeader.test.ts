@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
@@ -568,6 +569,22 @@ describe('AppShellHeader', () => {
 		expect(skip.compareDocumentPosition(dismiss) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
+	it('puts the Help button before Feedback and reports whether Help is open', async () => {
+		const onHelp = vi.fn();
+		const view = renderHeader({ onHelp, onFeedback: vi.fn(), helpOpen: false });
+
+		const help = screen.getByRole('button', { name: 'Help' });
+		const feedback = screen.getByRole('button', { name: 'Send feedback' });
+		expect(help.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(help).toHaveAttribute('aria-expanded', 'false');
+
+		await fireEvent.click(help);
+		expect(onHelp).toHaveBeenCalledTimes(1);
+
+		await view.rerender({ helpOpen: true });
+		expect(help).toHaveAttribute('aria-expanded', 'true');
+	});
+
 	it('renders a feedback utility button when a feedback handler is provided', async () => {
 		const onFeedback = vi.fn();
 
@@ -920,7 +937,7 @@ describe('notification deletion and Account links', () => {
 		await waitFor(() => expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy());
 		expect(requests).toEqual([{ method: 'DELETE', body: { id: 'stale-note' } }]);
 		expect(goto).not.toHaveBeenCalled();
-		expect(invalidate).toHaveBeenCalledWith('app:account-notifications');
+		expect(invalidate).toHaveBeenCalledWith('app:account-notifications', true);
 		expect(screen.queryByRole('menuitem', { name: /^Stale notification/ })).toBeNull();
 		expect(screen.getByRole('menuitem', { name: /^Kept notification/ })).toBeTruthy();
 	});

@@ -1,5 +1,7 @@
 import { scopeTree, type ScopeTree } from './scopeGroups';
 import {
+	ACCESS_LANE_LABELS,
+	CAPABILITY_LEVEL_LABELS,
 	DURABLE_FEATURE_LANES,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type DurableFeatureLane,
@@ -22,7 +24,6 @@ import type {
 } from './memberSettingsTypes';
 import { disabledFeatureLanes, type FeatureKey } from '$lib/access/featureSwitches';
 import type { SettingsInvitationAccessRow } from './settingsMemberAccessModel';
-import { ACCESS_LANE_LABELS, CAPABILITY_LEVEL_LABELS } from './settingsMemberAccessConstants';
 
 export interface LoadMembersSettingsInput {
 	isAdmin: boolean;

@@ -14,6 +14,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { cn } from '$lib/utils';
+	import { staysOnPage } from '$lib/utils/staysOnPage';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { PersonnelFollowUp } from '../../contracts';
 	import { dueLabel, formatTimestampDayMonth, groupFollowUps } from '../../logModel';
@@ -159,7 +160,7 @@
 	}
 
 	beforeNavigate((navigation) => {
-		if (leaving || !composing || !composer?.hasDraft()) return;
+		if (leaving || !composing || !composer?.hasDraft() || staysOnPage(navigation)) return;
 		navigation.cancel();
 		if (navigation.willUnload || !navigation.to) return;
 		const { url } = navigation.to;

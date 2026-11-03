@@ -12,7 +12,7 @@ const { invalidate, allowed } = vi.hoisted(() => ({
 	invalidate: vi.fn(async () => {}),
 	allowed: new Set<string>()
 }));
-vi.mock('$app/navigation', () => ({ invalidate }));
+vi.mock('$app/navigation', () => ({ invalidate, afterNavigate: vi.fn() }));
 vi.mock('$app/state', async () => await import('./test-support/setupPage.svelte'));
 vi.mock('$features/app-shell', () => ({
 	getAppShellContext: () => ({

@@ -9,6 +9,10 @@
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
+	import HelpDrawerHost from './HelpDrawerHost.svelte';
+	import { closeHelp, keepHelpState, openHelp, openHelpGuide, showHelpList } from '../helpNavigation';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
+	import { helpRouteKey, readHelpView, type HelpViewer } from '$features/help/contracts';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';
 	import type { PendingErrorReference } from '$lib/stores/errorReportLedger';
 	import type { ReadyAppShell } from '../contracts';
@@ -49,6 +53,15 @@
 	let hasAutoShownWhatsNew = false;
 	const newestWhatsNewId = $derived(shell.whatsNew[0]?.id);
 	let header = $state<AppShellHeader>();
+	const helpUrl = $derived(visibleUrl());
+	const helpView = $derived(readHelpView(page.state, helpUrl));
+	$effect(keepHelpState);
+	const helpViewer = $derived<HelpViewer>({
+		role: shell.member.role,
+		capabilityMap: shell.member.capabilityMap,
+		scopeKind: shell.member.scopeSet.kind,
+		disabledFeatures: shell.org.disabledFeatures
+	});
 	setAppShellContext(
 		createAppShellContext(() => shell, {
 			autoShowWhatsNew,
@@ -125,7 +138,7 @@
 			clearTimeout(debounceTimer);
 			debounceTimer = setTimeout(() => {
 				lastRefreshAt = Date.now();
-				void invalidate('app:org-core');
+				void invalidate('app:org-core', true);
 			}, 750);
 		};
 
@@ -153,6 +166,8 @@
 	{onToggleTheme}
 	{isDarkTheme}
 	onFeedback={openFeedback}
+	onHelp={() => (helpView ? closeHelp() : openHelp())}
+	helpOpen={helpView !== null}
 	onWhatsNew={openWhatsNew}
 	actions={headerActions}
 	{sidebarOpen}
@@ -178,6 +193,19 @@
 			errorReference: feedbackErrorReference
 		})}
 	{/key}
+{/if}
+{#if helpView}
+	<HelpDrawerHost
+		viewer={helpViewer}
+		routeKey={helpRouteKey(page.route.id)}
+		orgUrlSegment={shell.org.urlSegment}
+		url={helpUrl}
+		guideId={helpView.guide}
+		onOpenGuide={openHelpGuide}
+		onShowList={showHelpList}
+		onClose={closeHelp}
+		onFeedback={openFeedback}
+	/>
 {/if}
 {#if showWhatsNew}
 	{#await import('./WhatsNewModal.svelte') then { default: WhatsNewModal }}

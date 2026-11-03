@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { tick } from 'svelte';
+import { SvelteURL } from 'svelte/reactivity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
@@ -8,40 +10,54 @@ import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, SpecialDay, StatusType } from '$features/calendar/contracts';
 
-const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, specialDaysStoreMock, pageMock } =
-	vi.hoisted(() => ({
-		pageMock: { url: new URL('http://localhost/org/org-1/calendar/settings'), params: { orgId: 'org-1' } },
-		statusTypesStoreMock: {
-			items: [] as StatusType[],
-			pendingOrder: null,
-			orderBusy: false,
-			add: vi.fn(),
-			updateOrThrow: vi.fn(),
-			remove: vi.fn(),
-			previewEffect: vi.fn(),
-			setOrder: vi.fn()
-		},
-		availabilityStoreMock: {
-			removeByStatusTypeLocal: vi.fn()
-		},
-		assignmentTypesStoreMock: {
-			types: [] as AssignmentType[],
-			pendingLaneIds: null,
-			typesBusy: false,
-			typeWritesBusy: false,
-			addType: vi.fn(),
-			updateType: vi.fn(),
-			removeType: vi.fn(),
-			setCalendarLanes: vi.fn()
-		},
-		specialDaysStoreMock: {
-			items: [] as SpecialDay[],
-			addClosureDays: vi.fn(),
-			update: vi.fn(),
-			remove: vi.fn(),
-			resetFederalHolidays: vi.fn()
-		}
-	}));
+const {
+	statusTypesStoreMock,
+	availabilityStoreMock,
+	assignmentTypesStoreMock,
+	specialDaysStoreMock,
+	pageMock,
+	gotoMock,
+	navigated
+} = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
+	navigated: { callbacks: [] as (() => void)[] },
+	pageMock: {
+		url: new URL('http://localhost/org/org-1/calendar/settings') as URL,
+		shallow: null as { url: URL } | null,
+		state: {} as App.PageState,
+		params: { orgId: 'org-1' }
+	},
+	statusTypesStoreMock: {
+		items: [] as StatusType[],
+		pendingOrder: null,
+		orderBusy: false,
+		add: vi.fn(),
+		updateOrThrow: vi.fn(),
+		remove: vi.fn(),
+		previewEffect: vi.fn(),
+		setOrder: vi.fn()
+	},
+	availabilityStoreMock: {
+		removeByStatusTypeLocal: vi.fn()
+	},
+	assignmentTypesStoreMock: {
+		types: [] as AssignmentType[],
+		pendingLaneIds: null,
+		typesBusy: false,
+		typeWritesBusy: false,
+		addType: vi.fn(),
+		updateType: vi.fn(),
+		removeType: vi.fn(),
+		setCalendarLanes: vi.fn()
+	},
+	specialDaysStoreMock: {
+		items: [] as SpecialDay[],
+		addClosureDays: vi.fn(),
+		update: vi.fn(),
+		remove: vi.fn(),
+		resetFederalHolidays: vi.fn()
+	}
+}));
 
 let accessFacts: ClientAccessFacts = { membershipRole: 'owner' };
 const orgUrlSegment = 'org-1';
@@ -57,6 +73,10 @@ const org = {
 };
 
 vi.mock('$app/state', () => ({ page: pageMock }));
+vi.mock('$app/navigation', () => ({
+	goto: gotoMock,
+	afterNavigate: (callback: () => void) => navigated.callbacks.push(callback)
+}));
 
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: statusTypesStoreMock
@@ -90,7 +110,14 @@ async function pickDay(composer: HTMLElement, picker: 'First day' | 'Last day', 
 describe('CalendarSettingsPage', () => {
 	beforeEach(() => {
 		cleanup();
-		pageMock.url = new URL('http://localhost/org/org-1/calendar/settings');
+		navigated.callbacks = [];
+		pageMock.url = new SvelteURL('http://localhost/org/org-1/calendar/settings');
+		pageMock.shallow = null;
+		pageMock.state = {};
+		gotoMock.mockReset();
+		gotoMock.mockImplementation(async (href: string) => {
+			pageMock.url.search = new URL(href, 'http://localhost').search;
+		});
 		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 		statusTypesStoreMock.items = [];
 		statusTypesStoreMock.add.mockReset();
@@ -848,6 +875,49 @@ describe('CalendarSettingsPage', () => {
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		expect(screen.getByRole('tab', { name: /Status Types/ }).getAttribute('aria-selected')).toBe('true');
+	});
+
+	it('follows the section in the address bar after a navigation', async () => {
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+		pageMock.url.search = '?section=assignments&help=assignment-types';
+		navigated.callbacks.forEach((callback) => callback());
+
+		await waitFor(() =>
+			expect(screen.getByRole('tab', { name: /Assignment Types/ }).getAttribute('aria-selected')).toBe('true')
+		);
+	});
+
+	it('keeps its section while the address bar passes through another one without a navigation', async () => {
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+		pageMock.url.search = '?section=assignments';
+		await tick();
+
+		expect(screen.getByRole('tab', { name: /Status Types/ }).getAttribute('aria-selected')).toBe('true');
+	});
+
+	it('writes the chosen section to the address bar in place, keeping the open drawer', async () => {
+		pageMock.url = new SvelteURL('http://localhost/org/org-1/calendar/settings?help=assignment-types');
+		pageMock.state = { help: { guide: 'assignment-types', depth: 2 } };
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
+
+		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar/settings?help=assignment-types&section=closures', {
+			shallow: true,
+			replace: true,
+			state: { help: { guide: 'assignment-types', depth: 2 } }
+		});
+	});
+
+	it('keeps the section local when embedded in another flow', async () => {
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]), embedded: true } });
+
+		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
+
+		expect(screen.getByRole('tab', { name: /Holidays & closures/ }).getAttribute('aria-selected')).toBe('true');
+		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
 	it('switches settings sections as tabs and shows only the chosen panel', async () => {

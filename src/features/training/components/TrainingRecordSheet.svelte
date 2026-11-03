@@ -14,6 +14,7 @@
 		type RecordSheetItem
 	} from '$features/training/utils/trainingRecordSheetModel';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
+	import { staysOnPage } from '$lib/utils/staysOnPage';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -273,7 +274,7 @@
 	const busy = $derived(saving.pending);
 
 	beforeNavigate((navigation) => {
-		if (busy || formDirty) navigation.cancel();
+		if ((busy || formDirty) && !staysOnPage(navigation)) navigation.cancel();
 	});
 
 	async function step(direction: -1 | 1) {

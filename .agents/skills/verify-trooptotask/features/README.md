@@ -88,6 +88,7 @@ means the workspace reloaded.
 - [Identity recovery, MFA and account security](identity-recovery-security.md): MFA, recovery, invites, setup and
   security settings.
 - [App shell and saved preferences](shell-preferences.md): shell chrome and preference persistence.
+- [Help guides](help-guides.md): the Help drawer, its `?help` history, search, step links, access notes and layout.
 - [Shared dialogs, date selection and tooltips](shared-ui.md): accessibility, focus and form consumers.
 - [Component family interaction contracts](component-foundation.md): field, menu, overlay and toast behavior.
 - [Shared composition equivalence](shared-compositions.md): computed-style comparison of shared compositions.

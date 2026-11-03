@@ -19,12 +19,14 @@ const { pageStore, invalidate } = vi.hoisted(() => {
 		data: object;
 		params: { orgId: string };
 		route: { id: string };
+		state: App.PageState;
 		error: App.Error | null;
 	} = {
 		url: new URL('https://example.test/org/alpha'),
 		data: {},
 		params: { orgId: 'alpha' },
 		route: { id: '/org/[orgId]/(dashboard)' },
+		state: {},
 		error: null
 	};
 	return {
@@ -39,6 +41,7 @@ const { pageStore, invalidate } = vi.hoisted(() => {
 					data: {},
 					params: { orgId: 'alpha' },
 					route: { id: routeId },
+					state: {},
 					error
 				};
 			}

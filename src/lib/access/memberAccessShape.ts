@@ -15,6 +15,22 @@ export type DurableFeatureLane =
 	| 'onboarding'
 	| 'ratingScheme';
 
+export const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
+	calendar: 'Calendar',
+	personnel: 'Personnel',
+	training: 'Training',
+	criticalTasks: 'Critical tasks',
+	onboarding: 'Onboarding',
+	ratingScheme: 'Evaluations'
+};
+
+export const CAPABILITY_LEVEL_LABELS: Record<CapabilityLevel, string> = {
+	none: 'None',
+	view: 'View',
+	operate: 'Update',
+	configure: 'Manage'
+};
+
 export type CapabilityMap = Record<DurableFeatureLane, CapabilityLevel>;
 export type CapabilityOverrideMap = Partial<Record<DurableFeatureLane, CapabilityLevel>>;
 

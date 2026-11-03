@@ -32,6 +32,8 @@ function atShallow(loaded: string, visible: string, help: HelpState) {
 }
 
 afterEach(() => {
+	at('https://example.test/org/c-co');
+	keepHelpState();
 	vi.clearAllMocks();
 	vi.unstubAllGlobals();
 });
@@ -224,6 +226,17 @@ describe('Help across a whole visit', () => {
 		openHelpGuide('b');
 		closeHelp();
 		expect(browser.here).toBe(page0);
+	});
+
+	it('keeps a tab the page switched to while Help was open', () => {
+		const browser = browserHistory('https://example.test/org/c-co/calendar/bulk?tab=add');
+		openHelp();
+		openHelpGuide('a');
+		void goto('/org/c-co/calendar/bulk?tab=remove&help=a', { replace: true, state: current.state });
+		closeHelp();
+		keepHelpState();
+		expect(browser.here).toBe('/org/c-co/calendar/bulk?tab=remove');
+		expect(browser.depth).toBe(1);
 	});
 
 	it('closes over every pushed entry from a revisited list', () => {

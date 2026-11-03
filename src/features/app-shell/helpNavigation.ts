@@ -49,10 +49,18 @@ export function showHelpList() {
 	});
 }
 
+/** The page view a close should land on. A tab the page switched while Help was open lives only in Help's entries. */
+let closingTo: string | null = null;
+
 export function closeHelp() {
 	const depth = helpDepth();
-	if (depth > 0) history.go(-depth);
-	else void goto(helpLocation(visibleUrl(), undefined), { shallow: true, replace: true, state: withHelp(null) });
+	const view = helpLocation(visibleUrl(), undefined);
+	if (depth === 0) {
+		void goto(view, { shallow: true, replace: true, state: withHelp(null) });
+		return;
+	}
+	closingTo = view;
+	history.go(-depth);
 }
 
 type HelpState = NonNullable<App.PageState['help']>;
@@ -64,11 +72,19 @@ let lastHelp: { pathname: string; entries: number; help: HelpState } | null = nu
  * entry survives, so the URL still shows Help but its history depth is gone. This remembers the last Help state and puts
  * it back while the shallow entry for the same path remains. A navigation drops the shallow entry, so a step's link
  * to the same page is never mistaken for a reset, and a page's own history push, such as an import moving to its next
- * step, adds an entry, so it is not mistaken for one either.
+ * step, adds an entry, so it is not mistaken for one either. It also finishes a close: SvelteKit applies the page entry
+ * after an await, so the view the page changed to under Help is put back here, once Help's state is gone.
  */
 export function keepHelpState() {
 	const help = page.state.help;
 	const url = visibleUrl();
+	if (closingTo !== null && !help) {
+		const view = closingTo;
+		closingTo = null;
+		lastHelp = null;
+		if (helpLocation(url, undefined) !== view) void goto(view, { shallow: true, replace: true, state: page.state });
+		return;
+	}
 	if (help) {
 		lastHelp = { pathname: url.pathname, entries: history.length, help };
 		return;

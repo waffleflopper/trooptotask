@@ -17,7 +17,8 @@ export const addAssignmentTypes: HelpGuide = {
 		{
 			text: 'Under **Assigned to**, pick **Person** for a duty one Soldier pulls, or **Group** for a duty a whole Group covers.'
 		},
-		{ text: 'Set **Who pulls this duty** to choose which Soldiers can be picked, then press **Add Assignment Type**.' }
+		{ text: 'For a Person duty, set **Who pulls this duty** to choose which Soldiers can be picked.' },
+		{ text: 'Press **Add Assignment Type**.' }
 	],
 	note: 'A Group assignment has no duty roster or DA 6. Pick Person when you want rotation counts.',
 	next: 'choose-who-pulls-duty'

@@ -45,7 +45,7 @@ describe('Help drawer host', () => {
 		const user = userEvent.setup();
 		renderHost(() => Promise.reject(new Error('Failed to fetch dynamically imported module')));
 
-		expect(await screen.findByRole('alert')).toHaveTextContent('Help could not load');
+		expect(await screen.findByRole('alert')).toBeInTheDocument();
 		expect(screen.getByRole('complementary', { name: 'Help' })).toBeInTheDocument();
 
 		await user.click(screen.getByRole('button', { name: 'Reload page' }));

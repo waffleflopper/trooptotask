@@ -38,6 +38,9 @@ numbered steps to the pages they name, and closes the drawer with Back, the clos
 - `unsaved-work`: Help opens, moves between guides and closes without asking about the page's unsaved work, because
   the page stays mounted: an import with a file chosen stays at its step with its file, and a Quick edit keeps its
   draft. A real navigation away (a link to another page, Back past the page) still asks.
+- `page-back`: a page's own Back control steps past the entries Help pushed. The import's `Back to columns` with the Help
+  list or a guide open lands on Columns with Help closed and no `help` in the URL, and the Training record sheet's close
+  does the same for the entry that opened it.
 - `layout`: no horizontal scroll at 1440, 900 or 390 px, and the header Help button stays visible, icon only at 390.
 
 ## How to get to it (user POV)
@@ -195,6 +198,19 @@ and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` 
     `Quick edit`: change MOS, press Help, open a guide, press `Close help`: the edit is still open with the changed MOS
     and no dialog; then choose the `Home` link, and `Save changes first?` appears. Choose its `Cancel`, then `Cancel` the
     edit, which saves nothing.
+
+16. **Page Back past Help.** As `manager`, reach `/personnel/import` with the `Import` link, upload the two-row CSV from
+    step 15 and press `Review 2 rows`. Press Help (depth 1, `?help=`), then open a guide (depth 2). Press
+    `Back to columns`: the stepper reads `COLUMNS`, the drawer is gone and the URL has no `help`. Repeat with only the
+    list open, and once with Help closed, which still steps to Columns. One `back` after each lands on `FILE`, not on a
+    `?help` entry. At 1440 the drawer covers `Back to columns`, so a pointer click hits the drawer. Focus the button with
+    `ev` and use native `press_key` `Enter`, or press Close help first. On `/training` as `trainingConfigure`, the open
+    record sheet is modal and covers the header Help button at every width, and its focus trap keeps `Enter` inside it,
+    so Help cannot be pressed after the sheet. Open Help, then a Soldier's name: the URL becomes `?person=<id>` with the
+    drawer hidden, because opening the sheet replaces Help's state. Close the sheet: the URL returns to the `?help=` or
+    `?help=<id>` entry and Help reopens at the same view. `Close help` then drops `help`, and one more `back` leaves
+    Training for the entry before it, so neither `person` nor `help` is left behind. Do not press `Enter` with focus
+    unknown while the sheet is open, because it can land on `Record all N today`.
 
 ## Gotchas
 

@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { HelpView } from '$features/help/contracts';
-import { closeHelp, openHelp, openHelpGuide, showHelpList } from './helpNavigation';
+import { closeHelp, openHelp, openHelpGuide, showHelpList, visibleUrl } from './helpNavigation';
 
 const current = vi.hoisted(() => ({
 	url: new URL('https://example.test/org/c-co/calendar?month=2026-03'),
-	state: {} as { help?: { guide: string | null } | null }
+	state: {} as { help?: { guide: string | null } | null },
+	shallow: null as { url: URL } | null
 }));
 vi.mock('$app/state', () => ({
 	get page() {
@@ -16,7 +17,15 @@ vi.mock('$app/navigation', () => ({ goto }));
 
 function at(url: string, help?: HelpView | null) {
 	current.url = new URL(url);
+	current.shallow = null;
 	current.state = help === undefined ? {} : { help };
+}
+
+/** A shallow entry: the address bar shows `visible` while `page.url` is still the loaded page. */
+function atShallow(loaded: string, visible: string, help: HelpView) {
+	at(loaded);
+	current.shallow = { url: new URL(visible) };
+	current.state = { help };
 }
 
 afterEach(() => {
@@ -68,6 +77,17 @@ describe('opening Help', () => {
 			replace: true,
 			state: { help: { guide: null } }
 		});
+	});
+});
+
+describe('Help over a shallow entry', () => {
+	it('builds from the address bar URL, not the page that was loaded', () => {
+		atShallow('https://example.test/org/c-co/calendar', 'https://example.test/org/c-co/calendar?help=a#top', {
+			guide: 'a'
+		});
+		openHelpGuide('b');
+		expect(goto).toHaveBeenCalledWith('/org/c-co/calendar?help=b#top', expect.anything());
+		expect(visibleUrl().search).toBe('?help=a');
 	});
 });
 

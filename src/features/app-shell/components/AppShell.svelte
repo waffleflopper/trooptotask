@@ -10,7 +10,7 @@
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
 	import HelpDrawerSkeleton from './HelpDrawerSkeleton.svelte';
-	import { closeHelp, openHelp, openHelpGuide, showHelpList } from '../helpNavigation';
+	import { closeHelp, openHelp, openHelpGuide, showHelpList, visibleUrl } from '../helpNavigation';
 	import { helpRouteKey, readHelpView, type HelpViewer } from '$features/help/contracts';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';
 	import type { PendingErrorReference } from '$lib/stores/errorReportLedger';
@@ -52,7 +52,8 @@
 	let hasAutoShownWhatsNew = false;
 	const newestWhatsNewId = $derived(shell.whatsNew[0]?.id);
 	let header = $state<AppShellHeader>();
-	const helpView = $derived(readHelpView(page.state, page.url));
+	const helpUrl = $derived(visibleUrl());
+	const helpView = $derived(readHelpView(page.state, helpUrl));
 	const helpViewer = $derived<HelpViewer>({
 		role: shell.member.role,
 		capabilityMap: shell.member.capabilityMap,
@@ -199,7 +200,7 @@
 			viewer={helpViewer}
 			routeKey={helpRouteKey(page.route.id)}
 			orgUrlSegment={shell.org.urlSegment}
-			url={page.url}
+			url={helpUrl}
 			guideId={helpView.guide}
 			onOpenGuide={openHelpGuide}
 			onShowList={showHelpList}

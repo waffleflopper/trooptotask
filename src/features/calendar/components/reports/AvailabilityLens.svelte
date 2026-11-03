@@ -66,7 +66,7 @@
 	}
 
 	export function exportActions(): ToolbarAction[] {
-		if (!board || !range) return [];
+		if (!board || !range || filters.personnel.length === 0) return [];
 		const { start, end } = range;
 		return [
 			{

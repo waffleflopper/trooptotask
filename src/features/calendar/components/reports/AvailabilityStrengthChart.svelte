@@ -131,7 +131,8 @@
 								class={[
 									'whitespace-nowrap',
 									day.date === selectedDate && 'font-semibold text-foreground',
-									day.date !== selectedDate && isWeekend(day.date) && 'opacity-60'
+									day.date !== selectedDate && isWeekend(day.date) && 'opacity-60',
+									days.length > 14 && days.length <= 31 && index % 2 === 1 && 'max-sm:invisible'
 								]}
 							>
 								{index % labelEvery === 0 ? Number(day.date.slice(8)) : ''}

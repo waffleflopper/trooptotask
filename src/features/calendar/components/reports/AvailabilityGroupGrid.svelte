@@ -80,11 +80,13 @@
 			<OperationalMatrix.Header>
 				<OperationalMatrix.HeaderRow>
 					<OperationalMatrix.CornerCell
-						class="sticky left-0 z-10 w-[170px] min-w-[170px] bg-background pb-2 text-left {HEADER_CLASS}"
+						class="sticky left-0 z-10 w-28 min-w-28 sm:w-[170px] sm:min-w-[170px] bg-background pb-2 text-left {HEADER_CLASS}"
 					>
 						Group
 					</OperationalMatrix.CornerCell>
-					<th scope="col" class="w-24 min-w-24 pb-2 px-2 text-right {HEADER_CLASS}">Lowest</th>
+					<th scope="col" class="w-16 min-w-16 pb-2 px-1 text-right sm:w-24 sm:min-w-24 sm:px-2 {HEADER_CLASS}"
+						>Lowest</th
+					>
 					{#each columns as column (column.id)}
 						<OperationalMatrix.ColumnHeader
 							{column}
@@ -114,7 +116,7 @@
 							<span class="block font-serif text-[15px] font-medium">{row.label}</span>
 							<span class="block font-mono text-[11px] text-muted-foreground">{peopleLabel(row.source)}</span>
 						</OperationalMatrix.RowHeader>
-						<td class="px-2 text-right align-middle">
+						<td class="px-1 text-right align-middle sm:px-2">
 							{#if lowest}
 								<span class={['block font-heading text-xl font-bold', readinessBandTone[TONE[readinessTone(lowest)]]]}
 									>{lowest.availablePercent}%</span

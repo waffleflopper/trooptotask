@@ -6,7 +6,10 @@ import userEvent from '@testing-library/user-event';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import HelpDrawerHost, { type HelpModule } from './HelpDrawerHost.svelte';
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	vi.unstubAllGlobals();
+});
 
 const noAccess: CapabilityMap = {
 	calendar: 'none',
@@ -36,22 +39,18 @@ function renderHost(load: () => Promise<HelpModule>, onClose = vi.fn()) {
 }
 
 describe('Help drawer host', () => {
-	it('keeps the Help frame with a way to retry or close when the chunk fails to load', { timeout: 15000 }, async () => {
+	it('keeps the Help frame with a reload and a close when the chunk fails to load', async () => {
+		const reload = vi.fn();
+		vi.stubGlobal('location', { ...window.location, reload });
 		const user = userEvent.setup();
-		const load = vi
-			.fn<() => Promise<HelpModule>>()
-			.mockRejectedValueOnce(new Error('Failed to fetch dynamically imported module'))
-			.mockImplementation(() => import('$features/help'));
-		const { onClose } = renderHost(load);
+		renderHost(() => Promise.reject(new Error('Failed to fetch dynamically imported module')));
 
 		expect(await screen.findByRole('alert')).toHaveTextContent('Help could not load');
 		expect(screen.getByRole('complementary', { name: 'Help' })).toBeInTheDocument();
 
-		await user.click(screen.getByRole('button', { name: 'Try again' }));
+		await user.click(screen.getByRole('button', { name: 'Reload page' }));
 
-		expect(await screen.findByRole('searchbox', { name: 'Search guides' }, { timeout: 8000 })).toBeInTheDocument();
-		expect(screen.queryByRole('alert')).toBeNull();
-		expect(onClose).not.toHaveBeenCalled();
+		expect(reload).toHaveBeenCalledOnce();
 	});
 
 	it('closes from the failure state', async () => {

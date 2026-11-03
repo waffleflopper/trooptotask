@@ -2,7 +2,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button/index.js';
 
-	let { onRetry, onClose }: { onRetry: () => void; onClose: () => void } = $props();
+	let { onClose }: { onClose: () => void } = $props();
 </script>
 
 <aside
@@ -30,7 +30,7 @@
 		</div>
 	</header>
 	<div role="alert" class="grid content-start justify-items-start gap-3 px-6 pt-5">
-		<p class="text-base leading-relaxed">Help could not load. Check your connection and try again.</p>
-		<Button variant="outline" size="sm" onclick={onRetry}>Try again</Button>
+		<p class="text-base leading-relaxed">Help could not load. Check your connection and reload the page.</p>
+		<Button variant="outline" size="sm" onclick={() => location.reload()}>Reload page</Button>
 	</div>
 </aside>

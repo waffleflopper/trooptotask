@@ -9,18 +9,18 @@
 
 	type DrawerProps = Omit<ComponentProps<HelpModule['HelpDrawer']>, 'guides'>;
 
-	/** Help is a lazy chunk. The skeleton holds its place while it loads and a failed load keeps the frame, with a retry. */
+	/**
+	 * Help is a lazy chunk. The skeleton holds its place while it loads. A failed load keeps the frame with Close and a
+	 * page reload, since the browser may cache a failed import.
+	 */
 	let { load = () => import('$features/help'), ...drawer }: { load?: () => Promise<HelpModule> } & DrawerProps =
 		$props();
-	let attempt = $state(0);
 </script>
 
-{#key attempt}
-	{#await load()}
-		<HelpDrawerSkeleton />
-	{:then { HelpDrawer, HELP_GUIDES }}
-		<HelpDrawer guides={HELP_GUIDES} {...drawer} />
-	{:catch}
-		<HelpDrawerLoadError onRetry={() => (attempt += 1)} onClose={drawer.onClose} />
-	{/await}
-{/key}
+{#await load()}
+	<HelpDrawerSkeleton />
+{:then { HelpDrawer, HELP_GUIDES }}
+	<HelpDrawer guides={HELP_GUIDES} {...drawer} />
+{:catch}
+	<HelpDrawerLoadError onClose={drawer.onClose} />
+{/await}

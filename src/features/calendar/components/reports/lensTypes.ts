@@ -1,6 +1,6 @@
 import type { Group, Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
-import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
+import type { ToolbarAction, ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 import type { CalendarReportFeedState } from './calendarReportFeed.svelte';
 import type { ReportRange } from './reportQuery';
 
@@ -20,7 +20,10 @@ export interface LensProps {
 	statusTypes: StatusType[];
 	groups: Group[];
 	filters: ReportFilters;
+	/** The span on screen; a lens counts only these days. */
 	range: ReportRange | null;
+	/** The feed key of the data this lens asked for, which the span plus its `loadAfterDays` decide; null until known. */
+	feedKey: string | null;
 	/** The viewer's day, or null before the page has mounted. */
 	today: string | null;
 	feed: CalendarReportFeedState;
@@ -28,5 +31,7 @@ export interface LensProps {
 }
 
 export interface LensHandle {
+	/** Controls only this lens has, such as Time away's flag; they sit after the shared filters. */
+	controls?(): ToolbarItem[];
 	exportActions(): ToolbarAction[];
 }

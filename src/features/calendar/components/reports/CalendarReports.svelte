@@ -17,15 +17,21 @@
 	import { showSubGroupsToggle } from '$lib/stores/showSubGroups.svelte';
 	import { formatDate, formatDayMonth, formatDayMonthYear } from '$lib/utils/dates';
 	import { visibleUrl } from '$lib/utils/visibleUrl';
-	import { CalendarReportFeed } from './calendarReportFeed.svelte';
+	import { CalendarReportFeed, reportFeedKey } from './calendarReportFeed.svelte';
 	import type { LensHandle, ReportFilters } from './lensTypes';
-	import { LENSES } from './lenses';
+	import { LENSES, lensDefinition, spanOf } from './lenses';
 	import {
+		currentSpanLabel,
+		extendRange,
+		isOffCurrentSpan,
 		parseReportQuery,
 		reportRange,
+		resizeSpan,
 		serializeReportQuery,
 		shiftReportStart,
 		SPAN_DAYS,
+		switchLens,
+		type LensId,
 		type ReportQuery
 	} from './reportQuery';
 
@@ -39,8 +45,8 @@
 
 	let { orgId, orgUrlSegment = orgId, personnel, statusTypes, groups }: Props = $props();
 
-	const query = $derived(parseReportQuery(visibleUrl().searchParams));
-	const lens = $derived(LENSES.find((candidate) => candidate.id === query.lens) ?? LENSES[0]);
+	const query = $derived(parseReportQuery(visibleUrl().searchParams, spanOf));
+	const lens = $derived(lensDefinition(query.lens));
 	const Lens = $derived(lens.component);
 
 	// The viewer's own day, known only after mount so the server and the first client render agree.
@@ -48,7 +54,9 @@
 	onMount(() => {
 		today = formatDate(new Date());
 	});
-	const range = $derived(reportRange(query, today));
+	const range = $derived(reportRange(query, today, lens.span));
+	const loadRange = $derived(range && lens.sharedControls ? extendRange(range, lens.loadAfterDays) : null);
+	const feedKey = $derived(loadRange ? reportFeedKey(loadRange) : null);
 
 	const feed = $derived(new CalendarReportFeed(orgId));
 	$effect(() => {
@@ -57,7 +65,7 @@
 	});
 	$effect(() => {
 		const active = feed;
-		const target = lens.sharedControls ? range : null;
+		const target = loadRange;
 		if (target) untrack(() => active.load(target));
 	});
 
@@ -162,6 +170,7 @@
 					} satisfies ToolbarItem
 				]
 			: []),
+		...(handle?.controls?.() ?? []),
 		...(handle?.exportActions() ?? []),
 		{
 			kind: 'action',
@@ -172,21 +181,29 @@
 		}
 	]);
 
-	function hrefFor(next: Partial<ReportQuery>): `/${string}` {
-		const search = serializeReportQuery({ ...query, ...next }, today);
+	function hrefForQuery(next: ReportQuery): `/${string}` {
+		const search = serializeReportQuery(next, today, spanOf(next.lens));
 		return `/org/${orgUrlSegment}/calendar/reports${search ? `?${search}` : ''}`;
 	}
+	const hrefFor = (next: Partial<ReportQuery>) => hrefForQuery({ ...query, ...next });
+	const hrefForLens = (target: LensId) => hrefForQuery(switchLens(query, target, spanOf));
 
 	const lensTabs = $derived(
 		LENSES.map((candidate) => ({
 			label: candidate.label,
-			href: hrefFor({ lens: candidate.id }),
+			href: hrefForLens(candidate.id),
 			active: candidate.id === lens.id
 		}))
 	);
 	const spanTabs = $derived(
-		SPAN_DAYS.map((days) => ({ label: `${days} D`, href: hrefFor({ days }), active: days === query.days }))
+		SPAN_DAYS.map((days) => ({
+			label: `${days} D`,
+			href: hrefForQuery(resizeSpan(query, range, days, lens.span, today)),
+			active: days === query.days
+		}))
 	);
+	const earlierStart = $derived(range ? shiftReportStart(range, query.days, -1, lens.span, today) : null);
+	const laterStart = $derived(range ? shiftReportStart(range, query.days, 1, lens.span, today) : null);
 	const rangeLabel = $derived(range ? `${formatDayMonth(range.start)} to ${formatDayMonthYear(range.end)}` : null);
 </script>
 
@@ -197,8 +214,8 @@
 				variant="outline"
 				size="icon-sm"
 				aria-label="Previous {query.days} days"
-				aria-disabled={range === null}
-				href={range ? hrefFor({ start: shiftReportStart(range, query.days, -1) }) : undefined}
+				aria-disabled={earlierStart === null}
+				href={earlierStart === null ? undefined : hrefFor({ start: earlierStart })}
 			>
 				<ChevronLeftIcon aria-hidden="true" />
 			</Button>
@@ -209,15 +226,15 @@
 				variant="outline"
 				size="icon-sm"
 				aria-label="Next {query.days} days"
-				aria-disabled={range === null}
-				href={range ? hrefFor({ start: shiftReportStart(range, query.days, 1) }) : undefined}
+				aria-disabled={laterStart === null}
+				href={laterStart === null ? undefined : hrefFor({ start: laterStart })}
 			>
 				<ChevronRightIcon aria-hidden="true" />
 			</Button>
 		</div>
 		<PageShell.Tabs variant="segmented" label="Report span" items={spanTabs} />
-		{#if query.start !== null && query.start !== today}
-			<Button variant="outline" size="sm" href={hrefFor({ start: null })}>Today</Button>
+		{#if isOffCurrentSpan(query, today, lens.span)}
+			<Button variant="outline" size="sm" href={hrefFor({ start: null })}>{currentSpanLabel(lens.span)}</Button>
 		{/if}
 	</div>
 {/snippet}
@@ -237,6 +254,7 @@
 		{groups}
 		{filters}
 		{range}
+		{feedKey}
 		{today}
 		feed={feed.state}
 		onRetry={() => feed.retry()}

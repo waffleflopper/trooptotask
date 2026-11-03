@@ -10,11 +10,10 @@
 	import AvailabilityGroupGrid from './AvailabilityGroupGrid.svelte';
 	import AvailabilityStrengthChart from './AvailabilityStrengthChart.svelte';
 	import AvailabilityWhoIsOut from './AvailabilityWhoIsOut.svelte';
-	import { reportFeedKey } from './calendarReportFeed.svelte';
 	import { exportAvailabilityWorkbook } from './calendarReportWorkbookExport';
 	import type { LensProps } from './lensTypes';
 
-	let { statusTypes, groups, filters, range, today, feed, onRetry }: LensProps = $props();
+	let { statusTypes, groups, filters, range, feedKey, today, feed, onRetry }: LensProps = $props();
 
 	const GRID_LEGEND = [
 		{ tier: 'not-applicable', label: '80%+' },
@@ -24,9 +23,8 @@
 
 	let picked = $state<{ key: string; date: string } | null>(null);
 
-	const currentKey = $derived(range ? reportFeedKey(range) : null);
-	const data = $derived(feed.status === 'ready' && feed.key === currentKey ? feed.data : null);
-	const failure = $derived(feed.status === 'error' && feed.key === currentKey ? feed.message : null);
+	const data = $derived(feed.status === 'ready' && feed.key === feedKey ? feed.data : null);
+	const failure = $derived(feed.status === 'error' && feed.key === feedKey ? feed.message : null);
 	const board = $derived(
 		data && range
 			? computeAvailabilityBoard({
@@ -58,11 +56,11 @@
 				}).readiness.sets.reduce((rows, set) => rows + 1 + (showSubGroups.current ? set.below.length : 0), 1)
 			: 3
 	);
-	const pickedDate = $derived(picked && picked.key === currentKey ? picked.date : null);
+	const pickedDate = $derived(picked && picked.key === feedKey ? picked.date : null);
 	const selectedDay = $derived(board ? (board.days.find((day) => day.date === pickedDate) ?? board.lowest) : null);
 
 	function select(date: string): void {
-		if (currentKey) picked = { key: currentKey, date };
+		if (feedKey) picked = { key: feedKey, date };
 	}
 
 	export function exportActions(): ToolbarAction[] {

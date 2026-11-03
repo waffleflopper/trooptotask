@@ -286,8 +286,8 @@ filters and request controls between cases.
 sub-groups` on, the Group by day grid lists each top-level Group with its sub-groups beneath, then a Total row; off
     it lists only the top-level rows and Total. Cell tiers come from the exact available fraction: blank at 80% or more,
     amber at 50% or more, red below. The Total row counts available People over all People for each day, not a mean of
-    row percentages. Reports → Time away → Status days by person (`Filter personnel` → `By Group`) offers the same
-    three top-level Groups; checking only `2nd Platoon` selects 9 of 12 personnel, and the run lists or counts all nine.
+    row percentages. Reports → Time away → `Group` offers the same
+    three top-level Groups; checking only `2nd Platoon` selects 9 of 12 personnel, and the by-Group rows count all nine.
     These nested-Group values are source-mapped from the seed, not re-driven on the redesigned page.
 
 20. **Lane display.** As `calendarConfigure` on Calendar September 2026 at 1440x900, 1024x768 and 390x844, record the

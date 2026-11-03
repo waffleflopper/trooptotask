@@ -13,39 +13,37 @@ export function visibleUrl(): HelpPageUrl {
 	return page.shallow?.url ?? page.url;
 }
 
-/** The entries Help added above the page it was opened from. */
-function helpEntries(): number {
-	const view = page.state.help;
-	if (!view) return 0;
-	return view.guide === null ? 1 : 2;
+/** The history entries Help pushed above the page it was opened from. */
+function helpDepth(): number {
+	return page.state.help?.depth ?? 0;
 }
 
 export function openHelp() {
-	void goto(helpLocation(visibleUrl(), ''), { shallow: true, state: { help: { guide: null } } });
+	void goto(helpLocation(visibleUrl(), ''), { shallow: true, state: { help: { guide: null, depth: 1 } } });
 }
 
-/** From the stacked list a guide takes a new entry, so Back returns to the list. Anywhere else it takes the current one. */
+/** From a pushed list a guide takes a new entry, so Back returns to the list. Anywhere else it takes the current one. */
 export function openHelpGuide(id: string) {
-	const stacked = helpEntries() > 0;
-	const fromList = page.state.help?.guide === null;
+	const depth = helpDepth();
+	const push = depth > 0 && page.state.help?.guide === null;
 	void goto(helpLocation(visibleUrl(), id), {
 		shallow: true,
-		replace: !fromList,
-		state: stacked ? { help: { guide: id } } : {}
+		replace: !push,
+		state: depth > 0 ? { help: { guide: id, depth: push ? depth + 1 : depth } } : {}
 	});
 }
 
 export function showHelpList() {
-	const stacked = helpEntries() > 0;
+	const depth = helpDepth();
 	void goto(helpLocation(visibleUrl(), ''), {
 		shallow: true,
 		replace: true,
-		state: stacked ? { help: { guide: null } } : {}
+		state: depth > 0 ? { help: { guide: null, depth } } : {}
 	});
 }
 
 export function closeHelp() {
-	const entries = helpEntries();
-	if (entries > 0) history.go(-entries);
+	const depth = helpDepth();
+	if (depth > 0) history.go(-depth);
 	else void goto(helpLocation(visibleUrl(), undefined), { shallow: true, replace: true, state: { help: null } });
 }

@@ -9,8 +9,9 @@ numbered steps to the pages they name, and closes the drawer with Back, the clos
   `Browse all N guides` footer. A guide that is already listed for the page is not repeated under `Things people miss`.
 - `history`: the `?help` search param is the state. An empty value is the list and `?help=<id>` is a guide. Pressing Help
   pushes the list, opening a guide from the list pushes one more entry, and closing steps back over what Help pushed.
-  Back goes guide, then list, then closed. The crumb from a guide that was pushed from the list steps back to the list
-  instead of pushing, so history does not grow however often the list and a guide are swapped. A save that calls
+  Back goes guide, then list, then closed. The crumb swaps the guide for the list in place, and a guide opened from that
+  list takes the same entry, so Help holds at most two entries however often the list and a guide are swapped. Closing
+  restores a tab or section the page switched to while Help was open. A save that calls
   `invalidate()` resets SvelteKit's page state; Help puts its view and depth back on the same entry, so closing still
   steps back and Back does not reopen Help. A navigation to another path, or a step's link to the same page, is not
   restored.

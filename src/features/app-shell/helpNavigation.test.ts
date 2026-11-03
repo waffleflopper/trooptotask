@@ -92,13 +92,14 @@ describe('opening Help', () => {
 		expect(goto).toHaveBeenCalledWith('/org/c-co/calendar?help=a', { shallow: true, replace: true, state: {} });
 	});
 
-	it('returns from a guide pushed from the list by stepping back to it', () => {
-		const back = vi.fn();
-		vi.stubGlobal('history', { back });
+	it('returns from a guide pushed from the list by swapping it for the list', () => {
 		at('https://example.test/org/c-co/calendar?help=a', { guide: 'a', depth: 2 });
 		showHelpList();
-		expect(back).toHaveBeenCalledOnce();
-		expect(goto).not.toHaveBeenCalled();
+		expect(goto).toHaveBeenCalledWith('/org/c-co/calendar?help=', {
+			shallow: true,
+			replace: true,
+			state: { help: { guide: null, depth: 2 } }
+		});
 	});
 
 	it('returns to the list in place when the page was loaded on a guide', () => {
@@ -215,7 +216,7 @@ describe('Help across a whole visit', () => {
 			openHelpGuide(id);
 			showHelpList();
 		}
-		expect(browser.depth).toBe(2);
+		expect(browser.depth).toBe(3);
 		expect(browser.here).toBe('/org/c-co/calendar?help=');
 	});
 
@@ -245,9 +246,7 @@ describe('Help across a whole visit', () => {
 		openHelpGuide('a');
 		void goto('/org/c-co/calendar/bulk?tab=remove&help=a', { replace: true, state: current.state });
 		showHelpList();
-		keepHelpState();
 		expect(browser.here).toBe('/org/c-co/calendar/bulk?tab=remove&help=');
-		expect(browser.depth).toBe(2);
 		closeHelp();
 		keepHelpState();
 		expect(browser.here).toBe('/org/c-co/calendar/bulk?tab=remove');

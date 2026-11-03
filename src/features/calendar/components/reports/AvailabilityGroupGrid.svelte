@@ -84,6 +84,7 @@
 					>
 						Group
 					</OperationalMatrix.CornerCell>
+					<th scope="col" class="w-24 min-w-24 pb-2 px-2 text-right {HEADER_CLASS}">Lowest</th>
 					{#each columns as column (column.id)}
 						<OperationalMatrix.ColumnHeader
 							{column}
@@ -93,7 +94,6 @@
 								: ''}"
 						/>
 					{/each}
-					<th scope="col" class="w-24 min-w-24 pb-2 pl-2 text-right {HEADER_CLASS}">Lowest</th>
 				</OperationalMatrix.HeaderRow>
 			</OperationalMatrix.Header>
 			<OperationalMatrix.Body>
@@ -114,6 +114,16 @@
 							<span class="block font-serif text-[15px] font-medium">{row.label}</span>
 							<span class="block font-mono text-[11px] text-muted-foreground">{peopleLabel(row.source)}</span>
 						</OperationalMatrix.RowHeader>
+						<td class="px-2 text-right align-middle">
+							{#if lowest}
+								<span class={['block font-heading text-xl font-bold', readinessBandTone[TONE[readinessTone(lowest)]]]}
+									>{lowest.availablePercent}%</span
+								>
+								<span class="block font-mono text-[11px] text-muted-foreground uppercase"
+									>{formatDayMonth(lowest.date)}</span
+								>
+							{/if}
+						</td>
 						{#each row.source.cells as cell, index (cell.date)}
 							{@const tone = readinessTone(cell)}
 							<OperationalMatrix.Cell
@@ -133,16 +143,6 @@
 								/>
 							</OperationalMatrix.Cell>
 						{/each}
-						<td class="pl-2 text-right align-middle">
-							{#if lowest}
-								<span class={['block font-heading text-xl font-bold', readinessBandTone[TONE[readinessTone(lowest)]]]}
-									>{lowest.availablePercent}%</span
-								>
-								<span class="block font-mono text-[11px] text-muted-foreground uppercase"
-									>{formatDayMonth(lowest.date)}</span
-								>
-							{/if}
-						</td>
 					</OperationalMatrix.Row>
 				{/each}
 			</OperationalMatrix.Body>

@@ -11,6 +11,7 @@
 	import * as NativeSelect from '$lib/components/ui/native-select';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { staysOnPage } from '$lib/utils/staysOnPage';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import type { Group, OrganizationRankCatalogEntry } from '../contracts';
@@ -118,7 +119,7 @@
 	}
 
 	beforeNavigate((navigation) => {
-		if (leaving || draft.changeCount === 0) return;
+		if (leaving || draft.changeCount === 0 || staysOnPage(navigation)) return;
 		navigation.cancel();
 		if (navigation.willUnload || !navigation.to) return;
 		discardTarget = {

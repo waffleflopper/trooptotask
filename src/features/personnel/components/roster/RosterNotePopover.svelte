@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover';
 	import { withinOrganizationLifetime } from '$lib/stores/core';
+	import { staysOnPage } from '$lib/utils/staysOnPage';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../../personnel.types';
 	import { alreadyOpenOf, type ComposerEntry } from '../../rosterComposer';
@@ -48,7 +49,7 @@
 	}
 
 	beforeNavigate((navigation) => {
-		if (leaving || !composer?.hasDraft()) return;
+		if (leaving || !composer?.hasDraft() || staysOnPage(navigation)) return;
 		navigation.cancel();
 		if (navigation.willUnload || !navigation.to) return;
 		const { url } = navigation.to;

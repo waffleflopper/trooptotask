@@ -9,6 +9,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { staysOnPage } from '$lib/utils/staysOnPage';
 	import type { ImportLane } from './types';
 	import { ImportSession } from './importSession.svelte';
 	import { STEPS, stepIndex, type FlowSession, type FlowStep } from './flowTypes';
@@ -72,7 +73,7 @@
 	let leaveTarget = $state.raw<{ url: URL; delta?: number } | null>(null);
 
 	beforeNavigate((navigation) => {
-		if (leaving || !session.dirty) return;
+		if (leaving || !session.dirty || staysOnPage(navigation)) return;
 		navigation.cancel();
 		if (navigation.willUnload || !navigation.to) return;
 		if (session.phase.step === 'committing') {

@@ -14,7 +14,7 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { navigating, page } from '$app/state';
+	import { navigating } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
 	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
 	import { resolve } from '$app/paths';

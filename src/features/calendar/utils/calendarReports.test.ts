@@ -96,7 +96,13 @@ describe('computeAvailabilityForecast', () => {
 
 		expect(result.days).toHaveLength(60);
 		expect(result.days.find((day) => day.date === '2026-03-10')?.unavailablePersonnel).toEqual([
-			{ person: personnel[0], statusName: 'Leave', statusColor: '#2563eb' }
+			{
+				person: personnel[0],
+				statusTypeId: 'leave',
+				statusName: 'Leave',
+				statusColor: '#2563eb',
+				returnDate: '2026-03-21'
+			}
 		]);
 		expect(result.days.find((day) => day.date === '2026-03-15')).toMatchObject({
 			unavailableCount: 2,
@@ -120,7 +126,8 @@ describe('computeAvailabilityForecast', () => {
 				unavailableCount: 0,
 				availableCount: 0,
 				availablePercent: 100,
-				unavailablePersonnel: []
+				unavailablePersonnel: [],
+				awayByStatus: []
 			},
 			{
 				date: '2026-03-02',
@@ -128,7 +135,8 @@ describe('computeAvailabilityForecast', () => {
 				unavailableCount: 0,
 				availableCount: 0,
 				availablePercent: 100,
-				unavailablePersonnel: []
+				unavailablePersonnel: [],
+				awayByStatus: []
 			},
 			{
 				date: '2026-03-03',
@@ -136,9 +144,42 @@ describe('computeAvailabilityForecast', () => {
 				unavailableCount: 0,
 				availableCount: 0,
 				availablePercent: 100,
-				unavailablePersonnel: []
+				unavailablePersonnel: [],
+				awayByStatus: []
 			}
 		]);
+	});
+
+	it('counts away people per status in Status Type order and returns people the day after their last away day', () => {
+		const personnel = [
+			person({ id: 'person-1', lastName: 'Able' }),
+			person({ id: 'person-2', lastName: 'Baker' }),
+			person({ id: 'person-3', lastName: 'Clark' })
+		];
+		const result = computeAvailabilityForecast(
+			personnel,
+			[
+				availability({ id: 'a', personnelId: 'person-1', statusTypeId: 'school', startDate: '2026-03-02', endDate: '2026-03-04' }),
+				availability({ id: 'b', personnelId: 'person-1', statusTypeId: 'leave', startDate: '2026-03-05', endDate: '2026-03-06' }),
+				availability({ id: 'c', personnelId: 'person-2', statusTypeId: 'leave', startDate: '2026-03-03', endDate: '2026-03-03' }),
+				availability({ id: 'd', personnelId: 'person-3', statusTypeId: 'school', startDate: '2026-03-03', endDate: '2026-03-03' })
+			],
+			statusTypes,
+			'2026-03-01',
+			'2026-03-05'
+		);
+		const day = (date: string) => result.days.find((candidate) => candidate.date === date)!;
+
+		expect(day('2026-03-03').awayByStatus).toEqual([
+			{ statusTypeId: 'leave', count: 1 },
+			{ statusTypeId: 'school', count: 2 }
+		]);
+		expect(day('2026-03-03').unavailablePersonnel.map((away) => [away.person.id, away.returnDate])).toEqual([
+			['person-1', '2026-03-07'],
+			['person-2', '2026-03-04'],
+			['person-3', '2026-03-04']
+		]);
+		expect(day('2026-03-01').awayByStatus).toEqual([]);
 	});
 });
 
@@ -374,6 +415,41 @@ describe('computeGroupReadiness sub-groups', () => {
 
 		expect(result.on).toEqual([['Alpha Team', 0, false, '2/3']]);
 		expect(result.off).toEqual([['Alpha Team', 0, false, '2/3']]);
+	});
+});
+
+describe('computeGroupReadiness unassigned people', () => {
+	const groups: Group[] = [{ id: 'group-a', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 }];
+	const people = [
+		person({ id: 'person-1', groupId: 'group-a' }),
+		person({ id: 'person-2', groupId: 'group-a' }),
+		person({ id: 'person-3', groupId: null })
+	];
+	const entries = [availability({ personnelId: 'person-3', startDate: '2026-03-01', endDate: '2026-03-01' })];
+
+	it('leaves people outside the Group tree out unless asked', () => {
+		const result = computeGroupReadiness(people, entries, groups, new Set(['group-a']), '2026-03-01', '2026-03-01');
+
+		expect(result.sets.map((set) => set.top.groupName)).toEqual(['Alpha']);
+		expect(result.groups.map((group) => group.groupName)).toEqual(['Alpha']);
+	});
+
+	it('adds an Unassigned row counting them when asked', () => {
+		const result = computeGroupReadiness(
+			people,
+			entries,
+			groups,
+			new Set(['group-a']),
+			'2026-03-01',
+			'2026-03-01',
+			true
+		);
+
+		expect(result.sets.map((set) => [set.top.groupName, set.top.cells[0].availableCount, set.top.cells[0].totalPersonnel])).toEqual([
+			['Alpha', 2, 2],
+			['Unassigned', 0, 1]
+		]);
+		expect(result.groups.map((group) => group.groupName)).toEqual(['Alpha', 'Unassigned']);
 	});
 });
 

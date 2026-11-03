@@ -1,19 +1,19 @@
 # Reports and history
 
-A Calendar reader sees saved availability across current and historical ranges, exports status-day totals from the same
-authorized people, and sees today's availability on the Dashboard without foreign facts.
+A Calendar reader sees saved availability across current and historical ranges, reads time away over the past 90 days
+from the same authorized people, and sees today's availability on the Dashboard without foreign facts.
 
 ## Sub-features
 
 - `saved-ranges`: September and historical March Calendar reads retain own statuses and closure, excluding B.
-- `status-day-report`: the report page renders A's saved people and status totals, without foreign rows or special-day
-  export data.
-- `status-day-workbook`: the downloaded `Status Days` sheet contains independently expected counts, labels and
-  exclusions.
+- `time-away-lens`: the Time away lens defaults to the 90 days up to yesterday and leads with the share of person-days
+  away, the status mix, days away per person by Group and a ranked list of people, from A's saved people only.
+- `time-away-workbook`: the downloaded `Time away by person` and `Time away by group` sheets contain independently
+  expected counts, labels, the flag column and Next out, without foreign rows.
 - `availability-lens`: the Availability lens leads with the lowest day, a daily strength chart, a Group by day grid and
   who is out on the selected day, from the same A-only data, with a two-sheet workbook.
-- `other-calendar-reports`: Time away (status days by person, away days by person) and Assignment load by person use
-  the same A-only data in visible results and real workbooks until their lenses are redesigned.
+- `other-calendar-reports`: Assignment load by person uses the same A-only data in its visible result and real workbook
+  until its lens is redesigned.
 - `report-states`: the page title, the lens and span in the address, Availability's loading, error and retry, no-data
   and result states, and the large-roster run at 1280 light and 390 dark.
 - `dashboard-current`: today's Baker training projects one unavailable Person and remains Organization-scoped after
@@ -21,9 +21,8 @@ authorized people, and sees today's availability on the Dashboard without foreig
 
 ## How to get to it (user POV)
 
-Choose `Calendar` → `Reports`. The page opens on Availability for the next 30 days. Choose `Time away`, a year, then
-`Run status-day report` and `Export status days`. The month/year
-picker and `3-Month` view expose older saved dates. The Organization's Dashboard is its overview route; its current
+Choose `Calendar` → `Reports`. The page opens on Availability for the next 30 days. Choose `Time away` for the 90 days
+up to yesterday, then `Export time away`. The month/year picker and `3-Month` view expose older saved dates. The Organization's Dashboard is its overview route; its current
 availability card summarizes today.
 
 ## Driving it with verify:app
@@ -46,21 +45,21 @@ access, which supplies the visible roster summary.
    note, Unassigned's leave and the `Verification Unit Closure` date header. Switch to `3-Month`; September still shows
    those statuses and closure. Move twice to March–May, wait for loading to finish and capture one `Historical retained`
    leave day. Move forward twice and capture the restored September facts.
-3. Open `Reports`, choose `Time away`, choose `2026`, and click `Run status-day report`. The rendered result includes Able and Baker (and
-   Unassigned where listed), no Foreign Person or `Foreign Private Status`, and an `Export status days` action in
-   `Calendar report controls` (on the row, or in `More Calendar report controls` at narrow widths). The authenticated
-   status-days response for September 14–16 includes A's saved availability IDs, excludes B's, and does not export the
-   closure as a status row. Save the report result before exporting.
-4. Run `$V export arm $PAGE`, click `Export status days`, then
-   `$V export save $PAGE .verification/evidence/verify-trooptotask/<run>/status-days.xlsx` and
-   `$V export restore $PAGE`. Run `$V workbook <same-path>` and inspect the `Status Days` sheet. Able has `4`
-   Verification Leave days (March 11 plus September 14–16); Unassigned has `1` Leave day; Baker has Verification
-   Training on September 15 (`dates.middle`) and on each day of `dates.uiBefore..dates.uiAfter` inside 2026, and `1`
-   Verification Retiring Status day on October 14 (`dates.later`). The total counts unique days with any status, so
-   Baker's total is the number of distinct days in September 15, October 14 and `uiBefore..uiAfter` within 2026. A
-   launch on 2026-10-20 reads `5` (September 15, October 14 and 19 to 21); a launch whose span covers October 14 reads
-   `4`. The workbook has no Foreign row, foreign status column, or Organization closure status column. A click or toast
-   without captured workbook bytes does not prove export contents.
+3. Open `Reports`, choose `Time away`. The address is `?lens=time-away` and the range reads the 90 days up to
+   yesterday (`Previous 90 days` is a link, `Next 90 days` is disabled). The result has the sections `Bottom line`,
+   `Where the days went` (named for the largest status) and `Who was away`. No Foreign Person or `Foreign Private
+Status` appears. The authenticated status-days response for September 14-16 includes A's saved availability IDs,
+   excludes B's, and does not export the closure as a status row. Save the report result before exporting.
+4. Run `$V export arm $PAGE`, click `Export time away` (on the row, or in `More Calendar report controls` at narrow
+   widths), then `$V export save $PAGE .verification/evidence/verify-trooptotask/<run>/time-away.xlsx` and
+   `$V export restore $PAGE`. Run `$V workbook <same-path> 'Time away by person'` and
+   `'Time away by group'`. By person has Rank, Last Name, First Name, Group, one column per active status in Calendar
+   Settings order, Total days away, Percent of span, `Flagged (N+ days)`, Next out and Next out day. Choose a span that
+   holds September (`?lens=time-away&days=90&start=2026-09-01`) and compare Able (3 Verification Leave days, September
+   14-16), Baker (Verification Training on September 15) and Unassigned (1 Leave day) with the visible rows. Each day
+   counts once per Person, so a Person's total is the number of distinct away days in the span. No Foreign row, foreign
+   status column or closure column appears. A click or toast without captured workbook bytes does not prove export
+   contents.
 5. In the `calendarView` page, visit Organization A's Dashboard and capture `2` of `3` `Available` and Baker once in
    `Out today`, with `Verification Training`. Overlapping entries select one displayed status per Person in catalog
    order; Baker remains one unavailable Person even when `Verification Retiring Status` also overlaps today. Require no
@@ -75,21 +74,30 @@ calendar-reports/status-days`, open `Reports`, and require the bottom line to na
    entries whose name contains `calendar-reports/status-days`). Open `Group` and uncheck Bravo, then `Counts as away`
    and `MOS`: the numbers and grid rows change with no new request. Click a chart column and a grid cell: the `Who`
    heading and list follow the picked day, and an everyone-here day reads `Everyone is here on this day.` Click `Time
-away` and `Assignment load`: the address gains `lens=`, Back returns to the previous lens, a reload keeps the
-   lens, and each lens shows its existing report (Status days by person and Away days by person; Assignment load by
-   person) without the span switch. **Time away** and **Assignment load** run with their visible `Run` controls and
-   follow the unchanged A-only rules below. **Assignment load by person** over calendar year 2026 shows Able with one
+away` and `Assignment load`: the address gains `lens=`, Back returns to the previous lens and a reload keeps it.
+   Time away and Assignment load default to the 90 days up to yesterday (Availability to the 30 days from today), so
+   leaving Availability for either drops its `days` and `start`. **Time away** keeps the span switch, Group, Counts as
+   away and MOS filters, and adds `Flag at` (a sixth, quarter, third or half of the span, `30+ days` at 90 D). The
+   `Previous` and `Next` links step one span earlier or later and `Next` stays disabled on the latest span; `14 D` to
+   `90 D` end on yesterday; `Back` and a reload keep the span. One status-days request loads the span plus the 60 days
+   after it, and count entries as for Availability: a preset or `Previous` makes exactly one more request, while
+   `Group`, `MOS`, `Counts as away`, `Flag at` and the `Most away`/`Least away` toggle make none. The bottom line reads
+   `N of M person-days` with the share, one sentence naming the busiest Group and how many people reached the flag, and
+   the facts `N+ days away`, `Never away`, the largest status share and `Busiest group`. `Where the days went` shows
+   the composition bar and, by Group, days away per person with the company average marked. `Who was away` ranks
+   people with a stacked bar, a dashed flag line, days, share and Next out (`continues` when the entry runs past the
+   span); `Show all N` lists everyone and `Show fewer` returns to the first 12. Seed `availability-volume` for enough
+   people to see more than 12 rows and non-zero flags (its entries start in October, so use `Flag at` of `15+ days`).
+   **Assignment load** runs with its visible `Run` control and follows the unchanged A-only rules below. **Assignment load by person** over calendar year 2026 shows Able with one
    Staff and one archived assignment, Baker with one Retiring assignment, and Unassigned with zero; the Group
-   assignment does not count as a Person assignment. **Away days by person** shows Able's three September Leave days,
-   Baker's current Training overlap and Unassigned's one September Leave day when those dates fall in its selected
-   range. The status columns of Status days and Away days and the type columns of Assignment load follow the type
-   order shown in Calendar Settings, not the order entries were saved, and keep that order after a reload and in each
-   workbook. Record each selected date range, visible result and foreign exclusion before export.
+   assignment does not count as a Person assignment. The status columns of Time away and the type columns of Assignment
+   load follow the type order shown in Calendar Settings, not the order entries were saved, and keep that order after a
+   reload and in each workbook. Record each selected date range, visible result and foreign exclusion before export.
 
-7. For Availability, Away days by person and Assignment load, arm `$V export arm $PAGE`, click its visible Export
-   action (`Export availability`, `Export away days`, `Export assignment load`), save the Blob to a distinct `.xlsx`
-   file under this run, and restore capture. Inspect each real sheet with `$V workbook FILE 'Availability by day'`,
-   `'Group by day'`, `'Personnel Tempo'` or `'Assignment Coverage'`. The `Availability by day` sheet has Date, Here,
+7. For Availability and Assignment load, arm `$V export arm $PAGE`, click its visible Export action (`Export
+   availability`, `Export assignment load`), save the Blob to a distinct `.xlsx` file under this run, and restore
+   capture. Inspect each real sheet with `$V workbook FILE 'Availability by day'`, `'Group by day'` or
+   `'Assignment Coverage'` (Time away's sheets are step 4). The `Availability by day` sheet has Date, Here,
    Away, Total, Here percent, one column per active status and Away personnel for every day of the span; `Group by
 day` has one row per Group and a Total row of `available/total (percent%)` cells.
    Compare the saved cells with the visible result, fixture dates and A-only rows. The `Assignment Coverage` sheet must
@@ -103,9 +111,12 @@ day` has one row per Group and a Total row of `available/total (percent%)` cells
    height (`[aria-label="Availability report"] section`) and release; the heights while loading and after the result
    match. For an error, arm `$V network arm-fail $PAGE calendar-reports/status-days`, click `14 D`, and require the
    alert `Could not load availability` with `Retry`. Restore the control, click `Retry` and require the result. For no
-   data, uncheck every Group and require `No personnel match these filters.` with no `Export availability` action. The
-   legacy lenses keep their own validation, loading, error and no-data states (clear the start date; arm and release
-   the same endpoint; `Run again`). At 390 the day labels of a 30-day chart show every second day, and the grid
+   data, uncheck every Group and require `No personnel match these filters.` with no `Export availability` action. Time
+   away repeats the checks on the same endpoint: hold it and click `60 D` for the skeletons (the sections `Bottom line`,
+   `Where the days went` and `Who was away` keep their heights when the result lands), arm `arm-fail` and click `14 D`
+   for the alert `Could not load time away` with `Retry`, and uncheck every Group for `No personnel match these
+filters.` with no `Export time away` action. Assignment load keeps its own validation, loading, error and no-data
+   states (clear the start date; arm and release the same endpoint; `Run again`). At 390 the day labels of a 30-day chart show every second day, and the grid
    scrolls sideways with the Group column and its Lowest figure still visible. As `manager`, open the Reports route and
    record the denial. For the large roster, run `$V seed bulk-501`, open Availability for 90 days and run Status days
    by person five times with its default range. Record the time from the click or Run to the settled result, long tasks
@@ -134,10 +145,10 @@ remain equal.
   workbook overlap, and wait for range loading to finish before comparing cells.
 - A visible report is weaker than the downloaded workbook. The helper captures the real Blob from the visible Export
   action and saves it outside the disposable worker; restore the capture even after failure.
-- Availability uses the span switch (`14 D` to `90 D`, default 30 days from the viewer's today, `start=` and `days=` in
-  the address); the legacy lenses keep their own ranges. Status days by person and Assignment load use the current
-  calendar year and Away days by person the past 90 days. Use the visible range and `$V fixture` dates to calculate
-  expected values before comparing rows; change a date range through its UI, or open Availability with
-  `?start=2026-09-14`, if a fixed September fixture is outside the default.
-- The Time away tab stacks two reports and the Assignment load tab holds one, each with its own filters; the shared
-  Group, Counts as away and MOS filters and the span switch appear only on Availability.
+- Availability looks ahead and Time away looks back: both use the span switch (`14 D` to `90 D`, `start=` and `days=` in
+  the address), Availability from today (30 days by default) and Time away up to yesterday (90 days by default). Assignment
+  load uses the current calendar year. Use the visible range and `$V fixture` dates to calculate expected values before
+  comparing rows; open Time away with `?lens=time-away&start=2026-09-01` (90 days from that start) if a fixed September
+  fixture is outside the default span.
+- The Time away tab is one lens with the shared Group, Counts as away and MOS filters, the span switch and `Flag at`; the
+  Assignment load tab holds one report with its own filters and no span switch. `Flag at` appears only on Time away.

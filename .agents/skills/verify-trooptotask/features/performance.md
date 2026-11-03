@@ -223,7 +223,7 @@ membership to each workload (6, 13 and 37).
 The Training briefing detail is the affected-soldiers section below the report. Each open and each page is one
 `/api/training-reports/detail` request. A scoped Group holds at most 25 soldiers, so its widest cell has one page; the
 page change is measured for the wide actor on typical and large. The Calendar report UI caps no range: its date pickers
-accept any span. The longest preset that holds workload data is the current calendar year, the Status days default, so
+accept any span. The longest preset that holds workload data is the current calendar year, the Assignment load default, so
 `calendar-report` measures that. Rows outside the ±90-day workload window are empty, so a longer custom range adds no
 server rows; only the two by-day modes expand per day in the browser.
 

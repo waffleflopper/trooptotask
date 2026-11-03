@@ -16,6 +16,7 @@
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { navigating, page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
+	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
@@ -59,7 +60,7 @@
 	];
 
 	const activeTab = $derived.by<Tab>(() => {
-		const param = page.url.searchParams.get('tab');
+		const param = visibleUrl().searchParams.get('tab');
 		if (param === 'remove') return param;
 		return 'add';
 	});
@@ -67,7 +68,7 @@
 	// Only the Add form takes a prefill, and only while Taskings exist; it travels in the link so a reload keeps it.
 	const prefill = $derived(
 		activeTab === 'add' && !data.disabledFeatures?.includes('eventsAndTaskings')
-			? readAvailabilityPrefill(page.url.searchParams)
+			? readAvailabilityPrefill(visibleUrl().searchParams)
 			: null
 	);
 	const prefillKey = $derived(prefill ? JSON.stringify(prefill) : '');
@@ -81,10 +82,7 @@
 		// A single toggle group emits '' when the pressed item is clicked again.
 		if (!TABS.some((option) => option.value === tab)) return;
 		formGeneration++;
-		const url = new URL(page.url.href);
-		url.searchParams.set('tab', tab);
-		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
-		goto(resolve(target as '/'), { replace: true, reset: false });
+		replaceVisibleSearchParam('tab', tab);
 	}
 
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);

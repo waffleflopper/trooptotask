@@ -10,7 +10,8 @@
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
 	import HelpDrawerHost from './HelpDrawerHost.svelte';
-	import { closeHelp, keepHelpState, openHelp, openHelpGuide, showHelpList, visibleUrl } from '../helpNavigation';
+	import { closeHelp, keepHelpState, openHelp, openHelpGuide, showHelpList } from '../helpNavigation';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
 	import { helpRouteKey, readHelpView, type HelpViewer } from '$features/help/contracts';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';
 	import type { PendingErrorReference } from '$lib/stores/errorReportLedger';

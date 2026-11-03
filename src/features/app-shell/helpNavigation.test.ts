@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { closeHelp, keepHelpState, openHelp, openHelpGuide, showHelpList, visibleUrl } from './helpNavigation';
+import { closeHelp, keepHelpState, openHelp, openHelpGuide, showHelpList } from './helpNavigation';
+import { visibleUrl } from '$lib/utils/visibleUrl';
 
 type HelpState = { guide: string | null; depth: number };
 type GotoOptions = { replace?: boolean; state?: { help?: HelpState | null } };

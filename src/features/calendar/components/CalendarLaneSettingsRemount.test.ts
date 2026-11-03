@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { SvelteURL } from 'svelte/reactivity';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { createClientAccess } from '$lib/access/clientAccess';
@@ -6,6 +7,17 @@ import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import type { AssignmentType } from '$features/calendar/contracts';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
+
+const { pageMock } = vi.hoisted(() => ({
+	pageMock: { url: null as unknown as URL, shallow: null, state: {} }
+}));
+pageMock.url = new SvelteURL('http://localhost/org/org-1/calendar/settings');
+vi.mock('$app/state', () => ({ page: pageMock }));
+vi.mock('$app/navigation', () => ({
+	goto: async (href: string) => {
+		pageMock.url.search = new URL(href, 'http://localhost').search;
+	}
+}));
 
 function type(id: string, name: string, showOnCalendar: boolean, sortOrder: number): AssignmentType {
 	return {

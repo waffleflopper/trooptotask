@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
-import { HELP_PARAM, helpLocation, type HelpPageUrl } from '$features/help/contracts';
+import { visibleUrl } from '$lib/utils/visibleUrl';
+import { HELP_PARAM, helpLocation } from '$features/help/contracts';
 
 /**
  * Help lives in history as shallow entries. A Help button press pushes the list, a guide opened from the list pushes
@@ -8,11 +9,6 @@ import { HELP_PARAM, helpLocation, type HelpPageUrl } from '$features/help/contr
  * stays one entry. A page loaded on `?help` or reached through a step's link has no such entries, so there Help
  * changes the URL in place and closing only drops the param.
  */
-
-/** The address bar's URL. During a shallow entry `page.url` is still the page that was loaded, not the one shown. */
-export function visibleUrl(): HelpPageUrl {
-	return page.shallow?.url ?? page.url;
-}
 
 /** The history entries Help pushed above the page it was opened from. */
 function helpDepth(): number {

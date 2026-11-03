@@ -107,6 +107,11 @@
 			"files": [],
 			"packet": "08-M13"
 		},
+		"help": {
+			"roots": ["src/features/help/"],
+			"files": [],
+			"packet": "08-M03"
+		},
 		"identity": {
 			"roots": ["src/features/identity/"],
 			"files": ["src/tests/fixtures/passwordAttempt.ts", "src/tests/fixtures/passwordSession.ts"],
@@ -278,6 +283,7 @@
 	"dependencies": {
 		"access": ["shared", "provider"],
 		"app-shell": [
+			"help",
 			"identity",
 			"organization",
 			"personnel",
@@ -361,6 +367,7 @@
 			"deletion-requests",
 			"error-reporting",
 			"feedback",
+			"help",
 			"identity",
 			"notifications",
 			"onboarding",
@@ -379,6 +386,7 @@
 		],
 		"error-reporting": ["provider", "shared", "web-ui"],
 		"feedback": ["organization", "provider", "shared", "web-ui"],
+		"help": ["access", "shared", "web-ui", "web-patterns"],
 		"identity": ["access", "audit", "provider", "shared", "web-ui", "web-patterns"],
 		"notifications": ["identity", "access", "audit", "provider", "shared", "web-ui"],
 		"onboarding": [
@@ -631,7 +639,8 @@
 			"src/features/app-shell/index.server.ts"
 		],
 		"data-export": ["src/features/data-export/index.server.ts", "src/features/data-export/index.web.ts"],
-		"scheduled-maintenance": ["src/features/scheduled-maintenance/index.server.ts"]
+		"scheduled-maintenance": ["src/features/scheduled-maintenance/index.server.ts"],
+		"help": ["src/features/help/contracts.ts", "src/features/help/index.ts"]
 	},
 	"mixedFiles": {},
 	"testSupportFiles": [

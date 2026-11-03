@@ -13,8 +13,9 @@ import type { PersonState } from '../roster/rosterTypes';
 export const ON_SHARE_BAND = 1;
 /** How many duties over fair share a person is flagged at. */
 export const OVER_FLAG = 2;
-// Fair shares are sums of fractions, so a difference that is exactly a whole duty can land a hair either side of it.
-const EPSILON = 1e-9;
+
+/** A difference as the page shows it, to a tenth of a duty, so every count and color agrees with the number on screen. */
+const tenth = (value: number) => Math.round(value * 10) / 10 + 0;
 
 export interface AssignmentLoadInput {
 	/** Everyone the reader can see. Each duty is shared among the people of this list who are eligible and present. */
@@ -47,7 +48,7 @@ export interface PersonLoad {
 	byType: TypeCount[];
 	/** The duties the person would have drawn had each day's duty been shared evenly among those eligible and present. */
 	expected: number;
-	/** `total` minus `expected`: positive means more than a fair share. */
+	/** `total` minus `expected` to a tenth of a duty: positive means more than a fair share. */
 	difference: number;
 	/** Days of the span the person was not away. */
 	presentDays: number;
@@ -89,8 +90,10 @@ export interface AssignmentLoadReport {
 	/** The counted duty types that were assigned in the span, in catalog order. */
 	dutyTypes: AssignmentType[];
 	duties: DutyLoad[];
-	/** In rank then name order; order them with `rankLoad`. */
+	/** The people who shared a duty or drew one, in rank then name order; order them with `rankLoad`. */
 	people: PersonLoad[];
+	/** Everyone reported on in rank then name order, including people with no duty and no share, for the workbook. */
+	everyone: PersonLoad[];
 	summary: AssignmentLoadSummary;
 }
 
@@ -162,7 +165,7 @@ function expectedShares(
 }
 
 function onShare(difference: number): boolean {
-	return Math.abs(difference) <= ON_SHARE_BAND + EPSILON;
+	return Math.abs(difference) <= ON_SHARE_BAND;
 }
 
 export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoadReport {
@@ -212,7 +215,7 @@ export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoa
 	}
 
 	const spanDays = end - start + 1;
-	const people = [...input.shown].sort(comparePersonnelByRankThenName).flatMap((person): PersonLoad[] => {
+	const everyone = [...input.shown].sort(comparePersonnelByRankThenName).map((person): PersonLoad => {
 		const counts = countsByPerson.get(person.id);
 		const byType = types.flatMap((type) => {
 			const count = counts?.get(type.id) ?? 0;
@@ -220,19 +223,17 @@ export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoa
 		});
 		const total = byType.reduce((sum, entry) => sum + entry.count, 0);
 		const expected = types.reduce((sum, type) => sum + (expectedByType.get(type.id)?.get(person.id) ?? 0), 0);
-		if (total === 0 && expected === 0) return [];
-		return [
-			{
-				person,
-				total,
-				byType,
-				expected,
-				difference: total - expected,
-				presentDays: spanDays - (away.get(person.id)?.size ?? 0),
-				lastDuty: lastDuty.get(person.id) ?? null
-			}
-		];
+		return {
+			person,
+			total,
+			byType,
+			expected,
+			difference: tenth(total - expected),
+			presentDays: spanDays - (away.get(person.id)?.size ?? 0),
+			lastDuty: lastDuty.get(person.id) ?? null
+		};
 	});
+	const people = everyone.filter((entry) => entry.total > 0 || entry.expected > 0);
 
 	const duties = types
 		.filter((type) => dailyByType.has(type.id))
@@ -251,7 +252,7 @@ export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoa
 				const count = countsByPerson.get(entry.person.id)?.get(type.id) ?? 0;
 				const share = expected.get(entry.person.id) ?? 0;
 				if (count === 0 && share === 0) continue;
-				const difference = count - share;
+				const difference = tenth(count - share);
 				load.duties += count;
 				load.eligible++;
 				if (count === 0) load.never++;
@@ -262,7 +263,7 @@ export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoa
 			return load;
 		});
 
-	return { spanDays, dutyTypes: types, duties, people, summary: summarize(people) };
+	return { spanDays, dutyTypes: types, duties, people, everyone, summary: summarize(people) };
 }
 
 function summarize(people: readonly PersonLoad[]): AssignmentLoadSummary {
@@ -275,10 +276,10 @@ function summarize(people: readonly PersonLoad[]): AssignmentLoadSummary {
 		duties: people.reduce((sum, entry) => sum + entry.total, 0),
 		eligible: people.length,
 		never: none.length,
-		overFlagged: people.filter((entry) => entry.difference >= OVER_FLAG - EPSILON).length,
+		overFlagged: people.filter((entry) => entry.difference >= OVER_FLAG).length,
 		onShareFraction: people.length > 0 ? onShareCount / people.length : null,
 		onShare: onShareCount,
-		heaviest: heaviest && heaviest.difference > EPSILON ? heaviest : null,
+		heaviest: heaviest && heaviest.difference > 0 ? heaviest : null,
 		owedMost: best((a, b) => a.expected > b.expected, none)
 	};
 }

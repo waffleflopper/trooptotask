@@ -16,9 +16,9 @@ export async function exportAssignmentLoadWorkbook(
 	const count = (entry: PersonLoad, typeId: string) =>
 		entry.byType.find((entry) => entry.assignmentTypeId === typeId)?.count ?? 0;
 	const average = (values: number[]) => (values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0);
-	const averageTotal = average(report.people.map((entry) => entry.total));
+	const averageTotal = average(report.everyone.map((entry) => entry.total));
 
-	const people: WorkbookRow[] = [...report.people]
+	const people: WorkbookRow[] = [...report.everyone]
 		.sort((a, b) => b.difference - a.difference)
 		.map((entry) => ({
 			rank: entry.person.rank,
@@ -39,10 +39,10 @@ export async function exportAssignmentLoadWorkbook(
 		firstName: 'Average',
 		group: '',
 		...Object.fromEntries(
-			types.map((type) => [type.id, tenth(average(report.people.map((entry) => count(entry, type.id))))])
+			types.map((type) => [type.id, tenth(average(report.everyone.map((entry) => count(entry, type.id))))])
 		),
 		total: tenth(averageTotal),
-		fairShare: tenth(average(report.people.map((entry) => entry.expected))),
+		fairShare: tenth(average(report.everyone.map((entry) => entry.expected))),
 		vsFairShare: '',
 		vsAverage: '',
 		presentDays: '',

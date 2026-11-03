@@ -86,8 +86,8 @@ describe('fair share', () => {
 			['c', 0]
 		]);
 		for (const entry of people) expect(entry.expected).toBeCloseTo(4 / 3, 9);
-		expect(byId(people, 'a')?.difference).toBeCloseTo(5 / 3, 9);
-		expect(byId(people, 'c')?.difference).toBeCloseTo(-4 / 3, 9);
+		expect(byId(people, 'a')?.difference).toBe(1.7);
+		expect(byId(people, 'c')?.difference).toBe(-1.3);
 		expect(summary).toMatchObject({ duties: 4, eligible: 3, never: 1, overFlagged: 0, onShare: 1 });
 		expect(summary.heaviest?.person.id).toBe('a');
 		expect(summary.owedMost?.person.id).toBe('c');
@@ -178,6 +178,24 @@ describe('fair share', () => {
 		expect(summary.overFlagged).toBe(1);
 		expect(summary.onShare).toBe(2);
 		expect(summary.onShareFraction).toBeCloseTo(2 / 3, 9);
+	});
+
+	it('flags and bands each person by the difference to a tenth of a duty, as the page shows it', () => {
+		// 22 days of one duty over 21 people is a fair share of 22/21 each: a drew 3 (+1.95, shown +2.0), b drew
+		// none (-1.05, shown -1.0) and everyone else drew 1 (-0.05, shown 0.0).
+		const roster = Array.from({ length: 21 }, (_, i) => person(i === 0 ? 'a' : i === 1 ? 'b' : `p${i}`));
+		const days = Array.from({ length: 22 }, (_, i) => `2026-03-${String(i + 1).padStart(2, '0')}`);
+		const drawn = ['a', 'a', 'a', ...roster.slice(2).map((entry) => entry.id)];
+		const { people, summary, duties } = load({
+			roster,
+			endDate: '2026-03-22',
+			assignments: days.map((date, i) => assign(date, drawn[i]))
+		});
+		expect([byId(people, 'a')?.difference, byId(people, 'b')?.difference, byId(people, 'p2')?.difference]).toEqual([
+			2, -1, 0
+		]);
+		expect(summary).toMatchObject({ overFlagged: 1, onShare: 20 });
+		expect(duties[0]).toMatchObject({ over: 1, onShare: 20, under: 0 });
 	});
 
 	it('reports each duty separately, counting people over, on and under their share of it', () => {

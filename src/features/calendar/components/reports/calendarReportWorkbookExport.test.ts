@@ -261,4 +261,39 @@ describe('calendar report workbook exports', () => {
 		const duties = workbook.getWorksheet('Assignment load by duty');
 		expect(duties?.getRow(2).values).toEqual([undefined, 'Staff Duty', 2, 2, 1, 0, 2, 0]);
 	});
+
+	it('lists everyone reported on, including someone away the whole span, as the legacy export did', async () => {
+		const brown = { ...smith, id: 'p3', lastName: 'Brown' } as Personnel;
+		const report = computeAssignmentLoad({
+			roster: [smith, brown],
+			shown: [smith, brown],
+			assignments: [{ id: 'd1', date: '2026-03-01', assignmentTypeId: 'staff-duty', assigneeId: 'p1' }],
+			assignmentTypes: [staffDuty],
+			typeIds: new Set(['staff-duty']),
+			entries: [{ id: 'e1', personnelId: 'p3', statusTypeId: 'leave', startDate: '2026-03-01', endDate: '2026-03-02' }],
+			awayStatusTypeIds: new Set(['leave']),
+			rankCatalog: [],
+			groups: [],
+			startDate: '2026-03-01',
+			endDate: '2026-03-02'
+		});
+
+		const { workbook } = await captureWorkbook(() => exportAssignmentLoadWorkbook(report, '2026-03-01', '2026-03-02'));
+
+		const people = workbook.getWorksheet('Assignment load by person');
+		expect((people?.getRow(2).values as unknown[]).slice(1, 11)).toEqual([
+			'SGT',
+			'Brown',
+			'John',
+			'Alpha',
+			0,
+			0,
+			0,
+			0,
+			-0.5,
+			0
+		]);
+		expect((people?.getRow(3).values as unknown[]).slice(2, 4)).toEqual(['Smith', 'John']);
+		expect((people?.getRow(4).values as unknown[]).slice(3, 8)).toEqual(['Average', undefined, 0.5, 0.5, 0.5]);
+	});
 });

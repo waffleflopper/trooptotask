@@ -221,6 +221,12 @@ and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` 
     - Calendar settings: on `/calendar/settings` press Help, open `Add your own assignment types`, choose the
       `Assignment Types` tab by hand (not the step's `Go there`) and press `Close help`. Expect `?section=assignments`,
       the `Assignment Types` tab selected and no `help`. One `back` leaves Settings the same way.
+    - Crumb: this case needs a guide, so it runs once. On Bulk status open `Add one status to many people`, switch to
+      `Remove`, tick `SPC Able, Synthetic` and press `button "HELP · CALENDAR"`. Expect the list (`HOW DO I…`),
+      `?tab=remove&help=`, the `Remove` tab and `1 of 3 selected` with Able still ticked. Then `Close help`: `?tab=remove`,
+      the selection kept and no drawer, and one `back` lands on the entry before Bulk status. On Calendar settings open
+      `Add your own assignment types`, choose `Assignment Types` by hand and press the crumb: the list,
+      `?section=assignments&help=` and the tab selected. `Close help` then leaves `?section=assignments`.
     - No change: press Help and `Close help` without switching a tab, on Settings and on Bulk status with Able ticked on
       `Add`. The URL is `/calendar/settings` or `/calendar/bulk` with no `tab` or `section`, the Add selection stays
       `1 of 3 selected`, and one `back` leaves the page as before.

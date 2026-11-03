@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import * as ReadinessBand from '$lib/components/patterns/readiness-band/index.js';
+	import { showSubGroups } from '$lib/stores/showSubGroups.svelte';
 	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { formatWeekdayDayMonth } from '$lib/utils/dates';
@@ -40,6 +41,22 @@
 					endDate: range.end
 				})
 			: null
+	);
+	// The grid's rows do not depend on the data, so the skeleton holds the height the grid will take.
+	const gridRows = $derived(
+		range
+			? computeAvailabilityBoard({
+					personnel: filters.personnel,
+					entries: [],
+					statusTypes,
+					awayStatusTypeIds: filters.awayStatusTypeIds,
+					groups,
+					selectedRootIds: filters.selectedRootIds,
+					includeUnassigned: filters.allGroupsSelected,
+					startDate: range.start,
+					endDate: range.start
+				}).readiness.sets.reduce((rows, set) => rows + 1 + (showSubGroups.current ? set.below.length : 0), 1)
+			: 3
 	);
 	const pickedDate = $derived(picked && picked.key === currentKey ? picked.date : null);
 	const selectedDay = $derived(board ? (board.days.find((day) => day.date === pickedDate) ?? board.lowest) : null);
@@ -131,7 +148,7 @@
 						onSelect={select}
 					/>
 				{:else}
-					<Skeleton class="h-72 w-full" aria-hidden="true" />
+					<Skeleton class="w-full" style="height: calc({gridRows} * 2.9rem + 2.5rem)" aria-hidden="true" />
 				{/if}
 			</ReportWorkspace.Section>
 
@@ -146,7 +163,7 @@
 				{#if selectedDay}
 					<AvailabilityWhoIsOut day={selectedDay} {statusTypes} />
 				{:else}
-					<Skeleton class="h-48 w-full" aria-hidden="true" />
+					<Skeleton class="h-24 w-full" aria-hidden="true" />
 				{/if}
 			</ReportWorkspace.Section>
 		</div>

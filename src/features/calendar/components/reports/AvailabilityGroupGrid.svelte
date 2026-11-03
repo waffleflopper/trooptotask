@@ -119,9 +119,11 @@
 								<span class={['block font-heading text-xl font-bold', readinessBandTone[TONE[readinessTone(lowest)]]]}
 									>{lowest.availablePercent}%</span
 								>
-								<span class="block font-mono text-[11px] text-muted-foreground uppercase"
-									>{formatDayMonth(lowest.date)}</span
-								>
+								{#if readinessTone(lowest) !== 'success'}
+									<span class="block font-mono text-[11px] text-muted-foreground uppercase"
+										>{formatDayMonth(lowest.date)}</span
+									>
+								{/if}
 							{/if}
 						</td>
 						{#each row.source.cells as cell, index (cell.date)}

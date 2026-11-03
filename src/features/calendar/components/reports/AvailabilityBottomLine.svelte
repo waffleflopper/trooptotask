@@ -18,6 +18,11 @@
 
 	const reference = $derived(dayOnOrFirst(board.days, today));
 	const causes = $derived(dominantCauses(lowest));
+	const namedShortGroups = $derived(
+		board.groupsUnderHalf.length > 0 && board.groupsUnderHalf.length <= 2
+			? ` · ${board.groupsUnderHalf.join(', ')}`
+			: ''
+	);
 	const statusName = (id: string) => statusTypes.find((status) => status.id === id)?.name ?? 'Unknown';
 
 	function joinWithAnd(parts: string[]): string {
@@ -71,8 +76,7 @@
 	<div class="flex min-h-9 items-center justify-between gap-3 border-b border-border">
 		<dt>Groups under 50% on any day</dt>
 		<dd class={['text-right font-mono font-semibold', board.groupsUnderHalf.length > 0 && 'text-danger-foreground']}>
-			{board.groupsUnderHalf.length}{#if board.groupsUnderHalf.length > 0 && board.groupsUnderHalf.length <= 2}
-				· {board.groupsUnderHalf.join(', ')}{/if}
+			{board.groupsUnderHalf.length}{namedShortGroups}
 		</dd>
 	</div>
 	<div class="flex min-h-9 items-center justify-between gap-3 border-b border-border">

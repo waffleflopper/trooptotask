@@ -117,23 +117,28 @@
 		<div class="flex flex-col gap-10">
 			<div class="grid gap-12 lg:grid-cols-[21.25rem_minmax(0,1fr)]">
 				<ReportWorkspace.Section variant="briefing" title="Bottom line">
-					{#if report && range}
-						<AssignmentLoadBottomLine {report} start={range.start} end={range.end} />
-					{:else}
-						<div class="min-h-[24.7rem] space-y-6" aria-hidden="true">
-							<Skeleton class="h-[88px] w-56" />
-							<Skeleton class="h-24 w-full" />
-							<Skeleton class="h-36 w-full" />
-						</div>
-					{/if}
+					<!-- A short result keeps the skeleton height so the sections below do not move. -->
+					<div class="min-h-[24.7rem] lg:min-h-[26.325rem]">
+						{#if report && range}
+							<AssignmentLoadBottomLine {report} start={range.start} end={range.end} />
+						{:else}
+							<div class="space-y-6" aria-hidden="true">
+								<Skeleton class="h-[88px] w-56" />
+								<Skeleton class="h-24 w-full" />
+								<Skeleton class="h-36 w-full" />
+							</div>
+						{/if}
+					</div>
 				</ReportWorkspace.Section>
 
 				<ReportWorkspace.Section variant="briefing" eyebrow="How · spread of each duty" title="How each duty is spread">
-					{#if report}
-						<AssignmentLoadDuties {report} />
-					{:else}
-						<Skeleton class="h-[14.35rem] w-full md:h-[11.06rem] lg:h-[18rem]" aria-hidden="true" />
-					{/if}
+					<div class="min-h-[14.35rem] md:min-h-[11.06rem] lg:min-h-[18rem]">
+						{#if report}
+							<AssignmentLoadDuties {report} />
+						{:else}
+							<Skeleton class="min-h-[inherit] w-full" aria-hidden="true" />
+						{/if}
+					</div>
 				</ReportWorkspace.Section>
 			</div>
 

@@ -66,8 +66,11 @@ export interface AwayPerson {
 	statusTypeId: string;
 	statusName: string;
 	statusColor: string;
-	/** The first day after the recorded away days, following entries that start the day the last one ends. */
-	returnDate: string;
+	/**
+	 * The first day after the recorded away days, following entries that start the day the last one ends.
+	 * Null when those days reach the range end, because entries after the range are not loaded.
+	 */
+	returnDate: string | null;
 }
 
 export interface ForecastDay {
@@ -119,11 +122,12 @@ export function computeAvailabilityForecast(
 		if (list) list.push(entry);
 		else entriesByPerson.set(entry.personnelId, [entry]);
 	}
-	const returnDates = new Map<AvailabilityEntry, string>();
-	const returnDateOf = (entry: AvailabilityEntry): string => {
+	const returnDates = new Map<AvailabilityEntry, string | null>();
+	const returnDateOf = (entry: AvailabilityEntry): string | null => {
 		let returnDate = returnDates.get(entry);
 		if (returnDate === undefined) {
-			returnDate = nextDay(lastAwayDay(entry, entriesByPerson.get(entry.personnelId) ?? [entry]));
+			const lastDay = lastAwayDay(entry, entriesByPerson.get(entry.personnelId) ?? [entry]);
+			returnDate = lastDay >= endDate ? null : nextDay(lastDay);
 			returnDates.set(entry, returnDate);
 		}
 		return returnDate;

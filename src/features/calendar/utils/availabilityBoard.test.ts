@@ -179,10 +179,10 @@ describe('groupWhoIsOut', () => {
 		]);
 	});
 
-	it('lists people by rank then name and spans the return dates of the group', () => {
+	it('lists people by rank then name and leaves the latest return open for someone away past the range end', () => {
 		const tdy = groupWhoIsOut(day, statusTypes)[0];
 
 		expect(tdy.people.map((away) => away.person.lastName)).toEqual(['Brown', 'Baker']);
-		expect([tdy.earliestReturn, tdy.latestReturn]).toEqual(['2026-03-05', '2026-03-10']);
+		expect([tdy.earliestReturn, tdy.latestReturn]).toEqual(['2026-03-05', null]);
 	});
 });

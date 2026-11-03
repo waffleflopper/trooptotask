@@ -98,8 +98,10 @@ export interface WhoIsOutGroup {
 	statusColor: string;
 	statusTextColor: string;
 	people: AwayPerson[];
-	earliestReturn: string;
-	latestReturn: string;
+	/** Earliest known return, or null when nobody's return falls inside the range. */
+	earliestReturn: string | null;
+	/** Latest return, or null when someone is still away at the range end. */
+	latestReturn: string | null;
 }
 
 /** The people away on `day` grouped by status, the largest group first and ties in Status Type order. */
@@ -112,7 +114,7 @@ export function groupWhoIsOut(day: ForecastDay, statusTypes: readonly StatusType
 			const people = day.unavailablePersonnel
 				.filter((away) => away.statusTypeId === statusTypeId)
 				.sort((a, b) => comparePersonnelByRankThenName(a.person, b.person));
-			const returns = people.map((away) => away.returnDate).sort();
+			const returns = people.flatMap((away) => (away.returnDate === null ? [] : [away.returnDate])).sort();
 			const status = byId.get(statusTypeId);
 			return {
 				statusTypeId,
@@ -120,8 +122,8 @@ export function groupWhoIsOut(day: ForecastDay, statusTypes: readonly StatusType
 				statusColor: people[0]?.statusColor ?? '#999',
 				statusTextColor: status?.textColor ?? '#ffffff',
 				people,
-				earliestReturn: returns[0],
-				latestReturn: returns[returns.length - 1]
+				earliestReturn: returns[0] ?? null,
+				latestReturn: returns.length === people.length ? returns[returns.length - 1] : null
 			};
 		});
 }

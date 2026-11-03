@@ -91,7 +91,7 @@
 						<OperationalMatrix.ColumnHeader
 							{column}
 							aria-label={formatWeekdayDayMonth(column.id)}
-							class="min-w-7 px-0 pb-2 text-center {HEADER_CLASS} {column.id === selectedDate
+							class="min-w-5 px-0 pb-2 text-center {HEADER_CLASS} {column.id === selectedDate
 								? 'font-semibold text-foreground'
 								: ''}"
 						/>

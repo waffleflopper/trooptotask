@@ -22,7 +22,9 @@
 		else expanded.add(statusTypeId);
 	}
 
-	function returnLabel(earliest: string, latest: string): string {
+	function returnLabel(earliest: string | null, latest: string | null): string {
+		if (earliest === null) return 'Away past range end';
+		if (latest === null) return `Back ${formatDayMonth(earliest)} or later`;
 		return earliest === latest
 			? `Back ${formatDayMonth(earliest)}`
 			: `Back ${formatDayMonth(earliest)} to ${formatDayMonth(latest)}`;

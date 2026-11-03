@@ -199,7 +199,7 @@ describe('computeAvailabilityForecast', () => {
 			{ statusTypeId: 'school', count: 2 }
 		]);
 		expect(day('2026-03-03').unavailablePersonnel.map((away) => [away.person.id, away.returnDate])).toEqual([
-			['person-1', '2026-03-07'],
+			['person-1', null],
 			['person-2', '2026-03-04'],
 			['person-3', '2026-03-04']
 		]);

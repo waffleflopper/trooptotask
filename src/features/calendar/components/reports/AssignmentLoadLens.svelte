@@ -132,7 +132,7 @@
 					{#if report}
 						<AssignmentLoadDuties {report} />
 					{:else}
-						<Skeleton class="h-[18rem] w-full" aria-hidden="true" />
+						<Skeleton class="h-[14.35rem] w-full md:h-[11.06rem] lg:h-[18rem]" aria-hidden="true" />
 					{/if}
 				</ReportWorkspace.Section>
 			</div>
@@ -161,7 +161,7 @@
 					<AssignmentLoadPeople people={ranked} dutyTypes={report.dutyTypes} />
 				{:else}
 					<Skeleton
-						class="h-[calc(4.55rem_+_var(--rows)*7.3rem)] w-full md:h-[calc(3.8rem_+_var(--rows)*4.2rem)]"
+						class="h-[calc(2.27rem_+_var(--rows)*7.78rem)] w-full md:h-[calc(4.87rem_+_var(--rows)*5.03rem)] lg:h-[calc(3.86rem_+_var(--rows)*5.03rem)]"
 						style="--rows: {personRows}"
 						aria-hidden="true"
 					/>

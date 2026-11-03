@@ -10,7 +10,7 @@ export interface LensDefinition {
 	id: LensId;
 	label: string;
 	component: Component<LensProps, LensHandle>;
-	/** Reads the span and the shared Group, MOS and Counts as away filters; the rest bring their own date range. */
+	/** Reads the span and the shared Group, MOS and Counts as away filters; a lens without them brings its own date range. */
 	sharedControls: boolean;
 	/** Whether the span looks ahead from today or back to yesterday, and its default length. */
 	span: LensSpan;

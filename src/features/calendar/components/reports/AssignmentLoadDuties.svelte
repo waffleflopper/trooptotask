@@ -12,13 +12,14 @@
 	const percent = (count: number, of: number) => `${of > 0 ? (count / of) * 100 : 0}%`;
 </script>
 
-<div class="min-w-0">
+<!-- The minimum height is what the loading skeleton holds for two duties, so one or two types do not move the page. -->
+<div class="min-h-[14.35rem] min-w-0 md:min-h-[11.06rem] lg:min-h-0">
 	<ul class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1" aria-label="Bar key">
 		<li class="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-			<span class="size-2.5 rounded-[1px] bg-foreground/35" aria-hidden="true"></span>Under
+			<span class="size-2.5 rounded-[1px] bg-foreground/45" aria-hidden="true"></span>Under
 		</li>
 		<li class="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-			<span class="size-2.5 rounded-[1px] bg-foreground/10" aria-hidden="true"></span>On share
+			<span class="size-2.5 rounded-[1px] bg-foreground/15" aria-hidden="true"></span>On share
 		</li>
 		<li class="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
 			<span class="size-2.5 rounded-[1px] bg-warning" aria-hidden="true"></span>Over
@@ -56,8 +57,8 @@
 					aria-label="{type?.name ??
 						'Unknown'}: {duty.under} under, {duty.onShare} on share, {duty.over} over their fair share"
 				>
-					<span class="h-full bg-foreground/35" style:width={percent(duty.under, duty.eligible)}></span>
-					<span class="h-full" style:width={percent(duty.onShare, duty.eligible)}></span>
+					<span class="h-full bg-foreground/45" style:width={percent(duty.under, duty.eligible)}></span>
+					<span class="h-full bg-foreground/15" style:width={percent(duty.onShare, duty.eligible)}></span>
 					<span class="h-full bg-warning" style:width={percent(duty.over, duty.eligible)}></span>
 				</div>
 			</li>

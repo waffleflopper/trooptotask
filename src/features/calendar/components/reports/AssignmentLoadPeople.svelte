@@ -67,7 +67,7 @@
 					class="col-start-2 row-start-1 text-right font-heading text-[22px] leading-none font-bold md:col-auto md:row-auto"
 				>
 					{entry.total}
-					<span class="sr-only">duties</span>
+					<span class="sr-only">{entry.total === 1 ? 'duty' : 'duties'}</span>
 				</p>
 				<p
 					class="col-start-1 row-start-3 font-mono text-xs text-muted-foreground md:col-auto md:row-auto md:text-right"
@@ -78,9 +78,9 @@
 					<AssignmentLoadBar
 						difference={entry.difference}
 						{scale}
-						label="{entry.person.rank} {entry.person.lastName}, {entry.total} duties against a fair share of {duties(
-							entry.expected
-						)}"
+						label="{entry.person.rank} {entry.person.lastName}, {entry.total} {entry.total === 1
+							? 'duty'
+							: 'duties'} against a fair share of {duties(entry.expected)}"
 					/>
 				</div>
 				<p

@@ -1,6 +1,6 @@
 import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
-import type { Group, GroupPersistence } from '$features/personnel/contracts';
+import type { Group, GroupPersistence, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 import type { AuditPort } from '$lib/audit/contracts';
 import { listAssignmentTypes } from './assignmentTypeRead.server';
 import { listAvailabilityEntries } from './availabilityRead.server';
@@ -13,27 +13,32 @@ type CalendarReportPorts = Parameters<typeof requireCalendarPolicy>[0] &
 	Parameters<typeof requirePersonnelCalendarRoster>[0] & {
 		calendarCatalogs: Parameters<typeof listStatusTypes>[0];
 		groups: Pick<GroupPersistence, 'listCatalog'>;
+		loadRankCatalog: () => Promise<OrganizationRankCatalogEntry[]>;
 	};
 
 export interface CalendarReportData {
 	allPersonnel: Personnel[];
 	statusTypes: StatusType[];
 	groups: Group[];
+	/** The Organization's ranks, which a duty's rank range is read against. */
+	rankCatalog: OrganizationRankCatalogEntry[];
 }
 
 export async function fetchCalendarReportData(ctx: CalendarReportPorts): Promise<CalendarReportData> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewReports);
 
-	const [allPersonnel, statusTypes, groups] = await Promise.all([
+	const [allPersonnel, statusTypes, groups, rankCatalog] = await Promise.all([
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
 		listStatusTypes(ctx.calendarCatalogs),
-		ctx.groups.listCatalog()
+		ctx.groups.listCatalog(),
+		ctx.loadRankCatalog()
 	]);
 
 	return {
 		allPersonnel,
 		statusTypes,
-		groups
+		groups,
+		rankCatalog
 	};
 }
 

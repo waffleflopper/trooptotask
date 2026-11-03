@@ -324,32 +324,26 @@
 				</p>
 			{/if}
 		{:else}
-			<section class="px-6 pt-5" aria-label="On this page">
-				{@render section('On this page')}
+			<section aria-label="On this page">
+				<div class="px-6 pt-5">{@render section('On this page')}</div>
+				{#each onPage as entry, index (entry.id)}
+					{@render row(entry, { featured: index === 0 })}
+				{:else}
+					<p class="px-6 py-3 text-sm text-muted-foreground">No guides for this page yet.</p>
+				{/each}
 			</section>
-			{#if onPage.length}
-				<div>
-					{#each onPage as entry, index (entry.id)}
-						{@render row(entry, { featured: index === 0 })}
-					{/each}
-				</div>
-			{:else}
-				<p class="px-6 py-3 text-sm text-muted-foreground">No guides for this page yet.</p>
-			{/if}
 			{#if missed.length}
-				<section class="px-6 pt-6" aria-label="Things people miss">
-					{@render section('Things people miss')}
-				</section>
-				<div>
+				<section aria-label="Things people miss">
+					<div class="px-6 pt-6">{@render section('Things people miss')}</div>
 					{#each missed as entry (entry.id)}
 						{@render row(entry, { area: true })}
 					{/each}
-				</div>
+				</section>
 			{/if}
 			{#if browsingAll}
-				<section bind:this={allGuidesSection} class="pt-6" aria-label="All guides">
+				<section bind:this={allGuidesSection} class="pt-4" aria-label="All guides">
 					{#each byArea as group (group.area)}
-						<div class="px-6 pt-2">{@render section(HELP_AREA_LABELS[group.area])}</div>
+						<div class="px-6 pt-4">{@render section(HELP_AREA_LABELS[group.area])}</div>
 						{#each group.guides as entry (entry.id)}
 							{@render row(entry, {})}
 						{/each}

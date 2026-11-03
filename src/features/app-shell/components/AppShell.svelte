@@ -162,6 +162,8 @@
 	{onToggleTheme}
 	{isDarkTheme}
 	onFeedback={openFeedback}
+	onHelp={() => (helpView ? closeHelp() : openHelp())}
+	helpOpen={helpView !== null}
 	onWhatsNew={openWhatsNew}
 	actions={headerActions}
 	{sidebarOpen}
@@ -203,8 +205,6 @@
 			onShowList={showHelpList}
 			onClose={closeHelp}
 			onFeedback={openFeedback}
-		onHelp={() => (helpView ? closeHelp() : openHelp())}
-		helpOpen={helpView !== null}
 		/>
 	{/await}
 {/if}

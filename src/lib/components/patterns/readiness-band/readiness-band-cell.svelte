@@ -24,8 +24,8 @@
 		percent?: number | null;
 		label?: string;
 		palette?: ReadinessBandPalette;
-		/** `tile` fills its column for a briefing grid; `compact` is the fixed matrix chip. */
-		size?: 'compact' | 'tile';
+		/** `tile` fills its column for a briefing grid, `dense` fills a narrow column of a many-column grid; `compact` is the fixed matrix chip. */
+		size?: 'compact' | 'tile' | 'dense';
 		/** Points lost by the horizon; marks an upcoming hot spot with an inset ring and a ▼ chip. */
 		drop?: number | null;
 		children?: Snippet;
@@ -41,7 +41,7 @@
 		'inline-grid place-items-center content-center rounded-sm border font-mono text-[0.6875rem] tabular-nums',
 		readinessBandCellPalette[palette].base,
 		readinessBandCellPalette[palette].tiers[tier],
-		size === 'tile' ? 'h-13 w-full gap-0.5 text-[0.9375rem]' : 'h-7 w-[3.625rem]',
+		size === 'tile' ? 'h-13 w-full gap-0.5 text-[0.9375rem]' : size === 'dense' ? 'h-7 w-full' : 'h-7 w-[3.625rem]',
 		drop !== null && 'relative inset-ring-2 inset-ring-foreground',
 		className
 	)}

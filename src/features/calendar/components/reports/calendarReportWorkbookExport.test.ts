@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
+import { computeAvailabilityBoard } from '../../utils/availabilityBoard';
 import {
 	exportAssignmentCoverageWorkbook,
-	exportAvailabilityForecastWorkbook,
-	exportGroupReadinessWorkbook,
+	exportAvailabilityWorkbook,
 	exportPersonnelTempoWorkbook,
 	exportStatusDaysWorkbook
 } from './calendarReportWorkbookExport';
@@ -82,38 +82,48 @@ async function captureWorkbook(
 }
 
 describe('calendar report workbook exports', () => {
-	it('exports Availability Forecast as a native workbook', async () => {
+	it('exports the Availability lens as daily and group-by-day sheets', async () => {
+		const jones = { ...smith, id: 'p2', lastName: 'Jones', groupId: 'alpha' } as Personnel;
+		const board = computeAvailabilityBoard({
+			personnel: [{ ...smith, groupId: 'alpha' } as Personnel, jones],
+			entries: [{ id: 'e1', personnelId: 'p1', statusTypeId: 'leave', startDate: '2026-03-02', endDate: '2026-03-02' }],
+			statusTypes: [leaveStatus],
+			awayStatusTypeIds: new Set(['leave']),
+			groups: NESTED_GROUPS,
+			selectedRootIds: new Set(['platoon']),
+			includeUnassigned: false,
+			startDate: '2026-03-02',
+			endDate: '2026-03-03'
+		});
 		const { workbook, filename } = await captureWorkbook(() =>
-			exportAvailabilityForecastWorkbook(
-				{
-					days: [
-						{
-							date: '2026-03-02',
-							totalPersonnel: 1,
-							unavailableCount: 1,
-							availableCount: 0,
-							availablePercent: 0,
-							unavailablePersonnel: [{ person: smith, statusName: 'Leave', statusColor: '#facc15' }]
-						}
-					]
-				},
-				'2026-03-01',
-				'2026-03-31'
-			)
+			exportAvailabilityWorkbook(board, [leaveStatus], NESTED_GROUPS, '2026-03-02', '2026-03-03')
 		);
 
-		const sheet = workbook.getWorksheet('Availability Forecast');
-		expect(filename).toBe('availability-forecast_2026-03-01_2026-03-31.xlsx');
-		expect(sheet?.getRow(1).values).toEqual([
+		expect(filename).toBe('availability_2026-03-02_2026-03-03.xlsx');
+		const daily = workbook.getWorksheet('Availability by day');
+		expect(daily?.getRow(1).values).toEqual([
 			undefined,
 			'Date',
-			'Unavailable',
-			'Available',
-			'Available percent',
-			'Unavailable Personnel'
+			'Here',
+			'Away',
+			'Total',
+			'Here percent',
+			'Leave',
+			'Away personnel'
 		]);
-		expect(sheet?.getCell('D2').value).toBe('0%');
-		expect(sheet?.getCell('E2').value).toBe('SGT Smith');
+		expect(daily?.getRow(2).values).toEqual([undefined, '2026-03-02', 1, 1, 2, '50%', 1, 'SGT Smith']);
+		expect(daily?.getRow(3).values).toEqual([undefined, '2026-03-03', 2, 0, 2, '100%', 0]);
+
+		const byGroup = workbook.getWorksheet('Group by day');
+		expect(byGroup?.getRow(1).values).toEqual([undefined, 'Group', 'Mon 3/2', 'Tue 3/3']);
+		const rows = Object.fromEntries(
+			Array.from({ length: byGroup!.rowCount - 1 }, (_, index) => {
+				const row = byGroup!.getRow(index + 2);
+				return [row.getCell(1).value, [row.getCell(2).value, row.getCell(3).value]];
+			})
+		);
+		expect(rows['1st Platoon / 2nd Squad / Alpha Team']).toEqual(['1/2 (50%)', '2/2 (100%)']);
+		expect(rows['Total']).toEqual(['1/2 (50%)', '2/2 (100%)']);
 	});
 
 	it('exports Personnel Tempo as a native workbook', async () => {
@@ -159,35 +169,6 @@ describe('calendar report workbook exports', () => {
 		expect(sheet?.getCell('F2').value).toBe('0');
 		expect(sheet?.getCell('C3').value).toBe('Average');
 		expect(sheet?.getCell('E3').value).toBe(2);
-	});
-
-	it('exports Group Readiness as a native workbook', async () => {
-		const { workbook, filename } = await captureWorkbook(() =>
-			exportGroupReadinessWorkbook(
-				{
-					dates: ['2026-03-02'],
-					groups: [
-						{
-							groupId: 'g1',
-							groupName: 'Alpha',
-							level: 2,
-							subtotal: false,
-							cells: [{ date: '2026-03-02', totalPersonnel: 10, availableCount: 8, availablePercent: 80 }]
-						}
-					],
-					sets: []
-				},
-				NESTED_GROUPS.map((group) => (group.id === 'alpha' ? { ...group, id: 'g1' } : group)),
-				'2026-03-02',
-				'2026-03-08'
-			)
-		);
-
-		const sheet = workbook.getWorksheet('Group Readiness');
-		expect(filename).toBe('group-readiness_2026-03-02_2026-03-08.xlsx');
-		expect(sheet?.getCell('A2').value).toBe('1st Platoon / 2nd Squad / Alpha Team');
-		expect(sheet?.getCell('B1').value).toBe('Mon 3/2');
-		expect(sheet?.getCell('B2').value).toBe('8/10 (80%)');
 	});
 
 	it('exports Status Days as a native workbook', async () => {

@@ -2,7 +2,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Group, Personnel } from '$features/personnel/contracts';
-import AvailabilityForecast from './AvailabilityForecast.svelte';
 import StatusDaysSummary from './StatusDaysSummary.svelte';
 
 vi.mock('./calendarReportData', () => ({
@@ -90,18 +89,5 @@ describe('Calendar report Group filters', () => {
 			'Shaw, Pat',
 			'Toms, Pat'
 		]);
-	});
-
-	it('offers top-level Groups in Availability by day, and a platoon pick counts its squads and teams', async () => {
-		render(AvailabilityForecast, { props: { orgId: 'org-1', personnel, statusTypes: [], groups } });
-
-		expect(optionNames('Filter by group')).toEqual(['2nd Platoon', 'Bravo']);
-
-		await fireEvent.click(within(screen.getByRole('group', { name: 'Filter by group' })).getAllByRole('checkbox')[1]);
-		await fireEvent.click(screen.getByRole('button', { name: 'Run availability report' }));
-		await screen.findByRole('table', { name: 'Availability by day' });
-
-		const [, unavailable, available] = bodyCells('Availability by day')[0];
-		expect([unavailable, available]).toEqual(['0', '3']);
 	});
 });

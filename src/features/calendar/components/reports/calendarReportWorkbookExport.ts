@@ -1,40 +1,9 @@
 import { buildGroupTree, groupExportPath, type Group } from '$features/personnel/contracts';
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import { addTableSheet, createWorkbook, downloadWorkbook, type WorkbookRow } from '$lib/utils/workbook';
-import type {
-	AssignmentCoverageResult,
-	AvailabilityForecastResult,
-	GroupReadinessResult,
-	PersonnelTempoResult
-} from '../../utils/calendarReports';
+import type { AvailabilityBoard } from '../../utils/availabilityBoard';
+import type { AssignmentCoverageResult, PersonnelTempoResult, ReadinessCell } from '../../utils/calendarReports';
 import type { StatusDaysResult } from '../../utils/statusDaysReport';
-
-export async function exportAvailabilityForecastWorkbook(
-	result: AvailabilityForecastResult,
-	startDate: string,
-	endDate: string
-): Promise<void> {
-	const rows = result.days.map((day) => ({
-		date: day.date,
-		unavailable: day.unavailableCount,
-		available: day.availableCount,
-		availablePercent: `${day.availablePercent}%`,
-		unavailablePersonnel: day.unavailablePersonnel.map((u) => `${u.person.rank} ${u.person.lastName}`).join(', ')
-	}));
-	const workbook = await createWorkbook();
-	addTableSheet(workbook, {
-		name: 'Availability Forecast',
-		columns: [
-			{ header: 'Date', key: 'date', width: 14 },
-			{ header: 'Unavailable', key: 'unavailable', width: 14 },
-			{ header: 'Available', key: 'available', width: 12 },
-			{ header: 'Available percent', key: 'availablePercent', width: 18 },
-			{ header: 'Unavailable Personnel', key: 'unavailablePersonnel', width: 40 }
-		],
-		rows
-	});
-	await downloadWorkbook(workbook, `availability-forecast_${startDate}_${endDate}.xlsx`);
-}
 
 export async function exportPersonnelTempoWorkbook(
 	result: PersonnelTempoResult,
@@ -111,32 +80,65 @@ export async function exportAssignmentCoverageWorkbook(
 	await downloadWorkbook(workbook, `assignment-coverage_${startDate}_${endDate}.xlsx`);
 }
 
-export async function exportGroupReadinessWorkbook(
-	result: GroupReadinessResult,
+export async function exportAvailabilityWorkbook(
+	board: AvailabilityBoard,
+	statusTypes: readonly StatusType[],
 	groups: readonly Group[],
 	startDate: string,
 	endDate: string
 ): Promise<void> {
-	const tree = buildGroupTree(groups);
-	const rows = result.groups.map((group) => ({
-		group: groupExportPath(tree, group.groupId) || 'Unassigned',
+	const away = statusTypes.filter((statusType) =>
+		board.days.some((day) => day.awayByStatus.some((status) => status.statusTypeId === statusType.id))
+	);
+	const dailyRows = board.days.map((day) => ({
+		date: day.date,
+		here: day.availableCount,
+		away: day.unavailableCount,
+		total: day.totalPersonnel,
+		herePercent: `${day.availablePercent}%`,
 		...Object.fromEntries(
-			group.cells.map((cell) => [
-				cell.date,
-				`${cell.availableCount}/${cell.totalPersonnel} (${cell.totalPersonnel > 0 ? cell.availablePercent : 100}%)`
+			away.map((statusType) => [
+				statusType.id,
+				day.awayByStatus.find((status) => status.statusTypeId === statusType.id)?.count ?? 0
 			])
-		)
+		),
+		awayPersonnel: day.unavailablePersonnel.map((entry) => `${entry.person.rank} ${entry.person.lastName}`).join(', ')
 	}));
+
+	const tree = buildGroupTree(groups);
+	const cellText = (cell: ReadinessCell) =>
+		`${cell.availableCount}/${cell.totalPersonnel} (${cell.totalPersonnel > 0 ? cell.availablePercent : 100}%)`;
+	const groupRows = [
+		...board.readiness.groups.map((group) => ({
+			group: groupExportPath(tree, group.groupId) || group.groupName,
+			cells: group.cells
+		})),
+		{ group: 'Total', cells: board.days }
+	].map((row) => ({ group: row.group, ...Object.fromEntries(row.cells.map((cell) => [cell.date, cellText(cell)])) }));
+
 	const workbook = await createWorkbook();
 	addTableSheet(workbook, {
-		name: 'Group Readiness',
+		name: 'Availability by day',
+		columns: [
+			{ header: 'Date', key: 'date', width: 14 },
+			{ header: 'Here', key: 'here', width: 10 },
+			{ header: 'Away', key: 'away', width: 10 },
+			{ header: 'Total', key: 'total', width: 10 },
+			{ header: 'Here percent', key: 'herePercent', width: 14 },
+			...away.map((statusType) => ({ header: statusType.name, key: statusType.id, width: 14 })),
+			{ header: 'Away personnel', key: 'awayPersonnel', width: 40 }
+		],
+		rows: dailyRows
+	});
+	addTableSheet(workbook, {
+		name: 'Group by day',
 		columns: [
 			{ header: 'Group', key: 'group', width: 22 },
-			...result.dates.map((date) => ({ header: formatShortDate(date), key: date, width: 14 }))
+			...board.readiness.dates.map((date) => ({ header: formatShortDate(date), key: date, width: 14 }))
 		],
-		rows
+		rows: groupRows
 	});
-	await downloadWorkbook(workbook, `group-readiness_${startDate}_${endDate}.xlsx`);
+	await downloadWorkbook(workbook, `availability_${startDate}_${endDate}.xlsx`);
 }
 
 export async function exportStatusDaysWorkbook(

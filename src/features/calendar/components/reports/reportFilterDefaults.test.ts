@@ -5,7 +5,6 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
 import StatusDaysSummary from './StatusDaysSummary.svelte';
 import PersonnelTempo from './PersonnelTempo.svelte';
-import GroupReadiness from './GroupReadiness.svelte';
 
 afterEach(cleanup);
 
@@ -56,18 +55,6 @@ describe('calendar report filter defaults', () => {
 	it('selects personnel tempo away status filters when status types load after render', async () => {
 		const view = render(PersonnelTempo, {
 			props: { orgId: 'org-1', personnel, statusTypes: [], groups }
-		});
-
-		expect(screen.getByText('0 of 0 selected')).toBeTruthy();
-
-		await view.rerender({ orgId: 'org-1', personnel, statusTypes, groups });
-
-		expect(screen.getByText('2 of 2 selected')).toBeTruthy();
-	});
-
-	it('selects group readiness groups when groups load after render', async () => {
-		const view = render(GroupReadiness, {
-			props: { orgId: 'org-1', personnel, statusTypes, groups: [] }
 		});
 
 		expect(screen.getByText('0 of 0 selected')).toBeTruthy();

@@ -9,11 +9,13 @@ export interface CalendarReportData {
 export async function fetchCalendarReportData(
 	orgId: string,
 	startDate: string,
-	endDate: string
+	endDate: string,
+	signal?: AbortSignal
 ): Promise<CalendarReportData> {
 	const params = new URLSearchParams({ startDate, endDate });
 	const response = await fetch(
-		`/org/${encodeURIComponent(orgId)}/api/calendar-reports/status-days?${params.toString()}`
+		`/org/${encodeURIComponent(orgId)}/api/calendar-reports/status-days?${params.toString()}`,
+		{ signal }
 	);
 	if (!response.ok) {
 		const body = await response.json().catch(() => ({}));

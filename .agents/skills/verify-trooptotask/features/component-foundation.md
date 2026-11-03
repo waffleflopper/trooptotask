@@ -254,7 +254,7 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
     `calendar/reports` the date range's Start and End pickers are named by their labels; select a Start date by keyboard
     and apply a year preset. On Critical Tasks Reports, `$V network arm-fail PAGE critical-tasks/reports/summary` and
     choose a Group: an assertive `role=alert` reports the failure. Restore and return to All Groups. A DataTable row
-    detail (Settings, Ranks; Calendar Reports, Availability by day) wraps its text, never runs under a neighbouring
+    detail (Settings, Ranks) wraps its text, never runs under a neighbouring
     column and stays inside the visible table at 390: scroll the table's `[data-slot=table-container]` to its end and
     read the `[data-slot=data-table-detail]` rect against the container's (its left edge stays at the container's plus
     8px). Every DataTable root has `container-type: inline-size`, and a table without a row detail keeps its width and

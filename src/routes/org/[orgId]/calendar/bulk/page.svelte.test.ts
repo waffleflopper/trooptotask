@@ -19,7 +19,12 @@ vi.mock('$app/state', () => ({
 	page: { url: new URL('http://localhost/org/friendly-unit/calendar/bulk?tab=remove') }
 }));
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn(), invalidateAll: vi.fn() }));
+vi.mock('$app/navigation', () => ({
+	goto: vi.fn(),
+	invalidate: vi.fn(),
+	invalidateAll: vi.fn(),
+	afterNavigate: vi.fn()
+}));
 
 afterEach(() => {
 	cleanup();

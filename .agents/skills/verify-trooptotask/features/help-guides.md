@@ -211,6 +211,19 @@ and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` 
     `?help=<id>` entry and Help reopens at the same view. `Close help` then drops `help`, and one more `back` leaves
     Training for the entry before it, so neither `person` nor `help` is left behind. Do not press `Enter` with focus
     unknown while the sheet is open, because it can land on `Record all N today`.
+17. **Close keeps the view.** As `orgOwner` at 1440x900, with `history.length` read from `state` at each stop. Run each
+    case twice, once with a guide open (depth 2) and once with only the list (depth 1).
+    - Bulk status: on `/calendar/bulk` press Help, open `Add one status to many people` and switch to `Remove`. The
+      drawer covers the `Remove` radio at 1440, so focus it with `ev` and press `Space` with `press_key`; the URL gains
+      `tab=remove` beside `help`. Tick `SPC Able, Synthetic` (`1 of 3 selected`) and press `Close help`. Expect the
+      `Remove` tab, `1 of 3 selected` with Able still ticked, `?tab=remove` and no `help`. One `back` then lands on the
+      entry before Bulk status with no `?help` entry.
+    - Calendar settings: on `/calendar/settings` press Help, open `Add your own assignment types`, choose the
+      `Assignment Types` tab by hand (not the step's `Go there`) and press `Close help`. Expect `?section=assignments`,
+      the `Assignment Types` tab selected and no `help`. One `back` leaves Settings the same way.
+    - No change: press Help and `Close help` without switching a tab, on Settings and on Bulk status with Able ticked on
+      `Add`. The URL is `/calendar/settings` or `/calendar/bulk` with no `tab` or `section`, the Add selection stays
+      `1 of 3 selected`, and one `back` leaves the page as before.
 
 ## Gotchas
 

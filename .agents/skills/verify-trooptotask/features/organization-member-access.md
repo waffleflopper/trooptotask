@@ -70,10 +70,14 @@ ordinary access checks because it intentionally changes the seeded owner.
    preset; compare effective access as well as the exact stored delta.
 3. As `orgAdmin`, open `Manage` for an ordinary member. Record that `Role` is plain text, not a radio group, and that
    admin rows have no `Manage`. Attempt an admin/owner elevation through the current signed-in form action only when a
-   safe request control can submit it; require a denied action status and unchanged membership. Submit the signed-in
-   `?/removeMember` action with another admin's membership ID; require 403
-   `Only the organization owner can perform this action` with that admin row unchanged and no step-up prompt. The owner
-   removes the same admin through the row's `More actions` → `Remove` → `Remove member`. As `orgMember`, verify
+   safe request control can submit it; require a denied action status and unchanged membership. For removal, first
+   have `orgOwner` promote an ordinary member that no later step uses (not `orgMember`) to Admin through `Manage`,
+   following any step-up, and record its membership ID. Seeded admins such as `orgSettingsSwitch`,
+   `calendarNotificationAdmin` and `deletionReviewer` belong to other recipes; never target them. As `orgAdmin`, submit
+   the signed-in `?/removeMember` action with that membership ID; require 403
+   `Only the organization owner can perform this action` with the row unchanged and no step-up prompt. The owner then
+   removes the same admin through the row's `More actions` → `Remove` → `Remove member`; restart the worker before a
+   later recipe relies on seeded rows. As `orgMember`, verify
    the Members route shows a permission error and an authenticated direct form submission is denied. A SvelteKit action
    may return HTTP 200 with a `failure` envelope carrying status 403; inspect both. Repeat with B's member/Organization
    ID and record no A/B mutation. A hidden control alone is insufficient for authorization proof. For `off-lane`, turn

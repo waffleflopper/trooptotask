@@ -703,8 +703,8 @@ describe('server auth hook', () => {
 			const first = Promise.resolve(
 				harness.handle({ event: request(refusedPath(0)), resolve: harness.resolve })
 			).finally(() => (firstSettled = true));
-			await vi.waitFor(() => expect(auditLog).toHaveBeenCalledTimes(1));
-			await new Promise((resolve) => setTimeout(resolve, 10));
+			await new Promise((resolve) => setImmediate(resolve));
+			expect(auditLog).toHaveBeenCalledTimes(1);
 			expect(firstSettled).toBe(false);
 			finishAudit();
 			const statuses = [(await first).status];

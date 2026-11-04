@@ -2,7 +2,8 @@ import type {
 	AssignmentType,
 	AvailabilityEntry,
 	DailyAssignment,
-	RosterExcusalSpan
+	RosterExcusalSpan,
+	RosterPoolSpan
 } from '$features/calendar/contracts';
 
 export interface CalendarReportData {
@@ -11,6 +12,8 @@ export interface CalendarReportData {
 	assignmentTypes?: AssignmentType[];
 	/** Every excusal overlapping the span, reinstated ones included. */
 	excusals?: RosterExcusalSpan[];
+	/** Every DA 6 form overlapping the span, as the pool it drew from. */
+	poolSpans?: RosterPoolSpan[];
 }
 
 export async function fetchCalendarReportData(

@@ -2,7 +2,8 @@ import type {
 	AssignmentType,
 	AvailabilityEntry,
 	DailyAssignment,
-	RosterExcusalSpan
+	RosterExcusalSpan,
+	RosterPoolSpan
 } from '$features/calendar/contracts';
 import {
 	comparePersonnelByRankThenName,
@@ -12,7 +13,7 @@ import {
 } from '$features/personnel/contracts';
 import { toDayNumber } from '$lib/utils/dayNumber';
 import { compilePoolRules } from '../roster/rosterPool';
-import type { PersonState } from '../roster/rosterTypes';
+import type { PersonState, PoolRules } from '../roster/rosterTypes';
 
 /** How many duties from fair share still count as on share. */
 export const ON_SHARE_BAND = 1;
@@ -31,6 +32,8 @@ export interface AssignmentLoadInput {
 	assignmentTypes: readonly AssignmentType[];
 	/** Every excusal that overlaps the span, reinstated ones included; a person excused on a day does not share it. */
 	excusals: readonly RosterExcusalSpan[];
+	/** Every DA 6 form that overlaps the span; a day a form covers is shared by that form's pool, any other day by the duty's current pool. */
+	poolSpans: readonly RosterPoolSpan[];
 	/** The duty types counted; a type outside `dutyTypes(...)` is ignored. */
 	typeIds: ReadonlySet<string>;
 	entries: readonly AvailabilityEntry[];
@@ -150,6 +153,7 @@ function awayDays(
 function expectedShares(
 	type: AssignmentType,
 	excusals: readonly RosterExcusalSpan[],
+	poolSpans: readonly RosterPoolSpan[],
 	dailyCounts: ReadonlyMap<string, number>,
 	roster: readonly Personnel[],
 	away: ReadonlyMap<string, Set<number>>,
@@ -157,8 +161,17 @@ function expectedShares(
 	groups: readonly Group[],
 	start: number
 ): Map<string, number> {
-	const matches = compilePoolRules(type.poolRules, rankCatalog, groups);
-	const pool = roster.filter((person) => matches(stateOf(person)));
+	const forms = poolSpans.filter((span) => span.assignmentTypeId === type.id);
+	const poolsByRules = new Map<string, Personnel[]>();
+	const poolOf = (rules: PoolRules | null) => {
+		const key = JSON.stringify(rules);
+		let pool = poolsByRules.get(key);
+		if (!pool) {
+			const matches = compilePoolRules(rules, rankCatalog, groups);
+			poolsByRules.set(key, (pool = roster.filter((person) => matches(stateOf(person)))));
+		}
+		return pool;
+	};
 	const excusedBy = Map.groupBy(
 		excusals.filter((excusal) => excusal.assignmentTypeId === type.id),
 		(excusal) => excusal.personId
@@ -166,7 +179,8 @@ function expectedShares(
 	const shares = new Map<string, number>();
 	for (const [date, count] of dailyCounts) {
 		const offset = toDayNumber(date) - start;
-		const sharing = pool.filter((person) => {
+		const form = forms.find((span) => span.from <= date && (span.through === null || date <= span.through));
+		const sharing = poolOf(form ? form.pool : type.poolRules).filter((person) => {
 			const excused = excusedBy
 				.get(person.id)
 				?.some((excusal) => excusal.from <= date && (excusal.through === null || date <= excusal.through));
@@ -208,6 +222,7 @@ export function computeAssignmentLoad(input: AssignmentLoadInput): AssignmentLoa
 			expectedShares(
 				type,
 				input.excusals,
+				input.poolSpans,
 				dailyByType.get(type.id) ?? new Map(),
 				input.roster,
 				away,

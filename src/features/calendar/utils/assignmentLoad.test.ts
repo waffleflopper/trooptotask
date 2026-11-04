@@ -57,6 +57,7 @@ function load(overrides: Partial<AssignmentLoadInput>) {
 		assignments: [],
 		assignmentTypes: [duty('cq')],
 		excusals: [],
+		poolSpans: [],
 		typeIds: new Set(['cq']),
 		entries: [],
 		awayStatusTypeIds: new Set(['leave']),
@@ -161,6 +162,46 @@ describe('fair share', () => {
 		expect(byId(people, 'a')?.expected).toBeCloseTo(3 / 3 + 1 / 2, 9);
 		expect(byId(people, 'b')?.expected).toBeCloseTo(3 / 3, 9);
 		expect(byId(people, 'c')?.expected).toBeCloseTo(3 / 3 + 1 / 2, 9);
+	});
+
+	it("shares each past day among the pool its own DA 6 form drew from, not the duty's pool today", () => {
+		// The duty drew from everyone on 1 and 2 March, then narrowed to 68W, which is its pool now.
+		const medic = { rank: null, mos: ['68W'], role: [], groupIds: [] };
+		const medics = [person('a', '68W'), person('b', '11B'), person('c', '68W')];
+		const { people } = load({
+			roster: medics,
+			assignmentTypes: [duty('cq', { poolRules: medic })],
+			poolSpans: [
+				{ assignmentTypeId: 'cq', from: '2026-01-01', through: '2026-03-02', pool: null },
+				{ assignmentTypeId: 'cq', from: '2026-03-03', through: null, pool: medic },
+				{ assignmentTypeId: 'other', from: '2026-01-01', through: null, pool: { ...medic, mos: ['11B'] } }
+			],
+			assignments: [
+				assign('2026-03-01', 'a'),
+				assign('2026-03-02', 'a'),
+				assign('2026-03-03', 'c'),
+				assign('2026-03-04', 'c')
+			]
+		});
+		// Days 1 and 2 split three ways, days 3 and 4 between the two medics.
+		expect(people.map((entry) => entry.person.id)).toEqual(['a', 'b', 'c']);
+		expect(byId(people, 'a')?.expected).toBeCloseTo(2 / 3 + 1, 9);
+		expect(byId(people, 'b')?.expected).toBeCloseTo(2 / 3, 9);
+		expect(byId(people, 'c')?.expected).toBeCloseTo(2 / 3 + 1, 9);
+	});
+
+	it("falls back to the duty's current pool on a day no DA 6 form covers", () => {
+		const medic = { rank: null, mos: ['68W'], role: [], groupIds: [] };
+		const medics = [person('a', '68W'), person('b', '11B')];
+		const { people } = load({
+			roster: medics,
+			assignmentTypes: [duty('cq', { poolRules: medic })],
+			poolSpans: [{ assignmentTypeId: 'cq', from: '2026-03-03', through: null, pool: null }],
+			assignments: [assign('2026-03-01', 'a'), assign('2026-03-03', 'a')]
+		});
+		// 1 March has no form, so only the medic shares it; 3 March was open to both.
+		expect(byId(people, 'a')?.expected).toBeCloseTo(1 + 1 / 2, 9);
+		expect(byId(people, 'b')?.expected).toBeCloseTo(1 / 2, 9);
 	});
 
 	it('applies a rank range from the rank catalog', () => {

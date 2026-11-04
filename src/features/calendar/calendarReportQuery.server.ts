@@ -47,7 +47,7 @@ type CalendarStatusDaysPorts = Parameters<typeof requireCalendarPolicy>[0] &
 	Parameters<typeof listAvailabilityEntries>[0] &
 	Parameters<typeof listDailyAssignments>[0] & {
 		calendarCatalogs: Parameters<typeof listAssignmentTypes>[0] &
-			Pick<CalendarCatalogPersistence, 'listRosterExcusalSpans'>;
+			Pick<CalendarCatalogPersistence, 'listRosterExcusalSpans' | 'listRosterPoolSpans'>;
 		audit: AuditPort;
 	};
 
@@ -59,7 +59,7 @@ export async function fetchCalendarStatusDaysReport(
 
 	const scope = await resolveCalendarAssigneeScope(ctx);
 
-	const [entries, assignments, assignmentTypes, excusals] = await Promise.all([
+	const [entries, assignments, assignmentTypes, excusals, poolSpans] = await Promise.all([
 		listAvailabilityEntries(ctx, {
 			rangeStart: range.startDate,
 			rangeEnd: range.endDate,
@@ -68,7 +68,9 @@ export async function fetchCalendarStatusDaysReport(
 		listDailyAssignments(ctx, { rangeStart: range.startDate, rangeEnd: range.endDate }, scope),
 		listAssignmentTypes(ctx.calendarCatalogs),
 		// Includes people since reinstated, whom a type's open excusals leave out.
-		ctx.calendarCatalogs.listRosterExcusalSpans({ from: range.startDate, through: range.endDate })
+		ctx.calendarCatalogs.listRosterExcusalSpans({ from: range.startDate, through: range.endDate }),
+		// A duty's pool rules change over time, so past days are shared by the pool of their own form.
+		ctx.calendarCatalogs.listRosterPoolSpans({ from: range.startDate, through: range.endDate })
 	]);
 	const inScope = scope && new Set(scope.personnelIds);
 
@@ -78,6 +80,7 @@ export async function fetchCalendarStatusDaysReport(
 		entries,
 		assignments,
 		assignmentTypes,
-		excusals: inScope ? excusals.filter((excusal) => inScope.has(excusal.personId)) : excusals
+		excusals: inScope ? excusals.filter((excusal) => inScope.has(excusal.personId)) : excusals,
+		poolSpans
 	};
 }

@@ -31,6 +31,7 @@
 					assignments: data.assignments ?? [],
 					assignmentTypes: data.assignmentTypes ?? [],
 					excusals: data.excusals ?? [],
+					poolSpans: data.poolSpans ?? [],
 					typeIds,
 					entries: data.entries,
 					awayStatusTypeIds: filters.awayStatusTypeIds,

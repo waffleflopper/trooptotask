@@ -92,8 +92,8 @@ away` and `Assignment load`: the address gains `lens=`, Back returns to the prev
    `Previous`/`Next`, `Group`, `Counts as away` and `MOS`, plus `Duty types` (every active person-assigned type,
    checked). A preset or `Previous` makes exactly one more status-days request (nothing is loaded past the span), and
    `Group`, `MOS`, `Counts as away`, `Duty types` and the `Most over`/`Most under` toggle make none. A fair share works
-   each assigned day out among the people the type's pool allows (rank range, MOS, role, Groups; none means everyone)
-   who are not excused and not away that day, so a duty on a day with N such people adds 1/N to each. The report shows
+   each assigned day out among the people the pool of that day's DA 6 form allows (rank range, MOS, role, Groups; none means
+   everyone; a day no form covers uses the type's pool today) who are not excused and not away that day, so a duty on a day with N such people adds 1/N to each. The report shows
    three sections. `Bottom line` gives the share of people within one duty of their fair share, a sentence naming who
    carries the most against a fair share and who drew nothing, and the facts `Duties in range`, `Eligible people`,
    `Never assigned` and `2+ over fair share`. `How each duty is spread` has one bar per duty (under, on share, over)
@@ -112,6 +112,16 @@ away` and `Assignment load`: the address gains `lens=`, Back returns to the prev
    `$V seed da6-excusal Kim 10 17` and Okafor reads 4 against 2.98: the page shows `+1.0` but he is 1.018 over, so he
    is orange and not counted within one duty (`2 OF 8 WITHIN 1 DUTY`; bands read the exact difference, never the
    rounded one). The span still makes exactly one status-days request.
+   A pool change keeps the past. The status-days response also returns every DA 6 form overlapping the span as
+   `poolSpans` (`assignmentTypeId`, `from`, `through`, `pool`, never the record), and a day a closed form covers is
+   shared by that form's pool. Run `$V restart --browser-timezone UTC` first, because a form closes on the browser's day
+   and the seeded form starts on the UTC day, then `$V seed da6` and uncheck Charge of Quarters in `Duty types`. In
+   Calendar Settings › Assignment Types edit Staff Duty, choose `Rank` under `Only people who match`, set SGT through
+   SPC, `Save Changes` and `Save changes` in `Start a new DA 6?`. `$V rows roster_forms orgA` shows the old form ending
+   today with its record and a new one starting tomorrow. Reload the report: Brooks, Ortiz and Diaz, outside the new
+   pool, still read a fair share of 0.1 (today's 1/8 of Staff Duty, never 0), Grant reads 4.2 (1/8 today, then 1/5 on
+   the 18 days with everyone present and 1/4 on the two Okafor is away) and Okafor 3.7. Only the days from tomorrow use
+   the narrowed pool.
    `$V seed da6 <YYYY-MM> 20` gives 20 people for `Show all 20` and the ordering (28 duties over 20 people is 1.4
    each). Record each selected span and every number before export.
 

@@ -114,12 +114,10 @@ describe('GET /api/calendar-reports/status-days', () => {
 
 			const result = await handleUseCaseRequest(_getConfig, ctx, range, () => ctx);
 
-			expect(result).toMatchObject({
-				excusals: [
-					{ assignmentTypeId: 'cq', personId: 'bravo-1', from: '2026-02-01', through: null },
-					{ assignmentTypeId: 'cq', personId: 'alpha-1', from: '2026-03-05', through: '2026-03-09' }
-				]
-			});
+			expect((result as { excusals: unknown }).excusals).toEqual([
+				{ assignmentTypeId: 'cq', personId: 'bravo-1', from: '2026-02-01', through: null },
+				{ assignmentTypeId: 'cq', personId: 'alpha-1', from: '2026-03-05', through: '2026-03-09' }
+			]);
 		});
 
 		it('shows a Group-scoped reader only the excusals of the people in their Groups', async () => {

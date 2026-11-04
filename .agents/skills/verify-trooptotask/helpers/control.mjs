@@ -1914,7 +1914,9 @@ async function main() {
 			return;
 		}
 		if (kind === 'da6') {
-			note(await seedDa6({ client, fixture, tag, ownedState, save, month: args[1], size: args[2] }));
+			const [month, size] = args.slice(1).filter((arg) => arg !== '--group-a');
+			const groupId = args.includes('--group-a') ? fixture.ids.groupA : null;
+			note(await seedDa6({ client, fixture, tag, ownedState, save, month, size, groupId }));
 			return;
 		}
 		if (kind === 'availability-volume') {

@@ -55,11 +55,11 @@ export function rosterPeople(size = people.length) {
 	];
 }
 
-export async function seedDa6({ client, fixture, tag, ownedState, save, month, size }) {
+export async function seedDa6({ client, fixture, tag, ownedState, save, month, size, groupId = null }) {
 	if (ownedState.seeded.some((item) => item.kind === 'da6'))
 		throw new Error('Clean the existing da6 seed before preparing another roster.');
 	if (month !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
-		throw new Error('Use seed da6 [YYYY-MM [PEOPLE]].');
+		throw new Error('Use seed da6 [YYYY-MM [PEOPLE]] [--group-a].');
 	const { ids } = fixture;
 	// Forms open on the UTC day, so the seeded duty starts there.
 	const today = new Date().toISOString().slice(0, 10);
@@ -67,6 +67,7 @@ export async function seedDa6({ client, fixture, tag, ownedState, save, month, s
 	const personnel = roster.map(([rank, lastName], index) => ({
 		id: randomUUID(),
 		organization_id: ids.orgA,
+		group_id: groupId,
 		first_name: 'Synthetic',
 		last_name: lastName,
 		slug: `da6-${tag}-${index + 1}`,

@@ -188,8 +188,8 @@ remain equal.
 - A visible report is weaker than the downloaded workbook. The helper captures the real Blob from the visible Export
   action and saves it outside the disposable worker; restore the capture even after failure.
 - Availability looks ahead and Time away looks back: both use the span switch (`14 D` to `90 D`, `start=` and `days=` in
-  the address), Availability from today (30 days by default) and Time away up to yesterday (90 days by default). Assignment
-  load uses the current calendar year. Use the visible range and `$V fixture` dates to calculate expected values before
+  the address), Availability from today (30 days by default), and Time away and Assignment load up to yesterday (90 days
+  by default). Use the visible range and `$V fixture` dates to calculate expected values before
   comparing rows; open Time away with `?lens=time-away&start=2026-09-01` (90 days from that start) if a fixed September
   fixture is outside the default span.
 - The Time away tab is one lens with the shared Group, Counts as away and MOS filters, the span switch and `Flag at`; the

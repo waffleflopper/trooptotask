@@ -32,7 +32,8 @@ suspension screen.
   second tab that has no remaining session shows `Signed out on this browser.` with a Sign in link (step 10). The failed
   sign-out state (`Try signing out again.`, 503) has no normal-use route.
 - `web-boundary`: the CSP allows no provider origin and blocks no app request; page data carries no session tokens;
-  encoded paths share their request limits (step 12).
+  sign-in is limited per account and address across instances, a flood of refusals is audited once, and encoded paths
+  share their request limits (step 12).
 - `link-errors`: an incomplete or used confirmation link shows Link unavailable; Reset Password and Accept Invite
   without their flow show their unavailable states.
 
@@ -392,6 +393,17 @@ The private-credential controls fill visible fields without printing values:
       must be admitted (303 from legacy `/account/security` to `/org/ORG/account/security`, and 200 on
       `/api/auth/mfa/status`) and every malformed or forged variant must get 303 to `/auth/login`; save its JSON, which
       withholds the genuine signature.
+    - Sign-in limit. Sign-in allows 10 attempts per normalized email and 50 per address in 15 minutes, stored in the
+      provider so every app instance shares them. One address's `/auth/*` budget of ten POSTs runs out first, so spend
+      nine attempts for a nonexistent `@example.test` address with the service-only `check_durable_rate_limit` RPC
+      against this worker's disposable provider (`session/provider.json`): bucket
+      `sign-in:email:<sha256 of the lower-cased, trimmed address>`, window 900 seconds, maximum 10. In a fresh public
+      context at 390 wide, submit that address in mixed case with a wrong password: require
+      `Email or password is incorrect`. Submit again: require 429 with `Retry-After` in `get_network_request` and the
+      notice `Too many requests. Please wait and try again.` above the kept email. Then run 25 `/auth/*` POSTs from
+      that page with `evaluate_script`, alternating `/auth/login?/login` and a 400-character `/auth/` path. Once the
+      `/auth/*` budget is spent, the remaining refusals must add exactly one `security.rate_limit_exceeded` row for
+      the address, with its `pathname` cut to 200 characters. Run this after the other form sign-ins.
     - Encoded paths. From a signed-in page, POST the sign-in form to `/%61uth/login?/login` with a nonexistent
       `@example.test` address. It shares the `/auth/*` budget with `/auth/login`: once the window's ten POSTs are spent,
       it returns 429 like the plain path. Run this last, because it spends the shared `/auth/*` budget that this

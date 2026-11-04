@@ -85,8 +85,8 @@ away` and `Assignment load`: the address gains `lens=`, Back returns to the prev
    `N of M person-days` with the share, one sentence naming the busiest Group and how many people reached the flag, and
    the facts `N+ days away`, `Never away`, the largest status share and `Busiest group`. `Where the days went` shows
    the composition bar and, by Group, days away per person with the company average marked. `Who was away` ranks
-   people with a stacked bar, a dashed flag line, days, share and Next out (`continues` when the entry runs past the
-   span); `Show all N` lists everyone and `Show fewer` returns to the first 12. Seed `availability-volume` for enough
+   people with a stacked bar, a dashed flag line, days, share and Next out (`continues` when the person is away on the
+   span's last day and the next, even across back-to-back entries); `Show all N` lists everyone and `Show fewer` returns to the first 12. Seed `availability-volume` for enough
    people to see more than 12 rows and non-zero flags (its entries start in October, so use `Flag at` of `15+ days`).
    **Assignment load** reads like Time away: it defaults to the 90 days up to yesterday and has the span switch,
    `Previous`/`Next`, `Group`, `Counts as away` and `MOS`, plus `Duty types` (every active person-assigned type,

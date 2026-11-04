@@ -122,6 +122,41 @@ describe('computeTimeAway', () => {
 		expect(people.adams.nextOut).toEqual({ statusTypeId: 'appt', date: '2026-03-20', ongoing: false });
 		expect(people.baker.nextOut).toBeNull();
 		expect(people.bell.nextOut).toBeNull();
+		expect(people.able.departsAgain).toBeNull();
+		expect(people.adams.departsAgain).toBe('2026-03-20');
+	});
+
+	it('reads back-to-back entries as one stretch away, and a later departure after a return as leaving again', () => {
+		const result = report({
+			personnel: [bell],
+			entries: [
+				away('b1', 'bell', 'leave', '2026-03-01', '2026-03-10'),
+				away('b2', 'bell', 'tdy', '2026-03-11', '2026-03-15'),
+				away('b3', 'bell', 'appt', '2026-03-20', '2026-03-25')
+			]
+		});
+
+		expect(result.people[0]).toMatchObject({
+			nextOut: { statusTypeId: 'tdy', date: '2026-03-11', ongoing: true },
+			departsAgain: '2026-03-20'
+		});
+		expect(summarizeTimeAway(result, 10)).toMatchObject({ flagged: 1, flaggedOutAgain: 1 });
+	});
+
+	it('does not read a stretch that runs on into the next day as leaving again', () => {
+		const result = report({
+			personnel: [bell],
+			entries: [
+				away('b1', 'bell', 'leave', '2026-03-01', '2026-03-10'),
+				away('b2', 'bell', 'tdy', '2026-03-11', '2026-03-20')
+			]
+		});
+
+		expect(result.people[0]).toMatchObject({
+			nextOut: { statusTypeId: 'tdy', date: '2026-03-11', ongoing: true },
+			departsAgain: null
+		});
+		expect(summarizeTimeAway(result, 10)).toMatchObject({ flagged: 1, flaggedOutAgain: 0 });
 	});
 
 	it("orders a person's statuses by the catalog, not by the order entries arrived", () => {

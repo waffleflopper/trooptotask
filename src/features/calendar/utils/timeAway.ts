@@ -35,7 +35,7 @@ export interface StatusDays {
 export interface NextOut {
 	statusTypeId: string;
 	date: string;
-	/** True when the entry began inside the span and runs past its end, so the person never came back. */
+	/** True when the person is away on the span's last day and the day after, so they never came back. */
 	ongoing: boolean;
 }
 
@@ -45,7 +45,10 @@ export interface PersonTimeAway {
 	totalDays: number;
 	/** In Status Type order; a status with no days is absent. The days sum to `totalDays`. */
 	byStatus: StatusDays[];
+	/** Still away past the span if `ongoing`, else the first departure after it. */
 	nextOut: NextOut | null;
+	/** The first day the person leaves again after being back, within the window after the span; null if they don't. */
+	departsAgain: string | null;
 }
 
 export interface GroupTimeAway {
@@ -92,6 +95,7 @@ export interface TimeAwayReport {
 }
 
 const nextDay = (date: string): string => fromDayNumber(toDayNumber(date) + 1);
+const previousDay = (date: string): string => fromDayNumber(toDayNumber(date) - 1);
 
 function personTimeAway(
 	person: Personnel,
@@ -104,8 +108,6 @@ function personTimeAway(
 	const end = toDayNumber(endDate);
 	const seen = new Set<number>();
 	const days = new Map<string, number>();
-	let nextOut: NextOut | null = null;
-	const dayAfterSpan = nextDay(endDate);
 
 	for (const entry of entries) {
 		if (entry.endDate >= startDate && entry.startDate <= endDate) {
@@ -117,13 +119,23 @@ function personTimeAway(
 				days.set(entry.statusTypeId, (days.get(entry.statusTypeId) ?? 0) + 1);
 			}
 		}
-		if (entry.endDate > endDate) {
-			const date = entry.startDate > endDate ? entry.startDate : dayAfterSpan;
-			if (nextOut === null || date < nextOut.date) {
-				nextOut = { statusTypeId: entry.statusTypeId, date, ongoing: entry.startDate <= endDate };
-			}
-		}
 	}
+
+	// Back-to-back or overlapping entries are one stretch away, so continuity is read across entries, not per entry.
+	const awayOn = (date: string) => entries.some((entry) => entry.startDate <= date && date <= entry.endDate);
+	const dayAfterSpan = nextDay(endDate);
+	const continuing = awayOn(endDate)
+		? entries.find((entry) => entry.startDate <= dayAfterSpan && dayAfterSpan <= entry.endDate)
+		: undefined;
+	const departure = entries
+		.filter((entry) => entry.startDate > endDate && !awayOn(previousDay(entry.startDate)))
+		.reduce<AvailabilityEntry | null>(
+			(first, entry) => (first && first.startDate <= entry.startDate ? first : entry),
+			null
+		);
+	const nextOut: NextOut | null = continuing
+		? { statusTypeId: continuing.statusTypeId, date: dayAfterSpan, ongoing: true }
+		: departure && { statusTypeId: departure.statusTypeId, date: departure.startDate, ongoing: false };
 
 	return {
 		person,
@@ -131,7 +143,8 @@ function personTimeAway(
 		byStatus: [...days]
 			.map(([statusTypeId, count]) => ({ statusTypeId, days: count }))
 			.sort((a, b) => (statusOrder.get(a.statusTypeId) ?? Infinity) - (statusOrder.get(b.statusTypeId) ?? Infinity)),
-		nextOut
+		nextOut,
+		departsAgain: departure?.startDate ?? null
 	};
 }
 
@@ -231,7 +244,7 @@ export function summarizeTimeAway(report: TimeAwayReport, flagDays: number): Tim
 	const populated = report.groups.map((set) => set.top).filter((group) => group.people > 0);
 	return {
 		flagged: flagged.length,
-		flaggedOutAgain: flagged.filter((entry) => entry.nextOut !== null && !entry.nextOut.ongoing).length,
+		flaggedOutAgain: flagged.filter((entry) => entry.departsAgain !== null).length,
 		busiestGroup:
 			populated.length < 2
 				? null

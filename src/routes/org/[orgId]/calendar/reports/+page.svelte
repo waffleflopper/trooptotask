@@ -15,5 +15,6 @@
 		personnel={data.allPersonnel ?? []}
 		statusTypes={data.statusTypes ?? []}
 		groups={data.groups ?? []}
+		rankCatalog={data.rankCatalog ?? []}
 	/>
 </div>

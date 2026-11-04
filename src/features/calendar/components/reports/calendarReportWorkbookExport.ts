@@ -1,52 +1,95 @@
 import { buildGroupTree, groupExportPath, type Group } from '$features/personnel/contracts';
-import type { AssignmentType, StatusType } from '$features/calendar/contracts';
+import type { StatusType } from '$features/calendar/contracts';
 import { addTableSheet, createWorkbook, downloadWorkbook, type WorkbookRow } from '$lib/utils/workbook';
 import type { AvailabilityBoard } from '../../utils/availabilityBoard';
-import type { AssignmentCoverageResult, ReadinessCell } from '../../utils/calendarReports';
+import type { AssignmentLoadReport, PersonLoad } from '../../utils/assignmentLoad';
+import type { ReadinessCell } from '../../utils/calendarReports';
 import type { NextOut, TimeAwayReport } from '../../utils/timeAway';
 
-export async function exportAssignmentCoverageWorkbook(
-	result: AssignmentCoverageResult,
-	assignmentTypes: AssignmentType[],
+export async function exportAssignmentLoadWorkbook(
+	report: AssignmentLoadReport,
 	startDate: string,
 	endDate: string
 ): Promise<void> {
-	const columns = assignmentColumns(result.activeAssignmentTypeIds, assignmentTypes);
-	const rows: WorkbookRow[] = result.rows.map((row) => ({
-		rank: row.person.rank,
-		lastName: row.person.lastName,
-		firstName: row.person.firstName,
-		...Object.fromEntries(
-			columns.map((assignmentType) => [assignmentType.id, row.assignmentCounts.get(assignmentType.id) ?? 0])
-		),
-		total: row.totalAssignments,
-		vsAverage: signedDelta(row.totalAssignments - result.averageTotal)
-	}));
-	rows.push({
+	const types = report.dutyTypes;
+	const tenth = (value: number) => Math.round(value * 10) / 10;
+	const count = (entry: PersonLoad, typeId: string) =>
+		entry.byType.find((entry) => entry.assignmentTypeId === typeId)?.count ?? 0;
+	const average = (values: number[]) => (values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0);
+	const averageTotal = average(report.everyone.map((entry) => entry.total));
+
+	const people: WorkbookRow[] = [...report.everyone]
+		.sort((a, b) => b.difference - a.difference)
+		.map((entry) => ({
+			rank: entry.person.rank,
+			lastName: entry.person.lastName,
+			firstName: entry.person.firstName,
+			group: entry.person.groupName,
+			...Object.fromEntries(types.map((type) => [type.id, count(entry, type.id)])),
+			total: entry.total,
+			fairShare: tenth(entry.expected),
+			vsFairShare: tenth(entry.difference),
+			vsAverage: tenth(entry.total - averageTotal),
+			presentDays: entry.presentDays,
+			lastDuty: entry.lastDuty ?? ''
+		}));
+	people.push({
 		rank: '',
 		lastName: '',
 		firstName: 'Average',
+		group: '',
 		...Object.fromEntries(
-			columns.map((assignmentType) => [assignmentType.id, averageAssignmentCount(result, assignmentType.id)])
+			types.map((type) => [type.id, tenth(average(report.everyone.map((entry) => count(entry, type.id))))])
 		),
-		total: result.averageTotal,
-		vsAverage: ''
+		total: tenth(averageTotal),
+		fairShare: tenth(average(report.everyone.map((entry) => entry.expected))),
+		vsFairShare: '',
+		vsAverage: '',
+		presentDays: '',
+		lastDuty: ''
 	});
+	const typeName = (id: string) => types.find((type) => type.id === id)?.name ?? 'Unknown';
 
 	const workbook = await createWorkbook();
 	addTableSheet(workbook, {
-		name: 'Assignment Coverage',
+		name: 'Assignment load by person',
 		columns: [
 			{ header: 'Rank', key: 'rank', width: 12 },
 			{ header: 'Last Name', key: 'lastName', width: 18 },
 			{ header: 'First Name', key: 'firstName', width: 18 },
-			...columns.map((assignmentType) => ({ header: assignmentType.name, key: assignmentType.id, width: 16 })),
+			{ header: 'Group', key: 'group', width: 20 },
+			...types.map((type) => ({ header: type.name, key: type.id, width: 16 })),
 			{ header: 'Total', key: 'total', width: 12 },
-			{ header: 'Difference from average', key: 'vsAverage', width: 24 }
+			{ header: 'Fair share', key: 'fairShare', width: 12 },
+			{ header: 'Difference from fair share', key: 'vsFairShare', width: 26 },
+			{ header: 'Difference from average', key: 'vsAverage', width: 24 },
+			{ header: 'Days present', key: 'presentDays', width: 14 },
+			{ header: 'Last duty', key: 'lastDuty', width: 14 }
 		],
-		rows
+		rows: people
 	});
-	await downloadWorkbook(workbook, `assignment-coverage_${startDate}_${endDate}.xlsx`);
+	addTableSheet(workbook, {
+		name: 'Assignment load by duty',
+		columns: [
+			{ header: 'Duty', key: 'duty', width: 24 },
+			{ header: 'Duties', key: 'duties', width: 10 },
+			{ header: 'Eligible people', key: 'eligible', width: 16 },
+			{ header: 'Never drew it', key: 'never', width: 14 },
+			{ header: 'Over fair share', key: 'over', width: 16 },
+			{ header: 'On share', key: 'onShare', width: 12 },
+			{ header: 'Under fair share', key: 'under', width: 16 }
+		],
+		rows: report.duties.map((duty) => ({
+			duty: typeName(duty.assignmentTypeId),
+			duties: duty.duties,
+			eligible: duty.eligible,
+			never: duty.never,
+			over: duty.over,
+			onShare: duty.onShare,
+			under: duty.under
+		}))
+	});
+	await downloadWorkbook(workbook, `assignment-load_${startDate}_${endDate}.xlsx`);
 }
 
 export async function exportAvailabilityWorkbook(
@@ -180,24 +223,6 @@ export async function exportTimeAwayWorkbook(
 		rows: groups
 	});
 	await downloadWorkbook(workbook, `time-away_${startDate}_${endDate}.xlsx`);
-}
-
-function assignmentColumns(ids: string[], assignmentTypes: AssignmentType[]): AssignmentType[] {
-	const assignmentTypeMap = new Map(assignmentTypes.map((assignmentType) => [assignmentType.id, assignmentType]));
-	return ids
-		.map((id) => assignmentTypeMap.get(id))
-		.filter((assignmentType): assignmentType is AssignmentType => !!assignmentType);
-}
-
-function averageAssignmentCount(result: AssignmentCoverageResult, assignmentTypeId: string): number {
-	if (result.rows.length === 0) return 0;
-	const total = result.rows.reduce((sum, row) => sum + (row.assignmentCounts.get(assignmentTypeId) ?? 0), 0);
-	return Math.round((total / result.rows.length) * 10) / 10;
-}
-
-function signedDelta(value: number): string {
-	const rounded = Math.round(value * 10) / 10;
-	return rounded > 0 ? `+${rounded}` : `${rounded}`;
 }
 
 function formatShortDate(dateStr: string): string {

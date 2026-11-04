@@ -177,3 +177,44 @@ export async function seedDa6({ client, fixture, tag, ownedState, save, month, s
 			'Journaled source setup only in the toolkit-owned disposable provider. Forms open through the type trigger.'
 	};
 }
+
+/**
+ * Excuses one seeded da6 Person from Staff Duty on days d0+FROM through d0+THROUGH, an excusal that has already ended.
+ * The app only ends an excusal the day before the editor's today, so no screen can make one inside the seeded days.
+ * Removing the da6 seed cascades it.
+ */
+export async function excuseDa6({ client, fixture, ownedState, lastName, from, through }) {
+	const [first, last] = [Number(from), Number(through)];
+	if (!lastName || !Number.isInteger(first) || !Number.isInteger(last) || first < 0 || last < first)
+		throw new Error('Use seed da6-excusal LASTNAME FROM_DAY THROUGH_DAY, days counted from the seed day.');
+	const seeded = (table) =>
+		ownedState.seeded.filter((item) => item.kind === 'da6' && item.table === table).flatMap((item) => item.ids);
+	const [type, person] = await Promise.all([
+		client
+			.from('assignment_types')
+			.select('id')
+			.eq('organization_id', fixture.ids.orgA)
+			.eq('name', 'Staff Duty')
+			.in('id', seeded('assignment_types')),
+		client
+			.from('personnel')
+			.select('id')
+			.eq('organization_id', fixture.ids.orgA)
+			.eq('last_name', lastName)
+			.in('id', seeded('personnel'))
+	]);
+	if (type.error || person.error || type.data?.length !== 1 || person.data?.length !== 1)
+		throw new Error('Seed da6 first, and name one of its People.');
+	const today = new Date().toISOString().slice(0, 10);
+	const row = {
+		organization_id: fixture.ids.orgA,
+		assignment_type_id: type.data[0].id,
+		personnel_id: person.data[0].id,
+		reason: 'Verification excusal',
+		starts_on: addDays(today, first),
+		ends_on: addDays(today, last)
+	};
+	const result = await client.from('roster_excusals').insert(row);
+	if (result.error) throw new Error('Owned da6 excusal failed: ' + result.error.message);
+	return { lastName, startsOn: row.starts_on, endsOn: row.ends_on, boundary: 'Removed with the da6 seed.' };
+}

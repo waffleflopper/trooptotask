@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import {
-	computeAssignmentCoverage,
-	computeAvailabilityForecast,
-	computeGroupReadiness,
-	readinessTone
-} from './calendarReports';
+import { computeAvailabilityForecast, computeGroupReadiness, readinessTone } from './calendarReports';
 
 function person(overrides: Partial<Personnel>): Personnel {
 	return {
@@ -266,36 +261,6 @@ describe('computeGroupReadiness', () => {
 			availableCount: 0,
 			availablePercent: 100
 		});
-	});
-});
-
-describe('Assignment coverage columns follow the catalog order', () => {
-	it('orders Assignment coverage columns by assignment type catalog, not assignment arrival', () => {
-		const assignmentTypes: AssignmentType[] = ['staff-duty', 'cq', 'guard'].map((id) => ({
-			id,
-			name: id,
-			shortName: id,
-			assignTo: 'personnel',
-			color: '#2563eb',
-			poolRules: null,
-			weekendMode: 'same',
-			excusals: [],
-			showOnCalendar: false,
-			sortOrder: 0
-		}));
-		const result = computeAssignmentCoverage(
-			[person({})],
-			[
-				{ id: 'a-1', date: '2026-03-01', assignmentTypeId: 'guard', assigneeId: 'person-1' },
-				{ id: 'a-2', date: '2026-03-02', assignmentTypeId: 'staff-duty', assigneeId: 'person-1' }
-			],
-			assignmentTypes,
-			new Set(['staff-duty', 'cq', 'guard']),
-			'2026-03-01',
-			'2026-03-31'
-		);
-
-		expect(result.activeAssignmentTypeIds).toEqual(['staff-duty', 'guard']);
 	});
 });
 

@@ -104,7 +104,7 @@ them.
 
 ```bash
 $V network arm-hold 2 calendar-reports/status-days # Calendar report data; daily-assignments is the single slot save
-$V workbook .verification/evidence/verify-trooptotask/RUN/assignment-load.xlsx 'Assignment Coverage'
+$V workbook .verification/evidence/verify-trooptotask/RUN/assignment-load.xlsx 'Assignment load by person'
 ```
 
 For `daily_assignments`, the filter also accepts `date`, `assignee_id`, and `assignment_type_id`.

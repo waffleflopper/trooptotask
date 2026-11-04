@@ -725,10 +725,13 @@ export function createRequestCalendarWorkspaceContext(request: AdmittedOrganizat
 }
 
 export function createRequestCalendarReportContext(request: AdmittedOrganizationRequest) {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		...createRequestCalendarCatalogContext(request),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
-		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
+		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient),
+		loadRankCatalog: () =>
+			loadOrganizationRankCatalog({ auth: request.auth, rankCatalog }, { authorization: 'calendar-view' })
 	};
 }
 

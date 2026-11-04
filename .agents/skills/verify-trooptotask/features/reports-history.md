@@ -12,8 +12,8 @@ from the same authorized people, and sees today's availability on the Dashboard 
   expected counts, labels, the flag column and Next out, without foreign rows.
 - `availability-lens`: the Availability lens leads with the lowest day, a daily strength chart, a Group by day grid and
   who is out on the selected day, from the same A-only data, with a two-sheet workbook.
-- `other-calendar-reports`: Assignment load by person uses the same A-only data in its visible result and real workbook
-  until its lens is redesigned.
+- `assignment-load-lens`: the Assignment load lens compares each person's duties with a fair share worked out from
+  the duty's pool, excusals and who was away, in three sections with a two-sheet workbook, from one span request.
 - `report-states`: the page title, the lens and span in the address, Availability's loading, error and retry, no-data
   and result states, and the large-roster run at 1280 light and 390 dark.
 - `dashboard-current`: today's Baker training projects one unavailable Person and remains Organization-scoped after
@@ -88,21 +88,46 @@ away` and `Assignment load`: the address gains `lens=`, Back returns to the prev
    people with a stacked bar, a dashed flag line, days, share and Next out (`continues` when the entry runs past the
    span); `Show all N` lists everyone and `Show fewer` returns to the first 12. Seed `availability-volume` for enough
    people to see more than 12 rows and non-zero flags (its entries start in October, so use `Flag at` of `15+ days`).
-   **Assignment load** runs with its visible `Run` control and follows the unchanged A-only rules below. **Assignment load by person** over calendar year 2026 shows Able with one
-   Staff and one archived assignment, Baker with one Retiring assignment, and Unassigned with zero; the Group
-   assignment does not count as a Person assignment. The status columns of Time away and the type columns of Assignment
-   load follow the type order shown in Calendar Settings, not the order entries were saved, and keep that order after a
-   reload and in each workbook. Record each selected date range, visible result and foreign exclusion before export.
+   **Assignment load** reads like Time away: it defaults to the 90 days up to yesterday and has the span switch,
+   `Previous`/`Next`, `Group`, `Counts as away` and `MOS`, plus `Duty types` (every active person-assigned type,
+   checked). A preset or `Previous` makes exactly one more status-days request (nothing is loaded past the span), and
+   `Group`, `MOS`, `Counts as away`, `Duty types` and the `Most over`/`Most under` toggle make none. A fair share works
+   each assigned day out among the people the type's pool allows (rank range, MOS, role, Groups; none means everyone)
+   who are not excused and not away that day, so a duty on a day with N such people adds 1/N to each. The report shows
+   three sections. `Bottom line` gives the share of people within one duty of their fair share, a sentence naming who
+   carries the most against a fair share and who drew nothing, and the facts `Duties in range`, `Eligible people`,
+   `Never assigned` and `2+ over fair share`. `How each duty is spread` has one bar per duty (under, on share, over)
+   with its eligible people, duties and `N never`. The by-person section ranks people with the duties, fair share, a
+   bar either side of the fair share mark, the difference and the last duty, 12 rows then `Show all N` and `Show
+   fewer`. The default `$V seed da6` puts Staff Duty every day and Charge of Quarters on four days from today, so
+   the report reads forward: open `?lens=assignment-load&days=30&start=<today>` (any date works for `start`) and
+   expect Okafor 4 duties against 2.8 (he is away for 2 of the 21 Staff Duty days, so 19 x 1/8 is 2.375, and away for 1
+   of the 4 Charge of Quarters days, so 3 x 1/8 is 0.375, 2.75 in all), Grant 4 against 3.2 and Patel 3 against 3.2. Uncheck Charge of Quarters in
+   `Duty types` and Okafor reads 3 against 2.4; uncheck `Verification Leave` in `Counts as away` and he reads 2.6.
+   An excusal that has since ended still keeps its days out of the fair share, because the same request returns every
+   excusal overlapping the span, reinstated ones too, narrowed to the reader's Groups. No screen can make one inside
+   the seeded days (the app ends an excusal the day before today), so run `$V seed da6-excusal Grant 2 6` before
+   opening the report: Grant is excused from Staff Duty on d2 to d6, so his share falls by 5 x 1/8 from 3.2 to 2.6
+   (4 duties, +1.4), Okafor's rises by 5 x (1/7 - 1/8) = 0.09 to 2.84 (still 2.8) and Kim's from 3.2 to 3.3. Also run
+   `$V seed da6-excusal Kim 10 17` and Okafor reads 4 against 2.98: the page shows `+1.0` but he is 1.018 over, so he
+   is orange and not counted within one duty (`2 OF 8 WITHIN 1 DUTY`; bands read the exact difference, never the
+   rounded one). The span still makes exactly one status-days request.
+   `$V seed da6 <YYYY-MM> 20` gives 20 people for `Show all 20` and the ordering (28 duties over 20 people is 1.4
+   each). Record each selected span and every number before export.
 
 7. For Availability and Assignment load, arm `$V export arm $PAGE`, click its visible Export action (`Export
    availability`, `Export assignment load`), save the Blob to a distinct `.xlsx` file under this run, and restore
    capture. Inspect each real sheet with `$V workbook FILE 'Availability by day'`, `'Group by day'` or
-   `'Assignment Coverage'` (Time away's sheets are step 4). The `Availability by day` sheet has Date, Here,
+   `'Assignment load by person'` or `'Assignment load by duty'` (Time away's sheets are step 4). The `Availability by day` sheet has Date, Here,
    Away, Total, Here percent, one column per active status and Away personnel for every day of the span; `Group by
 day` has one row per Group and a Total row of `available/total (percent%)` cells.
-   Compare the saved cells with the visible result, fixture dates and A-only rows. The `Assignment Coverage` sheet must
-   have Able 2, Baker 1 and Unassigned 0 for the unchanged seeded year; no foreign Person/Group or foreign assignment
-   type may appear.
+   Compare the saved cells with the visible result and fixture dates. `Assignment load by person` has Rank, Last Name,
+   First Name, Group, one column per duty type in Calendar Settings order, Total, Fair share, Difference from fair
+   share, Difference from average, Days present and Last duty, one row per person and an Average row. `Assignment load
+   by duty` has Duty, Duties, Eligible people, Never drew it, Over fair share, On share and Under fair share. With
+   `seed da6 <YYYY-MM> 20` the workbook holds Grant to Diaz with Staff Duty 2, Total 2, Fair share 1.4 and
+   Difference 0.6, Recruit01 with 1, 1.4 and -0.4, and one Staff Duty row of 28, 20, 0, 0, 20, 0. No foreign Person,
+   Group or assignment type may appear.
 
 8. **Report states.** As `calendarLane` open `Reports` at 1280x800 light and at 390x844 dark, and once at about 900
    wide. Do not scroll by script before a capture. Require the document title `Calendar Reports - Troop to Task` on
@@ -116,8 +141,12 @@ day` has one row per Group and a Total row of `available/total (percent%)` cells
    `Where the days went` and `Who was away` keep their heights when the result lands, also on a span nobody was away
    in, such as `?lens=time-away&days=14&start=2025-01-06` then `30 D`), arm `arm-fail` and click `14 D`
    for the alert `Could not load time away` with `Retry`, and uncheck every Group for `No personnel match these
-filters.` with no `Export time away` action. Assignment load keeps its own validation, loading, error and no-data
-   states (clear the start date; arm and release the same endpoint; `Run again`). At 390 the day labels of a 30-day chart show every second day, and the grid
+filters.` with no `Export time away` action. Assignment load repeats them: hold the endpoint and click `60 D` (the sections
+   `Bottom line`, `How each duty is spread` and `Who carries the duty` keep their heights when the result lands, at 390,
+   about 900 and 1280), arm `arm-fail` and click `30 D` for the alert `Could not load assignment load` with `Retry`
+   (restore first, then `Retry`), open a span with no duty for `Nobody here shared a duty in this span.`, and choose a MOS
+   nobody on duty has for the same text with no `Export assignment load` action. Organizations with no person-assigned
+   type read `No duties were assigned to people in this span.` At 390 the day labels of a 30-day chart show every second day, and the grid
    scrolls sideways with the Group column and its Lowest figure still visible. As `manager`, open the Reports route and
    record the denial. For the large roster, run `$V seed bulk-501`, open Availability for 90 days and run Status days
    by person five times with its default range. Record the time from the click or Run to the settled result, long tasks
@@ -152,4 +181,4 @@ remain equal.
   comparing rows; open Time away with `?lens=time-away&start=2026-09-01` (90 days from that start) if a fixed September
   fixture is outside the default span.
 - The Time away tab is one lens with the shared Group, Counts as away and MOS filters, the span switch and `Flag at`; the
-  Assignment load tab holds one report with its own filters and no span switch. `Flag at` appears only on Time away.
+  Assignment load tab adds `Duty types` to the same filters and span switch. `Flag at` appears only on Time away.

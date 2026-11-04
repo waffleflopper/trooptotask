@@ -56,6 +56,10 @@ and seeds no CQ or leave. Choose a month wholly within d0 through d119 for the w
 DA 6 and print it. Past dates and dates after d119 are not seeded. A third argument, `$V seed da6 YYYY-MM 60`, adds
 synthetic `Recruit01`... People (8 to 80 in all) for a roster that spans printed sheets.
 
+`$V seed da6-excusal LASTNAME FROM_DAY THROUGH_DAY` (after `seed da6`) adds an ended Staff Duty excusal for one seeded
+Person from d0+FROM through d0+THROUGH, which no screen can make inside the seeded days. `clean-seeds` removes it with
+the seed.
+
 The DA 6 data read lists assignment types, so `$V server-source arm assignment_types hold|fail-hard 1` reaches it on a
 client navigation (month change). On a full page load the Calendar layout reads assignment types first and the layout's
 error shows instead.

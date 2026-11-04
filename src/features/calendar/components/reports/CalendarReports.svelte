@@ -7,7 +7,8 @@
 		groupFilterMatcher,
 		hasSubGroups,
 		type Group,
-		type Personnel
+		type Personnel,
+		type RankCatalogEntry
 	} from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import * as PageShell from '$lib/components/patterns/page-shell';
@@ -41,9 +42,10 @@
 		personnel: Personnel[];
 		statusTypes: StatusType[];
 		groups: Group[];
+		rankCatalog: readonly RankCatalogEntry[];
 	}
 
-	let { orgId, orgUrlSegment = orgId, personnel, statusTypes, groups }: Props = $props();
+	let { orgId, orgUrlSegment = orgId, personnel, statusTypes, groups, rankCatalog }: Props = $props();
 
 	const query = $derived(parseReportQuery(visibleUrl().searchParams, spanOf));
 	const lens = $derived(lensDefinition(query.lens));
@@ -252,6 +254,7 @@
 		{personnel}
 		{statusTypes}
 		{groups}
+		{rankCatalog}
 		{filters}
 		{range}
 		{feedKey}

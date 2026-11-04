@@ -3,10 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
+import { computeAssignmentLoad } from '../../utils/assignmentLoad';
 import { computeAvailabilityBoard } from '../../utils/availabilityBoard';
 import { computeTimeAway } from '../../utils/timeAway';
 import {
-	exportAssignmentCoverageWorkbook,
+	exportAssignmentLoadWorkbook,
 	exportAvailabilityWorkbook,
 	exportTimeAwayWorkbook
 } from './calendarReportWorkbookExport';
@@ -182,25 +183,119 @@ describe('calendar report workbook exports', () => {
 		expect(groups?.getRow(2).values).toEqual([undefined, '1st Platoon', 2, 10, 5]);
 	});
 
-	it('exports Assignment Coverage as a native workbook with the average row', async () => {
+	it('exports Assignment load with fair share, the average row and a sheet per duty', async () => {
+		const jones = { ...smith, id: 'p2', lastName: 'Jones' } as Personnel;
+		const report = computeAssignmentLoad({
+			roster: [smith, jones],
+			shown: [smith, jones],
+			assignments: [
+				{ id: 'd1', date: '2026-03-01', assignmentTypeId: 'staff-duty', assigneeId: 'p1' },
+				{ id: 'd2', date: '2026-03-02', assignmentTypeId: 'staff-duty', assigneeId: 'p1' }
+			],
+			assignmentTypes: [staffDuty],
+			excusals: [],
+			typeIds: new Set(['staff-duty']),
+			entries: [],
+			awayStatusTypeIds: new Set(),
+			rankCatalog: [],
+			groups: [],
+			startDate: '2026-03-01',
+			endDate: '2026-03-02'
+		});
+
 		const { workbook, filename } = await captureWorkbook(() =>
-			exportAssignmentCoverageWorkbook(
-				{
-					activeAssignmentTypeIds: ['staff-duty'],
-					averageTotal: 2,
-					rows: [{ person: smith, assignmentCounts: new Map([['staff-duty', 2]]), totalAssignments: 2 }]
-				},
-				[staffDuty],
-				'2026-01-01',
-				'2026-12-31'
-			)
+			exportAssignmentLoadWorkbook(report, '2026-03-01', '2026-03-02')
 		);
 
-		const sheet = workbook.getWorksheet('Assignment Coverage');
-		expect(filename).toBe('assignment-coverage_2026-01-01_2026-12-31.xlsx');
-		expect(sheet?.getCell('D1').value).toBe('Staff Duty');
-		expect(sheet?.getCell('F2').value).toBe('0');
-		expect(sheet?.getCell('C3').value).toBe('Average');
-		expect(sheet?.getCell('E3').value).toBe(2);
+		expect(filename).toBe('assignment-load_2026-03-01_2026-03-02.xlsx');
+		const people = workbook.getWorksheet('Assignment load by person');
+		expect(people?.getRow(1).values).toEqual([
+			undefined,
+			'Rank',
+			'Last Name',
+			'First Name',
+			'Group',
+			'Staff Duty',
+			'Total',
+			'Fair share',
+			'Difference from fair share',
+			'Difference from average',
+			'Days present',
+			'Last duty'
+		]);
+		expect(people?.getRow(2).values).toEqual([
+			undefined,
+			'SGT',
+			'Smith',
+			'John',
+			'Alpha',
+			2,
+			2,
+			1,
+			1,
+			1,
+			2,
+			'2026-03-02'
+		]);
+		expect((people?.getRow(3).values as unknown[]).slice(1, 11)).toEqual([
+			'SGT',
+			'Jones',
+			'John',
+			'Alpha',
+			0,
+			0,
+			1,
+			-1,
+			-1,
+			2
+		]);
+		expect((people?.getRow(4).values as unknown[]).slice(1, 8)).toEqual([
+			undefined,
+			undefined,
+			'Average',
+			undefined,
+			1,
+			1,
+			1
+		]);
+
+		const duties = workbook.getWorksheet('Assignment load by duty');
+		expect(duties?.getRow(2).values).toEqual([undefined, 'Staff Duty', 2, 2, 1, 0, 2, 0]);
+	});
+
+	it('lists everyone reported on, including someone away the whole span, as the legacy export did', async () => {
+		const brown = { ...smith, id: 'p3', lastName: 'Brown' } as Personnel;
+		const report = computeAssignmentLoad({
+			roster: [smith, brown],
+			shown: [smith, brown],
+			assignments: [{ id: 'd1', date: '2026-03-01', assignmentTypeId: 'staff-duty', assigneeId: 'p1' }],
+			assignmentTypes: [staffDuty],
+			excusals: [],
+			typeIds: new Set(['staff-duty']),
+			entries: [{ id: 'e1', personnelId: 'p3', statusTypeId: 'leave', startDate: '2026-03-01', endDate: '2026-03-02' }],
+			awayStatusTypeIds: new Set(['leave']),
+			rankCatalog: [],
+			groups: [],
+			startDate: '2026-03-01',
+			endDate: '2026-03-02'
+		});
+
+		const { workbook } = await captureWorkbook(() => exportAssignmentLoadWorkbook(report, '2026-03-01', '2026-03-02'));
+
+		const people = workbook.getWorksheet('Assignment load by person');
+		expect((people?.getRow(2).values as unknown[]).slice(1, 11)).toEqual([
+			'SGT',
+			'Brown',
+			'John',
+			'Alpha',
+			0,
+			0,
+			0,
+			0,
+			-0.5,
+			0
+		]);
+		expect((people?.getRow(3).values as unknown[]).slice(2, 4)).toEqual(['Smith', 'John']);
+		expect((people?.getRow(4).values as unknown[]).slice(3, 8)).toEqual(['Average', undefined, 0.5, 0.5, 0.5]);
 	});
 });

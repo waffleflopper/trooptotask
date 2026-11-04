@@ -302,6 +302,7 @@ function createTestCalendarPersistence(
 				hasClosedRosterForm: unavailableCalendarPersistence,
 				listClosedRosterForms: unavailableCalendarPersistence,
 				listRosterExcusals: unavailableCalendarPersistence,
+				listRosterExcusalSpans: unavailableCalendarPersistence,
 				listRosterSwaps: unavailableCalendarPersistence,
 				setRosterExcusals: unavailableCalendarPersistence,
 				closeRosterForm: unavailableCalendarPersistence,

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StatusType } from '$features/calendar/contracts';
+import type { AssignmentType, DailyAssignment, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import {
 	openToolbarMore,
@@ -69,7 +69,9 @@ afterEach(() => {
 
 function renderReports(search: string) {
 	pageMock.url = new URL(`http://localhost/org/org-1/calendar/reports${search}`);
-	render(CalendarReports, { props: { orgId: 'org-1', orgUrlSegment: 'org-1', personnel, statusTypes, groups } });
+	render(CalendarReports, {
+		props: { orgId: 'org-1', orgUrlSegment: 'org-1', personnel, statusTypes, groups, rankCatalog: [] }
+	});
 }
 
 describe('CalendarReports Availability lens', () => {
@@ -144,13 +146,6 @@ describe('CalendarReports lenses', () => {
 		expect(tabs.getByRole('link', { name: 'Assignment load' }).getAttribute('href')).toBe(
 			'/org/org-1/calendar/reports?lens=assignment-load'
 		);
-	});
-
-	it('shows the existing report under Assignment load without loading the feed', () => {
-		renderReports('?lens=assignment-load');
-		expect(screen.getByRole('region', { name: 'Assignment load by person report' })).toBeTruthy();
-		expect(screen.queryByRole('navigation', { name: 'Report span' })).toBeNull();
-		expect(fetchDataMock).not.toHaveBeenCalled();
 	});
 
 	it('links back to Calendar', () => {
@@ -271,6 +266,105 @@ describe('CalendarReports Time away lens', () => {
 		await fireEvent.click(within(alert).getByRole('button', { name: /retry/i }));
 
 		expect(await screen.findByText('4 of 70 person-days')).toBeTruthy();
+		expect(fetchDataMock).toHaveBeenCalledTimes(2);
+	});
+});
+
+const cq: AssignmentType = {
+	id: 'cq',
+	name: 'CQ',
+	shortName: 'CQ',
+	assignTo: 'personnel',
+	color: '#2563eb',
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [],
+	showOnCalendar: true,
+	sortOrder: 0
+};
+const duty = (date: string, assigneeId: string): DailyAssignment => ({
+	id: `${date}-${assigneeId}`,
+	date,
+	assignmentTypeId: 'cq',
+	assigneeId
+});
+
+// Four CQ days for five people; Able and Adams are on leave 4 Nov. Fair shares: Able and Adams 0.6, the rest 14/15.
+// Able drew 3 (+2.4), Baker 1 (+0.1), Adams nothing (-0.6), Avery and Bell nothing (-0.9 each).
+const loadData = {
+	entries,
+	assignmentTypes: [cq],
+	assignments: [duty('2026-11-03', 'a1'), duty('2026-11-04', 'a1'), duty('2026-11-05', 'b1'), duty('2026-11-06', 'a1')]
+};
+
+const personRows = () =>
+	within(screen.getByRole('list', { name: 'Duties against fair share by person' }))
+		.getAllByRole('listitem')
+		.map((row) => row.querySelector('p')?.textContent?.trim() ?? '');
+
+describe('CalendarReports Assignment load lens', () => {
+	beforeEach(() => {
+		fetchDataMock.mockResolvedValue(loadData);
+	});
+
+	it('fetches the span once and shows each person against the share the days they were here earn', async () => {
+		renderReports('?lens=assignment-load&start=2026-11-03&days=14');
+
+		const people = within(await screen.findByRole('list', { name: 'Duties against fair share by person' }));
+		const able = people.getAllByRole('listitem')[0];
+		expect(able.textContent).toContain('SGT Able');
+		expect(able.textContent).toContain('+2.4');
+		expect(able.textContent).toContain('0.6');
+		expect(fetchDataMock).toHaveBeenCalledTimes(1);
+		expect(fetchDataMock).toHaveBeenCalledWith('org-1', '2026-11-03', '2026-11-16', expect.any(AbortSignal));
+	});
+
+	it('orders by who is furthest over, and reverses for most under', async () => {
+		renderReports('?lens=assignment-load&start=2026-11-03&days=14');
+		await screen.findByRole('list', { name: 'Duties against fair share by person' });
+
+		expect(personRows()).toEqual(['SGT Able', 'SGT Baker', 'SGT Adams', 'SGT Avery', 'SGT Bell']);
+
+		await fireEvent.click(screen.getByRole('radio', { name: 'Most under' }));
+
+		expect(personRows()).toEqual(['SGT Avery', 'SGT Bell', 'SGT Adams', 'SGT Baker', 'SGT Able']);
+	});
+
+	it('recomputes for a Group filter without fetching again, keeping fair share against everyone', async () => {
+		renderReports('?lens=assignment-load&start=2026-11-03&days=14');
+		await screen.findByRole('list', { name: 'Duties against fair share by person' });
+		await widths.foldAll();
+
+		await openToolbarMore('Calendar report controls');
+		await openToolbarSubmenu('Group, 2 selected');
+		const alpha = await screen.findByRole('menuitemcheckbox', { name: 'Alpha' });
+		alpha.focus();
+		await fireEvent.keyDown(alpha, { key: ' ' });
+
+		await vi.waitFor(() => expect(personRows()).toEqual(['SGT Baker', 'SGT Bell']));
+		const baker = screen.getAllByRole('listitem').find((row) => row.textContent?.includes('SGT Baker'));
+		expect(baker?.textContent).toContain('+0.1');
+		expect(fetchDataMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('says so when the Organization assigns no duties to people', async () => {
+		fetchDataMock.mockResolvedValue({ entries, assignmentTypes: [], assignments: [] });
+		renderReports('?lens=assignment-load&start=2026-11-03&days=14');
+
+		expect(await screen.findByRole('heading', { level: 2, name: /No duties were assigned/ })).toBeTruthy();
+		expect(screen.queryByRole('region', { name: 'Bottom line' })).toBeNull();
+	});
+
+	it('shows the load error with a retry that fetches again', async () => {
+		fetchDataMock.mockRejectedValueOnce(new Error('Calendar service is down'));
+		renderReports('?lens=assignment-load&start=2026-11-03&days=14');
+
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Calendar service is down');
+
+		await fireEvent.click(within(alert).getByRole('button', { name: /retry/i }));
+
+		expect(await screen.findByRole('list', { name: 'Duties against fair share by person' })).toBeTruthy();
 		expect(fetchDataMock).toHaveBeenCalledTimes(2);
 	});
 });

@@ -443,6 +443,30 @@ export function createSupabaseCalendarCatalogPersistence(
 				through: row.ends_on ?? null
 			}));
 		},
+		async listRosterExcusalSpans(span) {
+			const result = await selectAllSupabaseRows<RosterExcusalRow & { id: string; assignment_type_id: string }>(
+				async (from, to) => {
+					const { data, error } = await client
+						.from('roster_excusals')
+						.select('id, assignment_type_id, personnel_id, starts_on, ends_on')
+						.eq('organization_id', orgId)
+						.lte('starts_on', span.through)
+						.or(`ends_on.is.null,ends_on.gte.${span.from}`)
+						.order('starts_on', { ascending: true })
+						.order('id', { ascending: true })
+						.range(from, to)
+						.returns<Array<RosterExcusalRow & { id: string; assignment_type_id: string }>>();
+					return { data, error };
+				}
+			);
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return (result.data ?? []).map((row) => ({
+				assignmentTypeId: row.assignment_type_id,
+				personId: row.personnel_id,
+				from: row.starts_on,
+				through: row.ends_on ?? null
+			}));
+		},
 		async setRosterExcusals(assignmentTypeId, today, excusals) {
 			await calendarCommand(
 				client,

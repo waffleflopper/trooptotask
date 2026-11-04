@@ -1,4 +1,4 @@
-import type { Group, Personnel } from '$features/personnel/contracts';
+import type { Group, Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
 import type { ToolbarAction, ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 import type { CalendarReportFeedState } from './calendarReportFeed.svelte';
@@ -19,6 +19,8 @@ export interface LensProps {
 	personnel: Personnel[];
 	statusTypes: StatusType[];
 	groups: Group[];
+	/** The Organization's ranks, in the order a duty's rank range reads them. */
+	rankCatalog: readonly RankCatalogEntry[];
 	filters: ReportFilters;
 	/** The span on screen; a lens counts only these days. */
 	range: ReportRange | null;

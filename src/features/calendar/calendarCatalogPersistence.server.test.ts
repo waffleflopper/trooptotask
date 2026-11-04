@@ -588,6 +588,26 @@ describe('Calendar configuration commands', () => {
 		}
 	});
 
+	it('reads the DA 6 pool spans through the pool read bound to the Organization and span', async () => {
+		const medic = { rank: null, mos: ['68W'], role: [], groupIds: [] };
+		const { calls, port } = calendarRpc(() =>
+			Response.json([
+				{ assignment_type_id: STAFF, starts_on: '2026-09-01', ends_on: '2026-09-30', pool: null },
+				{ assignment_type_id: STAFF, starts_on: '2026-10-01', ends_on: null, pool: medic }
+			])
+		);
+		await expect(port.listRosterPoolSpans({ from: '2026-09-15', through: '2026-10-15' })).resolves.toEqual([
+			{ assignmentTypeId: STAFF, from: '2026-09-01', through: '2026-09-30', pool: null },
+			{ assignmentTypeId: STAFF, from: '2026-10-01', through: null, pool: medic }
+		]);
+		expect(calls).toEqual([
+			{
+				path: '/rest/v1/rpc/roster_pool_spans',
+				body: { p_organization_id: COMMAND_ORG, p_from: '2026-09-15', p_through: '2026-10-15' }
+			}
+		]);
+	});
+
 	it('says a lost or unreadable reply is unconfirmed', async () => {
 		for (const reply of [
 			() => Promise.reject(new TypeError('fetch failed')),

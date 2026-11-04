@@ -70,7 +70,6 @@ export async function fetchCalendarStatusDaysReport(
 		// Includes people since reinstated, whom a type's open excusals leave out.
 		ctx.calendarCatalogs.listRosterExcusalSpans({ from: range.startDate, through: range.endDate }),
 		// A duty's pool rules change over time, so past days are shared by the pool of their own form.
-		// RLS shows DA 6 forms only to organization-wide readers; a Group-scoped reader gets none and falls back to today's rules.
 		ctx.calendarCatalogs.listRosterPoolSpans({ from: range.startDate, through: range.endDate })
 	]);
 	const inScope = scope && new Set(scope.personnelIds);

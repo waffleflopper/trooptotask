@@ -4917,6 +4917,15 @@ export type Database = {
         Args: { p_form: Database["public"]["Tables"]["roster_forms"]["Row"] }
         Returns: string
       }
+      roster_pool_spans: {
+        Args: { p_from: string; p_organization_id: string; p_through: string }
+        Returns: {
+          assignment_type_id: string
+          ends_on: string
+          pool: Json
+          starts_on: string
+        }[]
+      }
       roster_signals: {
         Args: {
           p_as_of: string

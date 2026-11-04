@@ -9657,6 +9657,26 @@ $$;
 ALTER FUNCTION public.roster_form_effective_start(p_form public.roster_forms) OWNER TO postgres;
 
 --
+-- Name: roster_pool_spans(uuid, date, date); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.roster_pool_spans(p_organization_id uuid, p_from date, p_through date) RETURNS TABLE(assignment_type_id uuid, starts_on date, ends_on date, pool jsonb)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT f.assignment_type_id, f.starts_on, f.ends_on, f.rules -> 'pool'
+  FROM public.roster_forms AS f
+  WHERE (SELECT public.member_access_has_capability(p_organization_id, 'calendar', 'view'))
+    AND f.organization_id = p_organization_id
+    AND f.starts_on <= p_through
+    AND (f.ends_on IS NULL OR f.ends_on >= p_from)
+  ORDER BY f.starts_on, f.id;
+$$;
+
+
+ALTER FUNCTION public.roster_pool_spans(p_organization_id uuid, p_from date, p_through date) OWNER TO postgres;
+
+--
 -- Name: roster_signals(uuid, date, date, text[], uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -21078,6 +21098,14 @@ GRANT ALL ON TABLE public.roster_forms TO service_role;
 REVOKE ALL ON FUNCTION public.roster_form_effective_start(p_form public.roster_forms) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.roster_form_effective_start(p_form public.roster_forms) TO authenticated;
 GRANT ALL ON FUNCTION public.roster_form_effective_start(p_form public.roster_forms) TO service_role;
+
+
+--
+-- Name: FUNCTION roster_pool_spans(p_organization_id uuid, p_from date, p_through date); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.roster_pool_spans(p_organization_id uuid, p_from date, p_through date) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.roster_pool_spans(p_organization_id uuid, p_from date, p_through date) TO authenticated;
 
 
 --

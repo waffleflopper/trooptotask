@@ -1,7 +1,5 @@
 <script lang="ts" module>
 	const TOTAL_ROW_ID = 'total';
-	const MATRIX_CLASS =
-		'min-w-max border-separate border-spacing-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:block [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:rounded-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:outline-none [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:relative [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:z-20 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-foreground [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-offset-1 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-dashed [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-foreground';
 	const HEADER_CLASS = 'font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground';
 	const TIER = { success: 'not-applicable', warning: 'caution', destructive: 'danger' } as const;
 	const TONE = { success: 'good', warning: 'caution', destructive: 'danger' } as const;
@@ -76,7 +74,7 @@
 
 <OperationalMatrix.Root {rows} {columns} selectedCell={null}>
 	<OperationalMatrix.Viewport ariaLabel="Group availability by day">
-		<OperationalMatrix.Table ariaLabel="Group availability by day" class={MATRIX_CLASS}>
+		<OperationalMatrix.Table ariaLabel="Group availability by day" variant="heat">
 			<OperationalMatrix.Header>
 				<OperationalMatrix.HeaderRow>
 					<OperationalMatrix.CornerCell

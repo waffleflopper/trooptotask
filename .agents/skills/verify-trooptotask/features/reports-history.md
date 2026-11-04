@@ -104,6 +104,14 @@ away` and `Assignment load`: the address gains `lens=`, Back returns to the prev
    expect Okafor 4 duties against 2.8 (he is away for 2 of the 21 Staff Duty days, so 19 x 1/8 is 2.375, and away for 1
    of the 4 Charge of Quarters days, so 3 x 1/8 is 0.375, 2.75 in all), Grant 4 against 3.2 and Patel 3 against 3.2. Uncheck Charge of Quarters in
    `Duty types` and Okafor reads 3 against 2.4; uncheck `Verification Leave` in `Counts as away` and he reads 2.6.
+   An excusal that has since ended still keeps its days out of the fair share, because the same request returns every
+   excusal overlapping the span, reinstated ones too, narrowed to the reader's Groups. No screen can make one inside
+   the seeded days (the app ends an excusal the day before today), so run `$V seed da6-excusal Grant 2 6` before
+   opening the report: Grant is excused from Staff Duty on d2 to d6, so his share falls by 5 x 1/8 from 3.2 to 2.6
+   (4 duties, +1.4), Okafor's rises by 5 x (1/7 - 1/8) = 0.09 to 2.84 (still 2.8) and Kim's from 3.2 to 3.3. Also run
+   `$V seed da6-excusal Kim 10 17` and Okafor reads 4 against 2.98: the page shows `+1.0` but he is 1.018 over, so he
+   is orange and not counted within one duty (`2 OF 8 WITHIN 1 DUTY`; bands read the exact difference, never the
+   rounded one). The span still makes exactly one status-days request.
    `$V seed da6 <YYYY-MM> 20` gives 20 people for `Show all 20` and the ordering (28 duties over 20 people is 1.4
    each). Record each selected span and every number before export.
 

@@ -122,6 +122,14 @@ away` and `Assignment load`: the address gains `lens=`, Back returns to the prev
    pool, still read a fair share of 0.1 (today's 1/8 of Staff Duty, never 0), Grant reads 4.2 (1/8 today, then 1/5 on
    the 18 days with everyone present and 1/4 on the two Okafor is away) and Okafor 3.7. Only the days from tomorrow use
    the narrowed pool.
+   A Group-scoped reader gets the same pools, because `roster_pool_spans` returns every form's pool, never its record, to
+   any Calendar viewer. Seed the roster into Group A with `$V seed da6 --group-a` so the Group-scoped reader sees all eight
+   people and splits each day among the same people the Organization-wide reader does, then run the pool change above
+   as `calendarConfigure`. Open `?lens=assignment-load&days=30&start=<today>` as `calendarView` and as `calendarScoped`
+   (`$V actor calendarView calendar`, `$V actor calendarScoped calendar`, one page each), uncheck Charge of Quarters in
+   `Duty types` on both and compare every row: Brooks, Ortiz and Diaz read 0.1, Grant, Kim, Nguyen and Patel 4.2 and
+   Okafor 3.7 for both readers. Without `roster_pool_spans` the Group-scoped reader reads 0.0 for Brooks, Ortiz and
+   Diaz and 4.3 and 3.8 for the rest, because every day falls back to today's narrowed pool.
    `$V seed da6 <YYYY-MM> 20` gives 20 people for `Show all 20` and the ordering (28 duties over 20 people is 1.4
    each). Record each selected span and every number before export.
 

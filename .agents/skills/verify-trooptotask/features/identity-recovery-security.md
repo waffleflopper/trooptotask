@@ -401,7 +401,7 @@ The private-credential controls fill visible fields without printing values:
       context at 390 wide, submit that address in mixed case with a wrong password: require
       `Email or password is incorrect`. Submit again: require 429 with `Retry-After` in `get_network_request` and the
       notice `Too many requests. Please wait and try again.` above the kept email. Then run 25 `/auth/*` POSTs from
-      that page with `evaluate_script`, alternating `/auth/login?/login` and a 400-character `/auth/` path. Once the
+      that page with `evaluate_script`, each to a 400-character `/auth/` path so the first refusal carries it. Once the
       `/auth/*` budget is spent, the remaining refusals must add exactly one `security.rate_limit_exceeded` row for
       the address, with its `pathname` cut to 200 characters. Run this after the other form sign-ins.
     - Encoded paths. From a signed-in page, POST the sign-in form to `/%61uth/login?/login` with a nonexistent

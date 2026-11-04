@@ -3,6 +3,9 @@ import { isRedirect } from '@sveltejs/kit';
 import { actions, load } from './+page.server';
 
 vi.mock('$lib/audit/index.server', () => ({ auditLog: vi.fn() }));
+vi.mock('$lib/server/supabase', () => ({
+	getAdminClient: () => ({ rpc: async () => ({ data: [{ limited: false, retry_after_ms: 0 }], error: null }) })
+}));
 
 const DESTINATION = '/org/alpha/calendar?view=month&label=A%26B#today';
 
@@ -28,6 +31,7 @@ function loginRequest(next: FormDataEntryValue, mfa = false) {
 	};
 	const run = () =>
 		actions.login({
+			getClientAddress: () => '198.51.100.1',
 			request: new Request('http://app.invalid/auth/login?/login', { method: 'POST', body: form }),
 			locals: { supabase: { auth } }
 		} as unknown as Parameters<typeof actions.login>[0]);

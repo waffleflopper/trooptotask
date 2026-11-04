@@ -60,15 +60,27 @@ it.each(policies)(
 		for (let attempt = 0; attempt < limit; attempt++) {
 			expect(checkRateLimit('198.51.100.1', path, method)).toEqual({ limited: false });
 		}
-		expect(checkRateLimit('198.51.100.1', path, method)).toEqual({ limited: true, retryAfterMs: windowMs });
+		expect(checkRateLimit('198.51.100.1', path, method)).toEqual({
+			limited: true,
+			retryAfterMs: windowMs,
+			firstRefusal: true
+		});
 		vi.setSystemTime(NOW.getTime() + windowMs - 1);
-		expect(checkRateLimit('198.51.100.1', path, method)).toEqual({ limited: true, retryAfterMs: 1 });
+		expect(checkRateLimit('198.51.100.1', path, method)).toEqual({
+			limited: true,
+			retryAfterMs: 1,
+			firstRefusal: false
+		});
 		vi.setSystemTime(NOW.getTime() + windowMs);
 		expect(checkRateLimit('198.51.100.1', path, method)).toEqual({ limited: false });
 		for (let attempt = 1; attempt < limit; attempt++) {
 			expect(checkRateLimit('198.51.100.1', path, method)).toEqual({ limited: false });
 		}
-		expect(checkRateLimit('198.51.100.1', path, method)).toEqual({ limited: true, retryAfterMs: windowMs });
+		expect(checkRateLimit('198.51.100.1', path, method)).toEqual({
+			limited: true,
+			retryAfterMs: windowMs,
+			firstRefusal: true
+		});
 	}
 );
 
@@ -78,13 +90,30 @@ it('shares a client budget across auth paths but separates clients, policies and
 	}
 	expect(checkRateLimit('198.51.100.1', '/auth/forgot-password', 'POST')).toEqual({
 		limited: true,
-		retryAfterMs: 900_000
+		retryAfterMs: 900_000,
+		firstRefusal: true
 	});
 	expect(checkRateLimit('198.51.100.2', '/auth/login', 'POST')).toEqual({ limited: false });
 	expect(checkRateLimit('198.51.100.1', '/auth/renew-invite', 'POST')).toEqual({ limited: false });
 	expect(checkRateLimit('198.51.100.1', '/auth/login', 'GET')).toEqual({ limited: false });
 	vi.setSystemTime(NOW.getTime() + 1_234);
-	expect(checkRateLimit('198.51.100.1', '/auth/login', 'POST')).toEqual({ limited: true, retryAfterMs: 898_766 });
+	expect(checkRateLimit('198.51.100.1', '/auth/login', 'POST')).toEqual({
+		limited: true,
+		retryAfterMs: 898_766,
+		firstRefusal: false
+	});
+});
+
+it('marks only the first refusal in a window so a flood is reported once', () => {
+	const ip = '198.51.100.9';
+	for (let attempt = 0; attempt < 10; attempt++) checkRateLimit(ip, '/auth/login', 'POST');
+	const refusals = Array.from({ length: 100 }, () => checkRateLimit(ip, '/auth/login', 'POST'));
+	expect(refusals.filter((refusal) => refusal.limited && refusal.firstRefusal)).toHaveLength(1);
+	expect(refusals[0]).toMatchObject({ limited: true, firstRefusal: true });
+
+	vi.setSystemTime(NOW.getTime() + 900_000);
+	for (let attempt = 0; attempt < 10; attempt++) checkRateLimit(ip, '/auth/login', 'POST');
+	expect(checkRateLimit(ip, '/auth/login', 'POST')).toMatchObject({ limited: true, firstRefusal: true });
 });
 
 it('rotating Organization paths and write methods cannot evade the client budget', () => {
@@ -93,7 +122,8 @@ it('rotating Organization paths and write methods cannot evade the client budget
 	}
 	expect(checkRateLimit('198.51.100.1', '/org/org-b/api/training', 'DELETE')).toEqual({
 		limited: true,
-		retryAfterMs: 60_000
+		retryAfterMs: 60_000,
+		firstRefusal: true
 	});
 	expect(checkRateLimit('198.51.100.2', '/org/org-b/api/training', 'DELETE')).toEqual({ limited: false });
 	expect(checkRateLimit('198.51.100.1', '/org/org-a/api/personnel', 'GET')).toEqual({ limited: false });
@@ -105,7 +135,8 @@ it('method mismatches use the shared fallback budget without spending write budg
 	}
 	expect(checkRateLimit('198.51.100.1', '/api/auth/mfa/status', 'POST')).toEqual({
 		limited: true,
-		retryAfterMs: 60_000
+		retryAfterMs: 60_000,
+		firstRefusal: true
 	});
 	expect(checkRateLimit('198.51.100.1', '/auth/renew-invite', 'POST')).toEqual({ limited: false });
 });

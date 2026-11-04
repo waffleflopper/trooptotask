@@ -60,7 +60,7 @@ export function checkRateLimit(
 	ip: string,
 	pathname: string,
 	method: string
-): { limited: false } | { limited: true; retryAfterMs: number } {
+): { limited: false } | { limited: true; retryAfterMs: number; firstRefusal: boolean } {
 	const routed = routedPathname(pathname);
 	for (const rule of rules) {
 		if (!rule.pattern.test(routed)) continue;
@@ -79,7 +79,7 @@ export function checkRateLimit(
 
 		if (entry.count > rule.maxRequests) {
 			const retryAfterMs = entry.resetAt - now;
-			return { limited: true, retryAfterMs };
+			return { limited: true, retryAfterMs, firstRefusal: entry.count === rule.maxRequests + 1 };
 		}
 
 		return { limited: false };

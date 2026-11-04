@@ -2,7 +2,12 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { validateEmail } from '$lib/server/validation';
 import { auditLog } from '$lib/audit/index.server';
-import { getAuthenticatedRedirectPath, loginIdentity } from '$features/identity/index.server';
+import {
+	admitSignInAttempt,
+	getAuthenticatedRedirectPath,
+	loginIdentity,
+	SIGN_IN_RATE_LIMIT_MESSAGE
+} from '$features/identity/index.server';
 import { sanitizeAuthNextPath } from '$features/identity/contracts';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -26,7 +31,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	login: async ({ request, locals }) => {
+	login: async ({ request, locals, getClientAddress, setHeaders }) => {
 		let formData: FormData;
 		try {
 			formData = await request.formData();
@@ -45,6 +50,14 @@ export const actions: Actions = {
 			!password
 		) {
 			return fail(400, { error: 'Enter a valid email address and password.', email: email.slice(0, 254), nextPath });
+		}
+		const admission = await admitSignInAttempt({ email, ip: getClientAddress() });
+		if (admission.status === 'limited') {
+			setHeaders({ 'Retry-After': String(admission.retryAfterSeconds) });
+			return fail(429, { error: SIGN_IN_RATE_LIMIT_MESSAGE, email, nextPath });
+		}
+		if (admission.status === 'limit-unavailable') {
+			return fail(503, { error: 'Unable to complete sign in. Please try again.', email, nextPath });
 		}
 		const result = await loginIdentity(locals, { email, password });
 		if (result.status !== 'authenticated') {

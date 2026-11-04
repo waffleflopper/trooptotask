@@ -26,15 +26,17 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	const clientIp = event.getClientAddress();
 	const rateCheck = checkRateLimit(clientIp, event.url.pathname, event.request.method);
 	if (rateCheck.limited) {
-		auditLog(
-			{
-				action: 'security.rate_limit_exceeded',
-				resourceType: 'request',
-				severity: 'warning',
-				details: { pathname: event.url.pathname, method: event.request.method }
-			},
-			{ userId: null, ip: clientIp }
-		);
+		if (rateCheck.firstRefusal) {
+			await auditLog(
+				{
+					action: 'security.rate_limit_exceeded',
+					resourceType: 'request',
+					severity: 'warning',
+					details: { pathname: event.url.pathname.slice(0, 200), method: event.request.method }
+				},
+				{ userId: null, ip: clientIp }
+			);
+		}
 		const enhancedForm = event.request.headers.get('x-sveltekit-action') === 'true';
 		const body = enhancedForm
 			? { type: 'failure', status: 429, data: stringify({ error: 'Too many requests. Please wait and try again.' }) }

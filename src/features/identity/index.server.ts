@@ -6,6 +6,7 @@ export { findUserEmailIdentityByEmail } from './userEmailIdentities.server';
 export { findInvitationRecipientAccount, normalizeUserEmailIdentity } from './invitationRecipientAccount.server';
 export { signOutIdentity } from './signOut.server';
 export { loginIdentity } from './login.server';
+export { admitSignInAttempt, SIGN_IN_RATE_LIMIT_MESSAGE } from './signInRateLimit.server';
 
 export { readIdentityAdmission } from './admission.server';
 export { getIdentityViewer } from './viewer.server';

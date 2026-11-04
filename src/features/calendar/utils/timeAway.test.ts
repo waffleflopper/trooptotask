@@ -194,8 +194,9 @@ describe('computeTimeAway', () => {
 });
 
 describe('summarizeTimeAway', () => {
-	it('counts people at the flag or beyond, and those who go out again', () => {
-		expect(summarizeTimeAway(report(), 6)).toMatchObject({ flagged: 2, flaggedOutAgain: 1 });
+	it('counts people at the flag or beyond, and those who come back and go out again', () => {
+		expect(summarizeTimeAway(report(), 3)).toMatchObject({ flagged: 3, flaggedOutAgain: 1 });
+		expect(summarizeTimeAway(report(), 6)).toMatchObject({ flagged: 2, flaggedOutAgain: 0 });
 		expect(summarizeTimeAway(report(), 7)).toMatchObject({ flagged: 1, flaggedOutAgain: 0 });
 		expect(summarizeTimeAway(report(), 11)).toMatchObject({ flagged: 0, flaggedOutAgain: 0 });
 	});

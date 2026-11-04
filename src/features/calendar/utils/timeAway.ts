@@ -220,7 +220,7 @@ export function computeTimeAway(input: TimeAwayInput): TimeAwayReport {
 export interface TimeAwaySummary {
 	/** People away `flagDays` or more. */
 	flagged: number;
-	/** Of the flagged, those who go out again within the window after the span. */
+	/** Of the flagged, those who come back and go out again within the window after the span; someone still away is not counted. */
 	flaggedOutAgain: number;
 	/** The top-level Group with the most days away per person, the first on a tie; null when fewer than two have people. */
 	busiestGroup: GroupTimeAway | null;
@@ -231,7 +231,7 @@ export function summarizeTimeAway(report: TimeAwayReport, flagDays: number): Tim
 	const populated = report.groups.map((set) => set.top).filter((group) => group.people > 0);
 	return {
 		flagged: flagged.length,
-		flaggedOutAgain: flagged.filter((entry) => entry.nextOut !== null).length,
+		flaggedOutAgain: flagged.filter((entry) => entry.nextOut !== null && !entry.nextOut.ongoing).length,
 		busiestGroup:
 			populated.length < 2
 				? null

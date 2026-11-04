@@ -74,9 +74,11 @@
 					<span class="sr-only">{entry.total === 1 ? 'duty' : 'duties'}</span>
 				</p>
 				<p
-					class="col-start-1 row-start-3 font-mono text-xs text-muted-foreground md:col-auto md:row-auto md:text-right"
+					class="col-start-1 row-start-3 min-w-0 truncate font-mono text-xs text-muted-foreground md:col-auto md:row-auto md:text-right"
 				>
-					{duties(entry.expected)}<span class="md:sr-only"> fair share</span>
+					{duties(entry.expected)} <span class="md:sr-only">fair share</span><span class="md:hidden"
+						>{` · last ${entry.lastDuty ? formatDayMonth(entry.lastDuty) : 'never'}`}</span
+					>
 				</p>
 				<div class="col-span-2 row-start-2 md:col-auto md:row-auto">
 					<AssignmentLoadBar

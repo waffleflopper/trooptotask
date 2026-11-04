@@ -156,7 +156,9 @@ filters.` with no `Export time away` action. Assignment load repeats them: hold 
    about 900 and 1280), arm `arm-fail` and click `30 D` for the alert `Could not load assignment load` with `Retry`
    (restore first, then `Retry`), open a span with no duty for `Nobody here shared a duty in this span.`, and choose a MOS
    nobody on duty has for the same text with no `Export assignment load` action. Organizations with no person-assigned
-   type read `No duties were assigned to people in this span.` At 390 the day labels of a 30-day chart show every second day, and the grid
+   type read `No duties were assigned to people in this span.` At 390 each person's third line reads `3.2 fair share · last 20 Nov`
+   (`· last never` for a duty never drawn) in place of the hidden Last column, with row heights unchanged and no sideways
+   scroll. At 390 the day labels of a 30-day chart show every second day, and the grid
    scrolls sideways with the Group column and its Lowest figure still visible. As `manager`, open the Reports route and
    record the denial. For the large roster, run `$V seed bulk-501`, open Availability for 90 days and run Status days
    by person five times with its default range. Record the time from the click or Run to the settled result, long tasks

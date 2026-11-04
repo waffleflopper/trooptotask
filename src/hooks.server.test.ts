@@ -696,10 +696,22 @@ describe('server auth hook', () => {
 			for (let attempt = 0; attempt < 10; attempt++) {
 				expect((await harness.handle({ event: request('/auth/login'), resolve: harness.resolve })).status).toBe(200);
 			}
-			const statuses: number[] = [];
-			for (let attempt = 0; attempt < 100; attempt++) {
-				const path = `/auth/${String(attempt).padStart(3, '0')}${'a'.repeat(300)}`;
-				statuses.push((await harness.handle({ event: request(path), resolve: harness.resolve })).status);
+			const refusedPath = (attempt: number) => `/auth/${String(attempt).padStart(3, '0')}${'a'.repeat(300)}`;
+			let finishAudit = () => {};
+			auditLog.mockImplementationOnce(() => new Promise<void>((resolve) => (finishAudit = resolve)));
+			let firstSettled = false;
+			const first = Promise.resolve(
+				harness.handle({ event: request(refusedPath(0)), resolve: harness.resolve })
+			).finally(() => (firstSettled = true));
+			await vi.waitFor(() => expect(auditLog).toHaveBeenCalledTimes(1));
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			expect(firstSettled).toBe(false);
+			finishAudit();
+			const statuses = [(await first).status];
+			for (let attempt = 1; attempt < 100; attempt++) {
+				statuses.push(
+					(await harness.handle({ event: request(refusedPath(attempt)), resolve: harness.resolve })).status
+				);
 			}
 			expect(statuses).toEqual(Array(100).fill(429));
 			expect(auditLog).toHaveBeenCalledTimes(1);

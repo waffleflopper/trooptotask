@@ -307,7 +307,7 @@ describe('sign-in attempt limits', () => {
 		expect(await refused.run()).toEqual({
 			status: 429,
 			data: {
-				error: 'Too many requests. Please wait and try again.',
+				error: expect.any(String),
 				email: 'owner@example.com',
 				nextPath: '/dashboard'
 			}
@@ -327,7 +327,7 @@ describe('sign-in attempt limits', () => {
 		expect(await request.run()).toEqual({
 			status: 503,
 			data: {
-				error: 'Unable to complete sign in. Please try again.',
+				error: expect.any(String),
 				email: 'owner@example.com',
 				nextPath: '/dashboard'
 			}

@@ -75,15 +75,30 @@ describe('sign-in attempts', () => {
 
 	it('rounds the wait up to whole seconds and reports the longer of the two waits', async () => {
 		const store = memoryStore();
-		for (let attempt = 0; attempt < 10; attempt += 1) {
-			await admitSignInAttempt({ email: 'a@example.test', ip: `198.51.100.${attempt}`, now, store });
+		for (let attempt = 0; attempt < 50; attempt += 1) {
+			await admitSignInAttempt({ email: `user${attempt}@example.test`, ip: '198.51.100.7', now, store });
 		}
-		const nearEnd = new Date(now.getTime() + 899_001);
+		const later = new Date(now.getTime() + 600_000);
+		for (let attempt = 0; attempt < 10; attempt += 1) {
+			await admitSignInAttempt({ email: 'a@example.test', ip: `203.0.113.${attempt}`, now: later, store });
+		}
 
-		expect(await admitSignInAttempt({ email: 'a@example.test', ip: '203.0.113.9', now: nearEnd, store })).toEqual({
-			status: 'limited',
-			retryAfterSeconds: 1
-		});
+		expect(
+			await admitSignInAttempt({
+				email: 'a@example.test',
+				ip: '198.51.100.7',
+				now: new Date(later.getTime() + 1),
+				store
+			})
+		).toEqual({ status: 'limited', retryAfterSeconds: 900 });
+		expect(
+			await admitSignInAttempt({
+				email: 'b@example.test',
+				ip: '198.51.100.7',
+				now: new Date(now.getTime() + 898_999),
+				store
+			})
+		).toEqual({ status: 'limited', retryAfterSeconds: 2 });
 	});
 
 	it('refuses to admit when the limit cannot be read', async () => {

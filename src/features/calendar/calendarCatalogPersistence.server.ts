@@ -27,6 +27,13 @@ import {
 	type StatusTypeRow
 } from './calendarPersistenceMapping.server';
 
+type RosterPoolSpanRow = {
+	assignment_type_id: string;
+	starts_on: string;
+	ends_on: string | null;
+	rules: { pool: PoolRules | null };
+};
+
 export const CALENDAR_CHANGE_NOT_SAVED_MESSAGE =
 	'Another Calendar change was saving at the same time, so this change was not saved. Try again.';
 export const CALENDAR_CHANGE_UNCONFIRMED_MESSAGE =
@@ -441,6 +448,52 @@ export function createSupabaseCalendarCatalogPersistence(
 				reason: row.reason,
 				from: row.starts_on,
 				through: row.ends_on ?? null
+			}));
+		},
+		async listRosterExcusalSpans(span) {
+			const result = await selectAllSupabaseRows<RosterExcusalRow & { id: string; assignment_type_id: string }>(
+				async (from, to) => {
+					const { data, error } = await client
+						.from('roster_excusals')
+						.select('id, assignment_type_id, personnel_id, starts_on, ends_on')
+						.eq('organization_id', orgId)
+						.lte('starts_on', span.through)
+						.or(`ends_on.is.null,ends_on.gte.${span.from}`)
+						.order('starts_on', { ascending: true })
+						.order('id', { ascending: true })
+						.range(from, to)
+						.returns<Array<RosterExcusalRow & { id: string; assignment_type_id: string }>>();
+					return { data, error };
+				}
+			);
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return (result.data ?? []).map((row) => ({
+				assignmentTypeId: row.assignment_type_id,
+				personId: row.personnel_id,
+				from: row.starts_on,
+				through: row.ends_on ?? null
+			}));
+		},
+		async listRosterPoolSpans(span) {
+			const result = await selectAllSupabaseRows<RosterPoolSpanRow>(async (from, to) => {
+				const { data, error } = await client
+					.from('roster_forms')
+					.select('assignment_type_id, starts_on, ends_on, rules')
+					.eq('organization_id', orgId)
+					.lte('starts_on', span.through)
+					.or(`ends_on.is.null,ends_on.gte.${span.from}`)
+					.order('starts_on', { ascending: true })
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<RosterPoolSpanRow[]>();
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return (result.data ?? []).map((row) => ({
+				assignmentTypeId: row.assignment_type_id,
+				from: row.starts_on,
+				through: row.ends_on,
+				pool: row.rules.pool ?? null
 			}));
 		},
 		async setRosterExcusals(assignmentTypeId, today, excusals) {

@@ -6,8 +6,22 @@ import { fetchCalendarReportData } from './calendarReportQuery.server';
 
 const ORG = 'test-org';
 
+const RANKS = [
+	{
+		organizationId: ORG,
+		source: 'built-in' as const,
+		code: 'SGT',
+		label: 'Sergeant',
+		service: 'army' as const,
+		category: 'enlisted' as const,
+		payGrade: 'E-5' as const,
+		state: 'active' as const,
+		sortOrder: 0
+	}
+];
+
 function buildCtx(overrides?: Parameters<typeof createTestContext>[0]) {
-	return createTestContext(overrides);
+	return Object.assign(createTestContext(overrides), { loadRankCatalog: async () => RANKS });
 }
 
 function seedData(store: ReturnType<typeof createInMemoryDataStore>) {
@@ -69,6 +83,7 @@ describe('fetchCalendarReportData', () => {
 		expect(result.statusTypes[0].name).toBe('Leave');
 		expect(result.groups).toHaveLength(2);
 		expect(result.groups[0].name).toBe('Alpha');
+		expect(result.rankCatalog.map((rank) => rank.code)).toEqual(['SGT']);
 	});
 
 	it('excludes archived personnel', async () => {

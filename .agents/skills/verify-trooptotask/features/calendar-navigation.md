@@ -282,14 +282,13 @@ filters and request controls between cases.
     390, and `scrollWidth` equals the viewport. With `Group: All`, `Calendar display` → `Show sub-groups` off draws one
     band per top-level Group, `0: 2nd Platoon`, `0: Alpha`, `0: Bravo`, `0: Unassigned`, each holding its whole
     subtree in name order with no count; on, it adds `1: 1st Squad 6`, `2: Alpha Team 4`, `2: Bravo Team 1` and
-    `1: 2nd Squad 1` under `2nd Platoon 9`. Reports → Group availability by day offers `2nd Platoon`, `Alpha` and
-    `Bravo` (`3 of 3 selected`). On it reads `0: Bravo 0%`, `0: 2nd Platoon 100%`, `1: 2nd Platoon HQ 2/2`,
-    `1: 1st Squad 6/6`, `2: 1st Squad HQ 1/1`, `2: Alpha Team 4/4`, `2: Bravo Team 1/1`, `1: 2nd Squad 1/1` and
-    `0: Alpha 100%`; off it reads only the three top-level rows. Cell colors come from the exact available fraction:
-    green at 80% or more, amber at 50% or more, red below. The summary's average availability is available People
-    over all People across the top-level rows and days, not a mean of row percentages. Status days by person
-    (`Filter personnel` → `By Group`) and Availability by day offer the same three top-level Groups; checking only
-    `2nd Platoon` selects 9 of 12 personnel, and the run lists or counts all nine.
+    `1: 2nd Squad 1` under `2nd Platoon 9`. Reports → Availability → `Group` offers `2nd Platoon`, `Alpha` and `Bravo` (`Group: 3`). With `Display` → `Show
+sub-groups` on, the Group by day grid lists each top-level Group with its sub-groups beneath, then a Total row; off
+    it lists only the top-level rows and Total. Cell tiers come from the exact available fraction: blank at 80% or more,
+    amber at 50% or more, red below. The Total row counts available People over all People for each day, not a mean of
+    row percentages. Reports → Time away → `Group` offers the same
+    three top-level Groups; checking only `2nd Platoon` selects 9 of 12 personnel, and the by-Group rows count all nine.
+    These nested-Group values are source-mapped from the seed, not re-driven on the redesigned page.
 
 20. **Lane display.** As `calendarConfigure` on Calendar September 2026 at 1440x900, 1024x768 and 390x844, record the
     `[data-lane-kind]` lanes and the date-header rects. Choose `Display` → `Show Days`, reload and read

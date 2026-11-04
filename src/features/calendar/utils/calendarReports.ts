@@ -1,6 +1,7 @@
 import type { Group, GroupRow, Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import { buildGroupTree, comparePersonnelByRankThenName, groupRows } from '$features/personnel/contracts';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
 function expandDateRange(entryStart: string, entryEnd: string, reportStart: string, reportEnd: string): string[] {
 	const start = clampDate(entryStart, reportStart, reportEnd);
@@ -60,17 +61,47 @@ function buildAvailabilityEntryDateIndex(
 	};
 }
 
+export interface AwayPerson {
+	person: Personnel;
+	statusTypeId: string;
+	statusName: string;
+	statusColor: string;
+	/**
+	 * The first day after the recorded away days, following entries that start the day the last one ends.
+	 * Null when those days reach the range end, because entries after the range are not loaded.
+	 */
+	returnDate: string | null;
+}
+
 export interface ForecastDay {
 	date: string;
 	totalPersonnel: number;
 	unavailableCount: number;
 	availableCount: number;
 	availablePercent: number;
-	unavailablePersonnel: { person: Personnel; statusName: string; statusColor: string }[];
+	unavailablePersonnel: AwayPerson[];
+	/** Away people per status, in Status Type order; a status with nobody away is absent. */
+	awayByStatus: { statusTypeId: string; count: number }[];
 }
 
 export interface AvailabilityForecastResult {
 	days: ForecastDay[];
+}
+
+function nextDay(date: string): string {
+	return fromDayNumber(toDayNumber(date) + 1);
+}
+
+/** The day `first` ends or, when another entry of the same person starts the next day or earlier, the day that one ends. */
+function lastAwayDay(first: AvailabilityEntry, personEntries: readonly AvailabilityEntry[]): string {
+	let end = first.endDate;
+	for (let extended = true; extended; ) {
+		const limit = nextDay(end);
+		const follow = personEntries.find((entry) => entry.endDate > end && entry.startDate <= limit);
+		extended = follow !== undefined;
+		if (follow) end = follow.endDate;
+	}
+	return end;
 }
 
 export function computeAvailabilityForecast(
@@ -81,12 +112,30 @@ export function computeAvailabilityForecast(
 	endDate: string
 ): AvailabilityForecastResult {
 	const statusMap = new Map(statusTypes.map((s) => [s.id, s]));
+	const statusOrder = new Map(statusTypes.map((s, index) => [s.id, index]));
 	const dates = allDatesInRange(startDate, endDate);
 	const total = personnel.length;
 	const availabilityIndex = buildAvailabilityEntryDateIndex(entries, startDate, endDate);
+	const entriesByPerson = new Map<string, AvailabilityEntry[]>();
+	for (const entry of entries) {
+		const list = entriesByPerson.get(entry.personnelId);
+		if (list) list.push(entry);
+		else entriesByPerson.set(entry.personnelId, [entry]);
+	}
+	const returnDates = new Map<AvailabilityEntry, string | null>();
+	const returnDateOf = (entry: AvailabilityEntry): string | null => {
+		let returnDate = returnDates.get(entry);
+		if (returnDate === undefined) {
+			const lastDay = lastAwayDay(entry, entriesByPerson.get(entry.personnelId) ?? [entry]);
+			returnDate = lastDay >= endDate ? null : nextDay(lastDay);
+			returnDates.set(entry, returnDate);
+		}
+		return returnDate;
+	};
 
 	const days: ForecastDay[] = dates.map((dateStr) => {
 		const unavailablePersonnel: ForecastDay['unavailablePersonnel'] = [];
+		const countByStatus = new Map<string, number>();
 
 		for (const person of personnel) {
 			const activeEntry = availabilityIndex.getFirstEntry(person.id, dateStr);
@@ -94,9 +143,12 @@ export function computeAvailabilityForecast(
 				const st = statusMap.get(activeEntry.statusTypeId);
 				unavailablePersonnel.push({
 					person,
+					statusTypeId: activeEntry.statusTypeId,
 					statusName: st?.name ?? 'Unknown',
-					statusColor: st?.color ?? '#999'
+					statusColor: st?.color ?? '#999',
+					returnDate: returnDateOf(activeEntry)
 				});
+				countByStatus.set(activeEntry.statusTypeId, (countByStatus.get(activeEntry.statusTypeId) ?? 0) + 1);
 			}
 		}
 
@@ -109,158 +161,14 @@ export function computeAvailabilityForecast(
 			unavailableCount,
 			availableCount,
 			availablePercent: total > 0 ? Math.round((availableCount / total) * 100) : 100,
-			unavailablePersonnel
+			unavailablePersonnel,
+			awayByStatus: [...countByStatus]
+				.map(([statusTypeId, count]) => ({ statusTypeId, count }))
+				.sort((a, b) => (statusOrder.get(a.statusTypeId) ?? Infinity) - (statusOrder.get(b.statusTypeId) ?? Infinity))
 		};
 	});
 
 	return { days };
-}
-
-export interface TempoRow {
-	person: Personnel;
-	totalAwayDays: number;
-	awayByStatus: Map<string, number>;
-	percentAway: number;
-	flagged: boolean;
-}
-
-export interface PersonnelTempoResult {
-	rows: TempoRow[];
-	activeStatusTypeIds: string[];
-	totalDaysInPeriod: number;
-}
-
-export function computePersonnelTempo(
-	personnel: Personnel[],
-	entries: AvailabilityEntry[],
-	statusTypes: StatusType[],
-	awayStatusTypeIds: Set<string>,
-	startDate: string,
-	endDate: string,
-	flagThreshold: number
-): PersonnelTempoResult {
-	const totalDaysInPeriod = allDatesInRange(startDate, endDate).length;
-
-	const awayEntries = entries.filter((e) => awayStatusTypeIds.has(e.statusTypeId));
-
-	const entriesByPerson = new Map<string, AvailabilityEntry[]>();
-	for (const entry of awayEntries) {
-		let list = entriesByPerson.get(entry.personnelId);
-		if (!list) {
-			list = [];
-			entriesByPerson.set(entry.personnelId, list);
-		}
-		list.push(entry);
-	}
-
-	const activeStatusTypeIds = new Set<string>();
-	const sorted = sortByRank(personnel);
-	const rows: TempoRow[] = [];
-
-	for (const person of sorted) {
-		const personEntries = entriesByPerson.get(person.id) ?? [];
-		const awayByStatus = new Map<string, number>();
-		const allAwayDates = new Set<string>();
-
-		for (const entry of personEntries) {
-			const dates = expandDateRange(entry.startDate, entry.endDate, startDate, endDate);
-			for (const dateStr of dates) {
-				allAwayDates.add(dateStr);
-				awayByStatus.set(entry.statusTypeId, (awayByStatus.get(entry.statusTypeId) ?? 0) + 1);
-				activeStatusTypeIds.add(entry.statusTypeId);
-			}
-		}
-
-		const totalAwayDays = allAwayDates.size;
-		rows.push({
-			person,
-			totalAwayDays,
-			awayByStatus,
-			percentAway: totalDaysInPeriod > 0 ? Math.round((totalAwayDays / totalDaysInPeriod) * 100) : 0,
-			flagged: totalAwayDays >= flagThreshold
-		});
-	}
-
-	rows.sort((a, b) => b.totalAwayDays - a.totalAwayDays);
-
-	return {
-		rows,
-		activeStatusTypeIds: statusTypes.filter((type) => activeStatusTypeIds.has(type.id)).map((type) => type.id),
-		totalDaysInPeriod
-	};
-}
-
-export interface CoverageRow {
-	person: Personnel;
-	assignmentCounts: Map<string, number>;
-	totalAssignments: number;
-}
-
-export interface AssignmentCoverageResult {
-	rows: CoverageRow[];
-	activeAssignmentTypeIds: string[];
-	averageTotal: number;
-}
-
-export function computeAssignmentCoverage(
-	personnel: Personnel[],
-	assignments: DailyAssignment[],
-	assignmentTypes: AssignmentType[],
-	selectedTypeIds: Set<string>,
-	startDate: string,
-	endDate: string
-): AssignmentCoverageResult {
-	const personnelTypeIds = new Set(
-		assignmentTypes.filter((t) => t.assignTo === 'personnel' && selectedTypeIds.has(t.id)).map((t) => t.id)
-	);
-	const personnelIds = new Set(personnel.map((p) => p.id));
-
-	const filtered = assignments.filter(
-		(a) =>
-			personnelTypeIds.has(a.assignmentTypeId) &&
-			personnelIds.has(a.assigneeId) &&
-			a.date >= startDate &&
-			a.date <= endDate
-	);
-
-	const assignmentsByPerson = new Map<string, DailyAssignment[]>();
-	for (const a of filtered) {
-		let list = assignmentsByPerson.get(a.assigneeId);
-		if (!list) {
-			list = [];
-			assignmentsByPerson.set(a.assigneeId, list);
-		}
-		list.push(a);
-	}
-
-	const activeAssignmentTypeIds = new Set<string>();
-	const sorted = sortByRank(personnel);
-	const rows: CoverageRow[] = [];
-
-	for (const person of sorted) {
-		const personAssignments = assignmentsByPerson.get(person.id) ?? [];
-		const assignmentCounts = new Map<string, number>();
-		let totalAssignments = 0;
-
-		for (const a of personAssignments) {
-			assignmentCounts.set(a.assignmentTypeId, (assignmentCounts.get(a.assignmentTypeId) ?? 0) + 1);
-			totalAssignments++;
-			activeAssignmentTypeIds.add(a.assignmentTypeId);
-		}
-
-		rows.push({ person, assignmentCounts, totalAssignments });
-	}
-
-	const averageTotal =
-		rows.length > 0 ? Math.round((rows.reduce((sum, r) => sum + r.totalAssignments, 0) / rows.length) * 10) / 10 : 0;
-
-	return {
-		rows,
-		activeAssignmentTypeIds: assignmentTypes
-			.filter((type) => activeAssignmentTypeIds.has(type.id))
-			.map((type) => type.id),
-		averageTotal
-	};
 }
 
 export interface ReadinessCell {
@@ -305,14 +213,18 @@ export interface GroupReadinessResult {
 	dates: string[];
 }
 
-/** Availability per day for each selected top-level Group's subtree. */
+/**
+ * Availability per day for each selected top-level Group's subtree. `includeUnassigned` adds people outside the Group
+ * tree as an Unassigned row, for a caller whose selection is every Group.
+ */
 export function computeGroupReadiness(
 	personnel: Personnel[],
 	entries: AvailabilityEntry[],
 	groups: readonly Group[],
 	selectedRootIds: ReadonlySet<string>,
 	startDate: string,
-	endDate: string
+	endDate: string,
+	includeUnassigned = false
 ): GroupReadinessResult {
 	const dates = allDatesInRange(startDate, endDate);
 	const availabilityIndex = buildAvailabilityEntryDateIndex(entries, startDate, endDate);
@@ -340,6 +252,8 @@ export function computeGroupReadiness(
 	});
 	const fromGroupRow = (row: GroupRow<Personnel>) => readinessRow({ ...row, groupId: row.key, groupName: row.label });
 
+	const unassigned = includeUnassigned ? personnel.filter((person) => !tree.node(person.groupId ?? '')) : [];
+
 	const exact = groups
 		.filter((group) => selected(group.id))
 		.map((group) =>
@@ -351,8 +265,13 @@ export function computeGroupReadiness(
 				items: personnel.filter((person) => person.groupId === group.id)
 			})
 		);
+	if (unassigned.length > 0) {
+		exact.push(
+			readinessRow({ groupId: 'unassigned', groupName: 'Unassigned', level: 0, subtotal: false, items: unassigned })
+		);
+	}
 
-	const inSelection = personnel.filter((person) => selected(person.groupId));
+	const inSelection = personnel.filter((person) => selected(person.groupId) || unassigned.includes(person));
 	const setsByRoot = new Map(
 		groupRows(tree, inSelection, (person) => person.groupId, true).map((set) => [set.top.key, set])
 	);
@@ -367,6 +286,8 @@ export function computeGroupReadiness(
 				below: set?.below.map(fromGroupRow) ?? []
 			};
 		});
+	const unassignedSet = setsByRoot.get('unassigned');
+	if (unassignedSet) sets.push({ top: fromGroupRow(unassignedSet.top), below: [] });
 
 	return { groups: exact, sets, dates };
 }

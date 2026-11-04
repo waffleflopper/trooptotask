@@ -11,7 +11,7 @@ const WINDOW_MS = 15 * 60 * 1000;
 const MAX_PER_EMAIL = 10;
 const MAX_PER_IP = 50;
 
-// Every attempt that reaches the provider counts, so guessing one account's password is
+// Every attempt counts before the provider sees it, so guessing one account's password is
 // capped across every instance and address, and one address cannot spray many accounts.
 export async function admitSignInAttempt(input: {
 	email: string;

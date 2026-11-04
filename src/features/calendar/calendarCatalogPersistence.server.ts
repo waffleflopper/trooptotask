@@ -31,7 +31,7 @@ type RosterPoolSpanRow = {
 	assignment_type_id: string;
 	starts_on: string;
 	ends_on: string | null;
-	rules: { pool: PoolRules | null };
+	pool: PoolRules | null;
 };
 
 export const CALENDAR_CHANGE_NOT_SAVED_MESSAGE =
@@ -477,13 +477,7 @@ export function createSupabaseCalendarCatalogPersistence(
 		async listRosterPoolSpans(span) {
 			const result = await selectAllSupabaseRows<RosterPoolSpanRow>(async (from, to) => {
 				const { data, error } = await client
-					.from('roster_forms')
-					.select('assignment_type_id, starts_on, ends_on, rules')
-					.eq('organization_id', orgId)
-					.lte('starts_on', span.through)
-					.or(`ends_on.is.null,ends_on.gte.${span.from}`)
-					.order('starts_on', { ascending: true })
-					.order('id', { ascending: true })
+					.rpc('roster_pool_spans', { p_organization_id: orgId, p_from: span.from, p_through: span.through })
 					.range(from, to)
 					.returns<RosterPoolSpanRow[]>();
 				return { data, error };
@@ -493,7 +487,7 @@ export function createSupabaseCalendarCatalogPersistence(
 				assignmentTypeId: row.assignment_type_id,
 				from: row.starts_on,
 				through: row.ends_on,
-				pool: row.rules.pool ?? null
+				pool: row.pool
 			}));
 		},
 		async setRosterExcusals(assignmentTypeId, today, excusals) {

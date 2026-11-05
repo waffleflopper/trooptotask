@@ -84,6 +84,10 @@ export function validateEnvironmentConfig(input: EnvironmentConfigInput): Enviro
 			errors.push('ACCOUNT_SETUP_SESSION_SECRET is required in production');
 		}
 
+		if (!isPresent(input.env.CRON_SECRET) && !isPresent(input.env.CLEANUP_SECRET)) {
+			errors.push('CRON_SECRET or CLEANUP_SECRET is required in production');
+		}
+
 		const hasOfficialOrigin = OFFICIAL_PUBLIC_ORIGIN_NAMES.some((name) => isPresent(input.env[name]));
 		if (!hasOfficialOrigin) {
 			errors.push('APP_PUBLIC_ORIGIN, PUBLIC_APP_ORIGIN, or PUBLIC_SITE_URL is required in production');
@@ -108,6 +112,8 @@ function currentEnv(): Record<string, string | undefined> {
 		RESEND_FROM_EMAIL: env.RESEND_FROM_EMAIL,
 		RESEND_WEBHOOK_SECRET: env.RESEND_WEBHOOK_SECRET,
 		ACCOUNT_SETUP_SESSION_SECRET: env.ACCOUNT_SETUP_SESSION_SECRET,
+		CRON_SECRET: env.CRON_SECRET,
+		CLEANUP_SECRET: env.CLEANUP_SECRET,
 		APP_PUBLIC_ORIGIN: env.APP_PUBLIC_ORIGIN ?? process.env.APP_PUBLIC_ORIGIN,
 		PUBLIC_APP_ORIGIN: env.PUBLIC_APP_ORIGIN ?? process.env.PUBLIC_APP_ORIGIN,
 		PUBLIC_SITE_URL: env.PUBLIC_SITE_URL ?? process.env.PUBLIC_SITE_URL,

@@ -10,6 +10,7 @@ import {
 	type CalendarProjection,
 	type CalendarProjectionRead
 } from './calendarProjection';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface CalendarProjectionReader {
 	/** Runs as the signed-in reader, so the database applies the read policy to every row. */
@@ -71,7 +72,7 @@ export async function readCalendarProjection(
 		]);
 		return { kind: 'loaded', ...projection, facts: calendarTaskingFacts(projection, workspace, today) };
 	} catch (error) {
-		console.error('[calendar-projection]', error);
+		console.error('[calendar-projection]', sanitizeErrorForLog(error));
 		return { kind: 'failed' };
 	}
 }

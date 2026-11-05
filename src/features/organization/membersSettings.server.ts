@@ -24,6 +24,7 @@ import type {
 } from './memberSettingsTypes';
 import { disabledFeatureLanes, type FeatureKey } from '$lib/access/featureSwitches';
 import type { SettingsInvitationAccessRow } from './settingsMemberAccessModel';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface LoadMembersSettingsInput {
 	isAdmin: boolean;
@@ -139,7 +140,7 @@ async function loadInvitationSetupStates(
 		console.error('[members-settings]', {
 			operation: 'loadInvitationSetupStates',
 			organizationId: ctx.auth.orgId,
-			error: error instanceof Error ? error.message : 'Invitation setup state lookup failed'
+			error: error instanceof Error ? sanitizeErrorForLog(error.message) : 'Invitation setup state lookup failed'
 		});
 		return undefined;
 	}

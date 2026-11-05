@@ -10,6 +10,7 @@ import { auditLog } from '$lib/audit/index.server';
 import { durableRateLimitAuditDetails } from '$lib/access/index.server';
 import { readJsonBody, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 function text(value: unknown, maxLength: number): string {
 	return typeof value === 'string' ? sanitizeString(value, maxLength) : '';
@@ -92,7 +93,7 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 		if (isHttpError(submitError)) {
 			throw submitError;
 		}
-		console.error('Failed to submit access request:', submitError);
+		console.error('Failed to submit access request:', sanitizeErrorForLog(submitError));
 		throw error(500, 'Failed to submit request');
 	}
 

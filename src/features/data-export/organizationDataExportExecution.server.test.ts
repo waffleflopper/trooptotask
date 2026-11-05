@@ -280,7 +280,11 @@ describe('executeOrganizationDataExport', () => {
 			]);
 			expect(consoleError).toHaveBeenCalledWith(
 				'[data-exports]',
-				expect.objectContaining({ status: 'completion-notification-failed', exportId: rows[0].id, error: failure })
+				expect.objectContaining({
+					status: 'completion-notification-failed',
+					exportId: rows[0].id,
+					error: expect.stringMatching(/^name=Error message=admin notification failed/)
+				})
 			);
 		}
 	);

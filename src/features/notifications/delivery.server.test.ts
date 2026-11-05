@@ -77,7 +77,7 @@ describe('notification delivery', () => {
 			await expect(send()).resolves.toBeUndefined();
 			expect(provider.state.rows).toEqual([]);
 			expect(provider.state.attempts).toHaveLength(1);
-			expect(logged).toHaveBeenCalledWith(expect.any(String), 'write unavailable');
+			expect(logged).toHaveBeenCalledWith(expect.any(String), 'message=write unavailable code=42501');
 			provider.state.failure = null;
 			await send();
 			expect(provider.state.rows).toHaveLength(1);

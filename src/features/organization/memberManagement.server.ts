@@ -46,6 +46,7 @@ import {
 	type OrganizationInvitationRateLimiter
 } from './invitationRateLimit.server';
 import { validateEmail, validateUUID } from '$lib/server/validation';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -651,7 +652,7 @@ async function deliverInvitationEmail(
 			organizationId: ports.auth.orgId,
 			invitationId: input.invitationId,
 			mode: input.mode,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 		return 'failed';
 	}
@@ -1075,7 +1076,7 @@ async function notifyAdminsOfRevokedInvitation(
 			status: 'revoked-notification-failed',
 			organizationId: ports.auth.orgId,
 			userId: input.actorUserId,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 	}
 }
@@ -1096,7 +1097,7 @@ async function notifyAdminsOfExpiredInvitation(
 			status: 'expired-notification-failed',
 			organizationId: ports.auth.orgId,
 			userId: input.actorUserId,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 	}
 }

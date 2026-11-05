@@ -2,6 +2,7 @@ import { error, fail, isHttpError, redirect } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { Actions, PageServerLoad } from './$types';
 import { createRequestReporterFeedback } from '$lib/server/adapters/feedbackDelivery.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const actor = locals.actor;
@@ -14,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		return { feedback };
 	} catch (cause) {
 		if (isHttpError(cause)) throw cause;
-		console.error('[feedback] reporter detail failed', cause);
+		console.error('[feedback] reporter detail failed', sanitizeErrorForLog(cause));
 		return { feedback: null };
 	}
 };

@@ -23,6 +23,7 @@ import {
 import { fetchTrainingWorkspaceData } from '$features/training/index.server';
 import { fail } from '$lib/errors';
 import { viewerToday } from '$lib/server/viewerDay.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface TrainingWorkspaceRequestContext {
 	locals: App.Locals;
@@ -78,7 +79,10 @@ export async function streamTrainingWorkspaceBootstrap(
 						return { readinessGoalPercent: organization.trainingReadinessGoalPercent, readinessAsOf };
 					})
 					.catch((error: unknown) => {
-						console.error('[training-workspace] Failed to load readiness goal', { orgId: ctx.auth.orgId, error });
+						console.error('[training-workspace] Failed to load readiness goal', {
+							orgId: ctx.auth.orgId,
+							error: sanitizeErrorForLog(error)
+						});
 						return { readinessGoalPercent: null, readinessAsOf };
 					})
 			};

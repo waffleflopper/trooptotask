@@ -5,6 +5,8 @@ const LONG_DIGIT_PATTERN = /\d{7,}/g;
 const MAX_LOG_LENGTH = 1000;
 const TRUNCATED_MARKER = '… [truncated]';
 const LOG_OBJECT_KEYS = ['name', 'message', 'code', 'details', 'hint'] as const;
+const FAILING_ROW = /Failing row contains[\s\S]*/i;
+const KEY_VALUE = /\)=\(.*?\)(?=[\s.,;]|$)/g;
 
 /**
  * Never serializes arbitrary object graphs — only named diagnostic fields —
@@ -23,10 +25,10 @@ export function sanitizeErrorForLog(err: unknown): string {
 
 function extractDiagnosticString(err: unknown): string {
 	if (err instanceof Error) {
-		const parts = [`name=${err.name}`, `message=${err.message}`];
+		const parts = [`name=${err.name}`, `message=${withoutRowValues(err.message)}`];
 
 		if (err.stack) {
-			parts.push(`stack=${err.stack.split('\n').slice(0, 5).join('\n')}`);
+			parts.push(`stack=${withoutRowValues(err.stack.split('\n').slice(0, 5).join('\n'))}`);
 		}
 
 		return parts.join(' ');
@@ -39,7 +41,7 @@ function extractDiagnosticString(err: unknown): string {
 			const value = record[key];
 
 			if (typeof value === 'string' || typeof value === 'number') {
-				return `${key}=${String(value)}`;
+				return `${key}=${withoutRowValues(String(value))}`;
 			}
 
 			return [];
@@ -47,6 +49,11 @@ function extractDiagnosticString(err: unknown): string {
 	}
 
 	return String(err);
+}
+
+/** Postgres names a constraint's key and repeats a failing row in its detail; the names help, the values never do. */
+function withoutRowValues(text: string): string {
+	return text.replace(FAILING_ROW, 'Failing row contains (?)').replace(KEY_VALUE, ')=(?)');
 }
 
 function maskSensitiveText(value: string): string {

@@ -237,7 +237,10 @@ describe('Feedback submission', () => {
 				pageUrl: '/feedback'
 			})
 		).resolves.toEqual({ status: 'submission_failed', message: 'Failed to submit feedback' });
-		expect(consoleError).toHaveBeenCalledWith('Failed to insert feedback:', expect.any(Error));
+		expect(consoleError).toHaveBeenCalledWith(
+			'Failed to insert feedback:',
+			expect.stringMatching(/^name=Error message=insert failed/)
+		);
 		consoleError.mockRestore();
 	});
 

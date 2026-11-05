@@ -22,6 +22,12 @@ const QUOTED = /"[^"]*"|'[^']*'|`[^`]*`/g;
 const UNCLOSED_QUOTE = /["'`]/;
 const KEY_VALUE_PAIR = /\([^()]*\)\s*=\s*\([^()]*\)/g;
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+/** A run this long and unbroken by spaces is a credential or opaque identifier, never a sentence. */
+const TOKEN_RUN = /[A-Za-z0-9._~+/=-]{20,}/g;
+/** One long word, such as a surname, is left for the name mask to read with the words around it. */
+const WORD = /^[A-Z]?[a-z-]+$/;
+/** Single-case words joined by `_` or `.` name a code or a schema object, such as ERR_CONNECTION_REFUSED; a credential mixes case. */
+const IDENTIFIER = /^(?:[A-Z][A-Z0-9]*(?:_[A-Z][A-Z0-9]*)+|[a-z][a-z0-9]*(?:[._][a-z][a-z0-9]*)+)$/;
 const DIGIT_RUN = /\d+/g;
 const NAME_SHAPE = /^[A-Za-z_$][A-Za-z0-9_$.]*$/;
 const CODE_SHAPE = /^[A-Za-z0-9_.:-]+$/;
@@ -36,6 +42,15 @@ function cutAt(text: string, marker: RegExp): string {
 	return match ? text.slice(0, match.index) : text;
 }
 
+/** A whole run is judged before any part of it is replaced, so a UUID inside a credential cannot split it. */
+function maskOpaqueRun(run: string): string {
+	// A sentence's closing period joins the run, so the shape is read without it.
+	const shape = run.replace(/\.+$/, '');
+	if (WORD.test(shape) || IDENTIFIER.test(shape)) return run;
+	const ids = run.replace(UUID, '[id]');
+	return /[A-Za-z0-9]/.test(ids.replaceAll('[id]', '')) ? '[token]' : ids;
+}
+
 export function normalizeFailureMessage(raw: string): string {
 	// A failure's message can be any size; the patterns below only ever need the start of it.
 	const withoutValues = cutAt(cutAt(raw.slice(0, MAX_NORMALIZED_INPUT_LENGTH), /Failing row contains/i), /\bDETAIL\b/);
@@ -44,8 +59,8 @@ export function normalizeFailureMessage(raw: string): string {
 	const closed = raw.length > MAX_NORMALIZED_INPUT_LENGTH ? cutAt(quotesMasked, UNCLOSED_QUOTE) : quotesMasked;
 	return closed
 		.replace(KEY_VALUE_PAIR, '?')
+		.replace(TOKEN_RUN, maskOpaqueRun)
 		.replace(PERSON_NAME, '[name]')
-		.replace(UUID, '[id]')
 		.replace(DIGIT_RUN, '[n]')
 		.replace(/\s+/g, ' ')
 		.trim()

@@ -12,6 +12,7 @@ import { INVALID_EMAIL_MESSAGE } from '$features/identity/contracts';
 import { auditLog } from '$lib/audit/index.server';
 import { durableRateLimitAuditDetails } from '$lib/access/index.server';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
@@ -75,7 +76,7 @@ export const actions: Actions = {
 				origin: url.origin
 			});
 		} catch (error) {
-			console.error('Failed to renew approved access request setup link:', error);
+			console.error('Failed to renew approved access request setup link:', sanitizeErrorForLog(error));
 			return fail(500, {
 				error: 'We could not send a fresh Account Setup Link right now. Please try again in a few minutes.',
 				email

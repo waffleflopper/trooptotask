@@ -218,7 +218,7 @@ describe('loadAppShellDeferredChrome', () => {
 			}
 			expect(consoleError).toHaveBeenCalledWith(
 				"[app-shell] Failed to load deferred chrome part 'notification-count':",
-				cause
+				expect.stringMatching(/^name=Error message=relation "notifications" does not exist/)
 			);
 		} finally {
 			consoleError.mockRestore();
@@ -247,7 +247,7 @@ describe('loadAppShellDeferredChrome', () => {
 			}
 			expect(consoleError).toHaveBeenCalledWith(
 				"[app-shell] Failed to load deferred chrome part 'organization-switcher':",
-				cause
+				expect.stringMatching(/^name=Error message=Failed to load organization memberships: policy denied/)
 			);
 		} finally {
 			consoleError.mockRestore();

@@ -2,9 +2,11 @@ import { error, json, type RequestEvent } from '@sveltejs/kit';
 import {
 	captureFailure,
 	createSupabaseErrorRecordingStore,
+	isClientReportLimited,
 	type CaptureConfig
 } from '$features/error-reporting/index.server';
 import { clientErrorReportSchema } from '$features/error-reporting/contracts';
+import type { DurableRateLimitStore } from '$lib/access/index.server';
 import { requireActiveOrganization } from '$features/organization/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { issueMessage } from '$lib/utils/inputSchemas';
@@ -15,14 +17,23 @@ const KNOWN_ROUTE_IDS = new Set(__APP_ROUTE_IDS__);
 /**
  * Receive one failure a signed-in browser saw: a render error, a transport failure or a write whose result it never
  * learned. The body is strict, so it cannot name a user, Organization, origin or reference. The server generates the
- * reference and attributes the account from the session and the Organization from this request's admission.
+ * reference and attributes the account from the session and the Organization from this request's admission. Each
+ * account may send 30 an hour across both endpoints.
  */
 export async function receiveClientErrorReport(
 	event: Pick<RequestEvent, 'locals' | 'params' | 'request'>,
-	scope: 'account' | 'organization'
+	scope: 'account' | 'organization',
+	rateLimitStore?: DurableRateLimitStore
 ): Promise<Response> {
 	const actor = event.locals.actor;
 	if (!actor) error(401, 'Authentication required');
+
+	// Past the hourly budget the report is dropped quietly: the browser reads an empty answer as "no reference".
+	// A check that cannot run stores nothing and answers like a failed store.
+	const limited = await isClientReportLimited({ userId: actor.userId, store: rateLimitStore }).catch(() =>
+		error(503, 'Report could not be stored')
+	);
+	if (limited) return new Response(null, { status: 204 });
 
 	const body = await readJsonBody(event).catch(rethrowOrWrap);
 	const parsed = clientErrorReportSchema.safeParse(body);

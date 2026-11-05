@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import { createRequestFeedbackStaffOperations } from '$lib/server/adapters/feedbackDelivery.server';
 import { feedbackStaffCommandSchema } from '$features/feedback/index.server';
 import type { FeedbackStaffResult } from '$features/feedback/contracts';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 const COMMAND_STATUS = {
 	replied: 200,
@@ -31,7 +32,7 @@ export const GET: RequestHandler = async (event) => {
 			headers: { 'Cache-Control': 'private, no-store' }
 		});
 	} catch (cause) {
-		console.error('[feedback] staff detail failed', cause);
+		console.error('[feedback] staff detail failed', sanitizeErrorForLog(cause));
 		error(500, 'Unable to load feedback details.');
 	}
 };
@@ -45,7 +46,7 @@ export const POST: RequestHandler = async (event) => {
 		const result = await operations.execute(id, parsed.data);
 		return json(result, { status: COMMAND_STATUS[result.status] });
 	} catch (cause) {
-		console.error('[feedback] staff command failed', cause);
+		console.error('[feedback] staff command failed', sanitizeErrorForLog(cause));
 		error(500, 'Unable to complete the feedback command. Reload the feedback before trying again.');
 	}
 };

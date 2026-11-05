@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyFailure, sanitizeFailureForCapture } from './failureCapture';
+import { classifyFailure, normalizeFailureMessage, sanitizeFailureForCapture } from './failureCapture';
 
 describe('sanitizeFailureForCapture', () => {
 	it('drops a quoted value the length limit cuts before its closing quote', () => {
@@ -8,8 +8,38 @@ describe('sanitizeFailureForCapture', () => {
 	});
 
 	it('bounds the message it stores however long the failure is', () => {
-		const { message } = sanitizeFailureForCapture({ message: 'a'.repeat(100_000) });
-		expect(message).toBe('a'.repeat(300));
+		const { message } = sanitizeFailureForCapture({ message: 'word '.repeat(20_000) });
+		expect(message).toBe('word '.repeat(60));
+	});
+
+	it('masks a long unquoted token such as a JWT', () => {
+		expect(normalizeFailureMessage('Invalid JWT eyJhbGciOiJIUzI1NiJ9.abcdefghijklmnop')).toBe('Invalid JWT [token]');
+	});
+
+	it('still reads a UUID as an id rather than a token', () => {
+		expect(normalizeFailureMessage('No row for 8a1f0c2e-1111-4222-8333-444455556666')).toBe('No row for [id]');
+	});
+
+	it('masks a whole credential even when a UUID sits inside it', () => {
+		expect(
+			normalizeFailureMessage('Bearer abcdefghijklmnop-8a1f0c2e-1111-4222-8333-444455556666-abcdefghijklmnop')
+		).toBe('Bearer [token]');
+	});
+
+	it('keeps long error codes and schema names apart instead of masking them as tokens', () => {
+		expect(normalizeFailureMessage('fetch failed ERR_CONNECTION_REFUSED')).toBe('fetch failed ERR_CONNECTION_REFUSED');
+		expect(normalizeFailureMessage('relation public.platform_error_groups does not exist')).toBe(
+			'relation public.platform_error_groups does not exist'
+		);
+	});
+
+	it('masks a full name whose surname is as long as a token', () => {
+		expect(normalizeFailureMessage('Could not save Jane Venkatanarasimharaju')).toBe('Could not save [name]');
+		expect(normalizeFailureMessage('Could not save Jane Venkatanarasimharaju.')).toBe('Could not save [name].');
+	});
+
+	it('reads a UUID ending a sentence as an id', () => {
+		expect(normalizeFailureMessage('No row for 8a1f0c2e-1111-4222-8333-444455556666.')).toBe('No row for [id].');
 	});
 
 	it.each([
@@ -63,7 +93,7 @@ describe('sanitizeFailureForCapture', () => {
 	});
 
 	it('truncates to 300 characters and rejects unusual names and codes', () => {
-		const result = sanitizeFailureForCapture({ name: 'Jane Smith', code: 'has space', message: 'x'.repeat(500) });
+		const result = sanitizeFailureForCapture({ name: 'Jane Smith', code: 'has space', message: 'word '.repeat(100) });
 		expect(result.name).toBe('Error');
 		expect(result.code).toBeNull();
 		expect(result.message).toHaveLength(300);

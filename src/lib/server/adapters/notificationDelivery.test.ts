@@ -240,7 +240,7 @@ describe('notification producers', () => {
 
 			expect(provider.stored).toEqual([]);
 			expect(provider.attempts).toHaveLength(1);
-			expect(logged).toHaveBeenCalledWith(expect.any(String), 'provider unavailable');
+			expect(logged).toHaveBeenCalledWith(expect.any(String), 'message=provider unavailable');
 
 			// There is no automatic retry or delivery guarantee: a caller initiates this second attempt.
 			provider.insertError = null;

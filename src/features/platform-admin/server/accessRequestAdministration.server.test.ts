@@ -948,7 +948,7 @@ describe('Platform Access Request Administration', () => {
 				status: 'blocked-invitation-notification-failed',
 				organizationId: 'org-1',
 				invitationId: 'invite-1',
-				error: notificationError
+				error: expect.stringMatching(/^name=Error message=notification unavailable/)
 			});
 			expect(JSON.stringify(consoleError.mock.calls)).not.toContain('invitee@example.com');
 		} finally {

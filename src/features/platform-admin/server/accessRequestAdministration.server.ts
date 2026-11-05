@@ -48,6 +48,7 @@ import type {
 	PlatformAccessRequestAdministrationStore,
 	PlatformAccessRequestAdministrationAuditEvent
 } from '../accessRequestTypes';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 export type * from '../accessRequestTypes';
 
 interface PlatformAccessRequestGovernorNotifier {
@@ -375,7 +376,7 @@ async function notifyGovernorsOfBlockedInvitations(input: {
 				status: 'blocked-invitation-notification-failed',
 				organizationId: invitation.organizationId,
 				invitationId: invitation.id,
-				error
+				error: sanitizeErrorForLog(error)
 			});
 		}
 	}

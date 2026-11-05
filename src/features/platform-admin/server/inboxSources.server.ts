@@ -24,6 +24,7 @@ import {
 	type InboxSourceResult,
 	type InboxTab
 } from '../inboxTypes';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 /** What the Inbox needs from one item kind. Adding a kind adds one entry to `InboxSources`. */
 export interface InboxSource<K extends InboxKind> {
@@ -183,7 +184,7 @@ export async function readInboxSource<K extends InboxKind>(
 		const { count, items } = await source.read(tab);
 		return { status: 'ok', count, items };
 	} catch (cause) {
-		console.error('[platform-admin-inbox] source read failed', cause);
+		console.error('[platform-admin-inbox] source read failed', sanitizeErrorForLog(cause));
 		return { status: 'error' };
 	}
 }
@@ -206,7 +207,7 @@ export async function countOpenInboxItems(sources: InboxSources): Promise<number
 		const counts = await Promise.all(INBOX_KINDS.map((kind) => sources[kind].countOpen()));
 		return counts.reduce((total, count) => total + count, 0);
 	} catch (cause) {
-		console.error('[platform-admin-inbox] open count failed', cause);
+		console.error('[platform-admin-inbox] open count failed', sanitizeErrorForLog(cause));
 		return null;
 	}
 }

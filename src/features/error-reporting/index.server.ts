@@ -11,6 +11,7 @@ export {
 	type ErrorScopeResult,
 	type StoredErrorOccurrence
 } from './server/errorCapture.server';
+export { isClientReportLimited } from './server/clientReportRateLimit.server';
 export {
 	cleanupPlatformErrors,
 	createSupabaseErrorGroupReader,

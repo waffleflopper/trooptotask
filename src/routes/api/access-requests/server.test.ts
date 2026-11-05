@@ -272,7 +272,7 @@ describe('POST /api/access-requests', () => {
 		});
 		expect(consoleError).toHaveBeenCalledWith(
 			'Failed to submit access request:',
-			expect.objectContaining({ status: 409 })
+			'message=provider-specific service failure'
 		);
 
 		consoleError.mockRestore();

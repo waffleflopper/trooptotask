@@ -1,5 +1,6 @@
 import { fail } from '$lib/errors';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 export interface DashboardInvitationAuditPort {
 	log(event: { action: string; resourceType: string; resourceId?: string; details?: Record<string, unknown> }): void;
 }
@@ -280,7 +281,7 @@ async function notifyAdminsOfAcceptedInvitation(
 			status: 'accepted-notification-failed',
 			organizationId: input.organizationId,
 			userId: input.userId,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 	}
 }
@@ -301,7 +302,7 @@ async function notifyAdminsOfDeclinedInvitation(
 			status: 'declined-notification-failed',
 			organizationId: input.organizationId,
 			userId: input.userId,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 	}
 }
@@ -322,7 +323,7 @@ async function notifyAdminsOfExpiredInvitation(
 			status: 'expired-notification-failed',
 			organizationId: input.organizationId,
 			userId: input.userId,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 	}
 }

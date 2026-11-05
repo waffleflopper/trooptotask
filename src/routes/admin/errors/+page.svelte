@@ -186,7 +186,7 @@
 	<AdminPageHeader
 		{eyebrow}
 		title="Errors"
-		description="Failures people hit, grouped by cause so one bug counts once. A resolved error reopens if it happens again."
+		description="Failures people hit, grouped by cause so one bug counts once. A resolved server error reopens if it happens again."
 	/>
 
 	<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">

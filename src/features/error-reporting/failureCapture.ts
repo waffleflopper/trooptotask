@@ -24,6 +24,10 @@ const KEY_VALUE_PAIR = /\([^()]*\)\s*=\s*\([^()]*\)/g;
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 /** A run this long and unbroken by spaces is a credential or opaque identifier, never a sentence. */
 const TOKEN_RUN = /[A-Za-z0-9._~+/=-]{20,}/g;
+/** One long word, such as a surname, is left for the name mask to read with the words around it. */
+const WORD = /^[A-Z]?[a-z-]+$/;
+/** Single-case words joined by `_` or `.` name a code or a schema object, such as ERR_CONNECTION_REFUSED; a credential mixes case. */
+const IDENTIFIER = /^(?:[A-Z][A-Z0-9]*(?:_[A-Z][A-Z0-9]*)+|[a-z][a-z0-9]*(?:[._][a-z][a-z0-9]*)+)$/;
 const DIGIT_RUN = /\d+/g;
 const NAME_SHAPE = /^[A-Za-z_$][A-Za-z0-9_$.]*$/;
 const CODE_SHAPE = /^[A-Za-z0-9_.:-]+$/;
@@ -40,8 +44,7 @@ function cutAt(text: string, marker: RegExp): string {
 
 /** A whole run is judged before any part of it is replaced, so a UUID inside a credential cannot split it. */
 function maskOpaqueRun(run: string): string {
-	// A single long word, such as a surname, is left for the name mask to read with the words around it.
-	if (/^[A-Z]?[a-z-]+$/.test(run)) return run;
+	if (WORD.test(run) || IDENTIFIER.test(run)) return run;
 	const ids = run.replace(UUID, '[id]');
 	return /[A-Za-z0-9]/.test(ids.replaceAll('[id]', '')) ? '[token]' : ids;
 }

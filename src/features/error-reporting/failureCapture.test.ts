@@ -26,6 +26,13 @@ describe('sanitizeFailureForCapture', () => {
 		).toBe('Bearer [token]');
 	});
 
+	it('keeps long error codes and schema names apart instead of masking them as tokens', () => {
+		expect(normalizeFailureMessage('fetch failed ERR_CONNECTION_REFUSED')).toBe('fetch failed ERR_CONNECTION_REFUSED');
+		expect(normalizeFailureMessage('relation public.platform_error_groups does not exist')).toBe(
+			'relation public.platform_error_groups does not exist'
+		);
+	});
+
 	it('masks a full name whose surname is as long as a token', () => {
 		expect(normalizeFailureMessage('Could not save Jane Venkatanarasimharaju')).toBe('Could not save [name]');
 	});

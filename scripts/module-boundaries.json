@@ -45,6 +45,7 @@
 			"files": [
 				"scripts/check-governance.mjs",
 				"src/app.d.ts",
+				"src/contentSecurityPolicy.test.ts",
 				"src/hooks.organizationAdmission.test.ts",
 				"src/hooks.server.test.ts",
 				"src/hooks.server.ts",
@@ -89,6 +90,7 @@
 				"src/lib/server/adapters/privateResources.test.ts",
 				"src/lib/server/adapters/onboardingRequestPersistence.server.test.ts",
 				"src/hooks.client.ts",
+				"src/lib/zodJitless.ts",
 				"src/hooks.client.test.ts",
 				"src/lib/server/adapters/errorCapture.server.ts",
 				"src/lib/server/adapters/errorCapture.server.test.ts",

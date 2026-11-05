@@ -1,3 +1,4 @@
+import '$lib/zodJitless';
 import type { ClientInit, HandleClientError } from '@sveltejs/kit/hooks';
 import { page } from '$app/state';
 import { classifyFailure, installClientErrorCapture, orgSegmentOf } from '$features/error-reporting';

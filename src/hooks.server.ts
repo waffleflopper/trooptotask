@@ -13,7 +13,6 @@ import { captureHandle, handleServerError } from '$lib/server/adapters/errorCapt
 import '$lib/server/env'; // validate env vars on startup
 
 const securityHeaders: Record<string, string> = {
-	'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; frame-src 'none'; connect-src 'self' https://vitals.vercel-insights.com; img-src 'self' data: blob:; font-src 'self'`,
 	'X-Frame-Options': 'DENY',
 	'X-Content-Type-Options': 'nosniff',
 	'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -147,15 +146,23 @@ const appHandle: Handle = async ({ event, resolve }) => {
 		authCookies.markResponseGenerated();
 	}
 
-	for (const [header, value] of Object.entries(securityHeaders)) {
-		response.headers.set(header, value);
-	}
-
 	return response;
 };
 
-/** Capture wraps the app's handle, so it sees its failures and the status of every response it produces. */
-export const handle: Handle = ({ event, resolve }) =>
-	captureHandle({ event, resolve: async (scopedEvent) => appHandle({ event: scopedEvent, resolve }) });
+/**
+ * Capture wraps the app's handle, so it sees its failures and the status of every response it produces.
+ * Security headers go on whatever comes back, including the throttle and admission responses built before `resolve`.
+ * The Content-Security-Policy is SvelteKit's `kit.csp`, set in vite.config.ts.
+ */
+export const handle: Handle = async ({ event, resolve }) => {
+	const response = await captureHandle({
+		event,
+		resolve: async (scopedEvent) => appHandle({ event: scopedEvent, resolve })
+	});
+	for (const [header, value] of Object.entries(securityHeaders)) {
+		response.headers.set(header, value);
+	}
+	return response;
+};
 
 export const handleError = handleServerError;

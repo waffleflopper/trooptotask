@@ -138,6 +138,23 @@ SELECT bag_eq(
     ('calendar_tasking.checklist_removed', 'Range detail', '{"item": "Confirm net check"}'::jsonb) $$,
   'equipment and checklist changes name the item against their tasking, and a reorder writes nothing here');
 
+-- A return is recorded on a completed tasking too.
+SELECT pg_temp.act_as('2');
+SET LOCAL ROLE authenticated;
+INSERT INTO public.calendar_taskings (id, organization_id, title, suspense_on)
+VALUES (pg_temp.id('405'), pg_temp.id('101'), 'Returns detail', '2030-11-10');
+INSERT INTO public.calendar_tasking_equipment (id, organization_id, tasking_id, name, quantity, secured_quantity)
+VALUES (pg_temp.id('503'), pg_temp.id('101'), pg_temp.id('405'), 'Tents', 3, 3);
+SELECT pg_temp.move('405', 'start');
+SELECT pg_temp.move('405', 'complete');
+UPDATE public.calendar_tasking_equipment SET returned_quantity = 2 WHERE id = pg_temp.id('503');
+RESET ROLE;
+SELECT bag_eq(
+  $$ SELECT action, details FROM pg_temp.entries('405') WHERE action ~ 'equipment' $$,
+  $$ VALUES ('calendar_tasking.equipment_added', '{"item": "Tents"}'::jsonb),
+            ('calendar_tasking.equipment_changed', '{"item": "Tents"}'::jsonb) $$,
+  'a return recorded on a completed tasking writes its own entry');
+
 -- A renamed tasking leaves earlier entries as they were written.
 SELECT pg_temp.act_as('2');
 SET LOCAL ROLE authenticated;

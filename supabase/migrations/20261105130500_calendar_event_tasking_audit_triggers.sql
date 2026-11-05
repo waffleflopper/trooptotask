@@ -154,7 +154,8 @@ BEGIN
     PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.equipment_removed', 'calendar_tasking',
       v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.name));
   ELSE
-    IF NEW.name IS DISTINCT FROM OLD.name OR NEW.quantity IS DISTINCT FROM OLD.quantity THEN
+    IF NEW.name IS DISTINCT FROM OLD.name OR NEW.quantity IS DISTINCT FROM OLD.quantity
+       OR NEW.returned_quantity IS DISTINCT FROM OLD.returned_quantity THEN
       PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.equipment_changed', 'calendar_tasking',
         v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.name));
     END IF;

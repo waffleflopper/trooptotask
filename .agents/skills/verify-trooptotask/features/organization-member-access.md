@@ -10,7 +10,8 @@ with a confirmed action.
 - `off-lane`: a lane whose feature the unit turned off shows `Off for <unit>` with its control disabled and counts in no
   change total. The server keeps that lane's stored level on every save, including a preset change and a promotion to
   Admin and back.
-- `role-boundary`: an admin can manage ordinary member access but cannot grant admin or owner authority.
+- `role-boundary`: an admin can manage and remove ordinary members but cannot grant admin or owner authority or
+  remove another admin.
 - `owner-transition`: an eligible member becomes owner; the former owner becomes admin.
 - `denied-and-retry`: a stale or unauthorized actor cannot change another Organization or transfer ownership; failed
   writes leave saved access intact.
@@ -69,7 +70,14 @@ ordinary access checks because it intentionally changes the seeded owner.
    preset; compare effective access as well as the exact stored delta.
 3. As `orgAdmin`, open `Manage` for an ordinary member. Record that `Role` is plain text, not a radio group, and that
    admin rows have no `Manage`. Attempt an admin/owner elevation through the current signed-in form action only when a
-   safe request control can submit it; require a denied action status and unchanged membership. As `orgMember`, verify
+   safe request control can submit it; require a denied action status and unchanged membership. For removal, first
+   have `orgOwner` promote an ordinary member that no later step uses (not `orgMember`) to Admin through `Manage`,
+   following any step-up, and record its membership ID. Seeded admins such as `orgSettingsSwitch`,
+   `calendarNotificationAdmin` and `deletionReviewer` belong to other recipes; never target them. As `orgAdmin`, submit
+   the signed-in `?/removeMember` action with that membership ID; require 403
+   `Only the organization owner can perform this action` with the row unchanged and no step-up prompt. The owner then
+   removes the same admin through the row's `More actions` → `Remove` → `Remove member`; restart the worker before a
+   later recipe relies on seeded rows. As `orgMember`, verify
    the Members route shows a permission error and an authenticated direct form submission is denied. A SvelteKit action
    may return HTTP 200 with a `failure` envelope carrying status 403; inspect both. Repeat with B's member/Organization
    ID and record no A/B mutation. A hidden control alone is insufficient for authorization proof. For `off-lane`, turn

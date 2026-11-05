@@ -2462,6 +2462,92 @@ describe('removeOrganizationMember', () => {
 		});
 	});
 
+	it('refuses an admin removing another admin without asking them to re-authenticate', async () => {
+		const ctx = createTestContext({
+			auth: { userId: 'admin-actor', orgId: 'org-1', role: 'admin' }
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: { userId: 'admin-2', role: 'admin', email: 'admin2@example.com', canManageMembers: true }
+		});
+
+		await expect(
+			removeOrganizationMember(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				},
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					actorEmail: 'admin@example.com'
+				}
+			)
+		).rejects.toMatchObject({ status: 403 });
+
+		expect(port.removedMemberships).toEqual([]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['policy.denied']);
+	});
+
+	it('lets the owner remove an admin after recent assurance', async () => {
+		const ctx = createTestContext({
+			auth: { userId: 'owner-1', orgId: 'org-1', role: 'owner' }
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: { userId: 'admin-2', role: 'admin', email: 'admin2@example.com', canManageMembers: true }
+		});
+
+		const result = await removeOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'owner@example.com'
+			}
+		);
+
+		expect(result).toEqual({ success: true });
+		expect(port.removedMemberships).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toHaveLength(1);
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['member.removed']);
+	});
+
+	it('lets an admin remove an ordinary member', async () => {
+		const ctx = createTestContext({
+			auth: { userId: 'admin-actor', orgId: 'org-1', role: 'admin' }
+		});
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: { userId: 'member-1', role: 'member', email: 'member@example.com' }
+		});
+
+		const result = await removeOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+			},
+			{
+				membershipId: '11111111-1111-4111-8111-111111111111',
+				actorEmail: 'admin@example.com'
+			}
+		);
+
+		expect(result).toEqual({ success: true });
+		expect(port.removedMemberships).toEqual([{ orgId: 'org-1', membershipId: '11111111-1111-4111-8111-111111111111' }]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['member.removed']);
+	});
+
 	it('removes the membership, audits it, and sends the existing notifications', async () => {
 		const ctx = createTestContext({
 			auth: {

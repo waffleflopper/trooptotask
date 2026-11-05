@@ -748,6 +748,9 @@ export async function removeOrganizationMember(
 		fail(400, 'Cannot remove the organization owner');
 	}
 	const expectedRole = requireEditableMembershipRole(membership.role);
+	if (membership.role === 'admin') {
+		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
+	}
 	const removesHighPrivilegeMember = isHighPrivilegeAccess(membership?.role, membership?.canManageMembers);
 	const sensitiveAction = removesHighPrivilegeMember
 		? await authorizeMemberManagementSensitiveAction(ports, {

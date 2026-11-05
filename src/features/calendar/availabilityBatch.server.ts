@@ -9,8 +9,6 @@ import { availabilityCreateInput } from './calendarPersistenceMapping.server';
 import { isUuid, issueMessage } from '$lib/utils/inputSchemas';
 import { AVAILABILITY_BATCH_LIMIT } from './contracts';
 
-const AUDIT_RESOURCE = 'availability';
-
 interface CreateAvailabilityBatchInput {
 	records: Array<{
 		personnelId: string;
@@ -53,15 +51,7 @@ export async function createAvailabilityBatch(
 		throw error(404, 'Person not found');
 	}
 
-	const inserted = await ctx.calendarAvailability.createMany(records);
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.bulk_created`,
-		resourceType: AUDIT_RESOURCE,
-		details: { count: inserted.length }
-	});
-
-	return { inserted };
+	return { inserted: await ctx.calendarAvailability.createMany(records) };
 }
 
 interface DeleteAvailabilityBatchInput {
@@ -87,13 +77,5 @@ export async function deleteAvailabilityBatch(
 	const personnelIds = await ctx.availabilityRemoval.findPersonnelIds(ids);
 	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, personnelIds);
 
-	const deletedCount = await ctx.availabilityRemoval.deleteIds(ids);
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.bulk_deleted`,
-		resourceType: AUDIT_RESOURCE,
-		details: { count: deletedCount }
-	});
-
-	return { deleted: deletedCount };
+	return { deleted: await ctx.availabilityRemoval.deleteIds(ids) };
 }

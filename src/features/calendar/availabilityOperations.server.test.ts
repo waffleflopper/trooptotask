@@ -38,9 +38,8 @@ describe('Calendar availability operations', () => {
 		await expect(deleteAvailability(scoped, MISSING_ENTRY)).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('keeps a saved status attached to its Person and audits the single-record lifecycle', async () => {
+	it('keeps a saved status attached to its Person through the single-record lifecycle', async () => {
 		const ctx = createTestContext();
-		const auditLog = vi.spyOn(ctx.audit, 'log');
 		ctx.store.seed('personnel', [
 			{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null },
 			{ id: PERSON_2, organization_id: ctx.auth.orgId, group_id: null }
@@ -58,10 +57,5 @@ describe('Calendar availability operations', () => {
 		expect(updated).toMatchObject({ id: created.id, personnelId: PERSON_1, statusTypeId: STATUS_2 });
 		await deleteAvailability(ctx, created.id);
 		expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toHaveLength(0);
-		expect(auditLog.mock.calls.map(([event]) => event.action)).toEqual([
-			'availability.created',
-			'availability.updated',
-			'availability.deleted'
-		]);
 	});
 });

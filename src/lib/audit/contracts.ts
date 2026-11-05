@@ -32,6 +32,11 @@ export interface AuditLogEntry {
 	resourceType: string | null;
 	resourceId: string | null;
 	details: Record<string, unknown> | null;
+	/** Labels saved when the entry was written; null on entries written before saved labels. */
+	recordLabel: string | null;
+	subject: { personnelId: string | null; label: string } | null;
+	/** Shared by every entry one action wrote. */
+	batchId: string | null;
 	createdAt: string;
 }
 

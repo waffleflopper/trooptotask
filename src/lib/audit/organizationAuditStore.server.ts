@@ -6,6 +6,12 @@ export interface OrganizationAuditRow {
 	resource_id: string | null;
 	details: Record<string, unknown> | null;
 	timestamp: string;
+	/** Saved labels; absent or null on entries written before them. */
+	actor_label?: string | null;
+	record_label?: string | null;
+	subject_personnel_id?: string | null;
+	subject_label?: string | null;
+	batch_id?: string | null;
 }
 
 export interface OrganizationAuditStore {

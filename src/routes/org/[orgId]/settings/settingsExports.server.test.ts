@@ -13,6 +13,9 @@ function exportEvent(action: string, createdAt: string, actor: string): AuditLog
 		resourceType: 'data_export',
 		resourceId: null,
 		details: null,
+		recordLabel: null,
+		subject: null,
+		batchId: null,
 		createdAt
 	};
 }
@@ -29,17 +32,15 @@ function setup(role: 'owner' | 'admin', latest: Record<string, AuditLogEntry>, d
 		{ id: 't2', organization_id: 'org-1' },
 		{ id: 't3', organization_id: 'org-2' }
 	]);
-	const auditReads: string[] = [];
 	const ports = {
 		auth: ctx.auth,
 		unitCounts: ctx.unitCounts,
 		disabledFeatures,
 		readLatestAuditEvent: async (action: string) => {
-			auditReads.push(action);
 			return latest[action] ?? null;
 		}
 	};
-	return { ports, auditReads };
+	return { ports };
 }
 
 describe('Exports settings load', () => {
@@ -57,8 +58,8 @@ describe('Exports settings load', () => {
 });
 
 describe('Last export load', () => {
-	it('gives owners the newer of the latest JSON and Excel exports', async () => {
-		const { ports } = setup('owner', {
+	it.each(['owner', 'admin'] as const)('gives an %s the newer of the latest JSON and Excel exports', async (role) => {
+		const { ports } = setup(role, {
 			'export.created': exportEvent('export.created', '2026-10-01T08:00:00.000Z', 'lane@example.com'),
 			'export.excel_created': exportEvent('export.excel_created', '2026-10-12T09:14:00.000Z', 'whitaker@example.com')
 		});
@@ -86,14 +87,5 @@ describe('Last export load', () => {
 		const { ports } = setup('owner', {});
 
 		expect(await loadLastExport(ports)).toBeNull();
-	});
-
-	it('leaves the last export empty for admins without reading the audit log', () => {
-		const { ports, auditReads } = setup('admin', {
-			'export.created': exportEvent('export.created', '2026-10-01T08:00:00.000Z', 'lane@example.com')
-		});
-
-		expect(loadLastExport(ports)).toBeNull();
-		expect(auditReads).toEqual([]);
 	});
 });

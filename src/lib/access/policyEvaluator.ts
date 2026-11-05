@@ -405,7 +405,7 @@ export const POLICY_ACTION_CATALOG = {
 		accessAuditLogs: governanceAction({
 			id: 'organization.accessAuditLogs',
 			label: 'Access organization audit logs',
-			access: 'owner-only'
+			access: 'admin-or-owner'
 		}),
 		rename: governanceAction({
 			id: 'organization.rename',

@@ -134,7 +134,7 @@ export const SETTINGS_PAGES = {
 	logs: {
 		label: 'Logs',
 		group: 'Records',
-		ownerOnly: true,
+		ownerOnly: false,
 		width: 'table',
 		skeleton: [
 			{ kind: 'toolbar', height: 48 },

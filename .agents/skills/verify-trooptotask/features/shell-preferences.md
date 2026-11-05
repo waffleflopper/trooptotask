@@ -269,6 +269,8 @@ length (the file server keeps the old `Content-Length`):
 4. With the toast up, Alt+T moves focus into the region, and Tab reaches `Later` then `Refresh`.
 5. A sidebar link click loads a new document: `window.__marker` is gone, `performance.timeOrigin` changed and the
    navigation entry is for the link's URL. Without a detected update, the same click keeps the marker (control).
+   Clicking the active sidebar link (the current URL) also loads a new document once the update is detected; without
+   one it stays in-app.
 6. `Refresh` reloads (navigation entry type `reload`). Detect again, then `Later`: the toast goes and does not return.
 7. Open `/personnel/verify-able/data-sheet?edit=1`, change `Duty role`, detect the update. `Refresh` raises the
    browser's leave prompt: register `addEventListener('beforeunload', e => (window.__bu = e.defaultPrevented))` and

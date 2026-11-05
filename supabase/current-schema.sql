@@ -14845,17 +14845,31 @@ CREATE INDEX idx_audit_logs_action ON public.audit_logs USING btree (action);
 
 
 --
--- Name: idx_audit_logs_org_id_action; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_audit_logs_org_action_timestamp; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX idx_audit_logs_org_id_action ON public.audit_logs USING btree (org_id, action);
+CREATE INDEX idx_audit_logs_org_action_timestamp ON public.audit_logs USING btree (org_id, action, "timestamp" DESC, id DESC);
 
 
 --
--- Name: idx_audit_logs_org_id_timestamp; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_audit_logs_org_subject_timestamp; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX idx_audit_logs_org_id_timestamp ON public.audit_logs USING btree (org_id, "timestamp" DESC);
+CREATE INDEX idx_audit_logs_org_subject_timestamp ON public.audit_logs USING btree (org_id, subject_personnel_id, "timestamp" DESC, id DESC) WHERE (subject_personnel_id IS NOT NULL);
+
+
+--
+-- Name: idx_audit_logs_org_timestamp_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_audit_logs_org_timestamp_id ON public.audit_logs USING btree (org_id, "timestamp" DESC, id DESC);
+
+
+--
+-- Name: idx_audit_logs_org_user_timestamp; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_audit_logs_org_user_timestamp ON public.audit_logs USING btree (org_id, user_id, "timestamp" DESC, id DESC) WHERE (user_id IS NOT NULL);
 
 
 --

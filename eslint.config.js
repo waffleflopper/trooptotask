@@ -70,7 +70,7 @@ export default ts.config(
 		}
 	},
 	{
-		// Vercel can drop work still running after the response, so every audit and persistence write is awaited.
+		// Vercel can drop work still running after the response, so a discarded promise fails lint; mark intentional fire-and-forget with `void`.
 		files: ['src/**/*.ts'],
 		ignores: ['src/**/*.test.ts', 'src/**/test-support/**'],
 		languageOptions: {

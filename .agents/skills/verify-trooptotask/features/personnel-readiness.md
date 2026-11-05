@@ -66,7 +66,10 @@ then confirm with `$V rows training_types orgA`.
    Correct the date in History and require the same row ID with the changed expiry.
 5. **Blank notes and undated history after a cycle change.** As the owner create a required, never-expiring, exemptible
    type in Training → Types. In the Training matrix open Able's cell for it, tick `Mark as Complete` without a date, add
-   Notes and a synthetic Certificate URL such as `https://legacy.example.test/never.pdf`, and Save. Open
+   Notes and Save. The form offers no certificate link, so give the new row a legacy one directly: through
+   `docker exec supabase_db_<project> psql -U postgres` (the `<project>` is in `doctor` output) run
+   `update public.personnel_trainings set certificate_url = 'https://legacy.example.test/never.pdf' where id = '<recordId>'`
+   with the row ID from `$V rows personnel_trainings orgA`. Open
    `readiness?item=training:<typeId>`. History shows `— → does not expire` with the note and a
    `Certificate on legacy.example.test` link whose URL is the legacy address. `evaluate_script` a `fetch` of
    `api/personnel-trainings/certificate?kind=current&id=<recordId>` with `redirect: 'manual'` answers 404

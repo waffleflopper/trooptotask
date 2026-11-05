@@ -31,6 +31,9 @@ export interface PersonnelTraining {
 	certificateUrl: string | null;
 }
 
+/** What a record editor sends: the certificate arrives only through the upload flow. */
+export type TrainingRecordSave = Omit<PersonnelTraining, 'id' | 'certificateUrl'>;
+
 export type TrainingCompletionFacts = Pick<
 	PersonnelTraining,
 	'personnelId' | 'trainingTypeId' | 'completionDate' | 'expirationDate'

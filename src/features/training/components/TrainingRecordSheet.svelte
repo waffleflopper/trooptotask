@@ -5,7 +5,7 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import type { Personnel } from '$features/personnel/contracts';
-	import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+	import type { PersonnelTraining, TrainingRecordSave, TrainingType } from '$features/training/training.types';
 	import type { TrainingBatchRecord } from '$features/training/contracts';
 	import { calculateExpirationDate } from '$features/training/utils/trainingStatus';
 	import {
@@ -38,7 +38,7 @@
 		canExempt: boolean;
 		canStep: { previous: boolean; next: boolean };
 		onStep: (direction: -1 | 1) => void;
-		onSave: (data: Omit<PersonnelTraining, 'id'>) => Promise<void>;
+		onSave: (data: TrainingRecordSave) => Promise<void>;
 		onSaveBatch: (records: BatchRecord[]) => Promise<void>;
 		onRemove: (id: string, isCurrent?: () => boolean) => Promise<void>;
 		onToggleExempt: (typeId: string, exempt: boolean) => Promise<void>;
@@ -166,8 +166,7 @@
 					trainingTypeId: item.type.id,
 					completionDate: asOf,
 					expirationDate: calculateExpirationDate(asOf, item.type.expirationMonths),
-					notes: null,
-					certificateUrl: null
+					notes: null
 				});
 				saved = true;
 			} catch (error) {
@@ -179,7 +178,7 @@
 		await focusNextAction();
 	}
 
-	async function saveFromForm(item: RecordSheetItem, data: Omit<PersonnelTraining, 'id'>) {
+	async function saveFromForm(item: RecordSheetItem, data: TrainingRecordSave) {
 		if (saving.pending) return;
 		const personId = person.id;
 		const isUpdate = !!item.record;

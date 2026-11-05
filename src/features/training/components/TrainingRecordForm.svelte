@@ -3,7 +3,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CornerDownLeftIcon from '@lucide/svelte/icons/corner-down-left';
 	import type { Personnel } from '$features/personnel/contracts';
-	import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+	import type { PersonnelTraining, TrainingRecordSave, TrainingType } from '$features/training/training.types';
 	import { calculateExpirationDate } from '$features/training/utils/trainingStatus';
 	import { renewalMode } from '$features/training/utils/cellDisplayText';
 	import { formatDayMonthYear } from '$lib/utils/dates';
@@ -11,7 +11,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
 	import { DatePicker } from '$lib/components/ui/date-picker';
-	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 
 	interface Props {
@@ -27,7 +26,7 @@
 		keepRecordedDate?: boolean;
 		/** A save elsewhere on the surface is in flight: hold this one back. */
 		busy?: boolean;
-		onSave: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
+		onSave: (data: TrainingRecordSave) => void | Promise<void>;
 		/** Runs after a save that this form is still showing; `isUpdate` is true when it replaced a record. */
 		onSaved?: (isUpdate: boolean) => void;
 		/** Reports whether the date or an extra differs from what the form opened with; false once it goes. */
@@ -70,19 +69,15 @@
 		return type.expirationDateOnly ? '' : today;
 	});
 	let date = $state(initialDate);
-	// An uploaded certificate is a storage path, not a link: it stays on the record unless a link replaces it.
-	const storedCertificate = untrack(() => training?.certificateUrl ?? null);
-	const editableCertificate = storedCertificate && /^https?:\/\//i.test(storedCertificate) ? storedCertificate : '';
 	const storedNotes = untrack(() => training?.notes ?? '');
 	let notes = $state(storedNotes);
-	let certificateUrl = $state(editableCertificate);
-	let showExtras = $state(Boolean(storedNotes || editableCertificate));
+	let showExtras = $state(Boolean(storedNotes));
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let formElement = $state<HTMLFormElement | null>(null);
 
 	$effect(() => {
-		onDirtyChange?.(date !== initialDate || notes !== storedNotes || certificateUrl !== editableCertificate);
+		onDirtyChange?.(date !== initialDate || notes !== storedNotes);
 		return () => onDirtyChange?.(false);
 	});
 
@@ -122,8 +117,7 @@
 				trainingTypeId: type.id,
 				completionDate: kind === 'cardDate' ? (training?.completionDate ?? null) : date || null,
 				expirationDate,
-				notes: notes.trim() || null,
-				certificateUrl: certificateUrl.trim() || (editableCertificate ? null : storedCertificate)
+				notes: notes.trim() || null
 			});
 			if (!stillHere()) return;
 			onSaved?.(isUpdate);
@@ -168,16 +162,6 @@
 			<Field.Label for="{uid}-notes" class="text-xs">Notes</Field.Label>
 			<Textarea id="{uid}-notes" rows={2} bind:value={notes} disabled={saving || busy} />
 		</Field.Root>
-		<Field.Root class="gap-1.5">
-			<Field.Label for="{uid}-certificate" class="text-xs">Certificate URL</Field.Label>
-			<Input
-				id="{uid}-certificate"
-				type="url"
-				placeholder="https://..."
-				bind:value={certificateUrl}
-				disabled={saving || busy}
-			/>
-		</Field.Root>
 	{/if}
 
 	{#if saveError}
@@ -198,7 +182,7 @@
 				class="text-sm text-foreground underline"
 				onclick={() => (showExtras = true)}
 			>
-				Add a note or certificate link…
+				Add a note…
 			</Button>
 		{/if}
 		<Button type="submit" disabled={!canSave}>

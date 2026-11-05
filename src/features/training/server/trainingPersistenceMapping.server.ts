@@ -361,8 +361,7 @@ export const trainingCompletionCreateInput = z.object({
 	trainingTypeId: z.string('Choose a Training type').refine(isUuid, 'Choose a Training type'),
 	completionDate: dateOnlySchema.nullable().optional(),
 	expirationDate: dateOnlySchema.nullable().optional(),
-	notes: z.string().nullable().optional(),
-	certificateUrl: z.string().nullable().optional()
+	notes: z.string().nullable().optional()
 });
 export const trainingCompletionCorrectionInput = z.object({
 	kind: z.enum(['current', 'history']),

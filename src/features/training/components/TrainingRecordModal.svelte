@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import type { Personnel } from '$features/personnel/contracts';
-	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+	import type { TrainingType, PersonnelTraining, TrainingRecordSave } from '$features/training/training.types';
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
 	import { toast } from 'svelte-sonner';
@@ -13,7 +13,6 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import TrainingStatusBadge from './TrainingStatusBadge.svelte';
 
@@ -21,7 +20,7 @@
 		person: Personnel;
 		trainingType: TrainingType;
 		existingTraining: PersonnelTraining | undefined;
-		onSave: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
+		onSave: (data: TrainingRecordSave) => void | Promise<void>;
 		/** Offers Delete on an existing record when given. */
 		onRemove?: (id: string, isCurrent?: () => boolean) => void | Promise<void>;
 		onClose: () => void;
@@ -56,7 +55,6 @@
 	let completionDate = $state('');
 	let directExpirationDate = $state('');
 	let notes = $state('');
-	let certificateUrl = $state('');
 	let isSaving = $state(false);
 	let saveError = $state<string | null>(null);
 	let saveButton = $state<HTMLElement | null>(null);
@@ -66,15 +64,13 @@
 		isComplete: !!existingTraining,
 		completionDate: existingTraining?.completionDate ?? (neverExpires ? '' : todayStr),
 		directExpirationDate: existingTraining?.expirationDate ?? '',
-		notes: existingTraining?.notes ?? '',
-		certificateUrl: existingTraining?.certificateUrl ?? ''
+		notes: existingTraining?.notes ?? ''
 	});
 	const dirty = $derived(
 		isComplete !== openingValues.isComplete ||
 			completionDate !== openingValues.completionDate ||
 			directExpirationDate !== openingValues.directExpirationDate ||
-			notes !== openingValues.notes ||
-			certificateUrl !== openingValues.certificateUrl
+			notes !== openingValues.notes
 	);
 
 	$effect(() => {
@@ -82,7 +78,6 @@
 		completionDate = existingTraining?.completionDate ?? (neverExpires ? '' : todayStr);
 		directExpirationDate = existingTraining?.expirationDate ?? '';
 		notes = existingTraining?.notes ?? '';
-		certificateUrl = existingTraining?.certificateUrl ?? '';
 	});
 
 	const previewExpirationDate = $derived(
@@ -94,14 +89,9 @@
 	);
 
 	const previewTraining = $derived({
-		id: existingTraining?.id ?? '',
-		personnelId: person.id,
-		trainingTypeId: trainingType.id,
 		completionDate: expirationDateOnly ? null : completionDate || null,
-		expirationDate: previewExpirationDate,
-		notes,
-		certificateUrl
-	} as PersonnelTraining);
+		expirationDate: previewExpirationDate
+	});
 
 	const previewStatus = $derived.by(() => {
 		if (neverExpires && isComplete) {
@@ -130,8 +120,7 @@
 			trainingTypeId: trainingType.id,
 			completionDate: expirationDateOnly ? null : completionDate || null,
 			expirationDate: previewExpirationDate,
-			notes: notes.trim() || null,
-			certificateUrl: certificateUrl.trim() || null
+			notes: notes.trim() || null
 		};
 		const isUpdate = !!existingTraining;
 		isSaving = true;
@@ -272,11 +261,6 @@
 					<Field.Root>
 						<Field.Label for="notes">Notes (optional)</Field.Label>
 						<Textarea id="notes" placeholder="Any additional notes..." rows={2} bind:value={notes} />
-					</Field.Root>
-
-					<Field.Root>
-						<Field.Label for="certificate-url">Certificate URL (optional)</Field.Label>
-						<Input id="certificate-url" type="url" placeholder="https://..." bind:value={certificateUrl} />
 					</Field.Root>
 				{/if}
 			</fieldset>

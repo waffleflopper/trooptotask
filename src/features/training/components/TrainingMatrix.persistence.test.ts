@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { createTrainingRecord } from '$features/training/index.server';
 import type { Personnel } from '$features/personnel/contracts';
-import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import type { PersonnelTraining, TrainingRecordSave, TrainingType } from '$features/training/training.types';
 import TrainingMatrix from './TrainingMatrix.svelte';
 
 vi.mock('$env/static/public', () => ({
@@ -81,7 +81,7 @@ function mountAgainstStore(seed: {
 			...seed.stored
 		}
 	]);
-	const onRecord = vi.fn(async (data: Omit<PersonnelTraining, 'id'>) => {
+	const onRecord = vi.fn(async (data: TrainingRecordSave) => {
 		await createTrainingRecord(ctx, JSON.parse(JSON.stringify(data)));
 	});
 	render(TrainingMatrix, {

@@ -625,8 +625,7 @@ describe('TrainingMatrix recording popover', () => {
 			trainingTypeId: 'type-1',
 			completionDate: '2026-10-25',
 			expirationDate: '2027-10-25',
-			notes: null,
-			certificateUrl: null
+			notes: null
 		});
 		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
 		expect(document.activeElement).toBe(cell);
@@ -649,8 +648,7 @@ describe('TrainingMatrix recording popover', () => {
 			trainingTypeId: 'type-card',
 			completionDate: null,
 			expirationDate: '2028-01-09',
-			notes: 'Front desk copy',
-			certificateUrl: null
+			notes: 'Front desk copy'
 		});
 	});
 
@@ -670,7 +668,7 @@ describe('TrainingMatrix recording popover', () => {
 		expect(within(popover).queryByText(/Current until/)).toBeNull();
 	});
 
-	it('shows the note and certificate link already on the record and sends them back unchanged', async () => {
+	it('shows the note already on the record, offers no certificate link field and sends the note back unchanged', async () => {
 		const user = userEvent.setup();
 		const stored = record({ id: 't-1', notes: 'Range card', certificateUrl: 'https://example.test/cpr.pdf' });
 		const { onRecord } = mountRecordable({ trainings: [stored] });
@@ -678,9 +676,7 @@ describe('TrainingMatrix recording popover', () => {
 		await user.click(screen.getByRole('button', { name: 'Smith CPR: Current' }));
 		const popover = await openPopover();
 		expect((within(popover).getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Range card');
-		expect((within(popover).getByLabelText('Certificate URL') as HTMLInputElement).value).toBe(
-			'https://example.test/cpr.pdf'
-		);
+		expect(within(popover).queryByLabelText('Certificate URL')).toBeNull();
 		await fireEvent.input(dateInput(popover), { target: { value: '2026-10-20' } });
 		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
 
@@ -690,12 +686,11 @@ describe('TrainingMatrix recording popover', () => {
 			trainingTypeId: 'type-1',
 			completionDate: '2026-10-20',
 			expirationDate: '2027-10-20',
-			notes: 'Range card',
-			certificateUrl: 'https://example.test/cpr.pdf'
+			notes: 'Range card'
 		});
 	});
 
-	it('keeps an uploaded certificate on the record when only a note is added', async () => {
+	it('sends no certificate with a note added to a record that has an uploaded one', async () => {
 		const user = userEvent.setup();
 		const stored = record({ id: 't-1', certificateUrl: 'org/personnel/person-1/cpr.pdf' });
 		const { onRecord } = mountRecordable({ trainings: [stored] });
@@ -703,14 +698,12 @@ describe('TrainingMatrix recording popover', () => {
 		await user.click(screen.getByRole('button', { name: 'Smith CPR: Current' }));
 		const popover = await openPopover();
 		await user.click(within(popover).getByRole('button', { name: /^Add a note/ }));
-		expect((within(popover).getByLabelText('Certificate URL') as HTMLInputElement).value).toBe('');
 		await user.type(within(popover).getByLabelText('Notes'), 'Renewed on site');
 		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
 
 		await waitFor(() => expect(onRecord).toHaveBeenCalledTimes(1));
-		expect(onRecord).toHaveBeenCalledWith(
-			expect.objectContaining({ notes: 'Renewed on site', certificateUrl: 'org/personnel/person-1/cpr.pdf' })
-		);
+		expect(onRecord).toHaveBeenCalledWith(expect.objectContaining({ notes: 'Renewed on site' }));
+		expect(onRecord.mock.calls[0][0]).not.toHaveProperty('certificateUrl');
 	});
 
 	it('returns focus to the cell on Escape after its row scrolled out of the window', async () => {

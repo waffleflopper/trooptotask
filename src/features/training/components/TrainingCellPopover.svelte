@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import type { Personnel } from '$features/personnel/contracts';
-	import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+	import type { PersonnelTraining, TrainingRecordSave, TrainingType } from '$features/training/training.types';
 	import type { TrainingStatusInfo } from '$features/training/utils/trainingStatus';
 	import { getColumnIntervalLabel, getStatusLine } from '$features/training/utils/cellDisplayText';
 	import { Button } from '$lib/components/ui/button';
@@ -17,7 +17,7 @@
 		today: string;
 		/** True while the popover is still open on this person and type. */
 		isCurrent: () => boolean;
-		onSave: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
+		onSave: (data: TrainingRecordSave) => void | Promise<void>;
 		onOpenRecord?: (person: Personnel) => void;
 		onClose: () => void;
 	}

@@ -5,6 +5,7 @@
 		loadTrainingRecordModal,
 		saveTrainingRecord,
 		type PersonnelTraining,
+		type TrainingRecordSave,
 		type TrainingType
 	} from '$features/training';
 	import type { Personnel } from '$features/personnel/contracts';
@@ -62,7 +63,7 @@
 			};
 	}
 
-	async function save(record: Omit<PersonnelTraining, 'id'>) {
+	async function save(record: TrainingRecordSave) {
 		const savedIn = orgId;
 		await saveTrainingRecord(savedIn, record);
 		if (savedIn === model.data.orgId) updates.refreshSummary();

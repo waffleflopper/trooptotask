@@ -1,4 +1,10 @@
-export type { TrainingType, PersonnelTraining, TrainingStatus, TrainingView } from './training.types';
+export type {
+	TrainingType,
+	PersonnelTraining,
+	TrainingRecordSave,
+	TrainingStatus,
+	TrainingView
+} from './training.types';
 export { TRAINING_STATUS_COLORS } from './training.types';
 
 export { personnelTrainingsStore } from './stores/personnelTrainings.svelte';

@@ -131,7 +131,8 @@ async function loadTrainingRecordResource(
 	return { record, resource: await policyResourceForTrainingPersonnel(ctx, record.personnelId, recordId) };
 }
 
-type TrainingCompletionInput = z.infer<typeof trainingCompletionCreateInput>;
+/** A certificate path is set only by the upload flow, so it travels beside the parsed input rather than inside it. */
+type TrainingCompletionInput = z.infer<typeof trainingCompletionCreateInput> & { certificateUrl?: string | null };
 
 async function authorizeTrainingCompletion(
 	ctx: TrainingRecordCreateContext,
@@ -239,7 +240,7 @@ export async function recordTrainingCompletion(
 	input: TrainingCompletionRecordInput
 ): Promise<SavedTrainingCompletion> {
 	const { certificate, ...fields } = input;
-	const parsed = parseTrainingRecordInput(trainingCompletionCreateInput.omit({ certificateUrl: true }), fields);
+	const parsed = parseTrainingRecordInput(trainingCompletionCreateInput, fields);
 	const validated = { ...parsed, notes: parsed.notes ?? null };
 	if (certificate) {
 		const problem = await pdfOrPhotoFileProblem(certificate);
@@ -376,7 +377,6 @@ export async function updateTrainingRecord(
 	}
 
 	if (fields.notes !== undefined) updates.notes = fields.notes;
-	if (fields.certificateUrl !== undefined) updates.certificateUrl = fields.certificateUrl;
 
 	const row = await ctx.trainingCompletions.patchRecord(id, updates);
 

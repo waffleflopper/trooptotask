@@ -8,7 +8,12 @@
 		DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 		DEFAULT_TRAINING_READINESS_GOAL_PERCENT
 	} from '$features/organization/contracts';
-	import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
+	import type {
+		TrainingType,
+		PersonnelTraining,
+		TrainingRecordSave,
+		TrainingStatus
+	} from '$features/training/training.types';
 	import type { TrainingMatrixDisplay } from '$features/training/contracts';
 	import {
 		getTrainingStatus,
@@ -44,7 +49,7 @@
 		/** Null while the Organization goal is unavailable: group readiness is then left out. */
 		goalPercent: number | null;
 		/** Makes cells open the recording popover. */
-		onRecord?: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
+		onRecord?: (data: TrainingRecordSave) => void | Promise<void>;
 		/** Opens the person's record; `opener` is where focus goes back to when it closes. */
 		onPersonClick?: (person: Personnel, opener: HTMLElement | null) => void;
 		/** Reports the rows in the order the matrix shows them, collapsed groups left out. */

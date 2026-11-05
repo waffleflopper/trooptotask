@@ -114,8 +114,7 @@ describe('TrainingRecordSheet', () => {
 				trainingTypeId: 'cpr',
 				completionDate: '2026-10-25',
 				expirationDate: '2027-10-25',
-				notes: null,
-				certificateUrl: null
+				notes: null
 			})
 		);
 	});
@@ -163,7 +162,7 @@ describe('TrainingRecordSheet', () => {
 		const onStep = vi.fn();
 		const user = userEvent.setup();
 		render(TrainingRecordSheet, { props: props({ onStep }) });
-		await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+		await user.click(await screen.findByRole('button', { name: /Add a note/ }));
 
 		await user.type(screen.getByLabelText('Notes'), 'ab{ArrowUp}{ArrowDown}');
 
@@ -175,7 +174,7 @@ describe('TrainingRecordSheet', () => {
 		const onClose = vi.fn();
 		const user = userEvent.setup();
 		render(TrainingRecordSheet, { props: props({ onStep, onClose }) });
-		await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+		await user.click(await screen.findByRole('button', { name: /Add a note/ }));
 		await user.type(screen.getByLabelText('Notes'), 'draft');
 
 		await user.keyboard('{Escape}');
@@ -320,7 +319,7 @@ describe('TrainingRecordSheet', () => {
 			render(TrainingRecordSheet, { props: props({ onSave }) });
 			await user.click(await screen.findByRole('button', { name: 'More actions for Safety' }));
 			await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
-			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.click(await screen.findByRole('button', { name: /Add a note/ }));
 			await user.type(screen.getByLabelText('Notes'), 'Re-scanned certificate');
 
 			await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -331,8 +330,7 @@ describe('TrainingRecordSheet', () => {
 					trainingTypeId: 'ok',
 					completionDate: '2026-10-06',
 					expirationDate: '2027-10-06',
-					notes: 'Re-scanned certificate',
-					certificateUrl: null
+					notes: 'Re-scanned certificate'
 				})
 			);
 		});
@@ -371,7 +369,7 @@ describe('TrainingRecordSheet', () => {
 			});
 			await user.click(await screen.findByRole('button', { name: 'More actions for Orientation' }));
 			await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
-			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.click(await screen.findByRole('button', { name: /Add a note/ }));
 			await user.type(screen.getByLabelText('Notes'), 'Briefed');
 
 			await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -382,8 +380,7 @@ describe('TrainingRecordSheet', () => {
 					trainingTypeId: 'never',
 					completionDate: null,
 					expirationDate: null,
-					notes: 'Briefed',
-					certificateUrl: null
+					notes: 'Briefed'
 				})
 			);
 		});
@@ -403,7 +400,7 @@ describe('TrainingRecordSheet', () => {
 			render(TrainingRecordSheet, { props: props({ onSave, trainings: [...trainings, stored] }) });
 			await user.click(await screen.findByRole('button', { name: 'More actions for Driver card' }));
 			await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
-			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.click(await screen.findByRole('button', { name: /Add a note/ }));
 			await user.type(screen.getByLabelText('Notes'), 'Renewed');
 
 			await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -414,8 +411,7 @@ describe('TrainingRecordSheet', () => {
 					trainingTypeId: 'card',
 					completionDate: null,
 					expirationDate: '2027-03-15',
-					notes: 'Renewed',
-					certificateUrl: null
+					notes: 'Renewed'
 				})
 			);
 		});
@@ -450,7 +446,7 @@ describe('TrainingRecordSheet', () => {
 				throw new Error('Server said no');
 			});
 			const { rerender } = render(TrainingRecordSheet, { props: props({ onSave }) });
-			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.click(await screen.findByRole('button', { name: /Add a note/ }));
 			await user.type(screen.getByLabelText('Notes'), 'Draft note');
 
 			await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -474,7 +470,7 @@ describe('TrainingRecordSheet', () => {
 
 	describe('leaving a draft', () => {
 		async function dirtyFirstForm(user: ReturnType<typeof userEvent.setup>) {
-			await user.click(await screen.findByRole('button', { name: /Add a note or certificate link/ }));
+			await user.click(await screen.findByRole('button', { name: /Add a note/ }));
 			await user.type(screen.getByLabelText('Notes'), 'Draft note');
 		}
 

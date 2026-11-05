@@ -7,7 +7,7 @@ roster.
 ## Sub-features
 
 - `completion-lifecycle`: add, edit, cancel and remove a completion through a matrix cell or the record sheet; dates,
-  notes, certificate URL and the existing record ID survive ordinary updates and reload.
+  notes and the existing record ID survive ordinary updates and reload.
 - `completion-recovery`: failed saves and removals leave stored facts unchanged, show useful feedback and allow retry;
   an operate-only deletion request is distinct from a completed deletion. Direct SQL deletion of a completion also needs
   Training configure.
@@ -41,7 +41,7 @@ roster.
 - `reverse-consumers`: Dashboard Training projections, Personnel readiness and the Person workbook retain their distinct
   meanings; Onboarding consumes completion references through its retained Training contract.
 
-When restoring empty Notes or Certificate URL in the record sheet, focus the textbox and use native `Control+A` and
+When restoring empty Notes in the record sheet, focus the textbox and use native `Control+A` and
 `Backspace` before Save. As with Type Description, `fill` with an empty string can clear DOM text without updating
 Svelte's bound value. Inspect the actual save body and provider row if they disagree; preserve the failed attempt and
 repeat only the affected clearing/restoration action.
@@ -186,10 +186,9 @@ percentage.
 
 2. **Save, edit, cancel and failed-save retry:** Return to the Training matrix. As `trainingOperate`, open Baker
    Optional; its popover defaults `Completed` to today and requires a date for a new completion, including a
-   never-expiring type. Choose `Add a note or certificate link…`, add a unique Notes marker and a valid synthetic
-   Certificate URL such as `https://example.test/training`, then Save. Require confirmed success, the Optional cell's
+   never-expiring type. Choose `Add a note…`, add a unique Notes marker, then Save. Require confirmed success, the Optional cell's
    Current state and the same values after reload/reopening; read back exactly one Baker/Optional row and keep its new
-   ID. Edit the notes and URL, save, and require that same ID. Close a further unsaved popover draft with Escape and
+   ID. Edit the notes, save, and require that same ID. Close a further unsaved popover draft with Escape and
    require unchanged values. Arm `$V network arm-fail PAGE personnel-trainings`, edit again and Save. Capture the
    actual failed request, feedback and entered values; provider readback must retain the preceding saved row. Restore
    with `$V network restore PAGE`, retry through the form, and require the new values on the same ID after reload. In
@@ -280,7 +279,7 @@ deletion-requests/review` before Approve: capture the matched 503 and unchanged 
 
    **Expiration-only, exemptions and Person statistics:** When completion writes or Person summary counts are affected,
    create a temporary required type with per-Person expiration and exemptions enabled through Training configuration.
-   Save Able with no completion date, a literal expiry inside the orange window, Notes and Certificate URL; edit the
+   Save Able with no completion date, a literal expiry inside the orange window and Notes; edit the
    expiry and notes, then reload and require the same ID and null completion date. In the record sheet require
    `2 of 3 ready` and `1 to record` (Current: seeded Required; Needs action: the temporary type, expiring, and the
    missing Targeted); move the temporary expiry to yesterday and require `1 of 3 ready` and `2 to record`, with the
@@ -608,10 +607,11 @@ and offline recovery tests separate from native UI, actual PDF and independent v
   requirement configuration, which the server enforces. Group-scoped configuration keeps Import while catalog edits
   remain denied.
 - Save/upsert is keyed by Organization, Person and type; preserve the recorded ID during edits and repeat imports.
-  Notes/certificate readback is needed to distinguish a saved update from an unchanged optimistic row. For repeated
-  create on an existing Person/Type pair, omitted dates, Notes and Certificate URL preserve saved values; explicit null
-  clears supplied fields, with dated expiry calculated from a supplied completion date. Fresh create retains null
-  defaults for omitted nullable fields.
+  Notes readback is needed to distinguish a saved update from an unchanged optimistic row. For repeated create on an
+  existing Person/Type pair, omitted dates and Notes preserve saved values; explicit null clears supplied fields, with
+  dated expiry calculated from a supplied completion date. Fresh create retains null defaults for omitted nullable
+  fields. The record forms offer no certificate link and the API drops a `certificateUrl` in the body, so a certificate
+  arrives only through the Person's Readiness upload and a saved legacy value stays as it was.
 - A configure deletion and an operate-only approval request have different outcomes. Capture request status and saved
   rows before interpreting a disappearing modal.
 - Select portal options can be absent from accessibility snapshots. Inspect the visible listbox read-only and use

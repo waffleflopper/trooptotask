@@ -401,8 +401,7 @@ describe('TrainingPageContext', () => {
 				trainingTypeId: mockType.id,
 				completionDate: '2026-04-06',
 				expirationDate: '2027-04-06',
-				notes: null,
-				certificateUrl: null
+				notes: null
 			})
 		).rejects.toThrow('insert blocked by policy');
 	});

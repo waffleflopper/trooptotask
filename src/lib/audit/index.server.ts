@@ -1,9 +1,10 @@
 export { auditLog, getRequestInfo } from './auditLog.server';
 export { createSupabaseAuditAdapter } from './supabaseAudit.server';
 export { subjectDetails, reviewerDetails } from './details';
-export { fetchAuditLogs, fetchLatestAuditEvent } from './auditLogQuery.server';
+export { fetchAuditLogs, fetchLatestAuditEvent, AUDIT_LOG_PAGE_SIZE } from './auditLogQuery.server';
+export type { AuditLogFilters } from './auditLogFilters';
 export type { AuditLabelReads } from './auditLogQuery.server';
-export type { OrganizationAuditStore } from './organizationAuditStore.server';
+export type { OrganizationAuditRow, OrganizationAuditStore } from './organizationAuditStore.server';
 export { createSupabaseOrganizationAuditStore } from './supabaseOrganizationAudit.server';
 export { createSupabaseAuditExportReader, cleanupAuditLogs } from './exportRetention.server';
 export { createSupabasePlatformAudit } from './supabasePlatformAudit.server';

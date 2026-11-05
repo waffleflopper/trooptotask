@@ -1,16 +1,8 @@
-import { batchSentence, catalogSentence } from '$lib/audit/catalog';
+import { AUDIT_KINDS, batchSentence, catalogSentence } from '$lib/audit/catalog';
 import type { AuditLogEntry } from '$lib/audit/contracts';
 import { formatDayMonth, localDateIn } from '$lib/utils/dates';
 
 export type AuditScope = 'access' | 'records' | 'deletions';
-export type AuditScopeFilter = 'all' | AuditScope;
-
-export const AUDIT_SCOPE_OPTIONS: readonly { value: AuditScopeFilter; label: string }[] = [
-	{ value: 'all', label: 'All' },
-	{ value: 'access', label: 'Access' },
-	{ value: 'records', label: 'Records' },
-	{ value: 'deletions', label: 'Deletions' }
-];
 
 /** First match wins, so Deletions is checked before Access; anything unmatched is a record change. */
 const SCOPE_RULES: readonly (readonly [AuditScope, RegExp])[] = [
@@ -57,8 +49,21 @@ function capitalize(text: string): string {
 	return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function auditArea(action: string): string {
+export function auditArea(action: string): string {
 	return AREA_RULES.find(([pattern]) => pattern.test(action))?.[1] ?? capitalize(words(action.split('.')[0] ?? action));
+}
+
+export interface AuditKindOption {
+	value: string;
+	label: string;
+	group: string;
+}
+
+/** Every cataloged kind and every older action the unit has recorded, named for its area, so no entry is out of reach. */
+export function auditKindOptions(recorded: readonly string[]): AuditKindOption[] {
+	return [...new Set([...Object.keys(AUDIT_KINDS), ...recorded])]
+		.map((action) => ({ value: action, label: capitalize(words(action)), group: auditArea(action) }))
+		.sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
 }
 
 type Details = Record<string, unknown>;

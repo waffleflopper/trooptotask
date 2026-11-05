@@ -108,10 +108,16 @@ export function localDateIn(timeZone: string, now: Date): string {
 	return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
-/** The instant the calendar month containing `now` began in `timeZone`. A skipped midnight starts it at the first local time that exists. */
-export function startOfMonthIn(timeZone: string, now: Date): Date {
-	const [year, month] = localDateIn(timeZone, now).split('-').map(Number);
-	return toZoned(new CalendarDate(year, month, 1), timeZone, 'compatible').toDate();
+/** The instant the "YYYY-MM-DD" day began in `timeZone`. A skipped midnight starts it at the first local time that exists. */
+export function startOfDayIn(timeZone: string, day: string): Date {
+	const [year, month, date] = day.split('-').map(Number);
+	return toZoned(new CalendarDate(year, month, date), timeZone, 'compatible').toDate();
+}
+
+/** The instant the day after the "YYYY-MM-DD" day began in `timeZone`, so a range of days ends before it. */
+export function startOfNextDayIn(timeZone: string, day: string): Date {
+	const [year, month, date] = day.split('-').map(Number);
+	return toZoned(new CalendarDate(year, month, date).add({ days: 1 }), timeZone, 'compatible').toDate();
 }
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;

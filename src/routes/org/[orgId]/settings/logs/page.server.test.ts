@@ -24,9 +24,10 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: getAdminClientMock }));
 import { load } from './+page.server';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 
-function event(suspended = false, depends = vi.fn()) {
+function event(suspended = false, depends = vi.fn(), search = '') {
 	return {
 		depends,
+		url: new URL(`https://app.test/org/test-org/settings/logs${search}`),
 		cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) },
 		...createOrganizationLoadEventData(
 			(suspended ? createSuspendedAppShellRouteData : createReadyAppShellRouteData)({
@@ -74,6 +75,22 @@ describe('logs settings page server', () => {
 		admit('member');
 		await expect(load(event())).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClientMock).not.toHaveBeenCalled();
+	});
+
+	it('passes the filters named in the address to the page, and drops values that are not valid', async () => {
+		admit('admin');
+		getAdminClientMock.mockReturnValue(
+			createClient('http://logs.invalid', 'synthetic-privileged-key', {
+				auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+				global: { fetch: async () => Response.json([]) }
+			})
+		);
+
+		const result = (await load(
+			event(false, vi.fn(), '?kind=availability.deleted&from=2026-10-01&to=not-a-date&person=nope')
+		)) as { logsSettings: { filters: unknown } };
+
+		expect(result.logsSettings.filters).toEqual({ kind: 'availability.deleted', from: '2026-10-01' });
 	});
 
 	it.each(['owner', 'admin'] as const)(
@@ -131,9 +148,7 @@ describe('logs settings page server', () => {
 			await expect(
 				(result as { logsSettings: { auditLog: Promise<unknown> } }).logsSettings.auditLog
 			).resolves.toMatchObject({
-				page: 1,
-				limit: 100,
-				totalCount: 1,
+				nextCursor: null,
 				logs: [{ id: 'event-1', actor: 'owner@example.test', details: { personnel: 'SPC Able Synthetic' } }]
 			});
 			expect(getAdminClientMock).toHaveBeenCalledOnce();

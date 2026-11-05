@@ -3,6 +3,9 @@ import { actions } from './+page.server';
 
 const { audit } = vi.hoisted(() => ({ audit: vi.fn() }));
 vi.mock('$lib/audit/index.server', () => ({ auditLog: audit }));
+vi.mock('$lib/server/supabase', () => ({
+	getAdminClient: () => ({ rpc: async () => ({ data: [{ limited: false, retry_after_ms: 0 }], error: null }) })
+}));
 afterEach(() => vi.restoreAllMocks());
 
 const success = () => ({
@@ -25,6 +28,7 @@ function fixture() {
 	form.set('next', '/account/security');
 	const run = (request = new Request('http://app.invalid/auth/login?/login', { method: 'POST', body: form })) =>
 		actions.login({
+			getClientAddress: () => '198.51.100.1',
 			request,
 			locals: { supabase: { auth: { signInWithPassword, mfa: { getAuthenticatorAssuranceLevel } } } }
 		} as unknown as Parameters<typeof actions.login>[0]);

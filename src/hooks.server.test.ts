@@ -685,6 +685,51 @@ describe('server auth hook', () => {
 			}
 		);
 
+		it('audits one refusal per client and rule per window and stores a bounded pathname', async () => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			harness.getSession.mockResolvedValue({ data: { session: null }, error: null });
+			const request = (path: string, ip = '198.51.100.30') => {
+				const event = harness.createEvent(path, {});
+				Object.assign(event, { getClientAddress: () => ip });
+				return event;
+			};
+			for (let attempt = 0; attempt < 10; attempt++) {
+				expect((await harness.handle({ event: request('/auth/login'), resolve: harness.resolve })).status).toBe(200);
+			}
+			const refusedPath = (attempt: number) => `/auth/${String(attempt).padStart(3, '0')}${'a'.repeat(300)}`;
+			let finishAudit = () => {};
+			auditLog.mockImplementationOnce(() => new Promise<void>((resolve) => (finishAudit = resolve)));
+			let firstSettled = false;
+			const first = Promise.resolve(
+				harness.handle({ event: request(refusedPath(0)), resolve: harness.resolve })
+			).finally(() => (firstSettled = true));
+			await new Promise((resolve) => setImmediate(resolve));
+			expect(auditLog).toHaveBeenCalledTimes(1);
+			expect(firstSettled).toBe(false);
+			finishAudit();
+			const statuses = [(await first).status];
+			for (let attempt = 1; attempt < 100; attempt++) {
+				statuses.push(
+					(await harness.handle({ event: request(refusedPath(attempt)), resolve: harness.resolve })).status
+				);
+			}
+			expect(statuses).toEqual(Array(100).fill(429));
+			expect(auditLog).toHaveBeenCalledTimes(1);
+			expect(auditLog).toHaveBeenCalledWith(
+				expect.objectContaining({
+					action: 'security.rate_limit_exceeded',
+					details: { pathname: `/auth/000${'a'.repeat(191)}`, method: 'POST' }
+				}),
+				{ userId: null, ip: '198.51.100.30' }
+			);
+
+			for (let attempt = 0; attempt < 10; attempt++) {
+				await harness.handle({ event: request('/auth/login', '198.51.100.31'), resolve: harness.resolve });
+			}
+			await harness.handle({ event: request('/auth/login', '198.51.100.31'), resolve: harness.resolve });
+			expect(auditLog).toHaveBeenCalledTimes(2);
+		});
+
 		it('returns an action failure that an enhanced login form can display when throttled', async () => {
 			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
 			const request = () => {

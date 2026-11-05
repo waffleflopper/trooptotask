@@ -88,10 +88,16 @@ describe('client advisory access', () => {
 		const admin = createClientAccess(makeInput({ membershipRole: 'admin', capabilityMap: owner.capabilityMap }));
 		const member = createClientAccess(makeInput({ membershipRole: 'member', capabilityMap: owner.capabilityMap }));
 
-		expect(owner.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessAuditLogs).allowed).toBe(true);
+		expect(owner.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.transferOwnership).allowed).toBe(
+			true
+		);
 		expect(admin.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessGovernance).allowed).toBe(true);
-		expect(admin.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessAuditLogs).reason).toBe(
+		expect(admin.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessAuditLogs).allowed).toBe(true);
+		expect(admin.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.transferOwnership).reason).toBe(
 			'denied:owner-only'
+		);
+		expect(member.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessAuditLogs).reason).toBe(
+			'denied:governance-role'
 		);
 		expect(member.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessGovernance).reason).toBe(
 			'denied:governance-role'

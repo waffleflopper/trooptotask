@@ -333,39 +333,54 @@ export type Database = {
       audit_logs: {
         Row: {
           action: string
+          actor_label: string | null
+          batch_id: string | null
           details: Json | null
           id: string
           ip_address: unknown
           org_id: string | null
+          record_label: string | null
           resource_id: string | null
           resource_type: string
           severity: string
+          subject_label: string | null
+          subject_personnel_id: string | null
           timestamp: string
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
           action: string
+          actor_label?: string | null
+          batch_id?: string | null
           details?: Json | null
           id?: string
           ip_address?: unknown
           org_id?: string | null
+          record_label?: string | null
           resource_id?: string | null
           resource_type: string
           severity?: string
+          subject_label?: string | null
+          subject_personnel_id?: string | null
           timestamp?: string
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           action?: string
+          actor_label?: string | null
+          batch_id?: string | null
           details?: Json | null
           id?: string
           ip_address?: unknown
           org_id?: string | null
+          record_label?: string | null
           resource_id?: string | null
           resource_type?: string
           severity?: string
+          subject_label?: string | null
+          subject_personnel_id?: string | null
           timestamp?: string
           user_agent?: string | null
           user_id?: string | null

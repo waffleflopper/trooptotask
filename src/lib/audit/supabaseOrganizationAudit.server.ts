@@ -6,7 +6,8 @@ import {
 	type OrganizationAuditStore
 } from './organizationAuditStore.server';
 
-const LOG_COLUMNS = 'id, user_id, action, resource_type, resource_id, details, timestamp';
+const LOG_COLUMNS =
+	'id, user_id, action, resource_type, resource_id, details, timestamp, actor_label, record_label, subject_personnel_id, subject_label, batch_id';
 
 /** Privileged Organization reads; delivery admits the owner before constructing this reader. */
 export function createSupabaseOrganizationAuditStore(client: SupabaseClient): OrganizationAuditStore {

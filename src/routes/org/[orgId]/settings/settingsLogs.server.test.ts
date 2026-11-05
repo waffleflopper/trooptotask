@@ -21,18 +21,15 @@ describe('loadLogsSettings', () => {
 		};
 		const none = async () => new Map<string, string>();
 
-		const result = await loadLogsSettings(
+		const result = loadLogsSettings(
 			ctx,
 			store,
 			{ personnelNames: none, trainingTypeNames: none, statusTypeNames: none, actorEmails: none },
 			VIEWER
 		);
 
-		expect(result).toMatchObject({
-			today: '2026-10-19',
-			timeZone: 'America/New_York',
-			auditLog: { totalCount: 3, recentCount: 2 }
-		});
+		expect(result).toMatchObject({ today: '2026-10-19', timeZone: 'America/New_York' });
+		await expect(result.auditLog).resolves.toMatchObject({ totalCount: 3, recentCount: 2 });
 	});
 });
 
@@ -131,18 +128,16 @@ describe('admitted Logs source composition', () => {
 				}
 			}
 		});
-		const result = (
-			await loadLogsSettings(
-				ctx,
-				createSupabaseOrganizationAuditStore(client),
-				{
-					personnelNames: createSupabasePersonnelNamesReader(client, orgId),
-					trainingTypeNames: createSupabaseTrainingTypeNamesReader(client, orgId),
-					statusTypeNames: createSupabaseStatusTypeNamesReader(client, orgId),
-					actorEmails: createSupabaseOrganizationMemberEmailsReader(client, orgId)
-				},
-				VIEWER
-			)
+		const result = await loadLogsSettings(
+			ctx,
+			createSupabaseOrganizationAuditStore(client),
+			{
+				personnelNames: createSupabasePersonnelNamesReader(client, orgId),
+				trainingTypeNames: createSupabaseTrainingTypeNamesReader(client, orgId),
+				statusTypeNames: createSupabaseStatusTypeNamesReader(client, orgId),
+				actorEmails: createSupabaseOrganizationMemberEmailsReader(client, orgId)
+			},
+			VIEWER
 		).auditLog;
 		expect(result.logs).toEqual([
 			expect.objectContaining({
@@ -208,7 +203,7 @@ describe('admitted Logs source composition', () => {
 						actorEmails: createSupabaseOrganizationMemberEmailsReader(client, ctx.auth.orgId)
 					},
 					VIEWER
-				)
+				).auditLog
 			).rejects.toThrow('Current labels unavailable');
 		}
 	);

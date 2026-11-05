@@ -21,7 +21,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 function collectIds(logs: OrganizationAuditRow[], key: string): string[] {
 	const ids = new Set<string>();
 	for (const log of logs) {
-		const v = (log.details as Record<string, unknown> | null)?.[key];
+		const v = log.details?.[key];
 		if (typeof v === 'string' && UUID_RE.test(v)) ids.add(v);
 	}
 	return [...ids];
@@ -59,39 +59,48 @@ function enrichDetails(
 	return enriched;
 }
 
+/** An entry with saved labels reads as written. Only older entries look names up, which can change or vanish. */
+function hasSavedLabels(log: OrganizationAuditRow): boolean {
+	return !!(log.record_label || log.subject_label);
+}
+
 async function hydrateAuditLogRows(rows: OrganizationAuditRow[], labels: AuditLabelReads): Promise<AuditLogEntry[]> {
-	const personnelIds = collectIds(rows, 'personnel_id');
-	const trainingTypeIds = collectIds(rows, 'training_type_id');
-	const statusTypeIds = collectIds(rows, 'status_type_id');
+	const legacy = rows.filter((log) => !hasSavedLabels(log));
 	const actorUserIds = [
-		...new Set(rows.map((log) => log.user_id).filter((id): id is string => typeof id === 'string'))
+		...new Set(rows.filter((log) => log.actor_label == null && log.user_id).map((log) => log.user_id as string))
 	];
 
 	const [personnelNames, trainingTypeNames, statusTypeNames, actorEmails] = await Promise.all([
-		labels.personnelNames(personnelIds),
-		labels.trainingTypeNames(trainingTypeIds),
-		labels.statusTypeNames(statusTypeIds),
+		labels.personnelNames(collectIds(legacy, 'personnel_id')),
+		labels.trainingTypeNames(collectIds(legacy, 'training_type_id')),
+		labels.statusTypeNames(collectIds(legacy, 'status_type_id')),
 		labels.actorEmails(actorUserIds)
 	]);
 
-	return rows.map((log) => ({
-		id: log.id as string,
-		userId: (log.user_id as string | null) ?? null,
-		actor:
-			(typeof (log.details as Record<string, unknown> | null)?.actor === 'string'
-				? ((log.details as Record<string, unknown>).actor as string)
-				: actorEmails.get(log.user_id as string)) ?? null,
-		action: log.action as string,
-		resourceType: (log.resource_type as string | null) ?? null,
-		resourceId: (log.resource_id as string | null) ?? null,
-		details: enrichDetails(
-			log.details as Record<string, unknown> | null,
-			personnelNames,
-			trainingTypeNames,
-			statusTypeNames
-		),
-		createdAt: log.timestamp as string
-	}));
+	return rows.map((log) => {
+		return {
+			id: log.id,
+			userId: log.user_id ?? null,
+			actor:
+				log.actor_label ??
+				(typeof log.details?.actor === 'string'
+					? log.details.actor
+					: log.user_id
+						? actorEmails.get(log.user_id)
+						: undefined) ??
+				null,
+			action: log.action,
+			resourceType: log.resource_type ?? null,
+			resourceId: log.resource_id ?? null,
+			details: hasSavedLabels(log)
+				? log.details
+				: enrichDetails(log.details, personnelNames, trainingTypeNames, statusTypeNames),
+			recordLabel: log.record_label ?? null,
+			subject: log.subject_label ? { personnelId: log.subject_personnel_id ?? null, label: log.subject_label } : null,
+			batchId: log.batch_id ?? null,
+			createdAt: log.timestamp
+		};
+	});
 }
 
 export async function fetchAuditLogs(

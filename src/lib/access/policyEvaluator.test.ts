@@ -262,7 +262,7 @@ describe('policy evaluator', () => {
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'admin' },
-			action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
+			action: POLICY_ACTION_CATALOG.organization.transferOwnership,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
 			resource: { kind: 'organization' }
@@ -279,7 +279,7 @@ describe('policy evaluator', () => {
 		const ownerDecision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: 'owner' },
-			action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
+			action: POLICY_ACTION_CATALOG.organization.transferOwnership,
 			capabilityMap: baseCapabilityMap,
 			scopeSet: { kind: 'organization' },
 			resource: { kind: 'organization' }
@@ -465,7 +465,7 @@ describe('policy evaluator', () => {
 		expect(POLICY_ACTION_CATALOG.organization.accessAuditLogs).toMatchObject({
 			id: 'organization.accessAuditLogs',
 			accessMode: 'governance',
-			owner: { kind: 'organization-governance', access: 'owner-only' }
+			owner: { kind: 'organization-governance', access: 'admin-or-owner' }
 		});
 		expect(POLICY_ACTION_CATALOG.organization.updateSettings).toMatchObject({
 			id: 'organization.updateSettings',
@@ -485,20 +485,19 @@ describe('policy evaluator', () => {
 	});
 
 	it('evaluates new organization governance actions with distinct role denial reasons', () => {
-		const auditLogsDecision = evaluatePolicyDecision({
-			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'admin' },
-			action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
-			capabilityMap: baseCapabilityMap,
-			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' }
-		});
+		const auditLogsDecision = (membershipRole: 'owner' | 'admin' | 'member') =>
+			evaluatePolicyDecision({
+				decisionKind: 'server-authoritative',
+				actor: { membershipRole },
+				action: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
+				capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
+				scopeSet: { kind: 'organization' },
+				resource: { kind: 'organization' }
+			});
 
-		expect(auditLogsDecision).toMatchObject({
-			allowed: false,
-			reasonCode: 'denied:owner-only',
-			action: { owner: { kind: 'organization-governance', access: 'owner-only' } }
-		});
+		expect(auditLogsDecision('owner')).toMatchObject({ allowed: true, reasonCode: 'allowed:governance' });
+		expect(auditLogsDecision('admin')).toMatchObject({ allowed: true, reasonCode: 'allowed:governance' });
+		expect(auditLogsDecision('member')).toMatchObject({ allowed: false, reasonCode: 'denied:governance-role' });
 
 		const exportDataDeniedDecision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',

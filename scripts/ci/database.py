@@ -142,6 +142,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261104090000_roster_pool_spans_read.sql",
     "20261104100000_attribution_column_authority.sql",
     "20261104110000_client_error_report_group_limits.sql",
+    "20261105100000_audit_entry_shape.sql",
+    "20261105100100_availability_audit_trigger.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -233,6 +235,7 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
+    "audit_availability_entries.sql",
     "personnel_dod_id.sql",
     "personnel_dod_id_occupancy.sql",
     "calendar_event_deletion.sql",
@@ -744,7 +747,7 @@ def validate_seeds(repository, workdir, execute, psql):
     print('SQL seeds rolled back and generated performance seed columns resolved.', flush=True)
 
 
-APP_SCHEMAS = ('public', 'calendar_private', 'member_access_private', 'onboarding_private',
+APP_SCHEMAS = ('public', 'audit_private', 'calendar_private', 'member_access_private', 'onboarding_private',
                'organization_private', 'personnel_private')
 
 

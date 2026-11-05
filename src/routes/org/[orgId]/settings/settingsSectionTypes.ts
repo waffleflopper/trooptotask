@@ -96,7 +96,7 @@ export type RanksSettingsData = {
 };
 
 export interface LogsSettingsData {
-	auditLog: AuditLogQueryResult;
+	auditLog: Promise<AuditLogQueryResult>;
 	/** The viewer's IANA time zone; day heads and clock times use it so server and browser render the same text. */
 	timeZone: string;
 	/** "YYYY-MM-DD" in `timeZone` when the page loaded. */

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { compareRosterBands, createRosterReadModel, rosterGroupFilterValue } from './rosterReadModel';
+import {
+	compareRosterBands,
+	createRosterReadModel,
+	formatRosterPersonDisplayName,
+	rosterGroupFilterValue
+} from './rosterReadModel';
 import type { Personnel } from './personnel.types';
 import { NESTED_GROUPS } from '$lib/test-support/nestedGroups';
 
@@ -287,5 +292,14 @@ describe('roster Group filter on nested Groups', () => {
 
 	it('reads a value that is not a top-level Group as all', () => {
 		expect(picked('squad')).toEqual(['hq', 'squad-lead', 'alpha-1', 'sibling', 'third', 'loose']);
+	});
+});
+
+describe('formatRosterPersonDisplayName', () => {
+	// supabase/tests/audit_availability_entries.sql holds the database's audit labels to this same form.
+	it('names a person as rank, last name, first name', () => {
+		expect(formatRosterPersonDisplayName({ rank: 'SPC', lastName: 'Doe', firstName: 'Jane' } as Personnel)).toBe(
+			'SPC Doe, Jane'
+		);
 	});
 });

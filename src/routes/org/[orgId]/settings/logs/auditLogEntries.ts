@@ -1,3 +1,4 @@
+import { batchSentence, catalogSentence } from '$lib/audit/catalog';
 import type { AuditLogEntry } from '$lib/audit/contracts';
 import { formatDayMonth, localDateIn } from '$lib/utils/dates';
 
@@ -467,6 +468,9 @@ export function auditSentence(action: string, details: Details | null): string {
 
 export interface AuditEntryView {
 	id: string;
+	action: string;
+	/** Shared by every entry one action wrote. */
+	batchId: string | null;
 	at: number;
 	/** "YYYY-MM-DD" in the viewer's time zone. */
 	day: string;
@@ -481,19 +485,50 @@ export interface AuditEntryView {
 
 export function viewAuditEntry(entry: AuditLogEntry, timeZone: string): AuditEntryView {
 	const at = new Date(entry.createdAt);
+	const day = localDateIn(timeZone, at);
+	const saved = { ...entry, subjectLabel: entry.subject?.label ?? null };
 	return {
 		id: entry.id,
+		action: entry.action,
+		batchId: entry.batchId ?? null,
 		at: at.getTime(),
-		day: localDateIn(timeZone, at),
+		day,
 		clock: new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(
 			at
 		),
 		scope: auditScope(entry.action),
 		area: auditArea(entry.action),
-		sentence: auditSentence(entry.action, entry.details),
+		sentence: catalogSentence(saved, { loggedOn: day }) ?? auditSentence(entry.action, entry.details),
 		actor: entry.actor?.trim() || (entry.userId ? 'Unknown member' : 'System'),
 		system: !entry.actor?.trim() && !entry.userId
 	};
+}
+
+/** One row of the log: an entry, or the entries one action wrote, which `batch` lists newest first. */
+export interface AuditLine extends AuditEntryView {
+	batch: readonly AuditEntryView[];
+}
+
+/**
+ * Collapses the entries each action wrote into one line, at its newest entry. `partialBatchId` names an action
+ * whose older entries were not loaded, so its counts read as a floor.
+ */
+export function auditLines(entries: readonly AuditEntryView[], partialBatchId?: string | null): AuditLine[] {
+	const batches = new Map<string, AuditEntryView[]>();
+	for (const entry of entries) {
+		if (entry.batchId) batches.set(entry.batchId, [...(batches.get(entry.batchId) ?? []), entry]);
+	}
+	return entries.flatMap((entry): AuditLine[] => {
+		const batch = entry.batchId ? (batches.get(entry.batchId) ?? []) : [];
+		if (batch.length < 2) return [{ ...entry, batch: [] }];
+		const newest = batch.reduce((latest, item) => (item.at > latest.at ? item : latest));
+		if (entry !== newest) return [];
+		const sentence = batchSentence(
+			batch.map((item) => item.action),
+			{ partial: entry.batchId === partialBatchId }
+		);
+		return [{ ...newest, id: `batch-${entry.batchId}`, sentence, batch: [...batch].sort((a, b) => b.at - a.at) }];
+	});
 }
 
 function previousDay(day: string): string {

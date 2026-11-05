@@ -273,6 +273,48 @@ describe('fetchAuditLogs', () => {
 		});
 	});
 
+	it('reads an entry by its saved labels after the person is renamed and the member changes email', async () => {
+		const ctx = createQueryPortsContext();
+		const adminStore = createInMemoryDataStore();
+		const personnelId = '11111111-1111-4111-8111-111111111111';
+		adminStore.seed('personnel', [
+			{ id: personnelId, organization_id: ORG, rank: 'SGT', last_name: 'Renamed', first_name: 'Later' }
+		]);
+		adminStore.seed('organization_memberships', [
+			{ id: 'm1', organization_id: ORG, user_id: 'u1', email: 'current@example.com' }
+		]);
+		const details = { startDate: '2026-11-10', endDate: '2026-11-20', personnel_id: personnelId };
+		adminStore.seed('audit_logs', [
+			auditLog({
+				action: 'availability.created',
+				actor_label: 'SSG Rivera, Sam',
+				record_label: 'Leave',
+				subject_personnel_id: personnelId,
+				subject_label: 'SPC Doe, Jane',
+				batch_id: 'batch-1',
+				details
+			}),
+			auditLog({ id: 'legacy', details: { personnel_id: personnelId } })
+		]);
+
+		const { logs } = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+
+		expect(logs.find((log) => log.id === 'log')).toMatchObject({
+			actor: 'SSG Rivera, Sam',
+			recordLabel: 'Leave',
+			subject: { personnelId, label: 'SPC Doe, Jane' },
+			batchId: 'batch-1',
+			details
+		});
+		expect(logs.find((log) => log.id === 'legacy')).toMatchObject({
+			actor: 'current@example.com',
+			recordLabel: null,
+			subject: null,
+			batchId: null,
+			details: { personnel: 'SGT Renamed Later' }
+		});
+	});
+
 	it('returns the requested newest-first page with the full matching count', async () => {
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();

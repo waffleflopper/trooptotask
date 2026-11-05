@@ -54,11 +54,5 @@ export async function importAvailabilityEntries(
 	);
 	for (const position of stale) errors.push({ index: accepted[position].index, message: IMPORT_STALE });
 	errors.sort((a, b) => a.index - b.index);
-	if (inserted || deleted)
-		await ctx.audit.log({
-			action: 'availability.bulk_imported',
-			resourceType: 'availability',
-			details: { added: inserted, removed: deleted }
-		});
 	return { added: inserted, removed: deleted, errors };
 }

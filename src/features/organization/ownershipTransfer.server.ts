@@ -62,7 +62,7 @@ export async function transferOrganizationOwnership(
 	});
 	const sensitiveAction = sensitiveActionDecisionAuditDetails(decision);
 	if (!decision.allowed) {
-		auditDeniedSensitiveAction(ports, decision, { newOwnerId: input.newOwnerId });
+		await auditDeniedSensitiveAction(ports, decision, { newOwnerId: input.newOwnerId });
 		throwSensitiveActionFailure(decision);
 	}
 
@@ -71,7 +71,7 @@ export async function transferOrganizationOwnership(
 		fail(500, errorMessage);
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'org.ownership_transferred',
 		resourceType: 'organization',
 		details: { newOwnerId: input.newOwnerId, sensitiveAction },
@@ -90,12 +90,12 @@ export async function transferOrganizationOwnership(
 	return { transferSuccess: true };
 }
 
-function auditDeniedSensitiveAction(
+async function auditDeniedSensitiveAction(
 	ports: OwnershipTransferPorts,
 	decision: SensitiveActionDecision,
 	details: Record<string, unknown>
-): void {
-	ports.audit.log({
+): Promise<void> {
+	await ports.audit.log({
 		action: 'org.ownership_transfer_authorization_denied',
 		resourceType: 'organization',
 		resourceId: ports.auth.orgId,

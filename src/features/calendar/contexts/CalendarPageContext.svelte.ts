@@ -365,7 +365,7 @@ export class CalendarPageContext {
 	}
 
 	handlePinToggle(groupId: string): void {
-		pinnedGroupsStore.toggle(groupId);
+		void pinnedGroupsStore.toggle(groupId);
 	}
 
 	handleCellClick(person: Personnel, date: Date): void {

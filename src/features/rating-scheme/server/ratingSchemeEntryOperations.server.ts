@@ -145,7 +145,7 @@ export async function createRatingSchemeEntry(
 	await requireEvaluatorReferences(ctx, validated);
 	const entry = await ctx.ratingScheme.create(validated);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: entry.id
@@ -170,7 +170,7 @@ export async function updateRatingSchemeEntry(
 	const entry = await ctx.ratingScheme.update(id, validated);
 	if (!entry) throw new RequestFailure(404, 'Rating Scheme entry not found');
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.updated`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id
@@ -193,7 +193,7 @@ export async function removeRatingSchemeEntry(
 
 	await ctx.ratingScheme.delete(id);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.deleted`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id

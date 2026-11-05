@@ -102,7 +102,7 @@ export async function createPersonnelRecord(ctx: PersonnelRecordContext, data: R
 
 	if (!row) fail(500, 'Unable to create personnel record.');
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: row.id as string | undefined
@@ -202,7 +202,7 @@ export async function applyPersonnelRecordUpdate(
 
 	if (!row) fail(404, PERSONNEL_RECORD_UNAVAILABLE_MESSAGE);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.updated`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id

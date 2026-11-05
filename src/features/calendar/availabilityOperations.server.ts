@@ -39,7 +39,7 @@ export async function createAvailability(ctx: CalendarAvailabilityPorts, input: 
 	const resource = await policyResourceForPersonnel(ctx, parsed.data.personnelId);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, resource);
 	const row = await ctx.calendarAvailability.create(parsed.data);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'availability.created',
 		resourceType: 'availability',
 		resourceId: row.id
@@ -53,12 +53,12 @@ export async function updateAvailability(ctx: CalendarAvailabilityPorts, input: 
 	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, await policyResourceForRecord(ctx, id));
 	const row = await ctx.calendarAvailability.update(id, patch);
-	ctx.audit.log({ action: 'availability.updated', resourceType: 'availability', resourceId: id });
+	await ctx.audit.log({ action: 'availability.updated', resourceType: 'availability', resourceId: id });
 	return row;
 }
 
 export async function deleteAvailability(ctx: CalendarAvailabilityPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, await policyResourceForRecord(ctx, id));
 	await ctx.calendarAvailability.delete(id);
-	ctx.audit.log({ action: 'availability.deleted', resourceType: 'availability', resourceId: id });
+	await ctx.audit.log({ action: 'availability.deleted', resourceType: 'availability', resourceId: id });
 }

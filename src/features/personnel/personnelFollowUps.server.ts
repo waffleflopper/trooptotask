@@ -147,7 +147,7 @@ export async function setPersonnelFollowUpStatus(
 		updatedAt: now
 	});
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `personnel.follow_up.${input.status === 'completed' ? 'completed' : input.status === 'archived' ? 'archived' : 'reopened'}`,
 		resourceType: 'personnel',
 		resourceId: input.personnelId
@@ -181,7 +181,7 @@ export async function updatePersonnelFollowUp(
 		updatedAt: new Date().toISOString()
 	});
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.follow_up.updated',
 		resourceType: 'personnel',
 		resourceId: input.personnelId
@@ -223,7 +223,11 @@ export async function restorePersonnelFollowUp(
 		archived: null,
 		updatedAt: new Date().toISOString()
 	});
-	ctx.audit.log({ action: 'personnel.follow_up.restored', resourceType: 'personnel', resourceId: input.personnelId });
+	await ctx.audit.log({
+		action: 'personnel.follow_up.restored',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
 	return followUpLifecycleResult(ctx, input.personnelId, row);
 }
 
@@ -238,7 +242,11 @@ export async function deletePersonnelFollowUp(ctx: PersonnelArtifactsContext, ra
 	if (!row) fail(404, 'Follow-up not found');
 	if (row.status !== 'archived') fail(409, 'Archive follow-ups before deleting them');
 	await writer.deleteFollowUp(input.followUpId);
-	ctx.audit.log({ action: 'personnel.follow_up.deleted', resourceType: 'personnel', resourceId: input.personnelId });
+	await ctx.audit.log({
+		action: 'personnel.follow_up.deleted',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
 }
 
 function mapFollowUpRow(row: FollowUpRow, contributorLabels = new Map<string, string>()): PersonnelFollowUp {

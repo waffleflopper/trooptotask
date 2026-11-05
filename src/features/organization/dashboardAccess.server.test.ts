@@ -70,7 +70,7 @@ function createRecordingAuditFactory(): {
 	return {
 		events,
 		auditFor: (organizationId) => ({
-			log(event) {
+			async log(event) {
 				events.push({ organizationId, event });
 			}
 		})

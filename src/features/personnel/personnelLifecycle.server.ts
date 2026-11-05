@@ -70,7 +70,7 @@ export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 
 	await ctx.personnelLifecycle.archive([id], new Date().toISOString());
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.archived`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id
@@ -121,7 +121,7 @@ export async function restorePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 
 	if (!person.archivedAt || !(await ctx.personnelLifecycle.restore(id))) fail(400, 'Personnel is not archived');
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.restored`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id,
@@ -160,7 +160,7 @@ export async function permanentlyDeletePersonnelRecord(
 
 	await ctx.personnel.delete(id);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.permanently_deleted`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id,
@@ -232,7 +232,7 @@ export async function preparePersonnelArchiveBatch(
 		async archiveAdmitted() {
 			if (admittedIds.length === 0) return;
 			await ctx.personnelLifecycle.archive(admittedIds, new Date().toISOString());
-			ctx.audit.log({
+			await ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.bulk_archived`,
 				resourceType: AUDIT_RESOURCE,
 				details: { count: admittedIds.length, ids: admittedIds }

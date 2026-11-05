@@ -130,7 +130,7 @@ export function createAccessRequestSetupDeliveryFixture(
 		createAccountSetupLinkIssuance({
 			setupLinks: createAccountSetupLinkService(store, { now: options.now }),
 			setupDelivery: { send: (input) => sendAccountSetupOutboxDelivery(store, sendSetupEmail, input) },
-			audit: options.audit ?? (() => {})
+			audit: options.audit ?? (async () => {})
 		}),
 		{ now: options.now }
 	);

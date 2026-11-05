@@ -5,7 +5,7 @@ export type { PinnedGroupResult } from './contracts';
 interface PinnedGroupWriteContext {
 	auth: { scopeSet: GroupCoverage };
 	selfPins: Pick<SelfPinPersistence, 'insert' | 'remove'>;
-	audit: { log(event: { action: string; resourceType: string }): void | Promise<void> };
+	audit: { log(event: { action: string; resourceType: string }): Promise<void> };
 }
 
 /** Pins order the whole Organization's bands, so only Organization-wide readers keep them. */

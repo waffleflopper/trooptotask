@@ -63,7 +63,7 @@ export async function createOnboardingTemplate(
 		name: parsed.name,
 		description: parsed.description ?? null
 	});
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_template.created',
 		resourceType: 'onboarding_template',
 		resourceId: row.id
@@ -80,14 +80,18 @@ export async function updateOnboardingTemplate(
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', id);
 	await requireTemplate(ctx, id);
 	const row = await ctx.onboardingCatalog.updateTemplate(id, parsed);
-	ctx.audit.log({ action: 'onboarding_template.updated', resourceType: 'onboarding_template', resourceId: id });
+	await ctx.audit.log({ action: 'onboarding_template.updated', resourceType: 'onboarding_template', resourceId: id });
 	return row;
 }
 
 export async function deleteOnboardingTemplate(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', templateId);
 	if (!(await ctx.onboardingCatalog.deleteTemplate(templateId))) return;
-	ctx.audit.log({ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: templateId });
+	await ctx.audit.log({
+		action: 'onboarding_template.deleted',
+		resourceType: 'onboarding_template',
+		resourceId: templateId
+	});
 }
 
 export async function duplicateOnboardingTemplate(
@@ -97,7 +101,7 @@ export async function duplicateOnboardingTemplate(
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', input.templateId);
 	const copy = await ctx.onboardingCatalog.duplicateTemplate(input.templateId, input.requestId);
 	if (copy.created) {
-		ctx.audit.log({
+		await ctx.audit.log({
 			action: 'onboarding_template.duplicated',
 			resourceType: 'onboarding_template',
 			resourceId: copy.template.id,
@@ -140,7 +144,7 @@ async function insertTemplateStep(
 		sortOrder: input.sortOrder ?? 0,
 		...(id ? { id } : {})
 	});
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_template_step.created',
 		resourceType: 'onboarding_template_step',
 		resourceId: row.id
@@ -177,7 +181,7 @@ export async function updateOnboardingTemplateStep(
 		);
 	}
 	const row = await ctx.onboardingCatalog.updateStep(id, parsed);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_template_step.updated',
 		resourceType: 'onboarding_template_step',
 		resourceId: id
@@ -190,7 +194,7 @@ export async function deleteOnboardingTemplateStep(ctx: OnboardingTemplateWriteC
 	const current = await ctx.onboardingCatalog.findStep(stepId);
 	if (!current) throw error(404, 'Onboarding template step not found');
 	await ctx.onboardingCatalog.deleteStep(stepId);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_template_step.deleted',
 		resourceType: 'onboarding_template_step',
 		resourceId: stepId
@@ -221,7 +225,7 @@ export async function reorderOnboardingTemplateSteps(
 ): Promise<OnboardingTemplateStep[]> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template_step');
 	const steps = await ctx.onboardingCatalog.reorderSteps(input.templateId, input.orderedStepIds);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_template_step.reordered',
 		resourceType: 'onboarding_template_step',
 		resourceId: input.templateId,

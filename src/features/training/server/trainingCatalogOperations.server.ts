@@ -94,7 +94,7 @@ export async function updateTrainingType(
 	}
 	const row = await ctx.trainingCatalog.patchType(id, parsed.data);
 	if (!row) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
-	ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });
+	await ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });
 	return row;
 }
 
@@ -108,7 +108,7 @@ export async function setTrainingExemption(
 	const { typeId, personnelId, exempt } = parsed.data;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', typeId);
 	await ctx.trainingCatalog.setPersonExemption(typeId, personnelId, exempt);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'training_type.updated',
 		resourceType: 'training_type',
 		resourceId: typeId,
@@ -120,7 +120,7 @@ export async function setTrainingExemption(
 export async function deleteTrainingType(ctx: TrainingTypeDeleteContext, id: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
 	await ctx.trainingCatalog.deleteType(id);
-	ctx.audit.log({ action: 'training_type.deleted', resourceType: 'training_type', resourceId: id });
+	await ctx.audit.log({ action: 'training_type.deleted', resourceType: 'training_type', resourceId: id });
 	await ctx.notifyTrainingTypeDeleted();
 }
 
@@ -143,7 +143,7 @@ export async function createTrainingView(
 	if (!parsed.success) error(400, issueMessage(parsed.error));
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view');
 	const row = await ctx.trainingCatalog.createView(parsed.data);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'training_view.created',
 		resourceType: 'training_view',
 		resourceId: row.id
@@ -161,12 +161,12 @@ export async function updateTrainingView(
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view', id);
 	const row = await ctx.trainingCatalog.patchView(id, parsed.data);
 	if (!row) fail(404, 'That Training view is no longer available.');
-	ctx.audit.log({ action: 'training_view.updated', resourceType: 'training_view', resourceId: id });
+	await ctx.audit.log({ action: 'training_view.updated', resourceType: 'training_view', resourceId: id });
 	return row;
 }
 
 export async function deleteTrainingView(ctx: TrainingViewDeleteContext, id: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view', id);
 	await ctx.trainingCatalog.deleteView(id);
-	ctx.audit.log({ action: 'training_view.deleted', resourceType: 'training_view', resourceId: id });
+	await ctx.audit.log({ action: 'training_view.deleted', resourceType: 'training_view', resourceId: id });
 }

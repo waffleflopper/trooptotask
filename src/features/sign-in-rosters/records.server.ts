@@ -28,7 +28,12 @@ interface RosterContext {
 		createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
 	};
 	audit: {
-		log(event: { action: string; resourceType: string; resourceId: string; details?: Record<string, unknown> }): void;
+		log(event: {
+			action: string;
+			resourceType: string;
+			resourceId: string;
+			details?: Record<string, unknown>;
+		}): Promise<void>;
 	};
 }
 
@@ -60,7 +65,7 @@ export async function createSignInRoster(ctx: CreateRosterContext, input: Record
 		createdBy: ctx.userId
 	});
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'sign_in_roster.created',
 		resourceType: 'sign_in_roster',
 		resourceId: row.id,
@@ -71,7 +76,7 @@ export async function createSignInRoster(ctx: CreateRosterContext, input: Record
 
 export async function deleteSignInRoster(ctx: RosterFileContext, rosterId: string) {
 	const { title, fileCleanup } = await ctx.scans.deleteRoster(ctx.actor, rosterId);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'sign_in_roster.deleted',
 		resourceType: 'sign_in_roster',
 		resourceId: rosterId,
@@ -102,7 +107,7 @@ export async function uploadSignedScan(ctx: RosterFileContext, rosterId: string,
 
 	const filePath = buildScanPath(ctx.orgId.toLowerCase(), rosterId.toLowerCase(), file.name);
 	await ctx.scans.replace(ctx.actor, rosterId, filePath, file);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'sign_in_roster.scan_uploaded',
 		resourceType: 'sign_in_roster',
 		resourceId: rosterId

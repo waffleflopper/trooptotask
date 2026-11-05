@@ -159,7 +159,7 @@ export async function updateOrganizationSettings(
 		);
 		if (result.status === 'failed') fail(500, result.message);
 		if (result.status === 'saved') {
-			ports.audit.log({
+			await ports.audit.log({
 				action: 'organization.settings_updated',
 				resourceType: 'organization',
 				resourceId: ports.auth.orgId,

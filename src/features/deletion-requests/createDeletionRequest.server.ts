@@ -53,7 +53,7 @@ export async function createDeletionRequest(
 	}
 	const row = submission.request;
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: row.id,

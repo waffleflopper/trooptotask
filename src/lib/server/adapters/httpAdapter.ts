@@ -187,7 +187,7 @@ export async function handleUseCaseRequest<TInput, TOutput, TContext>(
 	}
 	const output = await config.fn(selectContext(), input);
 	if (config.audit) {
-		request.audit.log({
+		await request.audit.log({
 			action: config.audit.action,
 			resourceType: config.audit.resourceType,
 			resourceId: config.audit.resourceId?.(output)

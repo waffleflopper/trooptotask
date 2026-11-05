@@ -194,7 +194,7 @@ async function writeTrainingCompletion(
 		row = await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
 	}
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: existing ? `${AUDIT_RESOURCE}.updated` : `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: row.id
@@ -315,7 +315,7 @@ export async function correctTrainingCompletion(
 	});
 	if (!corrected) fail(404, 'Training record not found');
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.corrected`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id,
@@ -380,7 +380,7 @@ export async function updateTrainingRecord(
 
 	const row = await ctx.trainingCompletions.patchRecord(id, updates);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.updated`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id,
@@ -407,7 +407,7 @@ export async function deleteTrainingRecord(
 
 	await ctx.trainingCompletions.deleteRecord(id);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.deleted`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id

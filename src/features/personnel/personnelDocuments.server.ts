@@ -152,7 +152,7 @@ export async function createPersonnelDocument(
 	}
 	await upload.complete();
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.document.created',
 		resourceType: 'personnel',
 		resourceId: input.personnelId
@@ -189,7 +189,11 @@ export async function archivePersonnelDocument(
 	const { writer, row: existing } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	if (existing.archived_at) fail(409, 'Document is already archived');
 	const row = await writer.setDocumentArchive(input.documentId, { at: new Date().toISOString(), by: ctx.actor.userId });
-	ctx.audit.log({ action: 'personnel.document.archived', resourceType: 'personnel', resourceId: input.personnelId });
+	await ctx.audit.log({
+		action: 'personnel.document.archived',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
@@ -199,7 +203,11 @@ export async function restorePersonnelDocument(
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	const row = await writer.setDocumentArchive(input.documentId, null);
-	ctx.audit.log({ action: 'personnel.document.restored', resourceType: 'personnel', resourceId: input.personnelId });
+	await ctx.audit.log({
+		action: 'personnel.document.restored',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
@@ -213,7 +221,11 @@ export async function deletePersonnelDocument(
 	const result = await writer.deleteArchivedFileArtifact('document', input.documentId, row?.archived_at ?? null);
 	if (!result) fail(row ? 409 : 404, row ? 'Document changed before it was deleted' : 'Document not found');
 	if (result.deleted)
-		ctx.audit.log({ action: 'personnel.document.deleted', resourceType: 'personnel', resourceId: input.personnelId });
+		await ctx.audit.log({
+			action: 'personnel.document.deleted',
+			resourceType: 'personnel',
+			resourceId: input.personnelId
+		});
 	return { fileCleanup: result.fileCleanup };
 }
 

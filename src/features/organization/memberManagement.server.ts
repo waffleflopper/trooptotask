@@ -321,7 +321,7 @@ export async function inviteOrganizationMember(
 		});
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'member.invite',
 		resourceType: 'organization',
 		details: {
@@ -370,7 +370,7 @@ async function bridgeInvitationToAccessRequest(
 > {
 	const result = await ports.settings.createOrLinkApprovedAccessRequestForInvitation(input);
 	if (result.status === 'invitation-not-pending') {
-		ports.audit.log({
+		await ports.audit.log({
 			action: 'member.invite_access_request_link_failed',
 			resourceType: 'organization',
 			details: { email: input.email, invitationId: input.invitationId, reason: result.status, blocked: false },
@@ -395,7 +395,7 @@ async function bridgeInvitationToAccessRequest(
 		});
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action:
 			result.status === 'created'
 				? 'member.invite_access_request_created'
@@ -441,7 +441,7 @@ async function blockInvitationAndFail(
 		reason: input.reason
 	});
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: input.failureAction,
 		resourceType: 'organization',
 		details: {
@@ -454,7 +454,7 @@ async function blockInvitationAndFail(
 	});
 
 	if (blockResult.status === 'failed') {
-		ports.audit.log({
+		await ports.audit.log({
 			action: input.blockFailureAction,
 			resourceType: 'organization',
 			details: {
@@ -515,7 +515,7 @@ async function issueInvitationAccountSetupLink(
 	}
 
 	if (notCreatedReason === 'concurrent-create') {
-		ports.audit.log({
+		await ports.audit.log({
 			action: 'member.invite_account_setup_link_not_created',
 			resourceType: 'organization',
 			details: {
@@ -634,7 +634,7 @@ async function deliverInvitationEmail(
 			requiresAccessRequest: input.requiresAccessRequest
 		});
 	} catch (error) {
-		ports.audit.log({
+		await ports.audit.log({
 			action:
 				input.mode === 'resend' ? 'member.invite_email_resend_delivery_failed' : 'member.invite_email_delivery_failed',
 			resourceType: 'organization',
@@ -657,7 +657,7 @@ async function deliverInvitationEmail(
 		return 'failed';
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action:
 			delivery.status === 'sent'
 				? input.mode === 'resend'
@@ -711,7 +711,7 @@ export async function revokeOrganizationInvitation(
 		fail(500, 'Failed to revoke invitation');
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'member.invite_revoked',
 		resourceType: 'organization',
 		details: { inviteId: input.inviteId }
@@ -772,7 +772,7 @@ export async function removeOrganizationMember(
 		fail(500, errorMessage);
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'member.removed',
 		resourceType: 'organization',
 		details: {
@@ -828,7 +828,7 @@ export async function leaveOrganization(
 		fail(500, errorMessage);
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'member.left',
 		resourceType: 'organization',
 		details: { membershipId: input.membershipId }
@@ -915,7 +915,7 @@ export async function updateOrganizationMemberAccess(
 		fail(500, errorMessage);
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'member.access_changed',
 		resourceType: 'organization',
 		details: {
@@ -979,20 +979,20 @@ async function authorizeMemberManagementSensitiveAction(
 		target
 	});
 	if (!decision.allowed) {
-		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
+		await auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
 		throwSensitiveActionFailure(decision);
 	}
 
 	return decision;
 }
 
-function auditDeniedSensitiveAction(
+async function auditDeniedSensitiveAction(
 	ports: Pick<OrganizationSettingsMemberManagementPorts, 'audit'>,
 	action: string,
 	decision: SensitiveActionDecision,
 	details: Record<string, unknown> | undefined
-): void {
-	ports.audit.log({
+): Promise<void> {
+	await ports.audit.log({
 		action,
 		resourceType: 'organization',
 		resourceId: decision.target?.id,
@@ -1045,7 +1045,7 @@ async function checkInvitationRateLimit(
 		return details;
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: input.action === 'create' ? 'member.invite_rate_limited' : 'member.invite_resend_rate_limited',
 		resourceType: 'organization',
 		details: {
@@ -1116,7 +1116,7 @@ async function requireIdentityPolicy(
 		return;
 	}
 
-	denyPolicyDecision({
+	await denyPolicyDecision({
 		audit: ports.audit,
 		decision,
 		resourceType: 'organization',

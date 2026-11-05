@@ -61,7 +61,7 @@ export const actions: Actions = {
 		}
 		const result = await loginIdentity(locals, { email, password });
 		if (result.status !== 'authenticated') {
-			auditLog(
+			await auditLog(
 				{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
 				{ userId: null }
 			);
@@ -70,7 +70,7 @@ export const actions: Actions = {
 				: fail(503, { error: 'Unable to complete sign in. Please try again.', email, nextPath });
 		}
 
-		auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });
+		await auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });
 		if (result.mfaPending) {
 			const suffix = nextPath ? `?next=${encodeURIComponent(nextPath)}` : '';
 			redirect(303, `/auth/mfa-verify${suffix}`);

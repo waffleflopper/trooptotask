@@ -71,7 +71,7 @@ export async function updateOrganizationUrlSlug(
 		fail(500, errorMessage);
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'org.url_slug_updated',
 		resourceType: 'organization',
 		details: { urlSlug }
@@ -90,7 +90,7 @@ export async function clearOrganizationUrlSlug(
 		fail(500, errorMessage);
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'org.url_slug_cleared',
 		resourceType: 'organization'
 	});

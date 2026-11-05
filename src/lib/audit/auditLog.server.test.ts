@@ -68,9 +68,9 @@ describe('auditLog', () => {
 		}
 	);
 
-	it('retains a deleted Organization identifier without referencing its missing parent', () => {
+	it('retains a deleted Organization identifier without referencing its missing parent', async () => {
 		const id = '11111111-1111-4111-8111-111111111111';
-		createSupabaseAuditAdapter(null, {
+		await createSupabaseAuditAdapter(null, {
 			userId: 'owner-1',
 			userEmail: 'owner@example.test',
 			ip: '127.0.0.1',

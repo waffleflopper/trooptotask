@@ -51,7 +51,7 @@ export default defineConfig({
 					'object-src': ['none']
 				}
 			},
-			// Kit also checks when the tab regains focus and on every data response, so this only covers a tab left in view.
+			// Kit also checks when the tab becomes visible or regains focus, so this only covers a tab left in view.
 			version: { pollInterval: 300_000 },
 			alias: {
 				$lib: 'src/lib',

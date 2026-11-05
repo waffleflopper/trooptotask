@@ -34,7 +34,7 @@ export const load: PageServerLoad = (event) =>
 				ctx.organizationSettings.listInvitations(ctx.auth.orgId, 'closed')
 			)
 		});
-		keepStreamedRejectionObserved(membersSettings.sections.members.invitationHistory);
+		void keepStreamedRejectionObserved(membersSettings.sections.members.invitationHistory);
 		return { membersSettings };
 	});
 

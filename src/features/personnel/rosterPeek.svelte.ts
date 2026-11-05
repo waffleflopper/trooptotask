@@ -96,7 +96,7 @@ export class RosterPeek {
 	retry(personnelId: string, section: RosterPeekSection): void {
 		const entry = this.#entries.get(personnelId);
 		if (entry && personnelId === this.#shown && this.#controller)
-			this.#fetch(personnelId, entry, section, this.#controller);
+			void this.#fetch(personnelId, entry, section, this.#controller);
 	}
 
 	invalidate(
@@ -109,7 +109,7 @@ export class RosterPeek {
 			if (!entry) continue;
 			const controller = id === this.#shown && refetchShown ? this.#controller : null;
 			for (const section of sections) {
-				if (controller) this.#fetch(id, entry, section, controller);
+				if (controller) void this.#fetch(id, entry, section, controller);
 				else entry.stale.add(section);
 			}
 		}
@@ -134,7 +134,7 @@ export class RosterPeek {
 			const settled =
 				current.state === 'hidden' || (current.state === 'ready' && !isPartialRead(section, current.value));
 			if (settled && !entry.stale.has(section)) continue;
-			this.#fetch(personnelId, entry, section, controller);
+			void this.#fetch(personnelId, entry, section, controller);
 		}
 	}
 

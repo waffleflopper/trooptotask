@@ -70,6 +70,17 @@ export default ts.config(
 		}
 	},
 	{
+		// Vercel can drop work still running after the response, so every audit and persistence write is awaited.
+		files: ['src/**/*.ts'],
+		ignores: ['src/**/*.test.ts', 'src/**/test-support/**'],
+		languageOptions: {
+			parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname }
+		},
+		rules: {
+			'@typescript-eslint/no-floating-promises': 'error'
+		}
+	},
+	{
 		ignores: [
 			'src/lib/server/database.types.ts',
 			'supabase/current-schema.sql',

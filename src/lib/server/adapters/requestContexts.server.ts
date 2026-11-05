@@ -142,14 +142,14 @@ import type {
 import { readOrganizationMembershipForRequest } from '$features/organization/index.server';
 import { getOrLoadRequestMembership } from '$lib/access/index.server';
 import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
-import type { AuditPort } from '$lib/audit/contracts';
+import type { BatchAuditPort } from '$lib/audit/contracts';
 import type { PersonnelScopeEnforcement } from '$features/personnel/contracts';
 import type { PersonnelRecordPersistence } from '$features/personnel/contracts';
 import type { Session } from '@supabase/supabase-js';
 
 export interface AdmittedOrganizationRequest {
 	readonly auth: OrganizationAccessGrant;
-	readonly audit: AuditPort;
+	readonly audit: BatchAuditPort;
 	readonly supabase: SupabaseClient;
 	readonly session: Session | null;
 	readonly scope: PersonnelScopeEnforcement;
@@ -169,7 +169,7 @@ async function createOrganizationRequest(
 	supabase: SupabaseClient,
 	userId: string,
 	organization: ActiveOrganization,
-	audit: AuditPort
+	audit: BatchAuditPort
 ): Promise<AdmittedOrganizationRequest> {
 	const orgId = organization.id;
 	const membership = await getOrLoadRequestMembership(locals, userId, orgId, () =>
@@ -201,7 +201,7 @@ export async function buildRouteRequest(event: RequestEvent): Promise<AdmittedOr
 export async function buildLayoutRequest(locals: App.Locals, orgId: string): Promise<AdmittedOrganizationRequest> {
 	const { supabase, userId } = getAdmittedRequestClient(locals);
 	const organization = await requireActiveOrganization(locals, orgId);
-	return createOrganizationRequest(locals, supabase, userId, organization, { async log() {} });
+	return createOrganizationRequest(locals, supabase, userId, organization, { async log() {}, async logMany() {} });
 }
 
 export function createRequestPersonnelArtifactsContext(

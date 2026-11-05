@@ -50,7 +50,7 @@ import type { FixtureRowStore, FixtureFindOptions, FixtureFindResult } from './t
 import type { PersonnelScopeEnforcement } from '$features/personnel/contracts';
 import type { StoragePort } from '$lib/storage/contracts';
 import { auditKindOf } from '$lib/audit/catalog';
-import type { AuditEvent, AuditPort } from '$lib/audit/contracts';
+import type { AuditEvent, BatchAuditPort } from '$lib/audit/contracts';
 import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type {
 	AssignmentSlotChange,
@@ -835,7 +835,7 @@ export function createTestScopeEnforcementPort(
 	return { ...defaults, ...overrides };
 }
 
-export function createTestAuditPort(): AuditPort & { events: AuditEvent[] } {
+export function createTestAuditPort(): BatchAuditPort & { events: AuditEvent[] } {
 	const events: AuditEvent[] = [];
 	return {
 		events,
@@ -849,6 +849,9 @@ export function createTestAuditPort(): AuditPort & { events: AuditEvent[] } {
 			};
 			if (kind && !kind.accept(entry)) throw new Error(`${event.action} lacks what its kind requires`);
 			events.push(event);
+		},
+		async logMany(batch: AuditEvent[]): Promise<void> {
+			for (const event of batch) await this.log(event);
 		}
 	};
 }

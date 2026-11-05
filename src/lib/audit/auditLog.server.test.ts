@@ -12,7 +12,7 @@ vi.mock('$lib/server/supabase', () => ({
 	getAdminClient: vi.fn(() => ({ from, rpc, auth: { admin: { getUserById } } }))
 }));
 
-import { auditLog } from './auditLog.server';
+import { auditLog, auditLogMany } from './auditLog.server';
 import { createSupabaseAuditAdapter } from './supabaseAudit.server';
 import { getAdminClient } from '$lib/server/supabase';
 
@@ -95,6 +95,55 @@ describe('auditLog', () => {
 				{ userId: null }
 			)
 		).rejects.toThrow('Audit log write failed');
+	});
+
+	describe('auditLogMany', () => {
+		const organization = '11111111-1111-4111-8111-111111111111';
+		const batch = '33333333-3333-4333-8333-333333333333';
+		const people = ['44444444-4444-4444-8444-444444444444', '55555555-5555-4555-8555-555555555555'];
+		const events = people.map((personnelId) => ({
+			action: 'personnel.follow_up.created',
+			resourceType: 'personnel',
+			resourceId: personnelId,
+			orgId: organization,
+			subject: { personnelId },
+			batchId: batch
+		}));
+
+		it('writes every entry in one call under one Organization and batch', async () => {
+			await auditLogMany(events, { userId: '22222222-2222-4222-8222-222222222222', ip: '127.0.0.1' });
+
+			expect(rpc).toHaveBeenCalledTimes(1);
+			expect(rpc.mock.calls[0][0]).toBe('record_app_audit_entries');
+			expect(rpc.mock.calls[0][1]).toMatchObject({
+				p_organization_id: organization,
+				p_batch_id: batch,
+				p_actor_user_id: '22222222-2222-4222-8222-222222222222'
+			});
+			expect(
+				rpc.mock.calls[0][1].p_entries.map((entry: { subjectPersonnelId: string }) => entry.subjectPersonnelId)
+			).toEqual(people);
+		});
+
+		it('writes nothing for no entries', async () => {
+			await auditLogMany([], { userId: null });
+			expect(rpc).not.toHaveBeenCalled();
+		});
+
+		it.each(['resolved provider error', 'rejected write'])('rejects on %s', async (failure) => {
+			if (failure === 'resolved provider error') rpc.mockResolvedValue({ error: new Error('private detail') });
+			else rpc.mockRejectedValue(new Error('private detail'));
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			await expect(auditLogMany(events, { userId: null })).rejects.toThrow('Audit log write failed');
+		});
+
+		it('refuses entries that belong to different Organizations', async () => {
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			await expect(
+				auditLogMany([events[0], { ...events[1], orgId: '66666666-6666-4666-8666-666666666666' }], { userId: null })
+			).rejects.toThrow('Audit log write failed');
+			expect(rpc).not.toHaveBeenCalled();
+		});
 	});
 
 	it('refuses an app write of an entry the database owns', async () => {

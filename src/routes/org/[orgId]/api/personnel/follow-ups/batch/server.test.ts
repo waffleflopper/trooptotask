@@ -102,6 +102,31 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 		expect(new Set(events.map((event) => event.batchId)).size).toBe(1);
 	});
 
+	it('records the entries of many People in one audit round trip', async () => {
+		const ctx = context('operate');
+		const roundTrips: number[] = [];
+		const counted = {
+			...ctx,
+			audit: {
+				log: async () => {
+					roundTrips.push(1);
+				},
+				logMany: async (events: unknown[]) => {
+					roundTrips.push(events.length);
+				}
+			}
+		};
+
+		await handleUseCaseRequest(
+			followUpBatch,
+			ctx,
+			{ personnelIds: [able, baker, unassigned], title: 'Weapons card' },
+			() => counted
+		);
+
+		expect(roundTrips).toEqual([3]);
+	});
+
 	it('writes only inside a Group-scoped operator’s Groups and reports the others as unavailable', async () => {
 		const ctx = context('operate', groupCoverageForTest({ kind: 'groups', groupIds: [alpha] }));
 
@@ -128,6 +153,9 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 			...ctx,
 			audit: {
 				log: async () => {
+					throw new Error('audit down');
+				},
+				logMany: async () => {
 					throw new Error('audit down');
 				}
 			}

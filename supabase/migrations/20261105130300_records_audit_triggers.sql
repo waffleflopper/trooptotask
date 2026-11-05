@@ -354,4 +354,67 @@ CREATE TRIGGER audit_rating_scheme
 AFTER INSERT OR UPDATE OR DELETE ON public.rating_scheme_entries
 FOR EACH ROW EXECUTE FUNCTION audit_private.audit_rating_scheme();
 
+-- An approved deletion runs through the service role for a reviewer the server has already authorized, so the delete
+-- triggers would read no signed-in member and record System. The reviewer becomes the signed-in member for this
+-- transaction only, the way close_roster_form acts for its caller. The claim is set inside a command only the service
+-- role can execute, and a signed-in client's own claim is what auth.uid() reads for every other write, so no client
+-- can choose whose name an entry carries.
+CREATE OR REPLACE FUNCTION public.approve_record_deletion_request(
+	p_organization_id uuid,
+	p_request_id uuid,
+	p_resource_type text,
+	p_resource_id uuid,
+	p_reviewer_id uuid,
+	p_reviewed_at timestamptz
+) RETURNS void
+LANGUAGE plpgsql SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+	v_claim text := pg_catalog.current_setting('request.jwt.claim.sub', true);
+BEGIN
+	IF public.feature_is_off(p_organization_id, CASE p_resource_type
+		WHEN 'training_type' THEN 'training'
+		WHEN 'personnel_training' THEN 'training'
+		WHEN 'rating_scheme_entry' THEN 'evaluations'
+	END) THEN
+		RAISE EXCEPTION 'This feature is turned off for the organization' USING ERRCODE = '42501';
+	END IF;
+
+	PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(p_reviewer_id::text, ''), true);
+	IF p_resource_type = 'training_type' THEN
+		DELETE FROM public.training_types
+		WHERE organization_id = p_organization_id AND id = p_resource_id;
+	ELSIF p_resource_type = 'personnel_training' THEN
+		DELETE FROM public.personnel_trainings
+		WHERE organization_id = p_organization_id AND id = p_resource_id;
+	ELSIF p_resource_type = 'rating_scheme_entry' THEN
+		DELETE FROM public.rating_scheme_entries
+		WHERE organization_id = p_organization_id AND id = p_resource_id;
+	ELSE
+		RAISE EXCEPTION 'Unsupported deletion resource type' USING ERRCODE = '22023';
+	END IF;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Deletion target not found' USING ERRCODE = 'P0002';
+	END IF;
+	PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_claim, ''), true);
+
+	UPDATE public.deletion_requests
+	SET status = 'approved',
+		reviewed_by = p_reviewer_id,
+		reviewed_at = p_reviewed_at,
+		denial_reason = NULL
+	WHERE organization_id = p_organization_id
+		AND id = p_request_id
+		AND resource_type = p_resource_type
+		AND resource_id = p_resource_id
+		AND status = 'pending';
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Pending deletion request not found' USING ERRCODE = 'P0002';
+	END IF;
+END;
+$$;
+
 COMMIT;

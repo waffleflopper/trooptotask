@@ -49,6 +49,39 @@ GRANT EXECUTE ON FUNCTION public.record_app_audit_entry(
   text, text, text, jsonb, uuid, uuid, uuid, text, uuid, text, uuid, inet, text
 ) TO service_role;
 
+-- One round trip for an action that writes an entry per row, such as a note added to many People. The entries are
+-- written together in one transaction, so a failure keeps every one of them out, and they share the batch id. Each
+-- entry is checked and labeled by the single writer above.
+CREATE FUNCTION public.record_app_audit_entries(
+  p_entries jsonb,
+  p_actor_user_id uuid DEFAULT NULL,
+  p_organization_id uuid DEFAULT NULL,
+  p_batch_id uuid DEFAULT NULL,
+  p_ip_address inet DEFAULT NULL,
+  p_user_agent text DEFAULT NULL
+) RETURNS void
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_entry jsonb;
+BEGIN
+  IF pg_catalog.jsonb_typeof(p_entries) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Audit entries must be a list' USING ERRCODE = '22023';
+  END IF;
+  FOR v_entry IN SELECT pg_catalog.jsonb_array_elements(p_entries) LOOP
+    PERFORM public.record_app_audit_entry(
+      v_entry ->> 'kind', v_entry ->> 'recordType', coalesce(v_entry ->> 'severity', 'info'), v_entry -> 'details',
+      p_actor_user_id, p_organization_id, (v_entry ->> 'recordId')::uuid, v_entry ->> 'recordLabel',
+      (v_entry ->> 'subjectPersonnelId')::uuid, v_entry ->> 'subjectLabel', p_batch_id, p_ip_address, p_user_agent
+    );
+  END LOOP;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.record_app_audit_entries(jsonb, uuid, uuid, uuid, inet, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_app_audit_entries(jsonb, uuid, uuid, uuid, inet, text) TO service_role;
+
 -- The fields of a row that changed, each with its before and after, for the trigger-written update kinds.
 -- `p_fields` maps the name an entry gives a field to the column that holds it.
 CREATE FUNCTION audit_private.changed(p_old jsonb, p_new jsonb, p_fields jsonb) RETURNS jsonb

@@ -37,6 +37,11 @@ export interface AuditPort {
 	log(event: AuditEvent): Promise<void>;
 }
 
+/** For an action that writes an entry per row: the entries go out in one round trip and share an Organization and batch id. */
+export interface BatchAuditPort extends AuditPort {
+	logMany(events: AuditEvent[]): Promise<void>;
+}
+
 export interface AuditLogEntry {
 	id: string;
 	userId: string | null;

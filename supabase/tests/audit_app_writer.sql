@@ -57,5 +57,50 @@ SELECT throws_ok(
   '22023', 'Audit subject not found', 'an entry about a person who does not exist is refused');
 RESET ROLE;
 
+-- One call writes the entries of one action together.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object('sub', pg_temp.id('1'), 'role', 'authenticated')::text, true);
+SELECT throws_ok(
+  $$ SELECT public.record_app_audit_entries('[]'::jsonb, pg_temp.id('1'), pg_temp.id('101')) $$,
+  '42501', NULL, 'a signed-in member cannot write a batch of entries');
+RESET ROLE;
+
+INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, slug) VALUES
+  (pg_temp.id('302'), pg_temp.id('101'), 'PFC', 'Rich', 'Roe', 'writer-roe');
+SET LOCAL ROLE service_role;
+SELECT public.record_app_audit_entries(
+  jsonb_build_array(
+    jsonb_build_object('kind', 'member.removed', 'recordType', 'organization', 'severity', 'warning',
+      'details', '{}'::jsonb, 'subjectPersonnelId', pg_temp.id('301')),
+    jsonb_build_object('kind', 'member.removed', 'recordType', 'organization', 'severity', 'warning',
+      'details', '{}'::jsonb, 'subjectPersonnelId', pg_temp.id('302'))),
+  p_actor_user_id => pg_temp.id('1'), p_organization_id => pg_temp.id('101'), p_batch_id => pg_temp.id('902'));
+RESET ROLE;
+SELECT bag_eq(
+  $$ SELECT user_id, actor_label, subject_label, batch_id, severity FROM public.audit_logs
+     WHERE org_id = pg_temp.id('101') AND batch_id = pg_temp.id('902') $$,
+  $$ VALUES
+    (pg_temp.id('1'), 'SSG Rivera, Sam', 'SPC Doe, Janet', pg_temp.id('902'), 'warning'),
+    (pg_temp.id('1'), 'SSG Rivera, Sam', 'PFC Roe, Rich', pg_temp.id('902'), 'warning') $$,
+  'a batch writes one labeled entry per row under one batch id');
+
+SET LOCAL ROLE service_role;
+SELECT throws_ok(
+  $$ SELECT public.record_app_audit_entries(
+       jsonb_build_array(
+         jsonb_build_object('kind', 'member.removed', 'recordType', 'organization', 'details', '{}'::jsonb,
+           'subjectPersonnelId', pg_temp.id('301')),
+         jsonb_build_object('kind', 'member.removed', 'recordType', 'organization', 'details', '{}'::jsonb,
+           'subjectPersonnelId', pg_temp.id('999'))),
+       p_organization_id => pg_temp.id('101'), p_batch_id => pg_temp.id('903')) $$,
+  '22023', 'Audit subject not found', 'a batch with an entry about a missing person is refused');
+SELECT throws_ok(
+  $$ SELECT public.record_app_audit_entries('{"kind": "member.removed"}'::jsonb, p_organization_id => pg_temp.id('101')) $$,
+  '22023', 'Audit entries must be a list', 'entries that are not a list are refused');
+RESET ROLE;
+SELECT is(
+  (SELECT count(*)::integer FROM public.audit_logs WHERE batch_id = pg_temp.id('903')),
+  0, 'a failed batch keeps every one of its entries out');
+
 SELECT * FROM finish();
 ROLLBACK;

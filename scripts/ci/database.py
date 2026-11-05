@@ -163,6 +163,7 @@ POST_TREE_SQL_TESTS = (
     "audit_onboarding.sql",
     "audit_calendar_events.sql",
     "audit_app_writer.sql",
+    "audit_approved_deletions.sql",
     "audit_label_tenancy.sql",
 )
 STAGED_UPGRADE_FIXTURES = (

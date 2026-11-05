@@ -866,7 +866,11 @@ describe('retained Organization export projection', () => {
 					signInRosterExport: createSupabaseSignInRosterExportReader(client, actor.orgId),
 					personnelOrganizationExport: createSupabasePersonnelOrganizationExportPort(() => adminClient),
 					organizationRawExport: createSupabaseOrganizationRawExportReader(client),
-					notificationSelf: { auth: actor, audit: { async log() {} }, store: createSupabaseNotificationStore(client) },
+					notificationSelf: {
+						auth: actor,
+						audit: { async log() {}, async logMany() {} },
+						store: createSupabaseNotificationStore(client)
+					},
 					feedbackExport: { listRows: (orgId) => listFeedbackExportRows(client, orgId) }
 				},
 				createSupabaseDeletionRequestStore(client)

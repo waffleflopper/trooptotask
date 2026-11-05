@@ -12,7 +12,7 @@ export const PERSONNEL_LOG_BATCH_LIMIT = 500;
 
 export interface PersonnelLogBatchContext {
 	auth: OrganizationAccessGrant;
-	audit: PolicyAuditSink;
+	audit: PolicyAuditSink & { logMany(events: Parameters<PolicyAuditSink['log']>[0][]): Promise<void> };
 	personnel: Pick<PersonnelRecordPersistence, 'listArchiveCandidates'>;
 	personnelArtifactWrites: Pick<PersonnelArtifactWritePort, 'createFollowUps' | 'createLeaderNotes'>;
 }
@@ -69,15 +69,17 @@ async function writeBatch(
 	const writable = await writablePeople(ctx, ids);
 	const written = new Set(writable.length ? await write(writable) : []);
 	const batchId = randomUUID();
-	for (const personnelId of ids.filter((id) => written.has(id))) {
-		await ctx.audit.log({
-			action,
-			resourceType: 'personnel',
-			resourceId: personnelId,
-			subject: { personnelId },
-			batchId
-		});
-	}
+	await ctx.audit.logMany(
+		ids
+			.filter((id) => written.has(id))
+			.map((personnelId) => ({
+				action,
+				resourceType: 'personnel',
+				resourceId: personnelId,
+				subject: { personnelId },
+				batchId
+			}))
+	);
 	return {
 		writtenIds: ids.filter((id) => written.has(id)),
 		unavailableIds: ids.filter((id) => !written.has(id))

@@ -4765,6 +4765,17 @@ export type Database = {
         }
         Returns: string
       }
+      record_app_audit_entries: {
+        Args: {
+          p_actor_user_id?: string
+          p_batch_id?: string
+          p_entries: Json
+          p_ip_address?: unknown
+          p_organization_id?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       record_app_audit_entry: {
         Args: {
           p_actor_user_id?: string

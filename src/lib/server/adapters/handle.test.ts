@@ -244,7 +244,8 @@ describe('handleUseCaseRequest', () => {
 								written.push(event);
 								resolve();
 							};
-						})
+						}),
+					logMany: async () => {}
 				}
 			};
 

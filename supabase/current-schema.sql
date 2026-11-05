@@ -4585,6 +4585,8 @@ CREATE FUNCTION public.approve_record_deletion_request(p_organization_id uuid, p
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
+DECLARE
+	v_claim text := pg_catalog.current_setting('request.jwt.claim.sub', true);
 BEGIN
 	IF public.feature_is_off(p_organization_id, CASE p_resource_type
 		WHEN 'training_type' THEN 'training'
@@ -4594,6 +4596,7 @@ BEGIN
 		RAISE EXCEPTION 'This feature is turned off for the organization' USING ERRCODE = '42501';
 	END IF;
 
+	PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(p_reviewer_id::text, ''), true);
 	IF p_resource_type = 'training_type' THEN
 		DELETE FROM public.training_types
 		WHERE organization_id = p_organization_id AND id = p_resource_id;
@@ -4610,6 +4613,7 @@ BEGIN
 	IF NOT FOUND THEN
 		RAISE EXCEPTION 'Deletion target not found' USING ERRCODE = 'P0002';
 	END IF;
+	PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_claim, ''), true);
 
 	UPDATE public.deletion_requests
 	SET status = 'approved',
@@ -10023,6 +10027,33 @@ $$;
 
 
 ALTER FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) OWNER TO postgres;
+
+--
+-- Name: record_app_audit_entries(jsonb, uuid, uuid, uuid, inet, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid DEFAULT NULL::uuid, p_organization_id uuid DEFAULT NULL::uuid, p_batch_id uuid DEFAULT NULL::uuid, p_ip_address inet DEFAULT NULL::inet, p_user_agent text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_entry jsonb;
+BEGIN
+  IF pg_catalog.jsonb_typeof(p_entries) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Audit entries must be a list' USING ERRCODE = '22023';
+  END IF;
+  FOR v_entry IN SELECT pg_catalog.jsonb_array_elements(p_entries) LOOP
+    PERFORM public.record_app_audit_entry(
+      v_entry ->> 'kind', v_entry ->> 'recordType', coalesce(v_entry ->> 'severity', 'info'), v_entry -> 'details',
+      p_actor_user_id, p_organization_id, (v_entry ->> 'recordId')::uuid, v_entry ->> 'recordLabel',
+      (v_entry ->> 'subjectPersonnelId')::uuid, v_entry ->> 'subjectLabel', p_batch_id, p_ip_address, p_user_agent
+    );
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid, p_organization_id uuid, p_batch_id uuid, p_ip_address inet, p_user_agent text) OWNER TO postgres;
 
 --
 -- Name: record_app_audit_entry(text, text, text, jsonb, uuid, uuid, uuid, text, uuid, text, uuid, inet, text); Type: FUNCTION; Schema: public; Owner: postgres
@@ -22987,6 +23018,14 @@ GRANT ALL ON FUNCTION public.reconcile_onboarding_packet(p_organization_id uuid,
 
 REVOKE ALL ON FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) TO service_role;
+
+
+--
+-- Name: FUNCTION record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid, p_organization_id uuid, p_batch_id uuid, p_ip_address inet, p_user_agent text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid, p_organization_id uuid, p_batch_id uuid, p_ip_address inet, p_user_agent text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid, p_organization_id uuid, p_batch_id uuid, p_ip_address inet, p_user_agent text) TO service_role;
 
 
 --

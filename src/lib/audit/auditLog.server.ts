@@ -225,12 +225,7 @@ type RequestInfo = {
 
 const IS_UUID = (value: string | undefined): value is string => !!value && UUID_RE.test(value);
 
-/** A cataloged entry carries the labels the caller saved, and only the details its kind declares. */
-async function writeCatalogedEntry(
-	admin: ReturnType<typeof getAdminClient>,
-	event: AuditEvent,
-	requestInfo: RequestInfo
-): Promise<void> {
+function catalogedEntry(event: AuditEvent) {
 	const kind = auditKindOf(event.action);
 	if (!kind) throw new Error(`Audit kind ${event.action} is not cataloged`);
 	if (kind.writer === 'database') throw new Error(`Audit kind ${event.action} is written by the database`);
@@ -241,22 +236,69 @@ async function writeCatalogedEntry(
 		details: event.details ?? {}
 	});
 	if (!entry) throw new Error(`Audit entry ${event.action} lacks a label or detail its kind requires`);
+	return {
+		kind: event.action,
+		recordType: event.resourceType,
+		severity: event.severity ?? 'info',
+		details: entry.details as Json,
+		recordId: IS_UUID(event.resourceId) ? event.resourceId : undefined,
+		recordLabel: entry.record ?? undefined,
+		subjectPersonnelId: IS_UUID(event.subject?.personnelId ?? undefined) ? event.subject!.personnelId! : undefined,
+		subjectLabel: subjectLabel ?? undefined
+	};
+}
+
+const requestColumns = (requestInfo: RequestInfo) => ({
+	p_actor_user_id: requestInfo.userId ?? undefined,
+	p_ip_address: requestInfo.ip && isIP(requestInfo.ip) ? requestInfo.ip : undefined,
+	p_user_agent: requestInfo.userAgent ?? undefined
+});
+
+/** A cataloged entry carries the labels the caller saved, and only the details its kind declares. */
+async function writeCatalogedEntry(
+	admin: ReturnType<typeof getAdminClient>,
+	event: AuditEvent,
+	requestInfo: RequestInfo
+): Promise<void> {
+	const entry = catalogedEntry(event);
 	const result = await admin.rpc('record_app_audit_entry', {
-		p_kind: event.action,
-		p_record_type: event.resourceType,
-		p_severity: event.severity ?? 'info',
-		p_details: entry.details as Json,
-		p_actor_user_id: requestInfo.userId ?? undefined,
+		p_kind: entry.kind,
+		p_record_type: entry.recordType,
+		p_severity: entry.severity,
+		p_details: entry.details,
 		p_organization_id: event.orgId ?? undefined,
-		p_record_id: IS_UUID(event.resourceId) ? event.resourceId : undefined,
-		p_record_label: entry.record ?? undefined,
-		p_subject_personnel_id: IS_UUID(event.subject?.personnelId ?? undefined) ? event.subject!.personnelId! : undefined,
-		p_subject_label: subjectLabel ?? undefined,
+		p_record_id: entry.recordId,
+		p_record_label: entry.recordLabel,
+		p_subject_personnel_id: entry.subjectPersonnelId,
+		p_subject_label: entry.subjectLabel,
 		p_batch_id: IS_UUID(event.batchId) ? event.batchId : undefined,
-		p_ip_address: requestInfo.ip && isIP(requestInfo.ip) ? requestInfo.ip : undefined,
-		p_user_agent: requestInfo.userAgent ?? undefined
+		...requestColumns(requestInfo)
 	});
 	if (result.error) throw new Error('Audit log write failed');
+}
+
+/**
+ * The entries of one action in a single round trip and a single transaction. They belong to one Organization and
+ * share the batch id, so the first event's own values stand for all of them.
+ */
+export async function auditLogMany(events: AuditEvent[], requestInfo: RequestInfo): Promise<void> {
+	if (events.length === 0) return;
+	try {
+		const [first] = events;
+		if (events.some((event) => event.orgId !== first.orgId || event.batchId !== first.batchId)) {
+			throw new Error('Audit entries of one write must share an Organization and a batch');
+		}
+		const result = await getAdminClient().rpc('record_app_audit_entries', {
+			p_entries: events.map(catalogedEntry) as Json,
+			p_organization_id: first.orgId ?? undefined,
+			p_batch_id: IS_UUID(first.batchId) ? first.batchId : undefined,
+			...requestColumns(requestInfo)
+		});
+		if (result.error) throw new Error('Audit log write failed');
+	} catch (error) {
+		console.error(error instanceof Error ? error.message : 'Audit log write failed');
+		throw new Error('Audit log write failed');
+	}
 }
 
 /**

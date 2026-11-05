@@ -7,6 +7,7 @@ import { createInMemoryDataStore, createTestAuthContext, createTestAuditPort } f
 import { handleUseCaseRequest, readFormData, readJsonBody, rethrowOrWrap } from './httpAdapter';
 import { RequestFailure } from '$lib/errors';
 import type { AuditEvent } from '$lib/audit/contracts';
+import { settles } from '$lib/test-support/settles';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 type OperationConfig<TInput = void, TOutput = unknown, TContext = undefined> = Parameters<
@@ -233,16 +234,17 @@ describe('handleUseCaseRequest', () => {
 
 		it('returns only after a slow audit write finishes', async () => {
 			const written: AuditEvent[] = [];
+			let finishWrite!: () => void;
 			const t = {
 				...buildTestRequest(),
 				audit: {
 					log: (event: AuditEvent) =>
-						new Promise<void>((resolve) =>
-							setTimeout(() => {
+						new Promise<void>((resolve) => {
+							finishWrite = () => {
 								written.push(event);
 								resolve();
-							}, 20)
-						)
+							};
+						})
 				}
 			};
 
@@ -254,7 +256,11 @@ describe('handleUseCaseRequest', () => {
 				audit: { action: 'person.created', resourceType: 'person', resourceId: (result) => result.id }
 			};
 
-			await expect(handleUseCaseRequest(config, t, undefined, () => undefined)).resolves.toEqual({ id: 'new-1' });
+			const request = handleUseCaseRequest(config, t, undefined, () => undefined);
+			expect(await settles(request)).toBe(false);
+
+			finishWrite();
+			await expect(request).resolves.toEqual({ id: 'new-1' });
 			expect(written).toEqual([{ action: 'person.created', resourceType: 'person', resourceId: 'new-1' }]);
 		});
 

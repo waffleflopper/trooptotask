@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createInMemoryDataStore, createTestAuthContext, createTestAuditPort } from './inMemory';
 import { handleUseCaseRequest, readFormData, readJsonBody, rethrowOrWrap } from './httpAdapter';
 import { RequestFailure } from '$lib/errors';
+import type { AuditEvent } from '$lib/audit/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 type OperationConfig<TInput = void, TOutput = unknown, TContext = undefined> = Parameters<
@@ -228,6 +229,33 @@ describe('handleUseCaseRequest', () => {
 				resourceType: 'person',
 				resourceId: 'new-1'
 			});
+		});
+
+		it('returns only after a slow audit write finishes', async () => {
+			const written: AuditEvent[] = [];
+			const t = {
+				...buildTestRequest(),
+				audit: {
+					log: (event: AuditEvent) =>
+						new Promise<void>((resolve) =>
+							setTimeout(() => {
+								written.push(event);
+								resolve();
+							}, 20)
+						)
+				}
+			};
+
+			const config: OperationConfig<void, { id: string }> = {
+				mutation: true,
+				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
+				policyResource: { kind: 'organization' },
+				fn: async () => ({ id: 'new-1' }),
+				audit: { action: 'person.created', resourceType: 'person', resourceId: (result) => result.id }
+			};
+
+			await expect(handleUseCaseRequest(config, t, undefined, () => undefined)).resolves.toEqual({ id: 'new-1' });
+			expect(written).toEqual([{ action: 'person.created', resourceType: 'person', resourceId: 'new-1' }]);
 		});
 
 		it('does not log audit on failure', async () => {

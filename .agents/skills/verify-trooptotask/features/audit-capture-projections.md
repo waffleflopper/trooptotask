@@ -130,13 +130,16 @@ stored-event prerequisites, not producer sanitization or ordinary authorization 
    error, not this one. This proves client navigation recovery; it does not
    simulate a provider error or establish audit-writer failure guarantees. Provider/query/writer failure guarantees
    require separately identified lower-level proof.
-7. **Streamed load and load error.** As `orgOwner` on Logs at 1024x768 light, arm
-   `$V server-source arm audit_logs hold` and reload. The header and subtitle render at once; below them the Logs
-   skeleton (a toolbar row, then a header row and eight rows) sits in an `aria-busy` region with a polite status
-   `Loading the audit log`. Capture it, `server-source release` and capture the table: its toolbar starts where the
-   skeleton's did. `restore`, arm `fail-hard` and reload: a destructive alert `Unable to load Audit log` with
-   `Retry Audit log` replaces the table under the same header, and the settings nav still works. `restore`, then
-   `Retry Audit log` renders the log. Repeat both at 390x844 dark with no sideways scroll.
+7. **Streamed load and load error.** As `orgOwner` on Logs at 1024x768 light, `$V server-source restore`, arm
+   `$V server-source arm audit_logs hold 1 60000` and reload. The header and subtitle render at once; below them the
+   Logs skeleton (search, then filter and count, wrapped as the controls wrap; a header row and six rows) sits in an
+   `aria-busy` region with a polite status `Loading the audit log`. Record the top and height of the skeleton's
+   controls block, header row and first row, and the right edge of its widest descendant. `server-source release` and
+   record the same for the `Audit log controls` group, `thead` and first body row: the tops and the controls and header
+   heights match, and nothing in the skeleton passes the subtitle's right edge. `restore`, arm `fail-hard` and reload:
+   a destructive alert `Unable to load Audit log` with `Retry Audit log` replaces the table under the same header, and
+   the settings nav still works. `restore`, then `Retry Audit log` renders the log. Repeat both at 390x844 dark and the
+   skeleton match at 1440x900, where the table no longer stacks, with no sideways scroll.
 8. **Calendar availability capture.** As `calendarOperate`, follow [availability status](availability-status.md) to add
    a status for a fixture person, drag its end a day later, then remove it. As `orgOwner` the Logs Calendar rows read
    `Added <Status> for <Rank> <Last>, <First> from <d Mon> to <d Mon>`, `Changed <Status> for … from <d>–<d Mon> to
@@ -167,6 +170,9 @@ this disposable provider until owned cleanup.
 - Stripping applies to top-level string UUID detail values. It does not remove event identity, resource/user references
   or platform raw saved details, and does not promise recursive removal.
 - Organization summaries use client pages over a bounded latest-100 load; Platform Audit uses server pages of 50.
+- A bare `server-source arm audit_logs hold` can release before a slow capture finishes; pass `hold 1 60000`. Arming
+  while a hold is still active is refused as a conflicting control, so `restore` before each arm. Save screenshots
+  with `take_screenshot`'s `filePath`; `--save` writes the tool's JSON response, not a PNG.
 - Native select filling matches visible option text. Use keyboard selection/deletion to clear search or Notes when an
   empty `fill` does not fire an input event. Verify Logs is actually keyboard-focused before arming its failure;
   same-route navigation can reset focus.

@@ -7,7 +7,7 @@
 	import { deferToIdle } from '$lib/utils/deferToIdle';
 	import { rememberViewerTimeZone, VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 	import { navigateWithoutRefreshOnSameUrlClick } from '$lib/utils/sameUrlLinkClick';
-	import { Toaster } from '$lib/components/ui/sonner';
+	import { Toaster, UpdateAvailableNotice } from '$lib/components/ui/sonner';
 
 	let { children } = $props();
 
@@ -40,4 +40,5 @@
 </div>
 <div class="contents" data-print-chrome>
 	<Toaster />
+	<UpdateAvailableNotice />
 </div>

@@ -32,6 +32,15 @@ export function registerErrorReportHandler(handler: ErrorReportHandler): () => v
 	};
 }
 
+export interface PersistentToast {
+	/** A fixed id, so announcing the same thing again updates this toast instead of stacking another. */
+	id: ToastId;
+	message: string;
+	action: ToastAction;
+	/** Label of the only way to dismiss it. */
+	dismissLabel: string;
+}
+
 class ToastStore {
 	#options(duration: number, action?: ToastAction, description?: string): ExternalToast {
 		return {
@@ -78,6 +87,28 @@ class ToastStore {
 
 	info(message: string, duration?: number, action?: ToastAction, description?: string): ToastId {
 		return sonnerToast.info(message, this.#options(duration ?? 4000, action, description));
+	}
+
+	/**
+	 * A toast that stays until the user answers it, for news that does not expire. It sits top center, because the
+	 * bottom-right corner covers the footer of a side sheet, where Save lives.
+	 */
+	persistent({ id, message, action, dismissLabel }: PersistentToast): ToastId {
+		return sonnerToast(message, {
+			id,
+			duration: Infinity,
+			position: 'top-center',
+			closeButton: false,
+			action: {
+				label: action.label,
+				// Keep the toast, so a navigation the browser's leave prompt cancels still leaves the action to retry.
+				onClick: (event) => {
+					event.preventDefault();
+					action.onClick();
+				}
+			},
+			cancel: { label: dismissLabel, onClick: () => {} }
+		});
 	}
 
 	dismiss(id?: ToastId): ToastId | undefined {

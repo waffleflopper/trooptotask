@@ -12,6 +12,9 @@ choices persist for their own user and Organization without resetting a newer se
 - `optional-chrome`: a failed optional read leaves the screen, the sidebar's account name card and its menu and
   permitted navigation usable; explicit switcher close/reopen retries without a request loop; a fresh load recovers
   other optional reads.
+- `update-notice`: when a new deployment is live, one persistent top-center toast offers `Refresh` and `Later` on every
+  page, including sign-in and admin. The next in-app link then loads as a full document, but never past an unsaved-work
+  guard.
 - `training-preferences`: Group, saved View, matrix mode and Display choices update loaded data immediately;
   preference-only saves cause no Training workspace request or loading reset.
 - `pending-preferences`: edits within the debounce window and while an earlier save is held preserve the latest
@@ -247,6 +250,36 @@ control, reload and verify the same theme through the document attribute, saved 
 System-preference emulation must not replace the explicit choice.
 
 Restore every control before reload or cleanup. Restore original preferences with native controls and verify exact rows.
+
+### Update notice
+
+Kit detects a deployment by fetching `_app/version.json` when the tab regains focus or becomes visible, on a poll every
+five minutes and from the version header on data responses. The owned app serves that file from
+`app/.svelte-kit/output/client/_app/version.json` inside the worker's session directory (the worker's `app` copy, not
+the checkout). Every native tool call checks the digest of that directory, so a swapped file answers `STALE_ARTIFACT`.
+Swap it only for the seconds the page needs, then restore the exact original bytes, with a new value of the same byte
+length (the file server keeps the old `Content-Length`):
+
+1. Open the page and set a marker, `window.__marker = 'x'`. Schedule the check from the page,
+   `setTimeout(() => window.dispatchEvent(new Event('focus')), 3000)`, in `evaluate_script`.
+2. In the shell, write the new version string, sleep 6 seconds and write the original back. `updated.current` stays
+   true after one detection, so later tool calls see an unchanged build.
+3. Expected: one toast `A new version of TroopToTask is available.` with `Later` and `Refresh` in a polite
+   `Notifications` region at the top center, the focused element unchanged, and `window.__marker` still set.
+4. With the toast up, Alt+T moves focus into the region, and Tab reaches `Later` then `Refresh`.
+5. A sidebar link click loads a new document: `window.__marker` is gone, `performance.timeOrigin` changed and the
+   navigation entry is for the link's URL. Without a detected update, the same click keeps the marker (control).
+6. `Refresh` reloads (navigation entry type `reload`). Detect again, then `Later`: the toast goes and does not return.
+7. Open `/personnel/verify-able/data-sheet?edit=1`, change `Duty role`, detect the update. `Refresh` raises the
+   browser's leave prompt: register `addEventListener('beforeunload', e => (window.__bu = e.defaultPrevented))` and
+   click it with `evaluate_script` and `dialogAction: dismiss`. Expected: `__bu` is true, the page stays, the edit is
+   kept and the toast still offers `Refresh`. A sidebar link click opens `Discard changes?` with no document load and
+   no beforeunload; `Discard changes` then leaves in-app.
+8. At 390 and 1280 px, open `Add Person` from Personnel, detect the update and compare bounding boxes. `Cancel` and
+   `Add person` never sit under the toast. At 390 the sheet's `Close` and title do sit under it until `Later`.
+
+Restore `version.json` before `cleanup`. This verifies the client's detection with a swapped file, not a real new build,
+so after `Refresh` the page runs the same build.
 
 ### What's New fixture state
 

@@ -48,7 +48,7 @@ Use accessible shared controls, dialogs and menus. Preserve labels, keyboard and
 | Tabs                       | `PageShell.Tabs` for route navigation, `Tabs.*` for in-page views.                                                                     |
 | Page layout                | `PageShell.*`. `SectionNav` for an area with several pages. `TypeWorkspace.*` for list-detail type management.                         |
 | Reports and imports        | `ReportWorkspace.*` with `ReportChart` charts; `ImportFlow`.                                                                           |
-| Feedback                   | `toastStore` for transient results; `Empty.*`, `Skeleton`, `Spinner` and `Alert` variants for page states.                             |
+| Feedback                   | `toastStore` for transient results (one persistent exception, the [update notice](#composition-rules)); `Empty.*`, `Skeleton`, `Spinner` and `Alert` variants for page states.                             |
 | Public pages               | `PublicShell` with `PublicPageHeader` and `PublicContentSection`. Public files use Tailwind on central tokens with no `<style>` block. |
 
 ## Composition rules
@@ -63,7 +63,7 @@ Use accessible shared controls, dialogs and menus. Preserve labels, keyboard and
 - **Field errors.** Render a validation error as `Field.Error` inside the control's `Field.Root`, so `aria-describedby` and `aria-invalid` follow it. A server-rendered form whose errors must be associated before hydration wires its IDs explicitly, as `AuthField` does. Use `NativeSelect` for forms that post before hydration.
 - **Readiness tiers.** `patterns/readiness-band` presents tiers and does not calculate them. Each feature computes its tier in one place. Never re-derive a tier from a rounded display percent.
 - **Streamed loads.** A streamed workspace source that rejects renders `WorkspaceLoadError` from its route layout. Pages do not throw from an `{#await}` catch, because no boundary catches a render-time throw and the loading state would stay up.
-- **Toasts.** A toast reports a result and does not establish persistence. Keep a failed save's draft visible for retry.
+- **Toasts.** A toast reports a result and does not establish persistence. Keep a failed save's draft visible for retry. The one persistent toast is `UpdateAvailableNotice`, shown when a new deployment is live and mounted once in the root layout so sign-in and admin pages get it too. It is a toast rather than a banner because the news is about the page, not the workspace, and it must not push layout. It uses `toastStore.persistent`, top center, because the bottom-right corner covers the Save footer of a side sheet. `Refresh` reloads and `Later` dismisses. Once it shows, the next in-app link loads as a full page; that rule lives in `onNavigate`, which runs only after every unsaved-work `beforeNavigate` guard has passed, so `data-sveltekit-reload` is not used (a guard returns right after `cancel()` for it and the click would do nothing).
 - **Color.** Pair any color-only cell or swatch with a label or visible text.
 
 ## Tokens and theme

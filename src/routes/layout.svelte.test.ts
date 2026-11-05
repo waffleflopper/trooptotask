@@ -6,7 +6,7 @@ import { viewerToday } from '$lib/server/viewerDay.server';
 import Layout from './+layout.svelte';
 
 const { invalidate } = vi.hoisted(() => ({ invalidate: vi.fn(async (_dependency: string) => {}) }));
-vi.mock('$app/navigation', () => ({ invalidate }));
+vi.mock('$app/navigation', () => ({ invalidate, onNavigate: vi.fn() }));
 
 const children = createRawSnippet(() => ({ render: () => '<main>page</main>' }));
 const now = new Date('2026-10-15T02:00:00Z');

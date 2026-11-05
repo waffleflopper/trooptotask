@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { createRequestReporterFeedback } from '$lib/server/adapters/feedbackDelivery.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const actor = locals.actor;
@@ -8,7 +9,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	try {
 		return { feedback: await createRequestReporterFeedback(locals, actor.userId).list() };
 	} catch (cause) {
-		console.error('[feedback] reporter list failed', cause);
+		console.error('[feedback] reporter list failed', sanitizeErrorForLog(cause));
 		return { feedback: null };
 	}
 };

@@ -2789,6 +2789,7 @@ export type Database = {
         Row: {
           code: string | null
           fingerprint: string
+          first_reported_by: string | null
           first_seen_at: string
           id: string
           kind: string
@@ -2805,6 +2806,7 @@ export type Database = {
         Insert: {
           code?: string | null
           fingerprint: string
+          first_reported_by?: string | null
           first_seen_at?: string
           id?: string
           kind: string
@@ -2821,6 +2823,7 @@ export type Database = {
         Update: {
           code?: string | null
           fingerprint?: string
+          first_reported_by?: string | null
           first_seen_at?: string
           id?: string
           kind?: string

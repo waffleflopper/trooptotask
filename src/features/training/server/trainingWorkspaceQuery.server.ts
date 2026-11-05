@@ -12,6 +12,7 @@ import type { TrainingCatalogPersistence } from '../contracts';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 import { withTrainingTiming, type TrainingLoadPhase } from './trainingTiming.server';
 import { listReaderPinnedGroupIds } from '$features/personnel/index.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 type TrainingWorkspaceQueryContext = TrainingCompletionReadContext & {
 	readonly loadRankCatalog: () => Promise<RankCatalogEntry[]>;
@@ -32,7 +33,7 @@ function loadTrainingItems<R, T>(config: {
 	return withTrainingTiming(config.orgId, config.phase, () => config.load().then(config.mapRows)).catch((error) => {
 		console.error(`[training-workspace] Failed to load ${config.label}`, {
 			orgId: config.orgId,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 		throw error;
 	});
@@ -54,7 +55,7 @@ export function fetchTrainingWorkspaceData(
 		(error) => {
 			console.error('[training-workspace] Failed to load personnel', {
 				orgId: requestedOrgId,
-				error
+				error: sanitizeErrorForLog(error)
 			});
 			throw error;
 		}

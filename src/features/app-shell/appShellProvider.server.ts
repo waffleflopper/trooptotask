@@ -129,7 +129,7 @@ async function loadActiveAnnouncements(config: {
 		const dismissed = new Set(dismissedIds);
 		return announcements.filter(({ id }) => !dismissed.has(id));
 	} catch (cause) {
-		console.error('[app-shell] Failed to load first-paint announcements:', cause);
+		console.error('[app-shell] Failed to load first-paint announcements:', sanitizeErrorForLog(cause));
 		return [];
 	}
 }

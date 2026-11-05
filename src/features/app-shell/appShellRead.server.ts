@@ -7,6 +7,7 @@ import type {
 	OrgAccessPort
 } from './contracts';
 import { createReadyAppShell } from './contracts';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export type AppShellFirstPaintRequest =
 	| {
@@ -74,7 +75,7 @@ export async function loadAppShellDeferredChrome(
 			organizations: await port.getOrganizationSwitcherOrgs()
 		};
 	} catch (cause) {
-		console.error(`[app-shell] Failed to load deferred chrome part '${part}':`, cause);
+		console.error(`[app-shell] Failed to load deferred chrome part '${part}':`, sanitizeErrorForLog(cause));
 		return {
 			part,
 			ok: false,

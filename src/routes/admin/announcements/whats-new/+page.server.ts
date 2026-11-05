@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createPlatformWhatsNewOperations } from '$features/platform-admin/index.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 const ENTRY_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/;
 
@@ -10,7 +11,7 @@ export const load: PageServerLoad = async (event) => {
 		entries: operations.list().then(
 			(entries) => ({ status: 'loaded' as const, entries }),
 			(cause) => {
-				console.error("Failed to load What's New entries", cause);
+				console.error("Failed to load What's New entries", sanitizeErrorForLog(cause));
 				return { status: 'failed' as const };
 			}
 		)
@@ -40,7 +41,7 @@ export const actions: Actions = {
 			if (result.status === 'not_found') return fail(404, { error: 'Entry not found' });
 			return { success: true, id: result.id, published: result.published };
 		} catch (cause) {
-			console.error("Failed to save What's New entry", cause);
+			console.error("Failed to save What's New entry", sanitizeErrorForLog(cause));
 			return fail(500, { error: 'Failed to save entry' });
 		}
 	},
@@ -54,7 +55,7 @@ export const actions: Actions = {
 			if (result.status === 'not_found') return fail(404, { error: 'Entry not found' });
 			return { success: true, deleted: true };
 		} catch (cause) {
-			console.error("Failed to delete What's New entry", cause);
+			console.error("Failed to delete What's New entry", sanitizeErrorForLog(cause));
 			return fail(500, { error: 'Failed to delete entry' });
 		}
 	}

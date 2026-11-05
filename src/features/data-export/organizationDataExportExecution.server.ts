@@ -6,6 +6,7 @@ import {
 	startDataExport,
 	type DataExportLifecyclePorts
 } from './dataExportLifecycle.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export type OrganizationDataExportArtifact =
 	| {
@@ -74,7 +75,7 @@ export async function executeOrganizationDataExport<TArtifact extends Organizati
 				exportId: exportRecord.exportId,
 				organizationId: orgId,
 				userId,
-				error
+				error: sanitizeErrorForLog(error)
 			});
 		}
 

@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { createPlatformOrganizationOperations } from '$features/platform-admin/index.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const load: PageServerLoad = async (event) => {
 	const operations = await createPlatformOrganizationOperations(event);
@@ -17,7 +18,7 @@ export const load: PageServerLoad = async (event) => {
 		directory: page.then(
 			(loaded) => ({ status: 'ready' as const, page: loaded }),
 			(cause: unknown) => {
-				console.error('Admin organizations query failed:', cause);
+				console.error('Admin organizations query failed:', sanitizeErrorForLog(cause));
 				return { status: 'failed' as const };
 			}
 		)

@@ -389,7 +389,7 @@
 			"web-ui",
 			"web-patterns"
 		],
-		"error-reporting": ["provider", "shared", "web-ui"],
+		"error-reporting": ["access", "provider", "shared", "web-ui"],
 		"feedback": ["organization", "provider", "shared", "web-ui"],
 		"help": ["access", "shared", "web-ui", "web-patterns"],
 		"identity": ["access", "audit", "provider", "shared", "web-ui", "web-patterns"],

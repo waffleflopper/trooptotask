@@ -4,6 +4,7 @@ import { admitPlatformAdministrator } from './admission.server';
 import { createInboxSources, readInboxSources } from './inboxSources.server';
 import { createSupabaseFeedbackInboxReader } from '$features/feedback/index.server';
 import type { InboxDetail, InboxItemRef, InboxStatsResult, InboxTab } from '../inboxTypes';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 function startOfMonth(now: Date): Date {
 	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -35,7 +36,7 @@ export async function createPlatformInboxOperations(event: RequestEvent) {
 					throw new Error('Inbox stats were unavailable');
 				return { status: 'ok', newPeople: data.newPeople, newOrganizations: data.newOrganizations };
 			} catch (cause) {
-				console.error('[platform-admin-inbox] stats read failed', cause);
+				console.error('[platform-admin-inbox] stats read failed', sanitizeErrorForLog(cause));
 				return { status: 'error' };
 			}
 		},

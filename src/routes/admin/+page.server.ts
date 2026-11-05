@@ -11,6 +11,7 @@ import {
 } from '$features/platform-admin/index.server';
 import { parseInboxTab } from '$features/platform-admin/inboxTypes';
 import { validateUUID } from '$lib/server/validation';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 const MAX_REJECTION_REASON_LENGTH = 500;
 
@@ -94,7 +95,7 @@ export const actions: Actions = {
 			const outcome = await operations.closeFeedback(parsed.id);
 			if (outcome === 'not_open') return fail(404, { error: 'This feedback was already closed or no longer exists.' });
 		} catch (cause) {
-			console.error('[platform-admin-inbox] close feedback failed', cause);
+			console.error('[platform-admin-inbox] close feedback failed', sanitizeErrorForLog(cause));
 			return fail(500, {
 				error: 'Could not confirm the close. Reload this item to see where it stands before trying again.'
 			});

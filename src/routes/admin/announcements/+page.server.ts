@@ -5,6 +5,7 @@ import {
 	validatePlatformAnnouncement
 } from '$features/platform-admin/index.server';
 import { validateUUID } from '$lib/server/validation';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const load: PageServerLoad = async (event) => {
 	const operations = await createPlatformAnnouncementOperations(event);
@@ -12,14 +13,14 @@ export const load: PageServerLoad = async (event) => {
 		banners: operations.list().then(
 			(announcements) => ({ status: 'loaded' as const, announcements }),
 			(cause) => {
-				console.error('Failed to load announcements', cause);
+				console.error('Failed to load announcements', sanitizeErrorForLog(cause));
 				return { status: 'failed' as const };
 			}
 		),
 		dismissals: operations.dismissalCounts().then(
 			(counts) => ({ status: 'loaded' as const, counts }),
 			(cause) => {
-				console.error('Failed to load announcement dismissal counts', cause);
+				console.error('Failed to load announcement dismissal counts', sanitizeErrorForLog(cause));
 				return { status: 'failed' as const };
 			}
 		)
@@ -45,7 +46,7 @@ export const actions: Actions = {
 				expiresAt: validation.expiresAt ?? null
 			});
 		} catch (cause) {
-			console.error('Failed to create announcement', cause);
+			console.error('Failed to create announcement', sanitizeErrorForLog(cause));
 			return fail(500, { error: 'Failed to create announcement' });
 		}
 		return { success: true };
@@ -61,7 +62,7 @@ export const actions: Actions = {
 			const result = await operations.setActive(id, isActive === 'true');
 			if (result.status === 'not_found') return fail(404, { error: 'Announcement not found' });
 		} catch (cause) {
-			console.error('Failed to update announcement', cause);
+			console.error('Failed to update announcement', sanitizeErrorForLog(cause));
 			return fail(500, { error: 'Failed to update announcement' });
 		}
 		return { success: true };
@@ -74,7 +75,7 @@ export const actions: Actions = {
 		try {
 			await operations.delete(id);
 		} catch (cause) {
-			console.error('Failed to delete announcement', cause);
+			console.error('Failed to delete announcement', sanitizeErrorForLog(cause));
 			return fail(500, { error: 'Failed to delete announcement' });
 		}
 		return { success: true };

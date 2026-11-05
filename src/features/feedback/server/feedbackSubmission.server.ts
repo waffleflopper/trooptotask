@@ -6,6 +6,7 @@ import type {
 	FeedbackSubmission,
 	FeedbackSubmissionDependencies
 } from './feedbackPorts.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 const VALID_SUBMISSION_CATEGORIES: readonly FeedbackCategory[] = ['bug', 'feature', 'general'];
 
@@ -107,7 +108,7 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 						organizationId: input.organizationId
 					});
 				} catch (error) {
-					console.error('Failed to resolve feedback organization context:', error);
+					console.error('Failed to resolve feedback organization context:', sanitizeErrorForLog(error));
 					return { status: 'submission_failed', message: 'Failed to submit feedback' };
 				}
 
@@ -126,7 +127,7 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 					const owned = await deps.isOwnedErrorReference?.({ reference: input.errorReference, userId: input.userId });
 					if (owned) errorReference = input.errorReference;
 				} catch (error) {
-					console.error('Failed to verify feedback error reference:', error);
+					console.error('Failed to verify feedback error reference:', sanitizeErrorForLog(error));
 				}
 			}
 
@@ -153,7 +154,7 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 					errorReference
 				});
 			} catch (error) {
-				console.error('Failed to insert feedback:', error);
+				console.error('Failed to insert feedback:', sanitizeErrorForLog(error));
 				return { status: 'submission_failed', message: 'Failed to submit feedback' };
 			}
 

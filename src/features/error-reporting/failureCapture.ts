@@ -22,6 +22,8 @@ const QUOTED = /"[^"]*"|'[^']*'|`[^`]*`/g;
 const UNCLOSED_QUOTE = /["'`]/;
 const KEY_VALUE_PAIR = /\([^()]*\)\s*=\s*\([^()]*\)/g;
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+/** A run this long and unbroken by spaces is a credential or opaque identifier, never a sentence. */
+const TOKEN_RUN = /[A-Za-z0-9._~+/=-]{20,}/g;
 const DIGIT_RUN = /\d+/g;
 const NAME_SHAPE = /^[A-Za-z_$][A-Za-z0-9_$.]*$/;
 const CODE_SHAPE = /^[A-Za-z0-9_.:-]+$/;
@@ -44,8 +46,9 @@ export function normalizeFailureMessage(raw: string): string {
 	const closed = raw.length > MAX_NORMALIZED_INPUT_LENGTH ? cutAt(quotesMasked, UNCLOSED_QUOTE) : quotesMasked;
 	return closed
 		.replace(KEY_VALUE_PAIR, '?')
-		.replace(PERSON_NAME, '[name]')
 		.replace(UUID, '[id]')
+		.replace(TOKEN_RUN, '[token]')
+		.replace(PERSON_NAME, '[name]')
 		.replace(DIGIT_RUN, '[n]')
 		.replace(/\s+/g, ' ')
 		.trim()

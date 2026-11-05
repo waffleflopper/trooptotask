@@ -18,6 +18,7 @@ import {
 	type TaskingStaffing
 } from './staffingModel';
 import type { CalendarStaffingPersistence } from './staffingPersistence.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface CalendarStaffingPorts {
 	auth: OrganizationAccessGrant;
@@ -64,7 +65,7 @@ export async function loadStaffingPicker(ctx: CalendarStaffingPorts, id: string)
 			? ctx.calendarStaffing.listAdvisories(tasking.id).then(
 					(byPerson): StaffingAdvisories => ({ kind: 'loaded', byPerson }),
 					(cause): StaffingAdvisories => {
-						console.error('[calendar-staffing] Failed to load advisories:', cause);
+						console.error('[calendar-staffing] Failed to load advisories:', sanitizeErrorForLog(cause));
 						return { kind: 'failed' };
 					}
 				)

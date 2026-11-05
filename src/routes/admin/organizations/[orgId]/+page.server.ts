@@ -6,6 +6,7 @@ import {
 	createPlatformOrganizationOperations
 } from '$features/platform-admin/index.server';
 import { RequestFailure } from '$lib/errors';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const load: PageServerLoad = async (event) => {
 	const operations = await createPlatformOrganizationOperations(event);
@@ -13,7 +14,7 @@ export const load: PageServerLoad = async (event) => {
 	if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
 	const organization = await operations.getOrganization(orgId).catch((cause: unknown) => {
-		console.error('Failed to load Organization', cause);
+		console.error('Failed to load Organization', sanitizeErrorForLog(cause));
 		throw error(500, 'Failed to load organization detail');
 	});
 	if (organization === null) throw error(404, 'Organization not found');
@@ -21,7 +22,7 @@ export const load: PageServerLoad = async (event) => {
 	const activity = operations.listRecentActivity(orgId).then(
 		(events) => ({ status: 'ready' as const, events }),
 		(cause: unknown) => {
-			console.error('Failed to load Organization activity', cause);
+			console.error('Failed to load Organization activity', sanitizeErrorForLog(cause));
 			return { status: 'failed' as const };
 		}
 	);

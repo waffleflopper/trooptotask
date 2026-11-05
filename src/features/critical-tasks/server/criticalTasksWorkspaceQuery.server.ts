@@ -12,6 +12,7 @@ import type {
 } from '$features/personnel/contracts';
 import { listReaderPinnedGroupIds } from '$features/personnel/index.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 interface CriticalTasksWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
@@ -31,7 +32,7 @@ function loadCriticalTasksItems<T>(orgId: string, label: string, load: Promise<T
 	return load.catch((error) => {
 		console.error(`[critical-tasks-workspace] Failed to load ${label}`, {
 			orgId,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 		throw error;
 	});
@@ -47,7 +48,7 @@ export async function fetchCriticalTasksBootstrap(
 	const personnel = ctx.personnelCriticalTasksRoster.listActiveForReadiness(ctx.auth).catch((error) => {
 		console.error('[critical-tasks-workspace] Failed to load personnel', {
 			orgId,
-			error
+			error: sanitizeErrorForLog(error)
 		});
 		throw error;
 	});
@@ -57,7 +58,10 @@ export async function fetchCriticalTasksBootstrap(
 		orgId,
 		'pinned groups',
 		listReaderPinnedGroupIds(ctx).catch((error) => {
-			console.error('[critical-tasks-workspace] Failed to load pinned groups', { orgId, error });
+			console.error('[critical-tasks-workspace] Failed to load pinned groups', {
+				orgId,
+				error: sanitizeErrorForLog(error)
+			});
 			return [];
 		})
 	);
@@ -76,7 +80,7 @@ export async function fetchCriticalTasksBootstrap(
 		.catch((error) => {
 			console.error('[critical-tasks-workspace] Failed to load personnel ICT completions', {
 				orgId,
-				error
+				error: sanitizeErrorForLog(error)
 			});
 			throw error;
 		});

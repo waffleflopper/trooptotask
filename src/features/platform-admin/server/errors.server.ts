@@ -2,6 +2,7 @@ import type { ErrorGroupReader, ErrorGroupResolver } from '$features/error-repor
 import { ERROR_GROUP_PAGE_SIZE, type ErrorGroupStatus } from '$features/error-reporting/contracts';
 import type { AuditEvent } from '$lib/audit/contracts';
 import type { ErrorGroupRegion, ResolveErrorGroupOutcome } from '../errorTypes';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface PlatformErrorsDependencies {
 	reader: ErrorGroupReader;
@@ -26,7 +27,7 @@ export function createPlatformErrors(deps: PlatformErrorsDependencies): Platform
 				});
 				return { status: 'ok', data };
 			} catch (cause) {
-				console.error('Failed to load errors', cause);
+				console.error('Failed to load errors', sanitizeErrorForLog(cause));
 				return { status: 'error', message: 'Unable to load Errors' };
 			}
 		},
@@ -46,7 +47,9 @@ export function createPlatformErrors(deps: PlatformErrorsDependencies): Platform
 				// Without its audit the resolution must not stand, or a retry would find it resolved and never audit it.
 				await deps.resolver
 					.reopen({ groupId, actorUserId: deps.actorUserId, resolvedAt: result.resolvedAt })
-					.catch((reopenCause) => console.error('Failed to reopen an unaudited resolution', reopenCause));
+					.catch((reopenCause) =>
+						console.error('Failed to reopen an unaudited resolution', sanitizeErrorForLog(reopenCause))
+					);
 				throw cause;
 			}
 			return { status: 'resolved' };

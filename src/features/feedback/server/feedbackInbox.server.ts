@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '$lib/server/database';
 import type { FeedbackCategory } from '../contracts';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 const INBOX_COLUMNS =
 	'id, user_id, user_email, category, message, page_url, page_section, organization_name, status, created_at, updated_at';
@@ -46,7 +47,7 @@ export function createSupabaseFeedbackInboxReader(client: SupabaseClient): Feedb
 				.from('user_profiles')
 				.select('user_id, first_name, last_name')
 				.in('user_id', ids);
-			if (error) console.error('[feedback-inbox] submitter names unavailable', error);
+			if (error) console.error('[feedback-inbox] submitter names unavailable', sanitizeErrorForLog(error));
 			for (const profile of (data ?? []) as {
 				user_id: string;
 				first_name: string | null;

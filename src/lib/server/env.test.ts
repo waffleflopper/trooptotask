@@ -21,6 +21,39 @@ describe('environment validation', () => {
 		expect(result.errors.join(' ')).not.toContain('service-role-key');
 	});
 
+	it('fails production startup when no maintenance schedule secret is configured', () => {
+		const result = validateEnvironmentConfig({
+			mode: 'production',
+			env: {
+				...baseEnv,
+				ACCOUNT_SETUP_SESSION_SECRET: 'setup-session-secret',
+				APP_PUBLIC_ORIGIN: 'https://app.trooptotask.org'
+			}
+		});
+
+		expect(result.errors).toEqual(['CRON_SECRET or CLEANUP_SECRET is required in production']);
+	});
+
+	it.each(['CRON_SECRET', 'CLEANUP_SECRET'] as const)('accepts %s alone as the maintenance schedule secret', (name) => {
+		const result = validateEnvironmentConfig({
+			mode: 'production',
+			env: {
+				...baseEnv,
+				ACCOUNT_SETUP_SESSION_SECRET: 'setup-session-secret',
+				APP_PUBLIC_ORIGIN: 'https://app.trooptotask.org',
+				[name]: 'schedule-secret'
+			}
+		});
+
+		expect(result.errors).toEqual([]);
+	});
+
+	it('does not require a maintenance schedule secret outside production', () => {
+		for (const mode of ['development', 'test'] as const) {
+			expect(validateEnvironmentConfig({ mode, env: baseEnv }).errors).toEqual([]);
+		}
+	});
+
 	it('requires an official public origin in production for auth email URL generation', () => {
 		const result = validateEnvironmentConfig({
 			mode: 'production',
@@ -42,6 +75,7 @@ describe('environment validation', () => {
 				env: {
 					...baseEnv,
 					ACCOUNT_SETUP_SESSION_SECRET: 'setup-session-secret',
+					CRON_SECRET: 'cron-secret',
 					[originName]: 'https://app.trooptotask.org'
 				}
 			});
@@ -99,6 +133,7 @@ describe('environment validation', () => {
 			env: {
 				...baseEnv,
 				ACCOUNT_SETUP_SESSION_SECRET: 'setup-session-secret',
+				CRON_SECRET: 'cron-secret',
 				APP_PUBLIC_ORIGIN: 'https://app.trooptotask.org',
 				RESEND_API_KEY: 'synthetic-email-key',
 				RESEND_FROM_EMAIL: 'noreply@example.test',

@@ -74,7 +74,10 @@ describe('admin announcements route shell', () => {
 		} as unknown as Parameters<(typeof actions)['create']>[0]);
 
 		expect(result).toEqual({ status: 500, data: { error: 'Failed to create announcement' } });
-		expect(consoleError).toHaveBeenCalledWith('Failed to create announcement', expect.any(Error));
+		expect(consoleError).toHaveBeenCalledWith(
+			'Failed to create announcement',
+			expect.stringMatching(/^name=Error message=insert failed/)
+		);
 		consoleError.mockRestore();
 	});
 
@@ -130,7 +133,10 @@ describe('admin announcements route shell', () => {
 			request: makeRequest({ id: ANNOUNCEMENT_ID })
 		} as unknown as Parameters<(typeof actions)['delete']>[0]);
 		expect(failure).toEqual({ status: 500, data: { error: 'Failed to delete announcement' } });
-		expect(consoleError).toHaveBeenCalledWith('Failed to delete announcement', expect.any(Error));
+		expect(consoleError).toHaveBeenCalledWith(
+			'Failed to delete announcement',
+			expect.stringMatching(/^name=Error message=delete failed/)
+		);
 		consoleError.mockRestore();
 	});
 	it('reports each failed read as its own region without disclosing provider details', async () => {

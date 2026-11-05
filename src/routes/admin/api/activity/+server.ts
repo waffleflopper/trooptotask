@@ -2,6 +2,7 @@ import type { RequestHandler } from './$types';
 import { error, json } from '@sveltejs/kit';
 import { createPlatformActivityOperations } from '$features/platform-admin/index.server';
 import { activityTimeZone, parseActivityQuery } from '$features/platform-admin/activityQuery';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const GET: RequestHandler = async (event) => {
 	const operations = await createPlatformActivityOperations(event);
@@ -13,7 +14,7 @@ export const GET: RequestHandler = async (event) => {
 			)
 		);
 	} catch (cause) {
-		console.error('Failed to load platform Activity', cause);
+		console.error('Failed to load platform Activity', sanitizeErrorForLog(cause));
 		error(500, 'Unable to load Activity');
 	}
 };

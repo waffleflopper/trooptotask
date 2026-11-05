@@ -141,6 +141,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     GROUP_TREE_MIGRATION,
     "20261104090000_roster_pool_spans_read.sql",
     "20261104100000_attribution_column_authority.sql",
+    "20261104110000_client_error_report_group_limits.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -261,6 +262,7 @@ STAGED_UPGRADE_SQL_TESTS = (
     "roster_swaps_concurrency.sql",
     "roster_pool_spans_read.sql",
     "attribution_column_authority.sql",
+    "platform_error_reporting.sql",
 )
 
 _receipt = None

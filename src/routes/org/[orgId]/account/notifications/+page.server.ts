@@ -6,6 +6,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestNotificationSelfContext } from '$lib/server/adapters/requestContexts.server';
 import type { PageServerLoad } from './$types';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 /** `notifications` is null when the read failed, so the page shows its load error inside the Account layout. */
 export const load: PageServerLoad = async ({ locals, cookies, params, depends }) => {
@@ -19,7 +20,7 @@ export const load: PageServerLoad = async ({ locals, cookies, params, depends })
 		return { notifications };
 	} catch (cause) {
 		if (isRedirect(cause) || (isHttpError(cause) && cause.status < 500)) throw cause;
-		console.error('[notifications] account list failed', cause);
+		console.error('[notifications] account list failed', sanitizeErrorForLog(cause));
 		return { notifications: null };
 	}
 };

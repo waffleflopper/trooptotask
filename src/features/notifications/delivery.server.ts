@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '$lib/server/database';
 import type { NotificationDeliveryPort, NotificationPayload } from './contracts';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 /** Delivery composition supplies Organization facts without a reverse owner import. */
 export type AdministratorRecipientLookup = (
@@ -32,7 +33,7 @@ export function createSupabaseNotificationDelivery(options: NotificationDelivery
 		const { error } = await options.getAdminClient().from('notifications').insert(rows);
 		if (error) {
 			if (options.failureMode === 'required') throw new Error(error.message);
-			console.error(failureContext, error.message);
+			console.error(failureContext, sanitizeErrorForLog(error));
 		}
 	}
 
@@ -45,7 +46,10 @@ export function createSupabaseNotificationDelivery(options: NotificationDelivery
 			const recipients = await options.resolveAdministratorRecipients(orgId);
 			if (recipients.errorMessage !== null) {
 				if (options.failureMode === 'required') throw new Error(recipients.errorMessage);
-				console.error(`Failed to create admin notifications for org ${orgId}:`, recipients.errorMessage);
+				console.error(
+					`Failed to create admin notifications for org ${orgId}:`,
+					sanitizeErrorForLog(recipients.errorMessage)
+				);
 				return;
 			}
 			await insert(

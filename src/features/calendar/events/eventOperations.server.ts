@@ -20,6 +20,7 @@ import {
 	type MemberLabels
 } from './eventModel';
 import { EVENT_GONE, type CalendarEventPersistence } from './eventPersistence.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface CalendarEventPorts {
 	auth: OrganizationAccessGrant;
@@ -117,7 +118,7 @@ export function settleEventRead<T>(read: Promise<T>): Promise<EventRead<T>> {
 		(value) => ({ status: 'loaded', value }),
 		(cause) => {
 			if (cause instanceof RequestFailure && cause.status === 404) return { status: 'gone' };
-			console.error('[calendar-events] Failed to load:', cause);
+			console.error('[calendar-events] Failed to load:', sanitizeErrorForLog(cause));
 			return { status: 'failed' };
 		}
 	);

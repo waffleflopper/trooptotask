@@ -2,6 +2,7 @@ import type { RequestHandler } from './$types';
 import { error, json } from '@sveltejs/kit';
 import { createPlatformInboxOperations } from '$features/platform-admin/index.server';
 import { parseInboxItemKey, type InboxDetailResponse } from '$features/platform-admin/inboxTypes';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const GET: RequestHandler = async (event) => {
 	const operations = await createPlatformInboxOperations(event);
@@ -11,7 +12,7 @@ export const GET: RequestHandler = async (event) => {
 	try {
 		detail = await operations.detail(ref);
 	} catch (cause) {
-		console.error('[platform-admin-inbox] detail read failed', cause);
+		console.error('[platform-admin-inbox] detail read failed', sanitizeErrorForLog(cause));
 		error(500, 'Unable to load this Inbox item');
 	}
 	return json((detail ? { status: 'ok', detail } : { status: 'notFound' }) satisfies InboxDetailResponse);

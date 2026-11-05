@@ -34,7 +34,7 @@ describe('SupabaseAuditAdapter', () => {
 		const settled = createSupabaseAuditAdapter(orgId, requestInfo).log({
 			action: 'create',
 			resourceType: 'personnel'
-		}) as Promise<void>;
+		});
 
 		expect(await Promise.race([settled, Promise.resolve('pending')])).toBe('pending');
 		failWrite(new Error('DB down'));

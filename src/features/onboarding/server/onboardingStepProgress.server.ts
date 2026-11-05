@@ -51,7 +51,7 @@ export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceS
 
 	const updated = await ctx.onboardingWorkflow.savePaperworkProgress(input.stepId, input.stageName, completed);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_step.stage_advanced',
 		resourceType: 'onboarding_step_progress',
 		resourceId: input.stepId,
@@ -83,7 +83,7 @@ export async function addNote(
 	if (!ctx.onboardingNoteAppend) throw new Error('Bind the owned Onboarding note append provider');
 	const result = await ctx.onboardingNoteAppend.append(ctx.auth.orgId, input.stepId, input.text);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_step.note_added',
 		resourceType: 'onboarding_step_progress',
 		resourceId: input.stepId,
@@ -110,7 +110,7 @@ export async function removeInactiveStep(ctx: OnboardingInactiveStepRemovalPorts
 	const removed = await ctx.onboardingInactiveStepRemoval.remove(ctx.auth.orgId, stepId);
 	if (!removed) fail(409, 'Step changed before removal; reload and try again');
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_step.inactive_removed',
 		resourceType: 'onboarding_step_progress',
 		resourceId: removed.id
@@ -132,7 +132,7 @@ export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: Toggle
 
 	const updated = await ctx.onboardingWorkflow.saveCheckboxCompletion(input.stepId, input.completed);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding_step.toggled',
 		resourceType: 'onboarding_step_progress',
 		resourceId: input.stepId,

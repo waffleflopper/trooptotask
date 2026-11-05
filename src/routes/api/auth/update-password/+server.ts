@@ -65,7 +65,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 				{ status: result.state === 'unavailable' ? 503 : 409 }
 			);
 		case 'revocation-pending':
-			auditLog(
+			await auditLog(
 				{
 					action: 'auth.session_revoke_failed',
 					resourceType: 'user',
@@ -85,7 +85,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 				{ status: 202 }
 			);
 		case 'limited':
-			auditLog(
+			await auditLog(
 				{
 					action: 'auth.password_update_rate_limited',
 					resourceType: 'user',

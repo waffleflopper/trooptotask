@@ -52,7 +52,7 @@ describe('Access server policy', () => {
 	it('rejects feature denial asynchronously after the caller continues, with its scalar audit details', async () => {
 		const events: string[] = [];
 		const audit = {
-			log: vi.fn(() => {
+			log: vi.fn(async () => {
 				events.push('policy denied');
 			})
 		};

@@ -20,7 +20,7 @@ export const _postConfig = {
 	fn: async (ctx, input) => {
 		if (!ctx.criticalTasksSettingsWrite) fail(500, 'Critical Tasks settings writer is unavailable');
 		await ctx.criticalTasksSettingsWrite.saveDefaults(ctx.auth.orgId, input);
-		ctx.audit.log({
+		await ctx.audit.log({
 			action: 'critical_tasks.defaults_updated',
 			resourceType: 'organization',
 			resourceId: ctx.auth.orgId,

@@ -86,7 +86,7 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		}))
 	});
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding.started',
 		resourceType: 'personnel_onboarding',
 		resourceId: onboarding.id,
@@ -162,7 +162,7 @@ export async function cancelOnboarding(ctx: OnboardingLifecyclePorts, id: string
 
 	const updated = await persistTransition(ctx, id, { kind: 'cancel', at: new Date().toISOString() });
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding.cancelled',
 		resourceType: 'personnel_onboarding',
 		resourceId: id
@@ -190,7 +190,7 @@ export async function reopenOnboarding(ctx: OnboardingLifecyclePorts, id: string
 
 	const updated = await persistTransition(ctx, id, { kind: 'reopen' });
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding.reopened',
 		resourceType: 'personnel_onboarding',
 		resourceId: id
@@ -229,7 +229,7 @@ export async function completeOnboarding(
 
 	const updated = await persistTransition(ctx, id, { kind: 'complete', at: completedOn });
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'onboarding.completed',
 		resourceType: 'personnel_onboarding',
 		resourceId: id,

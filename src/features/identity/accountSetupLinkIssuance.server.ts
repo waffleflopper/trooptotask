@@ -40,7 +40,7 @@ export interface AccountSetupLinkIssuanceDelivery {
 export interface AccountSetupLinkIssuanceDependencies {
 	setupLinks: AccountSetupLinkIssuanceCreator;
 	setupDelivery: AccountSetupLinkIssuanceDelivery;
-	audit: (event: AccountSetupLinkIssuanceAuditEvent) => void | Promise<void>;
+	audit: (event: AccountSetupLinkIssuanceAuditEvent) => Promise<void>;
 }
 
 export interface AccountSetupLinkIssuanceCommand {

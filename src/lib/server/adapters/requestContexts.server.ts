@@ -201,7 +201,7 @@ export async function buildRouteRequest(event: RequestEvent): Promise<AdmittedOr
 export async function buildLayoutRequest(locals: App.Locals, orgId: string): Promise<AdmittedOrganizationRequest> {
 	const { supabase, userId } = getAdmittedRequestClient(locals);
 	const organization = await requireActiveOrganization(locals, orgId);
-	return createOrganizationRequest(locals, supabase, userId, organization, { log() {} });
+	return createOrganizationRequest(locals, supabase, userId, organization, { async log() {} });
 }
 
 export function createRequestPersonnelArtifactsContext(

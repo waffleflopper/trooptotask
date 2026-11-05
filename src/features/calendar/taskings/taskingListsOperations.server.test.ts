@@ -196,7 +196,7 @@ describe('Tasking equipment and checklist operations', () => {
 			status: 403
 		});
 		expect(other.equipment).toEqual([]);
-		expect(other.audit.entries).toEqual([]);
+		expect(other.audit.entries.map((entry) => entry.action)).toEqual(['policy.denied', 'policy.denied']);
 	});
 
 	it('refuses every write from a viewer and every read from a member without Calendar access', async () => {

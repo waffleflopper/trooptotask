@@ -79,7 +79,7 @@ export async function approveDeletionRequest(
 		message: `Your request to ${actionWord} "${request.resource_description}" has been approved.`
 	});
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.approved`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: boundRequestId,
@@ -125,7 +125,7 @@ export async function denyDeletionRequest(
 		link: request.resource_url
 	});
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.denied`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: boundRequestId,

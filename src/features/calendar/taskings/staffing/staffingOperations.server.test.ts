@@ -188,7 +188,7 @@ describe('Tasking staffing operations', () => {
 		await expect(loadStaffingPicker(ctx, TASKING)).rejects.toMatchObject({ status: 403 });
 		await expect(saveTaskingPeople(ctx, TASKING, save([ALICE], 0))).rejects.toMatchObject({ status: 403 });
 		expect(saves).toEqual([]);
-		expect(audit.entries).toEqual([]);
+		expect(audit.entries.map((entry) => entry.action)).toEqual(['policy.denied', 'policy.denied']);
 	});
 
 	it('keeps viewers from staffing', async () => {

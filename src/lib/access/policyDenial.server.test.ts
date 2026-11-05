@@ -90,7 +90,7 @@ describe('policy denial', () => {
 			{ kind: 'organization' }
 		);
 
-		expect(() =>
+		await expect(
 			denyPolicyDecision({
 				audit,
 				decision,
@@ -98,7 +98,7 @@ describe('policy denial', () => {
 				details: policyDenialAuditDetails(decision),
 				message: 'Calendar access denied'
 			})
-		).toThrow('Calendar access denied');
+		).rejects.toThrow('Calendar access denied');
 
 		expect(audit.log).toHaveBeenCalledWith({
 			action: 'policy.denied',
@@ -125,7 +125,7 @@ describe('policy denial', () => {
 			{ kind: 'organization' }
 		);
 
-		expect(() =>
+		await expect(
 			denyPolicyDecision({
 				audit,
 				decision,
@@ -133,7 +133,7 @@ describe('policy denial', () => {
 				details: policyDenialAuditDetails(decision),
 				message: 'Calendar access denied'
 			})
-		).toThrow('Calendar access denied');
+		).rejects.toThrow('Calendar access denied');
 
 		expect(audit.log).not.toHaveBeenCalled();
 	});
@@ -152,7 +152,7 @@ describe('policy denial', () => {
 			{ kind: 'unscoped' }
 		);
 
-		expect(() =>
+		await expect(
 			denyPolicyDecision({
 				audit,
 				decision,
@@ -161,13 +161,13 @@ describe('policy denial', () => {
 				status: 401,
 				message: 'Unauthorized'
 			})
-		).toThrow('Unauthorized');
+		).rejects.toThrow('Unauthorized');
 		expect(audit.log).toHaveBeenCalledOnce();
 	});
 });
 
 function auditSpy(): PolicyAuditSink {
 	return {
-		log: vi.fn()
+		log: vi.fn(async () => {})
 	};
 }

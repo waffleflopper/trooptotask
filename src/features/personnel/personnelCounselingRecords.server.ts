@@ -199,7 +199,7 @@ export async function createPersonnelCounselingRecord(
 	}
 	await upload.complete();
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.counseling_record.created',
 		resourceType: 'personnel',
 		resourceId: input.personnelId
@@ -226,7 +226,7 @@ export async function archivePersonnelCounselingRecord(
 		at: new Date().toISOString(),
 		by: ctx.actor.userId
 	});
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.counseling_record.archived',
 		resourceType: 'personnel',
 		resourceId: input.personnelId
@@ -240,7 +240,7 @@ export async function restorePersonnelCounselingRecord(
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	const row = await writer.setCounselingArchive(input.recordId, null);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.counseling_record.restored',
 		resourceType: 'personnel',
 		resourceId: input.personnelId
@@ -259,7 +259,7 @@ export async function deletePersonnelCounselingRecord(
 	if (!result)
 		fail(row ? 409 : 404, row ? 'Counseling record changed before it was deleted' : 'Counseling record not found');
 	if (result.deleted)
-		ctx.audit.log({
+		await ctx.audit.log({
 			action: 'personnel.counseling_record.deleted',
 			resourceType: 'personnel',
 			resourceId: input.personnelId

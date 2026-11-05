@@ -74,7 +74,7 @@ export async function fetchCalendarStatusDaysReport(
 	]);
 	const inScope = scope && new Set(scope.personnelIds);
 
-	ctx.audit.log({ action: 'calendar_report.viewed', resourceType: 'calendar_report' });
+	await ctx.audit.log({ action: 'calendar_report.viewed', resourceType: 'calendar_report' });
 
 	return {
 		entries,

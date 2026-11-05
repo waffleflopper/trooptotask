@@ -86,9 +86,9 @@ interface DenyPolicyDecisionInput {
 	status?: PolicyDenialStatus;
 }
 
-export function denyPolicyDecision(input: DenyPolicyDecisionInput): never {
+export async function denyPolicyDecision(input: DenyPolicyDecisionInput): Promise<never> {
 	if (input.audit && (input.capture ?? input.decision.audit.capture)) {
-		input.audit.log({
+		await input.audit.log({
 			action: 'policy.denied',
 			resourceType: input.resourceType,
 			resourceId: input.resourceId,
@@ -147,7 +147,7 @@ export async function requireFeaturePolicy(
 		return;
 	}
 
-	denyPolicyDecision({
+	await denyPolicyDecision({
 		audit: ports.audit,
 		decision,
 		resourceType,
@@ -197,7 +197,7 @@ export async function requireGovernancePolicy(
 		return;
 	}
 
-	denyPolicyDecision({
+	await denyPolicyDecision({
 		audit: ports.audit,
 		decision,
 		resourceType: 'organization',
@@ -236,7 +236,7 @@ export async function requireIdentityOwnedPolicy(
 		return;
 	}
 
-	denyPolicyDecision({
+	await denyPolicyDecision({
 		audit: ports.audit,
 		decision,
 		resourceType,
@@ -280,7 +280,7 @@ export async function requirePolicyDecision(
 		return;
 	}
 
-	denyPolicyDecision({
+	await denyPolicyDecision({
 		audit: ports.audit,
 		decision,
 		resourceType: action.id,

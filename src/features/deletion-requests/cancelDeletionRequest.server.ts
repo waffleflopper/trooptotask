@@ -31,7 +31,7 @@ export async function cancelDeletionRequest(ctx: DeletionRequestCancellationCont
 	);
 
 	await ctx.cancellation.cancelPendingRequest(ctx.auth.orgId, requestId);
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.cancelled`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: requestId

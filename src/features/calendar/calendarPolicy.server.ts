@@ -64,7 +64,7 @@ export async function requireCalendarPolicy(
 	const decision = await evaluateCalendarPolicy(ports, action, resource);
 	if (decision.allowed) return;
 
-	denyPolicyDecision({
+	await denyPolicyDecision({
 		audit: ports.audit,
 		decision,
 		resourceType: 'calendar',

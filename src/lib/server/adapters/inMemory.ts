@@ -838,7 +838,7 @@ export function createTestAuditPort(): AuditPort & { events: AuditEvent[] } {
 	const events: AuditEvent[] = [];
 	return {
 		events,
-		log(event: AuditEvent): void {
+		async log(event: AuditEvent): Promise<void> {
 			events.push(event);
 		}
 	};

@@ -125,7 +125,7 @@ interface RankCatalogReadOptions {
 	authorization?: RankCatalogReadAuthorization;
 }
 
-const NOOP_AUDIT_PORT: PolicyAuditSink = { log() {} };
+const NOOP_AUDIT_PORT: PolicyAuditSink = { async log() {} };
 
 async function requireRankCatalogReadPolicy(
 	ports: RankCatalogReadPorts,
@@ -176,7 +176,7 @@ export async function ensureOrganizationRankCatalog(ports: RankCatalogPorts): Pr
 	if (missingRows.length > 0) {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
 		await ports.rankCatalog.saveEntries(missingRows);
-		ports.audit.log({
+		await ports.audit.log({
 			action: 'organization.rank_catalog.reconciled',
 			resourceType: 'organization_rank_catalog',
 			resourceId: ports.auth.orgId,
@@ -234,7 +234,7 @@ export async function saveOrganizationRankCatalogEntry(
 	}
 
 	const savedEntry = deserializeRankCatalogRow(saved);
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'organization.rank_catalog.saved',
 		resourceType: 'organization_rank_catalog',
 		resourceId: saved.id,
@@ -537,7 +537,7 @@ export async function removeOrganizationRankCatalogEntry(
 
 	await ports.rankCatalogAdministration.deleteRankCatalogEntry(ports.auth.orgId, existing.id, code);
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'organization.rank_catalog.deleted',
 		resourceType: 'organization_rank_catalog',
 		resourceId: existing.id,

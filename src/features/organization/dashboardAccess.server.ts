@@ -2,7 +2,12 @@ import { fail } from '$lib/errors';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 export interface DashboardInvitationAuditPort {
-	log(event: { action: string; resourceType: string; resourceId?: string; details?: Record<string, unknown> }): void;
+	log(event: {
+		action: string;
+		resourceType: string;
+		resourceId?: string;
+		details?: Record<string, unknown>;
+	}): Promise<void>;
 }
 
 export interface DashboardOrganizationSummary {
@@ -188,7 +193,7 @@ export async function acceptDashboardInvitation(
 		userId: input.userId,
 		email: normalizedEmail
 	});
-	ports.audit?.(accepted.organizationId).log({
+	await ports.audit?.(accepted.organizationId).log({
 		action: 'organization_invitation.accepted',
 		resourceType: 'organization_invitation',
 		resourceId: input.invitationId,
@@ -247,7 +252,7 @@ export async function declineDashboardInvitation(
 		userId: input.userId,
 		email: normalizedEmail
 	});
-	ports.audit?.(declined.organizationId).log({
+	await ports.audit?.(declined.organizationId).log({
 		action: 'organization_invitation.declined',
 		resourceType: 'organization_invitation',
 		resourceId: input.invitationId,

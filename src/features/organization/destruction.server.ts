@@ -64,7 +64,7 @@ export async function deleteOrganization(
 		});
 		const sensitiveAction = sensitiveActionDecisionAuditDetails(decision);
 		if (!decision.allowed) {
-			ports.audit.log({
+			await ports.audit.log({
 				action: 'org.delete_authorization_denied',
 				resourceType: 'organization',
 				resourceId: orgId,
@@ -109,7 +109,7 @@ export async function deleteOrganization(
 	if (!(await providerResult(() => ports.destruction.deleteConfirmedTarget(orgId, persistedName)))) {
 		fail(409, 'Organization deletion was not confirmed. Refresh before retrying.');
 	}
-	ports.deletedAudit.log({
+	await ports.deletedAudit.log({
 		action: 'org.deleted',
 		resourceType: 'organization',
 		resourceId: orgId,

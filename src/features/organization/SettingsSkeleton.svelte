@@ -4,13 +4,16 @@
 	import { cn } from '$lib/utils.js';
 
 	/** The body of a settings page while it loads, shaped like the page so nothing moves when it arrives. */
-	let { page }: { page: SettingsPageKey } = $props();
-	const blocks = $derived<readonly SettingsSkeletonBlock[]>(SETTINGS_PAGES[page].skeleton);
+	let { page, skip }: { page: SettingsPageKey; skip?: SettingsSkeletonBlock['kind'] } = $props();
+	const blocks = $derived<readonly SettingsSkeletonBlock[]>(
+		SETTINGS_PAGES[page].skeleton.filter((block) => block.kind !== skip)
+	);
 </script>
 
 <div class="grid min-w-0 grid-cols-1" aria-hidden="true" data-settings-skeleton={page}>
 	{#each blocks as block, index (index)}
 		{@const opensSection = index > 0 && (block.kind === 'heading' || block.kind === 'strip')}
+		{@const followsFilters = index > 0 && blocks[index - 1].kind === 'filters'}
 		{#if block.kind === 'rows'}
 			<div
 				class={cn(
@@ -42,10 +45,21 @@
 				<Skeleton class="ml-auto h-8 w-60 max-w-1/3" />
 			</div>
 		{:else if block.kind === 'filters'}
-			<div class="mb-4 flex flex-wrap items-center gap-3">
-				<Skeleton class="h-8 w-full md:w-90" />
-				<Skeleton class="h-8 w-62" />
-				<Skeleton class="h-4 w-40 md:ml-auto" />
+			<div class="mb-4 grid gap-3 md:grid-cols-3">
+				{#each { length: 3 } as _, field (field)}
+					<div class="grid gap-1.5">
+						<Skeleton class="h-4 w-14" />
+						<Skeleton class="h-8 w-full" />
+					</div>
+				{/each}
+				<div class="grid grid-cols-2 gap-3 md:col-span-2">
+					{#each { length: 2 } as _, field (field)}
+						<div class="grid gap-1.5">
+							<div class="h-4"><Skeleton class="h-4 w-10" /></div>
+							<Skeleton class="h-8 w-full" />
+						</div>
+					{/each}
+				</div>
 			</div>
 		{:else if block.kind === 'strip'}
 			<div class={cn('grid gap-2.5 rounded-sm border bg-muted p-3.5', opensSection && 'mt-10')}>
@@ -54,7 +68,7 @@
 			</div>
 		{:else}
 			<div
-				class="@container/list"
+				class={cn('@container/list', followsFilters && 'mt-7')}
 				style:--row="{block.height}px"
 				style:--stacked-row="{block.stacked?.height ?? block.height}px"
 			>

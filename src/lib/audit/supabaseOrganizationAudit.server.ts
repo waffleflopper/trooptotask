@@ -9,30 +9,32 @@ import {
 const LOG_COLUMNS =
 	'id, user_id, action, resource_type, resource_id, details, timestamp, actor_label, record_label, subject_personnel_id, subject_label, batch_id';
 
-/** Privileged Organization reads; delivery admits the owner before constructing this reader. */
+/** Privileged Organization reads; delivery admits the owner or admin before constructing this reader. */
 export function createSupabaseOrganizationAuditStore(client: SupabaseClient): OrganizationAuditStore {
-	const scoped = (orgId: string, columns: string, head = false) =>
-		client
-			.from('audit_logs')
-			.select(columns, { count: 'exact', head })
-			.eq('org_id', orgId)
-			.not('action', 'in', `(${ORGANIZATION_AUDIT_EXCLUDED_ACTIONS.join(',')})`);
 	return {
-		async listLogs({ orgId, action, offset, limit }) {
-			let query = scoped(orgId, LOG_COLUMNS);
-			if (action) query = query.eq('action', action);
+		async listLogs({ orgId, filters, after, limit }) {
+			let query = client
+				.from('audit_logs')
+				.select(LOG_COLUMNS)
+				.eq('org_id', orgId)
+				.not('action', 'in', `(${ORGANIZATION_AUDIT_EXCLUDED_ACTIONS.join(',')})`);
+			if (filters.personId) query = query.eq('subject_personnel_id', filters.personId);
+			if (filters.userId) query = query.eq('user_id', filters.userId);
+			if (filters.action) query = query.eq('action', filters.action);
+			if (filters.since) query = query.gte('timestamp', filters.since);
+			if (filters.until) query = query.lt('timestamp', filters.until);
+			// The bound on timestamp lets the index seek to the cursor; the OR then drops the entries already shown.
+			if (after) {
+				query = query.lte('timestamp', after.timestamp).or(`timestamp.lt."${after.timestamp}",id.lt."${after.id}"`);
+			}
 			const response = await query
 				.order('timestamp', { ascending: false })
-				.order('id', { ascending: true })
-				.range(offset, offset + limit - 1)
+				.order('id', { ascending: false })
+				.limit(limit + 1)
 				.returns<OrganizationAuditRow[]>();
 			assertAuditQuerySuccess('Organization Audit page', response);
-			return { logs: response.data ?? [], totalCount: response.count ?? 0 };
-		},
-		async countRecent({ orgId, cutoff }) {
-			const response = await scoped(orgId, 'id', true).gte('timestamp', cutoff);
-			assertAuditQuerySuccess('Organization Audit recent count', response);
-			return response.count ?? 0;
+			const rows = response.data ?? [];
+			return { logs: rows.slice(0, limit), hasMore: rows.length > limit };
 		},
 		async listActions(orgId) {
 			const response = await client.rpc('list_audit_log_actions', {

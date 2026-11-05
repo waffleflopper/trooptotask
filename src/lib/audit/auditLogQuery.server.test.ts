@@ -41,13 +41,13 @@ function labelReads(store: ReturnType<typeof createInMemoryDataStore>, orgId: st
 function fetchAuditLogs(
 	ctx: ReturnType<typeof createQueryPortsContext>,
 	store: ReturnType<typeof createInMemoryDataStore>,
-	input: Omit<AuditLogQueryInput, 'recentSince'> & { recentSince?: string }
+	input: Partial<AuditLogQueryInput> = {}
 ) {
 	const orgId = ctx.auth.orgId;
 	return queryAuditLogs(
 		orgId,
 		createInMemoryOrganizationAuditStore(store),
-		{ recentSince: '2026-04-01T00:00:00Z', ...input },
+		{ filters: {}, timeZone: 'UTC', ...input },
 		labelReads(store, orgId)
 	);
 }
@@ -90,12 +90,11 @@ describe('fetchAuditLogs', () => {
 			}
 		]);
 
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+		const result = await fetchAuditLogs(ctx, adminStore, {});
 
 		expect(result.logs).toHaveLength(1);
 		expect(result.logs[0].action).toBe('personnel.create');
 		expect(result.logs[0].actor).toBe('alice@example.com');
-		expect(result.totalCount).toBe(1);
 	});
 
 	it('excludes site-wide auth actions', async () => {
@@ -125,7 +124,7 @@ describe('fetchAuditLogs', () => {
 			}
 		]);
 
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+		const result = await fetchAuditLogs(ctx, adminStore, {});
 
 		expect(result.logs).toHaveLength(1);
 		expect(result.logs[0].action).toBe('personnel.create');
@@ -158,43 +157,10 @@ describe('fetchAuditLogs', () => {
 			}
 		]);
 
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1, action: 'personnel.create' });
+		const result = await fetchAuditLogs(ctx, adminStore, { filters: { kind: 'personnel.create' } });
 
 		expect(result.logs).toHaveLength(1);
 		expect(result.logs[0].action).toBe('personnel.create');
-	});
-
-	it('returns available actions for filter dropdown', async () => {
-		const ctx = createQueryPortsContext();
-		const adminStore = createInMemoryDataStore();
-
-		adminStore.seed('audit_logs', [
-			{
-				id: 'log1',
-				org_id: ORG,
-				user_id: 'u1',
-				action: 'personnel.create',
-				resource_type: 'personnel',
-				resource_id: 'p1',
-				details: null,
-				timestamp: '2026-03-23T10:00:00Z'
-			},
-			{
-				id: 'log2',
-				org_id: ORG,
-				user_id: 'u1',
-				action: 'personnel.delete',
-				resource_type: 'personnel',
-				resource_id: 'p2',
-				details: null,
-				timestamp: '2026-03-23T10:01:00Z'
-			}
-		]);
-
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1 });
-
-		expect(result.availableActions).toContain('personnel.create');
-		expect(result.availableActions).toContain('personnel.delete');
 	});
 
 	it('prefers actor from details when present', async () => {
@@ -218,7 +184,7 @@ describe('fetchAuditLogs', () => {
 			}
 		]);
 
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+		const result = await fetchAuditLogs(ctx, adminStore, {});
 
 		expect(result.logs[0].actor).toBe('override@example.com');
 	});
@@ -256,7 +222,7 @@ describe('fetchAuditLogs', () => {
 			})
 		]);
 
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+		const result = await fetchAuditLogs(ctx, adminStore, {});
 
 		expect(result.logs[0].actor).toBe('same-org@example.com');
 		expect(result.logs[0].details).toEqual({
@@ -297,7 +263,7 @@ describe('fetchAuditLogs', () => {
 			auditLog({ id: 'legacy', details: { personnel_id: personnelId } })
 		]);
 
-		const { logs } = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+		const { logs } = await fetchAuditLogs(ctx, adminStore, {});
 
 		expect(logs.find((log) => log.id === 'log')).toMatchObject({
 			actor: 'SSG Rivera, Sam',
@@ -315,87 +281,6 @@ describe('fetchAuditLogs', () => {
 		});
 	});
 
-	it('returns the requested newest-first page with the full matching count', async () => {
-		const ctx = createQueryPortsContext();
-		const adminStore = createInMemoryDataStore();
-
-		adminStore.seed(
-			'audit_logs',
-			Array.from({ length: 6 }, (_, index) =>
-				auditLog({
-					id: `log-${index}`,
-					action: index % 2 === 0 ? 'personnel.create' : 'training.update',
-					timestamp: `2026-03-23T10:0${index}:00Z`
-				})
-			)
-		);
-
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 2, limit: 2 });
-
-		expect(result.logs.map((log) => log.id)).toEqual(['log-3', 'log-2']);
-		expect(result.totalCount).toBe(6);
-	});
-
-	it('treats a page below one as the first page', async () => {
-		const ctx = createQueryPortsContext();
-		const adminStore = createInMemoryDataStore();
-
-		adminStore.seed('audit_logs', [
-			auditLog({ id: 'log-1', action: 'personnel.create', timestamp: '2026-03-23T10:00:00Z' })
-		]);
-
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 0, limit: 50 });
-
-		expect(result.page).toBe(1);
-		expect(result.logs.map((log) => log.id)).toEqual(['log-1']);
-	});
-
-	it('counts the selected action in the database and keeps available actions unfiltered', async () => {
-		const ctx = createQueryPortsContext();
-		const adminStore = createInMemoryDataStore();
-
-		adminStore.seed('audit_logs', [
-			auditLog({ id: 'log-1', action: 'personnel.create', timestamp: '2026-03-23T10:00:00Z' }),
-			auditLog({ id: 'log-2', action: 'personnel.create', timestamp: '2026-03-23T10:01:00Z' }),
-			auditLog({ id: 'log-3', action: 'training.update', timestamp: '2026-03-23T10:02:00Z' })
-		]);
-
-		const result = await fetchAuditLogs(ctx, adminStore, {
-			page: 1,
-			limit: 10,
-			action: 'personnel.create'
-		});
-
-		expect(result.logs.map((log) => log.id)).toEqual(['log-2', 'log-1']);
-		expect(result.totalCount).toBe(2);
-		expect(result.actionFilter).toBe('personnel.create');
-		expect(result.availableActions).toEqual(['personnel.create', 'training.update']);
-	});
-
-	it('counts entries since the given instant with excluded actions and without selected action filtering', async () => {
-		const ctx = createQueryPortsContext();
-		const adminStore = createInMemoryDataStore();
-
-		adminStore.seed('audit_logs', [
-			auditLog({ id: 'recent-create', action: 'personnel.create', timestamp: '2026-04-20T10:00:00Z' }),
-			auditLog({ id: 'recent-training', action: 'training.update', timestamp: '2026-04-19T10:00:00Z' }),
-			auditLog({ id: 'recent-auth', action: 'auth.login_success', timestamp: '2026-04-21T10:00:00Z' }),
-			auditLog({ id: 'older-create', action: 'personnel.create', timestamp: '2026-03-01T10:00:00Z' })
-		]);
-
-		const result = await fetchAuditLogs(ctx, adminStore, {
-			page: 1,
-			limit: 10,
-			action: 'personnel.create',
-			recentSince: '2026-04-19T10:00:00Z'
-		});
-
-		expect(result.logs.map((log) => log.id)).toEqual(['recent-create', 'older-create']);
-		expect(result.totalCount).toBe(2);
-		expect(result.recentCount).toBe(2);
-		expect(result.availableActions).toEqual(['personnel.create', 'training.update']);
-	});
-
 	it('does not leak logs from other organizations through the paged path', async () => {
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
@@ -410,36 +295,169 @@ describe('fetchAuditLogs', () => {
 			})
 		]);
 
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1, limit: 10 });
+		const result = await fetchAuditLogs(ctx, adminStore, { limit: 10 });
 
 		expect(result.logs.map((log) => log.id)).toEqual(['org-log']);
-		expect(result.totalCount).toBe(1);
-		expect(result.availableActions).toEqual(['personnel.create']);
-	});
-
-	it('returns an empty selected page when the action filter is excluded', async () => {
-		const ctx = createQueryPortsContext();
-		const adminStore = createInMemoryDataStore();
-
-		adminStore.seed('audit_logs', [
-			auditLog({ id: 'auth-log', action: 'auth.login_success', timestamp: '2026-04-20T10:00:00Z' }),
-			auditLog({ id: 'normal-log', action: 'personnel.create', timestamp: '2026-04-19T10:00:00Z' })
-		]);
-
-		const result = await fetchAuditLogs(ctx, adminStore, {
-			page: 1,
-			limit: 10,
-			action: 'auth.login_success'
-		});
-
-		expect(result.logs).toEqual([]);
-		expect(result.totalCount).toBe(0);
-		expect(result.recentCount).toBe(1);
-		expect(result.availableActions).toEqual(['personnel.create']);
 	});
 });
 
-describe('Audit disclosure and incomplete counts', () => {
+describe('fetchAuditLogs filters and paging', () => {
+	const PERSON = '11111111-1111-4111-8111-111111111111';
+	const MEMBER = '22222222-2222-4222-8222-222222222222';
+
+	const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+	function entry(id: string, timestamp: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+		return {
+			id,
+			org_id: ORG,
+			user_id: 'busy-member',
+			action: 'training_record.updated',
+			resource_type: 'training_record',
+			resource_id: null,
+			details: null,
+			subject_personnel_id: 'busy-person',
+			timestamp,
+			...overrides
+		};
+	}
+
+	function seedWithOldEntry() {
+		const store = createInMemoryDataStore();
+		const recent = Array.from({ length: 250 }, (_, index) =>
+			entry(`recent-${String(index).padStart(3, '0')}`, new Date(Date.UTC(2026, 5, 1, 0, index)).toISOString())
+		);
+		store.seed('audit_logs', [
+			...recent,
+			entry('old', '2026-01-10T09:00:00Z', {
+				user_id: MEMBER,
+				action: 'availability.deleted',
+				subject_personnel_id: PERSON
+			})
+		]);
+		return store;
+	}
+
+	it('finds an entry older than the newest 100 by person, member, kind and day range', async () => {
+		const store = seedWithOldEntry();
+		const ctx = createQueryPortsContext();
+
+		const newest = await fetchAuditLogs(ctx, store, { limit: 100 });
+		expect(newest.logs.map((log) => log.id)).not.toContain('old');
+
+		for (const filters of [
+			{ personId: PERSON },
+			{ userId: MEMBER },
+			{ kind: 'availability.deleted' },
+			{ from: '2026-01-10', to: '2026-01-10' }
+		]) {
+			const found = await fetchAuditLogs(ctx, store, { filters, limit: 100 });
+			expect(found.logs.map((log) => log.id)).toEqual(['old']);
+			expect(found.nextCursor).toBeNull();
+		}
+	});
+
+	it('combines filters', async () => {
+		const store = seedWithOldEntry();
+		const ctx = createQueryPortsContext();
+
+		const matching = await fetchAuditLogs(ctx, store, {
+			filters: { personId: PERSON, userId: MEMBER, kind: 'availability.deleted', from: '2026-01-01', to: '2026-01-31' }
+		});
+		const wrongMember = await fetchAuditLogs(ctx, store, { filters: { personId: PERSON, userId: 'busy-member' } });
+
+		expect(matching.logs.map((log) => log.id)).toEqual(['old']);
+		expect(wrongMember.logs).toEqual([]);
+	});
+
+	it('reads a day range as whole days in the viewer time zone, both ends included', async () => {
+		const store = createInMemoryDataStore();
+		store.seed('audit_logs', [
+			entry('before', '2026-03-23T03:59:59Z'),
+			entry('first', '2026-03-23T04:00:00Z'),
+			entry('last', '2026-03-24T03:59:59Z'),
+			entry('after', '2026-03-24T04:00:00Z')
+		]);
+
+		const result = await fetchAuditLogs(createQueryPortsContext(), store, {
+			filters: { from: '2026-03-23', to: '2026-03-23' },
+			timeZone: 'America/New_York'
+		});
+
+		expect(result.logs.map((log) => log.id)).toEqual(['last', 'first']);
+	});
+
+	it('returns every entry exactly once across pages, including entries that share a timestamp', async () => {
+		const store = createInMemoryDataStore();
+		const rows = Array.from({ length: 23 }, (_, index) =>
+			entry(uuid(index), `2026-03-23T10:0${Math.floor(index / 5)}:00Z`)
+		);
+		store.seed('audit_logs', rows);
+		const ctx = createQueryPortsContext();
+
+		const walked: string[] = [];
+		let after: string | undefined;
+		let pages = 0;
+		do {
+			const page = await fetchAuditLogs(ctx, store, { limit: 4, after });
+			walked.push(...page.logs.map((log) => log.id));
+			after = page.nextCursor ?? undefined;
+			pages += 1;
+		} while (after);
+
+		const expected = [...rows]
+			.sort(
+				(a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || String(b.id).localeCompare(String(a.id))
+			)
+			.map((row) => row.id);
+		expect(walked).toEqual(expected);
+		expect(pages).toBe(6);
+	});
+
+	it('continues a filtered list from its cursor', async () => {
+		const store = createInMemoryDataStore();
+		store.seed(
+			'audit_logs',
+			Array.from({ length: 7 }, (_, index) =>
+				entry(uuid(index), `2026-03-23T10:0${index}:00Z`, { user_id: index % 2 === 0 ? MEMBER : 'busy-member' })
+			)
+		);
+		const ctx = createQueryPortsContext();
+
+		const first = await fetchAuditLogs(ctx, store, { filters: { userId: MEMBER }, limit: 2 });
+		const second = await fetchAuditLogs(ctx, store, {
+			filters: { userId: MEMBER },
+			limit: 2,
+			after: first.nextCursor!
+		});
+
+		expect(first.logs.map((log) => log.id)).toEqual([uuid(6), uuid(4)]);
+		expect(second.logs.map((log) => log.id)).toEqual([uuid(2), uuid(0)]);
+		expect(second.nextCursor).toBeNull();
+	});
+
+	it('refuses a cursor that no page returned', async () => {
+		const store = createInMemoryDataStore();
+
+		await expect(
+			fetchAuditLogs(createQueryPortsContext(), store, { after: "x'); drop table audit_logs;--" })
+		).rejects.toThrow('Invalid audit log cursor');
+	});
+
+	it('does not offer an excluded kind even when it is asked for', async () => {
+		const store = createInMemoryDataStore();
+		store.seed('audit_logs', [
+			entry('login', '2026-04-20T10:00:00Z', { action: 'auth.login_success' }),
+			entry('normal', '2026-04-19T10:00:00Z')
+		]);
+
+		const result = await fetchAuditLogs(createQueryPortsContext(), store, { filters: { kind: 'auth.login_success' } });
+
+		expect(result.logs).toEqual([]);
+	});
+});
+
+describe('Audit disclosure', () => {
 	it('conceals foreign labels and membership emails while stripping unresolved detail UUIDs', async () => {
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
@@ -484,7 +502,7 @@ describe('Audit disclosure and incomplete counts', () => {
 			}
 		]);
 
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1, limit: 2 });
+		const result = await fetchAuditLogs(ctx, adminStore, { limit: 2 });
 
 		expect(result.logs).toEqual([
 			expect.objectContaining({
@@ -494,47 +512,6 @@ describe('Audit disclosure and incomplete counts', () => {
 				details: { subject_label: 'Historical subject', actor_identifier: 'f***@example.com' }
 			})
 		]);
-		expect(result.totalCount).toBe(1);
-	});
-
-	it('does not report the loaded rows as a missing database count', async () => {
-		const ctx = createQueryPortsContext();
-		const adminStore = createInMemoryDataStore();
-		const originalFindManyWithCount = adminStore.findManyWithCount.bind(adminStore);
-
-		adminStore.findManyWithCount = (async (...args: Parameters<typeof originalFindManyWithCount>) => {
-			const result = await originalFindManyWithCount(...args);
-			return { ...result, count: null };
-		}) as typeof adminStore.findManyWithCount;
-
-		adminStore.seed('audit_logs', [
-			{
-				id: 'log-1',
-				org_id: ORG,
-				user_id: 'u1',
-				action: 'organization.rename',
-				resource_type: 'organization',
-				resource_id: ORG,
-				details: null,
-				timestamp: '2026-04-27T11:59:00Z'
-			},
-			{
-				id: 'log-2',
-				org_id: ORG,
-				user_id: 'u1',
-				action: 'organization.policy_update',
-				resource_type: 'organization',
-				resource_id: ORG,
-				details: null,
-				timestamp: '2026-04-27T11:58:00Z'
-			}
-		]);
-
-		const result = await fetchAuditLogs(ctx, adminStore, { page: 1, limit: 2 });
-
-		expect(result.logs).toHaveLength(2);
-		expect(result.totalCount).toBe(0);
-		expect(result.recentCount).toBe(0);
 	});
 });
 

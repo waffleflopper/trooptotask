@@ -339,6 +339,8 @@ export function createRequestOrganizationAuditLogContext(request: AdmittedOrgani
 		auth: request.auth,
 		audit: request.audit,
 		auditStore: createSupabaseOrganizationAuditStore(adminClient),
+		roster: createSupabasePersonnelRosterReader(request.supabase, orgId, request.auth.scopeSet),
+		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId),
 		auditLabels: {
 			personnelNames: createSupabasePersonnelNamesReader(adminClient, orgId),
 			trainingTypeNames: createSupabaseTrainingTypeNamesReader(adminClient, orgId),

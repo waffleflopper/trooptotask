@@ -1,3 +1,5 @@
+import type { AuditLogFilters } from './auditLogFilters';
+
 export type AuditSeverity = 'info' | 'warning' | 'critical';
 export type {
 	PlatformAudit,
@@ -52,19 +54,14 @@ export interface AuditLogEntry {
 }
 
 export interface AuditLogQueryInput {
-	page: number;
-	action?: string;
+	filters: AuditLogFilters;
+	timeZone: string;
+	after?: string;
 	limit?: number;
-	/** ISO instant from which `recentCount` counts entries. */
-	recentSince: string;
 }
 
 export interface AuditLogQueryResult {
 	logs: AuditLogEntry[];
-	totalCount: number;
-	recentCount: number;
-	page: number;
-	limit: number;
-	actionFilter: string;
-	availableActions: string[];
+	/** Passed as `after` to read the entries older than this page; null when this page reached the oldest match. */
+	nextCursor: string | null;
 }

@@ -3,10 +3,16 @@
  * they are high-frequency and not useful in the general activity feed. They remain stored
  * in the database and could be queried directly if a dedicated security log view is added.
  *
- * Results are sorted newest-first and support offset-based pagination via `page` and `limit`.
+ * Results are sorted newest-first and paged by cursor on (timestamp, id).
  */
+import { startOfDayIn, startOfNextDayIn } from '$lib/utils/dates';
+import { decodeAuditLogCursor, encodeAuditLogCursor, type AuditLogFilters } from './auditLogFilters';
 import type { AuditLogEntry, AuditLogQueryInput, AuditLogQueryResult } from './contracts';
-import type { OrganizationAuditStore, OrganizationAuditRow } from './organizationAuditStore.server';
+import type {
+	OrganizationAuditFilters,
+	OrganizationAuditRow,
+	OrganizationAuditStore
+} from './organizationAuditStore.server';
 
 /** Delivery binds source-owned reads after Audit admission, without producer imports here. */
 export interface AuditLabelReads {
@@ -103,28 +109,41 @@ async function hydrateAuditLogRows(rows: OrganizationAuditRow[], labels: AuditLa
 	});
 }
 
+export const AUDIT_LOG_PAGE_SIZE = 50;
+
+/** The filters as the store reads them: the first day starts at its midnight and the last day ends at the next one. */
+function storeFilters(filters: AuditLogFilters, timeZone: string): OrganizationAuditFilters {
+	return {
+		personId: filters.personId,
+		userId: filters.userId,
+		action: filters.kind,
+		since: filters.from ? startOfDayIn(timeZone, filters.from).toISOString() : undefined,
+		until: filters.to ? startOfNextDayIn(timeZone, filters.to).toISOString() : undefined
+	};
+}
+
+/**
+ * One page of the unit log, newest first. Paging is by entries, not by action, so an action that wrote many entries can
+ * span two pages. Its entries share one timestamp, so they sit together, and Activity joins them once both pages are loaded.
+ */
 export async function fetchAuditLogs(
 	orgId: string,
 	store: OrganizationAuditStore,
 	input: AuditLogQueryInput,
 	labels: AuditLabelReads
 ): Promise<AuditLogQueryResult> {
-	const { page, action = '', limit = 50, recentSince } = input;
-	const safePage = Math.max(1, page);
-	const offset = (safePage - 1) * limit;
-	const [pagedResult, recentCount, availableActions] = await Promise.all([
-		store.listLogs({ orgId, action: action || undefined, offset, limit }),
-		store.countRecent({ orgId, cutoff: recentSince }),
-		store.listActions(orgId)
-	]);
+	const after = input.after ? decodeAuditLogCursor(input.after) : null;
+	if (input.after && !after) throw new Error('Invalid audit log cursor');
+	const { logs, hasMore } = await store.listLogs({
+		orgId,
+		filters: storeFilters(input.filters, input.timeZone),
+		after: after ?? undefined,
+		limit: input.limit ?? AUDIT_LOG_PAGE_SIZE
+	});
+	const oldest = logs.at(-1);
 	return {
-		logs: await hydrateAuditLogRows(pagedResult.logs, labels),
-		totalCount: pagedResult.totalCount,
-		recentCount,
-		page: safePage,
-		limit,
-		actionFilter: action,
-		availableActions
+		logs: await hydrateAuditLogRows(logs, labels),
+		nextCursor: hasMore && oldest ? encodeAuditLogCursor({ timestamp: oldest.timestamp, id: oldest.id }) : null
 	};
 }
 
@@ -135,7 +154,7 @@ export async function fetchLatestAuditEvent(
 	action: string,
 	labels: AuditLabelReads
 ): Promise<AuditLogEntry | null> {
-	const { logs } = await store.listLogs({ orgId, action, offset: 0, limit: 1 });
+	const { logs } = await store.listLogs({ orgId, filters: { action }, limit: 1 });
 	const [entry] = await hydrateAuditLogRows(logs, labels);
 	return entry ?? null;
 }

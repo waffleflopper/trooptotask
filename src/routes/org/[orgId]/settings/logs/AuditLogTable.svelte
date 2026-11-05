@@ -1,101 +1,103 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import SearchIcon from '@lucide/svelte/icons/search';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import type { AuditLogQueryResult } from '$lib/audit/contracts';
+	import { auditLogFilterParams, hasAuditLogFilters, type AuditLogFilters } from '$lib/audit/auditLogFilters';
+	import type { AuditLogEntry, AuditLogQueryResult } from '$lib/audit/contracts';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
-	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/index.js';
-	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import { useServerDataTable, type ColumnDef } from '$lib/components/ui/data-table/index.js';
+	import * as Empty from '$lib/components/ui/empty';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Table from '$lib/components/ui/table/index.js';
-	import * as SegmentedFilter from '$lib/components/patterns/segmented-filter';
-	import {
-		AUDIT_SCOPE_OPTIONS,
-		auditDayHead,
-		auditLines,
-		viewAuditEntry,
-		type AuditEntryView,
-		type AuditLine,
-		type AuditScopeFilter
-	} from './auditLogEntries';
+	import { auditDayHead, auditLines, viewAuditEntry, type AuditEntryView, type AuditLine } from './auditLogEntries';
 
-	let { auditLog, timeZone, today }: { auditLog: AuditLogQueryResult; timeZone: string; today: string } = $props();
+	let {
+		auditLog,
+		filters,
+		timeZone,
+		today
+	}: { auditLog: AuditLogQueryResult; filters: AuditLogFilters; timeZone: string; today: string } = $props();
 
-	const entries = $derived(auditLog.logs.map((entry) => viewAuditEntry(entry, timeZone)));
-	let scope = $state<AuditScopeFilter>('all');
-	const truncated = $derived(auditLog.totalCount > entries.length);
-	/** The action that wrote the oldest loaded entry may have written more that were not loaded. */
-	const partialBatchId = $derived.by(() => {
-		if (!truncated || entries.length === 0) return null;
-		return entries.reduce((oldest, entry) => (entry.at < oldest.at ? entry : oldest)).batchId;
-	});
-	const allLines = $derived(auditLines(entries, partialBatchId));
-	const lines = $derived(
-		scope === 'all'
-			? allLines
-			: auditLines(
-					entries.filter((entry) => entry.scope === scope),
-					partialBatchId
-				)
+	/** Pages read after this one, tied to the page they follow so a new first page starts the list over. */
+	let more = $state.raw<{ after: AuditLogQueryResult; logs: AuditLogEntry[]; nextCursor: string | null } | null>(null);
+	let loadingMore = $state(false);
+	let loadMoreFailed = $state(false);
+	const current = $derived(more?.after === auditLog ? more : null);
+	const nextCursor = $derived(current ? current.nextCursor : auditLog.nextCursor);
+
+	const entries = $derived(
+		[...auditLog.logs, ...(current?.logs ?? [])].map((entry) => viewAuditEntry(entry, timeZone))
 	);
+	/** The oldest loaded entry's action may have written more entries than are loaded until the next page arrives. */
+	const partialBatchId = $derived(
+		nextCursor && entries.length > 0 ? (entries[entries.length - 1]?.batchId ?? null) : null
+	);
+	const lines = $derived(auditLines(entries, partialBatchId));
 	const expanded = new SvelteSet<string>();
 
 	const columns: ColumnDef<AuditLine>[] = [
-		{
-			key: 'time',
-			header: 'Time',
-			value: (line) => line.clock,
-			compare: (a, b) => a.at - b.at,
-			searchable: false,
-			width: '5rem'
-		},
-		{ key: 'area', header: 'Area', value: (line) => line.area, width: '8.5rem' },
-		{
-			key: 'event',
-			header: 'Event',
-			value: (line) => line.sentence,
-			searchValue: (line) => [line.sentence, ...line.batch.map((entry) => entry.sentence)].join(' '),
-			maxWidth: 'none'
-		},
-		{ key: 'actor', header: 'Actor', value: (line) => line.actor, width: '13rem' }
+		{ key: 'time', header: 'Time', value: (line) => line.clock, sortable: false, width: '5rem' },
+		{ key: 'area', header: 'Area', value: (line) => line.area, sortable: false, width: '8.5rem' },
+		{ key: 'event', header: 'Event', value: (line) => line.sentence, sortable: false, maxWidth: 'none' },
+		{ key: 'actor', header: 'Actor', value: (line) => line.actor, sortable: false, width: '13rem' }
 	];
-	const table = useDataTable({
-		data: () => lines,
-		columns,
-		initialSortKey: 'time',
-		initialSortDirection: 'desc',
-		pageSize: 25
+	const table = useServerDataTable({
+		rows: () => lines,
+		columns: () => columns,
+		sort: () => ({ key: 'time', direction: 'desc' }),
+		onSort: () => {}
 	});
 
 	const dayCounts = $derived.by(() => {
 		const counts = new SvelteMap<string, number>();
-		for (const line of table.allRows)
-			counts.set(line.day, (counts.get(line.day) ?? 0) + Math.max(1, line.batch.length));
+		for (const line of lines) counts.set(line.day, (counts.get(line.day) ?? 0) + Math.max(1, line.batch.length));
 		return counts;
 	});
-	/** The oldest loaded day may continue past the loaded entries; a scoped or searched count is exact within them. */
-	const cutOffDay = $derived.by(() => {
-		if (!truncated || scope !== 'all' || table.search.trim() || entries.length === 0) return undefined;
-		return entries.reduce((oldest, entry) => (entry.at < oldest.at ? entry : oldest)).day;
-	});
-	/** Rows that open a day on the current page; sorting by anything but time drops the day heads. */
+	/** The oldest loaded day may go on past the loaded entries, so its count reads as a floor. */
+	const cutOffDay = $derived(nextCursor && entries.length > 0 ? entries[entries.length - 1]?.day : undefined);
 	const dayStarts = $derived.by(() => {
 		const starts = new SvelteSet<string>();
-		if (table.sortKey !== 'time') return starts;
 		let day: string | null = null;
-		for (const line of table.rows) {
+		for (const line of lines) {
 			if (line.day !== day) starts.add(line.id);
 			day = line.day;
 		}
 		return starts;
 	});
 
-	const searchTerm = $derived(table.search.trim());
-	const scopeLabel = $derived(AUDIT_SCOPE_OPTIONS.find((option) => option.value === scope)?.label ?? '');
-	const emptyMessage = $derived.by(() => {
-		if (entries.length === 0) return 'No audit log entries yet.';
-		const where = scope === 'all' ? '' : ` in ${scopeLabel}`;
-		return searchTerm ? `No audit log entries match "${searchTerm}"${where}.` : `No audit log entries${where}.`;
+	let alive = true;
+	$effect(() => () => {
+		alive = false;
 	});
+
+	async function loadMore() {
+		if (!nextCursor || loadingMore) return;
+		const after = auditLog;
+		const cursor = nextCursor;
+		loadingMore = true;
+		loadMoreFailed = false;
+		try {
+			const params = auditLogFilterParams(filters);
+			params.set('after', cursor);
+			const response = await fetch(`/org/${page.params.orgId}/api/audit-log?${params}`);
+			if (!response.ok) throw new Error('The next entries could not be read.');
+			const next = (await response.json()) as AuditLogQueryResult;
+			if (!alive || auditLog !== after) return;
+			more = { after, logs: [...(current?.logs ?? []), ...next.logs], nextCursor: next.nextCursor };
+		} catch {
+			if (alive && auditLog === after) loadMoreFailed = true;
+		} finally {
+			if (alive) loadingMore = false;
+		}
+	}
+
+	function clearFilters() {
+		return goto(resolve('/org/[orgId]/settings/logs', { orgId: page.params.orgId ?? '' }), { reset: false });
+	}
 
 	function entryDomId(entry: AuditEntryView): string {
 		return `audit-entry-${entry.id}`;
@@ -148,79 +150,77 @@
 {/snippet}
 
 <section class="grid gap-4" aria-label="Audit log">
-	<div class="flex flex-wrap items-center gap-3" role="group" aria-label="Audit log controls">
-		<div class="w-full md:w-90">
-			<InputGroup.Root>
-				<InputGroup.Addon>
-					<SearchIcon aria-hidden="true" />
-				</InputGroup.Addon>
-				<InputGroup.Input
-					type="search"
-					value={table.search}
-					oninput={(event) => table.setSearch(event.currentTarget.value)}
-					placeholder="Search people, areas, actors"
-					aria-label="Search audit log"
-				/>
-			</InputGroup.Root>
-		</div>
-		<SegmentedFilter.Root
-			options={AUDIT_SCOPE_OPTIONS}
-			bind:value={
-				() => scope,
-				(next) => {
-					scope = next;
-					table.setPage(1);
-				}
-			}
-			label="Audit log scope"
-		/>
-		<p class="font-mono text-xs text-muted-foreground md:ml-auto">
-			{auditLog.recentCount.toLocaleString('en-US')} this month · {auditLog.totalCount.toLocaleString('en-US')} total
-		</p>
-	</div>
-
-	<DataTable.DataTable
-		{table}
-		variant="editorial"
-		stacked
-		ariaLabel="Organization audit log entries"
-		{emptyMessage}
-		stickyHeader={false}
-		pageLabels={{
-			previous: 'Newer',
-			next: 'Older',
-			range: truncated
-				? ({ first, last, total }) =>
-						total === allLines.length
-							? `${first}–${last} of the latest ${total}`
-							: `${first}–${last} of ${total} in the latest ${allLines.length}`
-				: undefined
-		}}
-	>
-		{#snippet row(line: AuditLine)}
-			{#if dayStarts.has(line.id)}
-				{@const head = auditDayHead(line.day, today, dayCounts.get(line.day) ?? 0, {
-					cutOff: line.day === cutOffDay
-				})}
-				<Table.Row class="border-b-foreground hover:bg-transparent">
-					<th scope="colgroup" colspan={columns.length} class="pt-5 pb-2 text-left font-normal">
-						<span class="font-heading text-lg leading-[22px] font-bold">{head.title}</span>
-						<span class="ml-3 font-mono text-xs text-muted-foreground">{head.detail}</span>
-					</th>
-				</Table.Row>
+	{#if lines.length === 0}
+		<Empty.Root class="rounded-lg border">
+			<Empty.Header>
+				{#if hasAuditLogFilters(filters)}
+					<Empty.Title>No entries match these filters.</Empty.Title>
+					<Empty.Description>Widen the dates or clear a filter to see more of the log.</Empty.Description>
+				{:else}
+					<Empty.Title>No audit log entries yet.</Empty.Title>
+					<Empty.Description>Changes made in this unit will appear here.</Empty.Description>
+				{/if}
+			</Empty.Header>
+			{#if hasAuditLogFilters(filters)}
+				<Empty.Content>
+					<Button variant="outline" onclick={clearFilters}>Clear filters</Button>
+				</Empty.Content>
 			{/if}
-			<Table.Row class="hover:bg-transparent [&>td]:py-2.5 [&>td]:align-top">
-				{@render cells(line, line)}
-			</Table.Row>
-			{#each line.batch as entry (entry.id)}
-				<Table.Row
-					id={entryDomId(entry)}
-					hidden={!expanded.has(line.id)}
-					class="bg-muted/40 hover:bg-muted/40 [&>td]:py-2 [&>td]:align-top"
-				>
-					{@render cells(entry)}
+		</Empty.Root>
+	{:else}
+		<DataTable.DataTable
+			{table}
+			variant="editorial"
+			stacked
+			ariaLabel="Organization audit log entries"
+			stickyHeader={false}
+		>
+			{#snippet row(line: AuditLine)}
+				{#if dayStarts.has(line.id)}
+					{@const head = auditDayHead(line.day, today, dayCounts.get(line.day) ?? 0, {
+						cutOff: line.day === cutOffDay
+					})}
+					<Table.Row class="border-b-foreground hover:bg-transparent">
+						<th scope="colgroup" colspan={columns.length} class="pt-5 pb-2 text-left font-normal">
+							<span class="font-heading text-lg leading-[22px] font-bold">{head.title}</span>
+							<span class="ml-3 font-mono text-xs text-muted-foreground">{head.detail}</span>
+						</th>
+					</Table.Row>
+				{/if}
+				<Table.Row class="hover:bg-transparent [&>td]:py-2.5 [&>td]:align-top">
+					{@render cells(line, line)}
 				</Table.Row>
-			{/each}
-		{/snippet}
-	</DataTable.DataTable>
+				{#each line.batch as entry (entry.id)}
+					<Table.Row
+						id={entryDomId(entry)}
+						hidden={!expanded.has(line.id)}
+						class="bg-muted/40 hover:bg-muted/40 [&>td]:py-2 [&>td]:align-top"
+					>
+						{@render cells(entry)}
+					</Table.Row>
+				{/each}
+			{/snippet}
+		</DataTable.DataTable>
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<p class="font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase" role="status">
+				{entries.length.toLocaleString('en-US')}
+				{entries.length === 1 ? 'entry' : 'entries'} loaded{nextCursor ? ' · more available' : ' · end of the log'}
+			</p>
+			{#if nextCursor}
+				<Button variant="outline" size="sm" disabled={loadingMore} onclick={loadMore}>
+					{#if loadingMore}<Spinner />{/if}
+					Load more
+				</Button>
+			{/if}
+		</div>
+		{#if loadMoreFailed}
+			<Alert.Root variant="destructive" role="alert">
+				<Alert.Title>The next entries could not be loaded.</Alert.Title>
+				<Alert.Description>
+					<span>The entries above are unchanged.</span>
+					<span class="mt-2 block"><Button variant="outline" size="sm" onclick={loadMore}>Retry</Button></span>
+				</Alert.Description>
+			</Alert.Root>
+		{/if}
+	{/if}
 </section>

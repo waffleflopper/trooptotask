@@ -36,9 +36,15 @@ export async function seedAudit({ client, fixture, tag, ownedState, save }) {
 		training_type_id: randomUUID(),
 		status_type_id: randomUUID()
 	});
+	// The only seeded entry with a saved person, a different member and a registered action, so each Logs filter finds it past the newest 100.
 	const old = {
 		...rows[4],
 		id: randomUUID(),
+		user_id: fixture.actors.orgAdmin.id,
+		action: 'personnel.updated',
+		subject_personnel_id: fixture.ids.personA,
+		subject_label: 'SPC Synthetic, Ada',
+		actor_label: 'Synthetic old actor',
 		timestamp: '2000-01-01T12:00:00.000Z',
 		details: { title: `Synthetic old audit ${tag}` }
 	};

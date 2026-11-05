@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { AuditLogEntry } from '$lib/audit/contracts';
-import { auditDayHead, auditLines, auditScope, auditSentence, viewAuditEntry } from './auditLogEntries';
+import {
+	auditDayHead,
+	auditKindOptions,
+	auditLines,
+	auditScope,
+	auditSentence,
+	viewAuditEntry
+} from './auditLogEntries';
 
 describe('auditScope', () => {
 	it.each([
@@ -268,5 +275,25 @@ describe('auditDayHead', () => {
 		expect(auditDayHead('2026-10-31', '2026-11-01', 2).title).toBe('Yesterday');
 		expect(auditDayHead('2025-12-31', '2026-01-01', 2).title).toBe('Yesterday');
 		expect(auditDayHead('2025-12-30', '2026-01-01', 2)).toEqual({ title: '30 Dec 2025', detail: '2 entries' });
+	});
+});
+
+describe('auditKindOptions', () => {
+	it('lists the cataloged kinds and the older actions a unit recorded, once each, grouped by area', () => {
+		const options = auditKindOptions(['org.renamed', 'availability.created', 'org.renamed']);
+
+		expect(options.filter((option) => option.value === 'org.renamed')).toEqual([
+			{ value: 'org.renamed', label: 'Org renamed', group: 'Unit' }
+		]);
+		expect(options.filter((option) => option.value === 'availability.created')).toHaveLength(1);
+		expect(options.find((option) => option.value === 'availability.created')).toMatchObject({ group: 'Calendar' });
+	});
+
+	it('sorts by area, then by name', () => {
+		const sorted = auditKindOptions(['training_record.deleted', 'training_record.created']).filter(
+			(option) => option.group === 'Training'
+		);
+
+		expect(sorted.map((option) => option.label)).toEqual([...sorted.map((option) => option.label)].sort());
 	});
 });

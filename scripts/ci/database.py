@@ -144,6 +144,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261104110000_client_error_report_group_limits.sql",
     "20261105100000_audit_entry_shape.sql",
     "20261105100100_availability_audit_trigger.sql",
+    "20261105120000_audit_log_search_indexes.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -236,6 +237,7 @@ STAGED_UPGRADE_CONTRACTS = (
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
     "audit_availability_entries.sql",
+    "audit_log_search.sql",
     "personnel_dod_id.sql",
     "personnel_dod_id_occupancy.sql",
     "calendar_event_deletion.sql",

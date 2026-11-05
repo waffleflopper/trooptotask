@@ -14,12 +14,25 @@ export interface OrganizationAuditRow {
 	batch_id?: string | null;
 }
 
+export interface OrganizationAuditFilters {
+	personId?: string;
+	userId?: string;
+	action?: string;
+	since?: string;
+	until?: string;
+}
+
 export interface OrganizationAuditStore {
-	listLogs(input: { orgId: string; action?: string; offset: number; limit: number }): Promise<{
-		logs: OrganizationAuditRow[];
-		totalCount: number;
-	}>;
-	countRecent(input: { orgId: string; cutoff: string }): Promise<number>;
+	/**
+	 * The newest `limit` entries after `after`, ordered on (timestamp, id) descending, and whether older ones remain.
+	 * Both are unique together, so a page never repeats or skips an entry that shares a timestamp.
+	 */
+	listLogs(input: {
+		orgId: string;
+		filters: OrganizationAuditFilters;
+		after?: { timestamp: string; id: string };
+		limit: number;
+	}): Promise<{ logs: OrganizationAuditRow[]; hasMore: boolean }>;
 	listActions(orgId: string): Promise<string[]>;
 }
 

@@ -376,16 +376,17 @@ The private-credential controls fill visible fields without printing values:
       check.
 12. **Web boundary.** Run signed-in as any actor (for example `manager`).
     - Headers. `curl -sI ORIGIN/auth/login` must show the Content-Security-Policy with
-      `connect-src 'self' https://vitals.vercel-insights.com` and no provider or loopback origin, plus
-      `X-Frame-Options: DENY`, `nosniff` and HSTS. The browser has no provider client: Storage files open as navigations
+      `connect-src 'self' https://vitals.vercel-insights.com` and no provider or loopback origin, a `script-src` with a
+      fresh `'nonce-…'` per request and no `'unsafe-inline'`, and `frame-ancestors 'none'`, `base-uri 'self'` and
+      `form-action 'self'`, plus `X-Frame-Options: DENY`, `nosniff` and HSTS. Every inline `<script>` in the page carries
+      that nonce. The browser has no provider client: Storage files open as navigations
       through `window.open`, and the MFA QR code is a `data:` image.
     - Blocked requests. Navigate each page with `navigate_page` and an `initScript` that appends each
       `securitypolicyviolation` event's `violatedDirective`, `blockedURI` and `sourceFile` to `sessionStorage`; read it
       with `evaluate_script` after the page settles. Cover Dashboard, Organization home, Personnel, Calendar, Training,
-      Critical Tasks, Onboarding, Settings General and Members, Account Profile and Security. Require no `connect-src`,
-      `img-src`, `frame-src` or `font-src` violation. One `script-src` report with blocked URI `eval` per Organization
-      document is Zod's capability probe (`Function('')` inside `try`), which falls back to its non-eval parser and is
-      expected.
+      Critical Tasks, Onboarding, Settings General and Members, Account Profile and Security. Require no violation of any
+      directive. Zod runs `jitless`, so it never probes `eval`; a `script-src` report with blocked URI `eval` is a
+      regression.
     - Page data. With `evaluate_script`, fetch `location.pathname + '/__data.json'` and read
       `document.documentElement.outerHTML`. Neither may contain `access_token` or `refresh_token`, and `document.cookie`
       lists no auth cookie: the session stays in HttpOnly cookies. Save only field names and booleans, never values.

@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs';
 import { dirname, posix, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import adapter from '@sveltejs/adapter-vercel';
-import { sveltekit } from '@sveltejs/kit/vite';
+import { sveltekit, type Config } from '@sveltejs/kit/vite';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
@@ -25,6 +25,24 @@ function appRouteIds(): string[] {
 	return [...ids];
 }
 
+/** SvelteKit nonces its own hydration script and any `%sveltekit.nonce%` tag, so scripts need no `'unsafe-inline'`. */
+export const kitCsp = {
+	mode: 'auto',
+	directives: {
+		'default-src': ['self'],
+		'script-src': ['self', 'https://va.vercel-scripts.com'],
+		'style-src': ['self', 'unsafe-inline'],
+		'img-src': ['self', 'data:', 'blob:'],
+		'font-src': ['self'],
+		'connect-src': ['self', 'https://vitals.vercel-insights.com'],
+		'frame-src': ['none'],
+		'frame-ancestors': ['none'],
+		'base-uri': ['self'],
+		'form-action': ['self'],
+		'object-src': ['none']
+	}
+} satisfies NonNullable<Config['csp']>;
+
 export default defineConfig({
 	define: {
 		__APP_ROUTE_IDS__: JSON.stringify(appRouteIds())
@@ -34,6 +52,7 @@ export default defineConfig({
 		sveltekit({
 			preprocess: vitePreprocess(),
 			adapter: adapter(),
+			csp: kitCsp,
 			alias: {
 				$lib: 'src/lib',
 				$features: 'src/features'

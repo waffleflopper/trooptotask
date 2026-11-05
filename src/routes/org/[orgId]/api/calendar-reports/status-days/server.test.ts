@@ -248,4 +248,29 @@ describe('GET /api/calendar-reports/status-days', () => {
 			message: 'Dates must be in YYYY-MM-DD format'
 		});
 	});
+
+	it('reads a span of 366 inclusive days', async () => {
+		const ctx = createTestContext();
+
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{ startDate: '2026-01-01', endDate: '2027-01-01' },
+			() => ctx
+		);
+
+		expect(result).toMatchObject({ entries: [], assignments: [], assignmentTypes: [], excusals: [] });
+	});
+
+	it.each([
+		['2026-01-01', '2027-01-02'],
+		['1970-01-01', '9999-12-31']
+	])('rejects the span %s to %s past 366 days with 400', async (startDate, endDate) => {
+		const ctx = createTestContext();
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, { startDate, endDate }, () => ctx)).rejects.toMatchObject({
+			status: 400,
+			message: 'Calendar range cannot exceed 366 days'
+		});
+	});
 });

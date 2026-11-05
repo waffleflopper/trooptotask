@@ -43,7 +43,7 @@ describe('audit kind catalog', () => {
 			expect(read(action, { recordLabel: null }), `${action} record`).toBeNull();
 			expect(read(action, { subjectLabel: '  ' }), `${action} subject`).toBeNull();
 			for (const key of Object.keys(details ?? {})) {
-				const { [key]: _removed, ...rest } = details ?? {};
+				const rest = Object.fromEntries(Object.entries(details ?? {}).filter(([name]) => name !== key));
 				expect(read(action, { details: rest }), `${action} ${key}`).toBeNull();
 			}
 		}

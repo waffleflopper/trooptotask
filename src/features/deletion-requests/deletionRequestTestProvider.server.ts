@@ -20,14 +20,17 @@ export function savedRequest(id: string, overrides: Partial<DeletionRequest> = {
 	};
 }
 
-/** Synthetic transport exercises actual SDK filters/projection. SQL tests own real RLS and lock waits. */
+/**
+ * Synthetic transport exercises actual SDK filters/projection. SQL tests own real RLS and lock waits.
+ * `deny_deletion_request` models the database function's outcome: it names `actingUserId` as the reviewer.
+ */
 export function deletionRequestTestProvider(rows: DeletionRequest[] = [], actingUserId?: string) {
 	const state = {
 		rows: structuredClone(rows),
 		calls: [] as Request[],
 		failure: null as { method: string; message: string; offset?: number } | null,
-		patchReply: undefined as unknown,
-		beforePatch: null as (() => void) | null
+		rpcReply: undefined as unknown,
+		beforeRpc: null as (() => void) | null
 	};
 	const client = createClient('http://127.0.0.1:9', 'synthetic-key', {
 		auth: { persistSession: false, autoRefreshToken: false },
@@ -36,21 +39,43 @@ export function deletionRequestTestProvider(rows: DeletionRequest[] = [], acting
 				const request = new Request(input, init);
 				state.calls.push(request.clone());
 				const url = new URL(request.url);
-				if (url.pathname !== '/rest/v1/deletion_requests') throw new Error(`Unexpected table ${url.pathname}`);
+				const denyRpc = url.pathname === '/rest/v1/rpc/deny_deletion_request';
+				if (!denyRpc && url.pathname !== '/rest/v1/deletion_requests')
+					throw new Error(`Unexpected path ${url.pathname}`);
 				if (
 					state.failure?.method === request.method &&
 					(state.failure.offset === undefined || state.failure.offset === Number(url.searchParams.get('offset') ?? 0))
 				) {
 					return Response.json({ code: 'XX000', message: state.failure.message }, { status: 500 });
 				}
-				if (request.method === 'PATCH' && state.patchReply !== undefined) return Response.json(state.patchReply);
+				if (denyRpc) {
+					if (request.method !== 'POST') throw new Error(`Unexpected ${request.method} ${url.pathname}`);
+					if (state.rpcReply !== undefined) return Response.json(state.rpcReply);
+					const args = await request.json();
+					state.beforeRpc?.();
+					const row = state.rows.find(
+						(candidate) =>
+							candidate.organization_id === args.p_organization_id &&
+							candidate.id === args.p_request_id &&
+							candidate.resource_type === args.p_resource_type &&
+							candidate.resource_id === args.p_resource_id &&
+							candidate.status === 'pending'
+					);
+					if (!row) return Response.json(false);
+					Object.assign(row, {
+						status: 'denied',
+						reviewed_by: actingUserId ?? 'synthetic-reviewer',
+						reviewed_at: '2026-10-02T12:00:00.000Z',
+						denial_reason: args.p_denial_reason ?? null
+					});
+					return Response.json(true);
+				}
 				if (request.method === 'POST') {
 					const input = await request.json();
 					const row = savedRequest(`insert-${state.rows.length}`, input);
 					state.rows.push(row);
 					return Response.json(row, { status: 201 });
 				}
-				if (request.method === 'PATCH') state.beforePatch?.();
 				let selected = state.rows.filter((row) => {
 					if (actingUserId && row.requested_by !== actingUserId) return false;
 					for (const column of [
@@ -66,10 +91,6 @@ export function deletionRequestTestProvider(rows: DeletionRequest[] = [], acting
 					}
 					return true;
 				});
-				if (request.method === 'PATCH') {
-					const patch = await request.json();
-					selected.forEach((row) => Object.assign(row, patch));
-				}
 				const count = selected.length;
 				const orders = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
 				selected = [...selected].sort((a, b) => {

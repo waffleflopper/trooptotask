@@ -4227,6 +4227,16 @@ export type Database = {
         Args: { p_code: string; p_entry_id: string; p_organization_id: string }
         Returns: undefined
       }
+      deny_deletion_request: {
+        Args: {
+          p_denial_reason?: string
+          p_organization_id: string
+          p_request_id: string
+          p_resource_id: string
+          p_resource_type: string
+        }
+        Returns: boolean
+      }
       duplicate_onboarding_template: {
         Args: {
           p_organization_id: string

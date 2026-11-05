@@ -11,7 +11,7 @@ import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjecti
 
 function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
 	const ctx = createWriteWithNotificationsPortsContext(overrides);
-	return { ...ctx, requests: createDeletionRequestTestStore(ctx.store) };
+	return { ...ctx, requests: createDeletionRequestTestStore(ctx.store, ctx.auth.userId) };
 }
 
 function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
@@ -210,7 +210,7 @@ describe('approveDeletionRequest', () => {
 		ctx.store.seed('personnel', [
 			{ id: 'person-1', organization_id: 'test-org', last_name: 'Smith', archived_at: null }
 		]);
-		ctx.requests.completePendingReview = async () => {
+		ctx.requests.denyPendingRequest = async () => {
 			throw new Error('Unexpected second transition');
 		};
 
@@ -644,7 +644,7 @@ describe('conditional review result', () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);
 		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
-		ctx.requests.completePendingReview = async () => false;
+		ctx.requests.denyPendingRequest = async () => false;
 		ctx.personnelLifecycle.approveArchiveRequest = async () => fail(404, 'Pending deletion request not found');
 		const operation =
 			action === 'approve'
@@ -670,7 +670,7 @@ describe('conditional review result', () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx, { resource_type: resourceType, resource_id: 'target-1' });
 		ctx.store.seed(table, [{ id: 'target-1', organization_id: 'test-org' }]);
-		ctx.requests.completePendingReview = async () => {
+		ctx.requests.denyPendingRequest = async () => {
 			throw new Error('Unexpected second transition');
 		};
 		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
@@ -691,7 +691,7 @@ describe('review persistence failure', () => {
 			seedPendingRequest(ctx);
 			ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
 			const before = structuredClone(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' }));
-			ctx.requests.completePendingReview = async () => {
+			ctx.requests.denyPendingRequest = async () => {
 				throw new Error('Review status unavailable');
 			};
 			ctx.personnelLifecycle.approveArchiveRequest = async () => {

@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(34);
+SELECT plan(35);
 
 -- The Storage API deletes under this setting, leaving RLS as the only gate under test.
 SELECT set_config('storage.allow_delete_query', 'true', true);
@@ -391,7 +391,8 @@ INSERT INTO public.deletion_requests (id, organization_id, requested_by, request
 UPDATE public.organizations SET suspended_at = now() WHERE id = 'f3000000-0000-4000-8000-000000000101';
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('f3000000-0000-4000-8000-000000000001', 'suspension-alpha-owner@example.test');
-UPDATE public.deletion_requests SET status = 'denied' WHERE id = 'f3000000-0000-4000-8000-000000001801';
+SELECT throws_ok($$ SELECT public.deny_deletion_request('f3000000-0000-4000-8000-000000000101', 'f3000000-0000-4000-8000-000000001801',
+	'personnel', 'f3000000-0000-4000-8000-000000000401', NULL) $$, '42501', NULL, 'suspended Organization owner cannot deny a deletion request');
 SELECT is(
 	ARRAY[
 		(SELECT count(*) FROM public.data_exports WHERE org_id = 'f3000000-0000-4000-8000-000000000101'),

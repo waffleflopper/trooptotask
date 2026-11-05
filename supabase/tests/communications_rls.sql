@@ -405,8 +405,8 @@ SELECT results_eq(
 
 DELETE FROM public.organizations WHERE id = '20000000-0000-4000-8000-000000136802';
 SELECT results_eq(
-	$$ SELECT organization_id, organization_name, message FROM public.beta_feedback WHERE id = '50000000-0000-4000-8000-000000136804' $$,
-	$$ VALUES (NULL::uuid, 'Communications Bravo'::text, 'Raw own feedback with foreign context'::text) $$,
+	$$ SELECT organization_id, organization_name, message FROM public.beta_feedback WHERE id = '50000000-0000-4000-8000-000000136806' $$,
+	$$ VALUES (NULL::uuid, 'Communications Bravo'::text, 'Privileged submission persistence'::text) $$,
 	'Organization deletion detaches feedback while preserving its saved context and message'
 );
 

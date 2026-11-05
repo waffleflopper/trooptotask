@@ -90,10 +90,9 @@ CREATE FUNCTION pg_temp.approve_sql(request integer, person integer, at text) RE
   SELECT format('SELECT public.approve_personnel_archive_request(%L, %L, %L, %L)::text',
     pg_temp.u(101), pg_temp.u(request), pg_temp.u(person), at)
 $$;
-CREATE FUNCTION pg_temp.deny_sql(request integer, reviewer integer) RETURNS text LANGUAGE sql AS $$
-  SELECT format($q$WITH denied AS (UPDATE public.deletion_requests SET status = 'denied', reviewed_by = %L,
-    reviewed_at = '2030-01-09T00:00:00Z', denial_reason = 'Keep' WHERE organization_id = %L AND id = %L
-    AND status = 'pending' RETURNING 1) SELECT count(*)::text FROM denied$q$, pg_temp.u(reviewer), pg_temp.u(101), pg_temp.u(request))
+CREATE FUNCTION pg_temp.deny_sql(request integer, person integer) RETURNS text LANGUAGE sql AS $$
+  SELECT format($q$SELECT CASE WHEN public.deny_deletion_request(%L, %L, 'personnel', %L, 'Keep') THEN '1' ELSE '0' END$q$,
+    pg_temp.u(101), pg_temp.u(request), pg_temp.u(person))
 $$;
 CREATE FUNCTION pg_temp.cancel_sql(request integer) RETURNS text LANGUAGE sql AS $$
   SELECT format('SELECT public.cancel_own_deletion_request(%L, %L)::text', pg_temp.u(101), pg_temp.u(request))
@@ -190,7 +189,7 @@ $$;
 SELECT pg_temp.begin_as('first', 2);
 SELECT is(pg_temp.run('first', pg_temp.approve_sql(601, 301, '2030-01-01T00:00:00Z')), 'true', 'approval runs and holds its locks');
 SELECT pg_temp.begin_as('second', 1);
-SELECT pg_temp.send('second', pg_temp.deny_sql(601, 1));
+SELECT pg_temp.send('second', pg_temp.deny_sql(601, 301));
 SELECT ok(pg_temp.waits('second', 'first'), 'denial waits on the approving transaction');
 SELECT pg_temp.finish('first');
 SELECT is(pg_temp.reply('second'), '0', 'the waiting denial changes no request');
@@ -201,7 +200,7 @@ SELECT results_eq($$ SELECT * FROM pg_temp.request(601) $$, $$ VALUES ('approved
   'the approval is the single terminal review');
 
 SELECT pg_temp.begin_as('first', 1);
-SELECT is(pg_temp.run('first', pg_temp.deny_sql(602, 1)), '1', 'denial runs and holds the request');
+SELECT is(pg_temp.run('first', pg_temp.deny_sql(602, 302)), '1', 'denial runs and holds the request');
 SELECT pg_temp.begin_as('second', 2);
 SELECT pg_temp.send('second', pg_temp.approve_sql(602, 302, '2030-01-02T00:00:00Z'));
 SELECT ok(pg_temp.waits('second', 'first'), 'approval waits on the denying transaction');

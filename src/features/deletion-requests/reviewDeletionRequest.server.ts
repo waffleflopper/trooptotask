@@ -13,7 +13,7 @@ import { AUDIT_RESOURCE, fireAndForgetNotification, isSupportedResourceType } fr
 export interface DeletionRequestReviewContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	store: Pick<DeletionRequestStore, 'findPendingById' | 'completePendingReview'>;
+	store: Pick<DeletionRequestStore, 'findPendingById' | 'denyPendingRequest'>;
 	notifications: Pick<NotificationDeliveryPort, 'notifyUser'>;
 }
 
@@ -105,16 +105,11 @@ export async function denyDeletionRequest(
 	const request = await fetchPendingRequest(ctx, requestId);
 	const boundRequestId = request.id;
 
-	const completed = await ctx.store.completePendingReview(
+	const completed = await ctx.store.denyPendingRequest(
 		ctx.auth.orgId,
 		boundRequestId,
 		{ resourceType: request.resource_type, resourceId: request.resource_id },
-		{
-			status: 'denied',
-			reviewedBy: ctx.auth.userId,
-			reviewedAt: new Date().toISOString(),
-			denialReason: reason ?? null
-		}
+		reason ?? null
 	);
 	if (!completed) fail(404, 'Pending deletion request not found');
 

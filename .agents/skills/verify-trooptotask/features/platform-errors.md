@@ -127,7 +127,6 @@ Run each journey on a fresh worker or read the counts before and after; groups p
   before the endpoint runs; such a request is not stored and does not spend the hourly budget. Pace requests at 3.5
   seconds. An `evaluate_script` that runs for about 45 seconds or more can end `INCONCLUSIVE` while the page keeps
   sending, so keep each call to eight requests and read the counts from `Errors`.
-- The Errors page subtitle still says `A resolved error reopens if it happens again`; only a server failure does.
 - `restart` clears groups; `clean-seeds` does not touch them. Feedback sent through the UI stays until a restart.
 - The operator's clock and the database share the host clock. A group seeded hours earlier reads `6 hr ago`.
 - Occurrence retention is a scheduled cleanup, not a page action; the cleanup route test and the SQL test own it.

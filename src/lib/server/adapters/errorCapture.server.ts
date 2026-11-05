@@ -11,6 +11,7 @@ import {
 } from '$features/error-reporting/index.server';
 import { ERROR_REFERENCE_HEADER } from '$lib/errors';
 import { getAdminClient } from '$lib/server/supabase';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 type CaptureEvent = Pick<RequestEvent, 'locals' | 'params' | 'route' | 'request'>;
 
@@ -75,14 +76,14 @@ export const captureHandle: Handle = async ({ event, resolve }) => {
 	return reference ? withReference(response, reference) : response;
 };
 
-/** Same stack output as SvelteKit's own default for an unknown error, which this hook replaces. */
+/** Replaces SvelteKit's default stack output for an unknown error; each cause is masked like any other server log. */
 function logUnknownError(error: unknown) {
 	let cause = error;
 	while (cause instanceof Error) {
-		if (cause.stack) console.error(cause.stack);
+		console.error(sanitizeErrorForLog(cause));
 		cause = cause.cause;
 	}
-	if (cause) console.error(String(cause));
+	if (cause) console.error(sanitizeErrorForLog(cause));
 }
 
 /**

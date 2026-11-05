@@ -38,6 +38,12 @@ function cutAt(text: string, marker: RegExp): string {
 	return match ? text.slice(0, match.index) : text;
 }
 
+/** A whole run is judged before any part of it is replaced, so a UUID inside a credential cannot split it. */
+function maskOpaqueRun(run: string): string {
+	const ids = run.replace(UUID, '[id]');
+	return /[A-Za-z0-9]/.test(ids.replaceAll('[id]', '')) ? '[token]' : ids;
+}
+
 export function normalizeFailureMessage(raw: string): string {
 	// A failure's message can be any size; the patterns below only ever need the start of it.
 	const withoutValues = cutAt(cutAt(raw.slice(0, MAX_NORMALIZED_INPUT_LENGTH), /Failing row contains/i), /\bDETAIL\b/);
@@ -46,8 +52,7 @@ export function normalizeFailureMessage(raw: string): string {
 	const closed = raw.length > MAX_NORMALIZED_INPUT_LENGTH ? cutAt(quotesMasked, UNCLOSED_QUOTE) : quotesMasked;
 	return closed
 		.replace(KEY_VALUE_PAIR, '?')
-		.replace(UUID, '[id]')
-		.replace(TOKEN_RUN, '[token]')
+		.replace(TOKEN_RUN, maskOpaqueRun)
 		.replace(PERSON_NAME, '[name]')
 		.replace(DIGIT_RUN, '[n]')
 		.replace(/\s+/g, ' ')

@@ -20,6 +20,16 @@ describe('sanitizeFailureForCapture', () => {
 		expect(normalizeFailureMessage('No row for 8a1f0c2e-1111-4222-8333-444455556666')).toBe('No row for [id]');
 	});
 
+	it('masks a whole credential even when a UUID sits inside it', () => {
+		expect(
+			normalizeFailureMessage('Bearer abcdefghijklmnop-8a1f0c2e-1111-4222-8333-444455556666-abcdefghijklmnop')
+		).toBe('Bearer [token]');
+	});
+
+	it('reads a UUID ending a sentence as an id', () => {
+		expect(normalizeFailureMessage('No row for 8a1f0c2e-1111-4222-8333-444455556666.')).toBe('No row for [id].');
+	});
+
 	it.each([
 		['Request failed: https://service.test/export?token=secret', 'Request failed: [url]'],
 		['Could not load /org/alpha/personnel/Jane-Smith now', 'Could not load [url] now'],

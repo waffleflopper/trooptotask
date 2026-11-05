@@ -1,5 +1,6 @@
 import { sanitizeString } from '$lib/server/validation';
 import { fail } from '$lib/errors';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export type OrganizationDefaults = {
 	groups: Array<{ name: string; sort_order: number }>;
@@ -36,7 +37,7 @@ export async function provisionOrganization(
 
 	const created = await port.createOrganization({ name, requestId: input.requestId });
 	if ('failure' in created) {
-		console.error('Organization creation error:', created.failure);
+		console.error('Organization creation error:', sanitizeErrorForLog(created.failure));
 		fail(503, ORGANIZATION_CREATION_UNCONFIRMED_MESSAGE, { publicMessage: true });
 	}
 

@@ -162,12 +162,6 @@ export async function applyExtendedInfoUpdate(
 		? await ctx.personnelSheets.replaceEditableSheetFields(existing.id, data)
 		: await ctx.personnelSheets.createSheet(input.personnelId, data);
 
-	await ctx.audit.log({
-		action: 'personnel.extended_info.updated',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
-
 	// The sheet is already written; a missing saver name must not stop the Person write that follows.
 	return mapExtendedInfoRow(ctx, row);
 }

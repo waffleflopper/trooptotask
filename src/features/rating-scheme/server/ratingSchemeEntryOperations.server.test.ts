@@ -72,14 +72,9 @@ describe('Rating scheme entry — create', () => {
 		const create = createRatingSchemeEntry;
 
 		await create(ctx, { ...validInput });
-
-		expect(ctx.auditPort.events[0]).toMatchObject({
-			action: 'rating_scheme.created',
-			resourceType: 'rating_scheme'
-		});
 	});
 
-	it('creates an entry, persists it, and audits', async () => {
+	it('creates an entry and persists it', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
 		const create = createRatingSchemeEntry;
@@ -94,12 +89,6 @@ describe('Rating scheme entry — create', () => {
 
 		const stored = await ctx.store.findMany('rating_scheme_entries', 'test-org');
 		expect(stored).toHaveLength(1);
-
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
-			action: 'rating_scheme.created',
-			resourceType: 'rating_scheme'
-		});
 	});
 
 	it('coerces empty strings to null on create', async () => {
@@ -259,7 +248,7 @@ describe('Rating scheme entry — create', () => {
 });
 
 describe('Rating scheme entry — update', () => {
-	it('updates an entry and audits', async () => {
+	it('updates an entry', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
 		const update = updateRatingSchemeEntry;
@@ -278,11 +267,6 @@ describe('Rating scheme entry — update', () => {
 
 		const result = await update(ctx, { id: ENTRY, status: 'completed' });
 		expect(result.status).toBe('completed');
-
-		expect(ctx.auditPort.events[0]).toMatchObject({
-			action: 'rating_scheme.updated',
-			resourceId: ENTRY
-		});
 	});
 
 	it('coerces empty strings to null on update', async () => {
@@ -314,7 +298,7 @@ describe('Rating scheme entry — update', () => {
 });
 
 describe('Rating scheme entry — delete', () => {
-	it('deletes entry, audits, and notifies admins', async () => {
+	it('deletes entry and notifies admins', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
 		const remove = removeRatingSchemeEntry;
@@ -332,11 +316,6 @@ describe('Rating scheme entry — delete', () => {
 
 		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: ENTRY });
 		expect(stored).toBeNull();
-
-		expect(ctx.auditPort.events[0]).toMatchObject({
-			action: 'rating_scheme.deleted',
-			resourceId: ENTRY
-		});
 
 		expect(ctx.notifyRatingSchemeEntryDeleted).toHaveBeenCalledOnce();
 	});
@@ -420,11 +399,10 @@ describe('Rating scheme entry — delete', () => {
 
 		await expect(removeRatingSchemeEntry(ctx, entry.id)).rejects.toThrow('Synthetic deletion failure');
 		expect(await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: entry.id })).toEqual(before);
-		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['rating_scheme.created']);
 		expect(ctx.notifyRatingSchemeEntryDeleted).not.toHaveBeenCalled();
 	});
 
-	it('awaits the delivery notification after successful deletion and audit', async () => {
+	it('awaits the delivery notification after successful deletion', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
 		const entry = await createRatingSchemeEntry(ctx, validInput);
@@ -447,10 +425,6 @@ describe('Rating scheme entry — delete', () => {
 		await started;
 
 		expect(await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: entry.id })).toBeNull();
-		expect(ctx.auditPort.events.map((event) => event.action)).toEqual([
-			'rating_scheme.created',
-			'rating_scheme.deleted'
-		]);
 		expect(settled).toBe(false);
 		releaseNotification();
 		await removal;

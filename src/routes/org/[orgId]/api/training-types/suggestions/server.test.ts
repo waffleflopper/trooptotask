@@ -31,11 +31,6 @@ describe('apply Training suggestions', () => {
 		expect(second.skipped.map(({ id }) => id)).toEqual(['sharp', 'eo', 'ace']);
 		expect(second.failed).toEqual([]);
 		expect(second.trainingTypes).toEqual(first.trainingTypes);
-		expect(ctx.auditPort.events.map(({ action }) => action)).toEqual([
-			'training_type.created',
-			'training_type.created',
-			'training_type.created'
-		]);
 	});
 
 	it('creates the other Army suggestions with their twelve-month recurrence', async () => {
@@ -78,10 +73,6 @@ describe('apply Training suggestions', () => {
 			},
 			{ name: 'Equal Opportunity', expirationMonths: 12 },
 			{ name: 'Suicide Prevention (ACE)', expirationMonths: 12 }
-		]);
-		expect(ctx.auditPort.events.map(({ action }) => action)).toEqual([
-			'training_type.created',
-			'training_type.created'
 		]);
 	});
 
@@ -180,17 +171,6 @@ describe('apply Training suggestions', () => {
 		expect(result.trainingTypes.map(({ name, expirationMonths }) => ({ name, expirationMonths }))).toEqual([
 			{ name: 'SHARP', expirationMonths: 12 }
 		]);
-	});
-
-	it('reports an audit failure instead of acknowledging an unaudited creation', async () => {
-		const ctx = createTestContext();
-		const audit = Promise.reject(new Error('audit unavailable'));
-		void audit.catch(() => {});
-		vi.spyOn(ctx.audit, 'log').mockReturnValue(audit);
-		const result = await apply(ctx, { branch: 'army', suggestionIds: ['sharp'] });
-		expect(result.created).toEqual([]);
-		expect(result.failed.map(({ id }) => id)).toEqual(['sharp']);
-		expect(result.trainingTypes.map(({ name }) => name)).toEqual(['SHARP']);
 	});
 
 	it.each([

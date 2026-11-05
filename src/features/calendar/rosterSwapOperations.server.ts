@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { assignmentTypeLabel } from './dailyAssignmentAudit.server';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { dateOnlySchema, issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
@@ -96,7 +97,8 @@ export async function commitRosterSwap(
 	await ctx.audit.log({
 		action: 'daily_assignment.roster_swapped',
 		resourceType: 'daily_assignment',
-		details: { assignmentTypeId: result.assignmentTypeId, dates: result.swap.days.map((day) => day.date) }
+		record: await assignmentTypeLabel(ctx, result.assignmentTypeId),
+		details: { dates: result.swap.days.map((day) => day.date) }
 	});
 	return result;
 }
@@ -110,7 +112,8 @@ export async function undoRosterSwap(ctx: RosterSwapPorts, input: Record<string,
 	await ctx.audit.log({
 		action: 'daily_assignment.roster_swap_undone',
 		resourceType: 'daily_assignment',
-		details: { assignmentTypeId: result.assignmentTypeId, dates: result.swap.days.map((day) => day.date) }
+		record: await assignmentTypeLabel(ctx, result.assignmentTypeId),
+		details: { dates: result.swap.days.map((day) => day.date) }
 	});
 	return result;
 }

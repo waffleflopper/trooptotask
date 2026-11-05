@@ -47,7 +47,7 @@ describe('Personnel — archive', () => {
 		]);
 	}
 
-	it('sets archived_at and audits', async () => {
+	it('sets archived_at', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 
@@ -55,11 +55,6 @@ describe('Personnel — archive', () => {
 
 		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
 		expect(stored.archived_at).toBeTruthy();
-
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'personnel.archived',
-			resourceId: 'p-1'
-		});
 	});
 
 	it.each([
@@ -75,7 +70,6 @@ describe('Personnel — archive', () => {
 
 		await expect(archivePersonnelRecord(ctx, 'p-1')).rejects.toThrow(failure.message);
 		expect(archive).toHaveBeenCalledTimes(1);
-		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.archived' }));
 		expect(await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })).toMatchObject({ archived_at: null });
 	});
 
@@ -144,7 +138,6 @@ describe('Personnel — archive', () => {
 			await expect(archivePersonnelRecord(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
 			expect(archive).not.toHaveBeenCalled();
 			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual(original);
-			expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.archived' }));
 		}
 	);
 });
@@ -167,7 +160,7 @@ describe('Personnel — restore', () => {
 		]);
 	}
 
-	it('restores the Person and audits the saved identity', async () => {
+	it('restores the Person', async () => {
 		const ctx = buildContext();
 		seedArchivedPersonnel(ctx);
 
@@ -177,17 +170,9 @@ describe('Personnel — restore', () => {
 		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
 			archived_at: null
 		});
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({
-				action: 'personnel.restored',
-				resourceType: 'personnel',
-				resourceId: 'p-1',
-				details: { name: 'SGT Smith, Jamie' }
-			})
-		);
 	});
 
-	it('reports a Person restored by another request as not archived without a success audit', async () => {
+	it('reports a Person restored by another request as not archived', async () => {
 		const ctx = buildContext();
 		seedArchivedPersonnel(ctx);
 		ctx.personnelLifecycle.restore = async () => false;
@@ -196,7 +181,6 @@ describe('Personnel — restore', () => {
 			status: 400,
 			message: 'Personnel is not archived'
 		});
-		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.restored' }));
 	});
 
 	it.each([
@@ -212,7 +196,6 @@ describe('Personnel — restore', () => {
 
 		await expect(restorePersonnelRecord(ctx, 'p-1')).rejects.toThrow(failure.message);
 		expect(restore).toHaveBeenCalledTimes(1);
-		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.restored' }));
 	});
 
 	it('rejects restore when the personnel record is missing', async () => {
@@ -324,11 +307,10 @@ describe('Personnel — permanent delete', () => {
 			message: expect.stringContaining('Provide four trauma-lane medics')
 		});
 		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.not.toBeNull();
-		expect(ctx.auditPort.events.map((event) => event.action)).not.toContain('personnel.permanently_deleted');
 		expect(notify).not.toHaveBeenCalled();
 	});
 
-	it('deletes archived personnel, audits, and supplies its saved name to delivery', async () => {
+	it('deletes archived personnel and supplies its saved name to delivery', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);
 
@@ -337,19 +319,11 @@ describe('Personnel — permanent delete', () => {
 
 		expect(result).toEqual({ success: true });
 		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toBeNull();
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'personnel.permanently_deleted',
-				resourceType: 'personnel',
-				resourceId: 'p-1',
-				details: { name: 'SGT Smith, Jamie' }
-			})
-		);
 		expect(notify).toHaveBeenCalledWith('SGT Smith, Jamie');
 	});
 
 	it.each(['resolve', 'reject'] as const)(
-		'persists deletion and audit before waiting for administrator notification to %s',
+		'persists deletion before waiting for administrator notification to %s',
 		async (completion) => {
 			const ctx = createTestContext();
 			seedPersonnel(ctx);
@@ -363,12 +337,11 @@ describe('Personnel — permanent delete', () => {
 				releaseNotification = resolve;
 				rejectNotification = reject;
 			});
-			let atNotification: { person: unknown; auditEvents: typeof ctx.auditPort.events } | undefined;
+			let atNotification: { person: unknown } | undefined;
 			const notifyAdmins = ctx.notifications.notifyAdmins.bind(ctx.notifications);
 			ctx.notifications.notifyAdmins = async (...args) => {
 				atNotification = {
-					person: structuredClone(await ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })),
-					auditEvents: structuredClone(ctx.auditPort.events)
+					person: structuredClone(await ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' }))
 				};
 				startNotification();
 				await notificationPending;
@@ -388,9 +361,6 @@ describe('Personnel — permanent delete', () => {
 			await notificationStarted;
 			await expect(ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toBeNull();
 			expect(atNotification?.person).toBeNull();
-			expect(atNotification?.auditEvents).toContainEqual(
-				expect.objectContaining({ action: 'personnel.permanently_deleted', resourceId: 'p-1' })
-			);
 			expect(settled).toBe(false);
 
 			if (completion === 'resolve') {
@@ -402,9 +372,6 @@ describe('Personnel — permanent delete', () => {
 				await expect(deletion).rejects.toThrow('administrator notification interrupted');
 			}
 			await expect(ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toBeNull();
-			expect(ctx.auditPort.events).toContainEqual(
-				expect.objectContaining({ action: 'personnel.permanently_deleted', resourceId: 'p-1' })
-			);
 		}
 	);
 

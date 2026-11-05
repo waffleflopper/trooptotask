@@ -39,7 +39,8 @@ const audited = (verb: string, tasking: Tasking, item?: string) => ({
 	action: `calendar_tasking.${verb}`,
 	resourceType: 'calendar_tasking',
 	resourceId: tasking.id,
-	details: { title: tasking.title, ...(item && { item }) }
+	record: tasking.title,
+	details: { item: item ?? null }
 });
 
 /**

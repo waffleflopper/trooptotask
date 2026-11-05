@@ -50,8 +50,8 @@ describe('PUT /api/groups/order', () => {
 		expect(await savedOrder(ctx)).toEqual([charlie, alpha, bravo]);
 		await expect(reorder(ctx, [charlie, alpha, bravo])).resolves.toEqual({ success: true });
 		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({ action: 'group.reordered', details: { groupIds: [charlie, alpha, bravo] } }),
-			expect.objectContaining({ action: 'group.reordered', details: { groupIds: [charlie, alpha, bravo] } })
+			expect.objectContaining({ action: 'group.reordered', details: { count: 3 } }),
+			expect.objectContaining({ action: 'group.reordered', details: { count: 3 } })
 		]);
 	});
 

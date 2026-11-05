@@ -241,7 +241,8 @@ export async function saveStartingNumbers(
 		action: 'assignment_type.roster_starting_numbers_set',
 		resourceType: 'assignment_type',
 		resourceId: typeId,
-		details: { formId, numbers: numbers.length, repicked: saved.map(({ date }) => date) }
+		record: type.name,
+		details: { people: new Set(numbers.map(({ personId }) => personId)).size, repicked: saved.length }
 	});
 	return { saved };
 }

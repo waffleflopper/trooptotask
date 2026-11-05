@@ -301,13 +301,8 @@ describe('transferOrganizationOwnership', () => {
 			{
 				action: 'org.ownership_transferred',
 				resourceType: 'organization',
-				details: {
-					newOwnerId: '11111111-1111-4111-8111-111111111111',
-					sensitiveAction: expect.objectContaining({
-						action: 'organization.transferOwnership',
-						reason: 'allowed.recentSession'
-					})
-				},
+				record: 'n***@example.com',
+				details: {},
 				severity: 'critical'
 			}
 		]);
@@ -365,14 +360,8 @@ describe('transferOrganizationOwnership', () => {
 			{
 				action: 'org.ownership_transferred',
 				resourceType: 'organization',
-				details: {
-					newOwnerId: '11111111-1111-4111-8111-111111111111',
-					sensitiveAction: expect.objectContaining({
-						action: 'organization.transferOwnership',
-						reason: 'allowed.mfaAssurance',
-						currentAssuranceLevel: 'aal2'
-					})
-				},
+				record: 'n***@example.com',
+				details: {},
 				severity: 'critical'
 			}
 		]);

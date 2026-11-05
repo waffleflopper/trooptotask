@@ -128,11 +128,13 @@ describe('replaceDailyAssignmentDay', () => {
 
 		expect(ids).toContain('keep-1');
 
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'daily_assignment.replaced',
-			resourceType: 'daily_assignment'
-		});
+		expect(ctx.audit.events.map((event) => event.action).sort()).toEqual([
+			'daily_assignment.cleared',
+			'daily_assignment.created',
+			'daily_assignment.updated'
+		]);
+		expect(new Set(ctx.audit.events.map((event) => event.batchId)).size).toBe(1);
+		expect(ctx.audit.events[0].batchId).toEqual(expect.any(String));
 	});
 
 	it('enforces policy scope on all assignee IDs in the batch', async () => {

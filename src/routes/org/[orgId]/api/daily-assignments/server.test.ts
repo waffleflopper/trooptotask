@@ -72,12 +72,12 @@ describe('/api/daily-assignments', () => {
 			expect.objectContaining({
 				action: 'daily_assignment.cleared',
 				resourceType: 'daily_assignment',
-				details: { date: '2026-05-01', assignmentTypeId: CQ_TYPE }
+				details: { date: '2026-05-01' }
 			}),
 			expect.objectContaining({
 				action: 'daily_assignment.cleared',
 				resourceType: 'daily_assignment',
-				details: { date: '2026-05-02', assignmentTypeId: CQ_TYPE }
+				details: { date: '2026-05-02' }
 			})
 		]);
 	});

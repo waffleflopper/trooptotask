@@ -3,7 +3,6 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
-import { subjectDetails } from '$lib/audit/index.server';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { DeletionRequest, DeletionRequestResourceType } from './contracts';
 import type { DeletionRequestSubmissionPort } from './contracts.server';
@@ -57,11 +56,8 @@ export async function createDeletionRequest(
 		action: `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: row.id,
-		details: subjectDetails({
-			subjectType: input.resourceType,
-			subjectId: input.resourceId,
-			subjectLabel: input.resourceDescription
-		})
+		record: input.resourceDescription,
+		details: { resourceType: input.resourceType }
 	});
 
 	const isPersonnel = input.resourceType === 'personnel';

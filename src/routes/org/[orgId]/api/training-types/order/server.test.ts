@@ -42,7 +42,7 @@ describe('PUT Training type order', () => {
 				action: 'training_type.reordered',
 				resourceType: 'organization',
 				resourceId: ctx.auth.orgId,
-				details: { trainingTypeIds: [C, A, B] }
+				details: { count: 3 }
 			}
 		]);
 	});

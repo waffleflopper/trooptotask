@@ -57,11 +57,6 @@ describe('/api/groups', () => {
 		});
 		expect(await ctx.store.findOne('groups', ctx.auth.orgId, { id: groupId })).toBeNull();
 		expect(await ctx.store.findOne('groups', 'other-org', { id: groupId })).toMatchObject({ name: 'Other' });
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({ action: 'group.created', resourceType: 'group', resourceId: expect.any(String) }),
-			expect.objectContaining({ action: 'group.updated', resourceType: 'group', resourceId: groupId }),
-			expect.objectContaining({ action: 'group.deleted', resourceType: 'group', resourceId: groupId })
-		]);
 	});
 
 	it('files a new Group last among its siblings unless the caller gives an order', async () => {
@@ -133,9 +128,6 @@ describe('/api/groups', () => {
 		await expect(
 			handleUseCaseRequest(_patchConfig, ctx, { id: otherGroupId, parentId: teamId }, () => ctx)
 		).rejects.toMatchObject({ status: 400, message: 'Groups can nest at most three levels deep.' });
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({ action: 'group.moved', resourceId: squadId, details: { parentId: groupId } })
-		]);
 	});
 
 	it('deletes a Group after moving its members, active and archived, to the chosen Group', async () => {
@@ -168,13 +160,6 @@ describe('/api/groups', () => {
 		expect(await ctx.store.findMany('personnel', orgId)).toMatchObject([
 			{ id: memberId, group_id: otherGroupId },
 			{ id: archivedId, group_id: otherGroupId }
-		]);
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'group.deleted',
-				resourceId: groupId,
-				details: { moveMembersTo: otherGroupId, movedCount: 2 }
-			})
 		]);
 	});
 

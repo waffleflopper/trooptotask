@@ -120,22 +120,15 @@ describe('Calendar assignment-type operations', () => {
 		seedTypes(ctx);
 		ctx.store.delete = vi.fn().mockRejectedValue(new Error('type still referenced'));
 		await expect(deleteAssignmentType(ctx, ID)).rejects.toThrow('type still referenced');
-		expect(ctx.audit.events.some((event) => event.action === 'assignment_type.deleted')).toBe(false);
 		expect(ctx.notifications.notifications).toEqual([]);
 	});
 
-	it('saves the ordered Calendar lanes and audits them', async () => {
+	it('saves the ordered Calendar lanes and leaves the entries to the database', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const lanes = seedTypes(ctx);
 		await setCalendarLanes(ctx, { laneTypeIds: [OTHER, ID], expectedLaneTypeIds: [ID] });
 		expect(await lanes()).toEqual(['Group', 'Staff']);
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({
-				action: 'assignment_type.calendar_lanes_set',
-				resourceType: 'organization',
-				details: { laneTypeIds: [OTHER, ID] }
-			})
-		]);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('accepts 201 desired and expected lane IDs', async () => {

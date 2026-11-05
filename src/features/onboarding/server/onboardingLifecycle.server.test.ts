@@ -294,14 +294,6 @@ describe('startOnboarding', () => {
 				}
 			]
 		});
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({
-				action: 'onboarding.started',
-				resourceType: 'personnel_onboarding',
-				resourceId: 'saved-packet',
-				details: { subject_type: 'personnel', subject_id: PERSON_1, template_id: TEMPLATE_1 }
-			})
-		]);
 	});
 
 	it('defaults omitted dates to the local calendar date before creation', async () => {
@@ -603,20 +595,6 @@ describe('cancelOnboarding', () => {
 
 		await expect(cancelOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow('Only in-progress onboardings can be cancelled');
 	});
-
-	it('emits audit log', async () => {
-		const ctx = buildTransitionContext(cancelledSaved);
-		seedOnboarding(ctx);
-
-		await cancelOnboarding(ctx, ONBOARDING_ID);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'onboarding.cancelled',
-			resourceType: 'personnel_onboarding',
-			resourceId: ONBOARDING_ID
-		});
-	});
 });
 
 describe('reopenOnboarding', () => {
@@ -643,20 +621,6 @@ describe('reopenOnboarding', () => {
 		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
 
 		await expect(reopenOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow('Only cancelled onboardings can be reopened');
-	});
-
-	it('emits audit log', async () => {
-		const ctx = buildTransitionContext(reopenedSaved);
-		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
-
-		await reopenOnboarding(ctx, ONBOARDING_ID);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'onboarding.reopened',
-			resourceType: 'personnel_onboarding',
-			resourceId: ONBOARDING_ID
-		});
 	});
 });
 
@@ -795,22 +759,6 @@ describe('completeOnboarding', () => {
 		await expect(completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01')).rejects.toThrow(
 			'Only in-progress onboardings can be completed'
 		);
-	});
-
-	it('emits audit log with incomplete count', async () => {
-		const ctx = buildTransitionContext(completedSaved);
-		seedOnboarding(ctx);
-		seedSteps(ctx);
-
-		await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01');
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'onboarding.completed',
-			resourceType: 'personnel_onboarding',
-			resourceId: ONBOARDING_ID,
-			details: { incomplete_count: 2 }
-		});
 	});
 });
 

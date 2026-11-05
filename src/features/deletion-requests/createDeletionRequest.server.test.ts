@@ -51,11 +51,8 @@ describe('createDeletionRequest', () => {
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.created',
 			resourceType: 'deletion_request',
-			details: {
-				subject_type: 'counseling_record',
-				subject_id: 'rec-1',
-				subject_label: 'Counseling session with SGT Smith'
-			}
+			record: 'Counseling session with SGT Smith',
+			details: { resourceType: 'counseling_record' }
 		});
 	});
 

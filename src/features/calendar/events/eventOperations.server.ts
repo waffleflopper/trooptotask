@@ -47,7 +47,8 @@ const audited = (action: string, event: CalendarEvent) => ({
 	action: `calendar_event.${action}`,
 	resourceType: 'calendar_event',
 	resourceId: event.id,
-	details: { title: event.title }
+	record: event.title,
+	details: {}
 });
 
 export async function listEvents(ctx: CalendarEventPorts, when: EventListWhen, today: string): Promise<EventList> {
@@ -108,7 +109,7 @@ export async function deleteEvent(ctx: CalendarEventPorts, id: string, input: un
 	const count = await ctx.calendarEvents.deleteEvent(event.id, taskings);
 	await ctx.audit.log({
 		...audited('deleted', event),
-		details: { title: event.title, mode: taskings, count }
+		details: { taskings, count }
 	});
 	return { taskings, count };
 }

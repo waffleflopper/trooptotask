@@ -64,7 +64,8 @@ const audited = (verb: string, tasking: Tasking) => ({
 	action: `calendar_tasking.${verb}`,
 	resourceType: 'calendar_tasking',
 	resourceId: tasking.id,
-	details: { title: tasking.title }
+	record: tasking.title,
+	details: {}
 });
 
 async function groupReads(ctx: CalendarTaskingPorts): Promise<{ groups: GroupLabels; groupCatalog: Group[] }> {

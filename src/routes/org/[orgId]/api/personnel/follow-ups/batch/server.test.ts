@@ -95,13 +95,11 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 				created_by: ctx.auth.userId
 			}))
 		);
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'personnel.follow_up.created',
-				resourceType: 'personnel',
-				details: { personnelIds: [able, baker, unassigned] }
-			})
-		]);
+		const events = ctx.auditPort.events;
+		expect(events.map((event) => [event.action, event.subject?.personnelId])).toEqual(
+			[able, baker, unassigned].map((id) => ['personnel.follow_up.created', id])
+		);
+		expect(new Set(events.map((event) => event.batchId)).size).toBe(1);
 	});
 
 	it('writes only inside a Group-scoped operator’s Groups and reports the others as unavailable', async () => {
@@ -170,9 +168,11 @@ describe('POST /api/personnel/leader-notes/batch', () => {
 			{ personnel_id: able, text: 'Great range day', author: ctx.auth.userId },
 			{ personnel_id: baker, text: 'Great range day', author: ctx.auth.userId }
 		]);
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({ action: 'personnel.leader_note.created', details: { personnelIds: [able, baker] } })
-		]);
+		const events = ctx.auditPort.events;
+		expect(events.map((event) => [event.action, event.subject?.personnelId])).toEqual(
+			[able, baker].map((id) => ['personnel.leader_note.created', id])
+		);
+		expect(new Set(events.map((event) => event.batchId)).size).toBe(1);
 	});
 
 	it('refuses a Personnel viewer and an empty note', async () => {

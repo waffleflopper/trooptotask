@@ -88,9 +88,6 @@ describe('/api/onboarding route config', () => {
 			startedAt: '2026-03-15',
 			steps: []
 		});
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({ action: 'onboarding.started', resourceId: 'saved-packet' })
-		]);
 	});
 
 	it.each([
@@ -266,8 +263,6 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 		await expect(
 			handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status, completedAt: '2026-10-01' }, () => ctx)
 		).resolves.toEqual(response);
-
-		expect(ctx.auditPort.events).toEqual([expect.objectContaining({ resourceId: ONBOARDING_ID })]);
 	});
 
 	it('propagates expectation loss as 409 without a success audit', async () => {

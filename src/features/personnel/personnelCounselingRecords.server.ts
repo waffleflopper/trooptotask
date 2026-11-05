@@ -202,7 +202,8 @@ export async function createPersonnelCounselingRecord(
 	await ctx.audit.log({
 		action: 'personnel.counseling_record.created',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 
 	const labels = await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []);
@@ -229,7 +230,8 @@ export async function archivePersonnelCounselingRecord(
 	await ctx.audit.log({
 		action: 'personnel.counseling_record.archived',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
@@ -243,7 +245,8 @@ export async function restorePersonnelCounselingRecord(
 	await ctx.audit.log({
 		action: 'personnel.counseling_record.restored',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
@@ -262,7 +265,8 @@ export async function deletePersonnelCounselingRecord(
 		await ctx.audit.log({
 			action: 'personnel.counseling_record.deleted',
 			resourceType: 'personnel',
-			resourceId: input.personnelId
+			resourceId: input.personnelId,
+			subject: { personnelId: input.personnelId }
 		});
 	return { fileCleanup: result.fileCleanup };
 }

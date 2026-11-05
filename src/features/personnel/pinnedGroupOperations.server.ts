@@ -5,7 +5,6 @@ export type { PinnedGroupResult } from './contracts';
 interface PinnedGroupWriteContext {
 	auth: { scopeSet: GroupCoverage };
 	selfPins: Pick<SelfPinPersistence, 'insert' | 'remove'>;
-	audit: { log(event: { action: string; resourceType: string }): Promise<void> };
 }
 
 /** Pins order the whole Organization's bands, so only Organization-wide readers keep them. */
@@ -19,13 +18,11 @@ export async function pinGroup(
 ): Promise<PinnedGroupResult> {
 	requireOrganizationWideReader(ctx);
 	const row = await ctx.selfPins.insert(data);
-	await ctx.audit.log({ action: 'pinned_group.created', resourceType: 'pinned_group' });
 	return row;
 }
 
 export async function unpinGroup(ctx: PinnedGroupWriteContext, groupId: string): Promise<{ success: true }> {
 	requireOrganizationWideReader(ctx);
 	await ctx.selfPins.remove(groupId);
-	await ctx.audit.log({ action: 'pinned_group.deleted', resourceType: 'pinned_group' });
 	return { success: true };
 }

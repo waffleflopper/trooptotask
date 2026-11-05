@@ -105,7 +105,7 @@ describe('createTrainingRecord', () => {
 		certificateUrl: null
 	};
 
-	it('looks up training type, calculates expiration, inserts, and audits', async () => {
+	it('looks up training type, calculates expiration, and inserts', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
@@ -121,12 +121,6 @@ describe('createTrainingRecord', () => {
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(1);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'training_record.created',
-			resourceType: 'training_record'
-		});
 	});
 
 	it('uses client-provided expiration date for expirationDateOnly types', async () => {
@@ -172,10 +166,6 @@ describe('createTrainingRecord', () => {
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(1);
-
-		expect(ctx.audit.events[1]).toMatchObject({
-			action: 'training_record.updated'
-		});
 	});
 
 	describe.each([
@@ -246,13 +236,6 @@ describe('createTrainingRecord', () => {
 					updated_at: stored[0].updated_at
 				});
 				expect(stored[0].updated_at).not.toBe(before.updated_at);
-				expect(ctx.audit.events).toEqual([
-					expect.objectContaining({
-						action: 'training_record.updated',
-						resourceType: 'training_record',
-						resourceId: RECORD
-					})
-				]);
 			});
 		}
 	);
@@ -502,7 +485,7 @@ describe('updateTrainingRecord', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it('updates an existing record through Training operate policy and audits', async () => {
+	it('updates an existing record through Training operate policy', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
@@ -520,13 +503,6 @@ describe('updateTrainingRecord', () => {
 			expirationDate: '2026-06-01',
 			notes: 'Updated score'
 		});
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({
-				action: 'training_record.updated',
-				resourceType: 'training_record',
-				resourceId: RECORD
-			})
-		);
 	});
 
 	it('denies updates outside the caller scope set and audits the policy denial', async () => {
@@ -601,7 +577,7 @@ describe('completion write scope', () => {
 });
 
 describe('deleteTrainingRecord', () => {
-	it('deletes record and audits', async () => {
+	it('deletes record', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedRecord(ctx);
@@ -610,13 +586,6 @@ describe('deleteTrainingRecord', () => {
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(0);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'training_record.deleted',
-			resourceType: 'training_record',
-			resourceId: RECORD
-		});
 	});
 
 	it('enforces group scope via record lookup', async () => {
@@ -819,9 +788,5 @@ describe('direct patch boundary', () => {
 			organization_id: 'test-org'
 		});
 		expect(result).not.toHaveProperty('unrelated');
-		expect(ctx.audit.events.at(-1)).toMatchObject({
-			action: 'training_record.updated',
-			details: { personnel_id: PERSON_1, training_type_id: TRAINING_TYPE, completion_date: '2025-03-15' }
-		});
 	});
 });

@@ -138,7 +138,8 @@ export async function createPersonnelLeaderNote(
 	await ctx.audit.log({
 		action: 'personnel.leader_note.created',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	return mapWrittenRow(ctx, row);
 }
@@ -163,7 +164,8 @@ export async function archivePersonnelLeaderNote(
 	await ctx.audit.log({
 		action: 'personnel.leader_note.archived',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
@@ -182,7 +184,8 @@ export async function updatePersonnelLeaderNote(
 	await ctx.audit.log({
 		action: 'personnel.leader_note.updated',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	if (!(await canReadSensitivePersonnelArtifacts(ctx, input.personnelId))) {
 		return { id: row.id, archivedAt: row.archived_at ?? null };
@@ -199,7 +202,8 @@ export async function restorePersonnelLeaderNote(
 	await ctx.audit.log({
 		action: 'personnel.leader_note.restored',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
@@ -214,6 +218,7 @@ export async function deletePersonnelLeaderNote(
 	await ctx.audit.log({
 		action: 'personnel.leader_note.deleted',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 }

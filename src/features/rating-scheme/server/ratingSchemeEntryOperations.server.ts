@@ -145,12 +145,6 @@ export async function createRatingSchemeEntry(
 	await requireEvaluatorReferences(ctx, validated);
 	const entry = await ctx.ratingScheme.create(validated);
 
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.created`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: entry.id
-	});
-
 	return entry;
 }
 
@@ -170,12 +164,6 @@ export async function updateRatingSchemeEntry(
 	const entry = await ctx.ratingScheme.update(id, validated);
 	if (!entry) throw new RequestFailure(404, 'Rating Scheme entry not found');
 
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.updated`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: id
-	});
-
 	return entry;
 }
 
@@ -192,12 +180,6 @@ export async function removeRatingSchemeEntry(
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.deleteRatingSchemeEntry);
 
 	await ctx.ratingScheme.delete(id);
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.deleted`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: id
-	});
 
 	await ctx.notifyRatingSchemeEntryDeleted();
 }

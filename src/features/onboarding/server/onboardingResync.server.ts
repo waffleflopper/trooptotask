@@ -68,12 +68,13 @@ export async function resyncOnboarding(
 	await requireOnboardingConfigurePolicy(ctx, onboardingId);
 	await requireOnboardingManagePolicyForOnboarding(ctx, onboardingId);
 
+	const packet = await ctx.onboardingWorkflow.findPacketReference(onboardingId);
 	const result = await reconciliationPort(ctx).reconcile(ctx.auth.orgId, onboardingId, null);
 	await ctx.audit.log({
 		action: 'onboarding.resynced',
 		resourceType: 'personnel_onboarding',
 		resourceId: result.onboarding_id,
-		details: { templateId: result.template_id }
+		subject: { personnelId: packet?.personnelId ?? null }
 	});
 
 	return onboardingResponse(ctx, {
@@ -96,12 +97,6 @@ export async function switchTemplate(
 	await requireOnboardingManagePolicyForOnboarding(ctx, input.onboardingId);
 
 	const result = await reconciliationPort(ctx).reconcile(ctx.auth.orgId, input.onboardingId, input.newTemplateId);
-	await ctx.audit.log({
-		action: 'onboarding.template_switched',
-		resourceType: 'personnel_onboarding',
-		resourceId: result.onboarding_id,
-		details: { oldTemplateId: result.old_template_id, newTemplateId: result.template_id }
-	});
 
 	return onboardingResponse(ctx, {
 		onboardingId: result.onboarding_id,

@@ -34,18 +34,5 @@ describe('ICT task JSON handlers', () => {
 			},
 			() => ctx
 		);
-
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'ict_task.created',
-				resourceType: 'ict_task',
-				resourceId: created.id
-			}),
-			expect.objectContaining({
-				action: 'ict_task.updated',
-				resourceType: 'ict_task',
-				resourceId: created.id
-			})
-		]);
 	});
 });

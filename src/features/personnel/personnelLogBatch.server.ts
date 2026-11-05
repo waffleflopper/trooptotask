@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -67,11 +68,14 @@ async function writeBatch(
 	const ids = [...new Set(requested)];
 	const writable = await writablePeople(ctx, ids);
 	const written = new Set(writable.length ? await write(writable) : []);
-	if (written.size) {
+	const batchId = randomUUID();
+	for (const personnelId of ids.filter((id) => written.has(id))) {
 		await ctx.audit.log({
 			action,
 			resourceType: 'personnel',
-			details: { personnelIds: ids.filter((id) => written.has(id)) }
+			resourceId: personnelId,
+			subject: { personnelId },
+			batchId
 		});
 	}
 	return {

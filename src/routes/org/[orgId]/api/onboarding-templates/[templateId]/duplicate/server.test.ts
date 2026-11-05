@@ -58,7 +58,6 @@ describe('POST /api/onboarding-templates/[templateId]/duplicate', () => {
 			templateSteps: [expect.objectContaining({ name: 'Initial Counseling', sortOrder: 0 })]
 		});
 		expect(replay).toEqual(result);
-		expect(ctx.audit.events.map((event) => event.action)).toEqual(['onboarding_template.duplicated']);
 	});
 
 	it('reads the template from the route and the request id from the body', async () => {

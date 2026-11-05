@@ -155,7 +155,8 @@ export async function createPersonnelDocument(
 	await ctx.audit.log({
 		action: 'personnel.document.created',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 
 	const labels = await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []);
@@ -192,7 +193,8 @@ export async function archivePersonnelDocument(
 	await ctx.audit.log({
 		action: 'personnel.document.archived',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
@@ -206,7 +208,8 @@ export async function restorePersonnelDocument(
 	await ctx.audit.log({
 		action: 'personnel.document.restored',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
@@ -224,7 +227,8 @@ export async function deletePersonnelDocument(
 		await ctx.audit.log({
 			action: 'personnel.document.deleted',
 			resourceType: 'personnel',
-			resourceId: input.personnelId
+			resourceId: input.personnelId,
+			subject: { personnelId: input.personnelId }
 		});
 	return { fileCleanup: result.fileCleanup };
 }

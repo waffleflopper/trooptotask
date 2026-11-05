@@ -500,7 +500,7 @@ describe('Fill from roster', () => {
 		expect(ctx.audit.events).toContainEqual(
 			expect.objectContaining({
 				action: 'daily_assignment.roster_filled',
-				details: { assignmentTypeId: TYPE, from: '2026-10-17', through: '2026-10-24', days: 7 }
+				details: { from: '2026-10-17', through: '2026-10-24', days: 7 }
 			})
 		);
 	});
@@ -674,7 +674,7 @@ describe('Find replacement', () => {
 		expect(ctx.audit.events).toContainEqual(
 			expect.objectContaining({
 				action: 'daily_assignment.roster_replaced',
-				details: { assignmentTypeId: TYPE, date: '2026-10-20', repicks: 3 }
+				details: { date: '2026-10-20', repicks: 3 }
 			})
 		);
 	});

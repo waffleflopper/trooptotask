@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { assignmentTypeLabel } from './dailyAssignmentAudit.server';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
 import { toDayNumber } from '$lib/utils/dayNumber';
@@ -265,7 +266,8 @@ export async function commitRosterFill(
 	await ctx.audit.log({
 		action: 'daily_assignment.roster_filled',
 		resourceType: 'daily_assignment',
-		details: { assignmentTypeId: plan.typeId, from: plan.from, through: plan.through, days: saved.length }
+		record: await assignmentTypeLabel(ctx, plan.typeId),
+		details: { from: plan.from, through: plan.through, days: saved.length }
 	});
 	return { saved };
 }
@@ -392,7 +394,8 @@ export async function commitRosterReplacement(
 	await ctx.audit.log({
 		action: 'daily_assignment.roster_replaced',
 		resourceType: 'daily_assignment',
-		details: { assignmentTypeId: request.typeId, date: request.date, repicks: changes.length }
+		record: await assignmentTypeLabel(ctx, request.typeId),
+		details: { date: request.date, repicks: changes.length }
 	});
 	return { saved };
 }

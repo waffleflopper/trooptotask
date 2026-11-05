@@ -32,12 +32,13 @@ interface RosterContext {
 			action: string;
 			resourceType: string;
 			resourceId: string;
+			record?: string;
 			details?: Record<string, unknown>;
 		}): Promise<void>;
 	};
 }
 
-interface RosterFileContext extends Pick<RosterContext, 'orgId' | 'audit'> {
+interface RosterFileContext extends Pick<RosterContext, 'orgId' | 'audit' | 'persistence'> {
 	actor: SignInRosterFileActor;
 	scans: SignInRosterScanPort;
 }
@@ -69,7 +70,8 @@ export async function createSignInRoster(ctx: CreateRosterContext, input: Record
 		action: 'sign_in_roster.created',
 		resourceType: 'sign_in_roster',
 		resourceId: row.id,
-		details: { title: header.data.title }
+		record: header.data.title,
+		details: {}
 	});
 	return row;
 }
@@ -80,7 +82,8 @@ export async function deleteSignInRoster(ctx: RosterFileContext, rosterId: strin
 		action: 'sign_in_roster.deleted',
 		resourceType: 'sign_in_roster',
 		resourceId: rosterId,
-		details: { title }
+		record: title,
+		details: {}
 	});
 	return { success: true, fileCleanup };
 }
@@ -107,10 +110,13 @@ export async function uploadSignedScan(ctx: RosterFileContext, rosterId: string,
 
 	const filePath = buildScanPath(ctx.orgId.toLowerCase(), rosterId.toLowerCase(), file.name);
 	await ctx.scans.replace(ctx.actor, rosterId, filePath, file);
+	const roster = await ctx.persistence.find(rosterId);
 	await ctx.audit.log({
 		action: 'sign_in_roster.scan_uploaded',
 		resourceType: 'sign_in_roster',
-		resourceId: rosterId
+		resourceId: rosterId,
+		record: roster?.title ?? 'a roster',
+		details: {}
 	});
 	return { filePath };
 }

@@ -344,10 +344,10 @@ describe('duty swap operations', () => {
 			release = resolve;
 		});
 		ctx.audit.log = async (event) => {
-			expect(event).toEqual({
+			expect(event).toMatchObject({
 				action: kind === 'swap' ? 'daily_assignment.roster_swapped' : 'daily_assignment.roster_swap_undone',
 				resourceType: 'daily_assignment',
-				details: { assignmentTypeId: TYPE, dates: ['2026-10-12', '2026-10-19'] }
+				details: { dates: ['2026-10-12', '2026-10-19'] }
 			});
 			logged = true;
 			await held;
@@ -433,11 +433,11 @@ describe('duty swap operations', () => {
 			]
 		});
 		expect(ctx.audit.events).toEqual([
-			{
+			expect.objectContaining({
 				action: 'daily_assignment.roster_swapped',
 				resourceType: 'daily_assignment',
-				details: { assignmentTypeId: TYPE, dates: ['2026-10-12', '2026-10-19'] }
-			}
+				details: { dates: ['2026-10-12', '2026-10-19'] }
+			})
 		]);
 	});
 

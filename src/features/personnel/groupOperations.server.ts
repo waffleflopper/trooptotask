@@ -74,7 +74,6 @@ export async function createGroup(ctx: GroupWriteContext, input: Record<string, 
 	await requireGroupManager(ctx);
 	const sortOrder = data.sortOrder ?? nextSortOrder(await ctx.groups.listCatalog(), data.parentId ?? null);
 	const row = await ctx.groups.create({ ...data, sortOrder });
-	await ctx.audit.log({ action: 'group.created', resourceType: 'group', resourceId: row.id });
 	return row;
 }
 
@@ -82,7 +81,6 @@ export async function renameGroup(ctx: GroupWriteContext, input: Record<string, 
 	const { id, name } = validatedInput(renameInput, input);
 	await requireGroupManager(ctx, id);
 	const row = await ctx.groups.rename(id, name);
-	await ctx.audit.log({ action: 'group.updated', resourceType: 'group', resourceId: id });
 	return row;
 }
 
@@ -91,7 +89,6 @@ export async function moveGroup(ctx: GroupWriteContext, input: Record<string, un
 	if (parentId === id) throw error(400, 'A Group cannot move under one of its own sub-groups.');
 	await requireGroupManager(ctx, id);
 	const row = await ctx.groups.move(id, parentId);
-	await ctx.audit.log({ action: 'group.moved', resourceType: 'group', resourceId: id, details: { parentId } });
 	return row;
 }
 
@@ -103,7 +100,7 @@ export async function setGroupOrder(ctx: GroupWriteContext, input: Record<string
 		action: 'group.reordered',
 		resourceType: 'organization',
 		resourceId: ctx.auth.orgId,
-		details: { groupIds }
+		details: { count: groupIds.length }
 	});
 }
 
@@ -121,12 +118,6 @@ export async function deleteGroup(
 	);
 	if (blocked) throw error(409, blocked);
 	const movedCount = await ctx.groups.deleteWithReassignment(id, moveMembersTo);
-	await ctx.audit.log({
-		action: 'group.deleted',
-		resourceType: 'group',
-		resourceId: id,
-		details: { moveMembersTo, movedCount }
-	});
 	return { movedCount };
 }
 
@@ -174,13 +165,6 @@ export async function moveGroupMembers(
 	const already = active.filter((person) => person.groupId === groupId).map((person) => person.id);
 	const moving = active.filter((person) => person.groupId !== groupId).map((person) => person.id);
 	const moved = moving.length ? await ctx.personnel.moveToGroup(moving, groupId) : [];
-	if (moved.length) {
-		await ctx.audit.log({
-			action: 'personnel.group_changed',
-			resourceType: 'personnel',
-			details: { groupId, personnelIds: moved }
-		});
-	}
 	const inGroup = new Set([...already, ...moved]);
 	return {
 		groupId,

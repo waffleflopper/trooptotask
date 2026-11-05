@@ -105,7 +105,8 @@ describe('DELETE /org/[orgId]/api/calendar-events/[eventId]', () => {
 					action: 'calendar_event.deleted',
 					resourceType: 'calendar_event',
 					resourceId: EVENT,
-					details: { title: 'Best Medic Competition', mode: taskings, count: 2 }
+					record: 'Best Medic Competition',
+					details: { taskings, count: 2 }
 				}
 			]);
 		}

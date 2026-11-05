@@ -61,12 +61,6 @@ export async function setPersonnelAwardTrackingAcknowledged(
 		await ctx.personnelSheets.setAwardAcknowledgedAt(existing.id, null);
 	}
 
-	await ctx.audit.log({
-		action: acknowledged ? 'personnel.award_tracking_acknowledged' : 'personnel.award_tracking_cleared',
-		resourceType: 'personnel',
-		resourceId: personnelId
-	});
-
 	return {
 		personnelId,
 		awardTrackingAcknowledged: acknowledged

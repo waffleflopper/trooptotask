@@ -145,6 +145,21 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261105100000_audit_entry_shape.sql",
     "20261105100100_availability_audit_trigger.sql",
 )
+# The Group audit trigger reads the tree columns, so these apply after the tree migration, not with the historical stage.
+POST_TREE_UPGRADE_MIGRATIONS = (
+    "20261105130000_audit_app_entry_writer.sql",
+    "20261105130100_calendar_catalog_audit_triggers.sql",
+    "20261105130200_people_audit_triggers.sql",
+    "20261105130300_records_audit_triggers.sql",
+    "20261105130400_onboarding_audit_triggers.sql",
+)
+POST_TREE_SQL_TESTS = (
+    "audit_calendar_catalogs.sql",
+    "audit_people.sql",
+    "audit_records.sql",
+    "audit_onboarding.sql",
+    "audit_app_writer.sql",
+)
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
     "training_record_populated_before.sql",
@@ -824,7 +839,7 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             if pending:
                 raise SystemExit(128 + pending)
         if staged_upgrade:
-            for name in STAGED_UPGRADE_MIGRATIONS:
+            for name in (*STAGED_UPGRADE_MIGRATIONS, *POST_TREE_UPGRADE_MIGRATIONS):
                 (workdir / "supabase/migrations" / name).unlink()
         print(f"Disposable project: {project_id}; directory: {workdir}", flush=True)
         print("Ports: " + ", ".join(
@@ -898,6 +913,12 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 raise ValueError('Nested Groups upgrade changed existing Group values or stored membership grants')
             print('Nested Groups upgrade retained every Group value and membership grant; all existing paths contain only their own id.', flush=True)
             execute(["supabase", "test", "db", "supabase/tests/nested_group_scope.sql"], workdir)
+            for name in POST_TREE_UPGRADE_MIGRATIONS:
+                shutil.copy2(repository / "supabase/migrations" / name,
+                             workdir / "supabase/migrations" / name)
+            execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
+            for name in POST_TREE_SQL_TESTS:
+                execute(["supabase", "test", "db", f"supabase/tests/{name}"], workdir)
             run(["node", str(repository / "scripts/ci/personnel_group_upgrade_provider_probe.mjs")],
                 workdir, environment=_provider_environment(repository, workdir, execute))
             run(["node", str(repository / "scripts/ci/personnel_retention_provider_probe.mjs"),

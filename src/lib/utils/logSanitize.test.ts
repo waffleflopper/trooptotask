@@ -34,7 +34,7 @@ describe('sanitizeErrorForLog', () => {
 			details: 'Key (ssn)=(123-45-6789) already exists.'
 		});
 
-		expect(sanitized).toContain('details=Key (ssn)=([number]) already exists.');
+		expect(sanitized).toContain('details=Key (ssn)=(?) already exists.');
 		expect(sanitized).not.toContain('123-45-6789');
 	});
 
@@ -47,8 +47,28 @@ describe('sanitizeErrorForLog', () => {
 
 		expect(sanitized).toContain('message=duplicate key');
 		expect(sanitized).toContain('code=23505');
-		expect(sanitized).toContain('details=Key (email)=([email]) already exists.');
+		expect(sanitized).toContain('details=Key (email)=(?) already exists.');
 		expect(sanitized).not.toContain('jane.doe@example.com');
+	});
+
+	it('drops a failing row from an Error message and the stack line that repeats it', () => {
+		const sanitized = sanitizeErrorForLog(new Error('insert failed. Failing row contains (Jane Smith, 5th Platoon).'));
+
+		expect(sanitized).not.toContain('Jane Smith');
+		expect(sanitized).toContain('message=insert failed. Failing row contains (?)');
+	});
+
+	it('drops the failing row a check violation repeats in its details', () => {
+		const sanitized = sanitizeErrorForLog({
+			message: 'new row violates check constraint "notifications_type_check"',
+			code: '23514',
+			details: 'Failing row contains (8a1f, null, Report reply, Jane Smith answered your report, f).',
+			hint: null
+		});
+
+		expect(sanitized).toBe(
+			'message=new row violates check constraint "notifications_type_check" code=23514 details=Failing row contains (?)'
+		);
 	});
 
 	it('ignores nested payload fields that are not allowlisted', () => {

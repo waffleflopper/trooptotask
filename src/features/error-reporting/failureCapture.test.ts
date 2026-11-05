@@ -26,6 +26,10 @@ describe('sanitizeFailureForCapture', () => {
 		).toBe('Bearer [token]');
 	});
 
+	it('masks a full name whose surname is as long as a token', () => {
+		expect(normalizeFailureMessage('Could not save Jane Venkatanarasimharaju')).toBe('Could not save [name]');
+	});
+
 	it('reads a UUID ending a sentence as an id', () => {
 		expect(normalizeFailureMessage('No row for 8a1f0c2e-1111-4222-8333-444455556666.')).toBe('No row for [id].');
 	});

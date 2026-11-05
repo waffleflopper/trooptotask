@@ -40,6 +40,8 @@ function cutAt(text: string, marker: RegExp): string {
 
 /** A whole run is judged before any part of it is replaced, so a UUID inside a credential cannot split it. */
 function maskOpaqueRun(run: string): string {
+	// A single long word, such as a surname, is left for the name mask to read with the words around it.
+	if (/^[A-Z]?[a-z-]+$/.test(run)) return run;
 	const ids = run.replace(UUID, '[id]');
 	return /[A-Za-z0-9]/.test(ids.replaceAll('[id]', '')) ? '[token]' : ids;
 }

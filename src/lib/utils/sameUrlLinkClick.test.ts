@@ -2,8 +2,9 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { navigateWithoutRefreshOnSameUrlClick } from './sameUrlLinkClick';
 
-const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
+const { goto, updated } = vi.hoisted(() => ({ goto: vi.fn(), updated: { current: false } }));
 vi.mock('$app/navigation', () => ({ goto }));
+vi.mock('$app/state', () => ({ updated }));
 
 const current = '/org/alpha/calendar';
 let stopped: boolean | undefined;
@@ -28,6 +29,7 @@ function click(attributes: Record<string, string>, init: MouseEventInit = {}) {
 beforeEach(() => {
 	stopped = undefined;
 	goto.mockClear();
+	updated.current = false;
 	vi.stubGlobal('location', new URL(new URL(current, document.baseURI).href));
 	document.body.addEventListener('click', guardedClick);
 });
@@ -64,6 +66,12 @@ it.each([
 	['a middle click', { href: current }, { button: 1 }]
 ])('leaves %s to the browser and router', (_name, attributes, init) => {
 	expect(click(attributes, init)).toBe(false);
+	expect(goto).not.toHaveBeenCalled();
+});
+
+it('leaves the click to the router once a new version is live, so it loads as a full page', () => {
+	updated.current = true;
+	expect(click({ href: current })).toBe(false);
 	expect(goto).not.toHaveBeenCalled();
 });
 

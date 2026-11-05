@@ -44,7 +44,9 @@ function cutAt(text: string, marker: RegExp): string {
 
 /** A whole run is judged before any part of it is replaced, so a UUID inside a credential cannot split it. */
 function maskOpaqueRun(run: string): string {
-	if (WORD.test(run) || IDENTIFIER.test(run)) return run;
+	// A sentence's closing period joins the run, so the shape is read without it.
+	const shape = run.replace(/\.+$/, '');
+	if (WORD.test(shape) || IDENTIFIER.test(shape)) return run;
 	const ids = run.replace(UUID, '[id]');
 	return /[A-Za-z0-9]/.test(ids.replaceAll('[id]', '')) ? '[token]' : ids;
 }

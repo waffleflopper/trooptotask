@@ -35,6 +35,7 @@ describe('sanitizeFailureForCapture', () => {
 
 	it('masks a full name whose surname is as long as a token', () => {
 		expect(normalizeFailureMessage('Could not save Jane Venkatanarasimharaju')).toBe('Could not save [name]');
+		expect(normalizeFailureMessage('Could not save Jane Venkatanarasimharaju.')).toBe('Could not save [name].');
 	});
 
 	it('reads a UUID ending a sentence as an id', () => {

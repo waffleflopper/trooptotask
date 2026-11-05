@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { assignmentTypeLabel } from './dailyAssignmentAudit.server';
+import { auditAssignmentChanges } from './dailyAssignmentAudit.server';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { dateOnlySchema, issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
@@ -20,6 +20,19 @@ const slotInput = z
 	.strict();
 const commitInput = z.object({ today: dateOnlySchema, days: z.tuple([slotInput, slotInput]) }).strict();
 const undoInput = z.object({ today: dateOnlySchema, swapId: uuidSchema }).strict();
+
+/** A swap changes who holds two days: one entry for each, written together. */
+async function auditSwapped(ctx: RosterSwapPorts, result: RosterSwapResult) {
+	await auditAssignmentChanges(
+		ctx,
+		result.saved.map((row) => ({
+			date: row.date,
+			assignmentTypeId: row.assignmentTypeId,
+			assigneeId: row.assigneeId,
+			kind: 'updated' as const
+		}))
+	);
+}
 
 async function authorize(ctx: RosterSettingsPorts, today: string) {
 	requireDeviceDate(today);
@@ -94,12 +107,7 @@ export async function commitRosterSwap(
 			{ date: second.date, was: second.was }
 		]
 	});
-	await ctx.audit.log({
-		action: 'daily_assignment.roster_swapped',
-		resourceType: 'daily_assignment',
-		record: await assignmentTypeLabel(ctx, result.assignmentTypeId),
-		details: { dates: result.swap.days.map((day) => day.date) }
-	});
+	await auditSwapped(ctx, result);
 	return result;
 }
 
@@ -109,11 +117,6 @@ export async function undoRosterSwap(ctx: RosterSwapPorts, input: Record<string,
 	const { today, swapId } = parsed.data;
 	await authorize(ctx, today);
 	const result = await ctx.calendarRosterSwaps.undo({ today, swapId });
-	await ctx.audit.log({
-		action: 'daily_assignment.roster_swap_undone',
-		resourceType: 'daily_assignment',
-		record: await assignmentTypeLabel(ctx, result.assignmentTypeId),
-		details: { dates: result.swap.days.map((day) => day.date) }
-	});
+	await auditSwapped(ctx, result);
 	return result;
 }

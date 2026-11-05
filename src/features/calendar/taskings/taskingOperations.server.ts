@@ -1,7 +1,7 @@
 import { z } from 'zod';
+import type { AuditPort } from '$lib/audit/contracts';
 import { fail } from '$lib/errors';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import type { AuditPort } from '$lib/audit/contracts';
 import { buildGroupTree, type Group, type GroupPersistence } from '$features/personnel/contracts';
 import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
 import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
@@ -16,7 +16,6 @@ import {
 	type EventTaskingList,
 	type GroupLabels,
 	type Tasking,
-	type TaskingAction,
 	type TaskingActivityLog,
 	type TaskingChoices,
 	type TaskingDetail,
@@ -28,7 +27,8 @@ import type { CalendarStaffingPersistence } from './staffing/staffingPersistence
 
 export interface CalendarTaskingPorts {
 	auth: OrganizationAccessGrant;
-	audit: AuditPort;
+	/** Records denied attempts. The changes themselves are audited by the database. */
+	audit?: AuditPort;
 	calendarTaskings: CalendarTaskingPersistence;
 	calendarEvents: Pick<CalendarEventPersistence, 'listEvents'>;
 	/** The Groups the viewer's scope covers. */
@@ -40,15 +40,6 @@ export interface CalendarTaskingPorts {
 const ORGANIZATION = { kind: 'organization' } as const;
 const createInput = z.object({ id: uuidSchema, draft: taskingDraftSchema }).strict();
 
-const AUDIT_VERBS: Record<TaskingAction, string> = {
-	start: 'started',
-	block: 'blocked',
-	unblock: 'unblocked',
-	complete: 'completed',
-	reopen: 'reopened',
-	cancel: 'cancelled'
-};
-
 function parse<T>(schema: z.ZodType<T>, input: unknown): T {
 	const parsed = schema.safeParse(input);
 	if (!parsed.success) fail(400, issueMessage(parsed.error));
@@ -59,14 +50,6 @@ function taskingId(id: string): string {
 	if (!uuidSchema.safeParse(id).success) fail(404, TASKING_GONE);
 	return id;
 }
-
-const audited = (verb: string, tasking: Tasking) => ({
-	action: `calendar_tasking.${verb}`,
-	resourceType: 'calendar_tasking',
-	resourceId: tasking.id,
-	record: tasking.title,
-	details: {}
-});
 
 async function groupReads(ctx: CalendarTaskingPorts): Promise<{ groups: GroupLabels; groupCatalog: Group[] }> {
 	const groupCatalog = await ctx.groups.listCatalog();
@@ -182,8 +165,7 @@ export async function loadTaskingChoices(ctx: CalendarTaskingPorts, today: strin
 export async function createTasking(ctx: CalendarTaskingPorts, input: unknown): Promise<Tasking> {
 	const { id, draft } = parse(createInput, input);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, draft.responsibility);
-	const { tasking, created } = await ctx.calendarTaskings.createTasking(id, draft);
-	if (created) await ctx.audit.log(audited('created', tasking));
+	const { tasking } = await ctx.calendarTaskings.createTasking(id, draft);
 	return tasking;
 }
 
@@ -196,7 +178,6 @@ export async function updateTasking(ctx: CalendarTaskingPorts, id: string, input
 		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, ORGANIZATION);
 	const tasking = await ctx.calendarTaskings.updateTasking(existing.id, draft);
 	if (!tasking) fail(404, TASKING_GONE);
-	await ctx.audit.log(audited('updated', tasking));
 	return tasking;
 }
 
@@ -204,7 +185,6 @@ export async function transitionTasking(ctx: CalendarTaskingPorts, id: string, i
 	const transition = parse(taskingTransitionSchema, input);
 	const existing = await requireExisting(ctx, id);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageTaskings, existing.responsibility);
-	const { tasking, moved } = await ctx.calendarTaskings.transitionTasking(existing.id, transition);
-	if (moved) await ctx.audit.log(audited(AUDIT_VERBS[transition.action], tasking));
+	const { tasking } = await ctx.calendarTaskings.transitionTasking(existing.id, transition);
 	return tasking;
 }

@@ -14,8 +14,8 @@ Organizations without disclosing those privileged details to anyone else.
   as the change, with the actor, status, person and dates saved as labels. A later rename or deletion does not change
   the sentence. A change shows its dates before and after. One bulk add, import or removal writes one entry per row
   under one batch, which Logs shows as one line that opens to its rows.
-- `family-capture`: the same holds for Personnel, Training, Critical Tasks, Onboarding, Groups and the Calendar
-  catalogs. A change made through the member's own session is audited by the database in the same transaction, with the
+- `family-capture`: the same holds for Personnel, Training, Critical Tasks, Onboarding, Groups, the Calendar
+  catalogs, and Calendar events and taskings with their equipment and checklist items. A change made through the member's own session is audited by the database in the same transaction, with the
   signed-in member as Actor and saved labels for the record and, for a person's record, the person (`<rank> <last>,
 <first>`). A change the server makes with its own authority (a leader note, counseling record, document, export or
   deletion request) is written by the app, awaited, and fails the change if the write fails. Seeded fixture rows are
@@ -165,7 +165,9 @@ record <type> for <person>, completed <d Mon>`). On ICTLs, open an empty cell, p
    Save (`personnel_ict_completion.created`). On Onboard, Start onboarding for a person
    (`onboarding.started`, `Started onboarding for <person> (<template>)`). On a person's page, Add to record then
    Note (`personnel.leader_note.created`, `Added a leader note for <person>`, empty `details`, `subject_label` filled
-   by the database). In Calendar Settings, Add new status type (`status_type.created`). Every one of these shows the
+   by the database). In Calendar Settings, Add new status type (`status_type.created`). On Events, add an event (`calendar_event.created`, `Added event <title> from <d Mon> to <d Mon>`), then cancel
+   it (`calendar_event.cancelled`; the reason is never saved). On a Tasking, Start it (`calendar_tasking.started`).
+   A roster Fill writes one `daily_assignment.created` per day under one batch, which Logs folds into one line. Every one of these shows the
    owner's email as Actor, while the fixture's own rows show `System`. Then rename the person (Last name in Quick
    edit): the earlier sentences keep the old name and the rename reads `Changed SPC Alder, Synthetic: name Able,
 Synthetic → Alder, Synthetic`. Restore the name. The Add onboarding Member picker lists names only on screen, not

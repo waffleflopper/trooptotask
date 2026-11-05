@@ -536,22 +536,6 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: 'CQ', subjectLabel: null, details: { date: '2026-11-10' } },
 		sentence: 'Cleared CQ on 10 Nov'
 	},
-	'daily_assignment.roster_filled': {
-		entry: { recordLabel: 'CQ', subjectLabel: null, details: { from: '2026-11-10', through: '2026-11-20', days: 11 } },
-		sentence: 'Filled the CQ roster for 10–20 Nov (11 days)'
-	},
-	'daily_assignment.roster_replaced': {
-		entry: { recordLabel: 'CQ', subjectLabel: null, details: { date: '2026-11-10', repicks: 3 } },
-		sentence: 'Replaced the CQ pick on 10 Nov and re-picked 3 later days'
-	},
-	'daily_assignment.roster_swapped': {
-		entry: { recordLabel: 'CQ', subjectLabel: null, details: { dates: ['2026-11-10', '2026-11-12'] } },
-		sentence: 'Swapped CQ duty between 10 Nov and 12 Nov'
-	},
-	'daily_assignment.roster_swap_undone': {
-		entry: { recordLabel: 'CQ', subjectLabel: null, details: { dates: ['2026-11-10', '2026-11-12'] } },
-		sentence: 'Undid the CQ duty swap between 10 Nov and 12 Nov'
-	},
 	'assignment_type.roster_excusals_set': {
 		entry: { recordLabel: 'CQ', subjectLabel: null, details: { excused: 2 } },
 		sentence: 'Set the CQ roster excusals (2 people excused)'
@@ -565,28 +549,44 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		sentence: 'Set starting numbers for 4 people on the CQ roster and re-picked 2 days'
 	},
 	'calendar_event.created': {
-		entry: { recordLabel: 'Range week', subjectLabel: null, details: {} },
-		sentence: 'Created event Range week'
+		entry: { recordLabel: 'Range week', subjectLabel: null, details: { startsOn: '2026-11-10', endsOn: '2026-11-12' } },
+		sentence: 'Added event Range week from 10 Nov to 12 Nov'
 	},
 	'calendar_event.updated': {
-		entry: { recordLabel: 'Range week', subjectLabel: null, details: {} },
-		sentence: 'Changed event Range week'
+		entry: {
+			recordLabel: 'Range week',
+			subjectLabel: null,
+			details: {
+				startsOn: '2026-11-10',
+				endsOn: '2026-11-13',
+				change: { endsOn: { from: '2026-11-12', to: '2026-11-13' }, description: true }
+			}
+		},
+		sentence: 'Changed event Range week from 10 Nov to 13 Nov: end 12 Nov → 13 Nov, description changed'
 	},
 	'calendar_event.cancelled': {
-		entry: { recordLabel: 'Range week', subjectLabel: null, details: {} },
-		sentence: 'Cancelled event Range week'
+		entry: { recordLabel: 'Range week', subjectLabel: null, details: { startsOn: '2026-11-10', endsOn: '2026-11-12' } },
+		sentence: 'Cancelled event Range week from 10 Nov to 12 Nov'
 	},
 	'calendar_event.deleted': {
-		entry: { recordLabel: 'Range week', subjectLabel: null, details: { taskings: 'delete', count: 2 } },
-		sentence: 'Deleted event Range week and 2 taskings'
+		entry: { recordLabel: 'Range week', subjectLabel: null, details: { startsOn: '2026-11-10', endsOn: '2026-11-10' } },
+		sentence: 'Deleted event Range week on 10 Nov'
 	},
 	'calendar_tasking.created': {
 		entry: { recordLabel: 'Range detail', subjectLabel: null, details: {} },
-		sentence: 'Created tasking Range detail'
+		sentence: 'Added tasking Range detail'
 	},
 	'calendar_tasking.updated': {
+		entry: {
+			recordLabel: 'Range detail',
+			subjectLabel: null,
+			details: { change: { suspenseOn: { from: '2026-11-10', to: '2026-11-12' }, instructions: true } }
+		},
+		sentence: 'Changed tasking Range detail: suspense 10 Nov → 12 Nov, instructions changed'
+	},
+	'calendar_tasking.deleted': {
 		entry: { recordLabel: 'Range detail', subjectLabel: null, details: {} },
-		sentence: 'Changed tasking Range detail'
+		sentence: 'Deleted tasking Range detail'
 	},
 	'calendar_tasking.started': {
 		entry: { recordLabel: 'Range detail', subjectLabel: null, details: {} },

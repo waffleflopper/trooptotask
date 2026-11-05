@@ -497,12 +497,11 @@ describe('Fill from roster', () => {
 			'23 liang roster',
 			'24 okafor roster'
 		]);
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({
-				action: 'daily_assignment.roster_filled',
-				details: { from: '2026-10-17', through: '2026-10-24', days: 7 }
-			})
-		);
+		const entries = ctx.audit.events.filter((event) => event.action === 'daily_assignment.created');
+		expect(entries.map((event) => event.details)).toEqual(saved.map((row) => ({ date: row.date, group: null })));
+		expect(entries.map((event) => event.subject)).toEqual(saved.map((row) => ({ personnelId: row.assigneeId })));
+		expect(new Set(entries.map((event) => event.batchId)).size).toBe(1);
+		expect(entries[0].batchId).toEqual(expect.any(String));
 	});
 
 	it('refuses a preview the roster has moved past and writes nothing', async () => {
@@ -652,6 +651,7 @@ describe('Find replacement', () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		await seedConflict(ctx);
 		const preview = await previewRosterReplacement(ctx, replacementInput());
+		const logged = ctx.audit.events.length;
 
 		const { saved } = await commitRosterReplacement(ctx, commitInput(preview));
 
@@ -671,12 +671,12 @@ describe('Find replacement', () => {
 			'23 morales roster',
 			'24 okafor roster'
 		]);
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({
-				action: 'daily_assignment.roster_replaced',
-				details: { date: '2026-10-20', repicks: 3 }
-			})
+		const entries = ctx.audit.events.slice(logged);
+		expect(entries.map((event) => [event.action, (event.details as { date: string }).date])).toEqual(
+			saved.map((row) => [expect.stringMatching(/^daily_assignment\.(created|updated)$/), row.date])
 		);
+		expect(entries[0]).toMatchObject({ action: 'daily_assignment.updated', details: { date: '2026-10-20' } });
+		expect(new Set(entries.map((event) => event.batchId)).size).toBe(1);
 	});
 
 	it("writes someone other than the rule's pick as a hand assignment", async () => {

@@ -103,7 +103,9 @@ coordinator sheet. The same label read supplies coordinators, Activity actors an
 ### Helper controls
 
 `$V rows calendar_events orgA` and `$V rows calendar_event_activity orgA` read the stored rows; filter Activity with
-`event_id ID`. `$V rows audit_logs orgA` shows `calendar_event.created`, `.updated` and `.cancelled`.
+`event_id ID`. `$V rows audit_logs orgA` shows `calendar_event.created`, `.updated`, `.cancelled` and `.deleted`, written by the
+database with the signed-in member as Actor. A Tasking writes `calendar_tasking.created`, `.updated`, one entry per
+status change, and its equipment and checklist items by name; Reorder and Staff write app entries.
 `$V network arm-observe|arm-fail PAGE calendar-events` matches only `POST /org/A/api/calendar-events`, the create. The
 hook lives in the page, so arm it after the last navigation; a reload removes it. `$V rows calendar_taskings orgA` and
 `$V rows calendar_tasking_activity orgA` read Taskings and their Activity; filter with `tasking_id ID` or

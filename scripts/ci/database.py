@@ -152,12 +152,14 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261105130200_people_audit_triggers.sql",
     "20261105130300_records_audit_triggers.sql",
     "20261105130400_onboarding_audit_triggers.sql",
+    "20261105130500_calendar_event_tasking_audit_triggers.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
     "audit_people.sql",
     "audit_records.sql",
     "audit_onboarding.sql",
+    "audit_calendar_events.sql",
     "audit_app_writer.sql",
 )
 STAGED_UPGRADE_FIXTURES = (

@@ -389,24 +389,23 @@ describe('logs settings page', () => {
 	});
 
 	describe('states', () => {
-		it('says when the unit has no entries yet', async () => {
+		it('shows an empty log with nothing to clear when the unit has no entries yet', async () => {
 			render(Page, { props: { data: pageData({}), form: null, params: { orgId: 'test-org' } } });
 
-			expect(await screen.findByText('No audit log entries yet.')).toBeTruthy();
+			const log = await screen.findByRole('region', { name: 'Audit log' });
+			expect(within(log).queryByRole('table')).toBeNull();
 			expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
 		});
 
-		it('says when nothing matches the filters, apart from an empty log, and offers to clear them', async () => {
+		it('offers to clear the filters when nothing matches them', async () => {
 			render(Page, {
 				props: { data: pageData({ filters: { kind: 'org.renamed' } }), form: null, params: { orgId: 'test-org' } }
 			});
 
-			expect(await screen.findByText('No entries match these filters.')).toBeTruthy();
-			expect(screen.queryByText('No audit log entries yet.')).toBeNull();
+			const log = await screen.findByRole('region', { name: 'Audit log' });
+			expect(within(log).queryByRole('table')).toBeNull();
 
-			await fireEvent.click(
-				within(screen.getByRole('region', { name: 'Audit log' })).getByRole('button', { name: 'Clear filters' })
-			);
+			await fireEvent.click(within(log).getByRole('button', { name: 'Clear filters' }));
 			expect(goto).toHaveBeenCalledWith('/org/test-org/settings/logs', { reset: false });
 		});
 

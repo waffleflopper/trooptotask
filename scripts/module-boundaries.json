@@ -95,8 +95,7 @@
 				"src/lib/server/adapters/errorCapture.server.ts",
 				"src/lib/server/adapters/errorCapture.server.test.ts",
 				"src/lib/server/adapters/clientErrorReports.server.ts",
-				"src/lib/server/adapters/clientErrorReports.server.test.ts",
-				"vite.config.ts"
+				"src/lib/server/adapters/clientErrorReports.server.test.ts"
 			],
 			"packet": "08-M15"
 		},

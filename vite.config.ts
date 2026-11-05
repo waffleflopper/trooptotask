@@ -51,6 +51,9 @@ export default defineConfig({
 					'object-src': ['none']
 				}
 			},
+			// Kit also checks when the tab becomes visible or regains focus and reads the version header on every data response,
+			// so this only covers a tab left in view.
+			version: { pollInterval: 300_000 },
 			alias: {
 				$lib: 'src/lib',
 				$features: 'src/features'

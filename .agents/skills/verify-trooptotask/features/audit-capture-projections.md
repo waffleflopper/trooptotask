@@ -8,14 +8,18 @@ Organizations without disclosing those privileged details to anyone else.
 - `capture`: a real producer's event keeps its meaning, actor, Organization and resource references; risky freeform
   details and unauthenticated email identifiers are masked before storage. Required platform events retain target
   labels; those without an Organization also retain the actor's email and typed reason.
-- `organization-log`: owner and administrator summaries, newest-first ordering, search, sorting, 25-row client pages over the latest
-  100 loaded records, counts and reload.
+- `organization-log`: owner and administrator summaries in newest-first order, read 50 at a time from the server, with
+  Load more and a `more available` or `end of the log` footer.
+- `log-filters`: Person, Member, Kind and a From/To day range, each held in the address (`person`, `member`, `kind`,
+  `from`, `to`), so reload, Back and Forward keep them. Changing one resets paging and reads only the entries. An entry
+  older than the newest 100 is found by each filter.
 - `record-capture`: the database writes every Calendar availability add, change and removal in the same transaction
   as the change, with the actor, status, person and dates saved as labels. A later rename or deletion does not change
   the sentence. A change shows its dates before and after. One bulk add, import or removal writes one entry per row
   under one batch, which Logs shows as one line that opens to its rows.
-- `streamed-load`: Logs paints its header at once, holds the table's skeleton while the audit read runs and shows its
-  own load error, with retry, when that read fails.
+- `streamed-load`: Logs paints its header and filters at once, holds the results skeleton while the audit read runs and
+  shows its own load error, with retry, when that read fails. A failed Load more keeps the rows above it and offers its
+  own Retry.
 - `actor-label`: an event's Actor is the member's stored membership email, else their account identity email. A former
   member with no membership row stays `Unknown member`. Most fixture memberships have a null email, which exercises the
   fallback; `deletionRequester` and `deletionReviewer` must show their addresses after a denied bulk archive.
@@ -27,8 +31,8 @@ Organizations without disclosing those privileged details to anyone else.
 
 ## How to get to it (user POV)
 
-As an Organization owner or administrator, open Settings and Logs. Narrow it with the All, Access, Records and Deletions scopes, search
-or sort the table and use its Newer and Older paging controls. Rows sit under day heads in the viewer's time zone. The
+As an Organization owner or administrator, open Settings and Logs. Narrow it by Person, Member, Kind and a From and To
+day, then use Load more to read older entries. Rows sit under day heads in the viewer's time zone. The
 screen shows one-sentence summaries (Time, Area, Event and Actor), with before and after values only where the saved
 details carry them, not event details. As the platform operator, open Admin and Activity; filter by category, search or
 date, navigate pages and open a row's `Details` disclosure. Members without administrator access have no Audit Log admission.
@@ -75,20 +79,28 @@ Run `doctor` for the selected owned worker, then `$V fixture`. Reuse `orgOwner` 
 no `auth.login_success` event; step 5 uses the form for the sign-in producer. Ordinary Organization actors can attempt
 the admin destination to observe denial; no role is elevated by the helper.
 
-Capture original A/B audit rows before `$V seed audit`. The seed records 105 recent A events, one old A event, four
-excluded authentication/rate-limit events and one B sentinel, with every ID saved before insertion. Its returned
+Capture original A/B audit rows before `$V seed audit`. The seed records 105 recent A events, one old A event (1 Jan
+2000, saved person `personA`, member `orgAdmin`, kind `personnel.updated`, so each Logs filter reaches it only past the
+newest 100), four excluded authentication/rate-limit events and one B sentinel, with every ID saved before insertion. Its returned
 action/tag/witness IDs identify label, system, legacy actor and foreign-reference cases.
 `$V rows audit_logs orgA|orgB [id|action VALUE]` supplies separate privileged provider readback. These seeded values are
 stored-event prerequisites, not producer sanitization or ordinary authorization proof.
 
-1. **Owner summary and loaded window.** Sign in as `orgOwner`, open Logs through Settings, and capture counts, day
-   heads, visible Time/Area/Event/Actor cells and the Newer/Older controls. Compare the page's loaded IDs with the
-   newest 100 nonexcluded A provider rows; do not claim access to older rows through client pagination. Move to another
-   page, search the unique seeded event, pick a scope that holds it and one that does not, reverse Time sorting, sort by
-   Area (day heads disappear), clear the search and reload. A deletion's Area reads in the destructive color. Check that
-   System and the saved legacy actor appear for their known witnesses. Seeded authentication/rate-limit actions and B's
-   event must stay out of A summaries/counts. The old A row counts toward total but not this month, which starts at
-   midnight on the first of the viewer's month.
+1. **Owner log, filters and paging.** Sign in as `orgOwner`, open Logs through Settings, and capture day heads, the
+   Time/Area/Event/Actor cells and the footer, which reads `50 entries loaded · more available` and a `50+` count on the
+   cut-off day. Press Load more until the footer reads `end of the log` and compare the loaded count with the
+   nonexcluded A provider rows (`$V rows audit_logs orgA`): they match, and seeded authentication/rate-limit actions and
+   B's event stay out. A deletion's Area reads in the destructive color. System and the saved legacy actor appear for
+   their witnesses. Then find the old A row (it is past the newest 100) by each filter in turn. Open `Person`, type the
+   name and press Enter (`SPC Able, Synthetic`); the URL gains `?person=` and the list reads `3 entries loaded · end of
+the log`, with the 1 Jan 2000 entry under its own day head. A note under the Person filter says entries written
+   before people were recorded match by member, kind and date only. Clear it, choose Member `orgAdmin…` (`?member=`),
+   Kind `Personnel updated` (`?kind=personnel.updated`) and the From picker's day (`?from=`): each narrows the list. Open
+   `?from=2000-01-01&to=2000-01-01` for the old entry, `?to=1999-12-31` and `?from=2000-01-02&to=2000-12-31` for `No
+entries match these filters` with `Clear filters`: both dates are inclusive days in the viewer's zone. Back returns to
+   the previous filter, Forward restores the next, reload keeps both. In the Network list a filter change is one
+   `settings/logs/__data.json?x-sveltekit-invalidated=00001` request (page load only, not the layout) and Load more is one
+   `api/audit-log?after=…` request.
 2. **Page-data labels and disclosure.** From that normally admitted page, make a read-only same-origin GET to its
    `settings/logs/__data.json` through native `evaluate_script` or inspect the actual navigation response. Preserve
    status and the complete response separately from the visible summary. Inspect the known enriched witness: same-A
@@ -98,7 +110,9 @@ stored-event prerequisites, not producer sanitization or ordinary authorization 
    retained references, distinct from stripped detail values.
 3. **Role and target denial.** Sign in as `orgAdmin` and open Logs: the nav shows `Logs` without the `Owner` tag and the
    page lists the same A summaries as the owner's. Sign in separately as `orgMember`/`viewer`, attempt Logs, and record
-   the visible denial plus an ordinary authenticated page-data response without audit rows. As B-only `orgSettingsPeer`, try
+   the visible denial plus an ordinary authenticated page-data response without audit rows. From that session a
+   same-origin GET of `api/audit-log?after=…` returns 403 as well; as `orgAdmin` it returns 200 with
+   `private, no-store`, and a missing or malformed `after` returns 400. As B-only `orgSettingsPeer`, try
    the recorded A URL and repeat the ordinary response check; its own B Logs must contain the B sentinel and no A
    cohort. As the admitted A owner, navigate to B and confirm denial rather than accepting A's stale summaries as B
    data. `platformSupport` and an ordinary member must be denied full `/admin/audit`, including page-data responses. UI
@@ -130,16 +144,18 @@ stored-event prerequisites, not producer sanitization or ordinary authorization 
    error, not this one. This proves client navigation recovery; it does not
    simulate a provider error or establish audit-writer failure guarantees. Provider/query/writer failure guarantees
    require separately identified lower-level proof.
-7. **Streamed load and load error.** As `orgOwner` on Logs at 1024x768 light, `$V server-source restore`, arm
-   `$V server-source arm audit_logs hold 1 60000` and reload. The header and subtitle render at once; below them the
-   Logs skeleton (search, then filter and count, wrapped as the controls wrap; a header row and six rows) sits in an
-   `aria-busy` region with a polite status `Loading the audit log`. Record the top and height of the skeleton's
-   controls block, header row and first row, and the right edge of its widest descendant. `server-source release` and
-   record the same for the `Audit log controls` group, `thead` and first body row: the tops and the controls and header
-   heights match, and nothing in the skeleton passes the subtitle's right edge. `restore`, arm `fail-hard` and reload:
-   a destructive alert `Unable to load Audit log` with `Retry Audit log` replaces the table under the same header, and
-   the settings nav still works. `restore`, then `Retry Audit log` renders the log. Repeat both at 390x844 dark and the
-   skeleton match at 1440x900, where the table no longer stacks, with no sideways scroll.
+7. **Streamed load and load error.** As `orgOwner` on Logs at 1280x900 light, `$V server-source restore`, arm
+   `$V server-source arm audit_logs hold 1 60000` and reload. The header, subtitle and the Person, Member, Kind, From and
+   To controls render at once and stay usable; below them the results skeleton (a header row and six rows) sits in an
+   `aria-busy` region. Record the top and height of the `h1`, the `Filter the audit log` group and the skeleton's header
+   row. `server-source release` and record the same for the group and the table header: the `h1` and group match
+   exactly and the header row starts at the same top. `restore`, arm `fail-hard 1` and reload: a destructive alert
+   `Unable to load Audit log` with `Retry Audit log` replaces the results under the same header and filters, and the
+   settings nav still works. `Retry Audit log` renders the log. With the page loaded, arm `fail-hard 1`, press Load more:
+   an alert reads `The next entries could not be loaded. The entries above are unchanged.` with `Retry`, the footer still
+   reads 50 entries, and `restore` then Load more reads 100. Repeat at 1024x800 and 390x844, where the filters stack
+   in one column and nothing scrolls sideways (`scrollWidth` minus `clientWidth` is 0 on the document, `main` and the
+   table).
 8. **Calendar availability capture.** As `calendarOperate`, follow [availability status](availability-status.md) to add
    a status for a fixture person, drag its end a day later, then remove it. As `orgOwner` the Logs Calendar rows read
    `Added <Status> for <Rank> <Last>, <First> from <d Mon> to <d Mon>`, `Changed <Status> for … from <d>–<d Mon> to
@@ -169,7 +185,13 @@ this disposable provider until owned cleanup.
   either query; synthetic raw-secret inserts cannot be counted as producer masking tests.
 - Stripping applies to top-level string UUID detail values. It does not remove event identity, resource/user references
   or platform raw saved details, and does not promise recursive removal.
-- Organization summaries use client pages over a bounded latest-100 load; Platform Audit uses server pages of 50.
+- Organization Logs and Platform Audit both read server pages of 50. Logs pages by entry, so a bulk batch that spans a
+  page boundary reads `Added at least N entries` until the next page arrives. The first load has no whole-table count.
+- The Logs pickers do not expose their options to `take_snapshot` or the `option` role in `click`. Click the picker
+  button, then `type_text` the name and press Enter, or read the options with `evaluate_script`
+  (`() => [...document.querySelectorAll('[role=option]')].map((o) => o.textContent.trim())`). Most fixture members have
+  no email, so their Member option reads as an ID prefix.
+- `api/audit-log` rejects a request without a valid `after`, because the first page arrives with the Logs page load.
 - A bare `server-source arm audit_logs hold` can release before a slow capture finishes; pass `hold 1 60000`. Arming
   while a hold is still active is refused as a conflicting control, so `restore` before each arm. Save screenshots
   with `take_screenshot`'s `filePath`; `--save` writes the tool's JSON response, not a PNG.

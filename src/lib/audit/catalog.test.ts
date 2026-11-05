@@ -1,30 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { AUDIT_KINDS, batchSentence, catalogSentence, type AuditKindName, type SavedAuditEntry } from './catalog';
+import { EXAMPLES as EXAMPLE_ENTRIES } from './catalog.examples';
 
 const context = { loggedOn: '2026-11-05' };
 
-/** A complete saved entry for every cataloged kind; adding a kind without one fails to compile. */
-const EXAMPLES: Record<AuditKindName, Omit<SavedAuditEntry, 'action'>> = {
-	'availability.created': {
-		recordLabel: 'Leave',
-		subjectLabel: 'SPC Doe, Jane',
-		details: { startDate: '2026-11-10', endDate: '2026-11-20' }
-	},
-	'availability.updated': {
-		recordLabel: 'Leave',
-		subjectLabel: 'SPC Doe, Jane',
-		details: {
-			startDate: '2026-11-12',
-			endDate: '2026-11-20',
-			change: { startDate: { from: '2026-11-10', to: '2026-11-12' } }
-		}
-	},
-	'availability.deleted': {
-		recordLabel: 'Leave',
-		subjectLabel: 'SPC Doe, Jane',
-		details: { startDate: '2026-11-10', endDate: '2026-11-20' }
-	}
-};
+const EXAMPLES = Object.fromEntries(
+	Object.entries(EXAMPLE_ENTRIES).map(([action, { entry }]) => [action, entry])
+) as Record<AuditKindName, Omit<SavedAuditEntry, 'action'>>;
 
 function read(action: AuditKindName, entry: Partial<SavedAuditEntry> = {}) {
 	return catalogSentence({ action, ...EXAMPLES[action], ...entry }, context);
@@ -33,15 +15,15 @@ function read(action: AuditKindName, entry: Partial<SavedAuditEntry> = {}) {
 describe('audit kind catalog', () => {
 	it('reads every cataloged kind from its saved labels', () => {
 		for (const action of Object.keys(AUDIT_KINDS) as AuditKindName[]) {
-			expect(read(action), action).toMatch(/\S/);
+			expect(read(action), action).toBe(EXAMPLE_ENTRIES[action].sentence);
 		}
 	});
 
 	it('reads nothing when a saved entry lacks a label or detail its kind requires', () => {
 		for (const action of Object.keys(AUDIT_KINDS) as AuditKindName[]) {
 			const { details } = EXAMPLES[action];
-			expect(read(action, { recordLabel: null }), `${action} record`).toBeNull();
-			expect(read(action, { subjectLabel: '  ' }), `${action} subject`).toBeNull();
+			if (EXAMPLES[action].recordLabel) expect(read(action, { recordLabel: null }), `${action} record`).toBeNull();
+			if (EXAMPLES[action].subjectLabel) expect(read(action, { subjectLabel: '  ' }), `${action} subject`).toBeNull();
 			for (const key of Object.keys(details ?? {})) {
 				const rest = Object.fromEntries(Object.entries(details ?? {}).filter(([name]) => name !== key));
 				expect(read(action, { details: rest }), `${action} ${key}`).toBeNull();

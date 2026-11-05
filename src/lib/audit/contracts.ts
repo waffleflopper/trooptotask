@@ -10,6 +10,12 @@ export type {
 	PlatformAuditDashboardActivity
 } from './platformContracts';
 
+export interface AuditSubject {
+	personnelId: string | null;
+	/** The roster form, `<rank> <last>, <first>`. Left out, the database reads it from the person's row. */
+	label?: string;
+}
+
 export interface AuditEvent {
 	action: string;
 	resourceType: string;
@@ -17,9 +23,14 @@ export interface AuditEvent {
 	orgId?: string;
 	details?: Record<string, unknown>;
 	severity?: AuditSeverity;
+	/** The record's label at the time of the action. A cataloged kind requires it. */
+	record?: string;
+	/** Whose record it was. A cataloged kind about a person requires it. */
+	subject?: AuditSubject;
+	batchId?: string;
 }
 
-/** A supplied best-effort sink. A failed write never rejects, and every caller awaits it so the write finishes before the response. */
+/** Every caller awaits the write, and a write that fails rejects so the request reports the error. */
 export interface AuditPort {
 	log(event: AuditEvent): Promise<void>;
 }

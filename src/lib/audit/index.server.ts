@@ -1,4 +1,4 @@
-export { auditLog, getRequestInfo } from './auditLog.server';
+export { auditLog, getRequestInfo, maskEmail } from './auditLog.server';
 export { createSupabaseAuditAdapter } from './supabaseAudit.server';
 export { subjectDetails, reviewerDetails } from './details';
 export { fetchAuditLogs, fetchLatestAuditEvent } from './auditLogQuery.server';

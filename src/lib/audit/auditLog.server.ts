@@ -1,6 +1,8 @@
+import { isIP } from 'node:net';
 import type { Json } from '$lib/server/database.types';
 import { getAdminClient } from '$lib/server/supabase';
 
+import { auditKindOf } from './catalog';
 import type { AuditEvent } from './contracts';
 import { resolvePlatformTargetName } from './platformLabels.server';
 
@@ -89,7 +91,7 @@ function shouldRedactKey(key: string): boolean {
 	return REDACTED_KEY_PARTS.some((part) => normalized.includes(part));
 }
 
-function maskEmail(value: string): string {
+export function maskEmail(value: string): string {
 	const trimmed = value.trim().toLowerCase();
 	const [localPart = '', domainPart = 'redacted.invalid'] = trimmed.split('@');
 	if (!EMAIL_RE.test(trimmed) || localPart.length === 0) return '[redacted]';
@@ -214,23 +216,65 @@ async function platformDetails(
 	return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
+type RequestInfo = {
+	userId?: string | null;
+	userEmail?: string | null;
+	ip?: string;
+	userAgent?: string;
+};
+
+const IS_UUID = (value: string | undefined): value is string => !!value && UUID_RE.test(value);
+
+/** A cataloged entry carries the labels the caller saved, and only the details its kind declares. */
+async function writeCatalogedEntry(
+	admin: ReturnType<typeof getAdminClient>,
+	event: AuditEvent,
+	requestInfo: RequestInfo
+): Promise<void> {
+	const kind = auditKindOf(event.action);
+	if (!kind) throw new Error(`Audit kind ${event.action} is not cataloged`);
+	if (kind.writer === 'database') throw new Error(`Audit kind ${event.action} is written by the database`);
+	const subjectLabel = event.subject?.label?.trim() || null;
+	const entry = kind.accept({
+		record: event.record?.trim() || null,
+		subject: subjectLabel ?? (event.subject?.personnelId ? 'a person' : null),
+		details: event.details ?? {}
+	});
+	if (!entry) throw new Error(`Audit entry ${event.action} lacks a label or detail its kind requires`);
+	const result = await admin.rpc('record_app_audit_entry', {
+		p_kind: event.action,
+		p_record_type: event.resourceType,
+		p_severity: event.severity ?? 'info',
+		p_details: entry.details as Json,
+		p_actor_user_id: requestInfo.userId ?? undefined,
+		p_organization_id: event.orgId ?? undefined,
+		p_record_id: IS_UUID(event.resourceId) ? event.resourceId : undefined,
+		p_record_label: entry.record ?? undefined,
+		p_subject_personnel_id: IS_UUID(event.subject?.personnelId ?? undefined) ? event.subject!.personnelId! : undefined,
+		p_subject_label: subjectLabel ?? undefined,
+		p_batch_id: IS_UUID(event.batchId) ? event.batchId : undefined,
+		p_ip_address: requestInfo.ip && isIP(requestInfo.ip) ? requestInfo.ip : undefined,
+		p_user_agent: requestInfo.userAgent ?? undefined
+	});
+	if (result.error) throw new Error('Audit log write failed');
+}
+
 /**
  * Uses service role client (append-only, bypasses RLS).
- * `required` marks a platform command: it must confirm the write and records the platform labels.
- * Other callers keep best-effort logging.
+ * A cataloged kind saves the labels the caller passes and always confirms the write. `required` marks a platform
+ * command: it must confirm the write and records the platform labels. `confirm` makes any other write reject when
+ * it fails; without it an uncataloged write stays best-effort.
  */
 export async function auditLog(
 	event: AuditEvent,
-	requestInfo: {
-		userId?: string | null;
-		userEmail?: string | null;
-		ip?: string;
-		userAgent?: string;
-	},
-	options: { required?: boolean } = {}
+	requestInfo: RequestInfo,
+	options: { required?: boolean; confirm?: boolean } = {}
 ): Promise<void> {
+	const cataloged = auditKindOf(event.action) !== undefined;
+	const confirmed = options.required || options.confirm || cataloged;
 	try {
 		const admin = getAdminClient();
+		if (cataloged && !options.required) return await writeCatalogedEntry(admin, event, requestInfo);
 		const details = options.required
 			? await platformDetails(admin, event, requestInfo)
 			: sanitizeDetails(event, requestInfo);
@@ -247,8 +291,11 @@ export async function auditLog(
 			severity: event.severity ?? 'info'
 		});
 		if (result.error) throw new Error('Audit log write failed');
-	} catch {
-		if (options.required) throw new Error('Audit log write failed');
+	} catch (error) {
+		if (confirmed) {
+			if (cataloged) console.error(error instanceof Error ? error.message : 'Audit log write failed');
+			throw new Error('Audit log write failed');
+		}
 		console.error('Audit log write failed');
 	}
 }

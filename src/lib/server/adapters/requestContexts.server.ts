@@ -656,6 +656,7 @@ export function createRequestDailyAssignmentContext(request: AdmittedOrganizatio
 		...createRequestCalendarCatalogContext(request),
 		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase, {
 			admin: getAdminClient,
 			actorId: request.auth.userId

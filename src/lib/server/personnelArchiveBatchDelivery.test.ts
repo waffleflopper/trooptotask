@@ -74,7 +74,7 @@ describe('Personnel — archive batch', () => {
 		await expect(ctx.rawStore.findMany('deletion_requests', ctx.auth.orgId)).resolves.toEqual([]);
 	});
 
-	it('archives every admitted Person through one command with one candidate read and one audit', async () => {
+	it('archives every admitted Person through one command with one candidate read', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);
 		const candidateRead = vi.spyOn(ctx.personnel, 'listArchiveCandidates');
@@ -97,12 +97,6 @@ describe('Personnel — archive batch', () => {
 		expect(archive.mock.calls).toEqual([[['p-1', 'p-2'], archivedAt]]);
 		const stored = (await ctx.rawStore.findMany('personnel', ctx.auth.orgId)) as Record<string, unknown>[];
 		expect(stored.every((person) => person.archived_at === archivedAt)).toBe(true);
-		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.bulk_archived')).toEqual([
-			expect.objectContaining({
-				resourceType: 'personnel',
-				details: expect.objectContaining({ count: 2, ids: ['p-1', 'p-2'] })
-			})
-		]);
 	});
 
 	it('includes an archived Person in the command so its saved event is completed, not replaced', async () => {

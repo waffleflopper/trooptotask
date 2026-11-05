@@ -18,10 +18,14 @@ export function createSupabaseAuditAdapter(orgId: string | null, requestInfo: Re
 					resourceId: event.resourceId,
 					orgId: orgId ?? undefined,
 					details: event.details,
-					severity: event.severity
+					severity: event.severity,
+					record: event.record,
+					subject: event.subject,
+					batchId: event.batchId
 				},
-				requestInfo
-			).catch(() => {});
+				requestInfo,
+				{ confirm: true }
+			);
 		}
 	};
 }

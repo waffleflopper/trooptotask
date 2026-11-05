@@ -8,7 +8,7 @@
 	const blocks = $derived<readonly SettingsSkeletonBlock[]>(SETTINGS_PAGES[page].skeleton);
 </script>
 
-<div class="grid min-w-0" aria-hidden="true" data-settings-skeleton={page}>
+<div class="grid min-w-0 grid-cols-1" aria-hidden="true" data-settings-skeleton={page}>
 	{#each blocks as block, index (index)}
 		{@const opensSection = index > 0 && (block.kind === 'heading' || block.kind === 'strip')}
 		{#if block.kind === 'rows'}

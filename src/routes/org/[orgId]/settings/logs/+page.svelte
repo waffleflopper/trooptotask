@@ -24,7 +24,7 @@
 
 {#if logs}
 	{#await logs.auditLog}
-		<div aria-busy="true">
+		<div class="min-w-0" aria-busy="true">
 			<p role="status" class="sr-only">Loading the audit log</p>
 			<SettingsSkeleton page="logs" />
 		</div>

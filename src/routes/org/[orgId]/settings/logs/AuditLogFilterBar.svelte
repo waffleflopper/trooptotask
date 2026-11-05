@@ -12,9 +12,14 @@
 
 	let { filters, options }: { filters: AuditLogFilters; options: Promise<LogsFilterOptions> } = $props();
 
-	// Props only change once a navigation ends, so a second change made before then builds on the first.
+	// A second change made before the first navigation commits builds on the first. Once new filters arrive
+	// (a commit, or Back superseding the request), they are the truth and the pending set is dropped.
 	let pending: AuditLogFilters | null = null;
 	let latest = 0;
+	$effect.pre(() => {
+		void filters;
+		pending = null;
+	});
 
 	function apply(change: AuditLogFilters) {
 		const next = { ...(pending ?? filters), ...change };

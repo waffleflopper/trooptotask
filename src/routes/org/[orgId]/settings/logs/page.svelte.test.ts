@@ -344,6 +344,21 @@ describe('logs settings page', () => {
 			expect(goto).toHaveBeenLastCalledWith('/org/test-org/settings/logs', { reset: false });
 		});
 
+		it('builds on the filters that arrive, not on a change the page was still loading, after Back', async () => {
+			goto.mockImplementationOnce(() => new Promise(() => {}));
+			const { rerender } = await renderLogs({ rows: MIXED, filters: { from: '2026-10-01', to: '2026-10-10' } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear to date' }));
+			await rerender({
+				data: pageData({ rows: MIXED, filters: { from: '2026-09-01', to: '2026-09-10' } }),
+				form: null,
+				params: { orgId: 'test-org' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear from date' }));
+
+			expect(goto).toHaveBeenLastCalledWith('/org/test-org/settings/logs?to=2026-09-10', { reset: false });
+		});
+
 		it('clears every filter at once', async () => {
 			await renderLogs({ rows: MIXED, filters: { userId: MEMBER, kind: 'org.renamed', from: '2026-10-01' } });
 

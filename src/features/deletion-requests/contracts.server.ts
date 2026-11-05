@@ -6,23 +6,17 @@ export interface PendingDeletionTarget {
 	resourceId: string;
 }
 
-export interface DeletionRequestReview {
-	status: 'approved' | 'denied';
-	reviewedBy: string;
-	reviewedAt: string;
-	denialReason: string | null;
-}
-
 /** Named operations over the admitted ordinary request client's visible rows. */
 export interface DeletionRequestStore {
 	findPendingById(orgId: string, requestId: string, target?: PendingDeletionTarget): Promise<DeletionRequest | null>;
 	listRequests(orgId: string, filter: { status?: string; requestedBy?: string }): Promise<DeletionRequest[]>;
 	readPendingSummary(orgId: string, requestedBy?: string): Promise<PendingDeletionRequestSummary>;
-	completePendingReview(
+	/** The database names the reviewer and time; false means no matching pending request remained. */
+	denyPendingRequest(
 		orgId: string,
 		requestId: string,
 		target: PendingDeletionTarget,
-		review: DeletionRequestReview
+		denialReason: string | null
 	): Promise<boolean>;
 	listExportRows(orgId: string): Promise<Record<string, unknown>[]>;
 }

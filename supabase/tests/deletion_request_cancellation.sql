@@ -96,11 +96,21 @@ CREATE TABLE upgrade_fixture.deletion_request_cancellation_before_rows AS
   SELECT * FROM upgrade_fixture.deletion_request_cancellation_current_rows;
 CREATE TEMP TABLE cancellation_direct_update(count integer);
 GRANT INSERT ON cancellation_direct_update TO authenticated;
+-- A refused grant and an RLS-filtered update both change no row.
+CREATE FUNCTION pg_temp.direct_cancel() RETURNS integer LANGUAGE plpgsql AS $fn$
+DECLARE changed integer;
+BEGIN
+  UPDATE public.deletion_requests SET status='cancelled' WHERE id='d1803000-0000-4000-8000-000000000801';
+  GET DIAGNOSTICS changed = ROW_COUNT;
+  RETURN changed;
+EXCEPTION WHEN insufficient_privilege THEN
+  RETURN 0;
+END;
+$fn$;
+GRANT EXECUTE ON FUNCTION pg_temp.direct_cancel() TO authenticated;
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','d1803000-0000-4000-8000-000000000001',false);
-WITH changed AS (
-  UPDATE public.deletion_requests SET status='cancelled' WHERE id='d1803000-0000-4000-8000-000000000801' RETURNING id
-) INSERT INTO cancellation_direct_update SELECT count(*)::integer FROM changed;
+INSERT INTO cancellation_direct_update SELECT pg_temp.direct_cancel();
 RESET ROLE;
 CREATE TABLE upgrade_fixture.deletion_request_cancellation_baseline AS
 SELECT NOT EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20261003000100') migration_absent,
@@ -178,17 +188,13 @@ SELECT throws_ok($$ SELECT public.cancel_own_deletion_request('d1803000-0000-400
 RESET ROLE;
 UPDATE public.organizations SET suspended_at=NULL WHERE id='d1803000-0000-4000-8000-000000000101';
 
-CREATE TEMP TABLE raw_updates(count integer);
-GRANT INSERT ON raw_updates TO authenticated;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','d1803000-0000-4000-8000-000000000001',true);
-WITH changed AS (
+SELECT throws_ok($$
   UPDATE public.deletion_requests SET status='approved',requested_by='d1803000-0000-4000-8000-000000000003',resource_description='Unauthorized edit'
-  WHERE id='d1803000-0000-4000-8000-000000000801' RETURNING id
-) INSERT INTO raw_updates SELECT count(*)::integer FROM changed;
+  WHERE id='d1803000-0000-4000-8000-000000000801' $$,
+  '42501',NULL,'the narrow RPC does not grant arbitrary status, actor or description UPDATE');
 RESET ROLE;
-SELECT is((SELECT count FROM raw_updates),0,
-  'the narrow RPC does not grant arbitrary status, actor or description UPDATE');
 
 SELECT is((SELECT count(*) FROM public.personnel WHERE id='d1803000-0000-4000-8000-000000000399'),0::bigint,
   'the saved missing-source request has no exact Personnel target even under privileged readback');

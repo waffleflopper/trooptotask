@@ -2454,6 +2454,34 @@ $$;
 ALTER FUNCTION organization_private.stamp_archived_by() OWNER TO postgres;
 
 --
+-- Name: stamp_feedback_reporter(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.stamp_feedback_reporter() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_actor uuid := auth.uid();
+BEGIN
+  IF v_actor IS NULL THEN
+    RETURN NEW;
+  END IF;
+  NEW.user_email := (SELECT account.email FROM auth.users AS account WHERE account.id = v_actor);
+  NEW.organization_name := (
+    SELECT organization.name FROM public.organizations AS organization
+    JOIN public.organization_memberships AS membership
+      ON membership.organization_id = organization.id AND membership.user_id = v_actor
+    WHERE organization.id = NEW.organization_id
+  );
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.stamp_feedback_reporter() OWNER TO postgres;
+
+--
 -- Name: stamp_follow_up_completed_by(); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -2490,6 +2518,28 @@ $$;
 
 
 ALTER FUNCTION organization_private.stamp_follow_up_completed_by() OWNER TO postgres;
+
+--
+-- Name: stamp_record_author(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.stamp_record_author() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_actor uuid := auth.uid();
+BEGIN
+  IF v_actor IS NULL THEN
+    RETURN NEW;
+  END IF;
+  RETURN pg_catalog.jsonb_populate_record(NEW, pg_catalog.jsonb_build_object(TG_ARGV[0],
+    CASE TG_OP WHEN 'INSERT' THEN pg_catalog.to_jsonb(v_actor) ELSE pg_catalog.to_jsonb(OLD) -> TG_ARGV[0] END));
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.stamp_record_author() OWNER TO postgres;
 
 --
 -- Name: valid_setup_answers(jsonb); Type: FUNCTION; Schema: organization_private; Owner: postgres
@@ -6025,6 +6075,44 @@ $$;
 ALTER FUNCTION public.delete_unused_organization_rank_catalog_entry(p_organization_id uuid, p_entry_id uuid, p_code text) OWNER TO postgres;
 
 --
+-- Name: deny_deletion_request(uuid, uuid, text, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.deny_deletion_request(p_organization_id uuid, p_request_id uuid, p_resource_type text, p_resource_id uuid, p_denial_reason text DEFAULT NULL::text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_reviewer uuid := auth.uid();
+BEGIN
+  IF pg_catalog.current_setting('transaction_isolation') <> 'read committed' THEN
+    RAISE EXCEPTION 'Deletion request review requires READ COMMITTED' USING ERRCODE = '25001';
+  END IF;
+  IF v_reviewer IS NULL OR NOT public.can_manage_org_members(p_organization_id) THEN
+    RAISE EXCEPTION 'Deletion request review is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE public.deletion_requests AS request
+  SET status = 'denied', reviewed_by = v_reviewer, reviewed_at = now(), denial_reason = p_denial_reason
+  WHERE request.organization_id = p_organization_id AND request.id = p_request_id
+    AND request.resource_type = p_resource_type AND request.resource_id = p_resource_id
+    AND request.status = 'pending';
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+
+  -- Fresh statement after a possible wait on a concurrent review of the same row.
+  IF NOT public.can_manage_org_members(p_organization_id) THEN
+    RAISE EXCEPTION 'Deletion request review is not allowed' USING ERRCODE = '42501';
+  END IF;
+  RETURN true;
+END;
+$$;
+
+
+ALTER FUNCTION public.deny_deletion_request(p_organization_id uuid, p_request_id uuid, p_resource_type text, p_resource_id uuid, p_denial_reason text) OWNER TO postgres;
+
+--
 -- Name: duplicate_onboarding_template(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -7443,6 +7531,7 @@ CREATE FUNCTION public.organization_member_labels(p_organization_id uuid) RETURN
   WHERE m.organization_id = p_organization_id
     AND EXISTS (SELECT 1 FROM public.organization_memberships caller
       WHERE caller.organization_id = p_organization_id AND caller.user_id = auth.uid())
+    AND public.organization_access_admitted(p_organization_id)
   ORDER BY m.user_id;
 $$;
 
@@ -12812,6 +12901,7 @@ CREATE TABLE public.organizations (
     CONSTRAINT organizations_critical_tasks_expiring_soon_warning_days_check CHECK (((critical_tasks_expiring_soon_warning_days IS NULL) OR ((critical_tasks_expiring_soon_warning_days >= 1) AND (critical_tasks_expiring_soon_warning_days <= 365)))),
     CONSTRAINT organizations_disabled_features_check CHECK ((disabled_features <@ ARRAY['training'::text, 'criticalTasks'::text, 'evaluations'::text, 'onboarding'::text, 'lossesAndAwards'::text, 'eventsAndTaskings'::text])),
     CONSTRAINT organizations_loss_warning_window_days_check CHECK (((loss_warning_window_days >= 1) AND (loss_warning_window_days <= 365))),
+    CONSTRAINT organizations_personnel_document_storage_cap_bytes_check CHECK (((personnel_document_storage_cap_bytes >= 10485760) AND (personnel_document_storage_cap_bytes <= 1073741824))),
     CONSTRAINT organizations_strength_floor_percent_check CHECK (((strength_floor_percent >= 1) AND (strength_floor_percent <= 100))),
     CONSTRAINT organizations_training_readiness_goal_percent_check CHECK (((training_readiness_goal_percent >= 1) AND (training_readiness_goal_percent <= 100))),
     CONSTRAINT organizations_url_slug_format_check CHECK (((url_slug IS NULL) OR (((char_length(url_slug) >= 3) AND (char_length(url_slug) <= 48)) AND (url_slug = lower(url_slug)) AND (url_slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text))))
@@ -15844,6 +15934,62 @@ CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.personnel_fol
 
 
 --
+-- Name: counseling_records stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_author BEFORE INSERT OR UPDATE OF uploaded_by ON public.counseling_records FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_record_author('uploaded_by');
+
+
+--
+-- Name: data_exports stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_author BEFORE UPDATE OF requested_by ON public.data_exports FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_record_author('requested_by');
+
+
+--
+-- Name: leader_notes stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_author BEFORE INSERT OR UPDATE OF author ON public.leader_notes FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_record_author('author');
+
+
+--
+-- Name: personnel_documents stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_author BEFORE INSERT OR UPDATE OF uploaded_by ON public.personnel_documents FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_record_author('uploaded_by');
+
+
+--
+-- Name: personnel_follow_ups stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_author BEFORE INSERT OR UPDATE OF created_by ON public.personnel_follow_ups FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_record_author('created_by');
+
+
+--
+-- Name: personnel_ict_completions stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_author BEFORE INSERT OR UPDATE OF logged_by ON public.personnel_ict_completions FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_record_author('logged_by');
+
+
+--
+-- Name: sign_in_rosters stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_author BEFORE INSERT OR UPDATE OF created_by ON public.sign_in_rosters FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_record_author('created_by');
+
+
+--
+-- Name: training_views stamp_author; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_author BEFORE INSERT OR UPDATE OF created_by ON public.training_views FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_record_author('created_by');
+
+
+--
 -- Name: calendar_events stamp_calendar_event; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -15883,6 +16029,13 @@ CREATE TRIGGER stamp_completed_by BEFORE INSERT OR UPDATE ON public.personnel_fo
 --
 
 CREATE TRIGGER stamp_personnel_extended_info_saver BEFORE INSERT OR UPDATE ON public.personnel_extended_info FOR EACH ROW EXECUTE FUNCTION public.stamp_personnel_extended_info_saver();
+
+
+--
+-- Name: beta_feedback stamp_reporter; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_reporter BEFORE INSERT ON public.beta_feedback FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_feedback_reporter();
 
 
 --
@@ -18495,13 +18648,6 @@ CREATE POLICY deletion_requests_select_own ON public.deletion_requests FOR SELEC
 
 
 --
--- Name: deletion_requests deletion_requests_update_admin; Type: POLICY; Schema: public; Owner: postgres
---
-
-CREATE POLICY deletion_requests_update_admin ON public.deletion_requests FOR UPDATE USING (public.can_manage_org_members(organization_id));
-
-
---
 -- Name: durable_rate_limits; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
 
@@ -19495,10 +19641,24 @@ REVOKE ALL ON FUNCTION organization_private.stamp_archived_by() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION stamp_feedback_reporter(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.stamp_feedback_reporter() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION stamp_follow_up_completed_by(); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION organization_private.stamp_follow_up_completed_by() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION stamp_record_author(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.stamp_record_author() FROM PUBLIC;
 
 
 --
@@ -20324,6 +20484,14 @@ GRANT ALL ON FUNCTION public.delete_sign_in_roster(p_organization_id uuid, p_ros
 
 REVOKE ALL ON FUNCTION public.delete_unused_organization_rank_catalog_entry(p_organization_id uuid, p_entry_id uuid, p_code text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.delete_unused_organization_rank_catalog_entry(p_organization_id uuid, p_entry_id uuid, p_code text) TO service_role;
+
+
+--
+-- Name: FUNCTION deny_deletion_request(p_organization_id uuid, p_request_id uuid, p_resource_type text, p_resource_id uuid, p_denial_reason text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.deny_deletion_request(p_organization_id uuid, p_request_id uuid, p_resource_type text, p_resource_id uuid, p_denial_reason text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.deny_deletion_request(p_organization_id uuid, p_request_id uuid, p_resource_type text, p_resource_id uuid, p_denial_reason text) TO authenticated;
 
 
 --
@@ -22025,8 +22193,8 @@ GRANT ALL ON TABLE public.data_exports TO service_role;
 -- Name: TABLE deletion_requests; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE public.deletion_requests TO anon;
-GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE public.deletion_requests TO authenticated;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.deletion_requests TO anon;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.deletion_requests TO authenticated;
 GRANT ALL ON TABLE public.deletion_requests TO service_role;
 
 
@@ -22396,9 +22564,86 @@ GRANT SELECT ON TABLE public.personnel_attribute_history TO authenticated;
 -- Name: TABLE personnel_documents; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON TABLE public.personnel_documents TO anon;
-GRANT ALL ON TABLE public.personnel_documents TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.personnel_documents TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.personnel_documents TO authenticated;
 GRANT ALL ON TABLE public.personnel_documents TO service_role;
+
+
+--
+-- Name: COLUMN personnel_documents.id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(id) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.organization_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(organization_id) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.personnel_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(personnel_id) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.title; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(title) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.file_path; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(file_path) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.content_type; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(content_type) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.uploaded_by; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(uploaded_by) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.created_at; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(created_at) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.updated_at; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(updated_at) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.archived_at; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(archived_at) ON TABLE public.personnel_documents TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_documents.archived_by; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT UPDATE(archived_by) ON TABLE public.personnel_documents TO authenticated;
 
 
 --
@@ -22859,7 +23104,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON S
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
 
@@ -22879,8 +23123,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON F
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,MAINTAIN,UPDATE ON TABLES TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,MAINTAIN,UPDATE ON TABLES TO authenticated;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 
 

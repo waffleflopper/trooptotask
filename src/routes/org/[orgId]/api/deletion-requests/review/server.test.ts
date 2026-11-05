@@ -33,12 +33,12 @@ function approveWith(
 	return async (requestId: string, id: string, reviewedAt: string) => {
 		await requirePendingDeletionRequest(store, ctx.auth.orgId, requestId, resourceType, id);
 		await ctx.rawStore.deleteWhere(table, ctx.auth.orgId, { id });
-		await store.completePendingReview(
-			ctx.auth.orgId,
-			requestId,
-			{ resourceType, resourceId: id },
-			{ status: 'approved', reviewedBy: ctx.auth.userId, reviewedAt, denialReason: null }
-		);
+		await ctx.rawStore.update('deletion_requests', ctx.auth.orgId, requestId, {
+			status: 'approved',
+			reviewed_by: ctx.auth.userId,
+			reviewed_at: reviewedAt,
+			denial_reason: null
+		});
 	};
 }
 

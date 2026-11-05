@@ -140,6 +140,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261028090000_group_pins_by_id.sql",
     GROUP_TREE_MIGRATION,
     "20261104090000_roster_pool_spans_read.sql",
+    "20261104100000_attribution_column_authority.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -259,6 +260,7 @@ STAGED_UPGRADE_SQL_TESTS = (
     "roster_swaps.sql",
     "roster_swaps_concurrency.sql",
     "roster_pool_spans_read.sql",
+    "attribution_column_authority.sql",
 )
 
 _receipt = None

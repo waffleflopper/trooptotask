@@ -26,8 +26,9 @@ SELECT is(
   ARRAY(SELECT table_name || ':' || grantee || ':' || privilege_type FROM (
     SELECT * FROM upgrade_fixture.atomic_personnel_lifecycle_before_grants
     EXCEPT ALL SELECT * FROM upgrade_fixture.atomic_personnel_lifecycle_current_grants) AS revoked ORDER BY 1),
-  ARRAY['deletion_requests:anon:INSERT', 'deletion_requests:authenticated:INSERT'],
-  'the only revoked table grants are the staged 20261012000600 request inserts');
+  ARRAY['deletion_requests:anon:INSERT', 'deletion_requests:anon:UPDATE', 'deletion_requests:authenticated:INSERT',
+    'deletion_requests:authenticated:UPDATE', 'personnel_documents:anon:UPDATE', 'personnel_documents:authenticated:UPDATE'],
+  'the only revoked table grants are the staged request inserts, direct request review and whole-row document updates');
 SELECT is_empty($$ SELECT * FROM upgrade_fixture.atomic_personnel_lifecycle_current_grants
     EXCEPT ALL SELECT * FROM upgrade_fixture.atomic_personnel_lifecycle_before_grants $$,
   'installation adds no table grant');

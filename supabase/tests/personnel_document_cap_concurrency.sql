@@ -30,7 +30,7 @@ SELECT dblink_exec('document_cap_holder', $fixture$
     ('d136c000-0000-4000-8000-000000000302','d136c000-0000-4000-8000-000000000101','SPC','Other','Sentinel','document-cap-other'),
     ('d136c000-0000-4000-8000-000000000303','d136c000-0000-4000-8000-000000000102','SPC','Foreign','Sentinel','document-cap-foreign');
   INSERT INTO public.personnel_documents(id,organization_id,personnel_id,title,file_path,file_size_bytes,content_type,uploaded_by,archived_at) VALUES
-    ('d136c000-0000-4000-8000-000000000401','d136c000-0000-4000-8000-000000000101','d136c000-0000-4000-8000-000000000301','Active eight','d136c000-0000-4000-8000-000000000101/personnel/d136c000-0000-4000-8000-000000000301/documents/active.pdf',8,'application/pdf','synthetic-sql',NULL),
+    ('d136c000-0000-4000-8000-000000000401','d136c000-0000-4000-8000-000000000101','d136c000-0000-4000-8000-000000000301','Active ten MiB less four','d136c000-0000-4000-8000-000000000101/personnel/d136c000-0000-4000-8000-000000000301/documents/active.pdf',10485756,'application/pdf','synthetic-sql',NULL),
     ('d136c000-0000-4000-8000-000000000402','d136c000-0000-4000-8000-000000000101','d136c000-0000-4000-8000-000000000301','Archived fifty','d136c000-0000-4000-8000-000000000101/personnel/d136c000-0000-4000-8000-000000000301/documents/archived.pdf',50,'application/pdf','synthetic-sql','2026-01-01Z'),
     ('d136c000-0000-4000-8000-000000000403','d136c000-0000-4000-8000-000000000101','d136c000-0000-4000-8000-000000000302','Other Person sentinel','d136c000-0000-4000-8000-000000000101/personnel/d136c000-0000-4000-8000-000000000302/documents/other.pdf',13,'application/pdf','synthetic-sql',NULL),
     ('d136c000-0000-4000-8000-000000000404','d136c000-0000-4000-8000-000000000102','d136c000-0000-4000-8000-000000000303','Foreign sentinel','d136c000-0000-4000-8000-000000000102/personnel/d136c000-0000-4000-8000-000000000303/documents/foreign.pdf',17,'application/pdf','synthetic-sql',NULL);
@@ -39,7 +39,7 @@ SELECT diag('DOCUMENT_CAP_DEFAULTS=' || jsonb_agg(jsonb_build_object(
   'id',id,'cap_bytes',personnel_document_storage_cap_bytes) ORDER BY id)::text)
   FROM public.organizations WHERE id IN ('d136c000-0000-4000-8000-000000000101','d136c000-0000-4000-8000-000000000102');
 SELECT dblink_exec('document_cap_holder',$setting$
-  UPDATE public.organizations SET personnel_document_storage_cap_bytes=12
+  UPDATE public.organizations SET personnel_document_storage_cap_bytes=10485760
     WHERE id='d136c000-0000-4000-8000-000000000101';
 $setting$);
 
@@ -144,7 +144,7 @@ SELECT is((SELECT count(*)::integer FROM document_cap_outcomes WHERE error='OK')
 SELECT is((SELECT count(*)::integer FROM document_cap_outcomes WHERE error LIKE '%personnel document storage cap exceeded%'),1,'the other insert rejects for the storage cap');
 SELECT is((SELECT sum(file_size_bytes) FROM public.personnel_documents
   WHERE organization_id='d136c000-0000-4000-8000-000000000101'
-    AND personnel_id='d136c000-0000-4000-8000-000000000301' AND archived_at IS NULL),12::numeric,
+    AND personnel_id='d136c000-0000-4000-8000-000000000301' AND archived_at IS NULL),10485760::numeric,
   'active bytes equal the cap; the archived fifty bytes do not consume it');
 SELECT results_eq($query$
   SELECT id FROM public.personnel_documents WHERE personnel_id='d136c000-0000-4000-8000-000000000301' ORDER BY id

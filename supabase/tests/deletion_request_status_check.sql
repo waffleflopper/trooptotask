@@ -38,34 +38,26 @@ SELECT throws_ok($$
   VALUES (pg_temp.id(101), pg_temp.id(2), 'deletion-status-2@example.test', 'personnel', pg_temp.id(303), 'Archive C', 'withdrawn')
 $$, '23514', NULL, 'an owner-level insert of an unknown status violates the CHECK constraint');
 
--- An Organization owner reviews requests through the ordinary client: UPDATE is granted and the admin policy passes.
-SELECT pg_temp.act(1);
+-- Owner-level: review commands are the only client writers, so the constraint is proved as the table owner.
 SELECT throws_ok($$ UPDATE public.deletion_requests SET status = 'withdrawn' WHERE id = pg_temp.id(201) $$,
-  '23514', NULL, 'an Organization owner cannot save an unknown status');
+  '23514', NULL, 'an unknown status cannot be saved');
 SELECT throws_ok($$ UPDATE public.deletion_requests SET status = 'Approved' WHERE id = pg_temp.id(201) $$,
   '23514', NULL, 'the status match is exact');
 SELECT throws_ok($$ UPDATE public.deletion_requests SET status = '' WHERE id = pg_temp.id(201) $$,
   '23514', NULL, 'an empty status is refused');
 SELECT is(pg_temp.status_of(201), 'pending', 'the refused writes left the request pending');
 
-SELECT lives_ok($$ UPDATE public.deletion_requests SET status = 'denied', reviewed_by = pg_temp.id(1),
-  reviewed_at = now(), denial_reason = 'Keep the record' WHERE id = pg_temp.id(201) $$,
-  'an Organization owner can still deny a pending request');
-SELECT is(pg_temp.status_of(201), 'denied', 'the denial was saved');
-SELECT lives_ok($$ UPDATE public.deletion_requests SET status = 'approved' WHERE id = pg_temp.id(202) $$,
-  'an Organization owner can still approve a pending request');
-SELECT is(pg_temp.status_of(202), 'approved', 'the approval was saved');
-
--- Contrast: a member's write is filtered by RLS (no error, no row), so 23514 above came from the constraint.
-SELECT pg_temp.act(2);
-CREATE TEMP TABLE member_updates(count integer);
-GRANT INSERT ON member_updates TO authenticated;
-WITH changed AS (
-  UPDATE public.deletion_requests SET status = 'withdrawn' WHERE id = pg_temp.id(202) RETURNING id
-) INSERT INTO member_updates SELECT count(*)::integer FROM changed;
+SELECT pg_temp.act(1);
+SELECT is(public.deny_deletion_request(pg_temp.id(101), pg_temp.id(201), 'personnel', pg_temp.id(301), 'Keep the record'), true,
+  'an Organization owner can deny a pending request');
 RESET ROLE;
-SELECT is((SELECT count FROM member_updates), 0, 'a member update touches no row, so RLS filters it before the constraint');
-SELECT is(pg_temp.status_of(202), 'approved', 'the member write changed nothing');
+SELECT is(pg_temp.status_of(201), 'denied', 'the denial was saved');
+
+SELECT pg_temp.act(2);
+SELECT throws_ok($$ UPDATE public.deletion_requests SET status = 'withdrawn' WHERE id = pg_temp.id(202) $$,
+  '42501', NULL, 'a member cannot write a request directly');
+RESET ROLE;
+SELECT is(pg_temp.status_of(202), 'pending', 'the member write changed nothing');
 
 SELECT * FROM finish();
 ROLLBACK;

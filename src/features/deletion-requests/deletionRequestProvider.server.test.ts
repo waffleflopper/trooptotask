@@ -9,12 +9,6 @@ import {
 import { deletionRequestTestProvider, savedRequest } from './deletionRequestTestProvider.server';
 
 const target = { resourceType: 'training_type', resourceId: 'type-own' };
-const review = {
-	status: 'approved' as const,
-	reviewedBy: 'reviewer',
-	reviewedAt: '2026-10-02T12:00:00.000Z',
-	denialReason: null
-};
 
 describe('ordinary deletion request provider', () => {
 	it('returns only an exact matching pending tuple, retaining concealed/foreign/terminal rows', async () => {
@@ -85,49 +79,66 @@ describe('ordinary deletion request provider', () => {
 		expect(await store.readPendingSummary('org-a', 'missing')).toEqual({ count: 0, oldestCreatedAt: null });
 	});
 
-	it('changes only review metadata on the bound pending row and does not overwrite terminal/wrong-target rows', async () => {
+	it('denies only the bound pending row, naming the signed-in reviewer without sending one', async () => {
 		const own = savedRequest('own');
 		const foreign = savedRequest('foreign', { organization_id: 'org-b' });
-		const provider = deletionRequestTestProvider([own, foreign]);
+		const provider = deletionRequestTestProvider([own, foreign], 'requester-a');
 		const store = createSupabaseDeletionRequestStore(provider.client);
-		expect(await store.completePendingReview('org-a', 'own', { ...target, resourceId: 'wrong' }, review)).toBe(false);
-		expect(await store.completePendingReview('org-b', 'own', target, review)).toBe(false);
-		expect(await store.completePendingReview('org-a', 'own', target, review)).toBe(true);
+		expect(await store.denyPendingRequest('org-a', 'own', { ...target, resourceId: 'wrong' }, 'no')).toBe(false);
+		expect(await store.denyPendingRequest('org-a', 'own', { ...target, resourceType: 'personnel' }, 'no')).toBe(false);
+		expect(await store.denyPendingRequest('org-b', 'own', target, 'no')).toBe(false);
+		expect(provider.state.rows).toEqual([own, foreign]);
+		expect(await store.denyPendingRequest('org-a', 'own', target, 'Not needed')).toBe(true);
 		expect(provider.state.rows).toEqual([
-			{ ...own, status: 'approved', reviewed_by: 'reviewer', reviewed_at: review.reviewedAt, denial_reason: null },
+			{
+				...own,
+				status: 'denied',
+				reviewed_by: 'requester-a',
+				reviewed_at: '2026-10-02T12:00:00.000Z',
+				denial_reason: 'Not needed'
+			},
 			foreign
 		]);
-		expect(
-			await store.completePendingReview('org-a', 'own', target, {
-				...review,
-				status: 'denied',
-				denialReason: 'too late'
-			})
-		).toBe(false);
-		expect(provider.state.rows[0].status).toBe('approved');
+		expect(await provider.state.calls[3].clone().json()).toEqual({
+			p_organization_id: 'org-a',
+			p_request_id: 'own',
+			p_resource_type: 'training_type',
+			p_resource_id: 'type-own',
+			p_denial_reason: 'Not needed'
+		});
+		expect(await store.denyPendingRequest('org-a', 'own', target, 'too late')).toBe(false);
+		expect(provider.state.rows[0].denial_reason).toBe('Not needed');
+	});
+
+	it('omits a missing denial reason so the database stores none', async () => {
+		const provider = deletionRequestTestProvider([savedRequest('own')]);
+		const store = createSupabaseDeletionRequestStore(provider.client);
+		expect(await store.denyPendingRequest('org-a', 'own', target, null)).toBe(true);
+		expect(provider.state.rows[0]).toMatchObject({ status: 'denied', denial_reason: null });
+		expect(await provider.state.calls[0].clone().json()).not.toHaveProperty('p_denial_reason');
 	});
 
 	it.each(['cancelled', 'denied', 'approved'] as const)(
-		'does not replace a %s winner observed before the conditional PATCH',
+		'does not replace a %s winner observed before the denial',
 		async (status) => {
 			const provider = deletionRequestTestProvider([savedRequest('own')]);
-			provider.state.beforePatch = () => {
+			provider.state.beforeRpc = () => {
 				provider.state.rows[0].status = status;
 			};
 			const store = createSupabaseDeletionRequestStore(provider.client);
-			expect(await store.completePendingReview('org-a', 'own', target, review)).toBe(false);
+			expect(await store.denyPendingRequest('org-a', 'own', target, 'late')).toBe(false);
 			expect(provider.state.rows[0]).toEqual(savedRequest('own', { status }));
 		}
 	);
 
-	it.each([{}, { id: 'another' }, true].map((reply) => ({ reply })))(
-		'rejects malformed review acknowledgement $reply',
+	it.each([{}, { id: 'another' }, 'true', null].map((reply) => ({ reply })))(
+		'rejects malformed denial acknowledgement $reply',
 		async ({ reply }) => {
 			const provider = deletionRequestTestProvider([savedRequest('own')]);
-			provider.state.patchReply = reply;
+			provider.state.rpcReply = reply;
 			await expect(
-				createSupabaseDeletionRequestStore(provider.client).completePendingReview('org-a', 'own', target, review)
-			).rejects.toThrow('not acknowledged');
+				createSupabaseDeletionRequestStore(provider.client).denyPendingRequest('org-a', 'own', target, null)
+			).rejects.toThrow('Deletion request review was not acknowledged');
 		}
 	);
 
@@ -137,13 +148,13 @@ describe('ordinary deletion request provider', () => {
 		provider.state.failure = { method: 'GET', offset: 1000, message: 'later page unavailable' };
 		await expect(store.listRequests('org-a', {})).rejects.toThrow('later page unavailable');
 		await expect(store.listExportRows('org-a')).rejects.toThrow('later page unavailable');
-		provider.state.failure = { method: 'PATCH', message: 'write unavailable' };
+		provider.state.failure = { method: 'POST', message: 'write unavailable' };
 		await expect(
-			store.completePendingReview(
+			store.denyPendingRequest(
 				'org-a',
 				'request-0',
 				{ resourceType: 'training_type', resourceId: 'type-request-0' },
-				review
+				null
 			)
 		).rejects.toThrow('write unavailable');
 		expect(provider.state.rows[0]).toEqual(savedRequest('request-0'));

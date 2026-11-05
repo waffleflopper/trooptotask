@@ -50,28 +50,17 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 			if (count === null) throw new Error('Deletion request summary count was not returned');
 			return { count, oldestCreatedAt: data?.[0]?.created_at ?? null };
 		},
-		async completePendingReview(orgId, requestId, target, review) {
-			const { data, error } = await supabase
-				.from(TABLE)
-				.update({
-					status: review.status,
-					reviewed_by: review.reviewedBy,
-					reviewed_at: review.reviewedAt,
-					denial_reason: review.denialReason
-				})
-				.eq('organization_id', orgId)
-				.eq('id', requestId)
-				.eq('status', 'pending')
-				.eq('resource_type', target.resourceType)
-				.eq('resource_id', target.resourceId)
-				.select('id')
-				.maybeSingle();
+		async denyPendingRequest(orgId, requestId, target, denialReason) {
+			const { data, error } = await supabase.rpc('deny_deletion_request', {
+				p_organization_id: orgId,
+				p_request_id: requestId,
+				p_resource_type: target.resourceType,
+				p_resource_id: target.resourceId,
+				p_denial_reason: denialReason ?? undefined
+			});
 			if (error) throw new Error(error.message);
-			if (data === null) return false;
-			if (typeof data !== 'object' || Array.isArray(data) || data.id !== requestId) {
-				throw new Error('Deletion request review was not acknowledged');
-			}
-			return true;
+			if (typeof data !== 'boolean') throw new Error('Deletion request review was not acknowledged');
+			return data;
 		},
 		async listExportRows(orgId) {
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) =>

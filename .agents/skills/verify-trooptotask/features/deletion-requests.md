@@ -75,7 +75,8 @@ preserve their original rows. Setup is provider seeding, not native creation/upl
    requested; preserve every saved row and emit no extra creation effects. Simultaneous submissions must enforce the
    same rule without deleting historical duplicate rows. `deletion_request_submission_concurrency.sql` must establish
    one admitted insert and a duplicate response for the loser. Client roles cannot insert requests directly;
-   `feature_direct_write_authority.sql` covers that denial. Repeat the source's visible completion deletion in Training
+   `feature_direct_write_authority.sql` covers that denial. They cannot update requests either; Deny calls
+   `deny_deletion_request`, which names the signed-in reviewer, and `attribution_column_authority.sql` covers both. Repeat the source's visible completion deletion in Training
    and entry deletion in Evals; keep those rows until approval. Inspect source permission and request HTTP statuses
    separately. An HTTP 503 injected through `network arm-fail PAGE deletion-requests` must report failure and allow the
    identical submission to be retried. A denied source operation must not become an approval request merely because it

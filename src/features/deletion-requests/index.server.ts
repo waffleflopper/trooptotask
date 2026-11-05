@@ -23,7 +23,6 @@ export type {
 	ApprovedDeletionEffects,
 	DeletionRequestStore,
 	DeletionRequestSubmissionPort,
-	PendingDeletionTarget,
-	DeletionRequestReview
+	PendingDeletionTarget
 } from './contracts.server';
 export { isSupportedResourceType } from './deletionRequestSupport.server';

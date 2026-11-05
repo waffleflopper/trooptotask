@@ -15,9 +15,13 @@ interface SyntheticRequestRows {
 	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
 }
 
-/** Test-only named adapter over a caller's existing synthetic rows; no policy or production composition. */
+/**
+ * Test-only named adapter over a caller's existing synthetic rows; no policy or production composition.
+ * `reviewerId` stands in for the signed-in user the database names as the reviewer.
+ */
 export function createDeletionRequestTestStore(
-	backing: SyntheticRequestRows
+	backing: SyntheticRequestRows,
+	reviewerId = 'test-reviewer'
 ): DeletionRequestStore & DeletionRequestSubmissionPort {
 	const table = 'deletion_requests';
 	return {
@@ -73,7 +77,7 @@ export function createDeletionRequestTestStore(
 			);
 			return { count: rows.length, oldestCreatedAt: rows[0]?.created_at ?? null };
 		},
-		async completePendingReview(orgId, requestId, target, review) {
+		async denyPendingRequest(orgId, requestId, target, denialReason) {
 			// This models the conditional outcome for orchestration tests, not database wait/locking behavior.
 			const row = await backing.findOne<DeletionRequest>(table, orgId, {
 				id: requestId,
@@ -83,10 +87,10 @@ export function createDeletionRequestTestStore(
 			});
 			if (!row) return false;
 			await backing.update(table, orgId, requestId, {
-				status: review.status,
-				reviewed_by: review.reviewedBy,
-				reviewed_at: review.reviewedAt,
-				denial_reason: review.denialReason
+				status: 'denied',
+				reviewed_by: reviewerId,
+				reviewed_at: new Date().toISOString(),
+				denial_reason: denialReason
 			});
 			return true;
 		},

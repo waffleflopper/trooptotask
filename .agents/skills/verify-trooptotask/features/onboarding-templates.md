@@ -193,8 +193,9 @@ and inspect actual loaded data.
     reload the page, confirm the notice is still there, restore and choose `Retry`. Read back exactly one new copy, and
     expect the notice to be gone and the copy selected. Repeat the lost answer, then delete the source before retrying.
     The retry still returns the saved copy. A lost delete answer leaves the template on screen with an error; after
-    restore, deleting it again succeeds and reads back absent. The app writes no audit row for a lost-answer delete or
-    duplicate, because the retry finds nothing new to record; capture `audit_logs` to confirm this known gap. Compare
+    restore, deleting it again succeeds and reads back absent. The database audits the lost-answer delete or duplicate in
+    the transaction that committed it, and the retry finds nothing new to record; capture `audit_logs` to confirm one
+    set of rows, with the copy's template and steps sharing a batch. Compare
     unrelated templates, steps, packets and progress before and after; on delete the only intended change is the
     packet's `template_id` and its progress rows' `template_step_id` becoming null. Arm
     `onboarding-steps-insert|update|delete` during a duplicate, reorder and template delete to show those commands make

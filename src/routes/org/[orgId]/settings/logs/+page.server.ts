@@ -32,7 +32,7 @@ export const load: PageServerLoad = async (event) => {
 			policyResource: { kind: 'organization' },
 			fn: async (ctx) => ({
 				...buildCommonSettingsPageData(organization, ctx.auth),
-				logsSettings: await loadLogsSettings(ctx, ctx.auditStore, ctx.auditLabels, {
+				logsSettings: loadLogsSettings(ctx, ctx.auditStore, ctx.auditLabels, {
 					timeZone: viewerTimeZone(event.cookies),
 					now: new Date()
 				})

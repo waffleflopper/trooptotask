@@ -205,6 +205,69 @@ describe('logs settings page', () => {
 		]);
 	});
 
+	it('holds a skeleton while the log loads, then shows its own load error when the read fails', async () => {
+		let fail!: (reason: Error) => void;
+		const auditLog = new Promise((_, reject) => (fail = reject));
+		render(Page, {
+			props: {
+				data: { logsSettings: { timeZone: 'America/New_York', today: '2026-10-19', auditLog } } as never,
+				form: null,
+				params: { orgId: 'org-1' }
+			}
+		});
+
+		expect(screen.getByRole('status').textContent).toBe('Loading the audit log');
+		expect(document.querySelector('[data-settings-skeleton="logs"]')).not.toBeNull();
+		expect(screen.queryByRole('table')).toBeNull();
+
+		fail(new Error('Audit log unavailable'));
+
+		expect(await screen.findByRole('button', { name: 'Retry Audit log' })).toBeTruthy();
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(document.querySelector('[data-settings-skeleton]')).toBeNull();
+	});
+
+	it('collapses the entries one action wrote into one line that opens to each entry', async () => {
+		const saved = (action: string, person: string, at: string): Row => ({
+			action,
+			createdAt: at,
+			batchId: 'import-1',
+			recordLabel: 'Leave',
+			subject: { personnelId: null, label: person },
+			details: { startDate: '2026-11-10', endDate: '2026-11-20' }
+		});
+		const table = renderLogs([
+			saved('availability.created', 'SPC Doe, Jane', '2026-10-19T12:00:01Z'),
+			saved('availability.created', 'PFC Roe, Rich', '2026-10-19T12:00:01Z'),
+			saved('availability.deleted', 'SPC Doe, Jane', '2026-10-19T12:00:01Z'),
+			{ action: 'personnel.updated', createdAt: '2026-10-19T11:00:00Z', details: { subject_label: 'SPC Reed' } }
+		]);
+		const line = table.getByRole('button', { name: 'Added 2 availability entries, deleted 1 availability entry' });
+		const removed = 'Deleted Leave for SPC Doe, Jane from 10 Nov to 20 Nov';
+
+		expect(line.getAttribute('aria-expanded')).toBe('false');
+		expect(table.queryByRole('cell', { name: removed })).toBeNull();
+		expect(days(table)).toEqual([
+			{ title: 'Today', count: '4', entries: ['2026-10-19T12:00:01.000Z', '2026-10-19T11:00:00.000Z'] }
+		]);
+
+		await fireEvent.click(line);
+
+		expect(line.getAttribute('aria-expanded')).toBe('true');
+		for (const id of line.getAttribute('aria-controls')?.split(' ') ?? []) {
+			expect(document.getElementById(id)?.hidden).toBe(false);
+		}
+		expect(table.getByRole('cell', { name: removed })).toBeTruthy();
+		expect(table.getByRole('cell', { name: 'Added Leave for PFC Roe, Rich from 10 Nov to 20 Nov' })).toBeTruthy();
+
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search audit log' }), {
+			target: { value: 'Roe' }
+		});
+
+		expect(table.getByRole('button', { name: /^Added 2 availability entries/ })).toBeTruthy();
+		expect(table.queryByRole('cell', { name: /SPC Reed/ })).toBeNull();
+	});
+
 	it('says when the unit has no entries yet', () => {
 		renderLogs([]);
 

@@ -1,6 +1,6 @@
 # Audit capture and safe projections
 
-Organization owners inspect their own activity summaries; the platform operator investigates saved events across
+Organization owners and administrators inspect their own activity summaries; the platform operator investigates saved events across
 Organizations without disclosing those privileged details to anyone else.
 
 ## Sub-features
@@ -8,24 +8,30 @@ Organizations without disclosing those privileged details to anyone else.
 - `capture`: a real producer's event keeps its meaning, actor, Organization and resource references; risky freeform
   details and unauthenticated email identifiers are masked before storage. Required platform events retain target
   labels; those without an Organization also retain the actor's email and typed reason.
-- `organization-log`: owner-only summaries, newest-first ordering, search, sorting, 25-row client pages over the latest
+- `organization-log`: owner and administrator summaries, newest-first ordering, search, sorting, 25-row client pages over the latest
   100 loaded records, counts and reload.
+- `record-capture`: the database writes every Calendar availability add, change and removal in the same transaction
+  as the change, with the actor, status, person and dates saved as labels. A later rename or deletion does not change
+  the sentence. A change shows its dates before and after. One bulk add, import or removal writes one entry per row
+  under one batch, which Logs shows as one line that opens to its rows.
+- `streamed-load`: Logs paints its header at once, holds the table's skeleton while the audit read runs and shows its
+  own load error, with retry, when that read fails.
 - `actor-label`: an event's Actor is the member's stored membership email, else their account identity email. A former
   member with no membership row stays `Unknown member`. Most fixture memberships have a null email, which exercises the
   fallback; `deletionRequester` and `deletionReviewer` must show their addresses after a denied bulk archive.
 - `safe-labels`: authorized page data resolves only same-Organization Personnel, Training and Calendar labels, preserves
   saved masked values and strips remaining top-level string UUID details.
 - `platform-log`: operator-only Activity at `/admin/activity`, stored details, paging and category/search/date filters.
-- `denial-and-recovery`: admin/member/foreign denial, failed page navigation and retry, and target changes without
+- `denial-and-recovery`: member/foreign denial, failed page navigation and retry, and target changes without
   cross-Organization disclosure.
 
 ## How to get to it (user POV)
 
-As an Organization owner, open Settings and Logs. Narrow it with the All, Access, Records and Deletions scopes, search
+As an Organization owner or administrator, open Settings and Logs. Narrow it with the All, Access, Records and Deletions scopes, search
 or sort the table and use its Newer and Older paging controls. Rows sit under day heads in the viewer's time zone. The
 screen shows one-sentence summaries (Time, Area, Event and Actor), with before and after values only where the saved
 details carry them, not event details. As the platform operator, open Admin and Activity; filter by category, search or
-date, navigate pages and open a row's `Details` disclosure. Organization administrators have no Audit Log admission.
+date, navigate pages and open a row's `Details` disclosure. Members without administrator access have no Audit Log admission.
 
 ## Driving it with verify:app
 
@@ -90,8 +96,9 @@ stored-event prerequisites, not producer sanitization or ordinary authorization 
    `[redacted]`/masked email remain. Foreign/missing references must not resolve to B labels. Actor membership email is
    an authorized owner disclosure; a null actor displays System. The returned event/user/resource identifiers are
    retained references, distinct from stripped detail values.
-3. **Role and target denial.** Sign in separately as `orgAdmin` and `orgMember`/`viewer`, attempt Logs, and record the
-   visible denial plus an ordinary authenticated page-data response without audit rows. As B-only `orgSettingsPeer`, try
+3. **Role and target denial.** Sign in as `orgAdmin` and open Logs: the nav shows `Logs` without the `Owner` tag and the
+   page lists the same A summaries as the owner's. Sign in separately as `orgMember`/`viewer`, attempt Logs, and record
+   the visible denial plus an ordinary authenticated page-data response without audit rows. As B-only `orgSettingsPeer`, try
    the recorded A URL and repeat the ordinary response check; its own B Logs must contain the B sentinel and no A
    cohort. As the admitted A owner, navigate to B and confirm denial rather than accepting A's stale summaries as B
    data. `platformSupport` and an ordinary member must be denied full `/admin/audit`, including page-data responses. UI
@@ -119,10 +126,28 @@ stored-event prerequisites, not producer sanitization or ordinary authorization 
 6. **Navigation failure and retry.** On a fresh owner General Settings page, focus Logs with native keyboard controls,
    arm `$V network arm-fail PAGE audit-page`, then press Enter. Avoid hover prefetch consuming the one-shot failure
    before navigation. This matches only A's Logs page-data GET. Capture the failed navigation, matched 503 and visible
-   error, restore the hook and select Logs/reload successfully. This proves client navigation recovery; it does not
+   error, restore the hook and select Logs/reload successfully. A failed audit read after navigation is step 7's in-page
+   error, not this one. This proves client navigation recovery; it does not
    simulate a provider error or establish audit-writer failure guarantees. Provider/query/writer failure guarantees
    require separately identified lower-level proof.
-7. **Organization export reverse consumer.** As the owner, open Settings and Data Export, arm the maintained
+7. **Streamed load and load error.** As `orgOwner` on Logs at 1024x768 light, arm
+   `$V server-source arm audit_logs hold` and reload. The header and subtitle render at once; below them the Logs
+   skeleton (a toolbar row, then a header row and eight rows) sits in an `aria-busy` region with a polite status
+   `Loading the audit log`. Capture it, `server-source release` and capture the table: its toolbar starts where the
+   skeleton's did. `restore`, arm `fail-hard` and reload: a destructive alert `Unable to load Audit log` with
+   `Retry Audit log` replaces the table under the same header, and the settings nav still works. `restore`, then
+   `Retry Audit log` renders the log. Repeat both at 390x844 dark with no sideways scroll.
+8. **Calendar availability capture.** As `calendarOperate`, follow [availability status](availability-status.md) to add
+   a status for a fixture person, drag its end a day later, then remove it. As `orgOwner` the Logs Calendar rows read
+   `Added <Status> for <Rank> <Last>, <First> from <d Mon> to <d Mon>`, `Changed <Status> for … from <d>–<d Mon> to
+<d>–<d Mon>` and `Deleted <Status> for …`, each with the operator as Actor. `$V rows audit_logs orgA action
+availability.updated` shows saved `actor_label`, `record_label`, `subject_label`, a `batch_id` and the dates in
+   `details`; a note change saves `note: {withheld: true}`, never the note. Rename that person through Personnel and
+   reload Logs: the three sentences keep the old name. Then, through [bulk status](bulk-status.md) Add, save one status
+   for two people. Logs shows one line `Added 2 availability entries`, a button with `aria-expanded="false"`; Enter
+   opens a row per person and search for one surname still finds the line. Remove those two through bulk Remove and
+   read `Deleted 2 availability entries` the same way. Restore the rename.
+9. **Organization export reverse consumer.** As the owner, open Settings and Data Export, arm the maintained
    export/observe controls, and download actual JSON and Excel through their visible buttons. Inspect the complete saved
    Audit section/sheet: same-A stored rows and raw masked fields remain, including excluded auth actions; B's sentinel
    must be absent. Compare against an independently captured A provider set before export, accounting separately for the
@@ -135,7 +160,7 @@ this disposable provider until owned cleanup.
 
 ## Gotchas
 
-- Organization Logs is owner-only despite the broader Settings shell admitting administrators. Support's Feedback access
+- Organization Logs admits owners and administrators, in app policy and in the `audit_logs` read policy alike. Support's Feedback access
   does not grant full Platform Audit access.
 - Audit display enrichment is not a second sanitizer. Historical raw saved details are not retroactively masked by
   either query; synthetic raw-secret inserts cannot be counted as producer masking tests.

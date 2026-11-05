@@ -70,7 +70,10 @@ BEGIN
         SELECT e AS id FROM audit_private.id_list(OLD.exempt_personnel_ids) AS e
         EXCEPT SELECT e FROM audit_private.id_list(NEW.exempt_personnel_ids) AS e) AS removed
     LOOP
-      v_who := audit_private.personnel_label(v_ex.id);
+      v_who := audit_private.personnel_label(NEW.organization_id, v_ex.id);
+      IF v_ex.exempt THEN
+        PERFORM audit_private.require_in_unit(v_who, v_ex.id);
+      END IF;
       IF v_who IS NOT NULL THEN
         PERFORM audit_private.record_entry(
           NEW.organization_id,
@@ -151,10 +154,15 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  SELECT kind.name INTO v_type FROM public.training_types kind WHERE kind.id = v_row.training_type_id;
-  v_who := audit_private.personnel_label(v_row.personnel_id);
+  SELECT kind.name INTO v_type FROM public.training_types kind
+  WHERE kind.id = v_row.training_type_id AND kind.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.personnel_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_type, v_row.training_type_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.training_type_id END);
+    PERFORM audit_private.require_in_unit(v_who, v_row.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_type IS NULL OR v_who IS NULL) THEN
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_type IS NULL OR v_who IS NULL THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'training_record.created' WHEN 'UPDATE' THEN 'training_record.updated' WHEN 'DELETE' THEN 'training_record.deleted' END;
@@ -254,10 +262,15 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  SELECT item.title INTO v_task FROM public.ict_tasks item WHERE item.id = v_row.ict_task_id;
-  v_who := audit_private.personnel_label(v_row.personnel_id);
+  SELECT item.title INTO v_task FROM public.ict_tasks item
+  WHERE item.id = v_row.ict_task_id AND item.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.personnel_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_task, v_row.ict_task_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.ict_task_id END);
+    PERFORM audit_private.require_in_unit(v_who, v_row.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_task IS NULL OR v_who IS NULL) THEN
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_task IS NULL OR v_who IS NULL THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'personnel_ict_completion.created' WHEN 'UPDATE' THEN 'personnel_ict_completion.updated' WHEN 'DELETE' THEN 'personnel_ict_completion.deleted' END;
@@ -303,9 +316,12 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  v_who := audit_private.personnel_label(v_row.rated_person_id);
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.rated_person_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_who, v_row.rated_person_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.rated_person_id END);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_who IS NULL) THEN
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_who IS NULL THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'rating_scheme.created' WHEN 'UPDATE' THEN 'rating_scheme.updated' WHEN 'DELETE' THEN 'rating_scheme.deleted' END;

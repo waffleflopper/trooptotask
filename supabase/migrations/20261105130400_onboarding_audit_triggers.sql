@@ -66,9 +66,13 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  SELECT item.name INTO v_template FROM public.onboarding_templates item WHERE item.id = v_row.template_id;
+  SELECT item.name INTO v_template FROM public.onboarding_templates item
+  WHERE item.id = v_row.template_id AND item.organization_id = v_row.organization_id;
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_template, v_row.template_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.template_id END);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_template IS NULL) THEN
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_template IS NULL THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'onboarding_template_step.created' WHEN 'UPDATE' THEN 'onboarding_template_step.updated' WHEN 'DELETE' THEN 'onboarding_template_step.deleted' END;
@@ -114,11 +118,14 @@ DECLARE
   v_who text;
   v_template text;
 BEGIN
-  v_who := audit_private.personnel_label(NEW.personnel_id);
+  v_who := audit_private.personnel_label(NEW.organization_id, NEW.personnel_id);
+  PERFORM audit_private.require_in_unit(v_who, NEW.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
   IF v_who IS NULL THEN
     RETURN NULL;
   END IF;
-  SELECT item.name INTO v_template FROM public.onboarding_templates item WHERE item.id = NEW.template_id;
+  SELECT item.name INTO v_template FROM public.onboarding_templates item
+  WHERE item.id = NEW.template_id AND item.organization_id = NEW.organization_id;
+  PERFORM audit_private.require_in_unit(v_template, NEW.template_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.template_id END);
   IF TG_OP = 'INSERT' THEN
     v_kind := 'onboarding.started';
   ELSE
@@ -140,7 +147,8 @@ BEGIN
         WHERE progress.onboarding_id = NEW.id AND progress.active AND NOT progress.completed));
   ELSIF v_kind = 'onboarding.template_switched' THEN
     v_details := v_details || pg_catalog.jsonb_build_object('previousTemplate',
-      (SELECT item.name FROM public.onboarding_templates item WHERE item.id = OLD.template_id));
+      (SELECT item.name FROM public.onboarding_templates item
+        WHERE item.id = OLD.template_id AND item.organization_id = OLD.organization_id));
   END IF;
   PERFORM audit_private.record_entry(
     NEW.organization_id, v_kind, 'personnel_onboarding', NEW.id, v_who,
@@ -174,8 +182,12 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  SELECT packet.personnel_id INTO v_person_id FROM public.personnel_onboardings packet WHERE packet.id = v_row.onboarding_id;
-  v_who := audit_private.personnel_label(v_person_id);
+  SELECT packet.personnel_id INTO v_person_id FROM public.personnel_onboardings packet
+  WHERE packet.id = v_row.onboarding_id AND packet.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_person_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_who, v_row.onboarding_id, OLD.onboarding_id);
+  END IF;
   IF v_who IS NULL THEN
     RETURN NULL;
   END IF;

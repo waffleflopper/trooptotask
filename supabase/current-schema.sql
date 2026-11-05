@@ -261,6 +261,7 @@ DECLARE
   v_kind text;
   v_change jsonb := '{}'::jsonb;
   v_details jsonb := '{}'::jsonb;
+  v_group_to text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -290,9 +291,13 @@ BEGIN
     ELSE
       v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"title": "title", "suspenseOn": "suspense_on", "executionStartsOn": "execution_starts_on", "executionEndsOn": "execution_ends_on", "reportTime": "report_time", "staffingRequired": "staffing_required"}');
       IF NEW.responsible_group_id IS DISTINCT FROM OLD.responsible_group_id THEN
+        SELECT g.name INTO v_group_to FROM public.groups g
+        WHERE g.id = NEW.responsible_group_id AND g.organization_id = NEW.organization_id;
+        PERFORM audit_private.require_in_unit(v_group_to, NEW.responsible_group_id);
         v_change := v_change || pg_catalog.jsonb_build_object('responsible', pg_catalog.jsonb_build_object(
-          'from', (SELECT g.name FROM public.groups g WHERE g.id = OLD.responsible_group_id),
-          'to', (SELECT g.name FROM public.groups g WHERE g.id = NEW.responsible_group_id)));
+          'from', (SELECT g.name FROM public.groups g
+            WHERE g.id = OLD.responsible_group_id AND g.organization_id = OLD.organization_id),
+          'to', v_group_to));
       END IF;
       IF NEW.event_id IS DISTINCT FROM OLD.event_id THEN
         v_change := v_change || pg_catalog.jsonb_build_object('event', true);
@@ -427,6 +432,7 @@ DECLARE
   v_kind text;
   v_change jsonb := '{}'::jsonb;
   v_details jsonb;
+  v_parent text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -438,19 +444,25 @@ BEGIN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'group.created' WHEN 'UPDATE' THEN 'group.updated' WHEN 'DELETE' THEN 'group.deleted' END;
+  SELECT parent.name INTO v_parent FROM public.groups parent
+  WHERE parent.id = v_row.parent_id AND parent.organization_id = v_row.organization_id;
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_parent, v_row.parent_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.parent_id END);
+  END IF;
   IF TG_OP = 'UPDATE' THEN
     v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name"}');
     IF NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN
       v_change := v_change || pg_catalog.jsonb_build_object('parent', pg_catalog.jsonb_build_object(
-        'from', (SELECT parent.name FROM public.groups parent WHERE parent.id = OLD.parent_id),
-        'to', (SELECT parent.name FROM public.groups parent WHERE parent.id = NEW.parent_id)));
+        'from', (SELECT parent.name FROM public.groups parent
+          WHERE parent.id = OLD.parent_id AND parent.organization_id = OLD.organization_id),
+        'to', v_parent));
     END IF;
     IF v_change = '{}'::jsonb THEN
       RETURN NULL;
     END IF;
     v_kind := CASE WHEN NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN 'group.moved' ELSE 'group.updated' END;
   END IF;
-  v_details := pg_catalog.jsonb_build_object('parent', (SELECT parent.name FROM public.groups parent WHERE parent.id = v_row.parent_id));
+  v_details := pg_catalog.jsonb_build_object('parent', v_parent);
   IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
     v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
   END IF;
@@ -486,10 +498,15 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  SELECT item.title INTO v_task FROM public.ict_tasks item WHERE item.id = v_row.ict_task_id;
-  v_who := audit_private.personnel_label(v_row.personnel_id);
+  SELECT item.title INTO v_task FROM public.ict_tasks item
+  WHERE item.id = v_row.ict_task_id AND item.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.personnel_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_task, v_row.ict_task_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.ict_task_id END);
+    PERFORM audit_private.require_in_unit(v_who, v_row.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_task IS NULL OR v_who IS NULL) THEN
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_task IS NULL OR v_who IS NULL THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'personnel_ict_completion.created' WHEN 'UPDATE' THEN 'personnel_ict_completion.updated' WHEN 'DELETE' THEN 'personnel_ict_completion.deleted' END;
@@ -595,8 +612,12 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  SELECT packet.personnel_id INTO v_person_id FROM public.personnel_onboardings packet WHERE packet.id = v_row.onboarding_id;
-  v_who := audit_private.personnel_label(v_person_id);
+  SELECT packet.personnel_id INTO v_person_id FROM public.personnel_onboardings packet
+  WHERE packet.id = v_row.onboarding_id AND packet.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_person_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_who, v_row.onboarding_id, OLD.onboarding_id);
+  END IF;
   IF v_who IS NULL THEN
     RETURN NULL;
   END IF;
@@ -691,9 +712,13 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  SELECT item.name INTO v_template FROM public.onboarding_templates item WHERE item.id = v_row.template_id;
+  SELECT item.name INTO v_template FROM public.onboarding_templates item
+  WHERE item.id = v_row.template_id AND item.organization_id = v_row.organization_id;
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_template, v_row.template_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.template_id END);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_template IS NULL) THEN
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_template IS NULL THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'onboarding_template_step.created' WHEN 'UPDATE' THEN 'onboarding_template_step.updated' WHEN 'DELETE' THEN 'onboarding_template_step.deleted' END;
@@ -740,6 +765,7 @@ DECLARE
   v_kind text;
   v_change jsonb := '{}'::jsonb;
   v_details jsonb;
+  v_group_to text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -758,9 +784,13 @@ BEGIN
         'from', OLD.last_name || ', ' || OLD.first_name, 'to', NEW.last_name || ', ' || NEW.first_name));
     END IF;
     IF NEW.group_id IS DISTINCT FROM OLD.group_id THEN
+      SELECT unit.name INTO v_group_to FROM public.groups unit
+      WHERE unit.id = NEW.group_id AND unit.organization_id = NEW.organization_id;
+      PERFORM audit_private.require_in_unit(v_group_to, NEW.group_id);
       v_change := v_change || pg_catalog.jsonb_build_object('group', pg_catalog.jsonb_build_object(
-        'from', (SELECT unit.name FROM public.groups unit WHERE unit.id = OLD.group_id),
-        'to', (SELECT unit.name FROM public.groups unit WHERE unit.id = NEW.group_id)));
+        'from', (SELECT unit.name FROM public.groups unit
+          WHERE unit.id = OLD.group_id AND unit.organization_id = OLD.organization_id),
+        'to', v_group_to));
     END IF;
     IF v_change = '{}'::jsonb AND NOT ((OLD.archived_at IS NULL) <> (NEW.archived_at IS NULL)) THEN
       RETURN NULL;
@@ -799,7 +829,8 @@ DECLARE
   v_sections jsonb;
   v_person public.personnel;
 BEGIN
-  SELECT * INTO v_person FROM public.personnel WHERE id = NEW.personnel_id;
+  SELECT * INTO v_person FROM public.personnel WHERE id = NEW.personnel_id AND organization_id = NEW.organization_id;
+  PERFORM audit_private.require_in_unit(v_person.last_name, NEW.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
   IF v_person.id IS NULL THEN
     RETURN NULL;
   END IF;
@@ -860,11 +891,14 @@ DECLARE
   v_who text;
   v_template text;
 BEGIN
-  v_who := audit_private.personnel_label(NEW.personnel_id);
+  v_who := audit_private.personnel_label(NEW.organization_id, NEW.personnel_id);
+  PERFORM audit_private.require_in_unit(v_who, NEW.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
   IF v_who IS NULL THEN
     RETURN NULL;
   END IF;
-  SELECT item.name INTO v_template FROM public.onboarding_templates item WHERE item.id = NEW.template_id;
+  SELECT item.name INTO v_template FROM public.onboarding_templates item
+  WHERE item.id = NEW.template_id AND item.organization_id = NEW.organization_id;
+  PERFORM audit_private.require_in_unit(v_template, NEW.template_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.template_id END);
   IF TG_OP = 'INSERT' THEN
     v_kind := 'onboarding.started';
   ELSE
@@ -886,7 +920,8 @@ BEGIN
         WHERE progress.onboarding_id = NEW.id AND progress.active AND NOT progress.completed));
   ELSIF v_kind = 'onboarding.template_switched' THEN
     v_details := v_details || pg_catalog.jsonb_build_object('previousTemplate',
-      (SELECT item.name FROM public.onboarding_templates item WHERE item.id = OLD.template_id));
+      (SELECT item.name FROM public.onboarding_templates item
+        WHERE item.id = OLD.template_id AND item.organization_id = OLD.organization_id));
   END IF;
   PERFORM audit_private.record_entry(
     NEW.organization_id, v_kind, 'personnel_onboarding', NEW.id, v_who,
@@ -922,7 +957,11 @@ BEGIN
   IF TG_OP = 'UPDATE' THEN
     RETURN NULL;
   END IF;
-  SELECT unit.name INTO v_group FROM public.groups unit WHERE unit.id = v_row.group_id;
+  SELECT unit.name INTO v_group FROM public.groups unit
+  WHERE unit.id = v_row.group_id AND unit.organization_id = v_row.organization_id;
+  IF TG_OP = 'INSERT' THEN
+    PERFORM audit_private.require_in_unit(v_group, v_row.group_id);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
   IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_group IS NULL) THEN
     RETURN NULL;
@@ -960,9 +999,12 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  v_who := audit_private.personnel_label(v_row.rated_person_id);
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.rated_person_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_who, v_row.rated_person_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.rated_person_id END);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_who IS NULL) THEN
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_who IS NULL THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'rating_scheme.created' WHEN 'UPDATE' THEN 'rating_scheme.updated' WHEN 'DELETE' THEN 'rating_scheme.deleted' END;
@@ -1104,10 +1146,15 @@ BEGIN
   ELSE
     v_row := NEW;
   END IF;
-  SELECT kind.name INTO v_type FROM public.training_types kind WHERE kind.id = v_row.training_type_id;
-  v_who := audit_private.personnel_label(v_row.personnel_id);
+  SELECT kind.name INTO v_type FROM public.training_types kind
+  WHERE kind.id = v_row.training_type_id AND kind.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.personnel_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_type, v_row.training_type_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.training_type_id END);
+    PERFORM audit_private.require_in_unit(v_who, v_row.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_type IS NULL OR v_who IS NULL) THEN
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_type IS NULL OR v_who IS NULL THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'training_record.created' WHEN 'UPDATE' THEN 'training_record.updated' WHEN 'DELETE' THEN 'training_record.deleted' END;
@@ -1193,7 +1240,10 @@ BEGIN
         SELECT e AS id FROM audit_private.id_list(OLD.exempt_personnel_ids) AS e
         EXCEPT SELECT e FROM audit_private.id_list(NEW.exempt_personnel_ids) AS e) AS removed
     LOOP
-      v_who := audit_private.personnel_label(v_ex.id);
+      v_who := audit_private.personnel_label(NEW.organization_id, v_ex.id);
+      IF v_ex.exempt THEN
+        PERFORM audit_private.require_in_unit(v_who, v_ex.id);
+      END IF;
       IF v_who IS NOT NULL THEN
         PERFORM audit_private.record_entry(
           NEW.organization_id,
@@ -1344,19 +1394,20 @@ $$;
 ALTER FUNCTION audit_private.person_label(p_rank text, p_last_name text, p_first_name text) OWNER TO postgres;
 
 --
--- Name: personnel_label(uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
+-- Name: personnel_label(uuid, uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
-CREATE FUNCTION audit_private.personnel_label(p_personnel_id uuid) RETURNS text
+CREATE FUNCTION audit_private.personnel_label(p_organization_id uuid, p_personnel_id uuid) RETURNS text
     LANGUAGE sql STABLE
     SET search_path TO ''
     AS $$
   SELECT audit_private.person_label(person.rank, person.last_name, person.first_name)
-  FROM public.personnel person WHERE person.id = p_personnel_id;
+  FROM public.personnel person
+  WHERE person.id = p_personnel_id AND person.organization_id = p_organization_id;
 $$;
 
 
-ALTER FUNCTION audit_private.personnel_label(p_personnel_id uuid) OWNER TO postgres;
+ALTER FUNCTION audit_private.personnel_label(p_organization_id uuid, p_personnel_id uuid) OWNER TO postgres;
 
 --
 -- Name: record_entry(uuid, text, text, uuid, text, uuid, text, jsonb); Type: FUNCTION; Schema: audit_private; Owner: postgres
@@ -1377,6 +1428,24 @@ $$;
 
 
 ALTER FUNCTION audit_private.record_entry(p_organization_id uuid, p_kind text, p_record_type text, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_details jsonb) OWNER TO postgres;
+
+--
+-- Name: require_in_unit(text, uuid, uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid DEFAULT NULL::uuid) RETURNS void
+    LANGUAGE plpgsql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF p_reference_id IS NOT NULL AND p_label IS NULL AND p_reference_id IS DISTINCT FROM p_previous_reference_id THEN
+    RAISE EXCEPTION 'Reference belongs to another Organization' USING ERRCODE = '42501';
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid) OWNER TO postgres;
 
 --
 -- Name: unit_exists(uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
@@ -1413,15 +1482,20 @@ BEGIN
     v_entry := NEW;
   END IF;
 
-  SELECT * INTO v_person FROM public.personnel WHERE id = v_entry.personnel_id;
+  SELECT * INTO v_person FROM public.personnel
+  WHERE id = v_entry.personnel_id AND organization_id = v_entry.organization_id;
   SELECT status.name INTO v_status FROM public.status_types status
   WHERE status.organization_id = v_entry.organization_id AND status.id = v_entry.status_type_id;
 
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(
+      v_person.last_name, v_entry.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  END IF;
+
   -- Rows removed with their Person, status type or Organization: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (
-    v_person.id IS NULL OR v_status IS NULL
-    OR NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = OLD.organization_id)
-  ) THEN
+  IF v_person.id IS NULL OR (TG_OP = 'DELETE' AND (
+    v_status IS NULL OR NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = OLD.organization_id)
+  )) THEN
     RETURN NULL;
   END IF;
 
@@ -1429,7 +1503,8 @@ BEGIN
     IF NEW.personnel_id IS DISTINCT FROM OLD.personnel_id THEN
       v_change := v_change || pg_catalog.jsonb_build_object('person', pg_catalog.jsonb_build_object(
         'from', (SELECT audit_private.person_label(p.rank, p.last_name, p.first_name)
-          FROM public.personnel p WHERE p.id = OLD.personnel_id),
+          FROM public.personnel p
+          WHERE p.id = OLD.personnel_id AND p.organization_id = OLD.organization_id),
         'to', audit_private.person_label(v_person.rank, v_person.last_name, v_person.first_name)));
     END IF;
     IF NEW.status_type_id IS DISTINCT FROM OLD.status_type_id THEN
@@ -9962,7 +10037,7 @@ DECLARE
 BEGIN
   -- A person's label is read here, not sent, so it always matches what a trigger would have saved.
   IF p_subject_personnel_id IS NOT NULL AND v_subject_label IS NULL THEN
-    v_subject_label := audit_private.personnel_label(p_subject_personnel_id);
+    v_subject_label := audit_private.personnel_label(p_organization_id, p_subject_personnel_id);
     IF v_subject_label IS NULL THEN
       RAISE EXCEPTION 'Audit subject not found' USING ERRCODE = '22023';
     END IF;
@@ -20839,10 +20914,10 @@ REVOKE ALL ON FUNCTION audit_private.person_label(p_rank text, p_last_name text,
 
 
 --
--- Name: FUNCTION personnel_label(p_personnel_id uuid); Type: ACL; Schema: audit_private; Owner: postgres
+-- Name: FUNCTION personnel_label(p_organization_id uuid, p_personnel_id uuid); Type: ACL; Schema: audit_private; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION audit_private.personnel_label(p_personnel_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION audit_private.personnel_label(p_organization_id uuid, p_personnel_id uuid) FROM PUBLIC;
 
 
 --
@@ -20850,6 +20925,13 @@ REVOKE ALL ON FUNCTION audit_private.personnel_label(p_personnel_id uuid) FROM P
 --
 
 REVOKE ALL ON FUNCTION audit_private.record_entry(p_organization_id uuid, p_kind text, p_record_type text, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_details jsonb) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid) FROM PUBLIC;
 
 
 --

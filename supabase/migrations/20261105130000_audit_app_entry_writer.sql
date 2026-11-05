@@ -26,7 +26,7 @@ DECLARE
 BEGIN
   -- A person's label is read here, not sent, so it always matches what a trigger would have saved.
   IF p_subject_personnel_id IS NOT NULL AND v_subject_label IS NULL THEN
-    v_subject_label := audit_private.personnel_label(p_subject_personnel_id);
+    v_subject_label := audit_private.personnel_label(p_organization_id, p_subject_personnel_id);
     IF v_subject_label IS NULL THEN
       RAISE EXCEPTION 'Audit subject not found' USING ERRCODE = '22023';
     END IF;
@@ -71,16 +71,36 @@ AS $$
   SELECT EXISTS (SELECT 1 FROM public.organizations WHERE id = p_organization_id);
 $$;
 
-CREATE FUNCTION audit_private.personnel_label(p_personnel_id uuid) RETURNS text
+-- Every label is read inside the row's own Organization. A reference that points into another unit reads as missing, so
+-- its name can never reach this unit's log.
+CREATE FUNCTION audit_private.personnel_label(p_organization_id uuid, p_personnel_id uuid) RETURNS text
 LANGUAGE sql STABLE
 SET search_path = ''
 AS $$
   SELECT audit_private.person_label(person.rank, person.last_name, person.first_name)
-  FROM public.personnel person WHERE person.id = p_personnel_id;
+  FROM public.personnel person
+  WHERE person.id = p_personnel_id AND person.organization_id = p_organization_id;
+$$;
+
+-- A write that sets or changes a reference whose label cannot be read in the row's Organization points outside the
+-- unit. Its entry would have to drop the label or leak another unit's, so the write fails instead. A reference the
+-- write leaves as it was may be older than the check, so editing another column of that row still goes through.
+CREATE FUNCTION audit_private.require_in_unit(
+  p_label text, p_reference_id uuid, p_previous_reference_id uuid DEFAULT NULL
+) RETURNS void
+LANGUAGE plpgsql IMMUTABLE
+SET search_path = ''
+AS $$
+BEGIN
+  IF p_reference_id IS NOT NULL AND p_label IS NULL AND p_reference_id IS DISTINCT FROM p_previous_reference_id THEN
+    RAISE EXCEPTION 'Reference belongs to another Organization' USING ERRCODE = '42501';
+  END IF;
+END;
 $$;
 
 REVOKE ALL ON FUNCTION audit_private.changed(jsonb, jsonb, jsonb) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION audit_private.unit_exists(uuid) FROM PUBLIC, anon, authenticated, service_role;
-REVOKE ALL ON FUNCTION audit_private.personnel_label(uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION audit_private.personnel_label(uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION audit_private.require_in_unit(text, uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
 
 COMMIT;

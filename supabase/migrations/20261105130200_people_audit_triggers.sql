@@ -13,6 +13,7 @@ DECLARE
   v_kind text;
   v_change jsonb := '{}'::jsonb;
   v_details jsonb;
+  v_group_to text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -31,9 +32,13 @@ BEGIN
         'from', OLD.last_name || ', ' || OLD.first_name, 'to', NEW.last_name || ', ' || NEW.first_name));
     END IF;
     IF NEW.group_id IS DISTINCT FROM OLD.group_id THEN
+      SELECT unit.name INTO v_group_to FROM public.groups unit
+      WHERE unit.id = NEW.group_id AND unit.organization_id = NEW.organization_id;
+      PERFORM audit_private.require_in_unit(v_group_to, NEW.group_id);
       v_change := v_change || pg_catalog.jsonb_build_object('group', pg_catalog.jsonb_build_object(
-        'from', (SELECT unit.name FROM public.groups unit WHERE unit.id = OLD.group_id),
-        'to', (SELECT unit.name FROM public.groups unit WHERE unit.id = NEW.group_id)));
+        'from', (SELECT unit.name FROM public.groups unit
+          WHERE unit.id = OLD.group_id AND unit.organization_id = OLD.organization_id),
+        'to', v_group_to));
     END IF;
     IF v_change = '{}'::jsonb AND NOT ((OLD.archived_at IS NULL) <> (NEW.archived_at IS NULL)) THEN
       RETURN NULL;
@@ -69,6 +74,7 @@ DECLARE
   v_kind text;
   v_change jsonb := '{}'::jsonb;
   v_details jsonb;
+  v_parent text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -80,19 +86,25 @@ BEGIN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'group.created' WHEN 'UPDATE' THEN 'group.updated' WHEN 'DELETE' THEN 'group.deleted' END;
+  SELECT parent.name INTO v_parent FROM public.groups parent
+  WHERE parent.id = v_row.parent_id AND parent.organization_id = v_row.organization_id;
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_parent, v_row.parent_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.parent_id END);
+  END IF;
   IF TG_OP = 'UPDATE' THEN
     v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name"}');
     IF NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN
       v_change := v_change || pg_catalog.jsonb_build_object('parent', pg_catalog.jsonb_build_object(
-        'from', (SELECT parent.name FROM public.groups parent WHERE parent.id = OLD.parent_id),
-        'to', (SELECT parent.name FROM public.groups parent WHERE parent.id = NEW.parent_id)));
+        'from', (SELECT parent.name FROM public.groups parent
+          WHERE parent.id = OLD.parent_id AND parent.organization_id = OLD.organization_id),
+        'to', v_parent));
     END IF;
     IF v_change = '{}'::jsonb THEN
       RETURN NULL;
     END IF;
     v_kind := CASE WHEN NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN 'group.moved' ELSE 'group.updated' END;
   END IF;
-  v_details := pg_catalog.jsonb_build_object('parent', (SELECT parent.name FROM public.groups parent WHERE parent.id = v_row.parent_id));
+  v_details := pg_catalog.jsonb_build_object('parent', v_parent);
   IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
     v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
   END IF;
@@ -128,7 +140,11 @@ BEGIN
   IF TG_OP = 'UPDATE' THEN
     RETURN NULL;
   END IF;
-  SELECT unit.name INTO v_group FROM public.groups unit WHERE unit.id = v_row.group_id;
+  SELECT unit.name INTO v_group FROM public.groups unit
+  WHERE unit.id = v_row.group_id AND unit.organization_id = v_row.organization_id;
+  IF TG_OP = 'INSERT' THEN
+    PERFORM audit_private.require_in_unit(v_group, v_row.group_id);
+  END IF;
   -- Rows removed with their parent or unit: that deletion is the audited event.
   IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_group IS NULL) THEN
     RETURN NULL;
@@ -158,7 +174,8 @@ DECLARE
   v_sections jsonb;
   v_person public.personnel;
 BEGIN
-  SELECT * INTO v_person FROM public.personnel WHERE id = NEW.personnel_id;
+  SELECT * INTO v_person FROM public.personnel WHERE id = NEW.personnel_id AND organization_id = NEW.organization_id;
+  PERFORM audit_private.require_in_unit(v_person.last_name, NEW.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
   IF v_person.id IS NULL THEN
     RETURN NULL;
   END IF;

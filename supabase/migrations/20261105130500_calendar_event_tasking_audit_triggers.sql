@@ -67,6 +67,7 @@ DECLARE
   v_kind text;
   v_change jsonb := '{}'::jsonb;
   v_details jsonb := '{}'::jsonb;
+  v_group_to text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -96,9 +97,13 @@ BEGIN
     ELSE
       v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"title": "title", "suspenseOn": "suspense_on", "executionStartsOn": "execution_starts_on", "executionEndsOn": "execution_ends_on", "reportTime": "report_time", "staffingRequired": "staffing_required"}');
       IF NEW.responsible_group_id IS DISTINCT FROM OLD.responsible_group_id THEN
+        SELECT g.name INTO v_group_to FROM public.groups g
+        WHERE g.id = NEW.responsible_group_id AND g.organization_id = NEW.organization_id;
+        PERFORM audit_private.require_in_unit(v_group_to, NEW.responsible_group_id);
         v_change := v_change || pg_catalog.jsonb_build_object('responsible', pg_catalog.jsonb_build_object(
-          'from', (SELECT g.name FROM public.groups g WHERE g.id = OLD.responsible_group_id),
-          'to', (SELECT g.name FROM public.groups g WHERE g.id = NEW.responsible_group_id)));
+          'from', (SELECT g.name FROM public.groups g
+            WHERE g.id = OLD.responsible_group_id AND g.organization_id = OLD.organization_id),
+          'to', v_group_to));
       END IF;
       IF NEW.event_id IS DISTINCT FROM OLD.event_id THEN
         v_change := v_change || pg_catalog.jsonb_build_object('event', true);

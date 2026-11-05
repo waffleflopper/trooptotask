@@ -204,8 +204,8 @@ describe('createTrainingRecord', () => {
 				{ change: 'supplied date', input: dateInput, fields: dateFields },
 				{
 					change: 'explicit null clears',
-					input: { ...clearedDateInput, notes: null, certificateUrl: null },
-					fields: { ...clearedDateFields, notes: null, certificate_url: null }
+					input: { ...clearedDateInput, notes: null },
+					fields: { ...clearedDateFields, notes: null }
 				}
 			])('preserves unsupplied saved values for $change', async ({ input, fields }) => {
 				const ctx = buildContext();
@@ -691,6 +691,93 @@ describe('deleteTrainingRecord', () => {
 	});
 });
 
+describe('certificate links', () => {
+	const EXTERNAL = 'https://evil.example/login';
+	const LEGACY = 'https://example.test/legacy-certificate';
+
+	function seedLegacyRecord(ctx: ReturnType<typeof buildContext>) {
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: RECORD,
+				organization_id: 'test-org',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
+				completion_date: '2025-03-15',
+				expiration_date: '2026-03-15',
+				notes: null,
+				certificate_url: LEGACY
+			}
+		]);
+	}
+
+	function storedCertificates(ctx: ReturnType<typeof buildContext>) {
+		return ctx.store
+			.findMany<{ certificate_url: string | null }>('personnel_trainings', 'test-org')
+			.then((rows) => rows.map((row) => row.certificate_url));
+	}
+
+	it('stores no certificate link when a new record is created with an external URL', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+
+		const result = await createTrainingRecord(ctx, {
+			personnelId: PERSON_1,
+			trainingTypeId: TRAINING_TYPE,
+			completionDate: '2025-03-15',
+			certificateUrl: EXTERNAL
+		});
+
+		expect(result.certificateUrl).toBeNull();
+		expect(await storedCertificates(ctx)).toEqual([null]);
+	});
+
+	it('keeps a saved certificate link when a create for the same Person and type sends another URL', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedLegacyRecord(ctx);
+
+		const result = await createTrainingRecord(ctx, {
+			personnelId: PERSON_1,
+			trainingTypeId: TRAINING_TYPE,
+			notes: 'Edited',
+			certificateUrl: EXTERNAL
+		});
+
+		expect(result.certificateUrl).toBe(LEGACY);
+		expect(await storedCertificates(ctx)).toEqual([LEGACY]);
+	});
+
+	it('stores no certificate link when an update sends an external URL', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedRecord(ctx);
+
+		const result = await updateTrainingRecord(ctx, { id: RECORD, notes: 'Edited', certificateUrl: EXTERNAL });
+
+		expect(result.certificateUrl).toBeNull();
+		expect(await storedCertificates(ctx)).toEqual([null]);
+	});
+
+	it.each([
+		['sends another URL', { certificateUrl: EXTERNAL }],
+		['sends null', { certificateUrl: null }],
+		['sends none', {}]
+	])('keeps an existing external value readable when an update %s', async (_label, extra) => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedLegacyRecord(ctx);
+
+		const result = await updateTrainingRecord(ctx, { id: RECORD, notes: 'Edited', ...extra });
+
+		expect(result.certificateUrl).toBe(LEGACY);
+		expect(await storedCertificates(ctx)).toEqual([LEGACY]);
+	});
+});
+
 describe('direct patch boundary', () => {
 	it('rejects malformed known fields with 400 without changing the record or auditing', async () => {
 		const ctx = buildContext();
@@ -700,8 +787,7 @@ describe('direct patch boundary', () => {
 		await expect(
 			updateTrainingRecord(ctx, {
 				id: RECORD,
-				notes: { retained: true },
-				certificateUrl: ['legacy-value']
+				notes: { retained: true }
 			})
 		).rejects.toMatchObject({ status: 400 });
 		await expect(ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toMatchObject([

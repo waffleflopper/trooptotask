@@ -30,7 +30,7 @@ import type {
 } from '../contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { TrainingView, PersonnelTraining } from '$features/training/training.types';
+import type { TrainingView, TrainingRecordSave } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
 import { recordTrainingCompletions } from '../personnelTrainingRequests';
 import { matchesPersonnelSearch } from '../utils/personnelSearch';
@@ -374,8 +374,10 @@ export class TrainingPageContext {
 		return 'deleted';
 	}
 
-	async handleSaveTraining(data: Omit<PersonnelTraining, 'id'>): Promise<void> {
-		await personnelTrainingsStore.add(data);
+	async handleSaveTraining(data: TrainingRecordSave): Promise<void> {
+		const saved = personnelTrainingsStore.getByPersonnelAndType(data.personnelId, data.trainingTypeId);
+		// The server keeps the saved certificate, so the row shows it while the save is in flight.
+		await personnelTrainingsStore.add({ ...data, certificateUrl: saved?.certificateUrl ?? null });
 	}
 
 	async handleSaveTrainingBatch(records: TrainingBatchCompletionRecord[]): Promise<void> {

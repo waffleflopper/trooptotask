@@ -7,7 +7,7 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import MinusIcon from '@lucide/svelte/icons/minus';
 	import type { Personnel } from '$features/personnel/contracts';
-	import type { PersonnelTraining } from '$features/training/training.types';
+	import type { TrainingRecordSave } from '$features/training/training.types';
 	import {
 		getCellDisplayText,
 		getColumnIntervalLabel,
@@ -40,7 +40,7 @@
 		onToday: () => void;
 		onExempt: (exempt: boolean) => void;
 		onDelete: () => void;
-		onSave: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
+		onSave: (data: TrainingRecordSave) => void | Promise<void>;
 		onDirtyChange: (dirty: boolean) => void;
 	}
 

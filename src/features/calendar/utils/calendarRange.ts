@@ -37,7 +37,7 @@ export function shiftCalendarPeriod(anchor: Date, view: CalendarViewMode, direct
 	return new Date(anchor.getFullYear(), anchor.getMonth() + direction * PERIODS[view].months, 1);
 }
 
-/** The longest span one `/api/calendar-range` read accepts, in inclusive days. */
+/** The longest span one `/api/calendar-range` or `/api/calendar-reports/status-days` read accepts, in inclusive days. */
 export const MAX_CALENDAR_RANGE_DAYS = 366;
 
 /** A view starting up to this many days after today also reads availability back to today, for the title row's count. */

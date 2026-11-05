@@ -35,21 +35,21 @@ Use accessible shared controls, dialogs and menus. Preserve labels, keyboard and
 
 ## Choose a component
 
-| Need                       | Use                                                                                                                                    |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Buttons and links          | `Button`, with `href` for navigation. Plain content links stay anchors.                                                                |
-| Form fields                | `Field.*` around `Input`, `Textarea`, `Select`, `NativeSelect`, `Checkbox` or `RadioGroup`.                                            |
-| Searchable selection       | `Combobox.*`. Use `multiple` with chips only to pick a set of records inside a form.                                                   |
-| Toolbar and report filters | A `WorkspaceToolbar` item (`select`, `multiSelect`, `toggle`) or `ReportWorkspace.OptionChips`.                                        |
-| Small inline single choice | `ToggleGroup.*`, or `SegmentedFilter.Root` for a list filter. Use a toolbar `select` when options are many or data-driven.             |
-| Dialogs                    | `AppDialog.*` for content and forms, `ConfirmDialog` for confirmations. Raw `Dialog` and `AlertDialog` are their primitives.           |
-| Dates                      | `DatePicker` (ISO `YYYY-MM-DD` binding) and `ReportWorkspace.DateRangeField`. Not `input type="date"`.                                 |
-| Tables                     | `DataTable.DataTable` for records, `Table.*` for static content, `OperationalMatrix.*` for sticky-axis or heat-map grids.              |
-| Tabs                       | `PageShell.Tabs` for route navigation, `Tabs.*` for in-page views.                                                                     |
-| Page layout                | `PageShell.*`. `SectionNav` for an area with several pages. `TypeWorkspace.*` for list-detail type management.                         |
-| Reports and imports        | `ReportWorkspace.*` with `ReportChart` charts; `ImportFlow`.                                                                           |
-| Feedback                   | `toastStore` for transient results (one persistent exception, the [update notice](#composition-rules)); `Empty.*`, `Skeleton`, `Spinner` and `Alert` variants for page states.                             |
-| Public pages               | `PublicShell` with `PublicPageHeader` and `PublicContentSection`. Public files use Tailwind on central tokens with no `<style>` block. |
+| Need                       | Use                                                                                                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Buttons and links          | `Button`, with `href` for navigation. Plain content links stay anchors.                                                                                                        |
+| Form fields                | `Field.*` around `Input`, `Textarea`, `Select`, `NativeSelect`, `Checkbox` or `RadioGroup`.                                                                                    |
+| Searchable selection       | `Combobox.*`. Use `multiple` with chips only to pick a set of records inside a form.                                                                                           |
+| Toolbar and report filters | A `WorkspaceToolbar` item (`select`, `multiSelect`, `toggle`) or `ReportWorkspace.OptionChips`.                                                                                |
+| Small inline single choice | `ToggleGroup.*`, or `SegmentedFilter.Root` for a list filter. Use a toolbar `select` when options are many or data-driven.                                                     |
+| Dialogs                    | `AppDialog.*` for content and forms, `ConfirmDialog` for confirmations. Raw `Dialog` and `AlertDialog` are their primitives.                                                   |
+| Dates                      | `DatePicker` (ISO `YYYY-MM-DD` binding) and `ReportWorkspace.DateRangeField`. Not `input type="date"`.                                                                         |
+| Tables                     | `DataTable.DataTable` for records, `Table.*` for static content, `OperationalMatrix.*` for sticky-axis or heat-map grids.                                                      |
+| Tabs                       | `PageShell.Tabs` for route navigation, `Tabs.*` for in-page views.                                                                                                             |
+| Page layout                | `PageShell.*`. `SectionNav` for an area with several pages. `TypeWorkspace.*` for list-detail type management.                                                                 |
+| Reports and imports        | `ReportWorkspace.*` with `ReportChart` charts; `ImportFlow`.                                                                                                                   |
+| Feedback                   | `toastStore` for transient results (one persistent exception, the [update notice](#composition-rules)); `Empty.*`, `Skeleton`, `Spinner` and `Alert` variants for page states. |
+| Public pages               | `PublicShell` with `PublicPageHeader` and `PublicContentSection`. Public files use Tailwind on central tokens with no `<style>` block.                                         |
 
 ## Composition rules
 

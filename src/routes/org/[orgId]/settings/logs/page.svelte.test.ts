@@ -334,6 +334,16 @@ describe('logs settings page', () => {
 			expect(goto).toHaveBeenCalledWith('/org/test-org/settings/logs?from=2026-10-01', { reset: false });
 		});
 
+		it('builds a second change on the first while the first navigation is still running', async () => {
+			goto.mockImplementationOnce(() => new Promise(() => {}));
+			await renderLogs({ rows: MIXED, filters: { from: '2026-10-01', to: '2026-10-10' } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear to date' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear from date' }));
+
+			expect(goto).toHaveBeenLastCalledWith('/org/test-org/settings/logs', { reset: false });
+		});
+
 		it('clears every filter at once', async () => {
 			await renderLogs({ rows: MIXED, filters: { userId: MEMBER, kind: 'org.renamed', from: '2026-10-01' } });
 

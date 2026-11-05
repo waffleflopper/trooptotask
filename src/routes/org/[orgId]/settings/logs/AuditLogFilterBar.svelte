@@ -12,15 +12,23 @@
 
 	let { filters, options }: { filters: AuditLogFilters; options: Promise<LogsFilterOptions> } = $props();
 
+	// Props only change once a navigation ends, so a second change made before then builds on the first.
+	let pending: AuditLogFilters | null = null;
+	let latest = 0;
+
 	function apply(change: AuditLogFilters) {
-		const next = { ...filters, ...change };
+		const next = { ...(pending ?? filters), ...change };
 		if (next.from && next.to && next.from > next.to) {
 			if (change.from) next.to = next.from;
 			else next.from = next.to;
 		}
 		const query = auditLogFilterParams(next).toString();
 		const path = resolve('/org/[orgId]/settings/logs', { orgId: page.params.orgId ?? '' });
-		return goto(query ? `${path}?${query}` : path, { reset: false });
+		const request = ++latest;
+		pending = next;
+		return goto(query ? `${path}?${query}` : path, { reset: false }).finally(() => {
+			if (request === latest) pending = null;
+		});
 	}
 
 	const labelClass = 'font-mono text-[11px] leading-4 font-medium tracking-[0.08em] text-muted-foreground uppercase';

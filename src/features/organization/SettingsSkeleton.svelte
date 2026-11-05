@@ -41,21 +41,35 @@
 				<Skeleton class="h-8 w-64" />
 				<Skeleton class="ml-auto h-8 w-60 max-w-1/3" />
 			</div>
+		{:else if block.kind === 'filters'}
+			<div class="mb-4 flex flex-wrap items-center gap-3">
+				<Skeleton class="h-8 w-full md:w-90" />
+				<Skeleton class="h-8 w-62" />
+				<Skeleton class="h-4 w-40 md:ml-auto" />
+			</div>
 		{:else if block.kind === 'strip'}
 			<div class={cn('grid gap-2.5 rounded-sm border bg-muted p-3.5', opensSection && 'mt-10')}>
 				<Skeleton class="h-8 w-full bg-foreground/10" />
 				<Skeleton class="h-5 w-2/3 bg-foreground/10" />
 			</div>
 		{:else}
-			<div>
+			<div
+				class="@container/list"
+				style:--row="{block.height}px"
+				style:--stacked-row="{block.stacked?.height ?? block.height}px"
+			>
 				{#if block.header}
-					<div class="flex h-10 items-center gap-4 border-b">
+					<div
+						class="flex h-(--header) items-center gap-4 border-b @max-2xl/list:h-(--stacked-header)"
+						style:--header="{block.header}px"
+						style:--stacked-header="{block.stacked?.header ?? block.header}px"
+					>
 						<Skeleton class="h-3 w-24" />
 						<Skeleton class="h-3 w-16" />
 					</div>
 				{/if}
 				{#each { length: block.rows } as _, row (row)}
-					<div class="flex items-center gap-4 border-b" style:height="{block.height}px">
+					<div class="flex h-(--row) items-center gap-4 border-b @max-2xl/list:h-(--stacked-row)">
 						<Skeleton class="h-4 w-48" />
 						<Skeleton class="h-3.5 w-24" />
 						<Skeleton class="ml-auto h-7 w-16" />

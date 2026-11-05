@@ -41,10 +41,15 @@ export type SettingsSkeletonBlock =
 	| { kind: 'heading'; action?: boolean }
 	/** A row of filters above a list, `height` px from its top to the list. */
 	| { kind: 'toolbar'; height: number }
+	/** A search field, then a segmented filter and a count, wrapping as the Logs controls do, 16 px above the list. */
+	| { kind: 'filters' }
 	/** A muted strip of inputs, as Members' invite strip. */
 	| { kind: 'strip' }
-	/** `rows` rows of `height` px on 1px rules, under a column-header row when `header` is set. */
-	| { kind: 'list'; rows: number; height: number; header?: boolean };
+	/**
+	 * `rows` rows of `height` px on 1px rules, under a column-header row of `header` px when set. `stacked` holds the
+	 * heights a stacked DataTable takes when its container is narrower than 42rem.
+	 */
+	| { kind: 'list'; rows: number; height: number; header?: number; stacked?: { header: number; height: number } };
 
 export interface SettingsPage {
 	label: string;
@@ -92,7 +97,7 @@ export const SETTINGS_PAGES = {
 			{ kind: 'list', rows: 6, height: 45 },
 			{ kind: 'heading', action: true },
 			{ kind: 'toolbar', height: 56 },
-			{ kind: 'list', rows: 5, height: 49, header: true }
+			{ kind: 'list', rows: 5, height: 49, header: 40 }
 		]
 	},
 	members: {
@@ -100,11 +105,7 @@ export const SETTINGS_PAGES = {
 		group: 'Access',
 		ownerOnly: false,
 		width: 'table',
-		skeleton: [
-			{ kind: 'strip' },
-			{ kind: 'heading', action: true },
-			{ kind: 'list', rows: 8, height: 61, header: true }
-		]
+		skeleton: [{ kind: 'strip' }, { kind: 'heading', action: true }, { kind: 'list', rows: 8, height: 61, header: 40 }]
 	},
 	approvals: {
 		label: 'Approvals',
@@ -120,7 +121,7 @@ export const SETTINGS_PAGES = {
 		width: 'table',
 		skeleton: [
 			{ kind: 'heading', action: true },
-			{ kind: 'list', rows: 4, height: 49, header: true }
+			{ kind: 'list', rows: 4, height: 49, header: 40 }
 		]
 	},
 	exports: {
@@ -137,8 +138,8 @@ export const SETTINGS_PAGES = {
 		ownerOnly: false,
 		width: 'table',
 		skeleton: [
-			{ kind: 'toolbar', height: 48 },
-			{ kind: 'list', rows: 8, height: 49, header: true }
+			{ kind: 'filters' },
+			{ kind: 'list', rows: 6, height: 41, header: 40, stacked: { header: 49, height: 89 } }
 		]
 	},
 	danger: {

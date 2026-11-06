@@ -48,6 +48,8 @@ SELECT count(*) FROM public.replace_daily_assignment_slots(pg_temp.id('101'), '{
   jsonb_build_array(pg_temp.slot('401', '2030-04-01', '302'), pg_temp.slot('402', '2030-04-01', '201')));
 SELECT count(*) FROM public.replace_daily_assignment_slots(pg_temp.id('101'), '{}'::date[],
   jsonb_build_array(pg_temp.slot('402', '2030-04-01', '')));
+SELECT count(*) FROM public.replace_daily_assignment_slots(pg_temp.id('101'), '{}'::date[],
+  jsonb_build_array(pg_temp.slot('401', '2030-04-01', '')));
 SELECT throws_ok(
   format($$ SELECT * FROM public.replace_daily_assignment_slots(%L, '{}'::date[], %L) $$,
     pg_temp.id('101'), jsonb_build_array(pg_temp.slot('401', '2030-04-02', '391'))),
@@ -90,12 +92,14 @@ SELECT bag_eq(
     ('daily_assignment.updated', pg_temp.id('2'), 'operator@example.test', 'Staff Duty', pg_temp.id('302'), 'PFC Roe, Rich',
       '{"date": "2030-04-01", "group": null}'::jsonb),
     ('daily_assignment.cleared', pg_temp.id('2'), 'operator@example.test', 'Area Cleanup', NULL, NULL,
-      '{"date": "2030-04-01"}'::jsonb),
+      '{"date": "2030-04-01", "group": "First Platoon"}'::jsonb),
+    ('daily_assignment.cleared', pg_temp.id('2'), 'operator@example.test', 'Staff Duty', pg_temp.id('302'), 'PFC Roe, Rich',
+      '{"date": "2030-04-01", "group": null}'::jsonb),
     ('daily_assignment.created', pg_temp.id('1'), 'SSG Rivera, Sam', 'Staff Duty', pg_temp.id('301'), 'SPC Doe, Jane',
       '{"date": "2030-04-05", "group": null}'::jsonb),
     ('daily_assignment.created', pg_temp.id('1'), 'SSG Rivera, Sam', 'Staff Duty', pg_temp.id('302'), 'PFC Roe, Rich',
       '{"date": "2030-04-06", "group": null}'::jsonb) $$,
-  'each changed slot names its member, its type, the day and who holds it; a slot left as it was and a roster mark write nothing');
+  'each changed slot names its member, its type, the day and who holds or held it; a slot left as it was and a roster mark write nothing');
 SELECT is(
   (SELECT count(DISTINCT batch_id)::integer FROM public.audit_logs
     WHERE org_id = pg_temp.id('101') AND details ->> 'date' IN ('2030-04-05', '2030-04-06')),
@@ -121,7 +125,7 @@ SELECT lives_ok($$ DELETE FROM public.assignment_types WHERE id = pg_temp.id('40
   'an assignment type with assignments can still be removed');
 SELECT is(
   (SELECT count(*)::integer FROM public.audit_logs WHERE org_id = pg_temp.id('101') AND action = 'daily_assignment.cleared'),
-  1, 'assignments removed with their type leave the type deletion as the audited event');
+  2, 'assignments removed with their type leave the type deletion as the audited event');
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -73,6 +73,18 @@ describe('audit kind catalog', () => {
 		).toBe('Changed the note on Leave for SPC Doe, Jane on 10–20 Nov');
 	});
 
+	it('names who held a cleared daily assignment, and reads a clear saved without one', () => {
+		expect(
+			read('daily_assignment.cleared', { subjectLabel: null, details: { date: '2026-11-10', group: 'Alpha Company' } })
+		).toBe('Cleared Alpha Company from CQ on 10 Nov');
+		expect(read('daily_assignment.cleared', { subjectLabel: null, details: { date: '2026-11-10', group: null } })).toBe(
+			'Cleared CQ on 10 Nov'
+		);
+		expect(read('daily_assignment.cleared', { subjectLabel: null, details: { date: '2026-11-10' } })).toBe(
+			'Cleared CQ on 10 Nov'
+		);
+	});
+
 	it('reads nothing for an update that saved no change', () => {
 		expect(
 			read('availability.updated', { details: { startDate: '2026-11-10', endDate: '2026-11-20', change: {} } })

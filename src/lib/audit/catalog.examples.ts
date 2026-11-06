@@ -569,8 +569,8 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		sentence: 'Changed CQ on 10 Nov to Alpha Company'
 	},
 	'daily_assignment.cleared': {
-		entry: { recordLabel: 'CQ', subjectLabel: null, details: { date: '2026-11-10' } },
-		sentence: 'Cleared CQ on 10 Nov'
+		entry: { recordLabel: 'CQ', subjectLabel: 'SPC Doe, Jane', details: { date: '2026-11-10', group: null } },
+		sentence: 'Cleared SPC Doe, Jane from CQ on 10 Nov'
 	},
 	'assignment_type.roster_excusals_set': {
 		entry: { recordLabel: 'CQ', subjectLabel: null, details: { excused: 2 } },

@@ -1,5 +1,5 @@
--- Moving a critical task completion to another person or task is its own audit entry. Every write runs as an ordinary
--- signed-in member; setup and readback are the only privileged steps.
+-- Moving a critical task completion to another person or task is audited, and a person move also appears under the
+-- person it left. Every write runs as an ordinary signed-in member; setup and readback are the only privileged steps.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
@@ -37,16 +37,20 @@ UPDATE public.personnel_ict_completions SET personnel_id = pg_temp.id('301'), ic
 RESET ROLE;
 
 SELECT bag_eq(
-  $$ SELECT record_label, subject_label, details FROM public.audit_logs
+  $$ SELECT record_label, subject_personnel_id, subject_label, details FROM public.audit_logs
      WHERE action = 'personnel_ict_completion.updated' AND org_id = pg_temp.id('101') $$,
   $$ VALUES
-    ('Apply a tourniquet', 'PFC Roe, Rich',
+    ('Apply a tourniquet', pg_temp.id('302'), 'PFC Roe, Rich',
       '{"completedAt": "2030-03-01", "validationMethod": "Demonstration", "change": {"person": {"from": "SPC Doe, Jane", "to": "PFC Roe, Rich"}}}'::jsonb),
-    ('Treat shock', 'PFC Roe, Rich',
+    ('Apply a tourniquet', pg_temp.id('301'), 'SPC Doe, Jane',
+      '{"completedAt": "2030-03-01", "validationMethod": "Demonstration", "change": {"person": {"from": "SPC Doe, Jane", "to": "PFC Roe, Rich"}}}'::jsonb),
+    ('Treat shock', pg_temp.id('302'), 'PFC Roe, Rich',
       '{"completedAt": "2030-03-01", "validationMethod": "Demonstration", "change": {"task": {"from": "Apply a tourniquet", "to": "Treat shock"}}}'::jsonb),
-    ('Apply a tourniquet', 'SPC Doe, Jane',
+    ('Apply a tourniquet', pg_temp.id('301'), 'SPC Doe, Jane',
+      '{"completedAt": "2030-03-01", "validationMethod": "Demonstration", "change": {"person": {"from": "PFC Roe, Rich", "to": "SPC Doe, Jane"}, "task": {"from": "Treat shock", "to": "Apply a tourniquet"}}}'::jsonb),
+    ('Apply a tourniquet', pg_temp.id('302'), 'PFC Roe, Rich',
       '{"completedAt": "2030-03-01", "validationMethod": "Demonstration", "change": {"person": {"from": "PFC Roe, Rich", "to": "SPC Doe, Jane"}, "task": {"from": "Treat shock", "to": "Apply a tourniquet"}}}'::jsonb) $$,
-  'moving a completion to another person, another task or both saves the old and new labels, and saving it unchanged saves nothing');
+  'a person move saves one entry under the new person and one under the previous person, a task-only move saves one, and saving it unchanged saves nothing');
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -624,6 +624,7 @@ DECLARE
   v_details jsonb;
   v_task text;
   v_who text;
+  v_previous_who text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -672,6 +673,15 @@ BEGIN
     v_row.organization_id, v_kind, 'personnel_ict_completion', v_row.id, v_task,
     v_row.personnel_id, v_who, v_details
   );
+  IF TG_OP = 'UPDATE' AND NEW.personnel_id IS DISTINCT FROM OLD.personnel_id THEN
+    v_previous_who := audit_private.personnel_label(OLD.organization_id, OLD.personnel_id);
+    IF v_previous_who IS NOT NULL THEN
+      PERFORM audit_private.record_entry(
+        v_row.organization_id, v_kind, 'personnel_ict_completion', v_row.id, v_task,
+        OLD.personnel_id, v_previous_who, v_details
+      );
+    END IF;
+  END IF;
   RETURN NULL;
 END;
 $$;

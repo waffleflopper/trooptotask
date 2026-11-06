@@ -40,5 +40,6 @@ export const ORGANIZATION_AUDIT_EXCLUDED_ACTIONS = [
 	'auth.login_success',
 	'auth.login_failure',
 	'auth.mfa_verify',
-	'security.rate_limit_violation'
+	'security.rate_limit_violation',
+	'security.rate_limit_exceeded'
 ];

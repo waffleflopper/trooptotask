@@ -4,16 +4,18 @@ import { auditKind, day, plural, savedLabel } from './shared';
 
 const nonNegative = z.number().int().min(0);
 
-const assignee = z
-	.object({
-		record: savedLabel,
-		subject: savedLabel.nullish(),
-		details: z.object({ date: dateOnlySchema, group: savedLabel.nullable() })
-	})
-	.refine(({ subject, details }) => Boolean(subject) || details.group !== null);
-const who = ({ subject, details }: z.infer<typeof assignee>) => subject ?? details.group;
-
-const slot = z.object({ record: savedLabel, details: z.object({ date: dateOnlySchema }) });
+const slot = z.object({
+	record: savedLabel,
+	subject: savedLabel.nullish(),
+	details: z.object({ date: dateOnlySchema, group: savedLabel.nullable() })
+});
+const assignee = slot.refine(({ subject, details }) => Boolean(subject) || details.group !== null);
+const who = ({ subject, details }: z.infer<typeof slot>) => subject ?? details.group;
+/** A clear saved before clears named who held the slot carries only its day. */
+const clearedSlot = z.union([
+	slot,
+	z.object({ record: savedLabel, subject: z.null(), details: z.object({ date: dateOnlySchema }) })
+]);
 const taskingList = z.object({ record: savedLabel, details: z.object({ item: savedLabel.nullable() }) });
 
 function reordered(noun: string) {
@@ -46,8 +48,11 @@ export const calendarAppKinds = {
 	}),
 	'daily_assignment.cleared': auditKind({
 		writer: 'database',
-		entry: slot,
-		sentence: ({ record, details }, context) => `Cleared ${record} on ${day(details.date, context)}`,
+		entry: clearedSlot,
+		sentence: (entry, context) => {
+			const held = 'group' in entry.details ? (entry.subject ?? entry.details.group) : null;
+			return `Cleared ${held ? `${held} from ` : ''}${entry.record} on ${day(entry.details.date, context)}`;
+		},
 		batch: { verb: 'Cleared', one: 'daily assignment', many: 'daily assignments' }
 	}),
 	'assignment_type.roster_excusals_set': auditKind({

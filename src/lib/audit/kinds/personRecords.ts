@@ -3,10 +3,13 @@ import { auditKind, savedLabel } from './shared';
 
 const aboutPerson = z.object({ subject: savedLabel, details: z.object({}) });
 
-/** A change to a record that belongs to one person. Titles and text are never kept, the entry names whose record it was. */
+/**
+ * A change to a record that belongs to one person, written by the database with the change. Titles and text are never
+ * kept, the entry names whose record it was.
+ */
 const onRecord = (verb: string, noun: string) =>
 	auditKind({
-		writer: 'app',
+		writer: 'database',
 		entry: aboutPerson,
 		sentence: ({ subject }) => `${verb} a ${noun} for ${subject}`,
 		batch: { verb, one: noun, many: `${noun}s` }
@@ -14,10 +17,12 @@ const onRecord = (verb: string, noun: string) =>
 
 export const personRecordKinds = {
 	'personnel.counseling_record.created': onRecord('Added', 'counseling record'),
+	'personnel.counseling_record.updated': onRecord('Changed', 'counseling record'),
 	'personnel.counseling_record.archived': onRecord('Archived', 'counseling record'),
 	'personnel.counseling_record.restored': onRecord('Restored', 'counseling record'),
 	'personnel.counseling_record.deleted': onRecord('Deleted', 'counseling record'),
 	'personnel.document.created': onRecord('Added', 'document'),
+	'personnel.document.updated': onRecord('Changed', 'document'),
 	'personnel.document.archived': onRecord('Archived', 'document'),
 	'personnel.document.restored': onRecord('Restored', 'document'),
 	'personnel.document.deleted': onRecord('Deleted', 'document'),

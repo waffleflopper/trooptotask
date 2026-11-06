@@ -345,7 +345,6 @@ describe('personnel counseling records', () => {
 		await expect(
 			restorePersonnelCounselingRecord(context, { personnelId: 'person-1', recordId: created.id })
 		).resolves.toMatchObject({ id: created.id, archivedAt: null });
-		expect(ctx.auditPort.events.at(-1)).toMatchObject({ action: 'personnel.counseling_record.restored' });
 		await archivePersonnelCounselingRecord(context, { personnelId: 'person-1', recordId: created.id });
 		await expect(
 			archivePersonnelCounselingRecord(context, { personnelId: 'person-1', recordId: created.id })
@@ -378,9 +377,6 @@ describe('personnel counseling records', () => {
 			deletePersonnelCounselingRecord(context, { personnelId: 'person-1', recordId: created.id })
 		).resolves.toEqual({ fileCleanup: 'complete' });
 		expect(ctx.storagePort.files).toEqual([]);
-		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.counseling_record.deleted')).toHaveLength(
-			1
-		);
 	});
 
 	it('does not mutate a counseling belonging to another Person in the same Organization', async () => {

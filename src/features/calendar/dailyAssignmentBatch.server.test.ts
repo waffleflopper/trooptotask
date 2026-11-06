@@ -230,23 +230,6 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		expect(ctx.store.insertMany).not.toHaveBeenCalled();
 	});
 
-	it('logs an audit event', async () => {
-		const ctx = buildContext();
-		await replaceDailyAssignmentSlotsBatch(ctx, {
-			records: [
-				{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
-				{ date: '2026-03-22', assignmentTypeId: TYPE_B, assigneeId: '' }
-			]
-		});
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({
-				action: 'daily_assignment.created',
-				details: { date: '2026-03-22', group: null },
-				subject: { personnelId: PERSON_1 }
-			})
-		]);
-	});
-
 	it('clears affected slots and inserts upserts', async () => {
 		const ctx = buildContext();
 
@@ -275,7 +258,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		expect((remaining[0] as Record<string, unknown>).assignee_id).toBe(PERSON_1);
 	});
 
-	it('treats whitespace assignees as clears before persistence and audit entries', async () => {
+	it('treats whitespace assignees as clears before persistence', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('daily_assignments', [
 			{
@@ -293,9 +276,6 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 
 		expect(result).toEqual({ inserted: [], cleared: 1 });
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({ action: 'daily_assignment.cleared', details: { date: '2026-03-22' } })
-		]);
 	});
 
 	it('rejects duplicate set records before policy, persistence, and audit side effects', async () => {

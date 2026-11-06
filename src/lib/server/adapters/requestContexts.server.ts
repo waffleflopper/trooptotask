@@ -384,7 +384,6 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 export function createRequestPersonnelLogBatchContext(request: AdmittedOrganizationRequest): PersonnelLogBatchContext {
 	return {
 		auth: request.auth,
-		audit: request.audit,
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient)
 	};

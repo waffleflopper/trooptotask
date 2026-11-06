@@ -199,13 +199,6 @@ export async function createPersonnelCounselingRecord(
 	}
 	await upload.complete();
 
-	await ctx.audit.log({
-		action: 'personnel.counseling_record.created',
-		resourceType: 'personnel',
-		resourceId: input.personnelId,
-		subject: { personnelId: input.personnelId }
-	});
-
 	const labels = await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []);
 	return mapCounselingRow(row, labels);
 }
@@ -227,12 +220,6 @@ export async function archivePersonnelCounselingRecord(
 		at: new Date().toISOString(),
 		by: ctx.actor.userId
 	});
-	await ctx.audit.log({
-		action: 'personnel.counseling_record.archived',
-		resourceType: 'personnel',
-		resourceId: input.personnelId,
-		subject: { personnelId: input.personnelId }
-	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
@@ -242,12 +229,6 @@ export async function restorePersonnelCounselingRecord(
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	const row = await writer.setCounselingArchive(input.recordId, null);
-	await ctx.audit.log({
-		action: 'personnel.counseling_record.restored',
-		resourceType: 'personnel',
-		resourceId: input.personnelId,
-		subject: { personnelId: input.personnelId }
-	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
@@ -261,13 +242,6 @@ export async function deletePersonnelCounselingRecord(
 	const result = await writer.deleteArchivedFileArtifact('counseling', input.recordId, row?.archived_at ?? null);
 	if (!result)
 		fail(row ? 409 : 404, row ? 'Counseling record changed before it was deleted' : 'Counseling record not found');
-	if (result.deleted)
-		await ctx.audit.log({
-			action: 'personnel.counseling_record.deleted',
-			resourceType: 'personnel',
-			resourceId: input.personnelId,
-			subject: { personnelId: input.personnelId }
-		});
 	return { fileCleanup: result.fileCleanup };
 }
 

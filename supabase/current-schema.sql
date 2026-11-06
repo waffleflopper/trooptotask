@@ -420,6 +420,73 @@ $$;
 ALTER FUNCTION audit_private.audit_calendar_tasking_equipment() OWNER TO postgres;
 
 --
+-- Name: audit_daily_assignment(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_daily_assignment() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $_$
+DECLARE
+  v_row public.daily_assignments;
+  v_type text;
+  v_assign_to text;
+  v_assignee uuid;
+  v_person uuid;
+  v_who text;
+  v_group text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  SELECT kind.name, kind.assign_to INTO v_type, v_assign_to FROM public.assignment_types kind
+  WHERE kind.id = v_row.assignment_type_id AND kind.organization_id = v_row.organization_id;
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(
+      v_type, v_row.assignment_type_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.assignment_type_id END);
+  END IF;
+  IF v_type IS NULL OR NOT audit_private.unit_exists(v_row.organization_id) THEN
+    RETURN NULL;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    PERFORM audit_private.record_entry(
+      OLD.organization_id, 'daily_assignment.cleared', 'daily_assignment', OLD.id, v_type, NULL, NULL,
+      pg_catalog.jsonb_build_object('date', OLD.date));
+    RETURN NULL;
+  END IF;
+  IF TG_OP = 'UPDATE' AND NEW.assignee_id IS NOT DISTINCT FROM OLD.assignee_id AND NEW.date = OLD.date
+    AND NEW.assignment_type_id = OLD.assignment_type_id
+  THEN
+    RETURN NULL;
+  END IF;
+
+  IF NEW.assignee_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    v_assignee := NEW.assignee_id::uuid;
+  END IF;
+  IF v_assign_to = 'group' THEN
+    SELECT team.name INTO v_group FROM public.groups team
+    WHERE team.id = v_assignee AND team.organization_id = NEW.organization_id;
+    v_who := v_group;
+  ELSE
+    v_who := audit_private.personnel_label(NEW.organization_id, v_assignee);
+    v_person := CASE WHEN v_who IS NOT NULL THEN v_assignee END;
+  END IF;
+  PERFORM audit_private.record_entry(
+    NEW.organization_id,
+    CASE TG_OP WHEN 'INSERT' THEN 'daily_assignment.created' ELSE 'daily_assignment.updated' END,
+    'daily_assignment', NEW.id, v_type, v_person, CASE WHEN v_person IS NOT NULL THEN v_who END,
+    pg_catalog.jsonb_build_object('date', NEW.date, 'group', v_group));
+  RETURN NULL;
+END;
+$_$;
+
+
+ALTER FUNCTION audit_private.audit_daily_assignment() OWNER TO postgres;
+
+--
 -- Name: audit_group(); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
@@ -817,6 +884,79 @@ $$;
 
 
 ALTER FUNCTION audit_private.audit_personnel() OWNER TO postgres;
+
+--
+-- Name: audit_personnel_artifact(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_personnel_artifact() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_old jsonb;
+  v_new jsonb;
+  v_row jsonb;
+  v_org uuid;
+  v_person uuid;
+  v_who text;
+  v_person_archived timestamptz;
+  v_event text;
+BEGIN
+  IF TG_OP <> 'INSERT' THEN
+    v_old := pg_catalog.to_jsonb(OLD);
+  END IF;
+  IF TG_OP <> 'DELETE' THEN
+    v_new := pg_catalog.to_jsonb(NEW);
+  END IF;
+  v_row := coalesce(v_new, v_old);
+  v_org := (v_row ->> 'organization_id')::uuid;
+  v_person := (v_row ->> 'personnel_id')::uuid;
+  v_who := audit_private.personnel_label(v_org, v_person);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_who, v_person, (v_old ->> 'personnel_id')::uuid);
+  END IF;
+  -- Rows removed with their person or unit: that deletion is the audited event.
+  IF v_who IS NULL OR NOT audit_private.unit_exists(v_org) THEN
+    RETURN NULL;
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    v_event := 'created';
+  ELSIF TG_OP = 'DELETE' THEN
+    v_event := 'deleted';
+  ELSIF (v_old -> 'archived_at') IS DISTINCT FROM (v_new -> 'archived_at') THEN
+    -- Archiving or restoring a person carries their records with the person's own archive time. The person's entry
+    -- is the audited event.
+    SELECT person.archived_at INTO v_person_archived FROM public.personnel person
+    WHERE person.id = v_person AND person.organization_id = v_org;
+    IF v_person_archived = coalesce((v_new ->> 'archived_at')::timestamptz, (v_old ->> 'archived_at')::timestamptz) THEN
+      RETURN NULL;
+    END IF;
+    v_event := CASE WHEN v_new ->> 'archived_at' IS NULL THEN 'restored' ELSE 'archived' END;
+  ELSIF TG_TABLE_NAME = 'personnel_follow_ups' AND (v_old -> 'completed_at') IS DISTINCT FROM (v_new -> 'completed_at') THEN
+    v_event := CASE WHEN v_new ->> 'completed_at' IS NULL THEN 'reopened' ELSE 'completed' END;
+  ELSE
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_catalog.jsonb_each(v_new) AS field
+      WHERE field.value IS DISTINCT FROM v_old -> field.key
+        AND field.key NOT IN ('updated_at', 'archived_by', 'completed_by')
+        AND NOT (TG_TABLE_NAME = 'personnel_follow_ups' AND field.key = 'status')
+    ) THEN
+      RETURN NULL;
+    END IF;
+    v_event := 'updated';
+  END IF;
+
+  PERFORM audit_private.record_entry(
+    v_org, TG_ARGV[0] || '.' || v_event, TG_ARGV[1], (v_row ->> 'id')::uuid, NULL, v_person, v_who, '{}'::jsonb
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_personnel_artifact() OWNER TO postgres;
 
 --
 -- Name: audit_personnel_extended_info(); Type: FUNCTION; Schema: audit_private; Owner: postgres
@@ -4535,6 +4675,8 @@ CREATE FUNCTION public.approve_counseling_deletion_request(p_organization_id uui
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
+DECLARE
+  v_claim text := pg_catalog.current_setting('request.jwt.claim.sub', true);
 BEGIN
   UPDATE public.deletion_requests
   SET status = 'approved',
@@ -4551,6 +4693,7 @@ BEGIN
     RAISE EXCEPTION 'Pending deletion request not found' USING ERRCODE = 'P0002';
   END IF;
 
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(p_reviewer_id::text, ''), true);
   DELETE FROM public.counseling_records
   WHERE organization_id = p_organization_id
     AND id = p_record_id
@@ -4559,6 +4702,7 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Counseling record not found' USING ERRCODE = 'P0002';
   END IF;
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_claim, ''), true);
 END;
 $$;
 
@@ -7063,16 +7207,20 @@ $$;
 ALTER FUNCTION public.decline_organization_invitation(p_invitation_id uuid) OWNER TO postgres;
 
 --
--- Name: delete_archived_personnel_artifact(uuid, uuid, text, uuid, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: delete_archived_personnel_artifact(uuid, uuid, text, uuid, timestamp with time zone, uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone) RETURNS TABLE(deleted boolean, bucket_id text, object_name text, file_removed boolean)
+CREATE FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone, p_actor uuid DEFAULT NULL::uuid) RETURNS TABLE(deleted boolean, bucket_id text, object_name text, file_removed boolean)
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 DECLARE
+  v_claim text := pg_catalog.current_setting('request.jwt.claim.sub', true);
   v_deleted boolean;
 BEGIN
+  IF p_actor IS NOT NULL THEN
+    PERFORM pg_catalog.set_config('request.jwt.claim.sub', p_actor::text, true);
+  END IF;
   IF p_kind = 'counseling' THEN
     DELETE FROM public.counseling_records
       WHERE id = p_artifact_id AND organization_id = p_organization_id AND personnel_id = p_personnel_id
@@ -7085,13 +7233,14 @@ BEGIN
     RAISE EXCEPTION 'Unknown Personnel file artifact' USING ERRCODE = '22023';
   END IF;
   v_deleted := FOUND;
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_claim, ''), true);
   RETURN QUERY SELECT v_deleted, deletion.bucket_id, deletion.object_name, deletion.file_removed
     FROM organization_private.artifact_file_deletion(p_organization_id, p_personnel_id, p_kind, p_artifact_id) AS deletion;
 END;
 $$;
 
 
-ALTER FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone) OWNER TO postgres;
+ALTER FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone, p_actor uuid) OWNER TO postgres;
 
 --
 -- Name: delete_availability_entries(uuid, uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
@@ -7385,6 +7534,35 @@ $$;
 
 
 ALTER FUNCTION public.delete_onboarding_template(p_organization_id uuid, p_template_id uuid) OWNER TO postgres;
+
+--
+-- Name: delete_personnel_artifact(uuid, uuid, uuid, text, uuid); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.delete_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $_$
+DECLARE
+  v_claim text := pg_catalog.current_setting('request.jwt.claim.sub', true);
+BEGIN
+  -- Counseling records and documents hold a stored file, so only delete_archived_personnel_artifact removes them.
+  IF p_table IS NULL OR p_table NOT IN ('leader_notes', 'personnel_follow_ups') THEN
+    RAISE EXCEPTION 'Unsupported Personnel artifact table' USING ERRCODE = '22023';
+  END IF;
+  IF p_actor IS NULL THEN
+    RAISE EXCEPTION 'Invalid Personnel artifact write' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', p_actor::text, true);
+  EXECUTE pg_catalog.format(
+    'DELETE FROM public.%I WHERE organization_id = $1 AND personnel_id = $2 AND id = $3', p_table
+  ) USING p_organization_id, p_personnel_id, p_id;
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_claim, ''), true);
+END;
+$_$;
+
+
+ALTER FUNCTION public.delete_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid) OWNER TO postgres;
 
 --
 -- Name: delete_sign_in_roster(uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
@@ -7994,6 +8172,50 @@ $$;
 
 
 ALTER FUNCTION public.import_availability_entries(p_organization_id uuid, p_entries jsonb) OWNER TO postgres;
+
+--
+-- Name: insert_personnel_artifacts(uuid, uuid, text, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.insert_personnel_artifacts(p_actor uuid, p_organization_id uuid, p_table text, p_rows jsonb) RETURNS SETOF jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $_$
+DECLARE
+  v_claim text := pg_catalog.current_setting('request.jwt.claim.sub', true);
+  v_row jsonb;
+  v_columns text;
+  v_saved jsonb;
+BEGIN
+  IF p_table IS NULL OR p_table NOT IN ('leader_notes', 'personnel_follow_ups', 'counseling_records', 'personnel_documents') THEN
+    RAISE EXCEPTION 'Unsupported Personnel artifact table' USING ERRCODE = '22023';
+  END IF;
+  IF p_actor IS NULL OR p_organization_id IS NULL OR pg_catalog.jsonb_typeof(p_rows) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Invalid Personnel artifact write' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', p_actor::text, true);
+  FOR v_row IN SELECT value FROM pg_catalog.jsonb_array_elements(p_rows) LOOP
+    IF pg_catalog.jsonb_typeof(v_row) IS DISTINCT FROM 'object' OR v_row ? 'id' OR v_row ? 'organization_id'
+      OR NOT v_row ? 'personnel_id'
+    THEN
+      RAISE EXCEPTION 'Invalid Personnel artifact write' USING ERRCODE = '22023';
+    END IF;
+    v_row := v_row || pg_catalog.jsonb_build_object('organization_id', p_organization_id);
+    SELECT pg_catalog.string_agg(pg_catalog.quote_ident(key), ', ') INTO v_columns
+    FROM pg_catalog.jsonb_object_keys(v_row) AS key;
+    EXECUTE pg_catalog.format(
+      'INSERT INTO public.%1$I (%2$s) SELECT %2$s FROM pg_catalog.jsonb_populate_record(NULL::public.%1$I, $1) '
+        'RETURNING pg_catalog.to_jsonb(%1$I.*)',
+      p_table, v_columns
+    ) INTO v_saved USING v_row;
+    RETURN NEXT v_saved;
+  END LOOP;
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_claim, ''), true);
+END;
+$_$;
+
+
+ALTER FUNCTION public.insert_personnel_artifacts(p_actor uuid, p_organization_id uuid, p_table text, p_rows jsonb) OWNER TO postgres;
 
 --
 -- Name: is_org_member(uuid); Type: FUNCTION; Schema: public; Owner: postgres
@@ -13411,6 +13633,47 @@ $$;
 ALTER FUNCTION public.undo_roster_swap(p_organization_id uuid, p_swap_id uuid, p_today date) OWNER TO postgres;
 
 --
+-- Name: update_personnel_artifact(uuid, uuid, uuid, text, uuid, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.update_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid, p_patch jsonb) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $_$
+DECLARE
+  v_claim text := pg_catalog.current_setting('request.jwt.claim.sub', true);
+  v_columns text;
+  v_saved jsonb;
+BEGIN
+  IF p_table IS NULL OR p_table NOT IN ('leader_notes', 'personnel_follow_ups', 'counseling_records', 'personnel_documents') THEN
+    RAISE EXCEPTION 'Unsupported Personnel artifact table' USING ERRCODE = '22023';
+  END IF;
+  IF p_actor IS NULL OR pg_catalog.jsonb_typeof(p_patch) IS DISTINCT FROM 'object' OR p_patch = '{}'::jsonb
+    OR p_patch ?| ARRAY['id', 'organization_id', 'personnel_id']
+  THEN
+    RAISE EXCEPTION 'Invalid Personnel artifact write' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', p_actor::text, true);
+  SELECT pg_catalog.string_agg(pg_catalog.quote_ident(key), ', ') INTO v_columns
+  FROM pg_catalog.jsonb_object_keys(p_patch) AS key;
+  EXECUTE pg_catalog.format(
+    'UPDATE public.%1$I AS row_value SET (%2$s) = (SELECT %2$s FROM pg_catalog.jsonb_populate_record(NULL::public.%1$I, $1)) '
+      'WHERE row_value.organization_id = $2 AND row_value.personnel_id = $3 AND row_value.id = $4 '
+      'RETURNING pg_catalog.to_jsonb(row_value.*)',
+    p_table, v_columns
+  ) INTO v_saved USING p_patch, p_organization_id, p_personnel_id, p_id;
+  IF v_saved IS NULL THEN
+    RAISE EXCEPTION 'Personnel artifact not found' USING ERRCODE = 'P0002';
+  END IF;
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_claim, ''), true);
+  RETURN v_saved;
+END;
+$_$;
+
+
+ALTER FUNCTION public.update_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid, p_patch jsonb) OWNER TO postgres;
+
+--
 -- Name: update_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -17103,6 +17366,27 @@ CREATE TRIGGER audit_calendar_tasking_equipment AFTER INSERT OR DELETE OR UPDATE
 
 
 --
+-- Name: counseling_records audit_counseling_record; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_counseling_record AFTER INSERT OR DELETE OR UPDATE ON public.counseling_records FOR EACH ROW EXECUTE FUNCTION audit_private.audit_personnel_artifact('personnel.counseling_record', 'counseling_record');
+
+
+--
+-- Name: daily_assignments audit_daily_assignment; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_daily_assignment AFTER INSERT OR DELETE OR UPDATE ON public.daily_assignments FOR EACH ROW EXECUTE FUNCTION audit_private.audit_daily_assignment();
+
+
+--
+-- Name: personnel_follow_ups audit_follow_up; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_follow_up AFTER INSERT OR DELETE OR UPDATE ON public.personnel_follow_ups FOR EACH ROW EXECUTE FUNCTION audit_private.audit_personnel_artifact('personnel.follow_up', 'follow_up');
+
+
+--
 -- Name: groups audit_group; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -17121,6 +17405,13 @@ CREATE TRIGGER audit_ict_completion AFTER INSERT OR DELETE OR UPDATE ON public.p
 --
 
 CREATE TRIGGER audit_ict_task AFTER INSERT OR DELETE OR UPDATE ON public.ict_tasks FOR EACH ROW EXECUTE FUNCTION audit_private.audit_ict_task();
+
+
+--
+-- Name: leader_notes audit_leader_note; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_leader_note AFTER INSERT OR DELETE OR UPDATE ON public.leader_notes FOR EACH ROW EXECUTE FUNCTION audit_private.audit_personnel_artifact('personnel.leader_note', 'leader_note');
 
 
 --
@@ -17149,6 +17440,13 @@ CREATE TRIGGER audit_onboarding_template_step AFTER INSERT OR DELETE OR UPDATE O
 --
 
 CREATE TRIGGER audit_personnel AFTER INSERT OR DELETE OR UPDATE ON public.personnel FOR EACH ROW EXECUTE FUNCTION audit_private.audit_personnel();
+
+
+--
+-- Name: personnel_documents audit_personnel_document; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_personnel_document AFTER INSERT OR DELETE OR UPDATE ON public.personnel_documents FOR EACH ROW EXECUTE FUNCTION audit_private.audit_personnel_artifact('personnel.document', 'personnel_document');
 
 
 --
@@ -20853,6 +21151,13 @@ REVOKE ALL ON FUNCTION audit_private.audit_calendar_tasking_equipment() FROM PUB
 
 
 --
+-- Name: FUNCTION audit_daily_assignment(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_daily_assignment() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION audit_group(); Type: ACL; Schema: audit_private; Owner: postgres
 --
 
@@ -20899,6 +21204,13 @@ REVOKE ALL ON FUNCTION audit_private.audit_onboarding_template_step() FROM PUBLI
 --
 
 REVOKE ALL ON FUNCTION audit_private.audit_personnel() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_personnel_artifact(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_personnel_artifact() FROM PUBLIC;
 
 
 --
@@ -22396,11 +22708,11 @@ GRANT ALL ON FUNCTION public.decline_organization_invitation(p_invitation_id uui
 
 
 --
--- Name: FUNCTION delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone, p_actor uuid); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone) TO service_role;
+REVOKE ALL ON FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone, p_actor uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_artifact_id uuid, p_archived_at timestamp with time zone, p_actor uuid) TO service_role;
 
 
 --
@@ -22457,6 +22769,14 @@ GRANT ALL ON FUNCTION public.delete_group_with_reassignment(p_organization_id uu
 
 REVOKE ALL ON FUNCTION public.delete_onboarding_template(p_organization_id uuid, p_template_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.delete_onboarding_template(p_organization_id uuid, p_template_id uuid) TO authenticated;
+
+
+--
+-- Name: FUNCTION delete_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.delete_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.delete_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid) TO service_role;
 
 
 --
@@ -22563,6 +22883,14 @@ GRANT ALL ON FUNCTION public.guard_onboarding_workflow_identity() TO service_rol
 
 REVOKE ALL ON FUNCTION public.import_availability_entries(p_organization_id uuid, p_entries jsonb) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.import_availability_entries(p_organization_id uuid, p_entries jsonb) TO authenticated;
+
+
+--
+-- Name: FUNCTION insert_personnel_artifacts(p_actor uuid, p_organization_id uuid, p_table text, p_rows jsonb); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.insert_personnel_artifacts(p_actor uuid, p_organization_id uuid, p_table text, p_rows jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.insert_personnel_artifacts(p_actor uuid, p_organization_id uuid, p_table text, p_rows jsonb) TO service_role;
 
 
 --
@@ -23604,6 +23932,14 @@ GRANT ALL ON FUNCTION public.transition_calendar_tasking(p_organization_id uuid,
 
 REVOKE ALL ON FUNCTION public.undo_roster_swap(p_organization_id uuid, p_swap_id uuid, p_today date) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.undo_roster_swap(p_organization_id uuid, p_swap_id uuid, p_today date) TO authenticated;
+
+
+--
+-- Name: FUNCTION update_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid, p_patch jsonb); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.update_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid, p_patch jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.update_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid, p_patch jsonb) TO service_role;
 
 
 --

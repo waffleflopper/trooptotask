@@ -33,19 +33,19 @@ export const calendarAppKinds = {
 		batch: { verb: 'Viewed', one: 'calendar report', many: 'calendar reports' }
 	}),
 	'daily_assignment.created': auditKind({
-		writer: 'app',
+		writer: 'database',
 		entry: assignee,
 		sentence: (entry, context) => `Assigned ${who(entry)} to ${entry.record} on ${day(entry.details.date, context)}`,
 		batch: { verb: 'Assigned', one: 'daily assignment', many: 'daily assignments' }
 	}),
 	'daily_assignment.updated': auditKind({
-		writer: 'app',
+		writer: 'database',
 		entry: assignee,
 		sentence: (entry, context) => `Changed ${entry.record} on ${day(entry.details.date, context)} to ${who(entry)}`,
 		batch: { verb: 'Changed', one: 'daily assignment', many: 'daily assignments' }
 	}),
 	'daily_assignment.cleared': auditKind({
-		writer: 'app',
+		writer: 'database',
 		entry: slot,
 		sentence: ({ record, details }, context) => `Cleared ${record} on ${day(details.date, context)}`,
 		batch: { verb: 'Cleared', one: 'daily assignment', many: 'daily assignments' }

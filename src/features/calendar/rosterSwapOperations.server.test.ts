@@ -339,35 +339,6 @@ describe('duty swap operations', () => {
 		]);
 	});
 
-	it.each(['swap', 'undo'] as const)('waits for the %s audit before reporting success', async (kind) => {
-		const ctx = context();
-		let release = () => {};
-		let logged = false;
-		let completed = false;
-		const held = new Promise<void>((resolve) => {
-			release = resolve;
-		});
-		ctx.audit.log = async (event) => {
-			expect(event).toMatchObject({
-				action: 'daily_assignment.updated',
-				resourceType: 'daily_assignment',
-				details: { date: expect.stringMatching(/^2026-10-(12|19)$/) }
-			});
-			logged = true;
-			await held;
-		};
-		const pending = (
-			kind === 'swap' ? commitRosterSwap(ctx, request) : undoRosterSwap(ctx, { today, swapId: SWAP })
-		).then((value) => {
-			completed = true;
-			return value;
-		});
-		await vi.waitFor(() => expect(logged).toBe(true));
-		expect(completed).toBe(false);
-		release();
-		await expect(pending).resolves.toEqual(result);
-	});
-
 	it.each([
 		['RSW01', 409, 'The roster changed since this preview. Review the days and try again.'],
 		['RSW02', 400, 'Swap only today or later days.'],
@@ -436,22 +407,6 @@ describe('duty swap operations', () => {
 				}
 			]
 		});
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({
-				action: 'daily_assignment.updated',
-				resourceType: 'daily_assignment',
-				subject: { personnelId: PATEL },
-				details: { date: '2026-10-12', group: null }
-			}),
-			expect.objectContaining({
-				action: 'daily_assignment.updated',
-				resourceType: 'daily_assignment',
-				subject: { personnelId: KIM },
-				details: { date: '2026-10-19', group: null }
-			})
-		]);
-		expect(new Set(ctx.audit.events.map((event) => event.batchId)).size).toBe(1);
-		expect(ctx.audit.events[0].batchId).toEqual(expect.any(String));
 	});
 
 	it('explains why an elapsed swap cannot be undone', async () => {

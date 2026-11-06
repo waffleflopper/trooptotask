@@ -20,8 +20,11 @@ Organizations without disclosing those privileged details to anyone else.
 - `family-capture`: the same holds for Personnel, Training, Critical Tasks, Onboarding, Groups, the Calendar
   catalogs, and Calendar events and taskings with their equipment and checklist items. A change made through the member's own session is audited by the database in the same transaction, with the
   signed-in member as Actor and saved labels for the record and, for a person's record, the person (`<rank> <last>,
-<first>`). A change the server makes with its own authority (a leader note, counseling record, document, export or
-  deletion request) is written by the app, awaited, and fails the change if the write fails. Seeded fixture rows are
+<first>`). Leader notes, follow-ups, counseling records, documents and daily assignments are audited the same way:
+  the server writes them through service-role commands that name the signed-in member, so the database records that
+  member as Actor, and a failed audit write rolls the change back. Archiving or restoring a person writes no entry per
+  record. Any other change the server makes with its own authority (an export or a deletion request) is written by the
+  app, awaited, and fails the change if the write fails. Seeded fixture rows are
   written by the database with no signed-in member and read `System`.
 - `streamed-load`: Logs paints its header and filters at once, holds the results skeleton while the audit read runs and
   shows its own load error, with retry, when that read fails. A failed Load more keeps the rows above it and offers its
@@ -181,9 +184,12 @@ record <type> for <person>, completed <d Mon>`). On ICTLs, open an empty cell, p
    Save (`personnel_ict_completion.created`). On Onboard, Start onboarding for a person
    (`onboarding.started`, `Started onboarding for <person> (<template>)`). On a person's page, Add to record then
    Note (`personnel.leader_note.created`, `Added a leader note for <person>`, empty `details`, `subject_label` filled
-   by the database). In Calendar Settings, Add new status type (`status_type.created`). On Events, add an event (`calendar_event.created`, `Added event <title> from <d Mon> to <d Mon>`), then cancel
+   by the database). On its Log, add a follow-up and tick it (`personnel.follow_up.created`, then
+   `personnel.follow_up.completed`). On Files, add a counseling PDF and a document (`personnel.counseling_record.created`,
+   `personnel.document.created`). None of these saves its title, text or file name. In Calendar Settings, Add new status type (`status_type.created`). On Events, add an event (`calendar_event.created`, `Added event <title> from <d Mon> to <d Mon>`), then cancel
    it (`calendar_event.cancelled`; the reason is never saved). On a Tasking, Start it (`calendar_tasking.started`).
-   A roster Fill writes one `daily_assignment.created` per day under one batch, which Logs folds into one line. Every one of these shows the
+   A roster Fill writes one `daily_assignment.created` per day under one batch, which Logs folds into one line. A day
+   cleared on the planner writes `daily_assignment.cleared` with only its date. Every one of these shows the
    owner's email as Actor, while the fixture's own rows show `System`. Then rename the person (Last name in Quick
    edit): the earlier sentences keep the old name and the rename reads `Changed SPC Alder, Synthetic: name Able,
 Synthetic → Alder, Synthetic`. Restore the name. The Add onboarding Member picker lists names only on screen, not

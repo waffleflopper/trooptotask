@@ -841,7 +841,7 @@ export function createTestAuditPort(): BatchAuditPort & { events: AuditEvent[] }
 		events,
 		async log(event: AuditEvent): Promise<void> {
 			const kind = auditKindOf(event.action);
-			if (kind?.writer === 'database') throw new Error(`${event.action} is recorded by the database`);
+			if (kind && kind.writer !== 'app') throw new Error(`${event.action} is not written by the app`);
 			const entry = {
 				record: event.record ?? null,
 				subject: event.subject ? (event.subject.label ?? 'A person') : null,

@@ -146,11 +146,14 @@ describe('auditLog', () => {
 		});
 	});
 
-	it('refuses an app write of an entry the database owns', async () => {
+	it.each([
+		['the database owns', 'status_type.created', { record: 'Leave' }],
+		['is retired', 'organization.rank_catalog.reconciled', { details: { added: 3 } }]
+	] as const)('refuses an app write of an entry %s', async (_owner, action, entry) => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
-		await expect(
-			auditLog({ action: 'status_type.created', resourceType: 'status_type', record: 'Leave' }, { userId: null })
-		).rejects.toThrow('Audit log write failed');
+		await expect(auditLog({ action, resourceType: 'organization', ...entry }, { userId: null })).rejects.toThrow(
+			'Audit log write failed'
+		);
 		expect(rpc).not.toHaveBeenCalled();
 	});
 

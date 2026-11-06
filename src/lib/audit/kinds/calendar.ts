@@ -205,5 +205,11 @@ export const calendarKinds = {
 		entry: z.object({ details: z.object({ count: z.number().int().positive() }) }),
 		sentence: ({ details }) => `Reordered ${plural(details.count, 'status type', 'status types')}`,
 		batch: { verb: 'Reordered', one: 'status type list', many: 'status type lists' }
+	}),
+	'special_day.federal_holidays_reset': auditKind({
+		writer: 'retired',
+		entry: z.object({ details: z.object({ count: z.number().int().positive() }) }),
+		sentence: ({ details }) => `Reset the federal holidays to ${plural(details.count, 'default', 'defaults')}`,
+		batch: { verb: 'Reset', one: 'set of federal holidays', many: 'sets of federal holidays' }
 	})
 } as const;

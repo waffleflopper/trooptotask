@@ -521,10 +521,10 @@ export interface AuditLine extends AuditEntryView {
  * whose older entries were not loaded, so its counts read as a floor.
  */
 export function auditLines(loaded: readonly AuditEntryView[], partialBatchId?: string | null): AuditLine[] {
-	// A change that belongs under two people is saved once for each, at the same instant; show it once.
+	// A completion moved to another person is saved once under each person, at the same instant; show it once.
 	const written = new Set<string>();
 	const entries = loaded.filter((entry) => {
-		if (!entry.batchId || !entry.resourceId) return true;
+		if (entry.action !== 'personnel_ict_completion.updated' || !entry.batchId || !entry.resourceId) return true;
 		const key = `${entry.batchId}|${entry.action}|${entry.resourceId}|${entry.at}`;
 		return !written.has(key) && !!written.add(key);
 	});

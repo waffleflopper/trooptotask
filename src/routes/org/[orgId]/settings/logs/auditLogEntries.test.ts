@@ -285,6 +285,24 @@ describe('a change saved under two people', () => {
 		expect(filtered[0].sentence).toContain('PFC Roe, Rich');
 	});
 
+	it('keeps every entry of another kind that one action saved against the same record', () => {
+		const item = (id: string) =>
+			viewAuditEntry(
+				entry({
+					id,
+					action: 'calendar_tasking.checklist_added',
+					resourceType: 'calendar_tasking',
+					resourceId: 'tasking-1',
+					batchId: 'request-1',
+					createdAt: '2026-10-20T10:00:00Z'
+				}),
+				'UTC'
+			);
+		expect(auditLines([item('a'), item('b')]).map((line) => [line.id, line.batch.length])).toEqual([
+			['batch-request-1', 2]
+		]);
+	});
+
 	it('still folds different records changed by one action', () => {
 		const change = (id: string, resourceId: string) =>
 			viewAuditEntry(entry({ id, resourceId, batchId: 'request-1', action: 'availability.created' }), 'UTC');

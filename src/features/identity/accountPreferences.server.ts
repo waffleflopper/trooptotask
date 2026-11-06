@@ -100,7 +100,6 @@ export async function patchUserOrgPreferences(
 		)
 			throw new Error('Unable to confirm your preference save');
 
-		await ports.audit.log({ action: 'user_preferences.updated', resourceType: 'user_preferences' });
 		return merged;
 	}
 	fail(409, 'Your preferences changed while saving. Try again.');

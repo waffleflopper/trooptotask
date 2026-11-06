@@ -36,6 +36,7 @@ export function _createPersonnelLogPageLoad(deps: PersonnelLogPageLoadDeps = {})
 			}),
 			loadWithContextFn(locals, cookies, params.orgId, {
 				context: createRequestPersonnelLeaderNoteContext,
+				auditEvent: event,
 				policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 				policyResource: { kind: 'unscoped' },
 				fn: async (ctx) => ({

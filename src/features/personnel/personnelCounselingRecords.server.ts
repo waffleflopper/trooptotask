@@ -144,6 +144,12 @@ export async function createPersonnelCounselingDownloadUrl(
 	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
 	const record = await ctx.persistence.findCounseling(input.personnelId, input.recordId);
 	if (!record?.file_path) fail(404, 'Counseling record not found');
+	await ctx.audit.log({
+		action: 'personnel.counseling_record.opened',
+		resourceType: 'counseling_record',
+		resourceId: record.id,
+		subject: { personnelId: input.personnelId }
+	});
 	return { url: await ctx.createCounselingSignedUrl(record.file_path, 300) };
 }
 

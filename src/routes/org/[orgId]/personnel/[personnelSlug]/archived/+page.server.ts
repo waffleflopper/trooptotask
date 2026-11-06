@@ -22,6 +22,7 @@ export function _createPersonnelArchivedPageLoad(deps: PersonnelArchivedPageLoad
 		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
 		return loadWithContextFn(locals, cookies, params.orgId, {
 			context: createRequestPersonnelArchivedArtifactsContext,
+			auditEvent: event,
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			policyResource: { kind: 'unscoped' },
 			fn: async (ctx) => ({

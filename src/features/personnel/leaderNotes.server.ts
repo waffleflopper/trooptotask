@@ -113,6 +113,13 @@ export async function listPersonnelLeaderNotes(
 		// Preserve database timestamp precision; Date would discard microseconds.
 		before = { createdAt: last.created_at, id: last.id };
 	}
+	if (notes.length > 0) {
+		await ctx.audit.log({
+			action: 'personnel.leader_note.opened',
+			resourceType: 'leader_note',
+			subject: { personnelId }
+		});
+	}
 	return notes;
 }
 

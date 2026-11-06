@@ -163,6 +163,12 @@ export async function createPersonnelDocumentDownloadUrl(
 	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
 	const document = await ctx.persistence.findDocument(input.personnelId, input.documentId);
 	if (!document) fail(404, 'Document not found');
+	await ctx.audit.log({
+		action: 'personnel.document.opened',
+		resourceType: 'personnel_document',
+		resourceId: document.id,
+		subject: { personnelId: input.personnelId }
+	});
 
 	return {
 		url: await ctx.createDocumentSignedUrl(document.file_path, 300)

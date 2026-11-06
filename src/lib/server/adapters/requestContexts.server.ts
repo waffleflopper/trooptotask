@@ -198,10 +198,18 @@ export async function buildRouteRequest(event: RequestEvent): Promise<AdmittedOr
 	);
 }
 
-export async function buildLayoutRequest(locals: App.Locals, orgId: string): Promise<AdmittedOrganizationRequest> {
+/** A page load writes no audit entry unless the loader hands over its event, as a read that must be logged does. */
+export async function buildLayoutRequest(
+	locals: App.Locals,
+	orgId: string,
+	auditEvent?: Pick<RequestEvent, 'getClientAddress' | 'request' | 'locals'>
+): Promise<AdmittedOrganizationRequest> {
 	const { supabase, userId } = getAdmittedRequestClient(locals);
 	const organization = await requireActiveOrganization(locals, orgId);
-	return createOrganizationRequest(locals, supabase, userId, organization, { async log() {}, async logMany() {} });
+	const audit = auditEvent
+		? createSupabaseAuditAdapter(organization.id, getRequestInfo(auditEvent))
+		: { async log() {}, async logMany() {} };
+	return createOrganizationRequest(locals, supabase, userId, organization, audit);
 }
 
 export function createRequestPersonnelArtifactsContext(

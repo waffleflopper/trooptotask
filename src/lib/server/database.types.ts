@@ -4814,6 +4814,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_personnel_record_open: {
+        Args: {
+          p_actor_user_id: string
+          p_ip_address?: unknown
+          p_kind: string
+          p_organization_id: string
+          p_personnel_id: string
+          p_record_id?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       record_platform_error: {
         Args: {
           p_code: string

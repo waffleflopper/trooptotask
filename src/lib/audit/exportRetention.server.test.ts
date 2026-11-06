@@ -14,8 +14,14 @@ const cases = [
 			resource_type: 'deleted_feature',
 			resource_id: null,
 			details: { before: [null, false], actor: { rank: '  LEGACY  ' } },
-			ip_address: null,
-			user_agent: 'synthetic',
+			actor_label: 'SSG Rivera, Sam',
+			record_label: 'Leave',
+			subject_personnel_id: 'person-a',
+			subject_label: 'SPC Doe, Jane',
+			batch_id: 'batch-a',
+			severity: 'warning',
+			ip_address: '203.0.113.9',
+			user_agent: 'Mozilla/5.0 synthetic',
 			timestamp: '2026-01-02T03:04:05.123456Z'
 		}
 	}
@@ -25,8 +31,7 @@ function provider(table: string, saved: Row) {
 	const owned: Row[] = Array.from({ length: 1001 }, (_, index) => ({
 		...saved,
 		id: `saved-${String(1001 - index).padStart(4, '0')}`,
-		org_id: ORG,
-		unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] }
+		org_id: ORG
 	}));
 	const rows: Row[] = [{ ...owned[0], id: 'foreign-row', org_id: 'org-b' }, ...owned];
 
@@ -83,10 +88,35 @@ describe('Audit ordinary Organization archive reads', () => {
 		'retains saved $table rows in id order across pages and excludes a foreign Organization',
 		async ({ table, saved }) => {
 			const { client, owned } = provider(table, saved);
-			expect(await createSupabaseAuditExportReader(client, ORG).listRows()).toEqual(owned.toReversed());
+			const exported = await createSupabaseAuditExportReader(client, ORG).listRows();
+			expect(exported).toEqual(owned.toReversed().map(({ ip_address: _address, user_agent: _agent, ...kept }) => kept));
 			expect(await createSupabaseAuditExportReader(client, 'empty-org').listRows()).toEqual([]);
 		}
 	);
+
+	it('never selects the address or browser of the member, however many columns the table gains', async () => {
+		const { client } = provider('audit_logs', cases[0].saved);
+		const [row] = await createSupabaseAuditExportReader(client, ORG).listRows();
+		expect(Object.keys(row).toSorted()).toEqual(
+			[
+				'action',
+				'actor_label',
+				'batch_id',
+				'details',
+				'id',
+				'org_id',
+				'record_label',
+				'resource_id',
+				'resource_type',
+				'severity',
+				'subject_label',
+				'subject_personnel_id',
+				'timestamp',
+				'user_id'
+			].toSorted()
+		);
+		expect(JSON.stringify(row)).not.toMatch(/203\.0\.113\.9|Mozilla/);
+	});
 
 	it.each(cases)(
 		'rejects first and late $table failures without returning partial history',

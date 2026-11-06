@@ -81,6 +81,78 @@ describe('personnel leader notes', () => {
 		expect(notes.map((note) => note.id)).toEqual([created.id, 'note-old']);
 	});
 
+	it('records that the notes were read for the person, without any text, and nothing when there are none', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				userId: LEADER_USER_ID,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+
+		await listPersonnelLeaderNotes(testLeaderNoteContext(ctx), 'person-1');
+		expect(ctx.auditPort.events).toEqual([]);
+
+		ctx.store.seed('leader_notes', [
+			{
+				id: 'note-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				author: LEADER_USER_ID,
+				text: 'Private note text',
+				created_at: '2026-04-01T12:00:00Z'
+			}
+		]);
+		await listPersonnelLeaderNotes(testLeaderNoteContext(ctx), 'person-1');
+
+		expect(ctx.auditPort.events).toEqual([
+			{ action: 'personnel.leader_note.opened', resourceType: 'leader_note', subject: { personnelId: 'person-1' } }
+		]);
+	});
+
+	it('returns no note text when the read cannot be recorded', async () => {
+		const ctx = createTestContext({
+			auth: {
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'configure',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				userId: LEADER_USER_ID,
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		seedPersonnel(ctx);
+		ctx.store.seed('leader_notes', [
+			{
+				id: 'note-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				author: LEADER_USER_ID,
+				text: 'Private note text',
+				created_at: '2026-04-01T12:00:00Z'
+			}
+		]);
+		ctx.audit.log = async () => {
+			throw new Error('Audit log write failed');
+		};
+
+		await expect(listPersonnelLeaderNotes(testLeaderNoteContext(ctx), 'person-1')).rejects.toThrow(
+			'Audit log write failed'
+		);
+	});
+
 	it('requires Personnel configure capability for reads and operate capability for writes', async () => {
 		const ctx = createTestContext({
 			auth: {

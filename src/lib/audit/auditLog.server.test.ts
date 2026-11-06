@@ -85,6 +85,49 @@ describe('auditLog', () => {
 		expect(insert).not.toHaveBeenCalled();
 	});
 
+	it('saves an open of a record through the writer that skips a repeat, with the member from the request', async () => {
+		const organization = '11111111-1111-4111-8111-111111111111';
+		const person = '33333333-3333-4333-8333-333333333333';
+		const document = '44444444-4444-4444-8444-444444444444';
+		await auditLog(
+			{
+				action: 'personnel.document.opened',
+				resourceType: 'personnel_document',
+				resourceId: document,
+				orgId: organization,
+				subject: { personnelId: person },
+				details: { title: 'Private title' }
+			},
+			{ userId: '22222222-2222-4222-8222-222222222222', ip: '127.0.0.1', userAgent: 'Vitest' }
+		);
+		expect(rpc).toHaveBeenCalledOnce();
+		expect(rpc).toHaveBeenCalledWith('record_personnel_record_open', {
+			p_kind: 'personnel.document.opened',
+			p_actor_user_id: '22222222-2222-4222-8222-222222222222',
+			p_organization_id: organization,
+			p_personnel_id: person,
+			p_record_id: document,
+			p_ip_address: '127.0.0.1',
+			p_user_agent: 'Vitest'
+		});
+	});
+
+	it('refuses to record an open without a signed-in member', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(
+			auditLog(
+				{
+					action: 'personnel.leader_note.opened',
+					resourceType: 'leader_note',
+					orgId: '11111111-1111-4111-8111-111111111111',
+					subject: { personnelId: '33333333-3333-4333-8333-333333333333' }
+				},
+				{ userId: null }
+			)
+		).rejects.toThrow('Audit log write failed');
+		expect(rpc).not.toHaveBeenCalled();
+	});
+
 	it.each(['resolved provider error', 'rejected write'])('a cataloged entry rejects on %s', async (failure) => {
 		if (failure === 'resolved provider error') rpc.mockResolvedValue({ error: new Error('private detail') });
 		else rpc.mockRejectedValue(new Error('private detail'));

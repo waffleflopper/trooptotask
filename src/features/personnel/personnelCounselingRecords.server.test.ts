@@ -1,6 +1,6 @@
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { testPersonnelArtifactsContext } from './personnelArtifacts.testHelper';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	archivePersonnelCounselingRecord,
@@ -623,6 +623,55 @@ describe('counseling download', () => {
 
 		expect(result.url).toContain('/counseling-files/');
 		expect(result.url).toContain('expires=300');
+	});
+
+	it('records the open for the person and the record, never its title or file name', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const created = await createPersonnelCounselingRecord(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			dateConducted: '2026-10-02',
+			title: 'Monthly counseling',
+			file: new File(VALID_PDF_BYTES, 'monthly.pdf', { type: 'application/pdf' })
+		});
+		const before = ctx.auditPort.events.length;
+
+		await createPersonnelCounselingDownloadUrl(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			recordId: created.id
+		});
+
+		expect(ctx.auditPort.events.slice(before)).toEqual([
+			{
+				action: 'personnel.counseling_record.opened',
+				resourceType: 'counseling_record',
+				resourceId: created.id,
+				subject: { personnelId: 'person-1' }
+			}
+		]);
+	});
+
+	it('hands out no link when the open cannot be recorded', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const created = await createPersonnelCounselingRecord(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			dateConducted: '2026-10-02',
+			title: 'Monthly counseling',
+			file: new File(VALID_PDF_BYTES, 'monthly.pdf', { type: 'application/pdf' })
+		});
+		const signed = vi.spyOn(ctx.storage, 'createSignedUrl');
+		ctx.audit.log = async () => {
+			throw new Error('Audit log write failed');
+		};
+
+		await expect(
+			createPersonnelCounselingDownloadUrl(testPersonnelArtifactsContext(ctx), {
+				personnelId: 'person-1',
+				recordId: created.id
+			})
+		).rejects.toThrow('Audit log write failed');
+		expect(signed).not.toHaveBeenCalled();
 	});
 
 	it('answers a record of another Person like a missing one', async () => {

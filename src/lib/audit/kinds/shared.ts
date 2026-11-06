@@ -29,6 +29,8 @@ export interface AuditEntryShape {
  */
 export interface AuditKind {
 	readonly writer: 'database' | 'app' | 'retired';
+	/** An open of a record: the same member opening the same record again within ten minutes writes no second entry. */
+	readonly collapsesRepeats: boolean;
 	accept(entry: AuditEntryShape): AuditEntryShape | null;
 	read(entry: SavedAuditEntry, context: AuditSentenceContext): string | null;
 	readonly batch: { verb: string; one: string; many: string };
@@ -40,12 +42,14 @@ export interface AuditKind {
  */
 export function auditKind<Schema extends z.ZodType>(spec: {
 	writer: AuditKind['writer'];
+	collapsesRepeats?: boolean;
 	entry: Schema;
 	sentence(entry: z.infer<Schema>, context: AuditSentenceContext): string;
 	batch: AuditKind['batch'];
 }): AuditKind {
 	return {
 		writer: spec.writer,
+		collapsesRepeats: spec.collapsesRepeats ?? false,
 		batch: spec.batch,
 		accept(entry) {
 			const parsed = spec.entry.safeParse(entry);

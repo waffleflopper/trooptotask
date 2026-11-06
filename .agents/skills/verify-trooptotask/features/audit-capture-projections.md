@@ -26,6 +26,16 @@ Organizations without disclosing those privileged details to anyone else.
   record. Any other change the server makes with its own authority (an export or a deletion request) is written by the
   app, awaited, and fails the change if the write fails. Seeded fixture rows are
   written by the database with no signed-in member and read `System`.
+- `record-opens`: opening a counseling record's PDF, a document's file, or a person's leader notes writes one entry
+  (`personnel.counseling_record.opened`, `personnel.document.opened`, `personnel.leader_note.opened`) before the server
+  hands out the link or the text. It names the member who opened it, the person (`<rank> <last>, <first>`) and the type of
+  record, and never the title, text or file name. The same member opening the same record again within ten minutes
+  writes nothing more, so a refresh, a page of older notes or a second click does not fill the log. The write is
+  awaited: when it fails the link or text is not given out.
+- `retention`: sign-in, failed sign-in, MFA and rate-limit entries keep for 90 days and every other entry for 3 years.
+  The list of 90-day kinds is `audit_private.short_retention_actions()`; a unit test compares it with the kinds Logs
+  hides. Personal actions (reading or deleting a notification, saving preferences) write no unit entry; older rows
+  keep their legacy sentence.
 - `streamed-load`: Logs paints its header and filters at once, holds the results skeleton while the audit read runs and
   shows its own load error, with retry, when that read fails. A failed Load more keeps the rows above it and offers its
   own Retry.
@@ -61,8 +71,8 @@ service admission.
 `retention cron missing|wrong|run records|onboarding|audit|setup-links` invokes each configured job on the owned origin
 without browser/session cookies. Capture status, any redirect and full response, then exact row/file and notification
 readback. Missing/wrong credentials must return 401 without effects; admitted jobs must report actual effects and
-preserve ineligible/history witnesses. Repeat to prove zero new mutations and truthful repeated summaries. Audit retains
-a one-year strict cutoff; setup cleanup revokes expired unused links and preserves claimed/completed/failed history,
+preserve ineligible/history witnesses. Repeat to prove zero new mutations and truthful repeated summaries. Audit keeps
+sign-in, failed sign-in, MFA and rate-limit entries for 90 days and every other entry for 3 years; setup cleanup revokes expired unused links and preserves claimed/completed/failed history,
 Access Requests and User Accounts. A redirect to sign-in is a failed admission observation, not an authorized job run.
 `records` runs the archived-records job. The Personnel, artifact and Onboarding recipes own their source-specific setup,
 failure and provider-sized proof. Exact cutoff equality belongs to fixed-time service/SQL checks; these live fixtures do
@@ -206,7 +216,20 @@ Synthetic → Alder, Synthetic`. Restore the name. The Add onboarding Member pic
     Audit section/sheet: same-A stored rows and raw masked fields remain, including excluded auth actions; B's sentinel
     must be absent. Compare against an independently captured A provider set before export, accounting separately for the
     legitimate post-build event (`export.created` for JSON; `export.excel_created` for Excel). Capture real network
-    status and downloaded bytes, restore both controls, and keep the actual files.
+    status and downloaded bytes, restore both controls, and keep the actual files. The Audit rows hold no `ip_address`
+    and no `user_agent`, though the provider rows (`$V rows audit_logs orgA`) still carry both.
+11. **Record opens.** As `orgOwner`, open a person's Files and press `Open <title> PDF` on a counseling record and
+    `Open <title>` on a document, then open the person's Log (the leader notes; Overview and Archived show them too). In Logs the three rows read `Opened a
+counseling record for <Rank> <Last>, <First>`, `Opened a document for …` and `Read the leader notes for …`, each with
+    the owner as Actor; `$V rows audit_logs orgA action personnel.document.opened` shows `resource_type`
+    `personnel_document`, the document id as `resource_id`, `subject_label` filled and empty `details`, and no title or file
+    name anywhere in the row. Press the same file button again at once: no second row. Search the person's name in Logs:
+    the three rows are found. A refresh of the Log does not add a second `personnel.leader_note.opened` row within ten
+    minutes. As `orgMember`/`viewer`, the signed-in client has no way to write one (`rows` shows none for that member).
+    The `audit_logs` server-source hook covers table reads, not the `record_personnel_record_open` write, so it cannot
+    fail an open: a file opens with it armed. The refusal to hand out a file when the write fails has SQL and app unit
+    proof only. Pressing a file button opens its PDF in a new tab: close it and `select_page` the Person page again,
+    or the next control call can hit the wrong page.
 
 Restore hooks and edited originals, run `clean-seeds`, and read every seed ID back as absent in its recorded
 Organization. Original audit rows must retain their saved fields; expected producer/login additions remain confined to

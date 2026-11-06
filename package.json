@@ -77,7 +77,7 @@
 		"@supabase/ssr": "^0.10.3",
 		"@supabase/supabase-js": "^2.94.1",
 		"@sveltejs/adapter-vercel": "^7.0.2",
-		"@tailwindcss/vite": "^4.3.3",
+		"@tailwindcss/vite": "^4.3.4",
 		"@vercel/analytics": "^2.0.1",
 		"@vercel/speed-insights": "^2.0.0",
 		"bits-ui": "^2.19.5",

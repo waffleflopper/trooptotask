@@ -113,6 +113,13 @@ export async function listPersonnelLeaderNotes(
 		// Preserve database timestamp precision; Date would discard microseconds.
 		before = { createdAt: last.created_at, id: last.id };
 	}
+	if (notes.length > 0) {
+		await ctx.audit.log({
+			action: 'personnel.leader_note.opened',
+			resourceType: 'leader_note',
+			subject: { personnelId }
+		});
+	}
 	return notes;
 }
 
@@ -135,11 +142,6 @@ export async function createPersonnelLeaderNote(
 		text: input.text,
 		createdAt: new Date().toISOString()
 	});
-	await ctx.audit.log({
-		action: 'personnel.leader_note.created',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
 	return mapWrittenRow(ctx, row);
 }
 
@@ -160,11 +162,6 @@ export async function archivePersonnelLeaderNote(
 		at: new Date().toISOString(),
 		by: ctx.actor.userId
 	});
-	await ctx.audit.log({
-		action: 'personnel.leader_note.archived',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
@@ -179,11 +176,6 @@ export async function updatePersonnelLeaderNote(
 	const existing = await loadNote(ctx, input.personnelId, input.noteId);
 	if (existing.archived_at) fail(409, 'Archived leader notes cannot be edited');
 	const row = await ctx.persistence.setText(input.personnelId, input.noteId, input.text, new Date().toISOString());
-	await ctx.audit.log({
-		action: 'personnel.leader_note.updated',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
 	if (!(await canReadSensitivePersonnelArtifacts(ctx, input.personnelId))) {
 		return { id: row.id, archivedAt: row.archived_at ?? null };
 	}
@@ -196,11 +188,6 @@ export async function restorePersonnelLeaderNote(
 ): Promise<PersonnelArtifactArchiveState> {
 	await loadNote(ctx, input.personnelId, input.noteId);
 	const row = await ctx.persistence.setArchive(input.personnelId, input.noteId, null);
-	await ctx.audit.log({
-		action: 'personnel.leader_note.restored',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
@@ -211,9 +198,4 @@ export async function deletePersonnelLeaderNote(
 	const row = await loadNote(ctx, input.personnelId, input.noteId);
 	if (!row.archived_at) fail(409, 'Archive leader notes before deleting them');
 	await ctx.persistence.delete(input.personnelId, input.noteId);
-	await ctx.audit.log({
-		action: 'personnel.leader_note.deleted',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
 }

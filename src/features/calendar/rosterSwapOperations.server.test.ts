@@ -30,7 +30,11 @@ const swap = {
 		{ date: '2026-10-19', heldBy: PATEL }
 	]
 } as const;
-const result: RosterSwapResult = { saved: [], swap, assignmentTypeId: TYPE };
+const swappedDays = [
+	{ id: 'day-12', date: '2026-10-12', assigneeId: PATEL, assignmentTypeId: TYPE },
+	{ id: 'day-19', date: '2026-10-19', assigneeId: KIM, assignmentTypeId: TYPE }
+];
+const result: RosterSwapResult = { saved: swappedDays, swap, assignmentTypeId: TYPE };
 
 function context(options?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
 	const ctx = createWriteWithNotificationsPortsContext(options);
@@ -335,35 +339,6 @@ describe('duty swap operations', () => {
 		]);
 	});
 
-	it.each(['swap', 'undo'] as const)('waits for the %s audit before reporting success', async (kind) => {
-		const ctx = context();
-		let release = () => {};
-		let logged = false;
-		let completed = false;
-		const held = new Promise<void>((resolve) => {
-			release = resolve;
-		});
-		ctx.audit.log = async (event) => {
-			expect(event).toEqual({
-				action: kind === 'swap' ? 'daily_assignment.roster_swapped' : 'daily_assignment.roster_swap_undone',
-				resourceType: 'daily_assignment',
-				details: { assignmentTypeId: TYPE, dates: ['2026-10-12', '2026-10-19'] }
-			});
-			logged = true;
-			await held;
-		};
-		const pending = (
-			kind === 'swap' ? commitRosterSwap(ctx, request) : undoRosterSwap(ctx, { today, swapId: SWAP })
-		).then((value) => {
-			completed = true;
-			return value;
-		});
-		await vi.waitFor(() => expect(logged).toBe(true));
-		expect(completed).toBe(false);
-		release();
-		await expect(pending).resolves.toEqual(result);
-	});
-
 	it.each([
 		['RSW01', 409, 'The roster changed since this preview. Review the days and try again.'],
 		['RSW02', 400, 'Swap only today or later days.'],
@@ -432,13 +407,6 @@ describe('duty swap operations', () => {
 				}
 			]
 		});
-		expect(ctx.audit.events).toEqual([
-			{
-				action: 'daily_assignment.roster_swapped',
-				resourceType: 'daily_assignment',
-				details: { assignmentTypeId: TYPE, dates: ['2026-10-12', '2026-10-19'] }
-			}
-		]);
 	});
 
 	it('explains why an elapsed swap cannot be undone', async () => {

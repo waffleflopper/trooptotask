@@ -54,7 +54,6 @@ export async function createIctTask(ctx: IctTaskWriteContext, input: Record<stri
 		'ict_task'
 	);
 	const task = await ctx.criticalTaskLibrary.create(values);
-	await ctx.audit.log({ action: 'ict_task.created', resourceType: 'ict_task', resourceId: task.id });
 	return task;
 }
 
@@ -69,7 +68,6 @@ export async function updateIctTask(ctx: IctTaskWriteContext, input: Record<stri
 	);
 	const task = await ctx.criticalTaskLibrary.update(id, patch);
 	if (!task) fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
-	await ctx.audit.log({ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: id });
 	return task;
 }
 
@@ -85,9 +83,8 @@ export async function reorderIctTasks(ctx: IctTaskWriteContext, input: Record<st
 	const moved = new Set(
 		changes.filter((change) => change.expectedSortOrder !== change.sortOrder).map((change) => change.id)
 	);
-	for (const task of tasks) {
-		if (moved.has(task.id))
-			await ctx.audit.log({ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: task.id });
+	if (moved.size > 0) {
+		await ctx.audit.log({ action: 'ict_task.reordered', resourceType: 'ict_task', details: { count: moved.size } });
 	}
 	return tasks;
 }

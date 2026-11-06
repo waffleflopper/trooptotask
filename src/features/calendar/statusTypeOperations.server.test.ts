@@ -28,7 +28,7 @@ function seedOrdered(ctx: ReturnType<typeof createWriteWithNotificationsPortsCon
 }
 
 describe('StatusType CRUD use case', () => {
-	it('creates a status type and audits', async () => {
+	it('creates a status type and leaves its entry to the database', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 
 		const result = (await createStatusType(ctx, {
@@ -38,7 +38,7 @@ describe('StatusType CRUD use case', () => {
 		})) as { name: string };
 
 		expect(result).toMatchObject({ name: 'On Leave' });
-		expect(ctx.audit.events[0].action).toBe('status_type.created');
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('creates a status type that is away by default and one with the chosen effect', async () => {
@@ -113,7 +113,7 @@ describe('StatusType CRUD use case', () => {
 			name: 'Annual Leave',
 			color: '#22c55e'
 		});
-		expect(ctx.audit.events[0]).toMatchObject({ action: 'status_type.updated', resourceId: ST_ID });
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('requires Calendar configure capability through the CRUD interface', async () => {
@@ -169,7 +169,7 @@ describe('StatusType CRUD use case', () => {
 		await createStatusType(ctx, { name: 'TDY', color: '#00ff00', textColor: '#000000' });
 
 		expect(await ctx.store.findMany('status_types', ctx.auth.orgId)).toMatchObject([{ name: 'TDY' }]);
-		expect(ctx.audit.events).toMatchObject([{ action: 'status_type.created' }]);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('does not audit success when status deletion fails', async () => {
@@ -189,11 +189,10 @@ describe('StatusType CRUD use case', () => {
 		};
 		await expect(deleteStatusType(ctx, ST_ID)).rejects.toThrow('historical reference');
 		expect(await ctx.store.findOne('status_types', 'test-org', { id: ST_ID })).not.toBeNull();
-		expect(ctx.audit.events.some((event) => event.action === 'status_type.deleted')).toBe(false);
 		expect(ctx.notifications.notifications).toEqual([]);
 	});
 
-	it('deletes a saved status type and audits', async () => {
+	it('deletes a saved status type and announces it to admins', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('status_types', [
 			{
@@ -207,9 +206,6 @@ describe('StatusType CRUD use case', () => {
 		]);
 		await deleteStatusType(ctx, ST_ID);
 		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toBeNull();
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({ action: 'status_type.deleted', resourceId: ST_ID })
-		);
 		expect(ctx.notifications.notifications).toContainEqual({
 			target: 'admins',
 			orgId: ctx.auth.orgId,
@@ -269,7 +265,7 @@ describe('StatusType CRUD use case', () => {
 		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: SCHOOL })).toMatchObject({ sort_order: 2 });
 	});
 
-	it('saves a full reorder against the order the editor saw and audits it', async () => {
+	it('saves a full reorder against the order the editor saw and audits how many were reordered', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		seedOrdered(ctx);
 		await setStatusTypeOrder(ctx, {
@@ -287,9 +283,15 @@ describe('StatusType CRUD use case', () => {
 				action: 'status_type.reordered',
 				resourceType: 'organization',
 				resourceId: ctx.auth.orgId,
-				details: { statusTypeIds: [SCHOOL, LEAVE, SICK] }
+				details: { count: 3 }
 			}
 		]);
+	});
+
+	it('saves an empty order without an audit entry, which the catalog would refuse', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await expect(setStatusTypeOrder(ctx, { statusTypeIds: [], expectedStatusTypeIds: [] })).resolves.toBeUndefined();
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it.each([
@@ -332,11 +334,10 @@ describe('StatusType CRUD use case', () => {
 		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toEqual(saved);
 	});
 
-	it('keeps a repeated delete successful without auditing or announcing a deletion that did not happen', async () => {
+	it('keeps a repeated delete successful without announcing a deletion that did not happen', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 
 		await expect(deleteStatusType(ctx, ST_ID)).resolves.toBeUndefined();
-		expect(ctx.audit.events.some((event) => event.action === 'status_type.deleted')).toBe(false);
 		expect(ctx.notifications.notifications).toEqual([]);
 	});
 });

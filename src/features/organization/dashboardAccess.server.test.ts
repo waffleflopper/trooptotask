@@ -370,11 +370,7 @@ describe('acceptDashboardInvitation', () => {
 					action: 'organization_invitation.accepted',
 					resourceType: 'organization_invitation',
 					resourceId: 'invite-1',
-					details: {
-						organizationId: 'org-1',
-						userId: 'user-1',
-						stateTransition: 'pending.accepted'
-					}
+					details: {}
 				}
 			}
 		]);

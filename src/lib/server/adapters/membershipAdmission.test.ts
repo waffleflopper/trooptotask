@@ -60,7 +60,8 @@ function fixture(membership: OrganizationMembershipFacts = member) {
 		membershipReads: number;
 		membershipGate?: Promise<void>;
 		membershipStarted?: () => void;
-	} = { failedTable: '', membershipReads: 0 };
+		recordedOpens: Row[];
+	} = { failedTable: '', membershipReads: 0, recordedOpens: [] };
 	const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = new URL(String(input));
 		expect(url.origin).toBe('http://membership.invalid');
@@ -77,6 +78,10 @@ function fixture(membership: OrganizationMembershipFacts = member) {
 			return row
 				? Response.json({ ...row, covered_group_ids: row.access_scope_group_ids ?? [] })
 				: Response.json({ code: 'PGRST116' }, { status: 406 });
+		}
+		if (url.pathname.endsWith('/rpc/record_personnel_record_open')) {
+			state.recordedOpens.push(JSON.parse(String(init?.body)));
+			return Response.json(null);
 		}
 		const table = url.pathname.split('/').at(-1)!;
 		if (!(table in tables)) throw new Error(`Unexpected provider table: ${table}`);
@@ -219,6 +224,29 @@ describe('request membership admission through real request construction', () =>
 		expect(response.status).toBe(200);
 		expect(await response.json()).toMatchObject({ id: 'created', groupId: 'group-b' });
 		expect(f.tables.personnel.at(-1)).toMatchObject({ id: 'created', group_id: 'group-b', organization_id: ORG });
+	});
+
+	it('writes a record open from a page load only when the loader hands over its event', async () => {
+		const f = fixture();
+		const person = '55555555-5555-4555-8555-555555555555';
+		const open = {
+			action: 'personnel.leader_note.opened',
+			resourceType: 'leader_note',
+			subject: { personnelId: person }
+		};
+
+		await (await buildLayoutRequest(f.locals, ORG)).audit.log(open);
+		expect(f.state.recordedOpens).toEqual([]);
+
+		await (await buildLayoutRequest(f.locals, ORG, event(f.locals))).audit.log(open);
+		expect(f.state.recordedOpens).toEqual([
+			expect.objectContaining({
+				p_kind: 'personnel.leader_note.opened',
+				p_organization_id: ORG,
+				p_personnel_id: person,
+				p_actor_user_id: USER
+			})
+		]);
 	});
 
 	it('rejects anonymous requests despite a prior membership read and never reads or writes provider data', async () => {

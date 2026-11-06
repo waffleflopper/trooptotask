@@ -1,21 +1,30 @@
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import {
 	ICT_TASK_ORDER_CHANGED_MESSAGE,
 	ICT_TASK_UNAVAILABLE_MESSAGE,
-	type CriticalTaskLibraryPersistence
+	type CriticalTaskLibraryPersistence,
+	type IctTaskCreate,
+	type IctTaskPatch
 } from '../contracts';
 import { mapIctTask, taskCreateValues, taskPatchValues, type SavedIctTask } from './ictTaskMapping.server';
 
 type TaskMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
-	'findOne' | 'findMany' | 'insert' | 'insertMany' | 'update' | 'compareAndUpdateMany'
+	'findOne' | 'findMany' | 'insert' | 'update' | 'compareAndUpdateMany'
 >;
 
 export function createInMemoryCriticalTaskLibraryPersistence(
 	store: TaskMemoryStore,
 	orgId: string
 ): CriticalTaskLibraryPersistence {
+	async function create(input: IctTaskCreate) {
+		return mapIctTask(await store.insert<SavedIctTask>('ict_tasks', orgId, taskCreateValues(input)));
+	}
+	async function update(id: string, patch: IctTaskPatch) {
+		if (!(await store.findOne('ict_tasks', orgId, { id }))) return null;
+		return mapIctTask(await store.update<SavedIctTask>('ict_tasks', orgId, id, taskPatchValues(patch)));
+	}
 	const ordered = [
 		{ column: 'sort_order', ascending: true },
 		{ column: 'task_code', ascending: true }
@@ -44,16 +53,23 @@ export function createInMemoryCriticalTaskLibraryPersistence(
 			const row = await store.findOne<SavedIctTask>('ict_tasks', orgId, { id });
 			return row ? { id: row.id, archivedAt: row.archived_at } : null;
 		},
-		async create(input) {
-			return mapIctTask(await store.insert<SavedIctTask>('ict_tasks', orgId, taskCreateValues(input)));
+		create,
+		async importMany(writes) {
+			const outcomes = [];
+			for (const write of writes) {
+				try {
+					outcomes.push(
+						'create' in write
+							? await create(write.create)
+							: ((await update(write.id, write.patch)) ?? new RequestFailure(404, ICT_TASK_UNAVAILABLE_MESSAGE))
+					);
+				} catch (error) {
+					outcomes.push(error instanceof Error ? error : new Error(String(error)));
+				}
+			}
+			return outcomes;
 		},
-		async createMany(inputs) {
-			return (await store.insertMany<SavedIctTask>('ict_tasks', orgId, inputs.map(taskCreateValues))).map(mapIctTask);
-		},
-		async update(id, patch) {
-			if (!(await store.findOne('ict_tasks', orgId, { id }))) return null;
-			return mapIctTask(await store.update<SavedIctTask>('ict_tasks', orgId, id, taskPatchValues(patch)));
-		},
+		update,
 		async reorder(changes) {
 			const result = await store.compareAndUpdateMany<SavedIctTask>(
 				'ict_tasks',

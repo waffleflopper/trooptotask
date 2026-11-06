@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '$lib/server/database';
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
 	ICT_TASK_CODE_EXISTS_MESSAGE,
@@ -12,9 +12,11 @@ import { mapIctTask, taskCreateValues, taskPatchValues, TASK_SELECT, type SavedI
 import {
 	acknowledgedRows,
 	confirmInsertedRows,
+	importOutcomes,
 	isUnknownWriteStatus,
 	readBackInChunks,
-	writeUnconfirmed
+	writeUnconfirmed,
+	type ImportRow
 } from './criticalTaskWriteOutcome.server';
 
 function throwWriteError(error: { code?: string; message: string }): never {
@@ -22,6 +24,13 @@ function throwWriteError(error: { code?: string; message: string }): never {
 		fail(409, ICT_TASK_CODE_EXISTS_MESSAGE);
 	}
 	throw new Error(error.message);
+}
+
+function importRowError(code: string, constraint: string | null): Error {
+	if (code === '23505' && constraint === 'ict_tasks_organization_id_task_code_key')
+		return new RequestFailure(409, ICT_TASK_CODE_EXISTS_MESSAGE);
+	if (code === 'P0002') return new RequestFailure(404, ICT_TASK_UNAVAILABLE_MESSAGE);
+	return new Error(`Task import row failed with ${code}`);
 }
 
 export function createSupabaseCriticalTaskLibraryPersistence(
@@ -72,19 +81,20 @@ export function createSupabaseCriticalTaskLibraryPersistence(
 			if (acknowledged) return acknowledged[0];
 			return (await confirmInsertedRows([row.id], listReferenced, ictTaskSchema))[0];
 		},
-		async createMany(inputs) {
-			if (inputs.length === 0) return [];
-			const rows = inputs.map((input) => ({
-				...taskCreateValues(input),
-				id: crypto.randomUUID(),
-				organization_id: orgId
-			}));
-			const ids = rows.map((row) => row.id);
-			const { data, error, status } = await client.from('ict_tasks').insert(rows).select(TASK_SELECT);
-			if (error && !isUnknownWriteStatus(status)) throwWriteError(error);
-			const acknowledged = error ? null : acknowledgedRows(data, ids, mapIctTask, ictTaskSchema);
-			if (acknowledged) return acknowledged;
-			return confirmInsertedRows(ids, listReferenced, ictTaskSchema);
+		async importMany(writes) {
+			if (writes.length === 0) return [];
+			const rows: ImportRow[] = writes.map((write) =>
+				'create' in write
+					? { op: 'insert', id: crypto.randomUUID(), values: taskCreateValues(write.create) }
+					: { op: 'update', id: write.id, values: taskPatchValues(write.patch) }
+			);
+			const reply = await client.rpc('import_ict_tasks', { p_organization_id: orgId, p_rows: rows });
+			return importOutcomes(rows, reply, {
+				map: mapIctTask,
+				schema: ictTaskSchema,
+				readBack: listReferenced,
+				rowError: importRowError
+			});
 		},
 		async update(id, patch) {
 			const { data, error, status } = await client

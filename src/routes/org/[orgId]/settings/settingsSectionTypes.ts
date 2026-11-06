@@ -1,5 +1,6 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
+import type { AuditLogFilters } from '$lib/audit/auditLogFilters';
 import type { AuditLogQueryResult } from '$lib/audit/contracts';
 import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
 
@@ -96,9 +97,19 @@ export type RanksSettingsData = {
 };
 
 export interface LogsSettingsData {
-	auditLog: AuditLogQueryResult;
+	auditLog: Promise<AuditLogQueryResult>;
+	/** The filters the address names, which the entries were read with. */
+	filters: AuditLogFilters;
 	/** The viewer's IANA time zone; day heads and clock times use it so server and browser render the same text. */
 	timeZone: string;
 	/** "YYYY-MM-DD" in `timeZone` when the page loaded. */
 	today: string;
+}
+
+/** What the Logs pickers offer. */
+export interface LogsFilterOptions {
+	people: { id: string; label: string; archived: boolean }[];
+	members: { userId: string; label: string }[];
+	/** Every action the unit has recorded, cataloged or older. */
+	actions: string[];
 }

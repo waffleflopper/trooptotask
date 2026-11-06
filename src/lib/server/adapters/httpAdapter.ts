@@ -202,6 +202,8 @@ type LoadOperationConfig<T, TContext> = LoadAuthorizationConfig & {
 };
 type LoadConfig<T, TContext> = LoadOperationConfig<T, TContext> & {
 	context: RequestContextBuilder<TContext>;
+	/** The page's event, for a load that must write audit entries. Without it the load's audit sink writes nothing. */
+	auditEvent?: Pick<RequestEvent, 'getClientAddress' | 'request' | 'locals'>;
 };
 
 export function loadWithContextCore<T, TContext>(
@@ -250,7 +252,7 @@ export async function loadWithContext<T, TContext>(
 ): Promise<T | { data: Promise<T> }> {
 	return withHttpErrorBoundary(
 		(async () => {
-			const request = await buildLayoutRequest(locals, orgId);
+			const request = await buildLayoutRequest(locals, orgId, config.auditEvent);
 			if (config.defer) {
 				const { data } = loadWithContextCore(request, { ...config, defer: true }, () => config.context(request));
 				return { data: keepStreamedRejectionObserved(withHttpErrorBoundary(data)) };

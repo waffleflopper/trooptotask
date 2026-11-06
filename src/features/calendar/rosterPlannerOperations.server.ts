@@ -42,6 +42,7 @@ export interface RosterPlannerPorts extends RosterSettingsPorts {
 }
 
 const action = CALENDAR_POLICY_ACTIONS.manageAssignments;
+
 const resource = { kind: 'unscoped' } as const;
 const MAX_FILL_DAYS = 366;
 const MAX_REPICK_DAYS = 366;
@@ -261,12 +262,8 @@ export async function commitRosterFill(
 		run.changes.every((change, at) => change.date === picks[at].date && change.personId === picks[at].personId);
 	if (!same) fail(409, 'The roster changed since this preview. Review the new picks and fill again.');
 
-	const saved = await ctx.calendarAssignmentReplacement.writeRoster(ctx.auth.orgId, slotChanges(run));
-	await ctx.audit.log({
-		action: 'daily_assignment.roster_filled',
-		resourceType: 'daily_assignment',
-		details: { assignmentTypeId: plan.typeId, from: plan.from, through: plan.through, days: saved.length }
-	});
+	const changes = slotChanges(run);
+	const saved = await ctx.calendarAssignmentReplacement.writeRoster(ctx.auth.orgId, changes);
 	return { saved };
 }
 
@@ -385,14 +382,10 @@ export async function commitRosterReplacement(
 	if (!same || !repick) fail(409, 'The roster changed since this preview. Review the new picks and try again.');
 	if (repick.unfilled.length) fail(409, 'Nobody on the roster can take every re-picked day. Choose someone else.');
 
-	const saved = await ctx.calendarAssignmentReplacement.writeRoster(ctx.auth.orgId, [
+	const written = [
 		{ date: request.date, assignmentTypeId: request.typeId, assigneeId: request.assigneeId, was: replacing, source },
 		...slotChanges(repick)
-	]);
-	await ctx.audit.log({
-		action: 'daily_assignment.roster_replaced',
-		resourceType: 'daily_assignment',
-		details: { assignmentTypeId: request.typeId, date: request.date, repicks: changes.length }
-	});
+	];
+	const saved = await ctx.calendarAssignmentReplacement.writeRoster(ctx.auth.orgId, written);
 	return { saved };
 }

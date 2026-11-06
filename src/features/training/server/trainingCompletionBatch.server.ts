@@ -169,16 +169,6 @@ export async function importTrainingRecords(
 		}
 	}
 
-	await ctx.audit.log({
-		action: 'training.bulk_imported',
-		resourceType: AUDIT_RESOURCE,
-		details: {
-			inserted: insertedData.length,
-			updated: updatedData.length,
-			exempted: exemptedResults.length
-		}
-	});
-
 	return {
 		inserted: insertedData,
 		updated: updatedData,

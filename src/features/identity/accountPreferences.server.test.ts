@@ -228,7 +228,7 @@ describe('Identity account/Organization preferences', () => {
 			row({ organization_id: 'other-org', preferences: { secret: 'foreign' } })
 		]);
 		expect(p.state.rows).toHaveLength(3);
-		expect(ports.audit.log).toHaveBeenCalledTimes(3);
+		expect(ports.audit.log).not.toHaveBeenCalled();
 	});
 
 	it.each([false, true])('preserves disjoint concurrent patches when a row already exists: %s', async (existing) => {
@@ -250,8 +250,8 @@ describe('Identity account/Organization preferences', () => {
 				}
 			})
 		]);
-		expect(calendar.audit.log).toHaveBeenCalledTimes(1);
-		expect(training.audit.log).toHaveBeenCalledTimes(1);
+		expect(calendar.audit.log).not.toHaveBeenCalled();
+		expect(training.audit.log).not.toHaveBeenCalled();
 	});
 
 	it('preserves concurrent fields in the same section and allows the last successful same-field write', async () => {

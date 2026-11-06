@@ -84,6 +84,7 @@ export function _createPersonnelOverviewPageLoad(deps: PersonnelOverviewPageLoad
 			loadReadiness(event, person, asOf, loadWithContextFn),
 			loadWithContextFn(locals, cookies, params.orgId, {
 				context: createRequestPersonnelOverviewContext,
+				auditEvent: event,
 				policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 				policyResource: { kind: 'unscoped' },
 				fn: async (ctx) => createOverviewStreams(ctx, person, asOf)

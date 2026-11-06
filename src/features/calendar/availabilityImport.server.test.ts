@@ -177,13 +177,6 @@ describe('importAvailabilityEntries', () => {
 			'11 20 2026-11-05..2026-11-12',
 			'11 20 2026-11-10..2026-11-14'
 		]);
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({
-				action: 'availability.bulk_imported',
-				resourceType: 'availability',
-				details: { added: 3, removed: 2 }
-			})
-		]);
 	});
 
 	it('refuses rows the calendar has changed under, and saves the rest', async () => {

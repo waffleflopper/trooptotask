@@ -67,16 +67,7 @@ describe('apply Calendar suggestions', () => {
 		]);
 		expect(second.statusTypes).toEqual(first.statusTypes);
 		expect(second.assignmentTypes).toEqual(first.assignmentTypes);
-		expect(ctx.audit.events.map(({ action }) => action).sort()).toEqual([
-			'assignment_type.created',
-			'status_type.created',
-			'status_type.created',
-			'status_type.created',
-			'status_type.created',
-			'status_type.created',
-			'status_type.created',
-			'status_type.created'
-		]);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('skips trimmed case-insensitive names while leaving their saved fields intact', async () => {
@@ -155,26 +146,6 @@ describe('apply Calendar suggestions', () => {
 		expect(vi.mocked(requireCalendarPolicy).mock.calls.map(([, action]) => action.id)).not.toContain(
 			kind === 'status' ? 'calendar.configureAssignmentTypes' : 'calendar.configureStatusTypes'
 		);
-	});
-
-	it('waits for the owning create audit before acknowledging success', async () => {
-		const ctx = createWritePortsContext();
-		let release!: () => void;
-		const pendingAudit = new Promise<void>((resolve) => {
-			release = resolve;
-		});
-		vi.spyOn(ctx.audit, 'log').mockReturnValue(pendingAudit);
-		let settled = false;
-		const saving = applyCalendarSuggestions(ctx, { statusIds: ['leave'], assignmentIds: [] }).then((result) => {
-			settled = true;
-			return result;
-		});
-		await vi.waitFor(async () =>
-			expect(await ctx.calendarCatalogs.listStatusTypes()).toMatchObject([{ name: 'Leave' }])
-		);
-		expect(settled).toBe(false);
-		release();
-		expect((await saving).created.map(({ id }) => id)).toEqual(['leave']);
 	});
 
 	it.each([401, 403])('rethrows a %s from a create rather than reporting a failed pick', async (status) => {

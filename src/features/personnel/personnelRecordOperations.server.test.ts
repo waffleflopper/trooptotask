@@ -147,9 +147,7 @@ describe('Personnel URLs when another Group owns the name', () => {
 					slug: 'smith-john-3'
 				});
 			}
-			expect(ctx.audit.events).toEqual([
-				expect.objectContaining({ action: `personnel.${operation === 'create' ? 'created' : 'updated'}` })
-			]);
+			expect(ctx.audit.events).toEqual([]);
 		}
 	);
 
@@ -289,7 +287,7 @@ function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Re
 }
 
 describe('Personnel — create', () => {
-	it('inserts personnel and audits the creation', async () => {
+	it('inserts personnel and leaves the entry to the database', async () => {
 		const ctx = buildContext();
 
 		const result = await createPersonnelRecord(ctx, { ...validInput });
@@ -303,11 +301,7 @@ describe('Personnel — create', () => {
 		const stored = await ctx.store.findMany('personnel', 'test-org');
 		expect(stored).toHaveLength(1);
 
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'personnel.created',
-			resourceType: 'personnel'
-		});
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it.each([
@@ -550,17 +544,14 @@ describe('Personnel — update', () => {
 		]);
 	}
 
-	it('updates personnel and audits', async () => {
+	it('updates personnel and leaves the entry to the database', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 
 		const result = await updatePersonnelRecord(ctx, { id: PERSON_1, rank: 'SSG' });
 		expect(result.rank).toBe('SSG');
 
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'personnel.updated',
-			resourceId: PERSON_1
-		});
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('normalizes changed update rank input through the active Organization rank catalog', async () => {
@@ -794,7 +785,6 @@ describe('Personnel truthful rejection of invalid and stale writes', () => {
 		const ctx = buildContext();
 
 		await expect(updatePersonnelRecord(ctx, input)).rejects.toMatchObject({ status: 400, message });
-		expect(ctx.audit.events.some((event) => event.action === 'personnel.updated')).toBe(false);
 	});
 
 	it('answers 404 for an update to a Person that is missing or in another Organization', async () => {
@@ -810,6 +800,5 @@ describe('Personnel truthful rejection of invalid and stale writes', () => {
 			});
 		}
 		expect(await ctx.store.findOne('personnel', 'foreign-org', { id: PERSON_2 })).toMatchObject({ last_name: 'Other' });
-		expect(ctx.audit.events.some((event) => event.action === 'personnel.updated')).toBe(false);
 	});
 });

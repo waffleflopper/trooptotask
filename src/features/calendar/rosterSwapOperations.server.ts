@@ -85,7 +85,7 @@ export async function commitRosterSwap(
 	if (first.date < today || second.date < today) fail(400, SWAP_PAST);
 	if (!first.was || !second.was) fail(400, SWAP_EMPTY);
 	if (first.was === second.was) fail(400, SWAP_SAME_PERSON);
-	const result = await ctx.calendarRosterSwaps.swap({
+	return ctx.calendarRosterSwaps.swap({
 		assignmentTypeId: first.assignmentTypeId,
 		today,
 		days: [
@@ -93,12 +93,6 @@ export async function commitRosterSwap(
 			{ date: second.date, was: second.was }
 		]
 	});
-	await ctx.audit.log({
-		action: 'daily_assignment.roster_swapped',
-		resourceType: 'daily_assignment',
-		details: { assignmentTypeId: result.assignmentTypeId, dates: result.swap.days.map((day) => day.date) }
-	});
-	return result;
 }
 
 export async function undoRosterSwap(ctx: RosterSwapPorts, input: Record<string, unknown>): Promise<RosterSwapResult> {
@@ -106,11 +100,5 @@ export async function undoRosterSwap(ctx: RosterSwapPorts, input: Record<string,
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	const { today, swapId } = parsed.data;
 	await authorize(ctx, today);
-	const result = await ctx.calendarRosterSwaps.undo({ today, swapId });
-	await ctx.audit.log({
-		action: 'daily_assignment.roster_swap_undone',
-		resourceType: 'daily_assignment',
-		details: { assignmentTypeId: result.assignmentTypeId, dates: result.swap.days.map((day) => day.date) }
-	});
-	return result;
+	return ctx.calendarRosterSwaps.undo({ today, swapId });
 }

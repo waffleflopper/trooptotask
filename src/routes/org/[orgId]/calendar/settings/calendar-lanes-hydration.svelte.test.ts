@@ -158,7 +158,7 @@ function calendarServer() {
 			hydration: createCalendarWorkspaceHydration('org-1', data)
 		} satisfies CalendarWorkspaceResult;
 	}
-	async function acknowledgeAfter(commitWrites: () => Promise<void>) {
+	async function acknowledgeAfter(commitWrites: () => Promise<unknown>) {
 		await commit.promise;
 		await commitWrites();
 		events.push('commit');

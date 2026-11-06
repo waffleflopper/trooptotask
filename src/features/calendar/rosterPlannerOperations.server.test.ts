@@ -497,12 +497,6 @@ describe('Fill from roster', () => {
 			'23 liang roster',
 			'24 okafor roster'
 		]);
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({
-				action: 'daily_assignment.roster_filled',
-				details: { assignmentTypeId: TYPE, from: '2026-10-17', through: '2026-10-24', days: 7 }
-			})
-		);
 	});
 
 	it('refuses a preview the roster has moved past and writes nothing', async () => {
@@ -671,12 +665,6 @@ describe('Find replacement', () => {
 			'23 morales roster',
 			'24 okafor roster'
 		]);
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({
-				action: 'daily_assignment.roster_replaced',
-				details: { assignmentTypeId: TYPE, date: '2026-10-20', repicks: 3 }
-			})
-		);
 	});
 
 	it("writes someone other than the rule's pick as a hand assignment", async () => {

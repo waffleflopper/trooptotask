@@ -50,11 +50,12 @@ export async function setTrainingTypeOrder(
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
 	const { trainingTypeIds, expectedTrainingTypeIds } = parsed.data;
 	await ctx.trainingCatalog.setTypeOrder(trainingTypeIds, expectedTrainingTypeIds);
+	if (trainingTypeIds.length === 0) return;
 	await ctx.audit.log({
 		action: 'training_type.reordered',
 		resourceType: 'organization',
 		resourceId: ctx.auth.orgId,
-		details: { trainingTypeIds }
+		details: { count: trainingTypeIds.length }
 	});
 }
 
@@ -66,11 +67,6 @@ export async function createTrainingType(
 	if (!parsed.success) error(400, issueMessage(parsed.error));
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
 	const row = await ctx.trainingCatalog.createType(parsed.data);
-	await ctx.audit.log({
-		action: 'training_type.created',
-		resourceType: 'training_type',
-		resourceId: row.id
-	});
 	return row;
 }
 
@@ -94,7 +90,6 @@ export async function updateTrainingType(
 	}
 	const row = await ctx.trainingCatalog.patchType(id, parsed.data);
 	if (!row) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
-	await ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });
 	return row;
 }
 
@@ -108,19 +103,12 @@ export async function setTrainingExemption(
 	const { typeId, personnelId, exempt } = parsed.data;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', typeId);
 	await ctx.trainingCatalog.setPersonExemption(typeId, personnelId, exempt);
-	await ctx.audit.log({
-		action: 'training_type.updated',
-		resourceType: 'training_type',
-		resourceId: typeId,
-		details: { personnel_id: personnelId, exempt }
-	});
 	return { exempt };
 }
 
 export async function deleteTrainingType(ctx: TrainingTypeDeleteContext, id: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
 	await ctx.trainingCatalog.deleteType(id);
-	await ctx.audit.log({ action: 'training_type.deleted', resourceType: 'training_type', resourceId: id });
 	await ctx.notifyTrainingTypeDeleted();
 }
 
@@ -143,11 +131,6 @@ export async function createTrainingView(
 	if (!parsed.success) error(400, issueMessage(parsed.error));
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view');
 	const row = await ctx.trainingCatalog.createView(parsed.data);
-	await ctx.audit.log({
-		action: 'training_view.created',
-		resourceType: 'training_view',
-		resourceId: row.id
-	});
 	return row;
 }
 
@@ -161,12 +144,10 @@ export async function updateTrainingView(
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view', id);
 	const row = await ctx.trainingCatalog.patchView(id, parsed.data);
 	if (!row) fail(404, 'That Training view is no longer available.');
-	await ctx.audit.log({ action: 'training_view.updated', resourceType: 'training_view', resourceId: id });
 	return row;
 }
 
 export async function deleteTrainingView(ctx: TrainingViewDeleteContext, id: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view', id);
 	await ctx.trainingCatalog.deleteView(id);
-	await ctx.audit.log({ action: 'training_view.deleted', resourceType: 'training_view', resourceId: id });
 }

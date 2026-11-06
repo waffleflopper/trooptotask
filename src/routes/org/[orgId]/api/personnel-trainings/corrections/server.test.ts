@@ -110,14 +110,6 @@ describe('PATCH /api/personnel-trainings/corrections', () => {
 			notes: 'Range 4',
 			certificateUrl: 'https://example.test/cert.pdf'
 		});
-		expect(ctx.audit.events).toEqual([
-			{
-				action: 'training_record.corrected',
-				resourceType: 'training_record',
-				resourceId: RECORD,
-				details: { kind: 'current', personnel_id: PERSON, training_type_id: CYCLE_TYPE, completion_date: '2026-03-14' }
-			}
-		]);
 	});
 
 	it('corrects a superseded completion with the client expiration for an expiration-date-only type', async () => {

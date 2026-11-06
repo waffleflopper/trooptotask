@@ -152,12 +152,6 @@ export async function createPersonnelDocument(
 	}
 	await upload.complete();
 
-	await ctx.audit.log({
-		action: 'personnel.document.created',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
-
 	const labels = await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []);
 	return mapDocumentRow(row, labels);
 }
@@ -169,6 +163,12 @@ export async function createPersonnelDocumentDownloadUrl(
 	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
 	const document = await ctx.persistence.findDocument(input.personnelId, input.documentId);
 	if (!document) fail(404, 'Document not found');
+	await ctx.audit.log({
+		action: 'personnel.document.opened',
+		resourceType: 'personnel_document',
+		resourceId: document.id,
+		subject: { personnelId: input.personnelId }
+	});
 
 	return {
 		url: await ctx.createDocumentSignedUrl(document.file_path, 300)
@@ -189,11 +189,6 @@ export async function archivePersonnelDocument(
 	const { writer, row: existing } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	if (existing.archived_at) fail(409, 'Document is already archived');
 	const row = await writer.setDocumentArchive(input.documentId, { at: new Date().toISOString(), by: ctx.actor.userId });
-	await ctx.audit.log({
-		action: 'personnel.document.archived',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
@@ -203,11 +198,6 @@ export async function restorePersonnelDocument(
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	const row = await writer.setDocumentArchive(input.documentId, null);
-	await ctx.audit.log({
-		action: 'personnel.document.restored',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
@@ -220,12 +210,6 @@ export async function deletePersonnelDocument(
 	if (row && !row.archived_at) fail(409, 'Archive documents before deleting them');
 	const result = await writer.deleteArchivedFileArtifact('document', input.documentId, row?.archived_at ?? null);
 	if (!result) fail(row ? 409 : 404, row ? 'Document changed before it was deleted' : 'Document not found');
-	if (result.deleted)
-		await ctx.audit.log({
-			action: 'personnel.document.deleted',
-			resourceType: 'personnel',
-			resourceId: input.personnelId
-		});
 	return { fileCleanup: result.fileCleanup };
 }
 

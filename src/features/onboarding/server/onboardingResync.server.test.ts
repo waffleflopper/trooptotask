@@ -115,7 +115,7 @@ describe('Onboarding reconciliation application boundary', () => {
 		});
 	});
 
-	it('resyncs the locked current template and audits that result instead of a stale policy lookup', async () => {
+	it('resyncs the locked current template and audits the person it belongs to', async () => {
 		const reconcile = vi.fn(async () => savedResult());
 		const ctx = context({ auth: { orgId: 'organization-b' }, onboardingReconciliation: { reconcile } });
 		await resyncOnboarding(ctx, 'ob-1');
@@ -125,22 +125,7 @@ describe('Onboarding reconciliation application boundary', () => {
 				action: 'onboarding.resynced',
 				resourceType: 'personnel_onboarding',
 				resourceId: 'ob-1',
-				details: { templateId: 'template-current' }
-			}
-		]);
-	});
-
-	it.each(['template-previous', null])('audits the locked old template %s when switching', async (oldTemplateId) => {
-		const reconcile = vi.fn(async () => ({ ...savedResult(), old_template_id: oldTemplateId }));
-		const ctx = context({ onboardingReconciliation: { reconcile } });
-		await switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'template-current' });
-		expect(reconcile).toHaveBeenCalledWith('test-org', 'ob-1', 'template-current');
-		expect(ctx.audit.events).toEqual([
-			{
-				action: 'onboarding.template_switched',
-				resourceType: 'personnel_onboarding',
-				resourceId: 'ob-1',
-				details: { oldTemplateId, newTemplateId: 'template-current' }
+				subject: { personnelId: 'person-1' }
 			}
 		]);
 	});

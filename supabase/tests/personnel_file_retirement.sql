@@ -94,7 +94,7 @@ SELECT is(
 	ARRAY(SELECT has_function_privilege(role_name, signature, 'EXECUTE')
 		FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) AS role_name,
 		unnest(ARRAY[
-			'public.delete_archived_personnel_artifact(uuid, uuid, text, uuid, timestamptz)',
+			'public.delete_archived_personnel_artifact(uuid, uuid, text, uuid, timestamptz, uuid)',
 			'public.personnel_file_artifact_deletion(uuid, uuid, text, uuid)',
 			'public.reconcile_personnel_file_attachment(uuid, uuid, text, text)',
 			'public.list_pending_organization_file_retirements(integer)',

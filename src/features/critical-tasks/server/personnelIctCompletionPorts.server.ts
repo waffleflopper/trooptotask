@@ -19,9 +19,6 @@ export interface PersonnelIctCompletionWriteContext extends CompletionPolicyPort
 
 export interface IctCompletionBatchContext extends CompletionPolicyPorts {
 	readonly criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listImportCandidates'>;
-	readonly criticalTaskCompletions: Pick<
-		CriticalTaskCompletionPersistence,
-		'listImportHistory' | 'createMany' | 'create' | 'update'
-	>;
+	readonly criticalTaskCompletions: Pick<CriticalTaskCompletionPersistence, 'listImportHistory' | 'importMany'>;
 	readonly personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listForBatchImport'>;
 }

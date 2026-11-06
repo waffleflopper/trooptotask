@@ -49,9 +49,10 @@ view-only member can inspect results without recording them.
 ### Helper controls
 
 The [completion/readiness recipe](critical-tasks-completions-readiness.md#driving-it-with-verifyapp) owns
-`ict-completions-insert-lost-ack` and `ict-completions-update-lost-ack`. They apply the
-[same one-shot post-commit transport loss](critical-tasks-library.md#helper-controls) to exact `POST` and
-`PATCH /rest/v1/personnel_ict_completions`, respectively. Restore before another mutation. Capture exact
+`ict-completions-insert-lost-ack`, `ict-completions-update-lost-ack` and `ict-completions-import-lost-ack`. They apply
+the [same one-shot post-commit transport loss](critical-tasks-library.md#helper-controls) to exact `POST` and
+`PATCH /rest/v1/personnel_ict_completions` (the completion form) and to `POST /rest/v1/rpc/import_ict_completions` (an
+import chunk), respectively. Restore before another mutation. Capture exact
 Person/task/date IDs and notes with `rows personnel_ict_completions`, separately from native import counts and errors. A
 committed insert must not be reported as refused, and an unresolved update must not be reported as confirmed merely
 because its content matches a later read.
@@ -159,16 +160,16 @@ pre-populating extra completions.
    `Last name,First name,Task code,Completed,Validation method,Notes` holding a fixture Person, `VERIFY-ICT-ALL`, an
    unused date, Demonstration and a unique Notes marker. Read
    `$V rows personnel_ict_completions orgA personnel_id PERSON_ID` and require no matching row before confirmation. Arm
-   `$V fault arm ict-completions-insert-lost-ack` on Review, then Import. The control lets one exact owned-provider
-   `POST /rest/v1/personnel_ict_completions` commit, consumes its successful reply and throws a synthetic transport
-   error. Expect the row counted as Added, exactly one saved Person/task/date row and `providerStatus: 201`. A raw
+   `$V fault arm ict-completions-import-lost-ack` on Review, then Import. The control lets one exact owned-provider
+   `POST /rest/v1/rpc/import_ict_completions` commit, consumes its successful reply and throws a synthetic transport
+   error. Expect the row counted as Added, exactly one saved Person/task/date row and `providerStatus: 200`. A raw
    uniqueness error despite a saved row is a failure. Restore `$V fault restore` and require the matrix cell after Done
    without a reload. The UI has no completion-delete action; discard the created row only by disposing this owned
    worker.
 
    For an adjacent same-date update, record the completion ID, import the same Person/task/date with revised Notes and
-   arm `$V fault arm ict-completions-update-lost-ack` on Review. A successful PATCH whose reply is lost returns an
-   unconfirmed result for that row. Done reads `0 changes saved.` with `Not confirmed 1` and
+   arm `$V fault arm ict-completions-import-lost-ack` on Review. A committed import whose reply is lost returns an
+   unconfirmed result for the updated row. Done reads `0 changes saved.` with `Not confirmed 1` and
    `The last batch was not confirmed`. Reload to inspect the actual effect on the same provider ID before any new
    import. These controls are table- and method-scoped inside the owned provider, not restricted to one row or
    Organization; drive one mutation at a time.

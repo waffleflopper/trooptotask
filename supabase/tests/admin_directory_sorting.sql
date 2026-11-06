@@ -29,6 +29,8 @@ INSERT INTO public.personnel(organization_id,rank,last_name,first_name,clinic_ro
  ('f5a00000-0000-4000-8000-000000000101','SGT','Sort 2','Ann','Medic','68W','admin-sort-person-2',NULL),
  ('f5a00000-0000-4000-8000-000000000102','SGT','Sort 3','Ann','Medic','68W','admin-sort-person-3',NULL),
  ('f5a00000-0000-4000-8000-000000000103','SGT','Sort 4','Ann','Medic','68W','admin-sort-person-4',now());
+-- The roster triggers wrote entries for the fixture rows. Last active is set by the entries below alone.
+DELETE FROM public.audit_logs WHERE org_id::text LIKE 'f5a00000-0000-4000-8000-0000000001%';
 INSERT INTO public.audit_logs(org_id,user_id,action,resource_type,severity,"timestamp") VALUES
  ('f5a00000-0000-4000-8000-000000000101','f5a00000-0000-4000-8000-000000000001','personnel.create','personnel','info',now() - interval '1 days'),
  ('f5a00000-0000-4000-8000-000000000102','f5a00000-0000-4000-8000-000000000001','personnel.create','personnel','info',now() - interval '60 days'),

@@ -54,13 +54,6 @@ describe('POST /api/special-days', () => {
 		const stored = await ctx.store.findMany('special_days', 'test-org');
 		expect(stored).toHaveLength(3);
 		expect(stored).toEqual(expect.arrayContaining(taken));
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({
-				action: 'special_day.created',
-				resourceType: 'special_day',
-				resourceId: result.created[0].id
-			})
-		]);
 	});
 
 	it.each([

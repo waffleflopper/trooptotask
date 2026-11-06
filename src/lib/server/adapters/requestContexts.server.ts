@@ -142,14 +142,14 @@ import type {
 import { readOrganizationMembershipForRequest } from '$features/organization/index.server';
 import { getOrLoadRequestMembership } from '$lib/access/index.server';
 import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
-import type { AuditPort } from '$lib/audit/contracts';
+import type { BatchAuditPort } from '$lib/audit/contracts';
 import type { PersonnelScopeEnforcement } from '$features/personnel/contracts';
 import type { PersonnelRecordPersistence } from '$features/personnel/contracts';
 import type { Session } from '@supabase/supabase-js';
 
 export interface AdmittedOrganizationRequest {
 	readonly auth: OrganizationAccessGrant;
-	readonly audit: AuditPort;
+	readonly audit: BatchAuditPort;
 	readonly supabase: SupabaseClient;
 	readonly session: Session | null;
 	readonly scope: PersonnelScopeEnforcement;
@@ -169,7 +169,7 @@ async function createOrganizationRequest(
 	supabase: SupabaseClient,
 	userId: string,
 	organization: ActiveOrganization,
-	audit: AuditPort
+	audit: BatchAuditPort
 ): Promise<AdmittedOrganizationRequest> {
 	const orgId = organization.id;
 	const membership = await getOrLoadRequestMembership(locals, userId, orgId, () =>
@@ -198,10 +198,18 @@ export async function buildRouteRequest(event: RequestEvent): Promise<AdmittedOr
 	);
 }
 
-export async function buildLayoutRequest(locals: App.Locals, orgId: string): Promise<AdmittedOrganizationRequest> {
+/** A page load writes no audit entry unless the loader hands over its event, as a read that must be logged does. */
+export async function buildLayoutRequest(
+	locals: App.Locals,
+	orgId: string,
+	auditEvent?: Pick<RequestEvent, 'getClientAddress' | 'request' | 'locals'>
+): Promise<AdmittedOrganizationRequest> {
 	const { supabase, userId } = getAdmittedRequestClient(locals);
 	const organization = await requireActiveOrganization(locals, orgId);
-	return createOrganizationRequest(locals, supabase, userId, organization, { async log() {} });
+	const audit = auditEvent
+		? createSupabaseAuditAdapter(organization.id, getRequestInfo(auditEvent))
+		: { async log() {}, async logMany() {} };
+	return createOrganizationRequest(locals, supabase, userId, organization, audit);
 }
 
 export function createRequestPersonnelArtifactsContext(
@@ -339,6 +347,8 @@ export function createRequestOrganizationAuditLogContext(request: AdmittedOrgani
 		auth: request.auth,
 		audit: request.audit,
 		auditStore: createSupabaseOrganizationAuditStore(adminClient),
+		roster: createSupabasePersonnelRosterReader(request.supabase, orgId, request.auth.scopeSet),
+		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId),
 		auditLabels: {
 			personnelNames: createSupabasePersonnelNamesReader(adminClient, orgId),
 			trainingTypeNames: createSupabaseTrainingTypeNamesReader(adminClient, orgId),
@@ -382,7 +392,6 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 export function createRequestPersonnelLogBatchContext(request: AdmittedOrganizationRequest): PersonnelLogBatchContext {
 	return {
 		auth: request.auth,
-		audit: request.audit,
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient)
 	};
@@ -656,6 +665,7 @@ export function createRequestDailyAssignmentContext(request: AdmittedOrganizatio
 		...createRequestCalendarCatalogContext(request),
 		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase, {
 			admin: getAdminClient,
 			actorId: request.auth.userId

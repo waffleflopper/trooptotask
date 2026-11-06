@@ -19,13 +19,7 @@ export async function createStatusType(ctx: CalendarCatalogPorts, input: Record<
 	const parsed = statusTypeCreateInput.safeParse(input);
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	await requireCalendarPolicy(ctx, action, resource);
-	const row = await ctx.calendarCatalogs.createStatusType(parsed.data);
-	await ctx.audit.log({
-		action: 'status_type.created',
-		resourceType: 'status_type',
-		resourceId: row.id
-	});
-	return row;
+	return ctx.calendarCatalogs.createStatusType(parsed.data);
 }
 
 export async function updateStatusType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
@@ -35,7 +29,6 @@ export async function updateStatusType(ctx: CalendarCatalogPorts, input: Record<
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.updateStatusType(id, patch);
 	if (!row) throw error(404, 'That status type is no longer available.');
-	await ctx.audit.log({ action: 'status_type.updated', resourceType: 'status_type', resourceId: id });
 	return row;
 }
 
@@ -45,18 +38,18 @@ export async function setStatusTypeOrder(ctx: CalendarCatalogPorts, input: Recor
 	const { statusTypeIds, expectedStatusTypeIds } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	await ctx.calendarCatalogs.setStatusTypeOrder(statusTypeIds, expectedStatusTypeIds);
+	if (statusTypeIds.length === 0) return;
 	await ctx.audit.log({
 		action: 'status_type.reordered',
 		resourceType: 'organization',
 		resourceId: ctx.auth.orgId,
-		details: { statusTypeIds }
+		details: { count: statusTypeIds.length }
 	});
 }
 
 export async function deleteStatusType(ctx: CalendarCatalogDeletionPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, action, resource);
 	if (!(await ctx.calendarCatalogs.deleteStatusType(id))) return;
-	await ctx.audit.log({ action: 'status_type.deleted', resourceType: 'status_type', resourceId: id });
 	await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 		type: 'config_type_deleted',
 		title: 'Status Type Deleted',

@@ -95,13 +95,6 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 				created_by: ctx.auth.userId
 			}))
 		);
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'personnel.follow_up.created',
-				resourceType: 'personnel',
-				details: { personnelIds: [able, baker, unassigned] }
-			})
-		]);
 	});
 
 	it('writes only inside a Group-scoped operator’s Groups and reports the others as unavailable', async () => {
@@ -113,7 +106,7 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 		expect((await followUps(ctx)).map((row) => [row.personnel_id, row.due_date])).toEqual([[able, null]]);
 	});
 
-	it('writes nothing and logs no event when nobody can be written', async () => {
+	it('writes nothing when nobody can be written', async () => {
 		const ctx = context('operate', groupCoverageForTest({ kind: 'groups', groupIds: [alpha] }));
 
 		await expect(post(followUpBatch, ctx, { personnelIds: [baker], title: 'Weapons card' })).resolves.toEqual({
@@ -121,23 +114,6 @@ describe('POST /api/personnel/follow-ups/batch', () => {
 			unavailableIds: [baker]
 		});
 		expect(await followUps(ctx)).toEqual([]);
-		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.follow_up.created')).toEqual([]);
-	});
-
-	it('fails the request when its audit event cannot be recorded', async () => {
-		const ctx = context('operate');
-		const failingAudit = {
-			...ctx,
-			audit: {
-				log: async () => {
-					throw new Error('audit down');
-				}
-			}
-		};
-
-		await expect(
-			handleUseCaseRequest(followUpBatch, ctx, { personnelIds: [able], title: 'Weapons card' }, () => failingAudit)
-		).rejects.toThrow('audit down');
 	});
 
 	it('refuses a Personnel viewer and malformed input without writing', async () => {
@@ -169,9 +145,6 @@ describe('POST /api/personnel/leader-notes/batch', () => {
 		expect((await notes(ctx)).map(({ personnel_id, text, author }) => ({ personnel_id, text, author }))).toEqual([
 			{ personnel_id: able, text: 'Great range day', author: ctx.auth.userId },
 			{ personnel_id: baker, text: 'Great range day', author: ctx.auth.userId }
-		]);
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({ action: 'personnel.leader_note.created', details: { personnelIds: [able, baker] } })
 		]);
 	});
 

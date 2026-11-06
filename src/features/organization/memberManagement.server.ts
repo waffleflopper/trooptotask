@@ -39,6 +39,7 @@ import {
 	type SensitiveActionDecision
 } from '$features/identity/contracts';
 import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
+import { maskEmail } from '$lib/audit/index.server';
 import {
 	organizationInvitationRateLimitAuditDetails,
 	organizationInvitationRateLimitMessage,
@@ -142,7 +143,7 @@ export interface OrganizationSettingsMemberManagementPort {
 	removeMembership(orgId: string, membershipId: string, expectedRole: EditableMembershipRole): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
 	getOrganizationName(orgId: string): Promise<string | null>;
-	findOrganizationGroupIds(orgId: string, groupIds: string[]): Promise<string[]>;
+	findOrganizationGroups(orgId: string, groupIds: string[]): Promise<Array<{ id: string; name: string }>>;
 }
 
 export interface OrganizationInvitationDeliveryPort {
@@ -251,19 +252,18 @@ export async function inviteOrganizationMember(
 	}
 
 	const inviteRequiresStepUp = isHighPrivilegeAccess(accessCommand.role, false);
-	const sensitiveAction = inviteRequiresStepUp
-		? await authorizeMemberManagementSensitiveAction(ports, {
-				action: ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
-				deniedAuditAction: 'member.high_privilege_invite_authorization_denied',
-				targetId: email,
-				targetType: 'organization_invitation',
-				details: {
-					email,
-					membershipRole: accessCommand.role,
-					memberPreset: accessCommand.memberPreset
-				}
-			})
-		: null;
+	if (inviteRequiresStepUp)
+		await authorizeMemberManagementSensitiveAction(ports, {
+			action: ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
+			deniedAuditAction: 'member.high_privilege_invite_authorization_denied',
+			targetId: email,
+			targetType: 'organization_invitation',
+			details: {
+				email,
+				membershipRole: accessCommand.role,
+				memberPreset: accessCommand.memberPreset
+			}
+		});
 
 	const existingUserAccount = await ports.settings.findUserAccountByEmail(email);
 	const rateLimit = await checkInvitationRateLimit(ports, {
@@ -324,13 +324,8 @@ export async function inviteOrganizationMember(
 	await ports.audit.log({
 		action: 'member.invite',
 		resourceType: 'organization',
-		details: {
-			email,
-			membershipRole: accessCommand.role,
-			memberPreset: accessCommand.memberPreset,
-			...(sensitiveAction ? { sensitiveAction: sensitiveActionDecisionAuditDetails(sensitiveAction) } : {}),
-			...(rateLimit ? { rateLimit } : {})
-		}
+		record: maskEmail(email),
+		details: { role: accessCommand.role }
 	});
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
@@ -714,7 +709,9 @@ export async function revokeOrganizationInvitation(
 	await ports.audit.log({
 		action: 'member.invite_revoked',
 		resourceType: 'organization',
-		details: { inviteId: input.inviteId }
+		resourceId: input.inviteId,
+		record: revoked.email ? maskEmail(revoked.email) : 'an invitation',
+		details: {}
 	});
 
 	await notifyAdminsOfRevokedInvitation(ports, {
@@ -753,19 +750,18 @@ export async function removeOrganizationMember(
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	}
 	const removesHighPrivilegeMember = isHighPrivilegeAccess(membership?.role, membership?.canManageMembers);
-	const sensitiveAction = removesHighPrivilegeMember
-		? await authorizeMemberManagementSensitiveAction(ports, {
-				action: ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,
-				deniedAuditAction: 'member.high_privilege_remove_authorization_denied',
-				targetId: input.membershipId,
-				targetType: 'organization_membership',
-				details: {
-					membershipId: input.membershipId,
-					targetRole: membership?.role ?? null,
-					targetCanManageMembers: membership?.canManageMembers ?? null
-				}
-			})
-		: null;
+	if (removesHighPrivilegeMember)
+		await authorizeMemberManagementSensitiveAction(ports, {
+			action: ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,
+			deniedAuditAction: 'member.high_privilege_remove_authorization_denied',
+			targetId: input.membershipId,
+			targetType: 'organization_membership',
+			details: {
+				membershipId: input.membershipId,
+				targetRole: membership?.role ?? null,
+				targetCanManageMembers: membership?.canManageMembers ?? null
+			}
+		});
 
 	const errorMessage = await ports.settings.removeMembership(ports.auth.orgId, input.membershipId, expectedRole);
 	if (errorMessage) {
@@ -775,10 +771,9 @@ export async function removeOrganizationMember(
 	await ports.audit.log({
 		action: 'member.removed',
 		resourceType: 'organization',
-		details: {
-			membershipId: input.membershipId,
-			...(sensitiveAction ? { sensitiveAction: sensitiveActionDecisionAuditDetails(sensitiveAction) } : {})
-		}
+		resourceId: input.membershipId,
+		record: membership.email ? maskEmail(membership.email) : 'a member',
+		details: {}
 	});
 
 	if (membership?.userId) {
@@ -831,7 +826,8 @@ export async function leaveOrganization(
 	await ports.audit.log({
 		action: 'member.left',
 		resourceType: 'organization',
-		details: { membershipId: input.membershipId }
+		resourceId: input.membershipId,
+		details: {}
 	});
 
 	const orgName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'the organization';
@@ -880,25 +876,24 @@ export async function updateOrganizationMemberAccess(
 			requestedAccess &&
 			keepStoredLanes(requestedAccess, targetMembership.storedLevels, disabledFeatureLanes(ports.disabledFeatures))
 	});
-	await requireOrganizationGroups(ports, accessCommand.accessScopeGroupIds);
+	const groupNames = await requireOrganizationGroups(ports, accessCommand.accessScopeGroupIds);
 	const updatesHighPrivilegeAccess =
 		isHighPrivilegeAccess(targetMembership?.role, targetMembership?.canManageMembers) ||
 		isHighPrivilegeAccess(accessCommand.role, false);
-	const sensitiveAction = updatesHighPrivilegeAccess
-		? await authorizeMemberManagementSensitiveAction(ports, {
-				action: ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
-				deniedAuditAction: 'member.high_privilege_update_authorization_denied',
-				targetId: input.membershipId,
-				targetType: 'organization_membership',
-				details: {
-					membershipId: input.membershipId,
-					currentRole: targetMembership?.role ?? null,
-					targetRole: accessCommand.role,
-					currentCanManageMembers: targetMembership?.canManageMembers ?? null,
-					targetCanManageMembers: accessCommand.role === 'admin'
-				}
-			})
-		: null;
+	if (updatesHighPrivilegeAccess)
+		await authorizeMemberManagementSensitiveAction(ports, {
+			action: ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
+			deniedAuditAction: 'member.high_privilege_update_authorization_denied',
+			targetId: input.membershipId,
+			targetType: 'organization_membership',
+			details: {
+				membershipId: input.membershipId,
+				currentRole: targetMembership?.role ?? null,
+				targetRole: accessCommand.role,
+				currentCanManageMembers: targetMembership?.canManageMembers ?? null,
+				targetCanManageMembers: accessCommand.role === 'admin'
+			}
+		});
 
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
@@ -918,14 +913,14 @@ export async function updateOrganizationMemberAccess(
 	await ports.audit.log({
 		action: 'member.access_changed',
 		resourceType: 'organization',
+		resourceId: input.membershipId,
+		record: targetMembership.email ? maskEmail(targetMembership.email) : 'a member',
 		details: {
-			membershipId: input.membershipId,
-			membershipRole: accessCommand.role,
-			memberPreset: accessCommand.memberPreset,
-			capabilityOverrides: accessCommand.capabilityOverrides,
-			accessScopeKind: accessCommand.accessScopeKind,
-			accessScopeGroupIds: accessCommand.accessScopeGroupIds,
-			...(sensitiveAction ? { sensitiveAction: sensitiveActionDecisionAuditDetails(sensitiveAction) } : {})
+			role: accessCommand.role,
+			preset: accessCommand.memberPreset,
+			scope: accessCommand.accessScopeKind,
+			groups: groupNames,
+			capabilities: accessCommand.capabilityOverrides
 		},
 		severity: 'warning'
 	});
@@ -1004,12 +999,19 @@ async function auditDeniedSensitiveAction(
 	});
 }
 
-async function requireOrganizationGroups(ports: OrganizationSettingsMemberManagementPorts, groupIds: string[]) {
-	if (groupIds.length === 0) return;
-	const found = new Set(await ports.settings.findOrganizationGroupIds(ports.auth.orgId, groupIds));
-	if (groupIds.some((id) => !found.has(id))) {
+async function requireOrganizationGroups(
+	ports: OrganizationSettingsMemberManagementPorts,
+	groupIds: string[]
+): Promise<string[]> {
+	if (groupIds.length === 0) return [];
+	const found = new Map(
+		(await ports.settings.findOrganizationGroups(ports.auth.orgId, groupIds)).map((group) => [group.id, group.name])
+	);
+	const names = groupIds.map((id) => found.get(id));
+	if (names.some((name) => name === undefined)) {
 		fail(400, 'Select groups from this organization');
 	}
+	return names as string[];
 }
 
 function isHighPrivilegeAccess(role: string | null | undefined, canManageMembers: boolean | null | undefined): boolean {

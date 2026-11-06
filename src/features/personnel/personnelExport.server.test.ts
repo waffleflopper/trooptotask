@@ -296,9 +296,7 @@ describe('Personnel export use case', () => {
 			action: 'personnel.exported',
 			resourceType: 'personnel',
 			resourceId: PERSONNEL_ID,
-			details: {
-				name: 'SGT Smith, Jamie'
-			}
+			subject: { personnelId: PERSONNEL_ID }
 		});
 
 		const infoRows = worksheetRows(worksheetByName(workbook, 'Personnel Info'));

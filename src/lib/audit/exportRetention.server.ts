@@ -6,13 +6,17 @@ export interface AuditExportReader {
 	listRows(): Promise<Record<string, unknown>[]>;
 }
 
+/** Every column an entry saves except where it came from: the address and browser of the member are never exported. */
+const EXPORT_COLUMNS =
+	'id, timestamp, user_id, actor_label, org_id, action, resource_type, resource_id, record_label, subject_personnel_id, subject_label, batch_id, severity, details';
+
 export function createSupabaseAuditExportReader(client: SupabaseClient, orgId: string): AuditExportReader {
 	return {
 		async listRows() {
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
 				const { data, error } = await client
 					.from('audit_logs')
-					.select('*')
+					.select(EXPORT_COLUMNS)
 					.eq('org_id', orgId)
 					.order('id', { ascending: true })
 					.range(from, to);

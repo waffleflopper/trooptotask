@@ -45,6 +45,7 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   ('f7000000-0000-4000-8000-000000000308', 'f7000000-0000-4000-8000-000000000102', NULL, 'SPC', 'Eight', 'Foreign', 'extended-foreign-mismatched', NULL),
   ('f7000000-0000-4000-8000-000000000309', 'f7000000-0000-4000-8000-000000000102', NULL, 'SPC', 'Nine', 'Foreign', 'extended-foreign-new', NULL),
   ('f7000000-0000-4000-8000-000000000310', 'f7000000-0000-4000-8000-000000000101', NULL, 'SPC', 'Ten', 'Unassigned', 'extended-unassigned-new', NULL);
+ALTER TABLE public.personnel_extended_info DISABLE TRIGGER audit_personnel_extended_info;
 INSERT INTO public.personnel_extended_info
   (id, organization_id, personnel_id, emergency_contact_name, award_tracking_acknowledged_at) VALUES
   ('f7000000-0000-4000-8000-000000000401', 'f7000000-0000-4000-8000-000000000101', 'f7000000-0000-4000-8000-000000000301', 'Alpha secret', '2029-02-01'),
@@ -54,6 +55,7 @@ INSERT INTO public.personnel_extended_info
   ('f7000000-0000-4000-8000-000000000405', 'f7000000-0000-4000-8000-000000000101', 'f7000000-0000-4000-8000-000000000305', 'Unassigned archived secret', NULL),
   ('f7000000-0000-4000-8000-000000000406', 'f7000000-0000-4000-8000-000000000102', 'f7000000-0000-4000-8000-000000000306', 'Foreign secret', '2029-02-06'),
   ('f7000000-0000-4000-8000-000000000407', 'f7000000-0000-4000-8000-000000000101', 'f7000000-0000-4000-8000-000000000308', 'Mismatched secret', '2029-02-07');
+ALTER TABLE public.personnel_extended_info ENABLE TRIGGER audit_personnel_extended_info;
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'f7000000-0000-4000-8000-000000000002', true);

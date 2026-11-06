@@ -59,7 +59,7 @@ describe('Organization settings navigation', () => {
 		]);
 		const nav = within(sideNav());
 		expect(nav.getByRole('link', { name: 'Policies' })).toHaveAttribute('aria-current', 'page');
-		expect(nav.getByRole('link', { name: 'Logs Owner' })).toHaveAttribute('href', '/org/alpha/settings/logs');
+		expect(nav.getByRole('link', { name: 'Logs' })).toHaveAttribute('href', '/org/alpha/settings/logs');
 		expect(nav.getByRole('link', { name: 'Danger zone Owner' })).toHaveAttribute('href', '/org/alpha/settings/danger');
 		expect(await nav.findByRole('link', { name: 'Members 2 pending invitations' })).toBeInTheDocument();
 		expect(nav.getByRole('link', { name: 'Approvals' })).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe('Organization settings navigation', () => {
 		expect(document.title).toContain('Synthetic Alpha');
 	});
 
-	it('hides Logs and Danger zone from an admin and links with the canonical segment', async () => {
+	it('shows Logs but hides Danger zone from an admin and links with the canonical segment', async () => {
 		render(SettingsShell, {
 			settingsShell: buildSettingsShell('admin', { ...organization, urlSlug: null, urlSegment: 'org-b' }),
 			navCounts: { pendingInvitations: Promise.resolve(0), pendingApprovals: Promise.resolve(1) },
@@ -82,7 +82,11 @@ describe('Organization settings navigation', () => {
 			children
 		});
 
-		expect(groupHrefs('Records')).toEqual(['/org/org-b/settings/archives', '/org/org-b/settings/exports']);
+		expect(groupHrefs('Records')).toEqual([
+			'/org/org-b/settings/archives',
+			'/org/org-b/settings/exports',
+			'/org/org-b/settings/logs'
+		]);
 		const nav = within(sideNav());
 		expect(nav.queryByRole('link', { name: /Danger zone/ })).not.toBeInTheDocument();
 		expect(nav.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');

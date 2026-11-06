@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { AuditPort } from '$lib/audit/contracts';
 import { fail } from '$lib/errors';
 import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
@@ -20,6 +21,8 @@ import { TASKING_GONE } from './taskingPersistence.server';
 
 export interface CalendarTaskingListsPorts extends CalendarTaskingPorts {
 	taskingLists: CalendarTaskingListsPersistence;
+	/** Reordering is audited here: it changes only positions, which the database triggers do not record. */
+	audit: AuditPort;
 }
 
 const TASKING_CLOSED = 'A completed or cancelled tasking cannot change. Reopen it first.';
@@ -35,11 +38,12 @@ function itemId(id: string): string {
 	return id;
 }
 
-const audited = (verb: string, tasking: Tasking, item?: string) => ({
-	action: `calendar_tasking.${verb}`,
+const reordered = (list: TaskingListKind, tasking: Tasking) => ({
+	action: `calendar_tasking.${list}_reordered`,
 	resourceType: 'calendar_tasking',
 	resourceId: tasking.id,
-	details: { title: tasking.title, ...(item && { item }) }
+	record: tasking.title,
+	details: { item: null }
 });
 
 /**
@@ -70,8 +74,7 @@ export async function addEquipment(
 ): Promise<EquipmentRequirement> {
 	const { id, draft } = parse(equipmentCreateSchema, input);
 	const tasking = await requireEditable(ctx, taskingId);
-	const { item, created } = await ctx.taskingLists.addEquipment(tasking.id, id, draft);
-	if (created) await ctx.audit.log(audited('equipment_added', tasking, item.name));
+	const { item } = await ctx.taskingLists.addEquipment(tasking.id, id, draft);
 	return item;
 }
 
@@ -86,9 +89,6 @@ export async function updateEquipment(
 	const tasking = await requireEditable(ctx, taskingId, returnOnly);
 	const item = await ctx.taskingLists.updateEquipment(tasking.id, itemId(id), change);
 	if (!item) fail(404, LIST_ITEM_GONE);
-	if (change.name !== undefined || change.quantity !== undefined)
-		await ctx.audit.log(audited('equipment_changed', tasking, item.name));
-	if (change.securedQuantity !== undefined) await ctx.audit.log(audited('equipment_secured', tasking, item.name));
 	return item;
 }
 
@@ -100,7 +100,6 @@ export async function removeEquipment(
 ): Promise<{ removed: boolean }> {
 	const tasking = await requireEditable(ctx, taskingId);
 	const item = await ctx.taskingLists.removeEquipment(tasking.id, itemId(id));
-	if (item) await ctx.audit.log(audited('equipment_removed', tasking, item.name));
 	return { removed: item !== null };
 }
 
@@ -111,8 +110,7 @@ export async function addChecklistItem(
 ): Promise<ChecklistItem> {
 	const { id, label } = parse(checklistCreateSchema, input);
 	const tasking = await requireEditable(ctx, taskingId);
-	const { item, created } = await ctx.taskingLists.addChecklistItem(tasking.id, id, label);
-	if (created) await ctx.audit.log(audited('checklist_added', tasking, item.label));
+	const { item } = await ctx.taskingLists.addChecklistItem(tasking.id, id, label);
 	return item;
 }
 
@@ -126,9 +124,6 @@ export async function updateChecklistItem(
 	const tasking = await requireEditable(ctx, taskingId);
 	const item = await ctx.taskingLists.updateChecklistItem(tasking.id, itemId(id), change);
 	if (!item) fail(404, LIST_ITEM_GONE);
-	if (change.label !== undefined) await ctx.audit.log(audited('checklist_renamed', tasking, item.label));
-	if (change.done !== undefined)
-		await ctx.audit.log(audited(item.done ? 'checklist_completed' : 'checklist_reopened', tasking, item.label));
 	return item;
 }
 
@@ -139,7 +134,6 @@ export async function removeChecklistItem(
 ): Promise<{ removed: boolean }> {
 	const tasking = await requireEditable(ctx, taskingId);
 	const item = await ctx.taskingLists.removeChecklistItem(tasking.id, itemId(id));
-	if (item) await ctx.audit.log(audited('checklist_removed', tasking, item.label));
 	return { removed: item !== null };
 }
 
@@ -152,6 +146,6 @@ export async function reorderTaskingList(
 	const { ids } = parse(listOrderSchema, input);
 	const tasking = await requireEditable(ctx, taskingId);
 	await ctx.taskingLists.reorder(tasking.id, list, ids);
-	await ctx.audit.log(audited(`${list}_reordered`, tasking));
+	await ctx.audit.log(reordered(list, tasking));
 	return ctx.taskingLists.list(tasking.id);
 }

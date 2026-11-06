@@ -18,7 +18,8 @@ import {
 	isDateOnly,
 	isTimeZone,
 	localDateIn,
-	startOfMonthIn,
+	startOfDayIn,
+	startOfNextDayIn,
 	calendarDayDiff,
 	formatRelativeDate,
 	formatDayOffset
@@ -42,30 +43,25 @@ describe('localDateIn', () => {
 	});
 });
 
-describe('startOfMonthIn', () => {
-	it('returns local midnight on the first of the month in the named zone', () => {
-		expect(startOfMonthIn('America/New_York', new Date('2026-10-20T12:00:00Z')).toISOString()).toBe(
-			'2026-10-01T04:00:00.000Z'
-		);
-		expect(startOfMonthIn('Asia/Seoul', new Date('2026-10-31T16:00:00Z')).toISOString()).toBe(
-			'2026-10-31T15:00:00.000Z'
-		);
-		expect(startOfMonthIn('UTC', new Date('2026-03-01T00:00:00Z')).toISOString()).toBe('2026-03-01T00:00:00.000Z');
+describe('startOfDayIn and startOfNextDayIn', () => {
+	const bounds = (zone: string, day: string) => [
+		startOfDayIn(zone, day).toISOString(),
+		startOfNextDayIn(zone, day).toISOString()
+	];
+
+	it('bound a day from local midnight to the next local midnight in the named zone', () => {
+		expect(bounds('America/New_York', '2026-10-20')).toEqual(['2026-10-20T04:00:00.000Z', '2026-10-21T04:00:00.000Z']);
+		expect(bounds('Asia/Seoul', '2026-10-31')).toEqual(['2026-10-30T15:00:00.000Z', '2026-10-31T15:00:00.000Z']);
+		expect(bounds('UTC', '2026-12-31')).toEqual(['2026-12-31T00:00:00.000Z', '2027-01-01T00:00:00.000Z']);
 	});
 
-	it('uses the offset in force at the start of the month, not today', () => {
-		expect(startOfMonthIn('America/New_York', new Date('2026-11-20T12:00:00Z')).toISOString()).toBe(
-			'2026-11-01T04:00:00.000Z'
-		);
-		expect(startOfMonthIn('America/New_York', new Date('2026-12-02T12:00:00Z')).toISOString()).toBe(
-			'2026-12-01T05:00:00.000Z'
-		);
+	it('use the offset in force on that day, so a day that changes the clock is 23 or 25 hours long', () => {
+		expect(bounds('America/New_York', '2026-11-01')).toEqual(['2026-11-01T04:00:00.000Z', '2026-11-02T05:00:00.000Z']);
+		expect(bounds('America/New_York', '2026-03-08')).toEqual(['2026-03-08T05:00:00.000Z', '2026-03-09T04:00:00.000Z']);
 	});
 
-	it('starts the month at the first local time that exists when midnight is skipped', () => {
-		expect(startOfMonthIn('America/Asuncion', new Date('2023-10-15T12:00:00Z')).toISOString()).toBe(
-			'2023-10-01T04:00:00.000Z'
-		);
+	it('start the day at the first local time that exists when midnight is skipped', () => {
+		expect(startOfDayIn('America/Asuncion', '2023-10-01').toISOString()).toBe('2023-10-01T04:00:00.000Z');
 	});
 });
 

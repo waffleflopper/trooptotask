@@ -1,6 +1,5 @@
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
-import type { AuditEvent } from '$lib/audit/contracts';
 import type { CapabilityLevel, GroupCoverage } from '$lib/access/memberAccessShape';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { TASKING_TRANSITIONS, type Tasking, type TaskingDraft, type TaskingStatus } from './taskingModel';
@@ -90,24 +89,8 @@ function memoryTaskings(): CalendarTaskingPersistence & { stored: Map<string, Ta
 	};
 }
 
-/** The audit write lands a tick after it is called, so only an awaited write is visible when the operation returns. */
-function slowAudit() {
-	const entries: AuditEvent[] = [];
-	return {
-		entries,
-		log: (entry: AuditEvent) =>
-			new Promise<void>((resolve) =>
-				setTimeout(() => {
-					entries.push(entry);
-					resolve();
-				}, 0)
-			)
-	};
-}
-
 function member(calendar: CapabilityLevel, scopeSet: GroupCoverage = { kind: 'organization' }) {
 	const calendarTaskings = memoryTaskings();
-	const audit = slowAudit();
 	const ctx: CalendarTaskingPorts = {
 		auth: createTestAuthContext({
 			userId: ACTOR,
@@ -124,7 +107,6 @@ function member(calendar: CapabilityLevel, scopeSet: GroupCoverage = { kind: 'or
 			},
 			scopeSet
 		}),
-		audit,
 		calendarTaskings,
 		calendarEvents: { listEvents: async () => [] },
 		groups: {
@@ -139,34 +121,28 @@ function member(calendar: CapabilityLevel, scopeSet: GroupCoverage = { kind: 'or
 		memberLabels: async () => ({ [ACTOR]: 'sgt.kim@example.mil' }),
 		calendarStaffing: { countStaffing: async () => ({}) }
 	};
-	return { ctx, calendarTaskings, audit };
+	return { ctx, calendarTaskings };
 }
 
 const alphaOperator = () => member('operate', groupCoverageForTest({ kind: 'groups', groupIds: [ALPHA] }));
 
 describe('Tasking operations', () => {
 	it('lets an Organization-wide operator create at Organization level and reroute to a Group', async () => {
-		const { ctx, calendarTaskings, audit } = member('operate');
-
+		const { ctx, calendarTaskings } = member('operate');
 		await createTasking(ctx, { id: TASKING, draft: { ...draft, responsibility: { kind: 'organization' } } });
 		await updateTasking(ctx, TASKING, { ...draft, responsibility: { kind: 'group', groupId: BRAVO } });
 
 		expect(calendarTaskings.stored.get(TASKING)?.responsibility).toEqual({ kind: 'group', groupId: BRAVO });
-		expect(audit.entries.map((entry) => entry.action)).toEqual([
-			'calendar_tasking.created',
-			'calendar_tasking.updated'
-		]);
 	});
 
-	it('answers a repeated create with the first Tasking and audits it once', async () => {
-		const { ctx, calendarTaskings, audit } = member('operate');
+	it('answers a repeated create with the first Tasking', async () => {
+		const { ctx, calendarTaskings } = member('operate');
 
 		const first = await createTasking(ctx, { id: TASKING, draft });
 		const retry = await createTasking(ctx, { id: TASKING, draft: { ...draft, title: 'Retyped' } });
 
 		expect(retry).toEqual(first);
 		expect(calendarTaskings.stored.size).toBe(1);
-		expect(audit.entries).toHaveLength(1);
 	});
 
 	it('lets a Group-scoped operator create and edit only their Group’s Taskings', async () => {
@@ -189,13 +165,12 @@ describe('Tasking operations', () => {
 		['another Group', { kind: 'group', groupId: BRAVO }],
 		['the Organization', { kind: 'organization' }]
 	])('refuses a Group-scoped operator creating for %s', async (_whom, responsibility) => {
-		const { ctx, calendarTaskings, audit } = alphaOperator();
+		const { ctx, calendarTaskings } = alphaOperator();
 
 		await expect(createTasking(ctx, { id: TASKING, draft: { ...draft, responsibility } })).rejects.toMatchObject({
 			status: 403
 		});
 		expect(calendarTaskings.stored.size).toBe(0);
-		expect(audit.entries.filter((entry) => entry.action.startsWith('calendar_tasking.'))).toEqual([]);
 	});
 
 	it.each([
@@ -232,19 +207,15 @@ describe('Tasking operations', () => {
 		expect(calendarTaskings.stored.get(TASKING)?.status).toEqual({ kind: 'open' });
 	});
 
-	it('audits a status change once even when the request is repeated', async () => {
-		const { ctx, audit } = alphaOperator();
+	it('answers a repeated status change without moving the Tasking again', async () => {
+		const { ctx, calendarTaskings } = alphaOperator();
 		await createTasking(ctx, { id: TASKING, draft });
 
 		await transitionTasking(ctx, TASKING, { action: 'start' });
 		await transitionTasking(ctx, TASKING, { action: 'start' });
 		await transitionTasking(ctx, TASKING, { action: 'complete', note: null });
 
-		expect(audit.entries.map((entry) => entry.action)).toEqual([
-			'calendar_tasking.created',
-			'calendar_tasking.started',
-			'calendar_tasking.completed'
-		]);
+		expect(calendarTaskings.stored.get(TASKING)?.status).toMatchObject({ kind: 'completed' });
 	});
 
 	it('keeps viewers to reads and members without Calendar access out', async () => {

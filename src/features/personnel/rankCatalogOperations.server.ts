@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { RankCatalogPersistence, RankCatalogSave, SavedRankCatalogEntry } from './rankCatalogPersistence';
 import type { PersonnelRecordPersistence } from './contracts';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
@@ -105,7 +106,7 @@ interface RankCatalogPorts {
 	organizationPersonnel: Pick<PersonnelRecordPersistence, 'listRankReferences'>;
 	auth: OrganizationAccessGrant;
 	rankCatalog: RankCatalogPersistence;
-	audit: PolicyAuditSink;
+	audit: PolicyAuditSink & { logMany(events: Parameters<PolicyAuditSink['log']>[0][]): Promise<void> };
 }
 
 type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth'> & {
@@ -126,6 +127,23 @@ interface RankCatalogReadOptions {
 }
 
 const NOOP_AUDIT_PORT: PolicyAuditSink = { async log() {} };
+
+function rankSavedEvent(row: SavedRankCatalogEntry, batchId: string): Parameters<PolicyAuditSink['log']>[0] {
+	return {
+		action: 'organization.rank_catalog.saved',
+		resourceType: 'organization_rank_catalog',
+		resourceId: row.id,
+		record: row.label,
+		details: { code: row.code, state: row.state },
+		batchId
+	};
+}
+
+async function auditRanksSaved(ports: Pick<RankCatalogPorts, 'audit'>, rows: readonly SavedRankCatalogEntry[]) {
+	if (rows.length === 0) return;
+	const batchId = randomUUID();
+	await ports.audit.logMany(rows.map((row) => rankSavedEvent(row, batchId)));
+}
 
 async function requireRankCatalogReadPolicy(
 	ports: RankCatalogReadPorts,
@@ -175,16 +193,7 @@ export async function ensureOrganizationRankCatalog(ports: RankCatalogPorts): Pr
 
 	if (missingRows.length > 0) {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
-		await ports.rankCatalog.saveEntries(missingRows);
-		await ports.audit.log({
-			action: 'organization.rank_catalog.reconciled',
-			resourceType: 'organization_rank_catalog',
-			resourceId: ports.auth.orgId,
-			details: {
-				defaultCount: missingDefaultRows.length,
-				discoveredCount: missingDiscoveredRows.length
-			}
-		});
+		await auditRanksSaved(ports, await ports.rankCatalog.saveEntries(missingRows));
 	}
 
 	return loadOrganizationRankCatalog(ports);
@@ -238,7 +247,8 @@ export async function saveOrganizationRankCatalogEntry(
 		action: 'organization.rank_catalog.saved',
 		resourceType: 'organization_rank_catalog',
 		resourceId: saved.id,
-		details: rankCatalogAuditDetails(savedEntry)
+		record: savedEntry.label,
+		details: { code: savedEntry.code, state: savedEntry.state }
 	});
 
 	return savedEntry;
@@ -301,16 +311,7 @@ export async function addOrganizationRankServicePack(
 		entries
 	};
 
-	await ports.audit.log({
-		action: 'organization.rank_catalog.service_pack_added',
-		resourceType: 'organization_rank_catalog',
-		resourceId: ports.auth.orgId,
-		details: {
-			service: input.service,
-			addedCount: result.addedCount,
-			skippedExistingCount: result.skippedExistingCount
-		}
-	});
+	await auditRanksSaved(ports, [...savedRows, ...canonicalizedRows]);
 
 	return result;
 }
@@ -369,16 +370,14 @@ export async function bulkSetOrganizationRankCatalogState(
 		entries
 	};
 
-	await ports.audit.log({
-		action: 'organization.rank_catalog.bulk_state_changed',
-		resourceType: 'organization_rank_catalog',
-		resourceId: ports.auth.orgId,
-		details: {
-			service: input.service,
-			targetState: input.targetState,
-			changedCount: result.changedCount
-		}
-	});
+	if (result.changedCount > 0) {
+		await ports.audit.log({
+			action: 'organization.rank_catalog.bulk_state_changed',
+			resourceType: 'organization_rank_catalog',
+			resourceId: ports.auth.orgId,
+			details: { count: result.changedCount, targetState: input.targetState }
+		});
+	}
 
 	return result;
 }
@@ -480,15 +479,14 @@ export async function setOrganizationRankCatalogStates(
 		...(await ports.rankCatalog.setStatesByCodes(codesByState.retired, 'retired')),
 		...(await ports.rankCatalog.saveEntries(rowsToSave))
 	];
-	await ports.audit.log({
-		action: 'organization.rank_catalog.bulk_state_changed',
-		resourceType: 'organization_rank_catalog',
-		resourceId: ports.auth.orgId,
-		details: {
-			changedCount: saved.length,
-			changes: saved.map((row) => ({ code: row.code, state: row.state }))
-		}
-	});
+	if (saved.length > 0) {
+		await ports.audit.log({
+			action: 'organization.rank_catalog.bulk_state_changed',
+			resourceType: 'organization_rank_catalog',
+			resourceId: ports.auth.orgId,
+			details: { count: saved.length, targetState: null }
+		});
+	}
 
 	return { changedCount: saved.length };
 }
@@ -541,13 +539,8 @@ export async function removeOrganizationRankCatalogEntry(
 		action: 'organization.rank_catalog.deleted',
 		resourceType: 'organization_rank_catalog',
 		resourceId: existing.id,
-		details: {
-			code,
-			label: existing.label,
-			source: existing.source,
-			activeReferenceTotal: references?.activeReferences.total ?? 0,
-			historicalReferenceTotal: references?.historicalReferences.total ?? 0
-		}
+		record: existing.label,
+		details: { code }
 	});
 }
 
@@ -674,16 +667,6 @@ function deserializeRankCatalogRow(row: OrganizationRankCatalogRow): Organizatio
 		state: row.state,
 		source: row.source,
 		sortOrder: row.sort_order
-	};
-}
-
-function rankCatalogAuditDetails(entry: OrganizationRankCatalogEntry): Record<string, unknown> {
-	return {
-		code: entry.code,
-		label: entry.label,
-		payGrade: entry.payGrade,
-		state: entry.state,
-		source: entry.source
 	};
 }
 

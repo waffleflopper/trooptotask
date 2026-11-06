@@ -148,6 +148,11 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 							? Response.json({ ...row, covered_group_ids: row.access_scope_group_ids ?? [] })
 							: Response.json({ code: 'PGRST116' }, { status: 406 });
 					}
+					if (
+						url.pathname.endsWith('/rpc/record_app_audit_entry') ||
+						url.pathname.endsWith('/rpc/record_personnel_record_open')
+					)
+						return Response.json(null);
 					const table = url.pathname.split('/').at(-1)!;
 					if (isDeletionReceiptRead({ path: url.pathname, body })) return Response.json([]);
 					if (!(table in tables)) throw new Error(`Unexpected table: ${table}`);
@@ -237,6 +242,14 @@ const operations: { name: string; handler: RequestHandler; method: string; id: s
 	}
 ];
 
+function isAuditWrite(path: string) {
+	return (
+		path.endsWith('/audit_logs') ||
+		path.endsWith('/rpc/record_app_audit_entry') ||
+		path.endsWith('/rpc/record_personnel_record_open')
+	);
+}
+
 function isDeletionReceiptRead(request: { path: string; body: unknown }) {
 	return (
 		request.path.endsWith('/rpc/delete_archived_personnel_artifact') &&
@@ -253,7 +266,7 @@ function expectNoPrivateEffects(f: ReturnType<typeof fixture>, before: Record<st
 			(r) =>
 				r.method !== 'GET' &&
 				!r.path.endsWith('/rpc/read_request_member_access') &&
-				!r.path.endsWith('/audit_logs') &&
+				!isAuditWrite(r.path) &&
 				!isDeletionReceiptRead(r)
 		)
 	).toEqual([]);
@@ -287,7 +300,7 @@ describe('private resource HTTP admission and provider ownership', () => {
 				status: denial === 'anonymous' ? 401 : 403
 			});
 			expectNoPrivateEffects(f, before);
-			expect(f.requests.filter((r) => r.client === 'service' && !r.path.endsWith('/audit_logs'))).toEqual([]);
+			expect(f.requests.filter((r) => r.client === 'service' && !isAuditWrite(r.path))).toEqual([]);
 			if (denial === 'anonymous') expect(f.requests).toEqual([]);
 		});
 	}

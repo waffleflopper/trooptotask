@@ -55,10 +55,6 @@ describe('Calendar availability batch admission and effects', () => {
 		expect(await ctx.rawStore.findMany('availability_entries', 'org-b')).toEqual([
 			{ id: 'foreign', organization_id: 'org-b', personnel_id: PERSON_B }
 		]);
-		expect(ctx.audit.events.map((event) => [event.action, event.details])).toEqual([
-			['availability.bulk_deleted', { count: 500 }],
-			['availability.bulk_deleted', { count: 0 }]
-		]);
 	});
 
 	it.each(['view', 'none'] as const)('rejects %s before constructing or invoking a mutation', async (calendar) => {
@@ -72,7 +68,6 @@ describe('Calendar availability batch admission and effects', () => {
 		expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toEqual([
 			{ id: ENTRY_A, organization_id: ctx.auth.orgId, personnel_id: PERSON_A }
 		]);
-		expect(ctx.audit.events.some((event) => event.action === 'availability.bulk_deleted')).toBe(false);
 	});
 
 	it.each([Array.from({ length: 501 }, (_, i) => entryId(i)), Array(501).fill(SAME_ENTRY)])(

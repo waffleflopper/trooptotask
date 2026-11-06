@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { evaluateFeaturePolicy, policyResourceForGroup } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -11,7 +10,6 @@ export const PERSONNEL_LOG_BATCH_LIMIT = 500;
 
 export interface PersonnelLogBatchContext {
 	auth: OrganizationAccessGrant;
-	audit: PolicyAuditSink;
 	personnel: Pick<PersonnelRecordPersistence, 'listArchiveCandidates'>;
 	personnelArtifactWrites: Pick<PersonnelArtifactWritePort, 'createFollowUps' | 'createLeaderNotes'>;
 }
@@ -58,22 +56,15 @@ async function writablePeople(ctx: PersonnelLogBatchContext, ids: string[]): Pro
 	return active.filter((person) => allowed.get(person.groupId)).map((person) => person.id);
 }
 
+/** The database audits each written row, one entry per Person under the transaction's batch id. */
 async function writeBatch(
 	ctx: PersonnelLogBatchContext,
 	requested: string[],
-	action: string,
 	write: (ids: string[]) => Promise<string[]>
 ): Promise<PersonnelLogBatchResult> {
 	const ids = [...new Set(requested)];
 	const writable = await writablePeople(ctx, ids);
 	const written = new Set(writable.length ? await write(writable) : []);
-	if (written.size) {
-		await ctx.audit.log({
-			action,
-			resourceType: 'personnel',
-			details: { personnelIds: ids.filter((id) => written.has(id)) }
-		});
-	}
 	return {
 		writtenIds: ids.filter((id) => written.has(id)),
 		unavailableIds: ids.filter((id) => !written.has(id))
@@ -86,7 +77,7 @@ export async function createPersonnelFollowUpBatch(
 ): Promise<PersonnelLogBatchResult> {
 	const { personnelIds: ids, title, notes, dueDate } = parse(followUpBatchInput, input);
 	const createdAt = new Date().toISOString();
-	return writeBatch(ctx, ids, 'personnel.follow_up.created', (writable) =>
+	return writeBatch(ctx, ids, (writable) =>
 		ctx.personnelArtifactWrites.createFollowUps(ctx.auth, writable, {
 			title,
 			notes,
@@ -103,7 +94,7 @@ export async function createPersonnelLeaderNoteBatch(
 ): Promise<PersonnelLogBatchResult> {
 	const { personnelIds: ids, text } = parse(leaderNoteBatchInput, input);
 	const createdAt = new Date().toISOString();
-	return writeBatch(ctx, ids, 'personnel.leader_note.created', (writable) =>
+	return writeBatch(ctx, ids, (writable) =>
 		ctx.personnelArtifactWrites.createLeaderNotes(ctx.auth, writable, {
 			author: ctx.auth.userId,
 			text,

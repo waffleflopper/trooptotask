@@ -175,21 +175,6 @@ describe('advanceStage', () => {
 			'Only paperwork steps can be advanced'
 		);
 	});
-
-	it('emits audit log on stage advance', async () => {
-		const ctx = buildContext();
-		seedPaperworkStep(ctx);
-
-		await advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'submitted' });
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'onboarding_step.stage_advanced',
-			resourceType: 'onboarding_step_progress',
-			resourceId: 'pw-step-1',
-			details: { stage_name: 'submitted', completed: false }
-		});
-	});
 });
 
 function seedTrainingStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
@@ -268,17 +253,9 @@ describe('addNote', () => {
 		};
 
 		await expect(addNote(ctx, { stepId: 'step-1', text: 'Sent to clinic' })).resolves.toEqual(saved);
-		expect(ctx.audit.events).toEqual([
-			{
-				action: 'onboarding_step.note_added',
-				resourceType: 'onboarding_step_progress',
-				resourceId: 'step-1',
-				details: { note_author_user_id: 'operator' }
-			}
-		]);
 	});
 
-	it('does not emit a success audit when persistence fails', async () => {
+	it('propagates a provider failure when persistence fails', async () => {
 		const failure = new Error('Database unavailable');
 		const ctx = noteContext({
 			onboardingNoteAppend: {
@@ -289,7 +266,6 @@ describe('addNote', () => {
 		});
 
 		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toBe(failure);
-		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('fails explicitly without a bound provider instead of replacing notes through the generic store', async () => {
@@ -301,7 +277,6 @@ describe('addNote', () => {
 		await expect(addNote(missingContext, { stepId: 'step-1', text: 'Saved text' })).rejects.toThrow(
 			'Bind the owned Onboarding note append provider'
 		);
-		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('denies a viewer before calling the atomic provider', async () => {
@@ -317,7 +292,6 @@ describe('addNote', () => {
 
 		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toMatchObject({ status: 403 });
 		expect(append).not.toHaveBeenCalled();
-		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'onboarding_step.note_added' }));
 	});
 
 	it('denies an out-of-scope Person before calling the atomic provider', async () => {
@@ -337,7 +311,6 @@ describe('addNote', () => {
 
 		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toMatchObject({ status: 403 });
 		expect(append).not.toHaveBeenCalled();
-		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'onboarding_step.note_added' }));
 	});
 });
 
@@ -364,12 +337,9 @@ describe('removeInactiveStep', () => {
 		await expect(ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })).resolves.toEqual(
 			reactivated
 		);
-		expect(ctx.audit.events).not.toContainEqual(
-			expect.objectContaining({ action: 'onboarding_step.inactive_removed' })
-		);
 	});
 
-	it('uses a successful owned removal and audits its identity for terminal, completed inactive work', async () => {
+	it('uses a successful owned removal for terminal, completed inactive work', async () => {
 		const remove = vi.fn(async () => ({ id: 'step-1' }));
 		const ctx = noteContext({ onboardingInactiveStepRemoval: { remove } });
 		await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, 'step-1', { completed: true });
@@ -380,11 +350,6 @@ describe('removeInactiveStep', () => {
 		await removeInactiveStep(ctx, 'step-1');
 
 		expect(remove).toHaveBeenCalledWith('test-org', 'step-1');
-		expect(ctx.audit.events).toContainEqual({
-			action: 'onboarding_step.inactive_removed',
-			resourceType: 'onboarding_step_progress',
-			resourceId: 'step-1'
-		});
 	});
 
 	it('rejects removal of an active step', async () => {
@@ -394,7 +359,6 @@ describe('removeInactiveStep', () => {
 
 		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toMatchObject({ status: 400 });
 		expect(remove).not.toHaveBeenCalled();
-		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('rejects when step not found', async () => {
@@ -405,7 +369,7 @@ describe('removeInactiveStep', () => {
 		expect(remove).not.toHaveBeenCalled();
 	});
 
-	it('propagates a provider failure with saved work retained and no success audit', async () => {
+	it('propagates a provider failure with saved work retained', async () => {
 		const failure = new Error('Delete rejected by provider');
 		const ctx = noteContext({
 			onboardingInactiveStepRemoval: {
@@ -421,7 +385,6 @@ describe('removeInactiveStep', () => {
 		await expect(ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })).resolves.toEqual(
 			before
 		);
-		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it.each([createTestContext, createWritePortsContext, createWriteWithNotificationsPortsContext])(
@@ -462,8 +425,5 @@ describe('removeInactiveStep', () => {
 
 		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toMatchObject({ status: 403 });
 		expect(remove).not.toHaveBeenCalled();
-		expect(ctx.audit.events).not.toContainEqual(
-			expect.objectContaining({ action: 'onboarding_step.inactive_removed' })
-		);
 	});
 });

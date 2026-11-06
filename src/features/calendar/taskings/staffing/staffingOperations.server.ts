@@ -111,7 +111,8 @@ export async function saveTaskingPeople(
 			action: 'calendar_tasking.staffed',
 			resourceType: 'calendar_tasking',
 			resourceId: tasking.id,
-			details: { title: tasking.title, picked: staffing.picked, needsReview: staffing.needsReview }
+			record: tasking.title,
+			details: { picked: staffing.picked, needsReview: staffing.needsReview }
 		});
 	return { outcome, revision, staffing };
 }

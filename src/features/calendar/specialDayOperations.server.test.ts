@@ -7,7 +7,7 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 }
 
 describe('SpecialDay delete use case', () => {
-	it('deletes a special day and audits', async () => {
+	it('deletes a special day', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('special_days', [
 			{
@@ -23,14 +23,13 @@ describe('SpecialDay delete use case', () => {
 
 		const stored = await ctx.store.findOne('special_days', 'test-org', { id: 'sd-1' });
 		expect(stored).toBeNull();
-		expect(ctx.audit.events[0].action).toBe('special_day.deleted');
 	});
 });
 
 describe('resetFederalHolidays use case', () => {
 	afterEach(() => vi.useRealTimers());
 
-	it('replaces only federal holidays with the four-year defaults and returns the saved federal rows', async () => {
+	it('replaces only federal holidays with the four-year defaults and leaves the entries to the database', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date(2026, 9, 14, 12));
 		const ctx = buildContext();
@@ -69,7 +68,7 @@ describe('resetFederalHolidays use case', () => {
 				.sort()
 		).toEqual(result.map(({ id }) => id).sort());
 		expect(stored.find(({ id }) => id === 'sd-closure')).toMatchObject({ name: 'Team Day', type: 'org-closure' });
-		expect(ctx.audit.events.map(({ action }) => action)).toEqual(['special_day.federal_holidays_reset']);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('does not audit a reset the persistence did not confirm', async () => {

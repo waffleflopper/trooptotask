@@ -92,6 +92,7 @@ function fixture() {
 					? Response.json({ code: 'PGRST116' }, { status: 406 })
 					: Response.json([]);
 		}
+		if (url.pathname.endsWith('/rpc/record_personnel_record_open')) return Response.json(null);
 		const table = url.pathname.split('/').at(-1)!;
 		if (!(table in tables)) throw new Error(`Unexpected table ${table}`);
 		if (table === 'organization_memberships') state.membershipReads++;

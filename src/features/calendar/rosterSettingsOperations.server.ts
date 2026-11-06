@@ -60,13 +60,14 @@ export async function saveRosterSettings(
 			action: 'assignment_type.roster_excusals_set',
 			resourceType: 'assignment_type',
 			resourceId: id,
-			details: { personnelIds: excusals.map(({ personId }) => personId) }
+			record: type.name,
+			details: { excused: new Set(excusals.map(({ personId }) => personId)).size }
 		});
 	}
 	if (rulesChanged) {
 		const form = await ctx.calendarCatalogs.findOpenRosterForm(id);
 		if (!form) fail(409, 'This roster changed while you were editing. Reload and try again.');
-		const formId = await ctx.calendarCatalogs.closeRosterForm({
+		await ctx.calendarCatalogs.closeRosterForm({
 			assignmentTypeId: id,
 			formId: form.id,
 			today,
@@ -78,7 +79,8 @@ export async function saveRosterSettings(
 			action: 'assignment_type.roster_form_closed',
 			resourceType: 'assignment_type',
 			resourceId: id,
-			details: { closedFormId: formId === form.id ? null : form.id, openFormId: formId, rules }
+			record: type.name,
+			details: { ended: false }
 		});
 	}
 	return excusalsChanged || rulesChanged ? findRosterType(ctx, id) : type;
@@ -92,13 +94,15 @@ export async function endRoster(ctx: RosterSettingsPorts, id: string, today: str
 	const form = await ctx.calendarCatalogs.findOpenRosterForm(id);
 	if (!form) return;
 	requireDeviceDate(today);
-	const { record } = await closing(ctx, await findRosterType(ctx, id), form, today, form.rules.weekendMode);
+	const type = await findRosterType(ctx, id);
+	const { record } = await closing(ctx, type, form, today, form.rules.weekendMode);
 	await ctx.calendarCatalogs.endRosterForm({ assignmentTypeId: id, formId: form.id, today, record });
 	await ctx.audit.log({
 		action: 'assignment_type.roster_form_closed',
 		resourceType: 'assignment_type',
 		resourceId: id,
-		details: { closedFormId: record ? form.id : null, openFormId: null, rules: null }
+		record: type.name,
+		details: { ended: true }
 	});
 }
 

@@ -158,6 +158,7 @@ function createOrganizationSettingsMemberManagementPort(
 		updateMembershipError?: string | null;
 		orgName?: string | null;
 		organizationGroupIds?: string[];
+		organizationGroupNames?: Record<string, string>;
 	} = {}
 ): OrganizationSettingsMemberManagementPort & {
 	invitationLookups: Array<{ orgId: string; email: string }>;
@@ -259,9 +260,12 @@ function createOrganizationSettingsMemberManagementPort(
 		async getOrganizationName() {
 			return options.orgName ?? null;
 		},
-		async findOrganizationGroupIds(_orgId, groupIds) {
+		async findOrganizationGroups(_orgId, groupIds) {
 			const known = options.organizationGroupIds;
-			return known ? groupIds.filter((id) => known.includes(id)) : groupIds;
+			return (known ? groupIds.filter((id) => known.includes(id)) : groupIds).map((id) => ({
+				id,
+				name: options.organizationGroupNames?.[id] ?? id
+			}));
 		}
 	};
 }
@@ -599,11 +603,8 @@ describe('inviteOrganizationMember', () => {
 			{
 				action: 'member.invite',
 				resourceType: 'organization',
-				details: {
-					email: 'new.user@example.com',
-					membershipRole: 'member',
-					memberPreset: 'operator'
-				}
+				record: 'n***@example.com',
+				details: { role: 'member' }
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -1376,11 +1377,8 @@ describe('inviteOrganizationMember', () => {
 			{
 				action: 'member.invite',
 				resourceType: 'organization',
-				details: {
-					email: 'manager@example.com',
-					membershipRole: 'member',
-					memberPreset: 'viewer'
-				}
+				record: 'm***@example.com',
+				details: { role: 'member' }
 			}
 		]);
 		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
@@ -1443,10 +1441,7 @@ describe('inviteOrganizationMember', () => {
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
 				action: 'member.invite',
-				details: expect.objectContaining({
-					email: 'new.user@example.com',
-					rateLimit: expect.objectContaining({ action: 'create' })
-				})
+				record: 'n***@example.com'
 			})
 		);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -2080,7 +2075,9 @@ describe('revokeOrganizationInvitation', () => {
 			{
 				action: 'member.invite_revoked',
 				resourceType: 'organization',
-				details: { inviteId: '11111111-1111-4111-8111-111111111111' }
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				record: 'i***@example.com',
+				details: {}
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -2452,13 +2449,9 @@ describe('removeOrganizationMember', () => {
 		expect(ctx.auditPort.events).toContainEqual({
 			action: 'member.removed',
 			resourceType: 'organization',
-			details: {
-				membershipId: '11111111-1111-4111-8111-111111111111',
-				sensitiveAction: expect.objectContaining({
-					action: 'organization.member.removeHighPrivilege',
-					reason: 'allowed.recentSession'
-				})
-			}
+			resourceId: '11111111-1111-4111-8111-111111111111',
+			record: 'm***@example.com',
+			details: {}
 		});
 	});
 
@@ -2579,7 +2572,9 @@ describe('removeOrganizationMember', () => {
 			{
 				action: 'member.removed',
 				resourceType: 'organization',
-				details: { membershipId: '11111111-1111-4111-8111-111111111111' }
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				record: 'm***@example.com',
+				details: {}
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -2679,7 +2674,8 @@ describe('leaveOrganization', () => {
 			{
 				action: 'member.left',
 				resourceType: 'organization',
-				details: { membershipId: '11111111-1111-4111-8111-111111111111' }
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				details: {}
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -3265,18 +3261,9 @@ describe('updateOrganizationMemberAccess', () => {
 			{
 				action: 'member.access_changed',
 				resourceType: 'organization',
-				details: {
-					membershipId: '11111111-1111-4111-8111-111111111111',
-					membershipRole: 'admin',
-					memberPreset: 'editor',
-					capabilityOverrides: {},
-					accessScopeKind: 'organization',
-					accessScopeGroupIds: [],
-					sensitiveAction: expect.objectContaining({
-						action: 'organization.member.updateHighPrivilege',
-						reason: 'allowed.recentSession'
-					})
-				},
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				record: 'a member',
+				details: { role: 'admin', preset: 'editor', scope: 'organization', groups: [], capabilities: {} },
 				severity: 'warning'
 			}
 		]);
@@ -3356,13 +3343,14 @@ describe('updateOrganizationMemberAccess', () => {
 			{
 				action: 'member.access_changed',
 				resourceType: 'organization',
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				record: 'a member',
 				details: {
-					membershipId: '11111111-1111-4111-8111-111111111111',
-					membershipRole: 'member',
-					memberPreset: 'editor',
-					capabilityOverrides: { personnel: 'view' },
-					accessScopeKind: 'organization',
-					accessScopeGroupIds: []
+					role: 'member',
+					preset: 'editor',
+					scope: 'organization',
+					groups: [],
+					capabilities: { personnel: 'view' }
 				},
 				severity: 'warning'
 			}
@@ -3382,6 +3370,10 @@ describe('updateOrganizationMemberAccess', () => {
 				userId: 'member-1',
 				role: 'member',
 				email: 'member@example.com'
+			},
+			organizationGroupNames: {
+				'22222222-2222-4222-8222-222222222222': 'Alpha Company',
+				'33333333-3333-4333-8333-333333333333': 'Bravo Company'
 			}
 		});
 
@@ -3425,6 +3417,19 @@ describe('updateOrganizationMemberAccess', () => {
 				},
 				accessScopeKind: 'groups',
 				accessScopeGroupIds: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333']
+			}
+		]);
+		expect(ctx.auditPort.events).toMatchObject([
+			{
+				action: 'member.access_changed',
+				record: 'm***@example.com',
+				details: {
+					role: 'member',
+					preset: 'operator',
+					scope: 'groups',
+					groups: ['Alpha Company', 'Bravo Company'],
+					capabilities: { calendar: 'configure', ratingScheme: 'none' }
+				}
 			}
 		]);
 	});

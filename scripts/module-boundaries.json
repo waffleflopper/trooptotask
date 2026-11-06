@@ -578,7 +578,12 @@
 			"src/lib/utils/settleAction.ts",
 			"src/lib/stores/errorReportLedger.ts"
 		],
-		"audit": ["src/lib/audit/index.server.ts", "src/lib/audit/contracts.ts"],
+		"audit": [
+			"src/lib/audit/index.server.ts",
+			"src/lib/audit/contracts.ts",
+			"src/lib/audit/catalog.ts",
+			"src/lib/audit/auditLogFilters.ts"
+		],
 		"identity": [
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",

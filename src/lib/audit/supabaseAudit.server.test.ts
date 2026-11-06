@@ -23,7 +23,7 @@ describe('SupabaseAuditAdapter', () => {
 		mockAuditLog.mockResolvedValue(undefined);
 	});
 
-	it('settles only after the write, and swallows its failure', async () => {
+	it('settles only after the write, and rejects when it fails', async () => {
 		let failWrite!: (error: Error) => void;
 		mockAuditLog.mockReturnValue(
 			new Promise((_, reject) => {
@@ -38,6 +38,6 @@ describe('SupabaseAuditAdapter', () => {
 
 		expect(await Promise.race([settled, Promise.resolve('pending')])).toBe('pending');
 		failWrite(new Error('DB down'));
-		await expect(settled).resolves.toBeUndefined();
+		await expect(settled).rejects.toThrow('DB down');
 	});
 });

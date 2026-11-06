@@ -39,6 +39,8 @@ INSERT INTO public.organization_invitations(id, organization_id, email, invited_
  ('e8690000-0000-4000-8000-000000000402', 'e8690000-0000-4000-8000-000000000101', 'revoked-dir@example.test', 'e8690000-0000-4000-8000-000000000002', 'revoked', now() + interval '7 days', 'member', 'viewer', '{}', 'organization', ARRAY[]::uuid[], now()),
  ('e8690000-0000-4000-8000-000000000403', 'e8690000-0000-4000-8000-000000000101', 'expired-dir@example.test', 'e8690000-0000-4000-8000-000000000002', 'pending', now() - interval '1 day', 'member', 'viewer', '{}', 'organization', ARRAY[]::uuid[], NULL);
 
+-- The roster triggers wrote entries for the fixture rows. Last active is set by the entries below alone.
+DELETE FROM public.audit_logs WHERE org_id::text LIKE 'e8690000-0000-4000-8000-0000000001%';
 INSERT INTO public.audit_logs(org_id, user_id, action, resource_type, severity, "timestamp") VALUES
  ('e8690000-0000-4000-8000-000000000101', 'e8690000-0000-4000-8000-000000000002', 'personnel.create', 'personnel', 'info', now() - interval '1 hour'),
  ('e8690000-0000-4000-8000-000000000101', 'e8690000-0000-4000-8000-000000000002', 'personnel.create', 'personnel', 'info', now() - interval '40 days'),

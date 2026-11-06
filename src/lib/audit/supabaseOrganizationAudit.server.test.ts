@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseOrganizationAuditStore } from './supabaseOrganizationAudit.server';
-import { createShiftingPostgrestClient, pagedIds } from '$lib/storage/test-support/shiftingPostgrest.server';
 
 function reader(fetch: typeof globalThis.fetch) {
 	return createSupabaseOrganizationAuditStore(
@@ -13,36 +12,78 @@ function reader(fetch: typeof globalThis.fetch) {
 }
 
 describe('Organization Audit provider reads', () => {
-	it('bounds the admitted Organization page and counts all recent non-auth actions independently', async () => {
-		const requests: Array<{ url: URL; method: string }> = [];
-		const store = reader(async (url, init) => {
-			const request = { url: new URL(String(url)), method: init?.method ?? 'GET' };
-			requests.push(request);
-			return request.method === 'HEAD'
-				? new Response(null, { status: 200, headers: { 'Content-Range': '*/105' } })
-				: new Response(JSON.stringify([{ id: 'saved-log', action: 'training.updated' }]), {
-						status: 200,
-						headers: { 'Content-Type': 'application/json', 'Content-Range': '25-25/106' }
-					});
+	const PERSON = '11111111-1111-4111-8111-111111111111';
+	const MEMBER = '22222222-2222-4222-8222-222222222222';
+	const CURSOR_ID = '33333333-3333-4333-8333-333333333333';
+	const EXCLUDED =
+		'not.in.(auth.login_success,auth.login_failure,auth.mfa_verify,security.rate_limit_violation,security.rate_limit_exceeded)';
+
+	it('asks for one more row than the page, in the order the cursor pages on', async () => {
+		const requests: URL[] = [];
+		const store = reader(async (url) => {
+			requests.push(new URL(String(url)));
+			return new Response(JSON.stringify(Array.from({ length: 26 }, (_, index) => ({ id: `log-${index}` }))), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			});
 		});
-		const page = await store.listLogs({ orgId: 'org-a', action: 'training.updated', offset: 25, limit: 25 });
-		expect(page).toEqual({ logs: [{ id: 'saved-log', action: 'training.updated' }], totalCount: 106 });
-		expect(await store.countRecent({ orgId: 'org-a', cutoff: '2026-09-02T12:00:00Z' })).toBe(105);
-		for (const { url } of requests) {
-			expect(url.pathname).toBe('/rest/v1/audit_logs');
-			expect(url.searchParams.get('org_id')).toBe('eq.org-a');
-			expect(url.searchParams.getAll('action')).toContain(
-				'not.in.(auth.login_success,auth.login_failure,auth.mfa_verify,security.rate_limit_violation)'
-			);
-			expect(url.searchParams.get('select')).not.toMatch(/ip_address|user_agent/);
-		}
-		expect(requests[0].url.searchParams.get('offset')).toBe('25');
-		expect(requests[0].url.searchParams.get('limit')).toBe('25');
-		expect(requests[0].url.searchParams.get('order')).toBe('timestamp.desc,id.asc');
-		expect(requests[0].url.searchParams.getAll('action')).toContain('eq.training.updated');
-		expect(requests[1].method).toBe('HEAD');
-		expect(requests[1].url.searchParams.getAll('action')).toHaveLength(1);
-		expect(requests[1].url.searchParams.get('timestamp')).toBe('gte.2026-09-02T12:00:00Z');
+
+		const page = await store.listLogs({ orgId: 'org-a', filters: {}, limit: 25 });
+
+		expect(page.logs).toHaveLength(25);
+		expect(page.hasMore).toBe(true);
+		const [{ pathname, searchParams }] = requests;
+		expect(pathname).toBe('/rest/v1/audit_logs');
+		expect(searchParams.get('org_id')).toBe('eq.org-a');
+		expect(searchParams.getAll('action')).toEqual([EXCLUDED]);
+		expect(searchParams.get('select')).not.toMatch(/ip_address|user_agent/);
+		expect(searchParams.get('order')).toBe('timestamp.desc,id.desc');
+		expect(searchParams.get('limit')).toBe('26');
+		expect(searchParams.has('offset')).toBe(false);
+	});
+
+	it('reports a page that fits as the last', async () => {
+		const store = reader(
+			async () =>
+				new Response(JSON.stringify([{ id: 'only' }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+		);
+
+		expect(await store.listLogs({ orgId: 'org-a', filters: {}, limit: 25 })).toEqual({
+			logs: [{ id: 'only' }],
+			hasMore: false
+		});
+	});
+
+	it('sends each filter and the cursor as column conditions', async () => {
+		let url!: URL;
+		const store = reader(async (request) => {
+			url = new URL(String(request));
+			return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+		});
+
+		await store.listLogs({
+			orgId: 'org-a',
+			filters: {
+				personId: PERSON,
+				userId: MEMBER,
+				action: 'availability.deleted',
+				since: '2026-03-01T00:00:00.000Z',
+				until: '2026-04-01T00:00:00.000Z'
+			},
+			after: { timestamp: '2026-03-23T10:00:00.123456+00:00', id: CURSOR_ID },
+			limit: 25
+		});
+
+		const { searchParams } = url;
+		expect(searchParams.get('subject_personnel_id')).toBe(`eq.${PERSON}`);
+		expect(searchParams.get('user_id')).toBe(`eq.${MEMBER}`);
+		expect(searchParams.getAll('action')).toEqual([EXCLUDED, 'eq.availability.deleted']);
+		expect(searchParams.getAll('timestamp')).toEqual([
+			'gte.2026-03-01T00:00:00.000Z',
+			'lt.2026-04-01T00:00:00.000Z',
+			'lte.2026-03-23T10:00:00.123456+00:00'
+		]);
+		expect(searchParams.get('or')).toBe(`(timestamp.lt."2026-03-23T10:00:00.123456+00:00",id.lt."${CURSOR_ID}")`);
 	});
 
 	it('uses the scoped action RPC and removes empty or repeated saved action values', async () => {
@@ -70,12 +111,13 @@ describe('Organization Audit provider reads', () => {
 				'auth.login_success',
 				'auth.login_failure',
 				'auth.mfa_verify',
-				'security.rate_limit_violation'
+				'security.rate_limit_violation',
+				'security.rate_limit_exceeded'
 			]
 		});
 	});
 
-	it.each(['page', 'recent count', 'actions'] as const)(
+	it.each(['page', 'actions'] as const)(
 		'%s provider errors cannot become successful empty results',
 		async (operation) => {
 			const store = reader(
@@ -86,30 +128,9 @@ describe('Organization Audit provider reads', () => {
 					})
 			);
 			const response =
-				operation === 'page'
-					? store.listLogs({ orgId: 'org-a', offset: 0, limit: 100 })
-					: operation === 'recent count'
-						? store.countRecent({ orgId: 'org-a', cutoff: '2026-09-02' })
-						: store.listActions('org-a');
+				operation === 'page' ? store.listLogs({ orgId: 'org-a', filters: {}, limit: 100 }) : store.listActions('org-a');
 			await expect(response).rejects.toThrow(/Organization Audit .+ failed/);
 			await expect(response).rejects.not.toThrow(/private@example|personnel note/);
 		}
 	);
-
-	it('shows each Organization log once across pages when entries share one timestamp', async () => {
-		const ids = pagedIds(130);
-		const timestamp = '2026-09-02T12:00:00.000Z';
-		const client = createShiftingPostgrestClient({
-			audit_logs: [
-				...ids.map((id) => ({ id, org_id: 'org-a', action: 'training.updated', timestamp })),
-				{ id: 'auth-0', org_id: 'org-a', action: 'auth.login_success', timestamp },
-				{ id: 'foreign-0', org_id: 'org-b', action: 'training.updated', timestamp }
-			]
-		});
-		const store = createSupabaseOrganizationAuditStore(client);
-		const shown: string[] = [];
-		for (let offset = 0; offset < ids.length; offset += 50)
-			shown.push(...(await store.listLogs({ orgId: 'org-a', offset, limit: 50 })).logs.map((log) => log.id));
-		expect(shown.toSorted()).toEqual(ids);
-	});
 });

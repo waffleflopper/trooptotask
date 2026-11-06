@@ -333,39 +333,54 @@ export type Database = {
       audit_logs: {
         Row: {
           action: string
+          actor_label: string | null
+          batch_id: string | null
           details: Json | null
           id: string
           ip_address: unknown
           org_id: string | null
+          record_label: string | null
           resource_id: string | null
           resource_type: string
           severity: string
+          subject_label: string | null
+          subject_personnel_id: string | null
           timestamp: string
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
           action: string
+          actor_label?: string | null
+          batch_id?: string | null
           details?: Json | null
           id?: string
           ip_address?: unknown
           org_id?: string | null
+          record_label?: string | null
           resource_id?: string | null
           resource_type: string
           severity?: string
+          subject_label?: string | null
+          subject_personnel_id?: string | null
           timestamp?: string
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           action?: string
+          actor_label?: string | null
+          batch_id?: string | null
           details?: Json | null
           id?: string
           ip_address?: unknown
           org_id?: string | null
+          record_label?: string | null
           resource_id?: string | null
           resource_type?: string
           severity?: string
+          subject_label?: string | null
+          subject_personnel_id?: string | null
           timestamp?: string
           user_agent?: string | null
           user_id?: string | null
@@ -4168,6 +4183,7 @@ export type Database = {
       }
       delete_archived_personnel_artifact: {
         Args: {
+          p_actor?: string
           p_archived_at: string
           p_artifact_id: string
           p_kind: string
@@ -4218,6 +4234,16 @@ export type Database = {
       delete_onboarding_template: {
         Args: { p_organization_id: string; p_template_id: string }
         Returns: boolean
+      }
+      delete_personnel_artifact: {
+        Args: {
+          p_actor: string
+          p_id: string
+          p_organization_id: string
+          p_personnel_id: string
+          p_table: string
+        }
+        Returns: undefined
       }
       delete_sign_in_roster: {
         Args: { p_organization_id: string; p_roster_id: string }
@@ -4277,6 +4303,23 @@ export type Database = {
       import_availability_entries: {
         Args: { p_entries: Json; p_organization_id: string }
         Returns: Json
+      }
+      import_ict_completions: {
+        Args: { p_organization_id: string; p_rows: Json }
+        Returns: Json
+      }
+      import_ict_tasks: {
+        Args: { p_organization_id: string; p_rows: Json }
+        Returns: Json
+      }
+      insert_personnel_artifacts: {
+        Args: {
+          p_actor: string
+          p_organization_id: string
+          p_rows: Json
+          p_table: string
+        }
+        Returns: Json[]
       }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
       is_org_owner: { Args: { p_organization_id: string }; Returns: boolean }
@@ -4750,6 +4793,47 @@ export type Database = {
         }
         Returns: string
       }
+      record_app_audit_entries: {
+        Args: {
+          p_actor_user_id?: string
+          p_batch_id?: string
+          p_entries: Json
+          p_ip_address?: unknown
+          p_organization_id?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      record_app_audit_entry: {
+        Args: {
+          p_actor_user_id?: string
+          p_batch_id?: string
+          p_details: Json
+          p_ip_address?: unknown
+          p_kind: string
+          p_organization_id?: string
+          p_record_id?: string
+          p_record_label?: string
+          p_record_type: string
+          p_severity: string
+          p_subject_label?: string
+          p_subject_personnel_id?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      record_personnel_record_open: {
+        Args: {
+          p_actor_user_id: string
+          p_ip_address?: unknown
+          p_kind: string
+          p_organization_id: string
+          p_personnel_id: string
+          p_record_id?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       record_platform_error: {
         Args: {
           p_code: string
@@ -5179,6 +5263,17 @@ export type Database = {
       }
       undo_roster_swap: {
         Args: { p_organization_id: string; p_swap_id: string; p_today: string }
+        Returns: Json
+      }
+      update_personnel_artifact: {
+        Args: {
+          p_actor: string
+          p_id: string
+          p_organization_id: string
+          p_patch: Json
+          p_personnel_id: string
+          p_table: string
+        }
         Returns: Json
       }
       write_roster_assignment_slots: {

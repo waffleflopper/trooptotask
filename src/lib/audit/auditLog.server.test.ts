@@ -3,21 +3,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const insert = vi.fn();
 const maybeSingle = vi.fn();
 const getUserById = vi.fn();
+const rpc = vi.fn();
 const from = vi.fn((table: string) =>
 	table === 'audit_logs' ? { insert } : { select: () => ({ eq: () => ({ maybeSingle }) }) }
 );
 
 vi.mock('$lib/server/supabase', () => ({
-	getAdminClient: vi.fn(() => ({ from, auth: { admin: { getUserById } } }))
+	getAdminClient: vi.fn(() => ({ from, rpc, auth: { admin: { getUserById } } }))
 }));
 
-import { auditLog } from './auditLog.server';
+import { auditLog, auditLogMany } from './auditLog.server';
 import { createSupabaseAuditAdapter } from './supabaseAudit.server';
 import { getAdminClient } from '$lib/server/supabase';
 
 describe('auditLog', () => {
 	beforeEach(() => {
 		insert.mockReset();
+		rpc.mockReset();
+		rpc.mockResolvedValue({ error: null });
 		from.mockClear();
 		insert.mockResolvedValue({ error: null });
 		maybeSingle.mockReset();
@@ -41,8 +44,8 @@ describe('auditLog', () => {
 			await expect(
 				auditLog(
 					{
-						action: 'personnel.updated',
-						resourceType: 'personnel',
+						action: 'user_preferences.updated',
+						resourceType: 'user_preferences',
 						details: { note: 'private personnel note', email: 'private@example.test' }
 					},
 					{ userId: 'actor', ip: '127.0.0.1' }
@@ -51,6 +54,151 @@ describe('auditLog', () => {
 			expect(diagnostic.mock.calls).toEqual([['Audit log write failed']]);
 		}
 	);
+
+	it('saves a cataloged entry through the writer with the labels the caller passed', async () => {
+		const organization = '11111111-1111-4111-8111-111111111111';
+		await auditLog(
+			{
+				action: 'status_type.reordered',
+				resourceType: 'organization',
+				resourceId: organization,
+				orgId: organization,
+				details: { count: 4, ignored: 'dropped' }
+			},
+			{ userId: '22222222-2222-4222-8222-222222222222', ip: '127.0.0.1', userAgent: 'Vitest' }
+		);
+		expect(rpc).toHaveBeenCalledWith('record_app_audit_entry', {
+			p_actor_user_id: '22222222-2222-4222-8222-222222222222',
+			p_organization_id: organization,
+			p_kind: 'status_type.reordered',
+			p_record_type: 'organization',
+			p_record_id: organization,
+			p_record_label: undefined,
+			p_subject_personnel_id: undefined,
+			p_subject_label: undefined,
+			p_batch_id: undefined,
+			p_severity: 'info',
+			p_details: { count: 4 },
+			p_ip_address: '127.0.0.1',
+			p_user_agent: 'Vitest'
+		});
+		expect(insert).not.toHaveBeenCalled();
+	});
+
+	it('saves an open of a record through the writer that skips a repeat, with the member from the request', async () => {
+		const organization = '11111111-1111-4111-8111-111111111111';
+		const person = '33333333-3333-4333-8333-333333333333';
+		const document = '44444444-4444-4444-8444-444444444444';
+		await auditLog(
+			{
+				action: 'personnel.document.opened',
+				resourceType: 'personnel_document',
+				resourceId: document,
+				orgId: organization,
+				subject: { personnelId: person },
+				details: { title: 'Private title' }
+			},
+			{ userId: '22222222-2222-4222-8222-222222222222', ip: '127.0.0.1', userAgent: 'Vitest' }
+		);
+		expect(rpc).toHaveBeenCalledOnce();
+		expect(rpc).toHaveBeenCalledWith('record_personnel_record_open', {
+			p_kind: 'personnel.document.opened',
+			p_actor_user_id: '22222222-2222-4222-8222-222222222222',
+			p_organization_id: organization,
+			p_personnel_id: person,
+			p_record_id: document,
+			p_ip_address: '127.0.0.1',
+			p_user_agent: 'Vitest'
+		});
+	});
+
+	it('refuses to record an open without a signed-in member', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(
+			auditLog(
+				{
+					action: 'personnel.leader_note.opened',
+					resourceType: 'leader_note',
+					orgId: '11111111-1111-4111-8111-111111111111',
+					subject: { personnelId: '33333333-3333-4333-8333-333333333333' }
+				},
+				{ userId: null }
+			)
+		).rejects.toThrow('Audit log write failed');
+		expect(rpc).not.toHaveBeenCalled();
+	});
+
+	it.each(['resolved provider error', 'rejected write'])('a cataloged entry rejects on %s', async (failure) => {
+		if (failure === 'resolved provider error') rpc.mockResolvedValue({ error: new Error('private detail') });
+		else rpc.mockRejectedValue(new Error('private detail'));
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(
+			auditLog(
+				{ action: 'status_type.reordered', resourceType: 'organization', details: { count: 2 } },
+				{ userId: null }
+			)
+		).rejects.toThrow('Audit log write failed');
+	});
+
+	describe('auditLogMany', () => {
+		const organization = '11111111-1111-4111-8111-111111111111';
+		const batch = '33333333-3333-4333-8333-333333333333';
+		const people = ['44444444-4444-4444-8444-444444444444', '55555555-5555-4555-8555-555555555555'];
+		const events = people.map((personnelId) => ({
+			action: 'personnel.exported',
+			resourceType: 'personnel',
+			resourceId: personnelId,
+			orgId: organization,
+			subject: { personnelId },
+			batchId: batch
+		}));
+
+		it('writes every entry in one call under one Organization and batch', async () => {
+			await auditLogMany(events, { userId: '22222222-2222-4222-8222-222222222222', ip: '127.0.0.1' });
+
+			expect(rpc).toHaveBeenCalledTimes(1);
+			expect(rpc.mock.calls[0][0]).toBe('record_app_audit_entries');
+			expect(rpc.mock.calls[0][1]).toMatchObject({
+				p_organization_id: organization,
+				p_batch_id: batch,
+				p_actor_user_id: '22222222-2222-4222-8222-222222222222'
+			});
+			expect(
+				rpc.mock.calls[0][1].p_entries.map((entry: { subjectPersonnelId: string }) => entry.subjectPersonnelId)
+			).toEqual(people);
+		});
+
+		it('writes nothing for no entries', async () => {
+			await auditLogMany([], { userId: null });
+			expect(rpc).not.toHaveBeenCalled();
+		});
+
+		it.each(['resolved provider error', 'rejected write'])('rejects on %s', async (failure) => {
+			if (failure === 'resolved provider error') rpc.mockResolvedValue({ error: new Error('private detail') });
+			else rpc.mockRejectedValue(new Error('private detail'));
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			await expect(auditLogMany(events, { userId: null })).rejects.toThrow('Audit log write failed');
+		});
+
+		it('refuses entries that belong to different Organizations', async () => {
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			await expect(
+				auditLogMany([events[0], { ...events[1], orgId: '66666666-6666-4666-8666-666666666666' }], { userId: null })
+			).rejects.toThrow('Audit log write failed');
+			expect(rpc).not.toHaveBeenCalled();
+		});
+	});
+
+	it.each([
+		['the database owns', 'status_type.created', { record: 'Leave' }],
+		['is retired', 'organization.rank_catalog.reconciled', { details: { added: 3 } }]
+	] as const)('refuses an app write of an entry %s', async (_owner, action, entry) => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(auditLog({ action, resourceType: 'organization', ...entry }, { userId: null })).rejects.toThrow(
+			'Audit log write failed'
+		);
+		expect(rpc).not.toHaveBeenCalled();
+	});
 
 	it.each(['resolved provider error', 'rejected insert', 'provider construction failure'])(
 		'required platform audit rejects on %s',
@@ -223,7 +371,7 @@ describe('auditLog', () => {
 		it('are the only events that keep an email and a reason; other events stay masked and redacted', async () => {
 			await auditLog(
 				{
-					action: 'member.invite',
+					action: 'member.invite_email_sent',
 					resourceType: 'organization',
 					resourceId: 'org-1',
 					details: { email: 'pat@example.test', reason: 'Because' }
@@ -243,7 +391,7 @@ describe('auditLog', () => {
 	it('reduces personnel names to rank and last name while keeping safe identifiers', async () => {
 		await auditLog(
 			{
-				action: 'personnel.restored',
+				action: 'personnel.legacy_example',
 				resourceType: 'personnel',
 				resourceId: 'person-123',
 				orgId: 'org-123',
@@ -266,7 +414,7 @@ describe('auditLog', () => {
 		expect(insert.mock.calls[0]?.[0]).toMatchObject({
 			user_id: 'user-123',
 			org_id: 'org-123',
-			action: 'personnel.restored',
+			action: 'personnel.legacy_example',
 			resource_type: 'personnel',
 			resource_id: 'person-123',
 			details: {

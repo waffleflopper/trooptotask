@@ -40,7 +40,6 @@ export async function markAllOwnNotificationsRead(ports: NotificationSelfPorts):
 	);
 	const ids = await ports.store.listOwnUnreadIds(ports.auth.orgId, ports.auth.userId);
 	for (const id of ids) await ports.store.markRead(ports.auth.orgId, id);
-	await ports.audit.log({ action: 'notification.mark_all_read', resourceType: AUDIT_RESOURCE });
 }
 
 export async function markOwnNotificationRead(ports: NotificationSelfPorts, id: string): Promise<void> {
@@ -53,7 +52,6 @@ export async function markOwnNotificationRead(ports: NotificationSelfPorts, id: 
 		id
 	);
 	await ports.store.markRead(ports.auth.orgId, id);
-	await ports.audit.log({ action: 'notification.read', resourceType: AUDIT_RESOURCE, resourceId: id });
 }
 
 export async function deleteAllOwnNotifications(ports: NotificationSelfPorts): Promise<void> {
@@ -64,7 +62,6 @@ export async function deleteAllOwnNotifications(ports: NotificationSelfPorts): P
 		AUDIT_RESOURCE
 	);
 	await ports.store.deleteOwn(ports.auth.orgId, ports.auth.userId);
-	await ports.audit.log({ action: 'notification.delete_all', resourceType: AUDIT_RESOURCE });
 }
 
 export async function deleteOwnNotification(ports: NotificationSelfPorts, id: string): Promise<void> {
@@ -77,7 +74,6 @@ export async function deleteOwnNotification(ports: NotificationSelfPorts, id: st
 		id
 	);
 	await ports.store.deleteNotification(ports.auth.orgId, id);
-	await ports.audit.log({ action: 'notification.deleted', resourceType: AUDIT_RESOURCE, resourceId: id });
 }
 
 export async function listNotificationExportRows(ports: NotificationSelfPorts): Promise<Record<string, unknown>[]> {

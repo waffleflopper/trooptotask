@@ -1,6 +1,6 @@
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { testPersonnelArtifactsContext } from './personnelArtifacts.testHelper';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	archivePersonnelDocument,
@@ -232,6 +232,52 @@ describe('personnel documents', () => {
 		expect(result.url).toContain('expires=300');
 	});
 
+	it('records the open for the person and the document, never its title or file name', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const created = await createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			title: 'Private title',
+			file: new File([PDF_BYTES], 'private-name.pdf', { type: 'application/pdf' })
+		});
+		const before = ctx.auditPort.events.length;
+
+		await createPersonnelDocumentDownloadUrl(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			documentId: created.id
+		});
+
+		expect(ctx.auditPort.events.slice(before)).toEqual([
+			{
+				action: 'personnel.document.opened',
+				resourceType: 'personnel_document',
+				resourceId: created.id,
+				subject: { personnelId: 'person-1' }
+			}
+		]);
+	});
+
+	it('hands out no link when the open cannot be recorded', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const created = await createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			file: new File([PDF_BYTES], 'download.pdf', { type: 'application/pdf' })
+		});
+		const signed = vi.spyOn(ctx.storage, 'createSignedUrl');
+		ctx.audit.log = async () => {
+			throw new Error('Audit log write failed');
+		};
+
+		await expect(
+			createPersonnelDocumentDownloadUrl(testPersonnelArtifactsContext(ctx), {
+				personnelId: 'person-1',
+				documentId: created.id
+			})
+		).rejects.toThrow('Audit log write failed');
+		expect(signed).not.toHaveBeenCalled();
+	});
+
 	it('requires Personnel configure capability for reads and group scope', async () => {
 		const viewOnly = createTestContext({
 			auth: {
@@ -302,7 +348,6 @@ describe('personnel documents', () => {
 		await expect(
 			restorePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
 		).resolves.toMatchObject({ id: created.id, archivedAt: null });
-		expect(ctx.auditPort.events.at(-1)).toMatchObject({ action: 'personnel.document.restored' });
 		await archivePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id });
 		await expect(
 			archivePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
@@ -332,14 +377,12 @@ describe('personnel documents', () => {
 		).resolves.toEqual({ fileCleanup: 'pending' });
 		expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: created.id })).toBeNull();
 		expect(ctx.storagePort.files).toHaveLength(1);
-		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.document.deleted')).toHaveLength(1);
 
 		ctx.storagePort.remove = remove;
 		await expect(
 			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
 		).resolves.toEqual({ fileCleanup: 'complete' });
 		expect(ctx.storagePort.files).toEqual([]);
-		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.document.deleted')).toHaveLength(1);
 	});
 
 	it('deletes a metadata-only archived document whose file is already absent', async () => {

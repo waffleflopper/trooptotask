@@ -367,9 +367,12 @@ SELECT * FROM dblink('editor',$$ SELECT id FROM public.organizations
 SELECT pg_temp.packet_begin('contender',5);
 SELECT dblink_send_query('contender',pg_temp.packet_call_sql(701));
 SELECT ok(pg_temp.packet_waits('contender','editor'),'Group Configure resync reaches its new-step insert and waits on the Organization row');
+-- Replica mode skips the audit trigger, whose entry would queue behind the held Organization row.
 SELECT dblink_exec('fixture',$move$
+  SET session_replication_role = replica;
   UPDATE public.personnel SET group_id='d1503000-0000-4000-8000-000000000202'
   WHERE organization_id='d1503000-0000-4000-8000-000000000101' AND id='d1503000-0000-4000-8000-000000000301';
+  SET session_replication_role = origin;
 $move$);
 SELECT dblink_exec('editor','ROLLBACK');
 SELECT * FROM dblink_get_result('contender',false) AS result(value jsonb);

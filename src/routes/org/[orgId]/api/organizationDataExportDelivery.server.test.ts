@@ -591,12 +591,19 @@ describe('retained Organization export projection', () => {
 				sheet: 'Raw - Audit Logs',
 				row: {
 					id: 'audit-saved',
-					org_id: 'org-1',
+					timestamp: '2026-09-01T00:00:00.123456Z',
 					user_id: 'owner-1',
+					actor_label: 'SSG Rivera, Sam',
+					org_id: 'org-1',
 					action: 'personnel.updated',
+					resource_type: 'personnel',
 					resource_id: 'person-1',
-					details: { previous: null, retained: true },
-					created_at: '2026-09-01T00:00:00.123456Z'
+					record_label: null,
+					subject_personnel_id: 'person-1',
+					subject_label: 'SPC Doe, Jane',
+					batch_id: null,
+					severity: 'info',
+					details: { previous: null, retained: true }
 				}
 			},
 			{
@@ -789,6 +796,11 @@ describe('retained Organization export projection', () => {
 				{ ...row, ...('id' in row ? { id: 'foreign-' + row.id } : {}), [scopeColumn]: 'foreign-org' }
 			];
 		}
+		providerRows.audit_logs = providerRows.audit_logs.map((row) => ({
+			...row,
+			ip_address: '203.0.113.9',
+			user_agent: 'Mozilla/5.0 synthetic'
+		}));
 		for (const [table, rows] of Object.entries(providerRows)) {
 			if (
 				table === 'organizations' ||
@@ -866,7 +878,11 @@ describe('retained Organization export projection', () => {
 					signInRosterExport: createSupabaseSignInRosterExportReader(client, actor.orgId),
 					personnelOrganizationExport: createSupabasePersonnelOrganizationExportPort(() => adminClient),
 					organizationRawExport: createSupabaseOrganizationRawExportReader(client),
-					notificationSelf: { auth: actor, audit: { async log() {} }, store: createSupabaseNotificationStore(client) },
+					notificationSelf: {
+						auth: actor,
+						audit: { async log() {}, async logMany() {} },
+						store: createSupabaseNotificationStore(client)
+					},
 					feedbackExport: { listRows: (orgId) => listFeedbackExportRows(client, orgId) }
 				},
 				createSupabaseDeletionRequestStore(client)

@@ -4,7 +4,6 @@
 import { fail } from '$lib/errors';
 import type { OnboardingTrainingPorts, OnboardingLifecyclePorts } from './onboardingPorts.server';
 import type { OnboardingLifecycleTransition } from '../contracts';
-import { subjectDetails } from '$lib/audit/index.server';
 import { formatToday, isDateOnly } from '$lib/utils/dates';
 import { isUuid } from '$lib/utils/inputSchemas';
 import {
@@ -86,16 +85,6 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		}))
 	});
 
-	await ctx.audit.log({
-		action: 'onboarding.started',
-		resourceType: 'personnel_onboarding',
-		resourceId: onboarding.id,
-		details: {
-			...subjectDetails({ subjectType: 'personnel', subjectId: onboarding.personnel_id }),
-			template_id: onboarding.template_id
-		}
-	});
-
 	const startedSteps = steps.map((step) => ({
 		id: step.id,
 		onboardingId: step.onboarding_id,
@@ -162,12 +151,6 @@ export async function cancelOnboarding(ctx: OnboardingLifecyclePorts, id: string
 
 	const updated = await persistTransition(ctx, id, { kind: 'cancel', at: new Date().toISOString() });
 
-	await ctx.audit.log({
-		action: 'onboarding.cancelled',
-		resourceType: 'personnel_onboarding',
-		resourceId: id
-	});
-
 	return {
 		id: updated.id,
 		status: updated.status,
@@ -189,12 +172,6 @@ export async function reopenOnboarding(ctx: OnboardingLifecyclePorts, id: string
 	}
 
 	const updated = await persistTransition(ctx, id, { kind: 'reopen' });
-
-	await ctx.audit.log({
-		action: 'onboarding.reopened',
-		resourceType: 'personnel_onboarding',
-		resourceId: id
-	});
 
 	return {
 		id: updated.id,
@@ -228,13 +205,6 @@ export async function completeOnboarding(
 	const incompleteSteps = await ctx.onboardingWorkflow.listIncompleteActiveStepIds(id);
 
 	const updated = await persistTransition(ctx, id, { kind: 'complete', at: completedOn });
-
-	await ctx.audit.log({
-		action: 'onboarding.completed',
-		resourceType: 'personnel_onboarding',
-		resourceId: id,
-		details: { incomplete_count: incompleteSteps.length }
-	});
 
 	return {
 		id: updated.id,

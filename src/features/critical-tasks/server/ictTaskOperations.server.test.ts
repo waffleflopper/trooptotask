@@ -15,7 +15,7 @@ const ordersByCode = (orders: Record<string, number>) =>
 	Object.fromEntries(Object.entries(orders).map(([code, order]) => [taskIdForCode(code), order]));
 
 describe('owned task library operations', () => {
-	it('creates defaults, ignores readonly/unknown input and audits the persisted task', async () => {
+	it('creates defaults and ignores readonly and unknown input', async () => {
 		const ctx = createWritePortsContext();
 		const task = await createIctTask(ctx, {
 			taskCode: 'RESP-1',
@@ -51,9 +51,6 @@ describe('owned task library operations', () => {
 				archived_at: null,
 				created_at: task.createdAt
 			}
-		]);
-		expect(ctx.audit.events).toMatchObject([
-			{ action: 'ict_task.created', resourceType: 'ict_task', resourceId: task.id }
 		]);
 	});
 
@@ -101,10 +98,6 @@ describe('owned task library operations', () => {
 			expirationMonths: 12,
 			sortOrder: 7
 		});
-		expect(ctx.audit.events).toMatchObject([
-			{ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: TASK_A },
-			{ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: TASK_A }
-		]);
 	});
 
 	it.each([
@@ -300,7 +293,7 @@ describe('task order command', () => {
 		{ id: TASK_B, expectedSortOrder: 3, sortOrder: 2 },
 		{ id: TASK_A, expectedSortOrder: 2, sortOrder: 3 }
 	];
-	it('acknowledges guards without changing them or auditing them as moves and returns independent copies', async () => {
+	it('acknowledges guards without changing them or counting them as moves and returns independent copies', async () => {
 		const ctx = seeded();
 		await ctx.rawStore.update('ict_tasks', ctx.auth.orgId, TASK_B, { mos: ['68V'], updated_at: 'retained' });
 		const before = structuredClone(await ctx.rawStore.findOne('ict_tasks', ctx.auth.orgId, { id: TASK_B }));
@@ -317,11 +310,11 @@ describe('task order command', () => {
 		saved[0].sortOrder = 99;
 		saved[0].mos.push('11B');
 		expect(await ctx.rawStore.findOne('ict_tasks', ctx.auth.orgId, { id: TASK_B })).toEqual(before);
-		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual([TASK_A]);
+		expect(ctx.audit.events).toMatchObject([{ action: 'ict_task.reordered', details: { count: 1 } }]);
 		await expect(
 			reorderIctTasks(ctx, { changes: [{ id: TASK_B, expectedSortOrder: 3, sortOrder: 3 }] })
 		).resolves.toMatchObject([{ id: TASK_B, sortOrder: 3, mos: ['68V'] }]);
-		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual([TASK_A]);
+		expect(ctx.audit.events).toHaveLength(1);
 	});
 
 	it.each([TASK_OLD, TASK_FOREIGN, TASK_GONE])('refuses an unavailable unchanged guard %s atomically', async (id) => {
@@ -366,7 +359,7 @@ describe('task order command', () => {
 		);
 	});
 
-	it('saves every change and audits each moved task', async () => {
+	it('saves every change and audits the move once', async () => {
 		const ctx = seeded();
 		expect((await reorderIctTasks(ctx, { changes: swap })).map(({ id, sortOrder }) => [id, sortOrder])).toEqual([
 			[TASK_B, 2],
@@ -374,8 +367,7 @@ describe('task order command', () => {
 		]);
 		expect(await sortOrders(ctx)).toEqual({ [TASK_A]: 3, [TASK_B]: 2, [TASK_OLD]: 4 });
 		expect(ctx.audit.events).toMatchObject([
-			{ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: TASK_B },
-			{ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: TASK_A }
+			{ action: 'ict_task.reordered', resourceType: 'ict_task', details: { count: 2 } }
 		]);
 	});
 
@@ -456,7 +448,7 @@ describe('task order command', () => {
 		expect(outcomes.map((outcome) => outcome.status)).toEqual(['fulfilled', 'rejected']);
 		expect(outcomes[1]).toMatchObject({ reason: { status: 409 } });
 		expect(await sortOrders(ctx)).toEqual({ [TASK_A]: 1, [TASK_B]: 0, [TASK_C]: 2 });
-		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual([TASK_B, TASK_A]);
+		expect(ctx.audit.events).toMatchObject([{ action: 'ict_task.reordered', details: { count: 2 } }]);
 	});
 
 	it.each([

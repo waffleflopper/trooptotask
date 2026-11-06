@@ -83,7 +83,7 @@ describe('Onboarding declared JSON fields', () => {
 });
 
 describe('Onboarding Template CRUD', () => {
-	it('creates a normalized template and audits', async () => {
+	it('creates a normalized template', async () => {
 		const ctx = configurationContext();
 
 		const result = await createOnboardingTemplate(ctx, {
@@ -95,12 +95,11 @@ describe('Onboarding Template CRUD', () => {
 			name: 'New Soldier Checklist',
 			description: 'Standard onboarding for new arrivals'
 		});
-		expect(ctx.audit.events[0].action).toBe('onboarding_template.created');
 	});
 });
 
 describe('Onboarding Template Step CRUD', () => {
-	it('creates a checkbox step and audits', async () => {
+	it('creates a checkbox step', async () => {
 		const ctx = configurationContext();
 
 		const result = await createOnboardingTemplateStep(ctx, {
@@ -119,7 +118,6 @@ describe('Onboarding Template Step CRUD', () => {
 			trainingTypeId: null,
 			stages: null
 		});
-		expect(ctx.audit.events[0].action).toBe('onboarding_template_step.created');
 	});
 
 	it('creates a paperwork step with normalized stages', async () => {
@@ -246,9 +244,20 @@ describe('Onboarding Template Step ordering', () => {
 		]);
 		expect(ctx.audit.events.at(-1)).toMatchObject({
 			action: 'onboarding_template_step.reordered',
-			resourceType: 'onboarding_template_step',
-			resourceId: TMPL_ID
+			resourceType: 'onboarding_template',
+			resourceId: TMPL_ID,
+			record: 'Ordered template',
+			details: { count: 3 }
 		});
+	});
+
+	it('saves an empty step order without an audit entry, which the catalog would refuse', async () => {
+		const ctx = configurationContext();
+		ctx.store.seed('onboarding_templates', [
+			{ id: TMPL_ID, name: 'Empty template', description: null, organization_id: 'test-org' }
+		]);
+		await expect(reorderOnboardingTemplateSteps(ctx, { templateId: TMPL_ID, orderedStepIds: [] })).resolves.toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('rejects stale step ordering that omits a template step', async () => {
@@ -347,9 +356,6 @@ describe('Onboarding Template deletion', () => {
 		await deleteOnboardingTemplate(ctx, TMPL_ID);
 
 		expect((await ctx.onboardingCatalog.listTemplates()).map((template) => template.id)).toEqual([TEMPLATE_1]);
-		expect(ctx.audit.events).toEqual([
-			{ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: TMPL_ID }
-		]);
 	});
 
 	it('rejects template CRUD without Onboarding configure policy', async () => {
@@ -435,15 +441,9 @@ describe('Onboarding Template duplication', () => {
 		});
 		expect(sourceSteps).toHaveLength(2);
 		expect(sourceSteps.map((step) => step.id).sort()).toEqual([STEP_PAPERWORK, STEP_TRAINING]);
-		expect(ctx.audit.events.at(-1)).toMatchObject({
-			action: 'onboarding_template.duplicated',
-			resourceType: 'onboarding_template',
-			resourceId: result.template.id,
-			details: { sourceTemplateId: TMPL_ID, stepCount: 2 }
-		});
 	});
 
-	it('answers a repeated request with the first copy and audits it once', async () => {
+	it('answers a repeated request with the first copy', async () => {
 		const ctx = createWritePortsContext();
 		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Standard Arrival', organization_id: 'test-org' }]);
 
@@ -455,7 +455,6 @@ describe('Onboarding Template duplication', () => {
 			'Standard Arrival',
 			'Standard Arrival Copy'
 		]);
-		expect(ctx.audit.events.map((event) => event.action)).toEqual(['onboarding_template.duplicated']);
 	});
 
 	it('reports a repeated request whose copy was deleted without making another', async () => {

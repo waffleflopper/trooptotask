@@ -1,3 +1,5 @@
+import type { AuditLogFilters } from './auditLogFilters';
+
 export type AuditSeverity = 'info' | 'warning' | 'critical';
 export type {
 	PlatformAudit,
@@ -10,6 +12,12 @@ export type {
 	PlatformAuditDashboardActivity
 } from './platformContracts';
 
+export interface AuditSubject {
+	personnelId: string | null;
+	/** The roster form, `<rank> <last>, <first>`. Left out, the database reads it from the person's row. */
+	label?: string;
+}
+
 export interface AuditEvent {
 	action: string;
 	resourceType: string;
@@ -17,11 +25,21 @@ export interface AuditEvent {
 	orgId?: string;
 	details?: Record<string, unknown>;
 	severity?: AuditSeverity;
+	/** The record's label at the time of the action. A cataloged kind requires it. */
+	record?: string;
+	/** Whose record it was. A cataloged kind about a person requires it. */
+	subject?: AuditSubject;
+	batchId?: string;
 }
 
-/** A supplied best-effort sink. A failed write never rejects, and every caller awaits it so the write finishes before the response. */
+/** Every caller awaits the write, and a write that fails rejects so the request reports the error. */
 export interface AuditPort {
 	log(event: AuditEvent): Promise<void>;
+}
+
+/** For an action that writes an entry per row: the entries go out in one round trip and share an Organization and batch id. */
+export interface BatchAuditPort extends AuditPort {
+	logMany(events: AuditEvent[]): Promise<void>;
 }
 
 export interface AuditLogEntry {
@@ -32,23 +50,23 @@ export interface AuditLogEntry {
 	resourceType: string | null;
 	resourceId: string | null;
 	details: Record<string, unknown> | null;
+	/** Labels saved when the entry was written; null on entries written before saved labels. */
+	recordLabel: string | null;
+	subject: { personnelId: string | null; label: string } | null;
+	/** Shared by every entry one action wrote. */
+	batchId: string | null;
 	createdAt: string;
 }
 
 export interface AuditLogQueryInput {
-	page: number;
-	action?: string;
+	filters: AuditLogFilters;
+	timeZone: string;
+	after?: string;
 	limit?: number;
-	/** ISO instant from which `recentCount` counts entries. */
-	recentSince: string;
 }
 
 export interface AuditLogQueryResult {
 	logs: AuditLogEntry[];
-	totalCount: number;
-	recentCount: number;
-	page: number;
-	limit: number;
-	actionFilter: string;
-	availableActions: string[];
+	/** Passed as `after` to read the entries older than this page; null when this page reached the oldest match. */
+	nextCursor: string | null;
 }

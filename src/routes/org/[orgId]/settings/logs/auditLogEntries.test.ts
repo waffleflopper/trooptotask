@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { AuditLogEntry } from '$lib/audit/contracts';
-import { auditDayHead, auditScope, auditSentence, viewAuditEntry } from './auditLogEntries';
+import {
+	auditDayHead,
+	auditKindOptions,
+	auditLines,
+	auditScope,
+	auditSentence,
+	viewAuditEntry
+} from './auditLogEntries';
 
 describe('auditScope', () => {
 	it.each([
@@ -153,6 +160,9 @@ function entry(overrides: Partial<AuditLogEntry>): AuditLogEntry {
 		resourceType: 'organization',
 		resourceId: null,
 		details: { name: 'C Co' },
+		recordLabel: null,
+		subject: null,
+		batchId: null,
 		createdAt: '2026-10-20T03:30:00Z',
 		...overrides
 	};
@@ -185,6 +195,20 @@ describe('viewAuditEntry', () => {
 		});
 	});
 
+	it('reads a cataloged entry from its saved labels, and an entry saved before them as it always read', () => {
+		const sentence = (overrides: Partial<AuditLogEntry>) =>
+			viewAuditEntry(entry({ action: 'availability.created', ...overrides }), 'UTC').sentence;
+		expect(
+			sentence({
+				recordLabel: 'Leave',
+				subject: { personnelId: null, label: 'SPC Doe, Jane' },
+				details: { startDate: '2026-11-10', endDate: '2026-11-20' }
+			})
+		).toBe('Added Leave for SPC Doe, Jane from 10 Nov to 20 Nov');
+		expect(sentence({ details: { personnel: 'SPC Doe Jane' } })).toBe('Added availability entry SPC Doe Jane');
+		expect(sentence({ details: null })).toBe('Added an availability entry');
+	});
+
 	it('names the product area of an action', () => {
 		const area = (action: string) => viewAuditEntry(entry({ action, details: null }), 'UTC').area;
 		expect(area('organization.settings_updated')).toBe('Policies');
@@ -195,6 +219,37 @@ describe('viewAuditEntry', () => {
 		expect(area('training_record.updated')).toBe('Training');
 		expect(area('daily_assignment.replaced')).toBe('Calendar');
 		expect(area('widget_part.frobbed')).toBe('Widget part');
+	});
+});
+
+describe('auditLines', () => {
+	const view = (id: string, batchId: string | null, createdAt: string, action = 'availability.created') =>
+		viewAuditEntry(entry({ id, batchId, createdAt, action }), 'UTC');
+
+	it('keeps an entry alone unless another entry shares its batch', () => {
+		const lines = auditLines([view('a', 'one', '2026-10-20T10:00:00Z'), view('b', null, '2026-10-20T09:00:00Z')]);
+		expect(lines.map((line) => [line.id, line.batch.length])).toEqual([
+			['a', 0],
+			['b', 0]
+		]);
+	});
+
+	it('puts a batch where its newest entry was and counts a batch cut off by the loaded window as a floor', () => {
+		const entries = [
+			view('c', 'one', '2026-10-20T10:00:01Z', 'availability.deleted'),
+			view('a', 'one', '2026-10-20T10:00:00Z'),
+			view('b', null, '2026-10-20T09:00:00Z')
+		];
+		const [batch, alone] = auditLines(entries);
+		expect(batch).toMatchObject({
+			id: 'batch-one',
+			sentence: 'Deleted 1 availability entry, added 1 availability entry'
+		});
+		expect(batch.batch.map((item) => item.id)).toEqual(['c', 'a']);
+		expect(alone.id).toBe('b');
+		expect(auditLines(entries, 'one')[0].sentence).toBe(
+			'Deleted at least 1 availability entry, added at least 1 availability entry'
+		);
 	});
 });
 
@@ -220,5 +275,25 @@ describe('auditDayHead', () => {
 		expect(auditDayHead('2026-10-31', '2026-11-01', 2).title).toBe('Yesterday');
 		expect(auditDayHead('2025-12-31', '2026-01-01', 2).title).toBe('Yesterday');
 		expect(auditDayHead('2025-12-30', '2026-01-01', 2)).toEqual({ title: '30 Dec 2025', detail: '2 entries' });
+	});
+});
+
+describe('auditKindOptions', () => {
+	it('lists the cataloged kinds and the older actions a unit recorded, once each, grouped by area', () => {
+		const options = auditKindOptions(['org.renamed', 'availability.created', 'org.renamed']);
+
+		expect(options.filter((option) => option.value === 'org.renamed')).toEqual([
+			{ value: 'org.renamed', label: 'Org renamed', group: 'Unit' }
+		]);
+		expect(options.filter((option) => option.value === 'availability.created')).toHaveLength(1);
+		expect(options.find((option) => option.value === 'availability.created')).toMatchObject({ group: 'Calendar' });
+	});
+
+	it('sorts by area, then by name', () => {
+		const sorted = auditKindOptions(['training_record.deleted', 'training_record.created']).filter(
+			(option) => option.group === 'Training'
+		);
+
+		expect(sorted.map((option) => option.label)).toEqual([...sorted.map((option) => option.label)].sort());
 	});
 });

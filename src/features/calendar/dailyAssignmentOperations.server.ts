@@ -9,7 +9,6 @@ import {
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
 
-const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
 
 type AssignmentTarget = 'personnel' | 'group';
@@ -37,15 +36,7 @@ export async function replaceDailyAssignmentDay(
 
 	await requireCalendarAssignmentPolicy(ctx, records);
 	await requireExistingAssignmentAccess(ctx, input.date);
-	const inserted = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [input.date], records);
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.replaced`,
-		resourceType: AUDIT_RESOURCE,
-		details: { date: input.date, count: records.length }
-	});
-
-	return inserted;
+	return ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [input.date], records);
 }
 
 export async function setDailyAssignmentSlot(
@@ -58,22 +49,9 @@ export async function setDailyAssignmentSlot(
 	if (!record.assigneeId.trim()) fail(400, 'Assignee ID is required to set an assignment');
 
 	await requireCalendarAssignmentPolicy(ctx, [record]);
-	const [existing] = await requireExistingAssignmentAccess(ctx, record.date, record.assignmentTypeId);
+	await requireExistingAssignmentAccess(ctx, record.date, record.assignmentTypeId);
 	const [inserted] = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [], [record]);
 	if (!inserted) fail(500, 'Daily assignment replacement returned no row');
-	if (existing?.assigneeId !== record.assigneeId) {
-		await ctx.audit.log({
-			action: `${AUDIT_RESOURCE}.${existing ? 'updated' : 'created'}`,
-			resourceType: AUDIT_RESOURCE,
-			resourceId: inserted.id,
-			details: {
-				date: record.date,
-				assignmentTypeId: record.assignmentTypeId,
-				previousAssigneeId: existing?.assigneeId ?? null,
-				assigneeId: record.assigneeId
-			}
-		});
-	}
 	return inserted;
 }
 
@@ -99,12 +77,6 @@ export async function clearDailyAssignmentSlot(
 			}
 		]
 	);
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.cleared`,
-		resourceType: AUDIT_RESOURCE,
-		details: { date: input.date, assignmentTypeId: input.assignmentTypeId }
-	});
 }
 
 export async function replaceDailyAssignmentSlotsBatch(
@@ -141,17 +113,11 @@ export async function replaceDailyAssignmentSlotsBatch(
 			])
 		).values()
 	];
-	const affectedSlotKeys = await requireExistingAssignmentSlotPolicy(ctx, affectedSlotFilters);
-	if (clears.some((record) => !affectedSlotKeys.has(toSlotKey(record.date, record.assignmentTypeId)))) {
+	const existingBySlot = await requireExistingAssignmentSlotPolicy(ctx, affectedSlotFilters);
+	if (clears.some((record) => !existingBySlot.has(toSlotKey(record.date, record.assignmentTypeId)))) {
 		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments);
 	}
 	const inserted = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [], records);
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.batch_replaced`,
-		resourceType: AUDIT_RESOURCE,
-		details: { totalSlots: records.length, inserted: inserted.length, cleared: clears.length }
-	});
 
 	return { inserted, cleared: clears.length };
 }
@@ -185,14 +151,14 @@ async function requireExistingAssignmentAccess(ctx: CalendarWritePorts, date: st
 async function requireExistingAssignmentSlotPolicy(
 	ctx: CalendarWritePorts,
 	slotFilters: AssignmentSlot[]
-): Promise<Set<string>> {
-	if (slotFilters.length === 0) return new Set();
+): Promise<Map<string, string>> {
+	if (slotFilters.length === 0) return new Map();
 
 	const affectedRows = await ctx.calendarAssignments.listSlotReferences(slotFilters);
-	if (affectedRows.length === 0) return new Set();
+	if (affectedRows.length === 0) return new Map();
 
 	await requireCalendarAssignmentRowsPolicy(ctx, affectedRows);
-	return new Set(affectedRows.map((row) => toSlotKey(row.date, row.assignmentTypeId)));
+	return new Map(affectedRows.map((row) => [toSlotKey(row.date, row.assignmentTypeId), row.assigneeId]));
 }
 
 async function requireCalendarAssignmentRowsPolicy(

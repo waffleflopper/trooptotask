@@ -142,7 +142,9 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `daily_assignment.updated` audits for both edits. Re-select the saved assignee and require no save request or audit.
    Repeat Alpha to Bravo to Alpha for the Group slot. Empty-slot creation emits only `daily_assignment.created`. Confirm
    the unrelated four September 15 rows stayed intact. Clear each slot with `Clear assignment` in its picker, then read
-   back absence of just those two slots and retention of the seeded IDs. Reload to confirm the clear persisted. Also
+   back absence of just those two slots and retention of the seeded IDs. Reload to confirm the clear persisted. Each
+   clear writes `daily_assignment.cleared` naming who held the slot: a Person as the entry's person, a Group by name in
+   its details. Logs filtered by that Person lists `Cleared SPC Able, Synthetic from <duty> on <day>`. Also
    open an empty Calendar date header, inspect the `Daily Assignments` modal, set and clear one Person slot there, and
    check the same persisted row through the helper.
 3. Use `Next month`, `Previous month` and `Today` in the planner header and confirm the title and the selected month's

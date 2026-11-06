@@ -86,7 +86,6 @@ function route(
 	const ctx = createRequestCalendarEventContext(request);
 	return {
 		writes,
-		audit,
 		exists: () => exists,
 		invoke: (body: unknown, id = EVENT) => handleUseCaseRequest(_deleteConfig, request, { id, body }, () => ctx)
 	};
@@ -94,20 +93,12 @@ function route(
 
 describe('DELETE /org/[orgId]/api/calendar-events/[eventId]', () => {
 	it.each(['standalone', 'delete'] as const)(
-		'answers with the %s mode and affected count after deleting and auditing',
+		'answers with the %s mode and affected count after deleting',
 		async (taskings) => {
 			const request = route();
 			expect(await request.invoke({ taskings })).toEqual({ taskings, count: 2 });
 			expect(request.exists()).toBe(false);
 			expect(request.writes).toEqual([{ p_organization_id: ORG, p_event_id: EVENT, p_taskings: taskings }]);
-			expect(request.audit.events).toEqual([
-				{
-					action: 'calendar_event.deleted',
-					resourceType: 'calendar_event',
-					resourceId: EVENT,
-					details: { title: 'Best Medic Competition', mode: taskings, count: 2 }
-				}
-			]);
 		}
 	);
 
@@ -139,10 +130,9 @@ describe('DELETE /org/[orgId]/api/calendar-events/[eventId]', () => {
 		['P0002', 404, 'That event is no longer available.'],
 		['42501', 403, 'Events need Organization-wide Calendar operation access.'],
 		['22023', 400, 'Choose whether to keep or delete the linked taskings.']
-	])('maps an RPC %s failure without a success audit', async (code, status, message) => {
+	])('maps an RPC %s failure', async (code, status, message) => {
 		const request = route('operate', { kind: 'organization' }, String(code));
 		await expect(request.invoke({ taskings: 'delete' })).rejects.toMatchObject({ status, message });
 		expect(request.exists()).toBe(true);
-		expect(request.audit.events.filter(({ action }) => action === 'calendar_event.deleted')).toEqual([]);
 	});
 });

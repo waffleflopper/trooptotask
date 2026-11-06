@@ -84,52 +84,7 @@ function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 }
 
 describe('importTrainingRecords', () => {
-	it('awaits the one bulk audit before resolving the request', async () => {
-		const ctx = buildContext();
-		seedPersonnel(ctx);
-		seedTrainingType(ctx);
-		let releaseAudit = () => {};
-		const heldAudit = new Promise<void>((resolve) => {
-			releaseAudit = resolve;
-		});
-		let auditStarted = () => {};
-		const started = new Promise<void>((resolve) => {
-			auditStarted = resolve;
-		});
-		const log = ctx.audit.log.bind(ctx.audit);
-		ctx.audit.log = async (event) => {
-			auditStarted();
-			await heldAudit;
-			await log(event);
-		};
-		const request = importTrainingRecords(ctx, {
-			records: [
-				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-03-11', status: 'completed' }
-			]
-		});
-		try {
-			await started;
-			await expect(
-				Promise.race([
-					request.then(() => 'resolved'),
-					new Promise<string>((resolve) => setImmediate(() => resolve('waiting for audit')))
-				])
-			).resolves.toBe('waiting for audit');
-		} finally {
-			releaseAudit();
-			await request;
-		}
-		expect((await request).inserted).toMatchObject([{ personnelId: PERSON_1, completionDate: '2026-03-11' }]);
-		expect(ctx.audit.events).toEqual([
-			{
-				action: 'training.bulk_imported',
-				resourceType: 'training_record',
-				details: { inserted: 1, updated: 0, exempted: 0 }
-			}
-		]);
-	});
-
-	it('inserts all valid records and logs audit event', async () => {
+	it('inserts all valid records', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
@@ -157,13 +112,6 @@ describe('importTrainingRecords', () => {
 				expect.objectContaining({ personnelId: PERSON_2, trainingTypeId: TRAINING_TYPE })
 			])
 		);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'training.bulk_imported',
-			resourceType: 'training_record',
-			details: { inserted: 2, updated: 0, exempted: 0 }
-		});
 	});
 
 	it('calculates expiration date from training type expiration_months', async () => {
@@ -308,7 +256,6 @@ describe('importTrainingRecords', () => {
 			{ index: 0, message: 'That Training type is no longer available.' },
 			{ index: 1, message: 'That Training type is no longer available.' }
 		]);
-		expect(ctx.audit.events[0]).toMatchObject({ details: { inserted: 0, updated: 0, exempted: 0 } });
 	});
 
 	it('rejects a batch naming a Person or Training type by a non-UUID before writing anything', async () => {
@@ -331,7 +278,6 @@ describe('importTrainingRecords', () => {
 			).rejects.toMatchObject({ status: 400, message: 'Each record must name a Person and Training type by ID' });
 		}
 		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([]);
-		expect(ctx.audit.events.filter((event) => event.action === 'training.bulk_imported')).toEqual([]);
 	});
 
 	it('rejects exempt status when training type does not allow exemptions', async () => {
@@ -419,11 +365,6 @@ describe('importTrainingRecords', () => {
 		);
 
 		expect(result.errors).toHaveLength(0);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			details: { inserted: 1, updated: 1 }
-		});
 	});
 
 	it('deduplicates repeated completed records before the bulk upsert', async () => {
@@ -761,7 +702,7 @@ describe('batch acknowledged effects', () => {
 		]);
 	});
 
-	it('does not audit success when an exemption write fails', async () => {
+	it('rejects when an exemption write fails', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { id: EXEMPT_TYPE, can_be_exempted: true, expiration_months: null });
@@ -773,7 +714,6 @@ describe('batch acknowledged effects', () => {
 				records: [{ personnelId: PERSON_3, trainingTypeId: EXEMPT_TYPE, completionDate: null, status: 'exempt' }]
 			})
 		).rejects.toThrow('Exemption save failed');
-		expect(ctx.audit.events).toEqual([]);
 	});
 	it('imports a never-expiring completion without an expiration date', async () => {
 		const ctx = buildContext();

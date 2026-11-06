@@ -1,38 +1,102 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { createSupabaseOrganizationAuditStore, type OrganizationAuditStore } from '$lib/audit/index.server';
+import {
+	createSupabaseOrganizationAuditStore,
+	type OrganizationAuditRow,
+	type OrganizationAuditStore
+} from '$lib/audit/index.server';
 import { createSupabasePersonnelNamesReader } from '$features/personnel/index.server';
 import { createSupabaseTrainingTypeNamesReader } from '$features/training/index.server';
 import { createSupabaseStatusTypeNamesReader } from '$features/calendar/index.server';
 import { createSupabaseOrganizationMemberEmailsReader } from '$features/organization/index.server';
-import { loadLogsSettings } from './settingsLogs.server';
+import type { Personnel, PersonnelRosterReader } from '$features/personnel/contracts';
+import { loadLogsFilterOptions, loadLogsSettings } from './settingsLogs.server';
 
-const VIEWER = { timeZone: 'America/New_York', now: new Date('2026-10-20T02:00:00Z') };
+const VIEWER = { timeZone: 'America/New_York', now: new Date('2026-10-20T02:00:00Z'), filters: {} };
+
+const none = async () => new Map<string, string>();
+const NO_LABELS = { personnelNames: none, trainingTypeNames: none, statusTypeNames: none, actorEmails: none };
 
 describe('loadLogsSettings', () => {
-	it("counts this month from the start of the month in the viewer's time zone", async () => {
+	it("reads the first page for the URL filters, with days read in the viewer's time zone", async () => {
 		const ctx = createQueryPortsContext();
-		const written = ['2026-10-01T03:59:00Z', '2026-10-01T04:00:00Z', '2026-10-19T12:00:00Z'].map(Date.parse);
+		const requested: Parameters<OrganizationAuditStore['listLogs']>[0][] = [];
 		const store: OrganizationAuditStore = {
-			listLogs: async () => ({ logs: [], totalCount: written.length }),
-			countRecent: async ({ cutoff }) => written.filter((at) => at >= Date.parse(cutoff)).length,
+			listLogs: async (request) => {
+				requested.push(request);
+				return { logs: [], hasMore: false };
+			},
 			listActions: async () => []
 		};
-		const none = async () => new Map<string, string>();
+		const filters = { kind: 'availability.deleted', from: '2026-10-19', to: '2026-10-19' };
 
-		const result = await loadLogsSettings(
-			ctx,
-			store,
-			{ personnelNames: none, trainingTypeNames: none, statusTypeNames: none, actorEmails: none },
-			VIEWER
-		);
+		const result = loadLogsSettings(ctx, store, NO_LABELS, { ...VIEWER, filters });
 
-		expect(result).toMatchObject({
-			today: '2026-10-19',
-			timeZone: 'America/New_York',
-			auditLog: { totalCount: 3, recentCount: 2 }
+		expect(result).toMatchObject({ today: '2026-10-19', timeZone: 'America/New_York', filters });
+		await expect(result.auditLog).resolves.toEqual({ logs: [], nextCursor: null });
+		expect(requested).toHaveLength(1);
+		expect(requested[0]).toMatchObject({
+			orgId: ctx.auth.orgId,
+			filters: {
+				action: 'availability.deleted',
+				since: '2026-10-19T04:00:00.000Z',
+				until: '2026-10-20T04:00:00.000Z'
+			}
 		});
+	});
+
+	it('offers a cursor when more entries follow the page', async () => {
+		const ctx = createQueryPortsContext();
+		const id = '11111111-1111-4111-8111-111111111111';
+		const store: OrganizationAuditStore = {
+			listLogs: async () => ({
+				logs: [
+					{ id, action: 'personnel.updated', timestamp: '2026-10-01T12:00:00.123456+00:00' } as OrganizationAuditRow
+				],
+				hasMore: true
+			}),
+			listActions: async () => []
+		};
+
+		const result = await loadLogsSettings(ctx, store, NO_LABELS, VIEWER).auditLog;
+
+		expect(result.nextCursor).toBe(`2026-10-01T12:00:00.123456+00:00_${id}`);
+	});
+});
+
+describe('loadLogsFilterOptions', () => {
+	const people = [
+		{ id: 'p-1', rank: 'SGT', lastName: 'Rivera', firstName: 'Sam', archivedAt: null },
+		{ id: 'p-2', rank: 'SPC', lastName: 'Able', firstName: 'Jane', archivedAt: '2026-01-01T00:00:00Z' }
+	] as Personnel[];
+	const store = { listLogs: async () => ({ logs: [], hasMore: false }), listActions: async () => ['org.renamed'] };
+	const roster = { list: async () => people } as unknown as PersonnelRosterReader;
+
+	it('offers every person on the roster, the members and the recorded actions', async () => {
+		const ctx = createQueryPortsContext();
+
+		await expect(
+			loadLogsFilterOptions(ctx, { roster, memberLabels: async () => ({ 'u-1': 'SSG Doe, Pat' }), store })
+		).resolves.toEqual({
+			people: [
+				{ id: 'p-1', label: 'SGT Rivera, Sam', archived: false },
+				{ id: 'p-2', label: 'SPC Able, Jane', archived: true }
+			],
+			members: [{ userId: 'u-1', label: 'SSG Doe, Pat' }],
+			actions: ['org.renamed']
+		});
+	});
+
+	it('fails as a whole when one source fails, so the pickers never show a partial list', async () => {
+		const ctx = createQueryPortsContext();
+		const failing = async () => {
+			throw new Error('Members unavailable');
+		};
+
+		await expect(loadLogsFilterOptions(ctx, { roster, memberLabels: failing, store })).rejects.toThrow(
+			'Members unavailable'
+		);
 	});
 });
 
@@ -131,18 +195,16 @@ describe('admitted Logs source composition', () => {
 				}
 			}
 		});
-		const result = (
-			await loadLogsSettings(
-				ctx,
-				createSupabaseOrganizationAuditStore(client),
-				{
-					personnelNames: createSupabasePersonnelNamesReader(client, orgId),
-					trainingTypeNames: createSupabaseTrainingTypeNamesReader(client, orgId),
-					statusTypeNames: createSupabaseStatusTypeNamesReader(client, orgId),
-					actorEmails: createSupabaseOrganizationMemberEmailsReader(client, orgId)
-				},
-				VIEWER
-			)
+		const result = await loadLogsSettings(
+			ctx,
+			createSupabaseOrganizationAuditStore(client),
+			{
+				personnelNames: createSupabasePersonnelNamesReader(client, orgId),
+				trainingTypeNames: createSupabaseTrainingTypeNamesReader(client, orgId),
+				statusTypeNames: createSupabaseStatusTypeNamesReader(client, orgId),
+				actorEmails: createSupabaseOrganizationMemberEmailsReader(client, orgId)
+			},
+			VIEWER
 		).auditLog;
 		expect(result.logs).toEqual([
 			expect.objectContaining({
@@ -161,8 +223,7 @@ describe('admitted Logs source composition', () => {
 			expect.objectContaining({ id: 'saved-actor', actor: '', details: { actor: '' } }),
 			expect.objectContaining({ id: 'unresolved', actor: null, details: { subject_label: 'Saved subject' } })
 		]);
-		expect(result.limit).toBe(100);
-		expect(result.totalCount).toBe(3);
+		expect(result.nextCursor).toBeNull();
 	});
 
 	it.each(['personnel', 'training_types', 'status_types', 'organization_memberships'])(
@@ -208,7 +269,7 @@ describe('admitted Logs source composition', () => {
 						actorEmails: createSupabaseOrganizationMemberEmailsReader(client, ctx.auth.orgId)
 					},
 					VIEWER
-				)
+				).auditLog
 			).rejects.toThrow('Current labels unavailable');
 		}
 	);

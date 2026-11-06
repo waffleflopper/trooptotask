@@ -70,7 +70,7 @@ describe('PUT status order at the route boundary', () => {
 				action: 'status_type.reordered',
 				resourceType: 'organization',
 				resourceId: ctx.auth.orgId,
-				details: { statusTypeIds: [SICK, LEAVE] }
+				details: { count: 2 }
 			}
 		]);
 	});

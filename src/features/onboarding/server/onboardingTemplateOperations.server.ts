@@ -63,11 +63,6 @@ export async function createOnboardingTemplate(
 		name: parsed.name,
 		description: parsed.description ?? null
 	});
-	await ctx.audit.log({
-		action: 'onboarding_template.created',
-		resourceType: 'onboarding_template',
-		resourceId: row.id
-	});
 	return row;
 }
 
@@ -80,18 +75,12 @@ export async function updateOnboardingTemplate(
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', id);
 	await requireTemplate(ctx, id);
 	const row = await ctx.onboardingCatalog.updateTemplate(id, parsed);
-	await ctx.audit.log({ action: 'onboarding_template.updated', resourceType: 'onboarding_template', resourceId: id });
 	return row;
 }
 
 export async function deleteOnboardingTemplate(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', templateId);
 	if (!(await ctx.onboardingCatalog.deleteTemplate(templateId))) return;
-	await ctx.audit.log({
-		action: 'onboarding_template.deleted',
-		resourceType: 'onboarding_template',
-		resourceId: templateId
-	});
 }
 
 export async function duplicateOnboardingTemplate(
@@ -100,14 +89,6 @@ export async function duplicateOnboardingTemplate(
 ): Promise<DuplicateOnboardingTemplateResult> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', input.templateId);
 	const copy = await ctx.onboardingCatalog.duplicateTemplate(input.templateId, input.requestId);
-	if (copy.created) {
-		await ctx.audit.log({
-			action: 'onboarding_template.duplicated',
-			resourceType: 'onboarding_template',
-			resourceId: copy.template.id,
-			details: { sourceTemplateId: input.templateId, stepCount: copy.steps.length }
-		});
-	}
 	return { template: copy.template, templateSteps: copy.steps };
 }
 
@@ -144,11 +125,6 @@ async function insertTemplateStep(
 		sortOrder: input.sortOrder ?? 0,
 		...(id ? { id } : {})
 	});
-	await ctx.audit.log({
-		action: 'onboarding_template_step.created',
-		resourceType: 'onboarding_template_step',
-		resourceId: row.id
-	});
 	return row;
 }
 
@@ -181,11 +157,6 @@ export async function updateOnboardingTemplateStep(
 		);
 	}
 	const row = await ctx.onboardingCatalog.updateStep(id, parsed);
-	await ctx.audit.log({
-		action: 'onboarding_template_step.updated',
-		resourceType: 'onboarding_template_step',
-		resourceId: id
-	});
 	return row;
 }
 
@@ -194,16 +165,12 @@ export async function deleteOnboardingTemplateStep(ctx: OnboardingTemplateWriteC
 	const current = await ctx.onboardingCatalog.findStep(stepId);
 	if (!current) throw error(404, 'Onboarding template step not found');
 	await ctx.onboardingCatalog.deleteStep(stepId);
-	await ctx.audit.log({
-		action: 'onboarding_template_step.deleted',
-		resourceType: 'onboarding_template_step',
-		resourceId: stepId
-	});
 }
 
-async function requireTemplate(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
+async function requireTemplate(ctx: OnboardingTemplateWriteContext, templateId: string) {
 	const template = await ctx.onboardingCatalog.findTemplate(templateId);
 	if (!template) throw error(404, 'Onboarding template not found');
+	return template;
 }
 
 async function requireTrainingReference(
@@ -224,12 +191,15 @@ export async function reorderOnboardingTemplateSteps(
 	input: ReorderOnboardingTemplateStepsInput
 ): Promise<OnboardingTemplateStep[]> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template_step');
+	const template = await requireTemplate(ctx, input.templateId);
 	const steps = await ctx.onboardingCatalog.reorderSteps(input.templateId, input.orderedStepIds);
+	if (input.orderedStepIds.length === 0) return steps;
 	await ctx.audit.log({
 		action: 'onboarding_template_step.reordered',
-		resourceType: 'onboarding_template_step',
+		resourceType: 'onboarding_template',
 		resourceId: input.templateId,
-		details: { templateId: input.templateId, stepCount: input.orderedStepIds.length }
+		record: template.name,
+		details: { count: input.orderedStepIds.length }
 	});
 	return steps;
 }

@@ -53,13 +53,6 @@ describe('createAvailabilityBatch', () => {
 
 		const stored = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(stored).toHaveLength(2);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'availability.bulk_created',
-			resourceType: 'availability',
-			details: { count: 2 }
-		});
 	});
 
 	it('rejects empty records array', async () => {
@@ -240,13 +233,6 @@ describe('deleteAvailabilityBatch', () => {
 
 		const remaining = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(remaining).toHaveLength(1);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'availability.bulk_deleted',
-			resourceType: 'availability',
-			details: { count: 2 }
-		});
 	});
 
 	it('rejects empty IDs array', async () => {

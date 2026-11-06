@@ -240,12 +240,8 @@ describe('approveDeletionRequest', () => {
 			action: 'deletion_request.approved',
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1',
-			details: {
-				reviewer_user_id: 'test-user',
-				subject_type: 'personnel',
-				subject_id: 'person-1',
-				subject_label: 'SGT Smith'
-			}
+			record: 'SGT Smith',
+			details: { resourceType: 'personnel' }
 		});
 	});
 
@@ -550,13 +546,8 @@ describe('denyDeletionRequest', () => {
 			action: 'deletion_request.denied',
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1',
-			details: {
-				reviewer_user_id: 'test-user',
-				subject_type: 'personnel',
-				subject_id: 'person-1',
-				subject_label: 'SGT Smith',
-				denial_reason: 'Not approved by commander'
-			}
+			record: 'SGT Smith',
+			details: { resourceType: 'personnel' }
 		});
 	});
 

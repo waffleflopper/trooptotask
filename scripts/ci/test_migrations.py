@@ -29,7 +29,7 @@ class MigrationTests(unittest.TestCase):
         self.commit()
         self.base = self.git('rev-parse', 'HEAD')
         self.git('update-ref', 'refs/remotes/origin/main', self.base)
-        for label in ('STAGED_UPGRADE_MIGRATIONS', 'ACCOUNT_SETUP_UPGRADE_MIGRATIONS'):
+        for label in ('STAGED_UPGRADE_MIGRATIONS', 'ACCOUNT_SETUP_UPGRADE_MIGRATIONS', 'POST_TREE_UPGRADE_MIGRATIONS'):
             replacement = patch.object(database, label, ('20261020000100_initial.sql',))
             replacement.start()
             self.addCleanup(replacement.stop)

@@ -1,5 +1,12 @@
 import { counselingRow, documentRow, followUpRow, leaderNoteRow } from './personnelArtifactRow.server';
+import type {
+	CounselingRecordRow,
+	FollowUpRow,
+	LeaderNoteRow,
+	PersonnelDocumentRow
+} from './personnelArtifactPersistence';
 import type { SupabaseClient } from '$lib/server/database';
+import type { Json } from '$lib/server/database.types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
@@ -110,6 +117,51 @@ export async function finishFileCleanup(admin: SupabaseClient, deletion: FileDel
 	return deletion.retired ? removeRetiredOrganizationFiles(admin, [deletion.retired]) : 'complete';
 }
 
+type ArtifactRow = Record<string, unknown>;
+
+/**
+ * Writes run as the admitted member through service-role commands, because an operator may write a record they cannot
+ * read back. The database audits each row and names that member.
+ */
+function artifactCommands(admin: SupabaseClient, actor: { orgId: string; userId: string }) {
+	return {
+		async insert(table: ArtifactTable, rows: ArtifactRow[]): Promise<ArtifactRow[]> {
+			assertArtifactTable(table);
+			const { data, error } = await admin.rpc('insert_personnel_artifacts', {
+				p_actor: actor.userId,
+				p_organization_id: actor.orgId,
+				p_table: table,
+				p_rows: rows as Json
+			});
+			if (error) throw new Error(error.message);
+			return (data ?? []) as ArtifactRow[];
+		},
+		async update(table: ArtifactTable, personnelId: string, id: string, patch: ArtifactRow): Promise<ArtifactRow> {
+			assertArtifactTable(table);
+			const { data, error } = await admin.rpc('update_personnel_artifact', {
+				p_actor: actor.userId,
+				p_organization_id: actor.orgId,
+				p_personnel_id: personnelId,
+				p_table: table,
+				p_id: id,
+				p_patch: patch as Json
+			});
+			if (error) throw new Error(error.message);
+			return data as ArtifactRow;
+		},
+		async delete(table: 'leader_notes' | 'personnel_follow_ups', personnelId: string, id: string): Promise<void> {
+			const { error } = await admin.rpc('delete_personnel_artifact', {
+				p_actor: actor.userId,
+				p_organization_id: actor.orgId,
+				p_personnel_id: personnelId,
+				p_table: table,
+				p_id: id
+			});
+			if (error) throw new Error(error.message);
+		}
+	};
+}
+
 /** Bind service-role operations to a Person only after the request actor is admitted. */
 export function createSupabasePersonnelArtifactWritePort(
 	requestClient: SupabaseClient,
@@ -134,6 +186,13 @@ export function createSupabasePersonnelArtifactWritePort(
 				personnelId
 			);
 			const admin = getAdminClient();
+			const commands = artifactCommands(admin, actor);
+			const insertOne = async (table: ArtifactTable, values: ArtifactRow) => {
+				assertArtifactInsert(values);
+				const [row] = await commands.insert(table, [{ ...values, personnel_id: personnelId }]);
+				if (!row) throw new Error('Personnel artifact insert returned no row');
+				return row;
+			};
 			const base = <Name extends ArtifactTable>(table: Name) => {
 				assertArtifactTable(table);
 				return admin.from(table);
@@ -152,38 +211,26 @@ export function createSupabasePersonnelArtifactWritePort(
 				},
 				async createCounseling(input) {
 					assertArtifactInsert(input);
-					const { data, error } = await admin
-						.from('counseling_records')
-						.insert({
-							date_conducted: input.dateConducted,
-							title: input.title,
-							subject: input.title,
-							summary: input.summary,
-							notes: input.summary,
-							conducted_by: input.conductedBy,
-							uploaded_by: input.uploadedBy,
-							file_path: input.filePath,
-							status: 'completed',
-							created_at: input.createdAt,
-							organization_id: actor.orgId,
-							personnel_id: personnelId
-						})
-						.select(COUNSELING_RECORDS_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return counselingRow(data);
+					const row = await insertOne('counseling_records', {
+						date_conducted: input.dateConducted,
+						title: input.title,
+						subject: input.title,
+						summary: input.summary,
+						notes: input.summary,
+						conducted_by: input.conductedBy,
+						uploaded_by: input.uploadedBy,
+						file_path: input.filePath,
+						status: 'completed',
+						created_at: input.createdAt
+					});
+					return counselingRow(row as unknown as CounselingRecordRow);
 				},
 				async setCounselingArchive(id, archived) {
-					const { data, error } = await admin
-						.from('counseling_records')
-						.update({ archived_at: archived?.at ?? null, archived_by: archived?.by ?? null })
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id)
-						.select(COUNSELING_RECORDS_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return counselingRow(data);
+					const row = await commands.update('counseling_records', personnelId, id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					});
+					return counselingRow(row as unknown as CounselingRecordRow);
 				},
 				async findDocument(id) {
 					const { data, error } = await base('personnel_documents')
@@ -197,34 +244,22 @@ export function createSupabasePersonnelArtifactWritePort(
 				},
 				async createDocument(input) {
 					assertArtifactInsert(input);
-					const { data, error } = await admin
-						.from('personnel_documents')
-						.insert({
-							title: input.title,
-							file_path: input.filePath,
-							file_size_bytes: input.fileSizeBytes,
-							content_type: input.contentType,
-							uploaded_by: input.uploadedBy,
-							created_at: input.createdAt,
-							organization_id: actor.orgId,
-							personnel_id: personnelId
-						})
-						.select(PERSONNEL_DOCUMENTS_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return documentRow(data);
+					const row = await insertOne('personnel_documents', {
+						title: input.title,
+						file_path: input.filePath,
+						file_size_bytes: input.fileSizeBytes,
+						content_type: input.contentType,
+						uploaded_by: input.uploadedBy,
+						created_at: input.createdAt
+					});
+					return documentRow(row as unknown as PersonnelDocumentRow);
 				},
 				async setDocumentArchive(id, archived) {
-					const { data, error } = await admin
-						.from('personnel_documents')
-						.update({ archived_at: archived?.at ?? null, archived_by: archived?.by ?? null })
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id)
-						.select(PERSONNEL_DOCUMENTS_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return documentRow(data);
+					const row = await commands.update('personnel_documents', personnelId, id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					});
+					return documentRow(row as unknown as PersonnelDocumentRow);
 				},
 				async findFollowUp(id) {
 					const { data, error } = await base('personnel_follow_ups')
@@ -238,57 +273,36 @@ export function createSupabasePersonnelArtifactWritePort(
 				},
 				async createFollowUp(input) {
 					assertArtifactInsert(input);
-					const { data, error } = await admin
-						.from('personnel_follow_ups')
-						.insert({
-							title: input.title,
-							notes: input.notes,
-							due_date: input.dueDate,
-							status: 'open',
-							created_by: input.createdBy,
-							created_at: input.createdAt,
-							updated_at: input.updatedAt,
-							organization_id: actor.orgId,
-							personnel_id: personnelId
-						})
-						.select(PERSONNEL_FOLLOW_UPS_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return followUpRow(data);
+					const row = await insertOne('personnel_follow_ups', {
+						title: input.title,
+						notes: input.notes,
+						due_date: input.dueDate,
+						status: 'open',
+						created_by: input.createdBy,
+						created_at: input.createdAt,
+						updated_at: input.updatedAt
+					});
+					return followUpRow(row as unknown as FollowUpRow);
 				},
 				async patchFollowUp(id, input) {
 					assertArtifactPatch(input);
-					const { data, error } = await admin
-						.from('personnel_follow_ups')
-						.update({
-							...(input.title !== undefined ? { title: input.title } : {}),
-							...(input.notes !== undefined ? { notes: input.notes } : {}),
-							...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
-							...(input.status !== undefined ? { status: input.status } : {}),
-							...(input.completed !== undefined
-								? { completed_at: input.completed?.at ?? null, completed_by: input.completed?.by ?? null }
-								: {}),
-							...(input.archived !== undefined
-								? { archived_at: input.archived?.at ?? null, archived_by: input.archived?.by ?? null }
-								: {}),
-							updated_at: input.updatedAt
-						})
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id)
-						.select(PERSONNEL_FOLLOW_UPS_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return followUpRow(data);
+					const row = await commands.update('personnel_follow_ups', personnelId, id, {
+						...(input.title !== undefined ? { title: input.title } : {}),
+						...(input.notes !== undefined ? { notes: input.notes } : {}),
+						...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
+						...(input.status !== undefined ? { status: input.status } : {}),
+						...(input.completed !== undefined
+							? { completed_at: input.completed?.at ?? null, completed_by: input.completed?.by ?? null }
+							: {}),
+						...(input.archived !== undefined
+							? { archived_at: input.archived?.at ?? null, archived_by: input.archived?.by ?? null }
+							: {}),
+						updated_at: input.updatedAt
+					});
+					return followUpRow(row as unknown as FollowUpRow);
 				},
 				async deleteFollowUp(id) {
-					const { error } = await admin
-						.from('personnel_follow_ups')
-						.delete()
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id);
-					if (error) throw new Error(error.message);
+					await commands.delete('personnel_follow_ups', personnelId, id);
 				},
 				async findLeaderNote(id) {
 					const { data, error } = await base('leader_notes')
@@ -302,53 +316,27 @@ export function createSupabasePersonnelArtifactWritePort(
 				},
 				async createLeaderNote(input) {
 					assertArtifactInsert(input);
-					const { data, error } = await admin
-						.from('leader_notes')
-						.insert({
-							author: input.author,
-							text: input.text,
-							created_at: input.createdAt,
-							updated_at: input.createdAt,
-							organization_id: actor.orgId,
-							personnel_id: personnelId
-						})
-						.select(LEADER_NOTES_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return leaderNoteRow(data);
+					const row = await insertOne('leader_notes', {
+						author: input.author,
+						text: input.text,
+						created_at: input.createdAt,
+						updated_at: input.createdAt
+					});
+					return leaderNoteRow(row as unknown as LeaderNoteRow);
 				},
 				async setLeaderNoteArchive(id, archived) {
-					const { data, error } = await admin
-						.from('leader_notes')
-						.update({ archived_at: archived?.at ?? null, archived_by: archived?.by ?? null })
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id)
-						.select(LEADER_NOTES_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return leaderNoteRow(data);
+					const row = await commands.update('leader_notes', personnelId, id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					});
+					return leaderNoteRow(row as unknown as LeaderNoteRow);
 				},
 				async setLeaderNoteText(id, text, updatedAt) {
-					const { data, error } = await admin
-						.from('leader_notes')
-						.update({ text, updated_at: updatedAt })
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id)
-						.select(LEADER_NOTES_SELECT)
-						.single();
-					if (error) throw new Error(error.message);
-					return leaderNoteRow(data);
+					const row = await commands.update('leader_notes', personnelId, id, { text, updated_at: updatedAt });
+					return leaderNoteRow(row as unknown as LeaderNoteRow);
 				},
 				async deleteLeaderNote(id) {
-					const { error } = await admin
-						.from('leader_notes')
-						.delete()
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id);
-					if (error) throw new Error(error.message);
+					await commands.delete('leader_notes', personnelId, id);
 				},
 				async sumActiveDocumentBytes() {
 					const result = await selectAllSupabaseRows<{ file_size_bytes: number }>(async (from, to) => {
@@ -394,7 +382,8 @@ export function createSupabasePersonnelArtifactWritePort(
 						p_personnel_id: personnelId,
 						p_kind: kind,
 						p_artifact_id: id,
-						p_archived_at: archivedAt
+						p_archived_at: archivedAt,
+						p_actor: actor.userId
 					});
 					if (error) throw new Error(error.message);
 					const deletion = parseFileDeletion(data, { kind, orgId: actor.orgId, personnelId });
@@ -421,44 +410,34 @@ export function createSupabasePersonnelArtifactWritePort(
 		},
 		async createFollowUps(actor, personnelIds, entry) {
 			if (personnelIds.length === 0) return [];
-			const { data, error } = await getAdminClient()
-				.from('personnel_follow_ups')
-				.insert(
-					personnelIds.map((personnelId) => ({
-						title: entry.title,
-						notes: entry.notes,
-						due_date: entry.dueDate,
-						status: 'open',
-						created_by: entry.createdBy,
-						created_at: entry.createdAt,
-						updated_at: entry.createdAt,
-						organization_id: actor.orgId,
-						personnel_id: personnelId
-					}))
-				)
-				.select('personnel_id')
-				.returns<{ personnel_id: string }[]>();
-			if (error) throw new Error(error.message);
-			return (data ?? []).map((row) => row.personnel_id);
+			const rows = await artifactCommands(getAdminClient(), actor).insert(
+				'personnel_follow_ups',
+				personnelIds.map((personnelId) => ({
+					title: entry.title,
+					notes: entry.notes,
+					due_date: entry.dueDate,
+					status: 'open',
+					created_by: entry.createdBy,
+					created_at: entry.createdAt,
+					updated_at: entry.createdAt,
+					personnel_id: personnelId
+				}))
+			);
+			return rows.map((row) => row.personnel_id as string);
 		},
 		async createLeaderNotes(actor, personnelIds, entry) {
 			if (personnelIds.length === 0) return [];
-			const { data, error } = await getAdminClient()
-				.from('leader_notes')
-				.insert(
-					personnelIds.map((personnelId) => ({
-						author: entry.author,
-						text: entry.text,
-						created_at: entry.createdAt,
-						updated_at: entry.createdAt,
-						organization_id: actor.orgId,
-						personnel_id: personnelId
-					}))
-				)
-				.select('personnel_id')
-				.returns<{ personnel_id: string }[]>();
-			if (error) throw new Error(error.message);
-			return (data ?? []).map((row) => row.personnel_id);
+			const rows = await artifactCommands(getAdminClient(), actor).insert(
+				'leader_notes',
+				personnelIds.map((personnelId) => ({
+					author: entry.author,
+					text: entry.text,
+					created_at: entry.createdAt,
+					updated_at: entry.createdAt,
+					personnel_id: personnelId
+				}))
+			);
+			return rows.map((row) => row.personnel_id as string);
 		},
 		async findCounselingPersonId(actor, recordId) {
 			const { data, error } = await getAdminClient()

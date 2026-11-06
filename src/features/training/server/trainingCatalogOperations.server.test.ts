@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext } from '$features/training/server/trainingPersistence.test-support.server';
 import {
 	createTrainingType,
+	setTrainingTypeOrder,
 	updateTrainingType,
 	deleteTrainingType,
 	createTrainingView,
@@ -28,6 +29,14 @@ const NO_CONFIGURE = {
 };
 
 describe('Training catalog operations', () => {
+	it('saves an empty Training type order without an audit entry, which the catalog would refuse', async () => {
+		const ctx = createWritePortsContext();
+		await expect(
+			setTrainingTypeOrder(ctx, { trainingTypeIds: [], expectedTrainingTypeIds: [] })
+		).resolves.toBeUndefined();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	describe('warning order', () => {
 		it.each([
 			{ warningDaysYellow: 30, warningDaysOrange: 30 },
@@ -67,7 +76,6 @@ describe('Training catalog operations', () => {
 			expect(await ctx.trainingCatalog.listTypes()).toMatchObject([
 				{ id: created.id, warningDaysYellow: 60, warningDaysOrange: 30 }
 			]);
-			expect(ctx.audit.events.map((event) => event.action)).toEqual(['training_type.created']);
 		});
 
 		it.each([
@@ -220,11 +228,6 @@ describe('Training catalog operations', () => {
 		await deleteTrainingType(ctx, created.id);
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: created.id })).toBeNull();
 		expect(ctx.notifyTrainingTypeDeleted).toHaveBeenCalledOnce();
-		expect(ctx.audit.events.map((event) => event.action)).toEqual([
-			'training_type.created',
-			'training_type.updated',
-			'training_type.deleted'
-		]);
 	});
 
 	it('keeps completions and skips deletion side effects when the type delete is rejected', async () => {
@@ -241,7 +244,6 @@ describe('Training catalog operations', () => {
 		await expect(deleteTrainingType(ctx, created.id)).rejects.toThrow('referenced by another Organization');
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: created.id })).not.toBeNull();
 		expect(await ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'record-1' })).not.toBeNull();
-		expect(ctx.audit.events.map((event) => event.action)).toEqual(['training_type.created']);
 		expect(ctx.notifyTrainingTypeDeleted).not.toHaveBeenCalled();
 	});
 
@@ -265,10 +267,5 @@ describe('Training catalog operations', () => {
 		expect(updated).toMatchObject({ id: created.id, name: 'Focus Renamed', columnIds: [REQUIRED_TYPE, TARGETED_TYPE] });
 		await deleteTrainingView(ctx, created.id);
 		expect(await ctx.store.findOne('training_views', ctx.auth.orgId, { id: created.id })).toBeNull();
-		expect(ctx.audit.events.map((event) => event.action)).toEqual([
-			'training_view.created',
-			'training_view.updated',
-			'training_view.deleted'
-		]);
 	});
 });

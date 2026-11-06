@@ -69,12 +69,6 @@ export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 	);
 
 	await ctx.personnelLifecycle.archive([id], new Date().toISOString());
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.archived`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: id
-	});
 }
 
 /** Describes an archive request from the Person the requester may manage. */
@@ -121,15 +115,6 @@ export async function restorePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 
 	if (!person.archivedAt || !(await ctx.personnelLifecycle.restore(id))) fail(400, 'Personnel is not archived');
 
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.restored`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: id,
-		details: {
-			name: personnelName(person)
-		}
-	});
-
 	return { success: true };
 }
 
@@ -159,13 +144,6 @@ export async function permanentlyDeletePersonnelRecord(
 	if (blocked) fail(409, blocked);
 
 	await ctx.personnel.delete(id);
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.permanently_deleted`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: id,
-		details: { name }
-	});
 
 	await notifyPermanentlyDeleted(name);
 
@@ -232,11 +210,6 @@ export async function preparePersonnelArchiveBatch(
 		async archiveAdmitted() {
 			if (admittedIds.length === 0) return;
 			await ctx.personnelLifecycle.archive(admittedIds, new Date().toISOString());
-			await ctx.audit.log({
-				action: `${AUDIT_RESOURCE}.bulk_archived`,
-				resourceType: AUDIT_RESOURCE,
-				details: { count: admittedIds.length, ids: admittedIds }
-			});
 		}
 	};
 }

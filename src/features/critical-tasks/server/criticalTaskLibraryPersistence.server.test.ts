@@ -23,7 +23,7 @@ function provider(initialRows: Row[] = []) {
 		reject: null as { method: string; code: string; message: string } | null,
 		failOffset: null as number | null,
 		failReference: null as string | null,
-		rejectBulk: false,
+		rejectRow: null as { op: string; code: string } | null,
 		rejectCodes: new Set<string>(),
 		acknowledgment: null as { data: unknown } | null,
 		holdReferencedResponses: false,
@@ -57,7 +57,7 @@ function provider(initialRows: Row[] = []) {
 				if (
 					state.requests.length > 60 ||
 					url.origin !== 'http://task-library.invalid' ||
-					url.pathname !== '/rest/v1/ict_tasks'
+					!['/rest/v1/ict_tasks', '/rest/v1/rpc/import_ict_tasks'].includes(url.pathname)
 				)
 					throw new Error('Unexpected task provider operation');
 				if (
@@ -90,6 +90,7 @@ function provider(initialRows: Row[] = []) {
 						{ message: 'Required task catalog unavailable' },
 						{ status: 503, headers: { 'Retry-After': '0' } }
 					);
+				let imported: Row[] | null = null;
 				let affected = rows.filter((row) => {
 					for (const [column, filter] of url.searchParams) {
 						if (['select', 'order', 'offset', 'limit', 'columns'].includes(column)) continue;
@@ -124,23 +125,35 @@ function provider(initialRows: Row[] = []) {
 					if (state.replyLost && state.readbackLimit !== null) affected = affected.slice(0, state.readbackLimit);
 					if (state.replyLost && state.readbackWithout)
 						affected = affected.map((row) => without(row, state.readbackWithout));
-				} else if (request.method === 'POST') {
-					if (Array.isArray(body) && state.rejectBulk)
-						return Response.json({ message: 'Bulk write rejected' }, { status: 400 });
+				} else if (url.pathname === '/rest/v1/rpc/import_ict_tasks') {
 					if (state.dropWrite === state.writes) throw new TypeError('fetch failed');
-					const inputs = (Array.isArray(body) ? body : [body]) as Row[];
-					if (inputs.some((entry) => state.rejectCodes.has(String(entry.task_code))))
-						return Response.json({ message: 'Task row rejected' }, { status: 400 });
-					const created = inputs.map((entry, index) => ({
-						id: `saved-${rows.length + index + 1}`,
-						created_at: '2026-10-06T12:00:00.123456Z',
-						...entry
-					}));
-					if (new Set([...rows, ...created].map((row) => row.id)).size !== rows.length + created.length)
-						return duplicate('ict_tasks_pkey');
-					if (!uniqueTaskCode([...rows, ...created])) return duplicate('ict_tasks_organization_id_task_code_key');
-					affected = created;
-					rows.push(...affected);
+					const { p_organization_id: orgId, p_rows: items } = body as {
+						p_organization_id: string;
+						p_rows: Array<{ op: string; id: string; values: Row }>;
+					};
+					imported = items.map(({ op, id, values }) => {
+						if (state.rejectRow?.op === op) return { code: state.rejectRow.code, constraint: null };
+						if (op === 'insert') {
+							if (state.rejectCodes.has(String(values.task_code))) return { code: '23514', constraint: null };
+							const created = { id, organization_id: orgId, created_at: '2026-10-06T12:00:00.123456Z', ...values };
+							if (rows.some((row) => row.id === id)) return { code: '23505', constraint: 'ict_tasks_pkey' };
+							if (!uniqueTaskCode([...rows, created]))
+								return { code: '23505', constraint: 'ict_tasks_organization_id_task_code_key' };
+							rows.push(created);
+							return { row: state.ackWithout ? without(created, state.ackWithout) : created };
+						}
+						const row = rows.find((candidate) => candidate.id === id && candidate.organization_id === orgId);
+						if (!row) return { code: 'P0002', constraint: null };
+						Object.assign(row, values);
+						return { row: state.ackWithout ? without(row, state.ackWithout) : { ...row } };
+					});
+				} else if (request.method === 'POST') {
+					if (state.dropWrite === state.writes) throw new TypeError('fetch failed');
+					const created: Row = { created_at: '2026-10-06T12:00:00.123456Z', ...(body as Row) };
+					if (rows.some((row) => row.id === created.id)) return duplicate('ict_tasks_pkey');
+					if (!uniqueTaskCode([...rows, created])) return duplicate('ict_tasks_organization_id_task_code_key');
+					affected = [created];
+					rows.push(created);
 					if (state.ackWithout) affected = affected.map((row) => without(row, state.ackWithout));
 				} else if (request.method === 'PATCH') {
 					const next = rows.map((row) => (affected.includes(row) ? { ...row, ...(body as Row) } : row));
@@ -156,6 +169,7 @@ function provider(initialRows: Row[] = []) {
 						{ status: 503 }
 					);
 				}
+				if (imported) return Response.json(state.acknowledgment ? state.acknowledgment.data : imported);
 				const select = url.searchParams.get('select');
 				const projected = affected.map((row) =>
 					select && select !== '*' ? Object.fromEntries(select.split(',').map((column) => [column, row[column]])) : row
@@ -313,20 +327,22 @@ describe('owned Critical Tasks library provider', () => {
 		await expect(library.listImportCandidates()).rejects.toThrow('Required task catalog unavailable');
 	});
 
-	it('acknowledges every saved row in a successful bulk insert', async () => {
-		const { library, rows } = provider();
-		const bulk = await library.createMany([
+	it('acknowledges every saved row of an import in one Organization-bound call', async () => {
+		const { library, rows, state } = provider();
+		const bulk = await library.importMany([
 			{
-				taskCode: 'BULK-1',
-				title: 'First',
-				description: 'Notes',
-				category: 'Airway',
-				mos: ['68V'],
-				expirationMonths: 6,
-				sortOrder: 9,
-				archivedAt: '2026-09-01T00:00:00Z'
+				create: {
+					taskCode: 'BULK-1',
+					title: 'First',
+					description: 'Notes',
+					category: 'Airway',
+					mos: ['68V'],
+					expirationMonths: 6,
+					sortOrder: 9,
+					archivedAt: '2026-09-01T00:00:00Z'
+				}
 			},
-			{ taskCode: 'BULK-2', title: 'Second' }
+			{ create: { taskCode: 'BULK-2', title: 'Second' } }
 		]);
 		expect(bulk).toEqual([
 			{
@@ -354,8 +370,9 @@ describe('owned Critical Tasks library provider', () => {
 				createdAt: '2026-10-06T12:00:00.123456Z'
 			}
 		]);
-		expect(bulk.map((task) => task.id)).toEqual(rows.map((row) => row.id));
+		expect(bulk.map((task) => (task instanceof Error ? task : task.id))).toEqual(rows.map((row) => row.id));
 		expect(rows.map((row) => row.organization_id)).toEqual(['org-a', 'org-a']);
+		expect(state.requests.map((request) => request.url.pathname)).toEqual(['/rest/v1/rpc/import_ict_tasks']);
 	});
 
 	it('bounds referenced metadata, retains archived references and excludes unrequested/foreign tasks', async () => {
@@ -442,11 +459,35 @@ describe('owned Critical Tasks library provider', () => {
 		expect(await library.update('foreign-b', { title: 'Foreign changed' })).toBeNull();
 		expect(rows[1].title).toBe('Ventilator setup');
 		const before = state.requests.length;
-		expect(await library.createMany([])).toEqual([]);
+		expect(await library.importMany([])).toEqual([]);
 		expect(state.requests).toHaveLength(before);
 	});
 
-	it.each(['create', 'createMany', 'update'] as const)(
+	it('saves one import of new and existing tasks in a single write', async () => {
+		const { library, rows, state } = provider([{ ...saved, archived_at: '2026-09-01T00:00:00Z' }]);
+		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
+
+		const reply = await importIctTasksBatch(
+			{ ...ctx, criticalTaskLibrary: library },
+			{
+				records: [
+					{ taskCode: 'RESP-200', title: 'Restored' },
+					{ taskCode: 'NEW-1', title: 'New' }
+				]
+			}
+		);
+
+		expect(addedCodes(reply)).toEqual(['updated RESP-200', 'added NEW-1']);
+		expect(state.requests.filter((request) => request.method !== 'GET').map((request) => request.url.pathname)).toEqual(
+			['/rest/v1/rpc/import_ict_tasks']
+		);
+		expect(rows.map((row) => [row.task_code, row.title, row.archived_at])).toEqual([
+			['RESP-200', 'Restored', null],
+			['NEW-1', 'New', null]
+		]);
+	});
+
+	it.each(['create', 'importMany', 'update'] as const)(
 		'rejects %s provider failure without a saved effect',
 		async (operation) => {
 			const { library, rows, state } = provider([saved]);
@@ -454,34 +495,29 @@ describe('owned Critical Tasks library provider', () => {
 			const pending =
 				operation === 'create'
 					? library.create({ taskCode: 'NEW', title: 'New' })
-					: operation === 'createMany'
-						? library.createMany([{ taskCode: 'NEW', title: 'New' }])
+					: operation === 'importMany'
+						? library.importMany([{ create: { taskCode: 'NEW', title: 'New' } }])
 						: library.update('active-a', { title: 'Changed' });
 			await expect(pending).rejects.toThrow('Task write denied');
 			expect(rows).toEqual([saved]);
 		}
 	);
 
-	it.each(['create', 'createMany', 'update'] as const)(
-		'preserves the named task-code conflict for %s',
-		async (operation) => {
-			const { library, state } = provider([saved]);
-			state.reject = {
-				method: operation === 'update' ? 'PATCH' : 'POST',
-				code: '23505',
-				message: 'duplicate key violates unique constraint "ict_tasks_organization_id_task_code_key"'
-			};
-			const pending =
-				operation === 'create'
-					? library.create({ taskCode: 'RESP-200', title: 'Duplicate' })
-					: operation === 'createMany'
-						? library.createMany([{ taskCode: 'RESP-200', title: 'Duplicate' }])
-						: library.update('active-a', { taskCode: 'RESP-200' });
-			await expect(pending).rejects.toMatchObject({ status: 409 });
-		}
-	);
+	it.each(['create', 'update'] as const)('preserves the named task-code conflict for %s', async (operation) => {
+		const { library, state } = provider([saved]);
+		state.reject = {
+			method: operation === 'update' ? 'PATCH' : 'POST',
+			code: '23505',
+			message: 'duplicate key violates unique constraint "ict_tasks_organization_id_task_code_key"'
+		};
+		const pending =
+			operation === 'create'
+				? library.create({ taskCode: 'RESP-200', title: 'Duplicate' })
+				: library.update('active-a', { taskCode: 'RESP-200' });
+		await expect(pending).rejects.toMatchObject({ status: 409 });
+	});
 
-	it.each(['create', 'createMany', 'update'] as const)(
+	it.each(['create', 'update'] as const)(
 		'leaves unrelated %s constraint errors as provider errors',
 		async (operation) => {
 			const { library, state } = provider([saved]);
@@ -493,13 +529,33 @@ describe('owned Critical Tasks library provider', () => {
 			const pending =
 				operation === 'create'
 					? library.create({ taskCode: 'NEW', title: 'New' })
-					: operation === 'createMany'
-						? library.createMany([{ taskCode: 'NEW', title: 'New' }])
-						: library.update('active-a', { title: 'Changed' });
+					: library.update('active-a', { title: 'Changed' });
 			await expect(pending).rejects.toThrow('Unrelated uniqueness constraint');
 			await expect(pending).rejects.not.toHaveProperty('status');
 		}
 	);
+
+	it('answers each import row with its own saved task or error', async () => {
+		const { library, rows, state } = provider([saved]);
+		state.rejectCodes.add('FAIL');
+		const [duplicate, missing, refused, added, updated] = await library.importMany([
+			{ create: { taskCode: 'RESP-200', title: 'Duplicate' } },
+			{ id: 'missing', patch: { title: 'Changed' } },
+			{ create: { taskCode: 'FAIL', title: 'Refused' } },
+			{ create: { taskCode: 'NEW', title: 'New' } },
+			{ id: 'active-a', patch: { title: 'Changed' } }
+		]);
+		expect(duplicate).toMatchObject({ status: 409 });
+		expect(missing).toMatchObject({ status: 404, message: ICT_TASK_UNAVAILABLE_MESSAGE });
+		expect(refused).toBeInstanceOf(Error);
+		expect(refused).not.toHaveProperty('status');
+		expect(added).toMatchObject({ taskCode: 'NEW', title: 'New' });
+		expect(updated).toEqual({ ...expected, title: 'Changed' });
+		expect(rows.map((row) => [row.task_code, row.title])).toEqual([
+			['RESP-200', 'Changed'],
+			['NEW', 'New']
+		]);
+	});
 
 	it.each([null, {}, { id: 17 }, [], { id: '' }])(
 		'confirms a created task by reading it back after malformed acknowledgment %j',
@@ -518,31 +574,33 @@ describe('owned Critical Tasks library provider', () => {
 		const { library, rows, state } = provider([saved]);
 		state.acknowledgment = { data: { ...saved, id: 'wrong-id' } };
 		await expect(library.update('active-a', { title: 'Changed' })).rejects.toSatisfy(isUnconfirmedWrite);
-		state.acknowledgment = { data: [{ ...saved, id: 'wrong-id' }] };
-		await expect(library.createMany([{ taskCode: 'NEW', title: 'New' }])).resolves.toMatchObject([{ taskCode: 'NEW' }]);
+		state.acknowledgment = { data: [{ row: { ...saved, id: 'wrong-id' } }] };
+		await expect(library.importMany([{ create: { taskCode: 'NEW', title: 'New' } }])).resolves.toMatchObject([
+			{ taskCode: 'NEW' }
+		]);
 		state.acknowledgment = { data: [{}] };
-		await expect(library.createMany([{ taskCode: 'NEW-2', title: 'New' }])).resolves.toMatchObject([
+		await expect(library.importMany([{ create: { taskCode: 'NEW-2', title: 'New' } }])).resolves.toMatchObject([
 			{ taskCode: 'NEW-2' }
 		]);
 		state.acknowledgment = { data: [] };
-		await expect(
-			library.createMany([
-				{ taskCode: 'NEW-3', title: 'New' },
-				{ taskCode: 'NEW-4', title: 'New' }
-			])
-		).resolves.toMatchObject([{ taskCode: 'NEW-3' }, { taskCode: 'NEW-4' }]);
-		expect(rows.map((row) => row.task_code)).toEqual(['RESP-200', 'NEW', 'NEW-2', 'NEW-3', 'NEW-4']);
+		const [created, updated] = await library.importMany([
+			{ create: { taskCode: 'NEW-3', title: 'New' } },
+			{ id: 'active-a', patch: { title: 'Changed' } }
+		]);
+		expect(created).toMatchObject({ taskCode: 'NEW-3' });
+		expect(updated).toSatisfy(isUnconfirmedWrite);
+		expect(rows.map((row) => row.task_code)).toEqual(['RESP-200', 'NEW', 'NEW-2', 'NEW-3']);
 	});
 
 	it('reads back generated ids when an acknowledgment carries them without the saved task fields', async () => {
 		const { library, rows, state } = provider();
 		state.ackWithout = 'title';
 		const created = await library.create({ taskCode: 'ONE', title: 'First' });
-		const createdMany = await library.createMany([
-			{ taskCode: 'TWO', title: 'Second' },
-			{ taskCode: 'THREE', title: 'Third' }
+		const imported = await library.importMany([
+			{ create: { taskCode: 'TWO', title: 'Second' } },
+			{ create: { taskCode: 'THREE', title: 'Third' } }
 		]);
-		expect([created, ...createdMany].map((task) => [task.id, task.title])).toEqual(
+		expect([created, ...imported].map((task) => (task instanceof Error ? task : [task.id, task.title]))).toEqual(
 			rows.map((row) => [row.id, row.title])
 		);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(2);
@@ -554,6 +612,9 @@ describe('owned Critical Tasks library provider', () => {
 		state.ackWithout = 'title';
 		await expect(library.update('active-a', { title: 'Changed' })).rejects.toSatisfy(isUnconfirmedWrite);
 		expect(rows[0].title).toBe('Changed');
+		const [imported] = await library.importMany([{ id: 'active-a', patch: { title: 'Imported' } }]);
+		expect(imported).toSatisfy(isUnconfirmedWrite);
+		expect(rows[0].title).toBe('Imported');
 		expect(state.requests.filter((request) => request.method === 'GET')).toHaveLength(0);
 	});
 
@@ -562,9 +623,9 @@ describe('owned Critical Tasks library provider', () => {
 		state.loseReply = { write: 1, as: 'transport' };
 		state.readbackWithout = 'title';
 		await expect(
-			library.createMany([
-				{ taskCode: 'LOST-1', title: 'First' },
-				{ taskCode: 'LOST-2', title: 'Second' }
+			library.importMany([
+				{ create: { taskCode: 'LOST-1', title: 'First' } },
+				{ create: { taskCode: 'LOST-2', title: 'Second' } }
 			])
 		).rejects.toSatisfy(isUnconfirmedWrite);
 		expect(rows).toHaveLength(2);
@@ -577,11 +638,10 @@ describe('owned Critical Tasks library provider', () => {
 		expect(rows).toEqual([saved]);
 	});
 
-	it('retains row success and errors after a rejected bulk write, with a restored task identity', async () => {
+	it('keeps row success beside a refused row in one import, with a restored task identity', async () => {
 		const { library, rows, state } = provider([
 			{ ...saved, id: 'restore-a', task_code: 'OLD', archived_at: '2026-09-01T00:00:00Z' }
 		]);
-		state.rejectBulk = true;
 		state.rejectCodes.add('FAIL');
 		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
 		const reply = await importIctTasksBatch(
@@ -655,15 +715,6 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 		}
 	);
 
-	it('keeps a committed fallback row created when its reply is lost after a genuine bulk rejection', async () => {
-		const { library, rows, state } = provider();
-		state.rejectBulk = true;
-		state.loseReply = { write: 2, as: 'transport' };
-		const { pending } = importLost(library);
-		expect(addedCodes(await pending)).toEqual(['added LOST-1', 'added LOST-2']);
-		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
-	});
-
 	it('reports each row as unconfirmed, without blind retries, when the insert reply and read-back both fail', async () => {
 		const { library, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
@@ -705,10 +756,12 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 	it('reconciles a full 500-row insert with bounded read-back requests', async () => {
 		const { library, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
-		const created = await library.createMany(
-			Array.from({ length: 500 }, (_, index) => ({ taskCode: `BULK-${index}`, title: `Task ${index}` }))
+		const created = await library.importMany(
+			Array.from({ length: 500 }, (_, index) => ({ create: { taskCode: `BULK-${index}`, title: `Task ${index}` } }))
 		);
-		expect(created.map((task) => task.taskCode)).toEqual(rows.map((row) => row.task_code));
+		expect(created.map((task) => (task instanceof Error ? task : task.taskCode))).toEqual(
+			rows.map((row) => row.task_code)
+		);
 		expect(created).toHaveLength(500);
 		expect(state.requests.map((request) => request.method)).toEqual(['POST', ...Array(10).fill('GET')]);
 		expect(state.peak).toBeLessThanOrEqual(4);
@@ -746,7 +799,7 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 
 	it('keeps a refused update as a failed row even though its requested content can match', async () => {
 		const { library, rows, state } = provider([saved]);
-		state.reject = { method: 'PATCH', code: '42501', message: 'Task update refused' };
+		state.rejectRow = { op: 'update', code: '42501' };
 		const { pending } = importLost(library, [{ taskCode: 'RESP-200', title: 'Ventilator setup' }]);
 		expect((await pending).results).toEqual([{ kind: 'failed', message: 'This task could not be saved.' }]);
 		expect(rows.map((row) => row.title)).toEqual(['Ventilator setup']);

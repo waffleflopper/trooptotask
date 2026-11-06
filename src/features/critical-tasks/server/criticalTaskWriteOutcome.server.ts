@@ -1,5 +1,6 @@
-import type { z } from 'zod';
-import { fail, RequestFailure } from '$lib/errors';
+import { z } from 'zod';
+import type { Json } from '$lib/server/database.types';
+import { RequestFailure } from '$lib/errors';
 import { CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE } from '../contracts';
 
 const WRITE_UNCONFIRMED = 'write-unconfirmed';
@@ -11,8 +12,15 @@ export function isUnknownWriteStatus(status: number): boolean {
 	return status === 0 || status >= 500;
 }
 
+export function unconfirmedWrite(): RequestFailure {
+	return new RequestFailure(503, CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE, {
+		publicMessage: true,
+		reason: WRITE_UNCONFIRMED
+	});
+}
+
 export function writeUnconfirmed(): never {
-	fail(503, CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE, { publicMessage: true, reason: WRITE_UNCONFIRMED });
+	throw unconfirmedWrite();
 }
 
 export function isUnconfirmedWrite(error: unknown): boolean {
@@ -67,4 +75,51 @@ export async function confirmInsertedRows<T extends { id: string }>(
 	const confirmed = ids.map((id) => found.get(id));
 	if (confirmed.some((row) => !row)) writeUnconfirmed();
 	return confirmed as T[];
+}
+
+export type ImportRow = {
+	op: 'insert' | 'update';
+	id: string;
+	values: { [column: string]: Json | undefined };
+};
+
+const importReplySchema = z.array(
+	z.union([
+		z.object({ row: z.record(z.string(), z.unknown()) }),
+		z.object({ code: z.string(), constraint: z.string().nullable() })
+	])
+);
+
+/**
+ * Reads the reply of one import command. Each row is its saved record or the error that undid that row alone. A reply
+ * that is lost or unreadable leaves the outcome unknown, so the created rows are read back and every other row stays
+ * unconfirmed.
+ */
+export async function importOutcomes<S, T extends { id: string }>(
+	rows: ImportRow[],
+	reply: { data: unknown; error: { message: string } | null; status: number },
+	read: {
+		map: (row: S) => unknown;
+		schema: z.ZodType<T>;
+		readBack: (ids: string[]) => Promise<unknown[]>;
+		rowError: (code: string, constraint: string | null) => Error;
+	}
+): Promise<Array<T | Error>> {
+	if (reply.error && !isUnknownWriteStatus(reply.status)) throw new Error(reply.error.message);
+	const parsed = reply.error ? null : importReplySchema.safeParse(reply.data);
+	if (parsed?.success && parsed.data.length === rows.length) {
+		const outcomes = parsed.data.map((outcome, index) =>
+			'row' in outcome
+				? acknowledgedRows([outcome.row], [rows[index].id], read.map, read.schema)?.[0]
+				: read.rowError(outcome.code, outcome.constraint)
+		);
+		if (outcomes.every((outcome): outcome is T | Error => outcome !== undefined)) return outcomes;
+	}
+	const created = await confirmInsertedRows(
+		rows.filter((row) => row.op === 'insert').map((row) => row.id),
+		read.readBack,
+		read.schema
+	);
+	const confirmed = new Map(created.map((row) => [row.id, row]));
+	return rows.map((row) => confirmed.get(row.id) ?? unconfirmedWrite());
 }

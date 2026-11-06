@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
-import { writeUnconfirmed } from './criticalTaskWriteOutcome.server';
+import { unconfirmedWrite } from './criticalTaskWriteOutcome.server';
 import { ictCompletionImportReplySchema } from '../contracts';
 
 type Context = ReturnType<typeof createWritePortsContext>;
@@ -69,8 +69,8 @@ async function storedCompletions(ctx: Context) {
 }
 
 describe('importIctCompletionsBatch', () => {
-	it.each(['bulk create', 'fallback create', 'update'])(
-		'retains confirmed rows and known failures after an unconfirmed %s',
+	it.each(['create', 'update'])(
+		'retains confirmed rows and known failures beside an unconfirmed %s',
 		async (operation) => {
 			const ctx = createWritePortsContext();
 			ctx.store.seed('personnel', [person('person-a')]);
@@ -79,27 +79,10 @@ describe('importIctCompletionsBatch', () => {
 				completion('saved-1', 'person-a', 'task-a', '2026-03-01'),
 				completion('saved-2', 'person-a', 'task-a', '2026-04-01')
 			]);
-			if (operation === 'update') {
-				const update = ctx.criticalTaskCompletions.update.bind(ctx.criticalTaskCompletions);
-				vi.spyOn(ctx.criticalTaskCompletions, 'update').mockImplementation(async (id, patch) => {
-					const saved = await update(id, patch);
-					if (id === 'saved-2') writeUnconfirmed();
-					return saved;
-				});
-			} else if (operation === 'bulk create') {
-				const createMany = ctx.criticalTaskCompletions.createMany.bind(ctx.criticalTaskCompletions);
-				vi.spyOn(ctx.criticalTaskCompletions, 'createMany').mockImplementation(async (records) => {
-					await createMany(records);
-					writeUnconfirmed();
-				});
-			} else {
-				vi.spyOn(ctx.criticalTaskCompletions, 'createMany').mockRejectedValueOnce(new Error('Bulk insert refused'));
-				const create = ctx.criticalTaskCompletions.create.bind(ctx.criticalTaskCompletions);
-				vi.spyOn(ctx.criticalTaskCompletions, 'create').mockImplementation(async (record) => {
-					await create(record);
-					writeUnconfirmed();
-				});
-			}
+			const importMany = ctx.criticalTaskCompletions.importMany.bind(ctx.criticalTaskCompletions);
+			vi.spyOn(ctx.criticalTaskCompletions, 'importMany').mockImplementation(async (writes) =>
+				(await importMany(writes)).map((outcome, position) => (position === 1 ? unconfirmedWrite() : outcome))
+			);
 
 			const reply = await importIctCompletionsBatch(ctx, {
 				records: [
@@ -364,16 +347,20 @@ describe('importIctCompletionsBatch', () => {
 		expect((await storedCompletions(ctx)).map((stored) => stored.key)).toEqual(['person-alpha|task-a|2026-04-15']);
 	});
 
-	it('keeps successful rows and fails the exact rows that cannot be saved when the bulk insert falls back', async () => {
+	it('keeps successful rows and fails the exact row the import refuses', async () => {
 		const ctx = createWritePortsContext();
 		ctx.store.seed('personnel', [person('person-allowed'), person('person-rejected')]);
 		ctx.store.seed('ict_tasks', [task('task-a')]);
-		vi.spyOn(ctx.criticalTaskCompletions, 'createMany').mockRejectedValueOnce(new Error('bulk insert unavailable'));
-		const create = ctx.criticalTaskCompletions.create.bind(ctx.criticalTaskCompletions);
-		vi.spyOn(ctx.criticalTaskCompletions, 'create').mockImplementation((input) => {
-			if (input.personnelId === 'person-rejected') throw new Error('row rejected');
-			return create(input);
-		});
+		const importMany = ctx.criticalTaskCompletions.importMany.bind(ctx.criticalTaskCompletions);
+		vi.spyOn(ctx.criticalTaskCompletions, 'importMany').mockImplementation((writes) =>
+			Promise.all(
+				writes.map(async (write) =>
+					'create' in write && write.create.personnelId === 'person-rejected'
+						? new Error('row rejected')
+						: (await importMany([write]))[0]
+				)
+			)
+		);
 
 		const reply = await importIctCompletionsBatch(ctx, {
 			records: [

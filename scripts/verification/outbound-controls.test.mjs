@@ -891,8 +891,10 @@ test('Critical Tasks lost replies commit only the selected owned table write and
 		['ict-tasks-insert-lost-ack', 'POST', 'ict_tasks'],
 		['ict-tasks-update-lost-ack', 'PATCH', 'ict_tasks'],
 		['ict-tasks-reorder-lost-ack', 'POST', 'rpc/reorder_ict_tasks'],
+		['ict-tasks-import-lost-ack', 'POST', 'rpc/import_ict_tasks'],
 		['ict-completions-insert-lost-ack', 'POST', 'personnel_ict_completions'],
-		['ict-completions-update-lost-ack', 'PATCH', 'personnel_ict_completions']
+		['ict-completions-update-lost-ack', 'PATCH', 'personnel_ict_completions'],
+		['ict-completions-import-lost-ack', 'POST', 'rpc/import_ict_completions']
 	]) {
 		const passed = [];
 		const control = createProviderFaultController({

@@ -12,8 +12,10 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'ict-tasks-insert-lost-ack': [write('POST', '/rest/v1/ict_tasks', transportLoss())],
 	'ict-tasks-update-lost-ack': [write('PATCH', '/rest/v1/ict_tasks', transportLoss())],
 	'ict-tasks-reorder-lost-ack': [write('POST', '/rest/v1/rpc/reorder_ict_tasks', transportLoss())],
+	'ict-tasks-import-lost-ack': [write('POST', '/rest/v1/rpc/import_ict_tasks', transportLoss())],
 	'ict-completions-insert-lost-ack': [write('POST', '/rest/v1/personnel_ict_completions', transportLoss())],
 	'ict-completions-update-lost-ack': [write('PATCH', '/rest/v1/personnel_ict_completions', transportLoss())],
+	'ict-completions-import-lost-ack': [write('POST', '/rest/v1/rpc/import_ict_completions', transportLoss())],
 	'roster-scan-attach': [write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan')],
 	'roster-scan-attach-lost-ack': [write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan', transportLoss())],
 	'roster-scan-attach-committed-hold': [

@@ -51,13 +51,19 @@ export interface CriticalTaskReference {
 	archivedAt: string | null;
 }
 
+export type IctTaskImportWrite = { create: IctTaskCreate } | { id: string; patch: Omit<IctTaskPatch, 'taskCode'> };
+
 export interface CriticalTaskLibraryPersistence {
 	listCatalog(options?: { includeArchived?: boolean }): Promise<IctTask[]>;
 	listImportCandidates(): Promise<IctTask[]>;
 	listReferenced(ids: string[]): Promise<IctTask[]>;
 	findReference(id: string): Promise<CriticalTaskReference | null>;
 	create(input: IctTaskCreate): Promise<IctTask>;
-	createMany(inputs: IctTaskCreate[]): Promise<IctTask[]>;
+	/**
+	 * Saves an import in one command, so its audit entries share one batch. Each row resolves to its saved task or to the
+	 * error that undid that row alone.
+	 */
+	importMany(writes: IctTaskImportWrite[]): Promise<Array<IctTask | Error>>;
 	/** Resolves null when no task with this id exists in the Organization. */
 	update(id: string, patch: IctTaskPatch): Promise<IctTask | null>;
 	/** Checks all participants atomically, updates changed orders only, and returns every participant, including guards. */
@@ -70,6 +76,10 @@ export type PersonnelIctCompletionPatch = Partial<PersonnelIctCompletionWrite>;
 export type CriticalTaskCompletionReference = Pick<PersonnelIctCompletion, 'id' | 'personnelId' | 'ictTaskId'>;
 export type CriticalTaskCompletionPair = Pick<PersonnelIctCompletion, 'personnelId' | 'ictTaskId'>;
 
+export type IctCompletionImportWrite =
+	| { create: PersonnelIctCompletionCreate }
+	| { id: string; patch: Pick<PersonnelIctCompletionPatch, 'validationMethod' | 'validatedBy' | 'notes'> };
+
 export interface CriticalTaskCompletionPersistence {
 	listHistory(personnelId: string): Promise<PersonnelIctCompletion[]>;
 	listReadinessHistory(personnelId: string): Promise<PersonnelIctCompletion[]>;
@@ -77,7 +87,11 @@ export interface CriticalTaskCompletionPersistence {
 	listImportHistory(pairs: CriticalTaskCompletionPair[]): Promise<PersonnelIctCompletion[]>;
 	findReference(id: string): Promise<CriticalTaskCompletionReference | null>;
 	create(input: PersonnelIctCompletionCreate): Promise<PersonnelIctCompletion>;
-	createMany(inputs: PersonnelIctCompletionCreate[]): Promise<PersonnelIctCompletion[]>;
+	/**
+	 * Saves an import in one command, so its audit entries share one batch. Each row resolves to its saved completion or
+	 * to the error that undid that row alone.
+	 */
+	importMany(writes: IctCompletionImportWrite[]): Promise<Array<PersonnelIctCompletion | Error>>;
 	update(id: string, patch: PersonnelIctCompletionPatch): Promise<PersonnelIctCompletion>;
 	delete(id: string): Promise<void>;
 }

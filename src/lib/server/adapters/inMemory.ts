@@ -391,7 +391,7 @@ function unavailableCriticalTaskLibrary(): CriticalTaskLibraryPersistence {
 		listReferenced: unavailable,
 		findReference: unavailable,
 		create: unavailable,
-		createMany: unavailable,
+		importMany: unavailable,
 		update: unavailable,
 		reorder: unavailable
 	};
@@ -423,7 +423,7 @@ function unavailableCriticalTaskCompletions(): CriticalTaskCompletionPersistence
 		listImportHistory: unavailable,
 		findReference: unavailable,
 		create: unavailable,
-		createMany: unavailable,
+		importMany: unavailable,
 		update: unavailable,
 		delete: unavailable
 	};

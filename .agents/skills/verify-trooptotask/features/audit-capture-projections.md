@@ -218,16 +218,18 @@ Synthetic → Alder, Synthetic`. Restore the name. The Add onboarding Member pic
     legitimate post-build event (`export.created` for JSON; `export.excel_created` for Excel). Capture real network
     status and downloaded bytes, restore both controls, and keep the actual files. The Audit rows hold no `ip_address`
     and no `user_agent`, though the provider rows (`$V rows audit_logs orgA`) still carry both.
-11. **Record opens.** As `orgOwner`, open a person's Files and press `DA 4856 · PDF` on a counseling record and the
-    file button on a document, then open the person's Log (the leader notes). In Logs the three rows read `Opened a
+11. **Record opens.** As `orgOwner`, open a person's Files and press `Open <title> PDF` on a counseling record and
+    `Open <title>` on a document, then open the person's Log (the leader notes; Overview and Archived show them too). In Logs the three rows read `Opened a
 counseling record for <Rank> <Last>, <First>`, `Opened a document for …` and `Read the leader notes for …`, each with
     the owner as Actor; `$V rows audit_logs orgA action personnel.document.opened` shows `resource_type`
     `personnel_document`, the document id as `resource_id`, `subject_label` filled and empty `details`, and no title or file
     name anywhere in the row. Press the same file button again at once: no second row. Search the person's name in Logs:
     the three rows are found. A refresh of the Log does not add a second `personnel.leader_note.opened` row within ten
     minutes. As `orgMember`/`viewer`, the signed-in client has no way to write one (`rows` shows none for that member).
-    Arm `$V server-source arm audit_logs fail-hard 1` before pressing a file button as the owner: the button shows its
-    own `Unable to open …` error and no link opens. `restore` and press it again.
+    The `audit_logs` server-source hook covers table reads, not the `record_personnel_record_open` write, so it cannot
+    fail an open: a file opens with it armed. The refusal to hand out a file when the write fails has SQL and app unit
+    proof only. Pressing a file button opens its PDF in a new tab: close it and `select_page` the Person page again,
+    or the next control call can hit the wrong page.
 
 Restore hooks and edited originals, run `clean-seeds`, and read every seed ID back as absent in its recorded
 Organization. Original audit rows must retain their saved fields; expected producer/login additions remain confined to

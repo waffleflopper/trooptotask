@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext } from '$features/training/server/trainingPersistence.test-support.server';
 import {
 	createTrainingType,
+	setTrainingTypeOrder,
 	updateTrainingType,
 	deleteTrainingType,
 	createTrainingView,
@@ -28,6 +29,14 @@ const NO_CONFIGURE = {
 };
 
 describe('Training catalog operations', () => {
+	it('saves an empty Training type order without an audit entry, which the catalog would refuse', async () => {
+		const ctx = createWritePortsContext();
+		await expect(
+			setTrainingTypeOrder(ctx, { trainingTypeIds: [], expectedTrainingTypeIds: [] })
+		).resolves.toBeUndefined();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	describe('warning order', () => {
 		it.each([
 			{ warningDaysYellow: 30, warningDaysOrange: 30 },

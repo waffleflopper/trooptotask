@@ -305,11 +305,16 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 			details: {
 				completedAt: '2026-03-13',
 				validationMethod: 'Demonstration',
-				change: { completedAt: { from: '2026-03-12', to: '2026-03-13' }, notes: true, validator: true }
+				change: {
+					completedAt: { from: '2026-03-12', to: '2026-03-13' },
+					person: { from: 'PFC Roe, Rich', to: 'SPC Doe, Jane' },
+					notes: true,
+					validator: true
+				}
 			}
 		},
 		sentence:
-			'Changed critical task completion Apply a tourniquet for SPC Doe, Jane on 13 Mar: completed 12 Mar → 13 Mar, notes changed, validator changed'
+			'Changed critical task completion Apply a tourniquet for SPC Doe, Jane on 13 Mar: completed 12 Mar → 13 Mar, person PFC Roe, Rich → SPC Doe, Jane, notes changed, validator changed'
 	},
 	'personnel_ict_completion.deleted': {
 		entry: {

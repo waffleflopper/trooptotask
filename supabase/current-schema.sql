@@ -644,6 +644,16 @@ BEGIN
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'personnel_ict_completion.created' WHEN 'UPDATE' THEN 'personnel_ict_completion.updated' WHEN 'DELETE' THEN 'personnel_ict_completion.deleted' END;
   IF TG_OP = 'UPDATE' THEN
     v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"completedAt": "completed_at", "validationMethod": "validation_method"}');
+    IF NEW.personnel_id IS DISTINCT FROM OLD.personnel_id THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('person', pg_catalog.jsonb_build_object(
+        'from', audit_private.personnel_label(OLD.organization_id, OLD.personnel_id), 'to', v_who));
+    END IF;
+    IF NEW.ict_task_id IS DISTINCT FROM OLD.ict_task_id THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('task', pg_catalog.jsonb_build_object(
+        'from', (SELECT item.title FROM public.ict_tasks item
+          WHERE item.id = OLD.ict_task_id AND item.organization_id = OLD.organization_id),
+        'to', v_task));
+    END IF;
     IF NEW.notes IS DISTINCT FROM OLD.notes THEN
       v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
     END IF;

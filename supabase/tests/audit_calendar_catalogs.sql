@@ -112,5 +112,93 @@ SELECT is(
     WHERE action IN ('status_type.deleted', 'special_day.deleted') AND resource_id IN (pg_temp.id('403'), pg_temp.id('412'))),
   0, 'catalog entries removed with their unit leave the unit deletion as the audited event');
 
+-- Resetting the federal holidays writes one entry for each holiday it removes and adds, in one batch.
+INSERT INTO public.organizations (id, name, created_by) VALUES (pg_temp.id('102'), 'Catalog Bravo', pg_temp.id('1'));
+INSERT INTO public.organization_memberships (
+  organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids
+) VALUES (pg_temp.id('102'), pg_temp.id('1'), 'owner', 'editor', '{}', 'organization', ARRAY[]::uuid[]);
+INSERT INTO public.special_days (id, organization_id, date, name, type)
+VALUES (pg_temp.id('413'), pg_temp.id('102'), '2030-12-25', 'Christmas Day', 'federal-holiday');
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+SELECT public.reset_federal_holidays(pg_temp.id('102'),
+  '[{"date": "2030-01-01", "name": "New Year''s Day"}, {"date": "2030-07-04", "name": "Independence Day"}]'::jsonb);
+RESET ROLE;
+SELECT results_eq(
+  $$ SELECT action, record_label, batch_id IS NOT NULL FROM public.audit_logs
+     WHERE org_id = pg_temp.id('102') AND resource_type = 'special_day' ORDER BY record_label, action $$,
+  $$ VALUES ('special_day.created', 'Christmas Day', true), ('special_day.deleted', 'Christmas Day', true),
+     ('special_day.created', 'Independence Day', true), ('special_day.created', 'New Year''s Day', true) $$,
+  'a reset writes an entry for each holiday it removes and adds, and no summary');
+SELECT is(
+  (SELECT count(DISTINCT batch_id)::integer FROM public.audit_logs
+    WHERE org_id = pg_temp.id('102') AND resource_type = 'special_day'),
+  1, 'and the entries share one batch');
+
+-- Reordering the calendar lanes is recorded by the database in the same transaction, once, as the signed-in member.
+-- Showing or hiding a lane moves positions but not the order of the lanes that stay.
+CREATE FUNCTION pg_temp.reorders() RETURNS jsonb LANGUAGE sql AS $$
+  SELECT coalesce(jsonb_agg(jsonb_build_array(user_id, resource_type, resource_id, details) ORDER BY id), '[]')
+  FROM public.audit_logs
+  WHERE org_id = pg_temp.id('102') AND action = 'assignment_type.calendar_lanes_reordered';
+$$;
+CREATE FUNCTION pg_temp.lane_order() RETURNS jsonb LANGUAGE sql AS $$
+  SELECT coalesce(jsonb_agg(name ORDER BY sort_order, id), '[]') FROM public.assignment_types
+  WHERE organization_id = pg_temp.id('102') AND show_on_calendar AND archived_at IS NULL;
+$$;
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to) VALUES
+  (pg_temp.id('431'), pg_temp.id('102'), 'Alpha lane', 'AL', 'personnel'),
+  (pg_temp.id('432'), pg_temp.id('102'), 'Bravo lane', 'BL', 'personnel'),
+  (pg_temp.id('433'), pg_temp.id('102'), 'Charlie lane', 'CL', 'personnel');
+SELECT public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('431'), pg_temp.id('432'), pg_temp.id('433')], ARRAY[]::uuid[]);
+SELECT public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('431'), pg_temp.id('432')],
+  ARRAY[pg_temp.id('431'), pg_temp.id('432'), pg_temp.id('433')]);
+SELECT public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('433'), pg_temp.id('431'), pg_temp.id('432')],
+  ARRAY[pg_temp.id('431'), pg_temp.id('432')]);
+RESET ROLE;
+SELECT is(pg_temp.lane_order(), '["Charlie lane", "Alpha lane", "Bravo lane"]', 'showing and hiding lanes saved the new lanes');
+SELECT is(pg_temp.reorders(), '[]', 'showing and hiding lanes writes no reorder entry');
+
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+SELECT public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('432'), pg_temp.id('431'), pg_temp.id('433')],
+  ARRAY[pg_temp.id('433'), pg_temp.id('431'), pg_temp.id('432')]);
+RESET ROLE;
+SELECT is(pg_temp.reorders(),
+  jsonb_build_array(jsonb_build_array(pg_temp.id('1'), 'organization', pg_temp.id('102'), '{"count": 3}'::jsonb)),
+  'a reorder writes one entry for the organization, with the signed-in member and the lanes that stayed');
+
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+SELECT public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('432'), pg_temp.id('431'), pg_temp.id('433')],
+  ARRAY[pg_temp.id('433'), pg_temp.id('431'), pg_temp.id('432')]);
+RESET ROLE;
+SELECT is(jsonb_array_length(pg_temp.reorders()), 1, 'replaying the same reorder writes nothing');
+
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+SELECT public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('431'), pg_temp.id('432')],
+  ARRAY[pg_temp.id('432'), pg_temp.id('431'), pg_temp.id('433')]);
+RESET ROLE;
+SELECT is(
+  (SELECT jsonb_agg(details ORDER BY details ->> 'count' DESC) FROM public.audit_logs
+    WHERE org_id = pg_temp.id('102') AND action = 'assignment_type.calendar_lanes_reordered'),
+  '[{"count": 3}, {"count": 2}]',
+  'hiding a lane while reordering the others writes one entry, even though the change is two statements');
+
+ALTER TABLE public.audit_logs ADD CONSTRAINT audit_test_rejects_lanes
+  CHECK (action <> 'assignment_type.calendar_lanes_reordered') NOT VALID;
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok(
+  format($$ SELECT public.set_calendar_lanes(%L, %L::uuid[], %L::uuid[]) $$, pg_temp.id('102'),
+    ARRAY[pg_temp.id('432'), pg_temp.id('431')], ARRAY[pg_temp.id('431'), pg_temp.id('432')]),
+  '23514', NULL, 'a reorder whose audit write fails raises the failure');
+RESET ROLE;
+ALTER TABLE public.audit_logs DROP CONSTRAINT audit_test_rejects_lanes;
+SELECT is(pg_temp.lane_order(), '["Alpha lane", "Bravo lane"]', 'and the reorder is rolled back');
+
 SELECT * FROM finish();
 ROLLBACK;

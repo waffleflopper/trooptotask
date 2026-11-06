@@ -50,7 +50,7 @@ beforeEach(() => {
 });
 
 describe('PUT calendar lanes at the route boundary', () => {
-	it('answers a committed lane change with 200 after one bound command and audits it', async () => {
+	it('answers a committed lane change with 200 after one bound command and writes no app entry', async () => {
 		const ctx = admit();
 		const response = await put(choice);
 		expect(response.status).toBe(200);
@@ -65,6 +65,7 @@ describe('PUT calendar lanes at the route boundary', () => {
 				}
 			}
 		]);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it.each([

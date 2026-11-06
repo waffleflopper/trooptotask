@@ -29,7 +29,7 @@ describe('SpecialDay delete use case', () => {
 describe('resetFederalHolidays use case', () => {
 	afterEach(() => vi.useRealTimers());
 
-	it('replaces only federal holidays with the four-year defaults and returns the saved federal rows', async () => {
+	it('replaces only federal holidays with the four-year defaults and leaves the entries to the database', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date(2026, 9, 14, 12));
 		const ctx = buildContext();
@@ -68,7 +68,7 @@ describe('resetFederalHolidays use case', () => {
 				.sort()
 		).toEqual(result.map(({ id }) => id).sort());
 		expect(stored.find(({ id }) => id === 'sd-closure')).toMatchObject({ name: 'Team Day', type: 'org-closure' });
-		expect(ctx.audit.events.map(({ action }) => action)).toEqual(['special_day.federal_holidays_reset']);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('does not audit a reset the persistence did not confirm', async () => {

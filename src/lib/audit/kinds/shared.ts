@@ -25,9 +25,10 @@ export interface AuditEntryShape {
 /**
  * One kind of entry: what it must carry, how it reads, and how several from one action read together.
  * `database` kinds are written by a trigger in the transaction that changes the record, `app` kinds by the server.
+ * `retired` kinds are no longer written; they stay so entries already saved keep reading as they did.
  */
 export interface AuditKind {
-	readonly writer: 'database' | 'app';
+	readonly writer: 'database' | 'app' | 'retired';
 	accept(entry: AuditEntryShape): AuditEntryShape | null;
 	read(entry: SavedAuditEntry, context: AuditSentenceContext): string | null;
 	readonly batch: { verb: string; one: string; many: string };

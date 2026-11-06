@@ -59,7 +59,7 @@ describe('POST federal holiday reset at the route boundary', () => {
 		expect(saved.status).toBe(200);
 		expect(submitted.filter(({ name }) => name === 'Christmas Day')).toHaveLength(4);
 		expect(await saved.json()).toEqual(savedRows(submitted));
-		expect(ctx.audit.events.map(({ action }) => action)).toEqual(['special_day.federal_holidays_reset']);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it.each<[string, Reply, number, string]>([

@@ -41,17 +41,6 @@ export async function setCalendarLanes(ctx: CalendarCatalogPorts, input: Record<
 	const { laneTypeIds, expectedLaneTypeIds } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	await ctx.calendarCatalogs.setCalendarLanes(laneTypeIds, expectedLaneTypeIds);
-	// Showing or hiding a lane is audited by the database. Moving a lane only changes positions, which it does not record.
-	const kept = laneTypeIds.filter((id) => expectedLaneTypeIds.includes(id));
-	const before = expectedLaneTypeIds.filter((id) => laneTypeIds.includes(id));
-	if (kept.some((id, index) => id !== before[index])) {
-		await ctx.audit.log({
-			action: 'assignment_type.calendar_lanes_reordered',
-			resourceType: 'organization',
-			resourceId: ctx.auth.orgId,
-			details: { count: kept.length }
-		});
-	}
 }
 
 export async function deleteAssignmentType(ctx: CalendarCatalogDeletionPorts, id: string): Promise<void> {

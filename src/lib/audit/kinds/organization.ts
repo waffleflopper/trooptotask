@@ -125,13 +125,13 @@ export const organizationKinds = {
 		batch: { verb: 'Saved', one: 'rank', many: 'ranks' }
 	}),
 	'organization.rank_catalog.reconciled': auditKind({
-		writer: 'app',
+		writer: 'retired',
 		entry: z.object({ details: z.object({ added: count }) }),
 		sentence: ({ details }) => `Reconciled the rank catalog and added ${plural(details.added, 'rank', 'ranks')}`,
 		batch: { verb: 'Reconciled', one: 'rank catalog', many: 'rank catalogs' }
 	}),
 	'organization.rank_catalog.service_pack_added': auditKind({
-		writer: 'app',
+		writer: 'retired',
 		entry: z.object({ details: z.object({ service: savedLabel, added: count }) }),
 		sentence: ({ details }) => `Added ${plural(details.added, 'rank', 'ranks')} from the ${details.service} pack`,
 		batch: { verb: 'Added a rank pack to', one: 'rank catalog', many: 'rank catalogs' }

@@ -180,7 +180,7 @@ describe('Organization setup endpoints', () => {
 		await expect(pending).resolves.toEqual({ branch: 'navy', answers: {}, prompts: {}, finishedAt: null });
 	});
 
-	it.each(['organization.rank_catalog.service_pack_added', 'organization.rank_catalog.bulk_state_changed'])(
+	it.each(['organization.rank_catalog.saved', 'organization.rank_catalog.bulk_state_changed'])(
 		'keeps the branch unchanged if the rank audit fails: %s',
 		async (action) => {
 			const { ctx, state } = fixture('admin');

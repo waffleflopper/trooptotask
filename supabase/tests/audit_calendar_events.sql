@@ -186,6 +186,37 @@ SELECT results_eq(
     ('calendar_tasking.deleted', pg_temp.id('1'), 'SSG Rivera, Sam') $$,
   'deleting an event and its taskings saves the actor on both entries');
 
+-- Detaching an event's taskings writes one entry for each, in the batch that deletes the event.
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+INSERT INTO public.calendar_events (id, organization_id, title, starts_on, ends_on, coordinator_user_id)
+VALUES (pg_temp.id('303'), pg_temp.id('101'), 'Kept tasking event', '2031-01-05', '2031-01-06', pg_temp.id('1'));
+INSERT INTO public.calendar_taskings (id, organization_id, title, event_id, suspense_on) VALUES
+  (pg_temp.id('411'), pg_temp.id('101'), 'Open detail', pg_temp.id('303'), '2031-01-04'),
+  (pg_temp.id('412'), pg_temp.id('101'), 'Finished detail', pg_temp.id('303'), '2031-01-04'),
+  (pg_temp.id('413'), pg_temp.id('101'), 'Unrelated detail', NULL, '2031-01-04');
+SELECT pg_temp.move('412', 'start');
+SELECT pg_temp.move('412', 'complete');
+SELECT public.delete_calendar_event(pg_temp.id('101'), pg_temp.id('303'), 'standalone');
+RESET ROLE;
+SELECT bag_eq(
+  $$ SELECT action, record_label, details FROM public.audit_logs
+     WHERE resource_id IN (pg_temp.id('303'), pg_temp.id('411'), pg_temp.id('412'), pg_temp.id('413'))
+       AND action IN ('calendar_event.deleted', 'calendar_tasking.detached', 'calendar_tasking.updated') $$,
+  $$ VALUES
+    ('calendar_event.deleted', 'Kept tasking event', '{"startsOn": "2031-01-05", "endsOn": "2031-01-06"}'::jsonb),
+    ('calendar_tasking.detached', 'Open detail', '{"event": "Kept tasking event"}'::jsonb),
+    ('calendar_tasking.detached', 'Finished detail', '{"event": "Kept tasking event"}'::jsonb) $$,
+  'detaching an event''s taskings writes one entry for each, naming the event, and none for a tasking it never held');
+SELECT is(
+  (SELECT count(DISTINCT batch_id)::integer FROM public.audit_logs
+    WHERE resource_id IN (pg_temp.id('303'), pg_temp.id('411'), pg_temp.id('412'))
+      AND action IN ('calendar_event.deleted', 'calendar_tasking.detached')),
+  1, 'the detached taskings and the deleted event share one batch');
+SELECT is(
+  (SELECT event_id FROM public.calendar_taskings WHERE id = pg_temp.id('412')),
+  NULL, 'and the taskings stay as standalone ones');
+
 -- A failed audit write fails the change.
 ALTER TABLE public.audit_logs ADD CONSTRAINT audit_test_rejects_tasking CHECK (action <> 'calendar_tasking.created') NOT VALID;
 SELECT pg_temp.act_as('2');

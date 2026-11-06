@@ -352,6 +352,10 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: 'New Soldier', subjectLabel: null, details: {} },
 		sentence: 'Added onboarding template New Soldier'
 	},
+	'onboarding_template.duplicated': {
+		entry: { recordLabel: 'New Arrival Copy', subjectLabel: null, details: { source: 'New Arrival' } },
+		sentence: 'Duplicated onboarding template New Arrival as New Arrival Copy'
+	},
 	'onboarding_template.updated': {
 		entry: {
 			recordLabel: 'New Arrival',
@@ -615,6 +619,10 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 	'calendar_tasking.blocked': {
 		entry: { recordLabel: 'Range detail', subjectLabel: null, details: {} },
 		sentence: 'Blocked tasking Range detail'
+	},
+	'calendar_tasking.detached': {
+		entry: { recordLabel: 'Range detail', subjectLabel: null, details: { event: 'Range week' } },
+		sentence: 'Detached tasking Range detail from event Range week'
 	},
 	'calendar_tasking.unblocked': {
 		entry: { recordLabel: 'Range detail', subjectLabel: null, details: {} },

@@ -228,7 +228,7 @@ const IS_UUID = (value: string | undefined): value is string => !!value && UUID_
 function catalogedEntry(event: AuditEvent) {
 	const kind = auditKindOf(event.action);
 	if (!kind) throw new Error(`Audit kind ${event.action} is not cataloged`);
-	if (kind.writer === 'database') throw new Error(`Audit kind ${event.action} is written by the database`);
+	if (kind.writer !== 'app') throw new Error(`Audit kind ${event.action} is not written by the app`);
 	const subjectLabel = event.subject?.label?.trim() || null;
 	const entry = kind.accept({
 		record: event.record?.trim() || null,

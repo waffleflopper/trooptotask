@@ -151,6 +151,28 @@ SELECT is(
   (SELECT count(*)::integer FROM public.audit_logs WHERE action = 'onboarding.template_switched'),
   1, 'a template deleted under an onboarding is not recorded as a switch');
 
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+SELECT public.duplicate_onboarding_template(pg_temp.id('101'), pg_temp.id('401'), pg_temp.id('451'));
+SELECT public.duplicate_onboarding_template(pg_temp.id('101'), pg_temp.id('401'), pg_temp.id('451'));
+INSERT INTO public.onboarding_templates (id, organization_id, name) VALUES (pg_temp.id('404'), pg_temp.id('101'), 'Brand new');
+RESET ROLE;
+SELECT bag_eq(
+  $$ SELECT action, user_id, record_label, details FROM public.audit_logs
+     WHERE resource_type = 'onboarding_template' AND record_label IN ('New Arrival Copy', 'Brand new') $$,
+  $$ VALUES
+    ('onboarding_template.duplicated', pg_temp.id('1'), 'New Arrival Copy', '{"source": "New Arrival"}'::jsonb),
+    ('onboarding_template.created', pg_temp.id('1'), 'Brand new', '{}'::jsonb) $$,
+  'a duplicated template names the template it was copied from, a replayed request writes nothing more, and a template added afterwards is still a new one');
+SELECT is(
+  (SELECT count(DISTINCT batch_id)::integer FROM public.audit_logs
+    WHERE record_label = 'New Arrival Copy' OR details ->> 'template' = 'New Arrival Copy'),
+  1, 'the copy and its steps share one batch');
+UPDATE public.onboarding_templates SET name = 'Renamed source' WHERE id = pg_temp.id('401');
+SELECT is(
+  (SELECT details ->> 'source' FROM public.audit_logs WHERE action = 'onboarding_template.duplicated'),
+  'New Arrival', 'the saved source name does not follow a rename');
+
 ALTER TABLE public.audit_logs ADD CONSTRAINT audit_test_rejects_template CHECK (action <> 'onboarding_template.created') NOT VALID;
 SELECT pg_temp.act_as('1');
 SET LOCAL ROLE authenticated;

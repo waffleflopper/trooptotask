@@ -46,6 +46,12 @@ const stepKind = (sentence: (record: string, subject: string) => string, verb: s
 
 export const onboardingKinds = {
 	'onboarding_template.created': template.created,
+	'onboarding_template.duplicated': auditKind({
+		writer: 'database',
+		entry: z.object({ record: savedLabel, details: z.object({ source: savedLabel }) }),
+		sentence: ({ record, details }) => `Duplicated onboarding template ${details.source} as ${record}`,
+		batch: { verb: 'Duplicated', one: 'onboarding template', many: 'onboarding templates' }
+	}),
 	'onboarding_template.updated': template.updated,
 	'onboarding_template.deleted': template.deleted,
 	'onboarding_template_step.created': templateStep.created,

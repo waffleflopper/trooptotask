@@ -131,20 +131,13 @@ describe('Calendar assignment-type operations', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it('records a reorder of the lanes that stay, which the database does not see', async () => {
+	it('writes no app entry when the lanes are reordered, because the database records it', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
-		seedTypes(ctx);
+		const lanes = seedTypes(ctx);
 		await setCalendarLanes(ctx, { laneTypeIds: [OTHER, ID], expectedLaneTypeIds: [ID] });
-		expect(ctx.audit.events).toEqual([]);
 		await setCalendarLanes(ctx, { laneTypeIds: [ID, OTHER], expectedLaneTypeIds: [OTHER, ID] });
-		expect(ctx.audit.events).toEqual([
-			{
-				action: 'assignment_type.calendar_lanes_reordered',
-				resourceType: 'organization',
-				resourceId: ctx.auth.orgId,
-				details: { count: 2 }
-			}
-		]);
+		expect(await lanes()).toEqual(['Staff', 'Group']);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('accepts 201 desired and expected lane IDs', async () => {

@@ -16,12 +16,12 @@
 	let { data }: LogsPageProps = $props();
 
 	const logs = $derived(data.logsSettings ?? null);
-	const unit = $derived(data.settingsShell?.organization.name ?? 'the unit');
 </script>
 
+<!-- Two lines at 390 px whatever the unit is called, so the loading header's two skeleton lines match it. -->
 <SettingsPageHeader
 	page="logs"
-	subtitle={`Every change made in ${unit}, newest first. Kept for accountability, even after the records themselves are deleted.`}
+	subtitle="Every change made here, newest first. Kept for accountability, even after the records are deleted."
 />
 
 {#if logs}

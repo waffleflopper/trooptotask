@@ -170,6 +170,12 @@ export const calendarKinds = {
 	'calendar_tasking.completed': taskingTransition('Completed'),
 	'calendar_tasking.reopened': taskingTransition('Reopened'),
 	'calendar_tasking.cancelled': taskingTransition('Cancelled'),
+	'calendar_tasking.detached': auditKind({
+		writer: 'database',
+		entry: z.object({ record: savedLabel, details: z.object({ event: savedLabel }) }),
+		sentence: ({ record, details }) => `Detached tasking ${record} from event ${details.event}`,
+		batch: { verb: 'Detached', one: 'tasking from its event', many: 'taskings from their event' }
+	}),
 	'calendar_tasking.equipment_added': taskingItem('Added', 'equipment'),
 	'calendar_tasking.equipment_changed': taskingItem('Changed', 'equipment'),
 	'calendar_tasking.equipment_secured': taskingItem('Updated secured count of', 'equipment'),
@@ -189,7 +195,7 @@ export const calendarKinds = {
 	'assignment_type.updated': assignmentType.updated,
 	'assignment_type.deleted': assignmentType.deleted,
 	'assignment_type.calendar_lanes_reordered': auditKind({
-		writer: 'app',
+		writer: 'database',
 		entry: z.object({ details: z.object({ count: z.number().int().positive() }) }),
 		sentence: ({ details }) => `Reordered ${plural(details.count, 'calendar lane', 'calendar lanes')}`,
 		batch: { verb: 'Reordered', one: 'calendar lane list', many: 'calendar lane lists' }
@@ -201,7 +207,7 @@ export const calendarKinds = {
 		batch: { verb: 'Reordered', one: 'status type list', many: 'status type lists' }
 	}),
 	'special_day.federal_holidays_reset': auditKind({
-		writer: 'app',
+		writer: 'retired',
 		entry: z.object({ details: z.object({ count: z.number().int().positive() }) }),
 		sentence: ({ details }) => `Reset the federal holidays to ${plural(details.count, 'default', 'defaults')}`,
 		batch: { verb: 'Reset', one: 'set of federal holidays', many: 'sets of federal holidays' }

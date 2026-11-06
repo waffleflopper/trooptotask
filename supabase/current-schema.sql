@@ -249,6 +249,69 @@ $$;
 ALTER FUNCTION audit_private.audit_calendar_event() OWNER TO postgres;
 
 --
+-- Name: audit_calendar_lanes_reordered(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_calendar_lanes_reordered() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_organization_id uuid;
+  v_kept integer;
+  v_moved boolean;
+BEGIN
+  FOR v_organization_id IN
+    SELECT DISTINCT n.organization_id
+    FROM new_rows AS n
+    JOIN old_rows AS o ON o.id = n.id
+    WHERE n.sort_order IS DISTINCT FROM o.sort_order
+      OR n.show_on_calendar IS DISTINCT FROM o.show_on_calendar
+      OR (n.archived_at IS NULL) IS DISTINCT FROM (o.archived_at IS NULL)
+    ORDER BY n.organization_id
+  LOOP
+    IF NOT audit_private.unit_exists(v_organization_id) THEN
+      CONTINUE;
+    END IF;
+    -- A row outside the statement kept its state, so the table holds its before and after alike.
+    WITH before_lanes AS (
+      SELECT o.id, o.sort_order FROM old_rows AS o
+      WHERE o.organization_id = v_organization_id AND o.show_on_calendar AND o.archived_at IS NULL
+      UNION ALL
+      SELECT t.id, t.sort_order FROM public.assignment_types AS t
+      WHERE t.organization_id = v_organization_id AND t.show_on_calendar AND t.archived_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM old_rows AS o WHERE o.id = t.id)
+    ),
+    after_lanes AS (
+      SELECT t.id, t.sort_order FROM public.assignment_types AS t
+      WHERE t.organization_id = v_organization_id AND t.show_on_calendar AND t.archived_at IS NULL
+    ),
+    before_kept AS (
+      SELECT b.id, pg_catalog.row_number() OVER (ORDER BY b.sort_order, b.id) AS position
+      FROM before_lanes AS b WHERE b.id IN (SELECT a.id FROM after_lanes AS a)
+    ),
+    after_kept AS (
+      SELECT a.id, pg_catalog.row_number() OVER (ORDER BY a.sort_order, a.id) AS position
+      FROM after_lanes AS a WHERE a.id IN (SELECT b.id FROM before_lanes AS b)
+    )
+    SELECT pg_catalog.count(*)::integer, coalesce(pg_catalog.bool_or(bk.position <> ak.position), false)
+    INTO v_kept, v_moved
+    FROM before_kept AS bk JOIN after_kept AS ak USING (id);
+    IF v_moved THEN
+      PERFORM audit_private.record_entry(
+        v_organization_id, 'assignment_type.calendar_lanes_reordered', 'organization', v_organization_id, NULL,
+        NULL, NULL, pg_catalog.jsonb_build_object('count', v_kept)
+      );
+    END IF;
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_calendar_lanes_reordered() OWNER TO postgres;
+
+--
 -- Name: audit_calendar_tasking(); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
@@ -270,6 +333,13 @@ BEGIN
   END IF;
   -- Rows removed with their unit: that deletion is the audited event.
   IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  -- Deleting an event leaves its taskings standalone through the foreign key. record_deleted_calendar_event writes
+  -- the entry for each, because the event's title is gone by now.
+  IF TG_OP = 'UPDATE' AND OLD.event_id IS NOT NULL AND NEW.event_id IS NULL
+    AND NOT EXISTS (SELECT 1 FROM public.calendar_events e WHERE e.id = OLD.event_id)
+  THEN
     RETURN NULL;
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'calendar_tasking.created' WHEN 'UPDATE' THEN 'calendar_tasking.updated' WHEN 'DELETE' THEN 'calendar_tasking.deleted' END;
@@ -727,6 +797,7 @@ DECLARE
   v_kind text;
   v_change jsonb := '{}'::jsonb;
   v_details jsonb;
+  v_source text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -748,6 +819,18 @@ BEGIN
     END IF;
   END IF;
   v_details := '{}'::jsonb;
+  -- duplicate_onboarding_template files its receipt before it inserts the copy, so the receipt names the source.
+  IF TG_OP = 'INSERT' THEN
+    SELECT item.name INTO v_source
+    FROM onboarding_private.template_duplicate_receipts receipt
+    JOIN public.onboarding_templates item
+      ON item.id = receipt.source_template_id AND item.organization_id = receipt.organization_id
+    WHERE receipt.organization_id = NEW.organization_id AND receipt.result_template_id = NEW.id;
+    IF v_source IS NOT NULL THEN
+      v_kind := 'onboarding_template.duplicated';
+      v_details := pg_catalog.jsonb_build_object('source', v_source);
+    END IF;
+  END IF;
   IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
     v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
   END IF;
@@ -1003,7 +1086,8 @@ BEGIN
       NEW.personnel_id, audit_private.person_label(v_person.rank, v_person.last_name, v_person.first_name),
       pg_catalog.jsonb_build_object('sections', v_sections));
   END IF;
-  IF (NEW.award_tracking_acknowledged_at IS NULL) IS DISTINCT FROM (v_old ->> 'award_tracking_acknowledged_at' IS NULL) THEN
+  -- Acknowledging again moves the timestamp and is its own entry; saving the same value writes nothing.
+  IF NEW.award_tracking_acknowledged_at IS DISTINCT FROM (v_old ->> 'award_tracking_acknowledged_at')::timestamptz THEN
     PERFORM audit_private.record_entry(
       NEW.organization_id,
       CASE WHEN NEW.award_tracking_acknowledged_at IS NULL THEN 'personnel.award_tracking_cleared'
@@ -2307,6 +2391,15 @@ BEGIN
     pg_catalog.jsonb_build_object('eventId', OLD.id, 'eventTitle', OLD.title)
   FROM public.calendar_taskings AS t
   WHERE t.organization_id = OLD.organization_id AND t.event_id = OLD.id;
+  -- Rows removed with their unit: that deletion is the audited event.
+  IF audit_private.unit_exists(OLD.organization_id) THEN
+    PERFORM audit_private.record_entry(
+      t.organization_id, 'calendar_tasking.detached', 'calendar_tasking', t.id, t.title,
+      NULL, NULL, pg_catalog.jsonb_build_object('event', OLD.title))
+    FROM public.calendar_taskings AS t
+    WHERE t.organization_id = OLD.organization_id AND t.event_id = OLD.id
+    ORDER BY t.id;
+  END IF;
   RETURN OLD;
 END;
 $$;
@@ -17345,6 +17438,13 @@ CREATE TRIGGER audit_calendar_event AFTER INSERT OR DELETE OR UPDATE ON public.c
 
 
 --
+-- Name: assignment_types audit_calendar_lanes_reordered; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_calendar_lanes_reordered AFTER UPDATE ON public.assignment_types REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION audit_private.audit_calendar_lanes_reordered();
+
+
+--
 -- Name: calendar_taskings audit_calendar_tasking; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -21127,6 +21227,13 @@ REVOKE ALL ON FUNCTION audit_private.audit_assignment_type() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION audit_private.audit_calendar_event() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_calendar_lanes_reordered(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_calendar_lanes_reordered() FROM PUBLIC;
 
 
 --

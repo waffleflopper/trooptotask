@@ -36,13 +36,7 @@ export async function deleteSpecialDay(ctx: CalendarCatalogPorts, id: string): P
 
 export async function resetFederalHolidays(ctx: CalendarCatalogPorts): Promise<SavedFederalHoliday[]> {
 	await requireCalendarPolicy(ctx, action, resource);
-	const saved = await ctx.calendarCatalogs.resetFederalHolidays(
+	return ctx.calendarCatalogs.resetFederalHolidays(
 		getDefaultFederalHolidays().map(({ date, name }) => ({ date, name }))
 	);
-	await ctx.audit.log({
-		action: 'special_day.federal_holidays_reset',
-		resourceType: 'special_day',
-		details: { count: saved.length }
-	});
-	return saved;
 }

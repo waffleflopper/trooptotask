@@ -476,7 +476,8 @@ export interface AuditEntryView {
 	action: string;
 	/** Shared by every entry one action wrote. */
 	batchId: string | null;
-	resourceId: string | null;
+	/** Shared by the two entries one completion move saves, one under each person. */
+	moveKey: string | null;
 	at: number;
 	/** "YYYY-MM-DD" in the viewer's time zone. */
 	day: string;
@@ -489,6 +490,13 @@ export interface AuditEntryView {
 	system: boolean;
 }
 
+function completionMoveKey(entry: AuditLogEntry): string | null {
+	const change = entry.details?.change;
+	if (entry.action !== 'personnel_ict_completion.updated' || !entry.batchId || !entry.resourceId) return null;
+	if (!change || typeof change !== 'object' || !('person' in change)) return null;
+	return `${entry.resourceId}|${JSON.stringify(entry.details)}`;
+}
+
 export function viewAuditEntry(entry: AuditLogEntry, timeZone: string): AuditEntryView {
 	const at = new Date(entry.createdAt);
 	const day = localDateIn(timeZone, at);
@@ -497,7 +505,7 @@ export function viewAuditEntry(entry: AuditLogEntry, timeZone: string): AuditEnt
 		id: entry.id,
 		action: entry.action,
 		batchId: entry.batchId ?? null,
-		resourceId: entry.resourceId ?? null,
+		moveKey: completionMoveKey(entry),
 		at: at.getTime(),
 		day,
 		clock: new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(
@@ -521,11 +529,10 @@ export interface AuditLine extends AuditEntryView {
  * whose older entries were not loaded, so its counts read as a floor.
  */
 export function auditLines(loaded: readonly AuditEntryView[], partialBatchId?: string | null): AuditLine[] {
-	// A completion moved to another person is saved once under each person, at the same instant; show it once.
 	const written = new Set<string>();
 	const entries = loaded.filter((entry) => {
-		if (entry.action !== 'personnel_ict_completion.updated' || !entry.batchId || !entry.resourceId) return true;
-		const key = `${entry.batchId}|${entry.action}|${entry.resourceId}|${entry.at}`;
+		if (!entry.moveKey) return true;
+		const key = `${entry.batchId}|${entry.at}|${entry.moveKey}`;
 		return !written.has(key) && !!written.add(key);
 	});
 	const batches = new Map<string, AuditEntryView[]>();

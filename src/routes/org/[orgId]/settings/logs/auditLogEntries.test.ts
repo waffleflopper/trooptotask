@@ -285,6 +285,33 @@ describe('a change saved under two people', () => {
 		expect(filtered[0].sentence).toContain('PFC Roe, Rich');
 	});
 
+	it('keeps two updates of one completion that one import saved at the same instant', () => {
+		const update = (id: string, validationMethod: string) =>
+			viewAuditEntry(
+				entry({
+					id,
+					action: 'personnel_ict_completion.updated',
+					resourceType: 'personnel_ict_completion',
+					resourceId: 'completion-1',
+					batchId: 'request-1',
+					createdAt: '2026-10-20T10:00:00Z',
+					subject: { personnelId: 'doe', label: 'SPC Doe, Jane' },
+					details: {
+						completedAt: '2030-03-01',
+						validationMethod,
+						change: { validationMethod: { from: 'Other', to: validationMethod } }
+					}
+				}),
+				'UTC'
+			);
+		expect(
+			auditLines([update('a', 'Demonstration'), update('b', 'Written test')]).map((line) => [
+				line.id,
+				line.batch.length
+			])
+		).toEqual([['batch-request-1', 2]]);
+	});
+
 	it('keeps every entry of another kind that one action saved against the same record', () => {
 		const item = (id: string) =>
 			viewAuditEntry(

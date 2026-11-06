@@ -253,6 +253,47 @@ describe('auditLines', () => {
 	});
 });
 
+describe('a change saved under two people', () => {
+	it('shows once in an unfiltered log and under the previous person when filtered to them', () => {
+		const move = (id: string, personnelId: string, label: string) =>
+			viewAuditEntry(
+				entry({
+					id,
+					action: 'personnel_ict_completion.updated',
+					resourceType: 'personnel_ict_completion',
+					resourceId: 'completion-1',
+					batchId: 'request-1',
+					createdAt: '2026-10-20T10:00:00Z',
+					recordLabel: 'Apply a tourniquet',
+					subject: { personnelId, label },
+					details: {
+						completedAt: '2030-03-01',
+						validationMethod: 'Demonstration',
+						change: { person: { from: 'SPC Doe, Jane', to: 'PFC Roe, Rich' } }
+					}
+				}),
+				'UTC'
+			);
+		const toRoe = move('b', 'roe', 'PFC Roe, Rich');
+		const fromDoe = move('a', 'doe', 'SPC Doe, Jane');
+
+		const unfiltered = auditLines([toRoe, fromDoe]);
+		expect(unfiltered.map((line) => [line.id, line.batch.length])).toEqual([['b', 0]]);
+		const filtered = auditLines([fromDoe]);
+		expect(filtered.map((line) => [line.id, line.batch.length])).toEqual([['a', 0]]);
+		expect(filtered[0].sentence).toContain('SPC Doe, Jane');
+		expect(filtered[0].sentence).toContain('PFC Roe, Rich');
+	});
+
+	it('still folds different records changed by one action', () => {
+		const change = (id: string, resourceId: string) =>
+			viewAuditEntry(entry({ id, resourceId, batchId: 'request-1', action: 'availability.created' }), 'UTC');
+		expect(auditLines([change('a', 'one'), change('b', 'two')]).map((line) => line.sentence)).toEqual([
+			'Added 2 availability entries'
+		]);
+	});
+});
+
 describe('auditDayHead', () => {
 	it('names today and yesterday with the date, and older days by date', () => {
 		expect(auditDayHead('2026-10-19', '2026-10-19', 5)).toEqual({ title: 'Today', detail: '19 Oct · 5 entries' });

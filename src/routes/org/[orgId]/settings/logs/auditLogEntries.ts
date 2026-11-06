@@ -476,6 +476,7 @@ export interface AuditEntryView {
 	action: string;
 	/** Shared by every entry one action wrote. */
 	batchId: string | null;
+	resourceId: string | null;
 	at: number;
 	/** "YYYY-MM-DD" in the viewer's time zone. */
 	day: string;
@@ -496,6 +497,7 @@ export function viewAuditEntry(entry: AuditLogEntry, timeZone: string): AuditEnt
 		id: entry.id,
 		action: entry.action,
 		batchId: entry.batchId ?? null,
+		resourceId: entry.resourceId ?? null,
 		at: at.getTime(),
 		day,
 		clock: new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(
@@ -518,7 +520,14 @@ export interface AuditLine extends AuditEntryView {
  * Collapses the entries each action wrote into one line, at its newest entry. `partialBatchId` names an action
  * whose older entries were not loaded, so its counts read as a floor.
  */
-export function auditLines(entries: readonly AuditEntryView[], partialBatchId?: string | null): AuditLine[] {
+export function auditLines(loaded: readonly AuditEntryView[], partialBatchId?: string | null): AuditLine[] {
+	// A change that belongs under two people is saved once for each, at the same instant; show it once.
+	const written = new Set<string>();
+	const entries = loaded.filter((entry) => {
+		if (!entry.batchId || !entry.resourceId) return true;
+		const key = `${entry.batchId}|${entry.action}|${entry.resourceId}|${entry.at}`;
+		return !written.has(key) && !!written.add(key);
+	});
 	const batches = new Map<string, AuditEntryView[]>();
 	for (const entry of entries) {
 		if (entry.batchId) batches.set(entry.batchId, [...(batches.get(entry.batchId) ?? []), entry]);

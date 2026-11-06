@@ -1,8 +1,38 @@
 import { z } from 'zod';
+import { ACCESS_LANE_LABELS, CAPABILITY_LEVEL_LABELS } from '$lib/access/memberAccessShape';
 import { auditKind, plural, savedLabel } from './shared';
 
 const named = z.object({ record: savedLabel, details: z.object({}) });
 const withRole = z.object({ record: savedLabel, details: z.object({ role: savedLabel }) });
+const accessLane = z.enum(Object.keys(ACCESS_LANE_LABELS) as [keyof typeof ACCESS_LANE_LABELS]);
+const capabilityLevel = z.enum(Object.keys(CAPABILITY_LEVEL_LABELS) as [keyof typeof CAPABILITY_LEVEL_LABELS]);
+const accessChange = z.object({
+	record: savedLabel,
+	details: z.object({
+		role: savedLabel,
+		preset: savedLabel.optional(),
+		scope: z.enum(['organization', 'groups']).optional(),
+		groups: z.array(savedLabel).optional(),
+		capabilities: z.partialRecord(accessLane, capabilityLevel).optional()
+	})
+});
+
+/** "Editor preset, Groups Alpha and Bravo, Calendar Manage and Evaluations None": what the entry saved of the new access. */
+function accessSummary({ preset, scope, groups, capabilities }: z.infer<typeof accessChange>['details']): string {
+	const lanes = (Object.keys(ACCESS_LANE_LABELS) as Array<keyof typeof ACCESS_LANE_LABELS>).flatMap((lane) => {
+		const level = capabilities?.[lane];
+		return level ? [`${ACCESS_LANE_LABELS[lane]} ${CAPABILITY_LEVEL_LABELS[level]}`] : [];
+	});
+	const covered =
+		scope === 'groups' && groups?.length
+			? [`Groups ${groups.join(', ')}`]
+			: scope === 'organization'
+				? ['whole unit']
+				: [];
+	const presetName = preset ? [`${preset[0].toUpperCase()}${preset.slice(1)} preset`] : [];
+	return [...presetName, ...covered, ...lanes].join(', ');
+}
+
 const nothing = z.object({ details: z.object({}) });
 const count = z.number().int().positive();
 
@@ -52,8 +82,11 @@ export const organizationKinds = {
 	}),
 	'member.access_changed': auditKind({
 		writer: 'app',
-		entry: withRole,
-		sentence: ({ record, details }) => `Changed access for ${record} to ${details.role}`,
+		entry: accessChange,
+		sentence: ({ record, details }) => {
+			const summary = accessSummary(details);
+			return `Changed access for ${record} to ${details.role}${summary ? ` (${summary})` : ''}`;
+		},
 		batch: { verb: 'Changed access for', one: 'member', many: 'members' }
 	}),
 	'organization_invitation.accepted': auditKind({

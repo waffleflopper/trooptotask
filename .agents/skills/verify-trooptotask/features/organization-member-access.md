@@ -55,7 +55,9 @@ ordinary access checks because it intentionally changes the seeded owner.
 1. As `orgOwner`, find `orgMember`'s row and open `Manage`. Change its `Preset` or one `Area by area` lane and choose
    `Groups` → `Selected`, open `Groups they work in` and check `Alpha`; submit the named `Save <n> changes` button. Capture the action result and
    `Access updated.` feedback, then reload Members and reopen that row. The same membership ID must show the saved
-   values and Alpha scope. Read the exact A membership row again; B's matching rows remain unchanged.
+   values and Alpha scope. Read the exact A membership row again; B's matching rows remain unchanged. Open
+   `Settings` → `Logs`: the newest Access entry reads `Changed access for <masked email> to member (<Preset> preset,
+Groups Alpha, <Lane> <Level>)`, naming the Group and each area override saved at that moment.
 2. In the already-open `orgMember` context, reload and visit a retained Personnel or Calendar entry for Alpha and Bravo.
    Expect access consistent with the saved capability and Alpha scope; Bravo must not leak through stale page state.
    Capture route, visible result and, for a denied write/read, the actual HTTP status. Restore the original member

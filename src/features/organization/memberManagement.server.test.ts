@@ -158,6 +158,7 @@ function createOrganizationSettingsMemberManagementPort(
 		updateMembershipError?: string | null;
 		orgName?: string | null;
 		organizationGroupIds?: string[];
+		organizationGroupNames?: Record<string, string>;
 	} = {}
 ): OrganizationSettingsMemberManagementPort & {
 	invitationLookups: Array<{ orgId: string; email: string }>;
@@ -259,9 +260,12 @@ function createOrganizationSettingsMemberManagementPort(
 		async getOrganizationName() {
 			return options.orgName ?? null;
 		},
-		async findOrganizationGroupIds(_orgId, groupIds) {
+		async findOrganizationGroups(_orgId, groupIds) {
 			const known = options.organizationGroupIds;
-			return known ? groupIds.filter((id) => known.includes(id)) : groupIds;
+			return (known ? groupIds.filter((id) => known.includes(id)) : groupIds).map((id) => ({
+				id,
+				name: options.organizationGroupNames?.[id] ?? id
+			}));
 		}
 	};
 }
@@ -3259,7 +3263,7 @@ describe('updateOrganizationMemberAccess', () => {
 				resourceType: 'organization',
 				resourceId: '11111111-1111-4111-8111-111111111111',
 				record: 'a member',
-				details: { role: 'admin' },
+				details: { role: 'admin', preset: 'editor', scope: 'organization', groups: [], capabilities: {} },
 				severity: 'warning'
 			}
 		]);
@@ -3341,7 +3345,13 @@ describe('updateOrganizationMemberAccess', () => {
 				resourceType: 'organization',
 				resourceId: '11111111-1111-4111-8111-111111111111',
 				record: 'a member',
-				details: { role: 'member' },
+				details: {
+					role: 'member',
+					preset: 'editor',
+					scope: 'organization',
+					groups: [],
+					capabilities: { personnel: 'view' }
+				},
 				severity: 'warning'
 			}
 		]);
@@ -3360,6 +3370,10 @@ describe('updateOrganizationMemberAccess', () => {
 				userId: 'member-1',
 				role: 'member',
 				email: 'member@example.com'
+			},
+			organizationGroupNames: {
+				'22222222-2222-4222-8222-222222222222': 'Alpha Company',
+				'33333333-3333-4333-8333-333333333333': 'Bravo Company'
 			}
 		});
 
@@ -3403,6 +3417,19 @@ describe('updateOrganizationMemberAccess', () => {
 				},
 				accessScopeKind: 'groups',
 				accessScopeGroupIds: ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333']
+			}
+		]);
+		expect(ctx.auditPort.events).toMatchObject([
+			{
+				action: 'member.access_changed',
+				record: 'm***@example.com',
+				details: {
+					role: 'member',
+					preset: 'operator',
+					scope: 'groups',
+					groups: ['Alpha Company', 'Bravo Company'],
+					capabilities: { calendar: 'configure', ratingScheme: 'none' }
+				}
 			}
 		]);
 	});

@@ -85,6 +85,70 @@ describe('audit kind catalog', () => {
 		);
 	});
 
+	it('names the earlier person and task of a moved completion', () => {
+		const completion = { completedAt: '2026-03-13', validationMethod: 'Demonstration' };
+		expect(
+			read('personnel_ict_completion.updated', {
+				details: { ...completion, change: { person: { from: 'PFC Roe, Rich', to: 'SPC Doe, Jane' } } }
+			})
+		).toBe(
+			'Changed critical task completion Apply a tourniquet for SPC Doe, Jane on 13 Mar: person PFC Roe, Rich → SPC Doe, Jane'
+		);
+		expect(
+			read('personnel_ict_completion.updated', {
+				details: { ...completion, change: { task: { from: 'Treat shock', to: 'Apply a tourniquet' } } }
+			})
+		).toBe(
+			'Changed critical task completion Apply a tourniquet for SPC Doe, Jane on 13 Mar: task Treat shock → Apply a tourniquet'
+		);
+	});
+
+	it('says what a member access change granted, and reads a change saved with only the role', () => {
+		expect(
+			read('member.access_changed', {
+				details: {
+					role: 'member',
+					preset: 'viewer',
+					scope: 'organization',
+					groups: [],
+					capabilities: { training: 'view' }
+				}
+			})
+		).toBe('Changed access for j***@example.com to member (Viewer preset, whole unit, Training View)');
+		expect(
+			read('member.access_changed', {
+				details: {
+					role: 'member',
+					preset: 'operator',
+					scope: 'groups',
+					groups: ['Alpha Company', 'Bravo Company'],
+					capabilities: { calendar: 'configure', ratingScheme: 'none' }
+				}
+			})
+		).toBe(
+			'Changed access for j***@example.com to member (Operator preset, Groups Alpha Company, Bravo Company, Calendar Manage, Evaluations None)'
+		);
+		expect(read('member.access_changed', { details: { role: 'admin' } })).toBe(
+			'Changed access for j***@example.com to admin'
+		);
+	});
+
+	it('leaves a member access change saved before the catalog to the older sentence', () => {
+		expect(
+			read('member.access_changed', {
+				recordLabel: null,
+				details: {
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'member',
+					memberPreset: 'editor',
+					capabilityOverrides: { personnel: 'view' },
+					accessScopeKind: 'organization',
+					accessScopeGroupIds: []
+				}
+			})
+		).toBeNull();
+	});
+
 	it('reads nothing for an update that saved no change', () => {
 		expect(
 			read('availability.updated', { details: { startDate: '2026-11-10', endDate: '2026-11-20', change: {} } })

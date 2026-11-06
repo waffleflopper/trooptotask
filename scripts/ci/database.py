@@ -161,6 +161,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261105150600_audit_award_tracking_reacknowledged.sql",
     "20261105150700_audit_event_taskings_detached.sql",
     "20261105150800_audit_calendar_lanes_reordered.sql",
+    "20261105160000_audit_retention_and_record_opens.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
@@ -174,6 +175,8 @@ POST_TREE_SQL_TESTS = (
     "audit_label_tenancy.sql",
     "audit_person_records.sql",
     "audit_daily_assignments.sql",
+    "audit_retention_cutoff.sql",
+    "audit_record_opens.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

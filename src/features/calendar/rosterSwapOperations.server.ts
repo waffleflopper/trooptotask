@@ -1,5 +1,4 @@
 import { error } from '@sveltejs/kit';
-import { auditAssignmentChanges } from './dailyAssignmentAudit.server';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { dateOnlySchema, issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
@@ -20,19 +19,6 @@ const slotInput = z
 	.strict();
 const commitInput = z.object({ today: dateOnlySchema, days: z.tuple([slotInput, slotInput]) }).strict();
 const undoInput = z.object({ today: dateOnlySchema, swapId: uuidSchema }).strict();
-
-/** A swap changes who holds two days: one entry for each, written together. */
-async function auditSwapped(ctx: RosterSwapPorts, result: RosterSwapResult) {
-	await auditAssignmentChanges(
-		ctx,
-		result.saved.map((row) => ({
-			date: row.date,
-			assignmentTypeId: row.assignmentTypeId,
-			assigneeId: row.assigneeId,
-			kind: 'updated' as const
-		}))
-	);
-}
 
 async function authorize(ctx: RosterSettingsPorts, today: string) {
 	requireDeviceDate(today);
@@ -99,7 +85,7 @@ export async function commitRosterSwap(
 	if (first.date < today || second.date < today) fail(400, SWAP_PAST);
 	if (!first.was || !second.was) fail(400, SWAP_EMPTY);
 	if (first.was === second.was) fail(400, SWAP_SAME_PERSON);
-	const result = await ctx.calendarRosterSwaps.swap({
+	return ctx.calendarRosterSwaps.swap({
 		assignmentTypeId: first.assignmentTypeId,
 		today,
 		days: [
@@ -107,8 +93,6 @@ export async function commitRosterSwap(
 			{ date: second.date, was: second.was }
 		]
 	});
-	await auditSwapped(ctx, result);
-	return result;
 }
 
 export async function undoRosterSwap(ctx: RosterSwapPorts, input: Record<string, unknown>): Promise<RosterSwapResult> {
@@ -116,7 +100,5 @@ export async function undoRosterSwap(ctx: RosterSwapPorts, input: Record<string,
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	const { today, swapId } = parsed.data;
 	await authorize(ctx, today);
-	const result = await ctx.calendarRosterSwaps.undo({ today, swapId });
-	await auditSwapped(ctx, result);
-	return result;
+	return ctx.calendarRosterSwaps.undo({ today, swapId });
 }

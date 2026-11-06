@@ -4183,6 +4183,7 @@ export type Database = {
       }
       delete_archived_personnel_artifact: {
         Args: {
+          p_actor?: string
           p_archived_at: string
           p_artifact_id: string
           p_kind: string
@@ -4233,6 +4234,16 @@ export type Database = {
       delete_onboarding_template: {
         Args: { p_organization_id: string; p_template_id: string }
         Returns: boolean
+      }
+      delete_personnel_artifact: {
+        Args: {
+          p_actor: string
+          p_id: string
+          p_organization_id: string
+          p_personnel_id: string
+          p_table: string
+        }
+        Returns: undefined
       }
       delete_sign_in_roster: {
         Args: { p_organization_id: string; p_roster_id: string }
@@ -4292,6 +4303,15 @@ export type Database = {
       import_availability_entries: {
         Args: { p_entries: Json; p_organization_id: string }
         Returns: Json
+      }
+      insert_personnel_artifacts: {
+        Args: {
+          p_actor: string
+          p_organization_id: string
+          p_rows: Json
+          p_table: string
+        }
+        Returns: Json[]
       }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
       is_org_owner: { Args: { p_organization_id: string }; Returns: boolean }
@@ -5223,6 +5243,17 @@ export type Database = {
       }
       undo_roster_swap: {
         Args: { p_organization_id: string; p_swap_id: string; p_today: string }
+        Returns: Json
+      }
+      update_personnel_artifact: {
+        Args: {
+          p_actor: string
+          p_id: string
+          p_organization_id: string
+          p_patch: Json
+          p_personnel_id: string
+          p_table: string
+        }
         Returns: Json
       }
       write_roster_assignment_slots: {

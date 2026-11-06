@@ -302,7 +302,6 @@ describe('personnel documents', () => {
 		await expect(
 			restorePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
 		).resolves.toMatchObject({ id: created.id, archivedAt: null });
-		expect(ctx.auditPort.events.at(-1)).toMatchObject({ action: 'personnel.document.restored' });
 		await archivePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id });
 		await expect(
 			archivePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
@@ -332,14 +331,12 @@ describe('personnel documents', () => {
 		).resolves.toEqual({ fileCleanup: 'pending' });
 		expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: created.id })).toBeNull();
 		expect(ctx.storagePort.files).toHaveLength(1);
-		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.document.deleted')).toHaveLength(1);
 
 		ctx.storagePort.remove = remove;
 		await expect(
 			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
 		).resolves.toEqual({ fileCleanup: 'complete' });
 		expect(ctx.storagePort.files).toEqual([]);
-		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.document.deleted')).toHaveLength(1);
 	});
 
 	it('deletes a metadata-only archived document whose file is already absent', async () => {

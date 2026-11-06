@@ -46,6 +46,45 @@ export function personnelProvider(initial: Partial<Record<PersonnelTable, Row[]>
 		failure: null
 	};
 	let nextId = 1;
+	const newArtifact = (table: PersonnelTable, input: Row): Row => ({
+		archived_at: null,
+		...(table === 'personnel_follow_ups' ? { completed_at: null } : {}),
+		...input,
+		id: input.id ?? `saved-${nextId++}`,
+		created_at: input.created_at ?? '2026-10-08T12:00:00.123456Z'
+	});
+	/** The service-role record commands, bound to the unit and person they are given, as the SQL functions are. */
+	const artifactCommand = (url: URL, args: Record<string, unknown>): Response => {
+		const name = url.pathname.slice('/rest/v1/rpc/'.length);
+		const table = String(args.p_table);
+		if (!isTable(table)) throw new Error('Unexpected Personnel provider table');
+		const operation = { table, method: 'POST', offset: 0, url, body: args };
+		requests.push(operation);
+		const failure = state.failure?.(operation);
+		if (failure) return Response.json({ code: failure.code, message: failure.message }, { status: failure.status });
+		const bound = (row: Row) =>
+			row.organization_id === args.p_organization_id &&
+			row.personnel_id === args.p_personnel_id &&
+			row.id === args.p_id;
+		if (name === 'insert_personnel_artifacts') {
+			const saved = (args.p_rows as Row[]).map((input) =>
+				newArtifact(table, { ...input, organization_id: args.p_organization_id })
+			);
+			rows[table].push(...saved);
+			return Response.json(saved);
+		}
+		if (name === 'update_personnel_artifact') {
+			const row = rows[table].find(bound);
+			if (!row) return Response.json({ code: 'P0002', message: 'Personnel artifact not found' }, { status: 404 });
+			Object.assign(row, args.p_patch);
+			return Response.json(row);
+		}
+		if (name === 'delete_personnel_artifact') {
+			rows[table] = rows[table].filter((row) => !bound(row));
+			return new Response(null, { status: 204 });
+		}
+		throw new Error('Unexpected Personnel provider command');
+	};
 	const client = createClient('http://personnel.invalid', 'synthetic-personnel-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
@@ -58,6 +97,7 @@ export function personnelProvider(initial: Partial<Record<PersonnelTable, Row[]>
 					request.headers.get('apikey') !== 'synthetic-personnel-request-key'
 				)
 					throw new Error('Personnel must retain ordinary request credentials');
+				if (url.pathname.startsWith('/rest/v1/rpc/')) return artifactCommand(url, await request.json());
 				const table = url.pathname.replace('/rest/v1/', '');
 				if (!isTable(table)) throw new Error('Unexpected Personnel provider table');
 				const body = request.method === 'POST' || request.method === 'PATCH' ? await request.json() : null;

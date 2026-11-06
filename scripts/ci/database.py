@@ -155,10 +155,12 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261105130400_onboarding_audit_triggers.sql",
     "20261105130500_calendar_event_tasking_audit_triggers.sql",
     "20261105130600_availability_audit_label_scope.sql",
-    "20261105140000_audit_duplicated_onboarding_template.sql",
-    "20261105140100_audit_award_tracking_reacknowledged.sql",
-    "20261105140200_audit_event_taskings_detached.sql",
-    "20261105140300_audit_calendar_lanes_reordered.sql",
+    "20261105150000_person_record_audit_triggers.sql",
+    "20261105150100_daily_assignment_audit_trigger.sql",
+    "20261105150500_audit_duplicated_onboarding_template.sql",
+    "20261105150600_audit_award_tracking_reacknowledged.sql",
+    "20261105150700_audit_event_taskings_detached.sql",
+    "20261105150800_audit_calendar_lanes_reordered.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
@@ -170,6 +172,8 @@ POST_TREE_SQL_TESTS = (
     "audit_app_writer.sql",
     "audit_approved_deletions.sql",
     "audit_label_tenancy.sql",
+    "audit_person_records.sql",
+    "audit_daily_assignments.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

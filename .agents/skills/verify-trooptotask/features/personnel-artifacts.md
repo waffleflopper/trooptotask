@@ -425,7 +425,8 @@ PATCH/DELETE appends the saved artifact ID. Binary/note PATCH uses `{ action: 'a
 Follow-up PATCH uses `{ status: 'open'|'completed'|'archived' }`, its complete edit fields, or `{ action: 'restore' }`.
 Documents Open uses `/documents/DOCUMENT_ID/download`. The roster batch POSTs are
 `/org/ORG_ID/api/personnel/follow-ups/batch` with `{ personnelIds, title, notes, dueDate }` and `/leader-notes/batch`
-with `{ personnelIds, text }`; each writes one insert and one audit event, sets the author on the server and returns
+with `{ personnelIds, text }`; each writes every row in one command, which the database audits as one entry per
+Person under one batch, sets the author on the server and returns
 `{ writtenIds, unavailableIds }`, listing People the actor cannot write as unavailable. For A, arm
 `$V network arm-fail PAGE personnel/PERSON_ID/documents` or the corresponding exact family/item; `arm-hold` and
 `arm-observe` take the same path. Preserve `$V network state PAGE`, then use `release` for held responses and `restore`

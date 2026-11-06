@@ -534,10 +534,9 @@ describe('Calendar configuration commands', () => {
 		}
 	});
 
-	it('saves the Calendar lanes in one call and reports whether they changed', async () => {
-		const { calls, port } = calendarRpc(() => Response.json(true));
-		await expect(port.setCalendarLanes([GROUP, STAFF], [STAFF])).resolves.toBe(true);
-		await expect(calendarRpc(() => Response.json(false)).port.setCalendarLanes([GROUP], [GROUP])).resolves.toBe(false);
+	it('saves the Calendar lanes in one call and accepts the empty acknowledgment', async () => {
+		const { calls, port } = calendarRpc(() => new Response(null, { status: 204 }));
+		await expect(port.setCalendarLanes([GROUP, STAFF], [STAFF])).resolves.toBeUndefined();
 		expect(calls).toEqual([
 			{
 				path: '/rest/v1/rpc/set_calendar_lanes',
@@ -647,7 +646,7 @@ describe('Calendar configuration commands', () => {
 				malformed.port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])
 			).rejects.toThrow('reset_federal_holidays returned an unexpected result');
 		}
-		const acknowledged = calendarRpc(() => new Response(null, { status: 204 }));
+		const acknowledged = calendarRpc(() => Response.json({ saved: true }));
 		await expect(acknowledged.port.setCalendarLanes([GROUP], [STAFF])).rejects.toThrow(
 			'set_calendar_lanes returned an unexpected result'
 		);

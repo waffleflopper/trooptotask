@@ -46,11 +46,11 @@ const databaseError = (code: string) => () =>
 	Response.json({ code, message: 'synthetic database message', details: null, hint: null }, { status: 500 });
 
 beforeEach(() => {
-	provider = { calls: [], reply: () => Response.json(true) };
+	provider = { calls: [], reply: () => new Response(null, { status: 204 }) };
 });
 
 describe('PUT calendar lanes at the route boundary', () => {
-	it('answers a committed lane change with 200 after one bound command and audits it', async () => {
+	it('answers a committed lane change with 200 after one bound command and writes no app entry', async () => {
 		const ctx = admit();
 		const response = await put(choice);
 		expect(response.status).toBe(200);
@@ -65,21 +65,7 @@ describe('PUT calendar lanes at the route boundary', () => {
 				}
 			}
 		]);
-	});
-
-	it('writes no audit entry for a reorder the saved lanes already match', async () => {
-		const ctx = admit();
-		provider.reply = () => Response.json(false);
-		const reorder = JSON.stringify({ laneTypeIds: [STAFF, GROUP], expectedLaneTypeIds: [GROUP, STAFF] });
-		expect((await put(reorder)).status).toBe(200);
 		expect(ctx.audit.events).toEqual([]);
-	});
-
-	it('audits a committed reorder once', async () => {
-		const ctx = admit();
-		const reorder = JSON.stringify({ laneTypeIds: [STAFF, GROUP], expectedLaneTypeIds: [GROUP, STAFF] });
-		expect((await put(reorder)).status).toBe(200);
-		expect(ctx.audit.events.map((event) => event.action)).toEqual(['assignment_type.calendar_lanes_reordered']);
 	});
 
 	it.each([

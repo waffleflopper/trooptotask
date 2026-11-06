@@ -249,6 +249,69 @@ $$;
 ALTER FUNCTION audit_private.audit_calendar_event() OWNER TO postgres;
 
 --
+-- Name: audit_calendar_lanes_reordered(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_calendar_lanes_reordered() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_organization_id uuid;
+  v_kept integer;
+  v_moved boolean;
+BEGIN
+  FOR v_organization_id IN
+    SELECT DISTINCT n.organization_id
+    FROM new_rows AS n
+    JOIN old_rows AS o ON o.id = n.id
+    WHERE n.sort_order IS DISTINCT FROM o.sort_order
+      OR n.show_on_calendar IS DISTINCT FROM o.show_on_calendar
+      OR (n.archived_at IS NULL) IS DISTINCT FROM (o.archived_at IS NULL)
+    ORDER BY n.organization_id
+  LOOP
+    IF NOT audit_private.unit_exists(v_organization_id) THEN
+      CONTINUE;
+    END IF;
+    -- A row outside the statement kept its state, so the table holds its before and after alike.
+    WITH before_lanes AS (
+      SELECT o.id, o.sort_order FROM old_rows AS o
+      WHERE o.organization_id = v_organization_id AND o.show_on_calendar AND o.archived_at IS NULL
+      UNION ALL
+      SELECT t.id, t.sort_order FROM public.assignment_types AS t
+      WHERE t.organization_id = v_organization_id AND t.show_on_calendar AND t.archived_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM old_rows AS o WHERE o.id = t.id)
+    ),
+    after_lanes AS (
+      SELECT t.id, t.sort_order FROM public.assignment_types AS t
+      WHERE t.organization_id = v_organization_id AND t.show_on_calendar AND t.archived_at IS NULL
+    ),
+    before_kept AS (
+      SELECT b.id, pg_catalog.row_number() OVER (ORDER BY b.sort_order, b.id) AS position
+      FROM before_lanes AS b WHERE b.id IN (SELECT a.id FROM after_lanes AS a)
+    ),
+    after_kept AS (
+      SELECT a.id, pg_catalog.row_number() OVER (ORDER BY a.sort_order, a.id) AS position
+      FROM after_lanes AS a WHERE a.id IN (SELECT b.id FROM before_lanes AS b)
+    )
+    SELECT pg_catalog.count(*)::integer, coalesce(pg_catalog.bool_or(bk.position <> ak.position), false)
+    INTO v_kept, v_moved
+    FROM before_kept AS bk JOIN after_kept AS ak USING (id);
+    IF v_moved THEN
+      PERFORM audit_private.record_entry(
+        v_organization_id, 'assignment_type.calendar_lanes_reordered', 'organization', v_organization_id, NULL,
+        NULL, NULL, pg_catalog.jsonb_build_object('count', v_kept)
+      );
+    END IF;
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_calendar_lanes_reordered() OWNER TO postgres;
+
+--
 -- Name: audit_calendar_tasking(); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
@@ -11930,7 +11993,7 @@ ALTER FUNCTION public.sensitive_file_object_is_writable(bucket_name text, object
 -- Name: set_calendar_lanes(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.set_calendar_lanes(p_organization_id uuid, p_lane_type_ids uuid[], p_expected_lane_type_ids uuid[]) RETURNS boolean
+CREATE FUNCTION public.set_calendar_lanes(p_organization_id uuid, p_lane_type_ids uuid[], p_expected_lane_type_ids uuid[]) RETURNS void
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
@@ -11983,7 +12046,7 @@ BEGIN
     IF public.can_manage_calendar_configuration(p_organization_id) IS NOT TRUE THEN
       RAISE EXCEPTION 'Calendar configuration is not allowed' USING ERRCODE = '42501';
     END IF;
-    RETURN false;
+    RETURN;
   END IF;
   -- CLN01, not 40001: PostgREST silently retries a serialization failure, so a
   -- stale command would loop and could later commit over the newer list.
@@ -12011,7 +12074,6 @@ BEGIN
   THEN
     RAISE EXCEPTION 'Calendar lanes were not saved' USING ERRCODE = 'CLN01';
   END IF;
-  RETURN true;
 END;
 $$;
 
@@ -17113,6 +17175,13 @@ CREATE TRIGGER audit_calendar_event AFTER INSERT OR DELETE OR UPDATE ON public.c
 
 
 --
+-- Name: assignment_types audit_calendar_lanes_reordered; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_calendar_lanes_reordered AFTER UPDATE ON public.assignment_types REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION audit_private.audit_calendar_lanes_reordered();
+
+
+--
 -- Name: calendar_taskings audit_calendar_tasking; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -20860,6 +20929,13 @@ REVOKE ALL ON FUNCTION audit_private.audit_assignment_type() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION audit_private.audit_calendar_event() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_calendar_lanes_reordered(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_calendar_lanes_reordered() FROM PUBLIC;
 
 
 --

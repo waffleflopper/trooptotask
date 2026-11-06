@@ -362,7 +362,7 @@ export function createSupabaseCalendarCatalogPersistence(
 			return rows.map((row) => ({ ...toSpecialDay(row), type: row.type }));
 		},
 		async setCalendarLanes(laneTypeIds, expectedLaneTypeIds) {
-			return calendarCommand(
+			await calendarCommand(
 				client,
 				'set_calendar_lanes',
 				{
@@ -370,7 +370,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					p_lane_type_ids: [...laneTypeIds],
 					p_expected_lane_type_ids: [...expectedLaneTypeIds]
 				},
-				z.boolean()
+				z.null()
 			);
 		},
 		async findOpenRosterForm(assignmentTypeId) {

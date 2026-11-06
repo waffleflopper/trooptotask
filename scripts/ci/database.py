@@ -158,7 +158,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261105140000_audit_duplicated_onboarding_template.sql",
     "20261105140100_audit_award_tracking_reacknowledged.sql",
     "20261105140200_audit_event_taskings_detached.sql",
-    "20261105140300_calendar_lanes_report_change.sql",
+    "20261105140300_audit_calendar_lanes_reordered.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",

@@ -70,7 +70,8 @@ CREATE FUNCTION pg_temp.filter(p_person uuid, p_user uuid, p_action text, p_sinc
 RETURNS text LANGUAGE sql AS $$
   SELECT concat_ws(' AND ',
     'org_id = ' || quote_literal(pg_temp.id('101')),
-    'action NOT IN (''auth.login_success'', ''auth.login_failure'', ''auth.mfa_verify'', ''security.rate_limit_violation'')',
+    'action NOT IN (''auth.login_success'', ''auth.login_failure'', ''auth.mfa_verify'',
+      ''security.rate_limit_violation'', ''security.rate_limit_exceeded'')',
     CASE WHEN p_person IS NOT NULL THEN 'subject_personnel_id = ' || quote_literal(p_person) END,
     CASE WHEN p_user IS NOT NULL THEN 'user_id = ' || quote_literal(p_user) END,
     CASE WHEN p_action IS NOT NULL THEN 'action = ' || quote_literal(p_action) END,

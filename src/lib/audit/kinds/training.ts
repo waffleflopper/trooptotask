@@ -44,12 +44,12 @@ const trainingRecord = lifecycle({
 	about: true,
 	details: { completionDate: dateOnlySchema.nullable(), expirationDate: dateOnlySchema.nullable() },
 	fields: { completionDate: 'completed', expirationDate: 'expires' },
-	flags: { notes: 'notes' },
+	flags: { notes: 'notes', certificate: 'certificate' },
 	suffix: ({ completionDate }, context) => (completionDate ? `, completed ${day(completionDate, context)}` : '')
 });
 
 const historyFields = { completionDate: 'completed', expirationDate: 'expires' };
-const historyFlags = { notes: 'notes' };
+const historyFlags = { notes: 'notes', certificate: 'certificate' };
 
 const exemption = z.object({ record: savedLabel, subject: savedLabel, details: z.object({}) });
 
@@ -90,7 +90,8 @@ export const trainingKinds = {
 				change: changeOf({
 					completionDate: valueChange.optional(),
 					expirationDate: valueChange.optional(),
-					notes: flagged.optional()
+					notes: flagged.optional(),
+					certificate: flagged.optional()
 				})
 			})
 		}),

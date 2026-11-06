@@ -43,6 +43,7 @@ UPDATE public.training_views SET name = 'Medic board', column_ids = ARRAY[]::uui
 INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, training_type_id, completion_date, expiration_date)
 VALUES (pg_temp.id('421'), pg_temp.id('101'), pg_temp.id('301'), pg_temp.id('401'), '2030-01-10', '2032-01-10');
 UPDATE public.personnel_trainings SET completion_date = '2030-02-10', notes = 'Private note' WHERE id = pg_temp.id('421');
+UPDATE public.personnel_trainings SET certificate_url = 'certificates/Private.pdf' WHERE id = pg_temp.id('421');
 INSERT INTO public.ict_tasks (id, organization_id, task_code, title, mos) VALUES
   (pg_temp.id('501'), pg_temp.id('101'), '081-831-1101', 'Apply a tourniquet', ARRAY['68W']);
 UPDATE public.ict_tasks SET title = 'Apply a hemorrhage tourniquet', mos = ARRAY['68W', '68C'] WHERE id = pg_temp.id('501');
@@ -52,6 +53,7 @@ UPDATE public.ict_tasks SET archived_at = NULL WHERE id = pg_temp.id('501');
 INSERT INTO public.personnel_ict_completions (id, organization_id, personnel_id, ict_task_id, completed_at, validation_method)
 VALUES (pg_temp.id('511'), pg_temp.id('101'), pg_temp.id('301'), pg_temp.id('501'), '2030-03-01', 'Demonstration');
 UPDATE public.personnel_ict_completions SET completed_at = '2030-03-02', notes = 'Private note' WHERE id = pg_temp.id('511');
+UPDATE public.personnel_ict_completions SET validated_by = 'SSG Private' WHERE id = pg_temp.id('511');
 INSERT INTO public.rating_scheme_entries (
   id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end
 ) VALUES (pg_temp.id('601'), pg_temp.id('101'), pg_temp.id('301'), 'NCOER', '2030-01-01', '2030-12-31');
@@ -85,8 +87,10 @@ SELECT bag_eq(
     ('training_record.created', pg_temp.id('1'), 'SSG Rivera, Sam', 'Annual Safety Brief', pg_temp.id('301'), 'SPC Doe, Jane',
       '{"completionDate": "2030-01-10", "expirationDate": "2032-01-10"}'::jsonb),
     ('training_record.updated', pg_temp.id('1'), 'SSG Rivera, Sam', 'Annual Safety Brief', pg_temp.id('301'), 'SPC Doe, Jane',
-      '{"completionDate": "2030-02-10", "expirationDate": "2032-01-10", "change": {"completionDate": {"from": "2030-01-10", "to": "2030-02-10"}, "notes": true}}'::jsonb) $$,
-  'a training record saves the type, the person and the dates, and notes a change to its notes without them');
+      '{"completionDate": "2030-02-10", "expirationDate": "2032-01-10", "change": {"completionDate": {"from": "2030-01-10", "to": "2030-02-10"}, "notes": true}}'::jsonb),
+    ('training_record.updated', pg_temp.id('1'), 'SSG Rivera, Sam', 'Annual Safety Brief', pg_temp.id('301'), 'SPC Doe, Jane',
+      '{"completionDate": "2030-02-10", "expirationDate": "2032-01-10", "change": {"certificate": true}}'::jsonb) $$,
+  'a training record saves the type, the person and the dates, and notes a change to its notes or certificate without them');
 SELECT bag_eq(
   $$ SELECT action, record_label, details FROM public.audit_logs WHERE resource_type = 'ict_task' AND org_id = pg_temp.id('101') $$,
   $$ VALUES
@@ -101,8 +105,10 @@ SELECT bag_eq(
     ('personnel_ict_completion.created', 'Apply a hemorrhage tourniquet', 'SPC Doe, Jane',
       '{"completedAt": "2030-03-01", "validationMethod": "Demonstration"}'::jsonb),
     ('personnel_ict_completion.updated', 'Apply a hemorrhage tourniquet', 'SPC Doe, Jane',
-      '{"completedAt": "2030-03-02", "validationMethod": "Demonstration", "change": {"completedAt": {"from": "2030-03-01", "to": "2030-03-02"}, "notes": true}}'::jsonb) $$,
-  'a critical task completion saves the task title, the person and the date');
+      '{"completedAt": "2030-03-02", "validationMethod": "Demonstration", "change": {"completedAt": {"from": "2030-03-01", "to": "2030-03-02"}, "notes": true}}'::jsonb),
+    ('personnel_ict_completion.updated', 'Apply a hemorrhage tourniquet', 'SPC Doe, Jane',
+      '{"completedAt": "2030-03-02", "validationMethod": "Demonstration", "change": {"validator": true}}'::jsonb) $$,
+  'a critical task completion saves the task title, the person and the date, and notes a change of validator without the name');
 SELECT bag_eq(
   $$ SELECT action, record_label, subject_label, details FROM public.audit_logs WHERE resource_type = 'rating_scheme' AND org_id = pg_temp.id('101') $$,
   $$ VALUES

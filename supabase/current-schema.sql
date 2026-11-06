@@ -515,6 +515,9 @@ BEGIN
     IF NEW.notes IS DISTINCT FROM OLD.notes THEN
       v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
     END IF;
+    IF NEW.validated_by IS DISTINCT FROM OLD.validated_by THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('validator', true);
+    END IF;
     IF v_change = '{}'::jsonb THEN
       RETURN NULL;
     END IF;
@@ -1150,6 +1153,9 @@ BEGIN
   IF NEW.notes IS DISTINCT FROM OLD.notes THEN
     v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
   END IF;
+  IF NEW.certificate_url IS DISTINCT FROM OLD.certificate_url THEN
+    v_change := v_change || pg_catalog.jsonb_build_object('certificate', true);
+  END IF;
   IF v_change = '{}'::jsonb THEN
     RETURN NULL;
   END IF;
@@ -1201,6 +1207,9 @@ BEGIN
     v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"completionDate": "completion_date", "expirationDate": "expiration_date"}');
     IF NEW.notes IS DISTINCT FROM OLD.notes THEN
       v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
+    END IF;
+    IF NEW.certificate_url IS DISTINCT FROM OLD.certificate_url THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('certificate', true);
     END IF;
     IF v_change = '{}'::jsonb THEN
       RETURN NULL;

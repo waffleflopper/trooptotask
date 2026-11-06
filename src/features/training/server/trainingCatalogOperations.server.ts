@@ -50,6 +50,7 @@ export async function setTrainingTypeOrder(
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
 	const { trainingTypeIds, expectedTrainingTypeIds } = parsed.data;
 	await ctx.trainingCatalog.setTypeOrder(trainingTypeIds, expectedTrainingTypeIds);
+	if (trainingTypeIds.length === 0) return;
 	await ctx.audit.log({
 		action: 'training_type.reordered',
 		resourceType: 'organization',

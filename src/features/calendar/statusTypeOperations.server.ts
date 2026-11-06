@@ -38,6 +38,7 @@ export async function setStatusTypeOrder(ctx: CalendarCatalogPorts, input: Recor
 	const { statusTypeIds, expectedStatusTypeIds } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	await ctx.calendarCatalogs.setStatusTypeOrder(statusTypeIds, expectedStatusTypeIds);
+	if (statusTypeIds.length === 0) return;
 	await ctx.audit.log({
 		action: 'status_type.reordered',
 		resourceType: 'organization',

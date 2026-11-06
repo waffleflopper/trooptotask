@@ -26,7 +26,7 @@ const completion = lifecycle({
 	plural: 'critical task completions',
 	about: true,
 	details: { completedAt: dateOnlySchema, validationMethod: savedLabel },
-	fields: { completedAt: 'completed', validationMethod: 'validation method' },
+	fields: { completedAt: 'completed', validationMethod: 'validation method', person: 'person', task: 'task' },
 	flags: { notes: 'notes', validator: 'validator' },
 	suffix: ({ completedAt }, context) => ` on ${day(completedAt, context)}`
 });

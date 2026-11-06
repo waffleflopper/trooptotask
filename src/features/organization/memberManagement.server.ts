@@ -143,7 +143,7 @@ export interface OrganizationSettingsMemberManagementPort {
 	removeMembership(orgId: string, membershipId: string, expectedRole: EditableMembershipRole): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
 	getOrganizationName(orgId: string): Promise<string | null>;
-	findOrganizationGroupIds(orgId: string, groupIds: string[]): Promise<string[]>;
+	findOrganizationGroups(orgId: string, groupIds: string[]): Promise<Array<{ id: string; name: string }>>;
 }
 
 export interface OrganizationInvitationDeliveryPort {
@@ -876,7 +876,7 @@ export async function updateOrganizationMemberAccess(
 			requestedAccess &&
 			keepStoredLanes(requestedAccess, targetMembership.storedLevels, disabledFeatureLanes(ports.disabledFeatures))
 	});
-	await requireOrganizationGroups(ports, accessCommand.accessScopeGroupIds);
+	const groupNames = await requireOrganizationGroups(ports, accessCommand.accessScopeGroupIds);
 	const updatesHighPrivilegeAccess =
 		isHighPrivilegeAccess(targetMembership?.role, targetMembership?.canManageMembers) ||
 		isHighPrivilegeAccess(accessCommand.role, false);
@@ -915,7 +915,13 @@ export async function updateOrganizationMemberAccess(
 		resourceType: 'organization',
 		resourceId: input.membershipId,
 		record: targetMembership.email ? maskEmail(targetMembership.email) : 'a member',
-		details: { role: accessCommand.role },
+		details: {
+			role: accessCommand.role,
+			preset: accessCommand.memberPreset,
+			scope: accessCommand.accessScopeKind,
+			groups: groupNames,
+			capabilities: accessCommand.capabilityOverrides
+		},
 		severity: 'warning'
 	});
 
@@ -993,12 +999,19 @@ async function auditDeniedSensitiveAction(
 	});
 }
 
-async function requireOrganizationGroups(ports: OrganizationSettingsMemberManagementPorts, groupIds: string[]) {
-	if (groupIds.length === 0) return;
-	const found = new Set(await ports.settings.findOrganizationGroupIds(ports.auth.orgId, groupIds));
-	if (groupIds.some((id) => !found.has(id))) {
+async function requireOrganizationGroups(
+	ports: OrganizationSettingsMemberManagementPorts,
+	groupIds: string[]
+): Promise<string[]> {
+	if (groupIds.length === 0) return [];
+	const found = new Map(
+		(await ports.settings.findOrganizationGroups(ports.auth.orgId, groupIds)).map((group) => [group.id, group.name])
+	);
+	const names = groupIds.map((id) => found.get(id));
+	if (names.some((name) => name === undefined)) {
 		fail(400, 'Select groups from this organization');
 	}
+	return names as string[];
 }
 
 function isHighPrivilegeAccess(role: string | null | undefined, canManageMembers: boolean | null | undefined): boolean {

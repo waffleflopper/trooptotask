@@ -193,6 +193,7 @@ export async function reorderOnboardingTemplateSteps(
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template_step');
 	const template = await requireTemplate(ctx, input.templateId);
 	const steps = await ctx.onboardingCatalog.reorderSteps(input.templateId, input.orderedStepIds);
+	if (input.orderedStepIds.length === 0) return steps;
 	await ctx.audit.log({
 		action: 'onboarding_template_step.reordered',
 		resourceType: 'onboarding_template',

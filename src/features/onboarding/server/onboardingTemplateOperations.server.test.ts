@@ -251,6 +251,15 @@ describe('Onboarding Template Step ordering', () => {
 		});
 	});
 
+	it('saves an empty step order without an audit entry, which the catalog would refuse', async () => {
+		const ctx = configurationContext();
+		ctx.store.seed('onboarding_templates', [
+			{ id: TMPL_ID, name: 'Empty template', description: null, organization_id: 'test-org' }
+		]);
+		await expect(reorderOnboardingTemplateSteps(ctx, { templateId: TMPL_ID, orderedStepIds: [] })).resolves.toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it('rejects stale step ordering that omits a template step', async () => {
 		const ctx = configurationContext();
 		ctx.store.seed('onboarding_template_steps', [

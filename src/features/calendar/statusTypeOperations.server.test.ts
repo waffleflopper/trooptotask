@@ -288,6 +288,12 @@ describe('StatusType CRUD use case', () => {
 		]);
 	});
 
+	it('saves an empty order without an audit entry, which the catalog would refuse', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await expect(setStatusTypeOrder(ctx, { statusTypeIds: [], expectedStatusTypeIds: [] })).resolves.toBeUndefined();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it.each([
 		['a stale view with 409', [SCHOOL, LEAVE, SICK], [SICK, LEAVE, SCHOOL], 409],
 		['a partial order with 400', [SCHOOL, LEAVE], [LEAVE, SICK, SCHOOL], 400],

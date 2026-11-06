@@ -96,6 +96,7 @@ export async function setGroupOrder(ctx: GroupWriteContext, input: Record<string
 	const { groupIds, expectedGroupIds, parentId } = validatedInput(orderInput, input);
 	await requireGroupManager(ctx);
 	await ctx.groups.setOrder(groupIds, expectedGroupIds, parentId);
+	if (groupIds.length === 0) return;
 	await ctx.audit.log({
 		action: 'group.reordered',
 		resourceType: 'organization',

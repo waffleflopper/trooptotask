@@ -45,7 +45,8 @@ export async function renameOrganization(
 	await ports.audit.log({
 		action: 'org.renamed',
 		resourceType: 'organization',
-		details: { name }
+		record: name,
+		details: {}
 	});
 
 	return { nameSuccess: true };
@@ -74,7 +75,8 @@ export async function updateOrganizationUrlSlug(
 	await ports.audit.log({
 		action: 'org.url_slug_updated',
 		resourceType: 'organization',
-		details: { urlSlug }
+		record: urlSlug,
+		details: {}
 	});
 
 	return { slugSuccess: true, orgUrlSlug: urlSlug };

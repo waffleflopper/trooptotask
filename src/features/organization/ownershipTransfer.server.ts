@@ -11,6 +11,7 @@ import {
 	type SensitiveActionDecision
 } from '$features/identity/contracts';
 import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
+import { maskEmail } from '$lib/audit/index.server';
 
 export interface OrganizationOwnershipTransferPort {
 	findOwnershipTransferTarget(
@@ -60,7 +61,6 @@ export async function transferOrganizationOwnership(
 		actorUserId: ports.auth.userId,
 		target: { type: 'organization', id: ports.auth.orgId }
 	});
-	const sensitiveAction = sensitiveActionDecisionAuditDetails(decision);
 	if (!decision.allowed) {
 		await auditDeniedSensitiveAction(ports, decision, { newOwnerId: input.newOwnerId });
 		throwSensitiveActionFailure(decision);
@@ -74,7 +74,8 @@ export async function transferOrganizationOwnership(
 	await ports.audit.log({
 		action: 'org.ownership_transferred',
 		resourceType: 'organization',
-		details: { newOwnerId: input.newOwnerId, sensitiveAction },
+		record: maskEmail(targetMember.email),
+		details: {},
 		severity: 'critical'
 	});
 

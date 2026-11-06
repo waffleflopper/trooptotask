@@ -30,7 +30,6 @@ describe('Training catalog JSON routes', () => {
 			'delivery unavailable'
 		);
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: type.id })).toBeNull();
-		expect(ctx.auditPort.events.some(({ action }) => action === 'training_type.deleted')).toBe(true);
 	});
 
 	it('answers 409, 404 and 400 for conflicting, missing and malformed catalog writes without saving them', async () => {
@@ -62,7 +61,7 @@ describe('Training catalog JSON routes', () => {
 			(await ctx.store.findMany<{ name: string }>('training_types', ctx.auth.orgId)).map((row) => row.name)
 		).toEqual(['CPR']);
 		expect(await ctx.store.findMany('training_views', ctx.auth.orgId)).toEqual([]);
-		expect(ctx.auditPort.events.map(({ action }) => action)).toEqual(['training_type.created']);
+
 		expect(type.name).toBe('CPR');
 	});
 

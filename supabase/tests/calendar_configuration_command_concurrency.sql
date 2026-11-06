@@ -243,10 +243,10 @@ SELECT pg_temp.send('b', pg_temp.reset_sql());
 SELECT ok(pg_temp.blocked_by('b', 'c', 'transactionid'), 'the reset waits on the held Organization row');
 SELECT ok(EXISTS (SELECT 1 FROM pg_stat_activity w JOIN pg_locks l ON l.pid = w.pid AND l.granted
     WHERE w.application_name = 't1643cal_b' AND l.locktype = 'tuple' AND l.relation = 'public.organizations'::regclass),
-  'the waiting lock is the reset INSERT''s Organization foreign-key check');
+  'the waiting lock is an Organization foreign-key check, first reached by the audit entry of the reset DELETE');
 SELECT pg_temp.set_calendar(2, 'view');
 SELECT pg_temp.exec('c', 'ROLLBACK');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'new row violates row-level security policy for table "special_days"'),
   'access revoked during the foreign-key wait denies the reset');
 SELECT pg_temp.exec('b', 'COMMIT');
 SELECT pg_temp.set_calendar(2, 'configure');

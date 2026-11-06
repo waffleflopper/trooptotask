@@ -32,6 +32,7 @@ SELECT dblink_exec('audit_batches', $fixture$
     ('a1991000-0000-4000-8000-000000000302', 'a1991000-0000-4000-8000-000000000101', 'PFC', 'Rich', 'Roe', 'batch-roe');
   INSERT INTO public.status_types (id, organization_id, name)
   VALUES ('a1991000-0000-4000-8000-000000000401', 'a1991000-0000-4000-8000-000000000101', 'Leave');
+  DELETE FROM public.audit_logs WHERE org_id = 'a1991000-0000-4000-8000-000000000101';
 $fixture$);
 
 SELECT dblink_exec('audit_batches', $$SET ROLE authenticated$$);

@@ -49,7 +49,8 @@ import type { createRequestOrganizationExportContext } from './requestContexts.s
 import type { FixtureRowStore, FixtureFindOptions, FixtureFindResult } from './test-support/inMemoryRows.types';
 import type { PersonnelScopeEnforcement } from '$features/personnel/contracts';
 import type { StoragePort } from '$lib/storage/contracts';
-import type { AuditEvent, AuditPort } from '$lib/audit/contracts';
+import { auditKindOf } from '$lib/audit/catalog';
+import type { AuditEvent, BatchAuditPort } from '$lib/audit/contracts';
 import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type {
 	AssignmentSlotChange,
@@ -834,12 +835,23 @@ export function createTestScopeEnforcementPort(
 	return { ...defaults, ...overrides };
 }
 
-export function createTestAuditPort(): AuditPort & { events: AuditEvent[] } {
+export function createTestAuditPort(): BatchAuditPort & { events: AuditEvent[] } {
 	const events: AuditEvent[] = [];
 	return {
 		events,
 		async log(event: AuditEvent): Promise<void> {
+			const kind = auditKindOf(event.action);
+			if (kind?.writer === 'database') throw new Error(`${event.action} is recorded by the database`);
+			const entry = {
+				record: event.record ?? null,
+				subject: event.subject ? (event.subject.label ?? 'A person') : null,
+				details: event.details ?? {}
+			};
+			if (kind && !kind.accept(entry)) throw new Error(`${event.action} lacks what its kind requires`);
 			events.push(event);
+		},
+		async logMany(batch: AuditEvent[]): Promise<void> {
+			for (const event of batch) await this.log(event);
 		}
 	};
 }

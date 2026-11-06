@@ -84,12 +84,6 @@ describe('POST /api/personnel/group-membership', () => {
 			charlie
 		]);
 		expect(await groupOf(ctx, archived)).toBe(alpha);
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'personnel.group_changed',
-				details: { groupId: charlie, personnelIds: [able, baker, unassigned] }
-			})
-		]);
 	});
 
 	it('moves People to Unassigned and counts someone already there as moved without another write', async () => {
@@ -101,9 +95,6 @@ describe('POST /api/personnel/group-membership', () => {
 			unavailableIds: []
 		});
 		expect(await groupOf(ctx, able)).toBeNull();
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({ action: 'personnel.group_changed', details: { groupId: null, personnelIds: [able] } })
-		]);
 	});
 
 	it('lets a Group-scoped operator move People only between their own Groups', async () => {

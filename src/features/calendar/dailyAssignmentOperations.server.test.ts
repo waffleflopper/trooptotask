@@ -98,7 +98,11 @@ describe('Daily Assignment Slot writes', () => {
 			assigneeId: PERSON_1
 		});
 		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({ action: 'daily_assignment.created', resourceId: result.id })
+			expect.objectContaining({
+				action: 'daily_assignment.created',
+				details: { date: '2026-03-22', group: null },
+				subject: { personnelId: PERSON_1 }
+			})
 		]);
 	});
 
@@ -210,7 +214,9 @@ describe('Daily Assignment Slot writes', () => {
 		});
 
 		expect(result).toEqual([expect.objectContaining({ id: 'old-slot', assigneeId: PERSON_1 })]);
-		expect(ctx.audit.events).toEqual([expect.objectContaining({ action: 'daily_assignment.replaced' })]);
+		expect(ctx.audit.events).toEqual([
+			expect.objectContaining({ action: 'daily_assignment.updated', subject: { personnelId: PERSON_1 } })
+		]);
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
 			expect.objectContaining({
 				date: '2026-03-22',

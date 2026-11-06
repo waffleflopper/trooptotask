@@ -91,7 +91,8 @@ describe('renameOrganization', () => {
 			{
 				action: 'org.renamed',
 				resourceType: 'organization',
-				details: { name: 'Alpha Company' }
+				record: 'Alpha Company',
+				details: {}
 			}
 		]);
 	});
@@ -118,9 +119,22 @@ describe('renameOrganization', () => {
 			{
 				action: 'org.renamed',
 				resourceType: 'organization',
-				details: { name: 'Alpha Company' }
+				record: 'Alpha Company',
+				details: {}
 			}
 		]);
+	});
+
+	it('fails the rename when the audit write is rejected', async () => {
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		const audit = { log: () => Promise.reject(new Error('Audit log write failed')) };
+
+		await expect(
+			renameOrganization(
+				{ auth: ctx.auth, audit, administration: createOrganizationProfilePort() },
+				{ name: 'Alpha Company' }
+			)
+		).rejects.toThrow('Audit log write failed');
 	});
 
 	it('caps normalized Organization names at the retained 100-character limit', async () => {
@@ -128,7 +142,7 @@ describe('renameOrganization', () => {
 		const port = createOrganizationProfilePort();
 		await renameOrganization({ auth: ctx.auth, audit: ctx.audit, administration: port }, { name: 'X'.repeat(101) });
 		expect(port.renameRequests).toEqual([{ orgId: 'org-1', name: 'X'.repeat(100) }]);
-		expect(ctx.auditPort.events).toMatchObject([{ details: { name: 'X'.repeat(100) } }]);
+		expect(ctx.auditPort.events).toMatchObject([{ record: 'X'.repeat(100) }]);
 	});
 
 	it('rejects empty organization names before provider work starts', async () => {
@@ -184,7 +198,8 @@ describe('updateOrganizationUrlSlug', () => {
 			{
 				action: 'org.url_slug_updated',
 				resourceType: 'organization',
-				details: { urlSlug: '1-11-bde' }
+				record: '1-11-bde',
+				details: {}
 			}
 		]);
 	});

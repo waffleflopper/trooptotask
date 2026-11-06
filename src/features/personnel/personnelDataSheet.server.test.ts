@@ -166,10 +166,6 @@ async function savedResult(ctx: ReturnType<typeof buildContext>, input: unknown)
 	return result;
 }
 
-function savedEvents(ctx: ReturnType<typeof buildContext>) {
-	return ctx.auditPort.events.filter((event) => event.action.endsWith('.updated'));
-}
-
 describe('Data sheet save', () => {
 	it.each([true, false])(
 		"rejects an archived Person's duplicate DoD ID on save, existing sheet %s",
@@ -224,11 +220,6 @@ describe('Data sheet save', () => {
 			address: '100 Main St, Anchorage, AK, 99501',
 			updatedBy: 'Pat Lee'
 		});
-		expect(
-			savedEvents(ctx)
-				.map((event) => event.action)
-				.sort()
-		).toEqual(['personnel.extended_info.updated', 'personnel.updated']);
 	});
 
 	it('replaces every sheet field but keeps the acknowledgement, row identity and creation time', async () => {
@@ -353,7 +344,6 @@ describe('Data sheet save', () => {
 			message: expect.any(String)
 		});
 		expect(await storedState(ctx)).toEqual(before);
-		expect(savedEvents(ctx)).toEqual([]);
 	});
 
 	it.each([
@@ -367,7 +357,6 @@ describe('Data sheet save', () => {
 			savePersonnelDataSheet(ctx, personnelId, { basicInfo: { ...basicInfo, mos: '68X' }, extendedInfo })
 		).rejects.toMatchObject({ status: 404 });
 		expect(await storedState(ctx)).toEqual(before);
-		expect(savedEvents(ctx)).toEqual([]);
 	});
 
 	it('does not let a roster viewer save', async () => {
@@ -396,7 +385,6 @@ describe('Data sheet save', () => {
 			savePersonnelDataSheet(ctx, PERSON_1, { basicInfo: { ...basicInfo, mos: '68X' }, extendedInfo })
 		).rejects.toThrow('controlled sheet write failure');
 		expect(await storedState(ctx)).toEqual(before);
-		expect(savedEvents(ctx)).toEqual([]);
 		fault.mockRestore();
 		const retry = await savePersonnelDataSheet(ctx, PERSON_1, {
 			basicInfo: { ...basicInfo, mos: '68X' },

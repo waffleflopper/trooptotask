@@ -252,7 +252,7 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 			expect.objectContaining({
 				action: 'daily_assignment.updated',
 				resourceType: 'daily_assignment',
-				resourceId: 'linked'
+				record: 'Staff Duty'
 			})
 		]);
 		expect(await ctx.rawStore.findMany('daily_assignments', 'other-org')).toEqual([savedSlots[7]]);
@@ -291,8 +291,16 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 			).toEqual([saved]);
 		}
 		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({ action: 'daily_assignment.updated', resourceId: 'group-slot' }),
-			expect.objectContaining({ action: 'daily_assignment.updated', resourceId: 'group-slot' })
+			expect.objectContaining({
+				action: 'daily_assignment.updated',
+				record: 'Detail',
+				details: { date: '2026-03-15', group: 'Alpha' }
+			}),
+			expect.objectContaining({
+				action: 'daily_assignment.updated',
+				record: 'Detail',
+				details: { date: '2026-03-15', group: 'Bravo' }
+			})
 		]);
 	});
 

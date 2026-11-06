@@ -34,6 +34,8 @@ export async function cancelDeletionRequest(ctx: DeletionRequestCancellationCont
 	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.cancelled`,
 		resourceType: AUDIT_RESOURCE,
-		resourceId: requestId
+		resourceId: requestId,
+		record: request.resource_description ?? 'a record',
+		details: { resourceType: request.resource_type }
 	});
 }

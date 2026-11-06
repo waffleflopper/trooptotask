@@ -45,9 +45,8 @@ describe('ICT task order JSON handler', () => {
 			[TASK_B, 0],
 			[TASK_C, 4]
 		]);
-		expect(ctx.auditPort.events.map((event) => [event.action, event.resourceId])).toEqual([
-			['ict_task.reordered', TASK_B],
-			['ict_task.reordered', TASK_A]
+		expect(ctx.auditPort.events.map((event) => [event.action, event.details])).toEqual([
+			['ict_task.reordered', { count: 2 }]
 		]);
 	});
 });

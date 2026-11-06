@@ -599,11 +599,8 @@ describe('inviteOrganizationMember', () => {
 			{
 				action: 'member.invite',
 				resourceType: 'organization',
-				details: {
-					email: 'new.user@example.com',
-					membershipRole: 'member',
-					memberPreset: 'operator'
-				}
+				record: 'n***@example.com',
+				details: { role: 'member' }
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -1376,11 +1373,8 @@ describe('inviteOrganizationMember', () => {
 			{
 				action: 'member.invite',
 				resourceType: 'organization',
-				details: {
-					email: 'manager@example.com',
-					membershipRole: 'member',
-					memberPreset: 'viewer'
-				}
+				record: 'm***@example.com',
+				details: { role: 'member' }
 			}
 		]);
 		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
@@ -1443,10 +1437,7 @@ describe('inviteOrganizationMember', () => {
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
 				action: 'member.invite',
-				details: expect.objectContaining({
-					email: 'new.user@example.com',
-					rateLimit: expect.objectContaining({ action: 'create' })
-				})
+				record: 'n***@example.com'
 			})
 		);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -2080,7 +2071,9 @@ describe('revokeOrganizationInvitation', () => {
 			{
 				action: 'member.invite_revoked',
 				resourceType: 'organization',
-				details: { inviteId: '11111111-1111-4111-8111-111111111111' }
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				record: 'i***@example.com',
+				details: {}
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -2452,13 +2445,9 @@ describe('removeOrganizationMember', () => {
 		expect(ctx.auditPort.events).toContainEqual({
 			action: 'member.removed',
 			resourceType: 'organization',
-			details: {
-				membershipId: '11111111-1111-4111-8111-111111111111',
-				sensitiveAction: expect.objectContaining({
-					action: 'organization.member.removeHighPrivilege',
-					reason: 'allowed.recentSession'
-				})
-			}
+			resourceId: '11111111-1111-4111-8111-111111111111',
+			record: 'm***@example.com',
+			details: {}
 		});
 	});
 
@@ -2579,7 +2568,9 @@ describe('removeOrganizationMember', () => {
 			{
 				action: 'member.removed',
 				resourceType: 'organization',
-				details: { membershipId: '11111111-1111-4111-8111-111111111111' }
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				record: 'm***@example.com',
+				details: {}
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -2679,7 +2670,8 @@ describe('leaveOrganization', () => {
 			{
 				action: 'member.left',
 				resourceType: 'organization',
-				details: { membershipId: '11111111-1111-4111-8111-111111111111' }
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				details: {}
 			}
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
@@ -3265,18 +3257,9 @@ describe('updateOrganizationMemberAccess', () => {
 			{
 				action: 'member.access_changed',
 				resourceType: 'organization',
-				details: {
-					membershipId: '11111111-1111-4111-8111-111111111111',
-					membershipRole: 'admin',
-					memberPreset: 'editor',
-					capabilityOverrides: {},
-					accessScopeKind: 'organization',
-					accessScopeGroupIds: [],
-					sensitiveAction: expect.objectContaining({
-						action: 'organization.member.updateHighPrivilege',
-						reason: 'allowed.recentSession'
-					})
-				},
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				record: 'a member',
+				details: { role: 'admin' },
 				severity: 'warning'
 			}
 		]);
@@ -3356,14 +3339,9 @@ describe('updateOrganizationMemberAccess', () => {
 			{
 				action: 'member.access_changed',
 				resourceType: 'organization',
-				details: {
-					membershipId: '11111111-1111-4111-8111-111111111111',
-					membershipRole: 'member',
-					memberPreset: 'editor',
-					capabilityOverrides: { personnel: 'view' },
-					accessScopeKind: 'organization',
-					accessScopeGroupIds: []
-				},
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				record: 'a member',
+				details: { role: 'member' },
 				severity: 'warning'
 			}
 		]);

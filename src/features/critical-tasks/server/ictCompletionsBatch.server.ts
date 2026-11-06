@@ -101,59 +101,46 @@ export async function importIctCompletionsBatch(
 			});
 	}
 
-	let added = 0;
-	let updated = 0;
-	try {
-		if (creates.length) {
-			try {
-				const saved = await ctx.criticalTaskCompletions.createMany(creates.map((item) => item.completion));
-				creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
-				added += saved.length;
-			} catch (bulkError) {
-				if (isUnconfirmedWrite(bulkError)) {
-					for (const item of creates) results[item.index] = rowFailure(bulkError);
-				} else {
-					for (const item of creates) {
-						try {
-							results[item.index] = {
-								kind: 'added',
-								record: await ctx.criticalTaskCompletions.create(item.completion)
-							};
-							added++;
-						} catch (error) {
-							results[item.index] = rowFailure(error);
-						}
+	if (creates.length) {
+		try {
+			const saved = await ctx.criticalTaskCompletions.createMany(creates.map((item) => item.completion));
+			creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
+		} catch (bulkError) {
+			if (isUnconfirmedWrite(bulkError)) {
+				for (const item of creates) results[item.index] = rowFailure(bulkError);
+			} else {
+				for (const item of creates) {
+					try {
+						results[item.index] = {
+							kind: 'added',
+							record: await ctx.criticalTaskCompletions.create(item.completion)
+						};
+					} catch (error) {
+						results[item.index] = rowFailure(error);
 					}
 				}
 			}
 		}
-		for (const item of updates) {
-			const { validationMethod, validatedBy, notes } = item.record;
-			const patch = {
-				...(validationMethod && validationMethod !== item.saved.validationMethod ? { validationMethod } : {}),
-				...(validatedBy && validatedBy !== item.saved.validatedBy ? { validatedBy } : {}),
-				...(notes && notes !== item.saved.notes ? { notes } : {})
-			};
-			if (!Object.keys(patch).length) {
-				results[item.index] = { kind: 'unchanged' };
-				continue;
-			}
-			try {
-				results[item.index] = {
-					kind: 'updated',
-					record: await ctx.criticalTaskCompletions.update(item.saved.id, patch)
-				};
-				updated++;
-			} catch (error) {
-				results[item.index] = rowFailure(error);
-			}
+	}
+	for (const item of updates) {
+		const { validationMethod, validatedBy, notes } = item.record;
+		const patch = {
+			...(validationMethod && validationMethod !== item.saved.validationMethod ? { validationMethod } : {}),
+			...(validatedBy && validatedBy !== item.saved.validatedBy ? { validatedBy } : {}),
+			...(notes && notes !== item.saved.notes ? { notes } : {})
+		};
+		if (!Object.keys(patch).length) {
+			results[item.index] = { kind: 'unchanged' };
+			continue;
 		}
-	} finally {
-		await ctx.audit.log({
-			action: 'personnel_ict_completion.bulk_imported',
-			resourceType: 'personnel_ict_completion',
-			details: { inserted: added, updated, failed: results.filter((result) => result?.kind === 'failed').length }
-		});
+		try {
+			results[item.index] = {
+				kind: 'updated',
+				record: await ctx.criticalTaskCompletions.update(item.saved.id, patch)
+			};
+		} catch (error) {
+			results[item.index] = rowFailure(error);
+		}
 	}
 	return { results };
 }

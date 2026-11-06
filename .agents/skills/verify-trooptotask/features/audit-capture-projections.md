@@ -17,6 +17,12 @@ Organizations without disclosing those privileged details to anyone else.
   as the change, with the actor, status, person and dates saved as labels. A later rename or deletion does not change
   the sentence. A change shows its dates before and after. One bulk add, import or removal writes one entry per row
   under one batch, which Logs shows as one line that opens to its rows.
+- `family-capture`: the same holds for Personnel, Training, Critical Tasks, Onboarding, Groups, the Calendar
+  catalogs, and Calendar events and taskings with their equipment and checklist items. A change made through the member's own session is audited by the database in the same transaction, with the
+  signed-in member as Actor and saved labels for the record and, for a person's record, the person (`<rank> <last>,
+<first>`). A change the server makes with its own authority (a leader note, counseling record, document, export or
+  deletion request) is written by the app, awaited, and fails the change if the write fails. Seeded fixture rows are
+  written by the database with no signed-in member and read `System`.
 - `streamed-load`: Logs paints its header and filters at once, holds the results skeleton while the audit read runs and
   shows its own load error, with retry, when that read fails. A failed Load more keeps the rows above it and offers its
   own Retry.
@@ -130,12 +136,13 @@ entries match these filters` with `Clear filters`: both dates are inclusive days
    and no submitted password is recorded. This event has no Organization: correlate the unique masked domain through the
    admitted Platform Audit page data, rather than the A/B-scoped provider helper. Separately open an existing Training
    matrix cell, change its Notes in Edit Training Record and Save. Read the actual `training_record.updated` event and
-   verify its actor/resource/Organization, then reload/reopen to confirm persistence. Restore the original completion
-   fields through the editor and read them back. The native editor uses POST upsert and records empty details; it does
-   not produce label references. Use `$V audit-training-update PAGE orgA JSON` with the saved record `id` and a Notes
-   change for separately identified ordinary PUT proof. It supplies Personnel/Training references; read the event,
-   admitted owner labels and privileged raw saved details separately, and restore the original Notes through the same
-   helper. Seeded page-data witnesses establish label projection, not that PUT's writing. Native producer, privileged
+   verify its actor/resource/Organization, then reload/reopen to confirm persistence. A first save of an empty cell
+   writes `training_record.created` and a later change `training_record.updated`; both carry saved labels for the
+   Training type and the person. Restore the original completion fields through the editor and read them back. Use
+   `$V audit-training-update PAGE orgA JSON` with the saved record `id` and a Notes change for separately identified
+   ordinary PUT proof, and read the event, admitted owner labels and privileged raw saved details separately. The
+   notes text itself is never saved, only that it changed. Restore the original Notes through the same helper. Seeded
+   page-data witnesses establish label projection, not that PUT's writing. Native producer, privileged
    readback and display each establish their own boundary.
 6. **Navigation failure and retry.** On a fresh owner General Settings page, focus Logs with native keyboard controls,
    arm `$V network arm-fail PAGE audit-page`, then press Enter. Avoid hover prefetch consuming the one-shot failure
@@ -166,12 +173,27 @@ availability.updated` shows saved `actor_label`, `record_label`, `subject_label`
    for two people. Logs shows one line `Added 2 availability entries`, a button with `aria-expanded="false"`; Enter
    opens a row per person and search for one surname still finds the line. Remove those two through bulk Remove and
    read `Deleted 2 availability entries` the same way. Restore the rename.
-9. **Organization export reverse consumer.** As the owner, open Settings and Data Export, arm the maintained
-   export/observe controls, and download actual JSON and Excel through their visible buttons. Inspect the complete saved
-   Audit section/sheet: same-A stored rows and raw masked fields remain, including excluded auth actions; B's sentinel
-   must be absent. Compare against an independently captured A provider set before export, accounting separately for the
-   legitimate post-build event (`export.created` for JSON; `export.excel_created` for Excel). Capture real network
-   status and downloaded bytes, restore both controls, and keep the actual files.
+9. **Family capture.** As `orgOwner`, make one ordinary change per family and read each in Logs and with
+   `$V rows audit_logs orgA action <kind>`. Quick edit a person's Duty role on Personnel (`personnel.updated`, Event
+   `Changed SPC Able, Synthetic: role Medic → Senior Medic`). Add `Charlie` in Manage Groups (`group.created`,
+   `Added Group Charlie`). On Training, open an empty cell and Save (`training_record.created`, `Added training
+record <type> for <person>, completed <d Mon>`). On ICTLs, open an empty cell, pick a date and a validation method,
+   Save (`personnel_ict_completion.created`). On Onboard, Start onboarding for a person
+   (`onboarding.started`, `Started onboarding for <person> (<template>)`). On a person's page, Add to record then
+   Note (`personnel.leader_note.created`, `Added a leader note for <person>`, empty `details`, `subject_label` filled
+   by the database). In Calendar Settings, Add new status type (`status_type.created`). On Events, add an event (`calendar_event.created`, `Added event <title> from <d Mon> to <d Mon>`), then cancel
+   it (`calendar_event.cancelled`; the reason is never saved). On a Tasking, Start it (`calendar_tasking.started`).
+   A roster Fill writes one `daily_assignment.created` per day under one batch, which Logs folds into one line. Every one of these shows the
+   owner's email as Actor, while the fixture's own rows show `System`. Then rename the person (Last name in Quick
+   edit): the earlier sentences keep the old name and the rename reads `Changed SPC Alder, Synthetic: name Able,
+Synthetic → Alder, Synthetic`. Restore the name. The Add onboarding Member picker lists names only on screen, not
+   in the snapshot; type, press ArrowDown and Enter. The ICT dialog needs a Validation Method before Save.
+10. **Organization export reverse consumer.** As the owner, open Settings and Data Export, arm the maintained
+    export/observe controls, and download actual JSON and Excel through their visible buttons. Inspect the complete saved
+    Audit section/sheet: same-A stored rows and raw masked fields remain, including excluded auth actions; B's sentinel
+    must be absent. Compare against an independently captured A provider set before export, accounting separately for the
+    legitimate post-build event (`export.created` for JSON; `export.excel_created` for Excel). Capture real network
+    status and downloaded bytes, restore both controls, and keep the actual files.
 
 Restore hooks and edited originals, run `clean-seeds`, and read every seed ID back as absent in its recorded
 Organization. Original audit rows must retain their saved fields; expected producer/login additions remain confined to

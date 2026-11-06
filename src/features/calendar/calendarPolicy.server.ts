@@ -6,7 +6,7 @@ import {
 	type PolicyDecision,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import type { GroupPersistence, PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import type {
 	CalendarAssignmentReader,
 	CalendarAssignmentReplacementPort,
@@ -47,6 +47,7 @@ export interface CalendarWritePorts extends CalendarCatalogPorts {
 	calendarAssignments: CalendarAssignmentReader;
 	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
 	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'findGroupIds'>;
+	groups: Pick<GroupPersistence, 'listCatalog'>;
 }
 
 export interface CalendarAvailabilityRemovalPorts extends CalendarPersonnelPolicyPorts {

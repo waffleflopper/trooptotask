@@ -197,11 +197,7 @@ export async function acceptDashboardInvitation(
 		action: 'organization_invitation.accepted',
 		resourceType: 'organization_invitation',
 		resourceId: input.invitationId,
-		details: {
-			organizationId: accepted.organizationId,
-			userId: input.userId,
-			stateTransition: 'pending.accepted'
-		}
+		details: {}
 	});
 
 	return { success: true, accepted: true };

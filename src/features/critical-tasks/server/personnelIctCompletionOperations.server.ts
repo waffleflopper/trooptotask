@@ -112,7 +112,6 @@ export async function createPersonnelIctCompletion(
 
 	await requireCompletionPersonScope(writeCtx, await findCompletionPerson(writeCtx, personnelId));
 	const row = await ctx.criticalTaskCompletions.create(validated);
-	await ctx.audit.log({ action: `${AUDIT_RESOURCE}.created`, resourceType: AUDIT_RESOURCE, resourceId: row.id });
 	return row;
 }
 
@@ -131,7 +130,6 @@ export async function updatePersonnelIctCompletion(
 	await requireRecordScope(writeCtx, completionId);
 	if (!(await findExistingCompletion(writeCtx, completionId))) fail(404, 'That completion is no longer available.');
 	const row = await ctx.criticalTaskCompletions.update(completionId, validated);
-	await ctx.audit.log({ action: `${AUDIT_RESOURCE}.updated`, resourceType: AUDIT_RESOURCE, resourceId: completionId });
 	return row;
 }
 
@@ -144,6 +142,5 @@ export async function preparePersonnelIctCompletionDeletion(ctx: PersonnelIctCom
 	return async (): Promise<void> => {
 		await requireRecordScope(writeCtx, id);
 		await ctx.criticalTaskCompletions.delete(id);
-		await ctx.audit.log({ action: `${AUDIT_RESOURCE}.deleted`, resourceType: AUDIT_RESOURCE, resourceId: id });
 	};
 }

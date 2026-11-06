@@ -30,7 +30,11 @@ const swap = {
 		{ date: '2026-10-19', heldBy: PATEL }
 	]
 } as const;
-const result: RosterSwapResult = { saved: [], swap, assignmentTypeId: TYPE };
+const swappedDays = [
+	{ id: 'day-12', date: '2026-10-12', assigneeId: PATEL, assignmentTypeId: TYPE },
+	{ id: 'day-19', date: '2026-10-19', assigneeId: KIM, assignmentTypeId: TYPE }
+];
+const result: RosterSwapResult = { saved: swappedDays, swap, assignmentTypeId: TYPE };
 
 function context(options?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
 	const ctx = createWriteWithNotificationsPortsContext(options);
@@ -344,10 +348,10 @@ describe('duty swap operations', () => {
 			release = resolve;
 		});
 		ctx.audit.log = async (event) => {
-			expect(event).toEqual({
-				action: kind === 'swap' ? 'daily_assignment.roster_swapped' : 'daily_assignment.roster_swap_undone',
+			expect(event).toMatchObject({
+				action: 'daily_assignment.updated',
 				resourceType: 'daily_assignment',
-				details: { assignmentTypeId: TYPE, dates: ['2026-10-12', '2026-10-19'] }
+				details: { date: expect.stringMatching(/^2026-10-(12|19)$/) }
 			});
 			logged = true;
 			await held;
@@ -433,12 +437,21 @@ describe('duty swap operations', () => {
 			]
 		});
 		expect(ctx.audit.events).toEqual([
-			{
-				action: 'daily_assignment.roster_swapped',
+			expect.objectContaining({
+				action: 'daily_assignment.updated',
 				resourceType: 'daily_assignment',
-				details: { assignmentTypeId: TYPE, dates: ['2026-10-12', '2026-10-19'] }
-			}
+				subject: { personnelId: PATEL },
+				details: { date: '2026-10-12', group: null }
+			}),
+			expect.objectContaining({
+				action: 'daily_assignment.updated',
+				resourceType: 'daily_assignment',
+				subject: { personnelId: KIM },
+				details: { date: '2026-10-19', group: null }
+			})
 		]);
+		expect(new Set(ctx.audit.events.map((event) => event.batchId)).size).toBe(1);
+		expect(ctx.audit.events[0].batchId).toEqual(expect.any(String));
 	});
 
 	it('explains why an elapsed swap cannot be undone', async () => {

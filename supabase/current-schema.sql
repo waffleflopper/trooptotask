@@ -148,6 +148,1233 @@ CREATE TYPE public.organization_role AS ENUM (
 ALTER TYPE public.organization_role OWNER TO postgres;
 
 --
+-- Name: audit_assignment_type(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_assignment_type() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.assignment_types;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'assignment_type.created' WHEN 'UPDATE' THEN 'assignment_type.updated' WHEN 'DELETE' THEN 'assignment_type.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name", "shortName": "short_name", "assignTo": "assign_to", "color": "color", "showOnCalendar": "show_on_calendar"}');
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('assignTo', v_row.assign_to);
+  IF TG_OP = 'UPDATE' THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'assignment_type', v_row.id, v_row.name,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_assignment_type() OWNER TO postgres;
+
+--
+-- Name: audit_calendar_event(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_calendar_event() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.calendar_events;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'calendar_event.created' WHEN 'UPDATE' THEN 'calendar_event.updated' WHEN 'DELETE' THEN 'calendar_event.deleted' END;
+  v_details := pg_catalog.jsonb_build_object('startsOn', v_row.starts_on, 'endsOn', v_row.ends_on);
+  IF TG_OP = 'UPDATE' THEN
+    IF OLD.cancelled_at IS NULL AND NEW.cancelled_at IS NOT NULL THEN
+      v_kind := 'calendar_event.cancelled';
+    ELSE
+      v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"title": "title", "startsOn": "starts_on", "endsOn": "ends_on", "host": "host_name", "location": "location"}');
+      IF NEW.coordinator_user_id IS DISTINCT FROM OLD.coordinator_user_id THEN
+        v_change := v_change || pg_catalog.jsonb_build_object('coordinator', true);
+      END IF;
+      IF NEW.description IS DISTINCT FROM OLD.description THEN
+        v_change := v_change || pg_catalog.jsonb_build_object('description', true);
+      END IF;
+      IF NEW.source_reference IS DISTINCT FROM OLD.source_reference THEN
+        v_change := v_change || pg_catalog.jsonb_build_object('sourceReference', true);
+      END IF;
+      IF v_change = '{}'::jsonb THEN
+        RETURN NULL;
+      END IF;
+      v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+    END IF;
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'calendar_event', v_row.id, v_row.title,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_calendar_event() OWNER TO postgres;
+
+--
+-- Name: audit_calendar_tasking(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_calendar_tasking() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.calendar_taskings;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb := '{}'::jsonb;
+  v_group_to text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'calendar_tasking.created' WHEN 'UPDATE' THEN 'calendar_tasking.updated' WHEN 'DELETE' THEN 'calendar_tasking.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.status IS DISTINCT FROM OLD.status THEN
+      v_kind := CASE
+        WHEN NEW.status = 'cancelled' THEN 'calendar_tasking.cancelled'
+        WHEN NEW.status = 'completed' THEN 'calendar_tasking.completed'
+        WHEN NEW.status = 'blocked' THEN 'calendar_tasking.blocked'
+        WHEN OLD.status = 'blocked' THEN 'calendar_tasking.unblocked'
+        WHEN OLD.status = 'completed' THEN 'calendar_tasking.reopened'
+        WHEN OLD.status = 'open' AND NEW.status = 'in_progress' THEN 'calendar_tasking.started'
+      END;
+      IF v_kind = 'calendar_tasking.updated' OR v_kind IS NULL THEN
+        RETURN NULL;
+      END IF;
+    ELSIF NEW.status = 'blocked' AND NEW.block_reason IS DISTINCT FROM OLD.block_reason THEN
+      v_kind := 'calendar_tasking.blocked';
+    ELSE
+      v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"title": "title", "suspenseOn": "suspense_on", "executionStartsOn": "execution_starts_on", "executionEndsOn": "execution_ends_on", "reportTime": "report_time", "staffingRequired": "staffing_required"}');
+      IF NEW.responsible_group_id IS DISTINCT FROM OLD.responsible_group_id THEN
+        SELECT g.name INTO v_group_to FROM public.groups g
+        WHERE g.id = NEW.responsible_group_id AND g.organization_id = NEW.organization_id;
+        PERFORM audit_private.require_in_unit(v_group_to, NEW.responsible_group_id);
+        v_change := v_change || pg_catalog.jsonb_build_object('responsible', pg_catalog.jsonb_build_object(
+          'from', (SELECT g.name FROM public.groups g
+            WHERE g.id = OLD.responsible_group_id AND g.organization_id = OLD.organization_id),
+          'to', v_group_to));
+      END IF;
+      IF NEW.event_id IS DISTINCT FROM OLD.event_id THEN
+        v_change := v_change || pg_catalog.jsonb_build_object('event', true);
+      END IF;
+      IF NEW.qualifications IS DISTINCT FROM OLD.qualifications THEN
+        v_change := v_change || pg_catalog.jsonb_build_object('qualifications', true);
+      END IF;
+      IF NEW.instructions IS DISTINCT FROM OLD.instructions THEN
+        v_change := v_change || pg_catalog.jsonb_build_object('instructions', true);
+      END IF;
+      IF v_change = '{}'::jsonb THEN
+        RETURN NULL;
+      END IF;
+      v_details := pg_catalog.jsonb_build_object('change', v_change);
+    END IF;
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'calendar_tasking', v_row.id, v_row.title,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_calendar_tasking() OWNER TO postgres;
+
+--
+-- Name: audit_calendar_tasking_checklist_item(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_calendar_tasking_checklist_item() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.calendar_tasking_checklist_items;
+  v_title text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Items removed with their tasking or unit: that deletion is the audited event.
+  SELECT t.title INTO v_title FROM public.calendar_taskings t
+  WHERE t.organization_id = v_row.organization_id AND t.id = v_row.tasking_id;
+  IF v_title IS NULL THEN
+    RETURN NULL;
+  END IF;
+  IF TG_OP = 'INSERT' THEN
+    PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.checklist_added', 'calendar_tasking',
+      v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.label));
+  ELSIF TG_OP = 'DELETE' THEN
+    PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.checklist_removed', 'calendar_tasking',
+      v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.label));
+  ELSE
+    IF NEW.label IS DISTINCT FROM OLD.label THEN
+      PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.checklist_renamed', 'calendar_tasking',
+        v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.label));
+    END IF;
+    IF NEW.done IS DISTINCT FROM OLD.done THEN
+      PERFORM audit_private.record_entry(v_row.organization_id,
+        CASE WHEN NEW.done THEN 'calendar_tasking.checklist_completed' ELSE 'calendar_tasking.checklist_reopened' END,
+        'calendar_tasking', v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.label));
+    END IF;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_calendar_tasking_checklist_item() OWNER TO postgres;
+
+--
+-- Name: audit_calendar_tasking_equipment(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_calendar_tasking_equipment() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.calendar_tasking_equipment;
+  v_title text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Items removed with their tasking or unit: that deletion is the audited event.
+  SELECT t.title INTO v_title FROM public.calendar_taskings t
+  WHERE t.organization_id = v_row.organization_id AND t.id = v_row.tasking_id;
+  IF v_title IS NULL THEN
+    RETURN NULL;
+  END IF;
+  IF TG_OP = 'INSERT' THEN
+    PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.equipment_added', 'calendar_tasking',
+      v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.name));
+  ELSIF TG_OP = 'DELETE' THEN
+    PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.equipment_removed', 'calendar_tasking',
+      v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.name));
+  ELSE
+    IF NEW.name IS DISTINCT FROM OLD.name OR NEW.quantity IS DISTINCT FROM OLD.quantity
+       OR NEW.returned_quantity IS DISTINCT FROM OLD.returned_quantity THEN
+      PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.equipment_changed', 'calendar_tasking',
+        v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.name));
+    END IF;
+    IF NEW.secured_quantity IS DISTINCT FROM OLD.secured_quantity THEN
+      PERFORM audit_private.record_entry(v_row.organization_id, 'calendar_tasking.equipment_secured', 'calendar_tasking',
+        v_row.tasking_id, v_title, NULL, NULL, pg_catalog.jsonb_build_object('item', v_row.name));
+    END IF;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_calendar_tasking_equipment() OWNER TO postgres;
+
+--
+-- Name: audit_group(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_group() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.groups;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_parent text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'group.created' WHEN 'UPDATE' THEN 'group.updated' WHEN 'DELETE' THEN 'group.deleted' END;
+  SELECT parent.name INTO v_parent FROM public.groups parent
+  WHERE parent.id = v_row.parent_id AND parent.organization_id = v_row.organization_id;
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_parent, v_row.parent_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.parent_id END);
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name"}');
+    IF NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('parent', pg_catalog.jsonb_build_object(
+        'from', (SELECT parent.name FROM public.groups parent
+          WHERE parent.id = OLD.parent_id AND parent.organization_id = OLD.organization_id),
+        'to', v_parent));
+    END IF;
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+    v_kind := CASE WHEN NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN 'group.moved' ELSE 'group.updated' END;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('parent', v_parent);
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'group', v_row.id, v_row.name,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_group() OWNER TO postgres;
+
+--
+-- Name: audit_ict_completion(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_ict_completion() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.personnel_ict_completions;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_task text;
+  v_who text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  SELECT item.title INTO v_task FROM public.ict_tasks item
+  WHERE item.id = v_row.ict_task_id AND item.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.personnel_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_task, v_row.ict_task_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.ict_task_id END);
+    PERFORM audit_private.require_in_unit(v_who, v_row.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_task IS NULL OR v_who IS NULL THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'personnel_ict_completion.created' WHEN 'UPDATE' THEN 'personnel_ict_completion.updated' WHEN 'DELETE' THEN 'personnel_ict_completion.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"completedAt": "completed_at", "validationMethod": "validation_method"}');
+    IF NEW.notes IS DISTINCT FROM OLD.notes THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
+    END IF;
+    IF NEW.validated_by IS DISTINCT FROM OLD.validated_by THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('validator', true);
+    END IF;
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('completedAt', v_row.completed_at, 'validationMethod', v_row.validation_method);
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'personnel_ict_completion', v_row.id, v_task,
+    v_row.personnel_id, v_who, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_ict_completion() OWNER TO postgres;
+
+--
+-- Name: audit_ict_task(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_ict_task() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.ict_tasks;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'ict_task.created' WHEN 'UPDATE' THEN 'ict_task.updated' WHEN 'DELETE' THEN 'ict_task.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"taskCode": "task_code", "title": "title", "expirationMonths": "expiration_months", "category": "category"}');
+    IF NEW.mos IS DISTINCT FROM OLD.mos THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('mos', true);
+    END IF;
+    IF NEW.description IS DISTINCT FROM OLD.description THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('description', true);
+    END IF;
+    IF v_change = '{}'::jsonb AND NOT ((OLD.archived_at IS NULL) <> (NEW.archived_at IS NULL)) THEN
+      RETURN NULL;
+    END IF;
+    v_kind := CASE
+  WHEN OLD.archived_at IS NULL AND NEW.archived_at IS NOT NULL THEN 'ict_task.archived'
+  WHEN OLD.archived_at IS NOT NULL AND NEW.archived_at IS NULL THEN 'ict_task.restored'
+  ELSE 'ict_task.updated' END;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('taskCode', v_row.task_code);
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'ict_task', v_row.id, v_row.title,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_ict_task() OWNER TO postgres;
+
+--
+-- Name: audit_onboarding_step(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_onboarding_step() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.onboarding_step_progress;
+  v_kind text;
+  v_details jsonb := '{}'::jsonb;
+  v_person_id uuid;
+  v_who text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+    IF v_row.active OR NOT audit_private.unit_exists(v_row.organization_id) THEN
+      RETURN NULL;
+    END IF;
+  ELSE
+    v_row := NEW;
+  END IF;
+  SELECT packet.personnel_id INTO v_person_id FROM public.personnel_onboardings packet
+  WHERE packet.id = v_row.onboarding_id AND packet.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_person_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_who, v_row.onboarding_id, OLD.onboarding_id);
+  END IF;
+  IF v_who IS NULL THEN
+    RETURN NULL;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    v_kind := 'onboarding_step.inactive_removed';
+  ELSIF NEW.current_stage IS DISTINCT FROM OLD.current_stage THEN
+    v_kind := 'onboarding_step.stage_advanced';
+    v_details := pg_catalog.jsonb_build_object('stage', NEW.current_stage, 'completed', NEW.completed);
+  ELSIF NEW.completed IS DISTINCT FROM OLD.completed THEN
+    v_kind := 'onboarding_step.toggled';
+    v_details := pg_catalog.jsonb_build_object('completed', NEW.completed);
+  ELSIF (CASE WHEN pg_catalog.jsonb_typeof(NEW.notes) = 'array' THEN pg_catalog.jsonb_array_length(NEW.notes) ELSE 0 END)
+      > (CASE WHEN pg_catalog.jsonb_typeof(OLD.notes) = 'array' THEN pg_catalog.jsonb_array_length(OLD.notes) ELSE 0 END) THEN
+    v_kind := 'onboarding_step.note_added';
+  ELSE
+    RETURN NULL;
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'onboarding_step_progress', v_row.id, v_row.step_name, v_person_id, v_who, v_details);
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_onboarding_step() OWNER TO postgres;
+
+--
+-- Name: audit_onboarding_template(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_onboarding_template() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.onboarding_templates;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'onboarding_template.created' WHEN 'UPDATE' THEN 'onboarding_template.updated' WHEN 'DELETE' THEN 'onboarding_template.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name"}');
+    IF NEW.description IS DISTINCT FROM OLD.description THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('description', true);
+    END IF;
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := '{}'::jsonb;
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'onboarding_template', v_row.id, v_row.name,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_onboarding_template() OWNER TO postgres;
+
+--
+-- Name: audit_onboarding_template_step(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_onboarding_template_step() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.onboarding_template_steps;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_template text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  SELECT item.name INTO v_template FROM public.onboarding_templates item
+  WHERE item.id = v_row.template_id AND item.organization_id = v_row.organization_id;
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_template, v_row.template_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.template_id END);
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_template IS NULL THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'onboarding_template_step.created' WHEN 'UPDATE' THEN 'onboarding_template_step.updated' WHEN 'DELETE' THEN 'onboarding_template_step.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name", "stepType": "step_type"}');
+    IF NEW.description IS DISTINCT FROM OLD.description THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('description', true);
+    END IF;
+    IF NEW.stages IS DISTINCT FROM OLD.stages THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('stages', true);
+    END IF;
+    IF NEW.training_type_id IS DISTINCT FROM OLD.training_type_id THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('trainingType', true);
+    END IF;
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('template', v_template, 'stepType', v_row.step_type);
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'onboarding_template_step', v_row.id, v_row.name,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_onboarding_template_step() OWNER TO postgres;
+
+--
+-- Name: audit_personnel(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_personnel() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.personnel;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_group_to text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'personnel.created' WHEN 'UPDATE' THEN 'personnel.updated' WHEN 'DELETE' THEN 'personnel.permanently_deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"rank": "rank", "mos": "mos", "role": "clinic_role", "ets": "ets", "deros": "deros"}');
+    IF NEW.last_name IS DISTINCT FROM OLD.last_name OR NEW.first_name IS DISTINCT FROM OLD.first_name THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('name', pg_catalog.jsonb_build_object(
+        'from', OLD.last_name || ', ' || OLD.first_name, 'to', NEW.last_name || ', ' || NEW.first_name));
+    END IF;
+    IF NEW.group_id IS DISTINCT FROM OLD.group_id THEN
+      SELECT unit.name INTO v_group_to FROM public.groups unit
+      WHERE unit.id = NEW.group_id AND unit.organization_id = NEW.organization_id;
+      PERFORM audit_private.require_in_unit(v_group_to, NEW.group_id);
+      v_change := v_change || pg_catalog.jsonb_build_object('group', pg_catalog.jsonb_build_object(
+        'from', (SELECT unit.name FROM public.groups unit
+          WHERE unit.id = OLD.group_id AND unit.organization_id = OLD.organization_id),
+        'to', v_group_to));
+    END IF;
+    IF v_change = '{}'::jsonb AND NOT ((OLD.archived_at IS NULL) <> (NEW.archived_at IS NULL)) THEN
+      RETURN NULL;
+    END IF;
+    v_kind := CASE
+  WHEN OLD.archived_at IS NULL AND NEW.archived_at IS NOT NULL THEN 'personnel.archived'
+  WHEN OLD.archived_at IS NOT NULL AND NEW.archived_at IS NULL THEN 'personnel.restored'
+  ELSE 'personnel.updated' END;
+  END IF;
+  v_details := '{}'::jsonb;
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'personnel', v_row.id, audit_private.person_label(v_row.rank, v_row.last_name, v_row.first_name),
+    v_row.id, audit_private.person_label(v_row.rank, v_row.last_name, v_row.first_name), v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_personnel() OWNER TO postgres;
+
+--
+-- Name: audit_personnel_extended_info(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_personnel_extended_info() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_old jsonb;
+  v_new jsonb := pg_catalog.to_jsonb(NEW);
+  v_sections jsonb;
+  v_person public.personnel;
+BEGIN
+  SELECT * INTO v_person FROM public.personnel WHERE id = NEW.personnel_id AND organization_id = NEW.organization_id;
+  PERFORM audit_private.require_in_unit(v_person.last_name, NEW.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  IF v_person.id IS NULL THEN
+    RETURN NULL;
+  END IF;
+  -- An insert starts from an empty sheet, so its sections are the ones it filled.
+  IF TG_OP = 'UPDATE' THEN
+    v_old := pg_catalog.to_jsonb(OLD);
+  ELSE
+    v_old := pg_catalog.to_jsonb(pg_catalog.jsonb_populate_record(NULL::public.personnel_extended_info, '{}'::jsonb));
+  END IF;
+  -- The values are never kept: phone numbers, addresses and family details are free text about a person.
+  SELECT coalesce(pg_catalog.jsonb_agg(section), '[]'::jsonb) INTO v_sections FROM pg_catalog.unnest(ARRAY[
+    CASE WHEN (v_old -> 'emergency_contact_name') IS DISTINCT FROM (v_new -> 'emergency_contact_name') OR (v_old -> 'emergency_contact_relationship') IS DISTINCT FROM (v_new -> 'emergency_contact_relationship') OR (v_old -> 'emergency_contact_phone') IS DISTINCT FROM (v_new -> 'emergency_contact_phone') THEN 'Emergency contact' END,
+    CASE WHEN (v_old -> 'spouse_name') IS DISTINCT FROM (v_new -> 'spouse_name') OR (v_old -> 'spouse_phone') IS DISTINCT FROM (v_new -> 'spouse_phone') OR (v_old -> 'marital_status') IS DISTINCT FROM (v_new -> 'marital_status') OR (v_old -> 'marital_status_date') IS DISTINCT FROM (v_new -> 'marital_status_date') THEN 'Spouse' END,
+    CASE WHEN (v_old -> 'number_of_dependents') IS DISTINCT FROM (v_new -> 'number_of_dependents') OR (v_old -> 'children') IS DISTINCT FROM (v_new -> 'children') THEN 'Dependents' END,
+    CASE WHEN (v_old -> 'vehicle_make_model') IS DISTINCT FROM (v_new -> 'vehicle_make_model') OR (v_old -> 'vehicle_plate') IS DISTINCT FROM (v_new -> 'vehicle_plate') OR (v_old -> 'vehicle_color') IS DISTINCT FROM (v_new -> 'vehicle_color') THEN 'Vehicle' END,
+    CASE WHEN (v_old -> 'personal_email') IS DISTINCT FROM (v_new -> 'personal_email') OR (v_old -> 'personal_phone') IS DISTINCT FROM (v_new -> 'personal_phone') THEN 'Contact info' END,
+    CASE WHEN (v_old -> 'address_street') IS DISTINCT FROM (v_new -> 'address_street') OR (v_old -> 'address_city') IS DISTINCT FROM (v_new -> 'address_city') OR (v_old -> 'address_state') IS DISTINCT FROM (v_new -> 'address_state') OR (v_old -> 'address_zip') IS DISTINCT FROM (v_new -> 'address_zip') THEN 'Address' END,
+    CASE WHEN (v_old -> 'civilian_education') IS DISTINCT FROM (v_new -> 'civilian_education') OR (v_old -> 'military_education') IS DISTINCT FROM (v_new -> 'military_education') THEN 'Education' END,
+    CASE WHEN (v_old -> 'basd') IS DISTINCT FROM (v_new -> 'basd') OR (v_old -> 'date_of_rank') IS DISTINCT FROM (v_new -> 'date_of_rank') THEN 'Career dates' END,
+    CASE WHEN (v_old -> 'blood_type') IS DISTINCT FROM (v_new -> 'blood_type') THEN 'Blood type' END,
+    CASE WHEN (v_old -> 'dod_id') IS DISTINCT FROM (v_new -> 'dod_id') THEN 'DoD ID' END
+  ]) AS section WHERE section IS NOT NULL;
+  IF v_sections <> '[]'::jsonb THEN
+    PERFORM audit_private.record_entry(
+      NEW.organization_id, 'personnel.extended_info.updated', 'personnel', NEW.personnel_id,
+      audit_private.person_label(v_person.rank, v_person.last_name, v_person.first_name),
+      NEW.personnel_id, audit_private.person_label(v_person.rank, v_person.last_name, v_person.first_name),
+      pg_catalog.jsonb_build_object('sections', v_sections));
+  END IF;
+  IF (NEW.award_tracking_acknowledged_at IS NULL) IS DISTINCT FROM (v_old ->> 'award_tracking_acknowledged_at' IS NULL) THEN
+    PERFORM audit_private.record_entry(
+      NEW.organization_id,
+      CASE WHEN NEW.award_tracking_acknowledged_at IS NULL THEN 'personnel.award_tracking_cleared'
+        ELSE 'personnel.award_tracking_acknowledged' END,
+      'personnel', NEW.personnel_id,
+      audit_private.person_label(v_person.rank, v_person.last_name, v_person.first_name),
+      NEW.personnel_id, audit_private.person_label(v_person.rank, v_person.last_name, v_person.first_name),
+      '{}'::jsonb);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_personnel_extended_info() OWNER TO postgres;
+
+--
+-- Name: audit_personnel_onboarding(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_personnel_onboarding() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_kind text;
+  v_details jsonb;
+  v_who text;
+  v_template text;
+BEGIN
+  v_who := audit_private.personnel_label(NEW.organization_id, NEW.personnel_id);
+  PERFORM audit_private.require_in_unit(v_who, NEW.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  IF v_who IS NULL THEN
+    RETURN NULL;
+  END IF;
+  SELECT item.name INTO v_template FROM public.onboarding_templates item
+  WHERE item.id = NEW.template_id AND item.organization_id = NEW.organization_id;
+  PERFORM audit_private.require_in_unit(v_template, NEW.template_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.template_id END);
+  IF TG_OP = 'INSERT' THEN
+    v_kind := 'onboarding.started';
+  ELSE
+    v_kind := CASE
+      WHEN OLD.status = 'in_progress' AND NEW.status = 'completed' THEN 'onboarding.completed'
+      WHEN OLD.status = 'in_progress' AND NEW.status = 'cancelled' THEN 'onboarding.cancelled'
+      WHEN OLD.status <> 'in_progress' AND NEW.status = 'in_progress' THEN 'onboarding.reopened'
+      -- Deleting a template clears this reference. That is the template's deletion, not a switch.
+      WHEN NEW.template_id IS NOT NULL AND NEW.template_id IS DISTINCT FROM OLD.template_id THEN 'onboarding.template_switched'
+    END;
+    IF v_kind IS NULL THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('template', v_template);
+  IF v_kind = 'onboarding.completed' THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('incomplete',
+      (SELECT pg_catalog.count(*) FROM public.onboarding_step_progress progress
+        WHERE progress.onboarding_id = NEW.id AND progress.active AND NOT progress.completed));
+  ELSIF v_kind = 'onboarding.template_switched' THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('previousTemplate',
+      (SELECT item.name FROM public.onboarding_templates item
+        WHERE item.id = OLD.template_id AND item.organization_id = OLD.organization_id));
+  END IF;
+  PERFORM audit_private.record_entry(
+    NEW.organization_id, v_kind, 'personnel_onboarding', NEW.id, v_who,
+    NEW.personnel_id, v_who, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_personnel_onboarding() OWNER TO postgres;
+
+--
+-- Name: audit_pinned_group(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_pinned_group() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.user_pinned_groups;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_group text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    RETURN NULL;
+  END IF;
+  SELECT unit.name INTO v_group FROM public.groups unit
+  WHERE unit.id = v_row.group_id AND unit.organization_id = v_row.organization_id;
+  IF TG_OP = 'INSERT' THEN
+    PERFORM audit_private.require_in_unit(v_group, v_row.group_id);
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id) OR v_group IS NULL) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'pinned_group.created' WHEN 'DELETE' THEN 'pinned_group.deleted' END;
+  v_details := '{}'::jsonb;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'pinned_group', v_row.id, v_group,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_pinned_group() OWNER TO postgres;
+
+--
+-- Name: audit_rating_scheme(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_rating_scheme() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.rating_scheme_entries;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_who text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.rated_person_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_who, v_row.rated_person_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.rated_person_id END);
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_who IS NULL THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'rating_scheme.created' WHEN 'UPDATE' THEN 'rating_scheme.updated' WHEN 'DELETE' THEN 'rating_scheme.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"evalType": "eval_type", "status": "status", "workflowStatus": "workflow_status", "reportType": "report_type", "periodStart": "rating_period_start", "periodEnd": "rating_period_end"}');
+    IF NEW.rater_person_id IS DISTINCT FROM OLD.rater_person_id OR NEW.rater_name IS DISTINCT FROM OLD.rater_name OR NEW.senior_rater_person_id IS DISTINCT FROM OLD.senior_rater_person_id OR NEW.senior_rater_name IS DISTINCT FROM OLD.senior_rater_name OR NEW.intermediate_rater_person_id IS DISTINCT FROM OLD.intermediate_rater_person_id OR NEW.intermediate_rater_name IS DISTINCT FROM OLD.intermediate_rater_name OR NEW.reviewer_person_id IS DISTINCT FROM OLD.reviewer_person_id OR NEW.reviewer_name IS DISTINCT FROM OLD.reviewer_name THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('raters', true);
+    END IF;
+    IF NEW.notes IS DISTINCT FROM OLD.notes THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
+    END IF;
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('periodStart', v_row.rating_period_start, 'periodEnd', v_row.rating_period_end);
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'rating_scheme', v_row.id, v_row.eval_type,
+    v_row.rated_person_id, v_who, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_rating_scheme() OWNER TO postgres;
+
+--
+-- Name: audit_special_day(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_special_day() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.special_days;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'special_day.created' WHEN 'UPDATE' THEN 'special_day.updated' WHEN 'DELETE' THEN 'special_day.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name", "date": "date"}');
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('date', v_row.date);
+  IF TG_OP = 'UPDATE' THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'special_day', v_row.id, v_row.name,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_special_day() OWNER TO postgres;
+
+--
+-- Name: audit_status_type(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_status_type() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.status_types;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'status_type.created' WHEN 'UPDATE' THEN 'status_type.updated' WHEN 'DELETE' THEN 'status_type.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name", "shortLabel": "short_label", "color": "color", "textColor": "text_color", "rosterEffect": "roster_effect"}');
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := '{}'::jsonb;
+  IF TG_OP = 'UPDATE' THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'status_type', v_row.id, v_row.name,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_status_type() OWNER TO postgres;
+
+--
+-- Name: audit_training_history(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_training_history() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_change jsonb;
+  v_type text;
+  v_who text;
+BEGIN
+  SELECT kind.name INTO v_type FROM public.training_types kind
+  WHERE kind.id = NEW.training_type_id AND kind.organization_id = NEW.organization_id;
+  v_who := audit_private.personnel_label(NEW.organization_id, NEW.personnel_id);
+  PERFORM audit_private.require_in_unit(v_type, NEW.training_type_id, OLD.training_type_id);
+  PERFORM audit_private.require_in_unit(v_who, NEW.personnel_id, OLD.personnel_id);
+  IF v_type IS NULL OR v_who IS NULL THEN
+    RETURN NULL;
+  END IF;
+  v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"completionDate": "completion_date", "expirationDate": "expiration_date"}');
+  IF NEW.notes IS DISTINCT FROM OLD.notes THEN
+    v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
+  END IF;
+  IF NEW.certificate_url IS DISTINCT FROM OLD.certificate_url THEN
+    v_change := v_change || pg_catalog.jsonb_build_object('certificate', true);
+  END IF;
+  IF v_change = '{}'::jsonb THEN
+    RETURN NULL;
+  END IF;
+  PERFORM audit_private.record_entry(
+    NEW.organization_id, 'training_record.history_corrected', 'training_record', NEW.id, v_type,
+    NEW.personnel_id, v_who, pg_catalog.jsonb_build_object('change', v_change)
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_training_history() OWNER TO postgres;
+
+--
+-- Name: audit_training_record(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_training_record() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.personnel_trainings;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_type text;
+  v_who text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  SELECT kind.name INTO v_type FROM public.training_types kind
+  WHERE kind.id = v_row.training_type_id AND kind.organization_id = v_row.organization_id;
+  v_who := audit_private.personnel_label(v_row.organization_id, v_row.personnel_id);
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(v_type, v_row.training_type_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.training_type_id END);
+    PERFORM audit_private.require_in_unit(v_who, v_row.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF NOT audit_private.unit_exists(v_row.organization_id) OR v_type IS NULL OR v_who IS NULL THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'training_record.created' WHEN 'UPDATE' THEN 'training_record.updated' WHEN 'DELETE' THEN 'training_record.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"completionDate": "completion_date", "expirationDate": "expiration_date"}');
+    IF NEW.notes IS DISTINCT FROM OLD.notes THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
+    END IF;
+    IF NEW.certificate_url IS DISTINCT FROM OLD.certificate_url THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('certificate', true);
+    END IF;
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := pg_catalog.jsonb_build_object('completionDate', v_row.completion_date, 'expirationDate', v_row.expiration_date);
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'training_record', v_row.id, v_type,
+    v_row.personnel_id, v_who, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_training_record() OWNER TO postgres;
+
+--
+-- Name: audit_training_type(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_training_type() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.training_types;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+  v_ex record;
+  v_who text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'training_type.created' WHEN 'UPDATE' THEN 'training_type.updated' WHEN 'DELETE' THEN 'training_type.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name", "expirationMonths": "expiration_months", "warningDaysYellow": "warning_days_yellow", "warningDaysOrange": "warning_days_orange", "color": "color", "expirationDateOnly": "expiration_date_only", "canBeExempted": "can_be_exempted", "isOptional": "is_optional"}');
+    IF NEW.applies_to_roles IS DISTINCT FROM OLD.applies_to_roles OR NEW.applies_to_mos IS DISTINCT FROM OLD.applies_to_mos OR NEW.applies_to_ranks IS DISTINCT FROM OLD.applies_to_ranks OR NEW.excluded_roles IS DISTINCT FROM OLD.excluded_roles OR NEW.excluded_mos IS DISTINCT FROM OLD.excluded_mos OR NEW.excluded_ranks IS DISTINCT FROM OLD.excluded_ranks THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('audience', true);
+    END IF;
+    IF NEW.description IS DISTINCT FROM OLD.description THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('description', true);
+    END IF;
+    IF v_change = '{}'::jsonb AND NOT (OLD.exempt_personnel_ids IS DISTINCT FROM NEW.exempt_personnel_ids) THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := '{}'::jsonb;
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  IF TG_OP <> 'UPDATE' OR v_change <> '{}'::jsonb THEN
+    PERFORM audit_private.record_entry(
+      v_row.organization_id, v_kind, 'training_type', v_row.id, v_row.name,
+      NULL, NULL, v_details
+    );
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    FOR v_ex IN
+      SELECT added.id, true AS exempt FROM (
+        SELECT e AS id FROM audit_private.id_list(NEW.exempt_personnel_ids) AS e
+        EXCEPT SELECT e FROM audit_private.id_list(OLD.exempt_personnel_ids) AS e) AS added
+      UNION ALL
+      SELECT removed.id, false FROM (
+        SELECT e AS id FROM audit_private.id_list(OLD.exempt_personnel_ids) AS e
+        EXCEPT SELECT e FROM audit_private.id_list(NEW.exempt_personnel_ids) AS e) AS removed
+    LOOP
+      v_who := audit_private.personnel_label(NEW.organization_id, v_ex.id);
+      IF v_ex.exempt THEN
+        PERFORM audit_private.require_in_unit(v_who, v_ex.id);
+      END IF;
+      IF v_who IS NOT NULL THEN
+        PERFORM audit_private.record_entry(
+          NEW.organization_id,
+          CASE WHEN v_ex.exempt THEN 'training_type.exemption_added' ELSE 'training_type.exemption_removed' END,
+          'training_type', NEW.id, NEW.name, v_ex.id, v_who, '{}'::jsonb);
+      END IF;
+    END LOOP;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_training_type() OWNER TO postgres;
+
+--
+-- Name: audit_training_view(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_training_view() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_row public.training_views;
+  v_kind text;
+  v_change jsonb := '{}'::jsonb;
+  v_details jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_row := OLD;
+  ELSE
+    v_row := NEW;
+  END IF;
+  -- Rows removed with their parent or unit: that deletion is the audited event.
+  IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
+    RETURN NULL;
+  END IF;
+  v_kind := CASE TG_OP WHEN 'INSERT' THEN 'training_view.created' WHEN 'UPDATE' THEN 'training_view.updated' WHEN 'DELETE' THEN 'training_view.deleted' END;
+  IF TG_OP = 'UPDATE' THEN
+    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name"}');
+    IF NEW.column_ids IS DISTINCT FROM OLD.column_ids THEN
+      v_change := v_change || pg_catalog.jsonb_build_object('columns', true);
+    END IF;
+    IF v_change = '{}'::jsonb THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  v_details := '{}'::jsonb;
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
+    v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
+  END IF;
+  PERFORM audit_private.record_entry(
+    v_row.organization_id, v_kind, 'training_view', v_row.id, v_row.name,
+    NULL, NULL, v_details
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_training_view() OWNER TO postgres;
+
+--
+-- Name: changed(jsonb, jsonb, jsonb); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.changed(p_old jsonb, p_new jsonb, p_fields jsonb) RETURNS jsonb
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  SELECT coalesce(
+    pg_catalog.jsonb_object_agg(field.key,
+      pg_catalog.jsonb_build_object('from', p_old -> field.value, 'to', p_new -> field.value))
+      FILTER (WHERE (p_old -> field.value) IS DISTINCT FROM (p_new -> field.value)),
+    '{}'::jsonb)
+  FROM pg_catalog.jsonb_each_text(p_fields) AS field;
+$$;
+
+
+ALTER FUNCTION audit_private.changed(p_old jsonb, p_new jsonb, p_fields jsonb) OWNER TO postgres;
+
+--
 -- Name: current_batch_id(); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
@@ -160,6 +1387,23 @@ $$;
 
 
 ALTER FUNCTION audit_private.current_batch_id() OWNER TO postgres;
+
+--
+-- Name: id_list(jsonb); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.id_list(p_list jsonb) RETURNS SETOF uuid
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $_$
+  SELECT pg_catalog.jsonb_array_elements_text(p_list)::uuid
+  WHERE CASE WHEN pg_catalog.jsonb_typeof(p_list) = 'array' THEN NOT EXISTS (
+      SELECT 1 FROM pg_catalog.jsonb_array_elements_text(p_list) AS e
+      WHERE e !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') ELSE false END;
+$_$;
+
+
+ALTER FUNCTION audit_private.id_list(p_list jsonb) OWNER TO postgres;
 
 --
 -- Name: member_label(uuid, uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
@@ -198,6 +1442,22 @@ $$;
 ALTER FUNCTION audit_private.person_label(p_rank text, p_last_name text, p_first_name text) OWNER TO postgres;
 
 --
+-- Name: personnel_label(uuid, uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.personnel_label(p_organization_id uuid, p_personnel_id uuid) RETURNS text
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+  SELECT audit_private.person_label(person.rank, person.last_name, person.first_name)
+  FROM public.personnel person
+  WHERE person.id = p_personnel_id AND person.organization_id = p_organization_id;
+$$;
+
+
+ALTER FUNCTION audit_private.personnel_label(p_organization_id uuid, p_personnel_id uuid) OWNER TO postgres;
+
+--
 -- Name: record_entry(uuid, text, text, uuid, text, uuid, text, jsonb); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
@@ -216,6 +1476,38 @@ $$;
 
 
 ALTER FUNCTION audit_private.record_entry(p_organization_id uuid, p_kind text, p_record_type text, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_details jsonb) OWNER TO postgres;
+
+--
+-- Name: require_in_unit(text, uuid, uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid DEFAULT NULL::uuid) RETURNS void
+    LANGUAGE plpgsql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF p_reference_id IS NOT NULL AND p_label IS NULL AND p_reference_id IS DISTINCT FROM p_previous_reference_id THEN
+    RAISE EXCEPTION 'Reference belongs to another Organization' USING ERRCODE = '42501';
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid) OWNER TO postgres;
+
+--
+-- Name: unit_exists(uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.unit_exists(p_organization_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+  SELECT EXISTS (SELECT 1 FROM public.organizations WHERE id = p_organization_id);
+$$;
+
+
+ALTER FUNCTION audit_private.unit_exists(p_organization_id uuid) OWNER TO postgres;
 
 --
 -- Name: audit_availability_entry(); Type: FUNCTION; Schema: calendar_private; Owner: postgres
@@ -238,15 +1530,20 @@ BEGIN
     v_entry := NEW;
   END IF;
 
-  SELECT * INTO v_person FROM public.personnel WHERE id = v_entry.personnel_id;
+  SELECT * INTO v_person FROM public.personnel
+  WHERE id = v_entry.personnel_id AND organization_id = v_entry.organization_id;
   SELECT status.name INTO v_status FROM public.status_types status
   WHERE status.organization_id = v_entry.organization_id AND status.id = v_entry.status_type_id;
 
+  IF TG_OP <> 'DELETE' THEN
+    PERFORM audit_private.require_in_unit(
+      v_person.last_name, v_entry.personnel_id, CASE WHEN TG_OP = 'UPDATE' THEN OLD.personnel_id END);
+  END IF;
+
   -- Rows removed with their Person, status type or Organization: that deletion is the audited event.
-  IF TG_OP = 'DELETE' AND (
-    v_person.id IS NULL OR v_status IS NULL
-    OR NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = OLD.organization_id)
-  ) THEN
+  IF v_person.id IS NULL OR (TG_OP = 'DELETE' AND (
+    v_status IS NULL OR NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = OLD.organization_id)
+  )) THEN
     RETURN NULL;
   END IF;
 
@@ -254,7 +1551,8 @@ BEGIN
     IF NEW.personnel_id IS DISTINCT FROM OLD.personnel_id THEN
       v_change := v_change || pg_catalog.jsonb_build_object('person', pg_catalog.jsonb_build_object(
         'from', (SELECT audit_private.person_label(p.rank, p.last_name, p.first_name)
-          FROM public.personnel p WHERE p.id = OLD.personnel_id),
+          FROM public.personnel p
+          WHERE p.id = OLD.personnel_id AND p.organization_id = OLD.organization_id),
         'to', audit_private.person_label(v_person.rank, v_person.last_name, v_person.first_name)));
     END IF;
     IF NEW.status_type_id IS DISTINCT FROM OLD.status_type_id THEN
@@ -3335,6 +4633,8 @@ CREATE FUNCTION public.approve_record_deletion_request(p_organization_id uuid, p
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
+DECLARE
+	v_claim text := pg_catalog.current_setting('request.jwt.claim.sub', true);
 BEGIN
 	IF public.feature_is_off(p_organization_id, CASE p_resource_type
 		WHEN 'training_type' THEN 'training'
@@ -3344,6 +4644,7 @@ BEGIN
 		RAISE EXCEPTION 'This feature is turned off for the organization' USING ERRCODE = '42501';
 	END IF;
 
+	PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(p_reviewer_id::text, ''), true);
 	IF p_resource_type = 'training_type' THEN
 		DELETE FROM public.training_types
 		WHERE organization_id = p_organization_id AND id = p_resource_id;
@@ -3360,6 +4661,7 @@ BEGIN
 	IF NOT FOUND THEN
 		RAISE EXCEPTION 'Deletion target not found' USING ERRCODE = 'P0002';
 	END IF;
+	PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_claim, ''), true);
 
 	UPDATE public.deletion_requests
 	SET status = 'approved',
@@ -8773,6 +10075,66 @@ $$;
 
 
 ALTER FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) OWNER TO postgres;
+
+--
+-- Name: record_app_audit_entries(jsonb, uuid, uuid, uuid, inet, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid DEFAULT NULL::uuid, p_organization_id uuid DEFAULT NULL::uuid, p_batch_id uuid DEFAULT NULL::uuid, p_ip_address inet DEFAULT NULL::inet, p_user_agent text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_entry jsonb;
+BEGIN
+  IF pg_catalog.jsonb_typeof(p_entries) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Audit entries must be a list' USING ERRCODE = '22023';
+  END IF;
+  FOR v_entry IN SELECT pg_catalog.jsonb_array_elements(p_entries) LOOP
+    PERFORM public.record_app_audit_entry(
+      v_entry ->> 'kind', v_entry ->> 'recordType', coalesce(v_entry ->> 'severity', 'info'), v_entry -> 'details',
+      p_actor_user_id, p_organization_id, (v_entry ->> 'recordId')::uuid, v_entry ->> 'recordLabel',
+      (v_entry ->> 'subjectPersonnelId')::uuid, v_entry ->> 'subjectLabel', p_batch_id, p_ip_address, p_user_agent
+    );
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid, p_organization_id uuid, p_batch_id uuid, p_ip_address inet, p_user_agent text) OWNER TO postgres;
+
+--
+-- Name: record_app_audit_entry(text, text, text, jsonb, uuid, uuid, uuid, text, uuid, text, uuid, inet, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.record_app_audit_entry(p_kind text, p_record_type text, p_severity text, p_details jsonb, p_actor_user_id uuid DEFAULT NULL::uuid, p_organization_id uuid DEFAULT NULL::uuid, p_record_id uuid DEFAULT NULL::uuid, p_record_label text DEFAULT NULL::text, p_subject_personnel_id uuid DEFAULT NULL::uuid, p_subject_label text DEFAULT NULL::text, p_batch_id uuid DEFAULT NULL::uuid, p_ip_address inet DEFAULT NULL::inet, p_user_agent text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_subject_label text := p_subject_label;
+BEGIN
+  -- A person's label is read here, not sent, so it always matches what a trigger would have saved.
+  IF p_subject_personnel_id IS NOT NULL AND v_subject_label IS NULL THEN
+    v_subject_label := audit_private.personnel_label(p_organization_id, p_subject_personnel_id);
+    IF v_subject_label IS NULL THEN
+      RAISE EXCEPTION 'Audit subject not found' USING ERRCODE = '22023';
+    END IF;
+  END IF;
+  INSERT INTO public.audit_logs (
+    user_id, actor_label, org_id, action, resource_type, resource_id, record_label, subject_personnel_id,
+    subject_label, batch_id, severity, details, ip_address, user_agent
+  ) VALUES (
+    p_actor_user_id,
+    CASE WHEN p_actor_user_id IS NULL THEN NULL ELSE audit_private.member_label(p_organization_id, p_actor_user_id) END,
+    p_organization_id, p_kind, p_record_type, p_record_id, p_record_label, p_subject_personnel_id, v_subject_label,
+    p_batch_id, p_severity, p_details, p_ip_address, p_user_agent
+  );
+END;
+$$;
+
+
+ALTER FUNCTION public.record_app_audit_entry(p_kind text, p_record_type text, p_severity text, p_details jsonb, p_actor_user_id uuid, p_organization_id uuid, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_batch_id uuid, p_ip_address inet, p_user_agent text) OWNER TO postgres;
 
 --
 -- Name: record_platform_error(uuid, text, text, text, text, text, text, text, text, smallint, uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
@@ -15699,10 +17061,164 @@ CREATE TRIGGER access_request_rescission_stamp BEFORE UPDATE ON public.access_re
 
 
 --
+-- Name: assignment_types audit_assignment_type; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_assignment_type AFTER INSERT OR DELETE OR UPDATE ON public.assignment_types FOR EACH ROW EXECUTE FUNCTION audit_private.audit_assignment_type();
+
+
+--
 -- Name: availability_entries audit_availability_entry; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
 CREATE TRIGGER audit_availability_entry AFTER INSERT OR DELETE OR UPDATE ON public.availability_entries FOR EACH ROW EXECUTE FUNCTION calendar_private.audit_availability_entry();
+
+
+--
+-- Name: calendar_events audit_calendar_event; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_calendar_event AFTER INSERT OR DELETE OR UPDATE ON public.calendar_events FOR EACH ROW EXECUTE FUNCTION audit_private.audit_calendar_event();
+
+
+--
+-- Name: calendar_taskings audit_calendar_tasking; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_calendar_tasking AFTER INSERT OR DELETE OR UPDATE ON public.calendar_taskings FOR EACH ROW EXECUTE FUNCTION audit_private.audit_calendar_tasking();
+
+
+--
+-- Name: calendar_tasking_checklist_items audit_calendar_tasking_checklist_item; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_calendar_tasking_checklist_item AFTER INSERT OR DELETE OR UPDATE ON public.calendar_tasking_checklist_items FOR EACH ROW EXECUTE FUNCTION audit_private.audit_calendar_tasking_checklist_item();
+
+
+--
+-- Name: calendar_tasking_equipment audit_calendar_tasking_equipment; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_calendar_tasking_equipment AFTER INSERT OR DELETE OR UPDATE ON public.calendar_tasking_equipment FOR EACH ROW EXECUTE FUNCTION audit_private.audit_calendar_tasking_equipment();
+
+
+--
+-- Name: groups audit_group; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_group AFTER INSERT OR DELETE OR UPDATE ON public.groups FOR EACH ROW EXECUTE FUNCTION audit_private.audit_group();
+
+
+--
+-- Name: personnel_ict_completions audit_ict_completion; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_ict_completion AFTER INSERT OR DELETE OR UPDATE ON public.personnel_ict_completions FOR EACH ROW EXECUTE FUNCTION audit_private.audit_ict_completion();
+
+
+--
+-- Name: ict_tasks audit_ict_task; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_ict_task AFTER INSERT OR DELETE OR UPDATE ON public.ict_tasks FOR EACH ROW EXECUTE FUNCTION audit_private.audit_ict_task();
+
+
+--
+-- Name: onboarding_step_progress audit_onboarding_step; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_onboarding_step AFTER DELETE OR UPDATE ON public.onboarding_step_progress FOR EACH ROW EXECUTE FUNCTION audit_private.audit_onboarding_step();
+
+
+--
+-- Name: onboarding_templates audit_onboarding_template; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_onboarding_template AFTER INSERT OR DELETE OR UPDATE ON public.onboarding_templates FOR EACH ROW EXECUTE FUNCTION audit_private.audit_onboarding_template();
+
+
+--
+-- Name: onboarding_template_steps audit_onboarding_template_step; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_onboarding_template_step AFTER INSERT OR DELETE OR UPDATE ON public.onboarding_template_steps FOR EACH ROW EXECUTE FUNCTION audit_private.audit_onboarding_template_step();
+
+
+--
+-- Name: personnel audit_personnel; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_personnel AFTER INSERT OR DELETE OR UPDATE ON public.personnel FOR EACH ROW EXECUTE FUNCTION audit_private.audit_personnel();
+
+
+--
+-- Name: personnel_extended_info audit_personnel_extended_info; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_personnel_extended_info AFTER INSERT OR UPDATE ON public.personnel_extended_info FOR EACH ROW EXECUTE FUNCTION audit_private.audit_personnel_extended_info();
+
+
+--
+-- Name: personnel_onboardings audit_personnel_onboarding; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_personnel_onboarding AFTER INSERT OR UPDATE ON public.personnel_onboardings FOR EACH ROW EXECUTE FUNCTION audit_private.audit_personnel_onboarding();
+
+
+--
+-- Name: user_pinned_groups audit_pinned_group; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_pinned_group AFTER INSERT OR DELETE ON public.user_pinned_groups FOR EACH ROW EXECUTE FUNCTION audit_private.audit_pinned_group();
+
+
+--
+-- Name: rating_scheme_entries audit_rating_scheme; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_rating_scheme AFTER INSERT OR DELETE OR UPDATE ON public.rating_scheme_entries FOR EACH ROW EXECUTE FUNCTION audit_private.audit_rating_scheme();
+
+
+--
+-- Name: special_days audit_special_day; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_special_day AFTER INSERT OR DELETE OR UPDATE ON public.special_days FOR EACH ROW EXECUTE FUNCTION audit_private.audit_special_day();
+
+
+--
+-- Name: status_types audit_status_type; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_status_type AFTER INSERT OR DELETE OR UPDATE ON public.status_types FOR EACH ROW EXECUTE FUNCTION audit_private.audit_status_type();
+
+
+--
+-- Name: personnel_training_history audit_training_history; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_training_history AFTER UPDATE OF completion_date, expiration_date, notes ON public.personnel_training_history FOR EACH ROW EXECUTE FUNCTION audit_private.audit_training_history();
+
+
+--
+-- Name: personnel_trainings audit_training_record; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_training_record AFTER INSERT OR DELETE OR UPDATE ON public.personnel_trainings FOR EACH ROW EXECUTE FUNCTION audit_private.audit_training_record();
+
+
+--
+-- Name: training_types audit_training_type; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_training_type AFTER INSERT OR DELETE OR UPDATE ON public.training_types FOR EACH ROW EXECUTE FUNCTION audit_private.audit_training_type();
+
+
+--
+-- Name: training_views audit_training_view; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_training_view AFTER INSERT OR DELETE OR UPDATE ON public.training_views FOR EACH ROW EXECUTE FUNCTION audit_private.audit_training_view();
 
 
 --
@@ -19302,10 +20818,178 @@ GRANT USAGE ON SCHEMA public TO service_role;
 
 
 --
+-- Name: FUNCTION audit_assignment_type(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_assignment_type() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_calendar_event(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_calendar_event() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_calendar_tasking(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_calendar_tasking() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_calendar_tasking_checklist_item(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_calendar_tasking_checklist_item() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_calendar_tasking_equipment(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_calendar_tasking_equipment() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_group(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_group() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_ict_completion(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_ict_completion() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_ict_task(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_ict_task() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_onboarding_step(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_onboarding_step() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_onboarding_template(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_onboarding_template() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_onboarding_template_step(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_onboarding_template_step() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_personnel(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_personnel() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_personnel_extended_info(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_personnel_extended_info() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_personnel_onboarding(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_personnel_onboarding() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_pinned_group(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_pinned_group() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_rating_scheme(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_rating_scheme() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_special_day(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_special_day() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_status_type(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_status_type() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_training_history(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_training_history() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_training_record(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_training_record() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_training_type(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_training_type() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_training_view(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_training_view() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION changed(p_old jsonb, p_new jsonb, p_fields jsonb); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.changed(p_old jsonb, p_new jsonb, p_fields jsonb) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION current_batch_id(); Type: ACL; Schema: audit_private; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION audit_private.current_batch_id() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION id_list(p_list jsonb); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.id_list(p_list jsonb) FROM PUBLIC;
 
 
 --
@@ -19323,10 +21007,31 @@ REVOKE ALL ON FUNCTION audit_private.person_label(p_rank text, p_last_name text,
 
 
 --
+-- Name: FUNCTION personnel_label(p_organization_id uuid, p_personnel_id uuid); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.personnel_label(p_organization_id uuid, p_personnel_id uuid) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION record_entry(p_organization_id uuid, p_kind text, p_record_type text, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_details jsonb); Type: ACL; Schema: audit_private; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION audit_private.record_entry(p_organization_id uuid, p_kind text, p_record_type text, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_details jsonb) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION unit_exists(p_organization_id uuid); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.unit_exists(p_organization_id uuid) FROM PUBLIC;
 
 
 --
@@ -21375,6 +23080,22 @@ GRANT ALL ON FUNCTION public.reconcile_onboarding_packet(p_organization_id uuid,
 
 REVOKE ALL ON FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.reconcile_personnel_file_attachment(p_organization_id uuid, p_personnel_id uuid, p_kind text, p_object_name text) TO service_role;
+
+
+--
+-- Name: FUNCTION record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid, p_organization_id uuid, p_batch_id uuid, p_ip_address inet, p_user_agent text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid, p_organization_id uuid, p_batch_id uuid, p_ip_address inet, p_user_agent text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_user_id uuid, p_organization_id uuid, p_batch_id uuid, p_ip_address inet, p_user_agent text) TO service_role;
+
+
+--
+-- Name: FUNCTION record_app_audit_entry(p_kind text, p_record_type text, p_severity text, p_details jsonb, p_actor_user_id uuid, p_organization_id uuid, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_batch_id uuid, p_ip_address inet, p_user_agent text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.record_app_audit_entry(p_kind text, p_record_type text, p_severity text, p_details jsonb, p_actor_user_id uuid, p_organization_id uuid, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_batch_id uuid, p_ip_address inet, p_user_agent text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.record_app_audit_entry(p_kind text, p_record_type text, p_severity text, p_details jsonb, p_actor_user_id uuid, p_organization_id uuid, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_batch_id uuid, p_ip_address inet, p_user_agent text) TO service_role;
 
 
 --

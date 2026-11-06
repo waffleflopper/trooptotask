@@ -7,5 +7,8 @@ export interface PolicyAuditSink {
 		orgId?: string;
 		details?: Record<string, unknown>;
 		severity?: 'info' | 'warning' | 'critical';
+		record?: string;
+		subject?: { personnelId: string | null; label?: string };
+		batchId?: string;
 	}): Promise<void>;
 }

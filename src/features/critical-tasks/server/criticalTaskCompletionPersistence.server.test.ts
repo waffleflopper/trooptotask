@@ -559,9 +559,6 @@ describe('owned Critical Tasks completion provider', () => {
 			['capture-a', 'person-a', '2026-04-02', 'Updated same date'],
 			[expect.any(String), 'person-new', '2026-04-03', 'Kept row']
 		]);
-		expect(ctx.audit.events).toMatchObject([
-			{ action: 'personnel_ict_completion.bulk_imported', details: { inserted: 1, updated: 1, failed: 1 } }
-		]);
 	});
 	it.each([false, true])(
 		'confirms an incomplete bulk acknowledgment by reading back the generated ids without retrying persisted effects (empty=%s)',
@@ -628,12 +625,6 @@ describe('owned Critical Tasks completion provider', () => {
 			expect(
 				state.requests.filter((request) => request.method === 'POST').map((request) => Array.isArray(request.body))
 			).toEqual([true]);
-			expect(ctx.audit.events).toMatchObject([
-				{
-					action: 'personnel_ict_completion.bulk_imported',
-					details: { inserted: 2, updated: 0, failed: 0 }
-				}
-			]);
 		}
 	);
 });
@@ -708,7 +699,6 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 		);
 		expect(reply.results).toEqual([{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }]);
 		expect(rows.map((saved) => [saved.id, saved.notes])).toEqual([['capture-a', 'Changed']]);
-		expect(ctx.audit.events).toMatchObject([{ details: { inserted: 0, updated: 0, failed: 0 } }]);
 	});
 
 	it('returns a committed single completion whose reply is lost, and keeps a lost update unconfirmed', async () => {

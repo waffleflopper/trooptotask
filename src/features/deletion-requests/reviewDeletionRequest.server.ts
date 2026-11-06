@@ -5,7 +5,6 @@ import type { DeletionRequest } from './contracts';
 import type { ApprovedDeletionEffects, DeletionRequestStore } from './contracts.server';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { FileCleanup } from '$features/organization/contracts';
-import { subjectDetails, reviewerDetails } from '$lib/audit/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from '$lib/access/index.server';
 import { AUDIT_RESOURCE, fireAndForgetNotification, isSupportedResourceType } from './deletionRequestSupport.server';
@@ -83,14 +82,8 @@ export async function approveDeletionRequest(
 		action: `${AUDIT_RESOURCE}.approved`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: boundRequestId,
-		details: {
-			...reviewerDetails(ctx.auth.userId),
-			...subjectDetails({
-				subjectType: resourceType,
-				subjectId: resourceId,
-				subjectLabel: request.resource_description
-			})
-		}
+		record: request.resource_description ?? 'a record',
+		details: { resourceType }
 	});
 	return { fileCleanup };
 }
@@ -129,14 +122,7 @@ export async function denyDeletionRequest(
 		action: `${AUDIT_RESOURCE}.denied`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: boundRequestId,
-		details: {
-			...reviewerDetails(ctx.auth.userId),
-			...subjectDetails({
-				subjectType: resourceType,
-				subjectId: request.resource_id,
-				subjectLabel: request.resource_description
-			}),
-			denial_reason: reason ?? null
-		}
+		record: request.resource_description ?? 'a record',
+		details: { resourceType }
 	});
 }

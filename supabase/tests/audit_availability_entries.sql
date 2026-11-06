@@ -117,9 +117,11 @@ SELECT throws_ok(
   $$ SELECT audit_private.record_entry(pg_temp.id('101'), 'availability.created', 'availability', NULL, 'Leave', NULL,
        'SPC Doe, Jane', '{}') $$,
   '42501', NULL, 'an owner cannot call the database entry writer');
-SELECT is((SELECT count(*)::integer FROM public.audit_logs WHERE org_id = pg_temp.id('101')), 5, 'an owner reads the unit log');
+SELECT is((SELECT count(*)::integer FROM public.audit_logs
+  WHERE org_id = pg_temp.id('101') AND action LIKE 'availability.%'), 5, 'an owner reads the unit log');
 SELECT pg_temp.act_as('2');
-SELECT is((SELECT count(*)::integer FROM public.audit_logs WHERE org_id = pg_temp.id('101')), 5, 'an admin reads the unit log');
+SELECT is((SELECT count(*)::integer FROM public.audit_logs
+  WHERE org_id = pg_temp.id('101') AND action LIKE 'availability.%'), 5, 'an admin reads the unit log');
 SELECT pg_temp.act_as('3');
 SELECT is((SELECT count(*)::integer FROM public.audit_logs), 0, 'a Calendar operator without admin reads no entries');
 SELECT pg_temp.act_as('4');

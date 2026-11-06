@@ -39,9 +39,6 @@ describe('/api/pinned-groups route config', () => {
 		const stored = await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId);
 		expect(stored).toMatchObject([{ user_id: 'user-1', group_id: 'group-alpha', sort_order: 0 }]);
 		expect(result).toMatchObject({ id: expect.any(String), groupId: 'group-alpha', sortOrder: 0 });
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({ action: 'pinned_group.created', resourceType: 'pinned_group' })
-		);
 	});
 
 	it('unpins only the current user and Organization pin for that Group', async () => {
@@ -57,9 +54,6 @@ describe('/api/pinned-groups route config', () => {
 		expect(result).toEqual({ success: true });
 		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toMatchObject([{ id: 'other-user' }]);
 		expect(await ctx.store.findMany('user_pinned_groups', 'other-org')).toMatchObject([{ id: 'other-org' }]);
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({ action: 'pinned_group.deleted', resourceType: 'pinned_group' })
-		);
 	});
 
 	it('lists only the current user and Organization pins in saved order', async () => {

@@ -131,7 +131,7 @@ describe('organization rank catalog', () => {
 				action: 'organization.rank_catalog.bulk_state_changed',
 				resourceType: 'organization_rank_catalog',
 				resourceId: 'test-org',
-				details: { changedCount: 1, changes: [{ code: 'DET-SGT', state: 'retired' }] }
+				details: { count: 1, targetState: null }
 			}
 		]);
 	});
@@ -164,14 +164,7 @@ describe('organization rank catalog', () => {
 
 		expect(await ctx.rankCatalog.findEntryByCode('DET-SGT')).toBeNull();
 		expect(result).toEqual({ changedCount: 0 });
-		expect(ctx.auditPort.events).toEqual([
-			{
-				action: 'organization.rank_catalog.bulk_state_changed',
-				resourceType: 'organization_rank_catalog',
-				resourceId: 'test-org',
-				details: { changedCount: 0, changes: [] }
-			}
-		]);
+		expect(ctx.auditPort.events).toEqual([]);
 	});
 
 	it('updates only state for existing ranks and inserts missing pack ranks', async () => {
@@ -572,10 +565,7 @@ describe('organization rank catalog', () => {
 				action: 'organization.rank_catalog.reconciled',
 				resourceType: 'organization_rank_catalog',
 				resourceId: 'test-org',
-				details: {
-					defaultCount: DEFAULT_SEEDED_RANK_COUNT,
-					discoveredCount: 0
-				}
+				details: { added: DEFAULT_SEEDED_RANK_COUNT }
 			}
 		]);
 	});
@@ -629,11 +619,7 @@ describe('organization rank catalog', () => {
 				action: 'organization.rank_catalog.service_pack_added',
 				resourceType: 'organization_rank_catalog',
 				resourceId: 'test-org',
-				details: expect.objectContaining({
-					service: 'navy',
-					addedCount: result.addedCount,
-					skippedExistingCount: 1
-				})
+				details: { service: 'navy', added: result.addedCount }
 			})
 		]);
 	});
@@ -771,11 +757,7 @@ describe('organization rank catalog', () => {
 				action: 'organization.rank_catalog.bulk_state_changed',
 				resourceType: 'organization_rank_catalog',
 				resourceId: 'test-org',
-				details: expect.objectContaining({
-					service: 'navy',
-					targetState: 'retired',
-					changedCount: 2
-				})
+				details: { count: 2, targetState: 'retired' }
 			})
 		]);
 	});
@@ -946,13 +928,8 @@ describe('organization rank catalog', () => {
 				action: 'organization.rank_catalog.saved',
 				resourceType: 'organization_rank_catalog',
 				resourceId: storedRank?.id,
-				details: {
-					code: 'DET-SGT',
-					label: 'Detachment Sergeant',
-					payGrade: 'ungraded',
-					state: 'active',
-					source: 'custom'
-				}
+				record: 'Detachment Sergeant',
+				details: { code: 'DET-SGT', state: 'active' }
 			}
 		]);
 	});
@@ -1278,13 +1255,8 @@ describe('organization rank catalog', () => {
 				action: 'organization.rank_catalog.deleted',
 				resourceType: 'organization_rank_catalog',
 				resourceId: storedRank?.id,
-				details: {
-					code: 'DET-SGT',
-					label: 'Detachment Sergeant',
-					source: 'custom',
-					activeReferenceTotal: 0,
-					historicalReferenceTotal: 0
-				}
+				record: 'Detachment Sergeant',
+				details: { code: 'DET-SGT' }
 			}
 		]);
 	});
@@ -1410,13 +1382,8 @@ describe('organization rank catalog', () => {
 				action: 'organization.rank_catalog.saved',
 				resourceType: 'organization_rank_catalog',
 				resourceId: storedRank?.id,
-				details: {
-					code: 'SGT',
-					label: canonicalSergeant?.label,
-					payGrade: canonicalSergeant?.payGrade,
-					state: 'active',
-					source: 'built-in'
-				}
+				record: canonicalSergeant?.label,
+				details: { code: 'SGT', state: 'active' }
 			}
 		]);
 	});
@@ -1508,13 +1475,7 @@ describe('organization rank catalog', () => {
 				action: 'organization.rank_catalog.bulk_state_changed',
 				resourceType: 'organization_rank_catalog',
 				resourceId: 'test-org',
-				details: {
-					changedCount: 2,
-					changes: expect.arrayContaining([
-						{ code: 'CPL', state: 'retired' },
-						{ code: 'SGT', state: 'active' }
-					])
-				}
+				details: { count: 2, targetState: null }
 			}
 		]);
 	});

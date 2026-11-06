@@ -106,12 +106,6 @@ describe('/api/onboarding-steps route config', () => {
 			id: STEP_1,
 			completed: true
 		});
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'onboarding_step.toggled',
-				resourceId: STEP_1
-			})
-		);
 	});
 
 	it('rejects malformed step commands with 400 and leaves the step unchanged', async () => {
@@ -186,13 +180,6 @@ describe('/api/onboarding-steps route config', () => {
 				() => ctx
 			)
 		).resolves.toEqual(saved);
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'onboarding_step.note_added',
-				resourceId: STEP_1,
-				details: { note_author_user_id: 'operator' }
-			})
-		);
 	});
 
 	it('propagates a failed note append without a success audit', async () => {
@@ -256,12 +243,6 @@ describe('/api/onboarding-steps route config', () => {
 		await expect(
 			ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: INACTIVE_STEP_1 })
 		).resolves.toBeNull();
-		expect(ctx.auditPort.events).toContainEqual(
-			expect.objectContaining({
-				action: 'onboarding_step.inactive_removed',
-				resourceId: INACTIVE_STEP_1
-			})
-		);
 	});
 
 	it('rejects a reactivated step with 409 and preserves its saved work without a removal audit', async () => {

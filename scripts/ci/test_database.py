@@ -964,7 +964,7 @@ inspector_port = 8283
                 self.assertTrue((self.source / "private-seed.sql").exists())
 
     def test_failed_staged_migration_stops_only_its_disposable_project(self):
-        for name in database.STAGED_UPGRADE_MIGRATIONS:
+        for name in (*database.STAGED_UPGRADE_MIGRATIONS, *database.POST_TREE_UPGRADE_MIGRATIONS):
             (self.source / "migrations" / name).write_text("SELECT 1;")
         for name in database.STAGED_UPGRADE_FIXTURES:
             (self.source / "migration-tests" / name).write_text("SELECT 'synthetic fixture';")
@@ -978,7 +978,8 @@ inspector_port = 8283
                 return subprocess.CompletedProcess(command, 0, stdout='2.101.0\n')
             if command[:3] == ["supabase", "migration", "up"]:
                 self.assertEqual(command, ["supabase", "migration", "up", "--local", "--yes", "--include-all"])
-                held_back = {"20261025160100_feedback_reporter_replies.sql", database.GROUP_TREE_MIGRATION}
+                held_back = {"20261025160100_feedback_reporter_replies.sql", database.GROUP_TREE_MIGRATION,
+                             *database.POST_TREE_UPGRADE_MIGRATIONS}
                 self.assertTrue(all((workdir / "supabase/migrations" / name).exists()
                                     for name in database.STAGED_UPGRADE_MIGRATIONS
                                     if name not in held_back))
@@ -986,7 +987,8 @@ inspector_port = 8283
                 raise subprocess.CalledProcessError(1, command)
             if command[:2] == ["supabase", "start"]:
                 self.assertTrue(all(not (workdir / "supabase/migrations" / name).exists()
-                                    for name in database.STAGED_UPGRADE_MIGRATIONS))
+                                    for name in (*database.STAGED_UPGRADE_MIGRATIONS,
+                                                 *database.POST_TREE_UPGRADE_MIGRATIONS)))
             return subprocess.CompletedProcess(command, 0)
 
         with patch.object(database, "run", side_effect=process), \
@@ -1003,7 +1005,7 @@ inspector_port = 8283
                          [["supabase", "stop", "--project-id", workdir.name, "--no-backup"]])
         self.assertFalse(workdir.exists())
         self.assertTrue(all((self.source / "migrations" / name).exists()
-                            for name in database.STAGED_UPGRADE_MIGRATIONS))
+                            for name in (*database.STAGED_UPGRADE_MIGRATIONS, *database.POST_TREE_UPGRADE_MIGRATIONS)))
 
 
 if __name__ == "__main__":

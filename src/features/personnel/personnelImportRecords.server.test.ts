@@ -249,9 +249,6 @@ describe('importPersonnelRecords', () => {
 		await expect(ctx.personnel.findById(result.created[0].id)).resolves.toMatchObject({ firstName: 'New' });
 		await expect(ctx.personnelSheets.findSheetForPerson(result.created[0].id)).resolves.toBeNull();
 		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toMatchObject({ dod_id: '0000000001' });
-		expect(ctx.audit.events).toMatchObject([
-			{ action: 'personnel.bulk_merged', details: { created: 1, updated: 1, errors: 1 } }
-		]);
 	});
 
 	it('does not count an ID-only update whose ID write conflicts after validation', async () => {
@@ -268,9 +265,6 @@ describe('importPersonnelRecords', () => {
 		});
 		expect(result).toMatchObject({ updated: [], errors: [{ kind: 'failed', index: 0 }] });
 		await expect(ctx.personnelSheets.findSheetForPerson('person-a')).resolves.toBeNull();
-		expect(ctx.audit.events).toMatchObject([
-			{ action: 'personnel.bulk_merged', details: { created: 0, updated: 0, errors: 1 } }
-		]);
 	});
 
 	it('stops hidden active and archived ID conflicts before creating or updating a Person', async () => {
@@ -512,9 +506,6 @@ describe('importPersonnelRecords', () => {
 			mos: '68V',
 			clinicRole: 'Respiratory'
 		});
-		expect(ctx.audit.events).toEqual([
-			{ action: 'personnel.bulk_merged', resourceType: 'personnel', details: { created: 1, updated: 1, errors: 0 } }
-		]);
 	});
 
 	it('retains absent fields and permits explicit null dates and an unassigned Group', async () => {
@@ -726,9 +717,6 @@ describe('importPersonnelRecords', () => {
 			groupId: 'bravo',
 			mos: '68C'
 		});
-		expect(ctx.audit.events).toEqual([
-			{ action: 'personnel.bulk_merged', resourceType: 'personnel', details: { created: 1, updated: 1, errors: 5 } }
-		]);
 	});
 
 	it('rejects missing, foreign and archived people without aborting a valid update', async () => {
@@ -836,26 +824,6 @@ describe('importPersonnelRecords', () => {
 			]
 		});
 		expect(JSON.stringify(result.errors)).not.toContain('Private provider');
-		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ mos: '68V' });
-	});
-
-	it('awaits the one bulk audit before resolving the request', async () => {
-		const ctx = context();
-		await expect(
-			importPersonnelRecords(
-				{
-					...ctx,
-					audit: {
-						log: async () => {
-							throw new Error('Synthetic audit rejection');
-						}
-					}
-				},
-				{
-					records: [{ op: 'update', personnelId: 'person-a', changes: { mos: '68V' } }]
-				}
-			)
-		).rejects.toThrow('Synthetic audit rejection');
 		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ mos: '68V' });
 	});
 

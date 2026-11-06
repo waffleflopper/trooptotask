@@ -131,7 +131,6 @@ describe('importIctCompletionsBatch', () => {
 							['person-a|task-a|2026-05-01', 'Unconfirmed note']
 						]
 			);
-			expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 0, updated: 1, failed: 1 } })]);
 		}
 	);
 
@@ -194,7 +193,6 @@ describe('importIctCompletionsBatch', () => {
 				loggedBy: 'user-1'
 			}
 		]);
-		expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 0, updated: 0, failed: 0 } })]);
 	});
 
 	it.each(['people', 'tasks'])(
@@ -272,7 +270,6 @@ describe('importIctCompletionsBatch', () => {
 			})
 		).rejects.toThrow('History lookup failed');
 		expect(await storedCompletions(ctx)).toEqual([]);
-		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('adds a new date, updates a same-date match with only the fields sent and never sets who logged it', async () => {
@@ -300,12 +297,6 @@ describe('importIctCompletionsBatch', () => {
 			expect.objectContaining({ key: 'person-b|task-a|2026-04-15', method: 'Other', validatedBy: null, notes: null })
 		]);
 		expect((await storedCompletions(ctx))[1].loggedBy).not.toBe('forged');
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({
-				action: 'personnel_ict_completion.bulk_imported',
-				details: { inserted: 1, updated: 1, failed: 0 }
-			})
-		]);
 	});
 
 	it('fails rows for unknown or archived people and tasks and a repeated completion, and saves the rest', async () => {
@@ -396,6 +387,5 @@ describe('importIctCompletionsBatch', () => {
 			{ kind: 'failed', message: 'This completion could not be saved.' }
 		]);
 		expect((await storedCompletions(ctx)).map((stored) => stored.key)).toEqual(['person-allowed|task-a|2026-04-15']);
-		expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 1, updated: 0, failed: 1 } })]);
 	});
 });

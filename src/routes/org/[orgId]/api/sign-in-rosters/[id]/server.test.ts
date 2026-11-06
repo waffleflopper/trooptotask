@@ -160,7 +160,8 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 				action: 'sign_in_roster.deleted',
 				resourceType: 'sign_in_roster',
 				resourceId: 'roster-1',
-				details: { title: 'Annual AT Sign-In' }
+				record: 'Annual AT Sign-In',
+				details: {}
 			})
 		]);
 	});

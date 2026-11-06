@@ -21,6 +21,7 @@ INSERT INTO public.ict_tasks(id,organization_id,task_code,title,archived_at) VAL
 INSERT INTO public.personnel_ict_completions(id,organization_id,personnel_id,ict_task_id,completed_at,validation_method,notes) VALUES
   ('d2530000-0000-4000-8000-000000000401','d2530000-0000-4000-8000-000000000101','d2530000-0000-4000-8000-000000000201','d2530000-0000-4000-8000-000000000305','2025-01-02','Practical Exercise','Retained same-Organization history');
 
+ALTER TABLE public.personnel_ict_completions DISABLE TRIGGER audit_ict_completion;
 ALTER TABLE public.personnel_ict_completions DROP CONSTRAINT personnel_ict_completions_org_task_fkey;
 INSERT INTO public.personnel_ict_completions(id,organization_id,personnel_id,ict_task_id,completed_at,validation_method,notes) VALUES
   ('d2530000-0000-4000-8000-000000000402','d2530000-0000-4000-8000-000000000102','d2530000-0000-4000-8000-000000000202','d2530000-0000-4000-8000-000000000306','2025-01-03','Practical Exercise','Preserved predecessor history');
@@ -28,6 +29,7 @@ ALTER TABLE public.personnel_ict_completions
   ADD CONSTRAINT personnel_ict_completions_org_task_fkey
   FOREIGN KEY (organization_id, ict_task_id) REFERENCES public.ict_tasks (organization_id, id)
   ON DELETE CASCADE NOT VALID;
+ALTER TABLE public.personnel_ict_completions ENABLE TRIGGER audit_ict_completion;
 
 CREATE TEMP TABLE ct_retention_tasks_before AS
   SELECT id,to_jsonb(task) AS row_data FROM public.ict_tasks AS task

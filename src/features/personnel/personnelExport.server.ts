@@ -207,9 +207,7 @@ export async function exportPersonnelWorkbook(
 		action: 'personnel.exported',
 		resourceType: 'personnel',
 		resourceId: id,
-		details: {
-			name: `${(person.rank as string) ?? ''} ${(person.lastName as string) ?? ''}, ${(person.firstName as string) ?? ''}`
-		}
+		subject: { personnelId: id }
 	});
 
 	return { _buffer: buffer, _filename: `${personName}-export-${input.asOf}.xlsx` };

@@ -39,6 +39,7 @@ import {
 	type SensitiveActionDecision
 } from '$features/identity/contracts';
 import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
+import { maskEmail } from '$lib/audit/index.server';
 import {
 	organizationInvitationRateLimitAuditDetails,
 	organizationInvitationRateLimitMessage,
@@ -251,19 +252,18 @@ export async function inviteOrganizationMember(
 	}
 
 	const inviteRequiresStepUp = isHighPrivilegeAccess(accessCommand.role, false);
-	const sensitiveAction = inviteRequiresStepUp
-		? await authorizeMemberManagementSensitiveAction(ports, {
-				action: ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
-				deniedAuditAction: 'member.high_privilege_invite_authorization_denied',
-				targetId: email,
-				targetType: 'organization_invitation',
-				details: {
-					email,
-					membershipRole: accessCommand.role,
-					memberPreset: accessCommand.memberPreset
-				}
-			})
-		: null;
+	if (inviteRequiresStepUp)
+		await authorizeMemberManagementSensitiveAction(ports, {
+			action: ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
+			deniedAuditAction: 'member.high_privilege_invite_authorization_denied',
+			targetId: email,
+			targetType: 'organization_invitation',
+			details: {
+				email,
+				membershipRole: accessCommand.role,
+				memberPreset: accessCommand.memberPreset
+			}
+		});
 
 	const existingUserAccount = await ports.settings.findUserAccountByEmail(email);
 	const rateLimit = await checkInvitationRateLimit(ports, {
@@ -324,13 +324,8 @@ export async function inviteOrganizationMember(
 	await ports.audit.log({
 		action: 'member.invite',
 		resourceType: 'organization',
-		details: {
-			email,
-			membershipRole: accessCommand.role,
-			memberPreset: accessCommand.memberPreset,
-			...(sensitiveAction ? { sensitiveAction: sensitiveActionDecisionAuditDetails(sensitiveAction) } : {}),
-			...(rateLimit ? { rateLimit } : {})
-		}
+		record: maskEmail(email),
+		details: { role: accessCommand.role }
 	});
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
@@ -714,7 +709,9 @@ export async function revokeOrganizationInvitation(
 	await ports.audit.log({
 		action: 'member.invite_revoked',
 		resourceType: 'organization',
-		details: { inviteId: input.inviteId }
+		resourceId: input.inviteId,
+		record: revoked.email ? maskEmail(revoked.email) : 'an invitation',
+		details: {}
 	});
 
 	await notifyAdminsOfRevokedInvitation(ports, {
@@ -753,19 +750,18 @@ export async function removeOrganizationMember(
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	}
 	const removesHighPrivilegeMember = isHighPrivilegeAccess(membership?.role, membership?.canManageMembers);
-	const sensitiveAction = removesHighPrivilegeMember
-		? await authorizeMemberManagementSensitiveAction(ports, {
-				action: ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,
-				deniedAuditAction: 'member.high_privilege_remove_authorization_denied',
-				targetId: input.membershipId,
-				targetType: 'organization_membership',
-				details: {
-					membershipId: input.membershipId,
-					targetRole: membership?.role ?? null,
-					targetCanManageMembers: membership?.canManageMembers ?? null
-				}
-			})
-		: null;
+	if (removesHighPrivilegeMember)
+		await authorizeMemberManagementSensitiveAction(ports, {
+			action: ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,
+			deniedAuditAction: 'member.high_privilege_remove_authorization_denied',
+			targetId: input.membershipId,
+			targetType: 'organization_membership',
+			details: {
+				membershipId: input.membershipId,
+				targetRole: membership?.role ?? null,
+				targetCanManageMembers: membership?.canManageMembers ?? null
+			}
+		});
 
 	const errorMessage = await ports.settings.removeMembership(ports.auth.orgId, input.membershipId, expectedRole);
 	if (errorMessage) {
@@ -775,10 +771,9 @@ export async function removeOrganizationMember(
 	await ports.audit.log({
 		action: 'member.removed',
 		resourceType: 'organization',
-		details: {
-			membershipId: input.membershipId,
-			...(sensitiveAction ? { sensitiveAction: sensitiveActionDecisionAuditDetails(sensitiveAction) } : {})
-		}
+		resourceId: input.membershipId,
+		record: membership.email ? maskEmail(membership.email) : 'a member',
+		details: {}
 	});
 
 	if (membership?.userId) {
@@ -831,7 +826,8 @@ export async function leaveOrganization(
 	await ports.audit.log({
 		action: 'member.left',
 		resourceType: 'organization',
-		details: { membershipId: input.membershipId }
+		resourceId: input.membershipId,
+		details: {}
 	});
 
 	const orgName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'the organization';
@@ -884,21 +880,20 @@ export async function updateOrganizationMemberAccess(
 	const updatesHighPrivilegeAccess =
 		isHighPrivilegeAccess(targetMembership?.role, targetMembership?.canManageMembers) ||
 		isHighPrivilegeAccess(accessCommand.role, false);
-	const sensitiveAction = updatesHighPrivilegeAccess
-		? await authorizeMemberManagementSensitiveAction(ports, {
-				action: ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
-				deniedAuditAction: 'member.high_privilege_update_authorization_denied',
-				targetId: input.membershipId,
-				targetType: 'organization_membership',
-				details: {
-					membershipId: input.membershipId,
-					currentRole: targetMembership?.role ?? null,
-					targetRole: accessCommand.role,
-					currentCanManageMembers: targetMembership?.canManageMembers ?? null,
-					targetCanManageMembers: accessCommand.role === 'admin'
-				}
-			})
-		: null;
+	if (updatesHighPrivilegeAccess)
+		await authorizeMemberManagementSensitiveAction(ports, {
+			action: ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
+			deniedAuditAction: 'member.high_privilege_update_authorization_denied',
+			targetId: input.membershipId,
+			targetType: 'organization_membership',
+			details: {
+				membershipId: input.membershipId,
+				currentRole: targetMembership?.role ?? null,
+				targetRole: accessCommand.role,
+				currentCanManageMembers: targetMembership?.canManageMembers ?? null,
+				targetCanManageMembers: accessCommand.role === 'admin'
+			}
+		});
 
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
@@ -918,15 +913,9 @@ export async function updateOrganizationMemberAccess(
 	await ports.audit.log({
 		action: 'member.access_changed',
 		resourceType: 'organization',
-		details: {
-			membershipId: input.membershipId,
-			membershipRole: accessCommand.role,
-			memberPreset: accessCommand.memberPreset,
-			capabilityOverrides: accessCommand.capabilityOverrides,
-			accessScopeKind: accessCommand.accessScopeKind,
-			accessScopeGroupIds: accessCommand.accessScopeGroupIds,
-			...(sensitiveAction ? { sensitiveAction: sensitiveActionDecisionAuditDetails(sensitiveAction) } : {})
-		},
+		resourceId: input.membershipId,
+		record: targetMembership.email ? maskEmail(targetMembership.email) : 'a member',
+		details: { role: accessCommand.role },
 		severity: 'warning'
 	});
 

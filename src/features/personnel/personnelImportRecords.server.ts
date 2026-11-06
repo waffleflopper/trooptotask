@@ -271,11 +271,6 @@ export async function importPersonnelRecords(
 		});
 	}
 	errors.sort((left, right) => left.index - right.index);
-	await ctx.audit.log({
-		action: 'personnel.bulk_merged',
-		resourceType: 'personnel',
-		details: { created: created.length, updated: updated.length + idOnlyUpdates.size, errors: errors.length }
-	});
 	return { created, updated, errors };
 }
 

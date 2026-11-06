@@ -65,14 +65,6 @@ describe('PUT calendar lanes at the route boundary', () => {
 				}
 			}
 		]);
-		expect(ctx.audit.events).toMatchObject([
-			{
-				action: 'assignment_type.calendar_lanes_set',
-				resourceType: 'organization',
-				resourceId: ctx.auth.orgId,
-				details: { laneTypeIds: [GROUP, STAFF] }
-			}
-		]);
 	});
 
 	it.each([

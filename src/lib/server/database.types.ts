@@ -4765,6 +4765,35 @@ export type Database = {
         }
         Returns: string
       }
+      record_app_audit_entries: {
+        Args: {
+          p_actor_user_id?: string
+          p_batch_id?: string
+          p_entries: Json
+          p_ip_address?: unknown
+          p_organization_id?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      record_app_audit_entry: {
+        Args: {
+          p_actor_user_id?: string
+          p_batch_id?: string
+          p_details: Json
+          p_ip_address?: unknown
+          p_kind: string
+          p_organization_id?: string
+          p_record_id?: string
+          p_record_label?: string
+          p_record_type: string
+          p_severity: string
+          p_subject_label?: string
+          p_subject_personnel_id?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       record_platform_error: {
         Args: {
           p_code: string

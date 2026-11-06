@@ -86,9 +86,6 @@ describe('importIctTasksBatch', () => {
 			'ICT-2': { title: 'Title ICT-2', description: 'Saved description', mos: ['68W'], sortOrder: 9, archived: false },
 			'ICT-3': { title: 'Brand new', description: null, mos: ['18D'], sortOrder: 10, archived: false }
 		});
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({ action: 'ict_task.bulk_imported', details: { inserted: 1, updated: 2, failed: 0 } })
-		]);
 	});
 
 	it('fails a repeated code and a new code without a title while saving the rest', async () => {
@@ -122,7 +119,6 @@ describe('importIctTasksBatch', () => {
 		expect(await ctx.store.findMany('ict_tasks', 'test-org')).toEqual([
 			expect.objectContaining({ task_code: 'ICT-1', title: 'First', sort_order: 0, archived_at: null })
 		]);
-		expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 0, updated: 0, failed: 0 } })]);
 	});
 
 	it.each(['fallback create', 'update'])(
@@ -159,7 +155,6 @@ describe('importIctTasksBatch', () => {
 				{ kind: 'failed', message: 'A new task needs a title.' }
 			]);
 			expect((await storedTasks(ctx))['ICT-1'].title).toBe('Confirmed title');
-			expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 0, updated: 1, failed: 1 } })]);
 		}
 	);
 

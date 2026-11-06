@@ -93,7 +93,8 @@ export async function createPersonnelFollowUp(
 	await ctx.audit.log({
 		action: 'personnel.follow_up.created',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 
 	const labels = await followUpWriteLabels(ctx, row);
@@ -150,7 +151,8 @@ export async function setPersonnelFollowUpStatus(
 	await ctx.audit.log({
 		action: `personnel.follow_up.${input.status === 'completed' ? 'completed' : input.status === 'archived' ? 'archived' : 'reopened'}`,
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 
 	return followUpLifecycleResult(ctx, input.personnelId, row);
@@ -184,7 +186,8 @@ export async function updatePersonnelFollowUp(
 	await ctx.audit.log({
 		action: 'personnel.follow_up.updated',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 
 	return followUpLifecycleResult(ctx, input.personnelId, row);
@@ -226,7 +229,8 @@ export async function restorePersonnelFollowUp(
 	await ctx.audit.log({
 		action: 'personnel.follow_up.restored',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 	return followUpLifecycleResult(ctx, input.personnelId, row);
 }
@@ -245,7 +249,8 @@ export async function deletePersonnelFollowUp(ctx: PersonnelArtifactsContext, ra
 	await ctx.audit.log({
 		action: 'personnel.follow_up.deleted',
 		resourceType: 'personnel',
-		resourceId: input.personnelId
+		resourceId: input.personnelId,
+		subject: { personnelId: input.personnelId }
 	});
 }
 

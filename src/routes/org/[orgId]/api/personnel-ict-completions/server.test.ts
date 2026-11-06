@@ -197,24 +197,6 @@ describe('personnel ICT completions API', () => {
 			},
 			() => ctx
 		);
-
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'personnel_ict_completion.created',
-				resourceType: 'personnel_ict_completion',
-				resourceId: (created as { id: string }).id
-			}),
-			expect.objectContaining({
-				action: 'personnel_ict_completion.updated',
-				resourceType: 'personnel_ict_completion',
-				resourceId: (created as { id: string }).id
-			}),
-			expect.objectContaining({
-				action: 'personnel_ict_completion.deleted',
-				resourceType: 'personnel_ict_completion',
-				resourceId: (created as { id: string }).id
-			})
-		]);
 	});
 
 	it('rejects creating a completion for an archived ICT task', async () => {
@@ -701,11 +683,6 @@ describe('personnel ICT completions API', () => {
 		await handleUseCaseRequest(_deleteConfig, ctx, { id: created.id }, () => ctx);
 
 		expect(await ctx.store.findOne('personnel_ict_completions', ctx.auth.orgId, { id: created.id })).toBeNull();
-		expect(ctx.auditPort.events.map((event) => event.action)).toEqual([
-			'personnel_ict_completion.created',
-			'personnel_ict_completion.updated',
-			'personnel_ict_completion.deleted'
-		]);
 	});
 
 	it('denies a replacement Person outside Group scope and preserves the existing completion', async () => {

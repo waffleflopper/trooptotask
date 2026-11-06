@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -11,7 +12,7 @@ export const PERSONNEL_LOG_BATCH_LIMIT = 500;
 
 export interface PersonnelLogBatchContext {
 	auth: OrganizationAccessGrant;
-	audit: PolicyAuditSink;
+	audit: PolicyAuditSink & { logMany(events: Parameters<PolicyAuditSink['log']>[0][]): Promise<void> };
 	personnel: Pick<PersonnelRecordPersistence, 'listArchiveCandidates'>;
 	personnelArtifactWrites: Pick<PersonnelArtifactWritePort, 'createFollowUps' | 'createLeaderNotes'>;
 }
@@ -67,13 +68,18 @@ async function writeBatch(
 	const ids = [...new Set(requested)];
 	const writable = await writablePeople(ctx, ids);
 	const written = new Set(writable.length ? await write(writable) : []);
-	if (written.size) {
-		await ctx.audit.log({
-			action,
-			resourceType: 'personnel',
-			details: { personnelIds: ids.filter((id) => written.has(id)) }
-		});
-	}
+	const batchId = randomUUID();
+	await ctx.audit.logMany(
+		ids
+			.filter((id) => written.has(id))
+			.map((personnelId) => ({
+				action,
+				resourceType: 'personnel',
+				resourceId: personnelId,
+				subject: { personnelId },
+				batchId
+			}))
+	);
 	return {
 		writtenIds: ids.filter((id) => written.has(id)),
 		unavailableIds: ids.filter((id) => !written.has(id))

@@ -150,35 +150,27 @@ function member(
 const littersDraft = { name: 'Litters', quantity: 4, securedQuantity: 0 };
 const alphaOperator = (stored?: Tasking | null) =>
 	member('operate', groupCoverageForTest({ kind: 'groups', groupIds: [ALPHA] }), stored);
-const actions = (entries: AuditEvent[]) => entries.map((entry) => entry.action);
 
 describe('Tasking equipment and checklist operations', () => {
-	it('adds equipment once when the same entry is sent again, and audits it once', async () => {
-		const { ctx, equipment, audit } = member('operate');
+	it('adds equipment once when the same entry is sent again', async () => {
+		const { ctx, equipment } = member('operate');
 
 		const first = await addEquipment(ctx, TASKING, { id: LITTERS, draft: littersDraft });
 		const retry = await addEquipment(ctx, TASKING, { id: LITTERS, draft: { ...littersDraft, name: 'Retyped' } });
 
 		expect(retry).toEqual(first);
 		expect(equipment).toHaveLength(1);
-		expect(actions(audit.entries)).toEqual(['calendar_tasking.equipment_added']);
 	});
 
-	it('audits securing and editing separately and waits for each audit write', async () => {
-		const { ctx, audit } = member('operate');
+	it('secures and edits equipment separately', async () => {
+		const { ctx, equipment } = member('operate');
 		await addEquipment(ctx, TASKING, { id: LITTERS, draft: littersDraft });
 
 		await updateEquipment(ctx, TASKING, LITTERS, { securedQuantity: 4 });
 		await updateEquipment(ctx, TASKING, LITTERS, { name: 'Field litters', quantity: 6 });
 		await updateEquipment(ctx, TASKING, LITTERS, { name: 'Field litters', securedQuantity: 6 });
 
-		expect(actions(audit.entries)).toEqual([
-			'calendar_tasking.equipment_added',
-			'calendar_tasking.equipment_secured',
-			'calendar_tasking.equipment_changed',
-			'calendar_tasking.equipment_changed',
-			'calendar_tasking.equipment_secured'
-		]);
+		expect(equipment[0]).toMatchObject({ name: 'Field litters', quantity: 6, securedQuantity: 6 });
 	});
 
 	it('lets a Group-scoped operator work their own Group’s lists and refuses another Group’s', async () => {
@@ -280,29 +272,24 @@ describe('Tasking equipment and checklist operations', () => {
 		expect(checklist[0].done).toBe(false);
 	});
 
-	it('records completing and reopening a checklist item and never touches the Tasking', async () => {
+	it('completes and reopens a checklist item and never touches the Tasking', async () => {
 		const stored = tasking(ALPHA);
-		const { ctx, audit } = member('operate', { kind: 'organization' }, stored);
+		const { ctx, checklist } = member('operate', { kind: 'organization' }, stored);
 		await addChecklistItem(ctx, TASKING, { id: RADIOS, label: 'Confirm radios' });
 
 		await updateChecklistItem(ctx, TASKING, RADIOS, { done: true });
+		expect(checklist[0].done).toBe(true);
 		await updateChecklistItem(ctx, TASKING, RADIOS, { done: false });
-
-		expect(actions(audit.entries)).toEqual([
-			'calendar_tasking.checklist_added',
-			'calendar_tasking.checklist_completed',
-			'calendar_tasking.checklist_reopened'
-		]);
+		expect(checklist[0].done).toBe(false);
 		expect(stored.status).toEqual({ kind: 'in_progress' });
 	});
 
-	it('answers a removal of an item that is already gone without auditing it again', async () => {
-		const { ctx, audit } = member('operate');
+	it('answers a removal of an item that is already gone', async () => {
+		const { ctx } = member('operate');
 		await addEquipment(ctx, TASKING, { id: LITTERS, draft: littersDraft });
 
 		expect(await removeEquipment(ctx, TASKING, LITTERS)).toEqual({ removed: true });
 		expect(await removeEquipment(ctx, TASKING, LITTERS)).toEqual({ removed: false });
-		expect(actions(audit.entries)).toEqual(['calendar_tasking.equipment_added', 'calendar_tasking.equipment_removed']);
 	});
 
 	it('returns the authoritative order after a reorder', async () => {
@@ -313,5 +300,27 @@ describe('Tasking equipment and checklist operations', () => {
 		const lists = await reorderTaskingList(ctx, TASKING, 'equipment', { ids: [RADIOS, LITTERS] });
 
 		expect(lists.equipment.map((item) => item.name)).toEqual(['Radios', 'Litters']);
+	});
+
+	it('audits a reorder before it answers and fails the reorder when the audit write fails', async () => {
+		const { ctx, audit } = member('operate');
+		await addEquipment(ctx, TASKING, { id: LITTERS, draft: littersDraft });
+		await addEquipment(ctx, TASKING, { id: RADIOS, draft: { ...littersDraft, name: 'Radios' } });
+
+		await reorderTaskingList(ctx, TASKING, 'equipment', { ids: [RADIOS, LITTERS] });
+		expect(audit.entries).toEqual([
+			{
+				action: 'calendar_tasking.equipment_reordered',
+				resourceType: 'calendar_tasking',
+				resourceId: TASKING,
+				record: expect.any(String),
+				details: { item: null }
+			}
+		]);
+
+		const failing = { ...ctx, audit: { log: () => Promise.reject(new Error('Audit log write failed')) } };
+		await expect(reorderTaskingList(failing, TASKING, 'equipment', { ids: [LITTERS, RADIOS] })).rejects.toThrow(
+			'Audit log write failed'
+		);
 	});
 });

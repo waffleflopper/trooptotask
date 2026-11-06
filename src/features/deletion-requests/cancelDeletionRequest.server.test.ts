@@ -95,7 +95,9 @@ describe('owned deletion request cancellation', () => {
 			{
 				action: 'deletion_request.cancelled',
 				resourceType: 'deletion_request',
-				resourceId: REQUEST
+				resourceId: REQUEST,
+				record: 'Retained archival request',
+				details: { resourceType: 'personnel' }
 			}
 		]);
 		await expect(cancelDeletionRequest({ ...ctx, store: ctx.requests }, REQUEST)).rejects.toMatchObject({

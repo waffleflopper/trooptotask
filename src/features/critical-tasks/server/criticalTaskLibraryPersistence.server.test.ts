@@ -609,9 +609,6 @@ describe('owned Critical Tasks library provider', () => {
 			['restore-a', 'OLD', null],
 			[expect.any(String), 'PASS', null]
 		]);
-		expect(ctx.audit.events).toMatchObject([
-			{ action: 'ict_task.bulk_imported', details: { inserted: 1, updated: 1, failed: 1 } }
-		]);
 	});
 });
 
@@ -638,13 +635,10 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 		async (lost) => {
 			const { library, rows, state } = provider();
 			state.loseReply = { write: 1, as: lost };
-			const { ctx, pending } = importLost(library);
+			const { pending } = importLost(library);
 			expect(addedCodes(await pending)).toEqual(['added LOST-1', 'added LOST-2']);
 			expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 			expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
-			expect(ctx.audit.events).toMatchObject([
-				{ action: 'ict_task.bulk_imported', details: { inserted: 2, updated: 0, failed: 0 } }
-			]);
 		}
 	);
 
@@ -674,14 +668,13 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 		const { library, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
 		state.failReadsAfterLostReply = true;
-		const { ctx, pending } = importLost(library);
+		const { pending } = importLost(library);
 		expect((await pending).results).toEqual([
 			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE },
 			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }
 		]);
 		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
-		expect(ctx.audit.events).toMatchObject([{ details: { inserted: 0, updated: 0, failed: 0 } }]);
 	});
 
 	it('does not resubmit rows as new tasks when the insert never committed and the read-back finds nothing', async () => {

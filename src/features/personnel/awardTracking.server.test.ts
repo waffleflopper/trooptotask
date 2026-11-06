@@ -282,16 +282,6 @@ describe('award acknowledgement retained row behavior', () => {
 			personnel_id: 'person-foreign',
 			organization_id: 'foreign-org'
 		});
-		expect(ctx.auditPort.events).toContainEqual({
-			action: 'personnel.award_tracking_acknowledged',
-			resourceType: 'personnel',
-			resourceId: 'person-1'
-		});
-		expect(ctx.auditPort.events).toContainEqual({
-			action: 'personnel.award_tracking_cleared',
-			resourceType: 'personnel',
-			resourceId: 'person-1'
-		});
 	});
 
 	it('clears a missing sheet without inserting one on initial request or replay', async () => {
@@ -303,11 +293,6 @@ describe('award acknowledgement retained row behavior', () => {
 		).resolves.toEqual({ personnelId: 'person-1', awardTrackingAcknowledged: false });
 		await setPersonnelAwardTrackingAcknowledged(ctx, { personnelId: 'person-1', acknowledged: false });
 		expect(await awardRows(ctx)).toEqual(before);
-		expect(ctx.auditPort.events).toContainEqual({
-			action: 'personnel.award_tracking_cleared',
-			resourceType: 'personnel',
-			resourceId: 'person-1'
-		});
 	});
 
 	it.each([
@@ -325,7 +310,6 @@ describe('award acknowledgement retained row behavior', () => {
 			setPersonnelAwardTrackingAcknowledged(ctx, { personnelId, acknowledged: false })
 		).rejects.toMatchObject({ status });
 		expect(await awardRows(ctx)).toEqual(before);
-		expect(ctx.auditPort.events.some((event) => event.action.startsWith('personnel.award_tracking_'))).toBe(false);
 	});
 
 	it('rejects a roster-only actor without creating or clearing an acknowledgement', async () => {
@@ -338,10 +322,9 @@ describe('award acknowledgement retained row behavior', () => {
 			setPersonnelAwardTrackingAcknowledged(ctx, { personnelId: 'person-1', acknowledged: false })
 		).rejects.toMatchObject({ status: 403 });
 		expect(await awardRows(ctx)).toEqual(before);
-		expect(ctx.auditPort.events.some((event) => event.action.startsWith('personnel.award_tracking_'))).toBe(false);
 	});
 
-	it('does not audit success after a persistence failure and retry keeps the same sheet', async () => {
+	it('keeps the same sheet when a persistence failure is retried', async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime('2026-10-01T12:00:00.000Z');
 		const ctx = awardContext();
@@ -353,7 +336,6 @@ describe('award acknowledgement retained row behavior', () => {
 			setPersonnelAwardTrackingAcknowledged(ctx, { personnelId: 'person-1', acknowledged: true })
 		).rejects.toThrow('controlled acknowledgement write failure');
 		expect(await awardRows(ctx)).toEqual(before);
-		expect(ctx.auditPort.events.some((event) => event.action.startsWith('personnel.award_tracking_'))).toBe(false);
 		fault.mockRestore();
 		await expect(
 			setPersonnelAwardTrackingAcknowledged(ctx, { personnelId: 'person-1', acknowledged: true })

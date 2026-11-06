@@ -194,12 +194,6 @@ async function writeTrainingCompletion(
 		row = await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
 	}
 
-	await ctx.audit.log({
-		action: existing ? `${AUDIT_RESOURCE}.updated` : `${AUDIT_RESOURCE}.created`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: row.id
-	});
-
 	return row;
 }
 
@@ -315,17 +309,6 @@ export async function correctTrainingCompletion(
 	});
 	if (!corrected) fail(404, 'Training record not found');
 
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.corrected`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: id,
-		details: {
-			kind,
-			personnel_id: entry.personnelId,
-			training_type_id: entry.trainingTypeId,
-			completion_date: corrected.completionDate
-		}
-	});
 	return corrected;
 }
 
@@ -380,17 +363,6 @@ export async function updateTrainingRecord(
 
 	const row = await ctx.trainingCompletions.patchRecord(id, updates);
 
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.updated`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: id,
-		details: {
-			personnel_id: row.personnelId,
-			training_type_id: row.trainingTypeId,
-			completion_date: row.completionDate
-		}
-	});
-
 	return row;
 }
 
@@ -406,12 +378,6 @@ export async function deleteTrainingRecord(
 	}
 
 	await ctx.trainingCompletions.deleteRecord(id);
-
-	await ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.deleted`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: id
-	});
 }
 
 /** Describes a deletion request from the Training record the requester may change. */

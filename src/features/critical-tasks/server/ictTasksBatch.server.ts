@@ -84,45 +84,32 @@ export async function importIctTasksBatch(
 		});
 	});
 
-	let added = 0;
-	let updated = 0;
-	try {
-		if (creates.length) {
-			try {
-				const saved = await ctx.criticalTaskLibrary.createMany(creates.map((item) => item.task));
-				creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
-				added += saved.length;
-			} catch (bulkError) {
-				if (isUnconfirmedWrite(bulkError)) {
-					for (const item of creates) results[item.index] = rowFailure(bulkError);
-				} else {
-					for (const item of creates) {
-						try {
-							results[item.index] = { kind: 'added', record: await ctx.criticalTaskLibrary.create(item.task) };
-							added++;
-						} catch (error) {
-							results[item.index] = rowFailure(error);
-						}
+	if (creates.length) {
+		try {
+			const saved = await ctx.criticalTaskLibrary.createMany(creates.map((item) => item.task));
+			creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
+		} catch (bulkError) {
+			if (isUnconfirmedWrite(bulkError)) {
+				for (const item of creates) results[item.index] = rowFailure(bulkError);
+			} else {
+				for (const item of creates) {
+					try {
+						results[item.index] = { kind: 'added', record: await ctx.criticalTaskLibrary.create(item.task) };
+					} catch (error) {
+						results[item.index] = rowFailure(error);
 					}
 				}
 			}
 		}
-		for (const item of updates) {
-			try {
-				const task = await ctx.criticalTaskLibrary.update(item.id, { ...item.patch, archivedAt: null });
-				if (!task) fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
-				results[item.index] = { kind: 'updated', record: task };
-				updated++;
-			} catch (error) {
-				results[item.index] = rowFailure(error);
-			}
+	}
+	for (const item of updates) {
+		try {
+			const task = await ctx.criticalTaskLibrary.update(item.id, { ...item.patch, archivedAt: null });
+			if (!task) fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
+			results[item.index] = { kind: 'updated', record: task };
+		} catch (error) {
+			results[item.index] = rowFailure(error);
 		}
-	} finally {
-		await ctx.audit.log({
-			action: 'ict_task.bulk_imported',
-			resourceType: 'ict_task',
-			details: { inserted: added, updated, failed: results.filter((result) => result?.kind === 'failed').length }
-		});
 	}
 	return { results };
 }

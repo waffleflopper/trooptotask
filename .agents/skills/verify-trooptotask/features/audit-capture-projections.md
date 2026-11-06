@@ -162,7 +162,14 @@ entries match these filters` with `Clear filters`: both dates are inclusive days
    an alert reads `The next entries could not be loaded. The entries above are unchanged.` with `Retry`, the footer still
    reads 50 entries, and `restore` then Load more reads 100. Repeat at 1024x800 and 390x844, where the filters stack
    in one column and nothing scrolls sideways (`scrollWidth` minus `clientWidth` is 0 on the document, `main` and the
-   table).
+   table). Hold the load with `$V network arm-hold PAGE audit-page` from General Settings (arm before the reload, then
+   focus Logs and press Enter, so the viewport prefetch does not use it up) and read the header block's height and the
+   next block's top while the skeleton shows and again after `release`: at 390x844 they are 108 and 273 and at
+   1024x800 120 and 236 both times, because the subtitle holds two lines at either width whatever the unit is called.
+   For the empty state, create a unit through [Organization creation](organization-creation.md), which starts with one
+   System entry per federal holiday it seeds; clearing those rows in the owned worker's own provider leaves
+   `No audit log entries yet.` with no filters and no Clear filters button, which holds at 390 and 1024 without
+   sideways scroll.
 8. **Calendar availability capture.** As `calendarOperate`, follow [availability status](availability-status.md) to add
    a status for a fixture person, drag its end a day later, then remove it. As `orgOwner` the Logs Calendar rows read
    `Added <Status> for <Rank> <Last>, <First> from <d Mon> to <d Mon>`, `Changed <Status> for … from <d>–<d Mon> to

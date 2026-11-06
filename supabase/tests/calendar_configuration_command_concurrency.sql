@@ -255,7 +255,7 @@ SELECT is(pg_temp.fx($$SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM public.s
 
 SELECT pg_temp.exec('fixture', $$UPDATE public.assignment_types SET show_on_calendar = true WHERE id = #403$$);
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,403,401', '401,402,403')), '""', 'a reorder stays open');
+SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,403,401', '401,402,403')), '"true"', 'a reorder stays open');
 SELECT pg_temp.begin_as('b', 3);
 SELECT pg_temp.send('b', pg_temp.lanes_sql('403,401,402', '401,402,403'));
 SELECT pg_temp.await_wait('b', 'a');
@@ -267,12 +267,12 @@ SELECT is(pg_temp.lanes('101'), '["Group", "Retiring", "Staff"]', 'the first com
 SELECT pg_temp.exec('fixture', $$UPDATE public.assignment_types SET show_on_calendar = false WHERE id = #403$$);
 
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,401,403', '402,401')), '""', 'adding a lane stays open');
+SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,401,403', '402,401')), '"true"', 'adding a lane stays open');
 SELECT pg_temp.begin_as('b', 3);
 SELECT pg_temp.send('b', pg_temp.lanes_sql('402,401,403', '402,401'));
 SELECT pg_temp.await_wait('b', 'a');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT is(pg_temp.result('b'), '{"value":""}', 'the same change converges without a conflict');
+SELECT is(pg_temp.result('b'), '{"value":"false"}', 'the same change converges without a conflict and reports that it changed nothing');
 SELECT pg_temp.exec('b', 'COMMIT');
 SELECT is(pg_temp.lanes('101'), '["Group", "Staff", "Retiring"]', 'both sessions agree on the saved lanes');
 
@@ -304,7 +304,7 @@ SELECT pg_temp.begin_as('b', 1);
 SELECT pg_temp.send('b', pg_temp.lanes_sql('401,402', '402,401,403'));
 SELECT pg_temp.await_wait('b', 'a');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT is(pg_temp.result('b'), '{"value":""}', 'the lane change completes after the edit');
+SELECT is(pg_temp.result('b'), '{"value":"true"}', 'the lane change completes after the edit');
 SELECT pg_temp.exec('b', 'COMMIT');
 SELECT is(pg_temp.fx($$SELECT jsonb_agg(jsonb_build_array(name, show_on_calendar) ORDER BY name)
   FROM public.assignment_types WHERE id IN (#401, #402, #403)$$),
@@ -312,7 +312,7 @@ SELECT is(pg_temp.fx($$SELECT jsonb_agg(jsonb_build_array(name, show_on_calendar
 SELECT is(pg_temp.lanes('101'), '["Staff", "Group"]', 'the lanes follow the committed order');
 
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,401', '401,402')), '""', 'a lane change stays open');
+SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,401', '401,402')), '"true"', 'a lane change stays open');
 SELECT pg_temp.exec('c', 'BEGIN');
 SELECT pg_temp.exec('c', $$SET LOCAL lock_timeout = '2s'$$);
 SELECT is(pg_temp.call('c', $$WITH added AS (INSERT INTO public.daily_assignments (organization_id, assignment_type_id, date, assignee_id)
@@ -329,7 +329,7 @@ SELECT pg_temp.hold('c', $$WITH added AS (INSERT INTO public.daily_assignments (
   SELECT to_jsonb(count(*)) FROM added$$);
 SELECT pg_temp.begin_as('a', 1);
 SELECT pg_temp.exec('a', $$SET LOCAL lock_timeout = '2s'$$);
-SELECT is(pg_temp.call('a', pg_temp.lanes_sql('401,402', '402,401')), '""',
+SELECT is(pg_temp.call('a', pg_temp.lanes_sql('401,402', '402,401')), '"true"',
   'a lane change completes while the referencing insert is open');
 SELECT pg_temp.exec('a', 'COMMIT');
 SELECT pg_temp.exec('c', 'COMMIT');
@@ -344,7 +344,7 @@ SELECT pg_temp.begin_as('b', 1);
 SELECT pg_temp.send('b', pg_temp.lanes_sql('402', '401,402'));
 SELECT pg_temp.await_wait('b', 'a');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT is(pg_temp.result('b'), '{"value":""}', 'the lane change completes after retention');
+SELECT is(pg_temp.result('b'), '{"value":"true"}', 'the lane change completes after retention');
 SELECT pg_temp.exec('b', 'COMMIT');
 SELECT is(pg_temp.fx($$SELECT jsonb_build_object('legacy', (SELECT count(*) FROM public.assignment_types WHERE id = #404),
   'lanes', (SELECT jsonb_agg(name) FROM public.assignment_types WHERE organization_id = #101 AND show_on_calendar))$$),

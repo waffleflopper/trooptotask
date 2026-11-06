@@ -71,10 +71,6 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: 'Winter closure', subjectLabel: null, details: { date: '2026-12-24' } },
 		sentence: 'Deleted Special Day Winter closure on 24 Dec'
 	},
-	'special_day.federal_holidays_reset': {
-		entry: { recordLabel: null, subjectLabel: null, details: { count: 11 } },
-		sentence: 'Reset the federal holidays to 11 defaults'
-	},
 	'assignment_type.created': {
 		entry: { recordLabel: 'Charge of Quarters', subjectLabel: null, details: { assignTo: 'personnel' } },
 		sentence: 'Added assignment type Charge of Quarters'
@@ -352,6 +348,10 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: 'New Soldier', subjectLabel: null, details: {} },
 		sentence: 'Added onboarding template New Soldier'
 	},
+	'onboarding_template.duplicated': {
+		entry: { recordLabel: 'New Arrival Copy', subjectLabel: null, details: { source: 'New Arrival' } },
+		sentence: 'Duplicated onboarding template New Arrival as New Arrival Copy'
+	},
 	'onboarding_template.updated': {
 		entry: {
 			recordLabel: 'New Arrival',
@@ -608,6 +608,10 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: 'Range detail', subjectLabel: null, details: {} },
 		sentence: 'Blocked tasking Range detail'
 	},
+	'calendar_tasking.detached': {
+		entry: { recordLabel: 'Range detail', subjectLabel: null, details: { event: 'Range week' } },
+		sentence: 'Detached tasking Range detail from event Range week'
+	},
 	'calendar_tasking.unblocked': {
 		entry: { recordLabel: 'Range detail', subjectLabel: null, details: {} },
 		sentence: 'Unblocked tasking Range detail'
@@ -751,14 +755,6 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 	'organization.rank_catalog.saved': {
 		entry: { recordLabel: 'Specialist', subjectLabel: null, details: { code: 'SPC', state: 'active' } },
 		sentence: 'Saved rank Specialist (active)'
-	},
-	'organization.rank_catalog.reconciled': {
-		entry: { recordLabel: null, subjectLabel: null, details: { added: 3 } },
-		sentence: 'Reconciled the rank catalog and added 3 ranks'
-	},
-	'organization.rank_catalog.service_pack_added': {
-		entry: { recordLabel: null, subjectLabel: null, details: { service: 'army', added: 12 } },
-		sentence: 'Added 12 ranks from the army pack'
 	},
 	'organization.rank_catalog.bulk_state_changed': {
 		entry: { recordLabel: null, subjectLabel: null, details: { count: 4, targetState: 'retired' } },

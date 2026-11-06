@@ -52,6 +52,9 @@ UPDATE public.personnel_extended_info SET personal_phone = '555-0199', blood_typ
 WHERE personnel_id = pg_temp.id('301');
 UPDATE public.personnel_extended_info SET award_tracking_acknowledged_at = NULL WHERE personnel_id = pg_temp.id('301');
 UPDATE public.personnel_extended_info SET updated_by = 'someone' WHERE personnel_id = pg_temp.id('301');
+UPDATE public.personnel_extended_info SET award_tracking_acknowledged_at = '2030-01-01T00:00:00Z' WHERE personnel_id = pg_temp.id('301');
+UPDATE public.personnel_extended_info SET award_tracking_acknowledged_at = '2030-01-02T00:00:00Z' WHERE personnel_id = pg_temp.id('301');
+UPDATE public.personnel_extended_info SET award_tracking_acknowledged_at = '2030-01-02T00:00:00Z' WHERE personnel_id = pg_temp.id('301');
 RESET ROLE;
 
 SELECT bag_eq(
@@ -67,8 +70,14 @@ SELECT bag_eq(
     ('personnel.extended_info.updated', pg_temp.id('1'), 'SSG Rivera, Sam', 'SGT Smith, Jane', pg_temp.id('301'), 'SGT Smith, Jane'),
     ('personnel.extended_info.updated', pg_temp.id('1'), 'SSG Rivera, Sam', 'SGT Smith, Jane', pg_temp.id('301'), 'SGT Smith, Jane'),
     ('personnel.award_tracking_acknowledged', pg_temp.id('1'), 'SSG Rivera, Sam', 'SGT Smith, Jane', pg_temp.id('301'), 'SGT Smith, Jane'),
-    ('personnel.award_tracking_cleared', pg_temp.id('1'), 'SSG Rivera, Sam', 'SGT Smith, Jane', pg_temp.id('301'), 'SGT Smith, Jane') $$,
+    ('personnel.award_tracking_cleared', pg_temp.id('1'), 'SSG Rivera, Sam', 'SGT Smith, Jane', pg_temp.id('301'), 'SGT Smith, Jane'),
+    ('personnel.award_tracking_acknowledged', pg_temp.id('1'), 'SSG Rivera, Sam', 'SGT Smith, Jane', pg_temp.id('301'), 'SGT Smith, Jane'),
+    ('personnel.award_tracking_acknowledged', pg_temp.id('1'), 'SSG Rivera, Sam', 'SGT Smith, Jane', pg_temp.id('301'), 'SGT Smith, Jane') $$,
   'each personnel change saves the actor and the roster label as it stood, a slug-only save, an untouched sheet save and a stamp-only sheet save write nothing');
+SELECT is(
+  (SELECT count(*)::integer FROM public.audit_logs
+    WHERE action = 'personnel.award_tracking_acknowledged' AND resource_id = pg_temp.id('301')),
+  3, 'acknowledging again writes an entry, and saving the same acknowledgement again writes none');
 SELECT bag_eq(
   $$ SELECT details FROM public.audit_logs WHERE action = 'personnel.updated' AND resource_id = pg_temp.id('301')
      ORDER BY timestamp $$,

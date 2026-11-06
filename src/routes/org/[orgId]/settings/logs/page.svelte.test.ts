@@ -13,6 +13,7 @@ vi.mock('$app/navigation', () => ({ goto, invalidateAll }));
 vi.mock('$app/state', () => ({ page: { params: { orgId: 'test-org' } } }));
 
 import Page from './+page.svelte';
+import AuditLogTable from './AuditLogTable.svelte';
 
 const PERSON = '11111111-1111-4111-8111-111111111111';
 const MEMBER = '22222222-2222-4222-8222-222222222222';
@@ -256,34 +257,62 @@ describe('logs settings page', () => {
 			expect(days(table)).toHaveLength(4);
 		});
 
-		it('drops a page that arrives after the filters changed', async () => {
-			let release!: (response: Response) => void;
-			vi.stubGlobal(
-				'fetch',
-				vi.fn(() => new Promise<Response>((resolve) => (release = resolve)))
-			);
-			const { rerender } = await renderLogs({ rows: MIXED, nextCursor: CURSOR });
-
-			await fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
-			await rerender({
-				data: pageData({
-					rows: [{ action: 'org.renamed', createdAt: '2026-10-19T09:00:00Z', details: { name: 'Bravo Co' } }],
-					filters: { kind: 'org.renamed' }
-				}),
-				form: null,
-				params: { orgId: 'test-org' }
+		describe('when the list is replaced while a read is in flight', () => {
+			const older: AuditLogQueryResult = { logs: entriesOf(MIXED, 'older'), nextCursor: CURSOR };
+			const newer: AuditLogQueryResult = {
+				logs: entriesOf([{ action: 'org.renamed', createdAt: '2026-10-19T09:00:00Z', details: { name: 'Bravo Co' } }]),
+				nextCursor: null
+			};
+			const tableProps = (auditLog: AuditLogQueryResult) => ({
+				auditLog,
+				filters: {},
+				timeZone: 'America/New_York',
+				today: '2026-10-19'
 			});
-			release(
-				Response.json({
-					logs: entriesOf([{ action: 'personnel.updated', createdAt: '2026-10-10T12:00:00Z' }], 'next'),
-					nextCursor: null
-				})
-			);
 
-			const table = within(await screen.findByRole('table', { name: 'Organization audit log entries' }));
-			await new Promise((resolve) => setTimeout(resolve, 0));
-			expect(days(table).flatMap((day) => day.entries)).toEqual(['2026-10-19T09:00:00.000Z']);
-			expect(screen.queryByRole('alert')).toBeNull();
+			async function startRead() {
+				let release!: (response: Response) => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(() => new Promise<Response>((resolve) => (release = resolve)))
+				);
+				const view = render(AuditLogTable, { props: tableProps(older) });
+				const table = within(await screen.findByRole('table', { name: 'Organization audit log entries' }));
+				await fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+				return { ...view, table, release: (response: Response) => release(response) };
+			}
+
+			const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+			it('does not report the failure of a read for the old list on the new one', async () => {
+				const { rerender, release } = await startRead();
+
+				await rerender(tableProps(newer));
+				release(new Response('{}', { status: 500 }));
+				await settle();
+
+				expect(screen.queryByRole('alert')).toBeNull();
+				const table = within(screen.getByRole('table', { name: 'Organization audit log entries' }));
+				expect(days(table).flatMap((day) => day.entries)).toEqual(['2026-10-19T09:00:00.000Z']);
+			});
+
+			it('does not append a page read for the old list when that list comes back', async () => {
+				const { rerender, release } = await startRead();
+
+				await rerender(tableProps(newer));
+				release(
+					Response.json({
+						logs: entriesOf([{ action: 'personnel.updated', createdAt: '2026-10-10T12:00:00Z' }], 'next'),
+						nextCursor: null
+					})
+				);
+				await settle();
+				await rerender(tableProps(older));
+
+				const table = within(screen.getByRole('table', { name: 'Organization audit log entries' }));
+				expect(days(table).map((day) => day.title)).toEqual(['Today', 'Yesterday', '15 Oct']);
+				expect(screen.getByRole('button', { name: 'Load more' })).toBeTruthy();
+			});
 		});
 	});
 

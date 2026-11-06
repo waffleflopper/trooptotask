@@ -112,5 +112,48 @@ SELECT is(
     WHERE action IN ('status_type.deleted', 'special_day.deleted') AND resource_id IN (pg_temp.id('403'), pg_temp.id('412'))),
   0, 'catalog entries removed with their unit leave the unit deletion as the audited event');
 
+-- Resetting the federal holidays writes one entry for each holiday it removes and adds, in one batch.
+INSERT INTO public.organizations (id, name, created_by) VALUES (pg_temp.id('102'), 'Catalog Bravo', pg_temp.id('1'));
+INSERT INTO public.organization_memberships (
+  organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids
+) VALUES (pg_temp.id('102'), pg_temp.id('1'), 'owner', 'editor', '{}', 'organization', ARRAY[]::uuid[]);
+INSERT INTO public.special_days (id, organization_id, date, name, type)
+VALUES (pg_temp.id('413'), pg_temp.id('102'), '2030-12-25', 'Christmas Day', 'federal-holiday');
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+SELECT public.reset_federal_holidays(pg_temp.id('102'),
+  '[{"date": "2030-01-01", "name": "New Year''s Day"}, {"date": "2030-07-04", "name": "Independence Day"}]'::jsonb);
+RESET ROLE;
+SELECT results_eq(
+  $$ SELECT action, record_label, batch_id IS NOT NULL FROM public.audit_logs
+     WHERE org_id = pg_temp.id('102') AND resource_type = 'special_day' ORDER BY record_label, action $$,
+  $$ VALUES ('special_day.created', 'Christmas Day', true), ('special_day.deleted', 'Christmas Day', true),
+     ('special_day.created', 'Independence Day', true), ('special_day.created', 'New Year''s Day', true) $$,
+  'a reset writes an entry for each holiday it removes and adds, and no summary');
+SELECT is(
+  (SELECT count(DISTINCT batch_id)::integer FROM public.audit_logs
+    WHERE org_id = pg_temp.id('102') AND resource_type = 'special_day'),
+  1, 'and the entries share one batch');
+
+-- Moving calendar lanes reports whether it changed anything, so a replay is not logged twice.
+SELECT pg_temp.act_as('1');
+SET LOCAL ROLE authenticated;
+INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to) VALUES
+  (pg_temp.id('431'), pg_temp.id('102'), 'Alpha lane', 'AL', 'personnel'),
+  (pg_temp.id('432'), pg_temp.id('102'), 'Bravo lane', 'BL', 'personnel'),
+  (pg_temp.id('433'), pg_temp.id('102'), 'Charlie lane', 'CL', 'personnel');
+SELECT is(
+  public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('431'), pg_temp.id('432'), pg_temp.id('433')], ARRAY[]::uuid[]),
+  true, 'showing lanes reports a change');
+SELECT is(
+  public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('432'), pg_temp.id('431'), pg_temp.id('433')],
+    ARRAY[pg_temp.id('431'), pg_temp.id('432'), pg_temp.id('433')]),
+  true, 'a new order reports a change');
+SELECT is(
+  public.set_calendar_lanes(pg_temp.id('102'), ARRAY[pg_temp.id('432'), pg_temp.id('431'), pg_temp.id('433')],
+    ARRAY[pg_temp.id('431'), pg_temp.id('432'), pg_temp.id('433')]),
+  false, 'replaying the same order reports no change');
+RESET ROLE;
+
 SELECT * FROM finish();
 ROLLBACK;

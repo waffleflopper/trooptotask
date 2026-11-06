@@ -635,7 +635,8 @@ export interface CalendarCatalogPersistence {
 	updateSpecialDay(id: string, patch: SpecialDayPatch): Promise<SavedSpecialDay | null>;
 	deleteSpecialDay(id: string): Promise<boolean>;
 	resetFederalHolidays(holidays: FederalHolidayDefault[]): Promise<SavedFederalHoliday[]>;
-	setCalendarLanes(laneTypeIds: readonly string[], expectedLaneTypeIds: readonly string[]): Promise<void>;
+	/** Whether it changed the lanes; a request that already matches the saved lanes changes nothing and returns false. */
+	setCalendarLanes(laneTypeIds: readonly string[], expectedLaneTypeIds: readonly string[]): Promise<boolean>;
 	/** Null for a group-assigned type, or a person-assigned type whose form a concurrent save is replacing. */
 	findOpenRosterForm(assignmentTypeId: string): Promise<OpenForm | null>;
 	/** Whether any form of this type has closed, which fixes the open form's start. */

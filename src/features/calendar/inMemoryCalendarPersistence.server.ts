@@ -300,7 +300,7 @@ export function createInMemoryCalendarCatalogPersistence(
 				.filter((type) => type.show_on_calendar && !type.archived_at)
 				.sort((a, b) => a.sort_order - b.sort_order || compareIds(a.id, b.id))
 				.map((type) => type.id);
-			if (sameIdList(saved, laneTypeIds)) return;
+			if (sameIdList(saved, laneTypeIds)) return false;
 			if (!sameIdList(saved, expectedLaneTypeIds)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 			for (const type of types) {
 				const position = laneTypeIds.indexOf(type.id);
@@ -309,6 +309,7 @@ export function createInMemoryCalendarCatalogPersistence(
 				else if (position < 0 && type.show_on_calendar)
 					await store.update('assignment_types', orgId, type.id, { show_on_calendar: false });
 			}
+			return true;
 		},
 		findOpenRosterForm: readOpenRosterForm,
 		async hasClosedRosterForm(assignmentTypeId) {

@@ -147,6 +147,16 @@ describe('Calendar assignment-type operations', () => {
 		]);
 	});
 
+	it('records a replayed reorder once', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedTypes(ctx);
+		await setCalendarLanes(ctx, { laneTypeIds: [OTHER, ID], expectedLaneTypeIds: [ID] });
+		const reorder = { laneTypeIds: [ID, OTHER], expectedLaneTypeIds: [OTHER, ID] };
+		await setCalendarLanes(ctx, reorder);
+		await setCalendarLanes(ctx, reorder);
+		expect(ctx.audit.events.map(({ action }) => action)).toEqual(['assignment_type.calendar_lanes_reordered']);
+	});
+
 	it('accepts 201 desired and expected lane IDs', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const ids = Array.from({ length: 201 }, (_, index) => `00000000-0000-4000-b000-${String(index).padStart(12, '0')}`);

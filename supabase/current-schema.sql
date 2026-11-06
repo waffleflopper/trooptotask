@@ -272,6 +272,13 @@ BEGIN
   IF TG_OP = 'DELETE' AND (NOT audit_private.unit_exists(v_row.organization_id)) THEN
     RETURN NULL;
   END IF;
+  -- Deleting an event leaves its taskings standalone through the foreign key. record_deleted_calendar_event writes
+  -- the entry for each, because the event's title is gone by now.
+  IF TG_OP = 'UPDATE' AND OLD.event_id IS NOT NULL AND NEW.event_id IS NULL
+    AND NOT EXISTS (SELECT 1 FROM public.calendar_events e WHERE e.id = OLD.event_id)
+  THEN
+    RETURN NULL;
+  END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'calendar_tasking.created' WHEN 'UPDATE' THEN 'calendar_tasking.updated' WHEN 'DELETE' THEN 'calendar_tasking.deleted' END;
   IF TG_OP = 'UPDATE' THEN
     IF NEW.status IS DISTINCT FROM OLD.status THEN
@@ -660,6 +667,7 @@ DECLARE
   v_kind text;
   v_change jsonb := '{}'::jsonb;
   v_details jsonb;
+  v_source text;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     v_row := OLD;
@@ -681,6 +689,18 @@ BEGIN
     END IF;
   END IF;
   v_details := '{}'::jsonb;
+  -- duplicate_onboarding_template files its receipt before it inserts the copy, so the receipt names the source.
+  IF TG_OP = 'INSERT' THEN
+    SELECT item.name INTO v_source
+    FROM onboarding_private.template_duplicate_receipts receipt
+    JOIN public.onboarding_templates item
+      ON item.id = receipt.source_template_id AND item.organization_id = receipt.organization_id
+    WHERE receipt.organization_id = NEW.organization_id AND receipt.result_template_id = NEW.id;
+    IF v_source IS NOT NULL THEN
+      v_kind := 'onboarding_template.duplicated';
+      v_details := pg_catalog.jsonb_build_object('source', v_source);
+    END IF;
+  END IF;
   IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
     v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
   END IF;
@@ -863,7 +883,8 @@ BEGIN
       NEW.personnel_id, audit_private.person_label(v_person.rank, v_person.last_name, v_person.first_name),
       pg_catalog.jsonb_build_object('sections', v_sections));
   END IF;
-  IF (NEW.award_tracking_acknowledged_at IS NULL) IS DISTINCT FROM (v_old ->> 'award_tracking_acknowledged_at' IS NULL) THEN
+  -- Acknowledging again moves the timestamp and is its own entry; saving the same value writes nothing.
+  IF NEW.award_tracking_acknowledged_at IS DISTINCT FROM (v_old ->> 'award_tracking_acknowledged_at')::timestamptz THEN
     PERFORM audit_private.record_entry(
       NEW.organization_id,
       CASE WHEN NEW.award_tracking_acknowledged_at IS NULL THEN 'personnel.award_tracking_cleared'
@@ -2167,6 +2188,15 @@ BEGIN
     pg_catalog.jsonb_build_object('eventId', OLD.id, 'eventTitle', OLD.title)
   FROM public.calendar_taskings AS t
   WHERE t.organization_id = OLD.organization_id AND t.event_id = OLD.id;
+  -- Rows removed with their unit: that deletion is the audited event.
+  IF audit_private.unit_exists(OLD.organization_id) THEN
+    PERFORM audit_private.record_entry(
+      t.organization_id, 'calendar_tasking.detached', 'calendar_tasking', t.id, t.title,
+      NULL, NULL, pg_catalog.jsonb_build_object('event', OLD.title))
+    FROM public.calendar_taskings AS t
+    WHERE t.organization_id = OLD.organization_id AND t.event_id = OLD.id
+    ORDER BY t.id;
+  END IF;
   RETURN OLD;
 END;
 $$;
@@ -11900,7 +11930,7 @@ ALTER FUNCTION public.sensitive_file_object_is_writable(bucket_name text, object
 -- Name: set_calendar_lanes(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.set_calendar_lanes(p_organization_id uuid, p_lane_type_ids uuid[], p_expected_lane_type_ids uuid[]) RETURNS void
+CREATE FUNCTION public.set_calendar_lanes(p_organization_id uuid, p_lane_type_ids uuid[], p_expected_lane_type_ids uuid[]) RETURNS boolean
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
@@ -11953,7 +11983,7 @@ BEGIN
     IF public.can_manage_calendar_configuration(p_organization_id) IS NOT TRUE THEN
       RAISE EXCEPTION 'Calendar configuration is not allowed' USING ERRCODE = '42501';
     END IF;
-    RETURN;
+    RETURN false;
   END IF;
   -- CLN01, not 40001: PostgREST silently retries a serialization failure, so a
   -- stale command would loop and could later commit over the newer list.
@@ -11981,6 +12011,7 @@ BEGIN
   THEN
     RAISE EXCEPTION 'Calendar lanes were not saved' USING ERRCODE = 'CLN01';
   END IF;
+  RETURN true;
 END;
 $$;
 

@@ -5049,7 +5049,7 @@ export type Database = {
           p_lane_type_ids: string[]
           p_organization_id: string
         }
-        Returns: undefined
+        Returns: boolean
       }
       set_critical_tasks_defaults: {
         Args: {

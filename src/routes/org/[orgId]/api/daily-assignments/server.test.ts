@@ -68,18 +68,6 @@ describe('/api/daily-assignments', () => {
 		).resolves.toEqual({ success: true });
 
 		await expect(ctx.store.findMany('daily_assignments', ctx.auth.orgId)).resolves.toEqual([]);
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'daily_assignment.cleared',
-				resourceType: 'daily_assignment',
-				details: { date: '2026-05-01' }
-			}),
-			expect.objectContaining({
-				action: 'daily_assignment.cleared',
-				resourceType: 'daily_assignment',
-				details: { date: '2026-05-02' }
-			})
-		]);
 	});
 
 	it('rejects a blank set assignee without clearing the saved slot', async () => {

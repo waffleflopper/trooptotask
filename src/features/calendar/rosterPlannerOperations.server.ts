@@ -1,5 +1,4 @@
 import { error } from '@sveltejs/kit';
-import { auditAssignmentChanges, type AssignmentAuditChange } from './dailyAssignmentAudit.server';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
 import { toDayNumber } from '$lib/utils/dayNumber';
@@ -44,18 +43,6 @@ export interface RosterPlannerPorts extends RosterSettingsPorts {
 
 const action = CALENDAR_POLICY_ACTIONS.manageAssignments;
 
-/** A pick on an empty day is added, a pick on a held day changes who holds it. */
-const rosterAuditChange = (change: {
-	date: string;
-	assignmentTypeId: string;
-	assigneeId: string;
-	was: string | null;
-}): AssignmentAuditChange => ({
-	date: change.date,
-	assignmentTypeId: change.assignmentTypeId,
-	assigneeId: change.assigneeId,
-	kind: change.was ? 'updated' : 'created'
-});
 const resource = { kind: 'unscoped' } as const;
 const MAX_FILL_DAYS = 366;
 const MAX_REPICK_DAYS = 366;
@@ -277,7 +264,6 @@ export async function commitRosterFill(
 
 	const changes = slotChanges(run);
 	const saved = await ctx.calendarAssignmentReplacement.writeRoster(ctx.auth.orgId, changes);
-	await auditAssignmentChanges(ctx, changes.map(rosterAuditChange));
 	return { saved };
 }
 
@@ -401,6 +387,5 @@ export async function commitRosterReplacement(
 		...slotChanges(repick)
 	];
 	const saved = await ctx.calendarAssignmentReplacement.writeRoster(ctx.auth.orgId, written);
-	await auditAssignmentChanges(ctx, written.map(rosterAuditChange));
 	return { saved };
 }

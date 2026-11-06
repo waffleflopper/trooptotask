@@ -248,13 +248,6 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 				}
 			])
 		);
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'daily_assignment.updated',
-				resourceType: 'daily_assignment',
-				record: 'Staff Duty'
-			})
-		]);
 		expect(await ctx.rawStore.findMany('daily_assignments', 'other-org')).toEqual([savedSlots[7]]);
 	});
 
@@ -290,21 +283,9 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 				)
 			).toEqual([saved]);
 		}
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'daily_assignment.updated',
-				record: 'Detail',
-				details: { date: '2026-03-15', group: 'Alpha' }
-			}),
-			expect.objectContaining({
-				action: 'daily_assignment.updated',
-				record: 'Detail',
-				details: { date: '2026-03-15', group: 'Bravo' }
-			})
-		]);
 	});
 
-	it('preserves generated facts and emits no success audit when a saved edit fails', async () => {
+	it('preserves generated facts when a saved edit fails', async () => {
 		const ctx = fixture();
 		vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(new Error('synthetic write failure'));
 		await expect(
@@ -316,6 +297,5 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 		).rejects.toThrow('synthetic write failure');
 		expect((await fetchCalendarRangeData(ctx, range)).dailyAssignments).toEqual(retainedSlots);
 		expect(await ctx.rawStore.findMany('daily_assignments', 'test-org')).toEqual(savedSlots.slice(0, 7));
-		expect(ctx.auditPort.events).toEqual([]);
 	});
 });

@@ -452,6 +452,10 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
 		sentence: 'Added a counseling record for SPC Doe, Jane'
 	},
+	'personnel.counseling_record.updated': {
+		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Changed a counseling record for SPC Doe, Jane'
+	},
 	'personnel.counseling_record.archived': {
 		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
 		sentence: 'Archived a counseling record for SPC Doe, Jane'
@@ -467,6 +471,10 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 	'personnel.document.created': {
 		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
 		sentence: 'Added a document for SPC Doe, Jane'
+	},
+	'personnel.document.updated': {
+		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Changed a document for SPC Doe, Jane'
 	},
 	'personnel.document.archived': {
 		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },

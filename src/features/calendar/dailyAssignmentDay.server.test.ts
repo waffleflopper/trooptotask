@@ -127,14 +127,6 @@ describe('replaceDailyAssignmentDay', () => {
 		expect(ids).not.toContain('old-2');
 
 		expect(ids).toContain('keep-1');
-
-		expect(ctx.audit.events.map((event) => event.action).sort()).toEqual([
-			'daily_assignment.cleared',
-			'daily_assignment.created',
-			'daily_assignment.updated'
-		]);
-		expect(new Set(ctx.audit.events.map((event) => event.batchId)).size).toBe(1);
-		expect(ctx.audit.events[0].batchId).toEqual(expect.any(String));
 	});
 
 	it('enforces policy scope on all assignee IDs in the batch', async () => {
@@ -307,7 +299,7 @@ describe('setDailyAssignmentSlot', () => {
 		assigneeId: PERSON_1
 	};
 
-	it('saves and audits a slot', async () => {
+	it('saves a slot', async () => {
 		const ctx = buildContext();
 
 		const result = (await setDailyAssignmentSlot(ctx, validInput)) as Record<string, unknown>;
@@ -320,10 +312,6 @@ describe('setDailyAssignmentSlot', () => {
 
 		const stored = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(1);
-
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({ action: 'daily_assignment.created', resourceType: 'daily_assignment' })
-		);
 	});
 
 	it('enforces policy scope on assigneeId', async () => {

@@ -43,19 +43,24 @@ function client(row: Record<string, unknown> | null = { group_id: 'alpha' }) {
 		remove: vi.fn(async (paths: string[]) => ({ data: paths.map((name) => ({ name })), error: null }))
 	};
 	const storage = { from: vi.fn(() => storageBucket) };
+	const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => ({
+		data:
+			name === 'register_organization_file_upload'
+				? args.p_upload_id
+				: name === 'insert_personnel_artifacts'
+					? (args.p_rows as Record<string, unknown>[]).map((row) => ({ id: 'artifact-1', ...row }))
+					: name === 'update_personnel_artifact'
+						? { id: args.p_id, personnel_id: args.p_personnel_id }
+						: true,
+		error: null
+	}));
 	return {
 		from,
 		query,
+		rpc,
 		storage,
 		storageBucket,
-		value: {
-			from,
-			storage,
-			rpc: async (name: string, args: { p_upload_id: string }) => ({
-				data: name === 'register_organization_file_upload' ? args.p_upload_id : true,
-				error: null
-			})
-		} as unknown as SupabaseClient
+		value: { from, storage, rpc } as unknown as SupabaseClient
 	};
 }
 
@@ -94,17 +99,41 @@ describe('Person-bound artifact writes', () => {
 		});
 		await writer.patchFollowUp('artifact-1', { status: 'completed', updatedAt: '2026-10-08' });
 		await writer.deleteFollowUp('artifact-1');
-		expect(admin.query.insert).toHaveBeenCalledWith({
-			title: 'Follow up',
-			notes: null,
-			due_date: null,
-			created_by: 'actor',
-			created_at: '2026-10-08',
-			updated_at: '2026-10-08',
-			status: 'open',
-			organization_id: 'a1300000-0000-4000-8000-000000000001',
-			personnel_id: 'person-1'
-		});
+		const bound = {
+			p_actor: 'a1300000-0000-4000-8000-000000000002',
+			p_organization_id: 'a1300000-0000-4000-8000-000000000001',
+			p_table: 'personnel_follow_ups'
+		};
+		expect(admin.rpc.mock.calls).toEqual([
+			[
+				'insert_personnel_artifacts',
+				{
+					...bound,
+					p_rows: [
+						{
+							title: 'Follow up',
+							notes: null,
+							due_date: null,
+							created_by: 'actor',
+							created_at: '2026-10-08',
+							updated_at: '2026-10-08',
+							status: 'open',
+							personnel_id: 'person-1'
+						}
+					]
+				}
+			],
+			[
+				'update_personnel_artifact',
+				{
+					...bound,
+					p_personnel_id: 'person-1',
+					p_id: 'artifact-1',
+					p_patch: { status: 'completed', updated_at: '2026-10-08' }
+				}
+			],
+			['delete_personnel_artifact', { ...bound, p_personnel_id: 'person-1', p_id: 'artifact-1' }]
+		]);
 		expect(admin.query.eq).toHaveBeenCalledWith('organization_id', 'a1300000-0000-4000-8000-000000000001');
 		expect(admin.query.eq).toHaveBeenCalledWith('personnel_id', 'person-1');
 		expect(admin.query.eq).toHaveBeenCalledWith('id', 'artifact-1');
@@ -137,6 +166,7 @@ describe('Person-bound artifact writes', () => {
 			writer.patchFollowUp('artifact-1', Object.assign({ updatedAt: '2026-10-08' }, { organization_id: 'org-2' }))
 		).rejects.toMatchObject({ status: 400 });
 		expect(admin.from).not.toHaveBeenCalled();
+		expect(admin.rpc).not.toHaveBeenCalled();
 	});
 
 	it('counts only bound active documents and protects the Person file prefix', async () => {
@@ -347,7 +377,8 @@ describe('Person-bound file retirement transport', () => {
 				p_personnel_id: PERSON,
 				p_kind: 'document',
 				p_artifact_id: 'doc-1',
-				p_archived_at: '2026-10-01T00:00:00+00:00'
+				p_archived_at: '2026-10-01T00:00:00+00:00',
+				p_actor: actor.userId
 			}
 		});
 		expect(run.completed).toEqual([stored]);
@@ -460,23 +491,19 @@ describe('Person-bound file retirement transport', () => {
 
 describe('Batch log writes for admitted People', () => {
 	function batchClient() {
-		const inserted: Array<{ table: string; rows: Record<string, unknown>[] }> = [];
+		const inserted: Array<{ actor: unknown; org: unknown; table: unknown; rows: Record<string, unknown>[] }> = [];
 		const admin = {
-			from: (table: string) => ({
-				insert: (rows: Record<string, unknown>[]) => {
-					inserted.push({ table, rows });
-					return {
-						select: () => ({
-							returns: async () => ({ data: rows.map((row) => ({ personnel_id: row.personnel_id })), error: null })
-						})
-					};
-				}
-			})
+			rpc: async (name: string, args: Record<string, unknown>) => {
+				if (name !== 'insert_personnel_artifacts') throw new Error(`unexpected ${name}`);
+				const rows = args.p_rows as Record<string, unknown>[];
+				inserted.push({ actor: args.p_actor, org: args.p_organization_id, table: args.p_table, rows });
+				return { data: rows.map((row, at) => ({ id: `row-${at}`, ...row })), error: null };
+			}
 		} as unknown as SupabaseClient;
 		return { inserted, admin };
 	}
 
-	it('writes every follow-up and note in one insert bound to the actor’s Organization', async () => {
+	it('writes every follow-up and note in one command bound to the actor and their Organization', async () => {
 		const { inserted, admin } = batchClient();
 		const port = createSupabasePersonnelArtifactWritePort({} as SupabaseClient, () => admin);
 		const actor = member('operate');
@@ -502,16 +529,10 @@ describe('Batch log writes for admitted People', () => {
 		).resolves.toEqual([]);
 
 		expect(
-			inserted.map(({ table, rows }) => [table, rows.map((row) => [row.organization_id, row.personnel_id])])
+			inserted.map(({ actor: by, org, table, rows }) => [by, org, table, rows.map((row) => row.personnel_id)])
 		).toEqual([
-			[
-				'personnel_follow_ups',
-				[
-					['a1300000-0000-4000-8000-000000000001', 'person-1'],
-					['a1300000-0000-4000-8000-000000000001', 'person-2']
-				]
-			],
-			['leader_notes', [['a1300000-0000-4000-8000-000000000001', 'person-2']]]
+			[actor.userId, actor.orgId, 'personnel_follow_ups', ['person-1', 'person-2']],
+			[actor.userId, actor.orgId, 'leader_notes', ['person-2']]
 		]);
 		expect(inserted[0].rows[0]).toMatchObject({
 			status: 'open',

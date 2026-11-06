@@ -102,7 +102,7 @@ describe('auditLog', () => {
 		const batch = '33333333-3333-4333-8333-333333333333';
 		const people = ['44444444-4444-4444-8444-444444444444', '55555555-5555-4555-8555-555555555555'];
 		const events = people.map((personnelId) => ({
-			action: 'personnel.follow_up.created',
+			action: 'personnel.exported',
 			resourceType: 'personnel',
 			resourceId: personnelId,
 			orgId: organization,

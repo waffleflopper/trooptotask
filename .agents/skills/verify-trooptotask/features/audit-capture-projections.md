@@ -34,8 +34,10 @@ Organizations without disclosing those privileged details to anyone else.
   writes nothing more, so a refresh, a page of older notes or a second click does not fill the log. The write is
   awaited: when it fails the link or text is not given out.
 - `retention`: sign-in, failed sign-in, MFA and rate-limit entries keep for 90 days and every other entry for 3 years.
-  The list of 90-day kinds is `audit_private.short_retention_actions()`; a unit test compares it with the kinds Logs
-  hides. Personal actions (reading or deleting a notification, saving preferences) write no unit entry; older rows
+  The list of 90-day kinds is `audit_private.short_retention_actions()`, mirrored by `SHORT_RETENTION_AUDIT_ACTIONS`;
+  a unit test checks that Logs hides only kinds on it. The eight `*_rate_limited` kinds (invitation, password, account
+  setup and Access Request limits) keep for 90 days but stay visible in Logs; only sign-in, failed sign-in, MFA and
+  `security.rate_limit_*` entries are hidden. Personal actions (reading or deleting a notification, saving preferences) write no unit entry; older rows
   keep their legacy sentence.
 - `streamed-load`: Logs paints its header and filters at once, holds the results skeleton while the audit read runs and
   shows its own load error, with retry, when that read fails. A failed Load more keeps the rows above it and offers its
@@ -73,7 +75,7 @@ service admission.
 without browser/session cookies. Capture status, any redirect and full response, then exact row/file and notification
 readback. Missing/wrong credentials must return 401 without effects; admitted jobs must report actual effects and
 preserve ineligible/history witnesses. Repeat to prove zero new mutations and truthful repeated summaries. Audit keeps
-sign-in, failed sign-in, MFA and rate-limit entries for 90 days and every other entry for 3 years; setup cleanup revokes expired unused links and preserves claimed/completed/failed history,
+sign-in, failed sign-in, MFA and rate-limit entries (all thirteen kinds) for 90 days and every other entry for 3 years; setup cleanup revokes expired unused links and preserves claimed/completed/failed history,
 Access Requests and User Accounts. A redirect to sign-in is a failed admission observation, not an authorized job run.
 `records` runs the archived-records job. The Personnel, artifact and Onboarding recipes own their source-specific setup,
 failure and provider-sized proof. Exact cutoff equality belongs to fixed-time service/SQL checks; these live fixtures do
@@ -231,6 +233,23 @@ counseling record for <Rank> <Last>, <First>`, `Opened a document for …` and `
     fail an open: a file opens with it armed. The refusal to hand out a file when the write fails has SQL and app unit
     proof only. Pressing a file button opens its PDF in a new tab: close it and `select_page` the Person page again,
     or the next control call can hit the wrong page.
+
+12. **Moved completion and rate-limited kinds.** As `orgOwner`, open Critical Tasks and read Able's completion with
+    `$V rows personnel_ict_completions orgA`. The UI cannot change a saved completion's person, so move it with the
+    app's own endpoint from the signed-in page (direct API proof): `PUT <org>/api/personnel-ict-completions` with
+    `{"id":"<completion>","personnelId":"<Baker>"}` returns 200. `$V rows audit_logs orgA action
+personnel_ict_completion.updated` shows two rows with one `batch_id` and the same `details.change.person`
+    (`SPC Able, Synthetic` → `SPC Baker, Synthetic`), one with `subject_personnel_id` Baker and one Able. The
+    unfiltered Logs list reads one line, not `Changed 2 critical task completions`. Open `Person`, type
+    `SPC Able, Synthetic` and press Enter (`?person=`): the move reads `Changed critical task completion <task> for SPC
+Able, Synthetic on <d Mon>: person SPC Able, Synthetic → SPC Baker, Synthetic` at 1280 and 390 with no horizontal
+    scroll, and again after reload. A task-only move writes one row and an unchanged save none; SQL
+    `audit_completion_moves.sql` owns those. For a rate-limited kind that stays visible, send four
+    `settings/members/invite` requests for one unique email, revoking the pending invitation between them (the pending
+    check runs before the limit of 3 per recipient per 15 minutes). The fourth returns 429, `rows audit_logs orgA
+action member.invite_rate_limited` shows one `warning` row, and Logs `?kind=member.invite_rate_limited` reads
+    `Blocked an invitation over the rate limit`. After `$V retention cron run audit` that row remains. Exact 90-day
+    cutoffs belong to `audit_retention_cutoff.sql`. Restore the completion's person through the same endpoint.
 
 Restore hooks and edited originals, run `clean-seeds`, and read every seed ID back as absent in its recorded
 Organization. Original audit rows must retain their saved fields; expected producer/login additions remain confined to

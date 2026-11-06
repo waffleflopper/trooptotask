@@ -1720,6 +1720,20 @@ $$;
 ALTER FUNCTION audit_private.require_in_unit(p_label text, p_reference_id uuid, p_previous_reference_id uuid) OWNER TO postgres;
 
 --
+-- Name: short_retention_actions(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.short_retention_actions() RETURNS text[]
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  SELECT ARRAY['auth.login_success', 'auth.login_failure', 'auth.mfa_verify', 'security.rate_limit_violation']::text[];
+$$;
+
+
+ALTER FUNCTION audit_private.short_retention_actions() OWNER TO postgres;
+
+--
 -- Name: unit_exists(uuid); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
@@ -6525,13 +6539,14 @@ ALTER FUNCTION public.claim_account_setup_link_for_session(p_setup_link_id uuid,
 
 CREATE FUNCTION public.cleanup_old_audit_logs() RETURNS integer
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    SET search_path TO ''
     AS $$
 DECLARE
   deleted_count integer;
 BEGIN
-  DELETE FROM audit_logs
-  WHERE timestamp < now() - interval '1 year';
+  DELETE FROM public.audit_logs
+  WHERE "timestamp" < now() - interval '3 years'
+    OR (action = ANY (audit_private.short_retention_actions()) AND "timestamp" < now() - interval '90 days');
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
   RETURN deleted_count;
 END;
@@ -10450,6 +10465,51 @@ $$;
 
 
 ALTER FUNCTION public.record_app_audit_entry(p_kind text, p_record_type text, p_severity text, p_details jsonb, p_actor_user_id uuid, p_organization_id uuid, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_batch_id uuid, p_ip_address inet, p_user_agent text) OWNER TO postgres;
+
+--
+-- Name: record_personnel_record_open(text, uuid, uuid, uuid, uuid, inet, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.record_personnel_record_open(p_kind text, p_actor_user_id uuid, p_organization_id uuid, p_personnel_id uuid, p_record_id uuid DEFAULT NULL::uuid, p_ip_address inet DEFAULT NULL::inet, p_user_agent text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_record_type text;
+BEGIN
+  v_record_type := CASE p_kind
+    WHEN 'personnel.counseling_record.opened' THEN 'counseling_record'
+    WHEN 'personnel.document.opened' THEN 'personnel_document'
+    WHEN 'personnel.leader_note.opened' THEN 'leader_note'
+  END;
+  IF v_record_type IS NULL OR p_actor_user_id IS NULL OR p_organization_id IS NULL OR p_personnel_id IS NULL THEN
+    RAISE EXCEPTION 'Not a record open' USING ERRCODE = '22023';
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    p_kind || ':' || p_actor_user_id::text || ':' || p_personnel_id::text || ':' || coalesce(p_record_id::text, ''), 0));
+
+  IF EXISTS (
+    SELECT 1 FROM public.audit_logs entry
+    WHERE entry.org_id = p_organization_id
+      AND entry.subject_personnel_id = p_personnel_id
+      AND entry.user_id = p_actor_user_id
+      AND entry.action = p_kind
+      AND entry.resource_id IS NOT DISTINCT FROM p_record_id
+      AND entry."timestamp" > now() - interval '10 minutes'
+  ) THEN
+    RETURN;
+  END IF;
+
+  PERFORM public.record_app_audit_entry(
+    p_kind, v_record_type, 'info', '{}'::jsonb, p_actor_user_id, p_organization_id, p_record_id, NULL, p_personnel_id,
+    NULL, NULL, p_ip_address, p_user_agent
+  );
+END;
+$$;
+
+
+ALTER FUNCTION public.record_personnel_record_open(p_kind text, p_actor_user_id uuid, p_organization_id uuid, p_personnel_id uuid, p_record_id uuid, p_ip_address inet, p_user_agent text) OWNER TO postgres;
 
 --
 -- Name: record_platform_error(uuid, text, text, text, text, text, text, text, text, smallint, uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
@@ -21447,6 +21507,13 @@ REVOKE ALL ON FUNCTION audit_private.require_in_unit(p_label text, p_reference_i
 
 
 --
+-- Name: FUNCTION short_retention_actions(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.short_retention_actions() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION unit_exists(p_organization_id uuid); Type: ACL; Schema: audit_private; Owner: postgres
 --
 
@@ -23531,6 +23598,14 @@ GRANT ALL ON FUNCTION public.record_app_audit_entries(p_entries jsonb, p_actor_u
 
 REVOKE ALL ON FUNCTION public.record_app_audit_entry(p_kind text, p_record_type text, p_severity text, p_details jsonb, p_actor_user_id uuid, p_organization_id uuid, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_batch_id uuid, p_ip_address inet, p_user_agent text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.record_app_audit_entry(p_kind text, p_record_type text, p_severity text, p_details jsonb, p_actor_user_id uuid, p_organization_id uuid, p_record_id uuid, p_record_label text, p_subject_personnel_id uuid, p_subject_label text, p_batch_id uuid, p_ip_address inet, p_user_agent text) TO service_role;
+
+
+--
+-- Name: FUNCTION record_personnel_record_open(p_kind text, p_actor_user_id uuid, p_organization_id uuid, p_personnel_id uuid, p_record_id uuid, p_ip_address inet, p_user_agent text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.record_personnel_record_open(p_kind text, p_actor_user_id uuid, p_organization_id uuid, p_personnel_id uuid, p_record_id uuid, p_ip_address inet, p_user_agent text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.record_personnel_record_open(p_kind text, p_actor_user_id uuid, p_organization_id uuid, p_personnel_id uuid, p_record_id uuid, p_ip_address inet, p_user_agent text) TO service_role;
 
 
 --

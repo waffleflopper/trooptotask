@@ -254,6 +254,27 @@ const requestColumns = (requestInfo: RequestInfo) => ({
 	p_user_agent: requestInfo.userAgent ?? undefined
 });
 
+/** The database labels the person and the member itself and skips a repeat of the same open within ten minutes. */
+async function writeRecordOpen(
+	admin: ReturnType<typeof getAdminClient>,
+	event: AuditEvent,
+	entry: ReturnType<typeof catalogedEntry>,
+	requestInfo: RequestInfo
+): Promise<void> {
+	if (!requestInfo.userId || !event.orgId || !entry.subjectPersonnelId) {
+		throw new Error(`Audit entry ${event.action} needs a member, an Organization and a person`);
+	}
+	const result = await admin.rpc('record_personnel_record_open', {
+		p_kind: entry.kind,
+		p_organization_id: event.orgId,
+		p_personnel_id: entry.subjectPersonnelId,
+		p_record_id: entry.recordId,
+		...requestColumns(requestInfo),
+		p_actor_user_id: requestInfo.userId
+	});
+	if (result.error) throw new Error('Audit log write failed');
+}
+
 /** A cataloged entry carries the labels the caller saved, and only the details its kind declares. */
 async function writeCatalogedEntry(
 	admin: ReturnType<typeof getAdminClient>,
@@ -261,6 +282,7 @@ async function writeCatalogedEntry(
 	requestInfo: RequestInfo
 ): Promise<void> {
 	const entry = catalogedEntry(event);
+	if (auditKindOf(event.action)?.collapsesRepeats) return writeRecordOpen(admin, event, entry, requestInfo);
 	const result = await admin.rpc('record_app_audit_entry', {
 		p_kind: entry.kind,
 		p_record_type: entry.recordType,

@@ -148,7 +148,11 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 							? Response.json({ ...row, covered_group_ids: row.access_scope_group_ids ?? [] })
 							: Response.json({ code: 'PGRST116' }, { status: 406 });
 					}
-					if (url.pathname.endsWith('/rpc/record_app_audit_entry')) return Response.json(null);
+					if (
+						url.pathname.endsWith('/rpc/record_app_audit_entry') ||
+						url.pathname.endsWith('/rpc/record_personnel_record_open')
+					)
+						return Response.json(null);
 					const table = url.pathname.split('/').at(-1)!;
 					if (isDeletionReceiptRead({ path: url.pathname, body })) return Response.json([]);
 					if (!(table in tables)) throw new Error(`Unexpected table: ${table}`);
@@ -239,7 +243,11 @@ const operations: { name: string; handler: RequestHandler; method: string; id: s
 ];
 
 function isAuditWrite(path: string) {
-	return path.endsWith('/audit_logs') || path.endsWith('/rpc/record_app_audit_entry');
+	return (
+		path.endsWith('/audit_logs') ||
+		path.endsWith('/rpc/record_app_audit_entry') ||
+		path.endsWith('/rpc/record_personnel_record_open')
+	);
 }
 
 function isDeletionReceiptRead(request: { path: string; body: unknown }) {

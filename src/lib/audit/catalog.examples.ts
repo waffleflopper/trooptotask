@@ -540,6 +540,18 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
 		sentence: 'Deleted a follow-up for SPC Doe, Jane'
 	},
+	'personnel.counseling_record.opened': {
+		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Opened a counseling record for SPC Doe, Jane'
+	},
+	'personnel.document.opened': {
+		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Opened a document for SPC Doe, Jane'
+	},
+	'personnel.leader_note.opened': {
+		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
+		sentence: 'Read the leader notes for SPC Doe, Jane'
+	},
 	'personnel.exported': {
 		entry: { recordLabel: null, subjectLabel: 'SPC Doe, Jane', details: {} },
 		sentence: 'Exported the record of SPC Doe, Jane'

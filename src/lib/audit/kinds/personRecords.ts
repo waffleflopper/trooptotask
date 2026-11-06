@@ -15,6 +15,19 @@ const onRecord = (verb: string, noun: string) =>
 		batch: { verb, one: noun, many: `${noun}s` }
 	});
 
+/**
+ * A member opened a record's file, or read a person's leader notes. The server writes it before it hands out the content,
+ * and the entry names the person and the type of record, never the title, text or file name.
+ */
+const opened = (sentence: string, noun: string) =>
+	auditKind({
+		writer: 'app',
+		collapsesRepeats: true,
+		entry: aboutPerson,
+		sentence: ({ subject }) => `${sentence} for ${subject}`,
+		batch: { verb: 'Opened', one: noun, many: `${noun}s` }
+	});
+
 export const personRecordKinds = {
 	'personnel.counseling_record.created': onRecord('Added', 'counseling record'),
 	'personnel.counseling_record.updated': onRecord('Changed', 'counseling record'),
@@ -38,6 +51,9 @@ export const personRecordKinds = {
 	'personnel.follow_up.archived': onRecord('Archived', 'follow-up'),
 	'personnel.follow_up.restored': onRecord('Restored', 'follow-up'),
 	'personnel.follow_up.deleted': onRecord('Deleted', 'follow-up'),
+	'personnel.counseling_record.opened': opened('Opened a counseling record', 'counseling record'),
+	'personnel.document.opened': opened('Opened a document', 'document'),
+	'personnel.leader_note.opened': opened('Read the leader notes', 'leader note'),
 	'personnel.exported': auditKind({
 		writer: 'app',
 		entry: aboutPerson,

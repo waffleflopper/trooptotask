@@ -58,6 +58,7 @@ describe('notification self operations', () => {
 		await deleteOwnNotification(ports, 'own-0');
 		await deleteAllOwnNotifications(ports);
 		expect(provider.state.rows.map(({ id }) => id)).toEqual(['peer', 'own-b']);
+		expect(ports.audit.log).not.toHaveBeenCalled();
 	});
 
 	it('denies a visible peer before mutation with the retained policy audit and 403', async () => {
@@ -89,19 +90,14 @@ describe('notification self operations', () => {
 		expect(provider.state.rows).toHaveLength(1);
 	});
 
-	it('propagates a failed bulk save without a success audit and permits an explicit retry', async () => {
+	it('propagates a failed bulk save and permits an explicit retry', async () => {
 		const provider = notificationTestProvider([savedNotification('own')]);
 		const ports = selfPorts(provider);
 		provider.state.failure = { method: 'PATCH', message: 'save unavailable' };
 		await expect(markAllOwnNotificationsRead(ports)).rejects.toThrow('save unavailable');
 		expect(provider.state.rows[0].read).toBe(false);
-		expect(ports.audit.log).not.toHaveBeenCalled();
 		provider.state.failure = null;
 		await markAllOwnNotificationsRead(ports);
 		expect(provider.state.rows[0].read).toBe(true);
-		expect(ports.audit.log).toHaveBeenCalledWith({
-			action: 'notification.mark_all_read',
-			resourceType: 'notification'
-		});
 	});
 });

@@ -15,7 +15,8 @@ describe('Organization Audit provider reads', () => {
 	const PERSON = '11111111-1111-4111-8111-111111111111';
 	const MEMBER = '22222222-2222-4222-8222-222222222222';
 	const CURSOR_ID = '33333333-3333-4333-8333-333333333333';
-	const EXCLUDED = 'not.in.(auth.login_success,auth.login_failure,auth.mfa_verify,security.rate_limit_violation)';
+	const EXCLUDED =
+		'not.in.(auth.login_success,auth.login_failure,auth.mfa_verify,security.rate_limit_violation,security.rate_limit_exceeded)';
 
 	it('asks for one more row than the page, in the order the cursor pages on', async () => {
 		const requests: URL[] = [];
@@ -110,7 +111,8 @@ describe('Organization Audit provider reads', () => {
 				'auth.login_success',
 				'auth.login_failure',
 				'auth.mfa_verify',
-				'security.rate_limit_violation'
+				'security.rate_limit_violation',
+				'security.rate_limit_exceeded'
 			]
 		});
 	});

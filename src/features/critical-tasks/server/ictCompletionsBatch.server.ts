@@ -2,10 +2,10 @@ import {
 	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
 	ICT_IMPORT_MAX_RECORDS,
 	type IctCompletionImportRecord,
+	type IctCompletionImportWrite,
 	type IctImportReply,
 	type IctImportRowResult,
-	type PersonnelIctCompletion,
-	type PersonnelIctCompletionCreate
+	type PersonnelIctCompletion
 } from '../contracts';
 import { isUnconfirmedWrite } from './criticalTaskWriteOutcome.server';
 import type { IctCompletionBatchContext } from './personnelIctCompletionPorts.server';
@@ -82,64 +82,47 @@ export async function importIctCompletionsBatch(
 		])
 	);
 
-	const creates: { index: number; completion: PersonnelIctCompletionCreate }[] = [];
-	const updates: { index: number; saved: PersonnelIctCompletion; record: IctCompletionImportRecord }[] = [];
+	const writes: { index: number; write: IctCompletionImportWrite }[] = [];
 	for (const { index, record } of accepted) {
 		const saved = history.get(`${record.personnelId}|${record.ictTaskId}|${record.completedAt}`);
-		if (saved) updates.push({ index, saved, record });
-		else
-			creates.push({
+		if (!saved) {
+			writes.push({
 				index,
-				completion: {
-					personnelId: record.personnelId,
-					ictTaskId: record.ictTaskId,
-					completedAt: record.completedAt,
-					validationMethod: record.validationMethod ?? 'Other',
-					...(record.validatedBy ? { validatedBy: record.validatedBy } : {}),
-					...(record.notes ? { notes: record.notes } : {})
-				}
-			});
-	}
-
-	if (creates.length) {
-		try {
-			const saved = await ctx.criticalTaskCompletions.createMany(creates.map((item) => item.completion));
-			creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
-		} catch (bulkError) {
-			if (isUnconfirmedWrite(bulkError)) {
-				for (const item of creates) results[item.index] = rowFailure(bulkError);
-			} else {
-				for (const item of creates) {
-					try {
-						results[item.index] = {
-							kind: 'added',
-							record: await ctx.criticalTaskCompletions.create(item.completion)
-						};
-					} catch (error) {
-						results[item.index] = rowFailure(error);
+				write: {
+					create: {
+						personnelId: record.personnelId,
+						ictTaskId: record.ictTaskId,
+						completedAt: record.completedAt,
+						validationMethod: record.validationMethod ?? 'Other',
+						...(record.validatedBy ? { validatedBy: record.validatedBy } : {}),
+						...(record.notes ? { notes: record.notes } : {})
 					}
 				}
-			}
-		}
-	}
-	for (const item of updates) {
-		const { validationMethod, validatedBy, notes } = item.record;
-		const patch = {
-			...(validationMethod && validationMethod !== item.saved.validationMethod ? { validationMethod } : {}),
-			...(validatedBy && validatedBy !== item.saved.validatedBy ? { validatedBy } : {}),
-			...(notes && notes !== item.saved.notes ? { notes } : {})
-		};
-		if (!Object.keys(patch).length) {
-			results[item.index] = { kind: 'unchanged' };
+			});
 			continue;
 		}
+		const { validationMethod, validatedBy, notes } = record;
+		const patch = {
+			...(validationMethod && validationMethod !== saved.validationMethod ? { validationMethod } : {}),
+			...(validatedBy && validatedBy !== saved.validatedBy ? { validatedBy } : {}),
+			...(notes && notes !== saved.notes ? { notes } : {})
+		};
+		if (Object.keys(patch).length) writes.push({ index, write: { id: saved.id, patch } });
+		else results[index] = { kind: 'unchanged' };
+	}
+
+	if (writes.length) {
 		try {
-			results[item.index] = {
-				kind: 'updated',
-				record: await ctx.criticalTaskCompletions.update(item.saved.id, patch)
-			};
+			const outcomes = await ctx.criticalTaskCompletions.importMany(writes.map((item) => item.write));
+			writes.forEach(({ index, write }, position) => {
+				const outcome = outcomes[position];
+				results[index] =
+					outcome instanceof Error
+						? rowFailure(outcome)
+						: { kind: 'create' in write ? 'added' : 'updated', record: outcome };
+			});
 		} catch (error) {
-			results[item.index] = rowFailure(error);
+			for (const { index } of writes) results[index] = rowFailure(error);
 		}
 	}
 	return { results };

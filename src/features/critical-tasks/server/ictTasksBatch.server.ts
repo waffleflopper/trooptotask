@@ -3,13 +3,12 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import {
 	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
 	ICT_IMPORT_MAX_RECORDS,
-	ICT_TASK_UNAVAILABLE_MESSAGE,
 	type CriticalTaskLibraryPersistence,
 	type IctImportReply,
 	type IctImportRowResult,
 	type IctTask,
-	type IctTaskCreate,
-	type IctTaskImportRecord
+	type IctTaskImportRecord,
+	type IctTaskImportWrite
 } from '../contracts';
 import { isUnconfirmedWrite } from './criticalTaskWriteOutcome.server';
 import { normalizeIctTaskCode } from '../utils/ictTaskLibrary';
@@ -21,10 +20,7 @@ interface IctTaskBatchContext {
 	auth: Pick<OrganizationAccessGrant, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'> &
 		Partial<Pick<OrganizationAccessGrant, 'userId'>>;
 	audit: PolicyAuditSink;
-	criticalTaskLibrary: Pick<
-		CriticalTaskLibraryPersistence,
-		'listImportCandidates' | 'create' | 'createMany' | 'update'
-	>;
+	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listImportCandidates' | 'importMany'>;
 }
 
 function rowFailure(error: unknown): Extract<IctImportRowResult<never>, { message: string }> {
@@ -47,8 +43,7 @@ export async function importIctTasksBatch(
 	const byCode = new Map(existing.map((task) => [normalizeIctTaskCode(task.taskCode), task]));
 	let nextSortOrder = existing.reduce((max, task) => Math.max(max, task.sortOrder + 1), 0);
 	const results: IctImportRowResult<IctTask>[] = [];
-	const creates: { index: number; task: IctTaskCreate }[] = [];
-	const updates: { index: number; id: string; patch: Omit<IctTaskImportRecord, 'taskCode'> }[] = [];
+	const writes: { index: number; write: IctTaskImportWrite }[] = [];
 	const seen = new Set<string>();
 
 	input.records.forEach(({ taskCode: rawCode, ...fields }, index) => {
@@ -61,15 +56,18 @@ export async function importIctTasksBatch(
 		const match = byCode.get(taskCode);
 		if (match) {
 			const { title, description, category, mos, ...values } = fields;
-			updates.push({
+			writes.push({
 				index,
-				id: match.id,
-				patch: {
-					...values,
-					...(title?.trim() ? { title } : {}),
-					...(description?.trim() ? { description } : {}),
-					...(category?.trim() ? { category } : {}),
-					...(mos?.length ? { mos } : {})
+				write: {
+					id: match.id,
+					patch: {
+						...values,
+						...(title?.trim() ? { title } : {}),
+						...(description?.trim() ? { description } : {}),
+						...(category?.trim() ? { category } : {}),
+						...(mos?.length ? { mos } : {}),
+						archivedAt: null
+					}
 				}
 			});
 			return;
@@ -78,37 +76,24 @@ export async function importIctTasksBatch(
 			results[index] = { kind: 'failed', message: 'A new task needs a title.' };
 			return;
 		}
-		creates.push({
+		writes.push({
 			index,
-			task: { ...fields, taskCode, title: fields.title, sortOrder: fields.sortOrder ?? nextSortOrder++ }
+			write: { create: { ...fields, taskCode, title: fields.title, sortOrder: fields.sortOrder ?? nextSortOrder++ } }
 		});
 	});
 
-	if (creates.length) {
+	if (writes.length) {
 		try {
-			const saved = await ctx.criticalTaskLibrary.createMany(creates.map((item) => item.task));
-			creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
-		} catch (bulkError) {
-			if (isUnconfirmedWrite(bulkError)) {
-				for (const item of creates) results[item.index] = rowFailure(bulkError);
-			} else {
-				for (const item of creates) {
-					try {
-						results[item.index] = { kind: 'added', record: await ctx.criticalTaskLibrary.create(item.task) };
-					} catch (error) {
-						results[item.index] = rowFailure(error);
-					}
-				}
-			}
-		}
-	}
-	for (const item of updates) {
-		try {
-			const task = await ctx.criticalTaskLibrary.update(item.id, { ...item.patch, archivedAt: null });
-			if (!task) fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
-			results[item.index] = { kind: 'updated', record: task };
+			const outcomes = await ctx.criticalTaskLibrary.importMany(writes.map((item) => item.write));
+			writes.forEach(({ index, write }, position) => {
+				const outcome = outcomes[position];
+				results[index] =
+					outcome instanceof Error
+						? rowFailure(outcome)
+						: { kind: 'create' in write ? 'added' : 'updated', record: outcome };
+			});
 		} catch (error) {
-			results[item.index] = rowFailure(error);
+			for (const { index } of writes) results[index] = rowFailure(error);
 		}
 	}
 	return { results };

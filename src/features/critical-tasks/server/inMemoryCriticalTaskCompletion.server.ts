@@ -1,4 +1,8 @@
-import type { CriticalTaskCompletionPersistence } from '../contracts';
+import type {
+	CriticalTaskCompletionPersistence,
+	PersonnelIctCompletionCreate,
+	PersonnelIctCompletionPatch
+} from '../contracts';
 import {
 	completionCreateValues,
 	completionPatchValues,
@@ -18,7 +22,6 @@ interface CompletionMemoryStore {
 		}
 	): Promise<T[]>;
 	insert<T>(table: string, orgId: string, input: Record<string, unknown>): Promise<T>;
-	insertMany<T>(table: string, orgId: string, inputs: Record<string, unknown>[]): Promise<T[]>;
 	update<T>(table: string, orgId: string, id: string, patch: Record<string, unknown>): Promise<T>;
 	delete(table: string, orgId: string, id: string): Promise<void>;
 }
@@ -27,6 +30,21 @@ export function createInMemoryCriticalTaskCompletionPersistence(
 	store: CompletionMemoryStore,
 	orgId: string
 ): CriticalTaskCompletionPersistence {
+	async function create(input: PersonnelIctCompletionCreate) {
+		return mapPersonnelIctCompletion(
+			await store.insert<SavedPersonnelIctCompletion>('personnel_ict_completions', orgId, completionCreateValues(input))
+		);
+	}
+	async function update(id: string, patch: PersonnelIctCompletionPatch) {
+		return mapPersonnelIctCompletion(
+			await store.update<SavedPersonnelIctCompletion>(
+				'personnel_ict_completions',
+				orgId,
+				id,
+				completionPatchValues(patch)
+			)
+		);
+	}
 	return {
 		async listHistory(personnelId) {
 			return (
@@ -81,35 +99,19 @@ export function createInMemoryCriticalTaskCompletionPersistence(
 			const row = await store.findOne<SavedPersonnelIctCompletion>('personnel_ict_completions', orgId, { id });
 			return row ? { id: row.id, personnelId: row.personnel_id, ictTaskId: row.ict_task_id } : null;
 		},
-		async create(input) {
-			return mapPersonnelIctCompletion(
-				await store.insert<SavedPersonnelIctCompletion>(
-					'personnel_ict_completions',
-					orgId,
-					completionCreateValues(input)
-				)
-			);
+		create,
+		async importMany(writes) {
+			const outcomes = [];
+			for (const write of writes) {
+				try {
+					outcomes.push('create' in write ? await create(write.create) : await update(write.id, write.patch));
+				} catch (error) {
+					outcomes.push(error instanceof Error ? error : new Error(String(error)));
+				}
+			}
+			return outcomes;
 		},
-		async createMany(inputs) {
-			if (inputs.length === 0) return [];
-			return (
-				await store.insertMany<SavedPersonnelIctCompletion>(
-					'personnel_ict_completions',
-					orgId,
-					inputs.map(completionCreateValues)
-				)
-			).map(mapPersonnelIctCompletion);
-		},
-		async update(id, patch) {
-			return mapPersonnelIctCompletion(
-				await store.update<SavedPersonnelIctCompletion>(
-					'personnel_ict_completions',
-					orgId,
-					id,
-					completionPatchValues(patch)
-				)
-			);
-		},
+		update,
 		delete(id) {
 			return store.delete('personnel_ict_completions', orgId, id);
 		}

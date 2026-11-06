@@ -4304,6 +4304,14 @@ export type Database = {
         Args: { p_entries: Json; p_organization_id: string }
         Returns: Json
       }
+      import_ict_completions: {
+        Args: { p_organization_id: string; p_rows: Json }
+        Returns: Json
+      }
+      import_ict_tasks: {
+        Args: { p_organization_id: string; p_rows: Json }
+        Returns: Json
+      }
       insert_personnel_artifacts: {
         Args: {
           p_actor: string

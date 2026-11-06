@@ -521,34 +521,29 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  IF TG_OP = 'DELETE' THEN
-    PERFORM audit_private.record_entry(
-      OLD.organization_id, 'daily_assignment.cleared', 'daily_assignment', OLD.id, v_type, NULL, NULL,
-      pg_catalog.jsonb_build_object('date', OLD.date));
-    RETURN NULL;
-  END IF;
   IF TG_OP = 'UPDATE' AND NEW.assignee_id IS NOT DISTINCT FROM OLD.assignee_id AND NEW.date = OLD.date
     AND NEW.assignment_type_id = OLD.assignment_type_id
   THEN
     RETURN NULL;
   END IF;
 
-  IF NEW.assignee_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
-    v_assignee := NEW.assignee_id::uuid;
+  IF v_row.assignee_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    v_assignee := v_row.assignee_id::uuid;
   END IF;
   IF v_assign_to = 'group' THEN
     SELECT team.name INTO v_group FROM public.groups team
-    WHERE team.id = v_assignee AND team.organization_id = NEW.organization_id;
+    WHERE team.id = v_assignee AND team.organization_id = v_row.organization_id;
     v_who := v_group;
   ELSE
-    v_who := audit_private.personnel_label(NEW.organization_id, v_assignee);
+    v_who := audit_private.personnel_label(v_row.organization_id, v_assignee);
     v_person := CASE WHEN v_who IS NOT NULL THEN v_assignee END;
   END IF;
   PERFORM audit_private.record_entry(
-    NEW.organization_id,
-    CASE TG_OP WHEN 'INSERT' THEN 'daily_assignment.created' ELSE 'daily_assignment.updated' END,
-    'daily_assignment', NEW.id, v_type, v_person, CASE WHEN v_person IS NOT NULL THEN v_who END,
-    pg_catalog.jsonb_build_object('date', NEW.date, 'group', v_group));
+    v_row.organization_id,
+    CASE TG_OP WHEN 'INSERT' THEN 'daily_assignment.created' WHEN 'UPDATE' THEN 'daily_assignment.updated'
+      ELSE 'daily_assignment.cleared' END,
+    'daily_assignment', v_row.id, v_type, v_person, CASE WHEN v_person IS NOT NULL THEN v_who END,
+    pg_catalog.jsonb_build_object('date', v_row.date, 'group', v_group));
   RETURN NULL;
 END;
 $_$;
@@ -1727,7 +1722,10 @@ CREATE FUNCTION audit_private.short_retention_actions() RETURNS text[]
     LANGUAGE sql IMMUTABLE
     SET search_path TO ''
     AS $$
-  SELECT ARRAY['auth.login_success', 'auth.login_failure', 'auth.mfa_verify', 'security.rate_limit_violation']::text[];
+  SELECT ARRAY[
+    'auth.login_success', 'auth.login_failure', 'auth.mfa_verify', 'security.rate_limit_violation',
+    'security.rate_limit_exceeded'
+  ]::text[];
 $$;
 
 
@@ -8280,6 +8278,122 @@ $$;
 
 
 ALTER FUNCTION public.import_availability_entries(p_organization_id uuid, p_entries jsonb) OWNER TO postgres;
+
+--
+-- Name: import_ict_completions(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.import_ict_completions(p_organization_id uuid, p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_item jsonb;
+  v_saved public.personnel_ict_completions;
+  v_results jsonb := '[]'::jsonb;
+  v_code text;
+  v_constraint text;
+BEGIN
+  IF p_organization_id IS NULL OR pg_catalog.jsonb_typeof(p_rows) IS DISTINCT FROM 'array'
+    OR pg_catalog.jsonb_array_length(p_rows) NOT BETWEEN 1 AND 500
+  THEN
+    RAISE EXCEPTION 'Invalid completion import' USING ERRCODE = '22023';
+  END IF;
+  FOR v_item IN SELECT item.value FROM pg_catalog.jsonb_array_elements(p_rows) AS item LOOP
+    BEGIN
+      IF v_item ->> 'op' = 'insert' THEN
+        INSERT INTO public.personnel_ict_completions AS completion (
+          id, organization_id, personnel_id, ict_task_id, completed_at, validation_method, validated_by, notes
+        )
+        SELECT (v_item ->> 'id')::uuid, p_organization_id, r.personnel_id, r.ict_task_id, r.completed_at,
+          r.validation_method, r.validated_by, r.notes
+        FROM pg_catalog.jsonb_populate_record(NULL::public.personnel_ict_completions, v_item -> 'values') AS r
+        RETURNING completion.* INTO v_saved;
+      ELSIF v_item ->> 'op' = 'update' THEN
+        UPDATE public.personnel_ict_completions AS completion
+        SET (validation_method, validated_by, notes) = (
+          SELECT r.validation_method, r.validated_by, r.notes
+          FROM pg_catalog.jsonb_populate_record(completion, v_item -> 'values') AS r
+        )
+        WHERE completion.organization_id = p_organization_id AND completion.id = (v_item ->> 'id')::uuid
+        RETURNING completion.* INTO v_saved;
+        IF NOT FOUND THEN
+          RAISE EXCEPTION 'Completion not found' USING ERRCODE = 'P0002';
+        END IF;
+      ELSE
+        RAISE EXCEPTION 'Invalid completion import row' USING ERRCODE = '22023';
+      END IF;
+      v_results := v_results || pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('row', pg_catalog.to_jsonb(v_saved)));
+    EXCEPTION WHEN OTHERS THEN
+      GET STACKED DIAGNOSTICS v_code = RETURNED_SQLSTATE, v_constraint = CONSTRAINT_NAME;
+      v_results := v_results || pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object('code', v_code, 'constraint', NULLIF(v_constraint, '')));
+    END;
+  END LOOP;
+  RETURN v_results;
+END;
+$$;
+
+
+ALTER FUNCTION public.import_ict_completions(p_organization_id uuid, p_rows jsonb) OWNER TO postgres;
+
+--
+-- Name: import_ict_tasks(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.import_ict_tasks(p_organization_id uuid, p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_item jsonb;
+  v_saved public.ict_tasks;
+  v_results jsonb := '[]'::jsonb;
+  v_code text;
+  v_constraint text;
+BEGIN
+  IF p_organization_id IS NULL OR pg_catalog.jsonb_typeof(p_rows) IS DISTINCT FROM 'array'
+    OR pg_catalog.jsonb_array_length(p_rows) NOT BETWEEN 1 AND 500
+  THEN
+    RAISE EXCEPTION 'Invalid task import' USING ERRCODE = '22023';
+  END IF;
+  FOR v_item IN SELECT item.value FROM pg_catalog.jsonb_array_elements(p_rows) AS item LOOP
+    BEGIN
+      IF v_item ->> 'op' = 'insert' THEN
+        INSERT INTO public.ict_tasks AS task (
+          id, organization_id, task_code, title, description, category, mos, expiration_months, sort_order, archived_at
+        )
+        SELECT (v_item ->> 'id')::uuid, p_organization_id, r.task_code, r.title, r.description, r.category,
+          coalesce(r.mos, '{}'), r.expiration_months, coalesce(r.sort_order, 0), r.archived_at
+        FROM pg_catalog.jsonb_populate_record(NULL::public.ict_tasks, v_item -> 'values') AS r
+        RETURNING task.* INTO v_saved;
+      ELSIF v_item ->> 'op' = 'update' THEN
+        UPDATE public.ict_tasks AS task
+        SET (title, description, category, mos, expiration_months, sort_order, archived_at) = (
+          SELECT r.title, r.description, r.category, r.mos, r.expiration_months, r.sort_order, r.archived_at
+          FROM pg_catalog.jsonb_populate_record(task, v_item -> 'values') AS r
+        )
+        WHERE task.organization_id = p_organization_id AND task.id = (v_item ->> 'id')::uuid
+        RETURNING task.* INTO v_saved;
+        IF NOT FOUND THEN
+          RAISE EXCEPTION 'Task not found' USING ERRCODE = 'P0002';
+        END IF;
+      ELSE
+        RAISE EXCEPTION 'Invalid task import row' USING ERRCODE = '22023';
+      END IF;
+      v_results := v_results || pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('row', pg_catalog.to_jsonb(v_saved)));
+    EXCEPTION WHEN OTHERS THEN
+      GET STACKED DIAGNOSTICS v_code = RETURNED_SQLSTATE, v_constraint = CONSTRAINT_NAME;
+      v_results := v_results || pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object('code', v_code, 'constraint', NULLIF(v_constraint, '')));
+    END;
+  END LOOP;
+  RETURN v_results;
+END;
+$$;
+
+
+ALTER FUNCTION public.import_ict_tasks(p_organization_id uuid, p_rows jsonb) OWNER TO postgres;
 
 --
 -- Name: insert_personnel_artifacts(uuid, uuid, text, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
@@ -23057,6 +23171,22 @@ GRANT ALL ON FUNCTION public.guard_onboarding_workflow_identity() TO service_rol
 
 REVOKE ALL ON FUNCTION public.import_availability_entries(p_organization_id uuid, p_entries jsonb) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.import_availability_entries(p_organization_id uuid, p_entries jsonb) TO authenticated;
+
+
+--
+-- Name: FUNCTION import_ict_completions(p_organization_id uuid, p_rows jsonb); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.import_ict_completions(p_organization_id uuid, p_rows jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.import_ict_completions(p_organization_id uuid, p_rows jsonb) TO authenticated;
+
+
+--
+-- Name: FUNCTION import_ict_tasks(p_organization_id uuid, p_rows jsonb); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.import_ict_tasks(p_organization_id uuid, p_rows jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.import_ict_tasks(p_organization_id uuid, p_rows jsonb) TO authenticated;
 
 
 --

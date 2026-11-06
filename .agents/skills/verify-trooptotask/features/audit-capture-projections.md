@@ -16,7 +16,8 @@ Organizations without disclosing those privileged details to anyone else.
 - `record-capture`: the database writes every Calendar availability add, change and removal in the same transaction
   as the change, with the actor, status, person and dates saved as labels. A later rename or deletion does not change
   the sentence. A change shows its dates before and after. One bulk add, import or removal writes one entry per row
-  under one batch, which Logs shows as one line that opens to its rows.
+  under one batch, which Logs shows as one line that opens to its rows. A Critical Tasks import is one database command
+  for its new, updated and restored rows alike, so a chunk's task or completion entries share one batch too.
 - `family-capture`: the same holds for Personnel, Training, Critical Tasks, Onboarding, Groups, the Calendar
   catalogs, and Calendar events and taskings with their equipment and checklist items. A change made through the member's own session is audited by the database in the same transaction, with the
   signed-in member as Actor and saved labels for the record and, for a person's record, the person (`<rank> <last>,

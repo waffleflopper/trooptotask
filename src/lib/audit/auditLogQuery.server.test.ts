@@ -121,6 +121,16 @@ describe('fetchAuditLogs', () => {
 				resource_id: 'p1',
 				details: null,
 				timestamp: '2026-03-23T10:01:00Z'
+			},
+			{
+				id: 'log3',
+				org_id: ORG,
+				user_id: null,
+				action: 'security.rate_limit_exceeded',
+				resource_type: 'request',
+				resource_id: null,
+				details: null,
+				timestamp: '2026-03-23T10:02:00Z'
 			}
 		]);
 

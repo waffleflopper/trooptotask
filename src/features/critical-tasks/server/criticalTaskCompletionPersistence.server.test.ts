@@ -15,9 +15,8 @@ function provider(initial: Row[] = []) {
 		failOffset: -1,
 		failTask: '',
 		rejectMethod: '',
-		rejectBulk: false,
 		rejectPersonnel: '',
-		bulkAcknowledgment: undefined as Row[] | undefined,
+		importAcknowledgment: undefined as unknown,
 		hold: false,
 		held: [] as Array<() => void>,
 		inFlight: 0,
@@ -50,7 +49,7 @@ function provider(initial: Row[] = []) {
 				if (
 					state.requests.length > 150 ||
 					url.origin !== 'http://completion-ledger.invalid' ||
-					url.pathname !== '/rest/v1/personnel_ict_completions'
+					!['/rest/v1/personnel_ict_completions', '/rest/v1/rpc/import_ict_completions'].includes(url.pathname)
 				)
 					throw new Error('Unexpected completion provider operation');
 				if (
@@ -78,6 +77,7 @@ function provider(initial: Row[] = []) {
 						(state.failTask && url.searchParams.get('ict_task_id')?.includes(state.failTask)))
 				)
 					return Response.json({ message: 'Required completion history unavailable' }, { status: 403 });
+				let imported: Row[] | null = null;
 				let affected = rows.filter((row) => {
 					for (const [column, filter] of url.searchParams) {
 						if (['select', 'order', 'offset', 'limit', 'columns'].includes(column)) continue;
@@ -103,25 +103,44 @@ function provider(initial: Row[] = []) {
 					affected = affected.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000));
 					if (state.replyLost && state.readbackWithout)
 						affected = affected.map((row) => without(row, state.readbackWithout));
+				} else if (url.pathname === '/rest/v1/rpc/import_ict_completions') {
+					const { p_organization_id: orgId, p_rows: items } = body as {
+						p_organization_id: string;
+						p_rows: Array<{ op: string; id: string; values: Row }>;
+					};
+					const acknowledged = (row: Row) => ({ row: state.ackWithout ? without(row, state.ackWithout) : { ...row } });
+					imported = items.map(({ op, id, values }) => {
+						if (state.rejectPersonnel && values.personnel_id === state.rejectPersonnel)
+							return { code: '23514', constraint: null };
+						if (op === 'insert') {
+							const created = {
+								id,
+								organization_id: orgId,
+								logged_by: 'ordinary-user',
+								created_at: '2026-10-06T12:00:00.123456Z',
+								...values
+							};
+							if (!uniqueDatedCompletion([...rows, created]))
+								return { code: '23505', constraint: 'personnel_ict_completions_org_person_task_date_key' };
+							rows.push(created);
+							return acknowledged(created);
+						}
+						const row = rows.find((candidate) => candidate.id === id && candidate.organization_id === orgId);
+						if (!row) return { code: 'P0002', constraint: null };
+						Object.assign(row, values);
+						return acknowledged(row);
+					});
 				} else if (request.method === 'POST') {
-					if (Array.isArray(body) && state.rejectBulk)
-						return Response.json({ message: 'Bulk completion write rejected' }, { status: 400 });
-					const inputs = (Array.isArray(body) ? body : [body]) as Row[];
-					if (inputs.some((row) => row.personnel_id === state.rejectPersonnel))
-						return Response.json({ message: 'Completion row rejected' }, { status: 400 });
-					const created = inputs.map((row, index) => ({
-						id: `saved-${rows.length + index + 1}`,
+					const created: Row = {
 						logged_by: 'ordinary-user',
 						created_at: '2026-10-06T12:00:00.123456Z',
-						...row
-					}));
-					if (new Set([...rows, ...created].map((row) => row.id)).size !== rows.length + created.length)
-						return duplicate('personnel_ict_completions_pkey');
-					if (!uniqueDatedCompletion([...rows, ...created]))
+						...(body as Row)
+					};
+					if (rows.some((row) => row.id === created.id)) return duplicate('personnel_ict_completions_pkey');
+					if (!uniqueDatedCompletion([...rows, created]))
 						return duplicate('personnel_ict_completions_org_person_task_date_key');
-					affected = created;
-					rows.push(...affected);
-					if (Array.isArray(body) && state.bulkAcknowledgment !== undefined) affected = state.bulkAcknowledgment;
+					affected = [created];
+					rows.push(created);
 					if (state.ackWithout) affected = affected.map((row) => without(row, state.ackWithout));
 				} else if (request.method === 'PATCH') {
 					if (!uniqueDatedCompletion(rows.map((row) => (affected.includes(row) ? { ...row, ...(body as Row) } : row))))
@@ -140,6 +159,7 @@ function provider(initial: Row[] = []) {
 						{ status: 503 }
 					);
 				}
+				if (imported) return Response.json(state.importAcknowledgment ?? imported);
 				const select = url.searchParams.get('select');
 				const projected = affected.map((row) =>
 					select && select !== '*'
@@ -421,7 +441,7 @@ describe('owned Critical Tasks completion provider', () => {
 		expect(rows.map((row) => row.id)).toEqual(['foreign-b', created.id]);
 	});
 
-	it.each(['create', 'createMany', 'update', 'delete'] as const)(
+	it.each(['create', 'importMany', 'update', 'delete'] as const)(
 		'preserves plain %s provider failures without effects',
 		async (operation) => {
 			const { ledger, rows, state } = provider([saved]);
@@ -429,8 +449,8 @@ describe('owned Critical Tasks completion provider', () => {
 			const pending =
 				operation === 'create'
 					? ledger.create(input)
-					: operation === 'createMany'
-						? ledger.createMany([input])
+					: operation === 'importMany'
+						? ledger.importMany([{ create: input }])
 						: operation === 'update'
 							? ledger.update('capture-a', { notes: null })
 							: ledger.delete('capture-a');
@@ -440,13 +460,13 @@ describe('owned Critical Tasks completion provider', () => {
 		}
 	);
 
-	it('returns acknowledged bulk rows without inventing cardinality retries', async () => {
+	it('returns acknowledged import rows without inventing cardinality retries', async () => {
 		const { ledger, rows, state } = provider();
-		expect(await ledger.createMany([])).toEqual([]);
+		expect(await ledger.importMany([])).toEqual([]);
 		expect(state.requests).toEqual([]);
-		const created = await ledger.createMany([
-			input,
-			{ ...input, completedAt: '2026-04-04', validatedBy: 'SFC Jones', notes: 'Second date' }
+		const created = await ledger.importMany([
+			{ create: input },
+			{ create: { ...input, completedAt: '2026-04-04', validatedBy: 'SFC Jones', notes: 'Second date' } }
 		]);
 		expect(created).toEqual([
 			{
@@ -472,17 +492,16 @@ describe('owned Critical Tasks completion provider', () => {
 				createdAt: '2026-10-06T12:00:00.123456Z'
 			}
 		]);
-		expect(state.requests.map((request) => request.method)).toEqual(['POST']);
-		state.bulkAcknowledgment = [];
-		const confirmed = await ledger.createMany([{ ...input, completedAt: '2026-04-05' }]);
-		expect(confirmed.map((row) => [row.id, row.completedAt])).toEqual([[rows[2].id, '2026-04-05']]);
+		expect(state.requests.map((request) => request.url.pathname)).toEqual(['/rest/v1/rpc/import_ict_completions']);
+		state.importAcknowledgment = [];
+		const [confirmed] = await ledger.importMany([{ create: { ...input, completedAt: '2026-04-05' } }]);
+		expect(confirmed).toMatchObject({ id: rows[2].id, completedAt: '2026-04-05' });
 		expect(rows.map((row) => row.completed_at)).toEqual(['2026-04-03', '2026-04-04', '2026-04-05']);
 		expect(state.requests.map((request) => request.method)).toEqual(['POST', 'POST', 'GET']);
 	});
 
-	it('retains actual dated update and partial row outcomes after a rejected bulk insert', async () => {
+	it('saves a dated update and a new row beside a refused row in one write', async () => {
 		const { ledger, rows, state } = provider([saved]);
-		state.rejectBulk = true;
 		state.rejectPersonnel = 'person-rejected';
 		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
 		ctx.store.seed('personnel', [
@@ -559,24 +578,29 @@ describe('owned Critical Tasks completion provider', () => {
 			['capture-a', 'person-a', '2026-04-02', 'Updated same date'],
 			[expect.any(String), 'person-new', '2026-04-03', 'Kept row']
 		]);
+		expect(state.requests.filter((request) => request.method !== 'GET').map((request) => request.url.pathname)).toEqual(
+			['/rest/v1/rpc/import_ict_completions']
+		);
 	});
 	it.each([false, true])(
 		'confirms an incomplete bulk acknowledgment by reading back the generated ids without retrying persisted effects (empty=%s)',
 		async (empty) => {
 			const { ledger, rows, state } = provider();
-			state.bulkAcknowledgment = empty
+			state.importAcknowledgment = empty
 				? []
 				: [
 						{
-							id: 'saved-1',
-							personnel_id: 'person-a',
-							ict_task_id: 'task-a',
-							completed_at: '2026-04-03',
-							validation_method: 'Lecture',
-							validated_by: null,
-							notes: null,
-							logged_by: 'ordinary-user',
-							created_at: '2026-10-06T12:00:00.123456Z'
+							row: {
+								id: 'saved-1',
+								personnel_id: 'person-a',
+								ict_task_id: 'task-a',
+								completed_at: '2026-04-03',
+								validation_method: 'Lecture',
+								validated_by: null,
+								notes: null,
+								logged_by: 'ordinary-user',
+								created_at: '2026-10-06T12:00:00.123456Z'
+							}
 						}
 					];
 			const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
@@ -623,8 +647,8 @@ describe('owned Critical Tasks completion provider', () => {
 				['person-b', '2026-04-03']
 			]);
 			expect(
-				state.requests.filter((request) => request.method === 'POST').map((request) => Array.isArray(request.body))
-			).toEqual([true]);
+				state.requests.filter((request) => request.method === 'POST').map((request) => request.url.pathname)
+			).toEqual(['/rest/v1/rpc/import_ict_completions']);
 		}
 	);
 });
@@ -723,13 +747,15 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 		const { ledger, rows, state } = provider();
 		state.ackWithout = 'validation_method';
 		const created = await ledger.create({ ...input, completedAt: '2026-05-01' });
-		const createdMany = await ledger.createMany([
-			{ ...input, completedAt: '2026-05-02' },
-			{ ...input, completedAt: '2026-05-03' }
+		const imported = await ledger.importMany([
+			{ create: { ...input, completedAt: '2026-05-02' } },
+			{ create: { ...input, completedAt: '2026-05-03' } }
 		]);
-		expect([created, ...createdMany].map((completion) => [completion.id, completion.validationMethod])).toEqual(
-			rows.map((row) => [row.id, row.validation_method])
-		);
+		expect(
+			[created, ...imported].map((completion) =>
+				completion instanceof Error ? completion : [completion.id, completion.validationMethod]
+			)
+		).toEqual(rows.map((row) => [row.id, row.validation_method]));
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(2);
 	});
 
@@ -741,6 +767,9 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 			message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE
 		});
 		expect(rows[0].notes).toBe('Changed');
+		const [imported] = await ledger.importMany([{ id: 'capture-a', patch: { notes: 'Imported' } }]);
+		expect(imported).toMatchObject({ status: 503, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
+		expect(rows[0].notes).toBe('Imported');
 		expect(state.requests.filter((request) => request.method === 'GET')).toHaveLength(0);
 	});
 
@@ -749,9 +778,9 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 		state.loseReply = { write: 1, as: 'transport' };
 		state.readbackWithout = 'validation_method';
 		await expect(
-			ledger.createMany([
-				{ ...input, completedAt: '2026-05-02' },
-				{ ...input, completedAt: '2026-05-03' }
+			ledger.importMany([
+				{ create: { ...input, completedAt: '2026-05-02' } },
+				{ create: { ...input, completedAt: '2026-05-03' } }
 			])
 		).rejects.toMatchObject({ status: 503, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
 		expect(rows).toHaveLength(2);

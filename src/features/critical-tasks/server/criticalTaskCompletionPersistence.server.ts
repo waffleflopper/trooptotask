@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '$lib/server/database';
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
 	ICT_COMPLETION_EXISTS_MESSAGE,
@@ -10,8 +10,10 @@ import {
 import {
 	acknowledgedRows,
 	confirmInsertedRows,
+	importOutcomes,
 	isUnknownWriteStatus,
-	writeUnconfirmed
+	writeUnconfirmed,
+	type ImportRow
 } from './criticalTaskWriteOutcome.server';
 import {
 	COMPLETION_SELECT,
@@ -26,6 +28,12 @@ function throwWriteError(error: { code?: string; message: string }): never {
 		fail(409, ICT_COMPLETION_EXISTS_MESSAGE);
 	}
 	throw new Error(error.message);
+}
+
+function importRowError(code: string, constraint: string | null): Error {
+	if (code === '23505' && constraint === 'personnel_ict_completions_org_person_task_date_key')
+		return new RequestFailure(409, ICT_COMPLETION_EXISTS_MESSAGE);
+	return new Error(`Completion import row failed with ${code}`);
 }
 
 export function createSupabaseCriticalTaskCompletionPersistence(
@@ -133,24 +141,20 @@ export function createSupabaseCriticalTaskCompletionPersistence(
 			if (acknowledged) return acknowledged[0];
 			return (await confirmInsertedRows([row.id], listByIds, personnelIctCompletionSchema))[0];
 		},
-		async createMany(inputs) {
-			if (inputs.length === 0) return [];
-			const rows = inputs.map((input) => ({
-				...completionCreateValues(input),
-				id: crypto.randomUUID(),
-				organization_id: orgId
-			}));
-			const ids = rows.map((row) => row.id);
-			const { data, error, status } = await client
-				.from('personnel_ict_completions')
-				.insert(rows)
-				.select(COMPLETION_SELECT);
-			if (error && !isUnknownWriteStatus(status)) throwWriteError(error);
-			const acknowledged = error
-				? null
-				: acknowledgedRows(data, ids, mapPersonnelIctCompletion, personnelIctCompletionSchema);
-			if (acknowledged) return acknowledged;
-			return confirmInsertedRows(ids, listByIds, personnelIctCompletionSchema);
+		async importMany(writes) {
+			if (writes.length === 0) return [];
+			const rows: ImportRow[] = writes.map((write) =>
+				'create' in write
+					? { op: 'insert', id: crypto.randomUUID(), values: completionCreateValues(write.create) }
+					: { op: 'update', id: write.id, values: completionPatchValues(write.patch) }
+			);
+			const reply = await client.rpc('import_ict_completions', { p_organization_id: orgId, p_rows: rows });
+			return importOutcomes(rows, reply, {
+				map: mapPersonnelIctCompletion,
+				schema: personnelIctCompletionSchema,
+				readBack: listByIds,
+				rowError: importRowError
+			});
 		},
 		async update(id, patch) {
 			const { data, error, status } = await client

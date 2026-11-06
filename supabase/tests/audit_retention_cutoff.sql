@@ -10,8 +10,8 @@ $$;
 
 SELECT is((SELECT count(*)::integer FROM public.audit_logs
   WHERE "timestamp" < now() - interval '3 years'
-    OR (action = ANY (ARRAY['auth.login_success', 'auth.login_failure', 'auth.mfa_verify', 'security.rate_limit_violation'])
-      AND "timestamp" < now() - interval '90 days')),
+    OR (action = ANY (ARRAY['auth.login_success', 'auth.login_failure', 'auth.mfa_verify', 'security.rate_limit_violation',
+      'security.rate_limit_exceeded']) AND "timestamp" < now() - interval '90 days')),
   0, 'the disposable baseline has no unrelated expired Audit rows');
 
 INSERT INTO auth.users (id, aud, role, email, email_confirmed_at)
@@ -33,7 +33,9 @@ INSERT INTO public.audit_logs (id, "timestamp", user_id, org_id, action, resourc
   (pg_temp.id('310'), now() - interval '3 years' - interval '1 microsecond', pg_temp.id('1'), pg_temp.id('102'), 'auth.login_success', 'user', '{"saved": "short, past 3 years"}', 'info'),
   (pg_temp.id('311'), now() - interval '3 years', pg_temp.id('1'), pg_temp.id('102'), 'availability.deleted', 'availability', '{"saved": "other, exactly 3 years"}', 'info'),
   (pg_temp.id('312'), now() - interval '3 years' + interval '1 microsecond', pg_temp.id('1'), pg_temp.id('102'), 'personnel.document.opened', 'personnel_document', '{"saved": "other, inside 3 years"}', 'info'),
-  (pg_temp.id('313'), now(), NULL, NULL, 'security.rate_limit_violation', 'request', '{"saved": "short, current"}', 'warning');
+  (pg_temp.id('313'), now(), NULL, NULL, 'security.rate_limit_violation', 'request', '{"saved": "short, current"}', 'warning'),
+  (pg_temp.id('314'), now() - interval '90 days' - interval '1 microsecond', NULL, pg_temp.id('101'), 'security.rate_limit_exceeded', 'request', '{"saved": "short, past 90 days"}', 'warning'),
+  (pg_temp.id('315'), now() - interval '90 days' + interval '1 microsecond', NULL, pg_temp.id('101'), 'security.rate_limit_exceeded', 'request', '{"saved": "short, inside 90 days"}', 'warning');
 CREATE TEMP TABLE audit_retention_before AS SELECT id, to_jsonb(log) AS row_data FROM public.audit_logs AS log;
 
 SELECT ok(NOT has_function_privilege('anon', 'public.cleanup_old_audit_logs()', 'EXECUTE')
@@ -47,15 +49,16 @@ RESET ROLE;
 
 SELECT set_config('request.jwt.claims', '{"role": "service_role"}', true);
 SET LOCAL ROLE service_role;
-SELECT is(public.cleanup_old_audit_logs(), 7,
+SELECT is(public.cleanup_old_audit_logs(), 8,
   'cleanup deletes the short kinds past 90 days and every kind past 3 years, and nothing else');
 RESET ROLE;
 SELECT results_eq($$ SELECT id FROM public.audit_logs WHERE id::text LIKE 'd2560000-%' ORDER BY id $$,
-  $$ SELECT unnest(ARRAY[pg_temp.id('305'), pg_temp.id('306'), pg_temp.id('307'), pg_temp.id('311'), pg_temp.id('312'), pg_temp.id('313')]) ORDER BY 1 $$,
+  $$ SELECT unnest(ARRAY[pg_temp.id('305'), pg_temp.id('306'), pg_temp.id('307'), pg_temp.id('311'), pg_temp.id('312'), pg_temp.id('313'), pg_temp.id('315')]) ORDER BY 1 $$,
   'exactly 90 days and exactly 3 years stay, and a long kind past 90 days stays');
 SELECT results_eq($$ SELECT id, to_jsonb(log) FROM public.audit_logs AS log WHERE id::text LIKE 'd2560000-%' ORDER BY id $$,
   $$ SELECT * FROM audit_retention_before WHERE id::text LIKE 'd2560000-%' AND id IN
-    (pg_temp.id('305'), pg_temp.id('306'), pg_temp.id('307'), pg_temp.id('311'), pg_temp.id('312'), pg_temp.id('313')) ORDER BY id $$,
+    (pg_temp.id('305'), pg_temp.id('306'), pg_temp.id('307'), pg_temp.id('311'), pg_temp.id('312'), pg_temp.id('313'),
+      pg_temp.id('315')) ORDER BY id $$,
   'the kept rows keep every actor, scope, timestamp and detail field');
 
 SET LOCAL ROLE service_role;

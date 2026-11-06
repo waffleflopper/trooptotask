@@ -43,8 +43,9 @@ configure permission.
 ## Helper controls
 
 The [Critical Tasks library recipe](critical-tasks-library.md#driving-it-with-verifyapp) owns
-`fault arm ict-tasks-insert-lost-ack`, `ict-tasks-update-lost-ack` and `ict-tasks-reorder-lost-ack`. They forward one
-matching `POST` or `PATCH` to exact `/rest/v1/ict_tasks`, or one `POST` to `/rest/v1/rpc/reorder_ict_tasks`, on this
+`fault arm ict-tasks-insert-lost-ack`, `ict-tasks-update-lost-ack`, `ict-tasks-reorder-lost-ack` and
+`ict-tasks-import-lost-ack`. They forward one matching `POST` or `PATCH` to exact `/rest/v1/ict_tasks` (the task form),
+or one `POST` to `/rest/v1/rpc/reorder_ict_tasks` or `/rest/v1/rpc/import_ict_tasks` (an import chunk), on this
 worker's loopback provider, consume a successful reply and throw `TypeError('fetch failed')`. A provider refusal passes
 through unchanged. Reads, other methods, endpoints and origins remain untouched. They are table-scoped rather than row-
 or Organization-scoped, so drive one intended mutation at a time and run `fault restore` before unrelated writes. Save
@@ -171,14 +172,14 @@ CODE`. Edit its title, Description and expiration, save, reload, and require the
 
    **Committed import with a lost provider reply.** As `ictConfigurator`, import a CSV with header `Task code,Title` and
    two unique codes. Read both codes with `$V rows ict_tasks orgA task_code CODE` and require zero rows before
-   confirmation. Arm `$V fault arm ict-tasks-insert-lost-ack` on Review, then choose `Import 2 changes`. The control
-   forwards one exact owned-provider `POST /rest/v1/ict_tasks`, consumes its successful reply and throws a synthetic
-   transport error. Expect Done to read `2 changes saved.` with Added 2, one provider row per code, and
-   `providerStatus: 201` in `$V fault state`. Restore `$V fault restore` before any other mutation.
+   confirmation. Arm `$V fault arm ict-tasks-import-lost-ack` on Review, then choose `Import 2 changes`. The control
+   forwards one exact owned-provider `POST /rest/v1/rpc/import_ict_tasks`, consumes its successful reply and throws a
+   synthetic transport error. Expect Done to read `2 changes saved.` with Added 2, one provider row per code, and
+   `providerStatus: 200` in `$V fault state`. Restore `$V fault restore` before any other mutation.
 
    For the adjacent update, record one imported code's ID, import it again with a changed title and arm
-   `$V fault arm ict-tasks-update-lost-ack` on Review. This loses one successful exact `PATCH /rest/v1/ict_tasks` reply,
-   and the server returns an unconfirmed result for that row. Done reads `0 changes saved.` with `Not confirmed 1`,
+   `$V fault arm ict-tasks-import-lost-ack` on Review. This loses the successful import command's reply; the server
+   reads back only the rows it created, so it returns an unconfirmed result for the updated row. Done reads `0 changes saved.` with `Not confirmed 1`,
    `Check the task library before importing these again.` and `The last batch was not confirmed`; the row is listed as
    the server's check-before-retrying reason. The provider row has the new title on the same ID. Restore the fault
    before other work. These controls match this worker's table and method, not a particular row or Organization; drive

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
-import { writeUnconfirmed } from './criticalTaskWriteOutcome.server';
+import { unconfirmedWrite, writeUnconfirmed } from './criticalTaskWriteOutcome.server';
 import { importIctTasksBatch } from './ictTasksBatch.server';
 import { ictTaskImportRecordSchema, ictTaskImportReplySchema } from '../contracts';
 
@@ -103,11 +103,11 @@ describe('importIctTasksBatch', () => {
 		expect(Object.keys(await storedTasks(ctx))).toEqual(['ICT-1']);
 	});
 
-	it('reports an unconfirmed create without retrying the write', async () => {
+	it('reports an unconfirmed import without retrying the write', async () => {
 		const ctx = contextWith([]);
-		const createMany = ctx.criticalTaskLibrary.createMany.bind(ctx.criticalTaskLibrary);
-		vi.spyOn(ctx.criticalTaskLibrary, 'createMany').mockImplementation(async (records) => {
-			await createMany(records);
+		const importMany = ctx.criticalTaskLibrary.importMany.bind(ctx.criticalTaskLibrary);
+		vi.spyOn(ctx.criticalTaskLibrary, 'importMany').mockImplementation(async (writes) => {
+			await importMany(writes);
 			writeUnconfirmed();
 		});
 
@@ -121,42 +121,47 @@ describe('importIctTasksBatch', () => {
 		]);
 	});
 
-	it.each(['fallback create', 'update'])(
-		'retains confirmed rows and known failures after an unconfirmed %s',
-		async (operation) => {
-			const ctx = contextWith([savedTask('task-a', 'ICT-1'), savedTask('task-b', 'ICT-2')]);
-			if (operation === 'fallback create') {
-				vi.spyOn(ctx.criticalTaskLibrary, 'createMany').mockRejectedValueOnce(new Error('Bulk insert refused'));
-				const create = ctx.criticalTaskLibrary.create.bind(ctx.criticalTaskLibrary);
-				vi.spyOn(ctx.criticalTaskLibrary, 'create').mockImplementation(async (record) => {
-					await create(record);
-					writeUnconfirmed();
-				});
-			} else {
-				const update = ctx.criticalTaskLibrary.update.bind(ctx.criticalTaskLibrary);
-				vi.spyOn(ctx.criticalTaskLibrary, 'update').mockImplementation(async (id, patch) => {
-					const saved = await update(id, patch);
-					if (id === 'task-b') writeUnconfirmed();
-					return saved;
-				});
-			}
+	it('keeps confirmed rows and known failures beside a row the import leaves unconfirmed', async () => {
+		const ctx = contextWith([savedTask('task-a', 'ICT-1'), savedTask('task-b', 'ICT-2')]);
+		const importMany = ctx.criticalTaskLibrary.importMany.bind(ctx.criticalTaskLibrary);
+		vi.spyOn(ctx.criticalTaskLibrary, 'importMany').mockImplementation(async (writes) => {
+			const outcomes = await importMany(writes);
+			return outcomes.map((outcome, position) => (position === 1 ? unconfirmedWrite() : outcome));
+		});
 
-			const reply = await importIctTasksBatch(ctx, {
-				records: [
-					{ taskCode: 'ICT-1', title: 'Confirmed title' },
-					{ taskCode: operation === 'update' ? 'ICT-2' : 'ICT-3', title: 'Unconfirmed title' },
-					{ taskCode: 'ICT-4' }
-				]
-			});
+		const reply = await importIctTasksBatch(ctx, {
+			records: [
+				{ taskCode: 'ICT-1', title: 'Confirmed title' },
+				{ taskCode: 'ICT-2', title: 'Unconfirmed title' },
+				{ taskCode: 'ICT-4' }
+			]
+		});
 
-			expect(ictTaskImportReplySchema.parse(reply).results).toEqual([
-				{ kind: 'updated', record: expect.objectContaining({ id: 'task-a', title: 'Confirmed title' }) },
-				{ kind: 'unconfirmed', message: expect.any(String) },
-				{ kind: 'failed', message: 'A new task needs a title.' }
-			]);
-			expect((await storedTasks(ctx))['ICT-1'].title).toBe('Confirmed title');
-		}
-	);
+		expect(ictTaskImportReplySchema.parse(reply).results).toEqual([
+			{ kind: 'updated', record: expect.objectContaining({ id: 'task-a', title: 'Confirmed title' }) },
+			{ kind: 'unconfirmed', message: expect.any(String) },
+			{ kind: 'failed', message: 'A new task needs a title.' }
+		]);
+		expect((await storedTasks(ctx))['ICT-1'].title).toBe('Confirmed title');
+	});
+
+	it('fails every written row when the import command is refused, and keeps known failures', async () => {
+		const ctx = contextWith([savedTask('task-a', 'ICT-1')]);
+		vi.spyOn(ctx.criticalTaskLibrary, 'importMany').mockRejectedValueOnce(new Error('Import refused'));
+
+		const reply = await importIctTasksBatch(ctx, {
+			records: [{ taskCode: 'ICT-1', title: 'Changed' }, { taskCode: 'ICT-3', title: 'New' }, { taskCode: 'ICT-4' }]
+		});
+
+		expect(reply.results).toEqual([
+			{ kind: 'failed', message: 'This task could not be saved.' },
+			{ kind: 'failed', message: 'This task could not be saved.' },
+			{ kind: 'failed', message: 'A new task needs a title.' }
+		]);
+		expect(await storedTasks(ctx)).toEqual({
+			'ICT-1': { title: 'Title ICT-1', description: 'Saved description', mos: ['68W'], sortOrder: 5, archived: false }
+		});
+	});
 
 	it('rejects a batch above 500 rows before writing task records', async () => {
 		const ctx = contextWith([]);

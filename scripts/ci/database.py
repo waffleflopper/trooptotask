@@ -160,6 +160,7 @@ POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
     "audit_people.sql",
     "audit_records.sql",
+    "audit_training_history.sql",
     "audit_onboarding.sql",
     "audit_calendar_events.sql",
     "audit_app_writer.sql",

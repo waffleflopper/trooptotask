@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import { dateOnlySchema } from '$lib/utils/inputSchemas';
-import { auditKind, day, lifecycle, plural, savedLabel } from './shared';
+import {
+	auditKind,
+	changeOf,
+	day,
+	describeChange,
+	flagged,
+	lifecycle,
+	plural,
+	savedLabel,
+	valueChange
+} from './shared';
 
 const trainingType = lifecycle({
 	writer: 'database',
@@ -38,6 +48,9 @@ const trainingRecord = lifecycle({
 	suffix: ({ completionDate }, context) => (completionDate ? `, completed ${day(completionDate, context)}` : '')
 });
 
+const historyFields = { completionDate: 'completed', expirationDate: 'expires' };
+const historyFlags = { notes: 'notes' };
+
 const exemption = z.object({ record: savedLabel, subject: savedLabel, details: z.object({}) });
 
 export const trainingKinds = {
@@ -67,5 +80,22 @@ export const trainingKinds = {
 	'training_view.deleted': trainingView.deleted,
 	'training_record.created': trainingRecord.created,
 	'training_record.updated': trainingRecord.updated,
-	'training_record.deleted': trainingRecord.deleted
+	'training_record.deleted': trainingRecord.deleted,
+	'training_record.history_corrected': auditKind({
+		writer: 'database',
+		entry: z.object({
+			record: savedLabel,
+			subject: savedLabel,
+			details: z.object({
+				change: changeOf({
+					completionDate: valueChange.optional(),
+					expirationDate: valueChange.optional(),
+					notes: flagged.optional()
+				})
+			})
+		}),
+		sentence: ({ record, subject, details }, context) =>
+			`Corrected a past completion of ${record} for ${subject}: ${describeChange(details.change, historyFields, context, historyFlags)}`,
+		batch: { verb: 'Corrected', one: 'past training record', many: 'past training records' }
+	})
 } as const;

@@ -1126,6 +1126,45 @@ $$;
 ALTER FUNCTION audit_private.audit_status_type() OWNER TO postgres;
 
 --
+-- Name: audit_training_history(); Type: FUNCTION; Schema: audit_private; Owner: postgres
+--
+
+CREATE FUNCTION audit_private.audit_training_history() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_change jsonb;
+  v_type text;
+  v_who text;
+BEGIN
+  SELECT kind.name INTO v_type FROM public.training_types kind
+  WHERE kind.id = NEW.training_type_id AND kind.organization_id = NEW.organization_id;
+  v_who := audit_private.personnel_label(NEW.organization_id, NEW.personnel_id);
+  PERFORM audit_private.require_in_unit(v_type, NEW.training_type_id, OLD.training_type_id);
+  PERFORM audit_private.require_in_unit(v_who, NEW.personnel_id, OLD.personnel_id);
+  IF v_type IS NULL OR v_who IS NULL THEN
+    RETURN NULL;
+  END IF;
+  v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"completionDate": "completion_date", "expirationDate": "expiration_date"}');
+  IF NEW.notes IS DISTINCT FROM OLD.notes THEN
+    v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
+  END IF;
+  IF v_change = '{}'::jsonb THEN
+    RETURN NULL;
+  END IF;
+  PERFORM audit_private.record_entry(
+    NEW.organization_id, 'training_record.history_corrected', 'training_record', NEW.id, v_type,
+    NEW.personnel_id, v_who, pg_catalog.jsonb_build_object('change', v_change)
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION audit_private.audit_training_history() OWNER TO postgres;
+
+--
 -- Name: audit_training_record(); Type: FUNCTION; Schema: audit_private; Owner: postgres
 --
 
@@ -17146,6 +17185,13 @@ CREATE TRIGGER audit_status_type AFTER INSERT OR DELETE OR UPDATE ON public.stat
 
 
 --
+-- Name: personnel_training_history audit_training_history; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER audit_training_history AFTER UPDATE OF completion_date, expiration_date, notes ON public.personnel_training_history FOR EACH ROW EXECUTE FUNCTION audit_private.audit_training_history();
+
+
+--
 -- Name: personnel_trainings audit_training_record; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -20886,6 +20932,13 @@ REVOKE ALL ON FUNCTION audit_private.audit_special_day() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION audit_private.audit_status_type() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION audit_training_history(); Type: ACL; Schema: audit_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION audit_private.audit_training_history() FROM PUBLIC;
 
 
 --

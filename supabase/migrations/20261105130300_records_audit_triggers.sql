@@ -192,6 +192,45 @@ CREATE TRIGGER audit_training_record
 AFTER INSERT OR UPDATE OR DELETE ON public.personnel_trainings
 FOR EACH ROW EXECUTE FUNCTION audit_private.audit_training_record();
 
+-- Correcting a past completion edits its history row, not the current record, so the current record's trigger never
+-- sees it. History rows are written by the system when a completion is superseded, and only corrections edit them.
+CREATE FUNCTION audit_private.audit_training_history() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_change jsonb;
+  v_type text;
+  v_who text;
+BEGIN
+  SELECT kind.name INTO v_type FROM public.training_types kind
+  WHERE kind.id = NEW.training_type_id AND kind.organization_id = NEW.organization_id;
+  v_who := audit_private.personnel_label(NEW.organization_id, NEW.personnel_id);
+  PERFORM audit_private.require_in_unit(v_type, NEW.training_type_id, OLD.training_type_id);
+  PERFORM audit_private.require_in_unit(v_who, NEW.personnel_id, OLD.personnel_id);
+  IF v_type IS NULL OR v_who IS NULL THEN
+    RETURN NULL;
+  END IF;
+  v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"completionDate": "completion_date", "expirationDate": "expiration_date"}');
+  IF NEW.notes IS DISTINCT FROM OLD.notes THEN
+    v_change := v_change || pg_catalog.jsonb_build_object('notes', true);
+  END IF;
+  IF v_change = '{}'::jsonb THEN
+    RETURN NULL;
+  END IF;
+  PERFORM audit_private.record_entry(
+    NEW.organization_id, 'training_record.history_corrected', 'training_record', NEW.id, v_type,
+    NEW.personnel_id, v_who, pg_catalog.jsonb_build_object('change', v_change)
+  );
+  RETURN NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION audit_private.audit_training_history() FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER audit_training_history
+AFTER UPDATE OF completion_date, expiration_date, notes ON public.personnel_training_history
+FOR EACH ROW EXECUTE FUNCTION audit_private.audit_training_history();
+
 CREATE FUNCTION audit_private.audit_ict_task() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''

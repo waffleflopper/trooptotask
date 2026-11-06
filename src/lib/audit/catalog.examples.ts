@@ -47,6 +47,10 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: 'Pass', subjectLabel: null, details: {} },
 		sentence: 'Deleted status type Pass'
 	},
+	'assignment_type.calendar_lanes_reordered': {
+		entry: { recordLabel: null, subjectLabel: null, details: { count: 3 } },
+		sentence: 'Reordered 3 calendar lanes'
+	},
 	'status_type.reordered': {
 		entry: { recordLabel: null, subjectLabel: null, details: { count: 4 } },
 		sentence: 'Reordered 4 status types'
@@ -237,6 +241,14 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		},
 		sentence:
 			'Changed training record Annual Safety for SPC Doe, Jane, completed 10 Feb: completed 10 Jan → 10 Feb, notes changed'
+	},
+	'training_record.history_corrected': {
+		entry: {
+			recordLabel: 'Annual Safety',
+			subjectLabel: 'SPC Doe, Jane',
+			details: { change: { completionDate: { from: '2026-01-10', to: '2026-01-12' }, notes: true } }
+		},
+		sentence: 'Corrected a past completion of Annual Safety for SPC Doe, Jane: completed 10 Jan → 12 Jan, notes changed'
 	},
 	'training_record.deleted': {
 		entry: {

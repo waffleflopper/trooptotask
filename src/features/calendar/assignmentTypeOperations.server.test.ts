@@ -131,6 +131,22 @@ describe('Calendar assignment-type operations', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
+	it('records a reorder of the lanes that stay, which the database does not see', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedTypes(ctx);
+		await setCalendarLanes(ctx, { laneTypeIds: [OTHER, ID], expectedLaneTypeIds: [ID] });
+		expect(ctx.audit.events).toEqual([]);
+		await setCalendarLanes(ctx, { laneTypeIds: [ID, OTHER], expectedLaneTypeIds: [OTHER, ID] });
+		expect(ctx.audit.events).toEqual([
+			{
+				action: 'assignment_type.calendar_lanes_reordered',
+				resourceType: 'organization',
+				resourceId: ctx.auth.orgId,
+				details: { count: 2 }
+			}
+		]);
+	});
+
 	it('accepts 201 desired and expected lane IDs', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const ids = Array.from({ length: 201 }, (_, index) => `00000000-0000-4000-b000-${String(index).padStart(12, '0')}`);

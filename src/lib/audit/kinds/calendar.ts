@@ -188,6 +188,12 @@ export const calendarKinds = {
 	'assignment_type.created': assignmentType.created,
 	'assignment_type.updated': assignmentType.updated,
 	'assignment_type.deleted': assignmentType.deleted,
+	'assignment_type.calendar_lanes_reordered': auditKind({
+		writer: 'app',
+		entry: z.object({ details: z.object({ count: z.number().int().positive() }) }),
+		sentence: ({ details }) => `Reordered ${plural(details.count, 'calendar lane', 'calendar lanes')}`,
+		batch: { verb: 'Reordered', one: 'calendar lane list', many: 'calendar lane lists' }
+	}),
 	'status_type.reordered': auditKind({
 		writer: 'app',
 		entry: z.object({ details: z.object({ count: z.number().int().positive() }) }),

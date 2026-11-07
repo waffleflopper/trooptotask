@@ -139,16 +139,27 @@
 			const type = trainingTypes.find((t) => t.id === key);
 			if (!type) return undefined;
 			const status = (p: Personnel) => getCellMetadata(p, type).statusInfo.status;
-			let sortOrder: Map<string, number> | undefined;
+			// One status read per row, however many comparisons the sort makes. Within a status the soonest expiry comes
+			// first and a row with no expiry last.
+			let ranks: Map<string, { order: number; days: number }> | undefined;
 			const rank = (p: Personnel) => {
-				sortOrder ??= new Map(shownPersonnel.map((person) => [person.id, TRAINING_STATUS_SORT_ORDER[status(person)]]));
-				return sortOrder.get(p.id) ?? 0;
+				ranks ??= new Map(
+					shownPersonnel.map((person) => {
+						const { status, daysUntilExpiration } = getCellMetadata(person, type).statusInfo;
+						return [person.id, { order: TRAINING_STATUS_SORT_ORDER[status], days: daysUntilExpiration ?? Infinity }];
+					})
+				);
+				return ranks.get(p.id) ?? { order: 0, days: Infinity };
 			};
 			return {
 				key: type.id,
 				header: type.name,
 				value: status,
-				compare: (a: Personnel, b: Personnel) => rank(a) - rank(b)
+				compare: (a: Personnel, b: Personnel) => {
+					const left = rank(a);
+					const right = rank(b);
+					return left.order - right.order || (left.days === right.days ? 0 : left.days < right.days ? -1 : 1);
+				}
 			};
 		}
 	});

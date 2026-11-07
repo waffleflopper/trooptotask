@@ -82,8 +82,11 @@ describe('Training completion bulk reads', () => {
 			trainingTypeIds: [...types, types[0]]
 		});
 
-		expect(facts).toHaveLength(expected.length);
-		expect(facts).toEqual(expect.arrayContaining(expected));
+		expect(
+			facts.toSorted(
+				(a, b) => a.personnelId.localeCompare(b.personnelId) || a.trainingTypeId.localeCompare(b.trainingTypeId)
+			)
+		).toEqual(expected);
 	});
 
 	it('retains archived onboarding people and types outside the current catalog when no type filter is requested', async () => {

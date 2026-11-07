@@ -139,7 +139,7 @@ describe('ImportFlow', () => {
 						run: async (name: string) => {
 							created.push(name);
 							await view.rerender({ lane: withOption });
-							return { kind: 'created' as const, option };
+							return { kind: 'created' as const, option, saved: [option] };
 						}
 					}
 				}
@@ -504,10 +504,10 @@ describe('ImportFlow', () => {
 						...base.references.rank,
 						create: {
 							noun: { one: 'rank', other: 'ranks' },
-							run: async (name: string) => ({
-								kind: 'created' as const,
-								option: { id: name, label: name, value: name }
-							})
+							run: async (name: string) => {
+								const option = { id: name, label: name, value: name };
+								return { kind: 'created' as const, option, saved: [option] };
+							}
 						}
 					}
 				}

@@ -67,7 +67,8 @@ export type ReferenceMatch<T> =
 export type ImportNoun = { one: string; other: string };
 
 export type CreateOptionResult<T> =
-	| { kind: 'created'; option: ReferenceOption<T> }
+	/** `saved` lists the records this call wrote; an existing record it resolved to is the option alone. */
+	| { kind: 'created'; option: ReferenceOption<T>; saved: readonly ReferenceOption<T>[] }
 	| { kind: 'refused'; message: string };
 
 export interface ImportReference<C extends ImportColumns, T> {

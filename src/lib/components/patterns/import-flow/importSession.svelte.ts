@@ -2,13 +2,13 @@ import { SvelteMap } from 'svelte/reactivity';
 import type {
 	Answer,
 	ColumnSplitter,
+	CreateOptionResult,
 	ImportColumns,
 	ImportLane,
 	ImportNoun,
 	ImportReferences,
 	QuestionKey,
 	RowId,
-	ReferenceOption,
 	RowValues
 } from './types';
 import type { ColumnTarget, HeaderKey, Layout, LoadedFile } from './workbookSource';
@@ -72,6 +72,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		this.file && this.layout ? buildSourceRows(this.file, this.layout, this.lane) : []
 	);
 	readonly review: ReviewState<Change> = $derived.by(() => {
+		// A create adds its option to the memo, sometimes without answering a question, so re-read the rows.
 		void this.created;
 		return reviewRows(applyEdits(this.sourceRows, this.edits), this.lane, this.answers, this.skipped, this.#memo);
 	});
@@ -218,7 +219,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		this.creating.set(key, true);
 		try {
 			const result = await reference.create.run(name);
-			if (result.kind === 'created') this.#recordCreated(referenceName, reference.create.noun, result.option);
+			if (result.kind === 'created') this.#recordCreated(referenceName, reference.create.noun, result);
 			if (generation !== this.#generation) return null;
 			if (result.kind === 'refused') return { refused: result.message };
 			if (this.answers.get(key) === previousAnswer) this.answer(key, { kind: 'pick', optionId: result.option.id });
@@ -231,15 +232,19 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		}
 	}
 
-	#recordCreated(reference: string, noun: ImportNoun, option: ReferenceOption<unknown>): void {
+	#recordCreated(
+		reference: string,
+		noun: ImportNoun,
+		{ option, saved }: Extract<CreateOptionResult<unknown>, { kind: 'created' }>
+	): void {
 		this.#memo.addCreated(reference, option);
-		const record = { id: option.id, label: option.label };
-		const group = this.created.find((item) => item.reference === reference);
-		if (!group) this.created = [...this.created, { reference, noun, records: [record] }];
-		else if (!group.records.some((item) => item.id === record.id))
-			this.created = this.created.map((item) =>
-				item === group ? { ...group, records: [...group.records, record] } : item
-			);
+		const listed = this.created.find((item) => item.reference === reference);
+		const records = [...(listed?.records ?? [])];
+		for (const { id, label } of saved) if (!records.some((record) => record.id === id)) records.push({ id, label });
+		const entry = { reference, noun, records };
+		if (!records.length) this.created = [...this.created];
+		else
+			this.created = listed ? this.created.map((item) => (item === listed ? entry : item)) : [...this.created, entry];
 	}
 
 	goTo(step: 'file' | 'columns' | 'review'): void {

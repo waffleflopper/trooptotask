@@ -170,6 +170,7 @@ export function groupReference(
 							if (steps.length === 0) return { kind: 'refused', message: 'Enter a group name.' };
 							let parentId: string | null = null;
 							let created: Group | undefined;
+							const saved: Group[] = [];
 							const currentTree = buildGroupTree(groupManagementStore.items);
 							for (let length = steps.length; length > 0; length--) {
 								const prefix = normalizeName(steps.slice(0, length).join(GROUP_PATH_SEPARATOR));
@@ -193,18 +194,23 @@ export function groupReference(
 							for (const step of steps) {
 								const wanted = normalizeName(step);
 								const under: string | null = parentId;
-								created =
-									groupManagementStore.items.find(
-										(existing) => existing.parentId === under && normalizeName(existing.name) === wanted
-									) ??
-									(await groupManagementStore.add(step, under)) ??
-									undefined;
+								created = groupManagementStore.items.find(
+									(existing) => existing.parentId === under && normalizeName(existing.name) === wanted
+								);
+								if (!created) {
+									created = (await groupManagementStore.add(step, under)) ?? undefined;
+									if (created) saved.push(created);
+								}
 								if (!created) return { kind: 'refused', message: 'Enter a group name.' };
 								parentId = created.id;
 							}
 							if (!created) return { kind: 'refused', message: 'Enter a group name.' };
-							const label = buildGroupTree(groupManagementStore.items).label(created.id, { keepRoot: true });
-							return { kind: 'created', option: { ...option(created), label: label || created.name } };
+							const tree = buildGroupTree(groupManagementStore.items);
+							const labelled = (group: Group) => ({
+								...option(group),
+								label: tree.label(group.id, { keepRoot: true }) || group.name
+							});
+							return { kind: 'created', option: labelled(created), saved: saved.map(labelled) };
 						} finally {
 							if (groupCreation?.done === finished.promise) groupCreation = null;
 							finished.resolve();

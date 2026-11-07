@@ -345,8 +345,10 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    Forward returns to Columns. With a file chosen, a link out asks `Leave this import?`: `Keep importing` stays and
    `Leave import` follows the link. Before anything is created the dialog reads
    `Nothing from this file has been saved.` After `Create group` from the Review rail it instead reads
-   `Leaving discards the file and your fixes. 2 Groups created during this import stay:` and then each Group's
-   display path, such as `Verify Platoon › Verify Squad With A Very Long Name For Wrapping, Verify Second Platoon`.
+   `Leaving discards the file and your fixes.` and then the count and display path of every Group the import saved.
+   Creating `Verify Platoon / Verify Squad With A Very Long Name For Wrapping` and then `Verify Second Platoon` reads
+   `3 Groups created during this import stay: Verify Platoon, Verify Platoon › Verify Squad With A Very Long Name For Wrapping, Verify Second Platoon.`
+   A path level that already existed is not listed.
    The text wraps inside the dialog at 390 px with no horizontal scroll. The listed Groups stay after `Leave import`
    (read `groups` back). While Import is saving, links, Back and the Organization switcher do nothing. As
    `personnelSwitch` with `network arm-hold PAGE personnel/import 2` on the 5,000-row file, choosing Organization B

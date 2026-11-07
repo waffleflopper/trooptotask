@@ -209,7 +209,7 @@ describe('import session', () => {
 			...lane,
 			references: { rank: { ...lane.references.rank, options: [...lane.references.rank.options, option] } }
 		});
-		pending.resolve({ kind: 'created', option });
+		pending.resolve({ kind: 'created', option, saved: [option] });
 		expect(await creating).toBeNull();
 		expect(session.answers.get(key)).toEqual({ kind: 'pick', optionId: 'sergeant' });
 		expect(session.review.rows[0]).toMatchObject({ outcome: 'new', change: { rank: 'SGT' } });
@@ -223,7 +223,7 @@ describe('import session', () => {
 			references: {
 				rank: {
 					...base.references.rank,
-					create: { noun: RANKS, run: async () => ({ kind: 'created' as const, option }) }
+					create: { noun: RANKS, run: async () => ({ kind: 'created' as const, option, saved: [option] }) }
 				}
 			}
 		};
@@ -243,7 +243,7 @@ describe('import session', () => {
 		const key = questionKey({ reference: 'rank', key: 'sgt.' });
 
 		it('keeps listing what was created after the user chooses another file', async () => {
-			const lane = creatingLane(async () => ({ kind: 'created', option: sergeant }));
+			const lane = creatingLane(async () => ({ kind: 'created', option: sergeant, saved: [sergeant] }));
 			const session = new ImportSession(() => lane);
 			await session.chooseFile([csv('Sgt.')]);
 			session.goTo('review');
@@ -269,7 +269,7 @@ describe('import session', () => {
 			session.goTo('review');
 			const creating = session.createOption(key, 'Sergeant');
 			await session.chooseFile([csv('Staff.')]);
-			pending.resolve({ kind: 'created', option: sergeant });
+			pending.resolve({ kind: 'created', option: sergeant, saved: [sergeant] });
 			await creating;
 
 			expect(session.created).toEqual([
@@ -280,8 +280,8 @@ describe('import session', () => {
 
 		it('lists a record once when two questions create the same one, and nothing for a refused create', async () => {
 			const replies: CreateOptionResult<string>[] = [
-				{ kind: 'created', option: sergeant },
-				{ kind: 'created', option: sergeant },
+				{ kind: 'created', option: sergeant, saved: [sergeant] },
+				{ kind: 'created', option: sergeant, saved: [sergeant] },
 				{ kind: 'refused', message: 'No.' }
 			];
 			const lane = creatingLane(async () => replies.shift()!);
@@ -294,6 +294,33 @@ describe('import session', () => {
 
 			expect(session.created).toEqual([
 				{ reference: 'rank', noun: RANKS, records: [{ id: 'sergeant', label: 'Sergeant' }] }
+			]);
+		});
+
+		it('lists every record a create saved, and nothing when it resolved to an existing one', async () => {
+			const platoon = { id: 'platoon', label: '1st Platoon', value: 'SGT' };
+			const squad = { id: 'squad', label: '1st Platoon › 2nd Squad', value: 'SGT' };
+			const replies: CreateOptionResult<string>[] = [
+				{ kind: 'created', option: sergeant, saved: [] },
+				{ kind: 'created', option: squad, saved: [platoon, squad] }
+			];
+			const lane = creatingLane(async () => replies.shift()!);
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([new File(['Last name,First name,Rank\nSmith,Alex,Sgt.\nJones,Pat,Sergt'], 'a.csv')]);
+			session.goTo('review');
+			await session.createOption(key, 'Sergeant');
+			expect(session.created).toEqual([]);
+
+			await session.createOption(questionKey({ reference: 'rank', key: 'sergt' }), '1st Platoon / 2nd Squad');
+			expect(session.created).toEqual([
+				{
+					reference: 'rank',
+					noun: RANKS,
+					records: [
+						{ id: 'platoon', label: '1st Platoon' },
+						{ id: 'squad', label: '1st Platoon › 2nd Squad' }
+					]
+				}
 			]);
 		});
 	});
@@ -316,7 +343,7 @@ describe('import session', () => {
 		const key = questionKey({ reference: 'rank', key: 'sgt.' });
 		const creating = session.createOption(key, 'Sergeant');
 		session.startOver();
-		pending.resolve({ kind: 'created', option: { id: 'new', label: 'Sergeant', value: 'SGT' } });
+		pending.resolve({ kind: 'created', option: { id: 'new', label: 'Sergeant', value: 'SGT' }, saved: [] });
 		await creating;
 		expect(session.answers.size).toBe(0);
 		expect(session.phase.step).toBe('file');

@@ -89,11 +89,16 @@ it('creates a missing path one level at a time, reusing the levels that exist', 
 
 	expect(await reference.create!.run('1st Platoon / 2nd Squad / Bravo Team')).toMatchObject({
 		kind: 'created',
-		option: { id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' }
+		option: { id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' },
+		saved: [
+			{ id: 'new-2nd Squad', label: '1st Platoon › 2nd Squad' },
+			{ id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' }
+		]
 	});
 	expect(await reference.create!.run('1st Platoon / 1st Squad / Alpha Team')).toMatchObject({
 		kind: 'created',
-		option: { id: 'p1-sq1-alpha' }
+		option: { id: 'p1-sq1-alpha' },
+		saved: []
 	});
 	expect(await reference.create!.run('A / B / C / D')).toEqual({
 		kind: 'refused',
@@ -133,9 +138,13 @@ it('waits for the confirmed shared parent when missing paths are created togethe
 	);
 
 	expect(await Promise.all([alpha, bravo, sameAlpha])).toMatchObject([
-		{ kind: 'created', option: { id: 'saved-Alpha Team' } },
-		{ kind: 'created', option: { id: 'saved-Bravo Team' } },
-		{ kind: 'created', option: { id: 'saved-Alpha Team' } }
+		{
+			kind: 'created',
+			option: { id: 'saved-Alpha Team' },
+			saved: [{ id: 'saved-platoon' }, { id: 'saved-Alpha Team' }]
+		},
+		{ kind: 'created', option: { id: 'saved-Bravo Team' }, saved: [{ id: 'saved-Bravo Team' }] },
+		{ kind: 'created', option: { id: 'saved-Alpha Team' }, saved: [] }
 	]);
 	expect(sent).toEqual([
 		{ name: 'New Platoon', parentId: null },

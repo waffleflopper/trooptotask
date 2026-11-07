@@ -1,6 +1,8 @@
+// @vitest-environment happy-dom
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { flushSync } from 'svelte';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 const getDefaultUserOrgPreferences = () => ({
@@ -413,6 +415,45 @@ describe('TrainingPageContext', () => {
 
 			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
 			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		it('keeps following the URL after it reran while its own write was in flight', async () => {
+			const url = $state({ current: new URL('http://localhost/org/org-1/training') });
+			Object.defineProperty(pageMock, 'url', { get: () => url.current, configurable: true });
+			let landed = () => {};
+			gotoMock.mockImplementation(
+				(target: string) =>
+					new Promise<void>((resolve) => {
+						url.current = new URL(`http://localhost${target}`);
+						landed = resolve;
+					})
+			);
+			const ctx = makeContext(makeData(), makeOrg());
+			const stop = $effect.root(() => {
+				$effect(() => ctx.syncGroupParam());
+			});
+			try {
+				flushSync();
+				ctx.setSelectedGroupId('g-2');
+				flushSync();
+				landed();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+
+				url.current = new URL('http://localhost/org/org-1/training');
+				flushSync();
+
+				expect(gotoMock.mock.calls).toEqual([
+					['/org/org-1/training?group=g-2', REPLACE],
+					['/org/org-1/training?group=g-2', REPLACE]
+				]);
+			} finally {
+				stop();
+				Object.defineProperty(pageMock, 'url', {
+					value: new URL('http://localhost/org/org-1/training'),
+					writable: true,
+					configurable: true
+				});
+			}
 		});
 
 		it('keeps the record sheet param when the Group changes', () => {

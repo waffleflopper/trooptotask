@@ -319,9 +319,10 @@ export class TrainingPageContext {
 	 * URL; opened on a Group that is not there, the param is dropped. Runs once the Groups have loaded.
 	 */
 	syncGroupParam(): void {
-		if (this.#disposed || this.#writingGroupParam) return;
-		if (!(groupsStore.orgId === this.orgId && !groupsStore.loading && this.rosterReady)) return;
+		// Read before any early return, so the effect calling this keeps following the URL and the Groups.
 		const param = page.url.searchParams.get(GROUP_PARAM);
+		const groupsReady = groupsStore.orgId === this.orgId && !groupsStore.loading && this.rosterReady;
+		if (this.#disposed || this.#writingGroupParam || !groupsReady) return;
 		const selected = untrack(() => this.selectedGroupId);
 		if (param === null) {
 			if (selected) this.#writeGroupParam(selected);

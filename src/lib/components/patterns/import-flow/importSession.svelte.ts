@@ -8,6 +8,7 @@ import type {
 	ImportReferences,
 	QuestionKey,
 	RowId,
+	ReferenceOption,
 	RowValues
 } from './types';
 import type { ColumnTarget, HeaderKey, Layout, LoadedFile } from './workbookSource';
@@ -70,9 +71,10 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	readonly sourceRows: readonly SourceRow[] = $derived.by(() =>
 		this.file && this.layout ? buildSourceRows(this.file, this.layout, this.lane) : []
 	);
-	readonly review: ReviewState<Change> = $derived.by(() =>
-		reviewRows(applyEdits(this.sourceRows, this.edits), this.lane, this.answers, this.skipped, this.#memo)
-	);
+	readonly review: ReviewState<Change> = $derived.by(() => {
+		void this.created;
+		return reviewRows(applyEdits(this.sourceRows, this.edits), this.lane, this.answers, this.skipped, this.#memo);
+	});
 	readonly columnBlockers: readonly string[] = $derived.by(() => {
 		if (!this.file || !this.layout) return ['Choose a file first.'];
 		const included = this.layout.sheets.filter((sheet) => sheet.included);
@@ -118,7 +120,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	startOver(): void {
 		this.#generation++;
 		this.#stopRecheck();
-		this.#memo.clear();
+		this.#memo.resetLane(null);
 		this.file = null;
 		this.layout = null;
 		this.skipped = emptySet();
@@ -216,9 +218,9 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		this.creating.set(key, true);
 		try {
 			const result = await reference.create.run(name);
+			if (result.kind === 'created') this.#recordCreated(referenceName, reference.create.noun, result.option);
 			if (generation !== this.#generation) return null;
 			if (result.kind === 'refused') return { refused: result.message };
-			this.#memo.addCreated(referenceName, result.option);
 			if (this.answers.get(key) === previousAnswer) this.answer(key, { kind: 'pick', optionId: result.option.id });
 			return null;
 		} catch (error) {
@@ -227,6 +229,17 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		} finally {
 			if (generation === this.#generation) this.creating.delete(key);
 		}
+	}
+
+	#recordCreated(reference: string, noun: ImportNoun, option: ReferenceOption<unknown>): void {
+		this.#memo.addCreated(reference, option);
+		const record = { id: option.id, label: option.label };
+		const group = this.created.find((item) => item.reference === reference);
+		if (!group) this.created = [...this.created, { reference, noun, records: [record] }];
+		else if (!group.records.some((item) => item.id === record.id))
+			this.created = this.created.map((item) =>
+				item === group ? { ...group, records: [...group.records, record] } : item
+			);
 	}
 
 	goTo(step: 'file' | 'columns' | 'review'): void {

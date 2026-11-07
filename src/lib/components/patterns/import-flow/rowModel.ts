@@ -186,10 +186,6 @@ export class ReviewMemo<Change = unknown> {
 	matches = new Map<string, Map<string, ReferenceMatch<unknown>>>();
 	options = new Map<string, ReadonlyMap<string, ReferenceOption<unknown>>>();
 	created = new Map<string, Map<string, ReferenceOption<unknown>>>();
-	clear(): void {
-		this.resetLane(null);
-		this.created.clear();
-	}
 	resetLane(lane: object | null): void {
 		this.lane = lane;
 		this.rows = new WeakMap();

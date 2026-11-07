@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
@@ -121,5 +121,89 @@ describe('TrainingModals record sheet host', () => {
 		ctx.trainingConfigureAffordance = { allowed: true };
 		await user.click(await screen.findByRole('button', { name: 'More actions for Fitness' }));
 		expect(await screen.findByRole('menuitem', { name: 'Exempt' })).toBeTruthy();
+	});
+});
+
+describe('TrainingModals Record class host', () => {
+	const brooks: Personnel = { ...person, id: 'p1', lastName: 'Brooks', firstName: 'Jalen' };
+	const diaz: Personnel = { ...person, id: 'p2', lastName: 'Diaz', firstName: 'Ana' };
+
+	function classContext() {
+		const saved = Promise.withResolvers<void>();
+		const ctx = $state({
+			recordPerson: null,
+			recordPersonId: null,
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			readinessAsOf: '2026-10-25',
+			rosterReady: true,
+			workspaceIsCurrent: true,
+			canRecordTraining: true,
+			personnel: [brooks, diaz],
+			selectedGroupId: '',
+			groupFilterOptions: [{ value: '', label: 'Group: All' }],
+			personnelIdsInGroup: () => new Set<string>(),
+			trainingConfigureAffordance: { allowed: false },
+			recordNeighbours: { previous: null, next: null },
+			restoreRecordFocus: vi.fn(),
+			dropRecordParam: vi.fn(),
+			closeRecord: vi.fn(),
+			handleSaveTrainingBatch: vi.fn(() => saved.promise)
+		});
+		return { ctx, saved };
+	}
+
+	function openClass(ctx: ReturnType<typeof classContext>['ctx']) {
+		trainingTypesStore.load([fitnessType], 'org-1');
+		personnelTrainingsStore.load(
+			[
+				{
+					id: 'r2',
+					personnelId: 'p2',
+					trainingTypeId: 'fit',
+					completionDate: '2026-10-20',
+					expirationDate: '2027-10-20',
+					notes: null,
+					certificateUrl: null
+				}
+			],
+			'org-1'
+		);
+		const modals = new ModalRegistry();
+		modals.open('record-class', { typeId: 'fit' });
+		render(TrainingModals, { props: { ctx: ctx as unknown as TrainingPageContext, modals } });
+		return modals;
+	}
+
+	it('records only the checked Soldiers, leaving a current Soldier out until checked', async () => {
+		const { ctx, saved } = classContext();
+		const modals = openClass(ctx);
+		await screen.findByRole('dialog', { name: 'Record class' });
+		expect(screen.getByLabelText(/Brooks, Jalen/).getAttribute('aria-checked')).toBe('true');
+		expect(screen.getByLabelText(/Diaz, Ana/).getAttribute('aria-checked')).toBe('false');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Record 1' }));
+		saved.resolve();
+
+		await waitFor(() => expect(modals.isOpen('record-class')).toBe(false));
+		expect(ctx.handleSaveTrainingBatch).toHaveBeenCalledExactlyOnceWith([
+			{ personnelId: 'p1', trainingTypeId: 'fit', completionDate: '2026-10-25', status: 'completed' }
+		]);
+	});
+
+	it('closes the dialog when the Organization changes, and a save that lands later opens nothing', async () => {
+		const { ctx, saved } = classContext();
+		const modals = openClass(ctx);
+		await screen.findByRole('dialog', { name: 'Record class' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Record 1' }));
+
+		ctx.workspaceIsCurrent = false;
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(modals.isOpen('record-class')).toBe(false);
+
+		saved.resolve();
+		await Promise.resolve();
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(modals.isOpen('record-class')).toBe(false);
 	});
 });

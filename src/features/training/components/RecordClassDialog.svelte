@@ -20,7 +20,7 @@
 		/** The default completion date, "YYYY-MM-DD". */
 		today: string;
 		/** Rejects with the message to show when the class was not recorded. */
-		onSave: (records: TrainingBatchRecord[]) => Promise<void>;
+		onSave: (records: (TrainingBatchRecord & { status: 'completed' })[]) => Promise<void>;
 		onClose: () => void;
 	}
 

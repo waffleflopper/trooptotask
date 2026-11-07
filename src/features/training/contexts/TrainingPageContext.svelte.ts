@@ -381,6 +381,16 @@ export class TrainingPageContext {
 		return !this.#disposed && personnelTrainingsStore.orgId === this.orgId;
 	}
 
+	/** False once the viewer has left this Organization's Training workspace. */
+	get workspaceIsCurrent(): boolean {
+		return this.#isCurrentWorkspace();
+	}
+
+	/** Everyone in the Group, its sub-Groups included. */
+	personnelIdsInGroup(groupId: string): ReadonlySet<string> {
+		return new SvelteSet(this.trainingRosterView({ groupFilter: groupId }).flatPersonnel.map((person) => person.id));
+	}
+
 	#isCurrentViewsWorkspace(): boolean {
 		return !this.#disposed && trainingViewsStore.orgId === this.orgId;
 	}

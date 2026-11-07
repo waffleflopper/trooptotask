@@ -6,6 +6,7 @@
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
+	import { dueSoonByType } from '$features/training/utils/dueSoon';
 	import { MATRIX_HORIZON_DAYS } from '$features/training/utils/matrixReadiness';
 	import { DEFAULT_TRAINING_READINESS_GOAL_PERCENT } from '$features/organization/contracts';
 	import { summarizeTrainingReadiness } from '$features/training/utils/trainingBriefing';
@@ -145,6 +146,10 @@
 	const activeView = $derived(ctx.selectedViewId ? (trainingViewsStore.getById(ctx.selectedViewId) ?? null) : null);
 
 	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.items, activeView));
+	const dueSoon = $derived(
+		loading ? [] : dueSoonByType(ctx.filteredPersonnel, filteredTypes, personnelTrainingsStore.items, ctx.readinessAsOf)
+	);
+	const dueSoonCount = $derived(dueSoon.reduce((sum, entry) => sum + entry.people.length, 0));
 
 	const readinessSummary = $derived(
 		loading
@@ -259,6 +264,14 @@
 				loading: exportState.status === 'exporting',
 				disabled: exportUnavailable,
 				disabledReason: exportDisabledReason
+			},
+			{
+				kind: 'action',
+				id: 'due-soon',
+				label: 'Due soon',
+				onclick: () => modals.open('due-soon', { read: () => ({ loading, dueSoon }) }),
+				icon: 'clipboard-check',
+				badge: { count: dueSoonCount, label: 'Soldiers due soon' }
 			},
 			{
 				kind: 'action',
@@ -394,6 +407,7 @@
 					asOf={ctx.readinessAsOf}
 					goalPercent={ctx.readinessGoalPercent}
 					onRecord={ctx.canRecordTraining ? ctx.handleSaveTraining.bind(ctx) : undefined}
+					onRecordClass={ctx.canRecordTraining ? (type) => modals.open('record-class', { typeId: type.id }) : undefined}
 					onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 					onRowOrderChange={(ids) => (ctx.rowOrder = ids)}
 					display={ctx.matrixDisplay}

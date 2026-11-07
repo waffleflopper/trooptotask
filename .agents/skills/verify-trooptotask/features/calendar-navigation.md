@@ -13,7 +13,9 @@ long-range views.
   and the group filter fold into `More Calendar controls` in that order while `Bulk Status` stays on the row; `Settings`
   and the exports always live in More, after any folded controls.
 - `calendar-filter`: narrow the grid with the group filter, which lists the reader's top-level Groups and shows a picked
-  Group's whole subtree, or with the searchbox.
+  Group's whole subtree, or with the searchbox. The picked Group is remembered per person and Organization.
+- `calendar-today`: on load and on `Today` the grid scrolls so today's column sits just right of the personnel column,
+  unless it is already fully visible.
 - `calendar-saved-range`: the fixed September statuses and closure render in month and long range, and the historical
   March status remains reachable.
 - `calendar-picker-keyboard`: ArrowLeft changes focused month and Escape dismisses the picker.
@@ -303,6 +305,18 @@ Suspenses` with a suspense due in the month (the Events lane and the header diam
     preference row exists. Open the `New closure` composer in Settings with `Show Days` off: its preview still has a
     Days lane. With Events & Taskings off, `Display` has no `Show Events & Suspenses`. Opening `Display` closes an open
     suspense card or duty picker. Restore every toggle.
+
+21. **Remembered Group and scroll to today.** As `calendarConfigureSwitch`, choose `Alpha (1)` in `Calendar group filter`.
+    `$V preferences calendarConfigureSwitch orgA` shows `calendar.groupFilter` set to `groupA`. Reload: the filter still
+    reads Alpha and only Able's band shows. Switch to Organization B through the switcher: it shows `Group: All` and
+    B's own row stays empty. Arm `$V network arm-fail $PAGE user-preferences` with `$V feedback arm $PAGE`, pick another
+    Group, and require the 503, one error toast and the saved row unchanged; the choice stays on screen until reload,
+    which shows the saved Group. Arm `arm-hold`, pick a Group, switch Organization before `release`, release and read
+    both Organizations' rows: A holds the pick and B has none. For scroll, narrow the viewport until today's column is
+    off screen (about 220px of grid), reload, and read `scrollLeft` of the month body and the header: they match and
+    today's column starts at the personnel column's right edge. Scroll away, click `Today`: it returns without a jump,
+    in `Month` and in `3-Month`. At widths where today is already visible nothing moves. Click `Today` on the current
+    month: the grid still scrolls, because the click is its own request.
 
 ## Gotchas
 

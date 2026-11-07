@@ -18,6 +18,7 @@ import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader'
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { StoreRequestError } from '$lib/stores/core';
 
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
@@ -52,6 +53,17 @@ const savePreferences = vi.fn<(patch: Partial<CalendarDisplayPreferences>) => vo
 function makeContext(data: CalendarPageData | (() => CalendarPageData), org: CalendarPageAccess, today?: string) {
 	return new CalendarPageContext(data, org, savePreferences, today);
 }
+
+const syncedPreferences: CalendarDisplayPreferences = {
+	showStatusText: false,
+	showPersonnelRoles: false,
+	highlightOnboarding: true,
+	showDaysLane: true,
+	showEventLanes: true,
+	showAssignmentLanes: true,
+	groupFilter: null,
+	lastStatusTypeId: null
+};
 
 const mockPersonnel: Personnel[] = [
 	{
@@ -226,7 +238,9 @@ describe('CalendarPageContext', () => {
 				highlightOnboarding: false,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			});
 
 			expect(ctx.showStatusText).toBe(true);
@@ -242,11 +256,22 @@ describe('CalendarPageContext', () => {
 				highlightOnboarding: true,
 				showDaysLane: false,
 				showEventLanes: true,
-				showAssignmentLanes: false
+				showAssignmentLanes: false,
+				groupFilter: null,
+				lastStatusTypeId: null
 			});
 
 			expect([ctx.showDaysLane, ctx.showEventLanes, ctx.showAssignmentLanes]).toEqual([false, true, false]);
 			expect(savePreferences).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('requestToday', () => {
+		it('counts each Today press so the grid reveals today again', () => {
+			expect(ctx.todayRequests).toBe(0);
+			ctx.requestToday();
+			ctx.requestToday();
+			expect(ctx.todayRequests).toBe(2);
 		});
 	});
 
@@ -432,6 +457,115 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
+	describe('remembered status', () => {
+		const status = (id: string, sortOrder: number): StatusType => ({
+			id,
+			name: id,
+			color: '#16a34a',
+			textColor: '#ffffff',
+			shortLabel: null,
+			rosterEffect: 'A',
+			sortOrder
+		});
+		const record = {
+			personnelId: 'p1',
+			statusTypeId: 'sick',
+			startDate: '2026-04-07',
+			endDate: '2026-04-08',
+			note: null as string | null
+		};
+		const stores = statusTypesStore as unknown as { items: StatusType[] };
+		const preferencesWith = (lastStatusTypeId: string | null) => ({
+			showStatusText: false,
+			showPersonnelRoles: false,
+			highlightOnboarding: true,
+			showDaysLane: true,
+			showEventLanes: true,
+			showAssignmentLanes: true,
+			groupFilter: null,
+			lastStatusTypeId
+		});
+
+		beforeEach(() => {
+			stores.items = [status('leave', 0), status('sick', 1)];
+		});
+
+		afterEach(() => {
+			stores.items = [];
+		});
+
+		it('defaults to the first status until one is remembered', () => {
+			expect(ctx.defaultStatusTypeId).toBe('leave');
+		});
+
+		it('remembers the status of a new entry once it is saved', async () => {
+			vi.mocked(availabilityStore.add).mockResolvedValueOnce({ id: 'saved-1', ...record });
+
+			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('saved');
+
+			expect(ctx.defaultStatusTypeId).toBe('sick');
+			expect(savePreferences).toHaveBeenCalledExactlyOnceWith({ lastStatusTypeId: 'sick' });
+		});
+
+		it('does not save the remembered status again when it has not changed', async () => {
+			ctx.syncUserPreferences(preferencesWith('sick'));
+			vi.mocked(availabilityStore.add).mockResolvedValueOnce({ id: 'saved-1', ...record });
+
+			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('saved');
+
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
+		it('keeps the remembered status when a save is refused', async () => {
+			vi.spyOn(toastStore, 'error').mockImplementation(() => 0);
+			vi.mocked(availabilityStore.add).mockRejectedValueOnce(new StoreRequestError('refused', 422));
+
+			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('not-saved');
+
+			expect(ctx.defaultStatusTypeId).toBe('leave');
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
+		it('does not change it when an entry is edited or resized', async () => {
+			const entry = { id: 'entry-1', ...record, statusTypeId: 'leave' };
+			vi.mocked(availabilityStore.updateOrThrow).mockResolvedValueOnce(true);
+
+			const outcome = await ctx.saveAvailability({
+				kind: 'update',
+				entry,
+				changes: { statusTypeId: 'sick', startDate: '2026-04-07', endDate: '2026-04-09', note: null }
+			});
+
+			expect(outcome).toBe('saved');
+			expect(ctx.defaultStatusTypeId).toBe('leave');
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
+		it('does not record a status saved after the viewer moved to another Organization', async () => {
+			const data = { ...mockData };
+			const switching = makeContext(() => data, org);
+			let resolveAdd!: (entry: typeof record & { id: string }) => void;
+			vi.mocked(availabilityStore.add).mockImplementationOnce(() => new Promise((resolve) => (resolveAdd = resolve)));
+			const pending = switching.saveAvailability({ kind: 'create', record });
+
+			data.orgId = 'org2';
+			resolveAdd({ id: 'saved-1', ...record });
+
+			expect(await pending).toBe('stale');
+			expect(switching.defaultStatusTypeId).toBe('leave');
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
+		it('restores the remembered status from saved preferences and drops one that was deleted', () => {
+			ctx.syncUserPreferences(preferencesWith('sick'));
+			expect(ctx.defaultStatusTypeId).toBe('sick');
+
+			ctx.syncUserPreferences(preferencesWith('deleted'));
+			expect(ctx.defaultStatusTypeId).toBe('leave');
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('handleDateClick / closeAssignmentModal', () => {
 		it('sets assignmentDate', () => {
 			const d = new Date('2026-04-01');
@@ -575,6 +709,38 @@ describe('CalendarPageContext', () => {
 
 			context.setCalendarGroupFilter('g2');
 			expect(shown(context)).toEqual([['g2', ['p2']]]);
+		});
+
+		it('saves the picked Group and All as the remembered Group filter', () => {
+			const context = makeContext(mockData, org);
+
+			context.setCalendarGroupFilter('g2');
+			context.setCalendarGroupFilter('g2');
+			context.setCalendarGroupFilter('');
+
+			expect(savePreferences.mock.calls).toEqual([[{ groupFilter: 'g2' }], [{ groupFilter: null }]]);
+		});
+
+		it('restores a remembered Group from saved preferences without saving it again', () => {
+			const context = makeContext(mockData, org);
+
+			context.syncUserPreferences({ ...syncedPreferences, groupFilter: 'g2' });
+
+			expect(context.calendarGroupFilter).toBe('g2');
+			expect(shown(context)).toEqual([['g2', ['p2']]]);
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
+		it('shows All when the remembered Group is no longer offered', () => {
+			const context = makeContext(mockData, org);
+			context.syncUserPreferences({ ...syncedPreferences, groupFilter: 'deleted-group' });
+
+			expect(context.calendarGroupFilter).toBe('');
+			expect(shown(context)).toEqual([
+				['g1', ['p1']],
+				['g2', ['p2']]
+			]);
+			expect(savePreferences).not.toHaveBeenCalled();
 		});
 
 		it('matches typed personnel search text against rank, MOS, name, role, and group', () => {

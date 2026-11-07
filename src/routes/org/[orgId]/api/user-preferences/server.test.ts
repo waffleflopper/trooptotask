@@ -23,7 +23,9 @@ const preferences = {
 		highlightOnboarding: true,
 		showDaysLane: true,
 		showEventLanes: true,
-		showAssignmentLanes: true
+		showAssignmentLanes: true,
+		groupFilter: null,
+		lastStatusTypeId: null
 	},
 	training: {
 		selectedGroupId: null,

@@ -20,7 +20,11 @@ for (const mode of ['hold', 'hold-fail', 'fail', 'observe']) {
 		await page.fetch('http://foreign.test' + suffix, { method: 'PATCH' });
 		await page.fetch(suffix, { method: 'POST' });
 		assert.equal(page.__mapNetwork.calls.length, 0);
-		const patch = { training: { selectedGroupId: 'alpha', matrixCurrentMark: 'check' }, ignoredSecret: 'private' };
+		const patch = {
+			calendar: { groupFilter: null, lastStatusTypeId: 'leave', ignoredCalendar: 'private' },
+			training: { selectedGroupId: 'alpha', matrixCurrentMark: 'check' },
+			ignoredSecret: 'private'
+		};
 		let settled = false;
 		const saved = page.fetch(suffix, { method: 'PATCH', body: JSON.stringify(patch) });
 		saved.then(() => (settled = true));
@@ -32,6 +36,7 @@ for (const mode of ['hold', 'hold-fail', 'fail', 'observe']) {
 		}
 		assert.equal((await saved).status, mode === 'fail' || mode === 'hold-fail' ? 503 : 200);
 		assert.deepEqual(page.__mapNetwork.calls[0].preferencePatch, {
+			calendar: { groupFilter: null, lastStatusTypeId: 'leave' },
 			training: { selectedGroupId: 'alpha', matrixCurrentMark: 'check' }
 		});
 		assert.ok(!JSON.stringify(page.__mapNetwork.calls).includes('private'));

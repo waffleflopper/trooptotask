@@ -27,11 +27,13 @@
 		view: CalendarViewMode;
 		anchor: Date;
 		onAnchorChange: (anchor: Date) => void;
+		/** Called after the anchor moves, so a grid can bring today into view even when the period did not change. */
+		onToday?: () => void;
 		disabled?: boolean;
 		layout: Snippet<[PeriodControls]>;
 	}
 
-	let { view, anchor, onAnchorChange, disabled = false, layout }: Props = $props();
+	let { view, anchor, onAnchorChange, onToday, disabled = false, layout }: Props = $props();
 
 	const period = $derived(calendarPeriod(anchor, view));
 
@@ -62,6 +64,7 @@
 	function goToToday() {
 		const now = new Date();
 		onAnchorChange(new Date(now.getFullYear(), now.getMonth(), 1));
+		onToday?.();
 	}
 </script>
 

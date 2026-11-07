@@ -7,12 +7,13 @@
 		anchor: Date;
 		disabled?: boolean;
 		onAnchorChange: (anchor: Date) => void;
+		onToday?: () => void;
 	}
 
-	let { view, anchor, disabled, onAnchorChange }: Props = $props();
+	let { view, anchor, disabled, onAnchorChange, onToday }: Props = $props();
 </script>
 
-<CalendarPeriodNavigation {view} {anchor} {disabled} {onAnchorChange}>
+<CalendarPeriodNavigation {view} {anchor} {disabled} {onAnchorChange} {onToday}>
 	{#snippet layout({ monthPicker, previous, next, today })}
 		{@render today()}
 		{@render previous()}

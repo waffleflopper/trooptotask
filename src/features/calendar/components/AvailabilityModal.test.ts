@@ -55,23 +55,25 @@ function renderModal(
 	request: AvailabilityEditorRequest,
 	overrides: {
 		statusTypes?: StatusType[];
+		defaultStatusTypeId?: string;
 		existingEntries?: AvailabilityEntry[];
 		saving?: boolean;
 		onSave?: (change: AvailabilityChange) => Promise<AvailabilityOutcome>;
 	} = {}
 ) {
 	const onSave = vi.fn(overrides.onSave ?? (async () => 'saved' as const));
-	const view = render(AvailabilityModal, {
-		props: {
-			request,
-			statusTypes: overrides.statusTypes ?? statusTypes,
-			existingEntries: overrides.existingEntries ?? [],
-			saving: overrides.saving ?? false,
-			onSave,
-			onClose: vi.fn()
-		}
-	});
-	return { ...view, onSave };
+	const onClose = vi.fn();
+	const props = {
+		request,
+		statusTypes: overrides.statusTypes ?? statusTypes,
+		defaultStatusTypeId: overrides.defaultStatusTypeId,
+		existingEntries: overrides.existingEntries ?? [],
+		saving: overrides.saving ?? false,
+		onSave,
+		onClose
+	};
+	const view = render(AvailabilityModal, { props });
+	return { ...view, onSave, onClose, props };
 }
 
 describe('AvailabilityModal', () => {
@@ -248,6 +250,102 @@ describe('AvailabilityModal', () => {
 				note: 'JRTC prep'
 			}
 		});
+	});
+});
+
+describe('AvailabilityModal — remembered status and Save and close', () => {
+	const createdOn = (statusTypeId: string) => ({
+		kind: 'create',
+		record: {
+			personnelId: 'person-1',
+			statusTypeId,
+			startDate: '2026-04-07',
+			endDate: '2026-04-07',
+			note: null
+		}
+	});
+
+	it('starts a new entry on the remembered status', async () => {
+		const { onSave } = renderModal(onApril7, { defaultStatusTypeId: 'tdy' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save and close' }));
+
+		expect(onSave).toHaveBeenCalledExactlyOnceWith(createdOn('tdy'));
+	});
+
+	it('saves and closes in one click', async () => {
+		const { onSave, onClose } = renderModal(onApril7);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save and close' }));
+
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+		expect(onSave).toHaveBeenCalledExactlyOnceWith(createdOn('leave'));
+	});
+
+	it('keeps the dialog open after Add Status and starts the next entry on the remembered status', async () => {
+		let remember = async () => {};
+		const { onSave, onClose, rerender, props } = renderModal(onApril7, {
+			defaultStatusTypeId: 'leave',
+			onSave: async () => {
+				await remember();
+				return 'saved';
+			}
+		});
+		remember = () => rerender({ ...props, defaultStatusTypeId: 'tdy' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await waitFor(() => expect(screen.getAllByText('TDY').length).toBeGreaterThan(0));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		expect(onClose).not.toHaveBeenCalled();
+		expect(onSave.mock.calls.map(([change]) => change)).toEqual([createdOn('leave'), createdOn('tdy')]);
+	});
+
+	it.each(['not-saved', 'unconfirmed', 'stale', 'busy'] as const)(
+		'stays open when Save and close ends %s',
+		async (outcome) => {
+			const { onSave, onClose } = renderModal(onApril7, { onSave: async () => outcome });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Save and close' }));
+			await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+			await Promise.resolve();
+
+			expect(onClose).not.toHaveBeenCalled();
+		}
+	);
+
+	it('does not close a dialog that was already replaced when the save settled', async () => {
+		let settle!: (outcome: AvailabilityOutcome) => void;
+		const { onSave, onClose, unmount } = renderModal(onApril7, {
+			onSave: () => new Promise<AvailabilityOutcome>((resolve) => (settle = resolve))
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save and close' }));
+		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+		unmount();
+		settle('saved');
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it('updates an entry and closes from Save and close in edit mode', async () => {
+		const { onSave, onClose } = renderModal(
+			{ kind: 'edit', person, entry: existingEntry },
+			{ existingEntries: [existingEntry] }
+		);
+
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Block leave' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save and close' }));
+
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({
+			kind: 'update',
+			entry: existingEntry,
+			changes: { statusTypeId: 'leave', startDate: '2026-04-07', endDate: '2026-04-07', note: 'Block leave' }
+		});
+		expect(screen.getByRole('button', { name: 'Update Status' })).toBeTruthy();
 	});
 });
 

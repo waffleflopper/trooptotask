@@ -12,10 +12,11 @@
 		orgName: string;
 		personnelCount: number;
 		onAnchorChange: (anchor: Date) => void;
+		onToday: () => void;
 		onViewChange: (view: CalendarViewMode) => void;
 	}
 
-	let { view, anchor, today, orgName, personnelCount, onAnchorChange, onViewChange }: Props = $props();
+	let { view, anchor, today, orgName, personnelCount, onAnchorChange, onToday, onViewChange }: Props = $props();
 
 	const eyebrow = $derived(`Calendar · ${orgName} · ${personnelCount} personnel`);
 	const todayLabel = $derived(
@@ -45,7 +46,7 @@
 	</ToggleGroup.Root>
 {/snippet}
 
-<CalendarPeriodNavigation {view} {anchor} {onAnchorChange}>
+<CalendarPeriodNavigation {view} {anchor} {onAnchorChange} {onToday}>
 	{#snippet layout({ monthPicker, previous, next, today })}
 		{#snippet title()}
 			{@render monthPicker({ class: '-mx-2 h-auto px-2 py-0.5 [font:inherit]' })}

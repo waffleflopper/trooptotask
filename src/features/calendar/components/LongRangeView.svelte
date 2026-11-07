@@ -12,6 +12,8 @@
 	import { buildCalendarDays } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { Button } from '$lib/components/ui/button';
+	import { untrack } from 'svelte';
+	import { scrollLeftToRevealColumn } from '$features/calendar/utils/revealColumn';
 
 	const MIN_DAY_PX = 10;
 	const GROUP_ROW_HEIGHT = 18;
@@ -34,6 +36,8 @@
 		lanes?: readonly CalendarLane[];
 		/** Taskings each Person is picked for over the three months. */
 		commitments?: CommitmentsByPerson;
+		/** Each increase brings today's column into view, as does the first measured layout. */
+		todayRequests?: number;
 		onDateColumnClick?: (date: Date) => void;
 		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
@@ -46,6 +50,7 @@
 		specialDays,
 		lanes = [],
 		commitments,
+		todayRequests = 0,
 		onDateColumnClick,
 		onOpenEntry,
 		onOpenOverflow
@@ -151,6 +156,29 @@
 	function handleScroll() {
 		updateScrollMetrics();
 	}
+
+	let revealedRequests = -1;
+
+	function revealToday() {
+		const index = days.findIndex((day) => day.today);
+		if (index < 0) return;
+		const target = scrollLeftToRevealColumn({
+			scrollLeft: scrollAreaEl.scrollLeft,
+			clientWidth: scrollAreaEl.clientWidth,
+			leadingWidth: personnelColumnWidth,
+			columnWidth: (scrollAreaEl.scrollWidth - personnelColumnWidth) / days.length,
+			index
+		});
+		if (target !== null) scrollAreaEl.scrollLeft = target;
+	}
+
+	// Column widths are known only once the observer has measured the area, so the first reveal waits for it.
+	$effect(() => {
+		const requests = todayRequests;
+		if (scrollAreaWidth === 0 || requests === revealedRequests) return;
+		revealedRequests = requests;
+		untrack(revealToday);
+	});
 
 	// The observer's first callback reads geometry after layout, so mounting the view never forces one.
 	$effect(() => {

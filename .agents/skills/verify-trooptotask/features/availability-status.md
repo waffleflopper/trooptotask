@@ -10,6 +10,8 @@ with the result visible again after reload.
 - `status-add`: add a new status through the visible form opened from an empty day.
 - `status-quick-add`: drag across empty days in a person's month row and pick a status by click or number key.
 - `status-resize`: drag a selected bar's end to change its dates in place.
+- `status-remember`: the editor and quick-add start on the last status this person added in this Organization.
+- `status-save-close`: `Save and close` saves a status and closes the editor; `Add Status` saves and stays open.
 - `status-remove`: remove a status through the popover's inline confirmation.
 - `status-persist`: confirm a saved change through a second Calendar read.
 - `status-failed-add`: if operation permission disappears before save, no row or premature success appears and the
@@ -140,6 +142,19 @@ restore any temporarily narrowed grant.
     2026-10-18) from the single-Person read; scan the roster slugs with
     `<slug>/__data.json?x-sveltekit-invalidated=00011` to find one. A status saved through the Calendar UI appearing
     here is not covered. Run `clean-seeds` after the workload check.
+
+15. **Remembered status and Save and close.** As `calendarConfigureSwitch`, create a uniquely named status type under
+    `Settings` → `Status Types` (it sorts last). Open an empty day's `Set Personnel Status`: it starts on the first type.
+    Pick the new type with the arrow keys and Enter, then click `Save and close`. The editor closes, the bar and an
+    `added —` toast appear, and `$V preferences calendarConfigureSwitch orgA` shows `calendar.lastStatusTypeId` set to
+    the new type's ID. Reload and open another empty day: the editor starts on the new type. Click `Add Status`: the entry
+    saves, the editor stays open with `Current Status` listing it, and the form still starts on the new type. Drag across
+    empty days: the popover lists the remembered type first with shortcut `1`, then the rest in the usual order. Press `2`
+    to add another type: the next popover lists that type first, and `lastStatusTypeId` follows. Resizes and
+    `Update Status` never change it. Delete only the type this run created (its entries go with it): the stored ID stays
+    but the editor starts on the first type again. At 390x844 the footer stacks `Save and close`, `Add Status`, `Cancel`
+    in that order inside the dialog; at 1024 they sit in one row. A failed save or lost reply leaves the editor open (see
+    step 10). `$V rows user_org_preferences orgB` must have no row for this user until B is used.
 
 ## Gotchas
 

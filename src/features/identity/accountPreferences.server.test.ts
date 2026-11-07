@@ -116,7 +116,9 @@ const defaults = {
 		highlightOnboarding: true,
 		showDaysLane: true,
 		showEventLanes: true,
-		showAssignmentLanes: true
+		showAssignmentLanes: true,
+		groupFilter: null,
+		lastStatusTypeId: null
 	},
 	training: {
 		selectedGroupId: null,
@@ -167,6 +169,34 @@ describe('Identity account/Organization preferences', () => {
 		});
 	});
 
+	it('loads a row saved before the remembered Group and status as All and no status, then saves them', async () => {
+		const beforeRemembered = {
+			showStatusText: false,
+			showPersonnelRoles: false,
+			highlightOnboarding: true,
+			showDaysLane: true,
+			showEventLanes: true,
+			showAssignmentLanes: true
+		};
+		const p = provider([row({ preferences: { calendar: beforeRemembered, training: defaults.training } })]);
+
+		const loaded = await loadUserOrgPreferences(p, scope);
+		expect([loaded.calendar.groupFilter, loaded.calendar.lastStatusTypeId]).toEqual([null, null]);
+
+		const saved = await patchUserOrgPreferences(writer(p.supabase), {
+			calendar: { groupFilter: 'platoon-1', lastStatusTypeId: 'leave' }
+		});
+		expect(saved.calendar).toEqual({ ...defaults.calendar, groupFilter: 'platoon-1', lastStatusTypeId: 'leave' });
+		await expect(loadUserOrgPreferences(p, scope)).resolves.toMatchObject({
+			calendar: { groupFilter: 'platoon-1', lastStatusTypeId: 'leave' }
+		});
+
+		await patchUserOrgPreferences(writer(p.supabase), { calendar: { groupFilter: null } });
+		await expect(loadUserOrgPreferences(p, scope)).resolves.toMatchObject({
+			calendar: { groupFilter: null, lastStatusTypeId: 'leave' }
+		});
+	});
+
 	it('rejects a bound provider row with omitted preferences before dispatching any save', async () => {
 		const saved = row({
 			preferences: { calendar: { showStatusText: true }, training: { selectedViewId: 'retained-view' } }
@@ -210,7 +240,9 @@ describe('Identity account/Organization preferences', () => {
 						highlightOnboarding: true,
 						showDaysLane: true,
 						showEventLanes: true,
-						showAssignmentLanes: true
+						showAssignmentLanes: true,
+						groupFilter: null,
+						lastStatusTypeId: null
 					},
 					training: {
 						selectedGroupId: 'group-1',

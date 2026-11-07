@@ -138,7 +138,7 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 			label: (raw) => [raw.lastName, raw.firstName].filter(Boolean).join(', ')
 		},
 		columns,
-		splitters: [lastFirstSplitter<typeof columns>()],
+		splitters: [lastFirstSplitter<typeof columns>(source.rankCatalog)],
 		references: {
 			get person() {
 				return personReference;

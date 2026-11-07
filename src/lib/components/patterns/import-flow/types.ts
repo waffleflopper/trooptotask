@@ -37,6 +37,8 @@ export interface ColumnSplitter<C extends ImportColumns> {
 	label: string;
 	aliases: readonly string[];
 	fills: readonly (keyof C & string)[];
+	/** Fields the split may also supply. A mapped column with a value for the row wins over them. */
+	fallbackFills?: readonly (keyof C & string)[];
 
 	split(raw: string): Partial<Record<keyof C & string, string>> | null;
 	join?(values: Readonly<Partial<Record<keyof C & string, string>>>): string;
@@ -62,6 +64,10 @@ export type ReferenceMatch<T> =
 	| { kind: 'many'; candidates: readonly ReferenceOption<T>[]; suggestion?: ReferenceOption<T> }
 	| { kind: 'none'; suggestion?: ReferenceOption<T> };
 
+export type ImportNoun = { one: string; other: string };
+
+export type SavedRecord = { id: string; label: string };
+
 export type CreateOptionResult<T> =
 	| { kind: 'created'; option: ReferenceOption<T> }
 	| { kind: 'refused'; message: string };
@@ -80,7 +86,11 @@ export interface ImportReference<C extends ImportColumns, T> {
 
 	required?: true;
 
-	create?(name: string): Promise<CreateOptionResult<T>>;
+	create?: {
+		noun: ImportNoun;
+		/** Calls `saved` for each record it writes, as it writes it; a record it only resolved to is not saved. */
+		run(name: string, saved: (record: SavedRecord) => void): Promise<CreateOptionResult<T>>;
+	};
 }
 
 export type ImportReferences<C extends ImportColumns> = Record<string, ImportReference<C, unknown>>;
@@ -158,7 +168,7 @@ export type ChunkReply =
 
 export interface ImportLane<C extends ImportColumns, Refs extends ImportReferences<C>, Change> {
 	id: string;
-	noun: { one: string; other: string };
+	noun: ImportNoun;
 	intro?: { title: string; body: string };
 	identity?: {
 		fields: readonly (keyof C & string)[];

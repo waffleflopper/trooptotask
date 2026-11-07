@@ -13,7 +13,7 @@
 	import { historyBack } from '$lib/utils/historyBack';
 	import type { ImportLane } from './types';
 	import { ImportSession } from './importSession.svelte';
-	import { STEPS, stepIndex, type FlowSession, type FlowStep } from './flowTypes';
+	import { leaveMessage, STEPS, stepIndex, type FlowSession, type FlowStep } from './flowTypes';
 	import ImportStepper from './import-stepper.svelte';
 	import ImportFlowSkeleton from './import-flow-skeleton.svelte';
 	import FileStep from './steps/file-step.svelte';
@@ -142,7 +142,7 @@
 	{@const target = leaveTarget}
 	<ConfirmDialog
 		title="Leave this import?"
-		message="Nothing from this file has been saved. Leaving discards the file and your fixes."
+		message={leaveMessage(session.created)}
 		confirmLabel="Leave import"
 		cancelLabel="Keep importing"
 		onConfirm={() => void leave(target)}

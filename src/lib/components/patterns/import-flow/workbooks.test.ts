@@ -4,8 +4,8 @@ import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import { buildNotImported, buildTemplate } from './workbooks';
 import { buildReceipt, type CommitResult } from './commit';
 import { applyEdits, buildSourceRows, reviewRows, ReviewMemo, sourceRowId } from './rowModel';
-import { defineImportLane, type RowId } from './types';
-import { personnelLane } from './importFlow.test-support';
+import { defineImportLane, type ColumnSplitter, type RowId } from './types';
+import { nameSplitter, personnelColumns, personnelLane } from './importFlow.test-support';
 import { detectLayout, readImportFile, type LoadedFile } from './workbookSource';
 
 async function readBack(workbook: ExcelJS.Workbook): Promise<ExcelJS.Workbook> {
@@ -297,6 +297,47 @@ describe('workbook export', () => {
 		const exported = await readBack(await buildNotImported(file, layout, receipt, lane.splitters));
 		expect(exported.worksheets[0].getRow(2).values).toEqual([undefined, 'Smith, Alex', 'SGT', 'Skipped']);
 	});
+	it('rebuilds the combined column when the only corrected value is one the split supplied', async () => {
+		const rankSplitter: ColumnSplitter<typeof personnelColumns> = {
+			...nameSplitter,
+			fallbackFills: ['rank'],
+			split(raw) {
+				const [, rank, rest] = /^(SP4|SPC) (.*)$/.exec(raw) ?? [];
+				const names = nameSplitter.split(rest ?? raw);
+				return names && rank ? { ...names, rank } : names;
+			},
+			join: (values) => `${values.rank ? `${values.rank} ` : ''}${nameSplitter.join!(values)}`
+		};
+		const lane = { ...personnelLane(), splitters: [rankSplitter] };
+		const exportRow = async (rows: string[][], edit: Record<string, string>) => {
+			const file: LoadedFile = { name: 'input.xlsx', sheets: [{ index: 0, name: 'HQ', hidden: false, rows }] };
+			const layout = detectLayout(file, lane);
+			const [row] = applyEdits(buildSourceRows(file, layout, lane), new Map([[sourceRowId(0, 1), edit]]));
+			const receipt = buildReceipt([{ row, reason: 'Skipped' }], new Map(), new Map([[row.id, row]]), null);
+			const exported = await readBack(await buildNotImported(file, layout, receipt, lane.splitters));
+			return exported.worksheets[0].getRow(2).values;
+		};
+
+		expect(
+			await exportRow(
+				[
+					['Name', 'MOS'],
+					['SP4 Smith, John', '68W']
+				],
+				{ rank: 'SPC' }
+			)
+		).toEqual([undefined, 'SPC Smith, John', '68W', 'Skipped']);
+		expect(
+			await exportRow(
+				[
+					['Name', 'Rank'],
+					['SP4 Smith, John', 'SP4']
+				],
+				{ rank: 'SPC' }
+			)
+		).toEqual([undefined, 'SP4 Smith, John', 'SPC', 'Skipped']);
+	});
+
 	it('keeps 1904 serial dates meaningful after exporting and re-importing a skipped row', async () => {
 		const file: LoadedFile = {
 			name: 'dates.xlsx',

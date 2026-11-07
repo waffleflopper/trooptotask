@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImportSession, type IsoDate } from '$lib/components/patterns/import-flow';
 import type { Personnel } from '../personnel.types';
 import { BUILT_IN_RANK_CATALOG } from '../rankCatalog';
-import { lastFirstSplitter } from './personnelImportColumns';
+import { lastFirstSplitter, personnelImportColumns } from './personnelImportColumns';
 import { createPersonnelImportLane, type PersonnelImportSource } from './personnelImportLane';
 
 const groups = [
@@ -144,6 +144,74 @@ describe('personnel import lane', () => {
 		expect(lastFirstSplitter().split('Garcia')).toBeNull();
 	});
 
+	describe('common roster spreadsheets', () => {
+		async function reviewCsv(text: string) {
+			const session = new ImportSession(() => lane({ personnel: [] }));
+			await session.chooseFile([new File([text], 'roster.csv')]);
+			expect(session.columnBlockers).toEqual([]);
+			session.goTo('review');
+			return session.review.rows;
+		}
+
+		it('maps Grade, PMOS and PCS Date without hand mapping and reads YYYYMMDD and MM/DD/YY dates', async () => {
+			const rows = await reviewCsv(
+				'Last name,First name,Grade,PMOS,PCS Date,ETS\nSynthetic,New,SGT,68W,20270815,05/01/28'
+			);
+			expect(rows).toMatchObject([
+				{
+					outcome: 'new',
+					change: { rank: 'SGT', mos: '68W', deros: '2027-08-15', ets: '2028-05-01', lastName: 'Synthetic' }
+				}
+			]);
+		});
+
+		it.each([
+			['SGT SMITH, JOHN A', 'SGT', 'SMITH', 'JOHN'],
+			['sgt Smith, John', 'SGT', 'Smith', 'John'],
+			['Sgt. Smith, John', 'SGT', 'Smith', 'John'],
+			['1st Lt Jones, Pat', '1st Lt', 'Jones', 'Pat'],
+			['Lt Gen Jones, Pat', 'Lt Gen', 'Jones', 'Pat'],
+			['SGT SMITH JOHN', 'SGT', 'SMITH', 'JOHN']
+		])('reads the rank off the front of the name %s', async (name, rank, lastName, firstName) => {
+			const rows = await reviewCsv(`Name,MOS\n"${name}",68W`);
+			expect(rows).toMatchObject([{ outcome: 'new', change: { op: 'create', rank, lastName, firstName } }]);
+		});
+
+		it('keeps a Rank column over the rank in the name, and uses the name when the Rank cell is empty', async () => {
+			const rows = await reviewCsv('Name,Rank\n"SGT SMITH, JOHN",CPL\n"SSG JONES, PAT",');
+			expect(rows).toMatchObject([
+				{ outcome: 'new', change: { rank: 'CPL', lastName: 'SMITH', firstName: 'JOHN' } },
+				{ outcome: 'new', change: { rank: 'SSG', lastName: 'JONES', firstName: 'PAT' } }
+			]);
+		});
+
+		it('leaves a name alone when its first word is not a rank or would leave no last name', async () => {
+			const session = new ImportSession(() => lane({ personnel: [] }));
+			await session.chooseFile([
+				new File(['Name,MOS\n"Col, John",68W\n"Smith, John",68W\n"CPL SMITH",68W'], 'roster.csv')
+			]);
+			expect(session.sourceRows.map((row) => [row.raw.lastName, row.raw.firstName, row.raw.rank])).toEqual([
+				['Col', 'John', undefined],
+				['Smith', 'John', undefined],
+				['CPL', 'SMITH', undefined]
+			]);
+		});
+
+		it('writes a known rank back in front of a corrected name, so a retry file keeps it', () => {
+			const splitter = lastFirstSplitter<typeof personnelImportColumns>(BUILT_IN_RANK_CATALOG);
+			const corrected = splitter.join!({ lastName: 'Smith', firstName: 'Jane', rank: 'SGT' });
+
+			expect(corrected).toBe('SGT Smith, Jane');
+			expect(splitter.split(corrected)).toEqual({ lastName: 'Smith', firstName: 'Jane', rank: 'SGT' });
+			expect(splitter.join!({ lastName: 'Smith', firstName: 'Jane', rank: 'Staff Sgt' })).toBe('Smith, Jane');
+			expect(splitter.join!({ lastName: 'Smith', firstName: 'Jane' })).toBe('Smith, Jane');
+		});
+
+		it('keeps the whole word before the comma as the last name in every lane that has no rank catalog', () => {
+			expect(lastFirstSplitter().split('SGT SMITH, JOHN A')).toEqual({ lastName: 'SGT SMITH', firstName: 'JOHN' });
+		});
+	});
+
 	it('matches people by name alone, uses the group to break a tie and asks when it cannot', () => {
 		const source = lane();
 		expect(match(source, 'person', { lastName: 'smith', firstName: 'ana' })).toMatchObject({
@@ -243,7 +311,7 @@ describe('personnel import lane', () => {
 			suggestion: { id: 'g2' }
 		});
 		expect(lane().references.group.create).toBeUndefined();
-		expect(lane({ canManageGroups: true }).references.group.create).toBeTypeOf('function');
+		expect(lane({ canManageGroups: true }).references.group.create).toBeDefined();
 	});
 
 	it('asks which Group a name means when two Groups share it, and suggests only a unique abbreviation', () => {

@@ -260,6 +260,16 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    Person in the Group its path names. A path deeper than three levels is refused with
    `Groups can nest at most three levels deep.`
 
+   **Common roster formats.** As `manager`, upload a CSV with the header `Name, Grade, PMOS, Group, ETS, PCS Date`
+   and these rows, all in Alpha: `"SGT VERIFYONE, JOHN A"` with Grade empty, PMOS `68W`, ETS `20271231`, PCS Date
+   `20270815`; `"VERIFYTWO, PAT"` with Grade `SPC`, `12/31/27` and `08/15/27`; `"PFC VERIFYTHREE, JANE"` with Grade
+   `SGT`, ETS `05/01/28` and PCS Date `20280815`. Columns maps Name to `Last, First`, Grade to Rank, PMOS to MOS and
+   PCS Date to `PCS / DEROS` with no hand mapping and reads `6 of 6 columns used`. Review reads `All · 3`, `New · 3`
+   and no fixes. The first row shows `VERIFYONE, JOHN` with rank SGT taken from the name, the second `2027-12-31` and
+   `2027-08-15`, the third `VERIFYTHREE, JANE` with SGT from the Grade column, not PFC from the name, and
+   `2028-08-15`. A word that is not a rank in the Organization's catalog stays in the last name. Only this import takes a rank
+   from a name; the Calendar, Training and Critical Tasks imports keep it as written. Do not import this file.
+
    Whole visible names match first, followed by complete export paths. A legacy `Clinic / Lab` Group's Alpha Team
    resolves from `Clinic / Lab / Alpha Team`. If a separate Clinic, Lab and Alpha Team branch exports the same path,
    the value is ambiguous. Create reuses the longest existing export-path prefix and counts actual Group depth.
@@ -333,7 +343,14 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
 
 5. **History, leaving, loading and widths.** Back from Review returns to Columns and then File with the file kept;
    Forward returns to Columns. With a file chosen, a link out asks `Leave this import?`: `Keep importing` stays and
-   `Leave import` follows the link. While Import is saving, links, Back and the Organization switcher do nothing. As
+   `Leave import` follows the link. Before anything is created the dialog reads
+   `Nothing from this file has been saved.` After `Create group` from the Review rail it instead reads
+   `Leaving discards the file and your fixes.` and then the count and display path of every Group the import saved.
+   Creating `Verify Platoon / Verify Squad With A Very Long Name For Wrapping` and then `Verify Second Platoon` reads
+   `3 Groups created during this import stay: Verify Platoon, Verify Platoon › Verify Squad With A Very Long Name For Wrapping, Verify Second Platoon.`
+   A path level that already existed is not listed.
+   The text wraps inside the dialog at 390 px with no horizontal scroll. The listed Groups stay after `Leave import`
+   (read `groups` back). While Import is saving, links, Back and the Organization switcher do nothing. As
    `personnelSwitch` with `network arm-hold PAGE personnel/import 2` on the 5,000-row file, choosing Organization B
    leaves the page on A. After `network release` every batch finishes in A and Done shows there; B then opens with no
    import state and no new B rows. Reload asks the browser's leave prompt and starts at File, and Back into an earlier

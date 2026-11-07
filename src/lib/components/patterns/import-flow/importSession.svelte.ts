@@ -4,10 +4,12 @@ import type {
 	ColumnSplitter,
 	ImportColumns,
 	ImportLane,
+	ImportNoun,
 	ImportReferences,
 	QuestionKey,
 	RowId,
-	RowValues
+	RowValues,
+	SavedRecord
 } from './types';
 import type { ColumnTarget, HeaderKey, Layout, LoadedFile } from './workbookSource';
 import {
@@ -39,12 +41,18 @@ export type Phase =
 	| { step: 'committing'; progress: CommitProgress }
 	| { step: 'done'; receipt: Receipt };
 export type ReviewFilter = Outcome | 'all';
+export interface CreatedRecords {
+	reference: string;
+	noun: ImportNoun;
+	records: readonly SavedRecord[];
+}
 
 export class ImportSession<C extends ImportColumns, Refs extends ImportReferences<C>, Change> {
 	#generation = 0;
 	#navigation = 0;
 	#recheck = 0;
 	#memo = new ReviewMemo<Change>();
+	#memoVersion = $state(0);
 	file = $state.raw<LoadedFile | null>(null);
 	layout = $state.raw<Layout | null>(null);
 	skipped = $state.raw<ReadonlySet<RowId>>(emptySet());
@@ -54,6 +62,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	filter = $state.raw<ReviewFilter>('all');
 	rechecking = $state.raw(false);
 	creating = new SvelteMap<QuestionKey, true>();
+	created = $state.raw<readonly CreatedRecords[]>([]);
 
 	constructor(private readonly getLane: () => ImportLane<C, Refs, Change>) {}
 	get lane(): ImportLane<C, Refs, Change> {
@@ -63,9 +72,11 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	readonly sourceRows: readonly SourceRow[] = $derived.by(() =>
 		this.file && this.layout ? buildSourceRows(this.file, this.layout, this.lane) : []
 	);
-	readonly review: ReviewState<Change> = $derived.by(() =>
-		reviewRows(applyEdits(this.sourceRows, this.edits), this.lane, this.answers, this.skipped, this.#memo)
-	);
+	readonly review: ReviewState<Change> = $derived.by(() => {
+		// A create can add an option to the memo without answering a question, so re-read the rows.
+		void this.#memoVersion;
+		return reviewRows(applyEdits(this.sourceRows, this.edits), this.lane, this.answers, this.skipped, this.#memo);
+	});
 	readonly columnBlockers: readonly string[] = $derived.by(() => {
 		if (!this.file || !this.layout) return ['Choose a file first.'];
 		const included = this.layout.sheets.filter((sheet) => sheet.included);
@@ -111,7 +122,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	startOver(): void {
 		this.#generation++;
 		this.#stopRecheck();
-		this.#memo.clear();
+		this.#memo.resetLane(null);
 		this.file = null;
 		this.layout = null;
 		this.skipped = emptySet();
@@ -208,10 +219,14 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		const previousAnswer = this.answers.get(key);
 		this.creating.set(key, true);
 		try {
-			const result = await reference.create(name);
+			const { noun } = reference.create;
+			const result = await reference.create.run(name, (record) => this.#recordSaved(referenceName, noun, record));
+			if (result.kind === 'created') {
+				this.#memo.addCreated(referenceName, result.option);
+				this.#memoVersion++;
+			}
 			if (generation !== this.#generation) return null;
 			if (result.kind === 'refused') return { refused: result.message };
-			this.#memo.addCreated(referenceName, result.option);
 			if (this.answers.get(key) === previousAnswer) this.answer(key, { kind: 'pick', optionId: result.option.id });
 			return null;
 		} catch (error) {
@@ -220,6 +235,13 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		} finally {
 			if (generation === this.#generation) this.creating.delete(key);
 		}
+	}
+
+	#recordSaved(reference: string, noun: ImportNoun, { id, label }: SavedRecord): void {
+		const listed = this.created.find((item) => item.reference === reference);
+		if (listed?.records.some((record) => record.id === id)) return;
+		const entry = { reference, noun, records: [...(listed?.records ?? []), { id, label }] };
+		this.created = listed ? this.created.map((item) => (item === listed ? entry : item)) : [...this.created, entry];
 	}
 
 	goTo(step: 'file' | 'columns' | 'review'): void {

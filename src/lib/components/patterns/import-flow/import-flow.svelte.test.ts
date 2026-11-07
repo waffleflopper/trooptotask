@@ -4,7 +4,7 @@ import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ImportFlow from './import-flow.svelte';
 import { personnelColumns, personnelLane, type PersonnelChange } from './importFlow.test-support';
-import { defineImportLane, questionKey, type ChunkReply, type RowReview } from './types';
+import { defineImportLane, questionKey, type ChunkReply, type RowReview, type SavedRecord } from './types';
 import { go, historyEntry, invalidate, resetHistory } from './importFlowHistory.test-support.svelte';
 import { beforeNavigate } from '$app/navigation';
 import { toastStore } from '$lib/stores/toast.svelte';
@@ -134,10 +134,14 @@ describe('ImportFlow', () => {
 			references: {
 				rank: {
 					...base.references.rank,
-					create: async (name: string) => {
-						created.push(name);
-						await view.rerender({ lane: withOption });
-						return { kind: 'created' as const, option };
+					create: {
+						noun: { one: 'rank', other: 'ranks' },
+						run: async (name: string, saved: (record: SavedRecord) => void) => {
+							created.push(name);
+							await view.rerender({ lane: withOption });
+							saved(option);
+							return { kind: 'created' as const, option };
+						}
 					}
 				}
 			}
@@ -476,6 +480,67 @@ describe('ImportFlow', () => {
 		expect(away.cancel).toHaveBeenCalledTimes(1);
 		expect(await screen.findByText('Leave this import?')).toBeTruthy();
 		expect(currentStep()).toBe(1);
+	});
+
+	describe('leaving with the import open', () => {
+		function leaveWith(lane: ReturnType<typeof personnelLane>) {
+			const guard = vi.mocked(beforeNavigate).mock.calls.at(-1)![0];
+			guard({
+				cancel: vi.fn(),
+				type: 'link',
+				shallow: false,
+				willUnload: false,
+				from: { url: new URL('http://localhost/org/a/personnel/import') },
+				to: { url: new URL('http://localhost/org/a/calendar') }
+			} as never);
+			return lane;
+		}
+
+		it('names what the import created, which stays after the user leaves', async () => {
+			const base = personnelLane();
+			const lane = {
+				...base,
+				references: {
+					rank: {
+						...base.references.rank,
+						create: {
+							noun: { one: 'rank', other: 'ranks' },
+							run: async (name: string, saved: (record: SavedRecord) => void) => {
+								const option = { id: name, label: name, value: name };
+								saved(option);
+								return { kind: 'created' as const, option };
+							}
+						}
+					}
+				}
+			};
+			render(Flow, { lane, title: 'Import', eyebrow: 'Test' });
+			await toReview(['Smith,Alex,Staff Sgt,', 'Jones,Pat,Master Sgt,']);
+			for (const rank of ['SSG', 'MSG']) {
+				await fireEvent.click((await screen.findAllByRole('button', { name: /^Create/ }))[0]);
+				const name = screen.getByRole('textbox', { name: /name/i });
+				await fireEvent.input(name, { target: { value: rank } });
+				await fireEvent.submit(name.closest('form')!);
+				await waitFor(() => expect(screen.queryByRole('textbox', { name: /name/i })).toBeNull());
+			}
+
+			leaveWith(lane);
+			const dialog = await screen.findByRole('alertdialog');
+			expect(dialog.textContent).toContain('2 ranks');
+			expect(dialog.textContent).toContain('SSG');
+			expect(dialog.textContent).toContain('MSG');
+			expect(dialog.textContent).not.toMatch(/nothing/i);
+		});
+
+		it('says nothing was saved when the import created nothing', async () => {
+			const lane = personnelLane();
+			render(Flow, { lane, title: 'Import', eyebrow: 'Test' });
+			await toReview(['Smith,Alex,SGT,']);
+
+			leaveWith(lane);
+			const dialog = await screen.findByRole('alertdialog');
+			expect(dialog.textContent).toMatch(/nothing/i);
+		});
 	});
 
 	it('tells the user why leaving is blocked while a commit is saving, and keeps saving', async () => {

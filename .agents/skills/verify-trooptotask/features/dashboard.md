@@ -222,9 +222,9 @@ records do not add to the expired/orange attention count. Do not silently redefi
 12. **Workload figures.** After `$V seed workload small` and `$V perf prepare`, read the ordinary Dashboard page-data
     response (the streamed `trainingSummary` and `ictlSummary` chunks of `/org/ORG_ID/__data.json`) for `perfWide` and
     `perfScoped`. The seed is deterministic. `perfWide` (20 active People): 160 Training cells (109 current, 6 yellow, 6
-    orange, 12 expired, 24 not completed, 3 not required), 9 expired People, 12 due-soon entries in `dueSoonByType` (the orange and yellow cells); Critical Tasks 151 applicable
+    orange, 12 expired, 24 not completed, 3 not required), 9 expired People, 12 due-soon records across the `people` lists of `dueSoonByType`, one per orange or yellow cell; Critical Tasks 151 applicable
     cells, 86 ready, 57%, 15 of 20 People below threshold, 9 tasks below threshold, 3 at-risk. `perfScoped` (Alpha's 10
-    People): 80 cells (53, 3, 2, 9, 11, 2), 7 expired People, 5 due-soon entries; Critical Tasks 74 applicable, 42 ready, 57%, 7
+    People): 80 cells (53, 3, 2, 9, 11, 2), 7 expired People, 5 due-soon records; Critical Tasks 74 applicable, 42 ready, 57%, 7
     of 10 below threshold, 5 tasks below, 3 at-risk. `perfScoped` has fewer cells than `perfWide` and every expired, due-soon
     and at-risk Person belongs to Alpha. The Critical tasks column shows the same figures: `57%` ready and
     `15 of 20 Soldiers below the 70% threshold` for `perfWide`, `7 of 10` for `perfScoped`. Its amber share counts

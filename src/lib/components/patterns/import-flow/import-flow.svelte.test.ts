@@ -134,10 +134,13 @@ describe('ImportFlow', () => {
 			references: {
 				rank: {
 					...base.references.rank,
-					create: async (name: string) => {
-						created.push(name);
-						await view.rerender({ lane: withOption });
-						return { kind: 'created' as const, option };
+					create: {
+						noun: { one: 'rank', other: 'ranks' },
+						run: async (name: string) => {
+							created.push(name);
+							await view.rerender({ lane: withOption });
+							return { kind: 'created' as const, option };
+						}
 					}
 				}
 			}

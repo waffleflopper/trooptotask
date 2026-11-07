@@ -208,7 +208,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		const previousAnswer = this.answers.get(key);
 		this.creating.set(key, true);
 		try {
-			const result = await reference.create(name);
+			const result = await reference.create.run(name);
 			if (generation !== this.#generation) return null;
 			if (result.kind === 'refused') return { refused: result.message };
 			this.#memo.addCreated(referenceName, result.option);

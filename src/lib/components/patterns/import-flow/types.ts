@@ -62,6 +62,8 @@ export type ReferenceMatch<T> =
 	| { kind: 'many'; candidates: readonly ReferenceOption<T>[]; suggestion?: ReferenceOption<T> }
 	| { kind: 'none'; suggestion?: ReferenceOption<T> };
 
+export type ImportNoun = { one: string; other: string };
+
 export type CreateOptionResult<T> =
 	| { kind: 'created'; option: ReferenceOption<T> }
 	| { kind: 'refused'; message: string };
@@ -80,7 +82,10 @@ export interface ImportReference<C extends ImportColumns, T> {
 
 	required?: true;
 
-	create?(name: string): Promise<CreateOptionResult<T>>;
+	create?: {
+		noun: ImportNoun;
+		run(name: string): Promise<CreateOptionResult<T>>;
+	};
 }
 
 export type ImportReferences<C extends ImportColumns> = Record<string, ImportReference<C, unknown>>;
@@ -158,7 +163,7 @@ export type ChunkReply =
 
 export interface ImportLane<C extends ImportColumns, Refs extends ImportReferences<C>, Change> {
 	id: string;
-	noun: { one: string; other: string };
+	noun: ImportNoun;
 	intro?: { title: string; body: string };
 	identity?: {
 		fields: readonly (keyof C & string)[];

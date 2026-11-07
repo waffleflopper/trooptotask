@@ -154,58 +154,61 @@ export function groupReference(
 			return guess ? { kind: 'none', suggestion: option(guess) } : { kind: 'none' };
 		},
 		create: canCreate
-			? async (name) => {
-					const lifetime = organizationLifetime();
-					const previous = groupCreation?.lifetime === lifetime ? groupCreation.done : Promise.resolve();
-					const finished = Promise.withResolvers<void>();
-					groupCreation = { lifetime, done: finished.promise };
-					try {
-						await withinOrganizationLifetime(previous);
-						let steps = name
-							.split(GROUP_PATH_SEPARATOR)
-							.map((step) => step.trim())
-							.filter(Boolean);
-						if (steps.length === 0) return { kind: 'refused', message: 'Enter a group name.' };
-						let parentId: string | null = null;
-						let created: Group | undefined;
-						const currentTree = buildGroupTree(groupManagementStore.items);
-						for (let length = steps.length; length > 0; length--) {
-							const prefix = normalizeName(steps.slice(0, length).join(GROUP_PATH_SEPARATOR));
-							const matches = currentTree.ordered.filter(
-								(group) => normalizeName(groupExportPath(currentTree, group.id)) === prefix
-							);
-							if (matches.length > 1)
-								return {
-									kind: 'refused',
-									message: `Which group? ${matches.map((group) => currentTree.label(group.id, { keepRoot: true })).join(', ')}`
-								};
-							if (matches.length === 1) {
-								created = matches[0];
-								parentId = created.id;
-								steps = steps.slice(length);
-								break;
+			? {
+					noun: { one: 'Group', other: 'Groups' },
+					run: async (name) => {
+						const lifetime = organizationLifetime();
+						const previous = groupCreation?.lifetime === lifetime ? groupCreation.done : Promise.resolve();
+						const finished = Promise.withResolvers<void>();
+						groupCreation = { lifetime, done: finished.promise };
+						try {
+							await withinOrganizationLifetime(previous);
+							let steps = name
+								.split(GROUP_PATH_SEPARATOR)
+								.map((step) => step.trim())
+								.filter(Boolean);
+							if (steps.length === 0) return { kind: 'refused', message: 'Enter a group name.' };
+							let parentId: string | null = null;
+							let created: Group | undefined;
+							const currentTree = buildGroupTree(groupManagementStore.items);
+							for (let length = steps.length; length > 0; length--) {
+								const prefix = normalizeName(steps.slice(0, length).join(GROUP_PATH_SEPARATOR));
+								const matches = currentTree.ordered.filter(
+									(group) => normalizeName(groupExportPath(currentTree, group.id)) === prefix
+								);
+								if (matches.length > 1)
+									return {
+										kind: 'refused',
+										message: `Which group? ${matches.map((group) => currentTree.label(group.id, { keepRoot: true })).join(', ')}`
+									};
+								if (matches.length === 1) {
+									created = matches[0];
+									parentId = created.id;
+									steps = steps.slice(length);
+									break;
+								}
 							}
-						}
-						if ((created?.depth ?? 0) + steps.length > MAX_GROUP_DEPTH)
-							return { kind: 'refused', message: 'Groups can nest at most three levels deep.' };
-						for (const step of steps) {
-							const wanted = normalizeName(step);
-							const under: string | null = parentId;
-							created =
-								groupManagementStore.items.find(
-									(existing) => existing.parentId === under && normalizeName(existing.name) === wanted
-								) ??
-								(await groupManagementStore.add(step, under)) ??
-								undefined;
+							if ((created?.depth ?? 0) + steps.length > MAX_GROUP_DEPTH)
+								return { kind: 'refused', message: 'Groups can nest at most three levels deep.' };
+							for (const step of steps) {
+								const wanted = normalizeName(step);
+								const under: string | null = parentId;
+								created =
+									groupManagementStore.items.find(
+										(existing) => existing.parentId === under && normalizeName(existing.name) === wanted
+									) ??
+									(await groupManagementStore.add(step, under)) ??
+									undefined;
+								if (!created) return { kind: 'refused', message: 'Enter a group name.' };
+								parentId = created.id;
+							}
 							if (!created) return { kind: 'refused', message: 'Enter a group name.' };
-							parentId = created.id;
+							const label = buildGroupTree(groupManagementStore.items).label(created.id, { keepRoot: true });
+							return { kind: 'created', option: { ...option(created), label: label || created.name } };
+						} finally {
+							if (groupCreation?.done === finished.promise) groupCreation = null;
+							finished.resolve();
 						}
-						if (!created) return { kind: 'refused', message: 'Enter a group name.' };
-						const label = buildGroupTree(groupManagementStore.items).label(created.id, { keepRoot: true });
-						return { kind: 'created', option: { ...option(created), label: label || created.name } };
-					} finally {
-						if (groupCreation?.done === finished.promise) groupCreation = null;
-						finished.resolve();
 					}
 				}
 			: undefined

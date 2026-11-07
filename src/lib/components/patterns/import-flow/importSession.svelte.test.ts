@@ -12,6 +12,7 @@ function deferred<T>() {
 	});
 	return { promise, resolve };
 }
+const RANKS = { one: 'rank', other: 'ranks' };
 const csv = (rank = 'SGT') => new File([`Last name,First name,Rank\nSmith,Alex,${rank}`], 'personnel.csv');
 
 describe('import session', () => {
@@ -184,9 +185,12 @@ describe('import session', () => {
 			references: {
 				rank: {
 					...base.references.rank,
-					create: async (name: string) => {
-						created.push(name);
-						return pending.promise;
+					create: {
+						noun: RANKS,
+						run: async (name: string) => {
+							created.push(name);
+							return pending.promise;
+						}
 					}
 				}
 			}
@@ -217,7 +221,10 @@ describe('import session', () => {
 		const lane = {
 			...base,
 			references: {
-				rank: { ...base.references.rank, create: async () => ({ kind: 'created' as const, option }) }
+				rank: {
+					...base.references.rank,
+					create: { noun: RANKS, run: async () => ({ kind: 'created' as const, option }) }
+				}
 			}
 		};
 		const session = new ImportSession(() => lane);
@@ -234,7 +241,7 @@ describe('import session', () => {
 		const base = personnelLane();
 		const lane = {
 			...base,
-			references: { rank: { ...base.references.rank, create: () => pending.promise } },
+			references: { rank: { ...base.references.rank, create: { noun: RANKS, run: () => pending.promise } } },
 			commitChunk: () => committed.promise,
 			afterCommit: async () => {
 				refreshes.push('refreshed');

@@ -20,8 +20,8 @@ it('creates missing import Groups at the root while deduplicating only existing 
 	);
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
 	if (!reference.create) throw new Error('Expected an import creation command');
-	expect(await reference.create('Alpha')).toMatchObject({ kind: 'created', option: { id: 'root-alpha' } });
-	expect(await reference.create(' alpha ')).toMatchObject({ kind: 'created', option: { id: 'root-alpha' } });
+	expect(await reference.create.run('Alpha')).toMatchObject({ kind: 'created', option: { id: 'root-alpha' } });
+	expect(await reference.create.run(' alpha ')).toMatchObject({ kind: 'created', option: { id: 'root-alpha' } });
 	expect(new Map(groupManagementStore.items.map((group) => [group.id, group.parentId]))).toEqual(
 		new Map([
 			['platoon', null],
@@ -87,15 +87,15 @@ it('creates a missing path one level at a time, reusing the levels that exist', 
 	);
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
 
-	expect(await reference.create!('1st Platoon / 2nd Squad / Bravo Team')).toMatchObject({
+	expect(await reference.create!.run('1st Platoon / 2nd Squad / Bravo Team')).toMatchObject({
 		kind: 'created',
 		option: { id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' }
 	});
-	expect(await reference.create!('1st Platoon / 1st Squad / Alpha Team')).toMatchObject({
+	expect(await reference.create!.run('1st Platoon / 1st Squad / Alpha Team')).toMatchObject({
 		kind: 'created',
 		option: { id: 'p1-sq1-alpha' }
 	});
-	expect(await reference.create!('A / B / C / D')).toEqual({
+	expect(await reference.create!.run('A / B / C / D')).toEqual({
 		kind: 'refused',
 		message: 'Groups can nest at most three levels deep.'
 	});
@@ -123,11 +123,11 @@ it('waits for the confirmed shared parent when missing paths are created togethe
 		})
 	);
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
-	const alpha = reference.create!('New Platoon / Alpha Team');
+	const alpha = reference.create!.run('New Platoon / Alpha Team');
 	await parentPosted.promise;
 	const refreshed = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
-	const bravo = refreshed.create!('New Platoon / Bravo Team');
-	const sameAlpha = refreshed.create!('New Platoon / Alpha Team');
+	const bravo = refreshed.create!.run('New Platoon / Bravo Team');
+	const sameAlpha = refreshed.create!.run('New Platoon / Alpha Team');
 	parentReply.resolve(
 		Response.json({ id: 'saved-platoon', name: 'New Platoon', parentId: null, depth: 1, sortOrder: 0 })
 	);
@@ -157,7 +157,7 @@ it('creates below the longest existing export path, preserving a legacy parent n
 	);
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
 
-	expect(await reference.create!('Clinic / Lab / Alpha Team')).toMatchObject({
+	expect(await reference.create!.run('Clinic / Lab / Alpha Team')).toMatchObject({
 		kind: 'created',
 		option: { id: 'saved-Alpha Team', label: 'Clinic / Lab › Alpha Team' }
 	});

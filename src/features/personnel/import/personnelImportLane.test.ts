@@ -243,7 +243,7 @@ describe('personnel import lane', () => {
 			suggestion: { id: 'g2' }
 		});
 		expect(lane().references.group.create).toBeUndefined();
-		expect(lane({ canManageGroups: true }).references.group.create).toBeTypeOf('function');
+		expect(lane({ canManageGroups: true }).references.group.create).toBeDefined();
 	});
 
 	it('asks which Group a name means when two Groups share it, and suggests only a unique abbreviation', () => {

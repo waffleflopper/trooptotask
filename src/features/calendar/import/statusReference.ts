@@ -46,13 +46,16 @@ export function statusReference(
 			return guess ? { kind: 'none', suggestion: statusOption(guess) } : { kind: 'none' };
 		},
 		create: create
-			? async (name) => {
-					const wanted = statusName(name);
-					if (!wanted) return { kind: 'refused', message: 'Enter a status name.' };
-					const status = byName.get(wanted) ?? (await create(name.trim()));
-					return status
-						? { kind: 'created', option: statusOption(status) }
-						: { kind: 'refused', message: 'Status types are being saved. Try again in a moment.' };
+			? {
+					noun: { one: 'status type', other: 'status types' },
+					run: async (name) => {
+						const wanted = statusName(name);
+						if (!wanted) return { kind: 'refused', message: 'Enter a status name.' };
+						const status = byName.get(wanted) ?? (await create(name.trim()));
+						return status
+							? { kind: 'created', option: statusOption(status) }
+							: { kind: 'refused', message: 'Status types are being saved. Try again in a moment.' };
+					}
 				}
 			: undefined
 	};

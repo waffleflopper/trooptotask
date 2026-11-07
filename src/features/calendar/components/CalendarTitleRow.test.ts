@@ -14,9 +14,11 @@ afterEach(() => {
 function renderRow(props: { view?: CalendarViewMode; anchor?: Date; today?: TodayAvailability | null } = {}): {
 	anchors: string[];
 	views: CalendarViewMode[];
+	todays: string[];
 } {
 	const anchors: string[] = [];
 	const views: CalendarViewMode[] = [];
+	const todays: string[] = [];
 	render(CalendarTitleRow, {
 		props: {
 			view: props.view ?? 'month',
@@ -25,10 +27,11 @@ function renderRow(props: { view?: CalendarViewMode; anchor?: Date; today?: Toda
 			orgName: '1-11 BDE',
 			personnelCount: 22,
 			onAnchorChange: (anchor: Date) => anchors.push(formatDate(anchor)),
+			onToday: () => todays.push('today'),
 			onViewChange: (view: CalendarViewMode) => views.push(view)
 		}
 	});
-	return { anchors, views };
+	return { anchors, views, todays };
 }
 
 function availabilityTexts(): string[] {
@@ -49,6 +52,15 @@ describe('CalendarTitleRow', () => {
 		renderRow({ today: null });
 		expect(availabilityTexts()).toEqual([]);
 		expect(screen.getByRole('button', { name: 'October 2026' })).toBeTruthy();
+	});
+
+	it('asks the grid to show today each time Today is pressed', async () => {
+		const { todays } = renderRow();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+
+		expect(todays).toEqual(['today', 'today']);
 	});
 
 	it('switches views and keeps one view chosen when the pressed one is clicked again', async () => {

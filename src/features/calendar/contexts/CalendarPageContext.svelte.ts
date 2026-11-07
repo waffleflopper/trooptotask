@@ -74,6 +74,9 @@ export interface CalendarDisplayPreferences {
 	showDaysLane: boolean;
 	showEventLanes: boolean;
 	showAssignmentLanes: boolean;
+	/** A top-level Group id or an outside-tree band value; null is All. */
+	groupFilter: string | null;
+	lastStatusTypeId: string | null;
 }
 
 export interface CalendarPageAccess {
@@ -127,8 +130,11 @@ export class CalendarPageContext {
 	showDaysLane = $state(true);
 	showEventLanes = $state(true);
 	showAssignmentLanes = $state(true);
-	calendarGroupFilter = $state('');
+	#groupFilter = $state<string | null>(null);
+	#lastStatusTypeId = $state<string | null>(null);
 	calendarPersonnelSearch = $state('');
+	/** Bumped by each Today press, so the grid reveals today even when the month does not change. */
+	todayRequests = $state(0);
 
 	get #workspaceData() {
 		return this.#data.calendar?.data;
@@ -234,6 +240,20 @@ export class CalendarPageContext {
 		return this.#scopedRoster.groupFilterOptions;
 	}
 
+	/** The remembered Group, or All ('') once that Group is no longer among the options. */
+	readonly calendarGroupFilter: string = $derived(
+		this.#groupFilter !== null && this.groupFilterOptions.some((option) => option.value === this.#groupFilter)
+			? this.#groupFilter
+			: ''
+	);
+
+	/** The status this viewer last added from the Calendar, or the first type when it is gone. */
+	readonly defaultStatusTypeId: string = $derived(
+		statusTypesStore.items.find((status) => status.id === this.#lastStatusTypeId)?.id ??
+			statusTypesStore.items[0]?.id ??
+			''
+	);
+
 	readonly groupTree: GroupTree = $derived.by(() =>
 		buildGroupTree(groupsStore.items, { pinnedIds: this.canPinGroups ? pinnedGroupsStore.list : [] })
 	);
@@ -310,6 +330,8 @@ export class CalendarPageContext {
 		this.showDaysLane = preferences.showDaysLane;
 		this.showEventLanes = preferences.showEventLanes;
 		this.showAssignmentLanes = preferences.showAssignmentLanes;
+		this.#groupFilter = preferences.groupFilter;
+		this.#lastStatusTypeId = preferences.lastStatusTypeId;
 	}
 
 	setViewMode(view: CalendarViewMode): void {
@@ -352,7 +374,12 @@ export class CalendarPageContext {
 	}
 
 	setCalendarGroupFilter(value: string): void {
-		this.calendarGroupFilter = value;
+		this.#groupFilter = value || null;
+		this.#savePreferences({ groupFilter: this.#groupFilter });
+	}
+
+	requestToday(): void {
+		this.todayRequests += 1;
 	}
 
 	setCalendarPersonnelSearch(value: string): void {
@@ -419,11 +446,14 @@ export class CalendarPageContext {
 		this.savingAvailability = true;
 		const orgId = this.#data.orgId;
 		const accessKey = this.#calendarAccessKey();
+		const isCurrent = () => this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey;
 		try {
-			return await saveAvailabilityChange(change, {
-				orgId,
-				isCurrent: () => this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey
-			});
+			const outcome = await saveAvailabilityChange(change, { orgId, isCurrent });
+			if (outcome === 'saved' && change.kind === 'create' && isCurrent()) {
+				this.#lastStatusTypeId = change.record.statusTypeId;
+				this.#savePreferences({ lastStatusTypeId: change.record.statusTypeId });
+			}
+			return outcome;
 		} finally {
 			this.savingAvailability = false;
 		}

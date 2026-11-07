@@ -17,7 +17,9 @@ function preferences(): UserOrgPreferences {
 			highlightOnboarding: true,
 			showDaysLane: true,
 			showEventLanes: true,
-			showAssignmentLanes: true
+			showAssignmentLanes: true,
+			groupFilter: null,
+			lastStatusTypeId: null
 		},
 		training: getDefaultUserOrgPreferences().training
 	};
@@ -100,7 +102,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'seed-group',
@@ -111,6 +115,41 @@ describe('AccountPreferencesState', () => {
 				matrixNeedsActionOnly: false
 			}
 		});
+	});
+
+	it('saves a remembered Group and status, and clears the Group back to All with null', async () => {
+		const server = transport();
+		const { state, onError } = createState(server);
+
+		state.patch({ calendar: { groupFilter: 'platoon-1', lastStatusTypeId: 'leave' } });
+		await vi.advanceTimersByTimeAsync(350);
+		server.requests[0]!.confirm();
+		await settleReplies();
+		state.patch({ calendar: { groupFilter: null } });
+		await vi.advanceTimersByTimeAsync(350);
+		server.requests[1]!.confirm();
+		await settleReplies();
+
+		expect(server.requests.map((request) => request.patch)).toEqual([
+			{ calendar: { groupFilter: 'platoon-1', lastStatusTypeId: 'leave' } },
+			{ calendar: { groupFilter: null } }
+		]);
+		expect(state.value.calendar).toMatchObject({ groupFilter: null, lastStatusTypeId: 'leave' });
+		expect(onError).not.toHaveBeenCalled();
+	});
+
+	it('keeps the unsaved choice on screen and reports the failure when the save is refused', async () => {
+		const server = transport();
+		const { state, onError } = createState(server);
+
+		state.patch({ calendar: { lastStatusTypeId: 'tdy' } });
+		await vi.advanceTimersByTimeAsync(350);
+		server.requests[0]!.respond({ message: 'Failed to save your preferences' }, 500);
+		await settleReplies();
+
+		expect(onError).toHaveBeenCalledExactlyOnceWith('Failed to save your preferences');
+		expect(state.value.calendar.lastStatusTypeId).toBe('tdy');
+		expect(server.saved.calendar.lastStatusTypeId).toBeNull();
 	});
 
 	it('uses the current browser transport when a delayed save dispatches', async () => {
@@ -155,7 +194,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -186,7 +227,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -220,7 +263,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -245,7 +290,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -265,7 +312,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -309,7 +358,9 @@ describe('AccountPreferencesState', () => {
 						highlightOnboarding: true,
 						showDaysLane: true,
 						showEventLanes: true,
-						showAssignmentLanes: true
+						showAssignmentLanes: true,
+						groupFilter: null,
+						lastStatusTypeId: null
 					},
 					training: { selectedGroupId: 'alpha', selectedViewId: null, matrixViewMode: 'unexpected' }
 				})
@@ -331,7 +382,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'alpha',
@@ -359,7 +412,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'alpha',
@@ -397,7 +452,9 @@ describe('AccountPreferencesState', () => {
 				highlightOnboarding: true,
 				showDaysLane: true,
 				showEventLanes: true,
-				showAssignmentLanes: true
+				showAssignmentLanes: true,
+				groupFilter: null,
+				lastStatusTypeId: null
 			},
 			training: {
 				selectedGroupId: 'bravo',
@@ -444,7 +501,9 @@ describe('AccountPreferencesState', () => {
 					highlightOnboarding: true,
 					showDaysLane: true,
 					showEventLanes: true,
-					showAssignmentLanes: true
+					showAssignmentLanes: true,
+					groupFilter: null,
+					lastStatusTypeId: null
 				},
 				training: {
 					selectedGroupId: 'bravo',

@@ -18,6 +18,8 @@
 	interface Props {
 		popover: BarPopover;
 		statusTypes: readonly StatusType[];
+		/** Listed first with shortcut 1 in a quick add; the usual order when omitted. */
+		defaultStatusTypeId?: string;
 		spans: readonly CalendarSpan[];
 		canEdit: boolean;
 		anchorHasResizeGrips: boolean;
@@ -31,6 +33,7 @@
 	let {
 		popover,
 		statusTypes,
+		defaultStatusTypeId,
 		spans,
 		canEdit,
 		anchorHasResizeGrips,
@@ -43,7 +46,17 @@
 
 	const personName = $derived(`${popover.person.rank} ${popover.person.lastName}`);
 
-	const shortcutsAtOpen = untrack(() => statusTypes.slice(0, 9).map((status) => status.id));
+	const orderAtOpen = untrack(() => {
+		const first = statusTypes.find((status) => status.id === defaultStatusTypeId);
+		return (first ? [first, ...statusTypes.filter((status) => status !== first)] : statusTypes).map(
+			(status) => status.id
+		);
+	});
+	const shortcutsAtOpen = orderAtOpen.slice(0, 9);
+	const listedStatusTypes = $derived([
+		...orderAtOpen.flatMap((id) => statusTypes.find((status) => status.id === id) ?? []),
+		...statusTypes.filter((status) => !orderAtOpen.includes(status.id))
+	]);
 
 	const quickAdd = $derived.by(() => {
 		if (popover.kind !== 'quick-add') return null;
@@ -168,7 +181,7 @@
 				<p class="px-3 pb-3 text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></p>
 			{:else}
 				<ul class="flex max-h-72 flex-col overflow-y-auto px-1.5 pb-1.5" aria-label="Status types">
-					{#each statusTypes as status (status.id)}
+					{#each listedStatusTypes as status (status.id)}
 						{@const key = shortcutsAtOpen.indexOf(status.id) + 1}
 						<li>
 							<Button

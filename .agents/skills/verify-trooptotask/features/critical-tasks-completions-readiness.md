@@ -14,7 +14,10 @@ not. MOS applicability excludes unrelated tasks from the denominator.
   one, map an unknown task code once for every row, flag a row repeated in the file, fix a date inline, commit, download
   the rows not imported and read the import back as Unchanged. The import never creates tasks.
 - `import-lost-reply`: distinguish refused and unconfirmed completion writes from confirmed saved rows without
-  duplicating dated history.
+  duplicating dated history. When a lost reply leaves only some created rows readable, each of those reads back as
+  Added and only the missing rows and every update read as not confirmed.
+- `completion-move`: moving a completion to another person is saved under both people, so Logs filtered by the
+  previous person shows it (step 3).
 - `readiness`: matrix cells, individual readiness, Personnel detail and reports agree on current, expiring, expired,
   missing and not-applicable examples.
 - `history`: multiple dated completions use the latest applicable record; archived task history retains its record and
@@ -116,7 +119,13 @@ pre-populating extra completions.
    or applicable denominator belongs to Baker. Clear a note with visible keyboard Select All/Backspace, capture the
    empty draft, save and require stored null on the same ID. Native `fill` with an empty string may leave text intact; a
    retained value without an empty submitted draft is not an application failure. Run one keyboard submit/cancel and
-   verify dialog focus returns to its trigger.
+   verify dialog focus returns to its trigger. **Move to another person.** The edit dialog fixes the Person, so use the
+   page's own `PUT api/personnel-ict-completions` with `{"id":"<ictCompletionAlpha>","personnelId":"<Baker>"}` (200;
+   direct API proof). After a reload Able's `VERIFY-ICT-ALPHA` cell reads `not recorded` and `$V rows
+personnel_ict_completions orgA id <ID>` shows Baker's `personnel_id` on the same ID. Logs filtered by Able
+   (`?person=<Able>`) shows `Changed critical task completion … person SPC Able, Synthetic → SPC Baker, Synthetic`
+   ([audit recipe](audit-capture-projections.md) step 11 owns the Logs reads). Restore the person through the same
+   endpoint before later steps rely on the seeded completion.
 4. **Import and history:** Run step 5 before these imports change the readiness baseline. Run `$V seed duplicate-able`
    first: it adds a PFC `Able, Synthetic` in Alpha beside the fixture's SPC. Build a synthetic workbook with exceljs.
    Give tabs `Alpha` and `Bravo` two banner rows above the

@@ -166,6 +166,8 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261105170100_audit_daily_assignment_cleared_assignee.sql",
     "20261105170200_critical_task_import_commands.sql",
     "20261105180000_audit_completion_moves.sql",
+    "20261105190000_audit_rate_limited_retention.sql",
+    "20261105190100_audit_completion_move_previous_person.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",

@@ -777,12 +777,13 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 		const { ledger, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
 		state.readbackWithout = 'validation_method';
-		await expect(
-			ledger.importMany([
-				{ create: { ...input, completedAt: '2026-05-02' } },
-				{ create: { ...input, completedAt: '2026-05-03' } }
-			])
-		).rejects.toMatchObject({ status: 503, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
+		const outcomes = await ledger.importMany([
+			{ create: { ...input, completedAt: '2026-05-02' } },
+			{ create: { ...input, completedAt: '2026-05-03' } }
+		]);
+		expect(outcomes).toHaveLength(2);
+		for (const outcome of outcomes)
+			expect(outcome).toMatchObject({ status: 503, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
 		expect(rows).toHaveLength(2);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 	});

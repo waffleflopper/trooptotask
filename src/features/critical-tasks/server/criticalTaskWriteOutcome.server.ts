@@ -58,11 +58,11 @@ export async function readBackInChunks<T>(ids: string[], read: (ids: string[]) =
 	return rows;
 }
 
-export async function confirmInsertedRows<T extends { id: string }>(
+async function readBackInserted<T extends { id: string }>(
 	ids: string[],
 	read: (ids: string[]) => Promise<unknown[]>,
 	schema: z.ZodType<T>
-): Promise<T[]> {
+): Promise<Map<string, T> | null> {
 	const found = new Map<string, T>();
 	try {
 		for (const row of await readBackInChunks(ids, read)) {
@@ -70,9 +70,18 @@ export async function confirmInsertedRows<T extends { id: string }>(
 			if (parsed.success) found.set(parsed.data.id, parsed.data);
 		}
 	} catch {
-		writeUnconfirmed();
+		return null;
 	}
-	const confirmed = ids.map((id) => found.get(id));
+	return found;
+}
+
+export async function confirmInsertedRows<T extends { id: string }>(
+	ids: string[],
+	read: (ids: string[]) => Promise<unknown[]>,
+	schema: z.ZodType<T>
+): Promise<T[]> {
+	const found = await readBackInserted(ids, read, schema);
+	const confirmed = ids.map((id) => found?.get(id));
 	if (confirmed.some((row) => !row)) writeUnconfirmed();
 	return confirmed as T[];
 }
@@ -92,8 +101,8 @@ const importReplySchema = z.array(
 
 /**
  * Reads the reply of one import command. Each row is its saved record or the error that undid that row alone. A reply
- * that is lost or unreadable leaves the outcome unknown, so the created rows are read back and every other row stays
- * unconfirmed.
+ * that is lost or unreadable leaves the outcome unknown, so the created rows are read back. A created row that reads
+ * back is its saved record; a missing one and every update stay unconfirmed, since a read cannot prove an update landed.
  */
 export async function importOutcomes<S, T extends { id: string }>(
 	rows: ImportRow[],
@@ -115,11 +124,10 @@ export async function importOutcomes<S, T extends { id: string }>(
 		);
 		if (outcomes.every((outcome): outcome is T | Error => outcome !== undefined)) return outcomes;
 	}
-	const created = await confirmInsertedRows(
+	const found = await readBackInserted(
 		rows.filter((row) => row.op === 'insert').map((row) => row.id),
 		read.readBack,
 		read.schema
 	);
-	const confirmed = new Map(created.map((row) => [row.id, row]));
-	return rows.map((row) => confirmed.get(row.id) ?? unconfirmedWrite());
+	return rows.map((row) => (row.op === 'insert' ? found?.get(row.id) : undefined) ?? unconfirmedWrite());
 }

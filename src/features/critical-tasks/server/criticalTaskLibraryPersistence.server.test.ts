@@ -622,12 +622,12 @@ describe('owned Critical Tasks library provider', () => {
 		const { library, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
 		state.readbackWithout = 'title';
-		await expect(
-			library.importMany([
-				{ create: { taskCode: 'LOST-1', title: 'First' } },
-				{ create: { taskCode: 'LOST-2', title: 'Second' } }
-			])
-		).rejects.toSatisfy(isUnconfirmedWrite);
+		const outcomes = await library.importMany([
+			{ create: { taskCode: 'LOST-1', title: 'First' } },
+			{ create: { taskCode: 'LOST-2', title: 'Second' } }
+		]);
+		expect(outcomes).toHaveLength(2);
+		for (const outcome of outcomes) expect(outcome).toSatisfy(isUnconfirmedWrite);
 		expect(rows).toHaveLength(2);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 	});
@@ -740,18 +740,34 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 	});
 
-	it('reports each row as unconfirmed when the read-back finds only some of the generated ids', async () => {
-		const { library, rows, state } = provider();
-		state.loseReply = { write: 1, as: 'transport' };
-		state.readbackLimit = 1;
-		const { pending } = importLost(library);
-		expect((await pending).results).toEqual([
-			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE },
-			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }
-		]);
-		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
-		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
-	});
+	it.each(['transport', 'unavailable'] as const)(
+		'reports the inserted row that reads back as saved, and the missing insert and the update as unconfirmed (%s)',
+		async (lost) => {
+			const { library, rows, state } = provider([{ ...saved }]);
+			state.loseReply = { write: 1, as: lost };
+			state.readbackLimit = 1;
+			const { pending } = importLost(library, [
+				{ taskCode: 'LOST-1', title: 'First' },
+				{ taskCode: 'RESP-200', title: 'Ventilator setup, revised' },
+				{ taskCode: 'LOST-2', title: 'Second' }
+			]);
+			const results = (await pending).results;
+			expect(results).toEqual([
+				{
+					kind: 'added',
+					record: expect.objectContaining({ id: rows[1].id, taskCode: 'LOST-1', title: 'First', archivedAt: null })
+				},
+				{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE },
+				{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }
+			]);
+			expect(rows.map((row) => [row.task_code, row.title])).toEqual([
+				['RESP-200', 'Ventilator setup, revised'],
+				['LOST-1', 'First'],
+				['LOST-2', 'Second']
+			]);
+			expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
+		}
+	);
 
 	it('reconciles a full 500-row insert with bounded read-back requests', async () => {
 		const { library, rows, state } = provider();

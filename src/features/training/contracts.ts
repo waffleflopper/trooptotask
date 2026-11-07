@@ -52,6 +52,7 @@ export type {
 } from './utils/personnelTrainingItems';
 export type { TrainingStats } from './utils/trainingStatus';
 export type { TrainingDueSoon, TrainingDueSoonPerson } from './utils/dueSoon';
+export type { RecordClassCandidate, RecordClassGroupFilter } from './utils/recordClassCandidates';
 export type {
 	BriefingBand,
 	BriefingFocusArea,

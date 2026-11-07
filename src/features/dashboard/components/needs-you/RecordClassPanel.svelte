@@ -2,14 +2,14 @@
 	import type { Component } from 'svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 	import { recordTrainingCompletions, type TrainingType } from '$features/training';
-	import type { TrainingBatchRecord } from '$features/training/contracts';
+	import type { RecordClassCandidate, TrainingBatchRecord } from '$features/training/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { actionablePersonnel } from '../../sections/dashboardAccess';
 	import type { NeedsYouPanelProps } from '../../sections/needsYou';
 
 	type RecordClassDialog = Component<{
 		trainingType: TrainingType;
-		people: readonly Personnel[];
+		candidates: readonly RecordClassCandidate[];
 		today: string;
 		onSave: (records: TrainingBatchRecord[]) => Promise<void>;
 		onClose: () => void;
@@ -35,6 +35,7 @@
 
 	// The row lists everyone expired in scope; the dialog offers only those the viewer can record for.
 	const recordable = $derived(actionablePersonnel(people, access, POLICY_ACTION_CATALOG.training.recordCompletions));
+	const candidates = $derived(recordable.map((person) => ({ person, statusLabel: null, checked: true })));
 
 	function onSave(records: TrainingBatchRecord[]) {
 		return save(async () => {
@@ -63,4 +64,4 @@
 	}
 </script>
 
-<Dialog {trainingType} people={recordable} {today} {onSave} onClose={close} />
+<Dialog {trainingType} {candidates} {today} {onSave} onClose={close} />

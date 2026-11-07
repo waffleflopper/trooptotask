@@ -107,15 +107,6 @@ export interface TrainingOnboardingReferencesPort {
 	): Promise<Map<string, Set<string>>>;
 }
 
-export interface TrainingIssue {
-	personnelId: string;
-	personName: string;
-	typeName: string;
-	label: string;
-	status: TrainingStatus;
-	daysUntilExpiration: number | null;
-}
-
 /** Every expired applicable Person for one training type, uncapped. */
 export interface ExpiredTrainingType {
 	trainingTypeId: string;
@@ -126,7 +117,6 @@ export interface ExpiredTrainingType {
 
 export interface TrainingSummary {
 	stats: TrainingStats;
-	issues: TrainingIssue[];
 	expiredByType: ExpiredTrainingType[];
 	expiredPersonnelCount: number;
 	/** People missing an applicable required record, other than those already expired. */
@@ -148,8 +138,6 @@ export interface TrainingSummaryInput {
 	trainingTypes: TrainingType[];
 	options?: {
 		groupId?: string;
-		issueLimit?: number;
-		issueStatuses?: TrainingStatus[];
 	};
 }
 

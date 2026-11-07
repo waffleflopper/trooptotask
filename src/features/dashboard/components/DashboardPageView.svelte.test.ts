@@ -814,7 +814,6 @@ describe('Dashboard sections', () => {
 
 	const trainingSummary: DashboardPageData['trainingSummary'] = {
 		stats: { current: 0, expired: 0, warningOrange: 0, warningYellow: 0, notCompleted: 0, notRequired: 0, total: 0 },
-		issues: [],
 		expiredByType: [],
 		expiredPersonnelCount: 0,
 		missingPersonnelCount: 0,

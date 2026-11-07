@@ -43,7 +43,6 @@ function expiredSummary(
 	return {
 		trainingSummary: {
 			stats: { total: 4 },
-			issues: [],
 			expiredByType: expiredByType.map((expired) => ({ ...expired, maxDaysLate: 12 })),
 			expiredPersonnelCount: 3,
 			missingPersonnelCount: 0,
@@ -137,7 +136,6 @@ describe('the Dashboard record overlay', () => {
 					notCompleted: 0,
 					notRequired: 0
 				},
-				issues: [],
 				expiredByType: [],
 				expiredPersonnelCount: 0,
 				missingPersonnelCount: 0,

@@ -198,7 +198,6 @@ function inputs(loaded: Loaded): DashboardInputs {
 								notRequired: 0,
 								total: 0
 							},
-							issues: [],
 							expiredByType: loaded.expiredByType ?? [],
 							expiredPersonnelCount: 0,
 							missingPersonnelCount: 0,

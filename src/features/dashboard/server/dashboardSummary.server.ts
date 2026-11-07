@@ -98,7 +98,6 @@ async function summarize(
 							personnel: inputs.personnel,
 							trainingTypes: inputs.trainingTypes,
 							onboardingPersonnelIds,
-							options: { issueLimit: 25, issueStatuses: ['expired', 'warning-orange'] },
 							asOf
 						})
 					};

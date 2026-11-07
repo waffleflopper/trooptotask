@@ -65,7 +65,6 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 					notCompleted: 0,
 					notRequired: 0
 				},
-				issues: [],
 				expiredByType: [],
 				expiredPersonnelCount: 0,
 				missingPersonnelCount: 0,

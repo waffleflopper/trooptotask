@@ -128,7 +128,7 @@ describe('dashboard page server load', () => {
 		createSupabaseOrgSettingsMemberManagementPortMock.mockReturnValue({ kind: 'settings-port' });
 		leaveOrganizationMock.mockResolvedValue({ success: true });
 		fetchDashboardTrainingSummaryMock.mockResolvedValue({
-			trainingSummary: { stats: null, issues: [] },
+			trainingSummary: { stats: null },
 			onboardingTrainingCompletions: new Set<string>()
 		});
 		fetchCriticalTasksDashboardSummaryMock.mockResolvedValue({
@@ -345,7 +345,7 @@ describe('dashboard page server load', () => {
 		});
 
 		await expect(result.summary).resolves.toEqual({
-			trainingSummary: { stats: null, issues: [] },
+			trainingSummary: { stats: null },
 			onboardingTrainingCompletions: [],
 			onboardingPersonnelIds: ['p2'],
 			ictlSummary: {
@@ -392,10 +392,6 @@ describe('dashboard page server load', () => {
 			personnel: [],
 			trainingTypes: [],
 			onboardingPersonnelIds: ['p2'],
-			options: {
-				issueLimit: 25,
-				issueStatuses: ['expired', 'warning-orange']
-			},
 			asOf: '2026-10-14'
 		});
 		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledWith(mockCtx, {
@@ -447,7 +443,7 @@ describe('dashboard page server load', () => {
 		});
 
 		await expect(result.summary).resolves.toEqual({
-			trainingSummary: { stats: null, issues: [] },
+			trainingSummary: { stats: null },
 			onboardingTrainingCompletions: [],
 			onboardingPersonnelIds: [],
 			ictlSummary: null
@@ -490,7 +486,7 @@ describe('dashboard page server load', () => {
 	it('keeps packets out of the page summary for a Personnel and Training viewer without Onboarding', async () => {
 		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('onboarding', 'none'));
 		fetchDashboardTrainingSummaryMock.mockResolvedValue({
-			trainingSummary: { stats: null, issues: [] },
+			trainingSummary: { stats: null },
 			onboardingTrainingCompletions: new Set(['p-cy-type-cpr'])
 		});
 		const packet = { id: 'packet-1', personnelId: 'p-cy' };

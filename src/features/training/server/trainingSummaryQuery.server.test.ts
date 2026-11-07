@@ -65,7 +65,7 @@ describe('Dashboard Training summary', () => {
 		).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('returns issues for expired trainings', async () => {
+	it('counts an expired training', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
@@ -93,9 +93,6 @@ describe('Dashboard Training summary', () => {
 		});
 
 		expect(result.stats.expired).toBe(1);
-		expect(result.issues).toHaveLength(1);
-		expect(result.issues[0].personName).toBe('SGT Smith, John');
-		expect(result.issues[0].status).toBe('expired');
 	});
 });
 
@@ -210,7 +207,6 @@ describe('fetchDashboardTrainingSummary', () => {
 		});
 
 		expect(result.trainingSummary.stats.expired).toBe(1);
-		expect(result.trainingSummary.issues).toHaveLength(1);
 		expect(result.onboardingTrainingCompletions).toEqual(new Set(['p1-tt1', 'p2-tt1']));
 		expect(findManySpy).toHaveBeenCalledTimes(1);
 	});
@@ -247,7 +243,7 @@ describe('Dashboard Training viewer day', () => {
 });
 
 describe('literal Dashboard Training person attribution', () => {
-	it('counts distinct expired and delinquent people by group before issue display limits', async () => {
+	it('counts distinct expired and delinquent people by group', async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-09-29T12:00:00Z'));
 		try {
@@ -292,10 +288,7 @@ describe('literal Dashboard Training person attribution', () => {
 			);
 
 			const input = { personnel, trainingTypes, onboardingPersonnelIds: [], asOf: '2026-09-29' };
-			const { trainingSummary: summary } = await fetchDashboardTrainingSummary(ctx, {
-				...input,
-				options: { issueLimit: 1, issueStatuses: ['warning-orange'] }
-			});
+			const { trainingSummary: summary } = await fetchDashboardTrainingSummary(ctx, input);
 			expect(summary.stats.expired).toBe(3);
 			expect(summary.stats.warningOrange).toBe(2);
 			expect(summary.expiredPersonnelCount).toBe(2);
@@ -306,22 +299,14 @@ describe('literal Dashboard Training person attribution', () => {
 					[null, { groupId: null, expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }]
 				])
 			);
-			expect(summary.issues).toHaveLength(1);
-			expect(summary.issues[0].personnelId).toBe('able');
-
-			const { trainingSummary: unlimited } = await fetchDashboardTrainingSummary(ctx, input);
-			expect(new Set(unlimited.issues.map((issue) => issue.personnelId))).toEqual(
-				new Set(['able', 'baker', 'unassigned'])
-			);
 			const { trainingSummary: scoped } = await fetchDashboardTrainingSummary(ctx, {
 				...input,
-				options: { groupId: 'bravo', issueLimit: 0 }
+				options: { groupId: 'bravo' }
 			});
 			expect(scoped.expiredPersonnelCount).toBe(1);
 			expect(scoped.groupDelinquencies).toEqual([
 				{ groupId: 'bravo', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }
 			]);
-			expect(scoped.issues).toEqual([]);
 		} finally {
 			vi.useRealTimers();
 		}
@@ -329,7 +314,7 @@ describe('literal Dashboard Training person attribution', () => {
 });
 
 describe('Dashboard expired Training by type', () => {
-	it('lists every expired Person per type with the oldest lateness, ignoring the issue cap', async () => {
+	it('lists every expired Person per type with the oldest lateness', async () => {
 		const ctx = buildCtx();
 		(ctx.store as ReturnType<typeof createInMemoryDataStore>).seed(
 			'personnel_trainings',
@@ -361,11 +346,9 @@ describe('Dashboard expired Training by type', () => {
 			personnel,
 			trainingTypes: [makeTrainingType('required'), makeTrainingType('second')],
 			onboardingPersonnelIds: [],
-			asOf: '2026-09-29',
-			options: { issueLimit: 0 }
+			asOf: '2026-09-29'
 		});
 
-		expect(trainingSummary.issues).toEqual([]);
 		expect(trainingSummary.expiredByType).toEqual([
 			{ trainingTypeId: 'required', personnelIds: ['able', 'baker'], maxDaysLate: 10 },
 			{ trainingTypeId: 'second', personnelIds: ['baker'], maxDaysLate: 1 }
@@ -410,8 +393,7 @@ describe('Dashboard missing required Training', () => {
 			personnel,
 			trainingTypes,
 			onboardingPersonnelIds: [],
-			asOf: '2026-09-29',
-			options: { issueLimit: 0, issueStatuses: ['expired'] }
+			asOf: '2026-09-29'
 		});
 
 		expect(trainingSummary.expiredPersonnelCount).toBe(1);
@@ -419,6 +401,5 @@ describe('Dashboard missing required Training', () => {
 		expect(trainingSummary.groupDelinquencies).toEqual([
 			{ groupId: 'alpha', expiredPersonnelCount: 1, delinquentPersonnelCount: 2 }
 		]);
-		expect(trainingSummary.issues).toEqual([]);
 	});
 });

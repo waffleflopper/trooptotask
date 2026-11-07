@@ -9,7 +9,11 @@
 <button
 	type="button"
 	onclick={() =>
-		updates.putRecord('org-1', { list: 'trainingCompletions', trainingTypeId: 'cpr', personnelIds: ['okafor'] })}
+		updates.putRecord('org-1', {
+			list: 'trainingCompletions',
+			trainingTypeId: 'cpr',
+			saved: [{ personnelId: 'okafor', status: 'current' }]
+		})}
 >
 	Record class
 </button>

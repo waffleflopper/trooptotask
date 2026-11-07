@@ -1,7 +1,12 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
 	import type { Personnel } from '$features/personnel/contracts';
-	import { batchFailureMessage, recordTrainingCompletions, type TrainingType } from '$features/training';
+	import {
+		batchFailureMessage,
+		getTrainingStatus,
+		recordTrainingCompletions,
+		type TrainingType
+	} from '$features/training';
 	import type { RecordClassCandidate, TrainingBatchRecord } from '$features/training/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { actionablePersonnel } from '../../sections/dashboardAccess';
@@ -40,19 +45,18 @@
 	function onSave(records: TrainingBatchRecord[]) {
 		return save(async () => {
 			const result = await recordTrainingCompletions(orgId, records);
-			const saved = [...result.inserted, ...result.updated];
-			// Only a record now current takes its Person off the expired row; an old completion date can stay expired.
-			const current = saved
-				.filter((record) => record.expirationDate === null || record.expirationDate >= today)
-				.map((record) => record.personnelId);
-			if (current.length > 0) {
-				updates.putRecord(orgId, {
-					list: 'trainingCompletions',
-					trainingTypeId: trainingType.id,
-					personnelIds: current
-				});
+			const byId = new Map(recordable.map((person) => [person.id, person]));
+			// An old completion date can leave a Person expired or due soon, so each row follows the status it now has.
+			const saved = [...result.inserted, ...result.updated].flatMap((record) => {
+				const person = byId.get(record.personnelId);
+				return person
+					? [{ personnelId: person.id, status: getTrainingStatus(record, trainingType, person, today).status }]
+					: [];
+			});
+			if (saved.length > 0) {
+				updates.putRecord(orgId, { list: 'trainingCompletions', trainingTypeId: trainingType.id, saved });
+				updates.refreshSummary();
 			}
-			if (saved.length > 0) updates.refreshSummary();
 			if (result.errors.length > 0) throw new Error(batchFailureMessage(records, result.errors, recordable));
 		});
 	}

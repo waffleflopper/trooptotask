@@ -456,6 +456,38 @@ describe('TrainingPageContext', () => {
 			}
 		});
 
+		it('shows all Groups when a link names a Group that is not there, instead of keeping the last one', async () => {
+			const url = $state({ current: new URL('http://localhost/org/org-1/training?group=g-1') });
+			Object.defineProperty(pageMock, 'url', { get: () => url.current, configurable: true });
+			gotoMock.mockImplementation(async (target: string) => {
+				url.current = new URL(`http://localhost${target}`);
+			});
+			const ctx = makeContext(makeData(), makeOrg());
+			const stop = $effect.root(() => {
+				$effect(() => ctx.syncGroupParam());
+			});
+			try {
+				flushSync();
+				expect(ctx.selectedGroupId).toBe('g-1');
+
+				url.current = new URL('http://localhost/org/org-1/training?group=gone');
+				flushSync();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+
+				expect(ctx.selectedGroupId).toBe('');
+				expect(url.current.search).toBe('');
+				expect(gotoMock.mock.calls).toEqual([['/org/org-1/training', REPLACE]]);
+			} finally {
+				stop();
+				Object.defineProperty(pageMock, 'url', {
+					value: new URL('http://localhost/org/org-1/training'),
+					writable: true,
+					configurable: true
+				});
+			}
+		});
+
 		it('keeps the record sheet param when the Group changes', () => {
 			pageMock.url = new URL('http://localhost/org/org-1/training?person=p-1');
 			pageMock.state = { trainingRecord: true };

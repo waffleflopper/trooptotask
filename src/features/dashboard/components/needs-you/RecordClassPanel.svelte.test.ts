@@ -16,8 +16,21 @@ const sharp = {
 	id: 'sharp',
 	name: 'SHARP',
 	expirationMonths: 12,
-	expirationDateOnly: false
-} as TrainingType;
+	expirationDateOnly: false,
+	warningDaysYellow: 60,
+	warningDaysOrange: 30,
+	isOptional: false,
+	canBeExempted: false,
+	exemptPersonnelIds: [],
+	appliesToRoles: [],
+	appliesToMos: [],
+	appliesToRanks: [],
+	excludedRoles: [],
+	excludedMos: [],
+	excludedRanks: []
+} as unknown as TrainingType;
+
+const savedAs = (...entries: [string, string][]) => entries.map(([personnelId, status]) => ({ personnelId, status }));
 
 const people = [person('p-okafor', 'Okafor'), person('p-brooks', 'Brooks'), person('p-liang', 'Liang')];
 
@@ -74,17 +87,21 @@ describe('RecordClassPanel', () => {
 		expect(updates.putRecord.mock.calls).toEqual([
 			[
 				'org-1',
-				{ list: 'trainingCompletions', trainingTypeId: 'sharp', personnelIds: ['p-okafor', 'p-brooks', 'p-liang'] }
+				{
+					list: 'trainingCompletions',
+					trainingTypeId: 'sharp',
+					saved: savedAs(['p-okafor', 'current'], ['p-brooks', 'current'], ['p-liang', 'current'])
+				}
 			]
 		]);
 		expect(updates.refreshSummary).toHaveBeenCalledTimes(1);
 	});
 
-	it('keeps a person whose new record is already expired on the row until the summary says otherwise', async () => {
+	it('reports the status each new record gives its person, so a backdated one keeps them on their row', async () => {
 		fetchMock.mockResolvedValue(
 			new Response(
 				JSON.stringify({
-					inserted: [record('p-okafor'), record('p-brooks', '2026-10-20'), record('p-liang', null)],
+					inserted: [record('p-okafor'), record('p-brooks', '2026-10-20'), record('p-liang', '2026-11-10')],
 					updated: [],
 					exempted: [],
 					errors: []
@@ -97,7 +114,14 @@ describe('RecordClassPanel', () => {
 
 		await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
 		expect(updates.putRecord.mock.calls).toEqual([
-			['org-1', { list: 'trainingCompletions', trainingTypeId: 'sharp', personnelIds: ['p-okafor', 'p-liang'] }]
+			[
+				'org-1',
+				{
+					list: 'trainingCompletions',
+					trainingTypeId: 'sharp',
+					saved: savedAs(['p-okafor', 'current'], ['p-brooks', 'expired'], ['p-liang', 'warning-orange'])
+				}
+			]
 		]);
 		expect(updates.refreshSummary).toHaveBeenCalledTimes(1);
 	});
@@ -120,7 +144,14 @@ describe('RecordClassPanel', () => {
 		expect(await screen.findByText('1 not recorded. Liang: Person is outside your scope')).toBeTruthy();
 		expect(close).not.toHaveBeenCalled();
 		expect(updates.putRecord.mock.calls).toEqual([
-			['org-1', { list: 'trainingCompletions', trainingTypeId: 'sharp', personnelIds: ['p-okafor', 'p-brooks'] }]
+			[
+				'org-1',
+				{
+					list: 'trainingCompletions',
+					trainingTypeId: 'sharp',
+					saved: savedAs(['p-okafor', 'current'], ['p-brooks', 'current'])
+				}
+			]
 		]);
 		expect(updates.refreshSummary).toHaveBeenCalledTimes(1);
 	});

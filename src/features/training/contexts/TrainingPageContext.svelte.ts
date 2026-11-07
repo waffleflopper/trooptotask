@@ -316,7 +316,7 @@ export class TrainingPageContext {
 
 	/**
 	 * Keeps `?group=` and the Group filter in step; the URL wins. Opened without it, the saved Group is written into the
-	 * URL; opened on a Group that is not there, the param is dropped. Runs once the Groups have loaded.
+	 * URL; opened on a Group that is not there, the filter shows all Groups and the param is dropped. Runs once the Groups have loaded.
 	 */
 	syncGroupParam(): void {
 		// Read before any early return, so the effect calling this keeps following the URL and the Groups.
@@ -327,6 +327,7 @@ export class TrainingPageContext {
 		if (param === null) {
 			if (selected) this.#writeGroupParam(selected);
 		} else if (!this.isValidGroupId(param)) {
+			this.selectedGroupId = '';
 			this.#writeGroupParam('');
 		} else if (param !== selected) {
 			this.selectedGroupId = param;

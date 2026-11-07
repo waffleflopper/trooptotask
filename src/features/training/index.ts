@@ -18,6 +18,7 @@ export { trainingTypeSource, trainingTypeHydration } from './webSources.svelte';
 
 export { isTrainingApplicable } from './utils/applicability';
 export { filterColumnsByView } from './utils/viewFiltering';
+export { isDueSoon } from './utils/dueSoon';
 export {
 	calculateExpirationDate,
 	getTrainingStatus,

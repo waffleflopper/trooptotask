@@ -1,5 +1,5 @@
 import type { Personnel } from '$features/personnel/contracts';
-import type { TrainingCompletionFacts, TrainingType } from '../training.types';
+import type { TrainingCompletionFacts, TrainingStatus, TrainingType } from '../training.types';
 import { getDelinquentTrainings, type DelinquentTraining, type TrainingStatusInfo } from './trainingStatus';
 
 export interface TrainingDueSoonPerson {
@@ -16,6 +16,11 @@ export interface TrainingDueSoon {
 	people: readonly TrainingDueSoonPerson[];
 }
 
+/** Due soon is the warning window, orange included; missing and expired training are not due soon. */
+export function isDueSoon(status: TrainingStatus): status is TrainingDueSoonPerson['status'] {
+	return status === 'warning-orange' || status === 'warning-yellow';
+}
+
 type DueSoonSource = Pick<DelinquentTraining, 'person' | 'type'> & { statusInfo: TrainingStatusInfo };
 
 /**
@@ -26,7 +31,7 @@ export function groupDueSoon(entries: Iterable<DueSoonSource>): TrainingDueSoon[
 	const byType = new Map<string, { name: string; people: TrainingDueSoonPerson[] }>();
 	for (const { person, type, statusInfo } of entries) {
 		const { status, daysUntilExpiration: daysLeft } = statusInfo;
-		if ((status !== 'warning-orange' && status !== 'warning-yellow') || daysLeft === null) continue;
+		if (!isDueSoon(status) || daysLeft === null) continue;
 		const group = byType.get(type.id) ?? { name: type.name, people: [] };
 		group.people.push({ personnelId: person.id, daysLeft, status });
 		byType.set(type.id, group);

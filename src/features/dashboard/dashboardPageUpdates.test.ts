@@ -55,6 +55,10 @@ function expiredSummary(
 	} as unknown as DashboardPageSummaryData;
 }
 
+function current(...personnelIds: string[]) {
+	return personnelIds.map((personnelId) => ({ personnelId, status: 'current' as const }));
+}
+
 function put(
 	overlay: DashboardRecordOverlay | null,
 	base: DashboardWorkspaceResult,
@@ -189,12 +193,12 @@ describe('the Dashboard record overlay', () => {
 		let overlay = put(null, base, {
 			list: 'trainingCompletions',
 			trainingTypeId: 'cpr',
-			personnelIds: ['okafor']
+			saved: current('okafor')
 		});
 		overlay = put(overlay, base, {
 			list: 'trainingCompletions',
 			trainingTypeId: 'sharp',
-			personnelIds: ['kim']
+			saved: current('kim')
 		});
 
 		expect(overlayDashboardSummary(summary, base, overlay).trainingSummary?.expiredByType).toEqual([
@@ -220,20 +224,43 @@ describe('the Dashboard record overlay', () => {
 			},
 			{ trainingTypeId: 'sharp', people: [{ personnelId: 'kim', daysLeft: 9, status: 'warning-orange' }] }
 		];
-		let overlay = put(null, base, { list: 'trainingCompletions', trainingTypeId: 'cpr', personnelIds: ['okafor'] });
-		overlay = put(overlay, base, { list: 'trainingCompletions', trainingTypeId: 'sharp', personnelIds: ['kim'] });
+		let overlay = put(null, base, { list: 'trainingCompletions', trainingTypeId: 'cpr', saved: current('okafor') });
+		overlay = put(overlay, base, { list: 'trainingCompletions', trainingTypeId: 'sharp', saved: current('kim') });
 
 		expect(overlayDashboardSummary(summary, base, overlay).trainingSummary?.dueSoonByType).toEqual([
 			{ trainingTypeId: 'cpr', people: [{ personnelId: 'brooks', daysLeft: 40, status: 'warning-yellow' }] }
 		]);
 	});
 
+	it('keeps a recorded Person on the list their backdated record still puts them on', () => {
+		const base = workspace([]);
+		const summary = expiredSummary([{ trainingTypeId: 'cpr', personnelIds: ['okafor', 'brooks'] }]);
+		summary.trainingSummary!.dueSoonByType = [
+			{ trainingTypeId: 'cpr', people: [{ personnelId: 'kim', daysLeft: 9, status: 'warning-orange' }] }
+		];
+		const overlay = put(null, base, {
+			list: 'trainingCompletions',
+			trainingTypeId: 'cpr',
+			saved: [
+				{ personnelId: 'okafor', status: 'expired' },
+				{ personnelId: 'brooks', status: 'warning-yellow' },
+				{ personnelId: 'kim', status: 'warning-yellow' }
+			]
+		});
+
+		const training = overlayDashboardSummary(summary, base, overlay).trainingSummary;
+		expect(training?.expiredByType).toEqual([{ trainingTypeId: 'cpr', personnelIds: ['okafor'], maxDaysLate: 12 }]);
+		expect(training?.dueSoonByType).toEqual([
+			{ trainingTypeId: 'cpr', people: [{ personnelId: 'kim', daysLeft: 9, status: 'warning-orange' }] }
+		]);
+	});
+
 	it('retires a Training save once a summary read that started after it has landed, and keeps a newer save', () => {
 		const base = workspace([]);
 		const staleServer = expiredSummary([{ trainingTypeId: 'cpr', personnelIds: ['okafor', 'brooks'] }]);
-		let overlay = put(null, base, { list: 'trainingCompletions', trainingTypeId: 'cpr', personnelIds: ['okafor'] }, 1);
+		let overlay = put(null, base, { list: 'trainingCompletions', trainingTypeId: 'cpr', saved: current('okafor') }, 1);
 		overlay = put(overlay, base, { list: 'awardTrackingAcknowledgedPersonnelIds', personnelId: 'alpha' }, 2);
-		overlay = put(overlay, base, { list: 'trainingCompletions', trainingTypeId: 'cpr', personnelIds: ['brooks'] }, 3);
+		overlay = put(overlay, base, { list: 'trainingCompletions', trainingTypeId: 'cpr', saved: current('brooks') }, 3);
 		const expiredIds = (current: DashboardRecordOverlay | null) =>
 			overlayDashboardSummary(staleServer, base, current).trainingSummary?.expiredByType.map((e) => e.personnelIds);
 

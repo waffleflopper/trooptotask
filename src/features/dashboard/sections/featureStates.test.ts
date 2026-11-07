@@ -88,6 +88,7 @@ function unit(overrides: Partial<SetUp> = {}): DashboardInputs {
 						total: 1
 					},
 					expiredByType: [],
+					dueSoonByType: [],
 					expiredPersonnelCount: 0,
 					missingPersonnelCount: 0,
 					groupDelinquencies: []

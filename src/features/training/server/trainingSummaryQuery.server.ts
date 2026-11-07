@@ -9,6 +9,7 @@ import type {
 	DashboardTrainingSummary,
 	DashboardTrainingSummaryInput
 } from '../contracts';
+import { groupDueSoon } from '../utils/dueSoon';
 import { getTrainingStats, getDelinquentTrainings } from '../utils/trainingStatus';
 import { listTrainingReadinessCompletions } from './trainingCompletionRead.server';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
@@ -75,6 +76,7 @@ function buildTrainingSummary(
 	return {
 		stats,
 		expiredByType: [...expiredByType.values()],
+		dueSoonByType: groupDueSoon(delinquent),
 		expiredPersonnelCount: expiredPersonnel.size,
 		missingPersonnelCount: missingPersonnel.size,
 		groupDelinquencies: Array.from(groups, ([groupId, group]) => ({

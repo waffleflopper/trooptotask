@@ -44,6 +44,7 @@ function expiredSummary(
 		trainingSummary: {
 			stats: { total: 4 },
 			expiredByType: expiredByType.map((expired) => ({ ...expired, maxDaysLate: 12 })),
+			dueSoonByType: [],
 			expiredPersonnelCount: 3,
 			missingPersonnelCount: 0,
 			groupDelinquencies: []
@@ -137,6 +138,7 @@ describe('the Dashboard record overlay', () => {
 					notRequired: 0
 				},
 				expiredByType: [],
+				dueSoonByType: [],
 				expiredPersonnelCount: 0,
 				missingPersonnelCount: 0,
 				groupDelinquencies: []

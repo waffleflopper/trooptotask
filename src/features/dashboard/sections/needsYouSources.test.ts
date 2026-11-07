@@ -199,6 +199,7 @@ function inputs(loaded: Loaded): DashboardInputs {
 								total: 0
 							},
 							expiredByType: loaded.expiredByType ?? [],
+							dueSoonByType: [],
 							expiredPersonnelCount: 0,
 							missingPersonnelCount: 0,
 							groupDelinquencies: []

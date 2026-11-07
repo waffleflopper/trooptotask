@@ -403,3 +403,57 @@ describe('Dashboard missing required Training', () => {
 		]);
 	});
 });
+
+describe('Dashboard due soon Training by type', () => {
+	it('lists every Person inside a warning window, soonest first, without adding yellow ones to the delinquent counts', async () => {
+		const ctx = buildCtx();
+		(ctx.store as ReturnType<typeof createInMemoryDataStore>).seed(
+			'personnel_trainings',
+			[
+				['able', 'required', '2026-10-09'],
+				['baker', 'required', '2026-11-18'],
+				['cole', 'required', '2026-09-20'],
+				['dunn', 'required', '2027-09-29'],
+				['able', 'second', '2026-10-20']
+			].map(([personnelId, typeId, expiry], index) => ({
+				id: `completion-${index}`,
+				organization_id: ORG,
+				personnel_id: personnelId,
+				training_type_id: typeId,
+				completion_date: '2025-09-29',
+				expiration_date: expiry,
+				notes: null,
+				certificate_url: null
+			}))
+		);
+		const personnel = ['able', 'baker', 'cole', 'dunn'].map((id) => ({
+			id,
+			groupId: 'alpha',
+			rank: 'SGT',
+			lastName: id,
+			firstName: 'Pat'
+		})) as never[];
+
+		const { trainingSummary } = await fetchDashboardTrainingSummary(ctx, {
+			personnel,
+			trainingTypes: [makeTrainingType('required'), { ...makeTrainingType('second'), isOptional: true }],
+			onboardingPersonnelIds: [],
+			asOf: '2026-09-29'
+		});
+
+		expect(trainingSummary.dueSoonByType).toEqual([
+			{
+				trainingTypeId: 'required',
+				people: [
+					{ personnelId: 'able', daysLeft: 10, status: 'warning-orange' },
+					{ personnelId: 'baker', daysLeft: 50, status: 'warning-yellow' }
+				]
+			},
+			{ trainingTypeId: 'second', people: [{ personnelId: 'able', daysLeft: 21, status: 'warning-orange' }] }
+		]);
+		expect(trainingSummary.expiredPersonnelCount).toBe(1);
+		expect(trainingSummary.groupDelinquencies).toEqual([
+			{ groupId: 'alpha', expiredPersonnelCount: 1, delinquentPersonnelCount: 2 }
+		]);
+	});
+});

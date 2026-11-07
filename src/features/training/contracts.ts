@@ -11,6 +11,7 @@ import type {
 import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry, Group } from '$features/personnel/contracts';
 import type { TrainingStats } from './utils/trainingStatus';
+import type { TrainingDueSoon } from './utils/dueSoon';
 import type { BriefingScope, TrainingBriefing } from './utils/trainingBriefing.types';
 export {
 	DEFAULT_BRIEFING_DETAIL_PAGE_SIZE,
@@ -50,6 +51,7 @@ export type {
 	TrainingApplicability
 } from './utils/personnelTrainingItems';
 export type { TrainingStats } from './utils/trainingStatus';
+export type { TrainingDueSoon, TrainingDueSoonPerson } from './utils/dueSoon';
 export type {
 	BriefingBand,
 	BriefingFocusArea,
@@ -118,6 +120,8 @@ export interface ExpiredTrainingType {
 export interface TrainingSummary {
 	stats: TrainingStats;
 	expiredByType: ExpiredTrainingType[];
+	/** Every Person inside a warning window, per type, uncapped. */
+	dueSoonByType: TrainingDueSoon[];
 	expiredPersonnelCount: number;
 	/** People missing an applicable required record, other than those already expired. */
 	missingPersonnelCount: number;

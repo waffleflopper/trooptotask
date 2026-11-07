@@ -36,6 +36,10 @@ roster.
   overview, a transposed matrix with bounded Group or duty-role columns, a compact worst-first type-risk summary, and an
   optional appendix. Every sheet retains context and white margins. Requirement readiness stays separate from Soldier
   counts.
+- `due-soon-and-record-class`: the Training toolbar's `Due soon` sheet lists, by type, the People inside a warning
+  window (not missing, not expired) with days left and expiration date. A column header's `Record class` button records
+  one completion date for the People checked in a dialog that labels each Person's status and narrows by Group. The
+  page's Group is kept in `?group=` and a column sorts by days left within each status.
 - `completion-access`: Training view, operate and configure retain different actions; Alpha-only and
   foreign-Organization access cannot expose or change other Personnel's completions.
 - `reverse-consumers`: Dashboard Training projections, Personnel readiness and the Person workbook retain their distinct
@@ -74,7 +78,9 @@ Enter on a pager button keeps focus on it, and when it disables at either end (i
 focus moves to the other, enabled button; if the range shrinks to one page the pager unmounts and focus moves to the
 table. Filters, horizon and `rowsBy` live in the URL, so a reload restores the same briefing. For the reverse Personnel
 view, choose `Personnel`, the matching Person's row, then inspect the `Readiness` tab or choose `Export records`. Return
-to the Organization Dashboard to inspect its Training summary.
+to the Organization Dashboard to inspect its Training summary. Recorders see a `Record class for <type>` icon button in
+each matrix column header, and the toolbar `Due soon` button (under `More Training controls` at 390 px wide) opens the
+`Due soon` sheet, with a count badge while anyone is in a warning window.
 
 ## Helper controls
 
@@ -363,7 +369,7 @@ deletion-requests/review` before Approve: capture the matched 503 and unchanged 
    Date and Notes; preserve the same dated rows as a separate Person export, not a report workbook. Open the
    Organization Dashboard with Training read authority and inspect the visible expired/warning identities and any saved
    summary response. Preserve its retained currency meaning without demanding the report's 50% readiness. An Expired
-   row's `Record class` saves one completion per checked Person through the same `POST api/personnel-trainings/batch` as
+   or Due soon row's `Record class` saves one completion per checked Person through the same `POST api/personnel-trainings/batch` as
    this page; the new record must show here after reload ([Dashboard actions](dashboard.md#actions)). For Onboarding
    completion references, use `trainingOnboarding`: choose Onboard → Templates → Add Template, enter a unique name and
    Create. Add the first step, name it, choose Training and `Verification Required Training`, then Add Step. Return to
@@ -443,7 +449,35 @@ deletion-requests/review` before Approve: capture the matched 503 and unchanged 
 Restore every network/export control, use `$V rows personnel_trainings orgA|orgB` for narrowly scoped readback, and
 clean only this owned disposable worker.
 
-12. **Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` at
+13. **Due soon, Record class and the Group filter.** After `$V seed dashboard`, as `rosterManager` (Training operate)
+    at 1280x900 and again at 390x844, open Training. Unassigned's seeded Required record expires in 20 days, so the
+    toolbar `Due soon` button carries the count 1; with no one in a window it carries none.
+    - **Record class dialog.** Press `Record class for Verification Required Training` in the column header. The dialog
+      lists every Person the type applies to with their status: Baker `Expired 5d ago` and the missing Person `Not Done`
+      are checked, Able and Unassigned `Current` are not, and `Attended (2 of 4)` counts the checked People. Choosing
+      `Bravo` in the dialog's `Group` select leaves Baker and reads `Attended (1 of 1)`. Pick the completion date
+      (choose the year first in the date picker) and `Record 1`: the matrix cell reads `20d left` after a completion
+      345 days ago and `$V rows personnel_trainings orgA personnel_id <Baker>` holds that date on the same record ID.
+    - **Pre-check by status.** With Baker now expiring, reopen the dialog: Baker reads `20d left` and is checked, so
+      due-soon People are pre-checked like expired ones.
+    - **Due soon sheet.** Press `Due soon`: one region per type headed by the type name and its count, a `Record class`
+      button (recorders only) and a row per Person, `SPC Baker, Synthetic`, `Expires <date>` and `20d left`, soonest
+      first. `Record class` there stacks the same dialog over the sheet. Hold the page with
+      `$V server-source arm personnel_trainings hold 1 60000`, reload, press `Due soon` while `Loading training matrix`
+      shows: the sheet shows the busy `Loading due soon training` skeletons, and `server-source release` fills the rows
+      in place. With the Group set to Alpha the sheet reads `Nothing is due soon.`
+    - **Group in the URL.** Choosing `Alpha` in `Training group filter` writes `?group=<Alpha id>`; reload keeps the
+      Alpha-only matrix and so does leaving for Personnel and pressing Back. Choosing `Group: All` removes the
+      parameter. The dialog's `Group` select starts on the page's Group.
+    - **Sort by days left.** In `A–Z`, record Unassigned on Required 360 days ago and Baker 345 days ago, then press the
+      `Verification Required Training` column header: the cells read `5d left`, `20d left`, `No record`, `Current`
+      top to bottom.
+    - **Failure and viewers.** The `Due soon` sheet has no error state of its own: a failed Training workspace replaces
+      the page with its load error. A failed save keeps the dialog open with `Class was not recorded`; the Dashboard
+      recipe drives that failure on the shared dialog and this page's save was not failure-injected. A viewer without
+      `training.recordCompletions` sees no `Record class` buttons (component-tested, not live-driven).
+
+14. **Nested Groups.** With the [nested Group tree](manage-groups.md#nested-group-tree) seeded, as `orgOwner` at
     1440x900 open `Training group filter`: a `verbose` snapshot lists `Group: All`, `2nd Platoon`, `Alpha`, `Bravo` and
     `Unassigned`. Pick `2nd Platoon`: the subtitle reads `9 personnel × 3 types · by group`. Back on `Group: All` with
     `Show sub-groups` on (`Display` menu), the matrix bands (`[data-band-level]`) run `0: 2nd Platoon 9`,

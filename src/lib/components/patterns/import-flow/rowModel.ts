@@ -55,6 +55,7 @@ export function buildSourceRows<C extends ImportColumns>(
 			const raw: Record<string, string> = {};
 			const problems: CellProblem[] = [];
 			const pivotCells: number[] = [];
+			const fallbacks: Record<string, string> = {};
 			for (let column = 0; column < targets.length; column++) {
 				const target = targets[column];
 				const value = cells[column] ?? '';
@@ -64,6 +65,10 @@ export function buildSourceRows<C extends ImportColumns>(
 					if (!splitter) continue;
 					const split = splitter.split(value);
 					for (const field of splitter.fills) raw[field] = split?.[field] ?? '';
+					for (const field of splitter.fallbackFills ?? []) {
+						const value = split?.[field];
+						if (value) fallbacks[field] ??= value;
+					}
 					if (!split)
 						problems.push({
 							field: splitter.fills[0] ?? '',
@@ -72,6 +77,7 @@ export function buildSourceRows<C extends ImportColumns>(
 				}
 				if (target?.kind === 'pivot' && value.trim()) pivotCells.push(column);
 			}
+			for (const [field, value] of Object.entries(fallbacks)) if (!raw[field]?.trim()) raw[field] = value;
 			const base = {
 				sheetIndex: sheet.index,
 				sheetName: sheet.name,

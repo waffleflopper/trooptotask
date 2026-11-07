@@ -37,6 +37,8 @@ export interface ColumnSplitter<C extends ImportColumns> {
 	label: string;
 	aliases: readonly string[];
 	fills: readonly (keyof C & string)[];
+	/** Fields the split may also supply. A mapped column with a value for the row wins over them. */
+	fallbackFills?: readonly (keyof C & string)[];
 
 	split(raw: string): Partial<Record<keyof C & string, string>> | null;
 	join?(values: Readonly<Partial<Record<keyof C & string, string>>>): string;

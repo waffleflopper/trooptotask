@@ -78,18 +78,19 @@ describe('TrainingDueSoonSheet', () => {
 		expect(hiv.getByText('Expires 6 Nov 2026')).toBeTruthy();
 	});
 
-	it('shows loading skeleton rows and no empty state until the lists arrive', () => {
-		renderSheet({ dueSoon: null });
-
+	it('shows skeleton rows until the lists arrive, then no training lists when nothing is due, then one per training', async () => {
+		const { rerender } = renderSheet({ dueSoon: null });
 		expect(screen.getByRole('status', { name: 'Loading due soon training' })).toBeTruthy();
-		expect(screen.queryByText('Nothing is due soon.')).toBeNull();
-	});
+		expect(screen.queryAllByRole('region')).toEqual([]);
 
-	it('says nothing is due soon when no one is in a warning window', () => {
-		renderSheet({ dueSoon: [] });
-
-		expect(screen.getByText('Nothing is due soon.')).toBeTruthy();
+		await rerender({ dueSoon: [] });
 		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.queryAllByRole('region')).toEqual([]);
+
+		await rerender({ dueSoon });
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.getByRole('region', { name: /CPR/ })).toBeTruthy();
+		expect(screen.getByRole('region', { name: /HIV/ })).toBeTruthy();
 	});
 
 	it('offers Record class per training only where the viewer may record, passing that training', async () => {

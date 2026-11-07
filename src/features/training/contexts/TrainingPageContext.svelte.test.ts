@@ -715,7 +715,8 @@ describe('TrainingPageContext', () => {
 			const fetchMock = vi.fn().mockResolvedValue({
 				ok: true,
 				status: 200,
-				json: () => Promise.resolve({ inserted: [insertedTraining], updated: [updatedTraining] })
+				json: () =>
+					Promise.resolve({ inserted: [insertedTraining], updated: [updatedTraining], exempted: [], errors: [] })
 			});
 			vi.stubGlobal('fetch', fetchMock);
 
@@ -728,6 +729,30 @@ describe('TrainingPageContext', () => {
 				body: JSON.stringify({ records: batchRecords })
 			});
 			expect(personnelTrainingsStore.items).toEqual([updatedTraining, insertedTraining]);
+		});
+
+		it('keeps the records that saved and rejects naming each Soldier whose record did not', async () => {
+			const ctx = makeContext(makeData(), makeOrg());
+			personnelTrainingsStore.load([], 'org-1');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					ok: true,
+					status: 200,
+					json: () =>
+						Promise.resolve({
+							inserted: [insertedTraining],
+							updated: [],
+							exempted: [],
+							errors: [{ index: 1, message: 'Training type not found' }]
+						})
+				})
+			);
+
+			await expect(
+				ctx.handleSaveTrainingBatch([...batchRecords, { ...batchRecords[0], personnelId: 'p-2' }])
+			).rejects.toThrow('1 not recorded. Adams: Training type not found');
+			expect(personnelTrainingsStore.items).toEqual([insertedTraining]);
 		});
 
 		it('throws on non-OK response and does not mutate the training store', async () => {

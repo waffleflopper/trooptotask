@@ -35,6 +35,19 @@ export async function recordTrainingCompletions(
 	return response.json();
 }
 
+/** "2 not recorded. Baker: <reason>; <reason>": each failed record, by the Person's last name where it is known. */
+export function batchFailureMessage(
+	records: readonly Pick<TrainingBatchRecord, 'personnelId'>[],
+	errors: TrainingBatchImportResult['errors'],
+	people: readonly { id: string; lastName: string }[]
+): string {
+	const failed = errors.map((error) => {
+		const person = people.find((candidate) => candidate.id === records[error.index]?.personnelId);
+		return person ? `${person.lastName}: ${error.message}` : error.message;
+	});
+	return `${errors.length} not recorded. ${failed.join('; ')}`;
+}
+
 export async function loadPersonTrainingRecords(orgId: string, personnelId: string): Promise<PersonnelTraining[]> {
 	const response = await fetch(`/org/${orgId}/api/personnel-trainings?${new URLSearchParams({ personnelId })}`, {
 		cache: 'no-store'

@@ -8,7 +8,12 @@ export type {
 export { TRAINING_STATUS_COLORS } from './training.types';
 
 export { personnelTrainingsStore } from './stores/personnelTrainings.svelte';
-export { loadPersonTrainingRecords, recordTrainingCompletions, saveTrainingRecord } from './personnelTrainingRequests';
+export {
+	batchFailureMessage,
+	loadPersonTrainingRecords,
+	recordTrainingCompletions,
+	saveTrainingRecord
+} from './personnelTrainingRequests';
 export { trainingTypeSource, trainingTypeHydration } from './webSources.svelte';
 
 export { isTrainingApplicable } from './utils/applicability';

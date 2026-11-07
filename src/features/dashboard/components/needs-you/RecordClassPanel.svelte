@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
 	import type { Personnel } from '$features/personnel/contracts';
-	import { recordTrainingCompletions, type TrainingType } from '$features/training';
+	import { batchFailureMessage, recordTrainingCompletions, type TrainingType } from '$features/training';
 	import type { RecordClassCandidate, TrainingBatchRecord } from '$features/training/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { actionablePersonnel } from '../../sections/dashboardAccess';
@@ -53,13 +53,7 @@
 				});
 			}
 			if (saved.length > 0) updates.refreshSummary();
-			if (result.errors.length > 0) {
-				const failed = result.errors.map((error) => {
-					const person = recordable.find((candidate) => candidate.id === records[error.index]?.personnelId);
-					return person ? `${person.lastName}: ${error.message}` : error.message;
-				});
-				throw new Error(`${result.errors.length} not recorded. ${failed.join('; ')}`);
-			}
+			if (result.errors.length > 0) throw new Error(batchFailureMessage(records, result.errors, recordable));
 		});
 	}
 </script>

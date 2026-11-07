@@ -32,7 +32,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingView, TrainingRecordSave } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
-import { recordTrainingCompletions } from '../personnelTrainingRequests';
+import { batchFailureMessage, recordTrainingCompletions } from '../personnelTrainingRequests';
 import { matchesPersonnelSearch } from '../utils/personnelSearch';
 import { trainingReadinessSource } from '../webSources.svelte';
 
@@ -440,6 +440,7 @@ export class TrainingPageContext {
 			const result = await recordTrainingCompletions(this.orgId, records);
 			if (!this.#isCurrentWorkspace()) return;
 			personnelTrainingsStore.addBatchResults(result.inserted, result.updated);
+			if (result.errors.length > 0) throw new Error(batchFailureMessage(records, result.errors, this.personnel));
 		} catch (error) {
 			if (this.#isCurrentWorkspace()) throw error;
 		}

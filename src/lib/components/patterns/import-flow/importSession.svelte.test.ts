@@ -234,6 +234,69 @@ describe('import session', () => {
 		expect(await session.createOption(key, 'Sergeant')).toBeNull();
 		expect(session.review.rows[0]).toMatchObject({ outcome: 'new', change: { rank: 'SGT' } });
 	});
+	describe('records created during the session', () => {
+		const sergeant = { id: 'sergeant', label: 'Sergeant', value: 'SGT' };
+		function creatingLane(run: (name: string) => Promise<CreateOptionResult<string>>) {
+			const base = personnelLane();
+			return { ...base, references: { rank: { ...base.references.rank, create: { noun: RANKS, run } } } };
+		}
+		const key = questionKey({ reference: 'rank', key: 'sgt.' });
+
+		it('keeps listing what was created after the user chooses another file', async () => {
+			const lane = creatingLane(async () => ({ kind: 'created', option: sergeant }));
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([csv('Sgt.')]);
+			session.goTo('review');
+			await session.createOption(key, 'Sergeant');
+			const listed = [{ reference: 'rank', noun: RANKS, records: [{ id: 'sergeant', label: 'Sergeant' }] }];
+			expect(session.created).toEqual(listed);
+
+			session.goTo('file');
+			await session.chooseFile([csv('Staff.')]);
+			session.goTo('review');
+			expect(session.created).toEqual(listed);
+			expect(session.review.questions[0].accepts).toMatchObject({
+				kind: 'pick',
+				options: expect.arrayContaining([expect.objectContaining({ id: 'sergeant' })])
+			});
+		});
+
+		it('lists a record whose create finished after the user chose another file, without answering for it', async () => {
+			const pending = deferred<CreateOptionResult<string>>();
+			const lane = creatingLane(() => pending.promise);
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([csv('Sgt.')]);
+			session.goTo('review');
+			const creating = session.createOption(key, 'Sergeant');
+			await session.chooseFile([csv('Staff.')]);
+			pending.resolve({ kind: 'created', option: sergeant });
+			await creating;
+
+			expect(session.created).toEqual([
+				{ reference: 'rank', noun: RANKS, records: [{ id: 'sergeant', label: 'Sergeant' }] }
+			]);
+			expect(session.answers.size).toBe(0);
+		});
+
+		it('lists a record once when two questions create the same one, and nothing for a refused create', async () => {
+			const replies: CreateOptionResult<string>[] = [
+				{ kind: 'created', option: sergeant },
+				{ kind: 'created', option: sergeant },
+				{ kind: 'refused', message: 'No.' }
+			];
+			const lane = creatingLane(async () => replies.shift()!);
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([new File(['Last name,First name,Rank\nSmith,Alex,Sgt.\nJones,Pat,Sergt'], 'a.csv')]);
+			session.goTo('review');
+			await session.createOption(key, 'Sergeant');
+			await session.createOption(questionKey({ reference: 'rank', key: 'sergt' }), 'Sergeant');
+			await session.createOption(questionKey({ reference: 'rank', key: 'sgt.' }), 'Refused');
+
+			expect(session.created).toEqual([
+				{ reference: 'rank', noun: RANKS, records: [{ id: 'sergeant', label: 'Sergeant' }] }
+			]);
+		});
+	});
 	it('drops stale create and commit continuations after start over', async () => {
 		const pending = deferred<CreateOptionResult<string>>();
 		const committed = deferred<ChunkReply>();

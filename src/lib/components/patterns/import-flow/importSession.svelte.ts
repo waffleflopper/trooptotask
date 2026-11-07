@@ -4,6 +4,7 @@ import type {
 	ColumnSplitter,
 	ImportColumns,
 	ImportLane,
+	ImportNoun,
 	ImportReferences,
 	QuestionKey,
 	RowId,
@@ -39,6 +40,11 @@ export type Phase =
 	| { step: 'committing'; progress: CommitProgress }
 	| { step: 'done'; receipt: Receipt };
 export type ReviewFilter = Outcome | 'all';
+export interface CreatedRecords {
+	reference: string;
+	noun: ImportNoun;
+	records: readonly { id: string; label: string }[];
+}
 
 export class ImportSession<C extends ImportColumns, Refs extends ImportReferences<C>, Change> {
 	#generation = 0;
@@ -54,6 +60,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	filter = $state.raw<ReviewFilter>('all');
 	rechecking = $state.raw(false);
 	creating = new SvelteMap<QuestionKey, true>();
+	created = $state.raw<readonly CreatedRecords[]>([]);
 
 	constructor(private readonly getLane: () => ImportLane<C, Refs, Change>) {}
 	get lane(): ImportLane<C, Refs, Change> {

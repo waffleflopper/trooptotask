@@ -140,6 +140,8 @@
 		}
 	}
 
+	$effect(() => ctx.syncGroupParam());
+
 	const activeView = $derived(ctx.selectedViewId ? (trainingViewsStore.getById(ctx.selectedViewId) ?? null) : null);
 
 	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.items, activeView));

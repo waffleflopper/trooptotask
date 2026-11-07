@@ -21,10 +21,11 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { submitDeletionRequest } from '$features/deletion-requests/submission.test-support';
 import { toastStore } from '$lib/stores/toast.svelte';
 
-const { gotoMock, invalidateMock, savePreferencesMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateMock, savePreferencesMock, pageMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
 	invalidateMock: vi.fn(),
-	savePreferencesMock: vi.fn()
+	savePreferencesMock: vi.fn(),
+	pageMock: { url: new URL('http://localhost/org/org-1/training'), state: {} as Record<string, unknown> }
 }));
 
 async function waitForAsyncSideEffect(assertion: () => void): Promise<void> {
@@ -50,6 +51,7 @@ vi.mock('$app/navigation', () => ({
 	invalidate: invalidateMock,
 	invalidateAll: vi.fn()
 }));
+vi.mock('$app/state', () => ({ page: pageMock }));
 
 function makeOrg() {
 	return {
@@ -164,6 +166,9 @@ describe('TrainingPageContext', () => {
 		submitRemovalRequest.mockReset().mockResolvedValue(true);
 		vi.unstubAllGlobals();
 		savePreferencesMock.mockReset();
+		gotoMock.mockReset();
+		pageMock.url = new URL('http://localhost/org/org-1/training');
+		pageMock.state = {};
 		personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
 		groupCatalogHydration.load(mockGroups, 'org-1');
 		trainingRankCatalogStore.load([], 'org-1');
@@ -333,6 +338,94 @@ describe('TrainingPageContext', () => {
 			expect(ctx.filteredPersonnel).toEqual([]);
 			expect(ctx.selectedGroupId).toBe('g-empty');
 			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('Group filter in the URL (?group=)', () => {
+		const savedGroup = (selectedGroupId: string | null) =>
+			makeData({
+				userPreferences: {
+					...getDefaultUserOrgPreferences(),
+					training: { selectedGroupId, selectedViewId: null, matrixViewMode: 'by-group' }
+				}
+			});
+		const REPLACE = { replace: true, reset: false, state: {} };
+
+		it('filters to the Group in the URL ahead of the saved one, without changing the saved one', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=g-2');
+			const ctx = makeContext(savedGroup('g-1'), makeOrg());
+
+			expect(ctx.selectedGroupId).toBe('g-2');
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
+			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+
+		it('writes a chosen Group into the URL by replacing the entry, keeps other params, and saves the choice', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?person=p-1&q=x');
+			const ctx = makeContext(makeData(), makeOrg());
+
+			ctx.setSelectedGroupId('g-2');
+
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/training?person=p-1&q=x&group=g-2', REPLACE);
+			expect(savePreferencesMock).toHaveBeenCalledWith({ training: { selectedGroupId: 'g-2' } });
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
+		});
+
+		it('drops the param when the filter goes back to all Groups', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=g-2&person=p-1');
+			const ctx = makeContext(makeData(), makeOrg());
+
+			ctx.setSelectedGroupId('');
+
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/training?person=p-1', REPLACE);
+			expect(savePreferencesMock).toHaveBeenCalledWith({ training: { selectedGroupId: null } });
+			expect(ctx.filteredPersonnel).toHaveLength(2);
+		});
+
+		it('writes the saved Group into a URL that has none, and leaves a URL alone when nothing is saved', () => {
+			const withSaved = makeContext(savedGroup('g-1'), makeOrg());
+			withSaved.syncGroupParam();
+			expect(gotoMock.mock.calls).toEqual([['/org/org-1/training?group=g-1', REPLACE]]);
+
+			gotoMock.mockReset();
+			makeContext(makeData(), makeOrg()).syncGroupParam();
+			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		it('drops a param that names no Group, keeping the roster and the saved Group', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=gone&person=p-1');
+			const ctx = makeContext(savedGroup('g-1'), makeOrg());
+
+			ctx.syncGroupParam();
+
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/training?person=p-1', REPLACE);
+			expect(ctx.filteredPersonnel).toHaveLength(2);
+			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+
+		it('follows the URL to another Group when the entry changes, as Back does', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=g-1');
+			const ctx = makeContext(makeData(), makeOrg());
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-1']);
+
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=g-2');
+			ctx.syncGroupParam();
+
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
+			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		it('keeps the record sheet param when the Group changes', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?person=p-1');
+			pageMock.state = { trainingRecord: true };
+			const ctx = makeContext(makeData(), makeOrg());
+
+			ctx.setSelectedGroupId('g-1');
+
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/training?person=p-1&group=g-1', {
+				...REPLACE,
+				state: { trainingRecord: true }
+			});
 		});
 	});
 

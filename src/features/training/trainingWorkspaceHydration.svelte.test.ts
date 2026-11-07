@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
@@ -9,6 +9,8 @@ import { trainingReadinessHydration } from './webSources.svelte';
 import { TrainingPageContext } from './contexts/TrainingPageContext.svelte';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
+
+vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/org/org-1/training'), state: {} } }));
 
 function pageContext(orgId: string) {
 	return new TrainingPageContext(

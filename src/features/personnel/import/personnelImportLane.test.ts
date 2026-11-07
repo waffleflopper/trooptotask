@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImportSession, type IsoDate } from '$lib/components/patterns/import-flow';
 import type { Personnel } from '../personnel.types';
 import { BUILT_IN_RANK_CATALOG } from '../rankCatalog';
-import { lastFirstSplitter } from './personnelImportColumns';
+import { lastFirstSplitter, personnelImportColumns } from './personnelImportColumns';
 import { createPersonnelImportLane, type PersonnelImportSource } from './personnelImportLane';
 
 const groups = [
@@ -195,6 +195,16 @@ describe('personnel import lane', () => {
 				['Smith', 'John', undefined],
 				['CPL', 'SMITH', undefined]
 			]);
+		});
+
+		it('writes a known rank back in front of a corrected name, so a retry file keeps it', () => {
+			const splitter = lastFirstSplitter<typeof personnelImportColumns>(BUILT_IN_RANK_CATALOG);
+			const corrected = splitter.join!({ lastName: 'Smith', firstName: 'Jane', rank: 'SGT' });
+
+			expect(corrected).toBe('SGT Smith, Jane');
+			expect(splitter.split(corrected)).toEqual({ lastName: 'Smith', firstName: 'Jane', rank: 'SGT' });
+			expect(splitter.join!({ lastName: 'Smith', firstName: 'Jane', rank: 'Staff Sgt' })).toBe('Smith, Jane');
+			expect(splitter.join!({ lastName: 'Smith', firstName: 'Jane' })).toBe('Smith, Jane');
 		});
 
 		it('keeps the whole word before the comma as the last name in every lane that has no rank catalog', () => {

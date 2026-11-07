@@ -102,8 +102,11 @@ export function lastFirstSplitter<C extends PersonNameColumns>(
 			return (withoutRank && rank ? { ...names, rank: rank[1] } : names) as Partial<Record<keyof C & string, string>>;
 		},
 		join: (values) => {
-			const { lastName, firstName }: Partial<Record<string, string>> = values;
-			return `${lastName ?? ''}, ${firstName ?? ''}`;
+			const { lastName, firstName, rank }: Partial<Record<string, string>> = values;
+			const name = `${lastName ?? ''}, ${firstName ?? ''}`;
+			const prefix = rank?.trim().replace(/\s+/g, ' ') ?? '';
+			const known = prefix && leadingRank?.exec(`${prefix} `)?.[0].length === prefix.length + 1;
+			return known ? `${prefix} ${name}` : name;
 		}
 	};
 }

@@ -104,6 +104,37 @@ export const expiredTraining: NeedsYouSource = (inputs) => {
 	});
 };
 
+export const dueSoonTraining: NeedsYouSource = (inputs) => {
+	const summary = inputs.page.trainingSummary;
+	if (!summary) return [];
+	const people = peopleById(inputs);
+	const typeNames = new Map(inputs.page.dashboard.data.trainingTypes.map((type) => [type.id, type.name]));
+	return summary.dueSoonByType.flatMap((due) => {
+		const duePeople = due.people.flatMap(({ personnelId, daysLeft }) => {
+			const person = people.get(personnelId);
+			return person ? [{ person, daysLeft }] : [];
+		});
+		if (duePeople.length === 0) return [];
+		const soonest = duePeople[0].daysLeft;
+		return {
+			kind: 'dueSoon' as const,
+			id: `dueSoon:${due.trainingTypeId}`,
+			trainingTypeId: due.trainingTypeId,
+			personnelIds: duePeople.map(({ person }) => person.id),
+			title: `${plural(duePeople.length, 'Soldier', 'Soldiers')} due on ${typeNames.get(due.trainingTypeId) ?? 'a removed training type'}`,
+			subtitle: nameList(duePeople.map(({ person }) => person.lastName)),
+			timing: formatDayOffset(soonest),
+			href: `${orgPath(inputs)}/training`,
+			action: recordClassAction(
+				inputs,
+				due.trainingTypeId,
+				duePeople.map(({ person }) => person)
+			),
+			urgency: { date: fromDayNumber(toDayNumber(inputs.today) + soonest) }
+		};
+	});
+};
+
 export const unfilledDuty: NeedsYouSource = (inputs) => {
 	return calendarLaneTypes(inputs.assignmentTypes).flatMap((type) => {
 		const openDates = openDutyDates(inputs, type);

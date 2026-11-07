@@ -97,7 +97,12 @@ function withoutRecorded(
 		const personnelIds = expired.personnelIds.filter((id) => !recorded.includes(id));
 		return personnelIds.length > 0 ? [{ ...expired, personnelIds }] : [];
 	});
-	return { ...training, expiredByType };
+	const dueSoonByType = training.dueSoonByType.flatMap((due) => {
+		if (due.trainingTypeId !== trainingTypeId) return [due];
+		const people = due.people.filter(({ personnelId }) => !recorded.includes(personnelId));
+		return people.length > 0 ? [{ ...due, people }] : [];
+	});
+	return { ...training, expiredByType, dueSoonByType };
 }
 
 /** Projects saved records onto the summary; counts the server derives wait for the refresh. */

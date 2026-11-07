@@ -207,6 +207,27 @@ describe('the Dashboard record overlay', () => {
 		]);
 	});
 
+	it('takes recorded People off their type in the due soon list and drops a type once nobody is left', () => {
+		const base = workspace([]);
+		const summary = expiredSummary([]);
+		summary.trainingSummary!.dueSoonByType = [
+			{
+				trainingTypeId: 'cpr',
+				people: [
+					{ personnelId: 'okafor', daysLeft: 4, status: 'warning-orange' },
+					{ personnelId: 'brooks', daysLeft: 40, status: 'warning-yellow' }
+				]
+			},
+			{ trainingTypeId: 'sharp', people: [{ personnelId: 'kim', daysLeft: 9, status: 'warning-orange' }] }
+		];
+		let overlay = put(null, base, { list: 'trainingCompletions', trainingTypeId: 'cpr', personnelIds: ['okafor'] });
+		overlay = put(overlay, base, { list: 'trainingCompletions', trainingTypeId: 'sharp', personnelIds: ['kim'] });
+
+		expect(overlayDashboardSummary(summary, base, overlay).trainingSummary?.dueSoonByType).toEqual([
+			{ trainingTypeId: 'cpr', people: [{ personnelId: 'brooks', daysLeft: 40, status: 'warning-yellow' }] }
+		]);
+	});
+
 	it('retires a Training save once a summary read that started after it has landed, and keeps a newer save', () => {
 		const base = workspace([]);
 		const staleServer = expiredSummary([{ trainingTypeId: 'cpr', personnelIds: ['okafor', 'brooks'] }]);

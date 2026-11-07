@@ -374,8 +374,10 @@ export class CalendarPageContext {
 	}
 
 	setCalendarGroupFilter(value: string): void {
-		this.#groupFilter = value || null;
-		this.#savePreferences({ groupFilter: this.#groupFilter });
+		const groupFilter = value || null;
+		if (groupFilter === this.#groupFilter) return;
+		this.#groupFilter = groupFilter;
+		this.#savePreferences({ groupFilter });
 	}
 
 	requestToday(): void {
@@ -449,9 +451,10 @@ export class CalendarPageContext {
 		const isCurrent = () => this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey;
 		try {
 			const outcome = await saveAvailabilityChange(change, { orgId, isCurrent });
-			if (outcome === 'saved' && change.kind === 'create' && isCurrent()) {
-				this.#lastStatusTypeId = change.record.statusTypeId;
-				this.#savePreferences({ lastStatusTypeId: change.record.statusTypeId });
+			const statusTypeId = change.kind === 'create' ? change.record.statusTypeId : null;
+			if (outcome === 'saved' && statusTypeId !== null && statusTypeId !== this.#lastStatusTypeId && isCurrent()) {
+				this.#lastStatusTypeId = statusTypeId;
+				this.#savePreferences({ lastStatusTypeId: statusTypeId });
 			}
 			return outcome;
 		} finally {

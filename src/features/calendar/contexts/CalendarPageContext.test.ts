@@ -507,6 +507,15 @@ describe('CalendarPageContext', () => {
 			expect(savePreferences).toHaveBeenCalledExactlyOnceWith({ lastStatusTypeId: 'sick' });
 		});
 
+		it('does not save the remembered status again when it has not changed', async () => {
+			ctx.syncUserPreferences(preferencesWith('sick'));
+			vi.mocked(availabilityStore.add).mockResolvedValueOnce({ id: 'saved-1', ...record });
+
+			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('saved');
+
+			expect(savePreferences).not.toHaveBeenCalled();
+		});
+
 		it('keeps the remembered status when a save is refused', async () => {
 			vi.spyOn(toastStore, 'error').mockImplementation(() => 0);
 			vi.mocked(availabilityStore.add).mockRejectedValueOnce(new StoreRequestError('refused', 422));
@@ -705,6 +714,7 @@ describe('CalendarPageContext', () => {
 		it('saves the picked Group and All as the remembered Group filter', () => {
 			const context = makeContext(mockData, org);
 
+			context.setCalendarGroupFilter('g2');
 			context.setCalendarGroupFilter('g2');
 			context.setCalendarGroupFilter('');
 

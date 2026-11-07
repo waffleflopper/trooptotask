@@ -488,6 +488,43 @@ describe('TrainingPageContext', () => {
 			}
 		});
 
+		it.each([
+			['g-2', 'g-2', '?group=g-2'],
+			['gone', '', '']
+		])(
+			'holds a URL Group of %s unapplied until the roster loads, then applies it or drops it',
+			async (param, selected, search) => {
+				const url = $state({ current: new URL(`http://localhost/org/org-1/training?group=${param}`) });
+				Object.defineProperty(pageMock, 'url', { get: () => url.current, configurable: true });
+				gotoMock.mockImplementation(async (target: string) => {
+					url.current = new URL(`http://localhost${target}`);
+				});
+				personnelRosterHydration.load([], 'other-org');
+				const ctx = makeContext(makeData(), makeOrg());
+				const stop = $effect.root(() => {
+					$effect(() => ctx.syncGroupParam());
+				});
+				try {
+					flushSync();
+					expect(ctx.selectedGroupId).toBe('');
+
+					personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
+					flushSync();
+					await new Promise((resolve) => setTimeout(resolve, 0));
+
+					expect(ctx.selectedGroupId).toBe(selected);
+					expect(url.current.search).toBe(search);
+				} finally {
+					stop();
+					Object.defineProperty(pageMock, 'url', {
+						value: new URL('http://localhost/org/org-1/training'),
+						writable: true,
+						configurable: true
+					});
+				}
+			}
+		);
+
 		it('keeps the record sheet param when the Group changes', () => {
 			pageMock.url = new URL('http://localhost/org/org-1/training?person=p-1');
 			pageMock.state = { trainingRecord: true };

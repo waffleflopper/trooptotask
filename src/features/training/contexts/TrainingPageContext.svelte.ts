@@ -494,9 +494,14 @@ export class TrainingPageContext {
 		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
 
 		this.#savedGroupId = selectedGroupId ?? '';
-		// A Group in the URL is the filter, ahead of the saved one.
-		const wanted = page.url.searchParams.get(GROUP_PARAM) || selectedGroupId;
-		this.selectedGroupId = wanted && (!groupsLoaded || !rosterLoaded || this.isValidGroupId(wanted)) ? wanted : '';
+		const groupsReady = groupsLoaded && rosterLoaded;
+		// A Group in the URL is the filter, ahead of the saved one. It is taken only once it checks out: an unchecked
+		// one would be cleared later from inside a reactive read, which Svelte rejects. syncGroupParam applies it then.
+		const urlGroupId = page.url.searchParams.get(GROUP_PARAM);
+		if (urlGroupId) this.selectedGroupId = groupsReady && this.isValidGroupId(urlGroupId) ? urlGroupId : '';
+		else
+			this.selectedGroupId =
+				selectedGroupId && (!groupsReady || this.isValidGroupId(selectedGroupId)) ? selectedGroupId : '';
 		this.selectedViewId =
 			selectedViewId && (!viewsLoaded || this.savedViewIds.has(selectedViewId)) ? selectedViewId : null;
 		this.viewMode = trainingPrefs?.matrixViewMode ?? 'by-group';

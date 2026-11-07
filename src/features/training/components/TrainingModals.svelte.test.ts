@@ -9,6 +9,12 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 vi.mock('$app/navigation', () => ({ beforeNavigate: vi.fn() }));
+const { loadRecordClassDialog } = vi.hoisted(() => ({ loadRecordClassDialog: vi.fn() }));
+vi.mock('$features/training', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$features/training')>();
+	loadRecordClassDialog.mockImplementation(actual.loadRecordClassDialog);
+	return { ...actual, loadRecordClassDialog };
+});
 
 import TrainingModals from './TrainingModals.svelte';
 
@@ -178,8 +184,7 @@ describe('TrainingModals Record class host', () => {
 	it('records only the checked Soldiers, leaving a current Soldier out until checked', async () => {
 		const { ctx, saved } = classContext();
 		const modals = openClass(ctx);
-		await screen.findByRole('dialog', { name: 'Record class' });
-		expect(screen.getByLabelText(/Brooks, Jalen/).getAttribute('aria-checked')).toBe('true');
+		expect((await screen.findByLabelText(/Brooks, Jalen/)).getAttribute('aria-checked')).toBe('true');
 		expect(screen.getByLabelText(/Diaz, Ana/).getAttribute('aria-checked')).toBe('false');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Record 1' }));
@@ -191,11 +196,20 @@ describe('TrainingModals Record class host', () => {
 		]);
 	});
 
+	it('offers Retry when the dialog fails to load, and opens it on Retry', async () => {
+		loadRecordClassDialog.mockRejectedValueOnce(new Error('chunk failed'));
+		const { ctx } = classContext();
+		openClass(ctx);
+
+		await fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+
+		expect((await screen.findByLabelText(/Brooks, Jalen/)).getAttribute('aria-checked')).toBe('true');
+	});
+
 	it('closes the dialog when the Organization changes, and a save that lands later opens nothing', async () => {
 		const { ctx, saved } = classContext();
 		const modals = openClass(ctx);
-		await screen.findByRole('dialog', { name: 'Record class' });
-		await fireEvent.click(screen.getByRole('button', { name: 'Record 1' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Record 1' }));
 
 		ctx.workspaceIsCurrent = false;
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());

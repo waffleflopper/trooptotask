@@ -74,20 +74,27 @@
 {/if}
 
 {#if classType}
-	{#await loadClassDialog() then { default: RecordClassDialog }}
-		<RecordClassDialog
-			trainingType={classType}
-			candidates={recordClassCandidates(classType, ctx.personnel, personnelTrainingsStore.items, ctx.readinessAsOf)}
-			groupFilter={{
-				options: ctx.groupFilterOptions,
-				initial: ctx.selectedGroupId,
-				personnelIdsIn: (groupId) => ctx.personnelIdsInGroup(groupId)
-			}}
-			today={ctx.readinessAsOf}
-			onSave={ctx.handleSaveTrainingBatch.bind(ctx)}
-			onClose={modals.closerFor('record-class')}
-		/>
-	{/await}
+	<LazySheet
+		load={loadClassDialog}
+		title="Record class"
+		presentation="dialog"
+		onClose={modals.closerFor('record-class')}
+	>
+		{#snippet children({ default: RecordClassDialog })}
+			<RecordClassDialog
+				trainingType={classType}
+				candidates={recordClassCandidates(classType, ctx.personnel, personnelTrainingsStore.items, ctx.readinessAsOf)}
+				groupFilter={{
+					options: ctx.groupFilterOptions,
+					initial: ctx.selectedGroupId,
+					personnelIdsIn: (groupId) => ctx.personnelIdsInGroup(groupId)
+				}}
+				today={ctx.readinessAsOf}
+				onSave={ctx.handleSaveTrainingBatch.bind(ctx)}
+				onClose={modals.closerFor('record-class')}
+			/>
+		{/snippet}
+	</LazySheet>
 {/if}
 
 {#if modals.isOpen('due-soon')}

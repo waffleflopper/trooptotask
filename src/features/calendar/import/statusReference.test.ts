@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import type { SavedRecord } from '$lib/components/patterns/import-flow';
 import type { StatusType } from '../contracts';
 import { statusReference } from './statusReference';
 
@@ -19,11 +20,15 @@ it('reports a status type as saved only when the create wrote one', async () => 
 		return status('tdy', name);
 	});
 
-	expect(await reference.create!.run(' leave ')).toEqual({
+	const saved: SavedRecord[] = [];
+	const record = (item: SavedRecord) => saved.push(item);
+
+	expect(await reference.create!.run(' leave ', record)).toEqual({
 		kind: 'created',
-		option: { id: 'leave', label: 'Leave', value: status('leave', 'Leave') },
-		saved: []
+		option: { id: 'leave', label: 'Leave', value: status('leave', 'Leave') }
 	});
-	expect(await reference.create!.run('TDY')).toMatchObject({ kind: 'created', saved: [{ id: 'tdy', label: 'TDY' }] });
+	expect(saved).toEqual([]);
+	expect(await reference.create!.run('TDY', record)).toMatchObject({ kind: 'created', option: { id: 'tdy' } });
+	expect(saved).toEqual([{ id: 'tdy', label: 'TDY' }]);
 	expect(written).toEqual(['TDY']);
 });

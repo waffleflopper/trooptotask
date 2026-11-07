@@ -4,7 +4,7 @@ import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ImportFlow from './import-flow.svelte';
 import { personnelColumns, personnelLane, type PersonnelChange } from './importFlow.test-support';
-import { defineImportLane, questionKey, type ChunkReply, type RowReview } from './types';
+import { defineImportLane, questionKey, type ChunkReply, type RowReview, type SavedRecord } from './types';
 import { go, historyEntry, invalidate, resetHistory } from './importFlowHistory.test-support.svelte';
 import { beforeNavigate } from '$app/navigation';
 import { toastStore } from '$lib/stores/toast.svelte';
@@ -136,10 +136,11 @@ describe('ImportFlow', () => {
 					...base.references.rank,
 					create: {
 						noun: { one: 'rank', other: 'ranks' },
-						run: async (name: string) => {
+						run: async (name: string, saved: (record: SavedRecord) => void) => {
 							created.push(name);
 							await view.rerender({ lane: withOption });
-							return { kind: 'created' as const, option, saved: [option] };
+							saved(option);
+							return { kind: 'created' as const, option };
 						}
 					}
 				}
@@ -504,9 +505,10 @@ describe('ImportFlow', () => {
 						...base.references.rank,
 						create: {
 							noun: { one: 'rank', other: 'ranks' },
-							run: async (name: string) => {
+							run: async (name: string, saved: (record: SavedRecord) => void) => {
 								const option = { id: name, label: name, value: name };
-								return { kind: 'created' as const, option, saved: [option] };
+								saved(option);
+								return { kind: 'created' as const, option };
 							}
 						}
 					}

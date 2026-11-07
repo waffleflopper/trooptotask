@@ -48,14 +48,14 @@ export function statusReference(
 		create: create
 			? {
 					noun: { one: 'status type', other: 'status types' },
-					run: async (name) => {
+					run: async (name, saved) => {
 						const wanted = statusName(name);
 						if (!wanted) return { kind: 'refused', message: 'Enter a status name.' };
 						const existing = byName.get(wanted);
 						const status = existing ?? (await create(name.trim()));
 						if (!status) return { kind: 'refused', message: 'Status types are being saved. Try again in a moment.' };
-						const created = statusOption(status);
-						return { kind: 'created', option: created, saved: existing ? [] : [created] };
+						if (!existing) saved({ id: status.id, label: status.name });
+						return { kind: 'created', option: statusOption(status) };
 					}
 				}
 			: undefined

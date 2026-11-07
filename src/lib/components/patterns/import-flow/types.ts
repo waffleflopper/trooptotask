@@ -66,9 +66,10 @@ export type ReferenceMatch<T> =
 
 export type ImportNoun = { one: string; other: string };
 
+export type SavedRecord = { id: string; label: string };
+
 export type CreateOptionResult<T> =
-	/** `saved` lists the records this call wrote; an existing record it resolved to is the option alone. */
-	| { kind: 'created'; option: ReferenceOption<T>; saved: readonly ReferenceOption<T>[] }
+	| { kind: 'created'; option: ReferenceOption<T> }
 	| { kind: 'refused'; message: string };
 
 export interface ImportReference<C extends ImportColumns, T> {
@@ -87,7 +88,8 @@ export interface ImportReference<C extends ImportColumns, T> {
 
 	create?: {
 		noun: ImportNoun;
-		run(name: string): Promise<CreateOptionResult<T>>;
+		/** Calls `saved` for each record it writes, as it writes it; a record it only resolved to is not saved. */
+		run(name: string, saved: (record: SavedRecord) => void): Promise<CreateOptionResult<T>>;
 	};
 }
 

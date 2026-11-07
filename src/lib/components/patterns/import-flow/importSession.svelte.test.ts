@@ -2,7 +2,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import { describe, expect, it, vi } from 'vitest';
 import { ImportSession } from './importSession.svelte';
 import { personnelLane, type PersonnelChange } from './importFlow.test-support';
-import { questionKey, type ChunkReply, type CreateOptionResult } from './types';
+import { questionKey, type ChunkReply, type CreateOptionResult, type SavedRecord } from './types';
 import { headerKey } from './workbookSource';
 
 function deferred<T>() {
@@ -209,7 +209,7 @@ describe('import session', () => {
 			...lane,
 			references: { rank: { ...lane.references.rank, options: [...lane.references.rank.options, option] } }
 		});
-		pending.resolve({ kind: 'created', option, saved: [option] });
+		pending.resolve({ kind: 'created', option });
 		expect(await creating).toBeNull();
 		expect(session.answers.get(key)).toEqual({ kind: 'pick', optionId: 'sergeant' });
 		expect(session.review.rows[0]).toMatchObject({ outcome: 'new', change: { rank: 'SGT' } });
@@ -223,7 +223,7 @@ describe('import session', () => {
 			references: {
 				rank: {
 					...base.references.rank,
-					create: { noun: RANKS, run: async () => ({ kind: 'created' as const, option, saved: [option] }) }
+					create: { noun: RANKS, run: async () => ({ kind: 'created' as const, option }) }
 				}
 			}
 		};
@@ -236,14 +236,22 @@ describe('import session', () => {
 	});
 	describe('records created during the session', () => {
 		const sergeant = { id: 'sergeant', label: 'Sergeant', value: 'SGT' };
-		function creatingLane(run: (name: string) => Promise<CreateOptionResult<string>>) {
+		type Run = (name: string, saved: (record: SavedRecord) => void) => Promise<CreateOptionResult<string>>;
+		function creatingLane(run: Run) {
 			const base = personnelLane();
 			return { ...base, references: { rank: { ...base.references.rank, create: { noun: RANKS, run } } } };
 		}
+		const writes =
+			(option: typeof sergeant): Run =>
+			async (_name, saved) => {
+				saved(option);
+				return { kind: 'created', option };
+			};
 		const key = questionKey({ reference: 'rank', key: 'sgt.' });
+		const twoRows = () => new File(['Last name,First name,Rank\nSmith,Alex,Sgt.\nJones,Pat,Sergt'], 'a.csv');
 
 		it('keeps listing what was created after the user chooses another file', async () => {
-			const lane = creatingLane(async () => ({ kind: 'created', option: sergeant, saved: [sergeant] }));
+			const lane = creatingLane(writes(sergeant));
 			const session = new ImportSession(() => lane);
 			await session.chooseFile([csv('Sgt.')]);
 			session.goTo('review');
@@ -262,14 +270,17 @@ describe('import session', () => {
 		});
 
 		it('lists a record whose create finished after the user chose another file, without answering for it', async () => {
-			const pending = deferred<CreateOptionResult<string>>();
-			const lane = creatingLane(() => pending.promise);
+			const written = deferred<void>();
+			const lane = creatingLane(async (name, saved) => {
+				await written.promise;
+				return writes(sergeant)(name, saved);
+			});
 			const session = new ImportSession(() => lane);
 			await session.chooseFile([csv('Sgt.')]);
 			session.goTo('review');
 			const creating = session.createOption(key, 'Sergeant');
 			await session.chooseFile([csv('Staff.')]);
-			pending.resolve({ kind: 'created', option: sergeant, saved: [sergeant] });
+			written.resolve();
 			await creating;
 
 			expect(session.created).toEqual([
@@ -279,14 +290,10 @@ describe('import session', () => {
 		});
 
 		it('lists a record once when two questions create the same one, and nothing for a refused create', async () => {
-			const replies: CreateOptionResult<string>[] = [
-				{ kind: 'created', option: sergeant, saved: [sergeant] },
-				{ kind: 'created', option: sergeant, saved: [sergeant] },
-				{ kind: 'refused', message: 'No.' }
-			];
-			const lane = creatingLane(async () => replies.shift()!);
+			const runs: Run[] = [writes(sergeant), writes(sergeant), async () => ({ kind: 'refused', message: 'No.' })];
+			const lane = creatingLane((name, saved) => runs.shift()!(name, saved));
 			const session = new ImportSession(() => lane);
-			await session.chooseFile([new File(['Last name,First name,Rank\nSmith,Alex,Sgt.\nJones,Pat,Sergt'], 'a.csv')]);
+			await session.chooseFile([twoRows()]);
 			session.goTo('review');
 			await session.createOption(key, 'Sergeant');
 			await session.createOption(questionKey({ reference: 'rank', key: 'sergt' }), 'Sergeant');
@@ -297,30 +304,30 @@ describe('import session', () => {
 			]);
 		});
 
-		it('lists every record a create saved, and nothing when it resolved to an existing one', async () => {
-			const platoon = { id: 'platoon', label: '1st Platoon', value: 'SGT' };
-			const squad = { id: 'squad', label: '1st Platoon › 2nd Squad', value: 'SGT' };
-			const replies: CreateOptionResult<string>[] = [
-				{ kind: 'created', option: sergeant, saved: [] },
-				{ kind: 'created', option: squad, saved: [platoon, squad] }
-			];
-			const lane = creatingLane(async () => replies.shift()!);
+		it('lists nothing for a create that resolved to an existing record', async () => {
+			const lane = creatingLane(async () => ({ kind: 'created', option: sergeant }));
 			const session = new ImportSession(() => lane);
-			await session.chooseFile([new File(['Last name,First name,Rank\nSmith,Alex,Sgt.\nJones,Pat,Sergt'], 'a.csv')]);
+			await session.chooseFile([csv('Sgt.')]);
 			session.goTo('review');
-			await session.createOption(key, 'Sergeant');
-			expect(session.created).toEqual([]);
 
-			await session.createOption(questionKey({ reference: 'rank', key: 'sergt' }), '1st Platoon / 2nd Squad');
+			expect(await session.createOption(key, 'Sergeant')).toBeNull();
+			expect(session.created).toEqual([]);
+		});
+
+		it('lists the records a create saved before a later write failed', async () => {
+			const lane = creatingLane(async (_name, saved) => {
+				saved({ id: 'platoon', label: '1st Platoon' });
+				throw new Error('The squad could not be saved.');
+			});
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([csv('Sgt.')]);
+			session.goTo('review');
+
+			expect(await session.createOption(key, '1st Platoon / 2nd Squad')).toEqual({
+				refused: 'The squad could not be saved.'
+			});
 			expect(session.created).toEqual([
-				{
-					reference: 'rank',
-					noun: RANKS,
-					records: [
-						{ id: 'platoon', label: '1st Platoon' },
-						{ id: 'squad', label: '1st Platoon › 2nd Squad' }
-					]
-				}
+				{ reference: 'rank', noun: RANKS, records: [{ id: 'platoon', label: '1st Platoon' }] }
 			]);
 		});
 	});
@@ -343,7 +350,7 @@ describe('import session', () => {
 		const key = questionKey({ reference: 'rank', key: 'sgt.' });
 		const creating = session.createOption(key, 'Sergeant');
 		session.startOver();
-		pending.resolve({ kind: 'created', option: { id: 'new', label: 'Sergeant', value: 'SGT' }, saved: [] });
+		pending.resolve({ kind: 'created', option: { id: 'new', label: 'Sergeant', value: 'SGT' } });
 		await creating;
 		expect(session.answers.size).toBe(0);
 		expect(session.phase.step).toBe('file');

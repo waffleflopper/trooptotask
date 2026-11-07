@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { groupCatalogHydration, groupManagementStore } from '../stores/groups.svelte';
+import type { SavedRecord } from '$lib/components/patterns/import-flow';
 import { groupReference } from './personnelReferences';
 import type { Group } from '../group.types';
 
@@ -20,8 +21,14 @@ it('creates missing import Groups at the root while deduplicating only existing 
 	);
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
 	if (!reference.create) throw new Error('Expected an import creation command');
-	expect(await reference.create.run('Alpha')).toMatchObject({ kind: 'created', option: { id: 'root-alpha' } });
-	expect(await reference.create.run(' alpha ')).toMatchObject({ kind: 'created', option: { id: 'root-alpha' } });
+	expect(await reference.create.run('Alpha', () => {})).toMatchObject({
+		kind: 'created',
+		option: { id: 'root-alpha' }
+	});
+	expect(await reference.create.run(' alpha ', () => {})).toMatchObject({
+		kind: 'created',
+		option: { id: 'root-alpha' }
+	});
 	expect(new Map(groupManagementStore.items.map((group) => [group.id, group.parentId]))).toEqual(
 		new Map([
 			['platoon', null],
@@ -86,21 +93,22 @@ it('creates a missing path one level at a time, reusing the levels that exist', 
 		})
 	);
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
+	const saved: SavedRecord[] = [];
+	const record = (item: SavedRecord) => saved.push(item);
 
-	expect(await reference.create!.run('1st Platoon / 2nd Squad / Bravo Team')).toMatchObject({
+	expect(await reference.create!.run('1st Platoon / 2nd Squad / Bravo Team', record)).toMatchObject({
 		kind: 'created',
-		option: { id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' },
-		saved: [
-			{ id: 'new-2nd Squad', label: '1st Platoon › 2nd Squad' },
-			{ id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' }
-		]
+		option: { id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' }
 	});
-	expect(await reference.create!.run('1st Platoon / 1st Squad / Alpha Team')).toMatchObject({
+	expect(await reference.create!.run('1st Platoon / 1st Squad / Alpha Team', record)).toMatchObject({
 		kind: 'created',
-		option: { id: 'p1-sq1-alpha' },
-		saved: []
+		option: { id: 'p1-sq1-alpha' }
 	});
-	expect(await reference.create!.run('A / B / C / D')).toEqual({
+	expect(saved).toMatchObject([
+		{ id: 'new-2nd Squad', label: '1st Platoon › 2nd Squad' },
+		{ id: 'new-Bravo Team', label: '1st Platoon › 2nd Squad › Bravo Team' }
+	]);
+	expect(await reference.create!.run('A / B / C / D', record)).toEqual({
 		kind: 'refused',
 		message: 'Groups can nest at most three levels deep.'
 	});
@@ -128,29 +136,46 @@ it('waits for the confirmed shared parent when missing paths are created togethe
 		})
 	);
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
-	const alpha = reference.create!.run('New Platoon / Alpha Team');
+	const saved: Record<'alpha' | 'bravo' | 'sameAlpha', string[]> = { alpha: [], bravo: [], sameAlpha: [] };
+	const into = (list: string[]) => (item: SavedRecord) => list.push(item.id);
+	const alpha = reference.create!.run('New Platoon / Alpha Team', into(saved.alpha));
 	await parentPosted.promise;
 	const refreshed = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
-	const bravo = refreshed.create!.run('New Platoon / Bravo Team');
-	const sameAlpha = refreshed.create!.run('New Platoon / Alpha Team');
+	const bravo = refreshed.create!.run('New Platoon / Bravo Team', into(saved.bravo));
+	const sameAlpha = refreshed.create!.run('New Platoon / Alpha Team', into(saved.sameAlpha));
 	parentReply.resolve(
 		Response.json({ id: 'saved-platoon', name: 'New Platoon', parentId: null, depth: 1, sortOrder: 0 })
 	);
 
 	expect(await Promise.all([alpha, bravo, sameAlpha])).toMatchObject([
-		{
-			kind: 'created',
-			option: { id: 'saved-Alpha Team' },
-			saved: [{ id: 'saved-platoon' }, { id: 'saved-Alpha Team' }]
-		},
-		{ kind: 'created', option: { id: 'saved-Bravo Team' }, saved: [{ id: 'saved-Bravo Team' }] },
-		{ kind: 'created', option: { id: 'saved-Alpha Team' }, saved: [] }
+		{ kind: 'created', option: { id: 'saved-Alpha Team' } },
+		{ kind: 'created', option: { id: 'saved-Bravo Team' } },
+		{ kind: 'created', option: { id: 'saved-Alpha Team' } }
 	]);
+	expect(saved).toEqual({ alpha: ['saved-platoon', 'saved-Alpha Team'], bravo: ['saved-Bravo Team'], sameAlpha: [] });
 	expect(sent).toEqual([
 		{ name: 'New Platoon', parentId: null },
 		{ name: 'Alpha Team', parentId: 'saved-platoon' },
 		{ name: 'Bravo Team', parentId: 'saved-platoon' }
 	]);
+});
+
+it('reports a saved parent Group when a later level of the path fails', async () => {
+	groupCatalogHydration.load([], 'org-1');
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async (_url, init) => {
+			const body = JSON.parse(init.body);
+			return body.name === 'New Squad'
+				? Response.json({ message: 'Group could not be saved.' }, { status: 500 })
+				: Response.json({ ...body, id: `saved-${body.name}` });
+		})
+	);
+	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
+	const saved: SavedRecord[] = [];
+
+	await expect(reference.create!.run('New Platoon / New Squad', (item) => saved.push(item))).rejects.toThrow();
+	expect(saved).toMatchObject([{ id: 'saved-New Platoon', label: 'New Platoon' }]);
 });
 
 it('creates below the longest existing export path, preserving a legacy parent name', async () => {
@@ -166,7 +191,7 @@ it('creates below the longest existing export path, preserving a legacy parent n
 	);
 	const reference = groupReference(groupManagementStore.items, { canCreate: true, allowUnassigned: true });
 
-	expect(await reference.create!.run('Clinic / Lab / Alpha Team')).toMatchObject({
+	expect(await reference.create!.run('Clinic / Lab / Alpha Team', () => {})).toMatchObject({
 		kind: 'created',
 		option: { id: 'saved-Alpha Team', label: 'Clinic / Lab › Alpha Team' }
 	});

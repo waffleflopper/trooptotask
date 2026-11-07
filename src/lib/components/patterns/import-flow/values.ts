@@ -16,21 +16,20 @@ function isoDate(year: number, month: number, day: number): IsoDate | null {
 	return date.toISOString().slice(0, 10) as IsoDate;
 }
 
+function fullYear(digits: string): number {
+	return digits.length === 2 ? 2000 + Number(digits) : Number(digits);
+}
+
 export function parseImportDate(raw: string, system: DateSystem = {}): IsoDate | null {
 	const text = raw.trim();
 	let match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
 	if (match) return isoDate(Number(match[1]), Number(match[2]), Number(match[3]));
-	match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text);
-	if (match) return isoDate(Number(match[3]), Number(match[1]), Number(match[2]));
+	match = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(text);
+	if (match) return isoDate(fullYear(match[3]), Number(match[1]), Number(match[2]));
+	match = /^(\d{4})(\d{2})(\d{2})$/.exec(text);
+	if (match) return isoDate(Number(match[1]), Number(match[2]), Number(match[3]));
 	match = /^(\d{1,2})\s*([a-z]{3})\s*(\d{2}|\d{4})$/i.exec(text);
-	if (match) {
-		const year = Number(match[3]);
-		return isoDate(
-			match[3].length === 2 ? 2000 + year : year,
-			MONTHS.indexOf(match[2].toLowerCase()) + 1,
-			Number(match[1])
-		);
-	}
+	if (match) return isoDate(fullYear(match[3]), MONTHS.indexOf(match[2].toLowerCase()) + 1, Number(match[1]));
 	if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
 	const serial = Math.floor(Number(text));
 	if (!Number.isSafeInteger(serial) || serial < (system.date1904 ? 0 : 1) || (!system.date1904 && serial === 60))

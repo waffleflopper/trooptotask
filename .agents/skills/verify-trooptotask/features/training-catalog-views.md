@@ -6,7 +6,13 @@ definitions.
 
 ## Sub-features
 
-- `catalog`: create, edit, order and delete Training types while preserving their IDs and retained completion references
+- `catalog`: create, edit, order, archive, restore and delete Training types while preserving their IDs and retained
+  completion references
+- `catalog-archive`: `Archive type` in the type sheet is the cleanup for a type with records. Its records stay. The type
+  leaves the matrix columns, saved view pickers, record pickers and readiness counts, and still shows on reports. A
+  collapsed `ARCHIVED N` section on Manage Types lists archived types with `N RECORDS`, `Restore <name>` and `Delete
+<name>` only at 0 records. The server refuses a delete of a type with records (`409`). Only an Organization-wide
+  configurator sees the section or can archive, restore or delete.
   on ordinary edits.
 - `applicability`: Everyone, Optional and targeted role/MOS/rank rules determine whether a Person is required to
   complete a type; exclusions win over targeting.
@@ -153,10 +159,20 @@ Focus View orders Targeted before Required and omits Optional.
    `WorkspaceLoadError` (`Unable to load Training` with `Retry Training`), never a stuck skeleton or a thrown render,
    and Retry recovers after `server-source restore`. A client-side visit from the matrix does not reload the source, so
    it cannot trigger this.
-7. **Type delete, order and the Manage views sheet:** As `trainingConfigure`, create a uniquely named type, open its
-   sheet and choose `Delete type`: the `Delete Training Type` alertdialog names the type. Cancel first and require the
-   sheet and focus on the opening control to remain; then confirm and require the sheet closed, the row gone and
-   `$V rows training_types orgA name MARKER` to be absent, with focus on the `New type` button. Reorder: grab a row's
+7. **Type archive, delete, order and the Manage views sheet:** As `trainingConfigure`, open `Verification Required
+Training` (it has Able's completion). The sheet footer offers `Archive type`, not `Delete type`. Choose it: the
+   `Archive Training Type` alertdialog says the records stay and the type leaves the matrix, record pickers and
+   readiness counts. Confirm. The row leaves the list, `ARCHIVED 1` appears and opens to `· 1 RECORD` with `Restore` and
+   no `Delete`. The Training matrix no longer has that column; reload keeps it archived. An authenticated
+   `PUT /org/<orgA>/api/training-types/archive` as `trainingView` must return `403`, as must `GET .../usage`, and the
+   view-only page shows no Archived section. Arm `$V network arm-fail $PAGE training-types/usage`, archive the type and
+   open `ARCHIVED`: the alert `Could not load how many records each type has. Restore still works.` shows with
+   `Try again`; `Restore` still works and `Try again` recovers after `network restore`. `network arm-hold` on the same
+   family shows a skeleton until `network release`. `Restore` returns the type in its old column position. Then create a
+   uniquely named type, archive it and confirm `0 RECORDS` with `Delete`: the `Delete Training Type` alertdialog says it
+   has no training records and cannot be undone. Cancel first and require the Archived section to remain; then confirm
+   and require the row gone and `$V rows training_types orgA name MARKER` to be absent. Hold 390 px and 1280 px
+   without horizontal scroll. Reorder: grab a row's
    grip (`Reorder <name>`) and press ArrowUp, or drag it with
    `$V pointer drag PAGE URL '[aria-label="Reorder <name>"]' '[aria-label="Reorder <other>"]'`; the row moves up and the
    matrix column order follows after a reload, and `training_types.sort_order` reads the new order. With
@@ -267,10 +283,10 @@ through `$V rows training_types orgA|orgB name MARKER` or `$V rows training_view
 - Clearing the Description textbox with `tool fill` can empty its DOM value without updating Svelte's bound value. Use
   focused keyboard selection and deletion, then inspect the save request body when diagnosing a discrepancy. The server
   accepts `description: null` and persists null.
-- Deleting a type removes its completions from the loaded matrix without a reload, matching the server cascade. A type
-  deletion that needs approval keeps them.
-- A seeded Training type deletion can remove associated completions. Delete only rows created during this journey;
-  restart this owned worker if a seeded row changes before another scenario needs it.
+- A type with completions cannot be deleted; the database refuses it and the route answers `409`. Archive is the
+  cleanup. An approved deletion request for such a type also fails with `409` and the request stays pending.
+- Archiving and restoring a seeded type is reversible. Delete only rows created during this journey; restart this owned
+  worker if a seeded row is deleted before another scenario needs it.
 - `clean-seeds` removes helper-created temporary rows, not types or views created through the UI. Delete UI-created rows
   visibly and read back their absence before cleanup.
 - Direct API and provider reads are not substitutes for browser interaction.

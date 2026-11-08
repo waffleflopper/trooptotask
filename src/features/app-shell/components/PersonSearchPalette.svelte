@@ -1,16 +1,12 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import * as Command from '$lib/components/ui/command';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { matchesPersonSearch, type PersonSearchEntry } from '$features/personnel/contracts';
 	import { personnelRecordHref } from '$features/personnel/personnelRecordHref';
-	import {
-		closePersonSearch,
-		openPersonFromSearch,
-		openPersonSearch,
-		togglePersonSearch
-	} from '../personSearchNavigation';
+	import { closePersonSearch, openPersonSearch, togglePersonSearch } from '../personSearchNavigation';
 
 	interface Props {
 		orgId: string;
@@ -24,11 +20,11 @@
 	let query = $state('');
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
 	let retryCount = $state(0);
-	let leaving = $state(false);
+	let recordHref = $state<string | null>(null);
 	// One index per Organization, kept while the shell is mounted and refreshed in the background on every open.
 	let index = $state<{ orgId: string; people: PersonSearchEntry[] } | null>(null);
 
-	const open = $derived(page.state.personSearch === true && !leaving);
+	const open = $derived(page.state.personSearch === true);
 	const people = $derived(index?.orgId === orgId ? index.people : []);
 	const matches = $derived(people.filter((person) => matchesPersonSearch(person, query)));
 	const shown = $derived(matches.slice(0, MAX_RESULTS));
@@ -54,7 +50,11 @@
 	$effect(() => {
 		if (page.state.personSearch !== true) {
 			query = '';
-			leaving = false;
+			if (recordHref) {
+				const href = recordHref;
+				recordHref = null;
+				void goto(href);
+			}
 		}
 	});
 
@@ -74,8 +74,8 @@
 	}
 
 	function select(person: PersonSearchEntry) {
-		leaving = true;
-		void openPersonFromSearch(personnelRecordHref(orgUrlSegment, person)).finally(() => (leaving = false));
+		recordHref = personnelRecordHref(orgUrlSegment, person);
+		closePersonSearch();
 	}
 
 	let shortcut = $state('⌘K');

@@ -219,14 +219,16 @@ describe('person search palette', () => {
 		expect(screen.queryByRole('option', { name: /Smith/ })).toBeNull();
 	});
 
-	it('opens the chosen record in place of the palette entry, so Back skips the palette', async () => {
+	it('closes the palette before opening the chosen record, so Back from the record skips the palette', async () => {
 		renderPalette();
 		await openPalette();
 		expect(historyLength()).toBe(2);
 
 		await fireEvent.click(await screen.findByRole('option', { name: /SGT Smith, John/ }));
 
-		await waitFor(() => expect(navigations).toEqual([{ href: '/org/alpha/personnel/smith-john', replaceState: true }]));
+		await waitFor(() =>
+			expect(navigations).toEqual([{ href: '/org/alpha/personnel/smith-john', replaceState: undefined }])
+		);
 		expect(historyLength()).toBe(2);
 		await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull());
 		await act(() => go(-1));

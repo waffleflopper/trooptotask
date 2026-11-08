@@ -62,6 +62,11 @@
 
 	untrack(() => (request.kind === 'edit' ? startEdit(request.entry) : resetForm()));
 
+	// Starter types can be added from the empty picker while the dialog stays open.
+	$effect(() => {
+		if (!selectedStatusId && statusTypes.length > 0) selectedStatusId = defaultStatusTypeId || statusTypes[0].id;
+	});
+
 	const dateDisplay = $derived(
 		parseDate(dateStr).toLocaleDateString('en-US', {
 			weekday: 'long',
@@ -216,7 +221,7 @@
 						{/if}
 					</div>
 					{#if statusTypes.length === 0}
-						<Field.Description><CalendarTypesEmptyState kind="status" /></Field.Description>
+						<div class="text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></div>
 					{/if}
 				</Field.Root>
 

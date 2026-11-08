@@ -22,6 +22,7 @@
 	import { trainingTypeDraftFrom } from '$features/training/utils/trainingTypeDraft';
 	import type { TrainingType } from '$features/training/training.types';
 	import TrainingTypeSheet from './TrainingTypeSheet.svelte';
+	import TrainingTypeSuggestions from './TrainingTypeSuggestions.svelte';
 
 	let {
 		data,
@@ -237,6 +238,9 @@
 						</Empty.Content>
 					{/if}
 				</Empty.Root>
+				{#if canMutate}
+					<TrainingTypeSuggestions {org} onNewType={(event) => openSheet({ type: null }, event.currentTarget)} />
+				{/if}
 			{:else}
 				{#snippet rowCells(type: TrainingType)}
 					<div class="flex min-w-0 items-start gap-3">

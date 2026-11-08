@@ -8,6 +8,7 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 const { invalidateMock } = vi.hoisted(() => ({ invalidateMock: vi.fn() }));
@@ -171,6 +172,172 @@ describe('TrainingTypesPage', () => {
 			expect(screen.getByRole('status', { name: 'Loading training types' })).toBeTruthy();
 			expect(screen.queryByText('No training types yet.')).toBeNull();
 			expect((screen.getByRole('button', { name: 'New type' }) as HTMLButtonElement).disabled).toBe(true);
+		});
+	});
+
+	describe('starter training types', () => {
+		const calls: { method: string; body: Record<string, unknown> | null }[] = [];
+		function stubSuggestions(branch: string | null, post: () => Response = () => Response.json(created)) {
+			calls.length = 0;
+			vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
+				const method = init?.method ?? 'GET';
+				calls.push({ method, body: init?.body ? JSON.parse(init.body as string) : null });
+				return method === 'GET' ? Response.json({ branch }) : post();
+			});
+		}
+		const created = { created: [], skipped: [], failed: [], trainingTypes: [] };
+		const add = () => screen.getByRole('button', { name: /^Add \d+ training type/ });
+
+		it('offers the Army list on an empty catalog and adds the checked types', async () => {
+			stubSuggestions('army');
+			mount([]);
+
+			await fireEvent.click(await screen.findByRole('checkbox', { name: /^OPSEC/ }));
+			await fireEvent.click(add());
+
+			await waitFor(() => expect(calls.some(({ method }) => method === 'POST')).toBe(true));
+			const post = calls.find(({ method }) => method === 'POST');
+			expect(post?.body).toEqual({
+				branch: 'army',
+				suggestionIds: ['sharp', 'eo', 'ace', 'cyber-awareness', 'tarp', 'at-level-i', 'ctip']
+			});
+		});
+
+		it('lists the saved types without a reload and stops offering them', async () => {
+			stubSuggestions('army', () =>
+				Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }] })
+			);
+			mount([]);
+
+			await fireEvent.click(await screen.findByRole('checkbox', { name: /^OPSEC/ }));
+			await fireEvent.click(add());
+
+			await waitFor(() => expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']));
+			expect(screen.queryByRole('checkbox', { name: /^SHARP/ })).toBeNull();
+			expect(invalidateMock).not.toHaveBeenCalled();
+		});
+
+		it('keeps the picks and shows the reason when the add fails', async () => {
+			stubSuggestions('army', () => Response.json({ message: 'Training is unavailable' }, { status: 500 }));
+			mount([]);
+
+			await fireEvent.click(await screen.findByRole('checkbox', { name: /^SHARP/ }));
+			await fireEvent.click(add());
+
+			expect((await screen.findByRole('alert')).textContent).toContain('Training is unavailable');
+			expect((add() as HTMLButtonElement).disabled).toBe(false);
+			expect(invalidateMock).not.toHaveBeenCalled();
+			expect(screen.getByRole('checkbox', { name: /^SHARP/ }).getAttribute('aria-checked')).toBe('false');
+		});
+
+		it('offers no list for a branch without one', async () => {
+			stubSuggestions('navy');
+			mount([]);
+
+			await waitFor(() => expect(calls).toHaveLength(1));
+			await new Promise((resolve) => setTimeout(resolve));
+			expect(screen.queryByRole('checkbox')).toBeNull();
+			expect(screen.getByText('No training types yet.')).toBeTruthy();
+		});
+
+		it('names the starter types a partial save could not create after the offer closes', async () => {
+			const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+			stubSuggestions('army', () =>
+				Response.json({
+					...created,
+					failed: [{ id: 'eo', name: 'Equal Opportunity', expirationMonths: 12, message: 'Try again.' }],
+					trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }]
+				})
+			);
+			mount([]);
+
+			await screen.findByRole('checkbox', { name: /^SHARP/ });
+			await fireEvent.click(add());
+
+			await waitFor(() => expect(error).toHaveBeenCalledWith(expect.stringContaining('Equal Opportunity')));
+			expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']);
+		});
+
+		it('keeps the saved starter types when the page is left during the save', async () => {
+			let reply: (response: Response) => void = () => {};
+			stubSuggestions('army', () => Response.json(created));
+			const lookUpBranch = globalThis.fetch;
+			vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+				init?.method === 'POST' ? new Promise<Response>((resolve) => (reply = resolve)) : lookUpBranch(url, init)
+			);
+			const { unmount } = mount([]);
+
+			await screen.findByRole('checkbox', { name: /^SHARP/ });
+			await fireEvent.click(add());
+			unmount();
+			reply(Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }] }));
+
+			await waitFor(() => expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']));
+		});
+
+		it('keeps a type saved while the starter save was pending', async () => {
+			let reply: (response: Response) => void = () => {};
+			stubSuggestions('army');
+			const lookUpBranch = globalThis.fetch;
+			vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+				init?.method === 'POST' ? new Promise<Response>((resolve) => (reply = resolve)) : lookUpBranch(url, init)
+			);
+			mount([]);
+
+			await screen.findByRole('checkbox', { name: /^SHARP/ });
+			await fireEvent.click(add());
+			trainingTypesStore.load([cpr], 'org-1');
+			reply(Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 1 }] }));
+
+			await waitFor(() =>
+				expect(trainingTypesStore.items.map(({ name }) => name).sort()).toEqual([cpr.name, 'SHARP'].sort())
+			);
+		});
+
+		it('drops a starter save that settles after the user left the Organization', async () => {
+			let reply: (response: Response) => void = () => {};
+			stubSuggestions('army');
+			const lookUpBranch = globalThis.fetch;
+			vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+				init?.method === 'POST' ? new Promise<Response>((resolve) => (reply = resolve)) : lookUpBranch(url, init)
+			);
+			const { unmount } = mount([]);
+
+			await screen.findByRole('checkbox', { name: /^SHARP/ });
+			await fireEvent.click(add());
+			unmount();
+			endOrganizationLifetime();
+			trainingTypesStore.load([cpr], 'org-1');
+			reply(Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }] }));
+			await new Promise((resolve) => setTimeout(resolve));
+
+			expect(trainingTypesStore.items.map(({ name }) => name)).toEqual([cpr.name]);
+		});
+
+		it('explains a failed branch lookup and offers the list after a retry', async () => {
+			let lookups = 0;
+			vi.stubGlobal('fetch', async () =>
+				++lookups === 1
+					? Response.json({ message: 'Setup is unavailable' }, { status: 500 })
+					: Response.json({ branch: 'army' })
+			);
+			mount([]);
+
+			expect((await screen.findByRole('alert')).textContent).toContain('Setup is unavailable');
+			await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+			expect(await screen.findByRole('checkbox', { name: /^SHARP/ })).toBeTruthy();
+			expect(screen.queryByRole('alert')).toBeNull();
+		});
+
+		it('does not look up a branch for someone who cannot configure Training', async () => {
+			stubSuggestions('army');
+			mount([], accessFor(false));
+
+			await new Promise((resolve) => setTimeout(resolve));
+			expect(calls).toEqual([]);
+			expect(screen.queryByRole('checkbox')).toBeNull();
+			expect(screen.getByText('No training types yet.')).toBeTruthy();
 		});
 	});
 

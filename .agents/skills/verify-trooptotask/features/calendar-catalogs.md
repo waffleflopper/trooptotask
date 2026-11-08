@@ -448,17 +448,36 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       cards stack, the row wraps its effect text, and `document.documentElement.scrollWidth` equals `innerWidth`.
     - Delete `Verification AWOL` through its Delete confirmation. Set `Verification Leave` back to `Away` so later steps
       read the seeded effect.
-14. **Empty-state setup links.** Where a Calendar surface has no status types or no assignment types, it says
-    `No status types yet.` or `No assignment types yet.` For a viewer with Calendar configure access it ends with a
-    `Set up status types` or `Set up assignment types` link to `/org/ORG/calendar/settings?section=status` or
-    `?section=assignments`; for anyone else it says `Ask someone who manages Calendar settings to add one.` The surfaces
-    are the quick-add popover and the availability dialog (status types), the Bulk Status Add summary (status types),
-    the Daily Assignments dialog and the duty planner (assignment types). The settings link opens on the named tab, and
-    `?section=closures` opens `Holidays & closures`; an unknown value opens `Status Types`. To reach them, as
-    `calendarConfigure` delete every status type and assignment type through their Delete confirmations (`restart`
-    restores the fixture), then open Bulk Status, a Calendar day's `Set Personnel Status` dialog and `Daily Assignments`
-    dialog, and the Duty planner; `calendarOperate` sees the `Ask someone` wording. Capture one status-type and one
-    assignment-type empty state at 1280 px and 390 px, follow each link and read the selected tab.
+14. **Empty-state starter types.** A new Organization has no status or assignment types. Where a Calendar surface has
+    none, it says `No status types yet.` or `No assignment types yet.` For a viewer with Calendar configure access the
+    surface then lists the starter types in the shared suggestion panel, all checked: the 7 statuses (Leave, School,
+    Training / TDY, Appointment, Sick, Other Duty / Detail, CQ/SD) or the 1 assignment (Staff Duty), each with its
+    color swatch, an `Add N statuses` or `Add N assignment types` button and a `Set up status types yourself` link to
+    `/org/ORG/calendar/settings?section=status` or `?section=assignments` (the Calendar settings tabs omit that link,
+    and the Organization setup wizard embeds the same tabs without the offer, since its own panel above them lists the
+    same rows). Anyone else reads `Ask someone who manages Calendar settings to add one.` and no rows. The surfaces are
+    the quick-add popover and the availability dialog (status types), Bulk Status Add (status types: the `Status` field
+    offers the panel and the summary bar reads `Choose a status to add.`), the Daily Assignments dialog and the duty
+    planner (assignment types), and the Calendar settings `Status Types` tab and the `On the calendar` lane list of the
+    `Assignment Types` tab (the `Duty planner only` list keeps `No assignment types yet.`, so the offer shows once).
+    The settings link opens on the named tab, and `?section=closures` opens `Holidays & closures`; an unknown value
+    opens `Status Types`.
+
+- **Reach them.** On a new Organization (or as `calendarConfigure` after deleting every status and assignment type
+  through their Delete confirmations; `restart` restores the fixture) open each surface above. A member invited with
+  the `Operator` preset (invite `orgInvitee` from Settings › Members, then accept on `/dashboard`) sees the
+  `Ask someone` wording and no rows.
+- **Add.** Choose `Add 7 statuses`: the button disables with a spinner, then the surface becomes the picker or list
+  with the 7 types, no reload, and the dialog or popover it was in stays open. `$V rows status_types orgA` lists
+  them, and adding again offers nothing. In the assignments case `Add 1 assignment type` creates Staff Duty, which
+  the settings tab lists under `Duty planner only`. Unchecking a row and the failed-request alert are covered by the
+  component tests; a live `$V network arm-fail` run is not recorded. As a member with `Operator` access, the same
+  `POST /org/ORG/api/calendar-suggestions` answers 403.
+- **Layout.** Capture a status-type and an assignment-type empty state in the popover, a dialog, Bulk Status Add and
+  the settings tab at 1280 px and 390 px. At 390 px the panel shows 3 rows and `Show 4 more` (the settings tab, the
+  dialog and Bulk Status Add); the 340 px quick-add popover also shows 3 rows and `Show 4 more`. At 1280 px the
+  settings tab and the availability dialog show two columns of 7 rows. `document.documentElement.scrollWidth` equals
+  `innerWidth`.
 
 ## Gotchas
 

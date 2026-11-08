@@ -2,7 +2,7 @@
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { getSetupStepSupport } from './featureStepSupport';
-	import SetupFeaturePanel from './SetupFeaturePanel.svelte';
+	import { PanelSection } from '$lib/components/patterns/panel-section';
 	import SetupFeatureStep from './SetupFeatureStep.svelte';
 	import { getSetupFlow } from './setupFlow.svelte';
 
@@ -18,7 +18,7 @@
 	laterHint="Critical tasks stays on, empty. Owners and admins see a reminder on the Dashboard until it has a task."
 >
 	{#snippet setUp()}
-		<SetupFeaturePanel title="Task library">
+		<PanelSection title="Task library">
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
 				<p class="flex-1 text-sm leading-5 text-muted-foreground">
 					Add task lists and their tasks, then record sign-offs person by person.
@@ -28,6 +28,6 @@
 					<Button variant="outline" href="{flow.dashboardHref}/critical-tasks/library">Open the task library</Button>
 				{/if}
 			</div>
-		</SetupFeaturePanel>
+		</PanelSection>
 	{/snippet}
 </SetupFeatureStep>

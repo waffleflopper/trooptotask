@@ -7,9 +7,9 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { getSetupStepSupport, type SetupTrainingTypeCatalog } from './featureStepSupport';
-	import SetupFeaturePanel from './SetupFeaturePanel.svelte';
+	import { PanelSection } from '$lib/components/patterns/panel-section';
+	import { SuggestionPanel } from '$lib/components/patterns/suggestion-panel';
 	import SetupFeatureStep from './SetupFeatureStep.svelte';
-	import SetupSuggestionPanel from './SetupSuggestionPanel.svelte';
 	import { getSetupFlow } from './setupFlow.svelte';
 
 	type Catalog =
@@ -132,7 +132,7 @@
 				› Members.
 			</p>
 		{:else if suggestions.length === 0}
-			<SetupFeaturePanel title="Training types">
+			<PanelSection title="Training types">
 				{@render loadError()}
 				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
 					<p class="flex-1 text-sm leading-5 text-muted-foreground">
@@ -160,9 +160,9 @@
 				{:else}
 					{@render typeRows(types)}
 				{/if}
-			</SetupFeaturePanel>
+			</PanelSection>
 		{:else}
-			<SetupSuggestionPanel
+			<SuggestionPanel
 				title="Common Army annual training"
 				{suggestions}
 				{unpicked}
@@ -200,7 +200,7 @@
 						{@render typeRows(ownTypes)}
 					</div>
 				{/if}
-			</SetupSuggestionPanel>
+			</SuggestionPanel>
 		{/if}
 	{/snippet}
 </SetupFeatureStep>

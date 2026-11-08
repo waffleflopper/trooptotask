@@ -523,7 +523,7 @@
 	</section>
 {:else if table.columns.length === 0}
 	<section class="rounded-lg border bg-card px-5 py-6 text-sm text-muted-foreground">
-		<p><CalendarTypesEmptyState kind="assignments" /></p>
+		<div><CalendarTypesEmptyState kind="assignments" /></div>
 	</section>
 {:else}
 	{#if staleAssignments}

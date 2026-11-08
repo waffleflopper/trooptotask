@@ -233,6 +233,17 @@ Focus View orders Targeted before Required and omits Optional.
      `$V server-source arm personnel_trainings fail-hard` a full load of `/training` shows `Unable to load Training`
      with `Retry Training` instead of the matrix, so the sheet is unreachable; `server-source restore` recovers.
 
+10. **Starter training types on an empty catalog:** On a new Organization with branch Army (set it from setup's Welcome
+    step, or `POST /org/<seg>/api/organization/setup/branch` with `{branch:'army'}`), open Training › Manage types as
+    the owner or `trainingConfigure`. Expect `No training types yet.` and, once the branch lookup returns, the
+    `Common Army annual training` panel below it with 8 checked rows tagged `12 mo`, then `Add 8 training types` and
+    `Add your own type` (which opens the New type sheet). Uncheck `OPSEC` and choose `Add 7 training types`: the button
+    disables, the page then lists the 7 types in the matrix column order with `Every 12 months`, without a reload, and
+    `$V rows training_types orgA` lists them. With no branch or a branch that has no list (for example Navy) the panel
+    never appears and only the empty state shows. `trainingView` and any viewer see the empty state without the panel
+    and the page makes no request to `/api/training-types/suggestions`. Capture 1280 px and 390 px (3 rows and
+    `Show 5 more` at 390).
+
 Use `tool evaluate_script` on the signed-in page for endpoint probes. Substitute the fixture IDs and a unique marker:
 
 ```bash

@@ -21,7 +21,9 @@ export function getCalendarTypeSetup(): (() => CalendarTypeSetup) | undefined {
 	return getContext<(() => CalendarTypeSetup) | undefined>(KEY);
 }
 
-export function calendarTypeSetupFor(org: CalendarOperationsPageAccess | CalendarSettingsPageAccess): CalendarTypeSetup {
+export function calendarTypeSetupFor(
+	org: CalendarOperationsPageAccess | CalendarSettingsPageAccess
+): CalendarTypeSetup {
 	return {
 		orgUrlSegment: org.orgUrlSegment,
 		canSetUp: {

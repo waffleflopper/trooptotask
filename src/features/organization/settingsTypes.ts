@@ -4,6 +4,7 @@ import type {
 	OrganizationSettingsMembershipRow,
 	OrganizationSettingsInvitationRow,
 	OrganizationSettingsInvitationDeliveryRow,
+	OrganizationPendingInvitationFact,
 	OrganizationOwnershipCandidateMembershipRow
 } from './organizationSettingsTypes';
 
@@ -40,7 +41,8 @@ export interface OrganizationSettingsReader {
 	findArchiveRetentionMonths(orgId: string): Promise<number | null | undefined>;
 	findLossWarningWindowDays(orgId: string): Promise<number | null | undefined>;
 	findStorageCapBytes(orgId: string): Promise<number | null | undefined>;
-	countPendingInvitations(orgId: string): Promise<number>;
+	/** Pending invitations whose expiry is after `now`, each with its newest delivery's status. */
+	listUnexpiredPendingInvitations(orgId: string, now: Date): Promise<OrganizationPendingInvitationFact[]>;
 }
 
 export interface OrganizationPolicyChanges {

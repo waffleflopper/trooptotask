@@ -58,10 +58,9 @@ describe('owned list and pending summary', () => {
 		]);
 		expect(await listDeletionRequests(ctx, { status: 'cancelled' })).toEqual([ctx.rows[5]]);
 		expect(await listDeletionRequests(ctx, { status: 'unknown-status' })).toEqual([]);
-		expect(await readPendingDeletionRequestSummary(ctx)).toEqual({
-			count: 2,
-			oldestCreatedAt: '2026-09-01T01:02:03.123456Z'
-		});
+		expect(await readPendingDeletionRequestSummary(ctx)).toEqual([
+			{ kind: 'deletion', count: 2, oldestCreatedAt: '2026-09-01T01:02:03.123456Z' }
+		]);
 	});
 	it.each(['admin', 'owner'] as const)(
 		'lists peer history and pending oldest for %s without source configure',
@@ -75,12 +74,22 @@ describe('owned list and pending summary', () => {
 				'own-old',
 				'peer'
 			]);
-			expect(await readPendingDeletionRequestSummary(ctx)).toEqual({
-				count: 3,
-				oldestCreatedAt: '2026-08-01T10:00:00Z'
-			});
+			expect(await readPendingDeletionRequestSummary(ctx)).toEqual([
+				{ kind: 'deletion', count: 3, oldestCreatedAt: '2026-08-01T10:00:00Z' }
+			]);
 		}
 	);
+	it('splits what an admin sees pending into archive and deletion requests', async () => {
+		const ctx = fixture('admin');
+		ctx.backing.seed('deletion_requests', [
+			{ ...savedRequest('archive', { resource_type: 'personnel', created_at: '2026-07-04T00:00:00Z' }) }
+		]);
+
+		expect(await readPendingDeletionRequestSummary(ctx)).toEqual([
+			{ kind: 'archive', count: 1, oldestCreatedAt: '2026-07-04T00:00:00Z' },
+			{ kind: 'deletion', count: 3, oldestCreatedAt: '2026-08-01T10:00:00Z' }
+		]);
+	});
 	it('rejects unauthenticated reads before returning data and preserves all saved history for admitted export', async () => {
 		const ctx = fixture();
 		await expect(listDeletionRequests({ ...ctx, auth: { ...ctx.auth, userId: '' } })).rejects.toMatchObject({

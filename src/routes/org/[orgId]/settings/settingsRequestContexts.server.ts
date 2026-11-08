@@ -20,19 +20,14 @@ import type { loadMembersSettings } from '$features/organization/index.server';
 import { fetchTrainingBriefingReport } from '$features/training/index.server';
 import { createRequestTrainingBriefingContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { listScopeGroups } from '$features/personnel/index.server';
-import type { streamSettingsNavCounts } from './settingsShell.server';
+import type { SettingsNavCountsContext } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
 import type { FeaturesSettingsPorts } from './settingsFeatures.server';
 import type { DangerSettingsPorts } from './settingsDanger.server';
 import type { SettingsExportsPorts } from './settingsExports.server';
 import type { PoliciesSettingsPorts } from './settingsPolicies.server';
 
-export function createSettingsShellContext(request: AdmittedOrganizationRequest): Parameters<
-	typeof streamSettingsNavCounts
->[0] & {
-	auth: AdmittedOrganizationRequest['auth'];
-	audit: AdmittedOrganizationRequest['audit'];
-} {
+export function createSettingsShellContext(request: AdmittedOrganizationRequest): SettingsNavCountsContext {
 	return {
 		...createRequestActorContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)

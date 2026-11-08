@@ -36,7 +36,16 @@ export type DeletionRequestApproval = Pick<
 	| 'denial_reason'
 >;
 
-export interface PendingDeletionRequestSummary {
+/** A request on a person archives them; a request on any other record deletes it. */
+export const ARCHIVE_RESOURCE_TYPE = 'personnel' satisfies DeletionRequestResourceType;
+
+export type PendingApprovalKind = 'archive' | 'deletion';
+
+export interface PendingApprovalGroup {
+	kind: PendingApprovalKind;
 	count: number;
-	oldestCreatedAt: string | null;
+	oldestCreatedAt: string;
 }
+
+/** Pending requests by kind, oldest first within each; a kind with none waiting is left out. */
+export type PendingDeletionRequestSummary = readonly PendingApprovalGroup[];

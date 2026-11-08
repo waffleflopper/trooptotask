@@ -1,4 +1,4 @@
-import type { DeletionRequest } from './contracts';
+import { ARCHIVE_RESOURCE_TYPE, type DeletionRequest } from './contracts';
 import type { DeletionRequestStore, DeletionRequestSubmissionPort } from './contracts.server';
 
 export { deletionRequestTestProvider, savedRequest } from './deletionRequestTestProvider.server';
@@ -75,7 +75,10 @@ export function createDeletionRequestTestStore(
 				},
 				{ orderBy: [{ column: 'created_at', ascending: true }] }
 			);
-			return { count: rows.length, oldestCreatedAt: rows[0]?.created_at ?? null };
+			return (['archive', 'deletion'] as const).flatMap((kind) => {
+				const ofKind = rows.filter((row) => (row.resource_type === ARCHIVE_RESOURCE_TYPE) === (kind === 'archive'));
+				return ofKind.length > 0 ? [{ kind, count: ofKind.length, oldestCreatedAt: ofKind[0].created_at }] : [];
+			});
 		},
 		async denyPendingRequest(orgId, requestId, target, denialReason) {
 			// This models the conditional outcome for orchestration tests, not database wait/locking behavior.

@@ -166,9 +166,34 @@ describe('settings layout server load', () => {
 			}
 		});
 		ctx.store.seed('organization_invitations', [
-			{ id: 'invite-1', organization_id: 'org-1', status: 'pending' },
-			{ id: 'invite-2', organization_id: 'org-1', status: 'pending' },
-			{ id: 'invite-accepted', organization_id: 'org-1', status: 'accepted' }
+			{
+				id: 'invite-1',
+				organization_id: 'org-1',
+				email: 'a@example.invalid',
+				status: 'pending',
+				expires_at: '2999-01-01T00:00:00.000Z'
+			},
+			{
+				id: 'invite-2',
+				organization_id: 'org-1',
+				email: 'b@example.invalid',
+				status: 'pending',
+				expires_at: '2999-01-01T00:00:00.000Z'
+			},
+			{
+				id: 'invite-expired',
+				organization_id: 'org-1',
+				email: 'c@example.invalid',
+				status: 'pending',
+				expires_at: '2000-01-01T00:00:00.000Z'
+			},
+			{
+				id: 'invite-accepted',
+				organization_id: 'org-1',
+				email: 'd@example.invalid',
+				status: 'accepted',
+				expires_at: '2999-01-01T00:00:00.000Z'
+			}
 		]);
 		ctx.store.seed('deletion_requests', [
 			{ id: 'approval-1', organization_id: 'org-1', status: 'pending' },
@@ -223,7 +248,7 @@ describe('settings layout server load', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
-		ctx.organizationSettings.countPendingInvitations = async () => {
+		ctx.organizationSettings.listUnexpiredPendingInvitations = async () => {
 			throw new Error('Count unavailable');
 		};
 		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));

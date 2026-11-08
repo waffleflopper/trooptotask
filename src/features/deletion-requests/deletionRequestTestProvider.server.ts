@@ -87,7 +87,9 @@ export function deletionRequestTestProvider(rows: DeletionRequest[] = [], acting
 						'resource_id'
 					] as const) {
 						const filter = url.searchParams.get(column);
-						if (filter && filter !== `eq.${row[column]}`) return false;
+						if (!filter) continue;
+						const negated = filter.startsWith('neq.');
+						if (negated ? filter === `neq.${row[column]}` : filter !== `eq.${row[column]}`) return false;
 					}
 					return true;
 				});

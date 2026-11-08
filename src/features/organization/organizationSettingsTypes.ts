@@ -68,6 +68,14 @@ export interface OrganizationSettingsInvitationDeliveryRow {
 	sent_at: string | null;
 }
 
+/** A pending invitation that has not expired, with the status of its newest delivery; null when none was queued. */
+export interface OrganizationPendingInvitationFact {
+	id: string;
+	email: string;
+	expiresAt: string;
+	latestDeliveryStatus: OrganizationSettingsInvitationDeliveryRow['status'] | null;
+}
+
 export interface OrganizationOwnershipCandidateMembershipRow {
 	id: string;
 	user_id: string | null;

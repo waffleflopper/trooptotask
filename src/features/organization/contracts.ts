@@ -3,6 +3,7 @@ export type {
 	OrganizationSettingsMembershipRow,
 	OrganizationSettingsInvitationRow,
 	OrganizationSettingsInvitationDeliveryRow,
+	OrganizationPendingInvitationFact,
 	OrganizationOwnershipCandidateMembershipRow
 } from './organizationSettingsTypes';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
@@ -67,6 +68,13 @@ export {
 } from './policyConstraints';
 
 export { buildSettingsShell, SETTINGS_PAGES } from './settingsShell';
+export type {
+	AdminAttention,
+	AdminAttentionSnapshot,
+	ApprovalAttention,
+	InvitationAttention,
+	InvitationsAttention
+} from './adminAttentionTypes';
 export type { SettingsNavCounts, SettingsShell, SettingsShellOrganizationSource } from './settingsShell';
 export type {
 	OrganizationSupportOrganization,

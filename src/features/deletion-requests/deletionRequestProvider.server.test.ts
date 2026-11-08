@@ -57,26 +57,37 @@ describe('ordinary deletion request provider', () => {
 		await expect(store.listRequests('org-a', {})).rejects.toThrow('unknown status');
 	});
 
-	it('counts all pending rows and reads only the oldest date in one request, preserving own visibility', async () => {
+	it('counts pending requests by kind with the oldest date of each kind, preserving own visibility', async () => {
 		const provider = deletionRequestTestProvider([
 			savedRequest('new'),
 			savedRequest('old', { created_at: '2026-09-01T10:00:00.123456Z' }),
-			savedRequest('peer', { requested_by: 'peer', created_at: '2026-08-01T10:00:00Z' }),
+			savedRequest('archive', { resource_type: 'personnel', created_at: '2026-09-15T10:00:00Z' }),
+			savedRequest('peer-archive', {
+				requested_by: 'peer',
+				resource_type: 'personnel',
+				created_at: '2026-08-01T10:00:00Z'
+			}),
+			savedRequest('peer', { requested_by: 'peer', created_at: '2026-08-10T10:00:00Z' }),
 			savedRequest('terminal', { status: 'cancelled', created_at: '2026-07-01T10:00:00Z' }),
 			savedRequest('foreign', { organization_id: 'org-b', created_at: '2026-06-01T10:00:00Z' })
 		]);
 		const store = createSupabaseDeletionRequestStore(provider.client);
-		expect(await store.readPendingSummary('org-a', 'requester-a')).toEqual({
-			count: 2,
-			oldestCreatedAt: '2026-09-01T10:00:00.123456Z'
-		});
-		// Payload/query budget is part of this consumer's performance requirement.
-		expect(provider.state.calls).toHaveLength(1);
-		const url = new URL(provider.state.calls[0].url);
-		expect(url.searchParams.get('select')).toBe('created_at');
-		expect(url.searchParams.get('limit')).toBe('1');
-		expect(await store.readPendingSummary('org-a')).toEqual({ count: 3, oldestCreatedAt: '2026-08-01T10:00:00Z' });
-		expect(await store.readPendingSummary('org-a', 'missing')).toEqual({ count: 0, oldestCreatedAt: null });
+		expect(await store.readPendingSummary('org-a', 'requester-a')).toEqual([
+			{ kind: 'archive', count: 1, oldestCreatedAt: '2026-09-15T10:00:00Z' },
+			{ kind: 'deletion', count: 2, oldestCreatedAt: '2026-09-01T10:00:00.123456Z' }
+		]);
+		// One request per kind that reads only the oldest date, not the rows: the payload stays flat as requests pile up.
+		expect(provider.state.calls).toHaveLength(2);
+		for (const call of provider.state.calls) {
+			const url = new URL(call.url);
+			expect(url.searchParams.get('select')).toBe('created_at');
+			expect(url.searchParams.get('limit')).toBe('1');
+		}
+		expect(await store.readPendingSummary('org-a')).toEqual([
+			{ kind: 'archive', count: 2, oldestCreatedAt: '2026-08-01T10:00:00Z' },
+			{ kind: 'deletion', count: 3, oldestCreatedAt: '2026-08-10T10:00:00Z' }
+		]);
+		expect(await store.readPendingSummary('org-a', 'missing')).toEqual([]);
 	});
 
 	it('denies only the bound pending row, naming the signed-in reviewer without sending one', async () => {

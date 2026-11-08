@@ -80,7 +80,8 @@ Sign-in redirects to `/dashboard`, which decides where the person lands, first m
 pending invitation shows the list with `Invitations` first; exactly one Organization opens it; the Organization recorded
 in the `last_organization` cookie opens when it is still in the person's list; no Organization shows `Waiting for an
 invitation`; anything else shows the list. Opening any Organization writes the cookie as `<userId>:<organizationId>`
-(`httpOnly`, `SameSite=Lax`, path `/`, one year). `$V actor ROLE dashboard` opens `/dashboard?show=all`, so use
+(`SameSite=Lax`, path `/`, one year) from the browser after the navigation commits; hover preloading never writes it.
+`$V actor ROLE dashboard` opens `/dashboard?show=all`, so use
 `navigate_page` to plain `/dashboard` for each step, or `$V actor --form ROLE dashboard` to submit the real form.
 
 1. **No Organization.** `$V actor orgCreator dashboard`, then navigate to `/dashboard`. Expect the title
@@ -90,11 +91,12 @@ Organization` link to `/org/new` and no `Member of` list. Capture at 390x844 and
    `/org/<orgId>` and the title reads `Verification Organization A — Dashboard`.
 3. **Several, no cookie.** `$V actor calendarSwitch dashboard`, then `/dashboard`: the list with A and B under `Member
 of`.
-4. **Several, last visited.** Open B from the list, navigate to `/dashboard`: B opens. Visit A, navigate to `/dashboard`:
+4. **Several, last visited.** Open B from the list, navigate to `/dashboard`: B opens. From B's switcher, hover A
+   without clicking, then navigate to `/dashboard`: B still opens. Visit A, navigate to `/dashboard`:
    A opens. `/dashboard?show=all` still shows the list, and the `Switch organization` menu's `Manage Organizations`
    reaches it.
-5. **Stale cookie.** The cookie is `httpOnly`, so set it through DevTools `Network.setCookie` on this context's
-   `127.0.0.1` origin. A value naming an Organization the person is not in (`<theirUserId>:<random uuid>`) and a value
+5. **Stale cookie.** Set it with `evaluate_script` (`document.cookie = 'last_organization=...; Path=/'`). A value
+   naming an Organization the person is not in (`<theirUserId>:<random uuid>`) and a value
    naming another person (`<otherUserId>:<A's id>`) both land on the list. Restoring a valid value by opening B lands in B.
 6. **Invitations first.** As `orgOwner` invite `orgInvitee` from Settings → Members, then as `orgInvitee` navigate to
    `/dashboard`: the list with `Invitations` and `Accept`/`Decline invitation to Verification Organization A`, not a

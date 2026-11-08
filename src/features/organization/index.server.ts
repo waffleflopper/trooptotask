@@ -89,4 +89,4 @@ export {
 } from './setup/operations.server';
 export { loadOrganizationSetupFacts } from './setup/facts.server';
 export type { SetupFactReads } from './setup/facts.server';
-export { readLastOrganizationId, rememberLastOrganization } from './lastOrganization.server';
+export { LAST_ORGANIZATION_COOKIE, readLastOrganizationId } from './lastOrganization';

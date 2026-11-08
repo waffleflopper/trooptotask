@@ -8,7 +8,8 @@ import {
 	createSupabaseDashboardOrgAccessPort,
 	declineDashboardInvitation,
 	loadDashboardOrgAccess,
-	readLastOrganizationId
+	readLastOrganizationId,
+	LAST_ORGANIZATION_COOKIE
 } from '$features/organization/index.server';
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
@@ -19,7 +20,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 		userId: user.id,
 		email: user.email,
 		forceShow: url.searchParams.get('show') === 'all',
-		lastOrganizationId: readLastOrganizationId(cookies, user.id)
+		lastOrganizationId: readLastOrganizationId(cookies.get(LAST_ORGANIZATION_COOKIE), user.id)
 	});
 
 	if (result.landing.kind === 'redirect') {

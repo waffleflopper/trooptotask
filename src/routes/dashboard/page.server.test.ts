@@ -125,7 +125,7 @@ describe('dashboard page server', () => {
 	});
 
 	it('hands the decision only the last Organization remembered for the signed-in person', async () => {
-		const cookie = (value: string) => ({ get: () => value });
+		const cookie = (value: string) => ({ get: (name: string) => (name === 'last_organization' ? value : undefined) });
 		const call = (value: string, userId: string) =>
 			load({
 				locals: { user: { id: userId, email: 'user@example.com' } },

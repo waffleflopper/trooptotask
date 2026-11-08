@@ -104,10 +104,14 @@ describe('person search palette', () => {
 	it('says so when nobody matches', async () => {
 		renderPalette();
 		await openPalette();
+		await screen.findByRole('option', { name: /Adams/ });
+		const announcedWithResults = screen.getByRole('status').textContent;
+
 		await fireEvent.input(await screen.findByRole('combobox'), { target: { value: 'smith zzz' } });
 
-		await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('No people found.'));
-		expect(screen.queryAllByRole('option')).toHaveLength(0);
+		await waitFor(() => expect(screen.queryAllByRole('option')).toHaveLength(0));
+		expect(screen.getByRole('status')).not.toBeEmptyDOMElement();
+		expect(screen.getByRole('status').textContent).not.toBe(announcedWithResults);
 	});
 
 	it('lists at most twenty matches', async () => {

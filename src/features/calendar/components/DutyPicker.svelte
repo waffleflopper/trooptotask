@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import { tick } from 'svelte';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import {
 		dutySearchScore,
@@ -88,6 +90,9 @@
 			.join(' ') || undefined
 	);
 
+	type PersonOption = Extract<DutyPickerOption, { kind: 'personnel' }>;
+	/** An unavailable person the operator chose, held until they confirm or go back to the list. */
+	let confirming = $state<PersonOption | null>(null);
 	let pending = $state(false);
 	let dismissed = false;
 	let handingOff = false;
@@ -100,6 +105,22 @@
 		} finally {
 			pending = false;
 		}
+	}
+
+	function choose(option: DutyPickerOption) {
+		if (option.kind === 'personnel' && option.unavailable && !option.current) {
+			confirming = option;
+			void tick().then(() => content?.querySelector<HTMLElement>('[data-confirm-back]')?.focus());
+			return;
+		}
+		void run(() => onAssign(option.id));
+	}
+
+	async function backToList() {
+		if (pending) return;
+		confirming = null;
+		await tick();
+		content?.querySelector<HTMLElement>('[data-command-input]')?.focus();
 	}
 
 	function dismiss() {
@@ -172,84 +193,111 @@
 				</p>
 			{/if}
 		</Popover.Header>
-		<Command.Root class="min-h-0 rounded-lg!" label={findLabel} filter={dutySearchScore}>
-			<Command.Input placeholder={findLabel} bind:value={search} />
-			{#if counts?.status === 'loading'}
-				<p class="px-3 pt-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase" role="status">
-					Loading roster counts…
+		{#if confirming}
+			<div class="grid gap-3 p-3" role="group" aria-labelledby="duty-picker-confirm">
+				<p id="duty-picker-confirm" class="flex items-start gap-2 text-sm" role="alert">
+					<TriangleAlertIcon class="mt-0.5 size-4 shrink-0 text-destructive-text" aria-hidden="true" />
+					<span>
+						<strong class="font-semibold">{[confirming.prefix, confirming.label].filter(Boolean).join(' ')}</strong> is
+						unavailable: {confirming.unavailable}.
+					</span>
 				</p>
-			{:else if counts?.status === 'error' || counts?.stale}
-				<div class="flex items-center justify-between gap-2 px-3 pt-1.5" role="alert">
-					<p class="text-xs text-destructive-text">Roster counts could not be loaded.</p>
-					<Button variant="outline" size="xs" onclick={counts.onRetry}>Retry</Button>
+				<div class="flex justify-end gap-2">
+					<Button variant="outline" size="sm" data-confirm-back disabled={pending} onclick={backToList}>Back</Button>
+					<Button
+						size="sm"
+						disabled={pending}
+						aria-busy={pending}
+						onclick={() => {
+							const option = confirming;
+							if (option) void run(() => onAssign(option.id));
+						}}>Assign anyway</Button
+					>
 				</div>
-			{/if}
-			{#if before}
-				{@const starts = shortDate(parseDate(before.formStartsOn))}
-				<p id="duty-picker-before" class="px-3 pt-1.5 text-xs text-muted-foreground">
-					{#if before.saving === 'counts'}
-						<strong class="font-semibold text-foreground">Counts.</strong> Saving moves this roster's DA 6 start from
-						{starts} back to this day. Fill from roster counts it.
-					{:else if before.saving === 'moves-start'}
-						<strong class="font-semibold text-foreground">Not counted,</strong> as no one on this roster is detailed
-						this day. Saving still moves its DA 6 start from {starts} back to this day.
-					{:else}
-						<strong class="font-semibold text-foreground">Not counted,</strong> before this roster's DA 6 (starts {starts}).
-						The DA 6 and Fill from roster leave it out.
-					{/if}
-				</p>
-			{/if}
-			{#if counts?.status === 'loading'}
-				<div class="flex h-48 flex-col gap-2 p-2" aria-hidden="true">
-					{#each { length: 5 } as _, row (row)}
-						<Skeleton class="h-8 w-full" />
-					{/each}
-				</div>
-			{:else}
-				<Command.List class={['max-h-80 min-h-0', pending && 'pointer-events-none opacity-60']} aria-busy={pending}>
-					<Command.Empty>{emptyMessage}</Command.Empty>
-					{#each visibleOptions as option (option.id)}
-						{@const person = option.kind === 'personnel' ? option : null}
-						<Command.Item
-							value={option.id}
-							keywords={[option.label, person?.prefix ?? '']}
-							aria-label={accessibleName(option)}
-							data-checked={option.current}
-							onSelect={() => run(() => onAssign(option.id))}
-						>
-							{#if person?.prefix}
-								<span class="w-9 shrink-0 font-mono text-[10px] font-semibold text-muted-foreground uppercase"
-									>{person.prefix}</span
-								>
-							{/if}
-							<span class="flex min-w-0 flex-1 flex-col">
-								<span class={['truncate', person?.unavailable ? 'text-muted-foreground' : 'font-medium']}
-									>{option.label}</span
-								>
-								{#if person?.unavailable}
-									<span class="truncate font-mono text-[10px] text-destructive uppercase">{person.unavailable}</span>
+			</div>
+		{:else}
+			<Command.Root class="min-h-0 rounded-lg!" label={findLabel} filter={dutySearchScore}>
+				<Command.Input placeholder={findLabel} bind:value={search} />
+				{#if counts?.status === 'loading'}
+					<p class="px-3 pt-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase" role="status">
+						Loading roster counts…
+					</p>
+				{:else if counts?.status === 'error' || counts?.stale}
+					<div class="flex items-center justify-between gap-2 px-3 pt-1.5" role="alert">
+						<p class="text-xs text-destructive-text">Roster counts could not be loaded.</p>
+						<Button variant="outline" size="xs" onclick={counts.onRetry}>Retry</Button>
+					</div>
+				{/if}
+				{#if before}
+					{@const starts = shortDate(parseDate(before.formStartsOn))}
+					<p id="duty-picker-before" class="px-3 pt-1.5 text-xs text-muted-foreground">
+						{#if before.saving === 'counts'}
+							<strong class="font-semibold text-foreground">Counts.</strong> Saving moves this roster's DA 6 start from
+							{starts} back to this day. Fill from roster counts it.
+						{:else if before.saving === 'moves-start'}
+							<strong class="font-semibold text-foreground">Not counted,</strong> as no one on this roster is detailed
+							this day. Saving still moves its DA 6 start from {starts} back to this day.
+						{:else}
+							<strong class="font-semibold text-foreground">Not counted,</strong> before this roster's DA 6 (starts {starts}).
+							The DA 6 and Fill from roster leave it out.
+						{/if}
+					</p>
+				{/if}
+				{#if counts?.status === 'loading'}
+					<div class="flex h-48 flex-col gap-2 p-2" aria-hidden="true">
+						{#each { length: 5 } as _, row (row)}
+							<Skeleton class="h-8 w-full" />
+						{/each}
+					</div>
+				{:else}
+					<Command.List class={['max-h-80 min-h-0', pending && 'pointer-events-none opacity-60']} aria-busy={pending}>
+						<Command.Empty>{emptyMessage}</Command.Empty>
+						{#each visibleOptions as option (option.id)}
+							{@const person = option.kind === 'personnel' ? option : null}
+							<Command.Item
+								value={option.id}
+								keywords={[option.label, person?.prefix ?? '']}
+								aria-label={accessibleName(option)}
+								data-checked={option.current}
+								onSelect={() => choose(option)}
+							>
+								{#if person?.prefix}
+									<span class="w-9 shrink-0 font-mono text-[10px] font-semibold text-muted-foreground uppercase"
+										>{person.prefix}</span
+									>
 								{/if}
-								{#if person?.countUnavailable}
-									<span class="truncate font-mono text-[10px] text-muted-foreground uppercase">Count unavailable</span>
-								{:else if person?.offRoster}
-									<span class="truncate font-mono text-[10px] text-muted-foreground uppercase">Not on this roster</span>
+								<span class="flex min-w-0 flex-1 flex-col">
+									<span class={['truncate', person?.unavailable ? 'text-muted-foreground' : 'font-medium']}
+										>{option.label}</span
+									>
+									{#if person?.unavailable}
+										<span class="truncate font-mono text-[10px] text-destructive uppercase">{person.unavailable}</span>
+									{/if}
+									{#if person?.countUnavailable}
+										<span class="truncate font-mono text-[10px] text-muted-foreground uppercase">Count unavailable</span
+										>
+									{:else if person?.offRoster}
+										<span class="truncate font-mono text-[10px] text-muted-foreground uppercase"
+											>Not on this roster</span
+										>
+									{/if}
+								</span>
+								{#if person?.count !== undefined}
+									<span
+										class={[
+											'shrink-0 font-mono text-[11px] tabular-nums',
+											person.unavailable ? 'text-muted-foreground' : 'font-semibold'
+										]}
+										aria-hidden="true">{person.count}</span
+									>
 								{/if}
-							</span>
-							{#if person?.count !== undefined}
-								<span
-									class={[
-										'shrink-0 font-mono text-[11px] tabular-nums',
-										person.unavailable ? 'text-muted-foreground' : 'font-semibold'
-									]}
-									aria-hidden="true">{person.count}</span
-								>
-							{/if}
-						</Command.Item>
-					{/each}
-				</Command.List>
-			{/if}
-		</Command.Root>
-		{#if onClear || onSwap || swapped?.onUndo}
+							</Command.Item>
+						{/each}
+					</Command.List>
+				{/if}
+			</Command.Root>
+		{/if}
+		{#if !confirming && (onClear || onSwap || swapped?.onUndo)}
 			<div class="grid border-t p-1">
 				{#if onSwap}
 					<Button variant="ghost" size="sm" class="w-full justify-start" disabled={pending} onclick={swapWith}>

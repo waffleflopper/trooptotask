@@ -35,13 +35,20 @@
 	import { assignmentSlotKey, indexAssignmentsBySlot } from '$features/calendar/utils/calendarIndexes';
 	import { plannerColumns } from '$features/calendar/utils/calendarLanes';
 	import { beforeRosterForm, dutyPickerOptions, eligibleAssignees } from '$features/calendar/utils/dutyPickerOptions';
-	import { findDutyConflicts, indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
+	import {
+		blockingAvailability,
+		findDutyConflicts,
+		indexDutyAvailability
+	} from '$features/calendar/utils/dutyReadModel';
 	import { endOfMonth, formatDate, getMonthName, parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as Table from '$lib/components/ui/table';
 	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
 	import AssignmentConflictsPanel from './AssignmentConflictsPanel.svelte';
+	import AssignmentCopyDialog from './AssignmentCopyDialog.svelte';
 	import AssignmentPlannerColumnMenu from './AssignmentPlannerColumnMenu.svelte';
 	import DutyPicker from './DutyPicker.svelte';
 	import RosterCountPanel from './RosterCountPanel.svelte';
@@ -64,6 +71,8 @@
 		specialDays: readonly SpecialDay[];
 		personnelByGroup: readonly GroupData[];
 		groups: readonly Group[];
+		/** The read of the days Copy takes from, before and beside the shown month, which `rangeStatus` does not cover. */
+		copySource: { status: 'ready' | 'loading' | 'error'; onRetry: () => void };
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => Promise<boolean>;
 		onSetAssignmentBatch: (assignments: AssignmentWrite[]) => Promise<boolean>;
 		/** Roster counts, for an operator who sees the whole Organization. Absent hides counts and Fill from roster. */
@@ -114,6 +123,7 @@
 		specialDays,
 		personnelByGroup,
 		groups,
+		copySource,
 		onSetAssignment,
 		onSetAssignmentBatch,
 		rosters,
@@ -138,12 +148,7 @@
 	const personnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
 	const personById = $derived(new Map(personnel.map((person) => [person.id, person])));
 	const assignmentsBySlot = $derived(indexAssignmentsBySlot(assignments));
-	const blockingStatusIds = $derived(
-		new Set(statusTypes.filter((status) => status.rosterEffect !== 'available').map((status) => status.id))
-	);
-	const availabilityByPerson = $derived(
-		indexDutyAvailability(availabilityEntries.filter((entry) => blockingStatusIds.has(entry.statusTypeId)))
-	);
+	const availabilityByPerson = $derived(indexDutyAvailability(blockingAvailability(availabilityEntries, statusTypes)));
 	const conflicts = $derived(
 		findDutyConflicts({ assignments, assignmentTypes: columns, availabilityByPerson, range: monthRange })
 	);
@@ -229,6 +234,8 @@
 	let replacementTarget = $state<ReplacementTarget | null>(null);
 	let swapTarget = $state<{ typeId: string; dateKey: string; anchor: HTMLElement; holderId: string } | null>(null);
 	let clearTypeId = $state<string | null>(null);
+	/** The open Copy dialog. A new object per opening, so a reply for an earlier one is told apart from the current. */
+	let copyTarget = $state<{ kind: 'week' | 'month' } | null>(null);
 
 	// Changing the month or losing the read window ends whatever was open on the old slots.
 	$effect(() => {
@@ -238,6 +245,7 @@
 			replacementTarget = null;
 			swapTarget = null;
 			clearTypeId = null;
+			copyTarget = null;
 		});
 	});
 
@@ -456,6 +464,35 @@
 		if (cleared) clearTypeId = null;
 	}
 
+	async function copyPeriod(target: NonNullable<typeof copyTarget>, writes: AssignmentWrite[]): Promise<boolean> {
+		if (!(await writeBatch(writes))) return false;
+		// The month, Organization or dialog changed while the save was out, so nothing here belongs to the reply.
+		if (copyTarget !== target) return false;
+		copyTarget = null;
+		toastStore.success(`Copied ${writes.length} ${writes.length === 1 ? 'slot' : 'slots'} into ${monthTitle}`);
+		return true;
+	}
+
+	const assigneeName = (type: AssignmentType, assigneeId: string) =>
+		type.assignTo === 'group'
+			? (groups.find((group) => group.id === assigneeId)?.name ?? 'A Group that no longer exists')
+			: whoLabel(assigneeId);
+
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'action',
+			id: 'copy',
+			label: 'Copy',
+			icon: 'clipboard-list',
+			disabled: locked,
+			disabledReason: 'Copying waits until the current save or month reload finishes.',
+			menuItems: [
+				{ kind: 'action', id: 'copy-week', label: 'Previous week…', onclick: () => (copyTarget = { kind: 'week' }) },
+				{ kind: 'action', id: 'copy-month', label: 'Previous month…', onclick: () => (copyTarget = { kind: 'month' }) }
+			]
+		}
+	]);
+
 	function scrollToToday(row: HTMLElement) {
 		const region = row.closest<HTMLElement>('[data-slot=table-container]');
 		const header = region?.querySelector('thead');
@@ -501,6 +538,7 @@
 			>
 		</section>
 	{/if}
+	<WorkspaceToolbar ariaLabel="Planner actions" items={toolbarItems} />
 	<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 		<div class="overflow-hidden rounded-lg border bg-card">
 			<Table.Root
@@ -723,5 +761,25 @@
 		confirmLabel="Clear month"
 		onConfirm={clearMonth}
 		onCancel={() => (clearTypeId = null)}
+	/>
+{/if}
+
+{#if copyTarget && rangeStatus === 'ready'}
+	{@const target = copyTarget}
+	<AssignmentCopyDialog
+		kind={target.kind}
+		anchor={monthStart}
+		{todayKey}
+		{columns}
+		{assignmentsBySlot}
+		{availabilityByPerson}
+		personnelIds={new Set(personById.keys())}
+		{statusTypes}
+		{specialDays}
+		{assigneeName}
+		source={copySource}
+		{locked}
+		onCopy={(writes) => copyPeriod(target, writes)}
+		onClose={() => (copyTarget = null)}
 	/>
 {/if}

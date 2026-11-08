@@ -149,12 +149,76 @@ describe('DutyPicker', () => {
 		expect(onAssign).toHaveBeenCalledWith('g-bravo');
 	});
 
-	it('assigns an unavailable person, since the commander decides', async () => {
-		const { onAssign } = renderPicker();
+	describe('choosing an unavailable person', () => {
+		const choose = async () =>
+			fireEvent.click(await screen.findByRole('option', { name: /Liang, Wei, count 11, unavailable/ }));
 
-		await fireEvent.click(await screen.findByRole('option', { name: /Liang, Wei, count 11, unavailable/ }));
+		it('asks first, naming the person and the reason, and saves nothing until Assign anyway', async () => {
+			const { onAssign, onClose } = renderPicker();
 
-		expect(onAssign).toHaveBeenCalledWith('p-liang');
+			await choose();
+
+			const confirm = await screen.findByRole('group', { name: /Liang, Wei is unavailable: Leave \(A\)/ });
+			expect(onAssign).not.toHaveBeenCalled();
+			expect(screen.queryByRole('option')).toBeNull();
+			await fireEvent.click(within(confirm).getByRole('button', { name: 'Assign anyway' }));
+
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+			expect(onAssign).toHaveBeenCalledExactlyOnceWith('p-liang');
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it('goes back to the list with the search kept and saves nothing', async () => {
+			const { onAssign, onClose } = renderPicker();
+			const search = await screen.findByRole('combobox', { name: 'Find person' });
+			await fireEvent.input(search, { target: { value: 'liang' } });
+
+			await choose();
+			const back = await screen.findByRole('button', { name: 'Back' });
+			await waitFor(() => expect(document.activeElement).toBe(back));
+			await fireEvent.click(back);
+
+			const returned = await screen.findByRole('combobox', { name: 'Find person' });
+			expect((returned as HTMLInputElement).value).toBe('liang');
+			await waitFor(() => expect(document.activeElement).toBe(returned));
+			expect(screen.getAllByRole('option')).toHaveLength(1);
+			expect(onAssign).not.toHaveBeenCalled();
+			expect(onClose).not.toHaveBeenCalled();
+		});
+
+		it('stays on the confirmation after a failed save so it can be tried again', async () => {
+			const { onAssign } = renderPicker({
+				onAssign: vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+			});
+
+			await choose();
+			await fireEvent.click(await screen.findByRole('button', { name: 'Assign anyway' }));
+			await waitFor(() => expect(onAssign).toHaveBeenCalledTimes(1));
+			await waitFor(() =>
+				expect(screen.getByRole('button', { name: 'Assign anyway' })).toHaveProperty('disabled', false)
+			);
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Assign anyway' }));
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+			expect(onAssign).toHaveBeenCalledTimes(2);
+		});
+
+		it('does not ask about someone available, or about the person already assigned', async () => {
+			const options: DutyPickerOption[] = OPTIONS.map((option) =>
+				option.id === 'p-liang' && option.kind === 'personnel' ? { ...option, current: true } : option
+			);
+			const { onAssign } = renderPicker({ options });
+
+			await fireEvent.click(await screen.findByRole('option', { name: /Ortiz, Lucia/ }));
+			await waitFor(() => expect(onAssign).toHaveBeenCalledWith('p-ortiz'));
+			cleanup();
+			document.body.innerHTML = '';
+
+			const again = renderPicker({ options });
+			await fireEvent.click(await screen.findByRole('option', { name: /Liang, Wei.*assigned/ }));
+			await waitFor(() => expect(again.onAssign).toHaveBeenCalledWith('p-liang'));
+			expect(screen.queryByRole('button', { name: 'Assign anyway' })).toBeNull();
+		});
 	});
 
 	it('closes on Escape and returns focus to the open day', async () => {

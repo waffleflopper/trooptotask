@@ -14,6 +14,7 @@ import { groupCatalogHydration } from '$features/personnel';
 import type { CalendarOperationsPageAccess } from '../contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType } from '$features/calendar/contracts';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 function makeOrg(overrides: Partial<ClientAccessFacts> = {}) {
 	return {
@@ -874,6 +875,51 @@ describe('planner visible-month loading', () => {
 		expect(dailyAssignmentsStore.assignments.map((row) => row.id)).toEqual(['saved-december']);
 
 		expect(calendarStore.currentDate.getMonth()).toBe(11);
+	});
+	it('reads the previous month for Copy beside the shown month, so edits wait only on the shown one', async () => {
+		const reads: string[] = [];
+		const held: Array<(value: Response) => void> = [];
+		const batches: unknown[] = [];
+		vi.stubGlobal(
+			'fetch',
+			routedFetch(async (url, init) => {
+				if (url.includes('/daily-assignments/batch')) {
+					batches.push(JSON.parse(String(init?.body)));
+					return Response.json({ ok: true });
+				}
+				reads.push(url);
+				if (!url.includes('rangeStart=2026-08-01')) return answer(url);
+				return new Promise<Response>((resolve) => held.push(resolve));
+			})
+		);
+		const { layOut } = stubToolbarWidths();
+		renderPage(staleBootstrap);
+		await layOut(4000);
+
+		await screen.findByRole('button', { name: /^Charge of Quarters, Tue 22 Sept?: SGT Smith, Alex/ });
+		await waitFor(() => expect(held).toHaveLength(1));
+		expect(reads).toEqual([
+			'/org/org-1/api/calendar-range?rangeStart=2026-09-01&rangeEnd=2026-09-30&collections=availability%2Cassignments',
+			'/org/org-1/api/calendar-range?rangeStart=2026-08-01&rangeEnd=2026-08-31&collections=assignments'
+		]);
+		expect(screen.getAllByRole('button', { name: /^Assign Charge of Quarters/ }).length).toBeGreaterThan(0);
+
+		const copy = within(screen.getByRole('toolbar', { name: 'Planner actions' })).getByRole('button', { name: 'Copy' });
+		copy.focus();
+		await fireEvent.keyDown(copy, { key: 'Enter' });
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Previous month…' }));
+		const dialog = await screen.findByRole('dialog');
+		expect(within(dialog).getByRole('button', { name: 'Copy 0 slots' })).toHaveProperty('disabled', true);
+
+		await act(async () => {
+			held[0](answer(reads[1], [{ ...saved, id: 'saved-august', date: '2026-08-15', assigneeId: 'person-2' }]));
+		});
+
+		const confirm = await within(dialog).findByRole('button', { name: 'Copy 1 slot' });
+		await fireEvent.click(confirm);
+		await waitFor(() => expect(batches).toHaveLength(1));
+		expect(JSON.stringify(batches[0])).toContain('"2026-09-15"');
+		expect(JSON.stringify(batches[0])).toContain('person-2');
 	});
 	it('does not merge a late response into a different organization after navigation', async () => {
 		let resolve!: (value: Response) => void;

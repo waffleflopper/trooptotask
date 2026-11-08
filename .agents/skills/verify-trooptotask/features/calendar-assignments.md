@@ -74,6 +74,20 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   loaded shows no count.
 - `assignment-reentry`: an assignment saved while the Calendar re-entry snapshot is in flight stays visible after it
   applies; [Calendar navigation](calendar-navigation.md) step 16 drives it.
+- `lane-conflict-marks`: on Calendar, a lane day whose assigned person is unavailable that day (an availability entry
+  whose status is not roster effect `available`, the same rule as `Conflicts`) shows a warning icon above the name on a
+  destructive tint. Its name adds `, unavailable: <status and dates>` and the lane summary adds
+  `, N of them with someone unavailable`; readers see the mark too.
+- `unavailable-confirm`: choosing an unavailable person in the lane's duty picker or in `Daily Assignments` asks first.
+  The picker swaps its list for `<person> is unavailable: <status and dates>.` with `Back` (focused) and
+  `Assign anyway`; the modal opens `Assign someone who is unavailable?` with `Cancel` and `Assign anyway`. Nothing saves
+  until `Assign anyway`; `Back` and `Cancel` return to the list or the modal with no row written. Both lists name the
+  reason under an unavailable person.
+- `planner-copy`: the Duty planner's `Copy` menu offers `Previous week…` and `Previous month…`. Each opens a dialog that
+  fills only empty slots, previews `Fills N slots` and `Leaves N filled slots alone`, lists every `Not copied` slot with
+  its reason (`<month> has no day N`, the duty takes no duty that day, `No longer on your roster`, `Excused from this duty: <reason>`, `Unavailable: <status and dates>`) and saves the
+  fills in one batch with `Copy N slots`, disabled at 0. The previous month reads beside the shown month, and the
+  dialog waits on it with a status or `Retry`.
 - `planner-states`: the monthly table, loading, failed save, keyboard and focus, denied and scoped states, and
   large-roster render at 1440 light and 390 dark.
 
@@ -88,7 +102,8 @@ archived types left out) and one row per date. A column header shows the type's 
 Person type also has a `Fill` button (named `Fill <type> from roster`) beside the count. An empty cell is an `Assign`
 button named `Assign <type>, <Tue 22 Sept>`; a filled one is a button named `<type>, <date>: <rank last, first>`, with
 `, unavailable: <status and dates>` when an availability entry covers the date. Either opens the duty picker for that
-slot. The `Conflicts` panel beside the table (below it on a narrow page) lists every flagged slot with
+slot. A bordered toolbar above the table holds `Copy`, a menu of `Previous week…` and `Previous month…` that is disabled
+while a save or month reload is under way. The `Conflicts` panel beside the table (below it on a narrow page) lists every flagged slot with
 `Find replacement`. Below `Conflicts`, an Organization-wide operator sees the `Roster · count today` panel: a
 `Duty roster` toggle group of type codes (each named by its type) and a table named `<type> roster` whose `Up next` rows
 show the rank and last name and a `Count` (a code such as `A 0` for someone a roster code covers today, `Today` for
@@ -179,13 +194,20 @@ action and keep its page ID. The date format in every name is the browser's en-G
    and rollback suites provide the distinct simultaneous-writer proof.
 7. **Daily Assignments modal.** As `calendarOperate` in Calendar September 2026, click the September 15 date header at
    1280x800 light and at 390x844 dark. Capture `Daily Assignments` with its date and the seeded Staff, Group and
-   Retiring slots; at 390 read the dialog's bounds against `innerWidth`. Close without changes.
+   Retiring slots; at 390 read the dialog's bounds against `innerWidth`. **Unavailable pick.** On September 14, open
+   `Set Verification Staff Duty assignee` and search `Able`: the option reads `SPC Able, Synthetic - Alpha` with
+   `Unavailable: Verification Leave 14–16 Sept` under it. Press Enter: `Assign someone who is unavailable?` opens with
+   `Cancel` and `Assign anyway` (stacked and full width at 390). Read `$V rows daily_assignments orgA date 2026-09-14`:
+   zero rows. Choose `Cancel` and read zero again; repeat and choose `Assign anyway`: one A row for `typePersonnel`
+   and `personA`. Clear it with `Clear selection` and read zero. Close without other changes.
 
 8. **Calendar lanes and duty picker.** As `calendarOperate` on Calendar September 2026 at 1280x800 light and at 390x844
    dark, capture the lanes under the dates: `Verification Staff Duty`, `Verification Group Duty`, then `Days`. Each
    assignment lane's label shows its color, name and `N open` or `Full`. Lane rows are 26px tall, 24px under 641px. The
    Days lane names `Verification Unit Closure` on September 15. Click Staff's September 15 day, named
-   `Verification Staff Duty for Tuesday, September 15, 2026: SPC Able, Synthetic. Edit assignments`; `Daily Assignments`
+   `Verification Staff Duty for Tuesday, September 15, 2026: SPC Able, Synthetic, unavailable: Verification Leave 14–16 Sept. Edit assignments`
+   (the cell shows a warning icon above `ABLE` on a destructive tint, and the lane summary reads
+   `1 of 30 days assigned, 1 of them with someone unavailable`); `Daily Assignments`
    opens for that date. Close it. On Able's September 15 row, the Staff marker chip is its own button inside that day's
    column: read its `getBoundingClientRect()` against the September 15 and 16 cells. Focus it and press Enter; it opens
    the same modal. Close it. On a preflighted empty date, click
@@ -216,8 +238,14 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `N open` or `Full`, and the lane's summary says how many days are assigned is not known yet). As
    `calendarView`, the lanes show the same names, but no day has a `+` or opens an editor. Read the accessibility
    snapshot of Staff's September 15 day: it names
-   `Verification Staff Duty for Tuesday, September 15, 2026: SPC Able, Synthetic` without `Edit assignments`, and the
-   row marker is not a button. Capture the picker at both combinations and read its bounds against `innerWidth` at 390.
+   `Verification Staff Duty for Tuesday, September 15, 2026: SPC Able, Synthetic, unavailable: Verification Leave 14–16 Sept`
+   without `Edit assignments`, and the row marker is not a button. **Unavailable pick.** On September 16 open the Staff `+`, search `able` (the option reads
+   `VERIFICATION LEAVE 14–16 SEPT` in red) and press Enter: the list is replaced by `SPC Able, Synthetic is unavailable:
+Verification Leave 14–16 Sept.` with `Back` focused and `Assign anyway`, and `$V rows daily_assignments orgA date
+2026-09-16` reads zero. `Back` shows the search again with no row written. Repeat and choose `Assign anyway`: one A
+   row, the lane day carries the mark and the summary reads `2 of 30 days assigned, 2 of them with someone unavailable`.
+   Clear it through `Daily Assignments`. Capture the picker at both combinations and read its bounds against
+   `innerWidth` at 390.
    **No duty.** As `calendarConfigure` in Settings → `Assignment Types`, add a Person type `Temp No duty` with
    `Weekends & holidays` set to `No duty` and a Group type with the same choice made before switching it to Group. On
    Calendar September 2026 the Person lane has a `+` on no weekend, no September 15 closure and no September 18 holiday,
@@ -451,6 +479,28 @@ inspection or an authenticated request probe; actual planning actions use the vi
 through the owned helper. [Calendar navigation](calendar-navigation.md), [Calendar access](calendar-access.md),
 [Organization switching](organization-switching.md), and [Reports and history](reports-history.md) own the adjacent
 range/scope/report journeys.
+
+16. **Copy previous week and month.** As `calendarOperate` on `Duty planner` September 2026 at 1280x900 light and at
+    390x844 dark, save Staff Duty for Able on Mon 7 and Wed 9 Sept, `Unassigned` on Tue 8 and Thu 10 Sept, then on August
+    for Able on Fri 14 and `Unassigned` on Thu 20 and Mon 31 Aug (`Previous month`, then back with `Next month`). Open
+    `Copy` and choose `Previous week…`; the dialog reads `Copy previous week`, `Week to fill` lists the weeks that touch
+    September, and `Mon 31 Aug to Sun 6 Sept` fills 0 slots. Choose `Mon 14 Sept to Sun 20 Sept`: it copies Mon 7 to Sun
+    13 Sept, `Fills 1 slot. Leaves 1 filled slot alone.` (Tue 15 is filled), and `Not copied (2)` lists
+    `Mon 14 Sept · Verification Staff Duty` and `Wed 16 Sept · Verification Staff Duty`, each with
+    `SPC Able: Unavailable: Verification Leave 14–16 Sept`. Choose `Copy 1 slot`: the dialog closes, the toast reads
+    `Copied 1 slot into September 2026` (arm `$V feedback arm`), `$V rows daily_assignments orgA date 2026-09-17` reads
+    one A row for `personUnassigned` with source `manual`, Sep 14 and 16 read zero, and the planner shows `Unassigned`
+    on Thu 17 Sept. Open `Copy` and choose `Previous month…`: `Fills empty slots in September 2026 with the assignments of
+August 2026, day for day.`, `Fills 1 slot.` (Sun 20 Sept from Thu 20 Aug), and `Not copied (2)` lists
+    `From Mon 31 Aug · Verification Staff Duty` (`SPC Unassigned: September 2026 has no day 31`) and
+    `Mon 14 Sept · Verification Staff Duty` (the leave reason). Choose `Copy 1 slot`, read the Sun 20 Sept row, reload
+    and require Thu 17 and Sun 20 Sept still shown. Reopen either dialog with nothing left to copy: `Copy 0 slots` is
+    disabled. Group types copy as they are: week Mon 21 to Sun 27 Sept copies Staff, Group and Retiring slots from Mon 14
+    to Sun 20 Sept in one batch (`Copied 5 slots into September 2026` after step 8's saves). At 390 the dialog's buttons
+    stack, the skip list wraps, and `scrollWidth` equals `innerWidth`. `$V network arm-hold $PAGE calendar-range 2`
+    holds only the second range read, which is the previous-month read that starts once the shown month is ready; click
+    `Next month` until an uncovered month starts it, then `Copy` and `Previous month…` read a loading status and
+    `Copy 0 slots` disabled. Release it, and with `arm-fail $PAGE calendar-range 2` read the error with `Retry`. Clear every created row and reread zero.
 
 ## Gotchas
 

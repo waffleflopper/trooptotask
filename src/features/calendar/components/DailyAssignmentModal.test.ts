@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import DailyAssignmentModal from './DailyAssignmentModal.svelte';
 import type { Personnel } from '$features/personnel/contracts';
-import type { AssignmentType } from '$features/calendar/contracts';
+import type { AssignmentType, StatusType } from '$features/calendar/contracts';
+import { indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
 
 afterEach(cleanup);
 
@@ -54,6 +55,8 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 				assignments: [],
 				personnelByGroup: [{ group: 'Alpha', personnel }],
 				groups: [],
+				availabilityByPerson: new Map(),
+				statusTypes: [],
 				onSetAssignment,
 				onRemoveAssignment: vi.fn(),
 				onClose: vi.fn()
@@ -81,6 +84,8 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 			assignmentTypes: [exemptType],
 			personnelByGroup: [{ group: 'Alpha', personnel }],
 			groups: [],
+			availabilityByPerson: new Map(),
+			statusTypes: [],
 			onSetAssignment: vi.fn(),
 			onRemoveAssignment: vi.fn(),
 			onClose: vi.fn()
@@ -125,6 +130,8 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 				assignments: [],
 				personnelByGroup: [{ group: 'Alpha', personnel }],
 				groups: [],
+				availabilityByPerson: new Map(),
+				statusTypes: [],
 				onSetAssignment: vi.fn(),
 				onRemoveAssignment: vi.fn(),
 				onClose: vi.fn()
@@ -160,6 +167,8 @@ it('shows Group names while submitting stable Group IDs, including after a renam
 			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0, parentId: null, depth: 1 as const },
 			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 		],
+		availabilityByPerson: new Map(),
+		statusTypes: [],
 		onSetAssignment,
 		onRemoveAssignment: vi.fn(),
 		onClose: vi.fn()
@@ -170,4 +179,125 @@ it('shows Group names while submitting stable Group IDs, including after a renam
 	await fireEvent.click(picker);
 	await fireEvent.click(screen.getByRole('treeitem', { name: /Bravo/ }));
 	expect(onSetAssignment).toHaveBeenCalledWith('2026-09-19', 'group-duty', 'group-bravo');
+});
+
+describe('DailyAssignmentModal: choosing someone who is unavailable that day', () => {
+	const type: AssignmentType = {
+		id: 'type-1',
+		name: 'Charge of Quarters',
+		shortName: 'CQ',
+		assignTo: 'personnel',
+		color: '#2563eb',
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
+		showOnCalendar: false,
+		sortOrder: 0
+	};
+	const person = (id: string, lastName: string): Personnel => ({
+		id,
+		firstName: 'Alex',
+		lastName,
+		rank: 'SGT',
+		groupId: 'group-1',
+		groupName: 'Alpha',
+		clinicRole: '',
+		mos: '11B'
+	});
+	const leave: StatusType = {
+		id: 'leave',
+		name: 'Leave',
+		color: '#2563eb',
+		textColor: '#ffffff',
+		shortLabel: 'L',
+		sortOrder: 0,
+		rosterEffect: 'A'
+	};
+	// Smith is on leave 5 to 7 April, Taylor on 8 April only.
+	const availabilityByPerson = indexDutyAvailability([
+		{ id: 'e-1', personnelId: 'person-1', statusTypeId: 'leave', startDate: '2026-04-05', endDate: '2026-04-07' },
+		{ id: 'e-2', personnelId: 'person-2', statusTypeId: 'leave', startDate: '2026-04-08', endDate: '2026-04-08' }
+	]);
+
+	function open(assigneeId?: string, saved = true) {
+		const onSetAssignment = vi.fn(async () => saved);
+		render(DailyAssignmentModal, {
+			props: {
+				date: new Date(2026, 3, 6),
+				assignmentTypes: [type],
+				assignments: assigneeId ? [{ id: 'a-1', date: '2026-04-06', assignmentTypeId: 'type-1', assigneeId }] : [],
+				personnelByGroup: [{ group: 'Alpha', personnel: [person('person-1', 'Smith'), person('person-2', 'Taylor')] }],
+				groups: [],
+				availabilityByPerson,
+				statusTypes: [leave],
+				onSetAssignment,
+				onRemoveAssignment: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+		return { onSetAssignment };
+	}
+	const trigger = () => screen.getByRole('button', { name: 'Set Charge of Quarters assignee' });
+
+	it('shows why a person is unavailable on the shown date and no one else', async () => {
+		open();
+		await fireEvent.click(trigger());
+
+		expect(screen.getByRole('option', { name: /Smith/ }).textContent).toContain('Leave 5–7 Apr');
+		expect(screen.getByRole('option', { name: /Taylor/ }).textContent).not.toContain('Leave');
+	});
+
+	it('asks first, and assigns only after Assign anyway', async () => {
+		const { onSetAssignment } = open();
+		await fireEvent.click(trigger());
+		await fireEvent.click(screen.getByRole('option', { name: /Smith/ }));
+
+		const confirm = await screen.findByRole('alertdialog');
+		expect(confirm.textContent).toContain('SGT Smith, Alex is unavailable: Leave 5–7 Apr');
+		expect(onSetAssignment).not.toHaveBeenCalled();
+		await fireEvent.click(within(confirm).getByRole('button', { name: 'Assign anyway' }));
+
+		expect(onSetAssignment).toHaveBeenCalledExactlyOnceWith('2026-04-06', 'type-1', 'person-1');
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+	});
+
+	it('keeps the confirmation open when the save fails', async () => {
+		const { onSetAssignment } = open(undefined, false);
+		await fireEvent.click(trigger());
+		await fireEvent.click(screen.getByRole('option', { name: /Smith/ }));
+		const confirm = await screen.findByRole('alertdialog');
+		await fireEvent.click(within(confirm).getByRole('button', { name: 'Assign anyway' }));
+
+		await waitFor(() => expect(onSetAssignment).toHaveBeenCalledExactlyOnceWith('2026-04-06', 'type-1', 'person-1'));
+		await waitFor(() =>
+			expect(within(confirm).getByRole('button', { name: 'Assign anyway' })).toHaveProperty('disabled', false)
+		);
+		expect(screen.getByRole('alertdialog')).toBe(confirm);
+	});
+
+	it('leaves the slot and the shown assignee alone on Cancel', async () => {
+		const { onSetAssignment } = open('person-2');
+		await fireEvent.click(trigger());
+		await fireEvent.click(screen.getByRole('option', { name: /Smith/ }));
+		await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
+
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(onSetAssignment).not.toHaveBeenCalled();
+		expect(trigger().textContent).toContain('Taylor');
+		expect(trigger().textContent).not.toContain('Smith');
+	});
+
+	it('does not ask about someone available that day or about the person already assigned', async () => {
+		const { onSetAssignment } = open('person-1');
+		await fireEvent.click(trigger());
+		await fireEvent.click(screen.getByRole('option', { name: /Taylor/ }));
+		expect(onSetAssignment).toHaveBeenCalledWith('2026-04-06', 'type-1', 'person-2');
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+
+		onSetAssignment.mockClear();
+		await fireEvent.click(trigger());
+		await fireEvent.click(screen.getByRole('option', { name: /Smith/ }));
+		expect(onSetAssignment).toHaveBeenCalledWith('2026-04-06', 'type-1', 'person-1');
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+	});
 });

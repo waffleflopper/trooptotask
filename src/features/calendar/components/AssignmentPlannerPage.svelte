@@ -11,8 +11,8 @@
 		previewRosterReplacement,
 		previewRosterSwap
 	} from '../contexts/PlannerRosterRead.svelte';
-	import { formatDate } from '$lib/utils/dates';
 	import { calendarViewCoverage, type CalendarCoverage } from '../utils/calendarRange';
+	import { addMonths, endOfMonth, formatDate, startOfMonth } from '$lib/utils/dates';
 	import { da6Href } from '../utils/da6View';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import type { CalendarOperationsPageAccess, RosterReplacement } from '../contracts';
@@ -54,20 +54,33 @@
 	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	const rangeCoordinator = new CalendarRangeCoordinator();
+	// Copy takes from the month before the shown one, which also holds the days a first week reaches back to.
+	// It reads on its own once the shown month is ready, so the planner never waits for it.
+	const copySourceCoordinator = new CalendarRangeCoordinator();
+	const copySourceCoverage = $derived.by((): CalendarCoverage => {
+		const previous = addMonths(startOfMonth(calendarStore.currentDate), -1);
+		return { assignments: { rangeStart: formatDate(previous), rangeEnd: formatDate(endOfMonth(previous)) } };
+	});
 	const monthCoverage = $derived(calendarViewCoverage(calendarStore.currentDate, 'month'));
 	$effect(() => {
 		data.orgId;
 		rangeCoordinator.reset();
+		copySourceCoordinator.reset();
 		staleRead = null;
 		const bootstrap = data.calendar?.data;
 		if (bootstrap?.rangeStart && bootstrap.rangeEnd && bootstrap.availabilityRange) {
-			rangeCoordinator.includeBootstrap({
+			const loaded = {
 				rangeStart: bootstrap.rangeStart,
 				rangeEnd: bootstrap.rangeEnd,
 				availabilityRange: bootstrap.availabilityRange
-			});
+			};
+			rangeCoordinator.includeBootstrap(loaded);
+			copySourceCoordinator.includeBootstrap(loaded);
 		}
-		return () => rangeCoordinator.cancelInFlightLoads();
+		return () => {
+			rangeCoordinator.cancelInFlightLoads();
+			copySourceCoordinator.cancelInFlightLoads();
+		};
 	});
 	$effect(() => {
 		workspaceData;
@@ -81,6 +94,17 @@
 			!dailyAssignmentsStore.loading &&
 			rangeCoordinator.status(monthCoverage) === 'ready'
 	);
+
+	// The shown month's read may already hold the previous month, such as after browsing back.
+	const copySourceStatus = $derived(
+		rangeCoordinator.status(copySourceCoverage) === 'ready' ? 'ready' : copySourceCoordinator.status(copySourceCoverage)
+	);
+	$effect(() => {
+		copySourceCoordinator.retryToken;
+		if (!canMutate || !rangeReady || rangeCoordinator.status(copySourceCoverage) === 'ready') return;
+		void copySourceCoordinator.ensureRange(data.orgId, copySourceCoverage);
+		return () => copySourceCoordinator.cancelInFlightLoads();
+	});
 
 	// Counts span the whole Organization, so only an Organization-wide operator reads them. The read starts
 	// beside the range read and never waits on it.
@@ -252,6 +276,7 @@
 			specialDays={specialDaysStore.items}
 			personnelByGroup={scopedPBG}
 			groups={scopedGroups}
+			copySource={{ status: copySourceStatus, onRetry: () => copySourceCoordinator.retryFailedRange() }}
 			{rosters}
 			{staleAssignments}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}

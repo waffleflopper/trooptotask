@@ -1,4 +1,5 @@
-import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, StatusType } from '$features/calendar/contracts';
+import { availabilityEntryLabel } from './availabilityLabels';
 import { assignmentSlotKey } from './calendarIndexes';
 import type { CalendarBufferedRange } from './calendarRange';
 
@@ -23,6 +24,44 @@ export function indexDutyAvailability(entries: readonly AvailabilityEntry[]): Du
 		else byPerson.set(entry.personnelId, [entry]);
 	}
 	return byPerson;
+}
+
+/** The entries that take a person off duty: every status except the ones that leave them available. */
+export function blockingAvailability(
+	entries: readonly AvailabilityEntry[],
+	statusTypes: readonly StatusType[]
+): AvailabilityEntry[] {
+	const stillAvailable = new Set(
+		statusTypes.filter((status) => status.rosterEffect === 'available').map((status) => status.id)
+	);
+	return entries.filter((entry) => !stillAvailable.has(entry.statusTypeId));
+}
+
+/** Why a person is unavailable on `dateKey`, such as "Leave 20–23 Oct; TDY 21–25 Oct", or undefined when nothing covers it. */
+export function coveringLabel(
+	entries: readonly AvailabilityEntry[] | undefined,
+	dateKey: string,
+	statusName: ReadonlyMap<string, string>,
+	ignoring?: ReadonlySet<string>
+): string | undefined {
+	const labels = entries
+		?.filter((entry) => entry.startDate <= dateKey && entry.endDate >= dateKey && !ignoring?.has(entry.statusTypeId))
+		.map((entry) => availabilityEntryLabel(entry, statusName));
+	return labels?.length ? labels.join('; ') : undefined;
+}
+
+/** The label of each conflict by slot, for a surface that shows why an assigned day is unavailable. */
+export function dutyConflictReasons(
+	conflicts: DutyConflicts,
+	statusTypes: readonly StatusType[]
+): ReadonlyMap<string, string> {
+	const statusName = new Map(statusTypes.map((status) => [status.id, status.name]));
+	return new Map(
+		[...conflicts.bySlot].map(([slot, conflict]) => [
+			slot,
+			conflict.entries.map((entry) => availabilityEntryLabel(entry, statusName)).join('; ')
+		])
+	);
 }
 
 /**

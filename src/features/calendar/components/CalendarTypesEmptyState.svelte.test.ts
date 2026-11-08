@@ -199,5 +199,6 @@ describe('CalendarTypesEmptyState', () => {
 
 		expect(screen.queryByRole('checkbox')).toBeNull();
 		expect(screen.queryByRole('button')).toBeNull();
+		expect(screen.getByText(/Ask someone who manages Calendar settings/)).toBeTruthy();
 	});
 });

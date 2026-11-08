@@ -21,6 +21,9 @@ archives or restores a record while keeping its identity, permissions and retain
   path, reusing the Groups that exist.
 - `record-archive-restore`: single and bulk archive remove People from active views; restore retains their IDs and
   restores only artifacts archived by that parent event.
+- `archive-undo`: the roster bulk bar's and the detail page's archive toasts carry `Undo` for 10 seconds. Undo restores
+  exactly the People that archive newly archived, and withdraws the approval requests it submitted, for the actor who
+  archived even without restore access. Anyone else, or an expired offer, is refused.
 - `record-approval`: an operate-only member requests archive approval without archiving the Person; an authorized
   reviewer applies the archive once.
 - `record-access`: view, operate, configure, assigned Group, empty Group scope and foreign Organization requests
@@ -548,6 +551,16 @@ these again.`, and `rows personnel` shows both People saved. Restore, choose `Im
     rejection must preserve both parents and all child/Evaluation fields. Do not bypass constraints in the browser
     worker. A deletion blocked by historical foreign references must preserve the parent, its children and files,
     although earlier retention families may have already completed. Run final `doctor` and clean recorded seeds/files.
+
+12. **Undo after archive.** Seed `personnel-lifecycle` and arm `$V feedback arm $PAGE`. **Direct:** as `manager` select
+    one temporary Person on the roster, `Archive…`, `Archive`, capture `1 personnel archived` with `Undo`, then click
+    `Undo` within 10 seconds. Expect `1 person restored`, `archived_at` null again in `rows personnel`, and the Person
+    back on the roster. **Approval:** as `personnelOperate` request the archive of a temporary Person; expect the toast
+    `1 archival requests submitted for admin approval` with `Undo`. Click `Undo`: `1 archival request withdrawn` and
+    `$V rows deletion_requests orgA` shows that request `cancelled` with the Person still active. Do not read `rows`
+    between the toast and the click. Repeat both at 390x844. The token replays (another actor, expired, another
+    Organization) and the changed-since cases are covered by `undo/server.test.ts`, not driven live. **Detail:** archive
+    a temporary Person from `More Personnel record` and click `Undo` on the toast that appears on the roster.
 
 ### Detail, Data sheet and loss baseline
 

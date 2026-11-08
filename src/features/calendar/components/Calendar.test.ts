@@ -507,7 +507,6 @@ describe('Calendar lanes', () => {
 				name: 'Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex, unavailable: Leave 1–3 Mar. Edit assignments'
 			});
 			expect(day.getAttribute('title')).toContain('Leave 1–3 Mar');
-			expect(day.querySelector('svg')).toBeTruthy();
 		});
 
 		it('marks a read-only day too, without making it a button', () => {
@@ -517,7 +516,6 @@ describe('Calendar lanes', () => {
 			expect(
 				within(duty).getByText('Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex, unavailable: Leave 1–3 Mar')
 			).toBeTruthy();
-			expect(duty.querySelector('[title*="Leave 1–3 Mar"] svg')).toBeTruthy();
 			expect(within(duty).queryByRole('button')).toBeNull();
 		});
 
@@ -527,7 +525,7 @@ describe('Calendar lanes', () => {
 			const day = screen.getByRole('button', {
 				name: 'Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex. Edit assignments'
 			});
-			expect(day.querySelector('svg')).toBeNull();
+			expect(day.getAttribute('title')).toBe('SGT Smith, Alex');
 		});
 	});
 

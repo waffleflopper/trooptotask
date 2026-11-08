@@ -63,6 +63,8 @@
 	async function add() {
 		const orgId = org.orgId;
 		if (!branch || saving || toAdd.length === 0) return;
+		// The saved types belong in the shared store even when the page was left during the save.
+		const sameOrg = () => trainingTypesStore.orgId === orgId;
 		const stillHere = () => alive && org.orgId === orgId;
 		saving = true;
 		failure = null;
@@ -72,9 +74,9 @@
 				suggestionIds: toAdd.map(({ id }) => id)
 			});
 			// The reply carries the catalog just read back, so the page keeps its place instead of reloading.
-			if (stillHere()) trainingTypesStore.load(result.trainingTypes, orgId);
+			if (sameOrg()) trainingTypesStore.load(result.trainingTypes, orgId);
 			// A partial save leaves the catalog nonempty, which unmounts this offer, so the miss is told in a toast.
-			if (stillHere() && result.failed.length > 0)
+			if (sameOrg() && result.failed.length > 0)
 				toastStore.error(`${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`);
 		} catch (cause) {
 			if (stillHere())

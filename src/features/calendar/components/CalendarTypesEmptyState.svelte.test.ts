@@ -165,6 +165,33 @@ describe('CalendarTypesEmptyState', () => {
 		error.mockRestore();
 	});
 
+	it('keeps the saved starter types when the picker closes during the save', async () => {
+		let reply: (response: Response) => void = () => {};
+		fetchMock.mockReturnValue(new Promise<Response>((resolve) => (reply = resolve)));
+		const { unmount } = render(CalendarTypeSetupHost, { props: { kind: 'status', setup: manager } });
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Add \d/ }));
+		unmount();
+		reply(
+			Response.json({
+				...created,
+				statusTypes: [
+					{
+						id: 's1',
+						name: 'Leave',
+						color: '#48bb78',
+						textColor: '#ffffff',
+						shortLabel: null,
+						rosterEffect: 'A',
+						sortOrder: 0
+					}
+				]
+			})
+		);
+
+		await waitFor(() => expect(statusTypesStore.items.map(({ name }) => name)).toEqual(['Leave']));
+	});
+
 	it('offers no starter types to a viewer who may configure only the other kind', () => {
 		render(CalendarTypeSetupHost, {
 			props: { kind: 'status', setup: { orgUrlSegment: 'alpha', canSetUp: { status: false, assignments: true } } }

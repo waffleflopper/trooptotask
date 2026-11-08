@@ -257,6 +257,23 @@ describe('TrainingTypesPage', () => {
 			expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']);
 		});
 
+		it('keeps the saved starter types when the page is left during the save', async () => {
+			let reply: (response: Response) => void = () => {};
+			stubSuggestions('army', () => Response.json(created));
+			const lookUpBranch = globalThis.fetch;
+			vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+				init?.method === 'POST' ? new Promise<Response>((resolve) => (reply = resolve)) : lookUpBranch(url, init)
+			);
+			const { unmount } = mount([]);
+
+			await screen.findByRole('checkbox', { name: /^SHARP/ });
+			await fireEvent.click(add());
+			unmount();
+			reply(Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }] }));
+
+			await waitFor(() => expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']));
+		});
+
 		it('explains a failed branch lookup and offers the list after a retry', async () => {
 			let lookups = 0;
 			vi.stubGlobal('fetch', async () =>

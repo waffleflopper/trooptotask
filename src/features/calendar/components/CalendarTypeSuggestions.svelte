@@ -57,22 +57,20 @@
 	let saving = $state(false);
 	let failure = $state<string | null>(null);
 
-	function adopt(result: CalendarSuggestionsResult) {
-		if (kind === 'status') {
-			if (statusTypesStore.orgId) statusTypesStore.load(result.statusTypes, statusTypesStore.orgId);
-		} else if (dailyAssignmentsStore.orgId) {
-			dailyAssignmentsStore.load(
-				result.assignmentTypes,
-				dailyAssignmentsStore.assignments,
-				dailyAssignmentsStore.orgId
-			);
-		}
+	const catalogOrg = () => (kind === 'status' ? statusTypesStore.orgId : dailyAssignmentsStore.orgId);
+
+	function adopt(result: CalendarSuggestionsResult, orgId: string) {
+		if (kind === 'status') statusTypesStore.load(result.statusTypes, orgId);
+		else dailyAssignmentsStore.load(result.assignmentTypes, dailyAssignmentsStore.assignments, orgId);
 	}
 
 	async function add() {
 		const orgUrlSegment = current?.orgUrlSegment;
+		const orgId = catalogOrg();
 		if (!orgUrlSegment || saving || toAdd.length === 0) return;
-		const stillHere = () => alive && setup?.().orgUrlSegment === orgUrlSegment;
+		// The saved types belong in the shared store even when the picker closed during the save.
+		const sameOrg = () => setup?.().orgUrlSegment === orgUrlSegment && catalogOrg() === orgId;
+		const stillHere = () => alive && sameOrg();
 		const picked = new Set(toAdd.map((suggestion) => suggestion.id));
 		saving = true;
 		failure = null;
@@ -87,9 +85,9 @@
 			});
 			// The reply carries the catalog just read back. Loading it keeps the open picker or dialog mounted, which a
 			// calendar-data reload would replace with the page skeleton.
-			if (stillHere()) adopt(result);
+			if (orgId && sameOrg()) adopt(result, orgId);
 			// A partial save leaves the catalog nonempty, which unmounts this offer, so the miss is told in a toast.
-			if (stillHere() && result.failed.length > 0)
+			if (sameOrg() && result.failed.length > 0)
 				toastStore.error(`${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`);
 		} catch (cause) {
 			if (stillHere()) failure = cause instanceof Error ? cause.message : 'Could not add the types. Try again.';

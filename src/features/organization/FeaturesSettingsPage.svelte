@@ -4,6 +4,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import type { FeatureKey } from '$lib/access/featureSwitches';
@@ -38,6 +39,15 @@
 	let saves = Promise.resolve();
 
 	const isOn = (key: FeatureKey) => pending[key] ?? !features.disabledFeatures.includes(key);
+
+	/** Turning a feature off hides it for everyone, so it waits for one confirmation; turning it on does not. */
+	let confirmOff = $state<FeatureRow | null>(null);
+
+	function requestFeature(row: FeatureRow, on: boolean) {
+		if (pending[row.key] !== undefined) return;
+		if (on) setFeature(row, true);
+		else confirmOff = row;
+	}
 
 	function setFeature(row: FeatureRow, on: boolean) {
 		if (pending[row.key] !== undefined) return;
@@ -145,7 +155,7 @@
 			{#snippet control()}
 				<Switch
 					id="feature-{feature.key}"
-					bind:checked={() => on, (next) => setFeature(feature, next)}
+					bind:checked={() => on, (next) => requestFeature(feature, next)}
 					aria-describedby="feature-{feature.key}-description"
 					aria-disabled={pending[feature.key] !== undefined || undefined}
 					aria-busy={pending[feature.key] !== undefined || undefined}
@@ -154,3 +164,19 @@
 		</PageShell.FactRow>
 	{/each}
 </PageShell.FactSection>
+
+{#if confirmOff}
+	{@const target = confirmOff}
+	<ConfirmDialog
+		title="Turn off {target.label} for {unitName}?"
+		message="It is hidden for everyone in {unitName}. Its records are kept, and you can turn it back on."
+		confirmLabel="Turn off {target.label}"
+		onConfirm={() => {
+			// `target` follows `confirmOff`, so it is read before the dialog closes.
+			const row = target;
+			confirmOff = null;
+			setFeature(row, false);
+		}}
+		onCancel={() => (confirmOff = null)}
+	/>
+{/if}

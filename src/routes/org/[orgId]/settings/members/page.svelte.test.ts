@@ -160,6 +160,12 @@ const invitationRow = (email: string) =>
 		.find((item) => within(item).queryByText(email)) as HTMLElement;
 const inviteStrip = () => screen.getByRole('region', { name: 'Invite a member' });
 
+async function revokeInvitation(email: string) {
+	await fireEvent.click(screen.getByRole('button', { name: `Revoke invitation for ${email}` }));
+	const confirm = await screen.findByRole('alertdialog', { name: `Revoke the invitation for ${email}?` });
+	await fireEvent.click(within(confirm).getByRole('button', { name: 'Revoke invitation' }));
+}
+
 async function openSheet(id: string) {
 	const manage = within(memberRow(id)).getByRole('button', { name: /^Manage/ });
 	await fireEvent.click(manage);
@@ -439,6 +445,7 @@ describe('waiting on them', () => {
 		await fireEvent.click(revoke);
 
 		expect(heldSubmissions).toHaveLength(1);
+		expect(screen.queryByRole('alertdialog')).toBeNull();
 		expect(resend.getAttribute('aria-disabled')).toBe('true');
 		expect(revoke.getAttribute('aria-disabled')).toBe('true');
 		expect(document.activeElement).toBe(resend);
@@ -475,7 +482,8 @@ describe('waiting on them', () => {
 
 	it('ignores invitation responses that arrive after the page is gone', async () => {
 		const view = renderPage({ invitations: [pendingInvite] });
-		await fireEvent.click(screen.getByRole('button', { name: 'Revoke invitation for pending@example.com' }));
+		await revokeInvitation('pending@example.com');
+		await waitFor(() => expect(heldSubmissions).toHaveLength(1));
 		const late = heldSubmissions[0];
 		const before = window.location.href;
 		view.unmount();
@@ -504,7 +512,8 @@ describe('waiting on them', () => {
 
 	it('confirms a Revoke with a toast and moves focus to the invite email once the section leaves', async () => {
 		const view = renderPage({ invitations: [pendingInvite] });
-		await fireEvent.click(screen.getByRole('button', { name: 'Revoke invitation for pending@example.com' }));
+		await revokeInvitation('pending@example.com');
+		await waitFor(() => expect(heldSubmissions).toHaveLength(1));
 
 		await heldSubmissions[0](
 			frameworkOutcome(
@@ -521,6 +530,116 @@ describe('waiting on them', () => {
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Invite')));
 		expect(screen.queryByRole('region', { name: 'Waiting on them' })).toBeNull();
 		expect(toasts).toEqual(['Invitation revoked.']);
+	});
+});
+
+describe('revoking an invitation', () => {
+	it('sends nothing until the confirmation is accepted, and cancelling keeps the invitation', async () => {
+		renderPage({ invitations: [pendingInvite] });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Revoke invitation for pending@example.com' }));
+		const confirm = await screen.findByRole('alertdialog', { name: 'Revoke the invitation for pending@example.com?' });
+		expect(heldSubmissions).toHaveLength(0);
+
+		await fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(heldSubmissions).toHaveLength(0);
+		expect(invitationRow('pending@example.com')).toBeTruthy();
+
+		await revokeInvitation('pending@example.com');
+		await waitFor(() => expect(heldSubmissions).toHaveLength(1));
+		expect(submitted[0].get('inviteId')).toBe('invite-1');
+	});
+});
+
+describe('invitation expiry', () => {
+	afterEach(() => vi.useRealTimers());
+
+	it.each([
+		[0, 'expires today'],
+		[1, 'expires tomorrow'],
+		[3, 'expires in 3 days']
+	])('says a pending invitation due in %i calendar days %s', (days, text) => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 10, 10, 9));
+		renderPage({
+			invitations: [{ ...pendingInvite, expiresAt: new Date(2026, 10, 10 + days, 17).toISOString() }]
+		});
+
+		expect(within(invitationRow('pending@example.com')).getByText(new RegExp(text))).toBeTruthy();
+	});
+});
+
+describe('inviting again after an invitation expired', () => {
+	const expiredInvite = {
+		id: 'invite-3',
+		email: 'lapsed@example.com',
+		status: 'pending',
+		membershipRole: 'member',
+		createdAt: '2026-03-01T00:00:00Z',
+		access: {
+			memberPreset: 'operator',
+			capabilityMap: { ...createCapabilityMap('operate'), calendar: 'view' },
+			scopeSet: { kind: 'groups', groupIds: ['11111111-1111-4111-8111-111111111111'] },
+			organizationGovernanceActions: []
+		},
+		lifecycleStatus: 'expired',
+		lifecycleStatusLabel: 'Expired',
+		lifecycleAt: '2026-03-08T00:00:00Z'
+	} as SettingsInvitationHistoryRow;
+
+	async function openHistory(history: SettingsInvitationHistoryRow[], options: PageOptions = {}) {
+		const view = renderPage({ ...options, history: Promise.resolve(history) });
+		await fireEvent.click(await screen.findByRole('button', { name: /Invitation history/ }));
+		return view;
+	}
+
+	it('posts a new invitation with the same email and access, never a resend', async () => {
+		await openHistory([expiredInvite, closedInvite]);
+
+		expect(screen.queryByRole('button', { name: /Invite again to closed@example.com/ })).toBeNull();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Invite again to lapsed@example.com' }));
+
+		expect(heldSubmissions).toHaveLength(1);
+		const sent = submitted[0];
+		expect(sent.get('email')).toBe('lapsed@example.com');
+		expect(sent.get('membershipRole')).toBe('member');
+		expect(sent.get('memberPreset')).toBe('operator');
+		expect(sent.get('scopeSetKind')).toBe('groups');
+		expect(sent.getAll('scopeSetGroupIds')).toEqual(['11111111-1111-4111-8111-111111111111']);
+		expect(sent.get('capabilityOverride:calendar')).toBe('view');
+		expect(sent.get('capabilityOverride:personnel')).toBe('operate');
+	});
+
+	it('offers it once per address, and not while an invitation to that address is waiting', async () => {
+		const older = { ...expiredInvite, id: 'invite-0', createdAt: '2026-01-01T00:00:00Z' };
+		await openHistory([expiredInvite, older]);
+		expect(screen.getAllByRole('button', { name: 'Invite again to lapsed@example.com' })).toHaveLength(1);
+		cleanup();
+
+		await openHistory([expiredInvite], { invitations: [{ ...pendingInvite, email: 'Lapsed@Example.com' }] });
+		expect(screen.queryByRole('button', { name: /Invite again/ })).toBeNull();
+	});
+
+	it('reports a refused invitation inside that history row', async () => {
+		const view = await openHistory([expiredInvite]);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Invite again to lapsed@example.com' }));
+
+		await heldSubmissions[0](
+			frameworkOutcome(
+				{ type: 'failure', status: 400, location: '/', data: { inviteError: 'Already a member' } },
+				{ applyForm: (form) => view.rerender({ form } as never) }
+			)
+		);
+
+		const row = screen.getByText('lapsed@example.com').closest('li') as HTMLElement;
+		await waitFor(() => expect(within(row).getByRole('alert').textContent?.trim()).toBe('Already a member'));
+	});
+
+	it('is not offered to a viewer who cannot invite', async () => {
+		await openHistory([expiredInvite], { canInvite: false });
+
+		expect(screen.queryByRole('button', { name: /Invite again/ })).toBeNull();
 	});
 });
 

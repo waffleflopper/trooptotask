@@ -36,3 +36,20 @@ export interface SettingsInvitationAccessRow {
 	blockedAt?: string;
 	access: SettingsAccessShape;
 }
+
+/**
+ * The expired history rows that may offer a new invitation: the newest row for its address, and only while no
+ * invitation to that address is still waiting. `history` is newest first.
+ */
+export function reinvitableInvitationIds(
+	history: readonly { id: string; email: string; lifecycleStatus: string }[],
+	waitingEmails: readonly string[]
+): string[] {
+	const seen = new Set(waitingEmails.map((email) => email.toLowerCase()));
+	return history.flatMap(({ id, email, lifecycleStatus }) => {
+		const key = email.toLowerCase();
+		if (seen.has(key)) return [];
+		seen.add(key);
+		return lifecycleStatus === 'expired' ? [id] : [];
+	});
+}

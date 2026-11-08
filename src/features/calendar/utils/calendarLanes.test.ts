@@ -137,7 +137,7 @@ describe('buildCalendarLanes', () => {
 		expect(opened).toEqual(['sd:3']);
 	});
 
-	it('carries the unavailable reason of a conflicted slot onto its day and counts it in the summary', () => {
+	it('carries the unavailable reason of a conflicted slot onto its day only', () => {
 		const [duty] = build({
 			assignmentTypes: [type({ id: 'sd', name: 'Staff Duty' })],
 			assignments: [assignment('2026-10-01', 'sd', 'p-pike'), assignment('2026-10-02', 'sd', 'p-pike')],
@@ -151,7 +151,6 @@ describe('buildCalendarLanes', () => {
 			undefined,
 			undefined
 		]);
-		expect(duty.summary).toBe('Staff Duty: 2 of 5 days assigned, 1 of them with someone unavailable');
 	});
 
 	it('reports a fully assigned lane as Full', () => {

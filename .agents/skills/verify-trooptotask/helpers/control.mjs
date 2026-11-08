@@ -2784,6 +2784,7 @@ async function main() {
 					'pinned-groups',
 					'personnel/import',
 					'personnel/archive-batch',
+					'personnel/field-batch',
 					'personnel/follow-ups/batch',
 					'personnel/leader-notes/batch',
 					'personnel/permanent',

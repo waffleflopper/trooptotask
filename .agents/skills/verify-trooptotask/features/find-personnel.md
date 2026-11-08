@@ -373,10 +373,13 @@ scoped actors retain their baseline grants.
     in shown order are selected.
     - Placement: the bar is in the roster's flow and sticky 20px above the window's bottom. On the 20-person workload at
       1440x900 the table scrolls in its own box and the bar (714 wide, top 828) sits under the `20 of 20 shown` footer,
-      covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as icons with their
-      names kept for assistive technology; with `Set field…` the bar is 366 wide at 390 and `scrollWidth` equals the
-      viewport. At 390 dark the
-      bar keeps its chrome border and reads clearly.
+      covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as 38-wide icons with
+      no gap between them, their names kept for assistive technology. At 390 the bar is 366 wide (x 12 to 378),
+      `Clear selection` ends at 370 inside it, also when the label wraps to `3 selected` over `2 hidden`. A longer
+      count wraps instead of pushing the actions out: set the label's text to `1000 selected` and the hidden count to
+      `999 hidden` in the page, and the label stacks on three lines inside the 52-tall bar while `Clear selection` still
+      ends at 369. In all these cases the bar's `scrollWidth` equals its `clientWidth`, and the page's `scrollWidth`
+      equals the viewport. At 390 dark the bar keeps its chrome border and reads clearly.
     - Search: with five selected, search `Baker`: the bar reads `5 selected · 4 hidden by search`, and `Archive…` asks
       `Archive 5 personnel? …` with `This includes 4 people your search hides.` Actions apply to every selected Person.
       At 390 the hidden count sits on its own line under the selected count (`75 selected` over `74 hidden`, a 351-wide
@@ -413,8 +416,16 @@ scoped actors retain their baseline grants.
       closes the dialog without a request. At 390 the dialog stays inside the viewport and the review list scrolls in
       its own box. A refused or lost Person keeps the dialog open on `Result` with `Updated`, `No access` or
       `No longer available` beside each name, and selected People the actor cannot edit are counted on the first step
-      and left out (both source-mapped; route and unit tests cover them). More than 500 People go out in batches of
-      500, and each confirmed batch reaches the roster even if a later one fails (unit-tested).
+      and left out. More than 500 People go out in batches of 500, and each confirmed batch reaches the roster even if
+      a later one fails (unit-tested). Scope: from a `personnelScopedOperate` page, a `field-batch` POST naming
+      personA, personB and personUnassigned with `clinicRole` returns 200 with `updatedIds` [personA] and
+      `unavailableIds` [personB, personUnassigned], because the Alpha-only read cannot see them; only Able's row
+      changes. `viewer` has no checkboxes and its POST returns 403 with no write. Lifetime: as `personnelSwitch`, use
+      `Switch organization` to go A → B → A so history stays client-side. Select Baker, set `MOS` to a new value and
+      `Review changes`, arm `$V network arm-hold PAGE personnel/field-batch`, choose `Save 1 person`, then press Back to
+      B. After `$V network release PAGE`, `feedback state` is empty, no dialog is open and B's roster is unchanged. The
+      server keeps the value it saved. Back from a document load reloads the page and drops the hold, so it proves
+      nothing.
     - Move to Group: the menu `Move N people to` lists `Alpha`, `Bravo` and `Unassigned`. Moving
       `SPC Unassigned, Synthetic` to `Alpha` sends one `POST .../group-membership` and one `roster-signals` POST, toasts
       `Moved 1 person to Alpha`, and `rows personnel orgA` shows Alpha's group ID on that Person.
@@ -441,8 +452,8 @@ scoped actors retain their baseline grants.
       while 12 skeletons show, and after `release` the row tops (316, 410) and the bar top (504) are unchanged. With
       `fail-hard` the notice `Today's status and Needs attention could not be loaded.` shows and the bar keeps every
       action.
-    - `network` accepts the exact `personnel/follow-ups/batch` and `personnel/leader-notes/batch` families, not yet
-      `personnel/field-batch`.
+    - `network` accepts the exact `personnel/follow-ups/batch`, `personnel/leader-notes/batch` and
+      `personnel/field-batch` families.
 
 20. **Peek panel.** As `orgOwner` at 1440x900, stage Baker's two follow-ups through
     `POST /org/<org>/api/personnel/<personB>/follow-ups` (`Turn in TA-50 shortage list` due four days before the viewer

@@ -145,11 +145,12 @@ SELECT results_eq($$ SELECT user_id, actor_label, subject_label FROM pg_temp.ent
 INSERT INTO public.availability_entries (id, organization_id, personnel_id, status_type_id, start_date, end_date)
 VALUES (pg_temp.id('504'), pg_temp.id('101'), pg_temp.id('302'), pg_temp.id('401'), '2030-12-07', '2030-12-08');
 DELETE FROM public.personnel WHERE id = pg_temp.id('301');
-DELETE FROM public.status_types WHERE id = pg_temp.id('401');
+SELECT throws_ok($$ DELETE FROM public.status_types WHERE id = pg_temp.id('401') $$, '23503', NULL,
+  'a status type that still has schedule entries is not deleted');
 SELECT is(
   (SELECT count(*)::integer FROM public.audit_logs WHERE resource_id IN (pg_temp.id('503'), pg_temp.id('504'))
     AND action = 'availability.deleted'),
-  0, 'entries removed with their Person or status type leave that deletion as the audited event');
+  0, 'entries removed with their Person leave that deletion as the audited event');
 INSERT INTO public.status_types (id, organization_id, name) VALUES (pg_temp.id('403'), pg_temp.id('101'), 'Pass');
 INSERT INTO public.availability_entries (id, organization_id, personnel_id, status_type_id, start_date, end_date)
 VALUES (pg_temp.id('505'), pg_temp.id('101'), pg_temp.id('302'), pg_temp.id('403'), '2030-12-09', '2030-12-10');

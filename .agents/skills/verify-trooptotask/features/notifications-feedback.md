@@ -76,7 +76,7 @@ endpoints).
    GET. Record the failed PUT, visible count and unchanged row, then reload and retry. A failed write must not present a
    saved read state; it reports failure on the destination and permits retry. The newest member item has a synthetic
    Dashboard query link: opening it follows that link while the write is pending, even if the write fails. Hold a
-   single-read PUT, capture the destination before release, then release and require the badge to drop and its exact row
+   single-read PUT, capture the destination before release, then release and require the bell's accessible count to drop and its exact row
    to become read. Retry a failed write from the destination by reopening the bell. For list failure, use the untouched
    `notificationOther` account and arm before opening its fresh bell; capture the error/recovery message and disabled
    bulk-read button, close/reopen and observe retry without a request loop. Bulk read stays disabled during failure or
@@ -91,11 +91,11 @@ endpoints).
    pending controls prevent duplicate writes. Restore the hook and retry `Mark all read`; all twenty-four own A rows,
    including the four outside the list, become read while peer/B rows remain unchanged. Use native keyboard Enter/Escape
    for a bell/menu action and capture resulting focus. Save before/action/after snapshots, screenshot and reload.
-4. **Delete and the Account list.** Reseed if step 3 already marked everything read. With the 24 seeded unread rows the bell
+4. **Delete and the Account list.** Reseed if step 3 already marked everything read, then reload so the header reads the new rows. With the 24 seeded unread rows the bell
    reads `24 unread notifications` and shows `9+`. Capture that badge at 1280x800 and 390x844 in light and dark; the
    header has no horizontal scroll at 390. The exact cap at nine and ten is component-tested. Open the bell and choose
    `Delete notification: <title>` on item 24 with the mouse, then on the next item with ArrowDown and Enter. Expected
-   each time: the menu stays open, there is no navigation, the badge drops by one for an unread item, focus lands on the
+   each time: the menu stays open, there is no navigation, the bell's accessible count drops by one for an unread item (the badge stays `9+` above nine), focus lands on the
    item that took its place, and `$V rows notifications orgA title <title>` returns no row. Choose `View all`:
    `/org/ORG/account/notifications` lists the own rows newest first under `N unread of M`, each with an unread dot,
    title, message, relative time and `Delete notification: <title>`. Keep that page open and write from the bell: the

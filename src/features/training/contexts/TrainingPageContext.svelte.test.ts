@@ -1,6 +1,8 @@
+// @vitest-environment happy-dom
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { flushSync } from 'svelte';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 const getDefaultUserOrgPreferences = () => ({
@@ -21,10 +23,11 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { submitDeletionRequest } from '$features/deletion-requests/submission.test-support';
 import { toastStore } from '$lib/stores/toast.svelte';
 
-const { gotoMock, invalidateMock, savePreferencesMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateMock, savePreferencesMock, pageMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
 	invalidateMock: vi.fn(),
-	savePreferencesMock: vi.fn()
+	savePreferencesMock: vi.fn(),
+	pageMock: { url: new URL('http://localhost/org/org-1/training'), state: {} as Record<string, unknown> }
 }));
 
 async function waitForAsyncSideEffect(assertion: () => void): Promise<void> {
@@ -50,6 +53,7 @@ vi.mock('$app/navigation', () => ({
 	invalidate: invalidateMock,
 	invalidateAll: vi.fn()
 }));
+vi.mock('$app/state', () => ({ page: pageMock }));
 
 function makeOrg() {
 	return {
@@ -164,6 +168,9 @@ describe('TrainingPageContext', () => {
 		submitRemovalRequest.mockReset().mockResolvedValue(true);
 		vi.unstubAllGlobals();
 		savePreferencesMock.mockReset();
+		gotoMock.mockReset();
+		pageMock.url = new URL('http://localhost/org/org-1/training');
+		pageMock.state = {};
 		personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
 		groupCatalogHydration.load(mockGroups, 'org-1');
 		trainingRankCatalogStore.load([], 'org-1');
@@ -333,6 +340,202 @@ describe('TrainingPageContext', () => {
 			expect(ctx.filteredPersonnel).toEqual([]);
 			expect(ctx.selectedGroupId).toBe('g-empty');
 			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('Group filter in the URL (?group=)', () => {
+		const savedGroup = (selectedGroupId: string | null) =>
+			makeData({
+				userPreferences: {
+					...getDefaultUserOrgPreferences(),
+					training: { selectedGroupId, selectedViewId: null, matrixViewMode: 'by-group' }
+				}
+			});
+		const REPLACE = { replace: true, reset: false, state: {} };
+
+		it('filters to the Group in the URL ahead of the saved one, without changing the saved one', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=g-2');
+			const ctx = makeContext(savedGroup('g-1'), makeOrg());
+
+			expect(ctx.selectedGroupId).toBe('g-2');
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
+			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+
+		it('writes a chosen Group into the URL by replacing the entry, keeps other params, and saves the choice', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?person=p-1&q=x');
+			const ctx = makeContext(makeData(), makeOrg());
+
+			ctx.setSelectedGroupId('g-2');
+
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/training?person=p-1&q=x&group=g-2', REPLACE);
+			expect(savePreferencesMock).toHaveBeenCalledWith({ training: { selectedGroupId: 'g-2' } });
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
+		});
+
+		it('drops the param when the filter goes back to all Groups', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=g-2&person=p-1');
+			const ctx = makeContext(makeData(), makeOrg());
+
+			ctx.setSelectedGroupId('');
+
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/training?person=p-1', REPLACE);
+			expect(savePreferencesMock).toHaveBeenCalledWith({ training: { selectedGroupId: null } });
+			expect(ctx.filteredPersonnel).toHaveLength(2);
+		});
+
+		it('writes the saved Group into a URL that has none, and leaves a URL alone when nothing is saved', () => {
+			const withSaved = makeContext(savedGroup('g-1'), makeOrg());
+			withSaved.syncGroupParam();
+			expect(gotoMock.mock.calls).toEqual([['/org/org-1/training?group=g-1', REPLACE]]);
+
+			gotoMock.mockReset();
+			makeContext(makeData(), makeOrg()).syncGroupParam();
+			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		it('drops a param that names no Group, keeping the roster and the saved Group', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=gone&person=p-1');
+			const ctx = makeContext(savedGroup('g-1'), makeOrg());
+
+			ctx.syncGroupParam();
+
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/training?person=p-1', REPLACE);
+			expect(ctx.filteredPersonnel).toHaveLength(2);
+			expect(savePreferencesMock).not.toHaveBeenCalled();
+		});
+
+		it('follows the URL to another Group when the entry changes, as Back does', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=g-1');
+			const ctx = makeContext(makeData(), makeOrg());
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-1']);
+
+			pageMock.url = new URL('http://localhost/org/org-1/training?group=g-2');
+			ctx.syncGroupParam();
+
+			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-2']);
+			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		it('keeps following the URL after it reran while its own write was in flight', async () => {
+			const url = $state({ current: new URL('http://localhost/org/org-1/training') });
+			Object.defineProperty(pageMock, 'url', { get: () => url.current, configurable: true });
+			let landed = () => {};
+			gotoMock.mockImplementation(
+				(target: string) =>
+					new Promise<void>((resolve) => {
+						url.current = new URL(`http://localhost${target}`);
+						landed = resolve;
+					})
+			);
+			const ctx = makeContext(makeData(), makeOrg());
+			const stop = $effect.root(() => {
+				$effect(() => ctx.syncGroupParam());
+			});
+			try {
+				flushSync();
+				ctx.setSelectedGroupId('g-2');
+				flushSync();
+				landed();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+
+				url.current = new URL('http://localhost/org/org-1/training');
+				flushSync();
+
+				expect(gotoMock.mock.calls).toEqual([
+					['/org/org-1/training?group=g-2', REPLACE],
+					['/org/org-1/training?group=g-2', REPLACE]
+				]);
+			} finally {
+				stop();
+				Object.defineProperty(pageMock, 'url', {
+					value: new URL('http://localhost/org/org-1/training'),
+					writable: true,
+					configurable: true
+				});
+			}
+		});
+
+		it('shows all Groups when a link names a Group that is not there, instead of keeping the last one', async () => {
+			const url = $state({ current: new URL('http://localhost/org/org-1/training?group=g-1') });
+			Object.defineProperty(pageMock, 'url', { get: () => url.current, configurable: true });
+			gotoMock.mockImplementation(async (target: string) => {
+				url.current = new URL(`http://localhost${target}`);
+			});
+			const ctx = makeContext(makeData(), makeOrg());
+			const stop = $effect.root(() => {
+				$effect(() => ctx.syncGroupParam());
+			});
+			try {
+				flushSync();
+				expect(ctx.selectedGroupId).toBe('g-1');
+
+				url.current = new URL('http://localhost/org/org-1/training?group=gone');
+				flushSync();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+
+				expect(ctx.selectedGroupId).toBe('');
+				expect(url.current.search).toBe('');
+				expect(gotoMock.mock.calls).toEqual([['/org/org-1/training', REPLACE]]);
+			} finally {
+				stop();
+				Object.defineProperty(pageMock, 'url', {
+					value: new URL('http://localhost/org/org-1/training'),
+					writable: true,
+					configurable: true
+				});
+			}
+		});
+
+		it.each([
+			['g-2', 'g-2', '?group=g-2'],
+			['gone', '', '']
+		])(
+			'holds a URL Group of %s unapplied until the roster loads, then applies it or drops it',
+			async (param, selected, search) => {
+				const url = $state({ current: new URL(`http://localhost/org/org-1/training?group=${param}`) });
+				Object.defineProperty(pageMock, 'url', { get: () => url.current, configurable: true });
+				gotoMock.mockImplementation(async (target: string) => {
+					url.current = new URL(`http://localhost${target}`);
+				});
+				personnelRosterHydration.load([], 'other-org');
+				const ctx = makeContext(makeData(), makeOrg());
+				const stop = $effect.root(() => {
+					$effect(() => ctx.syncGroupParam());
+				});
+				try {
+					flushSync();
+					expect(ctx.selectedGroupId).toBe('');
+
+					personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
+					flushSync();
+					await new Promise((resolve) => setTimeout(resolve, 0));
+
+					expect(ctx.selectedGroupId).toBe(selected);
+					expect(url.current.search).toBe(search);
+				} finally {
+					stop();
+					Object.defineProperty(pageMock, 'url', {
+						value: new URL('http://localhost/org/org-1/training'),
+						writable: true,
+						configurable: true
+					});
+				}
+			}
+		);
+
+		it('keeps the record sheet param when the Group changes', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/training?person=p-1');
+			pageMock.state = { trainingRecord: true };
+			const ctx = makeContext(makeData(), makeOrg());
+
+			ctx.setSelectedGroupId('g-1');
+
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/training?person=p-1&group=g-1', {
+				...REPLACE,
+				state: { trainingRecord: true }
+			});
 		});
 	});
 
@@ -581,7 +784,8 @@ describe('TrainingPageContext', () => {
 			const fetchMock = vi.fn().mockResolvedValue({
 				ok: true,
 				status: 200,
-				json: () => Promise.resolve({ inserted: [insertedTraining], updated: [updatedTraining] })
+				json: () =>
+					Promise.resolve({ inserted: [insertedTraining], updated: [updatedTraining], exempted: [], errors: [] })
 			});
 			vi.stubGlobal('fetch', fetchMock);
 
@@ -594,6 +798,30 @@ describe('TrainingPageContext', () => {
 				body: JSON.stringify({ records: batchRecords })
 			});
 			expect(personnelTrainingsStore.items).toEqual([updatedTraining, insertedTraining]);
+		});
+
+		it('keeps the records that saved and rejects naming each Soldier whose record did not', async () => {
+			const ctx = makeContext(makeData(), makeOrg());
+			personnelTrainingsStore.load([], 'org-1');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					ok: true,
+					status: 200,
+					json: () =>
+						Promise.resolve({
+							inserted: [insertedTraining],
+							updated: [],
+							exempted: [],
+							errors: [{ index: 1, message: 'Training type not found' }]
+						})
+				})
+			);
+
+			await expect(
+				ctx.handleSaveTrainingBatch([...batchRecords, { ...batchRecords[0], personnelId: 'p-2' }])
+			).rejects.toThrow('1 not recorded. Adams: Training type not found');
+			expect(personnelTrainingsStore.items).toEqual([insertedTraining]);
 		});
 
 		it('throws on non-OK response and does not mutate the training store', async () => {

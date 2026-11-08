@@ -11,6 +11,7 @@ import type {
 import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry, Group } from '$features/personnel/contracts';
 import type { TrainingStats } from './utils/trainingStatus';
+import type { TrainingDueSoon } from './utils/dueSoon';
 import type { BriefingScope, TrainingBriefing } from './utils/trainingBriefing.types';
 export {
 	DEFAULT_BRIEFING_DETAIL_PAGE_SIZE,
@@ -50,6 +51,8 @@ export type {
 	TrainingApplicability
 } from './utils/personnelTrainingItems';
 export type { TrainingStats } from './utils/trainingStatus';
+export type { TrainingDueSoon, TrainingDueSoonPerson } from './utils/dueSoon';
+export type { RecordClassCandidate, RecordClassGroupFilter } from './utils/recordClassCandidates';
 export type {
 	BriefingBand,
 	BriefingFocusArea,
@@ -75,6 +78,9 @@ export interface TrainingBatchRecord {
 export interface TrainingBatchImportInput {
 	records: TrainingBatchRecord[];
 }
+
+/** The most records one batch request saves; the client splits a larger class into requests of this size. */
+export const TRAINING_BATCH_LIMIT = 500;
 
 export interface TrainingBatchImportResult {
 	inserted: PersonnelTraining[];
@@ -107,15 +113,6 @@ export interface TrainingOnboardingReferencesPort {
 	): Promise<Map<string, Set<string>>>;
 }
 
-export interface TrainingIssue {
-	personnelId: string;
-	personName: string;
-	typeName: string;
-	label: string;
-	status: TrainingStatus;
-	daysUntilExpiration: number | null;
-}
-
 /** Every expired applicable Person for one training type, uncapped. */
 export interface ExpiredTrainingType {
 	trainingTypeId: string;
@@ -126,8 +123,9 @@ export interface ExpiredTrainingType {
 
 export interface TrainingSummary {
 	stats: TrainingStats;
-	issues: TrainingIssue[];
 	expiredByType: ExpiredTrainingType[];
+	/** Every Person inside a warning window, per type, uncapped. */
+	dueSoonByType: TrainingDueSoon[];
 	expiredPersonnelCount: number;
 	/** People missing an applicable required record, other than those already expired. */
 	missingPersonnelCount: number;
@@ -148,8 +146,6 @@ export interface TrainingSummaryInput {
 	trainingTypes: TrainingType[];
 	options?: {
 		groupId?: string;
-		issueLimit?: number;
-		issueStatuses?: TrainingStatus[];
 	};
 }
 

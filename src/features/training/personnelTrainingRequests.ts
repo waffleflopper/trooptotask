@@ -1,6 +1,6 @@
 import type { ReadinessCertificate } from '$lib/components/patterns/readiness-items';
 import { buildRequestError } from '$lib/stores/core';
-import type { TrainingBatchImportResult, TrainingBatchRecord } from './contracts';
+import { TRAINING_BATCH_LIMIT, type TrainingBatchImportResult, type TrainingBatchRecord } from './contracts';
 import type { PersonnelTraining, TrainingRecordSave } from './training.types';
 
 export interface TrainingCompletionLog {
@@ -21,8 +21,35 @@ export interface TrainingCorrectionRequest {
 	notes?: string | null;
 }
 
-/** Records many completions in one request; per-record failures come back in `errors`. */
+/**
+ * Records many completions, in requests no larger than the server accepts. Per-record failures come back in `errors`,
+ * indexed into `records`. A request that fails after an earlier one saved reports its records and the rest as errors,
+ * so the caller keeps what saved; a failure before anything saved throws.
+ */
 export async function recordTrainingCompletions(
+	orgId: string,
+	records: readonly TrainingBatchRecord[]
+): Promise<TrainingBatchImportResult> {
+	const result: TrainingBatchImportResult = { inserted: [], updated: [], exempted: [], errors: [] };
+	for (let start = 0; start < records.length; start += TRAINING_BATCH_LIMIT) {
+		let part: TrainingBatchImportResult;
+		try {
+			part = await postTrainingBatch(orgId, records.slice(start, start + TRAINING_BATCH_LIMIT));
+		} catch (error) {
+			if (start === 0) throw error;
+			const message = error instanceof Error ? error.message : 'Not recorded';
+			for (let index = start; index < records.length; index++) result.errors.push({ index, message });
+			break;
+		}
+		result.inserted.push(...part.inserted);
+		result.updated.push(...part.updated);
+		result.exempted.push(...part.exempted.map((exempt) => ({ ...exempt, index: exempt.index + start })));
+		result.errors.push(...part.errors.map((error) => ({ ...error, index: error.index + start })));
+	}
+	return result;
+}
+
+async function postTrainingBatch(
 	orgId: string,
 	records: readonly TrainingBatchRecord[]
 ): Promise<TrainingBatchImportResult> {
@@ -33,6 +60,19 @@ export async function recordTrainingCompletions(
 	});
 	if (!response.ok) throw await buildRequestError(response, 'POST', 'training completions');
 	return response.json();
+}
+
+/** "2 not recorded. Baker: <reason>; <reason>": each failed record, by the Person's last name where it is known. */
+export function batchFailureMessage(
+	records: readonly Pick<TrainingBatchRecord, 'personnelId'>[],
+	errors: TrainingBatchImportResult['errors'],
+	people: readonly { id: string; lastName: string }[]
+): string {
+	const failed = errors.map((error) => {
+		const person = people.find((candidate) => candidate.id === records[error.index]?.personnelId);
+		return person ? `${person.lastName}: ${error.message}` : error.message;
+	});
+	return `${errors.length} not recorded. ${failed.join('; ')}`;
 }
 
 export async function loadPersonTrainingRecords(orgId: string, personnelId: string): Promise<PersonnelTraining[]> {

@@ -25,7 +25,7 @@
 		/** Entries that take a person off duty, by person. Someone covered on the shown date is flagged and asks first. */
 		availabilityByPerson: DutyAvailabilityIndex;
 		statusTypes: readonly StatusType[];
-		onSetAssignment: (date: string, typeId: string, assigneeId: string) => void;
+		onSetAssignment: (date: string, typeId: string, assigneeId: string) => Promise<boolean> | void;
 		onRemoveAssignment: (date: string, typeId: string) => void;
 		onClose: () => void;
 	}
@@ -192,9 +192,9 @@
 		message="{pick.name} is unavailable: {pick.reason}."
 		confirmLabel="Assign anyway"
 		variant="default"
-		onConfirm={() => {
-			onSetAssignment(dateStr, pick.typeId, pick.assigneeId);
-			confirming = null;
+		onConfirm={async () => {
+			// A failed save keeps the confirmation open for another try.
+			if ((await onSetAssignment(dateStr, pick.typeId, pick.assigneeId)) && confirming === pick) confirming = null;
 		}}
 		onCancel={() => (confirming = null)}
 	/>

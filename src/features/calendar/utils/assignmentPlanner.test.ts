@@ -444,6 +444,27 @@ describe('copying the previous week or month', () => {
 		]);
 	});
 
+	it('skips a person since excused from the duty, with the excusal reason', () => {
+		const excusing = type('cq', { excusals: [{ personId: 'p-a', reason: 'Profile', startsOn: '2026-10-30' }] });
+		const result = plan({
+			span: week('2026-11-02'),
+			assignments: [assignment('2026-10-27', 'cq', 'p-a'), assignment('2026-10-28', 'cq', 'p-b')],
+			columns: [excusing]
+		});
+
+		expect(result.writes).toEqual([{ date: '2026-11-04', assignmentTypeId: 'cq', assigneeId: 'p-b' }]);
+		expect(result.skips).toEqual([
+			{
+				typeId: 'cq',
+				sourceDate: '2026-10-27',
+				targetDate: '2026-11-03',
+				assigneeId: 'p-a',
+				reason: 'excused',
+				detail: 'Profile'
+			}
+		]);
+	});
+
 	it('leaves a filled target alone and counts it only where there was something to copy', () => {
 		const result = plan({
 			span: week('2026-11-02'),

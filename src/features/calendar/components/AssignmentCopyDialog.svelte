@@ -100,6 +100,7 @@
 	function skipReason(skip: CopySkip): string {
 		if (skip.reason === 'missing-day') return `${monthName} has no day ${Number(skip.sourceDate.slice(8))}`;
 		if (skip.reason === 'no-duty') return 'Takes no duty that day';
+		if (skip.reason === 'excused') return `Excused from this duty${skip.detail ? `: ${skip.detail}` : ''}`;
 		return `Unavailable: ${skip.detail}`;
 	}
 

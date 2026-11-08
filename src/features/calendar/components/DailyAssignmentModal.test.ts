@@ -219,8 +219,8 @@ describe('DailyAssignmentModal: choosing someone who is unavailable that day', (
 		{ id: 'e-2', personnelId: 'person-2', statusTypeId: 'leave', startDate: '2026-04-08', endDate: '2026-04-08' }
 	]);
 
-	function open(assigneeId?: string) {
-		const onSetAssignment = vi.fn();
+	function open(assigneeId?: string, saved = true) {
+		const onSetAssignment = vi.fn(async () => saved);
 		render(DailyAssignmentModal, {
 			props: {
 				date: new Date(2026, 3, 6),
@@ -259,6 +259,20 @@ describe('DailyAssignmentModal: choosing someone who is unavailable that day', (
 
 		expect(onSetAssignment).toHaveBeenCalledExactlyOnceWith('2026-04-06', 'type-1', 'person-1');
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+	});
+
+	it('keeps the confirmation open when the save fails', async () => {
+		const { onSetAssignment } = open(undefined, false);
+		await fireEvent.click(trigger());
+		await fireEvent.click(screen.getByRole('option', { name: /Smith/ }));
+		const confirm = await screen.findByRole('alertdialog');
+		await fireEvent.click(within(confirm).getByRole('button', { name: 'Assign anyway' }));
+
+		await waitFor(() => expect(onSetAssignment).toHaveBeenCalledExactlyOnceWith('2026-04-06', 'type-1', 'person-1'));
+		await waitFor(() =>
+			expect(within(confirm).getByRole('button', { name: 'Assign anyway' })).toHaveProperty('disabled', false)
+		);
+		expect(screen.getByRole('alertdialog')).toBe(confirm);
 	});
 
 	it('leaves the slot and the shown assignee alone on Cancel', async () => {

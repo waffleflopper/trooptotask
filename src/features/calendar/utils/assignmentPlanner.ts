@@ -227,7 +227,7 @@ export function buildQuickFillBatch(input: {
 /** What Copy takes from the days before the shown month: every day of the previous month, or one Monday-start week. */
 export type CopySpan = { kind: 'month' } | { kind: 'week'; weekStart: string };
 
-export type CopySkipReason = 'missing-day' | 'no-duty' | 'unavailable';
+export type CopySkipReason = 'missing-day' | 'no-duty' | 'excused' | 'unavailable';
 
 export interface CopySkip {
 	readonly typeId: string;
@@ -236,7 +236,7 @@ export interface CopySkip {
 	readonly targetDate: string | null;
 	readonly assigneeId: string;
 	readonly reason: CopySkipReason;
-	/** For `unavailable`, why the person is out that day, such as "Leave 20–23 Oct". */
+	/** For `excused`, the excusal's reason. For `unavailable`, why the person is out that day, such as "Leave 20–23 Oct". */
 	readonly detail?: string;
 }
 
@@ -302,6 +302,9 @@ export function buildCopyPlan(input: {
 					});
 
 	const holidays = new Set(input.specialDays.map((day) => toDayNumber(day.date)));
+	// The duty picker and Daily Assignments never offer an excused person, so Copy does not either.
+	const excusal = (type: AssignmentType, assigneeId: string) =>
+		type.assignTo === 'personnel' ? type.excusals.find(({ personId }) => personId === assigneeId) : undefined;
 	const statusName = new Map(input.statusTypes.map((status) => [status.id, status.name]));
 	const writes: AssignmentWrite[] = [];
 	const skips: CopySkip[] = [];
@@ -319,6 +322,8 @@ export function buildCopyPlan(input: {
 				filled++;
 			} else if (!takesDutyOn(type, toDayNumber(targetDate), holidays)) {
 				skip('no-duty');
+			} else if (excusal(type, assigneeId)) {
+				skip('excused', excusal(type, assigneeId)!.reason);
 			} else {
 				const unavailable =
 					type.assignTo === 'personnel'

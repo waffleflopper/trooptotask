@@ -53,8 +53,6 @@
 		...(ctx.canManagePersonnelInGroup(null) ? [{ id: null, name: 'Unassigned', level: 0, path: 'Unassigned' }] : [])
 	]);
 	const indent = ['', 'pl-6', 'pl-10'];
-	/** Below 48rem the actions are icons, so tighter padding keeps all six and Clear selection inside 390 px. */
-	const iconOnlyWhenNarrow = '@max-3xl/roster:px-2';
 
 	const count = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 	const skippedNote = (n: number) => (n > 0 ? ` · ${count(n)} skipped` : '');
@@ -202,7 +200,7 @@
 	role="toolbar"
 	aria-label="Selected people"
 	data-roster-bulk-bar
-	class="flex h-13 max-w-full items-center gap-1.5 rounded-md border border-chrome-border bg-chrome pr-2 pl-4.5 text-chrome-text shadow-xl @max-3xl/roster:gap-0.5 @max-3xl/roster:pl-3"
+	class="flex h-13 max-w-full items-center gap-1.5 rounded-md border border-chrome-border bg-chrome pr-2 pl-4.5 text-chrome-text shadow-xl @max-3xl/roster:gap-0 @max-3xl/roster:pl-3"
 >
 	<span class="pr-1.5 text-[15px] leading-[18px] font-semibold whitespace-nowrap" aria-live="polite">
 		{people.length} selected
@@ -222,22 +220,13 @@
 			type="button"
 			variant="accent"
 			size="lg"
-			class={iconOnlyWhenNarrow}
 			disabled={busy}
 			title="Follow-up for each"
 			onclick={() => oncompose('follow-up')}
 		>
 			<SquareCheckIcon aria-hidden="true" /><span class="@max-3xl/roster:sr-only">Follow-up for each</span>
 		</Button>
-		<Button
-			type="button"
-			variant="ghost"
-			size="lg"
-			class={iconOnlyWhenNarrow}
-			disabled={busy}
-			title="Add note"
-			onclick={() => oncompose('note')}
-		>
+		<Button type="button" variant="ghost" size="lg" disabled={busy} title="Add note" onclick={() => oncompose('note')}>
 			<MessageSquarePlusIcon class="@3xl/roster:hidden" aria-hidden="true" /><span class="@max-3xl/roster:sr-only"
 				>Add note</span
 			>
@@ -246,7 +235,6 @@
 			type="button"
 			variant="ghost"
 			size="lg"
-			class={iconOnlyWhenNarrow}
 			disabled={busy}
 			title="Set field…"
 			onclick={() => (fieldTargets = { people: writable, notEditable: people.length - writable.length })}
@@ -259,7 +247,7 @@
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger disabled={busy}>
 					{#snippet child({ props })}
-						<Button {...props} type="button" variant="ghost" size="lg" class={iconOnlyWhenNarrow} title="Move to Group">
+						<Button {...props} type="button" variant="ghost" size="lg" title="Move to Group">
 							<FolderInputIcon class="@3xl/roster:hidden" aria-hidden="true" /><span class="@max-3xl/roster:sr-only"
 								>Move to Group</span
 							><ChevronDownIcon class="size-3 @max-3xl/roster:hidden" aria-hidden="true" />
@@ -280,15 +268,7 @@
 		{/if}
 	{/if}
 	{#if exportable.length > 0}
-		<Button
-			type="button"
-			variant="ghost"
-			size="lg"
-			class={iconOnlyWhenNarrow}
-			disabled={busy}
-			title="Export"
-			onclick={exportSelected}
-		>
+		<Button type="button" variant="ghost" size="lg" disabled={busy} title="Export" onclick={exportSelected}>
 			<DownloadIcon class="@3xl/roster:hidden" aria-hidden="true" /><span class="@max-3xl/roster:sr-only">Export</span>
 		</Button>
 	{/if}
@@ -297,7 +277,7 @@
 			type="button"
 			variant="ghost"
 			size="lg"
-			class="ml-2 @max-3xl/roster:ml-0 {iconOnlyWhenNarrow}"
+			class="ml-2 @max-3xl/roster:ml-0"
 			disabled={busy}
 			title="Archive…"
 			onclick={() => (confirmingArchive = true)}

@@ -5,8 +5,12 @@ person's record.
 
 ## Sub-features
 
-- `roster-search`: match a person by name and return to the full roster by clearing the query.
-- `roster-views`: switch between `Group` and `A-Z` presentations.
+- `roster-search`: match a person by name and return to the full roster by clearing the query. The text lives in the
+  address as `?q=`, replaces the history entry on every keystroke, and comes back after Back, reload or a shared link.
+- `roster-views`: switch between `Group` and `A-Z` presentations. The choice is saved for the member in each
+  Organization, so a reload and another device keep it and a second Organization keeps its own.
+- `roster-rank-sort`: `Sort by Rank` orders by pay grade from the Organization's rank catalog, most senior first, and a
+  rank the catalog lacks follows every catalog rank in both directions.
 - `roster-open`: open a matching person's details.
 - `roster-readiness`: a Personnel manager with Calendar view access sees the current saved availability in the person's
   Overview `Next 14 days`.
@@ -21,8 +25,8 @@ person's record.
   reader sees their whole visible tree. The setting persists across screens and Organizations on this device. The
   [nested Group tree](manage-groups.md#nested-group-tree) recipe gives the expected bands for Organization-wide and
   scoped readers.
-- `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state (only
-  `?show=`).
+- `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state (`?show=` and
+  `?q=`).
 - `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
   keyboard and actions, and the signals lane's loading and failure states.
 - `roster-quick-edit`: a row's pencil or E opens that Person's fields in place under the row; one row edits at a time, a
@@ -57,7 +61,11 @@ scoped actors retain their baseline grants.
    absent. Focus the searchbox, press `Control+A` then `Backspace` with `tool press_key`, and confirm all seeded rows
    return. A native `fill` with an empty string can clear the displayed input without dispatching the search update.
 3. Click the `A-Z` button UID and snapshot the alphabetical presentation. Click `Group` and confirm the `Alpha`,
-   `Bravo`, and `Unassigned` headings return.
+   `Bravo`, and `Unassigned` headings return. Click `A-Z`, wait a second for the debounced save and reload: `A-Z` is
+   still pressed. As `calendarSwitch` (member of A and B) save `A-Z` in A, open B Personnel (grant that actor Personnel
+   `view` in B on the disposable provider first, as `Access Restricted` otherwise) and require `Group` pressed there; a
+   reload of each keeps its own choice, and `Switch organization` between them without a reload does the same. At 390
+   the choice is the checked `A-Z`/`Group` radio in `More Personnel controls`. Restore B's Personnel grant to `none`.
 4. Click the `Able, Synthetic` name link in the `Open SPC Able, Synthetic` row (at 1280 px and wider a row click opens
    the preview instead, step 20). Confirm the browser moved to that person's detail route and shows the same name.
    Return through the `Personnel` navigation link. For the Calendar-backed readiness check, run
@@ -76,8 +84,12 @@ scoped actors retain their baseline grants.
    visible and page-data observations together. A blank or failed data response is not a passing scope check.
 7. **Roster table sort, filter and row action.** As `manager` in `A-Z`, capture the `Personnel roster` table header
    buttons (`Sort by Rank`, `Sort by Name`, ...) and the initial Name order. Click `Sort by Name` and require the
-   reversed order and changed sort indicator, click it again to restore ascending, then sort by MOS (every fixture
-   Person shares one rank, so Rank cannot show a reorder). Filter with the searchbox (`Baker`) and require only Baker's
+   reversed order and changed sort indicator, click it again to restore ascending, then sort by MOS. Rank: run `$V seed roster-ranks`
+   (one `SGT`, one `PFC`, and `COL` and `ZZZ`, which A's catalog does not hold, beside the three `SPC` fixtures). Click
+   `Sort by Rank` for ascending and read the row order: `SGT`, the three `SPC`, `PFC`, then `COL`, `ZZZ`. Click it again:
+   `PFC`, the three `SPC`, `SGT`, then `ZZZ`, `COL`. The unlisted ranks follow in both directions, ordered by code among
+   themselves. The Rank header is absent at 390 and, with the sidebar open, at 1024; collapse the sidebar at 1024 to
+   read it. Run `$V clean-seeds` afterwards. Filter with the searchbox (`Baker`) and require only Baker's
    row, then clear with focused `Control+A`/`Backspace`. Click Baker's name link and require Baker's record route;
    return through `Personnel`.
 8. **Group header pin and collapse.** As `manager` in `Group` view, read each header's two buttons: `Pin Alpha`
@@ -105,8 +117,9 @@ scoped actors retain their baseline grants.
    while `arm-hold-fail PAGE personnel/archive-batch` holds the batch: the dialog's `Cancel` and `Archive` and every
    `Selected people` action but `Clear selection` disable until release. Loading: navigate to Personnel and capture
    its roster skeleton while the deferred workspace loads. No dedicated control holds this workspace read; if it
-   finishes before capture, record UNAVAILABLE with the attempted route. URL: record that search text, view mode, sort,
-   pins and collapse leave the URL unchanged (only a filter writes `?show=`, step 17), and that choosing a row opens `/org/<org>/personnel/<slug>`.
+   finishes before capture, record UNAVAILABLE with the attempted route. URL: record that view mode, sort,
+   pins and collapse leave the URL unchanged (a filter writes `?show=`, step 17, and the search writes `?q=`, step 21),
+   and that choosing a row opens `/org/<org>/personnel/<slug>`.
    Capture 1280 light and 390 dark, including the `Personnel controls` toolbar at 390: one row with the search field,
    `More Personnel controls` and `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`,
    `Manage Groups` and the `A-Z`/`Group` view fold into More in that order at about 1100, 1052 and 920px and stay folded
@@ -504,6 +517,13 @@ scoped actors retain their baseline grants.
       toolbar folds Import and Manage Groups into More and the footer shows only `3 of 3 shown`. At 900 and 390 a row
       click opens `personnel/verify-baker` and no panel renders; `scrollWidth` equals the viewport.
 
+21. **Search in the address.** As `manager` at 1280 and 390, read `history.length`, then `tool fill` the searchbox with
+    `B`, `Ba`, `Bak`, `Bake`, `Baker` in turn. After each, `location.search` is `?q=<text>` and `history.length` is
+    unchanged; the roster shows only Baker. Click Baker's name link (`history.length` grows by one), then
+    `navigate_page` `back`: the address is `?q=Baker`, the searchbox reads `Baker` and only Baker shows. Reload: the same.
+    Focus the searchbox, `Control+A`, `Backspace`: the address loses `?q=` and all rows return. A `show` filter keeps
+    `?q=` when it is chosen.
+
 ## Gotchas
 
 - `Note for <name>` and `Quick edit <name>` repeat on each row; name them with the Person, not by position.
@@ -513,8 +533,8 @@ scoped actors retain their baseline grants.
 - `manager` deliberately starts with no Calendar grant for authorization checks. Temporarily grant it Calendar `view`
   for the integrated readiness check, then restore `none`. A missing availability summary under the default grant does
   not test the Calendar-backed read.
-- Search results can change the visible rows without changing the URL; capture the search value and rows in the same
-  snapshot. A chip toggle does change the URL (`?show=`) but replaces the history entry.
+- The search and a chip toggle change the URL (`?q=`, `?show=`) but replace the history entry; capture the search value,
+  the address and the rows in the same snapshot.
 - The Quick edit Group and Rank lists are comboboxes: `take_snapshot` shows the listbox without its options, so read
   them from a screenshot or pick by typing then Enter.
 - `Import`, `Add Person`, and archive are separate mutation journeys; their presence in the toolbar does not prove them.

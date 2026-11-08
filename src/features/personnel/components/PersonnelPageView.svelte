@@ -642,8 +642,7 @@
 		showFirstPages();
 	}
 
-	// The address bar keeps the search so Back, a reload and a shared link restore it. Each write replaces the current
-	// history entry, and writes run one at a time with only the latest text kept, so they land in typing order.
+	// Writes run one at a time with only the latest text kept, so they land in typing order.
 	async function writeSearchToUrl(value: string): Promise<void> {
 		if (searchWrite) {
 			searchWrite.next = value;

@@ -57,7 +57,6 @@ export interface GroupsAccessor {
 	readonly items: readonly Group[];
 }
 
-/** The viewer's saved roster choices for this Organization. */
 export interface RosterPreferences {
 	viewMode: RosterViewMode;
 }

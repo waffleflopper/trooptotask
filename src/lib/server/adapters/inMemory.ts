@@ -1748,17 +1748,44 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 		findArchiveRetentionMonths: (orgId) => findScalar(orgId, 'archive_retention_months'),
 		findLossWarningWindowDays: (orgId) => findScalar(orgId, 'loss_warning_window_days'),
 		findStorageCapBytes: (orgId) => findScalar(orgId, 'personnel_document_storage_cap_bytes'),
-		async countPendingInvitations(orgId) {
-			return (
-				(
-					await store.findManyWithCount(
-						'organization_invitations',
-						orgId.toLowerCase(),
-						{ status: 'pending' },
-						{ select: 'id', limit: 0 }
-					)
-				).count ?? 0
-			);
+		async listUnexpiredPendingInvitations(orgId, now) {
+			const [invitations, deliveries] = await Promise.all([
+				store.findMany<{ id: string; email: string; expires_at: string | null }>(
+					'organization_invitations',
+					orgId.toLowerCase(),
+					{ status: 'pending' },
+					{
+						select: 'id, email, status, expires_at',
+						orderBy: [
+							{ column: 'expires_at', ascending: true },
+							{ column: 'id', ascending: true }
+						]
+					}
+				),
+				store.findMany<OrganizationSettingsInvitationDeliveryRow>(
+					'organization_invitation_email_outbox',
+					orgId.toLowerCase(),
+					undefined,
+					{
+						select: 'id, invitation_id, status',
+						orderBy: [
+							{ column: 'created_at', ascending: false },
+							{ column: 'id', ascending: true }
+						]
+					}
+				)
+			]);
+			const latest = new Map<string, OrganizationSettingsInvitationDeliveryRow['status']>();
+			for (const delivery of deliveries)
+				if (!latest.has(delivery.invitation_id)) latest.set(delivery.invitation_id, delivery.status);
+			return invitations
+				.filter((row) => row.expires_at && new Date(row.expires_at).getTime() > now.getTime())
+				.map((row) => ({
+					id: row.id,
+					email: row.email,
+					expiresAt: row.expires_at as string,
+					latestDeliveryStatus: latest.get(row.id) ?? null
+				}));
 		}
 	};
 }

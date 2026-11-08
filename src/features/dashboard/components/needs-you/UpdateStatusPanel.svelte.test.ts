@@ -20,7 +20,13 @@ function open({
 	personnelLookup = [] as RatingSchemeEntryEditorData['personnelLookup'],
 	loadedEntries = [] as Record<string, unknown>[]
 } = {}) {
-	const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
+	const updates = {
+		refreshSummary: vi.fn(),
+		refreshTaskings: vi.fn(),
+		retryTaskings: vi.fn(),
+		retryAdminAttention: vi.fn(),
+		putRecord: vi.fn()
+	};
 	const close = vi.fn();
 	render(UpdateStatusPanel, {
 		props: {

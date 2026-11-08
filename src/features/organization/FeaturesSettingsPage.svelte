@@ -4,6 +4,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import type { FeatureKey } from '$lib/access/featureSwitches';
@@ -39,10 +40,20 @@
 
 	const isOn = (key: FeatureKey) => pending[key] ?? !features.disabledFeatures.includes(key);
 
-	function setFeature(row: FeatureRow, on: boolean) {
+	/** Turning a feature off hides it for everyone, so it waits for one confirmation; turning it on does not. */
+	let confirmOff = $state<FeatureRow | null>(null);
+
+	function requestFeature(row: FeatureRow, on: boolean) {
 		if (pending[row.key] !== undefined) return;
+		if (on) void setFeature(row, true);
+		else confirmOff = row;
+	}
+
+	/** Resolves true once the switch is saved, false when it failed or another save for it was already running. */
+	function setFeature(row: FeatureRow, on: boolean): Promise<boolean> {
+		if (pending[row.key] !== undefined) return Promise.resolve(false);
 		pending[row.key] = on;
-		saves = saves.then(async () => {
+		const save = saves.then(async () => {
 			try {
 				await saveSettings({ featureSwitch: { feature: row.key, on } });
 				// The sidebar and the dashboard read the switches from the organization row the layout loads.
@@ -50,12 +61,16 @@
 				toastStore.success(
 					on ? `${row.label} is on for ${unitName}.` : `${row.label} is off for ${unitName}. Its records are kept.`
 				);
+				return true;
 			} catch (error) {
 				toastStore.error(`Couldn't turn ${row.label} ${on ? 'on' : 'off'}. ${(error as Error).message}`);
+				return false;
 			} finally {
 				delete pending[row.key];
 			}
 		});
+		saves = save.then(() => {});
+		return save;
 	}
 
 	const floor = new DraftField.FieldDraft<number | null>(() => features.strengthFloorPercent);
@@ -145,7 +160,7 @@
 			{#snippet control()}
 				<Switch
 					id="feature-{feature.key}"
-					bind:checked={() => on, (next) => setFeature(feature, next)}
+					bind:checked={() => on, (next) => requestFeature(feature, next)}
 					aria-describedby="feature-{feature.key}-description"
 					aria-disabled={pending[feature.key] !== undefined || undefined}
 					aria-busy={pending[feature.key] !== undefined || undefined}
@@ -154,3 +169,17 @@
 		</PageShell.FactRow>
 	{/each}
 </PageShell.FactSection>
+
+{#if confirmOff}
+	{@const target = confirmOff}
+	<ConfirmDialog
+		title="Turn off {target.label} for {unitName}?"
+		message="It is hidden for everyone in {unitName}. Its records are kept, and you can turn it back on."
+		confirmLabel="Turn off {target.label}"
+		variant="default"
+		onConfirm={async () => {
+			if ((await setFeature(target, false)) && confirmOff === target) confirmOff = null;
+		}}
+		onCancel={() => (confirmOff = null)}
+	/>
+{/if}

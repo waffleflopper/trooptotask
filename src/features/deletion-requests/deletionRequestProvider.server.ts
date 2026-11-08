@@ -1,6 +1,12 @@
 import type { Database, SupabaseClient } from '$lib/server/database';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import { DELETION_REQUEST_STATUSES, type DeletionRequest } from './contracts';
+import {
+	ARCHIVE_RESOURCE_TYPE,
+	DELETION_REQUEST_STATUSES,
+	type DeletionRequest,
+	type PendingApprovalGroup,
+	type PendingApprovalKind
+} from './contracts';
 import type { DeletionRequestStore, DeletionRequestSubmissionPort } from './contracts.server';
 import { TABLE } from './deletionRequestSupport.server';
 
@@ -39,16 +45,24 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 			return (result.data ?? []).map(toDeletionRequest);
 		},
 		async readPendingSummary(orgId, requestedBy) {
-			let query = supabase
-				.from(TABLE)
-				.select('created_at', { count: 'exact' })
-				.eq('organization_id', orgId)
-				.eq('status', 'pending');
-			if (requestedBy) query = query.eq('requested_by', requestedBy);
-			const { data, count, error } = await query.order('created_at', { ascending: true }).limit(1);
-			if (error) throw new Error(error.message);
-			if (count === null) throw new Error('Deletion request summary count was not returned');
-			return { count, oldestCreatedAt: data?.[0]?.created_at ?? null };
+			async function readKind(kind: PendingApprovalKind): Promise<PendingApprovalGroup[]> {
+				let query = supabase
+					.from(TABLE)
+					.select('created_at', { count: 'exact' })
+					.eq('organization_id', orgId)
+					.eq('status', 'pending');
+				query =
+					kind === 'archive'
+						? query.eq('resource_type', ARCHIVE_RESOURCE_TYPE)
+						: query.neq('resource_type', ARCHIVE_RESOURCE_TYPE);
+				if (requestedBy) query = query.eq('requested_by', requestedBy);
+				const { data, count, error } = await query.order('created_at', { ascending: true }).limit(1);
+				if (error) throw new Error(error.message);
+				if (count === null) throw new Error('Deletion request summary count was not returned');
+				const oldest = data?.[0]?.created_at;
+				return count > 0 && oldest ? [{ kind, count, oldestCreatedAt: oldest }] : [];
+			}
+			return (await Promise.all([readKind('archive'), readKind('deletion')])).flat();
 		},
 		async denyPendingRequest(orgId, requestId, target, denialReason) {
 			const { data, error } = await supabase.rpc('deny_deletion_request', {

@@ -12,6 +12,7 @@ import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { TrainingSummary } from '$features/training/contracts';
 import type { CalendarProjection, TaskingAttentionProjection } from '$features/calendar/contracts';
+import type { AdminAttentionSnapshot } from '$features/organization/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 
 export interface DashboardIctlMosReadiness {
@@ -90,6 +91,13 @@ export type DashboardTaskingsState =
 	| { status: 'failed' }
 	| ({ status: 'ready' } & DashboardTaskings);
 
+/** What waits on an owner or admin loads on its own: `off` is not read for this viewer, and `failed` is not empty. */
+export type DashboardAdminAttentionState =
+	| { status: 'off' }
+	| { status: 'pending' }
+	| { status: 'failed' }
+	| ({ status: 'ready' } & AdminAttentionSnapshot);
+
 export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
@@ -104,6 +112,7 @@ export interface DashboardPageData {
 	/** The summary read failed, so a null summary above is unknown rather than withheld. */
 	summaryFailed: boolean;
 	taskings: DashboardTaskingsState;
+	adminAttention: DashboardAdminAttentionState;
 	[key: string]: unknown;
 }
 

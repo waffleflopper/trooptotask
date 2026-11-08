@@ -4,5 +4,7 @@ export type {
 	DeletionRequestApproval,
 	DeletionRequestStatus,
 	DeletionRequestResourceType,
+	PendingApprovalGroup,
+	PendingApprovalKind,
 	PendingDeletionRequestSummary
 } from './contracts';

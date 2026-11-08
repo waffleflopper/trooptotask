@@ -31,8 +31,8 @@ function summary(current: number, expiredIds: string[] = []): DashboardPageSumma
 				notCompleted: 0,
 				notRequired: 0
 			},
-			issues: [],
 			expiredByType: expiredIds.length ? [{ trainingTypeId: 'cpr', personnelIds: expiredIds, maxDaysLate: 5 }] : [],
+			dueSoonByType: [],
 			expiredPersonnelCount: expiredIds.length,
 			missingPersonnelCount: 0,
 			groupDelinquencies: []
@@ -90,6 +90,19 @@ describe('Dashboard Tasking read', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry Taskings' }));
 
 		expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/dashboard/taskings?asOf=2026-10-19');
+	});
+});
+
+describe('Dashboard administration read', () => {
+	it('retries through its own endpoint without touching the Tasking read', async () => {
+		const fetchMock = vi.fn().mockReturnValue(new Promise<Response>(() => {}));
+		vi.stubGlobal('fetch', fetchMock);
+		render(Page, { props: { data: { ...data('org-1'), adminAttention: null } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry administration' }));
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/dashboard/admin-attention');
 	});
 });
 

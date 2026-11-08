@@ -27,7 +27,13 @@ describe('Award started', () => {
 	it('records the acknowledgement, then shows it on the page', async () => {
 		const action = awardStartedAction(inputs, patel);
 		if (action.mode !== 'run') throw new Error('Award started runs in place');
-		const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
+		const updates = {
+			refreshSummary: vi.fn(),
+			refreshTaskings: vi.fn(),
+			retryTaskings: vi.fn(),
+			retryAdminAttention: vi.fn(),
+			putRecord: vi.fn()
+		};
 		fetchMock.mockReturnValueOnce(respond({ acknowledged: true }));
 
 		await action.run(updates);
@@ -47,7 +53,13 @@ describe('Award started', () => {
 	it('fails with the server message and leaves the page unchanged', async () => {
 		const action = awardStartedAction(inputs, patel);
 		if (action.mode !== 'run') throw new Error('Award started runs in place');
-		const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
+		const updates = {
+			refreshSummary: vi.fn(),
+			refreshTaskings: vi.fn(),
+			retryTaskings: vi.fn(),
+			retryAdminAttention: vi.fn(),
+			putRecord: vi.fn()
+		};
 		fetchMock.mockReturnValueOnce(respond({ message: 'Forbidden' }, 403));
 
 		await expect(action.run(updates)).rejects.toThrow('Forbidden');
@@ -92,6 +104,7 @@ describe('a Tasking status action', () => {
 			refreshSummary: vi.fn(),
 			refreshTaskings: vi.fn(async () => void order.push('refresh')),
 			retryTaskings: vi.fn(),
+			retryAdminAttention: vi.fn(),
 			putRecord: vi.fn()
 		};
 		fetchMock.mockImplementationOnce(() => {
@@ -113,7 +126,13 @@ describe('a Tasking status action', () => {
 	it('fails with the server message and leaves the rows as they were', async () => {
 		const action = taskingStatusAction(inputs, row, 'Unblock', { action: 'unblock' });
 		if (action.mode !== 'run') throw new Error('A status action runs in place');
-		const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
+		const updates = {
+			refreshSummary: vi.fn(),
+			refreshTaskings: vi.fn(),
+			retryTaskings: vi.fn(),
+			retryAdminAttention: vi.fn(),
+			putRecord: vi.fn()
+		};
 		fetchMock.mockReturnValueOnce(respond({ message: 'Tasking is not blocked' }, 409));
 
 		await expect(action.run(updates)).rejects.toThrow('Tasking is not blocked');

@@ -8,6 +8,7 @@ import TonightAndTomorrow from '../components/TonightAndTomorrow.svelte';
 import { dashboardSection, type DashboardSection } from './dashboardSections';
 import { actionablePersonnel, personnelResource, seesCalendar } from './dashboardAccess';
 import {
+	dueSoonTraining,
 	expiredTraining,
 	leavingWithoutAward,
 	overdueEvaluations,
@@ -24,6 +25,7 @@ import { criticalTasksSetup, evaluationsSetup, onboardingSetup, trainingSetup } 
 import { startOnboardingChoices } from './startOnboardingChoices';
 import { eventsAndTaskingsLane } from './eventsAndTaskingsLane';
 import { taskingAttention, taskingAttentionLoad } from './taskingAttention';
+import { adminAttention, adminAttentionLoad } from './adminAttention';
 
 const { calendar, training } = POLICY_ACTION_CATALOG;
 
@@ -50,7 +52,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	}),
 	dashboardSection('training', {
 		setup: trainingSetup,
-		needsYou: [expiredTraining],
+		needsYou: [expiredTraining, dueSoonTraining],
 		readiness: trainingReadiness,
 		quickAdd: [
 			{
@@ -116,5 +118,10 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				available: (_, access) => access.can(calendar.manageTaskings)
 			}
 		]
+	}),
+	dashboardSection('administration', {
+		available: (_, access) => access.isPrivileged,
+		needsYou: [adminAttention],
+		needsYouLoad: adminAttentionLoad
 	})
 ];

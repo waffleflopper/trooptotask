@@ -91,7 +91,13 @@ async function openFill() {
 	render(NeedsYouFillHarness, {
 		props: {
 			model,
-			updates: { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() }
+			updates: {
+				refreshSummary: vi.fn(),
+				refreshTaskings: vi.fn(),
+				retryTaskings: vi.fn(),
+				retryAdminAttention: vi.fn(),
+				putRecord: vi.fn()
+			}
 		}
 	});
 	await fireEvent.click(screen.getByRole('button', { name: 'Fill 2 days' }));

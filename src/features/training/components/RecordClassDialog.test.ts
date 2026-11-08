@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
-import type { TrainingBatchRecord } from '../contracts';
+import type { RecordClassCandidate, RecordClassGroupFilter, TrainingBatchRecord } from '../contracts';
 import type { TrainingType } from '../training.types';
 import RecordClassDialog from './RecordClassDialog.svelte';
 
@@ -35,15 +35,33 @@ const cpr: TrainingType = {
 	isOptional: false
 };
 
-const people = [person('p-okafor', 'Okafor'), person('p-brooks', 'Brooks'), person('p-liang', 'Liang')];
+const people: RecordClassCandidate[] = [
+	{ person: person('p-okafor', 'Okafor'), statusLabel: null, checked: true },
+	{ person: person('p-brooks', 'Brooks'), statusLabel: null, checked: true },
+	{ person: person('p-liang', 'Liang'), statusLabel: null, checked: true }
+];
 
 type SaveRecords = (records: TrainingBatchRecord[]) => Promise<void>;
 
-function open(props: { trainingType?: TrainingType; onSave?: Mock<SaveRecords> } = {}) {
+function open(
+	props: {
+		trainingType?: TrainingType;
+		onSave?: Mock<SaveRecords>;
+		candidates?: RecordClassCandidate[];
+		groupFilter?: RecordClassGroupFilter;
+	} = {}
+) {
 	const onSave = props.onSave ?? vi.fn<SaveRecords>().mockResolvedValue(undefined);
 	const onClose = vi.fn();
 	render(RecordClassDialog, {
-		props: { trainingType: props.trainingType ?? cpr, people, today: '2026-10-21', onSave, onClose }
+		props: {
+			trainingType: props.trainingType ?? cpr,
+			candidates: props.candidates ?? people,
+			groupFilter: props.groupFilter,
+			today: '2026-10-21',
+			onSave,
+			onClose
+		}
 	});
 	return { onSave, onClose };
 }
@@ -109,5 +127,60 @@ describe('RecordClassDialog', () => {
 			await fireEvent.click(screen.getByLabelText(name));
 		}
 		expect((screen.getByRole('button', { name: 'Record 0' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('lists each Soldier with their status, checking only those the caller checked', async () => {
+		const { onSave } = open({
+			candidates: [
+				{ person: person('p-okafor', 'Okafor'), statusLabel: 'Expired 5d ago', checked: true },
+				{ person: person('p-brooks', 'Brooks'), statusLabel: 'Current', checked: false }
+			]
+		});
+
+		expect(screen.getByLabelText(/SPC Okafor, Ana\s+Expired 5d ago/)).toBeTruthy();
+		expect((screen.getByLabelText(/SPC Brooks, Ana\s+Current/) as HTMLInputElement).getAttribute('aria-checked')).toBe(
+			'false'
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Record 1' }));
+
+		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+		expect(onSave.mock.calls[0][0].map((record) => record.personnelId)).toEqual(['p-okafor']);
+	});
+
+	describe('Group filter', () => {
+		const groups: Record<string, string[]> = { alpha: ['p-okafor', 'p-brooks'], bravo: ['p-liang'] };
+		const groupFilter: RecordClassGroupFilter = {
+			options: [
+				{ value: '', label: 'All Groups' },
+				{ value: 'alpha', label: 'Alpha' },
+				{ value: 'bravo', label: 'Bravo' }
+			],
+			initial: 'alpha',
+			personnelIdsIn: (groupId) => new Set(groups[groupId] ?? [])
+		};
+
+		it('opens on the given Group and records only the checked Soldiers in view', async () => {
+			const { onSave } = open({ groupFilter });
+
+			expect((screen.getByLabelText('Group') as HTMLSelectElement).value).toBe('alpha');
+			expect(screen.queryByLabelText('SPC Liang, Ana')).toBeNull();
+			await fireEvent.click(screen.getByLabelText('SPC Brooks, Ana'));
+			await fireEvent.click(screen.getByRole('button', { name: 'Record 1' }));
+
+			await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+			expect(onSave.mock.calls[0][0].map((record) => record.personnelId)).toEqual(['p-okafor']);
+		});
+
+		it('lists everyone again, and keeps earlier choices, when the Group changes', async () => {
+			const { onSave } = open({ groupFilter });
+
+			await fireEvent.click(screen.getByLabelText('SPC Brooks, Ana'));
+			await fireEvent.change(screen.getByLabelText('Group'), { target: { value: '' } });
+			expect(screen.getByLabelText('SPC Liang, Ana')).toBeTruthy();
+			await fireEvent.click(screen.getByRole('button', { name: 'Record 2' }));
+
+			await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+			expect(onSave.mock.calls[0][0].map((record) => record.personnelId)).toEqual(['p-okafor', 'p-liang']);
+		});
 	});
 });

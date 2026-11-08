@@ -31,6 +31,7 @@ const updates = {
 	refreshSummary: () => {},
 	refreshTaskings: async () => {},
 	retryTaskings: () => {},
+	retryAdminAttention: () => {},
 	putRecord: () => {}
 };
 const frame = {
@@ -321,6 +322,7 @@ describe('Dashboard sections', () => {
 			orgId: 'org-1',
 			orgName: 'Test Unit',
 			taskings: { status: 'off' },
+			adminAttention: { status: 'off' },
 			userId: 'user-1',
 			viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 			disabledFeatures: [],
@@ -814,8 +816,8 @@ describe('Dashboard sections', () => {
 
 	const trainingSummary: DashboardPageData['trainingSummary'] = {
 		stats: { current: 0, expired: 0, warningOrange: 0, warningYellow: 0, notCompleted: 0, notRequired: 0, total: 0 },
-		issues: [],
 		expiredByType: [],
+		dueSoonByType: [],
 		expiredPersonnelCount: 0,
 		missingPersonnelCount: 0,
 		groupDelinquencies: []
@@ -871,6 +873,7 @@ describe('Dashboard sections', () => {
 		const expiredSummary: DashboardPageData['trainingSummary'] = {
 			...trainingSummary,
 			expiredByType: [{ trainingTypeId: 'cpr', personnelIds: ['p1'], maxDaysLate: 4 }],
+			dueSoonByType: [],
 			expiredPersonnelCount: 1,
 			missingPersonnelCount: 0,
 			groupDelinquencies: [{ groupId: null, expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }]

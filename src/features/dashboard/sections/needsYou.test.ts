@@ -19,6 +19,10 @@ function leaving(id: string, title: string, date: string): NeedsYouItem {
 	return { ...base, id, title, kind: 'leaving', urgency: { date }, personnelId: id };
 }
 
+function dueSoon(id: string, title: string, date: string): NeedsYouItem {
+	return { ...base, id, title, kind: 'dueSoon', urgency: { date }, trainingTypeId: id, personnelIds: [] };
+}
+
 const ids = (items: readonly NeedsYouItem[]) => items.map((item) => item.id);
 
 describe('buildNeedsYouQueue', () => {
@@ -30,6 +34,20 @@ describe('buildNeedsYouQueue', () => {
 		]);
 
 		expect(ids(queue.rows)).toEqual(['alvarez', 'sharp', 'staff', 'patel']);
+	});
+
+	it('ranks due soon training after expired and unfilled duty and before leaving, soonest first', () => {
+		const queue = buildNeedsYouQueue([
+			[leaving('patel', 'SPC Patel ETS', '2026-10-20'), dueSoon('cpr', 'CPR', '2026-10-30')],
+			[
+				dueSoon('sharp', 'SHARP', '2026-10-22'),
+				unfilled('staff', 'Staff duty', '2026-11-30'),
+				expired('acls', 'ACLS', 1)
+			]
+		]);
+
+		expect(ids(queue.rows)).toEqual(['acls', 'staff', 'sharp', 'cpr', 'patel']);
+		expect(needsYouKindInfo('dueSoon')).toMatchObject({ label: 'Due soon', severity: 'warning' });
 	});
 
 	it('puts the most late first for late kinds and the soonest date first for dated kinds', () => {

@@ -25,7 +25,13 @@ function leaving(id: string, action: NeedsYouAction | null): NeedsYouItem {
 }
 
 function show(items: NeedsYouItem[], unavailable: string[] = [], loads: NeedsYouLoad[] = []) {
-	const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
+	const updates = {
+		refreshSummary: vi.fn(),
+		refreshTaskings: vi.fn(),
+		retryTaskings: vi.fn(),
+		retryAdminAttention: vi.fn(),
+		putRecord: vi.fn()
+	};
 	const { rerender, container } = render(NeedsYouQueue, {
 		props: {
 			queue: buildNeedsYouQueue([items]),

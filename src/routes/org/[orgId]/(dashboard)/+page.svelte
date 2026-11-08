@@ -5,6 +5,7 @@
 	import {
 		DASHBOARD_SECTIONS,
 		DashboardPageView,
+		DashboardAdminAttentionSource,
 		DashboardTaskingsSource,
 		createDashboardAccess,
 		createDashboardScreenModel,
@@ -35,6 +36,7 @@
 	let recordOverlay = $state.raw<DashboardRecordOverlay | null>(null);
 	let summaryError = $state<Error | null>(null);
 	const taskingsSource = new DashboardTaskingsSource();
+	const adminAttentionSource = new DashboardAdminAttentionSource();
 	let summaryRequest = 0;
 	let saveNumber = 0;
 	onDestroy(() => {
@@ -79,6 +81,7 @@
 	});
 
 	$effect(() => taskingsSource.track(data.taskings, orgId));
+	$effect(() => adminAttentionSource.track(data.adminAttention, orgId));
 
 	$effect(() => {
 		let cancelled = false;
@@ -135,7 +138,8 @@
 			summaryFailed: summary === null,
 			taskings: shell?.org.disabledFeatures.includes('eventsAndTaskings')
 				? { status: 'off' }
-				: taskingsSource.stateFor(orgId)
+				: taskingsSource.stateFor(orgId),
+			adminAttention: adminAttentionSource.stateFor(orgId)
 		};
 	}
 
@@ -175,6 +179,10 @@
 		retryTaskings: () => {
 			const retriedIn = orgId;
 			void taskingsSource.retry(retriedIn, data.viewerDay.date, () => retriedIn === orgId);
+		},
+		retryAdminAttention: () => {
+			const retriedIn = orgId;
+			void adminAttentionSource.retry(retriedIn, data.viewerDay.date, () => retriedIn === orgId);
 		},
 		putRecord: (savedIn, change) => {
 			if (dashboardBootstrap && savedIn === orgId)

@@ -64,6 +64,7 @@ function inputs(loaded: Loaded = {}): DashboardInputs {
 			orgId: 'org-1',
 			orgName: 'Test Unit',
 			taskings: { status: 'off' },
+			adminAttention: { status: 'off' },
 			userId: 'user-1',
 			viewerDay: { date: today, timeZone: 'UTC' },
 			disabledFeatures: [],
@@ -105,8 +106,8 @@ function trainingSummary(
 ): DashboardPageData['trainingSummary'] {
 	return {
 		stats: { current: 0, expired: 0, warningOrange: 0, warningYellow: 0, notCompleted: 0, notRequired: 0, total: 0 },
-		issues: [],
 		expiredByType: [],
+		dueSoonByType: [],
 		expiredPersonnelCount,
 		missingPersonnelCount,
 		groupDelinquencies: groupDelinquencies.map(({ groupId, expired, delinquent }) => ({

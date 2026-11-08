@@ -235,17 +235,8 @@ const SUMMARY_TABLE_NAMES = ['personnel', 'personnel_onboardings', 'personnel_tr
 
 const expectedTrainingSummary = {
 	stats: { current: 2, warningYellow: 0, warningOrange: 0, expired: 1, notCompleted: 0, notRequired: 0, total: 3 },
-	issues: [
-		{
-			personnelId: 'p-ann',
-			personName: 'SGT Alpha, Ann',
-			typeName: 'CPR',
-			label: 'Expired 277d ago',
-			status: 'expired',
-			daysUntilExpiration: -277
-		}
-	],
 	expiredByType: [{ trainingTypeId: 'type-cpr', personnelIds: ['p-ann'], maxDaysLate: 277 }],
+	dueSoonByType: [],
 	expiredPersonnelCount: 1,
 	missingPersonnelCount: 0,
 	groupDelinquencies: [{ groupId: 'g-alpha', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }]

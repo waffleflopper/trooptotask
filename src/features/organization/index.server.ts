@@ -25,6 +25,8 @@ export { createSupabaseOrgSettingsMemberManagementPort } from './memberManagemen
 export { createSupabaseOrganizationInvitationDeliveryPort } from './invitationDelivery.server';
 export { createSupabaseOrganizationInvitationRateLimiter } from './invitationRateLimit.server';
 export { createSupabaseOrganizationInvitationSetupStateLookupPort } from './invitationSetupStateProvider.server';
+export { readAdminAttention, readAdminAttentionSnapshot, EXPIRING_SOON_HOURS } from './adminAttention.server';
+export type { AdminAttentionContext } from './adminAttention.server';
 export { loadMembersSettings, loadPendingInvitationsSettings } from './membersSettings.server';
 export { loadOwnershipTransferCandidates } from './ownershipTransferSettings.server';
 export { transferOrganizationOwnership } from './ownershipTransfer.server';

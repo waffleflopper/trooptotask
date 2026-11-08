@@ -59,7 +59,8 @@ function openStart() {
 					);
 				},
 				refreshTaskings: async () => {},
-				retryTaskings: () => {}
+				retryTaskings: () => {},
+				retryAdminAttention: () => {}
 			}
 		}
 	});

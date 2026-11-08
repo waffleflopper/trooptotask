@@ -1,5 +1,9 @@
 import { createSupabaseCalendarTaskingWorkspaceReader } from '$features/calendar/index.server';
-import type { ApprovedDeletionEffects } from '$features/deletion-requests/index.server';
+import {
+	createSupabaseDeletionRequestStore,
+	readPendingDeletionRequestSummary,
+	type ApprovedDeletionEffects
+} from '$features/deletion-requests/index.server';
 import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
 import {
@@ -657,6 +661,18 @@ export function createRequestDashboardTaskingContext(request: AdmittedOrganizati
 		taskingAttention: createSupabaseCalendarTaskingAttentionReader(request.supabase, request.auth.orgId),
 		calendarProjection: createSupabaseCalendarProjectionReader(request.supabase, request.auth.orgId),
 		disabledFeatures: request.disabledFeatures
+	};
+}
+
+/** What waits on an owner or admin; approvals admit through the deletion-request store's own role check. */
+export function createRequestAdminAttentionContext(request: AdmittedOrganizationRequest) {
+	const { auth, audit } = request;
+	return {
+		auth,
+		audit,
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		readPendingApprovals: () =>
+			readPendingDeletionRequestSummary({ auth, audit, store: createSupabaseDeletionRequestStore(request.supabase) })
 	};
 }
 

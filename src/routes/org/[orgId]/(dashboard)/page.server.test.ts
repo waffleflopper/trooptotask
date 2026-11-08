@@ -9,6 +9,9 @@ const {
 	streamDashboardWorkspaceMock,
 	buildRouteRequestMock,
 	createRequestDashboardSummaryContextMock,
+	createRequestAdminAttentionContextMock,
+	listUnexpiredPendingInvitationsMock,
+	readPendingApprovalsMock,
 	createRequestNotificationContextMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	fetchCriticalTasksDashboardSummaryMock,
@@ -28,6 +31,9 @@ const {
 		streamDashboardWorkspaceMock: vi.fn(),
 		buildRouteRequestMock: vi.fn(),
 		createRequestDashboardSummaryContextMock: vi.fn(),
+		createRequestAdminAttentionContextMock: vi.fn(),
+		listUnexpiredPendingInvitationsMock: vi.fn(),
+		readPendingApprovalsMock: vi.fn(),
 		createRequestNotificationContextMock: vi.fn(),
 		createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 		fetchCriticalTasksDashboardSummaryMock: vi.fn(),
@@ -72,6 +78,7 @@ vi.mock('$lib/server/adapters/requestContexts.server', async () => {
 		buildLayoutRequest: buildLayoutRequestMock,
 		buildRouteRequest: buildRouteRequestMock,
 		createRequestDashboardSummaryContext: createRequestDashboardSummaryContextMock,
+		createRequestAdminAttentionContext: createRequestAdminAttentionContextMock,
 		createRequestNotificationContext: createRequestNotificationContextMock
 	};
 });
@@ -116,6 +123,14 @@ describe('dashboard page server load', () => {
 		vi.clearAllMocks();
 		buildLayoutRequestMock.mockResolvedValue({ auth: mockCtx.auth, audit: mockCtx.audit });
 		createRequestDashboardSummaryContextMock.mockReturnValue(mockCtx);
+		listUnexpiredPendingInvitationsMock.mockResolvedValue([]);
+		readPendingApprovalsMock.mockResolvedValue([]);
+		createRequestAdminAttentionContextMock.mockImplementation((request: { auth: typeof mockCtx.auth }) => ({
+			auth: request.auth,
+			audit: mockCtx.audit,
+			organizationSettings: { listUnexpiredPendingInvitations: listUnexpiredPendingInvitationsMock },
+			readPendingApprovals: readPendingApprovalsMock
+		}));
 		buildRouteRequestMock.mockResolvedValue({
 			auth: { kind: 'auth' },
 			audit: { kind: 'audit' }
@@ -128,7 +143,7 @@ describe('dashboard page server load', () => {
 		createSupabaseOrgSettingsMemberManagementPortMock.mockReturnValue({ kind: 'settings-port' });
 		leaveOrganizationMock.mockResolvedValue({ success: true });
 		fetchDashboardTrainingSummaryMock.mockResolvedValue({
-			trainingSummary: { stats: null, issues: [] },
+			trainingSummary: { stats: null },
 			onboardingTrainingCompletions: new Set<string>()
 		});
 		fetchCriticalTasksDashboardSummaryMock.mockResolvedValue({
@@ -193,6 +208,65 @@ describe('dashboard page server load', () => {
 		});
 		findManyWithCountMock.mockResolvedValue({ count: 3 });
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
+	});
+
+	describe('what waits on an owner or admin', () => {
+		async function loadAs(role: 'owner' | 'admin' | 'member') {
+			buildLayoutRequestMock.mockResolvedValue({
+				auth: { ...mockCtx.auth, role, isPrivileged: role !== 'member' },
+				audit: mockCtx.audit
+			});
+			streamDashboardWorkspaceMock.mockResolvedValueOnce({
+				...createReadyAppShellRouteData({ orgId: ORG_ID, role }),
+				dashboard: { data: new Promise(() => {}) }
+			});
+			return load({
+				params: { orgId: ORG_ID },
+				locals: {},
+				cookies: easternViewer,
+				depends: vi.fn(),
+				parent: () => {
+					throw new Error('Must not run ancestors');
+				}
+			} as never);
+		}
+
+		it.each(['owner', 'admin'] as const)('streams approvals and invitations to the %s', async (role) => {
+			readPendingApprovalsMock.mockResolvedValue([
+				{ kind: 'archive', count: 2, oldestCreatedAt: '2026-10-01T00:00:00Z' }
+			]);
+			listUnexpiredPendingInvitationsMock.mockResolvedValue([
+				{
+					id: 'invite-1',
+					email: 'a@example.invalid',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					latestDeliveryStatus: 'failed'
+				}
+			]);
+
+			const result = await loadAs(role);
+
+			await expect(result.adminAttention).resolves.toEqual({
+				approvals: [{ kind: 'archive', count: 2, oldestCreatedAt: '2026-10-01T00:00:00Z' }],
+				invitations: [
+					{
+						id: 'invite-1',
+						email: 'a@example.invalid',
+						expiresAt: '2999-01-01T00:00:00.000Z',
+						reason: 'deliveryFailed'
+					}
+				]
+			});
+		});
+
+		it('reads nothing and returns no source for a member', async () => {
+			const result = await loadAs('member');
+
+			expect(result.adminAttention).toBeNull();
+			expect(createRequestAdminAttentionContextMock).not.toHaveBeenCalled();
+			expect(readPendingApprovalsMock).not.toHaveBeenCalled();
+			expect(listUnexpiredPendingInvitationsMock).not.toHaveBeenCalled();
+		});
 	});
 
 	it('rejects suspended request admission before streaming dashboard reads', async () => {
@@ -345,7 +419,7 @@ describe('dashboard page server load', () => {
 		});
 
 		await expect(result.summary).resolves.toEqual({
-			trainingSummary: { stats: null, issues: [] },
+			trainingSummary: { stats: null },
 			onboardingTrainingCompletions: [],
 			onboardingPersonnelIds: ['p2'],
 			ictlSummary: {
@@ -392,10 +466,6 @@ describe('dashboard page server load', () => {
 			personnel: [],
 			trainingTypes: [],
 			onboardingPersonnelIds: ['p2'],
-			options: {
-				issueLimit: 25,
-				issueStatuses: ['expired', 'warning-orange']
-			},
 			asOf: '2026-10-14'
 		});
 		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledWith(mockCtx, {
@@ -447,7 +517,7 @@ describe('dashboard page server load', () => {
 		});
 
 		await expect(result.summary).resolves.toEqual({
-			trainingSummary: { stats: null, issues: [] },
+			trainingSummary: { stats: null },
 			onboardingTrainingCompletions: [],
 			onboardingPersonnelIds: [],
 			ictlSummary: null
@@ -490,7 +560,7 @@ describe('dashboard page server load', () => {
 	it('keeps packets out of the page summary for a Personnel and Training viewer without Onboarding', async () => {
 		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('onboarding', 'none'));
 		fetchDashboardTrainingSummaryMock.mockResolvedValue({
-			trainingSummary: { stats: null, issues: [] },
+			trainingSummary: { stats: null },
 			onboardingTrainingCompletions: new Set(['p-cy-type-cpr'])
 		});
 		const packet = { id: 'packet-1', personnelId: 'p-cy' };

@@ -173,6 +173,39 @@ describe('TrainingMatrix', () => {
 		expect(document.activeElement).toBe(typeButton);
 	});
 
+	it('sorts a training column by status, then by days left within each status', async () => {
+		const names = ['Adams', 'Baker', 'Cole', 'Dunn', 'Estes', 'Ford', 'Gray', 'Hill'];
+		const people = names.map((lastName, index) => ({ ...person, id: `p-${index}`, lastName, firstName: 'Pat' }));
+		// Expiry dates against 2026-10-25: Hill expired 9 days ago, Ford 3 days ago, Baker is 5 days out (orange),
+		// Adams 16 (orange), Estes 37 (yellow), Dunn has no record, Cole and Gray are current.
+		const expiries: Array<[number, string]> = [
+			[0, '2026-11-10'],
+			[1, '2026-10-30'],
+			[2, '2027-06-01'],
+			[4, '2026-12-01'],
+			[5, '2026-10-22'],
+			[6, '2027-01-01'],
+			[7, '2026-10-16']
+		];
+		const trainings = expiries.map(([index, expirationDate]) =>
+			record({ id: `t-${index}`, personnelId: `p-${index}`, expirationDate })
+		);
+		render(TrainingMatrix, { props: { ...matrixProps, personnel: people, trainingTypes: [trainingType], trainings } });
+
+		await fireEvent.click(screen.getByRole('button', { name: /CPR/ }));
+
+		expect(mountedNames().map((name) => name.split(',')[0])).toEqual([
+			'Hill',
+			'Ford',
+			'Baker',
+			'Adams',
+			'Estes',
+			'Dunn',
+			'Gray',
+			'Cole'
+		]);
+	});
+
 	it('opens the person from the row header button', async () => {
 		const onPersonClick = vi.fn();
 		render(TrainingMatrix, {

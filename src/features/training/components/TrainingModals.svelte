@@ -5,11 +5,16 @@
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { resolve } from '$app/paths';
 	import { pinnedGroupsStore } from '$features/personnel';
+	import type { TrainingDueSoon } from '$features/training/utils/dueSoon';
+	import { loadRecordClassDialog } from '$features/training';
+	import { recordClassCandidates } from '$features/training/utils/recordClassCandidates';
 	import LazySheet, { lazyModule } from './LazySheet.svelte';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
 	type ManageViewsPayload = { returnFocusTo: () => HTMLElement | null };
+	/** Read inside the sheet so it follows the page's Group, search and view as they change. */
+	type DueSoonPayload = { read: () => { loading: boolean; dueSoon: readonly TrainingDueSoon[] } };
 
 	const loadTrainingRecordSheet = lazyModule(() => import('$features/training/components/TrainingRecordSheet.svelte'));
 	const recordPerson = $derived(ctx.recordPerson);
@@ -34,6 +39,16 @@
 
 	const loadTrainingViewsSheet = lazyModule(() => import('$features/training/components/TrainingViewsSheet.svelte'));
 	const loadSignInRostersSheet = lazyModule(() => import('$features/sign-in-rosters'));
+	const loadClassDialog = lazyModule(loadRecordClassDialog);
+	const loadDueSoonSheet = lazyModule(() => import('$features/training/components/TrainingDueSoonSheet.svelte'));
+
+	$effect(() => {
+		if (!ctx.workspaceIsCurrent) modals.close('record-class');
+	});
+
+	const classType = $derived(
+		trainingTypesStore.items.find((type) => type.id === modals.payload<{ typeId: string }>('record-class')?.typeId)
+	);
 </script>
 
 {#if modals.isOpen('sign-in-rosters')}
@@ -53,6 +68,47 @@
 				rankCatalog={ctx.rankCatalog}
 				canEdit={ctx.canRecordTraining}
 				onClose={modals.closerFor('sign-in-rosters')}
+			/>
+		{/snippet}
+	</LazySheet>
+{/if}
+
+{#if classType}
+	<LazySheet
+		load={loadClassDialog}
+		title="Record class"
+		presentation="dialog"
+		onClose={modals.closerFor('record-class')}
+	>
+		{#snippet children({ default: RecordClassDialog })}
+			<RecordClassDialog
+				trainingType={classType}
+				candidates={recordClassCandidates(classType, ctx.personnel, personnelTrainingsStore.items, ctx.readinessAsOf)}
+				groupFilter={{
+					options: ctx.groupFilterOptions,
+					initial: ctx.selectedGroupId,
+					personnelIdsIn: (groupId) => ctx.personnelIdsInGroup(groupId)
+				}}
+				today={ctx.readinessAsOf}
+				onSave={ctx.handleSaveTrainingBatch.bind(ctx)}
+				onClose={modals.closerFor('record-class')}
+			/>
+		{/snippet}
+	</LazySheet>
+{/if}
+
+{#if modals.isOpen('due-soon')}
+	{@const read = modals.payload<DueSoonPayload>('due-soon')?.read}
+	<LazySheet load={loadDueSoonSheet} title="Due soon" onClose={modals.closerFor('due-soon')}>
+		{#snippet children({ default: TrainingDueSoonSheet })}
+			{@const view = read?.()}
+			<TrainingDueSoonSheet
+				dueSoon={view && !view.loading ? view.dueSoon : null}
+				personnel={ctx.personnel}
+				trainingTypes={trainingTypesStore.items}
+				asOf={ctx.readinessAsOf}
+				onRecordClass={ctx.canRecordTraining ? (typeId) => modals.open('record-class', { typeId }) : undefined}
+				onClose={modals.closerFor('due-soon')}
 			/>
 		{/snippet}
 	</LazySheet>

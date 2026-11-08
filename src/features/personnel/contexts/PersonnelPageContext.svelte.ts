@@ -1,7 +1,7 @@
 import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import { personnelScopeResource } from '../personnelScopeResource';
-import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
+import type { Group, RankCatalogEntry, RosterViewMode } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
 	organizationGroupOrder,
@@ -57,11 +57,16 @@ export interface GroupsAccessor {
 	readonly items: readonly Group[];
 }
 
+export interface RosterPreferences {
+	viewMode: RosterViewMode;
+}
+
 export class PersonnelPageContext {
-	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	searchQuery = $state('');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
+	#localPreferences = $state<RosterPreferences>({ viewMode: 'by-group' });
+	readonly #preferences: RosterPreferences;
 	readonly #data: PersonnelPageData;
 	readonly #modals: ModalRegistry;
 	readonly #org: PersonnelPageAccess;
@@ -79,8 +84,10 @@ export class PersonnelPageContext {
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
 		signals: RosterSignals = new RosterSignals(),
 		groupsStore: GroupsAccessor | null = null,
-		peek: RosterPeek = new RosterPeek(data.orgId)
+		peek: RosterPeek = new RosterPeek(data.orgId),
+		preferences?: RosterPreferences
 	) {
+		this.#preferences = preferences ?? this.#localPreferences;
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
@@ -103,6 +110,14 @@ export class PersonnelPageContext {
 					}
 				}
 			: (pinnedGroupsStore as PinnedGroupsAccessor);
+	}
+
+	get viewMode(): RosterViewMode {
+		return this.#preferences.viewMode;
+	}
+
+	set viewMode(mode: RosterViewMode) {
+		this.#preferences.viewMode = mode;
 	}
 
 	get canViewRoster(): boolean {

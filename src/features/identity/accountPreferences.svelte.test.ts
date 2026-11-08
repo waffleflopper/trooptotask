@@ -21,7 +21,8 @@ function preferences(): UserOrgPreferences {
 			groupFilter: null,
 			lastStatusTypeId: null
 		},
-		training: getDefaultUserOrgPreferences().training
+		training: getDefaultUserOrgPreferences().training,
+		roster: getDefaultUserOrgPreferences().roster
 	};
 }
 
@@ -47,6 +48,7 @@ function transport() {
 				confirm(otherSavedFields = {}) {
 					Object.assign(saved.calendar, otherSavedFields.calendar, patch.calendar);
 					Object.assign(saved.training, otherSavedFields.training, patch.training);
+					Object.assign(saved.roster, otherSavedFields.roster, patch.roster);
 					resolve(Response.json(saved));
 				},
 				respond: (body, status = 200) => resolve(Response.json(body, { status })),
@@ -113,7 +115,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 	});
 
@@ -150,6 +153,27 @@ describe('AccountPreferencesState', () => {
 		expect(onError).toHaveBeenCalledExactlyOnceWith('Failed to save your preferences');
 		expect(state.value.calendar.lastStatusTypeId).toBe('tdy');
 		expect(server.saved.calendar.lastStatusTypeId).toBeNull();
+	});
+
+	it('saves the roster view mode alongside other sections and keeps it after the acknowledgment', async () => {
+		const server = transport();
+		const { state, onError } = createState(server);
+
+		state.patch({ roster: { viewMode: 'alphabetical' } });
+		state.patch({ training: { selectedGroupId: 'alpha' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		expect(server.requests).toHaveLength(1);
+		expect(server.requests[0]!.patch).toEqual({
+			roster: { viewMode: 'alphabetical' },
+			training: { selectedGroupId: 'alpha' }
+		});
+		server.requests[0]!.confirm();
+		await settleReplies();
+
+		expect(state.value.roster).toEqual({ viewMode: 'alphabetical' });
+		expect(server.saved.roster).toEqual({ viewMode: 'alphabetical' });
+		expect(onError).not.toHaveBeenCalled();
 	});
 
 	it('uses the current browser transport when a delayed save dispatches', async () => {
@@ -205,7 +229,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 		await vi.advanceTimersByTimeAsync(349);
 		expect(server.requests).toHaveLength(0);
@@ -238,7 +263,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 		expect(onError).not.toHaveBeenCalled();
 		expect(invalidate).not.toHaveBeenCalled();
@@ -274,7 +300,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 		server.requests[0].confirm({ calendar: { showPersonnelRoles: true } });
 		await settleReplies();
@@ -301,7 +328,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 		server.requests[1].confirm();
 		await settleReplies();
@@ -323,7 +351,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 	});
 
@@ -393,7 +422,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 		await vi.advanceTimersByTimeAsync(10_000);
 		expect(server.requests).toHaveLength(1);
@@ -423,7 +453,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 		expect(onError).toHaveBeenCalledTimes(1);
 	});
@@ -463,7 +494,8 @@ describe('AccountPreferencesState', () => {
 				matrixColorAll: false,
 				matrixCurrentMark: 'date',
 				matrixNeedsActionOnly: false
-			}
+			},
+			roster: { viewMode: 'by-group' }
 		});
 	});
 
@@ -512,7 +544,8 @@ describe('AccountPreferencesState', () => {
 					matrixColorAll: false,
 					matrixCurrentMark: 'date',
 					matrixNeedsActionOnly: false
-				}
+				},
+				roster: { viewMode: 'by-group' }
 			});
 			expect(onError).not.toHaveBeenCalled();
 		}

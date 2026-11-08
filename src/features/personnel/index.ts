@@ -4,7 +4,7 @@ export { groupsStore, groupCatalogHydration } from './stores/groups.svelte';
 export { pinnedGroupsStore, pinnedGroupsHydration } from './stores/pinnedGroups.svelte';
 
 export { PersonnelPageContext } from './contexts/PersonnelPageContext.svelte';
-export type { PersonnelPageData } from './contexts/PersonnelPageContext.svelte';
+export type { PersonnelPageData, RosterPreferences } from './contexts/PersonnelPageContext.svelte';
 export { RosterSignals } from './rosterSignals.svelte';
 export { default as GroupStructureEditor } from './components/GroupStructureEditor.svelte';
 

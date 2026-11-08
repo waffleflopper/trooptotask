@@ -8,12 +8,14 @@
 		loadPersonnelModals,
 		PersonnelPageContext,
 		RosterSignals,
-		type PersonnelPageData
+		type PersonnelPageData,
+		type RosterPreferences
 	} from '$features/personnel';
 	import { PersonnelNextDays, PersonnelNextDaysSkeleton, type PersonnelCalendarWindow } from '$features/calendar';
 	import { ROSTER_PEEK_DAYS } from '$features/personnel/contracts';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
+	import { getAccountPreferencesContext } from '$features/identity';
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import type { PersonnelWorkspaceData, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 
@@ -55,6 +57,15 @@
 	});
 
 	const org = getAppShellContext();
+	const preferences = getAccountPreferencesContext();
+	const rosterPreferences: RosterPreferences = {
+		get viewMode() {
+			return preferences.value.roster.viewMode;
+		},
+		set viewMode(viewMode) {
+			preferences.patch({ roster: { viewMode } });
+		}
+	};
 	const modals = new ModalRegistry();
 	const signals = new RosterSignals();
 
@@ -86,7 +97,9 @@
 			rosterStore,
 			pinnedGroupsStore,
 			signals,
-			groupsStore
+			groupsStore,
+			undefined,
+			rosterPreferences
 		);
 	}
 </script>

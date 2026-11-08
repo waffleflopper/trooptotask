@@ -331,6 +331,10 @@ export function resolveRank(
 	);
 }
 
+export function isCatalogRank(code: string, catalog: readonly RankCatalogEntry[] = BUILT_IN_RANK_CATALOG): boolean {
+	return resolveRankFromIndex(rankCatalogIndex(catalog), code) !== undefined;
+}
+
 export function compareRankCodes(a: string, b: string, options: RankCompareOptions = {}): number {
 	const left = normalizeRankCode(a);
 	const right = normalizeRankCode(b);

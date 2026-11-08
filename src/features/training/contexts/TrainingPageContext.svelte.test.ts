@@ -926,7 +926,8 @@ describe('TrainingPageContext', () => {
 							matrixColorAll: true,
 							matrixCurrentMark: 'check',
 							matrixNeedsActionOnly: false
-						}
+						},
+						roster: { viewMode: 'by-group' }
 					}
 				}),
 				makeOrg()

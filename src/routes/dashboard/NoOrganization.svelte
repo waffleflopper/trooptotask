@@ -12,7 +12,7 @@
 	headline={['Waiting for', 'your invite.']}
 	lede="Your unit's owner or admin adds you by email. Once they do, the invitation shows up here and you can accept it."
 	signedIn={{ account: true }}
-	panelEyebrow={userEmail ? `Signed in as ${userEmail}` : 'No Organization yet'}
+	panelEyebrow="Invitations"
 	panelTitle="Waiting for an invitation"
 	panelDescription="You're not in an Organization yet."
 >
@@ -25,7 +25,7 @@
 		</Empty.Header>
 		<Empty.Content>
 			{#if userEmail}
-				<p class="font-mono text-sm break-all text-foreground">{userEmail}</p>
+				<p class="mb-2 font-mono text-sm break-all text-foreground">{userEmail}</p>
 			{/if}
 			<Button variant="outline" href={resolve('/org/new')}>Create an Organization</Button>
 		</Empty.Content>

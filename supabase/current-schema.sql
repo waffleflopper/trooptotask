@@ -14816,7 +14816,7 @@ CREATE TABLE public.notifications (
     link text,
     read boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT notifications_account_feedback_only CHECK (((organization_id IS NOT NULL) OR (type = 'feedback_reply'::text)))
+    CONSTRAINT notifications_account_level_types CHECK (((organization_id IS NOT NULL) OR (type = ANY (ARRAY['feedback_reply'::text, 'organization_invitation_received'::text]))))
 );
 
 

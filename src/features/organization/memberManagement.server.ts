@@ -328,12 +328,23 @@ export async function inviteOrganizationMember(
 		details: { role: accessCommand.role }
 	});
 
+	const organizationName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'your organization';
+
+	if (existingUserAccount) {
+		await notifyInvitedAccount(ports, {
+			userId: existingUserAccount.id,
+			invitationId: createResult.invitationId,
+			organizationName
+		});
+	}
+
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: createResult.invitationId,
 		email,
 		actorEmail: input.actorEmail ?? null,
 		origin: input.origin ?? '',
 		requiresAccountSetup: !existingUserAccount,
+		organizationName,
 		mode: 'initial',
 		rateLimit
 	});
@@ -355,6 +366,28 @@ export async function inviteOrganizationMember(
 					? 'Invitation created and email delivery was queued.'
 					: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
 	};
+}
+
+/** One in-app notice per created invitation, in the bell of every Organization the person opens. */
+async function notifyInvitedAccount(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: { userId: string; invitationId: string; organizationName: string }
+): Promise<void> {
+	try {
+		await ports.notifications.notifyUser(null, input.userId, {
+			type: 'organization_invitation_received',
+			title: `Invitation to join ${input.organizationName}`,
+			message: `You've been invited to join ${input.organizationName}. Open your invitations to accept or decline.`,
+			link: '/dashboard?show=all'
+		});
+	} catch (error) {
+		console.error('[org-settings-member-management]', {
+			status: 'invitation-received-notification-failed',
+			organizationId: ports.auth.orgId,
+			invitationId: input.invitationId,
+			error: sanitizeErrorForLog(error)
+		});
+	}
 }
 
 async function bridgeInvitationToAccessRequest(
@@ -574,6 +607,7 @@ export async function resendOrganizationInvitation(
 	const hasUsableUserAccount = !!existingUserAccount && existingUserAccount.emailConfirmed !== false;
 	const requiresAccessRequest = !invitation.requiresAccountSetup && !hasUsableUserAccount;
 
+	const organizationName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'your organization';
 	const deliveryStatus = await deliverInvitationEmail(ports, {
 		invitationId: invitation.id,
 		email: invitation.email,
@@ -581,6 +615,7 @@ export async function resendOrganizationInvitation(
 		origin: input.origin,
 		requiresAccountSetup: invitation.requiresAccountSetup,
 		requiresAccessRequest,
+		organizationName,
 		mode: 'resend',
 		rateLimit
 	});
@@ -607,6 +642,7 @@ async function deliverInvitationEmail(
 		origin: string;
 		requiresAccountSetup: boolean;
 		requiresAccessRequest?: boolean;
+		organizationName: string;
 		mode: 'initial' | 'resend';
 		rateLimit?: Record<string, unknown> | null;
 	}
@@ -615,14 +651,13 @@ async function deliverInvitationEmail(
 		return 'not_configured';
 	}
 
-	const organizationName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'your organization';
 	let delivery: Awaited<ReturnType<OrganizationInvitationDeliveryPort['sendInvitationEmail']>>;
 	try {
 		delivery = await ports.invitationDelivery.sendInvitationEmail({
 			organizationId: ports.auth.orgId,
 			invitationId: input.invitationId,
 			email: input.email,
-			organizationName,
+			organizationName: input.organizationName,
 			invitedByEmail: input.actorEmail,
 			origin: input.origin,
 			requiresAccountSetup: input.requiresAccountSetup,

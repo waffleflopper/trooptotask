@@ -609,6 +609,17 @@ describe('inviteOrganizationMember', () => {
 		]);
 		expect(ctx.notificationPort.notifications).toEqual([
 			{
+				target: 'user',
+				orgId: null,
+				userId: 'user-1',
+				notification: {
+					type: 'organization_invitation_received',
+					title: expect.stringContaining('your organization'),
+					message: expect.stringContaining('your organization'),
+					link: '/dashboard?show=all'
+				}
+			},
+			{
 				target: 'admins',
 				orgId: 'org-1',
 				excludeUserId: 'actor-1',
@@ -620,6 +631,153 @@ describe('inviteOrganizationMember', () => {
 				}
 			}
 		]);
+	});
+
+	it('notifies an existing account once, outside any Organization, naming the Organization and linking to the invitations list', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+		const port = createOrganizationSettingsMemberManagementPort({
+			orgName: 'Alpha Company',
+			existingUserAccount: { id: 'account-7', email: 'invitee@example.com' }
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'invitee@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess(),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		const userNotifications = ctx.notificationPort.notifications.filter((entry) => entry.target === 'user');
+		expect(userNotifications).toEqual([
+			{
+				target: 'user',
+				orgId: null,
+				userId: 'account-7',
+				notification: {
+					type: 'organization_invitation_received',
+					title: expect.stringContaining('Alpha Company'),
+					message: expect.stringContaining('Alpha Company'),
+					link: '/dashboard?show=all'
+				}
+			}
+		]);
+		expect(JSON.stringify(userNotifications)).not.toContain('actor@example.com');
+	});
+
+	it('sends no invitation notification to an email without an account', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+		const port = createOrganizationSettingsMemberManagementPort({
+			orgName: 'Alpha Company',
+			existingUserAccount: null
+		});
+
+		await inviteOrganizationMember(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				email: 'newcomer@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess(),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(ctx.notificationPort.notifications.filter((entry) => entry.target === 'user')).toEqual([]);
+	});
+
+	it('sends no invitation notification when the invitation could not be created', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+		const port = createOrganizationSettingsMemberManagementPort({ createInvitationError: 'insert failed' });
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					email: 'invitee@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess(),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({ status: 500 });
+
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('still creates the invitation and finishes when the invitation notification fails', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const adminNotices: unknown[] = [];
+
+		const result = await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: {
+					async notifyUser() {
+						throw new Error('notification unavailable');
+					},
+					async notifyAdmins(_orgId, _excludeUserId, notification) {
+						adminNotices.push(notification.type);
+					}
+				},
+				settings: port
+			},
+			{
+				email: 'invitee@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess(),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result).toMatchObject({ inviteSuccess: true, inviteEmail: 'invitee@example.com' });
+		expect(port.createdInvitations).toHaveLength(1);
+		expect(adminNotices).toEqual(['member_invited']);
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			'[org-settings-member-management]',
+			expect.objectContaining({
+				status: 'invitation-received-notification-failed',
+				organizationId: 'org-1',
+				invitationId: 'invite-created'
+			})
+		);
+		consoleErrorSpy.mockRestore();
+	});
+
+	it('looks up the Organization name once for the notification and the invitation email', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
+		const lookups: string[] = [];
+		const getOrganizationName = port.getOrganizationName.bind(port);
+		port.getOrganizationName = async (orgId) => {
+			lookups.push(orgId);
+			return getOrganizationName(orgId);
+		};
+		const delivery = createInvitationDeliveryPort('sent');
+
+		await inviteOrganizationMember(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery,
+				invitationRateLimiter: createInvitationRateLimiter({ limited: false, action: 'create' })
+			},
+			{
+				email: 'invitee@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess(),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(lookups).toEqual(['org-1']);
+		expect(delivery.deliveries).toEqual([expect.objectContaining({ organizationName: 'Alpha Company' })]);
 	});
 
 	it('creates a pending Access Request bridge for a non-user invitation without granting membership', async () => {
@@ -1660,6 +1818,7 @@ describe('inviteOrganizationMember', () => {
 			inviteMessage: 'Invitation email resent.'
 		});
 		expect(port.createdInvitations).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
 		expect(delivery.deliveries).toEqual([
 			expect.objectContaining({
 				invitationId: '11111111-1111-4111-8111-111111111111',

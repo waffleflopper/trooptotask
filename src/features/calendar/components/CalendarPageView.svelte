@@ -695,6 +695,8 @@
 			assignments={dailyAssignmentsStore.assignments}
 			personnelByGroup={ctx.personnelByGroup}
 			groups={ctx.scopedGroups}
+			{availabilityByPerson}
+			statusTypes={statusTypesStore.items}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 			onClose={() => ctx.closeAssignmentModal()}

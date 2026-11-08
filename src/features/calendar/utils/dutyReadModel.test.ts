@@ -103,7 +103,7 @@ describe('findDutyConflicts', () => {
 
 describe('blocking availability', () => {
 	const statuses: StatusType[] = [
-		{ id: 'leave', name: 'Leave', rosterEffect: 'unavailable' },
+		{ id: 'leave', name: 'Leave', rosterEffect: 'A' },
 		{ id: 'present', name: 'Present', rosterEffect: 'available' }
 	] as StatusType[];
 	const entries: AvailabilityEntry[] = [

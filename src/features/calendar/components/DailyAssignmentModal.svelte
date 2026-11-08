@@ -3,11 +3,13 @@
 	import { buildGroupTree, type Group } from '$features/personnel/contracts';
 	import { TreeSelect, type TreeSelectOption } from '$lib/components/patterns/tree-select';
 	import type { Personnel } from '$features/personnel/contracts';
-	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
+	import type { AssignmentType, DailyAssignment, StatusType } from '$features/calendar/contracts';
+	import { coveringLabel, type DutyAvailabilityIndex } from '$features/calendar/utils/dutyReadModel';
 	import { formatDate } from '$lib/utils/dates';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 
 	interface GroupData {
 		group: string;
@@ -20,6 +22,9 @@
 		assignments: DailyAssignment[];
 		personnelByGroup: GroupData[];
 		groups: readonly Group[];
+		/** Entries that take a person off duty, by person. Someone covered on the shown date is flagged and asks first. */
+		availabilityByPerson: DutyAvailabilityIndex;
+		statusTypes: readonly StatusType[];
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => void;
 		onRemoveAssignment: (date: string, typeId: string) => void;
 		onClose: () => void;
@@ -31,6 +36,8 @@
 		assignments,
 		personnelByGroup,
 		groups,
+		availabilityByPerson,
+		statusTypes,
 		onSetAssignment,
 		onRemoveAssignment,
 		onClose
@@ -48,14 +55,23 @@
 
 	const assignmentsForDate = $derived(assignments.filter((a) => a.date === dateStr));
 	const activeAssignmentTypes = $derived(assignmentTypes.filter((type) => !type.archivedAt));
+	const statusName = $derived(new Map(statusTypes.map((status) => [status.id, status.name])));
+	const unavailableReason = (personId: string) =>
+		coveringLabel(availabilityByPerson.get(personId), dateStr, statusName);
 	const personnelOptions = $derived(
 		personnelByGroup.flatMap((grp) =>
-			grp.personnel.map((person) => ({
-				value: person.id,
-				label: `${person.rank} ${person.lastName}, ${person.firstName}${grp.group ? ` - ${grp.group}` : ''}`
-			}))
+			grp.personnel.map((person) => {
+				const unavailable = unavailableReason(person.id);
+				return {
+					value: person.id,
+					label: `${person.rank} ${person.lastName}, ${person.firstName}${grp.group ? ` - ${grp.group}` : ''}`,
+					description: unavailable ? `Unavailable: ${unavailable}` : undefined
+				};
+			})
 		)
 	);
+	/** The person a choice is waiting on, until the operator confirms or cancels. */
+	let confirming = $state<{ typeId: string; assigneeId: string; name: string; reason: string } | null>(null);
 	const tree = $derived(buildGroupTree(groups));
 	// Group ids are UUIDs, so this never collides with one.
 	const NO_GROUP = '__none';
@@ -82,7 +98,16 @@
 	}
 
 	function handleAssignmentChange(typeId: string, assigneeId: string) {
-		if (assigneeId) {
+		const reason = assigneeId && assigneeId !== getCurrentAssignee(typeId) ? unavailableReason(assigneeId) : undefined;
+		if (reason) {
+			const person = personnelByGroup.flatMap((grp) => grp.personnel).find((candidate) => candidate.id === assigneeId);
+			confirming = {
+				typeId,
+				assigneeId,
+				name: person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'This person',
+				reason
+			};
+		} else if (assigneeId) {
 			onSetAssignment(dateStr, typeId, assigneeId);
 		} else {
 			onRemoveAssignment(dateStr, typeId);
@@ -125,12 +150,14 @@
 								class="h-9 w-full justify-between"
 							/>
 						{:else}
+							<!-- Bound to the saved assignee, so a choice that is not confirmed leaves the old name showing. -->
 							<Combobox.Root
 								items={personnelChoices(type)}
-								value={current}
+								bind:value={
+									() => current,
+									(value) => handleAssignmentChange(type.id, Array.isArray(value) ? (value[0] ?? '') : value)
+								}
 								label={`Set ${type.name} assignee`}
-								onValueChange={(value) =>
-									handleAssignmentChange(type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
 								autoHighlight
 							>
 								<Combobox.Trigger
@@ -157,3 +184,18 @@
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
+
+{#if confirming}
+	{@const pick = confirming}
+	<ConfirmDialog
+		title="Assign someone who is unavailable?"
+		message="{pick.name} is unavailable: {pick.reason}."
+		confirmLabel="Assign anyway"
+		variant="default"
+		onConfirm={() => {
+			onSetAssignment(dateStr, pick.typeId, pick.assigneeId);
+			confirming = null;
+		}}
+		onCancel={() => (confirming = null)}
+	/>
+{/if}

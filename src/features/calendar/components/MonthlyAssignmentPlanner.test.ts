@@ -1412,7 +1412,7 @@ describe('MonthlyAssignmentPlanner Copy', () => {
 		await rerender({ rangeStatus: 'loading' });
 		await rerender({ rangeStatus: 'ready' });
 		reply(true);
-		await Promise.resolve();
+		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(toast).not.toHaveBeenCalled();

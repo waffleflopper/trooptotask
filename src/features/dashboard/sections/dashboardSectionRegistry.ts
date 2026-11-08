@@ -66,7 +66,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 						(person) =>
 							access.can(training.recordCompletions, personnelResource(person)) &&
 							inputs.page.dashboard.data.trainingTypes.some(
-								(type) => !type.canBeExempted || !type.exemptPersonnelIds.includes(person.id)
+								(type) => !type.archivedAt && (!type.canBeExempted || !type.exemptPersonnelIds.includes(person.id))
 							)
 					)
 			}

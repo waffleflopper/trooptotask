@@ -81,7 +81,7 @@ export function streamSetupInvitationProgress({
 				activePeople: async () => (await workspace).data.personnel.length,
 				statusTypes: async () => (await workspace).data.statusTypes.length,
 				assignmentTypes: async () => (await workspace).data.assignmentTypes.length,
-				trainingTypes: async () => (await workspace).data.trainingTypes.length,
+				trainingTypes: async () => (await workspace).data.trainingTypes.filter((type) => !type.archivedAt).length,
 				criticalTasks: async () => {
 					if (request.disabledFeatures.includes('criticalTasks')) return 0;
 					const value = (await summary).ictlSummary;

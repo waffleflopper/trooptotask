@@ -32,7 +32,7 @@ export const UNIT_COUNT_ROW_SOURCES = {
 	statusTypes: { table: 'status_types' },
 	assignmentTypes: { table: 'assignment_types', archived: false },
 	specialDays: { table: 'special_days' },
-	trainingTypes: { table: 'training_types' },
+	trainingTypes: { table: 'training_types', archived: false },
 	trainingRecords: { table: 'personnel_trainings' },
 	criticalTaskLists: { table: 'ict_tasks', archived: false },
 	onboardingTemplates: { table: 'onboarding_templates' },

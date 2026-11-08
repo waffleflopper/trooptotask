@@ -23,6 +23,7 @@ function person(id: string, mos = '68W'): Personnel {
 
 function type(id: string, overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name: id,
 		description: null,

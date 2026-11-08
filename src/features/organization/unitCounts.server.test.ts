@@ -37,7 +37,11 @@ function seed(): Record<string, Row[]> {
 			...rows(8, OTHER, { archived_at: null })
 		],
 		special_days: [...rows(11, ORG), ...rows(8, OTHER)],
-		training_types: [...rows(7, ORG), ...rows(8, OTHER)],
+		training_types: [
+			...rows(7, ORG, { archived_at: null }),
+			...rows(3, ORG, { archived_at: archivedAt }).map((r) => ({ ...r, id: `${r.id}-archived` })),
+			...rows(8, OTHER, { archived_at: null })
+		],
 		personnel_trainings: [...rows(13, ORG), ...rows(8, OTHER)],
 		ict_tasks: [
 			...rows(10, ORG, { archived_at: null }),

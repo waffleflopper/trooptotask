@@ -123,7 +123,7 @@ export function fetchDashboardSummary(
 		ctx,
 		async () => ({
 			personnel: workspace.personnel,
-			trainingTypes: workspace.trainingTypes,
+			trainingTypes: workspace.trainingTypes.filter((type) => !type.archivedAt),
 			onboardingPersonnelIds: workspace.activeOnboardings.map((packet) => packet.personnelId)
 		}),
 		asOf,
@@ -140,7 +140,9 @@ export function refreshDashboardSummary(
 	const readTrainingPopulation = async (): Promise<TrainingSummaryPopulation> => {
 		const [personnel, trainingTypes, onboardingPersonnelIds] = await Promise.all([
 			ctx.roster.list({ status: 'active' }),
-			reads('trainingTypes') ? ctx.trainingCatalog.listTypes() : [],
+			reads('trainingTypes')
+				? ctx.trainingCatalog.listTypes().then((types) => types.filter((type) => !type.archivedAt))
+				: [],
 			reads('activeOnboardings') ? ctx.onboardingWorkflow.listActivePacketPersonnelIds() : []
 		]);
 		return { personnel, trainingTypes, onboardingPersonnelIds };

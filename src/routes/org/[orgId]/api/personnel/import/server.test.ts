@@ -3,7 +3,7 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
-function context(personnel: 'view' | 'operate' = 'operate') {
+function context(personnel: 'view' | 'operate' | 'configure' = 'operate') {
 	const ctx = createTestContext({
 		auth: {
 			role: 'member',
@@ -31,6 +31,16 @@ function context(personnel: 'view' | 'operate' = 'operate') {
 			mos: '68W',
 			clinic_role: 'Medic',
 			archived_at: null
+		},
+		{
+			id: 'person-archived',
+			organization_id: 'test-org',
+			rank: 'SGT',
+			first_name: 'Alex',
+			last_name: 'Archived',
+			group_id: null,
+			mos: '68V',
+			archived_at: '2026-10-01T00:00:00Z'
 		}
 	]);
 	return ctx;
@@ -53,6 +63,24 @@ describe('POST /api/personnel/import', () => {
 		expect(result).toMatchObject({
 			created: [{ slug: 'person-new', rank: 'SGT', firstName: 'New', lastName: 'Person' }],
 			updated: [{ id: 'person-a', mos: '68V', clinicRole: 'Medic' }],
+			errors: []
+		});
+	});
+
+	it('restores an archived Person for someone who can configure Personnel, and refuses the row for an operator', async () => {
+		const records = [{ op: 'restore', personnelId: 'person-archived', changes: { mos: '68W' } }];
+
+		const operator = context('operate');
+		const refused = await handleUseCaseRequest(_postConfig, operator, { records }, () => operator);
+		expect(refused).toMatchObject({ updated: [], errors: [{ kind: 'failed', index: 0 }] });
+		await expect(operator.personnel.findById('person-archived')).resolves.toMatchObject({
+			archivedAt: expect.any(String)
+		});
+
+		const configurer = context('configure');
+		const restored = await handleUseCaseRequest(_postConfig, configurer, { records }, () => configurer);
+		expect(restored).toMatchObject({
+			updated: [{ id: 'person-archived', mos: '68W', archivedAt: null }],
 			errors: []
 		});
 	});

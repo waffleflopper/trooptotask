@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { createPersonnelImportLane, groupsStore, retainImportDodIds } from '$features/personnel';
+	import { createPersonnelImportLane, groupsStore, retainImportData } from '$features/personnel';
 	import type { PersonnelWorkspaceResult } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { ImportFlow } from '$lib/components/patterns/import-flow';
@@ -46,15 +46,21 @@
 		};
 	});
 
-	const importIds = retainImportDodIds(() => ({ orgId: data.shell.org.id, streamed: data.personnelImport }));
+	const importData = retainImportData(() => ({ orgId: data.shell.org.id, streamed: data.personnelImport }));
 
 	const lane = $derived(
-		workspace && importIds.current?.state === 'ready'
+		workspace && importData.current?.state === 'ready'
 			? createPersonnelImportLane({
 					orgId: org.orgId,
 					orgUrlSegment: org.orgUrlSegment ?? org.orgId,
 					personnel: workspace.data.personnel,
-					dodIds: importIds.current.dodIds,
+					dodIds: importData.current.dodIds,
+					archived: importData.current.archived,
+					canRestore: (groupId) =>
+						org.affordanceForFeatureAction(
+							POLICY_ACTION_CATALOG.personnel.restoreRecords,
+							groupId ? { kind: 'group', groupId } : { kind: 'organization' }
+						).allowed,
 					groups: groupsStore.orgId === org.orgId ? groupsStore.items : workspace.data.groups,
 					rankCatalog: workspace.data.rankCatalog,
 					canManageGroups: org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageGroups).allowed,
@@ -69,10 +75,10 @@
 {#key data.shell.org.id}
 	{#if loadError?.orgId === data.shell.org.id && !workspace}
 		<WorkspaceLoadError subject="Personnel" />
-	{:else if importIds.current?.state === 'failed'}
+	{:else if importData.current?.state === 'failed'}
 		<WorkspaceLoadError subject="Personnel import" />
 	{:else}
-		{#if importIds.current?.state === 'ready' && importIds.current.stale}
+		{#if importData.current?.state === 'ready' && importData.current.stale}
 			<WorkspaceLoadError subject="Personnel import" stale />
 		{/if}
 		<ImportFlow {lane} title="Import roster" eyebrow="Personnel · Import" />

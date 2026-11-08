@@ -2976,6 +2976,7 @@ async function main() {
 					'admin-transfer',
 					'availability',
 					'ict-tasks/batch',
+					'personnel/import',
 					'personnel-ict-completions/batch'
 				].includes(family)
 			)

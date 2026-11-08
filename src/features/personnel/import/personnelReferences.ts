@@ -1,4 +1,4 @@
-import type { ImportReference, ReferenceOption } from '$lib/components/patterns/import-flow';
+import type { ImportReference, ReferenceMatch, ReferenceOption } from '$lib/components/patterns/import-flow';
 import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Group } from '../contracts';
 import type { Personnel } from '../personnel.types';
@@ -13,6 +13,7 @@ import type { personnelImportColumns } from './personnelImportColumns';
 import {
 	compactRank,
 	groupWords,
+	indexArchivedByDodId,
 	indexByName,
 	indexByDodId,
 	normalizeName,
@@ -34,22 +35,59 @@ function uniqueBy<T>(items: readonly T[], value: (item: T) => string): Map<strin
 	return index;
 }
 
+/** What a file row matched, and how: a DoD ID is proof, a name alone is a guess, and a pick is the user's word. */
+export type PersonMatch =
+	| { kind: 'new' }
+	| { kind: 'person'; person: Personnel; archived: boolean; by: 'dodId' | 'name' | 'choice' };
+
 export function personMatchReference(
 	roster: readonly Personnel[],
-	dodIds: readonly PersonnelDodId[] = []
-): ImportReference<Columns, Personnel | typeof NEW_PERSON> & { whenMissing: 'none-is-new' } {
-	const newOption: ReferenceOption<typeof NEW_PERSON> = {
+	dodIds: readonly PersonnelDodId[] = [],
+	archived: readonly Personnel[] = []
+): ImportReference<Columns, PersonMatch> & { whenMissing: 'none-is-new' } {
+	const newOption: ReferenceOption<PersonMatch> = {
 		id: NEW_PERSON,
 		label: 'Add as a new person',
-		value: NEW_PERSON
+		value: { kind: 'new' }
 	};
+	const option = (
+		person: Personnel,
+		by: 'dodId' | 'name' | 'choice',
+		isArchived = false
+	): ReferenceOption<PersonMatch> => ({
+		...personOption(person),
+		...(isArchived ? { hint: `${person.groupName || 'No group'} · archived` } : {}),
+		value: { kind: 'person', person, archived: isArchived, by }
+	});
 	const byName = indexByName(roster);
 	const byDodId = indexByDodId(roster, dodIds);
+	const archivedByName = indexByName(archived);
+	const archivedByDodId = indexArchivedByDodId(archived, dodIds);
+
+	function resolve(
+		people: readonly Personnel[],
+		isArchived: boolean,
+		group: string | undefined,
+		rank: string | undefined
+	): ReferenceMatch<PersonMatch> {
+		if (people.length === 0) return { kind: 'none' };
+		if (people.length === 1) return { kind: 'one', option: option(people[0], 'name', isArchived) };
+		const inGroup = group ? people.filter((person) => groupWords(person.groupName) === group) : [];
+		if (inGroup.length === 1) return { kind: 'one', option: option(inGroup[0], 'name', isArchived) };
+		const candidates = inGroup.length ? inGroup : people;
+		const inRank = rank ? candidates.filter((person) => compactRank(person.rank) === rank) : [];
+		return {
+			kind: 'many',
+			candidates: [...candidates.map((person) => option(person, 'choice', isArchived)), newOption],
+			...(inRank.length === 1 ? { suggestion: option(inRank[0], 'choice', isArchived) } : {})
+		};
+	}
+
 	return {
 		label: 'person',
 		reads: ['lastName', 'firstName'],
 		whenMissing: 'none-is-new',
-		options: [...roster.map(personOption), newOption],
+		options: [...roster.map((person) => option(person, 'choice')), newOption],
 		key(raw) {
 			const lastName = raw.lastName?.trim();
 			const firstName = raw.firstName?.trim();
@@ -67,22 +105,16 @@ export function personMatchReference(
 		find(key) {
 			const parts = key.split('|');
 			const dodId = parts.pop();
-			const byId = dodId ? byDodId.get(dodId) : null;
-			if (byId) return { kind: 'one', option: personOption(byId) };
+			const activeById = dodId ? byDodId.get(dodId) : null;
+			if (activeById) return { kind: 'one', option: option(activeById, 'dodId') };
+			const archivedById = dodId ? archivedByDodId.get(dodId) : null;
+			if (archivedById) return { kind: 'one', option: option(archivedById, 'dodId', true) };
 			const rank = parts.pop();
 			const group = parts.pop();
-			const people = byName.get(parts.join('|')) ?? [];
-			if (people.length === 0) return { kind: 'none' };
-			if (people.length === 1) return { kind: 'one', option: personOption(people[0]) };
-			const inGroup = group ? people.filter((person) => groupWords(person.groupName) === group) : [];
-			if (inGroup.length === 1) return { kind: 'one', option: personOption(inGroup[0]) };
-			const candidates = inGroup.length ? inGroup : people;
-			const inRank = rank ? candidates.filter((person) => compactRank(person.rank) === rank) : [];
-			return {
-				kind: 'many',
-				candidates: [...candidates.map(personOption), newOption],
-				...(inRank.length === 1 ? { suggestion: personOption(inRank[0]) } : {})
-			};
+			const name = parts.join('|');
+			const active = resolve(byName.get(name) ?? [], false, group, rank);
+			if (active.kind !== 'none') return active;
+			return resolve(archivedByName.get(name) ?? [], true, group, rank);
 		}
 	};
 }

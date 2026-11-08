@@ -387,6 +387,8 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
+		personnelLifecycle: createSupabasePersonnelLifecycleCommands(request.supabase, request.auth.orgId),
+		roster: createSupabasePersonnelRosterReader(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog({ auth: request.auth, audit: request.audit, rankCatalog: rankCatalog })

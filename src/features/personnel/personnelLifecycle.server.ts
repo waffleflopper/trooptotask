@@ -98,7 +98,10 @@ export async function describePersonnelArchiveRequest(
 	return { description: `Archive ${personnelName(person)}`, url: `/org/${ctx.auth.orgId}/personnel` };
 }
 
-export async function restorePersonnelRecord(ctx: PersonnelLifecycleContext, id: string) {
+export async function restorePersonnelRecord(
+	ctx: Pick<PersonnelLifecycleContext, 'auth' | 'audit' | 'organizationPersonnel' | 'personnelLifecycle'>,
+	id: string
+) {
 	if (!id) fail(400, 'Missing id');
 
 	const person = await ctx.organizationPersonnel.findWriteReference(id);

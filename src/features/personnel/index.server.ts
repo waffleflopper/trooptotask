@@ -174,6 +174,7 @@ export {
 
 export { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
 export { importPersonnelRecords } from './personnelImportRecords.server';
+export { loadPersonnelImportData } from './personnelImportData.server';
 export {
 	createSupabaseRosterCounselingSignals,
 	createSupabaseRosterFollowUpSignals,

@@ -356,77 +356,64 @@ Group`, `Export`, `Archive…` and `Clear selection` (title `Clear selection (Es
     stays on the row. At 900 Space on Baker's row reads `1 selected` and again clears it. Shift-click: native `click`
     has no modifiers, so on `perfWide` with the `small` workload click `Select SPC Baker002, Blake` natively, then
     dispatch a `click` with `shiftKey: true` on `Select SSG Foster006, Finley`: the five rows from Baker002 to Foster006
-    in shown order are selected.
-    - Placement: the bar is in the roster's flow and sticky 20px above the window's bottom. On the 20-person workload at
-      1440x900 the table scrolls in its own box and the bar (714 wide, top 828) sits under the `20 of 20 shown` footer,
-      covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as icons with their
-      names kept for assistive technology; with `Set field…` the bar is 366 wide at 390 and `scrollWidth` equals the
-      viewport. At 390 dark the
-      bar keeps its chrome border and reads clearly.
-    - Search: with five selected, search `Baker`: the bar reads `5 selected · 4 hidden by search`, and `Archive…` asks
-      `Archive 5 personnel? …` with `This includes 4 people your search hides.` Actions apply to every selected Person.
-      At 390 the hidden count sits on its own line under the selected count (`75 selected` over `74 hidden`, a 351-wide
-      bar 52 tall) and every action, through `Clear selection`, stays inside the bar with `scrollWidth` 390.
-    - Filter: as `orgOwner`, select all three, then click the `2 present` entry in the headcount strip (`?show=present`,
-      selection kept): the bar reads `3 selected · 1 hidden by filter` and `Archive…` asks `Archive 3 personnel? …` with
-      `This includes 1 person your filter hides.` Search `Able` as well and the bar reads
-      `3 selected · 2 hidden by search and filter` with `This includes 2 people your search and filter hide.`; clear
-      both and the hidden count leaves the bar. At 390 the filter case reads `3 selected` over `1 hidden` (344 wide, 52
-      tall, `by filter` kept for assistive technology) with `scrollWidth` 390.
-    - Follow-up for each: with all three selected, `Follow-up for each` opens `Add to log for 3 people` above the bar,
-      headed `3 PEOPLE` on `Follow-up`, with no `ALREADY OPEN` line. Title `Turn in CIF hand receipt`, choose
-      `Fri 30 Oct` and press Control+Enter: one `POST .../api/personnel/follow-ups/batch` (200) and one
-      `POST .../api/personnel/roster-signals`, then the toast `Follow-up added for 3 people`.
-      `$V rows personnel_follow_ups orgA title "Turn in CIF hand receipt"` returns three rows due `2026-10-30`, each
-      `created_by` the manager, and `rows audit_logs orgA` holds one `personnel.follow_up.created` row by that user.
-    - Add note: select Able and Baker and choose `Add note`; the composer opens on `Note`, titled
-      `Add to log for 2 people`. With `$V network arm-fail PAGE personnel/leader-notes/batch`, `Add note` keeps the
-      typed text and shows `Unable to save leader note.`, and `rows leader_notes orgA` has no such note. With `arm-hold`
-      the button reads `Saving…`; `release` gives `Note added for 2 people`, two rows authored by the manager, and the
-      selection stays. A note sends no `roster-signals` request.
-    - Set field…: as `manager` select all three and choose `Set field…`; the dialog `Set field` (`Give 3 people the same
+    in shown order are selected. - Placement: the bar is in the roster's flow and sticky 20px above the window's bottom. On the 20-person workload at
+    1440x900 the table scrolls in its own box and the bar (714 wide, top 828) sits under the `20 of 20 shown` footer,
+    covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as icons with their
+    names kept for assistive technology; with `Set field…` the bar is 366 wide at 390 and `scrollWidth` equals the
+    viewport. At 390 dark the
+    bar keeps its chrome border and reads clearly. - Search: with five selected, search `Baker`: the bar reads `5 selected · 4 hidden by search`, and `Archive…` asks
+    `Archive 5 personnel? …` with `This includes 4 people your search hides.` Actions apply to every selected Person.
+    At 390 the hidden count sits on its own line under the selected count (`75 selected` over `74 hidden`, a 351-wide
+    bar 52 tall) and every action, through `Clear selection`, stays inside the bar with `scrollWidth` 390. - Filter: as `orgOwner`, select all three, then click the `2 present` entry in the headcount strip (`?show=present`,
+    selection kept): the bar reads `3 selected · 1 hidden by filter` and `Archive…` asks `Archive 3 personnel? …` with
+    `This includes 1 person your filter hides.` Search `Able` as well and the bar reads
+    `3 selected · 2 hidden by search and filter` with `This includes 2 people your search and filter hide.`; clear
+    both and the hidden count leaves the bar. At 390 the filter case reads `3 selected` over `1 hidden` (344 wide, 52
+    tall, `by filter` kept for assistive technology) with `scrollWidth` 390. - Follow-up for each: with all three selected, `Follow-up for each` opens `Add to log for 3 people` above the bar,
+    headed `3 PEOPLE` on `Follow-up`, with no `ALREADY OPEN` line. Title `Turn in CIF hand receipt`, choose
+    `Fri 30 Oct` and press Control+Enter: one `POST .../api/personnel/follow-ups/batch` (200) and one
+    `POST .../api/personnel/roster-signals`, then the toast `Follow-up added for 3 people`.
+    `$V rows personnel_follow_ups orgA title "Turn in CIF hand receipt"` returns three rows due `2026-10-30`, each
+    `created_by` the manager, and `rows audit_logs orgA` holds one `personnel.follow_up.created` row by that user. - Add note: select Able and Baker and choose `Add note`; the composer opens on `Note`, titled
+    `Add to log for 2 people`. With `$V network arm-fail PAGE personnel/leader-notes/batch`, `Add note` keeps the
+    typed text and shows `Unable to save leader note.`, and `rows leader_notes orgA` has no such note. With `arm-hold`
+    the button reads `Saving…`; `release` gives `Note added for 2 people`, two rows authored by the manager, and the
+    selection stays. A note sends no `roster-signals` request. - Set field…: as `manager` select all three and choose `Set field…`; the dialog `Set field` (`Give 3 people the same
 value. …`) offers `Field` Rank, MOS, Duty role and ETS and `Review changes` stays disabled until the value is
-      valid. Rank is a select of the Organization's active ranks only (`SGT`, `SPC`, `PFC`, `VFY-ACTIVE-A`; the retired
-      rank is absent), MOS and Duty role are text inputs, ETS opens the date picker. Choose Rank `SGT` and
-      `Review changes`: `Set Rank for 3 people` lists each name with `SPC → SGT` and no change is saved yet; `Back`
-      returns with the value kept. `Save 3 people` sends one `POST .../api/personnel/field-batch`, toasts
-      `Updated Rank for 3 people`, the roster rows read `SGT` at once and after a reload, `$V rows personnel orgA` shows
-      `rank` `SGT` on all three, and `$V rows audit_logs orgA action personnel.updated` holds one row per person with
-      `change.rank` `{from: SPC, to: SGT}`. People who already hold the value are not listed or sent: MOS `68W` with
-      Baker on `11B` reads `Set MOS for 1 person`, `1 person will change. 2 people already have this value.`, saves
-      only Baker (`11B → 68W`) and toasts `Updated MOS for 1 person · 2 people skipped`. ETS reads `None → 12 Nov 2026`
-      and stores `ets` `2026-11-12`. Esc closes the dialog without a request. At 390 the dialog stays inside the
-      viewport with the review list scrolling in its own box. If the server refuses or loses someone, the dialog stays
-      open on `Result` with `Updated`, `No access` or `No longer available` beside each name (source-mapped; the unit
-      tests cover the refused and unavailable cases). Selected People the actor cannot edit stay out of the review, and the
-      first step counts them (`N people you cannot edit will be left out.`; source-mapped).
-    - Move to Group: the menu `Move N people to` lists `Alpha`, `Bravo` and `Unassigned`. Moving
-      `SPC Unassigned, Synthetic` to `Alpha` sends one `POST .../group-membership` and one `roster-signals` POST, toasts
-      `Moved 1 person to Alpha`, and `rows personnel orgA` shows Alpha's group ID on that Person.
-    - Export: `$V export arm PAGE`, select all three and choose `Export`. No request is sent; the file is
-      `personnel-<Organization URL segment>-<viewer day>.xlsx` (Organization A has no slug, so its ID:
-      `personnel-<orgA>-2026-10-23.xlsx`). `$V workbook FILE Personnel` reads headers `Rank`, `Last name`, `First name`,
-      `MOS`, `Duty role`, `Group`, `ETS`, `PCS/DEROS`, `Today`, `Needs attention` and one row per Person; `manager` has
-      no Calendar grant, so `Today` is blank, and `Needs attention` reads `None`.
-    - Archive…: select `SPC Unassigned, Synthetic`, choose `Archive…`: the dialog reads `Archive 1 personnel? …`, and
-      `Archive` sends one `archive-batch` POST naming that ID, toasts `1 personnel archived`, sets `archived_at`, and
-      the row and the bar leave. As `personnelOperate` the bar has no `Export`; `Archive…` on Able creates one pending
-      `deletion_requests` row, Able stays on the roster and leaves the selection. With
-      `$V network arm-hold-fail PAGE personnel/archive-batch` the dialog's `Cancel` and `Archive` and every bar action
-      but `Clear selection` disable; `release` closes the dialog with the error toast
-      `Archive results could not be confirmed. …`, the Person's `archived_at` stays null and the selection stays.
-    - Group note: `Group actions for Alpha` → `Note to everyone in the Group` opens `Add to log for Alpha · 1 person` on
-      `Note` above the Alpha header. Saving sends one `leader-notes/batch` POST and toasts `Note added for 1 person`.
-      `viewer`'s menu holds only `Pin`; Unassigned has no menu.
-    - Access: `personnelScoped` sees only Alpha's checkboxes, every action, and `Alpha` as the only move target. From
-      its page, a `fetch` POST to `/org/<orgA>/api/personnel/follow-ups/batch` naming `personA` and `personB` returns
-      200 with `{"writtenIds":[personA],"unavailableIds":[personB]}` and writes one row; `viewer`'s POST to
-      `leader-notes/batch` returns 403 and writes none.
-    - Signals: with `$V server-source arm rpc/roster_signals hold 1 90000`, reload and select everyone: selection works
-      while 12 skeletons show, and after `release` the row tops (316, 410) and the bar top (504) are unchanged. With
-      `fail-hard` the notice `Today's status and Needs attention could not be loaded.` shows and the bar keeps every
-      action.
-    - `network` accepts the exact `personnel/follow-ups/batch` and `personnel/leader-notes/batch` families.
+    valid. Rank is a select of the Organization's active ranks only (`SGT`, `SPC`, `PFC`, `VFY-ACTIVE-A`; the retired
+    rank is absent), MOS and Duty role are text inputs, ETS opens the date picker. Choose Rank `SGT` and
+    `Review changes`: `Set Rank for 3 people` lists each name with `SPC → SGT` and no change is saved yet; `Back`
+    returns with the value kept. `Save 3 people` sends one `POST .../api/personnel/field-batch`, toasts
+    `Updated Rank for 3 people`, the roster rows read `SGT` at once and after a reload, `$V rows personnel orgA` shows
+    `rank` `SGT` on all three, and `$V rows audit_logs orgA action personnel.updated` holds one row per person with
+    `change.rank` `{from: SPC, to: SGT}`. People who already hold the value are not listed or sent: MOS `68W` with
+    Baker on `11B` reads `Set MOS for 1 person`, `1 person will change. 2 people already have this value.`, saves
+    only Baker (`11B → 68W`) and toasts `Updated MOS for 1 person · 2 people skipped`. ETS reads `None → 12 Nov 2026`
+    and stores `ets` `2026-11-12`. Esc closes the dialog without a request. At 390 the dialog stays inside the
+    viewport with the review list scrolling in its own box. If the server refuses or loses someone, the dialog stays
+    open on `Result` with `Updated`, `No access` or `No longer available` beside each name (source-mapped; the unit
+    tests cover the refused and unavailable cases). Selected People the actor cannot edit stay out of the review, and the
+    first step counts them (`N people you cannot edit will be left out.`; source-mapped). - Move to Group: the menu `Move N people to` lists `Alpha`, `Bravo` and `Unassigned`. Moving
+    `SPC Unassigned, Synthetic` to `Alpha` sends one `POST .../group-membership` and one `roster-signals` POST, toasts
+    `Moved 1 person to Alpha`, and `rows personnel orgA` shows Alpha's group ID on that Person. - Export: `$V export arm PAGE`, select all three and choose `Export`. No request is sent; the file is
+    `personnel-<Organization URL segment>-<viewer day>.xlsx` (Organization A has no slug, so its ID:
+    `personnel-<orgA>-2026-10-23.xlsx`). `$V workbook FILE Personnel` reads headers `Rank`, `Last name`, `First name`,
+    `MOS`, `Duty role`, `Group`, `ETS`, `PCS/DEROS`, `Today`, `Needs attention` and one row per Person; `manager` has
+    no Calendar grant, so `Today` is blank, and `Needs attention` reads `None`. - Archive…: select `SPC Unassigned, Synthetic`, choose `Archive…`: the dialog reads `Archive 1 personnel? …`, and
+    `Archive` sends one `archive-batch` POST naming that ID, toasts `1 personnel archived`, sets `archived_at`, and
+    the row and the bar leave. As `personnelOperate` the bar has no `Export`; `Archive…` on Able creates one pending
+    `deletion_requests` row, Able stays on the roster and leaves the selection. With
+    `$V network arm-hold-fail PAGE personnel/archive-batch` the dialog's `Cancel` and `Archive` and every bar action
+    but `Clear selection` disable; `release` closes the dialog with the error toast
+    `Archive results could not be confirmed. …`, the Person's `archived_at` stays null and the selection stays. - Group note: `Group actions for Alpha` → `Note to everyone in the Group` opens `Add to log for Alpha · 1 person` on
+    `Note` above the Alpha header. Saving sends one `leader-notes/batch` POST and toasts `Note added for 1 person`.
+    `viewer`'s menu holds only `Pin`; Unassigned has no menu. - Access: `personnelScoped` sees only Alpha's checkboxes, every action, and `Alpha` as the only move target. From
+    its page, a `fetch` POST to `/org/<orgA>/api/personnel/follow-ups/batch` naming `personA` and `personB` returns
+    200 with `{"writtenIds":[personA],"unavailableIds":[personB]}` and writes one row; `viewer`'s POST to
+    `leader-notes/batch` returns 403 and writes none. - Signals: with `$V server-source arm rpc/roster_signals hold 1 90000`, reload and select everyone: selection works
+    while 12 skeletons show, and after `release` the row tops (316, 410) and the bar top (504) are unchanged. With
+    `fail-hard` the notice `Today's status and Needs attention could not be loaded.` shows and the bar keeps every
+    action. - `network` accepts the exact `personnel/follow-ups/batch` and `personnel/leader-notes/batch` families.
 
 20. **Peek panel.** As `orgOwner` at 1440x900, stage Baker's two follow-ups through
     `POST /org/<org>/api/personnel/<personB>/follow-ups` (`Turn in TA-50 shortage list` due four days before the viewer

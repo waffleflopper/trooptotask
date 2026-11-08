@@ -510,15 +510,16 @@ describe('PersonnelPageView', () => {
 
 		it('keeps what is typed while earlier writes are still landing, and writes the latest text last', async () => {
 			const boxAfterEachWrite: string[] = [];
+			const pendingWrites: Array<() => Promise<void>> = [];
 			replaceStateMock.mockImplementation(
 				(url: URL) =>
 					new Promise<void>((done) =>
-						setTimeout(async () => {
+						pendingWrites.push(async () => {
 							pageMock.shallow = { url };
 							await tick();
 							boxAfterEachWrite.push((searchbox() as HTMLInputElement).value);
 							done();
-						}, 20)
+						})
 					)
 			);
 			render(PersonnelPageView, { props: { ctx: makeCtx() } });
@@ -526,6 +527,10 @@ describe('PersonnelPageView', () => {
 			await fireEvent.input(searchbox(), { target: { value: 'G' } });
 			await fireEvent.input(searchbox(), { target: { value: 'Ga' } });
 			await fireEvent.input(searchbox(), { target: { value: 'Gar' } });
+
+			await pendingWrites.shift()?.();
+			await waitFor(() => expect(pendingWrites).toHaveLength(1));
+			await pendingWrites.shift()?.();
 
 			await waitFor(() => expect(pageMock.shallow?.url.searchParams.get('q')).toBe('Gar'));
 			expect(boxAfterEachWrite).toEqual(['Gar', 'Gar']);

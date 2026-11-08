@@ -2805,6 +2805,8 @@ async function main() {
 					'assignment-types/lanes',
 					'status-types/order',
 					'status-types/preview',
+					'status-types/archive',
+					'status-types/usage',
 					'ict-tasks/order',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',

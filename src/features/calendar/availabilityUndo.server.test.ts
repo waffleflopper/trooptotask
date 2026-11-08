@@ -72,6 +72,16 @@ describe('undoAvailabilityChange: remove (undo of an add)', () => {
 		]);
 	});
 
+	it('leaves a row in place when its id is sent under another Person', async () => {
+		const ctx = context();
+		ctx.store.seed('availability_entries', [row(ENTRY_1, { personnel_id: PERSON_B })]);
+
+		const result = await undoAvailabilityChange(ctx, { remove: [entry(ENTRY_1)] });
+
+		expect(result).toEqual({ removedIds: [], restoredIds: [], changedIds: [ENTRY_1] });
+		expect(await stored(ctx)).toEqual([row(ENTRY_1, { personnel_id: PERSON_B })]);
+	});
+
 	it('removes the unchanged rows of a batch and reports only the changed one', async () => {
 		const ctx = context();
 		ctx.store.seed('availability_entries', [row(ENTRY_1), row(ENTRY_2, { status_type_id: TDY })]);

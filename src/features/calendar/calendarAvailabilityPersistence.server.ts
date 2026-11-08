@@ -2,7 +2,7 @@ import type { SupabaseClient } from '$lib/server/database';
 import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { fail, RequestFailure } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { AvailabilityCreate, CalendarAvailabilityPersistence } from './contracts';
+import type { AvailabilityCreate, AvailabilityEntry, CalendarAvailabilityPersistence } from './contracts';
 import { createSupabaseCalendarAvailabilityRemovalPort } from './availabilityRemovalPersistence.server';
 import {
 	AVAILABILITY_FIELDS,
@@ -150,21 +150,38 @@ export function createSupabaseCalendarAvailabilityPersistence(
 			requireAvailabilityMutation(error);
 			return (data ?? []).map(toAvailability);
 		},
-		async findByIds(ids) {
-			const lookups = calendarIdChunks([...ids]).map((chunk) =>
-				client
-					.from('availability_entries')
-					.select(AVAILABILITY_FIELDS)
-					.eq('organization_id', orgId)
-					.in('id', chunk)
-					.returns<AvailabilityRow[]>()
-			);
-			const rows: AvailabilityRow[] = [];
-			for (const { data, error } of await Promise.all(lookups)) {
-				if (error) throw new Error(error.message);
-				rows.push(...(data ?? []));
+		// An entry's Person cannot be edited, so grouping by the other values keeps a bulk add's Undo to one statement;
+		// the Person filter still limits each delete to rows of the People the caller was authorized for.
+		async deleteUnchanged(entries) {
+			const groups = new Map<string, AvailabilityEntry[]>();
+			for (const entry of entries) {
+				const key = JSON.stringify([entry.statusTypeId, entry.startDate, entry.endDate, entry.note ?? null]);
+				groups.set(key, [...(groups.get(key) ?? []), entry]);
 			}
-			return rows.map(toAvailability);
+			const personOf = new Map(entries.map((entry) => [entry.id, entry.personnelId]));
+			const deletes = [...groups.values()].flatMap((group) => {
+				const [{ statusTypeId, startDate, endDate, note }] = group;
+				return calendarIdChunks(group.map((entry) => entry.id)).map((ids) => {
+					const query = client
+						.from('availability_entries')
+						.delete()
+						.eq('organization_id', orgId)
+						.in('id', ids)
+						.in('personnel_id', [...new Set(ids.map((id) => personOf.get(id)!))])
+						.eq('status_type_id', statusTypeId)
+						.eq('start_date', startDate)
+						.eq('end_date', endDate);
+					return (note == null ? query.is('note', null) : query.eq('note', note))
+						.select('id')
+						.returns<{ id: string }[]>();
+				});
+			});
+			const deleted: string[] = [];
+			for (const { data, error } of await Promise.all(deletes)) {
+				if (error) throw new Error(error.message);
+				deleted.push(...(data ?? []).map((row) => row.id));
+			}
+			return deleted;
 		},
 		async restoreMany(entries) {
 			if (entries.length === 0) return [];

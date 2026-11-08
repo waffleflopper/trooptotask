@@ -41,12 +41,6 @@ export interface AvailabilityUndoResult {
 }
 
 const noteOf = (entry: Pick<AvailabilityEntry, 'note'>) => entry.note ?? null;
-const sameEntry = (a: AvailabilityEntry, b: AvailabilityEntry) =>
-	a.personnelId === b.personnelId &&
-	a.statusTypeId === b.statusTypeId &&
-	a.startDate === b.startDate &&
-	a.endDate === b.endDate &&
-	noteOf(a) === noteOf(b);
 
 /**
  * Reverses a status change by the rows it wrote. `remove` deletes entries an add created, only while each is still
@@ -66,28 +60,19 @@ export async function undoAvailabilityChange(
 	const people = await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, personnelIds);
 
 	const restorable = restore.filter((entry) => people.has(entry.personnelId));
-	const [stored, overlapping] = await Promise.all([
-		remove.length ? ctx.calendarAvailability.findByIds(remove.map((entry) => entry.id)) : [],
-		restorable.length
-			? ctx.calendarAvailability.listOverlapping({
-					rangeStart: restorable.reduce(
-						(first, entry) => (entry.startDate < first ? entry.startDate : first),
-						restorable[0].startDate
-					),
-					rangeEnd: restorable.reduce(
-						(last, entry) => (entry.endDate > last ? entry.endDate : last),
-						restorable[0].endDate
-					),
-					personnelIds: [...new Set(restorable.map((entry) => entry.personnelId))]
-				})
-			: []
-	]);
-
-	const storedById = new Map(stored.map((entry) => [entry.id, entry]));
-	const removable = remove.filter((entry) => {
-		const current = storedById.get(entry.id);
-		return current !== undefined && sameEntry(current, entry);
-	});
+	const overlapping = restorable.length
+		? await ctx.calendarAvailability.listOverlapping({
+				rangeStart: restorable.reduce(
+					(first, entry) => (entry.startDate < first ? entry.startDate : first),
+					restorable[0].startDate
+				),
+				rangeEnd: restorable.reduce(
+					(last, entry) => (entry.endDate > last ? entry.endDate : last),
+					restorable[0].endDate
+				),
+				personnelIds: [...new Set(restorable.map((entry) => entry.personnelId))]
+			})
+		: [];
 	const restorableNow = restorable.filter(
 		(entry) =>
 			!overlapping.some(
@@ -98,17 +83,12 @@ export async function undoAvailabilityChange(
 					other.statusTypeId === entry.statusTypeId
 			)
 	);
+	const removable = remove.filter((entry) => people.has(entry.personnelId));
 
-	const [deleted, restoredIds] = await Promise.all([
-		removable.length ? ctx.calendarAvailability.deleteIds(removable.map((entry) => entry.id)) : 0,
+	const [removedIds, restoredIds] = await Promise.all([
+		removable.length ? ctx.calendarAvailability.deleteUnchanged(removable) : [],
 		restorableNow.length ? ctx.calendarAvailability.restoreMany(restorableNow) : []
 	]);
-	// A count short of the request means someone removed some at the same moment; ask which are still saved.
-	const stillSaved =
-		deleted < removable.length
-			? new Set((await ctx.calendarAvailability.findByIds(removable.map((entry) => entry.id))).map((entry) => entry.id))
-			: new Set<string>();
-	const removedIds = removable.map((entry) => entry.id).filter((id) => !stillSaved.has(id));
 
 	const done = new Set([...removedIds, ...restoredIds]);
 	return {

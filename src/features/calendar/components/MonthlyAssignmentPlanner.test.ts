@@ -16,6 +16,8 @@ import type { RosterEntry, RosterView } from '$features/calendar/utils/plannerRo
 import type { Personnel } from '$features/personnel/contracts';
 import type { ComponentProps } from 'svelte';
 import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 const staffDuty: AssignmentType = {
 	id: 'type-sd',
@@ -66,6 +68,7 @@ function renderPlanner(
 		onRetry?: () => void;
 		rosters?: Partial<NonNullable<ComponentProps<typeof MonthlyAssignmentPlanner>['rosters']>>;
 		staleAssignments?: ComponentProps<typeof MonthlyAssignmentPlanner>['staleAssignments'];
+		copySource?: ComponentProps<typeof MonthlyAssignmentPlanner>['copySource'];
 	} = {}
 ) {
 	const onSetAssignment = vi.fn(props.onSetAssignment ?? (async () => true));
@@ -126,6 +129,7 @@ function renderPlanner(
 				{ id: 'g-alpha', name: 'Alpha', sortOrder: 0, parentId: null, depth: 1 as const },
 				{ id: 'g-bravo', name: 'Bravo', sortOrder: 1, parentId: null, depth: 1 as const }
 			],
+			copySource: props.copySource ?? { status: 'ready' as const, onRetry: vi.fn() },
 			onSetAssignment,
 			onSetAssignmentBatch,
 			rosters,
@@ -1279,5 +1283,138 @@ describe('MonthlyAssignmentPlanner duty swaps', () => {
 		const dialog = await screen.findByRole('dialog', { name: /^Replace/ });
 
 		expect(await within(dialog).findByText(/Ends 1 duty swap/)).toBeTruthy();
+	});
+});
+
+describe('MonthlyAssignmentPlanner Copy', () => {
+	// The shown month is October 2026 and today is Thursday 1 October, so the default week is Mon 28 Sep to Sun 4 Oct.
+	const leaveOn2nd: AvailabilityEntry = {
+		id: 'leave-okafor',
+		personnelId: 'p-okafor',
+		statusTypeId: 'leave',
+		startDate: '2026-10-02',
+		endDate: '2026-10-02'
+	};
+	const lastWeek = [
+		duty('2026-09-24', 'type-sd', 'p-kim'),
+		duty('2026-09-25', 'type-sd', 'p-okafor'),
+		duty('2026-09-26', 'type-sd', 'p-reed'),
+		duty('2026-09-27', 'type-sd', 'p-kim')
+	];
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	async function openCopy(
+		entry: 'Previous week…' | 'Previous month…',
+		props: Parameters<typeof renderPlanner>[0] = {}
+	) {
+		const { layOut } = stubToolbarWidths();
+		const planner = renderPlanner({ personnel: [kim, okafor, hale, reed], ...props });
+		await layOut(4000);
+		const copy = within(screen.getByRole('toolbar', { name: 'Planner actions' })).getByRole('button', { name: 'Copy' });
+		copy.focus();
+		await fireEvent.keyDown(copy, { key: 'Enter' });
+		await fireEvent.click(await screen.findByRole('menuitem', { name: entry }));
+		return { ...planner, dialog: await screen.findByRole('dialog') };
+	}
+
+	it('previews the empty slots a week fills, the filled ones it leaves alone and each skip, then saves exactly the fills', async () => {
+		const toast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const { onSetAssignmentBatch, dialog } = await openCopy('Previous week…', {
+			assignments: [...lastWeek, duty('2026-10-03', 'type-sd', 'p-hale')],
+			availabilityEntries: [leaveOn2nd]
+		});
+
+		expect(within(dialog).getByRole('combobox', { name: 'Week to fill' })).toHaveProperty('value', '2026-09-28');
+		expect(within(dialog).getByRole('status').textContent).toContain('Fills 2 slots');
+		const skips = within(dialog).getByRole('list');
+		expect(within(skips).getAllByRole('listitem')).toHaveLength(1);
+		expect(skips.textContent).toContain('Okafor');
+		expect(skips.textContent).toContain('Leave 2 Oct');
+		expect(within(dialog).getByRole('status').textContent).toContain('Leaves 1 slot');
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Copy 2 slots' }));
+
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(onSetAssignmentBatch).toHaveBeenCalledExactlyOnceWith([
+			{ date: '2026-10-01', assignmentTypeId: 'type-sd', assigneeId: 'p-kim' },
+			{ date: '2026-10-04', assignmentTypeId: 'type-sd', assigneeId: 'p-kim' }
+		]);
+		expect(toast).toHaveBeenCalledTimes(1);
+	});
+
+	it('copies the previous month by day number and cannot save when nothing is left to copy', async () => {
+		const { onSetAssignmentBatch, dialog } = await openCopy('Previous month…', {
+			assignments: [duty('2026-09-15', 'type-sd', 'p-kim'), duty('2026-09-30', 'type-sd', 'p-reed')]
+		});
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Copy 2 slots' }));
+		await waitFor(() => expect(onSetAssignmentBatch).toHaveBeenCalledTimes(1));
+		expect(onSetAssignmentBatch.mock.calls[0][0]).toEqual([
+			{ date: '2026-10-15', assignmentTypeId: 'type-sd', assigneeId: 'p-kim' },
+			{ date: '2026-10-30', assignmentTypeId: 'type-sd', assigneeId: 'p-reed' }
+		]);
+		cleanup();
+
+		const empty = await openCopy('Previous month…');
+		expect(within(empty.dialog).getByRole('button', { name: 'Copy 0 slots' })).toHaveProperty('disabled', true);
+	});
+
+	it('waits on the source read, then offers Retry when it failed', async () => {
+		const onRetry = vi.fn();
+		const loading = await openCopy('Previous week…', {
+			assignments: lastWeek,
+			copySource: { status: 'loading', onRetry }
+		});
+		expect(within(loading.dialog).getByRole('status', { name: /Loading/ })).toBeTruthy();
+		expect(within(loading.dialog).queryByRole('list')).toBeNull();
+		expect(within(loading.dialog).getByRole('button', { name: 'Copy 0 slots' })).toHaveProperty('disabled', true);
+		cleanup();
+
+		const failed = await openCopy('Previous week…', {
+			assignments: lastWeek,
+			copySource: { status: 'error', onRetry }
+		});
+		await fireEvent.click(within(failed.dialog).getByRole('button', { name: 'Retry' }));
+		expect(onRetry).toHaveBeenCalledTimes(1);
+		expect(within(failed.dialog).getByRole('button', { name: 'Copy 0 slots' })).toHaveProperty('disabled', true);
+	});
+
+	it('keeps the dialog open and says nothing when the save fails', async () => {
+		const toast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const { dialog } = await openCopy('Previous week…', {
+			assignments: lastWeek,
+			onSetAssignmentBatch: async () => false
+		});
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Copy \d slots$/ }));
+
+		await waitFor(() =>
+			expect(within(dialog).getByRole('button', { name: /^Copy \d slots$/ })).toHaveProperty('disabled', false)
+		);
+		expect(screen.getByRole('dialog')).toBe(dialog);
+		expect(toast).not.toHaveBeenCalled();
+	});
+
+	it('shows nothing when the reply arrives after the page left the month it copied into', async () => {
+		const toast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		let reply!: (saved: boolean) => void;
+		const { dialog, rerender } = await openCopy('Previous week…', {
+			assignments: lastWeek,
+			onSetAssignmentBatch: () => new Promise<boolean>((resolve) => (reply = resolve))
+		});
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Copy \d slots$/ }));
+
+		// What the page does when the Organization changes: the shown range stops being ready.
+		await rerender({ rangeStatus: 'loading' });
+		await rerender({ rangeStatus: 'ready' });
+		reply(true);
+		await Promise.resolve();
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(toast).not.toHaveBeenCalled();
 	});
 });

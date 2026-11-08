@@ -21,6 +21,7 @@
 	import type { ComposerKind } from '../../rosterComposer';
 	import { downloadRosterExport, rosterExportFilename, rosterExportRows } from '../../rosterExport';
 	import { personnelStore } from '../../stores/personnel.svelte';
+	import { ARCHIVE_UNDO_MS, archiveUndoAction } from '../../utils/archiveUndo';
 	import { moveGroupMembers, undoGroupMoves, type GroupMoveUndo } from '../../utils/moveGroupMembers';
 	import { saveRosterField } from '../../rosterFieldSave';
 	import { buildGroupTree } from '../../groupTree';
@@ -222,9 +223,24 @@
 			confirmingArchive = false;
 			onarchived(result);
 
-			if (result.archivedIds.length > 0) toastStore.success(`${result.archivedIds.length} personnel archived`);
-			if (result.approvalRequestedIds.length > 0) {
-				toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
+			if (result.undo) {
+				const archived = result.archivedIds.length;
+				const requested = result.approvalRequestedIds.length;
+				toastStore.success(
+					[
+						archived > 0 && `${archived} personnel archived`,
+						requested > 0 && `${requested} archival requests submitted for admin approval`
+					]
+						.filter(Boolean)
+						.join(' · '),
+					ARCHIVE_UNDO_MS,
+					archiveUndoAction(orgId, result.undo, isCurrent)
+				);
+			} else {
+				if (result.archivedIds.length > 0) toastStore.success(`${result.archivedIds.length} personnel archived`);
+				if (result.approvalRequestedIds.length > 0) {
+					toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
+				}
 			}
 			if (result.errors.length > 0) {
 				toastStore.error(`${result.errors.length} personnel could not be archived. Retry the selected personnel.`);

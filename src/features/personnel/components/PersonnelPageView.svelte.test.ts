@@ -3087,6 +3087,79 @@ describe('PersonnelPageView', () => {
 		expect(screen.queryByRole('toolbar', { name: 'Selected people' })).toBeNull();
 	});
 
+	describe('Undo after archiving from the bulk bar', () => {
+		const undoReply = { restoredIds: ['person-1'], changedIds: [], withdrawnRequestIds: [], reviewedRequestIds: [] };
+
+		it('offers one Undo for what was archived and requested, and sends the token it was given', async () => {
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValueOnce(
+					batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [], undo: 'token-1' })
+				)
+				.mockResolvedValueOnce(batchResponse(undoReply));
+			vi.stubGlobal('fetch', fetchMock);
+			render(PersonnelPageView, { props: { ctx: archiveCtx() } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane']);
+			await submitBulkSelection();
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+
+			const offered = toastSuccessMock.mock.calls[0][1] as { duration: number; action: { onClick(): void } };
+			expect(offered.duration).toBe(10_000);
+			expect(toastInfoMock).not.toHaveBeenCalled();
+			invalidateMock.mockClear();
+			offered.action.onClick();
+
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(2));
+			expect(fetchMock.mock.calls[1][0]).toBe('/org/org-1/api/personnel/archive-batch/undo');
+			expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({ token: 'token-1' });
+			expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data');
+		});
+
+		it('puts archived People and approval requests in the same Undo toast', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue(
+					batchResponse({
+						archivedIds: ['person-1'],
+						approvalRequestedIds: ['person-2'],
+						errors: [],
+						undo: 'token-1'
+					})
+				)
+			);
+			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young' }], 'org-1');
+			render(PersonnelPageView, { props: { ctx: archiveCtx() } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Young, Test']);
+			await submitBulkSelection();
+
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+			expect(toastInfoMock).not.toHaveBeenCalled();
+			expect(toastSuccessMock.mock.calls[0][1]).toMatchObject({ duration: 10_000, action: { label: 'Undo' } });
+		});
+
+		it('sends nothing and says nothing when Undo is pressed after the Organization was left', async () => {
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValue(
+					batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [], undo: 'token-1' })
+				);
+			vi.stubGlobal('fetch', fetchMock);
+			render(PersonnelPageView, { props: { ctx: archiveCtx() } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane']);
+			await submitBulkSelection();
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+
+			endOrganizationLifetime();
+			(toastSuccessMock.mock.calls[0][1] as { action: { onClick(): void } }).action.onClick();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+			expect(toastWarningMock).not.toHaveBeenCalled();
+			expect(toastErrorMock).not.toHaveBeenCalled();
+		});
+	});
+
 	it('selects only the current A-Z page from the header checkbox', async () => {
 		const roster = Array.from({ length: 101 }, (_, index) => makePerson(index + 1));
 		personnelStore.load(roster, 'org-1');

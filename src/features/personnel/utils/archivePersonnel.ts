@@ -1,6 +1,7 @@
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { withinOrganizationLifetime } from '$lib/stores/core';
+import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
+import { ARCHIVE_UNDO_MS, archiveUndoAction } from './archiveUndo';
 import type { Personnel } from '../personnel.types';
 
 export type PersonnelArchiveResult = 'archived' | 'approval_requested' | 'error';
@@ -19,7 +20,9 @@ interface ArchivePersonnelOptions {
 	requestArchiveApproval: RequestPersonnelArchiveApproval;
 }
 
-async function archiveViaApi(orgId: string, id: string): Promise<'deleted' | 'approval_required' | 'error'> {
+type ArchiveReply = { kind: 'deleted'; undo?: string } | { kind: 'approval_required' } | { kind: 'error' };
+
+async function archiveViaApi(orgId: string, id: string): Promise<ArchiveReply> {
 	try {
 		const response = await fetch(`/org/${orgId}/api/personnel`, {
 			method: 'DELETE',
@@ -29,12 +32,15 @@ async function archiveViaApi(orgId: string, id: string): Promise<'deleted' | 'ap
 
 		if (response.status === 202) {
 			const body = (await response.json()) as { requiresApproval?: boolean };
-			if (body.requiresApproval) return 'approval_required';
+			if (body.requiresApproval) return { kind: 'approval_required' };
 		}
+		if (!response.ok) return { kind: 'error' };
 
-		return response.ok ? 'deleted' : 'error';
+		const body: unknown = await response.json().catch(() => null);
+		const undo = (body as { undo?: unknown } | null)?.undo;
+		return typeof undo === 'string' ? { kind: 'deleted', undo } : { kind: 'deleted' };
 	} catch {
-		return 'error';
+		return { kind: 'error' };
 	}
 }
 
@@ -44,17 +50,19 @@ export async function archivePersonnel({
 	resourceUrl = `/org/${orgId}/personnel`,
 	requestArchiveApproval
 }: ArchivePersonnelOptions): Promise<PersonnelArchiveResult> {
-	const result =
-		personnelStore.orgId === orgId && personnelStore.getById(person.id)
-			? await personnelStore.remove(person.id)
-			: await withinOrganizationLifetime(archiveViaApi(orgId, person.id));
+	const inLifetime = stillInOrganizationLifetime();
+	const reply = await withinOrganizationLifetime(archiveViaApi(orgId, person.id));
 
-	if (result === 'deleted') {
-		toastStore.success('Personnel archived');
+	if (reply.kind === 'deleted') {
+		if (personnelStore.orgId === orgId) personnelStore.removeLocal(person.id);
+		// The record's page leaves for the roster right after, so Undo follows the Organization, not this page.
+		if (reply.undo)
+			toastStore.success('Personnel archived', ARCHIVE_UNDO_MS, archiveUndoAction(orgId, reply.undo, inLifetime));
+		else toastStore.success('Personnel archived');
 		return 'archived';
 	}
 
-	if (result === 'approval_required') {
+	if (reply.kind === 'approval_required') {
 		const submitted = await requestArchiveApproval({
 			orgId,
 			personnelId: person.id,

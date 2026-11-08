@@ -84,12 +84,18 @@ function groupMoveQuestion(person: Personnel, toGroup: string, key: string): Lan
 	};
 }
 
+const ARCHIVED_TITLES = {
+	'restore-or-new': 'Archived. Restore, or create new?',
+	restore: 'Archived. Restore them?',
+	new: 'Archived. Add a new person instead?'
+} as const;
+
 function archivedQuestion(person: Personnel, key: string, offer: 'restore-or-new' | 'restore' | 'new'): LaneQuestion {
 	const restore = { id: ANSWER.restore, label: 'Restore' };
 	const create = { id: ANSWER.createAnyway, label: offer === 'new' ? 'Add as a new person anyway' : 'Create new' };
 	return {
 		key: questionKey({ lane: `archived:${key}` }),
-		title: 'Archived. Restore, or create new?',
+		title: ARCHIVED_TITLES[offer],
 		subject: `${person.lastName}, ${person.firstName} was archived from ${person.groupName || 'No group'}`,
 		skipLabel: 'Skip this row',
 		accepts: {

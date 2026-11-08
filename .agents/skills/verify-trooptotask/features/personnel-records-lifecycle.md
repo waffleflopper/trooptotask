@@ -242,7 +242,8 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    The commit sends one `POST api/personnel/import`, then refreshes the roster workspace and import page's ID list.
    Done reads
    `10 changes saved.` with Added 7, Updated 3 and Skipped 1 and no zero counts, and lists the skipped row as
-   `1st PLT · row 9` with `You skipped this row.` Capture `Download these rows (.xlsx)` with `$V export`: one sheet
+   `1st PLT · row 9` with `You skipped this row.` Capture `Download these rows (.xlsx)` with `$V export arm PAGE`, then `$V export save PAGE ABS_PATH` (an absolute path
+   under `.verification/evidence/verify-trooptotask/`), and read it with `$V workbook ABS_PATH SHEET_NAME`: one sheet
    named `1st PLT` with the original columns, DOD ID included, plus `Reason`. Read the rows back. Seven new People have
    SGT for both `Sgt.` and `SSG`, `2028-03-15` from `15MAR28`, first name `Jae` without the initial, `2027-02-28` for
    the corrected date and the new Group. The dedicated Person and Baker changed only ETS, only the Bravo duplicate got
@@ -262,14 +263,18 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    asks `Same person, or someone new?` for `Alpha to Bravo` with `Same person, move them to Bravo` and `Someone new`,
    and the row reads `Needs a fix` with `This would move a person to another group. Choose in the fix rail.` Choose
    the move: the row reads Update with Group `Bravo` before `Alpha` and `Import 1 change` saves it (`rows personnel`
-   shows the Bravo ID). Importing it again asks nothing. A row that carries the Person's DoD ID never asks.
+   shows the Bravo ID). Importing it again asks nothing. A row that carries the Person's DoD ID never asks. With `Someone new` instead,
+   `Import 1 change` (`1 added`) saves a second person in Bravo, and `rows personnel` shows both, the original still in
+   Alpha with its old MOS.
 
    **Archived people.** Archive that Person (`personnel-archive-batch`), reload the import page and upload
    `MapLifecycleTAG, Synthetic, SPC, Bravo, 68X`. As `manager` the rail asks `Archived. Restore, or create new?` with
    `Restore` and `Create new`; the row reads `Needs a fix` until answered. Choose Restore: Review shows `Status`
    `Archived` to `Restored` beside the MOS change, and `Import 1 change` leaves `archived_at` null with MOS `68X` and
-   one `personnel.restored` row in `audit_logs`. Archive the Person again and repeat as `personnelOperate`: the rail
-   offers only `Add as a new person anyway` and `Skip this row`, never Restore. Both layouts fit at 390 px.
+   one `personnel.restored` row in `audit_logs`. A row that carries the archived Person's DoD ID under a different last
+   name (so the ID is what matched) asks `Archived. Restore them?` with only `Restore`. Archive the Person again and
+   repeat as `personnelOperate`: the rail asks `Archived. Add a new person instead?` and offers only
+   `Add as a new person anyway` and `Skip this row`, never Restore. Both layouts fit at 390 px.
 
    **Group paths.** After the [Group tree](manage-groups.md#group-tree) steps plus a moved `2nd Squad` and a
    `3rd Platoon › Weapons Squad`, upload a one-sheet workbook (`Rank, Last Name, First Name, MOS, Group`) whose Group
@@ -355,7 +360,7 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    the reply is lost. Done reads `0 changes saved.` with `Not confirmed` 2 and `Check the roster before importing
 these again.`, and `rows personnel` shows both People saved. Restore, choose `Import another file` and upload the
    same file: Review reads `Unchanged · 2` behind `2 rows already match. Nothing to save.` and the roster keeps two
-   People. The Personnel server, route and import-lane regression tests preserve the structured `unconfirmed` error.
+   People. Repeat at 390 px: the Done screen and the Review bar fit without horizontal scroll. The Personnel server, route and import-lane regression tests preserve the structured `unconfirmed` error.
    With 501 planned rows and an uncertain first chunk, require Not confirmed 500, Not attempted 1 and no second
    request. `arm-fail` is pre-dispatch and does not establish provider-response loss.
 

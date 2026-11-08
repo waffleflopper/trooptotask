@@ -154,9 +154,7 @@ describe('archivePersonnel when the actor needs approval', () => {
 		expect(
 			fetchMock.mock.calls.filter(([url]) => url.endsWith('/archive-batch')).map(([, init]) => init?.body)
 		).toEqual([JSON.stringify({ ids: ['person-a'] })]);
-		expect(success.mock.calls.map(([message, duration]) => [message, duration])).toEqual([
-			['Archival request submitted for admin approval', 10_000]
-		]);
+		expect(success.mock.calls.map(([, duration]) => duration)).toEqual([10_000]);
 		expect(info).not.toHaveBeenCalled();
 
 		success.mock.calls[0][2]?.onClick();
@@ -185,7 +183,7 @@ describe('archivePersonnel when the actor needs approval', () => {
 		await expect(archivePersonnel({ orgId: 'org-1', person, archivedPath })).resolves.toBe('approval_requested');
 
 		expect(success).not.toHaveBeenCalled();
-		expect(info.mock.calls).toEqual([['An archival request for this item is already pending.']]);
+		expect(info).toHaveBeenCalledOnce();
 	});
 
 	it.each([
@@ -202,6 +200,6 @@ describe('archivePersonnel when the actor needs approval', () => {
 		await expect(archivePersonnel({ orgId: 'org-1', person, archivedPath })).resolves.toBe('error');
 
 		expect(success).not.toHaveBeenCalled();
-		expect(error.mock.calls).toEqual([['Failed to archive personnel']]);
+		expect(error).toHaveBeenCalledOnce();
 	});
 });

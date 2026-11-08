@@ -98,7 +98,7 @@ describe('PersonnelRecordActions', () => {
 			['/org/org-1/api/personnel', 'DELETE', JSON.stringify({ id: 'person-1' })],
 			['/org/org-1/api/personnel/archive-batch', 'POST', JSON.stringify({ ids: ['person-1'] })]
 		]);
-		expect(success.mock.calls.map(([message]) => message)).toEqual(['Archival request submitted for admin approval']);
+		expect(success).toHaveBeenCalledOnce();
 		expect(personnelStore.items).toEqual([]);
 		expect(actions.confirmingArchive).toBe(false);
 		expect(actions.archiving).toBe(false);

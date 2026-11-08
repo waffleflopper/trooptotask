@@ -150,6 +150,38 @@ export function createSupabaseCalendarAvailabilityPersistence(
 			requireAvailabilityMutation(error);
 			return (data ?? []).map(toAvailability);
 		},
+		async findByIds(ids) {
+			const lookups = calendarIdChunks([...ids]).map((chunk) =>
+				client
+					.from('availability_entries')
+					.select(AVAILABILITY_FIELDS)
+					.eq('organization_id', orgId)
+					.in('id', chunk)
+					.returns<AvailabilityRow[]>()
+			);
+			const rows: AvailabilityRow[] = [];
+			for (const { data, error } of await Promise.all(lookups)) {
+				if (error) throw new Error(error.message);
+				rows.push(...(data ?? []));
+			}
+			return rows.map(toAvailability);
+		},
+		async restoreMany(entries) {
+			if (entries.length === 0) return [];
+			const { data, error } = await client
+				.from('availability_entries')
+				.upsert(
+					entries.map((entry) => ({
+						id: entry.id,
+						...availabilityInsert({ ...entry, note: entry.note ?? null }, orgId)
+					})),
+					{ onConflict: 'id', ignoreDuplicates: true }
+				)
+				.select('id')
+				.returns<{ id: string }[]>();
+			requireAvailabilityMutation(error);
+			return (data ?? []).map((row) => row.id);
+		},
 		async insertReplacing(entries) {
 			const { data, error } = await client.rpc('import_availability_entries', {
 				p_organization_id: orgId,

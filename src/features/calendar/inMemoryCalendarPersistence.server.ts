@@ -563,6 +563,40 @@ export function createInMemoryCalendarAvailabilityPersistence(
 			return store.delete('availability_entries', orgId, id);
 		},
 		createMany,
+		async findByIds(ids) {
+			if (ids.length === 0) return [];
+			return (
+				await store.findMany<AvailabilityRow>('availability_entries', orgId, undefined, {
+					inFilters: { id: [...ids] }
+				})
+			).map(toAvailability);
+		},
+		async restoreMany(entries) {
+			const existing = new Set(
+				(
+					await store.findMany<{ id: string }>('availability_entries', orgId, undefined, {
+						inFilters: { id: entries.map((entry) => entry.id) },
+						select: 'id'
+					})
+				).map((row) => row.id)
+			);
+			const fresh = entries.filter((entry) => !existing.has(entry.id));
+			if (fresh.length === 0) return [];
+			return (
+				await store.insertMany<AvailabilityRow>(
+					'availability_entries',
+					orgId,
+					fresh.map((entry) => ({
+						id: entry.id,
+						personnel_id: entry.personnelId,
+						status_type_id: entry.statusTypeId,
+						start_date: entry.startDate,
+						end_date: entry.endDate,
+						note: entry.note ?? null
+					}))
+				)
+			).map((row) => row.id);
+		},
 		async insertReplacing(entries) {
 			const saved = await store.findMany<AvailabilityRow>('availability_entries', orgId);
 			const current = new Map(saved.map((row) => [row.id, row]));

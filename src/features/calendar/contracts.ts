@@ -684,6 +684,10 @@ export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRem
 	update(id: string, patch: AvailabilityPatch): Promise<SavedAvailabilityEntry>;
 	delete(id: string): Promise<void>;
 	createMany(inputs: AvailabilityCreate[]): Promise<SavedAvailabilityEntry[]>;
+	/** The saved entries among `ids`, in one read; ids that no longer exist are absent. */
+	findByIds(ids: readonly string[]): Promise<SavedAvailabilityEntry[]>;
+	/** Saves each entry under its own id in one statement, skipping an id that exists again; resolves to the ids saved. */
+	restoreMany(entries: readonly AvailabilityEntry[]): Promise<string[]>;
 	/** Skips, by index, each entry whose overlaps changed since review; writes the rest in one transaction. */
 	insertReplacing(
 		entries: readonly AvailabilityImportWrite[]

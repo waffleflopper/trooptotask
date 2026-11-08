@@ -239,6 +239,22 @@ describe('TrainingTypesPage', () => {
 			expect(screen.getByText('No training types yet.')).toBeTruthy();
 		});
 
+		it('explains a failed branch lookup and offers the list after a retry', async () => {
+			let lookups = 0;
+			vi.stubGlobal('fetch', async () =>
+				++lookups === 1
+					? Response.json({ message: 'Setup is unavailable' }, { status: 500 })
+					: Response.json({ branch: 'army' })
+			);
+			mount([]);
+
+			expect((await screen.findByRole('alert')).textContent).toContain('Setup is unavailable');
+			await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+			expect(await screen.findByRole('checkbox', { name: /^SHARP/ })).toBeTruthy();
+			expect(screen.queryByRole('alert')).toBeNull();
+		});
+
 		it('does not look up a branch for someone who cannot configure Training', async () => {
 			stubSuggestions('army');
 			mount([], accessFor(false));

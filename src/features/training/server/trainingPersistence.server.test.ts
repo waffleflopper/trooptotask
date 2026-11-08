@@ -386,6 +386,14 @@ describe('ordinary Training persistence', () => {
 		await expect(completions.createRecord({ personnelId: 'p1', trainingTypeId: 't1' })).rejects.toThrow('Denied');
 	});
 
+	it('refuses to delete a type the database says still has records', async () => {
+		const { catalog, state } = ports({ training_types: [{ id: 't1', organization_id: ORG, name: 'Annual' }] });
+		state.failure = () => ({ code: '23503', message: 'personnel_trainings_org_training_type_fkey', status: 409 });
+		await expect(catalog.deleteType('t1')).rejects.toMatchObject({ name: 'RequestFailure', status: 409 });
+		state.failure = () => ({ code: '40001', message: 'Serialization failure', status: 409 });
+		await expect(catalog.deleteType('t1')).rejects.not.toMatchObject({ name: 'RequestFailure' });
+	});
+
 	it.each(['types', 'views', 'labels', 'ranks', 'imports', 'completions', 'pairs', 'export'] as const)(
 		'pages tied %s completely under changing provider order and rejects a later error',
 		async (method) => {

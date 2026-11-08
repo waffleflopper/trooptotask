@@ -261,8 +261,8 @@
 		{/if}
 		{#if offersSkip && !committing}
 			<Button
-				variant="outline"
-				class="h-auto min-h-8 flex-1 basis-full whitespace-normal text-chrome-text sm:flex-none sm:basis-auto"
+				variant="ghost"
+				class="h-auto min-h-8 flex-1 basis-full whitespace-normal border border-chrome-text/40 text-chrome-text hover:bg-chrome-hover hover:text-chrome-text sm:flex-none sm:basis-auto"
 				disabled={!!session.skipFixesBlocker || session.creating.size > 0}
 				onclick={() => void session.commit({ skipRowsNeedingFixes: true })}
 			>

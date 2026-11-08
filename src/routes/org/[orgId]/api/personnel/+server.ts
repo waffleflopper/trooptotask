@@ -1,19 +1,37 @@
 import {
 	archivePersonnelRecord,
 	createPersonnelRecord,
+	loadRosterPersonnel,
 	restorePersonnelRecord,
 	updatePersonnelRecord
 } from '$features/personnel/index.server';
+import { toPersonSearchEntry, type PersonSearchEntry } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { isUuid } from '$lib/utils/inputSchemas';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, privateJson, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	createRequestPersonnelRecordContext,
-	createRequestPersonnelLifecycleContext
+	createRequestPersonnelLifecycleContext,
+	createRequestPersonnelRosterContext
 } from '$lib/server/adapters/requestContexts.server';
 import { validateUUID } from '$lib/server/validation';
 import { json } from '@sveltejs/kit';
+
+/** The active people the viewer's Group scope admits, as the compact index behind the Cmd/Ctrl+K palette. */
+export const _getConfig: RouteConfig<
+	void,
+	{ people: PersonSearchEntry[] },
+	ReturnType<typeof createRequestPersonnelRosterContext>
+> = {
+	context: createRequestPersonnelRosterContext,
+	policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
+	policyResource: { kind: 'unscoped' },
+	fn: async (ctx) => ({ people: (await loadRosterPersonnel(ctx, { status: 'active' })).map(toPersonSearchEntry) }),
+	formatOutput: privateJson
+};
+
+export const GET = handle(_getConfig);
 
 export const _postConfig: RouteConfig<
 	Record<string, unknown>,

@@ -7,6 +7,7 @@ import AppShellHeader from './AppShellHeader.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createRawSnippet, tick } from 'svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { resetHistory } from '../personSearchHistory.test-support.svelte';
 
 const { pageStore } = vi.hoisted(() => {
 	let current = {
@@ -30,21 +31,36 @@ const { pageStore } = vi.hoisted(() => {
 });
 
 const navigation = vi.hoisted(() => ({ to: null as { url: URL } | null }));
-vi.mock('$app/state', () => ({
-	get navigating() {
-		return navigation;
-	},
-	get page() {
-		return pageStore.page;
-	}
-}));
+vi.mock('$app/state', async () => {
+	const history = await import('../personSearchHistory.test-support.svelte');
+	return {
+		get navigating() {
+			return navigation;
+		},
+		get page() {
+			const current = pageStore.page;
+			return {
+				get url() {
+					return current.url;
+				},
+				get data() {
+					return current.data;
+				},
+				get state() {
+					return history.page.state;
+				}
+			};
+		}
+	};
+});
 
 const { goto, invalidate } = vi.hoisted(() => {
 	return { goto: vi.fn(), invalidate: vi.fn(async () => {}) };
 });
 
-vi.mock('$app/navigation', () => {
-	return { goto, invalidate, afterNavigate: vi.fn() };
+vi.mock('$app/navigation', async () => {
+	const history = await import('../personSearchHistory.test-support.svelte');
+	return { goto, invalidate, afterNavigate: vi.fn(), pushState: history.pushState };
 });
 
 const baseCapabilityMap: CapabilityMap = {
@@ -63,6 +79,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
 	pageStore.setPath('/org/org-1/personnel');
+	resetHistory();
 	navigation.to = null;
 	setWindowSize(1024, 768);
 });
@@ -957,5 +974,114 @@ describe('notification deletion and Account links', () => {
 		await fireEvent.click(screen.getByRole('menuitem', { name: /^A reply to your feedback/ }));
 
 		expect(goto).toHaveBeenCalledWith('/org/alpha/account/feedback/f-1');
+	});
+});
+
+describe('unread count badge', () => {
+	function unreadCount(count: number) {
+		vi.mocked(fetch).mockImplementation(async (input, options) => {
+			if (String(input).includes('notification-count'))
+				return notificationResponse({ ok: true, unreadNotificationCount: count });
+			if (options?.method === 'PUT') return notificationResponse({ success: true });
+			return notificationResponse([notification('n1', 'First note')]);
+		});
+	}
+
+	it('shows the count on the bell and keeps it in the accessible name', async () => {
+		unreadCount(3);
+		renderHeader();
+
+		const bell = await screen.findByRole('button', { name: '3 unread notifications' });
+
+		expect(within(bell).getByText('3')).toBeVisible();
+	});
+
+	it('caps the visible count at 9+ while the accessible name keeps the real count', async () => {
+		unreadCount(14);
+		renderHeader();
+
+		const bell = await screen.findByRole('button', { name: '14 unread notifications' });
+
+		expect(within(bell).getByText('9+')).toBeVisible();
+		expect(within(bell).queryByText('14')).toBeNull();
+	});
+
+	it('shows nine as 9 and ten as 9+', async () => {
+		unreadCount(9);
+		const nine = renderHeader();
+		expect(within(await screen.findByRole('button', { name: '9 unread notifications' })).getByText('9')).toBeVisible();
+		nine.unmount();
+
+		unreadCount(10);
+		renderHeader();
+		expect(
+			within(await screen.findByRole('button', { name: '10 unread notifications' })).getByText('9+')
+		).toBeVisible();
+	});
+
+	it('shows no badge when nothing is unread', async () => {
+		unreadCount(0);
+		renderHeader();
+
+		const bell = await screen.findByRole('button', { name: 'Notifications' });
+		await tick();
+
+		expect(bell.textContent?.trim()).toBe('');
+	});
+
+	it('clears the badge after Mark all read', async () => {
+		unreadCount(2);
+		renderHeader();
+
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Mark all read' }));
+
+		const bell = await screen.findByRole('button', { name: 'Notifications' });
+		expect(bell.textContent?.trim()).toBe('');
+	});
+});
+
+describe('person search entry points', () => {
+	function peopleIndex(people: unknown[]) {
+		vi.mocked(fetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes('notification-count')) return notificationResponse({ ok: true, unreadNotificationCount: 0 });
+			if (url.endsWith('/api/personnel')) return notificationResponse({ people });
+			return notificationResponse([]);
+		});
+	}
+	const smith = { id: 'p1', slug: 'smith-john', rank: 'SGT', firstName: 'John', lastName: 'Smith', groupName: 'Alpha' };
+
+	it('opens from the header button and finds a person by rank and name in either order', async () => {
+		peopleIndex([smith]);
+		renderHeader();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Find a person' }));
+		const search = await screen.findByRole('combobox');
+		await fireEvent.input(search, { target: { value: 'smith sgt' } });
+
+		expect(await screen.findByRole('option', { name: /SGT Smith, John/ })).toBeVisible();
+	});
+
+	it('opens from Ctrl+K and from Cmd+K but not with Alt or Shift held', async () => {
+		peopleIndex([smith]);
+		renderHeader();
+
+		await fireEvent.keyDown(window, { key: 'k', ctrlKey: true, altKey: true });
+		await fireEvent.keyDown(window, { key: 'k', metaKey: true, shiftKey: true });
+		expect(screen.queryByRole('combobox')).toBeNull();
+
+		await fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+		expect(await screen.findByRole('combobox')).toBeVisible();
+	});
+
+	it('offers no search to a member who cannot see Personnel', async () => {
+		peopleIndex([smith]);
+		renderHeader({ capabilityMap: { ...baseCapabilityMap, personnel: 'none' } });
+
+		await fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+
+		expect(screen.queryByRole('button', { name: 'Find a person' })).toBeNull();
+		expect(screen.queryByRole('combobox')).toBeNull();
 	});
 });

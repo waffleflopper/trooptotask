@@ -473,6 +473,8 @@ export interface PersonnelCriticalTasksRosterPort {
 	): Promise<{ groupId: string | null; archivedAt: string | null } | null>;
 }
 
+export { matchesPersonSearch, matchesSearchTokens, toPersonSearchEntry } from './personSearch';
+export type { PersonSearchEntry } from './personSearch';
 export {
 	compareRosterBands,
 	createRosterReadModel,

@@ -87,7 +87,7 @@ means the workspace reloaded.
 - [Public and marketing pages](public-pages.md): public pages and their navigation.
 - [Identity recovery, MFA and account security](identity-recovery-security.md): MFA, recovery, invites, setup and
   security settings.
-- [App shell and saved preferences](shell-preferences.md): shell chrome, preference persistence and the update-available notice.
+- [App shell and saved preferences](shell-preferences.md): shell chrome, person search (Cmd/Ctrl+K), preference persistence and the update-available notice.
 - [Help guides](help-guides.md): the Help drawer, its `?help` history, search, step links, access notes and layout.
 - [Shared dialogs, date selection and tooltips](shared-ui.md): accessibility, focus and form consumers.
 - [Component family interaction contracts](component-foundation.md): field, menu, overlay and toast behavior.
@@ -119,7 +119,7 @@ means the workspace reloaded.
 ### Communications
 
 - [Audit capture and safe projections](audit-capture-projections.md): audit summaries, details and masking.
-- [Notifications, feedback and announcements](notifications-feedback.md): inbox, feedback and announcements.
+- [Notifications, feedback and announcements](notifications-feedback.md): inbox, bell unread badge, feedback and announcements.
 
 ### Onboarding
 

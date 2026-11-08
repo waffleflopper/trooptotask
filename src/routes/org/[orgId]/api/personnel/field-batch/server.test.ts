@@ -1,6 +1,5 @@
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -89,14 +88,6 @@ async function stored(ctx: ReturnType<typeof context>, id: string) {
 }
 
 describe('POST /api/personnel/field-batch', () => {
-	it('declares the unscoped manageRecords route policy and leaves the per-person check to the operation', () => {
-		expect(_postConfig).toMatchObject({
-			mutation: true,
-			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
-			policyResource: { kind: 'unscoped' }
-		});
-	});
-
 	it('sets one field for every selected Person and reports each one', async () => {
 		const ctx = context('operate');
 

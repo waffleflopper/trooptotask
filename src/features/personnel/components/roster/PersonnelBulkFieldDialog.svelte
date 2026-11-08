@@ -16,6 +16,7 @@
 	import {
 		BULK_FIELDS,
 		BULK_FIELD_KEYS,
+		PERSONNEL_FIELD_BATCH_LIMIT,
 		type BulkField,
 		type PersonnelFieldBatchResult,
 		type PersonnelFieldOutcome
@@ -58,6 +59,7 @@
 	const names = $derived(
 		new Map(people.map((person) => [person.id, `${person.rank} ${person.lastName}, ${person.firstName}`]))
 	);
+	const overLimit = $derived((review?.changes.length ?? 0) > PERSONNEL_FIELD_BATCH_LIMIT);
 	const problems = $derived((outcome?.results ?? []).filter((result) => result.outcome !== 'updated'));
 
 	function pickField(next: string | undefined): void {
@@ -82,7 +84,7 @@
 
 	const save = () =>
 		saving.run(async () => {
-			if (!review || review.changes.length === 0) return;
+			if (!review || review.changes.length === 0 || overLimit) return;
 			const orgId = ctx.orgId;
 			const sent = { field, value: wanted };
 			const ids = review.changes.map((change) => change.id);
@@ -207,6 +209,11 @@
 						{/if}
 					</section>
 				{/if}
+				{#if overLimit}
+					<p class="text-sm text-destructive">
+						Set a field for at most {PERSONNEL_FIELD_BATCH_LIMIT} people at a time. Narrow the selection and try again.
+					</p>
+				{/if}
 				{#if skipped > 0}
 					<p class="text-sm text-muted-foreground">{count(skipped)} you cannot edit will be skipped.</p>
 				{/if}
@@ -220,7 +227,7 @@
 				<Button onclick={onclose}>Close</Button>
 			{:else}
 				<Button variant="outline" onclick={onclose} disabled={saving.pending}>Cancel</Button>
-				<Button onclick={save} disabled={!review || review.changes.length === 0 || saving.pending}>
+				<Button onclick={save} disabled={!review || review.changes.length === 0 || overLimit || saving.pending}>
 					{#if saving.pending}<Spinner />{/if}
 					Set {definition.label}{review && review.changes.length > 0 ? ` for ${count(review.changes.length)}` : ''}
 				</Button>

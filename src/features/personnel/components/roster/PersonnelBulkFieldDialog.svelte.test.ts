@@ -165,4 +165,16 @@ describe('Set field dialog', () => {
 		expect(toasts.map((toast) => toast.mock.calls.length)).toEqual([0, 0, 0, 0]);
 		expect(onclose).not.toHaveBeenCalled();
 	});
+	it('does not send a change for more People than one request accepts', async () => {
+		const send = vi.fn();
+		vi.stubGlobal('fetch', send);
+		setup(Array.from({ length: 501 }, (_, n) => person(`p${n}`, `Person${n}`, '68W')));
+
+		await chooseMos('68C');
+
+		const save = screen.getByRole('button', { name: 'Set MOS for 501 people' }) as HTMLButtonElement;
+		expect(save.disabled).toBe(true);
+		await fireEvent.click(save);
+		expect(send).not.toHaveBeenCalled();
+	});
 });

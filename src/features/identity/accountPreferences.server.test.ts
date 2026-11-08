@@ -127,7 +127,8 @@ const defaults = {
 		matrixColorAll: false,
 		matrixCurrentMark: 'date',
 		matrixNeedsActionOnly: false
-	}
+	},
+	roster: { viewMode: 'by-group' }
 };
 
 describe('Identity account/Organization preferences', () => {
@@ -162,11 +163,32 @@ describe('Identity account/Organization preferences', () => {
 		expect(saved.calendar).toEqual({ ...defaults.calendar, showEventLanes: false });
 		expect(p.state.rows[0].preferences).toEqual({
 			calendar: { ...defaults.calendar, showEventLanes: false },
-			training: defaults.training
+			training: defaults.training,
+			roster: defaults.roster
 		});
 		await expect(loadUserOrgPreferences(p, scope)).resolves.toMatchObject({
 			calendar: { showDaysLane: true, showEventLanes: false, showAssignmentLanes: true }
 		});
+	});
+
+	it('loads a row saved before the roster view mode as Group, then saves A-Z over it', async () => {
+		const p = provider([row({ preferences: { calendar: defaults.calendar, training: defaults.training } })]);
+
+		const loaded = await loadUserOrgPreferences(p, scope);
+		expect(loaded.roster).toEqual({ viewMode: 'by-group' });
+
+		const saved = await patchUserOrgPreferences(writer(p.supabase), { roster: { viewMode: 'alphabetical' } });
+		expect(saved.roster).toEqual({ viewMode: 'alphabetical' });
+		await expect(loadUserOrgPreferences(p, scope)).resolves.toMatchObject({ roster: { viewMode: 'alphabetical' } });
+	});
+
+	it('rejects a roster view mode that is not a known mode', async () => {
+		const p = provider([row({ preferences: defaults })]);
+
+		await expect(
+			patchUserOrgPreferences(writer(p.supabase), { roster: { viewMode: 'sideways' } })
+		).rejects.toMatchObject({ status: 400 });
+		expect(p.state.rows[0].preferences).toEqual(defaults);
 	});
 
 	it('loads a row saved before the remembered Group and status as All and no status, then saves them', async () => {
@@ -251,7 +273,8 @@ describe('Identity account/Organization preferences', () => {
 						matrixColorAll: false,
 						matrixCurrentMark: 'date',
 						matrixNeedsActionOnly: false
-					}
+					},
+					roster: { viewMode: 'by-group' }
 				}
 			})
 		);
@@ -278,7 +301,8 @@ describe('Identity account/Organization preferences', () => {
 				created_at: existing ? '2025-01-01T00:00:00Z' : '2026-01-01T00:00:00Z',
 				preferences: {
 					calendar: { ...defaults.calendar, showStatusText: true },
-					training: { ...defaults.training, selectedViewId: 'concurrent-view' }
+					training: { ...defaults.training, selectedViewId: 'concurrent-view' },
+					roster: defaults.roster
 				}
 			})
 		]);

@@ -17,9 +17,11 @@ export {
 	getDefaultUserOrgPreferences,
 	mergeUserOrgPreferences,
 	normalizeUserOrgPreferences,
+	RosterViewModeSchema,
 	TrainingMatrixViewModeSchema,
 	UserOrgPreferencesPatchSchema,
 	UserOrgPreferencesSchema,
+	type RosterViewMode,
 	type TrainingMatrixViewMode,
 	type UserOrgPreferences,
 	type UserOrgPreferencesPatch

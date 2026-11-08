@@ -55,7 +55,8 @@ export function createReadyAppShellRouteData(
 			state: { orgSuspended: false },
 			preferences: {
 				calendar: getDefaultUserOrgPreferences().calendar,
-				training: getDefaultUserOrgPreferences().training
+				training: getDefaultUserOrgPreferences().training,
+				roster: getDefaultUserOrgPreferences().roster
 			},
 			announcements: [],
 			whatsNew: []

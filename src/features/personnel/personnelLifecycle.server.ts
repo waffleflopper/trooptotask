@@ -241,9 +241,10 @@ export async function preparePersonnelArchiveBatch(
 const RESTORE_CONCURRENCY = 10;
 
 /**
- * Restores People an archive wrote, only while each still carries that archive's event time. The actor needs
- * Personnel management in the Person's Group, which is what archiving needed, not the separate restore capability.
- * Anyone restored, archived again or moved out of reach since is left as they are.
+ * Restores People an archive wrote, only while each still carries that archive's event time. The actor needs what
+ * archiving directly needed in the Person's Group, which is also what `restore_personnel` checks, not the route-level
+ * restore permission. Anyone restored, archived again, moved out of reach or out of the actor's access since is left
+ * as they are.
  */
 export async function restoreArchivedPersonnel(
 	ctx: Pick<PersonnelLifecycleContext, 'auth' | 'audit' | 'personnel' | 'personnelLifecycle'>,
@@ -265,12 +266,12 @@ export async function restoreArchivedPersonnel(
 					[
 						groupId,
 						(
-							await evaluateFeaturePolicy(
-								ctx,
-								POLICY_ACTION_CATALOG.personnel.manageRecords,
-								policyResourceForGroup(groupId)
+							await Promise.all(
+								[POLICY_ACTION_CATALOG.personnel.manageRecords, POLICY_ACTION_CATALOG.personnel.archiveRecords].map(
+									(action) => evaluateFeaturePolicy(ctx, action, policyResourceForGroup(groupId))
+								)
 							)
-						).allowed
+						).every((decision) => decision.allowed)
 					] as const
 			)
 		)

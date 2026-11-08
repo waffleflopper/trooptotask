@@ -193,12 +193,13 @@ describe('POST /api/personnel/archive-batch/undo', () => {
 		expect(await archivedAt(ctx, ABLE)).toBe('2026-11-08T12:00:30.000Z');
 	});
 
-	it('lets the person who archived undo it without the separate restore capability', async () => {
+	it('leaves the archive in place and reports it when the actor lost the access archiving needed', async () => {
 		const ctx = context('configure');
 		const { undo: token } = await archive(ctx, [ABLE]);
 		ctx.auth = { ...ctx.auth, capabilityMap: { ...ctx.auth.capabilityMap, personnel: 'operate' } };
 
-		await expect(undo(ctx, token)).resolves.toMatchObject({ restoredIds: [ABLE] });
+		await expect(undo(ctx, token)).resolves.toMatchObject({ restoredIds: [], changedIds: [ABLE] });
+		expect(await archivedAt(ctx, ABLE)).toBe(NOW.toISOString());
 	});
 
 	it('refuses a token issued to someone else, for another Organization, tampered with, or expired', async () => {

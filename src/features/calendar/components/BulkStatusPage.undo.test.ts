@@ -4,7 +4,9 @@ import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/svelte';
 import BulkStatusPage from './BulkStatusPage.svelte';
+import { invalidate } from '$app/navigation';
 import { factories, offered, removedEntry } from '../test-support/BulkStatusRemoveUndoStub.svelte';
+import { saves } from '../test-support/BulkStatusAddUndoStub.svelte';
 
 const { pageMock } = vi.hoisted(() => ({
 	pageMock: { url: new URL('http://localhost/org/org-1/calendar/bulk?tab=remove') }
@@ -30,6 +32,9 @@ vi.mock('$app/navigation', () => ({
 vi.mock('./BulkStatusRemove.svelte', async () => ({
 	default: (await import('../test-support/BulkStatusRemoveUndoStub.svelte')).default
 }));
+vi.mock('./BulkStatusAdd.svelte', async () => ({
+	default: (await import('../test-support/BulkStatusAddUndoStub.svelte')).default
+}));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({ statusTypesStore: { items: [] } }));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
 	availabilityStore: { items: [], addBatch: vi.fn(), removeBatch: vi.fn() }
@@ -53,6 +58,8 @@ describe('Undo offered by Bulk Status', () => {
 		cleanup();
 		offered.length = 0;
 		factories.length = 0;
+		saves.length = 0;
+		vi.mocked(invalidate).mockClear();
 		fetchMock.mockReset();
 		fetchMock.mockResolvedValue(Response.json({ removedIds: [], restoredIds: ['entry-1'], changedIds: [] }));
 		vi.stubGlobal('fetch', fetchMock);
@@ -105,5 +112,36 @@ describe('Undo offered by Bulk Status', () => {
 		await flush();
 
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	describe('after an Add prefilled from a Tasking', () => {
+		const TASKING = '0e000000-0000-4000-8000-000000000001';
+		const taskingPage = `http://localhost/org/org-1/calendar/taskings/${TASKING}`;
+		const prefilled = `http://localhost/org/org-1/calendar/bulk?tab=add&tasking=${TASKING}&from=2030-10-19&to=2030-10-23`;
+
+		it("works on the Tasking it returns to and rereads that Tasking's coverage", async () => {
+			pageMock.url = new URL(prefilled);
+			renderPage();
+			const undo = await saves[0]();
+			pageMock.url = new URL(taskingPage);
+
+			undo.onClick();
+			await vi.waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:calendar-events'));
+
+			expect(fetchMock).toHaveBeenCalledOnce();
+			expect(invalidate).toHaveBeenCalledWith('app:calendar-data');
+		});
+
+		it('stays silent once the reader leaves that Tasking for another page', async () => {
+			pageMock.url = new URL(prefilled);
+			renderPage();
+			const undo = await saves[0]();
+			pageMock.url = new URL('http://localhost/org/org-1/dashboard');
+
+			undo.onClick();
+			await flush();
+
+			expect(fetchMock).not.toHaveBeenCalled();
+		});
 	});
 });

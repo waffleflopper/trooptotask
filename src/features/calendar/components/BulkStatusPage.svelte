@@ -118,6 +118,8 @@
 	});
 
 	let applyingOrgId = '';
+	/** The Tasking a prefilled Add returns to, fixed when the save starts. */
+	let applyingTaskingPath: string | null = null;
 
 	async function handleBulkApply(
 		personnelIds: string[],
@@ -128,6 +130,7 @@
 	): Promise<AvailabilityEntry[]> {
 		applyingOrgId = data.orgId;
 		applyingGeneration = formGeneration;
+		applyingTaskingPath = prefill ? taskingHref(orgUrlSegment, prefill.taskingId) : null;
 		return availabilityStore.addBatch(
 			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note).map((record) => ({
 				...record,
@@ -139,15 +142,21 @@
 	// Undo belongs to this route and Organization: leaving either turns it off. The page component is replaced whenever
 	// the Calendar data refreshes after a save, so the route is compared by URL, not by this component's lifetime. It is
 	// fixed at mount: a save that lands after the reader left still binds its Undo to this page.
-	// A prefilled Add returns to its Tasking on its own, so its Undo follows the Organization alone.
+	// A prefilled Add returns to its Tasking on its own, so its Undo also works there, and refreshes that Tasking's
+	// coverage, which loads under the Calendar events dependency.
 	const path = page.url.pathname;
 	function undoAction(change: AvailabilityUndoChange) {
 		const orgId = data.orgId;
-		const returnsToTasking = prefill !== null;
+		const taskingPath = applyingTaskingPath;
 		return availabilityUndoAction(change, {
 			orgId,
-			isCurrent: () => returnsToTasking || page.url.pathname === path,
-			onUndone: refreshCalendar
+			isCurrent: () => page.url.pathname === path || page.url.pathname === taskingPath,
+			onUndone: taskingPath
+				? () => {
+						refreshCalendar();
+						invalidate('app:calendar-events');
+					}
+				: refreshCalendar
 		});
 	}
 

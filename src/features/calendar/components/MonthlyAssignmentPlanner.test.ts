@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -1394,6 +1395,22 @@ describe('MonthlyAssignmentPlanner Copy', () => {
 		);
 		expect(screen.getByRole('dialog')).toBe(dialog);
 		expect(toast).not.toHaveBeenCalled();
+	});
+
+	it('holds the week to fill while the copy saves', async () => {
+		let reply!: (saved: boolean) => void;
+		const { dialog } = await openCopy('Previous week…', {
+			assignments: lastWeek,
+			onSetAssignmentBatch: () => new Promise<boolean>((resolve) => (reply = resolve))
+		});
+		const week = within(dialog).getByRole('combobox', { name: 'Week to fill' });
+		expect(week).toBeEnabled();
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Copy \d slots$/ }));
+		await waitFor(() => expect(week).toBeDisabled());
+
+		reply(false);
+		await waitFor(() => expect(week).toBeEnabled());
 	});
 
 	it('shows nothing when the reply arrives after the page left the month it copied into', async () => {

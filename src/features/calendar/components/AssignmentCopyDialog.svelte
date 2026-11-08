@@ -130,17 +130,19 @@
 		</AppDialog.Header>
 		<AppDialog.Body class="grid content-start gap-4">
 			{#if kind === 'week'}
-				<Field.Root>
-					<Field.Label for="copy-week">Week to fill</Field.Label>
-					<NativeSelect id="copy-week" bind:value={() => weekStart, (value) => (chosenWeek = value)} class="w-full">
-						{#each weekStarts as start (start)}
-							<option value={start}>{weekLabel(start)}</option>
-						{/each}
-					</NativeSelect>
-					<Field.Description>
-						Copies {weekLabel(sourceWeekStart)}. Only the days of that week in {monthName} are filled.
-					</Field.Description>
-				</Field.Root>
+				<fieldset class="contents" disabled={saving.pending}>
+					<Field.Root>
+						<Field.Label for="copy-week">Week to fill</Field.Label>
+						<NativeSelect id="copy-week" bind:value={() => weekStart, (value) => (chosenWeek = value)} class="w-full">
+							{#each weekStarts as start (start)}
+								<option value={start}>{weekLabel(start)}</option>
+							{/each}
+						</NativeSelect>
+						<Field.Description>
+							Copies {weekLabel(sourceWeekStart)}. Only the days of that week in {monthName} are filled.
+						</Field.Description>
+					</Field.Root>
+				</fieldset>
 			{/if}
 
 			{#if source.status === 'loading'}

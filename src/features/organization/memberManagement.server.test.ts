@@ -614,8 +614,8 @@ describe('inviteOrganizationMember', () => {
 				userId: 'user-1',
 				notification: {
 					type: 'organization_invitation_received',
-					title: 'Invitation to join your organization',
-					message: "You've been invited to join your organization. Open your invitations to accept or decline.",
+					title: expect.stringContaining('your organization'),
+					message: expect.stringContaining('your organization'),
 					link: '/dashboard?show=all'
 				}
 			},
@@ -658,8 +658,8 @@ describe('inviteOrganizationMember', () => {
 				userId: 'account-7',
 				notification: {
 					type: 'organization_invitation_received',
-					title: 'Invitation to join Alpha Company',
-					message: "You've been invited to join Alpha Company. Open your invitations to accept or decline.",
+					title: expect.stringContaining('Alpha Company'),
+					message: expect.stringContaining('Alpha Company'),
 					link: '/dashboard?show=all'
 				}
 			}

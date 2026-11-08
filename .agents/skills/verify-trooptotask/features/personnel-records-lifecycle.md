@@ -559,8 +559,14 @@ these again.`, and `rows personnel` shows both People saved. Restore, choose `Im
     `1 archival requests submitted for admin approval` with `Undo`. Click `Undo`: `1 archival request withdrawn` and
     `$V rows deletion_requests orgA` shows that request `cancelled` with the Person still active. Do not read `rows`
     between the toast and the click. Repeat both at 390x844. The token replays (another actor, expired, another
-    Organization) and the changed-since cases are covered by `undo/server.test.ts`, not driven live. **Detail:** archive
-    a temporary Person from `More Personnel record` and click `Undo` on the toast that appears on the roster.
+    Organization) and the changed-since cases are covered by `undo/server.test.ts`, not driven live. **Detail, direct:**
+    as `manager` archive a temporary Person from `More Personnel record` and land on the roster with the
+    `Personnel archived` toast and `Undo`. Click `Undo` there: `1 person restored` and the Person is back on the
+    roster. Archive another temporary Person the same way, open another page (Calendar), then click `Undo`: nothing is
+    sent and `rows personnel` still shows `archived_at` set. **Detail, approval:** as `personnelOperate` archive a temporary Person from its record;
+    the toast reads `Archival request submitted for admin approval` with `Undo`, and the Person stays on the record.
+    Click `Undo`: the request is `cancelled` and the Person stays active. Archive again for a Person with a pending
+    request: the toast reads `An archival request for this item is already pending.` with no `Undo`.
 
 ### Detail, Data sheet and loss baseline
 

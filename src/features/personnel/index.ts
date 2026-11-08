@@ -8,7 +8,6 @@ export type { PersonnelPageData, RosterPreferences } from './contexts/PersonnelP
 export { RosterSignals } from './rosterSignals.svelte';
 export { default as GroupStructureEditor } from './components/GroupStructureEditor.svelte';
 
-export type { RequestPersonnelArchiveApproval } from './utils/archivePersonnel';
 export { acknowledgeAwardTracking } from './utils/awardTracking';
 
 /** Keep the roster's dialogs lazy while exposing their consumed Web entry. */

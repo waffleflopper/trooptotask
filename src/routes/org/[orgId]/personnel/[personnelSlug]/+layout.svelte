@@ -4,7 +4,6 @@
 	import PersonnelRecordHeader from '$features/personnel/components/PersonnelRecordHeader.svelte';
 	import { provideDataSheetEditSession } from '$features/personnel';
 	import type { PersonnelDetailHeader, PersonnelDetailLayoutStreams } from '$features/personnel/contracts';
-	import { requestPersonnelArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
 	interface LayoutData {
 		personnelDetailHeader: PersonnelDetailHeader;
@@ -30,7 +29,6 @@
 			today={data.today}
 			{activeTab}
 			access={org}
-			requestArchiveApproval={requestPersonnelArchiveApproval}
 			edit={editingDataSheet ? dataSheetEdit : null}
 		/>
 	{/key}

@@ -178,6 +178,17 @@ describe('availabilityUndoAction', () => {
 		expect(success).not.toHaveBeenCalled();
 	});
 
+	it('rereads the Calendar after a failed request, since the server may have undone part of it', async () => {
+		fetchMock.mockResolvedValueOnce(reply({ message: 'Server unavailable' }, 503));
+		const error = vi.spyOn(toastStore, 'error');
+
+		availabilityUndoAction({ remove: [entry('added')] }, scope()).onClick();
+		await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+
+		expect(ids()).toEqual(['kept', 'added']);
+		expect(undone).toBe(1);
+	});
+
 	it('sends more than one batch of entries in turns and applies what the earlier turns undid when a later one fails', async () => {
 		const many = Array.from({ length: 501 }, (_, index) => entry(`bulk-${index}`));
 		availabilityStore.load([entry('kept'), ...many], 'org1');

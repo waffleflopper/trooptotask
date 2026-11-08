@@ -90,7 +90,8 @@ async function undoAvailability(change: AvailabilityUndoChange, scope: Availabil
 		if (removed.size) availabilityStore.removeLocalWhere((entry) => removed.has(entry.id));
 		if (restored.size) availabilityStore.appendLocal(restore.filter((entry) => restored.has(entry.id)));
 	}
-	if (removedIds.length || restoredIds.length) scope.onUndone?.();
+	// A failed request may still have applied part of its batch on the server, so the Calendar rereads either way.
+	if (failure || removedIds.length || restoredIds.length) scope.onUndone?.();
 	if (failure) {
 		const done = removedIds.length + restoredIds.length;
 		toastStore.error(
@@ -99,7 +100,7 @@ async function undoAvailability(change: AvailabilityUndoChange, scope: Availabil
 			undefined,
 			done
 				? `${plural(done, '1 status was', 'statuses were')} undone before it stopped. Check the calendar before trying again.`
-				: rejectedRequestMessage(failure, 'Nothing changed. Try again in a moment.')
+				: rejectedRequestMessage(failure, 'Check the calendar before trying again.')
 		);
 		return;
 	}

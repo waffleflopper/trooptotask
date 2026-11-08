@@ -79,6 +79,9 @@ export interface TrainingBatchImportInput {
 	records: TrainingBatchRecord[];
 }
 
+/** The most records one batch request saves; the client splits a larger class into requests of this size. */
+export const TRAINING_BATCH_LIMIT = 500;
+
 export interface TrainingBatchImportResult {
 	inserted: PersonnelTraining[];
 	updated: PersonnelTraining[];

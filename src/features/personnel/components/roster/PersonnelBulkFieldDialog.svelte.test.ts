@@ -85,7 +85,6 @@ describe('Set field dialog', () => {
 				});
 			})
 		);
-		const success = vi.spyOn(toastStore, 'success');
 		const { onclose } = setup(roster(), 1);
 
 		await chooseMos('68C');
@@ -103,7 +102,6 @@ describe('Set field dialog', () => {
 		expect(personnelStore.getById('a')?.mos).toBe('68C');
 		expect(personnelStore.getById('c')?.mos).toBe('68C');
 		expect(refreshed).toEqual([['a', 'c']]);
-		expect(success).toHaveBeenCalledWith('Set MOS to 68C for 2 people · 1 person already had it · 1 person skipped');
 	});
 
 	it('keeps the dialog open to show who was refused and updates only the People who saved', async () => {

@@ -2981,6 +2981,24 @@ describe('PersonnelPageView', () => {
 				expect(undoOffered().action).toBeUndefined();
 			});
 
+			it('tells the preview a Person left Unassigned even when the roster already showed the chosen Group', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi
+						.fn()
+						.mockResolvedValue(
+							Response.json({ movedIds: ['person-3'], unavailableIds: [], previousGroupIds: { 'person-3': null } })
+						)
+				);
+				const ctx = bulkCtx();
+				const changed = vi.spyOn(ctx.peek, 'changed');
+				render(PersonnelPageView, { props: { ctx } });
+
+				await moveToBravo(['Select SGT Adams, Test']);
+
+				expect(changed).toHaveBeenCalledWith('person-3', { groupId: null }, { groupId: 'group-2' });
+			});
+
 			it('offers no Undo when the move changed nobody', async () => {
 				vi.stubGlobal(
 					'fetch',

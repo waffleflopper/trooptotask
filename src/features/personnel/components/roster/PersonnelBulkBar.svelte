@@ -78,7 +78,9 @@
 			const shownGroup = new Map(
 				result.movedIds.flatMap((id) => {
 					const shown = personnelStore.getById(id)?.groupId ?? null;
-					return changed.has(id) || shown !== target.id ? [[id, previousGroup.get(id) ?? shown]] : [];
+					return changed.has(id) || shown !== target.id
+						? [[id, changed.has(id) ? (previousGroup.get(id) ?? null) : shown]]
+						: [];
 				})
 			);
 			for (const [id, from] of shownGroup) ctx.peek.changed(id, { groupId: from }, { groupId: target.id });

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FIELD_BATCH_UNCONFIRMED_MESSAGE } from '../contracts';
 import { setPersonnelField } from './setPersonnelField';
 
 describe('setPersonnelField', () => {
@@ -89,8 +90,6 @@ describe('setPersonnelField', () => {
 	])('reports %s as unconfirmed', async (_name, reply) => {
 		vi.stubGlobal('fetch', vi.fn(reply));
 
-		await expect(setPersonnelField('org-1', ['a', 'b'], 'mos', 'x')).rejects.toThrow(
-			"We couldn't confirm the change. Reload to see what saved."
-		);
+		await expect(setPersonnelField('org-1', ['a', 'b'], 'mos', 'x')).rejects.toThrow(FIELD_BATCH_UNCONFIRMED_MESSAGE);
 	});
 });

@@ -1,6 +1,6 @@
 import { getContext, setContext } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { CalendarOperationsPageAccess } from '../contracts';
+import type { CalendarOperationsPageAccess, CalendarSettingsPageAccess } from '../contracts';
 
 export type CalendarTypeKind = 'status' | 'assignments';
 
@@ -21,7 +21,7 @@ export function getCalendarTypeSetup(): (() => CalendarTypeSetup) | undefined {
 	return getContext<(() => CalendarTypeSetup) | undefined>(KEY);
 }
 
-export function calendarTypeSetupFor(org: CalendarOperationsPageAccess): CalendarTypeSetup {
+export function calendarTypeSetupFor(org: CalendarOperationsPageAccess | CalendarSettingsPageAccess): CalendarTypeSetup {
 	return {
 		orgUrlSegment: org.orgUrlSegment,
 		canSetUp: {

@@ -216,7 +216,7 @@
 						{/if}
 					</div>
 					{#if statusTypes.length === 0}
-						<Field.Description><CalendarTypesEmptyState kind="status" /></Field.Description>
+						<div class="text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></div>
 					{/if}
 				</Field.Root>
 

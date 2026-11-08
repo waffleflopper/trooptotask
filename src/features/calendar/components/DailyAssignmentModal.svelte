@@ -174,7 +174,7 @@
 						{/if}
 					</div>
 				{:else}
-					<p class="text-sm text-muted-foreground"><CalendarTypesEmptyState kind="assignments" /></p>
+					<div class="text-sm text-muted-foreground"><CalendarTypesEmptyState kind="assignments" /></div>
 				{/each}
 			</div>
 		</AppDialog.Body>

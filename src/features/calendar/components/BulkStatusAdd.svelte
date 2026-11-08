@@ -209,6 +209,9 @@
 						</ToggleGroup.Item>
 					{/each}
 				</ToggleGroup.Root>
+				{#if statusTypes.length === 0}
+					<div class="text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></div>
+				{/if}
 			</Field.Root>
 
 			<Field.Set class="gap-2">
@@ -296,7 +299,7 @@
 				{batch.length === 1 ? 'person' : 'people'} · {datesLabel}
 			</span>
 		{:else}
-			<span class="text-chrome-text-muted [&_a]:text-chrome-text"><CalendarTypesEmptyState kind="status" /></span>
+			<span class="text-chrome-text-muted">Choose a status to add.</span>
 		{/if}
 	</p>
 	{#if overlapping.length > 0}

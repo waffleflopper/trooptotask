@@ -4,6 +4,7 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FolderInputIcon from '@lucide/svelte/icons/folder-input';
+	import PencilLineIcon from '@lucide/svelte/icons/pencil-line';
 	import MessageSquarePlusIcon from '@lucide/svelte/icons/message-square-plus';
 	import SquareCheckIcon from '@lucide/svelte/icons/square-check';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -34,6 +35,7 @@
 
 	let busy = $state(false);
 	let confirmingArchive = $state(false);
+	let settingField = $state(false);
 
 	const writable = $derived(people.filter((person) => ctx.canManagePersonnelRecord(person)));
 	const exportable = $derived(people.filter((person) => ctx.canExportPersonnelRecord(person)));
@@ -206,6 +208,18 @@
 				>Add note</span
 			>
 		</Button>
+		<Button
+			type="button"
+			variant="ghost"
+			size="lg"
+			disabled={busy}
+			title="Set field"
+			onclick={() => (settingField = true)}
+		>
+			<PencilLineIcon class="@3xl/roster:hidden" aria-hidden="true" /><span class="@max-3xl/roster:sr-only"
+				>Set field</span
+			>
+		</Button>
 		{#if moveTargets.length > 0}
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger disabled={busy}>
@@ -260,6 +274,18 @@
 		<XIcon class="text-chrome-text-muted" aria-hidden="true" />
 	</Button>
 </div>
+
+{#if settingField}
+	{#await import('./PersonnelBulkFieldDialog.svelte') then { default: PersonnelBulkFieldDialog }}
+		<PersonnelBulkFieldDialog
+			{ctx}
+			people={writable}
+			skipped={people.length - writable.length}
+			isCurrent={rosterIsCurrent}
+			onclose={() => (settingField = false)}
+		/>
+	{/await}
+{/if}
 
 {#if confirmingArchive}
 	{#await import('$lib/components/ui/confirm-dialog') then { ConfirmDialog }}

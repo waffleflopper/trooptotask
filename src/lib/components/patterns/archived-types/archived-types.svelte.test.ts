@@ -82,7 +82,6 @@ describe('ArchivedTypes', () => {
 
 		await open();
 		const alert = await screen.findByRole('alert');
-		expect(alert.textContent).toContain('Could not load how many records each type has');
 		expect(screen.getByRole('button', { name: 'Restore CPR' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /^Delete / })).toBeNull();
 

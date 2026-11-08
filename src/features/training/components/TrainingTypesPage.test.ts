@@ -814,7 +814,7 @@ describe('TrainingTypesPage', () => {
 				stubCatalog({ usage: { 'type-1': 2 } });
 				mount([archived(cpr)]);
 
-				expect(screen.getByText('No training types yet.')).toBeTruthy();
+				expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull();
 				expect(screen.getByRole('button', { name: /Archived/ })).toBeTruthy();
 			});
 		});

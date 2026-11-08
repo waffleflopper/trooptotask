@@ -31,7 +31,8 @@ person's record.
 - `roster-note`: the row's `Note` button and N key open a popover composer that adds a follow-up or a leader note
   without leaving the roster.
 - `roster-bulk`: row, header and Group checkboxes select many People, and a floating `Selected people` bar adds a
-  follow-up or note for each, moves them to a Group, exports them or archives them at once.
+  follow-up or note for each, sets one field (Rank, MOS, Duty role or ETS) for each, moves them to a Group, exports
+  them or archives them at once.
 - `roster-peek`: at 1280 px and wider a row click or Space opens a preview beside the roster that reads each section on
   its own, browses with J and K over the rows search, filter and view show, closes with Esc or Space or when a filter
   hides the shown Person, and rereads only the sections a quick edit or bulk write changed.
@@ -347,7 +348,7 @@ scoped actors retain their baseline grants.
     `Select everyone shown`, each Group header with `Select everyone in <Group>` (Unassigned too) and each row with
     `Select <name>`, all at x 289. `viewer` and `scoped` hold no bulk action and see no checkboxes. Click
     `Select everyone shown`: every checkbox checks, selected rows carry `data-state="selected"`, and the
-    `Selected people` toolbar reads `3 selected` with `Follow-up for each` (accent), `Add note`, `Move to Group`,
+    `Selected people` toolbar reads `3 selected` with `Follow-up for each` (accent), `Add note`, `Set field`, `Move to Group`,
     `Export`, `Archive…` and `Clear selection` (title `Clear selection (Esc)`). Unchecking one row turns the header and
     that Group's checkbox `mixed`. Keyboard: x toggles the focused row's selection (the footer hint reads `X select`);
     below 1280 px Space does the same, and at 1280 and wider Space opens the preview (step 20). Focus Able's row and
@@ -358,8 +359,9 @@ scoped actors retain their baseline grants.
     in shown order are selected.
     - Placement: the bar is in the roster's flow and sticky 20px above the window's bottom. On the 20-person workload at
       1440x900 the table scrolls in its own box and the bar (714 wide, top 828) sits under the `20 of 20 shown` footer,
-      covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as icons with their
-      names kept for assistive technology; the bar is 343 wide and `scrollWidth` equals the viewport. At 390 dark the
+      covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as 34-wide icons with
+      their names kept for assistive technology; at 390 the bar is about 361 wide, `Clear selection` ends inside it
+      and `scrollWidth` equals the viewport. At 390 dark the
       bar keeps its chrome border and reads clearly.
     - Search: with five selected, search `Baker`: the bar reads `5 selected · 4 hidden by search`, and `Archive…` asks
       `Archive 5 personnel? …` with `This includes 4 people your search hides.` Actions apply to every selected Person.
@@ -382,6 +384,21 @@ scoped actors retain their baseline grants.
       typed text and shows `Unable to save leader note.`, and `rows leader_notes orgA` has no such note. With `arm-hold`
       the button reads `Saving…`; `release` gives `Note added for 2 people`, two rows authored by the manager, and the
       selection stays. A note sends no `roster-signals` request.
+    - Set field: with all three selected, `Set field` opens the `Set field` dialog on `Rank`, reading
+      `Set one field for the 3 people you can edit.` Open the Rank picker, type `SGT` and press Enter: `CHANGES (3)`
+      lists each Person as `SPC → SGT`, and `Set Rank for 3 people` sends one `POST .../api/personnel/field-batch`.
+      The dialog closes, the rows read SGT, `rows personnel orgA` shows `SGT` on all three, and `rows audit_logs orgA`
+      holds one row per Person whose `details.change.rank` is `{from: SPC, to: SGT}`. People who already have the value
+      leave the list (`1 person already has it and will not change.`). At 390 choose `ETS` and pick a date: the dialog
+      spans x 16 to 374, each row reads `None → <date>`, `scrollWidth` stays 390, and after saving each row shows its
+      ETS day badge. Scope: as `personnelScopedOperate` at 1024 only Able is selectable; `MOS` `68X` reviews
+      `68W → 68X` for 1 person and saves. From that page, a `field-batch` POST naming Able, Baker and Unassigned with
+      `clinicRole` returns 200 with Able `updated` and the other two `refused`, and only Able's row changes. As `viewer`
+      there are no checkboxes and the POST returns 403 with no write. Lifetime: as `personnelSwitch`, use
+      `Switch organization` to go A → B → A so history is client-side. Select Baker, set `MOS`, arm
+      `$V network arm-hold PAGE personnel/field-batch`, then save and press Back to B. `$V network release PAGE` shows
+      no toast (`feedback state` empty), no dialog, and B's roster unchanged. The server keeps the value it saved.
+      Back from a document load reloads the page and drops the hold, so it proves nothing.
     - Move to Group: the menu `Move N people to` lists `Alpha`, `Bravo` and `Unassigned`. Moving
       `SPC Unassigned, Synthetic` to `Alpha` sends one `POST .../group-membership` and one `roster-signals` POST, toasts
       `Moved 1 person to Alpha`, and `rows personnel orgA` shows Alpha's group ID on that Person.

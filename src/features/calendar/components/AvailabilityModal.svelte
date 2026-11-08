@@ -62,6 +62,11 @@
 
 	untrack(() => (request.kind === 'edit' ? startEdit(request.entry) : resetForm()));
 
+	// Starter types can be added from the empty picker while the dialog stays open.
+	$effect(() => {
+		if (!selectedStatusId && statusTypes.length > 0) selectedStatusId = defaultStatusTypeId || statusTypes[0].id;
+	});
+
 	const dateDisplay = $derived(
 		parseDate(dateStr).toLocaleDateString('en-US', {
 			weekday: 'long',

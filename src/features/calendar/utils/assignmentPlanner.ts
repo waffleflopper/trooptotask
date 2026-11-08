@@ -261,7 +261,7 @@ export function monthWeekStarts(anchor: Date): string[] {
 export function mondayOf(dateKey: string): string {
 	const day = toDayNumber(dateKey);
 	// Day 0 is Thursday 1 Jan 1970, so (day + 4) % 7 is 0 on Sunday.
-	return fromDayNumber(day - (((day + 4) % 7) + 6) % 7);
+	return fromDayNumber(day - ((((day + 4) % 7) + 6) % 7));
 }
 
 /**

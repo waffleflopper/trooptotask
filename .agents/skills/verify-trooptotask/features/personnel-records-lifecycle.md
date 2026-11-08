@@ -562,11 +562,11 @@ these again.`, and `rows personnel` shows both People saved. Restore, choose `Im
     Organization) and the changed-since cases are covered by `undo/server.test.ts`, not driven live. **Detail, direct:**
     as `manager` archive a temporary Person from `More Personnel record` and land on the roster with the
     `Personnel archived` toast and `Undo`. Click `Undo` there: `1 person restored` and the Person is back on the
-    roster. Archive another temporary Person the same way, open another page (Calendar), then click `Undo`: nothing is
-    sent and `rows personnel` still shows `archived_at` set. **Detail, approval:** as `personnelOperate` archive a temporary Person from its record;
-    the toast reads `Archival request submitted for admin approval` with `Undo`, and the Person stays on the record.
-    Click `Undo`: the request is `cancelled` and the Person stays active. Archive again for a Person with a pending
-    request: the toast reads `An archival request for this item is already pending.` with no `Undo`.
+    roster. Archive another temporary Person the same way, open another page (Home), then click `Undo`: nothing is
+    sent and `rows personnel` still shows `archived_at` set. **Detail, approval:** an operate-only actor
+    gets 403 on the detail page, so an archive request from a record is not reachable live. `archivePersonnel.test.ts`
+    covers it: the request goes through the archive batch, the success toast carries `Undo` that is live on the record
+    only, and a request already pending shows its notice with no `Undo`.
 
 ### Detail, Data sheet and loss baseline
 

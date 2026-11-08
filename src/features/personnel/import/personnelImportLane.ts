@@ -2,8 +2,10 @@ import { invalidate } from '$app/navigation';
 import { z } from 'zod';
 import {
 	defineImportLane,
+	questionKey,
 	type ChunkReply,
 	type FieldDiff,
+	type LaneQuestion,
 	type RowCommitResult,
 	type RowReview
 } from '$lib/components/patterns/import-flow';
@@ -20,13 +22,15 @@ import {
 import type { RankCatalogEntry } from '../rankCatalog';
 import { lastFirstSplitter, personnelImportColumns as columns } from './personnelImportColumns';
 import { personNameKey } from './personMatching';
-import { groupReference, NEW_PERSON, personMatchReference, rankReference } from './personnelReferences';
+import { groupReference, personMatchReference, rankReference } from './personnelReferences';
 
 export interface PersonnelImportSource {
 	orgId: string;
 	orgUrlSegment: string;
 	personnel: readonly Personnel[];
 	dodIds: readonly PersonnelDodId[];
+	archived: readonly Personnel[];
+	canRestore(groupId: string | null): boolean;
 	groups: readonly Group[];
 	rankCatalog: readonly RankCatalogEntry[];
 	canManageGroups: boolean;
@@ -38,6 +42,13 @@ const replySchema = z.object({
 	updated: z.array(z.unknown()),
 	errors: z.array(personnelBatchMessageSchema)
 });
+
+export const ANSWER = {
+	same: 'same',
+	someoneNew: 'someone-new',
+	restore: 'restore',
+	createAnyway: 'create-anyway'
+} as const;
 
 type UpdatableField = keyof PersonnelImportRecordsChanges;
 const FIELD_LABELS: Record<UpdatableField, string> = {
@@ -56,6 +67,37 @@ function newPersonKey(lastName: string, firstName: string, groupId: string | nul
 
 const keyCounts = (keys: readonly string[]) =>
 	keys.reduce((counts, key) => counts.set(key, (counts.get(key) ?? 0) + 1), new Map<string, number>());
+
+function groupMoveQuestion(person: Personnel, toGroup: string, key: string): LaneQuestion {
+	return {
+		key: questionKey({ lane: `move:${key}` }),
+		title: 'Same person, or someone new?',
+		subject: `${person.lastName}, ${person.firstName}: ${person.groupName || 'No group'} to ${toGroup}`,
+		skipLabel: 'Skip this row',
+		accepts: {
+			kind: 'pick',
+			options: [
+				{ id: ANSWER.same, label: `Same person, move them to ${toGroup}` },
+				{ id: ANSWER.someoneNew, label: 'Someone new' }
+			]
+		}
+	};
+}
+
+function archivedQuestion(person: Personnel, key: string, offer: 'restore-or-new' | 'restore' | 'new'): LaneQuestion {
+	const restore = { id: ANSWER.restore, label: 'Restore' };
+	const create = { id: ANSWER.createAnyway, label: offer === 'new' ? 'Add as a new person anyway' : 'Create new' };
+	return {
+		key: questionKey({ lane: `archived:${key}` }),
+		title: 'Archived. Restore, or create new?',
+		subject: `${person.lastName}, ${person.firstName} was archived from ${person.groupName || 'No group'}`,
+		skipLabel: 'Skip this row',
+		accepts: {
+			kind: 'pick',
+			options: offer === 'restore-or-new' ? [restore, create] : offer === 'restore' ? [restore] : [create]
+		}
+	};
+}
 
 function isSavedPerson(value: unknown): value is Personnel {
 	if (typeof value !== 'object' || value === null) return false;
@@ -93,9 +135,17 @@ async function commitChunk(
 export function createPersonnelImportLane(source: PersonnelImportSource) {
 	const groupNames = new Map(source.groups.map((group) => [group.id, group.name]));
 	const dodIds = new Map(source.dodIds.map(({ personnelId, dodId }) => [personnelId, dodId]));
+	const dodIdOwners = new Map(source.dodIds.map(({ personnelId, dodId }) => [dodId, personnelId]));
+	const setDodId = (personnelId: string, dodId: string) => {
+		const previous = dodIds.get(personnelId);
+		if (previous && dodIdOwners.get(previous) === personnelId) dodIdOwners.delete(previous);
+		dodIds.set(personnelId, dodId);
+		dodIdOwners.set(dodId, personnelId);
+	};
 	const idRows = () => [...dodIds].map(([personnelId, dodId]) => ({ personnelId, dodId }));
-	let personReference = personMatchReference(source.personnel, idRows());
 	let roster = source.personnel;
+	let archived = source.archived;
+	let personReference = personMatchReference(roster, idRows(), archived);
 	const remember = (
 		saved: readonly Personnel[],
 		records: readonly PersonnelImportRecordsRecord[],
@@ -115,16 +165,17 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 			if (failed.has(index)) continue;
 			const fields = record.op === 'create' ? record : record.changes;
 			const personId =
-				record.op === 'update'
+				record.op !== 'create'
 					? record.personnelId
 					: createCounts.get(createKey(record)) === 1
 						? savedCreates.get(createKey(record))
 						: undefined;
-			if (personId && fields.dodId) dodIds.set(personId, normalizeDodId(fields.dodId));
+			if (personId && fields.dodId) setDodId(personId, normalizeDodId(fields.dodId));
 		}
 		const savedIds = new Set(saved.map((person) => person.id));
-		roster = [...roster.filter((person) => !savedIds.has(person.id)), ...saved];
-		personReference = personMatchReference(roster, idRows());
+		roster = [...roster.filter((person) => !savedIds.has(person.id)), ...saved.filter((person) => !person.archivedAt)];
+		archived = archived.filter((person) => !savedIds.has(person.id));
+		personReference = personMatchReference(roster, idRows(), archived);
 	};
 	return defineImportLane({
 		id: 'personnel',
@@ -137,6 +188,7 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 			fields: ['lastName', 'firstName'],
 			label: (raw) => [raw.lastName, raw.firstName].filter(Boolean).join(', ')
 		},
+		skipRowsNeedingFixes: true,
 		columns,
 		splitters: [lastFirstSplitter<typeof columns>(source.rankCatalog)],
 		references: {
@@ -149,20 +201,21 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 				allowUnassigned: source.allowUnassigned
 			})
 		},
-		review({ values, refs }): RowReview<PersonnelImportRecordsRecord> {
+		review({ values, refs, ask }): RowReview<PersonnelImportRecordsRecord> {
 			const rank = refs.rank?.value ?? null;
 			const group = refs.group?.value;
-			const person = refs.person?.value;
+			const match = refs.person?.value;
+			const found = match?.kind === 'person' ? match : null;
 			const dodId = normalizeDodId(values.dodId ?? '');
 			if (!dodIdInputSchema.safeParse(dodId).success)
 				return { outcome: 'fix', problems: [{ field: 'dodId', message: 'Enter a 10-digit DoD ID.' }] };
-			const owner = dodId ? [...dodIds].find(([, storedId]) => storedId === dodId)?.[0] : undefined;
-			if (owner && (!person || person === NEW_PERSON || owner !== person.id))
+			const owner = dodId ? dodIdOwners.get(dodId) : undefined;
+			if (owner && owner !== found?.person.id)
 				return {
 					outcome: 'fix',
 					problems: [{ field: 'dodId', message: 'Another Person in this Organization already has that DoD ID.' }]
 				};
-			if (!person || person === NEW_PERSON) {
+			const addNewPerson = (): RowReview<PersonnelImportRecordsRecord> => {
 				if (!rank)
 					return { outcome: 'fix', problems: [{ field: 'rank', message: 'Rank is needed for a new person.' }] };
 				if (rank.state !== 'active')
@@ -188,6 +241,43 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 						...(values.deros ? { deros: values.deros } : {})
 					}
 				};
+			};
+			if (!found) return addNewPerson();
+			const { person, by } = found;
+			const fileGroup = group === undefined ? 'file' : (group?.id ?? 'none');
+			const questionId = `${person.id}:${fileGroup}`;
+			let restoring = false;
+			if (found.archived) {
+				const canRestore = source.canRestore(person.groupId);
+				if (!canRestore && by === 'dodId')
+					return {
+						outcome: 'fix',
+						problems: [
+							{
+								field: 'dodId',
+								message: `${person.lastName}, ${person.firstName} is archived. Someone who can restore people must restore them, or skip this row.`
+							}
+						]
+					};
+				const offer = !canRestore ? 'new' : by === 'dodId' ? 'restore' : 'restore-or-new';
+				const answer = ask(archivedQuestion(person, questionId, offer));
+				if (answer?.kind !== 'pick')
+					return {
+						outcome: 'fix',
+						problems: [{ field: 'lastName', message: 'This person is archived. Choose what to do in the fix rail.' }]
+					};
+				if (answer.optionId === ANSWER.createAnyway) return addNewPerson();
+				restoring = true;
+			} else if (by === 'name' && group !== undefined && (group?.id ?? null) !== person.groupId) {
+				const answer = ask(groupMoveQuestion(person, group?.name ?? 'No group', questionId));
+				if (answer?.kind !== 'pick')
+					return {
+						outcome: 'fix',
+						problems: [
+							{ field: 'groupName', message: 'This would move a person to another group. Choose in the fix rail.' }
+						]
+					};
+				if (answer.optionId === ANSWER.someoneNew) return addNewPerson();
 			}
 			const changes: PersonnelImportRecordsChanges = {};
 			if (dodId && dodId !== dodIds.get(person.id)) changes.dodId = dodId;
@@ -205,7 +295,7 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 			if (values.ets && values.ets !== (person.ets ?? null)) changes.ets = values.ets;
 			if (values.deros && values.deros !== (person.deros ?? null)) changes.deros = values.deros;
 			const fields = Object.keys(changes) as UpdatableField[];
-			if (fields.length === 0) return { outcome: 'unchanged', key: person.id };
+			if (fields.length === 0 && !restoring) return { outcome: 'unchanged', key: person.id };
 			const shown = (field: UpdatableField, value: string | null | undefined) =>
 				(field === 'groupId' ? (value ? groupNames.get(value) : '') : value) ?? '';
 			const diff: FieldDiff[] = fields.map((field) => ({
@@ -213,7 +303,12 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 				before: shown(field, field === 'dodId' ? dodIds.get(person.id) : (person[field] ?? null)),
 				after: shown(field, changes[field])
 			}));
-			return { outcome: 'update', key: person.id, change: { op: 'update', personnelId: person.id, changes }, diff };
+			return {
+				outcome: 'update',
+				key: person.id,
+				change: { op: restoring ? 'restore' : 'update', personnelId: person.id, changes },
+				diff: restoring ? [{ label: 'Status', before: 'Archived', after: 'Restored' }, ...diff] : diff
+			};
 		},
 		commitChunk: (records) => commitChunk(source.orgId, records, remember),
 		afterCommit: () => invalidate('app:personnel-data'),

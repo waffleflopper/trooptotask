@@ -1,3 +1,4 @@
+import { loadPersonnelImportData } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelRecordContext } from '$lib/server/adapters/requestContexts.server';
@@ -17,14 +18,14 @@ export function _createPersonnelImportPageLoad(deps: PersonnelImportPageLoadDeps
 		depends('app:personnel-import', 'app:personnel-data');
 		const { orgId } = params;
 
-		// Access gates the page; the IDs stream so a failed read after a commit cannot replace the import's receipt.
-		const { dodIds } = await loadWithContextFn(locals, cookies, orgId, {
+		// Access gates the page; the data streams so a failed read after a commit cannot replace the import's receipt.
+		const { importData } = await loadWithContextFn(locals, cookies, orgId, {
 			context: createRequestPersonnelRecordContext,
 			policyAction: POLICY_ACTION_CATALOG.personnel.importRecords,
 			policyResource: { kind: 'unscoped' },
-			fn: async (ctx) => ({ dodIds: keepStreamedRejectionObserved(ctx.personnelSheets.listDodIds()) })
+			fn: async (ctx) => ({ importData: keepStreamedRejectionObserved(loadPersonnelImportData(ctx)) })
 		});
-		return { personnelImport: keepStreamedRejectionObserved(dodIds.then((ids) => ({ dodIds: ids }))) };
+		return { personnelImport: importData };
 	};
 }
 

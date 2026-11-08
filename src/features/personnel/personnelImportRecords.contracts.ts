@@ -15,6 +15,8 @@ const importFields = {
 	deros: z.string().nullable().optional()
 };
 
+const changesSchema = z.object({ ...importFields, rank: importFields.rank.optional() });
+
 export const personnelImportRecordsInputSchema = z.object({
 	records: z
 		.array(
@@ -25,11 +27,8 @@ export const personnelImportRecordsInputSchema = z.object({
 					lastName: z.string(),
 					firstName: z.string()
 				}),
-				z.object({
-					op: z.literal('update'),
-					personnelId: z.string().min(1),
-					changes: z.object({ ...importFields, rank: importFields.rank.optional() })
-				})
+				z.object({ op: z.literal('update'), personnelId: z.string().min(1), changes: changesSchema }),
+				z.object({ op: z.literal('restore'), personnelId: z.string().min(1), changes: changesSchema })
 			])
 		)
 		.min(1)
@@ -38,7 +37,10 @@ export const personnelImportRecordsInputSchema = z.object({
 
 export type PersonnelImportRecordsInput = z.infer<typeof personnelImportRecordsInputSchema>;
 export type PersonnelImportRecordsRecord = PersonnelImportRecordsInput['records'][number];
-export type PersonnelImportRecordsChanges = Extract<PersonnelImportRecordsRecord, { op: 'update' }>['changes'];
+export type PersonnelImportRecordsChanges = Extract<
+	PersonnelImportRecordsRecord,
+	{ op: 'update' | 'restore' }
+>['changes'];
 
 export const personnelBatchMessageSchema = z.object({
 	kind: z.enum(['failed', 'unconfirmed']),

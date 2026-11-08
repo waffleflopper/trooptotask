@@ -114,7 +114,7 @@ it('shows the import load error instead of a loading import when its first DoD I
 
 it('keeps the import on screen with a refresh error when a later DoD ID read rejects', async () => {
 	const Page = ImportPage as unknown as Component<{ data: unknown }>;
-	const view = render(Page, { props: { data: loadedImportData(Promise.resolve({ dodIds: [] })) } });
+	const view = render(Page, { props: { data: loadedImportData(Promise.resolve({ dodIds: [], archived: [] })) } });
 	const fileStep = await screen.findByRole('complementary');
 
 	await view.rerender({ data: loadedImportData(Promise.reject(new Error('refresh failed'))) });

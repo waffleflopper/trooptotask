@@ -144,7 +144,7 @@ locked in.`: a `Groups` region with `<n> groups`, `Manage groups`, `New group na
    closures 44, and no `Back to Calendar`. Above the editors, `Common statuses and assignments` lists 8 checked rows:
    Leave, School, Training / TDY, Appointment, Sick, Other Duty / Detail and CQ/SD tagged `Status`, and Staff Duty
    tagged `Assignment`, each with its color swatch. The count reads `8 of 8 selected`, the footer note
-   `Adds 7 statuses and 1 assignment` and the button `Add 8 and continue`. While the Calendar data loads the panel
+   `Adds 7 statuses and 1 assignment` and the button `Add 8 and continue`. The embedded editors below do not repeat the offer in their empty lists; the same starter rows are offered inline from the Calendar and Training empty states after setup. While the Calendar data loads the panel
    holds 8 skeleton rows with the count's skeleton, and a buffered `layout-shift` observer reports CLS 0 at 1440, 1024
    and 390 px. At 390 px the panel shows 3 rows and `Show 5 more`. Uncheck Sick and CQ/SD: `6 of 8 selected`,
    `Adds 5 statuses and 1 assignment` and `Add 6 and continue`. Choose it: `/setup/training`, the rail's Calendar row

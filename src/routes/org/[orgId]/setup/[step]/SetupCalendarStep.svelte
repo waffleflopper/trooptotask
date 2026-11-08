@@ -13,9 +13,10 @@
 	import CalendarSettingsPage from '$features/calendar/components/CalendarSettingsPage.svelte';
 	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
 	import { calendarAssignmentSuggestions, calendarStatusSuggestions } from '$features/calendar/contracts';
-	import { getSetupFlow, SetupEditorNote, SetupStepFooter, SetupSuggestionPanel } from '$features/organization';
+	import { getSetupFlow, SetupEditorNote, SetupStepFooter } from '$features/organization';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import { SuggestionPanel } from '$lib/components/patterns/suggestion-panel';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 	import SetupEditorLoadError from './SetupEditorLoadError.svelte';
@@ -162,7 +163,7 @@
 		nothing is locked in.
 	</SetupEditorNote>
 	{#if open.length > 0 || (view === 'loading' && placeholderRows > 0)}
-		<SetupSuggestionPanel
+		<SuggestionPanel
 			title="Common statuses and assignments"
 			suggestions={open}
 			{unpicked}
@@ -174,7 +175,7 @@
 			<p class="pt-1 text-sm leading-5 text-muted-foreground">
 				Names and colors can be changed in the editors below, or in Calendar settings later.
 			</p>
-		</SetupSuggestionPanel>
+		</SuggestionPanel>
 	{/if}
 	{#if view === 'ready'}
 		{#if stale}

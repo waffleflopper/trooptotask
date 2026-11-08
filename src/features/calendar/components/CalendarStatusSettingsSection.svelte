@@ -7,6 +7,7 @@
 	import { movedTo } from '$features/calendar/utils/calendarLanes';
 	import { oneDayLabel, StatusBar } from '$lib/components/patterns/calendar-bars';
 	import { rosterEffectOption } from '$features/calendar/utils/rosterEffects';
+	import CalendarTypeSuggestions from './CalendarTypeSuggestions.svelte';
 	import RosterCodeChip from './RosterCodeChip.svelte';
 	import StatusTypeComposer from './StatusTypeComposer.svelte';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
@@ -100,6 +101,12 @@
 	}
 </script>
 
+{#snippet noStatusTypes()}
+	<p class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+		No status types found
+	</p>
+{/snippet}
+
 <div class="flex flex-col gap-6">
 	{#if composer?.kind === 'create'}
 		{#key composerSession}
@@ -117,7 +124,7 @@
 				{statuses.length}
 				{statuses.length === 1 ? 'status type' : 'status types'}
 			</h4>
-			{#if canMutate}
+			{#if canMutate && statuses.length > 0}
 				<p class="text-sm text-muted-foreground">
 					{query ? 'Clear search to reorder.' : 'Drag to set legend and picker order.'}
 				</p>
@@ -206,10 +213,16 @@
 					</ReorderItem>
 				{/each}
 			</ReorderList>
+		{:else if statuses.length === 0 && canMutate}
+			<div class="rounded-md border border-dashed px-4 py-4">
+				<CalendarTypeSuggestions kind="status" settingsLink={false}>
+					{#snippet fallback()}
+						{@render noStatusTypes()}
+					{/snippet}
+				</CalendarTypeSuggestions>
+			</div>
 		{:else}
-			<p class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-				No status types found
-			</p>
+			{@render noStatusTypes()}
 		{/if}
 	</section>
 </div>

@@ -178,7 +178,7 @@
 				</Popover.Title>
 			</Popover.Header>
 			{#if statusTypes.length === 0}
-				<p class="px-3 pb-3 text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></p>
+				<div class="px-3 pb-3 text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></div>
 			{:else}
 				<ul class="flex max-h-72 flex-col overflow-y-auto px-1.5 pb-1.5" aria-label="Status types">
 					{#each listedStatusTypes as status (status.id)}

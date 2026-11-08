@@ -7,6 +7,7 @@
 	import { calendarLaneIds, movedTo } from '$features/calendar/utils/calendarLanes';
 	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
 	import AssignmentTypeDialog from './AssignmentTypeDialog.svelte';
+	import CalendarTypeSuggestions from './CalendarTypeSuggestions.svelte';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
 	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -157,11 +158,20 @@
 				{/each}
 			</ReorderList>
 		{:else if lanes.length === 0}
-			<p class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-				{hasTypes
-					? 'No lanes. Turn on an assignment type to show it under the dates.'
-					: 'No lanes yet. Add an assignment type, then turn it on here.'}
-			</p>
+			{#snippet noLanes()}
+				<p class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+					{hasTypes
+						? 'No lanes. Turn on an assignment type to show it under the dates.'
+						: 'No lanes yet. Add an assignment type, then turn it on here.'}
+				</p>
+			{/snippet}
+			{#if !hasTypes && canMutate}
+				<div class="rounded-md border border-dashed px-4 py-4">
+					<CalendarTypeSuggestions kind="assignments" settingsLink={false} fallback={noLanes} />
+				</div>
+			{:else}
+				{@render noLanes()}
+			{/if}
 		{/if}
 		{#if lanes.length > 3}
 			<p class="text-sm text-muted-foreground">Each lane adds about 26px above the roster.</p>

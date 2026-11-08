@@ -36,4 +36,22 @@ describe('Calendar suggestions endpoint', () => {
 		expect(await ctx.calendarCatalogs.listAssignmentTypes()).toEqual([]);
 		expect(ctx.audit.events).toMatchObject([{ action: 'policy.denied' }]);
 	});
+
+	it('adds only the assignment pick for a member who may configure Calendar', async () => {
+		const ctx = createWritePortsContext({ auth: { role: 'member', capabilityMap: createCapabilityMap('configure') } });
+		const result = await apply(ctx, { statusIds: [], assignmentIds: ['staff-duty'] });
+		expect(result.created.map(({ id }) => id)).toEqual(['staff-duty']);
+		expect(await ctx.calendarCatalogs.listStatusTypes()).toEqual([]);
+		expect(await ctx.calendarCatalogs.listAssignmentTypes()).toMatchObject([{ name: 'Staff Duty' }]);
+	});
+
+	it.each([
+		{ statusIds: [], assignmentIds: ['staff-duty'] },
+		{ statusIds: ['leave'], assignmentIds: [] }
+	])('rejects picks from a member who may only operate Calendar', async (input) => {
+		const ctx = createWritePortsContext({ auth: { role: 'member', capabilityMap: createCapabilityMap('operate') } });
+		await expect(apply(ctx, input)).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.calendarCatalogs.listStatusTypes()).toEqual([]);
+		expect(await ctx.calendarCatalogs.listAssignmentTypes()).toEqual([]);
+	});
 });

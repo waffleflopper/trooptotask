@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
 	import { Badge } from '$lib/components/ui/badge';
@@ -14,6 +15,7 @@
 	import CalendarAssignmentSettingsSection from '$features/calendar/components/CalendarAssignmentSettingsSection.svelte';
 	import CalendarClosureSettingsSection from '$features/calendar/components/CalendarClosureSettingsSection.svelte';
 	import CalendarStatusSettingsSection from '$features/calendar/components/CalendarStatusSettingsSection.svelte';
+	import { calendarTypeSetupFor, setCalendarTypeSetup } from './calendarTypeSetup';
 	import CalendarOff from '@lucide/svelte/icons/calendar-off';
 	import Palette from '@lucide/svelte/icons/palette';
 	import Settings from '@lucide/svelte/icons/settings';
@@ -30,6 +32,8 @@
 		embedded?: boolean;
 	} = $props();
 	const orgUrlSegment = $derived(org.orgUrlSegment);
+	// An embedding flow, such as Organization setup, offers the starter types itself.
+	if (!untrack(() => embedded)) setCalendarTypeSetup(() => calendarTypeSetupFor(org));
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes)
 	);

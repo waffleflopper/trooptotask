@@ -98,6 +98,24 @@ describe('AvailabilityModal', () => {
 		});
 	});
 
+	it('picks the first status once starter types arrive in an open dialog', async () => {
+		const { onSave, rerender, props } = renderModal(onApril7, { statusTypes: [] });
+
+		await rerender({ ...props, statusTypes });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({
+			kind: 'create',
+			record: {
+				personnelId: 'person-1',
+				statusTypeId: statusTypes[0].id,
+				startDate: '2026-04-07',
+				endDate: '2026-04-07',
+				note: null
+			}
+		});
+	});
+
 	it('lists statuses in saved order, ties by id, whatever order they loaded in', async () => {
 		const status = (id: string, name: string, sortOrder: number): StatusType => ({
 			id,

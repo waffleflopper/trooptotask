@@ -74,10 +74,17 @@
 			const result = await withinOrganizationLifetime(moveGroupMembers(orgId, submitted, target.id), isCurrent);
 			const previousGroup = result.previousGroupIds;
 			const changed = new Set(previousGroup.keys());
-			for (const id of changed) ctx.peek.changed(id, { groupId: previousGroup.get(id) }, { groupId: target.id });
-			if (changed.size) void ctx.signals.refresh([...changed]);
+			// The roster can be behind the server: someone it still shows elsewhere may already be in the target Group.
+			const shownGroup = new Map(
+				result.movedIds.flatMap((id) => {
+					const shown = personnelStore.getById(id)?.groupId ?? null;
+					return changed.has(id) || shown !== target.id ? [[id, previousGroup.get(id) ?? shown]] : [];
+				})
+			);
+			for (const [id, from] of shownGroup) ctx.peek.changed(id, { groupId: from }, { groupId: target.id });
+			if (shownGroup.size) void ctx.signals.refresh([...shownGroup.keys()]);
 			personnelStore.updateLocalWhere(
-				(person) => changed.has(person.id),
+				(person) => shownGroup.has(person.id),
 				(person) => ({ ...person, groupId: target.id, groupName: target.id ? target.name : '' })
 			);
 			const skipped = selectedCount - result.movedIds.length;

@@ -2965,6 +2965,22 @@ describe('PersonnelPageView', () => {
 				expect(personnelStore.getById('person-1')).toMatchObject({ groupId: null, groupName: '' });
 			});
 
+			it('shows a Person in the chosen Group when the server already had them there, without offering Undo', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi.fn().mockResolvedValue(Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: {} }))
+				);
+				const ctx = bulkCtx();
+				const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+				render(PersonnelPageView, { props: { ctx } });
+
+				await moveToBravo(['Select SGT Smith, Jane']);
+
+				expect(personnelStore.getById('person-1')).toMatchObject({ groupId: 'group-2', groupName: 'Bravo' });
+				expect(refresh).toHaveBeenCalledExactlyOnceWith(['person-1']);
+				expect(undoOffered().action).toBeUndefined();
+			});
+
 			it('offers no Undo when the move changed nobody', async () => {
 				vi.stubGlobal(
 					'fetch',

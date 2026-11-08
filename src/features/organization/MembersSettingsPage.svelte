@@ -129,6 +129,8 @@
 	let revokeForm = $state<HTMLFormElement | null>(null);
 	let revokeInviteId = $state('');
 	let confirmRevoke = $state<SettingsPendingInvitationRow | null>(null);
+	/** Settles the open Revoke confirmation once its request answers: true when the invitation was revoked. */
+	let revokeSettled: ((revoked: boolean) => void) | null = null;
 
 	const reinvitableIds = $derived(
 		section.canInvite && history.current.state === 'ready'
@@ -143,48 +145,65 @@
 		{ label: 'Remove', destructive: true, onSelect: (member) => (confirmRemove = member) }
 	];
 
-	const invitationEnhance: SubmitFunction = ({ formData, submitter, cancel }) => {
-		if (invitationPending) return cancel();
+	const invitationEnhance: SubmitFunction = ({ formElement, formData, submitter, cancel }) => {
+		const settleRevoke = formElement === revokeForm ? revokeSettled : null;
+		if (settleRevoke) revokeSettled = null;
+		if (invitationPending) {
+			settleRevoke?.(false);
+			return cancel();
+		}
 		const owner = formData.has('inviteId') ? String(formData.get('inviteId')) : NEW_INVITATION;
 		invitationOwner = owner;
 		invitationPending = true;
 		invitationRequestError = null;
 		invitationSupersededForm = form;
 		return async (outcome) => {
-			if (!active) return;
-			const { result } = outcome;
-			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
-				invitationPending = false;
-				return;
+			try {
+				await settleInvitation(outcome, owner, submitter);
+			} finally {
+				settleRevoke?.(outcome.result.type === 'success' && !invitationRequestError);
 			}
-			await settleAction(outcome, {
-				isCurrent,
-				settled: (error) => {
-					invitationRequestError = error;
-					invitationPending = false;
-					if (!error && owner === NEW_INVITATION && result.type === 'success') {
-						workspace.resetInvite();
-						confirmedDraft = JSON.stringify(workspace.invite);
-					}
-				},
-				// A confirmed Revoke submits from a hidden form, so its own button is the one to return to.
-				focus: () => [
-					submitter instanceof HTMLButtonElement ? submitter : null,
-					revokeTrigger(owner),
-					inviteEmailInput,
-					filterInput
-				]
-			});
-			// The invite strip confirms in place; a pending invitation row confirms with a toast.
-			if (
-				active &&
-				owner !== NEW_INVITATION &&
-				result.type === 'success' &&
-				typeof result.data?.inviteMessage === 'string'
-			)
-				toastStore.success(result.data.inviteMessage);
 		};
 	};
+
+	async function settleInvitation(
+		outcome: Parameters<typeof settleAction>[0],
+		owner: string,
+		submitter: HTMLElement | null
+	) {
+		if (!active) return;
+		const { result } = outcome;
+		if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
+			invitationPending = false;
+			return;
+		}
+		await settleAction(outcome, {
+			isCurrent,
+			settled: (error) => {
+				invitationRequestError = error;
+				invitationPending = false;
+				if (!error && owner === NEW_INVITATION && result.type === 'success') {
+					workspace.resetInvite();
+					confirmedDraft = JSON.stringify(workspace.invite);
+				}
+			},
+			// A confirmed Revoke submits from a hidden form, so its own button is the one to return to.
+			focus: () => [
+				submitter instanceof HTMLButtonElement ? submitter : null,
+				revokeTrigger(owner),
+				inviteEmailInput,
+				filterInput
+			]
+		});
+		// The invite strip confirms in place; a pending invitation row confirms with a toast.
+		if (
+			active &&
+			owner !== NEW_INVITATION &&
+			result.type === 'success' &&
+			typeof result.data?.inviteMessage === 'string'
+		)
+			toastStore.success(result.data.inviteMessage);
+	}
 
 	const removeMemberEnhance: SubmitFunction = ({ formData, cancel }) => {
 		if (removingMemberId) return cancel();
@@ -223,11 +242,14 @@
 		removeForm?.requestSubmit();
 	}
 
+	/** Resolves once the revoke answers; the confirmation closes only when the invitation was revoked. */
 	async function submitRevoke(invite: SettingsPendingInvitationRow) {
-		confirmRevoke = null;
+		if (invitationPending) return;
+		const revoked = new Promise<boolean>((resolve) => (revokeSettled = resolve));
 		revokeInviteId = invite.id;
 		await tick();
 		revokeForm?.requestSubmit();
+		if ((await revoked) && confirmRevoke?.id === invite.id) confirmRevoke = null;
 	}
 
 	function canManage(member: SettingsMemberRow): boolean {
@@ -496,7 +518,14 @@
 		confirmLabel="Revoke invitation"
 		onConfirm={() => submitRevoke(target)}
 		onCancel={() => (confirmRevoke = null)}
-	/>
+		returnFocus={() => revokeTrigger(target.id) ?? inviteEmailInput ?? filterInput}
+	>
+		{#if invitationOwner === target.id && inviteError}
+			<Alert.Root variant="destructive">
+				<Alert.Description>{inviteError}</Alert.Description>
+			</Alert.Root>
+		{/if}
+	</ConfirmDialog>
 {/if}
 
 <form bind:this={revokeForm} method="POST" action="?/revokeInvite" hidden use:enhance={invitationEnhance}>

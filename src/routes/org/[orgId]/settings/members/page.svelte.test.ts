@@ -550,6 +550,35 @@ describe('revoking an invitation', () => {
 		await waitFor(() => expect(heldSubmissions).toHaveLength(1));
 		expect(submitted[0].get('inviteId')).toBe('invite-1');
 	});
+
+	it('keeps the confirmation open with the error when the revoke fails, and closes it once a retry revokes', async () => {
+		const view = renderPage({ invitations: [pendingInvite] });
+		const page = { applyForm: (form: unknown) => view.rerender({ form } as never) };
+		await revokeInvitation('pending@example.com');
+		await waitFor(() => expect(heldSubmissions).toHaveLength(1));
+
+		await heldSubmissions[0](
+			frameworkOutcome({ type: 'failure', status: 503, location: '/', data: { inviteError: 'Unable to revoke' } }, page)
+		);
+
+		const confirm = await screen.findByRole('alertdialog', { name: 'Revoke the invitation for pending@example.com?' });
+		await waitFor(() => expect(within(confirm).getByRole('alert').textContent?.trim()).toBe('Unable to revoke'));
+
+		await fireEvent.click(within(confirm).getByRole('button', { name: 'Revoke invitation' }));
+		await waitFor(() => expect(heldSubmissions).toHaveLength(2));
+		await heldSubmissions[1](
+			frameworkOutcome(
+				{
+					type: 'success',
+					status: 200,
+					location: '/',
+					data: { inviteSuccess: true, inviteMessage: 'Invitation revoked.' }
+				},
+				{ applyForm: (form) => view.rerender({ form, data: pageData() } as never) }
+			)
+		);
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+	});
 });
 
 describe('invitation expiry', () => {

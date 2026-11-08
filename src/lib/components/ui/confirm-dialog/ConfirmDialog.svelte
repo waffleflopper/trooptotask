@@ -17,6 +17,8 @@
 		loading?: boolean;
 		onConfirm: () => void | Promise<void>;
 		onCancel: () => void;
+		/** Where focus goes once the dialog closes, for when the control that opened it may be gone; null keeps the default. */
+		returnFocus?: () => HTMLElement | null;
 		children?: Snippet;
 	}
 
@@ -32,6 +34,7 @@
 		loading = false,
 		onConfirm,
 		onCancel,
+		returnFocus,
 		children
 	}: Props = $props();
 
@@ -55,6 +58,12 @@
 		aria-busy={busy || undefined}
 		escapeKeydownBehavior={busy ? 'ignore' : 'close'}
 		restoreScrollDelay={0}
+		onCloseAutoFocus={(event) => {
+			const target = returnFocus?.();
+			if (!target) return;
+			event.preventDefault();
+			target.focus();
+		}}
 	>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{title}</AlertDialog.Title>

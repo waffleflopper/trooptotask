@@ -181,6 +181,25 @@ describe('Features settings page', () => {
 		expect(request).toHaveBeenCalledTimes(1);
 	});
 
+	it('keeps the turn-off confirmation open when the save fails, and closes it once a retry saves', async () => {
+		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
+		let fail = true;
+		serve(stored, async () =>
+			fail ? Response.json({ message: 'Organization settings update failed' }, { status: 500 }) : undefined
+		);
+
+		await turnOff('Training');
+		await waitFor(() => expect(feedback.error).toHaveBeenCalledTimes(1));
+		const confirm = screen.getByRole('alertdialog', { name: 'Turn off Training for C Co?' });
+
+		fail = false;
+		const retry = await within(confirm).findByRole('button', { name: 'Turn off Training' });
+		await waitFor(() => expect(retry).toBeEnabled());
+		await fireEvent.click(retry);
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(stored.disabledFeatures).toEqual(['training']);
+	});
+
 	it('turns a feature on without asking', async () => {
 		const stored: Stored = { disabledFeatures: ['training'], strengthFloorPercent: 80 };
 		serve(stored);

@@ -45,14 +45,15 @@
 
 	function requestFeature(row: FeatureRow, on: boolean) {
 		if (pending[row.key] !== undefined) return;
-		if (on) setFeature(row, true);
+		if (on) void setFeature(row, true);
 		else confirmOff = row;
 	}
 
-	function setFeature(row: FeatureRow, on: boolean) {
-		if (pending[row.key] !== undefined) return;
+	/** Resolves true once the switch is saved, false when it failed or another save for it was already running. */
+	function setFeature(row: FeatureRow, on: boolean): Promise<boolean> {
+		if (pending[row.key] !== undefined) return Promise.resolve(false);
 		pending[row.key] = on;
-		saves = saves.then(async () => {
+		const save = saves.then(async () => {
 			try {
 				await saveSettings({ featureSwitch: { feature: row.key, on } });
 				// The sidebar and the dashboard read the switches from the organization row the layout loads.
@@ -60,12 +61,16 @@
 				toastStore.success(
 					on ? `${row.label} is on for ${unitName}.` : `${row.label} is off for ${unitName}. Its records are kept.`
 				);
+				return true;
 			} catch (error) {
 				toastStore.error(`Couldn't turn ${row.label} ${on ? 'on' : 'off'}. ${(error as Error).message}`);
+				return false;
 			} finally {
 				delete pending[row.key];
 			}
 		});
+		saves = save.then(() => {});
+		return save;
 	}
 
 	const floor = new DraftField.FieldDraft<number | null>(() => features.strengthFloorPercent);
@@ -171,11 +176,9 @@
 		title="Turn off {target.label} for {unitName}?"
 		message="It is hidden for everyone in {unitName}. Its records are kept, and you can turn it back on."
 		confirmLabel="Turn off {target.label}"
-		onConfirm={() => {
-			// `target` follows `confirmOff`, so it is read before the dialog closes.
-			const row = target;
-			confirmOff = null;
-			setFeature(row, false);
+		variant="default"
+		onConfirm={async () => {
+			if (await setFeature(target, false)) confirmOff = null;
 		}}
 		onCancel={() => (confirmOff = null)}
 	/>

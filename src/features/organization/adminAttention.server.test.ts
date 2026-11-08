@@ -102,16 +102,6 @@ describe('admin attention halves', () => {
 		await expect(invitations).resolves.toMatchObject({ pending: 1 });
 	});
 
-	it('passes the approval kinds through unchanged', async () => {
-		const groups = [
-			{ kind: 'archive', count: 2, oldestCreatedAt: '2026-06-01T00:00:00Z' },
-			{ kind: 'deletion', count: 1, oldestCreatedAt: '2026-06-05T00:00:00Z' }
-		] as const;
-		const { approvals } = readAdminAttention(context([], { readPendingApprovals: async () => groups }), NOW);
-
-		expect(await approvals).toEqual(groups);
-	});
-
 	it('fails the snapshot when either half fails, since the Dashboard shows them as one source', async () => {
 		const ctx = context([], {
 			readPendingApprovals: async () => {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -93,35 +93,50 @@
 		return composer?.kind === 'edit' && composer.id === status.id;
 	}
 
+	let alive = true;
+	onDestroy(() => {
+		alive = false;
+	});
+
+	/** True while this section is still shown for the Organization the request started in. */
+	function stillHereFor(orgId: string) {
+		return () => alive && statusTypesStore.orgId === orgId;
+	}
+
 	async function archiveStatus(status: StatusType) {
+		const stillHere = stillHereFor(statusTypesStore.orgId);
 		try {
 			await statusTypesStore.setArchived(status.id, true);
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Failed to archive status type');
+			if (stillHere()) toastStore.error(error instanceof Error ? error.message : 'Failed to archive status type');
 			return;
 		}
+		if (!stillHere()) return;
 		if (editing(status)) composer = null;
 		confirmArchive = null;
 	}
 
 	async function restoreStatus(id: string) {
+		const stillHere = stillHereFor(statusTypesStore.orgId);
 		try {
 			await statusTypesStore.setArchived(id, false);
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Failed to restore status type');
+			if (stillHere()) toastStore.error(error instanceof Error ? error.message : 'Failed to restore status type');
 		}
 	}
 
 	async function deleteStatus(status: StatusType) {
+		const stillHere = stillHereFor(statusTypesStore.orgId);
 		try {
 			if (!(await statusTypesStore.remove(status.id))) {
-				toastStore.error('Failed to delete status type');
+				if (stillHere()) toastStore.error('Failed to delete status type');
 				return;
 			}
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Failed to delete status type');
+			if (stillHere()) toastStore.error(error instanceof Error ? error.message : 'Failed to delete status type');
 			return;
 		}
+		if (!stillHere()) return;
 		if (editing(status)) composer = null;
 		try {
 			availabilityStore.removeByStatusTypeLocal(status.id);

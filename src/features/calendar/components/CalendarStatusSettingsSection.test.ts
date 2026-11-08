@@ -251,6 +251,30 @@ describe('Archived status types in Calendar settings', () => {
 		expect(sent.filter((request) => request.url.endsWith('/usage'))).toHaveLength(2);
 	});
 
+	it('says nothing about an archive that fails after the person left the settings', async () => {
+		statusTypesStore.load([leave, school], 'org-1');
+		let fail!: () => void;
+		vi.stubGlobal(
+			'fetch',
+			() =>
+				new Promise((resolve) => {
+					fail = () => resolve(Response.json({ message: 'Archive failed' }, { status: 500 }));
+				})
+		);
+		const { unmount } = render(CalendarStatusSettingsSection, { props: { canMutate: true, searchQuery: '' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'More actions for Leave' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+		await waitFor(() => expect(fail).toBeTypeOf('function'));
+		unmount();
+		fail();
+		await new Promise((settle) => setTimeout(settle, 0));
+
+		expect(toastStore.error).not.toHaveBeenCalled();
+		expect(statusTypesStore.items.find((type) => type.id === 'leave')?.archivedAt).toBeNull();
+	});
+
 	it('restores an archived status to the list', async () => {
 		statusTypesStore.load([archived(leave)], 'org-1');
 		const sent = stubCatalog({ usage: { leave: 1 } });

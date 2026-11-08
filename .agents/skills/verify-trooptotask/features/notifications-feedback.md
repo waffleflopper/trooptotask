@@ -12,6 +12,8 @@ about the current page, and dismiss global announcements without affecting anoth
 - `notification-lifecycle`: the bell lists the newest twenty own notifications, opens links, marks one/all read and
   deletes one; Account → Notifications lists the newest hundred with the same actions and `Delete all`; deletion
   preserves peer and foreign rows.
+- `notification-badge`: the bell shows its unread count as a number, `9+` from ten up, while its accessible name keeps
+  the real count. It disappears at zero.
 - `notification-recovery`: failed loads/writes remain recoverable, and delayed responses cannot populate another
   Organization's bell or choose its mutation target.
 - `feedback`: blank/cancel, categories, exact saved account/Organization/page context, failure retention and retry,
@@ -103,6 +105,9 @@ endpoints).
    sentinels left in `rows notifications orgA|orgB`. A link stored as `/account/...` opens under the current
    Organization as `/org/ORG/account/...` from both the bell and the page. At 390 the page and the open bell have no
    horizontal scroll.
+   The badge: with the 24 seeded unread rows the bell reads `24 unread notifications` and shows `9+`; after
+   `Mark all read` the bell is named `Notifications` and shows no number. Capture the badge at 1280x800 and 390x844 in
+   light and dark; the header has no horizontal scroll at 390. The exact cap at nine and ten is component-tested.
 5. **Separate API authorization/deletion.** From that same authenticated page, issue direct fetches to the known
    notification endpoint for peer/foreign IDs and read back rows. Peer writes must be denied without effects; foreign
    resources remain concealed. Request single own deletion and then `deleteAll`; only the requesting account's rows

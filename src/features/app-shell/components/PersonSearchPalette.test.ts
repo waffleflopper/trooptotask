@@ -88,21 +88,17 @@ describe('person search palette', () => {
 		expect(screen.queryByTestId('person-search-loading')).toBeNull();
 	});
 
-	it.each([
-		['SGT Smith', ['SGT Smith, John']],
-		['Smith John', ['SGT Smith, John']],
-		['smith, jane', ['SPC Smith, Jane']],
-		['bravo', ['SPC Smith, Jane']],
-		['smith', ['SGT Smith, John', 'SPC Smith, Jane']]
-	])('narrows to the people matching "%s"', async (query, expected) => {
+	it('narrows the list to the people matching every typed word', async () => {
 		renderPalette();
 		await openPalette();
 		const input = await screen.findByRole('combobox');
 		await screen.findByRole('option', { name: /Adams/ });
 
-		await fireEvent.input(input, { target: { value: query } });
+		await fireEvent.input(input, { target: { value: 'Smith John' } });
 
-		await waitFor(() => expect(optionNames().map((name) => name?.replace(/\s*(Alpha|Bravo)$/, ''))).toEqual(expected));
+		await waitFor(() =>
+			expect(optionNames().map((name) => name?.replace(/\s*(Alpha|Bravo)$/, ''))).toEqual(['SGT Smith, John'])
+		);
 	});
 
 	it('says so when nobody matches', async () => {

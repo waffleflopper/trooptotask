@@ -138,8 +138,9 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    Record expiry/replay as unverified unless the fixture can safely make those states.
 
 7. **Expiry, Revoke confirm, Invite again and the badge.** Run `$V seed invitation-attention`, then as `orgOwner` open
-   `Settings` → `Members` at 1280 and 390. Require four pending rows whose expiry text reads `expires in 2 days`,
-   `expires in 10 days` (twice) and `expires tomorrow`, two rows in the failed color, the Members nav badge at `4` and
+   `Settings` → `Members` at 1280 and 390. Require four pending rows, each with `expires …` text counting calendar
+   days in the browser zone from today to the seed time plus its `hoursToExpiry` (48, 240, 240 and 20), two rows in the
+   failed color, the Members nav badge at `4` and
    `Invitation history · 1 closed`; the `lapsed` invitation is in history and not in the badge. Choose `Revoke` on the
    `failed` row, `Cancel`, and confirm the four rows remain and `$V rows organization_invitations orgA status pending`
    is unchanged; choose `Revoke` again and `Revoke invitation`: the row leaves, the badge reads `3` and history reads

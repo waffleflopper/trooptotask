@@ -520,9 +520,11 @@ and one training-record request through `$V deletion-request PAGE orgA submit` (
 [Deletion requests](deletion-requests.md)).
 
 1. **Owner and admin.** As `orgOwner` at 1280 and 390, then as `orgAdmin`, open Home. Needs you lists `Not delivered`
-   for `soonAndFailed` (`expires tomorrow`) and `failed` (`expires in 10 days`), one `Approval` row each for
-   `1 archive request to review` and `1 deletion request to review`, and one `Expiring` row for `soon` (`expires in 2
-days`). `later` and `lapsed` give no row. Save the snapshot and read the three link `url`s.
+   for `soonAndFailed` and `failed`, one `Approval` row each for `1 archive request to review` and
+   `1 deletion request to review`, and one `Expiring` row for `soon`. `later` and `lapsed` give no row. Each invitation
+   row's `expires …` label counts calendar days in the browser zone from today to the seed time plus that fixture's
+   `hoursToExpiry` (20, 240 and 48), so derive the expected label from the seed time rather than assuming one. Save the
+   snapshot and read the three link `url`s.
 2. **Member.** As `orgMember`, Needs you reads `Nothing needs you right now.`. Fetch `/org/<orgId>/__data.json` from
    the page and parse its first line: the member's `adminAttention` is `null`, and the owner's is a streamed `Promise`.
 3. **Clearing.** From Members `Revoke` the `failed` invitation (confirm), and from Approvals `Deny` the archive

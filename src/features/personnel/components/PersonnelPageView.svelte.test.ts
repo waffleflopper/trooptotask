@@ -2606,7 +2606,13 @@ describe('PersonnelPageView', () => {
 				bulkBar()
 					.getAllByRole('button')
 					.map((button) => button.getAttribute('title'));
-			expect(titles()).toEqual(['Follow-up for each', 'Add note', 'Move to Group', 'Clear selection (Esc)']);
+			expect(titles()).toEqual([
+				'Follow-up for each',
+				'Add note',
+				'Set field…',
+				'Move to Group',
+				'Clear selection (Esc)'
+			]);
 			view.unmount();
 
 			render(PersonnelPageView, {

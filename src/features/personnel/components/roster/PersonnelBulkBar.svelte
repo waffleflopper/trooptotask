@@ -5,6 +5,7 @@
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FolderInputIcon from '@lucide/svelte/icons/folder-input';
 	import MessageSquarePlusIcon from '@lucide/svelte/icons/message-square-plus';
+	import PencilLineIcon from '@lucide/svelte/icons/pencil-line';
 	import SquareCheckIcon from '@lucide/svelte/icons/square-check';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button';
@@ -13,11 +14,15 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
+	import type { PersonnelBulkField, PersonnelFieldChange } from '../../contracts';
 	import type { Personnel } from '../../personnel.types';
+	import { personnelBulkFieldLabel } from '../../personnelFieldChange';
+	import { rankOptionsFor } from '../../personnelDraft';
 	import type { ComposerKind } from '../../rosterComposer';
 	import { downloadRosterExport, rosterExportFilename, rosterExportRows } from '../../rosterExport';
 	import { personnelStore } from '../../stores/personnel.svelte';
 	import { moveGroupMembers } from '../../utils/moveGroupMembers';
+	import { saveRosterField } from '../../rosterFieldSave';
 	import { buildGroupTree } from '../../groupTree';
 
 	interface Props {
@@ -34,6 +39,8 @@
 
 	let busy = $state(false);
 	let confirmingArchive = $state(false);
+	/** The People the open Set field dialog is changing, fixed when it opened so a save does not reshuffle its review. */
+	let fieldTargets = $state.raw<{ people: readonly Personnel[]; notEditable: number } | null>(null);
 
 	const writable = $derived(people.filter((person) => ctx.canManagePersonnelRecord(person)));
 	const exportable = $derived(people.filter((person) => ctx.canExportPersonnelRecord(person)));
@@ -84,6 +91,24 @@
 		} finally {
 			if (isCurrent()) busy = false;
 		}
+	}
+
+	function setField(change: PersonnelFieldChange, ids: string[]) {
+		const orgId = ctx.orgId;
+		return saveRosterField(fieldTargets?.people ?? [], change, ids, {
+			orgId,
+			isCurrent: () => rosterIsCurrent(orgId),
+			peek: ctx.peek,
+			refreshSignals: (changedIds) => void ctx.signals.refresh(changedIds)
+		});
+	}
+
+	function fieldSaved(summary: { field: PersonnelBulkField; updated: number; alreadySet: number }): void {
+		const left = (fieldTargets?.notEditable ?? 0) + summary.alreadySet;
+		fieldTargets = null;
+		toastStore.success(
+			`Updated ${personnelBulkFieldLabel(summary.field)} for ${count(summary.updated)}${skippedNote(left)}`
+		);
 	}
 
 	async function exportSelected(): Promise<void> {
@@ -206,6 +231,18 @@
 				>Add note</span
 			>
 		</Button>
+		<Button
+			type="button"
+			variant="ghost"
+			size="lg"
+			disabled={busy}
+			title="Set field…"
+			onclick={() => (fieldTargets = { people: writable, notEditable: people.length - writable.length })}
+		>
+			<PencilLineIcon class="@3xl/roster:hidden" aria-hidden="true" /><span class="@max-3xl/roster:sr-only"
+				>Set field…</span
+			>
+		</Button>
 		{#if moveTargets.length > 0}
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger disabled={busy}>
@@ -271,6 +308,19 @@
 			loading={busy}
 			onConfirm={archiveSelected}
 			onCancel={() => (confirmingArchive = false)}
+		/>
+	{/await}
+{/if}
+
+{#if fieldTargets}
+	{#await import('./PersonnelFieldDialog.svelte') then { default: PersonnelFieldDialog }}
+		<PersonnelFieldDialog
+			people={fieldTargets.people}
+			notEditable={fieldTargets.notEditable}
+			rankCodes={rankOptionsFor(ctx.data.rankCatalog ?? []).map((option) => option.value)}
+			onsave={setField}
+			ondone={fieldSaved}
+			onclose={() => (fieldTargets = null)}
 		/>
 	{/await}
 {/if}

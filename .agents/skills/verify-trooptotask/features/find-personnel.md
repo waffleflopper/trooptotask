@@ -31,7 +31,8 @@ person's record.
 - `roster-note`: the row's `Note` button and N key open a popover composer that adds a follow-up or a leader note
   without leaving the roster.
 - `roster-bulk`: row, header and Group checkboxes select many People, and a floating `Selected people` bar adds a
-  follow-up or note for each, moves them to a Group, exports them or archives them at once.
+  follow-up or note for each, sets one Rank, MOS, Duty role or ETS for them after a per-person review, moves them to a
+  Group, exports them or archives them at once.
 - `roster-peek`: at 1280 px and wider a row click or Space opens a preview beside the roster that reads each section on
   its own, browses with J and K over the rows search, filter and view show, closes with Esc or Space or when a filter
   hides the shown Person, and rereads only the sections a quick edit or bulk write changed.
@@ -347,7 +348,8 @@ scoped actors retain their baseline grants.
     `Select everyone shown`, each Group header with `Select everyone in <Group>` (Unassigned too) and each row with
     `Select <name>`, all at x 289. `viewer` and `scoped` hold no bulk action and see no checkboxes. Click
     `Select everyone shown`: every checkbox checks, selected rows carry `data-state="selected"`, and the
-    `Selected people` toolbar reads `3 selected` with `Follow-up for each` (accent), `Add note`, `Move to Group`,
+    `Selected people` toolbar reads `3 selected` with `Follow-up for each` (accent), `Add note`, `Set field…`,
+    `Move to Group`,
     `Export`, `Archive…` and `Clear selection` (title `Clear selection (Esc)`). Unchecking one row turns the header and
     that Group's checkbox `mixed`. Keyboard: x toggles the focused row's selection (the footer hint reads `X select`);
     below 1280 px Space does the same, and at 1280 and wider Space opens the preview (step 20). Focus Able's row and
@@ -359,7 +361,8 @@ scoped actors retain their baseline grants.
     - Placement: the bar is in the roster's flow and sticky 20px above the window's bottom. On the 20-person workload at
       1440x900 the table scrolls in its own box and the bar (714 wide, top 828) sits under the `20 of 20 shown` footer,
       covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as icons with their
-      names kept for assistive technology; the bar is 343 wide and `scrollWidth` equals the viewport. At 390 dark the
+      names kept for assistive technology; with `Set field…` the bar is 366 wide at 390 and `scrollWidth` equals the
+      viewport. At 390 dark the
       bar keeps its chrome border and reads clearly.
     - Search: with five selected, search `Baker`: the bar reads `5 selected · 4 hidden by search`, and `Archive…` asks
       `Archive 5 personnel? …` with `This includes 4 people your search hides.` Actions apply to every selected Person.
@@ -382,6 +385,23 @@ scoped actors retain their baseline grants.
       typed text and shows `Unable to save leader note.`, and `rows leader_notes orgA` has no such note. With `arm-hold`
       the button reads `Saving…`; `release` gives `Note added for 2 people`, two rows authored by the manager, and the
       selection stays. A note sends no `roster-signals` request.
+    - Set field…: as `manager` select all three and choose `Set field…`. The `Set field` dialog offers `Field` Rank,
+      MOS, Duty role and ETS, and `Review changes` stays disabled until the value is valid. Rank is a select of the
+      Organization's active ranks only (`SGT`, `SPC`, `PFC`, `VFY-ACTIVE-A`; the retired rank is absent), MOS and Duty
+      role are text inputs, and ETS opens the date picker. Choose Rank `SGT` and `Review changes`:
+      `Set Rank for 3 people` lists each name with `SPC → SGT` and nothing is saved yet; `Back` returns with the value
+      kept.
+      `Save 3 people` sends one `POST .../api/personnel/field-batch`, toasts `Updated Rank for 3 people`, the rows read
+      `SGT` at once and after a reload, `$V rows personnel orgA` shows `rank` `SGT` on all three, and
+      `$V rows audit_logs orgA action personnel.updated` holds one row per person with `change.rank`
+      `{from: SPC, to: SGT}`. People who already hold the value are not listed or sent: MOS `68W` with Baker on `11B`
+      reads `Set MOS for 1 person` and `2 people already have this value.`, saves only Baker (`11B → 68W`) and toasts
+      `Updated MOS for 1 person · 2 people skipped`. ETS reads `None → 12 Nov 2026` and stores `ets` `2026-11-12`. Esc
+      closes the dialog without a request. At 390 the dialog stays inside the viewport and the review list scrolls in
+      its own box. A refused or lost Person keeps the dialog open on `Result` with `Updated`, `No access` or
+      `No longer available` beside each name, and selected People the actor cannot edit are counted on the first step
+      and left out (both source-mapped; route and unit tests cover them). More than 500 People go out in batches of
+      500, and each confirmed batch reaches the roster even if a later one fails (unit-tested).
     - Move to Group: the menu `Move N people to` lists `Alpha`, `Bravo` and `Unassigned`. Moving
       `SPC Unassigned, Synthetic` to `Alpha` sends one `POST .../group-membership` and one `roster-signals` POST, toasts
       `Moved 1 person to Alpha`, and `rows personnel orgA` shows Alpha's group ID on that Person.
@@ -408,7 +428,8 @@ scoped actors retain their baseline grants.
       while 12 skeletons show, and after `release` the row tops (316, 410) and the bar top (504) are unchanged. With
       `fail-hard` the notice `Today's status and Needs attention could not be loaded.` shows and the bar keeps every
       action.
-    - `network` accepts the exact `personnel/follow-ups/batch` and `personnel/leader-notes/batch` families.
+    - `network` accepts the exact `personnel/follow-ups/batch` and `personnel/leader-notes/batch` families, not yet
+      `personnel/field-batch`.
 
 20. **Peek panel.** As `orgOwner` at 1440x900, stage Baker's two follow-ups through
     `POST /org/<org>/api/personnel/<personB>/follow-ups` (`Turn in TA-50 shortage list` due four days before the viewer

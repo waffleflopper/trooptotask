@@ -121,6 +121,30 @@ export interface PersonnelEditableFields {
 export type PersonnelInsert = Pick<PersonnelEditableFields, 'rank' | 'lastName' | 'firstName' | 'clinicRole'> &
 	Partial<Pick<PersonnelEditableFields, 'mos' | 'ets' | 'deros' | 'groupId'>> & { slug: string };
 
+/** The most People one field-batch request may name. */
+export const PERSONNEL_FIELD_BATCH_LIMIT = 500;
+
+/** One field set to one non-empty value for many People. `ets` is a YYYY-MM-DD date. */
+export type PersonnelFieldChange =
+	| { field: 'rank'; value: string }
+	| { field: 'mos'; value: string }
+	| { field: 'clinicRole'; value: string }
+	| { field: 'ets'; value: string };
+
+export type PersonnelBulkField = PersonnelFieldChange['field'];
+
+/** Every requested id lands in exactly one list. */
+export interface PersonnelFieldBulkResult {
+	field: PersonnelBulkField;
+	/** As saved: a rank is its catalog code. */
+	value: string;
+	updatedIds: string[];
+	/** The actor cannot manage records in the Person's Group. */
+	refusedIds: string[];
+	/** Missing, archived or outside what the actor can read. */
+	unavailableIds: string[];
+}
+
 export interface PersonnelRecordPersistence {
 	findBySlug(slug: string): Promise<Personnel | null>;
 	findById(id: string): Promise<Personnel | null>;
@@ -144,6 +168,8 @@ export interface PersonnelRecordPersistence {
 	updateDates(id: string, patch: { ets?: string; deros?: string }): Promise<Personnel>;
 	/** One statement moving these active People to the Group (null is Unassigned); resolves the ids it moved. */
 	moveToGroup(ids: readonly string[], groupId: string | null): Promise<string[]>;
+	/** One statement setting the field on these active People; resolves the ids it updated. */
+	setEditableField(ids: readonly string[], change: PersonnelFieldChange): Promise<string[]>;
 	delete(id: string): Promise<void>;
 }
 

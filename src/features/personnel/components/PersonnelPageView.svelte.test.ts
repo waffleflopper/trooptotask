@@ -3,6 +3,7 @@ import { flushSync } from 'svelte';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { BUILT_IN_RANK_CATALOG } from '../rankCatalog';
 import { groupCatalogHydration, groupsStore, pinnedGroupsHydration, pinnedGroupsStore } from '$features/personnel';
 import { buildGroupTree, soleLeafGroup } from '../groupTree';
 import { SvelteSet } from 'svelte/reactivity';
@@ -433,6 +434,47 @@ describe('PersonnelPageView', () => {
 
 		expect(screen.getByText('Garcia, Luis')).toBeTruthy();
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
+	});
+
+	describe('sorting by Rank', () => {
+		const withRanks = (ranks: string[]) =>
+			personnelStore.load(
+				ranks.map((rank, index) => ({
+					...personnel[0],
+					id: rank || 'blank',
+					rank,
+					lastName: `Last${index}`,
+					slug: `last-${index}`
+				})),
+				'org-1'
+			);
+		const orderedRanks = () =>
+			[...document.querySelectorAll('[data-roster-row]')].map((row) => row.getAttribute('data-roster-row'));
+		const sortByRank = () => fireEvent.click(screen.getByRole('button', { name: 'Sort by Rank' }));
+
+		it('puts the most senior grade first, then the reverse, with ranks outside the catalog last both times', async () => {
+			withRanks(['PFC', 'ZZZ', '1LT', 'COL', '', 'CPT', 'PV1', 'LTC']);
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
+
+			await sortByRank();
+			expect(orderedRanks()).toEqual(['COL', 'LTC', 'CPT', '1LT', 'PFC', 'PV1', 'blank', 'ZZZ']);
+
+			await sortByRank();
+			expect(orderedRanks()).toEqual(['PV1', 'PFC', '1LT', 'CPT', 'LTC', 'COL', 'ZZZ', 'blank']);
+		});
+
+		it("treats a rank missing from the Organization's catalog as unknown", async () => {
+			withRanks(['PFC', 'CPT', 'COL']);
+			const rankCatalog = BUILT_IN_RANK_CATALOG.filter((entry) => entry.code !== 'CPT');
+			render(PersonnelPageView, {
+				props: {
+					ctx: makeCtx({ data: { orgId: 'org-1', asOf: '2026-10-06', orgName: 'C Co', pinnedGroups: [], rankCatalog } })
+				}
+			});
+
+			await sortByRank();
+			expect(orderedRanks()).toEqual(['COL', 'PFC', 'CPT']);
+		});
 	});
 
 	it('updates the roster view mode from the toolbar view toggle', async () => {

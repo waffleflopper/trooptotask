@@ -95,4 +95,56 @@ describe('useDataTable', () => {
 
 		cleanup();
 	});
+
+	test('keeps rows a column sorts last after the rest in both directions', () => {
+		const cleanup = $effect.root(() => {
+			const data: Row[] = [
+				{ id: '1', name: 'Alice', age: 30, group: 'A' },
+				{ id: '2', name: 'Zed', age: 0, group: 'A' },
+				{ id: '3', name: 'Bob', age: 25, group: 'A' },
+				{ id: '4', name: 'Yan', age: 0, group: 'A' },
+				{ id: '5', name: 'Charlie', age: 35, group: 'A' }
+			];
+			const columns: ColumnDef<Row>[] = [
+				{
+					key: 'age',
+					header: 'Age',
+					value: (row) => row.age,
+					compare: (a, b) => a.age - b.age,
+					sortsLast: (row) => row.age === 0
+				}
+			];
+			const table = useDataTable({ data: () => data, columns, initialSortKey: 'age' });
+			const names = () => table.allRows.map((row) => row.name);
+
+			expect(names()).toEqual(['Bob', 'Alice', 'Charlie', 'Zed', 'Yan']);
+
+			table.toggleSort('age');
+			expect(names()).toEqual(['Charlie', 'Alice', 'Bob', 'Zed', 'Yan']);
+		});
+
+		cleanup();
+	});
+
+	test('sorts rows without a value after the rest in both directions when the column has no compare', () => {
+		const cleanup = $effect.root(() => {
+			const data = [
+				{ id: '1', nickname: 'Bo' },
+				{ id: '2', nickname: null },
+				{ id: '3', nickname: 'Al' }
+			];
+			const columns: ColumnDef<(typeof data)[number]>[] = [
+				{ key: 'nickname', header: 'Nickname', value: (row) => row.nickname }
+			];
+			const table = useDataTable({ data: () => data, columns, initialSortKey: 'nickname' });
+			const ids = () => table.allRows.map((row) => row.id);
+
+			expect(ids()).toEqual(['3', '1', '2']);
+
+			table.toggleSort('nickname');
+			expect(ids()).toEqual(['1', '3', '2']);
+		});
+
+		cleanup();
+	});
 });

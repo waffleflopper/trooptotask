@@ -10,6 +10,11 @@ export interface ColumnDef<T> {
 	headerAriaLabel?: string;
 	searchValue?: (row: T) => string;
 	compare?: (a: T, b: T) => number;
+	/**
+	 * Rows this returns true for follow every other row in both directions, ordered among themselves by the column's
+	 * usual sort. Without `compare`, rows whose value is null already sort last; this gives a column with `compare` the same.
+	 */
+	sortsLast?: (row: T) => boolean;
 	searchable?: boolean;
 	sortable?: boolean;
 	align?: 'left' | 'center' | 'right';

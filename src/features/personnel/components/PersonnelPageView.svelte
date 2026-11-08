@@ -17,6 +17,7 @@
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
 	import { personnelRecordHref } from '../personnelRecordHref';
+	import { compareRankCodes, isCatalogRank } from '../rankCatalog';
 	import {
 		parseRosterFilter,
 		ROSTER_FILTER_PARAM,
@@ -151,6 +152,7 @@
 	});
 
 	const personnelColumns = $derived.by<ColumnDef<Personnel>[]>(() => {
+		const rankCatalog = ctx.data.rankCatalog?.length ? ctx.data.rankCatalog : undefined;
 		const columns: ColumnDef<Personnel>[] = [
 			{
 				key: 'status',
@@ -161,7 +163,15 @@
 				sortable: false,
 				width: '28px'
 			},
-			{ key: 'rank', header: 'Rank', value: (p) => p.rank, width: '64px', hiddenBelow: '@3xl' },
+			{
+				key: 'rank',
+				header: 'Rank',
+				value: (p) => p.rank,
+				compare: (a, b) => compareRankCodes(a.rank, b.rank, { catalog: rankCatalog }),
+				sortsLast: (p) => !isCatalogRank(p.rank, rankCatalog),
+				width: '64px',
+				hiddenBelow: '@3xl'
+			},
 			{
 				key: 'name',
 				header: 'Name',

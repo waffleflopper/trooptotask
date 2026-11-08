@@ -5,6 +5,7 @@ export { createSupabaseSelfPinPersistence } from './selfPinPersistence.server';
 export type {
 	PersonnelRosterReader,
 	PersonnelRecordPersistence,
+	PersonnelFieldBulkResult,
 	GroupPersistence,
 	SelfPinPersistence
 } from './contracts';
@@ -42,6 +43,7 @@ export {
 	moveGroupMembers,
 	type GroupMembershipResult
 } from './groupOperations.server';
+export { setPersonnelField } from './personnelFieldBulk.server';
 export { pinGroup, unpinGroup } from './pinnedGroupOperations.server';
 export { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from './personnelGroupAccess.server';
 export { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';

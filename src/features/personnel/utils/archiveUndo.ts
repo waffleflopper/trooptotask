@@ -64,7 +64,12 @@ export function describeArchiveUndo(done: ArchiveUndone): { message: string; des
  * The toast action that takes an archive back. It does nothing, and writes and says nothing later, once `isCurrent`
  * is false or the Organization has changed.
  */
-export function archiveUndoAction(orgId: string, token: string, isCurrent: () => boolean): ToastAction {
+export function archiveUndoAction(
+	orgId: string,
+	token: string,
+	isCurrent: () => boolean,
+	onRestored?: (ids: string[]) => void
+): ToastAction {
 	return {
 		label: 'Undo',
 		onClick: () => {
@@ -76,6 +81,7 @@ export function archiveUndoAction(orgId: string, token: string, isCurrent: () =>
 					if (undone) toastStore.success(message, undefined, undefined, description);
 					else toastStore.warning(message, undefined, undefined, description);
 					if (!undone) return;
+					if (done.restoredIds.length) onRestored?.(done.restoredIds);
 					try {
 						await invalidate('app:personnel-data');
 					} catch {

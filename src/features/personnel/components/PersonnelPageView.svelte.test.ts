@@ -3107,12 +3107,14 @@ describe('PersonnelPageView', () => {
 			expect(offered.duration).toBe(10_000);
 			expect(toastInfoMock).not.toHaveBeenCalled();
 			invalidateMock.mockClear();
+			invalidateMock.mockImplementationOnce(async () => personnelStore.load(personnel, 'org-1'));
 			offered.action.onClick();
 
 			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(2));
 			expect(fetchMock.mock.calls[1][0]).toBe('/org/org-1/api/personnel/archive-batch/undo');
 			expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({ token: 'token-1' });
 			expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data');
+			expect(await screen.findByText('Smith, Jane')).toBeTruthy();
 		});
 
 		it('puts archived People and approval requests in the same Undo toast', async () => {

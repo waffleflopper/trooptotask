@@ -33,10 +33,12 @@
 		oncompose: (kind: ComposerKind) => void;
 		onclear: () => void;
 		onarchived: (result: { archivedIds: string[]; approvalRequestedIds: string[] }) => void;
+		/** People an archive Undo brought back, so the roster shows them again. */
+		onrestored: (ids: string[]) => void;
 		isCurrent: (orgId: string) => boolean;
 	}
 
-	let { ctx, people, hidden, oncompose, onclear, onarchived, isCurrent: rosterIsCurrent }: Props = $props();
+	let { ctx, people, hidden, oncompose, onclear, onarchived, onrestored, isCurrent: rosterIsCurrent }: Props = $props();
 
 	let busy = $state(false);
 	let confirmingArchive = $state(false);
@@ -235,7 +237,7 @@
 						.filter(Boolean)
 						.join(' · '),
 					ARCHIVE_UNDO_MS,
-					archiveUndoAction(orgId, result.undo, isCurrent)
+					archiveUndoAction(orgId, result.undo, isCurrent, onrestored)
 				);
 			} else {
 				if (result.archivedIds.length > 0) toastStore.success(`${result.archivedIds.length} personnel archived`);

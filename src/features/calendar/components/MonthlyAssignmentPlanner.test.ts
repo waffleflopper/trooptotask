@@ -1334,7 +1334,7 @@ describe('MonthlyAssignmentPlanner Copy', () => {
 		expect(within(skips).getAllByRole('listitem')).toHaveLength(1);
 		expect(skips.textContent).toContain('Okafor');
 		expect(skips.textContent).toContain('Leave 2 Oct');
-		expect(within(dialog).getByRole('status').textContent).toContain('Leaves 1 slot');
+		expect(within(dialog).getByRole('status').textContent).toContain('Leaves 1 filled slot alone.');
 
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Copy 2 slots' }));
 

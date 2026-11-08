@@ -154,7 +154,7 @@
 				<p class="text-sm" role="status">
 					Fills <strong class="font-semibold">{slots(plan.writes.length)}</strong>.
 					{#if plan.filled > 0}
-						Leaves {slots(plan.filled)} that already have someone alone.
+						Leaves {plan.filled === 1 ? '1 filled slot' : `${plan.filled} filled slots`} alone.
 					{/if}
 				</p>
 				{#if tooMany}

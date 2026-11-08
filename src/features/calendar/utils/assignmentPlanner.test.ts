@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	DailyAssignment,
+	SpecialDay,
+	StatusType
+} from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import { buildPlannerTable, buildQuickFillBatch } from './assignmentPlanner';
+import {
+	buildCopyPlan,
+	buildPlannerTable,
+	buildQuickFillBatch,
+	mondayOf,
+	monthWeekStarts,
+	type CopySpan
+} from './assignmentPlanner';
 import { indexAssignmentsBySlot } from './calendarIndexes';
 import { findDutyConflicts, indexDutyAvailability } from './dutyReadModel';
 
@@ -256,6 +269,213 @@ describe('buildPlannerTable', () => {
 		expect(result.conflicts.map((conflict) => [conflict.dateKey, conflict.assignee.name])).toEqual([
 			['2026-10-21', 'Okafor'],
 			['2026-10-22', 'Kim']
+		]);
+	});
+});
+
+describe('copying the previous week or month', () => {
+	const november = new Date(2026, 10, 1);
+	const february = new Date(2027, 1, 1);
+	const leave: StatusType = {
+		id: 'leave',
+		name: 'Leave',
+		color: '#2563eb',
+		textColor: '#ffffff',
+		shortLabel: 'L',
+		sortOrder: 0,
+		rosterEffect: 'A'
+	};
+	const cq = type('cq', { name: 'CQ' });
+	const sd = type('sd', { name: 'SD' });
+	const weekdaysOnly = type('wk', { name: 'Weekday duty', weekendMode: 'none' });
+	const platoon = type('gg', { name: 'Platoon duty', assignTo: 'group', weekendMode: 'none' });
+
+	function plan(input: {
+		anchor?: Date;
+		span: CopySpan;
+		assignments: DailyAssignment[];
+		columns?: AssignmentType[];
+		entries?: AvailabilityEntry[];
+		specialDays?: SpecialDay[];
+	}) {
+		return buildCopyPlan({
+			anchor: input.anchor ?? november,
+			span: input.span,
+			columns: input.columns ?? [cq],
+			assignmentsBySlot: indexAssignmentsBySlot(input.assignments),
+			availabilityByPerson: indexDutyAvailability(input.entries ?? []),
+			statusTypes: [leave],
+			specialDays: input.specialDays ?? []
+		});
+	}
+	const week = (weekStart: string): CopySpan => ({ kind: 'week', weekStart });
+
+	it('lists the Monday of every week that overlaps the month, including the one that starts the month before', () => {
+		expect(monthWeekStarts(november)).toEqual([
+			'2026-10-26',
+			'2026-11-02',
+			'2026-11-09',
+			'2026-11-16',
+			'2026-11-23',
+			'2026-11-30'
+		]);
+		expect(['2026-11-01', '2026-11-02', '2026-11-08'].map(mondayOf)).toEqual([
+			'2026-10-26',
+			'2026-11-02',
+			'2026-11-02'
+		]);
+	});
+
+	it('lines a week up by weekday, reading days before the month and days inside it', () => {
+		const assignments = [
+			assignment('2026-10-25', 'cq', 'p-a'),
+			assignment('2026-10-26', 'cq', 'p-b'),
+			assignment('2026-10-31', 'cq', 'p-c')
+		];
+
+		expect(
+			plan({ span: week('2026-10-26'), assignments: [...assignments, assignment('2026-11-01', 'cq', 'p-d')] })
+		).toMatchObject({ writes: [], filled: 1 });
+		expect(plan({ span: week('2026-10-26'), assignments }).writes).toEqual([
+			{ date: '2026-11-01', assignmentTypeId: 'cq', assigneeId: 'p-a' }
+		]);
+		expect(
+			plan({ span: week('2026-11-02'), assignments: [...assignments, assignment('2026-11-01', 'cq', 'p-d')] }).writes
+		).toEqual([
+			{ date: '2026-11-02', assignmentTypeId: 'cq', assigneeId: 'p-b' },
+			{ date: '2026-11-07', assignmentTypeId: 'cq', assigneeId: 'p-c' },
+			{ date: '2026-11-08', assignmentTypeId: 'cq', assigneeId: 'p-d' }
+		]);
+	});
+
+	it('lines a month up by day number and lists each day the target month lacks', () => {
+		const assignments = [
+			assignment('2027-01-15', 'cq', 'p-a'),
+			assignment('2027-01-28', 'cq', 'p-b'),
+			assignment('2027-01-29', 'cq', 'p-c'),
+			assignment('2027-01-31', 'sd', 'p-d')
+		];
+
+		const result = plan({ anchor: february, span: { kind: 'month' }, assignments, columns: [cq, sd] });
+
+		expect(result.writes).toEqual([
+			{ date: '2027-02-15', assignmentTypeId: 'cq', assigneeId: 'p-a' },
+			{ date: '2027-02-28', assignmentTypeId: 'cq', assigneeId: 'p-b' }
+		]);
+		expect(result.skips).toEqual([
+			{ typeId: 'cq', sourceDate: '2027-01-29', targetDate: null, assigneeId: 'p-c', reason: 'missing-day' },
+			{ typeId: 'sd', sourceDate: '2027-01-31', targetDate: null, assigneeId: 'p-d', reason: 'missing-day' }
+		]);
+	});
+
+	it('copies the month before January from the December before it', () => {
+		const result = plan({
+			anchor: new Date(2027, 0, 1),
+			span: { kind: 'month' },
+			assignments: [assignment('2026-12-31', 'cq', 'p-a')]
+		});
+
+		expect(result.writes).toEqual([{ date: '2027-01-31', assignmentTypeId: 'cq', assigneeId: 'p-a' }]);
+	});
+
+	it('skips a target day the duty takes no duty on, for weekends and Special Days, but still copies a Group duty', () => {
+		const assignments = [
+			assignment('2026-10-27', 'wk', 'p-a'),
+			assignment('2026-10-31', 'wk', 'p-b'),
+			assignment('2026-10-31', 'gg', 'g-alpha'),
+			assignment('2026-10-28', 'wk', 'p-c')
+		];
+
+		const result = plan({
+			span: week('2026-11-02'),
+			assignments,
+			columns: [weekdaysOnly, platoon],
+			specialDays: [{ id: 'closure', date: '2026-11-03', name: 'Training holiday', type: 'org-closure' }]
+		});
+
+		expect(result.writes).toEqual([
+			{ date: '2026-11-04', assignmentTypeId: 'wk', assigneeId: 'p-c' },
+			{ date: '2026-11-07', assignmentTypeId: 'gg', assigneeId: 'g-alpha' }
+		]);
+		expect(result.skips).toEqual([
+			{ typeId: 'wk', sourceDate: '2026-10-27', targetDate: '2026-11-03', assigneeId: 'p-a', reason: 'no-duty' },
+			{ typeId: 'wk', sourceDate: '2026-10-31', targetDate: '2026-11-07', assigneeId: 'p-b', reason: 'no-duty' }
+		]);
+	});
+
+	it('skips a person unavailable on the target day with why, and copies a Group whatever its id is covered by', () => {
+		const result = plan({
+			span: week('2026-11-02'),
+			assignments: [
+				assignment('2026-10-27', 'cq', 'p-a'),
+				assignment('2026-10-28', 'cq', 'p-a'),
+				assignment('2026-10-29', 'cq', 'p-b'),
+				assignment('2026-10-27', 'gg', 'g-alpha')
+			],
+			columns: [cq, platoon],
+			entries: [
+				{ id: 'e1', personnelId: 'p-a', statusTypeId: 'leave', startDate: '2026-11-03', endDate: '2026-11-03' },
+				{ id: 'e2', personnelId: 'p-a', statusTypeId: 'leave', startDate: '2026-11-03', endDate: '2026-11-05' },
+				{ id: 'e3', personnelId: 'g-alpha', statusTypeId: 'leave', startDate: '2026-11-03', endDate: '2026-11-03' }
+			]
+		});
+
+		expect(result.writes).toEqual([
+			{ date: '2026-11-03', assignmentTypeId: 'gg', assigneeId: 'g-alpha' },
+			{ date: '2026-11-05', assignmentTypeId: 'cq', assigneeId: 'p-b' }
+		]);
+		expect(result.skips).toEqual([
+			{
+				typeId: 'cq',
+				sourceDate: '2026-10-27',
+				targetDate: '2026-11-03',
+				assigneeId: 'p-a',
+				reason: 'unavailable',
+				detail: 'Leave 3 Nov; Leave 3–5 Nov'
+			},
+			{
+				typeId: 'cq',
+				sourceDate: '2026-10-28',
+				targetDate: '2026-11-04',
+				assigneeId: 'p-a',
+				reason: 'unavailable',
+				detail: 'Leave 3–5 Nov'
+			}
+		]);
+	});
+
+	it('leaves a filled target alone and counts it only where there was something to copy', () => {
+		const result = plan({
+			span: week('2026-11-02'),
+			assignments: [
+				assignment('2026-10-26', 'cq', 'p-a'),
+				assignment('2026-11-02', 'cq', 'p-keep'),
+				assignment('2026-11-03', 'cq', 'p-other'),
+				assignment('2026-10-28', 'cq', 'p-b')
+			]
+		});
+
+		expect(result.writes).toEqual([{ date: '2026-11-04', assignmentTypeId: 'cq', assigneeId: 'p-b' }]);
+		expect(result.skips).toEqual([]);
+		expect(result.filled).toBe(1);
+	});
+
+	it('sorts skips by date, then by column order', () => {
+		const result = plan({
+			span: week('2026-11-02'),
+			columns: [cq, sd],
+			assignments: [
+				assignment('2026-10-28', 'sd', 'p-a'),
+				assignment('2026-10-28', 'cq', 'p-a'),
+				assignment('2026-10-27', 'sd', 'p-a')
+			],
+			entries: [{ id: 'e', personnelId: 'p-a', statusTypeId: 'leave', startDate: '2026-11-03', endDate: '2026-11-04' }]
+		});
+
+		expect(result.skips.map((skip) => `${skip.targetDate} ${skip.typeId}`)).toEqual([
+			'2026-11-03 sd',
+			'2026-11-04 cq',
+			'2026-11-04 sd'
 		]);
 	});
 });

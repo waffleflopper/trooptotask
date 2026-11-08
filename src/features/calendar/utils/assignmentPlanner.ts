@@ -1,9 +1,11 @@
 import type { AssignmentType, DailyAssignment, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { formatDate, getMonthDates, isWeekend, parseDate } from '$lib/utils/dates';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import { takesDutyOn } from '$features/calendar/roster/rosterCalendar';
 import { availabilityEntryLabel } from './availabilityLabels';
 import { assignmentSlotKey } from './calendarIndexes';
-import type { DutyConflicts } from './dutyReadModel';
+import { coveringLabel, type DutyAvailabilityIndex, type DutyConflicts } from './dutyReadModel';
 import { effectLabel, type RosterView } from './plannerRosters';
 
 export type QuickFillDays = 'weekdays' | 'weekends' | 'all';
@@ -220,4 +222,119 @@ export function buildQuickFillBatch(input: {
 		.map(formatDate)
 		.filter((dateKey) => !input.onlyOpenDays || !input.assignmentsBySlot.has(assignmentSlotKey(dateKey, input.typeId)))
 		.map((dateKey) => ({ date: dateKey, assignmentTypeId: input.typeId, assigneeId: input.assigneeId }));
+}
+
+/** What Copy takes from the days before the shown month: every day of the previous month, or one Monday-start week. */
+export type CopySpan = { kind: 'month' } | { kind: 'week'; weekStart: string };
+
+export type CopySkipReason = 'missing-day' | 'no-duty' | 'unavailable';
+
+export interface CopySkip {
+	readonly typeId: string;
+	readonly sourceDate: string;
+	/** Null for `missing-day`, since the target month has no such day. */
+	readonly targetDate: string | null;
+	readonly assigneeId: string;
+	readonly reason: CopySkipReason;
+	/** For `unavailable`, why the person is out that day, such as "Leave 20–23 Oct". */
+	readonly detail?: string;
+}
+
+export interface CopyPlan {
+	/** The empty slots Copy fills, in date then column order. */
+	readonly writes: AssignmentWrite[];
+	readonly skips: readonly CopySkip[];
+	/** Target slots that already have someone, so Copy leaves them alone. */
+	readonly filled: number;
+}
+
+/** Most records one batch save takes; the batch endpoint refuses more. */
+export const MAX_COPY_WRITES = 1000;
+
+/** The Monday of every week that overlaps the month `anchor` falls in, as yyyy-mm-dd. */
+export function monthWeekStarts(anchor: Date): string[] {
+	const dates = getMonthDates(anchor.getFullYear(), anchor.getMonth()).map(formatDate);
+	const starts = new Set(dates.map(mondayOf));
+	return [...starts];
+}
+
+export function mondayOf(dateKey: string): string {
+	const day = toDayNumber(dateKey);
+	// Day 0 is Thursday 1 Jan 1970, so (day + 4) % 7 is 0 on Sunday.
+	return fromDayNumber(day - (((day + 4) % 7) + 6) % 7);
+}
+
+/**
+ * What copying the previous week or month into the month `anchor` falls in does. Week: each day of `weekStart`'s
+ * week that falls in the month takes the assignment of the day seven days before it. Month: each day of the previous
+ * month goes to the same day number. Only empty slots are filled. A source assignment that cannot be copied is
+ * listed with its reason: the target month lacks the day, the duty takes no duty that day, or the person is
+ * unavailable that day. Group assignees copy as they are.
+ */
+export function buildCopyPlan(input: {
+	anchor: Date;
+	span: CopySpan;
+	/** Every planner column, so a Group and a person duty copy together. */
+	columns: readonly AssignmentType[];
+	/** Source and target slots alike. */
+	assignmentsBySlot: ReadonlyMap<string, DailyAssignment>;
+	/** Entries that take a person off duty, by person. */
+	availabilityByPerson: DutyAvailabilityIndex;
+	statusTypes: readonly StatusType[];
+	specialDays: readonly SpecialDay[];
+}): CopyPlan {
+	const year = input.anchor.getFullYear();
+	const month = input.anchor.getMonth();
+	const monthKeys = getMonthDates(year, month).map(formatDate);
+	const inMonth = new Set(monthKeys);
+
+	const { span } = input;
+	const pairs: { sourceDate: string; targetDate: string | null }[] =
+		span.kind === 'week'
+			? Array.from({ length: 7 }, (_, offset) => fromDayNumber(toDayNumber(span.weekStart) + offset))
+					.filter((targetDate) => inMonth.has(targetDate))
+					.map((targetDate) => ({ sourceDate: fromDayNumber(toDayNumber(targetDate) - 7), targetDate }))
+			: getMonthDates(year, month - 1)
+					.map(formatDate)
+					.map((sourceDate) => {
+						const targetDate = `${monthKeys[0].slice(0, 8)}${sourceDate.slice(8)}`;
+						return { sourceDate, targetDate: inMonth.has(targetDate) ? targetDate : null };
+					});
+
+	const holidays = new Set(input.specialDays.map((day) => toDayNumber(day.date)));
+	const statusName = new Map(input.statusTypes.map((status) => [status.id, status.name]));
+	const writes: AssignmentWrite[] = [];
+	const skips: CopySkip[] = [];
+	let filled = 0;
+
+	for (const { sourceDate, targetDate } of pairs) {
+		for (const type of input.columns) {
+			const assigneeId = input.assignmentsBySlot.get(assignmentSlotKey(sourceDate, type.id))?.assigneeId;
+			if (!assigneeId) continue;
+			const skip = (reason: CopySkipReason, detail?: string) =>
+				skips.push({ typeId: type.id, sourceDate, targetDate, assigneeId, reason, ...(detail && { detail }) });
+			if (targetDate === null) {
+				skip('missing-day');
+			} else if (input.assignmentsBySlot.has(assignmentSlotKey(targetDate, type.id))) {
+				filled++;
+			} else if (!takesDutyOn(type, toDayNumber(targetDate), holidays)) {
+				skip('no-duty');
+			} else {
+				const unavailable =
+					type.assignTo === 'personnel'
+						? coveringLabel(input.availabilityByPerson.get(assigneeId), targetDate, statusName)
+						: undefined;
+				if (unavailable) skip('unavailable', unavailable);
+				else writes.push({ date: targetDate, assignmentTypeId: type.id, assigneeId });
+			}
+		}
+	}
+
+	const columnOrder = new Map(input.columns.map((type, index) => [type.id, index]));
+	skips.sort(
+		(a, b) =>
+			(a.targetDate ?? a.sourceDate).localeCompare(b.targetDate ?? b.sourceDate) ||
+			columnOrder.get(a.typeId)! - columnOrder.get(b.typeId)!
+	);
+	return { writes, skips, filled };
 }

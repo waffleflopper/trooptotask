@@ -14,7 +14,7 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { navigating } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { afterNavigate, goto, invalidate } from '$app/navigation';
 	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
 	import { resolve } from '$app/paths';
@@ -136,14 +136,16 @@
 		);
 	}
 
-	// Undo belongs to this page and Organization: leaving either, or switching Organizations, turns it off.
+	// Undo belongs to this route and Organization: leaving either turns it off. The page component is replaced whenever
+	// the Calendar data refreshes after a save, so the route is read from the URL, not from this component's lifetime.
 	// A prefilled Add returns to its Tasking on its own, so its Undo follows the Organization alone.
 	function undoAction(change: AvailabilityUndoChange) {
 		const orgId = data.orgId;
+		const path = page.url.pathname;
 		const returnsToTasking = prefill !== null;
 		return availabilityUndoAction(change, {
 			orgId,
-			isCurrent: () => returnsToTasking || (active && data.orgId === orgId),
+			isCurrent: () => returnsToTasking || page.url.pathname === path,
 			onUndone: refreshCalendar
 		});
 	}

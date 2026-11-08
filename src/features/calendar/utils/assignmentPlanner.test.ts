@@ -297,6 +297,7 @@ describe('copying the previous week or month', () => {
 		columns?: AssignmentType[];
 		entries?: AvailabilityEntry[];
 		specialDays?: SpecialDay[];
+		personnelIds?: ReadonlySet<string>;
 	}) {
 		return buildCopyPlan({
 			anchor: input.anchor ?? november,
@@ -304,6 +305,7 @@ describe('copying the previous week or month', () => {
 			columns: input.columns ?? [cq],
 			assignmentsBySlot: indexAssignmentsBySlot(input.assignments),
 			availabilityByPerson: indexDutyAvailability(input.entries ?? []),
+			personnelIds: input.personnelIds ?? new Set(input.assignments.map((row) => row.assigneeId)),
 			statusTypes: [leave],
 			specialDays: input.specialDays ?? []
 		});
@@ -441,6 +443,27 @@ describe('copying the previous week or month', () => {
 				reason: 'unavailable',
 				detail: 'Leave 3–5 Nov'
 			}
+		]);
+	});
+
+	it('skips a person no longer on the roster, but still copies a Group', () => {
+		const result = plan({
+			span: week('2026-11-02'),
+			assignments: [
+				assignment('2026-10-27', 'cq', 'p-gone'),
+				assignment('2026-10-28', 'cq', 'p-b'),
+				assignment('2026-10-27', 'gg', 'g-alpha')
+			],
+			columns: [cq, platoon],
+			personnelIds: new Set(['p-b'])
+		});
+
+		expect(result.writes).toEqual([
+			{ date: '2026-11-03', assignmentTypeId: 'gg', assigneeId: 'g-alpha' },
+			{ date: '2026-11-04', assignmentTypeId: 'cq', assigneeId: 'p-b' }
+		]);
+		expect(result.skips).toEqual([
+			{ typeId: 'cq', sourceDate: '2026-10-27', targetDate: '2026-11-03', assigneeId: 'p-gone', reason: 'off-roster' }
 		]);
 	});
 

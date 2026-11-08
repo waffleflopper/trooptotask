@@ -85,7 +85,7 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   reason under an unavailable person.
 - `planner-copy`: the Duty planner's `Copy` menu offers `Previous week…` and `Previous month…`. Each opens a dialog that
   fills only empty slots, previews `Fills N slots` and `Leaves N filled slots alone`, lists every `Not copied` slot with
-  its reason (`<month> has no day N`, the duty takes no duty that day, `Excused from this duty: <reason>`, `Unavailable: <status and dates>`) and saves the
+  its reason (`<month> has no day N`, the duty takes no duty that day, `No longer on your roster`, `Excused from this duty: <reason>`, `Unavailable: <status and dates>`) and saves the
   fills in one batch with `Copy N slots`, disabled at 0. The previous month reads beside the shown month, and the
   dialog waits on it with a status or `Retry`.
 - `planner-states`: the monthly table, loading, failed save, keyboard and focus, denied and scoped states, and

@@ -227,7 +227,7 @@ export function buildQuickFillBatch(input: {
 /** What Copy takes from the days before the shown month: every day of the previous month, or one Monday-start week. */
 export type CopySpan = { kind: 'month' } | { kind: 'week'; weekStart: string };
 
-export type CopySkipReason = 'missing-day' | 'no-duty' | 'excused' | 'unavailable';
+export type CopySkipReason = 'missing-day' | 'no-duty' | 'off-roster' | 'excused' | 'unavailable';
 
 export interface CopySkip {
 	readonly typeId: string;
@@ -280,6 +280,8 @@ export function buildCopyPlan(input: {
 	assignmentsBySlot: ReadonlyMap<string, DailyAssignment>;
 	/** Entries that take a person off duty, by person. */
 	availabilityByPerson: DutyAvailabilityIndex;
+	/** The people the planner offers. Someone archived or outside the viewer's scope since is not copied. */
+	personnelIds: ReadonlySet<string>;
 	statusTypes: readonly StatusType[];
 	specialDays: readonly SpecialDay[];
 }): CopyPlan {
@@ -322,6 +324,8 @@ export function buildCopyPlan(input: {
 				filled++;
 			} else if (!takesDutyOn(type, toDayNumber(targetDate), holidays)) {
 				skip('no-duty');
+			} else if (type.assignTo === 'personnel' && !input.personnelIds.has(assigneeId)) {
+				skip('off-roster');
 			} else if (excusal(type, assigneeId)) {
 				skip('excused', excusal(type, assigneeId)!.reason);
 			} else {

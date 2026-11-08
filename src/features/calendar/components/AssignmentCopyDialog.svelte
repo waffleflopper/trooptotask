@@ -28,6 +28,7 @@
 		/** Source and target slots alike. */
 		assignmentsBySlot: ReadonlyMap<string, DailyAssignment>;
 		availabilityByPerson: DutyAvailabilityIndex;
+		personnelIds: ReadonlySet<string>;
 		statusTypes: readonly StatusType[];
 		specialDays: readonly SpecialDay[];
 		assigneeName: (type: AssignmentType, assigneeId: string) => string;
@@ -47,6 +48,7 @@
 		columns,
 		assignmentsBySlot,
 		availabilityByPerson,
+		personnelIds,
 		statusTypes,
 		specialDays,
 		assigneeName,
@@ -87,6 +89,7 @@
 					columns,
 					assignmentsBySlot,
 					availabilityByPerson,
+					personnelIds,
 					statusTypes,
 					specialDays
 				})
@@ -100,6 +103,7 @@
 	function skipReason(skip: CopySkip): string {
 		if (skip.reason === 'missing-day') return `${monthName} has no day ${Number(skip.sourceDate.slice(8))}`;
 		if (skip.reason === 'no-duty') return 'Takes no duty that day';
+		if (skip.reason === 'off-roster') return 'No longer on your roster';
 		if (skip.reason === 'excused') return `Excused from this duty${skip.detail ? `: ${skip.detail}` : ''}`;
 		return `Unavailable: ${skip.detail}`;
 	}

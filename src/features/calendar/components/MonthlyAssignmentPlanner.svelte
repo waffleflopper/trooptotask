@@ -773,6 +773,7 @@
 		{columns}
 		{assignmentsBySlot}
 		{availabilityByPerson}
+		personnelIds={new Set(personById.keys())}
 		{statusTypes}
 		{specialDays}
 		{assigneeName}

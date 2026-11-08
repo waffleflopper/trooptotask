@@ -31,10 +31,13 @@
 	let editing = $state<{ typeId: string | null } | null>(null);
 
 	const types = $derived(catalog.state === 'ready' ? catalog.catalog.trainingTypes : []);
+	const activeTypes = $derived(types.filter((type) => !type.archivedAt));
 	const added = (name: string) => types.some((type) => type.name === name);
 	const open = $derived(suggestions.filter((suggestion) => !added(suggestion.name)));
 	const toAdd = $derived(open.filter((suggestion) => !unpicked.has(suggestion.id)));
-	const ownTypes = $derived(types.filter((type) => !suggestions.some((suggestion) => suggestion.name === type.name)));
+	const ownTypes = $derived(
+		activeTypes.filter((type) => !suggestions.some((suggestion) => suggestion.name === type.name))
+	);
 
 	let loads = 0;
 	async function loadCatalog({ quiet = false } = {}) {
@@ -158,7 +161,7 @@
 						{/each}
 					</div>
 				{:else}
-					{@render typeRows(types)}
+					{@render typeRows(activeTypes)}
 				{/if}
 			</PanelSection>
 		{:else}

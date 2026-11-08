@@ -214,17 +214,24 @@ SELECT throws_ok($$ INSERT INTO public.onboarding_step_progress (
   '23503', NULL, 'new foreign progress reference is rejected');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'c8000000-0000-4000-8000-000000000001', true);
+SELECT throws_ok($$ DELETE FROM public.training_types
+  WHERE id = 'c8000000-0000-4000-8000-000000000304' $$, '23503', NULL,
+  'a type with completions can no longer be deleted');
+RESET ROLE;
+DELETE FROM public.personnel_training_history
+  WHERE training_type_id = 'c8000000-0000-4000-8000-000000000304';
+DELETE FROM public.personnel_trainings
+  WHERE id = 'c8000000-0000-4000-8000-000000001001';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'c8000000-0000-4000-8000-000000000001', true);
 SELECT lives_ok($$ DELETE FROM public.training_types
   WHERE id = 'c8000000-0000-4000-8000-000000000304' $$,
-  'Organization configurator can delete a type with only its own references');
+  'Organization configurator can delete a type once it has no completions');
 SELECT lives_ok($$ SET CONSTRAINTS personnel_trainings_training_type_id_fkey,
   onboarding_template_steps_training_type_id_fkey,
   onboarding_step_progress_training_type_id_fkey IMMEDIATE $$,
   'same-Organization reference actions satisfy the deferred global constraints');
 RESET ROLE;
-SELECT is((SELECT count(*)::integer FROM public.personnel_trainings
-  WHERE id = 'c8000000-0000-4000-8000-000000001001'), 0,
-  'same-Organization completion cascades');
 SELECT is((SELECT count(*)::integer FROM public.onboarding_template_steps
   WHERE id = 'c8000000-0000-4000-8000-000000000901'
     AND organization_id = 'c8000000-0000-4000-8000-000000000101'

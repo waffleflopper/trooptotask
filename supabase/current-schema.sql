@@ -1503,15 +1503,21 @@ BEGIN
     IF NEW.description IS DISTINCT FROM OLD.description THEN
       v_change := v_change || pg_catalog.jsonb_build_object('description', true);
     END IF;
-    IF v_change = '{}'::jsonb AND NOT (OLD.exempt_personnel_ids IS DISTINCT FROM NEW.exempt_personnel_ids) THEN
+    IF v_change = '{}'::jsonb AND NOT (OLD.exempt_personnel_ids IS DISTINCT FROM NEW.exempt_personnel_ids)
+      AND NOT ((OLD.archived_at IS NULL) <> (NEW.archived_at IS NULL))
+    THEN
       RETURN NULL;
     END IF;
+    v_kind := CASE
+      WHEN OLD.archived_at IS NULL AND NEW.archived_at IS NOT NULL THEN 'training_type.archived'
+      WHEN OLD.archived_at IS NOT NULL AND NEW.archived_at IS NULL THEN 'training_type.restored'
+      ELSE 'training_type.updated' END;
   END IF;
   v_details := '{}'::jsonb;
   IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
     v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
   END IF;
-  IF TG_OP <> 'UPDATE' OR v_change <> '{}'::jsonb THEN
+  IF TG_OP <> 'UPDATE' OR v_change <> '{}'::jsonb OR v_kind <> 'training_type.updated' THEN
     PERFORM audit_private.record_entry(
       v_row.organization_id, v_kind, 'training_type', v_row.id, v_row.name,
       NULL, NULL, v_details
@@ -4183,6 +4189,27 @@ $$;
 
 
 ALTER FUNCTION organization_private.stamp_archived_by() OWNER TO postgres;
+
+--
+-- Name: stamp_catalog_archived_at(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.stamp_catalog_archived_at() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.archived_at := NULL;
+  ELSIF NEW.archived_at IS NOT NULL THEN
+    NEW.archived_at := coalesce(OLD.archived_at, pg_catalog.now());
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.stamp_catalog_archived_at() OWNER TO postgres;
 
 --
 -- Name: stamp_feedback_reporter(); Type: FUNCTION; Schema: organization_private; Owner: postgres
@@ -11964,7 +11991,7 @@ CREATE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_si
           'exempt_personnel_ids', t.exempt_personnel_ids, 'is_optional', t.is_optional
         ) ORDER BY t.sort_order, t.id)
         FROM public.training_types t
-        WHERE t.organization_id = p_organization_id
+        WHERE t.organization_id = p_organization_id AND t.archived_at IS NULL
           AND (SELECT public.member_access_has_capability(p_organization_id, 'training', 'view'))
       ), '[]'::jsonb),
       'completions', COALESCE((
@@ -11972,6 +11999,7 @@ CREATE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_si
           ORDER BY pt.personnel_id, pt.training_type_id)
         FROM public.personnel_trainings pt
         JOIN training_cohort c ON c.id = pt.personnel_id
+        JOIN public.training_types t ON t.id = pt.training_type_id AND t.archived_at IS NULL
         WHERE pt.organization_id = p_organization_id
       ), '[]'::jsonb)
     ) END,
@@ -13018,11 +13046,12 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('training-type-order:' || p_organization_id::text, 0)
   );
-  -- NO KEY UPDATE on every type holds the set against delete and edits without
+  -- The order covers active types only; archived types keep their position.
+  -- NO KEY UPDATE on every active type holds the set against delete and edits without
   -- blocking foreign-key checks from rows that reference a type. It also
   -- applies the update policy, so authority is rechecked after the waits.
   PERFORM 1 FROM public.training_types
-  WHERE organization_id = p_organization_id
+  WHERE organization_id = p_organization_id AND archived_at IS NULL
   ORDER BY id
   FOR NO KEY UPDATE;
   IF public.can_manage_training_configuration(p_organization_id) IS NOT TRUE THEN
@@ -13031,7 +13060,7 @@ BEGIN
 
   SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, id), '{}') INTO v_saved
   FROM public.training_types
-  WHERE organization_id = p_organization_id;
+  WHERE organization_id = p_organization_id AND archived_at IS NULL;
   -- A replay after a lost reply, or the same change from two people, converges
   -- before the precondition can report a false conflict.
   IF v_saved = p_training_type_ids THEN
@@ -13055,7 +13084,7 @@ BEGIN
 
   UPDATE public.training_types AS t SET sort_order = (o.ordinal - 1)::integer
   FROM pg_catalog.unnest(p_training_type_ids) WITH ORDINALITY AS o(id, ordinal)
-  WHERE t.organization_id = p_organization_id AND t.id = o.id AND t.sort_order <> o.ordinal - 1;
+  WHERE t.organization_id = p_organization_id AND t.archived_at IS NULL AND t.id = o.id AND t.sort_order <> o.ordinal - 1;
 
   -- Row security silently hides rows from a write whose author lost authority
   -- after the check above.
@@ -13063,7 +13092,7 @@ BEGIN
     RAISE EXCEPTION 'Training configuration is not allowed' USING ERRCODE = '42501';
   END IF;
   IF (SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, id), '{}')
-      FROM public.training_types WHERE organization_id = p_organization_id)
+      FROM public.training_types WHERE organization_id = p_organization_id AND archived_at IS NULL)
      IS DISTINCT FROM p_training_type_ids
   THEN
     RAISE EXCEPTION 'Training type order was not saved' USING ERRCODE = 'TTO01';
@@ -13704,6 +13733,35 @@ $$;
 
 
 ALTER FUNCTION public.training_record_type_matches(p_organization_id uuid, p_training_type_id uuid) OWNER TO postgres;
+
+--
+-- Name: training_type_record_counts(uuid); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.training_type_record_counts(p_organization_id uuid) RETURNS TABLE(training_type_id uuid, record_count bigint)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF auth.uid() IS NULL OR p_organization_id IS NULL
+    OR public.can_manage_training_configuration(p_organization_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Training configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  SELECT t.id,
+    (SELECT pg_catalog.count(*) FROM public.personnel_trainings r
+      WHERE r.organization_id = t.organization_id AND r.training_type_id = t.id)
+    + (SELECT pg_catalog.count(*) FROM public.personnel_training_history h
+      WHERE h.organization_id = t.organization_id AND h.training_type_id = t.id)
+  FROM public.training_types t
+  WHERE t.organization_id = p_organization_id
+  ORDER BY t.id;
+END;
+$$;
+
+
+ALTER FUNCTION public.training_type_record_counts(p_organization_id uuid) OWNER TO postgres;
 
 --
 -- Name: training_views_set_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -15474,7 +15532,8 @@ CREATE TABLE public.training_types (
     excluded_roles text[] DEFAULT '{}'::text[] NOT NULL,
     excluded_mos text[] DEFAULT '{}'::text[] NOT NULL,
     excluded_ranks text[] DEFAULT '{}'::text[] NOT NULL,
-    is_optional boolean DEFAULT false NOT NULL
+    is_optional boolean DEFAULT false NOT NULL,
+    archived_at timestamp with time zone
 );
 
 
@@ -17411,6 +17470,13 @@ CREATE INDEX personnel_trainings_certificate_url_idx ON public.personnel_trainin
 
 
 --
+-- Name: personnel_trainings_type_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX personnel_trainings_type_idx ON public.personnel_trainings USING btree (organization_id, training_type_id);
+
+
+--
 -- Name: platform_error_groups_first_reported_by_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -18255,6 +18321,13 @@ CREATE TRIGGER set_training_views_updated_at BEFORE UPDATE ON public.training_vi
 --
 
 CREATE TRIGGER set_user_org_preferences_updated_at BEFORE UPDATE ON public.user_org_preferences FOR EACH ROW EXECUTE FUNCTION public.user_org_preferences_set_updated_at();
+
+
+--
+-- Name: training_types stamp_archived_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_archived_at BEFORE INSERT OR UPDATE ON public.training_types FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_catalog_archived_at();
 
 
 --
@@ -19326,7 +19399,7 @@ ALTER TABLE ONLY public.personnel
 --
 
 ALTER TABLE ONLY public.personnel_training_history
-    ADD CONSTRAINT personnel_training_history_org_training_type_fkey FOREIGN KEY (organization_id, training_type_id) REFERENCES public.training_types(organization_id, id) ON DELETE CASCADE;
+    ADD CONSTRAINT personnel_training_history_org_training_type_fkey FOREIGN KEY (organization_id, training_type_id) REFERENCES public.training_types(organization_id, id);
 
 
 --
@@ -19358,7 +19431,7 @@ ALTER TABLE ONLY public.personnel_trainings
 --
 
 ALTER TABLE ONLY public.personnel_trainings
-    ADD CONSTRAINT personnel_trainings_org_training_type_fkey FOREIGN KEY (organization_id, training_type_id) REFERENCES public.training_types(organization_id, id) ON DELETE CASCADE NOT VALID;
+    ADD CONSTRAINT personnel_trainings_org_training_type_fkey FOREIGN KEY (organization_id, training_type_id) REFERENCES public.training_types(organization_id, id) NOT VALID;
 
 
 --
@@ -22253,6 +22326,13 @@ REVOKE ALL ON FUNCTION organization_private.stamp_archived_by() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION stamp_catalog_archived_at(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.stamp_catalog_archived_at() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION stamp_feedback_reporter(); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
@@ -24233,6 +24313,14 @@ GRANT ALL ON FUNCTION public.training_personnel_scope_matches(p_organization_id 
 
 REVOKE ALL ON FUNCTION public.training_record_type_matches(p_organization_id uuid, p_training_type_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.training_record_type_matches(p_organization_id uuid, p_training_type_id uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION training_type_record_counts(p_organization_id uuid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.training_type_record_counts(p_organization_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.training_type_record_counts(p_organization_id uuid) TO authenticated;
 
 
 --

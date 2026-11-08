@@ -3375,6 +3375,7 @@ export type Database = {
           applies_to_mos: string[]
           applies_to_ranks: string[]
           applies_to_roles: string[]
+          archived_at: string | null
           can_be_exempted: boolean
           color: string
           created_at: string
@@ -3397,6 +3398,7 @@ export type Database = {
           applies_to_mos?: string[]
           applies_to_ranks?: string[]
           applies_to_roles?: string[]
+          archived_at?: string | null
           can_be_exempted?: boolean
           color?: string
           created_at?: string
@@ -3419,6 +3421,7 @@ export type Database = {
           applies_to_mos?: string[]
           applies_to_ranks?: string[]
           applies_to_roles?: string[]
+          archived_at?: string | null
           can_be_exempted?: boolean
           color?: string
           created_at?: string
@@ -5247,6 +5250,13 @@ export type Database = {
       training_record_type_matches: {
         Args: { p_organization_id: string; p_training_type_id: string }
         Returns: boolean
+      }
+      training_type_record_counts: {
+        Args: { p_organization_id: string }
+        Returns: {
+          record_count: number
+          training_type_id: string
+        }[]
       }
       transfer_org_ownership: {
         Args: { p_new_owner_id: string; p_organization_id: string }

@@ -12,6 +12,7 @@ const saved = (id: string, name: string) => ({
 	color: '#16a34a',
 	textColor: '#ffffff',
 	shortLabel: null,
+	archivedAt: null,
 	rosterEffect: 'A' as const,
 	sortOrder: 0
 });
@@ -96,6 +97,14 @@ describe('CalendarTypesEmptyState', () => {
 		expect(screen.getByRole('checkbox', { name: 'Sick' })).toBeTruthy();
 	});
 
+	it('offers the starters again when every saved status is archived, except one whose name an archived status holds', () => {
+		statusTypesStore.load([{ ...saved('s1', 'Leave'), archivedAt: '2030-01-02T03:04:05Z' }], 'alpha');
+		render(CalendarTypeSetupHost, { props: { kind: 'status', setup: manager } });
+
+		expect(screen.queryByRole('checkbox', { name: 'Leave' })).toBeNull();
+		expect(screen.getByRole('checkbox', { name: 'School' })).toBeTruthy();
+	});
+
 	it('does not offer a starter status the Organization already has by name', () => {
 		statusTypesStore.load(
 			[
@@ -106,7 +115,8 @@ describe('CalendarTypesEmptyState', () => {
 					textColor: '#ffffff',
 					shortLabel: null,
 					rosterEffect: 'A',
-					sortOrder: 0
+					sortOrder: 0,
+					archivedAt: null
 				}
 			],
 			'alpha'
@@ -151,6 +161,7 @@ describe('CalendarTypesEmptyState', () => {
 			color: '#48bb78',
 			textColor: '#ffffff',
 			shortLabel: null,
+			archivedAt: null,
 			rosterEffect: 'A',
 			sortOrder: 0
 		};
@@ -183,6 +194,7 @@ describe('CalendarTypesEmptyState', () => {
 						color: '#48bb78',
 						textColor: '#ffffff',
 						shortLabel: null,
+						archivedAt: null,
 						rosterEffect: 'A',
 						sortOrder: 0
 					}

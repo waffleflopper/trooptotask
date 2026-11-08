@@ -11,9 +11,11 @@
 	import RosterCodeChip from './RosterCodeChip.svelte';
 	import StatusTypeComposer from './StatusTypeComposer.svelte';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
+	import { ArchivedTypes } from '$lib/components/patterns/archived-types';
 	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { CatalogUsageView } from '$lib/stores/core/catalogUsage.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	type Props = {
@@ -31,9 +33,10 @@
 	let composerView = $state<StatusTypeComposer>();
 	let discard = $state<{ next: ComposerTarget | null } | null>(null);
 	let confirmDelete = $state<StatusType | null>(null);
+	let confirmArchive = $state<StatusType | null>(null);
 	let addOpener: HTMLElement | null = null;
 
-	const items = $derived(statusTypesStore.items);
+	const items = $derived(statusTypesStore.active);
 	// A save in flight shows the order being saved; a type it does not name still shows, last.
 	const statuses = $derived.by(() => {
 		const pending = statusTypesStore.pendingOrder;
@@ -46,6 +49,17 @@
 	// The row being edited stays, so a filter never destroys an unsaved draft.
 	const visibleStatuses = $derived(
 		statuses.filter((status) => !query || status.name.toLowerCase().includes(query) || editing(status))
+	);
+
+	const archivedStatuses = $derived(
+		statusTypesStore.items
+			.filter((status) => status.archivedAt)
+			.map((status) => ({ ...status, archivedAt: status.archivedAt as string }))
+			.sort((a, b) => a.name.localeCompare(b.name))
+	);
+	const usage = new CatalogUsageView(
+		() => statusTypesStore.orgId,
+		() => statusTypesStore.loadUsage()
 	);
 
 	export function openAddDialog() {
@@ -77,6 +91,25 @@
 
 	function editing(status: StatusType) {
 		return composer?.kind === 'edit' && composer.id === status.id;
+	}
+
+	async function archiveStatus(status: StatusType) {
+		try {
+			await statusTypesStore.setArchived(status.id, true);
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to archive status type');
+			return;
+		}
+		if (editing(status)) composer = null;
+		confirmArchive = null;
+	}
+
+	async function restoreStatus(id: string) {
+		try {
+			await statusTypesStore.setArchived(id, false);
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to restore status type');
+		}
 	}
 
 	async function deleteStatus(status: StatusType) {
@@ -201,9 +234,8 @@
 												>Edit</DropdownMenu.Item
 											>
 											<DropdownMenu.Item
-												variant="destructive"
 												disabled={statusTypesStore.orderBusy}
-												onSelect={() => (confirmDelete = status)}>Delete</DropdownMenu.Item
+												onSelect={() => (confirmArchive = status)}>Archive</DropdownMenu.Item
 											>
 										</DropdownMenu.Content>
 									</DropdownMenu.Root>
@@ -225,6 +257,25 @@
 			{@render noStatusTypes()}
 		{/if}
 	</section>
+
+	{#if canMutate && archivedStatuses.length > 0}
+		<ArchivedTypes
+			title="Archived"
+			types={archivedStatuses}
+			{usage}
+			recordNoun={{ one: 'entry', many: 'entries' }}
+			onOpen={() => void usage.load()}
+			onRestore={restoreStatus}
+			onDelete={(id) => (confirmDelete = archivedStatuses.find((status) => status.id === id) ?? null)}
+		>
+			{#snippet leading(row)}
+				{@const status = archivedStatuses.find((item) => item.id === row.id)}
+				{#if status}
+					<StatusBar class="w-28 shrink-0" {status} label={{ kind: 'name', text: status.name }} aria-hidden="true" />
+				{/if}
+			{/snippet}
+		</ArchivedTypes>
+	{/if}
 </div>
 
 {#if discard}
@@ -240,12 +291,25 @@
 	/>
 {/if}
 
+{#if confirmArchive}
+	<ConfirmDialog
+		title="Archive Status Type"
+		message={confirmArchive.rosterEffect === 'available'
+			? `Archive "${confirmArchive.name}"? Its schedule entries stay on the calendar and in reports. It no longer appears when you add entries, and you can restore it from Archived.`
+			: `Archive "${confirmArchive.name}"? Its schedule entries stay on the calendar and in reports. It no longer appears when you add entries, and you can restore it from Archived. Open DA 6 forms recalculate their counts without it; closed forms keep their saved numbers.`}
+		confirmLabel="Archive"
+		variant="default"
+		onConfirm={() => {
+			if (confirmArchive) return archiveStatus(confirmArchive);
+		}}
+		onCancel={() => (confirmArchive = null)}
+	/>
+{/if}
+
 {#if confirmDelete}
 	<ConfirmDialog
 		title="Delete Status Type"
-		message={confirmDelete.rosterEffect === 'available'
-			? `Remove "${confirmDelete.name}"? This removes every schedule entry with this status. This cannot be undone.`
-			: `Remove "${confirmDelete.name}"? This removes every schedule entry with this status. Open DA 6 forms recalculate their counts; closed forms keep their saved numbers. This cannot be undone.`}
+		message={`Delete "${confirmDelete.name}" permanently? It has no schedule entries. This cannot be undone.`}
 		confirmLabel="Delete"
 		onConfirm={() => {
 			if (confirmDelete) return deleteStatus(confirmDelete);

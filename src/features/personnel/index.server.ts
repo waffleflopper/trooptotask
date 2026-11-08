@@ -9,6 +9,7 @@ export type {
 	SelfPinPersistence
 } from './contracts';
 export { createPersonnelRecord, updatePersonnelRecord } from './personnelRecordOperations.server';
+export { setPersonnelFieldBatch } from './personnelFieldBatch.server';
 export {
 	archivePersonnelLeaderNote,
 	countPersonnelLeaderNotes,

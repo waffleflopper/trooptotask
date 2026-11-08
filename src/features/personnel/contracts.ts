@@ -67,6 +67,19 @@ export type {
 	TodayStatus
 } from './rosterSignals';
 
+export {
+	BULK_FIELDS,
+	BULK_FIELD_KEYS,
+	FIELD_BATCH_UNCONFIRMED_MESSAGE,
+	PERSONNEL_FIELD_BATCH_LIMIT
+} from './personnelFieldBatch';
+export type {
+	BulkField,
+	PersonnelFieldBatchResult,
+	PersonnelFieldOutcome,
+	PersonnelFieldResult
+} from './personnelFieldBatch';
+
 export { ROSTER_PEEK_DAYS, ROSTER_PEEK_FOLLOW_UPS, ROSTER_PEEK_SECTIONS, isRosterPeekSection } from './rosterPeek';
 export type { RosterPeekRead, RosterPeekSection, RosterPeekValues } from './rosterPeek';
 

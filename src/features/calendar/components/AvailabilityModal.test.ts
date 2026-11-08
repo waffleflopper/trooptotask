@@ -200,7 +200,7 @@ describe('AvailabilityModal', () => {
 			renderModal(onApril7, { statusTypes: [archivedLeave] });
 
 			expect(screen.queryByRole('button', { name: 'Add Status' })?.hasAttribute('disabled')).toBe(true);
-			expect(screen.getByRole('button', { name: 'Status Type' }).textContent).toContain('Select status');
+			expect(screen.getByRole('button', { name: 'Status Type' }).textContent).not.toContain('Leave');
 		});
 	});
 

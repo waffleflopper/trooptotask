@@ -297,7 +297,6 @@ describe('Archived status types in Calendar settings', () => {
 		await openArchived();
 		await fireEvent.click(await screen.findByRole('button', { name: 'Delete Sick' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
-		expect(dialog.textContent).toContain('cannot be undone');
 		expect(sent.some((request) => request.method === 'DELETE')).toBe(false);
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 

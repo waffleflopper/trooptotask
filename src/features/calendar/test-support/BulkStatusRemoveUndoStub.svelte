@@ -4,6 +4,8 @@
 	import type { ToastAction } from '$lib/stores/toast.svelte';
 
 	export const offered: ToastAction[] = [];
+	/** The page's Undo factory, for a save that finishes after the page is gone. */
+	export const factories: ((change: AvailabilityUndoChange) => ToastAction)[] = [];
 	export const removedEntry: AvailabilityEntry = {
 		id: 'entry-1',
 		personnelId: 'person-1',
@@ -16,6 +18,7 @@
 
 <script lang="ts">
 	let { undoAction }: { undoAction: (change: AvailabilityUndoChange) => ToastAction } = $props();
+	factories.push((change) => undoAction(change));
 	const offer = () => offered.push(undoAction({ restore: [removedEntry] }));
 	offer();
 </script>

@@ -4,7 +4,7 @@ import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/svelte';
 import BulkStatusPage from './BulkStatusPage.svelte';
-import { offered, removedEntry } from '../test-support/BulkStatusRemoveUndoStub.svelte';
+import { factories, offered, removedEntry } from '../test-support/BulkStatusRemoveUndoStub.svelte';
 
 const { pageMock } = vi.hoisted(() => ({
 	pageMock: { url: new URL('http://localhost/org/org-1/calendar/bulk?tab=remove') }
@@ -52,6 +52,7 @@ describe('Undo offered by Bulk Status', () => {
 	beforeEach(() => {
 		cleanup();
 		offered.length = 0;
+		factories.length = 0;
 		fetchMock.mockReset();
 		fetchMock.mockResolvedValue(Response.json({ removedIds: [], restoredIds: ['entry-1'], changedIds: [] }));
 		vi.stubGlobal('fetch', fetchMock);
@@ -80,6 +81,17 @@ describe('Undo offered by Bulk Status', () => {
 		pageMock.url = new URL('http://localhost/org/org-1/personnel');
 
 		offered[0].onClick();
+		await flush();
+
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('stays silent when a save that was pending as the reader left finishes on the next page', async () => {
+		const view = renderPage();
+		pageMock.url = new URL('http://localhost/org/org-1/personnel');
+		view.unmount();
+
+		factories[0]({ restore: [removedEntry] }).onClick();
 		await flush();
 
 		expect(fetchMock).not.toHaveBeenCalled();

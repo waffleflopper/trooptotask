@@ -137,11 +137,12 @@
 	}
 
 	// Undo belongs to this route and Organization: leaving either turns it off. The page component is replaced whenever
-	// the Calendar data refreshes after a save, so the route is read from the URL, not from this component's lifetime.
+	// the Calendar data refreshes after a save, so the route is compared by URL, not by this component's lifetime. It is
+	// fixed at mount: a save that lands after the reader left still binds its Undo to this page.
 	// A prefilled Add returns to its Tasking on its own, so its Undo follows the Organization alone.
+	const path = page.url.pathname;
 	function undoAction(change: AvailabilityUndoChange) {
 		const orgId = data.orgId;
-		const path = page.url.pathname;
 		const returnsToTasking = prefill !== null;
 		return availabilityUndoAction(change, {
 			orgId,

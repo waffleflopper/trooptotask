@@ -19,6 +19,12 @@ workspace/summary load, and old responses must never restore another Organizatio
   Conflict `Swap`. On-track work due within seven days comes in `attention.onTrack` in the same request and On duty
   lists it under `Taskings due · 7 days · on track`. The source loads after the page with its own pending row and
   `Try again`, and a failure leaves every other row. Steps are in [Events & Taskings](events-taskings.md#dashboard).
+- `administration-attention`: for owners and admins only, Needs you also lists one `Approval` row per request kind
+  (`N archive requests to review` and `N deletion requests to review`, with `Oldest from <date>`), one `Not delivered`
+  row per unexpired pending invitation whose latest email failed, and one `Expiring` row per unexpired pending
+  invitation with 72 hours or less left that is not already a `Not delivered` row. Each is a link, to Approvals or to
+  Members. The source loads after the page with its own pending row and `Try again`. Steps are under
+  [Administration](#administration).
 - `forecast-lane`: with Events & Taskings on, the forecast's `Events and suspenses` lane draws Events as spans
   (filled with work in scope, outlined for awareness, struck through when cancelled) and suspenses as diamonds, each
   opening its detail, from the same read with its own skeleton and `Try again`. Steps are in
@@ -494,6 +500,39 @@ On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out
    Onboarding's `Start onboarding` still open them, and Training's keeps `Delete`.
 8. **Page-load cost.** Opening the Dashboard sends the same requests as before Quick add, cold (a new `actor` context)
    and warm (reload). The reads above happen only when a dialog opens.
+
+## Administration
+
+An owner or admin sees up to three more kinds of Needs you row, each a link with no action button. `Approval`
+(warning) reads `1 archive request to review` or `1 deletion request to review` (`N ... requests` for more) with
+`Oldest from 7 Nov` and links to `settings/approvals`. `Not delivered` (danger, ranked above Approval and Unfilled) reads
+`Invitation to <email> was not delivered`, `Resend it, or revoke it and invite again` and the expiry as the timing, and
+links to `settings/members`. `Expiring` (warning, ranked below Unfilled) reads `Invitation to <email> is about to expire`,
+`Not accepted yet` and `expires in 2 days`. An invitation whose latest email failed gives one `Not delivered` row even
+when it also expires within 72 hours. An expired, revoked or accepted invitation never gives a row, and a member never
+sees one or a pending placeholder. Rows load after the page: while the source is pending one skeleton row sits under the
+list, a failure leaves the other rows and adds `Needs you is incomplete. Settings items could not load.` with
+`Try again`. A row leaves on a reload once its cause is handled.
+
+Run `$V seed invitation-attention` and `$V seed deletion-sources`, then as `deletionRequester` submit one `personnel`
+and one training-record request through `$V deletion-request PAGE orgA submit` (see
+[Deletion requests](deletion-requests.md)).
+
+1. **Owner and admin.** As `orgOwner` at 1280 and 390, then as `orgAdmin`, open Home. Needs you lists `Not delivered`
+   for `soonAndFailed` (`expires tomorrow`) and `failed` (`expires in 10 days`), one `Approval` row each for
+   `1 archive request to review` and `1 deletion request to review`, and one `Expiring` row for `soon` (`expires in 2
+days`). `later` and `lapsed` give no row. Save the snapshot and read the three link `url`s.
+2. **Member.** As `orgMember`, Needs you reads `Nothing needs you right now.`. Fetch `/org/<orgId>/__data.json` from
+   the page and parse its first line: the member's `adminAttention` is `null`, and the owner's is a streamed `Promise`.
+3. **Clearing.** From Members `Revoke` the `failed` invitation (confirm), and from Approvals `Deny` the archive
+   request; reload Home. Both rows are gone and the `soonAndFailed`, deletion and `Expiring` rows remain. The Settings
+   nav badge on Members matches the pending, unexpired count and ignores `lapsed`.
+4. **Pending.** `$V server-source arm organization_invitations hold 1 120000`, reload Home: the other rows show with
+   one aria-hidden skeleton row below them. `server-source release`, then `restore`.
+5. **Failure and retry.** `$V server-source arm organization_invitations fail-hard`, reload: `server-source state`
+   shows the synthetic 500, the other rows stay and the note reads `Needs you is incomplete. Settings items could not
+load.` with `Try again`. Press `Try again`: the three administration rows return without a reload and the count
+   reads `NEEDS YOU · 5`. Finish with `server-source restore` and `clean-seeds`.
 
 ## Actions
 

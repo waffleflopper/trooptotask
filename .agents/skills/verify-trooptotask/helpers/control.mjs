@@ -40,6 +40,7 @@ import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { buildAvailabilityVolume } from './availability-volume-fixture.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
+import { seedInvitationAttention } from './invitation-fixtures.mjs';
 import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
 import { excuseDa6, seedDa6 } from './da6-fixtures.mjs';
 import {
@@ -1864,6 +1865,7 @@ async function main() {
 				'dashboard',
 				'dashboard-currency',
 				'dashboard-overflow',
+				'invitation-attention',
 				'platform-admin',
 				'organization-pages',
 				'communications',
@@ -1965,6 +1967,10 @@ async function main() {
 		}
 		if (kind === 'dashboard-currency') {
 			note(await seedDashboardCurrency({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'invitation-attention') {
+			note(await seedInvitationAttention({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'dashboard-overflow') {

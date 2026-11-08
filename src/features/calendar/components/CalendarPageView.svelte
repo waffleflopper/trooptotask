@@ -182,7 +182,15 @@
 
 	// An archived type stays in the legend only while an entry in view uses it.
 	const legendStatusTypes = $derived.by(() => {
-		const inUse = new Set(availabilityStore.items.map((entry) => entry.statusTypeId));
+		const first = projectionDates.at(0);
+		const last = projectionDates.at(-1);
+		if (!first || !last) return statusTypesStore.active;
+		const [start, end] = [formatDate(first), formatDate(last)];
+		const inUse = new Set(
+			availabilityStore.items
+				.filter((entry) => entry.startDate <= end && entry.endDate >= start)
+				.map((entry) => entry.statusTypeId)
+		);
 		return statusTypesStore.items.filter((status) => !status.archivedAt || inUse.has(status.id));
 	});
 	const legend = $derived([

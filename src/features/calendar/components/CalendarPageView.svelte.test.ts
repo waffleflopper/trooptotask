@@ -264,7 +264,8 @@ describe('CalendarPageView', () => {
 			expect(quarterLegend.queryByText('Drag across days to add')).toBeNull();
 		});
 
-		it('lists an archived status only while an entry in view uses it', () => {
+		it('lists an archived status only while an entry in the shown month uses it', () => {
+			calendarStore.goToMonth(2026, 8);
 			mutableStatusTypes.items = [
 				{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
 				{
@@ -294,6 +295,14 @@ describe('CalendarPageView', () => {
 					startDate: '2026-09-22',
 					endDate: '2026-09-22',
 					note: null
+				},
+				{
+					id: 'e2',
+					personnelId: 'p1',
+					statusTypeId: 'tdy',
+					startDate: '2026-10-05',
+					endDate: '2026-10-06',
+					note: null
 				}
 			];
 			const ctx = makeContext(mockData, makeMockOrg({ userRole: 'admin' }));
@@ -303,10 +312,9 @@ describe('CalendarPageView', () => {
 				within(screen.getByRole('group', { name: 'Calendar legend' })).getByRole('list', { name: 'Statuses' })
 			);
 
-			const shown = statuses.getAllByRole('listitem');
-			expect(shown).toHaveLength(2);
-			expect(shown[0].textContent).toContain('Leave');
-			expect(shown[1].textContent).toContain('Sick');
+			expect(statuses.getByText('Leave')).toBeTruthy();
+			expect(statuses.getByText('Sick')).toBeTruthy();
+			expect(statuses.queryByText('TDY')).toBeNull();
 		});
 
 		it('offers drag-to-add only to people who can add availability', () => {

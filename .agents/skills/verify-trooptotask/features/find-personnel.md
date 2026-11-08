@@ -112,7 +112,8 @@ scoped actors retain their baseline grants.
    headers readable and tappable, with no page-level horizontal scroll.
 9. **Roster states and URL.** Empty: as `personnelEmpty` open Personnel and capture `No personnel on the active roster`
    or the access result the actor actually gets, with Add Person absent. Add Person appears in that state only for an
-   actor who can add; record per actor. No match: type a name nobody has and require `No personnel match your search.`;
+   actor who can add, and `Import` (a link to `/org/<org>/personnel/import`) only for an actor who can import; record
+   per actor, and require the empty state's actions inside the layout with no horizontal scroll at 1280 and 390. No match: type a name nobody has and require `No personnel match your search.`;
    clear with focused `Control+A`/`Backspace`. Restricted: sign in as `ictViewer` (Personnel none) and require
    `Access Restricted` naming `Personnel View` access, `Back to <Organization> home` and no roster. Disabled: select a row, choose `Archive…` and confirm
    while `arm-hold-fail PAGE personnel/archive-batch` holds the batch: the dialog's `Cancel` and `Archive` and every

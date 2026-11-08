@@ -1027,7 +1027,7 @@ describe('CalendarPageView', () => {
 		await layOut(4000);
 
 		const more = await openMore();
-		expect(within(more).getByRole('menuitem', { name: 'Print / PDF' })).toBeTruthy();
+		expect(within(more).getByRole('menuitem', { name: 'Download PDF' })).toBeTruthy();
 		expect(within(more).queryByRole('menuitemcheckbox', { name: 'Show Status Text' })).toBeNull();
 		await fireEvent.keyDown(more, { key: 'Escape' });
 		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
@@ -1053,7 +1053,7 @@ describe('CalendarPageView', () => {
 		await waitFor(() => expect(exportMocks.exportQuarterToExcel).toHaveBeenCalledTimes(1));
 		expect(exportMocks.exportQuarterToExcel.mock.calls[0][0]).toEqual(new Date(2026, 11, 1));
 
-		await chooseFromMore('Print / PDF');
+		await chooseFromMore('Download PDF');
 		await waitFor(() => expect(exportMocks.printQuarterCalendar).toHaveBeenCalledTimes(1));
 		expect(exportMocks.printQuarterCalendar.mock.calls[0][0]).toEqual(new Date(2026, 11, 1));
 		expect(exportMocks.exportMonthToExcel).not.toHaveBeenCalled();

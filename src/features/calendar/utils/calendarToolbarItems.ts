@@ -145,7 +145,7 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 	}
 	items.push(
 		{ kind: 'action', id: 'export-excel', label: 'Export to Excel', menuOnly: true, onclick: input.onExportExcel },
-		{ kind: 'action', id: 'print-pdf', label: 'Print / PDF', menuOnly: true, onclick: input.onExportPDF }
+		{ kind: 'action', id: 'print-pdf', label: 'Download PDF', menuOnly: true, onclick: input.onExportPDF }
 	);
 
 	const primary: WorkspaceToolbarProps['primary'] = input.canManageAvailability
@@ -157,7 +157,7 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 				menuItems: [
 					{ kind: 'action', id: 'bulk-add', label: 'Add Bulk', href: `${calendarHref}/bulk?tab=add` },
 					{ kind: 'action', id: 'bulk-remove', label: 'Remove Bulk', href: `${calendarHref}/bulk?tab=remove` },
-					{ kind: 'action', id: 'bulk-import', label: 'Import CSV', href: `${calendarHref}/import` }
+					{ kind: 'action', id: 'bulk-import', label: 'Import spreadsheet', href: `${calendarHref}/import` }
 				]
 			}
 		: undefined;

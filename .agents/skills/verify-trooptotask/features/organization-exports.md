@@ -37,7 +37,7 @@ buttons stay usable.
 Owners see `Last export · <format> · <date>, <time> by <actor>` from the newer `export.created` or
 `export.excel_created` Audit event. For admins the page sends no Audit read.
 
-`Roster only` is muted and marked Coming soon. It is not a retained export workflow. `One person` links to Archives.
+The page offers no Roster only row or other Coming soon placeholder. `One person` links to Archives.
 Single-Person and feature report workbooks have separate recipes and formats.
 
 ## Helper controls

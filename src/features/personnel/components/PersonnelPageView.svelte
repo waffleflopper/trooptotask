@@ -1,5 +1,5 @@
 <script lang="ts" generics="NextDays">
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -10,6 +10,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { pageSections, useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef, DataTableGroup, DataTableState } from '$lib/components/ui/data-table';
@@ -17,9 +18,11 @@
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
 	import { personnelRecordHref } from '../personnelRecordHref';
+	import { compareRankCodes, isCatalogRank } from '../rankCatalog';
 	import {
 		parseRosterFilter,
 		ROSTER_FILTER_PARAM,
+		ROSTER_SEARCH_PARAM,
 		rosterFilterAnswerable,
 		sameRosterFilter,
 		serializeRosterFilter
@@ -74,7 +77,8 @@
 	);
 	const signalSummary = $derived(ctx.summarizeSignals(visibleAllActivePersonnel));
 
-	const requestedFilter = $derived(parseRosterFilter(page.url.searchParams.get(ROSTER_FILTER_PARAM)));
+	const addressBar = $derived(visibleUrl());
+	const requestedFilter = $derived(parseRosterFilter(addressBar.searchParams.get(ROSTER_FILTER_PARAM)));
 	const rosterFilter = $derived<RosterFilter | null>(
 		requestedFilter &&
 			ctx.signals.status === 'ready' &&
@@ -102,7 +106,7 @@
 	);
 
 	function showFilter(next: RosterFilter | null): void {
-		const url = new URL(page.url.href);
+		const url = new URL(addressBar.href);
 		if (next) url.searchParams.set(ROSTER_FILTER_PARAM, serializeRosterFilter(next));
 		else url.searchParams.delete(ROSTER_FILTER_PARAM);
 		showFirstPages();
@@ -115,7 +119,7 @@
 	}
 
 	$effect(() => {
-		const raw = page.url.searchParams.get(ROSTER_FILTER_PARAM);
+		const raw = addressBar.searchParams.get(ROSTER_FILTER_PARAM);
 		if (raw !== null && parseRosterFilter(raw) === null) showFilter(null);
 	});
 	const canSelect = $derived(
@@ -151,6 +155,7 @@
 	});
 
 	const personnelColumns = $derived.by<ColumnDef<Personnel>[]>(() => {
+		const rankCatalog = ctx.data.rankCatalog?.length ? ctx.data.rankCatalog : undefined;
 		const columns: ColumnDef<Personnel>[] = [
 			{
 				key: 'status',
@@ -161,7 +166,15 @@
 				sortable: false,
 				width: '28px'
 			},
-			{ key: 'rank', header: 'Rank', value: (p) => p.rank, width: '64px', hiddenBelow: '@3xl' },
+			{
+				key: 'rank',
+				header: 'Rank',
+				value: (p) => p.rank,
+				compare: (a, b) => compareRankCodes(a.rank, b.rank, { catalog: rankCatalog }),
+				sortsLast: (p) => !isCatalogRank(p.rank, rankCatalog),
+				width: '64px',
+				hiddenBelow: '@3xl'
+			},
 			{
 				key: 'name',
 				header: 'Name',
@@ -349,7 +362,10 @@
 		heldOrders = null;
 	});
 
-	let rosterSearch = $state('');
+	const urlSearch = $derived(addressBar.searchParams.get(ROSTER_SEARCH_PARAM) ?? '');
+	let rosterSearch = $state(untrack(() => urlSearch));
+	untrack(() => (ctx.searchQuery = urlSearch));
+	let searchWrite: { next: string } | null = null;
 	let focusedRowId = $state<string | null>(null);
 	let notePerson = $state<Personnel | null>(null);
 	let noteComposer = $state<RosterNotePopover>();
@@ -616,10 +632,49 @@
 	}
 
 	function setRosterSearch(value: string): void {
+		showSearch(value);
+		void writeSearchToUrl(value);
+	}
+
+	function showSearch(value: string): void {
 		rosterSearch = value;
 		ctx.searchQuery = value;
 		showFirstPages();
 	}
+
+	// Writes run one at a time with only the latest text kept, so they land in typing order.
+	async function writeSearchToUrl(value: string): Promise<void> {
+		if (searchWrite) {
+			searchWrite.next = value;
+			return;
+		}
+		const write = (searchWrite = { next: value });
+		const pathname = addressBar.pathname;
+		let written: string | null = null;
+		try {
+			while (active && write.next !== written) {
+				written = write.next;
+				const url = new URL(addressBar.href);
+				if (url.pathname !== pathname) return;
+				if ((url.searchParams.get(ROSTER_SEARCH_PARAM) ?? '') === written) continue;
+				if (written) url.searchParams.set(ROSTER_SEARCH_PARAM, written);
+				else url.searchParams.delete(ROSTER_SEARCH_PARAM);
+				await replaceState(url, page.state);
+			}
+		} catch {
+			// The text still filters the roster; only the shareable address is lost.
+		} finally {
+			searchWrite = null;
+		}
+	}
+
+	// Back or Forward onto another search of this roster changes the address without touching the box.
+	$effect(() => {
+		const fromAddress = urlSearch;
+		untrack(() => {
+			if (!searchWrite && fromAddress !== rosterSearch) showSearch(fromAddress);
+		});
+	});
 
 	function showFirstPages(): void {
 		azTable.setPage(1);

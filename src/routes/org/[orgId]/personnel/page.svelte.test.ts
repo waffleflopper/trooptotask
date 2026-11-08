@@ -9,6 +9,7 @@ import {
 	personnelWorkspaceHydrator
 } from '$features/personnel';
 import type { Personnel, PersonnelWorkspaceResult } from '$features/personnel/contracts';
+import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 
 const navigation = vi.hoisted(() => ({ goto: vi.fn(), invalidate: vi.fn(), beforeNavigate: vi.fn() }));
 const feedback = vi.hoisted(() => ({ success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() }));
@@ -23,7 +24,7 @@ vi.mock('$features/app-shell', () => ({
 
 import Layout from './+layout.svelte';
 import Page from './+page.svelte';
-import RouteHarness from '$features/personnel/test-support/PersonnelRouteTestHarness.svelte';
+import RouteHarness from './PersonnelRouteTestView.svelte';
 
 const alpha = person('alpha', 'Alpha');
 const bravo = person('bravo', 'Bravo');
@@ -150,7 +151,8 @@ describe('Personnel route archive retry lifetime', () => {
 				)
 				.mockResolvedValueOnce(Response.json({ archivedIds: ['alpha'], approvalRequestedIds: [], errors: [] }));
 			vi.stubGlobal('fetch', send);
-			const view = render(Page, {
+			const view = render(RouteHarness, {
+				Page,
 				data: routeData('a', bootstrap === 'immediate' ? workspace('a', [alpha, bravo]) : firstWorkspace.promise)
 			});
 			if (bootstrap === 'deferred') firstWorkspace.resolve(workspace('a', [alpha, bravo]));
@@ -195,7 +197,7 @@ describe('Personnel route archive retry lifetime', () => {
 			const b = deferred<Response>();
 			const send = vi.fn().mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
 			vi.stubGlobal('fetch', send);
-			const view = render(Page, { data: routeData('a', workspace('a', [alpha])) });
+			const view = render(RouteHarness, { Page, data: routeData('a', workspace('a', [alpha])) });
 			await select(['Select SGT Alpha, Test']);
 			await submit();
 			await waitFor(() => expect(send).toHaveBeenCalledOnce());
@@ -295,4 +297,45 @@ describe('Personnel route archive retry lifetime', () => {
 			expect(reload).toHaveBeenCalledTimes(1);
 		}
 	);
+});
+
+describe('Personnel route roster view mode', () => {
+	const prefersAlphabetical = () => ({
+		...getDefaultUserOrgPreferences(),
+		roster: { viewMode: 'alphabetical' as const }
+	});
+	const pressed = (name: 'A-Z' | 'Group') => screen.getByRole('button', { name }).getAttribute('aria-pressed');
+
+	it('opens each Organization in the view its viewer saved for that Organization', async () => {
+		hydrate('a', [alpha]);
+		const first = render(RouteHarness, {
+			Page,
+			data: routeData('a', workspace('a', [alpha])),
+			preferences: prefersAlphabetical()
+		});
+		await screen.findByText('Alpha, Test');
+		expect([pressed('A-Z'), pressed('Group')]).toEqual(['true', 'false']);
+		first.unmount();
+
+		hydrate('b', [currentB]);
+		render(RouteHarness, { Page, data: routeData('b', workspace('b', [currentB])) });
+		await screen.findByText('CurrentB, Test');
+		expect([pressed('A-Z'), pressed('Group')]).toEqual(['false', 'true']);
+	});
+
+	it('saves the view the viewer picks to their preferences for the Organization', async () => {
+		hydrate('a', [alpha]);
+		const saved = prefersAlphabetical();
+		const send = vi.fn().mockResolvedValue(Response.json(saved));
+		vi.stubGlobal('fetch', send);
+		render(RouteHarness, { Page, data: routeData('a', workspace('a', [alpha])) });
+		await screen.findByText('Alpha, Test');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'A-Z' }));
+
+		expect(pressed('A-Z')).toBe('true');
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		expect(send.mock.calls[0][0]).toBe('/org/a/api/user-preferences');
+		expect(JSON.parse(String(send.mock.calls[0][1].body))).toEqual({ roster: { viewMode: 'alphabetical' } });
+	});
 });

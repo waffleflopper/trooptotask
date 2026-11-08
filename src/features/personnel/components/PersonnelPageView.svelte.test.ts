@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
-import { flushSync } from 'svelte';
+import { flushSync, tick } from 'svelte';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { BUILT_IN_RANK_CATALOG } from '../rankCatalog';
 import { groupCatalogHydration, groupsStore, pinnedGroupsHydration, pinnedGroupsStore } from '$features/personnel';
 import { buildGroupTree, soleLeafGroup } from '../groupTree';
 import { SvelteSet } from 'svelte/reactivity';
@@ -15,6 +16,7 @@ import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWid
 
 const {
 	gotoMock,
+	replaceStateMock,
 	beforeNavigateMock,
 	invalidateMock,
 	toastSuccessMock,
@@ -24,6 +26,7 @@ const {
 	downloadRosterExportMock
 } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
+	replaceStateMock: vi.fn(),
 	beforeNavigateMock: vi.fn(),
 	invalidateMock: vi.fn(),
 	toastSuccessMock: vi.fn(),
@@ -36,17 +39,25 @@ const {
 vi.mock('$lib/utils/browserStorage', () => ({ getBrowserLocalStorage: () => globalThis.localStorage }));
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
+	replaceState: replaceStateMock,
 	beforeNavigate: beforeNavigateMock,
 	invalidate: invalidateMock
 }));
 
-const pageMock = $state({ url: new URL('http://localhost/org/org-1/personnel') });
+const pageMock = $state<{ url: URL; shallow: { url: URL } | null }>({
+	url: new URL('http://localhost/org/org-1/personnel'),
+	shallow: null
+});
 
 vi.mock('$app/state', () => ({
 	page: {
 		get url() {
 			return pageMock.url;
-		}
+		},
+		get shallow() {
+			return pageMock.shallow;
+		},
+		state: {}
 	}
 }));
 
@@ -313,6 +324,11 @@ describe('PersonnelPageView', () => {
 		beforeNavigateMock.mockReset();
 		invalidateMock.mockReset();
 		pageMock.url = new URL('http://localhost/org/org-1/personnel');
+		pageMock.shallow = null;
+		replaceStateMock.mockReset();
+		replaceStateMock.mockImplementation((url: URL) => {
+			pageMock.shallow = { url };
+		});
 		toastSuccessMock.mockReset();
 		toastInfoMock.mockReset();
 		toastErrorMock.mockReset();
@@ -433,6 +449,144 @@ describe('PersonnelPageView', () => {
 
 		expect(screen.getByText('Garcia, Luis')).toBeTruthy();
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
+	});
+
+	describe('the roster search in the address bar', () => {
+		const searchbox = () => screen.getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' });
+		const garcia: Personnel = {
+			...personnel[0],
+			id: 'person-2',
+			rank: 'SPC',
+			lastName: 'Garcia',
+			firstName: 'Luis',
+			slug: 'garcia-luis'
+		};
+
+		beforeEach(() => personnelStore.load([...personnel, garcia], 'org-1'));
+
+		it('replaces the history entry with each search typed and drops the param when the box is cleared', async () => {
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
+
+			await fireEvent.input(searchbox(), { target: { value: 'Gar' } });
+			await fireEvent.input(searchbox(), { target: { value: 'Garcia' } });
+			await fireEvent.input(searchbox(), { target: { value: '' } });
+
+			expect(replaceStateMock.mock.calls.map((call) => (call[0] as URL).search)).toEqual(['?q=Gar', '?q=Garcia', '']);
+		});
+
+		it('keeps the other params of the address when it writes the search', async () => {
+			pageMock.url = new URL('http://localhost/org/org-1/personnel?show=present');
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
+
+			await fireEvent.input(searchbox(), { target: { value: 'Luis' } });
+
+			expect((replaceStateMock.mock.calls[0][0] as URL).search).toBe('?show=present&q=Luis');
+		});
+
+		it('opens with the search in the address already applied to the box and the roster', () => {
+			pageMock.url = new URL('http://localhost/org/org-1/personnel?q=Garcia');
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
+
+			expect((searchbox() as HTMLInputElement).value).toBe('Garcia');
+			expect(screen.getByText('Garcia, Luis')).toBeTruthy();
+			expect(screen.queryByText('Smith, Jane')).toBeNull();
+			expect(replaceStateMock).not.toHaveBeenCalled();
+		});
+
+		it('follows the address when Back or Forward lands on another search', async () => {
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
+
+			pageMock.shallow = { url: new URL('http://localhost/org/org-1/personnel?q=Smith') };
+
+			await waitFor(() => expect((searchbox() as HTMLInputElement).value).toBe('Smith'));
+			expect(screen.getByText('Smith, Jane')).toBeTruthy();
+			expect(screen.queryByText('Garcia, Luis')).toBeNull();
+
+			pageMock.shallow = { url: new URL('http://localhost/org/org-1/personnel') };
+
+			await waitFor(() => expect((searchbox() as HTMLInputElement).value).toBe(''));
+			expect(screen.getByText('Garcia, Luis')).toBeTruthy();
+		});
+
+		it('keeps what is typed while earlier writes are still landing, and writes the latest text last', async () => {
+			const boxAfterEachWrite: string[] = [];
+			const pendingWrites: Array<() => Promise<void>> = [];
+			replaceStateMock.mockImplementation(
+				(url: URL) =>
+					new Promise<void>((done) =>
+						pendingWrites.push(async () => {
+							pageMock.shallow = { url };
+							await tick();
+							boxAfterEachWrite.push((searchbox() as HTMLInputElement).value);
+							done();
+						})
+					)
+			);
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
+
+			await fireEvent.input(searchbox(), { target: { value: 'G' } });
+			await fireEvent.input(searchbox(), { target: { value: 'Ga' } });
+			await fireEvent.input(searchbox(), { target: { value: 'Gar' } });
+
+			await pendingWrites.shift()?.();
+			await waitFor(() => expect(pendingWrites).toHaveLength(1));
+			await pendingWrites.shift()?.();
+
+			await waitFor(() => expect(pageMock.shallow?.url.searchParams.get('q')).toBe('Gar'));
+			expect(boxAfterEachWrite).toEqual(['Gar', 'Gar']);
+			expect(replaceStateMock.mock.calls.map((call) => (call[0] as URL).searchParams.get('q'))).toEqual(['G', 'Gar']);
+		});
+
+		it('still filters the roster when the address cannot be written', async () => {
+			replaceStateMock.mockRejectedValue(new Error('history is full'));
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
+
+			await fireEvent.input(searchbox(), { target: { value: 'Garcia' } });
+
+			expect(screen.getByText('Garcia, Luis')).toBeTruthy();
+			expect(screen.queryByText('Smith, Jane')).toBeNull();
+		});
+	});
+
+	describe('sorting by Rank', () => {
+		const withRanks = (ranks: string[]) =>
+			personnelStore.load(
+				ranks.map((rank, index) => ({
+					...personnel[0],
+					id: rank || 'blank',
+					rank,
+					lastName: `Last${index}`,
+					slug: `last-${index}`
+				})),
+				'org-1'
+			);
+		const orderedRanks = () =>
+			[...document.querySelectorAll('[data-roster-row]')].map((row) => row.getAttribute('data-roster-row'));
+		const sortByRank = () => fireEvent.click(screen.getByRole('button', { name: 'Sort by Rank' }));
+
+		it('puts the most senior grade first, then the reverse, with ranks outside the catalog last both times', async () => {
+			withRanks(['PFC', 'ZZZ', '1LT', 'COL', '', 'CPT', 'PV1', 'LTC']);
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
+
+			await sortByRank();
+			expect(orderedRanks()).toEqual(['COL', 'LTC', 'CPT', '1LT', 'PFC', 'PV1', 'blank', 'ZZZ']);
+
+			await sortByRank();
+			expect(orderedRanks()).toEqual(['PV1', 'PFC', '1LT', 'CPT', 'LTC', 'COL', 'ZZZ', 'blank']);
+		});
+
+		it("treats a rank missing from the Organization's catalog as unknown", async () => {
+			withRanks(['PFC', 'CPT', 'COL']);
+			const rankCatalog = BUILT_IN_RANK_CATALOG.filter((entry) => entry.code !== 'CPT');
+			render(PersonnelPageView, {
+				props: {
+					ctx: makeCtx({ data: { orgId: 'org-1', asOf: '2026-10-06', orgName: 'C Co', pinnedGroups: [], rankCatalog } })
+				}
+			});
+
+			await sortByRank();
+			expect(orderedRanks()).toEqual(['COL', 'PFC', 'CPT']);
+		});
 	});
 
 	it('updates the roster view mode from the toolbar view toggle', async () => {
@@ -2356,10 +2510,22 @@ describe('PersonnelPageView', () => {
 			expect(screen.getByText('0 of 2 match')).toBeTruthy();
 
 			await fireEvent.click(screen.getByRole('button', { name: /Not present/ }));
-			expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel', {
+			expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel?q=Young', {
 				replace: true,
 				reset: false
 			});
+		});
+
+		it('keeps the search in the address when a filter is chosen', async () => {
+			pageMock.url = new URL('http://localhost/org/org-1/personnel?q=Smith');
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+			const headcount = within(screen.getByRole('list', { name: "Today's headcount" }));
+
+			await fireEvent.click(await headcount.findByRole('button', { name: /Leave/ }));
+
+			expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel?q=Smith&show=status%3Aleave', expect.anything());
 		});
 
 		it('filters by the headcount entries, a status type or Present', async () => {
@@ -2481,6 +2647,7 @@ describe('PersonnelPageView', () => {
 			expect(barText()).toContain('2 selected · 1 hidden by search and filter');
 
 			pageMock.url = new URL('http://localhost/org/org-1/personnel');
+			pageMock.shallow = null;
 			await vi.waitFor(() => expect(barText()).toContain('2 selected · 1 hidden by search'));
 			await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' }), {
 				target: { value: '' }

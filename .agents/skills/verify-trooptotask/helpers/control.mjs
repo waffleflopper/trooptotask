@@ -1841,6 +1841,7 @@ async function main() {
 				'training-pages',
 				'training-print',
 				'roster-pages',
+				'roster-ranks',
 				'personnel-lifecycle',
 				'personnel-artifact-context',
 				'personnel-retention',
@@ -2554,6 +2555,23 @@ async function main() {
 				created_by: fixture.actors.rosterManager.id,
 				created_at: '2026-01-02T03:04:05.123456Z'
 			}));
+		} else if (kind === 'roster-ranks') {
+			table = 'personnel';
+			records = [
+				['Sergeant', 'SGT'],
+				['Private', 'PFC'],
+				['Colonel', 'COL'],
+				['Unlisted', 'ZZZ']
+			].map(([name, rank]) => ({
+				id: randomUUID(),
+				organization_id: org('orgA'),
+				group_id: fixture.ids.groupA,
+				first_name: 'Synthetic',
+				last_name: `MapRank${name}${tag}`,
+				rank,
+				clinic_role: '',
+				slug: `map-rank-${name.toLowerCase()}-${tag}`
+			}));
 		} else if (kind === 'training-pages') {
 			table = 'personnel';
 			records = Array.from({ length: 26 }, (_, index) => ({
@@ -2766,6 +2784,7 @@ async function main() {
 					'pinned-groups',
 					'personnel/import',
 					'personnel/archive-batch',
+					'personnel/field-batch',
 					'personnel/follow-ups/batch',
 					'personnel/leader-notes/batch',
 					'personnel/permanent',

@@ -255,6 +255,8 @@ export interface PersonnelAvailabilityPeriod {
 	note?: string | null;
 }
 
+export type RosterViewMode = 'alphabetical' | 'by-group';
+
 export { BUILT_IN_ARMY_RANK_OPTIONS, BUILT_IN_RANK_CATALOG, compareRankCodes, resolveBuiltInRank } from './rankCatalog';
 export type { RankCatalogEntry, RankCategory, RankPayGrade, RankService, RankState } from './rankCatalog';
 export { observedRankCodesForOptions, rankCodesForOptions } from './rankOptions';

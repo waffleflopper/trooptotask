@@ -199,6 +199,10 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 }
 
 function compareRows<T>(a: T, b: T, column: ColumnDef<T>, direction: 1 | -1): number {
+	if (column.sortsLast) {
+		const aLast = column.sortsLast(a);
+		if (aLast !== column.sortsLast(b)) return aLast ? 1 : -1;
+	}
 	if (column.compare) return column.compare(a, b) * direction;
 
 	const aValue = column.value(a);

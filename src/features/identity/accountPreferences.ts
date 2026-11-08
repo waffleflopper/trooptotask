@@ -4,6 +4,10 @@ export const TrainingMatrixViewModeSchema = z.enum(['alphabetical', 'by-group'])
 
 export type TrainingMatrixViewMode = z.infer<typeof TrainingMatrixViewModeSchema>;
 
+export const RosterViewModeSchema = z.enum(['alphabetical', 'by-group']);
+
+export type RosterViewMode = z.infer<typeof RosterViewModeSchema>;
+
 export const TrainingMatrixCurrentMarkSchema = z.enum(['date', 'check', 'blank']);
 
 export type TrainingMatrixCurrentMark = z.infer<typeof TrainingMatrixCurrentMarkSchema>;
@@ -28,11 +32,15 @@ export type UserOrgPreferences = {
 		matrixCurrentMark: TrainingMatrixCurrentMark;
 		matrixNeedsActionOnly: boolean;
 	};
+	roster: {
+		viewMode: RosterViewMode;
+	};
 };
 
 export interface UserOrgPreferencesPatch {
 	calendar?: Partial<UserOrgPreferences['calendar']>;
 	training?: Partial<UserOrgPreferences['training']>;
+	roster?: Partial<UserOrgPreferences['roster']>;
 }
 
 /** A save acknowledgment must contain every retained preference, without normalization. */
@@ -54,6 +62,9 @@ export const UserOrgPreferencesSchema = z.object({
 		matrixColorAll: z.boolean(),
 		matrixCurrentMark: TrainingMatrixCurrentMarkSchema,
 		matrixNeedsActionOnly: z.boolean()
+	}),
+	roster: z.object({
+		viewMode: RosterViewModeSchema
 	})
 });
 
@@ -79,6 +90,11 @@ export const UserOrgPreferencesPatchSchema = z.object({
 			matrixCurrentMark: TrainingMatrixCurrentMarkSchema.optional(),
 			matrixNeedsActionOnly: z.boolean().optional()
 		})
+		.optional(),
+	roster: z
+		.object({
+			viewMode: RosterViewModeSchema.optional()
+		})
 		.optional()
 });
 
@@ -101,6 +117,9 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 			matrixColorAll: false,
 			matrixCurrentMark: 'date',
 			matrixNeedsActionOnly: false
+		},
+		roster: {
+			viewMode: 'by-group'
 		}
 	};
 }
@@ -112,7 +131,8 @@ export function mergeUserOrgPreferences(
 	if (!patch) {
 		return {
 			calendar: { ...base.calendar },
-			training: { ...base.training }
+			training: { ...base.training },
+			roster: { ...base.roster }
 		};
 	}
 
@@ -124,6 +144,10 @@ export function mergeUserOrgPreferences(
 		training: {
 			...base.training,
 			...(patch.training ?? {})
+		},
+		roster: {
+			...base.roster,
+			...(patch.roster ?? {})
 		}
 	};
 }

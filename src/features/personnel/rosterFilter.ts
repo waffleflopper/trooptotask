@@ -8,6 +8,7 @@ import {
 } from './rosterSignals';
 
 export const ROSTER_FILTER_PARAM = 'show';
+export const ROSTER_SEARCH_PARAM = 'q';
 
 const STATUS_PREFIX = 'status:';
 

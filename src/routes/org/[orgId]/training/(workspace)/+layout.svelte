@@ -34,7 +34,7 @@
 {#if hydrationError}
 	<WorkspaceLoadError subject="Training" />
 {:else if accessRestricted}
-	<WorkspaceAccessRestricted subject="training" />
+	<WorkspaceAccessRestricted lane="training" level="view" />
 {:else}
 	{@render children()}
 {/if}

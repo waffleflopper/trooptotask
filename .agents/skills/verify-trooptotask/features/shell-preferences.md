@@ -185,13 +185,14 @@ distinct from ordinary UI or authorization proof.
     the card. Send feedback opens its dialog; Tab through Category and Message, and Cancel with focus returned to the
     card. At 390x844 the account nav becomes tabs with only a Sign out row under them; open Toggle Sidebar and choose
     the card in the drawer: the menu opens upward inside the viewport, and both dialogs open above the drawer from it.
-    Then open `/no-such-page` signed in (root `+error`: `404`, the not-found message and Go Home; signed out it
-    redirects to sign-in). An unmatched path under an Organization also renders the root `+error`, because SvelteKit
+    Then open `/no-such-page` signed in (root `+error`: `404`, the not-found message and Go Home, which links to `/dashboard` and so lands in the last
+    Organization; signed out it redirects to sign-in). An unmatched path under an Organization also renders the root `+error`, because SvelteKit
     uses the root boundary when no route matches. The Organization `+error` needs an error thrown by a matched
     Organization route: as `manager`, who has no Onboarding lane, open `/org/ORG_A/onboarding` for `403`,
     `You don't have permission to view this page.` and Back to Dashboard inside the app frame. Follow each button. For
-    `WorkspaceAccessRestricted`, use `$V actor ictViewer personnel` (no Personnel lane): `Access Restricted` with its
-    explanation, the sidebar without Personnel, and the frame still usable. Capture each error and restricted screen at
+    `WorkspaceAccessRestricted`, use `$V actor ictViewer personnel` (no Personnel lane): `Access Restricted` naming `Personnel View`
+    access and the Organization's owners and admins as who can grant it, the sidebar without Personnel, and the frame
+    still usable. Follow `Back to <Organization> home`: it opens the Organization Home. Capture each error and restricted screen at
     1280x800 light and 390x844 dark.
 14. **Toast stacking on a phone.** At 390x844 as `manager`, open Toggle Sidebar, choose the name card, then Send
     feedback in the account menu (the drawer stays open behind the dialog), submit a unique General Feedback message and

@@ -11,6 +11,10 @@ import {
 	type CalendarWorkspaceResult
 } from '$features/calendar';
 
+vi.mock('$app/state', () => ({
+	page: { data: { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } } } }
+}));
+
 function deferred<T>() {
 	let resolve!: (value: T) => void;
 	const promise = new Promise<T>((res) => {

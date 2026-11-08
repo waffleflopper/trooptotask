@@ -11,6 +11,10 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 
 import Layout from './+layout.svelte';
 
+vi.mock('$app/state', () => ({
+	page: { data: { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } } } }
+}));
+
 afterEach(() => {
 	cleanup();
 	hydrateMock.mockClear();
@@ -30,7 +34,7 @@ it('shows a streamed Personnel denial without hydrating or rendering the roster'
 	});
 
 	await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
-	expect(screen.getByText(/permission to view personnel/)).toBeTruthy();
+	expect(screen.getByRole('alert').textContent).toContain('Personnel View');
 	expect(screen.queryByText('Personnel child')).toBeNull();
 	expect(hydrateMock).not.toHaveBeenCalled();
 });

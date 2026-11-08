@@ -3,7 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import ErrorPage from './+error.svelte';
 
-const { pageState } = vi.hoisted(() => ({ pageState: { status: 500, params: { orgId: 'alpha' } } }));
+const { pageState } = vi.hoisted(() => ({
+	pageState: {
+		status: 500,
+		params: { orgId: 'alpha' },
+		data: { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } } }
+	}
+}));
 vi.mock('$app/state', () => ({ page: pageState }));
 
 afterEach(() => {
@@ -15,8 +21,9 @@ describe('Critical Tasks report error screen', () => {
 		pageState.status = 403;
 		render(ErrorPage);
 
-		expect(screen.getByRole('alert')).toBeTruthy();
+		expect(screen.getByRole('alert').textContent).toContain('Critical tasks View');
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Access Restricted');
+		expect(screen.getByRole('link', { name: 'Back to Alpha Company home' }).getAttribute('href')).toBe('/org/alpha');
 	});
 
 	it('shows a failed report read as the workspace load error with Retry', () => {

@@ -1,19 +1,42 @@
 // @vitest-environment happy-dom
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import WorkspaceAccessRestricted from './WorkspaceAccessRestricted.svelte';
+
+const { pageState } = vi.hoisted(() => ({
+	pageState: { data: { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: '1-11-bde' } } } }
+}));
+vi.mock('$app/state', () => ({ page: pageState }));
 
 afterEach(() => {
 	cleanup();
 });
 
-it('titles the document and names the restricted workspace', () => {
-	render(WorkspaceAccessRestricted, { props: { subject: 'personnel' } });
+it.each([
+	{ lane: 'training', level: 'view', needs: 'Training View' },
+	{ lane: 'criticalTasks', level: 'operate', needs: 'Critical tasks Update' },
+	{ lane: 'ratingScheme', level: 'configure', needs: 'Evaluations Manage' }
+] as const)('names the $needs access to ask the Organization for', ({ lane, level, needs }) => {
+	render(WorkspaceAccessRestricted, { props: { lane, level } });
 
-	expect(document.title).toBe('Access Restricted - Troop to Task');
-	expect(screen.getByRole('alert')).toHaveProperty(
-		'textContent',
-		expect.stringContaining("You don't have permission to view personnel.")
-	);
-	expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Access Restricted');
+	const alert = screen.getByRole('alert');
+	expect(alert.textContent).toContain(needs);
+	expect(alert.textContent).toContain('Alpha Company');
+});
+
+it('asks for Whole unit coverage only when the page reads every Group', () => {
+	render(WorkspaceAccessRestricted, { props: { lane: 'calendar', level: 'view', wholeUnit: true } });
+	const scoped = screen.getByRole('alert').textContent;
+	cleanup();
+	render(WorkspaceAccessRestricted, { props: { lane: 'calendar', level: 'view' } });
+
+	expect(scoped).toContain('Whole unit');
+	expect(screen.getByRole('alert').textContent).not.toContain('Whole unit');
+});
+
+it('offers one way back to the Organization home by its URL segment', () => {
+	render(WorkspaceAccessRestricted, { props: { lane: 'personnel', level: 'view' } });
+
+	expect(screen.getAllByRole('link')).toHaveLength(1);
+	expect(screen.getByRole('link', { name: 'Back to Alpha Company home' }).getAttribute('href')).toBe('/org/1-11-bde');
 });

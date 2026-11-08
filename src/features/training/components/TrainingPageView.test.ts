@@ -268,13 +268,13 @@ describe('TrainingPageView', () => {
 			expect(screen.queryByRole('button', { name: 'Record class for SHARP' })).toBeNull();
 		});
 
-		it('shows the empty state and no columns when every type is archived', () => {
+		it('offers Manage types and no columns when every type is archived', () => {
 			trainingTypesStore.load([archived], 'org-1');
 			render(TrainingPageView, {
 				props: { ctx: makeCtx('alphabetical') as unknown as TrainingPageContext, modals: new ModalRegistry() }
 			});
 
-			expect(screen.getByText('No training types defined yet.')).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Manage types' })).toBeTruthy();
 			expect(screen.queryByRole('button', { name: /^Record class for/ })).toBeNull();
 		});
 	});

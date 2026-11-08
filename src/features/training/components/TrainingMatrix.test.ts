@@ -37,7 +37,8 @@ const trainingType: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: false,
 	exemptPersonnelIds: [],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 const persistedTraining: PersonnelTraining = {

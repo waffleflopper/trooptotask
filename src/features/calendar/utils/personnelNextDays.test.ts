@@ -8,6 +8,7 @@ const leave = {
 	color: '#f59e0b',
 	textColor: '#000000',
 	shortLabel: 'L',
+	archivedAt: null,
 	rosterEffect: 'A' as const,
 	sortOrder: 0
 };
@@ -17,6 +18,7 @@ const range = {
 	color: '#2563eb',
 	textColor: '#ffffff',
 	shortLabel: null,
+	archivedAt: null,
 	rosterEffect: 'A' as const,
 	sortOrder: 1
 };

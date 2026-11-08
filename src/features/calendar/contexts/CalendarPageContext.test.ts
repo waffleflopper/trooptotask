@@ -42,7 +42,14 @@ vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
 	specialDaysStore: { items: [], loading: false, load: vi.fn() }
 }));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
-	statusTypesStore: { items: [], loading: false, load: vi.fn() }
+	statusTypesStore: {
+		items: [] as Array<{ archivedAt?: string | null }>,
+		get active() {
+			return this.items.filter((type) => !type.archivedAt);
+		},
+		loading: false,
+		load: vi.fn()
+	}
 }));
 vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
@@ -465,7 +472,8 @@ describe('CalendarPageContext', () => {
 			textColor: '#ffffff',
 			shortLabel: null,
 			rosterEffect: 'A',
-			sortOrder
+			sortOrder,
+			archivedAt: null
 		});
 		const record = {
 			personnelId: 'p1',
@@ -496,6 +504,14 @@ describe('CalendarPageContext', () => {
 
 		it('defaults to the first status until one is remembered', () => {
 			expect(ctx.defaultStatusTypeId).toBe('leave');
+		});
+
+		it('never defaults to an archived status, remembered or first', () => {
+			stores.items = [{ ...status('leave', 0), archivedAt: '2030-01-02T03:04:05Z' }, status('sick', 1)];
+			expect(ctx.defaultStatusTypeId).toBe('sick');
+
+			ctx.syncUserPreferences(preferencesWith('leave'));
+			expect(ctx.defaultStatusTypeId).toBe('sick');
 		});
 
 		it('remembers the status of a new entry once it is saved', async () => {
@@ -800,6 +816,7 @@ describe('CalendarPageContext', () => {
 			color: '#16a34a',
 			textColor: '#ffffff',
 			shortLabel: null,
+			archivedAt: null,
 			rosterEffect: 'A',
 			sortOrder: 0
 		} satisfies StatusType;

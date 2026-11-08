@@ -29,7 +29,8 @@ const leave: StatusType = {
 	textColor: '#ffffff',
 	shortLabel: null,
 	rosterEffect: 'A',
-	sortOrder: 0
+	sortOrder: 0,
+	archivedAt: null
 };
 
 function availabilityEntry(overrides: Partial<AvailabilityEntry> = {}): AvailabilityEntry {
@@ -312,5 +313,15 @@ describe('BulkStatusRemove', () => {
 		expect(screen.queryByText(/Invalid Date/)).toBeNull();
 		expect(screen.getAllByText(guidance)).toHaveLength(2);
 		expect((screen.getByRole('button', { name: 'Review Matching Entries' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('keeps an archived status in the list so its entries can still be removed, and labels it', async () => {
+		const archivedLeave = { ...leave, archivedAt: '2030-01-02T03:04:05Z' };
+		const sick = { ...leave, id: 'sick', name: 'Sick', sortOrder: 1 };
+		renderRemove({ statusTypes: [archivedLeave, sick] });
+
+		const picker = screen.getByLabelText('Status Type') as HTMLSelectElement;
+
+		expect(Array.from(picker.options).map((option) => option.textContent)).toEqual(['Leave (archived)', 'Sick']);
 	});
 });

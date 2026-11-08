@@ -180,13 +180,18 @@
 			: { ...legend, entries: legend.entries.filter((entry) => entry.key !== 'suspense') };
 	});
 
+	// An archived type stays in the legend only while an entry in view uses it.
+	const legendStatusTypes = $derived.by(() => {
+		const inUse = new Set(availabilityStore.items.map((entry) => entry.statusTypeId));
+		return statusTypesStore.items.filter((status) => !status.archivedAt || inUse.has(status.id));
+	});
 	const legend = $derived([
 		...(ctx.viewMode === 'month'
 			? [
-					statusLegend(statusTypesStore.items, ctx.canManageAvailability ? DRAG_TO_ADD_HINT : undefined),
+					statusLegend(legendStatusTypes, ctx.canManageAvailability ? DRAG_TO_ADD_HINT : undefined),
 					dutyMarkerLegend(dailyAssignmentsStore.types)
 				]
-			: [statusLegend(statusTypesStore.items)]),
+			: [statusLegend(legendStatusTypes)]),
 		...(ctx.showEvents ? [shownEventsLegend] : [])
 	]);
 
@@ -651,7 +656,7 @@
 	{#key popover}
 		<CalendarPopover
 			{popover}
-			statusTypes={statusTypesStore.items}
+			statusTypes={statusTypesStore.active}
 			defaultStatusTypeId={ctx.defaultStatusTypeId}
 			spans={ctx.availabilityTracks.spans(popover.person.id)}
 			canEdit={ctx.canManageAvailabilityFor(popover.person)}

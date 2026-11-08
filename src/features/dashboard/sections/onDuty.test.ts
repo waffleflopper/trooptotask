@@ -43,7 +43,8 @@ function inputs(loaded: Partial<DashboardInputs>): DashboardInputs {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'available',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			}
 		],
 		groups: [{ id: 'alpha', name: 'Alpha Platoon', sortOrder: 0, parentId: null, depth: 1 as const }],

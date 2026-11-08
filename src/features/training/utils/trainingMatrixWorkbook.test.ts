@@ -16,6 +16,7 @@ function person(id: string, lastName: string, firstName: string, clinicRole = 'N
 
 function type(id: string, name: string, sortOrder: number, overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name,
 		sortOrder,

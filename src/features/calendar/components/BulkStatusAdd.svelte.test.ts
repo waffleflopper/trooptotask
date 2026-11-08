@@ -40,7 +40,8 @@ const statusTypes: StatusType[] = [
 		textColor: '#ffffff',
 		shortLabel: null,
 		rosterEffect: 'A',
-		sortOrder: 0
+		sortOrder: 0,
+		archivedAt: null
 	},
 	{
 		id: 'training',
@@ -49,7 +50,8 @@ const statusTypes: StatusType[] = [
 		textColor: '#ffffff',
 		shortLabel: null,
 		rosterEffect: 'A',
-		sortOrder: 1
+		sortOrder: 1,
+		archivedAt: null
 	}
 ];
 
@@ -75,6 +77,7 @@ function renderAdd(
 		loadRange?: NonNullable<ConstructorParameters<typeof CalendarRangeCoordinator>[0]>['loadRange'];
 		loaded?: boolean;
 		prefill?: ComponentProps<typeof BulkStatusAdd>['prefill'];
+		statusTypes?: StatusType[];
 	} = {}
 ) {
 	const onApply = options.onApply ?? vi.fn<Apply>();
@@ -92,7 +95,7 @@ function renderAdd(
 	render(BulkStatusAdd, {
 		props: {
 			personnelByGroup: roster,
-			statusTypes,
+			statusTypes: options.statusTypes ?? statusTypes,
 			availabilityEntries: entries,
 			orgId: 'org-1',
 			rangeCoordinator,
@@ -345,4 +348,25 @@ it('says nothing about a Tasking when none asked', () => {
 
 	expect(screen.queryByText(/changing who is picked later/)).toBeNull();
 	expect(checkbox('Select SPC Able, Pat').getAttribute('aria-checked')).toBe('false');
+});
+
+it('offers only active statuses and starts on the first of them', async () => {
+	const onApply = vi.fn().mockResolvedValue([able.id]);
+	renderAdd({ onApply, statusTypes: [{ ...statusTypes[0], archivedAt: '2030-01-02T03:04:05Z' }, statusTypes[1]] });
+	await setDates(START, END);
+
+	expect(screen.queryByRole('radio', { name: 'Leave' })).toBeNull();
+	expect(chip('Training').getAttribute('aria-checked')).toBe('true');
+	await fireEvent.click(checkbox('Select SPC Able, Pat'));
+	await waitFor(() => expect(addButton().disabled).toBe(false));
+	await fireEvent.click(addButton());
+
+	await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
+	expect(onApply.mock.calls[0].slice(0, 2)).toEqual([[able.id], 'training']);
+});
+
+it('has no status to add when every status is archived', () => {
+	renderAdd({ statusTypes: statusTypes.map((type) => ({ ...type, archivedAt: '2030-01-02T03:04:05Z' })) });
+
+	expect(screen.queryAllByRole('radio')).toEqual([]);
 });

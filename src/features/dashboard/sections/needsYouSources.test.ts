@@ -163,7 +163,8 @@ function inputs(loaded: Loaded): DashboardInputs {
 							expirationDateOnly: false,
 							canBeExempted: false,
 							exemptPersonnelIds: [],
-							isOptional: false
+							isOptional: false,
+							archivedAt: null
 						}
 					],
 					lossWarningWindowDays: 180,

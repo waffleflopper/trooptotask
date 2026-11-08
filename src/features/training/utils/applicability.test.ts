@@ -5,6 +5,7 @@ import type { Personnel } from '$features/personnel/contracts';
 
 function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id: 'type-1',
 		name: 'Test Training',
 		description: null,

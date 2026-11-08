@@ -207,7 +207,7 @@
 					<Field.Label for="removeStatusType">Status Type</Field.Label>
 					<NativeSelect id="removeStatusType" value={selectedStatusId} onchange={handleStatusTypeChange}>
 						{#each statusTypes as status (status.id)}
-							<option value={status.id}>{status.name}</option>
+							<option value={status.id}>{status.archivedAt ? `${status.name} (archived)` : status.name}</option>
 						{/each}
 					</NativeSelect>
 					{#if selectedStatus}

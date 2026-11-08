@@ -25,6 +25,7 @@ function status(id: string, name: string, sortOrder: number): StatusType {
 		color: `#00000${sortOrder}`,
 		textColor: '#ffffff',
 		shortLabel: null,
+		archivedAt: null,
 		rosterEffect: 'A',
 		sortOrder
 	};

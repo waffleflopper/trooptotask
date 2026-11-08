@@ -52,7 +52,8 @@ function plan(
 				textColor: '#fff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			},
 			{
 				id: 'appointment',
@@ -61,7 +62,8 @@ function plan(
 				textColor: '#fff',
 				shortLabel: null,
 				rosterEffect: 'available',
-				sortOrder: 1
+				sortOrder: 1,
+				archivedAt: null
 			}
 		],
 		picks: new Map(overrides.picks ?? [])

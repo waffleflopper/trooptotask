@@ -7,6 +7,7 @@ function makeType(id: string, name: string, sortOrder: number): TrainingType {
 		id,
 		name,
 		sortOrder,
+		archivedAt: null,
 		color: '#000',
 		description: null,
 		expirationMonths: 12,

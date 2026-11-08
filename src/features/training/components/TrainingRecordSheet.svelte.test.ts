@@ -27,6 +27,7 @@ const other: Personnel = { ...person, id: 'p2', lastName: 'Adams' };
 
 function type(id: string, name: string, overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name,
 		description: null,

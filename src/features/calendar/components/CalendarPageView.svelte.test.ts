@@ -49,7 +49,14 @@ vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
 	specialDaysStore: { items: [], loading: false, load: vi.fn() }
 }));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
-	statusTypesStore: { items: [], loading: false, load: vi.fn() }
+	statusTypesStore: {
+		items: [] as Array<{ archivedAt?: string | null }>,
+		get active() {
+			return this.items.filter((type) => !type.archivedAt);
+		},
+		loading: false,
+		load: vi.fn()
+	}
 }));
 vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
@@ -90,7 +97,7 @@ async function chooseFromMore(name: string): Promise<void> {
 	await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 }
 
-const mutableAvailabilityStore = availabilityStore as unknown as { loading: boolean };
+const mutableAvailabilityStore = availabilityStore as unknown as { loading: boolean; items: unknown[] };
 const mutableDailyAssignmentsStore = dailyAssignmentsStore as unknown as { loading: boolean };
 const mutableSpecialDaysStore = specialDaysStore as unknown as { loading: boolean };
 const mutableStatusTypesStore = statusTypesStore as unknown as { loading: boolean };
@@ -239,6 +246,7 @@ describe('CalendarPageView', () => {
 		afterEach(() => {
 			mutableStatusTypes.items = [];
 			mutableAssignmentTypes.types = [];
+			mutableAvailabilityStore.items = [];
 		});
 
 		it('explains statuses, duty markers and drag-to-add in Month, and only statuses in 3-Month', async () => {
@@ -254,6 +262,51 @@ describe('CalendarPageView', () => {
 			expect(within(quarterLegend.getByRole('list', { name: 'Statuses' })).getByText('Leave')).toBeTruthy();
 			expect(quarterLegend.queryByRole('list', { name: 'Duty markers' })).toBeNull();
 			expect(quarterLegend.queryByText('Drag across days to add')).toBeNull();
+		});
+
+		it('lists an archived status only while an entry in view uses it', () => {
+			mutableStatusTypes.items = [
+				{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
+				{
+					id: 'sick',
+					name: 'Sick',
+					color: '#dc2626',
+					textColor: '#ffffff',
+					shortLabel: null,
+					sortOrder: 1,
+					archivedAt: '2030-01-02T03:04:05Z'
+				},
+				{
+					id: 'tdy',
+					name: 'TDY',
+					color: '#2563eb',
+					textColor: '#ffffff',
+					shortLabel: null,
+					sortOrder: 2,
+					archivedAt: '2030-01-02T03:04:05Z'
+				}
+			];
+			mutableAvailabilityStore.items = [
+				{
+					id: 'e1',
+					personnelId: 'p1',
+					statusTypeId: 'sick',
+					startDate: '2026-09-22',
+					endDate: '2026-09-22',
+					note: null
+				}
+			];
+			const ctx = makeContext(mockData, makeMockOrg({ userRole: 'admin' }));
+			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+
+			const statuses = within(
+				within(screen.getByRole('group', { name: 'Calendar legend' })).getByRole('list', { name: 'Statuses' })
+			);
+
+			const shown = statuses.getAllByRole('listitem');
+			expect(shown).toHaveLength(2);
+			expect(shown[0].textContent).toContain('Leave');
+			expect(shown[1].textContent).toContain('Sick');
 		});
 
 		it('offers drag-to-add only to people who can add availability', () => {

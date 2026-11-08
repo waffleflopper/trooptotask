@@ -35,9 +35,9 @@
 		actionablePersonnel(model.inputs.personnel, access, POLICY_ACTION_CATALOG.training.recordCompletions)
 	);
 	const types = $derived(
-		[...model.data.dashboard.data.trainingTypes].sort(
-			(a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
-		)
+		model.data.dashboard.data.trainingTypes
+			.filter((type) => !type.archivedAt)
+			.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
 	);
 	const typeOptions = $derived(types.map((type) => ({ value: type.id, label: type.name })));
 	const selectedType = $derived(types.find((candidate) => candidate.id === typeId));

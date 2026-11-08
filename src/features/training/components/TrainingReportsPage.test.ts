@@ -41,7 +41,8 @@ const CPR: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: false,
 	exemptPersonnelIds: [],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 function soldier(id: string, groupId: string, groupName: string): Personnel {

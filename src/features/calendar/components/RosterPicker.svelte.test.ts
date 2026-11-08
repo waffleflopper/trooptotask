@@ -227,6 +227,7 @@ describe('RosterPicker with availability', () => {
 		color: '#48bb78',
 		textColor: '#ffffff',
 		shortLabel: null,
+		archivedAt: null,
 		rosterEffect: 'A',
 		sortOrder
 	}));

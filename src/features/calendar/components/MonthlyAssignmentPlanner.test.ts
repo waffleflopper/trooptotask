@@ -111,6 +111,7 @@ function renderPlanner(
 					color: '#0a0',
 					textColor: '#fff',
 					shortLabel: null,
+					archivedAt: null,
 					rosterEffect: 'A',
 					sortOrder: 0
 				},
@@ -120,6 +121,7 @@ function renderPlanner(
 					color: '#a60',
 					textColor: '#fff',
 					shortLabel: null,
+					archivedAt: null,
 					rosterEffect: 'available',
 					sortOrder: 1
 				}

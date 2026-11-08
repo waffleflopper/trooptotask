@@ -9,6 +9,7 @@ import type { TrainingType, TrainingView } from '$features/training/training.typ
 
 function makeType(id: string, name: string, sortOrder: number, overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name,
 		description: null,

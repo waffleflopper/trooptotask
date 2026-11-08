@@ -60,6 +60,36 @@ describe('saveRosterField', () => {
 		expect(refreshSignals).toHaveBeenCalledWith(['a']);
 	});
 
+	it('saves more than 500 People in batches and keeps the confirmed batch on the roster when a later one fails', async () => {
+		const many = Array.from({ length: 501 }, (_, index) => person(`p${index}`, 'SGT'));
+		personnelStore.load(many, 'org-1');
+		const save = vi
+			.fn<NonNullable<RosterFieldSaveDeps['save']>>()
+			.mockImplementationOnce(async (_orgId, ids) => ({
+				field: 'rank',
+				value: 'SSG',
+				updatedIds: ids,
+				refusedIds: [],
+				unavailableIds: []
+			}))
+			.mockRejectedValueOnce(new Error('lost'));
+		const { deps, refreshSignals } = setup(new Promise<PersonnelFieldBulkResult>(() => {}));
+
+		await expect(
+			saveRosterField(
+				many,
+				{ field: 'rank', value: 'SSG' },
+				many.map((item) => item.id),
+				{ ...deps, save }
+			)
+		).rejects.toThrow('lost');
+
+		expect(save.mock.calls.map(([, ids]) => ids.length)).toEqual([500, 1]);
+		expect(personnelStore.items.filter((item) => item.rank === 'SSG')).toHaveLength(500);
+		expect(personnelStore.items.find((item) => item.id === 'p500')?.rank).toBe('SGT');
+		expect(refreshSignals).toHaveBeenCalledOnce();
+	});
+
 	it('writes nothing and never settles when the reply arrives after the Organization shell ends', async () => {
 		let reply!: (result: PersonnelFieldBulkResult) => void;
 		const { deps, peek, refreshSignals } = setup(new Promise((resolve) => (reply = resolve)));

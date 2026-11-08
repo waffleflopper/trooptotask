@@ -189,6 +189,14 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		sentence:
 			'Changed training type Annual Safety Brief: name Annual Safety → Annual Safety Brief, who it applies to changed'
 	},
+	'training_type.archived': {
+		entry: { recordLabel: 'Annual Safety Brief', subjectLabel: null, details: {} },
+		sentence: 'Archived training type Annual Safety Brief'
+	},
+	'training_type.restored': {
+		entry: { recordLabel: 'Annual Safety Brief', subjectLabel: null, details: {} },
+		sentence: 'Restored training type Annual Safety Brief'
+	},
 	'training_type.deleted': {
 		entry: { recordLabel: 'Annual Safety Brief', subjectLabel: null, details: {} },
 		sentence: 'Deleted training type Annual Safety Brief'

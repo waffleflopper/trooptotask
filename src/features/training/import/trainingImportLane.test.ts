@@ -18,6 +18,7 @@ function person(id: string, rank: string, lastName: string, firstName: string, g
 
 function type(id: string, name: string, overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name,
 		description: null,
@@ -148,6 +149,26 @@ describe('training import lane', () => {
 			suggestion: { id: 't-wq' }
 		});
 		expect(match(lane, 'training', { training: 'Land Nav' })).toEqual({ kind: 'none' });
+	});
+
+	it('offers only active types, refuses an archived exact match with a reason, and never suggests one', () => {
+		const lane = createTrainingImportLane(
+			source({
+				trainingTypes: [
+					type('t-cpr', 'CPR/BLS'),
+					type('t-sharp', 'SHARP', { archivedAt: '2030-01-02T03:04:05Z' }),
+					type('t-wq', 'Weapons Qual'),
+					type('t-nav', 'Land Nav', { archivedAt: '2030-01-02T03:04:05Z' })
+				]
+			})
+		);
+
+		expect(lane.references.training.options.map((option) => option.id)).toEqual(['t-cpr', 't-wq']);
+		expect(match(lane, 'training', { training: 'SHARP' })).toEqual({
+			kind: 'none',
+			reason: "'SHARP' is archived. Restore it to import its records."
+		});
+		expect(match(lane, 'training', { training: 'Land' })).toEqual({ kind: 'none' });
 	});
 
 	it('asks once per training for the date of X marks and saves that date, never today', () => {

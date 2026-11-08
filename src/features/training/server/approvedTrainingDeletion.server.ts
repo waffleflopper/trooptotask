@@ -3,6 +3,7 @@ import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { featureOffMessage, type FeatureKey } from '$lib/access/featureSwitches';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
+import { TRAINING_TYPE_HAS_RECORDS_MESSAGE } from './trainingPersistenceMapping.server';
 
 export interface ApprovedTrainingDeletionActor {
 	readonly userId: string;
@@ -58,6 +59,7 @@ export function createSupabaseApprovedTrainingDeletionPort(
 			p_reviewed_at: reviewedAt
 		});
 		if (error?.code === 'P0002') fail(404, error.message);
+		if (error?.code === '23503' && resourceType === 'training_type') fail(409, TRAINING_TYPE_HAS_RECORDS_MESSAGE);
 		if (error) throw new Error(error.message);
 	}
 

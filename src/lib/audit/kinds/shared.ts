@@ -196,3 +196,13 @@ export function lifecycle<DetailShape extends z.ZodRawShape = Record<string, nev
 		})
 	};
 }
+
+/** Archiving or restoring a catalog entry. Its details stay empty, so one shape covers every catalog. */
+export function archiveState(verb: 'Archived' | 'Restored', noun: string, pluralNoun: string) {
+	return auditKind({
+		writer: 'database',
+		entry: z.object({ record: savedLabel, subject: z.string().nullish(), details: z.object({}) }),
+		sentence: ({ record }) => `${verb} ${noun} ${record}`,
+		batch: { verb, one: noun, many: pluralNoun }
+	});
+}

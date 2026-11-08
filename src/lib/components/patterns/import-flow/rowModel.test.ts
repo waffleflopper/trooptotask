@@ -425,4 +425,51 @@ describe('row review', () => {
 			]
 		});
 	});
+
+	it('titles a question with the reason a known name cannot be used, and "Unknown" otherwise', () => {
+		const base = personnelLane();
+		const lane = defineImportLane({
+			...base,
+			commitChunk: async () => ({ kind: 'unconfirmed' }),
+			inFileOverlap: undefined,
+			references: {
+				...base.references,
+				person: {
+					label: 'person',
+					reads: ['lastName', 'firstName'],
+					options: [],
+					whenMissing: 'ask',
+					key: (raw) => (raw.lastName ? { key: raw.lastName, display: raw.lastName } : null),
+					find: (key) =>
+						key === 'Smith' ? { kind: 'none', reason: "'Smith' is archived. Restore it to import." } : { kind: 'none' }
+				}
+			},
+			review({ values, refs }) {
+				return { outcome: 'new', key: refs.person?.id ?? values.lastName, change: { target: null } };
+			}
+		});
+		const file: LoadedFile = {
+			name: 'people.csv',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Last name', 'First name', 'Rank'],
+						['Smith', 'Alex', 'SGT'],
+						['Jones', 'Pat', 'CPL']
+					]
+				}
+			]
+		};
+		const rows = buildSourceRows(file, detectLayout(file, lane), lane);
+
+		const state = reviewRows(rows, lane, new Map(), new Set(), new ReviewMemo());
+
+		expect(state.questions.map((question) => [question.subject, question.title])).toEqual([
+			['Smith', "'Smith' is archived. Restore it to import."],
+			['Jones', 'Unknown person']
+		]);
+	});
 });

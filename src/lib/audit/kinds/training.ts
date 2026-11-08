@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { dateOnlySchema } from '$lib/utils/inputSchemas';
 import {
+	archiveState,
 	auditKind,
 	changeOf,
 	day,
@@ -56,6 +57,8 @@ const exemption = z.object({ record: savedLabel, subject: savedLabel, details: z
 export const trainingKinds = {
 	'training_type.created': trainingType.created,
 	'training_type.updated': trainingType.updated,
+	'training_type.archived': archiveState('Archived', 'training type', 'training types'),
+	'training_type.restored': archiveState('Restored', 'training type', 'training types'),
 	'training_type.deleted': trainingType.deleted,
 	'training_type.exemption_added': auditKind({
 		writer: 'database',

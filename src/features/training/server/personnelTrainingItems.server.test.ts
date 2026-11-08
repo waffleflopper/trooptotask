@@ -7,6 +7,7 @@ const person = { id: 'okafor', rank: 'SGT', mos: '68W', clinicRole: 'Treatment N
 
 function type(id: string, name: string, overrides: Partial<TrainingType> = {}): SavedTrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name,
 		organization_id: 'org-1',

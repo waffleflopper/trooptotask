@@ -1,12 +1,14 @@
 # Calendar catalogs
 
 An Organization Calendar configurator maintains status and assignment choices; saved availability and assignments retain
-their references through edits, while confirmed type deletion explains and removes only linked records.
+their references through edits. Status types with entries are archived, not deleted; confirmed assignment type deletion
+explains and removes only linked records.
 
 ## Sub-features
 
-- `status-types`: add and edit name, one-day label and colors in the inline composer, reload, keep ID and linked leave;
-  confirmed deletion removes linked availability and records an audit/notification effect.
+- `status-types`: add and edit name, one-day label and colors in the inline composer, reload, keep ID and linked leave.
+  Permanently deleting an archived status with 0 entries removes only the type, records a `status_type.deleted` audit
+  event and notifies admins.
 - `status-archive`: `Archive` is the cleanup for a status type with schedule entries. The entries stay on the calendar
   and in reports. The type leaves the status pickers (availability dialog, bulk add), the legend unless an entry in view
   uses it, and the open DA 6 counts. A collapsed `Archived` section lists archived types with `N entries`, `Restore`,
@@ -55,8 +57,9 @@ type is archived) opens rows that read the name, `ARCHIVED <date> · N ENTRIES`,
 `Delete <name>`. A failed count load shows `Could not load how many entries each type has. Restore still works.` with
 `Try again`. Assignment types sit in two lists: `On the calendar · N lanes`
 in lane order with a `Reorder <name>` grip on each row, and `Duty planner only` sorted by name. Assignment type Add and
-Edit open a side sheet. A deletion dialog says what the delete removes: schedule entries for a status, assigned days and
-saved DA 6 forms (and, for a Person type, its duty roster) for an assignment type. `Holidays & closures` is the third
+Edit open a side sheet. A status deletion dialog says the status has no schedule entries and cannot be undone. An assignment
+type deletion dialog says what the delete removes: assigned days and saved DA 6 forms (and, for a Person type, its duty
+roster). `Holidays & closures` is the third
 section and is driven in [Special days](special-days.md).
 
 ### Helper controls

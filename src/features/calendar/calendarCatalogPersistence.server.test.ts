@@ -418,6 +418,13 @@ describe('Calendar ordinary catalog persistence', () => {
 			await expect(port[method]('absent')).rejects.toThrow('Referenced catalog');
 		}
 	);
+
+	it('refuses to delete a status type the database says still has entries', async () => {
+		const { client, state } = calendarProvider();
+		const port = createSupabaseCalendarCatalogPersistence(client, ORG);
+		state.failure = () => ({ code: '23503', message: 'availability_entries_org_status_type_fkey', status: 409 });
+		await expect(port.deleteStatusType('used')).rejects.toMatchObject({ name: 'RequestFailure', status: 409 });
+	});
 });
 
 const COMMAND_ORG = '00000000-0000-4000-8000-0000000000a1';

@@ -150,6 +150,32 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    row and keeps `Invite again` available; the browser drive does not reproduce it, so the component test owns it.
    Evidence: `.verification/evidence/verify-trooptotask/safer-invites/`. Finish with `clean-seeds`.
 
+8. **In-app notice for an existing account.** An invitation to an email that already has an account also sends that
+   account one notification with no Organization, so it shows in the bell of every Organization the person opens. The
+   server tests own the cases that send none (a new email, a failed create, `Resend`) and the invite that still
+   succeeds when the notification fails. Use an A member as the invitee and the B owner as the inviter: `orgMember`
+   (or `orgAdmin` for a second pass) and `orgSettingsPeer`. Read each invitee's synthetic email from `orgOwner`'s
+   `settings/members` snapshot, since `orgMember` has no stored membership email. Run once at 390 and once at 1280
+   (`tool emulate '{"pageId":PAGE,"viewport":"390x844x1"}'`, then `1280x900x1`; `resize_page` did not apply here),
+   each with a different A member, because acceptance makes the invitee a B member.
+   1. As `orgSettingsPeer` open `settings/members`, enter the invitee's email and `Send invite`; require
+      `Invitation created and email delivery was queued.` and one pending B invitation. Then open
+      `$V actor orgMember home`: A's bell reads `1 unread notifications`. Open it: one item reading
+      `Invitation to join Verification Organization B` with the message
+      `You've been invited to join Verification Organization B. Open your invitations to accept or decline.`, a delete
+      button and `View all`, and neither the inviter's email nor `orgSettingsPeer` anywhere in the item. At 390 the title
+      and message clamp with an ellipsis, so read the full text from the snapshot; the menu has no horizontal scroll.
+   2. Choose the item. The page navigates to `/dashboard?show=all`; `Invitations` shows `Verification Organization B`
+      with `Decline` and `Accept`, and `Member of` lists only A. `$V rows notifications orgA|orgB` filters on
+      Organization and never returns this row, so the bell is the readback.
+   3. Choose `Accept invitation to Verification Organization B`. The page stays on `/dashboard?show=all`,
+      `Joined Verification Organization B. It's now in your list.` shows, B appears under `Member of` as a member and
+      `Invitations` is gone.
+   4. Open B (or A) from `Member of` and open the bell again: the same notice is still listed, already read, because
+      accepting does not delete it. Choose it: the page lands on `/dashboard?show=all` and renders `Member of` with A and
+      B, no `Invitations` section and no error. Browser console errors are limited to the local `_vercel/insights` and
+      `_vercel/speed-insights` script 404s, which are not part of the journey.
+
 ### Invitation grant liveness
 
 Use a unique synthetic new email per case, `$V access-request EMAIL` after each step, and restore `mail` and `fault`

@@ -8,7 +8,9 @@ about the current page, and dismiss global announcements without affecting anoth
 - `toast-theme`: success/error feedback follows the explicitly selected app theme. The
   [shared theme pass](shared-ui.md#theme-and-viewport) owns its narrow/wide and opposite-system-preference proof.
 - `recipient-delivery`: current Organization owners/admins receive real membership-event notifications; the triggering
-  actor, ordinary members and foreign Organizations are excluded where the producer requires it.
+  actor, ordinary members and foreign Organizations are excluded where the producer requires it. An invitation to an
+  existing account also sends that account one account-wide notification with no Organization, driven in the
+  [invitation recipe](organization-invitations.md) step 8.
 - `notification-lifecycle`: the bell lists the newest twenty own notifications, opens links, marks one/all read and
   deletes one; Account → Notifications lists the newest hundred with the same actions and `Delete all`; deletion
   preserves peer and foreign rows.
@@ -68,7 +70,9 @@ endpoints).
    invitation persists. Compare provider rows: exactly the current A owners/admins other than `orgOwner` receive one
    `member_invited` record; ordinary members/B receive none. As `orgAdmin`, open the bell, select the new notification
    and capture its Settings navigation, saved `read=true`, and reload. If also driving invitee Accept/Decline, compare
-   the additional producer's exact audience separately; do not count seeded rows as delivery proof.
+   the additional producer's exact audience separately; do not count seeded rows as delivery proof. The invited existing
+   account's own `organization_invitation_received` notice has no Organization, so `rows notifications orgA|orgB` cannot
+   return it; read it in the bell of any Organization that account opens.
 2. **Failure and scope change before bulk mutation.** As `notificationMember`, load the bell with fresh unread rows
    before arming `network arm-fail PAGE notifications`; opening an unread item must target the PUT rather than a list
    GET. Record the failed PUT, visible count and unchanged row, then reload and retry. A failed write must not present a

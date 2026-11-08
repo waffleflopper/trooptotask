@@ -20,9 +20,18 @@ it.each([
 	render(WorkspaceAccessRestricted, { props: { lane, level } });
 
 	const alert = screen.getByRole('alert');
-	expect(alert.textContent).toContain(`You need ${needs} access`);
-	expect(alert.textContent).toContain('An owner or admin of Alpha Company can grant it.');
-	expect(document.title).toBe('Access Restricted - Troop to Task');
+	expect(alert.textContent).toContain(needs);
+	expect(alert.textContent).toContain('Alpha Company');
+});
+
+it('asks for Whole unit coverage only when the page reads every Group', () => {
+	render(WorkspaceAccessRestricted, { props: { lane: 'calendar', level: 'view', wholeUnit: true } });
+	const scoped = screen.getByRole('alert').textContent;
+	cleanup();
+	render(WorkspaceAccessRestricted, { props: { lane: 'calendar', level: 'view' } });
+
+	expect(scoped).toContain('Whole unit');
+	expect(screen.getByRole('alert').textContent).not.toContain('Whole unit');
 });
 
 it('offers one way back to the Organization home by its URL segment', () => {

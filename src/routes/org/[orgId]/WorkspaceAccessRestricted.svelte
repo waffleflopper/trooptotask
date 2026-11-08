@@ -9,7 +9,16 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
 
-	let { lane, level }: { lane: DurableFeatureLane; level: Exclude<CapabilityLevel, 'none'> } = $props();
+	let {
+		lane,
+		level,
+		wholeUnit = false
+	}: {
+		lane: DurableFeatureLane;
+		level: Exclude<CapabilityLevel, 'none'>;
+		/** The page reads every Group, so Group-scoped access at this level is still denied. */
+		wholeUnit?: boolean;
+	} = $props();
 
 	const org = $derived(page.data.shell.org);
 	const needed = $derived(`${ACCESS_LANE_LABELS[lane]} ${CAPABILITY_LEVEL_LABELS[level]}`);
@@ -23,7 +32,8 @@
 	<Empty.Header>
 		<h1 class="text-xl font-semibold tracking-tight">Access Restricted</h1>
 		<Empty.Description>
-			You need {needed} access to open this page. An owner or admin of {org.name} can grant it.
+			You need {needed} access{wholeUnit ? ' for the Whole unit' : ''} to open this page. An owner or admin of {org.name}
+			can grant it.
 		</Empty.Description>
 	</Empty.Header>
 	<Empty.Content>

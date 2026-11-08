@@ -37,21 +37,6 @@
 
 	<PageShell.FactRow
 		variant="display"
-		label="Roster only"
-		muted
-		description="People and groups, without the rest of the unit. A lighter file for S1 and higher."
-	>
-		{#snippet control()}
-			<span
-				class="pt-1.5 font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
-			>
-				Coming soon
-			</span>
-		{/snippet}
-	</PageShell.FactRow>
-
-	<PageShell.FactRow
-		variant="display"
 		label="One person"
 		description="A single soldier’s workbook. Export it from their record, or from Archives after they leave."
 	>

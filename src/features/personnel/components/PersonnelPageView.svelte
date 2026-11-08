@@ -704,13 +704,27 @@
 		if (stored !== ROSTER_PAGE_SIZE && ROSTER_PAGE_SIZES.some((size) => size === stored)) setPageSize(stored);
 	});
 
+	const importHref = $derived(ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null);
+
+	const EMPTY_ROSTER_DESCRIPTIONS = {
+		'add-and-import': 'Add one person, or import a roster spreadsheet.',
+		add: 'Add the first person to start the roster.',
+		import: 'Import a roster spreadsheet to fill it.',
+		none: 'People appear here once someone who manages Personnel adds them.'
+	} as const;
+	const emptyRosterDescription = $derived(
+		EMPTY_ROSTER_DESCRIPTIONS[
+			canAddPersonnel ? (importHref ? 'add-and-import' : 'add') : importHref ? 'import' : 'none'
+		]
+	);
+
 	const toolbarItems = $derived(
 		personnelToolbarItems({
 			viewMode: banded ? ctx.viewMode : null,
 			onViewModeChange: (mode) => (ctx.viewMode = mode),
 			showSubGroups: banded && nestedTree ? showSubGroupsToggle() : null,
 			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupEditor(tree.roots[0]?.id ?? null) : null,
-			importHref: ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null
+			importHref
 		})
 	);
 
@@ -812,11 +826,16 @@
 							<UsersIcon aria-hidden="true" />
 						</Empty.Media>
 						<Empty.Title>No personnel on the active roster</Empty.Title>
-						<Empty.Description>Add one person, or use Import when you have a roster file.</Empty.Description>
+						<Empty.Description>{emptyRosterDescription}</Empty.Description>
 					</Empty.Header>
-					{#if canAddPersonnel}
-						<Empty.Content>
-							<Button onclick={() => ctx.handleAdd()}>Add Person</Button>
+					{#if canAddPersonnel || importHref}
+						<Empty.Content class="flex-row flex-wrap justify-center">
+							{#if canAddPersonnel}
+								<Button onclick={() => ctx.handleAdd()}>Add Person</Button>
+							{/if}
+							{#if importHref}
+								<Button variant="outline" href={importHref}>Import</Button>
+							{/if}
 						</Empty.Content>
 					{/if}
 				</Empty.Root>

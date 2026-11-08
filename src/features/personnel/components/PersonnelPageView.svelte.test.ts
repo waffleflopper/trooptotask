@@ -354,6 +354,38 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
 	});
 
+	describe('with an empty roster', () => {
+		beforeEach(() => personnelStore.load([], 'org-1'));
+
+		function renderEmpty(overrides: Partial<PersonnelPageContext>) {
+			const { container } = render(PersonnelPageView, { props: { ctx: makeCtx(overrides) } });
+			const region = container.querySelector<HTMLElement>('[data-slot="empty"]');
+			if (!region) throw new Error('empty roster state did not render');
+			return within(region);
+		}
+
+		it('offers Add Person and Import to someone who can do both', () => {
+			const empty = renderEmpty({ canAddPersonnel: true, canImportPersonnel: true });
+
+			expect(empty.getByRole('button', { name: 'Add Person' })).toBeTruthy();
+			expect(empty.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
+		});
+
+		it('offers Import alone to someone who can import but not add', () => {
+			const empty = renderEmpty({ canAddPersonnel: false, canImportPersonnel: true });
+
+			expect(empty.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
+			expect(empty.queryByRole('button', { name: 'Add Person' })).toBeNull();
+		});
+
+		it('hides Import from someone who cannot import', () => {
+			const empty = renderEmpty({ canAddPersonnel: true, canImportPersonnel: false });
+
+			expect(empty.getByRole('button', { name: 'Add Person' })).toBeTruthy();
+			expect(empty.queryByRole('link', { name: 'Import' })).toBeNull();
+		});
+	});
+
 	it('opens Manage Groups on the first top-level Group when the catalog lists a sub-group first', async () => {
 		groupCatalogHydration.load(
 			[

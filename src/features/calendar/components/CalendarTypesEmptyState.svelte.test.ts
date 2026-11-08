@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 import CalendarTypeSetupHost from '../test-support/CalendarTypeSetupHost.svelte';
 
 const saved = (id: string, name: string) => ({
@@ -141,15 +142,27 @@ describe('CalendarTypesEmptyState', () => {
 		expect(statusTypesStore.items).toEqual([]);
 	});
 
-	it('names the starter types a partial save could not create', async () => {
+	it('names the starter types a partial save could not create after the offer closes', async () => {
+		const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+		const leave = {
+			id: 's1',
+			name: 'Leave',
+			color: '#48bb78',
+			textColor: '#ffffff',
+			shortLabel: null,
+			rosterEffect: 'A',
+			sortOrder: 0
+		};
 		fetchMock.mockResolvedValue(
-			Response.json({ ...created, failed: [{ id: 'sick', name: 'Sick', message: 'Try again.' }] })
+			Response.json({ ...created, statusTypes: [leave], failed: [{ id: 'sick', name: 'Sick', message: 'Try again.' }] })
 		);
 		render(CalendarTypeSetupHost, { props: { kind: 'status', setup: manager } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /^Add \d/ }));
 
-		expect((await screen.findByRole('alert')).textContent).toContain('Sick');
+		await waitFor(() => expect(error).toHaveBeenCalledWith(expect.stringContaining('Sick')));
+		expect(statusTypesStore.items.map(({ name }) => name)).toEqual(['Leave']);
+		error.mockRestore();
 	});
 
 	it('offers no starter types to a viewer who may configure only the other kind', () => {

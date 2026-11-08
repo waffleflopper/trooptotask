@@ -5,6 +5,7 @@
 	import { SuggestionPanel } from '$lib/components/patterns/suggestion-panel';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { TrainingPageAccess } from '../contracts';
 	import { fetchTrainingSuggestionBranch, postTrainingSuggestions } from '../trainingSuggestionsClient';
 	import { trainingTypesStore } from '../stores/trainingTypes.svelte';
@@ -72,9 +73,9 @@
 			});
 			// The reply carries the catalog just read back, so the page keeps its place instead of reloading.
 			if (stillHere()) trainingTypesStore.load(result.trainingTypes, orgId);
-			if (stillHere() && result.failed.length > 0) {
-				failure = `${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`;
-			}
+			// A partial save leaves the catalog nonempty, which unmounts this offer, so the miss is told in a toast.
+			if (stillHere() && result.failed.length > 0)
+				toastStore.error(`${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`);
 		} catch (cause) {
 			if (stillHere())
 				failure = cause instanceof Error ? cause.message : 'Could not add the training types. Try again.';

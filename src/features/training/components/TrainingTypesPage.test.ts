@@ -239,6 +239,24 @@ describe('TrainingTypesPage', () => {
 			expect(screen.getByText('No training types yet.')).toBeTruthy();
 		});
 
+		it('names the starter types a partial save could not create after the offer closes', async () => {
+			const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+			stubSuggestions('army', () =>
+				Response.json({
+					...created,
+					failed: [{ id: 'eo', name: 'Equal Opportunity', expirationMonths: 12, message: 'Try again.' }],
+					trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }]
+				})
+			);
+			mount([]);
+
+			await screen.findByRole('checkbox', { name: /^SHARP/ });
+			await fireEvent.click(add());
+
+			await waitFor(() => expect(error).toHaveBeenCalledWith(expect.stringContaining('Equal Opportunity')));
+			expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']);
+		});
+
 		it('explains a failed branch lookup and offers the list after a retry', async () => {
 			let lookups = 0;
 			vi.stubGlobal('fetch', async () =>

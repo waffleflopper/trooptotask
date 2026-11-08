@@ -4,6 +4,7 @@
 	import { SuggestionPanel } from '$lib/components/patterns/suggestion-panel';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { calendarAssignmentSuggestions, calendarStatusSuggestions } from '../calendarSuggestions';
 	import { postCalendarSuggestions } from '../calendarSuggestionsClient';
 	import type { CalendarSuggestionsResult } from '../contracts';
@@ -87,9 +88,9 @@
 			// The reply carries the catalog just read back. Loading it keeps the open picker or dialog mounted, which a
 			// calendar-data reload would replace with the page skeleton.
 			if (stillHere()) adopt(result);
-			if (stillHere() && result.failed.length > 0) {
-				failure = `${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`;
-			}
+			// A partial save leaves the catalog nonempty, which unmounts this offer, so the miss is told in a toast.
+			if (stillHere() && result.failed.length > 0)
+				toastStore.error(`${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`);
 		} catch (cause) {
 			if (stillHere()) failure = cause instanceof Error ? cause.message : 'Could not add the types. Try again.';
 		} finally {

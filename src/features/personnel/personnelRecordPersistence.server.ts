@@ -158,6 +158,19 @@ export function createSupabasePersonnelRecordPersistence(
 			if (error) throwPersonnelMutationError(error);
 			return (data ?? []).map((row) => row.id);
 		},
+		async setEditableField(ids, change) {
+			if (ids.length === 0) return [];
+			const { data, error } = await client
+				.from('personnel')
+				.update(personnelEditableRow({ [change.field]: change.value }))
+				.eq('organization_id', orgId)
+				.in('id', [...new Set(ids)])
+				.is('archived_at', null)
+				.select('id')
+				.returns<{ id: string }[]>();
+			if (error) throwPersonnelMutationError(error);
+			return (data ?? []).map((row) => row.id);
+		},
 		async delete(id) {
 			const { error } = await client.from('personnel').delete().eq('organization_id', orgId).eq('id', id);
 			if (error?.code === '23503' && error.message.includes('calendar_tasking_participants_personnel_fkey'))

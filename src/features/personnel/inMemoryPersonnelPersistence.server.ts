@@ -157,6 +157,20 @@ export function createInMemoryPersonnelRecordPersistence(
 			for (const row of rows) await store.update('personnel', orgId, row.id, { group_id: groupId });
 			return rows.map((row) => row.id);
 		},
+		async setEditableField(ids, change) {
+			const rows = await store.findMany<{ id: string }>('personnel', orgId, undefined, {
+				select: 'id',
+				inFilters: { id: [...new Set(ids)] },
+				isNull: { archived_at: true }
+			});
+			const patch = Object.fromEntries(
+				Object.entries(personnelEditableRow({ [change.field]: change.value })).filter(
+					([, value]) => value !== undefined
+				)
+			);
+			for (const row of rows) await store.update('personnel', orgId, row.id, patch);
+			return rows.map((row) => row.id);
+		},
 		delete: (id) => store.delete('personnel', orgId, id)
 	};
 }

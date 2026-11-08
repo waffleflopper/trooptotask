@@ -195,4 +195,30 @@ describe('ordinary Personnel records', () => {
 			['foreign', 'alpha']
 		]);
 	});
+	it('sets one field on only active People in the Organization in one write', async () => {
+		const { client, state } = personnelProvider({
+			personnel: [
+				SAVED,
+				{ ...SAVED, id: 'archived', slug: 'archived', archived_at: '2026-01-01T00:00:00Z' },
+				{ ...SAVED, id: 'foreign', organization_id: 'org-b' }
+			]
+		});
+		const port = createSupabasePersonnelRecordPersistence(client, 'org-a', { kind: 'organization' });
+		const before = state.requests.length;
+		expect(await port.setEditableField([], { field: 'mos', value: '68W' })).toEqual([]);
+		expect(state.requests).toHaveLength(before);
+
+		expect(
+			await port.setEditableField(['person-a', 'archived', 'foreign', 'person-a'], {
+				field: 'ets',
+				value: '2027-03-04'
+			})
+		).toEqual(['person-a']);
+		expect(state.requests.filter((op) => op.method === 'PATCH')).toHaveLength(1);
+		expect(state.rows.personnel.map((row) => [row.id, row.ets])).toEqual([
+			['person-a', '2027-03-04'],
+			['archived', SAVED.ets],
+			['foreign', SAVED.ets]
+		]);
+	});
 });

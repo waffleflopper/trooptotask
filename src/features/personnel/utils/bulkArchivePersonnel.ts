@@ -11,7 +11,7 @@ export async function bulkArchivePersonnel(orgId: string, ids: string[]): Promis
 
 	const result: unknown = await response.json();
 	if (!result || typeof result !== 'object') throw new Error('Archive result could not be confirmed');
-	const { archivedIds, approvalRequestedIds, errors } = result as Partial<ArchivePersonnelBatchResult>;
+	const { archivedIds, approvalRequestedIds, errors, undo } = result as Partial<ArchivePersonnelBatchResult>;
 	if (
 		!Array.isArray(archivedIds) ||
 		!archivedIds.every((id) => typeof id === 'string') ||
@@ -30,5 +30,5 @@ export async function bulkArchivePersonnel(orgId: string, ids: string[]): Promis
 	) {
 		throw new Error('Archive result could not be confirmed');
 	}
-	return { archivedIds, approvalRequestedIds, errors };
+	return { archivedIds, approvalRequestedIds, errors, ...(typeof undo === 'string' ? { undo } : {}) };
 }

@@ -41,7 +41,9 @@ export {
 	setGroupOrder,
 	deleteGroup,
 	moveGroupMembers,
-	type GroupMembershipResult
+	undoGroupMembers,
+	type GroupMembershipResult,
+	type GroupMembershipUndoResult
 } from './groupOperations.server';
 export { setPersonnelField } from './personnelFieldBulk.server';
 export { pinGroup, unpinGroup } from './pinnedGroupOperations.server';
@@ -95,8 +97,17 @@ export {
 	permanentlyDeletePersonnelRecord,
 	approvePersonnelArchiveRequest,
 	describePersonnelArchiveRequest,
-	preparePersonnelArchiveBatch
+	preparePersonnelArchiveBatch,
+	restoreArchivedPersonnel,
+	type PersonnelArchiveEvent,
+	type PersonnelArchiveResult
 } from './personnelLifecycle.server';
+export {
+	ARCHIVE_UNDO_WINDOW_MS,
+	issueArchiveUndo,
+	verifyArchiveUndo,
+	type ArchiveUndoClaims
+} from './archiveUndoToken.server';
 
 export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
 

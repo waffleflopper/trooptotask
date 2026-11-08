@@ -3,13 +3,12 @@ import { resolve } from '$app/paths';
 import { downloadBlob } from '$lib/utils/downloadBlob';
 import { filenameFromContentDisposition } from '$lib/utils/workbook';
 import type { Personnel } from '../personnel.types';
-import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
+import { archivePersonnel } from '../utils/archivePersonnel';
 
 export interface PersonnelRecordActionsInput {
 	orgId: string;
 	orgUrlSegment: string;
 	person: Personnel;
-	requestArchiveApproval: RequestPersonnelArchiveApproval;
 }
 
 export interface PersonnelRecordActionsDeps {
@@ -81,20 +80,14 @@ export class PersonnelRecordActions {
 
 	confirmArchive = async (): Promise<void> => {
 		if (this.#disposed || this.archiving) return;
-		const { orgId, orgUrlSegment, person, requestArchiveApproval } = this.#input();
+		const { orgId, orgUrlSegment, person } = this.#input();
+		const rosterPath = this.#deps.resolve(`/org/${orgUrlSegment}/personnel` as '/');
 		this.archiving = true;
 		try {
-			const result = await this.#deps.archivePersonnel({
-				orgId,
-				person,
-				requestArchiveApproval,
-				resourceUrl: `/org/${orgId}/personnel/${person.slug ?? person.id}`
-			});
+			const result = await this.#deps.archivePersonnel({ orgId, person, archivedPath: rosterPath });
 			if (this.#disposed) return;
 			if (result === 'archived') {
-				await this.#deps.goto(this.#deps.resolve(`/org/${orgUrlSegment}/personnel` as '/'), {
-					invalidate: ['app:personnel-data']
-				});
+				await this.#deps.goto(rosterPath, { invalidate: ['app:personnel-data'] });
 			} else {
 				this.confirmingArchive = false;
 			}

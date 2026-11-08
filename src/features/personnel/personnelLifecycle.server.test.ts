@@ -117,9 +117,17 @@ describe('Personnel — archive', () => {
 
 		const result = await archivePersonnelRecord(ctx, 'p-1');
 
-		expect(result).toBeUndefined();
 		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
 		expect(stored.archived_at).toBeTruthy();
+		expect(result).toEqual({ archivedAt: stored.archived_at });
+	});
+
+	it('returns no archive time for a Person who was already archived, so nothing is left to take back', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		await ctx.rawStore!.update('personnel', ctx.auth.orgId, 'p-1', { archived_at: '2026-08-01T12:00:00.000Z' });
+
+		await expect(archivePersonnelRecord(ctx, 'p-1')).resolves.toEqual({ archivedAt: null });
 	});
 
 	it.each([null, '2026-08-01T12:00:00.000Z'])(

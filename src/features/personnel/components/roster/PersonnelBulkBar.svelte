@@ -11,7 +11,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
-	import { toastStore } from '$lib/stores/toast.svelte';
+	import { toastStore, type ToastAction } from '$lib/stores/toast.svelte';
 	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { PersonnelBulkField, PersonnelFieldChange } from '../../contracts';
@@ -21,7 +21,8 @@
 	import type { ComposerKind } from '../../rosterComposer';
 	import { downloadRosterExport, rosterExportFilename, rosterExportRows } from '../../rosterExport';
 	import { personnelStore } from '../../stores/personnel.svelte';
-	import { moveGroupMembers } from '../../utils/moveGroupMembers';
+	import { ARCHIVE_UNDO_MS, archiveUndoAction } from '../../utils/archiveUndo';
+	import { moveGroupMembers, undoGroupMoves, type GroupMoveUndo } from '../../utils/moveGroupMembers';
 	import { saveRosterField } from '../../rosterFieldSave';
 	import { buildGroupTree } from '../../groupTree';
 
@@ -32,10 +33,12 @@
 		oncompose: (kind: ComposerKind) => void;
 		onclear: () => void;
 		onarchived: (result: { archivedIds: string[]; approvalRequestedIds: string[] }) => void;
+		/** People an archive Undo brought back, so the roster shows them again. */
+		onrestored: (ids: string[]) => void;
 		isCurrent: (orgId: string) => boolean;
 	}
 
-	let { ctx, people, hidden, oncompose, onclear, onarchived, isCurrent: rosterIsCurrent }: Props = $props();
+	let { ctx, people, hidden, oncompose, onclear, onarchived, onrestored, isCurrent: rosterIsCurrent }: Props = $props();
 
 	let busy = $state(false);
 	let confirmingArchive = $state(false);
@@ -53,44 +56,106 @@
 		...(ctx.canManagePersonnelInGroup(null) ? [{ id: null, name: 'Unassigned', level: 0, path: 'Unassigned' }] : [])
 	]);
 	const indent = ['', 'pl-6', 'pl-10'];
+	const groupNameOf = (id: string | null) => (id ? (groupTree.node(id)?.name ?? '') : '');
 
+	/** How long a move offers Undo. */
+	const MOVE_UNDO_MS = 10_000;
 	const count = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 	const skippedNote = (n: number) => (n > 0 ? ` · ${count(n)} skipped` : '');
 
 	async function moveTo(target: { id: string | null; name: string; path: string }): Promise<void> {
 		const orgId = ctx.orgId;
-		const submitted = writable.map((person) => ({ id: person.id, groupId: person.groupId }));
-		const previousGroup = new Map(submitted.map((person) => [person.id, person.groupId]));
+		const submitted = writable.map((person) => person.id);
 		const selectedCount = people.length;
 		const inLifetime = stillInOrganizationLifetime();
 		const isCurrent = () => inLifetime() && rosterIsCurrent(orgId);
 		busy = true;
 		try {
-			const result = await withinOrganizationLifetime(
-				moveGroupMembers(
-					orgId,
-					submitted.map((person) => person.id),
-					target.id
-				),
-				isCurrent
+			const result = await withinOrganizationLifetime(moveGroupMembers(orgId, submitted, target.id), isCurrent);
+			const previousGroup = result.previousGroupIds;
+			const changed = new Set(previousGroup.keys());
+			// The roster can be behind the server: someone it still shows elsewhere may already be in the target Group.
+			const shownGroup = new Map(
+				result.movedIds.flatMap((id) => {
+					const shown = personnelStore.getById(id)?.groupId ?? null;
+					return changed.has(id) || shown !== target.id
+						? [[id, changed.has(id) ? (previousGroup.get(id) ?? null) : shown]]
+						: [];
+				})
 			);
-			const moved = new Set(result.movedIds);
-			const changed = new Set(
-				submitted.filter((person) => moved.has(person.id) && person.groupId !== target.id).map((person) => person.id)
-			);
-			for (const id of changed) ctx.peek.changed(id, { groupId: previousGroup.get(id) }, { groupId: target.id });
-			if (changed.size) void ctx.signals.refresh([...changed]);
+			for (const [id, from] of shownGroup) ctx.peek.changed(id, { groupId: from }, { groupId: target.id });
+			if (shownGroup.size) void ctx.signals.refresh([...shownGroup.keys()]);
 			personnelStore.updateLocalWhere(
-				(person) => changed.has(person.id),
+				(person) => shownGroup.has(person.id),
 				(person) => ({ ...person, groupId: target.id, groupName: target.id ? target.name : '' })
 			);
 			const skipped = selectedCount - result.movedIds.length;
-			toastStore.success(`Moved ${count(result.movedIds.length)} to ${target.path}${skippedNote(skipped)}`);
+			const message = `Moved ${count(result.movedIds.length)} to ${target.path}${skippedNote(skipped)}`;
+			if (changed.size === 0) toastStore.success(message);
+			else
+				toastStore.success(
+					message,
+					MOVE_UNDO_MS,
+					undoMoveAction(
+						orgId,
+						[...previousGroup].map(([personnelId, from]) => ({
+							personnelId,
+							fromGroupId: target.id,
+							toGroupId: from
+						})),
+						isCurrent
+					)
+				);
 		} catch (caught) {
 			if (isCurrent()) toastStore.error(caught instanceof Error ? caught.message : 'Unable to move People.');
 		} finally {
 			if (isCurrent()) busy = false;
 		}
+	}
+
+	/** Puts the People a move changed back where they were, unless the roster or Organization has moved on. */
+	function undoMoveAction(orgId: string, moves: GroupMoveUndo[], isCurrent: () => boolean): ToastAction {
+		return {
+			label: 'Undo',
+			onClick: () => {
+				if (!isCurrent()) return;
+				void (async () => {
+					try {
+						const { restoredIds, changedIds } = await withinOrganizationLifetime(
+							undoGroupMoves(orgId, moves),
+							isCurrent
+						);
+						const restored = new Set(restoredIds);
+						const back = new Map(moves.map((move) => [move.personnelId, move]));
+						for (const id of restored)
+							ctx.peek.changed(id, { groupId: back.get(id)?.fromGroupId }, { groupId: back.get(id)?.toGroupId });
+						if (restored.size) void ctx.signals.refresh(restoredIds);
+						personnelStore.updateLocalWhere(
+							(person) => restored.has(person.id),
+							(person) => ({
+								...person,
+								groupId: back.get(person.id)?.toGroupId ?? null,
+								groupName: groupNameOf(back.get(person.id)?.toGroupId ?? null)
+							})
+						);
+						const left = changedIds.length;
+						const note = left
+							? `${count(left)} changed since and ${left === 1 ? 'was' : 'were'} left where they are`
+							: undefined;
+						if (restored.size) toastStore.success(`Moved ${count(restored.size)} back`, undefined, undefined, note);
+						else toastStore.warning('Nothing was moved back', undefined, undefined, note);
+					} catch (caught) {
+						if (isCurrent())
+							toastStore.error(
+								'Undo did not go through',
+								undefined,
+								undefined,
+								caught instanceof Error ? caught.message : 'Nothing changed. Try again in a moment.'
+							);
+					}
+				})();
+			}
+		};
 	}
 
 	function setField(change: PersonnelFieldChange, ids: string[]) {
@@ -153,9 +218,25 @@
 			confirmingArchive = false;
 			onarchived(result);
 
-			if (result.archivedIds.length > 0) toastStore.success(`${result.archivedIds.length} personnel archived`);
-			if (result.approvalRequestedIds.length > 0) {
-				toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
+			if (result.undo) {
+				const archived = result.archivedIds.length;
+				const requested = result.approvalRequestedIds.length;
+				toastStore.success(
+					[
+						archived > 0 && `${archived} personnel archived`,
+						requested > 0 &&
+							`${requested} archival ${requested === 1 ? 'request' : 'requests'} submitted for admin approval`
+					]
+						.filter(Boolean)
+						.join(' · '),
+					ARCHIVE_UNDO_MS,
+					archiveUndoAction(orgId, result.undo, isCurrent, onrestored)
+				);
+			} else {
+				if (result.archivedIds.length > 0) toastStore.success(`${result.archivedIds.length} personnel archived`);
+				if (result.approvalRequestedIds.length > 0) {
+					toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
+				}
 			}
 			if (result.errors.length > 0) {
 				toastStore.error(`${result.errors.length} personnel could not be archived. Retry the selected personnel.`);

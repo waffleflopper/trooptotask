@@ -508,6 +508,10 @@
 		selection.remove([...result.archivedIds, ...result.approvalRequestedIds]);
 	}
 
+	function handleRestored(ids: string[]): void {
+		for (const id of ids) locallyArchivedIds.delete(id);
+	}
+
 	async function closeNote(): Promise<void> {
 		const id = notePerson?.id;
 		notePerson = null;
@@ -925,6 +929,7 @@
 							oncompose={composeForSelection}
 							onclear={() => selection.clear()}
 							onarchived={handleArchived}
+							onrestored={handleRestored}
 							isCurrent={(startedFor) => active && orgId === startedFor}
 						/>
 					</div>

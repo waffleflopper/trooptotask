@@ -430,6 +430,9 @@ scoped actors retain their baseline grants.
     - Move to Group: the menu `Move N people to` lists `Alpha`, `Bravo` and `Unassigned`. Moving
       `SPC Unassigned, Synthetic` to `Alpha` sends one `POST .../group-membership` and one `roster-signals` POST, toasts
       `Moved 1 person to Alpha`, and `rows personnel orgA` shows Alpha's group ID on that Person.
+      The toast carries `Undo` for 10 seconds: click it and expect `Moved 1 person back` with the Person's original
+      group ID in `rows`. Capture it at 390x844 too. A Person someone else moved since is covered by
+      `group-membership/undo/server.test.ts`, not driven live.
     - Export: `$V export arm PAGE`, select all three and choose `Export`. No request is sent; the file is
       `personnel-<Organization URL segment>-<viewer day>.xlsx` (Organization A has no slug, so its ID:
       `personnel-<orgA>-2026-10-23.xlsx`). `$V workbook FILE Personnel` reads headers `Rank`, `Last name`, `First name`,

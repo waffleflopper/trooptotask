@@ -145,14 +145,21 @@ export function createSupabasePersonnelRecordPersistence(
 			if (error) throwPersonnelMutationError(error);
 			return toPersonnel(data);
 		},
-		async moveToGroup(ids, groupId) {
+		async moveToGroup(ids, groupId, from) {
 			if (ids.length === 0) return [];
-			const { data, error } = await client
+			const move = client
 				.from('personnel')
 				.update({ group_id: groupId })
 				.eq('organization_id', orgId)
 				.in('id', [...new Set(ids)])
-				.is('archived_at', null)
+				.is('archived_at', null);
+			const { data, error } = await (
+				from === undefined
+					? move
+					: from.groupId === null
+						? move.is('group_id', null)
+						: move.eq('group_id', from.groupId)
+			)
 				.select('id')
 				.returns<{ id: string }[]>();
 			if (error) throwPersonnelMutationError(error);

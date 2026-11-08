@@ -148,12 +148,17 @@ export function createInMemoryPersonnelRecordPersistence(
 		async updateDates(id, patch) {
 			return toPersonnel(await store.update('personnel', orgId, id, patch));
 		},
-		async moveToGroup(ids, groupId) {
-			const rows = await store.findMany<{ id: string }>('personnel', orgId, undefined, {
-				select: 'id',
-				inFilters: { id: [...new Set(ids)] },
-				isNull: { archived_at: true }
-			});
+		async moveToGroup(ids, groupId, from) {
+			const rows = await store.findMany<{ id: string }>(
+				'personnel',
+				orgId,
+				from && from.groupId !== null ? { group_id: from.groupId } : undefined,
+				{
+					select: 'id',
+					inFilters: { id: [...new Set(ids)] },
+					isNull: { archived_at: true, ...(from?.groupId === null ? { group_id: true } : {}) }
+				}
+			);
 			for (const row of rows) await store.update('personnel', orgId, row.id, { group_id: groupId });
 			return rows.map((row) => row.id);
 		},

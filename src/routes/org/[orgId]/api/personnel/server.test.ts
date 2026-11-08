@@ -176,7 +176,7 @@ describe('/api/personnel route authorization', () => {
 			() => ctx
 		);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ success: true, undo: expect.any(String) });
 	});
 
 	it('lets personnel managers request archive approval instead of failing route authorization', async () => {

@@ -2166,7 +2166,9 @@ describe('PersonnelPageView', () => {
 			const fetchMock = vi
 				.fn()
 				.mockResolvedValueOnce(Response.json({ writtenIds: ['person-1'], unavailableIds: [] }, { status: 201 }))
-				.mockResolvedValueOnce(Response.json({ movedIds: ['person-1'], unavailableIds: [] }));
+				.mockResolvedValueOnce(
+					Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': 'group-1' } })
+				);
 			vi.stubGlobal('fetch', fetchMock);
 			render(PersonnelPageView, { props: { ctx } });
 			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
@@ -2872,9 +2874,13 @@ describe('PersonnelPageView', () => {
 		});
 
 		it('moves the selected People to the chosen Group in one request and rereads their signals', async () => {
-			const fetchMock = vi
-				.fn()
-				.mockResolvedValue(Response.json({ movedIds: ['person-1', 'person-2'], unavailableIds: [] }));
+			const fetchMock = vi.fn().mockResolvedValue(
+				Response.json({
+					movedIds: ['person-1', 'person-2'],
+					unavailableIds: [],
+					previousGroupIds: { 'person-1': 'group-1', 'person-2': 'group-1' }
+				})
+			);
 			vi.stubGlobal('fetch', fetchMock);
 			const ctx = bulkCtx();
 			const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
@@ -2912,12 +2918,197 @@ describe('PersonnelPageView', () => {
 			await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Bravo' }));
 			await fireEvent.click(checkbox('Select SGT Young, Test'));
 			expect(bulkBar().getByText('1 selected')).toBeTruthy();
-			reply.resolve(Response.json({ movedIds: ['person-1', 'person-2'], unavailableIds: [] }));
+			reply.resolve(
+				Response.json({
+					movedIds: ['person-1', 'person-2'],
+					unavailableIds: [],
+					previousGroupIds: { 'person-1': 'group-1', 'person-2': 'group-1' }
+				})
+			);
 
 			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
 			expect(toastSuccessMock.mock.calls[0][0]).toBe('Moved 2 people to Bravo');
 			expect(refresh).toHaveBeenCalledExactlyOnceWith(['person-1', 'person-2']);
 			expect(personnelStore.getById('person-2')?.groupName).toBe('Bravo');
+		});
+
+		describe('Undo after Move to Group', () => {
+			const moveToBravo = async (names: string[]) => {
+				await selectBulkPersonnel(names);
+				await fireEvent.keyDown(bulkBar().getByRole('button', { name: 'Move to Group' }), { key: 'Enter' });
+				await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Bravo' }));
+				await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+			};
+			const undoOffered = () => toastSuccessMock.mock.calls[0][1] as { duration: number; action?: { onClick(): void } };
+
+			it('puts back only the People the move changed, reports the ones that changed since and rereads their signals', async () => {
+				const fetchMock = vi
+					.fn()
+					.mockResolvedValueOnce(
+						Response.json({
+							movedIds: ['person-1', 'person-2', 'person-3'],
+							unavailableIds: [],
+							previousGroupIds: { 'person-1': 'group-1', 'person-2': 'group-1' }
+						})
+					)
+					.mockResolvedValueOnce(Response.json({ restoredIds: ['person-1'], changedIds: ['person-2'] }));
+				vi.stubGlobal('fetch', fetchMock);
+				const ctx = bulkCtx();
+				const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+				render(PersonnelPageView, { props: { ctx } });
+
+				await moveToBravo(['Select SGT Smith, Jane', 'Select SGT Young, Test', 'Select SGT Adams, Test']);
+				expect(undoOffered().duration).toBe(10_000);
+				undoOffered().action?.onClick();
+
+				await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(2));
+				const [url, init] = fetchMock.mock.calls[1];
+				expect(url).toBe('/org/org-1/api/personnel/group-membership/undo');
+				expect(JSON.parse(String(init.body))).toEqual({
+					moves: [
+						{ personnelId: 'person-1', fromGroupId: 'group-2', toGroupId: 'group-1' },
+						{ personnelId: 'person-2', fromGroupId: 'group-2', toGroupId: 'group-1' }
+					]
+				});
+				expect(personnelStore.getById('person-1')).toMatchObject({ groupId: 'group-1', groupName: 'Alpha' });
+				expect(personnelStore.getById('person-2')).toMatchObject({ groupId: 'group-2', groupName: 'Bravo' });
+				expect(personnelStore.getById('person-3')).toMatchObject({ groupId: 'group-2', groupName: 'Bravo' });
+				expect(refresh.mock.calls).toEqual([[['person-1', 'person-2']], [['person-1']]]);
+				expect(toastSuccessMock.mock.calls[1][1].description).toEqual(expect.any(String));
+			});
+
+			it('puts a Person back in the Group the server moved them from when the roster showed an older one', async () => {
+				const fetchMock = vi
+					.fn()
+					.mockResolvedValueOnce(
+						Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': null } })
+					)
+					.mockResolvedValueOnce(Response.json({ restoredIds: ['person-1'], changedIds: [] }));
+				vi.stubGlobal('fetch', fetchMock);
+				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+
+				await moveToBravo(['Select SGT Smith, Jane']);
+				undoOffered().action?.onClick();
+
+				await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(2));
+				expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({
+					moves: [{ personnelId: 'person-1', fromGroupId: 'group-2', toGroupId: null }]
+				});
+				expect(personnelStore.getById('person-1')).toMatchObject({ groupId: null, groupName: '' });
+			});
+
+			it('shows a Person in the chosen Group when the server already had them there, without offering Undo', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi.fn().mockResolvedValue(Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: {} }))
+				);
+				const ctx = bulkCtx();
+				const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+				render(PersonnelPageView, { props: { ctx } });
+
+				await moveToBravo(['Select SGT Smith, Jane']);
+
+				expect(personnelStore.getById('person-1')).toMatchObject({ groupId: 'group-2', groupName: 'Bravo' });
+				expect(refresh).toHaveBeenCalledExactlyOnceWith(['person-1']);
+				expect(undoOffered().action).toBeUndefined();
+			});
+
+			it('tells the preview a Person left Unassigned even when the roster already showed the chosen Group', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi
+						.fn()
+						.mockResolvedValue(
+							Response.json({ movedIds: ['person-3'], unavailableIds: [], previousGroupIds: { 'person-3': null } })
+						)
+				);
+				const ctx = bulkCtx();
+				const changed = vi.spyOn(ctx.peek, 'changed');
+				render(PersonnelPageView, { props: { ctx } });
+
+				await moveToBravo(['Select SGT Adams, Test']);
+
+				expect(changed).toHaveBeenCalledWith('person-3', { groupId: null }, { groupId: 'group-2' });
+			});
+
+			it('offers no Undo when the move changed nobody', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi.fn().mockResolvedValue(Response.json({ movedIds: ['person-3'], unavailableIds: [], previousGroupIds: {} }))
+				);
+				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+
+				await moveToBravo(['Select SGT Adams, Test']);
+
+				expect(undoOffered().action).toBeUndefined();
+			});
+
+			it('sends nothing and says nothing when Undo is pressed after the Organization was left', async () => {
+				const fetchMock = vi
+					.fn()
+					.mockResolvedValue(
+						Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': 'group-1' } })
+					);
+				vi.stubGlobal('fetch', fetchMock);
+				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+				await moveToBravo(['Select SGT Smith, Jane']);
+
+				endOrganizationLifetime();
+				undoOffered().action?.onClick();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+
+				expect(fetchMock).toHaveBeenCalledTimes(1);
+				expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+				expect(toastWarningMock).not.toHaveBeenCalled();
+				expect(toastErrorMock).not.toHaveBeenCalled();
+				expect(personnelStore.getById('person-1')?.groupName).toBe('Bravo');
+			});
+
+			it('writes nothing when the Organization is left while the Undo request runs', async () => {
+				const undoReply = deferred<Response>();
+				vi.stubGlobal(
+					'fetch',
+					vi
+						.fn()
+						.mockResolvedValueOnce(
+							Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': 'group-1' } })
+						)
+						.mockReturnValueOnce(undoReply.promise)
+				);
+				const ctx = bulkCtx();
+				const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+				render(PersonnelPageView, { props: { ctx } });
+				await moveToBravo(['Select SGT Smith, Jane']);
+
+				undoOffered().action?.onClick();
+				endOrganizationLifetime();
+				undoReply.resolve(Response.json({ restoredIds: ['person-1'], changedIds: [] }));
+				await new Promise((resolve) => setTimeout(resolve, 0));
+
+				expect(personnelStore.getById('person-1')?.groupName).toBe('Bravo');
+				expect(refresh).toHaveBeenCalledTimes(1);
+				expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+			});
+
+			it('reports a refused Undo with its reason and keeps the move', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi
+						.fn()
+						.mockResolvedValueOnce(
+							Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': 'group-1' } })
+						)
+						.mockResolvedValueOnce(Response.json({ message: 'Not allowed' }, { status: 403 }))
+				);
+				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+				await moveToBravo(['Select SGT Smith, Jane']);
+
+				undoOffered().action?.onClick();
+
+				await waitFor(() => expect(toastErrorMock).toHaveBeenCalledTimes(1));
+				expect(toastErrorMock.mock.calls[0][1].description).toBe('Not allowed');
+				expect(personnelStore.getById('person-1')?.groupName).toBe('Bravo');
+			});
 		});
 
 		it('says nothing when an export fails after the Organization was left', async () => {
@@ -3006,6 +3197,81 @@ describe('PersonnelPageView', () => {
 		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data'));
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
 		expect(screen.queryByRole('toolbar', { name: 'Selected people' })).toBeNull();
+	});
+
+	describe('Undo after archiving from the bulk bar', () => {
+		const undoReply = { restoredIds: ['person-1'], changedIds: [], withdrawnRequestIds: [], reviewedRequestIds: [] };
+
+		it('offers one Undo for what was archived and requested, and sends the token it was given', async () => {
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValueOnce(
+					batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [], undo: 'token-1' })
+				)
+				.mockResolvedValueOnce(batchResponse(undoReply));
+			vi.stubGlobal('fetch', fetchMock);
+			render(PersonnelPageView, { props: { ctx: archiveCtx() } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane']);
+			await submitBulkSelection();
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+
+			const offered = toastSuccessMock.mock.calls[0][1] as { duration: number; action: { onClick(): void } };
+			expect(offered.duration).toBe(10_000);
+			expect(toastInfoMock).not.toHaveBeenCalled();
+			invalidateMock.mockClear();
+			invalidateMock.mockImplementationOnce(async () => personnelStore.load(personnel, 'org-1'));
+			offered.action.onClick();
+
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(2));
+			expect(fetchMock.mock.calls[1][0]).toBe('/org/org-1/api/personnel/archive-batch/undo');
+			expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({ token: 'token-1' });
+			expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data');
+			expect(await screen.findByText('Smith, Jane')).toBeTruthy();
+		});
+
+		it('puts archived People and approval requests in the same Undo toast', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue(
+					batchResponse({
+						archivedIds: ['person-1'],
+						approvalRequestedIds: ['person-2'],
+						errors: [],
+						undo: 'token-1'
+					})
+				)
+			);
+			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young' }], 'org-1');
+			render(PersonnelPageView, { props: { ctx: archiveCtx() } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Young, Test']);
+			await submitBulkSelection();
+
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+			expect(toastInfoMock).not.toHaveBeenCalled();
+			expect(toastSuccessMock.mock.calls[0][1]).toMatchObject({ duration: 10_000, action: { label: 'Undo' } });
+		});
+
+		it('sends nothing and says nothing when Undo is pressed after the Organization was left', async () => {
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValue(
+					batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [], undo: 'token-1' })
+				);
+			vi.stubGlobal('fetch', fetchMock);
+			render(PersonnelPageView, { props: { ctx: archiveCtx() } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane']);
+			await submitBulkSelection();
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+
+			endOrganizationLifetime();
+			(toastSuccessMock.mock.calls[0][1] as { action: { onClick(): void } }).action.onClick();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+			expect(toastWarningMock).not.toHaveBeenCalled();
+			expect(toastErrorMock).not.toHaveBeenCalled();
+		});
 	});
 
 	it('selects only the current A-Z page from the header checkbox', async () => {

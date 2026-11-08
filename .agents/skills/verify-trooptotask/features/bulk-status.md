@@ -24,6 +24,10 @@ with clear partial results and whole-entry warnings.
   success message reports how many entries the server actually deleted. Removal is sent in chunks of at most 500 IDs and
   stops at the first failed chunk; the completed entries leave the review, the result says
   `Removed N of M status entries — K remain`, and confirming again sends only the remaining IDs.
+- `bulk-undo`: `Applied status to N people` and `Removed N status entries` carry `Undo` for 10 seconds. Add Undo
+  deletes exactly the saved rows that are still as saved; Remove Undo saves the removed entries again under their own
+  IDs. It survives the Calendar refresh a save causes, and stops after the page or Organization changes. A remove that
+  reports `already gone` entries offers no Undo.
 - `bulk-partial`: if the second of two chunks fails, the first 500 remain saved, one Person and the submitted draft
   remain ready for retry, and the result says 500 of 501. The 500 saved people now show as `Already on …` and are
   disabled, so only the failed Person stays selected. Retry saves only that Person with the original status, dates and
@@ -335,6 +339,16 @@ saving, and keep helper-created rows marked for `clean-seeds`.
     and Bravo `1 of 1`. Add a unique note, click `Add to 12 people` and require the success message, then read the 12
     saved rows back with `rows`. Remove the 12 new entries through Remove, reaching them with search and `Select shown`,
     and run `clean-seeds` afterward.
+
+11. **Undo.** On `/calendar/bulk` arm `$V feedback arm $PAGE`. **Add:** pick `Verification Training`, today, a
+    unique note, tick Able and Unassigned (Baker is already on Training), `Add to 2 people`, then click `Undo` within 10
+    seconds. Expect `2 statuses removed again` and zero rows for the note. **Remove:** with three entries from a
+    Leave add on today, open Remove, pick Leave, tick all three, `Review Matching Entries`, `Confirm Removal`, then click
+    `Undo`. Expect `Removed 3 status entries` followed by `3 removed statuses are back` and three rows with the
+    original IDs. Do not read `rows` between the toast and the click. A page refresh after the save replaces the page
+    component, so this step fails if Undo reads the component's lifetime instead of the route. At 390x844 a click on a
+    row near the bottom did not select it until `scrollIntoView` brought it clear of the sticky summary bar, so check
+    the count in `Add to N people` before saving.
 
 ## Gotchas
 

@@ -13,6 +13,9 @@ with the result visible again after reload.
 - `status-remember`: the editor and quick-add start on the last status this person added in this Organization.
 - `status-save-close`: `Save and close` saves a status and closes the editor; `Add Status` saves and stays open.
 - `status-remove`: remove a status through the popover's inline confirmation.
+- `status-undo`: the `added —` and `Status removed` toasts carry `Undo` for 10 seconds. Undo deletes exactly the row the
+  add wrote or saves the removed row again under its own ID; an edit or a same-status overlap since is reported and left
+  alone. Updates offer no Undo.
 - `status-persist`: confirm a saved change through a second Calendar read.
 - `status-failed-add`: if operation permission disappears before save, no row or premature success appears and the
   member sees an error.
@@ -155,6 +158,18 @@ restore any temporarily narrowed grant.
     but the editor starts on the first type again. At 390x844 the footer stacks `Save and close`, `Add Status`, `Cancel`
     in that order inside the dialog; at 1024 they sit in one row. A failed save or lost reply leaves the editor open (see
     step 10). `$V rows user_org_preferences orgB` must have no row for this user until B is used.
+
+16. **Undo.** Use an empty day for Able and a unique note. Arm `$V feedback arm $PAGE` first, and keep the
+    toast-to-click path short: the offer lasts 10 seconds and each native call costs about a second. **Add:** `Add Status`,
+    capture the `added —` toast with `Undo`, click `Undo` by name. Expect `Status removed again` and
+    `$V rows availability_entries orgA note "$NOTE"` returning zero rows. **Remove:** save the status, open its bar,
+    `Remove`, confirm, then click `Undo`. Expect `The removed status is back` and one row with the same ID, dates and
+    note (`set_for_tasking_id` is not restored). **Changed since:** add a status, open `Edit status` in the still-open
+    form, change the note and `Update Status`, then click the older toast's `Undo`. Expect a warning
+    `Nothing was undone` with `1 status changed since and was left as it is` (`feedback` records only success and error
+    toasts, so capture the warning with a screenshot) and the edited row unchanged in `rows`. A remove whose same
+    status was added again over those dates reports the same warning. Repeat Add and Remove at 390x844 with the toast
+    clear of the dialog buttons.
 
 ## Gotchas
 

@@ -27,22 +27,25 @@ export function statusReference(
 	create?: (name: string) => Promise<StatusType | null>
 ): ImportReference<typeof statusImportColumns, StatusType> & { whenMissing: 'ask'; required: true } {
 	const byName = new Map(statusTypes.map((status) => [statusName(status.name), status]));
+	const active = statusTypes.filter((status) => !status.archivedAt);
+	const archivedMessage = (status: StatusType) => `'${status.name}' is archived. Restore it to import its records.`;
 	return {
 		label: 'status',
 		reads: ['status'],
 		whenMissing: 'ask',
 		required: true,
-		options: statusTypes.map(statusOption),
+		options: active.map(statusOption),
 		key: (raw) => {
 			const display = raw.status?.trim();
 			return display ? { key: statusName(display), display } : null;
 		},
 		find(key) {
 			const status = byName.get(key);
+			if (status?.archivedAt) return { kind: 'none', reason: archivedMessage(status) };
 			if (status) return { kind: 'one', option: statusOption(status) };
 			const guess =
-				unique(statusTypes.filter((type) => type.shortLabel && statusName(type.shortLabel) === key)) ??
-				unique(statusTypes.filter((type) => abbreviates(key, statusName(type.name))));
+				unique(active.filter((type) => type.shortLabel && statusName(type.shortLabel) === key)) ??
+				unique(active.filter((type) => abbreviates(key, statusName(type.name))));
 			return guess ? { kind: 'none', suggestion: statusOption(guess) } : { kind: 'none' };
 		},
 		create: create
@@ -52,6 +55,7 @@ export function statusReference(
 						const wanted = statusName(name);
 						if (!wanted) return { kind: 'refused', message: 'Enter a status name.' };
 						const existing = byName.get(wanted);
+						if (existing?.archivedAt) return { kind: 'refused', message: archivedMessage(existing) };
 						const status = existing ?? (await create(name.trim()));
 						if (!status) return { kind: 'refused', message: 'Status types are being saved. Try again in a moment.' };
 						if (!existing) saved({ id: status.id, label: status.name });

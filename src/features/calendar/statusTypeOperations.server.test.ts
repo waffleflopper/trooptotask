@@ -4,6 +4,8 @@ import {
 	createStatusType,
 	updateStatusType,
 	deleteStatusType,
+	archiveStatusType,
+	readStatusTypeUsage,
 	setStatusTypeOrder
 } from './statusTypeOperations.server';
 
@@ -100,6 +102,7 @@ describe('StatusType CRUD use case', () => {
 		const result = await updateStatusType(ctx, { id: ST_ID, name: 'Annual Leave', color: '#22c55e' });
 		expect(result).toEqual({
 			id: ST_ID,
+			archivedAt: null,
 			organization_id: ctx.auth.orgId,
 			name: 'Annual Leave',
 			color: '#22c55e',
@@ -339,5 +342,144 @@ describe('StatusType CRUD use case', () => {
 
 		await expect(deleteStatusType(ctx, ST_ID)).resolves.toBeUndefined();
 		expect(ctx.notifications.notifications).toEqual([]);
+	});
+
+	describe('archiving', () => {
+		const seedLeave = (ctx: ReturnType<typeof createWriteWithNotificationsPortsContext>, archivedAt: string | null) =>
+			ctx.store.seed('status_types', [
+				{
+					id: ST_ID,
+					organization_id: ctx.auth.orgId,
+					name: 'Leave',
+					color: '#00ff00',
+					text_color: '#ffffff',
+					sort_order: 0,
+					archived_at: archivedAt
+				}
+			]);
+		const seedEntry = (ctx: ReturnType<typeof createWriteWithNotificationsPortsContext>) =>
+			ctx.store.seed('availability_entries', [
+				{ id: 'entry-1', organization_id: ctx.auth.orgId, status_type_id: ST_ID, personnel_id: 'p-1' }
+			]);
+		const configureOnlyOperate = () =>
+			createWriteWithNotificationsPortsContext({
+				auth: {
+					capabilityMap: {
+						calendar: 'operate',
+						personnel: 'configure',
+						training: 'configure',
+						criticalTasks: 'configure',
+						onboarding: 'configure',
+						ratingScheme: 'configure'
+					}
+				}
+			});
+
+		it('archives a status type and keeps its entries', async () => {
+			const ctx = createWriteWithNotificationsPortsContext();
+			seedLeave(ctx, null);
+			seedEntry(ctx);
+
+			const archived = await archiveStatusType(ctx, { id: ST_ID, archived: true });
+
+			expect(archived.archivedAt).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));
+			expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toHaveLength(1);
+		});
+
+		it('restores an archived status type', async () => {
+			const ctx = createWriteWithNotificationsPortsContext();
+			seedLeave(ctx, '2030-01-01T00:00:00Z');
+
+			expect(await archiveStatusType(ctx, { id: ST_ID, archived: false })).toMatchObject({ archivedAt: null });
+		});
+
+		it('answers 404 for a status type that does not exist', async () => {
+			const ctx = createWriteWithNotificationsPortsContext();
+
+			await expect(archiveStatusType(ctx, { id: ST_ID, archived: true })).rejects.toMatchObject({
+				status: 404,
+				body: { message: 'That status type is no longer available.' }
+			});
+		});
+
+		it.each([
+			['a malformed id', { id: 'not-a-uuid', archived: true }],
+			['a missing direction', { id: ST_ID }],
+			['an extra field', { id: ST_ID, archived: true, archivedAt: '2030-01-01T00:00:00Z' }]
+		])('rejects %s with 400 and archives nothing', async (_case, input) => {
+			const ctx = createWriteWithNotificationsPortsContext();
+			seedLeave(ctx, null);
+
+			await expect(archiveStatusType(ctx, input)).rejects.toMatchObject({ status: 400 });
+			expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toMatchObject({
+				archived_at: null
+			});
+		});
+
+		it('refuses someone without Calendar configure and archives nothing', async () => {
+			const ctx = configureOnlyOperate();
+			seedLeave(ctx, null);
+
+			await expect(archiveStatusType(ctx, { id: ST_ID, archived: true })).rejects.toMatchObject({ status: 403 });
+			expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toMatchObject({
+				archived_at: null
+			});
+		});
+
+		it('refuses an update that sets archivedAt, so only the archive command changes it', async () => {
+			const ctx = createWriteWithNotificationsPortsContext();
+			seedLeave(ctx, null);
+
+			await expect(updateStatusType(ctx, { id: ST_ID, archivedAt: '2030-01-01T00:00:00Z' })).rejects.toMatchObject({
+				status: 400,
+				body: { message: 'Status types archive through the archive command' }
+			});
+			expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toMatchObject({
+				archived_at: null
+			});
+		});
+
+		it('answers 409 to an edit of an archived status type and leaves it unchanged', async () => {
+			const ctx = createWriteWithNotificationsPortsContext();
+			seedLeave(ctx, '2030-01-01T00:00:00Z');
+
+			await expect(updateStatusType(ctx, { id: ST_ID, name: 'Annual Leave' })).rejects.toMatchObject({
+				status: 409,
+				body: { message: 'This status type is archived. Restore it to change it.' }
+			});
+			expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toMatchObject({ name: 'Leave' });
+		});
+
+		it('answers 409 to deleting a status type that has entries and keeps both', async () => {
+			const ctx = createWriteWithNotificationsPortsContext();
+			seedLeave(ctx, '2030-01-01T00:00:00Z');
+			seedEntry(ctx);
+
+			await expect(deleteStatusType(ctx, ST_ID)).rejects.toMatchObject({ status: 409 });
+			expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).not.toBeNull();
+			expect(ctx.notifications.notifications).toEqual([]);
+		});
+
+		it('counts entries per status type, listing types that have none as zero', async () => {
+			const ctx = createWriteWithNotificationsPortsContext();
+			seedLeave(ctx, null);
+			ctx.store.seed('status_types', [
+				{
+					id: SICK,
+					organization_id: ctx.auth.orgId,
+					name: 'Sick',
+					color: '#00ff00',
+					text_color: '#ffffff',
+					sort_order: 1
+				}
+			]);
+			seedEntry(ctx);
+
+			expect(await readStatusTypeUsage(ctx)).toEqual({ [ST_ID]: 1, [SICK]: 0 });
+		});
+
+		it('refuses the counts to someone without Calendar configure', async () => {
+			await expect(readStatusTypeUsage(configureOnlyOperate())).rejects.toMatchObject({ status: 403 });
+		});
 	});
 });

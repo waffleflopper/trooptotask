@@ -1,5 +1,5 @@
 /**
- * Client calls for the Training type catalog. A caller that leaves its
+ * Client calls shared by the Training type and status type catalogs. A caller that leaves its
  * Organization never sees a result, so neither call needs its own staleness check for that.
  */
 import { z } from 'zod';
@@ -15,7 +15,7 @@ export type CatalogUsage = Readonly<Record<string, number>>;
 /** Archives or restores one type and resolves to the archive time the server set, or null once restored. */
 export async function putCatalogArchive(
 	orgId: string,
-	resource: 'training-types',
+	resource: 'training-types' | 'status-types',
 	id: string,
 	archived: boolean
 ): Promise<string | null> {
@@ -31,7 +31,10 @@ export async function putCatalogArchive(
 	return archiveResult.parse(await withinOrganizationLifetime(res.json())).archivedAt;
 }
 
-export async function getCatalogUsage(orgId: string, resource: 'training-types'): Promise<CatalogUsage> {
+export async function getCatalogUsage(
+	orgId: string,
+	resource: 'training-types' | 'status-types'
+): Promise<CatalogUsage> {
 	const url = `/org/${orgId}/api/${resource}/usage`;
 	const res = await withinOrganizationLifetime(fetch(url));
 	if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'GET', url));

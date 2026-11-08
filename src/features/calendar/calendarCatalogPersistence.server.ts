@@ -3,7 +3,7 @@ import type { Database, SupabaseClient } from '$lib/server/database';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { CalendarCatalogPersistence, FederalHolidayDefault } from './contracts';
+import type { CalendarCatalogPersistence, FederalHolidayDefault, StatusTypeUsage } from './contracts';
 import { lastDayOf } from './utils/da6View';
 import {
 	ASSIGNMENT_TYPE_FIELDS,
@@ -38,6 +38,7 @@ export const CALENDAR_CHANGE_NOT_SAVED_MESSAGE =
 	'Another Calendar change was saving at the same time, so this change was not saved. Try again.';
 export const CALENDAR_CHANGE_UNCONFIRMED_MESSAGE =
 	"We couldn't confirm this Calendar change. Reload to see what is saved.";
+export const STATUS_TYPE_HAS_ENTRIES_MESSAGE = 'This type has records. Archive it instead.';
 export const DEVICE_DATE_MESSAGE = 'Check the date on this device, then try again.';
 
 const federalHolidayRows = z
@@ -172,10 +173,33 @@ export function createSupabaseCalendarCatalogPersistence(
 				})
 				.eq('organization_id', orgId)
 				.eq('id', id)
+				.is('archived_at', null)
 				.select(STATUS_TYPE_FIELDS)
 				.maybeSingle<StatusTypeRow>();
 			if (error) throw new Error(error.message);
 			return data ? toStatusType(data) : null;
+		},
+		async setStatusTypeArchived(id, archived) {
+			// The database stamps the archive time, so this value only marks the type archived.
+			const { data, error } = await client
+				.from('status_types')
+				.update({ archived_at: archived ? new Date().toISOString() : null })
+				.eq('organization_id', orgId)
+				.eq('id', id)
+				.select(STATUS_TYPE_FIELDS)
+				.maybeSingle<StatusTypeRow>();
+			if (error) throw new Error(error.message);
+			return data ? toStatusType(data) : null;
+		},
+		async countStatusTypeRecords() {
+			const { data, error } = await client.rpc('status_type_record_counts', { p_organization_id: orgId });
+			if (error) {
+				if (error.code === '42501') fail(403, 'You do not have access to configure the Calendar');
+				throw new Error(error.message);
+			}
+			const usage: StatusTypeUsage = {};
+			for (const row of data ?? []) usage[row.status_type_id] = Number(row.record_count);
+			return usage;
 		},
 		async deleteStatusType(id) {
 			const { data, error } = await client
@@ -184,6 +208,7 @@ export function createSupabaseCalendarCatalogPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select('id');
+			if (error?.code === '23503') fail(409, STATUS_TYPE_HAS_ENTRIES_MESSAGE);
 			if (error) throw new Error(error.message);
 			return data.length > 0;
 		},

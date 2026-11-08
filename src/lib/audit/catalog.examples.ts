@@ -43,6 +43,14 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		},
 		sentence: 'Changed status type Pass: name Leave → Pass, color #6b7280 → #112233'
 	},
+	'status_type.archived': {
+		entry: { recordLabel: 'Pass', subjectLabel: null, details: {} },
+		sentence: 'Archived status type Pass'
+	},
+	'status_type.restored': {
+		entry: { recordLabel: 'Pass', subjectLabel: null, details: {} },
+		sentence: 'Restored status type Pass'
+	},
 	'status_type.deleted': {
 		entry: { recordLabel: 'Pass', subjectLabel: null, details: {} },
 		sentence: 'Deleted status type Pass'

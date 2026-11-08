@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { dateOnlySchema } from '$lib/utils/inputSchemas';
 import {
+	archiveState,
 	auditKind,
 	dateChange,
 	day,
@@ -187,6 +188,8 @@ export const calendarKinds = {
 	'calendar_tasking.checklist_removed': taskingItem('Removed', 'checklist item'),
 	'status_type.created': statusType.created,
 	'status_type.updated': statusType.updated,
+	'status_type.archived': archiveState('Archived', 'status type', 'status types'),
+	'status_type.restored': archiveState('Restored', 'status type', 'status types'),
 	'status_type.deleted': statusType.deleted,
 	'special_day.created': specialDay.created,
 	'special_day.updated': specialDay.updated,

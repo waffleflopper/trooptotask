@@ -59,6 +59,7 @@ export type StatusTypeRow = SavedRow & {
 	short_label: string | null;
 	roster_effect: RosterEffect;
 	sort_order: number;
+	archived_at?: string | null;
 };
 export type AssignmentTypeRow = SavedRow & {
 	id: string;
@@ -115,7 +116,7 @@ export type AssignmentRow = SavedRow & {
 };
 
 export const STATUS_TYPE_FIELDS =
-	'id, organization_id, name, color, text_color, short_label, roster_effect, sort_order, created_at';
+	'id, organization_id, name, color, text_color, short_label, roster_effect, sort_order, archived_at, created_at';
 export const ASSIGNMENT_TYPE_FIELDS =
 	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, roster_pool_rules, roster_weekend_mode, archived_at, created_at, roster_excusals(personnel_id, reason, starts_on, ends_on)';
 export const CLOSED_ROSTER_FORM_FIELDS = 'id, starts_on, ends_on, record';
@@ -141,6 +142,7 @@ export function toStatusType(row: StatusTypeRow): SavedStatusType {
 		shortLabel: row.short_label,
 		rosterEffect: row.roster_effect,
 		sortOrder: row.sort_order,
+		archivedAt: row.archived_at ?? null,
 		...savedMetadata(row)
 	};
 }
@@ -315,8 +317,10 @@ export const statusTypeCreateInput = z.object({
 		.nullable()
 		.optional(),
 	rosterEffect: rosterEffectSchema.optional(),
-	sortOrder: z.never({ error: 'Status type order changes through the order command' }).optional()
+	sortOrder: z.never({ error: 'Status type order changes through the order command' }).optional(),
+	archivedAt: z.never({ error: 'Status types archive through the archive command' }).optional()
 });
+export const statusTypeArchiveInput = z.object({ id: uuidSchema, archived: z.boolean() }).strict();
 export const statusEffectPreviewInput = z
 	.object({ id: uuidSchema, rosterEffect: rosterEffectSchema, today: dateOnlySchema })
 	.strict();

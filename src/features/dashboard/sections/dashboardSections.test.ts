@@ -30,7 +30,8 @@ describe('activeDashboardSections', () => {
 			'evaluations',
 			'lossesAndAwards',
 			'onboarding',
-			'eventsAndTaskings'
+			'eventsAndTaskings',
+			'administration'
 		]);
 	});
 
@@ -42,8 +43,22 @@ describe('activeDashboardSections', () => {
 			'training',
 			'criticalTasks',
 			'lossesAndAwards',
+			'eventsAndTaskings',
+			'administration'
+		]);
+	});
+
+	it('keeps Administration when every feature is switched off', () => {
+		const active = activeDashboardSections(DASHBOARD_SECTIONS, [
+			'training',
+			'criticalTasks',
+			'evaluations',
+			'lossesAndAwards',
+			'onboarding',
 			'eventsAndTaskings'
 		]);
+
+		expect(active.map((entry) => entry.id)).toEqual(['availability', 'administration']);
 	});
 });
 
@@ -62,6 +77,7 @@ const inputs: DashboardInputs = {
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		taskings: { status: 'off' },
+		adminAttention: { status: 'off' },
 		userId: 'user-1',
 		viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 		disabledFeatures: [],

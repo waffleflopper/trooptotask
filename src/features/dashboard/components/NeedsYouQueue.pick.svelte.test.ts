@@ -131,7 +131,13 @@ function renderQueue(refreshTaskings: () => Promise<void> = async () => {}) {
 			}
 		}
 	} as unknown as DashboardInputs;
-	const updates = { refreshSummary: vi.fn(), refreshTaskings, retryTaskings: vi.fn(), putRecord: vi.fn() };
+	const updates = {
+		refreshSummary: vi.fn(),
+		refreshTaskings,
+		retryTaskings: vi.fn(),
+		retryAdminAttention: vi.fn(),
+		putRecord: vi.fn()
+	};
 	render(NeedsYouQueue, {
 		props: {
 			queue: buildNeedsYouQueue([taskingAttention(inputs)]),

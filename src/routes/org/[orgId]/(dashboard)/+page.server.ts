@@ -1,11 +1,17 @@
 import { formatDashboardDisplayDate, type DashboardViewerDay } from '$features/dashboard/contracts';
-import { fetchDashboardSummary, fetchDashboardTaskings, withDashboardTiming } from '$features/dashboard/index.server';
+import {
+	fetchDashboardAdminAttention,
+	fetchDashboardSummary,
+	fetchDashboardTaskings,
+	withDashboardTiming
+} from '$features/dashboard/index.server';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContextCore, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 import {
 	buildLayoutRequest,
 	buildRouteRequest,
+	createRequestAdminAttentionContext,
 	createRequestDashboardSummaryContext,
 	createRequestDashboardTaskingContext,
 	createRequestNotificationContext
@@ -48,12 +54,27 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 		() => createRequestDashboardTaskingContext(ctx)
 	);
 
+	// Only an owner or admin has these rows; for anyone else the reader is never built or called.
+	const adminAttention =
+		ctx.auth.role === 'owner' || ctx.auth.role === 'admin'
+			? loadWithContextCore(
+					ctx,
+					{
+						policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+						defer: true,
+						fn: (ctx) => withDashboardTiming(orgId, 'adminAttention', () => fetchDashboardAdminAttention(ctx))
+					},
+					() => createRequestAdminAttentionContext(ctx)
+				).data
+			: null;
+
 	const organizationSetup =
 		ctx.auth.role === 'owner' ? streamOrganizationSetupEntry({ locals, cookies, orgId: ctx.auth.orgId }) : null;
 
 	return {
 		summary,
 		taskings,
+		adminAttention,
 		organizationSetup,
 		setupInvitationProgress: organizationSetup
 			? streamSetupInvitationProgress({

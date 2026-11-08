@@ -93,6 +93,19 @@ describe('Dashboard Tasking read', () => {
 	});
 });
 
+describe('Dashboard administration read', () => {
+	it('retries through its own endpoint without touching the Tasking read', async () => {
+		const fetchMock = vi.fn().mockReturnValue(new Promise<Response>(() => {}));
+		vi.stubGlobal('fetch', fetchMock);
+		render(Page, { props: { data: { ...data('org-1'), adminAttention: null } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry administration' }));
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/dashboard/admin-attention');
+	});
+});
+
 describe('Dashboard summary endpoint refresh', () => {
 	it('makes no request on load and keeps the last values while pending, after failure and after an older response', async () => {
 		const older = deferred<Response>();

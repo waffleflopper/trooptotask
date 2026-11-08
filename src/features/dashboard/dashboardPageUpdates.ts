@@ -18,6 +18,8 @@ export interface DashboardPageUpdates {
 	refreshTaskings(): Promise<void>;
 	/** Reads Tasking attention again after its load failed. */
 	retryTaskings(): void;
+	/** Reads what waits on an owner or admin again after its load failed. */
+	retryAdminAttention(): void;
 	/** Shows a record saved in the Organization in its list until the page data is next read; ignored once the page has moved to another Organization. */
 	putRecord(orgId: string, change: DashboardRecordChange): void;
 }

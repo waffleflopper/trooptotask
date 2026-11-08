@@ -12,8 +12,8 @@ import {
 } from './forecastLanes';
 import { buildNeedsYouQueue, type NeedsYouItem, type NeedsYouQueue } from './needsYou';
 
-/** Availability and Calendar is always on; every other section belongs to one feature switch. */
-export type DashboardSectionId = 'availability' | FeatureKey;
+/** Availability and Calendar and Administration are always on; every other section belongs to one feature switch. */
+export type DashboardSectionId = 'availability' | 'administration' | FeatureKey;
 
 export type NeedsYouSource = (inputs: DashboardInputs) => readonly NeedsYouItem[];
 
@@ -143,7 +143,7 @@ export function dashboardSection(
 ): DashboardSection {
 	return {
 		id,
-		feature: id === 'availability' ? null : id,
+		feature: id === 'availability' || id === 'administration' ? null : id,
 		setup: null,
 		needsYou: [],
 		needsYouLoad: null,

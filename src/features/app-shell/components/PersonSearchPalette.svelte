@@ -21,15 +21,14 @@
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
 	let retryCount = $state(0);
 	let recordHref = $state<string | null>(null);
-	// One index per Organization, kept while the shell is mounted and refreshed in the background on every open.
-	let index = $state<{ orgId: string; people: PersonSearchEntry[] } | null>(null);
+	// Each open loads the current scoped index, so a person archived or moved out of scope since the last open never shows.
+	let people = $state<PersonSearchEntry[]>([]);
 
 	const open = $derived(page.state.personSearch === true);
-	const people = $derived(index?.orgId === orgId ? index.people : []);
 	const matches = $derived(people.filter((person) => matchesPersonSearch(person, query)));
 	const shown = $derived(matches.slice(0, MAX_RESULTS));
-	const showSkeleton = $derived(status === 'loading' && people.length === 0);
-	const showError = $derived(status === 'error' && people.length === 0);
+	const showSkeleton = $derived(status === 'loading');
+	const showError = $derived(status === 'error');
 	const statusMessage = $derived.by(() => {
 		if (showSkeleton) return 'Loading people';
 		if (showError) return '';
@@ -40,10 +39,12 @@
 	// A response is used only while this effect run is current: closing the palette or switching Organization aborts it.
 	$effect(() => {
 		if (!open) return;
+		void orgId;
 		void retryCount;
 		const controller = new AbortController();
+		people = [];
 		status = 'loading';
-		void loadIndex(orgId, orgUrlSegment, controller.signal);
+		void loadIndex(orgUrlSegment, controller.signal);
 		return () => controller.abort();
 	});
 
@@ -58,14 +59,14 @@
 		}
 	});
 
-	async function loadIndex(forOrgId: string, segment: string, signal: AbortSignal) {
+	async function loadIndex(segment: string, signal: AbortSignal) {
 		try {
 			const response = await fetch(`/org/${segment}/api/personnel`, { signal });
 			if (!response.ok) throw new Error('Could not load people');
 			const body = await response.json();
 			if (signal.aborted) return;
 			if (!Array.isArray(body?.people)) throw new Error('Could not load people');
-			index = { orgId: forOrgId, people: body.people };
+			people = body.people;
 			status = 'ready';
 		} catch {
 			if (signal.aborted) return;

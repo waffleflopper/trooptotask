@@ -203,19 +203,16 @@ describe('person search palette', () => {
 		expect(await screen.findByRole('option', { name: /LTC Fresh, Fran/ })).toBeVisible();
 	});
 
-	it('shows the people it already has on reopen while it refreshes them', async () => {
+	it('loads the current people on every reopen instead of showing the earlier list', async () => {
 		renderPalette();
 		await openPalette();
 		await screen.findByRole('option', { name: /SGT Smith, John/ });
 		await act(() => go(-1));
 
-		const refresh = deferred<Response>();
-		fetchMock.mockReturnValueOnce(refresh.promise);
+		fetchMock.mockResolvedValueOnce(indexResponse([], false));
 		await openPalette();
 
-		expect(await screen.findByRole('option', { name: /SGT Smith, John/ })).toBeVisible();
-		await act(() => refresh.resolve(indexResponse([person('p9', 'LTC', 'Fresh', 'Fran')])));
-		expect(await screen.findByRole('option', { name: /LTC Fresh, Fran/ })).toBeVisible();
+		expect(await screen.findByRole('alert')).toBeVisible();
 		expect(screen.queryByRole('option', { name: /Smith/ })).toBeNull();
 	});
 

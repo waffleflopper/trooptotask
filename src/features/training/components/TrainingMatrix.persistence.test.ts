@@ -35,6 +35,7 @@ const person: Personnel = {
 
 function typeOf(overrides: Partial<TrainingType>): TrainingType {
 	return {
+		archivedAt: null,
 		id: MONTHS_TYPE,
 		name: 'CPR',
 		description: null,

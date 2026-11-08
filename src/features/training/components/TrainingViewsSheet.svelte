@@ -65,7 +65,7 @@
 			!trainingViewsStore.loading &&
 			!trainingTypesStore.loading
 	);
-	const types = $derived(filterColumnsByView(trainingTypesStore.items, null));
+	const types = $derived(filterColumnsByView(trainingTypesStore.active, null));
 	const typeById = $derived(new Map(types.map((type) => [type.id, type])));
 	const views = $derived([...trainingViewsStore.items].sort((a, b) => a.name.localeCompare(b.name)));
 	const checked = $derived(

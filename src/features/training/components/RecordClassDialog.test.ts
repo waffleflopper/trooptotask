@@ -32,7 +32,8 @@ const cpr: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: false,
 	exemptPersonnelIds: [],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 const people: RecordClassCandidate[] = [

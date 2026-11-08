@@ -13,7 +13,6 @@
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { formatDayMonthYear } from '$lib/utils/dates';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
-	import { personnelTrainingsStore } from '../stores/personnelTrainings.svelte';
 	import { trainingTypesStore } from '../stores/trainingTypes.svelte';
 	import type { TrainingPageAccess } from '../contracts';
 	import type { TrainingType } from '../training.types';
@@ -40,7 +39,7 @@
 		rankCatalog,
 		today,
 		onSaved,
-		onDeleted,
+		onArchived,
 		returnFocus,
 		onClose
 	}: {
@@ -57,7 +56,8 @@
 		rankCatalog: RankCatalogEntry[] | undefined;
 		today: string;
 		onSaved: (typeId: string) => void;
-		onDeleted: () => void;
+		/** The type was archived. Its records stay, and the page lists it under Archived. */
+		onArchived: () => void;
 		/** Puts focus back where the sheet came from; the page knows whether that row or button still exists. */
 		returnFocus: () => void;
 		onClose: () => void;
@@ -100,9 +100,9 @@
 	let attempted = $state(false);
 	let touched = $state<Record<string, boolean>>({});
 	let error = $state('');
-	let confirmingDelete = $state(false);
-	let deleteError = $state('');
-	let deleting = $state(false);
+	let confirmingArchive = $state(false);
+	let archiveError = $state('');
+	let archiving = $state(false);
 	let nameInput = $state<HTMLInputElement | null>(null);
 	let form = $state<HTMLFormElement | null>(null);
 
@@ -222,22 +222,18 @@
 		}
 	}
 
-	async function deleteType(target: TrainingType) {
-		deleting = true;
-		deleteError = '';
+	async function archiveType(target: TrainingType) {
+		archiving = true;
+		archiveError = '';
 		try {
-			const result = await trainingTypesStore.remove(target.id);
-			if (org.orgId !== openedIn) return;
-			if (result === 'deleted') personnelTrainingsStore.removeByTrainingTypeLocal(target.id);
-			if (!alive) return;
-			if (result === 'error') {
-				deleteError = 'Failed to delete training type. Try again.';
-				return;
-			}
-			confirmingDelete = false;
-			onDeleted();
+			await trainingTypesStore.setArchived(target.id, true);
+			if (!stillHere()) return;
+			confirmingArchive = false;
+			onArchived();
+		} catch (failure) {
+			if (stillHere()) archiveError = rejectedRequestMessage(failure, 'Failed to archive training type. Try again.');
 		} finally {
-			deleting = false;
+			archiving = false;
 		}
 	}
 </script>
@@ -258,7 +254,7 @@
 	>
 {/snippet}
 
-<AppDialog.Root open busy={saving.pending || deleting} closeBlocked={dirty} {onClose}>
+<AppDialog.Root open busy={saving.pending || archiving} closeBlocked={dirty} {onClose}>
 	<AppDialog.Content
 		presentation="sheet"
 		size="wide"
@@ -287,7 +283,7 @@
 					submit();
 				}}
 			>
-				<fieldset class="contents" disabled={saving.pending || deleting}>
+				<fieldset class="contents" disabled={saving.pending || archiving}>
 					<div class="grid gap-4 px-7 py-6">
 						{@render section('Basics')}
 						<div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
@@ -536,21 +532,21 @@
 				<Button
 					variant="link"
 					size="none"
-					class="text-destructive underline"
-					disabled={saving.pending || deleting}
+					class="text-foreground underline"
+					disabled={saving.pending || archiving}
 					onclick={() => {
-						deleteError = '';
-						confirmingDelete = true;
+						archiveError = '';
+						confirmingArchive = true;
 					}}
 				>
-					Delete type
+					Archive type
 				</Button>
 			{:else}
 				<span></span>
 			{/if}
 			<div class="flex gap-2">
-				<Button variant="outline" disabled={saving.pending || deleting} onclick={onClose}>Cancel</Button>
-				<Button type="submit" form="training-type-form" disabled={saving.pending || deleting}>
+				<Button variant="outline" disabled={saving.pending || archiving} onclick={onClose}>Cancel</Button>
+				<Button type="submit" form="training-type-form" disabled={saving.pending || archiving}>
 					{type ? 'Save changes' : 'Create type'}
 				</Button>
 			</div>
@@ -558,16 +554,17 @@
 	</AppDialog.Content>
 </AppDialog.Root>
 
-{#if confirmingDelete && type}
+{#if confirmingArchive && type}
 	<ConfirmDialog
-		title="Delete Training Type"
-		message="Are you sure you want to delete '{type.name}'? All associated training records will also be deleted. This cannot be undone."
-		confirmLabel="Delete"
-		onConfirm={() => deleteType(type)}
-		onCancel={() => (confirmingDelete = false)}
+		title="Archive Training Type"
+		message="Archive '{type.name}'? Its training records stay. It leaves the matrix, record pickers and readiness counts, and still shows on reports. You can restore it from Archived on this page."
+		confirmLabel="Archive"
+		variant="default"
+		onConfirm={() => archiveType(type)}
+		onCancel={() => (confirmingArchive = false)}
 	>
-		{#if deleteError}
-			<Alert.Root variant="destructive"><Alert.Description>{deleteError}</Alert.Description></Alert.Root>
+		{#if archiveError}
+			<Alert.Root variant="destructive"><Alert.Description>{archiveError}</Alert.Description></Alert.Root>
 		{/if}
 	</ConfirmDialog>
 {/if}

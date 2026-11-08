@@ -219,7 +219,7 @@ export class TrainingPageContext {
 	}
 
 	get stats() {
-		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.items, personnelTrainingsStore.items);
+		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.active, personnelTrainingsStore.items);
 	}
 
 	toggleGroup(group: string): void {

@@ -660,6 +660,24 @@ describe('personnel import lane', () => {
 			});
 		});
 
+		it("matches an archived person's DoD ID before an active namesake", () => {
+			const source = archivedSource({
+				archived: [person('a9', { archivedAt: '2026-06-01T00:00:00Z' })],
+				dodIds: [{ personnelId: 'a9', dodId: '0123456789' }]
+			});
+			expect(
+				match(source, 'person', {
+					lastName: 'Garcia',
+					firstName: 'Luis',
+					groupName: '1st Platoon',
+					dodId: '0123456789'
+				})
+			).toMatchObject({
+				kind: 'one',
+				option: { id: 'a9', value: { archived: true, by: 'dodId' } }
+			});
+		});
+
 		it('offers Restore or Create new for an archived name match, and restores with the fields the file changes', async () => {
 			const session = await review(
 				archivedSource(),

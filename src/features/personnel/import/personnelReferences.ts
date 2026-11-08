@@ -107,13 +107,13 @@ export function personMatchReference(
 			const dodId = parts.pop();
 			const activeById = dodId ? byDodId.get(dodId) : null;
 			if (activeById) return { kind: 'one', option: option(activeById, 'dodId') };
+			const archivedById = dodId ? archivedByDodId.get(dodId) : null;
+			if (archivedById) return { kind: 'one', option: option(archivedById, 'dodId', true) };
 			const rank = parts.pop();
 			const group = parts.pop();
 			const name = parts.join('|');
 			const active = resolve(byName.get(name) ?? [], false, group, rank);
 			if (active.kind !== 'none') return active;
-			const archivedById = dodId ? archivedByDodId.get(dodId) : null;
-			if (archivedById) return { kind: 'one', option: option(archivedById, 'dodId', true) };
 			return resolve(archivedByName.get(name) ?? [], true, group, rank);
 		}
 	};

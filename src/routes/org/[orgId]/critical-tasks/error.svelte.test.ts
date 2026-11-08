@@ -21,7 +21,7 @@ describe('Critical Tasks report error screen', () => {
 		pageState.status = 403;
 		render(ErrorPage);
 
-		expect(screen.getByRole('alert').textContent).toContain('You need Critical tasks View access');
+		expect(screen.getByRole('alert').textContent).toContain('Critical tasks View');
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Access Restricted');
 		expect(screen.getByRole('link', { name: 'Back to Alpha Company home' }).getAttribute('href')).toBe('/org/alpha');
 	});

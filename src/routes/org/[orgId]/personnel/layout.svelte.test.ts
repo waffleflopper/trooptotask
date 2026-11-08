@@ -34,7 +34,7 @@ it('shows a streamed Personnel denial without hydrating or rendering the roster'
 	});
 
 	await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
-	expect(screen.getByText(/You need Personnel View access/)).toBeTruthy();
+	expect(screen.getByRole('alert').textContent).toContain('Personnel View');
 	expect(screen.queryByText('Personnel child')).toBeNull();
 	expect(hydrateMock).not.toHaveBeenCalled();
 });

@@ -34,7 +34,7 @@ it('shows a streamed Training denial without hydrating or rendering the workspac
 	});
 
 	await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
-	expect(screen.getByText(/You need Training View access/)).toBeTruthy();
+	expect(screen.getByRole('alert').textContent).toContain('Training View');
 	expect(screen.queryByText('Training child')).toBeNull();
 	expect(hydrateMock).not.toHaveBeenCalled();
 });

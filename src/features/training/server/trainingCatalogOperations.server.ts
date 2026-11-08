@@ -3,12 +3,14 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
-import type { SavedTrainingType, SavedTrainingView, TrainingTypeEditorData } from '../contracts';
+import type { SavedTrainingType, SavedTrainingView, TrainingTypeEditorData, TrainingTypeUsage } from '../contracts';
 import type {
 	TrainingTypeCreateContext,
 	TrainingTypeEditorReadContext,
 	TrainingTypeUpdateContext,
 	TrainingTypeOrderContext,
+	TrainingTypeArchiveContext,
+	TrainingTypeUsageContext,
 	TrainingTypeDeleteContext,
 	TrainingTypeDeletionRequestContext,
 	TrainingExemptionContext,
@@ -19,6 +21,8 @@ import type {
 import {
 	trainingTypeCreateInput,
 	trainingTypeUpdateInput,
+	trainingTypeArchiveInput,
+	TRAINING_TYPE_ARCHIVED_MESSAGE,
 	trainingTypeWarningsInput,
 	trainingTypeOrderInput,
 	TRAINING_TYPE_ORDER_INVALID_MESSAGE,
@@ -89,8 +93,29 @@ export async function updateTrainingType(
 		if (!warnings.success) error(400, issueMessage(warnings.error));
 	}
 	const row = await ctx.trainingCatalog.patchType(id, parsed.data);
+	if (row) return row;
+	const saved = (await ctx.trainingCatalog.listTypes()).find((type) => type.id === id);
+	fail(saved ? 409 : 404, saved ? TRAINING_TYPE_ARCHIVED_MESSAGE : TRAINING_TYPE_UNAVAILABLE_MESSAGE);
+}
+
+/** Archives or restores a type. Its records stay either way; the database sets the archive time. */
+export async function archiveTrainingType(
+	ctx: TrainingTypeArchiveContext,
+	input: Record<string, unknown>
+): Promise<SavedTrainingType> {
+	const parsed = trainingTypeArchiveInput.safeParse(input);
+	if (!parsed.success) error(400, issueMessage(parsed.error));
+	const { id, archived } = parsed.data;
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
+	const row = await ctx.trainingCatalog.setTypeArchived(id, archived);
 	if (!row) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
 	return row;
+}
+
+/** How many records use each type, for the Delete offer and the archive confirmation. */
+export async function readTrainingTypeUsage(ctx: TrainingTypeUsageContext): Promise<TrainingTypeUsage> {
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
+	return ctx.trainingCatalog.countTypeRecords();
 }
 
 /** Exempts one Person from a shared Training type without rewriting its other exemptions. */

@@ -22,6 +22,12 @@ export type TrainingTypeOrderContext = Omit<TrainingTypeCreateContext, 'training
 export type TrainingExemptionContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'setPersonExemption'>;
 };
+export type TrainingTypeArchiveContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'setTypeArchived'>;
+};
+export type TrainingTypeUsageContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'countTypeRecords'>;
+};
 export type TrainingTypeDeleteContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'deleteType'>;
 	readonly notifyTrainingTypeDeleted: () => Promise<void>;

@@ -38,11 +38,12 @@ export type TrainingTypeRow = {
 	can_be_exempted?: boolean | null;
 	exempt_personnel_ids?: string[] | null;
 	is_optional?: boolean | null;
+	archived_at?: string | null;
 	organization_id?: string;
 	created_at?: string;
 };
 export const TRAINING_TYPE_FIELDS =
-	'id, name, description, expiration_months, warning_days_yellow, warning_days_orange, applies_to_roles, applies_to_mos, applies_to_ranks, excluded_roles, excluded_mos, excluded_ranks, color, sort_order, expiration_date_only, can_be_exempted, exempt_personnel_ids, is_optional, organization_id, created_at';
+	'id, name, description, expiration_months, warning_days_yellow, warning_days_orange, applies_to_roles, applies_to_mos, applies_to_ranks, excluded_roles, excluded_mos, excluded_ranks, color, sort_order, expiration_date_only, can_be_exempted, exempt_personnel_ids, is_optional, archived_at, organization_id, created_at';
 
 export function toTrainingType(row: TrainingTypeRow): SavedTrainingType {
 	return {
@@ -68,6 +69,7 @@ export function toTrainingType(row: TrainingTypeRow): SavedTrainingType {
 			? { exemptPersonnelIds: row.exempt_personnel_ids === null ? [] : row.exempt_personnel_ids }
 			: {}),
 		...('is_optional' in row ? { isOptional: row.is_optional === null ? false : row.is_optional } : {}),
+		...('archived_at' in row ? { archivedAt: row.archived_at ?? null } : {}),
 		...('organization_id' in row ? { organization_id: row.organization_id } : {}),
 		...('created_at' in row ? { created_at: row.created_at } : {})
 	} as SavedTrainingType;
@@ -293,9 +295,13 @@ export function trainingCompletedRow(input: TrainingCompletedUpsert, orgId: stri
 }
 
 export const TRAINING_TYPE_UNAVAILABLE_MESSAGE = 'That Training type is no longer available.';
+export const TRAINING_TYPE_ARCHIVED_MESSAGE = 'This Training type is archived. Restore it to change it.';
+export const TRAINING_TYPE_HAS_RECORDS_MESSAGE = 'This type has records. Archive it instead.';
 export const TRAINING_TYPE_NAME_EXISTS_MESSAGE = 'A Training type with that name already exists.';
 export const TRAINING_TYPE_ORDER_CHANGED_MESSAGE = 'The Training type order changed. Reload and try again.';
 export const TRAINING_TYPE_ORDER_INVALID_MESSAGE = 'Choose every Training type once';
+
+export const trainingTypeArchiveInput = z.object({ id: uuidSchema, archived: z.boolean() }).strict();
 
 const trainingTypeIds = z.array(uuidSchema).refine((ids) => new Set(ids).size === ids.length);
 export const trainingTypeOrderInput = z.object({ trainingTypeIds, expectedTrainingTypeIds: trainingTypeIds }).strict();

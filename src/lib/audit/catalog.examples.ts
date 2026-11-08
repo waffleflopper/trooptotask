@@ -43,6 +43,14 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		},
 		sentence: 'Changed status type Pass: name Leave → Pass, color #6b7280 → #112233'
 	},
+	'status_type.archived': {
+		entry: { recordLabel: 'Pass', subjectLabel: null, details: {} },
+		sentence: 'Archived status type Pass'
+	},
+	'status_type.restored': {
+		entry: { recordLabel: 'Pass', subjectLabel: null, details: {} },
+		sentence: 'Restored status type Pass'
+	},
 	'status_type.deleted': {
 		entry: { recordLabel: 'Pass', subjectLabel: null, details: {} },
 		sentence: 'Deleted status type Pass'
@@ -188,6 +196,14 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		},
 		sentence:
 			'Changed training type Annual Safety Brief: name Annual Safety → Annual Safety Brief, who it applies to changed'
+	},
+	'training_type.archived': {
+		entry: { recordLabel: 'Annual Safety Brief', subjectLabel: null, details: {} },
+		sentence: 'Archived training type Annual Safety Brief'
+	},
+	'training_type.restored': {
+		entry: { recordLabel: 'Annual Safety Brief', subjectLabel: null, details: {} },
+		sentence: 'Restored training type Annual Safety Brief'
 	},
 	'training_type.deleted': {
 		entry: { recordLabel: 'Annual Safety Brief', subjectLabel: null, details: {} },

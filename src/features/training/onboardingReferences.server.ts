@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '$lib/server/database';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import type { TrainingOnboardingActor, TrainingOnboardingReferencesPort, TrainingTypeLabel } from './contracts';
+import type { TrainingOnboardingActor, TrainingOnboardingReferencesPort } from './contracts';
 
 const PAGE_SIZE = 500;
 const PERSONNEL_BATCH_SIZE = 100;
@@ -24,22 +24,26 @@ export function createSupabaseTrainingOnboardingReferencesPort(
 		async listTypes(actor) {
 			await requireOnboardingReferenceRead(actor);
 			const client = getAdminClient();
-			const rows: TrainingTypeLabel[] = [];
+			const rows: Array<{ id: string; name: string; archived_at: string | null }> = [];
 			for (let offset = 0; ; offset += PAGE_SIZE) {
 				const { data, error } = await client
 					.from('training_types')
-					.select('id,name')
+					.select('id,name,archived_at')
 					.eq('organization_id', actor.orgId)
 					.order('sort_order', { ascending: true })
 					.order('id', { ascending: true })
 					.range(offset, offset + PAGE_SIZE - 1)
-					.returns<TrainingTypeLabel[]>();
+					.returns<Array<{ id: string; name: string; archived_at: string | null }>>();
 				if (error) throw new Error(error.message);
 				const page = data ?? [];
 				rows.push(...page);
 				if (page.length < PAGE_SIZE) break;
 			}
-			return rows.map(({ id, name }) => ({ id, name }));
+			return rows.map(({ id, name, archived_at }) => ({
+				id,
+				name,
+				...(archived_at ? { archivedAt: archived_at } : {})
+			}));
 		},
 		async completedTypeIds(ctx, personnelIds, trainingTypeIds) {
 			const { auth: actor, disabledFeatures } = ctx;

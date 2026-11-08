@@ -34,7 +34,8 @@ function makeTrainingType(id: string, name = 'CPR') {
 		expirationDateOnly: false,
 		canBeExempted: false,
 		exemptPersonnelIds: [] as string[],
-		isOptional: false
+		isOptional: false,
+		archivedAt: null
 	};
 }
 
@@ -436,7 +437,13 @@ describe('Dashboard due soon Training by type', () => {
 
 		const { trainingSummary } = await fetchDashboardTrainingSummary(ctx, {
 			personnel,
-			trainingTypes: [makeTrainingType('required'), { ...makeTrainingType('second'), isOptional: true }],
+			trainingTypes: [
+				makeTrainingType('required'),
+				{
+					...makeTrainingType('second'),
+					isOptional: true
+				}
+			],
 			onboardingPersonnelIds: [],
 			asOf: '2026-09-29'
 		});

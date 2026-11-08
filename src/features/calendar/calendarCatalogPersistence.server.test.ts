@@ -86,6 +86,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			textColor: '#abcdef',
 			shortLabel: null,
 			sortOrder: 0,
+			archivedAt: null,
 			created_at: TIME
 		});
 		expect(result.at(-1)).toEqual({
@@ -96,6 +97,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			textColor: '#abcdef',
 			shortLabel: 'S0',
 			sortOrder: 1000,
+			archivedAt: null,
 			created_at: TIME
 		});
 		const labels = await port.listStatusTypeLabels();
@@ -148,8 +150,16 @@ describe('Calendar ordinary catalog persistence', () => {
 			]
 		});
 		expect(await createSupabaseCalendarCatalogPersistence(client, ORG).listStatusTypes()).toEqual([
-			{ id: 'null', name: 'Null', color: '#111111', textColor: '#ffffff', sortOrder: null, organization_id: ORG },
-			{ id: 'omitted', name: 'Omitted', color: '#222222', textColor: '#000000', organization_id: ORG }
+			{
+				id: 'null',
+				name: 'Null',
+				color: '#111111',
+				textColor: '#ffffff',
+				sortOrder: null,
+				archivedAt: null,
+				organization_id: ORG
+			},
+			{ id: 'omitted', name: 'Omitted', color: '#222222', textColor: '#000000', archivedAt: null, organization_id: ORG }
 		]);
 	});
 
@@ -217,6 +227,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			textColor: '#ffffff',
 			shortLabel: null,
 			rosterEffect: 'A',
+			archivedAt: null,
 			sortOrder: 10
 		});
 		expect(await port.createStatusType({ name: 'Sick', shortLabel: 'SK', rosterEffect: 'D' })).toMatchObject({
@@ -236,6 +247,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			textColor: '#000000',
 			shortLabel: 'LV',
 			rosterEffect: 'available',
+			archivedAt: null,
 			sortOrder: 10
 		});
 		expect(await port.createAssignmentType({ name: 'Duty', shortName: 'D', assignTo: 'personnel' })).toEqual({
@@ -402,7 +414,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			const { client, state } = calendarProvider();
 			const port = createSupabaseCalendarCatalogPersistence(client, ORG);
 			await port[method]('absent');
-			state.failure = () => ({ code: '23503', message: 'Referenced catalog', status: 409 });
+			state.failure = () => ({ code: '40001', message: 'Referenced catalog', status: 409 });
 			await expect(port[method]('absent')).rejects.toThrow('Referenced catalog');
 		}
 	);

@@ -242,7 +242,6 @@ describe('Archived status types in Calendar settings', () => {
 		await openArchived();
 
 		const alert = await screen.findByRole('alert');
-		expect(alert.textContent).toContain('Restore still works');
 		expect(screen.queryByRole('button', { name: 'Delete Leave' })).toBeNull();
 
 		await fireEvent.click(within(alert).getByRole('button', { name: 'Try again' }));

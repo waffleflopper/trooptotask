@@ -56,7 +56,7 @@
 {#if hydrationError && hydrationError.orgId === data.shell.org.id && hydratedOrgId !== data.shell.org.id}
 	<WorkspaceLoadError subject="Personnel" />
 {:else if restrictedOrgId === data.shell.org.id}
-	<WorkspaceAccessRestricted subject="personnel" />
+	<WorkspaceAccessRestricted lane="personnel" level="view" />
 {:else}
 	{#if hydrationError && hydrationError.orgId === data.shell.org.id}
 		<Alert.Root variant="warning">

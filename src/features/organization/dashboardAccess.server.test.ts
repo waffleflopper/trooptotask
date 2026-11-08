@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTestNotificationPort } from '$lib/server/adapters/inMemory';
 import {
 	acceptDashboardInvitation,
+	chooseDashboardLanding,
 	declineDashboardInvitation,
 	loadDashboardOrgAccess,
 	type DashboardInvitationAcceptResult,
@@ -86,13 +87,14 @@ describe('loadDashboardOrgAccess', () => {
 		const result = await loadDashboardOrgAccess(port, {
 			userId: 'user-1',
 			email: ' USER@EXAMPLE.COM ',
-			forceShow: false
+			forceShow: false,
+			lastOrganizationId: null
 		});
 
 		expect(result).toEqual({
 			organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'member', urlSegment: '1-11-bde' }],
 			pendingInvitations: [],
-			redirectTo: '/org/1-11-bde'
+			landing: { kind: 'redirect', to: '/org/1-11-bde' }
 		});
 		expect(port.requestedInvitationEmails).toEqual(['user@example.com']);
 	});
@@ -121,7 +123,8 @@ describe('loadDashboardOrgAccess', () => {
 		const resultPromise = loadDashboardOrgAccess(port, {
 			userId: 'user-1',
 			email: ' USER@EXAMPLE.COM ',
-			forceShow: true
+			forceShow: true,
+			lastOrganizationId: null
 		});
 
 		await Promise.resolve();
@@ -135,14 +138,33 @@ describe('loadDashboardOrgAccess', () => {
 		}
 	});
 
-	it('redirects to organization creation when the user has no orgs and no invitations', async () => {
+	it('sends a member of several Organizations to the one they opened last', async () => {
+		const port = createDashboardOrgAccessPort({
+			organizations: [
+				{ id: 'org-1', name: 'Alpha Company', role: 'admin' },
+				{ id: 'org-2', name: 'Bravo Company', role: 'member', urlSegment: 'bravo' }
+			]
+		});
+
+		const result = await loadDashboardOrgAccess(port, {
+			userId: 'user-1',
+			email: 'user@example.com',
+			forceShow: false,
+			lastOrganizationId: 'org-2'
+		});
+
+		expect(result.landing).toEqual({ kind: 'redirect', to: '/org/bravo' });
+	});
+
+	it('shows the waiting page, not the creation form, to someone with no Organization and no invitation', async () => {
 		const result = await loadDashboardOrgAccess(createDashboardOrgAccessPort(), {
 			userId: 'user-1',
 			email: 'user@example.com',
-			forceShow: false
+			forceShow: false,
+			lastOrganizationId: null
 		});
 
-		expect(result.redirectTo).toBe('/org/new');
+		expect(result.landing).toEqual({ kind: 'no-organization' });
 	});
 
 	it('keeps the dashboard visible when show=all is forced', async () => {
@@ -153,13 +175,14 @@ describe('loadDashboardOrgAccess', () => {
 		const result = await loadDashboardOrgAccess(port, {
 			userId: 'user-1',
 			email: 'user@example.com',
-			forceShow: true
+			forceShow: true,
+			lastOrganizationId: null
 		});
 
 		expect(result).toEqual({
 			organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'admin' }],
 			pendingInvitations: [],
-			redirectTo: null
+			landing: { kind: 'list' }
 		});
 	});
 
@@ -182,7 +205,8 @@ describe('loadDashboardOrgAccess', () => {
 		const result = await loadDashboardOrgAccess(port, {
 			userId: 'user-1',
 			email: 'user@example.com',
-			forceShow: false
+			forceShow: false,
+			lastOrganizationId: null
 		});
 
 		expect(result).toEqual({
@@ -198,8 +222,94 @@ describe('loadDashboardOrgAccess', () => {
 					createdAt: '2026-04-23T00:00:00.000Z'
 				}
 			],
-			redirectTo: null
+			landing: { kind: 'list' }
 		});
+	});
+});
+
+describe('chooseDashboardLanding', () => {
+	const alpha = { id: 'org-1', name: 'Alpha Company', role: 'admin' };
+	const bravo = { id: 'org-2', name: 'Bravo Company', role: 'member', urlSegment: 'bravo' };
+	const invitation = {
+		id: 'invite-1',
+		organizationId: 'org-3',
+		organizationName: 'Charlie Company',
+		createdAt: '2026-04-23T00:00:00.000Z'
+	};
+
+	it.each([
+		{
+			name: 'show=all beats a single Organization',
+			input: { forceShow: true, organizations: [alpha], pendingInvitations: [], lastOrganizationId: null },
+			landing: { kind: 'list' }
+		},
+		{
+			name: 'show=all beats a remembered Organization',
+			input: { forceShow: true, organizations: [alpha, bravo], pendingInvitations: [], lastOrganizationId: 'org-2' },
+			landing: { kind: 'list' }
+		},
+		{
+			name: 'show=all with nothing to join still lists',
+			input: { forceShow: true, organizations: [], pendingInvitations: [], lastOrganizationId: null },
+			landing: { kind: 'list' }
+		},
+		{
+			name: 'a pending invitation beats a single Organization',
+			input: { forceShow: false, organizations: [alpha], pendingInvitations: [invitation], lastOrganizationId: null },
+			landing: { kind: 'list' }
+		},
+		{
+			name: 'a pending invitation beats a remembered Organization',
+			input: {
+				forceShow: false,
+				organizations: [alpha, bravo],
+				pendingInvitations: [invitation],
+				lastOrganizationId: 'org-2'
+			},
+			landing: { kind: 'list' }
+		},
+		{
+			name: 'a pending invitation with no Organization lists it',
+			input: { forceShow: false, organizations: [], pendingInvitations: [invitation], lastOrganizationId: null },
+			landing: { kind: 'list' }
+		},
+		{
+			name: 'one Organization opens by its id when it has no URL segment',
+			input: { forceShow: false, organizations: [alpha], pendingInvitations: [], lastOrganizationId: null },
+			landing: { kind: 'redirect', to: '/org/org-1' }
+		},
+		{
+			name: 'one Organization opens even when the remembered one is gone',
+			input: { forceShow: false, organizations: [bravo], pendingInvitations: [], lastOrganizationId: 'org-gone' },
+			landing: { kind: 'redirect', to: '/org/bravo' }
+		},
+		{
+			name: 'several Organizations open the remembered one by its URL segment',
+			input: { forceShow: false, organizations: [alpha, bravo], pendingInvitations: [], lastOrganizationId: 'org-2' },
+			landing: { kind: 'redirect', to: '/org/bravo' }
+		},
+		{
+			name: 'several Organizations list when nothing is remembered',
+			input: { forceShow: false, organizations: [alpha, bravo], pendingInvitations: [], lastOrganizationId: null },
+			landing: { kind: 'list' }
+		},
+		{
+			name: 'several Organizations list when the remembered one was left',
+			input: {
+				forceShow: false,
+				organizations: [alpha, bravo],
+				pendingInvitations: [],
+				lastOrganizationId: 'org-left'
+			},
+			landing: { kind: 'list' }
+		},
+		{
+			name: 'no Organization and no invitation waits for an invite',
+			input: { forceShow: false, organizations: [], pendingInvitations: [], lastOrganizationId: 'org-left' },
+			landing: { kind: 'no-organization' }
+		}
+	])('$name', ({ input, landing }) => {
+		expect(chooseDashboardLanding(input)).toEqual(landing);
 	});
 });
 

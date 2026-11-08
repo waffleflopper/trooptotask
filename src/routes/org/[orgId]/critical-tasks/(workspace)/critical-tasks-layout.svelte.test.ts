@@ -21,6 +21,10 @@ import {
 	type PersonnelIctCompletion
 } from '$features/critical-tasks';
 
+vi.mock('$app/state', () => ({
+	page: { route: { id: null }, data: { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } } } }
+}));
+
 function deferred<T>() {
 	let resolve!: (value: T) => void;
 	const promise = new Promise<T>((res) => {

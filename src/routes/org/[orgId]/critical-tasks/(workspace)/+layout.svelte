@@ -76,7 +76,7 @@
 {#if hydrationError}
 	<WorkspaceLoadError subject="Critical Tasks" />
 {:else if accessRestricted}
-	<WorkspaceAccessRestricted subject="Critical Tasks" />
+	<WorkspaceAccessRestricted lane="criticalTasks" level="view" />
 {:else if !workspacePending || holdsWhilePending}
 	{@render children()}
 {/if}

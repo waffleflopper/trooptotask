@@ -9,7 +9,7 @@
 {#if page.status >= 500}
 	<WorkspaceLoadError subject="Critical Tasks" />
 {:else if page.status === 403}
-	<WorkspaceAccessRestricted subject="Critical Tasks" />
+	<WorkspaceAccessRestricted lane="criticalTasks" level="view" />
 {:else}
 	<OrganizationError />
 {/if}

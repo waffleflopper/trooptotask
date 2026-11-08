@@ -120,8 +120,10 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
    - With `fail-hard 1` instead, `Next month` shows `Unable to load DA 6` with `Retry DA 6`. After `restore`, Retry
      renders the month.
 8. **Access.** `$V actor calendarScoped calendar` opens a new page. Navigate it to the same DA 6: the main region shows
-   `Access Restricted` and `You don't have permission to view the DA 6.` Fetching the page HTML from that page contains
-   none of the seeded last names.
+   `Access Restricted`, `You need Calendar View access for the Whole unit to open this page.` (this viewer already has
+   Group-scoped Calendar View), naming an owner or admin of the Organization as the ones who can grant it, and
+   `Back to <Organization> home` linking to the Organization Home. Fetching the page HTML from that page contains none
+   of the seeded last names.
 
 9. **Starting numbers.** Run on a fresh `$V seed da6`, before step 4, when d9 is in d0's month. Charge of Quarters has
    no detail on d0, so its numbers are editable; Staff Duty's d0 detail locks its own.

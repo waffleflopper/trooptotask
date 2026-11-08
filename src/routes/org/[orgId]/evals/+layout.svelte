@@ -35,7 +35,7 @@
 {#if hydrationError}
 	<WorkspaceLoadError subject="Evals" />
 {:else if accessRestricted}
-	<WorkspaceAccessRestricted subject="evaluations" />
+	<WorkspaceAccessRestricted lane="ratingScheme" level="view" />
 {:else}
 	{@render children()}
 {/if}

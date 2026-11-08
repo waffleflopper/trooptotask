@@ -178,7 +178,7 @@
 		confirmLabel="Turn off {target.label}"
 		variant="default"
 		onConfirm={async () => {
-			if (await setFeature(target, false)) confirmOff = null;
+			if ((await setFeature(target, false)) && confirmOff === target) confirmOff = null;
 		}}
 		onCancel={() => (confirmOff = null)}
 	/>

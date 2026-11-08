@@ -297,6 +297,7 @@ describe('TrainingTypesPage', () => {
 			await new Promise((resolve) => setTimeout(resolve));
 			expect(calls).toEqual([]);
 			expect(screen.queryByRole('checkbox')).toBeNull();
+			expect(screen.getByText('No training types yet.')).toBeTruthy();
 		});
 	});
 

@@ -55,7 +55,8 @@ describe('POST /api/personnel/archive-batch', () => {
 		expect(result).toEqual({
 			archivedIds: [firstId, secondId],
 			approvalRequestedIds: [],
-			errors: []
+			errors: [],
+			undo: expect.any(String)
 		});
 		const stored = (await ctx.store.findMany('personnel', ctx.auth.orgId)) as Record<string, unknown>[];
 		expect(stored.every((person) => person.archived_at)).toBe(true);
@@ -113,7 +114,8 @@ describe('POST /api/personnel/archive-batch', () => {
 		expect(result).toEqual({
 			archivedIds: [],
 			approvalRequestedIds: [firstId, secondId],
-			errors: []
+			errors: [],
+			undo: expect.any(String)
 		});
 		const requests = (await ctx.store.findMany('deletion_requests', ctx.auth.orgId)) as Record<string, unknown>[];
 		expect(requests).toHaveLength(2);

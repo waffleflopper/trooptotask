@@ -29,10 +29,17 @@ type PersonnelArchiveOutcome =
 	| { kind: 'requiresApproval'; resourceDescription: string }
 	| { kind: 'error'; message: string };
 
+/** The event time an archive wrote and the People it newly archived, which an Undo is bound to. */
+export interface PersonnelArchiveEvent {
+	archivedAt: string;
+	archivedIds: string[];
+}
+
 interface PreparedPersonnelArchiveBatch {
 	readonly ids: readonly string[];
 	admit(id: string): Promise<PersonnelArchiveOutcome>;
-	archiveAdmitted(): Promise<void>;
+	/** Resolves null when nothing was admitted. */
+	archiveAdmitted(): Promise<PersonnelArchiveEvent | null>;
 }
 
 const AUDIT_RESOURCE = 'personnel';
@@ -41,7 +48,15 @@ function personnelName(person: Pick<PersonnelLifecycleReference, 'rank' | 'lastN
 	return `${person.rank} ${person.lastName}, ${person.firstName}`;
 }
 
-export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id: string) {
+/** `archivedAt` is null when the Person was already archived, so there is nothing this call can take back. */
+export type PersonnelArchiveResult =
+	| { requiresApproval: true }
+	| { requiresApproval?: undefined; archivedAt: string | null };
+
+export async function archivePersonnelRecord(
+	ctx: PersonnelLifecycleContext,
+	id: string
+): Promise<PersonnelArchiveResult> {
 	const currentRecord = await ctx.organizationPersonnel.findWriteReference(id);
 
 	await requireFeaturePolicy(
@@ -68,7 +83,9 @@ export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 		id
 	);
 
-	await ctx.personnelLifecycle.archive([id], new Date().toISOString());
+	const archivedAt = new Date().toISOString();
+	await ctx.personnelLifecycle.archive([id], archivedAt);
+	return { archivedAt: currentRecord?.archivedAt ? null : archivedAt };
 }
 
 /** Describes an archive request from the Person the requester may manage. */
@@ -171,6 +188,7 @@ export async function preparePersonnelArchiveBatch(
 	const candidates = await ctx.personnel.listArchiveCandidates(ids);
 	const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
 	const admittedIds: string[] = [];
+	const newlyArchivedIds: string[] = [];
 
 	return {
 		ids,
@@ -208,11 +226,65 @@ export async function preparePersonnelArchiveBatch(
 			}
 			await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.archiveRecords, resource, AUDIT_RESOURCE, id);
 			admittedIds.push(id);
+			newlyArchivedIds.push(id);
 			return { kind: 'archived' };
 		},
 		async archiveAdmitted() {
-			if (admittedIds.length === 0) return;
-			await ctx.personnelLifecycle.archive(admittedIds, new Date().toISOString());
+			if (admittedIds.length === 0) return null;
+			const archivedAt = new Date().toISOString();
+			await ctx.personnelLifecycle.archive(admittedIds, archivedAt);
+			return { archivedAt, archivedIds: newlyArchivedIds };
 		}
+	};
+}
+
+const RESTORE_CONCURRENCY = 10;
+
+/**
+ * Restores People an archive wrote, only while each still carries that archive's event time. The actor needs
+ * Personnel management in the Person's Group, which is what archiving needed, not the separate restore capability.
+ * Anyone restored, archived again or moved out of reach since is left as they are.
+ */
+export async function restoreArchivedPersonnel(
+	ctx: Pick<PersonnelLifecycleContext, 'auth' | 'audit' | 'personnel' | 'personnelLifecycle'>,
+	archive: { archivedAt: string; personnelIds: readonly string[] }
+): Promise<{ restoredIds: string[]; changedIds: string[] }> {
+	const archivedAt = Date.parse(archive.archivedAt);
+	const candidates = new Map(
+		(await ctx.personnel.listArchiveCandidates([...archive.personnelIds])).map((candidate) => [candidate.id, candidate])
+	);
+	const stillArchived = archive.personnelIds.filter((id) => {
+		const person = candidates.get(id);
+		return person?.archivedAt && Date.parse(person.archivedAt) === archivedAt;
+	});
+	const groups = [...new Set(stillArchived.map((id) => candidates.get(id)?.groupId ?? null))];
+	const reachable = new Map(
+		await Promise.all(
+			groups.map(
+				async (groupId) =>
+					[
+						groupId,
+						(
+							await evaluateFeaturePolicy(
+								ctx,
+								POLICY_ACTION_CATALOG.personnel.manageRecords,
+								policyResourceForGroup(groupId)
+							)
+						).allowed
+					] as const
+			)
+		)
+	);
+	const restorable = stillArchived.filter((id) => reachable.get(candidates.get(id)?.groupId ?? null));
+
+	const restored = new Set<string>();
+	for (let start = 0; start < restorable.length; start += RESTORE_CONCURRENCY) {
+		const chunk = restorable.slice(start, start + RESTORE_CONCURRENCY);
+		const outcomes = await Promise.all(chunk.map((id) => ctx.personnelLifecycle.restore(id)));
+		chunk.forEach((id, index) => outcomes[index] && restored.add(id));
+	}
+	return {
+		restoredIds: archive.personnelIds.filter((id) => restored.has(id)),
+		changedIds: archive.personnelIds.filter((id) => !restored.has(id))
 	};
 }

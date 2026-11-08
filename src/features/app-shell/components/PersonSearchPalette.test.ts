@@ -229,6 +229,18 @@ describe('person search palette', () => {
 		expect(screen.queryByRole('combobox')).toBeNull();
 	});
 
+	it('steps back once when a person is chosen twice before the palette has closed', async () => {
+		const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+		renderPalette();
+		await openPalette();
+		const option = await screen.findByRole('option', { name: /SGT Smith, John/ });
+
+		await fireEvent.click(option);
+		await fireEvent.click(option);
+
+		expect(back).toHaveBeenCalledTimes(1);
+	});
+
 	it('closes on Escape by stepping back over its history entry', async () => {
 		renderPalette();
 		await openPalette();

@@ -16,8 +16,13 @@ export function openPersonSearch() {
 	if (!isPersonSearchOpen()) void pushState('', { ...page.state, personSearch: true });
 }
 
+// history.back() lands on a later popstate, so a second close before then must not step back past the page.
+let closingFrom: App.PageState | null = null;
+
 export function closePersonSearch() {
-	if (isPersonSearchOpen()) history.back();
+	if (!isPersonSearchOpen() || closingFrom === page.state) return;
+	closingFrom = page.state;
+	history.back();
 }
 
 export function togglePersonSearch() {

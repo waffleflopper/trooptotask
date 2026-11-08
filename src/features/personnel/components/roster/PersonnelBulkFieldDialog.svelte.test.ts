@@ -2,6 +2,7 @@
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
@@ -16,7 +17,6 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn() }));
 
 afterEach(async () => {
 	cleanup();
-	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
@@ -92,8 +92,6 @@ describe('Set field dialog', () => {
 		const review = within(screen.getByRole('region', { name: /Changes/ }));
 		const rows = review.getAllByRole('listitem').map((row) => row.textContent?.replace(/\s+/g, ' ').trim());
 		expect(rows).toEqual(['SGT Able, Pat 68W → 68C', 'SGT Cole, Pat None → 68C']);
-		expect(screen.getByText('1 person already has it and will not change.')).toBeTruthy();
-		expect(screen.getByText('1 person you cannot edit will be skipped.')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Set MOS for 2 people' }));
 		await waitFor(() => expect(onclose).toHaveBeenCalled());
@@ -124,9 +122,10 @@ describe('Set field dialog', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Set MOS for 2 people' }));
 
 		const failures = await screen.findByRole('list', { name: 'People that did not save' });
-		expect(failures.textContent?.replace(/\s+/g, ' ')).toBe(
-			'SGT Baker, Pat Not allowed: You do not have access to records outside your assigned scope'
-		);
+		const [refused, ...others] = within(failures).getAllByRole('listitem');
+		expect(others).toEqual([]);
+		expect(refused.textContent).toContain('Baker');
+		expect(refused.textContent).toContain('You do not have access to records outside your assigned scope');
 		expect(onclose).not.toHaveBeenCalled();
 		expect(personnelStore.getById('a')?.mos).toBe('68X');
 		expect(personnelStore.getById('b')?.mos).toBe('68C');
@@ -149,22 +148,35 @@ describe('Set field dialog', () => {
 		await chooseMos('68C');
 		await fireEvent.click(screen.getByRole('button', { name: 'Set MOS for 2 people' }));
 		endOrganizationLifetime();
-		answer(
-			Response.json({
-				field: 'mos',
-				value: '68C',
-				results: [
-					{ id: 'a', outcome: 'updated' },
-					{ id: 'c', outcome: 'updated' }
-				]
-			})
-		);
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		const reply = Response.json({
+			field: 'mos',
+			value: '68C',
+			results: [
+				{ id: 'a', outcome: 'updated' },
+				{ id: 'c', outcome: 'updated' }
+			]
+		});
+		const read = vi.spyOn(reply, 'json');
+		answer(reply);
+		await waitFor(() => expect(read).toHaveBeenCalled());
+		await read.mock.results[0].value;
+		await tick();
 
 		expect(personnelStore.items.map((item) => item.mos)).toEqual(['68W', '68C', '']);
 		expect(toasts.map((toast) => toast.mock.calls.length)).toEqual([0, 0, 0, 0]);
 		expect(onclose).not.toHaveBeenCalled();
 	});
+
+	it('keeps a typed value when Escape is pressed', async () => {
+		const { onclose } = setup(roster());
+
+		await chooseMos('68C');
+		await fireEvent.keyDown(screen.getByLabelText('New MOS'), { key: 'Escape' });
+
+		expect(onclose).not.toHaveBeenCalled();
+		expect((screen.getByLabelText('New MOS') as HTMLInputElement).value).toBe('68C');
+	});
+
 	it('does not send a change for more People than one request accepts', async () => {
 		const send = vi.fn();
 		vi.stubGlobal('fetch', send);

@@ -17,7 +17,6 @@ import { normalizeActivePersonnelRank } from './rankValidation.server';
 type FieldBatchContext = Parameters<typeof preparePersonnelRecordUpdate>[0];
 
 const FIELD_BATCH_CONCURRENCY = 8;
-const UNAVAILABLE_MESSAGE = 'This person is no longer available.';
 const UNCONFIRMED_MESSAGE = 'This update could not be confirmed. Review the record before retrying.';
 
 const batchInput = z.object({
@@ -66,8 +65,7 @@ function resultOf(id: string, error: unknown): PersonnelFieldResult {
 async function setOne(ctx: FieldBatchContext, id: string, field: BulkField, value: string) {
 	try {
 		const prepared = await preparePersonnelRecordUpdate(ctx, { id, [field]: value });
-		if (prepared.currentRecord.archivedAt) return { id, outcome: 'unavailable', message: UNAVAILABLE_MESSAGE } as const;
-		await applyPersonnelRecordUpdate(ctx, prepared);
+		await applyPersonnelRecordUpdate(ctx, prepared, { onlyActive: true });
 		return { id, outcome: 'updated' } as const;
 	} catch (error) {
 		return resultOf(id, error);

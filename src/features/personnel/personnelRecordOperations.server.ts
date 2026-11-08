@@ -165,7 +165,8 @@ export async function preparePersonnelRecordUpdate(
 
 export async function applyPersonnelRecordUpdate(
 	ctx: PersonnelRecordContext,
-	{ id, patch, currentRecord }: PreparedPersonnelRecordUpdate
+	{ id, patch, currentRecord }: PreparedPersonnelRecordUpdate,
+	options?: { onlyActive: true }
 ) {
 	const shouldRegenerateSlug =
 		(patch.lastName !== undefined && patch.lastName !== currentRecord.lastName) ||
@@ -184,7 +185,7 @@ export async function applyPersonnelRecordUpdate(
 		}
 
 		try {
-			row = await ctx.personnel.updateEditable(id, patch);
+			row = await ctx.personnel.updateEditable(id, patch, options);
 			break;
 		} catch (error) {
 			if (!shouldRegenerateSlug || attempt === SLUG_RETRY_LIMIT || !isPersonnelSlugUniqueConstraintError(error)) {

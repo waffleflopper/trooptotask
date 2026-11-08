@@ -124,7 +124,7 @@
 		});
 </script>
 
-<AppDialog.Root open busy={saving.pending} onClose={onclose}>
+<AppDialog.Root open busy={saving.pending} closeBlocked={wanted !== '' || outcome !== null} onClose={onclose}>
 	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Set field</AppDialog.Title>

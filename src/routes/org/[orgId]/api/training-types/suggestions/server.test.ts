@@ -5,7 +5,7 @@ import { getTrainingSuggestions } from '$features/training/contracts';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { RequestFailure } from '$lib/errors';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _getConfig, _postConfig } from './+server';
 
 const picked = { branch: 'army', suggestionIds: ['sharp', 'eo', 'ace'] };
 const apply = (ctx: ReturnType<typeof createTestContext>, input: unknown = picked) =>
@@ -181,5 +181,44 @@ describe('apply Training suggestions', () => {
 		const ctx = createTestContext();
 		await expect(apply(ctx, input)).rejects.toMatchObject({ status: 400 });
 		expect(await ctx.trainingCatalog.listTypes()).toEqual([]);
+	});
+});
+
+describe('read the branch Training suggestions are chosen by', () => {
+	const read = vi.fn();
+	const organizationSetup = { read };
+	const readBranch = (ctx: ReturnType<typeof createTestContext>) =>
+		handleUseCaseRequest(_getConfig, ctx, undefined, () => ({ orgId: ctx.auth.orgId, organizationSetup }));
+
+	it('returns the Organization setup branch to someone who may configure Training', async () => {
+		const ctx = createTestContext();
+		read.mockResolvedValue({ branch: 'army' });
+		expect(await readBranch(ctx)).toEqual({ branch: 'army' });
+		expect(read).toHaveBeenCalledWith(ctx.auth.orgId);
+	});
+
+	it('returns no branch before one is chosen', async () => {
+		read.mockResolvedValue({ branch: null });
+		expect(await readBranch(createTestContext())).toEqual({ branch: null });
+	});
+
+	it('denies a Training viewer without reading setup', async () => {
+		read.mockClear();
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'view',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		await expect(readBranch(ctx)).rejects.toMatchObject({ status: 403 });
+		expect(read).not.toHaveBeenCalled();
 	});
 });

@@ -174,6 +174,67 @@ describe('TrainingTypesPage', () => {
 		});
 	});
 
+	describe('starter training types', () => {
+		const calls: { method: string; body: Record<string, unknown> | null }[] = [];
+		function stubSuggestions(branch: string | null, post: () => Response = () => Response.json(created)) {
+			calls.length = 0;
+			vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
+				const method = init?.method ?? 'GET';
+				calls.push({ method, body: init?.body ? JSON.parse(init.body as string) : null });
+				return method === 'GET' ? Response.json({ branch }) : post();
+			});
+		}
+		const created = { created: [], skipped: [], failed: [], trainingTypes: [] };
+		const add = () => screen.getByRole('button', { name: /^Add \d+ training type/ });
+
+		it('offers the Army list on an empty catalog and adds the checked types', async () => {
+			stubSuggestions('army');
+			mount([]);
+
+			await fireEvent.click(await screen.findByRole('checkbox', { name: /^OPSEC/ }));
+			await fireEvent.click(add());
+
+			await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:training-data'));
+			const post = calls.find(({ method }) => method === 'POST');
+			expect(post?.body).toEqual({
+				branch: 'army',
+				suggestionIds: ['sharp', 'eo', 'ace', 'cyber-awareness', 'tarp', 'at-level-i', 'ctip']
+			});
+		});
+
+		it('keeps the picks and shows the reason when the add fails', async () => {
+			stubSuggestions('army', () => Response.json({ message: 'Training is unavailable' }, { status: 500 }));
+			mount([]);
+
+			await fireEvent.click(await screen.findByRole('checkbox', { name: /^SHARP/ }));
+			await fireEvent.click(add());
+
+			expect((await screen.findByRole('alert')).textContent).toContain('Training is unavailable');
+			expect((add() as HTMLButtonElement).disabled).toBe(false);
+			expect(invalidateMock).not.toHaveBeenCalled();
+			expect(screen.getByRole('checkbox', { name: /^SHARP/ }).getAttribute('aria-checked')).toBe('false');
+		});
+
+		it('offers no list for a branch without one', async () => {
+			stubSuggestions('navy');
+			mount([]);
+
+			await waitFor(() => expect(calls).toHaveLength(1));
+			await new Promise((resolve) => setTimeout(resolve));
+			expect(screen.queryByRole('checkbox')).toBeNull();
+			expect(screen.getByText('No training types yet.')).toBeTruthy();
+		});
+
+		it('does not look up a branch for someone who cannot configure Training', async () => {
+			stubSuggestions('army');
+			mount([], accessFor(false));
+
+			await new Promise((resolve) => setTimeout(resolve));
+			expect(calls).toEqual([]);
+			expect(screen.queryByRole('checkbox')).toBeNull();
+		});
+	});
+
 	describe('creating a type', () => {
 		it.each([
 			['months', 'Every few months', { expirationMonths: 12, expirationDateOnly: false, warningDaysYellow: 60 }],

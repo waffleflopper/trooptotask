@@ -93,7 +93,7 @@ describe('Set field dialog', () => {
 		const review = within(screen.getByRole('region', { name: /Changes/ }));
 		const rows = review.getAllByRole('listitem').map((row) => row.textContent?.replace(/\s+/g, ' ').trim());
 		expect(rows).toEqual(['SGT Able, Pat 68W → 68C', 'SGT Cole, Pat None → 68C']);
-		expect(screen.getByText('1 person already have it and will not change.')).toBeTruthy();
+		expect(screen.getByText('1 person already has it and will not change.')).toBeTruthy();
 		expect(screen.getByText('1 person you cannot edit will be skipped.')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Set MOS for 2 people' }));

@@ -202,7 +202,7 @@
 						{/if}
 						{#if review.unchanged > 0 && review.changes.length > 0}
 							<p class="text-sm text-muted-foreground">
-								{count(review.unchanged)} already have it and will not change.
+								{count(review.unchanged)} already {review.unchanged === 1 ? 'has' : 'have'} it and will not change.
 							</p>
 						{/if}
 					</section>

@@ -8,6 +8,7 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 const { invalidateMock } = vi.hoisted(() => ({ invalidateMock: vi.fn() }));
@@ -272,6 +273,26 @@ describe('TrainingTypesPage', () => {
 			reply(Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }] }));
 
 			await waitFor(() => expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']));
+		});
+
+		it('drops a starter save that settles after the user left the Organization', async () => {
+			let reply: (response: Response) => void = () => {};
+			stubSuggestions('army');
+			const lookUpBranch = globalThis.fetch;
+			vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+				init?.method === 'POST' ? new Promise<Response>((resolve) => (reply = resolve)) : lookUpBranch(url, init)
+			);
+			const { unmount } = mount([]);
+
+			await screen.findByRole('checkbox', { name: /^SHARP/ });
+			await fireEvent.click(add());
+			unmount();
+			endOrganizationLifetime();
+			trainingTypesStore.load([cpr], 'org-1');
+			reply(Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }] }));
+			await new Promise((resolve) => setTimeout(resolve));
+
+			expect(trainingTypesStore.items.map(({ name }) => name)).toEqual([cpr.name]);
 		});
 
 		it('explains a failed branch lookup and offers the list after a retry', async () => {

@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import { calendarAssignmentSuggestions, calendarStatusSuggestions } from '../calendarSuggestions';
 	import { postCalendarSuggestions } from '../calendarSuggestionsClient';
 	import type { CalendarSuggestionsResult } from '../contracts';
@@ -68,8 +69,9 @@
 		const orgUrlSegment = current?.orgUrlSegment;
 		const orgId = catalogOrg();
 		if (!orgUrlSegment || saving || toAdd.length === 0) return;
-		// The saved types belong in the shared store even when the picker closed during the save.
-		const sameOrg = () => setup?.().orgUrlSegment === orgUrlSegment && catalogOrg() === orgId;
+		// The saved types belong in the shared store even when the picker closed during the save, but never in a later visit.
+		const inLifetime = stillInOrganizationLifetime();
+		const sameOrg = () => inLifetime() && setup?.().orgUrlSegment === orgUrlSegment && catalogOrg() === orgId;
 		const stillHere = () => alive && sameOrg();
 		const picked = new Set(toAdd.map((suggestion) => suggestion.id));
 		saving = true;

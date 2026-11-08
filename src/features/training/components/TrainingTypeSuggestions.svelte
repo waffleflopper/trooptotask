@@ -6,6 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import type { TrainingPageAccess } from '../contracts';
 	import { fetchTrainingSuggestionBranch, postTrainingSuggestions } from '../trainingSuggestionsClient';
 	import { trainingTypesStore } from '../stores/trainingTypes.svelte';
@@ -63,8 +64,9 @@
 	async function add() {
 		const orgId = org.orgId;
 		if (!branch || saving || toAdd.length === 0) return;
-		// The saved types belong in the shared store even when the page was left during the save.
-		const sameOrg = () => trainingTypesStore.orgId === orgId;
+		// The saved types belong in the shared store even when the page was left during the save, but never in a later visit.
+		const inLifetime = stillInOrganizationLifetime();
+		const sameOrg = () => inLifetime() && trainingTypesStore.orgId === orgId;
 		const stillHere = () => alive && org.orgId === orgId;
 		saving = true;
 		failure = null;

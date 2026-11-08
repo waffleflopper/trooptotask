@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import CalendarTypeSetupHost from '../test-support/CalendarTypeSetupHost.svelte';
 
@@ -190,6 +191,30 @@ describe('CalendarTypesEmptyState', () => {
 		);
 
 		await waitFor(() => expect(statusTypesStore.items.map(({ name }) => name)).toEqual(['Leave']));
+	});
+
+	it('drops a starter save that settles after the user left the Organization', async () => {
+		const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+		let reply: (response: Response) => void = () => {};
+		fetchMock.mockReturnValue(new Promise<Response>((resolve) => (reply = resolve)));
+		const { unmount } = render(CalendarTypeSetupHost, { props: { kind: 'status', setup: manager } });
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Add \d/ }));
+		unmount();
+		endOrganizationLifetime();
+		statusTypesStore.load([saved('s9', 'Reloaded')], 'alpha');
+		reply(
+			Response.json({
+				...created,
+				statusTypes: [saved('s1', 'Leave')],
+				failed: [{ id: 'sick', name: 'Sick', message: 'Try again.' }]
+			})
+		);
+		await new Promise((resolve) => setTimeout(resolve));
+
+		expect(statusTypesStore.items.map(({ name }) => name)).toEqual(['Reloaded']);
+		expect(error).not.toHaveBeenCalled();
+		error.mockRestore();
 	});
 
 	it('offers no starter types to a viewer who may configure only the other kind', () => {

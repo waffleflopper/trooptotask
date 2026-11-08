@@ -56,7 +56,8 @@ const cpr: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: true,
 	exemptPersonnelIds: ['p-1'],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 const license: TrainingType = {
@@ -102,6 +103,45 @@ function stubServer(options: { fail?: { status: number; message: string }; hold?
 		if (options.fail) return Response.json({ message: options.fail.message }, { status: options.fail.status });
 		const saved = trainingTypesStore.items.find((type) => type.id === body.id);
 		return Response.json({ ...saved, ...body, id: body.id ?? 'type-new' });
+	});
+	return requests;
+}
+
+type CatalogStub = {
+	archive?: { status: number; message: string };
+	usage?: Record<string, number>;
+	usageHold?: Promise<void>;
+	usageFailures?: number;
+	deleteStatus?: number;
+};
+
+/** Answers the archive, usage and delete routes the way the server does. */
+function stubCatalog(options: CatalogStub = {}) {
+	const requests: Request[] = [];
+	let usageFailures = options.usageFailures ?? 0;
+	vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
+		const method = init.method ?? 'GET';
+		const body = init.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : {};
+		requests.push({ url, method, body });
+		if (url.endsWith('/usage')) {
+			await options.usageHold;
+			if (usageFailures-- > 0) return Response.json({ message: 'Usage unavailable' }, { status: 500 });
+			return Response.json(options.usage ?? {});
+		}
+		if (url.endsWith('/archive')) {
+			if (options.archive)
+				return Response.json({ message: options.archive.message }, { status: options.archive.status });
+			return Response.json({ archivedAt: body.archived ? '2030-03-04T05:06:07Z' : null });
+		}
+		if (method === 'DELETE') {
+			if (options.deleteStatus)
+				return Response.json(
+					{ message: 'This type has records. Archive it instead.' },
+					{ status: options.deleteStatus }
+				);
+			return Response.json({ success: true });
+		}
+		throw new Error(`Unexpected request ${method} ${url}`);
 	});
 	return requests;
 }
@@ -623,8 +663,10 @@ describe('TrainingTypesPage', () => {
 		});
 	});
 
-	describe('deleting a type', () => {
-		it('asks first, then removes the type and its records and closes the sheet', async () => {
+	describe('archiving a type', () => {
+		const ARCHIVED_AT = '2030-03-04T05:06:07Z';
+
+		it('asks first, then archives the type, keeps its records and closes the sheet', async () => {
 			personnelTrainingsStore.load(
 				[
 					{ id: 'c-1', personnelId: 'p-1', trainingTypeId: 'type-1' } as PersonnelTraining,
@@ -632,33 +674,149 @@ describe('TrainingTypesPage', () => {
 				],
 				'org-1'
 			);
-			const requests = stubServer();
+			const requests = stubCatalog();
 			mount();
 
 			await fireEvent.click(screen.getByRole('button', { name: 'CPR' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Delete type' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Archive type' }));
 			expect(requests).toEqual([]);
-			await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+			await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
 
 			await waitFor(() => expect(screen.queryByRole('button', { name: 'CPR' })).toBeNull());
-			expect(requests.map(({ method, body }) => [method, body.id])).toEqual([['DELETE', 'type-1']]);
-			await waitFor(() => expect(personnelTrainingsStore.items.map((record) => record.id)).toEqual(['c-2']));
-			expect(screen.queryByRole('dialog')).toBeNull();
+			expect(requests).toEqual([
+				{ url: '/org/org-1/api/training-types/archive', method: 'PUT', body: { id: 'type-1', archived: true } }
+			]);
+			expect(personnelTrainingsStore.items.map((record) => record.id)).toEqual(['c-1', 'c-2']);
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+			expect(screen.getByRole('button', { name: /Archived/ }).textContent).toContain('1');
 			await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'New type' })));
 		});
 
-		it('keeps a failed delete open with its reason', async () => {
-			vi.spyOn(trainingTypesStore, 'remove').mockResolvedValueOnce('error');
+		it('keeps a failed archive open with its reason', async () => {
+			stubCatalog({ archive: { status: 404, message: 'Training type not found' } });
 			mount();
 
 			await fireEvent.click(screen.getByRole('button', { name: 'CPR' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Delete type' }));
-			await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Archive type' }));
+			await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
 
-			expect(
-				await within(screen.getByRole('alertdialog')).findByText('Failed to delete training type. Try again.')
-			).toBeTruthy();
+			expect(await within(screen.getByRole('alertdialog')).findByText('Training type not found')).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'CPR' })).toBeTruthy();
+			expect(trainingTypesStore.items.find((type) => type.id === 'type-1')?.archivedAt).toBeNull();
+		});
+
+		describe('the Archived list', () => {
+			const archived = (type: TrainingType): TrainingType => ({ ...type, archivedAt: ARCHIVED_AT });
+
+			it('keeps archived types out of the table and lists them with their record counts', async () => {
+				stubCatalog({ usage: { 'type-1': 0, 'type-2': 4, 'type-3': 0 } });
+				mount([cpr, archived(license), archived(legacyNever)]);
+
+				expect(screen.getByRole('button', { name: 'CPR' })).toBeTruthy();
+				expect(screen.queryByRole('button', { name: 'Mil license' })).toBeNull();
+				expect(screen.queryByRole('button', { name: 'SHARP' })).toBeNull();
+				await fireEvent.click(screen.getByRole('button', { name: /Archived/ }));
+
+				const license_ = (await screen.findByText('Mil license')).closest('li') as HTMLElement;
+				const sharp = screen.getByText('SHARP').closest('li') as HTMLElement;
+				await waitFor(() => expect(license_.textContent).toContain('4 records'));
+				expect(sharp.textContent).toContain('0 records');
+				expect(within(license_).getByRole('button', { name: 'Restore Mil license' })).toBeTruthy();
+				expect(within(license_).queryByRole('button', { name: 'Delete Mil license' })).toBeNull();
+				expect(within(sharp).getByRole('button', { name: 'Restore SHARP' })).toBeTruthy();
+				expect(within(sharp).getByRole('button', { name: 'Delete SHARP' })).toBeTruthy();
+			});
+
+			it('offers Restore and withholds Delete until the counts arrive', async () => {
+				let release: () => void = () => {};
+				stubCatalog({ usage: { 'type-3': 0 }, usageHold: new Promise<void>((resolve) => (release = resolve)) });
+				mount([cpr, archived(legacyNever)]);
+
+				await fireEvent.click(screen.getByRole('button', { name: /Archived/ }));
+
+				expect(await screen.findByRole('button', { name: 'Restore SHARP' })).toBeTruthy();
+				expect(screen.queryByRole('button', { name: 'Delete SHARP' })).toBeNull();
+				expect(screen.queryByText(/records/)).toBeNull();
+				release();
+				expect(await screen.findByRole('button', { name: 'Delete SHARP' })).toBeTruthy();
+				expect(screen.getByText(/0 records/)).toBeTruthy();
+			});
+
+			it('shows why the counts failed, keeps Restore working and retries on request', async () => {
+				const requests = stubCatalog({ usage: { 'type-3': 0 }, usageFailures: 1 });
+				mount([cpr, archived(legacyNever)]);
+
+				await fireEvent.click(screen.getByRole('button', { name: /Archived/ }));
+
+				const alert = await screen.findByRole('alert');
+				expect(screen.queryByRole('button', { name: 'Delete SHARP' })).toBeNull();
+				await fireEvent.click(within(alert).getByRole('button', { name: 'Try again' }));
+				expect(await screen.findByRole('button', { name: 'Delete SHARP' })).toBeTruthy();
+				expect(screen.queryByRole('alert')).toBeNull();
+				expect(requests.filter((request) => request.method === 'GET')).toHaveLength(2);
+
+				await fireEvent.click(screen.getByRole('button', { name: 'Restore SHARP' }));
+				await waitFor(() => expect(screen.getByRole('button', { name: 'SHARP' })).toBeTruthy());
+			});
+
+			it('restores a type to the table', async () => {
+				const requests = stubCatalog({ usage: { 'type-2': 4 } });
+				mount([cpr, archived(license)]);
+
+				await fireEvent.click(screen.getByRole('button', { name: /Archived/ }));
+				await fireEvent.click(await screen.findByRole('button', { name: 'Restore Mil license' }));
+
+				await waitFor(() => expect(screen.getByRole('button', { name: 'Mil license' })).toBeTruthy());
+				expect(requests.filter((request) => request.method === 'PUT')).toEqual([
+					{ url: '/org/org-1/api/training-types/archive', method: 'PUT', body: { id: 'type-2', archived: false } }
+				]);
+				expect(screen.queryByRole('button', { name: /Archived/ })).toBeNull();
+			});
+
+			it('deletes a type with no records only after asking', async () => {
+				const requests = stubCatalog({ usage: { 'type-3': 0 } });
+				mount([cpr, archived(legacyNever)]);
+
+				await fireEvent.click(screen.getByRole('button', { name: /Archived/ }));
+				await fireEvent.click(await screen.findByRole('button', { name: 'Delete SHARP' }));
+				expect(requests.filter((request) => request.method === 'DELETE')).toEqual([]);
+				await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+				await waitFor(() => expect(screen.queryByRole('button', { name: /Archived/ })).toBeNull());
+				expect(requests.filter((request) => request.method === 'DELETE').map(({ body }) => body.id)).toEqual([
+					'type-3'
+				]);
+				expect(trainingTypesStore.items.map((type) => type.id)).toEqual(['type-1']);
+			});
+
+			it('says so and keeps the type when a delete is refused', async () => {
+				stubCatalog({ usage: { 'type-3': 0 }, deleteStatus: 409 });
+				mount([cpr, archived(legacyNever)]);
+
+				await fireEvent.click(screen.getByRole('button', { name: /Archived/ }));
+				await fireEvent.click(await screen.findByRole('button', { name: 'Delete SHARP' }));
+				const errors = vi.spyOn(toastStore, 'error');
+				await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+				await waitFor(() => expect(errors).toHaveBeenCalledOnce());
+				expect(screen.getByRole('alertdialog')).toBeTruthy();
+				expect(trainingTypesStore.items.map((type) => type.id)).toEqual(['type-1', 'type-3']);
+			});
+
+			it('is not shown to someone who cannot configure Training', () => {
+				mount([cpr, archived(license)], accessFor(false));
+
+				expect(screen.queryByRole('button', { name: /Archived/ })).toBeNull();
+				expect(screen.queryByText('Mil license')).toBeNull();
+			});
+
+			it('treats a unit whose types are all archived as having none to show', async () => {
+				stubCatalog({ usage: { 'type-1': 2 } });
+				mount([archived(cpr)]);
+
+				expect(screen.getByText('No training types yet.')).toBeTruthy();
+				expect(screen.getByRole('button', { name: /Archived/ })).toBeTruthy();
+			});
 		});
 	});
 

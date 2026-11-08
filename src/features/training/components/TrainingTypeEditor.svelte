@@ -38,7 +38,7 @@
 	{rankCatalog}
 	today={formatToday()}
 	onSaved={onChanged}
-	onDeleted={onChanged}
+	onArchived={onChanged}
 	{onClose}
 	returnFocus={() => {
 		if (opener?.isConnected) opener.focus();

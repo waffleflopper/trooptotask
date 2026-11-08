@@ -4,16 +4,17 @@ import { moveGroupMembers, undoGroupMoves } from './moveGroupMembers';
 describe('moveGroupMembers', () => {
 	afterEach(() => vi.unstubAllGlobals());
 
-	it('sends one batch write and returns who moved and who could not', async () => {
+	it('sends one batch write and returns who moved, who could not and where each moved Person was', async () => {
 		const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
-			Response.json({ groupId: 'g-2', movedIds: ['a'], unavailableIds: ['b'] })
+			Response.json({ groupId: 'g-2', movedIds: ['a'], unavailableIds: ['b'], previousGroupIds: { a: null } })
 		);
 		vi.stubGlobal('fetch', fetchMock);
 
 		await expect(moveGroupMembers('org-1', ['a', 'b'], 'g-2')).resolves.toEqual({
 			groupId: 'g-2',
 			movedIds: ['a'],
-			unavailableIds: ['b']
+			unavailableIds: ['b'],
+			previousGroupIds: new Map([['a', null]])
 		});
 		expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method, init?.body])).toEqual([
 			[
@@ -33,7 +34,9 @@ describe('moveGroupMembers', () => {
 
 		for (const reply of [
 			() => Promise.reject(new TypeError('fetch failed')),
-			async () => Response.json({ movedIds: ['someone-else'], unavailableIds: [] })
+			async () => Response.json({ movedIds: ['someone-else'], unavailableIds: [], previousGroupIds: {} }),
+			async () => Response.json({ movedIds: ['a'], unavailableIds: [] }),
+			async () => Response.json({ movedIds: [], unavailableIds: ['a'], previousGroupIds: { a: 'g-1' } })
 		]) {
 			vi.stubGlobal('fetch', vi.fn(reply));
 			await expect(moveGroupMembers('org-1', ['a'], null)).rejects.toThrow(

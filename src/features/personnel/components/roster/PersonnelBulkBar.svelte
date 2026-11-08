@@ -56,6 +56,7 @@
 		...(ctx.canManagePersonnelInGroup(null) ? [{ id: null, name: 'Unassigned', level: 0, path: 'Unassigned' }] : [])
 	]);
 	const indent = ['', 'pl-6', 'pl-10'];
+	const groupNameOf = (id: string | null) => (id ? (groupTree.node(id)?.name ?? '') : '');
 
 	/** How long a move offers Undo. */
 	const MOVE_UNDO_MS = 10_000;
@@ -64,29 +65,15 @@
 
 	async function moveTo(target: { id: string | null; name: string; path: string }): Promise<void> {
 		const orgId = ctx.orgId;
-		const submitted = writable.map((person) => ({
-			id: person.id,
-			groupId: person.groupId,
-			groupName: person.groupName
-		}));
-		const previousGroup = new Map(submitted.map((person) => [person.id, person.groupId]));
+		const submitted = writable.map((person) => person.id);
 		const selectedCount = people.length;
 		const inLifetime = stillInOrganizationLifetime();
 		const isCurrent = () => inLifetime() && rosterIsCurrent(orgId);
 		busy = true;
 		try {
-			const result = await withinOrganizationLifetime(
-				moveGroupMembers(
-					orgId,
-					submitted.map((person) => person.id),
-					target.id
-				),
-				isCurrent
-			);
-			const moved = new Set(result.movedIds);
-			const changed = new Set(
-				submitted.filter((person) => moved.has(person.id) && person.groupId !== target.id).map((person) => person.id)
-			);
+			const result = await withinOrganizationLifetime(moveGroupMembers(orgId, submitted, target.id), isCurrent);
+			const previousGroup = result.previousGroupIds;
+			const changed = new Set(previousGroup.keys());
 			for (const id of changed) ctx.peek.changed(id, { groupId: previousGroup.get(id) }, { groupId: target.id });
 			if (changed.size) void ctx.signals.refresh([...changed]);
 			personnelStore.updateLocalWhere(
@@ -95,16 +82,18 @@
 			);
 			const skipped = selectedCount - result.movedIds.length;
 			const message = `Moved ${count(result.movedIds.length)} to ${target.path}${skippedNote(skipped)}`;
-			const undo = submitted.filter((person) => changed.has(person.id));
-			if (undo.length === 0) toastStore.success(message);
+			if (changed.size === 0) toastStore.success(message);
 			else
 				toastStore.success(
 					message,
 					MOVE_UNDO_MS,
 					undoMoveAction(
 						orgId,
-						undo.map((person) => ({ personnelId: person.id, fromGroupId: target.id, toGroupId: person.groupId })),
-						new Map(undo.map((person) => [person.id, person.groupName])),
+						[...previousGroup].map(([personnelId, from]) => ({
+							personnelId,
+							fromGroupId: target.id,
+							toGroupId: from
+						})),
 						isCurrent
 					)
 				);
@@ -116,12 +105,7 @@
 	}
 
 	/** Puts the People a move changed back where they were, unless the roster or Organization has moved on. */
-	function undoMoveAction(
-		orgId: string,
-		moves: GroupMoveUndo[],
-		previousNames: ReadonlyMap<string, string>,
-		isCurrent: () => boolean
-	): ToastAction {
+	function undoMoveAction(orgId: string, moves: GroupMoveUndo[], isCurrent: () => boolean): ToastAction {
 		return {
 			label: 'Undo',
 			onClick: () => {
@@ -142,7 +126,7 @@
 							(person) => ({
 								...person,
 								groupId: back.get(person.id)?.toGroupId ?? null,
-								groupName: previousNames.get(person.id) ?? ''
+								groupName: groupNameOf(back.get(person.id)?.toGroupId ?? null)
 							})
 						);
 						const left = changedIds.length;

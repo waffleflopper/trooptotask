@@ -5,6 +5,8 @@ export interface GroupMembershipChange {
 	groupId: string | null;
 	movedIds: string[];
 	unavailableIds: string[];
+	/** The Group each Person this move changed was in on the server just before it. */
+	previousGroupIds: ReadonlyMap<string, string | null>;
 }
 
 export async function moveGroupMembers(
@@ -27,12 +29,23 @@ export async function moveGroupMembers(
 		throw new Error(rejectedRequestMessage(failure, GROUP_CHANGE_UNCONFIRMED_MESSAGE));
 	}
 	const result: unknown = await response.json().catch(() => null);
-	const { movedIds, unavailableIds } = (result ?? {}) as Partial<GroupMembershipChange>;
+	const { movedIds, unavailableIds, previousGroupIds } = (result ?? {}) as {
+		movedIds?: unknown;
+		unavailableIds?: unknown;
+		previousGroupIds?: unknown;
+	};
 	const requested = new Set(personnelIds);
 	const isIdList = (ids: unknown): ids is string[] =>
 		Array.isArray(ids) && ids.every((id) => typeof id === 'string' && requested.has(id));
 	if (!isIdList(movedIds) || !isIdList(unavailableIds)) throw new Error(GROUP_CHANGE_UNCONFIRMED_MESSAGE);
-	return { groupId, movedIds, unavailableIds };
+	const moved = new Set(movedIds);
+	const previous =
+		previousGroupIds !== null && typeof previousGroupIds === 'object' && !Array.isArray(previousGroupIds)
+			? Object.entries(previousGroupIds)
+			: null;
+	if (!previous?.every(([id, from]) => moved.has(id) && (from === null || typeof from === 'string')))
+		throw new Error(GROUP_CHANGE_UNCONFIRMED_MESSAGE);
+	return { groupId, movedIds, unavailableIds, previousGroupIds: new Map(previous as [string, string | null][]) };
 }
 
 /** One Person to put back: `fromGroupId` is the Group the move put them in, `toGroupId` where they were. */

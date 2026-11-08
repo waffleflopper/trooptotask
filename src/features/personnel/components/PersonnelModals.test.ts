@@ -183,7 +183,14 @@ describe('Group editor changes reach the roster in place', () => {
 		render(PersonnelModals, {
 			props: { ctx: groupEditorContext(currentModals), modals: currentModals }
 		});
-		reply.resolve(Response.json({ groupId: null, movedIds: ['person-a'], unavailableIds: [] }));
+		reply.resolve(
+			Response.json({
+				groupId: null,
+				movedIds: ['person-a'],
+				unavailableIds: [],
+				previousGroupIds: { 'person-a': 'group-a' }
+			})
+		);
 		await membershipReply;
 		await tick();
 
@@ -247,7 +254,12 @@ describe('Group editor changes reach the roster in place', () => {
 			vi.fn(async (url: string, init: RequestInit) => {
 				requests.push(`${init.method} ${url}`);
 				if (url.endsWith('/group-membership'))
-					return Response.json({ groupId: null, movedIds: ['person-a'], unavailableIds: [] });
+					return Response.json({
+						groupId: null,
+						movedIds: ['person-a'],
+						unavailableIds: [],
+						previousGroupIds: { 'person-a': 'group-a' }
+					});
 				return Response.json({ id: 'group-a', name: 'Weapons', sortOrder: 0, parentId: null, depth: 1 as const });
 			})
 		);
@@ -398,7 +410,14 @@ describe('Group editor changes reach the roster in place', () => {
 			await waitFor(() => expect(reads).toHaveLength(5));
 			vi.stubGlobal(
 				'fetch',
-				vi.fn(async () => Response.json({ groupId: null, movedIds: ['person-a'], unavailableIds: [] }))
+				vi.fn(async () =>
+					Response.json({
+						groupId: null,
+						movedIds: ['person-a'],
+						unavailableIds: [],
+						previousGroupIds: { 'person-a': 'group-a' }
+					})
+				)
 			);
 
 			await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SPC Person, Synthetic' }));

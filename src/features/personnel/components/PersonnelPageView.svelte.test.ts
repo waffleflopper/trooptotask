@@ -2134,7 +2134,9 @@ describe('PersonnelPageView', () => {
 			const fetchMock = vi
 				.fn()
 				.mockResolvedValueOnce(Response.json({ writtenIds: ['person-1'], unavailableIds: [] }, { status: 201 }))
-				.mockResolvedValueOnce(Response.json({ movedIds: ['person-1'], unavailableIds: [] }));
+				.mockResolvedValueOnce(
+					Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': 'group-1' } })
+				);
 			vi.stubGlobal('fetch', fetchMock);
 			render(PersonnelPageView, { props: { ctx } });
 			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
@@ -2840,9 +2842,13 @@ describe('PersonnelPageView', () => {
 		});
 
 		it('moves the selected People to the chosen Group in one request and rereads their signals', async () => {
-			const fetchMock = vi
-				.fn()
-				.mockResolvedValue(Response.json({ movedIds: ['person-1', 'person-2'], unavailableIds: [] }));
+			const fetchMock = vi.fn().mockResolvedValue(
+				Response.json({
+					movedIds: ['person-1', 'person-2'],
+					unavailableIds: [],
+					previousGroupIds: { 'person-1': 'group-1', 'person-2': 'group-1' }
+				})
+			);
 			vi.stubGlobal('fetch', fetchMock);
 			const ctx = bulkCtx();
 			const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
@@ -2880,7 +2886,13 @@ describe('PersonnelPageView', () => {
 			await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Bravo' }));
 			await fireEvent.click(checkbox('Select SGT Young, Test'));
 			expect(bulkBar().getByText('1 selected')).toBeTruthy();
-			reply.resolve(Response.json({ movedIds: ['person-1', 'person-2'], unavailableIds: [] }));
+			reply.resolve(
+				Response.json({
+					movedIds: ['person-1', 'person-2'],
+					unavailableIds: [],
+					previousGroupIds: { 'person-1': 'group-1', 'person-2': 'group-1' }
+				})
+			);
 
 			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
 			expect(toastSuccessMock.mock.calls[0][0]).toBe('Moved 2 people to Bravo');
@@ -2900,7 +2912,13 @@ describe('PersonnelPageView', () => {
 			it('puts back only the People the move changed, reports the ones that changed since and rereads their signals', async () => {
 				const fetchMock = vi
 					.fn()
-					.mockResolvedValueOnce(Response.json({ movedIds: ['person-1', 'person-2', 'person-3'], unavailableIds: [] }))
+					.mockResolvedValueOnce(
+						Response.json({
+							movedIds: ['person-1', 'person-2', 'person-3'],
+							unavailableIds: [],
+							previousGroupIds: { 'person-1': 'group-1', 'person-2': 'group-1' }
+						})
+					)
 					.mockResolvedValueOnce(Response.json({ restoredIds: ['person-1'], changedIds: ['person-2'] }));
 				vi.stubGlobal('fetch', fetchMock);
 				const ctx = bulkCtx();
@@ -2927,10 +2945,30 @@ describe('PersonnelPageView', () => {
 				expect(toastSuccessMock.mock.calls[1][1].description).toEqual(expect.any(String));
 			});
 
+			it('puts a Person back in the Group the server moved them from when the roster showed an older one', async () => {
+				const fetchMock = vi
+					.fn()
+					.mockResolvedValueOnce(
+						Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': null } })
+					)
+					.mockResolvedValueOnce(Response.json({ restoredIds: ['person-1'], changedIds: [] }));
+				vi.stubGlobal('fetch', fetchMock);
+				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+
+				await moveToBravo(['Select SGT Smith, Jane']);
+				undoOffered().action?.onClick();
+
+				await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(2));
+				expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({
+					moves: [{ personnelId: 'person-1', fromGroupId: 'group-2', toGroupId: null }]
+				});
+				expect(personnelStore.getById('person-1')).toMatchObject({ groupId: null, groupName: '' });
+			});
+
 			it('offers no Undo when the move changed nobody', async () => {
 				vi.stubGlobal(
 					'fetch',
-					vi.fn().mockResolvedValue(Response.json({ movedIds: ['person-3'], unavailableIds: [] }))
+					vi.fn().mockResolvedValue(Response.json({ movedIds: ['person-3'], unavailableIds: [], previousGroupIds: {} }))
 				);
 				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
 
@@ -2940,7 +2978,11 @@ describe('PersonnelPageView', () => {
 			});
 
 			it('sends nothing and says nothing when Undo is pressed after the Organization was left', async () => {
-				const fetchMock = vi.fn().mockResolvedValue(Response.json({ movedIds: ['person-1'], unavailableIds: [] }));
+				const fetchMock = vi
+					.fn()
+					.mockResolvedValue(
+						Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': 'group-1' } })
+					);
 				vi.stubGlobal('fetch', fetchMock);
 				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
 				await moveToBravo(['Select SGT Smith, Jane']);
@@ -2962,7 +3004,9 @@ describe('PersonnelPageView', () => {
 					'fetch',
 					vi
 						.fn()
-						.mockResolvedValueOnce(Response.json({ movedIds: ['person-1'], unavailableIds: [] }))
+						.mockResolvedValueOnce(
+							Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': 'group-1' } })
+						)
 						.mockReturnValueOnce(undoReply.promise)
 				);
 				const ctx = bulkCtx();
@@ -2985,7 +3029,9 @@ describe('PersonnelPageView', () => {
 					'fetch',
 					vi
 						.fn()
-						.mockResolvedValueOnce(Response.json({ movedIds: ['person-1'], unavailableIds: [] }))
+						.mockResolvedValueOnce(
+							Response.json({ movedIds: ['person-1'], unavailableIds: [], previousGroupIds: { 'person-1': 'group-1' } })
+						)
 						.mockResolvedValueOnce(Response.json({ message: 'Not allowed' }, { status: 403 }))
 				);
 				render(PersonnelPageView, { props: { ctx: bulkCtx() } });

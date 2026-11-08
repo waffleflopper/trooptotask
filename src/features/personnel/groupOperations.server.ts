@@ -142,6 +142,8 @@ export interface GroupMembershipResult {
 	groupId: string | null;
 	movedIds: string[];
 	unavailableIds: string[];
+	/** The Group each Person this call changed was in just before it, for an Undo that puts back only this change. */
+	previousGroupIds: Record<string, string | null>;
 }
 
 export async function moveGroupMembers(
@@ -164,13 +166,24 @@ export async function moveGroupMembers(
 	for (const currentGroup of new Set(active.map((person) => person.groupId))) await manageRecords(currentGroup);
 
 	const already = active.filter((person) => person.groupId === groupId).map((person) => person.id);
-	const moving = active.filter((person) => person.groupId !== groupId).map((person) => person.id);
-	const moved = moving.length ? await ctx.personnel.moveToGroup(moving, groupId) : [];
-	const inGroup = new Set([...already, ...moved]);
+	const bySource = new Map<string | null, string[]>();
+	for (const person of active)
+		if (person.groupId !== groupId) bySource.set(person.groupId, [...(bySource.get(person.groupId) ?? []), person.id]);
+	// Each source Group moves only People still in it, so the reported previous Group is the one this update left.
+	const moves = await Promise.all(
+		[...bySource].map(async ([from, members]) => ({
+			from,
+			moved: await ctx.personnel.moveToGroup(members, groupId, { groupId: from })
+		}))
+	);
+	const previousGroupIds: Record<string, string | null> = {};
+	for (const { from, moved } of moves) for (const id of moved) previousGroupIds[id] = from;
+	const inGroup = new Set([...already, ...Object.keys(previousGroupIds)]);
 	return {
 		groupId,
 		movedIds: ids.filter((id) => inGroup.has(id)),
-		unavailableIds: ids.filter((id) => !inGroup.has(id))
+		unavailableIds: ids.filter((id) => !inGroup.has(id)),
+		previousGroupIds
 	};
 }
 

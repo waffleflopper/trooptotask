@@ -360,10 +360,13 @@ scoped actors retain their baseline grants.
     in shown order are selected.
     - Placement: the bar is in the roster's flow and sticky 20px above the window's bottom. On the 20-person workload at
       1440x900 the table scrolls in its own box and the bar (714 wide, top 828) sits under the `20 of 20 shown` footer,
-      covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as 38-wide icons with no
-      gap between them, their names kept for assistive technology. At 390 the bar is 366 wide (x 12 to 378),
-      `Clear selection` ends at 370 inside it, also when the label wraps to `3 selected` over `2 hidden`, the bar's `scrollWidth` equals its `clientWidth`, and the page's `scrollWidth` equals the
-      viewport. At 390 dark the bar keeps its chrome border and reads clearly.
+      covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as 38-wide icons with
+      no gap between them, their names kept for assistive technology. At 390 the bar is 366 wide (x 12 to 378),
+      `Clear selection` ends at 370 inside it, also when the label wraps to `3 selected` over `2 hidden`. A longer
+      count wraps instead of pushing the actions out: set the label's text to `1000 selected` and the hidden count to
+      `999 hidden` in the page, and the label stacks on three lines inside the 52-tall bar while `Clear selection` still
+      ends at 369. In all these cases the bar's `scrollWidth` equals its `clientWidth`, and the page's `scrollWidth`
+      equals the viewport. At 390 dark the bar keeps its chrome border and reads clearly.
     - Search: with five selected, search `Baker`: the bar reads `5 selected · 4 hidden by search`, and `Archive…` asks
       `Archive 5 personnel? …` with `This includes 4 people your search hides.` Actions apply to every selected Person.
       At 390 the hidden count sits on its own line under the selected count (`75 selected` over `74 hidden`, a 351-wide

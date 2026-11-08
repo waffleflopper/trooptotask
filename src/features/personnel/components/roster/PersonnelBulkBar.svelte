@@ -202,11 +202,14 @@
 	data-roster-bulk-bar
 	class="flex h-13 max-w-full items-center gap-1.5 rounded-md border border-chrome-border bg-chrome pr-2 pl-4.5 text-chrome-text shadow-xl @max-3xl/roster:gap-0 @max-3xl/roster:pl-3"
 >
-	<span class="pr-1.5 text-[15px] leading-[18px] font-semibold whitespace-nowrap" aria-live="polite">
+	<span
+		class="pr-1.5 text-[15px] leading-[18px] font-semibold whitespace-nowrap @max-3xl/roster:leading-4 @max-3xl/roster:whitespace-normal"
+		aria-live="polite"
+	>
 		{people.length} selected
 		{#if hidden.count > 0}
 			<span
-				class="font-normal text-chrome-text-muted @max-3xl/roster:block @max-3xl/roster:text-[13px] @max-3xl/roster:leading-4"
+				class="font-normal whitespace-nowrap text-chrome-text-muted @max-3xl/roster:block @max-3xl/roster:text-[13px] @max-3xl/roster:leading-4"
 			>
 				<span class="@max-3xl/roster:hidden" aria-hidden="true">·</span>
 				{hidden.count} hidden

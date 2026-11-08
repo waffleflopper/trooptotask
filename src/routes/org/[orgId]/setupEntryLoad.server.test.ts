@@ -144,13 +144,10 @@ describe('Dashboard invitation progress', () => {
 				.filter((request) => request.method === 'HEAD')
 				.map((request) => request.path)
 				.sort()
-		).toEqual([
-			'calendar_events',
-			'calendar_taskings',
-			'organization_invitations',
-			'organization_memberships',
-			'rating_scheme_entries'
-		]);
+		).toEqual(['calendar_events', 'calendar_taskings', 'organization_memberships', 'rating_scheme_entries']);
+		expect(
+			event.requests.filter((request) => request.method === 'GET' && request.path === 'organization_invitations')
+		).toHaveLength(1);
 	});
 
 	it('counts off steps as handled and preserves their state in registry order', async () => {

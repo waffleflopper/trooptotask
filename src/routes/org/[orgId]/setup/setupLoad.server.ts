@@ -58,7 +58,8 @@ export function streamSetupFacts(request: AdmittedOrganizationRequest, reuse: Pa
 		events: async () => (await readUnitCounts(unitCounts, ['calendarEvents'])).calendarEvents,
 		taskings: () => unitCounts.countRows({ table: 'calendar_taskings' }),
 		members: async () => (await readUnitCounts(unitCounts, ['members'])).members,
-		pendingInvitations: () => settings.countPendingInvitations(request.auth.orgId),
+		pendingInvitations: async () =>
+			(await settings.listUnexpiredPendingInvitations(request.auth.orgId, new Date())).length,
 		lossWarningWindowDays: async () => {
 			const days = await settings.findLossWarningWindowDays(request.auth.orgId);
 			if (days == null) throw new Error('Missing loss warning setting');

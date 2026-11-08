@@ -9,6 +9,9 @@ const {
 	streamDashboardWorkspaceMock,
 	buildRouteRequestMock,
 	createRequestDashboardSummaryContextMock,
+	createRequestAdminAttentionContextMock,
+	listUnexpiredPendingInvitationsMock,
+	readPendingApprovalsMock,
 	createRequestNotificationContextMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	fetchCriticalTasksDashboardSummaryMock,
@@ -28,6 +31,9 @@ const {
 		streamDashboardWorkspaceMock: vi.fn(),
 		buildRouteRequestMock: vi.fn(),
 		createRequestDashboardSummaryContextMock: vi.fn(),
+		createRequestAdminAttentionContextMock: vi.fn(),
+		listUnexpiredPendingInvitationsMock: vi.fn(),
+		readPendingApprovalsMock: vi.fn(),
 		createRequestNotificationContextMock: vi.fn(),
 		createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 		fetchCriticalTasksDashboardSummaryMock: vi.fn(),
@@ -72,6 +78,7 @@ vi.mock('$lib/server/adapters/requestContexts.server', async () => {
 		buildLayoutRequest: buildLayoutRequestMock,
 		buildRouteRequest: buildRouteRequestMock,
 		createRequestDashboardSummaryContext: createRequestDashboardSummaryContextMock,
+		createRequestAdminAttentionContext: createRequestAdminAttentionContextMock,
 		createRequestNotificationContext: createRequestNotificationContextMock
 	};
 });
@@ -116,6 +123,14 @@ describe('dashboard page server load', () => {
 		vi.clearAllMocks();
 		buildLayoutRequestMock.mockResolvedValue({ auth: mockCtx.auth, audit: mockCtx.audit });
 		createRequestDashboardSummaryContextMock.mockReturnValue(mockCtx);
+		listUnexpiredPendingInvitationsMock.mockResolvedValue([]);
+		readPendingApprovalsMock.mockResolvedValue([]);
+		createRequestAdminAttentionContextMock.mockImplementation((request: { auth: typeof mockCtx.auth }) => ({
+			auth: request.auth,
+			audit: mockCtx.audit,
+			organizationSettings: { listUnexpiredPendingInvitations: listUnexpiredPendingInvitationsMock },
+			readPendingApprovals: readPendingApprovalsMock
+		}));
 		buildRouteRequestMock.mockResolvedValue({
 			auth: { kind: 'auth' },
 			audit: { kind: 'audit' }
@@ -193,6 +208,65 @@ describe('dashboard page server load', () => {
 		});
 		findManyWithCountMock.mockResolvedValue({ count: 3 });
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
+	});
+
+	describe('what waits on an owner or admin', () => {
+		async function loadAs(role: 'owner' | 'admin' | 'member') {
+			buildLayoutRequestMock.mockResolvedValue({
+				auth: { ...mockCtx.auth, role, isPrivileged: role !== 'member' },
+				audit: mockCtx.audit
+			});
+			streamDashboardWorkspaceMock.mockResolvedValueOnce({
+				...createReadyAppShellRouteData({ orgId: ORG_ID, role }),
+				dashboard: { data: new Promise(() => {}) }
+			});
+			return load({
+				params: { orgId: ORG_ID },
+				locals: {},
+				cookies: easternViewer,
+				depends: vi.fn(),
+				parent: () => {
+					throw new Error('Must not run ancestors');
+				}
+			} as never);
+		}
+
+		it.each(['owner', 'admin'] as const)('streams approvals and invitations to the %s', async (role) => {
+			readPendingApprovalsMock.mockResolvedValue([
+				{ kind: 'archive', count: 2, oldestCreatedAt: '2026-10-01T00:00:00Z' }
+			]);
+			listUnexpiredPendingInvitationsMock.mockResolvedValue([
+				{
+					id: 'invite-1',
+					email: 'a@example.invalid',
+					expiresAt: '2999-01-01T00:00:00.000Z',
+					latestDeliveryStatus: 'failed'
+				}
+			]);
+
+			const result = await loadAs(role);
+
+			await expect(result.adminAttention).resolves.toEqual({
+				approvals: [{ kind: 'archive', count: 2, oldestCreatedAt: '2026-10-01T00:00:00Z' }],
+				invitations: [
+					{
+						id: 'invite-1',
+						email: 'a@example.invalid',
+						expiresAt: '2999-01-01T00:00:00.000Z',
+						reason: 'deliveryFailed'
+					}
+				]
+			});
+		});
+
+		it('reads nothing and returns no source for a member', async () => {
+			const result = await loadAs('member');
+
+			expect(result.adminAttention).toBeNull();
+			expect(createRequestAdminAttentionContextMock).not.toHaveBeenCalled();
+			expect(readPendingApprovalsMock).not.toHaveBeenCalled();
+			expect(listUnexpiredPendingInvitationsMock).not.toHaveBeenCalled();
+		});
 	});
 
 	it('rejects suspended request admission before streaming dashboard reads', async () => {

@@ -6,7 +6,7 @@ import { loadPersonnelDocumentStorageCapBytes } from './personnelDocumentSetting
 const ORG = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
 const OTHER = '22222222-2222-4222-8222-222222222222';
 
-function fixture(value: number | null | 'missing' | 'failure', missingCount = false) {
+function fixture(value: number | null | 'missing' | 'failure') {
 	const requests: { method: string; select: string | null }[] = [];
 	const columns = [
 		'name',
@@ -21,10 +21,29 @@ function fixture(value: number | null | 'missing' | 'failure', missingCount = fa
 		{ id: OTHER, ...Object.fromEntries(columns.map((column) => [column, 99])), name: 'Other Company' }
 	];
 	const invitations = [
-		...Array.from({ length: 1002 }, () => ({ organization_id: ORG, status: 'pending' })),
-		{ organization_id: ORG, status: 'accepted' },
-		{ organization_id: OTHER, status: 'pending' }
-	];
+		{ id: 'later', email: 'later@example.invalid', expires_at: '2030-01-09T00:00:00.000Z', outbox: ['sent'] },
+		{ id: 'failed', email: 'failed@example.invalid', expires_at: '2030-01-05T00:00:00.000Z', outbox: ['failed'] },
+		{ id: 'undelivered', email: 'none@example.invalid', expires_at: '2030-01-07T00:00:00.000Z', outbox: [] },
+		{ id: 'lapsed', email: 'lapsed@example.invalid', expires_at: '2029-12-31T00:00:00.000Z', outbox: ['failed'] }
+	].map((row) => ({ organization_id: ORG, status: 'pending', ...row }));
+	invitations.push(
+		{
+			id: 'accepted',
+			email: 'a@example.invalid',
+			expires_at: '2030-01-08T00:00:00.000Z',
+			outbox: [],
+			organization_id: ORG,
+			status: 'accepted'
+		},
+		{
+			id: 'foreign',
+			email: 'f@example.invalid',
+			expires_at: '2030-01-08T00:00:00.000Z',
+			outbox: [],
+			organization_id: OTHER,
+			status: 'pending'
+		}
+	);
 	const supabase = createClient('http://settings.invalid', 'synthetic-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false },
 		global: {
@@ -34,14 +53,23 @@ function fixture(value: number | null | 'missing' | 'failure', missingCount = fa
 				requests.push({ method: init?.method ?? 'GET', select });
 				if (value === 'failure') return Response.json({ message: 'Settings unavailable' }, { status: 400 });
 				if (url.pathname === '/rest/v1/organization_invitations') {
-					if (init?.method !== 'HEAD' || select !== 'id')
-						throw new Error('Invitation rows must not cross the count boundary');
-					const selected = invitations.filter(
-						(row) =>
-							url.searchParams.get('organization_id') === `eq.${row.organization_id}` &&
-							url.searchParams.get('status') === `eq.${row.status}`
+					const floor = url.searchParams.get('expires_at')?.replace('gt.', '') ?? '';
+					const selected = invitations
+						.filter(
+							(row) =>
+								url.searchParams.get('organization_id') === `eq.${row.organization_id}` &&
+								url.searchParams.get('status') === `eq.${row.status}` &&
+								row.expires_at > floor
+						)
+						.sort((a, b) => a.expires_at.localeCompare(b.expires_at));
+					return Response.json(
+						selected.map((row) => ({
+							id: row.id,
+							email: row.email,
+							expires_at: row.expires_at,
+							organization_invitation_email_outbox: row.outbox.map((status) => ({ status }))
+						}))
 					);
-					return new Response(null, { headers: missingCount ? {} : { 'content-range': `*/${selected.length}` } });
 				}
 				if (url.pathname !== '/rest/v1/organizations' || !select) throw new Error('Unexpected settings source');
 				const fields = select.split(',').map((column) => column.trim());
@@ -131,13 +159,30 @@ describe('Organization runtime settings with the actual SDK', () => {
 		await expect(fixture('failure').reader.findTrainingBriefingContext(ORG)).rejects.toThrow('Settings unavailable');
 		expect(requests.map((request) => request.select)).toEqual(['name,training_readiness_goal_percent']);
 	});
-	it('counts all pending invitations without fetching rows or including another Organization or accepted invitations', async () => {
+	it("lists only this Organization's pending invitations that have not expired, with the latest delivery status", async () => {
 		const { reader } = fixture(0);
-		expect(await reader.countPendingInvitations(ORG.toUpperCase())).toBe(1002);
-	});
-	it('retains the zero invitation count when the provider omits its count', async () => {
-		const { reader } = fixture(0, true);
-		expect(await reader.countPendingInvitations(ORG)).toBe(0);
+		expect(
+			await reader.listUnexpiredPendingInvitations(ORG.toUpperCase(), new Date('2030-01-01T00:00:00.000Z'))
+		).toEqual([
+			{
+				id: 'failed',
+				email: 'failed@example.invalid',
+				expiresAt: '2030-01-05T00:00:00.000Z',
+				latestDeliveryStatus: 'failed'
+			},
+			{
+				id: 'undelivered',
+				email: 'none@example.invalid',
+				expiresAt: '2030-01-07T00:00:00.000Z',
+				latestDeliveryStatus: null
+			},
+			{
+				id: 'later',
+				email: 'later@example.invalid',
+				expiresAt: '2030-01-09T00:00:00.000Z',
+				latestDeliveryStatus: 'sent'
+			}
+		]);
 	});
 	it.each([null, 'missing'] as const)(
 		'keeps missing document defaults at the owning application boundary (%s)',
@@ -152,7 +197,7 @@ describe('Organization runtime settings with the actual SDK', () => {
 		await expect(reader.findArchiveRetentionMonths(ORG)).rejects.toThrow('Settings unavailable');
 		await expect(reader.findLossWarningWindowDays(ORG)).rejects.toThrow('Settings unavailable');
 		await expect(reader.findStorageCapBytes(ORG)).rejects.toThrow('Settings unavailable');
-		await expect(reader.countPendingInvitations(ORG)).rejects.toThrow('Settings unavailable');
+		await expect(reader.listUnexpiredPendingInvitations(ORG, new Date())).rejects.toThrow('Settings unavailable');
 		await expect(loadPersonnelDocumentStorageCapBytes(reader, ORG)).rejects.toThrow('Settings unavailable');
 	});
 });

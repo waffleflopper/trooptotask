@@ -79,7 +79,9 @@ export type NeedsYouItem =
 	| (NeedsYouItemBase & DatedItem & { kind: 'dueSoon'; trainingTypeId: string; personnelIds: readonly string[] })
 	| (NeedsYouItemBase & DatedItem & { kind: 'leaving'; personnelId: string })
 	| (NeedsYouItemBase & LateItem & { kind: 'taskingOverdue'; taskingId: string })
-	| (NeedsYouItemBase & DatedItem & { kind: 'taskingBlocked' | 'taskingShort' | 'taskingConflict'; taskingId: string });
+	| (NeedsYouItemBase & DatedItem & { kind: 'taskingBlocked' | 'taskingShort' | 'taskingConflict'; taskingId: string })
+	| (NeedsYouItemBase & DatedItem & { kind: 'adminApprovals'; approvalKind: 'archive' | 'deletion' })
+	| (NeedsYouItemBase & DatedItem & { kind: 'invitationNotDelivered' | 'invitationExpiring'; invitationId: string });
 
 export type NeedsYouKind = NeedsYouItem['kind'];
 
@@ -94,6 +96,9 @@ export const NEEDS_YOU_KINDS = [
 	{ kind: 'stalled', label: 'Stalled', severity: 'warning', tier: 4 },
 	{ kind: 'dueSoon', label: 'Due soon', severity: 'warning', tier: 5 },
 	{ kind: 'taskingConflict', label: 'Conflict', severity: 'warning', tier: 2 },
+	{ kind: 'invitationNotDelivered', label: 'Not delivered', severity: 'danger', tier: 2 },
+	{ kind: 'adminApprovals', label: 'Approval', severity: 'warning', tier: 3 },
+	{ kind: 'invitationExpiring', label: 'Expiring', severity: 'warning', tier: 5 },
 	{ kind: 'leaving', label: 'Leaving', severity: 'info', tier: 6 }
 ] as const satisfies readonly { kind: NeedsYouKind; label: string; severity: NeedsYouSeverity; tier: number }[];
 

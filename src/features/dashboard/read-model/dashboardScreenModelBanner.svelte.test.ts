@@ -66,6 +66,7 @@ function makeData(
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		taskings: { status: 'off' },
+		adminAttention: { status: 'off' },
 		userId: 'user-1',
 		viewerDay: { date: '2026-04-23', timeZone: 'UTC' },
 		disabledFeatures: [],

@@ -25,6 +25,7 @@ import { criticalTasksSetup, evaluationsSetup, onboardingSetup, trainingSetup } 
 import { startOnboardingChoices } from './startOnboardingChoices';
 import { eventsAndTaskingsLane } from './eventsAndTaskingsLane';
 import { taskingAttention, taskingAttentionLoad } from './taskingAttention';
+import { adminAttention, adminAttentionLoad } from './adminAttention';
 
 const { calendar, training } = POLICY_ACTION_CATALOG;
 
@@ -117,5 +118,10 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				available: (_, access) => access.can(calendar.manageTaskings)
 			}
 		]
+	}),
+	dashboardSection('administration', {
+		available: (_, access) => access.isPrivileged,
+		needsYou: [adminAttention],
+		needsYouLoad: adminAttentionLoad
 	})
 ];

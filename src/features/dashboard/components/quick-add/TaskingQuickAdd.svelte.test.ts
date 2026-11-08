@@ -36,7 +36,13 @@ function open() {
 			model,
 			access: { can: () => true, isPrivileged: false },
 			onClose,
-			updates: { refreshSummary: vi.fn(), refreshTaskings, retryTaskings: vi.fn(), putRecord: vi.fn() }
+			updates: {
+				refreshSummary: vi.fn(),
+				refreshTaskings,
+				retryTaskings: vi.fn(),
+				retryAdminAttention: vi.fn(),
+				putRecord: vi.fn()
+			}
 		}
 	});
 	return { onClose, refreshTaskings };

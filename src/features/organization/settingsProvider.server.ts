@@ -2,6 +2,7 @@ import type {
 	OrganizationSettingsMembershipRow,
 	OrganizationSettingsInvitationRow,
 	OrganizationSettingsInvitationDeliveryRow,
+	OrganizationPendingInvitationFact,
 	OrganizationOwnershipCandidateMembershipRow
 } from './organizationSettingsTypes';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from './memberLabels.server';
@@ -174,14 +175,40 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 		findArchiveRetentionMonths: (orgId) => findScalar(orgId, 'archive_retention_months'),
 		findLossWarningWindowDays: (orgId) => findScalar(orgId, 'loss_warning_window_days'),
 		findStorageCapBytes: (orgId) => findScalar(orgId, 'personnel_document_storage_cap_bytes'),
-		async countPendingInvitations(orgId) {
-			const { count, error } = await supabase
-				.from('organization_invitations')
-				.select('id', { count: 'exact', head: true })
-				.eq('organization_id', orgId.toLowerCase())
-				.eq('status', 'pending');
-			if (error) throw new Error(error.message);
-			return count ?? 0;
+		async listUnexpiredPendingInvitations(orgId, now) {
+			type Row = {
+				id: string;
+				email: string;
+				expires_at: string;
+				organization_invitation_email_outbox: { status: OrganizationSettingsInvitationDeliveryRow['status'] }[];
+			};
+			const { data, error } = await selectAllSupabaseRows<Row>(async (from, to) =>
+				supabase
+					.from('organization_invitations')
+					.select('id, email, expires_at, organization_invitation_email_outbox(status)')
+					.eq('organization_id', orgId.toLowerCase())
+					.eq('status', 'pending')
+					.gt('expires_at', now.toISOString())
+					.order('expires_at')
+					.order('id')
+					.order('created_at', { referencedTable: 'organization_invitation_email_outbox', ascending: false })
+					.order('id', { referencedTable: 'organization_invitation_email_outbox' })
+					.limit(1, { referencedTable: 'organization_invitation_email_outbox' })
+					.range(from, to)
+					.returns<Row[]>()
+			);
+			if (error)
+				throw new Error(
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
+				);
+			return (data ?? []).map(
+				(row): OrganizationPendingInvitationFact => ({
+					id: row.id,
+					email: row.email,
+					expiresAt: row.expires_at,
+					latestDeliveryStatus: row.organization_invitation_email_outbox[0]?.status ?? null
+				})
+			);
 		}
 	};
 }

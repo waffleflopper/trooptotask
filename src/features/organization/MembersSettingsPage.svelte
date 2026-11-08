@@ -7,10 +7,12 @@
 	import Search from '@lucide/svelte/icons/search';
 	import { enhance } from '$app/forms';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
+	import { DURABLE_FEATURE_LANES } from '$lib/access/memberAccessShape';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import { useDataTable, type ColumnDef, type DataTableRowAction } from '$lib/components/ui/data-table/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
@@ -18,7 +20,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { cn } from '$lib/utils.js';
-	import { formatRelativeDate } from '$lib/utils/dates';
+	import { calendarDayDiff, formatDayOffset, formatRelativeDate } from '$lib/utils/dates';
 	import { settleAction } from '$lib/utils/settleAction';
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import MemberAccessSheet from './MemberAccessSheet.svelte';
@@ -27,8 +29,11 @@
 		MembersSettingsActionData,
 		MembersSettingsData,
 		SettingsInvitationFunnelStatus,
-		SettingsMemberRow
+		SettingsInvitationHistoryRow,
+		SettingsMemberRow,
+		SettingsPendingInvitationRow
 	} from './memberSettingsTypes';
+	import { reinvitableInvitationIds } from './settingsMemberAccessModel';
 	import {
 		accessLabel,
 		createSettingsMemberAccessWorkspace,
@@ -121,47 +126,84 @@
 	let removeMemberId = $state('');
 	let removingMemberId = $state<string | null>(null);
 	let confirmRemove = $state<SettingsMemberRow | null>(null);
+	let revokeForm = $state<HTMLFormElement | null>(null);
+	let revokeInviteId = $state('');
+	let confirmRevoke = $state<SettingsPendingInvitationRow | null>(null);
+	/** Settles the open Revoke confirmation once its request answers: true when the invitation was revoked. */
+	let revokeSettled: ((revoked: boolean) => void) | null = null;
+
+	const reinvitableIds = $derived(
+		section.canInvite && history.current.state === 'ready'
+			? reinvitableInvitationIds(
+					history.current.value,
+					section.invitations.map((invite) => invite.email)
+				)
+			: []
+	);
 
 	const rowActions: DataTableRowAction<SettingsMemberRow>[] = [
 		{ label: 'Remove', destructive: true, onSelect: (member) => (confirmRemove = member) }
 	];
 
-	const invitationEnhance: SubmitFunction = ({ formData, submitter, cancel }) => {
-		if (invitationPending) return cancel();
+	const invitationEnhance: SubmitFunction = ({ formElement, formData, submitter, cancel }) => {
+		const settleRevoke = formElement === revokeForm ? revokeSettled : null;
+		if (settleRevoke) revokeSettled = null;
+		if (invitationPending) {
+			settleRevoke?.(false);
+			return cancel();
+		}
 		const owner = formData.has('inviteId') ? String(formData.get('inviteId')) : NEW_INVITATION;
 		invitationOwner = owner;
 		invitationPending = true;
 		invitationRequestError = null;
 		invitationSupersededForm = form;
 		return async (outcome) => {
-			if (!active) return;
-			const { result } = outcome;
-			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
-				invitationPending = false;
-				return;
+			try {
+				await settleInvitation(outcome, owner, submitter);
+			} finally {
+				settleRevoke?.(outcome.result.type === 'success' && !invitationRequestError);
 			}
-			await settleAction(outcome, {
-				isCurrent,
-				settled: (error) => {
-					invitationRequestError = error;
-					invitationPending = false;
-					if (!error && owner === NEW_INVITATION && result.type === 'success') {
-						workspace.resetInvite();
-						confirmedDraft = JSON.stringify(workspace.invite);
-					}
-				},
-				focus: () => [submitter as HTMLElement | null, inviteEmailInput, filterInput]
-			});
-			// The invite strip confirms in place; a pending invitation row confirms with a toast.
-			if (
-				active &&
-				owner !== NEW_INVITATION &&
-				result.type === 'success' &&
-				typeof result.data?.inviteMessage === 'string'
-			)
-				toastStore.success(result.data.inviteMessage);
 		};
 	};
+
+	async function settleInvitation(
+		outcome: Parameters<typeof settleAction>[0],
+		owner: string,
+		submitter: HTMLElement | null
+	) {
+		if (!active) return;
+		const { result } = outcome;
+		if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
+			invitationPending = false;
+			return;
+		}
+		await settleAction(outcome, {
+			isCurrent,
+			settled: (error) => {
+				invitationRequestError = error;
+				invitationPending = false;
+				if (!error && owner === NEW_INVITATION && result.type === 'success') {
+					workspace.resetInvite();
+					confirmedDraft = JSON.stringify(workspace.invite);
+				}
+			},
+			// A confirmed Revoke submits from a hidden form, so its own button is the one to return to.
+			focus: () => [
+				submitter instanceof HTMLButtonElement ? submitter : null,
+				revokeTrigger(owner),
+				inviteEmailInput,
+				filterInput
+			]
+		});
+		// The invite strip confirms in place; a pending invitation row confirms with a toast.
+		if (
+			active &&
+			owner !== NEW_INVITATION &&
+			result.type === 'success' &&
+			typeof result.data?.inviteMessage === 'string'
+		)
+			toastStore.success(result.data.inviteMessage);
+	}
 
 	const removeMemberEnhance: SubmitFunction = ({ formData, cancel }) => {
 		if (removingMemberId) return cancel();
@@ -185,6 +227,10 @@
 		};
 	};
 
+	function revokeTrigger(inviteId: string): HTMLElement | null {
+		return document.querySelector<HTMLElement>(`[data-revoke-invite="${inviteId}"]`);
+	}
+
 	function rowMenuTrigger(memberId: string): HTMLElement | null {
 		return document.querySelector<HTMLElement>(`[data-member-actions="${memberId}"] [aria-haspopup="menu"]`);
 	}
@@ -194,6 +240,16 @@
 		removeMemberId = member.id;
 		await tick();
 		removeForm?.requestSubmit();
+	}
+
+	/** Resolves once the revoke answers; the confirmation closes only when the invitation was revoked. */
+	async function submitRevoke(invite: SettingsPendingInvitationRow) {
+		if (invitationPending) return;
+		const revoked = new Promise<boolean>((resolve) => (revokeSettled = resolve));
+		revokeInviteId = invite.id;
+		await tick();
+		revokeForm?.requestSubmit();
+		if ((await revoked) && confirmRevoke?.id === invite.id) confirmRevoke = null;
 	}
 
 	function canManage(member: SettingsMemberRow): boolean {
@@ -207,6 +263,12 @@
 
 	function plural(count: number, one: string, many = `${one}s`) {
 		return `${count} ${count === 1 ? one : many}`;
+	}
+
+	/** "expires today", "expires tomorrow", "expires in 5 days", counted in the viewer's calendar days. */
+	function expiryText(expiresAt: string | undefined): string | null {
+		if (!expiresAt) return null;
+		return `expires ${formatDayOffset(Math.max(0, calendarDayDiff(new Date(), new Date(expiresAt))))}`;
 	}
 
 	function isFailedDelivery(status: SettingsInvitationFunnelStatus): boolean {
@@ -240,6 +302,7 @@
 			<ul>
 				{#each section.invitations as invite (invite.id)}
 					{@const failed = isFailedDelivery(invite.funnelStatus)}
+					{@const expires = expiryText(invite.expiresAt)}
 					<li
 						class="grid gap-3 border-b py-3.5 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)_auto] md:items-center md:gap-4"
 					>
@@ -253,7 +316,7 @@
 							<div class="grid min-w-0">
 								<p class="truncate text-sm font-semibold">{invite.email}</p>
 								<p class="font-mono text-xs text-muted-foreground">
-									{accessLabel(invite)} · sent {formatRelativeDate(invite.createdAt)}
+									{accessLabel(invite)} · sent {formatRelativeDate(invite.createdAt)}{expires ? ` · ${expires}` : ''}
 								</p>
 							</div>
 						</div>
@@ -282,19 +345,20 @@
 									Resend <span class="sr-only">invitation to {invite.email}</span>
 								</Button>
 							</form>
-							<form method="POST" action="?/revokeInvite" use:enhance={invitationEnhance}>
-								<input type="hidden" name="inviteId" value={invite.id} />
-								<Button
-									type="submit"
-									variant="ghost"
-									size="sm"
-									class="text-destructive-text"
-									aria-disabled={invitationPending ? 'true' : undefined}
-									aria-busy={(invitationPending && invitationOwner === invite.id) || undefined}
-								>
-									Revoke <span class="sr-only">invitation for {invite.email}</span>
-								</Button>
-							</form>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								class="text-destructive-text"
+								data-revoke-invite={invite.id}
+								aria-disabled={invitationPending ? 'true' : undefined}
+								aria-busy={(invitationPending && invitationOwner === invite.id) || undefined}
+								onclick={() => {
+									if (!invitationPending) confirmRevoke = invite;
+								}}
+							>
+								Revoke <span class="sr-only">invitation for {invite.email}</span>
+							</Button>
 						</div>
 					</li>
 				{/each}
@@ -384,12 +448,20 @@
 					{#if historyOpen}
 						<ul class="border-t">
 							{#each history.current.value as invite (invite.id)}
-								<li class="flex flex-wrap items-baseline justify-between gap-x-4 border-b py-2.5">
+								<li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b py-2.5">
 									<p class="min-w-0 truncate text-sm">{invite.email}</p>
 									<p class="font-mono text-xs text-muted-foreground">
 										{accessLabel(invite)} · {invite.lifecycleStatusLabel}
 										{formatRelativeDate(invite.lifecycleAt)}
 									</p>
+									{#if reinvitableIds.includes(invite.id)}
+										{@render inviteAgain(invite)}
+									{/if}
+									{#if invitationOwner === invite.id && inviteError}
+										<Alert.Root variant="destructive" class="basis-full">
+											<Alert.Description>{inviteError}</Alert.Description>
+										</Alert.Root>
+									{/if}
 								</li>
 							{/each}
 						</ul>
@@ -437,6 +509,61 @@
 		</AppDialog.Content>
 	{/if}
 </AppDialog.Root>
+
+{#if confirmRevoke}
+	{@const target = confirmRevoke}
+	<ConfirmDialog
+		title="Revoke the invitation for {target.email}?"
+		message="They can no longer use it to join {unit}. You can invite them again later."
+		confirmLabel="Revoke invitation"
+		onConfirm={() => submitRevoke(target)}
+		onCancel={() => (confirmRevoke = null)}
+		returnFocus={() => revokeTrigger(target.id) ?? inviteEmailInput ?? filterInput}
+	>
+		{#if invitationOwner === target.id && inviteError}
+			<Alert.Root variant="destructive">
+				<Alert.Description>{inviteError}</Alert.Description>
+			</Alert.Root>
+		{/if}
+	</ConfirmDialog>
+{/if}
+
+<form bind:this={revokeForm} method="POST" action="?/revokeInvite" hidden use:enhance={invitationEnhance}>
+	<input type="hidden" name="inviteId" value={revokeInviteId} />
+</form>
+
+{#snippet inviteAgain(invite: SettingsInvitationHistoryRow)}
+	<form method="POST" action="?/invite" use:enhance={invitationEnhance}>
+		<input type="hidden" name="inviteId" value={invite.id} />
+		<input type="hidden" name="email" value={invite.email} />
+		<input type="hidden" name="membershipRole" value={invite.membershipRole} />
+		{#if invite.membershipRole === 'member'}
+			<input type="hidden" name="memberPreset" value={invite.access.memberPreset} />
+			{#each DURABLE_FEATURE_LANES as lane (lane)}
+				<input type="hidden" name="capabilityOverride:{lane}" value={invite.access.capabilityMap[lane]} />
+			{/each}
+			<input
+				type="hidden"
+				name="scopeSetKind"
+				value={invite.access.scopeSet.kind === 'groups' ? 'groups' : 'organization'}
+			/>
+			{#if invite.access.scopeSet.kind === 'groups'}
+				{#each invite.access.scopeSet.groupIds as groupId (groupId)}
+					<input type="hidden" name="scopeSetGroupIds" value={groupId} />
+				{/each}
+			{/if}
+		{/if}
+		<Button
+			type="submit"
+			variant="outline"
+			size="sm"
+			aria-disabled={invitationPending ? 'true' : undefined}
+			aria-busy={(invitationPending && invitationOwner === invite.id) || undefined}
+		>
+			Invite again <span class="sr-only">to {invite.email}</span>
+		</Button>
+	</form>
+{/snippet}
 
 {#snippet memberCell(member: SettingsMemberRow, column: ColumnDef<SettingsMemberRow>)}
 	{#if column.key === 'member'}

@@ -20,9 +20,15 @@ field, `Role` (owner only), `Preset`, and `Groups` (a tree picker headed by `Who
 `Whole unit`, a squad covers its teams, and clearing the last Group returns to `Whole unit`), then `Send invite` (`Sending...` while pending). The line under the strip restates
 the preset's helper; with `Role` set to `Admin`, `Preset` reads `Uses Admin authority` and the line describes admin
 authority. `Waiting on them` appears above `Members` only while invitations are pending. Each row shows the email,
-`<preset> · sent <relative>`, the funnel status and its detail (failed delivery in the destructive color), `Resend` and
-`Revoke`. Closed invitations fold into `Invitation history · <n> closed` at the foot of the members list; that read
-streams after first paint behind a skeleton. An existing invited account signs in and opens `/dashboard`, where the
+`<preset> · sent <date> · expires in <n> days` (`expires tomorrow`, `expires today`), the funnel status and its detail
+(failed delivery in the destructive color), `Resend` and `Revoke`. `Revoke` opens one confirm dialog, `Revoke the
+invitation for <email>?`, with `Cancel` and `Revoke invitation`; Cancel changes nothing. Closed invitations fold into
+`Invitation history · <n> closed` at the foot of the members list; that read streams after first paint behind a
+skeleton. An expired row there reads `Expired <when>` and carries `Invite again`, which posts the `?/invite` action for
+the same email, role, preset and Groups and, on success, adds a new pending row and the toast `Invitation created and
+email delivery was queued.`; a revoked or accepted row has no button, and neither does an expired row once its email is
+pending again. The Members link in the Settings nav carries a badge counting only pending, unexpired invitations; an
+expired one never counts. An existing invited account signs in and opens `/dashboard`, where the
 Organizations list shows each pending invitation first, under `Invitations`, with `Decline` and `Accept` on its row. A
 new account uses the private Account Setup Link first, signs in, then accepts the separate Organization invitation.
 
@@ -34,6 +40,12 @@ $V rows organization_invitations orgA status pending
 ```
 
 `fixture` exposes synthetic invitation emails without passwords or tokens.
+
+`$V seed invitation-attention` journals and inserts five Org A invitations for one cohort tag, created nine days ago by
+`orgOwner`: `failed` (latest delivery `failed`, expires in 10 days), `soon` (delivered, 48 hours left),
+`soonAndFailed` (failed, 20 hours left), `later` (delivered, 10 days left) and `lapsed` (expired yesterday). Only one
+cohort may exist; run `clean-seeds` before seeding again. App-created invitations, such as an `Invite again` result,
+are not journaled and stay until worker cleanup.
 
 `rows` also permits `email`, `status`, and `invitation_id` filters for the allowlisted invitation and outbox tables.
 Query stored email values in lowercase.
@@ -124,6 +136,19 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    state and `$V mail state` showing the `failed` message, `$V mail restore`, then use `Resend` on that row in
    `Waiting on them`. Verify the original invitation ID remains pending and no new invitation or membership is created.
    Record expiry/replay as unverified unless the fixture can safely make those states.
+
+7. **Expiry, Revoke confirm, Invite again and the badge.** Run `$V seed invitation-attention`, then as `orgOwner` open
+   `Settings` → `Members` at 1280 and 390. Require four pending rows, each with `expires …` text counting calendar
+   days in the browser zone from today to the seed time plus its `hoursToExpiry` (48, 240, 240 and 20), two rows in the
+   failed color, the Members nav badge at `4` and
+   `Invitation history · 1 closed`; the `lapsed` invitation is in history and not in the badge. Choose `Revoke` on the
+   `failed` row, `Cancel`, and confirm the four rows remain and `$V rows organization_invitations orgA status pending`
+   is unchanged; choose `Revoke` again and `Revoke invitation`: the row leaves, the badge reads `3` and history reads
+   `2 closed` with `Revoked today` and no button. Expand history and choose `Invite again` on the expired row once the
+   panel has stopped moving and confirm in the network list that one `POST ?/invite` returns, the email shows as a pending row `sent today · expires in 14 days`, the toast reads as
+   above and its history row now reads `Expired today` with no button. A failed `Invite again` shows its error on that
+   row and keeps `Invite again` available; the browser drive does not reproduce it, so the component test owns it.
+   Evidence: `.verification/evidence/verify-trooptotask/safer-invites/`. Finish with `clean-seeds`.
 
 ### Invitation grant liveness
 

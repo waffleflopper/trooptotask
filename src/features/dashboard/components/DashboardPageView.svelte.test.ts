@@ -31,6 +31,7 @@ const updates = {
 	refreshSummary: () => {},
 	refreshTaskings: async () => {},
 	retryTaskings: () => {},
+	retryAdminAttention: () => {},
 	putRecord: () => {}
 };
 const frame = {
@@ -321,6 +322,7 @@ describe('Dashboard sections', () => {
 			orgId: 'org-1',
 			orgName: 'Test Unit',
 			taskings: { status: 'off' },
+			adminAttention: { status: 'off' },
 			userId: 'user-1',
 			viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 			disabledFeatures: [],

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -62,6 +62,13 @@ function featureSwitch(name: string) {
 	return screen.getByRole('switch', { name });
 }
 
+/** Flips an on switch and accepts the confirmation that turning a feature off asks for. */
+async function turnOff(name: string) {
+	await fireEvent.click(featureSwitch(name));
+	const confirm = await screen.findByRole('alertdialog');
+	await fireEvent.click(within(confirm).getByRole('button', { name: `Turn off ${name}` }));
+}
+
 const floorField = () => screen.getByLabelText('Strength floor');
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -117,7 +124,7 @@ describe('Features settings page', () => {
 		await waitFor(() => expect(screen.queryByText('Loading counts')).toBeNull());
 		expect(screen.queryAllByText('Counts unavailable')).not.toEqual([]);
 
-		await fireEvent.click(featureSwitch('Events & Taskings'));
+		await turnOff('Events & Taskings');
 		await waitFor(() => expect(stored.disabledFeatures).toEqual(['eventsAndTaskings']));
 	});
 
@@ -125,7 +132,7 @@ describe('Features settings page', () => {
 		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
 		serve(stored, async () => Response.json({ message: 'Organization settings update failed' }, { status: 500 }));
 
-		await fireEvent.click(featureSwitch('Training'));
+		await turnOff('Training');
 
 		await waitFor(() => expect(feedback.error).toHaveBeenCalledTimes(1));
 		const [message] = feedback.error.mock.calls[0];
@@ -139,7 +146,7 @@ describe('Features settings page', () => {
 		const gates: (() => void)[] = [];
 		serve(stored, () => new Promise<void>((pass) => gates.push(pass)));
 
-		await fireEvent.click(featureSwitch('Training'));
+		await turnOff('Training');
 		await fireEvent.click(featureSwitch('Onboarding'));
 		await fireEvent.click(featureSwitch('Training'));
 		expect(featureSwitch('Training').getAttribute('aria-checked')).toBe('false');
@@ -154,6 +161,53 @@ describe('Features settings page', () => {
 		expect(stored.disabledFeatures).toEqual(['training']);
 		expect(featureSwitch('Training').getAttribute('aria-checked')).toBe('false');
 		expect(featureSwitch('Onboarding').getAttribute('aria-checked')).toBe('true');
+	});
+
+	it('asks once before turning a feature off, and turns nothing off when that is declined', async () => {
+		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
+		const request = serve(stored);
+
+		await fireEvent.click(featureSwitch('Training'));
+		const confirm = await screen.findByRole('alertdialog', { name: 'Turn off Training for C Co?' });
+		expect(request).not.toHaveBeenCalled();
+
+		await fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(request).not.toHaveBeenCalled();
+		expect(featureSwitch('Training').getAttribute('aria-checked')).toBe('true');
+
+		await turnOff('Training');
+		await waitFor(() => expect(stored.disabledFeatures).toEqual(['training']));
+		expect(request).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps the turn-off confirmation open when the save fails, and closes it once a retry saves', async () => {
+		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
+		let fail = true;
+		serve(stored, async () =>
+			fail ? Response.json({ message: 'Organization settings update failed' }, { status: 500 }) : undefined
+		);
+
+		await turnOff('Training');
+		await waitFor(() => expect(feedback.error).toHaveBeenCalledTimes(1));
+		const confirm = screen.getByRole('alertdialog', { name: 'Turn off Training for C Co?' });
+
+		fail = false;
+		const retry = await within(confirm).findByRole('button', { name: 'Turn off Training' });
+		await waitFor(() => expect(retry).toBeEnabled());
+		await fireEvent.click(retry);
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(stored.disabledFeatures).toEqual(['training']);
+	});
+
+	it('turns a feature on without asking', async () => {
+		const stored: Stored = { disabledFeatures: ['training'], strengthFloorPercent: 80 };
+		serve(stored);
+
+		await fireEvent.click(featureSwitch('Training'));
+
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		await waitFor(() => expect(stored.disabledFeatures).toEqual([]));
 	});
 
 	it('restates the strength floor from the draft and saves it after showing the server field error', async () => {

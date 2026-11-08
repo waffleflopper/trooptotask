@@ -4,3 +4,4 @@ export { createSupabaseDashboardExportReader } from './server/dashboardConfigExp
 export { fetchDashboardSummary, refreshDashboardSummary } from './server/dashboardSummary.server';
 export { applyStarterConfigurationPack } from './starterConfigurationPacks.server';
 export { fetchDashboardTaskings } from './server/dashboardTaskings.server';
+export { fetchDashboardAdminAttention } from './server/dashboardAdminAttention.server';

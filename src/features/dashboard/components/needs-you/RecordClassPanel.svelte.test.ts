@@ -41,7 +41,13 @@ function record(personnelId: string, expirationDate: string | null = '2027-10-21
 const fetchMock = vi.fn();
 
 function open() {
-	const updates = { refreshSummary: vi.fn(), refreshTaskings: vi.fn(), retryTaskings: vi.fn(), putRecord: vi.fn() };
+	const updates = {
+		refreshSummary: vi.fn(),
+		refreshTaskings: vi.fn(),
+		retryTaskings: vi.fn(),
+		retryAdminAttention: vi.fn(),
+		putRecord: vi.fn()
+	};
 	const close = vi.fn();
 	render(RecordClassPanel, {
 		props: {

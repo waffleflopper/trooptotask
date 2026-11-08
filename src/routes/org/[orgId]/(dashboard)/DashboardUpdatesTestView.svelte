@@ -5,6 +5,7 @@
 
 <button type="button" onclick={() => updates.refreshSummary()}>Refresh summary</button>
 <button type="button" onclick={() => updates.retryTaskings()}>Retry Taskings</button>
+<button type="button" onclick={() => updates.retryAdminAttention()}>Retry administration</button>
 <output aria-label="Current people">{ctx?.data.trainingSummary?.stats?.current ?? 'pending'}</output>
 <button
 	type="button"

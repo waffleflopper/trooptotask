@@ -12,6 +12,8 @@ about the current page, and dismiss global announcements without affecting anoth
 - `notification-lifecycle`: the bell lists the newest twenty own notifications, opens links, marks one/all read and
   deletes one; Account → Notifications lists the newest hundred with the same actions and `Delete all`; deletion
   preserves peer and foreign rows.
+- `notification-badge`: the bell shows its unread count as a number, `9+` from ten up, while its accessible name keeps
+  the real count. It disappears at zero.
 - `notification-recovery`: failed loads/writes remain recoverable, and delayed responses cannot populate another
   Organization's bell or choose its mutation target.
 - `feedback`: blank/cancel, categories, exact saved account/Organization/page context, failure retention and retry,
@@ -74,7 +76,7 @@ endpoints).
    GET. Record the failed PUT, visible count and unchanged row, then reload and retry. A failed write must not present a
    saved read state; it reports failure on the destination and permits retry. The newest member item has a synthetic
    Dashboard query link: opening it follows that link while the write is pending, even if the write fails. Hold a
-   single-read PUT, capture the destination before release, then release and require the badge to drop and its exact row
+   single-read PUT, capture the destination before release, then release and require the bell's accessible count to drop and its exact row
    to become read. Retry a failed write from the destination by reopening the bell. For list failure, use the untouched
    `notificationOther` account and arm before opening its fresh bell; capture the error/recovery message and disabled
    bulk-read button, close/reopen and observe retry without a request loop. Bulk read stays disabled during failure or
@@ -89,14 +91,16 @@ endpoints).
    pending controls prevent duplicate writes. Restore the hook and retry `Mark all read`; all twenty-four own A rows,
    including the four outside the list, become read while peer/B rows remain unchanged. Use native keyboard Enter/Escape
    for a bell/menu action and capture resulting focus. Save before/action/after snapshots, screenshot and reload.
-4. **Delete and the Account list.** Reseed if step 3 already marked everything read. Open the bell and choose
+4. **Delete and the Account list.** Reseed if step 3 already marked everything read, then reload so the header reads the new rows. With the 24 seeded unread rows the bell
+   reads `24 unread notifications` and shows `9+`. Capture that badge at 1280x800 and 390x844 in light and dark; the
+   header has no horizontal scroll at 390. The exact cap at nine and ten is component-tested. Open the bell and choose
    `Delete notification: <title>` on item 24 with the mouse, then on the next item with ArrowDown and Enter. Expected
-   each time: the menu stays open, there is no navigation, the badge drops by one for an unread item, focus lands on the
+   each time: the menu stays open, there is no navigation, the bell's accessible count drops by one for an unread item (the badge stays `9+` above nine), focus lands on the
    item that took its place, and `$V rows notifications orgA title <title>` returns no row. Choose `View all`:
    `/org/ORG/account/notifications` lists the own rows newest first under `N unread of M`, each with an unread dot,
    title, message, relative time and `Delete notification: <title>`. Keep that page open and write from the bell: the
    page follows without a reload (after another bell delete of an unread item, unread and total each drop by one from
-   what the page showed; after the bell's `Mark all read`, unread is `0`). Delete a row on the page: the row and its
+   what the page showed; after the bell's `Mark all read`, unread is `0`, and the bell is named `Notifications` with no number). Delete a row on the page: the row and its
    database row go, the bell count follows, and focus moves to the next row's delete button. The page's `Mark all read`
    marks every own A row read, including the rows beyond the bell's newest twenty. `More` → `Delete all` asks `Delete all notifications?`; Cancel keeps every row, and `Delete all`
    leaves `No notifications. Replies to your feedback and updates from your unit show up here.` with only the peer and B

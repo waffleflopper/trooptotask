@@ -37,6 +37,8 @@ declare global {
 			 * the history entries Help pushed, so closing steps back over all of them.
 			 */
 			help?: { guide: string | null; depth: number } | null;
+			/** The person search palette was opened from this page, so Back closes it. */
+			personSearch?: true;
 			/** The Event dates a save just changed, so Back from a Tasking's edit returns to the same review list. */
 			eventDateReview?: { before: { startsOn: string; endsOn: string }; after: { startsOn: string; endsOn: string } };
 		}

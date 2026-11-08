@@ -1,9 +1,10 @@
+import type { PersonSearchEntry } from '$features/personnel/contracts';
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _deleteConfig, _patchConfig, _postConfig, _putConfig } from './+server';
+import { _deleteConfig, _getConfig, _patchConfig, _postConfig, _putConfig } from './+server';
 
 function seedRankCatalog(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('organization_rank_catalog', [
@@ -423,5 +424,131 @@ describe('Personnel route denied-write safety', () => {
 			status: 404
 		});
 		await expectUnchanged(ctx, [foreign]);
+	});
+});
+
+describe('GET /api/personnel (person search index)', () => {
+	const alphaId = '11111111-1111-4111-8111-aaaaaaaaaaaa';
+	const bravoId = '22222222-2222-4222-8222-bbbbbbbbbbbb';
+	const archivedAt = '2026-01-01T00:00:00Z';
+
+	const capabilityMap = (personnel: 'none' | 'view') => ({
+		calendar: 'view' as const,
+		personnel,
+		training: 'view' as const,
+		criticalTasks: 'view' as const,
+		onboarding: 'view' as const,
+		ratingScheme: 'view' as const
+	});
+
+	function seeded(auth: NonNullable<Parameters<typeof createTestContext>[0]>['auth']) {
+		const ctx = createTestContext({ auth });
+		const orgId = ctx.auth.orgId;
+		ctx.store.seed('groups', [
+			{ id: alphaId, organization_id: orgId, name: 'Alpha', sort_order: 0, parent_id: null, depth: 1 },
+			{ id: bravoId, organization_id: orgId, name: 'Bravo', sort_order: 1, parent_id: null, depth: 1 }
+		]);
+		const person = (id: string, last: string, first: string, groupId: string | null, archived: string | null) => ({
+			id,
+			organization_id: orgId,
+			slug: `${last}-${first}`.toLowerCase(),
+			rank: 'SGT',
+			last_name: last,
+			first_name: first,
+			mos: '11B',
+			clinic_role: 'Medic',
+			group_id: groupId,
+			archived_at: archived
+		});
+		ctx.store.seed('personnel', [
+			person('p-smith-john', 'Smith', 'John', alphaId, null),
+			person('p-adams-amy', 'Adams', 'Amy', alphaId, null),
+			person('p-old-alpha', 'Old', 'Alpha', alphaId, archivedAt),
+			person('p-jones-bo', 'Jones', 'Bo', bravoId, null),
+			person('p-old-bravo', 'Old', 'Bravo', bravoId, archivedAt),
+			person('p-loose-lee', 'Loose', 'Lee', null, null),
+			{ ...person('p-foreign', 'Foreign', 'Fay', alphaId, null), organization_id: 'other-org' }
+		]);
+		return ctx;
+	}
+
+	it('gives an Organization-wide viewer every active person in last name order and no one archived', async () => {
+		const ctx = seeded({
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: capabilityMap('view'),
+			scopeSet: { kind: 'organization' }
+		});
+
+		const result = (await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)) as {
+			people: Array<{ id: string; lastName: string }>;
+		};
+
+		expect(result.people.map((person) => person.id)).toEqual([
+			'p-adams-amy',
+			'p-jones-bo',
+			'p-loose-lee',
+			'p-smith-john'
+		]);
+	});
+
+	it('gives a Group-scoped viewer only the active people of their Groups', async () => {
+		const ctx = seeded({
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: capabilityMap('view'),
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [alphaId] })
+		});
+
+		const result = (await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)) as {
+			people: Array<{ id: string }>;
+		};
+
+		expect(result.people.map((person) => person.id)).toEqual(['p-adams-amy', 'p-smith-john']);
+	});
+
+	it('gives a viewer with an empty Group scope no one', async () => {
+		const ctx = seeded({
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: capabilityMap('view'),
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [] })
+		});
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).resolves.toEqual({ people: [] });
+	});
+
+	it('returns only the fields the palette searches and opens a record with', async () => {
+		const ctx = seeded({
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: capabilityMap('view'),
+			scopeSet: groupCoverageForTest({ kind: 'groups', groupIds: [bravoId] })
+		});
+
+		const { people } = (await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)) as {
+			people: PersonSearchEntry[];
+		};
+
+		expect(people).toHaveLength(1);
+		expect(people[0]).toMatchObject({
+			id: 'p-jones-bo',
+			slug: 'jones-bo',
+			rank: 'SGT',
+			firstName: 'Bo',
+			lastName: 'Jones'
+		});
+		expect(Object.keys(people[0]).sort()).toEqual(['firstName', 'groupName', 'id', 'lastName', 'rank', 'slug']);
+	});
+
+	it('denies a member without Personnel access', async () => {
+		const ctx = seeded({
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: capabilityMap('none'),
+			scopeSet: { kind: 'organization' }
+		});
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).rejects.toMatchObject({ status: 403 });
 	});
 });

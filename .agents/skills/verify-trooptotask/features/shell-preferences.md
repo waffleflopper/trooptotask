@@ -15,6 +15,9 @@ choices persist for their own user and Organization without resetting a newer se
 - `update-notice`: when a new deployment is live, one persistent top-center toast offers `Refresh` and `Later` on every
   page, including sign-in and admin. The next in-app link then loads as a full document, but never past an unsaved-work
   guard.
+- `person-search`: Cmd/Ctrl+K and the `Find a person` header button (icon-only below 640 px) open a palette of the
+  viewer's active people in scope. Rank and name words match in any order, selecting one opens their record, and Back
+  closes the palette. A member who cannot see Personnel gets neither the button nor the shortcut.
 - `training-preferences`: Group, saved View, matrix mode and Display choices update loaded data immediately;
   preference-only saves cause no Training workspace request or loading reset.
 - `pending-preferences`: edits within the debounce window and while an earlier save is held preserve the latest
@@ -251,6 +254,19 @@ control, reload and verify the same theme through the document attribute, saved 
 System-preference emulation must not replace the explicit choice.
 
 Restore every control before reload or cleanup. Restore original preferences with native controls and verify exact rows.
+
+18. **Find a person.** As `manager` at 1280x800 on Personnel, clear resource timings, press Control+K and require the
+    `Find a person` dialog with Able, Baker and Unassigned listed and exactly one `/api/personnel` request. Type
+    `Able, SPC` and `spc` then `able` in turn: typing sends no request, `Able, SPC` leaves only Able, and a word that
+    matches nothing shows `No people found.`. Press Enter on Able: the dialog closes and the Able record opens. Press
+    browser Back: Personnel (heading `Personnel`, not the record) returns with no dialog. Open the palette from the
+    `Find a person` button, press browser Back and require the dialog gone on the same URL; press Control+K then Escape
+    and require the same. Control+Alt+K and Control+Shift+K do nothing. At 390x844 the header shows an icon-only
+    `Find a person` button beside Help, the dialog fits (16 px gutters) with no horizontal scroll, and the same search
+    opens a record. Repeat the palette in dark theme. As `scoped`, open the palette: only the in-scope Person (Able)
+    is listed, and an authenticated `fetch` of `/org/ORG/api/personnel` returns that one entry with no Baker, Unassigned
+    or Organization B Person. `notificationMember` (no Personnel lane) shows no button. Failure and slow-load states are
+    component-tested, since no network hook targets this endpoint.
 
 ### Update notice
 

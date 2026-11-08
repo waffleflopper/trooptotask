@@ -532,6 +532,7 @@
 			"src/features/personnel/contracts.ts",
 			"src/features/personnel/index.ts",
 			"src/features/personnel/index.server.ts",
+			"src/features/personnel/personnelRecordHref.ts",
 			"src/features/personnel/components/PersonnelArchivedPageView.svelte",
 			"src/features/personnel/components/PersonnelDataSheetPageView.svelte",
 			"src/features/personnel/components/PersonnelFilesPageView.svelte",

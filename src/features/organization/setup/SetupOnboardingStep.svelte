@@ -3,7 +3,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { getSetupStepSupport } from './featureStepSupport';
-	import SetupFeaturePanel from './SetupFeaturePanel.svelte';
+	import { PanelSection } from '$lib/components/patterns/panel-section';
 	import SetupFeatureStep from './SetupFeatureStep.svelte';
 	import { getSetupFlow } from './setupFlow.svelte';
 
@@ -39,7 +39,7 @@
 	{footer}
 >
 	{#snippet setUp()}
-		<SetupFeaturePanel title="Onboarding templates">
+		<PanelSection title="Onboarding templates">
 			{#if canApplyPack}
 				<label class="flex cursor-pointer gap-2.5 border-b border-border pb-3.5">
 					<Checkbox class="mt-0.5" bind:checked={applyPack} />
@@ -61,6 +61,6 @@
 					<Button variant="outline" href="{flow.dashboardHref}/onboarding/templates">Open templates</Button>
 				{/if}
 			</div>
-		</SetupFeaturePanel>
+		</PanelSection>
 	{/snippet}
 </SetupFeatureStep>

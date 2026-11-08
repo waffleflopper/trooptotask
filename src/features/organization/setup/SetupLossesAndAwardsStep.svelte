@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { FEATURE_ROWS, lossWindowHolds } from '../featuresSettings';
-	import SetupFeaturePanel from './SetupFeaturePanel.svelte';
+	import { PanelSection } from '$lib/components/patterns/panel-section';
 	import SetupFeatureStep from './SetupFeatureStep.svelte';
 	import { getSetupFlow } from './setupFlow.svelte';
 
@@ -15,7 +15,7 @@
 	laterHint="Losses and awards stays on. Come back to this step any time."
 >
 	{#snippet setUp()}
-		<SetupFeaturePanel title="Losses and awards">
+		<PanelSection title="Losses and awards">
 			<p class="text-sm leading-5 text-muted-foreground">{description}</p>
 			<p class="font-mono text-xs leading-4 text-muted-foreground">
 				{#if lossWindow === null}
@@ -27,6 +27,6 @@
 					The warning window could not be loaded.
 				{/if}
 			</p>
-		</SetupFeaturePanel>
+		</PanelSection>
 	{/snippet}
 </SetupFeatureStep>

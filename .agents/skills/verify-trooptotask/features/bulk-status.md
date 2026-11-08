@@ -97,7 +97,9 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    cells are described by `Overlaps 2026-09-14 → 2026-09-16 Verification Leave. Choose what happens in the fix rail.`
    and Baker's To cell by `To is before From.` Choose `Create "TDY - NTC"`, then `Create status`: one `status_types` row
    named `TDY - NTC` with color `#4a5568` and text `#ffffff`, the three rows turn New and focus moves to the overlap
-   question. Fill Baker's To with `2026-10-31` and press Enter; the row turns New. Choose
+   question. Before answering the remaining questions, a link out asks `Leave this import?` and reads
+   `Leaving discards the file and your fixes. 1 status type created during this import stays:` and the created name,
+   here `TDY - NTC` (`Keep importing` returns to Review). Fill Baker's To with `2026-10-31` and press Enter; the row turns New. Choose
    `Keep the calendar, skip these rows`; the row reads Skipped with `Change skip for Able, Synthetic in the fix rail`.
 
    `Import 5 changes` (`5 added · 0 updated`) sends one `POST api/availability/import`. Done reads `5 changes saved.`

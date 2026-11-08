@@ -16,6 +16,9 @@ export type UserOrgPreferences = {
 		showDaysLane: boolean;
 		showEventLanes: boolean;
 		showAssignmentLanes: boolean;
+		/** A top-level Group id or an outside-tree band value; null is All. */
+		groupFilter: string | null;
+		lastStatusTypeId: string | null;
 	};
 	training: {
 		selectedGroupId: string | null;
@@ -40,7 +43,9 @@ export const UserOrgPreferencesSchema = z.object({
 		highlightOnboarding: z.boolean(),
 		showDaysLane: z.boolean(),
 		showEventLanes: z.boolean(),
-		showAssignmentLanes: z.boolean()
+		showAssignmentLanes: z.boolean(),
+		groupFilter: z.string().nullable(),
+		lastStatusTypeId: z.string().nullable()
 	}),
 	training: z.object({
 		selectedGroupId: z.string().nullable(),
@@ -60,7 +65,9 @@ export const UserOrgPreferencesPatchSchema = z.object({
 			highlightOnboarding: z.boolean().optional(),
 			showDaysLane: z.boolean().optional(),
 			showEventLanes: z.boolean().optional(),
-			showAssignmentLanes: z.boolean().optional()
+			showAssignmentLanes: z.boolean().optional(),
+			groupFilter: z.string().nullable().optional(),
+			lastStatusTypeId: z.string().nullable().optional()
 		})
 		.optional(),
 	training: z
@@ -83,7 +90,9 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 			highlightOnboarding: true,
 			showDaysLane: true,
 			showEventLanes: true,
-			showAssignmentLanes: true
+			showAssignmentLanes: true,
+			groupFilter: null,
+			lastStatusTypeId: null
 		},
 		training: {
 			selectedGroupId: null,

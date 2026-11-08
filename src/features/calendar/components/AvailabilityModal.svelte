@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CalendarTypesEmptyState from './CalendarTypesEmptyState.svelte';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
 	import type { AvailabilityEditorRequest } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { AvailabilityOutcome } from '$features/calendar/availabilitySave';
@@ -21,13 +21,15 @@
 	interface Props {
 		request: AvailabilityEditorRequest;
 		statusTypes: StatusType[];
+		/** The type a new entry starts on; the first type when omitted. */
+		defaultStatusTypeId?: string;
 		existingEntries: AvailabilityEntry[];
 		saving: boolean;
 		onSave: (change: AvailabilityChange) => Promise<AvailabilityOutcome>;
 		onClose: () => void;
 	}
 
-	let { request, statusTypes, existingEntries, saving, onSave, onClose }: Props = $props();
+	let { request, statusTypes, defaultStatusTypeId, existingEntries, saving, onSave, onClose }: Props = $props();
 
 	const person = $derived(request.person);
 	const dateStr = $derived(request.kind === 'create' ? request.startDate : request.entry.startDate);
@@ -44,7 +46,7 @@
 
 	function resetForm() {
 		editingEntry = null;
-		selectedStatusId = statusTypes[0]?.id || '';
+		selectedStatusId = defaultStatusTypeId || statusTypes[0]?.id || '';
 		startDate = request.kind === 'create' ? request.startDate : dateStr;
 		endDate = request.kind === 'create' ? request.endDate : dateStr;
 		note = '';
@@ -72,21 +74,27 @@
 	const range = $derived(validateDateRange(startDate, endDate));
 	const dateError = $derived(startDate && endDate ? range.error : null);
 
-	function settle(outcome: AvailabilityOutcome) {
-		if (outcome === 'saved') resetForm();
-		else if (outcome === 'unconfirmed' || outcome === 'stale') uncertain = true;
+	let mounted = true;
+	onMount(() => () => {
+		mounted = false;
+	});
+
+	function settle(outcome: AvailabilityOutcome, closeWhenSaved: boolean) {
+		if (outcome === 'saved') {
+			if (closeWhenSaved) onClose();
+			else resetForm();
+		} else if (outcome === 'unconfirmed' || outcome === 'stale') uncertain = true;
 	}
 
-	async function handleSubmit() {
+	async function handleSubmit(closeWhenSaved: boolean) {
 		if (saving || uncertain || !selectedStatusId || !range.valid) return;
 		const values = { statusTypeId: selectedStatusId, startDate, endDate, note: note.trim() || null };
-		settle(
-			await onSave(
-				editingEntry
-					? { kind: 'update', entry: editingEntry, changes: values }
-					: { kind: 'create', record: { personnelId: person.id, ...values } }
-			)
+		const outcome = await onSave(
+			editingEntry
+				? { kind: 'update', entry: editingEntry, changes: values }
+				: { kind: 'create', record: { personnelId: person.id, ...values } }
 		);
+		if (mounted) settle(outcome, closeWhenSaved);
 	}
 
 	let removeEntry = $state<AvailabilityEntry | null>(null);
@@ -95,7 +103,8 @@
 		const entry = removeEntry;
 		removeEntry = null;
 		if (!entry || saving || uncertain) return;
-		settle(await onSave({ kind: 'remove', entry }));
+		const outcome = await onSave({ kind: 'remove', entry });
+		if (mounted) settle(outcome, false);
 	}
 
 	function getStatusType(statusId: string): StatusType | undefined {
@@ -252,8 +261,15 @@
 			<Button variant="outline" onclick={uncertain ? onClose : editingEntry ? resetForm : onClose} disabled={saving}>
 				{uncertain ? 'Close' : editingEntry ? 'Cancel Edit' : 'Cancel'}
 			</Button>
-			<Button onclick={handleSubmit} disabled={saving || uncertain || !selectedStatusId || !range.valid}>
+			<Button
+				variant="outline"
+				onclick={() => handleSubmit(false)}
+				disabled={saving || uncertain || !selectedStatusId || !range.valid}
+			>
 				{editingEntry ? 'Update Status' : 'Add Status'}
+			</Button>
+			<Button onclick={() => handleSubmit(true)} disabled={saving || uncertain || !selectedStatusId || !range.valid}>
+				Save and close
 			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>

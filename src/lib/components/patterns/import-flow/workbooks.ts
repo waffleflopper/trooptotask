@@ -67,6 +67,7 @@ export async function buildNotImported(
 		const fieldColumns = targets.flatMap((target, column) =>
 			target.kind === 'field' ? [[column, target.field] as const] : []
 		);
+		const mappedFields = new Set(fieldColumns.map(([, field]) => field));
 		const splitColumns = targets.flatMap((target, column) => {
 			const splitter = target.kind === 'split' ? splitters[target.splitter] : undefined;
 			return splitter?.join ? [[column, splitter] as const] : [];
@@ -92,7 +93,10 @@ export async function buildNotImported(
 				}
 				for (const [column, splitter] of splitColumns) {
 					const original = splitter.split(row.cells[column] ?? '') ?? {};
-					const edited = splitter.fills.some((field) => (item.row.raw[field] ?? '') !== (original[field] ?? ''));
+					const carried = (splitter.fallbackFills ?? []).filter((field) => !mappedFields.has(field));
+					const edited = [...splitter.fills, ...carried].some(
+						(field) => (item.row.raw[field] ?? '') !== (original[field] ?? '')
+					);
 					if (edited) row.cells[column] = splitter.join?.(item.row.raw) ?? row.cells[column];
 				}
 				if (item.row.pivotColumn !== undefined) for (const column of pivotColumns) row.cells[column] = '';

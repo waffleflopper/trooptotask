@@ -10,13 +10,16 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-function renderNavigation(props: { view?: CalendarViewMode; anchor?: Date; disabled?: boolean } = {}): string[] {
+function renderNavigation(
+	props: { view?: CalendarViewMode; anchor?: Date; disabled?: boolean; onToday?: () => void } = {}
+): string[] {
 	const anchors: string[] = [];
 	render(PeriodNavigationHarness, {
 		props: {
 			view: props.view ?? 'month',
 			anchor: props.anchor ?? new Date(2026, 9, 1),
 			disabled: props.disabled,
+			onToday: props.onToday,
 			onAnchorChange: (anchor: Date) => anchors.push(formatDate(anchor))
 		}
 	});
@@ -42,6 +45,19 @@ describe('CalendarPeriodNavigation', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Today' }));
 
 		expect(anchors).toEqual(['2026-10-01']);
+	});
+
+	it('announces Today after moving, even when the current month is already shown', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 9, 31, 9));
+		const events: string[] = [];
+		const anchors = renderNavigation({ anchor: new Date(2026, 9, 1), onToday: () => events.push('today') });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+
+		expect(anchors).toEqual(['2026-10-01', '2026-11-01']);
+		expect(events).toEqual(['today']);
 	});
 
 	it('moves nothing while disabled', async () => {

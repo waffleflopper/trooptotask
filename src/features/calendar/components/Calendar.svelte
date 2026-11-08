@@ -19,6 +19,8 @@
 	import { buildCalendarDays, buildDutyMarkers } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { untrack } from 'svelte';
+	import { scrollLeftToRevealColumn } from '$features/calendar/utils/revealColumn';
 
 	// A top band, then the slimmer sub-group headers below it.
 	const GROUP_ROW_HEIGHTS = [35, 28, 26];
@@ -79,6 +81,8 @@
 		personnelHref?: string;
 		/** Off for a reader whose whole view is one Group with no sub-groups; the title row names it instead. */
 		showGroupHeaders?: boolean;
+		/** Each increase brings today's column into view, as does the first render. */
+		todayRequests?: number;
 	}
 
 	let {
@@ -113,7 +117,8 @@
 		onQuickAdd,
 		onResize,
 		personnelHref,
-		showGroupHeaders = true
+		showGroupHeaders = true,
+		todayRequests = 0
 	}: Props = $props();
 
 	const collapsedGroups = new SvelteSet<string>();
@@ -162,6 +167,31 @@
 		observer.observe(calendarBodyEl);
 
 		return () => observer.disconnect();
+	});
+
+	function revealToday() {
+		const index = days.findIndex((day) => day.today);
+		if (index < 0 || !calendarBodyEl) return;
+		const leadingWidth = parseFloat(
+			getComputedStyle(calendarBodyEl).getPropertyValue('--calendar-personnel-column-width')
+		);
+		if (!(leadingWidth > 0)) return;
+		const target = scrollLeftToRevealColumn({
+			scrollLeft: calendarBodyEl.scrollLeft,
+			clientWidth: calendarBodyEl.clientWidth,
+			leadingWidth,
+			columnWidth: (calendarBodyEl.scrollWidth - leadingWidth) / days.length,
+			index
+		});
+		if (target === null) return;
+		calendarBodyEl.scrollLeft = target;
+		// The date header follows this state, so it moves in the same frame as the body.
+		updateScrollMetrics();
+	}
+
+	$effect(() => {
+		todayRequests;
+		if (calendarBodyEl) untrack(revealToday);
 	});
 
 	function toggleGroup(group: string) {

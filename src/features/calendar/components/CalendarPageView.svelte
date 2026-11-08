@@ -457,6 +457,7 @@
 					orgName={data.orgName}
 					personnelCount={ctx.allPersonnelFlat.length}
 					onAnchorChange={(anchor) => calendarStore.goToMonth(anchor.getFullYear(), anchor.getMonth())}
+					onToday={() => ctx.requestToday()}
 					onViewChange={(view) => ctx.setViewMode(view)}
 				/>
 
@@ -506,6 +507,7 @@
 						specialDays={specialDaysStore.items}
 						lanes={projectionLanes}
 						{commitments}
+						todayRequests={ctx.todayRequests}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
@@ -522,6 +524,7 @@
 						lanes={[...projectionLanes, ...lanes]}
 						suspenses={headerSuspenses}
 						{commitments}
+						todayRequests={ctx.todayRequests}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={ctx.canManageAvailability}
@@ -608,6 +611,7 @@
 			<AvailabilityModal
 				{request}
 				statusTypes={statusTypesStore.items}
+				defaultStatusTypeId={ctx.defaultStatusTypeId}
 				existingEntries={availabilityStore.items}
 				saving={ctx.savingAvailability}
 				onSave={(change) => ctx.saveAvailability(change)}
@@ -625,6 +629,7 @@
 		<CalendarPopover
 			{popover}
 			statusTypes={statusTypesStore.items}
+			defaultStatusTypeId={ctx.defaultStatusTypeId}
 			spans={ctx.availabilityTracks.spans(popover.person.id)}
 			canEdit={ctx.canManageAvailabilityFor(popover.person)}
 			anchorHasResizeGrips={ctx.viewMode !== '3-month' &&

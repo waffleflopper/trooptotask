@@ -67,7 +67,9 @@ export function installNetworkControl(
 							'highlightOnboarding',
 							'showDaysLane',
 							'showEventLanes',
-							'showAssignmentLanes'
+							'showAssignmentLanes',
+							'groupFilter',
+							'lastStatusTypeId'
 						],
 						training: [
 							'selectedGroupId',

@@ -10,6 +10,7 @@ export type {
 	ChunkReply,
 	ColumnSplitter,
 	CreateOptionResult,
+	SavedRecord,
 	FieldDiff,
 	ImportColumn,
 	ImportColumns,

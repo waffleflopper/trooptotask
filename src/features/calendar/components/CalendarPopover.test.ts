@@ -49,7 +49,12 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 
 function renderPopover(
 	popover: PopoverWithoutAnchor,
-	options: { canEdit?: boolean; statusTypes?: StatusType[]; anchorHasResizeGrips?: boolean } = {}
+	options: {
+		canEdit?: boolean;
+		statusTypes?: StatusType[];
+		defaultStatusTypeId?: string;
+		anchorHasResizeGrips?: boolean;
+	} = {}
 ) {
 	const anchor = document.createElement('button');
 	document.body.append(anchor);
@@ -60,6 +65,7 @@ function renderPopover(
 	const props = {
 		popover: { ...popover, anchor } as Exclude<CalendarPopoverState, { kind: 'duty' }>,
 		statusTypes: options.statusTypes ?? STATUSES,
+		defaultStatusTypeId: options.defaultStatusTypeId,
 		spans: buildAvailabilityTracks([leave, sick], STATUSES).spans('okafor'),
 		canEdit: options.canEdit ?? true,
 		anchorHasResizeGrips: options.anchorHasResizeGrips ?? true,
@@ -106,6 +112,25 @@ describe('CalendarPopover quick-add', () => {
 		await fireEvent.keyDown(await screen.findByRole('dialog'), { key: '1' });
 
 		expect(onSave.mock.calls[0]?.[0].record.statusTypeId).toBe('leave');
+	});
+
+	it('lists the remembered status first with shortcut 1, the others in their usual order', async () => {
+		const { onSave } = renderPopover(quickAdd, { defaultStatusTypeId: 'tdy' });
+
+		const dialog = await screen.findByRole('dialog');
+		const rows = within(dialog).getAllByRole('button', { name: /^(Leave|Sick|TDY)/ });
+		expect(rows.map((row) => row.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['TDY 1', 'Leave 2', 'Sick 3']);
+		await fireEvent.keyDown(dialog, { key: '1' });
+
+		expect(onSave.mock.calls.map(([change]) => change.record.statusTypeId)).toEqual(['tdy']);
+	});
+
+	it('uses the usual order when the remembered status no longer exists', async () => {
+		renderPopover(quickAdd, { defaultStatusTypeId: 'deleted' });
+
+		const dialog = await screen.findByRole('dialog');
+		const rows = within(dialog).getAllByRole('button', { name: /^(Leave|Sick|TDY)/ });
+		expect(rows.map((row) => row.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Leave 1', 'Sick 2', 'TDY 3']);
 	});
 
 	it('closes on Escape without saving and returns focus to the anchor', async () => {

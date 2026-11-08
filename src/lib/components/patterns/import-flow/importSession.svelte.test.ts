@@ -2,7 +2,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import { describe, expect, it, vi } from 'vitest';
 import { ImportSession } from './importSession.svelte';
 import { personnelLane, type PersonnelChange } from './importFlow.test-support';
-import { questionKey, type ChunkReply, type CreateOptionResult } from './types';
+import { questionKey, type ChunkReply, type CreateOptionResult, type SavedRecord } from './types';
 import { headerKey } from './workbookSource';
 
 function deferred<T>() {
@@ -12,6 +12,7 @@ function deferred<T>() {
 	});
 	return { promise, resolve };
 }
+const RANKS = { one: 'rank', other: 'ranks' };
 const csv = (rank = 'SGT') => new File([`Last name,First name,Rank\nSmith,Alex,${rank}`], 'personnel.csv');
 
 describe('import session', () => {
@@ -184,9 +185,12 @@ describe('import session', () => {
 			references: {
 				rank: {
 					...base.references.rank,
-					create: async (name: string) => {
-						created.push(name);
-						return pending.promise;
+					create: {
+						noun: RANKS,
+						run: async (name: string) => {
+							created.push(name);
+							return pending.promise;
+						}
 					}
 				}
 			}
@@ -217,7 +221,10 @@ describe('import session', () => {
 		const lane = {
 			...base,
 			references: {
-				rank: { ...base.references.rank, create: async () => ({ kind: 'created' as const, option }) }
+				rank: {
+					...base.references.rank,
+					create: { noun: RANKS, run: async () => ({ kind: 'created' as const, option }) }
+				}
 			}
 		};
 		const session = new ImportSession(() => lane);
@@ -227,6 +234,103 @@ describe('import session', () => {
 		expect(await session.createOption(key, 'Sergeant')).toBeNull();
 		expect(session.review.rows[0]).toMatchObject({ outcome: 'new', change: { rank: 'SGT' } });
 	});
+	describe('records created during the session', () => {
+		const sergeant = { id: 'sergeant', label: 'Sergeant', value: 'SGT' };
+		type Run = (name: string, saved: (record: SavedRecord) => void) => Promise<CreateOptionResult<string>>;
+		function creatingLane(run: Run) {
+			const base = personnelLane();
+			return { ...base, references: { rank: { ...base.references.rank, create: { noun: RANKS, run } } } };
+		}
+		const writes =
+			(option: typeof sergeant): Run =>
+			async (_name, saved) => {
+				saved(option);
+				return { kind: 'created', option };
+			};
+		const key = questionKey({ reference: 'rank', key: 'sgt.' });
+		const twoRows = () => new File(['Last name,First name,Rank\nSmith,Alex,Sgt.\nJones,Pat,Sergt'], 'a.csv');
+
+		it('keeps listing what was created after the user chooses another file', async () => {
+			const lane = creatingLane(writes(sergeant));
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([csv('Sgt.')]);
+			session.goTo('review');
+			await session.createOption(key, 'Sergeant');
+			const listed = [{ reference: 'rank', noun: RANKS, records: [{ id: 'sergeant', label: 'Sergeant' }] }];
+			expect(session.created).toEqual(listed);
+
+			session.goTo('file');
+			await session.chooseFile([csv('Staff.')]);
+			session.goTo('review');
+			expect(session.created).toEqual(listed);
+			expect(session.review.questions[0].accepts).toMatchObject({
+				kind: 'pick',
+				options: expect.arrayContaining([expect.objectContaining({ id: 'sergeant' })])
+			});
+		});
+
+		it('lists a record whose create finished after the user chose another file, without answering for it', async () => {
+			const written = deferred<void>();
+			const lane = creatingLane(async (name, saved) => {
+				await written.promise;
+				return writes(sergeant)(name, saved);
+			});
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([csv('Sgt.')]);
+			session.goTo('review');
+			const creating = session.createOption(key, 'Sergeant');
+			await session.chooseFile([csv('Staff.')]);
+			written.resolve();
+			await creating;
+
+			expect(session.created).toEqual([
+				{ reference: 'rank', noun: RANKS, records: [{ id: 'sergeant', label: 'Sergeant' }] }
+			]);
+			expect(session.answers.size).toBe(0);
+		});
+
+		it('lists a record once when two questions create the same one, and nothing for a refused create', async () => {
+			const runs: Run[] = [writes(sergeant), writes(sergeant), async () => ({ kind: 'refused', message: 'No.' })];
+			const lane = creatingLane((name, saved) => runs.shift()!(name, saved));
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([twoRows()]);
+			session.goTo('review');
+			await session.createOption(key, 'Sergeant');
+			await session.createOption(questionKey({ reference: 'rank', key: 'sergt' }), 'Sergeant');
+			await session.createOption(questionKey({ reference: 'rank', key: 'sgt.' }), 'Refused');
+
+			expect(session.created).toEqual([
+				{ reference: 'rank', noun: RANKS, records: [{ id: 'sergeant', label: 'Sergeant' }] }
+			]);
+		});
+
+		it('lists nothing for a create that resolved to an existing record', async () => {
+			const lane = creatingLane(async () => ({ kind: 'created', option: sergeant }));
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([csv('Sgt.')]);
+			session.goTo('review');
+
+			expect(await session.createOption(key, 'Sergeant')).toBeNull();
+			expect(session.created).toEqual([]);
+		});
+
+		it('lists the records a create saved before a later write failed', async () => {
+			const lane = creatingLane(async (_name, saved) => {
+				saved({ id: 'platoon', label: '1st Platoon' });
+				throw new Error('The squad could not be saved.');
+			});
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([csv('Sgt.')]);
+			session.goTo('review');
+
+			expect(await session.createOption(key, '1st Platoon / 2nd Squad')).toEqual({
+				refused: 'The squad could not be saved.'
+			});
+			expect(session.created).toEqual([
+				{ reference: 'rank', noun: RANKS, records: [{ id: 'platoon', label: '1st Platoon' }] }
+			]);
+		});
+	});
 	it('drops stale create and commit continuations after start over', async () => {
 		const pending = deferred<CreateOptionResult<string>>();
 		const committed = deferred<ChunkReply>();
@@ -234,7 +338,7 @@ describe('import session', () => {
 		const base = personnelLane();
 		const lane = {
 			...base,
-			references: { rank: { ...base.references.rank, create: () => pending.promise } },
+			references: { rank: { ...base.references.rank, create: { noun: RANKS, run: () => pending.promise } } },
 			commitChunk: () => committed.promise,
 			afterCommit: async () => {
 				refreshes.push('refreshed');

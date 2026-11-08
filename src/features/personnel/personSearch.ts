@@ -13,7 +13,7 @@ export interface PersonSearchEntry {
 export function toPersonSearchEntry(person: Personnel): PersonSearchEntry {
 	return {
 		id: person.id,
-		slug: person.slug,
+		slug: person.slug ?? person.id,
 		rank: person.rank,
 		firstName: person.firstName,
 		lastName: person.lastName,

@@ -20,6 +20,7 @@
 	import Megaphone from '@lucide/svelte/icons/megaphone';
 	import MessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import Moon from '@lucide/svelte/icons/moon';
+	import Search from '@lucide/svelte/icons/search';
 	import Settings from '@lucide/svelte/icons/settings';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Sun from '@lucide/svelte/icons/sun';
@@ -29,6 +30,8 @@
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import AppShellNavigation from './AppShellNavigation.svelte';
+	import PersonSearchPalette from './PersonSearchPalette.svelte';
+	import { openPersonSearch } from '../personSearchNavigation';
 	import { getOrgBreadcrumbs, getOrgNavigation } from './orgNavigation';
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -117,6 +120,7 @@
 	);
 	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap, disabledFeatures));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
+	const canSearchPeople = $derived(navItems.some((item) => item.id === 'personnel'));
 	const settingsPath = $derived(`/org/${orgUrlSegment}/settings`);
 	const inSettings = (path: string) => path === settingsPath || path.startsWith(`${settingsPath}/`);
 	const accountPath = $derived(`/org/${orgUrlSegment}/account`);
@@ -642,6 +646,18 @@
 				</Breadcrumb.Root>
 				<div class="ml-auto flex items-center gap-1">
 					{@render actions?.()}
+					{#if canSearchPeople}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={openPersonSearch}
+							aria-label="Find a person"
+							aria-keyshortcuts="Meta+K Control+K"
+						>
+							<Search />
+							<span class="hidden sm:inline">Find a person</span>
+						</Button>
+					{/if}
 					{#if onHelp}
 						<Button
 							variant="outline"
@@ -673,11 +689,17 @@
 									{...props}
 									variant="ghost"
 									size="icon"
+									class="relative"
 									aria-label={localUnreadCount > 0 ? `${localUnreadCount} unread notifications` : 'Notifications'}
 								>
 									<Bell />
 									{#if localUnreadCount > 0}
-										<span class="sr-only">{localUnreadCount} unread</span>
+										<span
+											aria-hidden="true"
+											data-testid="notification-count-badge"
+											class="pointer-events-none absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] leading-none font-semibold text-primary-foreground tabular-nums ring-2 ring-background"
+											>{localUnreadCount > 9 ? '9+' : localUnreadCount}</span
+										>
 									{/if}
 								</Button>
 							{/snippet}
@@ -773,4 +795,7 @@
 			</main>
 		</Sidebar.Inset>
 	</Sidebar.Provider>
+	{#if canSearchPeople}
+		<PersonSearchPalette {orgId} {orgUrlSegment} />
+	{/if}
 </Tooltip.Provider>

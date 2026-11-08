@@ -1,3 +1,4 @@
+import type { PersonSearchEntry } from '$features/personnel/contracts';
 import { groupCoverageForTest } from '$lib/access/test-support/groupCoverage';
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -440,7 +441,7 @@ describe('GET /api/personnel (person search index)', () => {
 		ratingScheme: 'view' as const
 	});
 
-	function seeded(auth: Parameters<typeof createTestContext>[0] extends infer O ? NonNullable<O>['auth'] : never) {
+	function seeded(auth: NonNullable<Parameters<typeof createTestContext>[0]>['auth']) {
 		const ctx = createTestContext({ auth });
 		const orgId = ctx.auth.orgId;
 		ctx.store.seed('groups', [
@@ -526,7 +527,7 @@ describe('GET /api/personnel (person search index)', () => {
 		});
 
 		const { people } = (await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)) as {
-			people: Array<Record<string, unknown>>;
+			people: PersonSearchEntry[];
 		};
 
 		expect(people).toHaveLength(1);

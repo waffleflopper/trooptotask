@@ -475,7 +475,6 @@ export interface PersonnelCriticalTasksRosterPort {
 
 export { matchesPersonSearch, matchesSearchTokens, toPersonSearchEntry } from './personSearch';
 export type { PersonSearchEntry } from './personSearch';
-export { personnelRecordHref } from './personnelRecordHref';
 export {
 	compareRosterBands,
 	createRosterReadModel,

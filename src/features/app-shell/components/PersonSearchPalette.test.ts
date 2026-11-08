@@ -114,7 +114,7 @@ describe('person search palette', () => {
 		expect(screen.getByRole('status').textContent).not.toBe(announcedWithResults);
 	});
 
-	it('lists at most twenty matches', async () => {
+	it('finds a person beyond the first results by typing', async () => {
 		const many = Array.from({ length: 45 }, (_, i) =>
 			person(`m${i}`, 'SPC', `Lee${String(i).padStart(2, '0')}`, 'Sam')
 		);
@@ -124,9 +124,9 @@ describe('person search palette', () => {
 
 		await screen.findByRole('option', { name: /Lee00/ });
 
-		expect(screen.getAllByRole('option')).toHaveLength(20);
 		await fireEvent.input(screen.getByRole('combobox'), { target: { value: 'lee44' } });
-		await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(1));
+		expect(await screen.findByRole('option', { name: /SPC Lee44, Sam/ })).toBeVisible();
+		expect(screen.queryByRole('option', { name: /Lee00/ })).toBeNull();
 	});
 
 	it('shows a load error with a retry that recovers, without refetching on its own', async () => {

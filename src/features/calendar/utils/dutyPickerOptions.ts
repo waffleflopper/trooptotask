@@ -1,7 +1,6 @@
 import type { AssignmentType, RosterDay, StatusType } from '$features/calendar/contracts';
 import { buildGroupTree, type Group, type Personnel } from '$features/personnel/contracts';
-import { availabilityEntryLabel } from './availabilityLabels';
-import type { DutyAvailabilityIndex } from './dutyReadModel';
+import { coveringLabel, type DutyAvailabilityIndex } from './dutyReadModel';
 import { effectLabel } from './plannerRosters';
 
 /** Someone or something a duty of this type may be given to, in name order. */
@@ -78,16 +77,8 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	const stillAvailable = new Set(
 		input.statusTypes.filter((status) => status.rosterEffect === 'available').map((status) => status.id)
 	);
-	const covering = (personId: string) => {
-		const labels = input.availabilityByPerson
-			.get(personId)
-			?.filter(
-				(entry) =>
-					entry.startDate <= input.dateKey && entry.endDate >= input.dateKey && !stillAvailable.has(entry.statusTypeId)
-			)
-			.map((entry) => availabilityEntryLabel(entry, statusName));
-		return labels?.length ? labels.join('; ') : undefined;
-	};
+	const covering = (personId: string) =>
+		coveringLabel(input.availabilityByPerson.get(personId), input.dateKey, statusName, stillAvailable);
 
 	if (input.unreadRoster === 'loading') return [];
 

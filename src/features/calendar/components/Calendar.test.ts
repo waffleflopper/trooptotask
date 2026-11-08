@@ -486,6 +486,51 @@ describe('Calendar lanes', () => {
 		expect(within(duty).queryByRole('button', { name: /Edit assignments/ })).toBeNull();
 	});
 
+	describe('an assigned day whose person is unavailable', () => {
+		const unavailable = new Map([['2026-03-01::type-sd', 'Leave 1–3 Mar']]);
+		const conflicted = (actions?: Parameters<typeof lanesFor>[0]) =>
+			buildCalendarLanes({
+				dates: [march1, march2],
+				assignmentTypes: [staffDuty],
+				assignments: [smithOnDuty],
+				specialDays: [],
+				personnel,
+				groups: [],
+				unavailable,
+				actions
+			});
+
+		it('names the reason on the button and shows it as a title', () => {
+			renderCalendar({ lanes: conflicted({ openDay: vi.fn(), editDay: vi.fn() }) });
+
+			const day = screen.getByRole('button', {
+				name: 'Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex, unavailable: Leave 1–3 Mar. Edit assignments'
+			});
+			expect(day.getAttribute('title')).toContain('Leave 1–3 Mar');
+			expect(day.querySelector('svg')).toBeTruthy();
+		});
+
+		it('marks a read-only day too, without making it a button', () => {
+			renderCalendar({ lanes: conflicted() });
+
+			const duty = screen.getByRole('group', { name: 'Staff Duty' });
+			expect(
+				within(duty).getByText('Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex, unavailable: Leave 1–3 Mar')
+			).toBeTruthy();
+			expect(duty.querySelector('[title*="Leave 1–3 Mar"] svg')).toBeTruthy();
+			expect(within(duty).queryByRole('button')).toBeNull();
+		});
+
+		it('leaves a day with no conflict unmarked', () => {
+			renderCalendar({ lanes: lanesFor({ openDay: vi.fn(), editDay: vi.fn() }) });
+
+			const day = screen.getByRole('button', {
+				name: 'Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex. Edit assignments'
+			});
+			expect(day.querySelector('svg')).toBeNull();
+		});
+	});
+
 	it('opens the duty picker from an open day and the assignments from an assigned day', async () => {
 		const actions = { openDay: vi.fn(), editDay: vi.fn() };
 		renderCalendar({ lanes: lanesFor(actions) });

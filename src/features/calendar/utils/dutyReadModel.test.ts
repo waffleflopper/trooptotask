@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
 import { assignmentSlotKey } from './calendarIndexes';
-import { findDutyConflicts, indexDutyAvailability } from './dutyReadModel';
+import type { StatusType } from '$features/calendar/contracts';
+import {
+	blockingAvailability,
+	coveringLabel,
+	dutyConflictReasons,
+	findDutyConflicts,
+	indexDutyAvailability
+} from './dutyReadModel';
 
 function duty(id: string, date: string, assigneeId: string, assignmentTypeId = 'cq'): DailyAssignment {
 	return { id, date, assignmentTypeId, assigneeId };
@@ -91,5 +98,45 @@ describe('findDutyConflicts', () => {
 		});
 
 		expect(result.items.map((conflict) => conflict.assignment.id)).toEqual(['a', 'b', 'c']);
+	});
+});
+
+describe('blocking availability', () => {
+	const statuses: StatusType[] = [
+		{ id: 'leave', name: 'Leave', rosterEffect: 'unavailable' },
+		{ id: 'present', name: 'Present', rosterEffect: 'available' }
+	] as StatusType[];
+	const entries: AvailabilityEntry[] = [
+		{ id: 'a', personnelId: 'p', statusTypeId: 'leave', startDate: '2026-10-20', endDate: '2026-10-23' },
+		{ id: 'b', personnelId: 'p', statusTypeId: 'present', startDate: '2026-10-20', endDate: '2026-10-23' },
+		{ id: 'c', personnelId: 'p', statusTypeId: 'gone', startDate: '2026-10-25', endDate: '2026-10-25' }
+	];
+
+	it('drops entries whose status leaves the person available and keeps unknown statuses', () => {
+		expect(blockingAvailability(entries, statuses).map((entry) => entry.id)).toEqual(['a', 'c']);
+	});
+
+	it('labels every covering entry, naming an unknown status Unavailable, and nothing off the covered days', () => {
+		const names = new Map([['leave', 'Leave']]);
+		expect(coveringLabel(entries, '2026-10-21', names, new Set(['present']))).toBe('Leave 20–23 Oct');
+		expect(coveringLabel(entries, '2026-10-25', names)).toBe('Unavailable 25 Oct');
+		expect(coveringLabel(entries, '2026-10-24', names)).toBeUndefined();
+		expect(coveringLabel(undefined, '2026-10-24', names)).toBeUndefined();
+	});
+
+	it('explains each conflicted slot with its covering entries joined by a semicolon', () => {
+		const result = findDutyConflicts({
+			assignments: [duty('d1', '2026-10-21', 'p')],
+			assignmentTypes: [type('cq')],
+			availabilityByPerson: indexDutyAvailability([
+				entry('l1', 'p', '2026-10-20', '2026-10-23'),
+				{ ...entry('l2', 'p', '2026-10-21', '2026-10-21'), statusTypeId: 'gone' }
+			]),
+			range: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' }
+		});
+
+		expect([...dutyConflictReasons(result, statuses)]).toEqual([
+			['2026-10-21::cq', 'Leave 20–23 Oct; Unavailable 21 Oct']
+		]);
 	});
 });

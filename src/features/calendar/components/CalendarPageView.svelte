@@ -45,7 +45,12 @@
 		statusLegend
 	} from '$features/calendar/utils/calendarLegend';
 	import { beforeRosterForm, dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
-	import { indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
+	import {
+		blockingAvailability,
+		dutyConflictReasons,
+		findDutyConflicts,
+		indexDutyAvailability
+	} from '$features/calendar/utils/dutyReadModel';
 	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -287,6 +292,25 @@
 			: undefined
 	);
 
+	// The planner's check: a person-assigned duty on a day an entry covers whose status does not leave them available.
+	const availabilityByPerson = $derived(
+		indexDutyAvailability(blockingAvailability(availabilityStore.items, statusTypesStore.items))
+	);
+	const unavailableSlots = $derived.by(() => {
+		const first = calendarStore.dates.at(0);
+		const last = calendarStore.dates.at(-1);
+		if (!first || !last) return undefined;
+		return dutyConflictReasons(
+			findDutyConflicts({
+				assignments: dailyAssignmentsStore.assignments,
+				assignmentTypes: dailyAssignmentsStore.types,
+				availabilityByPerson,
+				range: { rangeStart: formatDate(first), rangeEnd: formatDate(last) }
+			}),
+			statusTypesStore.items
+		);
+	});
+
 	// Built apart from the roster rows so search and Group filter changes do not rebuild lanes.
 	const allLanes = $derived(
 		buildCalendarLanes({
@@ -297,6 +321,7 @@
 			personnel: ctx.allPersonnelFlat,
 			groups: ctx.scopedGroups,
 			assignmentsLoaded: rangeStatus === 'ready',
+			unavailable: unavailableSlots,
 			actions: ctx.canManageAssignments
 				? {
 						// An open day offers no picker until the shown range has loaded, so it knows the slot's assignee.
@@ -325,8 +350,6 @@
 		void [calendarStore.year, calendarStore.month, ctx.viewMode];
 		untrack(() => ctx.closePopover());
 	});
-
-	const availabilityByPerson = $derived(indexDutyAvailability(availabilityStore.items));
 
 	// The picker reads its roster day when it opens. Writes anywhere on the page refetch it through the shared read.
 	const rosterRead = new PlannerRosterRead();

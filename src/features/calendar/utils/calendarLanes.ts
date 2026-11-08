@@ -101,6 +101,8 @@ export interface CalendarLaneInput {
 	groups: readonly Group[];
 	/** False while the range's assignments are unread or failed to load, so no lane claims a count. Defaults to true. */
 	assignmentsLoaded?: boolean;
+	/** Why an assigned slot's person is unavailable that day, by slot key. Slots absent from it show no conflict. */
+	unavailable?: ReadonlyMap<string, string>;
 	actions?: CalendarLaneActions;
 }
 
@@ -147,9 +149,12 @@ export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 				const openDay = actions?.openDay;
 				return openDay && dutyDay[index] ? { ...day, open: (anchor) => openDay(type.id, date, anchor) } : day;
 			}
+			const unavailable = input.unavailable?.get(assignmentSlotKey(dateKeys[index], type.id));
 			const assignee = assigneeLabel(type, assigneeId);
-			return actions ? { ...day, assignee, edit: () => actions.editDay(date) } : { ...day, assignee };
+			const withAssignee = unavailable === undefined ? { ...day, assignee } : { ...day, assignee, unavailable };
+			return actions ? { ...withAssignee, edit: () => actions.editDay(date) } : withAssignee;
 		});
+		const conflicted = days.filter((day) => day.unavailable !== undefined).length;
 		const open = openAssignmentDates(
 			assigneeBySlot,
 			type.id,
@@ -164,7 +169,7 @@ export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 			color: type.color,
 			detail: assignmentsLoaded ? (open === 0 ? 'Full' : `${open} open`) : undefined,
 			summary: assignmentsLoaded
-				? `${type.name}: ${assigned} of ${assigned + open} days assigned`
+				? `${type.name}: ${assigned} of ${assigned + open} days assigned${conflicted ? `, ${conflicted} of them with someone unavailable` : ''}`
 				: `${type.name}: how many days are assigned is not known yet`,
 			track: dayTrack(AssignmentLaneCell, days)
 		};

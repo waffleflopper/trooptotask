@@ -35,7 +35,11 @@
 	import { assignmentSlotKey, indexAssignmentsBySlot } from '$features/calendar/utils/calendarIndexes';
 	import { plannerColumns } from '$features/calendar/utils/calendarLanes';
 	import { beforeRosterForm, dutyPickerOptions, eligibleAssignees } from '$features/calendar/utils/dutyPickerOptions';
-	import { findDutyConflicts, indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
+	import {
+		blockingAvailability,
+		findDutyConflicts,
+		indexDutyAvailability
+	} from '$features/calendar/utils/dutyReadModel';
 	import { endOfMonth, formatDate, getMonthName, parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -138,12 +142,7 @@
 	const personnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
 	const personById = $derived(new Map(personnel.map((person) => [person.id, person])));
 	const assignmentsBySlot = $derived(indexAssignmentsBySlot(assignments));
-	const blockingStatusIds = $derived(
-		new Set(statusTypes.filter((status) => status.rosterEffect !== 'available').map((status) => status.id))
-	);
-	const availabilityByPerson = $derived(
-		indexDutyAvailability(availabilityEntries.filter((entry) => blockingStatusIds.has(entry.statusTypeId)))
-	);
+	const availabilityByPerson = $derived(indexDutyAvailability(blockingAvailability(availabilityEntries, statusTypes)));
 	const conflicts = $derived(
 		findDutyConflicts({ assignments, assignmentTypes: columns, availabilityByPerson, range: monthRange })
 	);

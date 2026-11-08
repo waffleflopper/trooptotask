@@ -9,6 +9,10 @@ vi.mock('$features/rating-scheme', () => ({
 }));
 import Layout from './+layout.svelte';
 
+vi.mock('$app/state', () => ({
+	page: { data: { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } } } }
+}));
+
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();

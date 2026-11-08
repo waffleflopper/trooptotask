@@ -7,6 +7,7 @@
 	import { invalidate } from '$app/navigation';
 	import { findDisabledFeatureRoute } from '$lib/access/featureSwitches';
 	import WorkspaceFeatureOff from './WorkspaceFeatureOff.svelte';
+	import { rememberLastOrganization } from '$features/organization';
 	let { children, data } = $props();
 	let appShell = $state<ReturnType<typeof AppShell>>();
 	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
@@ -14,6 +15,10 @@
 	const featureOff = $derived(
 		readyShell && (page.error?.featureOff ?? findDisabledFeatureRoute(page.route.id, readyShell.org.disabledFeatures))
 	);
+
+	$effect(() => {
+		if (readyShell) rememberLastOrganization({ userId: readyShell.user.id, organizationId: readyShell.org.id });
+	});
 
 	// Failure toasts on Organization routes offer "Report error" while this shell can take the report.
 	const reportOrg = $derived(page.params.orgId ?? null);

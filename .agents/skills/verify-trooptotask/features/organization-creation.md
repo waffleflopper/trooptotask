@@ -14,8 +14,9 @@ in the new workspace.
 
 ## How to get to it (user POV)
 
-Sign in as an approved, email-confirmed account without an Organization. On the Organizations list
-(`/dashboard?show=all`), choose `Create organization`. The `/org/new` page is the account split shell: the dark panel
+Sign in as an approved, email-confirmed account without an Organization. The `Waiting for an invitation` page
+(`/dashboard`) offers `Create an Organization`; the Organizations list (`/dashboard?show=all`) offers
+`Create organization`. Either opens `/org/new`. The `/org/new` page is the account split shell: the dark panel
 reads `Stand up your unit.` with a three-row `What happens next` list from 1024 px (`Name your Organization` tagged
 `Now`) and a masthead with `Sign out` and the theme toggle. The form asks for `Organization name` and submits with
 `Create and start setup` (`Creating <name>` while pending); `Check your invitations` opens `/dashboard?show=all` and

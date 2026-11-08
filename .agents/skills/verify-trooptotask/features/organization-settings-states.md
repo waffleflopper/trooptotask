@@ -46,7 +46,7 @@ Choose `Settings` in Organization navigation. The `Unit settings` nav groups the
 [rank recipe](rank-settings.md). Archives failure states belong to the
 [Personnel form recipe](personnel-form-states.md); step 5 covers its page. `Create organization` and the Organizations
 list are on `/dashboard` (the account's home outside an Organization). An account with no Organization reaches the list
-at `/dashboard?show=all`; plain `/dashboard` sends it to `/org/new`. Announcements appear as a banner above an
+at `/dashboard?show=all`; plain `/dashboard` shows `Waiting for an invitation` (see [Sign-in landing](sign-in.md#sign-in-landing)). Announcements appear as a banner above an
 Organization's pages; `Send feedback` is in the Organization header at desktop widths, and at any width it is in the
 account menu (sidebar name card → `Send feedback`).
 
@@ -74,7 +74,7 @@ Actors (all from `$V fixture`): `orgOwner` (A owner), `orgAdmin` (A admin), `org
 `orgSettingsPeer` (B owner, Personnel none), `orgSettingsSwitch` (admin in A and B), `orgCreator` and `orgInvitee`
 (confirmed, no membership), `deletionRequester` and `deletionReviewer` (A), `notificationMember` and `notificationOther`
 (A). `$V actor ROLE dashboard` opens `/dashboard?show=all`, so `orgCreator` lands on the empty list rather than the
-`/org/new` redirect. Read `$V rows organizations orgA` and `orgB` before and after every step that can write, and
+`Waiting for an invitation` page. Read `$V rows organizations orgA` and `orgB` before and after every step that can write, and
 `$V rows organization_invitations orgA` around Members. Leave every saved value as found: restore names, slugs and
 policies through the same visible controls; revoke or decline UI-created invitations; never confirm `Delete permanently`
 or a transfer.

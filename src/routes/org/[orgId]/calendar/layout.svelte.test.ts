@@ -5,7 +5,12 @@ import { createRawSnippet } from 'svelte';
 
 const { restrictMock, page } = vi.hoisted(() => ({
 	restrictMock: vi.fn(),
-	page: { data: {} as { ownsWorkspaceLoading?: boolean } }
+	page: {
+		data: { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } } } as {
+			ownsWorkspaceLoading?: boolean;
+			shell?: unknown;
+		}
+	}
 }));
 
 vi.mock('$app/state', () => ({ page }));
@@ -23,7 +28,7 @@ import Layout from './+layout.svelte';
 
 afterEach(() => {
 	cleanup();
-	page.data = {};
+	page.data = { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } } };
 	restrictMock.mockClear();
 	vi.unstubAllGlobals();
 });
@@ -79,7 +84,10 @@ it('replaces the Calendar workspace with a load error and a working retry when t
 });
 
 it('keeps the status import mounted with its own skeleton while the workspace loads, and still fails as a whole', async () => {
-	page.data = { ownsWorkspaceLoading: true };
+	page.data = {
+		ownsWorkspaceLoading: true,
+		shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } }
+	};
 	const rejected = Promise.reject(new Error('availability failed'));
 	rejected.catch(() => {});
 	const children = createRawSnippet(() => ({

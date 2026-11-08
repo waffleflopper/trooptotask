@@ -26,3 +26,4 @@ export { default as SetupResume } from './setup/SetupResume.svelte';
 export { getSetupFlow } from './setup/setupFlow.svelte';
 export { default as SetupEditorNote } from './setup/SetupEditorNote.svelte';
 export { default as SetupSuggestionPanel } from './setup/SetupSuggestionPanel.svelte';
+export { rememberLastOrganization } from './lastOrganization';

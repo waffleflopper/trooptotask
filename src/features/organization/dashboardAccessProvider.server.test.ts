@@ -90,12 +90,13 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 			{
 				userId: 'invitee',
 				email: ' INVITEE@EXAMPLE.COM ',
-				forceShow: false
+				forceShow: false,
+				lastOrganizationId: null
 			}
 		);
 		expect(result).toEqual({
 			organizations: [],
-			redirectTo: null,
+			landing: { kind: 'list' },
 			pendingInvitations: [
 				{
 					id: 'eligible',

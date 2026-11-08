@@ -48,7 +48,7 @@
 {#if current?.error}
 	<WorkspaceLoadError subject="Calendar" />
 {:else if current?.accessRestricted}
-	<WorkspaceAccessRestricted />
+	<WorkspaceAccessRestricted lane="calendar" level="view" />
 {:else if current || workspace == null || page.data.ownsWorkspaceLoading}
 	{@render children()}
 {:else}

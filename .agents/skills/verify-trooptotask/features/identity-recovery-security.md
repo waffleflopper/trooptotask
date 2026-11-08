@@ -192,7 +192,7 @@ The private-credential controls fill visible fields without printing values:
    with the form kept. A plain approval reads `Reviewed Access` and keeps `Request access`; an invited email reads
    `Unit invitation` instead ([Organization invitations](organization-invitations.md) drives that one). Fill both fields
    with one run-local synthetic password (keep it out of notes) and submit with Set Up Account. Require `/dashboard`,
-   which sends an account without membership to `/org/new`. `$V access-request EMAIL` must show `setup_completed_at`,
+   which shows an account without membership `Waiting for an invitation` with `Create an Organization`. `$V access-request EMAIL` must show `setup_completed_at`,
    `setup_user_id` and the link's `used_at`. In a fresh public context run `setup-link PAGE valid` again and require
    `Account setup complete` with Sign in and Reset your password. Open each remaining class in a fresh public context
    and capture it. `expired` (`has expired`), `replaced` (`was replaced`), `failed` (`could not finish setup`) and

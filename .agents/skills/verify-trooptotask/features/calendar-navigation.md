@@ -66,10 +66,10 @@ names the quarter and the arrows are `Previous 3 months` and `Next 3 months`. Th
 holds `Calendar group filter`, the personnel searchbox, `Events & Taskings` (when enabled, with a need-action badge),
 `Duty planner` (assignment managers), `Reports`, `Display`,
 `More Calendar controls` and the pinned `Bulk Status` menu. `Events & Taskings` opens `/calendar/taskings`;
-`Bulk Status` includes `Import CSV`, which opens `/calendar/import`. `Display` holds `Show Onboarding` (when onboarding People
+`Bulk Status` includes `Import spreadsheet`, which opens `/calendar/import`. `Display` holds `Show Onboarding` (when onboarding People
 exist), `Show Status Text`, `Show Personnel Roles`, `Show Days`, `Show Events & Suspenses` (only when Events & Taskings is
 on) and `Show Assignments` as checkboxes that keep the menu open. `More Calendar controls`
-always holds `Settings` (configure access), `Export to Excel` and `Print / PDF`; the exports cover the shown quarter in
+always holds `Settings` (configure access), `Export to Excel` and `Download PDF`; the exports cover the shown quarter in
 `3-Month`. The legend under the grid lists statuses; in `Month` it adds `Duty (codes)` for Person duties and, for people
 who can add availability, `Drag across days to add`. A narrow page moves more controls into More; see
 [Find a toolbar control on the row or in More](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more).
@@ -103,9 +103,9 @@ filters and request controls between cases.
 3. Click `3-Month` in `Calendar view` and confirm the long-range view appears with `3-Month` checked, the quarter in the
    title, `Next 3 months` beside it and a legend of statuses only. Click `Month` to return. Open `Display` and confirm
    the display toggles; open `More Calendar controls` and confirm both exports are there. Capture each export with
-   `$V export arm $PAGE`, the visible `Export to Excel` or `Print / PDF` item, `$V export save $PAGE FILE` and
+   `$V export arm $PAGE`, the visible `Export to Excel` or `Download PDF` item, `$V export save $PAGE FILE` and
    `$V export restore $PAGE`: both produce a downloaded Blob (`.xlsx`, and a jsPDF PDF whose Month and 3-Month titles
-   read `October 2026` and `October 2026 – December 2026`). `Print / PDF` never fires `beforeprint`, so `$V print`
+   read `October 2026` and `October 2026 – December 2026`). `Download PDF` never fires `beforeprint`, so `$V print`
    observes nothing for it. Read the PDF with `pdftotext -layout` or `pdftoppm`, and the workbook with
    `$V workbook FILE 'October 2026'`. The PDF draws the screen's bars: one bar per entry labeled with its status and
    length when it fits (Able's three-day Leave reads `VER · 3D`), overlapping entries in the screen's lanes, and Person
@@ -124,7 +124,7 @@ filters and request controls between cases.
    lane, so read the closure's date header `title`. Move `Previous 3 months` twice: March–May shows the one
    `Historical retained` leave day. Move forward twice and confirm the September facts return. Wait for the range to
    settle; a loading label is not proof. In September–November, select an October date header: expect Month showing
-   October with the route unchanged. Restore September before continuing. Open `Bulk Status` and follow `Import CSV`
+   October with the route unchanged. Restore September before continuing. Open `Bulk Status` and follow `Import spreadsheet`
    to `/calendar/import`, then return to Calendar. When enabled, follow `Events & Taskings` to `/calendar/taskings`
    and return; its badge counts taskings needing action.
 6. Open the `Month and year picker`; record the focused month, press `ArrowLeft` through `tool press_key`, confirm focus

@@ -31,12 +31,12 @@ with clear partial results and whole-entry warnings.
 
 ## How to get to it (user POV)
 
-From `Calendar`, the `Bulk Status` menu offers `Add Bulk`, `Remove Bulk` and `Import CSV`. Add and Remove open
+From `Calendar`, the `Bulk Status` menu offers `Add Bulk`, `Remove Bulk` and `Import spreadsheet`. Add and Remove open
 `/calendar/bulk` with the `Bulk status` heading (eyebrow `Calendar · Bulk status`). Beside the title, the
 `Bulk status sections` switch offers `Add` and `Remove` as radios, which keep the choice in the `tab` query
 (`?tab=import` falls back to Add), and `Back to calendar` leaves. On a narrow viewport both wrap onto their own line
 under the title. Add saves from its summary bar (`Add to N people`) with no confirmation step; Remove leads to
-`Review Matching Entries`. `Import CSV` opens `/calendar/import` (`Import statuses`, eyebrow `Calendar · Import`), which
+`Review Matching Entries`. `Import spreadsheet` opens `/calendar/import` (`Import statuses`, eyebrow `Calendar · Import`), which
 steps through File, Columns, Review and Done. The operator needs Calendar operate access and a scope that includes the
 selected people; creating a status type from the import also needs Calendar configure access. The seeded
 Able/Baker/Unassigned records belong to A, while Foreign belongs to B.
@@ -168,7 +168,7 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    After `$V seed duplicate-able`, an unranked Able row asks `Which person?` with only `SPC Able, Synthetic` and
    `PFC Able, Synthetic` and no Create; picking SPC saves to the fixture Able. Run `$V clean-seeds` afterward.
 
-   As `calendarOperate`, `Import CSV` is in the Bulk Status menu, and an unknown status offers the status types with no
+   As `calendarOperate`, `Import spreadsheet` is in the Bulk Status menu, and an unknown status offers the status types with no
    Create. As `calendarView` there is no `Bulk Status`, `/calendar/import` shows the 403 page and a direct
    `POST api/availability/import` returns 403. The server rechecks scope and overlap per Person: a row whose Person left
    the actor's scope or whose dates now overlap a newer saved entry comes back as not imported with its reason.

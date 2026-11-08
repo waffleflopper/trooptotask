@@ -228,7 +228,8 @@ describe('organization layout scope lifetime', () => {
 					matrixColorAll: false,
 					matrixCurrentMark: 'date',
 					matrixNeedsActionOnly: false
-				}
+				},
+				roster: { viewMode: 'by-group' }
 			});
 		});
 		const view = render(Layout, { data: workspace(), children: preferenceChildren });
@@ -268,7 +269,8 @@ describe('organization layout scope lifetime', () => {
 					matrixColorAll: false,
 					matrixCurrentMark: 'date',
 					matrixNeedsActionOnly: false
-				}
+				},
+				roster: { viewMode: 'by-group' }
 			})
 		);
 		await vi.advanceTimersByTimeAsync(0);

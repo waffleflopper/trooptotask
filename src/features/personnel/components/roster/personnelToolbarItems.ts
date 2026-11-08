@@ -1,6 +1,5 @@
 import type { ToolbarItem, ToolbarMenuToggle } from '$lib/components/patterns/workspace-toolbar';
-
-export type RosterViewMode = 'alphabetical' | 'by-group';
+import type { RosterViewMode } from '../../contracts';
 
 const ROSTER_VIEW_OPTIONS = [
 	{ value: 'alphabetical', label: 'A-Z' },

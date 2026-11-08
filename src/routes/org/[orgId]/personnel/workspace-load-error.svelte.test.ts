@@ -18,7 +18,7 @@ vi.mock('$features/app-shell', () => ({
 import Layout from './+layout.svelte';
 import ImportPage from './import/+page.svelte';
 import DetailPage from './[personnelSlug]/+page.svelte';
-import RouteHarness from '$features/personnel/test-support/PersonnelRouteTestHarness.svelte';
+import RouteHarness from './PersonnelRouteTestView.svelte';
 
 afterEach(() => {
 	cleanup();

@@ -14,7 +14,8 @@ function mergePatch(base: UserOrgPreferencesPatch, incoming: UserOrgPreferencesP
 		calendar:
 			base.calendar || incoming.calendar ? { ...(base.calendar ?? {}), ...(incoming.calendar ?? {}) } : undefined,
 		training:
-			base.training || incoming.training ? { ...(base.training ?? {}), ...(incoming.training ?? {}) } : undefined
+			base.training || incoming.training ? { ...(base.training ?? {}), ...(incoming.training ?? {}) } : undefined,
+		roster: base.roster || incoming.roster ? { ...(base.roster ?? {}), ...(incoming.roster ?? {}) } : undefined
 	};
 }
 
@@ -28,7 +29,7 @@ function confirmsPatch(saved: UserOrgPreferences, patch: UserOrgPreferencesPatch
 
 function remainingDirtyFields(dirty: UserOrgPreferencesPatch, sent: UserOrgPreferencesPatch): UserOrgPreferencesPatch {
 	const remaining = mergePatch({}, dirty);
-	for (const section of ['calendar', 'training'] as const) {
+	for (const section of ['calendar', 'training', 'roster'] as const) {
 		const fields = remaining[section] as Record<string, unknown> | undefined;
 		for (const [key, value] of Object.entries(sent[section] ?? {})) {
 			if (fields && fields[key] === value) delete fields[key];

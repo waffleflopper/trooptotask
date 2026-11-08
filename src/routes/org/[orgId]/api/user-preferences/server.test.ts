@@ -34,7 +34,8 @@ const preferences = {
 		matrixColorAll: false,
 		matrixCurrentMark: 'date',
 		matrixNeedsActionOnly: false
-	}
+	},
+	roster: { viewMode: 'by-group' }
 };
 let readError: null | { message: string };
 let writes: number;

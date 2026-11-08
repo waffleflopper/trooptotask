@@ -5,7 +5,12 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { dateOnlySchema, issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { z } from 'zod';
-import type { PersonnelFieldBulkResult, PersonnelFieldChange, PersonnelRecordPersistence } from './contracts';
+import {
+	PERSONNEL_FIELD_BATCH_LIMIT,
+	type PersonnelFieldBulkResult,
+	type PersonnelFieldChange,
+	type PersonnelRecordPersistence
+} from './contracts';
 import { normalizeActivePersonnelRank } from './rankValidation.server';
 
 interface PersonnelFieldBulkContext {
@@ -15,7 +20,6 @@ interface PersonnelFieldBulkContext {
 	loadRankCatalog: Parameters<typeof normalizeActivePersonnelRank>[0]['loadRankCatalog'];
 }
 
-export const PERSONNEL_FIELD_BATCH_LIMIT = 500;
 const TEXT_FIELD_LIMIT = 100;
 
 const personnelIds = z

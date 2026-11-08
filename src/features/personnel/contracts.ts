@@ -121,6 +121,9 @@ export interface PersonnelEditableFields {
 export type PersonnelInsert = Pick<PersonnelEditableFields, 'rank' | 'lastName' | 'firstName' | 'clinicRole'> &
 	Partial<Pick<PersonnelEditableFields, 'mos' | 'ets' | 'deros' | 'groupId'>> & { slug: string };
 
+/** The most People one field-batch request may name. */
+export const PERSONNEL_FIELD_BATCH_LIMIT = 500;
+
 /** One field set to one non-empty value for many People. `ets` is a YYYY-MM-DD date. */
 export type PersonnelFieldChange =
 	| { field: 'rank'; value: string }

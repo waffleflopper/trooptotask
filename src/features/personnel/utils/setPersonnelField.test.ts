@@ -28,6 +28,25 @@ describe('setPersonnelField', () => {
 		]);
 	});
 
+	it('sends more People than one request allows in batches of 500 and combines the results', async () => {
+		const ids = Array.from({ length: 501 }, (_, index) => `p${index}`);
+		const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+			const { personnelIds } = JSON.parse(String(init?.body)) as { personnelIds: string[] };
+			const [first, ...rest] = personnelIds;
+			return Response.json({ field: 'mos', value: '68W', updatedIds: rest, refusedIds: [first], unavailableIds: [] });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const result = await setPersonnelField('org-1', ids, { field: 'mos', value: '68W' });
+
+		expect(fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).personnelIds.length)).toEqual([
+			500, 1
+		]);
+		expect(result.refusedIds).toEqual(['p0', 'p500']);
+		expect(result.updatedIds).toEqual(ids.slice(1, 500));
+		expect(result.unavailableIds).toEqual([]);
+	});
+
 	it('rejects with the reason a refused write gives', async () => {
 		vi.stubGlobal(
 			'fetch',

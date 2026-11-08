@@ -1,9 +1,32 @@
 import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
-import type { PersonnelFieldBulkResult, PersonnelFieldChange } from '../contracts';
+import { PERSONNEL_FIELD_BATCH_LIMIT, type PersonnelFieldBulkResult, type PersonnelFieldChange } from '../contracts';
 
 export const PERSONNEL_FIELD_UNCONFIRMED_MESSAGE = "We couldn't confirm the change. Reload to see what saved.";
 
+/** Sends the People in batches the endpoint accepts, one after another, and combines the results. */
 export async function setPersonnelField(
+	orgId: string,
+	personnelIds: string[],
+	change: PersonnelFieldChange
+): Promise<PersonnelFieldBulkResult> {
+	const combined: PersonnelFieldBulkResult = {
+		field: change.field,
+		value: change.value,
+		updatedIds: [],
+		refusedIds: [],
+		unavailableIds: []
+	};
+	for (let start = 0; start < personnelIds.length; start += PERSONNEL_FIELD_BATCH_LIMIT) {
+		const batch = await sendBatch(orgId, personnelIds.slice(start, start + PERSONNEL_FIELD_BATCH_LIMIT), change);
+		combined.value = batch.value;
+		combined.updatedIds.push(...batch.updatedIds);
+		combined.refusedIds.push(...batch.refusedIds);
+		combined.unavailableIds.push(...batch.unavailableIds);
+	}
+	return combined;
+}
+
+async function sendBatch(
 	orgId: string,
 	personnelIds: string[],
 	change: PersonnelFieldChange

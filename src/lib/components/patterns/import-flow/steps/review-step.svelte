@@ -39,6 +39,7 @@
 	});
 	const messageLines = (text: string) => wrappedLines(text, width - CARD_TEXT_INSET, measureMessage);
 	const committing = $derived(session.phase.step === 'committing' ? session.phase.progress : null);
+	const offersSkip = $derived(session.lane.skipRowsNeedingFixes === true && counts.fix > 0 && review.changeCount > 0);
 
 	const identityFields = $derived(new Set<string>(session.lane.identity?.fields ?? []));
 	const shownFields = $derived.by(() => {
@@ -256,6 +257,16 @@
 			</div>
 			<Button variant="ghost" class="text-chrome-text hover:bg-chrome-hover hover:text-chrome-text" onclick={onBack}>
 				Back to columns
+			</Button>
+		{/if}
+		{#if offersSkip && !committing}
+			<Button
+				variant="outline"
+				class="h-auto min-h-8 flex-1 basis-full whitespace-normal text-chrome-text sm:flex-none sm:basis-auto"
+				disabled={!!session.skipFixesBlocker || session.creating.size > 0}
+				onclick={() => void session.commit({ skipRowsNeedingFixes: true })}
+			>
+				Skip {plural(counts.fix, ROWS)} needing {counts.fix === 1 ? 'a fix' : 'fixes'} and import the rest
 			</Button>
 		{/if}
 		<Button

@@ -176,6 +176,8 @@ export interface ImportLane<C extends ImportColumns, Refs extends ImportReferenc
 		columnLabel?: string;
 	};
 	savedIn?: string;
+	/** Offers one action that imports the rows with no fix waiting and lists every row needing a fix as not imported. */
+	skipRowsNeedingFixes?: true;
 	columns: C;
 	splitters?: readonly ColumnSplitter<C>[];
 	pivot?: PivotSpec<C>;

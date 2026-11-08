@@ -178,6 +178,8 @@ export interface ReviewState<Change> {
 	counts: Readonly<Record<Outcome, number>>;
 	changeCount: number;
 	commitBlocker: string | null;
+	/** What stops the import when rows needing a fix are skipped instead of fixed. */
+	skipFixesBlocker: string | null;
 }
 
 interface MemoEntry<Change> {
@@ -437,8 +439,21 @@ export function reviewRows<C extends ImportColumns, Refs extends ImportReference
 			? `Fix ${counts.fix} rows before importing.`
 			: changeCount
 				? null
-				: 'There are no changes to import.'
+				: 'There are no changes to import.',
+		skipFixesBlocker: changeCount ? null : 'There are no changes to import.'
 	};
+}
+
+type FixRow<Change> = Extract<ReviewedRow<Change>, { outcome: 'fix' }>;
+
+export function fixReason<Change>(item: FixRow<Change>, questions: ReadonlyMap<QuestionKey, RailQuestion>): string {
+	const messages = item.problems.map((problem) => problem.message);
+	if (!messages.length)
+		for (const key of item.questions) {
+			const question = questions.get(key);
+			if (question && !question.answer) messages.push(`Not answered: ${question.title} ${question.subject}.`);
+		}
+	return messages.length ? `Needed a fix. ${messages.join(' ')}` : 'Needed a fix.';
 }
 
 function holdRemovalsOfKeptRecords<Change>(reviewed: ReviewedRow<Change>[]): void {

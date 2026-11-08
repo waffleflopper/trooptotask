@@ -289,6 +289,24 @@ describe('ImportFlow', () => {
 		await waitFor(() => expect(screen.queryByRole('button', { name: /Undo skip Lee, Kim/ })).toBeNull());
 	});
 
+	it('offers one Skip-and-import action only to a lane that opts in, and saves the rest from Review', async () => {
+		const optedIn = { ...personnelLane(), skipRowsNeedingFixes: true as const };
+		const view = render(Flow, { lane: personnelLane(), title: 'Import', eyebrow: 'Test' });
+		await toReview(['Smith,Alex,SGT,', 'Jones,Pat,Sgt.,']);
+		expect(screen.queryByRole('button', { name: /and import the rest/ })).toBeNull();
+		expect(importButton().disabled).toBe(true);
+		view.unmount();
+
+		render(Flow, { lane: optedIn, title: 'Import', eyebrow: 'Test' });
+		await toReview(['Smith,Alex,SGT,', 'Jones,Pat,Sgt.,']);
+		await fireEvent.click(screen.getByRole('button', { name: /^Skip 1 row needing a fix and import the rest/ }));
+
+		const metric = async (label: string) =>
+			(await screen.findByText(label)).closest('[data-slot="fact-metric"]')?.textContent;
+		expect(await metric('Added')).toContain('1');
+		expect(await metric('Skipped')).toContain('1');
+	});
+
 	it('reports every distinct outcome on Done, including rows the server did not confirm', async () => {
 		const lane = {
 			...personnelLane(),

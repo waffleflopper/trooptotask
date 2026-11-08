@@ -461,7 +461,6 @@ describe('PersonnelPageView', () => {
 			firstName: 'Luis',
 			slug: 'garcia-luis'
 		};
-		const writtenSearch = (call: number) => (replaceStateMock.mock.calls[call][0] as URL).searchParams.get('q');
 
 		beforeEach(() => personnelStore.load([...personnel, garcia], 'org-1'));
 

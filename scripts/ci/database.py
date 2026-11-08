@@ -169,6 +169,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261105190000_audit_rate_limited_retention.sql",
     "20261105190100_audit_completion_move_previous_person.sql",
     "20261108000100_account_level_notification_types.sql",
+    "20261108120000_archive_catalog_types.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
@@ -187,6 +188,7 @@ POST_TREE_SQL_TESTS = (
     "audit_critical_task_imports.sql",
     "audit_completion_moves.sql",
     "notifications_account_level_types.sql",
+    "archive_catalog_types.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

@@ -102,7 +102,7 @@ scoped actors retain their baseline grants.
    or the access result the actor actually gets, with Add Person absent. Add Person appears in that state only for an
    actor who can add; record per actor. No match: type a name nobody has and require `No personnel match your search.`;
    clear with focused `Control+A`/`Backspace`. Restricted: sign in as `ictViewer` (Personnel none) and require
-   `Access Restricted` with the permission message and no roster. Disabled: select a row, choose `Archive…` and confirm
+   `Access Restricted` naming `Personnel View` access, `Back to <Organization> home` and no roster. Disabled: select a row, choose `Archive…` and confirm
    while `arm-hold-fail PAGE personnel/archive-batch` holds the batch: the dialog's `Cancel` and `Archive` and every
    `Selected people` action but `Clear selection` disable until release. Loading: navigate to Personnel and capture
    its roster skeleton while the deferred workspace loads. No dedicated control holds this workspace read; if it

@@ -7,25 +7,28 @@ import {
 	acceptDashboardInvitation,
 	createSupabaseDashboardOrgAccessPort,
 	declineDashboardInvitation,
-	loadDashboardOrgAccess
+	loadDashboardOrgAccess,
+	readLastOrganizationId
 } from '$features/organization/index.server';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const user = locals.user;
 	if (!user) throw redirect(303, '/auth/login');
 
 	const result = await loadDashboardOrgAccess(createSupabaseDashboardOrgAccessPort(locals), {
 		userId: user.id,
 		email: user.email,
-		forceShow: url.searchParams.get('show') === 'all'
+		forceShow: url.searchParams.get('show') === 'all',
+		lastOrganizationId: readLastOrganizationId(cookies, user.id)
 	});
 
-	if (result.redirectTo) {
-		throw redirect(303, result.redirectTo);
+	if (result.landing.kind === 'redirect') {
+		throw redirect(303, result.landing.to);
 	}
 
 	return {
 		userEmail: user.email ?? null,
+		noOrganization: result.landing.kind === 'no-organization',
 		organizations: result.organizations,
 		pendingInvitations: result.pendingInvitations
 	};

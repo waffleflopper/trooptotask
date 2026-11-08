@@ -11,6 +11,10 @@ vi.mock('$features/training', async (importOriginal) => ({
 
 import Layout from './+layout.svelte';
 
+vi.mock('$app/state', () => ({
+	page: { data: { shell: { org: { id: 'org-1', name: 'Alpha Company', urlSegment: 'alpha' } } } }
+}));
+
 afterEach(() => {
 	cleanup();
 	hydrateMock.mockClear();
@@ -30,7 +34,7 @@ it('shows a streamed Training denial without hydrating or rendering the workspac
 	});
 
 	await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
-	expect(screen.getByText(/permission to view training/)).toBeTruthy();
+	expect(screen.getByText(/You need Training View access/)).toBeTruthy();
 	expect(screen.queryByText('Training child')).toBeNull();
 	expect(hydrateMock).not.toHaveBeenCalled();
 });

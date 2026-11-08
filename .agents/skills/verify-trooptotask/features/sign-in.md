@@ -12,6 +12,8 @@ form and the reviewed access/help paths without an account.
 - `sign-out`: leaving the session returns to the public site.
 - `account-profile`: Account opens Profile inside the Organization frame; its rank list and saved rank persist
   independently of any Organization rank catalog.
+- `sign-in-landing`: sign-in opens the Organization the person used last, the Organizations list when that is unclear,
+  and a waiting page when they have no Organization. Steps are under [Sign-in landing](#sign-in-landing).
 - `sign-in-error`: an incorrect password leaves the form available with a clear error; a transport failure offers a
   retry.
 
@@ -71,6 +73,32 @@ Keep public and signed-in pages in separate contexts.
    `Re-enter your password to confirm your identity and continue.` In a separate public context open
    `/auth/login?error=auth_link_invalid`: the form shows the invalid-or-expired email-link notice and directs the
    visitor to request a fresh account setup link or password reset email.
+
+## Sign-in landing
+
+Sign-in redirects to `/dashboard`, which decides where the person lands, first match wins: `?show=all` shows the list; any
+pending invitation shows the list with `Invitations` first; exactly one Organization opens it; the Organization recorded
+in the `last_organization` cookie opens when it is still in the person's list; no Organization shows `Waiting for an
+invitation`; anything else shows the list. Opening any Organization writes the cookie as `<userId>:<organizationId>`
+(`httpOnly`, `SameSite=Lax`, path `/`, one year). `$V actor ROLE dashboard` opens `/dashboard?show=all`, so use
+`navigate_page` to plain `/dashboard` for each step, or `$V actor --form ROLE dashboard` to submit the real form.
+
+1. **No Organization.** `$V actor orgCreator dashboard`, then navigate to `/dashboard`. Expect the title
+   `Organizations - Troop to Task`, the heading `Waiting for an invitation`, the signed-in email, a `Create an
+Organization` link to `/org/new` and no `Member of` list. Capture at 390x844 and 1280x800.
+2. **One Organization.** `$V actor manager dashboard`, then navigate to `/dashboard`: the URL becomes
+   `/org/<orgId>` and the title reads `Verification Organization A — Dashboard`.
+3. **Several, no cookie.** `$V actor calendarSwitch dashboard`, then `/dashboard`: the list with A and B under `Member
+of`.
+4. **Several, last visited.** Open B from the list, navigate to `/dashboard`: B opens. Visit A, navigate to `/dashboard`:
+   A opens. `/dashboard?show=all` still shows the list, and the `Switch organization` menu's `Manage Organizations`
+   reaches it.
+5. **Stale cookie.** The cookie is `httpOnly`, so set it through DevTools `Network.setCookie` on this context's
+   `127.0.0.1` origin. A value naming an Organization the person is not in (`<theirUserId>:<random uuid>`) and a value
+   naming another person (`<otherUserId>:<A's id>`) both land on the list. Restoring a valid value by opening B lands in B.
+6. **Invitations first.** As `orgOwner` invite `orgInvitee` from Settings → Members, then as `orgInvitee` navigate to
+   `/dashboard`: the list with `Invitations` and `Accept`/`Decline invitation to Verification Organization A`, not a
+   redirect. Capture at 390x844 and 1280x800. Revoke the invitation afterwards.
 
 ## Gotchas
 

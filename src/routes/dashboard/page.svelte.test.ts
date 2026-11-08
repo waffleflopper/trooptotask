@@ -26,7 +26,13 @@ const invitation = {
 };
 
 function invitationData(pendingInvitations = [invitation]) {
-	return { viewer: null, userEmail: 'member@example.com', organizations: [], pendingInvitations };
+	return {
+		viewer: null,
+		userEmail: 'member@example.com',
+		noOrganization: false,
+		organizations: [],
+		pendingInvitations
+	};
 }
 
 async function respond(action: string, result: ActionResult, applyForm: (form: unknown) => Promise<void>) {
@@ -57,6 +63,7 @@ describe('/dashboard page', () => {
 				data: {
 					viewer: null,
 					userEmail: null,
+					noOrganization: false,
 					organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'admin', urlSegment: '1-11-bde' }],
 					pendingInvitations: []
 				},
@@ -66,6 +73,26 @@ describe('/dashboard page', () => {
 
 		expect(screen.getByRole('link', { name: /Alpha Company/ }).getAttribute('href')).toBe('/org/1-11-bde');
 		expect(screen.getAllByRole('main')).toHaveLength(1);
+	});
+
+	it('tells someone with no Organization to ask for an invite sent to their email, with creating as the alternative', async () => {
+		const { default: Page } = await import('./+page.svelte');
+		render(Page, {
+			props: {
+				data: {
+					viewer: null,
+					userEmail: 'soldier@example.com',
+					noOrganization: true,
+					organizations: [],
+					pendingInvitations: []
+				},
+				form: null
+			}
+		});
+
+		expect(screen.getAllByText('soldier@example.com').length).toBeGreaterThan(0);
+		expect(screen.getByRole('link', { name: 'Create an Organization' }).getAttribute('href')).toBe('/org/new');
+		expect(screen.queryByRole('heading', { name: 'Member of' })).toBeNull();
 	});
 
 	it('names invitation actions after their Organization', async () => {
@@ -235,7 +262,10 @@ describe('/dashboard page', () => {
 		it('narrows the organization links as the filter changes and names a filter that matches nothing', async () => {
 			const { default: Page } = await import('./+page.svelte');
 			render(Page, {
-				props: { data: { viewer: null, userEmail: null, organizations, pendingInvitations: [] }, form: null }
+				props: {
+					data: { viewer: null, userEmail: null, noOrganization: false, organizations, pendingInvitations: [] },
+					form: null
+				}
 			});
 			const filter = within(chooser()).getByRole('searchbox', { name: 'Filter organizations' });
 
@@ -252,7 +282,10 @@ describe('/dashboard page', () => {
 			const widths = stubToolbarWidths();
 			const { default: Page } = await import('./+page.svelte');
 			render(Page, {
-				props: { data: { viewer: null, userEmail: null, organizations, pendingInvitations: [] }, form: null }
+				props: {
+					data: { viewer: null, userEmail: null, noOrganization: false, organizations, pendingInvitations: [] },
+					form: null
+				}
 			});
 			await widths.foldAll();
 			expect(screen.queryByRole('searchbox', { name: 'Filter organizations' })).toBeNull();

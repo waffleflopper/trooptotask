@@ -43,7 +43,7 @@ describe('dashboard page server', () => {
 		loadDashboardOrgAccessMock.mockResolvedValue({
 			organizations: [],
 			pendingInvitations: [],
-			redirectTo: null
+			landing: { kind: 'list' }
 		});
 		acceptDashboardInvitationMock.mockResolvedValue({ success: true, accepted: true });
 		declineDashboardInvitationMock.mockResolvedValue({ success: true, declined: true });
@@ -108,36 +108,60 @@ describe('dashboard page server', () => {
 		expect(loadDashboardOrgAccessMock).not.toHaveBeenCalled();
 	});
 
-	it('redirects to the use-case-provided destination when dashboard access resolves to a redirect', async () => {
+	it('redirects to the destination the landing decision chose', async () => {
 		loadDashboardOrgAccessMock.mockResolvedValue({
 			organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'member' }],
 			pendingInvitations: [],
-			redirectTo: '/org/org-1'
+			landing: { kind: 'redirect', to: '/org/org-1' }
 		});
 
 		await expect(
 			load({
-				locals: {
-					user: { id: 'user-1', email: 'USER@EXAMPLE.COM' }
-				},
+				locals: { user: { id: 'user-1', email: 'USER@EXAMPLE.COM' } },
+				cookies: { get: () => undefined },
 				url: new URL('http://localhost/dashboard')
 			} as never)
-		).rejects.toMatchObject({
-			status: 303,
-			location: '/org/org-1'
-		});
+		).rejects.toMatchObject({ status: 303, location: '/org/org-1' });
+	});
 
-		expect(createSupabaseDashboardOrgAccessPortMock).toHaveBeenCalledWith({
-			user: { id: 'user-1', email: 'USER@EXAMPLE.COM' }
+	it('hands the decision only the last Organization remembered for the signed-in person', async () => {
+		const cookie = (value: string) => ({ get: () => value });
+		const call = (value: string, userId: string) =>
+			load({
+				locals: { user: { id: userId, email: 'user@example.com' } },
+				cookies: cookie(value),
+				url: new URL('http://localhost/dashboard?show=all')
+			} as never);
+
+		await call('user-1:org-2', 'user-1');
+		await call('user-1:org-2', 'user-2');
+
+		expect(loadDashboardOrgAccessMock.mock.calls.map(([, input]) => input.lastOrganizationId)).toEqual(['org-2', null]);
+		expect(loadDashboardOrgAccessMock.mock.calls[0][1]).toMatchObject({
+			userId: 'user-1',
+			email: 'user@example.com',
+			forceShow: true
 		});
-		expect(loadDashboardOrgAccessMock).toHaveBeenCalledWith(
-			{ kind: 'dashboard-port' },
-			{
-				userId: 'user-1',
-				email: 'USER@EXAMPLE.COM',
-				forceShow: false
-			}
-		);
+	});
+
+	it.each([
+		{ landing: { kind: 'list' }, noOrganization: false },
+		{ landing: { kind: 'no-organization' }, noOrganization: true }
+	])('renders the $landing.kind landing in place', async ({ landing, noOrganization }) => {
+		loadDashboardOrgAccessMock.mockResolvedValue({ organizations: [], pendingInvitations: [], landing });
+
+		await expect(
+			load({
+				locals: { user: { id: 'user-1', email: 'user@example.com' } },
+				cookies: { get: () => undefined },
+				url: new URL('http://localhost/dashboard')
+			} as never)
+		).resolves.toEqual({
+			userEmail: 'user@example.com',
+			noOrganization,
+			organizations: [],
+			pendingInvitations: []
+		});
 	});
 
 	it('returns a 400 action failure when invitationId is missing', async () => {

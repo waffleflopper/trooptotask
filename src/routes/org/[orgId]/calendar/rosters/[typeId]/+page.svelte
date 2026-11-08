@@ -49,7 +49,7 @@
 {#if current?.error}
 	<WorkspaceLoadError subject="DA 6" />
 {:else if current?.restricted}
-	<WorkspaceAccessRestricted subject="the DA 6" />
+	<WorkspaceAccessRestricted lane="calendar" level="view" />
 {:else if data.setup}
 	<Da6SetupPage
 		orgName={data.shell.org.name}

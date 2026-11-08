@@ -6,6 +6,10 @@
 	// A failed client-side data refresh can land here with a non-error status, so only a real 4xx is final.
 	const label = $derived(page.status >= 400 ? String(page.status) : 'Error');
 	const retryable = $derived(page.status < 400 || page.status >= 500);
+	// Signed in, home is the last Organization (or the list); inside an Organization it is that Organization.
+	const homeHref = $derived(
+		page.data.shell ? `/org/${page.data.shell.org.urlSegment}` : page.data.viewer ? '/dashboard' : '/'
+	);
 </script>
 
 <svelte:head>
@@ -30,7 +34,7 @@
 			{#if retryable}
 				<Button variant="outline" onclick={() => window.location.reload()}>Try again</Button>
 			{/if}
-			<Button href="/">Go Home</Button>
+			<Button href={homeHref}>Go Home</Button>
 		</Empty.Content>
 	</Empty.Root>
 </main>

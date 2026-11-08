@@ -74,16 +74,20 @@ export interface DashboardOrgAccessPort {
 	declineInvitation(input: DashboardInvitationDeclineInput): Promise<DashboardInvitationDeclineResult>;
 }
 
+export type DashboardLanding = { kind: 'redirect'; to: string } | { kind: 'list' } | { kind: 'no-organization' };
+
 export interface DashboardOrgAccessResult {
 	organizations: DashboardOrganizationSummary[];
 	pendingInvitations: DashboardPendingInvitationSummary[];
-	redirectTo: string | null;
+	landing: DashboardLanding;
 }
 
 interface DashboardOrgAccessInput {
 	userId: string;
 	email?: string | null;
 	forceShow: boolean;
+	/** The Organization this person opened last, already matched to them; null when there is none. */
+	lastOrganizationId: string | null;
 }
 
 interface AcceptDashboardInvitationPorts {
@@ -122,27 +126,32 @@ export async function loadDashboardOrgAccess(
 		port.listPendingInvitationsForEmail(normalizedEmail)
 	]);
 
-	if (!input.forceShow && organizations.length === 1 && pendingInvitations.length === 0) {
-		return {
-			organizations,
-			pendingInvitations,
-			redirectTo: `/org/${organizations[0].urlSegment ?? organizations[0].id}`
-		};
-	}
-
-	if (!input.forceShow && organizations.length === 0 && pendingInvitations.length === 0) {
-		return {
-			organizations,
-			pendingInvitations,
-			redirectTo: '/org/new'
-		};
-	}
-
 	return {
 		organizations,
 		pendingInvitations,
-		redirectTo: null
+		landing: chooseDashboardLanding({
+			forceShow: input.forceShow,
+			organizations,
+			pendingInvitations,
+			lastOrganizationId: input.lastOrganizationId
+		})
 	};
+}
+
+/** Where sign-in lands, first match wins. Invitations always get seen before any Organization opens. */
+export function chooseDashboardLanding(input: {
+	forceShow: boolean;
+	organizations: DashboardOrganizationSummary[];
+	pendingInvitations: DashboardPendingInvitationSummary[];
+	lastOrganizationId: string | null;
+}): DashboardLanding {
+	const { organizations } = input;
+	if (input.forceShow || input.pendingInvitations.length > 0) return { kind: 'list' };
+	if (organizations.length === 0) return { kind: 'no-organization' };
+	const target =
+		organizations.length === 1 ? organizations[0] : organizations.find((org) => org.id === input.lastOrganizationId);
+	if (!target) return { kind: 'list' };
+	return { kind: 'redirect', to: `/org/${target.urlSegment ?? target.id}` };
 }
 
 export async function acceptDashboardInvitation(

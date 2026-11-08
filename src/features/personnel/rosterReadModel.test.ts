@@ -149,6 +149,17 @@ describe('createRosterReadModel', () => {
 		expect(roster.full({ search: 'Casey Adams' }).personnel.map((person) => person.id)).toEqual(['unassigned-1']);
 	});
 
+	it('matches search words in any order across rank, names and Group, and drops a Person when one word matches nothing', () => {
+		const roster = createRosterReadModel({ personnel, groups: [], pinnedGroupIds: [], fallbackGroupName: 'Test Unit' });
+		const ids = (search: string) => roster.full({ search }).personnel.map((person) => person.id);
+
+		expect(ids('SGT Smith')).toEqual(['alpha-1']);
+		expect(ids('Smith Alice')).toEqual(['alpha-1']);
+		expect(ids('smith, alice')).toEqual(['alpha-1']);
+		expect(ids('smith alpha leader')).toEqual(['alpha-1']);
+		expect(ids('smith zzz')).toEqual([]);
+	});
+
 	it("orders Groups by the viewer's pins, then the Organization's Group order, then Unassigned", () => {
 		const named = (id: string, name: string) => makePerson({ id, groupId: `group-${id}`, groupName: name });
 		const roster = createRosterReadModel({

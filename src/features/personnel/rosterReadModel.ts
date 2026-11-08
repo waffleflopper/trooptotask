@@ -3,6 +3,7 @@ import type { Group } from './group.types';
 import { buildGroupTree, type GroupTree } from './groupTree';
 import { comparePersonnelByRankThenName } from './personnelRank';
 import type { Personnel } from './personnel.types';
+import { matchesSearchTokens } from './personSearch';
 
 export interface PersonnelGroup {
 	/** `null` is the ungrouped band. */
@@ -114,22 +115,10 @@ export function rosterGroupFilterValue(group: PersonnelGroup): string {
 }
 
 export function matchesRosterSearch(person: Personnel, groupName: string, query: string): boolean {
-	const normalizedQuery = normalizeRosterSearchTerm(query);
-	if (!normalizedQuery) return true;
-
-	const searchableValues = [
-		person.rank,
-		person.mos,
-		person.clinicRole,
-		person.groupName,
-		groupName,
-		person.firstName,
-		person.lastName,
-		`${person.firstName} ${person.lastName}`,
-		`${person.lastName}, ${person.firstName}`
-	];
-
-	return searchableValues.some((value) => normalizeRosterSearchTerm(value).includes(normalizedQuery));
+	return matchesSearchTokens(
+		[person.rank, person.mos, person.clinicRole, person.groupName, groupName, person.firstName, person.lastName],
+		query
+	);
 }
 
 export function formatRosterPersonDisplayName(person: Personnel | undefined, fallback = 'Unknown'): string {
@@ -196,10 +185,6 @@ function buildRosterGroupFilterOptions(groups: PersonnelGroup[], tree: GroupTree
 				count: group.personnel.length
 			}))
 	];
-}
-
-function normalizeRosterSearchTerm(value: string | null | undefined): string {
-	return value?.trim().toLowerCase() ?? '';
 }
 
 /** The Organization's Group order: `sortOrder`, then name, then id. */

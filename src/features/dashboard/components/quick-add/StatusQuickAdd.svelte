@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { page } from '$app/state';
 	import {
 		loadAvailabilityModal,
 		saveAvailabilityChange,
@@ -33,7 +34,13 @@
 		if (saving) return 'busy';
 		saving = true;
 		try {
-			return await saveAvailabilityChange(change, { orgId, isCurrent: () => active });
+			const pathname = page.url.pathname;
+			return await saveAvailabilityChange(change, {
+				orgId,
+				isCurrent: () => active,
+				// The dialog closes on save; Undo stays good for as long as the reader is still on this dashboard.
+				undo: { isCurrent: () => model.data.orgId === orgId && page.url.pathname === pathname }
+			});
 		} finally {
 			if (active) saving = false;
 		}

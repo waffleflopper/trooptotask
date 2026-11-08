@@ -5,6 +5,8 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
+	import type { ToastAction } from '$lib/stores/toast.svelte';
+	import { AVAILABILITY_UNDO_MS, type AvailabilityUndoChange } from '$features/calendar/availabilityUndo';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -40,15 +42,17 @@
 		orgId: string;
 		/** Reads the entries that overlap the chosen dates into the availability store. */
 		rangeCoordinator: CalendarRangeCoordinator;
-		/** Applies the status to the given people and resolves with the personnel ids that were inserted. */
+		/** Applies the status to the given people and resolves with the entries that were inserted. */
 		onApply: (
 			personnelIds: string[],
 			statusTypeId: string,
 			startDate: string,
 			endDate: string,
 			note: string | null
-		) => Promise<string[]>;
+		) => Promise<AvailabilityEntry[]>;
 		onComplete: () => void;
+		/** Builds the Undo for a success toast; without it the toast offers none. */
+		undoAction?: (change: AvailabilityUndoChange) => ToastAction;
 		/** People and dates a Tasking asks for; only those on this roster are selected. */
 		prefill?: AvailabilityPrefill | null;
 	}
@@ -61,6 +65,7 @@
 		rangeCoordinator,
 		onApply,
 		onComplete,
+		undoAction,
 		prefill = null
 	}: Props = $props();
 
@@ -145,7 +150,8 @@
 		try {
 			const people = batch;
 			const ids = people.map((p) => p.id);
-			const insertedIds = await onApply(ids, statusId, startDate, endDate, note.trim() || null);
+			const inserted = await onApply(ids, statusId, startDate, endDate, note.trim() || null);
+			const insertedIds = inserted.map((entry) => entry.personnelId);
 			if (insertedIds.length === 0) {
 				toastStore.error('Failed to apply status');
 				return;
@@ -159,7 +165,11 @@
 					`Applied status to ${insertedIds.length} of ${ids.length} people — the ${failed.length} who failed are still selected so you can retry`
 				);
 			} else {
-				toastStore.success(`Applied status to ${insertedIds.length} ${insertedIds.length === 1 ? 'person' : 'people'}`);
+				toastStore.success(
+					`Applied status to ${insertedIds.length} ${insertedIds.length === 1 ? 'person' : 'people'}`,
+					undoAction ? AVAILABILITY_UNDO_MS : undefined,
+					undoAction?.({ remove: inserted })
+				);
 				selection.clear();
 				onComplete();
 			}

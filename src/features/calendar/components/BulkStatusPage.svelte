@@ -20,6 +20,7 @@
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
+	import { availabilityUndoAction, type AvailabilityUndoChange } from '$features/calendar/availabilityUndo';
 	import {
 		beginCalendarRangeRead,
 		loadCalendarRange,
@@ -124,16 +125,27 @@
 		startDate: string,
 		endDate: string,
 		note: string | null
-	): Promise<string[]> {
+	): Promise<AvailabilityEntry[]> {
 		applyingOrgId = data.orgId;
 		applyingGeneration = formGeneration;
-		const inserted = await availabilityStore.addBatch(
+		return availabilityStore.addBatch(
 			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note).map((record) => ({
 				...record,
 				setForTaskingId: prefill?.taskingId ?? null
 			}))
 		);
-		return inserted.map((entry) => entry.personnelId);
+	}
+
+	// Undo belongs to this page and Organization: leaving either, or switching Organizations, turns it off.
+	// A prefilled Add returns to its Tasking on its own, so its Undo follows the Organization alone.
+	function undoAction(change: AvailabilityUndoChange) {
+		const orgId = data.orgId;
+		const returnsToTasking = prefill !== null;
+		return availabilityUndoAction(change, {
+			orgId,
+			isCurrent: () => returnsToTasking || (active && data.orgId === orgId),
+			onUndone: refreshCalendar
+		});
 	}
 
 	function handleBulkRemove(ids: string[]) {
@@ -217,6 +229,7 @@
 						{rangeCoordinator}
 						onApply={handleBulkApply}
 						onComplete={handleAddComplete}
+						{undoAction}
 						{prefill}
 					/>
 				{/key}
@@ -229,6 +242,7 @@
 					loadAvailabilityRange={loadAvailabilityEntriesForRange}
 					onRemove={handleBulkRemove}
 					onComplete={refreshCalendar}
+					{undoAction}
 				/>
 			{/if}
 		</div>

@@ -10,6 +10,7 @@ import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader'
 import { rangeCoversSpan } from '$features/calendar/utils/calendarRange';
 import { rejectedRequestMessage, StoreRequestError, withinOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { availabilityUndoAction, AVAILABILITY_UNDO_MS, type AvailabilityUndoScope } from './availabilityUndo';
 
 /** `busy` means another change was still settling, so this one was not sent. `stale` means the Organization or access changed. */
 export type AvailabilityOutcome = 'saved' | 'not-saved' | 'unconfirmed' | 'stale' | 'busy';
@@ -18,6 +19,8 @@ export interface AvailabilitySaveScope {
 	readonly orgId: string;
 	/** False once the caller's Organization or access has moved on; a stale save stays silent. */
 	readonly isCurrent: () => boolean;
+	/** For a caller that closes right after saving: where Undo still applies, and what to refresh after it. */
+	readonly undo?: Pick<AvailabilityUndoScope, 'isCurrent' | 'onUndone'>;
 }
 
 /** Writes one change through the shared availability store; when the reply is lost, re-reads the dates to learn whether it landed. */
@@ -26,16 +29,16 @@ export async function saveAvailabilityChange(
 	scope: AvailabilitySaveScope
 ): Promise<Exclude<AvailabilityOutcome, 'busy'>> {
 	const entriesBeforeWrite = [...availabilityStore.items];
-	let confirmed = false;
+	let written: WrittenAvailability = { confirmed: false };
 	let refusal: StoreRequestError | null = null;
 	try {
-		confirmed = await writeAvailability(change);
+		written = await writeAvailability(change);
 	} catch (error) {
 		if (error instanceof StoreRequestError && error.status >= 400 && error.status < 500) refusal = error;
 	}
 	if (!scope.isCurrent()) return 'stale';
-	if (confirmed) {
-		announceSaved(change);
+	if (written.confirmed) {
+		announceSaved(change, scope, written.created);
 		return 'saved';
 	}
 	// A 4xx means the server refused the write and saved nothing, so there is nothing to reconcile.
@@ -52,7 +55,7 @@ export async function saveAvailabilityChange(
 	}
 	if (reread === null) return 'stale';
 	const outcome = classifyAvailabilityWrite(change, entriesBeforeWrite, reread);
-	if (outcome === 'saved') announceSaved(change);
+	if (outcome === 'saved') announceSaved(change, scope);
 	else toastStore.error(`Could not ${change.kind === 'remove' ? 'remove' : 'save'} status. Try again.`);
 	return outcome;
 }
@@ -92,14 +95,22 @@ export async function reconcileAvailability(
 	}
 }
 
-async function writeAvailability(change: AvailabilityChange): Promise<boolean> {
+interface WrittenAvailability {
+	confirmed: boolean;
+	/** The saved entry of a create, which Undo takes back. */
+	created?: AvailabilityEntry;
+}
+
+async function writeAvailability(change: AvailabilityChange): Promise<WrittenAvailability> {
 	switch (change.kind) {
-		case 'create':
-			return (await availabilityStore.add(change.record)) !== null;
+		case 'create': {
+			const created = await availabilityStore.add(change.record);
+			return { confirmed: created !== null, ...(created ? { created } : {}) };
+		}
 		case 'update':
-			return availabilityStore.updateOrThrow(change.entry.id, change.changes);
+			return { confirmed: await availabilityStore.updateOrThrow(change.entry.id, change.changes) };
 		case 'remove':
-			return availabilityStore.removeBool(change.entry.id);
+			return { confirmed: await availabilityStore.removeBool(change.entry.id) };
 	}
 }
 
@@ -107,9 +118,17 @@ function shortDate(dateKey: string): string {
 	return new Date(`${dateKey}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function announceSaved(change: AvailabilityChange): void {
+function undoScopeOf(scope: AvailabilitySaveScope): AvailabilityUndoScope {
+	return { orgId: scope.orgId, ...(scope.undo ?? { isCurrent: scope.isCurrent }) };
+}
+
+function announceSaved(change: AvailabilityChange, scope: AvailabilitySaveScope, created?: AvailabilityEntry): void {
 	if (change.kind === 'remove') {
-		toastStore.success('Status removed');
+		toastStore.success(
+			'Status removed',
+			AVAILABILITY_UNDO_MS,
+			availabilityUndoAction({ restore: [change.entry] }, undoScopeOf(scope))
+		);
 		return;
 	}
 	const values = change.kind === 'create' ? change.record : change.changes;
@@ -118,5 +137,10 @@ function announceSaved(change: AvailabilityChange): void {
 		values.startDate === values.endDate
 			? shortDate(values.startDate)
 			: `${shortDate(values.startDate)}–${shortDate(values.endDate)}`;
-	toastStore.success(`${name} ${change.kind === 'create' ? 'added' : 'updated'} — ${dates}`, 5000);
+	const undo = created ? availabilityUndoAction({ remove: [created] }, undoScopeOf(scope)) : undefined;
+	toastStore.success(
+		`${name} ${change.kind === 'create' ? 'added' : 'updated'} — ${dates}`,
+		undo ? AVAILABILITY_UNDO_MS : 5000,
+		undo
+	);
 }

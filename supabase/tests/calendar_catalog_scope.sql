@@ -212,14 +212,19 @@ SELECT is((SELECT status_type_id FROM public.availability_entries
 SELECT is((SELECT name FROM public.special_days
   WHERE id = 'd5000000-0000-4000-8000-000000000601'),
   'Alpha Closure', 'catalog denial attempts leave the original closure intact');
+SELECT throws_ok($$ DELETE FROM public.status_types
+  WHERE id = 'd5000000-0000-4000-8000-000000000401' $$, '23503', NULL,
+  'a status type with availability rows can no longer be deleted');
+DELETE FROM public.availability_entries
+  WHERE id IN ('d5000000-0000-4000-8000-000000000701',
+               'd5000000-0000-4000-8000-000000000704');
 SELECT lives_ok($$ DELETE FROM public.status_types
   WHERE id = 'd5000000-0000-4000-8000-000000000401' $$,
-  'status deletion succeeds when every linked availability row belongs to its Organization');
+  'status deletion succeeds once its availability rows are gone');
 SELECT lives_ok($$ SET CONSTRAINTS availability_entries_status_type_id_fkey IMMEDIATE $$,
-  'scoped status cascade satisfies the deferred global reference');
-SELECT is((SELECT count(*)::integer FROM public.availability_entries
-  WHERE id IN ('d5000000-0000-4000-8000-000000000701',
-               'd5000000-0000-4000-8000-000000000704')), 0,
-  'same-Organization status deletion removes its linked availability rows');
+  'the deferred global reference holds after the deletion');
+SELECT is((SELECT count(*)::integer FROM public.status_types
+  WHERE id = 'd5000000-0000-4000-8000-000000000401'), 0,
+  'the status type is gone');
 SELECT * FROM finish();
 ROLLBACK;

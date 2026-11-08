@@ -232,6 +232,20 @@ SELECT results_eq(
   $$ VALUES (1, 1) $$,
   'archived types keep the position they had');
 
+-- Readiness reads only active Training types, and the archived type's completions stay out of the count.
+SELECT pg_temp.act_as('2');
+SET LOCAL ROLE authenticated;
+SELECT results_eq(
+  $$ WITH signal AS (
+       SELECT public.roster_signals(pg_temp.id('101'), '2026-10-23', '2025-11-01', ARRAY['training']) -> 'training' AS training
+     )
+     SELECT
+       (SELECT array_agg(t ->> 'id' ORDER BY t ->> 'id') FROM signal, jsonb_array_elements(training -> 'types') t),
+       (SELECT array_agg(c ->> 1 ORDER BY c ->> 1) FROM signal, jsonb_array_elements(training -> 'completions') c) $$,
+  $$ VALUES (ARRAY[pg_temp.id('301')::text, pg_temp.id('304')::text], ARRAY[pg_temp.id('301')::text]) $$,
+  'the roster signal lists active Training types and their completions only');
+RESET ROLE;
+
 -- Deleting an Organization still removes its types together with their records.
 SELECT set_config('request.jwt.claim.sub', pg_temp.id('1')::text, true);
 DELETE FROM public.organizations WHERE id = pg_temp.id('101');

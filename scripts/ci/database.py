@@ -189,6 +189,7 @@ POST_TREE_SQL_TESTS = (
     "audit_completion_moves.sql",
     "notifications_account_level_types.sql",
     "archive_catalog_types.sql",
+    "audit_availability_entries.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -280,7 +281,6 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
-    "audit_availability_entries.sql",
     "audit_log_search.sql",
     "personnel_dod_id.sql",
     "personnel_dod_id_occupancy.sql",

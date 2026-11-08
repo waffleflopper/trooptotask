@@ -11995,7 +11995,7 @@ CREATE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_si
           'exempt_personnel_ids', t.exempt_personnel_ids, 'is_optional', t.is_optional
         ) ORDER BY t.sort_order, t.id)
         FROM public.training_types t
-        WHERE t.organization_id = p_organization_id
+        WHERE t.organization_id = p_organization_id AND t.archived_at IS NULL
           AND (SELECT public.member_access_has_capability(p_organization_id, 'training', 'view'))
       ), '[]'::jsonb),
       'completions', COALESCE((
@@ -12003,6 +12003,7 @@ CREATE FUNCTION public.roster_signals(p_organization_id uuid, p_as_of date, p_si
           ORDER BY pt.personnel_id, pt.training_type_id)
         FROM public.personnel_trainings pt
         JOIN training_cohort c ON c.id = pt.personnel_id
+        JOIN public.training_types t ON t.id = pt.training_type_id AND t.archived_at IS NULL
         WHERE pt.organization_id = p_organization_id
       ), '[]'::jsonb)
     ) END,

@@ -177,4 +177,22 @@ describe('availabilityUndoAction', () => {
 		expect(ids()).toEqual(['kept', 'added']);
 		expect(success).not.toHaveBeenCalled();
 	});
+
+	it('sends more than one batch of entries in turns and applies what the earlier turns undid when a later one fails', async () => {
+		const many = Array.from({ length: 501 }, (_, index) => entry(`bulk-${index}`));
+		availabilityStore.load([entry('kept'), ...many], 'org1');
+		fetchMock
+			.mockResolvedValueOnce(
+				reply({ removedIds: many.slice(0, 500).map((item) => item.id), restoredIds: [], changedIds: [] })
+			)
+			.mockResolvedValueOnce(reply({ message: 'Server unavailable' }, 503));
+		const error = vi.spyOn(toastStore, 'error');
+
+		availabilityUndoAction({ remove: many }, scope()).onClick();
+		await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+
+		expect(fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init.body)).remove.length)).toEqual([500, 1]);
+		expect(ids()).toEqual(['kept', 'bulk-500']);
+		expect(undone).toBe(1);
+	});
 });

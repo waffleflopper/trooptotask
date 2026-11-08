@@ -1,4 +1,4 @@
-import type { AvailabilityEntry } from '$features/calendar/contracts';
+import { AVAILABILITY_BATCH_LIMIT, type AvailabilityEntry } from '$features/calendar/contracts';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { buildRequestError, rejectedRequestMessage, stillInOrganizationLifetime } from '$lib/stores/core';
 import { toastStore, type ToastAction } from '$lib/stores/toast.svelte';
@@ -59,47 +59,66 @@ export function availabilityUndoAction(change: AvailabilityUndoChange, scope: Av
 
 async function undoAvailability(change: AvailabilityUndoChange, scope: AvailabilityUndoScope, here: () => boolean) {
 	const restore = 'restore' in change ? change.restore : [];
-	try {
-		const response = await fetch(`/org/${scope.orgId}/api/availability/undo`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify('restore' in change ? { restore: wire(restore) } : { remove: wire(change.remove) })
-		});
-		if (!response.ok) throw await buildRequestError(response, 'POST', 'availability/undo');
-		const { removedIds, restoredIds, changedIds } = replyOf(await response.json());
+	const key = 'restore' in change ? 'restore' : 'remove';
+	const entries = wire('restore' in change ? change.restore : change.remove);
+	const removedIds: string[] = [];
+	const restoredIds: string[] = [];
+	const changedIds: string[] = [];
+	let failure: unknown = null;
+	for (let start = 0; start < entries.length; start += AVAILABILITY_BATCH_LIMIT) {
 		if (!here()) return;
-		if (availabilityStore.orgId === scope.orgId) {
-			const removed = new Set(removedIds);
-			const restored = new Set(restoredIds);
-			if (removed.size) availabilityStore.removeLocalWhere((entry) => removed.has(entry.id));
-			if (restored.size) availabilityStore.appendLocal(restore.filter((entry) => restored.has(entry.id)));
+		try {
+			const response = await fetch(`/org/${scope.orgId}/api/availability/undo`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ [key]: entries.slice(start, start + AVAILABILITY_BATCH_LIMIT) })
+			});
+			if (!response.ok) throw await buildRequestError(response, 'POST', 'availability/undo');
+			const reply = replyOf(await response.json());
+			removedIds.push(...reply.removedIds);
+			restoredIds.push(...reply.restoredIds);
+			changedIds.push(...reply.changedIds);
+		} catch (error) {
+			failure = error;
+			break;
 		}
-		if (removedIds.length || restoredIds.length) scope.onUndone?.();
-		const changed = changedIds.length
-			? `${plural(changedIds.length, '1 status', 'statuses')} changed since and ${changedIds.length === 1 ? 'was' : 'were'} left as ${changedIds.length === 1 ? 'it is' : 'they are'}`
-			: undefined;
-		if (removedIds.length)
-			toastStore.success(
-				plural(removedIds.length, 'Status removed again', 'statuses removed again'),
-				undefined,
-				undefined,
-				changed
-			);
-		else if (restoredIds.length)
-			toastStore.success(
-				plural(restoredIds.length, 'The removed status is back', 'removed statuses are back'),
-				undefined,
-				undefined,
-				changed
-			);
-		else toastStore.warning('Nothing was undone', undefined, undefined, changed);
-	} catch (error) {
-		if (here())
-			toastStore.error(
-				'Undo did not go through',
-				undefined,
-				undefined,
-				rejectedRequestMessage(error, 'Nothing changed. Try again in a moment.')
-			);
 	}
+	if (!here()) return;
+	if (availabilityStore.orgId === scope.orgId) {
+		const removed = new Set(removedIds);
+		const restored = new Set(restoredIds);
+		if (removed.size) availabilityStore.removeLocalWhere((entry) => removed.has(entry.id));
+		if (restored.size) availabilityStore.appendLocal(restore.filter((entry) => restored.has(entry.id)));
+	}
+	if (removedIds.length || restoredIds.length) scope.onUndone?.();
+	if (failure) {
+		const done = removedIds.length + restoredIds.length;
+		toastStore.error(
+			'Undo did not go through',
+			undefined,
+			undefined,
+			done
+				? `${plural(done, '1 status was', 'statuses were')} undone before it stopped. Check the calendar before trying again.`
+				: rejectedRequestMessage(failure, 'Nothing changed. Try again in a moment.')
+		);
+		return;
+	}
+	const changed = changedIds.length
+		? `${plural(changedIds.length, '1 status', 'statuses')} changed since and ${changedIds.length === 1 ? 'was' : 'were'} left as ${changedIds.length === 1 ? 'it is' : 'they are'}`
+		: undefined;
+	if (removedIds.length)
+		toastStore.success(
+			plural(removedIds.length, 'Status removed again', 'statuses removed again'),
+			undefined,
+			undefined,
+			changed
+		);
+	else if (restoredIds.length)
+		toastStore.success(
+			plural(restoredIds.length, 'The removed status is back', 'removed statuses are back'),
+			undefined,
+			undefined,
+			changed
+		);
+	else toastStore.warning('Nothing was undone', undefined, undefined, changed);
 }

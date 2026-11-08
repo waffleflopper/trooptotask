@@ -229,7 +229,8 @@
 				toastStore.success(
 					[
 						archived > 0 && `${archived} personnel archived`,
-						requested > 0 && `${requested} archival requests submitted for admin approval`
+						requested > 0 &&
+							`${requested} archival ${requested === 1 ? 'request' : 'requests'} submitted for admin approval`
 					]
 						.filter(Boolean)
 						.join(' · '),

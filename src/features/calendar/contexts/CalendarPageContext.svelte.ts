@@ -1,3 +1,4 @@
+import { page } from '$app/state';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
@@ -449,8 +450,10 @@ export class CalendarPageContext {
 		const orgId = this.#data.orgId;
 		const accessKey = this.#calendarAccessKey();
 		const isCurrent = () => this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey;
+		const pathname = page.url.pathname;
+		const undo = { isCurrent: () => isCurrent() && page.url.pathname === pathname };
 		try {
-			const outcome = await saveAvailabilityChange(change, { orgId, isCurrent });
+			const outcome = await saveAvailabilityChange(change, { orgId, isCurrent, undo });
 			const statusTypeId = change.kind === 'create' ? change.record.statusTypeId : null;
 			if (outcome === 'saved' && statusTypeId !== null && statusTypeId !== this.#lastStatusTypeId && isCurrent()) {
 				this.#lastStatusTypeId = statusTypeId;

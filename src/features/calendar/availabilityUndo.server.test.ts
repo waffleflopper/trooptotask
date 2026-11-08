@@ -135,6 +135,17 @@ describe('undoAvailabilityChange: restore (undo of a removal)', () => {
 
 		expect(result).toEqual({ removedIds: [], restoredIds: [ENTRY_1], changedIds: [] });
 	});
+
+	it('restores one Person’s entry when only another Person in the same batch has the status again', async () => {
+		const ctx = context();
+		ctx.store.seed('availability_entries', [row(ENTRY_3)]);
+
+		const result = await undoAvailabilityChange(ctx, {
+			restore: [entry(ENTRY_1), entry(ENTRY_2, { personnelId: PERSON_B })]
+		});
+
+		expect(result).toEqual({ removedIds: [], restoredIds: [ENTRY_2], changedIds: [ENTRY_1] });
+	});
 });
 
 describe('undoAvailabilityChange: access and input', () => {

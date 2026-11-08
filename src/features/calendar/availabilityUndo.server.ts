@@ -93,6 +93,7 @@ export async function undoAvailabilityChange(
 			!overlapping.some(
 				(other) =>
 					other.id !== entry.id &&
+					other.personnelId === entry.personnelId &&
 					rangesOverlap(other.startDate, other.endDate, entry.startDate, entry.endDate) &&
 					other.statusTypeId === entry.statusTypeId
 			)

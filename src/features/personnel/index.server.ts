@@ -41,7 +41,9 @@ export {
 	setGroupOrder,
 	deleteGroup,
 	moveGroupMembers,
-	type GroupMembershipResult
+	undoGroupMembers,
+	type GroupMembershipResult,
+	type GroupMembershipUndoResult
 } from './groupOperations.server';
 export { setPersonnelField } from './personnelFieldBulk.server';
 export { pinGroup, unpinGroup } from './pinnedGroupOperations.server';

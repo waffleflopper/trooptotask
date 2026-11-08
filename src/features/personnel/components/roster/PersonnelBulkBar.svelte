@@ -11,7 +11,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
-	import { toastStore } from '$lib/stores/toast.svelte';
+	import { toastStore, type ToastAction } from '$lib/stores/toast.svelte';
 	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { PersonnelBulkField, PersonnelFieldChange } from '../../contracts';
@@ -21,7 +21,7 @@
 	import type { ComposerKind } from '../../rosterComposer';
 	import { downloadRosterExport, rosterExportFilename, rosterExportRows } from '../../rosterExport';
 	import { personnelStore } from '../../stores/personnel.svelte';
-	import { moveGroupMembers } from '../../utils/moveGroupMembers';
+	import { moveGroupMembers, undoGroupMoves, type GroupMoveUndo } from '../../utils/moveGroupMembers';
 	import { saveRosterField } from '../../rosterFieldSave';
 	import { buildGroupTree } from '../../groupTree';
 
@@ -54,12 +54,18 @@
 	]);
 	const indent = ['', 'pl-6', 'pl-10'];
 
+	/** How long a move offers Undo. */
+	const MOVE_UNDO_MS = 10_000;
 	const count = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 	const skippedNote = (n: number) => (n > 0 ? ` · ${count(n)} skipped` : '');
 
 	async function moveTo(target: { id: string | null; name: string; path: string }): Promise<void> {
 		const orgId = ctx.orgId;
-		const submitted = writable.map((person) => ({ id: person.id, groupId: person.groupId }));
+		const submitted = writable.map((person) => ({
+			id: person.id,
+			groupId: person.groupId,
+			groupName: person.groupName
+		}));
 		const previousGroup = new Map(submitted.map((person) => [person.id, person.groupId]));
 		const selectedCount = people.length;
 		const inLifetime = stillInOrganizationLifetime();
@@ -85,12 +91,75 @@
 				(person) => ({ ...person, groupId: target.id, groupName: target.id ? target.name : '' })
 			);
 			const skipped = selectedCount - result.movedIds.length;
-			toastStore.success(`Moved ${count(result.movedIds.length)} to ${target.path}${skippedNote(skipped)}`);
+			const message = `Moved ${count(result.movedIds.length)} to ${target.path}${skippedNote(skipped)}`;
+			const undo = submitted.filter((person) => changed.has(person.id));
+			if (undo.length === 0) toastStore.success(message);
+			else
+				toastStore.success(
+					message,
+					MOVE_UNDO_MS,
+					undoMoveAction(
+						orgId,
+						undo.map((person) => ({ personnelId: person.id, fromGroupId: target.id, toGroupId: person.groupId })),
+						new Map(undo.map((person) => [person.id, person.groupName])),
+						isCurrent
+					)
+				);
 		} catch (caught) {
 			if (isCurrent()) toastStore.error(caught instanceof Error ? caught.message : 'Unable to move People.');
 		} finally {
 			if (isCurrent()) busy = false;
 		}
+	}
+
+	/** Puts the People a move changed back where they were, unless the roster or Organization has moved on. */
+	function undoMoveAction(
+		orgId: string,
+		moves: GroupMoveUndo[],
+		previousNames: ReadonlyMap<string, string>,
+		isCurrent: () => boolean
+	): ToastAction {
+		return {
+			label: 'Undo',
+			onClick: () => {
+				if (!isCurrent()) return;
+				void (async () => {
+					try {
+						const { restoredIds, changedIds } = await withinOrganizationLifetime(
+							undoGroupMoves(orgId, moves),
+							isCurrent
+						);
+						const restored = new Set(restoredIds);
+						const back = new Map(moves.map((move) => [move.personnelId, move]));
+						for (const id of restored)
+							ctx.peek.changed(id, { groupId: back.get(id)?.fromGroupId }, { groupId: back.get(id)?.toGroupId });
+						if (restored.size) void ctx.signals.refresh(restoredIds);
+						personnelStore.updateLocalWhere(
+							(person) => restored.has(person.id),
+							(person) => ({
+								...person,
+								groupId: back.get(person.id)?.toGroupId ?? null,
+								groupName: previousNames.get(person.id) ?? ''
+							})
+						);
+						const left = changedIds.length;
+						const note = left
+							? `${count(left)} changed since and ${left === 1 ? 'was' : 'were'} left where they are`
+							: undefined;
+						if (restored.size) toastStore.success(`Moved ${count(restored.size)} back`, undefined, undefined, note);
+						else toastStore.warning('Nothing was moved back', undefined, undefined, note);
+					} catch (caught) {
+						if (isCurrent())
+							toastStore.error(
+								'Undo did not go through',
+								undefined,
+								undefined,
+								caught instanceof Error ? caught.message : 'Nothing changed. Try again in a moment.'
+							);
+					}
+				})();
+			}
+		};
 	}
 
 	function setField(change: PersonnelFieldChange, ids: string[]) {

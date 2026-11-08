@@ -2888,6 +2888,117 @@ describe('PersonnelPageView', () => {
 			expect(personnelStore.getById('person-2')?.groupName).toBe('Bravo');
 		});
 
+		describe('Undo after Move to Group', () => {
+			const moveToBravo = async (names: string[]) => {
+				await selectBulkPersonnel(names);
+				await fireEvent.keyDown(bulkBar().getByRole('button', { name: 'Move to Group' }), { key: 'Enter' });
+				await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Bravo' }));
+				await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+			};
+			const undoOffered = () => toastSuccessMock.mock.calls[0][1] as { duration: number; action?: { onClick(): void } };
+
+			it('puts back only the People the move changed, reports the ones that changed since and rereads their signals', async () => {
+				const fetchMock = vi
+					.fn()
+					.mockResolvedValueOnce(Response.json({ movedIds: ['person-1', 'person-2', 'person-3'], unavailableIds: [] }))
+					.mockResolvedValueOnce(Response.json({ restoredIds: ['person-1'], changedIds: ['person-2'] }));
+				vi.stubGlobal('fetch', fetchMock);
+				const ctx = bulkCtx();
+				const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+				render(PersonnelPageView, { props: { ctx } });
+
+				await moveToBravo(['Select SGT Smith, Jane', 'Select SGT Young, Test', 'Select SGT Adams, Test']);
+				expect(undoOffered().duration).toBe(10_000);
+				undoOffered().action?.onClick();
+
+				await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(2));
+				const [url, init] = fetchMock.mock.calls[1];
+				expect(url).toBe('/org/org-1/api/personnel/group-membership/undo');
+				expect(JSON.parse(String(init.body))).toEqual({
+					moves: [
+						{ personnelId: 'person-1', fromGroupId: 'group-2', toGroupId: 'group-1' },
+						{ personnelId: 'person-2', fromGroupId: 'group-2', toGroupId: 'group-1' }
+					]
+				});
+				expect(personnelStore.getById('person-1')).toMatchObject({ groupId: 'group-1', groupName: 'Alpha' });
+				expect(personnelStore.getById('person-2')).toMatchObject({ groupId: 'group-2', groupName: 'Bravo' });
+				expect(personnelStore.getById('person-3')).toMatchObject({ groupId: 'group-2', groupName: 'Bravo' });
+				expect(refresh.mock.calls).toEqual([[['person-1', 'person-2']], [['person-1']]]);
+				expect(toastSuccessMock.mock.calls[1][1].description).toEqual(expect.any(String));
+			});
+
+			it('offers no Undo when the move changed nobody', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi.fn().mockResolvedValue(Response.json({ movedIds: ['person-3'], unavailableIds: [] }))
+				);
+				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+
+				await moveToBravo(['Select SGT Adams, Test']);
+
+				expect(undoOffered().action).toBeUndefined();
+			});
+
+			it('sends nothing and says nothing when Undo is pressed after the Organization was left', async () => {
+				const fetchMock = vi.fn().mockResolvedValue(Response.json({ movedIds: ['person-1'], unavailableIds: [] }));
+				vi.stubGlobal('fetch', fetchMock);
+				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+				await moveToBravo(['Select SGT Smith, Jane']);
+
+				endOrganizationLifetime();
+				undoOffered().action?.onClick();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+
+				expect(fetchMock).toHaveBeenCalledTimes(1);
+				expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+				expect(toastWarningMock).not.toHaveBeenCalled();
+				expect(toastErrorMock).not.toHaveBeenCalled();
+				expect(personnelStore.getById('person-1')?.groupName).toBe('Bravo');
+			});
+
+			it('writes nothing when the Organization is left while the Undo request runs', async () => {
+				const undoReply = deferred<Response>();
+				vi.stubGlobal(
+					'fetch',
+					vi
+						.fn()
+						.mockResolvedValueOnce(Response.json({ movedIds: ['person-1'], unavailableIds: [] }))
+						.mockReturnValueOnce(undoReply.promise)
+				);
+				const ctx = bulkCtx();
+				const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+				render(PersonnelPageView, { props: { ctx } });
+				await moveToBravo(['Select SGT Smith, Jane']);
+
+				undoOffered().action?.onClick();
+				endOrganizationLifetime();
+				undoReply.resolve(Response.json({ restoredIds: ['person-1'], changedIds: [] }));
+				await new Promise((resolve) => setTimeout(resolve, 0));
+
+				expect(personnelStore.getById('person-1')?.groupName).toBe('Bravo');
+				expect(refresh).toHaveBeenCalledTimes(1);
+				expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+			});
+
+			it('reports a refused Undo with its reason and keeps the move', async () => {
+				vi.stubGlobal(
+					'fetch',
+					vi
+						.fn()
+						.mockResolvedValueOnce(Response.json({ movedIds: ['person-1'], unavailableIds: [] }))
+						.mockResolvedValueOnce(Response.json({ message: 'Not allowed' }, { status: 403 }))
+				);
+				render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+				await moveToBravo(['Select SGT Smith, Jane']);
+
+				undoOffered().action?.onClick();
+
+				await waitFor(() => expect(toastErrorMock).toHaveBeenCalledTimes(1));
+				expect(toastErrorMock.mock.calls[0][1].description).toBe('Not allowed');
+				expect(personnelStore.getById('person-1')?.groupName).toBe('Bravo');
+			});
+		});
+
 		it('says nothing when an export fails after the Organization was left', async () => {
 			const download = deferred<void>();
 			downloadRosterExportMock.mockReturnValue(download.promise);

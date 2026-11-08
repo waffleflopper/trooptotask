@@ -37,7 +37,8 @@ const statusTypes: StatusType[] = [
 		textColor: '#ffffff',
 		shortLabel: null,
 		rosterEffect: 'A',
-		sortOrder: 0
+		sortOrder: 0,
+		archivedAt: null
 	},
 	{
 		id: 'school',
@@ -46,7 +47,8 @@ const statusTypes: StatusType[] = [
 		textColor: '#ffffff',
 		shortLabel: null,
 		rosterEffect: 'A',
-		sortOrder: 1
+		sortOrder: 1,
+		archivedAt: null
 	}
 ];
 

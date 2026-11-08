@@ -29,7 +29,7 @@ export const UNIT_COUNT_ROW_SOURCES = {
 	activePersonnel: { table: 'personnel', archived: false },
 	archivedPersonnel: { table: 'personnel', archived: true },
 	members: { table: 'organization_memberships' },
-	statusTypes: { table: 'status_types' },
+	statusTypes: { table: 'status_types', archived: false },
 	assignmentTypes: { table: 'assignment_types', archived: false },
 	specialDays: { table: 'special_days' },
 	trainingTypes: { table: 'training_types', archived: false },

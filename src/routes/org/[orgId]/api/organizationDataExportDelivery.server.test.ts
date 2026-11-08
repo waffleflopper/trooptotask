@@ -300,6 +300,7 @@ describe('retained Organization export projection', () => {
 			short_label: 'TD',
 			roster_effect: 'D',
 			sort_order: 2,
+			archived_at: null,
 			created_at: '2026-09-01T00:00:00Z'
 		};
 		const specialDay = {

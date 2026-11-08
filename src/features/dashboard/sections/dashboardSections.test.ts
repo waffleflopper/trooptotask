@@ -443,9 +443,10 @@ describe('the Quick add entries', () => {
 describe('the Quick add entries with archived types', () => {
 	const alpha = { id: 'p-alpha', groupId: 'alpha' } as Personnel;
 	const archivedAt = '2030-01-02T03:04:05Z';
-	const loadedWith = (trainingTypes: TrainingType[]): DashboardInputs => ({
+	const loadedWith = (statusTypes: StatusType[], trainingTypes: TrainingType[]): DashboardInputs => ({
 		...inputs,
 		personnel: [alpha],
+		statusTypes,
 		page: {
 			...inputs.page,
 			dashboard: { ...inputs.page.dashboard, data: { ...inputs.page.dashboard.data, trainingTypes } }
@@ -459,23 +460,29 @@ describe('the Quick add entries with archived types', () => {
 			createDashboardAccess(createClientAccess({ membershipRole: 'owner' }))
 		).quickAdd.map((entry) => entry.label);
 
-	it('drops Training record once every Training type is archived', () => {
+	it('drops Status and Training record once every type of that kind is archived', () => {
 		expect(
 			labels(
-				loadedWith([{ id: 'tt1', archivedAt, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType])
+				loadedWith(
+					[{ id: 'st1', archivedAt } as StatusType],
+					[{ id: 'tt1', archivedAt, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType]
+				)
 			)
-		).not.toContain('Training record');
+		).toEqual(['Start onboarding', 'Tasking']);
 	});
 
-	it('keeps it while one active Training type remains beside an archived one', () => {
+	it('keeps them while one active type remains beside an archived one', () => {
 		expect(
 			labels(
-				loadedWith([
-					{ id: 'tt1', archivedAt, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType,
-					{ id: 'tt2', archivedAt: null, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType
-				])
+				loadedWith(
+					[{ id: 'st1', archivedAt } as StatusType, { id: 'st2', archivedAt: null } as StatusType],
+					[
+						{ id: 'tt1', archivedAt, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType,
+						{ id: 'tt2', archivedAt: null, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType
+					]
+				)
 			)
-		).toContain('Training record');
+		).toEqual(['Status', 'Training record', 'Start onboarding', 'Tasking']);
 	});
 });
 

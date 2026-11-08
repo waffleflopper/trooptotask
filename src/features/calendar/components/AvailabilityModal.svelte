@@ -44,9 +44,14 @@
 	let note = $state('');
 	let uncertain = $state(false);
 
+	// An archived type is chosen only by the entry already using it, so saving other fields keeps its status.
+	const choices = $derived(
+		statusTypes.filter((status) => !status.archivedAt || status.id === editingEntry?.statusTypeId)
+	);
+
 	function resetForm() {
 		editingEntry = null;
-		selectedStatusId = defaultStatusTypeId || statusTypes[0]?.id || '';
+		selectedStatusId = defaultStatusTypeId || statusTypes.find((status) => !status.archivedAt)?.id || '';
 		startDate = request.kind === 'create' ? request.startDate : dateStr;
 		endDate = request.kind === 'create' ? request.endDate : dateStr;
 		note = '';
@@ -64,7 +69,7 @@
 
 	// Starter types can be added from the empty picker while the dialog stays open.
 	$effect(() => {
-		if (!selectedStatusId && statusTypes.length > 0) selectedStatusId = defaultStatusTypeId || statusTypes[0].id;
+		if (!selectedStatusId && choices.length > 0) selectedStatusId = defaultStatusTypeId || choices[0].id;
 	});
 
 	const dateDisplay = $derived(
@@ -111,6 +116,8 @@
 		const outcome = await onSave({ kind: 'remove', entry });
 		if (mounted) settle(outcome, false);
 	}
+
+	const statusChoiceLabel = (status: StatusType) => (status.archivedAt ? `${status.name} (archived)` : status.name);
 
 	function getStatusType(statusId: string): StatusType | undefined {
 		return statusTypes.find((s) => s.id === statusId);
@@ -208,11 +215,11 @@
 					<div class="flex flex-wrap items-center gap-2">
 						<Select.Root type="single" bind:value={selectedStatusId}>
 							<Select.Trigger id="statusType" aria-labelledby="statusType-label" class="min-w-[180px] flex-1">
-								{selectedStatus?.name ?? 'Select status...'}
+								{selectedStatus ? statusChoiceLabel(selectedStatus) : 'Select status...'}
 							</Select.Trigger>
 							<Select.Content>
-								{#each statusTypes as status (status.id)}
-									<Select.Item value={status.id} label={status.name} />
+								{#each choices as status (status.id)}
+									<Select.Item value={status.id} label={statusChoiceLabel(status)} />
 								{/each}
 							</Select.Content>
 						</Select.Root>
@@ -220,7 +227,7 @@
 							<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 						{/if}
 					</div>
-					{#if statusTypes.length === 0}
+					{#if choices.length === 0}
 						<div class="text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></div>
 					{/if}
 				</Field.Root>

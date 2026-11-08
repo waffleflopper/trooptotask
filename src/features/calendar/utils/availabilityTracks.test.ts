@@ -10,7 +10,8 @@ const leave: StatusType = {
 	textColor: '#ffffff',
 	shortLabel: null,
 	rosterEffect: 'A',
-	sortOrder: 0
+	sortOrder: 0,
+	archivedAt: null
 };
 
 function entry(id: string, personnelId: string, startDate: string, endDate: string, statusTypeId = 'leave') {

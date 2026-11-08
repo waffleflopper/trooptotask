@@ -41,7 +41,8 @@ const status = (id: string, name: string, sortOrder: number) => ({
 	textColor: '#ffffff',
 	shortLabel: null,
 	rosterEffect: 'available' as const,
-	sortOrder
+	sortOrder,
+	archivedAt: null
 });
 
 type Picked = { statusIds: string[]; assignmentIds: string[] };

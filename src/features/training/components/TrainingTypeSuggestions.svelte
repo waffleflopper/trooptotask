@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { invalidate } from '$app/navigation';
 	import type { SetupBranch } from '$features/organization/contracts';
 	import { SuggestionPanel } from '$lib/components/patterns/suggestion-panel';
 	import { Button } from '$lib/components/ui/button';
@@ -58,7 +57,8 @@
 				branch,
 				suggestionIds: toAdd.map(({ id }) => id)
 			});
-			await invalidate('app:training-data');
+			// The reply carries the catalog just read back, so the page keeps its place instead of reloading.
+			if (stillHere()) trainingTypesStore.load(result.trainingTypes, orgId);
 			if (stillHere() && result.failed.length > 0) {
 				failure = `${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`;
 			}

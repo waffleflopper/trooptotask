@@ -124,7 +124,7 @@
 				{statuses.length}
 				{statuses.length === 1 ? 'status type' : 'status types'}
 			</h4>
-			{#if canMutate}
+			{#if canMutate && statuses.length > 0}
 				<p class="text-sm text-muted-foreground">
 					{query ? 'Clear search to reorder.' : 'Drag to set legend and picker order.'}
 				</p>

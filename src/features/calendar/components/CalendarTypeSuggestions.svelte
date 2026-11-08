@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onDestroy, type Snippet } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { invalidate } from '$app/navigation';
 	import { SuggestionPanel } from '$lib/components/patterns/suggestion-panel';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { calendarAssignmentSuggestions, calendarStatusSuggestions } from '../calendarSuggestions';
 	import { postCalendarSuggestions } from '../calendarSuggestionsClient';
+	import type { CalendarSuggestionsResult } from '../contracts';
 	import { dailyAssignmentsStore } from '../stores/dailyAssignments.svelte';
 	import { statusTypesStore } from '../stores/statusTypes.svelte';
 	import { getCalendarTypeSetup, type CalendarTypeKind } from './calendarTypeSetup';
@@ -56,6 +56,18 @@
 	let saving = $state(false);
 	let failure = $state<string | null>(null);
 
+	function adopt(result: CalendarSuggestionsResult) {
+		if (kind === 'status') {
+			if (statusTypesStore.orgId) statusTypesStore.load(result.statusTypes, statusTypesStore.orgId);
+		} else if (dailyAssignmentsStore.orgId) {
+			dailyAssignmentsStore.load(
+				result.assignmentTypes,
+				dailyAssignmentsStore.assignments,
+				dailyAssignmentsStore.orgId
+			);
+		}
+	}
+
 	async function add() {
 		const orgUrlSegment = current?.orgUrlSegment;
 		if (!orgUrlSegment || saving || toAdd.length === 0) return;
@@ -72,8 +84,9 @@
 						? calendarAssignmentSuggestions.filter(({ id }) => picked.has(id)).map(({ id }) => id)
 						: []
 			});
-			// A reread, not the reply's rows, so an editor change saved while this was pending isn't overwritten.
-			await invalidate('app:calendar-data');
+			// The reply carries the catalog just read back. Loading it keeps the open picker or dialog mounted, which a
+			// calendar-data reload would replace with the page skeleton.
+			if (stillHere()) adopt(result);
 			if (stillHere() && result.failed.length > 0) {
 				failure = `${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`;
 			}

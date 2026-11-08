@@ -4,9 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import CalendarTypeSetupHost from '../test-support/CalendarTypeSetupHost.svelte';
 
-const { invalidate } = vi.hoisted(() => ({ invalidate: vi.fn(async () => {}) }));
-vi.mock('$app/navigation', () => ({ invalidate, afterNavigate: () => {} }));
-
+const saved = (id: string, name: string) => ({
+	id,
+	name,
+	color: '#16a34a',
+	textColor: '#ffffff',
+	shortLabel: null,
+	rosterEffect: 'A' as const,
+	sortOrder: 0
+});
 const created = { created: [], skipped: [], failed: [], statusTypes: [], assignmentTypes: [] };
 const fetchMock = vi.fn();
 
@@ -18,7 +24,6 @@ beforeEach(() => {
 });
 afterEach(() => {
 	cleanup();
-	invalidate.mockClear();
 	vi.unstubAllGlobals();
 });
 
@@ -59,7 +64,7 @@ describe('CalendarTypesEmptyState', () => {
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Sick' }));
 		await fireEvent.click(screen.getByRole('button', { name: /^Add \d/ }));
 
-		await waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:calendar-data'));
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 		expect(fetchMock.mock.calls[0][0]).toBe('/org/alpha/api/calendar-suggestions');
 		expect(sentBody()).toEqual({
 			statusIds: ['leave', 'school', 'training-tdy', 'appointment', 'other-duty-detail', 'cq-sd'],
@@ -72,8 +77,21 @@ describe('CalendarTypesEmptyState', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: /^Add \d/ }));
 
-		await waitFor(() => expect(invalidate).toHaveBeenCalled());
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 		expect(sentBody()).toEqual({ statusIds: [], assignmentIds: ['staff-duty'] });
+	});
+
+	it('lists the saved statuses without a reload and stops offering them', async () => {
+		fetchMock.mockResolvedValue(
+			Response.json({ ...created, statusTypes: [saved('s1', 'Leave'), saved('s2', 'School')] })
+		);
+		render(CalendarTypeSetupHost, { props: { kind: 'status', setup: manager } });
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Add \d/ }));
+
+		await waitFor(() => expect(statusTypesStore.items.map(({ name }) => name)).toEqual(['Leave', 'School']));
+		expect(screen.queryByRole('checkbox', { name: 'Leave' })).toBeNull();
+		expect(screen.getByRole('checkbox', { name: 'Sick' })).toBeTruthy();
 	});
 
 	it('does not offer a starter status the Organization already has by name', () => {
@@ -120,7 +138,7 @@ describe('CalendarTypesEmptyState', () => {
 
 		expect((await screen.findByRole('alert')).textContent).toContain('Calendar is unavailable');
 		expect((screen.getByRole('button', { name: /^Add \d/ }) as HTMLButtonElement).disabled).toBe(false);
-		expect(invalidate).not.toHaveBeenCalled();
+		expect(statusTypesStore.items).toEqual([]);
 	});
 
 	it('names the starter types a partial save could not create', async () => {

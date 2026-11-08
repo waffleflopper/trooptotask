@@ -194,12 +194,26 @@ describe('TrainingTypesPage', () => {
 			await fireEvent.click(await screen.findByRole('checkbox', { name: /^OPSEC/ }));
 			await fireEvent.click(add());
 
-			await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:training-data'));
+			await waitFor(() => expect(calls.some(({ method }) => method === 'POST')).toBe(true));
 			const post = calls.find(({ method }) => method === 'POST');
 			expect(post?.body).toEqual({
 				branch: 'army',
 				suggestionIds: ['sharp', 'eo', 'ace', 'cyber-awareness', 'tarp', 'at-level-i', 'ctip']
 			});
+		});
+
+		it('lists the saved types without a reload and stops offering them', async () => {
+			stubSuggestions('army', () =>
+				Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 0 }] })
+			);
+			mount([]);
+
+			await fireEvent.click(await screen.findByRole('checkbox', { name: /^OPSEC/ }));
+			await fireEvent.click(add());
+
+			await waitFor(() => expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']));
+			expect(screen.queryByRole('checkbox', { name: /^SHARP/ })).toBeNull();
+			expect(invalidateMock).not.toHaveBeenCalled();
 		});
 
 		it('keeps the picks and shows the reason when the add fails', async () => {

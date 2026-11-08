@@ -7,6 +7,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
+	import { mergeById } from '$lib/utils/mergeById';
 	import type { TrainingPageAccess } from '../contracts';
 	import { fetchTrainingSuggestionBranch, postTrainingSuggestions } from '../trainingSuggestionsClient';
 	import { trainingTypesStore } from '../stores/trainingTypes.svelte';
@@ -64,6 +65,7 @@
 	async function add() {
 		const orgId = org.orgId;
 		if (!branch || saving || toAdd.length === 0) return;
+		const before = new Set(trainingTypesStore.items.map(({ id }) => id));
 		// The saved types belong in the shared store even when the page was left during the save, but never in a later visit.
 		const inLifetime = stillInOrganizationLifetime();
 		const sameOrg = () => inLifetime() && trainingTypesStore.orgId === orgId;
@@ -76,7 +78,15 @@
 				suggestionIds: toAdd.map(({ id }) => id)
 			});
 			// The reply carries the catalog just read back, so the page keeps its place instead of reloading.
-			if (sameOrg()) trainingTypesStore.load(result.trainingTypes, orgId);
+			// Only rows the store had not seen are added, so a type saved or deleted meanwhile stays as the store has it.
+			if (sameOrg())
+				trainingTypesStore.load(
+					mergeById(
+						trainingTypesStore.items,
+						result.trainingTypes.filter(({ id }) => !before.has(id))
+					),
+					orgId
+				);
 			// A partial save leaves the catalog nonempty, which unmounts this offer, so the miss is told in a toast.
 			if (sameOrg() && result.failed.length > 0)
 				toastStore.error(`${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`);

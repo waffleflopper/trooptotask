@@ -6,6 +6,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
+	import { mergeById } from '$lib/utils/mergeById';
 	import { calendarAssignmentSuggestions, calendarStatusSuggestions } from '../calendarSuggestions';
 	import { postCalendarSuggestions } from '../calendarSuggestionsClient';
 	import type { CalendarSuggestionsResult } from '../contracts';
@@ -60,15 +61,37 @@
 
 	const catalogOrg = () => (kind === 'status' ? statusTypesStore.orgId : dailyAssignmentsStore.orgId);
 
-	function adopt(result: CalendarSuggestionsResult, orgId: string) {
-		if (kind === 'status') statusTypesStore.load(result.statusTypes, orgId);
-		else dailyAssignmentsStore.load(result.assignmentTypes, dailyAssignmentsStore.assignments, orgId);
+	const catalogIds = () =>
+		new Set((kind === 'status' ? statusTypesStore.items : dailyAssignmentsStore.types).map(({ id }) => id));
+
+	// Adds only the rows the store had not seen when the save went out, so a type saved or deleted meanwhile stays as
+	// the store has it.
+	function adopt(result: CalendarSuggestionsResult, orgId: string, before: ReadonlySet<string>) {
+		if (kind === 'status') {
+			statusTypesStore.load(
+				mergeById(
+					statusTypesStore.items,
+					result.statusTypes.filter(({ id }) => !before.has(id))
+				),
+				orgId
+			);
+		} else {
+			dailyAssignmentsStore.load(
+				mergeById(
+					dailyAssignmentsStore.types,
+					result.assignmentTypes.filter(({ id }) => !before.has(id))
+				),
+				dailyAssignmentsStore.assignments,
+				orgId
+			);
+		}
 	}
 
 	async function add() {
 		const orgUrlSegment = current?.orgUrlSegment;
 		const orgId = catalogOrg();
 		if (!orgUrlSegment || saving || toAdd.length === 0) return;
+		const before = catalogIds();
 		// The saved types belong in the shared store even when the picker closed during the save, but never in a later visit.
 		const inLifetime = stillInOrganizationLifetime();
 		const sameOrg = () => inLifetime() && setup?.().orgUrlSegment === orgUrlSegment && catalogOrg() === orgId;
@@ -87,7 +110,7 @@
 			});
 			// The reply carries the catalog just read back. Loading it keeps the open picker or dialog mounted, which a
 			// calendar-data reload would replace with the page skeleton.
-			if (orgId && sameOrg()) adopt(result, orgId);
+			if (orgId && sameOrg()) adopt(result, orgId, before);
 			// A partial save leaves the catalog nonempty, which unmounts this offer, so the miss is told in a toast.
 			if (sameOrg() && result.failed.length > 0)
 				toastStore.error(`${result.failed.map((item) => item.name).join(', ')} could not be added. Try again.`);

@@ -275,6 +275,25 @@ describe('TrainingTypesPage', () => {
 			await waitFor(() => expect(trainingTypesStore.items.map(({ name }) => name)).toEqual(['SHARP']));
 		});
 
+		it('keeps a type saved while the starter save was pending', async () => {
+			let reply: (response: Response) => void = () => {};
+			stubSuggestions('army');
+			const lookUpBranch = globalThis.fetch;
+			vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+				init?.method === 'POST' ? new Promise<Response>((resolve) => (reply = resolve)) : lookUpBranch(url, init)
+			);
+			mount([]);
+
+			await screen.findByRole('checkbox', { name: /^SHARP/ });
+			await fireEvent.click(add());
+			trainingTypesStore.load([cpr], 'org-1');
+			reply(Response.json({ ...created, trainingTypes: [{ ...cpr, id: 'sharp-saved', name: 'SHARP', sortOrder: 1 }] }));
+
+			await waitFor(() =>
+				expect(trainingTypesStore.items.map(({ name }) => name).sort()).toEqual([cpr.name, 'SHARP'].sort())
+			);
+		});
+
 		it('drops a starter save that settles after the user left the Organization', async () => {
 			let reply: (response: Response) => void = () => {};
 			stubSuggestions('army');

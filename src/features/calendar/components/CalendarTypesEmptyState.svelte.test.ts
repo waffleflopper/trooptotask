@@ -193,6 +193,18 @@ describe('CalendarTypesEmptyState', () => {
 		await waitFor(() => expect(statusTypesStore.items.map(({ name }) => name)).toEqual(['Leave']));
 	});
 
+	it('keeps a status saved while the starter save was pending', async () => {
+		let reply: (response: Response) => void = () => {};
+		fetchMock.mockReturnValue(new Promise<Response>((resolve) => (reply = resolve)));
+		render(CalendarTypeSetupHost, { props: { kind: 'status', setup: manager } });
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Add \d/ }));
+		statusTypesStore.load([saved('own', 'Own status')], 'alpha');
+		reply(Response.json({ ...created, statusTypes: [saved('s1', 'Leave')] }));
+
+		await waitFor(() => expect(statusTypesStore.items.map(({ name }) => name).sort()).toEqual(['Leave', 'Own status']));
+	});
+
 	it('drops a starter save that settles after the user left the Organization', async () => {
 		const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
 		let reply: (response: Response) => void = () => {};

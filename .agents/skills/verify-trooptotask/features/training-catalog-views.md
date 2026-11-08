@@ -161,8 +161,8 @@ Focus View orders Targeted before Required and omits Optional.
 7. **Type archive, delete, order and the Manage views sheet:** As `trainingConfigure`, open
    `Verification Required Training` (it has Able's completion). The sheet footer offers `Archive type`, not
    `Delete type`. Choose it: the `Archive Training Type` alertdialog says the records stay and the type leaves the
-   matrix, record pickers and readiness counts. Confirm. The row leaves the list, `ARCHIVED 1` appears and opens to `· 1 RECORD` with `Restore` and
-   no `Delete`. The Training matrix no longer has that column; reload keeps it archived. An authenticated
+   matrix, record pickers and readiness counts. Confirm. The row leaves the list, `ARCHIVED 1` appears and opens to
+   `· 1 RECORD` with `Restore` and no `Delete`. The Training matrix no longer has that column; reload keeps it archived. An authenticated
    `PUT /org/<orgA>/api/training-types/archive` as `trainingView` must return `403`, as must `GET .../usage`, and the
    view-only page shows no Archived section. Arm `$V network arm-fail $PAGE training-types/usage`, archive the type and
    open `ARCHIVED`: the alert `Could not load how many records each type has. Restore still works.` shows with

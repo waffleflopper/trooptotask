@@ -4,12 +4,12 @@ import type {
 	TrainingType,
 	TrainingCompletionFacts,
 	ExpiredTrainingType,
-	TrainingIssue,
 	TrainingSummary,
 	TrainingSummaryInput,
 	DashboardTrainingSummary,
 	DashboardTrainingSummaryInput
 } from '../contracts';
+import { groupDueSoon } from '../utils/dueSoon';
 import { getTrainingStats, getDelinquentTrainings } from '../utils/trainingStatus';
 import { listTrainingReadinessCompletions } from './trainingCompletionRead.server';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
@@ -40,14 +40,11 @@ function buildTrainingSummary(
 	asOf: string,
 	options: TrainingSummaryInput['options'] = {}
 ): TrainingSummary {
-	const { issueLimit = 5, issueStatuses = ['expired', 'warning-orange'] } = options;
-
 	const stats = getTrainingStats(personnel, trainingTypes, trainings, options.groupId, asOf);
 
 	const delinquent = getDelinquentTrainings(personnel, trainingTypes, trainings, { groupId: options.groupId, asOf });
 
-	// Literal person attribution uses the complete applicable result, independently
-	// of the display-only issue filter and limit. Multiple requirements count once.
+	// Literal person attribution uses the complete applicable result; multiple requirements count once.
 	const expiredPersonnel = new Set<string>();
 	const missingPersonnel = new Set<string>();
 	const expiredByType = new Map<string, ExpiredTrainingType>();
@@ -76,21 +73,10 @@ function buildTrainingSummary(
 		}
 	}
 	for (const id of expiredPersonnel) missingPersonnel.delete(id);
-	const filtered = delinquent.filter((d) => issueStatuses.includes(d.statusInfo.status));
-
-	const issues: TrainingIssue[] = filtered.slice(0, issueLimit).map((d) => ({
-		personnelId: d.person.id,
-		personName: `${d.person.rank} ${d.person.lastName}, ${d.person.firstName}`,
-		typeName: d.type.name,
-		label: d.statusInfo.label,
-		status: d.statusInfo.status,
-		daysUntilExpiration: d.statusInfo.daysUntilExpiration
-	}));
-
 	return {
 		stats,
-		issues,
 		expiredByType: [...expiredByType.values()],
+		dueSoonByType: groupDueSoon(delinquent),
 		expiredPersonnelCount: expiredPersonnel.size,
 		missingPersonnelCount: missingPersonnel.size,
 		groupDelinquencies: Array.from(groups, ([groupId, group]) => ({

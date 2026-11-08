@@ -8,6 +8,7 @@ import TonightAndTomorrow from '../components/TonightAndTomorrow.svelte';
 import { dashboardSection, type DashboardSection } from './dashboardSections';
 import { actionablePersonnel, personnelResource, seesCalendar } from './dashboardAccess';
 import {
+	dueSoonTraining,
 	expiredTraining,
 	leavingWithoutAward,
 	overdueEvaluations,
@@ -51,7 +52,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	}),
 	dashboardSection('training', {
 		setup: trainingSetup,
-		needsYou: [expiredTraining],
+		needsYou: [expiredTraining, dueSoonTraining],
 		readiness: trainingReadiness,
 		quickAdd: [
 			{

@@ -21,12 +21,15 @@
 		load,
 		title,
 		size = 'default',
+		presentation = 'sheet',
 		onClose,
 		children
 	}: {
 		load: () => Promise<M>;
 		title: string;
 		size?: 'default' | 'wide';
+		/** The frame shown while loading or failed; match the component it loads. */
+		presentation?: 'dialog' | 'sheet';
 		onClose: () => void;
 		children: Snippet<[M]>;
 	} = $props();
@@ -40,7 +43,7 @@
 
 {#snippet frame(body: Snippet)}
 	<AppDialog.Root open {onClose}>
-		<AppDialog.Content presentation="sheet" {size}>
+		<AppDialog.Content {presentation} {size}>
 			<AppDialog.Header class="border-b px-5 pt-5 pb-4 sm:px-7">
 				<AppDialog.Title>{title}</AppDialog.Title>
 			</AppDialog.Header>

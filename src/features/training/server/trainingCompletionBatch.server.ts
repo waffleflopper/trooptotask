@@ -12,10 +12,10 @@ import { requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import { isDateOnly } from '$lib/utils/dates';
 import { DATE_ONLY_MESSAGE, isUuid } from '$lib/utils/inputSchemas';
+import { TRAINING_BATCH_LIMIT } from '../contracts';
 import { TRAINING_TYPE_UNAVAILABLE_MESSAGE } from './trainingPersistenceMapping.server';
 
 const AUDIT_RESOURCE = 'training_record';
-const MAX_BATCH_SIZE = 500;
 
 export async function importTrainingRecords(
 	ctx: TrainingBatchContext,
@@ -27,8 +27,8 @@ export async function importTrainingRecords(
 		fail(400, 'records array is required');
 	}
 
-	if (records.length > MAX_BATCH_SIZE) {
-		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
+	if (records.length > TRAINING_BATCH_LIMIT) {
+		fail(400, `Maximum ${TRAINING_BATCH_LIMIT} records per batch`);
 	}
 
 	if (records.some((record) => !isUuid(record?.personnelId) || !isUuid(record?.trainingTypeId))) {

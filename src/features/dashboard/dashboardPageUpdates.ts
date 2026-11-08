@@ -1,5 +1,6 @@
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
+import { isDueSoon, type TrainingStatus } from '$features/training';
 import type { DashboardPageSummaryData, DashboardWorkspaceResult } from './contracts';
 
 /** A record the viewer just saved, for the list in the static page data it belongs to. */
@@ -7,8 +8,13 @@ export type DashboardRecordChange =
 	| { list: 'activeOnboardings'; record: PersonnelOnboarding }
 	| { list: 'ratingSchemeEntries'; record: RatingSchemeDueEntry }
 	| { list: 'awardTrackingAcknowledgedPersonnelIds'; personnelId: string }
-	/** Completions only the summary derives from; they take these People off the type's expired list. */
-	| { list: 'trainingCompletions'; trainingTypeId: string; personnelIds: readonly string[] };
+	/** Completions only the summary derives from, with the status each saved record now gives its Person. */
+	| { list: 'trainingCompletions'; trainingTypeId: string; saved: readonly SavedTrainingStatus[] };
+
+export interface SavedTrainingStatus {
+	personnelId: string;
+	status: TrainingStatus;
+}
 
 /** How a save made on the Dashboard shows up without reloading the page. */
 export interface DashboardPageUpdates {
@@ -89,17 +95,28 @@ export function overlayDashboardRecords(
 	return { ...dashboard, data };
 }
 
+/** A saved Person leaves a list only when their new record no longer puts them on it, such as a backdated date. */
 function withoutRecorded(
 	training: NonNullable<DashboardPageSummaryData['trainingSummary']>,
 	trainingTypeId: string,
-	recorded: readonly string[]
+	saved: readonly SavedTrainingStatus[]
 ): NonNullable<DashboardPageSummaryData['trainingSummary']> {
+	const statusOf = new Map(saved.map(({ personnelId, status }) => [personnelId, status]));
+	const stays = (personnelId: string, onList: (status: TrainingStatus) => boolean) => {
+		const status = statusOf.get(personnelId);
+		return status === undefined || onList(status);
+	};
 	const expiredByType = training.expiredByType.flatMap((expired) => {
 		if (expired.trainingTypeId !== trainingTypeId) return [expired];
-		const personnelIds = expired.personnelIds.filter((id) => !recorded.includes(id));
+		const personnelIds = expired.personnelIds.filter((id) => stays(id, (status) => status === 'expired'));
 		return personnelIds.length > 0 ? [{ ...expired, personnelIds }] : [];
 	});
-	return { ...training, expiredByType };
+	const dueSoonByType = training.dueSoonByType.flatMap((due) => {
+		if (due.trainingTypeId !== trainingTypeId) return [due];
+		const people = due.people.filter(({ personnelId }) => stays(personnelId, isDueSoon));
+		return people.length > 0 ? [{ ...due, people }] : [];
+	});
+	return { ...training, expiredByType, dueSoonByType };
 }
 
 /** Projects saved records onto the summary; counts the server derives wait for the refresh. */
@@ -114,8 +131,7 @@ export function overlayDashboardSummary(
 	let trainingSummary = summary.trainingSummary;
 	for (const { change } of overlay.changes) {
 		if (change.list === 'trainingCompletions') {
-			if (trainingSummary)
-				trainingSummary = withoutRecorded(trainingSummary, change.trainingTypeId, change.personnelIds);
+			if (trainingSummary) trainingSummary = withoutRecorded(trainingSummary, change.trainingTypeId, change.saved);
 			continue;
 		}
 		if (change.list !== 'activeOnboardings' || covered.has(change.record.personnelId)) continue;

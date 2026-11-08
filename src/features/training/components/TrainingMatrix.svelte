@@ -33,6 +33,7 @@
 	import { formatReadinessBandPercent, readinessBandTone } from '$lib/components/patterns/readiness-band/index.js';
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
+	import ClipboardCheckIcon from '@lucide/svelte/icons/clipboard-check';
 	import { Button } from '$lib/components/ui/button';
 	import TrainingCellPopover from './TrainingCellPopover.svelte';
 	import TrainingMatrixCell, { trainingMatrixCellClass } from './TrainingMatrixCell.svelte';
@@ -50,6 +51,8 @@
 		goalPercent: number | null;
 		/** Makes cells open the recording popover. */
 		onRecord?: (data: TrainingRecordSave) => void | Promise<void>;
+		/** Adds a Record class button to each column header. */
+		onRecordClass?: (type: TrainingType) => void;
 		/** Opens the person's record; `opener` is where focus goes back to when it closes. */
 		onPersonClick?: (person: Personnel, opener: HTMLElement | null) => void;
 		/** Reports the rows in the order the matrix shows them, collapsed groups left out. */
@@ -90,6 +93,7 @@
 		asOf,
 		goalPercent,
 		onRecord,
+		onRecordClass,
 		onPersonClick,
 		onRowOrderChange,
 		groupBy,
@@ -139,16 +143,27 @@
 			const type = trainingTypes.find((t) => t.id === key);
 			if (!type) return undefined;
 			const status = (p: Personnel) => getCellMetadata(p, type).statusInfo.status;
-			let sortOrder: Map<string, number> | undefined;
+			// One status read per row, however many comparisons the sort makes. Within a status the soonest expiry comes
+			// first and a row with no expiry last.
+			let ranks: Map<string, { order: number; days: number }> | undefined;
 			const rank = (p: Personnel) => {
-				sortOrder ??= new Map(shownPersonnel.map((person) => [person.id, TRAINING_STATUS_SORT_ORDER[status(person)]]));
-				return sortOrder.get(p.id) ?? 0;
+				ranks ??= new Map(
+					shownPersonnel.map((person) => {
+						const { status, daysUntilExpiration } = getCellMetadata(person, type).statusInfo;
+						return [person.id, { order: TRAINING_STATUS_SORT_ORDER[status], days: daysUntilExpiration ?? Infinity }];
+					})
+				);
+				return ranks.get(p.id) ?? { order: 0, days: Infinity };
 			};
 			return {
 				key: type.id,
 				header: type.name,
 				value: status,
-				compare: (a: Personnel, b: Personnel) => rank(a) - rank(b)
+				compare: (a: Personnel, b: Personnel) => {
+					const left = rank(a);
+					const right = rank(b);
+					return left.order - right.order || (left.days === right.days ? 0 : left.days < right.days ? -1 : 1);
+				}
 			};
 		}
 	});
@@ -596,6 +611,18 @@
 										{getColumnIntervalLabel(column.meta.type)}
 									</span>
 								</Button>
+								{#if onRecordClass}
+									<Button
+										variant="ghost"
+										size="icon-xs"
+										class="absolute right-0.5 bottom-0.5 text-muted-foreground"
+										aria-label="Record class for {column.label}"
+										title="Record class"
+										onclick={() => onRecordClass(column.meta.type)}
+									>
+										<ClipboardCheckIcon aria-hidden="true" />
+									</Button>
+								{/if}
 							</OperationalMatrix.ColumnHeader>
 						{/each}
 					</OperationalMatrix.HeaderRow>

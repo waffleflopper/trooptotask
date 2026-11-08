@@ -1,4 +1,4 @@
-import { tick } from 'svelte';
+import { tick, untrack } from 'svelte';
 import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
@@ -32,11 +32,12 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingView, TrainingRecordSave } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
-import { recordTrainingCompletions } from '../personnelTrainingRequests';
+import { batchFailureMessage, recordTrainingCompletions } from '../personnelTrainingRequests';
 import { matchesPersonnelSearch } from '../utils/personnelSearch';
 import { trainingReadinessSource } from '../webSources.svelte';
 
 const RECORD_PARAM = 'person';
+const GROUP_PARAM = 'group';
 const DEFAULT_MATRIX_DISPLAY: TrainingMatrixDisplay = {
 	matrixColorAll: false,
 	matrixCurrentMark: 'date',
@@ -71,6 +72,10 @@ export class TrainingPageContext {
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
 	readonly #savePreferences: (patch: TrainingPreferencesPatch) => void;
 	#hydratedSelectionFingerprint: string | null = null;
+	/** The Group in the saved preference, which only the viewer's own choices and a failed lookup change. */
+	#savedGroupId = '';
+	/** Set while the page rewrites its own `?group=`, so the half-updated URL is not read back over the choice. */
+	#writingGroupParam = false;
 	readonly #deletingViewIds = new SvelteSet<string>();
 	#disposed = false;
 
@@ -300,11 +305,51 @@ export class TrainingPageContext {
 
 	setSelectedGroupId(groupId: string): void {
 		this.selectedGroupId = this.isValidGroupId(groupId) ? groupId : '';
+		this.#savedGroupId = this.selectedGroupId;
 		this.#savePreferences({
 			training: {
 				selectedGroupId: this.selectedGroupId || null
 			}
 		});
+		this.#writeGroupParam(this.selectedGroupId);
+	}
+
+	/**
+	 * Keeps `?group=` and the Group filter in step; the URL wins. Opened without it, the saved Group is written into the
+	 * URL; opened on a Group that is not there, the filter shows all Groups and the param is dropped. Runs once the Groups have loaded.
+	 */
+	syncGroupParam(): void {
+		// Read before any early return, so the effect calling this keeps following the URL and the Groups.
+		const param = page.url.searchParams.get(GROUP_PARAM);
+		const groupsReady = groupsStore.orgId === this.orgId && !groupsStore.loading && this.rosterReady;
+		if (this.#disposed || this.#writingGroupParam || !groupsReady) return;
+		const selected = untrack(() => this.selectedGroupId);
+		if (param === null) {
+			if (selected) this.#writeGroupParam(selected);
+		} else if (!this.isValidGroupId(param)) {
+			this.selectedGroupId = '';
+			this.#writeGroupParam('');
+		} else if (param !== selected) {
+			this.selectedGroupId = param;
+		}
+	}
+
+	#writeGroupParam(groupId: string): void {
+		if ((page.url.searchParams.get(GROUP_PARAM) ?? '') === groupId) return;
+		const params = new SvelteURLSearchParams(page.url.search);
+		if (groupId) params.set(GROUP_PARAM, groupId);
+		else params.delete(GROUP_PARAM);
+		const query = params.toString();
+		void this.#replaceUrl(resolve(`${page.url.pathname}${query ? `?${query}` : ''}` as '/'));
+	}
+
+	async #replaceUrl(target: string): Promise<void> {
+		this.#writingGroupParam = true;
+		try {
+			await goto(target, { replace: true, reset: false, state: { ...page.state } });
+		} finally {
+			this.#writingGroupParam = false;
+		}
 	}
 
 	setSelectedViewId(viewId: string | null): void {
@@ -336,6 +381,16 @@ export class TrainingPageContext {
 
 	#isCurrentWorkspace(): boolean {
 		return !this.#disposed && personnelTrainingsStore.orgId === this.orgId;
+	}
+
+	/** False once the viewer has left this Organization's Training workspace. */
+	get workspaceIsCurrent(): boolean {
+		return this.#isCurrentWorkspace();
+	}
+
+	/** Everyone in the Group, its sub-Groups included. */
+	personnelIdsInGroup(groupId: string): ReadonlySet<string> {
+		return new SvelteSet(this.trainingRosterView({ groupFilter: groupId }).flatPersonnel.map((person) => person.id));
 	}
 
 	#isCurrentViewsWorkspace(): boolean {
@@ -386,6 +441,7 @@ export class TrainingPageContext {
 			const result = await recordTrainingCompletions(this.orgId, records);
 			if (!this.#isCurrentWorkspace()) return;
 			personnelTrainingsStore.addBatchResults(result.inserted, result.updated);
+			if (result.errors.length > 0) throw new Error(batchFailureMessage(records, result.errors, this.personnel));
 		} catch (error) {
 			if (this.#isCurrentWorkspace()) throw error;
 		}
@@ -437,10 +493,15 @@ export class TrainingPageContext {
 		const rosterLoaded = rosterStore.orgId === this.orgId && !rosterStore.loading;
 		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
 
-		this.selectedGroupId =
-			selectedGroupId && (!groupsLoaded || !rosterLoaded || this.isValidGroupId(selectedGroupId))
-				? selectedGroupId
-				: '';
+		this.#savedGroupId = selectedGroupId ?? '';
+		const groupsReady = groupsLoaded && rosterLoaded;
+		// A Group in the URL is the filter, ahead of the saved one. It is taken only once it checks out: an unchecked
+		// one would be cleared later from inside a reactive read, which Svelte rejects. syncGroupParam applies it then.
+		const urlGroupId = page.url.searchParams.get(GROUP_PARAM);
+		if (urlGroupId) this.selectedGroupId = groupsReady && this.isValidGroupId(urlGroupId) ? urlGroupId : '';
+		else
+			this.selectedGroupId =
+				selectedGroupId && (!groupsReady || this.isValidGroupId(selectedGroupId)) ? selectedGroupId : '';
 		this.selectedViewId =
 			selectedViewId && (!viewsLoaded || this.savedViewIds.has(selectedViewId)) ? selectedViewId : null;
 		this.viewMode = trainingPrefs?.matrixViewMode ?? 'by-group';
@@ -464,8 +525,11 @@ export class TrainingPageContext {
 		const patch: NonNullable<TrainingPreferencesPatch['training']> = {};
 
 		if (groupsLoaded && rosterLoaded && this.selectedGroupId && !this.isValidGroupId(this.selectedGroupId)) {
+			if (this.selectedGroupId === this.#savedGroupId) {
+				this.#savedGroupId = '';
+				patch.selectedGroupId = null;
+			}
 			this.selectedGroupId = '';
-			patch.selectedGroupId = null;
 		}
 
 		if (

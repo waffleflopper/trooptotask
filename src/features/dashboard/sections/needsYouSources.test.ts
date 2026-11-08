@@ -3,11 +3,12 @@ import type { AssignmentType } from '$features/calendar/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
-import type { ExpiredTrainingType } from '$features/training/contracts';
+import type { ExpiredTrainingType, TrainingDueSoon } from '$features/training/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from './dashboardInputs';
 import {
+	dueSoonTraining,
 	expiredTraining,
 	leavingWithoutAward,
 	overdueEvaluations,
@@ -101,6 +102,7 @@ interface Loaded {
 	specialDays?: DashboardInputs['specialDays'];
 	ratingSchemeEntries?: RatingSchemeDueEntry[];
 	expiredByType?: ExpiredTrainingType[] | null;
+	dueSoonByType?: TrainingDueSoon[];
 	activeOnboardings?: PersonnelOnboarding[];
 	onboardingTrainingCompletions?: string[];
 	awardTrackingAcknowledgedPersonnelIds?: string[];
@@ -199,8 +201,8 @@ function inputs(loaded: Loaded): DashboardInputs {
 								notRequired: 0,
 								total: 0
 							},
-							issues: [],
 							expiredByType: loaded.expiredByType ?? [],
+							dueSoonByType: loaded.dueSoonByType ?? [],
 							expiredPersonnelCount: 0,
 							missingPersonnelCount: 0,
 							groupDelinquencies: []
@@ -359,6 +361,69 @@ describe('expiredTraining', () => {
 
 	it('shows nothing while the Training summary is unavailable', () => {
 		expect(expiredTraining(inputs({ personnel: [alvarez], expiredByType: null }))).toEqual([]);
+	});
+});
+
+describe('dueSoonTraining', () => {
+	it('folds the Soldiers inside a training type warning window into one row dated by the soonest expiration', () => {
+		const rows = dueSoonTraining(
+			inputs({
+				personnel: [alvarez, brooks, patel, kim],
+				dueSoonByType: [
+					{
+						trainingTypeId: 'sharp',
+						people: [
+							{ personnelId: 'p-kim', daysLeft: 3, status: 'warning-orange' },
+							{ personnelId: 'p-alvarez', daysLeft: 20, status: 'warning-orange' },
+							{ personnelId: 'p-brooks', daysLeft: 45, status: 'warning-yellow' }
+						]
+					}
+				]
+			})
+		);
+
+		expect(rows).toEqual([
+			{
+				kind: 'dueSoon',
+				id: 'dueSoon:sharp',
+				trainingTypeId: 'sharp',
+				personnelIds: ['p-kim', 'p-alvarez', 'p-brooks'],
+				title: '3 Soldiers due on SHARP',
+				subtitle: 'Kim, Alvarez, Brooks',
+				timing: 'in 3 days',
+				href: '/org/org-1/training',
+				action: expect.objectContaining({
+					label: 'Record class',
+					policy: POLICY_ACTION_CATALOG.training.recordCompletions,
+					mode: 'dialog'
+				}),
+				urgency: { date: '2026-10-22' }
+			}
+		]);
+	});
+
+	it('says today for a record that expires today, and leaves out Soldiers outside the viewer scope', () => {
+		const [row] = dueSoonTraining(
+			inputs({
+				personnel: [alvarez],
+				dueSoonByType: [
+					{
+						trainingTypeId: 'sharp',
+						people: [
+							{ personnelId: 'p-hidden', daysLeft: 0, status: 'warning-orange' },
+							{ personnelId: 'p-alvarez', daysLeft: 0, status: 'warning-orange' }
+						]
+					}
+				]
+			})
+		);
+
+		expect(row).toMatchObject({ title: '1 Soldier due on SHARP', timing: 'today', urgency: { date: TODAY } });
+		expect(row.kind === 'dueSoon' && row.personnelIds).toEqual(['p-alvarez']);
+	});
+
+	it('shows nothing while the Training summary is unavailable', () => {
+		expect(dueSoonTraining(inputs({ personnel: [alvarez], expiredByType: null }))).toEqual([]);
 	});
 });
 

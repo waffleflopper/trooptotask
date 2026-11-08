@@ -113,9 +113,10 @@ Person counts once, as expired before missing before expiring. Yellow warnings d
 records do not add to the expired/orange attention count. Do not silently redefine a failing example.
 
 1. **Combined native read.** Run `$V actor dashboardView home` and capture the page. Strength is 3/4 with Baker's
-   Training status. Needs you lists seven rows, most urgent first. `NCOER for SPC Able, Synthetic` is Past thru, 5 days
+   Training status. Needs you lists eight rows, most urgent first. `NCOER for SPC Able, Synthetic` is Past thru, 5 days
    late; the archived Person's overdue evaluation and the completed one are absent. Expired rows name Able on
-   Verification Targeted Training and Baker on Verification Required Training. Each Calendar lane has an Unfilled row
+   Verification Targeted Training and Baker on Verification Required Training. Due soon names Unassigned on
+   Verification Required Training, `in 20 days`, and links to Training. Each Calendar lane has an Unfilled row
    for 13 of the 14 forecast days, tomorrow first. Able's packet is Stalled with
    `Dashboard Paperwork · waiting 8 days · 2 of 3` and `day 9`. Leaving names the new Alpha Person's ETS in 30 days with
    no award started; the archived Person is absent. Each row's link opens its owning page at that record. Past thru opens
@@ -166,13 +167,13 @@ records do not add to the expired/orange attention count. Do not silently redefi
 7. **Currency beyond the detail cap and yellow warnings.** First capture the Training column and the Strength band's
    by-group strip separately: the column reads `Alpha is lowest at 0%` (Bravo is also 0%), while the strip reads
    `ALPHA 2/2`. Then run `$V seed dashboard-currency` once. Its 12 required A types add 23 expired records (Able has 12,
-   Baker 11), all older than the two existing expired records. Unassigned's orange record therefore falls beyond the 25
-   displayed issues; Unassigned and Loss now miss the added types, so the column reads 0% with
+   Baker 11), all older than the two existing expired records. Nothing caps `dueSoonByType`, so Unassigned's orange record and
+   Loss's yellow one still appear in it and in Needs you's Due soon rows. Unassigned and Loss now miss the added types, so the column reads 0% with
    `2 Soldiers expired and 2 missing training.` Loss has a yellow completion on one added type. A's record statistics
    are 25 expired, one orange and one yellow; the Training column names `Alpha is lowest at 0%`. The B rows supply one
    Foreign yellow completion at +45 days with yellow/orange windows 60/30 and a current Foreign Private Training record:
    B has zero expired/orange/missing People and reads `100%` and `Everyone is current.` Preserve ordinary page-data
-   statistics, capped issue IDs and complete Group counts separately from native column observations. Reload A/B and
+   statistics, the `expiredByType` and `dueSoonByType` IDs and complete Group counts separately from native column observations. Reload A/B and
    repeat Alpha-only and empty-scope reads; Alpha reads 0% with `1 Soldier expired and 1 missing training.`, empty
    settles at 100%. `clean-seeds` removes both journaled cohorts.
 
@@ -199,11 +200,11 @@ records do not add to the expired/orange attention count. Do not silently redefi
 
 10. **Overflow, fold, loading and error shell.** After `$V seed dashboard`, run `$V seed dashboard-overflow` as
     `dashboardView`. It adds seven Alpha People with seven availability entries starting today and four with ETS in 20,
-    25, 30 and 35 days. Needs you then holds 11 rows and shows the top seven, then a fold row `+4 more` that names the
-    other titles and offers `Show all 11`. Acknowledge one overflow Person's award with
+    25, 30 and 35 days. Needs you then holds 12 rows and shows the top seven, then a fold row `+5 more` that names the
+    other titles and offers `Show all 12`. Acknowledge one overflow Person's award with
     `$V artifact-http orgOwner orgA PERSON_ID POST award-tracking BODY_FILE` (see
-    [Personnel records](personnel-records-lifecycle.md)) and reload for 10 rows, `+3 more` and `Show all 10`;
-    acknowledge a second for nine rows and no fold. `Show all` expands in place and moves focus to the first revealed
+    [Personnel records](personnel-records-lifecycle.md)) and reload for 11 rows, `+4 more` and `Show all 11`;
+    acknowledge a second for 10 rows, `+3 more` and `Show all 10`; a third gives nine rows and no fold. `Show all` expands in place and moves focus to the first revealed
     row's link. Coming and going lists four of eight changes (seven returns and Baker's) with `All 8 changes`, which
     expands and moves focus to the fifth. Bottom line names all eight People out, so it has no toggle. Record both
     expanders' names, sizes, Tab, Enter and Space results and ring at 1280 light and 390 dark with the steps in
@@ -227,11 +228,11 @@ records do not add to the expired/orange attention count. Do not silently redefi
 12. **Workload figures.** After `$V seed workload small` and `$V perf prepare`, read the ordinary Dashboard page-data
     response (the streamed `trainingSummary` and `ictlSummary` chunks of `/org/ORG_ID/__data.json`) for `perfWide` and
     `perfScoped`. The seed is deterministic. `perfWide` (20 active People): 160 Training cells (109 current, 6 yellow, 6
-    orange, 12 expired, 24 not completed, 3 not required), 9 expired People, 18 issues; Critical Tasks 151 applicable
+    orange, 12 expired, 24 not completed, 3 not required), 9 expired People, 12 due-soon records across the `people` lists of `dueSoonByType`, one per orange or yellow cell; Critical Tasks 151 applicable
     cells, 86 ready, 57%, 15 of 20 People below threshold, 9 tasks below threshold, 3 at-risk. `perfScoped` (Alpha's 10
-    People): 80 cells (53, 3, 2, 9, 11, 2), 7 expired People, 11 issues; Critical Tasks 74 applicable, 42 ready, 57%, 7
-    of 10 below threshold, 5 tasks below, 3 at-risk. `perfScoped` has fewer cells than `perfWide` and every issue and
-    at-risk Person belongs to Alpha. The Critical tasks column shows the same figures: `57%` ready and
+    People): 80 cells (53, 3, 2, 9, 11, 2), 7 expired People, 5 due-soon records; Critical Tasks 74 applicable, 42 ready, 57%, 7
+    of 10 below threshold, 5 tasks below, 3 at-risk. `perfScoped` has fewer cells than `perfWide` and every expired, due-soon
+    and at-risk Person belongs to Alpha. The Critical tasks column shows the same figures: `57%` ready and
     `15 of 20 Soldiers below the 70% threshold` for `perfWide`, `7 of 10` for `perfScoped`. Its amber share counts
     People at or above the threshold with a task lapsing soon, so it can differ from the summary's three at-risk names,
     which are the lowest People overall. Record the observed figures next to these. A change to how the two completion
@@ -435,8 +436,8 @@ Worked examples from `$V seed dashboard` on A:
    `ictlSummary`. Restore the hook and run `dashboard-access dashboardView restore`.
 3. **Pending and failure.** Hold `personnel_trainings` with step 8: each column keeps a skeleton shaped like it. With
    `fail-hard` and a reload, Training and Critical tasks read the inline failure and Needs you drops its two Expired
-   rows for the incomplete note, while Strength, Evaluations and Arriving and leaving render. `server-source restore`,
-   then `Retry Dashboard` brings back the figures and the Expired rows with no alert.
+   rows and its Due soon row for the incomplete note, while Strength, Evaluations and Arriving and leaving render. `server-source restore`,
+   then `Retry Dashboard` brings back the figures and the Expired and Due soon rows with no alert.
 
 ## Quick add
 
@@ -537,7 +538,7 @@ load.` with `Try again`. Press `Try again`: the three administration rows return
 ## Actions
 
 A Needs you row offers one action when the viewer may take it; otherwise only its link remains. Past thru offers
-`Update status` (`ratingScheme.updateEntries`), Expired `Record class` (`training.recordCompletions`), Unfilled
+`Update status` (`ratingScheme.updateEntries`), Expired and Due soon `Record class` (`training.recordCompletions`), Unfilled
 `Fill N days` (`calendar.manageAssignments`, N at most 7), Stalled `Check off` (`onboarding.manageWorkflows`) and
 Leaving `Award started` (`personnel.manageRecords` on that Person). A Short Tasking offers `Pick N` and a Conflict
 `Swap` (`calendar.manageTaskings` on its Group or the Organization); each expands the row into person slots, like
@@ -564,7 +565,8 @@ After `$V seed dashboard`, as `orgOwner` at 1440:
    to Completed and save: `Rating entry was not saved` shows in the editor and the row stays. Restore and save: one
    `PUT api/rating-scheme`, the row leaves and focus moves on. `$V rows rating_scheme_entries orgA id ID` reads
    `completed`; after reload the row stays gone and Evals shows the entry Completed.
-3. **Record class.** Press `Record class` on Baker's Expired row. `Record class` lists the expired People the viewer may
+3. **Record class.** Press `Record class` on Baker's Expired row. (A Due soon row opens the same dialog for the
+   Soldiers inside that type's warning window, all checked; the saved row leaves the queue and stays gone after reload.) `Record class` lists the expired People the viewer may
    record, all checked, with today's completion date. Arm `arm-fail PAGE personnel-trainings/batch` and choose
    `Record N`: `Class was not recorded` shows in the dialog, which stays open. Restore and record: one
    `POST api/personnel-trainings/batch`, then one `GET api/dashboard/summary`, and the row leaves at once. A completion

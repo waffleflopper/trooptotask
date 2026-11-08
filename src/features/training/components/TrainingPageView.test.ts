@@ -96,6 +96,7 @@ interface TrainingPageViewTestCtx {
 	groups: Group[];
 	selectedGroupId: string;
 	setSelectedGroupId: ReturnType<typeof vi.fn>;
+	syncGroupParam: ReturnType<typeof vi.fn>;
 	groupFilterOptions: Array<{ value: string; label: string }>;
 	viewMode: 'alphabetical' | 'by-group';
 	setViewMode: ReturnType<typeof vi.fn>;
@@ -122,6 +123,7 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		groups,
 		selectedGroupId: '',
 		setSelectedGroupId: vi.fn(),
+		syncGroupParam: vi.fn(),
 		groupFilterOptions: [
 			{ value: '', label: 'Group: All' },
 			{ value: 'group-1', label: 'Alpha' },
@@ -189,6 +191,67 @@ describe('TrainingPageView', () => {
 		const exportButton = screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement;
 		expect(exportButton.disabled).toBe(true);
 		expect(toolbarDescription(exportButton)).toBe('Export unavailable while loading.');
+	});
+
+	describe('Due soon and Record class', () => {
+		const expiring = {
+			id: 'saved-1',
+			personnelId: 'person-1',
+			trainingTypeId: 'type-1',
+			completionDate: '2025-11-10',
+			expirationDate: '2026-11-10',
+			notes: null,
+			certificateUrl: null
+		};
+
+		it('opens the Due soon sheet from the toolbar, with the count of Soldiers in a warning window', async () => {
+			personnelTrainingsStore.load([expiring], 'org-1');
+			const modals = new ModalRegistry();
+			render(TrainingPageView, { props: { ctx: makeCtx('alphabetical') as unknown as TrainingPageContext, modals } });
+
+			const dueSoon = screen.getByRole('button', { name: /^Due soon/ });
+			expect(dueSoon.textContent).toContain('1');
+			await fireEvent.click(dueSoon);
+
+			expect(modals.isOpen('due-soon')).toBe(true);
+			expect(modals.payload<{ read: () => { loading: boolean; dueSoon: unknown } }>('due-soon')?.read()).toEqual({
+				loading: false,
+				dueSoon: [
+					{
+						trainingTypeId: 'type-1',
+						people: [{ personnelId: 'person-1', daysLeft: 16, status: 'warning-orange' }]
+					}
+				]
+			});
+		});
+
+		it('leaves the count off when no one is due soon', () => {
+			render(TrainingPageView, {
+				props: { ctx: makeCtx('alphabetical') as unknown as TrainingPageContext, modals: new ModalRegistry() }
+			});
+
+			expect(screen.getByRole('button', { name: /^Due soon/ }).textContent).not.toMatch(/\d/);
+		});
+
+		it('puts a Record class button on each column header for a recorder, naming that training', async () => {
+			const modals = new ModalRegistry();
+			render(TrainingPageView, { props: { ctx: makeCtx('alphabetical') as unknown as TrainingPageContext, modals } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Record class for CPR' }));
+
+			expect(modals.payload('record-class')).toEqual({ typeId: 'type-1' });
+		});
+
+		it('hides Record class from a viewer who cannot record training', () => {
+			render(TrainingPageView, {
+				props: {
+					ctx: makeCtx('alphabetical', { canRecordTraining: false }) as unknown as TrainingPageContext,
+					modals: new ModalRegistry()
+				}
+			});
+
+			expect(screen.queryByRole('button', { name: 'Record class for CPR' })).toBeNull();
+		});
 	});
 
 	it.each([

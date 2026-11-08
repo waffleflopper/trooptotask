@@ -461,15 +461,23 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
     planner (assignment types), and the Calendar settings `Status Types` tab and the `On the calendar` lane list of the
     `Assignment Types` tab (the `Duty planner only` list keeps `No assignment types yet.`, so the offer shows once).
     The settings link opens on the named tab, and `?section=closures` opens `Holidays & closures`; an unknown value
-    opens `Status Types`. - **Reach them.** On a new Organization (or as `calendarConfigure` after deleting every status and assignment type
-    through their Delete confirmations; `restart` restores the fixture) open each surface above; `calendarOperate`
-    sees the `Ask someone` wording and no rows. - **Add.** Uncheck Sick and choose `Add 6 statuses`: the button disables with a spinner, then the surface becomes
-    the picker or list with the 6 types, no reload, no layout jump of the surrounding dialog. `$V rows status_types
-orgA` lists exactly those 6 names; adding again offers only Sick. In the assignments case `Add 1 assignment type`
-    creates Staff Duty. A failed request (`$V network arm-fail`) keeps the rows and checks and shows the reason in an
-    alert; after `restore` the same button succeeds. - **Layout.** Capture a status-type and an assignment-type empty state in the popover, a dialog, Bulk Status Add and
-    the settings tab at 1280 px and 390 px. At 390 px the panel shows 3 rows and `Show 4 more`; in the 340 px popover
-    it is one column. `document.documentElement.scrollWidth` equals `innerWidth`.
+    opens `Status Types`.
+
+- **Reach them.** On a new Organization (or as `calendarConfigure` after deleting every status and assignment type
+  through their Delete confirmations; `restart` restores the fixture) open each surface above. A member invited with
+  the `Operator` preset (invite `orgInvitee` from Settings › Members, then accept on `/dashboard`) sees the
+  `Ask someone` wording and no rows.
+- **Add.** Choose `Add 7 statuses`: the button disables with a spinner, then the surface becomes the picker or list
+  with the 7 types, no reload, and the dialog or popover it was in stays open. `$V rows status_types orgA` lists
+  them, and adding again offers nothing. In the assignments case `Add 1 assignment type` creates Staff Duty, which
+  the settings tab lists under `Duty planner only`. Unchecking a row and the failed-request alert are covered by the
+  component tests; a live `$V network arm-fail` run is not recorded. As a member with `Operator` access, the same
+  `POST /org/ORG/api/calendar-suggestions` answers 403.
+- **Layout.** Capture a status-type and an assignment-type empty state in the popover, a dialog, Bulk Status Add and
+  the settings tab at 1280 px and 390 px. At 390 px the panel shows 3 rows and `Show 4 more` (the settings tab, the
+  dialog and Bulk Status Add); the 340 px quick-add popover also shows 3 rows and `Show 4 more`. At 1280 px the
+  settings tab and the availability dialog show two columns of 7 rows. `document.documentElement.scrollWidth` equals
+  `innerWidth`.
 
 ## Gotchas
 

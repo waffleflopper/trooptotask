@@ -237,12 +237,13 @@ Focus View orders Targeted before Required and omits Optional.
     step, or `POST /org/<seg>/api/organization/setup/branch` with `{branch:'army'}`), open Training › Manage types as
     the owner or `trainingConfigure`. Expect `No training types yet.` and, once the branch lookup returns, the
     `Common Army annual training` panel below it with 8 checked rows tagged `12 mo`, then `Add 8 training types` and
-    `Add your own type` (which opens the New type sheet). Uncheck `OPSEC` and choose `Add 7 training types`: the button
-    disables, the page then lists the 7 types in the matrix column order with `Every 12 months`, without a reload, and
-    `$V rows training_types orgA` lists them. With no branch or a branch that has no list (for example Navy) the panel
-    never appears and only the empty state shows. `trainingView` and any viewer see the empty state without the panel
-    and the page makes no request to `/api/training-types/suggestions`. Capture 1280 px and 390 px (3 rows and
-    `Show 5 more` at 390).
+    `Add your own type` (which opens the New type sheet). Choose `Add 8 training types`: the button
+    disables, then the page lists the 8 types in the matrix column order with `Every 12 months`, without a reload
+    (`$V rows training_types orgA` lists them). Unchecking a row and a failed request are covered by the component
+    tests. With no branch or a branch that has no list (for example Navy) the panel never appears and only the empty
+    state shows. A member invited with the `Operator` preset sees the empty state without the panel or the `New type`
+    button, and its `GET` and `POST` to `/api/training-types/suggestions` answer 403. Capture 1280 px and 390 px (3 rows
+    and `Show 5 more` at 390).
 
 Use `tool evaluate_script` on the signed-in page for endpoint probes. Substitute the fixture IDs and a unique marker:
 

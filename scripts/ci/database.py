@@ -171,6 +171,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261108000100_account_level_notification_types.sql",
     "20261108120000_archive_training_types.sql",
     "20261108120100_archive_status_types.sql",
+    "20261108200000_organization_member_names.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
@@ -192,6 +193,7 @@ POST_TREE_SQL_TESTS = (
     "archive_training_types.sql",
     "archive_status_types.sql",
     "audit_availability_entries.sql",
+    "organization_member_names.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

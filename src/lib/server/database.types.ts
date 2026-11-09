@@ -1917,6 +1917,9 @@ export type Database = {
           id: string
           invited_by: string | null
           member_preset: string
+          org_first_name: string | null
+          org_last_name: string | null
+          org_rank: string | null
           organization_id: string
           role: Database["public"]["Enums"]["organization_role"]
           user_id: string
@@ -1930,6 +1933,9 @@ export type Database = {
           id?: string
           invited_by?: string | null
           member_preset?: string
+          org_first_name?: string | null
+          org_last_name?: string | null
+          org_rank?: string | null
           organization_id: string
           role?: Database["public"]["Enums"]["organization_role"]
           user_id: string
@@ -1943,6 +1949,9 @@ export type Database = {
           id?: string
           invited_by?: string | null
           member_preset?: string
+          org_first_name?: string | null
+          org_last_name?: string | null
+          org_rank?: string | null
           organization_id?: string
           role?: Database["public"]["Enums"]["organization_role"]
           user_id?: string
@@ -4601,11 +4610,12 @@ export type Database = {
         Returns: boolean
       }
       organization_member_labels: {
-        Args: { p_organization_id: string }
+        Args: { p_organization_id: string; p_user_ids?: string[] }
         Returns: {
           email: string
           first_name: string
           last_name: string
+          name_source: string
           rank: string
           user_id: string
         }[]
@@ -5113,6 +5123,24 @@ export type Database = {
           p_parent_id?: string
         }
         Returns: undefined
+      }
+      set_organization_member_name: {
+        Args: {
+          p_first_name: string
+          p_last_name: string
+          p_organization_id: string
+          p_rank: string
+          p_user_id: string
+        }
+        Returns: {
+          member_user_id: string
+          previous_first_name: string
+          previous_last_name: string
+          previous_rank: string
+          saved_first_name: string
+          saved_last_name: string
+          saved_rank: string
+        }[]
       }
       set_roster_excusals: {
         Args: {

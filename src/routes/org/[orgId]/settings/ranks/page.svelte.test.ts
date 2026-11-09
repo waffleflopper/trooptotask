@@ -243,6 +243,15 @@ function renderRankPage(ranks: SettingsRankCatalogRow[], canManageCatalog = true
 			await vi.runAllTimersAsync();
 			return update;
 		},
+		saveThenRefreshFails: async (data: Record<string, unknown> = {}) => {
+			await heldSubmissions[heldSubmissions.length - 1]({
+				result: { type: 'success', data },
+				update: async () => {
+					throw new Error('refresh failed');
+				}
+			});
+			await vi.runAllTimersAsync();
+		},
 		fail: async (message: string) => {
 			await heldSubmissions[heldSubmissions.length - 1]({
 				result: { type: 'failure' },
@@ -655,6 +664,20 @@ describe('custom rank names', () => {
 		expect(screen.getByLabelText('Label')).toHaveValue('Detachment Lead');
 		expect(screen.getByRole('alert')).toBeVisible();
 		expect(screen.getByRole('button', { name: 'Save DET-SGT' })).toBeEnabled();
+	});
+
+	it('keeps the draft and shows the reload error when a saved rank cannot refresh the page', async () => {
+		const page = renderRankPage([rankEntry()]);
+
+		await openNames();
+		await click(nameButton('DET-SGT'));
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Detachment Lead' } });
+		submitWith(screen.getByRole('button', { name: 'Save DET-SGT' }));
+		await page.saveThenRefreshFails({ code: 'DET-SGT' });
+
+		expect(screen.getByLabelText('Label')).toHaveValue('Detachment Lead');
+		expect(screen.getByRole('alert')).toBeVisible();
+		expect(toastStore.success).not.toHaveBeenCalled();
 	});
 
 	it('removes an unused custom rank after a destructive confirmation', async () => {

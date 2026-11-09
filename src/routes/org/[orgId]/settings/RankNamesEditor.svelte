@@ -220,7 +220,7 @@
 							isCurrent: current,
 							reset: false,
 							settled: (error) => {
-								succeeded = result.type === 'success';
+								succeeded = result.type === 'success' && error === null;
 								actionError = error;
 							},
 							focus: () => []

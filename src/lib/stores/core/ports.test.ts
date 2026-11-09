@@ -90,6 +90,17 @@ describe('createRestAdapter', () => {
 			});
 		});
 
+		it('reports unconfirmed when a 202 reply body cannot be read', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({ ok: true, status: 202, json: () => Promise.reject(new TypeError('aborted')) })
+			);
+
+			const result = await makeAdapter().remove('1');
+
+			expect(result).toBe('unconfirmed' satisfies DeleteResult);
+		});
+
 		it('should return approval_required on 202 with requiresApproval', async () => {
 			vi.stubGlobal('fetch', mockFetch({ requiresApproval: true }, 202));
 

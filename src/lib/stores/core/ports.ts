@@ -102,7 +102,9 @@ export function createRestAdapter<T extends { id: string }>(getOrgId: () => stri
 				return 'unconfirmed';
 			}
 			if (res.status === 202) {
-				const body = await res.json().catch(() => null);
+				// A 202 may only queue an approval, so an unreadable body proves nothing was deleted either way.
+				const body = await res.json().catch(() => undefined);
+				if (body === undefined) return 'unconfirmed';
 				if (body?.requiresApproval) return 'approval_required';
 			}
 			const outcome = classifyWrite(res);

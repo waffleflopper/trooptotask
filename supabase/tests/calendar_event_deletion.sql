@@ -125,9 +125,9 @@ SELECT throws_ok($$UPDATE public.calendar_taskings SET event_id = NULL WHERE id 
   '55000', NULL, 'the ordinary edit path still cannot unlink a cancelled Tasking');
 
 SELECT results_eq($$SELECT * FROM public.delete_calendar_event(pg_temp.id(101), pg_temp.id(301), 'standalone')$$,
-  $$VALUES (5)$$, 'an operator deletes an active Event and counts all five unlinked Taskings');
+  $$VALUES (0, 5)$$, 'an operator deletes an active Event in standalone mode and keeps all five Taskings');
 SELECT results_eq($$SELECT * FROM public.delete_calendar_event(pg_temp.id(101), pg_temp.id(302), 'standalone')$$,
-  $$VALUES (5)$$, 'an operator deletes a cancelled Event and counts all five unlinked Taskings');
+  $$VALUES (0, 5)$$, 'an operator deletes a cancelled Event in standalone mode and keeps all five Taskings');
 SELECT results_eq(
   $$SELECT id, event_id, status FROM public.calendar_taskings WHERE id IN (
     pg_temp.id(401),pg_temp.id(402),pg_temp.id(403),pg_temp.id(404),pg_temp.id(405)) ORDER BY id$$,
@@ -158,23 +158,68 @@ SELECT results_eq('TABLE public.calendar_tasking_equipment', 'TABLE before_equip
 SELECT results_eq('TABLE public.calendar_tasking_checklist_items', 'TABLE before_checklist', 'unlinking retains checklists');
 
 SELECT results_eq($$SELECT * FROM public.delete_calendar_event(pg_temp.id(101), pg_temp.id(303), 'delete')$$,
-  $$VALUES (5)$$, 'an operator deletes every linked Tasking under an active Event, whatever its status');
+  $$VALUES (3, 2)$$, 'delete mode deletes the three active Taskings of an active Event and keeps its two closed ones');
 SELECT results_eq($$SELECT * FROM public.delete_calendar_event(pg_temp.id(101), pg_temp.id(304), 'delete')$$,
-  $$VALUES (5)$$, 'an operator deletes every linked Tasking under a cancelled Event, whatever its status');
-SELECT is((SELECT count(*) FROM public.calendar_taskings WHERE id BETWEEN pg_temp.id(421) AND pg_temp.id(435)), 0::bigint,
-  'all Taskings selected for deletion are gone');
-SELECT is((SELECT count(*) FROM public.calendar_tasking_participants WHERE tasking_id BETWEEN pg_temp.id(421) AND pg_temp.id(435)), 0::bigint,
+  $$VALUES (3, 2)$$, 'delete mode deletes the three active Taskings of a cancelled Event and keeps its two closed ones');
+SELECT is((SELECT count(*) FROM public.calendar_taskings WHERE id IN (
+    pg_temp.id(421),pg_temp.id(422),pg_temp.id(423),pg_temp.id(431),pg_temp.id(432),pg_temp.id(433))), 0::bigint,
+  'every open, in progress and blocked Tasking is gone');
+SELECT is((SELECT count(*) FROM public.calendar_tasking_participants WHERE tasking_id IN (
+    pg_temp.id(421),pg_temp.id(422),pg_temp.id(423),pg_temp.id(431),pg_temp.id(432),pg_temp.id(433))), 0::bigint,
   'their picks cascade away');
-SELECT is((SELECT count(*) FROM public.calendar_tasking_equipment WHERE tasking_id BETWEEN pg_temp.id(421) AND pg_temp.id(435)), 0::bigint,
+SELECT is((SELECT count(*) FROM public.calendar_tasking_equipment WHERE tasking_id IN (
+    pg_temp.id(421),pg_temp.id(422),pg_temp.id(423),pg_temp.id(431),pg_temp.id(432),pg_temp.id(433))), 0::bigint,
   'their equipment cascades away');
-SELECT is((SELECT count(*) FROM public.calendar_tasking_checklist_items WHERE tasking_id BETWEEN pg_temp.id(421) AND pg_temp.id(435)), 0::bigint,
+SELECT is((SELECT count(*) FROM public.calendar_tasking_checklist_items WHERE tasking_id IN (
+    pg_temp.id(421),pg_temp.id(422),pg_temp.id(423),pg_temp.id(431),pg_temp.id(432),pg_temp.id(433))), 0::bigint,
   'their checklist items cascade away');
-SELECT is((SELECT count(*) FROM public.read_calendar_tasking_activity(pg_temp.id(101)) WHERE tasking_id BETWEEN pg_temp.id(421) AND pg_temp.id(435)), 0::bigint,
+SELECT is((SELECT count(*) FROM public.read_calendar_tasking_activity(pg_temp.id(101)) WHERE tasking_id IN (
+    pg_temp.id(421),pg_temp.id(422),pg_temp.id(423),pg_temp.id(431),pg_temp.id(432),pg_temp.id(433))), 0::bigint,
   'deleted Taskings have no readable Activity');
+SELECT results_eq(
+  $$SELECT id, event_id, status FROM public.calendar_taskings WHERE id IN (
+    pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY id$$,
+  $$VALUES (pg_temp.id(424),NULL::uuid,'completed'::text), (pg_temp.id(425),NULL::uuid,'cancelled'),
+    (pg_temp.id(434),NULL::uuid,'completed'), (pg_temp.id(435),NULL::uuid,'cancelled')$$,
+  'completed and cancelled Taskings survive as standalone with their status');
+SELECT results_eq(
+  $$SELECT to_jsonb(t) - ARRAY['event_id','updated_at','updated_by'] FROM public.calendar_taskings t
+    WHERE t.id IN (pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY t.id$$,
+  $$SELECT to_jsonb(t) - ARRAY['event_id','updated_at','updated_by'] FROM before_taskings t
+    WHERE t.id IN (pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY t.id$$,
+  'the surviving Taskings keep every other field, including who completed or cancelled them');
+SELECT results_eq(
+  $$SELECT * FROM public.calendar_tasking_equipment WHERE tasking_id IN (
+    pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY id$$,
+  $$SELECT * FROM before_equipment WHERE tasking_id IN (
+    pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY id$$,
+  'the surviving Taskings keep their equipment');
+SELECT results_eq(
+  $$SELECT * FROM public.calendar_tasking_checklist_items WHERE tasking_id IN (
+    pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY id$$,
+  $$SELECT * FROM before_checklist WHERE tasking_id IN (
+    pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY id$$,
+  'the surviving Taskings keep their checklist');
+SELECT results_eq(
+  $$SELECT id, actor_id, kind, payload FROM public.read_calendar_tasking_activity(pg_temp.id(101))
+    WHERE kind <> 'event_deleted' AND tasking_id IN (
+      pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY id$$,
+  $$SELECT id, actor_id, kind, payload FROM before_activity WHERE tasking_id IN (
+      pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY id$$,
+  'the surviving Taskings keep every prior Activity entry');
+SELECT results_eq(
+  $$SELECT tasking_id, actor_id, payload FROM public.read_calendar_tasking_activity(pg_temp.id(101))
+    WHERE kind = 'event_deleted' AND tasking_id IN (
+      pg_temp.id(424),pg_temp.id(425),pg_temp.id(434),pg_temp.id(435)) ORDER BY tasking_id$$,
+  $$VALUES (pg_temp.id(424), pg_temp.id(2), jsonb_build_object('eventId', pg_temp.id(303), 'eventTitle', 'Best Medic Competition')),
+    (pg_temp.id(425), pg_temp.id(2), jsonb_build_object('eventId', pg_temp.id(303), 'eventTitle', 'Best Medic Competition')),
+    (pg_temp.id(434), pg_temp.id(2), jsonb_build_object('eventId', pg_temp.id(304), 'eventTitle', 'Best Medic Competition')),
+    (pg_temp.id(435), pg_temp.id(2), jsonb_build_object('eventId', pg_temp.id(304), 'eventTitle', 'Best Medic Competition'))$$,
+  'each surviving Tasking notes the Event deletion in its Activity');
 SELECT results_eq($$SELECT * FROM public.delete_calendar_event(pg_temp.id(101), pg_temp.id(305), 'standalone')$$,
-  $$VALUES (0)$$, 'standalone mode deletes an Event with no Taskings');
+  $$VALUES (0, 0)$$, 'standalone mode deletes an Event with no Taskings');
 SELECT results_eq($$SELECT * FROM public.delete_calendar_event(pg_temp.id(101), pg_temp.id(306), 'delete')$$,
-  $$VALUES (0)$$, 'delete mode deletes an Event with no Taskings');
+  $$VALUES (0, 0)$$, 'delete mode deletes an Event with no Taskings');
 SELECT results_eq($$SELECT id FROM public.calendar_events ORDER BY id$$, $$VALUES (pg_temp.id(307))$$,
   'only the unrelated Event remains');
 SELECT results_eq($$SELECT event_id, kind FROM public.calendar_event_activity ORDER BY event_id, id$$,

@@ -321,7 +321,12 @@ function checkDeletedRouteAuthorizationFramework() {
 }
 
 // Migrations after the tree migration that store or copy grant roots without comparing them, each reviewed by hand.
-const GROUP_SCOPE_REVIEWED_MIGRATIONS = new Map();
+const GROUP_SCOPE_REVIEWED_MIGRATIONS = new Map([
+	[
+		'supabase/migrations/20261108220000_keep_closed_taskings_on_event_delete.sql',
+		'redefines calendar_tasking_workspace with one changed aggregate and keeps its subtree path && coverage test'
+	]
+]);
 
 function collectGroupScopeMigrationIssues(migrations, reviewed = GROUP_SCOPE_REVIEWED_MIGRATIONS) {
 	const issues = [];

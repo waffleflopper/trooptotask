@@ -113,7 +113,7 @@ SELECT is(pg_temp.returned('601', 1), 1, 'a Group operator records a return on t
 SELECT results_eq(
   $$SELECT actor_id, payload FROM public.read_calendar_tasking_activity(pg_temp.id('101'), pg_temp.id('403'))
     WHERE kind = 'equipment_returned'$$,
-  $$VALUES (pg_temp.id('3'), '{"name": "Aid bags", "quantity": 2, "from": 0, "to": 1}'::jsonb)$$,
+  $$VALUES (pg_temp.id('3'), '{"name": "Aid bags", "quantity": 2, "securedQuantity": 2, "from": 0, "to": 1}'::jsonb)$$,
   'Activity records the return by its author'
 );
 SELECT throws_ok($$UPDATE public.calendar_tasking_equipment SET secured_quantity = 1 WHERE id = pg_temp.id('601')$$,

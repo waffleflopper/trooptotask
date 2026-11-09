@@ -4,7 +4,8 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { browser } from '$app/env';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
-	import { endOrganizationLifetime } from '$lib/stores/core';
+	import { endOrganizationLifetime, onWriteConfirmedAfterLifetime } from '$lib/stores/core';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import AccountPreferencesProvider from '$features/identity/AccountPreferencesProvider.svelte';
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
@@ -70,6 +71,18 @@
 	);
 	// The Organization layout keys this shell by user, Organization and session; its teardown ends that lifetime.
 	$effect(() => endOrganizationLifetime);
+	const CONFIRMED_AFTER_SWITCH_TOAST_MS = 5000;
+	// The earlier Organization's dialogs are gone, so this one says their writes landed. A burst of confirmations
+	// from one switch shares a single toast.
+	$effect(() => {
+		let lastToldAt = -Infinity;
+		return onWriteConfirmedAfterLifetime(() => {
+			const now = Date.now();
+			if (now - lastToldAt < CONFIRMED_AFTER_SWITCH_TOAST_MS) return;
+			lastToldAt = now;
+			toastStore.success('Saved what you changed before switching Organization.', CONFIRMED_AFTER_SWITCH_TOAST_MS);
+		});
+	});
 
 	function autoShowWhatsNew() {
 		if (!browser || hasAutoShownWhatsNew || !newestWhatsNewId) return;

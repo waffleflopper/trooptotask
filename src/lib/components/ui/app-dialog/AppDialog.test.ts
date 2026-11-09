@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import AppDialogTest from './AppDialogTest.svelte';
 
 afterEach(() => cleanup());
@@ -111,6 +112,42 @@ describe('AppDialog', () => {
 		await fireEvent.click(save);
 		expect(dialog.getAttribute('aria-busy')).toBe('true');
 		await waitFor(() => expect(document.activeElement).toBe(dialog));
+	});
+
+	it('lets a busy dialog be dismissed once the Organization lifetime it opened in ends', async () => {
+		render(AppDialogTest, { initialBusy: true });
+		const dialog = screen.getByRole('dialog', { name: 'Shared dialog title' });
+
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(screen.getByRole('dialog', { name: 'Shared dialog title' })).toBe(dialog);
+
+		endOrganizationLifetime();
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(screen.getByTestId('closed-count').textContent).toBe('1');
+	});
+
+	it('lets a dialog holding a draft be dismissed by an outside click once its lifetime ends', async () => {
+		render(AppDialogTest);
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: 'Unsaved' } });
+
+		endOrganizationLifetime();
+		await clickOutside();
+
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('still blocks a busy dialog opened after an earlier lifetime ended', async () => {
+		endOrganizationLifetime();
+		render(AppDialogTest, { initialBusy: true });
+		const dialog = screen.getByRole('dialog', { name: 'Shared dialog title' });
+
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await clickOutside();
+
+		expect(screen.getByRole('dialog', { name: 'Shared dialog title' })).toBe(dialog);
+		expect(screen.getByTestId('closed-count').textContent).toBe('0');
 	});
 
 	it('blocks close affordances while busy', () => {

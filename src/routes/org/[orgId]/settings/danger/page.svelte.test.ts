@@ -142,21 +142,22 @@ it.each(['failure', 'redirect'] as const)(
 
 const serverError: ActionResult = { type: 'error', status: 500, error: { status: 500, message: 'Internal Error' } };
 
-async function chooseTransferTarget() {
+async function chooseTransferTarget(name: string | null = null) {
 	const data = makeData();
 	data.dangerSettings.transferOwnershipCandidates = [
-		{ id: 'm-1', userId: 'u-1', email: 'next@example.com', membershipRole: 'admin' }
+		{ id: 'm-1', userId: 'u-1', email: 'next@example.com', name, membershipRole: 'admin' }
 	];
 	const view = render(Page, { data, form: null, params: { orgId: 'org-a' } });
 	const trigger = document.getElementById('transfer-owner-target')!;
 	await fireEvent.pointerDown(trigger, { pointerType: 'mouse', button: 0 });
 	await fireEvent.pointerUp(trigger, { pointerType: 'mouse', button: 0 });
 	await vi.runAllTimersAsync();
-	const option = screen.getByRole('option', { name: 'next@example.com' });
+	const label = name ? `${name} (next@example.com)` : 'next@example.com';
+	const option = screen.getByRole('option', { name: label });
 	await fireEvent.pointerUp(option, { pointerType: 'mouse', button: 0 });
 	await fireEvent.click(screen.getByRole('button', { name: 'Transfer' }));
 	await vi.runAllTimersAsync();
-	const dialog = screen.getByRole('dialog', { name: 'Make next@example.com the Owner?' });
+	const dialog = screen.getByRole('dialog', { name: `Make ${name ?? 'next@example.com'} the Owner?` });
 	return { view, data, dialog };
 }
 
@@ -188,6 +189,16 @@ it.each([
 	expect(within(dialog).getByRole('alert')).toBeTruthy();
 	expect((within(dialog).getByRole('textbox') as HTMLInputElement).value).toBe('next@example.com');
 	expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Transfer ownership' }));
+});
+
+it('offers a named member by name and email, and still asks for the email to confirm', async () => {
+	const { dialog } = await chooseTransferTarget('SFC Dana Whitaker');
+
+	const input = within(dialog).getByRole('textbox', { name: 'Type next@example.com to confirm' });
+	await fireEvent.input(input, { target: { value: 'next@example.com' } });
+	expect((within(dialog).getByRole('button', { name: 'Transfer ownership' }) as HTMLButtonElement).disabled).toBe(
+		false
+	);
 });
 
 it('names the email to type and enables Transfer ownership once it matches, ignoring case', async () => {

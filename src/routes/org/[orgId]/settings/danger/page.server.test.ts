@@ -117,7 +117,7 @@ describe('danger settings page server', () => {
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
 				auth: { orgId: 'org-1', role: 'admin', canManageMembers: true },
-				organizationSettings: { listOwnershipCandidateMemberships: findMany },
+				organizationSettings: { listOwnershipCandidateMemberships: findMany, listMemberNames: async () => [] },
 				unitCounts: { countRows, countRatingSchemeEntries: countRows }
 			})
 		);
@@ -177,7 +177,7 @@ describe('danger settings page server', () => {
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
 				auth: { orgId: 'org-1', role: 'owner', canManageMembers: true },
-				organizationSettings: { listOwnershipCandidateMemberships: findMany },
+				organizationSettings: { listOwnershipCandidateMemberships: findMany, listMemberNames: async () => [] },
 				unitCounts: testContext.unitCounts
 			})
 		);

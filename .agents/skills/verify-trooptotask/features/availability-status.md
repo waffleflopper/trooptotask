@@ -43,6 +43,7 @@ $V network arm-hold 2 availability # hold a real response after persistence
 $V network arm-hold-dispatch 2 availability # hold a Calendar save or delete before dispatch; release sends it
 $V network arm-drop 2 availability # persist one create, update or remove, then lose its reply (any method)
 $V pointer drag 2 'EXACT_LOADED_URL' '[data-edge="end"]' '[data-person-id="ID"] [data-day="9"]' # real pointer drag by CSS selector
+$V pointer touch 2 'EXACT_LOADED_URL' '[data-person-id="ID"] [data-day="9"]' '[data-person-id="ID"] [data-day="9"]' # trusted touch tap; two selectors swipe
 ```
 
 ## Driving it with verify:app
@@ -85,11 +86,9 @@ restore any temporarily narrowed grant.
    lane; its button opens `2 more entries, RANK Last` listing both, and choosing one opens that entry's popover.
    **Touch quick add.** Native `click`, `drag` and `emulate` send mouse input, so a tap needs trusted touch events. Run
    `emulate` with `{"pageId":PAGE,"viewport":"390x844x2,mobile,touch"}` and reload; the legend reads
-   `Tap two days to add`. Send touches with a scratch Node script (not committed) that connects Puppeteer to the owned
-   browser's `DevToolsActivePort` endpoint and calls `page.touchscreen.touchStart(x, y)` then `.end()` for a tap
-   (`.move()` between them for a swipe). Pick day cells that are inside the 390 px viewport (read each
-   `[data-day]` rect). Expect: (a) one tap on an empty day draws a dashed `1 day` box on that row, opens no dialog
-   and no `Set Personnel Status`; (b) a horizontal swipe that starts on a day scrolls the grid, draws no box when none
+   `Tap two days to add`. Tap with `$V pointer touch PAGE 'EXACT_URL' SELECTOR SELECTOR` (the same selector twice);
+   swipe with two different selectors. Pick day cells inside the 390 px viewport (read each `[data-day]` rect). Expect:
+   (a) one tap on an empty day draws a dashed `1 day` box on that row, opens no dialog and no `Set Personnel Status`; (b) a horizontal swipe that starts on a day scrolls the grid, draws no box when none
    was armed, and leaves an armed box in place (read `[data-slot="calendar-selection"]`); (c) a second tap in the same
    row on a visible day opens `Add status, <range>` with the right day count; one tap on a
    status adds the bar over exactly those days, three taps in all (`rows` and a reload confirm); (d) a tap in another

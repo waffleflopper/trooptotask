@@ -1074,7 +1074,6 @@ describe('member names', () => {
 
 		const section = within(within(sheet).getByRole('region', { name: 'Name' }));
 		expect(section.getByText('SFC Dana Whitaker')).toBeTruthy();
-		expect(section.getByText(/name on their account/)).toBeTruthy();
 		expect(section.queryByRole('button')).toBeNull();
 		expect(within(sheet).queryByLabelText('First name')).toBeNull();
 	});

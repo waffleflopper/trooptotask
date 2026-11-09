@@ -10,7 +10,7 @@
 </script>
 
 <script lang="ts">
-	import { tick, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import Check from '@lucide/svelte/icons/check';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
@@ -21,6 +21,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
+	import { settleAction } from '$lib/utils/settleAction';
 	import CodeField from './CodeField.svelte';
 	import PasswordCompletion from './PasswordCompletion.svelte';
 	import PasswordMfaChallenge from './PasswordMfaChallenge.svelte';
@@ -57,6 +58,11 @@
 	} = $props();
 
 	type Row = 'email' | 'password' | 'turn-off';
+
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const ROWS = ACCOUNT_PAGES.security.rows;
 
@@ -166,68 +172,84 @@
 			return;
 		}
 		const version = rowVersion;
+		const sameRow = () => version === rowVersion;
 		const requestedEmail = emailDraft.trim().toLowerCase();
 		emailLoading = true;
 		emailResult = null;
-		return async ({ result, update }) => {
-			const sameRow = () => version === rowVersion;
+		return async (outcome) => {
+			const { result } = outcome;
 			let accepted = false;
-			try {
-				if (result.type === 'redirect') {
-					await update();
-					return;
-				}
-				if (!sameRow() && result.type !== 'success') return;
-				if (result.type === 'failure') {
-					const failure = result.data as EmailActionData & { error?: unknown };
-					emailResult =
-						typeof failure?.emailError === 'string'
-							? failure
-							: {
-									emailError:
-										typeof failure?.error === 'string'
-											? failure.error
-											: 'Unable to confirm the email request. Please try again.'
-								};
-					emailMfaRequired = emailResult?.code === 'mfa_required';
-				} else if (
-					result.type === 'success' &&
-					typeof result.data?.emailSuccess === 'string' &&
-					typeof result.data?.pendingEmail === 'string' &&
-					result.data.pendingEmail === requestedEmail
-				) {
-					accepted = true;
-					confirmedPendingEmail = result.data.pendingEmail;
-					if (sameRow()) {
-						emailResult = result.data as EmailActionData;
-						emailCurrentPassword = '';
+			await settleAction(
+				{
+					result,
+					// The failures and the acceptance below are this form's own outcome, so SvelteKit applies only a redirect.
+					update: async (options) => {
+						if (result.type === 'redirect') return outcome.update(options);
+						if (!sameRow() && result.type !== 'success') return;
+						if (result.type === 'failure') {
+							const failure = result.data as EmailActionData & { error?: unknown };
+							emailResult =
+								typeof failure?.emailError === 'string'
+									? failure
+									: {
+											emailError:
+												typeof failure?.error === 'string'
+													? failure.error
+													: 'Unable to confirm the email request. Please try again.'
+										};
+							emailMfaRequired = emailResult?.code === 'mfa_required';
+						} else if (
+							result.type === 'success' &&
+							typeof result.data?.emailSuccess === 'string' &&
+							typeof result.data?.pendingEmail === 'string' &&
+							result.data.pendingEmail === requestedEmail
+						) {
+							accepted = true;
+							confirmedPendingEmail = result.data.pendingEmail;
+							if (sameRow()) {
+								emailResult = result.data as EmailActionData;
+								emailCurrentPassword = '';
+							}
+							// Applying the action resets focus, which would land outside a row the user opened meanwhile.
+							await invalidateAll();
+						} else if (sameRow()) {
+							emailResult = {
+								emailError: 'Unable to confirm the email request. Check your inboxes or reload before retrying.'
+							};
+						}
 					}
-					// Applying the action resets focus, which would land outside a row the user opened meanwhile.
-					await invalidateAll();
-				} else if (sameRow()) {
-					emailResult = {
-						emailError: 'Unable to confirm the email request. Check your inboxes or reload before retrying.'
-					};
+				},
+				{
+					isCurrent: () => active,
+					settled: (refreshError) => {
+						emailLoading = false;
+						if (!sameRow()) return;
+						if (result.type === 'error')
+							emailResult = {
+								emailError: 'Unable to confirm the email request. Check your inboxes or reload before retrying.'
+							};
+						else if (refreshError)
+							emailResult = {
+								emailError: 'Unable to refresh the email status. Check your inboxes or reload before retrying.'
+							};
+						if (accepted) {
+							emailDraft = '';
+							openRow = null;
+						}
+					},
+					// A row the user opened meanwhile keeps its own focus.
+					focus: () => {
+						if (!sameRow()) return [];
+						if (accepted) return [rowTriggers.email];
+						if (!emailResult?.emailError || emailMfaRequired || !formElement.isConnected) return [];
+						return [
+							formElement.querySelector<HTMLInputElement>(
+								emailErrorField === 'email' ? '#email' : '#email-current-password'
+							)
+						];
+					}
 				}
-			} catch {
-				if (sameRow())
-					emailResult = {
-						emailError: 'Unable to refresh the email status. Check your inboxes or reload before retrying.'
-					};
-			} finally {
-				emailLoading = false;
-			}
-			if (!sameRow()) return;
-			if (accepted) {
-				emailDraft = '';
-				openRow = null;
-			}
-			await tick();
-			if (accepted) rowTriggers.email?.focus();
-			else if (emailResult?.emailError && !emailMfaRequired && formElement.isConnected)
-				formElement
-					.querySelector<HTMLInputElement>(emailErrorField === 'email' ? '#email' : '#email-current-password')
-					?.focus();
+			);
 		};
 	};
 

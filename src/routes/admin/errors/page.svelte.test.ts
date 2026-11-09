@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ErrorGroup } from '$features/error-reporting/contracts';
@@ -6,11 +7,12 @@ import type { ErrorGroupRegion } from '$features/platform-admin/errorTypes';
 import ErrorsPage from './+page.svelte';
 
 type ResolveReply = (input: { result: { type: string }; update: () => Promise<void> }) => Promise<void>;
+type ResolveSubmit = (input: { submitter: HTMLElement | null }) => ResolveReply;
 const { goto, invalidate, navigations, submissions } = vi.hoisted(() => ({
 	goto: vi.fn(async (..._args: unknown[]) => {}),
 	invalidate: vi.fn(async (..._args: unknown[]) => {}),
 	navigations: [] as Array<() => void>,
-	submissions: [] as Array<() => ResolveReply>
+	submissions: [] as ResolveSubmit[]
 }));
 vi.mock('$app/navigation', () => ({
 	goto,
@@ -18,7 +20,7 @@ vi.mock('$app/navigation', () => ({
 	beforeNavigate: (callback: () => void) => navigations.push(callback)
 }));
 vi.mock('$app/forms', () => ({
-	enhance: (_form: HTMLFormElement, submit: () => ResolveReply) => {
+	enhance: (_form: HTMLFormElement, submit: ResolveSubmit) => {
 		submissions.push(submit);
 		return { destroy() {} };
 	}
@@ -136,19 +138,34 @@ describe('Errors page', () => {
 	});
 
 	it.each([
-		['shows a failed resolve while the page is still open', false, true],
-		['ignores a resolve reply that arrives after leaving the page', true, false]
-	])('%s', async (_name, leave, shown) => {
+		['shows a failed resolve while the page is still open', 'failure', false, true],
+		['shows a request that threw while the page is still open', 'error', false, true],
+		['ignores a resolve reply that arrives after leaving the page', 'failure', true, false],
+		['ignores a request that threw after leaving the page', 'error', true, false]
+	])('%s', async (_name, type, leave, shown) => {
 		render(ErrorsPage, { data: data(ok([group()])), form: null });
 		await screen.findByRole('button', { name: /Resolve HttpError/ });
-		const reply = submissions.at(-1)!();
+		const reply = submissions.at(-1)!({ submitter: null });
 		const update = vi.fn(async () => {});
 
 		if (leave) for (const navigate of navigations) navigate();
-		await reply({ result: { type: 'failure' }, update });
+		await reply({ result: { type }, update });
 
 		await waitFor(() => expect(screen.queryByRole('alert') !== null).toBe(shown));
 		expect(update).not.toHaveBeenCalled();
+	});
+
+	it('returns to the Resolve button and clears its busy state once a failed resolve answers', async () => {
+		render(ErrorsPage, { data: data(ok([group()])), form: null });
+		const button = () => screen.getByRole('button', { name: /Resolve HttpError/ });
+		await screen.findByRole('button', { name: /Resolve HttpError/ });
+		const reply = submissions.at(-1)!({ submitter: button() });
+		await waitFor(() => expect(button()).toHaveAttribute('aria-busy', 'true'));
+
+		await reply({ result: { type: 'error' }, update: async () => {} });
+
+		await waitFor(() => expect(button()).not.toHaveAttribute('aria-busy'));
+		await waitFor(() => expect(button()).toHaveFocus());
 	});
 
 	it('shows a failed resolve from the server action', async () => {

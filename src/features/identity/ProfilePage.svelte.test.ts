@@ -97,9 +97,39 @@ describe('account profile page', () => {
 		await fireEvent.input(screen.getByLabelText('First name'), { target: { value: 'Emily' } });
 
 		await fireEvent.submit(screen.getByLabelText('First name').closest('form')!);
-		await waitFor(() => expect(transport.update).toHaveBeenCalledWith({ reset: false }));
+		await waitFor(() => expect(transport.update).toHaveBeenCalledWith(expect.objectContaining({ reset: false })));
 		expect(screen.getByLabelText('First name')).toHaveValue('Emily');
 		expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+	});
+
+	it('keeps the draft and shows an alert when the save request throws, without the page being replaced', async () => {
+		transport.result = { type: 'error', status: 500, error: { status: 500, message: 'boom' } };
+		renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit name and rank' }));
+		await fireEvent.input(screen.getByLabelText('First name'), { target: { value: 'Emily' } });
+		await fireEvent.change(screen.getByLabelText('Rank'), { target: { value: 'SFC' } });
+
+		await fireEvent.submit(screen.getByLabelText('First name').closest('form')!);
+
+		expect(await screen.findByRole('alert')).toBeInTheDocument();
+		expect(transport.update).not.toHaveBeenCalled();
+		expect(screen.getByLabelText('First name')).toHaveValue('Emily');
+		expect(screen.getByLabelText('Rank')).toHaveValue('SFC');
+		expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+		await waitFor(() => expect(screen.getByLabelText('Rank')).toHaveFocus());
+	});
+
+	it('clears the alert when the editor is reopened', async () => {
+		transport.result = { type: 'error', status: 500, error: { status: 500, message: 'boom' } };
+		renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit name and rank' }));
+		await fireEvent.submit(screen.getByLabelText('First name').closest('form')!);
+		await screen.findByRole('alert');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit name and rank' }));
+
+		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
 	it('sends one save at a time and holds the draft read-only until it answers', async () => {

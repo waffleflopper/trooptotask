@@ -19,7 +19,7 @@ test('ordinary Start submits only its recorded inputs and preserves a blocked re
 			return new Response('active packet conflict', { status: 409, headers: { 'Set-Cookie': 'private' } });
 		}
 	};
-	const body = { personnelId: 'fresh-person', templateId: null, startedAt: '2026-10-02' };
+	const body = { personnelIds: ['fresh-person', 'second-person'], templateId: null, startedAt: '2026-10-02' };
 	const result = await requestOnboarding(page, { ...input, family: 'onboarding', method: 'POST', body });
 	assert.equal(sent[0], '/org/synthetic-a/api/onboarding');
 	assert.equal(sent[1].method, 'POST');
@@ -30,6 +30,22 @@ test('ordinary Start submits only its recorded inputs and preserves a blocked re
 	assert.equal(Object.hasOwn(result, 'headers'), false);
 	await assert.rejects(
 		requestOnboarding(page, { ...input, family: 'onboarding', method: 'POST', body: { ...body, status: 'completed' } })
+	);
+	await assert.rejects(
+		requestOnboarding(page, {
+			...input,
+			family: 'onboarding',
+			method: 'POST',
+			body: { ...body, personnelIds: [{ id: 'nested' }] }
+		})
+	);
+	await assert.rejects(
+		requestOnboarding(page, {
+			...input,
+			family: 'onboarding',
+			method: 'PUT',
+			body: { id: 'x', status: ['in_progress'] }
+		})
 	);
 });
 
@@ -52,7 +68,7 @@ test('ordinary Reopen preserves rejection and exact retry while blocking unrelat
 		}
 	};
 	for (const forbidden of [
-		{ ...body, personnelId: 'new-person' },
+		{ ...body, personnelIds: ['new-person'] },
 		{ ...body, cancelledAt: '2026-10-02T12:00:00Z' },
 		{ ...body, status: { nested: 'in_progress' } }
 	])

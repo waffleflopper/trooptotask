@@ -10,8 +10,8 @@ export type {
 
 export { onboardingTrainingTypes } from './stores/onboardingTrainingTypes.svelte';
 export { onboardingStore } from './stores/onboarding.svelte';
-export { loadOnboardingStartOptions, startOnboardingPacket } from './onboardingRequests';
-export type { OnboardingStartOptions } from './contracts';
+export { loadOnboardingStartOptions, startOnboardingPackets } from './onboardingRequests';
+export type { OnboardingStartOptions, StartOnboardingBatchResult, StartOnboardingOutcome } from './contracts';
 export { createOnboardingTemplateWorkspace, onboardingTemplateStore } from './stores/onboardingTemplate.svelte';
 export type {
 	OnboardingTemplateDeleteTarget,

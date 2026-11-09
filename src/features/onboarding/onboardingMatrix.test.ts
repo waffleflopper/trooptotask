@@ -15,21 +15,24 @@ const standard: OnboardingTemplate = {
 	orgId: 'org',
 	name: 'Standard',
 	description: null,
-	createdAt: null
+	createdAt: null,
+	isDefault: false
 };
 const reserve: OnboardingTemplate = {
 	id: 'reserve',
 	orgId: 'org',
 	name: 'Reserve',
 	description: null,
-	createdAt: null
+	createdAt: null,
+	isDefault: false
 };
 const emptyTemplate: OnboardingTemplate = {
 	id: 'empty',
 	orgId: 'org',
 	name: 'Empty',
 	description: null,
-	createdAt: null
+	createdAt: null,
+	isDefault: false
 };
 
 function templateStep(

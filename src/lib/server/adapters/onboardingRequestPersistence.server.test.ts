@@ -59,7 +59,8 @@ describe('captured Onboarding request authority', () => {
 			orgId: 'canonical-org',
 			name: 'Saved',
 			description: null,
-			createdAt: TIME
+			createdAt: TIME,
+			isDefault: false
 		});
 		expect((await workspace.onboardingWorkflow.listPackets('active')).map((row) => row.id)).toEqual(['packet']);
 		expect(await progress.onboardingWorkflow.saveCheckboxCompletion('progress', true)).toEqual({

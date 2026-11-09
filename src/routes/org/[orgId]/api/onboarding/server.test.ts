@@ -3,6 +3,7 @@ import type { OnboardingLifecycleTransitionResult, OnboardingPacketCreationPort 
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { RequestFailure } from '$lib/errors';
 import { _postConfig, _putConfig } from './+server';
 
 const ONBOARDING_ID = '00000000-0000-4000-8000-000000000010';
@@ -60,12 +61,13 @@ describe('/api/onboarding route config', () => {
 				archived_at: null
 			}
 		]);
+		ctx.store.seed('onboarding_templates', [{ id: TEMPLATE_1, name: 'Standard', organization_id: ctx.auth.orgId }]);
 
 		const result = await handleUseCaseRequest(
 			_postConfig,
 			ctx,
 			{
-				personnelId: PERSON_1,
+				personnelIds: [PERSON_1],
 				templateId: TEMPLATE_1,
 				startedAt: '2026-03-15'
 			},
@@ -73,14 +75,22 @@ describe('/api/onboarding route config', () => {
 		);
 
 		expect(result).toEqual({
-			id: 'saved-packet',
-			personnelId: PERSON_1,
-			templateId: TEMPLATE_1,
-			status: 'in_progress',
-			startedAt: '2026-03-15',
-			completedAt: null,
-			cancelledAt: null,
-			steps: []
+			results: [
+				{
+					personnelId: PERSON_1,
+					outcome: 'started',
+					onboarding: {
+						id: 'saved-packet',
+						personnelId: PERSON_1,
+						templateId: TEMPLATE_1,
+						status: 'in_progress',
+						startedAt: '2026-03-15',
+						completedAt: null,
+						cancelledAt: null,
+						steps: []
+					}
+				}
+			]
 		});
 		expect(create).toHaveBeenCalledWith(ctx.auth.orgId, {
 			personnelId: PERSON_1,
@@ -104,7 +114,7 @@ describe('/api/onboarding route config', () => {
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 		const reads = vi.spyOn(ctx.store, 'findMany');
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { personnelId: PERSON_1, ...body }, () => ctx)
+			handleUseCaseRequest(_postConfig, ctx, { personnelIds: [PERSON_1], ...body }, () => ctx)
 		).rejects.toMatchObject({
 			status: 400
 		});
@@ -114,20 +124,25 @@ describe('/api/onboarding route config', () => {
 		expect(ctx.auditPort.events).toEqual([]);
 	});
 
-	it.each([403, 404, 409, 500])(
-		'propagates a creation failure %s without a success audit or parent fallback',
-		async (status) => {
-			const failure =
-				status === 500 ? new Error('Creation failed') : Object.assign(new Error('Creation rejected'), { status });
+	it.each([
+		[403, 'failed', 'Creation rejected'],
+		[404, 'failed', 'Creation rejected'],
+		[409, 'already_onboarding', undefined],
+		[500, 'failed', 'Onboarding could not be started for this person.']
+	])(
+		'reports a creation failure %s on the person without a success audit or parent fallback',
+		async (status, outcome, message) => {
+			const failure = status === 500 ? new Error('Creation failed') : new RequestFailure(status, 'Creation rejected');
 			const ctx = createTestContext({ onboardingPacketCreation: { create: vi.fn().mockRejectedValue(failure) } });
 			ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
+			ctx.store.seed('onboarding_templates', [{ id: TEMPLATE_1, name: 'Standard', organization_id: ctx.auth.orgId }]);
 			const insert = vi.spyOn(ctx.store, 'insert').mockRejectedValue(new Error('Generic Start insert must not run'));
 			const deleteParent = vi
 				.spyOn(ctx.store, 'delete')
 				.mockRejectedValue(new Error('Compensation delete must not run'));
 			await expect(
-				handleUseCaseRequest(_postConfig, ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 }, () => ctx)
-			).rejects.toBe(failure);
+				handleUseCaseRequest(_postConfig, ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 }, () => ctx)
+			).resolves.toEqual({ results: [{ personnelId: PERSON_1, outcome, ...(message ? { message } : {}) }] });
 			expect(insert).not.toHaveBeenCalled();
 			expect(deleteParent).not.toHaveBeenCalled();
 			expect(ctx.auditPort.events).toEqual([]);
@@ -155,7 +170,7 @@ describe('/api/onboarding route config', () => {
 
 			await expect(
 				handleUseCaseRequest(
-					config,
+					config as typeof _putConfig,
 					ctx,
 					{
 						personnelId: PERSON_1,
@@ -291,12 +306,21 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 		expect(ctx.auditPort.events).toEqual([]);
 	});
 
-	it('answers 400 when the Person to onboard is not an id', async () => {
+	it.each([
+		['a Person that is not an id', ['abc'], 'Choose a Person to onboard'],
+		['no people', [], 'Choose at least one Person to onboard'],
+		['the legacy single-person body', undefined, 'Choose at least one Person to onboard']
+	])('answers 400 for %s', async (_case, personnelIds, message) => {
 		const ctx = createTestContext();
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { personnelId: 'abc', templateId: TEMPLATE_1 }, () => ctx)
-		).rejects.toMatchObject({ status: 400, message: 'Choose a Person to onboard' });
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				personnelIds ? { personnelIds, templateId: TEMPLATE_1 } : { personnelId: PERSON_1, templateId: TEMPLATE_1 },
+				() => ctx
+			)
+		).rejects.toMatchObject({ status: 400, message });
 	});
 });
 

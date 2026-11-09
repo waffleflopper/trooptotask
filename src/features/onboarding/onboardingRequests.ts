@@ -1,16 +1,17 @@
-import type { OnboardingStartOptions, PersonnelOnboarding } from './contracts';
+import type { OnboardingStartOptions, StartOnboardingBatchResult } from './contracts';
 import { buildRequestError } from '$lib/stores/core';
 
 export interface OnboardingStartRequest {
-	personnelId: string;
+	personnelIds: string[];
 	startedAt: string;
-	templateId: string | null;
+	templateId: string;
 }
 
-export async function startOnboardingPacket(
+/** Starts the template for every person in one request. Each person's outcome is in `results`. */
+export async function startOnboardingPackets(
 	orgId: string,
 	start: OnboardingStartRequest
-): Promise<PersonnelOnboarding> {
+): Promise<StartOnboardingBatchResult> {
 	const response = await fetch(`/org/${orgId}/api/onboarding`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },

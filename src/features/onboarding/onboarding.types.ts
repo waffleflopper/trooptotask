@@ -7,6 +7,8 @@ export interface OnboardingTemplate {
 	name: string;
 	description: string | null;
 	createdAt: string | null;
+	/** The Organization's default, preselected when starting onboarding. At most one template per Organization. */
+	isDefault: boolean;
 }
 
 export interface OnboardingTemplateStep {

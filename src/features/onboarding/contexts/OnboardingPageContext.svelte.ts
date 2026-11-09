@@ -9,7 +9,7 @@ import { groupsStore } from '$features/personnel';
 import { buildGroupTree, createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import type { OnboardingPageAccess } from '../contracts';
+import type { OnboardingPageAccess, StartOnboardingOutcome } from '../contracts';
 import type {
 	PersonnelOnboarding,
 	OnboardingStepProgress,
@@ -236,11 +236,15 @@ export class OnboardingPageContext {
 		this.#disposed = true;
 	}
 
-	async handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null): Promise<boolean> {
+	async handleStartOnboarding(
+		personnelIds: string[],
+		startedAt: string,
+		templateId: string
+	): Promise<StartOnboardingOutcome[] | null> {
 		const version = onboardingStore.organizationVersion;
-		if (!this.#isCurrent(version)) return false;
-		const result = await onboardingStore.startOnboarding(personnelId, startedAt, templateId);
-		return this.#isCurrent(version) && result !== null;
+		if (!this.#isCurrent(version)) return null;
+		const results = await onboardingStore.startOnboarding(personnelIds, startedAt, templateId);
+		return this.#isCurrent(version) ? results : null;
 	}
 
 	async handleAddPerson(data: Omit<Personnel, 'id'>): Promise<string> {

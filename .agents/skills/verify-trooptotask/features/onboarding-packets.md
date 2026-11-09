@@ -6,8 +6,13 @@ Organization and Group scope.
 
 ## Sub-features
 
-- `start`: select an existing Person and configured template, preserve the chosen date, snapshot the steps, and prevent
-  another active packet for that Person. Authorized Personnel creation is a separate operation through Add Person.
+- `start`: select one or several existing People and a configured template, preserve the chosen date, snapshot the steps
+  for each, and prevent another active packet for any Person. The template picker preselects the Organization's default
+  (marked `(default)`), or the only template, and asks the operator to choose when several exist with no default. People
+  already onboarding are listed but cannot be selected. A partial result keeps the dialog open with one outcome per
+  Person. Authorized Personnel creation is a separate operation through Add Person.
+- `default-template`: an owner or admin names one default template per Organization on the Templates page; naming
+  another moves it, and a member without that role cannot (403 from the route, 42501 from SQL).
 - `progress`: toggle checkbox steps, advance or reverse paperwork stages, retain attributed notes, and derive Training
   completion from the owned Training source.
 - `lifecycle-and-history`: cancel, reopen and complete packets, including the explicit warning for incomplete steps;
@@ -31,7 +36,7 @@ Organization and Group scope.
 ## How to get to it (user POV)
 
 Choose Onboard in Organization navigation. The list orders Soldiers in processing Stalled, Ready, On track, then New.
-Use `Start onboarding` in the toolbar to select a member, start date and template. Choose a row to open its packet in an
+Use `Start onboarding` in the toolbar to select one or more members, a start date and a template. Choose a row to open its packet in an
 overlay sheet, at every width, to record checklist and stage progress, add notes or close it out. The sheet dims the
 list behind it without resizing it; `Close packet`, Escape or a click on the backdrop closes it and focus returns to
 that row. While a note on an open step is typed but unsaved, or saving, none of those close it, `Close packet` is
@@ -47,8 +52,8 @@ authenticated packet API; History has no visible Reopen control. Templates opens
 `onboarding-request PAGE orgA|orgB METHOD FAMILY JSON [start]` sends an ordinary authenticated request from that
 signed-in owned app page. It permits `onboarding` POST/PUT, `onboarding-steps` PUT/DELETE and `onboarding-resync` POST,
 with only their scalar input fields; it reports exact submitted values, transport status and full business body without
-credential headers. It does not apply results to the UI. Start fields are `personnelId`, `templateId` and optional
-`startedAt`. Lifecycle PUT uses `id` and `status` for Cancel or Reopen, and adds a `completedAt` date (`YYYY-MM-DD`) for Complete; the app validates the transition and
+credential headers. It does not apply results to the UI. Start fields are `personnelIds` (a list of Person IDs, at most 100), `templateId` and optional
+`startedAt`; the response is `{ results }` with one `started`, `already_onboarding` or `failed` outcome per Person. Lifecycle PUT uses `id` and `status` for Cancel or Reopen, and adds a `completedAt` date (`YYYY-MM-DD`) for Complete; the app validates the transition and
 its ordinary permissions. Step PUT fields are `action`, `stepId`, `completed`, `stageName` and `text`; DELETE uses `id`.
 Reconciliation uses `onboardingId` and optional `newTemplateId`, with no action discriminator. Label this API proof
 separately from native clicks and privileged setup/readback.
@@ -104,12 +109,15 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
 
 1. **Existing Person start and retry:** As `onboardingOperate` (Personnel none), open `Start onboarding`. Inspect A's
    template and eligible Able, Baker and Unassigned choices; Add Person must be absent. Select Able, confirm a visible
-   valid date, submit and capture the saved packet and its row. Reload/reopen and compare
+   valid date, submit and capture the saved packet and its row. The only template is preselected; the button reads
+   `Start onboarding for 1 person`. Reload/reopen and compare
    `$V rows personnel_onboardings orgA personnel_id PERSON` and
    `$V rows onboarding_step_progress orgA onboarding_id PACKET`. Require one new in-progress packet, exact
    Person/template/date, fresh step IDs and the three snapshots, checkbox false, paperwork Submitted/incomplete, and
    actual Training-derived completion. Able's original completed packet/progress/note remain unchanged. The active
-   Person is no longer a start candidate; separately probe a valid duplicate start and require 409 with no new rows.
+   Person is no longer a start candidate (the picker names them `Already onboarding` and will not select them);
+   separately probe a valid duplicate start through the route and require an `already_onboarding` outcome with no new
+   rows.
    Cancel a separate start draft without a write. Arm `$V network arm-fail PAGE onboarding` before filling a new start
    draft for Baker, then submit: capture 503, readable failure, preserved member/date/template draft and unchanged rows.
    Restore and retry through the retained form; require one saved packet and reload. If the form closes or loses its
@@ -224,7 +232,8 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    append `?packet=<id>` (a Dashboard Onboarding row link does the same). The packet opens in the overlay sheet and the
    address drops the parameter, so a reload shows the plain list with no packet open. An ID that is not an active
    packet, such as a random UUID or a packet no longer in processing, selects nothing and also drops the parameter.
-   `Start onboarding` from the page POSTs through the same start the Dashboard uses and the new packet joins the list.
+   `Start onboarding` from the page POSTs through the same batch start the Dashboard uses and the new packet joins the
+   list.
 
 `$V rows` supports `personnel_onboardings` and `onboarding_step_progress` with Person/packet/step filters. Choose one
 action (`arm-fail`, `arm-hold` or `arm-observe`) and one family (`onboarding`, `onboarding-steps` or

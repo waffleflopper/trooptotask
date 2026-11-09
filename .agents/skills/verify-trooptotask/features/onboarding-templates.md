@@ -8,6 +8,9 @@ or Training capability.
 
 - `templates`: create, rename in place, clear nullable descriptions, cancel, duplicate and delete a template while
   preserving retained packet snapshots and unrelated definitions; search by template or step name; active packet counts.
+- `default`: an Organization owner or admin presses `Make default` on the selected template, which shows a `Default`
+  badge, and `Clear default` removes it. Only one template is default at a time, so naming another moves it. A member
+  with Configure but not owner/admin sees neither button, and a direct `PUT api/onboarding-templates/default` returns 403. Start Onboarding preselects the default (see the packets recipe).
 - `steps`: create/edit/delete checkbox, paperwork and Training steps in one in-place editor with a discard prompt;
   preserve ordered paperwork stages and same-Organization Training references; reorder by grip (pointer drag or
   ArrowUp/ArrowDown with a spoken announcement) without changing step identity.

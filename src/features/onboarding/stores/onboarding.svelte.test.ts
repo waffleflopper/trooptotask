@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { onboardingStore } from './onboarding.svelte';
 import type { PersonnelOnboarding } from '../onboarding.types';
+import type { StartOnboardingBatchResult } from '../contracts';
 
 const SAVED_AT = '2026-09-01T12:00:00.000Z';
 
@@ -848,8 +849,16 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 	it.each([
 		[
 			'start',
-			() => onboardingStore.startOnboarding('p-new', '2026-03-15', 'template-1'),
-			{ ...mockOnboarding, id: 'ob-new', personnelId: 'p-new' }
+			() => onboardingStore.startOnboarding(['p-new'], '2026-03-15', 'template-1'),
+			{
+				results: [
+					{
+						personnelId: 'p-new',
+						outcome: 'started',
+						onboarding: { ...mockOnboarding, id: 'ob-new', personnelId: 'p-new' }
+					}
+				]
+			}
 		],
 		['checkbox', () => onboardingStore.toggleCheckbox('step-1', true), { completed: true, currentStage: null }],
 		['stage', () => onboardingStore.advanceStage('step-1', 'Filed'), { completed: true, currentStage: 'Filed' }],
@@ -905,7 +914,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 	);
 
 	it('ignores a start response whose body arrives after the organization changes', async () => {
-		let body!: (packet: PersonnelOnboarding) => void;
+		let body!: (result: StartOnboardingBatchResult) => void;
 		let reading!: () => void;
 		const startedReading = new Promise<void>((resolve) => {
 			reading = resolve;
@@ -916,16 +925,16 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 				ok: true,
 				json: () => {
 					reading();
-					return new Promise<PersonnelOnboarding>((resolve) => {
+					return new Promise<StartOnboardingBatchResult>((resolve) => {
 						body = resolve;
 					});
 				}
 			})
 		);
-		const pending = onboardingStore.startOnboarding('p-1', '2026-03-15', 'template-1');
+		const pending = onboardingStore.startOnboarding(['p-1'], '2026-03-15', 'template-1');
 		await startedReading;
 		onboardingStore.enterOrganization('org-2');
-		body(mockOnboarding);
+		body({ results: [{ personnelId: 'p-1', outcome: 'started', onboarding: mockOnboarding }] });
 		await expect(pending).resolves.toBeNull();
 		expect(onboardingStore.items).toEqual([]);
 	});
@@ -992,16 +1001,17 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			vi.fn().mockResolvedValue({
 				ok: true,
 				status: 200,
-				json: () => Promise.resolve(mockOnboarding)
+				json: () =>
+					Promise.resolve({ results: [{ personnelId: 'p-1', outcome: 'started', onboarding: mockOnboarding }] })
 			})
 		);
 
-		await onboardingStore.startOnboarding('p-1', '2026-03-15', 'template-1');
+		await onboardingStore.startOnboarding(['p-1'], '2026-03-15', 'template-1');
 
 		expect(fetch).toHaveBeenCalledWith('/org/org-1/api/onboarding', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ personnelId: 'p-1', templateId: 'template-1', startedAt: '2026-03-15' })
+			body: JSON.stringify({ personnelIds: ['p-1'], templateId: 'template-1', startedAt: '2026-03-15' })
 		});
 	});
 

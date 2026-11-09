@@ -31,7 +31,8 @@ const templateRow = z.object({
 	organization_id: z.string(),
 	name: z.string(),
 	description: z.string().nullable(),
-	created_at: z.string().nullable()
+	created_at: z.string().nullable(),
+	is_default: z.boolean()
 });
 const stepRow = z.object({
 	id: z.string(),
@@ -214,6 +215,14 @@ export function createSupabaseOnboardingCatalogPersistence(
 				z.array(stepRow)
 			);
 			return steps.map(toStep);
+		},
+		async setDefaultTemplate(templateId) {
+			await templateCommand(
+				client,
+				'set_default_onboarding_template',
+				{ p_organization_id: orgId, ...(templateId ? { p_template_id: templateId } : {}) },
+				z.string().nullable()
+			);
 		},
 		deleteTemplate(id) {
 			return templateCommand(

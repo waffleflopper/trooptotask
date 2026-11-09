@@ -1,8 +1,10 @@
 <script lang="ts">
 	import Copy from '@lucide/svelte/icons/copy';
 	import Pencil from '@lucide/svelte/icons/pencil';
+	import Star from '@lucide/svelte/icons/star';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { tick } from 'svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -31,6 +33,11 @@
 	const model = $derived(workspace.model);
 	const editing = $derived(model.creatingTemplate || model.editingTemplate);
 	const duplicating = $derived(!!template && model.duplicatingTemplateId === template.id);
+
+	async function toggleDefault() {
+		if (!template) return;
+		await workspace.setDefaultTemplate(template.isDefault ? null : template.id);
+	}
 
 	let nameInput = $state<HTMLElement | null>(null);
 	let renameButton = $state<HTMLElement | null>(null);
@@ -115,6 +122,10 @@
 				>
 					{template.name}
 				</h2>
+				{#if template.isDefault}
+					<Badge variant="info" class="ml-1" title="The Start Onboarding dialog preselects this template">Default</Badge
+					>
+				{/if}
 				{#if model.canMutate}
 					<Button
 						bind:ref={renameButton}
@@ -150,7 +161,23 @@
 			{/if}
 		</div>
 		{#if model.canMutate}
-			<div class="flex shrink-0 gap-2">
+			<div class="flex shrink-0 flex-wrap gap-2">
+				{#if model.canSetDefault}
+					<Button
+						variant="outline"
+						size="sm"
+						type="button"
+						disabled={model.templateActionDisabled}
+						onclick={toggleDefault}
+					>
+						{#if model.settingDefault}
+							<Spinner class="size-3" />
+						{:else}
+							<Star aria-hidden="true" />
+						{/if}
+						{template.isDefault ? 'Clear default' : 'Make default'}
+					</Button>
+				{/if}
 				<Button variant="outline" size="sm" type="button" disabled={model.templateActionDisabled} onclick={onduplicate}>
 					{#if duplicating}
 						<Spinner class="size-3" />

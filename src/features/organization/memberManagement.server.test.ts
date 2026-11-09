@@ -3625,9 +3625,13 @@ describe('updateOrganizationMemberAccess', () => {
 });
 
 describe('invitation credential and governance boundaries', () => {
-	it.each(['sent', 'failed', 'sent_recording_failed'] as const)(
+	it.each([
+		['sent', 'sent'],
+		['failed', 'failed'],
+		['sent_recording_failed', 'sent']
+	] as const)(
 		'resend with %s delivery never issues setup credentials or changes the invitation grant',
-		async (deliveryStatus) => {
+		async (deliveryStatus, expectedStatus) => {
 			const ctx = createTestContext();
 			const settings = createOrganizationSettingsMemberManagementPort({
 				existingUserAccount: null,
@@ -3651,7 +3655,7 @@ describe('invitation credential and governance boundaries', () => {
 				})
 			).toMatchObject({
 				inviteSuccess: true,
-				inviteDeliveryStatus: deliveryStatus === 'sent_recording_failed' ? 'sent' : deliveryStatus
+				inviteDeliveryStatus: expectedStatus
 			});
 			expect(issuance.setupLinkRequests).toEqual([]);
 			expect(issuance.setupDeliveries).toEqual([]);

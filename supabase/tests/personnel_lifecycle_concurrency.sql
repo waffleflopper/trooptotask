@@ -64,6 +64,8 @@ INSERT INTO public.deletion_requests (
 ) VALUES
   (pg_temp.u(621), pg_temp.u(101), pg_temp.u(5), 'requester@example.test', 'personnel', pg_temp.u(341), 'Archive 341', 'pending', '2029-08-01T00:00:00Z'),
   (pg_temp.u(622), pg_temp.u(101), pg_temp.u(5), 'requester@example.test', 'personnel', pg_temp.u(342), 'Archive 342', 'pending', '2029-08-01T00:00:00Z');
+INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug)
+VALUES (pg_temp.u(344), pg_temp.u(101), pg_temp.u(201), 'SGT', 'Upload', 'Person 344', 'lifecycle-wait-344');
 INSERT INTO public.training_types (id, organization_id, name) VALUES (pg_temp.u(703), pg_temp.u(101), 'Expired training');
 INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, training_type_id)
 VALUES (pg_temp.u(704), pg_temp.u(101), pg_temp.u(343), pg_temp.u(703));
@@ -714,6 +716,24 @@ SELECT is(pg_temp.reply('first'), '1', 'the purge completes after the Training a
 SELECT pg_temp.finish('first');
 SELECT results_eq($$ SELECT status FROM pg_temp.request(623) $$, $$ VALUES ('approved') $$,
   'the approved Training request stays approved');
+
+CREATE FUNCTION pg_temp.new_document_sql(name text) RETURNS text LANGUAGE sql AS $$
+  SELECT format($q$SELECT count(*)::text FROM public.insert_personnel_artifacts(%L, %L, 'personnel_documents',
+    jsonb_build_array(jsonb_build_object('personnel_id', %L, 'title', %L, 'file_path', %L,
+      'file_size_bytes', 10, 'content_type', 'application/pdf', 'uploaded_by', %L)))$q$,
+    pg_temp.u(3), pg_temp.u(101), pg_temp.u(344), name,
+    pg_temp.u(101) || '/personnel/' || pg_temp.u(344) || '/documents/' || name, pg_temp.u(3))
+$$;
+SELECT pg_temp.begin_as('holder', NULL, 'service_role');
+SELECT is(pg_temp.run('holder', format('SELECT id::text FROM public.personnel WHERE id = %L FOR KEY SHARE', pg_temp.u(344))),
+  pg_temp.u(344)::text, 'one upload holds a key-share lock on the Person');
+SELECT pg_temp.begin_as('first', NULL, 'service_role');
+SELECT pg_temp.send('first', pg_temp.new_document_sql('first.pdf'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'another document upload waits for the Person up front');
+SELECT is(pg_temp.run('holder', pg_temp.new_document_sql('holder.pdf')), '1', 'the first upload saves its document without a deadlock');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'the waiting upload then saves its document');
+SELECT pg_temp.finish('first');
 
 SELECT dblink_disconnect(name) FROM (VALUES ('holder'), ('first'), ('second')) AS connections(name);
 SELECT dblink_exec('fixture', format($cleanup$

@@ -177,18 +177,32 @@ BEGIN
   IF p_actor IS NULL OR p_organization_id IS NULL OR pg_catalog.jsonb_typeof(p_rows) IS DISTINCT FROM 'array' THEN
     RAISE EXCEPTION 'Invalid Personnel artifact write' USING ERRCODE = '22023';
   END IF;
-  -- Key-share locking the People in id order orders these inserts against an archive,
-  -- so a new artifact is either refused or archived by the cascade.
-  PERFORM 1 FROM (
-    SELECT person.id FROM public.personnel AS person
-    WHERE person.organization_id = p_organization_id
-      AND person.id IN (
-        SELECT (item.value ->> 'personnel_id')::uuid FROM pg_catalog.jsonb_array_elements(p_rows) AS item
-        WHERE pg_catalog.jsonb_typeof(item.value) = 'object'
-      )
-    ORDER BY person.id
-    FOR KEY SHARE
-  ) AS locked;
+  -- Locking the People in id order orders these inserts against an archive, so a new artifact is either
+  -- refused or archived by the cascade. The document storage cap locks the Person FOR UPDATE, so documents
+  -- take that lock here rather than upgrade a key-share lock another upload also holds.
+  IF p_table = 'personnel_documents' THEN
+    PERFORM 1 FROM (
+      SELECT person.id FROM public.personnel AS person
+      WHERE person.organization_id = p_organization_id
+        AND person.id IN (
+          SELECT (item.value ->> 'personnel_id')::uuid FROM pg_catalog.jsonb_array_elements(p_rows) AS item
+          WHERE pg_catalog.jsonb_typeof(item.value) = 'object'
+        )
+      ORDER BY person.id
+      FOR UPDATE
+    ) AS locked;
+  ELSE
+    PERFORM 1 FROM (
+      SELECT person.id FROM public.personnel AS person
+      WHERE person.organization_id = p_organization_id
+        AND person.id IN (
+          SELECT (item.value ->> 'personnel_id')::uuid FROM pg_catalog.jsonb_array_elements(p_rows) AS item
+          WHERE pg_catalog.jsonb_typeof(item.value) = 'object'
+        )
+      ORDER BY person.id
+      FOR KEY SHARE
+    ) AS locked;
+  END IF;
   -- A key-share lock can return the version from before a committed archive, so a new statement reads the archive.
   IF EXISTS (
     SELECT 1 FROM public.personnel AS person

@@ -149,7 +149,8 @@ $V export restore 2
 `pointer drag PAGE EXACT_URL FROM TO [STEPS]` sends trusted mouse input through this worker's browser endpoint: press
 the unique `FROM` element's centre, move to `TO`'s centre in 10 steps by default, release. Use only for pointer-only
 targets hidden from accessibility, such as Calendar resize grips; otherwise use native UID `click`/`drag`. It rejects
-page ID/URL disagreement, zero/multiple matches and off-viewport targets.
+page ID/URL disagreement, zero/multiple matches and off-viewport targets. `pointer touch` takes the same arguments and
+sends trusted touch input instead: the same selector twice is a tap, two selectors a swipe.
 
 `rows TABLE orgA|orgB [id|name|title|note|personnel_id|user_id|type VALUE]` reads only allowlisted synthetic tables in
 the owned provider. Compare fixture IDs and submitted values.

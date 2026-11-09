@@ -76,7 +76,7 @@ section and is driven in [Special days](special-days.md).
 `training-types/archive` match the `PUT` that archives or restores.
 
 No `network` family loses a catalog `DELETE` reply. To lose one, run this with `tool evaluate_script` after the last
-navigation. It sends the next `DELETE .../api/assignment-types`, records the real status in
+navigation. Drop the final semicolon first, because `evaluate_script` wraps the function in parentheses. It sends the next `DELETE .../api/assignment-types`, records the real status in
 `window.__lostDeleteStatus`, throws as the browser would on a lost reply, and removes itself:
 
 ```js

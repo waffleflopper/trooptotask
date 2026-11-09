@@ -100,7 +100,7 @@ withheld, and revokes only that probe session;
 and admit setup credentials.
 
 `network arm-error` does not accept `account-page/profile/save`. To make one Profile save throw, run this with
-`tool evaluate_script` after the last navigation. It answers the next `POST .../account/profile` with the result
+`tool evaluate_script` after the last navigation. Drop the final semicolon first, because `evaluate_script` wraps the function in parentheses. It answers the next `POST .../account/profile` with the result
 SvelteKit sends for an action that threw, then removes itself:
 
 ```js

@@ -94,7 +94,7 @@ function props(overrides: Record<string, unknown> = {}) {
 		onStep: vi.fn(),
 		onSave: vi.fn().mockResolvedValue(undefined),
 		onSaveBatch: vi.fn().mockResolvedValue(undefined),
-		onRemove: vi.fn().mockResolvedValue(undefined),
+		onRemove: vi.fn().mockResolvedValue(true),
 		onToggleExempt: vi.fn().mockResolvedValue(undefined),
 		onClose: vi.fn(),
 		...overrides
@@ -287,7 +287,7 @@ describe('TrainingRecordSheet', () => {
 	});
 
 	it('removes the record behind a row only after the confirm', async () => {
-		const onRemove = vi.fn().mockResolvedValue(undefined);
+		const onRemove = vi.fn().mockResolvedValue(true);
 		const user = userEvent.setup();
 		render(TrainingRecordSheet, { props: props({ onRemove }) });
 
@@ -298,6 +298,23 @@ describe('TrainingRecordSheet', () => {
 
 		await waitFor(() => expect(onRemove).toHaveBeenCalledOnce());
 		expect(onRemove.mock.calls[0][0]).toBe('r-ok');
+	});
+
+	it('keeps the open form and its draft when a removal is not confirmed', async () => {
+		const onRemove = vi.fn().mockResolvedValue(false);
+		const user = userEvent.setup();
+		render(TrainingRecordSheet, { props: props({ onRemove }) });
+		await user.click(await screen.findByRole('button', { name: 'More actions for Safety' }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+		await user.click(await screen.findByRole('button', { name: /Add a note/ }));
+		await user.type(screen.getByLabelText('Notes'), 'Re-scanned certificate');
+
+		await user.click(screen.getByRole('button', { name: 'More actions for Safety' }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+		await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Re-scanned certificate');
 	});
 
 	describe('correcting a record', () => {

@@ -631,8 +631,25 @@ describe('TrainingPageContext', () => {
 		const ctx = makeContext(makeData(), makeOrg());
 		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
 		expect(personnelTrainingsStore.items).toEqual([record]);
-		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
+		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBe(true);
 		expect(personnelTrainingsStore.items).toEqual([]);
+	});
+
+	it('reports a removal whose reply is lost as not confirmed and keeps the record', async () => {
+		const record: PersonnelTraining = {
+			id: 'record-1',
+			personnelId: mockPerson.id,
+			trainingTypeId: mockType.id,
+			completionDate: '2026-01-05',
+			expirationDate: '2027-01-05',
+			notes: 'Retain me',
+			certificateUrl: null
+		};
+		personnelTrainingsStore.load([record], 'org-1');
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
+		const ctx = makeContext(makeData(), makeOrg());
+		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBe(false);
+		expect(personnelTrainingsStore.items).toEqual([record]);
 	});
 
 	it('retains the completion on failed submission and retries through the bound removal callback', async () => {
@@ -658,7 +675,7 @@ describe('TrainingPageContext', () => {
 		const ctx = makeContext(makeData(), makeOrg());
 		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
 		expect(personnelTrainingsStore.items).toEqual([record]);
-		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
+		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBe(true);
 		expect(submitRemovalRequest.mock.calls.map((call) => call.slice(0, 5))).toEqual([
 			[
 				'org-1',

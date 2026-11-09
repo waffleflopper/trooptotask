@@ -40,7 +40,7 @@
 		onStep: (direction: -1 | 1) => void;
 		onSave: (data: TrainingRecordSave) => Promise<void>;
 		onSaveBatch: (records: BatchRecord[]) => Promise<void>;
-		onRemove: (id: string, isCurrent?: () => boolean) => Promise<void>;
+		onRemove: (id: string, isCurrent?: () => boolean) => Promise<boolean>;
 		onToggleExempt: (typeId: string, exempt: boolean) => Promise<void>;
 		onClose: () => void;
 	}
@@ -241,11 +241,10 @@
 			confirmRemoveTypeId = null;
 			return;
 		}
-		let removed = false;
+		let removed: boolean | null = null;
 		await saving.run(async () => {
 			try {
-				await onRemove(record.id, () => sameSheet(personId));
-				removed = true;
+				removed = await onRemove(record.id, () => sameSheet(personId));
 			} catch (error) {
 				if (sameSheet(personId))
 					toast.error(error instanceof Error ? error.message : 'Could not remove training record. Try again.', {
@@ -253,9 +252,9 @@
 					});
 			}
 		});
-		if (!removed || !sameSheet(personId)) return;
+		if (removed === null || !sameSheet(personId)) return;
 		confirmRemoveTypeId = null;
-		if (typeId) collapse(typeId);
+		if (removed && typeId) collapse(typeId);
 	}
 
 	async function setExempt(item: RecordSheetItem, exempt: boolean, discarded = false) {

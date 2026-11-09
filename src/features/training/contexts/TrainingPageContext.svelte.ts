@@ -448,16 +448,17 @@ export class TrainingPageContext {
 		}
 	}
 
-	async handleRemoveTraining(id: string, isCurrentEditor: () => boolean = () => true): Promise<void> {
+	/** Resolves false when the removal was not confirmed, so the sheet keeps the record's editor and its draft. */
+	async handleRemoveTraining(id: string, isCurrentEditor: () => boolean = () => true): Promise<boolean> {
 		const isCurrent = () => this.#isCurrentWorkspace() && isCurrentEditor();
-		if (!isCurrent()) return;
+		if (!isCurrent()) return false;
 		const training = personnelTrainingsStore.getById(id);
 		const result = await personnelTrainingsStore.remove(id);
-		if (!isCurrent()) return;
+		if (!isCurrent()) return false;
 		if (result === 'not-saved') throw new Error('Could not remove training record. Try again.');
 		if (result === 'unconfirmed') {
 			toastStore.unconfirmed("We couldn't confirm the training record was removed. Reload to see whether it was.");
-			return;
+			return false;
 		}
 		if (result === 'approval_required' && training) {
 			const person = this.personnel.find((p) => p.id === training.personnelId);
@@ -471,9 +472,10 @@ export class TrainingPageContext {
 				`/org/${this.orgId}/training`,
 				isCurrent
 			);
-			if (!isCurrent()) return;
+			if (!isCurrent()) return false;
 			if (!submitted) throw new Error('Could not submit removal request. Try again.');
 		}
+		return true;
 	}
 
 	async handleToggleExempt(typeId: string, personId: string, exempt: boolean): Promise<void> {

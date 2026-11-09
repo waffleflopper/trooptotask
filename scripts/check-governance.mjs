@@ -321,12 +321,7 @@ function checkDeletedRouteAuthorizationFramework() {
 }
 
 // Migrations after the tree migration that store or copy grant roots without comparing them, each reviewed by hand.
-const GROUP_SCOPE_REVIEWED_MIGRATIONS = new Map([
-	[
-		'supabase/migrations/20261108210000_client_lifecycle_grants.sql',
-		'Column INSERT grant preserves invitation Group roots; no Group scope comparison or authorization change.'
-	]
-]);
+const GROUP_SCOPE_REVIEWED_MIGRATIONS = new Map();
 
 function collectGroupScopeMigrationIssues(migrations, reviewed = GROUP_SCOPE_REVIEWED_MIGRATIONS) {
 	const issues = [];
@@ -347,7 +342,8 @@ function collectGroupScopeMigrationIssues(migrations, reviewed = GROUP_SCOPE_REV
 			.replace(/--[^\n]*/g, ' ')
 			.replace(/"/g, '')
 			.toLowerCase()
-			.replace(storedGroupReferenceValidation, '');
+			.replace(storedGroupReferenceValidation, '')
+			.replace(/(?<=^|;)\s*(?:grant|revoke)\b[^;]*;/g, ' ;');
 		if (!reviewed.has(file) && /\baccess_scope_group_ids\b/.test(sql.replace(subtreeScope, ''))) {
 			issues.push(
 				`Exact Group grant comparison: ${file}. Use groups.path && access_scope_group_ids for subtree coverage, or list a reviewed storage-only migration in GROUP_SCOPE_REVIEWED_MIGRATIONS.`

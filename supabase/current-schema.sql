@@ -825,7 +825,8 @@ BEGIN
   END IF;
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'onboarding_template.created' WHEN 'UPDATE' THEN 'onboarding_template.updated' WHEN 'DELETE' THEN 'onboarding_template.deleted' END;
   IF TG_OP = 'UPDATE' THEN
-    v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name"}');
+    v_change := audit_private.changed(
+      pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name", "isDefault": "is_default"}');
     IF NEW.description IS DISTINCT FROM OLD.description THEN
       v_change := v_change || pg_catalog.jsonb_build_object('description', true);
     END IF;
@@ -12534,6 +12535,53 @@ $$;
 ALTER FUNCTION public.set_critical_tasks_defaults(p_organization_id uuid, p_default_expiration_months integer, p_expiring_soon_warning_days integer) OWNER TO postgres;
 
 --
+-- Name: set_default_onboarding_template(uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.set_default_onboarding_template(p_organization_id uuid, p_template_id uuid DEFAULT NULL::uuid) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF pg_catalog.current_setting('transaction_isolation') <> 'read committed' THEN
+    RAISE EXCEPTION 'Default onboarding template changes require READ COMMITTED' USING ERRCODE = '25001';
+  END IF;
+  IF auth.uid() IS NULL OR p_organization_id IS NULL OR public.is_org_privileged(p_organization_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Only an Organization admin can set the default onboarding template' USING ERRCODE = '42501';
+  END IF;
+
+  -- Two admins choosing at once queue here instead of failing on the one-default index.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('onboarding-default-template:' || p_organization_id::text, 0));
+
+  IF p_template_id IS NOT NULL THEN
+    PERFORM 1 FROM public.onboarding_templates AS t
+    WHERE t.organization_id = p_organization_id AND t.id = p_template_id
+    FOR NO KEY UPDATE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Onboarding template not found' USING ERRCODE = 'P0002';
+    END IF;
+  END IF;
+
+  UPDATE public.onboarding_templates AS t SET is_default = false
+  WHERE t.organization_id = p_organization_id AND t.is_default AND t.id IS DISTINCT FROM p_template_id;
+  IF p_template_id IS NOT NULL THEN
+    UPDATE public.onboarding_templates AS t SET is_default = true
+    WHERE t.organization_id = p_organization_id AND t.id = p_template_id AND NOT t.is_default;
+  END IF;
+
+  -- Fresh statement after the lock wait: the caller must still be an admin.
+  IF public.is_org_privileged(p_organization_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Only an Organization admin can set the default onboarding template' USING ERRCODE = '42501';
+  END IF;
+  RETURN p_template_id;
+END;
+$$;
+
+
+ALTER FUNCTION public.set_default_onboarding_template(p_organization_id uuid, p_template_id uuid) OWNER TO postgres;
+
+--
 -- Name: set_group_order(uuid, uuid[], uuid[], uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -14878,7 +14926,8 @@ CREATE TABLE public.onboarding_templates (
     organization_id uuid NOT NULL,
     name text NOT NULL,
     description text,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    is_default boolean DEFAULT false NOT NULL
 );
 
 
@@ -17247,6 +17296,13 @@ CREATE INDEX onboarding_template_steps_org_idx ON public.onboarding_template_ste
 --
 
 CREATE INDEX onboarding_template_steps_training_type_org_idx ON public.onboarding_template_steps USING btree (training_type_id, organization_id) WHERE (training_type_id IS NOT NULL);
+
+
+--
+-- Name: onboarding_templates_one_default_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX onboarding_templates_one_default_idx ON public.onboarding_templates USING btree (organization_id) WHERE is_default;
 
 
 --
@@ -24049,6 +24105,14 @@ GRANT ALL ON FUNCTION public.set_critical_tasks_defaults(p_organization_id uuid,
 
 
 --
+-- Name: FUNCTION set_default_onboarding_template(p_organization_id uuid, p_template_id uuid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.set_default_onboarding_template(p_organization_id uuid, p_template_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_default_onboarding_template(p_organization_id uuid, p_template_id uuid) TO authenticated;
+
+
+--
 -- Name: FUNCTION set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -25018,22 +25082,43 @@ GRANT UPDATE(template_id) ON TABLE public.onboarding_template_steps TO authentic
 --
 
 GRANT ALL ON TABLE public.onboarding_templates TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.onboarding_templates TO authenticated;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.onboarding_templates TO authenticated;
 GRANT ALL ON TABLE public.onboarding_templates TO service_role;
+
+
+--
+-- Name: COLUMN onboarding_templates.id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(id) ON TABLE public.onboarding_templates TO authenticated;
+
+
+--
+-- Name: COLUMN onboarding_templates.organization_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(organization_id) ON TABLE public.onboarding_templates TO authenticated;
 
 
 --
 -- Name: COLUMN onboarding_templates.name; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT UPDATE(name) ON TABLE public.onboarding_templates TO authenticated;
+GRANT INSERT(name),UPDATE(name) ON TABLE public.onboarding_templates TO authenticated;
 
 
 --
 -- Name: COLUMN onboarding_templates.description; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT UPDATE(description) ON TABLE public.onboarding_templates TO authenticated;
+GRANT INSERT(description),UPDATE(description) ON TABLE public.onboarding_templates TO authenticated;
+
+
+--
+-- Name: COLUMN onboarding_templates.created_at; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(created_at) ON TABLE public.onboarding_templates TO authenticated;
 
 
 --

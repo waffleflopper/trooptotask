@@ -1711,6 +1711,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          is_default: boolean
           name: string
           organization_id: string
         }
@@ -1718,6 +1719,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_default?: boolean
           name: string
           organization_id: string
         }
@@ -1725,6 +1727,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_default?: boolean
           name?: string
           organization_id?: string
         }
@@ -5098,6 +5101,10 @@ export type Database = {
           p_organization_id: string
         }
         Returns: undefined
+      }
+      set_default_onboarding_template: {
+        Args: { p_organization_id: string; p_template_id?: string }
+        Returns: string
       }
       set_group_order: {
         Args: {

@@ -4,7 +4,7 @@ export async function requestOnboarding(target, { origin, organizationSegment, m
 	if (target.location.origin !== origin) throw new Error('Use an owned app page');
 	if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(organizationSegment)) throw new Error('Invalid Organization segment');
 	const fields = {
-		onboarding: { POST: ['personnelId', 'templateId', 'startedAt'], PUT: ['id', 'status', 'completedAt'] },
+		onboarding: { POST: ['personnelIds', 'templateId', 'startedAt'], PUT: ['id', 'status', 'completedAt'] },
 		'onboarding-steps': {
 			PUT: ['action', 'stepId', 'completed', 'stageName', 'text'],
 			DELETE: ['id']
@@ -17,7 +17,14 @@ export async function requestOnboarding(target, { origin, organizationSegment, m
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Use a JSON object');
 	for (const [key, value] of Object.entries(body)) {
 		if (!fields[family][method].includes(key)) throw new Error('Unsupported Onboarding field');
-		if (value !== null && !['string', 'number', 'boolean'].includes(typeof value))
+		// Start names its people as a list of IDs; every other field is a scalar.
+		const isPersonnelList =
+			family === 'onboarding' &&
+			method === 'POST' &&
+			key === 'personnelIds' &&
+			Array.isArray(value) &&
+			value.every((id) => typeof id === 'string');
+		if (!isPersonnelList && value !== null && !['string', 'number', 'boolean'].includes(typeof value))
 			throw new Error('Use scalar Onboarding values');
 	}
 	const path = `/org/${organizationSegment}/api/${family}`;

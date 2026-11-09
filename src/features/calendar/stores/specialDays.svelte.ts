@@ -5,7 +5,7 @@ import {
 	rejectedRequestMessage,
 	withinOrganizationLifetime
 } from '$lib/stores/core';
-import type { Store } from '$lib/stores/core';
+import type { DeleteResult, Store } from '$lib/stores/core';
 import { z } from 'zod';
 import { formatDate } from '$lib/utils/dates';
 import { specialDaysSchema, type SpecialDay } from '$features/calendar/contracts';
@@ -33,7 +33,7 @@ interface SpecialDayExtensions extends Record<string, unknown> {
 	addClosureDays: (draft: { name: string; dates: readonly string[] }) => Promise<ClosureDaysResult>;
 	update: Store<SpecialDay>['update'];
 	updateOrThrow: Store<SpecialDay>['updateOrThrow'];
-	remove: (id: string) => Promise<boolean>;
+	remove: (id: string) => Promise<DeleteResult>;
 	resetFederalHolidays: () => Promise<FederalHolidayResetResult>;
 	getByDate: (date: Date) => SpecialDay | undefined;
 	isSpecialDay: (date: Date) => boolean;
@@ -147,7 +147,7 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 		},
 		update: (id, data) => trackMutation(base.orgId, base.update(id, data)),
 		updateOrThrow: (id, data) => trackMutation(base.orgId, base.updateOrThrow(id, data)),
-		remove: (id) => trackMutation(base.orgId, base.removeBool(id)),
+		remove: (id) => trackMutation(base.orgId, base.remove(id)),
 
 		async resetFederalHolidays(): Promise<FederalHolidayResetResult> {
 			const orgId = base.orgId;

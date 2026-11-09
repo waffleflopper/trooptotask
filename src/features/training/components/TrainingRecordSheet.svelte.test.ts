@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { StoreRequestError } from '$lib/stores/core';
 const navigationGuard = vi.hoisted(() => ({ current: null as null | ((navigation: { cancel: () => void }) => void) }));
 vi.mock('$app/navigation', () => ({
 	beforeNavigate: (guard: (navigation: { cancel: () => void }) => void) => (navigationGuard.current = guard)
@@ -427,7 +428,7 @@ describe('TrainingRecordSheet', () => {
 			await user.click(await screen.findByRole('button', { name: 'Save' }));
 
 			await user.click(screen.getByRole('button', { name: /^CPR/ }));
-			refuse(new Error('Server said no'));
+			refuse(new StoreRequestError('Server said no', 409, true));
 
 			expect(await screen.findByText(/Server said no/)).toBeTruthy();
 			expect(screen.getByRole('button', { name: /^BLS/ }).getAttribute('aria-expanded')).toBe('true');
@@ -444,7 +445,7 @@ describe('TrainingRecordSheet', () => {
 					})
 				);
 				await rerender(props({ onSave }));
-				throw new Error('Server said no');
+				throw new StoreRequestError('Server said no', 409, true);
 			});
 			const { rerender } = render(TrainingRecordSheet, { props: props({ onSave }) });
 			await user.click(await screen.findByRole('button', { name: /Add a note/ }));

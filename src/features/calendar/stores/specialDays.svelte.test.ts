@@ -711,13 +711,12 @@ describe('specialDaysStore', () => {
 	});
 
 	describe('remove', () => {
-		it('should return boolean true on success', async () => {
+		it('reports a confirmed delete as deleted', async () => {
 			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) }));
 
 			const result = await specialDaysStore.remove('1');
 
-			expect(result).toBe(true);
-			expect(typeof result).toBe('boolean');
+			expect(result).toBe('deleted');
 		});
 	});
 });

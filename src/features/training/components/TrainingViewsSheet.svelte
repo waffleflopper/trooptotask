@@ -13,6 +13,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
 	import { rejectedRequestMessage } from '$lib/stores/core';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
@@ -31,7 +32,7 @@
 		orgId: string;
 		canMutate: boolean;
 		saveView: (draft: { id: string | null; name: string; columnIds: string[] }) => Promise<TrainingView | 'stale'>;
-		deleteView: (id: string) => Promise<'deleted' | 'failed' | 'stale'>;
+		deleteView: (id: string) => Promise<'deleted' | 'failed' | 'unconfirmed' | 'stale'>;
 		/** The control that opened the sheet, which gets focus back when it closes. */
 		returnFocusTo?: () => HTMLElement | null;
 		onClose: () => void;
@@ -167,7 +168,7 @@
 		const id = draft.viewId;
 		deleteError = '';
 		await deleting.run(async () => {
-			let result: 'deleted' | 'failed' | 'stale';
+			let result: Awaited<ReturnType<typeof deleteView>>;
 			try {
 				result = await deleteView(id);
 			} catch {
@@ -176,6 +177,11 @@
 			if (result === 'stale' || !mounted || editor !== draft) return;
 			if (result === 'failed') {
 				deleteError = 'Failed to delete view. Try again.';
+				return;
+			}
+			if (result === 'unconfirmed') {
+				confirmingDelete = false;
+				toastStore.unconfirmed("We couldn't confirm the view was deleted. Reload to see whether it was.");
 				return;
 			}
 			confirmingDelete = false;

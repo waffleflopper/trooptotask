@@ -144,7 +144,7 @@ describe('CalendarSettingsPage', () => {
 			textColor: '#f8f7f4'
 		});
 		statusTypesStoreMock.updateOrThrow.mockResolvedValue(true);
-		statusTypesStoreMock.remove.mockResolvedValue(true);
+		statusTypesStoreMock.remove.mockResolvedValue('deleted');
 		availabilityStoreMock.removeByStatusTypeLocal.mockReset();
 		assignmentTypesStoreMock.types = [];
 		assignmentTypesStoreMock.addType.mockReset();
@@ -163,14 +163,14 @@ describe('CalendarSettingsPage', () => {
 			sortOrder: 0
 		});
 		assignmentTypesStoreMock.updateType.mockResolvedValue(true);
-		assignmentTypesStoreMock.removeType.mockResolvedValue(true);
+		assignmentTypesStoreMock.removeType.mockResolvedValue('deleted');
 		specialDaysStoreMock.items = [];
 		specialDaysStoreMock.addClosureDays.mockReset();
 		specialDaysStoreMock.update.mockReset();
 		specialDaysStoreMock.remove.mockReset();
 		specialDaysStoreMock.resetFederalHolidays.mockReset();
 		specialDaysStoreMock.update.mockResolvedValue(true);
-		specialDaysStoreMock.remove.mockResolvedValue(true);
+		specialDaysStoreMock.remove.mockResolvedValue('deleted');
 	});
 
 	afterEach(() => {
@@ -891,7 +891,7 @@ describe('CalendarSettingsPage', () => {
 				sortOrder: 0
 			}
 		];
-		assignmentTypesStoreMock.removeType.mockResolvedValueOnce(false);
+		assignmentTypesStoreMock.removeType.mockResolvedValueOnce('not-saved');
 
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
@@ -1099,7 +1099,7 @@ describe('CalendarSettingsPage', () => {
 				type: 'org-closure'
 			}
 		];
-		specialDaysStoreMock.remove.mockResolvedValueOnce(false);
+		specialDaysStoreMock.remove.mockResolvedValueOnce('not-saved');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });

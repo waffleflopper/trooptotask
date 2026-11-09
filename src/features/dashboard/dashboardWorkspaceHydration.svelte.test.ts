@@ -278,7 +278,7 @@ describe('Dashboard workspace hydration adapter', () => {
 		const late = deferred<{ types: AssignmentType[]; assignments: DailyAssignment[] }>();
 		const pending = hydrator.hydrate(dashboard('assignments:2', late.promise));
 
-		expect(await dailyAssignmentsStore.removeType('rt')).toBe(true);
+		expect(await dailyAssignmentsStore.removeType('rt')).toBe('deleted');
 		late.resolve({ types: [chargeOfQuarters, runnerTeam], assignments: [cqDuty, runnerDutyByB] });
 		await pending;
 		expect(dailyAssignmentsStore.types.map(({ id }) => id)).toEqual(['cq']);

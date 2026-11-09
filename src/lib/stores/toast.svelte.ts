@@ -81,6 +81,17 @@ class ToastStore {
 		return sonnerToast.error(message, this.#options(duration ?? 6000, action, description));
 	}
 
+	/**
+	 * A change no reply confirmed or refused. Trying again could repeat it or fail on what already landed, so the
+	 * action reloads the page to show what saved.
+	 */
+	unconfirmed(message: string): ToastId {
+		return sonnerToast.error(
+			message,
+			this.#options(REPORTABLE_ERROR_TOAST_MS, { label: 'Reload', onClick: () => location.reload() })
+		);
+	}
+
 	warning(message: string, duration?: number, action?: ToastAction, description?: string): ToastId {
 		return sonnerToast.warning(message, this.#options(duration ?? 4000, action, description));
 	}

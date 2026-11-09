@@ -15,10 +15,11 @@
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import type { PasswordCompletionState } from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { writeAddress } from '$lib/utils/addressWriter';
 	import { onMount, onDestroy, tick } from 'svelte';
 
 	const hasSession = $derived(page.data.hasSession);
@@ -82,7 +83,12 @@
 	onMount(() => {
 		// Provider fragments cannot prove whether a session came from an invite.
 		if (window.location.hash) {
-			replaceState(resolve('/auth/accept-invite'), page.state);
+			void writeAddress({
+				url: (url) => {
+					url.search = '';
+					url.hash = '';
+				}
+			});
 			tokenError = true;
 		} else if (hasSession) {
 			noPendingInvite = page.data.invitePending === false;

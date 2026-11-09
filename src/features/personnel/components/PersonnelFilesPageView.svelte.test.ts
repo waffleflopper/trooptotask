@@ -12,16 +12,22 @@ import PersonnelFilesPageView from './PersonnelFilesPageView.svelte';
 const navigation = vi.hoisted(() => ({
 	afterNavigate: [] as Array<(navigation: { to: { url: URL } | null }) => void>,
 	invalidate: vi.fn(async (..._keys: unknown[]) => {}),
-	replaceState: vi.fn()
+	goto: vi.fn(async (href: string, options: { state: object }) => {
+		address.shallow = { url: new URL(href, address.url) };
+		address.state = options.state;
+	})
+}));
+const address = vi.hoisted(() => ({
+	url: new URL('http://localhost/org/org-1/personnel/rivera/files'),
+	shallow: null as { url: URL } | null,
+	state: {} as object
 }));
 
-vi.mock('$app/state', () => ({
-	page: { state: {}, params: { orgId: 'org-1', personnelSlug: 'rivera-monica' } }
-}));
+vi.mock('$app/state', () => ({ page: address }));
 vi.mock('$app/navigation', () => ({
 	afterNavigate: (callback: (typeof navigation.afterNavigate)[number]) => navigation.afterNavigate.push(callback),
 	invalidate: navigation.invalidate,
-	replaceState: navigation.replaceState
+	goto: navigation.goto
 }));
 
 const asOf = '2026-10-19';
@@ -42,8 +48,10 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	navigation.afterNavigate.length = 0;
 	navigation.invalidate.mockClear();
-	navigation.replaceState.mockClear();
-	window.history.replaceState({}, '', '/');
+	navigation.goto.mockClear();
+	address.url = new URL('http://localhost/org/org-1/personnel/rivera/files');
+	address.shallow = null;
+	address.state = {};
 });
 
 function makeCounseling(id: string, dateConducted: string, overrides: Partial<PersonnelCounselingRecord> = {}) {
@@ -630,14 +638,64 @@ describe('Files tab upload flow', () => {
 	});
 
 	it('drops only the add intent from the address when the flow is cancelled', async () => {
-		window.history.replaceState({}, '', '/org/org-1/personnel/rivera/files?add=document&tab=x');
+		address.url = new URL('http://localhost/org/org-1/personnel/rivera/files?add=document&tab=x');
 		mount();
 		await screen.findByText('Counseling c1');
-		await act(async () => navigation.afterNavigate[0]({ to: { url: new URL(window.location.href) } }));
+		await act(async () => navigation.afterNavigate[0]({ to: { url: address.url } }));
 
 		await fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
 
-		expect(navigation.replaceState).toHaveBeenCalledWith('/org/org-1/personnel/rivera-monica/files?tab=x', {});
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(navigation.goto).toHaveBeenCalledWith('/org/org-1/personnel/rivera/files?tab=x', {
+			shallow: true,
+			replace: true,
+			state: {}
+		});
+	});
+
+	it.each([
+		{ outcome: 'lands', settle: (write: { resolve: () => void; reject: () => void }) => write.resolve() },
+		{ outcome: 'fails', settle: (write: { resolve: () => void; reject: () => void }) => write.reject() }
+	])(
+		'refreshes the files only after the linked upload clears its address, even when the write $outcome',
+		async ({ settle }) => {
+			address.url = new URL('http://localhost/org/org-1/personnel/rivera/files?add=counseling');
+			fetchMock.mockResolvedValueOnce(json(makeCounseling('c9', '2026-10-19')));
+			let write!: { resolve: () => void; reject: () => void };
+			navigation.goto.mockImplementationOnce(
+				() => new Promise<void>((resolve, reject) => (write = { resolve, reject: () => reject(new Error('blocked')) }))
+			);
+			mount();
+			await screen.findByText('Counseling c1');
+			await act(async () => navigation.afterNavigate[0]({ to: { url: address.url } }));
+			const dialog = await screen.findByRole('dialog');
+			await fireEvent.change(within(dialog).getByLabelText('File'), { target: { files: [pdf()] } });
+			await fireEvent.input(within(dialog).getByLabelText('Title'), { target: { value: 'October counseling' } });
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+
+			await waitFor(() => expect(navigation.goto).toHaveBeenCalledTimes(1));
+			await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
+			expect(navigation.invalidate).not.toHaveBeenCalledWith(FILES_KEY);
+
+			await act(async () => settle(write));
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledWith(FILES_KEY));
+		}
+	);
+
+	it('keeps the file chosen in a linked upload when a later address write still names the same intent', async () => {
+		address.url = new URL('http://localhost/org/org-1/personnel/rivera/files?add=counseling');
+		mount();
+		await screen.findByText('Counseling c1');
+		const stillOnAddress = () => act(async () => navigation.afterNavigate[0]({ to: { url: address.url } }));
+		await stillOnAddress();
+		const dialog = await screen.findByRole('dialog');
+		await fireEvent.change(within(dialog).getByLabelText('File'), { target: { files: [pdf()] } });
+		await fireEvent.input(within(dialog).getByLabelText('Title'), { target: { value: 'October counseling' } });
+
+		await stillOnAddress();
+
+		const after = within(screen.getByRole('dialog'));
+		expect(after.getByText('da4856-oct.pdf')).toBeTruthy();
+		expect((after.getByLabelText('Title') as HTMLInputElement).value).toBe('October counseling');
 	});
 });

@@ -11,9 +11,8 @@ import { toastStore } from '$lib/stores/toast.svelte';
 
 vi.mock('$app/state', async () => ({ page: (await import('./importFlowHistory.test-support.svelte')).page }));
 vi.mock('$app/navigation', async () => ({
-	pushState: (await import('./importFlowHistory.test-support.svelte')).pushState,
 	beforeNavigate: vi.fn(),
-	goto: vi.fn()
+	goto: (await import('./importFlowHistory.test-support.svelte')).goto
 }));
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: { info: vi.fn() } }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));

@@ -7,7 +7,7 @@ import Page from './+page.svelte';
 import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
 controlCodeFieldTimers();
-vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('$app/state', () => ({ page: { data: { hasSession: true }, state: {} } }));
 beforeEach(async () => {
 	const { page } = await import('$app/state');

@@ -48,6 +48,9 @@ vi.mock('$app/state', async () => {
 				},
 				get state() {
 					return history.page.state;
+				},
+				get shallow() {
+					return history.page.shallow;
 				}
 			};
 		}
@@ -60,7 +63,11 @@ const { goto, invalidate } = vi.hoisted(() => {
 
 vi.mock('$app/navigation', async () => {
 	const history = await import('../personSearchHistory.test-support.svelte');
-	return { goto, invalidate, afterNavigate: vi.fn(), pushState: history.pushState };
+	return {
+		goto: (...args: [string, { shallow?: boolean }?]) => (args[1]?.shallow ? history.goto(...args) : goto(...args)),
+		invalidate,
+		afterNavigate: vi.fn()
+	};
 });
 
 const baseCapabilityMap: CapabilityMap = {

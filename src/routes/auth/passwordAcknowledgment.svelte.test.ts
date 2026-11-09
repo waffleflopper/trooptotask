@@ -8,7 +8,7 @@ import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
 import type { PasswordCompletionState } from '$features/identity/contracts';
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
-vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('$app/state', () => ({ page: { data: { hasSession: true }, state: {} } }));
 afterEach(() => {
 	cleanup();

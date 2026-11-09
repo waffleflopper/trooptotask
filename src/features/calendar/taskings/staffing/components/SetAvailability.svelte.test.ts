@@ -6,7 +6,7 @@ import type { Tasking } from '../../taskingModel';
 import type { AvailabilityCoverage, TaskingPick } from '../staffingModel';
 import SetAvailability from './SetAvailability.svelte';
 
-vi.mock('$app/navigation', () => ({ invalidate: vi.fn(), replaceState: vi.fn() }));
+vi.mock('$app/navigation', () => ({ invalidate: vi.fn(), goto: vi.fn() }));
 vi.mock('$app/state', () => ({ page: { url: new URL('https://app.test/'), state: {} } }));
 
 const TASKING = '00000000-0000-4000-8000-000000000101';

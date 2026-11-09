@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
-	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
+	import { writeAddress } from '$lib/utils/addressWriter';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
@@ -56,7 +57,7 @@
 	function selectSection(key: string) {
 		if (key === activeSection) return;
 		activeSection = sectionFrom(key);
-		if (!embedded) replaceVisibleSearchParam('section', activeSection);
+		if (!embedded) void writeAddress({ url: (url) => url.searchParams.set('section', activeSection) });
 	}
 	let searchQuery = $state('');
 	let statusSection = $state<CalendarStatusSettingsSection>();

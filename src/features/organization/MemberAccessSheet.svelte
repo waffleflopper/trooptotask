@@ -10,6 +10,7 @@
 	import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 	import { cn } from '$lib/utils.js';
 	import { settleAction } from '$lib/utils/settleAction';
+	import MemberNameSection from './MemberNameSection.svelte';
 	import type { SettingsMemberRow } from './memberSettingsTypes';
 	import {
 		SETTINGS_ACCESS_LANES,
@@ -33,6 +34,12 @@
 		isOwner: boolean;
 		/** The server's answer to the last save, shown only for the member it was about. */
 		accessError: string | undefined;
+		/** The server's answer to the last name save, shown only for the member it was about. */
+		nameError: string | undefined;
+		/** The ranks a member name can carry. */
+		ranks: readonly string[];
+		/** Owners and admins may name a member whose own account has no name. */
+		canEditName: boolean;
 		/** The row's Manage button, where focus returns after a save. */
 		opener: HTMLElement | null;
 		fallbackFocus: () => HTMLElement | null;
@@ -40,7 +47,19 @@
 		onRemove: (member: SettingsMemberRow) => void;
 	};
 
-	let { workspace, unit, isOwner, accessError, opener, fallbackFocus, onSaveStart, onRemove }: Props = $props();
+	let {
+		workspace,
+		unit,
+		isOwner,
+		accessError,
+		nameError,
+		ranks,
+		canEditName,
+		opener,
+		fallbackFocus,
+		onSaveStart,
+		onRemove
+	}: Props = $props();
 
 	let active = true;
 	onDestroy(() => {
@@ -48,6 +67,8 @@
 	});
 
 	let loading = $state(false);
+	let nameSaving = $state(false);
+	const busy = $derived(loading || nameSaving);
 	let requestError = $state<string | null>(null);
 	let errorMemberId = $state<string | null>(null);
 	let saveButton = $state<HTMLButtonElement | null>(null);
@@ -98,32 +119,45 @@
 <Sheet.Root
 	open={Boolean(member && draft)}
 	onOpenChange={(open) => {
-		if (!open && !loading) close();
+		if (!open && !busy) close();
 	}}
 >
 	{#if member && draft}
 		<Sheet.Content
 			class="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-140"
-			aria-busy={loading || undefined}
-			showCloseButton={!loading}
-			escapeKeydownBehavior={loading ? 'ignore' : 'close'}
-			interactOutsideBehavior={loading ? 'ignore' : 'close'}
+			aria-busy={busy || undefined}
+			showCloseButton={!busy}
+			escapeKeydownBehavior={busy ? 'ignore' : 'close'}
+			interactOutsideBehavior={busy ? 'ignore' : 'close'}
 		>
 			<Sheet.Header class="gap-2 border-b-2 border-foreground px-5 pt-7 pb-5 sm:px-8">
 				<p class="font-mono text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
 					Manage access
 				</p>
 				<Sheet.Title class="font-heading text-[32px] leading-8 font-bold tracking-[-0.01em] wrap-anywhere">
-					{member.email ?? 'Selected member'}
+					{member.name?.text ?? member.email ?? 'Selected member'}
 				</Sheet.Title>
+				{#if member.name && member.email}
+					<p class="font-mono text-xs wrap-anywhere text-muted-foreground">{member.email}</p>
+				{/if}
 				<Sheet.Description class="font-mono text-xs">{summary(member)}</Sheet.Description>
 			</Sheet.Header>
+			{#key member.id}
+				<MemberNameSection
+					{member}
+					{ranks}
+					canEdit={canEditName}
+					{nameError}
+					blocked={loading}
+					bind:saving={nameSaving}
+				/>
+			{/key}
 			<form
 				method="POST"
 				action="?/updateMemberAccess"
 				class="flex min-h-0 flex-1 flex-col"
 				use:enhance={({ cancel }) => {
-					if (loading) return cancel();
+					if (busy) return cancel();
 					const memberId = member.id;
 					loading = true;
 					errorMemberId = memberId;
@@ -148,7 +182,7 @@
 					};
 				}}
 			>
-				<fieldset class="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 sm:px-8" disabled={loading}>
+				<fieldset class="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 sm:px-8" disabled={busy}>
 					<input type="hidden" name="membershipId" value={member.id} />
 					<input type="hidden" name="membershipRole" value={draft.role} />
 					<input type="hidden" name="memberPreset" value={draft.preset} />
@@ -296,7 +330,7 @@
 						type="button"
 						variant="ghost"
 						class="text-destructive-text"
-						disabled={loading}
+						disabled={busy}
 						onclick={() => {
 							const target = member;
 							close();
@@ -304,12 +338,12 @@
 						}}>Remove from {unit}</Button
 					>
 					<div class="ml-auto flex gap-2">
-						<Button type="button" variant="outline" disabled={loading} onclick={close}>Cancel</Button>
+						<Button type="button" variant="outline" disabled={busy} onclick={close}>Cancel</Button>
 						<Button
 							bind:ref={saveButton}
 							type="submit"
 							disabled={changeCount === 0}
-							aria-disabled={loading ? 'true' : undefined}
+							aria-disabled={busy ? 'true' : undefined}
 							aria-busy={loading || undefined}
 						>
 							{#if loading}

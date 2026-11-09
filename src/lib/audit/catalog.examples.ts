@@ -741,6 +741,17 @@ export const EXAMPLES: Record<AuditKindName, { entry: Omit<SavedAuditEntry, 'act
 		entry: { recordLabel: 'j***@example.com', subjectLabel: null, details: { role: 'admin' } },
 		sentence: 'Changed access for j***@example.com to admin'
 	},
+	'member.name_changed': {
+		entry: {
+			recordLabel: 'j***@example.com',
+			subjectLabel: null,
+			details: {
+				before: { rank: null, firstName: null, lastName: null },
+				after: { rank: 'SGT', firstName: 'Jo', lastName: 'Reyes' }
+			}
+		},
+		sentence: 'Set the name of j***@example.com to SGT Jo Reyes'
+	},
 	'organization_invitation.accepted': {
 		entry: { recordLabel: null, subjectLabel: null, details: {} },
 		sentence: 'Accepted an invitation to the unit'

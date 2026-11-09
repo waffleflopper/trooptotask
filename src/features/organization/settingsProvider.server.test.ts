@@ -83,33 +83,36 @@ function fixture(value: number | null | 'missing' | 'failure') {
 }
 
 describe('Organization runtime settings with the actual SDK', () => {
-	it('resolves only requested same-Organization contributor labels and skips empty inputs', async () => {
+	it('resolves only requested same-Organization contributor labels in one read and skips empty inputs', async () => {
 		const first = '11111111-1111-4111-8111-111111111111';
 		const second = '33333333-3333-4333-8333-333333333333';
-		const calls: URL[] = [];
+		const calls: Array<{ path: string; body: { p_organization_id: string; p_user_ids?: string[] } }> = [];
+		const resolved = (user_id: string, organization_id: string, fields: Record<string, unknown>) => ({
+			organization_id,
+			user_id,
+			rank: null,
+			first_name: null,
+			last_name: null,
+			email: null,
+			name_source: null,
+			...fields
+		});
 		const members = [
-			{
-				id: 'a',
-				organization_id: ORG,
-				user_id: first,
-				display_name: '  Alpha Medic  ',
-				email: 'alpha@example.invalid'
-			},
-			{ id: 'b', organization_id: ORG, user_id: second, email: 'second@example.invalid' },
-			{ id: 'c', organization_id: OTHER, user_id: first, display_name: 'Foreign Member' }
+			resolved(first, ORG, { rank: 'SPC', first_name: ' Alpha ', last_name: ' Medic ', name_source: 'organization' }),
+			resolved(second, ORG, { email: 'second@example.invalid' }),
+			resolved(first, OTHER, { rank: 'COL', first_name: 'Foreign', last_name: 'Member', name_source: 'account' })
 		];
 		const client = createClient('http://settings.invalid', 'synthetic-request-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
 			global: {
-				fetch: async (input) => {
+				fetch: async (input, init) => {
 					const url = new URL(String(input));
-					calls.push(url);
-					const ids = url.searchParams.get('user_id')?.slice(4, -1).split(',') ?? [];
+					const body = JSON.parse(String(init?.body));
+					calls.push({ path: url.pathname, body });
 					return Response.json(
-						members.filter(
-							(row) =>
-								url.searchParams.get('organization_id') === `eq.${row.organization_id}` && ids.includes(row.user_id)
-						)
+						members
+							.filter((row) => row.organization_id === body.p_organization_id && body.p_user_ids.includes(row.user_id))
+							.map(({ organization_id: _scope, ...row }) => row)
 					);
 				}
 			}
@@ -119,11 +122,32 @@ describe('Organization runtime settings with the actual SDK', () => {
 		expect(calls).toHaveLength(0);
 		expect(await reader.findMemberLabels(ORG.toUpperCase(), [first, first, second])).toEqual(
 			new Map([
-				[first, 'Alpha Medic'],
+				[first, 'SPC Alpha Medic'],
 				[second, 'second@example.invalid']
 			])
 		);
+		expect(calls).toEqual([
+			{
+				path: '/rest/v1/rpc/organization_member_labels',
+				body: { p_organization_id: ORG, p_user_ids: [first, second] }
+			}
+		]);
 		await expect(fixture('failure').reader.findMemberLabels(ORG, [first])).rejects.toThrow('Settings unavailable');
+	});
+	it('reads many contributors in a single request instead of one per chunk', async () => {
+		const ids = Array.from({ length: 250 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+		let requests = 0;
+		const client = createClient('http://settings.invalid', 'synthetic-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async () => {
+					requests += 1;
+					return Response.json([]);
+				}
+			}
+		});
+		await createSupabaseOrganizationSettingsReader(client).findMemberLabels(ORG, ids);
+		expect(requests).toBe(1);
 	});
 	it('constructs lazily and reads only the requested policy/scalar facts for the canonical Organization', async () => {
 		const { reader, requests } = fixture(0);

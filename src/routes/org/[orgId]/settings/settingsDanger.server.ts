@@ -13,7 +13,7 @@ import {
 
 export interface DangerSettingsPorts {
 	auth: { orgId: string; role: MembershipRole };
-	organizationSettings: Pick<OrganizationSettingsReader, 'listOwnershipCandidateMemberships'>;
+	organizationSettings: Pick<OrganizationSettingsReader, 'listOwnershipCandidateMemberships' | 'listMemberNames'>;
 	unitCounts: OrganizationUnitCountsPort;
 }
 

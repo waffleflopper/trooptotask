@@ -18,6 +18,7 @@ import {
 } from '../../../routes/org/[orgId]/api/sign-in-rosters/[id]/upload/+server';
 import { DELETE as deleteRoster } from '../../../routes/org/[orgId]/api/sign-in-rosters/[id]/+server';
 import { POST as createRoster } from '../../../routes/org/[orgId]/api/sign-in-rosters/+server';
+import { memberLabelRpcRows } from '$lib/test-support/memberLabelRpc';
 
 const { adminClient } = vi.hoisted(() => ({ adminClient: vi.fn() }));
 vi.mock('$lib/server/supabase', async (original) => ({
@@ -148,6 +149,8 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 							? Response.json({ ...row, covered_group_ids: row.access_scope_group_ids ?? [] })
 							: Response.json({ code: 'PGRST116' }, { status: 406 });
 					}
+					if (url.pathname.endsWith('/rpc/organization_member_labels'))
+						return Response.json(memberLabelRpcRows(tables.organization_memberships, [], body));
 					if (
 						url.pathname.endsWith('/rpc/record_app_audit_entry') ||
 						url.pathname.endsWith('/rpc/record_personnel_record_open')

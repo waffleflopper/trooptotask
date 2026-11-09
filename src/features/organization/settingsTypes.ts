@@ -1,4 +1,5 @@
 import type { FeatureKey } from '$lib/access/featureSwitches';
+import type { OrganizationMemberLabelRow } from './memberNameTypes';
 import type {
 	OrganizationCriticalTasksDefaults,
 	OrganizationSettingsMembershipRow,
@@ -35,6 +36,8 @@ export interface OrganizationSettingsReader {
 	listInvitations(orgId: string, status: 'pending' | 'closed'): Promise<OrganizationSettingsInvitationRow[]>;
 	listInvitationDeliveries(orgId: string): Promise<OrganizationSettingsInvitationDeliveryRow[]>;
 	listOwnershipCandidateMemberships(orgId: string): Promise<OrganizationOwnershipCandidateMembershipRow[]>;
+	/** Every member with the name this Organization shows for them, and where it came from. */
+	listMemberNames(orgId: string): Promise<OrganizationMemberLabelRow[]>;
 	findMemberLabels(orgId: string, userIds: string[]): Promise<Map<string, string>>;
 	findPolicies(orgId: string): Promise<OrganizationPolicySettings | null>;
 	findTrainingBriefingContext(orgId: string): Promise<OrganizationTrainingBriefingContext | null>;

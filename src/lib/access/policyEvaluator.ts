@@ -437,6 +437,11 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Update organization member access',
 			access: 'admin-or-owner'
 		}),
+		updateMemberName: governanceAction({
+			id: 'organization.updateMemberName',
+			label: 'Set organization member name',
+			access: 'admin-or-owner'
+		}),
 		updateAdminAccess: governanceAction({
 			id: 'organization.updateAdminAccess',
 			label: 'Update organization admin access',

@@ -28,6 +28,17 @@ function request(role: 'owner' | 'admin' = 'owner') {
 						critical_tasks_expiring_soon_warning_days: 45
 					});
 				}
+				if (url.pathname === '/rest/v1/rpc/organization_member_labels')
+					return Response.json([
+						{
+							user_id: 'admin-user',
+							rank: 'SGT',
+							first_name: 'Ada',
+							last_name: 'Admin',
+							email: 'admin@example.test',
+							name_source: 'organization'
+						}
+					]);
 				expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
 				if (url.pathname === '/rest/v1/organization_memberships')
 					return Response.json([
@@ -117,9 +128,21 @@ describe('residual settings through actual admitted request factories', () => {
 			['blank-email', 'blank-user', 'member'],
 			['no-account', '', 'member']
 		]);
+		expect(data.sections.members.rows.map((row) => row.name?.text ?? null)).toEqual([
+			null,
+			'SGT Ada Admin',
+			null,
+			null
+		]);
 		expect(data.sections.members.invitations).toEqual([]);
 		expect(await loadOwnershipTransferCandidates(danger)).toEqual([
-			{ id: 'admin-id', userId: 'admin-user', email: '  admin@example.test  ', membershipRole: 'admin' }
+			{
+				id: 'admin-id',
+				userId: 'admin-user',
+				email: '  admin@example.test  ',
+				name: 'SGT Ada Admin',
+				membershipRole: 'admin'
+			}
 		]);
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});

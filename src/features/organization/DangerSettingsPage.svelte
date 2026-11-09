@@ -11,6 +11,7 @@
 	import { settleAction } from '$lib/utils/settleAction';
 	import type { DangerSettingsData, DestructionCounts } from './dangerSettingsTypes';
 	import { createOwnershipTransferWorkspace } from './ownershipTransferWorkspace.svelte';
+	import { ownershipCandidateLabel } from './ownershipTransferSettings';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 
 	let {
@@ -127,13 +128,16 @@
 						onValueChange={(value) => (transferState.transferTargetId = value === noTransferTargetValue ? null : value)}
 					>
 						<Select.Trigger id="transfer-owner-target" class="w-full min-w-0 md:w-55">
-							<span class="min-w-0 truncate">{transferState.selectedTransferCandidate?.email ?? 'Choose a member'}</span
+							<span class="min-w-0 truncate"
+								>{transferState.selectedTransferCandidate
+									? ownershipCandidateLabel(transferState.selectedTransferCandidate)
+									: 'Choose a member'}</span
 							>
 						</Select.Trigger>
 						<Select.Content>
 							<Select.Item value={noTransferTargetValue} label="Choose a member" />
 							{#each settings.transferOwnershipCandidates as member (member.id)}
-								<Select.Item value={member.userId} label={member.email ?? 'Unknown member'} />
+								<Select.Item value={member.userId} label={ownershipCandidateLabel(member)} />
 							{/each}
 						</Select.Content>
 					</Select.Root>
@@ -272,6 +276,7 @@
 
 {#if transferState.showTransferConfirm && transferState.transferTargetId}
 	{@const email = transferState.selectedTransferCandidate?.email ?? ''}
+	{@const who = transferState.selectedTransferCandidate?.name ?? email}
 	<AppDialog.Root
 		bind:open={transferState.showTransferConfirm}
 		tone="destructive"
@@ -281,7 +286,7 @@
 	>
 		<AppDialog.Content>
 			<AppDialog.Header eyebrow="Transfer ownership · Only the new Owner can undo it">
-				<AppDialog.Title>Make {email} the Owner?</AppDialog.Title>
+				<AppDialog.Title>Make {who} the Owner?</AppDialog.Title>
 				<AppDialog.Description>
 					They take over the Owner role for {unit}. You become an Admin and keep your access.
 				</AppDialog.Description>

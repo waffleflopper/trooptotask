@@ -1664,14 +1664,14 @@ CREATE FUNCTION audit_private.member_label(p_organization_id uuid, p_user_id uui
     SET search_path TO ''
     AS $$
   SELECT coalesce(
-    (SELECT audit_private.person_label(profile.rank, profile.last_name, profile.first_name)
-      FROM public.user_profiles profile
-      WHERE profile.user_id = p_user_id AND profile.last_name IS NOT NULL AND profile.first_name IS NOT NULL),
-    (SELECT NULLIF(pg_catalog.btrim(membership.email), '')
-      FROM public.organization_memberships membership
-      WHERE membership.organization_id = p_organization_id AND membership.user_id = p_user_id),
+    CASE WHEN n.name_source IS NOT NULL
+      THEN pg_catalog.concat_ws(' ', NULLIF(n.rank, ''), pg_catalog.concat_ws(', ', n.last_name, n.first_name))
+    END,
+    NULLIF(pg_catalog.btrim(n.email), ''),
     (SELECT account.email::text FROM auth.users account WHERE account.id = p_user_id)
-  );
+  )
+  FROM (SELECT 1) AS one
+  LEFT JOIN organization_private.member_names(p_organization_id, ARRAY[p_user_id]) n ON true;
 $$;
 
 
@@ -3514,6 +3514,34 @@ $$;
 
 
 ALTER FUNCTION organization_private.lock_managed_sign_in_roster(p_organization_id uuid, p_roster_id uuid) OWNER TO postgres;
+
+--
+-- Name: member_names(uuid, uuid[]); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.member_names(p_organization_id uuid, p_user_ids uuid[] DEFAULT NULL::uuid[]) RETURNS TABLE(user_id uuid, rank text, first_name text, last_name text, email text, name_source text)
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+  SELECT m.user_id,
+    CASE source.name_source WHEN 'account' THEN profile.rank WHEN 'organization' THEN m.org_rank END,
+    CASE source.name_source WHEN 'account' THEN profile.first_name WHEN 'organization' THEN m.org_first_name END,
+    CASE source.name_source WHEN 'account' THEN profile.last_name WHEN 'organization' THEN m.org_last_name END,
+    m.email,
+    source.name_source
+  FROM public.organization_memberships m
+  LEFT JOIN public.user_profiles profile ON profile.user_id = m.user_id
+  CROSS JOIN LATERAL (
+    SELECT CASE
+      WHEN profile.first_name IS NOT NULL OR profile.last_name IS NOT NULL THEN 'account'
+      WHEN m.org_first_name IS NOT NULL OR m.org_last_name IS NOT NULL THEN 'organization'
+    END AS name_source
+  ) source
+  WHERE m.organization_id = p_organization_id AND (p_user_ids IS NULL OR m.user_id = ANY (p_user_ids));
+$$;
+
+
+ALTER FUNCTION organization_private.member_names(p_organization_id uuid, p_user_ids uuid[]) OWNER TO postgres;
 
 --
 -- Name: pending_roster_file_retirement(text); Type: FUNCTION; Schema: organization_private; Owner: postgres
@@ -9484,25 +9512,23 @@ $$;
 ALTER FUNCTION public.organization_feature_enabled(p_organization_id uuid, p_feature text) OWNER TO postgres;
 
 --
--- Name: organization_member_labels(uuid); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: organization_member_labels(uuid, uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.organization_member_labels(p_organization_id uuid) RETURNS TABLE(user_id uuid, rank text, first_name text, last_name text, email text)
+CREATE FUNCTION public.organization_member_labels(p_organization_id uuid, p_user_ids uuid[] DEFAULT NULL::uuid[]) RETURNS TABLE(user_id uuid, rank text, first_name text, last_name text, email text, name_source text)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  SELECT m.user_id, p.rank, p.first_name, p.last_name, m.email
-  FROM public.organization_memberships m
-  LEFT JOIN public.user_profiles p ON p.user_id = m.user_id
-  WHERE m.organization_id = p_organization_id
-    AND EXISTS (SELECT 1 FROM public.organization_memberships caller
+  SELECT n.user_id, n.rank, n.first_name, n.last_name, n.email, n.name_source
+  FROM organization_private.member_names(p_organization_id, p_user_ids) n
+  WHERE EXISTS (SELECT 1 FROM public.organization_memberships caller
       WHERE caller.organization_id = p_organization_id AND caller.user_id = auth.uid())
     AND public.organization_access_admitted(p_organization_id)
-  ORDER BY m.user_id;
+  ORDER BY n.user_id;
 $$;
 
 
-ALTER FUNCTION public.organization_member_labels(p_organization_id uuid) OWNER TO postgres;
+ALTER FUNCTION public.organization_member_labels(p_organization_id uuid, p_user_ids uuid[]) OWNER TO postgres;
 
 --
 -- Name: organization_rank_catalog_reference_matches(text, text, boolean); Type: FUNCTION; Schema: public; Owner: postgres
@@ -12676,6 +12702,54 @@ $$;
 ALTER FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid) OWNER TO postgres;
 
 --
+-- Name: set_organization_member_name(uuid, uuid, text, text, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text) RETURNS TABLE(member_user_id uuid, previous_rank text, previous_first_name text, previous_last_name text, saved_rank text, saved_first_name text, saved_last_name text)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_actor uuid := auth.uid();
+  v_before public.organization_memberships%ROWTYPE;
+  v_after public.organization_memberships%ROWTYPE;
+BEGIN
+  IF pg_catalog.current_setting('transaction_isolation') <> 'read committed' THEN
+    RAISE EXCEPTION 'Naming a member requires READ COMMITTED' USING ERRCODE = '25001';
+  END IF;
+  IF v_actor IS NULL OR NOT public.can_manage_org_members(p_organization_id) THEN
+    RAISE EXCEPTION 'Naming a member is not allowed' USING ERRCODE = '42501';
+  END IF;
+  IF p_rank IS NULL OR p_first_name IS NULL OR p_last_name IS NULL THEN
+    RAISE EXCEPTION 'A member name needs a rank, first name and last name' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_before FROM public.organization_memberships m
+  WHERE m.organization_id = p_organization_id AND m.user_id = p_user_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Member not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  UPDATE public.organization_memberships m
+  SET org_rank = p_rank, org_first_name = p_first_name, org_last_name = p_last_name
+  WHERE m.id = v_before.id
+  RETURNING * INTO v_after;
+
+  -- Fresh statement after a possible wait on a concurrent change of this row.
+  IF NOT public.can_manage_org_members(p_organization_id) THEN
+    RAISE EXCEPTION 'Naming a member is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY SELECT v_after.user_id, v_before.org_rank, v_before.org_first_name, v_before.org_last_name,
+    v_after.org_rank, v_after.org_first_name, v_after.org_last_name;
+END;
+$$;
+
+
+ALTER FUNCTION public.set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text) OWNER TO postgres;
+
+--
 -- Name: set_roster_excusals(uuid, uuid, date, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -15092,9 +15166,15 @@ CREATE TABLE public.organization_memberships (
     capability_overrides jsonb DEFAULT '{}'::jsonb NOT NULL,
     access_scope_kind text DEFAULT 'organization'::text NOT NULL,
     access_scope_group_ids uuid[] DEFAULT ARRAY[]::uuid[] NOT NULL,
+    org_rank text,
+    org_first_name text,
+    org_last_name text,
     CONSTRAINT organization_memberships_access_scope_kind_check CHECK ((access_scope_kind = ANY (ARRAY['organization'::text, 'groups'::text]))),
     CONSTRAINT organization_memberships_capability_overrides_check CHECK ((jsonb_typeof(capability_overrides) = 'object'::text)),
-    CONSTRAINT organization_memberships_member_preset_check CHECK ((member_preset = ANY (ARRAY['viewer'::text, 'operator'::text, 'editor'::text])))
+    CONSTRAINT organization_memberships_member_preset_check CHECK ((member_preset = ANY (ARRAY['viewer'::text, 'operator'::text, 'editor'::text]))),
+    CONSTRAINT organization_memberships_org_first_name_check CHECK (((org_first_name IS NULL) OR (length(btrim(org_first_name)) > 0))),
+    CONSTRAINT organization_memberships_org_last_name_check CHECK (((org_last_name IS NULL) OR (length(btrim(org_last_name)) > 0))),
+    CONSTRAINT organization_memberships_org_rank_check CHECK (((org_rank IS NULL) OR (org_rank = ANY (ARRAY['PV1'::text, 'PV2'::text, 'PFC'::text, 'SPC'::text, 'CPL'::text, 'SGT'::text, 'SSG'::text, 'SFC'::text, 'MSG'::text, '1SG'::text, 'SGM'::text, 'CSM'::text, 'WO1'::text, 'CW2'::text, 'CW3'::text, 'CW4'::text, 'CW5'::text, '2LT'::text, '1LT'::text, 'CPT'::text, 'MAJ'::text, 'LTC'::text, 'COL'::text, 'BG'::text, 'MG'::text, 'LTG'::text, 'GEN'::text, 'CIV'::text]))))
 );
 
 
@@ -22289,6 +22369,13 @@ REVOKE ALL ON FUNCTION organization_private.lock_managed_sign_in_roster(p_organi
 
 
 --
+-- Name: FUNCTION member_names(p_organization_id uuid, p_user_ids uuid[]); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.member_names(p_organization_id uuid, p_user_ids uuid[]) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION pending_roster_file_retirement(p_object_name text); Type: ACL; Schema: organization_private; Owner: postgres
 --
 
@@ -23698,11 +23785,11 @@ GRANT ALL ON FUNCTION public.organization_feature_enabled(p_organization_id uuid
 
 
 --
--- Name: FUNCTION organization_member_labels(p_organization_id uuid); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION organization_member_labels(p_organization_id uuid, p_user_ids uuid[]); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.organization_member_labels(p_organization_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.organization_member_labels(p_organization_id uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.organization_member_labels(p_organization_id uuid, p_user_ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.organization_member_labels(p_organization_id uuid, p_user_ids uuid[]) TO authenticated;
 
 
 --
@@ -24245,6 +24332,14 @@ GRANT ALL ON FUNCTION public.set_default_onboarding_template(p_organization_id u
 
 REVOKE ALL ON FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.set_group_order(p_organization_id uuid, p_group_ids uuid[], p_expected_group_ids uuid[], p_parent_id uuid) TO authenticated;
+
+
+--
+-- Name: FUNCTION set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.set_organization_member_name(p_organization_id uuid, p_user_id uuid, p_rank text, p_first_name text, p_last_name text) TO authenticated;
 
 
 --

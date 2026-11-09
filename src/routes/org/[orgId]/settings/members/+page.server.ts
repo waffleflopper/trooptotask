@@ -10,6 +10,7 @@ import {
 	createOrganizationInvitationPorts
 } from '$lib/server/adapters/requestContexts.server';
 import { listScopeGroups } from '$features/personnel/index.server';
+import { BUILT_IN_ARMY_RANK_OPTIONS } from '$features/personnel/contracts';
 import {
 	createSupabaseOrgSettingsMemberManagementPort,
 	loadMembersSettings,
@@ -17,6 +18,7 @@ import {
 	removeOrganizationMember,
 	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
+	setOrganizationMemberName,
 	updateOrganizationMemberAccess
 } from '$features/organization/index.server';
 import { loadSettingsPage } from '../settingsLoad.server';
@@ -35,7 +37,7 @@ export const load: PageServerLoad = (event) =>
 			)
 		});
 		void keepStreamedRejectionObserved(membersSettings.sections.members.invitationHistory);
-		return { membersSettings };
+		return { membersSettings, ranks: BUILT_IN_ARMY_RANK_OPTIONS };
 	});
 
 export const actions: Actions = {
@@ -181,6 +183,34 @@ export const actions: Actions = {
 			);
 		} catch (error) {
 			return toActionFailure('accessError', error);
+		}
+	},
+
+	setMemberName: async (event) => {
+		const { request, locals } = event;
+		if (!locals.user) throw redirect(303, '/auth/login');
+
+		const formData = await request.formData();
+		try {
+			const ctx = createRequestNotificationContext(await buildRouteRequest(event));
+			return await setOrganizationMemberName(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+
+					settings: createSupabaseOrgSettingsMemberManagementPort(locals)
+				},
+				{
+					membershipId: (formData.get('membershipId') as string) ?? '',
+					rank: formData.get('rank'),
+					firstName: formData.get('firstName'),
+					lastName: formData.get('lastName'),
+					allowedRanks: BUILT_IN_ARMY_RANK_OPTIONS
+				}
+			);
+		} catch (error) {
+			return toActionFailure('nameError', error);
 		}
 	}
 };

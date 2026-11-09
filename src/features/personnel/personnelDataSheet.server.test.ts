@@ -121,7 +121,7 @@ function buildContext(
 		}
 	]);
 	ctx.rawStore.seed('organization_memberships', [
-		{ id: 'membership-1', organization_id: orgId, user_id: MEMBER, first_name: 'Pat', last_name: 'Lee' }
+		{ id: 'membership-1', organization_id: orgId, user_id: MEMBER, org_first_name: 'Pat', org_last_name: 'Lee' }
 	]);
 	ctx.rawStore.seed('personnel', [
 		{

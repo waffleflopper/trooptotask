@@ -746,6 +746,70 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		await expect(port.revokeInvitation('org-1', 'invite-1')).resolves.toEqual({ status: 'failed', email: null });
 	});
 
+	it('saves a member name through the RPC and reports the values it replaced', async () => {
+		const { builder, calls } = createRpcBuilder({
+			data: {
+				member_user_id: 'user-2',
+				previous_rank: null,
+				previous_first_name: null,
+				previous_last_name: null,
+				saved_rank: 'SGT',
+				saved_first_name: 'Jo',
+				saved_last_name: 'Reyes'
+			},
+			error: null
+		});
+		const supabase = { rpc: vi.fn(() => builder), from: vi.fn() };
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase } as never);
+
+		const result = await port.setMemberName({
+			organizationId: 'org-1',
+			userId: 'user-2',
+			rank: 'SGT',
+			firstName: 'Jo',
+			lastName: 'Reyes'
+		});
+
+		expect(result).toEqual({
+			status: 'saved',
+			userId: 'user-2',
+			previous: { rank: null, firstName: null, lastName: null },
+			saved: { rank: 'SGT', firstName: 'Jo', lastName: 'Reyes' }
+		});
+		expect(supabase.rpc).toHaveBeenCalledWith('set_organization_member_name', {
+			p_organization_id: 'org-1',
+			p_user_id: 'user-2',
+			p_rank: 'SGT',
+			p_first_name: 'Jo',
+			p_last_name: 'Reyes'
+		});
+		expect(supabase.from).not.toHaveBeenCalled();
+		expect(calls).toContainEqual({ method: 'single', args: [] });
+	});
+
+	it.each([
+		['42501', 'denied'],
+		['P0002', 'not_found'],
+		['22023', 'invalid'],
+		['23514', 'invalid'],
+		['XX000', 'error']
+	] as const)('reports database error %s from a name save as %s', async (code, reason) => {
+		const { builder } = createRpcBuilder({ data: null, error: { code, message: 'database detail' } });
+		const port = createSupabaseOrgSettingsMemberManagementPort({
+			supabase: { rpc: vi.fn(() => builder), from: vi.fn() }
+		} as never);
+
+		await expect(
+			port.setMemberName({
+				organizationId: 'org-1',
+				userId: 'user-2',
+				rank: 'SGT',
+				firstName: 'Jo',
+				lastName: 'Reyes'
+			})
+		).resolves.toEqual({ status: 'failed', reason });
+	});
+
 	it('scopes membership lookups by both membership id and organization id', async () => {
 		const { builder, calls } = createMembershipLookupBuilder();
 		const supabase = {

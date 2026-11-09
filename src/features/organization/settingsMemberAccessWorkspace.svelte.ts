@@ -82,6 +82,13 @@ export function memberInitials(email: string | null | undefined): string {
 		.join('');
 }
 
+/** Initials for a member's avatar: first and last name when they have one, else the email's. */
+export function memberRowInitials(member: Pick<SettingsMemberRow, 'email' | 'name'>): string {
+	const { firstName, lastName } = member.name ?? {};
+	const named = [firstName, lastName].flatMap((part) => (part?.trim() ? [part.trim()[0].toUpperCase()] : []));
+	return named.length > 0 ? named.join('') : memberInitials(member.email);
+}
+
 /** An Admin save stores the default access, whatever the sheet showed before the role changed. */
 function adminDraft(memberId: string): MemberAccessDraft {
 	const { memberPreset, scopeSet } = defaultMemberAccessForRole('admin');
@@ -163,7 +170,9 @@ export class SettingsMemberAccessWorkspace {
 	get visibleMembers(): SettingsMemberRow[] {
 		const query = this.filter.trim().toLowerCase();
 		const members = this.members;
-		return query ? members.filter((member) => (member.email ?? '').toLowerCase().includes(query)) : members;
+		return query
+			? members.filter((member) => `${member.name?.text ?? ''} ${member.email ?? ''}`.toLowerCase().includes(query))
+			: members;
 	}
 
 	get editingMember(): SettingsMemberRow | null {

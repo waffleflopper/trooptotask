@@ -4,7 +4,7 @@ import { createOwnershipTransferWorkspace } from './ownershipTransferWorkspace.s
 describe('ownership transfer confirmation', () => {
 	it('keeps the dialog blocked until the selected member email matches and clears confirmation on close', () => {
 		const state = createOwnershipTransferWorkspace([
-			{ id: 'member-1', userId: 'user-1', email: 'member@example.com', membershipRole: 'member' }
+			{ id: 'member-1', userId: 'user-1', email: 'member@example.com', name: null, membershipRole: 'member' }
 		]);
 
 		state.openTransferConfirmation('user-1');

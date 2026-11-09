@@ -38,7 +38,11 @@ import {
 	type SensitiveActionAuthorizer,
 	type SensitiveActionDecision
 } from '$features/identity/contracts';
-import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
+import {
+	parseUserProfileForm,
+	sensitiveActionDecisionAuditDetails,
+	throwSensitiveActionFailure
+} from '$features/identity/index.server';
 import { maskEmail } from '$lib/audit/index.server';
 import {
 	organizationInvitationRateLimitAuditDetails,
@@ -124,6 +128,16 @@ export interface OrganizationInvitationRevokeResult {
 	email: string | null;
 }
 
+export interface OrganizationMemberNameValues {
+	rank: string | null;
+	firstName: string | null;
+	lastName: string | null;
+}
+
+export type OrganizationMemberNameWriteResult =
+	| { status: 'saved'; userId: string; previous: OrganizationMemberNameValues; saved: OrganizationMemberNameValues }
+	| { status: 'failed'; reason: 'denied' | 'not_found' | 'invalid' | 'error' };
+
 export interface OrganizationSettingsMemberManagementPort {
 	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
 	findPendingInvitationById(orgId: string, inviteId: string): Promise<OrganizationInvitationResendLookupResult | null>;
@@ -142,6 +156,13 @@ export interface OrganizationSettingsMemberManagementPort {
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string, expectedRole: EditableMembershipRole): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
+	setMemberName(input: {
+		organizationId: string;
+		userId: string;
+		rank: string;
+		firstName: string;
+		lastName: string;
+	}): Promise<OrganizationMemberNameWriteResult>;
 	getOrganizationName(orgId: string): Promise<string | null>;
 	findOrganizationGroups(orgId: string, groupIds: string[]): Promise<Array<{ id: string; name: string }>>;
 }
@@ -210,6 +231,15 @@ interface LeaveOrganizationInput {
 	membershipId: string;
 	confirmation: string;
 	actorEmail?: string | null;
+}
+
+interface SetOrganizationMemberNameInput {
+	membershipId: string;
+	rank: unknown;
+	firstName: unknown;
+	lastName: unknown;
+	/** The ranks the name form accepts, which the route supplies from the Personnel rank list. */
+	allowedRanks: readonly string[];
 }
 
 interface UpdateOrganizationMemberAccessInput {
@@ -979,6 +1009,67 @@ export async function updateOrganizationMemberAccess(
 	}
 
 	return { accessSuccess: true };
+}
+
+const MEMBER_NAME_FAILURES = {
+	denied: [403, 'Only an organization owner or admin can set a member name'],
+	not_found: [404, 'Membership not found'],
+	invalid: [400, 'Enter a valid rank, first name and last name'],
+	error: [500, 'Member name could not be saved']
+} as const;
+
+/** The name an owner or admin gives a member whose own account has none. The member's account name still outranks it on display. */
+export async function setOrganizationMemberName(
+	ports: OrganizationSettingsMemberManagementPorts,
+	input: SetOrganizationMemberNameInput
+): Promise<{ nameSuccess: true; nameMembershipId: string }> {
+	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateMemberName);
+
+	if (!validateUUID(input.membershipId)) {
+		fail(400, 'Invalid membership ID');
+	}
+	const name = parseUserProfileForm(
+		{ firstName: input.firstName, lastName: input.lastName, rank: input.rank },
+		input.allowedRanks
+	);
+	if ('error' in name) {
+		fail(400, name.error);
+	}
+
+	const membership = await ports.settings.findMembershipById(ports.auth.orgId, input.membershipId);
+	if (!membership?.userId) {
+		fail(404, 'Membership not found');
+	}
+
+	const result = await ports.settings.setMemberName({
+		organizationId: ports.auth.orgId,
+		userId: membership.userId,
+		rank: name.rank,
+		firstName: name.firstName,
+		lastName: name.lastName
+	});
+	if (result.status === 'failed') {
+		const [status, message] = MEMBER_NAME_FAILURES[result.reason];
+		fail(status, message, { publicMessage: true });
+	}
+	if (
+		result.userId !== membership.userId ||
+		result.saved.rank !== name.rank ||
+		result.saved.firstName !== name.firstName ||
+		result.saved.lastName !== name.lastName
+	) {
+		fail(500, 'Unable to confirm member name save');
+	}
+
+	await ports.audit.log({
+		action: 'member.name_changed',
+		resourceType: 'organization',
+		resourceId: input.membershipId,
+		record: membership.email ? maskEmail(membership.email) : 'a member',
+		details: { before: result.previous, after: result.saved }
+	});
+
+	return { nameSuccess: true, nameMembershipId: input.membershipId };
 }
 
 function requireEditableMembershipRole(role: unknown): EditableMembershipRole {

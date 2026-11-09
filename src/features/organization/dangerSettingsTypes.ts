@@ -6,6 +6,8 @@ export const DESTRUCTION_COUNT_KEYS = ['activePersonnel', 'trainingRecords', 'me
 export type DestructionCounts = UnitCounts<(typeof DESTRUCTION_COUNT_KEYS)[number]>;
 
 export interface DangerSettingsData {
-	transferOwnershipCandidates: Array<Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'>>;
+	transferOwnershipCandidates: Array<
+		Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'> & { name: string | null }
+	>;
 	destructionCounts: Promise<DestructionCounts>;
 }

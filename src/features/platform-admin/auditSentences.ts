@@ -220,6 +220,7 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	'member.invite': organizationEntry('invited a member'),
 	'member.removed': organizationEntry('removed a member'),
 	'member.access_changed': organizationEntry("changed a member's access"),
+	'member.name_changed': organizationEntry('named a member'),
 	'organization_invitation.accepted': organizationEntry('accepted an invitation'),
 	'organization_invitation.declined': organizationEntry('declined an invitation'),
 	'org.renamed': organizationEntry('renamed the Organization'),

@@ -28,10 +28,12 @@ import {
 	removeOrganizationMember,
 	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
+	setOrganizationMemberName,
 	updateOrganizationMemberAccess,
 	type OrganizationInvitationAccessRequestBridgeInput,
 	type OrganizationInvitationCreateInput,
 	type OrganizationMembershipUpdateInput,
+	type OrganizationMemberNameWriteResult,
 	type OrganizationSettingsMemberManagementPort
 } from './memberManagement.server';
 
@@ -156,6 +158,13 @@ function createOrganizationSettingsMemberManagementPort(
 		} | null;
 		removeMembershipError?: string | null;
 		updateMembershipError?: string | null;
+		/** What the name write answers; by default it saves what it is sent over an unnamed member. */
+		setMemberNameResult?: (sent: {
+			userId: string;
+			rank: string;
+			firstName: string;
+			lastName: string;
+		}) => OrganizationMemberNameWriteResult;
 		orgName?: string | null;
 		organizationGroupIds?: string[];
 		organizationGroupNames?: Record<string, string>;
@@ -171,6 +180,7 @@ function createOrganizationSettingsMemberManagementPort(
 	membershipLookups: Array<{ orgId: string; membershipId: string }>;
 	removedMemberships: Array<{ orgId: string; membershipId: string }>;
 	updatedMemberships: OrganizationMembershipUpdateInput[];
+	namedMembers: Array<{ organizationId: string; userId: string; rank: string; firstName: string; lastName: string }>;
 } {
 	const invitationLookups: Array<{ orgId: string; email: string }> = [];
 	const userAccountLookups: string[] = [];
@@ -183,8 +193,16 @@ function createOrganizationSettingsMemberManagementPort(
 	const membershipLookups: Array<{ orgId: string; membershipId: string }> = [];
 	const removedMemberships: Array<{ orgId: string; membershipId: string }> = [];
 	const updatedMemberships: OrganizationMembershipUpdateInput[] = [];
+	const namedMembers: Array<{
+		organizationId: string;
+		userId: string;
+		rank: string;
+		firstName: string;
+		lastName: string;
+	}> = [];
 
 	return {
+		namedMembers,
 		invitationLookups,
 		userAccountLookups,
 		createdInvitations,
@@ -256,6 +274,18 @@ function createOrganizationSettingsMemberManagementPort(
 		async updateMembership(input) {
 			updatedMemberships.push(input);
 			return options.updateMembershipError ?? null;
+		},
+		async setMemberName(input) {
+			namedMembers.push(input);
+			const none = { rank: null, firstName: null, lastName: null };
+			return (
+				options.setMemberNameResult?.(input) ?? {
+					status: 'saved',
+					userId: input.userId,
+					previous: none,
+					saved: { rank: input.rank, firstName: input.firstName, lastName: input.lastName }
+				}
+			);
 		},
 		async getOrganizationName() {
 			return options.orgName ?? null;
@@ -3916,5 +3946,153 @@ describe('access saves while a feature is off', () => {
 		await run('member', memberAccess({ memberPreset: 'operator' }));
 		expect(rows[0].member_preset).toBe('operator');
 		expect(rows[0].capability_overrides).toEqual({});
+	});
+});
+
+describe('setOrganizationMemberName', () => {
+	const MEMBERSHIP_ID = '11111111-1111-4111-8111-111111111111';
+	const RANKS = ['SGT', 'SFC', 'CIV'];
+
+	function scenario(
+		role: 'owner' | 'admin' | 'member',
+		options: Parameters<typeof createOrganizationSettingsMemberManagementPort>[0] = {}
+	) {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role } });
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: { userId: 'member-1', role: 'member', email: 'jane.doe@example.com' },
+			...options
+		});
+		const run = (input: Partial<Parameters<typeof setOrganizationMemberName>[1]> = {}) =>
+			setOrganizationMemberName(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: MEMBERSHIP_ID,
+					rank: 'SGT',
+					firstName: ' Jane ',
+					lastName: 'Doe',
+					allowedRanks: RANKS,
+					...input
+				}
+			);
+		return { ctx, port, run };
+	}
+
+	it.each(['owner', 'admin'] as const)('lets an %s name a member and audits what changed', async (role) => {
+		const { ctx, port, run } = scenario(role, {
+			setMemberNameResult: ({ userId, rank, firstName, lastName }) => ({
+				status: 'saved',
+				userId,
+				previous: { rank: 'SPC', firstName: 'Jan', lastName: 'Doe' },
+				saved: { rank, firstName, lastName }
+			})
+		});
+
+		expect(await run()).toEqual({ nameSuccess: true, nameMembershipId: MEMBERSHIP_ID });
+
+		expect(port.membershipLookups).toEqual([{ orgId: 'org-1', membershipId: MEMBERSHIP_ID }]);
+		expect(port.namedMembers).toEqual([
+			{ organizationId: 'org-1', userId: 'member-1', rank: 'SGT', firstName: 'Jane', lastName: 'Doe' }
+		]);
+		expect(ctx.auditPort.events).toEqual([
+			{
+				action: 'member.name_changed',
+				resourceType: 'organization',
+				resourceId: MEMBERSHIP_ID,
+				record: 'j***@example.com',
+				details: {
+					before: { rank: 'SPC', firstName: 'Jan', lastName: 'Doe' },
+					after: { rank: 'SGT', firstName: 'Jane', lastName: 'Doe' }
+				}
+			}
+		]);
+	});
+
+	it('turns an ordinary member away before reading or writing anything', async () => {
+		const { ctx, port, run } = scenario('member');
+
+		await expect(run()).rejects.toMatchObject({ status: 403 });
+
+		expect(port.membershipLookups).toEqual([]);
+		expect(port.namedMembers).toEqual([]);
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['policy.denied']);
+	});
+
+	it.each([
+		['a rank outside the list', { rank: 'GEN' }],
+		['a missing rank', { rank: '' }],
+		['a missing first name', { firstName: '  ' }],
+		['a missing last name', { lastName: undefined }]
+	])('rejects %s without writing', async (_label, input) => {
+		const { ctx, port, run } = scenario('admin');
+
+		await expect(run(input)).rejects.toMatchObject({ status: 400 });
+
+		expect(port.namedMembers).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('rejects a membership id that is not a UUID and a membership that is not in this unit', async () => {
+		const bad = scenario('admin');
+		await expect(bad.run({ membershipId: 'not-a-uuid' })).rejects.toMatchObject({ status: 400 });
+		expect(bad.port.membershipLookups).toEqual([]);
+
+		const missing = scenario('admin', { membership: null });
+		await expect(missing.run()).rejects.toMatchObject({ status: 404 });
+		expect(missing.port.namedMembers).toEqual([]);
+	});
+
+	it.each([
+		['denied', 403],
+		['not_found', 404],
+		['invalid', 400],
+		['error', 500]
+	] as const)('reports a %s write as a %i and records no change', async (reason, status) => {
+		const { ctx, run } = scenario('admin', { setMemberNameResult: () => ({ status: 'failed', reason }) });
+
+		await expect(run()).rejects.toMatchObject({ status });
+
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('does not report a save the database did not confirm', async () => {
+		const { ctx, run } = scenario('admin', {
+			setMemberNameResult: ({ userId }) => ({
+				status: 'saved',
+				userId,
+				previous: { rank: null, firstName: null, lastName: null },
+				saved: { rank: 'SGT', firstName: 'Someone', lastName: 'Else' }
+			})
+		});
+
+		await expect(run()).rejects.toMatchObject({ status: 500 });
+
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('answers only after the audit write finished', async () => {
+		const { ctx, run } = scenario('owner');
+		let release: () => void = () => {};
+		const held = new Promise<void>((resolve) => (release = resolve));
+		let entered: () => void = () => {};
+		const reachedAudit = new Promise<void>((resolve) => (entered = resolve));
+		const log = ctx.audit.log.bind(ctx.audit);
+		ctx.audit.log = async (event) => {
+			entered();
+			await held;
+			return log(event);
+		};
+
+		let settled = false;
+		const result = run().then((value) => {
+			settled = true;
+			return value;
+		});
+		await reachedAudit;
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(settled).toBe(false);
+
+		release();
+		await result;
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['member.name_changed']);
 	});
 });

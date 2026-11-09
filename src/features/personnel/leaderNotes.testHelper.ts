@@ -1,5 +1,5 @@
-import type { createTestContext } from '$lib/server/adapters/inMemory';
-import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
+import { createStoreMemberLabelReader, type createTestContext } from '$lib/server/adapters/inMemory';
+import { loadOrganizationMemberLabels } from '$features/organization/index.server';
 import type { LeaderNoteContext, LeaderNoteRow } from './index.server';
 
 export function testLeaderNoteContext(ctx: ReturnType<typeof createTestContext>): LeaderNoteContext {
@@ -62,15 +62,6 @@ export function testLeaderNoteContext(ctx: ReturnType<typeof createTestContext>)
 			delete: async (personnelId, noteId) => (await writerFor(personnelId)).deleteLeaderNote(noteId)
 		},
 		contributorLabels: (userIds) =>
-			loadOrganizationMemberLabels(
-				{
-					findMembers: (memberOrgId, ids) =>
-						ctx.rawStore.findMany<OrganizationMemberLabelRow>('organization_memberships', memberOrgId, undefined, {
-							inFilters: { user_id: ids }
-						})
-				},
-				orgId,
-				userIds
-			)
+			loadOrganizationMemberLabels(createStoreMemberLabelReader(ctx.rawStore), orgId, userIds)
 	};
 }

@@ -94,7 +94,7 @@ means the workspace reloaded.
 - [Shared composition equivalence](shared-compositions.md): computed-style comparison of shared compositions.
 - [Create an Organization](organization-creation.md): owner creation and retry.
 - [Invite and accept Organization members](organization-invitations.md): invitation, setup and acceptance.
-- [Manage Organization member access and ownership](organization-member-access.md): role, Group and ownership edits.
+- [Manage Organization member access and ownership](organization-member-access.md): role, Group, name and ownership edits.
 - [Archival and deletion requests](deletion-requests.md): submission, review and source effects.
 - [Organization settings and destruction](organization-settings-destruction.md): name, URL, settings and deletion.
 - [Organization settings, creation and communications states](organization-settings-states.md): settings screens in

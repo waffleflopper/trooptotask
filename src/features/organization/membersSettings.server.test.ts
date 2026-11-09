@@ -6,6 +6,7 @@ import {
 	loadMembersSettings,
 	type BuildMembersSettingsDataInput
 } from './membersSettings.server';
+import type { OrganizationMemberLabelRow } from './memberLabels.server';
 
 const NOW = new Date('2026-08-04T12:00:00Z');
 
@@ -292,6 +293,7 @@ function makeLoadContext(
 		disabledFeatures: [],
 		organizationSettings: {
 			listMemberAccess: vi.fn(async () => [memberRow()]),
+			listMemberNames: vi.fn(async () => []),
 			listInvitations: vi.fn(async () => [invitationRow()]),
 			listInvitationDeliveries: vi.fn(async () => [deliveryRow()])
 		},
@@ -416,5 +418,59 @@ describe('members settings section shaping', () => {
 
 		expect(section.canInvite).toBe(false);
 		expect(section.canManageMemberAccess).toBe(false);
+	});
+});
+
+describe('members settings member names', () => {
+	const named = (overrides: Partial<OrganizationMemberLabelRow> = {}): OrganizationMemberLabelRow => ({
+		user_id: 'user-1',
+		rank: 'SGT',
+		first_name: 'Jane',
+		last_name: 'Doe',
+		email: 'member@example.com',
+		name_source: 'organization',
+		...overrides
+	});
+
+	it('shows each member under the name and source the database resolved', () => {
+		const section = buildSection({
+			members: [
+				memberRow(),
+				memberRow({ id: 'member-2', user_id: 'user-2' }),
+				memberRow({ id: 'member-3', user_id: 'user-3' })
+			],
+			memberNames: [
+				named(),
+				named({ user_id: 'user-2', rank: 'SFC', first_name: 'Dana', last_name: 'Whitaker', name_source: 'account' }),
+				named({ user_id: 'user-3', rank: null, first_name: null, last_name: null, name_source: null })
+			]
+		});
+
+		expect(section.rows.map(({ userId, name }) => [userId, name])).toEqual([
+			['user-1', { text: 'SGT Jane Doe', source: 'organization', rank: 'SGT', firstName: 'Jane', lastName: 'Doe' }],
+			[
+				'user-2',
+				{ text: 'SFC Dana Whitaker', source: 'account', rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' }
+			],
+			['user-3', null]
+		]);
+	});
+
+	it('leaves a member with no name row unnamed', () => {
+		expect(buildSection({ members: [memberRow()] }).rows[0].name).toBeNull();
+	});
+
+	it('reads the names with the roster in one load', async () => {
+		const context = makeLoadContext(undefined);
+		vi.mocked(context.organizationSettings.listMemberNames).mockResolvedValue([named()]);
+
+		const data = await loadMembersSettings(context, {
+			isAdmin: true,
+			groups: Promise.resolve([]),
+			closedInvitations: Promise.resolve([])
+		});
+
+		expect(context.organizationSettings.listMemberNames).toHaveBeenCalledExactlyOnceWith('org-1');
+		expect(data.sections.members.rows[0].name?.text).toBe('SGT Jane Doe');
 	});
 });

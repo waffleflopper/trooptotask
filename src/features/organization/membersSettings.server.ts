@@ -1,4 +1,5 @@
 import { scopeTree, type ScopeTree } from './scopeGroups';
+import { memberNameText, type OrganizationMemberLabelRow } from './memberLabels.server';
 import {
 	ACCESS_LANE_LABELS,
 	CAPABILITY_LEVEL_LABELS,
@@ -18,6 +19,7 @@ import type {
 	SettingsInvitationRow,
 	MembersSettingsData,
 	SettingsMembersSectionData,
+	SettingsMemberName,
 	SettingsMemberRow,
 	SettingsPendingInvitationRow,
 	ScopeGroup
@@ -38,6 +40,8 @@ export interface BuildMembersSettingsDataInput {
 	canManageMembers: boolean;
 	isAdmin: boolean;
 	members: SettingsAccessSourceRow[];
+	/** The resolved name per member from the account or the Organization. A member with no row has no name. */
+	memberNames?: OrganizationMemberLabelRow[];
 	/** Invitations still `pending`; those past their expiry join the history. */
 	invitations: SettingsAccessSourceRow[];
 	closedInvitations: Promise<SettingsAccessSourceRow[]>;
@@ -54,7 +58,7 @@ interface MembersSettingsLoadContext {
 	disabledFeatures: readonly FeatureKey[];
 	organizationSettings: Pick<
 		OrganizationSettingsReader,
-		'listMemberAccess' | 'listInvitations' | 'listInvitationDeliveries'
+		'listMemberAccess' | 'listMemberNames' | 'listInvitations' | 'listInvitationDeliveries'
 	>;
 	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
 }
@@ -63,8 +67,9 @@ export async function loadMembersSettings(
 	ctx: MembersSettingsLoadContext,
 	input: LoadMembersSettingsInput
 ): Promise<MembersSettingsData> {
-	const [membershipRows, invitationRows, invitationDeliveryRows, groups] = await Promise.all([
+	const [membershipRows, memberNames, invitationRows, invitationDeliveryRows, groups] = await Promise.all([
 		ctx.organizationSettings.listMemberAccess(ctx.auth.orgId),
+		ctx.organizationSettings.listMemberNames(ctx.auth.orgId),
 		ctx.organizationSettings.listInvitations(ctx.auth.orgId, 'pending'),
 		ctx.organizationSettings.listInvitationDeliveries(ctx.auth.orgId),
 		input.groups
@@ -75,6 +80,7 @@ export async function loadMembersSettings(
 		canManageMembers: ctx.auth.canManageMembers,
 		isAdmin: input.isAdmin,
 		members: membershipRows,
+		memberNames,
 		invitations: invitationRows,
 		closedInvitations: input.closedInvitations,
 		invitationDeliveries: invitationDeliveryRows,
@@ -176,9 +182,12 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 		.map((invitation) => withInvitationFunnelStatus(invitation, input.invitationSetupStates));
 	const lapsedInvitations = pendingInvitations.filter((invitation) => !isActionableInvitation(invitation, now));
 	const offLanes = disabledFeatureLanes(input.disabledFeatures);
+	const namesByUserId = new Map((input.memberNames ?? []).map((row) => [row.user_id, row]));
 
 	return {
-		rows: input.members.map((row) => shapeMemberRow(buildSettingsMemberAccessRow(row), tree, offLanes)),
+		rows: input.members.map((row) =>
+			shapeMemberRow(buildSettingsMemberAccessRow(row), tree, offLanes, namesByUserId.get(asUserId(row.user_id)))
+		),
 		invitations,
 		invitationHistory: input.closedInvitations.then((closed) =>
 			[...lapsedInvitations, ...closed.map(buildSettingsInvitationAccessRow)]
@@ -195,13 +204,25 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 function shapeMemberRow(
 	member: ReturnType<typeof buildSettingsMemberAccessRow>,
 	tree: ScopeTree,
-	offLanes: readonly DurableFeatureLane[]
+	offLanes: readonly DurableFeatureLane[],
+	named: OrganizationMemberLabelRow | undefined
 ): SettingsMemberRow {
 	return {
 		...member,
+		name: memberName(named),
 		scopeDisplayLabel: formatScopeSet(member.access.scopeSet, tree),
 		overriddenCapabilityLabels: overriddenCapabilityLabels(member, offLanes)
 	};
+}
+
+function asUserId(value: unknown): string {
+	return typeof value === 'string' ? value : '';
+}
+
+function memberName(row: OrganizationMemberLabelRow | undefined): SettingsMemberName | null {
+	const text = row ? memberNameText(row) : '';
+	if (!row || !text || !row.name_source) return null;
+	return { text, source: row.name_source, rank: row.rank, firstName: row.first_name, lastName: row.last_name };
 }
 
 function shapeInvitationRow(

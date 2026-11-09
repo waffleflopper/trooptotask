@@ -30,6 +30,7 @@ function member(
 			...access
 		},
 		storedLevels: storedLevels ?? access.capabilityMap ?? createCapabilityMap('configure'),
+		name: null,
 		scopeDisplayLabel: 'Whole unit',
 		overriddenCapabilityLabels: []
 	};

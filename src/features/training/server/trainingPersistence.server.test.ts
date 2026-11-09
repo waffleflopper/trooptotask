@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createSupabaseTrainingCatalogPersistence } from './trainingCatalogPersistence.server';
 import { createSupabaseTrainingCompletionPersistence } from './trainingCompletionPersistence.server';
 import { setTrainingTypeOrder } from './trainingCatalogOperations.server';
@@ -330,6 +330,7 @@ describe('ordinary Training persistence', () => {
 		});
 		expect(await catalog.patchView(view.id, { columnIds: ['t1'] })).toMatchObject({ name: 'View', columnIds: ['t1'] });
 		const record = await completions.createRecord({ personnelId: 'p2', trainingTypeId: 't1' });
+		assert(record, 'A fresh pair creates a record');
 		expect(record).toMatchObject({
 			personnelId: 'p2',
 			trainingTypeId: 't1',

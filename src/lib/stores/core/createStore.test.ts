@@ -547,6 +547,26 @@ describe('createStore', () => {
 		} as const;
 
 		for (const [name, operation] of Object.entries(lateOperations)) {
+			it(`clears busy when the ${name} adapter throws synchronously`, async () => {
+				const failure = new TypeError('Adapter could not send');
+				const store = makeStore({
+					adapterOverrides: {
+						[operation.adapter]: () => {
+							throw failure;
+						}
+					}
+				});
+				store.load([{ id: 'shared-id', name: 'Original' }], 'org-1');
+				const pending = operation.start(store);
+				if (name === 'update') await expect(pending).resolves.toBe(false);
+				else if (name === 'removeBatch') await expect(pending).resolves.toEqual({ kind: 'failed' });
+				else await expect(pending).rejects.toBe(failure);
+				expect(store.busy).toBe(false);
+				expect(store.items).toEqual([{ id: 'shared-id', name: 'Original' }]);
+			});
+		}
+
+		for (const [name, operation] of Object.entries(lateOperations)) {
 			for (const outcome of ['resolve', 'reject'] as const) {
 				it(`never settles or reports a ${name} that ${outcome}s after switching Organizations`, async () => {
 					let settle!: { resolve: (value: unknown) => void; reject: (error: Error) => void };

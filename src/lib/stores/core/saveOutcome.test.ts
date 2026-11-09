@@ -28,13 +28,13 @@ describe('classifyWrite', () => {
 	});
 
 	it.each([
-		{ reply: { type: 'success', status: 200, data: {} }, outcome: 'saved' },
-		{ reply: { type: 'failure', status: 400, data: {} }, outcome: 'not-saved' },
-		{ reply: { type: 'failure', status: 500, data: {} }, outcome: 'unconfirmed' },
+		{ reply: { type: 'success', status: 200, data: {}, location: '/save' }, outcome: 'saved' },
+		{ reply: { type: 'failure', status: 400, data: {}, location: '/save' }, outcome: 'not-saved' },
+		{ reply: { type: 'failure', status: 500, data: {}, location: '/save' }, outcome: 'unconfirmed' },
 		{ reply: { type: 'redirect', status: 303, location: '/next' }, outcome: 'saved' },
-		{ reply: { type: 'error', status: 500, error: new Error('Server failed') }, outcome: 'unconfirmed' },
-		{ reply: { type: 'error', status: 403, error: new Error('Refused') }, outcome: 'not-saved' },
-		{ reply: { type: 'error', error: new Error('No reply status') }, outcome: 'unconfirmed' }
+		{ reply: { type: 'error', status: 500, error: { message: 'Server failed', status: 500 } }, outcome: 'unconfirmed' },
+		{ reply: { type: 'error', status: 403, error: { message: 'Refused', status: 403 } }, outcome: 'not-saved' },
+		{ reply: { type: 'error', error: { message: 'No reply status', status: 500 } }, outcome: 'unconfirmed' }
 	] satisfies { reply: ActionResult; outcome: string }[])(
 		'classifies a $reply.type action as $outcome',
 		({ reply, outcome }) => {

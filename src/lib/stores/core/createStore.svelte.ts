@@ -208,14 +208,15 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 	function withinWrite<R>(
 		mutationId: string,
-		work: Promise<R>,
+		work: () => Promise<R>,
 		apply: (value: R) => void,
 		confirmed: (value: R) => boolean = () => true
 	): Promise<R> {
 		const version = organizationVersion;
 		const sameLifetime = stillInOrganizationLifetime();
 		const isCurrent = () => version === organizationVersion;
-		const settled = work
+		// Start now, while adapter URLs still belong to this Organization, and capture synchronous throws too.
+		const settled = new Promise<R>((resolve) => resolve(work()))
 			.then((value) => {
 				if (sameLifetime() && isCurrent()) apply(value);
 				return value;
@@ -247,7 +248,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 		return withinWrite(
 			mutationId,
-			adapter.remove(id),
+			() => adapter.remove(id),
 			(result) => {
 				if (result === 'deleted') {
 					commit({ deleted: [id] });
@@ -267,7 +268,11 @@ export function createStoreWithInternals<T extends { id: string }>(
 		const mutationId = crypto.randomUUID();
 		log.push({ type: 'update', mutationId, targetId: id, data: data as Partial<T> });
 
-		await withinWrite(mutationId, adapter.update(id, data), (updated) => commit({ saved: [updated] }));
+		await withinWrite(
+			mutationId,
+			() => adapter.update(id, data),
+			(updated) => commit({ saved: [updated] })
+		);
 		return true;
 	}
 
@@ -333,13 +338,17 @@ export function createStoreWithInternals<T extends { id: string }>(
 			log.push({ type: 'add', mutationId, tempId, data });
 
 			try {
-				const created = await withinWrite(mutationId, adapter.create(data), (created) => {
-					const current = loadedState.getSnapshot();
-					const keptIds: Record<string, true> = Object.create(null);
-					for (const item of config.beforeAdd ? config.beforeAdd(current, data).items : current)
-						keptIds[item.id] = true;
-					commit({ saved: [created], deleted: current.filter((item) => !keptIds[item.id]).map((item) => item.id) });
-				});
+				const created = await withinWrite(
+					mutationId,
+					() => adapter.create(data),
+					(created) => {
+						const current = loadedState.getSnapshot();
+						const keptIds: Record<string, true> = Object.create(null);
+						for (const item of config.beforeAdd ? config.beforeAdd(current, data).items : current)
+							keptIds[item.id] = true;
+						commit({ saved: [created], deleted: current.filter((item) => !keptIds[item.id]).map((item) => item.id) });
+					}
+				);
 				return created;
 			} catch (e) {
 				config.onError?.('add', e);
@@ -355,9 +364,10 @@ export function createStoreWithInternals<T extends { id: string }>(
 			try {
 				const created = await withinWrite(
 					mutationId,
-					config.batchAdapter
-						? config.batchAdapter.createBatch(entries)
-						: Promise.all(entries.map((data) => adapter.create(data))),
+					() =>
+						config.batchAdapter
+							? config.batchAdapter.createBatch(entries)
+							: Promise.all(entries.map((data) => adapter.create(data))),
 					(created) => commit({ saved: created }),
 					(created) => created.length > 0
 				);
@@ -393,12 +403,13 @@ export function createStoreWithInternals<T extends { id: string }>(
 			try {
 				const { deleted, completedIds } = await withinWrite(
 					mutationId,
-					config.batchAdapter?.removeBatch
-						? config.batchAdapter.removeBatch(ids)
-						: Promise.all(ids.map((id) => adapter.remove(id))).then((results) => {
-								const completedIds = ids.filter((_, index) => results[index] === 'deleted');
-								return { deleted: completedIds.length, completedIds };
-							}),
+					() =>
+						config.batchAdapter?.removeBatch
+							? config.batchAdapter.removeBatch(ids)
+							: Promise.all(ids.map((id) => adapter.remove(id))).then((results) => {
+									const completedIds = ids.filter((_, index) => results[index] === 'deleted');
+									return { deleted: completedIds.length, completedIds };
+								}),
 					({ completedIds }) => commit({ deleted: completedIds }),
 					({ completedIds }) => completedIds.length > 0
 				);

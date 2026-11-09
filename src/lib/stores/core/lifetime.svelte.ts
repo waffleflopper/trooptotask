@@ -35,7 +35,10 @@ export function withinOrganizationLifetime<R>(work: Promise<R>, isCurrent: () =>
  */
 export function withinOrganizationWrite<R>(
 	work: Promise<R>,
-	{ isCurrent = () => true, confirmed = () => true }: { isCurrent?: () => boolean; confirmed?: (value: R) => boolean } = {}
+	{
+		isCurrent = () => true,
+		confirmed = () => true
+	}: { isCurrent?: () => boolean; confirmed?: (value: R) => boolean } = {}
 ): Promise<R> {
 	const sameLifetime = stillInOrganizationLifetime();
 	work.then(

@@ -23,6 +23,15 @@ function fixture({ boxes = {}, nativePages = [{ id: 2, url: calendarUrl }] } = {
 			move: async (x, y, options) => moves.push(['move', x, y, options?.steps ?? 1]),
 			down: async () => moves.push(['down']),
 			up: async () => moves.push(['up'])
+		},
+		touchscreen: {
+			touchStart: async (x, y) => {
+				moves.push(['touch-start', x, y]);
+				return {
+					move: async (toX, toY) => moves.push(['touch-move', toX, toY]),
+					end: async () => moves.push(['touch-end'])
+				};
+			}
 		}
 	};
 	const browser = {
@@ -62,9 +71,28 @@ test('drags with real pointer input from one element centre to another', async (
 		url: calendarUrl,
 		from: { selector: '[data-edge="end"]', x: 404, y: 126 },
 		to: { selector: '[data-day="9"]', x: 500, y: 128 },
-		steps: 4
+		steps: 4,
+		device: 'mouse'
 	});
 	assert.equal(resources.disconnected, true);
+});
+
+test('swipes with real touch input, and taps when both selectors name one element', async () => {
+	const swipe = fixture();
+	const result = await swipe.run({ from: '[data-edge="end"]', to: '[data-day="9"]', steps: 2, device: 'touch' });
+
+	assert.deepEqual(swipe.moves, [
+		['touch-start', 404, 126],
+		['touch-move', 452, 127],
+		['touch-move', 500, 128],
+		['touch-end']
+	]);
+	assert.equal(result.device, 'touch');
+
+	const tap = fixture();
+	await tap.run({ from: '[data-day="9"]', to: '[data-day="9"]', device: 'touch' });
+
+	assert.deepEqual(tap.moves, [['touch-start', 500, 128], ['touch-end']]);
 });
 
 test('refuses a missing, ambiguous, hidden or off-screen target without pressing', async () => {
@@ -96,4 +124,5 @@ test('refuses a URL outside the owned app and malformed input', async () => {
 	await assert.rejects(run({ expectedUrl: 'https://example.com/calendar', from: 'a', to: 'b' }), { code: 'DRAG_URL' });
 	await assert.rejects(run({ from: '', to: 'b' }), { code: 'DRAG_INPUT' });
 	await assert.rejects(run({ from: 'a', to: 'b', steps: 0 }), { code: 'DRAG_INPUT' });
+	await assert.rejects(run({ from: 'a', to: 'b', device: 'pen' }), { code: 'DRAG_INPUT' });
 });

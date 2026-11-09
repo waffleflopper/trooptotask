@@ -7,6 +7,7 @@
 	import { setCalendarTypeSetup } from '$features/calendar/components/calendarTypeSetup';
 	import CalendarTitleRow from '$features/calendar/components/CalendarTitleRow.svelte';
 	import { untrack } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -40,6 +41,7 @@
 	import { personName } from '$features/calendar/taskings/staffing/staffingModel';
 	import {
 		DRAG_TO_ADD_HINT,
+		TAP_TO_ADD_HINT,
 		dutyMarkerLegend,
 		eventsLegend,
 		statusLegend
@@ -180,10 +182,16 @@
 			: { ...legend, entries: legend.entries.filter((entry) => entry.key !== 'suspense') };
 	});
 
+	// A touch screen cannot drag-select, so its hint teaches the two-tap range instead.
+	const coarsePointer = new MediaQuery('pointer: coarse', false);
+
 	const legend = $derived([
 		...(ctx.viewMode === 'month'
 			? [
-					statusLegend(statusTypesStore.items, ctx.canManageAvailability ? DRAG_TO_ADD_HINT : undefined),
+					statusLegend(
+						statusTypesStore.items,
+						ctx.canManageAvailability ? (coarsePointer.current ? TAP_TO_ADD_HINT : DRAG_TO_ADD_HINT) : undefined
+					),
 					dutyMarkerLegend(dailyAssignmentsStore.types)
 				]
 			: [statusLegend(statusTypesStore.items)]),

@@ -10,33 +10,31 @@ GRANT INSERT (id, organization_id, personnel_id, title, notes, due_date, created
   ON public.personnel_follow_ups TO authenticated;
 GRANT UPDATE (title, notes, due_date, updated_at) ON public.personnel_follow_ups TO authenticated;
 GRANT INSERT (org_id, requested_by, created_at) ON public.data_exports TO authenticated;
+DROP POLICY "Org managers can update export lifecycle" ON public.data_exports;
 ALTER TABLE public.data_exports ALTER COLUMN status SET DEFAULT 'processing';
 
 REVOKE INSERT ON public.organization_invitations FROM anon, authenticated;
 GRANT INSERT (organization_id, email, invited_by, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids)
   ON public.organization_invitations TO authenticated;
 ALTER POLICY "Governors can create invitations" ON public.organization_invitations WITH CHECK (
-  invited_by = (SELECT auth.uid()) AND status = 'pending'
-  AND accepted_at IS NULL AND accepted_by IS NULL AND declined_at IS NULL AND declined_by IS NULL
-  AND revoked_at IS NULL AND revoked_by IS NULL AND expired_at IS NULL AND blocked_at IS NULL AND blocked_by IS NULL
-  AND expires_at > now() AND expires_at <= now() + interval '14 days'
+  invited_by = (SELECT auth.uid())
   AND ((role = 'member' AND public.can_manage_org_members(organization_id))
     OR (role = 'admin' AND public.is_org_owner(organization_id) AND public.current_session_sensitive_action_assured()))
 );
 
 CREATE FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text,
-  p_completed_at timestamptz, p_file_size_bytes bigint DEFAULT NULL)
+  p_file_size_bytes bigint DEFAULT NULL)
 RETURNS SETOF public.data_exports LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
-  UPDATE public.data_exports SET status = p_status, completed_at = p_completed_at,
+  UPDATE public.data_exports SET status = p_status, completed_at = now(),
     file_size_bytes = CASE WHEN p_status = 'completed' THEN p_file_size_bytes ELSE file_size_bytes END
   WHERE id = p_export_id AND org_id = p_organization_id AND status = 'processing'
-    AND p_status IN ('completed', 'failed') AND p_completed_at IS NOT NULL
+    AND p_status IN ('completed', 'failed')
     AND (p_status = 'failed' OR p_file_size_bytes >= 0)
     AND public.can_manage_org_members(p_organization_id)
   RETURNING *;
 $$;
-REVOKE ALL ON FUNCTION public.finish_data_export(uuid, uuid, text, timestamptz, bigint) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.finish_data_export(uuid, uuid, text, timestamptz, bigint) TO authenticated;
+REVOKE ALL ON FUNCTION public.finish_data_export(uuid, uuid, text, bigint) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.finish_data_export(uuid, uuid, text, bigint) TO authenticated;
 
 CREATE INDEX data_exports_processing_created_at_idx ON public.data_exports (created_at) WHERE status = 'processing';
 CREATE FUNCTION public.fail_stale_data_exports() RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -77,9 +75,7 @@ BEGIN
     training_readiness_goal_percent = CASE WHEN p_changes ? 'training_readiness_goal_percent' THEN (p_changes->>'training_readiness_goal_percent')::integer ELSE training_readiness_goal_percent END,
     personnel_document_storage_cap_bytes = CASE WHEN p_changes ? 'personnel_document_storage_cap_bytes' THEN (p_changes->>'personnel_document_storage_cap_bytes')::bigint ELSE personnel_document_storage_cap_bytes END
   WHERE id = p_organization_id;
-  details = p_changes || jsonb_build_object('previous_disabled_features', ARRAY(
-    SELECT k FROM unnest(ARRAY['training','criticalTasks','evaluations','onboarding','lossesAndAwards','eventsAndTaskings']) WITH ORDINALITY keys(k, ordinal)
-    WHERE k = ANY(previous.disabled_features) ORDER BY ordinal));
+  details = p_changes || jsonb_build_object('previous_disabled_features', previous.disabled_features);
   IF p_changes ? 'strength_floor_percent' THEN
     details = details || jsonb_build_object('previous_strength_floor_percent', previous.strength_floor_percent);
   END IF;

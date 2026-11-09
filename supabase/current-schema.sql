@@ -8190,24 +8190,24 @@ CREATE TABLE public.data_exports (
 ALTER TABLE public.data_exports OWNER TO postgres;
 
 --
--- Name: finish_data_export(uuid, uuid, text, timestamp with time zone, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: finish_data_export(uuid, uuid, text, bigint); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_completed_at timestamp with time zone, p_file_size_bytes bigint DEFAULT NULL::bigint) RETURNS SETOF public.data_exports
+CREATE FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint DEFAULT NULL::bigint) RETURNS SETOF public.data_exports
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  UPDATE public.data_exports SET status = p_status, completed_at = p_completed_at,
+  UPDATE public.data_exports SET status = p_status, completed_at = now(),
     file_size_bytes = CASE WHEN p_status = 'completed' THEN p_file_size_bytes ELSE file_size_bytes END
   WHERE id = p_export_id AND org_id = p_organization_id AND status = 'processing'
-    AND p_status IN ('completed', 'failed') AND p_completed_at IS NOT NULL
+    AND p_status IN ('completed', 'failed')
     AND (p_status = 'failed' OR p_file_size_bytes >= 0)
     AND public.can_manage_org_members(p_organization_id)
   RETURNING *;
 $$;
 
 
-ALTER FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_completed_at timestamp with time zone, p_file_size_bytes bigint) OWNER TO postgres;
+ALTER FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint) OWNER TO postgres;
 
 --
 -- Name: finish_organization_setup(uuid); Type: FUNCTION; Schema: public; Owner: postgres
@@ -14220,9 +14220,7 @@ BEGIN
     training_readiness_goal_percent = CASE WHEN p_changes ? 'training_readiness_goal_percent' THEN (p_changes->>'training_readiness_goal_percent')::integer ELSE training_readiness_goal_percent END,
     personnel_document_storage_cap_bytes = CASE WHEN p_changes ? 'personnel_document_storage_cap_bytes' THEN (p_changes->>'personnel_document_storage_cap_bytes')::bigint ELSE personnel_document_storage_cap_bytes END
   WHERE id = p_organization_id;
-  details = p_changes || jsonb_build_object('previous_disabled_features', ARRAY(
-    SELECT k FROM unnest(ARRAY['training','criticalTasks','evaluations','onboarding','lossesAndAwards','eventsAndTaskings']) WITH ORDINALITY keys(k, ordinal)
-    WHERE k = ANY(previous.disabled_features) ORDER BY ordinal));
+  details = p_changes || jsonb_build_object('previous_disabled_features', previous.disabled_features);
   IF p_changes ? 'strength_floor_percent' THEN
     details = details || jsonb_build_object('previous_strength_floor_percent', previous.strength_floor_percent);
   END IF;
@@ -20351,7 +20349,7 @@ CREATE POLICY "Critical Tasks configurators can update library records" ON publi
 -- Name: organization_invitations Governors can create invitations; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY "Governors can create invitations" ON public.organization_invitations FOR INSERT TO authenticated WITH CHECK (((invited_by = ( SELECT auth.uid() AS uid)) AND (status = 'pending'::public.invitation_status) AND (accepted_at IS NULL) AND (accepted_by IS NULL) AND (declined_at IS NULL) AND (declined_by IS NULL) AND (revoked_at IS NULL) AND (revoked_by IS NULL) AND (expired_at IS NULL) AND (blocked_at IS NULL) AND (blocked_by IS NULL) AND (expires_at > now()) AND (expires_at <= (now() + '14 days'::interval)) AND (((role = 'member'::public.organization_role) AND public.can_manage_org_members(organization_id)) OR ((role = 'admin'::public.organization_role) AND public.is_org_owner(organization_id) AND public.current_session_sensitive_action_assured()))));
+CREATE POLICY "Governors can create invitations" ON public.organization_invitations FOR INSERT TO authenticated WITH CHECK (((invited_by = ( SELECT auth.uid() AS uid)) AND (((role = 'member'::public.organization_role) AND public.can_manage_org_members(organization_id)) OR ((role = 'admin'::public.organization_role) AND public.is_org_owner(organization_id) AND public.current_session_sensitive_action_assured()))));
 
 
 --
@@ -20636,13 +20634,6 @@ CREATE POLICY "Operators can update personnel follow ups through scoped person" 
 --
 
 CREATE POLICY "Operators can update scoped personnel extended info" ON public.personnel_extended_info FOR UPDATE TO authenticated USING (public.personnel_extended_info_scope_matches(organization_id, personnel_id)) WITH CHECK (public.personnel_extended_info_scope_matches(organization_id, personnel_id));
-
-
---
--- Name: data_exports Org managers can update export lifecycle; Type: POLICY; Schema: public; Owner: postgres
---
-
-CREATE POLICY "Org managers can update export lifecycle" ON public.data_exports FOR UPDATE USING (public.can_manage_org_members(org_id)) WITH CHECK (public.can_manage_org_members(org_id));
 
 
 --
@@ -23560,12 +23551,12 @@ GRANT INSERT(created_at) ON TABLE public.data_exports TO authenticated;
 
 
 --
--- Name: FUNCTION finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_completed_at timestamp with time zone, p_file_size_bytes bigint); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint); Type: ACL; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_completed_at timestamp with time zone, p_file_size_bytes bigint) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_completed_at timestamp with time zone, p_file_size_bytes bigint) TO service_role;
-GRANT ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_completed_at timestamp with time zone, p_file_size_bytes bigint) TO authenticated;
+REVOKE ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint) TO service_role;
+GRANT ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint) TO authenticated;
 
 
 --

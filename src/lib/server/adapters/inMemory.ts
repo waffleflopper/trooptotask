@@ -1946,7 +1946,7 @@ export function createTestDataExportLifecycleWriter(store: FixtureRowStore, orgI
 			if (row?.status !== 'processing') throw new Error('No processing export');
 			await store.update('data_exports', orgId, input.exportId, {
 				status: 'completed',
-				completed_at: input.completedAt,
+				completed_at: new Date().toISOString(),
 				file_size_bytes: input.fileSizeBytes
 			});
 		},
@@ -1955,7 +1955,7 @@ export function createTestDataExportLifecycleWriter(store: FixtureRowStore, orgI
 			if (row?.status !== 'processing') throw new Error('No processing export');
 			await store.update('data_exports', orgId, input.exportId, {
 				status: 'failed',
-				completed_at: input.completedAt
+				completed_at: new Date().toISOString()
 			});
 		}
 	};

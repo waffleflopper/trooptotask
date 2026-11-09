@@ -2,8 +2,8 @@ import type { SupabaseClient } from '$lib/server/database';
 
 export interface DataExportLifecycleWriter {
 	createProcessing(input: { requestedBy: string; createdAt: string }): Promise<{ exportId: string }>;
-	markCompleted(input: { exportId: string; completedAt: string; fileSizeBytes: number }): Promise<void>;
-	markFailed(input: { exportId: string; completedAt: string }): Promise<void>;
+	markCompleted(input: { exportId: string; fileSizeBytes: number }): Promise<void>;
+	markFailed(input: { exportId: string }): Promise<void>;
 }
 
 function acknowledgedExportId(data: unknown, expectedId?: string): string {
@@ -45,7 +45,6 @@ export function createSupabaseDataExportLifecycleWriter(
 					p_organization_id: orgId,
 					p_export_id: input.exportId,
 					p_status: 'completed',
-					p_completed_at: input.completedAt,
 					p_file_size_bytes: input.fileSizeBytes
 				})
 				.single();
@@ -57,8 +56,7 @@ export function createSupabaseDataExportLifecycleWriter(
 				.rpc('finish_data_export', {
 					p_organization_id: orgId,
 					p_export_id: input.exportId,
-					p_status: 'failed',
-					p_completed_at: input.completedAt
+					p_status: 'failed'
 				})
 				.single();
 			if (error) throw new Error(error.message);

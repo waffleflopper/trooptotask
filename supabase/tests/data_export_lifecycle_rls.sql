@@ -65,7 +65,7 @@ SELECT lives_ok(
 );
 
 WITH updated AS (
-	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129501'), 'completed', now(), 1024)
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129501'), 'completed', 1024)
 )
 SELECT ok(
 	(SELECT status = 'completed' AND file_size_bytes = 1024 AND completed_at IS NOT NULL FROM updated),
@@ -101,7 +101,7 @@ SELECT lives_ok(
 );
 
 WITH updated AS (
-	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129502'), 'completed', now(), 2048)
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129502'), 'completed', 2048)
 )
 SELECT ok(
 	(SELECT status = 'completed' AND file_size_bytes = 2048 AND completed_at IS NOT NULL FROM updated),
@@ -114,7 +114,7 @@ SELECT lives_ok(
 );
 
 WITH updated AS (
-	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129503'), 'failed', now())
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129503'), 'failed')
 )
 SELECT ok(
 	(SELECT status = 'failed' AND completed_at IS NOT NULL FROM updated),
@@ -134,7 +134,7 @@ SELECT throws_ok(
 );
 
 WITH updated AS (
-	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed', now())
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed')
 )
 SELECT is((SELECT count(*)::integer FROM updated), 0, 'noncanonical canManageMembers JSON cannot grant lifecycle updates');
 
@@ -178,7 +178,7 @@ SELECT is(
 );
 
 WITH updated AS (
-	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed', now())
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed')
 )
 SELECT is((SELECT count(*)::integer FROM updated), 0, 'nonmember cannot update a known foreign export ID');
 
@@ -191,7 +191,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000129503', true);
 
 WITH updated AS (
-	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed', now())
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed')
 )
 SELECT is((SELECT count(*)::integer FROM updated), 0, 'admin demotion prevents subsequent lifecycle updates');
 

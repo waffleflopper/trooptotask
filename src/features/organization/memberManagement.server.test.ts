@@ -3657,6 +3657,18 @@ describe('invitation credential and governance boundaries', () => {
 				inviteSuccess: true,
 				inviteDeliveryStatus: expectedStatus
 			});
+			expect(ctx.auditPort.events).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						action:
+							deliveryStatus === 'failed' ? 'member.invite_email_resend_delivery_failed' : 'member.invite_email_resent',
+						severity: deliveryStatus === 'sent' ? 'info' : 'warning',
+						...(deliveryStatus === 'sent_recording_failed'
+							? { details: expect.objectContaining({ recordingFailed: true }) }
+							: {})
+					})
+				])
+			);
 			expect(issuance.setupLinkRequests).toEqual([]);
 			expect(issuance.setupDeliveries).toEqual([]);
 			expect(settings.accessRequestBridges).toEqual([]);

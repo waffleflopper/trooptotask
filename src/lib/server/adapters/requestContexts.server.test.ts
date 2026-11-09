@@ -209,7 +209,7 @@ describe('request-bound export lifecycle persistence', () => {
 						return Response.json({ code: 'PGRST116', message: 'No matching export' }, { status: 406 });
 					Object.assign(visible[0], {
 						status: body.p_status,
-						completed_at: body.p_completed_at,
+						completed_at: '2026-10-05T18:00:01.000Z',
 						file_size_bytes: body.p_file_size_bytes
 					});
 					return Response.json({ id: visible[0].id });
@@ -221,10 +221,8 @@ describe('request-bound export lifecycle persistence', () => {
 		const createdAt = '2026-10-05T18:00:00.000Z';
 		const completedAt = '2026-10-05T18:00:01.000Z';
 		const { exportId } = await ctx.exportLifecycle.createProcessing({ requestedBy: USER_ID, createdAt });
-		await ctx.exportLifecycle.markCompleted({ exportId, completedAt, fileSizeBytes: 512 });
-		await expect(ctx.exportLifecycle.markFailed({ exportId: 'foreign-export', completedAt })).rejects.toThrow(
-			'No matching export'
-		);
+		await ctx.exportLifecycle.markCompleted({ exportId, fileSizeBytes: 512 });
+		await expect(ctx.exportLifecycle.markFailed({ exportId: 'foreign-export' })).rejects.toThrow('No matching export');
 		expect(rows).toEqual([
 			{ id: 'foreign-export', org_id: OTHER_ORG_ID, requested_by: OTHER_USER_ID, status: 'processing' },
 			{

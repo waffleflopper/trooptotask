@@ -4316,7 +4316,6 @@ export type Database = {
       }
       finish_data_export: {
         Args: {
-          p_completed_at: string
           p_export_id: string
           p_file_size_bytes?: number
           p_organization_id: string

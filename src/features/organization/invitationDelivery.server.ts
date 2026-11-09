@@ -292,12 +292,9 @@ export async function sendOrganizationInvitationOutboxDelivery(
 	} catch (error) {
 		const message = errorMessage(error);
 		if (emailSent) {
-			const recorded = await store.markInvitationEmailDeliveryFailed(
-				outbox.id,
-				input.now ?? new Date(),
-				message,
-				'sent_recording_failed'
-			);
+			const recorded = await store
+				.markInvitationEmailDeliveryFailed(outbox.id, input.now ?? new Date(), message, 'sent_recording_failed')
+				.catch(() => ({ ...outbox, status: 'sent_recording_failed' as const }));
 			return { status: 'sent_recording_failed', outbox: recorded, error: message };
 		}
 		return {
@@ -376,7 +373,9 @@ export async function retryOrganizationInvitationOutboxDelivery(
 	} catch (error) {
 		const message = errorMessage(error);
 		if (emailSent) {
-			const recorded = await store.markInvitationEmailDeliveryFailed(outbox.id, now, message, 'sent_recording_failed');
+			const recorded = await store
+				.markInvitationEmailDeliveryFailed(outbox.id, now, message, 'sent_recording_failed')
+				.catch(() => ({ ...outbox, status: 'sent_recording_failed' as const }));
 			return { status: 'sent_recording_failed', outbox: recorded, error: message };
 		}
 		return {

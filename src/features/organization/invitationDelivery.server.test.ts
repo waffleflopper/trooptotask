@@ -528,6 +528,64 @@ describe('organization invitation delivery', () => {
 });
 
 describe('successful sends with failed persistence', () => {
+	it.each(['initial', 'retry'] as const)(
+		'returns the sent outcome when both %s recording writes fail',
+		async (mode) => {
+			const store = createOrganizationInvitationEmailOutboxStore();
+			store.markInvitationEmailDeliverySent = async () => {
+				throw new Error('acknowledgement unavailable');
+			};
+			store.markInvitationEmailDeliveryFailed = async () => {
+				throw new Error('fallback unavailable');
+			};
+			const sendEmail = vi.fn().mockResolvedValue(undefined);
+			if (mode === 'retry')
+				await store.insertInvitationEmailDelivery({
+					organizationId: 'org-1',
+					invitationId: 'invite-1',
+					recipient: 'invitee@example.mil',
+					createdAt: AUTH_WORKFLOW_NOW
+				});
+			const result =
+				mode === 'retry'
+					? await retryOrganizationInvitationOutboxDelivery(store, sendEmail, {
+							outboxId: 'outbox-1',
+							origin: 'http://localhost:5173',
+							invitation: organizationInvitationFixture(),
+							organizationName: 'Alpha Company',
+							invitedByEmail: null,
+							now: AUTH_WORKFLOW_NOW
+						})
+					: await sendOrganizationInvitationOutboxDelivery(store, sendEmail, {
+							organizationId: 'org-1',
+							invitationId: 'invite-1',
+							email: 'invitee@example.mil',
+							organizationName: 'Alpha Company',
+							invitedByEmail: null,
+							inviteUrl: 'https://trooptotask.test/auth/login',
+							requiresAccountSetup: false,
+							now: AUTH_WORKFLOW_NOW
+						});
+			expect(result).toEqual({
+				status: 'sent_recording_failed',
+				error: 'acknowledgement unavailable',
+				outbox: {
+					id: 'outbox-1',
+					organizationId: 'org-1',
+					invitationId: 'invite-1',
+					recipient: 'invitee@example.mil',
+					status: 'sent_recording_failed',
+					attemptCount: 0,
+					lastError: null,
+					createdAt: new Date('2026-05-22T12:00:00.000Z'),
+					updatedAt: new Date('2026-05-22T12:00:00.000Z'),
+					sentAt: null
+				}
+			});
+			expect(sendEmail).toHaveBeenCalledTimes(1);
+		}
+	);
+
 	it.each(['initial', 'retry'] as const)('records %s delivery as non-retryable after mark-sent fails', async (mode) => {
 		const store = createOrganizationInvitationEmailOutboxStore();
 		const sendEmail = vi.fn().mockResolvedValue(undefined);

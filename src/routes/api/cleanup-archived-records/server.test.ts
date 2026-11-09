@@ -55,6 +55,7 @@ function retentionProvider(table: 'leader_notes' | 'personnel_onboardings' | 'pe
 	const state = {
 		deleted: false,
 		sweepFailure: false,
+		sweepCalls: 0,
 		lookupFailureFrom: null as number | null,
 		insertFailure: false,
 		attempts: [] as Record<string, unknown>[][],
@@ -108,10 +109,12 @@ function retentionProvider(table: 'leader_notes' | 'personnel_onboardings' | 'pe
 					state.deleted = true;
 					return Response.json(1);
 				}
-				if (resource === 'fail_stale_data_exports' && method === 'POST')
+				if (resource === 'fail_stale_data_exports' && method === 'POST') {
+					state.sweepCalls++;
 					return state.sweepFailure
 						? Response.json({ message: 'Sweep unavailable' }, { status: 500 })
 						: Response.json(0);
+				}
 				if (resource === 'list_pending_organization_file_retirements' && method === 'POST') return Response.json([]);
 				if (method === 'DELETE' && artifactTables.has(resource!)) {
 					const expired =
@@ -207,6 +210,7 @@ describe('main archive endpoint Personnel source delivery', () => {
 		const response = await GET(request('Bearer synthetic-retention-secret'));
 
 		expect(response.status).toBe(200);
+		expect(provider.state.sweepCalls).toBe(1);
 		expect(await response.json()).toMatchObject({
 			deletedCount: 1,
 			families: expect.arrayContaining([expect.objectContaining({ key: 'personnel', deletedCount: 1 })])

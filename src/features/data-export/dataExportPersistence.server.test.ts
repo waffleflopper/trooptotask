@@ -54,7 +54,7 @@ function provider(initialRows: Row[] = []) {
 					for (const row of affected)
 						Object.assign(row, {
 							status: body.p_status,
-							completed_at: body.p_completed_at,
+							completed_at: '2026-10-05T10:00:01.654321Z',
 							...(body.p_status === 'completed' ? { file_size_bytes: body.p_file_size_bytes } : {})
 						});
 				}
@@ -102,12 +102,11 @@ const terminalWrites = [
 	{
 		name: 'completion',
 		write: (writer: DataExportLifecycleWriter, exportId: string) =>
-			writer.markCompleted({ exportId, completedAt: '2026-10-05T10:00:01.654321Z', fileSizeBytes: 3072 })
+			writer.markCompleted({ exportId, fileSizeBytes: 3072 })
 	},
 	{
 		name: 'failure',
-		write: (writer: DataExportLifecycleWriter, exportId: string) =>
-			writer.markFailed({ exportId, completedAt: '2026-10-05T10:00:02.987654Z' })
+		write: (writer: DataExportLifecycleWriter, exportId: string) => writer.markFailed({ exportId })
 	}
 ];
 
@@ -124,10 +123,10 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 		).resolves.toEqual({ exportId: 'export-2' });
 		await writerA.markCompleted({
 			exportId: 'export-1',
-			completedAt: '2026-10-05T10:00:01.654321Z',
+
 			fileSizeBytes: 3072
 		});
-		await writerB.markFailed({ exportId: 'export-2', completedAt: '2026-10-05T11:00:01.123456Z' });
+		await writerB.markFailed({ exportId: 'export-2' });
 		expect(rows).toEqual([
 			{
 				id: 'export-1',
@@ -144,7 +143,7 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 				requested_by: 'admin-b',
 				status: 'failed',
 				created_at: '2026-10-05T11:00:00.654321Z',
-				completed_at: '2026-10-05T11:00:01.123456Z',
+				completed_at: '2026-10-05T10:00:01.654321Z',
 				file_size_bytes: null
 			}
 		]);
@@ -174,12 +173,10 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 		const writer = createSupabaseDataExportLifecycleWriter(client, 'org-a');
 		await writer.markCompleted({
 			exportId: 'owned-export',
-			completedAt: '2026-10-05T10:00:01.654321Z',
+
 			fileSizeBytes: 3072
 		});
-		await expect(
-			writer.markFailed({ exportId: 'owned-export', completedAt: '2026-10-05T10:00:02.987654Z' })
-		).rejects.toThrow('Expected one saved export');
+		await expect(writer.markFailed({ exportId: 'owned-export' })).rejects.toThrow('Expected one saved export');
 		expect(rows).toEqual([
 			{
 				id: 'owned-export',

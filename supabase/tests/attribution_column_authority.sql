@@ -129,7 +129,7 @@ SELECT is(pg_temp.author_of(tbl, col, saved), pg_temp.id(2)::text,
 
 SELECT throws_ok($$ UPDATE public.data_exports SET requested_by = pg_temp.id(1) WHERE id = pg_temp.id(507) $$,
   '42501', NULL, 'export requester cannot be rewritten');
-SELECT lives_ok($$ SELECT public.finish_data_export(pg_temp.id(101), pg_temp.id(507), 'completed', now(), 1024) $$, 'export completion uses the lifecycle function');
+SELECT lives_ok($$ SELECT public.finish_data_export(pg_temp.id(101), pg_temp.id(507), 'completed', 1024) $$, 'export completion uses the lifecycle function');
 SELECT results_eq($$ SELECT requested_by, status FROM public.data_exports WHERE id = pg_temp.id(507) $$,
   $$ VALUES (pg_temp.id(2), 'completed'::text) $$, 'updating an export keeps the member who requested it');
 

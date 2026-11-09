@@ -114,17 +114,18 @@ BEGIN
 END;
 $$;
 CREATE FUNCTION pg_temp.write_archive(p_table text, p_id uuid, p_archived_at timestamptz, p_archived_by text) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER AS $$
+LANGUAGE plpgsql AS $$
 BEGIN
+  IF p_table IN ('counseling_records', 'personnel_follow_ups') THEN
+    PERFORM pg_temp.server_write(format('UPDATE public.%I SET archived_at = %L, archived_by = %L WHERE id = %L',
+      p_table, p_archived_at, p_archived_by, p_id));
+    RETURN;
+  END IF;
   EXECUTE format('UPDATE public.%I SET archived_at = $2, archived_by = $3 WHERE id = $1', p_table)
     USING p_id, p_archived_at, p_archived_by;
 END;
 $$;
 
-RESET ROLE;
-ALTER FUNCTION pg_temp.write_archive(text, uuid, timestamptz, text) OWNER TO service_role;
-GRANT EXECUTE ON FUNCTION pg_temp.write_archive(text, uuid, timestamptz, text) TO authenticated, service_role;
-SET LOCAL ROLE authenticated;
 SELECT pg_temp.write_archive(tbl, id, now(), 'f9000000-0000-4000-8000-000000000002') FROM archive_targets;
 SELECT is(pg_temp.archived_by_of(tbl, id), 'f9000000-0000-4000-8000-000000000001',
   tbl || ' archive records the caller, not the supplied member') FROM archive_targets;

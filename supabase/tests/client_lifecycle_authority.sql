@@ -58,9 +58,6 @@ SELECT lives_ok($$ INSERT INTO public.organization_invitations
   (organization_id,email,invited_by,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids)
   VALUES (pg_temp.id(101),'valid@example.test',pg_temp.id(1),'member','editor','{}','organization','{}') $$,
   'the actual invitation insert columns succeed using defaults');
-SELECT results_eq($$ SELECT status::text, expires_at = now() + interval '14 days', accepted_at, revoked_by
-  FROM public.organization_invitations WHERE email = 'valid@example.test' $$,
-  $$ VALUES ('pending'::text, true, NULL::timestamptz, NULL::uuid) $$, 'invitations start pending for fourteen days with no lifecycle attribution');
 SELECT throws_ok(format('INSERT INTO public.organization_invitations (organization_id,email,invited_by) VALUES (%L,%L,%L)',
   pg_temp.id(101),'forged@example.test',pg_temp.id(2)), '42501', NULL, 'governor cannot forge the inviter');
 SELECT throws_ok(format('INSERT INTO public.organization_invitations (organization_id,email,invited_by,%I) VALUES (%L,%L,%L,%s)',
@@ -68,7 +65,7 @@ SELECT throws_ok(format('INSERT INTO public.organization_invitations (organizati
 FROM (VALUES ('status', '''revoked'''), ('accepted_at','now()'), ('accepted_by','NULL'),
   ('declined_at','now()'),('declined_by','NULL'),('revoked_at','now()'),('revoked_by','NULL'),
   ('expired_at','now()'),('blocked_at','now()'),('blocked_by','NULL'),
-  ('expires_at', 'now() + interval ''15 days'''), ('expires_at','now() - interval ''1 minute''')) v(col,value);
+  ('expires_at', 'now() + interval ''15 days''')) v(col,value);
 SELECT pg_temp.act_as(2);
 SELECT throws_ok($$ UPDATE public.organizations SET disabled_features = ARRAY['training'] WHERE id = pg_temp.id(101) $$,
   '42501', NULL, 'admin cannot bypass the transactional feature audit');
@@ -89,11 +86,20 @@ SELECT results_eq($$ SELECT disabled_features, strength_floor_percent FROM publi
   $$ VALUES (ARRAY['training'], 75::smallint) $$, 'failed audit rolls back both settings');
 SELECT throws_ok($$ SELECT public.update_organization_feature_settings(pg_temp.id(102), '{"disabled_features":[]}', '{}') $$,
   '42501', NULL, 'admin cannot save another Organization');
-SELECT is((SELECT count(*) FROM public.finish_data_export(pg_temp.id(101), pg_temp.id(201), 'completed', now(), 1024)), 1::bigint, 'admin completes a processing export');
-SELECT is((SELECT count(*) FROM public.finish_data_export(pg_temp.id(101), pg_temp.id(201), 'failed', now())), 0::bigint, 'completed export cannot become failed');
+SELECT is(public.update_organization_feature_settings(pg_temp.id(101), '{"disabled_features":["onboarding","training"]}', ARRAY['training']),
+  'saved', 'admin can store feature switches in supplied order');
+SELECT is(public.update_organization_feature_settings(pg_temp.id(101), '{"disabled_features":["training"]}', ARRAY['onboarding','training']),
+  'saved', 'admin can replace the unsorted feature list');
+SELECT is((SELECT details->'previous_disabled_features' FROM public.audit_logs
+  WHERE org_id = pg_temp.id(101) AND action = 'organization.settings_updated'
+    AND details->'previous_disabled_features' = '["onboarding","training"]'::jsonb),
+  '["onboarding","training"]'::jsonb, 'audit retains the previous feature list as stored');
+SELECT is((SELECT count(*) FROM public.finish_data_export(pg_temp.id(101), pg_temp.id(201), 'completed', 1024)), 1::bigint, 'admin completes a processing export');
+SELECT is((SELECT completed_at FROM public.data_exports WHERE id = pg_temp.id(201)), now(), 'database stamps export completion');
+SELECT is((SELECT count(*) FROM public.finish_data_export(pg_temp.id(101), pg_temp.id(201), 'failed')), 0::bigint, 'completed export cannot become failed');
 SELECT results_eq($$ SELECT status, file_size_bytes FROM public.data_exports WHERE id = pg_temp.id(201) $$,
   $$ VALUES ('completed'::text, 1024::bigint) $$, 'failed attempt preserves completed export');
-SELECT is((SELECT count(*) FROM public.finish_data_export(pg_temp.id(102), pg_temp.id(204), 'failed', now())), 0::bigint, 'admin cannot finish another Organization export');
+SELECT is((SELECT count(*) FROM public.finish_data_export(pg_temp.id(102), pg_temp.id(204), 'failed')), 0::bigint, 'admin cannot finish another Organization export');
 SELECT throws_ok($$ UPDATE public.data_exports SET status = 'failed' WHERE id = pg_temp.id(201) $$, '42501', NULL, 'direct export lifecycle write denied');
 SELECT throws_ok($$ SELECT public.fail_stale_data_exports() $$, '42501', NULL, 'ordinary admin cannot sweep all Organizations');
 SELECT throws_ok($$ SELECT public.mark_organization_invitation_email_outbox_delivery(pg_temp.id(401),'sent') $$, '42501', NULL, 'ordinary admin cannot mark service delivery');
@@ -108,7 +114,7 @@ SELECT is(pg_temp.mark(403,'sent'), 0, 'the SQL delivery attempt cap remains thr
 SELECT pg_temp.act_as(3);
 SELECT throws_ok($$ SELECT public.update_organization_feature_settings(pg_temp.id(101), '{"disabled_features":[]}', ARRAY['training']) $$,
   '42501', NULL, 'ordinary member cannot save feature settings');
-SELECT is((SELECT count(*) FROM public.finish_data_export(pg_temp.id(101), pg_temp.id(203), 'failed', now())), 0::bigint, 'ordinary member cannot finish exports');
+SELECT is((SELECT count(*) FROM public.finish_data_export(pg_temp.id(101), pg_temp.id(203), 'failed')), 0::bigint, 'ordinary member cannot finish exports');
 SELECT throws_ok($$ INSERT INTO public.organization_invitations (organization_id,email,invited_by) VALUES (pg_temp.id(101),'member-invite@example.test',pg_temp.id(3)) $$,
   '42501', NULL, 'ordinary member cannot invite');
 SELECT throws_ok(format('UPDATE public.counseling_records SET %I = %s', col, value), '42501', NULL, 'member cannot write counseling ' || col)

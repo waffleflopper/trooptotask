@@ -426,51 +426,13 @@ SELECT set_config('request.jwt.claim.email', 'rls-artifact-group-operator-069@ex
 
 SELECT lives_ok(
 	$$
-		INSERT INTO public.personnel_follow_ups (
-			id,
-			organization_id,
-			personnel_id,
-			title,
-			notes,
-			due_date,
-			status,
-			created_by
-		)
-		VALUES (
-			'60000000-0000-4000-8000-000000069004',
-			'20000000-0000-4000-8000-000000069001',
-			'50000000-0000-4000-8000-000000069001',
-			'Scoped operator follow up',
-			'Allowed insert',
-			'2026-06-23',
-			'open',
-			'rls-artifact-group-operator-069@example.test'
-		)
+		INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, notes, due_date) VALUES ('60000000-0000-4000-8000-000000069004', '20000000-0000-4000-8000-000000069001', '50000000-0000-4000-8000-000000069001', 'Scoped operator follow up', 'Allowed insert', '2026-06-23')
 	$$,
 	'group-scoped Personnel configurator can insert follow ups for scoped personnel'
 );
 SELECT throws_ok(
 	$$
-		INSERT INTO public.personnel_follow_ups (
-			id,
-			organization_id,
-			personnel_id,
-			title,
-			notes,
-			due_date,
-			status,
-			created_by
-		)
-		VALUES (
-			'60000000-0000-4000-8000-000000069005',
-			'20000000-0000-4000-8000-000000069001',
-			'50000000-0000-4000-8000-000000069002',
-			'Out of scope follow up',
-			'Blocked insert',
-			'2026-06-23',
-			'open',
-			'rls-artifact-group-operator-069@example.test'
-		)
+		INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, notes, due_date) VALUES ('60000000-0000-4000-8000-000000069005', '20000000-0000-4000-8000-000000069001', '50000000-0000-4000-8000-000000069002', 'Out of scope follow up', 'Blocked insert', '2026-06-23')
 	$$,
 	'42501',
 	'new row violates row-level security policy for table "personnel_follow_ups"',
@@ -478,26 +440,7 @@ SELECT throws_ok(
 );
 SELECT throws_ok(
 	$$
-		INSERT INTO public.personnel_follow_ups (
-			id,
-			organization_id,
-			personnel_id,
-			title,
-			notes,
-			due_date,
-			status,
-			created_by
-		)
-		VALUES (
-			'60000000-0000-4000-8000-000000069007',
-			'20000000-0000-4000-8000-000000069001',
-			'50000000-0000-4000-8000-000000069004',
-			'Unassigned scoped operator follow up',
-			'Blocked insert',
-			'2026-06-24',
-			'open',
-			'rls-artifact-group-operator-069@example.test'
-		)
+		INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, notes, due_date) VALUES ('60000000-0000-4000-8000-000000069007', '20000000-0000-4000-8000-000000069001', '50000000-0000-4000-8000-000000069004', 'Unassigned scoped operator follow up', 'Blocked insert', '2026-06-24')
 	$$,
 	'42501',
 	'new row violates row-level security policy for table "personnel_follow_ups"',

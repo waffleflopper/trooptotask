@@ -35,7 +35,6 @@ export async function completeDataExport(
 		update: () =>
 			ports.exportLifecycle.markCompleted({
 				exportId: input.exportId,
-				completedAt: new Date().toISOString(),
 				fileSizeBytes: input.fileSizeBytes
 			}),
 		statusLabel: 'completed'
@@ -45,7 +44,7 @@ export async function completeDataExport(
 export async function failDataExport(ports: DataExportLifecyclePorts, input: { exportId: string }): Promise<void> {
 	await updateDataExportStatusBestEffort({
 		exportId: input.exportId,
-		update: () => ports.exportLifecycle.markFailed({ exportId: input.exportId, completedAt: new Date().toISOString() }),
+		update: () => ports.exportLifecycle.markFailed({ exportId: input.exportId }),
 		statusLabel: 'failed'
 	});
 }

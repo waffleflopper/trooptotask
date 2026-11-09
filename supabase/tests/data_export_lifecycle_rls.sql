@@ -45,19 +45,27 @@ FROM (VALUES
 	('30000000-0000-4000-8000-000000129506', '20000000-0000-4000-8000-000000129502', '10000000-0000-4000-8000-000000129506', 'owner', '{}', 'export-foreign-owner-1295@example.test')
 ) AS fixture(id, org_id, user_id, role, overrides, email);
 
+CREATE TEMP TABLE export_ids (fixture_id uuid, actual_id uuid);
+GRANT SELECT, INSERT ON export_ids TO authenticated;
+CREATE FUNCTION pg_temp.export_id(p_id uuid) RETURNS uuid LANGUAGE sql AS $$
+  SELECT actual_id FROM export_ids WHERE fixture_id = p_id
+$$;
+CREATE FUNCTION pg_temp.start_export(p_id uuid, p_org uuid, p_actor uuid) RETURNS void LANGUAGE sql AS $$
+  WITH saved AS (INSERT INTO public.data_exports (org_id, requested_by) VALUES (p_org, p_actor) RETURNING id)
+  INSERT INTO export_ids SELECT p_id, id FROM saved
+$$;
+GRANT EXECUTE ON FUNCTION pg_temp.export_id(uuid), pg_temp.start_export(uuid, uuid, uuid) TO authenticated;
+
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000129502', true);
 
 SELECT lives_ok(
-	$$ INSERT INTO public.data_exports (id, org_id, requested_by, status)
-	VALUES ('40000000-0000-4000-8000-000000129501', '20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129502', 'processing') $$,
+	$$ SELECT pg_temp.start_export('40000000-0000-4000-8000-000000129501', '20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129502') $$,
 	'current owner can start an export without being the Organization creator'
 );
 
 WITH updated AS (
-	UPDATE public.data_exports SET status = 'completed', file_size_bytes = 1024, completed_at = now()
-	WHERE id = '40000000-0000-4000-8000-000000129501'
-	RETURNING status, file_size_bytes, completed_at
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129501'), 'completed', 1024)
 )
 SELECT ok(
 	(SELECT status = 'completed' AND file_size_bytes = 1024 AND completed_at IS NOT NULL FROM updated),
@@ -65,38 +73,35 @@ SELECT ok(
 );
 
 SELECT throws_ok(
-	$$ INSERT INTO public.data_exports (org_id, requested_by, status)
-	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503', 'processing') $$,
+	$$ INSERT INTO public.data_exports (org_id, requested_by)
+	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503') $$,
 	'42501', 'new row violates row-level security policy for table "data_exports"',
 	'export authority does not permit attributing an export to another user'
 );
 
 SELECT throws_ok(
-	$$ INSERT INTO public.data_exports (org_id, requested_by, status)
-	VALUES ('20000000-0000-4000-8000-000000129502', '10000000-0000-4000-8000-000000129502', 'processing') $$,
+	$$ INSERT INTO public.data_exports (org_id, requested_by)
+	VALUES ('20000000-0000-4000-8000-000000129502', '10000000-0000-4000-8000-000000129502') $$,
 	'42501', 'new row violates row-level security policy for table "data_exports"',
 	'owner authority does not extend to a foreign Organization'
 );
 
 SELECT throws_ok(
 	$$ UPDATE public.data_exports SET org_id = '20000000-0000-4000-8000-000000129502'
-	WHERE id = '40000000-0000-4000-8000-000000129501' $$,
-	'42501', 'new row violates row-level security policy for table "data_exports"',
+	WHERE id = pg_temp.export_id('40000000-0000-4000-8000-000000129501') $$,
+	'42501', 'permission denied for table data_exports',
 	'lifecycle update cannot move an export into a foreign Organization'
 );
 
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000129503', true);
 
 SELECT lives_ok(
-	$$ INSERT INTO public.data_exports (id, org_id, requested_by, status)
-	VALUES ('40000000-0000-4000-8000-000000129502', '20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503', 'processing') $$,
+	$$ SELECT pg_temp.start_export('40000000-0000-4000-8000-000000129502', '20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503') $$,
 	'noncreator admin retains export authority even with a false member override'
 );
 
 WITH updated AS (
-	UPDATE public.data_exports SET status = 'completed', file_size_bytes = 2048, completed_at = now()
-	WHERE id = '40000000-0000-4000-8000-000000129502'
-	RETURNING status, file_size_bytes, completed_at
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129502'), 'completed', 2048)
 )
 SELECT ok(
 	(SELECT status = 'completed' AND file_size_bytes = 2048 AND completed_at IS NOT NULL FROM updated),
@@ -104,49 +109,46 @@ SELECT ok(
 );
 
 SELECT lives_ok(
-	$$ INSERT INTO public.data_exports (id, org_id, requested_by, status)
-	VALUES ('40000000-0000-4000-8000-000000129503', '20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503', 'processing') $$,
+	$$ SELECT pg_temp.start_export('40000000-0000-4000-8000-000000129503', '20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503') $$,
 	'admin can start an export that subsequently fails'
 );
 
 WITH updated AS (
-	UPDATE public.data_exports SET status = 'failed', completed_at = now()
-	WHERE id = '40000000-0000-4000-8000-000000129503'
-	RETURNING status, completed_at
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129503'), 'failed')
 )
 SELECT ok(
 	(SELECT status = 'failed' AND completed_at IS NOT NULL FROM updated),
 	'admin records failure instead of leaving processing state'
 );
 
+SELECT pg_temp.start_export('40000000-0000-4000-8000-000000129504', '20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503');
+
 -- Feature overrides cannot confer Organization governance (ADR 0001).
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000129504', true);
 
 SELECT throws_ok(
-	$$ INSERT INTO public.data_exports (org_id, requested_by, status)
-	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129504', 'processing') $$,
+	$$ INSERT INTO public.data_exports (org_id, requested_by)
+	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129504') $$,
 	'42501', 'new row violates row-level security policy for table "data_exports"',
 	'noncanonical canManageMembers JSON does not grant member export authority'
 );
 
 WITH updated AS (
-	UPDATE public.data_exports SET status = 'failed'
-	WHERE id = '40000000-0000-4000-8000-000000129501'
-	RETURNING id
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed')
 )
 SELECT is((SELECT count(*)::integer FROM updated), 0, 'noncanonical canManageMembers JSON cannot grant lifecycle updates');
 
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000129501', true);
 
 SELECT throws_ok(
-	$$ INSERT INTO public.data_exports (org_id, requested_by, status)
-	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129501', 'processing') $$,
+	$$ INSERT INTO public.data_exports (org_id, requested_by)
+	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129501') $$,
 	'42501', 'new row violates row-level security policy for table "data_exports"',
 	'original creator demoted to ordinary member cannot start an export'
 );
 
 SELECT is(
-	(SELECT status FROM public.data_exports WHERE id = '40000000-0000-4000-8000-000000129501'),
+	(SELECT status FROM public.data_exports WHERE id = pg_temp.export_id('40000000-0000-4000-8000-000000129501')),
 	'completed',
 	'demoted creator retains ordinary member read access to export history'
 );
@@ -154,8 +156,8 @@ SELECT is(
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000129505', true);
 
 SELECT throws_ok(
-	$$ INSERT INTO public.data_exports (org_id, requested_by, status)
-	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129505', 'processing') $$,
+	$$ INSERT INTO public.data_exports (org_id, requested_by)
+	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129505') $$,
 	'42501', 'new row violates row-level security policy for table "data_exports"',
 	'ordinary member without delegated authority cannot start an export'
 );
@@ -163,8 +165,8 @@ SELECT throws_ok(
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000129506', true);
 
 SELECT throws_ok(
-	$$ INSERT INTO public.data_exports (org_id, requested_by, status)
-	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129506', 'processing') $$,
+	$$ INSERT INTO public.data_exports (org_id, requested_by)
+	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129506') $$,
 	'42501', 'new row violates row-level security policy for table "data_exports"',
 	'nonmember cannot create exports in another Organization'
 );
@@ -176,9 +178,7 @@ SELECT is(
 );
 
 WITH updated AS (
-	UPDATE public.data_exports SET status = 'failed'
-	WHERE id = '40000000-0000-4000-8000-000000129501'
-	RETURNING id
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed')
 )
 SELECT is((SELECT count(*)::integer FROM updated), 0, 'nonmember cannot update a known foreign export ID');
 
@@ -191,21 +191,19 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000129503', true);
 
 WITH updated AS (
-	UPDATE public.data_exports SET status = 'failed'
-	WHERE id = '40000000-0000-4000-8000-000000129502'
-	RETURNING id
+	SELECT * FROM public.finish_data_export('20000000-0000-4000-8000-000000129501', pg_temp.export_id('40000000-0000-4000-8000-000000129504'), 'failed')
 )
 SELECT is((SELECT count(*)::integer FROM updated), 0, 'admin demotion prevents subsequent lifecycle updates');
 
 SELECT throws_ok(
-	$$ INSERT INTO public.data_exports (org_id, requested_by, status)
-	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503', 'processing') $$,
+	$$ INSERT INTO public.data_exports (org_id, requested_by)
+	VALUES ('20000000-0000-4000-8000-000000129501', '10000000-0000-4000-8000-000000129503') $$,
 	'42501', 'new row violates row-level security policy for table "data_exports"',
 	'admin demotion prevents new exports'
 );
 
 SELECT is(
-	(SELECT status FROM public.data_exports WHERE id = '40000000-0000-4000-8000-000000129502'),
+	(SELECT status FROM public.data_exports WHERE id = pg_temp.export_id('40000000-0000-4000-8000-000000129502')),
 	'completed',
 	'demoted admin retains member read access and cannot alter recorded completion'
 );

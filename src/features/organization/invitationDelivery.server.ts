@@ -5,7 +5,7 @@ import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL, makePublicAppUrl } from '$features/i
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
 export const ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS = 3;
 
-export type OrganizationInvitationDeliveryStatus = 'pending' | 'sent' | 'failed';
+export type OrganizationInvitationDeliveryStatus = 'pending' | 'sent' | 'failed' | 'sent_recording_failed';
 
 export interface OrganizationInvitationEmailOutboxRecord {
 	id: string;
@@ -32,7 +32,8 @@ export interface OrganizationInvitationEmailOutboxStore {
 	markInvitationEmailDeliveryFailed(
 		id: string,
 		failedAt: Date,
-		lastError: string
+		lastError: string,
+		status?: 'failed' | 'sent_recording_failed'
 	): Promise<OrganizationInvitationEmailOutboxRecord>;
 }
 
@@ -48,6 +49,7 @@ export interface SendOrganizationInvitationEmailInput {
 export type OrganizationInvitationEmailSender = (input: SendOrganizationInvitationEmailInput) => Promise<void>;
 
 export type SendOrganizationInvitationOutboxDeliveryResult =
+	| { status: 'sent_recording_failed'; outbox: OrganizationInvitationEmailOutboxRecord; error: string }
 	| { status: 'sent'; outbox: OrganizationInvitationEmailOutboxRecord }
 	| { status: 'failed'; outbox: OrganizationInvitationEmailOutboxRecord; error: string };
 
@@ -272,6 +274,7 @@ export async function sendOrganizationInvitationOutboxDelivery(
 		createdAt
 	});
 
+	let emailSent = false;
 	try {
 		await sendEmail({
 			email: normalizeEmail(input.email),
@@ -281,12 +284,19 @@ export async function sendOrganizationInvitationOutboxDelivery(
 			requiresAccountSetup: input.requiresAccountSetup,
 			requiresAccessRequest: input.requiresAccessRequest
 		});
+		emailSent = true;
 		return {
 			status: 'sent',
 			outbox: await store.markInvitationEmailDeliverySent(outbox.id, input.now ?? new Date())
 		};
 	} catch (error) {
 		const message = errorMessage(error);
+		if (emailSent) {
+			const recorded = await store
+				.markInvitationEmailDeliveryFailed(outbox.id, input.now ?? new Date(), message, 'sent_recording_failed')
+				.catch(() => ({ ...outbox, status: 'sent_recording_failed' as const }));
+			return { status: 'sent_recording_failed', outbox: recorded, error: message };
+		}
 		return {
 			status: 'failed',
 			error: message,
@@ -296,6 +306,7 @@ export async function sendOrganizationInvitationOutboxDelivery(
 }
 
 export type RetryOrganizationInvitationOutboxDeliveryResult =
+	| { status: 'sent_recording_failed'; outbox: OrganizationInvitationEmailOutboxRecord; error: string }
 	| { status: 'sent'; outbox: OrganizationInvitationEmailOutboxRecord }
 	| { status: 'failed'; outbox: OrganizationInvitationEmailOutboxRecord; error: string }
 	| { status: 'missing' | 'not-retryable' | 'expired' | 'max-attempts' };
@@ -340,6 +351,7 @@ export async function retryOrganizationInvitationOutboxDelivery(
 
 	const requiresAccessRequest = !input.invitation.requiresAccountSetup && !input.invitation.recipientHasUserAccount;
 
+	let emailSent = false;
 	try {
 		await sendEmail({
 			email: normalizeEmail(input.invitation.email),
@@ -353,12 +365,19 @@ export async function retryOrganizationInvitationOutboxDelivery(
 			requiresAccountSetup: input.invitation.requiresAccountSetup,
 			requiresAccessRequest
 		});
+		emailSent = true;
 		return {
 			status: 'sent',
 			outbox: await store.markInvitationEmailDeliverySent(outbox.id, now)
 		};
 	} catch (error) {
 		const message = errorMessage(error);
+		if (emailSent) {
+			const recorded = await store
+				.markInvitationEmailDeliveryFailed(outbox.id, now, message, 'sent_recording_failed')
+				.catch(() => ({ ...outbox, status: 'sent_recording_failed' as const }));
+			return { status: 'sent_recording_failed', outbox: recorded, error: message };
+		}
 		return {
 			status: 'failed',
 			error: message,
@@ -416,11 +435,11 @@ export function createSupabaseOrganizationInvitationEmailOutboxStore(
 			return mapOutboxRow(data as OrganizationInvitationEmailOutboxRow);
 		},
 
-		async markInvitationEmailDeliveryFailed(id, failedAt, lastError) {
+		async markInvitationEmailDeliveryFailed(id, failedAt, lastError, status = 'failed') {
 			const { data, error } = await client
 				.rpc('mark_organization_invitation_email_outbox_delivery', {
 					p_outbox_id: id,
-					p_status: 'failed',
+					p_status: status,
 					p_marked_at: failedAt.toISOString(),
 					p_last_error: lastError
 				})

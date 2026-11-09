@@ -216,27 +216,29 @@ export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClie
 		findFeatureSettings,
 		async updatePolicies(orgId, changes, ifDisabledFeatures) {
 			const updates = toOrganizationPolicyColumns(changes);
-			let write = supabase.from('organizations').update(updates).eq('id', orgId);
-			if (ifDisabledFeatures) write = write.filter('disabled_features', 'eq', toTextArrayLiteral(ifDisabledFeatures));
-			const { data, error } = await write
+			if (changes.disabledFeatures !== undefined) {
+				const { data, error } = await supabase.rpc('update_organization_feature_settings', {
+					p_organization_id: orgId,
+					p_changes: updates,
+					p_expected_disabled_features: [...(ifDisabledFeatures ?? [])]
+				});
+				if (error) return { status: 'failed', message: error.message || 'Unit settings update failed' };
+				return data === 'saved' || data === 'stale'
+					? { status: data }
+					: { status: 'failed', message: 'Unable to confirm Unit settings update' };
+			}
+			const { data, error } = await supabase
+				.from('organizations')
+				.update(updates)
+				.eq('id', orgId)
 				.select(['id', ...Object.keys(updates)].join(', '))
 				.single<{ id: string; [field: string]: unknown }>();
-			// A zero-row update under the guard is a concurrent change only when the stored switches differ now;
-			// otherwise the row refused the write and retrying would only repeat it.
-			if (ifDisabledFeatures && error?.code === 'PGRST116') {
-				const current = await findFeatureSettings(orgId);
-				if (current && !isSameValue(current.storedDisabledFeatures, ifDisabledFeatures)) return { status: 'stale' };
-			}
 			if (error) return { status: 'failed', message: error.message || 'Unit settings update failed' };
 			return data?.id === orgId && Object.entries(updates).every(([field, value]) => isSameValue(data[field], value))
 				? { status: 'saved' }
 				: { status: 'failed', message: 'Unable to confirm Unit settings update' };
 		}
 	};
-}
-
-function toTextArrayLiteral(values: readonly string[]): string {
-	return `{${values.map((value) => JSON.stringify(value)).join(',')}}`;
 }
 
 type OrganizationPolicyColumns = {

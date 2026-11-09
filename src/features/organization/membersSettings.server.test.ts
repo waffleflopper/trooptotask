@@ -474,3 +474,9 @@ describe('members settings member names', () => {
 		expect(data.sections.members.rows[0].name?.text).toBe('SGT Jane Doe');
 	});
 });
+
+it('keeps a delivered email with failed acknowledgement waiting for acceptance', () => {
+	const invitation = onlyInvitation({ invitationDeliveries: [deliveryRow({ status: 'sent_recording_failed' })] });
+	expect(invitation.deliveryStatus).toBe('sent_recording_failed');
+	expect(invitation.funnelStatus).toBe('waiting_on_them_to_accept');
+});

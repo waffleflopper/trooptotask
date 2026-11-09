@@ -8114,6 +8114,26 @@ $$;
 ALTER FUNCTION public.export_organization_setup(p_organization_id uuid) OWNER TO postgres;
 
 --
+-- Name: fail_stale_data_exports(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.fail_stale_data_exports() RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE affected integer;
+BEGIN
+  UPDATE public.data_exports SET status = 'failed', completed_at = now()
+    WHERE status = 'processing' AND created_at < now() - interval '1 hour';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  RETURN affected;
+END;
+$$;
+
+
+ALTER FUNCTION public.fail_stale_data_exports() OWNER TO postgres;
+
+--
 -- Name: feature_is_off(uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -8149,6 +8169,45 @@ $$;
 
 
 ALTER FUNCTION public.fence_failed_account_setup_attempt() OWNER TO postgres;
+
+--
+-- Name: data_exports; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.data_exports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    requested_by uuid NOT NULL,
+    status text DEFAULT 'processing'::text NOT NULL,
+    file_path text,
+    file_size_bytes bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT data_exports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+ALTER TABLE public.data_exports OWNER TO postgres;
+
+--
+-- Name: finish_data_export(uuid, uuid, text, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint DEFAULT NULL::bigint) RETURNS SETOF public.data_exports
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  UPDATE public.data_exports SET status = p_status, completed_at = now(),
+    file_size_bytes = CASE WHEN p_status = 'completed' THEN p_file_size_bytes ELSE file_size_bytes END
+  WHERE id = p_export_id AND org_id = p_organization_id AND status = 'processing'
+    AND p_status IN ('completed', 'failed')
+    AND (p_status = 'failed' OR p_file_size_bytes >= 0)
+    AND public.can_manage_org_members(p_organization_id)
+  RETURNING *;
+$$;
+
+
+ALTER FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint) OWNER TO postgres;
 
 --
 -- Name: finish_organization_setup(uuid); Type: FUNCTION; Schema: public; Owner: postgres
@@ -9258,7 +9317,7 @@ CREATE TABLE public.organization_invitation_email_outbox (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     sent_at timestamp with time zone,
     CONSTRAINT organization_invitation_email_outbox_purpose_check CHECK ((purpose = 'organization_invitation'::text)),
-    CONSTRAINT organization_invitation_email_outbox_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text])))
+    CONSTRAINT organization_invitation_email_outbox_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text, 'sent_recording_failed'::text])))
 );
 
 
@@ -9270,20 +9329,16 @@ ALTER TABLE public.organization_invitation_email_outbox OWNER TO postgres;
 
 CREATE FUNCTION public.mark_organization_invitation_email_outbox_delivery(p_outbox_id uuid, p_status text, p_marked_at timestamp with time zone DEFAULT now(), p_last_error text DEFAULT NULL::text) RETURNS SETOF public.organization_invitation_email_outbox
     LANGUAGE sql SECURITY DEFINER
-    SET search_path TO 'public'
+    SET search_path TO ''
     AS $$
-	-- Keep invitation delivery retries capped even if a caller bypasses the app-level guard.
-	UPDATE public.organization_invitation_email_outbox
-	SET
-		status = p_status,
-		attempt_count = attempt_count + 1,
-		last_error = CASE WHEN p_status = 'sent' THEN NULL ELSE p_last_error END,
-		updated_at = p_marked_at,
-		sent_at = CASE WHEN p_status = 'sent' THEN p_marked_at ELSE NULL END
-	WHERE id = p_outbox_id
-		AND p_status = ANY (ARRAY['sent'::text, 'failed'::text])
-		AND attempt_count < 3
-	RETURNING *;
+  UPDATE public.organization_invitation_email_outbox
+  SET status = p_status, attempt_count = attempt_count + 1,
+    last_error = CASE WHEN p_status = 'sent' THEN NULL ELSE p_last_error END,
+    updated_at = p_marked_at,
+    sent_at = CASE WHEN p_status IN ('sent', 'sent_recording_failed') THEN p_marked_at ELSE NULL END
+  WHERE id = p_outbox_id AND status IN ('pending', 'failed')
+    AND p_status IN ('sent', 'failed', 'sent_recording_failed') AND attempt_count < 3
+  RETURNING *;
 $$;
 
 
@@ -14135,6 +14190,50 @@ $$;
 ALTER FUNCTION public.undo_roster_swap(p_organization_id uuid, p_swap_id uuid, p_today date) OWNER TO postgres;
 
 --
+-- Name: update_organization_feature_settings(uuid, jsonb, text[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.update_organization_feature_settings(p_organization_id uuid, p_changes jsonb, p_expected_disabled_features text[]) RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE previous public.organizations; details jsonb;
+BEGIN
+  IF NOT public.is_org_privileged(p_organization_id) THEN
+    RAISE EXCEPTION 'Organization settings update denied' USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof(p_changes) IS DISTINCT FROM 'object' OR NOT (p_changes ? 'disabled_features')
+    OR jsonb_typeof(p_changes->'disabled_features') IS DISTINCT FROM 'array'
+    OR EXISTS (SELECT 1 FROM jsonb_object_keys(p_changes) k WHERE k NOT IN (
+      'disabled_features', 'strength_floor_percent', 'archive_retention_months', 'loss_warning_window_days',
+      'training_readiness_goal_percent', 'personnel_document_storage_cap_bytes')) THEN
+    RAISE EXCEPTION 'Invalid Organization feature settings' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO previous FROM public.organizations WHERE id = p_organization_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Organization settings update denied' USING ERRCODE = '42501'; END IF;
+  IF previous.disabled_features IS DISTINCT FROM p_expected_disabled_features THEN RETURN 'stale'; END IF;
+  UPDATE public.organizations SET
+    disabled_features = ARRAY(SELECT jsonb_array_elements_text(p_changes->'disabled_features')),
+    strength_floor_percent = CASE WHEN p_changes ? 'strength_floor_percent' THEN (p_changes->>'strength_floor_percent')::integer ELSE strength_floor_percent END,
+    archive_retention_months = CASE WHEN p_changes ? 'archive_retention_months' THEN (p_changes->>'archive_retention_months')::integer ELSE archive_retention_months END,
+    loss_warning_window_days = CASE WHEN p_changes ? 'loss_warning_window_days' THEN (p_changes->>'loss_warning_window_days')::integer ELSE loss_warning_window_days END,
+    training_readiness_goal_percent = CASE WHEN p_changes ? 'training_readiness_goal_percent' THEN (p_changes->>'training_readiness_goal_percent')::integer ELSE training_readiness_goal_percent END,
+    personnel_document_storage_cap_bytes = CASE WHEN p_changes ? 'personnel_document_storage_cap_bytes' THEN (p_changes->>'personnel_document_storage_cap_bytes')::bigint ELSE personnel_document_storage_cap_bytes END
+  WHERE id = p_organization_id;
+  details = p_changes || jsonb_build_object('previous_disabled_features', previous.disabled_features);
+  IF p_changes ? 'strength_floor_percent' THEN
+    details = details || jsonb_build_object('previous_strength_floor_percent', previous.strength_floor_percent);
+  END IF;
+  PERFORM audit_private.record_entry(p_organization_id, 'organization.settings_updated', 'organization',
+    p_organization_id, previous.name, NULL, NULL, details);
+  RETURN 'saved';
+END;
+$$;
+
+
+ALTER FUNCTION public.update_organization_feature_settings(p_organization_id uuid, p_changes jsonb, p_expected_disabled_features text[]) OWNER TO postgres;
+
+--
 -- Name: update_personnel_artifact(uuid, uuid, uuid, text, uuid, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -14884,25 +14983,6 @@ CREATE TABLE public.dashboard_configs (
 
 
 ALTER TABLE public.dashboard_configs OWNER TO postgres;
-
---
--- Name: data_exports; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.data_exports (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    org_id uuid NOT NULL,
-    requested_by uuid NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    file_path text,
-    file_size_bytes bigint,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    completed_at timestamp with time zone,
-    CONSTRAINT data_exports_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text])))
-);
-
-
-ALTER TABLE public.data_exports OWNER TO postgres;
 
 --
 -- Name: deletion_requests; Type: TABLE; Schema: public; Owner: postgres
@@ -16943,6 +17023,13 @@ CREATE INDEX calendar_taskings_organization_status_idx ON public.calendar_taskin
 --
 
 CREATE INDEX counseling_records_file_path_idx ON public.counseling_records USING btree (file_path);
+
+
+--
+-- Name: data_exports_processing_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX data_exports_processing_created_at_idx ON public.data_exports USING btree (created_at) WHERE (status = 'processing'::text);
 
 
 --
@@ -20550,13 +20637,6 @@ CREATE POLICY "Operators can update scoped personnel extended info" ON public.pe
 
 
 --
--- Name: data_exports Org managers can update export lifecycle; Type: POLICY; Schema: public; Owner: postgres
---
-
-CREATE POLICY "Org managers can update export lifecycle" ON public.data_exports FOR UPDATE USING (public.can_manage_org_members(org_id)) WITH CHECK (public.can_manage_org_members(org_id));
-
-
---
 -- Name: data_exports Org members can read exports; Type: POLICY; Schema: public; Owner: postgres
 --
 
@@ -23418,6 +23498,14 @@ GRANT ALL ON FUNCTION public.export_organization_setup(p_organization_id uuid) T
 
 
 --
+-- Name: FUNCTION fail_stale_data_exports(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.fail_stale_data_exports() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.fail_stale_data_exports() TO service_role;
+
+
+--
 -- Name: FUNCTION feature_is_off(p_organization_id uuid, p_feature text); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -23430,6 +23518,45 @@ GRANT ALL ON FUNCTION public.feature_is_off(p_organization_id uuid, p_feature te
 --
 
 REVOKE ALL ON FUNCTION public.fence_failed_account_setup_attempt() FROM PUBLIC;
+
+
+--
+-- Name: TABLE data_exports; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT,MAINTAIN ON TABLE public.data_exports TO anon;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.data_exports TO authenticated;
+GRANT ALL ON TABLE public.data_exports TO service_role;
+
+
+--
+-- Name: COLUMN data_exports.org_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(org_id) ON TABLE public.data_exports TO authenticated;
+
+
+--
+-- Name: COLUMN data_exports.requested_by; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(requested_by) ON TABLE public.data_exports TO authenticated;
+
+
+--
+-- Name: COLUMN data_exports.created_at; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(created_at) ON TABLE public.data_exports TO authenticated;
+
+
+--
+-- Name: FUNCTION finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint) TO service_role;
+GRANT ALL ON FUNCTION public.finish_data_export(p_organization_id uuid, p_export_id uuid, p_status text, p_file_size_bytes bigint) TO authenticated;
 
 
 --
@@ -24572,6 +24699,15 @@ GRANT ALL ON FUNCTION public.undo_roster_swap(p_organization_id uuid, p_swap_id 
 
 
 --
+-- Name: FUNCTION update_organization_feature_settings(p_organization_id uuid, p_changes jsonb, p_expected_disabled_features text[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.update_organization_feature_settings(p_organization_id uuid, p_changes jsonb, p_expected_disabled_features text[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.update_organization_feature_settings(p_organization_id uuid, p_changes jsonb, p_expected_disabled_features text[]) TO authenticated;
+GRANT ALL ON FUNCTION public.update_organization_feature_settings(p_organization_id uuid, p_changes jsonb, p_expected_disabled_features text[]) TO service_role;
+
+
+--
 -- Name: FUNCTION update_personnel_artifact(p_actor uuid, p_organization_id uuid, p_personnel_id uuid, p_table text, p_id uuid, p_patch jsonb); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -24760,8 +24896,8 @@ GRANT SELECT(note) ON TABLE public.availability_entries TO authenticated;
 -- Name: TABLE beta_feedback; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE public.beta_feedback TO anon;
-GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE public.beta_feedback TO authenticated;
+GRANT SELECT,MAINTAIN ON TABLE public.beta_feedback TO anon;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.beta_feedback TO authenticated;
 GRANT ALL ON TABLE public.beta_feedback TO service_role;
 
 
@@ -25143,9 +25279,100 @@ GRANT INSERT(instructions),UPDATE(instructions) ON TABLE public.calendar_tasking
 -- Name: TABLE counseling_records; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON TABLE public.counseling_records TO anon;
-GRANT ALL ON TABLE public.counseling_records TO authenticated;
+GRANT SELECT,MAINTAIN ON TABLE public.counseling_records TO anon;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.counseling_records TO authenticated;
 GRANT ALL ON TABLE public.counseling_records TO service_role;
+
+
+--
+-- Name: COLUMN counseling_records.id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(id) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.organization_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(organization_id) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.personnel_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(personnel_id) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.date_conducted; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(date_conducted),UPDATE(date_conducted) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.subject; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(subject),UPDATE(subject) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.key_points; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(key_points),UPDATE(key_points) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.plan_of_action; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(plan_of_action),UPDATE(plan_of_action) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.follow_up_date; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(follow_up_date),UPDATE(follow_up_date) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.created_at; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(created_at) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.notes; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(notes),UPDATE(notes) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.file_path; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(file_path),UPDATE(file_path) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.title; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(title),UPDATE(title) ON TABLE public.counseling_records TO authenticated;
+
+
+--
+-- Name: COLUMN counseling_records.summary; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(summary),UPDATE(summary) ON TABLE public.counseling_records TO authenticated;
 
 
 --
@@ -25155,15 +25382,6 @@ GRANT ALL ON TABLE public.counseling_records TO service_role;
 GRANT ALL ON TABLE public.dashboard_configs TO anon;
 GRANT ALL ON TABLE public.dashboard_configs TO authenticated;
 GRANT ALL ON TABLE public.dashboard_configs TO service_role;
-
-
---
--- Name: TABLE data_exports; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT ALL ON TABLE public.data_exports TO anon;
-GRANT ALL ON TABLE public.data_exports TO authenticated;
-GRANT ALL ON TABLE public.data_exports TO service_role;
 
 
 --
@@ -25370,9 +25588,30 @@ GRANT ALL ON TABLE public.organization_creation_requests TO service_role;
 -- Name: TABLE organization_invitations; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.organization_invitations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.organization_invitations TO authenticated;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.organization_invitations TO anon;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.organization_invitations TO authenticated;
 GRANT ALL ON TABLE public.organization_invitations TO service_role;
+
+
+--
+-- Name: COLUMN organization_invitations.organization_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(organization_id) ON TABLE public.organization_invitations TO authenticated;
+
+
+--
+-- Name: COLUMN organization_invitations.email; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(email) ON TABLE public.organization_invitations TO authenticated;
+
+
+--
+-- Name: COLUMN organization_invitations.invited_by; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(invited_by) ON TABLE public.organization_invitations TO authenticated;
 
 
 --
@@ -25380,6 +25619,34 @@ GRANT ALL ON TABLE public.organization_invitations TO service_role;
 --
 
 GRANT UPDATE(status) ON TABLE public.organization_invitations TO authenticated;
+
+
+--
+-- Name: COLUMN organization_invitations.member_preset; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(member_preset) ON TABLE public.organization_invitations TO authenticated;
+
+
+--
+-- Name: COLUMN organization_invitations.capability_overrides; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(capability_overrides) ON TABLE public.organization_invitations TO authenticated;
+
+
+--
+-- Name: COLUMN organization_invitations.access_scope_kind; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(access_scope_kind) ON TABLE public.organization_invitations TO authenticated;
+
+
+--
+-- Name: COLUMN organization_invitations.access_scope_group_ids; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(access_scope_group_ids) ON TABLE public.organization_invitations TO authenticated;
 
 
 --
@@ -25415,6 +25682,13 @@ GRANT UPDATE(revoked_by) ON TABLE public.organization_invitations TO authenticat
 --
 
 GRANT UPDATE(expired_at) ON TABLE public.organization_invitations TO authenticated;
+
+
+--
+-- Name: COLUMN organization_invitations.role; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(role) ON TABLE public.organization_invitations TO authenticated;
 
 
 --
@@ -25525,13 +25799,6 @@ GRANT UPDATE(url_slug) ON TABLE public.organizations TO authenticated;
 --
 
 GRANT UPDATE(training_readiness_goal_percent) ON TABLE public.organizations TO authenticated;
-
-
---
--- Name: COLUMN organizations.disabled_features; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT UPDATE(disabled_features) ON TABLE public.organizations TO authenticated;
 
 
 --
@@ -25867,9 +26134,65 @@ GRANT SELECT(dod_id),INSERT(dod_id),UPDATE(dod_id) ON TABLE public.personnel_ext
 -- Name: TABLE personnel_follow_ups; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON TABLE public.personnel_follow_ups TO anon;
-GRANT ALL ON TABLE public.personnel_follow_ups TO authenticated;
+GRANT SELECT,MAINTAIN ON TABLE public.personnel_follow_ups TO anon;
+GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.personnel_follow_ups TO authenticated;
 GRANT ALL ON TABLE public.personnel_follow_ups TO service_role;
+
+
+--
+-- Name: COLUMN personnel_follow_ups.id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(id) ON TABLE public.personnel_follow_ups TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_follow_ups.organization_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(organization_id) ON TABLE public.personnel_follow_ups TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_follow_ups.personnel_id; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(personnel_id) ON TABLE public.personnel_follow_ups TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_follow_ups.title; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(title),UPDATE(title) ON TABLE public.personnel_follow_ups TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_follow_ups.notes; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(notes),UPDATE(notes) ON TABLE public.personnel_follow_ups TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_follow_ups.due_date; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(due_date),UPDATE(due_date) ON TABLE public.personnel_follow_ups TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_follow_ups.created_at; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(created_at) ON TABLE public.personnel_follow_ups TO authenticated;
+
+
+--
+-- Name: COLUMN personnel_follow_ups.updated_at; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT INSERT(updated_at),UPDATE(updated_at) ON TABLE public.personnel_follow_ups TO authenticated;
 
 
 --

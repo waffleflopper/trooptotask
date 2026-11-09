@@ -35,7 +35,7 @@ export type SettingsInvitationFunnelStatus =
 
 export type SettingsInvitationRow = SettingsInvitationAccessRow & {
 	scopeDisplayLabel: string;
-	deliveryStatus: 'not_sent' | 'pending' | 'sent' | 'failed';
+	deliveryStatus: 'not_sent' | 'pending' | 'sent' | 'failed' | 'sent_recording_failed';
 	deliveryStatusLabel: string;
 	deliveryAttemptCount: number;
 	deliveryLastError: string | null;

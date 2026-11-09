@@ -336,6 +336,7 @@ function buildLatestDeliveryByInvitationId(
 
 function invitationDeliveryStatusLabel(status: SettingsInvitationRow['deliveryStatus']): string {
 	switch (status) {
+		case 'sent_recording_failed':
 		case 'sent':
 			return 'Email sent';
 		case 'failed':

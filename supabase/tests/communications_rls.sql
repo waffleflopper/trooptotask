@@ -247,11 +247,8 @@ SELECT results_eq(
 	'own feedback remains account-scoped across Organization contexts'
 );
 
-WITH changed AS (
-	UPDATE public.beta_feedback SET status = 'resolved'
-	WHERE id = '50000000-0000-4000-8000-000000136801' RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM changed), 0, 'submitter cannot review or change its own feedback');
+SELECT throws_ok($$ UPDATE public.beta_feedback SET status = 'resolved'
+	WHERE id = '50000000-0000-4000-8000-000000136801' $$, '42501', NULL, 'submitter cannot review or change its own feedback');
 
 WITH removed AS (
 	DELETE FROM public.beta_feedback
@@ -308,11 +305,8 @@ SELECT throws_ok(
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136806', true);
 SELECT is((SELECT count(*)::integer FROM public.beta_feedback), 0, 'non-operator cannot read others feedback');
 
-WITH changed AS (
-	UPDATE public.beta_feedback SET status = 'resolved'
-	WHERE id = '50000000-0000-4000-8000-000000136802' RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM changed), 0, 'non-operator cannot review feedback');
+SELECT throws_ok($$ UPDATE public.beta_feedback SET status = 'resolved'
+	WHERE id = '50000000-0000-4000-8000-000000136802' $$, '42501', NULL, 'non-operator cannot review feedback');
 
 SELECT throws_ok(
 	$$ INSERT INTO public.platform_announcements (title, message, created_by)

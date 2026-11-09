@@ -474,31 +474,31 @@ SELECT is(
 SELECT pg_temp.act_as('02');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'admin-invites-owner@example.test',
-			'c6420000-0000-4000-8000-000000000002', now() + interval '7 days', 'owner', 'editor') $$,
+			'c6420000-0000-4000-8000-000000000002', 'owner', 'editor') $$,
 	'42501',
 	'new row violates row-level security policy for table "organization_invitations"',
 	'an admin cannot invite an owner'
 );
 SELECT throws_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'admin-invites-admin@example.test',
-			'c6420000-0000-4000-8000-000000000002', now() + interval '7 days', 'admin', 'editor') $$,
+			'c6420000-0000-4000-8000-000000000002', 'admin', 'editor') $$,
 	'42501',
 	'new row violates row-level security policy for table "organization_invitations"',
 	'an admin cannot invite an admin'
 );
 SELECT lives_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'admin-invites-member@example.test',
-			'c6420000-0000-4000-8000-000000000002', now() + interval '7 days', 'member', 'viewer') $$,
+			'c6420000-0000-4000-8000-000000000002', 'member', 'viewer') $$,
 	'an admin can invite a member'
 );
 SELECT throws_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'admin-attributes-owner@example.test',
-			'c6420000-0000-4000-8000-000000000001', now() + interval '7 days', 'member', 'viewer') $$,
+			'c6420000-0000-4000-8000-000000000001', 'member', 'viewer') $$,
 	'42501',
 	'new row violates row-level security policy for table "organization_invitations"',
 	'an admin cannot attribute an invitation to another inviter'
@@ -507,17 +507,17 @@ RESET ROLE;
 SELECT pg_temp.act_as('01');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'owner-invites-owner@example.test',
-			'c6420000-0000-4000-8000-000000000001', now() + interval '7 days', 'owner', 'editor') $$,
+			'c6420000-0000-4000-8000-000000000001', 'owner', 'editor') $$,
 	'42501',
 	'new row violates row-level security policy for table "organization_invitations"',
 	'an owner cannot invite another owner'
 );
 SELECT lives_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'owner-invites-admin@example.test',
-			'c6420000-0000-4000-8000-000000000001', now() + interval '7 days', 'admin', 'editor') $$,
+			'c6420000-0000-4000-8000-000000000001', 'admin', 'editor') $$,
 	'an owner can invite an admin'
 );
 RESET ROLE;
@@ -530,9 +530,9 @@ SELECT is(
 	'only the permitted invitations persist'
 );
 SELECT throws_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'stored-owner-invite@example.test',
-			'c6420000-0000-4000-8000-000000000001', now() + interval '7 days', 'owner', 'editor') $$,
+			'c6420000-0000-4000-8000-000000000001', 'owner', 'editor') $$,
 	'23514',
 	NULL,
 	'no writer can store an acceptable owner invitation'
@@ -695,27 +695,27 @@ WITH updated AS (
 SELECT is((SELECT jsonb_build_array(access_scope_kind, access_scope_group_ids) FROM updated),
 	'["organization", []]'::jsonb, 'a member scope can return to the whole Organization');
 SELECT throws_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset,
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset,
 			access_scope_kind, access_scope_group_ids)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'foreign-scope@example.test', 'c6420000-0000-4000-8000-000000000002',
-			now() + interval '7 days', 'member', 'viewer', 'groups', ARRAY['c6420000-0000-4000-8000-0000000002bb']::uuid[]) $$,
+			'member', 'viewer', 'groups', ARRAY['c6420000-0000-4000-8000-0000000002bb']::uuid[]) $$,
 	'23503', 'Access scope Groups must belong to the Organization',
 	'an invitation scope cannot name another Organization''s Group'
 );
 SELECT throws_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset,
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset,
 			access_scope_kind, access_scope_group_ids)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'mixed-scope@example.test', 'c6420000-0000-4000-8000-000000000002',
-			now() + interval '7 days', 'member', 'viewer', 'groups',
+			'member', 'viewer', 'groups',
 			ARRAY['c6420000-0000-4000-8000-0000000002aa', 'c6420000-0000-4000-8000-0000000002bb']::uuid[]) $$,
 	'23503', 'Access scope Groups must belong to the Organization',
 	'an invitation scope cannot mix an own Group with another Organization''s Group'
 );
 SELECT lives_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset,
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset,
 			access_scope_kind, access_scope_group_ids)
 		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'own-scope@example.test', 'c6420000-0000-4000-8000-000000000002',
-			now() + interval '7 days', 'member', 'viewer', 'groups', ARRAY['c6420000-0000-4000-8000-0000000002ab']::uuid[]) $$,
+			'member', 'viewer', 'groups', ARRAY['c6420000-0000-4000-8000-0000000002ab']::uuid[]) $$,
 	'an invitation scope can name the Organization''s own Group'
 );
 RESET ROLE;

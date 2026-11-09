@@ -173,6 +173,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261108120100_archive_status_types.sql",
     "20261108130000_default_onboarding_template.sql",
     "20261108200000_organization_member_names.sql",
+    "20261108210000_client_lifecycle_grants.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
@@ -196,6 +197,11 @@ POST_TREE_SQL_TESTS = (
     "audit_availability_entries.sql",
     "onboarding_default_template.sql",
     "organization_member_names.sql",
+    "feedback_staff_access.sql",
+    "attribution_column_authority.sql",
+    "platform_error_reporting.sql",
+    "client_lifecycle_privileges.sql",
+    "client_lifecycle_authority.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -303,7 +309,6 @@ STAGED_UPGRADE_SQL_TESTS = (
     "organization_setup_writes.sql",
     "whats_new_and_announcements.sql",
     "platform_organization_directory.sql",
-    "feedback_staff_access.sql",
     "feedback_reporter_replies.sql",
     "calendar_assignment_atomic_replacement.sql",
     "calendar_assignment_atomic_concurrency.sql",
@@ -316,8 +321,6 @@ STAGED_UPGRADE_SQL_TESTS = (
     "roster_swaps.sql",
     "roster_swaps_concurrency.sql",
     "roster_pool_spans_read.sql",
-    "attribution_column_authority.sql",
-    "platform_error_reporting.sql",
 )
 
 _receipt = None

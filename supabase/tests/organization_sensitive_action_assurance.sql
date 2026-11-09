@@ -80,9 +80,9 @@ $$;
 
 CREATE FUNCTION pg_temp.invite_admin(p_organization text, p_inviter text, p_email text) RETURNS void
 LANGUAGE sql AS $$
-	INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 	VALUES (('c6430000-0000-4000-8000-0000000001' || p_organization)::uuid, p_email,
-		('c6430000-0000-4000-8000-0000000000' || p_inviter)::uuid, now() + interval '7 days', 'admin', 'editor');
+		('c6430000-0000-4000-8000-0000000000' || p_inviter)::uuid, 'admin', 'editor');
 $$;
 
 CREATE FUNCTION pg_temp.unchanged(p_ids text[]) RETURNS boolean LANGUAGE sql AS $$
@@ -122,9 +122,9 @@ SELECT throws_ok($$ SELECT pg_temp.invite_admin('aa', '01', 'stale@example.test'
 	'42501', 'new row violates row-level security policy for table "organization_invitations"',
 	'an owner whose sign-in is older than 15 minutes cannot invite an admin');
 SELECT lives_ok(
-	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, role, member_preset)
 		VALUES ('c6430000-0000-4000-8000-0000000001aa', 'stale-member@example.test',
-			'c6430000-0000-4000-8000-000000000001', now() + interval '7 days', 'member', 'viewer') $$,
+			'c6430000-0000-4000-8000-000000000001', 'member', 'viewer') $$,
 	'a stale owner session can still invite an ordinary member'
 );
 RESET ROLE;

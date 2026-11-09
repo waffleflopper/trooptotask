@@ -135,73 +135,72 @@ describe('Organization policy save acknowledgement with the actual installed SDK
 });
 
 describe('Feature switch writes with the actual installed SDK', () => {
-	it('writes only while the stored switches are unchanged and reapplies a switch after another save lands', async () => {
+	it('reapplies a switch after another save lands and leaves the transaction as the only audit writer', async () => {
 		const row = { id: ORG, disabled_features: [] as string[], strength_floor_percent: 80 };
-		const patches: (string | null)[] = [];
-		let interleaved = false;
+		const guards: string[][] = [];
+		const auditRows: unknown[] = [];
 		const supabase = createClient('http://policy.invalid', 'synthetic-user-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
 			global: {
 				fetch: async (input, init) => {
 					const url = new URL(String(input));
-					if (url.pathname !== '/rest/v1/organizations') throw new Error('Unexpected provider request');
-					if (init?.method === 'GET') return Response.json(structuredClone(row));
-					const guard = url.searchParams.get('disabled_features');
-					patches.push(guard);
-					if (!interleaved) {
-						interleaved = true;
-						row.disabled_features = ['onboarding'];
-					}
-					if (guard !== `eq.{${row.disabled_features.map((key) => `"${key}"`).join(',')}}`)
-						return Response.json(
-							{ code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' },
-							{ status: 406 }
-						);
-					Object.assign(row, JSON.parse(String(init?.body)));
-					return Response.json(row);
+					if (url.pathname === '/rest/v1/organizations' && init?.method === 'GET')
+						return Response.json(structuredClone(row));
+					if (url.pathname !== '/rest/v1/rpc/update_organization_feature_settings')
+						throw new Error('Unexpected provider request');
+					const body = JSON.parse(String(init?.body));
+					guards.push(body.p_expected_disabled_features);
+					if (guards.length === 1) row.disabled_features = ['onboarding'];
+					if (JSON.stringify(body.p_expected_disabled_features) !== JSON.stringify(row.disabled_features))
+						return Response.json('stale');
+					auditRows.push({ previous_disabled_features: row.disabled_features, ...body.p_changes });
+					Object.assign(row, body.p_changes);
+					return Response.json('saved');
 				}
 			}
 		});
 		const ctx = createTestContext({ auth: { orgId: ORG } });
 		ctx.organizationPolicyWrite = createSupabaseOrganizationPolicyWritePort(supabase);
-
 		expect(await updateOrganizationSettings(ctx, { featureSwitch: { feature: 'training', on: false } })).toEqual({
 			success: true
 		});
-
 		expect(row.disabled_features).toEqual(['training', 'onboarding']);
-		expect(patches).toEqual(['eq.{}', 'eq.{"onboarding"}']);
-		expect(ctx.auditPort.events.map((event) => event.details)).toEqual([
+		expect(guards).toEqual([[], ['onboarding']]);
+		expect(auditRows).toEqual([
 			{ previous_disabled_features: ['onboarding'], disabled_features: ['training', 'onboarding'] }
 		]);
+		expect(ctx.auditPort.events).toEqual([]);
 	});
 
-	it('does not retry or report a conflict when the row refuses the guarded write', async () => {
-		const row = { id: ORG, disabled_features: ['onboarding'] as string[], strength_floor_percent: 80 };
-		const patches: (string | null)[] = [];
+	it('does not retry or report a conflict when the transaction refuses the write', async () => {
+		const row = { id: ORG, disabled_features: ['onboarding'], strength_floor_percent: 80 };
+		const submitted: unknown[] = [];
 		const supabase = createClient('http://policy.invalid', 'synthetic-user-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
 			global: {
 				fetch: async (input, init) => {
 					const url = new URL(String(input));
-					if (url.pathname !== '/rest/v1/organizations') throw new Error('Unexpected provider request');
-					if (init?.method === 'GET') return Response.json(structuredClone(row));
-					patches.push(url.searchParams.get('disabled_features'));
-					return Response.json(
-						{ code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' },
-						{ status: 406 }
-					);
+					if (url.pathname === '/rest/v1/organizations' && init?.method === 'GET')
+						return Response.json(structuredClone(row));
+					if (url.pathname !== '/rest/v1/rpc/update_organization_feature_settings')
+						throw new Error('Unexpected provider request');
+					submitted.push(JSON.parse(String(init?.body)));
+					return Response.json({ code: '42501', message: 'Settings write denied' }, { status: 403 });
 				}
 			}
 		});
 		const ctx = createTestContext({ auth: { orgId: ORG } });
 		ctx.organizationPolicyWrite = createSupabaseOrganizationPolicyWritePort(supabase);
-
 		await expect(
 			updateOrganizationSettings(ctx, { featureSwitch: { feature: 'training', on: false } })
-		).rejects.toMatchObject({ status: 500, message: 'JSON object requested, multiple (or no) rows returned' });
-
-		expect(patches).toEqual(['eq.{"onboarding"}']);
+		).rejects.toMatchObject({ status: 500, message: 'Settings write denied' });
+		expect(submitted).toEqual([
+			{
+				p_organization_id: ORG,
+				p_changes: { disabled_features: ['training', 'onboarding'] },
+				p_expected_disabled_features: ['onboarding']
+			}
+		]);
 		expect(row.disabled_features).toEqual(['onboarding']);
 		expect(ctx.auditPort.events).toEqual([]);
 	});

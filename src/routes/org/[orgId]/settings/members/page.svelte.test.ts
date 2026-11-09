@@ -66,6 +66,7 @@ function member(
 			scopeSet: { kind: 'organization' },
 			organizationGovernanceActions: []
 		},
+		name: null,
 		scopeDisplayLabel: 'Whole unit',
 		overriddenCapabilityLabels: [],
 		storedLevels: row.access?.capabilityMap ?? createCapabilityMap('configure'),
@@ -119,12 +120,14 @@ type PageOptions = {
 	history?: Promise<SettingsInvitationHistoryRow[]>;
 	rows?: SettingsMemberRow[];
 	offLanes?: DurableFeatureLane[];
+	canManageMemberAccess?: boolean;
 };
 
 function pageData(options: PageOptions = {}) {
 	return {
 		orgId: 'org-1',
 		orgName: 'Alpha Company',
+		ranks: ['SGT', 'SFC', 'CIV'],
 		viewer: { userId: 'user-owner', displayName: null },
 		membersSettings: {
 			currentMember: { role: 'owner', isOwner: options.isOwner ?? true, isAdmin: true, canManageMembers: true },
@@ -139,7 +142,7 @@ function pageData(options: PageOptions = {}) {
 					],
 					offLanes: options.offLanes ?? [],
 					canInvite: options.canInvite ?? true,
-					canManageMemberAccess: true
+					canManageMemberAccess: options.canManageMemberAccess ?? true
 				}
 			}
 		}
@@ -984,5 +987,159 @@ describe('manage access sheet', () => {
 			)
 		);
 		expect(screen.getByRole('dialog')).toBe(sheet);
+	});
+});
+
+describe('member names', () => {
+	const organizationName = {
+		text: 'SGT Jane Doe',
+		source: 'organization',
+		rank: 'SGT',
+		firstName: 'Jane',
+		lastName: 'Doe'
+	} as const;
+	const accountName = {
+		text: 'SFC Dana Whitaker',
+		source: 'account',
+		rank: 'SFC',
+		firstName: 'Dana',
+		lastName: 'Whitaker'
+	} as const;
+	const unnamed = member('blank', 'blank@example.com', 'member');
+	const named = member('jane', 'jane@example.com', 'member', { name: organizationName });
+	const account = member('dana', 'dana@example.com', 'member', { name: accountName });
+
+	async function openEditor(id: string, button: RegExp) {
+		const opened = await openSheet(id);
+		await fireEvent.click(within(opened.sheet).getByRole('button', { name: button }));
+		return opened;
+	}
+
+	async function fill(sheet: HTMLElement, values: { rank: string; first: string; last: string }) {
+		await fireEvent.change(within(sheet).getByLabelText('Rank'), { target: { value: values.rank } });
+		await fireEvent.input(within(sheet).getByLabelText('First name'), { target: { value: values.first } });
+		await fireEvent.input(within(sheet).getByLabelText('Last name'), { target: { value: values.last } });
+	}
+
+	it('lists a named member by name with the email beneath, and an unnamed one by email', () => {
+		renderPage({ rows: [owner, named, unnamed] });
+
+		const row = within(memberRow('jane'));
+		expect(row.getByText('SGT Jane Doe')).toBeTruthy();
+		expect(row.getByText('jane@example.com')).toBeTruthy();
+		expect(within(memberRow('blank')).getByText('blank@example.com')).toBeTruthy();
+	});
+
+	it('finds a member by name in the filter', async () => {
+		renderPage({ rows: [owner, named, unnamed] });
+
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Filter members' }), { target: { value: 'doe' } });
+
+		await waitFor(() => expect(screen.getByRole('row', { name: /Jane Doe/ })).toBeTruthy());
+		expect(
+			screen.getAllByRole('row').filter((row) => !row.hasAttribute('hidden') && /blank@/.test(row.textContent ?? ''))
+		).toHaveLength(0);
+	});
+
+	it('lets an owner or admin add a name to a member whose account has none', async () => {
+		renderPage({ rows: [owner, unnamed] });
+		const { sheet } = await openEditor('blank', /^Add/);
+
+		await fill(sheet, { rank: 'SFC', first: 'Dana', last: 'Whitaker' });
+		await fireEvent.click(within(sheet).getByRole('button', { name: 'Save name' }));
+
+		const form = within(sheet).getByLabelText('First name').closest('form');
+		expect(form?.getAttribute('action')).toBe('?/setMemberName');
+		expect(submitted).toHaveLength(1);
+		expect(Object.fromEntries(submitted[0])).toEqual({
+			membershipId: 'blank',
+			rank: 'SFC',
+			firstName: 'Dana',
+			lastName: 'Whitaker'
+		});
+	});
+
+	it('starts the editor from the name the Organization already gave', async () => {
+		renderPage({ rows: [owner, named] });
+		const { sheet } = await openEditor('jane', /^Edit/);
+
+		expect((within(sheet).getByLabelText('Rank') as HTMLSelectElement).value).toBe('SGT');
+		expect((within(sheet).getByLabelText('First name') as HTMLInputElement).value).toBe('Jane');
+		expect((within(sheet).getByLabelText('Last name') as HTMLInputElement).value).toBe('Doe');
+	});
+
+	it("shows the account's own name read-only and offers no editor", async () => {
+		renderPage({ rows: [owner, account] });
+		const { sheet } = await openSheet('dana');
+
+		const section = within(within(sheet).getByRole('region', { name: 'Name' }));
+		expect(section.getByText('SFC Dana Whitaker')).toBeTruthy();
+		expect(section.getByText(/name on their account/)).toBeTruthy();
+		expect(section.queryByRole('button')).toBeNull();
+		expect(within(sheet).queryByLabelText('First name')).toBeNull();
+	});
+
+	it('offers a viewer who cannot manage members no way to open the editor', () => {
+		renderPage({ rows: [owner, unnamed], canManageMemberAccess: false });
+
+		expect(screen.queryByRole('button', { name: /^Manage/ })).toBeNull();
+		expect(screen.queryByRole('button', { name: /name and rank/ })).toBeNull();
+	});
+
+	it('locks the sheet while the name saves and closes the editor with the saved name', async () => {
+		const view = renderPage({ rows: [owner, unnamed] });
+		const { sheet } = await openEditor('blank', /^Add/);
+		await fill(sheet, { rank: 'SGT', first: 'Jane', last: 'Doe' });
+		await fireEvent.click(within(sheet).getByRole('button', { name: 'Save name' }));
+
+		expect(sheet.getAttribute('aria-busy')).toBe('true');
+		expect(within(sheet).queryByRole('button', { name: 'Close' })).toBeNull();
+		await fireEvent.click(within(sheet).getByRole('button', { name: /Saving/ }));
+		expect(heldSubmissions).toHaveLength(1);
+
+		const savedRow = member('blank', 'blank@example.com', 'member', { name: organizationName });
+		await heldSubmissions[0]({
+			result: {
+				type: 'success',
+				status: 200,
+				location: '/',
+				data: { nameSuccess: true, nameMembershipId: 'blank' }
+			},
+			update: () => view.rerender({ data: pageData({ rows: [owner, savedRow] }), form: null } as never)
+		});
+
+		await waitFor(() => expect(within(sheet).queryByLabelText('First name')).toBeNull());
+		const section = within(within(sheet).getByRole('region', { name: 'Name' }));
+		expect(section.getByText('SGT Jane Doe')).toBeTruthy();
+		expect(sheet.getAttribute('aria-busy')).toBeNull();
+		expect(document.activeElement).toBe(section.getByRole('button', { name: /^Edit/ }));
+	});
+
+	it('keeps the draft open with the refusal when the server will not save the name', async () => {
+		const view = renderPage({ rows: [owner, unnamed] });
+		const { sheet } = await openEditor('blank', /^Add/);
+		await fill(sheet, { rank: 'SGT', first: 'Jane', last: 'Doe' });
+		await fireEvent.click(within(sheet).getByRole('button', { name: 'Save name' }));
+
+		await heldSubmissions[0]({
+			result: { type: 'failure', status: 403, location: '/', data: { nameError: 'Name could not be saved' } },
+			update: () =>
+				view.rerender({ data: pageData({ rows: [owner, unnamed] }), form: { nameError: 'Name could not be saved' } })
+		});
+
+		await waitFor(() => expect(within(sheet).getByRole('alert').textContent).toContain('Name could not be saved'));
+		expect((within(sheet).getByLabelText('First name') as HTMLInputElement).value).toBe('Jane');
+		expect(sheet.getAttribute('aria-busy')).toBeNull();
+	});
+
+	it('changes nothing when the answer arrives after the page is gone', async () => {
+		const view = renderPage({ rows: [owner, unnamed] });
+		const { sheet } = await openEditor('blank', /^Add/);
+		await fill(sheet, { rank: 'SGT', first: 'Jane', last: 'Doe' });
+		await fireEvent.click(within(sheet).getByRole('button', { name: 'Save name' }));
+
+		view.unmount();
+
+		await expect(settle(0)).resolves.toBeUndefined();
 	});
 });

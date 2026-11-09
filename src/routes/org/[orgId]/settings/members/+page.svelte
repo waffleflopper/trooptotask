@@ -15,5 +15,5 @@
 />
 
 {#key data.orgId}
-	<MembersSettingsPage settings={data.membersSettings} {form} {unit} {viewerUserId} />
+	<MembersSettingsPage settings={data.membersSettings} {form} {unit} {viewerUserId} ranks={data.ranks} />
 {/key}

@@ -37,7 +37,7 @@
 	import {
 		accessLabel,
 		createSettingsMemberAccessWorkspace,
-		memberInitials
+		memberRowInitials
 	} from './settingsMemberAccessWorkspace.svelte';
 
 	type Props = {
@@ -45,9 +45,11 @@
 		form: MembersSettingsActionData;
 		unit: string;
 		viewerUserId: string | undefined;
+		/** The ranks an owner or admin can give a member whose account has no name. */
+		ranks: readonly string[];
 	};
 
-	let { settings, form, unit, viewerUserId }: Props = $props();
+	let { settings, form, unit, viewerUserId, ranks }: Props = $props();
 
 	let active = true;
 	onDestroy(() => {
@@ -257,8 +259,9 @@
 		return member.membershipRole !== 'admin' || isOwner;
 	}
 
+	/** What the unit calls the member: their name, else their email. */
 	function memberName(member: SettingsMemberRow): string {
-		return member.email ?? `${member.userId.slice(0, 8)}...`;
+		return member.name?.text ?? member.email ?? `${member.userId.slice(0, 8)}...`;
 	}
 
 	function plural(count: number, one: string, many = `${one}s`) {
@@ -481,6 +484,9 @@
 	{unit}
 	{isOwner}
 	accessError={form?.accessError}
+	nameError={form?.nameError}
+	{ranks}
+	canEditName={section.canManageMemberAccess}
 	opener={accessOpener}
 	fallbackFocus={() => filterInput}
 	onSaveStart={() => (memberRequestError = null)}
@@ -572,7 +578,7 @@
 				class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-[11px] font-semibold"
 				aria-hidden="true"
 			>
-				{memberInitials(member.email)}
+				{memberRowInitials(member)}
 			</span>
 			<div class="grid min-w-0 gap-0.5">
 				<p class="flex min-w-0 items-center gap-2">
@@ -581,6 +587,9 @@
 						<span class="shrink-0 rounded-sm border px-1.5 font-mono text-[11px] tracking-[0.08em] uppercase">You</span>
 					{/if}
 				</p>
+				{#if member.name && member.email}
+					<p class="font-mono text-xs wrap-anywhere text-muted-foreground">{member.email}</p>
+				{/if}
 				{#if !wide.current}
 					<p class="flex flex-wrap gap-x-3">
 						<span>{@render accessLane(member)}</span>

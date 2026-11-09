@@ -139,7 +139,6 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261028000200_personnel_dod_id_occupancy.sql",
     "20261028090000_group_pins_by_id.sql",
     GROUP_TREE_MIGRATION,
-    "20261101090000_platform_error_reporting.sql",
     "20261104090000_roster_pool_spans_read.sql",
     "20261104100000_attribution_column_authority.sql",
     "20261104110000_client_error_report_group_limits.sql",
@@ -198,6 +197,9 @@ POST_TREE_SQL_TESTS = (
     "audit_availability_entries.sql",
     "onboarding_default_template.sql",
     "organization_member_names.sql",
+    "feedback_staff_access.sql",
+    "attribution_column_authority.sql",
+    "platform_error_reporting.sql",
     "client_lifecycle_privileges.sql",
     "client_lifecycle_authority.sql",
 )
@@ -307,7 +309,6 @@ STAGED_UPGRADE_SQL_TESTS = (
     "organization_setup_writes.sql",
     "whats_new_and_announcements.sql",
     "platform_organization_directory.sql",
-    "feedback_staff_access.sql",
     "feedback_reporter_replies.sql",
     "calendar_assignment_atomic_replacement.sql",
     "calendar_assignment_atomic_concurrency.sql",
@@ -320,8 +321,6 @@ STAGED_UPGRADE_SQL_TESTS = (
     "roster_swaps.sql",
     "roster_swaps_concurrency.sql",
     "roster_pool_spans_read.sql",
-    "attribution_column_authority.sql",
-    "platform_error_reporting.sql",
 )
 
 _receipt = None

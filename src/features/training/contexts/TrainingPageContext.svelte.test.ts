@@ -625,7 +625,7 @@ describe('TrainingPageContext', () => {
 			'fetch',
 			vi
 				.fn()
-				.mockResolvedValueOnce(new Response(null, { status: 503 }))
+				.mockResolvedValueOnce(new Response(null, { status: 409 }))
 				.mockResolvedValueOnce(new Response(null, { status: 200 }))
 		);
 		const ctx = makeContext(makeData(), makeOrg());
@@ -1145,13 +1145,16 @@ describe('TrainingPageContext', () => {
 			expect(ctx.selectedViewId).toBeNull();
 		});
 
-		it('keeps the view and the selection when the delete fails', async () => {
+		it.each([
+			[409, 'failed'],
+			[500, 'unconfirmed']
+		])('keeps the view and the selection when the delete answers %i', async (status, outcome) => {
 			trainingViewsStore.load([stored], 'org-1');
-			vi.stubGlobal('fetch', async () => Response.json({ message: 'Internal server error' }, { status: 500 }));
+			vi.stubGlobal('fetch', async () => Response.json({ message: 'Not deleted' }, { status }));
 			const ctx = makeContext(makeData(), makeOrg());
 			ctx.setSelectedViewId('view-1');
 
-			expect(await ctx.deleteView('view-1')).toBe('failed');
+			expect(await ctx.deleteView('view-1')).toBe(outcome);
 
 			expect(trainingViewsStore.items).toEqual([stored]);
 			expect(ctx.selectedViewId).toBe('view-1');
@@ -1176,7 +1179,7 @@ describe('TrainingPageContext', () => {
 			const deleting = ctx.deleteView('view-1');
 			expect([...ctx.savedViewIds]).toEqual([]);
 			expect(ctx.selectedViewId).toBe('view-1');
-			respond(Response.json({ message: 'Internal server error' }, { status: 500 }));
+			respond(Response.json({ message: 'View is in use' }, { status: 409 }));
 
 			expect(await deleting).toBe('failed');
 			expect([...ctx.savedViewIds]).toEqual(['view-1']);

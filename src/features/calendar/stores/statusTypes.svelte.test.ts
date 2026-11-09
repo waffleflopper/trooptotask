@@ -156,13 +156,12 @@ describe('statusTypesStore', () => {
 	});
 
 	describe('remove', () => {
-		it('returns boolean true on success (removeBool)', async () => {
+		it('reports a confirmed delete as deleted', async () => {
 			stubFetch({});
 
 			const result = await statusTypesStore.remove('1');
 
-			expect(result).toBe(true);
-			expect(typeof result).toBe('boolean');
+			expect(result).toBe('deleted');
 		});
 	});
 
@@ -385,7 +384,7 @@ describe('statusTypesStore', () => {
 				})
 			).toBeNull();
 			expect(await statusTypesStore.update('1', { name: 'Annual Leave' })).toBe(false);
-			expect(await statusTypesStore.remove('3')).toBe(false);
+			expect(await statusTypesStore.remove('3')).toBe('not-saved');
 			expect(fetchMock).toHaveBeenCalledOnce();
 
 			respond(reply(200, { success: true }));

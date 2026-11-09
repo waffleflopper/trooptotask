@@ -86,7 +86,7 @@ beforeEach(() => {
 	store.typeWritesBusy = false;
 	store.addType.mockReset();
 	store.updateType.mockReset().mockResolvedValue(true);
-	store.removeType.mockReset().mockResolvedValue(true);
+	store.removeType.mockReset().mockResolvedValue('deleted');
 	store.setCalendarLanes.mockReset().mockResolvedValue({ status: 'saved' });
 	store.saveRosterSettings.mockReset().mockImplementation(async (id: string) => store.types.find((t) => t.id === id));
 	roster.items = [person('p-pike', 'SGT', 'Pike', 'Dana'), person('p-kim', 'SPC', 'Kim', 'Jae-won')];
@@ -214,7 +214,7 @@ describe('CalendarAssignmentSettingsSection', () => {
 	});
 
 	it('shows one message when a delete fails and keeps the type', async () => {
-		store.removeType.mockResolvedValue(false);
+		store.removeType.mockResolvedValue('not-saved');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		renderSection();
 

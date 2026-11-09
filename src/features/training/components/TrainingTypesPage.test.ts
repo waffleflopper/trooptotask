@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Toaster } from 'svelte-sonner';
 import TrainingTypesPage from './TrainingTypesPage.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
@@ -113,6 +114,7 @@ type CatalogStub = {
 	usageHold?: Promise<void>;
 	usageFailures?: number;
 	deleteStatus?: number;
+	deleteReplyLost?: boolean;
 };
 
 /** Answers the archive, usage and delete routes the way the server does. */
@@ -134,6 +136,7 @@ function stubCatalog(options: CatalogStub = {}) {
 			return Response.json({ archivedAt: body.archived ? '2030-03-04T05:06:07Z' : null });
 		}
 		if (method === 'DELETE') {
+			if (options.deleteReplyLost) throw new TypeError('fetch failed');
 			if (options.deleteStatus)
 				return Response.json(
 					{ message: 'This type has records. Archive it instead.' },
@@ -800,6 +803,22 @@ describe('TrainingTypesPage', () => {
 
 				await waitFor(() => expect(errors).toHaveBeenCalledOnce());
 				expect(screen.getByRole('alertdialog')).toBeTruthy();
+				expect(trainingTypesStore.items.map((type) => type.id)).toEqual(['type-1', 'type-3']);
+			});
+
+			it('offers a reload instead of a failure when the delete reply is lost', async () => {
+				stubCatalog({ usage: { 'type-3': 0 }, deleteReplyLost: true });
+				const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+				render(Toaster);
+				mount([cpr, archived(legacyNever)]);
+
+				await fireEvent.click(screen.getByRole('button', { name: /Archived/ }));
+				await fireEvent.click(await screen.findByRole('button', { name: 'Delete SHARP' }));
+				await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+				await fireEvent.click(await screen.findByRole('button', { name: 'Reload' }));
+				expect(reload).toHaveBeenCalledOnce();
+				expect(screen.queryByRole('alertdialog')).toBeNull();
 				expect(trainingTypesStore.items.map((type) => type.id)).toEqual(['type-1', 'type-3']);
 			});
 

@@ -414,7 +414,7 @@ export class TrainingPageContext {
 		return saved;
 	}
 
-	async deleteView(id: string): Promise<'deleted' | 'failed' | 'stale'> {
+	async deleteView(id: string): Promise<'deleted' | 'failed' | 'unconfirmed' | 'stale'> {
 		if (!this.#isCurrentViewsWorkspace()) return 'stale';
 		this.#deletingViewIds.add(id);
 		let result: Awaited<ReturnType<typeof trainingViewsStore.remove>>;
@@ -424,7 +424,8 @@ export class TrainingPageContext {
 			this.#deletingViewIds.delete(id);
 		}
 		if (!this.#isCurrentViewsWorkspace()) return 'stale';
-		if (result === 'error') return 'failed';
+		if (result === 'not-saved') return 'failed';
+		if (result === 'unconfirmed') return 'unconfirmed';
 		if (this.selectedViewId === id) this.setSelectedViewId(null);
 		return 'deleted';
 	}
@@ -453,7 +454,11 @@ export class TrainingPageContext {
 		const training = personnelTrainingsStore.getById(id);
 		const result = await personnelTrainingsStore.remove(id);
 		if (!isCurrent()) return;
-		if (result === 'error') throw new Error('Could not remove training record. Try again.');
+		if (result === 'not-saved') throw new Error('Could not remove training record. Try again.');
+		if (result === 'unconfirmed') {
+			toastStore.unconfirmed("We couldn't confirm the training record was removed. Reload to see whether it was.");
+			return;
+		}
 		if (result === 'approval_required' && training) {
 			const person = this.personnel.find((p) => p.id === training.personnelId);
 			const type = trainingTypesStore.items.find((t) => t.id === training.trainingTypeId);

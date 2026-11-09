@@ -108,4 +108,26 @@ describe('PersonnelFieldDialog', () => {
 		expect(screen.getByRole('list', { name: 'Changes to review' })).toBeTruthy();
 		expect(screen.queryByRole('list', { name: 'Results' })).toBeNull();
 	});
+
+	it('shows the reason with the results when a later batch is refused', async () => {
+		const people = Array.from({ length: 501 }, (_, index) => person(index));
+		const save = vi
+			.fn<NonNullable<RosterFieldSaveDeps['save']>>()
+			.mockImplementationOnce(async (_orgId, ids) => ({
+				field: 'rank',
+				value: 'SSG',
+				updatedIds: ids,
+				refusedIds: [],
+				unavailableIds: []
+			}))
+			.mockRejectedValueOnce(new StoreRequestError('Unknown rank "SSG".', 400, true));
+		open(people, save);
+
+		await saveRank('SSG');
+
+		await screen.findByRole('list', { name: 'Results' });
+		expect([outcomeFor('SGT Medic0, Pat'), outcomeFor('SGT Medic500, Pat')]).toEqual(['Updated', 'Not saved']);
+		expect(screen.getByRole('alert').textContent).toContain('Unknown rank "SSG".');
+		expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull();
+	});
 });

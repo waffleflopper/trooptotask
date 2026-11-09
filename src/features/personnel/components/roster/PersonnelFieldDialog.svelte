@@ -190,6 +190,10 @@
 							Some changes could not be confirmed. Reload to see what saved before trying them again.
 						</Alert.Description>
 					</Alert.Root>
+				{:else if outcome.interrupted}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{outcome.interrupted.message}</Alert.Description>
+					</Alert.Root>
 				{/if}
 				<ul class="max-h-72 divide-y overflow-y-auto rounded-md border text-sm" aria-label="Results">
 					{#each plan.changing as { person } (person.id)}

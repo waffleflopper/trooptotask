@@ -83,13 +83,9 @@ SELECT ok(NOT public.sensitive_file_object_is_readable('counseling-files', 'd800
   'operator cannot call counseling read helper');
 SELECT ok(public.sensitive_file_object_is_writable('counseling-files', 'd8000000-0000-4000-8000-000000000101/counseling-records/d8000000-0000-4000-8000-000000000301/alpha.pdf'),
   'operator retains counseling file write admission');
-SELECT lives_ok($$ INSERT INTO public.personnel_follow_ups
-  (id, organization_id, personnel_id, title, notes, due_date, status, created_by) VALUES
-  ('d8000000-0000-4000-8000-000000000408', 'd8000000-0000-4000-8000-000000000101', 'd8000000-0000-4000-8000-000000000301', 'Operate insert', 'Retained', '2030-02-02', 'open', 'fixture') $$,
+SELECT lives_ok($$ INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, notes, due_date) VALUES ('d8000000-0000-4000-8000-000000000408', 'd8000000-0000-4000-8000-000000000101', 'd8000000-0000-4000-8000-000000000301', 'Operate insert', 'Retained', '2030-02-02') $$,
   'operator retains scoped write admission without direct read');
-SELECT lives_ok($$ INSERT INTO public.counseling_records
-  (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by) VALUES
-  ('d8000000-0000-4000-8000-000000000409', 'd8000000-0000-4000-8000-000000000101', 'd8000000-0000-4000-8000-000000000301', '2030-01-02', 'Operate insert', 'Operate insert', 'fixture') $$,
+SELECT lives_ok($$ INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title) VALUES ('d8000000-0000-4000-8000-000000000409', 'd8000000-0000-4000-8000-000000000101', 'd8000000-0000-4000-8000-000000000301', '2030-01-02', 'Operate insert', 'Operate insert') $$,
   'operator retains scoped counseling insert without direct read');
 SELECT lives_ok($$ INSERT INTO public.leader_notes
   (id, organization_id, personnel_id, author, text) VALUES
@@ -103,9 +99,7 @@ SELECT throws_ok($$ INSERT INTO storage.objects (id, bucket_id, name, owner, own
   ('d8000000-0000-4000-8000-000000000506', 'counseling-files', 'd8000000-0000-4000-8000-000000000101/counseling-records/d8000000-0000-4000-8000-000000000301/operate.pdf', 'd8000000-0000-4000-8000-000000000002', 'd8000000-0000-4000-8000-000000000002', '{}'::jsonb) $$, '42501', NULL, 'operator must use the registered server counseling uploader');
 SELECT throws_ok($$ INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
   ('d8000000-0000-4000-8000-000000000507', 'personnel-documents', 'd8000000-0000-4000-8000-000000000101/personnel/d8000000-0000-4000-8000-000000000301/documents/operate.pdf', 'd8000000-0000-4000-8000-000000000002', 'd8000000-0000-4000-8000-000000000002', '{}'::jsonb) $$, '42501', NULL, 'operator must use the registered server document uploader');
-SELECT throws_ok($$ INSERT INTO public.personnel_follow_ups
-  (organization_id, personnel_id, title, notes, due_date, status, created_by) VALUES
-  ('d8000000-0000-4000-8000-000000000101', 'd8000000-0000-4000-8000-000000000302', 'Denied', 'Denied', '2030-02-02', 'open', 'fixture') $$,
+SELECT throws_ok($$ INSERT INTO public.personnel_follow_ups (organization_id, personnel_id, title, notes, due_date) VALUES ('d8000000-0000-4000-8000-000000000101', 'd8000000-0000-4000-8000-000000000302', 'Denied', 'Denied', '2030-02-02') $$,
   '42501', NULL, 'operator cannot write another Group');
 SELECT is((SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = 'd8000000-0000-4000-8000-000000000408'), 0,
   'operator insert does not expose the saved row through direct SELECT');

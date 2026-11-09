@@ -32,9 +32,14 @@ async function runArchiveRetentionCleanupEndpoint(input: ArchiveRetentionEndpoin
 
 export const GET: RequestHandler = async ({ request }) => {
 	assertCronEndpointAuthorized(request.headers.get('authorization'), [env.CLEANUP_SECRET, env.CRON_SECRET]);
-	const { settings, criticalTasks, assignmentTypes, artifacts, personnel, files, notifications } =
+	const { settings, criticalTasks, assignmentTypes, artifacts, personnel, files, notifications, failStaleDataExports } =
 		createArchiveRetentionSources();
 
+	try {
+		await failStaleDataExports();
+	} catch (exportError) {
+		console.error('[cleanup-archived-records] Failed to expire data exports:', sanitizeErrorForLog(exportError));
+	}
 	return runArchiveRetentionCleanupEndpoint({
 		loadOrgConfigs: () => settings.listConfigurations(),
 		runCleanup: (configs) =>

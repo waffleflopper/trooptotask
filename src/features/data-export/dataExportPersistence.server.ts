@@ -2,8 +2,8 @@ import type { SupabaseClient } from '$lib/server/database';
 
 export interface DataExportLifecycleWriter {
 	createProcessing(input: { requestedBy: string; createdAt: string }): Promise<{ exportId: string }>;
-	markCompleted(input: { exportId: string; completedAt: string; fileSizeBytes: number }): Promise<void>;
-	markFailed(input: { exportId: string; completedAt: string }): Promise<void>;
+	markCompleted(input: { exportId: string; fileSizeBytes: number }): Promise<void>;
+	markFailed(input: { exportId: string }): Promise<void>;
 }
 
 function acknowledgedExportId(data: unknown, expectedId?: string): string {
@@ -32,7 +32,6 @@ export function createSupabaseDataExportLifecycleWriter(
 				.insert({
 					org_id: orgId,
 					requested_by: input.requestedBy,
-					status: 'processing',
 					created_at: input.createdAt
 				})
 				.select('id')
@@ -42,26 +41,23 @@ export function createSupabaseDataExportLifecycleWriter(
 		},
 		async markCompleted(input) {
 			const { data, error } = await client
-				.from('data_exports')
-				.update({
-					status: 'completed',
-					completed_at: input.completedAt,
-					file_size_bytes: input.fileSizeBytes
+				.rpc('finish_data_export', {
+					p_organization_id: orgId,
+					p_export_id: input.exportId,
+					p_status: 'completed',
+					p_file_size_bytes: input.fileSizeBytes
 				})
-				.eq('org_id', orgId)
-				.eq('id', input.exportId)
-				.select('id')
 				.single();
 			if (error) throw new Error(error.message);
 			acknowledgedExportId(data, input.exportId);
 		},
 		async markFailed(input) {
 			const { data, error } = await client
-				.from('data_exports')
-				.update({ status: 'failed', completed_at: input.completedAt })
-				.eq('org_id', orgId)
-				.eq('id', input.exportId)
-				.select('id')
+				.rpc('finish_data_export', {
+					p_organization_id: orgId,
+					p_export_id: input.exportId,
+					p_status: 'failed'
+				})
 				.single();
 			if (error) throw new Error(error.message);
 			acknowledgedExportId(data, input.exportId);

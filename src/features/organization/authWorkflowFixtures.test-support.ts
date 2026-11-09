@@ -131,20 +131,22 @@ export function createOrganizationInvitationEmailOutboxStore() {
 			record.sentAt = sentAt;
 			return record;
 		},
-		async markInvitationEmailDeliveryFailed(id, failedAt, lastError) {
+		async markInvitationEmailDeliveryFailed(id, failedAt, lastError, status = 'failed') {
 			const record = findOutboxRecord(records, id);
-			record.status = 'failed';
+			record.status = status;
 			record.attemptCount += 1;
 			record.lastError = lastError;
 			record.updatedAt = failedAt;
-			record.sentAt = null;
+			record.sentAt = status === 'sent_recording_failed' ? failedAt : null;
 			return record;
 		}
 	};
 	return store;
 }
 
-export function createFakeOrganizationInvitationDeliveryPort(status: 'sent' | 'failed' = 'sent') {
+export function createFakeOrganizationInvitationDeliveryPort(
+	status: 'sent' | 'failed' | 'sent_recording_failed' = 'sent'
+) {
 	const deliveries: unknown[] = [];
 	return {
 		deliveries,
@@ -152,7 +154,7 @@ export function createFakeOrganizationInvitationDeliveryPort(status: 'sent' | 'f
 			deliveries.push(input);
 			return status === 'sent'
 				? { status: 'sent' as const, outbox: { id: 'outbox-1' } }
-				: { status: 'failed' as const, outbox: { id: 'outbox-1' }, error: 'mail provider unavailable' };
+				: { status, outbox: { id: 'outbox-1' }, error: 'mail provider unavailable' };
 		}
 	};
 }

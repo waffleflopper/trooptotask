@@ -237,17 +237,13 @@ WITH removed AS (
 
 -- Stored artifact files stay under their own Organization and Person.
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000002');
-SELECT throws_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path)
-	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-04-01', 'Crafted', 'Crafted', 'fixture',
-		'f4000000-0000-4000-8000-000000000102/counseling-records/f4000000-0000-4000-8000-000000000304/foreign.pdf') $$,
+SELECT throws_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, file_path) VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-04-01', 'Crafted', 'Crafted', 'f4000000-0000-4000-8000-000000000102/counseling-records/f4000000-0000-4000-8000-000000000304/foreign.pdf') $$,
 	'23514', NULL, 'a counseling file path cannot point at another Organization');
 SELECT throws_ok($$ INSERT INTO public.personnel_documents (organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by)
 	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'Crafted',
 		'f4000000-0000-4000-8000-000000000101/personnel/f4000000-0000-4000-8000-000000000301/documents/../../f4000000-0000-4000-8000-000000000302/documents/other.pdf', 128, 'application/pdf', 'fixture') $$,
 	'23514', NULL, 'a document file path cannot traverse to another Person');
-SELECT lives_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path)
-	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-04-01', 'Bound', 'Bound', 'fixture',
-		'f4000000-0000-4000-8000-000000000101/counseling-records/f4000000-0000-4000-8000-000000000301/bound.pdf') $$,
+SELECT lives_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, file_path) VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-04-01', 'Bound', 'Bound', 'f4000000-0000-4000-8000-000000000101/counseling-records/f4000000-0000-4000-8000-000000000301/bound.pdf') $$,
 	'a counseling file path under its own Person is accepted');
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
 SELECT throws_ok($$ UPDATE public.personnel_documents SET personnel_id = 'f4000000-0000-4000-8000-000000000302'

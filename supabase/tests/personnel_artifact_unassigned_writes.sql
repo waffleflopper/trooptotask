@@ -62,8 +62,8 @@ BEGIN
     'artifact writes need no Personnel configure capability');
   FOR artifact IN SELECT * FROM (VALUES
     ('counseling_records', 'title',
-      'INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, uploaded_by)
-       VALUES (pg_temp.id(101), pg_temp.id(301), ''2030-01-01'', ''Inserted'', ''Inserted'', ''fixture'')'),
+      'INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title)
+       VALUES (pg_temp.id(101), pg_temp.id(301), ''2030-01-01'', ''Inserted'', ''Inserted'')'),
     ('leader_notes', 'text',
       'INSERT INTO public.leader_notes (organization_id, personnel_id, author, text)
        VALUES (pg_temp.id(101), pg_temp.id(301), ''fixture'', ''Inserted'')'),

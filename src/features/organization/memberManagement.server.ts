@@ -177,7 +177,10 @@ export interface OrganizationInvitationDeliveryPort {
 		origin: string;
 		requiresAccountSetup: boolean;
 		requiresAccessRequest?: boolean;
-	}): Promise<{ status: 'sent'; outbox: { id: string } } | { status: 'failed'; outbox: { id: string }; error: string }>;
+	}): Promise<
+		| { status: 'sent'; outbox: { id: string } }
+		| { status: 'failed' | 'sent_recording_failed'; outbox: { id: string }; error: string }
+	>;
 }
 
 interface OrganizationSettingsMemberManagementPorts {
@@ -719,7 +722,7 @@ async function deliverInvitationEmail(
 
 	await ports.audit.log({
 		action:
-			delivery.status === 'sent'
+			delivery.status !== 'failed'
 				? input.mode === 'resend'
 					? 'member.invite_email_resent'
 					: 'member.invite_email_sent'
@@ -731,13 +734,14 @@ async function deliverInvitationEmail(
 			email: input.email,
 			invitationId: input.invitationId,
 			outboxId: delivery.outbox.id,
+			...(delivery.status === 'sent_recording_failed' ? { recordingFailed: true } : {}),
 			deliveryMode: input.mode,
 			...(input.rateLimit ? { rateLimit: input.rateLimit } : {})
 		},
 		severity: delivery.status === 'sent' ? 'info' : 'warning'
 	});
 
-	return delivery.status;
+	return delivery.status === 'sent_recording_failed' ? 'sent' : delivery.status;
 }
 
 export async function revokeOrganizationInvitation(

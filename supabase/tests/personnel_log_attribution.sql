@@ -55,39 +55,45 @@ SELECT is(
   (SELECT created_at FROM public.leader_notes WHERE id = 'f9000000-0000-4000-8000-000000000501'),
   '2000-01-01T00:00:00Z'::timestamptz, 'editing a note keeps the time it was written');
 
+-- Fixture bridge models the server's service-role writes with the admitted actor's JWT.
+CREATE FUNCTION pg_temp.server_write(p_sql text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN EXECUTE p_sql; END;
+$$;
+ALTER FUNCTION pg_temp.server_write(text) OWNER TO service_role;
+GRANT EXECUTE ON FUNCTION pg_temp.server_write(text) TO authenticated, service_role;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'f9000000-0000-4000-8000-000000000001', true);
 SELECT set_config('request.jwt.claims', '{"sub":"f9000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 -- Completion: an authenticated writer is recorded as the completer and cannot name someone else.
-INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, created_by, completed_by)
+SELECT pg_temp.server_write($server$INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, created_by, completed_by)
 VALUES ('f9000000-0000-4000-8000-000000000602', 'f9000000-0000-4000-8000-000000000101',
-  'f9000000-0000-4000-8000-000000000301', 'Inserted open with a forged completer', 'fixture', 'f9000000-0000-4000-8000-000000000002');
+  'f9000000-0000-4000-8000-000000000301', 'Inserted open with a forged completer', 'fixture', 'f9000000-0000-4000-8000-000000000002')$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000602'),
   NULL, 'an open follow-up inserted with a completer keeps none');
-INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, status, created_by, completed_at, completed_by)
+SELECT pg_temp.server_write($server$INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, status, created_by, completed_at, completed_by)
 VALUES ('f9000000-0000-4000-8000-000000000603', 'f9000000-0000-4000-8000-000000000101',
-  'f9000000-0000-4000-8000-000000000301', 'Inserted completed', 'completed', 'fixture', now(), 'f9000000-0000-4000-8000-000000000002');
+  'f9000000-0000-4000-8000-000000000301', 'Inserted completed', 'completed', 'fixture', now(), 'f9000000-0000-4000-8000-000000000002')$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000603'),
   'f9000000-0000-4000-8000-000000000001', 'a follow-up inserted as completed records the caller, not the supplied member');
-UPDATE public.personnel_follow_ups
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups
 SET status = 'completed', completed_at = now(), completed_by = 'f9000000-0000-4000-8000-000000000002'
-WHERE id = 'f9000000-0000-4000-8000-000000000601';
+WHERE id = 'f9000000-0000-4000-8000-000000000601'$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000601'),
   'f9000000-0000-4000-8000-000000000001', 'completing a follow-up records the caller, not the supplied member');
-UPDATE public.personnel_follow_ups SET completed_by = 'not-a-member'
-WHERE id = 'f9000000-0000-4000-8000-000000000601';
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups SET completed_by = 'not-a-member'
+WHERE id = 'f9000000-0000-4000-8000-000000000601'$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000601'),
   'f9000000-0000-4000-8000-000000000001', 'rewriting the completer of a completed follow-up changes nothing');
-UPDATE public.personnel_follow_ups SET status = 'open', completed_at = NULL, completed_by = 'f9000000-0000-4000-8000-000000000002'
-WHERE id = 'f9000000-0000-4000-8000-000000000601';
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups SET status = 'open', completed_at = NULL, completed_by = 'f9000000-0000-4000-8000-000000000002'
+WHERE id = 'f9000000-0000-4000-8000-000000000601'$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000601'),
   NULL, 'reopening a follow-up clears the completer even when one is supplied');
 
-UPDATE public.personnel_follow_ups SET status = 'archived', archived_at = now()
-WHERE id = 'f9000000-0000-4000-8000-000000000603';
-UPDATE public.personnel_follow_ups SET status = 'completed', archived_at = NULL
-WHERE id = 'f9000000-0000-4000-8000-000000000603';
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups SET status = 'archived', archived_at = now()
+WHERE id = 'f9000000-0000-4000-8000-000000000603'$server$);
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups SET status = 'completed', archived_at = NULL
+WHERE id = 'f9000000-0000-4000-8000-000000000603'$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000603'),
   'f9000000-0000-4000-8000-000000000001', 'archiving and restoring a completed follow-up keeps its completer');
 
@@ -110,6 +116,11 @@ $$;
 CREATE FUNCTION pg_temp.write_archive(p_table text, p_id uuid, p_archived_at timestamptz, p_archived_by text) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
+  IF p_table IN ('counseling_records', 'personnel_follow_ups') THEN
+    PERFORM pg_temp.server_write(format('UPDATE public.%I SET archived_at = %L, archived_by = %L WHERE id = %L',
+      p_table, p_archived_at, p_archived_by, p_id));
+    RETURN;
+  END IF;
   EXECUTE format('UPDATE public.%I SET archived_at = $2, archived_by = $3 WHERE id = $1', p_table)
     USING p_id, p_archived_at, p_archived_by;
 END;
@@ -147,21 +158,21 @@ VALUES ('f9000000-0000-4000-8000-000000000101', 'f9000000-0000-4000-8000-0000000
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'f9000000-0000-4000-8000-000000000002', true);
 SELECT set_config('request.jwt.claims', '{"sub":"f9000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
-UPDATE public.personnel_follow_ups SET status = 'completed' WHERE id = 'f9000000-0000-4000-8000-000000000603';
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups SET status = 'completed' WHERE id = 'f9000000-0000-4000-8000-000000000603'$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000603'),
   'f9000000-0000-4000-8000-000000000001', 'a status-only write on a completed follow-up keeps its completer');
-UPDATE public.personnel_follow_ups SET status = 'open' WHERE id = 'f9000000-0000-4000-8000-000000000603';
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups SET status = 'open' WHERE id = 'f9000000-0000-4000-8000-000000000603'$server$);
 SELECT is((SELECT completed_by IS NULL AND completed_at IS NULL FROM public.personnel_follow_ups
   WHERE id = 'f9000000-0000-4000-8000-000000000603'),
   true, 'a status-only reopen clears the completion');
-UPDATE public.personnel_follow_ups SET status = 'completed' WHERE id = 'f9000000-0000-4000-8000-000000000603';
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups SET status = 'completed' WHERE id = 'f9000000-0000-4000-8000-000000000603'$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000603'),
   'f9000000-0000-4000-8000-000000000002', 'a status-only recompletion records its caller');
 SELECT isnt((SELECT completed_at FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000603'),
   NULL, 'a status-only recompletion sets the completion time');
-UPDATE public.personnel_follow_ups
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups
 SET status = 'archived', completed_at = now(), completed_by = 'f9000000-0000-4000-8000-000000000002'
-WHERE id = 'f9000000-0000-4000-8000-000000000602';
+WHERE id = 'f9000000-0000-4000-8000-000000000602'$server$);
 SELECT is((SELECT completed_by IS NULL AND completed_at IS NULL FROM public.personnel_follow_ups
   WHERE id = 'f9000000-0000-4000-8000-000000000602'),
   true, 'archiving a follow-up that was never completed cannot attach a completion');
@@ -169,12 +180,12 @@ SELECT is((SELECT completed_by IS NULL AND completed_at IS NULL FROM public.pers
 -- A follow-up completed before completion times were kept has none; a later edit must not invent one.
 RESET ROLE;
 ALTER TABLE public.personnel_follow_ups DISABLE TRIGGER stamp_completed_by;
-INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, status, created_by)
+SELECT pg_temp.server_write($server$INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, status, created_by)
 VALUES ('f9000000-0000-4000-8000-000000000604', 'f9000000-0000-4000-8000-000000000101',
-  'f9000000-0000-4000-8000-000000000301', 'Completed before completion times', 'completed', 'fixture');
+  'f9000000-0000-4000-8000-000000000301', 'Completed before completion times', 'completed', 'fixture')$server$);
 ALTER TABLE public.personnel_follow_ups ENABLE TRIGGER stamp_completed_by;
 SET LOCAL ROLE authenticated;
-UPDATE public.personnel_follow_ups SET title = 'Edited after the upgrade' WHERE id = 'f9000000-0000-4000-8000-000000000604';
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups SET title = 'Edited after the upgrade' WHERE id = 'f9000000-0000-4000-8000-000000000604'$server$);
 SELECT is((SELECT completed_by IS NULL AND completed_at IS NULL FROM public.personnel_follow_ups
   WHERE id = 'f9000000-0000-4000-8000-000000000604'),
   true, 'editing a legacy completed follow-up keeps its missing completion instead of crediting the editor');
@@ -184,9 +195,9 @@ RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '', true);
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 SET LOCAL ROLE service_role;
-UPDATE public.personnel_follow_ups
+SELECT pg_temp.server_write($server$UPDATE public.personnel_follow_ups
 SET status = 'completed', completed_at = now(), completed_by = 'f9000000-0000-4000-8000-000000000002'
-WHERE id = 'f9000000-0000-4000-8000-000000000601';
+WHERE id = 'f9000000-0000-4000-8000-000000000601'$server$);
 SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000601'),
   'f9000000-0000-4000-8000-000000000002', 'the service role supplies the completer');
 SELECT pg_temp.write_archive('leader_notes', 'f9000000-0000-4000-8000-000000000501', now(), 'f9000000-0000-4000-8000-000000000002');

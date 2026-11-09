@@ -134,7 +134,7 @@ SELECT throws_ok($$SELECT public.record_platform_error(gen_random_uuid(),'forged
 SELECT throws_ok($$SELECT * FROM public.list_platform_error_groups('open',25,0)$$,'42501',NULL,'a signed-in account cannot call the admin list');
 SELECT throws_ok($$SELECT public.cleanup_old_platform_errors()$$,'42501',NULL,'a signed-in account cannot call cleanup');
 SELECT throws_ok($$INSERT INTO public.beta_feedback(user_id,user_email,message,error_reference) VALUES ('10000000-0000-4000-8000-000000190001','errors-reporter@example.test','Forged link','a0000000-0000-4000-8000-000000190003')$$,'42501',NULL,'a submitter cannot attach an error reference themselves');
-UPDATE public.beta_feedback SET error_reference='a0000000-0000-4000-8000-000000190003';
+SELECT throws_ok($$UPDATE public.beta_feedback SET error_reference='a0000000-0000-4000-8000-000000190003'$$,'42501',NULL,'a submitter cannot update an error reference');
 SELECT is((SELECT error_reference FROM public.beta_feedback WHERE id='50000000-0000-4000-8000-000000190001'),NULL::uuid,'a submitter cannot link an error reference afterwards');
 RESET ROLE;
 

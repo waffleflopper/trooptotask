@@ -3625,9 +3625,13 @@ describe('updateOrganizationMemberAccess', () => {
 });
 
 describe('invitation credential and governance boundaries', () => {
-	it.each(['sent', 'failed'] as const)(
+	it.each([
+		['sent', 'sent'],
+		['failed', 'failed'],
+		['sent_recording_failed', 'sent']
+	] as const)(
 		'resend with %s delivery never issues setup credentials or changes the invitation grant',
-		async (deliveryStatus) => {
+		async (deliveryStatus, expectedStatus) => {
 			const ctx = createTestContext();
 			const settings = createOrganizationSettingsMemberManagementPort({
 				existingUserAccount: null,
@@ -3649,7 +3653,22 @@ describe('invitation credential and governance boundaries', () => {
 					actorEmail: 'owner@example.com',
 					origin: INVITE_ORIGIN
 				})
-			).toMatchObject({ inviteSuccess: true, inviteDeliveryStatus: deliveryStatus });
+			).toMatchObject({
+				inviteSuccess: true,
+				inviteDeliveryStatus: expectedStatus
+			});
+			expect(ctx.auditPort.events).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						action:
+							deliveryStatus === 'failed' ? 'member.invite_email_resend_delivery_failed' : 'member.invite_email_resent',
+						severity: deliveryStatus === 'sent' ? 'info' : 'warning',
+						...(deliveryStatus === 'sent_recording_failed'
+							? { details: expect.objectContaining({ recordingFailed: true }) }
+							: {})
+					})
+				])
+			);
 			expect(issuance.setupLinkRequests).toEqual([]);
 			expect(issuance.setupDeliveries).toEqual([]);
 			expect(settings.accessRequestBridges).toEqual([]);

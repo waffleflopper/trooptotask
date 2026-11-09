@@ -342,7 +342,8 @@ function collectGroupScopeMigrationIssues(migrations, reviewed = GROUP_SCOPE_REV
 			.replace(/--[^\n]*/g, ' ')
 			.replace(/"/g, '')
 			.toLowerCase()
-			.replace(storedGroupReferenceValidation, '');
+			.replace(storedGroupReferenceValidation, '')
+			.replace(/(?<=^|;)\s*(?:grant|revoke)\b[^;]*;/g, ' ;');
 		if (!reviewed.has(file) && /\baccess_scope_group_ids\b/.test(sql.replace(subtreeScope, ''))) {
 			issues.push(
 				`Exact Group grant comparison: ${file}. Use groups.path && access_scope_group_ids for subtree coverage, or list a reviewed storage-only migration in GROUP_SCOPE_REVIEWED_MIGRATIONS.`

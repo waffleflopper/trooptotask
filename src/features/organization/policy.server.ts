@@ -159,12 +159,13 @@ export async function updateOrganizationSettings(
 		);
 		if (result.status === 'failed') fail(500, result.message);
 		if (result.status === 'saved') {
-			await ports.audit.log({
-				action: 'organization.settings_updated',
-				resourceType: 'organization',
-				resourceId: ports.auth.orgId,
-				details: { ...details, ...write.details }
-			});
+			if (featureSwitch === undefined)
+				await ports.audit.log({
+					action: 'organization.settings_updated',
+					resourceType: 'organization',
+					resourceId: ports.auth.orgId,
+					details: { ...details, ...write.details }
+				});
 			break;
 		}
 		if (attempt === SWITCH_WRITE_ATTEMPTS)

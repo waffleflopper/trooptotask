@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 function provider(initialRows: Row[] = []) {
 	const rows = structuredClone(initialRows);
 	const state = {
-		reject: null as 'POST' | 'PATCH' | null,
+		reject: null as 'insert' | 'finish' | null,
 		acknowledgment: null as { data: unknown } | null,
 		requests: 0
 	};
@@ -23,8 +23,8 @@ function provider(initialRows: Row[] = []) {
 				if (
 					++state.requests > 8 ||
 					url.origin !== 'http://lifecycle.invalid' ||
-					url.pathname !== '/rest/v1/data_exports' ||
-					!['POST', 'PATCH'].includes(request.method)
+					!['/rest/v1/data_exports', '/rest/v1/rpc/finish_data_export'].includes(url.pathname) ||
+					request.method !== 'POST'
 				)
 					throw new Error('Unexpected lifecycle provider operation');
 				if (
@@ -32,13 +32,15 @@ function provider(initialRows: Row[] = []) {
 					request.headers.get('apikey') !== 'ordinary-request-key'
 				)
 					throw new Error('Lifecycle write must retain ordinary request authority');
-				if (state.reject === request.method)
+				const operation = url.pathname.endsWith('/data_exports') ? 'insert' : 'finish';
+				if (state.reject === operation)
 					return Response.json({ code: '42501', message: 'Lifecycle write denied' }, { status: 403 });
 				const body: Row = await request.json();
 				let affected: Row[];
-				if (request.method === 'POST') {
+				if (operation === 'insert') {
 					const row = {
 						id: `export-${rows.length + 1}`,
+						status: 'processing',
 						completed_at: null,
 						file_size_bytes: null,
 						...body
@@ -46,17 +48,17 @@ function provider(initialRows: Row[] = []) {
 					rows.push(row);
 					affected = [row];
 				} else {
-					affected = rows.filter((row) => {
-						for (const [column, filter] of url.searchParams) {
-							if (column === 'select') continue;
-							if (!filter.startsWith('eq.')) throw new Error('Unexpected lifecycle predicate');
-							if (String(row[column]) !== filter.slice(3)) return false;
-						}
-						return true;
-					});
-					for (const row of affected) Object.assign(row, body);
+					affected = rows.filter(
+						(row) => row.id === body.p_export_id && row.org_id === body.p_organization_id && row.status === 'processing'
+					);
+					for (const row of affected)
+						Object.assign(row, {
+							status: body.p_status,
+							completed_at: '2026-10-05T10:00:01.654321Z',
+							...(body.p_status === 'completed' ? { file_size_bytes: body.p_file_size_bytes } : {})
+						});
 				}
-				if (!request.headers.get('prefer')?.split(',').includes('return=representation'))
+				if (operation === 'insert' && !request.headers.get('prefer')?.split(',').includes('return=representation'))
 					return new Response(null, { status: 204 });
 				const fields = url.searchParams.get('select');
 				const projected = affected.map((row) =>
@@ -100,12 +102,11 @@ const terminalWrites = [
 	{
 		name: 'completion',
 		write: (writer: DataExportLifecycleWriter, exportId: string) =>
-			writer.markCompleted({ exportId, completedAt: '2026-10-05T10:00:01.654321Z', fileSizeBytes: 3072 })
+			writer.markCompleted({ exportId, fileSizeBytes: 3072 })
 	},
 	{
 		name: 'failure',
-		write: (writer: DataExportLifecycleWriter, exportId: string) =>
-			writer.markFailed({ exportId, completedAt: '2026-10-05T10:00:02.987654Z' })
+		write: (writer: DataExportLifecycleWriter, exportId: string) => writer.markFailed({ exportId })
 	}
 ];
 
@@ -122,10 +123,10 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 		).resolves.toEqual({ exportId: 'export-2' });
 		await writerA.markCompleted({
 			exportId: 'export-1',
-			completedAt: '2026-10-05T10:00:01.654321Z',
+
 			fileSizeBytes: 3072
 		});
-		await writerB.markFailed({ exportId: 'export-2', completedAt: '2026-10-05T11:00:01.123456Z' });
+		await writerB.markFailed({ exportId: 'export-2' });
 		expect(rows).toEqual([
 			{
 				id: 'export-1',
@@ -142,7 +143,7 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 				requested_by: 'admin-b',
 				status: 'failed',
 				created_at: '2026-10-05T11:00:00.654321Z',
-				completed_at: '2026-10-05T11:00:01.123456Z',
+				completed_at: '2026-10-05T10:00:01.654321Z',
 				file_size_bytes: null
 			}
 		]);
@@ -167,23 +168,23 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 		]);
 	});
 
-	it('can mark a completed export failed while retaining its saved file size and neighboring history', async () => {
+	it('rejects failure of a completed export while retaining its saved file size and neighboring history', async () => {
 		const { client, rows } = provider(initialRows);
 		const writer = createSupabaseDataExportLifecycleWriter(client, 'org-a');
 		await writer.markCompleted({
 			exportId: 'owned-export',
-			completedAt: '2026-10-05T10:00:01.654321Z',
+
 			fileSizeBytes: 3072
 		});
-		await writer.markFailed({ exportId: 'owned-export', completedAt: '2026-10-05T10:00:02.987654Z' });
+		await expect(writer.markFailed({ exportId: 'owned-export' })).rejects.toThrow('Expected one saved export');
 		expect(rows).toEqual([
 			{
 				id: 'owned-export',
 				org_id: 'org-a',
 				requested_by: 'admin-a',
-				status: 'failed',
+				status: 'completed',
 				created_at: '2026-10-05T10:00:00.123456Z',
-				completed_at: '2026-10-05T10:00:02.987654Z',
+				completed_at: '2026-10-05T10:00:01.654321Z',
 				file_size_bytes: 3072
 			},
 			{
@@ -212,7 +213,7 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 
 	it('propagates an insert rejection without recording processing history', async () => {
 		const { client, rows, state } = provider();
-		state.reject = 'POST';
+		state.reject = 'insert';
 		await expect(
 			createSupabaseDataExportLifecycleWriter(client, 'org-a').createProcessing({
 				requestedBy: 'admin-a',
@@ -224,7 +225,7 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 
 	it.each(terminalWrites)('propagates a $name rejection without changing saved history', async ({ write }) => {
 		const { client, rows, state } = provider(initialRows);
-		state.reject = 'PATCH';
+		state.reject = 'finish';
 		await expect(write(createSupabaseDataExportLifecycleWriter(client, 'org-a'), 'owned-export')).rejects.toThrow(
 			'Lifecycle write denied'
 		);
@@ -245,8 +246,13 @@ describe('DataExport lifecycle persistence with ordinary request authority', () 
 		await expect(
 			writer.createProcessing({ requestedBy: 'admin-a', createdAt: '2026-10-05T12:00:00Z' })
 		).rejects.toThrow('invalid acknowledgment');
-		for (const { write } of terminalWrites)
-			await expect(write(writer, 'owned-export')).rejects.toThrow('invalid acknowledgment');
+		for (const { write } of terminalWrites) {
+			const fresh = provider(initialRows);
+			fresh.state.acknowledgment = { data };
+			await expect(
+				write(createSupabaseDataExportLifecycleWriter(fresh.client, 'org-a'), 'owned-export')
+			).rejects.toThrow('invalid acknowledgment');
+		}
 	});
 
 	it.each(terminalWrites)('rejects a $name acknowledgment for a different export', async ({ write }) => {

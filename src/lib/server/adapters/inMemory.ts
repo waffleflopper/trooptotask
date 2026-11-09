@@ -28,6 +28,7 @@ import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '
 import {
 	loadOrganizationMemberLabels,
 	toOrganizationPolicyColumns,
+	type OrganizationMemberLabelReader,
 	type OrganizationMemberLabelRow,
 	type OrganizationUnitCountsPort
 } from '$features/organization/index.server';
@@ -439,6 +440,32 @@ function unavailableCriticalTasksReadModel(): CriticalTasksReadModelPort {
 	return {
 		async findLatestCompletions() {
 			throw new Error('Bind the owned Critical Tasks read model in this test context');
+		}
+	};
+}
+
+/** The Organization's own name for a member. The fixture store holds no account profiles, so it never reports one. */
+export function createStoreMemberLabelReader(store: FixtureRowStore): OrganizationMemberLabelReader {
+	return {
+		async findMembers(orgId, userIds) {
+			const rows = await store.findMany<{
+				user_id: string;
+				email?: string | null;
+				org_rank?: string | null;
+				org_first_name?: string | null;
+				org_last_name?: string | null;
+			}>('organization_memberships', orgId, undefined, { inFilters: { user_id: userIds } });
+			return rows.map((row): OrganizationMemberLabelRow => {
+				const named = row.org_first_name != null || row.org_last_name != null;
+				return {
+					user_id: row.user_id,
+					rank: named ? (row.org_rank ?? null) : null,
+					first_name: named ? (row.org_first_name ?? null) : null,
+					last_name: named ? (row.org_last_name ?? null) : null,
+					email: row.email ?? null,
+					name_source: named ? 'organization' : null
+				};
+			});
 		}
 	};
 }
@@ -1711,17 +1738,15 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 				undefined,
 				{ select: 'id, user_id, email, role', orderBy: [{ column: 'id', ascending: true }] }
 			),
+		async listMemberNames(orgId) {
+			const members = await store.findMany<{ user_id: string }>('organization_memberships', orgId.toLowerCase());
+			return createStoreMemberLabelReader(store).findMembers(
+				orgId.toLowerCase(),
+				members.map((member) => member.user_id)
+			);
+		},
 		findMemberLabels: (orgId, userIds) =>
-			loadOrganizationMemberLabels(
-				{
-					findMembers: (memberOrgId, ids) =>
-						store.findMany<OrganizationMemberLabelRow>('organization_memberships', memberOrgId, undefined, {
-							inFilters: { user_id: ids }
-						})
-				},
-				orgId,
-				userIds
-			),
+			loadOrganizationMemberLabels(createStoreMemberLabelReader(store), orgId, userIds),
 		async findPolicies(orgId) {
 			const row = await store.findOne<{
 				archive_retention_months?: number | null;

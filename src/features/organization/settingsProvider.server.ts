@@ -5,7 +5,7 @@ import type {
 	OrganizationPendingInvitationFact,
 	OrganizationOwnershipCandidateMembershipRow
 } from './organizationSettingsTypes';
-import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from './memberLabels.server';
+import { loadOrganizationMemberLabels, readOrganizationMemberRows } from './memberLabels.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { Database, SupabaseClient } from '$lib/server/database';
 import type {
@@ -120,28 +120,10 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 				);
 			return (data ?? []).map(mapOrganizationOwnershipCandidateMembershipRow);
 		},
+		listMemberNames: (orgId) => readOrganizationMemberRows(supabase, orgId.toLowerCase()),
 		findMemberLabels: (orgId, userIds) =>
 			loadOrganizationMemberLabels(
-				{
-					async findMembers(memberOrgId, ids) {
-						const rows: OrganizationMemberLabelRow[] = [];
-						for (let from = 0; from < ids.length; from += 100) {
-							const { data, error } = await selectAllSupabaseRows<OrganizationMemberLabelRow>(
-								async (pageFrom, pageTo) =>
-									supabase
-										.from('organization_memberships')
-										.select('*')
-										.eq('organization_id', memberOrgId.toLowerCase())
-										.in('user_id', ids.slice(from, from + 100))
-										.order('id')
-										.range(pageFrom, pageTo)
-							);
-							if (error) throw new Error((error as { message: string }).message);
-							rows.push(...(data ?? []));
-						}
-						return rows;
-					}
-				},
+				{ findMembers: (memberOrgId, ids) => readOrganizationMemberRows(supabase, memberOrgId.toLowerCase(), ids) },
 				orgId,
 				userIds
 			),

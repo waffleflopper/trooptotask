@@ -36,7 +36,8 @@ describe('Personnel note cursor delivery', () => {
 					id: `membership-${index}`,
 					organization_id: ctx.auth.orgId,
 					user_id: row.author,
-					display_name: `Leader ${index}`
+					org_first_name: 'Leader',
+					org_last_name: String(index)
 				}))
 			);
 			const read = ctx.store.findMany.bind(ctx.store);

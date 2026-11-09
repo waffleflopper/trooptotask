@@ -153,8 +153,8 @@ describe('Soldier Data Sheet read access', () => {
 				id: 'membership-1',
 				organization_id: ctx.auth.orgId,
 				user_id: savedSheet.updated_by,
-				first_name: 'Pat',
-				last_name: 'Lee'
+				org_first_name: 'Pat',
+				org_last_name: 'Lee'
 			}
 		]);
 		await expect(readPersonnelExtendedInfo(ctx, 'person-1')).resolves.toMatchObject({

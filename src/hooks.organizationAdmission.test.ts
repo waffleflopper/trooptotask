@@ -11,6 +11,7 @@ import { PATCH as updateLeaderNote } from './routes/org/[orgId]/api/personnel/[i
 import { createRootOrgLayoutLoad } from './routes/org/[orgId]/rootOrgLayoutLoad.server';
 import { buildLayoutRequest } from '$lib/server/adapters/requestContexts.server';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
+import { memberLabelRpcRows } from '$lib/test-support/memberLabelRpc';
 
 const { serverClient, adminClient } = vi.hoisted(() => ({ serverClient: vi.fn(), adminClient: vi.fn() }));
 vi.mock('@supabase/ssr', () => ({ createServerClient: serverClient }));
@@ -92,6 +93,10 @@ function fixture() {
 					? Response.json({ code: 'PGRST116' }, { status: 406 })
 					: Response.json([]);
 		}
+		if (url.pathname.endsWith('/rpc/organization_member_labels'))
+			return Response.json(
+				memberLabelRpcRows(tables.organization_memberships, tables.user_profiles, JSON.parse(String(init?.body)))
+			);
 		if (url.pathname.endsWith('/rpc/record_personnel_record_open')) return Response.json(null);
 		const table = url.pathname.split('/').at(-1)!;
 		if (!(table in tables)) throw new Error(`Unexpected table ${table}`);
@@ -147,7 +152,7 @@ function fixture() {
 	const client = {
 		from: provider.from.bind(provider),
 		rpc: vi.fn((name: string, args?: never) =>
-			name === 'read_request_member_access'
+			name === 'read_request_member_access' || name === 'organization_member_labels'
 				? provider.rpc(name, args)
 				: name === 'get_current_session_started_at'
 					? { setHeader: () => Promise.resolve({ data: now, error: null }) }
@@ -231,7 +236,6 @@ describe('Organization request suspension admission', () => {
 describe('Organization admission denial and recovery', () => {
 	it('admits the current leader-note GET and blocks it before dispatch when status is unsafe', async () => {
 		const f = fixture();
-		f.tables.organization_memberships[0].display_name = '1SG Alvarez';
 		const noteEvent = () => {
 			const request = f.event('alpha', 'GET', `/api/personnel/${PERSON_A}/leader-notes`);
 			request.params.id = PERSON_A;
@@ -245,7 +249,7 @@ describe('Organization admission denial and recovery', () => {
 			expect.objectContaining({
 				id: NOTE_A,
 				personnelId: PERSON_A,
-				author: '1SG Alvarez',
+				author: 'SGT Emma Hayes',
 				text: 'Range preparation complete'
 			})
 		]);

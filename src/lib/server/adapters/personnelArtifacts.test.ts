@@ -53,7 +53,7 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 	const client = createClient('http://artifacts.invalid', 'synthetic-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
-			fetch: async (input) => {
+			fetch: async (input, init) => {
 				const url = new URL(String(input));
 				expect(url.origin).toBe('http://artifacts.invalid');
 				const table = url.pathname.split('/').pop()!;
@@ -69,7 +69,7 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 					return Response.json({ message }, { status });
 				};
 				if (receipt.urlBytes > 8192) return reject(414, 'URI too long');
-				expect(url.searchParams.get('organization_id')).toBe(`eq.${ORG}`);
+				if (table !== 'organization_member_labels') expect(url.searchParams.get('organization_id')).toBe(`eq.${ORG}`);
 				if (table === 'personnel') {
 					expect(url.searchParams.get('id')).toBe(`eq.${PERSON}`);
 					return Response.json({ id: PERSON, group_id: null });
@@ -85,19 +85,28 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 						[...rows].reverse().slice(offset, offset + Math.min(1000, Number(url.searchParams.get('limit') ?? 1000)))
 					);
 				}
-				if (table === 'organization_memberships') {
-					const ids = url.searchParams.get('user_id')!.slice(4, -1).split(',');
-					receipt.ids = ids;
+				if (table === 'organization_member_labels') {
+					const body = JSON.parse(String(init?.body)) as { p_organization_id: string; p_user_ids: string[] };
+					expect(body.p_organization_id).toBe(ORG);
+					receipt.ids = body.p_user_ids;
 					labelCalls++;
 					if (failure === 'label-page' && labelCalls > 1) return reject(400, 'Later contributor page unavailable');
 					return Response.json(
 						rows
-							.filter((row) => ids.includes(row.uploaded_by))
+							.filter((row) => body.p_user_ids.includes(row.uploaded_by))
 							.map((row) => ({
 								user_id: row.uploaded_by,
-								display_name: row.title.replace('Observation', 'Leader')
+								rank: null,
+								first_name: 'Leader',
+								last_name: row.title.replace('Observation ', ''),
+								email: null,
+								name_source: 'organization'
 							}))
-							.slice(0, 1000)
+							.slice(
+								Number(url.searchParams.get('offset') ?? 0),
+								Number(url.searchParams.get('offset') ?? 0) +
+									Math.min(1000, Number(url.searchParams.get('limit') ?? 1000))
+							)
 					);
 				}
 				throw new Error(`Unexpected provider table ${table}`);
@@ -180,7 +189,7 @@ describe('Personnel artifact provider delivery', () => {
 		await expect(families[1].list(createPersonnelArtifactDeliveryContext(run.ctx), PERSON)).rejects.toThrow(
 			'Later artifact page unavailable'
 		);
-		expect(run.receipts.some((receipt) => receipt.table === 'organization_memberships')).toBe(false);
+		expect(run.receipts.some((receipt) => receipt.table === 'organization_member_labels')).toBe(false);
 	});
 
 	it('propagates a later contributor failure instead of returning partly hydrated history', async () => {

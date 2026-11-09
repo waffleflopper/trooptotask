@@ -17,6 +17,8 @@ export interface OnboardingTemplateWorkspaceOrganization {
 	actorId: string;
 	routeSegment: string;
 	canConfigure: boolean;
+	/** Only an Organization owner or admin may choose the default template. */
+	canSetDefault: boolean;
 }
 
 export interface OnboardingTemplateDraft {
@@ -99,6 +101,10 @@ export interface OnboardingTemplateWorkspaceAdapter {
 	createTemplate(input: CreateTemplateInput): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>>;
 	updateTemplate(input: UpdateTemplateInput): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>>;
 	deleteTemplate(id: string): Promise<OnboardingTemplateWorkspaceResult<{ success: true }>>;
+	/** A null template clears the default. */
+	setDefaultTemplate(
+		templateId: string | null
+	): Promise<OnboardingTemplateWorkspaceResult<{ templateId: string | null }>>;
 	duplicateTemplate(
 		sourceTemplateId: string,
 		requestId: string
@@ -118,7 +124,9 @@ export interface OnboardingTemplateWorkspaceModel {
 	selectedTemplateSteps: OnboardingTemplateStep[];
 	trainingTypes: TrainingTypeLabel[];
 	canMutate: boolean;
+	canSetDefault: boolean;
 	templateActionDisabled: boolean;
+	settingDefault: boolean;
 	creatingTemplate: boolean;
 	editingTemplate: boolean;
 	addingStep: boolean;
@@ -237,6 +245,13 @@ export function createOnboardingTemplateWorkspaceHttpAdapter(
 				body: JSON.stringify({ id })
 			});
 		},
+		setDefaultTemplate(templateId) {
+			return requestJson(fetchImpl, routeUrl('/api/onboarding-templates/default'), {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ templateId })
+			});
+		},
 		duplicateTemplate(sourceTemplateId, requestId) {
 			return requestJson(fetchImpl, routeUrl(`/api/onboarding-templates/${sourceTemplateId}/duplicate`), {
 				method: 'POST',
@@ -280,7 +295,8 @@ export class OnboardingTemplateWorkspace {
 		orgId: '',
 		actorId: '',
 		routeSegment: '',
-		canConfigure: false
+		canConfigure: false,
+		canSetDefault: false
 	});
 	templateDraft = $state<OnboardingTemplateDraft>(emptyTemplateDraft());
 	stepDraft = $state<OnboardingTemplateStepDraft>(emptyStepDraft());
@@ -298,6 +314,7 @@ export class OnboardingTemplateWorkspace {
 	#confirmDelete = $state<OnboardingTemplateDeleteTarget | null>(null);
 	#savingTemplate = $state(false);
 	#savingStep = $state(false);
+	#settingDefault = $state(false);
 	#duplicatingTemplateId = $state<string | null>(null);
 	#duplicatingRequestId = $state<string | null>(null);
 	#pendingDuplicates = $state.raw<PendingTemplateDuplicate[]>([]);
@@ -343,7 +360,9 @@ export class OnboardingTemplateWorkspace {
 			selectedTemplateSteps: this.selectedTemplateSteps,
 			trainingTypes: this.trainingTypes,
 			canMutate: this.canMutate,
+			canSetDefault: this.canSetDefault,
 			templateActionDisabled: this.templateActionDisabled,
+			settingDefault: this.#settingDefault,
 			creatingTemplate: this.#creatingTemplate,
 			editingTemplate: this.#editingTemplate,
 			addingStep: this.#addingStep,
@@ -396,8 +415,13 @@ export class OnboardingTemplateWorkspace {
 		return this.organization.canConfigure;
 	}
 
+	get canSetDefault(): boolean {
+		return this.canMutate && this.organization.canSetDefault;
+	}
+
 	get templateActionDisabled(): boolean {
 		return (
+			this.#settingDefault ||
 			this.#creatingTemplate ||
 			this.#editingTemplate ||
 			this.#addingStep ||
@@ -432,7 +456,8 @@ export class OnboardingTemplateWorkspace {
 		const changed =
 			this.organization.orgId !== organization.orgId ||
 			this.organization.actorId !== organization.actorId ||
-			this.organization.canConfigure !== organization.canConfigure;
+			this.organization.canConfigure !== organization.canConfigure ||
+			this.organization.canSetDefault !== organization.canSetDefault;
 		if (changed) {
 			this.#organizationRevision += 1;
 			this.#templates = [];
@@ -445,6 +470,7 @@ export class OnboardingTemplateWorkspace {
 			this.cancelDelete();
 			this.#mobileDetailOpen = false;
 			this.#savingStep = false;
+			this.#settingDefault = false;
 			this.#duplicatingTemplateId = null;
 			this.#duplicatingRequestId = null;
 		}
@@ -546,6 +572,31 @@ export class OnboardingTemplateWorkspace {
 			return result;
 		} finally {
 			if (revision === this.#organizationRevision) this.#savingTemplate = false;
+		}
+	}
+
+	/** Makes the template the Organization's default, or clears the default when `templateId` is null. */
+	async setDefaultTemplate(templateId: string | null): Promise<OnboardingTemplateWorkspaceResult> {
+		if (!this.canSetDefault || this.templateActionDisabled)
+			return this.rememberError({
+				ok: false,
+				error: { code: 'read_only', message: 'Only an Organization admin can set the default template' }
+			});
+		const revision = this.#organizationRevision;
+		this.#settingDefault = true;
+		this.#error = null;
+		try {
+			const result = await this.adapter.setDefaultTemplate(templateId);
+			if (revision !== this.#organizationRevision) return organizationChanged();
+			if (!result.ok) return this.rememberError(result);
+			this.#templates = this.#templates.map((template) => ({
+				...template,
+				isDefault: template.id === result.value.templateId
+			}));
+			this.syncHydratedStore();
+			return { ok: true, value: undefined };
+		} finally {
+			if (revision === this.#organizationRevision) this.#settingDefault = false;
 		}
 	}
 
@@ -776,7 +827,9 @@ export class OnboardingTemplateWorkspace {
 	getTemplateSummary(template: OnboardingTemplate, activePackets = 0): string {
 		const stepCount = this.#steps.filter((step) => step.templateId === template.id).length;
 		const steps = `${stepCount} step${stepCount === 1 ? '' : 's'}`;
-		return `${steps} · ${activePackets > 0 ? `${activePackets} active packet${activePackets === 1 ? '' : 's'}` : 'no active packets'}`;
+		const packets =
+			activePackets > 0 ? `${activePackets} active packet${activePackets === 1 ? '' : 's'}` : 'no active packets';
+		return `${template.isDefault ? 'Default · ' : ''}${steps} · ${packets}`;
 	}
 
 	private async deleteTemplate(templateId: string): Promise<OnboardingTemplateWorkspaceResult> {

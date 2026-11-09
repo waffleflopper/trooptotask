@@ -10,6 +10,7 @@ import {
 	duplicateOnboardingTemplate,
 	updateOnboardingTemplate,
 	reorderOnboardingTemplateSteps,
+	setDefaultOnboardingTemplate,
 	updateOnboardingTemplateStep
 } from './onboardingTemplateOperations.server';
 
@@ -623,5 +624,74 @@ describe('Onboarding configuration admission', () => {
 		await expect(
 			reorderOnboardingTemplateSteps(ctx, { templateId: MISSING_TEMPLATE, orderedStepIds: [] })
 		).rejects.toMatchObject({ status: 404 });
+	});
+});
+
+describe('Default onboarding template', () => {
+	const SECOND_TEMPLATE = '00000000-0000-4000-8000-0000000000a2';
+	const configurator = { role: 'member', isPrivileged: false } as const;
+
+	function defaults(ctx: ReturnType<typeof configurationContext>) {
+		return ctx.onboardingCatalog
+			.listTemplates()
+			.then((templates) => templates.filter((template) => template.isDefault).map((template) => template.name));
+	}
+
+	function twoTemplates(auth?: Parameters<typeof createWritePortsContext>[0]) {
+		const ctx = createWritePortsContext(auth);
+		ctx.store.seed('onboarding_templates', [
+			{ id: TEMPLATE_1, name: 'Working template', organization_id: 'test-org' },
+			{ id: SECOND_TEMPLATE, name: 'Second template', organization_id: 'test-org' }
+		]);
+		return ctx;
+	}
+
+	it('starts with no default, makes one, and moves it to another template', async () => {
+		const ctx = twoTemplates();
+		expect(await defaults(ctx)).toEqual([]);
+
+		await expect(setDefaultOnboardingTemplate(ctx, { templateId: TEMPLATE_1 })).resolves.toEqual({
+			templateId: TEMPLATE_1
+		});
+		expect(await defaults(ctx)).toEqual(['Working template']);
+
+		await setDefaultOnboardingTemplate(ctx, { templateId: SECOND_TEMPLATE });
+		expect(await defaults(ctx)).toEqual(['Second template']);
+	});
+
+	it('clears the default when given no template', async () => {
+		const ctx = twoTemplates();
+		await setDefaultOnboardingTemplate(ctx, { templateId: TEMPLATE_1 });
+
+		await expect(setDefaultOnboardingTemplate(ctx, { templateId: null })).resolves.toEqual({ templateId: null });
+		expect(await defaults(ctx)).toEqual([]);
+	});
+
+	it('refuses a member who may configure templates but is not an owner or admin, and changes nothing', async () => {
+		const ctx = twoTemplates({
+			auth: { ...configurator, capabilityMap: { ...operateOnlyCapabilityMap, onboarding: 'configure' } }
+		});
+
+		await expect(setDefaultOnboardingTemplate(ctx, { templateId: TEMPLATE_1 })).rejects.toMatchObject({ status: 403 });
+		expect(await defaults(ctx)).toEqual([]);
+	});
+
+	it('refuses a member without Onboarding configure', async () => {
+		const ctx = twoTemplates({ auth: { ...configurator, capabilityMap: operateOnlyCapabilityMap } });
+
+		await expect(setDefaultOnboardingTemplate(ctx, { templateId: TEMPLATE_1 })).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('answers an unknown template with 404 and a malformed id with 400, leaving the default in place', async () => {
+		const ctx = twoTemplates();
+		await setDefaultOnboardingTemplate(ctx, { templateId: TEMPLATE_1 });
+
+		await expect(setDefaultOnboardingTemplate(ctx, { templateId: MISSING_TEMPLATE })).rejects.toMatchObject({
+			status: 404
+		});
+		await expect(setDefaultOnboardingTemplate(ctx, { templateId: 'not-a-uuid' })).rejects.toMatchObject({
+			status: 400
+		});
+		expect(await defaults(ctx)).toEqual(['Working template']);
 	});
 });

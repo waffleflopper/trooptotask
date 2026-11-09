@@ -10,7 +10,7 @@ import type {
 
 export const TEMPLATE_NAME_EXISTS_MESSAGE = 'An Onboarding template with that name already exists.';
 
-export const TEMPLATE_FIELDS = 'id, organization_id, name, description, created_at';
+export const TEMPLATE_FIELDS = 'id, organization_id, name, description, created_at, is_default';
 export const STEP_FIELDS =
 	'id, organization_id, template_id, name, description, step_type, training_type_id, stages, sort_order, created_at';
 export const PROGRESS_FIELDS =
@@ -23,6 +23,7 @@ export interface TemplateRow {
 	name: string;
 	description: string | null;
 	created_at: string | null;
+	is_default: boolean;
 }
 export interface StepRow {
 	id: string;
@@ -67,7 +68,8 @@ export function toTemplate(row: TemplateRow): OnboardingTemplate {
 		orgId: row.organization_id,
 		name: row.name,
 		description: row.description,
-		createdAt: row.created_at
+		createdAt: row.created_at,
+		isDefault: row.is_default === true
 	};
 }
 export function toStep(row: StepRow): SavedOnboardingTemplateStep {

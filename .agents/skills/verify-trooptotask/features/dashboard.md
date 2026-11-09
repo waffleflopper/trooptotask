@@ -477,9 +477,10 @@ On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out
    `1 Soldier expired and 2 missing training.` Reload and read again.
 4. **Start onboarding.** Arm `arm-hold PAGE onboarding/start-options` and open it: a skeleton dialog reads
    `Loading onboarding templates.` with only `Cancel`. Arm `arm-fail` on the same family and open it again:
-   `Could not open Start Onboarding` with `Try again`, which then loads the dialog. Choose a Member and note the
-   template's active steps and that Person's completed Training. Arm `arm-fail PAGE onboarding` and choose
-   `Start Onboarding`: `Onboarding not started` shows inline. Restore and start. Arriving and leaving counts the new
+   `Could not open Start Onboarding` with `Try again`, which then loads the dialog. Choose a Member (the picker takes
+   several; the button reads `Start onboarding for N people`) and note the template's active steps and each Person's
+   completed Training. Arm `arm-fail PAGE onboarding` and choose
+   `Start onboarding for 1 person`: `Onboarding not started` shows inline. Restore and start. Arriving and leaving counts the new
    packet at once (`1 Soldier in onboarding.` on the plain fixture, `2 Soldiers in onboarding.` after `seed dashboard`).
    One `GET api/dashboard/summary` refreshes Training currency for the updated population. The returned completion stays
    visible while that read is pending and after a stale summary; a failed refresh keeps the last values. Reload and read

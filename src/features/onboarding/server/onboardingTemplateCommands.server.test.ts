@@ -12,7 +12,14 @@ const COPY = '00000000-0000-4000-8000-000000000302';
 const REQUEST = '00000000-0000-4000-8000-000000009001';
 const TIME = '2026-10-13T12:00:00.123456+00:00';
 
-const templateRow = { id: COPY, organization_id: ORG, name: 'Arrival Copy', description: 'Kept', created_at: TIME };
+const templateRow = {
+	id: COPY,
+	organization_id: ORG,
+	name: 'Arrival Copy',
+	description: 'Kept',
+	created_at: TIME,
+	is_default: false
+};
 function stepRow(id: string, sortOrder: number) {
 	return {
 		id,
@@ -67,7 +74,7 @@ describe('Onboarding template commands', () => {
 			Response.json({ template: templateRow, steps: [stepRow('s-0', 0), stepRow('s-1', 1)], created: false })
 		);
 		await expect(catalog.duplicateTemplate(SOURCE, REQUEST)).resolves.toEqual({
-			template: { id: COPY, orgId: ORG, name: 'Arrival Copy', description: 'Kept', createdAt: TIME },
+			template: { id: COPY, orgId: ORG, name: 'Arrival Copy', description: 'Kept', createdAt: TIME, isDefault: false },
 			steps: [savedStep('s-0', 0), savedStep('s-1', 1)],
 			created: false
 		});
@@ -101,6 +108,27 @@ describe('Onboarding template commands', () => {
 				{ path: '/rest/v1/rpc/delete_onboarding_template', body: { p_organization_id: ORG, p_template_id: COPY } }
 			]);
 		}
+	});
+
+	it('sets the default in one call, and clears it by naming no template', async () => {
+		const set = templateRpc(() => Response.json(COPY));
+		await set.catalog.setDefaultTemplate(COPY);
+		expect(set.calls).toEqual([
+			{ path: '/rest/v1/rpc/set_default_onboarding_template', body: { p_organization_id: ORG, p_template_id: COPY } }
+		]);
+
+		const clear = templateRpc(() => Response.json(null));
+		await clear.catalog.setDefaultTemplate(null);
+		expect(clear.calls).toEqual([
+			{ path: '/rest/v1/rpc/set_default_onboarding_template', body: { p_organization_id: ORG } }
+		]);
+	});
+
+	it('answers a non-admin default change as 403', async () => {
+		const { catalog } = templateRpc(
+			databaseError('42501', 'Only an Organization admin can set the default onboarding template')
+		);
+		await expect(catalog.setDefaultTemplate(COPY)).rejects.toMatchObject({ status: 403 });
 	});
 
 	it.each([

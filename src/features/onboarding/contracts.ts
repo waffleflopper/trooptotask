@@ -61,6 +61,16 @@ export interface OnboardingBootstrap {
 	archiveRetentionMonths: number | null;
 }
 export type OnboardingWorkspaceData = OnboardingBootstrap;
+/** The most people one Start Onboarding request may name. */
+export const START_ONBOARDING_BATCH_LIMIT = 100;
+/** What happened to one person in a Start Onboarding request. A failure for one person leaves the others unchanged. */
+export type StartOnboardingOutcome =
+	| { personnelId: string; outcome: 'started'; onboarding: PersonnelOnboarding }
+	| { personnelId: string; outcome: 'already_onboarding' }
+	| { personnelId: string; outcome: 'failed'; message: string };
+export interface StartOnboardingBatchResult {
+	results: StartOnboardingOutcome[];
+}
 /** What starting a packet needs outside the Onboarding workspace. */
 export interface OnboardingStartOptions extends Pick<OnboardingBootstrap, 'rankCatalog' | 'rankCatalogUnavailable'> {
 	templates: OnboardingTemplate[];

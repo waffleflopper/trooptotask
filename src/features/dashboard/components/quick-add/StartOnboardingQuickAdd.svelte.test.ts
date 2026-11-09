@@ -12,10 +12,10 @@ vi.mock('$features/onboarding', async () => ({
 	loadOnboardingStartOptions: async () => ({
 		rankCatalog: [],
 		rankCatalogUnavailable: false,
-		templates: [{ id: 'template-1', name: 'Arrival' }],
+		templates: [{ id: 'template-1', name: 'Arrival', isDefault: false }],
 		hasTemplateSteps: true
 	}),
-	startOnboardingPacket: startPacket
+	startOnboardingPackets: startPacket
 }));
 afterEach(() => {
 	cleanup();
@@ -68,28 +68,34 @@ function openStart() {
 }
 async function submitStart() {
 	await screen.findByRole('dialog', { name: 'Start Onboarding' });
-	await fireEvent.click(await screen.findByRole('button', { name: 'Member' }));
+	await fireEvent.focus(await screen.findByRole('combobox', { name: 'Members' }));
 	await fireEvent.click(await screen.findByRole('option', { name: 'SPC Able, Synthetic' }));
-	await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Start onboarding for 1 person' }));
 }
+const startedPacket = { results: [{ personnelId: 'person-1', outcome: 'started', onboarding: packet }] };
 
 describe('Start onboarding from the Dashboard', () => {
 	it('refreshes the summary with the saved person already in the Dashboard population', async () => {
-		startPacket.mockResolvedValue(packet);
+		startPacket.mockResolvedValue(startedPacket);
 		const view = openStart();
 		await submitStart();
 		await waitFor(() => expect(view.refreshPopulations).toEqual([['person-1']]));
 		expect(view.saved).toEqual([{ list: 'activeOnboardings', record: packet }]);
+		expect(startPacket).toHaveBeenCalledWith('org-1', {
+			personnelIds: ['person-1'],
+			templateId: 'template-1',
+			startedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+		});
 	});
 
 	it('keeps a failed start out of the population and permits another attempt', async () => {
-		startPacket.mockRejectedValueOnce(new Error('Start failed')).mockResolvedValueOnce(packet);
+		startPacket.mockRejectedValueOnce(new Error('Start failed')).mockResolvedValueOnce(startedPacket);
 		const view = openStart();
 		await submitStart();
 		await screen.findByRole('alert');
 		expect(view.saved).toEqual([]);
 		expect(view.refreshPopulations).toEqual([]);
-		await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Start onboarding for 1 person' }));
 		await waitFor(() => expect(view.refreshPopulations).toEqual([['person-1']]));
 	});
 });

@@ -18,6 +18,7 @@ vi.mock('$app/navigation', () => ({
 
 import { OnboardingPageContext, getProgress } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
+import type { StartOnboardingOutcome } from '../contracts';
 import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -643,18 +644,21 @@ describe('OnboardingPageContext profileUrl', () => {
 });
 
 describe('OnboardingPageContext onboarding actions', () => {
-	it('returns success only for a confirmed current-Organization packet', async () => {
+	it('returns outcomes only for a confirmed current-Organization request', async () => {
 		onboardingStore.load([], 'org-1');
+		const outcomes: StartOnboardingOutcome[] = [
+			{ personnelId: 'p-1', outcome: 'started', onboarding: makeOnboarding() }
+		];
 		const start = vi
 			.spyOn(onboardingStore, 'startOnboarding')
 			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce(makeOnboarding());
+			.mockResolvedValueOnce(outcomes);
 		const ctx = new OnboardingPageContext({} as never, makeOrgContext());
 
-		await expect(ctx.handleStartOnboarding('p-1', '2026-03-15', 'tpl-1')).resolves.toBe(false);
-		await expect(ctx.handleStartOnboarding('p-1', '2026-03-15', 'tpl-1')).resolves.toBe(true);
+		await expect(ctx.handleStartOnboarding(['p-1'], '2026-03-15', 'tpl-1')).resolves.toBeNull();
+		await expect(ctx.handleStartOnboarding(['p-1'], '2026-03-15', 'tpl-1')).resolves.toBe(outcomes);
 
-		expect(start).toHaveBeenLastCalledWith('p-1', '2026-03-15', 'tpl-1');
+		expect(start).toHaveBeenLastCalledWith(['p-1'], '2026-03-15', 'tpl-1');
 	});
 });
 

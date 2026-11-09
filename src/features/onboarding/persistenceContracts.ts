@@ -52,6 +52,8 @@ export interface OnboardingCatalogPersistence {
 	updateTemplate(id: string, data: Partial<OnboardingTemplateData>): Promise<SavedOnboardingTemplate>;
 	/** Copies the template and its steps once per request id; a retry returns the same copy. */
 	duplicateTemplate(sourceTemplateId: string, requestId: string): Promise<DuplicatedOnboardingTemplate>;
+	/** Makes the template the Organization's only default, or clears the default when null. Only an Organization admin may. */
+	setDefaultTemplate(templateId: string | null): Promise<void>;
 	/** Returns false when there was no such template. Steps go with it; packets keep their saved steps. */
 	deleteTemplate(id: string): Promise<boolean>;
 	createStep(data: PreparedOnboardingTemplateStep): Promise<SavedOnboardingTemplateStep>;
@@ -102,11 +104,10 @@ export interface OnboardingWorkflowPersistence {
 	/** Start and finish dates of packets completed on or after `since` (YYYY-MM-DD). */
 	listCompletionsSince(since: string): Promise<OnboardingCompletion[]>;
 	listSavedActivePackets(): Promise<PersonnelOnboarding[]>;
-	/** The distinct people with an in-progress packet among the packets the requester may see, without steps or notes. */
-	listActivePacketPersonnelIds(): Promise<string[]>;
+	/** The distinct people with an in-progress packet among the packets the requester may see, without steps or notes. Pass `personnelIds` to look only at those people. */
+	listActivePacketPersonnelIds(personnelIds?: readonly string[]): Promise<string[]>;
 	findPacketReference(id: string): Promise<OnboardingPacketReference | null>;
 	findStepReference(id: string): Promise<OnboardingProgressReference | null>;
-	listActivePacketIdsForPersonnel(personnelId: string): Promise<string[]>;
 	/** The Person's most recently started packet that was not cancelled. */
 	findLatestPacketForPersonnel(personnelId: string): Promise<PersonnelOnboarding | null>;
 	listIncompleteActiveStepIds(onboardingId: string): Promise<string[]>;

@@ -10,6 +10,7 @@ import type {
 import type { OnboardingTemplateWriteContext } from './onboardingTemplatePorts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+import { fail } from '$lib/errors';
 import { uuidSchema, issueMessage } from '$lib/utils/inputSchemas';
 
 const templateCreateSchema = z.object({ name: z.string(), description: z.string().nullable().optional() });
@@ -81,6 +82,21 @@ export async function updateOnboardingTemplate(
 export async function deleteOnboardingTemplate(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', templateId);
 	if (!(await ctx.onboardingCatalog.deleteTemplate(templateId))) return;
+}
+
+const setDefaultSchema = z.object({ templateId: uuidSchema.nullable() });
+
+/** A null template clears the Organization's default. Setting it is for owners and admins, not every configurator. */
+export async function setDefaultOnboardingTemplate(
+	ctx: OnboardingTemplateWriteContext,
+	input: Record<string, unknown>
+): Promise<{ templateId: string | null }> {
+	const { templateId } = parseInput(setDefaultSchema, input);
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', templateId ?? undefined);
+	if (!ctx.auth.isPrivileged) fail(403, 'Only an Organization admin can set the default onboarding template');
+	if (templateId) await requireTemplate(ctx, templateId);
+	await ctx.onboardingCatalog.setDefaultTemplate(templateId);
+	return { templateId };
 }
 
 export async function duplicateOnboardingTemplate(

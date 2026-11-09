@@ -47,7 +47,8 @@ const template = {
 	orgId: 'test-org',
 	name: 'Reception',
 	description: null,
-	createdAt: '2026-01-01'
+	createdAt: '2026-01-01',
+	isDefault: false
 };
 
 describe('/api/onboarding/start-options route config', () => {

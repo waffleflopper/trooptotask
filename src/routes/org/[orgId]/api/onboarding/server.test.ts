@@ -223,7 +223,7 @@ const lifecycleRequests = [
 			status: 'completed',
 			cancelled_at: null,
 			completed_at: '2026-10-01',
-			incomplete: [{ id: STEP_1 }]
+			incomplete: [{ count: 1 }]
 		},
 		response: {
 			id: ONBOARDING_ID,
@@ -346,7 +346,7 @@ describe('/api/onboarding PUT completion day', () => {
 				status: 'completed',
 				cancelled_at: null,
 				completed_at: command.kind === 'complete' ? command.at : null,
-				incomplete: []
+				incomplete: [{ count: 0 }]
 			})
 		);
 

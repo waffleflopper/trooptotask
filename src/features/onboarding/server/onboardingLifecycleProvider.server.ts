@@ -26,7 +26,7 @@ export function createSupabaseOnboardingLifecycleTransitionPort(
 			const { data, error } = await query
 				.select(
 					command.kind === 'complete'
-						? 'id,status,cancelled_at,completed_at,incomplete:onboarding_step_progress(id)'
+						? 'id,status,cancelled_at,completed_at,incomplete:onboarding_step_progress(count)'
 						: 'id,status,cancelled_at,completed_at'
 				)
 				.maybeSingle();

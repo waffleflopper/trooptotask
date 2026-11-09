@@ -236,13 +236,14 @@ export async function completeOnboarding(
 	}
 
 	const updated = await persistTransition(ctx, id, { kind: 'complete', at: completedOn });
-	if (!updated.incomplete) throw new Error('Onboarding completion returned no incomplete steps');
+	const incompleteCount = updated.incomplete?.[0].count;
+	if (incompleteCount === undefined) throw new Error('Onboarding completion returned no incomplete steps');
 
 	return {
 		id: updated.id,
 		status: updated.status,
 		cancelledAt: updated.cancelled_at,
 		completedAt: updated.completed_at,
-		incompleteCount: updated.incomplete.length
+		incompleteCount
 	};
 }

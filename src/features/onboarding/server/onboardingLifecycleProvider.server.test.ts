@@ -24,14 +24,14 @@ describe('Supabase Onboarding lifecycle transitions', () => {
 			command: { kind: 'complete', at: '2026-10-01' } as OnboardingLifecycleTransition,
 			expectedStatus: 'in_progress',
 			patch: { status: 'completed', cancelled_at: null, completed_at: '2026-10-01' },
-			select: ['id', 'status', 'cancelled_at', 'completed_at', 'incomplete:onboarding_step_progress(id)'],
+			select: ['id', 'status', 'cancelled_at', 'completed_at', 'incomplete:onboarding_step_progress(count)'],
 			stepFilters: { 'incomplete.active': 'eq.true', 'incomplete.completed': 'eq.false' },
 			saved: {
 				id: 'packet-1',
 				status: 'completed',
 				cancelled_at: null,
 				completed_at: '2026-10-01',
-				incomplete: [{ id: 'step-2' }]
+				incomplete: [{ count: 1001 }]
 			}
 		},
 		{

@@ -61,7 +61,7 @@ const completedSaved: OnboardingLifecycleTransitionResult = {
 	status: 'completed',
 	cancelled_at: null,
 	completed_at: '2026-10-01',
-	incomplete: [{ id: 'step-1' }, { id: 'step-3' }]
+	incomplete: [{ count: 2 }]
 };
 const reopenedSaved: OnboardingLifecycleTransitionResult = {
 	id: ONBOARDING_ID,
@@ -890,7 +890,7 @@ describe('completeOnboarding', () => {
 			status: 'completed',
 			cancelled_at: null,
 			completed_at: command.kind === 'complete' ? command.at : null,
-			incomplete: []
+			incomplete: [{ count: 0 }]
 		}));
 		seedOnboarding(ctx);
 

@@ -168,8 +168,8 @@ export interface OnboardingLifecycleTransitionResult {
 	status: OnboardingStatus;
 	cancelled_at: string | null;
 	completed_at: string | null;
-	/** A completion's active incomplete steps, read in the same statement as the transition. */
-	incomplete?: readonly { id: string }[];
+	/** A completion's active incomplete step count, read in the same statement as the transition. */
+	incomplete?: readonly [{ count: number }];
 }
 
 export interface OnboardingLifecycleTransitionPort {

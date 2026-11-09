@@ -224,6 +224,8 @@
 				"src/lib/utils/logSanitize.test.ts",
 				"src/lib/utils/downloadBlob.ts",
 				"src/lib/utils/downloadBlob.test.ts",
+				"src/lib/utils/addressWriter.test.ts",
+				"src/lib/utils/addressWriter.ts",
 				"src/lib/utils/historyBack.test.ts",
 				"src/lib/utils/historyBack.ts",
 				"src/lib/utils/importChunkRequest.ts",

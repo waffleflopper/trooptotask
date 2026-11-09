@@ -1179,7 +1179,7 @@ describe('CalendarPageView', () => {
 					eventRelation: 'standalone' as const,
 					picked: 0,
 					required: 2,
-					equipment: { ready: 0, total: 0, returnedQuantity: 0, totalQuantity: 0 },
+					equipment: { ready: 0, total: 0, returnedQuantity: 0, securedQuantity: 0 },
 					conflicts: 0,
 					nextDate: '2026-05-10',
 					suspenseOn: '2026-05-10',

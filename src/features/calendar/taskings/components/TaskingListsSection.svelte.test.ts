@@ -241,11 +241,20 @@ describe('Tasking equipment and checklist', () => {
 		expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
 	});
 
+	const closeout: TaskingLists = {
+		...lists,
+		equipment: [
+			{ id: LITTERS, name: 'Litters', quantity: 5, securedQuantity: 4 },
+			{ id: RADIOS, name: 'Radios', quantity: 2, securedQuantity: 0 }
+		]
+	};
+	const returns = { returning: true, canReturn: true };
+
 	it('records returns on a Completed Tasking and leaves the rest of the list closed', async () => {
 		const send = stubFetch(() =>
-			Response.json({ id: LITTERS, name: 'Litters', quantity: 4, securedQuantity: 4, returnedQuantity: 4 })
+			Response.json({ id: LITTERS, name: 'Litters', quantity: 5, securedQuantity: 4, returnedQuantity: 4 })
 		);
-		open(false, { status: 'loaded', value: lists }, { returning: true, canReturn: true });
+		open(false, { status: 'loaded', value: closeout }, returns);
 
 		await fireEvent.click(await screen.findByRole('checkbox', { name: 'Litters' }));
 
@@ -256,9 +265,9 @@ describe('Tasking equipment and checklist', () => {
 
 	it('counts a partial return and refuses a count that is not a whole number', async () => {
 		const send = stubFetch(() =>
-			Response.json({ id: LITTERS, name: 'Litters', quantity: 4, securedQuantity: 4, returnedQuantity: 3 })
+			Response.json({ id: LITTERS, name: 'Litters', quantity: 5, securedQuantity: 4, returnedQuantity: 3 })
 		);
-		open(false, { status: 'loaded', value: lists }, { returning: true, canReturn: true });
+		open(false, { status: 'loaded', value: closeout }, returns);
 
 		await choose('Litters', 'Count returned…');
 		const count = screen.getByLabelText(/Returned of 4/);
@@ -272,5 +281,27 @@ describe('Tasking equipment and checklist', () => {
 		await waitFor(() => expect(body(send, 0)).toEqual({ returnedQuantity: 3 }));
 		await waitFor(() => expect(screen.queryByLabelText(/Returned of 4/)).toBeNull());
 		expect(checkbox('Litters').getAttribute('aria-checked')).toBe('false');
+	});
+
+	it('refuses a count above what was secured, even when the quantity is higher, and sends nothing', async () => {
+		const send = stubFetch(() => Response.json({}));
+		open(false, { status: 'loaded', value: closeout }, returns);
+
+		await choose('Litters', 'Count returned…');
+		await fireEvent.input(screen.getByLabelText(/Returned of 4/), { target: { value: '5' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		expect(send).not.toHaveBeenCalled();
+		expect(await screen.findByText('Only 4 were secured.')).toBeTruthy();
+	});
+
+	it('gives an item with nothing secured no return control', async () => {
+		open(false, { status: 'loaded', value: closeout }, returns);
+
+		await screen.findByRole('region', { name: 'Equipment' });
+		expect(screen.queryByRole('checkbox', { name: 'Radios' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Actions for Radios' })).toBeNull();
+		expect(screen.getByText('none secured')).toBeTruthy();
+		expect(screen.getByText('0 of 1 returned')).toBeTruthy();
 	});
 });

@@ -14,7 +14,7 @@ const row = (overrides: Partial<TaskingRowFacts> = {}): TaskingRowFacts => ({
 	eventRelation: 'execution',
 	picked: 1,
 	required: 2,
-	equipment: { ready: 0, total: 0, returnedQuantity: 0, totalQuantity: 0 },
+	equipment: { ready: 0, total: 0, returnedQuantity: 0, securedQuantity: 0 },
 	conflicts: 1,
 	nextDate: '2026-05-06',
 	suspenseOn: '2026-05-10',

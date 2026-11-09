@@ -44,7 +44,7 @@ function facts(overrides: Partial<TaskingRowFacts> = {}): TaskingRowFacts {
 		eventRelation: 'execution',
 		picked: 0,
 		required: null,
-		equipment: { ready: 0, total: 0, returnedQuantity: 0, totalQuantity: 0 },
+		equipment: { ready: 0, total: 0, returnedQuantity: 0, securedQuantity: 0 },
 		conflicts: 0,
 		nextDate: '2026-10-20',
 		suspenseOn: '2026-10-20',
@@ -54,11 +54,11 @@ function facts(overrides: Partial<TaskingRowFacts> = {}): TaskingRowFacts {
 	};
 }
 
-const equipment = (ready: number, total: number, returnedQuantity = 0, totalQuantity = total) => ({
+const equipment = (ready: number, total: number, returnedQuantity = 0, securedQuantity = total) => ({
 	ready,
 	total,
 	returnedQuantity,
-	totalQuantity
+	securedQuantity
 });
 
 describe('Tasking row facts', () => {

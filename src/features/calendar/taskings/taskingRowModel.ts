@@ -34,8 +34,8 @@ export function equipmentFact({
 	if (equipment.total === 0) return NONE;
 	if (eventRelation === 'closeout')
 		return {
-			text: `${equipment.returnedQuantity} of ${equipment.totalQuantity} returned`,
-			tone: equipment.returnedQuantity >= equipment.totalQuantity ? 'success' : 'plain'
+			text: `${equipment.returnedQuantity} of ${equipment.securedQuantity} returned`,
+			tone: equipment.returnedQuantity >= equipment.securedQuantity ? 'success' : 'plain'
 		};
 	if (equipment.ready === equipment.total) return { text: 'Ready', tone: 'success' };
 	return { text: `${equipment.ready} of ${equipment.total} ready`, tone: 'danger' };
@@ -114,7 +114,7 @@ export function eventRowFacts(item: EventWorkItem, facts: TaskingRowFacts | unde
 		equipment.total === 0
 			? null
 			: closeout
-				? `${equipment.returnedQuantity} of ${equipment.totalQuantity} returned`
+				? `${equipment.returnedQuantity} of ${equipment.securedQuantity} returned`
 				: equipmentReady
 					? 'equipment ready'
 					: `equipment ${equipment.ready} of ${equipment.total} ready`;

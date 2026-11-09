@@ -32,7 +32,16 @@ export type TaskingListActivityFact =
 			from: { name: string; quantity: number };
 			to: { name: string; quantity: number };
 	  }
-	| { kind: 'equipment_secured' | 'equipment_returned'; name: string; quantity: number; from: number; to: number }
+	| { kind: 'equipment_secured'; name: string; quantity: number; from: number; to: number }
+	/** Activity from before returns were bounded by what was secured has no securedQuantity. */
+	| {
+			kind: 'equipment_returned';
+			name: string;
+			quantity: number;
+			securedQuantity?: number;
+			from: number;
+			to: number;
+	  }
 	| { kind: 'checklist_added' | 'checklist_removed' | 'checklist_completed' | 'checklist_reopened'; label: string }
 	| { kind: 'checklist_renamed'; from: string; to: string };
 
@@ -104,15 +113,34 @@ const quantitySchema = z
 	.min(1, 'Enter at least 1.')
 	.max(EQUIPMENT_QUANTITY_MAX, `Keep it to ${EQUIPMENT_QUANTITY_MAX}.`);
 
+/** Everything secured has come back; an item with nothing secured has nothing to return. */
+export const isReturned = ({
+	securedQuantity,
+	returnedQuantity = 0
+}: Pick<EquipmentRequirement, 'securedQuantity' | 'returnedQuantity'>) => returnedQuantity >= securedQuantity;
+
 export const securedSchema = z
 	.number({ error: 'Enter how many are secured.' })
 	.int('Enter a whole number.')
 	.min(0, 'Enter 0 or more.')
 	.max(EQUIPMENT_QUANTITY_MAX, `Keep it to ${EQUIPMENT_QUANTITY_MAX}.`);
 
+/** A count of returned items: whole, not negative, and no more than what was secured. */
+export const returnedSchema = (securedQuantity: number) =>
+	z
+		.number({ error: 'Enter how many came back.' })
+		.int('Enter a whole number.')
+		.min(0, 'Enter 0 or more.')
+		.max(securedQuantity, `Only ${securedQuantity} ${securedQuantity === 1 ? 'was' : 'were'} secured.`);
+
 const withinQuantity = (value: { quantity?: number; securedQuantity?: number }) =>
 	value.quantity === undefined || value.securedQuantity === undefined || value.securedQuantity <= value.quantity;
 const withinQuantityIssue = { path: ['securedQuantity'], message: 'Secured cannot be more than the quantity.' };
+const withinSecured = (value: { securedQuantity?: number; returnedQuantity?: number }) =>
+	value.securedQuantity === undefined ||
+	value.returnedQuantity === undefined ||
+	value.returnedQuantity <= value.securedQuantity;
+const withinSecuredIssue = { path: ['returnedQuantity'], message: 'Returned cannot be more than the secured.' };
 
 export const equipmentDraftSchema = z
 	.object({
@@ -135,7 +163,8 @@ export const equipmentChangeSchema = z
 	})
 	.strict()
 	.refine((change) => Object.keys(change).length > 0, { message: 'Nothing to change.' })
-	.refine(withinQuantity, withinQuantityIssue);
+	.refine(withinQuantity, withinQuantityIssue)
+	.refine(withinSecured, withinSecuredIssue);
 
 export type EquipmentChange = z.output<typeof equipmentChangeSchema>;
 

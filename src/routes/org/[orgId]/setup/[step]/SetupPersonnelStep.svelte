@@ -5,11 +5,11 @@
 	import {
 		createPersonnelImportLane,
 		groupsStore,
-		retainImportDodIds,
+		retainImportData,
 		rosterStore,
+		type ImportData,
 		type PersonnelPageContext
 	} from '$features/personnel';
-	import type { PersonnelDodId } from '$features/personnel/contracts';
 	import { ImportFlow } from '$lib/components/patterns/import-flow';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -26,14 +26,16 @@
 		return flow.facts?.activePeople.status === 'ready' ? flow.facts.activePeople.value : null;
 	});
 
-	const importIds = retainImportDodIds(() => ({ orgId: page.data.orgId, streamed: page.data.personnelImport }));
+	const importData = retainImportData(() => ({ orgId: page.data.orgId, streamed: page.data.personnelImport }));
 
-	function lane(ctx: PersonnelPageContext, dodIds: readonly PersonnelDodId[]) {
+	function lane(ctx: PersonnelPageContext, { dodIds, archived }: ImportData) {
 		const base = createPersonnelImportLane({
 			orgId: ctx.orgId,
 			orgUrlSegment: ctx.orgUrlSegment,
 			personnel: ctx.allActivePersonnel,
 			dodIds,
+			archived,
+			canRestore: (groupId) => ctx.canRestorePersonnelInGroup(groupId),
 			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
 			rankCatalog: ctx.data.rankCatalog ?? [],
 			canManageGroups: ctx.canManageGroups,
@@ -72,14 +74,14 @@
 				</section>
 			{/if}
 			{#if ctx.canImportPersonnel}
-				{#if importIds.current?.state === 'failed'}
+				{#if importData.current?.state === 'failed'}
 					<SetupEditorLoadError subject="Personnel import" />
-				{:else if importIds.current?.state !== 'denied'}
-					{#if importIds.current?.state === 'ready' && importIds.current.stale}
+				{:else if importData.current?.state !== 'denied'}
+					{#if importData.current?.state === 'ready' && importData.current.stale}
 						<SetupEditorLoadError subject="Personnel import" stale />
 					{/if}
 					<ImportFlow
-						lane={importIds.current?.state === 'ready' ? lane(ctx, importIds.current.dodIds) : null}
+						lane={importData.current?.state === 'ready' ? lane(ctx, importData.current) : null}
 						title="Import your roster"
 						embedded
 					/>

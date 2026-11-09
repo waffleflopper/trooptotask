@@ -166,8 +166,11 @@ export interface PersonnelRecordPersistence {
 		options?: { onlyActive: true }
 	): Promise<Personnel | null>;
 	updateDates(id: string, patch: { ets?: string; deros?: string }): Promise<Personnel>;
-	/** One statement moving these active People to the Group (null is Unassigned); resolves the ids it moved. */
-	moveToGroup(ids: readonly string[], groupId: string | null): Promise<string[]>;
+	/**
+	 * One statement moving these active People to the Group (null is Unassigned); resolves the ids it moved.
+	 * With `from`, only People still in that Group move, so a change made since is left alone.
+	 */
+	moveToGroup(ids: readonly string[], groupId: string | null, from?: { groupId: string | null }): Promise<string[]>;
 	/** One statement setting the field on these active People; resolves the ids it updated. */
 	setEditableField(ids: readonly string[], change: PersonnelFieldChange): Promise<string[]>;
 	delete(id: string): Promise<void>;

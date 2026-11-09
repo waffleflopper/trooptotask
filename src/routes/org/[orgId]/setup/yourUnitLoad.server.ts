@@ -1,6 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import type { SetupStepKey } from '$features/organization/contracts';
 import { requireActiveOrganization } from '$features/organization/index.server';
+import { loadPersonnelImportData } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelRecordContext } from '$lib/server/adapters/requestContexts.server';
@@ -37,7 +38,7 @@ export async function loadYourUnitStep(key: SetupStepKey, event: YourUnitStepEve
 					policyAction: POLICY_ACTION_CATALOG.personnel.importRecords,
 					policyResource: { kind: 'unscoped' },
 					defer: true,
-					fn: async (ctx) => ({ dodIds: await ctx.personnelSheets.listDodIds() })
+					fn: loadPersonnelImportData
 				})
 			]);
 			return {

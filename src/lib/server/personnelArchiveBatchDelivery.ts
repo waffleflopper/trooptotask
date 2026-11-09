@@ -1,5 +1,5 @@
 import type { ArchivePersonnelBatchResult } from '$features/personnel/contracts';
-import { preparePersonnelArchiveBatch } from '$features/personnel/index.server';
+import { issueArchiveUndo, preparePersonnelArchiveBatch } from '$features/personnel/index.server';
 import { createDeletionRequest } from '$features/deletion-requests/index.server';
 import { RequestFailure } from '$lib/errors';
 
@@ -20,10 +20,11 @@ export async function archivePersonnelBatch(
 		else if (outcome.kind === 'error') result.errors.push({ id, message: outcome.message });
 		else approvals.push({ id, resourceDescription: outcome.resourceDescription });
 	}
-	await batch.archiveAdmitted();
+	const archive = await batch.archiveAdmitted();
+	const createdRequestIds: string[] = [];
 	for (const { id, resourceDescription } of approvals) {
 		try {
-			await createDeletionRequest(
+			const request = await createDeletionRequest(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, store: submissions },
 				{
 					resourceType: 'personnel',
@@ -34,6 +35,7 @@ export async function archivePersonnelBatch(
 				}
 			);
 			result.approvalRequestedIds.push(id);
+			createdRequestIds.push(request.id);
 		} catch (error) {
 			if (error instanceof RequestFailure && error.status === 409) {
 				result.approvalRequestedIds.push(id);
@@ -45,5 +47,9 @@ export async function archivePersonnelBatch(
 			}
 		}
 	}
-	return result;
+	const undo = issueArchiveUndo(
+		{ orgId: ctx.auth.orgId, actorId: ctx.auth.userId },
+		{ archivedAt: archive?.archivedAt ?? null, personnelIds: archive?.archivedIds ?? [], requestIds: createdRequestIds }
+	);
+	return undo ? { ...result, undo } : result;
 }

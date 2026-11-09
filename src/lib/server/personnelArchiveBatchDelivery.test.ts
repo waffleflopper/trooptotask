@@ -3,12 +3,19 @@ import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { archivePersonnelBatch as deliverArchivePersonnelBatch } from './personnelArchiveBatchDelivery';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
+import { verifyArchiveUndo } from '$features/personnel/index.server';
 
 const archivePersonnelBatch = (
 	ctx: ReturnType<typeof createTestContext>,
 	input: Parameters<typeof deliverArchivePersonnelBatch>[1]
 ) => deliverArchivePersonnelBatch(ctx, input, createDeletionRequestTestStore(ctx.store));
 type TestDataStore = ReturnType<typeof createTestContext>['store'];
+
+/** What the Undo token of a result lets its owner take back, at a moment inside its window. */
+function undoClaims(ctx: ReturnType<typeof createTestContext>, result: { undo?: string }) {
+	const verdict = verifyArchiveUndo(result.undo, { orgId: ctx.auth.orgId, actorId: ctx.auth.userId }, Date.now());
+	return verdict.ok ? verdict.claims : verdict;
+}
 
 function memberWith(personnel: 'view' | 'operate' | 'configure', groupIds?: string[]) {
 	return {
@@ -83,12 +90,20 @@ describe('Personnel — archive batch', () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		try {
 			vi.setSystemTime(new Date(archivedAt));
-			await expect(
-				archivePersonnelBatch(ctx, { ids: ['p-1', 'p-2', 'p-1', 'missing'], userEmail: 'requester@example.com' })
-			).resolves.toEqual({
+			const result = await archivePersonnelBatch(ctx, {
+				ids: ['p-1', 'p-2', 'p-1', 'missing'],
+				userEmail: 'requester@example.com'
+			});
+			expect(result).toEqual({
 				archivedIds: ['p-1', 'p-2'],
 				approvalRequestedIds: [],
-				errors: [{ id: 'missing', message: 'Personnel not found' }]
+				errors: [{ id: 'missing', message: 'Personnel not found' }],
+				undo: expect.any(String)
+			});
+			expect(undoClaims(ctx, result)).toMatchObject({
+				archivedAt,
+				personnelIds: ['p-1', 'p-2'],
+				requestIds: []
 			});
 		} finally {
 			vi.useRealTimers();
@@ -105,9 +120,14 @@ describe('Personnel — archive batch', () => {
 		const savedEvent = '2026-08-01T12:00:00.000Z';
 		await ctx.rawStore.update('personnel', ctx.auth.orgId, 'p-2', { archived_at: savedEvent });
 		const archive = vi.spyOn(ctx.personnelLifecycle, 'archive');
-		await expect(
-			archivePersonnelBatch(ctx, { ids: ['p-1', 'p-2'], userEmail: 'manager@example.com' })
-		).resolves.toEqual({ archivedIds: ['p-1', 'p-2'], approvalRequestedIds: [], errors: [] });
+		const result = await archivePersonnelBatch(ctx, { ids: ['p-1', 'p-2'], userEmail: 'manager@example.com' });
+		expect(result).toEqual({
+			archivedIds: ['p-1', 'p-2'],
+			approvalRequestedIds: [],
+			errors: [],
+			undo: expect.any(String)
+		});
+		expect(undoClaims(ctx, result)).toMatchObject({ personnelIds: ['p-1'] });
 		expect(archive).toHaveBeenCalledWith(['p-1', 'p-2'], expect.any(String));
 		expect(await ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-2' })).toEqual({
 			...rows[1],
@@ -139,10 +159,18 @@ describe('Personnel — archive batch', () => {
 		const rows = seedPersonnel(ctx);
 		const archive = vi.spyOn(ctx.personnelLifecycle, 'archive');
 
-		await expect(
-			archivePersonnelBatch(ctx, { ids: ['p-1', 'p-2'], userEmail: 'requester@example.com' })
-		).resolves.toEqual({ archivedIds: [], approvalRequestedIds: ['p-1', 'p-2'], errors: [] });
+		const result = await archivePersonnelBatch(ctx, { ids: ['p-1', 'p-2'], userEmail: 'requester@example.com' });
 
+		expect(result).toEqual({
+			archivedIds: [],
+			approvalRequestedIds: ['p-1', 'p-2'],
+			errors: [],
+			undo: expect.any(String)
+		});
+		const created = (await ctx.rawStore.findMany<{ id: string }>('deletion_requests', ctx.auth.orgId)).map(
+			(request) => request.id
+		);
+		expect(undoClaims(ctx, result)).toMatchObject({ personnelIds: [], requestIds: created });
 		expect(archive).not.toHaveBeenCalled();
 		expect(await ctx.rawStore.findMany('personnel', ctx.auth.orgId)).toEqual(rows);
 		const requests = (await ctx.rawStore.findMany('deletion_requests', ctx.auth.orgId)) as Record<string, unknown>[];
@@ -172,14 +200,16 @@ describe('Personnel — archive batch', () => {
 					return insert<T>(...args);
 				};
 			}
-			await expect(
-				archivePersonnelBatch(ctx, { ids: ['p-1', 'p-2'], userEmail: 'operator@example.com' })
-			).resolves.toEqual({
+			const result = await archivePersonnelBatch(ctx, { ids: ['p-1', 'p-2'], userEmail: 'operator@example.com' });
+			expect(result).toEqual({
 				archivedIds: [],
 				approvalRequestedIds: failSecond ? ['p-1'] : ['p-1', 'p-2'],
-				errors: failSecond ? [{ id: 'p-2', message: 'request write interrupted' }] : []
+				errors: failSecond ? [{ id: 'p-2', message: 'request write interrupted' }] : [],
+				...(failSecond ? {} : { undo: expect.any(String) })
 			});
-			const requests = await ctx.rawStore.findMany('deletion_requests', ctx.auth.orgId);
+			const requests = await ctx.rawStore.findMany<{ id: string }>('deletion_requests', ctx.auth.orgId);
+			// Only a request this call created can be withdrawn by its Undo, never an earlier pending one.
+			if (!failSecond) expect(undoClaims(ctx, result)).toMatchObject({ requestIds: [requests[2].id] });
 			expect(requests.slice(0, 2)).toEqual(pending);
 			expect(requests).toHaveLength(failSecond ? 2 : 3);
 			expect(await ctx.rawStore.findMany('personnel', ctx.auth.orgId)).toEqual(rows);
@@ -228,7 +258,8 @@ describe('Personnel — archive batch', () => {
 			errors: [
 				{ id: 'p-2', message: 'Personnel not found' },
 				{ id: 'foreign', message: 'Personnel not found' }
-			]
+			],
+			undo: expect.any(String)
 		});
 		expect(archive).toHaveBeenCalledWith(['p-1'], expect.any(String));
 		expect(await ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-2' })).toEqual(other);

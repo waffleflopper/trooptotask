@@ -8,7 +8,6 @@ export type { PersonnelPageData, RosterPreferences } from './contexts/PersonnelP
 export { RosterSignals } from './rosterSignals.svelte';
 export { default as GroupStructureEditor } from './components/GroupStructureEditor.svelte';
 
-export type { RequestPersonnelArchiveApproval } from './utils/archivePersonnel';
 export { acknowledgeAwardTracking } from './utils/awardTracking';
 
 /** Keep the roster's dialogs lazy while exposing their consumed Web entry. */
@@ -19,7 +18,7 @@ export function loadPersonnelModals() {
 export { personnelWorkspaceHydrator } from './personnelWorkspaceHydration.svelte';
 export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.svelte';
 export { createPersonnelImportLane } from './import/personnelImportLane';
-export { retainImportDodIds } from './import/retainedImportDodIds.svelte';
+export { retainImportData, type ImportData } from './import/retainedImportData.svelte';
 export { lastFirstSplitter } from './import/personnelImportColumns';
 export { rosterPersonReference } from './import/personMatching';
 export { readinessDrawerFromSearch } from './readinessDrawerTarget';

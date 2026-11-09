@@ -12,7 +12,7 @@ import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
 type CalendarMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
-	'findOne' | 'findMany' | 'insert' | 'update' | 'delete' | 'deleteWhere' | 'insertMany'
+	'findOne' | 'findMany' | 'insert' | 'update' | 'delete' | 'deleteWhere' | 'insertMany' | 'deleteManyByIds'
 >;
 import type { GroupCoverage } from '$lib/access/memberAccessShape';
 import type { PoolRules, TrackId, WeekendMode } from './roster/rosterTypes';
@@ -585,6 +585,56 @@ export function createInMemoryCalendarAvailabilityPersistence(
 			return store.delete('availability_entries', orgId, id);
 		},
 		createMany,
+		async deleteUnchanged(entries) {
+			if (entries.length === 0) return [];
+			const wanted = new Map(entries.map((entry) => [entry.id, entry]));
+			const unchanged = (
+				await store.findMany<AvailabilityRow>('availability_entries', orgId, undefined, {
+					inFilters: { id: [...wanted.keys()] }
+				})
+			)
+				.map(toAvailability)
+				.filter((row) => {
+					const entry = wanted.get(row.id);
+					return (
+						entry !== undefined &&
+						row.personnelId === entry.personnelId &&
+						row.statusTypeId === entry.statusTypeId &&
+						row.startDate === entry.startDate &&
+						row.endDate === entry.endDate &&
+						(row.note ?? null) === (entry.note ?? null)
+					);
+				})
+				.map((row) => row.id);
+			if (unchanged.length) await store.deleteManyByIds('availability_entries', orgId, unchanged);
+			return unchanged;
+		},
+		async restoreMany(entries) {
+			const existing = new Set(
+				(
+					await store.findMany<{ id: string }>('availability_entries', orgId, undefined, {
+						inFilters: { id: entries.map((entry) => entry.id) },
+						select: 'id'
+					})
+				).map((row) => row.id)
+			);
+			const fresh = entries.filter((entry) => !existing.has(entry.id));
+			if (fresh.length === 0) return [];
+			return (
+				await store.insertMany<AvailabilityRow>(
+					'availability_entries',
+					orgId,
+					fresh.map((entry) => ({
+						id: entry.id,
+						personnel_id: entry.personnelId,
+						status_type_id: entry.statusTypeId,
+						start_date: entry.startDate,
+						end_date: entry.endDate,
+						note: entry.note ?? null
+					}))
+				)
+			).map((row) => row.id);
+		},
 		async insertReplacing(entries) {
 			const saved = await store.findMany<AvailabilityRow>('availability_entries', orgId);
 			const current = new Map(saved.map((row) => [row.id, row]));

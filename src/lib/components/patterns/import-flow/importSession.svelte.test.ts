@@ -1,9 +1,12 @@
+import ExcelJS from 'exceljs';
 import { SvelteMap } from 'svelte/reactivity';
 import { describe, expect, it, vi } from 'vitest';
+import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import { ImportSession } from './importSession.svelte';
 import { personnelLane, type PersonnelChange } from './importFlow.test-support';
 import { questionKey, type ChunkReply, type CreateOptionResult, type SavedRecord } from './types';
 import { headerKey } from './workbookSource';
+import { buildNotImported } from './workbooks';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -404,5 +407,105 @@ describe('import session', () => {
 		refreshed.resolve();
 		await committing;
 		expect(session.phase).toEqual({ step: 'file', error: null, reading: false });
+	});
+	describe('skipping rows that need a fix', () => {
+		const MIXED = 'Last name,First name,Rank\nSmith,Alex,SGT\nJones,Pat,ZZZ\nLee,Sam,CPL';
+		function mixedLane() {
+			const base = personnelLane();
+			const committed: PersonnelChange[] = [];
+			const lane = {
+				...base,
+				skipRowsNeedingFixes: true as const,
+				commitChunk: async (changes: readonly PersonnelChange[]): Promise<ChunkReply> => {
+					committed.push(...changes);
+					return { kind: 'saved', results: changes.map(() => ({ kind: 'added' as const })) };
+				}
+			};
+			return { lane, committed };
+		}
+
+		it('imports the rows with no fix and lists each fix row as not imported with what it needed', async () => {
+			const { lane, committed } = mixedLane();
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([new File([MIXED], 'roster.csv')]);
+			session.goTo('review');
+			expect(session.commitBlocker).toBe('Fix 1 rows before importing.');
+			expect(session.skipFixesBlocker).toBeNull();
+
+			await session.commit({ skipRowsNeedingFixes: true });
+
+			expect(committed.map((change) => change.name)).toEqual(['Smith, Alex', 'Lee, Sam']);
+			if (session.phase.step !== 'done') throw new Error('Expected the import to finish');
+			const { receipt } = session.phase;
+			expect(receipt).toMatchObject({ added: 2, skipped: 1, failed: 0 });
+			expect(receipt.notImported.map((item) => item.row.raw.lastName)).toEqual(['Jones']);
+			expect(receipt.notImported[0].reason).toContain('Choose rank in the fix rail');
+
+			if (!session.file || !session.layout) throw new Error('Expected the file to stay loaded');
+			const exported = new ExcelJS.Workbook();
+			await exported.xlsx.load(
+				await writeWorkbookBuffer(await buildNotImported(session.file, session.layout, receipt))
+			);
+			const [header, jones] = [1, 2].map((row) => exported.worksheets[0].getRow(row).values as unknown[]);
+			expect(header.at(-1)).toBe('Reason');
+			expect(jones.slice(1, 4)).toEqual(['Jones', 'Pat', 'ZZZ']);
+			expect(String(jones.at(-1))).toContain('Choose rank in the fix rail');
+		});
+
+		it('names a rail question a row is still waiting on when it has no cell problem', async () => {
+			const { lane, committed } = mixedLane();
+			const question = {
+				key: questionKey({ lane: 'which-jones' }),
+				title: 'Which Jones?',
+				subject: 'Jones, Pat',
+				accepts: { kind: 'pick' as const, options: [{ id: 'a', label: 'First' }] }
+			};
+			const asking = {
+				...lane,
+				review: (input: Parameters<typeof lane.review>[0]) =>
+					input.values.lastName === 'Jones'
+						? ({ outcome: 'fix', problems: [], questions: [question] } as const)
+						: lane.review(input)
+			};
+			const session = new ImportSession(() => asking);
+			await session.chooseFile([new File([MIXED.replace('ZZZ', 'SGT')], 'roster.csv')]);
+			session.goTo('review');
+
+			await session.commit({ skipRowsNeedingFixes: true });
+
+			expect(committed.map((change) => change.name)).toEqual(['Smith, Alex', 'Lee, Sam']);
+			if (session.phase.step !== 'done') throw new Error('Expected the import to finish');
+			expect(session.phase.receipt.notImported).toMatchObject([
+				{ row: { raw: { lastName: 'Jones' } }, reason: expect.stringContaining('Jones, Pat') }
+			]);
+		});
+
+		it('still blocks when no row could be imported, while the rail is rechecking, and with unmapped columns', async () => {
+			const { lane, committed } = mixedLane();
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([new File(['Last name,First name,Rank\nJones,Pat,ZZZ'], 'roster.csv')]);
+			session.goTo('review');
+			expect(session.skipFixesBlocker).toBe('There are no changes to import.');
+			await session.commit({ skipRowsNeedingFixes: true });
+			expect(session.phase.step).toBe('review');
+
+			await session.chooseFile([new File(['Last name,First name\nSmith,Alex'], 'no-rank.csv')]);
+			expect(session.skipFixesBlocker).not.toBeNull();
+			await session.commit({ skipRowsNeedingFixes: true });
+			expect(committed).toEqual([]);
+		});
+
+		it('keeps fix rows blocking a lane that does not opt in', async () => {
+			const { lane, committed } = mixedLane();
+			const plain = { ...lane, skipRowsNeedingFixes: undefined };
+			const session = new ImportSession(() => plain);
+			await session.chooseFile([new File([MIXED], 'roster.csv')]);
+			session.goTo('review');
+
+			await session.commit({ skipRowsNeedingFixes: true });
+
+			expect(committed).toEqual([]);
+			expect(session.phase.step).toBe('review');
+		});
 	});
 });

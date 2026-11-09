@@ -68,7 +68,7 @@ async function groupOf(ctx: ReturnType<typeof context>, id: string) {
 }
 
 describe('POST /api/personnel/group-membership', () => {
-	it('moves active People into a Group in one write and reports the ones it could not move', async () => {
+	it('moves active People into a Group, reports the ones it could not move and the Group each one left', async () => {
 		const ctx = context('operate');
 
 		await expect(
@@ -76,7 +76,8 @@ describe('POST /api/personnel/group-membership', () => {
 		).resolves.toEqual({
 			groupId: charlie,
 			movedIds: [able, baker, unassigned],
-			unavailableIds: [archived, missing]
+			unavailableIds: [archived, missing],
+			previousGroupIds: { [able]: alpha, [baker]: bravo, [unassigned]: null }
 		});
 		expect([await groupOf(ctx, able), await groupOf(ctx, baker), await groupOf(ctx, unassigned)]).toEqual([
 			charlie,
@@ -92,7 +93,8 @@ describe('POST /api/personnel/group-membership', () => {
 		await expect(move(ctx, { personnelIds: [able, unassigned], groupId: null })).resolves.toEqual({
 			groupId: null,
 			movedIds: [able, unassigned],
-			unavailableIds: []
+			unavailableIds: [],
+			previousGroupIds: { [able]: alpha }
 		});
 		expect(await groupOf(ctx, able)).toBeNull();
 	});
@@ -109,7 +111,8 @@ describe('POST /api/personnel/group-membership', () => {
 		await expect(move(ctx, { personnelIds: [charlieMember, unassigned], groupId: alpha })).resolves.toEqual({
 			groupId: alpha,
 			movedIds: [],
-			unavailableIds: [charlieMember, unassigned]
+			unavailableIds: [charlieMember, unassigned],
+			previousGroupIds: {}
 		});
 		expect([await groupOf(ctx, baker), await groupOf(ctx, charlieMember), await groupOf(ctx, unassigned)]).toEqual([
 			bravo,

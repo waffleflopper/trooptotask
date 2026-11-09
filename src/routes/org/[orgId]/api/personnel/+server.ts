@@ -1,6 +1,7 @@
 import {
 	archivePersonnelRecord,
 	createPersonnelRecord,
+	issueArchiveUndo,
 	loadRosterPersonnel,
 	restorePersonnelRecord,
 	updatePersonnelRecord
@@ -76,10 +77,14 @@ export const _deleteConfig: RouteConfig<
 		if (!validateUUID(id)) fail(400, 'Invalid resource ID');
 
 		const result = await archivePersonnelRecord(ctx, id);
-		if (result?.requiresApproval) {
+		if (result.requiresApproval) {
 			return { requiresApproval: true };
 		}
-		return { success: true };
+		const undo = issueArchiveUndo(
+			{ orgId: ctx.auth.orgId, actorId: ctx.auth.userId },
+			{ archivedAt: result.archivedAt, personnelIds: [id], requestIds: [] }
+		);
+		return undo ? { success: true, undo } : { success: true };
 	},
 	formatOutput: (result) => {
 		if (result.requiresApproval) {

@@ -20,6 +20,8 @@ import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts
 import { toastStore } from '$lib/stores/toast.svelte';
 import { StoreRequestError } from '$lib/stores/core';
 
+const appPage = vi.hoisted(() => ({ url: new URL('http://localhost/org/org1/calendar') }));
+vi.mock('$app/state', () => ({ page: appPage }));
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
 }));
@@ -521,6 +523,23 @@ describe('CalendarPageContext', () => {
 
 			expect(ctx.defaultStatusTypeId).toBe('sick');
 			expect(savePreferences).toHaveBeenCalledExactlyOnceWith({ lastStatusTypeId: 'sick' });
+		});
+
+		it('offers an Undo that does nothing once the reader has left the Calendar', async () => {
+			vi.mocked(availabilityStore.add).mockResolvedValueOnce({ id: 'saved-1', ...record });
+			const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 0);
+			const fetchMock = vi.fn();
+			vi.stubGlobal('fetch', fetchMock);
+
+			await ctx.saveAvailability({ kind: 'create', record });
+			const undo = success.mock.calls[0][2];
+			appPage.url = new URL('http://localhost/org/org1/personnel');
+			undo?.onClick();
+			appPage.url = new URL('http://localhost/org/org1/calendar');
+
+			expect(undo?.label).toBe('Undo');
+			expect(fetchMock).not.toHaveBeenCalled();
+			vi.unstubAllGlobals();
 		});
 
 		it('does not save the remembered status again when it has not changed', async () => {

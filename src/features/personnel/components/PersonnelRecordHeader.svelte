@@ -19,7 +19,6 @@
 	import type { PersonnelDetailHeader, PersonnelDetailLayoutStreams, PersonnelPageAccess } from '../contracts';
 	import { MOS_TITLES } from '../mosTitles';
 	import { formatServiceSpan } from '../serviceSpan';
-	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import type { DataSheetEditSession } from '../workspace/dataSheetEditSession.svelte';
 	import { PersonnelRecordActions } from '../workspace/personnelRecordActions.svelte';
 
@@ -31,26 +30,15 @@
 		today: string;
 		activeTab: string;
 		access: Pick<PersonnelPageAccess, 'affordanceForFeatureAction'>;
-		requestArchiveApproval: RequestPersonnelArchiveApproval;
 		/** The open Data sheet edit, when there is one. Its actions replace the toolbar and the other tabs dim. */
 		edit?: DataSheetEditSession | null;
 	}
 
-	let {
-		orgId,
-		orgUrlSegment,
-		header,
-		streams,
-		today,
-		activeTab,
-		access,
-		requestArchiveApproval,
-		edit = null
-	}: Props = $props();
+	let { orgId, orgUrlSegment, header, streams, today, activeTab, access, edit = null }: Props = $props();
 
 	const person = $derived(header.person);
 	const basePath = $derived(`/org/${orgUrlSegment}/personnel/${person.slug}` as const);
-	const actions = new PersonnelRecordActions(() => ({ orgId, orgUrlSegment, person, requestArchiveApproval }));
+	const actions = new PersonnelRecordActions(() => ({ orgId, orgUrlSegment, person }));
 	onDestroy(actions.dispose);
 
 	const recordResource = $derived(

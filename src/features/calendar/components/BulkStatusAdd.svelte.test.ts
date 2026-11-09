@@ -64,6 +64,16 @@ const entries: AvailabilityEntry[] = [
 	{ id: 'e2', personnelId: cole.id, statusTypeId: 'leave', startDate: '2026-09-23', endDate: '2026-09-30', note: null }
 ];
 
+const savedFor = (...people: Personnel[]): AvailabilityEntry[] =>
+	people.map((p) => ({
+		id: `saved-${p.id}`,
+		personnelId: p.id,
+		statusTypeId: 'leave',
+		startDate: START,
+		endDate: END,
+		note: null
+	}));
+
 function rangeData(range: { rangeStart: string; rangeEnd: string }): CalendarRangeData {
 	return { ...range, availabilityEntries: [], specialDays: [], dailyAssignments: [] };
 }
@@ -78,6 +88,7 @@ function renderAdd(
 		loaded?: boolean;
 		prefill?: ComponentProps<typeof BulkStatusAdd>['prefill'];
 		statusTypes?: StatusType[];
+		undoAction?: ComponentProps<typeof BulkStatusAdd>['undoAction'];
 	} = {}
 ) {
 	const onApply = options.onApply ?? vi.fn<Apply>();
@@ -101,6 +112,7 @@ function renderAdd(
 			rangeCoordinator,
 			onApply,
 			onComplete,
+			undoAction: options.undoAction,
 			prefill: options.prefill
 		}
 	});
@@ -125,11 +137,11 @@ afterEach(() => {
 it('locks the draft and roster while saving, then retries only the failed Person with the same criteria', async () => {
 	vi.spyOn(toastStore, 'error').mockImplementation(() => 'error-toast');
 	vi.spyOn(toastStore, 'success').mockImplementation(() => 'success-toast');
-	let finishFirst!: (inserted: string[]) => void;
+	let finishFirst!: (inserted: AvailabilityEntry[]) => void;
 	const onApply = vi
 		.fn<Apply>()
 		.mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
-		.mockResolvedValueOnce([baker.id]);
+		.mockResolvedValueOnce(savedFor(baker));
 	const { onComplete } = renderAdd({ onApply });
 	await fireEvent.click(chip('Training'));
 	await setDates('2026-10-05', '2026-10-07');
@@ -150,7 +162,7 @@ it('locks the draft and roster while saving, then retries only the failed Person
 	] as HTMLButtonElement[];
 	expect(locked.map((control) => control.disabled)).toEqual(locked.map(() => true));
 
-	finishFirst([able.id, cole.id]);
+	finishFirst(savedFor(able, cole));
 	await waitFor(() => expect(addCount()).toBe(1));
 	expect(onComplete).not.toHaveBeenCalled();
 	expect(checkbox('Select SPC Able, Pat').getAttribute('aria-checked')).toBe('false');
@@ -259,7 +271,7 @@ it('offers Retry when the read fails and re-enables adding once it succeeds', as
 });
 
 it('adds everyone not already on the status when Select available is used, including other-status overlaps', async () => {
-	const onApply = vi.fn().mockResolvedValue([able.id, baker.id]);
+	const onApply = vi.fn().mockResolvedValue(savedFor(able, baker));
 	renderAdd({ onApply });
 	await setDates(START, END);
 
@@ -272,7 +284,7 @@ it('adds everyone not already on the status when Select available is used, inclu
 });
 
 it('adds a person who overlaps another status when picked by hand', async () => {
-	const onApply = vi.fn().mockResolvedValue([able.id, baker.id]);
+	const onApply = vi.fn().mockResolvedValue(savedFor(able, baker));
 	renderAdd({ onApply });
 	await setDates(START, END);
 
@@ -286,7 +298,7 @@ it('adds a person who overlaps another status when picked by hand', async () => 
 });
 
 it('drops a selected person from the batch when a status change makes them blocked, keeping the draft', async () => {
-	const onApply = vi.fn().mockResolvedValue([able.id]);
+	const onApply = vi.fn().mockResolvedValue(savedFor(able));
 	renderAdd({ onApply });
 	await setDates(START, END);
 	await fireEvent.click(chip('Training'));
@@ -317,7 +329,7 @@ it('shows the overlap warning only for the people who would be added', async () 
 
 it('opens with the Tasking’s people and dates, drops people off this roster, and saves them as ordinary entries', async () => {
 	vi.spyOn(toastStore, 'success').mockImplementation(() => 'success-toast');
-	const onApply = vi.fn<Apply>().mockResolvedValue([able.id, baker.id]);
+	const onApply = vi.fn<Apply>().mockResolvedValue(savedFor(able, baker));
 	const { onComplete } = renderAdd({
 		onApply,
 		prefill: {
@@ -351,7 +363,7 @@ it('says nothing about a Tasking when none asked', () => {
 });
 
 it('offers only active statuses and starts on the first of them', async () => {
-	const onApply = vi.fn().mockResolvedValue([able.id]);
+	const onApply = vi.fn<Apply>().mockResolvedValue(savedFor(able));
 	renderAdd({ onApply, statusTypes: [{ ...statusTypes[0], archivedAt: '2030-01-02T03:04:05Z' }, statusTypes[1]] });
 	await setDates(START, END);
 
@@ -369,4 +381,37 @@ it('has no status to add when every status is archived', () => {
 	renderAdd({ statusTypes: statusTypes.map((type) => ({ ...type, archivedAt: '2030-01-02T03:04:05Z' })) });
 
 	expect(screen.queryAllByRole('radio')).toEqual([]);
+});
+
+it('offers Undo for exactly the entries the add saved, held for ten seconds', async () => {
+	const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'success-toast');
+	const undo = { label: 'Undo', onClick: vi.fn() };
+	const undoAction = vi.fn(() => undo);
+	const saved = savedFor(able, baker);
+	const { onComplete } = renderAdd({ onApply: vi.fn<Apply>().mockResolvedValue(saved), undoAction });
+	await setDates(START, END);
+	await fireEvent.click(screen.getByRole('button', { name: 'Select available' }));
+	await waitFor(() => expect(addButton().disabled).toBe(false));
+
+	await fireEvent.click(addButton());
+
+	await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+	expect(undoAction).toHaveBeenCalledExactlyOnceWith({ remove: saved });
+	expect(success.mock.calls[0].slice(1)).toEqual([10000, undo]);
+});
+
+it('offers no Undo when only some of the people were saved', async () => {
+	vi.spyOn(toastStore, 'error').mockImplementation(() => 'error-toast');
+	const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'success-toast');
+	const undoAction = vi.fn(() => ({ label: 'Undo', onClick: vi.fn() }));
+	renderAdd({ onApply: vi.fn<Apply>().mockResolvedValue(savedFor(able)), undoAction });
+	await setDates(START, END);
+	await fireEvent.click(screen.getByRole('button', { name: 'Select available' }));
+	await waitFor(() => expect(addButton().disabled).toBe(false));
+
+	await fireEvent.click(addButton());
+
+	await waitFor(() => expect(addCount()).toBe(1));
+	expect(undoAction).not.toHaveBeenCalled();
+	expect(success).not.toHaveBeenCalled();
 });

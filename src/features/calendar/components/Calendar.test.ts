@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
@@ -351,6 +351,108 @@ describe('Calendar', () => {
 		} finally {
 			rect.mockRestore();
 		}
+	});
+
+	describe('tapping a range on a touch screen', () => {
+		const touch = { button: 0, pointerId: 1, pointerType: 'touch' };
+		const march = (person: string, day: number) =>
+			screen.getByRole('button', { name: `${person}, ${['Sunday', 'Monday'][day - 1]}, March ${day}, 2026` });
+		const tap = async (cell: HTMLElement, clientX: number) => {
+			await fireEvent.pointerDown(cell, { ...touch, clientX });
+			await fireEvent.pointerUp(window, { ...touch, clientX });
+			await fireEvent.click(cell);
+		};
+		let rect: ReturnType<typeof vi.spyOn>;
+
+		beforeEach(() => {
+			rect = vi
+				.spyOn(Element.prototype, 'getBoundingClientRect')
+				.mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 62, height: 36 }));
+		});
+		afterEach(() => rect.mockRestore());
+
+		it('adds the range between two tapped days without opening the day editor', async () => {
+			const onQuickAdd = vi.fn();
+			const onCellClick = vi.fn();
+			renderCalendar({ canEdit: true, onQuickAdd, onCellClick });
+
+			await tap(march('SGT Smith, Alex', 2), 50);
+			expect(onQuickAdd).not.toHaveBeenCalled();
+			await tap(march('SGT Smith, Alex', 1), 10);
+
+			expect(onQuickAdd).toHaveBeenCalledExactlyOnceWith(
+				expect.objectContaining({ id: 'person-1' }),
+				'2026-03-01',
+				'2026-03-02',
+				expect.any(HTMLElement)
+			);
+			expect(onCellClick).not.toHaveBeenCalled();
+			expect(document.querySelector('[data-slot="calendar-selection"]')).toBeNull();
+		});
+
+		it('marks the first tapped day as a one-day selection', async () => {
+			renderCalendar({ canEdit: true, onQuickAdd: vi.fn() });
+
+			await tap(march('SGT Smith, Alex', 2), 50);
+
+			const marks = document.querySelectorAll('[data-slot="calendar-selection"]');
+			expect(marks).toHaveLength(1);
+			expect(marks[0].textContent?.replace(/\s+/g, ' ').trim()).toBe('1 day');
+			expect(marks[0].closest('[data-person-id]')?.getAttribute('data-person-id')).toBe('person-1');
+		});
+
+		it('drops the start day when the next tap lands in another row, a person name or another month', async () => {
+			const onQuickAdd = vi.fn();
+			const onCellClick = vi.fn();
+			const { rerender } = renderCalendar({ canEdit: true, onQuickAdd, onCellClick });
+			const mark = () => document.querySelector('[data-slot="calendar-selection"]');
+
+			await tap(march('SGT Smith, Alex', 1), 10);
+			await tap(march('SSG Taylor, Jamie', 2), 50);
+			expect(mark()).toBeNull();
+
+			await tap(march('SGT Smith, Alex', 1), 10);
+			await fireEvent.click(screen.getByText('Taylor, Jamie'));
+			expect(mark()).toBeNull();
+
+			await tap(march('SGT Smith, Alex', 1), 10);
+			expect(mark()).not.toBeNull();
+			await rerender({ dates: [new Date(2026, 3, 1), new Date(2026, 3, 2)] });
+			expect(mark()).toBeNull();
+
+			await tap(screen.getByRole('button', { name: 'SGT Smith, Alex, Wednesday, April 1, 2026' }), 10);
+			await fireEvent.keyDown(window, { key: 'Escape' });
+			expect(mark()).toBeNull();
+			expect(onQuickAdd).not.toHaveBeenCalled();
+			expect(onCellClick).not.toHaveBeenCalled();
+		});
+
+		it('keeps the start day when the browser takes a touch for scrolling', async () => {
+			const onQuickAdd = vi.fn();
+			renderCalendar({ canEdit: true, onQuickAdd });
+
+			await tap(march('SGT Smith, Alex', 1), 10);
+			await fireEvent.pointerDown(march('SGT Smith, Alex', 2), { ...touch, clientX: 50 });
+			await fireEvent.pointerMove(window, { ...touch, clientX: 20 });
+			await fireEvent.pointerCancel(window, touch);
+
+			expect(document.querySelectorAll('[data-slot="calendar-selection"]')).toHaveLength(1);
+			await tap(march('SGT Smith, Alex', 2), 50);
+			expect(onQuickAdd).toHaveBeenCalledExactlyOnceWith(
+				expect.objectContaining({ id: 'person-1' }),
+				'2026-03-01',
+				'2026-03-02',
+				expect.any(HTMLElement)
+			);
+		});
+
+		it('selects nothing on touch while a change is saving', async () => {
+			renderCalendar({ canEdit: true, onQuickAdd: vi.fn(), saving: true });
+
+			await tap(march('SGT Smith, Alex', 1), 10);
+
+			expect(document.querySelector('[data-slot="calendar-selection"]')).toBeNull();
+		});
 	});
 
 	it('hides personnel roles when role display is disabled', () => {

@@ -224,6 +224,48 @@ describe('BulkStatusRemove', () => {
 		await waitFor(() => expect(success).toHaveBeenCalledWith('Removed 2 status entries; 1 was already gone'));
 	});
 
+	it('offers Undo for every entry removed across a partial retry, and none for one a colleague had already removed', async () => {
+		const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const undo = { label: 'Undo', onClick: vi.fn() };
+		const undoAction = vi.fn(() => undo);
+		const entries = ['availability-1', 'availability-2', 'availability-3'].map((id) => availabilityEntry({ id }));
+		const onRemove = vi
+			.fn()
+			.mockResolvedValueOnce({ kind: 'partial', deleted: 2, completedIds: ['availability-1', 'availability-2'] })
+			.mockResolvedValueOnce({ kind: 'removed', deleted: 1 });
+		renderRemove({ loadAvailabilityRange: vi.fn().mockResolvedValue(entries), onRemove, undoAction });
+
+		await selectPersonAndReview();
+		await confirmRemoval();
+		await waitFor(() => expect(onRemove).toHaveBeenCalledTimes(1));
+		expect(undoAction).not.toHaveBeenCalled();
+		await confirmRemoval();
+
+		await waitFor(() => expect(undoAction).toHaveBeenCalledOnce());
+		expect(undoAction).toHaveBeenCalledWith({ restore: entries });
+		expect(success.mock.calls[0].slice(1)).toEqual([10000, undo]);
+	});
+
+	it('offers no Undo when a colleague had already removed some of the matches', async () => {
+		const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const undoAction = vi.fn(() => ({ label: 'Undo', onClick: vi.fn() }));
+		renderRemove({
+			loadAvailabilityRange: vi
+				.fn()
+				.mockResolvedValue([availabilityEntry({ id: 'availability-1' }), availabilityEntry({ id: 'availability-2' })]),
+			onRemove: vi.fn().mockResolvedValue({ kind: 'removed', deleted: 1 }),
+			undoAction
+		});
+
+		await selectPersonAndReview();
+		await confirmRemoval();
+
+		await waitFor(() => expect(success).toHaveBeenCalledOnce());
+		expect(undoAction).not.toHaveBeenCalled();
+		expect(success.mock.calls[0].slice(1)).toEqual([]);
+	});
+
 	it('keeps the no-matches state hidden when selected range loading fails', async () => {
 		const loadAvailabilityRange = vi.fn().mockRejectedValue(new Error('boom'));
 

@@ -67,7 +67,12 @@ function renderEditor(overrides: Partial<ComponentProps<typeof GroupEditor>> = {
 			archivedMemberCount: vi.fn(async () => 0)
 		},
 		onTogglePin: vi.fn(async () => true),
-		onMove: vi.fn(async (ids: string[], groupId: string | null) => ({ groupId, movedIds: ids, unavailableIds: [] })),
+		onMove: vi.fn(async (ids: string[], groupId: string | null) => ({
+			groupId,
+			movedIds: ids,
+			unavailableIds: [],
+			previousGroupIds: new Map()
+		})),
 		onClose: vi.fn(),
 		...overrides
 	};
@@ -126,7 +131,8 @@ describe('GroupEditor', () => {
 		const onMove = vi.fn(async (_ids: string[], groupId: string | null) => ({
 			groupId,
 			movedIds: ['p-alvarez'],
-			unavailableIds: ['p-banks']
+			unavailableIds: ['p-banks'],
+			previousGroupIds: new Map()
 		}));
 		renderEditor({ onMove });
 

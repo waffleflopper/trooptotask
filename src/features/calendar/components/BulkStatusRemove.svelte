@@ -4,6 +4,8 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { BatchRemovalOutcome } from '$lib/stores/core';
+	import type { ToastAction } from '$lib/stores/toast.svelte';
+	import { AVAILABILITY_UNDO_MS, type AvailabilityUndoChange } from '$features/calendar/availabilityUndo';
 	import { CalendarStatusBadge } from './calendar-status-badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
@@ -47,6 +49,8 @@
 		loadAvailabilityRange?: (range: { rangeStart: string; rangeEnd: string }) => Promise<AvailabilityEntry[]>;
 		onRemove: (ids: string[]) => Promise<BatchRemovalOutcome>;
 		onComplete: () => void;
+		/** Builds the Undo for a success toast; without it the toast offers none. */
+		undoAction?: (change: AvailabilityUndoChange) => ToastAction;
 	}
 
 	let {
@@ -56,7 +60,8 @@
 		personnelList,
 		loadAvailabilityRange = async () => availabilityEntries,
 		onRemove,
-		onComplete
+		onComplete,
+		undoAction
 	}: Props = $props();
 
 	const todayStr = formatDate(new Date());
@@ -73,6 +78,8 @@
 	let isSubmitting = $state(false);
 	let entriesInReview = $state(0);
 	let removedAcrossRetries = $state(0);
+	/** Entries removed by earlier passes of this review, which Undo puts back together with the last pass. */
+	let removedEntries: AvailabilityEntry[] = [];
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
@@ -135,6 +142,7 @@
 			reviewCriteria = criteria;
 			entriesInReview = matchResult.exact.length + matchResult.partial.length;
 			removedAcrossRetries = 0;
+			removedEntries = [];
 			step = 'confirm';
 		} catch {
 			matchLoadError = 'Unable to load status entries for the selected date range. Try again.';
@@ -161,13 +169,23 @@
 			if (outcome.kind === 'removed') {
 				const deleted = removedAcrossRetries + outcome.deleted;
 				const alreadyGone = entriesInReview - deleted;
-				toastStore.success(
+				// A count alone cannot say which entries a colleague had already removed, and Undo must not bring those back.
+				const undo =
+					undoAction && alreadyGone === 0
+						? undoAction({ restore: [...removedEntries, ...matchResult.exact, ...matchResult.partial] })
+						: undefined;
+				const message =
 					`Removed ${deleted} status ${deleted === 1 ? 'entry' : 'entries'}` +
-						(alreadyGone > 0 ? `; ${alreadyGone} ${alreadyGone === 1 ? 'was' : 'were'} already gone` : '')
-				);
+					(alreadyGone > 0 ? `; ${alreadyGone} ${alreadyGone === 1 ? 'was' : 'were'} already gone` : '');
+				if (undo) toastStore.success(message, AVAILABILITY_UNDO_MS, undo);
+				else toastStore.success(message);
 				onComplete();
 			} else if (outcome.kind === 'partial') {
 				const completed = new Set(outcome.completedIds);
+				removedEntries = [
+					...removedEntries,
+					...[...matchResult.exact, ...matchResult.partial].filter((e) => completed.has(e.id))
+				];
 				matchResult = {
 					exact: matchResult.exact.filter((e) => !completed.has(e.id)),
 					partial: matchResult.partial.filter((e) => !completed.has(e.id))

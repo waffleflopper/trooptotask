@@ -67,14 +67,21 @@ function narrowed(people: readonly Personnel[], keep: (person: Personnel) => boo
 	return kept.length ? kept : people;
 }
 
-export function indexByDodId(roster: readonly Personnel[], dodIds: readonly PersonnelDodId[]) {
-	const active = new Map(roster.filter((person) => !person.archivedAt).map((person) => [person.id, person]));
+function indexDodIdHolders(people: ReadonlyMap<string, Personnel>, dodIds: readonly PersonnelDodId[]) {
 	const byDodId = new Map<string, Personnel | null>();
 	for (const { personnelId, dodId } of dodIds) {
-		const person = active.get(personnelId);
+		const person = people.get(personnelId);
 		if (person) byDodId.set(dodId, byDodId.has(dodId) ? null : person);
 	}
 	return byDodId;
+}
+
+export function indexByDodId(roster: readonly Personnel[], dodIds: readonly PersonnelDodId[]) {
+	return indexDodIdHolders(new Map(roster.filter((person) => !person.archivedAt).map((p) => [p.id, p])), dodIds);
+}
+
+export function indexArchivedByDodId(archived: readonly Personnel[], dodIds: readonly PersonnelDodId[]) {
+	return indexDodIdHolders(new Map(archived.map((person) => [person.id, person])), dodIds);
 }
 
 export function rosterPersonReference<C extends PersonNameColumns>(

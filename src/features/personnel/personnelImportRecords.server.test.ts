@@ -893,3 +893,115 @@ describe('importPersonnelRecords', () => {
 		]);
 	});
 });
+
+describe('restoring an archived Person from an import', () => {
+	function asMember(personnel: 'operate' | 'configure', groupIds = ['alpha']) {
+		return context({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					personnel,
+					calendar: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: groupCoverageForTest({ kind: 'groups', groupIds })
+			}
+		});
+	}
+	const restoreArchived = (changes: Record<string, unknown> = {}) => ({
+		records: [{ op: 'restore' as const, personnelId: 'archived', changes }]
+	});
+	const archivedAt = (ctx: ReturnType<typeof context>) =>
+		ctx.store
+			.findOne<{ archived_at: string | null }>('personnel', 'test-org', { id: 'archived' })
+			.then((row) => row?.archived_at);
+
+	it('restores the Person and applies the file changes for someone allowed to restore people in that Group', async () => {
+		const ctx = asMember('configure');
+		const result = await importPersonnelRecords(ctx, restoreArchived({ mos: '68W', dodId: '0123456789' }));
+
+		expect(result).toMatchObject({ created: [], updated: [{ id: 'archived', mos: '68W' }], errors: [] });
+		await expect(archivedAt(ctx)).resolves.toBeNull();
+		await expect(ctx.personnelSheets.listDodIds()).resolves.toEqual([{ personnelId: 'archived', dodId: '0123456789' }]);
+	});
+
+	it('restores the Person when the file has nothing else to change', async () => {
+		const ctx = asMember('configure');
+		const result = await importPersonnelRecords(ctx, restoreArchived());
+
+		expect(result).toMatchObject({ updated: [{ id: 'archived', archivedAt: null }], errors: [] });
+		await expect(archivedAt(ctx)).resolves.toBeNull();
+	});
+
+	it('reports the row as failed, writes a denial audit and leaves the Person archived for someone who can only operate', async () => {
+		const ctx = asMember('operate');
+		const result = await importPersonnelRecords(ctx, restoreArchived({ mos: '68W' }));
+
+		expect(result.updated).toEqual([]);
+		expect(result.errors).toMatchObject([{ kind: 'failed', index: 0 }]);
+		await expect(archivedAt(ctx)).resolves.toBe('2026-10-01T00:00:00Z');
+		await expect(ctx.personnel.findById('archived')).resolves.toMatchObject({ mos: '68V' });
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				resourceType: 'personnel',
+				resourceId: 'archived',
+				details: expect.objectContaining({ policyAction: 'personnel.restoreRecords' })
+			})
+		);
+	});
+
+	it('fails only the denied row and still imports the rest of the batch', async () => {
+		const ctx = asMember('operate');
+		const result = await importPersonnelRecords(ctx, {
+			records: [
+				{ op: 'restore', personnelId: 'archived', changes: {} },
+				{ op: 'update', personnelId: 'person-a', changes: { mos: '68V' } }
+			]
+		});
+
+		expect(result).toMatchObject({ updated: [{ id: 'person-a', mos: '68V' }], errors: [{ kind: 'failed', index: 0 }] });
+	});
+
+	it('fails a Person in a Group outside the caller scope without attempting a restore', async () => {
+		const ctx = asMember('configure', ['bravo']);
+		const restore = vi.spyOn(ctx.personnelLifecycle, 'restore');
+		const result = await importPersonnelRecords(ctx, restoreArchived({ mos: '68W' }));
+
+		expect(result).toMatchObject({ updated: [], errors: [{ kind: 'failed', index: 0 }] });
+		expect(restore).not.toHaveBeenCalled();
+	});
+
+	it('converges when another request already restored the Person, and still applies the changes', async () => {
+		const ctx = asMember('configure');
+		await ctx.store.update('personnel', 'test-org', 'archived', { archived_at: null });
+		const result = await importPersonnelRecords(ctx, restoreArchived({ mos: '68W' }));
+
+		expect(result).toMatchObject({ updated: [{ id: 'archived', mos: '68W' }], errors: [] });
+	});
+
+	it('never restores when the row itself is invalid', async () => {
+		const ctx = asMember('configure');
+		const restore = vi.spyOn(ctx.personnelLifecycle, 'restore');
+		for (const changes of [{ dodId: 'bad' }, { rank: 'SP4' }, { ets: 'not-a-date' }, { groupId: 'foreign' }]) {
+			const result = await importPersonnelRecords(ctx, restoreArchived(changes));
+			expect(result).toMatchObject({ updated: [], errors: [{ kind: 'failed', index: 0 }] });
+		}
+		expect(restore).not.toHaveBeenCalled();
+		await expect(archivedAt(ctx)).resolves.toBe('2026-10-01T00:00:00Z');
+	});
+
+	it('does not let an update row bring an archived Person back', async () => {
+		const ctx = asMember('configure');
+		const result = await importPersonnelRecords(ctx, {
+			records: [{ op: 'update', personnelId: 'archived', changes: { mos: '68W' } }]
+		});
+
+		expect(result).toMatchObject({ updated: [], errors: [{ kind: 'failed', index: 0 }] });
+		await expect(archivedAt(ctx)).resolves.toBe('2026-10-01T00:00:00Z');
+	});
+});

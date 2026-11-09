@@ -33,6 +33,9 @@
 	const types = $derived(catalog.state === 'ready' ? catalog.catalog.trainingTypes : []);
 	const activeTypes = $derived(types.filter((type) => !type.archivedAt));
 	const added = (name: string) => types.some((type) => type.name === name);
+	// An archived type keeps its name, so the suggestion stays taken; restoring it is the way back.
+	const archived = (name: string) => types.some((type) => type.name === name && type.archivedAt);
+	const anyArchived = $derived(suggestions.some((suggestion) => archived(suggestion.name)));
 	const open = $derived(suggestions.filter((suggestion) => !added(suggestion.name)));
 	const toAdd = $derived(open.filter((suggestion) => !unpicked.has(suggestion.id)));
 	const ownTypes = $derived(
@@ -176,13 +179,14 @@
 			>
 				{#snippet detail(suggestion, exists)}
 					<span class="shrink-0 font-mono text-xs leading-4 text-muted-foreground">
-						{exists ? 'Added' : `${suggestion.expirationMonths} mo`}
+						{exists ? (archived(suggestion.name) ? 'Archived' : 'Added') : `${suggestion.expirationMonths} mo`}
 					</span>
 				{/snippet}
 				<div class="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:gap-5">
 					<p class="flex-1 text-sm leading-5 text-muted-foreground">
-						Periods and colors can be changed on the Training types page. Have records in a spreadsheet? Import them
-						once the types exist.
+						Periods and colors can be changed on the Training types page.
+						{#if anyArchived}Archived types stay out of Training until you restore them there.{/if}
+						Have records in a spreadsheet? Import them once the types exist.
 					</p>
 					<Button
 						variant="link"

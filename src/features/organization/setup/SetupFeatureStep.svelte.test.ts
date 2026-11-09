@@ -185,6 +185,18 @@ it('adds only the picked suggestions the unit does not have yet', async () => {
 	expect(posts).toEqual([{ path: '/api/training-types/suggestions', body: { branch: 'army', suggestionIds: ['eo'] } }]);
 });
 
+it('shows a suggested type the unit archived as archived, not added, and leaves it taken', async () => {
+	stubFetch({});
+	open('training', {
+		catalog: [{ id: 'sharp-type', name: 'SHARP', expirationMonths: 12, archivedAt: '2026-11-01T00:00:00.000Z' }]
+	});
+
+	const sharp = await screen.findByRole('checkbox', { name: /SHARP/ });
+	await waitFor(() => expect(sharp).toBeDisabled());
+	expect(sharp.closest('label')?.textContent).toContain('Archived');
+	expect(sharp.closest('label')?.textContent).not.toContain('Added');
+});
+
 it("lists the unit's own active types to edit, and leaves archived ones out", async () => {
 	stubFetch({});
 	open('training', {

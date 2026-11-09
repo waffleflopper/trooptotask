@@ -1,8 +1,12 @@
-import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
+import { buildRequestError } from '$lib/stores/core';
 import type { PersonnelFieldBulkResult, PersonnelFieldChange } from '../contracts';
 
 export const PERSONNEL_FIELD_UNCONFIRMED_MESSAGE = "We couldn't confirm the change. Reload to see what saved.";
 
+/**
+ * Rejects with a `StoreRequestError` carrying the reply's status, or with a plain `Error` when no reply proved the
+ * outcome, so `classifyWrite` tells a refusal from an unconfirmed change.
+ */
 export async function setPersonnelField(
 	orgId: string,
 	personnelIds: string[],
@@ -18,10 +22,7 @@ export async function setPersonnelField(
 	} catch {
 		throw new Error(PERSONNEL_FIELD_UNCONFIRMED_MESSAGE);
 	}
-	if (!response.ok) {
-		const failure = await buildRequestError(response, 'POST', 'personnel/field-batch');
-		throw new Error(rejectedRequestMessage(failure, PERSONNEL_FIELD_UNCONFIRMED_MESSAGE));
-	}
+	if (!response.ok) throw await buildRequestError(response, 'POST', 'personnel/field-batch');
 	const result: unknown = await response.json().catch(() => null);
 	const { field, value, updatedIds, refusedIds, unavailableIds } = (result ?? {}) as Partial<PersonnelFieldBulkResult>;
 	const requested = new Set(personnelIds);

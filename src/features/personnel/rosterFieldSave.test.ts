@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { endOrganizationLifetime } from '$lib/stores/core';
+import { endOrganizationLifetime, StoreRequestError } from '$lib/stores/core';
 import { settles } from '$lib/test-support/settles';
 import type { PersonnelFieldBulkResult } from './contracts';
 import type { Personnel } from './personnel.types';
@@ -46,9 +46,10 @@ describe('saveRosterField', () => {
 		};
 		const { deps, peek, refreshSignals } = setup(Promise.resolve(reply));
 
-		await expect(saveRosterField(roster, { field: 'rank', value: 'ssg' }, ['a', 'b', 'c'], deps)).resolves.toEqual(
-			reply
-		);
+		await expect(saveRosterField(roster, { field: 'rank', value: 'ssg' }, ['a', 'b', 'c'], deps)).resolves.toEqual({
+			answered: reply,
+			interrupted: null
+		});
 
 		expect(ranks()).toEqual([
 			['a', 'SSG'],
@@ -60,34 +61,69 @@ describe('saveRosterField', () => {
 		expect(refreshSignals).toHaveBeenCalledWith(['a']);
 	});
 
-	it('saves more than 500 People in batches and keeps the confirmed batch on the roster when a later one fails', async () => {
+	const updateAll: NonNullable<RosterFieldSaveDeps['save']> = async (_orgId, ids) => ({
+		field: 'rank',
+		value: 'SSG',
+		updatedIds: ids,
+		refusedIds: [],
+		unavailableIds: []
+	});
+	const idsOf = (people: Personnel[]) => people.map((item) => item.id);
+
+	it('saves more than 500 People in batches and keeps the confirmed batch when a later reply is lost', async () => {
 		const many = Array.from({ length: 501 }, (_, index) => person(`p${index}`, 'SGT'));
 		personnelStore.load(many, 'org-1');
 		const save = vi
 			.fn<NonNullable<RosterFieldSaveDeps['save']>>()
-			.mockImplementationOnce(async (_orgId, ids) => ({
-				field: 'rank',
-				value: 'SSG',
-				updatedIds: ids,
-				refusedIds: [],
-				unavailableIds: []
-			}))
-			.mockRejectedValueOnce(new Error('lost'));
+			.mockImplementationOnce(updateAll)
+			.mockRejectedValueOnce(new TypeError('fetch failed'));
 		const { deps, refreshSignals } = setup(new Promise<PersonnelFieldBulkResult>(() => {}));
 
-		await expect(
-			saveRosterField(
-				many,
-				{ field: 'rank', value: 'SSG' },
-				many.map((item) => item.id),
-				{ ...deps, save }
-			)
-		).rejects.toThrow('lost');
+		const result = await saveRosterField(many, { field: 'rank', value: 'SSG' }, idsOf(many), { ...deps, save });
 
+		expect(result).toEqual({
+			answered: {
+				field: 'rank',
+				value: 'SSG',
+				updatedIds: idsOf(many.slice(0, 500)),
+				refusedIds: [],
+				unavailableIds: []
+			},
+			interrupted: {
+				outcome: 'unconfirmed',
+				failedIds: ['p500'],
+				unsentIds: [],
+				message: "We couldn't confirm the change. Reload to see what saved."
+			}
+		});
 		expect(save.mock.calls.map(([, ids]) => ids.length)).toEqual([500, 1]);
 		expect(personnelStore.items.filter((item) => item.rank === 'SSG')).toHaveLength(500);
 		expect(personnelStore.items.find((item) => item.id === 'p500')?.rank).toBe('SGT');
 		expect(refreshSignals).toHaveBeenCalledOnce();
+	});
+
+	it('reports a refused batch as not saved with the server reason, and the batches after it as never sent', async () => {
+		const many = Array.from({ length: 1001 }, (_, index) => person(`p${index}`, 'SGT'));
+		personnelStore.load(many, 'org-1');
+		const save = vi
+			.fn<NonNullable<RosterFieldSaveDeps['save']>>()
+			.mockImplementationOnce(updateAll)
+			.mockRejectedValueOnce(new StoreRequestError('Unknown rank "SSG".', 400, true));
+		const { deps } = setup(new Promise<PersonnelFieldBulkResult>(() => {}));
+
+		const { answered, interrupted } = await saveRosterField(many, { field: 'rank', value: 'SSG' }, idsOf(many), {
+			...deps,
+			save
+		});
+
+		expect(answered.updatedIds).toEqual(idsOf(many.slice(0, 500)));
+		expect(interrupted).toEqual({
+			outcome: 'not-saved',
+			failedIds: idsOf(many.slice(500, 1000)),
+			unsentIds: ['p1000'],
+			message: 'Unknown rank "SSG".'
+		});
+		expect(save).toHaveBeenCalledTimes(2);
 	});
 
 	it('writes nothing and never settles when the reply arrives after the Organization shell ends', async () => {

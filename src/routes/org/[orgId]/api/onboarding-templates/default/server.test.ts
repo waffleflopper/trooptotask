@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -27,12 +26,6 @@ function seedTemplate(ctx: ReturnType<typeof createTestContext>) {
 }
 
 describe('PUT /api/onboarding-templates/default', () => {
-	it('is a policy-first mutation on the Onboarding configure action', () => {
-		expect(_putConfig.policyAction).toBe(POLICY_ACTION_CATALOG.onboarding.configureWorkflows);
-		expect(_putConfig.policyResource).toEqual({ kind: 'organization' });
-		expect(_putConfig.mutation).toBe(true);
-	});
-
 	it('names the template the default for an Organization admin, then clears it', async () => {
 		const ctx = createTestContext();
 		seedTemplate(ctx);

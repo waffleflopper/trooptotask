@@ -343,7 +343,7 @@
 							bind:ref={saveButton}
 							type="submit"
 							disabled={changeCount === 0}
-							aria-disabled={loading ? 'true' : undefined}
+							aria-disabled={busy ? 'true' : undefined}
 							aria-busy={loading || undefined}
 						>
 							{#if loading}

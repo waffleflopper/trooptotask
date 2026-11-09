@@ -177,6 +177,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261108220000_keep_closed_taskings_on_event_delete.sql",
     "20261108220100_close_archived_person_work.sql",
     "20261110120000_availability_undo_record.sql",
+    "20261110130000_member_label_without_membership.sql",
 )
 # Rows that must exist before the post-tree migrations apply, and the contracts that read them afterwards.
 POST_TREE_FIXTURES = ("equipment_returned_bound_before.sql",)

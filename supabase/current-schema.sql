@@ -7586,10 +7586,31 @@ CREATE FUNCTION public.delete_expired_personnel(p_org_id uuid, p_candidate_ids u
     AS $$
 DECLARE
   v_ids uuid[];
+  v_request_ids uuid[];
+  v_request_people uuid[];
 BEGIN
   IF p_org_id IS NULL OR p_candidate_ids IS NULL OR p_cutoff IS NULL THEN
     RAISE EXCEPTION 'Organization, candidate IDs and cutoff are required' USING ERRCODE = '22023';
   END IF;
+
+  -- Requests lock before People, as request approval does, so a purge and an approval cannot deadlock.
+  SELECT coalesce(pg_catalog.array_agg(pending.id), '{}'), coalesce(pg_catalog.array_agg(pending.person_id), '{}')
+  INTO v_request_ids, v_request_people FROM (
+    SELECT request.id, target.person_id FROM public.deletion_requests AS request
+    CROSS JOIN LATERAL (SELECT CASE request.resource_type
+      WHEN 'personnel' THEN request.resource_id
+      WHEN 'counseling_record' THEN (SELECT record.personnel_id FROM public.counseling_records AS record
+        WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
+      WHEN 'personnel_training' THEN (SELECT record.personnel_id FROM public.personnel_trainings AS record
+        WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
+      WHEN 'rating_scheme_entry' THEN (SELECT record.rated_person_id FROM public.rating_scheme_entries AS record
+        WHERE record.organization_id = p_org_id AND record.id = request.resource_id)
+    END AS person_id) AS target
+    WHERE request.organization_id = p_org_id AND request.status = 'pending'
+      AND target.person_id = ANY (p_candidate_ids)
+    ORDER BY request.id
+    FOR UPDATE OF request
+  ) AS pending;
 
   SELECT coalesce(pg_catalog.array_agg(expired.id), '{}') INTO v_ids FROM (
     SELECT person.id FROM public.personnel AS person
@@ -7606,20 +7627,9 @@ BEGIN
   ) AS expired;
 
   UPDATE public.deletion_requests AS request SET status = 'cancelled'
-  WHERE request.organization_id = p_org_id AND request.status = 'pending'
-    AND CASE request.resource_type
-      WHEN 'personnel' THEN request.resource_id = ANY (v_ids)
-      WHEN 'counseling_record' THEN EXISTS (
-        SELECT 1 FROM public.counseling_records AS record
-        WHERE record.organization_id = p_org_id AND record.id = request.resource_id AND record.personnel_id = ANY (v_ids))
-      WHEN 'personnel_training' THEN EXISTS (
-        SELECT 1 FROM public.personnel_trainings AS record
-        WHERE record.organization_id = p_org_id AND record.id = request.resource_id AND record.personnel_id = ANY (v_ids))
-      WHEN 'rating_scheme_entry' THEN EXISTS (
-        SELECT 1 FROM public.rating_scheme_entries AS record
-        WHERE record.organization_id = p_org_id AND record.id = request.resource_id AND record.rated_person_id = ANY (v_ids))
-      ELSE false
-    END;
+  FROM ROWS FROM (pg_catalog.unnest(v_request_ids), pg_catalog.unnest(v_request_people)) AS pending(id, person_id)
+  WHERE request.organization_id = p_org_id AND request.id = pending.id AND request.status = 'pending'
+    AND pending.person_id = ANY (v_ids);
 
   DELETE FROM public.personnel AS person
   WHERE person.organization_id = p_org_id AND person.id = ANY (v_ids);

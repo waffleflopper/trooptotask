@@ -40,6 +40,11 @@ explains and removes only linked records.
   archived records. A Calendar or Dashboard snapshot read before the delete cannot bring back any assignment of that
   type, including one another member added that this tab never loaded. Store, hydrator and Dashboard read-model tests
   cover the late-snapshot order; step 5 proves only the deletion.
+- `delete-unconfirmed`: when a status or assignment type delete gets no reply (a thrown fetch or a 5xx), the
+  confirmation closes and an error toast offers `Reload`. It reads
+  `We couldn't confirm the assignment type was deleted. Reload to see whether it was.`, or names the status type. The
+  row stays listed until that reload reads the server. A 4xx still reads `Failed to delete assignment type` or
+  `Failed to delete status type`.
 - `catalog-authorization`: view, operate, Group-scoped and foreign-Organization actors cannot configure the three
   Calendar catalogs.
 
@@ -69,6 +74,24 @@ section and is driven in [Special days](special-days.md).
 `$V network arm-fail $PAGE status-types/preview` fails the next effect preview with a 503. `status-types/usage` and
 `training-types/usage` fail or hold the count load behind the `ARCHIVED` section; `status-types/archive` and
 `training-types/archive` match the `PUT` that archives or restores.
+
+No `network` family loses a catalog `DELETE` reply. To lose one, run this with `tool evaluate_script` after the last
+navigation. It sends the next `DELETE .../api/assignment-types`, records the real status in
+`window.__lostDeleteStatus`, throws as the browser would on a lost reply, and removes itself:
+
+```js
+() => {
+	const real = window.fetch;
+	window.fetch = async (input, init) => {
+		if (init?.method === 'DELETE' && String(input).endsWith('/api/assignment-types')) {
+			window.fetch = real;
+			window.__lostDeleteStatus = (await real(input, init)).status;
+			throw new TypeError('Failed to fetch');
+		}
+		return real(input, init);
+	};
+};
+```
 
 ## Driving it with verify:app
 
@@ -500,8 +523,19 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
   settings tab and the availability dialog show two columns of 7 rows. `document.documentElement.scrollWidth` equals
   `innerWidth`.
 
+15. **Lost delete reply.** As `calendarConfigure` on `Assignment Types`, add a uniquely named Person type and open
+    `More actions for <name>` → `Delete`. Run the lost-reply snippet from [Helper controls](#helper-controls) and
+    `$V feedback arm $PAGE`, then confirm `Delete`. `window.__lostDeleteStatus` reads `200` and
+    `$V rows assignment_types orgA name <name>` reads `count` 0, yet the dialog closes with the row still listed.
+    `feedback state` shows one `error` toast with `Reload`, reading
+    `We couldn't confirm the assignment type was deleted. Reload to see whether it was.` Choose `Reload`: the page
+    reloads, the row is gone and the `Assignment Types` count drops by one. The reload removes the snippet and the feedback observer. Capture the toast and the reloaded
+    list at 1280 and 390 with `scrollWidth` equal to `innerWidth`.
+
 ## Gotchas
 
+- The unconfirmed-delete toast closes after 15 seconds. Run `$V click $PAGE button Reload` straight after
+  `wait_for` finds the toast; separate tool calls can outlast it, and the row then stays listed until a manual reload.
 - Malformed, missing and foreign catalog ids and dates, and the editors' visible 4xx messages, are driven in
   [Invalid input](invalid-input.md).
 - Calendar `configure` alone does not give a Group-scoped member catalog authority; Organization scope is also required.

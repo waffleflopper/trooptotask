@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '$app/forms';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { onDestroy } from 'svelte';
 	import { beforeNavigate, goto, invalidate } from '$app/navigation';
@@ -25,6 +26,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatDisplayDate } from '$lib/utils/dates';
+	import { settleAction } from '$lib/utils/settleAction';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -92,23 +94,37 @@
 	beforeNavigate(retirePage);
 	onDestroy(retirePage);
 
-	function resolveGroup(groupId: string) {
+	const RESOLVE_FAILED = 'Could not resolve this error. Reload before trying again.';
+
+	function resolveGroup(
+		groupId: string,
+		submitter: HTMLElement | null
+	): Exclude<Awaited<ReturnType<SubmitFunction>>, void> {
 		const onView = view;
 		const actor = data.adminUserId;
 		const lifetime = pageLifetime;
+		// A reply for another filter, page or operator no longer belongs on screen.
+		const sameView = () => onView === view && actor === data.adminUserId;
 		resolving = groupId;
 		actionError = null;
-		return async ({ result: reply, update }: { result: { type: string }; update: () => Promise<void> }) => {
-			// A reply for an earlier visit, another filter, page or operator no longer belongs on screen.
-			if (lifetime !== pageLifetime) return;
-			if (resolving === groupId) resolving = null;
-			if (onView !== view || actor !== data.adminUserId) return;
-			if (reply.type === 'failure' || reply.type === 'error') {
-				actionError = 'Could not resolve this error. Reload before trying again.';
-				return;
-			}
-			await update();
-		};
+		return (outcome) =>
+			settleAction(
+				{
+					result: outcome.result,
+					update: (options) =>
+						sameView() && outcome.result.type !== 'failure' ? outcome.update(options) : Promise.resolve()
+				},
+				{
+					// A reply for an earlier visit changes nothing.
+					isCurrent: () => lifetime === pageLifetime,
+					settled: (error) => {
+						if (resolving === groupId) resolving = null;
+						if (!sameView()) return;
+						actionError = outcome.result.type === 'failure' || outcome.result.type === 'error' ? RESOLVE_FAILED : error;
+					},
+					focus: () => (sameView() ? [submitter] : [])
+				}
+			);
 	}
 </script>
 
@@ -158,7 +174,7 @@
 			</span>
 		{/if}
 	{:else if group.status === 'open'}
-		<form method="POST" action="?/resolve" use:enhance={() => resolveGroup(group.id)}>
+		<form method="POST" action="?/resolve" use:enhance={({ submitter }) => resolveGroup(group.id, submitter)}>
 			<input type="hidden" name="id" value={group.id} />
 			<Button
 				type="submit"

@@ -9,7 +9,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import { STATUS_BADGES } from '../../taskings/components/taskingLabels';
-	import type { Tasking } from '../../taskings/taskingModel';
+	import { isActiveStatus, type Tasking } from '../../taskings/taskingModel';
 	import type { CalendarEventsPageAccess } from '../../contracts';
 	import type { CalendarEvent, EventDeletionMode, EventDeletionResult, EventRead } from '../eventModel';
 	import { deleteEventRequest } from '../eventRequests';
@@ -35,19 +35,28 @@
 		if (current.state !== 'ready') return current.state === 'failed' ? ('failed' as const) : null;
 		return current.value.status === 'loaded' ? current.value.value.taskings : ('failed' as const);
 	});
-	// A list that failed to load may still hide linked Taskings, so the reader still chooses.
-	const asks = $derived(linked === 'failed' || (Array.isArray(linked) && linked.length > 0));
+	// Delete mode removes only active Taskings, so the choice matters only while some are active.
+	const counts = $derived.by(() => {
+		if (!Array.isArray(linked)) return null;
+		const active = linked.filter((tasking) => isActiveStatus(tasking.status.kind)).length;
+		return { active, closed: linked.length - active };
+	});
+	// A list that failed to load may still hide active Taskings, so the reader still chooses.
+	const asks = $derived(linked === 'failed' || (counts !== null && counts.active > 0));
+	const staysAsStandalone = $derived(!asks && counts !== null && counts.closed > 0);
 	const confirmLabel = $derived.by(() => {
 		if (!asks || mode === 'standalone') return 'Delete event';
-		return Array.isArray(linked) ? `Delete event and ${taskingCount(linked.length)}` : 'Delete event and its taskings';
+		if (!counts) return 'Delete event and its active taskings';
+		if (counts.closed === 0) return `Delete event and ${taskingCount(counts.active)}`;
+		return `Delete event and ${counts.active} active ${counts.active === 1 ? 'tasking' : 'taskings'}`;
 	});
 
 	$effect(() => () => (open = false));
 
-	function deletedMessage(result: EventDeletionResult) {
-		if (result.count === 0) return `Deleted ${event.title}.`;
-		if (result.taskings === 'delete') return `Deleted ${event.title} and ${taskingCount(result.count)}.`;
-		return `Deleted ${event.title}. ${taskingCount(result.count)} kept as standalone.`;
+	function deletedMessage({ deleted, kept }: EventDeletionResult) {
+		const gone = deleted > 0 ? ` and ${taskingCount(deleted)}` : '';
+		const stays = kept > 0 ? ` ${taskingCount(kept)} kept as standalone.` : '';
+		return `Deleted ${event.title}${gone}.${stays}`;
 	}
 
 	async function confirm() {
@@ -78,12 +87,16 @@
 			<Skeleton class="h-[74px] w-full rounded-lg" />
 			<Skeleton class="h-[132px] w-full rounded-md" />
 		</div>
-	{:else if asks}
+	{:else if asks || staysAsStandalone}
 		<section class="grid min-w-0 gap-2" aria-labelledby="event-delete-taskings-heading">
 			<h3 id="event-delete-taskings-heading" class="m-0 text-sm font-medium">
-				{Array.isArray(linked)
-					? `What happens to its ${taskingCount(linked.length)}?`
-					: 'What happens to its taskings?'}
+				{#if !Array.isArray(linked)}
+					What happens to its taskings?
+				{:else if staysAsStandalone}
+					Its {taskingCount(linked.length)} stay as standalone, with their history.
+				{:else}
+					What happens to its {taskingCount(linked.length)}?
+				{/if}
 			</h3>
 			{#if Array.isArray(linked)}
 				<ul class="m-0 grid divide-y rounded-lg border p-0">
@@ -101,29 +114,37 @@
 			{:else}
 				<p class="m-0 text-sm text-muted-foreground">The taskings under this event could not be listed.</p>
 			{/if}
-			<RadioGroup.Root
-				aria-labelledby="event-delete-taskings-heading"
-				class="gap-2"
-				bind:value={
-					() => mode,
-					(value) => {
-						if (value === 'standalone' || value === 'delete') mode = value;
+			{#if asks}
+				<RadioGroup.Root
+					aria-labelledby="event-delete-taskings-heading"
+					class="gap-2"
+					bind:value={
+						() => mode,
+						(value) => {
+							if (value === 'standalone' || value === 'delete') mode = value;
+						}
 					}
-				}
-			>
-				<RadioGroup.Card
-					id="event-delete-standalone"
-					value="standalone"
-					title="Keep them as standalone"
-					description="They stay, without an event, and their activity notes the deletion."
-				/>
-				<RadioGroup.Card
-					id="event-delete-taskings"
-					value="delete"
-					title="Delete them too"
-					description="Each is deleted for good with its picks, equipment, checklist and activity."
-				/>
-			</RadioGroup.Root>
+				>
+					<RadioGroup.Card
+						id="event-delete-standalone"
+						value="standalone"
+						title="Keep them as standalone"
+						description="They stay, without an event, and their activity notes the deletion."
+					/>
+					<RadioGroup.Card
+						id="event-delete-taskings"
+						value="delete"
+						title={counts && counts.closed > 0
+							? `Delete the ${counts.active} active ${counts.active === 1 ? 'tasking' : 'taskings'} too`
+							: 'Delete them too'}
+						description={!counts
+							? 'Active taskings are deleted for good with their picks, equipment, checklist and activity. Completed and cancelled ones stay as standalone.'
+							: counts.closed > 0
+								? `${counts.closed} completed or cancelled stay as standalone, with their history. The active ${counts.active === 1 ? 'one is' : 'ones are'} deleted for good with picks, equipment, checklist and activity.`
+								: 'Each is deleted for good with its picks, equipment, checklist and activity.'}
+					/>
+				</RadioGroup.Root>
+			{/if}
 		</section>
 	{/if}
 	{#if saveError}

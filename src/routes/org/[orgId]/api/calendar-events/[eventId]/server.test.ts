@@ -55,7 +55,7 @@ function route(
 					writes.push(await request.json());
 					if (failure) return Response.json({ code: failure, message: 'RPC refused' }, { status: 400 });
 					exists = false;
-					return Response.json({ taskings: 2 });
+					return Response.json({ deleted: 1, kept: 1 });
 				}
 				throw new Error('Unexpected provider request');
 			}
@@ -93,10 +93,10 @@ function route(
 
 describe('DELETE /org/[orgId]/api/calendar-events/[eventId]', () => {
 	it.each(['standalone', 'delete'] as const)(
-		'answers with the %s mode and affected count after deleting',
+		'answers with the database counts of deleted and kept Taskings after deleting in %s mode',
 		async (taskings) => {
 			const request = route();
-			expect(await request.invoke({ taskings })).toEqual({ taskings, count: 2 });
+			expect(await request.invoke({ taskings })).toEqual({ deleted: 1, kept: 1 });
 			expect(request.exists()).toBe(false);
 			expect(request.writes).toEqual([{ p_organization_id: ORG, p_event_id: EVENT, p_taskings: taskings }]);
 		}

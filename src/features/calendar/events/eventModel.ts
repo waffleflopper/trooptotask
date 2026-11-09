@@ -211,4 +211,5 @@ export const eventCancellationSchema = z
 export const eventDeletionSchema = z.object({ taskings: z.enum(['standalone', 'delete']) }).strict();
 
 export type EventDeletionMode = z.output<typeof eventDeletionSchema>['taskings'];
-export type EventDeletionResult = { taskings: EventDeletionMode; count: number };
+/** Delete mode removes only active Taskings; `kept` counts everything that stayed behind as standalone. */
+export type EventDeletionResult = { deleted: number; kept: number };

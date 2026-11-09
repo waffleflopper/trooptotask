@@ -24,8 +24,12 @@ function referencesSettlement(file) {
 	const text = ts.sys.readFile(file);
 	if (!text?.includes('settleAction')) return false;
 	const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+	// A module settles when it calls or re-exports settleAction; the module that only declares it, beside
+	// helpers such as restoreFocus, does not.
 	function visit(node) {
-		if (ts.isIdentifier(node) && node.text === 'settleAction') return true;
+		if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'settleAction')
+			return true;
+		if (ts.isExportSpecifier(node) && (node.propertyName ?? node.name).text === 'settleAction') return true;
 		return ts.forEachChild(node, visit) ?? false;
 	}
 	return visit(source);

@@ -43,6 +43,13 @@ tester.run('require-settled-enhance', rule, {
 		)
 	],
 	invalid: [
+		{
+			...fixture(
+				"import { restoreFocus } from '../../../src/lib/utils/settleAction'; const submit = () => restoreFocus([]);",
+				'submit'
+			),
+			errors: [{ messageId: 'unsettled' }]
+		},
 		{ ...fixture("import { enhance } from '$app/forms';"), errors: [{ messageId: 'unsettled' }] },
 		{ ...fixture("import { settleAction } from './settled.svelte';"), errors: [{ messageId: 'unsettled' }] },
 		{

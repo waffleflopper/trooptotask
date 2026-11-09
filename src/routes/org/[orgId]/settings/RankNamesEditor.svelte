@@ -15,7 +15,7 @@
 	import type { Attachment } from 'svelte/attachments';
 	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { restoreFocus } from '$lib/utils/settleAction';
+	import { restoreFocus, settleAction } from '$lib/utils/settleAction';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -80,7 +80,9 @@
 		return () => !disposed && inOrganization() && location.pathname === startedOn;
 	}
 
-	const rankError = $derived(typeof form?.rankError === 'string' ? form.rankError : null);
+	// A thrown action leaves `form` as it was, so its in-place message takes precedence.
+	let actionError = $state<string | null>(null);
+	const rankError = $derived(actionError ?? (typeof form?.rankError === 'string' ? form.rankError : null));
 	const catalogRows = $derived<CatalogRow[]>([
 		...(openEditor?.kind === 'new' ? [{ kind: 'new' } as const] : []),
 		...rows.map((rank) => ({ kind: 'rank', rank }) as const)
@@ -197,17 +199,33 @@
 			savingAction = actionKey;
 			saving = true;
 			lastActionKey = actionKey;
+			actionError = null;
 			const current = editorLifetime();
-			return async ({ result, update }) => {
-				const succeeded = result.type === 'success';
+			return async (outcome) => {
+				const { result } = outcome;
+				let succeeded = false;
 				try {
-					if (!current()) return;
-					await update({ reset: false, navigate: false });
-					if (!current()) return;
-					// SvelteKit applies `form` only on the action's own page, so the page embedding the editor applies it.
-					if (actionBase && (succeeded || result.type === 'failure')) {
-						await applyAction(result);
-					}
+					await settleAction(
+						{
+							result,
+							update: async (options) => {
+								await outcome.update(options);
+								// SvelteKit applies `form` only on the action's own page, so the page embedding the editor applies it.
+								if (current() && actionBase && (result.type === 'success' || result.type === 'failure')) {
+									await applyAction(result);
+								}
+							}
+						},
+						{
+							isCurrent: current,
+							reset: false,
+							settled: (error) => {
+								succeeded = result.type === 'success';
+								actionError = error;
+							},
+							focus: () => []
+						}
+					);
 				} finally {
 					savingAction = null;
 					saving = false;
@@ -218,7 +236,7 @@
 				if (succeeded) toastStore.success('Rank catalog updated.');
 				await focusAfter(
 					succeeded,
-					succeeded && typeof result.data?.code === 'string' ? result.data.code : null,
+					succeeded && result.type === 'success' && typeof result.data?.code === 'string' ? result.data.code : null,
 					current
 				);
 			};

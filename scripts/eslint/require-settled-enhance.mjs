@@ -43,28 +43,63 @@ export default {
 	},
 	create(context) {
 		const directives = [];
-		const imports = [];
-		let settles = false;
+		const imports = new Map();
+		function importedHelperSettles(declaration) {
+			if (declaration.importKind === 'type') return false;
+			const specifier = declaration.source.value;
+			if (!imports.has(specifier)) {
+				const resolved = ts.resolveModuleName(
+					specifier,
+					context.filename,
+					compilerOptions(context.filename),
+					ts.sys
+				).resolvedModule;
+				imports.set(
+					specifier,
+					!!resolved &&
+						!resolved.isExternalLibraryImport &&
+						!resolved.resolvedFileName.includes('/node_modules/') &&
+						referencesSettlement(resolved.resolvedFileName)
+				);
+			}
+			return imports.get(specifier);
+		}
 		return {
-			Identifier(node) {
-				if (node.name === 'settleAction') settles = true;
-			},
-			ImportDeclaration(node) {
-				if (node.importKind !== 'type') imports.push(node.source.value);
-			},
 			SvelteDirective(node) {
 				if (node.kind === 'Action' && node.key.name.name === 'enhance') directives.push(node);
 			},
 			'Program:exit'() {
-				if (settles || directives.length === 0) return;
-				const options = compilerOptions(context.filename);
-				const helperSettles = imports.some((specifier) => {
-					const resolved = ts.resolveModuleName(specifier, context.filename, options, ts.sys).resolvedModule;
-					if (!resolved || resolved.isExternalLibraryImport || resolved.resolvedFileName.includes('/node_modules/'))
-						return false;
-					return referencesSettlement(resolved.resolvedFileName);
-				});
-				if (!helperSettles) for (const node of directives) context.report({ node, messageId: 'unsettled' });
+				if (directives.length === 0) return;
+				const bindings = new Map();
+				for (const scope of context.sourceCode.scopeManager.scopes) {
+					for (const reference of scope.references) bindings.set(reference.identifier, reference.resolved);
+				}
+				function settles(node, seen = new Set()) {
+					if (!node || seen.has(node)) return false;
+					seen.add(node);
+					if (node.type === 'Identifier') {
+						if (node.name === 'settleAction') return true;
+						const binding = bindings.get(node);
+						if (
+							binding?.defs.some((definition) => {
+								if (definition.type === 'ImportBinding')
+									return definition.node.importKind !== 'type' && importedHelperSettles(definition.parent);
+								return (
+									(definition.type === 'Variable' || definition.type === 'FunctionName') &&
+									settles(definition.node, seen)
+								);
+							})
+						)
+							return true;
+					}
+					return (context.sourceCode.visitorKeys[node.type] ?? []).some((key) => {
+						const child = node[key];
+						return Array.isArray(child) ? child.some((entry) => settles(entry, seen)) : settles(child, seen);
+					});
+				}
+				for (const node of directives) {
+					if (!settles(node.expression)) context.report({ node, messageId: 'unsettled' });
+				}
 			}
 		};
 	}

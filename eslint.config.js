@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import ts from 'typescript-eslint';
 import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
+import requireSettledEnhance from './scripts/eslint/require-settled-enhance.mjs';
 
 export default ts.config(
 	js.configs.recommended,
@@ -17,6 +18,12 @@ export default ts.config(
 		languageOptions: {
 			parserOptions: { parser: ts.parser }
 		}
+	},
+	{
+		files: ['src/**/*.svelte'],
+		ignores: ['src/**/*.test.svelte', 'src/**/test-support/**'],
+		plugins: { local: { rules: { 'require-settled-enhance': requireSettledEnhance } } },
+		rules: { 'local/require-settled-enhance': 'error' }
 	},
 	{
 		files: ['**/*.svelte.ts', '**/*.svelte.js'],

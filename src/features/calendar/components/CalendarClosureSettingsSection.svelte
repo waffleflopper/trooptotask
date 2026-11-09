@@ -132,8 +132,13 @@
 	async function deleteSpecialDay(d: SpecialDay) {
 		if (!canMutate) return;
 		try {
-			const removed = await specialDaysStore.remove(d.id);
-			if (!removed) {
+			const result = await specialDaysStore.remove(d.id);
+			if (result === 'unconfirmed') {
+				confirmDeleteSpecial = null;
+				toastStore.unconfirmed("We couldn't confirm the closure was deleted. Reload to see whether it was.");
+				return;
+			}
+			if (result !== 'deleted') {
 				showClosureMutationError('Failed to delete closure');
 				return;
 			}

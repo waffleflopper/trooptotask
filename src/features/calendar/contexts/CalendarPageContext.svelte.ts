@@ -4,7 +4,8 @@ import type { Group, Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 import type { AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
-import { saveAvailabilityChange, type AvailabilityOutcome } from '$features/calendar/availabilitySave';
+import { saveAvailabilityChange } from '$features/calendar/availabilitySave';
+import type { SaveOutcome } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { formatDate, formatToday, parseDate } from '$lib/utils/dates';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -442,7 +443,7 @@ export class CalendarPageContext {
 		this.popover = null;
 	}
 
-	async saveAvailability(change: AvailabilityChange): Promise<AvailabilityOutcome> {
+	async saveAvailability(change: AvailabilityChange): Promise<SaveOutcome> {
 		if (this.savingAvailability) {
 			toastStore.error('Another change is still saving. Try again in a moment.');
 			return 'busy';

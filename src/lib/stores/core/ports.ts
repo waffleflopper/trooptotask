@@ -1,4 +1,7 @@
-export type DeleteResult = 'deleted' | 'approval_required' | 'error';
+import { classifyWrite, type SaveOutcome } from './saveOutcome';
+
+/** `not-saved` means the server refused the delete; `unconfirmed` means no reply proved whether it landed. */
+export type DeleteResult = 'deleted' | 'approval_required' | Extract<SaveOutcome, 'not-saved' | 'unconfirmed'>;
 
 export interface ApiAdapter<T extends { id: string }> {
 	create(data: Omit<T, 'id'>): Promise<T>;
@@ -88,25 +91,24 @@ export function createRestAdapter<T extends { id: string }>(getOrgId: () => stri
 		},
 
 		async remove(id) {
+			let res: Response;
 			try {
-				const res = await fetch(url(), {
+				res = await fetch(url(), {
 					method: 'DELETE',
 					headers,
 					body: JSON.stringify({ id })
 				});
-
-				if (res.status === 202) {
-					const body = await res.json();
-					if (body.requiresApproval) {
-						return 'approval_required';
-					}
-				}
-
-				if (!res.ok) return 'error';
-				return 'deleted';
 			} catch {
-				return 'error';
+				return 'unconfirmed';
 			}
+			if (res.status === 202) {
+				// A 202 may only queue an approval, so an unreadable body proves nothing was deleted either way.
+				const body = await res.json().catch(() => undefined);
+				if (body === undefined) return 'unconfirmed';
+				if (body?.requiresApproval) return 'approval_required';
+			}
+			const outcome = classifyWrite(res);
+			return outcome === 'saved' ? 'deleted' : outcome;
 		}
 	};
 }

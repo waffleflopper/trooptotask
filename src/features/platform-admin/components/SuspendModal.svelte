@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
+	import { classifyWrite } from '$lib/stores/core';
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -61,7 +62,7 @@
 					typeof body?.message === 'string'
 						? body.message
 						: 'The change could not be confirmed. Reload this page before trying again.';
-				if (![400, 403, 404, 409].includes(res.status) || typeof body?.message !== 'string') {
+				if (classifyWrite(res) !== 'not-saved' || typeof body?.message !== 'string') {
 					uncertain = { targetId: mutationTargetId, isSuspended: suspendedAfterSave };
 				}
 				return;

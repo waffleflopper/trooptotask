@@ -461,7 +461,7 @@ describe('Evals deletion recovery', () => {
 			vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
 				if (init.method === 'DELETE') {
 					if (operation === 'approval request') return Response.json({ requiresApproval: true }, { status: 202 });
-					return Response.json({}, { status: failed ? 503 : 200 });
+					return Response.json({}, { status: failed ? 409 : 200 });
 				}
 				if (failed) return Response.json({}, { status: 503 });
 				requests.push(JSON.parse(init.body as string));
@@ -497,6 +497,23 @@ describe('Evals deletion recovery', () => {
 			expect(errorToast).toHaveBeenCalledTimes(1);
 		}
 	);
+
+	it('keeps the editor and its draft when the delete reply is lost, and offers a reload', async () => {
+		const unconfirmedToast = vi.spyOn(toastStore, 'unconfirmed').mockReturnValue('unconfirmed');
+		const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			if (init.method === 'DELETE') throw new TypeError('Failed to fetch');
+			return Response.json({}, { status: 409 });
+		});
+		const { modals } = await openEditor();
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Unsaved draft' } });
+		await confirmDeletion();
+		await waitFor(() => expect(unconfirmedToast).toHaveBeenCalledTimes(1));
+		expect(errorToast).not.toHaveBeenCalled();
+		expect(modals.isOpen('rating-modal')).toBe(true);
+		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Unsaved draft');
+		expect(ctx.filteredRatingEntries).toEqual([entry, otherEntry]);
+	});
 
 	it('accepts an already-pending request without removing the evaluation', async () => {
 		const infoToast = vi.spyOn(toastStore, 'info').mockReturnValue('info');

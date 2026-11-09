@@ -9,7 +9,7 @@ import {
 	stillInOrganizationLifetime,
 	withinOrganizationLifetime
 } from '$lib/stores/core';
-import type { Store, StoreInternals } from '$lib/stores/core';
+import type { DeleteResult, Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import {
 	assignmentTypesSchema,
@@ -74,7 +74,7 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	updateType: (id: string, data: Partial<Omit<AssignmentType, 'id'>>, today?: string) => Promise<boolean>;
 	/** Resolves null when the save no longer belongs to the shown Organization, or a later roster save replaced it. */
 	saveRosterSettings: (id: string, settings: RosterSettingsInput) => Promise<AssignmentType | null>;
-	removeType: (id: string) => Promise<boolean>;
+	removeType: (id: string) => Promise<DeleteResult>;
 	setCalendarLanes: (laneTypeIds: readonly string[]) => Promise<LaneChange>;
 	getTypeById: (id: string) => AssignmentType | undefined;
 	setAssignment: (date: string, assignmentTypeId: string, assigneeId: string) => Promise<boolean>;
@@ -553,10 +553,10 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 		},
 
-		async removeType(id: string): Promise<boolean> {
-			if (currentLaneFlight() || rosterSaveInFlight()) return false;
+		async removeType(id: string): Promise<DeleteResult> {
+			if (currentLaneFlight() || rosterSaveInFlight()) return 'not-saved';
 			const type = typesStore.getById(id);
-			if (!type) return false;
+			if (!type) return 'not-saved';
 			const write = admitTypeWrite();
 
 			const ofType = (assignment: DailyAssignment) => assignment.assignmentTypeId === id;
@@ -582,7 +582,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 
 			settleTypeWrite(write);
-			return result === 'deleted';
+			return result;
 		},
 
 		setCalendarLanes(laneTypeIds: readonly string[]): Promise<LaneChange> {

@@ -73,7 +73,13 @@
 
 	async function deleteType(type: AssignmentType) {
 		try {
-			if (!(await dailyAssignmentsStore.removeType(type.id))) {
+			const result = await dailyAssignmentsStore.removeType(type.id);
+			if (result === 'unconfirmed') {
+				confirmDelete = null;
+				toastStore.unconfirmed("We couldn't confirm the assignment type was deleted. Reload to see whether it was.");
+				return;
+			}
+			if (result !== 'deleted') {
 				toastStore.error('Failed to delete assignment type');
 				return;
 			}

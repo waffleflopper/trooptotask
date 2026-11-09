@@ -123,6 +123,47 @@ describe('createTrainingRecord', () => {
 		expect(stored).toHaveLength(1);
 	});
 
+	it.each([
+		{ label: 'the same input', retryInput: validInput, notes: null },
+		{
+			label: 'omitted dates',
+			retryInput: { personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, notes: 'Retried' },
+			notes: 'Retried'
+		}
+	])('converges racing creates with $label into one saved record', async ({ retryInput, notes }) => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		const bothRead = Promise.withResolvers<void>();
+		const findPair = ctx.trainingCompletions.findPair.bind(ctx.trainingCompletions);
+		let reads = 0;
+		ctx.trainingCompletions.findPair = async (personnelId, trainingTypeId) => {
+			const pair = await findPair(personnelId, trainingTypeId);
+			if (++reads <= 2) {
+				if (reads === 2) bothRead.resolve();
+				await bothRead.promise;
+			}
+			return pair;
+		};
+
+		const [first, retry] = await Promise.all([
+			createTrainingRecord(ctx, validInput),
+			createTrainingRecord(ctx, retryInput)
+		]);
+		expect(retry.id).toBe(first.id);
+		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([
+			expect.objectContaining({
+				id: first.id,
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
+				completion_date: '2025-03-15',
+				expiration_date: '2026-03-15',
+				notes,
+				certificate_url: null
+			})
+		]);
+	});
+
 	it('uses client-provided expiration date for expirationDateOnly types', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);

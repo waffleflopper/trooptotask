@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { StoreRequestError } from '$lib/stores/core';
 const navigationGuard = vi.hoisted(() => ({ current: null as null | ((navigation: { cancel: () => void }) => void) }));
 vi.mock('$app/navigation', () => ({
 	beforeNavigate: (guard: (navigation: { cancel: () => void }) => void) => (navigationGuard.current = guard)
@@ -93,7 +94,7 @@ function props(overrides: Record<string, unknown> = {}) {
 		onStep: vi.fn(),
 		onSave: vi.fn().mockResolvedValue(undefined),
 		onSaveBatch: vi.fn().mockResolvedValue(undefined),
-		onRemove: vi.fn().mockResolvedValue(undefined),
+		onRemove: vi.fn().mockResolvedValue(true),
 		onToggleExempt: vi.fn().mockResolvedValue(undefined),
 		onClose: vi.fn(),
 		...overrides
@@ -286,7 +287,7 @@ describe('TrainingRecordSheet', () => {
 	});
 
 	it('removes the record behind a row only after the confirm', async () => {
-		const onRemove = vi.fn().mockResolvedValue(undefined);
+		const onRemove = vi.fn().mockResolvedValue(true);
 		const user = userEvent.setup();
 		render(TrainingRecordSheet, { props: props({ onRemove }) });
 
@@ -297,6 +298,27 @@ describe('TrainingRecordSheet', () => {
 
 		await waitFor(() => expect(onRemove).toHaveBeenCalledOnce());
 		expect(onRemove.mock.calls[0][0]).toBe('r-ok');
+	});
+
+	it('keeps the open form and its draft when a removal is not confirmed', async () => {
+		const onRemove = vi.fn(async () => {
+			await rerender(props({ onRemove, trainings: trainings.filter((record) => record.id !== 'r-ok') }));
+			await rerender(props({ onRemove, trainings }));
+			return false;
+		});
+		const user = userEvent.setup();
+		const { rerender } = render(TrainingRecordSheet, { props: props({ onRemove }) });
+		await user.click(await screen.findByRole('button', { name: 'More actions for Safety' }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+		await user.click(await screen.findByRole('button', { name: /Add a note/ }));
+		await user.type(screen.getByLabelText('Notes'), 'Re-scanned certificate');
+
+		await user.click(screen.getByRole('button', { name: 'More actions for Safety' }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+		await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Re-scanned certificate');
 	});
 
 	describe('correcting a record', () => {
@@ -427,7 +449,7 @@ describe('TrainingRecordSheet', () => {
 			await user.click(await screen.findByRole('button', { name: 'Save' }));
 
 			await user.click(screen.getByRole('button', { name: /^CPR/ }));
-			refuse(new Error('Server said no'));
+			refuse(new StoreRequestError('Server said no', 409, true));
 
 			expect(await screen.findByText(/Server said no/)).toBeTruthy();
 			expect(screen.getByRole('button', { name: /^BLS/ }).getAttribute('aria-expanded')).toBe('true');
@@ -444,7 +466,7 @@ describe('TrainingRecordSheet', () => {
 					})
 				);
 				await rerender(props({ onSave }));
-				throw new Error('Server said no');
+				throw new StoreRequestError('Server said no', 409, true);
 			});
 			const { rerender } = render(TrainingRecordSheet, { props: props({ onSave }) });
 			await user.click(await screen.findByRole('button', { name: /Add a note/ }));

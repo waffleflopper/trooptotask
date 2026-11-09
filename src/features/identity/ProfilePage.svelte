@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
@@ -10,6 +10,7 @@
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
+	import { settleAction } from '$lib/utils/settleAction';
 	import { accountLabel } from './accountLabel';
 	import { ACCOUNT_PAGES } from './AccountShell.svelte';
 	import { ACCOUNT_FIELD_LABEL } from './accountFields';
@@ -46,6 +47,11 @@
 	let firstName = $state('');
 	let lastName = $state('');
 	let rankError = $state<string>();
+	let requestError = $state<string | null>(null);
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 	let editButton = $state<HTMLButtonElement | null>(null);
 	let rankSelect = $state<HTMLSelectElement | null>(null);
 
@@ -59,6 +65,7 @@
 		firstName = profile?.firstName ?? '';
 		lastName = profile?.lastName ?? '';
 		rankError = undefined;
+		requestError = null;
 		form = null;
 		editing = true;
 		void focusAfterRender(() => rankSelect);
@@ -67,6 +74,7 @@
 	function closeEditor() {
 		editing = false;
 		rankError = undefined;
+		requestError = null;
 		form = null;
 		void focusAfterRender(() => editButton);
 	}
@@ -101,21 +109,20 @@
 							return cancel();
 						}
 						rankError = undefined;
+						requestError = null;
 						saving = true;
-						return async ({ result, update }) => {
-							try {
-								// The shell reload carries the saved name to the sidebar; a failure keeps the draft.
-								await update({ reset: false });
-							} finally {
-								saving = false;
-							}
-							if (result.type === 'success') {
-								editing = false;
-								void focusAfterRender(() => editButton);
-							} else {
-								void focusAfterRender(() => rankSelect);
-							}
-						};
+						return (outcome) =>
+							// The shell reload carries the saved name to the sidebar; a failure keeps the draft.
+							settleAction(outcome, {
+								isCurrent: () => active,
+								reset: false,
+								settled: (error) => {
+									requestError = error;
+									saving = false;
+									if (!error && outcome.result.type === 'success') editing = false;
+								},
+								focus: () => [editing ? rankSelect : editButton]
+							});
 					}}
 				>
 					<fieldset class="contents" disabled={saving}>
@@ -154,10 +161,10 @@
 						{:else}
 							<p id="rank-hint" class="font-mono text-xs text-muted-foreground">From the Army rank list</p>
 						{/if}
-						{#if form?.error}
+						{#if requestError ?? form?.error}
 							<Alert.Root variant="destructive">
 								<Alert.Title>Profile not saved</Alert.Title>
-								<Alert.Description>{form.error}</Alert.Description>
+								<Alert.Description>{requestError ?? form?.error}</Alert.Description>
 							</Alert.Root>
 						{/if}
 						<div class="flex flex-wrap justify-end gap-2">

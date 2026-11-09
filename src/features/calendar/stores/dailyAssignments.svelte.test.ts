@@ -48,7 +48,7 @@ describe('regression: delete type then add type flow', () => {
 
 		vi.stubGlobal('fetch', mockFetch(typeA));
 		const deleteResult = await dailyAssignmentsStore.removeType('type-a');
-		expect(deleteResult).toBe(true);
+		expect(deleteResult).toBe('deleted');
 		expect(dailyAssignmentsStore.types).toEqual([]);
 
 		const typeB = {
@@ -308,7 +308,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			);
 
 			const result = await dailyAssignmentsStore.removeType('1');
-			expect(result).toBe(true);
+			expect(result).toBe('deleted');
 			expect(dailyAssignmentsStore.types).toEqual([]);
 			expect(dailyAssignmentsStore.assignments).toEqual([]);
 		});
@@ -321,7 +321,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 			const result = await dailyAssignmentsStore.removeType('1');
-			expect(result).toBe(false);
+			expect(result).toBe('unconfirmed');
 			expect(dailyAssignmentsStore.types).toEqual([guardType]);
 			expect(dailyAssignmentsStore.assignments).toEqual([assignment]);
 			// The caller names the failure, so the store adds no second message.
@@ -330,7 +330,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 
 		it('should return false for non-existent id', async () => {
 			const result = await dailyAssignmentsStore.removeType('nonexistent');
-			expect(result).toBe(false);
+			expect(result).toBe('not-saved');
 		});
 	});
 
@@ -851,7 +851,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				})
 			).toBeNull();
 			expect(await dailyAssignmentsStore.updateType('retiring', { name: 'Retiring Night' })).toBe(false);
-			expect(await dailyAssignmentsStore.removeType('group')).toBe(false);
+			expect(await dailyAssignmentsStore.removeType('group')).toBe('not-saved');
 			expect(dailyAssignmentsStore.types).toEqual([staff, group, retiring]);
 			expect(dailyAssignmentsStore.assignments).toEqual([linked]);
 			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
@@ -1364,7 +1364,7 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 
 	it("keeps a type deleted during a held read deleted when the read answers, then adopts another user's rename", async () => {
 		dailyAssignmentsStore.load(renamedByB, [row], 'org-1');
-		expect(await dailyAssignmentsStore.removeType('retiring')).toBe(true);
+		expect(await dailyAssignmentsStore.removeType('retiring')).toBe('deleted');
 		reads[0].resolve(reply(200, renamedByB));
 		await answered();
 
@@ -1510,7 +1510,7 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 			expect(reads).toHaveLength(0);
 
 			writes[1](reply(500, {}));
-			expect(await removal).toBe(false);
+			expect(await removal).toBe('unconfirmed');
 			await answered();
 			expect(requests.filter((request) => request.startsWith('GET'))).toHaveLength(1);
 			reads[0].resolve(reply(200, renamed));
@@ -1634,7 +1634,7 @@ describe('dailyAssignmentsStore - roster saves', () => {
 		const save = dailyAssignmentsStore.saveRosterSettings('staff', settings('none'));
 
 		expect(dailyAssignmentsStore.typesBusy).toBe(true);
-		expect(await dailyAssignmentsStore.removeType('staff')).toBe(false);
+		expect(await dailyAssignmentsStore.removeType('staff')).toBe('not-saved');
 		expect(await dailyAssignmentsStore.updateType('staff', { name: 'Renamed' })).toBe(false);
 		expect(fetchMock.mock.calls.map(([url, init]) => `${init?.method} ${url}`)).toEqual([
 			'PUT /org/org-roster/api/assignment-types/roster'

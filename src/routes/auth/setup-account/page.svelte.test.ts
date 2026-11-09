@@ -1,11 +1,15 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { enhanceRequests, frameworkOutcome, simulateEnhance } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
-vi.mock('$app/forms', () => ({ enhance: () => undefined }));
-afterEach(cleanup);
+vi.mock('$app/forms', () => ({ enhance: simulateEnhance }));
+afterEach(() => {
+	cleanup();
+	enhanceRequests.length = 0;
+});
 
 it('allows a 72-character setup password but blocks a matching 73-character password before submission', async () => {
 	render(Page, {
@@ -216,4 +220,30 @@ it('swaps the access-request alternative for the invitation path when an Organiz
 	});
 	expect(screen.getByRole('button', { name: 'Check setup status' })).toBeInTheDocument();
 	expect(requestAccess()).toBeNull();
+});
+
+it('keeps the typed passwords and shows an alert when the setup request throws', async () => {
+	render(Page, {
+		data: { viewer: null, state: 'valid', email: 'synthetic@example.test', invitedTo: null },
+		form: null
+	});
+	const password = screen.getByLabelText(/^Password/);
+	const confirm = screen.getByLabelText(/^Confirm Password/);
+	const typed = 'Aa1xxxxxxxxxxxxx';
+	await fireEvent.input(password, { target: { value: typed } });
+	await fireEvent.input(confirm, { target: { value: typed } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Set Up Account' }));
+	await waitFor(() => expect(enhanceRequests).toHaveLength(1));
+
+	await enhanceRequests[0](
+		frameworkOutcome(
+			{ type: 'error', status: 500, error: { status: 500, message: 'private' } },
+			{ applyForm: async () => {} }
+		)
+	);
+
+	expect(await screen.findByRole('alert')).toBeInTheDocument();
+	expect(password).toHaveValue(typed);
+	expect(confirm).toHaveValue(typed);
+	await waitFor(() => expect(screen.getByRole('button', { name: 'Set Up Account' })).toBeEnabled());
 });

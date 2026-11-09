@@ -6,6 +6,7 @@
 	import type { PersonnelTraining, TrainingRecordSave, TrainingType } from '$features/training/training.types';
 	import { calculateExpirationDate } from '$features/training/utils/trainingStatus';
 	import { renewalMode } from '$features/training/utils/cellDisplayText';
+	import { classifyWrite, rejectedRequestMessage } from '$lib/stores/core';
 	import { formatDayMonthYear } from '$lib/utils/dates';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -73,7 +74,7 @@
 	let notes = $state(storedNotes);
 	let showExtras = $state(Boolean(storedNotes));
 	let saving = $state(false);
-	let saveError = $state<string | null>(null);
+	let saveError = $state<{ outcome: 'not-saved'; message: string } | { outcome: 'unconfirmed' } | null>(null);
 	let formElement = $state<HTMLFormElement | null>(null);
 
 	$effect(() => {
@@ -122,7 +123,11 @@
 			if (!stillHere()) return;
 			onSaved?.(isUpdate);
 		} catch (error) {
-			if (stillHere()) saveError = error instanceof Error && error.message.trim() ? error.message : 'Could not save.';
+			if (!stillHere()) return;
+			saveError =
+				classifyWrite(error) === 'not-saved'
+					? { outcome: 'not-saved', message: rejectedRequestMessage(error, 'Could not save.') }
+					: { outcome: 'unconfirmed' };
 		} finally {
 			if (stillHere()) {
 				saving = false;
@@ -164,10 +169,15 @@
 		</Field.Root>
 	{/if}
 
-	{#if saveError}
+	{#if saveError?.outcome === 'not-saved'}
 		<Alert.Root variant="destructive">
 			<Alert.Title>Training record was not saved</Alert.Title>
-			<Alert.Description>{saveError}</Alert.Description>
+			<Alert.Description>{saveError.message}</Alert.Description>
+		</Alert.Root>
+	{:else if saveError}
+		<Alert.Root variant="destructive">
+			<Alert.Title>We couldn't confirm the save</Alert.Title>
+			<Alert.Description>It may have saved. Saving again is safe and will not add a second record.</Alert.Description>
 		</Alert.Root>
 	{/if}
 

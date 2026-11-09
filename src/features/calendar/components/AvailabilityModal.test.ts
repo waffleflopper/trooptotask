@@ -6,7 +6,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import type { AvailabilityEditorRequest } from '$features/calendar/contexts/CalendarPageContext.svelte';
-import type { AvailabilityOutcome } from '$features/calendar/availabilitySave';
+import type { SaveOutcome } from '$lib/stores/core';
 import type { AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
 
 afterEach(() => {
@@ -68,7 +68,7 @@ function renderModal(
 		defaultStatusTypeId?: string;
 		existingEntries?: AvailabilityEntry[];
 		saving?: boolean;
-		onSave?: (change: AvailabilityChange) => Promise<AvailabilityOutcome>;
+		onSave?: (change: AvailabilityChange) => Promise<SaveOutcome>;
 	} = {}
 ) {
 	const onSave = vi.fn(overrides.onSave ?? (async () => 'saved' as const));
@@ -258,7 +258,7 @@ describe('AvailabilityModal', () => {
 	});
 
 	it('keeps a refused edit of the same entry ready to retry', async () => {
-		const outcomes: AvailabilityOutcome[] = ['not-saved', 'saved'];
+		const outcomes: SaveOutcome[] = ['not-saved', 'saved'];
 		const { onSave } = renderModal(
 			{ kind: 'edit', person, entry: existingEntry },
 			{ existingEntries: [existingEntry], onSave: async () => outcomes.shift()! }
@@ -400,9 +400,9 @@ describe('AvailabilityModal — remembered status and Save and close', () => {
 	);
 
 	it('does not close a dialog that was already replaced when the save settled', async () => {
-		let settle!: (outcome: AvailabilityOutcome) => void;
+		let settle!: (outcome: SaveOutcome) => void;
 		const { onSave, onClose, unmount } = renderModal(onApril7, {
-			onSave: () => new Promise<AvailabilityOutcome>((resolve) => (settle = resolve))
+			onSave: () => new Promise<SaveOutcome>((resolve) => (settle = resolve))
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Save and close' }));

@@ -110,11 +110,13 @@
 		try {
 			const result = await trainingTypesStore.remove(target.id);
 			if (!alive || org.orgId !== orgId) return;
-			if (result === 'error') {
+			if (result === 'not-saved') {
 				toastStore.error('Failed to delete training type. It may have gained records. Reload and try again.');
 				return;
 			}
 			confirmDelete = null;
+			if (result === 'unconfirmed')
+				toastStore.unconfirmed("We couldn't confirm the training type was deleted. Reload to see whether it was.");
 		} catch (error) {
 			if (alive && org.orgId === orgId)
 				toastStore.error(rejectedRequestMessage(error, 'Failed to delete training type'));

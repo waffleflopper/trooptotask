@@ -19,6 +19,7 @@
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { restoreFocus, settleAction } from '$lib/utils/settleAction';
+	import { classifyWrite } from '$lib/stores/core';
 	import type { PlatformAnnouncement } from '$features/platform-admin/contracts';
 	import BannerPreview from './BannerPreview.svelte';
 	import { followStreamedRead } from './streamedRead.svelte';
@@ -173,8 +174,8 @@
 			actionError = null;
 			return async (outcome) => {
 				const { result } = outcome;
-				// A 5xx or an unexpected error may have saved, so writes wait for a read-only reload.
-				const unconfirmed = result.type === 'error' || (result.type === 'failure' && result.status >= 500);
+				// A reply that does not prove the outcome may have saved, so writes wait for a read-only reload.
+				const unconfirmed = classifyWrite(result) === 'unconfirmed';
 				await settleAction(outcome, {
 					isCurrent,
 					settled: (error) => {
@@ -195,6 +196,10 @@
 							return;
 						}
 						pending = null;
+						if (result.type === 'error' && !unconfirmed) {
+							if (isCurrentEditor()) actionError = 'Banner could not be saved.';
+							return;
+						}
 						if (unconfirmed || error) needsReload = true;
 						if (unconfirmed) {
 							if (isCurrentEditor())

@@ -2,13 +2,19 @@
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import AuthButton from '$features/identity/AuthButton.svelte';
+	import { onDestroy } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { settleAction } from '$lib/utils/settleAction';
 
 	let { data } = $props();
 
 	let loading = $state(false);
 	let submitError = $state('');
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const validConfirmation = $derived(data.confirmation.status === 'valid' ? data.confirmation : null);
 	const confirmationTitle = $derived(
@@ -80,20 +86,27 @@
 
 			<form
 				method="POST"
-				use:enhance={() => {
+				use:enhance={({ submitter }) => {
 					loading = true;
 					submitError = '';
-					return async ({ result, update }) => {
-						loading = false;
-						if (result.type === 'failure') {
-							submitError =
-								typeof result.data?.error === 'string'
-									? result.data.error
-									: 'Unable to verify this email link. Please try again.';
-							return;
-						}
-						await update();
-					};
+					return ({ result, update }) =>
+						settleAction(
+							// A rejected link shows its reason here instead of SvelteKit rendering the action's form data.
+							{ result, update: (options) => (result.type === 'failure' ? Promise.resolve() : update(options)) },
+							{
+								isCurrent: () => active,
+								settled: (error) => {
+									loading = false;
+									submitError =
+										result.type === 'failure'
+											? typeof result.data?.error === 'string'
+												? result.data.error
+												: 'Unable to verify this email link. Please try again.'
+											: (error ?? '');
+								},
+								focus: () => [submitter]
+							}
+						);
 				}}
 				class="flex flex-col gap-5"
 			>

@@ -129,3 +129,26 @@ describe('Training completion bulk reads', () => {
 		);
 	});
 });
+
+describe('Training completion create conflicts', () => {
+	it('returns null for a duplicate pair so the operation can re-read it', async () => {
+		const { completions, state } = ports([row('already-saved')]);
+		state.failure = ({ method }) => (method === 'POST' ? { code: '23505', message: 'Pair exists', status: 409 } : null);
+		expect(
+			await completions.createRecord({
+				personnelId: 'person-a',
+				trainingTypeId: 'type-a',
+				completionDate: '2026-06-01'
+			})
+		).toBeNull();
+		expect(await completions.findPair('person-a', 'type-a')).toMatchObject({ id: 'already-saved' });
+	});
+
+	it('propagates other persistence failures', async () => {
+		const { completions, state } = ports([]);
+		state.failure = () => ({ code: '42501', message: 'Write denied', status: 403 });
+		await expect(
+			completions.createRecord({ personnelId: 'person-a', trainingTypeId: 'type-a', completionDate: '2026-06-01' })
+		).rejects.toThrow('Write denied');
+	});
+});

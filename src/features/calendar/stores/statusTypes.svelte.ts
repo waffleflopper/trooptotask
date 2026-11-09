@@ -8,7 +8,7 @@ import {
 	stillInOrganizationLifetime,
 	withinOrganizationLifetime
 } from '$lib/stores/core';
-import type { Store } from '$lib/stores/core';
+import type { DeleteResult, Store } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import {
 	statusEffectChangesSchema,
@@ -43,7 +43,7 @@ interface StatusTypeExtensions extends Record<string, unknown> {
 	readonly pendingOrder: readonly string[] | null;
 	add: (data: StatusTypeDraft) => Promise<StatusType | null>;
 	update: (id: string, data: Partial<StatusTypeDraft>) => Promise<boolean>;
-	remove: (id: string) => Promise<boolean>;
+	remove: (id: string) => Promise<DeleteResult>;
 	/** Archives or restores a type. Rejects with the server's reason; the type keeps its place in the store. */
 	setArchived: (id: string, archived: boolean) => Promise<void>;
 	/** How many schedule entries use each type. */
@@ -199,9 +199,9 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 			return statusEffectChangesSchema.parse(await withinOrganizationLifetime(res.json()));
 		},
 
-		async remove(id: string) {
-			if (currentFlight()) return false;
-			return base.removeBool(id);
+		async remove(id: string): Promise<DeleteResult> {
+			if (currentFlight()) return 'not-saved';
+			return base.remove(id);
 		},
 
 		async setArchived(id: string, archived: boolean) {

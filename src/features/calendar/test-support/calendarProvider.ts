@@ -75,6 +75,8 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 								if (String(row[column]) < filter.slice(4)) return false;
 							} else if (filter.startsWith('lte.')) {
 								if (String(row[column]) > filter.slice(4)) return false;
+							} else if (filter === 'is.null') {
+								if (row[column] != null) return false;
 							} else throw new Error('Unexpected Calendar predicate');
 						}
 						return true;

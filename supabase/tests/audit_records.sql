@@ -118,6 +118,8 @@ SELECT bag_eq(
   'a Rating Scheme entry saves the rated person and period, and notes a change of raters and notes without them');
 
 UPDATE public.personnel SET last_name = 'Smith' WHERE id = pg_temp.id('301');
+-- A Training type with history rows is archived, not deleted; clear them so the type can be removed.
+DELETE FROM public.personnel_training_history WHERE training_type_id = pg_temp.id('401');
 SELECT pg_temp.act_as('2');
 SET LOCAL ROLE authenticated;
 DELETE FROM public.personnel_trainings WHERE id = pg_temp.id('421');

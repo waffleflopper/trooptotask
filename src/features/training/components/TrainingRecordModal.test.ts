@@ -36,7 +36,8 @@ const trainingType: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: false,
 	exemptPersonnelIds: [],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 afterEach(() => {

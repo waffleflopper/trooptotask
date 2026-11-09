@@ -93,14 +93,14 @@
 			personnelTrainingsStore.loading
 	);
 	const exportUnavailable = $derived(
-		loading || ctx.filteredPersonnel.length === 0 || trainingTypesStore.items.length === 0
+		loading || ctx.filteredPersonnel.length === 0 || trainingTypesStore.active.length === 0
 	);
 	const exportDisabled = $derived(exportUnavailable || exportState.status === 'exporting');
 	const exportDisabledReason = $derived.by(() => {
 		if (exportState.status === 'exporting') return undefined;
 		if (loading) return 'Export unavailable while loading.';
 		if (ctx.filteredPersonnel.length === 0) return 'No personnel to export.';
-		if (trainingTypesStore.items.length === 0) return 'No training types to export.';
+		if (trainingTypesStore.active.length === 0) return 'No training types to export.';
 		return undefined;
 	});
 	const exportError = $derived(
@@ -114,7 +114,7 @@
 		const input: TrainingMatrixWorkbookInput = $state.snapshot({
 			personnel: ctx.filteredPersonnel,
 			groups: ctx.groups,
-			trainingTypes: trainingTypesStore.items,
+			trainingTypes: trainingTypesStore.active,
 			trainings: personnelTrainingsStore.items,
 			exportDate
 		});
@@ -145,7 +145,7 @@
 
 	const activeView = $derived(ctx.selectedViewId ? (trainingViewsStore.getById(ctx.selectedViewId) ?? null) : null);
 
-	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.items, activeView));
+	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.active, activeView));
 	const dueSoon = $derived(
 		loading ? [] : dueSoonByType(ctx.filteredPersonnel, filteredTypes, personnelTrainingsStore.items, ctx.readinessAsOf)
 	);
@@ -156,7 +156,7 @@
 			? null
 			: summarizeTrainingReadiness({
 					personnel: ctx.personnel,
-					types: filterColumnsByView(trainingTypesStore.items, null),
+					types: filterColumnsByView(trainingTypesStore.active, null),
 					records: personnelTrainingsStore.items,
 					asOf: ctx.readinessAsOf,
 					horizonDays: MATRIX_HORIZON_DAYS,
@@ -379,7 +379,7 @@
 					</div>
 				{/each}
 			</div>
-		{:else if trainingTypesStore.items.length === 0}
+		{:else if trainingTypesStore.active.length === 0}
 			<Empty.Root>
 				<Empty.Header>
 					<Empty.Title>No training types defined yet.</Empty.Title>

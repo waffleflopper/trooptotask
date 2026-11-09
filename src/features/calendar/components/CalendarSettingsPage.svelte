@@ -71,7 +71,7 @@
 			label: 'Status Types',
 			description: 'Why someone is unavailable, and what it does to their place on a duty roster.',
 			icon: Palette,
-			getCount: () => statusTypesStore.items.length
+			getCount: () => statusTypesStore.active.length
 		},
 		{
 			key: 'assignments',

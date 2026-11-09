@@ -62,7 +62,8 @@ export interface ReferenceOption<T> {
 export type ReferenceMatch<T> =
 	| { kind: 'one'; option: ReferenceOption<T> }
 	| { kind: 'many'; candidates: readonly ReferenceOption<T>[]; suggestion?: ReferenceOption<T> }
-	| { kind: 'none'; suggestion?: ReferenceOption<T> };
+	/** `reason` replaces the generic "Unknown" heading when the name is known but cannot be used. */
+	| { kind: 'none'; suggestion?: ReferenceOption<T>; reason?: string };
 
 export type ImportNoun = { one: string; other: string };
 

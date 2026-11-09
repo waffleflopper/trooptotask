@@ -1,9 +1,15 @@
 import type { SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { TrainingCatalogPersistence, TrainingTypeTiming, TrainingTypeImportReference } from '../contracts';
+import type {
+	TrainingCatalogPersistence,
+	TrainingTypeTiming,
+	TrainingTypeImportReference,
+	TrainingTypeUsage
+} from '../contracts';
 import {
 	TRAINING_TYPE_FIELDS,
+	TRAINING_TYPE_HAS_RECORDS_MESSAGE,
 	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
 	TRAINING_TYPE_ORDER_CHANGED_MESSAGE,
 	TRAINING_TYPE_ORDER_INVALID_MESSAGE,
@@ -198,13 +204,37 @@ export function createSupabaseTrainingCatalogPersistence(
 				.update(trainingTypePatchRow(fields))
 				.eq('organization_id', orgId)
 				.eq('id', id)
+				.is('archived_at', null)
 				.select(TRAINING_TYPE_FIELDS)
 				.maybeSingle<TrainingTypeRow>();
 			if (error) throwTrainingTypeWriteError(error);
 			return data ? toTrainingType(data) : null;
 		},
+		async setTypeArchived(id, archived) {
+			// The database stamps the archive time, so this value only marks the type archived.
+			const { data, error } = await client
+				.from('training_types')
+				.update({ archived_at: archived ? new Date().toISOString() : null })
+				.eq('organization_id', orgId)
+				.eq('id', id)
+				.select(TRAINING_TYPE_FIELDS)
+				.maybeSingle<TrainingTypeRow>();
+			if (error) throw new Error(error.message);
+			return data ? toTrainingType(data) : null;
+		},
+		async countTypeRecords() {
+			const { data, error } = await client.rpc('training_type_record_counts', { p_organization_id: orgId });
+			if (error) {
+				if (error.code === '42501') fail(403, 'You do not have access to configure Training');
+				throw new Error(error.message);
+			}
+			const usage: TrainingTypeUsage = {};
+			for (const row of data ?? []) usage[row.training_type_id] = Number(row.record_count);
+			return usage;
+		},
 		async deleteType(id) {
 			const { error } = await client.from('training_types').delete().eq('organization_id', orgId).eq('id', id);
+			if (error?.code === '23503') fail(409, TRAINING_TYPE_HAS_RECORDS_MESSAGE);
 			if (error) throw new Error(error.message);
 		},
 		async setTypeOrder(ids, expectedIds) {

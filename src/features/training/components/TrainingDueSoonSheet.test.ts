@@ -37,7 +37,8 @@ const type = (id: string, name: string): TrainingType => ({
 	expirationDateOnly: false,
 	canBeExempted: false,
 	exemptPersonnelIds: [],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 });
 
 const trainingTypes = [type('cpr', 'CPR'), type('hiv', 'HIV')];

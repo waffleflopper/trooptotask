@@ -117,11 +117,14 @@ function applicabilityFieldsFromDraft(draft: ApplicabilityDraft) {
 	};
 }
 
-type TrainingTypeDraftInput = Omit<TrainingType, 'id' | 'warningDaysYellow' | 'warningDaysOrange'> &
+type TrainingTypeDraftInput = Omit<TrainingType, 'id' | 'archivedAt' | 'warningDaysYellow' | 'warningDaysOrange'> &
 	Partial<Pick<TrainingType, 'warningDaysYellow' | 'warningDaysOrange'>>;
 
 export function trainingTypeInputFromDraft(draft: TrainingTypeDraft, intent: 'update'): TrainingTypeDraftInput;
-export function trainingTypeInputFromDraft(draft: TrainingTypeDraft, intent?: 'create'): Omit<TrainingType, 'id'>;
+export function trainingTypeInputFromDraft(
+	draft: TrainingTypeDraft,
+	intent?: 'create'
+): Omit<TrainingType, 'id' | 'archivedAt'>;
 export function trainingTypeInputFromDraft(
 	draft: TrainingTypeDraft,
 	intent: 'create' | 'update' = 'create'

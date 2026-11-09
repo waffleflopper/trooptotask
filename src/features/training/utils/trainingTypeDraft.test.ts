@@ -13,6 +13,7 @@ import {
 
 function savedType(fields: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id: 'cls',
 		name: 'CLS',
 		description: '  Sustainment training  ',

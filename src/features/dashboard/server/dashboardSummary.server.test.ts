@@ -75,4 +75,37 @@ describe('Dashboard independent summary reads', () => {
 		release([]);
 		await failed;
 	});
+
+	it('summarizes Training over active types only, on both the page load and a refresh', async () => {
+		training.mockReset();
+		training.mockResolvedValue({ trainingSummary: null, onboardingTrainingCompletions: new Set() });
+		const trainingOnly = {
+			...viewer,
+			auth: { capabilityMap: { ...viewer.auth.capabilityMap, criticalTasks: 'none' } }
+		};
+		const type = (id: string, archivedAt: string | null) => ({ id, archivedAt });
+		const types = [type('cpr', null), type('sharp', '2030-01-02T03:04:05Z')];
+
+		await fetchDashboardSummary(
+			trainingOnly as unknown as Parameters<typeof fetchDashboardSummary>[0],
+			{ personnel: [], trainingTypes: types, activeOnboardings: [] } as unknown as DashboardBootstrap,
+			'2026-10-14',
+			'UTC'
+		);
+		await refreshDashboardSummary(
+			{
+				...trainingOnly,
+				roster: { list: async () => [] },
+				trainingCatalog: { listTypes: async () => types },
+				onboardingWorkflow: { listActivePacketPersonnelIds: async () => [] }
+			} as unknown as Parameters<typeof refreshDashboardSummary>[0],
+			'2026-10-14',
+			'UTC'
+		);
+
+		expect(training.mock.calls.map(([, input]) => input.trainingTypes.map((t: { id: string }) => t.id))).toEqual([
+			['cpr'],
+			['cpr']
+		]);
+	});
 });

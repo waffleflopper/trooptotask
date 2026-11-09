@@ -347,7 +347,8 @@ describe('planner conflicts', () => {
 					textColor: '#fff',
 					shortLabel: null,
 					rosterEffect: 'A',
-					sortOrder: 0
+					sortOrder: 0,
+					archivedAt: null
 				}
 			],
 			'org-1'

@@ -291,7 +291,10 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 		const question: RailQuestion = {
 			key,
 			reference: name,
-			title: match.kind === 'many' ? `Which ${reference.label}?` : `Unknown ${reference.label}`,
+			title:
+				match.kind === 'many'
+					? `Which ${reference.label}?`
+					: (match.kind === 'none' && match.reason) || `Unknown ${reference.label}`,
 			subject: lookup.display,
 			rowCount: 1,
 			accepts: {

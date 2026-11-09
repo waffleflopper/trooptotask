@@ -45,7 +45,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				order: 10,
 				loadDialog: () => import('../components/quick-add/StatusQuickAdd.svelte'),
 				available: (inputs, access) =>
-					inputs.statusTypes.length > 0 &&
+					inputs.statusTypes.some((type) => !type.archivedAt) &&
 					actionablePersonnel(inputs.personnel, access, calendar.manageAvailability).length > 0
 			}
 		]
@@ -66,7 +66,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 						(person) =>
 							access.can(training.recordCompletions, personnelResource(person)) &&
 							inputs.page.dashboard.data.trainingTypes.some(
-								(type) => !type.canBeExempted || !type.exemptPersonnelIds.includes(person.id)
+								(type) => !type.archivedAt && (!type.canBeExempted || !type.exemptPersonnelIds.includes(person.id))
 							)
 					)
 			}

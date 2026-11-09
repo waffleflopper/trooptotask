@@ -48,7 +48,8 @@ it('reviews a whole saved overlap through the shell Organization when the route 
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			}
 		],
 		orgId

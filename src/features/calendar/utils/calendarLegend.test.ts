@@ -29,7 +29,8 @@ describe('statusLegend', () => {
 					textColor: '#fff',
 					shortLabel: null,
 					rosterEffect: 'A',
-					sortOrder: 0
+					sortOrder: 0,
+					archivedAt: null
 				},
 				{
 					id: 'tdy',
@@ -38,7 +39,8 @@ describe('statusLegend', () => {
 					textColor: '#fff',
 					shortLabel: 'T',
 					rosterEffect: 'A',
-					sortOrder: 1
+					sortOrder: 1,
+					archivedAt: null
 				}
 			],
 			'Drag across days to add'

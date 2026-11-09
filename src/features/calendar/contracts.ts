@@ -84,6 +84,8 @@ export interface StatusType {
 	/** What this status does to a person's place on a duty roster. */
 	rosterEffect: RosterEffect;
 	sortOrder: number;
+	/** When the type was archived, or null while active. An archived type keeps its entries and can be restored. */
+	archivedAt: string | null;
 }
 
 export const NEW_STATUS_TYPE_COLORS = { color: '#4a5568', textColor: '#ffffff' } as const;
@@ -195,7 +197,8 @@ export const statusTypesSchema = z.array(
 		textColor: z.string(),
 		shortLabel: z.string().nullable(),
 		rosterEffect: rosterEffectSchema,
-		sortOrder: z.number()
+		sortOrder: z.number(),
+		archivedAt: z.string().nullable()
 	})
 ) satisfies z.ZodType<StatusType[]>;
 
@@ -256,6 +259,9 @@ export interface StatusTypeCreate {
 }
 
 export type StatusTypePatch = Partial<StatusTypeCreate>;
+
+/** Schedule entry counts keyed by status type id. */
+export type StatusTypeUsage = Record<string, number>;
 
 export interface AssignmentTypeDetails {
 	name: string;
@@ -619,9 +625,13 @@ export interface CalendarCatalogPersistence {
 	listStatusTypes(): Promise<SavedStatusType[]>;
 	listStatusTypeLabels(): Promise<Array<{ id: string; name: string }>>;
 	createStatusType(input: StatusTypeCreate): Promise<SavedStatusType>;
-	/** Resolves null when no status type with this id exists in the Organization. */
+	/** Resolves null when no active status type with this id exists in the Organization: an archived type is not edited. */
 	updateStatusType(id: string, patch: StatusTypePatch): Promise<SavedStatusType | null>;
-	/** Resolves whether a row was removed; a missing id is not an error. */
+	/** Archives or restores a type without touching its entries; null when no status type with this id exists. */
+	setStatusTypeArchived(id: string, archived: boolean): Promise<SavedStatusType | null>;
+	/** How many schedule entries use each type; every type in the Organization appears. */
+	countStatusTypeRecords(): Promise<StatusTypeUsage>;
+	/** Resolves whether a row was removed; a missing id is not an error. Refuses with 409 when the type has entries. */
 	deleteStatusType(id: string): Promise<boolean>;
 	setStatusTypeOrder(statusTypeIds: readonly string[], expectedStatusTypeIds: readonly string[]): Promise<void>;
 	listAssignmentTypes(): Promise<SavedAssignmentType[]>;

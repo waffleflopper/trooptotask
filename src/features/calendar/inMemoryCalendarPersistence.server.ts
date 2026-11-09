@@ -1,7 +1,11 @@
 import { effectiveRosterFormStart } from './roster/rosterFormStart';
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { fail } from '$lib/errors';
-import { CALENDAR_CHANGE_NOT_SAVED_MESSAGE, DEVICE_DATE_MESSAGE } from './calendarCatalogPersistence.server';
+import {
+	CALENDAR_CHANGE_NOT_SAVED_MESSAGE,
+	DEVICE_DATE_MESSAGE,
+	STATUS_TYPE_HAS_ENTRIES_MESSAGE
+} from './calendarCatalogPersistence.server';
 import { sameIdList } from './utils/idList';
 import { lastDayOf } from './utils/da6View';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
@@ -17,7 +21,8 @@ import type {
 	CalendarAssignmentReader,
 	CalendarAvailabilityPersistence,
 	CalendarAvailabilityRemovalPort,
-	CalendarCatalogPersistence
+	CalendarCatalogPersistence,
+	StatusTypeUsage
 } from './contracts';
 import {
 	toAssignment,
@@ -69,6 +74,13 @@ export function createInMemoryCalendarCatalogPersistence(
 		(await store.findMany<StatusTypeRow>('status_types', orgId))
 			.map(withEffectDefault)
 			.sort((a, b) => a.sort_order - b.sort_order || compareIds(a.id, b.id));
+	async function countStatusTypeRecords(): Promise<StatusTypeUsage> {
+		const usage: StatusTypeUsage = {};
+		for (const type of await store.findMany<StatusTypeRow>('status_types', orgId)) usage[type.id] = 0;
+		for (const entry of await store.findMany<{ status_type_id: string }>('availability_entries', orgId))
+			if (entry.status_type_id in usage) usage[entry.status_type_id] += 1;
+		return usage;
+	}
 	async function updateExisting<T>(table: string, id: string, patch: Record<string, unknown>): Promise<T | null> {
 		if (!(await store.findOne(table, orgId, { id }))) return null;
 		return store.update<T>(table, orgId, id, patch);
@@ -163,6 +175,8 @@ export function createInMemoryCalendarCatalogPersistence(
 			);
 		},
 		async updateStatusType(id, patch) {
+			const current = await store.findOne<StatusTypeRow>('status_types', orgId, { id });
+			if (!current || current.archived_at) return null;
 			const row = await updateExisting<StatusTypeRow>(
 				'status_types',
 				id,
@@ -176,11 +190,19 @@ export function createInMemoryCalendarCatalogPersistence(
 			);
 			return row && toStatusType(withEffectDefault(row));
 		},
-		deleteStatusType(id) {
+		async setStatusTypeArchived(id, archived) {
+			const row = await updateExisting<StatusTypeRow>('status_types', id, {
+				archived_at: archived ? new Date().toISOString() : null
+			});
+			return row && toStatusType(withEffectDefault(row));
+		},
+		countStatusTypeRecords,
+		async deleteStatusType(id) {
+			if (((await countStatusTypeRecords())[id] ?? 0) > 0) fail(409, STATUS_TYPE_HAS_ENTRIES_MESSAGE);
 			return deleteExisting('status_types', id);
 		},
 		async setStatusTypeOrder(statusTypeIds, expectedStatusTypeIds) {
-			const saved = (await savedStatusTypes()).map((type) => type.id);
+			const saved = (await savedStatusTypes()).filter((type) => !type.archived_at).map((type) => type.id);
 			if (sameIdList(saved, statusTypeIds)) return;
 			if (!sameIdList(saved, expectedStatusTypeIds)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 			if (statusTypeIds.length !== saved.length || saved.some((id) => !statusTypeIds.includes(id)))

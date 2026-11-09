@@ -12,6 +12,7 @@ export interface SetupTrainingType {
 	id: string;
 	name: string;
 	expirationMonths: number | null;
+	archivedAt: string | null;
 }
 
 export interface SetupTrainingTypeCatalog {

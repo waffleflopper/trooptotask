@@ -37,7 +37,10 @@
 		onClose: () => void;
 	} = $props();
 
-	/** An editor draft belongs to one view, or to a new one when `viewId` is null. `columnIds` is the checked list in order. */
+	/**
+	 * An editor draft belongs to one view, or to a new one when `viewId` is null. `columnIds` is the checked list in order,
+	 * including archived types the picker hides, so a save keeps them and Restore brings their columns back.
+	 */
 	type Editor = {
 		viewId: string | null;
 		heading: string;
@@ -65,7 +68,7 @@
 			!trainingViewsStore.loading &&
 			!trainingTypesStore.loading
 	);
-	const types = $derived(filterColumnsByView(trainingTypesStore.items, null));
+	const types = $derived(filterColumnsByView(trainingTypesStore.active, null));
 	const typeById = $derived(new Map(types.map((type) => [type.id, type])));
 	const views = $derived([...trainingViewsStore.items].sort((a, b) => a.name.localeCompare(b.name)));
 	const checked = $derived(
@@ -80,18 +83,16 @@
 	);
 	const busy = $derived(saving.pending || deleting.pending);
 
-	function knownColumnIds(view: TrainingView): string[] {
-		return view.columnIds.filter((id) => typeById.has(id));
-	}
-
 	function viewSummary(view: TrainingView): string {
-		const count = knownColumnIds(view).length;
+		const count = view.columnIds.filter((id) => typeById.has(id)).length;
 		return count === 0 ? 'No columns selected' : `${count} of ${types.length} columns`;
 	}
 
 	async function openEditor(view: TrainingView | null) {
 		if (!canMutate || busy) return;
-		const columnIds = view ? knownColumnIds(view) : [];
+		const columnIds = view
+			? view.columnIds.filter((id) => trainingTypesStore.items.some((type) => type.id === id))
+			: [];
 		editor = {
 			viewId: view?.id ?? null,
 			heading: view?.name ?? 'New view',
@@ -124,10 +125,15 @@
 		document.getElementById(`view-type-${id}`)?.focus();
 	}
 
+	/** `toIndex` counts shown columns only; archived ones keep their place in the saved order. */
 	function moveColumn(id: string, toIndex: number) {
 		if (!editor) return;
 		const next = editor.columnIds.filter((columnId) => columnId !== id);
-		next.splice(toIndex, 0, id);
+		const shown = next.filter((columnId) => typeById.has(columnId));
+		const before = shown[toIndex];
+		const last = shown.at(-1);
+		const at = before !== undefined ? next.indexOf(before) : last !== undefined ? next.indexOf(last) + 1 : next.length;
+		next.splice(at, 0, id);
 		editor.columnIds = next;
 	}
 

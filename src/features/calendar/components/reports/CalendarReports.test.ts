@@ -44,7 +44,16 @@ const personnel = [
 ];
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#fff', shortLabel: null, rosterEffect: 'U', sortOrder: 0 }
+	{
+		id: 'leave',
+		name: 'Leave',
+		color: '#48bb78',
+		textColor: '#fff',
+		shortLabel: null,
+		rosterEffect: 'U',
+		sortOrder: 0,
+		archivedAt: null
+	}
 ];
 
 // Two of Alpha's three are on leave on 4 Nov, so that day holds 3 of 5 here.

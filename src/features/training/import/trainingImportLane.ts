@@ -76,13 +76,14 @@ function trainingTypeReference(
 		label: type.name,
 		value: type
 	});
+	const active = types.filter((type) => !type.archivedAt);
 	const byKey = new Map(types.map((type) => [typeKey(type.name), type]));
 	return {
 		label: 'training type',
 		reads: ['training'],
 		required: true,
 		whenMissing: 'ask',
-		options: types.map(option),
+		options: active.map(option),
 		key(raw) {
 			const display = raw.training?.trim();
 			const key = display ? typeKey(display) : '';
@@ -90,8 +91,10 @@ function trainingTypeReference(
 		},
 		find(key) {
 			const type = byKey.get(key);
+			if (type?.archivedAt)
+				return { kind: 'none', reason: `'${type.name}' is archived. Restore it to import its records.` };
 			if (type) return { kind: 'one', option: option(type) };
-			const near = types.filter((candidate) => {
+			const near = active.filter((candidate) => {
 				const candidateKey = typeKey(candidate.name);
 				return candidateKey.includes(key) || key.includes(candidateKey);
 			});

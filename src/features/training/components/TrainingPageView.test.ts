@@ -56,7 +56,8 @@ const trainingType: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: false,
 	exemptPersonnelIds: [],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 const groups: Group[] = [
@@ -251,6 +252,30 @@ describe('TrainingPageView', () => {
 			});
 
 			expect(screen.queryByRole('button', { name: 'Record class for CPR' })).toBeNull();
+		});
+	});
+
+	describe('with an archived type', () => {
+		const archived = { ...trainingType, id: 'type-9', name: 'SHARP', archivedAt: '2030-01-02T03:04:05Z' };
+
+		it('shows no column for it, and keeps the active types', () => {
+			trainingTypesStore.load([trainingType, archived], 'org-1');
+			render(TrainingPageView, {
+				props: { ctx: makeCtx('alphabetical') as unknown as TrainingPageContext, modals: new ModalRegistry() }
+			});
+
+			expect(screen.getByRole('button', { name: 'Record class for CPR' })).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Record class for SHARP' })).toBeNull();
+		});
+
+		it('offers Manage types and no columns when every type is archived', () => {
+			trainingTypesStore.load([archived], 'org-1');
+			render(TrainingPageView, {
+				props: { ctx: makeCtx('alphabetical') as unknown as TrainingPageContext, modals: new ModalRegistry() }
+			});
+
+			expect(screen.getByRole('button', { name: 'Manage types' })).toBeTruthy();
+			expect(screen.queryByRole('button', { name: /^Record class for/ })).toBeNull();
 		});
 	});
 

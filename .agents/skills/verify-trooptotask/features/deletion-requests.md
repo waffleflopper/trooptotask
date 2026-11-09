@@ -102,8 +102,9 @@ preserve their original rows. Setup is provider seeding, not native creation/upl
    within scope. The saved description and link come from the loaded record, so a forged
    `resourceDescription`/`resourceUrl` must not reach the saved row. Out-of-scope, B-Organization and unknown IDs create
    no row. Label this authenticated HTTP proof separately. Approve each of the five resource types through native
-   Settings controls. Personnel retains its ID and gains `archived_at`; Training type/record and Rating rows disappear
-   with their request approved in the same database command; counseling row disappears and its request becomes approved
+   Settings controls. Personnel retains its ID and gains `archived_at`; Training type (with no completions)/record and Rating rows disappear
+   with their request approved in the same database command; a Training type that has completions answers `409`, stays and
+   keeps its request pending (the cleanup for it is Archive in Manage Types); counseling row disappears and its request becomes approved
    together. Approving a saved request whose target is in B or missing must report not found, keep the request pending
    and change nothing. `artifact-files orgA PARENT counseling RECORDED_PATH` establishes actual PDF presence before and
    absence after; B's matching rows/file remain unchanged. Approve completion before its type so cascading type deletion
@@ -194,7 +195,7 @@ rows and registered PDF paths; terminal request history has no UI deletion contr
 ## Gotchas
 
 - Configure does not imply Organization governance review. Ordinary configure members still require approval where
-  source direct-deletion policy says so; Training type configuration deletes directly.
+  source direct-deletion policy says so; Training type configuration deletes directly, and only a type with no records.
 - Counseling UI archives/restores and permanently deletes archived artifacts; retained counseling requests are a
   different supported HTTP entry.
 - Submission's identity admission does not establish source authorization; the source operation and approved effect have

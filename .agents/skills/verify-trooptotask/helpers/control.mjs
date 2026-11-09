@@ -2806,6 +2806,8 @@ async function main() {
 					'assignment-types/lanes',
 					'status-types/order',
 					'status-types/preview',
+					'status-types/archive',
+					'status-types/usage',
 					'ict-tasks/order',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
@@ -2817,6 +2819,8 @@ async function main() {
 					'training-types',
 					'training-types/editor',
 					'training-types/order',
+					'training-types/archive',
+					'training-types/usage',
 					'training-views',
 					'onboarding',
 					'onboarding/start-options',
@@ -3028,7 +3032,10 @@ async function main() {
 					? 'POST'
 					: action === 'arm-drop' && family === 'availability'
 						? 'ANY'
-						: heldPersonnelFailure || family === 'assignment-types/lanes' || family === 'status-types/order'
+						: heldPersonnelFailure ||
+							  family === 'assignment-types/lanes' ||
+							  family === 'status-types/order' ||
+							  family.endsWith('-types/archive')
 							? 'PUT'
 							: family === 'user-preferences'
 								? 'PATCH'

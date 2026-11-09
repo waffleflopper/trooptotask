@@ -39,7 +39,8 @@ const leave: StatusType = {
 	textColor: '#ffffff',
 	shortLabel: null,
 	rosterEffect: 'A',
-	sortOrder: 0
+	sortOrder: 0,
+	archivedAt: null
 };
 const entry = (id: string, startDate: string): AvailabilityEntry => ({
 	id,

@@ -687,6 +687,7 @@ describe('Dashboard sections', () => {
 							color: '#336699',
 							textColor: '#ffffff',
 							shortLabel: null,
+							archivedAt: null,
 							rosterEffect: 'available',
 							sortOrder: 0
 						}

@@ -36,6 +36,7 @@ function basePerson(overrides: Partial<Personnel> = {}): Personnel {
 function baseType(overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
 		id: 'type-1',
+		archivedAt: null,
 		name: 'CPR',
 		description: null,
 		expirationMonths: 12,
@@ -126,6 +127,7 @@ describe('getDelinquentTrainings sort order', () => {
 	function makeType(): TrainingType {
 		return {
 			id: 'type-1',
+			archivedAt: null,
 			name: 'CPR',
 			description: null,
 			expirationMonths: 12,

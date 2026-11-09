@@ -9,6 +9,7 @@ import type { TrainingType, TrainingView } from '$features/training/training.typ
 
 function makeType(id: string, name: string, sortOrder: number, overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name,
 		description: null,
@@ -176,6 +177,45 @@ describe('TrainingViewsSheet', () => {
 		await waitFor(() => expect(screen.queryByRole('textbox', { name: 'View name' })).toBeNull());
 		expect(saveView).toHaveBeenCalledWith({ id: 'view-annual', name: 'Yearly', columnIds: ['t-sharp', 't-cls'] });
 		await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-view-id="view-annual"]')));
+	});
+
+	describe('with an archived training in a view', () => {
+		const archivedSharp = { ...trainingTypes[0], archivedAt: '2030-01-02T03:04:05Z' };
+
+		beforeEach(() => {
+			trainingTypesStore.load([archivedSharp, ...trainingTypes.slice(1)], 'org-1');
+		});
+
+		it('hides it from the editor and keeps it in the saved columns', async () => {
+			const { saveView } = renderSheet();
+			await openEditor('Annual trainings');
+
+			expect(checkedNames()).toEqual(['EO']);
+			await fireEvent.input(screen.getByRole('textbox', { name: 'View name' }), { target: { value: 'Yearly' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Save view' }));
+
+			await waitFor(() =>
+				expect(saveView).toHaveBeenCalledWith({ id: 'view-annual', name: 'Yearly', columnIds: ['t-eo', 't-sharp'] })
+			);
+		});
+
+		it('moves a shown training past it without losing it', async () => {
+			trainingViewsStore.load([makeView('view-annual', 'Annual trainings', ['t-eo', 't-sharp', 't-cls'])], 'org-1');
+			const { saveView } = renderSheet();
+			await openEditor('Annual trainings');
+
+			await fireEvent.keyDown(screen.getByRole('checkbox', { name: 'EO' }), { key: 'ArrowDown', altKey: true });
+			await waitFor(() => expect(checkedNames()).toEqual(['CLS', 'EO']));
+			await fireEvent.click(screen.getByRole('button', { name: 'Save view' }));
+
+			await waitFor(() =>
+				expect(saveView).toHaveBeenCalledWith({
+					id: 'view-annual',
+					name: 'Annual trainings',
+					columnIds: ['t-sharp', 't-cls', 't-eo']
+				})
+			);
+		});
 	});
 
 	it('creates a new view with no columns and asks for a name first', async () => {

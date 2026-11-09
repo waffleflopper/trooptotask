@@ -18,7 +18,9 @@ export const onboardingSetup: SetupCheck = {
 
 export const trainingSetup: SetupCheck = {
 	isNotSetUp: (inputs) =>
-		setupHasData.training({ trainingTypeCount: inputs.page.dashboard.data.trainingTypes.length }) === false,
+		setupHasData.training({
+			trainingTypeCount: inputs.page.dashboard.data.trainingTypes.filter((type) => !type.archivedAt).length
+		}) === false,
 	gap: 'there are no training types yet',
 	fix: { label: 'Add a training type', href: (inputs) => `${orgPath(inputs)}/training/types` }
 };

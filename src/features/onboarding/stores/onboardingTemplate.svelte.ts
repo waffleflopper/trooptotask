@@ -387,6 +387,11 @@ export class OnboardingTemplateWorkspace {
 		return this.#trainingTypes;
 	}
 
+	/** Types a step can name: not archived, except the one this step already uses. */
+	get stepTrainingTypeChoices(): TrainingTypeLabel[] {
+		return this.#trainingTypes.filter((type) => !type.archivedAt || type.id === this.stepDraft.trainingTypeId);
+	}
+
 	get canMutate(): boolean {
 		return this.organization.canConfigure;
 	}
@@ -418,9 +423,9 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	get stepTrainingTypeLabel(): string {
-		return (
-			this.#trainingTypes.find((type) => type.id === this.stepDraft.trainingTypeId)?.name ?? 'Select training type'
-		);
+		const type = this.#trainingTypes.find((item) => item.id === this.stepDraft.trainingTypeId);
+		if (!type) return 'Select training type';
+		return type.archivedAt ? `${type.name} (archived)` : type.name;
 	}
 
 	replaceOrganization(organization: OnboardingTemplateWorkspaceOrganization): void {

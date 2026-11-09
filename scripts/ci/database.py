@@ -169,6 +169,8 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261105190000_audit_rate_limited_retention.sql",
     "20261105190100_audit_completion_move_previous_person.sql",
     "20261108000100_account_level_notification_types.sql",
+    "20261108120000_archive_training_types.sql",
+    "20261108120100_archive_status_types.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
@@ -187,6 +189,9 @@ POST_TREE_SQL_TESTS = (
     "audit_critical_task_imports.sql",
     "audit_completion_moves.sql",
     "notifications_account_level_types.sql",
+    "archive_training_types.sql",
+    "archive_status_types.sql",
+    "audit_availability_entries.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -278,7 +283,6 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
-    "audit_availability_entries.sql",
     "audit_log_search.sql",
     "personnel_dod_id.sql",
     "personnel_dod_id_occupancy.sql",

@@ -69,6 +69,8 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 								if (String(row[column]) < filter.slice(4)) return false;
 							} else if (filter.startsWith('lte.')) {
 								if (String(row[column]) > filter.slice(4)) return false;
+							} else if (filter === 'is.null') {
+								if (row[column] != null) return false;
 							} else throw new Error('Unexpected Training predicate');
 						}
 						return true;

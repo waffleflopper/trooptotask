@@ -251,8 +251,8 @@ export class CalendarPageContext {
 
 	/** The status this viewer last added from the Calendar, or the first type when it is gone. */
 	readonly defaultStatusTypeId: string = $derived(
-		statusTypesStore.items.find((status) => status.id === this.#lastStatusTypeId)?.id ??
-			statusTypesStore.items[0]?.id ??
+		statusTypesStore.active.find((status) => status.id === this.#lastStatusTypeId)?.id ??
+			statusTypesStore.active[0]?.id ??
 			''
 	);
 

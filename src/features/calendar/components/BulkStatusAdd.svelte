@@ -87,9 +87,9 @@
 	}
 	selectPrefilled();
 
-	const statusId = $derived(
-		statusTypes.some((s) => s.id === statusSelection) ? statusSelection : (statusTypes[0]?.id ?? '')
-	);
+	// Archived types stay in `statusTypes` so overlapping entries still name theirs, but cannot be added.
+	const pickable = $derived(statusTypes.filter((status) => !status.archivedAt));
+	const statusId = $derived(pickable.some((s) => s.id === statusSelection) ? statusSelection : (pickable[0]?.id ?? ''));
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === statusId));
 	const range = $derived(validateDateRange(startDate, endDate));
 	const readRange = $derived(range.valid ? { rangeStart: startDate, rangeEnd: endDate } : null);
@@ -212,14 +212,14 @@
 						}
 					}
 				>
-					{#each statusTypes as status (status.id)}
+					{#each pickable as status (status.id)}
 						<ToggleGroup.Item value={status.id}>
 							<span class="size-2.5 rounded-sm" style:background-color={status.color} aria-hidden="true"></span>
 							{status.name}
 						</ToggleGroup.Item>
 					{/each}
 				</ToggleGroup.Root>
-				{#if statusTypes.length === 0}
+				{#if pickable.length === 0}
 					<div class="text-sm text-muted-foreground"><CalendarTypesEmptyState kind="status" /></div>
 				{/if}
 			</Field.Root>

@@ -86,10 +86,17 @@ describe('approved Training deletion provider', () => {
 	});
 
 	it('propagates other database failures', async () => {
+		const { port } = provider({ code: '40001', message: 'could not serialize access' });
+		await expect(
+			port.approveTrainingTypeDeletion(reviewer(), 'request-1', 'type-1', '2030-02-01T00:00:00.000Z')
+		).rejects.toThrow('could not serialize access');
+	});
+
+	it('refuses to approve deleting a Training type that gained records after it was requested', async () => {
 		const { port } = provider({ code: '23503', message: 'foreign reference blocks delete' });
 		await expect(
 			port.approveTrainingTypeDeletion(reviewer(), 'request-1', 'type-1', '2030-02-01T00:00:00.000Z')
-		).rejects.toThrow('foreign reference blocks delete');
+		).rejects.toMatchObject({ status: 409, message: 'This type has records. Archive it instead.' });
 	});
 
 	it('denies a member before opening the admin client even with Training configure', async () => {

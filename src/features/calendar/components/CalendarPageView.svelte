@@ -182,6 +182,19 @@
 			: { ...legend, entries: legend.entries.filter((entry) => entry.key !== 'suspense') };
 	});
 
+	// An archived type stays in the legend only while an entry in view uses it.
+	const legendStatusTypes = $derived.by(() => {
+		const first = projectionDates.at(0);
+		const last = projectionDates.at(-1);
+		if (!first || !last) return statusTypesStore.active;
+		const [start, end] = [formatDate(first), formatDate(last)];
+		const inUse = new Set(
+			availabilityStore.items
+				.filter((entry) => entry.startDate <= end && entry.endDate >= start)
+				.map((entry) => entry.statusTypeId)
+		);
+		return statusTypesStore.items.filter((status) => !status.archivedAt || inUse.has(status.id));
+	});
 	// A touch screen cannot drag-select, so its hint teaches the two-tap range instead.
 	const coarsePointer = new MediaQuery('pointer: coarse', false);
 
@@ -189,12 +202,12 @@
 		...(ctx.viewMode === 'month'
 			? [
 					statusLegend(
-						statusTypesStore.items,
+						legendStatusTypes,
 						ctx.canManageAvailability ? (coarsePointer.current ? TAP_TO_ADD_HINT : DRAG_TO_ADD_HINT) : undefined
 					),
 					dutyMarkerLegend(dailyAssignmentsStore.types)
 				]
-			: [statusLegend(statusTypesStore.items)]),
+			: [statusLegend(legendStatusTypes)]),
 		...(ctx.showEvents ? [shownEventsLegend] : [])
 	]);
 
@@ -659,7 +672,7 @@
 	{#key popover}
 		<CalendarPopover
 			{popover}
-			statusTypes={statusTypesStore.items}
+			statusTypes={statusTypesStore.active}
 			defaultStatusTypeId={ctx.defaultStatusTypeId}
 			spans={ctx.availabilityTracks.spans(popover.person.id)}
 			canEdit={ctx.canManageAvailabilityFor(popover.person)}

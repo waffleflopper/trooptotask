@@ -32,9 +32,19 @@ const statusTypes: StatusType[] = [
 		textColor: '#ffffff',
 		shortLabel: null,
 		rosterEffect: 'A',
-		sortOrder: 0
+		sortOrder: 0,
+		archivedAt: null
 	},
-	{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', shortLabel: null, rosterEffect: 'A', sortOrder: 1 }
+	{
+		id: 'tdy',
+		name: 'TDY',
+		color: '#9f7aea',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 1,
+		archivedAt: null
+	}
 ];
 const existingEntry: AvailabilityEntry = {
 	id: 'entry-1',
@@ -124,7 +134,8 @@ describe('AvailabilityModal', () => {
 			textColor: '#ffffff',
 			shortLabel: null,
 			rosterEffect: 'A',
-			sortOrder
+			sortOrder,
+			archivedAt: null
 		});
 		statusTypesStore.load(
 			[status('c', 'School', 1), status('b', 'Sick', 1), status('d', 'Leave', 0), status('a', 'TDY', 2)],
@@ -135,6 +146,62 @@ describe('AvailabilityModal', () => {
 		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Status Type' }));
 		const options = within(screen.getByRole('listbox', { name: 'Status Type' })).getAllByRole('option');
 		expect(options.map((option) => option.textContent?.trim())).toEqual(['Leave', 'Sick', 'School', 'TDY']);
+	});
+
+	describe('with an archived status', () => {
+		const archivedLeave: StatusType = { ...statusTypes[0], archivedAt: '2030-01-02T03:04:05Z' };
+		const listed = [archivedLeave, statusTypes[1]];
+		const optionNames = async () => {
+			await fireEvent.pointerDown(screen.getByRole('button', { name: 'Status Type' }));
+			return within(screen.getByRole('listbox', { name: 'Status Type' }))
+				.getAllByRole('option')
+				.map((option) => option.textContent?.trim());
+		};
+
+		it('leaves it out of a new entry and starts on the first active status', async () => {
+			const { onSave } = renderModal(onApril7, { statusTypes: listed });
+
+			expect(await optionNames()).toEqual(['TDY']);
+			await fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+			await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+			expect(onSave).toHaveBeenCalledExactlyOnceWith({
+				kind: 'create',
+				record: {
+					personnelId: 'person-1',
+					statusTypeId: 'tdy',
+					startDate: '2026-04-07',
+					endDate: '2026-04-07',
+					note: null
+				}
+			});
+		});
+
+		it('keeps an entry on its archived status when only the note changes, and labels the choice', async () => {
+			const { onSave } = renderModal(
+				{ kind: 'edit', person, entry: existingEntry },
+				{ statusTypes: listed, existingEntries: [existingEntry] }
+			);
+
+			expect(screen.getByRole('button', { name: 'Status Type' }).textContent).toContain('Leave (archived)');
+			expect(await optionNames()).toEqual(['Leave (archived)', 'TDY']);
+			await fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+			await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Block leave' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+			expect(onSave).toHaveBeenCalledExactlyOnceWith({
+				kind: 'update',
+				entry: existingEntry,
+				changes: { statusTypeId: 'leave', startDate: '2026-04-07', endDate: '2026-04-07', note: 'Block leave' }
+			});
+		});
+
+		it('has nothing to add and asks to choose when every status is archived', () => {
+			renderModal(onApril7, { statusTypes: [archivedLeave] });
+
+			expect(screen.queryByRole('button', { name: 'Add Status' })?.hasAttribute('disabled')).toBe(true);
+			expect(screen.getByRole('button', { name: 'Status Type' }).textContent).not.toContain('Leave');
+		});
 	});
 
 	it('starts from the range a quick add handed over, on the first status', async () => {

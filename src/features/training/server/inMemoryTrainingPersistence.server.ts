@@ -5,10 +5,11 @@ type TrainingMemoryStore = Pick<
 	'findOne' | 'findMany' | 'insert' | 'update' | 'delete' | 'upsertMany'
 >;
 import type { StoragePort } from '$lib/storage/contracts';
-import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '../contracts';
+import type { TrainingCatalogPersistence, TrainingCompletionPersistence, TrainingTypeUsage } from '../contracts';
 import type { TrainingCertificateStore } from './trainingCompletionPorts.server';
 import { TRAINING_CERTIFICATE_BUCKET } from './trainingCertificateStore.server';
 import {
+	TRAINING_TYPE_HAS_RECORDS_MESSAGE,
 	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
 	TRAINING_TYPE_ORDER_CHANGED_MESSAGE,
 	TRAINING_TYPE_ORDER_INVALID_MESSAGE,
@@ -42,6 +43,18 @@ export function createInMemoryTrainingCatalogPersistence(
 	store: TrainingMemoryStore,
 	orgId: string
 ): TrainingCatalogPersistence {
+	async function countTypeRecords(): Promise<TrainingTypeUsage> {
+		const [types, current, history] = await Promise.all([
+			store.findMany<TrainingTypeRow>('training_types', orgId),
+			store.findMany<{ training_type_id: string }>('personnel_trainings', orgId),
+			store.findMany<{ training_type_id: string }>('personnel_training_history', orgId)
+		]);
+		const usage: TrainingTypeUsage = {};
+		for (const { id } of types) usage[id as string] = 0;
+		for (const { training_type_id } of [...current, ...history])
+			if (training_type_id in usage) usage[training_type_id]++;
+		return usage;
+	}
 	return {
 		async listTypes() {
 			return (
@@ -131,16 +144,30 @@ export function createInMemoryTrainingCatalogPersistence(
 			if (await store.findOne('training_types', orgId, { name: input.name }))
 				fail(409, TRAINING_TYPE_NAME_EXISTS_MESSAGE);
 			return toTrainingType(
-				await store.insert<TrainingTypeRow>('training_types', orgId, trainingTypeCreateRow(input, orgId))
+				await store.insert<TrainingTypeRow>('training_types', orgId, {
+					...trainingTypeCreateRow(input, orgId),
+					archived_at: null
+				})
 			);
 		},
 		async patchType(id, fields) {
-			if (!(await store.findOne('training_types', orgId, { id }))) return null;
+			const saved = await store.findOne<TrainingTypeRow>('training_types', orgId, { id });
+			if (!saved || saved.archived_at) return null;
 			return toTrainingType(
 				await store.update<TrainingTypeRow>('training_types', orgId, id, defined(trainingTypePatchRow(fields)))
 			);
 		},
-		deleteType(id) {
+		async setTypeArchived(id, archived) {
+			if (!(await store.findOne('training_types', orgId, { id }))) return null;
+			return toTrainingType(
+				await store.update<TrainingTypeRow>('training_types', orgId, id, {
+					archived_at: archived ? new Date().toISOString() : null
+				})
+			);
+		},
+		countTypeRecords,
+		async deleteType(id) {
+			if (((await countTypeRecords())[id] ?? 0) > 0) fail(409, TRAINING_TYPE_HAS_RECORDS_MESSAGE);
 			return store.delete('training_types', orgId, id);
 		},
 		async setTypeOrder(ids, expectedIds) {
@@ -151,7 +178,9 @@ export function createInMemoryTrainingCatalogPersistence(
 						{ column: 'id', ascending: true }
 					]
 				})
-			).map((row) => toTrainingType(row).id);
+			)
+				.filter((row) => !row.archived_at)
+				.map((row) => toTrainingType(row).id);
 			if (saved.length === ids.length && saved.every((id, index) => id === ids[index])) return;
 			if (saved.length !== expectedIds.length || saved.some((id, index) => id !== expectedIds[index]))
 				fail(409, TRAINING_TYPE_ORDER_CHANGED_MESSAGE);

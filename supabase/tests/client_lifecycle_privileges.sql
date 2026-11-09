@@ -5,17 +5,11 @@ SELECT no_plan();
 -- created_at and updated_at describe row storage, not domain transitions. All other
 -- *_at columns are reviewed, including operational timers and user-entered dates.
 CREATE TEMP TABLE lifecycle_allowlist (
-  table_name text, columns text[], privileges text[], reason text NOT NULL CHECK (length(reason) > 0)
+  table_name text, columns text[], privileges text[], reason text NOT NULL CHECK (length(reason) > 0),
+  table_schema text NOT NULL DEFAULT 'public'
 );
-INSERT INTO lifecycle_allowlist VALUES
+INSERT INTO lifecycle_allowlist (table_name, columns, privileges, reason) VALUES
   ('rating_scheme_entries', ARRAY['status','workflow_status'], ARRAY['INSERT','UPDATE'], 'pending #2072'),
-  ('counseling_records', ARRAY['uploaded_by'], ARRAY['INSERT'], 'stamped by trigger stamp_author / organization_private.stamp_record_author'),
-  ('counseling_records', ARRAY['conducted_by'], ARRAY['INSERT','UPDATE'], 'Typed counselor name, not actor attribution; scoped counseling INSERT/UPDATE policies'),
-  ('counseling_records', ARRAY['archived_at','archived_by'], ARRAY['UPDATE'], 'Archive input under scoped counseling UPDATE policy; actor stamped by stamp_archived_by'),
-  ('personnel_follow_ups', ARRAY['created_by'], ARRAY['INSERT'], 'stamped by trigger stamp_author / organization_private.stamp_record_author'),
-  ('personnel_follow_ups', ARRAY['status'], ARRAY['INSERT','UPDATE'], 'transition enforced by stamp_completed_by / organization_private.stamp_follow_up_completed_by and stamp_archived_by'),
-  ('personnel_follow_ups', ARRAY['completed_at','completed_by'], ARRAY['UPDATE'], 'stamped by trigger stamp_completed_by / organization_private.stamp_follow_up_completed_by'),
-  ('personnel_follow_ups', ARRAY['archived_at','archived_by'], ARRAY['UPDATE'], 'Archive input under scoped follow-up UPDATE policy; actor stamped by stamp_archived_by'),
   ('data_exports', ARRAY['requested_by'], ARRAY['INSERT'], 'pinned by policy Authorized members can create exports to auth.uid()'),
   ('organization_invitations', ARRAY['invited_by'], ARRAY['INSERT'], 'pinned by policy Governors can create invitations to auth.uid()'),
   ('organization_invitations', ARRAY['status','declined_at','declined_by','revoked_at','revoked_by','expired_at'], ARRAY['UPDATE'], 'transition enforced by policies Governors can revoke pending invitations / Users can decline invitations addressed to them and organization_invitations_lifecycle_state_check'),
@@ -44,8 +38,15 @@ INSERT INTO lifecycle_allowlist VALUES
   ('durable_rate_limits', ARRAY['reset_at'], ARRAY['INSERT','UPDATE'], 'No authenticated write policy; service-owned operational timer'),
   ('announcement_dismissals', ARRAY['dismissed_at'], ARRAY['INSERT','UPDATE'], 'Own dismissal time under policy Users can manage own dismissals');
 
+INSERT INTO lifecycle_allowlist (table_schema, table_name, columns, privileges, reason) VALUES
+  ('realtime', 'messages', ARRAY['inserted_at'], ARRAY['INSERT','UPDATE'],
+    'Supabase-managed message timestamp, not app lifecycle; no application INSERT/UPDATE policies on realtime.messages'),
+  ('storage', 'buckets_analytics', ARRAY['deleted_at'], ARRAY['INSERT','UPDATE'], 'Provider-owned analytics bucket lifecycle; RLS enabled with no INSERT/UPDATE policies'),
+  ('storage', 'objects', ARRAY['last_accessed_at'], ARRAY['INSERT','UPDATE'], 'Provider-owned access metadata on files; scoped storage.objects INSERT/UPDATE policies'),
+  ('supabase_functions', 'migrations', ARRAY['inserted_at'], ARRAY['INSERT','UPDATE'], 'Supabase-owned function migration ledger timestamp; row-storage metadata, not app lifecycle');
+
 CREATE TEMP VIEW reviewed_lifecycle_privileges AS
-SELECT 'public'::text AS table_schema, table_name, unnest(columns) AS column_name,
+SELECT table_schema, table_name, unnest(columns) AS column_name,
   privilege AS privilege_type
 FROM lifecycle_allowlist CROSS JOIN LATERAL unnest(privileges) privilege;
 

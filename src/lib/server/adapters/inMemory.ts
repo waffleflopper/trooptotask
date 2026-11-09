@@ -51,6 +51,7 @@ import type { FixtureRowStore, FixtureFindOptions, FixtureFindResult } from './t
 import type { PersonnelScopeEnforcement } from '$features/personnel/contracts';
 import type { StoragePort } from '$lib/storage/contracts';
 import { auditKindOf } from '$lib/audit/catalog';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { AuditEvent, BatchAuditPort } from '$lib/audit/contracts';
 import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type {
@@ -1840,7 +1841,10 @@ function createInMemoryOrganizationUnitCountsPort(
 	};
 }
 
-function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): OrganizationPolicyWritePort {
+function createInMemoryOrganizationPolicyWritePort(
+	store: FixtureRowStore,
+	audit: PolicyAuditSink
+): OrganizationPolicyWritePort {
 	return {
 		async findFeatureSettings(orgId) {
 			const row = await store.findOne<{ disabled_features?: string[]; strength_floor_percent?: number }>(
@@ -1858,7 +1862,11 @@ function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): Orga
 				: null;
 		},
 		async updatePolicies(orgId, changes, ifDisabledFeatures) {
-			const row = await store.findOne<{ disabled_features?: string[] }>('organizations', orgId.toLowerCase(), {});
+			const row = await store.findOne<{ disabled_features?: string[]; strength_floor_percent?: number }>(
+				'organizations',
+				orgId.toLowerCase(),
+				{}
+			);
 			// The check and the write run in one turn, as the provider's conditional update does in one statement.
 			const stored = row?.disabled_features ?? [];
 			if (
@@ -1866,7 +1874,21 @@ function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): Orga
 				(stored.length !== ifDisabledFeatures.length || stored.some((key, index) => key !== ifDisabledFeatures[index]))
 			)
 				return { status: 'stale' };
+			const previousStrengthFloorPercent = row?.strength_floor_percent ?? DEFAULT_STRENGTH_FLOOR_PERCENT;
 			await store.updateById('organizations', orgId, toOrganizationPolicyColumns(changes));
+			if (changes.disabledFeatures !== undefined)
+				await audit.log({
+					action: 'organization.settings_updated',
+					resourceType: 'organization',
+					resourceId: orgId,
+					details: {
+						...toOrganizationPolicyColumns(changes),
+						previous_disabled_features: parseDisabledFeatures(stored),
+						...(changes.strengthFloorPercent !== undefined
+							? { previous_strength_floor_percent: previousStrengthFloorPercent }
+							: {})
+					}
+				});
 			return { status: 'saved' };
 		}
 	};
@@ -1920,6 +1942,8 @@ export function createTestDataExportLifecycleWriter(store: FixtureRowStore, orgI
 			return { exportId: row.id };
 		},
 		async markCompleted(input) {
+			const row = await store.findOne<{ status: string }>('data_exports', orgId, { id: input.exportId });
+			if (row?.status !== 'processing') throw new Error('No processing export');
 			await store.update('data_exports', orgId, input.exportId, {
 				status: 'completed',
 				completed_at: input.completedAt,
@@ -1927,6 +1951,8 @@ export function createTestDataExportLifecycleWriter(store: FixtureRowStore, orgI
 			});
 		},
 		async markFailed(input) {
+			const row = await store.findOne<{ status: string }>('data_exports', orgId, { id: input.exportId });
+			if (row?.status !== 'processing') throw new Error('No processing export');
 			await store.update('data_exports', orgId, input.exportId, {
 				status: 'failed',
 				completed_at: input.completedAt
@@ -2260,7 +2286,7 @@ export function createTestContext(
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
 		organizationSettings,
 		contributorLabels: (userIds: string[]) => organizationSettings.findMemberLabels(auth.orgId, userIds),
-		organizationPolicyWrite: createInMemoryOrganizationPolicyWritePort(rawStore),
+		organizationPolicyWrite: createInMemoryOrganizationPolicyWritePort(rawStore, auditPort),
 		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: overrides?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition:

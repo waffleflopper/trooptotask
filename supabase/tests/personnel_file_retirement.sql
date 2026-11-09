@@ -130,7 +130,7 @@ SELECT throws_ok($$ UPDATE public.personnel_documents SET id = 'f6430000-0000-40
 	'23514', 'Personnel file record identity cannot change', 'a direct update cannot swap a document id to claim a deleted file');
 SELECT throws_ok($$ UPDATE public.counseling_records SET id = 'f6430000-0000-4000-8000-000000000536', file_path = pg_temp.counsel('301', 'direct.pdf')
 	WHERE id = 'f6430000-0000-4000-8000-000000000532' $$,
-	'23514', 'Personnel file record identity cannot change', 'a direct update cannot swap a counseling id to claim a deleted file');
+	'42501', 'permission denied for table counseling_records', 'a direct update cannot swap a counseling id to claim a deleted file');
 SELECT pg_temp.act_as_fixture();
 SELECT is(
 	ARRAY[

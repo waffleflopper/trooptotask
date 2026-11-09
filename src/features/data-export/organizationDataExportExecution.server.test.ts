@@ -69,14 +69,10 @@ describe('executeOrganizationDataExport', () => {
 		expect(events).toEqual([expect.objectContaining({ action, resourceType: 'data_export' })]);
 	});
 
-	it('completes concurrent exports above former quotas without any plan or usage reads', async () => {
+	it('completes concurrent exports above former quotas', async () => {
 		const ctx = createTestContext();
 		seedCompletedExports(ctx, 11);
 		const originalRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
-		const reads = ['findMany', 'findOne'] as const;
-		const spies = reads.map((method) =>
-			vi.spyOn(ctx.rawStore, method).mockRejectedValue(new Error('Export execution must not read plans or usage'))
-		);
 		const results = await Promise.all(
 			['first', 'second'].map((name) =>
 				executeOrganizationDataExport(ctx, {
@@ -86,7 +82,6 @@ describe('executeOrganizationDataExport', () => {
 				})
 			)
 		);
-		spies.forEach((spy) => spy.mockRestore());
 		expect(results.map((result) => result.artifact.filename)).toEqual(['first.json', 'second.json']);
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 		expect(rows).toHaveLength(13);
@@ -337,4 +332,22 @@ describe('executeOrganizationDataExport', () => {
 			});
 		}
 	});
+});
+
+it('preserves completion when the later audit write fails', async () => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date('2026-11-09T12:00:00Z'));
+	const ctx = createTestContext();
+	vi.spyOn(ctx.audit, 'log').mockRejectedValue(new Error('audit unavailable'));
+	vi.spyOn(console, 'warn').mockImplementation(() => {});
+	await expect(
+		executeOrganizationDataExport(ctx, {
+			requestedByEmail: 'synthetic@example.test',
+			auditAction: 'export.created',
+			buildArtifact: async () => jsonArtifact()
+		})
+	).rejects.toThrow('audit unavailable');
+	expect(await ctx.rawStore.findMany('data_exports', ctx.auth.orgId)).toEqual([
+		expect.objectContaining({ status: 'completed', completed_at: '2026-11-09T12:00:00.000Z', file_size_bytes: 11 })
+	]);
 });

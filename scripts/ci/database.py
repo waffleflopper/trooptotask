@@ -139,6 +139,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261028000200_personnel_dod_id_occupancy.sql",
     "20261028090000_group_pins_by_id.sql",
     GROUP_TREE_MIGRATION,
+    "20261101090000_platform_error_reporting.sql",
     "20261104090000_roster_pool_spans_read.sql",
     "20261104100000_attribution_column_authority.sql",
     "20261104110000_client_error_report_group_limits.sql",
@@ -173,6 +174,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261108120100_archive_status_types.sql",
     "20261108130000_default_onboarding_template.sql",
     "20261108200000_organization_member_names.sql",
+    "20261108210000_client_lifecycle_grants.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
@@ -196,6 +198,8 @@ POST_TREE_SQL_TESTS = (
     "audit_availability_entries.sql",
     "onboarding_default_template.sql",
     "organization_member_names.sql",
+    "client_lifecycle_privileges.sql",
+    "client_lifecycle_authority.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

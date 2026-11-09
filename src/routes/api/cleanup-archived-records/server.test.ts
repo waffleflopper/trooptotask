@@ -54,6 +54,7 @@ function retentionProvider(table: 'leader_notes' | 'personnel_onboardings' | 'pe
 	const administrators = Array.from({ length: 1000 }, (_, index) => `admin-${index}`);
 	const state = {
 		deleted: false,
+		sweepFailure: false,
 		lookupFailureFrom: null as number | null,
 		insertFailure: false,
 		attempts: [] as Record<string, unknown>[][],
@@ -107,6 +108,10 @@ function retentionProvider(table: 'leader_notes' | 'personnel_onboardings' | 'pe
 					state.deleted = true;
 					return Response.json(1);
 				}
+				if (resource === 'fail_stale_data_exports' && method === 'POST')
+					return state.sweepFailure
+						? Response.json({ message: 'Sweep unavailable' }, { status: 500 })
+						: Response.json(0);
 				if (resource === 'list_pending_organization_file_retirements' && method === 'POST') return Response.json([]);
 				if (method === 'DELETE' && artifactTables.has(resource!)) {
 					const expired =
@@ -267,6 +272,7 @@ function organizationEnumerationProvider(count: number) {
 				}
 				if (table === 'list_pending_organization_file_retirements' && method === 'POST') return Response.json([]);
 				const emptyArtifactDelete = method === 'DELETE' && artifactTables.has(table);
+				if (table === 'fail_stale_data_exports' && method === 'POST') return Response.json(0);
 				if ((method !== 'GET' && !emptyArtifactDelete) || !url.pathname.startsWith('/rest/v1/')) {
 					state.unexpectedEffects.push({ method, path: url.pathname });
 					throw new Error('Empty discovery fixture must not mutate rows or invoke Storage');
@@ -351,4 +357,20 @@ describe.each([
 		const dispatched = new Set(provider.state.resourceReads.map(({ organizationId }) => organizationId));
 		expect(provider.organizations.filter(({ id }) => !dispatched.has(id)).map(({ id }) => id)).toEqual([]);
 	});
+});
+
+it('continues archive cleanup and its summary when the export sweep fails', async () => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date('2026-11-09T12:00:00Z'));
+	try {
+		const provider = retentionProvider('leader_notes');
+		provider.state.sweepFailure = true;
+		getAdminClient.mockReturnValue(provider.client);
+		const response = await GET(request('Bearer synthetic-retention-secret'));
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({ deletedCount: 1, orgsAffected: 1 });
+		expect(provider.state.deleted).toBe(true);
+	} finally {
+		vi.useRealTimers();
+	}
 });

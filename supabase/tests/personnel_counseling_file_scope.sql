@@ -76,8 +76,8 @@ SELECT is(count(*)::integer, 0, 'Group configurator cannot edit unassigned follo
 SELECT throws_ok($$ INSERT INTO public.personnel_documents (organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by)
   VALUES ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000302', 'Denied', 'e8000000-0000-4000-8000-000000000101/personnel/e8000000-0000-4000-8000-000000000302/documents/denied.pdf', 128, 'application/pdf', 'fixture') $$,
   '42501', NULL, 'Group configurator cannot create unassigned document');
-SELECT throws_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, uploaded_by)
-  VALUES ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000302', '2030-01-02', 'Denied', 'Denied', 'fixture') $$,
+SELECT throws_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title)
+  VALUES ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000302', '2030-01-02', 'Denied', 'Denied') $$,
   '42501', NULL, 'Group configurator cannot create unassigned counseling record');
 SELECT throws_ok($$ INSERT INTO public.leader_notes (organization_id, personnel_id, author, text)
   VALUES ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000302', 'fixture', 'Denied') $$,

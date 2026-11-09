@@ -3625,7 +3625,7 @@ describe('updateOrganizationMemberAccess', () => {
 });
 
 describe('invitation credential and governance boundaries', () => {
-	it.each(['sent', 'failed'] as const)(
+	it.each(['sent', 'failed', 'sent_recording_failed'] as const)(
 		'resend with %s delivery never issues setup credentials or changes the invitation grant',
 		async (deliveryStatus) => {
 			const ctx = createTestContext();
@@ -3649,7 +3649,10 @@ describe('invitation credential and governance boundaries', () => {
 					actorEmail: 'owner@example.com',
 					origin: INVITE_ORIGIN
 				})
-			).toMatchObject({ inviteSuccess: true, inviteDeliveryStatus: deliveryStatus });
+			).toMatchObject({
+				inviteSuccess: true,
+				inviteDeliveryStatus: deliveryStatus === 'sent_recording_failed' ? 'sent' : deliveryStatus
+			});
 			expect(issuance.setupLinkRequests).toEqual([]);
 			expect(issuance.setupDeliveries).toEqual([]);
 			expect(settings.accessRequestBridges).toEqual([]);

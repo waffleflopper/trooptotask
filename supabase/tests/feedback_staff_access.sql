@@ -39,8 +39,7 @@ SELECT throws_ok($$SELECT public.save_feedback_staff_note('50000000-0000-4000-80
 SELECT throws_ok($$SELECT public.save_feedback_github_issue('50000000-0000-4000-8000-000000186911',42,'https://github.com/waffleflopper/trooptotask/issues/42')$$,'42501',NULL,'non-operator cannot call issue-link function');
 SELECT throws_ok($$UPDATE public.feedback_replies SET body='Changed'$$,'42501',NULL,'reporter cannot edit replies');
 SELECT throws_ok($$DELETE FROM public.feedback_replies$$,'42501',NULL,'reporter cannot delete replies');
-WITH changed AS (UPDATE public.beta_feedback SET updated_by='10000000-0000-4000-8000-000000186913' WHERE id='50000000-0000-4000-8000-000000186911' RETURNING id)
-SELECT is((SELECT count(*) FROM changed),0::bigint,'reporter cannot reattribute existing feedback');
+SELECT throws_ok($$UPDATE public.beta_feedback SET updated_by='10000000-0000-4000-8000-000000186913' WHERE id='50000000-0000-4000-8000-000000186911'$$,'42501',NULL,'reporter cannot reattribute existing feedback');
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186913',true);
 SELECT set_config('request.jwt.claims','{"aal":"aal1"}',true);
 SELECT is((SELECT count(*) FROM public.feedback_staff_notes),0::bigint,'operator without aal2 cannot read notes');

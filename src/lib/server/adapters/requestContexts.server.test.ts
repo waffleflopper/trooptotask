@@ -194,21 +194,24 @@ describe('request-bound export lifecycle persistence', () => {
 					if (url.pathname === '/rest/v1/organizations') return Response.json({ id: ORG_ID, suspended_at: null });
 					if (url.pathname === '/rest/v1/rpc/read_request_member_access' && request.method === 'POST')
 						return Response.json({ role: 'owner' });
-					if (url.pathname !== '/rest/v1/data_exports') throw new Error('Unexpected lifecycle transport');
-					if (request.method === 'POST') {
-						const row = { ...(await request.json()), id: 'export-a' };
+					if (url.pathname === '/rest/v1/data_exports' && request.method === 'POST') {
+						const row = { status: 'processing', ...(await request.json()), id: 'export-a' };
 						rows.push(row);
 						return Response.json({ id: row.id });
 					}
-					if (request.method !== 'PATCH') throw new Error('Unexpected lifecycle method');
-					const visible = rows.filter((row) =>
-						[...url.searchParams].every(([column, filter]) =>
-							column === 'select' ? true : filter === `eq.${row[column]}`
-						)
+					if (url.pathname !== '/rest/v1/rpc/finish_data_export' || request.method !== 'POST')
+						throw new Error('Unexpected lifecycle transport');
+					const body = await request.json();
+					const visible = rows.filter(
+						(row) => row.id === body.p_export_id && row.org_id === body.p_organization_id && row.status === 'processing'
 					);
 					if (visible.length !== 1)
 						return Response.json({ code: 'PGRST116', message: 'No matching export' }, { status: 406 });
-					Object.assign(visible[0], await request.json());
+					Object.assign(visible[0], {
+						status: body.p_status,
+						completed_at: body.p_completed_at,
+						file_size_bytes: body.p_file_size_bytes
+					});
 					return Response.json({ id: visible[0].id });
 				}
 			}

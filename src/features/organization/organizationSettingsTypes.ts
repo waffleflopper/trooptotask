@@ -61,7 +61,7 @@ export type OrganizationSettingsInvitationRow = Pick<
 export interface OrganizationSettingsInvitationDeliveryRow {
 	id: string;
 	invitation_id: string;
-	status: 'pending' | 'sent' | 'failed';
+	status: 'pending' | 'sent' | 'failed' | 'sent_recording_failed';
 	attempt_count: number;
 	last_error: string | null;
 	updated_at: string;

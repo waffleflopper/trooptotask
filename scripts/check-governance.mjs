@@ -321,7 +321,12 @@ function checkDeletedRouteAuthorizationFramework() {
 }
 
 // Migrations after the tree migration that store or copy grant roots without comparing them, each reviewed by hand.
-const GROUP_SCOPE_REVIEWED_MIGRATIONS = new Map();
+const GROUP_SCOPE_REVIEWED_MIGRATIONS = new Map([
+	[
+		'supabase/migrations/20261108210000_client_lifecycle_grants.sql',
+		'Column INSERT grant preserves invitation Group roots; no Group scope comparison or authorization change.'
+	]
+]);
 
 function collectGroupScopeMigrationIssues(migrations, reviewed = GROUP_SCOPE_REVIEWED_MIGRATIONS) {
 	const issues = [];

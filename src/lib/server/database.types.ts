@@ -4309,9 +4309,35 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fail_stale_data_exports: { Args: never; Returns: number }
       feature_is_off: {
         Args: { p_feature: string; p_organization_id: string }
         Returns: boolean
+      }
+      finish_data_export: {
+        Args: {
+          p_completed_at: string
+          p_export_id: string
+          p_file_size_bytes?: number
+          p_organization_id: string
+          p_status: string
+        }
+        Returns: {
+          completed_at: string | null
+          created_at: string
+          file_path: string | null
+          file_size_bytes: number | null
+          id: string
+          org_id: string
+          requested_by: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "data_exports"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       finish_organization_setup: {
         Args: { p_organization_id: string }
@@ -5319,6 +5345,14 @@ export type Database = {
       undo_roster_swap: {
         Args: { p_organization_id: string; p_swap_id: string; p_today: string }
         Returns: Json
+      }
+      update_organization_feature_settings: {
+        Args: {
+          p_changes: Json
+          p_expected_disabled_features: string[]
+          p_organization_id: string
+        }
+        Returns: string
       }
       update_personnel_artifact: {
         Args: {

@@ -32,7 +32,6 @@ export function createSupabaseDataExportLifecycleWriter(
 				.insert({
 					org_id: orgId,
 					requested_by: input.requestedBy,
-					status: 'processing',
 					created_at: input.createdAt
 				})
 				.select('id')
@@ -42,26 +41,25 @@ export function createSupabaseDataExportLifecycleWriter(
 		},
 		async markCompleted(input) {
 			const { data, error } = await client
-				.from('data_exports')
-				.update({
-					status: 'completed',
-					completed_at: input.completedAt,
-					file_size_bytes: input.fileSizeBytes
+				.rpc('finish_data_export', {
+					p_organization_id: orgId,
+					p_export_id: input.exportId,
+					p_status: 'completed',
+					p_completed_at: input.completedAt,
+					p_file_size_bytes: input.fileSizeBytes
 				})
-				.eq('org_id', orgId)
-				.eq('id', input.exportId)
-				.select('id')
 				.single();
 			if (error) throw new Error(error.message);
 			acknowledgedExportId(data, input.exportId);
 		},
 		async markFailed(input) {
 			const { data, error } = await client
-				.from('data_exports')
-				.update({ status: 'failed', completed_at: input.completedAt })
-				.eq('org_id', orgId)
-				.eq('id', input.exportId)
-				.select('id')
+				.rpc('finish_data_export', {
+					p_organization_id: orgId,
+					p_export_id: input.exportId,
+					p_status: 'failed',
+					p_completed_at: input.completedAt
+				})
 				.single();
 			if (error) throw new Error(error.message);
 			acknowledgedExportId(data, input.exportId);

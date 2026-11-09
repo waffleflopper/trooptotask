@@ -70,14 +70,14 @@ INSERT INTO authored VALUES
     'INSERT INTO public.leader_notes (id, organization_id, personnel_id, author, text) VALUES (%L, %L, %L, %L, %L)',
     pg_temp.id(801), pg_temp.id(101), pg_temp.id(301), pg_temp.id(2), 'Forged note')),
   ('personnel_follow_ups', 'created_by', pg_temp.id(502), pg_temp.id(802), format(
-    'INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, created_by) VALUES (%L, %L, %L, %L, %L)',
-    pg_temp.id(802), pg_temp.id(101), pg_temp.id(301), 'Forged follow-up', pg_temp.id(2))),
+    'INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title) VALUES (%L, %L, %L, %L)',
+    pg_temp.id(802), pg_temp.id(101), pg_temp.id(301), 'Forged follow-up')),
   ('personnel_documents', 'uploaded_by', pg_temp.id(503), pg_temp.id(803), format(
     'INSERT INTO public.personnel_documents (id, organization_id, personnel_id, title, file_path, uploaded_by, file_size_bytes, content_type) VALUES (%L, %L, %L, %L, %L, %L, 10, %L)',
     pg_temp.id(803), pg_temp.id(101), pg_temp.id(301), 'Forged document', pg_temp.id(101) || '/personnel/' || pg_temp.id(301) || '/documents/forged.pdf', pg_temp.id(2), 'application/pdf')),
   ('counseling_records', 'uploaded_by', pg_temp.id(504), pg_temp.id(804), format(
-    'INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by, conducted_by) VALUES (%L, %L, %L, %L, %L, %L, %L, %L)',
-    pg_temp.id(804), pg_temp.id(101), pg_temp.id(301), '2026-01-03', 'Counseling', 'Forged counseling', pg_temp.id(2), 'CPT Typed Name')),
+    'INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title) VALUES (%L, %L, %L, %L, %L, %L)',
+    pg_temp.id(804), pg_temp.id(101), pg_temp.id(301), '2026-01-03', 'Counseling', 'Forged counseling')),
   ('sign_in_rosters', 'created_by', pg_temp.id(505), pg_temp.id(805), format(
     'INSERT INTO public.sign_in_rosters (id, organization_id, title, personnel_snapshot, created_by) VALUES (%L, %L, %L, %L, %L)',
     pg_temp.id(805), pg_temp.id(101), 'Forged roster', '[]', pg_temp.id(2))),
@@ -121,19 +121,23 @@ UPDATE authored SET inserted = (SELECT id FROM public.sign_in_rosters WHERE titl
 SET LOCAL ROLE authenticated;
 SELECT is(pg_temp.author_of(tbl, col, inserted),
   pg_temp.id(1)::text, tbl || '.' || col || ' records the caller, not the commander named in the insert') FROM authored;
-SELECT is(pg_temp.rewrite_author(tbl, col, saved, pg_temp.id(1)), 1, tbl || ' update reaches the saved row') FROM authored;
+SELECT is(pg_temp.rewrite_author(tbl, col, saved, pg_temp.id(1)), 1, tbl || ' update reaches the saved row') FROM authored WHERE tbl NOT IN ('counseling_records','personnel_follow_ups');
+SELECT throws_ok(format('UPDATE public.%I SET %I = %L WHERE id = %L', tbl, col, pg_temp.id(1), saved),
+  '42501', NULL, tbl || ' author is not client-updatable') FROM authored WHERE tbl IN ('counseling_records','personnel_follow_ups');
 SELECT is(pg_temp.author_of(tbl, col, saved), pg_temp.id(2)::text,
   tbl || '.' || col || ' keeps the saved author when an edit names the caller') FROM authored;
 
-UPDATE public.data_exports SET requested_by = pg_temp.id(1), status = 'completed' WHERE id = pg_temp.id(507);
+SELECT throws_ok($$ UPDATE public.data_exports SET requested_by = pg_temp.id(1) WHERE id = pg_temp.id(507) $$,
+  '42501', NULL, 'export requester cannot be rewritten');
+SELECT lives_ok($$ SELECT public.finish_data_export(pg_temp.id(101), pg_temp.id(507), 'completed', now(), 1024) $$, 'export completion uses the lifecycle function');
 SELECT results_eq($$ SELECT requested_by, status FROM public.data_exports WHERE id = pg_temp.id(507) $$,
   $$ VALUES (pg_temp.id(2), 'completed'::text) $$, 'updating an export keeps the member who requested it');
 
 UPDATE public.leader_notes SET text = 'Edited by actor' WHERE id = pg_temp.id(501);
 SELECT results_eq($$ SELECT author, text FROM public.leader_notes WHERE id = pg_temp.id(501) $$,
   $$ VALUES (pg_temp.id(2)::text, 'Edited by actor'::text) $$, 'editing a note keeps its original author');
-SELECT is((SELECT conducted_by FROM public.counseling_records WHERE id = pg_temp.id(804)), 'CPT Typed Name',
-  'the typed counselor name is stored as written');
+SELECT throws_ok($$ UPDATE public.counseling_records SET conducted_by = 'CPT Typed Name' WHERE id = pg_temp.id(804) $$,
+  '42501', NULL, 'counselor names are written through the server artifact command');
 
 -- Document storage
 SELECT throws_ok($$ UPDATE public.personnel_documents SET file_size_bytes = 1 WHERE id = pg_temp.id(503) $$,

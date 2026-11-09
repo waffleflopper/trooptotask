@@ -29,6 +29,11 @@ function createRequiredNotificationDelivery(admin: ReturnType<typeof getAdminCli
 export function createArchiveRetentionSources() {
 	const admin = getAdminClient();
 	return {
+		failStaleDataExports: async () => {
+			const { data, error } = await admin.rpc('fail_stale_data_exports');
+			if (error) throw new Error(error.message);
+			return data;
+		},
 		settings: createSupabaseOrganizationRetentionSettingsReader(admin),
 		criticalTasks: createSupabaseCriticalTaskRetentionSource(admin),
 		assignmentTypes: createSupabaseAssignmentTypeRetention(admin),

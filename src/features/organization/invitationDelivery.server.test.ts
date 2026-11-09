@@ -526,3 +526,52 @@ describe('organization invitation delivery', () => {
 		expect(store.records[0].attemptCount).toBe(ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS);
 	});
 });
+
+describe('successful sends with failed persistence', () => {
+	it.each(['initial', 'retry'] as const)('records %s delivery as non-retryable after mark-sent fails', async (mode) => {
+		const store = createOrganizationInvitationEmailOutboxStore();
+		const sendEmail = vi.fn().mockResolvedValue(undefined);
+		store.markInvitationEmailDeliverySent = async () => {
+			throw new Error('acknowledgement unavailable');
+		};
+		const retryInput = {
+			outboxId: 'outbox-1',
+			origin: 'http://localhost:5173',
+			invitation: organizationInvitationFixture(),
+			organizationName: 'Alpha Company',
+			invitedByEmail: null,
+			now: AUTH_WORKFLOW_NOW
+		};
+		if (mode === 'retry')
+			await store.insertInvitationEmailDelivery({
+				organizationId: 'org-1',
+				invitationId: 'invite-1',
+				recipient: 'invitee@example.mil',
+				createdAt: AUTH_WORKFLOW_NOW
+			});
+		const result =
+			mode === 'retry'
+				? await retryOrganizationInvitationOutboxDelivery(store, sendEmail, retryInput)
+				: await sendOrganizationInvitationOutboxDelivery(store, sendEmail, {
+						organizationId: 'org-1',
+						invitationId: 'invite-1',
+						email: 'invitee@example.mil',
+						organizationName: 'Alpha Company',
+						invitedByEmail: null,
+						inviteUrl: 'https://trooptotask.test/auth/login',
+						requiresAccountSetup: false,
+						now: AUTH_WORKFLOW_NOW
+					});
+		expect(result).toMatchObject({ status: 'sent_recording_failed', error: 'acknowledgement unavailable' });
+		expect(store.records[0]).toMatchObject({
+			status: 'sent_recording_failed',
+			attemptCount: 1,
+			sentAt: AUTH_WORKFLOW_NOW,
+			updatedAt: AUTH_WORKFLOW_NOW
+		});
+		expect(await retryOrganizationInvitationOutboxDelivery(store, sendEmail, retryInput)).toEqual({
+			status: 'not-retryable'
+		});
+		expect(sendEmail).toHaveBeenCalledTimes(1);
+	});
+});

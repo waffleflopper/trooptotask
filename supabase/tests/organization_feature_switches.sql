@@ -308,11 +308,13 @@ SELECT is(
 	'[[], 80]'::jsonb,
 	'a new Organization has every feature on and an 80 percent strength floor'
 );
+SELECT pg_temp.act_as('2');
 SELECT ok(
-	has_column_privilege('authenticated', 'public.organizations', 'disabled_features', 'UPDATE')
+	NOT has_column_privilege('authenticated', 'public.organizations', 'disabled_features', 'UPDATE')
 		AND has_column_privilege('authenticated', 'public.organizations', 'strength_floor_percent', 'UPDATE'),
-	'signed-in members hold the column UPDATE grants that RLS then narrows'
+	'feature switches require the audited function while the strength floor retains its column grant'
 );
+SELECT pg_temp.act_as_fixture();
 SELECT ok(
 	NOT has_column_privilege('anon', 'public.organizations', 'disabled_features', 'UPDATE')
 		AND NOT has_column_privilege('anon', 'public.organizations', 'strength_floor_percent', 'UPDATE'),
@@ -447,28 +449,25 @@ SELECT is(pg_temp.readable_as('5', '102'), (SELECT reads FROM actor_baseline WHE
 	'another Organization''s owner keeps every feature');
 
 SELECT pg_temp.act_as('3');
-WITH updated AS (
-	UPDATE public.organizations SET disabled_features = '{}', strength_floor_percent = 50
-	WHERE id = pg_temp.id('101') RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM updated), 0, 'a member who lost every feature cannot turn them back on');
+SELECT throws_ok($$ SELECT public.update_organization_feature_settings(pg_temp.id('101'),
+  '{"disabled_features":[],"strength_floor_percent":50}', ARRAY['training','criticalTasks','evaluations','onboarding','lossesAndAwards']) $$,
+  '42501', NULL, 'a member who lost every feature cannot turn them back on');
 SELECT pg_temp.act_as('2');
 SELECT is(
 	(SELECT disabled_features FROM public.organizations WHERE id = pg_temp.id('101')),
 	ARRAY['training', 'criticalTasks', 'evaluations', 'onboarding', 'lossesAndAwards'],
 	'an admin still reads the switches while every feature is off'
 );
-WITH updated AS (
-	UPDATE public.organizations SET disabled_features = ARRAY['training', 'lossesAndAwards'], strength_floor_percent = 65
-	WHERE id = pg_temp.id('101') RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM updated), 1, 'an admin can change feature switches and the strength floor');
+SELECT is(public.update_organization_feature_settings(pg_temp.id('101'),
+  '{"disabled_features":["training","lossesAndAwards"],"strength_floor_percent":65}',
+  ARRAY['training','criticalTasks','evaluations','onboarding','lossesAndAwards']),
+  'saved', 'an admin can change feature switches and the strength floor');
 SELECT throws_ok(
-	$$ UPDATE public.organizations SET disabled_features = ARRAY['training', 'dutyRoster'] WHERE id = pg_temp.id('101') $$,
+	$$ SELECT public.update_organization_feature_settings(pg_temp.id('101'), '{"disabled_features":["training","dutyRoster"]}', ARRAY['training','lossesAndAwards']) $$,
 	'23514', NULL, 'an unknown feature key is rejected'
 );
 SELECT throws_ok(
-	$$ UPDATE public.organizations SET disabled_features = ARRAY[NULL]::text[] WHERE id = pg_temp.id('101') $$,
+	$$ SELECT public.update_organization_feature_settings(pg_temp.id('101'), '{"disabled_features":[null]}', ARRAY['training','lossesAndAwards']) $$,
 	'23514', NULL, 'a null feature key is rejected'
 );
 SELECT throws_ok(
@@ -487,15 +486,9 @@ SELECT is(
 );
 
 SELECT pg_temp.act_as('1');
-WITH updated AS (
-	UPDATE public.organizations SET disabled_features = '{}', strength_floor_percent = 100
-	WHERE id = pg_temp.id('101') RETURNING disabled_features, strength_floor_percent
-)
-SELECT is(
-	(SELECT jsonb_build_array(disabled_features, strength_floor_percent) FROM updated),
-	'[[], 100]'::jsonb,
-	'an owner can turn every feature back on and set the floor to 100'
-);
+SELECT is(public.update_organization_feature_settings(pg_temp.id('101'),
+  '{"disabled_features":[],"strength_floor_percent":100}', ARRAY['training','lossesAndAwards']),
+  'saved', 'an owner can turn every feature back on and set the floor to 100');
 SELECT pg_temp.act_as_fixture();
 
 SELECT is(pg_temp.readable_as(actor, '101'), reads, label || ' reads again by stored access after re-enabling')

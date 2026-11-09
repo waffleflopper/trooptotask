@@ -157,7 +157,7 @@
 					<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
 						Assignment
 					</p>
-					<div class="grid gap-2 sm:grid-cols-2">
+					<div class="grid gap-2">
 						<Field.Root>
 							<Field.Label for="template-select">Template</Field.Label>
 							<Select.Root type="single" value={templateId} onValueChange={(value) => (chosenTemplateId = value)}>

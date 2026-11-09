@@ -24,6 +24,25 @@ REVOKE ALL ON FUNCTION onboarding_private.clear_onboarding_cancellation_reason()
 CREATE TRIGGER clear_onboarding_cancellation_reason BEFORE UPDATE OF status ON public.personnel_onboardings
   FOR EACH ROW EXECUTE FUNCTION onboarding_private.clear_onboarding_cancellation_reason();
 
+-- Restore finds a Person's Follow-Ups by the archive time, so a later archive write keeps the first time.
+CREATE FUNCTION organization_private.keep_follow_up_archive_time() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF OLD.archived_at IS NOT NULL AND NEW.archived_at IS NOT NULL THEN
+    NEW.archived_at := OLD.archived_at;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION organization_private.keep_follow_up_archive_time() OWNER TO postgres;
+REVOKE ALL ON FUNCTION organization_private.keep_follow_up_archive_time() FROM PUBLIC;
+
+CREATE TRIGGER keep_follow_up_archive_time BEFORE UPDATE OF archived_at ON public.personnel_follow_ups
+  FOR EACH ROW EXECUTE FUNCTION organization_private.keep_follow_up_archive_time();
+
 -- An AFTER trigger, so simultaneous starts for one Person still queue on the active packet index
 -- before they wait here. The key-share lock orders a start or reopen against an archive
 -- without blocking ordinary edits to the Person.

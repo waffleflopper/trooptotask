@@ -3477,6 +3477,25 @@ $$;
 ALTER FUNCTION organization_private.keep_artifact_identity() OWNER TO postgres;
 
 --
+-- Name: keep_follow_up_archive_time(); Type: FUNCTION; Schema: organization_private; Owner: postgres
+--
+
+CREATE FUNCTION organization_private.keep_follow_up_archive_time() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF OLD.archived_at IS NOT NULL AND NEW.archived_at IS NOT NULL THEN
+    NEW.archived_at := OLD.archived_at;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION organization_private.keep_follow_up_archive_time() OWNER TO postgres;
+
+--
 -- Name: lane_feature(text); Type: FUNCTION; Schema: organization_private; Owner: postgres
 --
 
@@ -18494,6 +18513,13 @@ CREATE TRIGGER keep_artifact_identity BEFORE UPDATE OF id ON public.personnel_do
 
 
 --
+-- Name: personnel_follow_ups keep_follow_up_archive_time; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER keep_follow_up_archive_time BEFORE UPDATE OF archived_at ON public.personnel_follow_ups FOR EACH ROW EXECUTE FUNCTION organization_private.keep_follow_up_archive_time();
+
+
+--
 -- Name: personnel_training_history keep_training_certificate_identity; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -22589,6 +22615,13 @@ REVOKE ALL ON FUNCTION organization_private.guard_sign_in_roster() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION organization_private.keep_artifact_identity() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION keep_follow_up_archive_time(); Type: ACL; Schema: organization_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION organization_private.keep_follow_up_archive_time() FROM PUBLIC;
 
 
 --

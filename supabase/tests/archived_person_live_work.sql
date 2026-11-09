@@ -28,6 +28,8 @@ INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, tem
   (pg_temp.u(703), pg_temp.u(101), pg_temp.u(302), pg_temp.u(401), '2029-01-03', 'in_progress', NULL);
 INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, step_name, step_type, sort_order, completed, active)
 VALUES (pg_temp.u(801), pg_temp.u(101), pg_temp.u(701), 'Paperwork', 'checkbox', 0, false, true);
+INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, status, created_by)
+VALUES (pg_temp.u(1101), pg_temp.u(101), pg_temp.u(301), 'Open item', 'open', 'fixture');
 
 -- An archive cancels the Person's in-progress packet with its reason, and restore leaves it cancelled.
 SELECT pg_temp.act(1);
@@ -43,6 +45,13 @@ SELECT results_eq(
   $$ VALUES ('{"template": "New Arrival", "reason": "archived"}'::jsonb) $$,
   'the cancellation audit says the archive caused it');
 
+SET LOCAL ROLE service_role;
+SELECT public.update_personnel_artifact(pg_temp.u(1), pg_temp.u(101), pg_temp.u(301), 'personnel_follow_ups', pg_temp.u(1101),
+  jsonb_build_object('status', 'archived', 'archived_at', '2030-03-01T00:00:00Z', 'archived_by', pg_temp.u(1)));
+RESET ROLE;
+SELECT is((SELECT archived_at FROM public.personnel_follow_ups WHERE id = pg_temp.u(1101)), '2030-02-03T04:05:06Z'::timestamptz,
+  'a later archive of an archived Follow-Up keeps the Person''s archive time');
+
 SELECT pg_temp.act(1);
 SET LOCAL ROLE authenticated;
 SELECT throws_ok(
@@ -55,6 +64,8 @@ SELECT is(public.restore_personnel(pg_temp.u(101), pg_temp.u(301)), true, 'the o
 RESET ROLE;
 SELECT is((SELECT status FROM public.personnel_onboardings WHERE id = pg_temp.u(701)), 'cancelled',
   'restore leaves the archive-cancelled packet cancelled');
+SELECT results_eq($$ SELECT status, archived_at FROM public.personnel_follow_ups WHERE id = pg_temp.u(1101) $$,
+  $$ VALUES ('open'::text, NULL::timestamptz) $$, 'restore reopens the Follow-Up the archive closed');
 
 SELECT pg_temp.act(1);
 SET LOCAL ROLE authenticated;

@@ -1,0 +1,12 @@
+{
+	"compilerOptions": {
+		"moduleResolution": "bundler",
+		"module": "esnext",
+		"paths": {
+			"$lib/*": ["./*"],
+			"$features/*": ["./*"],
+			"$routes/*": ["./*"],
+			"$custom/*": ["./*"]
+		}
+	}
+}

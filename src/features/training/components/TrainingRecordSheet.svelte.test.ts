@@ -301,9 +301,13 @@ describe('TrainingRecordSheet', () => {
 	});
 
 	it('keeps the open form and its draft when a removal is not confirmed', async () => {
-		const onRemove = vi.fn().mockResolvedValue(false);
+		const onRemove = vi.fn(async () => {
+			await rerender(props({ onRemove, trainings: trainings.filter((record) => record.id !== 'r-ok') }));
+			await rerender(props({ onRemove, trainings }));
+			return false;
+		});
 		const user = userEvent.setup();
-		render(TrainingRecordSheet, { props: props({ onRemove }) });
+		const { rerender } = render(TrainingRecordSheet, { props: props({ onRemove }) });
 		await user.click(await screen.findByRole('button', { name: 'More actions for Safety' }));
 		await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
 		await user.click(await screen.findByRole('button', { name: /Add a note/ }));

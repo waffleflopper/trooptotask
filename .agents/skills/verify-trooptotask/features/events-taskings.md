@@ -190,6 +190,7 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     badge and the actions, the banners name the actor, and Activity gains started, blocked, unblocked, completed,
     reopened and cancelled in order. From the page, a `POST` of `start`, `complete` or `reopen` to
     `/org/A/api/calendar-taskings/ID/status`, and a `PATCH` of the cancelled Tasking, each return 409.
+    `supabase/tests/calendar_tasking_transitions.sql` and `taskingModel.test.ts` pin all 30 status and action pairs.
 16. **Edit and reload.** On the linked Tasking press `Edit`, move it to `Bravo`, `Make standalone`, change the suspense
     and set `People needed`. Save. Responsible, Event and Suspense update, and Activity reads the responsibility,
     unlink, dates and requirement changes. Reload: the facts are unchanged. Relink it to the Event and move it back to
@@ -476,7 +477,7 @@ the region instead of reading zero. Seed a conflict: pick a Person on a Tasking 
 A Tasking's detail carries an `Equipment` card (a name, a quantity and how many are secured) and a `Checklist` card
 (flat, ordered, open or done) side by side, each with its own add form. The headings read `N of M ready` (green when all
 are, red on a Blocked Tasking, amber otherwise) and `D of N`. The Taskings list has a separate `EQUIPMENT` cell
-reading `Ready`, `R of T ready`, or `R of Q returned` for closeout work; without equipment it reads `—`. It shows no
+reading `Ready`, `R of T ready`, or `R of S returned` (S is the units secured) for closeout work; without equipment it reads `—`. It shows no
 partial or checklist summary. Neither list moves the Tasking's status. Completed and cancelled Taskings keep both lists
 on record, read-only, except that a Completed Tasking counts returned equipment.
 
@@ -484,9 +485,12 @@ on record, read-only, except that a Completed Tasking counts returned equipment.
   `Cancel`. A row is a checkbox named after the item (ticked secures all, unticked none), then `× N`, or
   `n of N secured` in amber (red when Blocked) for a partial row, and an `Actions for NAME` menu with `Edit`, `Move up`,
   `Move down` and `Remove`. `Edit` opens `Equipment`, `Quantity` and `Secured` inline with `Save` and `Cancel`.
-- `equipment-return`: on a Completed Tasking the heading reads `R of N returned`, the checkbox marks an item returned in
-  full, a partly returned row reads `n of N returned`, and `Actions for NAME` holds only `Count returned…`, a
-  `Returned of N NAME` field with `Save`. Each sends `returnedQuantity` and nothing else.
+- `equipment-return`: on a Completed Tasking the heading reads `R of N returned`, counting only items with something
+  secured. The checkbox marks an item returned in full, that is everything secured, a partly returned row reads
+  `n of S returned`, and `Actions for NAME` holds only `Count returned…`, a `Returned of S NAME` field with `Save`.
+  Each sends `returnedQuantity` and nothing else. An item with nothing secured shows `none secured` with no checkbox and
+  no menu, and when no item has anything secured the heading reads `Nothing to return`. Returned can never exceed
+  secured: the field, the API and the database all refuse it.
 - `checklist-edit`: `+ Add item` opens `Checklist item` with `Add` (named `Add to checklist`). A row is a checkbox named
   after the item and an `Actions for LABEL` menu with `Edit`, `Move up`, `Move down` and `Remove`. A done item is struck
   through.
@@ -537,6 +541,14 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
     reads `1 of 2 returned` and its row `returned_quantity 4`. `Count returned…` on Radios: `-1` is refused in the field
     and sends nothing; `1` reads `1 of 2 returned` on the row. A `POST` to its `equipment` returns 409. `Reopen`
     restores the controls.
+    **Returned within secured.** Seed a Tasking with `Litters` quantity 5 secured 4 and `Radios` quantity 2 secured 0,
+    then `Complete` it. The heading reads `0 of 1 returned`, `Litters` has its menu, and `Radios` reads `none secured`
+    with no checkbox or menu. `Count returned…` on Litters is `Returned of 4 Litters`. Enter `5` and press `Save`: the
+    field is invalid with `Only 4 were secured.`, `$V network state` shows no request, and `$V rows` still has
+    `returned_quantity 0`. Enter `3` and press `Save`: the row reads `3 of 4 returned` and, after a reload, Activity
+    reads `returned 3 of 4 Litters (was 0)`. From the page, a `PATCH` of `{"returnedQuantity":5}` to Litters, or of `1`
+    to Radios, returns 400 and the rows are unchanged. Lowering `Secured` on a reopened Tasking below what came back
+    trims `returned_quantity` to the new secured count, with a returned entry in Activity.
 11. **Export and activity.** The JSON export holds `calendarTaskingEquipment` and `calendarTaskingChecklistItems`; the
     Excel `Tasking Equipment` and `Tasking Checklist` sheets name each Tasking by its outcome and each completer by
     email. Settings › Logs reads `Added equipment Litters on Provide four trauma-lane medics` and its siblings.
@@ -805,7 +817,7 @@ The Events list, Event detail and Taskings list stream `workspace` as an `EventR
 `status: failed`, never a zero-conflict answer. `workspace.taskings` holds only visible Taskings. Each value has
 `eventRelation` (`standalone`, `preparation`, `execution`, `closeout`), `status`, `responsibleGroupId`, `picked`,
 `required`, `equipment`, `conflicts`, `nextDate` and `suspenseOn`. Equipment has ready/total requirement counts and
-returnedQuantity/totalQuantity unit counts. `workspace.counts` supplies active, overdue, blocked, needsPeople and
+returnedQuantity/securedQuantity unit counts. `workspace.counts` supplies active, overdue, blocked, needsPeople and
 completed chips without additional requests. `workspace.events` includes permitted Event aggregates, even for work
 outside a Group reader's scope. Need action counts each active Tasking once when overdue, blocked or short of People. An
 Event with total zero is awareness only.
@@ -823,23 +835,28 @@ Tasking removes its conflict without changing it when picks change. Another over
 ### Event deletion API
 
 Permanent deletion uses `DELETE /org/ORG/api/calendar-events/EVENT` with `{"taskings":"standalone"}` or
-`{"taskings":"delete"}`. The JSON response is `{"taskings":"standalone","count":N}` or
-`{"taskings":"delete","count":N}`. Only an Organization-wide Calendar operator can use it, for either an active or a
-cancelled Event. Cancellation still preserves linked Taskings.
+`{"taskings":"delete"}`. The JSON response is `{"deleted":N,"kept":M}`: Taskings removed and Taskings left standalone.
+`standalone` returns `{"deleted":0,"kept":M}`. `delete` removes only active Taskings (Open, In progress, Blocked) and
+keeps Completed and Cancelled ones as standalone with their Activity, picks, equipment and checklist. Only an
+Organization-wide Calendar operator can use it, for either an active or a cancelled Event. Cancellation still
+preserves linked Taskings.
 
 1. Create a synthetic Event and linked Tasking using the existing creation recipe. As `calendarOperate`, send a
-   same-origin deletion request in the owned browser with `taskings: 'standalone'`. Expect 200 and the linked count.
+   same-origin deletion request in the owned browser with `taskings: 'standalone'`. Expect 200 and `kept` equal to the
+   linked count.
    Reload the Tasking detail. Its Event is `Standalone` and Activity reads
    `Unlinked from Best Medic Competition, which was deleted` when that was the Event title. Reload again and confirm the
    same identity, status, picks, equipment and checklist. The Event detail now shows the existing unavailable state.
-2. Repeat with a synthetic cancelled Event and `taskings: 'delete'`. Expect 200 and the linked count. Its Taskings,
-   picks, equipment, checklist and Activity are gone; existing Availability retains its dates and status. An Event
-   without Taskings returns count zero in either mode.
+2. Repeat with a synthetic cancelled Event holding one active and one Completed Tasking and `taskings: 'delete'`.
+   Expect 200 with `deleted` 1 and `kept` 1. The active Tasking, its picks, equipment, checklist and Activity are gone.
+   The Completed one stays with `event_id` null, its equipment, checklist and Activity, plus one `event_deleted` entry;
+   existing Availability retains its dates and status. An Event without Taskings returns `deleted` 0 and `kept` 0 in
+   either mode.
 3. As `calendarScoped` and `calendarView`, try each mode against another synthetic Event. Expect 403 and unchanged Event
    and Tasking rows. An unsupported mode returns 400. Repeating a successful deletion returns 404 with
    `That event is no longer available.`
 
-`supabase/tests/calendar_event_deletion.sql` proves both modes across all Tasking statuses, retained attribution and
+`supabase/tests/calendar_event_deletion.sql` proves both modes across all Tasking statuses, the kept closed Taskings, retained attribution and
 Activity, cascade cleanup, Availability provenance, Organization isolation and denied roles in the disposable database.
 
 #### Deleting from the detail page
@@ -863,16 +880,25 @@ Tasking under `Brigade CG visit`, then cancel that Event. Note the Tasking ids.
     `Standalone · no event`, its status, pick, equipment and checklist are unchanged, and `ACTIVITY` starts with
     `unlinked from Best Medic Competition, which was deleted`. `$V rows calendar_taskings orgA id ID` shows `event_id`
     null.
-32. **Delete them too.** On `Brigade CG visit` open `Delete event` and choose `Delete them too`; the button reads
-    `Delete event and 2 taskings`. Confirm. The toast reads `Deleted Brigade CG visit and 2 taskings.` Both Tasking URLs
-    read `This tasking is not available`, and `rows` finds neither Tasking nor the Event.
+32. **Delete the active ones.** `Brigade CG visit` holds the active `Clinic walkthrough for CG visit` and the
+    Completed Tasking. Open `Delete event`: the second option reads `Delete the 1 active tasking too`, with
+    `1 completed or cancelled stay as standalone, with their history.` under it. Choose it; the button reads
+    `Delete event and 1 active tasking`. Confirm. The toast reads
+    `Deleted Brigade CG visit and 1 tasking. 1 tasking kept as standalone.` The active Tasking's URL reads
+    `This tasking is not available`. The Completed Tasking's detail reads `Standalone · no event`, keeps its equipment,
+    checklist and returns, and `ACTIVITY` has `unlinked from Brigade CG visit, which was deleted`. `rows` finds the
+    Completed Tasking with `event_id` null and neither the active Tasking nor the Event.
+    32a. **Only closed Taskings.** Under another Event, complete one Tasking and cancel another. `Delete event` lists both
+    under `Its 2 taskings stay as standalone, with their history.` with no options and the button `Delete event`.
+    Confirm: the toast reads `Deleted EVENT. 2 taskings kept as standalone.` and `rows` shows both with `event_id` null.
 33. **No Taskings.** On `Post cleanup week` the dialog has no list and no cards, only `Keep event` and `Delete event`.
     The `DELETE` request body is `{"taskings":"standalone"}` and the toast reads `Deleted Post cleanup week.`
 34. **Calendar.** Open an Event from its Calendar bar's `Open event`, delete it, then press the toolbar's `Calendar`.
     The `Events` row no longer shows it and its count drops by one.
 35. **Widths.** Capture the dialog with Taskings and without at 1440, 900 and 390. At 390 the dialog fits the viewport
     without scrolling the page, the buttons stack with the confirm on top, and long Tasking titles truncate beside their
-    badges.
+    badges. With the second option chosen the confirm label is `Delete event and N active taskings` and stays on one
+    line; the closed count lives in the option text.
 
 ## Gotchas
 

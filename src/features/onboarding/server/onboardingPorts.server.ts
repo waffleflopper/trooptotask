@@ -42,10 +42,7 @@ export interface OnboardingInactiveStepRemovalPorts extends OnboardingResourcePo
 
 export interface OnboardingLifecyclePorts extends OnboardingResourcePorts {
 	readonly audit: PolicyAuditSink;
-	readonly onboardingWorkflow: Pick<
-		OnboardingWorkflowPersistence,
-		'findPacketReference' | 'findStepReference' | 'listIncompleteActiveStepIds'
-	>;
+	readonly onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'findPacketReference' | 'findStepReference'>;
 	readonly onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
 }
 

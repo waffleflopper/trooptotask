@@ -194,6 +194,47 @@ describe('Person-bound artifact writes', () => {
 		});
 		expect(admin.storageBucket.upload).toHaveBeenCalledTimes(1);
 	});
+
+	it('refuses an archived Person before uploading a file or writing a record', async () => {
+		const request = client({ group_id: 'alpha', archived_at: '2026-10-08T12:00:00Z' });
+		const admin = client();
+		const writer = await createSupabasePersonnelArtifactWritePort(request.value, () => admin.value).forPerson(
+			member('operate'),
+			'person-1'
+		);
+		const refusal = { status: 409, message: 'This person is archived. Restore them before adding records.' };
+
+		await expect(
+			writer.uploadFile(
+				'document',
+				'a1300000-0000-4000-8000-000000000001/personnel/person-1/documents/x.pdf',
+				new File(['pdf'], 'x.pdf', { type: 'application/pdf' })
+			)
+		).rejects.toMatchObject(refusal);
+		await expect(
+			writer.createLeaderNote({ author: 'actor', text: 'Note', createdAt: '2026-10-08' })
+		).rejects.toMatchObject(refusal);
+		expect(admin.storageBucket.upload).not.toHaveBeenCalled();
+		expect(admin.rpc).not.toHaveBeenCalled();
+	});
+
+	it('reports the database refusal of a Person archived after the writer opened as 409', async () => {
+		const request = client();
+		const admin = client();
+		const message = 'This person is archived. Restore them before adding records.';
+		admin.rpc.mockResolvedValueOnce({ data: null, error: { code: '55000', message } } as never);
+		const port = createSupabasePersonnelArtifactWritePort(request.value, () => admin.value);
+
+		await expect(
+			port.createFollowUps(member('operate'), ['person-1'], {
+				title: 'Call',
+				notes: '',
+				dueDate: null,
+				createdBy: 'actor',
+				createdAt: '2026-10-08'
+			})
+		).rejects.toMatchObject({ status: 409, message });
+	});
 });
 
 // SDK serialization and effect state, separately from the operation lifetime

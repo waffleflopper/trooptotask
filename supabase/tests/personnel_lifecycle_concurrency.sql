@@ -56,6 +56,9 @@ SELECT pg_temp.u(request), pg_temp.u(101), pg_temp.u(5), 'requester@example.test
   'Archive ' || person, 'pending', '2029-08-01T00:00:00Z'
 FROM (VALUES (601, 301), (602, 302), (603, 303), (604, 304), (605, 305), (606, 306), (607, 306),
   (608, 307), (609, 314), (610, 326), (611, 328), (612, 329)) AS rows(request, person);
+INSERT INTO public.onboarding_templates (id, organization_id, name) VALUES (pg_temp.u(701), pg_temp.u(101), 'Arrival');
+INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, template_id, started_at, status, cancelled_at)
+VALUES (pg_temp.u(702), pg_temp.u(101), pg_temp.u(319), pg_temp.u(701), '2029-01-01', 'cancelled', '2029-01-02T00:00:00Z');
 COMMIT;
 
 BEGIN;
@@ -112,6 +115,20 @@ CREATE FUNCTION pg_temp.follow_up_status_sql(person integer, status text, at tex
     archived_at = CASE WHEN %L = 'archived' THEN %L::timestamptz END, updated_at = %L
     WHERE organization_id = %L AND personnel_id = %L AND id = %L RETURNING 1) SELECT count(*)::text FROM changed$q$,
     status, status, at, status, at, at, pg_temp.u(101), pg_temp.u(person), pg_temp.child(1, person, 1))
+$$;
+CREATE FUNCTION pg_temp.new_follow_up_sql(person integer, title text) RETURNS text LANGUAGE sql AS $$
+  SELECT format($q$SELECT count(*)::text FROM public.insert_personnel_artifacts(%L, %L, 'personnel_follow_ups',
+    jsonb_build_array(jsonb_build_object('personnel_id', %L, 'title', %L, 'status', 'open', 'created_by', 'fixture')))$q$,
+    pg_temp.u(3), pg_temp.u(101), pg_temp.u(person), title)
+$$;
+CREATE FUNCTION pg_temp.new_follow_ups(person integer)
+RETURNS TABLE (title text, archived_at timestamptz, status text) LANGUAGE sql AS $$
+  SELECT * FROM dblink('fixture', format($q$ SELECT title, archived_at, status FROM public.personnel_follow_ups
+    WHERE personnel_id = %L AND title LIKE 'New %%' ORDER BY title $q$, pg_temp.u(person))) AS r(title text, archived_at timestamptz, status text)
+$$;
+CREATE FUNCTION pg_temp.packet() RETURNS TABLE (status text, cancellation_reason text) LANGUAGE sql AS $$
+  SELECT * FROM dblink('fixture', format('SELECT status, cancellation_reason FROM public.personnel_onboardings WHERE id = %L',
+    pg_temp.u(702))) AS r(status text, cancellation_reason text)
 $$;
 CREATE FUNCTION pg_temp.send(conn text, sql text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -491,15 +508,60 @@ SELECT results_eq($$ SELECT * FROM pg_temp.state(318) $$, $$ SELECT * FROM pg_te
 
 SELECT pg_temp.begin_as('first', 3);
 SELECT is(pg_temp.run('first', pg_temp.archive_sql(ARRAY[319], '2030-01-19T00:00:00Z')), '1', 'archive holds the Person');
-SELECT dblink_exec('holder', $$SET lock_timeout = '1s'$$);
-SELECT is(pg_temp.run('holder', format($q$ WITH created AS (INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id,
-  title, status, created_by) VALUES (%L, %L, %L, 'Concurrent', 'open', 'fixture') RETURNING 1) SELECT count(*)::text FROM created $q$,
-  pg_temp.child(1, 319, 2), pg_temp.u(101), pg_temp.u(319))), '1', 'the insert commits without waiting on the archive');
-SELECT dblink_exec('holder', $$RESET lock_timeout$$);
+SELECT pg_temp.begin_as('holder', NULL, 'service_role');
+SELECT pg_temp.send('holder', pg_temp.new_follow_up_sql(319, 'New during archive'));
+SELECT ok(pg_temp.waits('holder', 'first'), 'a new record waits on the archive');
 SELECT pg_temp.finish('first');
-SELECT results_eq($$ SELECT * FROM pg_temp.state(319) WHERE family = 'follow_up' $$,
-  $$ VALUES ('follow_up', 1, '2030-01-19T00:00:00Z'::timestamptz, 'archived'), ('follow_up', 2, NULL, 'open') $$,
-  'the archive owns only rows its statement saw; the concurrent Follow-up stays active');
+SELECT is(pg_temp.reply('holder'), '55000 This person is archived. Restore them before adding records.',
+  'the record is refused once the archive commits');
+SELECT dblink_exec('holder', 'ROLLBACK');
+SELECT is_empty($$ SELECT * FROM pg_temp.new_follow_ups(319) $$, 'an archived Person gets no new record');
+
+SELECT pg_temp.begin_as('first', 3);
+SELECT is(pg_temp.run('first', pg_temp.restore_sql(319)), 'true', 'the Person restores');
+SELECT pg_temp.finish('first');
+SELECT pg_temp.begin_as('holder', NULL, 'service_role');
+SELECT is(pg_temp.run('holder', pg_temp.new_follow_up_sql(319, 'New before archive')), '1', 'a new record holds the Person');
+SELECT pg_temp.begin_as('first', 3);
+SELECT pg_temp.send('first', pg_temp.archive_sql(ARRAY[319], '2030-01-20T00:00:00Z'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'the archive waits on the new record');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'archive completes after the new record');
+SELECT pg_temp.finish('first');
+SELECT results_eq($$ SELECT * FROM pg_temp.new_follow_ups(319) $$,
+  $$ VALUES ('New before archive', '2030-01-20T00:00:00Z'::timestamptz, 'archived') $$,
+  'the archive closes the record written just before it');
+
+SELECT pg_temp.begin_as('first', 3);
+SELECT is(pg_temp.run('first', pg_temp.restore_sql(319)), 'true', 'the Person restores again');
+SELECT pg_temp.finish('first');
+SELECT pg_temp.begin_as('holder', 1);
+SELECT is(pg_temp.run('holder', format($q$ WITH changed AS (UPDATE public.personnel_onboardings SET status = 'in_progress'
+  WHERE id = %L RETURNING 1) SELECT count(*)::text FROM changed $q$, pg_temp.u(702))), '1', 'a reopened packet holds the Person');
+SELECT pg_temp.begin_as('first', 3);
+SELECT pg_temp.send('first', pg_temp.archive_sql(ARRAY[319], '2030-01-21T00:00:00Z'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'the archive waits on the reopen');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'archive completes after the reopen');
+SELECT pg_temp.finish('first');
+SELECT results_eq($$ SELECT * FROM pg_temp.packet() $$, $$ VALUES ('cancelled', 'archived') $$,
+  'the archive cancels the packet reopened just before it');
+
+SELECT pg_temp.begin_as('first', 3);
+SELECT is(pg_temp.run('first', pg_temp.restore_sql(319)), 'true', 'the Person restores with the packet still cancelled');
+SELECT pg_temp.finish('first');
+SELECT pg_temp.begin_as('first', 3);
+SELECT is(pg_temp.run('first', pg_temp.archive_sql(ARRAY[319], '2030-01-22T00:00:00Z')), '1', 'archive holds the Person');
+SELECT pg_temp.begin_as('holder', 1);
+SELECT pg_temp.send('holder', format($q$ WITH changed AS (UPDATE public.personnel_onboardings SET status = 'in_progress'
+  WHERE id = %L RETURNING 1) SELECT count(*)::text FROM changed $q$, pg_temp.u(702)));
+SELECT ok(pg_temp.waits('holder', 'first'), 'a reopen waits on the archive');
+SELECT pg_temp.finish('first');
+SELECT is(pg_temp.reply('holder'), '55000 This person is archived. Restore them before onboarding them.',
+  'the reopen is refused once the archive commits');
+SELECT dblink_exec('holder', 'ROLLBACK');
+SELECT results_eq($$ SELECT * FROM pg_temp.packet() $$, $$ VALUES ('cancelled', 'archived') $$,
+  'the refused reopen leaves the packet cancelled');
 
 SELECT pg_temp.begin_as('holder', NULL, 'service_role');
 SELECT is(pg_temp.run('holder', format($q$ SELECT coalesce(bool_or(deleted)::text, 'none') FROM public.delete_archived_personnel_artifact(%L, %L, 'counseling', %L,

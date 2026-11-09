@@ -173,6 +173,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261108120100_archive_status_types.sql",
     "20261108130000_default_onboarding_template.sql",
     "20261108200000_organization_member_names.sql",
+    "20261108200100_close_archived_person_work.sql",
 )
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",

@@ -63,6 +63,9 @@ export interface OnboardingBootstrap {
 export type OnboardingWorkspaceData = OnboardingBootstrap;
 /** The most people one Start Onboarding request may name. */
 export const START_ONBOARDING_BATCH_LIMIT = 100;
+
+/** The `RequestFailure.reason` for a start refused because the Person already has an active packet. */
+export const ALREADY_ONBOARDING = 'already_onboarding';
 /** What happened to one person in a Start Onboarding request. A failure for one person leaves the others unchanged. */
 export type StartOnboardingOutcome =
 	| { personnelId: string; outcome: 'started'; onboarding: PersonnelOnboarding }
@@ -165,6 +168,8 @@ export interface OnboardingLifecycleTransitionResult {
 	status: OnboardingStatus;
 	cancelled_at: string | null;
 	completed_at: string | null;
+	/** A completion's active incomplete steps, read in the same statement as the transition. */
+	incomplete?: readonly { id: string }[];
 }
 
 export interface OnboardingLifecycleTransitionPort {

@@ -1082,7 +1082,9 @@ describe('member names', () => {
 	it('offers a viewer who cannot manage members no way to open the editor', () => {
 		renderPage({ rows: [owner, unnamed], canManageMemberAccess: false });
 
-		expect(screen.queryByRole('button', { name: /^Manage/ })).toBeNull();
+		const row = memberRow('blank');
+		expect(within(row).getByText('blank@example.com')).toBeTruthy();
+		expect(within(row).queryByRole('button', { name: /^Manage/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: /name and rank/ })).toBeNull();
 	});
 

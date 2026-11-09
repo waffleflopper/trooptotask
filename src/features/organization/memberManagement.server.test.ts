@@ -4073,8 +4073,11 @@ describe('setOrganizationMemberName', () => {
 		const { ctx, run } = scenario('owner');
 		let release: () => void = () => {};
 		const held = new Promise<void>((resolve) => (release = resolve));
+		let entered: () => void = () => {};
+		const reachedAudit = new Promise<void>((resolve) => (entered = resolve));
 		const log = ctx.audit.log.bind(ctx.audit);
 		ctx.audit.log = async (event) => {
+			entered();
 			await held;
 			return log(event);
 		};
@@ -4084,8 +4087,8 @@ describe('setOrganizationMemberName', () => {
 			settled = true;
 			return value;
 		});
-		await Promise.resolve();
-		await Promise.resolve();
+		await reachedAudit;
+		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(settled).toBe(false);
 
 		release();

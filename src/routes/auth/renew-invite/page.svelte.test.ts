@@ -2,12 +2,13 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import type { ActionResult } from '$app/forms';
 import Page from './+page.svelte';
 
 type EnhanceSubmit = (input: {
 	formData: FormData;
 	cancel: () => void;
-}) => Promise<(result: { update: () => Promise<void> }) => Promise<void>>;
+}) => Promise<(outcome: { result: ActionResult; update: () => Promise<void> }) => Promise<void>>;
 const { pageState, enhanceMock } = vi.hoisted(() => ({
 	pageState: { status: 400 },
 	enhanceMock: { implementation: null as null | ((node: HTMLFormElement, submit: EnhanceSubmit) => unknown) }
@@ -52,6 +53,7 @@ it('moves focus to the confirmation once the fresh setup link is requested', asy
 			event.preventDefault();
 			const finish = await submit({ formData: new FormData(node), cancel: () => {} });
 			await finish({
+				result: { type: 'success', status: 200, location: '/', data: {} },
 				update: async () => {
 					await view.rerender({
 						data: { viewer: null, email: '' },
@@ -67,4 +69,26 @@ it('moves focus to the confirmation once the fresh setup link is requested', asy
 
 	await waitFor(() => expect(screen.getByRole('status')).toHaveFocus());
 	expect(screen.getByRole('status')).toHaveTextContent('Check your email');
+});
+
+it('keeps the typed email and shows an alert when the request throws instead of replacing the page', async () => {
+	const update = vi.fn();
+	enhanceMock.implementation = (node, submit) => {
+		node.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const finish = await submit({ formData: new FormData(node), cancel: () => {} });
+			await finish({ result: { type: 'error', status: 500, error: { status: 500, message: 'boom' } }, update });
+		});
+		return { destroy: () => {} };
+	};
+	render(Page, { props: { data: { viewer: null, email: '' }, form: null } });
+	const email = screen.getByLabelText(/^Email Address/);
+	await fireEvent.input(email, { target: { value: 'person@example.com' } });
+	await fireEvent.submit(email.closest('form')!);
+
+	expect(await screen.findByRole('alert')).toBeInTheDocument();
+	expect(update).not.toHaveBeenCalled();
+	expect(email).toHaveValue('person@example.com');
+	await waitFor(() => expect(screen.getByRole('button', { name: 'Email Me a Fresh Setup Link' })).toBeEnabled());
+	await waitFor(() => expect(email).toHaveFocus());
 });

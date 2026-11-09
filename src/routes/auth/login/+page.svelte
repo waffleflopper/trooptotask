@@ -4,14 +4,20 @@
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
+	import { onDestroy } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { settleAction } from '$lib/utils/settleAction';
 
 	let { form, data } = $props();
 	let loading = $state(false);
 	let showPassword = $state(false);
 	let transportError = $state('');
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 	// A browser keeps the visited fragment across the sign-in redirect but never sends it to the server.
 	const carriedNext = $derived.by(() => {
 		const nextPath = form?.nextPath ?? data.nextPath;
@@ -52,26 +58,23 @@
 		<form
 			method="POST"
 			action="?/login"
-			use:enhance={({ cancel }) => {
+			use:enhance={({ cancel, submitter }) => {
 				if (loading) {
 					cancel();
 					return;
 				}
 				transportError = '';
 				loading = true;
-				return async ({ result, update }) => {
-					try {
-						if (result.type === 'error') {
-							transportError = 'Unable to complete sign in. Please try again.';
-							return;
-						}
-						await update({ reset: false, navigate: false });
-					} catch {
-						transportError = 'Unable to complete sign in. Please try again.';
-					} finally {
-						loading = false;
-					}
-				};
+				return (outcome) =>
+					settleAction(outcome, {
+						isCurrent: () => active,
+						reset: false,
+						settled: (error) => {
+							transportError = error ?? '';
+							loading = false;
+						},
+						focus: () => [submitter, document.getElementById('email')]
+					});
 			}}
 			class="flex flex-col gap-8"
 		>

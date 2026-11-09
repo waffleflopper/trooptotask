@@ -3,12 +3,13 @@
 	generics="C extends import('./types').ImportColumns, Refs extends import('./types').ImportReferences<C>, Change"
 >
 	import { onDestroy, untrack } from 'svelte';
-	import { beforeNavigate, goto, pushState } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { writeAddress } from '$lib/utils/addressWriter';
 	import { staysOnPage } from '$lib/utils/staysOnPage';
 	import { historyBack } from '$lib/utils/historyBack';
 	import type { ImportLane } from './types';
@@ -50,7 +51,7 @@
 			const current = historyStep;
 			if (step === current) return;
 			const distance = stepIndex(step) - stepIndex(current);
-			if (distance > 0) pushState('', { importStep: step === 'file' ? undefined : step });
+			if (distance > 0) void writeAddress({ push: true, state: { importStep: step === 'file' ? undefined : step } });
 			else historyBack(-distance);
 		});
 	});
@@ -65,7 +66,7 @@
 			const moved = history.state !== historyEntry;
 			historyEntry = history.state;
 			if (step === shownStep || step === 'done' || !moved) return;
-			if (session.phase.step === 'committing') pushState('', { importStep: 'review' });
+			if (session.phase.step === 'committing') void writeAddress({ push: true, state: { importStep: 'review' } });
 			else session.goTo(step);
 		});
 	});

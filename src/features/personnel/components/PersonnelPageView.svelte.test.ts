@@ -16,7 +16,7 @@ import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWid
 
 const {
 	gotoMock,
-	replaceStateMock,
+	shallowGotoMock,
 	beforeNavigateMock,
 	invalidateMock,
 	toastSuccessMock,
@@ -26,7 +26,7 @@ const {
 	downloadRosterExportMock
 } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
-	replaceStateMock: vi.fn(),
+	shallowGotoMock: vi.fn(),
 	beforeNavigateMock: vi.fn(),
 	invalidateMock: vi.fn(),
 	toastSuccessMock: vi.fn(),
@@ -38,8 +38,8 @@ const {
 
 vi.mock('$lib/utils/browserStorage', () => ({ getBrowserLocalStorage: () => globalThis.localStorage }));
 vi.mock('$app/navigation', () => ({
-	goto: gotoMock,
-	replaceState: replaceStateMock,
+	goto: (...args: [string, { shallow?: boolean }?]) =>
+		args[1]?.shallow ? shallowGotoMock(...args) : gotoMock(...args),
 	beforeNavigate: beforeNavigateMock,
 	invalidate: invalidateMock
 }));
@@ -325,9 +325,9 @@ describe('PersonnelPageView', () => {
 		invalidateMock.mockReset();
 		pageMock.url = new URL('http://localhost/org/org-1/personnel');
 		pageMock.shallow = null;
-		replaceStateMock.mockReset();
-		replaceStateMock.mockImplementation((url: URL) => {
-			pageMock.shallow = { url };
+		shallowGotoMock.mockReset();
+		shallowGotoMock.mockImplementation((href: string) => {
+			pageMock.shallow = { url: new URL(href, pageMock.url) };
 		});
 		toastSuccessMock.mockReset();
 		toastInfoMock.mockReset();
@@ -503,7 +503,12 @@ describe('PersonnelPageView', () => {
 			await fireEvent.input(searchbox(), { target: { value: 'Garcia' } });
 			await fireEvent.input(searchbox(), { target: { value: '' } });
 
-			expect(replaceStateMock.mock.calls.map((call) => (call[0] as URL).search)).toEqual(['?q=Gar', '?q=Garcia', '']);
+			expect(shallowGotoMock.mock.calls.map(([href]) => new URL(href, pageMock.url).search)).toEqual([
+				'?q=Gar',
+				'?q=Garcia',
+				''
+			]);
+			expect(shallowGotoMock.mock.calls.map(([, options]) => options.replace)).toEqual([true, true, true]);
 		});
 
 		it('keeps the other params of the address when it writes the search', async () => {
@@ -512,7 +517,7 @@ describe('PersonnelPageView', () => {
 
 			await fireEvent.input(searchbox(), { target: { value: 'Luis' } });
 
-			expect((replaceStateMock.mock.calls[0][0] as URL).search).toBe('?show=present&q=Luis');
+			expect(new URL(shallowGotoMock.mock.calls[0][0], pageMock.url).search).toBe('?show=present&q=Luis');
 		});
 
 		it('opens with the search in the address already applied to the box and the roster', () => {
@@ -522,7 +527,7 @@ describe('PersonnelPageView', () => {
 			expect((searchbox() as HTMLInputElement).value).toBe('Garcia');
 			expect(screen.getByText('Garcia, Luis')).toBeTruthy();
 			expect(screen.queryByText('Smith, Jane')).toBeNull();
-			expect(replaceStateMock).not.toHaveBeenCalled();
+			expect(shallowGotoMock).not.toHaveBeenCalled();
 		});
 
 		it('follows the address when Back or Forward lands on another search', async () => {
@@ -543,11 +548,11 @@ describe('PersonnelPageView', () => {
 		it('keeps what is typed while earlier writes are still landing, and writes the latest text last', async () => {
 			const boxAfterEachWrite: string[] = [];
 			const pendingWrites: Array<() => Promise<void>> = [];
-			replaceStateMock.mockImplementation(
-				(url: URL) =>
+			shallowGotoMock.mockImplementation(
+				(href: string) =>
 					new Promise<void>((done) =>
 						pendingWrites.push(async () => {
-							pageMock.shallow = { url };
+							pageMock.shallow = { url: new URL(href, pageMock.url) };
 							await tick();
 							boxAfterEachWrite.push((searchbox() as HTMLInputElement).value);
 							done();
@@ -566,11 +571,14 @@ describe('PersonnelPageView', () => {
 
 			await waitFor(() => expect(pageMock.shallow?.url.searchParams.get('q')).toBe('Gar'));
 			expect(boxAfterEachWrite).toEqual(['Gar', 'Gar']);
-			expect(replaceStateMock.mock.calls.map((call) => (call[0] as URL).searchParams.get('q'))).toEqual(['G', 'Gar']);
+			expect(shallowGotoMock.mock.calls.map(([href]) => new URL(href, pageMock.url).searchParams.get('q'))).toEqual([
+				'G',
+				'Gar'
+			]);
 		});
 
 		it('still filters the roster when the address cannot be written', async () => {
-			replaceStateMock.mockRejectedValue(new Error('history is full'));
+			shallowGotoMock.mockRejectedValue(new Error('history is full'));
 			render(PersonnelPageView, { props: { ctx: makeCtx() } });
 
 			await fireEvent.input(searchbox(), { target: { value: 'Garcia' } });

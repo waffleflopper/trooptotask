@@ -20,8 +20,25 @@ import {
 } from '$lib/test-support/toolbarWidths';
 import TrainingReportsPage from './TrainingReportsPage.svelte';
 
-const { replaceState } = vi.hoisted(() => ({ replaceState: vi.fn() }));
-vi.mock('$app/navigation', () => ({ replaceState }));
+const address = vi.hoisted(() => {
+	const address = {
+		url: new URL('http://localhost/org/org-1/training/reports'),
+		shallow: null as { url: URL } | null,
+		state: {} as object,
+		goto: vi.fn(async (href: string, options: { state: object }) => {
+			address.shallow = { url: new URL(href, address.url) };
+			address.state = options.state;
+		})
+	};
+	return address;
+});
+vi.mock('$app/state', () => ({ page: address }));
+vi.mock('$app/navigation', () => ({ goto: address.goto }));
+
+function shownAddress() {
+	const { pathname, search } = address.shallow?.url ?? address.url;
+	return `${pathname}${search}`;
+}
 
 const CPR: TrainingType = {
 	id: 'cpr',
@@ -135,7 +152,8 @@ function detailPage(scope: BriefingScope, page: number, names: string[], totalRo
 
 afterEach(() => {
 	cleanup();
-	replaceState.mockClear();
+	address.goto.mockClear();
+	address.shallow = null;
 	vi.unstubAllGlobals();
 });
 
@@ -192,7 +210,7 @@ describe('Training Reports briefing page', () => {
 
 		expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports?horizon=30', expect.anything());
 		expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
-		expect(replaceState).toHaveBeenLastCalledWith('/org/org-1/training/reports?horizon=30', expect.anything());
+		expect(shownAddress()).toBe('/org/org-1/training/reports?horizon=30');
 		expect(document.activeElement).toBe(thirtyDays);
 	});
 
@@ -552,17 +570,14 @@ describe('Training Reports briefing page', () => {
 		}
 		expect(screen.getByText('Forecast · next 90 days')).toBeTruthy();
 		expect(fetchImpl).not.toHaveBeenCalled();
-		expect(replaceState).not.toHaveBeenCalled();
+		expect(address.goto).not.toHaveBeenCalled();
 
 		await fireEvent.click(screen.getByRole('button', { name: '30 days' }));
 		expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'MOS' }));
 		expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
 
-		expect(replaceState).toHaveBeenLastCalledWith(
-			'/org/org-1/training/reports?horizon=30&rowsBy=mos',
-			expect.anything()
-		);
+		expect(shownAddress()).toBe('/org/org-1/training/reports?horizon=30&rowsBy=mos');
 		expect(screen.getByRole('button', { name: '30 days' }).getAttribute('aria-pressed')).toBe('true');
 		expect(screen.getByRole('button', { name: 'MOS' }).getAttribute('aria-pressed')).toBe('true');
 		expect(ninetyDays.getAttribute('aria-pressed')).toBe('false');
@@ -760,7 +775,7 @@ describe('Training Reports briefing page', () => {
 
 			expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports?horizon=30', expect.anything());
 			expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
-			expect(replaceState).toHaveBeenLastCalledWith('/org/org-1/training/reports?horizon=30', expect.anything());
+			expect(shownAddress()).toBe('/org/org-1/training/reports?horizon=30');
 		});
 
 		it('filters by group from its submenu and offers Clear filters afterwards', async () => {
@@ -872,7 +887,7 @@ describe('Training Reports briefing page', () => {
 
 			await fireEvent.click(within(section).getByRole('button', { name: 'MOS' }));
 			expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
-			expect(replaceState).toHaveBeenLastCalledWith('/org/org-1/training/reports?rowsBy=mos', expect.anything());
+			expect(shownAddress()).toBe('/org/org-1/training/reports?rowsBy=mos');
 
 			await widths.foldAll();
 			const menu = await openToolbarMore('Hot-spot grid controls');

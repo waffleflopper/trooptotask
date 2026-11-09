@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { MODAL_IDS, STEP_TYPE_LABELS } from '../contexts/OnboardingPageContext.svelte';
 	import { groupFilterMatcher } from '$features/personnel/contracts';
@@ -12,6 +11,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { writeAddress } from '$lib/utils/addressWriter';
 	import {
 		WorkspaceToolbar,
 		type ToolbarItem,
@@ -96,10 +96,7 @@
 
 	// The param is dropped once read, so a reload does not reopen a packet the viewer closed.
 	onMount(() => {
-		if (!page.url.searchParams.has('packet')) return;
-		const url = new URL(page.url.href);
-		url.searchParams.delete('packet');
-		replaceState(url, page.state);
+		void writeAddress({ url: (url) => url.searchParams.delete('packet') });
 	});
 
 	function personMeta(onboarding: PersonnelOnboarding): string {

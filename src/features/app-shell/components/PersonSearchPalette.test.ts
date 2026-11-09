@@ -3,14 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import PersonSearchPalette from './PersonSearchPalette.svelte';
-import {
-	go,
-	historyLength,
-	navigations,
-	page,
-	pushState,
-	resetHistory
-} from '../personSearchHistory.test-support.svelte';
+import { go, goto, historyLength, navigations, page, resetHistory } from '../personSearchHistory.test-support.svelte';
 import type { PersonSearchEntry } from '$features/personnel/contracts';
 
 vi.mock('$app/state', async () => ({
@@ -18,7 +11,7 @@ vi.mock('$app/state', async () => ({
 }));
 vi.mock('$app/navigation', async () => {
 	const history = await import('../personSearchHistory.test-support.svelte');
-	return { goto: history.goto, pushState: history.pushState };
+	return { goto: history.goto };
 });
 
 function person(id: string, rank: string, lastName: string, firstName: string, groupName: string | null = 'Alpha') {
@@ -61,7 +54,7 @@ function renderPalette(props: { orgId?: string; orgUrlSegment?: string } = {}) {
 }
 
 async function openPalette() {
-	await act(() => pushState('', { personSearch: true }));
+	await act(() => goto('/', { shallow: true, state: { personSearch: true } }));
 }
 
 function settle() {

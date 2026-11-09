@@ -10,7 +10,7 @@ import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
 controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
-vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('$app/state', () => ({ page: { data: { hasSession: true }, state: {} } }));
 afterEach(() => {
 	cleanup();

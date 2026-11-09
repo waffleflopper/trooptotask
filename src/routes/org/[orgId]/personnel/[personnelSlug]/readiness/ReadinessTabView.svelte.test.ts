@@ -8,24 +8,27 @@ import { createClientAccess } from '$lib/access/clientAccess';
 import ReadinessTabView from './ReadinessTabView.svelte';
 
 const navigation = vi.hoisted(() => ({
-	afterNavigate: [] as Array<(navigation: { to: { url: URL } | null }) => void>
+	afterNavigate: [] as Array<(navigation: { to: { url: URL } | null }) => void>,
+	goto: vi.fn(async (..._args: unknown[]) => {})
 }));
+const address = vi.hoisted(() => ({ url: new URL('http://localhost/readiness'), shallow: null, state: {} }));
 
 vi.mock('$features/app-shell', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/app-shell')>()),
 	getAppShellContext: () => createClientAccess({ membershipRole: 'owner' })
 }));
-vi.mock('$app/state', () => ({ page: { state: {} } }));
+vi.mock('$app/state', () => ({ page: address }));
 vi.mock('$app/navigation', () => ({
 	afterNavigate: (callback: (typeof navigation.afterNavigate)[number]) => navigation.afterNavigate.push(callback),
-	goto: vi.fn(),
-	invalidate: vi.fn(async () => {}),
-	replaceState: vi.fn()
+	goto: navigation.goto,
+	invalidate: vi.fn(async () => {})
 }));
 
 afterEach(() => {
 	cleanup();
 	navigation.afterNavigate.length = 0;
+	navigation.goto.mockClear();
+	address.url = new URL('http://localhost/readiness');
 });
 
 const training: PersonnelTrainingReadiness = {
@@ -176,4 +179,19 @@ it('closes a linked drawer when Back drops its intent and keeps one the leader o
 	expect(await screen.findByRole('dialog', { name: 'CPR / BLS' })).toBeTruthy();
 	back();
 	expect(screen.getByRole('dialog', { name: 'CPR / BLS' })).toBeTruthy();
+});
+
+it('drops only the item and add intents from the address when a linked drawer is cancelled', async () => {
+	address.url = new URL('http://localhost/readiness?item=training%3Acpr&tab=x');
+	render(ReadinessTabView, {
+		props: { orgId: 'org-1', person, asOf: '2026-10-06', readiness: readiness() }
+	});
+	await screen.findByText('0 of 1 ready');
+	navigation.afterNavigate[0]({ to: { url: address.url } });
+	await screen.findByRole('dialog', { name: 'CPR / BLS' });
+
+	await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+	await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	expect(navigation.goto).toHaveBeenCalledWith('/readiness?tab=x', { shallow: true, replace: true, state: {} });
 });

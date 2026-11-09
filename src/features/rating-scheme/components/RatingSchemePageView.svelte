@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { tick } from 'svelte';
-	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { tick, untrack } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import { WORKFLOW_STATUS_OPTIONS, type WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { ratingDueTone } from '$features/rating-scheme/utils/ratingDueTone';
 	import type { GroupedSort } from '$features/rating-scheme/utils/ratingSchemeGroups';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { writeAddress } from '$lib/utils/addressWriter';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
 	import { reportClientFailure } from '$lib/stores/errorReportLedger';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import * as Alert from '$lib/components/ui/alert';
@@ -84,14 +84,14 @@
 	const canUseRatingSchemeWriteActions = $derived(ratingSchemeWriteAffordance.allowed);
 	// `?entry=<id>` opens that entry once, as a link from the person page; the param is then dropped so closing stays closed.
 	$effect(() => {
-		const id = page.url.searchParams.get('entry');
+		const id = visibleUrl().searchParams.get('entry');
 		if (!id) return;
 		const entry = ratingSchemeStore.items.find((item) => item.id === id);
 		if (!entry) return;
-		const url = new URL(page.url.href);
-		url.searchParams.delete('entry');
-		replaceState(url, page.state);
-		if (canUseRatingSchemeWriteActions) ctx.handleEditRatingEntry(entry);
+		untrack(() => {
+			void writeAddress({ url: (url) => url.searchParams.delete('entry') });
+			if (canUseRatingSchemeWriteActions) ctx.handleEditRatingEntry(entry);
+		});
 	});
 	const ratingStats = $derived(ctx.ratingStats);
 	const ratingShownLabel = $derived(`${ctx.filteredRatingEntries.length} of ${ctx.totalEntryCount} shown`);

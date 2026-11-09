@@ -21,12 +21,11 @@ const pageState = vi.hoisted(() => ({ url: new URL('http://localhost/org/org-1/o
 
 vi.mock('$app/state', () => ({ page: pageState }));
 vi.mock('$app/navigation', () => ({
-	goto: vi.fn(),
+	goto: async (href: string) => {
+		pageState.url = new URL(href, pageState.url);
+	},
 	invalidate: vi.fn(),
-	invalidateAll: vi.fn(),
-	replaceState: (url: URL) => {
-		pageState.url = new URL(url);
-	}
+	invalidateAll: vi.fn()
 }));
 
 const NOW = '2026-06-15T12:00:00.000Z';

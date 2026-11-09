@@ -16,7 +16,8 @@
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { navigating, page } from '$app/state';
 	import { afterNavigate, goto, invalidate } from '$app/navigation';
-	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
+	import { writeAddress } from '$lib/utils/addressWriter';
+	import { visibleUrl } from '$lib/utils/visibleUrl';
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
@@ -87,7 +88,7 @@
 		if (!TABS.some((option) => option.value === tab)) return;
 		formGeneration++;
 		activeTab = tab as Tab;
-		replaceVisibleSearchParam('tab', tab);
+		void writeAddress({ url: (url) => url.searchParams.set('tab', tab) });
 	}
 
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);

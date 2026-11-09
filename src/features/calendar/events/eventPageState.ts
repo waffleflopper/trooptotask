@@ -1,11 +1,12 @@
-import { invalidate, replaceState } from '$app/navigation';
+import { invalidate } from '$app/navigation';
 import { page } from '$app/state';
+import { writeAddress } from '$lib/utils/addressWriter';
 
 let writes = 0;
 
 export function setEventPageState(state: App.PageState) {
 	writes++;
-	void replaceState('', state);
+	void writeAddress({ state });
 }
 
 // invalidate() clears shallow page state, such as an open date review, so a reload puts it back
@@ -15,5 +16,5 @@ export async function reloadCalendarEvents() {
 	const state = { ...page.state };
 	const before = writes;
 	await invalidate('app:calendar-events');
-	if (writes === before && page.url.href === href) void replaceState('', state);
+	if (writes === before && page.url.href === href) void writeAddress({ state });
 }

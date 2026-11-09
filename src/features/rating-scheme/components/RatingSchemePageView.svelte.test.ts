@@ -17,12 +17,30 @@ const { exportRatingSchemeMock } = vi.hoisted(() => ({
 	exportRatingSchemeMock: vi.fn(async (_entries: unknown[], _personnel: unknown[]) => undefined)
 }));
 
-const pageState = vi.hoisted(() => ({ url: new URL('http://localhost/org/org-1/evals'), state: {} }));
+const LOADED = 'http://localhost/org/org-1/evals';
+const pageState = $state<{ url: URL; shallow: { url: URL } | null; state: object }>({
+	url: new URL(LOADED),
+	shallow: null,
+	state: {}
+});
 
-vi.mock('$app/state', () => ({ page: pageState }));
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return pageState.url;
+		},
+		get shallow() {
+			return pageState.shallow;
+		},
+		get state() {
+			return pageState.state;
+		}
+	}
+}));
 vi.mock('$app/navigation', () => ({
-	replaceState: (url: URL) => {
-		pageState.url = new URL(url);
+	goto: async (href: string, options: { state: object }) => {
+		pageState.shallow = { url: new URL(href, pageState.url) };
+		pageState.state = options.state;
 	}
 }));
 
@@ -103,7 +121,9 @@ describe('RatingSchemePageView', () => {
 		cleanup();
 		vi.restoreAllMocks();
 		ratingSchemeStore.load([], 'org-test-reset');
-		pageState.url = new URL('http://localhost/org/org-1/evals');
+		pageState.url = new URL(LOADED);
+		pageState.shallow = null;
+		pageState.state = {};
 	});
 
 	it('opens the entry a person page links to, once', async () => {
@@ -115,9 +135,14 @@ describe('RatingSchemePageView', () => {
 
 		expect(modals.isOpen('rating-modal')).toBe(true);
 		expect(modals.payload<{ entry: { id: string } | null }>('rating-modal')?.entry?.id).toBe('due-30');
-		expect(pageState.url.search).toBe('');
+		expect(pageState.shallow?.url.search).toBe('');
 
 		modals.close('rating-modal');
+		await tick();
+
+		expect(modals.isOpen('rating-modal')).toBe(false);
+
+		pageState.state = { personSearch: true };
 		await tick();
 
 		expect(modals.isOpen('rating-modal')).toBe(false);

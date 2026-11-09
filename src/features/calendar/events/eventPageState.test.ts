@@ -16,8 +16,8 @@ vi.mock('$app/navigation', () => ({
 				resolve();
 			};
 		}),
-	replaceState: (_url: string, state: Record<string, unknown>) => {
-		current.state = state;
+	goto: async (_href: string, options: { state: Record<string, unknown> }) => {
+		current.state = options.state;
 	}
 }));
 

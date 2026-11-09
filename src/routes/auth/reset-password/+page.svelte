@@ -15,10 +15,11 @@
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import type { PasswordCompletionState } from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { writeAddress } from '$lib/utils/addressWriter';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import type { MfaStatus } from '$features/identity/contracts';
 
@@ -101,7 +102,12 @@
 	onMount(() => {
 		// Provider fragments cannot prove whether a session came from recovery.
 		if (window.location.hash) {
-			replaceState(resolve('/auth/reset-password'), page.state);
+			void writeAddress({
+				url: (url) => {
+					url.search = '';
+					url.hash = '';
+				}
+			});
 			tokenError = true;
 		} else if (hasSession) {
 			completion = page.data.passwordCompletion ?? null;

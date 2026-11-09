@@ -9,10 +9,8 @@
 
 <script lang="ts">
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
-	import { replaceState } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
+	import { writeAddress } from '$lib/utils/addressWriter';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
 	import * as PageShell from '$lib/components/patterns/page-shell';
@@ -60,11 +58,12 @@
 				orgId,
 				initialReport,
 				fetch: fetchImpl,
-				replaceQuery: (query) => {
-					if (window.location.search.replace(/^\?/, '') === query) return;
-					const path = resolve('/org/[orgId]/training/reports', { orgId: page.params.orgId ?? orgId });
-					replaceState(query ? `${path}?${query}` : path, page.state);
-				}
+				replaceQuery: (query) =>
+					void writeAddress({
+						url: (url) => {
+							url.search = query;
+						}
+					})
 			})
 	);
 	$effect(() => {

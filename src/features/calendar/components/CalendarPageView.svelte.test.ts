@@ -17,6 +17,7 @@ import { tick } from 'svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { EMPTY_PROJECTION, EMPTY_TASKING_FACTS } from '$features/calendar/projection/calendarProjection';
+import { DRAG_TO_ADD_HINT, TAP_TO_ADD_HINT } from '$features/calendar/utils/calendarLegend';
 
 const gotoMock = vi.hoisted(() => vi.fn());
 
@@ -256,7 +257,7 @@ describe('CalendarPageView', () => {
 			expect(quarterLegend.queryByText('Drag across days to add')).toBeNull();
 		});
 
-		it('teaches two taps instead of a drag on a touch screen', () => {
+		it('swaps the drag hint for the tap hint on a touch screen', () => {
 			const realMatchMedia = window.matchMedia;
 			vi.stubGlobal('matchMedia', (query: string) =>
 				query.includes('pointer: coarse')
@@ -271,8 +272,8 @@ describe('CalendarPageView', () => {
 			try {
 				const legend = renderWithLegendData('admin');
 
-				expect(legend.getByText('Tap two days to add')).toBeTruthy();
-				expect(legend.queryByText('Drag across days to add')).toBeNull();
+				expect(legend.getByText(TAP_TO_ADD_HINT)).toBeTruthy();
+				expect(legend.queryByText(DRAG_TO_ADD_HINT)).toBeNull();
 			} finally {
 				vi.unstubAllGlobals();
 			}

@@ -25,6 +25,7 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 vi.mock('$lib/utils/browserStorage', () => ({ getBrowserLocalStorage: () => globalThis.localStorage }));
 
 let canConfigure = true;
+let membershipRole: 'member' | 'admin' = 'member';
 let scopeSet: ScopeSet = { kind: 'organization' };
 
 vi.mock('$features/app-shell', async (importOriginal) => ({
@@ -34,7 +35,7 @@ vi.mock('$features/app-shell', async (importOriginal) => ({
 		orgUrlSegment: 'org-1',
 		userId: 'user-1',
 		...createClientAccess({
-			membershipRole: 'member',
+			membershipRole,
 			capabilityMap: { ...createCapabilityMap('none'), onboarding: canConfigure ? 'configure' : 'view' },
 			scopeSet
 		})
@@ -45,6 +46,7 @@ afterEach(() => {
 	cleanup();
 	localStorage.clear();
 	canConfigure = true;
+	membershipRole = 'member';
 	scopeSet = { kind: 'organization' };
 	vi.unstubAllGlobals();
 	gotoMock.mockReset();
@@ -85,7 +87,8 @@ const standardArrival: OnboardingTemplate = {
 	orgId: 'org-1',
 	name: 'Standard Arrival',
 	description: 'Default packet',
-	createdAt: '2026-01-01T00:00:00.000Z'
+	createdAt: '2026-01-01T00:00:00.000Z',
+	isDefault: false
 };
 
 async function renderTemplatesPage({
@@ -165,6 +168,39 @@ describe('onboarding templates page', () => {
 		expect(within(menu).queryByRole('menuitem', { name: 'New template' })).toBeNull();
 	});
 
+	it('lets an Organization admin make a template the default and clear it again', async () => {
+		membershipRole = 'admin';
+		const fetchMock = vi
+			.fn()
+			.mockImplementationOnce(async () => Response.json({ templateId: 'template-1' }))
+			.mockImplementationOnce(async () => Response.json({ templateId: null }));
+		vi.stubGlobal('fetch', fetchMock);
+		await renderTemplatesPage();
+
+		expect(screen.queryByText('Default')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Make default' }));
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Clear default' })).toBeTruthy());
+		expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/onboarding-templates/default');
+		expect(fetchMock.mock.calls[0][1].method).toBe('PUT');
+		expect(requestBody(fetchMock)).toEqual({ templateId: 'template-1' });
+		expect(screen.getAllByText('Default').length).toBeGreaterThan(0);
+		expect(onboardingTemplateStore.templates.find((item) => item.id === 'template-1')?.isDefault).toBe(true);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear default' }));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Make default' })).toBeTruthy());
+		expect(requestBody(fetchMock, 1)).toEqual({ templateId: null });
+		expect(onboardingTemplateStore.templates.find((item) => item.id === 'template-1')?.isDefault).toBe(false);
+	});
+
+	it('hides the default control from a member who can configure templates but is not an admin', async () => {
+		await renderTemplatesPage();
+
+		expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Make default' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Clear default' })).toBeNull();
+	});
+
 	it('preserves New template disabled state while creating', async () => {
 		await renderTemplatesPage();
 
@@ -202,7 +238,14 @@ describe('onboarding templates page', () => {
 		await renderTemplatesPage({
 			templates: [
 				standardArrival,
-				{ id: 'template-2', orgId: 'org-1', name: 'Officer Arrival', description: null, createdAt: '2026-01-01' }
+				{
+					id: 'template-2',
+					orgId: 'org-1',
+					name: 'Officer Arrival',
+					description: null,
+					createdAt: '2026-01-01',
+					isDefault: false
+				}
 			],
 			templateSteps: [step('step-1', 'Initial counseling', 0), step('step-2', 'Records review', 1)],
 			activePacketCounts: { 'template-1': 7 }
@@ -225,7 +268,14 @@ describe('onboarding templates page', () => {
 		await renderTemplatesPage({
 			templates: [
 				standardArrival,
-				{ id: 'template-2', orgId: 'org-1', name: 'Officer Arrival', description: null, createdAt: '2026-01-01' }
+				{
+					id: 'template-2',
+					orgId: 'org-1',
+					name: 'Officer Arrival',
+					description: null,
+					createdAt: '2026-01-01',
+					isDefault: false
+				}
 			],
 			templateSteps: [
 				step('step-1', 'Initial counseling', 0),
@@ -582,8 +632,22 @@ describe('onboarding templates page', () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));
 		await renderTemplatesPage({
 			templates: [
-				{ id: 'template-1', orgId: 'org-1', name: 'Alpha Arrival', description: null, createdAt: '2026-01-01' },
-				{ id: 'template-2', orgId: 'org-1', name: 'Bravo Arrival', description: null, createdAt: '2026-01-01' }
+				{
+					id: 'template-1',
+					orgId: 'org-1',
+					name: 'Alpha Arrival',
+					description: null,
+					createdAt: '2026-01-01',
+					isDefault: false
+				},
+				{
+					id: 'template-2',
+					orgId: 'org-1',
+					name: 'Bravo Arrival',
+					description: null,
+					createdAt: '2026-01-01',
+					isDefault: false
+				}
 			],
 			templateSteps: []
 		});

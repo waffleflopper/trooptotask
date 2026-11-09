@@ -12,7 +12,14 @@ function ports(initial: Parameters<typeof onboardingProvider>[0]) {
 		workflow: createSupabaseOnboardingWorkflowPersistence(provider.client, ORG)
 	};
 }
-const template = { id: 'template', organization_id: ORG, name: 'Arrival', description: null, created_at: null };
+const template = {
+	id: 'template',
+	organization_id: ORG,
+	name: 'Arrival',
+	description: null,
+	created_at: null,
+	is_default: false
+};
 const step = {
 	id: 'step',
 	organization_id: ORG,
@@ -56,7 +63,7 @@ describe('ordinary Onboarding persistence', () => {
 			onboarding_step_progress: [progress]
 		});
 		expect(await catalog.listTemplates()).toEqual([
-			{ id: 'template', orgId: ORG, name: 'Arrival', description: null, createdAt: null }
+			{ id: 'template', orgId: ORG, name: 'Arrival', description: null, createdAt: null, isDefault: false }
 		]);
 		expect(await catalog.listSteps()).toEqual([
 			{
@@ -139,6 +146,20 @@ describe('ordinary Onboarding persistence', () => {
 			]
 		});
 		expect(await workflow.listActivePacketPersonnelIds()).toEqual(['ann', 'bob']);
+		expect(await workflow.listActivePacketPersonnelIds(['bob', 'cy', 'dee'])).toEqual(['bob']);
+		expect(await workflow.listActivePacketPersonnelIds([])).toEqual([]);
+	});
+	it('reports which template is the default', async () => {
+		const { catalog } = ports({
+			onboarding_templates: [template, { ...template, id: 'chosen', name: 'Chosen', is_default: true }],
+			onboarding_template_steps: [],
+			personnel_onboardings: [],
+			onboarding_step_progress: []
+		});
+		expect((await catalog.listTemplates()).map(({ id, isDefault }) => [id, isDefault])).toEqual([
+			['template', false],
+			['chosen', true]
+		]);
 	});
 	it('maps same-org singular references and preserves unavailable/error distinctions', async () => {
 		const { catalog, workflow, state } = ports({
@@ -152,7 +173,8 @@ describe('ordinary Onboarding persistence', () => {
 			orgId: ORG,
 			name: 'Arrival',
 			description: null,
-			createdAt: null
+			createdAt: null,
+			isDefault: false
 		});
 		expect((await catalog.findStepByTemplateAndName('template', 'Paperwork'))?.id).toBe('step');
 		expect(await catalog.findStepByTemplateAndName('other', 'Paperwork')).toBeNull();
@@ -183,7 +205,7 @@ describe('ordinary Onboarding persistence', () => {
 		expect((await catalog.listSteps('template')).map((row) => row.id)).toEqual(ids);
 		expect((await workflow.listPackets('active')).map((row) => row.id)).toEqual(ids);
 		expect((await workflow.listSavedActivePackets()).map((row) => row.id)).toEqual(ids);
-		expect(await workflow.listActivePacketIdsForPersonnel('person')).toEqual(ids);
+		expect(await workflow.listActivePacketPersonnelIds()).toEqual(['person']);
 		expect(await workflow.listIncompleteActiveStepIds('packet')).toEqual(ids);
 	});
 	it('rejects the complete read on a later page and preserves PGRST116 null and empty/null reads', async () => {
@@ -235,7 +257,8 @@ describe('ordinary Onboarding persistence', () => {
 			orgId: ORG,
 			name: 'Renamed',
 			description: 'Keep',
-			createdAt: null
+			createdAt: null,
+			isDefault: false
 		});
 		expect((await catalog.updateTemplate('template', { description: null })).description).toBeNull();
 		expect((await catalog.updateStep('step', { name: 'Renamed step' })).stages).toEqual(['Issued', 'Filed']);
@@ -270,7 +293,8 @@ describe('ordinary Onboarding persistence', () => {
 			orgId: ORG,
 			name: 'New',
 			description: null,
-			createdAt: TIME
+			createdAt: TIME,
+			isDefault: false
 		});
 		const data = {
 			templateId: 'template',

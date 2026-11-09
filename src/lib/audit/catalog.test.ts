@@ -149,6 +149,15 @@ describe('audit kind catalog', () => {
 		).toBeNull();
 	});
 
+	it('says when an onboarding template became or stopped being the default', () => {
+		expect(
+			read('onboarding_template.updated', {
+				recordLabel: 'Standard Arrival',
+				details: { change: { isDefault: { from: false, to: true } } }
+			})
+		).toBe('Changed onboarding template Standard Arrival: default template no → yes');
+	});
+
 	it('reads nothing for an update that saved no change', () => {
 		expect(
 			read('availability.updated', { details: { startDate: '2026-11-10', endDate: '2026-11-20', change: {} } })

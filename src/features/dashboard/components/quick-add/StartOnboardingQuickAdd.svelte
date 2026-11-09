@@ -3,8 +3,9 @@
 	import {
 		loadOnboardingStartOptions,
 		loadStartOnboardingModal,
-		startOnboardingPacket,
-		type OnboardingStartOptions
+		startOnboardingPackets,
+		type OnboardingStartOptions,
+		type StartOnboardingOutcome
 	} from '$features/onboarding';
 	import { createPersonnel } from '$features/personnel';
 	import type { Personnel } from '$features/personnel/contracts';
@@ -51,12 +52,19 @@
 	}
 	void loadOptions();
 
-	async function start(personnelId: string, startedAt: string, templateId: string | null): Promise<boolean> {
+	async function start(
+		personnelIds: string[],
+		startedAt: string,
+		templateId: string
+	): Promise<StartOnboardingOutcome[]> {
 		const savedIn = orgId;
-		const packet = await startOnboardingPacket(savedIn, { personnelId, startedAt, templateId });
-		updates.putRecord(savedIn, { list: 'activeOnboardings', record: packet });
+		const { results } = await startOnboardingPackets(savedIn, { personnelIds, startedAt, templateId });
+		for (const result of results) {
+			if (result.outcome === 'started')
+				updates.putRecord(savedIn, { list: 'activeOnboardings', record: result.onboarding });
+		}
 		if (active && savedIn === model.data.orgId) updates.refreshSummary();
-		return true;
+		return results;
 	}
 
 	async function addPerson(data: Omit<Personnel, 'id'>): Promise<string> {

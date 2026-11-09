@@ -80,7 +80,16 @@ export function createInMemoryOnboardingCatalogPersistence(
 		},
 		async createTemplate(data) {
 			await requireUniqueTemplateName(data.name);
-			return toTemplate(await store.insert<TemplateRow>('onboarding_templates', orgId, templatePatch(data)));
+			return toTemplate(
+				await store.insert<TemplateRow>('onboarding_templates', orgId, { ...templatePatch(data), is_default: false })
+			);
+		},
+		async setDefaultTemplate(templateId) {
+			if (templateId && !(await this.findTemplate(templateId))) fail(404, 'Onboarding template not found');
+			for (const row of await store.findMany<TemplateRow>('onboarding_templates', orgId, { is_default: true })) {
+				if (row.id !== templateId) await store.update('onboarding_templates', orgId, row.id, { is_default: false });
+			}
+			if (templateId) await store.update('onboarding_templates', orgId, templateId, { is_default: true });
 		},
 		async updateTemplate(id, data) {
 			await requireUniqueTemplateName(data.name, id);
@@ -190,8 +199,10 @@ export function createInMemoryOnboardingWorkflowPersistence(
 		async listSavedActivePackets() {
 			return this.listPackets('active');
 		},
-		async listActivePacketPersonnelIds() {
-			return [...new Set((await this.listSavedActivePackets()).map((packet) => packet.personnelId))];
+		async listActivePacketPersonnelIds(personnelIds) {
+			const wanted = personnelIds && new Set(personnelIds);
+			const active = (await this.listSavedActivePackets()).map((packet) => packet.personnelId);
+			return [...new Set(active.filter((personnelId) => !wanted || wanted.has(personnelId)))];
 		},
 		async findPacketReference(id) {
 			const row = await store.findOne<PacketRow>('personnel_onboardings', orgId, { id });
@@ -229,14 +240,6 @@ export function createInMemoryOnboardingWorkflowPersistence(
 			);
 			const latest = rows.find((row) => row.status !== 'cancelled');
 			return latest ? toPacket(latest) : null;
-		},
-		async listActivePacketIdsForPersonnel(personnelId) {
-			return (
-				await store.findMany<{ id: string }>('personnel_onboardings', orgId, {
-					personnel_id: personnelId,
-					status: 'in_progress'
-				})
-			).map((row) => row.id);
 		},
 		async listIncompleteActiveStepIds(onboardingId) {
 			return (

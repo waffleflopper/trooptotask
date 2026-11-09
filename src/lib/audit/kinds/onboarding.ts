@@ -7,7 +7,7 @@ const template = lifecycle({
 	writer: 'database',
 	noun: 'onboarding template',
 	plural: 'onboarding templates',
-	fields: { name: 'name' },
+	fields: { name: 'name', isDefault: 'default template' },
 	flags: { description: 'description' }
 });
 

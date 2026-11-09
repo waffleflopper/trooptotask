@@ -47,6 +47,7 @@
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'organization' })
 	);
 	const canMutate = $derived(configureAffordance.visible && !configureAffordance.disabled);
+	const canSetDefault = $derived(canMutate && org.isPrivileged);
 	const hydrated = $derived(onboardingTemplateStore.orgId === orgId);
 	let appliedHydrationVersion = -1;
 	function sharedTemplateData() {
@@ -69,6 +70,9 @@
 			},
 			get canConfigure() {
 				return canMutate;
+			},
+			get canSetDefault() {
+				return canSetDefault;
 			}
 		},
 		data: untrack(sharedTemplateData)
@@ -80,7 +84,8 @@
 			orgId,
 			actorId: org.userId,
 			routeSegment: orgUrlSegment,
-			canConfigure: canMutate
+			canConfigure: canMutate,
+			canSetDefault
 		};
 		const ready = hydrated;
 		const version = onboardingTemplateStore.hydrationVersion;

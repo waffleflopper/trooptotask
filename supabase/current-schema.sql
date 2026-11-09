@@ -5562,7 +5562,7 @@ CREATE FUNCTION public.calendar_tasking_workspace(p_organization_id uuid, p_toda
     SET search_path TO ''
     AS $$
   WITH membership AS MATERIALIZED (
-    SELECT m.role, m.access_scope_kind, m.access_scope_group_ids
+    SELECT m.*
     FROM public.organization_memberships m
     WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
       AND calendar_private.can_view_calendar_events(p_organization_id)

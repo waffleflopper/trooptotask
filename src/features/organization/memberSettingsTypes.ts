@@ -9,7 +9,19 @@ export interface ScopeGroup {
 	memberCount: number;
 }
 
+/** The name a member shows under in this Organization, and where it came from. */
+export interface SettingsMemberName {
+	/** "SFC Ada Lovelace": rank first, then first and last name. */
+	text: string;
+	source: 'account' | 'organization';
+	rank: string | null;
+	firstName: string | null;
+	lastName: string | null;
+}
+
 export type SettingsMemberRow = SettingsMemberAccessRow & {
+	/** Null when neither the member's account nor an owner or admin has named them; the email stands in. */
+	name: SettingsMemberName | null;
 	scopeDisplayLabel: string;
 	overriddenCapabilityLabels: string[];
 };
@@ -77,4 +89,7 @@ export type MembersSettingsActionData = {
 	memberError?: string;
 	accessError?: string;
 	accessSuccess?: boolean;
+	nameError?: string;
+	nameSuccess?: boolean;
+	nameMembershipId?: string;
 } | null;

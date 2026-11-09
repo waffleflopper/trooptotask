@@ -43,6 +43,24 @@ interface OrganizationMembershipLookupRow {
 	capability_overrides: unknown;
 }
 
+interface SetOrganizationMemberNameRpcRow {
+	member_user_id: string;
+	previous_rank: string | null;
+	previous_first_name: string | null;
+	previous_last_name: string | null;
+	saved_rank: string | null;
+	saved_first_name: string | null;
+	saved_last_name: string | null;
+}
+
+/** What the set_organization_member_name RPC raises: 42501 refused, P0002 no such member, 23514 or 22023 bad value. */
+const MEMBER_NAME_FAILURE_BY_CODE: Record<string, 'denied' | 'not_found' | 'invalid'> = {
+	'42501': 'denied',
+	P0002: 'not_found',
+	'23514': 'invalid',
+	'22023': 'invalid'
+};
+
 interface OrganizationRow {
 	name: string | null;
 }
@@ -278,6 +296,29 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			} catch {
 				return failure;
 			}
+		},
+
+		async setMemberName(input) {
+			const { data, error } = await supabase
+				.rpc('set_organization_member_name', {
+					p_organization_id: input.organizationId,
+					p_user_id: input.userId,
+					p_rank: input.rank,
+					p_first_name: input.firstName,
+					p_last_name: input.lastName
+				})
+				.single<SetOrganizationMemberNameRpcRow>();
+
+			if (error) {
+				return { status: 'failed', reason: MEMBER_NAME_FAILURE_BY_CODE[error.code] ?? 'error' };
+			}
+			if (!data) return { status: 'failed', reason: 'error' };
+			return {
+				status: 'saved',
+				userId: data.member_user_id,
+				previous: { rank: data.previous_rank, firstName: data.previous_first_name, lastName: data.previous_last_name },
+				saved: { rank: data.saved_rank, firstName: data.saved_first_name, lastName: data.saved_last_name }
+			};
 		},
 
 		async getOrganizationName(orgId) {

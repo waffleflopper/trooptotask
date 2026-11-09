@@ -33,6 +33,17 @@ function accessSummary({ preset, scope, groups, capabilities }: z.infer<typeof a
 	return [...presetName, ...covered, ...lanes].join(', ');
 }
 
+const memberName = z.object({
+	rank: savedLabel.nullable(),
+	firstName: savedLabel.nullable(),
+	lastName: savedLabel.nullable()
+});
+
+/** "SFC Ada Lovelace": a name as the unit reads it, rank first. */
+function nameText({ rank, firstName, lastName }: z.infer<typeof memberName>): string {
+	return [rank, firstName, lastName].filter(Boolean).join(' ');
+}
+
 const nothing = z.object({ details: z.object({}) });
 const count = z.number().int().positive();
 
@@ -88,6 +99,15 @@ export const organizationKinds = {
 			return `Changed access for ${record} to ${details.role}${summary ? ` (${summary})` : ''}`;
 		},
 		batch: { verb: 'Changed access for', one: 'member', many: 'members' }
+	}),
+	'member.name_changed': auditKind({
+		writer: 'app',
+		entry: z.object({ record: savedLabel, details: z.object({ before: memberName, after: memberName }) }),
+		sentence: ({ record, details }) => {
+			const before = nameText(details.before);
+			return `Set the name of ${record} to ${nameText(details.after)}${before ? ` (was ${before})` : ''}`;
+		},
+		batch: { verb: 'Named', one: 'member', many: 'members' }
 	}),
 	'organization_invitation.accepted': auditKind({
 		writer: 'app',

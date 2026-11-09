@@ -249,6 +249,7 @@ const SENTENCES: Record<string, Sentence> = {
 	'account_setup.completion_rate_limited': 'Blocked account setup completion over the rate limit',
 	'account_setup.renewal_rate_limited': 'Blocked an account setup link renewal over the rate limit',
 	'member.access_changed': 'Changed member access',
+	'member.name_changed': 'Named a member',
 	'member.removed': 'Removed a member',
 	'member.left': 'Left the unit',
 	'organization_invitation.accepted': 'Accepted an invitation to the unit',

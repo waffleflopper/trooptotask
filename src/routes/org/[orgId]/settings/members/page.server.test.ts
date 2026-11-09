@@ -5,13 +5,15 @@ const {
 	createRequestNotificationContextMock,
 	createSettingsSensitiveNotificationContextMock,
 	inviteOrganizationMemberMock,
-	resendOrganizationInvitationMock
+	resendOrganizationInvitationMock,
+	setOrganizationMemberNameMock
 } = vi.hoisted(() => ({
 	buildRouteRequestMock: vi.fn(),
 	createRequestNotificationContextMock: vi.fn(),
 	createSettingsSensitiveNotificationContextMock: vi.fn(),
 	inviteOrganizationMemberMock: vi.fn(),
-	resendOrganizationInvitationMock: vi.fn()
+	resendOrganizationInvitationMock: vi.fn(),
+	setOrganizationMemberNameMock: vi.fn()
 }));
 
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({}) }));
@@ -44,7 +46,8 @@ vi.mock('$features/organization/index.server', async () => {
 	return {
 		...actual,
 		inviteOrganizationMember: inviteOrganizationMemberMock,
-		resendOrganizationInvitation: resendOrganizationInvitationMock
+		resendOrganizationInvitation: resendOrganizationInvitationMock,
+		setOrganizationMemberName: setOrganizationMemberNameMock
 	};
 });
 
@@ -78,6 +81,8 @@ function actionEvent(actionName: string, body: URLSearchParams) {
 }
 
 const inviteForm = () => new URLSearchParams({ email: 'recipient@example.com', membershipRole: 'admin' });
+const nameForm = () =>
+	new URLSearchParams({ membershipId: 'membership-1', rank: 'SGT', firstName: 'Jo', lastName: 'Reyes' });
 const resendForm = () => new URLSearchParams({ inviteId: 'invite-1' });
 
 describe('members settings actions', () => {
@@ -111,6 +116,38 @@ describe('members settings actions', () => {
 			status: 409,
 			data: { inviteError: 'An invitation is already pending for this email' }
 		});
+	});
+
+	it('answers a name save from a signed-out request with a redirect to sign in', async () => {
+		const event = actionEvent('setMemberName', nameForm()) as { locals: { user: unknown } };
+		event.locals.user = null;
+
+		await expect(actions.setMemberName(event as never)).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+		expect(setOrganizationMemberNameMock).not.toHaveBeenCalled();
+	});
+
+	it('hands the submitted name and the built-in ranks to the command', async () => {
+		setOrganizationMemberNameMock.mockResolvedValue({ nameSuccess: true, nameMembershipId: 'membership-1' });
+
+		const result = await actions.setMemberName(actionEvent('setMemberName', nameForm()));
+
+		expect(result).toEqual({ nameSuccess: true, nameMembershipId: 'membership-1' });
+		const [, input] = setOrganizationMemberNameMock.mock.calls[0];
+		expect(input).toMatchObject({
+			membershipId: 'membership-1',
+			rank: 'SGT',
+			firstName: 'Jo',
+			lastName: 'Reyes'
+		});
+		expect(input.allowedRanks).toContain('SGT');
+	});
+
+	it('reports a refused name save under the name error key', async () => {
+		setOrganizationMemberNameMock.mockRejectedValue(new RequestFailure(403, 'You cannot name this member'));
+
+		const result = await actions.setMemberName(actionEvent('setMemberName', nameForm()));
+
+		expect(result).toEqual({ status: 403, data: { nameError: 'You cannot name this member' } });
 	});
 
 	it('keeps step-up fields on a sensitive-action denial', async () => {

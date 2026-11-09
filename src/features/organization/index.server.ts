@@ -1,8 +1,17 @@
-export { createSupabaseOrganizationMemberLabelsReader, loadOrganizationMemberLabels } from './memberLabels.server';
+export {
+	createSupabaseOrganizationMemberLabelsReader,
+	labelForRow,
+	loadOrganizationMemberLabels,
+	memberNameText
+} from './memberLabels.server';
 export { createSupabaseOrganizationMemberEmailsReader } from './memberEmails.server';
 export { loadPersonnelDocumentStorageCapBytes } from './personnelDocumentSettings.server';
 export type { OrganizationPersonnelDocumentSettingsReader } from './personnelDocumentSettings.server';
-export type { OrganizationMemberLabelReader, OrganizationMemberLabelRow } from './memberLabels.server';
+export type {
+	MemberNameSource,
+	OrganizationMemberLabelReader,
+	OrganizationMemberLabelRow
+} from './memberLabels.server';
 export { provisionOrganization } from './provisioning.server';
 export type { OrganizationDefaults, OrgProvisioningPort } from './provisioning.server';
 export { createSupabaseOrganizationCreationPort } from './provisioningProvider.server';
@@ -19,6 +28,7 @@ export {
 	revokeOrganizationInvitation,
 	removeOrganizationMember,
 	updateOrganizationMemberAccess,
+	setOrganizationMemberName,
 	leaveOrganization
 } from './memberManagement.server';
 export { createSupabaseOrgSettingsMemberManagementPort } from './memberManagementProvider.server';

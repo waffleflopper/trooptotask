@@ -65,6 +65,7 @@
 </script>
 
 <section aria-label="Invite a member">
+	<!-- eslint-disable-next-line local/require-settled-enhance -- each caller builds `submit` with settleAction -->
 	<form {action} method="POST" class="grid gap-2.5 rounded-sm border bg-muted p-3.5" use:enhance={submit}>
 		<input type="hidden" name="membershipRole" value={workspace.invite.role} />
 		{#if workspace.invite.role === 'member'}

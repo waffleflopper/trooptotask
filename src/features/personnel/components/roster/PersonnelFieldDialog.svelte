@@ -62,20 +62,19 @@
 		unconfirmed: { text: 'Not confirmed', variant: 'warning' }
 	} as const satisfies Record<PersonOutcome, { text: string; variant: 'success' | 'danger' | 'warning' }>;
 
-	function personOutcomes({ answered, interrupted }: RosterFieldSaveResult): Map<string, PersonOutcome> {
-		const outcomes = new Map<string, PersonOutcome>();
-		const mark = (ids: readonly string[], value: PersonOutcome) => ids.forEach((id) => outcomes.set(id, value));
-		mark(answered.updatedIds, 'updated');
-		mark(answered.refusedIds, 'refused');
-		mark(answered.unavailableIds, 'unavailable');
-		if (interrupted) {
-			mark(interrupted.failedIds, interrupted.outcome);
-			mark(interrupted.unsentIds, 'not-saved');
-		}
-		return outcomes;
+	function personOutcomes({ answered, interrupted }: RosterFieldSaveResult): ReadonlyMap<string, PersonOutcome> {
+		const each = (ids: readonly string[], value: PersonOutcome) => ids.map((id) => [id, value] as const);
+		return new Map([
+			...each(answered.updatedIds, 'updated'),
+			...each(answered.refusedIds, 'refused'),
+			...each(answered.unavailableIds, 'unavailable'),
+			...(interrupted
+				? [...each(interrupted.failedIds, interrupted.outcome), ...each(interrupted.unsentIds, 'not-saved')]
+				: [])
+		]);
 	}
 
-	const outcomes = $derived(outcome ? personOutcomes(outcome) : new Map<string, PersonOutcome>());
+	const outcomes = $derived<ReadonlyMap<string, PersonOutcome>>(outcome ? personOutcomes(outcome) : new Map());
 	const updatedCount = $derived(outcome?.answered.updatedIds.length ?? 0);
 	const unconfirmed = $derived(outcome?.interrupted?.outcome === 'unconfirmed');
 

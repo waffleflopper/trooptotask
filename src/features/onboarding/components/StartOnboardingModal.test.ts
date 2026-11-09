@@ -213,13 +213,36 @@ describe('StartOnboardingModal', () => {
 
 	it('adds a newly created Person to the selection', async () => {
 		const onAddPerson = vi.fn().mockResolvedValue('person-3');
-		renderModal({ canAddPerson: true, onAddPerson });
+		const onSubmit = vi.fn().mockResolvedValue([started('person-1'), started('person-3')]);
+		renderModal({
+			canAddPerson: true,
+			onAddPerson,
+			onSubmit,
+			rankCatalog: [
+				{
+					code: 'SPC',
+					label: 'Specialist',
+					service: 'army',
+					category: 'enlisted',
+					payGrade: 'E-4',
+					state: 'active',
+					sortOrder: 0
+				}
+			]
+		});
 		await choose('Smith');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Person' }));
-		const dialogs = await screen.findAllByRole('dialog');
-		expect(dialogs.length).toBe(2);
-		expect(onAddPerson).not.toHaveBeenCalled();
+		await fireEvent.input(await screen.findByLabelText(/Last Name/i), { target: { value: 'Young' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Bo' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Remove SGT Young, Bo' })).toBeTruthy());
+
+		await fireEvent.click(startButton());
+
+		await waitFor(() =>
+			expect(onSubmit).toHaveBeenCalledWith(['person-1', 'person-3'], expect.any(String), 'template-1')
+		);
 	});
 
 	it('stops at the most people one request may name', async () => {

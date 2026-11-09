@@ -15,6 +15,8 @@ with a confirmed action.
 - `owner-transition`: an eligible member becomes owner; the former owner becomes admin.
 - `denied-and-retry`: a stale or unauthorized actor cannot change another Organization or transfer ownership; failed
   writes leave saved access intact.
+- `member-name`: an owner or admin gives a member who has no name on their account a rank, first and last name that only
+  this Organization shows; a member whose account has a name shows it, read-only, with no editor.
 - `member-exit`: a member can leave from Account → Profile (Leave unit); an owner cannot leave while still owning the
   Organization.
 
@@ -37,6 +39,13 @@ control wraps under its label and stays right-aligned. Escape cancels without sa
 `Remove` lives in the row's `More actions for <email>` menu. For ownership, open `Settings` → `Danger Zone`, choose an
 eligible member under `Transfer ownership`, click `Transfer`, type that member's email in `Type <email> to confirm` in
 the `Make <email> the Owner?` dialog, and submit `Transfer ownership`.
+
+A member whose account has no name shows their email, or a short ID with no email, and the sheet's `Name` section reads
+`No name yet.` with `Add name and rank`. `Add` opens `Rank`, `First name` and `Last name`, all required, with `Cancel` and
+`Save name`; the editor is its own form above the access form, so `Save name` never saves access. A saved name reads
+`SGT Jordan Reyes` in the row, the sheet title, `Settings` → `Danger Zone` → `Transfer ownership` (beside the email) and
+the Logs entry `Set the name of <masked email> to SGT Jordan Reyes`; `Edit` changes it. A member who has set a name in
+`Account` → `Profile` shows that name instead, with `This is the name on their account.` and no editor.
 
 ### Helper controls
 
@@ -109,6 +118,23 @@ Groups Alpha, <Lane> <Level>)`, naming the Group and each area override saved at
    UI interaction. For a positive exit, use an expendable accepted member: the sidebar name card → Account →
    `Leave unit` (absent for an owner) → type `YES` in the Leave Organization dialog → submit, then confirm the redirect
    and absence of that membership after reload. Restart the worker after this seeded deletion.
+
+### Member name
+
+As `orgOwner`, open `Manage` for a member with no account name (the seeded members other than `orgMember`, `orgAdmin`
+and the owner), choose `Add name and rank`, pick `SGT`, type `Jordan` and `Reyes`, and `Save name`. The sheet title, the
+row behind it and the `Name` section read `SGT Jordan Reyes` and focus returns to `Edit`. Read
+`$V rows organization_memberships orgA id <membershipId>`: `org_rank`, `org_first_name` and `org_last_name` hold the
+three values, and `$V rows audit_logs orgA` has `member.name_changed` for that membership with `before` all null and the
+saved `after`. Reload: the row still reads the name. Repeat as `orgAdmin` at 390 px; the editor wraps to two lines and the
+page has no horizontal scroll.
+
+As `orgMember`, open `Account` → `Profile`, `Add name and rank`, save `CPT Morgan Hale`. As `orgOwner`, reload Members:
+that row reads `CPT Morgan Hale`, and `Manage` shows the account name with no `Edit`. From the signed-in `orgMember`
+page, submit `?/setMemberName` (`x-sveltekit-action: true`) for another member: expect a `failure` envelope with status
+403 and an unchanged `org_*` row. As `orgAdmin`, submit it with an Organization B membership ID: status 404
+`Membership not found` and B's row unchanged. Owner and other admin rows have no `Manage` for an admin, so they cannot be
+named from the page.
 
 ### Group tree scope
 

@@ -165,36 +165,35 @@ async function writeTrainingCompletion(
 		? validated.expirationDate
 		: calculateExpirationDate(completionDate, trainingType.expirationMonths);
 
-	const existing = await ctx.trainingCompletions.findPair(personnelId, trainingTypeId);
+	let existing = await ctx.trainingCompletions.findPair(personnelId, trainingTypeId);
 	const fields = {
 		completionDate: completionDate ?? null,
 		expirationDate: expirationDate ?? null,
 		notes: validated.notes ?? null,
 		certificateUrl: validated.certificateUrl ?? null
 	};
-	let row: SavedTrainingCompletion;
-	if (existing) {
-		const updates: TrainingCompletionPatch = { updatedAt: new Date().toISOString() };
-		if (validated.completionDate !== undefined) updates.completionDate = validated.completionDate;
-		if (isExpirationDateOnly) {
-			if (validated.expirationDate !== undefined) updates.expirationDate = validated.expirationDate;
-		} else if (validated.completionDate !== undefined) {
-			updates.expirationDate = expirationDate ?? null;
-		}
-		if (validated.notes !== undefined) updates.notes = validated.notes;
-		// Logging the same dates again without a file keeps that completion's certificate, as no history row takes it.
-		const sameCompletion =
-			(updates.completionDate === undefined || updates.completionDate === existing.completionDate) &&
-			(updates.expirationDate === undefined || updates.expirationDate === existing.expirationDate);
-		if (validated.certificateUrl !== undefined && !(keepCertificateOfSameCompletion && sameCompletion)) {
-			updates.certificateUrl = validated.certificateUrl;
-		}
-		row = await ctx.trainingCompletions.patchRecord(existing.id, updates);
-	} else {
-		row = await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
+	if (!existing) {
+		const created = await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
+		if (created) return created;
+		existing = await ctx.trainingCompletions.findPair(personnelId, trainingTypeId);
+		if (!existing) fail(409, 'Training record changed while saving. Please try again.');
 	}
-
-	return row;
+	const updates: TrainingCompletionPatch = { updatedAt: new Date().toISOString() };
+	if (validated.completionDate !== undefined) updates.completionDate = validated.completionDate;
+	if (isExpirationDateOnly) {
+		if (validated.expirationDate !== undefined) updates.expirationDate = validated.expirationDate;
+	} else if (validated.completionDate !== undefined) {
+		updates.expirationDate = expirationDate ?? null;
+	}
+	if (validated.notes !== undefined) updates.notes = validated.notes;
+	// Logging the same dates again without a file keeps that completion's certificate, as no history row takes it.
+	const sameCompletion =
+		(updates.completionDate === undefined || updates.completionDate === existing.completionDate) &&
+		(updates.expirationDate === undefined || updates.expirationDate === existing.expirationDate);
+	if (validated.certificateUrl !== undefined && !(keepCertificateOfSameCompletion && sameCompletion)) {
+		updates.certificateUrl = validated.certificateUrl;
+	}
+	return ctx.trainingCompletions.patchRecord(existing.id, updates);
 }
 
 /** A Person's current records, for the record editor opened outside the Training workspace. */

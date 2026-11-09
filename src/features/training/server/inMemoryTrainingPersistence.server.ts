@@ -318,13 +318,18 @@ export function createInMemoryTrainingCompletionPersistence(
 			return kind === 'current' ? toTrainingCompletion(row) : toTrainingCompletionHistoryEntry(row);
 		},
 		async createRecord(input) {
-			return toTrainingCompletion(
-				await store.insert<TrainingCompletionRow>(
-					'personnel_trainings',
-					orgId,
-					trainingCompletionCreateRow(input, orgId)
-				)
-			);
+			try {
+				return toTrainingCompletion(
+					await store.insert<TrainingCompletionRow>(
+						'personnel_trainings',
+						orgId,
+						trainingCompletionCreateRow(input, orgId)
+					)
+				);
+			} catch (error) {
+				if (error instanceof Error && 'code' in error && error.code === '23505') return null;
+				throw error;
+			}
 		},
 		async patchRecord(id, fields) {
 			return toTrainingCompletion(

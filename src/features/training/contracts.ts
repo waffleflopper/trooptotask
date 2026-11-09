@@ -426,7 +426,8 @@ export interface TrainingCompletionPersistence {
 		id: string,
 		fields: TrainingCompletionCorrection
 	): Promise<CorrectedTrainingCompletion | null>;
-	createRecord(input: TrainingCompletionCreate): Promise<SavedTrainingCompletion>;
+	/** Returns null when the pair already exists, so a racing create can re-read and patch it. */
+	createRecord(input: TrainingCompletionCreate): Promise<SavedTrainingCompletion | null>;
 	patchRecord(id: string, fields: TrainingCompletionPatch): Promise<SavedTrainingCompletion>;
 	deleteRecord(id: string): Promise<void>;
 	upsertCompleted(rows: readonly TrainingCompletedUpsert[]): Promise<SavedTrainingCompletion[]>;

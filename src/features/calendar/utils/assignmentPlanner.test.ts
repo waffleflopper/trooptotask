@@ -222,7 +222,8 @@ describe('buildPlannerTable', () => {
 					textColor: '#fff',
 					shortLabel: null,
 					rosterEffect: 'A',
-					sortOrder: 0
+					sortOrder: 0,
+					archivedAt: null
 				}
 			]
 		});
@@ -283,7 +284,8 @@ describe('copying the previous week or month', () => {
 		textColor: '#ffffff',
 		shortLabel: 'L',
 		sortOrder: 0,
-		rosterEffect: 'A'
+		rosterEffect: 'A',
+		archivedAt: null
 	};
 	const cq = type('cq', { name: 'CQ' });
 	const sd = type('sd', { name: 'SD' });

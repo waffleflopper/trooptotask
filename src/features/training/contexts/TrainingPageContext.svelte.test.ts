@@ -137,7 +137,8 @@ const mockType: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: true,
 	exemptPersonnelIds: ['p-1'],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 const mockGroups: Group[] = [

@@ -71,7 +71,8 @@ const trainingTypes: TrainingType[] = [
 		expirationDateOnly: false,
 		canBeExempted: true,
 		exemptPersonnelIds: [],
-		isOptional: false
+		isOptional: false,
+		archivedAt: null
 	}
 ];
 
@@ -149,6 +150,42 @@ describe('OnboardingTemplateWorkspace', () => {
 			sortOrder: 2
 		});
 		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['step-a', 'step-b', 'step-created']);
+	});
+
+	describe('with an archived Training Type', () => {
+		const archivedType = { ...trainingTypes[0], archivedAt: '2030-01-02T03:04:05Z' };
+		const active = { ...trainingTypes[0], id: 'training-sharp', name: 'SHARP', archivedAt: null };
+		const trainingStep = { ...steps[0], id: 'step-t', stepType: 'training' as const, trainingTypeId: archivedType.id };
+		const withTypes = () =>
+			makeWorkspace(
+				{},
+				{ templates: [template], templateSteps: [...steps, trainingStep], trainingTypes: [archivedType, active] }
+			);
+
+		it('offers only active types to a new step', () => {
+			const workspace = withTypes();
+
+			workspace.startAddStep();
+
+			expect(workspace.stepTrainingTypeChoices.map((type) => type.id)).toEqual(['training-sharp']);
+		});
+
+		it('keeps the type a step already uses among the choices, labelled as archived', () => {
+			const workspace = withTypes();
+
+			workspace.startEditStep(trainingStep);
+
+			expect(workspace.stepTrainingTypeChoices.map((type) => type.id)).toEqual([archivedType.id, 'training-sharp']);
+			expect(workspace.stepTrainingTypeLabel).toBe(`${archivedType.name} (archived)`);
+		});
+
+		it('names an active type plainly', () => {
+			const workspace = withTypes();
+			workspace.startAddStep();
+			workspace.stepDraft.trainingTypeId = 'training-sharp';
+
+			expect(workspace.stepTrainingTypeLabel).toBe('SHARP');
+		});
 	});
 
 	it('requires a Training Type before saving a training step', async () => {

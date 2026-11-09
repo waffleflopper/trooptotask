@@ -42,7 +42,10 @@ export async function readRosterPeople(ctx: RosterFactsPorts, span: DateSpan): P
 		})),
 		groups,
 		rankCatalog,
-		statusTypes: statusTypes.map(({ id, name, rosterEffect }) => ({ id, name, rosterEffect }))
+		// An archived status no longer counts, so an entry that names one leaves the open form's numbers.
+		statusTypes: statusTypes
+			.filter((status) => !status.archivedAt)
+			.map(({ id, name, rosterEffect }) => ({ id, name, rosterEffect }))
 	};
 }
 

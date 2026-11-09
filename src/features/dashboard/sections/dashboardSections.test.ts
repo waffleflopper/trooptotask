@@ -440,6 +440,52 @@ describe('the Quick add entries', () => {
 	});
 });
 
+describe('the Quick add entries with archived types', () => {
+	const alpha = { id: 'p-alpha', groupId: 'alpha' } as Personnel;
+	const archivedAt = '2030-01-02T03:04:05Z';
+	const loadedWith = (statusTypes: StatusType[], trainingTypes: TrainingType[]): DashboardInputs => ({
+		...inputs,
+		personnel: [alpha],
+		statusTypes,
+		page: {
+			...inputs.page,
+			dashboard: { ...inputs.page.dashboard, data: { ...inputs.page.dashboard.data, trainingTypes } }
+		}
+	});
+	const labels = (loaded: DashboardInputs) =>
+		composeDashboardSections(
+			DASHBOARD_SECTIONS,
+			loaded,
+			[],
+			createDashboardAccess(createClientAccess({ membershipRole: 'owner' }))
+		).quickAdd.map((entry) => entry.label);
+
+	it('drops Status and Training record once every type of that kind is archived', () => {
+		expect(
+			labels(
+				loadedWith(
+					[{ id: 'st1', archivedAt } as StatusType],
+					[{ id: 'tt1', archivedAt, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType]
+				)
+			)
+		).toEqual(['Start onboarding', 'Tasking']);
+	});
+
+	it('keeps them while one active type remains beside an archived one', () => {
+		expect(
+			labels(
+				loadedWith(
+					[{ id: 'st1', archivedAt } as StatusType, { id: 'st2', archivedAt: null } as StatusType],
+					[
+						{ id: 'tt1', archivedAt, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType,
+						{ id: 'tt2', archivedAt: null, canBeExempted: false, exemptPersonnelIds: [] } as unknown as TrainingType
+					]
+				)
+			)
+		).toEqual(['Status', 'Training record', 'Start onboarding', 'Tasking']);
+	});
+});
+
 describe('the Needs you actions', () => {
 	const leaving = (id: string, groupId: string) =>
 		({ id, rank: 'SPC', lastName: id, firstName: 'Ana', groupId, ets: '2026-11-16' }) as Personnel;

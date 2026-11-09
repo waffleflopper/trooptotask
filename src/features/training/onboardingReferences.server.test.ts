@@ -85,6 +85,26 @@ describe('Training references for Onboarding', () => {
 		await expect(port.listTypes(actor())).resolves.toEqual([{ id: 'cpr', name: 'CPR' }]);
 	});
 
+	it('marks an archived type with its archive time and leaves an active one unmarked', async () => {
+		const { port } = provider({
+			trainingTypes: [
+				{ id: 'cpr', organization_id: 'org-1', name: 'CPR', sort_order: 1, archived_at: null },
+				{
+					id: 'sharp',
+					organization_id: 'org-1',
+					name: 'SHARP',
+					sort_order: 2,
+					archived_at: '2030-01-02T03:04:05Z'
+				}
+			]
+		});
+
+		await expect(port.listTypes(actor())).resolves.toEqual([
+			{ id: 'cpr', name: 'CPR' },
+			{ id: 'sharp', name: 'SHARP', archivedAt: '2030-01-02T03:04:05Z' }
+		]);
+	});
+
 	it('keeps Training type names but reads no completion records while Training is off', async () => {
 		const { port, getAdminClient } = provider({
 			trainingTypes: [{ id: 'cpr', organization_id: 'org-1', name: 'CPR', sort_order: 1 }]

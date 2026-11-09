@@ -4,6 +4,8 @@ import {
 	createTrainingType,
 	setTrainingTypeOrder,
 	updateTrainingType,
+	archiveTrainingType,
+	readTrainingTypeUsage,
 	deleteTrainingType,
 	createTrainingView,
 	updateTrainingView,
@@ -230,7 +232,7 @@ describe('Training catalog operations', () => {
 		expect(ctx.notifyTrainingTypeDeleted).toHaveBeenCalledOnce();
 	});
 
-	it('keeps completions and skips deletion side effects when the type delete is rejected', async () => {
+	it('refuses to delete a type that has completions, keeps them and skips deletion side effects', async () => {
 		const ctx = {
 			...createWritePortsContext(),
 			notifyTrainingTypeDeleted: vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
@@ -239,12 +241,100 @@ describe('Training catalog operations', () => {
 		ctx.store.seed('personnel_trainings', [
 			{ id: 'record-1', organization_id: ctx.auth.orgId, training_type_id: created.id }
 		]);
-		vi.spyOn(ctx.store, 'delete').mockRejectedValueOnce(new Error('referenced by another Organization'));
 
-		await expect(deleteTrainingType(ctx, created.id)).rejects.toThrow('referenced by another Organization');
+		await expect(deleteTrainingType(ctx, created.id)).rejects.toMatchObject({
+			status: 409,
+			message: 'This type has records. Archive it instead.'
+		});
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: created.id })).not.toBeNull();
 		expect(await ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'record-1' })).not.toBeNull();
 		expect(ctx.notifyTrainingTypeDeleted).not.toHaveBeenCalled();
+	});
+
+	describe('archiving', () => {
+		const recordFor = (ctx: ReturnType<typeof createWritePortsContext>, typeId: string) =>
+			ctx.store.seed('personnel_trainings', [
+				{ id: 'record-1', organization_id: ctx.auth.orgId, training_type_id: typeId }
+			]);
+
+		it('archives a type and keeps its records', async () => {
+			const ctx = createWritePortsContext();
+			const created = await createTrainingType(ctx, { name: 'CPR' });
+			recordFor(ctx, created.id);
+
+			const archived = await archiveTrainingType(ctx, { id: created.id, archived: true });
+
+			expect(archived.archivedAt).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));
+			expect(await ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).toHaveLength(1);
+		});
+
+		it('restores an archived type', async () => {
+			const ctx = createWritePortsContext();
+			const created = await createTrainingType(ctx, { name: 'CPR' });
+			await archiveTrainingType(ctx, { id: created.id, archived: true });
+
+			expect(await archiveTrainingType(ctx, { id: created.id, archived: false })).toMatchObject({
+				id: created.id,
+				archivedAt: null
+			});
+		});
+
+		it('answers 404 for a type that does not exist', async () => {
+			const ctx = createWritePortsContext();
+
+			await expect(archiveTrainingType(ctx, { id: TARGETED_TYPE, archived: true })).rejects.toMatchObject({
+				status: 404
+			});
+		});
+
+		it.each([
+			['a malformed id', { id: 'not-a-uuid', archived: true }],
+			['a missing direction', { id: TARGETED_TYPE }],
+			['an extra field', { id: TARGETED_TYPE, archived: true, archivedAt: '2030-01-01T00:00:00Z' }]
+		])('rejects %s with 400', async (_case, input) => {
+			const ctx = createWritePortsContext();
+
+			await expect(archiveTrainingType(ctx, input)).rejects.toMatchObject({ status: 400 });
+		});
+
+		it('refuses someone without Training configure', async () => {
+			const ctx = createWritePortsContext({ auth: NO_CONFIGURE });
+
+			await expect(archiveTrainingType(ctx, { id: TARGETED_TYPE, archived: true })).rejects.toMatchObject({
+				status: 403
+			});
+			await expect(readTrainingTypeUsage(ctx)).rejects.toMatchObject({ status: 403 });
+		});
+
+		it('refuses an update that sets archivedAt, so only the archive command changes it', async () => {
+			const ctx = createWritePortsContext();
+			const created = await createTrainingType(ctx, { name: 'CPR' });
+
+			await expect(
+				updateTrainingType(ctx, { id: created.id, archivedAt: '2030-01-01T00:00:00Z' })
+			).rejects.toMatchObject({ status: 400 });
+			expect((await ctx.trainingCatalog.listTypes())[0].archivedAt).toBeNull();
+		});
+
+		it('answers 409 to an edit of an archived type and leaves it unchanged', async () => {
+			const ctx = createWritePortsContext();
+			const created = await createTrainingType(ctx, { name: 'CPR' });
+			await archiveTrainingType(ctx, { id: created.id, archived: true });
+
+			await expect(updateTrainingType(ctx, { id: created.id, name: 'First Aid' })).rejects.toMatchObject({
+				status: 409
+			});
+			expect((await ctx.trainingCatalog.listTypes())[0].name).toBe('CPR');
+		});
+
+		it('counts records per type, listing types that have none as zero', async () => {
+			const ctx = createWritePortsContext();
+			const used = await createTrainingType(ctx, { name: 'CPR' });
+			const unused = await createTrainingType(ctx, { name: 'SHARP' });
+			recordFor(ctx, used.id);
+
+			expect(await readTrainingTypeUsage(ctx)).toEqual({ [used.id]: 1, [unused.id]: 0 });
+		});
 	});
 
 	it('denies both catalog writes without configuration capability', async () => {

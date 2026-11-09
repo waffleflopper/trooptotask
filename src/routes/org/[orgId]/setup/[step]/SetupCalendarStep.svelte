@@ -68,7 +68,7 @@
 
 	// Statuses and assignments added here change setup's counts, so the Done page rereads them once the write lands.
 	const sizes = $derived(
-		view === 'ready' && !saving ? `${statusTypesStore.items.length}:${dailyAssignmentsStore.types.length}` : null
+		view === 'ready' && !saving ? `${statusTypesStore.active.length}:${dailyAssignmentsStore.types.length}` : null
 	);
 	let seen: string | null = null;
 	$effect(() => {

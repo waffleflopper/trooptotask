@@ -43,6 +43,7 @@ function crew(prefix: string, count: number, overrides: Partial<Personnel> = {})
 
 function trainingType(id: string, overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name: id,
 		description: null,

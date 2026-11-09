@@ -236,6 +236,8 @@ function createTestTrainingPersistence(store: FixtureRowStore, orgId: string, op
 				setTypeOrder: unavailable,
 				createType: unavailable,
 				patchType: unavailable,
+				setTypeArchived: unavailable,
+				countTypeRecords: unavailable,
 				deleteType: unavailable,
 				createView: unavailable,
 				patchView: unavailable,
@@ -286,6 +288,8 @@ function createTestCalendarPersistence(
 				listStatusTypeLabels: unavailableCalendarPersistence,
 				createStatusType: unavailableCalendarPersistence,
 				updateStatusType: unavailableCalendarPersistence,
+				setStatusTypeArchived: unavailableCalendarPersistence,
+				countStatusTypeRecords: unavailableCalendarPersistence,
 				deleteStatusType: unavailableCalendarPersistence,
 				setStatusTypeOrder: unavailableCalendarPersistence,
 				listAssignmentTypes: unavailableCalendarPersistence,
@@ -1554,7 +1558,8 @@ function createInMemoryTrainingOnboardingReferencesPort(rawStore: FixtureRowStor
 			});
 			return rows.map((row) => ({
 				id: row.id as string,
-				name: row.name as string
+				name: row.name as string,
+				...(row.archived_at ? { archivedAt: row.archived_at as string } : {})
 			}));
 		},
 		async completedTypeIds({ auth: actor, disabledFeatures }, personnelIds, trainingTypeIds) {

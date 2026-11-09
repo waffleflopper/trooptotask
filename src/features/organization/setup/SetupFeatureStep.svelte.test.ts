@@ -7,7 +7,7 @@ import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { SetupFacts, SetupStepKey } from './registry';
 import type { OrganizationSetup } from './state';
-import type { SetupStepSupport } from './featureStepSupport';
+import type { SetupStepSupport, SetupTrainingType } from './featureStepSupport';
 import SetupFlowHarness from './test-support/SetupFlowHarness.svelte';
 import TrainingTypeEditorStub from './test-support/TrainingTypeEditorStub.svelte';
 
@@ -79,7 +79,7 @@ function open(
 		support
 	}: {
 		disabledFeatures?: FeatureKey[];
-		catalog?: { id: string; name: string; expirationMonths: number | null }[];
+		catalog?: SetupTrainingType[];
 		support?: Partial<SetupStepSupport>;
 	} = {}
 ) {
@@ -172,7 +172,9 @@ it('adds only the picked suggestions the unit does not have yet', async () => {
 		'POST /api/training-types/suggestions': () =>
 			respond(200, { failed: [], trainingTypes: [{ name: 'SHARP' }, { name: 'Equal Opportunity' }] })
 	});
-	const { navigate } = open('training', { catalog: [{ id: 'sharp-type', name: 'SHARP', expirationMonths: 12 }] });
+	const { navigate } = open('training', {
+		catalog: [{ id: 'sharp-type', name: 'SHARP', expirationMonths: 12, archivedAt: null }]
+	});
 
 	await waitFor(() => expect(screen.getByRole('checkbox', { name: /SHARP/ })).toBeDisabled());
 	await fireEvent.click(screen.getByRole('checkbox', { name: /Suicide Prevention/ }));
@@ -181,6 +183,31 @@ it('adds only the picked suggestions the unit does not have yet', async () => {
 
 	await waitFor(() => expect(navigate).toHaveBeenCalledWith('/org/alpha/setup/critical-tasks'));
 	expect(posts).toEqual([{ path: '/api/training-types/suggestions', body: { branch: 'army', suggestionIds: ['eo'] } }]);
+});
+
+it('shows a suggested type the unit archived as archived, not added, and leaves it taken', async () => {
+	stubFetch({});
+	open('training', {
+		catalog: [{ id: 'sharp-type', name: 'SHARP', expirationMonths: 12, archivedAt: '2026-11-01T00:00:00.000Z' }]
+	});
+
+	const sharp = await screen.findByRole('checkbox', { name: /SHARP/ });
+	await waitFor(() => expect(sharp).toBeDisabled());
+	expect(sharp.closest('label')?.textContent).toContain('Archived');
+	expect(sharp.closest('label')?.textContent).not.toContain('Added');
+});
+
+it("lists the unit's own active types to edit, and leaves archived ones out", async () => {
+	stubFetch({});
+	open('training', {
+		catalog: [
+			{ id: 'land-nav', name: 'Land Navigation', expirationMonths: 12, archivedAt: null },
+			{ id: 'old-range', name: 'Retired Range Card', expirationMonths: 6, archivedAt: '2026-11-01T00:00:00.000Z' }
+		]
+	});
+
+	expect(await screen.findByRole('button', { name: /Land Navigation/ })).toBeInTheDocument();
+	expect(screen.queryByRole('button', { name: /Retired Range Card/ })).toBeNull();
 });
 
 it('stays on Training when some suggestions fail', async () => {

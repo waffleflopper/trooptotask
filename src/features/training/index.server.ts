@@ -5,6 +5,8 @@ export {
 	readTrainingTypeEditor,
 	updateTrainingType,
 	setTrainingTypeOrder,
+	archiveTrainingType,
+	readTrainingTypeUsage,
 	deleteTrainingType,
 	describeTrainingTypeDeletionRequest,
 	setTrainingExemption,

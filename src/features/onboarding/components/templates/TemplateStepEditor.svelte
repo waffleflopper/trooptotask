@@ -133,8 +133,11 @@
 				</Select.Trigger>
 				<Select.Content>
 					<Select.Item value="" label="Select training type" />
-					{#each model.trainingTypes as trainingType (trainingType.id)}
-						<Select.Item value={trainingType.id} label={trainingType.name} />
+					{#each workspace.stepTrainingTypeChoices as trainingType (trainingType.id)}
+						<Select.Item
+							value={trainingType.id}
+							label={trainingType.archivedAt ? `${trainingType.name} (archived)` : trainingType.name}
+						/>
 					{/each}
 				</Select.Content>
 			</Select.Root>

@@ -6,15 +6,19 @@
 	import type { TrainingPageAccess } from '../contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as Empty from '$lib/components/ui/empty';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { ArchivedTypes } from '$lib/components/patterns/archived-types';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
+	import { CatalogUsageView } from '$lib/stores/core/catalogUsage.svelte';
 	import type { Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { rosterStore } from '$features/personnel';
 	import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatToday } from '$lib/utils/dates';
 	import { isTrainingApplicable } from '$features/training/utils/applicability';
@@ -68,14 +72,54 @@
 		'grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 @min-[58rem]:grid-cols-[2rem_minmax(12rem,2.2fr)_10rem_6.5rem_minmax(9rem,1.6fr)_6.5rem_5.5rem] @min-[58rem]:items-center';
 
 	// Ties break by id, as the server lists them, so the expected order a reorder sends matches the stored one.
+	// Only active types are ordered; an archived type has no place in the matrix.
 	const orderedTypes = $derived(
-		[...trainingTypesStore.items].sort((a, b) => a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+		[...trainingTypesStore.active].sort((a, b) => a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 	);
 	const rows = $derived(
 		pendingOrder?.orgId === org.orgId
 			? pendingOrder.ids.flatMap((id) => orderedTypes.find((type) => type.id === id) ?? [])
 			: orderedTypes
 	);
+
+	const archivedTypes = $derived(
+		trainingTypesStore.items
+			.flatMap((type) =>
+				type.archivedAt ? [{ id: type.id, name: type.name, archivedAt: type.archivedAt, color: type.color }] : []
+			)
+			.sort((a, b) => a.name.localeCompare(b.name))
+	);
+	const usage = new CatalogUsageView(
+		() => org.orgId,
+		() => trainingTypesStore.loadUsage()
+	);
+	let confirmDelete = $state.raw<{ id: string; name: string } | null>(null);
+
+	async function restoreType(id: string) {
+		const orgId = org.orgId;
+		try {
+			await trainingTypesStore.setArchived(id, false);
+		} catch (error) {
+			if (alive && org.orgId === orgId)
+				toastStore.error(rejectedRequestMessage(error, 'Failed to restore training type'));
+		}
+	}
+
+	async function deleteType(target: { id: string; name: string }) {
+		const orgId = org.orgId;
+		try {
+			const result = await trainingTypesStore.remove(target.id);
+			if (!alive || org.orgId !== orgId) return;
+			if (result === 'error') {
+				toastStore.error('Failed to delete training type. It may have gained records. Reload and try again.');
+				return;
+			}
+			confirmDelete = null;
+		} catch (error) {
+			if (alive && org.orgId === orgId)
+				toastStore.error(rejectedRequestMessage(error, 'Failed to delete training type'));
+		}
+	}
 
 	const fallbackPersonnel = $derived(
 		Array.isArray(workspaceData?.personnel)
@@ -331,6 +375,25 @@
 					</p>
 				{/if}
 			{/if}
+			{#if !loading && canMutate && archivedTypes.length > 0}
+				<ArchivedTypes
+					title="Archived"
+					types={archivedTypes}
+					{usage}
+					recordNoun={{ one: 'record', many: 'records' }}
+					onOpen={() => void usage.load()}
+					onRestore={restoreType}
+					onDelete={(id) => (confirmDelete = archivedTypes.find((type) => type.id === id) ?? null)}
+				>
+					{#snippet leading(type)}
+						<span
+							class="size-3 shrink-0 rounded-sm"
+							style="background-color: {archivedTypes.find((item) => item.id === type.id)?.color}"
+							aria-hidden="true"
+						></span>
+					{/snippet}
+				</ArchivedTypes>
+			{/if}
 		</section>
 	</div>
 </div>
@@ -347,12 +410,22 @@
 		{rankCatalog}
 		{today}
 		onSaved={closeSheet}
-		onDeleted={() => {
+		onArchived={() => {
 			closeSheet();
-			// The delete confirmation restores focus to a button that has just unmounted, so land after it.
+			// The archive confirmation restores focus to a button that has just unmounted, so land after it.
 			requestAnimationFrame(returnFocus);
 		}}
 		onClose={() => closeSheet()}
 		{returnFocus}
+	/>
+{/if}
+
+{#if confirmDelete}
+	<ConfirmDialog
+		title="Delete Training Type"
+		message="Delete '{confirmDelete.name}' permanently? It has no training records. This cannot be undone."
+		confirmLabel="Delete"
+		onConfirm={() => (confirmDelete ? deleteType(confirmDelete) : undefined)}
+		onCancel={() => (confirmDelete = null)}
 	/>
 {/if}

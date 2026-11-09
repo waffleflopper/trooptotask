@@ -1,12 +1,19 @@
 # Calendar catalogs
 
 An Organization Calendar configurator maintains status and assignment choices; saved availability and assignments retain
-their references through edits, while confirmed type deletion explains and removes only linked records.
+their references through edits. Status types with entries are archived, not deleted; confirmed assignment type deletion
+explains and removes only linked records.
 
 ## Sub-features
 
-- `status-types`: add and edit name, one-day label and colors in the inline composer, reload, keep ID and linked leave;
-  confirmed deletion removes linked availability and records an audit/notification effect.
+- `status-types`: add and edit name, one-day label and colors in the inline composer, reload, keep ID and linked leave.
+  Permanently deleting an archived status with 0 entries removes only the type, records a `status_type.deleted` audit
+  event and notifies admins.
+- `status-archive`: `Archive` is the cleanup for a status type with schedule entries. The entries stay on the calendar
+  and in reports. The type leaves the status pickers (availability dialog, bulk add), the legend unless an entry in view
+  uses it, and the open DA 6 counts. A collapsed `Archived` section lists archived types with `N entries`, `Restore`,
+  and `Delete` only at 0 entries; the server refuses a delete of a type that has entries with `409`. Archive, restore
+  and delete are for Organization-wide Calendar configuration only.
 - `status-effect`: every status type has a roster effect, set under `On duty rosters` in the composer:
   `Still available`, `Away` (A), `Other duty` (D) or `Misconduct` (U). A status row shows the code chip and effect text.
   Editing a saved status's effect first lists the numbers it changes on open DA 6 forms and saves only after
@@ -43,19 +50,25 @@ Open the `Status Types` or `Assignment Types` tab, then `Add new` or the row's a
 composer: `Add new` opens it above the list, and a row's `More actions for <name>` → `Edit` opens it in place of that
 row. A status row shows a `Reorder <name>` grip, a sample bar, the name, `One-day label · XX`, the roster effect (a code
 chip and `Away, count holds`, `Other duty, count runs` or `Misconduct, count runs`; `Still available` has no chip), a
-one-day chip and the `More actions for <name>` menu with `Edit` and `Delete`. The list heading reads `N status types`
+one-day chip and the `More actions for <name>` menu with `Edit` and `Archive`. The list heading reads `N status types`
 beside `Drag to set legend and picker order.` An assignment type row has a `Show <name> on the calendar` switch and a
-`More actions for <name>` menu with `Edit` and `Delete`. Assignment types sit in two lists: `On the calendar · N lanes`
+`More actions for <name>` menu with `Edit` and `Delete`. Below the status list, a collapsed `ARCHIVED N` button (only for a configurator, only when a status
+type is archived) opens rows that read the name, `ARCHIVED <date> · N ENTRIES`, `Restore <name>` and, at 0 entries,
+`Delete <name>`. A failed count load shows `Could not load how many entries each type has. Restore still works.` with
+`Try again`. Assignment types sit in two lists: `On the calendar · N lanes`
 in lane order with a `Reorder <name>` grip on each row, and `Duty planner only` sorted by name. Assignment type Add and
-Edit open a side sheet. A deletion dialog says what the delete removes: schedule entries for a status, assigned days and
-saved DA 6 forms (and, for a Person type, its duty roster) for an assignment type. `Holidays & closures` is the third
+Edit open a side sheet. A status deletion dialog says the status has no schedule entries and cannot be undone. An assignment
+type deletion dialog says what the delete removes: assigned days and saved DA 6 forms (and, for a Person type, its duty
+roster). `Holidays & closures` is the third
 section and is driven in [Special days](special-days.md).
 
 ### Helper controls
 
 `calendar-lanes` and `status-order` stop `rpc/set_calendar_lanes` and `rpc/set_status_type_order` before dispatch. Their
 `-lost-ack` and `-hold` forms follow the [shared fault variants](special-days.md#helper-controls).
-`$V network arm-fail $PAGE status-types/preview` fails the next effect preview with a 503.
+`$V network arm-fail $PAGE status-types/preview` fails the next effect preview with a 503. `status-types/usage` and
+`training-types/usage` fail or hold the count load behind the `ARCHIVED` section; `status-types/archive` and
+`training-types/archive` match the `PUT` that archives or restores.
 
 ## Driving it with verify:app
 
@@ -77,8 +90,8 @@ confirmation. Row actions are named, such as `More actions for Verification Leav
    `#166534` and choose `White`; reload and read back the original fields, `short_label` null, ID, order `11`, and
    linked availability before another journey uses Leave. Only the order command changes a position. Send an
    authenticated `PUT /org/<orgA>/api/status-types` with `{id: statusLeave, sortOrder: 0}` through the signed-in page
-   using the request shape below; require `400` and read back order `11` on that same ID. Remove the type you added
-   through its visible Delete confirmation and verify its row is absent.
+   using the request shape below; require `400` and read back order `11` on that same ID. Remove the type you added:
+   `Archive` it, open `ARCHIVED`, choose `Delete <name>` and verify its row is absent.
 2. **Assignment choices:** In `Assignment Types`, use `Add new` to add one Person-targeted type and one Group-targeted
    type with unique names and short codes, choosing `Group` under `Assigned to` on the second sheet. Both land in
    `Duty planner only` with `show_on_calendar: false`. Open `More actions for Verification Staff Duty` → `Edit` and
@@ -126,13 +139,21 @@ confirmation. Row actions are named, such as `More actions for Verification Leav
    `POST /org/<orgA>/api/assignment-types` with the table's create payload plus `showOnCalendar: true`. Each must return
    `400`, the A lanes must stay Staff then Group and no `MARKER` row may exist; only the lane command writes
    `show_on_calendar` and lane order.
-4. **Status deletion:** Choose `More actions for Verification Retiring Status` → `Delete`. Capture the warning that
-   every schedule entry with this status will be removed, then confirm. A status with a roster effect adds that open DA
-   6 forms recalculate and closed forms keep their saved numbers; one that is `Still available` says neither. Read back
-   absence of `statusDelete` and its linked `availabilityDelete`, while the March historical entry remains. Compare A's
-   `audit_logs` and `notifications` before/after: expect a `status_type.deleted` event for that ID and a
-   `Status Type Deleted` administrator notification. Notification delivery is asynchronous, so observe it without
-   claiming it committed atomically with deletion.
+4. **Status archive and deletion:** Choose `More actions for Verification Leave` → `Archive`. The `Archive Status Type`
+   dialog says the entries stay and, for a type with a roster effect, that open DA 6 forms recalculate while closed
+   forms keep their saved numbers (`Still available` omits that sentence). Confirm. The row leaves the list, `ARCHIVED 1`
+   appears and its row reads `· 3 ENTRIES` with `Restore` and no `Delete`. Read back that `availability_entries` for
+   `availabilityAlpha` still exist, the September calendar still shows Able's `Verification Leave` bar, and
+   `/calendar/bulk` no longer offers it. An authenticated `DELETE /org/<orgA>/api/status-types` with `{id: statusLeave}`
+   must return `409` `This type has records. Archive it instead.` and leave both rows. Arm
+   `$V network arm-fail $PAGE status-types/usage`, reload and open `ARCHIVED`: the alert appears, `Restore` still works
+   and `Try again` recovers after `network restore`. `$V network arm-hold $PAGE status-types/usage` shows the count as a
+   skeleton until `network release`. `Restore` returns the type to the list. Then add a uniquely named status, archive
+   it, and confirm its row reads `0 ENTRIES` with `Delete`; the `Delete Status Type` alertdialog says it has no schedule
+   entries and cannot be undone. Confirm and read back absence with `$V rows status_types orgA name <name>`. The seeded
+   `Verification Retiring Status` carries `availabilityDelete`, so permanent deletion of a type with entries is no longer
+   reachable from the UI. Compare A's `audit_logs`: expect `status_type.archived` and `status_type.restored` events for
+   the archived ID, and `status_type.deleted` for the probe. Capture 390 and 1280 px without horizontal scroll.
 5. **Assignment deletion:** Choose `More actions for Verification Retiring Duty` → `Delete`. Capture the warning that
    every day it is assigned will be removed, then confirm. A person-assigned type also names its duty roster and saved
    DA 6 forms; a Group-assigned type names only its saved DA 6 forms. Read back absence of that type and its linked
@@ -322,7 +343,7 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       then move Leave. The follow-up `GET` fails with `503` and the toast says
       `We couldn't confirm the status order change. Reload to see the saved order.` Restore both controls.
     - **Writes wait for the order.** Run `$V network arm-hold $PAGE status-types/order` and move Leave. While the `PUT`
-      is held, `Delete` in every row's actions is disabled and an open composer's submit button is disabled. Release;
+      is held, `Archive` in every row's actions is disabled and an open composer's submit button is disabled. Release;
       one `PUT` settled `200`, and the actions enable.
     - **Concurrent changes.** Open a second tab as `calendarConfigure` with the returned `browserContext` and leave it
       unreloaded. Run `$V fault arm status-order-hold`, move Leave down on page 1 and wait until `fault state` shows
@@ -446,7 +467,7 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       case opens, with `SPC Able 1 → 0`.
     - **Layout.** Capture the composer and the confirmation at 1440x900, 900x800 and 390x844. Below 1024 px the effect
       cards stack, the row wraps its effect text, and `document.documentElement.scrollWidth` equals `innerWidth`.
-    - Delete `Verification AWOL` through its Delete confirmation. Set `Verification Leave` back to `Away` so later steps
+    - Archive `Verification AWOL`, then Delete it from `ARCHIVED` (a type with no entries). Set `Verification Leave` back to `Away` so later steps
       read the seeded effect.
 14. **Empty-state starter types.** A new Organization has no status or assignment types. Where a Calendar surface has
     none, it says `No status types yet.` or `No assignment types yet.` For a viewer with Calendar configure access the

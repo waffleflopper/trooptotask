@@ -211,7 +211,8 @@ describe('DailyAssignmentModal: choosing someone who is unavailable that day', (
 		textColor: '#ffffff',
 		shortLabel: 'L',
 		sortOrder: 0,
-		rosterEffect: 'A'
+		rosterEffect: 'A',
+		archivedAt: null
 	};
 	// Smith is on leave 5 to 7 April, Taylor on 8 April only.
 	const availabilityByPerson = indexDutyAvailability([

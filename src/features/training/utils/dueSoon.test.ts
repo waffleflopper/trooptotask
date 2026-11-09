@@ -11,6 +11,7 @@ function person(id: string, lastName: string): Personnel {
 
 function type(id: string, overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id,
 		name: id,
 		description: null,

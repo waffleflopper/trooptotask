@@ -37,7 +37,8 @@ const cpr: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: true,
 	exemptPersonnelIds: ['exempt'],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 function record(personnelId: string, expirationDate: string, trainingTypeId = 'cpr'): PersonnelTraining {

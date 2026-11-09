@@ -51,7 +51,8 @@ function options(overrides: { entries?: AvailabilityEntry[] } & Partial<DutyPick
 				textColor: '#fff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			},
 			{
 				id: 'appointment',
@@ -60,7 +61,8 @@ function options(overrides: { entries?: AvailabilityEntry[] } & Partial<DutyPick
 				textColor: '#fff',
 				shortLabel: null,
 				rosterEffect: 'available',
-				sortOrder: 1
+				sortOrder: 1,
+				archivedAt: null
 			}
 		],
 		currentAssigneeId: 'p-hale',

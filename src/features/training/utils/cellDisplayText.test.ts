@@ -13,6 +13,7 @@ const person = { id: 'p-1', rank: 'SGT', mos: '68W', clinicRole: 'Medic' };
 
 function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
+		archivedAt: null,
 		id: 'tt-1',
 		name: 'CPR',
 		description: null,

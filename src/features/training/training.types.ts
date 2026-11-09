@@ -17,9 +17,11 @@ export interface TrainingType {
 	canBeExempted: boolean;
 	exemptPersonnelIds: string[];
 	isOptional: boolean;
+	/** When the type was archived, or null while active. An archived type keeps its records and can be restored. */
+	archivedAt: string | null;
 }
 
-export type TrainingRequirementFacts = Omit<TrainingType, 'description' | 'color' | 'sortOrder'>;
+export type TrainingRequirementFacts = Omit<TrainingType, 'description' | 'color' | 'sortOrder' | 'archivedAt'>;
 
 export interface PersonnelTraining {
 	id: string;

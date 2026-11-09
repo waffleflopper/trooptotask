@@ -47,7 +47,8 @@ const fitnessType: TrainingType = {
 	expirationDateOnly: false,
 	canBeExempted: false,
 	exemptPersonnelIds: [],
-	isOptional: false
+	isOptional: false,
+	archivedAt: null
 };
 
 function fakeContext(initial: { recordPerson: Personnel | null; recordPersonId: string | null }) {
@@ -109,6 +110,19 @@ describe('TrainingModals record sheet host', () => {
 
 		expect(await screen.findByRole('dialog')).toBeTruthy();
 		expect(ctx.dropRecordParam).not.toHaveBeenCalled();
+	});
+
+	it('lists only active types on a Soldier record sheet', async () => {
+		trainingTypesStore.load(
+			[fitnessType, { ...fitnessType, id: 'old', name: 'Old course', archivedAt: '2030-01-02T03:04:05Z' }],
+			'org-1'
+		);
+		personnelTrainingsStore.load([], 'org-1');
+		const ctx = fakeContext({ recordPerson: person, recordPersonId: 'p1' });
+		render(TrainingModals, { props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() } });
+
+		expect(await screen.findByRole('button', { name: 'More actions for Fitness' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'More actions for Old course' })).toBeNull();
 	});
 
 	it('offers Exempt only when the viewer may configure training types', async () => {

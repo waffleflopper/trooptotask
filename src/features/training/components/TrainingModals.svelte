@@ -124,7 +124,7 @@
 		{#snippet children({ default: TrainingRecordSheet })}
 			<TrainingRecordSheet
 				{person}
-				trainingTypes={trainingTypesStore.items}
+				trainingTypes={trainingTypesStore.active}
 				trainings={personnelTrainingsStore.items}
 				orgId={ctx.orgId}
 				asOf={ctx.readinessAsOf}

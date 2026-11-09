@@ -22,6 +22,8 @@ export {
 	createStatusType,
 	updateStatusType,
 	setStatusTypeOrder,
+	archiveStatusType,
+	readStatusTypeUsage,
 	deleteStatusType
 } from './statusTypeOperations.server';
 export { listStatusTypes, listStatusTypeLabels } from './statusTypeRead.server';

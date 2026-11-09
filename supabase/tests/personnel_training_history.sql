@@ -200,6 +200,10 @@ SELECT pg_temp.act_as_fixture();
 SELECT is(pg_temp.retirement(pg_temp.cert('301', 'renewed.pdf')), NULL,
   'a replaced certificate stays while the superseded completion names it');
 
+SELECT throws_ok($$ DELETE FROM public.training_types WHERE id = 'f7100000-0000-4000-8000-000000000403' $$,
+  '23503', NULL, 'a Training type with records cannot be deleted');
+DELETE FROM public.personnel_trainings WHERE training_type_id = 'f7100000-0000-4000-8000-000000000403';
+DELETE FROM public.personnel_training_history WHERE training_type_id = 'f7100000-0000-4000-8000-000000000403';
 DELETE FROM public.training_types WHERE id = 'f7100000-0000-4000-8000-000000000403';
 UPDATE public.personnel_trainings SET completion_date = '2026-03-02' WHERE id = 'f7100000-0000-4000-8000-000000000504';
 SELECT is((SELECT count(*)::integer FROM public.personnel_training_history WHERE personnel_id = 'f7100000-0000-4000-8000-000000000303'), 1,
@@ -210,9 +214,9 @@ SELECT is(
     (SELECT count(*)::integer FROM public.personnel_training_history WHERE personnel_id = 'f7100000-0000-4000-8000-000000000303'),
     (SELECT count(*)::integer FROM public.personnel_trainings WHERE training_type_id = 'f7100000-0000-4000-8000-000000000403')
   ],
-  ARRAY[0, 0], 'deleting a Person or Training type removes its history and records');
+  ARRAY[0, 0], 'deleting a Person removes its history, and a Training type deletes once its records are gone');
 SELECT is(ARRAY[pg_temp.retirement(pg_temp.cert('303', 'leaves.pdf')), pg_temp.retirement(pg_temp.cert('301', 'type.pdf'))],
-  ARRAY['pending', 'pending'], 'cascaded deletions retire their certificates');
+  ARRAY['pending', 'pending'], 'deleted records retire their certificates');
 
 SELECT is((SELECT ARRAY[public::text, file_size_limit::text] FROM storage.buckets WHERE id = 'training-certificates'),
   ARRAY['false', '10485760'], 'the certificate bucket is private with a 10 MB limit');

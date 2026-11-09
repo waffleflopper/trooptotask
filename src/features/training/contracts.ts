@@ -99,7 +99,8 @@ export interface TrainingOnboardingActor {
 	readonly scopeSet: GroupCoverage;
 }
 
-export type TrainingTypeLabel = Pick<TrainingType, 'id' | 'name'>;
+/** A type's name for labels and pickers. `archivedAt` is present only on an archived type. */
+export type TrainingTypeLabel = Pick<TrainingType, 'id' | 'name'> & { archivedAt?: string | null };
 
 export interface TrainingOnboardingReferencesPort {
 	listTypes(actor: TrainingOnboardingActor): Promise<TrainingTypeLabel[]>;
@@ -324,10 +325,12 @@ export type SavedTrainingCompletion = PersonnelTraining & {
 	updated_at: string;
 };
 
-export type TrainingTypeCreate = Pick<TrainingType, 'name'> & Partial<Omit<TrainingType, 'id' | 'name'>>;
-export type TrainingTypePatch = Partial<Omit<TrainingType, 'id' | 'sortOrder'>>;
+export type TrainingTypeCreate = Pick<TrainingType, 'name'> & Partial<Omit<TrainingType, 'id' | 'name' | 'archivedAt'>>;
+export type TrainingTypePatch = Partial<Omit<TrainingType, 'id' | 'sortOrder' | 'archivedAt'>>;
 export type TrainingViewCreate = Pick<TrainingView, 'name'> & Partial<Pick<TrainingView, 'columnIds'>>;
 export type TrainingViewPatch = Partial<Pick<TrainingView, 'name' | 'columnIds'>>;
+/** Record counts keyed by Training type id. */
+export type TrainingTypeUsage = Record<string, number>;
 export type TrainingTypeTiming = {
 	expirationMonths: number | null;
 	expirationDateOnly: boolean | null;
@@ -354,10 +357,15 @@ export interface TrainingCatalogPersistence {
 	/** Adds or removes one Person; repeating either is a no-op. */
 	setPersonExemption(typeId: string, personnelId: string, exempt: boolean): Promise<void>;
 	createType(input: TrainingTypeCreate): Promise<SavedTrainingType>;
-	/** Resolves null when no Training type with this id exists in the Organization. */
+	/** Resolves null when no active Training type with this id exists in the Organization: an archived type is not edited. */
 	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType | null>;
 	/** Saves every position at once, or refuses with 409 when `expectedIds` is no longer the saved order. */
 	setTypeOrder(ids: readonly string[], expectedIds: readonly string[]): Promise<void>;
+	/** Archives or restores a type without touching its records; null when no Training type with this id exists. */
+	setTypeArchived(id: string, archived: boolean): Promise<SavedTrainingType | null>;
+	/** How many records (current and history, any Person) use each type; every type in the Organization appears. */
+	countTypeRecords(): Promise<TrainingTypeUsage>;
+	/** Refuses with 409 when the type has records. */
 	deleteType(id: string): Promise<void>;
 	createView(input: TrainingViewCreate): Promise<SavedTrainingView>;
 	patchView(id: string, fields: TrainingViewPatch): Promise<SavedTrainingView | null>;

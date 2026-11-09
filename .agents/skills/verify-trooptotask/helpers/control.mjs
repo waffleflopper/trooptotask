@@ -367,8 +367,8 @@ async function main() {
 	}
 	if (command === 'pointer') {
 		const [action, page, expectedUrl, from, to, steps] = args;
-		if (action !== 'drag' || args.length < 5 || args.length > 6)
-			throw new Error('Use pointer drag PAGE EXACT_URL FROM_SELECTOR TO_SELECTOR [STEPS].');
+		if (!['drag', 'touch'].includes(action) || args.length < 5 || args.length > 6)
+			throw new Error('Use pointer drag|touch PAGE EXACT_URL FROM_SELECTOR TO_SELECTOR [STEPS].');
 		note(
 			await run(state, {
 				command: 'pointer-drag',
@@ -376,6 +376,7 @@ async function main() {
 				expectedUrl,
 				from,
 				to,
+				device: action === 'drag' ? 'mouse' : 'touch',
 				...(steps === undefined ? {} : { steps: Number(steps) })
 			})
 		);

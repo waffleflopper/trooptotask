@@ -81,6 +81,20 @@ describe('PersonnelFieldDialog', () => {
 		expect(ondone).not.toHaveBeenCalled();
 	});
 
+	it('shows every Person as not confirmed, with Reload, when the first batch is lost', async () => {
+		const people = [person(0), person(1)];
+		const { ondone } = open(people, async () => {
+			throw new TypeError('fetch failed');
+		});
+
+		await saveRank('SSG');
+
+		await screen.findByRole('list', { name: 'Results' });
+		expect([outcomeFor('SGT Medic0, Pat'), outcomeFor('SGT Medic1, Pat')]).toEqual(['Not confirmed', 'Not confirmed']);
+		expect(screen.getByRole('button', { name: 'Reload' })).toBeTruthy();
+		expect(ondone).not.toHaveBeenCalled();
+	});
+
 	it('keeps the review in place with the reason when the first batch is refused', async () => {
 		const people = [person(0), person(1)];
 		open(people, async () => {

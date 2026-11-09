@@ -93,7 +93,7 @@
 				}
 				const nothingAnswered =
 					answered.updatedIds.length + answered.refusedIds.length + answered.unavailableIds.length === 0;
-				if (interrupted && nothingAnswered) {
+				if (interrupted?.outcome === 'not-saved' && nothingAnswered) {
 					failure = interrupted.message;
 					return;
 				}

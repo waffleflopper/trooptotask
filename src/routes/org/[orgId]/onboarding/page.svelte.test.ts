@@ -166,7 +166,16 @@ describe('onboarding page', () => {
 			'org-1'
 		);
 		onboardingTemplateStore.load(
-			[{ id: 'template-1', orgId: 'org-1', name: 'Reception', description: null, createdAt: '2026-01-01' }],
+			[
+				{
+					id: 'template-1',
+					orgId: 'org-1',
+					name: 'Reception',
+					description: null,
+					createdAt: '2026-01-01',
+					isDefault: false
+				}
+			],
 			[
 				{
 					id: 'template-step-1',

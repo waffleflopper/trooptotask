@@ -24,7 +24,8 @@ const template: OnboardingTemplate = {
 	orgId: 'org-1',
 	name: 'Standard Inprocessing',
 	description: null,
-	createdAt: '2026-03-01'
+	createdAt: '2026-03-01',
+	isDefault: false
 };
 
 afterEach(async () => {

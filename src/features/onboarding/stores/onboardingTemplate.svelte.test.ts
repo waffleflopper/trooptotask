@@ -16,7 +16,8 @@ const template: OnboardingTemplate = {
 	orgId: 'org-1',
 	name: 'Standard Arrival',
 	description: 'Default packet',
-	createdAt: '2026-01-01T00:00:00.000Z'
+	createdAt: '2026-01-01T00:00:00.000Z',
+	isDefault: false
 };
 
 const alternateTemplate: OnboardingTemplate = {
@@ -24,7 +25,8 @@ const alternateTemplate: OnboardingTemplate = {
 	orgId: 'org-1',
 	name: 'Leadership Arrival',
 	description: null,
-	createdAt: '2026-01-03T00:00:00.000Z'
+	createdAt: '2026-01-03T00:00:00.000Z',
+	isDefault: false
 };
 
 const steps: OnboardingTemplateStep[] = [
@@ -95,7 +97,8 @@ describe('OnboardingTemplateWorkspace', () => {
 			orgId: 'org-1',
 			name: 'New Arrival',
 			description: null,
-			createdAt: '2026-01-02T00:00:00.000Z'
+			createdAt: '2026-01-02T00:00:00.000Z',
+			isDefault: false
 		};
 		const createTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>> => {
 			return { ok: true, value: created };
@@ -491,7 +494,8 @@ describe('OnboardingTemplateWorkspace', () => {
 			orgId: 'org-1',
 			name: 'New Arrival',
 			description: null,
-			createdAt: '2026-01-04T00:00:00.000Z'
+			createdAt: '2026-01-04T00:00:00.000Z',
+			isDefault: false
 		};
 		onboardingTemplateStore.load([template], steps, 'org-1');
 		const createTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>> => {
@@ -518,7 +522,13 @@ describe('OnboardingTemplateWorkspace', () => {
 		workspace.templateDraft.name = 'Old Organization draft';
 		const pending = workspace.saveTemplate();
 		const bTemplate = { ...template, id: 'template-b', orgId: 'org-2', name: 'B checklist' };
-		workspace.replaceOrganization({ orgId: 'org-2', actorId: 'actor-1', routeSegment: 'org-2', canConfigure: true });
+		workspace.replaceOrganization({
+			orgId: 'org-2',
+			actorId: 'actor-1',
+			routeSegment: 'org-2',
+			canConfigure: true,
+			canSetDefault: false
+		});
 		workspace.replaceData({ templates: [bTemplate], templateSteps: [], trainingTypes: [] });
 		onboardingTemplateStore.load([bTemplate], [], 'org-2');
 		resolve({ ok: true, value: { ...template, id: 'late-a', name: 'Late A save' } });
@@ -543,8 +553,20 @@ describe('OnboardingTemplateWorkspace', () => {
 		workspace.startCreateTemplate();
 		workspace.templateDraft.name = 'Old draft';
 		const oldSave = workspace.saveTemplate();
-		workspace.replaceOrganization({ orgId: 'org-2', actorId: 'actor-1', routeSegment: 'org-2', canConfigure: true });
-		workspace.replaceOrganization({ orgId: 'org-1', actorId: 'actor-1', routeSegment: 'org-1', canConfigure: true });
+		workspace.replaceOrganization({
+			orgId: 'org-2',
+			actorId: 'actor-1',
+			routeSegment: 'org-2',
+			canConfigure: true,
+			canSetDefault: false
+		});
+		workspace.replaceOrganization({
+			orgId: 'org-1',
+			actorId: 'actor-1',
+			routeSegment: 'org-1',
+			canConfigure: true,
+			canSetDefault: false
+		});
 		workspace.replaceData({ templates: [template], templateSteps: steps, trainingTypes });
 		workspace.startCreateTemplate();
 		workspace.templateDraft.name = 'New draft';
@@ -588,10 +610,11 @@ function makeWorkspace(
 	overrides: Partial<OnboardingTemplateWorkspaceAdapter> = {},
 	data = { templates: [template], templateSteps: steps, trainingTypes },
 	storage: PendingTemplateDuplicateStorage | null = null,
-	actorId = 'actor-1'
+	actorId = 'actor-1',
+	canSetDefault = false
 ) {
 	return createOnboardingTemplateWorkspace({
-		organization: { orgId: 'org-1', actorId, routeSegment: 'org-1', canConfigure: true },
+		organization: { orgId: 'org-1', actorId, routeSegment: 'org-1', canConfigure: true, canSetDefault },
 		data,
 		storage,
 		adapter: {
@@ -753,13 +776,37 @@ describe('Duplicate whose answer was lost', () => {
 		expect(otherActor.model.pendingDuplicates).toEqual([]);
 
 		const workspace = makeWorkspace({}, sourceData, storage);
-		workspace.replaceOrganization({ orgId: 'org-2', actorId: 'actor-1', routeSegment: 'org-2', canConfigure: true });
+		workspace.replaceOrganization({
+			orgId: 'org-2',
+			actorId: 'actor-1',
+			routeSegment: 'org-2',
+			canConfigure: true,
+			canSetDefault: false
+		});
 		expect(workspace.model.pendingDuplicates).toEqual([]);
-		workspace.replaceOrganization({ orgId: 'org-1', actorId: 'actor-2', routeSegment: 'org-1', canConfigure: true });
+		workspace.replaceOrganization({
+			orgId: 'org-1',
+			actorId: 'actor-2',
+			routeSegment: 'org-1',
+			canConfigure: true,
+			canSetDefault: false
+		});
 		expect(workspace.model.pendingDuplicates).toEqual([]);
-		workspace.replaceOrganization({ orgId: 'org-1', actorId: 'actor-1', routeSegment: 'org-1', canConfigure: true });
+		workspace.replaceOrganization({
+			orgId: 'org-1',
+			actorId: 'actor-1',
+			routeSegment: 'org-1',
+			canConfigure: true,
+			canSetDefault: false
+		});
 		expect(workspace.model.pendingDuplicates.map((pending) => pending.sourceName)).toEqual(['Arrival']);
-		workspace.replaceOrganization({ orgId: 'org-1', actorId: 'actor-1', routeSegment: 'org-1', canConfigure: false });
+		workspace.replaceOrganization({
+			orgId: 'org-1',
+			actorId: 'actor-1',
+			routeSegment: 'org-1',
+			canConfigure: false,
+			canSetDefault: false
+		});
 		expect(workspace.model.pendingDuplicates).toEqual([]);
 	});
 
@@ -772,7 +819,13 @@ describe('Duplicate whose answer was lost', () => {
 			storage
 		);
 		const pending = workspace.duplicateTemplate(SOURCE_ID);
-		workspace.replaceOrganization({ orgId: 'org-2', actorId: 'actor-1', routeSegment: 'org-2', canConfigure: true });
+		workspace.replaceOrganization({
+			orgId: 'org-2',
+			actorId: 'actor-1',
+			routeSegment: 'org-2',
+			canConfigure: true,
+			canSetDefault: false
+		});
 		workspace.replaceData({ templates: [], templateSteps: [], trainingTypes: [] });
 		answer(copied);
 
@@ -837,5 +890,116 @@ describe('Duplicate whose answer was lost', () => {
 
 		expect(makeWorkspace({}, sourceData, storage).model.pendingDuplicates).toEqual([]);
 		expect([...storage.items.keys()]).toEqual(['theme']);
+	});
+});
+
+describe('default template', () => {
+	const both = { templates: [template, alternateTemplate], templateSteps: steps, trainingTypes };
+	const answered =
+		(templateId: string | null) =>
+		async (): Promise<OnboardingTemplateWorkspaceResult<{ templateId: string | null }>> => ({
+			ok: true,
+			value: { templateId }
+		});
+
+	it('moves the default to the chosen template and clears the old one', async () => {
+		const setDefaultTemplate = vi.fn(answered(alternateTemplate.id));
+		const workspace = makeWorkspace(
+			{ setDefaultTemplate },
+			{ ...both, templates: [{ ...template, isDefault: true }, alternateTemplate] },
+			null,
+			'actor-1',
+			true
+		);
+
+		await expect(workspace.setDefaultTemplate(alternateTemplate.id)).resolves.toEqual({ ok: true, value: undefined });
+
+		expect(setDefaultTemplate).toHaveBeenCalledWith(alternateTemplate.id);
+		expect(Object.fromEntries(workspace.model.templates.map((item) => [item.id, item.isDefault]))).toEqual({
+			[template.id]: false,
+			[alternateTemplate.id]: true
+		});
+		expect(workspace.model.settingDefault).toBe(false);
+	});
+
+	it('clears the default when given no template', async () => {
+		const setDefaultTemplate = vi.fn(answered(null));
+		const workspace = makeWorkspace(
+			{ setDefaultTemplate },
+			{ ...both, templates: [{ ...template, isDefault: true }, alternateTemplate] },
+			null,
+			'actor-1',
+			true
+		);
+
+		await workspace.setDefaultTemplate(null);
+
+		expect(setDefaultTemplate).toHaveBeenCalledWith(null);
+		expect(workspace.model.templates.map((item) => item.isDefault)).toEqual([false, false]);
+	});
+
+	it('sends nothing when the member is not an Organization admin', async () => {
+		const setDefaultTemplate = vi.fn(answered(template.id));
+		const workspace = makeWorkspace({ setDefaultTemplate }, both);
+
+		expect(workspace.model.canSetDefault).toBe(false);
+		await expect(workspace.setDefaultTemplate(template.id)).resolves.toMatchObject({
+			ok: false,
+			error: { code: 'read_only' }
+		});
+		expect(setDefaultTemplate).not.toHaveBeenCalled();
+	});
+
+	it('keeps the old default and shows the error when the server refuses', async () => {
+		const setDefaultTemplate = vi.fn(
+			async (): Promise<OnboardingTemplateWorkspaceResult<{ templateId: string | null }>> => ({
+				ok: false,
+				error: { code: 'policy_denied', message: 'Only an Organization admin can set the default template' }
+			})
+		);
+		const workspace = makeWorkspace(
+			{ setDefaultTemplate },
+			{ ...both, templates: [{ ...template, isDefault: true }, alternateTemplate] },
+			null,
+			'actor-1',
+			true
+		);
+
+		await workspace.setDefaultTemplate(alternateTemplate.id);
+
+		expect(workspace.model.templates.find((item) => item.id === template.id)?.isDefault).toBe(true);
+		expect(workspace.model.templates.find((item) => item.id === alternateTemplate.id)?.isDefault).toBe(false);
+		expect(workspace.model.error).toEqual({
+			code: 'policy_denied',
+			message: 'Only an Organization admin can set the default template'
+		});
+		expect(workspace.model.settingDefault).toBe(false);
+	});
+
+	it('ignores an answer that arrives after the Organization changed', async () => {
+		let answer!: (result: OnboardingTemplateWorkspaceResult<{ templateId: string | null }>) => void;
+		const workspace = makeWorkspace(
+			{ setDefaultTemplate: () => new Promise((done) => (answer = done)) },
+			both,
+			null,
+			'actor-1',
+			true
+		);
+
+		const pending = workspace.setDefaultTemplate(alternateTemplate.id);
+		expect(workspace.model.settingDefault).toBe(true);
+		workspace.replaceOrganization({
+			orgId: 'org-2',
+			actorId: 'actor-1',
+			routeSegment: 'org-2',
+			canConfigure: true,
+			canSetDefault: true
+		});
+		workspace.replaceData({ templates: [], templateSteps: [], trainingTypes: [] });
+		answer({ ok: true, value: { templateId: alternateTemplate.id } });
+
+		await expect(pending).resolves.toMatchObject({ ok: false, error: { code: 'conflict' } });
+		expect(workspace.model.templates).toEqual([]);
+		expect(workspace.model.settingDefault).toBe(false);
 	});
 });

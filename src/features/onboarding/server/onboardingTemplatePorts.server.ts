@@ -24,6 +24,7 @@ export interface OnboardingTemplateWriteContext {
 		| 'createTemplate'
 		| 'updateTemplate'
 		| 'duplicateTemplate'
+		| 'setDefaultTemplate'
 		| 'deleteTemplate'
 		| 'createStep'
 		| 'updateStep'

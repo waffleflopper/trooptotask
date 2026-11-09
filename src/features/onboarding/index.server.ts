@@ -11,6 +11,7 @@ export {
 	reorderOnboardingTemplateSteps,
 	createStarterOnboardingTemplateStep,
 	duplicateOnboardingTemplate,
+	setDefaultOnboardingTemplate,
 	type DuplicateOnboardingTemplateResult
 } from './server/onboardingTemplateOperations.server';
 export { fetchOnboardingTemplateActivity, fetchOnboardingTemplatesData } from './server/onboardingTemplateRead.server';

@@ -52,6 +52,8 @@ export interface OnboardingCatalogPersistence {
 	updateTemplate(id: string, data: Partial<OnboardingTemplateData>): Promise<SavedOnboardingTemplate>;
 	/** Copies the template and its steps once per request id; a retry returns the same copy. */
 	duplicateTemplate(sourceTemplateId: string, requestId: string): Promise<DuplicatedOnboardingTemplate>;
+	/** Makes the template the Organization's only default, or clears the default when null. Only an Organization admin may. */
+	setDefaultTemplate(templateId: string | null): Promise<void>;
 	/** Returns false when there was no such template. Steps go with it; packets keep their saved steps. */
 	deleteTemplate(id: string): Promise<boolean>;
 	createStep(data: PreparedOnboardingTemplateStep): Promise<SavedOnboardingTemplateStep>;

@@ -143,8 +143,22 @@ beforeEach(() => {
 	);
 	onboardingTemplateStore.load(
 		[
-			{ id: 'template-1', orgId: 'org-1', name: 'Inprocessing', description: null, createdAt: '2026-06-01' },
-			{ id: 'template-2', orgId: 'org-1', name: 'Reserve inprocessing', description: null, createdAt: '2026-06-02' }
+			{
+				id: 'template-1',
+				orgId: 'org-1',
+				name: 'Inprocessing',
+				description: null,
+				createdAt: '2026-06-01',
+				isDefault: false
+			},
+			{
+				id: 'template-2',
+				orgId: 'org-1',
+				name: 'Reserve inprocessing',
+				description: null,
+				createdAt: '2026-06-02',
+				isDefault: false
+			}
 		],
 		[
 			{

@@ -6,11 +6,17 @@
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { tick } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { settleAction } from '$lib/utils/settleAction';
 
 	let { data, form } = $props();
 	let loading = $state(false);
 	let confirmation = $state<HTMLElement | null>(null);
+	let requestError = $state('');
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 	// Only a 400 rejects the email itself; native and enhanced submissions both set the page status.
 	const emailError = $derived(page.status === 400 && form?.error ? form.error : '');
 
@@ -58,7 +64,9 @@
 				<p>For security, that new link will expire after 14 days.</p>
 			</AuthNotice>
 		{:else}
-			{#if form?.error && !emailError}
+			{#if requestError}
+				<AuthNotice tone="error" message={requestError} />
+			{:else if form?.error && !emailError}
 				<AuthNotice tone="error" message={form.error} />
 			{/if}
 
@@ -71,12 +79,16 @@
 				method="POST"
 				use:enhance={() => {
 					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						await update();
-						await tick();
-						(confirmation ?? document.getElementById('email'))?.focus();
-					};
+					requestError = '';
+					return (outcome) =>
+						settleAction(outcome, {
+							isCurrent: () => active,
+							settled: (error) => {
+								requestError = error ?? '';
+								loading = false;
+							},
+							focus: () => [confirmation, document.getElementById('email')]
+						});
 				}}
 				class="flex flex-col gap-8"
 			>

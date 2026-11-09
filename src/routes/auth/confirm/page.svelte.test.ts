@@ -59,3 +59,19 @@ it('shows a throttled confirmation attempt and keeps the explicit invite button 
 	expect(button).toBeEnabled();
 	expect(transport.update).not.toHaveBeenCalled();
 });
+
+it('shows an alert and keeps the button usable when the confirmation request throws', async () => {
+	transport.send.mockResolvedValueOnce({ type: 'error', status: 500, error: { status: 500, message: 'boom' } });
+	render(Page, {
+		data: {
+			viewer: null,
+			confirmation: { status: 'valid', tokenHash: 'synthetic-token', type: 'invite', next: '/auth/accept-invite' }
+		}
+	});
+	const button = screen.getByRole('button', { name: 'Continue to Invite Setup' });
+	await fireEvent.submit(button.closest('form')!);
+
+	expect(await screen.findByRole('alert')).toBeInTheDocument();
+	expect(transport.update).not.toHaveBeenCalled();
+	expect(button).toBeEnabled();
+});

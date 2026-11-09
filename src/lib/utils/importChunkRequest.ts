@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { classifyWrite } from '$lib/stores/core';
 
 export type ImportChunkReply<T> =
 	| { kind: 'saved'; data: T }
@@ -38,8 +39,9 @@ export async function postImportChunk<T>(
 	} catch {
 		return { kind: 'unconfirmed' };
 	}
-	if (!response.ok) {
-		if (response.status >= 500) return { kind: 'unconfirmed' };
+	const outcome = classifyWrite(response);
+	if (outcome === 'unconfirmed') return { kind: 'unconfirmed' };
+	if (outcome === 'not-saved') {
 		return { kind: 'refused', message: await readResponseErrorMessage(response, options.fallbackMessage) };
 	}
 	try {

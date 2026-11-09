@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { classifyWrite } from '$lib/stores/core';
 import { setPersonnelField } from './setPersonnelField';
 
 const UNCONFIRMED = "We couldn't confirm the change. Reload to see what saved.";
+const rejection = (pending: Promise<unknown>) =>
+	pending.then(
+		() => 'resolved',
+		(error: Error) => [classifyWrite(error), error.message]
+	);
 
 describe('setPersonnelField', () => {
 	afterEach(() => vi.unstubAllGlobals());
@@ -28,15 +34,27 @@ describe('setPersonnelField', () => {
 		]);
 	});
 
-	it('rejects with the reason a refused write gives', async () => {
+	it('rejects a refused write as not saved, with the reason it gives', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => Response.json({ message: 'Unknown rank "ZZZ".' }, { status: 400 }))
 		);
 
-		await expect(setPersonnelField('org-1', ['a'], { field: 'rank', value: 'ZZZ' })).rejects.toThrow(
+		expect(await rejection(setPersonnelField('org-1', ['a'], { field: 'rank', value: 'ZZZ' }))).toEqual([
+			'not-saved',
 			'Unknown rank "ZZZ".'
+		]);
+	});
+
+	it('rejects a server failure as unconfirmed', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => Response.json({ message: 'boom' }, { status: 503 }))
 		);
+
+		const [outcome] = await rejection(setPersonnelField('org-1', ['a'], { field: 'rank', value: 'SSG' }));
+
+		expect(outcome).toBe('unconfirmed');
 	});
 
 	it('rejects as unconfirmed for a lost reply or one that does not account for exactly the requested People', async () => {
@@ -53,7 +71,10 @@ describe('setPersonnelField', () => {
 		];
 		for (const reply of replies) {
 			vi.stubGlobal('fetch', vi.fn(reply));
-			await expect(setPersonnelField('org-1', ['a', 'b'], { field: 'mos', value: '68W' })).rejects.toThrow(UNCONFIRMED);
+			expect(await rejection(setPersonnelField('org-1', ['a', 'b'], { field: 'mos', value: '68W' }))).toEqual([
+				'unconfirmed',
+				UNCONFIRMED
+			]);
 		}
 	});
 });

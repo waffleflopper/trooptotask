@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -9,6 +11,7 @@
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
+	import { settleAction } from '$lib/utils/settleAction';
 
 	let { data, form } = $props();
 
@@ -18,6 +21,30 @@
 	let checkingStatus = $state(false);
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
+	let requestError = $state('');
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
+
+	/** Settles a form here: a thrown action shows in place and keeps the typed passwords, instead of the error page. */
+	function submitWith(setBusy: (busy: boolean) => void): SubmitFunction {
+		return ({ submitter }) => {
+			setBusy(true);
+			requestError = '';
+			return (outcome) =>
+				settleAction(outcome, {
+					isCurrent: () => active,
+					settled: (error) => {
+						requestError = error ?? '';
+						setBusy(false);
+					},
+					focus: () => [submitter]
+				});
+		};
+	}
+	const submitSetup = submitWith((busy) => (loading = busy));
+	const submitStatusCheck = submitWith((busy) => (checkingStatus = busy));
 
 	const requirements = $derived(passwordRequirements(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
@@ -119,23 +146,17 @@
 				<p>A fresh setup link cannot finish while this attempt needs platform support.</p>
 			</AuthNotice>
 		{:else if statusCheckAvailable}
-			{#if form?.error}<AuthNotice tone="error" message={form.error} />{/if}
+			{#if requestError}
+				<AuthNotice tone="error" message={requestError} />
+			{:else if form?.error}
+				<AuthNotice tone="error" message={form.error} />
+			{/if}
 			<AuthNotice
 				tone="info"
 				title="Setup status"
 				message={form?.message ?? 'Check whether your earlier setup finished before trying another password.'}
 			/>
-			<form
-				method="POST"
-				action="?/recover"
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						await update({ navigate: false });
-					};
-				}}
-			>
+			<form method="POST" action="?/recover" use:enhance={submitSetup}>
 				<AuthButton {loading} loadingLabel="Checking setup...">Check setup status</AuthButton>
 			</form>
 		{:else if setupFinished}
@@ -155,25 +176,16 @@
 				<p><a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
 			</AuthNotice>
 		{:else}
-			{#if form?.error}
+			{#if requestError}
+				<AuthNotice tone="error" message={requestError} />
+			{:else if form?.error}
 				<AuthNotice tone="error" message={form.error} />
 			{/if}
 			{#if recoveryState === 'retry-password' && form?.message}
 				<AuthNotice tone="info" message={form.message} />
 			{/if}
 
-			<form
-				method="POST"
-				action="?/complete"
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						await update({ navigate: false });
-					};
-				}}
-				class="flex flex-col gap-5"
-			>
+			<form method="POST" action="?/complete" use:enhance={submitSetup} class="flex flex-col gap-5">
 				<AuthField label="Email Address" id="email" name="email" type="email" value={data.email} disabled />
 
 				<AuthField
@@ -232,17 +244,7 @@
 					<p class="text-sm leading-relaxed text-muted-foreground">
 						Did an earlier setup stop without a result? Check its status before trying another password.
 					</p>
-					<form
-						method="POST"
-						action="?/recover"
-						use:enhance={() => {
-							checkingStatus = true;
-							return async ({ update }) => {
-								checkingStatus = false;
-								await update({ navigate: false });
-							};
-						}}
-					>
+					<form method="POST" action="?/recover" use:enhance={submitStatusCheck}>
 						<Button type="submit" variant="outline" disabled={loading || checkingStatus} class="h-11 w-full">
 							{#if checkingStatus}<Spinner />Checking setup...{:else}Check setup status{/if}
 						</Button>

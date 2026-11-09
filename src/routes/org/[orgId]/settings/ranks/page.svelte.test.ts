@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RanksSettingsData, SettingsRankCatalogRow, SettingsRankServicePackOption } from '../settingsSectionTypes';
 import Page from './+page.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { endOrganizationLifetime } from '$lib/stores/core/lifetime';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
-type ActionResult = { type: 'success' | 'failure'; status?: number; data?: Record<string, unknown> };
+type ActionResult = { type: 'success' | 'failure' | 'error'; status?: number; data?: Record<string, unknown> };
 type HeldSubmission = (opts: {
 	result: ActionResult;
 	update: (options?: { reset?: boolean }) => Promise<void>;
@@ -230,6 +230,24 @@ function renderRankPage(ranks: SettingsRankCatalogRow[], canManageCatalog = true
 				update: async () => {
 					await show(next, { success: true });
 					(document.activeElement as HTMLElement | null)?.blur();
+				}
+			});
+			await vi.runAllTimersAsync();
+		},
+		// A thrown action: SvelteKit's update() would apply the error page, replacing the editor.
+		throws: async () => {
+			const update = vi.fn(async () => {
+				document.body.innerHTML = '<h1>500</h1>';
+			});
+			await heldSubmissions[heldSubmissions.length - 1]({ result: { type: 'error', status: 500 }, update });
+			await vi.runAllTimersAsync();
+			return update;
+		},
+		saveThenRefreshFails: async (data: Record<string, unknown> = {}) => {
+			await heldSubmissions[heldSubmissions.length - 1]({
+				result: { type: 'success', data },
+				update: async () => {
+					throw new Error('refresh failed');
 				}
 			});
 			await vi.runAllTimersAsync();
@@ -631,6 +649,35 @@ describe('custom rank names', () => {
 		expect(tieBreak).toHaveAttribute('aria-invalid', 'true');
 		expect(tieBreak).toHaveAccessibleDescription(expect.stringContaining('Tie-break order must be a whole number.'));
 		expect(screen.getByLabelText('Label')).toHaveValue('Detachment Lead');
+	});
+
+	it('keeps the typed values and shows an error in place when the save action throws', async () => {
+		const page = renderRankPage([rankEntry()]);
+
+		await openNames();
+		await click(nameButton('DET-SGT'));
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Detachment Lead' } });
+		submitWith(screen.getByRole('button', { name: 'Save DET-SGT' }));
+		const update = await page.throws();
+
+		expect(update).not.toHaveBeenCalled();
+		expect(screen.getByLabelText('Label')).toHaveValue('Detachment Lead');
+		expect(screen.getByRole('alert')).toBeVisible();
+		expect(screen.getByRole('button', { name: 'Save DET-SGT' })).toBeEnabled();
+	});
+
+	it('keeps the draft and shows the reload error when a saved rank cannot refresh the page', async () => {
+		const page = renderRankPage([rankEntry()]);
+
+		await openNames();
+		await click(nameButton('DET-SGT'));
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Detachment Lead' } });
+		submitWith(screen.getByRole('button', { name: 'Save DET-SGT' }));
+		await page.saveThenRefreshFails({ code: 'DET-SGT' });
+
+		expect(screen.getByLabelText('Label')).toHaveValue('Detachment Lead');
+		expect(screen.getByRole('alert')).toBeVisible();
+		expect(toastStore.success).not.toHaveBeenCalled();
 	});
 
 	it('removes an unused custom rank after a destructive confirmation', async () => {

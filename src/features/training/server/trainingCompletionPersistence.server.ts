@@ -240,6 +240,7 @@ export function createSupabaseTrainingCompletionPersistence(
 				.insert(trainingCompletionCreateRow(input, orgId))
 				.select(TRAINING_COMPLETION_FIELDS)
 				.single<TrainingCompletionRow>();
+			if (error?.code === '23505') return null;
 			if (error) throw new Error(error.message);
 			return toTrainingCompletion(data);
 		},

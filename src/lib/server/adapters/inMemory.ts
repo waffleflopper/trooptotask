@@ -722,6 +722,17 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {
+			if (
+				table === 'personnel_trainings' &&
+				getRows(table).some(
+					(row) =>
+						row.organization_id === orgId &&
+						row.personnel_id === data.personnel_id &&
+						row.training_type_id === data.training_type_id
+				)
+			) {
+				throw Object.assign(new Error('Training completion pair already exists'), { code: '23505' });
+			}
 			const row: Row = { id: crypto.randomUUID(), ...data, [getOrgColumn(table)]: orgId };
 			getRows(table).push(row);
 			return row as T;

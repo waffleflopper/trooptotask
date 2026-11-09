@@ -128,8 +128,13 @@
 	async function deleteStatus(status: StatusType) {
 		const stillHere = stillHereFor(statusTypesStore.orgId);
 		try {
-			if (!(await statusTypesStore.remove(status.id))) {
-				if (stillHere()) toastStore.error('Failed to delete status type');
+			const result = await statusTypesStore.remove(status.id);
+			if (result !== 'deleted') {
+				if (!stillHere()) return;
+				if (result === 'unconfirmed') {
+					confirmDelete = null;
+					toastStore.unconfirmed("We couldn't confirm the status type was deleted. Reload to see whether it was.");
+				} else toastStore.error('Failed to delete status type');
 				return;
 			}
 		} catch (error) {

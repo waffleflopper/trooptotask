@@ -99,6 +99,24 @@ withheld, and revokes only that probe session;
 `approval_basis` and `setup_grant_live`, which reports whether the derived invitation or platform grant can still mint
 and admit setup credentials.
 
+`network arm-error` does not accept `account-page/profile/save`. To make one Profile save throw, run this with
+`tool evaluate_script` after the last navigation. Drop the final semicolon first, because `evaluate_script` wraps the function in parentheses. It answers the next `POST .../account/profile` with the result
+SvelteKit sends for an action that threw, then removes itself:
+
+```js
+() => {
+	const real = window.fetch;
+	window.fetch = (input, init) => {
+		if (init?.method === 'POST' && new URL(String(input), location.href).pathname.endsWith('/account/profile')) {
+			window.fetch = real;
+			const body = '{"type":"error","error":{"message":"Internal Error"}}';
+			return Promise.resolve(new Response(body, { status: 500, headers: { 'Content-Type': 'application/json' } }));
+		}
+		return real(input, init);
+	};
+};
+```
+
 ## Driving it with verify:app
 
 Preconditions: doctor passes on the owned worker. `$V fixture` lists the dedicated Organization A members, with their
@@ -345,6 +363,11 @@ The private-credential controls fill visible fields without printing values:
       `emulate` refuse network conditions (`Network throttling is not supported when network blocking … is configured`),
       and no `network` or `server-source` family fails `/api/auth/update-password`; `account-page/profile/save` and
       `account-page/security/updateEmail` hold the other two.
+    - Thrown save keeps the draft. On Profile choose Edit and change First name, then run the thrown-action snippet
+      from [Helper controls](#helper-controls) with `tool evaluate_script` and Save. The URL stays on Profile with no
+      error page, Rank, First name and Last name keep the draft, focus is on Rank, and an in-place `Profile not saved`
+      alert reads `The request didn't complete. Try again.` Save again: the editor closes with `Profile updated.`, and
+      the new name survives a reload. Capture both at 1280 and 390 with `scrollWidth` equal to `innerWidth`.
     - Busy state. Run `$V busy arm PAGE` before one submit in each form family: Sign In, Forgot Password, Confirm
       Continue, Set Up Account, and Profile or Sign-in & security. Press the submit, then save `$V busy state PAGE` and
       `$V busy restore PAGE`. The observer records every distinct submit label, `disabled` and `aria-busy` state, so a

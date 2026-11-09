@@ -1,4 +1,4 @@
-import { buildRequestError, defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
+import { buildRequestError, classifyWrite, defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import { z } from 'zod';
 import { AVAILABILITY_BATCH_LIMIT, type AvailabilityEntry } from '$features/calendar/contracts';
@@ -35,18 +35,18 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 		},
 
 		async remove(id) {
+			let res: Response;
 			try {
-				const res = await fetch(url(), {
+				res = await fetch(url(), {
 					method: 'DELETE',
 					headers,
 					body: JSON.stringify({ id })
 				});
-
-				if (!res.ok) return 'error';
-				return 'deleted';
 			} catch {
-				return 'error';
+				return 'unconfirmed';
 			}
+			const outcome = classifyWrite(res);
+			return outcome === 'saved' ? 'deleted' : outcome;
 		},
 
 		/**

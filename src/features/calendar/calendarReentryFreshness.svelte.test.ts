@@ -436,7 +436,7 @@ describe('Calendar re-entry freshness', () => {
 			const snapshot = heldSnapshot();
 			const reentry = enter('org-1', workspace({ ...snapshot.rows, types: [chargeOfQuarters, runnerTeam] }));
 
-			expect(await dailyAssignmentsStore.removeType('rt')).toBe(true);
+			expect(await dailyAssignmentsStore.removeType('rt')).toBe('deleted');
 			snapshot.release({ ...empty, assignments: [duty('x1'), runnerDuty('r1', '2026-10-12')] });
 			await reentry;
 
@@ -449,7 +449,7 @@ describe('Calendar re-entry freshness', () => {
 			const snapshot = heldSnapshot();
 			const reentry = enter('org-1', workspace({ ...snapshot.rows, types: [chargeOfQuarters, runnerTeam] }));
 
-			expect(await dailyAssignmentsStore.removeType('rt')).toBe(true);
+			expect(await dailyAssignmentsStore.removeType('rt')).toBe('deleted');
 			snapshot.release({
 				...empty,
 				assignments: [duty('x1'), runnerDuty('r1', '2026-10-12'), runnerDuty('added-by-b', '2026-10-20')]

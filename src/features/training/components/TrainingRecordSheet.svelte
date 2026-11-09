@@ -40,7 +40,7 @@
 		onStep: (direction: -1 | 1) => void;
 		onSave: (data: TrainingRecordSave) => Promise<void>;
 		onSaveBatch: (records: BatchRecord[]) => Promise<void>;
-		onRemove: (id: string, isCurrent?: () => boolean) => Promise<void>;
+		onRemove: (id: string, isCurrent?: () => boolean) => Promise<boolean>;
 		onToggleExempt: (typeId: string, exempt: boolean) => Promise<void>;
 		onClose: () => void;
 	}
@@ -80,8 +80,8 @@
 	let titleElement = $state<HTMLElement | null>(null);
 	let bodyElement = $state<HTMLDivElement | null>(null);
 
-	// A renewal moves its row to Current as soon as the store takes it. The form stays where it is until the save
-	// settles, so a refused save leaves the draft and its error in place.
+	// A renewal or removal moves its row as soon as the store takes it. The form stays where it is until the write
+	// settles, so a refused or unconfirmed write leaves the draft in place.
 	let settling = $state.raw<PersonnelTraining[] | null>(null);
 	const sheet = $derived(
 		buildTrainingRecordSheet({ person, types: trainingTypes, records: settling ?? trainings, asOf })
@@ -241,21 +241,23 @@
 			confirmRemoveTypeId = null;
 			return;
 		}
-		let removed = false;
+		let removed: boolean | null = null;
 		await saving.run(async () => {
+			settling = trainings;
 			try {
-				await onRemove(record.id, () => sameSheet(personId));
-				removed = true;
+				removed = await onRemove(record.id, () => sameSheet(personId));
+				if (removed && typeId && sameSheet(personId)) collapse(typeId);
 			} catch (error) {
 				if (sameSheet(personId))
 					toast.error(error instanceof Error ? error.message : 'Could not remove training record. Try again.', {
 						duration: 6000
 					});
+			} finally {
+				settling = null;
 			}
 		});
-		if (!removed || !sameSheet(personId)) return;
+		if (removed === null || !sameSheet(personId)) return;
 		confirmRemoveTypeId = null;
-		if (typeId) collapse(typeId);
 	}
 
 	async function setExempt(item: RecordSheetItem, exempt: boolean, discarded = false) {

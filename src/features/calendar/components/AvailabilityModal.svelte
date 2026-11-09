@@ -3,7 +3,7 @@
 	import { onMount, untrack } from 'svelte';
 	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
 	import type { AvailabilityEditorRequest } from '$features/calendar/contexts/CalendarPageContext.svelte';
-	import type { AvailabilityOutcome } from '$features/calendar/availabilitySave';
+	import type { SaveOutcome } from '$lib/stores/core';
 	import { validateDateRange, type AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
 	import { parseDate } from '$lib/utils/dates';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -25,7 +25,7 @@
 		defaultStatusTypeId?: string;
 		existingEntries: AvailabilityEntry[];
 		saving: boolean;
-		onSave: (change: AvailabilityChange) => Promise<AvailabilityOutcome>;
+		onSave: (change: AvailabilityChange) => Promise<SaveOutcome>;
 		onClose: () => void;
 	}
 
@@ -89,7 +89,7 @@
 		mounted = false;
 	});
 
-	function settle(outcome: AvailabilityOutcome, closeWhenSaved: boolean) {
+	function settle(outcome: SaveOutcome, closeWhenSaved: boolean) {
 		if (outcome === 'saved') {
 			if (closeWhenSaved) onClose();
 			else resetForm();

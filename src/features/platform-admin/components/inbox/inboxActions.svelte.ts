@@ -2,6 +2,7 @@ import { applyAction } from '$app/forms';
 import type { SubmitFunction } from '$app/forms';
 import { redirectToSensitiveActionStepUp } from '$features/identity';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { settleAction } from '$lib/utils/settleAction';
 
 const SETUP_NOT_SENT = 'Approved, but the setup email could not be sent, so the person has not received a link.';
 const CONFIRMATIONS: Record<string, string> = {
@@ -24,7 +25,7 @@ export function createInboxActions(onSettled: (succeeded: boolean) => void) {
 	let run = 0;
 
 	function enhanceFor(name: string): SubmitFunction {
-		return ({ cancel }) => {
+		return ({ cancel, submitter }) => {
 			if (pending) {
 				cancel();
 				return;
@@ -40,29 +41,38 @@ export function createInboxActions(onSettled: (succeeded: boolean) => void) {
 					steppingUp = true;
 					return;
 				}
-				if (result.type === 'redirect') {
-					pending = null;
-					await applyAction(result);
-					return;
-				}
-				pending = null;
-				if (result.type === 'failure') {
-					const data = result.data as { error?: unknown; emailSent?: unknown; notificationSent?: unknown } | undefined;
-					const message = typeof data?.error === 'string' ? data.error : UNEXPECTED_ERROR;
-					// The email or notification already went out: this is not a failed send, and a retry would send twice.
-					if (data?.emailSent === true || data?.notificationSent === true) notice = message;
-					else error = message;
-				} else if (result.type === 'error') error = UNEXPECTED_ERROR;
-				else if (result.type === 'success') {
-					const delivery = (result.data as { setupDeliveryStatus?: unknown } | undefined)?.setupDeliveryStatus;
-					if (delivery === 'failed') notice = SETUP_NOT_SENT;
-					const done = result.data as { action?: unknown; message?: unknown } | undefined;
-					if (typeof done?.action === 'string') confirmation = CONFIRMATIONS[done.action] ?? null;
-					else if (typeof done?.message === 'string') confirmation = done.message;
-				}
-				// The re-read can close the item and unmount the inline notice, so the warning also stays on screen.
-				if (notice) toastStore.warning(notice, Number.POSITIVE_INFINITY);
-				onSettled(result.type === 'success');
+				await settleAction(
+					// The Inbox re-reads through onSettled, so only a redirect needs SvelteKit's own handling.
+					{ result, update: () => (result.type === 'redirect' ? applyAction(result) : Promise.resolve()) },
+					{
+						isCurrent: () => mine === run,
+						settled: (refreshError) => {
+							pending = null;
+							if (result.type === 'redirect') return;
+							if (result.type === 'failure') {
+								const data = result.data as
+									| { error?: unknown; emailSent?: unknown; notificationSent?: unknown }
+									| undefined;
+								const message = typeof data?.error === 'string' ? data.error : UNEXPECTED_ERROR;
+								// The email or notification already went out: this is not a failed send, and a retry would send twice.
+								if (data?.emailSent === true || data?.notificationSent === true) notice = message;
+								else error = message;
+							} else if (result.type === 'error' || refreshError) error = UNEXPECTED_ERROR;
+							else if (result.type === 'success') {
+								const delivery = (result.data as { setupDeliveryStatus?: unknown } | undefined)?.setupDeliveryStatus;
+								if (delivery === 'failed') notice = SETUP_NOT_SENT;
+								const done = result.data as { action?: unknown; message?: unknown } | undefined;
+								if (typeof done?.action === 'string') confirmation = CONFIRMATIONS[done.action] ?? null;
+								else if (typeof done?.message === 'string') confirmation = done.message;
+							}
+							// The re-read can close the item and unmount the inline notice, so the warning also stays on screen.
+							if (notice) toastStore.warning(notice, Number.POSITIVE_INFINITY);
+							onSettled(result.type === 'success');
+						},
+						// The re-read may remove the item and its button, in which case nothing takes focus.
+						focus: () => [submitter]
+					}
+				);
 			};
 		};
 	}

@@ -57,6 +57,10 @@
 		if (result === 'approval_required' && entry) {
 			return requestDeletion(id, description, isCurrent);
 		}
+		if (result === 'unconfirmed') {
+			toastStore.unconfirmed("We couldn't confirm the rating entry was deleted. Reload to see whether it was.");
+			return false;
+		}
 		toastStore.error('Failed to delete rating entry. Try again.');
 		return false;
 	}

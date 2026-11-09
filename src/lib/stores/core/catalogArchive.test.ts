@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { endOrganizationLifetime } from './lifetime';
+import { endOrganizationLifetime } from './lifetime.svelte';
 import { getCatalogUsage, putCatalogArchive } from './catalogArchive';
 
 afterEach(() => vi.unstubAllGlobals());

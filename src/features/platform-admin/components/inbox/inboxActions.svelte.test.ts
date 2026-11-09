@@ -83,4 +83,29 @@ describe('Inbox item commands', () => {
 		await submit(actions, { type: 'failure', data: { error: 'Nope.' } });
 		expect(actions.confirmation).toBeNull();
 	});
+
+	it('reports a request that threw as an error to reload from, and asks the Inbox to re-read', async () => {
+		const settled = vi.fn();
+		const actions = createInboxActions(settled);
+
+		await submit(actions, { type: 'error' });
+
+		expect(actions.error).toBeTruthy();
+		expect(actions.pending).toBeNull();
+		expect(settled).toHaveBeenCalledWith(false);
+	});
+
+	it('changes nothing for a reply that arrives after the item was left', async () => {
+		const settled = vi.fn();
+		const actions = createInboxActions(settled);
+		const after = actions.enhanceFor('approve')({ cancel: () => {} } as never) as unknown as (input: {
+			result: never;
+		}) => Promise<void>;
+
+		actions.dispose();
+		await after({ result: { type: 'error' } as never });
+
+		expect(actions.error).toBeNull();
+		expect(settled).not.toHaveBeenCalled();
+	});
 });

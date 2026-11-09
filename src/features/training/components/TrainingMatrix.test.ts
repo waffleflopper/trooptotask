@@ -7,6 +7,7 @@ import { toast } from 'svelte-sonner';
 import TrainingMatrix from './TrainingMatrix.svelte';
 import { buildGroupTree, type Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { StoreRequestError } from '$lib/stores/core';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -770,21 +771,38 @@ describe('TrainingMatrix recording popover', () => {
 		expect(document.activeElement).toBe(cell);
 	});
 
-	it('keeps the form open with the typed values when the save fails', async () => {
+	it('keeps the form open with the typed values and the server reason when the save is refused', async () => {
 		const user = userEvent.setup();
 		const { onRecord } = mountRecordable();
-		onRecord.mockRejectedValueOnce(new Error('Connection lost'));
+		onRecord.mockRejectedValueOnce(new StoreRequestError('Completion date is in the future.', 400, true));
 
 		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
 		const popover = await openPopover();
 		await fireEvent.input(dateInput(popover), { target: { value: '2026-10-20' } });
 		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
 
-		expect(await within(popover).findByText('Training record was not saved')).toBeTruthy();
-		expect(within(popover).getByText('Connection lost')).toBeTruthy();
+		expect((await within(popover).findByRole('alert')).textContent).toContain('Completion date is in the future.');
 		expect(dateInput(popover).value).toBe('2026-10-20');
 		await waitFor(() => expect(document.activeElement).toBe(within(popover).getByRole('button', { name: /^Save/ })));
 		expect(vi.mocked(toast.success)).not.toHaveBeenCalled();
+	});
+
+	it('keeps the typed values and lets the user save again when the reply is lost', async () => {
+		const user = userEvent.setup();
+		const { onRecord } = mountRecordable();
+		onRecord.mockRejectedValueOnce(new TypeError('fetch failed')).mockResolvedValueOnce(undefined);
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
+		const popover = await openPopover();
+		await fireEvent.input(dateInput(popover), { target: { value: '2026-10-20' } });
+		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
+
+		const alert = await within(popover).findByRole('alert');
+		expect(alert.textContent).not.toContain('fetch failed');
+		expect(dateInput(popover).value).toBe('2026-10-20');
+		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
+		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
+		expect(onRecord.mock.calls.map(([saved]) => saved.completionDate)).toEqual(['2026-10-20', '2026-10-20']);
 	});
 
 	it('leaves a later popover alone when an earlier save finishes after it was closed', async () => {

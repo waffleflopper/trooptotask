@@ -11,8 +11,9 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { isDateOnly } from '$lib/utils/dates';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
-	import type { PersonnelBulkField, PersonnelFieldBulkResult, PersonnelFieldChange } from '../../contracts';
+	import type { PersonnelBulkField, PersonnelFieldChange } from '../../contracts';
 	import type { Personnel } from '../../personnel.types';
+	import type { RosterFieldSaveResult } from '../../rosterFieldSave';
 	import {
 		PERSONNEL_BULK_FIELDS,
 		personnelBulkFieldLabel,
@@ -27,8 +28,8 @@
 		notEditable: number;
 		/** The Organization's active rank codes. */
 		rankCodes: readonly string[];
-		/** Saves the change for these People. Rejects with a message to show when nothing could be confirmed. */
-		onsave: (change: PersonnelFieldChange, ids: string[]) => Promise<PersonnelFieldBulkResult>;
+		/** Saves the change for these People and reports what each batch did. */
+		onsave: (change: PersonnelFieldChange, ids: string[]) => Promise<RosterFieldSaveResult>;
 		/** Everyone sent was updated. The caller reports it and closes the dialog. */
 		ondone: (summary: { field: PersonnelBulkField; updated: number; alreadySet: number }) => void;
 		onclose: () => void;
@@ -43,7 +44,7 @@
 	let field = $state<PersonnelBulkField>('rank');
 	let values = $state<Record<PersonnelBulkField, string>>({ rank: '', mos: '', clinicRole: '', ets: '' });
 	let failure = $state<string | null>(null);
-	let outcome = $state.raw<PersonnelFieldBulkResult | null>(null);
+	let outcome = $state.raw<RosterFieldSaveResult | null>(null);
 
 	const label = $derived(personnelBulkFieldLabel(field));
 	const value = $derived(values[field].trim());
@@ -52,11 +53,30 @@
 	const plan = $derived(planPersonnelFieldChange(people, change));
 	const sent = $derived(plan.changing.map(({ person }) => person.id));
 
-	const outcomeLabel = (id: string) => {
-		if (outcome?.updatedIds.includes(id)) return { text: 'Updated', variant: 'success' } as const;
-		if (outcome?.refusedIds.includes(id)) return { text: 'No access', variant: 'danger' } as const;
-		return { text: 'No longer available', variant: 'warning' } as const;
-	};
+	type PersonOutcome = 'updated' | 'refused' | 'unavailable' | 'not-saved' | 'unconfirmed';
+	const OUTCOME_BADGES = {
+		updated: { text: 'Updated', variant: 'success' },
+		refused: { text: 'No access', variant: 'danger' },
+		unavailable: { text: 'No longer available', variant: 'warning' },
+		'not-saved': { text: 'Not saved', variant: 'danger' },
+		unconfirmed: { text: 'Not confirmed', variant: 'warning' }
+	} as const satisfies Record<PersonOutcome, { text: string; variant: 'success' | 'danger' | 'warning' }>;
+
+	function personOutcomes({ answered, interrupted }: RosterFieldSaveResult): ReadonlyMap<string, PersonOutcome> {
+		const each = (ids: readonly string[], value: PersonOutcome) => ids.map((id) => [id, value] as const);
+		return new Map([
+			...each(answered.updatedIds, 'updated'),
+			...each(answered.refusedIds, 'refused'),
+			...each(answered.unavailableIds, 'unavailable'),
+			...(interrupted
+				? [...each(interrupted.failedIds, interrupted.outcome), ...each(interrupted.unsentIds, 'not-saved')]
+				: [])
+		]);
+	}
+
+	const outcomes = $derived<ReadonlyMap<string, PersonOutcome>>(outcome ? personOutcomes(outcome) : new Map());
+	const updatedCount = $derived(outcome?.answered.updatedIds.length ?? 0);
+	const unconfirmed = $derived(outcome?.interrupted?.outcome === 'unconfirmed');
 
 	const saving = new PendingSave();
 	const save = () =>
@@ -66,8 +86,15 @@
 			const saved = plan;
 			try {
 				const result = await onsave(change, sent);
-				if (result.updatedIds.length === sent.length) {
-					ondone({ field: change.field, updated: result.updatedIds.length, alreadySet: saved.alreadySet });
+				const { answered, interrupted } = result;
+				if (!interrupted && answered.updatedIds.length === sent.length) {
+					ondone({ field: change.field, updated: answered.updatedIds.length, alreadySet: saved.alreadySet });
+					return;
+				}
+				const nothingAnswered =
+					answered.updatedIds.length + answered.refusedIds.length + answered.unavailableIds.length === 0;
+				if (interrupted?.outcome === 'not-saved' && nothingAnswered) {
+					failure = interrupted.message;
 					return;
 				}
 				outcome = result;
@@ -155,13 +182,22 @@
 				{/if}
 			{:else if outcome}
 				<p class="text-sm" role="status">
-					<strong class="font-semibold">{count(outcome.updatedIds.length)}</strong> updated. {count(
-						sent.length - outcome.updatedIds.length
-					)} not.
+					<strong class="font-semibold">{count(updatedCount)}</strong> updated. {count(sent.length - updatedCount)} not.
 				</p>
+				{#if unconfirmed}
+					<Alert.Root>
+						<Alert.Description>
+							Some changes could not be confirmed. Reload to see what saved before trying them again.
+						</Alert.Description>
+					</Alert.Root>
+				{:else if outcome.interrupted}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{outcome.interrupted.message}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				<ul class="max-h-72 divide-y overflow-y-auto rounded-md border text-sm" aria-label="Results">
 					{#each plan.changing as { person } (person.id)}
-						{@const status = outcomeLabel(person.id)}
+						{@const status = OUTCOME_BADGES[outcomes.get(person.id) ?? 'unavailable']}
 						<li class="flex items-center justify-between gap-3 px-3 py-2">
 							<span class="min-w-0 font-medium">{nameOf(person)}</span>
 							<Badge variant={status.variant}>{status.text}</Badge>
@@ -181,6 +217,9 @@
 					Save {plan.changing.length === 0 ? '' : count(plan.changing.length)}
 				</Button>
 			{:else}
+				{#if unconfirmed}
+					<Button variant="outline" onclick={() => location.reload()}>Reload</Button>
+				{/if}
 				<Button onclick={onclose}>Close</Button>
 			{/if}
 		</AppDialog.Footer>

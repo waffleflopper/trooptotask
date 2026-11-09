@@ -217,7 +217,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 	async function removeImpl(id: string): Promise<DeleteResult> {
 		const displayed = getDisplayItems();
 		const original = displayed.find((item) => item.id === id);
-		if (!original) return 'error';
+		if (!original) return 'not-saved';
 
 		const mutationId = crypto.randomUUID();
 		log.push({ type: 'remove', mutationId, targetId: id });
@@ -231,7 +231,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 		}
 		if (result === 'deleted') {
 			commit({ deleted: [id] });
-		} else if (result === 'error') {
+		} else if (result !== 'approval_required') {
 			config.onError?.('remove', undefined);
 		}
 		log.resolve(mutationId);

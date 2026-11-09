@@ -14,7 +14,7 @@
 	import { dayWindow, fromDayNumber, toDayNumber, type DayNumber } from '$lib/utils/dayNumber';
 	import { layoutBars, type LabelPolicy } from '$lib/components/patterns/calendar-bars';
 	import type { CalendarBar } from '$features/calendar/utils/calendarBars';
-	import { gestureRange } from '$features/calendar/utils/calendarGesture';
+	import { armedStart, gestureRange } from '$features/calendar/utils/calendarGesture';
 	import { CalendarGesture, type GestureCommit } from './calendar-bars/gesture.svelte';
 	import { buildCalendarDays, buildDutyMarkers } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
@@ -285,6 +285,12 @@
 	const onboardingIds = $derived(new Set(activeOnboardingPersonnelIds));
 
 	const gesture = new CalendarGesture();
+	// A start day is a position in this window, so changing the window or leaving drops it.
+	const windowKey = $derived(`${visibleDays.start}:${days.length}`);
+	$effect(() => {
+		void windowKey;
+		return () => gesture.cancel();
+	});
 	const dragEnabled = $derived(canEdit && !!onQuickAdd);
 
 	function dateKeyAt(day: number) {
@@ -349,6 +355,7 @@
 	function rowSelection(personId: string) {
 		const state = gesture.state;
 		if (state.kind === 'selecting') return state.personId === personId ? gestureRange(state) : null;
+		if (armedStart(state)?.personId === personId) return gestureRange(state);
 		if (quickAddSelection?.personId !== personId) return null;
 		return {
 			start: toDayNumber(quickAddSelection.startDate) - visibleDays.start,

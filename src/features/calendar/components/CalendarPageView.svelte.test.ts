@@ -256,6 +256,28 @@ describe('CalendarPageView', () => {
 			expect(quarterLegend.queryByText('Drag across days to add')).toBeNull();
 		});
 
+		it('teaches two taps instead of a drag on a touch screen', () => {
+			const realMatchMedia = window.matchMedia;
+			vi.stubGlobal('matchMedia', (query: string) =>
+				query.includes('pointer: coarse')
+					? ({
+							matches: true,
+							media: query,
+							addEventListener: () => {},
+							removeEventListener: () => {}
+						} as unknown as MediaQueryList)
+					: realMatchMedia.call(window, query)
+			);
+			try {
+				const legend = renderWithLegendData('admin');
+
+				expect(legend.getByText('Tap two days to add')).toBeTruthy();
+				expect(legend.queryByText('Drag across days to add')).toBeNull();
+			} finally {
+				vi.unstubAllGlobals();
+			}
+		});
+
 		it('offers drag-to-add only to people who can add availability', () => {
 			const legend = renderWithLegendData('member');
 

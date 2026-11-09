@@ -228,6 +228,7 @@
 				"src/lib/utils/addressWriter.ts",
 				"src/lib/utils/historyBack.test.ts",
 				"src/lib/utils/historyBack.ts",
+				"src/lib/utils/importChunkRequest.test.ts",
 				"src/lib/utils/importChunkRequest.ts",
 				"src/lib/utils/staysOnPage.test.ts",
 				"src/lib/utils/staysOnPage.ts",

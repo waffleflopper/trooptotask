@@ -78,6 +78,8 @@ describe('Tasking row facts', () => {
 		expect(back(4).tone).toBe('success');
 		expect(back(2).tone).toBe('plain');
 		expect(back(2).text).toMatch(/2\D+4/);
+		const nothingOut = facts({ eventRelation: 'closeout', equipment: equipment(0, 2, 0, 0) });
+		expect(equipmentFact(nothingOut).tone).toBe('muted');
 	});
 
 	it('names the Event and whether the Tasking prepares for it or closes it out', () => {

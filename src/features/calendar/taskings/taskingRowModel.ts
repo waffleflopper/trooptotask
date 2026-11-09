@@ -26,12 +26,16 @@ export function peopleFact({ picked, required }: Pick<TaskingRowFacts, 'picked' 
 	return { text: `${picked} / ${required}`, tone: picked >= required ? 'success' : 'warning' };
 }
 
+/** A closeout with nothing secured has nothing to return. */
+const nothingToTrack = ({ equipment, eventRelation }: Pick<TaskingRowFacts, 'equipment' | 'eventRelation'>) =>
+	equipment.total === 0 || (eventRelation === 'closeout' && equipment.securedQuantity === 0);
+
 /** Closeout work counts what came back; everything else counts what is ready. */
 export function equipmentFact({
 	equipment,
 	eventRelation
 }: Pick<TaskingRowFacts, 'equipment' | 'eventRelation'>): RowFact {
-	if (equipment.total === 0) return NONE;
+	if (nothingToTrack({ equipment, eventRelation })) return NONE;
 	if (eventRelation === 'closeout')
 		return {
 			text: `${equipment.returnedQuantity} of ${equipment.securedQuantity} returned`,
@@ -110,14 +114,13 @@ export function eventRowFacts(item: EventWorkItem, facts: TaskingRowFacts | unde
 	const { picked, required, equipment, eventRelation: relation } = facts;
 	const closeout = relation === 'closeout';
 	const equipmentReady = equipment.ready === equipment.total;
-	const equipmentPart =
-		equipment.total === 0
-			? null
-			: closeout
-				? `${equipment.returnedQuantity} of ${equipment.securedQuantity} returned`
-				: equipmentReady
-					? 'equipment ready'
-					: `equipment ${equipment.ready} of ${equipment.total} ready`;
+	const equipmentPart = nothingToTrack(facts)
+		? null
+		: closeout
+			? `${equipment.returnedQuantity} of ${equipment.securedQuantity} returned`
+			: equipmentReady
+				? 'equipment ready'
+				: `equipment ${equipment.ready} of ${equipment.total} ready`;
 	const parts = [required !== null && `${picked} of ${required} picked`, equipmentPart].filter(
 		(part) => typeof part === 'string'
 	);

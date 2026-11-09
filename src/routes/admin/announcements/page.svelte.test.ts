@@ -283,6 +283,18 @@ describe('banner form ownership', () => {
 		expect(toggle.getAttribute('aria-busy')).toBeNull();
 	});
 
+	it('keeps the draft and permits another save when the action refuses with a 4xx error', async () => {
+		await renderBanners();
+		await openBanner();
+		await (
+			await submit(screen.getByRole('button', { name: 'Publish to all users' }))
+		).finish({ type: 'error', status: 403, error: { status: 403, message: 'Forbidden' } });
+		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Unsent title');
+		expect(screen.getByRole('button', { name: 'Publish to all users' })).toHaveProperty('disabled', false);
+		expect(screen.queryByRole('button', { name: 'Reload banners' })).toBeNull();
+		expect(invalidateAll).not.toHaveBeenCalled();
+	});
+
 	it('retains the current create draft after failure and clears it only after its own successful retry', async () => {
 		const view = await renderBanners();
 		await openBanner();

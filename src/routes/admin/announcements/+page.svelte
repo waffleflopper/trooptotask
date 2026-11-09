@@ -196,6 +196,10 @@
 							return;
 						}
 						pending = null;
+						if (result.type === 'error' && !unconfirmed) {
+							if (isCurrentEditor()) actionError = 'Banner could not be saved.';
+							return;
+						}
 						if (unconfirmed || error) needsReload = true;
 						if (unconfirmed) {
 							if (isCurrentEditor())

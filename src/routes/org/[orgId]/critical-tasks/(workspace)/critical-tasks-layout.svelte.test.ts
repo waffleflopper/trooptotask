@@ -151,7 +151,9 @@ describe('critical tasks layout client hydration', () => {
 			const response = deferred<Response>();
 			const body = deferred<unknown>();
 			const json = vi.fn(() => body.promise);
-			const fetchMock = vi.fn(() => (stage === 'response' ? response.promise : Promise.resolve({ ok: true, json })));
+			const fetchMock = vi.fn(() =>
+				stage === 'response' ? response.promise : Promise.resolve({ ok: true, status: 200, json })
+			);
 			vi.stubGlobal('fetch', fetchMock);
 			const pendingImport = personnelIctCompletionsStore.importChunk([
 				{ personnelId: 'old-person', ictTaskId: 'old-task', completedAt: '2026-09-29' }

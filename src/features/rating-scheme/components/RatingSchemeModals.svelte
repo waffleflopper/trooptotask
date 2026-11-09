@@ -59,7 +59,7 @@
 		}
 		if (result === 'unconfirmed') {
 			toastStore.unconfirmed("We couldn't confirm the rating entry was deleted. Reload to see whether it was.");
-			return true;
+			return false;
 		}
 		toastStore.error('Failed to delete rating entry. Try again.');
 		return false;

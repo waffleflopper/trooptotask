@@ -216,12 +216,21 @@ export function createStoreWithInternals<T extends { id: string }>(
 		const sameLifetime = stillInOrganizationLifetime();
 		const isCurrent = () => version === organizationVersion;
 		// Start now, while adapter URLs still belong to this Organization, and capture synchronous throws too.
-		const settled = new Promise<R>((resolve) => resolve(work()))
-			.then((value) => {
-				if (sameLifetime() && isCurrent()) apply(value);
+		// The commit and the log entry's removal land in one step, so no render shows the saved row beside its draft.
+		const settled = new Promise<R>((resolve) => resolve(work())).then(
+			(value) => {
+				try {
+					if (sameLifetime() && isCurrent()) apply(value);
+				} finally {
+					log.resolve(mutationId);
+				}
 				return value;
-			})
-			.finally(() => log.resolve(mutationId));
+			},
+			(error: unknown) => {
+				log.resolve(mutationId);
+				throw error;
+			}
+		);
 		return withinOrganizationWrite(settled, { isCurrent, confirmed });
 	}
 

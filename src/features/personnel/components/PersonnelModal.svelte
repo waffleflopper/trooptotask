@@ -13,7 +13,7 @@
 		validatePersonnelDraft,
 		type PersonnelDraftErrors
 	} from '$features/personnel/personnelDraft';
-	import { StoreRequestError } from '$lib/stores/core/ports';
+	import { classifyWrite } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -113,7 +113,7 @@
 				who: who(payload),
 				message: personnelSaveErrorMessage(error, 'The person was not saved.'),
 				mode,
-				confirmed: error instanceof StoreRequestError && error.status < 500
+				confirmed: classifyWrite(error) === 'not-saved'
 			};
 			isSaving = false;
 			await tick();

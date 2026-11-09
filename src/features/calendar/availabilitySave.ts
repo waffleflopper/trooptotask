@@ -8,12 +8,9 @@ import {
 } from '$features/calendar/utils/availabilityMutation';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import { rangeCoversSpan } from '$features/calendar/utils/calendarRange';
-import { rejectedRequestMessage, StoreRequestError, withinOrganizationLifetime } from '$lib/stores/core';
+import { classifyWrite, rejectedRequestMessage, withinOrganizationLifetime, type SaveOutcome } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { availabilityUndoAction, AVAILABILITY_UNDO_MS, type AvailabilityUndoScope } from './availabilityUndo';
-
-/** `busy` means another change was still settling, so this one was not sent. `stale` means the Organization or access changed. */
-export type AvailabilityOutcome = 'saved' | 'not-saved' | 'unconfirmed' | 'stale' | 'busy';
 
 export interface AvailabilitySaveScope {
 	readonly orgId: string;
@@ -27,23 +24,23 @@ export interface AvailabilitySaveScope {
 export async function saveAvailabilityChange(
 	change: AvailabilityChange,
 	scope: AvailabilitySaveScope
-): Promise<Exclude<AvailabilityOutcome, 'busy'>> {
+): Promise<Exclude<SaveOutcome, 'busy'>> {
 	const entriesBeforeWrite = [...availabilityStore.items];
 	let written: WrittenAvailability = { confirmed: false };
-	let refusal: StoreRequestError | null = null;
+	let failure: unknown = null;
 	try {
 		written = await writeAvailability(change);
 	} catch (error) {
-		if (error instanceof StoreRequestError && error.status >= 400 && error.status < 500) refusal = error;
+		failure = error;
 	}
 	if (!scope.isCurrent()) return 'stale';
 	if (written.confirmed) {
 		announceSaved(change, scope, written.created);
 		return 'saved';
 	}
-	// A 4xx means the server refused the write and saved nothing, so there is nothing to reconcile.
-	if (refusal) {
-		toastStore.error(rejectedRequestMessage(refusal, 'Could not save status. Try again.'));
+	// A refused write saved nothing, so there is nothing to reconcile.
+	if (classifyWrite(failure) === 'not-saved') {
+		toastStore.error(rejectedRequestMessage(failure, 'Could not save status. Try again.'));
 		return 'not-saved';
 	}
 	let reread: AvailabilityEntry[] | null;

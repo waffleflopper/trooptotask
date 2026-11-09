@@ -6,9 +6,9 @@
 		loadAvailabilityModal,
 		saveAvailabilityChange,
 		type AvailabilityChange,
-		type AvailabilityEditorRequest,
-		type AvailabilityOutcome
+		type AvailabilityEditorRequest
 	} from '$features/calendar';
+	import type { SaveOutcome } from '$lib/stores/core';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { type QuickAddDialogProps } from '../../sections/dashboardSections';
 	import { actionablePersonnel } from '../../sections/dashboardAccess';
@@ -31,7 +31,7 @@
 		actionablePersonnel(model.inputs.personnel, access, POLICY_ACTION_CATALOG.calendar.manageAvailability)
 	);
 
-	async function save(change: AvailabilityChange): Promise<AvailabilityOutcome> {
+	async function save(change: AvailabilityChange): Promise<SaveOutcome> {
 		if (saving) return 'busy';
 		saving = true;
 		try {

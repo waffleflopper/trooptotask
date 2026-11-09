@@ -90,6 +90,9 @@ export const IDLE: GestureState = { kind: 'idle' };
 
 export const DRAG_THRESHOLD_PX = 4;
 
+/** Wider than the browser's own tap slop, so a touch it still delivers as a click is never taken for a pan. */
+export const TAP_SLOP_PX = 16;
+
 const NONE: GestureEffect = { type: 'none' };
 const CONSUME_CLICK: GestureEffect = { type: 'consume-click' };
 
@@ -176,8 +179,7 @@ export function gestureStep(state: GestureState, event: GestureEvent): GestureSt
 					effect: { type: 'capture' }
 				};
 			case 'tapping':
-				if (event.day === state.day && Math.abs(event.x - state.x) <= DRAG_THRESHOLD_PX) return stay(state);
-				return stay(resume(state.armed));
+				return stay(Math.abs(event.x - state.x) <= TAP_SLOP_PX ? state : resume(state.armed));
 			case 'selecting':
 				return stay(event.day === state.focus ? state : { ...state, focus: event.day });
 			case 'resizing': {

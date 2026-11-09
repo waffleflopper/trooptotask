@@ -161,16 +161,19 @@ describe('gestureStep', () => {
 			});
 		});
 
-		it('treats a touch that leaves its day as a pan and keeps nothing armed', () => {
+		it('treats a touch that slides past the tap slop as a pan and keeps nothing armed', () => {
 			expect(run([...tap(4, 100).slice(0, 1), move(5, 140), release])).toEqual({
 				state: IDLE,
 				effects: ['-', '-', '-']
 			});
+			expect(run([...tap(4, 100).slice(0, 1), move(4, 117)]).state).toEqual(IDLE);
 		});
 
-		it('treats a touch that slides past the drag threshold on one day as a pan', () => {
-			expect(run([...tap(4, 100).slice(0, 1), move(4, 106)]).state).toEqual(IDLE);
-			expect(run([...tap(4, 100).slice(0, 1), move(4, 103)]).state.kind).toBe('tapping');
+		it('keeps a jittery tap that crosses into the next day on the day it pressed', () => {
+			expect(run([...tap(4, 100).slice(0, 1), move(5, 112), release])).toEqual({
+				state: armedAt(4),
+				effects: ['-', '-', consumeClick]
+			});
 		});
 
 		it('keeps the armed start day through a pan and completes with a later tap', () => {

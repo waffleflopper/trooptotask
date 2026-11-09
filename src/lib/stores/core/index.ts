@@ -15,9 +15,11 @@ export type { SaveOutcome, WriteOutcome } from './saveOutcome';
 export {
 	endOrganizationLifetime,
 	organizationLifetime,
+	onWriteConfirmedAfterLifetime,
 	stillInOrganizationLifetime,
-	withinOrganizationLifetime
-} from './lifetime';
+	withinOrganizationLifetime,
+	withinOrganizationWrite
+} from './lifetime.svelte';
 
 export { createStore } from './createStore.svelte';
 export type {

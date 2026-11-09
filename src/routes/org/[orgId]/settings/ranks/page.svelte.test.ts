@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RanksSettingsData, SettingsRankCatalogRow, SettingsRankServicePackOption } from '../settingsSectionTypes';
 import Page from './+page.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { endOrganizationLifetime } from '$lib/stores/core/lifetime';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
 type ActionResult = { type: 'success' | 'failure'; status?: number; data?: Record<string, unknown> };
 type HeldSubmission = (opts: {

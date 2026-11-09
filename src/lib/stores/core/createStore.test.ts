@@ -5,7 +5,7 @@ import { createMockAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
 import { settles } from '$lib/test-support/settles';
-import { endOrganizationLifetime } from './lifetime';
+import { endOrganizationLifetime } from './lifetime.svelte';
 
 interface TestItem {
 	id: string;

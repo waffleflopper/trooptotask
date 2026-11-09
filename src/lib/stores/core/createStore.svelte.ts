@@ -7,7 +7,7 @@ import type { MutationEntry } from './replay';
 import { createRestAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
-import { organizationLifetime, withinOrganizationLifetime } from './lifetime';
+import { organizationLifetime, withinOrganizationLifetime } from './lifetime.svelte';
 import {
 	applyConfirmedChange,
 	confirmedSequence,

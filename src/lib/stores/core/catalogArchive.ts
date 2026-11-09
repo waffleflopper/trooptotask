@@ -3,7 +3,7 @@
  * Organization never sees a result, so neither call needs its own staleness check for that.
  */
 import { z } from 'zod';
-import { withinOrganizationLifetime } from './lifetime';
+import { withinOrganizationLifetime } from './lifetime.svelte';
 import { buildRequestError } from './ports';
 
 const archiveResult = z.object({ archivedAt: z.string().nullable() });

@@ -108,7 +108,6 @@ export interface OnboardingWorkflowPersistence {
 	listActivePacketPersonnelIds(): Promise<string[]>;
 	findPacketReference(id: string): Promise<OnboardingPacketReference | null>;
 	findStepReference(id: string): Promise<OnboardingProgressReference | null>;
-	listActivePacketIdsForPersonnel(personnelId: string): Promise<string[]>;
 	/** The Person's most recently started packet that was not cancelled. */
 	findLatestPacketForPersonnel(personnelId: string): Promise<PersonnelOnboarding | null>;
 	listIncompleteActiveStepIds(onboardingId: string): Promise<string[]>;

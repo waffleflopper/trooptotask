@@ -120,22 +120,6 @@ export function createSupabaseOnboardingWorkflowPersistence(
 			if (error) throw new Error(error.message);
 			return data ? toPacket(data) : null;
 		},
-		async listActivePacketIdsForPersonnel(personnelId) {
-			const result = await selectAllSupabaseRows<{ id: string }>(async (from, to) => {
-				const { data, error } = await client
-					.from('personnel_onboardings')
-					.select('id')
-					.eq('organization_id', orgId)
-					.eq('personnel_id', personnelId)
-					.eq('status', 'in_progress')
-					.order('id', { ascending: true })
-					.range(from, to)
-					.returns<{ id: string }[]>();
-				return { data, error };
-			});
-			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map((row) => row.id);
-		},
 		async listIncompleteActiveStepIds(onboardingId) {
 			const result = await selectAllSupabaseRows<{ id: string }>(async (from, to) => {
 				const { data, error } = await client

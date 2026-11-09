@@ -39,7 +39,7 @@
 		{rankCatalogUnavailable}
 		templates={ctx.templates}
 		hasTemplateSteps={ctx.hasTemplateSteps}
-		onSubmit={(personnelId, startedAt, templateId) => ctx.handleStartOnboarding(personnelId, startedAt, templateId)}
+		onSubmit={(personnelIds, startedAt, templateId) => ctx.handleStartOnboarding(personnelIds, startedAt, templateId)}
 		onAddPerson={ctx.handleAddPerson.bind(ctx)}
 		onClose={ctx.modals.closerFor(MODAL_IDS.startOnboarding)}
 	/>

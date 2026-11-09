@@ -48,15 +48,19 @@ export async function requireOnboardingViewPolicy(ports: OnboardingPolicyPorts):
 	await requireOnboardingPolicy(ports, ONBOARDING_POLICY_ACTIONS.viewWorkflows, UNSCOPED_ONBOARDING_RESOURCE);
 }
 
-export async function requireOnboardingManagePolicyForPersonnel(
+/** Every person must be one the requester may manage. One roster read serves the whole list. */
+export async function requireOnboardingManagePolicyForPersonnelList(
 	ports: OnboardingResourcePorts,
-	personnelId: string
+	personnelIds: readonly string[]
 ): Promise<void> {
-	await requireOnboardingPolicy(
-		ports,
-		ONBOARDING_POLICY_ACTIONS.manageWorkflows,
-		await policyResourceForOnboardingPersonnel(ports, personnelId)
-	);
+	const groupIds = await ports.personnelOnboardingRoster.findGroupIds(ports.auth, [...personnelIds]);
+	for (const personnelId of personnelIds) {
+		await requireOnboardingPolicy(
+			ports,
+			ONBOARDING_POLICY_ACTIONS.manageWorkflows,
+			policyResourceForGroup(groupIds.get(personnelId))
+		);
+	}
 }
 
 export async function requireOnboardingManagePolicyForOnboarding(

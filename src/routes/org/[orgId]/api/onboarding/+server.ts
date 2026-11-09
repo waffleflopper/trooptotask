@@ -7,7 +7,7 @@ import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
 import { dateOnlySchema, isUuid, issueMessage } from '$lib/utils/inputSchemas';
 import {
-	startOnboarding,
+	startOnboardingBatch,
 	cancelOnboarding,
 	reopenOnboarding,
 	completeOnboarding
@@ -18,14 +18,12 @@ export const _postConfig = {
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
 	policyResource: { kind: 'unscoped' },
-	fn: (ctx, input) => {
-		if (!isUuid(input.personnelId)) fail(400, 'Choose a Person to onboard');
-		return startOnboarding(ctx, {
-			personnelId: input.personnelId as string,
+	fn: (ctx, input) =>
+		startOnboardingBatch(ctx, {
+			personnelIds: input.personnelIds as string[],
 			templateId: input.templateId as string,
 			startedAt: input.startedAt as string | undefined
-		});
-	}
+		})
 } satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestOnboardingStartContext>>;
 
 export const _putConfig = {

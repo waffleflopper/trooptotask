@@ -8,7 +8,14 @@ import type {
 	OnboardingPacketCreationResult
 } from '../contracts';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle.server';
+import { RequestFailure } from '$lib/errors';
+import { START_ONBOARDING_BATCH_LIMIT } from '../contracts';
+import {
+	startOnboardingBatch,
+	cancelOnboarding,
+	reopenOnboarding,
+	completeOnboarding
+} from './onboardingLifecycle.server';
 
 const ONBOARDING_ID = '00000000-0000-4000-8000-000000000010';
 const PERSON_1 = '00000000-0000-4000-8000-000000000011';
@@ -184,7 +191,7 @@ function buildStartContext(overrides?: Parameters<typeof buildContext>[0], saved
 	return { ...ctx, create };
 }
 
-describe('startOnboarding', () => {
+describe('startOnboardingBatch', () => {
 	it('prepares ordered catalog snapshots and maps the authoritative saved packet and workflow defaults', async () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
@@ -198,8 +205,8 @@ describe('startOnboarding', () => {
 				organization_id: 'test-org'
 			}
 		]);
-		const result = await startOnboarding(ctx, {
-			personnelId: PERSON_1,
+		const result = await startOnboardingBatch(ctx, {
+			personnelIds: [PERSON_1],
 			templateId: TEMPLATE_1,
 			startedAt: '2026-03-14'
 		});
@@ -238,62 +245,68 @@ describe('startOnboarding', () => {
 				}
 			]
 		});
-		expect(result).toEqual({
-			id: 'saved-packet',
-			personnelId: PERSON_1,
-			templateId: TEMPLATE_1,
-			status: 'in_progress',
-			startedAt: '2026-03-15',
-			completedAt: null,
-			cancelledAt: null,
-			steps: [
-				{
-					id: 'saved-checkbox',
-					onboardingId: 'saved-packet',
-					templateStepId: TEMPLATE_STEP_1,
-					stepName: 'Get ID card',
-					stepType: 'checkbox',
-					trainingTypeId: null,
-					stages: null,
-					sortOrder: 0,
-					completed: false,
-					currentStage: null,
-					notes: [],
-					active: true,
-					progressChangedAt: '2026-09-01T12:00:00.000Z'
-				},
-				{
-					id: 'saved-paperwork',
-					onboardingId: 'saved-packet',
-					templateStepId: TEMPLATE_STEP_2,
-					stepName: 'CAC Request',
-					stepType: 'paperwork',
-					trainingTypeId: null,
-					stages: ['with soldier', 'submitted', 'approved'],
-					sortOrder: 1,
-					completed: false,
-					currentStage: 'with soldier',
-					notes: [],
-					active: true,
-					progressChangedAt: '2026-09-01T12:00:00.000Z'
-				},
-				{
-					id: 'saved-training',
-					onboardingId: 'saved-packet',
-					templateStepId: TEMPLATE_STEP_3,
-					stepName: 'CPR Training',
-					stepType: 'training',
-					trainingTypeId: CPR_TRAINING_TYPE,
-					stages: null,
-					sortOrder: 2,
-					completed: false,
-					currentStage: null,
-					notes: [],
-					active: true,
-					progressChangedAt: '2026-09-01T12:00:00.000Z'
+		expect(result.results).toEqual([
+			{
+				personnelId: PERSON_1,
+				outcome: 'started',
+				onboarding: {
+					id: 'saved-packet',
+					personnelId: PERSON_1,
+					templateId: TEMPLATE_1,
+					status: 'in_progress',
+					startedAt: '2026-03-15',
+					completedAt: null,
+					cancelledAt: null,
+					steps: [
+						{
+							id: 'saved-checkbox',
+							onboardingId: 'saved-packet',
+							templateStepId: TEMPLATE_STEP_1,
+							stepName: 'Get ID card',
+							stepType: 'checkbox',
+							trainingTypeId: null,
+							stages: null,
+							sortOrder: 0,
+							completed: false,
+							currentStage: null,
+							notes: [],
+							active: true,
+							progressChangedAt: '2026-09-01T12:00:00.000Z'
+						},
+						{
+							id: 'saved-paperwork',
+							onboardingId: 'saved-packet',
+							templateStepId: TEMPLATE_STEP_2,
+							stepName: 'CAC Request',
+							stepType: 'paperwork',
+							trainingTypeId: null,
+							stages: ['with soldier', 'submitted', 'approved'],
+							sortOrder: 1,
+							completed: false,
+							currentStage: 'with soldier',
+							notes: [],
+							active: true,
+							progressChangedAt: '2026-09-01T12:00:00.000Z'
+						},
+						{
+							id: 'saved-training',
+							onboardingId: 'saved-packet',
+							templateStepId: TEMPLATE_STEP_3,
+							stepName: 'CPR Training',
+							stepType: 'training',
+							trainingTypeId: CPR_TRAINING_TYPE,
+							stages: null,
+							sortOrder: 2,
+							completed: false,
+							currentStage: null,
+							notes: [],
+							active: true,
+							progressChangedAt: '2026-09-01T12:00:00.000Z'
+						}
+					]
 				}
-			]
-		});
+			}
+		]);
 	});
 
 	it('defaults omitted dates to the local calendar date before creation', async () => {
@@ -304,7 +317,7 @@ describe('startOnboarding', () => {
 		try {
 			const ctx = buildStartContext();
 			seedTemplateWithSteps(ctx);
-			await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
+			await startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 });
 			expect(ctx.create).toHaveBeenCalledWith('test-org', expect.objectContaining({ startedAt: '2026-05-04' }));
 		} finally {
 			vi.useRealTimers();
@@ -320,7 +333,7 @@ describe('startOnboarding', () => {
 			seedTemplateWithSteps(ctx);
 			const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 			await expect(
-				startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1, startedAt })
+				startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1, startedAt })
 			).rejects.toMatchObject({ status: 400 });
 			expect(training).not.toHaveBeenCalled();
 			expect(ctx.create).not.toHaveBeenCalled();
@@ -336,7 +349,7 @@ describe('startOnboarding', () => {
 			const reads = vi.spyOn(ctx.store, 'findMany');
 			const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 			await expect(
-				startOnboarding(ctx, { personnelId: PERSON_1, templateId: templateId as string })
+				startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: templateId as string })
 			).rejects.toMatchObject({ status: 400 });
 			expect(reads.mock.calls.filter(([table]) => table === 'onboarding_template_steps')).toEqual([]);
 			expect(training).not.toHaveBeenCalled();
@@ -345,13 +358,15 @@ describe('startOnboarding', () => {
 		}
 	);
 
-	it('retains the active-packet preflight conflict without a creation attempt', async () => {
+	it('reports someone with an active packet as already onboarding, without reading Training or creating', async () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
 		seedOnboarding(ctx);
-		await expect(startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).rejects.toMatchObject({
-			status: 409
+		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
+		await expect(startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 })).resolves.toEqual({
+			results: [{ personnelId: PERSON_1, outcome: 'already_onboarding' }]
 		});
+		expect(training).not.toHaveBeenCalled();
 		expect(ctx.create).not.toHaveBeenCalled();
 		expect(ctx.audit.events).toEqual([]);
 	});
@@ -360,8 +375,10 @@ describe('startOnboarding', () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
-		await expect(startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).resolves.toMatchObject({
-			id: 'saved-packet'
+		await expect(
+			startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 })
+		).resolves.toMatchObject({
+			results: [{ outcome: 'started', onboarding: { id: 'saved-packet' } }]
 		});
 		await expect(ctx.store.findOne('personnel_onboardings', 'test-org', { id: ONBOARDING_ID })).resolves.toMatchObject({
 			status: 'cancelled',
@@ -379,7 +396,7 @@ describe('startOnboarding', () => {
 					reject = fail;
 				})
 		);
-		const pending = startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
+		const pending = startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 });
 		const failure = expect(pending).rejects.toThrow('Training unavailable');
 		await vi.waitFor(() => expect(reject).toBeTypeOf('function'));
 		expect(ctx.create).not.toHaveBeenCalled();
@@ -400,9 +417,14 @@ describe('startOnboarding', () => {
 			{ id: 'done', personnel_id: PERSON_1, training_type_id: CPR_TRAINING_TYPE, organization_id: 'test-org' }
 		]);
 
-		const result = await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
+		const result = await startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 });
 
-		expect(result.steps.find((step) => step.id === 'saved-training')?.stepType).toBe('checkbox');
+		const [started] = result.results;
+		expect(started.outcome === 'started' && started.onboarding.steps.map((step) => step.stepType)).toEqual([
+			'checkbox',
+			'paperwork',
+			'checkbox'
+		]);
 	});
 
 	it('uses only the target Person and catalog Training IDs, including expired matching presence', async () => {
@@ -420,7 +442,7 @@ describe('startOnboarding', () => {
 			{ id: 'unrelated', personnel_id: OTHER_PERSON, training_type_id: CPR_TRAINING_TYPE, organization_id: 'test-org' }
 		]);
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
-		await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
+		await startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 });
 		expect(training).toHaveBeenCalledWith(ctx, [PERSON_1], [CPR_TRAINING_TYPE]);
 		expect(ctx.create).toHaveBeenCalledWith(
 			'test-org',
@@ -443,7 +465,7 @@ describe('startOnboarding', () => {
 			},
 			{ id: 'another-type', personnel_id: PERSON_1, training_type_id: OTHER_TRAINING_TYPE, organization_id: 'test-org' }
 		]);
-		await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
+		await startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 });
 		expect(ctx.create).toHaveBeenCalledWith(
 			'test-org',
 			expect.objectContaining({
@@ -461,8 +483,10 @@ describe('startOnboarding', () => {
 		]);
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 		await expect(
-			startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1, startedAt: '2026-03-15' })
-		).resolves.toMatchObject({ id: 'saved-packet', steps: [] });
+			startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1, startedAt: '2026-03-15' })
+		).resolves.toMatchObject({
+			results: [{ outcome: 'started', onboarding: { id: 'saved-packet', steps: [] } }]
+		});
 		expect(ctx.create).toHaveBeenCalledWith('test-org', {
 			personnelId: PERSON_1,
 			templateId: TEMPLATE_1,
@@ -492,13 +516,17 @@ describe('startOnboarding', () => {
 				throw new Error('Generic foreign-owner read must not run');
 			return originalRead(table, orgId, filters, options);
 		});
-		await expect(startOnboarding(allowed, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).resolves.toMatchObject({
-			id: 'saved-packet'
+		await expect(
+			startOnboardingBatch(allowed, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 })
+		).resolves.toMatchObject({
+			results: [{ outcome: 'started', onboarding: { id: 'saved-packet' } }]
 		});
 
 		const denied = buildStartContext(overrides);
 		denied.store.seed('personnel', [{ id: PERSON_2, group_id: GROUP_2, organization_id: 'test-org' }]);
-		await expect(startOnboarding(denied, { personnelId: PERSON_2, templateId: TEMPLATE_1 })).rejects.toMatchObject({
+		await expect(
+			startOnboardingBatch(denied, { personnelIds: [PERSON_2], templateId: TEMPLATE_1 })
+		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(denied.create).not.toHaveBeenCalled();
@@ -516,33 +544,196 @@ describe('startOnboarding', () => {
 			auth: { role: 'member', isPrivileged: false, capabilityMap: { ...operatorCapabilityMap, onboarding: 'view' } }
 		});
 		await expect(
-			startOnboarding(ctx, { personnelId: PERSON_1, templateId: null as unknown as string })
+			startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: null as unknown as string })
 		).rejects.toMatchObject({ status: 403 });
 		expect(ctx.create).not.toHaveBeenCalled();
 		expect(ctx.audit.events).toEqual([expect.objectContaining({ action: 'policy.denied' })]);
 	});
 
 	it.each([
-		new Error('Creation failed'),
-		Object.assign(new Error('Template unavailable'), { status: 404 }),
-		Object.assign(new Error('Concurrent active packet'), { status: 409 })
-	])('propagates $message without a success audit or generic fallback', async (error) => {
+		[new Error('Creation failed'), { outcome: 'failed', message: 'Onboarding could not be started for this person.' }],
+		[new RequestFailure(404, 'Template unavailable'), { outcome: 'failed', message: 'Template unavailable' }],
+		[
+			new RequestFailure(503, 'Database detail'),
+			{ outcome: 'failed', message: 'Onboarding could not be started for this person.' }
+		],
+		[new RequestFailure(409, 'Concurrent active packet'), { outcome: 'already_onboarding' }]
+	])('reports %s on the person without a success audit or generic fallback', async (error, outcome) => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
 		ctx.create.mockRejectedValue(error);
-		await expect(startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).rejects.toBe(error);
+		await expect(startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 })).resolves.toEqual({
+			results: [{ personnelId: PERSON_1, ...outcome }]
+		});
 		expect(ctx.store.insert).not.toHaveBeenCalled();
 		expect(ctx.store.insertMany).not.toHaveBeenCalled();
 		expect(ctx.store.delete).not.toHaveBeenCalled();
 		expect(ctx.audit.events).toEqual([]);
 	});
 
+	describe('for several people', () => {
+		const person = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+		function severalPeople(count: number, overrides?: Parameters<typeof buildContext>[0]) {
+			const ctx = buildStartContext(overrides);
+			seedTemplateWithSteps(ctx);
+			ctx.store.seed('training_types', [{ id: CPR_TRAINING_TYPE, name: 'CPR', organization_id: 'test-org' }]);
+			ctx.create.mockImplementation(async (_orgId, input) => ({
+				onboarding: { ...savedPacket.onboarding, id: `packet-${input.personnelId}`, personnel_id: input.personnelId },
+				steps: input.steps.map((step, index) => ({
+					...savedPacket.steps[index],
+					id: `${input.personnelId}-${index}`,
+					onboarding_id: `packet-${input.personnelId}`,
+					completed: step.completed
+				}))
+			}));
+			const ids = Array.from({ length: count }, (_, index) => person(100 + index));
+			ctx.store.seed(
+				'personnel',
+				ids.map((id) => ({ id, group_id: null, organization_id: 'test-org' }))
+			);
+			return { ctx, ids };
+		}
+
+		it('starts everyone in the order given, reading the template and Training once', async () => {
+			const { ctx, ids } = severalPeople(12);
+			const reads = vi.spyOn(ctx.store, 'findMany');
+			const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
+
+			const { results } = await startOnboardingBatch(ctx, { personnelIds: ids, templateId: TEMPLATE_1 });
+
+			expect(results.map((result) => [result.personnelId, result.outcome])).toEqual(ids.map((id) => [id, 'started']));
+			expect(ctx.create).toHaveBeenCalledTimes(12);
+			expect(training).toHaveBeenCalledTimes(1);
+			expect(training).toHaveBeenCalledWith(ctx, ids, [CPR_TRAINING_TYPE]);
+			expect(reads.mock.calls.filter(([table]) => table === 'onboarding_template_steps')).toHaveLength(1);
+		});
+
+		it('reports started, already onboarding and failed people together without undoing the started ones', async () => {
+			const { ctx, ids } = severalPeople(3);
+			const [alreadyOnboarding, failing, fine] = ids;
+			ctx.store.seed('personnel_onboardings', [
+				{
+					id: ONBOARDING_ID,
+					personnel_id: alreadyOnboarding,
+					template_id: TEMPLATE_1,
+					status: 'in_progress',
+					started_at: '2026-01-01T00:00:00Z',
+					organization_id: 'test-org'
+				}
+			]);
+			const create = ctx.create.getMockImplementation()!;
+			ctx.create.mockImplementation(async (orgId, input) => {
+				if (input.personnelId === failing) throw new Error('Database unavailable');
+				return create(orgId, input);
+			});
+			const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
+
+			const { results } = await startOnboardingBatch(ctx, { personnelIds: ids, templateId: TEMPLATE_1 });
+
+			expect(results).toEqual([
+				{ personnelId: alreadyOnboarding, outcome: 'already_onboarding' },
+				{ personnelId: failing, outcome: 'failed', message: 'Onboarding could not be started for this person.' },
+				{
+					personnelId: fine,
+					outcome: 'started',
+					onboarding: expect.objectContaining({ id: `packet-${fine}`, personnelId: fine })
+				}
+			]);
+			expect(training).toHaveBeenCalledTimes(1);
+			expect(training).toHaveBeenCalledWith(ctx, [failing, fine], [CPR_TRAINING_TYPE]);
+			expect(ctx.create).toHaveBeenCalledTimes(2);
+		});
+
+		it('marks each person Training steps from that person own records', async () => {
+			const { ctx, ids } = severalPeople(2);
+			ctx.store.seed('personnel_trainings', [
+				{ id: 'done', personnel_id: ids[1], training_type_id: CPR_TRAINING_TYPE, organization_id: 'test-org' }
+			]);
+
+			await startOnboardingBatch(ctx, { personnelIds: ids, templateId: TEMPLATE_1 });
+
+			const completedFor = (personnelId: string) =>
+				ctx.create.mock.calls
+					.find(([, input]) => input.personnelId === personnelId)![1]
+					.steps.find((step) => step.template_step_id === TEMPLATE_STEP_3)?.completed;
+			expect([completedFor(ids[0]), completedFor(ids[1])]).toEqual([false, true]);
+		});
+
+		it('starts a repeated id once and keeps the first position', async () => {
+			const { ctx, ids } = severalPeople(2);
+
+			const { results } = await startOnboardingBatch(ctx, {
+				personnelIds: [ids[1], ids[0], ids[1]],
+				templateId: TEMPLATE_1
+			});
+
+			expect(results.map((result) => result.personnelId)).toEqual([ids[1], ids[0]]);
+			expect(ctx.create).toHaveBeenCalledTimes(2);
+		});
+
+		it('refuses more people than one request may name before reading anything', async () => {
+			const { ctx, ids } = severalPeople(START_ONBOARDING_BATCH_LIMIT + 1);
+
+			await expect(startOnboardingBatch(ctx, { personnelIds: ids, templateId: TEMPLATE_1 })).rejects.toMatchObject({
+				status: 400
+			});
+			expect(ctx.create).not.toHaveBeenCalled();
+		});
+
+		it('accepts exactly the most people one request may name', async () => {
+			const { ctx, ids } = severalPeople(START_ONBOARDING_BATCH_LIMIT);
+
+			const { results } = await startOnboardingBatch(ctx, { personnelIds: ids, templateId: TEMPLATE_1 });
+
+			expect(results).toHaveLength(START_ONBOARDING_BATCH_LIMIT);
+		});
+
+		it.each([[[]], [[PERSON_1, 'not-an-id']], [undefined]])(
+			'refuses the people list %j with a 400',
+			async (personnelIds) => {
+				const { ctx } = severalPeople(1);
+
+				await expect(
+					startOnboardingBatch(ctx, { personnelIds: personnelIds as string[], templateId: TEMPLATE_1 })
+				).rejects.toMatchObject({ status: 400 });
+				expect(ctx.create).not.toHaveBeenCalled();
+			}
+		);
+
+		it('creates nothing for anyone when one person is outside what the requester may manage', async () => {
+			const { ctx } = severalPeople(0, {
+				auth: {
+					role: 'member' as const,
+					isPrivileged: false,
+					capabilityMap: operatorCapabilityMap,
+					scopeSet: groupCoverageForTest({ kind: 'groups' as const, groupIds: [GROUP_1] })
+				}
+			});
+			ctx.store.seed('personnel', [{ id: PERSON_2, group_id: GROUP_2, organization_id: 'test-org' }]);
+
+			await expect(
+				startOnboardingBatch(ctx, { personnelIds: [PERSON_1, PERSON_2], templateId: TEMPLATE_1 })
+			).rejects.toMatchObject({ status: 403 });
+			expect(ctx.create).not.toHaveBeenCalled();
+		});
+
+		it('answers 404 once, creating nothing, when the template no longer exists', async () => {
+			const { ctx, ids } = severalPeople(3);
+
+			await expect(startOnboardingBatch(ctx, { personnelIds: ids, templateId: OTHER_TEMPLATE })).rejects.toMatchObject({
+				status: 404
+			});
+			expect(ctx.create).not.toHaveBeenCalled();
+		});
+	});
+
 	it('fails explicitly when no creation provider is bound', async () => {
 		const ctx = buildStartContext();
 		await expect(
-			startOnboarding(
+			startOnboardingBatch(
 				{ ...ctx, onboardingPacketCreation: undefined },
-				{ personnelId: PERSON_1, templateId: TEMPLATE_1 }
+				{ personnelIds: [PERSON_1], templateId: TEMPLATE_1 }
 			)
 		).rejects.toThrow('Bind the owned Onboarding packet creation provider');
 		expect(ctx.audit.events).toEqual([]);

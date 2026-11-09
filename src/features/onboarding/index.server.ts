@@ -30,7 +30,7 @@ export {
 } from './server/onboardingRetention.server';
 
 export {
-	startOnboarding,
+	startOnboardingBatch,
 	cancelOnboarding,
 	reopenOnboarding,
 	completeOnboarding

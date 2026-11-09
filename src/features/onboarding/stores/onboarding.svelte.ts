@@ -6,8 +6,8 @@ import { buildRequestError, defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { formatToday } from '$lib/utils/dates';
 import type { PersonnelOnboarding, OnboardingStepNote, OnboardingStepProgress } from '../onboarding.types';
-import type { OnboardingNoteAppendResult } from '../contracts';
-import { startOnboardingPacket } from '../onboardingRequests';
+import type { OnboardingNoteAppendResult, StartOnboardingOutcome } from '../contracts';
+import { startOnboardingPackets } from '../onboardingRequests';
 
 interface OnboardingExtensions extends Record<string, unknown> {
 	readonly activeList: PersonnelOnboarding[];
@@ -17,11 +17,12 @@ interface OnboardingExtensions extends Record<string, unknown> {
 	load: (onboardings: PersonnelOnboarding[], orgId: string) => void;
 	getByPersonnelId: (personnelId: string) => PersonnelOnboarding | undefined;
 	getById: (id: string) => PersonnelOnboarding | undefined;
+	/** Starts the template for everyone in one request. Resolves each person's outcome, or null when the organization changed meanwhile. */
 	startOnboarding: (
-		personnelId: string,
+		personnelIds: string[],
 		startedAt: string,
-		templateId: string | null
-	) => Promise<PersonnelOnboarding | null>;
+		templateId: string
+	) => Promise<StartOnboardingOutcome[] | null>;
 	toggleCheckbox: (stepId: string, completed: boolean) => Promise<boolean>;
 	advanceStage: (stepId: string, stageName: string) => Promise<boolean>;
 	addNote: (stepId: string, text: string) => Promise<boolean>;
@@ -282,15 +283,16 @@ function enhance(
 		},
 
 		async startOnboarding(
-			personnelId: string,
+			personnelIds: string[],
 			startedAt: string,
-			templateId: string | null
-		): Promise<PersonnelOnboarding | null> {
+			templateId: string
+		): Promise<StartOnboardingOutcome[] | null> {
 			const version = organizationVersion;
-			const newOnboarding = await startOnboardingPacket(internals.orgId(), { personnelId, templateId, startedAt });
+			const { results } = await startOnboardingPackets(internals.orgId(), { personnelIds, templateId, startedAt });
 			if (version !== organizationVersion) return null;
-			internals.serverState.set([...internals.serverState.getSnapshot(), newOnboarding]);
-			return newOnboarding;
+			const started = results.flatMap((result) => (result.outcome === 'started' ? [result.onboarding] : []));
+			if (started.length > 0) internals.serverState.set([...internals.serverState.getSnapshot(), ...started]);
+			return results;
 		},
 
 		async toggleCheckbox(stepId: string, completed: boolean): Promise<boolean> {

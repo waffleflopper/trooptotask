@@ -61,10 +61,10 @@ export interface OnboardingWorkflowPorts extends OnboardingResourcePorts {
 export interface OnboardingTrainingPorts extends OnboardingResourcePorts {
 	readonly audit: PolicyAuditSink;
 	readonly disabledFeatures: readonly FeatureKey[];
-	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'listSteps'>;
+	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'findTemplate' | 'listSteps'>;
 	readonly onboardingWorkflow: Pick<
 		OnboardingWorkflowPersistence,
-		'findPacketReference' | 'findStepReference' | 'listActivePacketIdsForPersonnel'
+		'findPacketReference' | 'findStepReference' | 'listActivePacketPersonnelIds'
 	>;
 	readonly onboardingPacketCreation?: OnboardingPacketCreationPort;
 	readonly trainingOnboardingReferences: Pick<TrainingOnboardingReferencesPort, 'completedTypeIds'>;

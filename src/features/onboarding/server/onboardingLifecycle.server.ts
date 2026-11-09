@@ -1,116 +1,145 @@
 /**
  * Lifecycle transitions require the expected saved status at the parent mutation.
  */
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 import type { OnboardingTrainingPorts, OnboardingLifecyclePorts } from './onboardingPorts.server';
-import type { OnboardingLifecycleTransition } from '../contracts';
+import {
+	START_ONBOARDING_BATCH_LIMIT,
+	type OnboardingLifecycleTransition,
+	type StartOnboardingBatchResult,
+	type StartOnboardingOutcome
+} from '../contracts';
 import { formatToday, isDateOnly } from '$lib/utils/dates';
 import { isUuid } from '$lib/utils/inputSchemas';
 import {
 	requireOnboardingManagePolicyForOnboarding,
-	requireOnboardingManagePolicyForPersonnel
+	requireOnboardingManagePolicyForPersonnelList
 } from './onboardingPolicy.server';
+import type { PersonnelOnboarding } from '../onboarding.types';
 import { onboardingResponse } from './manualTrainingSteps.server';
 
-interface StartInput {
-	personnelId: string;
+interface StartBatchInput {
+	personnelIds: readonly string[];
 	templateId: string;
 	startedAt?: string;
 }
 
-interface StepResult {
-	id: string;
-	onboardingId: string;
-	stepName: string;
-	stepType: string;
-	trainingTypeId: string | null;
-	stages: string[] | null;
-	sortOrder: number;
-	completed: boolean;
-	currentStage: string | null;
-	notes: Array<{ text: string; timestamp: string }>;
-	templateStepId: string | null;
-	active: boolean;
+/** Each person's packet is saved in its own transaction, a few at a time. */
+const START_CONCURRENCY = 8;
+
+function startFailureMessage(error: unknown): string {
+	return error instanceof RequestFailure && error.status < 500
+		? error.message
+		: 'Onboarding could not be started for this person.';
 }
 
-interface StartResult {
-	id: string;
-	personnelId: string;
-	templateId: string;
-	status: string;
-	startedAt: string;
-	completedAt: string | null;
-	cancelledAt: string | null;
-	steps: StepResult[];
+function admitPersonnelIds(personnelIds: readonly unknown[]): string[] {
+	if (!Array.isArray(personnelIds) || personnelIds.length === 0) fail(400, 'Choose at least one Person to onboard');
+	if (!personnelIds.every(isUuid)) fail(400, 'Choose a Person to onboard');
+	const unique = [...new Set<string>(personnelIds)];
+	if (unique.length > START_ONBOARDING_BATCH_LIMIT) {
+		fail(400, `Start onboarding for at most ${START_ONBOARDING_BATCH_LIMIT} people at a time`);
+	}
+	return unique;
 }
 
-export async function startOnboarding(ctx: OnboardingTrainingPorts, input: StartInput): Promise<StartResult> {
-	await requireOnboardingManagePolicyForPersonnel(ctx, input.personnelId);
+/**
+ * Starts the same template for several people. The template is read once and Training is asked once.
+ * Anyone the requester may not manage rejects the whole request before anything is saved.
+ * After that, one person's failure is reported on that person and does not undo the others.
+ */
+export async function startOnboardingBatch(
+	ctx: OnboardingTrainingPorts,
+	input: StartBatchInput
+): Promise<StartOnboardingBatchResult> {
+	const personnelIds = admitPersonnelIds(input.personnelIds);
+	await requireOnboardingManagePolicyForPersonnelList(ctx, personnelIds);
 
 	if (!isUuid(input.templateId)) fail(400, 'A configured onboarding template is required');
+	const startedAt = resolveStartedAt(input.startedAt);
+	if (!ctx.onboardingPacketCreation) throw new Error('Bind the owned Onboarding packet creation provider');
+	if (!(await ctx.onboardingCatalog.findTemplate(input.templateId))) fail(404, 'Onboarding template not found');
+	const packetCreation = ctx.onboardingPacketCreation;
 
-	// Enforce one-active-per-soldier before preparing a new packet. The creation
-	// transaction also enforces the existing unique index for overlapping starts.
-	const existing = await ctx.onboardingWorkflow.listActivePacketIdsForPersonnel(input.personnelId);
-	if (existing.length > 0) {
-		fail(409, 'Soldier already has an active onboarding');
+	// The creation transaction also enforces one active packet per person, for starts that overlap this check.
+	const alreadyOnboarding = new Set(await ctx.onboardingWorkflow.listActivePacketPersonnelIds());
+	const toStart = personnelIds.filter((personnelId) => !alreadyOnboarding.has(personnelId));
+	const outcomes = new Map<string, StartOnboardingOutcome>(
+		personnelIds
+			.filter((personnelId) => alreadyOnboarding.has(personnelId))
+			.map((personnelId) => [personnelId, { personnelId, outcome: 'already_onboarding' }])
+	);
+
+	if (toStart.length > 0) {
+		const templateSteps = await ctx.onboardingCatalog.listSteps(input.templateId);
+		const trainingTypeIds = templateSteps
+			.filter((step) => step.stepType === 'training' && step.trainingTypeId)
+			.map((step) => step.trainingTypeId!);
+		const completedTrainingTypeIds =
+			trainingTypeIds.length > 0
+				? await ctx.trainingOnboardingReferences.completedTypeIds(ctx, toStart, trainingTypeIds)
+				: new Map<string, Set<string>>();
+
+		const start = async (personnelId: string): Promise<StartOnboardingOutcome> => {
+			const completed = completedTrainingTypeIds.get(personnelId) ?? new Set<string>();
+			try {
+				const { onboarding, steps } = await packetCreation.create(ctx.auth.orgId, {
+					personnelId,
+					templateId: input.templateId,
+					startedAt,
+					steps: templateSteps.map((step) => ({
+						template_step_id: step.id,
+						step_name: step.name,
+						step_type: step.stepType,
+						training_type_id: step.trainingTypeId,
+						stages: step.stages,
+						sort_order: step.sortOrder,
+						completed: step.stepType === 'training' && step.trainingTypeId ? completed.has(step.trainingTypeId) : false
+					}))
+				});
+				return {
+					personnelId,
+					outcome: 'started',
+					onboarding: onboardingResponse(ctx, {
+						id: onboarding.id,
+						personnelId: onboarding.personnel_id,
+						templateId: onboarding.template_id,
+						status: onboarding.status,
+						startedAt: onboarding.started_at,
+						completedAt: onboarding.completed_at,
+						cancelledAt: onboarding.cancelled_at,
+						steps: steps.map((step) => ({
+							id: step.id,
+							onboardingId: step.onboarding_id,
+							stepName: step.step_name,
+							stepType: step.step_type,
+							trainingTypeId: step.training_type_id,
+							stages: step.stages,
+							sortOrder: step.sort_order,
+							completed: step.completed,
+							currentStage: step.current_stage,
+							notes: step.notes,
+							templateStepId: step.template_step_id,
+							active: step.active,
+							progressChangedAt: step.progress_changed_at
+						}))
+						// Database CHECK constraints bound status and step_type to the contract's unions.
+					}) as PersonnelOnboarding
+				};
+			} catch (error) {
+				if (error instanceof RequestFailure && error.status === 409)
+					return { personnelId, outcome: 'already_onboarding' };
+				return { personnelId, outcome: 'failed', message: startFailureMessage(error) };
+			}
+		};
+
+		for (let from = 0; from < toStart.length; from += START_CONCURRENCY) {
+			const chunk = toStart.slice(from, from + START_CONCURRENCY);
+			for (const outcome of await Promise.all(chunk.map(start))) outcomes.set(outcome.personnelId, outcome);
+		}
 	}
 
-	const startedAt = resolveStartedAt(input.startedAt);
-	const templateSteps = await ctx.onboardingCatalog.listSteps(input.templateId);
-	const trainingTypeIds = templateSteps
-		.filter((step) => step.stepType === 'training' && step.trainingTypeId)
-		.map((step) => step.trainingTypeId!);
-	const completedTrainingTypeIds =
-		trainingTypeIds.length > 0
-			? ((await ctx.trainingOnboardingReferences.completedTypeIds(ctx, [input.personnelId], trainingTypeIds)).get(
-					input.personnelId
-				) ?? new Set<string>())
-			: new Set<string>();
-
-	if (!ctx.onboardingPacketCreation) throw new Error('Bind the owned Onboarding packet creation provider');
-	const { onboarding, steps } = await ctx.onboardingPacketCreation.create(ctx.auth.orgId, {
-		personnelId: input.personnelId,
-		templateId: input.templateId,
-		startedAt,
-		steps: templateSteps.map((step) => ({
-			template_step_id: step.id,
-			step_name: step.name,
-			step_type: step.stepType,
-			training_type_id: step.trainingTypeId,
-			stages: step.stages,
-			sort_order: step.sortOrder,
-			completed:
-				step.stepType === 'training' && step.trainingTypeId ? completedTrainingTypeIds.has(step.trainingTypeId) : false
-		}))
-	});
-
-	const startedSteps = steps.map((step) => ({
-		id: step.id,
-		onboardingId: step.onboarding_id,
-		stepName: step.step_name,
-		stepType: step.step_type,
-		trainingTypeId: step.training_type_id,
-		stages: step.stages,
-		sortOrder: step.sort_order,
-		completed: step.completed,
-		currentStage: step.current_stage,
-		notes: step.notes,
-		templateStepId: step.template_step_id,
-		active: step.active,
-		progressChangedAt: step.progress_changed_at
-	}));
-
-	return onboardingResponse(ctx, {
-		id: onboarding.id,
-		personnelId: onboarding.personnel_id,
-		templateId: onboarding.template_id,
-		status: onboarding.status,
-		startedAt: onboarding.started_at,
-		completedAt: onboarding.completed_at,
-		cancelledAt: onboarding.cancelled_at,
-		steps: startedSteps
-	});
+	return { results: personnelIds.map((personnelId) => outcomes.get(personnelId)!) };
 }
 
 function resolveStartedAt(startedAt?: string): string {

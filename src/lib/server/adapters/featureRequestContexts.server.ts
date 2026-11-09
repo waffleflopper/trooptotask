@@ -82,7 +82,7 @@ import type {
 	fetchOnboardingWorkspace,
 	removeInactiveStep,
 	resyncOnboarding,
-	startOnboarding
+	startOnboardingBatch
 } from '$features/onboarding/index.server';
 
 export function createRequestTrainingCatalogContext(request: AdmittedOrganizationRequest) {
@@ -299,7 +299,7 @@ export function createRequestOnboardingTemplateActivityContext(request: Admitted
 
 export function createRequestOnboardingStartContext(
 	request: AdmittedOrganizationRequest
-): Parameters<typeof startOnboarding>[0] {
+): Parameters<typeof startOnboardingBatch>[0] {
 	return {
 		auth: request.auth,
 		audit: request.audit,

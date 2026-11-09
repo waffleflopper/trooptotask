@@ -1,13 +1,18 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { rejectedRequestMessage } from '$lib/stores/core';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 	import type { OnboardingTemplate } from '../onboarding.types';
+	import { START_ONBOARDING_BATCH_LIMIT, type StartOnboardingOutcome } from '../contracts';
+	import { preselectedTemplateId } from '../startTemplateChoice';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as Alert from '$lib/components/ui/alert';
+	import { Badge } from '$lib/components/ui/badge';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
@@ -27,7 +32,12 @@
 		rankCatalogUnavailable: boolean;
 		templates: OnboardingTemplate[];
 		hasTemplateSteps?: boolean;
-		onSubmit: (personnelId: string, startedAt: string, templateId: string | null) => Promise<boolean>;
+		/** Resolves each person's outcome, or null when the request no longer applies. */
+		onSubmit: (
+			personnelIds: string[],
+			startedAt: string,
+			templateId: string
+		) => Promise<StartOnboardingOutcome[] | null>;
 		onAddPerson: (data: Omit<Personnel, 'id'>) => Promise<string | null>;
 		onClose: () => void;
 	}
@@ -47,44 +57,78 @@
 		onClose
 	}: Props = $props();
 
-	let selectedPersonnelId = $state('');
+	let selectedPersonnelIds = $state<string[]>([]);
 	let startDate = $state(formatDate(new Date()));
-	let selectedTemplateId = $state<string>('');
+	let chosenTemplateId = $state('');
 	let showAddPersonModal = $state(false);
 	let saving = $state(false);
 	let saveError = $state('');
+	let results = $state<StartOnboardingOutcome[]>([]);
 	let active = true;
 	onDestroy(() => {
 		active = false;
 	});
 
-	const availablePersonnel = $derived(
-		personnel
-			.filter((p) => !existingOnboardingPersonnelIds.includes(p.id))
-			.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+	const alreadyOnboarding = $derived(new SvelteSet(existingOnboardingPersonnelIds));
+	const sortedPersonnel = $derived(
+		[...personnel].sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
 	);
 	const personnelOptions = $derived(
-		availablePersonnel.map((p) => ({ value: p.id, label: `${p.rank} ${p.lastName}, ${p.firstName}` }))
+		sortedPersonnel.map((p) => ({
+			value: p.id,
+			label: `${p.rank} ${p.lastName}, ${p.firstName}`,
+			...(alreadyOnboarding.has(p.id) ? { disabled: true, description: 'Already onboarding' } : {})
+		}))
 	);
-	const selectedTemplateLabel = $derived(
-		templates.find((template) => template.id === (selectedTemplateId || templates[0]?.id))?.name ?? 'Select a template'
-	);
+	const labelById = $derived(new Map(personnelOptions.map((option) => [option.value, option.label])));
 
-	const canSave = $derived(!!selectedPersonnelId && !!startDate && hasTemplateSteps && !saving);
-	const showTemplateSelector = $derived(templates.length > 1);
+	const templateId = $derived(
+		templates.some((template) => template.id === chosenTemplateId) ? chosenTemplateId : preselectedTemplateId(templates)
+	);
+	const templateLabel = (template: OnboardingTemplate) =>
+		template.isDefault ? `${template.name} (default)` : template.name;
+	const selectedTemplateLabel = $derived.by(() => {
+		const template = templates.find((item) => item.id === templateId);
+		return template ? templateLabel(template) : 'Choose a template';
+	});
+
+	const selectionCount = $derived(selectedPersonnelIds.length);
+	const overLimit = $derived(selectionCount > START_ONBOARDING_BATCH_LIMIT);
+	const canSave = $derived(
+		selectionCount > 0 && !overLimit && !!startDate && !!templateId && hasTemplateSteps && !saving
+	);
+	const startLabel = $derived(
+		selectionCount === 0
+			? 'Start Onboarding'
+			: `Start onboarding for ${selectionCount} ${selectionCount === 1 ? 'person' : 'people'}`
+	);
+	const labelFor = (personnelId: string) => labelById.get(personnelId) ?? 'Unknown member';
 
 	async function handleSave() {
 		if (!canSave) return;
-		const personnelId = selectedPersonnelId;
-		const date = startDate;
-		const templateId = selectedTemplateId || templates[0]?.id || null;
+		const personnelIds = [...selectedPersonnelIds];
 		saving = true;
 		saveError = '';
 		try {
-			const saved = await onSubmit(personnelId, date, templateId);
+			const outcomes = await onSubmit(personnelIds, startDate, templateId);
 			if (!active) return;
-			if (saved) onClose();
-			else saveError = 'Could not start onboarding. Try again.';
+			if (!outcomes) {
+				saveError = 'Could not start onboarding. Try again.';
+				return;
+			}
+			const started = outcomes.filter((outcome) => outcome.outcome === 'started').length;
+			if (started === outcomes.length) {
+				toastStore.success(
+					started === 1
+						? `Started onboarding for ${labelFor(outcomes[0].personnelId)}`
+						: `Started onboarding for ${started} people`
+				);
+				onClose();
+				return;
+			}
+			results = outcomes;
+			const failed = new Set(outcomes.filter((outcome) => outcome.outcome === 'failed').map((o) => o.personnelId));
+			selectedPersonnelIds = selectedPersonnelIds.filter((personnelId) => failed.has(personnelId));
 		} catch (failure) {
 			if (active) saveError = rejectedRequestMessage(failure, 'Could not start onboarding. Try again.');
 		} finally {
@@ -94,9 +138,7 @@
 
 	async function handleAddPersonSubmit(data: Omit<Personnel, 'id'>) {
 		const newId = await onAddPerson(data);
-		if (newId) {
-			selectedPersonnelId = newId;
-		}
+		if (active && newId) selectedPersonnelIds = [...selectedPersonnelIds, newId];
 	}
 </script>
 
@@ -105,7 +147,7 @@
 		<AppDialog.Header>
 			<AppDialog.Title id="start-onboarding-title">Start Onboarding</AppDialog.Title>
 			<AppDialog.Description>
-				Choose the member, confirm the start date, and attach the template that should govern the checklist.
+				Choose the members, confirm the start date, and pick the template that should govern the checklist.
 			</AppDialog.Description>
 		</AppDialog.Header>
 
@@ -116,21 +158,19 @@
 						Assignment
 					</p>
 					<div class="grid gap-2 sm:grid-cols-2">
-						{#if showTemplateSelector}
-							<Field.Root>
-								<Field.Label for="template-select">Template</Field.Label>
-								<Select.Root type="single" bind:value={selectedTemplateId}>
-									<Select.Trigger disabled={saving} id="template-select" class="w-full"
-										>{selectedTemplateLabel}</Select.Trigger
-									>
-									<Select.Content>
-										{#each templates as t (t.id)}
-											<Select.Item value={t.id} label={t.name} />
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</Field.Root>
-						{/if}
+						<Field.Root>
+							<Field.Label for="template-select">Template</Field.Label>
+							<Select.Root type="single" value={templateId} onValueChange={(value) => (chosenTemplateId = value)}>
+								<Select.Trigger disabled={saving} id="template-select" class="w-full"
+									>{selectedTemplateLabel}</Select.Trigger
+								>
+								<Select.Content>
+									{#each templates as t (t.id)}
+										<Select.Item value={t.id} label={templateLabel(t)} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</Field.Root>
 
 						<Field.Root>
 							<Field.Label for="start-date">Start Date</Field.Label>
@@ -141,7 +181,7 @@
 
 				<Card.Root class="grid gap-3 p-3">
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-						<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Member</p>
+						<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Members</p>
 						{#if canAddPerson}
 							<Button
 								size="sm"
@@ -155,21 +195,65 @@
 						{/if}
 					</div>
 
-					<Combobox.Root items={personnelOptions} bind:value={selectedPersonnelId} label="Member" autoHighlight>
-						<Combobox.Trigger
-							id="personnel-select"
-							disabled={saving}
-							clearable
-							placeholder="Search for a member..."
-							aria-label="Member"
-						/>
+					<Combobox.Root
+						items={personnelOptions}
+						multiple
+						bind:value={selectedPersonnelIds}
+						label="Members"
+						autoHighlight
+						disabled={saving}
+					>
+						<Combobox.Chips class="max-h-32 overflow-y-auto">
+							<Combobox.Value>
+								{#snippet children(values)}
+									{#each values as value (value)}
+										<Combobox.Chip {value}>{labelFor(value)}</Combobox.Chip>
+									{/each}
+									<Combobox.ChipsInput
+										id="personnel-select"
+										placeholder={values.length === 0 ? 'Search for members...' : ''}
+										aria-label="Members"
+									/>
+								{/snippet}
+							</Combobox.Value>
+						</Combobox.Chips>
 						<Combobox.Content>
-							<Combobox.Search placeholder="Search for a member..." />
 							<Combobox.Empty>No matches</Combobox.Empty>
-							<Combobox.List />
+							<Combobox.List aria-label="Members" />
 						</Combobox.Content>
 					</Combobox.Root>
+					{#if overLimit}
+						<p class="m-0 text-xs text-destructive" role="alert">
+							Choose at most {START_ONBOARDING_BATCH_LIMIT} people at a time.
+						</p>
+					{/if}
 				</Card.Root>
+
+				{#if results.length > 0}
+					<Alert.Root variant="warning" aria-live="polite">
+						<TriangleAlert />
+						<Alert.Title>
+							Started {results.filter((result) => result.outcome === 'started').length} of {results.length}
+						</Alert.Title>
+						<Alert.Description>
+							<ul class="m-0 grid list-none gap-1 p-0" aria-label="Start results">
+								{#each results as result (result.personnelId)}
+									<li class="flex flex-wrap items-center justify-between gap-x-2">
+										<span class="min-w-0 truncate">{labelFor(result.personnelId)}</span>
+										{#if result.outcome === 'started'}
+											<Badge variant="success">Started</Badge>
+										{:else if result.outcome === 'already_onboarding'}
+											<Badge variant="info">Already onboarding</Badge>
+										{:else}
+											<Badge variant="danger">Not started</Badge>
+											<span class="w-full text-xs text-muted-foreground">{result.message}</span>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
 
 				{#if saveError}
 					<Alert.Root variant="destructive">
@@ -205,7 +289,7 @@
 			<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
 			<Button type="button" disabled={!canSave} onclick={handleSave}>
 				{#if saving}<Spinner />{/if}
-				Start Onboarding
+				{startLabel}
 			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>

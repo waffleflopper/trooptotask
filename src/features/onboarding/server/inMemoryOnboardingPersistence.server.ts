@@ -239,14 +239,6 @@ export function createInMemoryOnboardingWorkflowPersistence(
 			const latest = rows.find((row) => row.status !== 'cancelled');
 			return latest ? toPacket(latest) : null;
 		},
-		async listActivePacketIdsForPersonnel(personnelId) {
-			return (
-				await store.findMany<{ id: string }>('personnel_onboardings', orgId, {
-					personnel_id: personnelId,
-					status: 'in_progress'
-				})
-			).map((row) => row.id);
-		},
 		async listIncompleteActiveStepIds(onboardingId) {
 			return (
 				await store.findMany<{ id: string }>('onboarding_step_progress', orgId, {

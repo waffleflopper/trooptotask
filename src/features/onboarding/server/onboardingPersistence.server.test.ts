@@ -203,7 +203,7 @@ describe('ordinary Onboarding persistence', () => {
 		expect((await catalog.listSteps('template')).map((row) => row.id)).toEqual(ids);
 		expect((await workflow.listPackets('active')).map((row) => row.id)).toEqual(ids);
 		expect((await workflow.listSavedActivePackets()).map((row) => row.id)).toEqual(ids);
-		expect(await workflow.listActivePacketIdsForPersonnel('person')).toEqual(ids);
+		expect(await workflow.listActivePacketPersonnelIds()).toEqual(['person']);
 		expect(await workflow.listIncompleteActiveStepIds('packet')).toEqual(ids);
 	});
 	it('rejects the complete read on a later page and preserves PGRST116 null and empty/null reads', async () => {

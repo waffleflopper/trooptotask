@@ -149,7 +149,7 @@ beforeEach(() => {
 				name: 'Inprocessing',
 				description: null,
 				createdAt: '2026-06-01',
-				isDefault: false
+				isDefault: true
 			},
 			{
 				id: 'template-2',
@@ -960,11 +960,19 @@ describe('Onboarding Re-sync feedback', () => {
 });
 
 describe('Start onboarding', () => {
+	const startedBody = (...packets: PersonnelOnboarding[]) => ({
+		results: packets.map((onboarding) => ({
+			personnelId: onboarding.personnelId,
+			outcome: 'started' as const,
+			onboarding
+		}))
+	});
+
 	async function startFor(name: string) {
 		const dialog = screen.getByRole('dialog', { name: 'Start Onboarding' });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Member' }));
-		await fireEvent.click(await screen.findByRole('option', { name }));
-		return within(dialog).getByRole('button', { name: 'Start Onboarding' });
+		await fireEvent.focus(within(dialog).getByRole('combobox', { name: 'Members' }));
+		await fireEvent.click(await screen.findByRole('option', { name: new RegExp(name) }));
+		return within(dialog).getByRole('button', { name: /^Start onboarding for 1 person/ });
 	}
 
 	it('keeps a failed start draft and retries it without reselection', async () => {
@@ -972,7 +980,7 @@ describe('Start onboarding', () => {
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValueOnce(new Response('{}', { status: 503 }))
-			.mockResolvedValueOnce(Response.json(created, { status: 201 }));
+			.mockResolvedValueOnce(Response.json(startedBody(created), { status: 201 }));
 		vi.stubGlobal('fetch', fetchMock);
 		mount();
 		await fireEvent.click(screen.getByRole('button', { name: 'Start onboarding' }));
@@ -981,7 +989,7 @@ describe('Start onboarding', () => {
 		await fireEvent.click(submit);
 		await screen.findByRole('alert');
 		expect(onboardingStore.items).toEqual([packet]);
-		expect(screen.getByRole('button', { name: 'Member' }).textContent).toContain('CPL Jones, Alex');
+		expect(screen.getByRole('button', { name: /Remove CPL Jones, Alex/ })).toBeTruthy();
 
 		await fireEvent.click(submit);
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -1000,7 +1008,7 @@ describe('Start onboarding', () => {
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValueOnce(new Response(JSON.stringify(created), { status: 201 }))
-			.mockResolvedValueOnce(new Response(JSON.stringify(createdPacket), { status: 201 }));
+			.mockResolvedValueOnce(new Response(JSON.stringify(startedBody(createdPacket)), { status: 201 }));
 		vi.stubGlobal('fetch', fetchMock);
 		const rank = (code: string, state: 'active' | 'retired', sortOrder: number): RankCatalogEntry => ({
 			code,
@@ -1021,11 +1029,11 @@ describe('Start onboarding', () => {
 		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
 		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Avery' } });
 		await fireEvent.click(screen.getByTestId('personnel-save'));
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: 'Member' }).textContent).toContain('VRA Nolan, Avery')
-		);
+		await waitFor(() => expect(screen.getByRole('button', { name: /Remove VRA Nolan, Avery/ })).toBeTruthy());
 		await fireEvent.click(
-			within(screen.getByRole('dialog', { name: 'Start Onboarding' })).getByRole('button', { name: 'Start Onboarding' })
+			within(screen.getByRole('dialog', { name: 'Start Onboarding' })).getByRole('button', {
+				name: /^Start onboarding for 1 person/
+			})
 		);
 
 		await waitFor(() => expect(onboardingStore.getById('created-packet')).toEqual(createdPacket));
@@ -1040,14 +1048,18 @@ describe('Start onboarding', () => {
 			'/org/org-1/api/onboarding',
 			expect.objectContaining({
 				method: 'POST',
-				body: JSON.stringify({ personnelId: 'created-person', templateId: 'template-1', startedAt: '2026-06-15' })
+				body: JSON.stringify({
+					personnelIds: ['created-person'],
+					templateId: 'template-1',
+					startedAt: '2026-06-15'
+				})
 			})
 		);
 	});
 
 	it('explains a rank outage, disables Add Person and still starts an existing member', async () => {
 		const created: PersonnelOnboarding = { ...packet, id: 'packet-2', personnelId: 'person-2', steps: [] };
-		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(created), { status: 201 }));
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(startedBody(created)), { status: 201 }));
 		vi.stubGlobal('fetch', fetchMock);
 		mount([], true);
 
@@ -1060,23 +1072,27 @@ describe('Start onboarding', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
-	it('excludes an active member from the picker and lists the newly started packet', async () => {
+	it('names a member who is already onboarding, cannot select them, and lists the newly started packet', async () => {
 		const created: PersonnelOnboarding = {
 			...packet,
 			id: 'packet-2',
 			personnelId: 'person-2',
 			steps: [step('packet-2', { id: 'step-2' })]
 		};
-		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(created), { status: 201 })));
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(new Response(JSON.stringify(startedBody(created)), { status: 201 }))
+		);
 		mount();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Start onboarding' }));
 		const dialog = screen.getByRole('dialog', { name: 'Start Onboarding' });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Member' }));
-		expect(await screen.findByRole('option', { name: 'CPL Jones, Alex' })).toBeTruthy();
-		expect(screen.queryByRole('option', { name: 'SGT Smith, Jane' })).toBeNull();
-		await fireEvent.click(screen.getByRole('option', { name: 'CPL Jones, Alex' }));
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Start Onboarding' }));
+		await fireEvent.focus(within(dialog).getByRole('combobox', { name: 'Members' }));
+		const onboarding = await screen.findByRole('option', { name: /SGT Smith, Jane/ });
+		expect(onboarding.textContent).toContain('Already onboarding');
+		expect(onboarding.getAttribute('aria-disabled')).toBe('true');
+		await fireEvent.click(screen.getByRole('option', { name: /CPL Jones, Alex/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Start onboarding for 1 person/ }));
 
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		expect(rows().map((row) => row.textContent)).toEqual([

@@ -117,7 +117,8 @@ const quantitySchema = z
 export const isReturned = ({
 	securedQuantity,
 	returnedQuantity = 0
-}: Pick<EquipmentRequirement, 'securedQuantity' | 'returnedQuantity'>) => returnedQuantity >= securedQuantity;
+}: Pick<EquipmentRequirement, 'securedQuantity' | 'returnedQuantity'>) =>
+	securedQuantity > 0 && returnedQuantity >= securedQuantity;
 
 export const securedSchema = z
 	.number({ error: 'Enter how many are secured.' })

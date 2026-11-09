@@ -94,6 +94,7 @@ describe('returned counts', () => {
 		expect(isReturned({ securedQuantity: 4, returnedQuantity: 4 })).toBe(true);
 		expect(isReturned({ securedQuantity: 4, returnedQuantity: 3 })).toBe(false);
 		expect(isReturned({ securedQuantity: 4 })).toBe(false);
+		expect(isReturned({ securedQuantity: 0 })).toBe(false);
 	});
 });
 

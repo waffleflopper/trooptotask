@@ -41,7 +41,7 @@ at every read and fails if any id on the first row leaves it; `--pinned` lists t
 `--search` says the toolbar must have search; both are required at every read, hold reads included, so a control that is
 missing for the whole run fails instead of defining itself away. Without them nothing is pinned and search is optional,
 and the trace records what was required. `--more-always` is for a toolbar with `menuOnly` items, such as Calendar's
-Settings, Export to Excel and Print / PDF (its `Display` is a row action that folds): More must then be present at every
+Settings, Export to Excel and Download PDF (its `Display` is a row action that folds): More must then be present at every
 read instead of only while something is folded. The helper reads the live row (`[data-toolbar-row] [data-toolbar-item]`,
 ignoring `[data-toolbar-measure]`), `[data-toolbar-more]`, the search control (any other child of the row: the field,
 the icon, or the open field and Close), `data-toolbar-search` and `data-toolbar-ready`, row and root `scrollWidth`

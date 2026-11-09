@@ -115,6 +115,6 @@ Run `node --test .agents/skills/verify-trooptotask/helpers/style-probe.test.mjs`
 - The Critical Tasks Library denies `ictOperator`; use `ictConfigurator` for the library itself and keep the denial as
   its own state.
 - At 390 wide the Personnel and Training `Import` actions are in `More Personnel controls` and `More Training controls`.
-  Calendar's `Import CSV` is always under the pinned `Bulk Status` menu. Critical Tasks uses
+  Calendar's `Import spreadsheet` is always under the pinned `Bulk Status` menu. Critical Tasks uses
   `More Critical Tasks controls`, which also holds its view, filters and Reports.
 - The probe caps each selector at 200 elements. Large readiness sets compare the first 200; state the count.

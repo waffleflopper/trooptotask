@@ -17,6 +17,7 @@ import { tick } from 'svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { EMPTY_PROJECTION, EMPTY_TASKING_FACTS } from '$features/calendar/projection/calendarProjection';
+import { DRAG_TO_ADD_HINT, TAP_TO_ADD_HINT } from '$features/calendar/utils/calendarLegend';
 
 const gotoMock = vi.hoisted(() => vi.fn());
 
@@ -254,6 +255,28 @@ describe('CalendarPageView', () => {
 			expect(within(quarterLegend.getByRole('list', { name: 'Statuses' })).getByText('Leave')).toBeTruthy();
 			expect(quarterLegend.queryByRole('list', { name: 'Duty markers' })).toBeNull();
 			expect(quarterLegend.queryByText('Drag across days to add')).toBeNull();
+		});
+
+		it('swaps the drag hint for the tap hint on a touch screen', () => {
+			const realMatchMedia = window.matchMedia;
+			vi.stubGlobal('matchMedia', (query: string) =>
+				query.includes('pointer: coarse')
+					? ({
+							matches: true,
+							media: query,
+							addEventListener: () => {},
+							removeEventListener: () => {}
+						} as unknown as MediaQueryList)
+					: realMatchMedia.call(window, query)
+			);
+			try {
+				const legend = renderWithLegendData('admin');
+
+				expect(legend.getByText(TAP_TO_ADD_HINT)).toBeTruthy();
+				expect(legend.queryByText(DRAG_TO_ADD_HINT)).toBeNull();
+			} finally {
+				vi.unstubAllGlobals();
+			}
 		});
 
 		it('offers drag-to-add only to people who can add availability', () => {
@@ -1027,7 +1050,7 @@ describe('CalendarPageView', () => {
 		await layOut(4000);
 
 		const more = await openMore();
-		expect(within(more).getByRole('menuitem', { name: 'Print / PDF' })).toBeTruthy();
+		expect(within(more).getByRole('menuitem', { name: 'Download PDF' })).toBeTruthy();
 		expect(within(more).queryByRole('menuitemcheckbox', { name: 'Show Status Text' })).toBeNull();
 		await fireEvent.keyDown(more, { key: 'Escape' });
 		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
@@ -1053,7 +1076,7 @@ describe('CalendarPageView', () => {
 		await waitFor(() => expect(exportMocks.exportQuarterToExcel).toHaveBeenCalledTimes(1));
 		expect(exportMocks.exportQuarterToExcel.mock.calls[0][0]).toEqual(new Date(2026, 11, 1));
 
-		await chooseFromMore('Print / PDF');
+		await chooseFromMore('Download PDF');
 		await waitFor(() => expect(exportMocks.printQuarterCalendar).toHaveBeenCalledTimes(1));
 		expect(exportMocks.printQuarterCalendar.mock.calls[0][0]).toEqual(new Date(2026, 11, 1));
 		expect(exportMocks.exportMonthToExcel).not.toHaveBeenCalled();

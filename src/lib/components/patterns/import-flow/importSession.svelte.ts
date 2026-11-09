@@ -23,6 +23,7 @@ import {
 import {
 	applyEdits,
 	buildSourceRows,
+	fixReason,
 	ReviewMemo,
 	reviewRows,
 	type Outcome,
@@ -93,6 +94,9 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	});
 	readonly commitBlocker: string | null = $derived(
 		this.columnBlockers[0] ?? (this.rechecking ? 'Checking the corrected rows.' : this.review.commitBlocker)
+	);
+	readonly skipFixesBlocker: string | null = $derived(
+		this.columnBlockers[0] ?? (this.rechecking ? 'Checking the corrected rows.' : this.review.skipFixesBlocker)
 	);
 	readonly dirty: boolean = $derived(this.file !== null && this.phase.step !== 'done');
 
@@ -300,12 +304,15 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		});
 	}
 
-	async commit(): Promise<void> {
-		if (this.phase.step !== 'review' || this.commitBlocker || this.creating.size) return;
+	async commit({ skipRowsNeedingFixes = false }: { skipRowsNeedingFixes?: boolean } = {}): Promise<void> {
+		const skipFixes = skipRowsNeedingFixes && this.lane.skipRowsNeedingFixes === true;
+		if (this.phase.step !== 'review' || (skipFixes ? this.skipFixesBlocker : this.commitBlocker) || this.creating.size)
+			return;
 		const generation = this.#generation;
 		const isCurrent = () => generation === this.#generation;
 		const lane = this.lane;
 		const review = this.review;
+		const questions = indexBy(review.questions, (question) => question.key);
 		const changes: PlannedChange<Change>[] = review.rows.flatMap((item) =>
 			item.outcome === 'new' || item.outcome === 'update' ? [{ rowId: item.row.id, change: item.change }] : []
 		);
@@ -320,7 +327,10 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		);
 		if (!isCurrent()) return;
 		let receipt = buildReceipt(
-			review.rows.flatMap((item) => (item.outcome === 'skipped' ? [{ row: item.row, reason: item.reason }] : [])),
+			review.rows.flatMap((item) => {
+				if (item.outcome === 'skipped') return [{ row: item.row, reason: item.reason }];
+				return skipFixes && item.outcome === 'fix' ? [{ row: item.row, reason: fixReason(item, questions) }] : [];
+			}),
 			result.results,
 			indexBy(
 				review.rows.map((item) => item.row),

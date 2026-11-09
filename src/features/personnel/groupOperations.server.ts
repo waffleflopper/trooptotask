@@ -142,6 +142,8 @@ export interface GroupMembershipResult {
 	groupId: string | null;
 	movedIds: string[];
 	unavailableIds: string[];
+	/** The Group each Person this call changed was in just before it, for an Undo that puts back only this change. */
+	previousGroupIds: Record<string, string | null>;
 }
 
 export async function moveGroupMembers(
@@ -164,12 +166,88 @@ export async function moveGroupMembers(
 	for (const currentGroup of new Set(active.map((person) => person.groupId))) await manageRecords(currentGroup);
 
 	const already = active.filter((person) => person.groupId === groupId).map((person) => person.id);
-	const moving = active.filter((person) => person.groupId !== groupId).map((person) => person.id);
-	const moved = moving.length ? await ctx.personnel.moveToGroup(moving, groupId) : [];
-	const inGroup = new Set([...already, ...moved]);
+	const bySource = new Map<string | null, string[]>();
+	for (const person of active)
+		if (person.groupId !== groupId) bySource.set(person.groupId, [...(bySource.get(person.groupId) ?? []), person.id]);
+	// Each source Group moves only People still in it, so the reported previous Group is the one this update left.
+	const moves = await Promise.all(
+		[...bySource].map(async ([from, members]) => ({
+			from,
+			moved: await ctx.personnel.moveToGroup(members, groupId, { groupId: from })
+		}))
+	);
+	const previousGroupIds: Record<string, string | null> = {};
+	for (const { from, moved } of moves) for (const id of moved) previousGroupIds[id] = from;
+	const inGroup = new Set([...already, ...Object.keys(previousGroupIds)]);
 	return {
 		groupId,
 		movedIds: ids.filter((id) => inGroup.has(id)),
-		unavailableIds: ids.filter((id) => !inGroup.has(id))
+		unavailableIds: ids.filter((id) => !inGroup.has(id)),
+		previousGroupIds
 	};
+}
+
+const undoMoveInput = z.object({
+	moves: z
+		.array(
+			z
+				.object({ personnelId: uuidSchema, fromGroupId: uuidSchema.nullable(), toGroupId: uuidSchema.nullable() })
+				.strict()
+		)
+		.min(1, 'Nothing to undo')
+		.max(GROUP_MEMBERSHIP_BATCH_LIMIT, `Undo at most ${GROUP_MEMBERSHIP_BATCH_LIMIT} People at a time`)
+		.refine((moves) => new Set(moves.map((move) => move.personnelId)).size === moves.length, 'Each person appears once')
+});
+
+export interface GroupMembershipUndoResult {
+	restoredIds: string[];
+	/** People who were archived, removed or moved again since; left in the Group they are in now. */
+	changedIds: string[];
+}
+
+/**
+ * Puts People back in the Group a move took them from, only while each is still in the Group the move put them in.
+ * The actor needs the same Personnel access as for a move, in both Groups of every pair.
+ */
+export async function undoGroupMembers(
+	ctx: GroupMembershipContext,
+	input: Record<string, unknown>
+): Promise<GroupMembershipUndoResult> {
+	const { moves } = validatedInput(undoMoveInput, input);
+	const groupsInvolved = new Set(moves.flatMap((move) => [move.fromGroupId, move.toGroupId]));
+	await Promise.all(
+		[...groupsInvolved].map((group) =>
+			requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.personnel.manageRecords,
+				policyResourceForGroup(group),
+				'personnel'
+			)
+		)
+	);
+
+	const destinations = [...new Set(moves.flatMap((move) => (move.toGroupId ? [move.toGroupId] : [])))];
+	const existing = new Set(
+		(await Promise.all(destinations.map((id) => ctx.groups.findReference(id))))
+			.filter((group) => group !== null)
+			.map((group) => group.id)
+	);
+
+	const pairs = new Map<string, { from: string | null; to: string | null; ids: string[] }>();
+	for (const move of moves) {
+		if (move.toGroupId && !existing.has(move.toGroupId)) continue;
+		const key = `${move.fromGroupId}>${move.toGroupId}`;
+		const pair = pairs.get(key) ?? { from: move.fromGroupId, to: move.toGroupId, ids: [] };
+		pair.ids.push(move.personnelId);
+		pairs.set(key, pair);
+	}
+	const restored = new Set(
+		(
+			await Promise.all(
+				[...pairs.values()].map((pair) => ctx.personnel.moveToGroup(pair.ids, pair.to, { groupId: pair.from }))
+			)
+		).flat()
+	);
+	const ids = moves.map((move) => move.personnelId);
+	return { restoredIds: ids.filter((id) => restored.has(id)), changedIds: ids.filter((id) => !restored.has(id)) };
 }

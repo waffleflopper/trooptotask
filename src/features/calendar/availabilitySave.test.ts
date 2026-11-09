@@ -117,6 +117,33 @@ describe('saveAvailabilityChange', () => {
 		expect(availabilityStore.removeBool).not.toHaveBeenCalled();
 	});
 
+	it('offers Undo for ten seconds on a confirmed create and a confirmed removal, but not on an edit', async () => {
+		const success = vi.spyOn(toastStore, 'success');
+		const undo = { label: 'Undo', onClick: expect.any(Function) };
+		vi.mocked(availabilityStore.add).mockResolvedValueOnce({ id: 'saved-1', ...record });
+		vi.mocked(availabilityStore.removeBool).mockResolvedValueOnce(true);
+		vi.mocked(availabilityStore.updateOrThrow).mockResolvedValueOnce(true);
+
+		expect(await save({ kind: 'create', record })).toBe('saved');
+		expect(await save({ kind: 'remove', entry: { id: 'entry-1', ...record } })).toBe('saved');
+		expect(await save(edit)).toBe('saved');
+
+		expect(success.mock.calls.map(([, duration, action]) => [duration, action])).toEqual([
+			[10000, undo],
+			[10000, undo],
+			[5000, undefined]
+		]);
+	});
+
+	it('offers no Undo for a create that was only confirmed by the re-read', async () => {
+		const success = vi.spyOn(toastStore, 'success');
+		vi.mocked(availabilityStore.add).mockRejectedValueOnce(new Error('POST availability failed'));
+		vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([{ id: 'saved-1', ...record }]));
+
+		expect(await save({ kind: 'create', record })).toBe('saved');
+		expect(success.mock.calls.map(([, duration, action]) => [duration, action])).toEqual([[5000, undefined]]);
+	});
+
 	it("recognizes a lost edit reply by the entry's own ID, not a look-alike, without writing again", async () => {
 		const success = vi.spyOn(toastStore, 'success');
 		const error = vi.spyOn(toastStore, 'error');

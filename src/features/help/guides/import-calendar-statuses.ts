@@ -10,7 +10,7 @@ export const importCalendarStatuses: HelpGuide = {
 	access: { lane: 'calendar', level: 'operate' },
 	lead: 'The status import reads one row per status, with the person, the dates and the status name. Rows already on the calendar are left alone.',
 	steps: [
-		{ text: 'On the calendar, open **Bulk Status** and choose **Import CSV**.', to: 'calendar/import' },
+		{ text: 'On the calendar, open **Bulk Status** and choose **Import spreadsheet**.', to: 'calendar/import' },
 		{
 			text: 'Download the **Template (.xlsx)**, or use your own sheet with Rank, Last name, First name, From, To and Status columns.'
 		},

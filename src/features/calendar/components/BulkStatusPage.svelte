@@ -14,12 +14,13 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { navigating } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { afterNavigate, goto, invalidate } from '$app/navigation';
 	import { replaceVisibleSearchParam, visibleUrl } from '$lib/utils/visibleUrl';
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
+	import { availabilityUndoAction, type AvailabilityUndoChange } from '$features/calendar/availabilityUndo';
 	import {
 		beginCalendarRangeRead,
 		loadCalendarRange,
@@ -117,6 +118,8 @@
 	});
 
 	let applyingOrgId = '';
+	/** The Tasking a prefilled Add returns to, fixed when the save starts. */
+	let applyingTaskingPath: string | null = null;
 
 	async function handleBulkApply(
 		personnelIds: string[],
@@ -124,16 +127,37 @@
 		startDate: string,
 		endDate: string,
 		note: string | null
-	): Promise<string[]> {
+	): Promise<AvailabilityEntry[]> {
 		applyingOrgId = data.orgId;
 		applyingGeneration = formGeneration;
-		const inserted = await availabilityStore.addBatch(
+		applyingTaskingPath = prefill ? taskingHref(orgUrlSegment, prefill.taskingId) : null;
+		return availabilityStore.addBatch(
 			buildAddRecords(personnelIds, statusTypeId, startDate, endDate, note).map((record) => ({
 				...record,
 				setForTaskingId: prefill?.taskingId ?? null
 			}))
 		);
-		return inserted.map((entry) => entry.personnelId);
+	}
+
+	// Undo belongs to this route and Organization: leaving either turns it off. The page component is replaced whenever
+	// the Calendar data refreshes after a save, so the route is compared by URL, not by this component's lifetime. It is
+	// fixed at mount: a save that lands after the reader left still binds its Undo to this page.
+	// A prefilled Add returns to its Tasking on its own, so its Undo also works there, and refreshes that Tasking's
+	// coverage, which loads under the Calendar events dependency.
+	const path = page.url.pathname;
+	function undoAction(change: AvailabilityUndoChange) {
+		const orgId = data.orgId;
+		const taskingPath = applyingTaskingPath;
+		return availabilityUndoAction(change, {
+			orgId,
+			isCurrent: () => page.url.pathname === path || page.url.pathname === taskingPath,
+			onUndone: taskingPath
+				? () => {
+						refreshCalendar();
+						invalidate('app:calendar-events');
+					}
+				: refreshCalendar
+		});
 	}
 
 	function handleBulkRemove(ids: string[]) {
@@ -217,6 +241,7 @@
 						{rangeCoordinator}
 						onApply={handleBulkApply}
 						onComplete={handleAddComplete}
+						{undoAction}
 						{prefill}
 					/>
 				{/key}
@@ -229,6 +254,7 @@
 					loadAvailabilityRange={loadAvailabilityEntriesForRange}
 					onRemove={handleBulkRemove}
 					onComplete={refreshCalendar}
+					{undoAction}
 				/>
 			{/if}
 		</div>

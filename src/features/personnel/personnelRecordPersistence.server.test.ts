@@ -195,6 +195,28 @@ describe('ordinary Personnel records', () => {
 			['foreign', 'alpha']
 		]);
 	});
+	it('moves only the People still in the Group they are expected to be in', async () => {
+		const { client, state } = personnelProvider({
+			personnel: [
+				SAVED,
+				{ ...SAVED, id: 'in-bravo', slug: 'in-bravo', group_id: 'bravo' },
+				{ ...SAVED, id: 'unassigned', slug: 'unassigned', group_id: null },
+				{ ...SAVED, id: 'archived', slug: 'archived', group_id: 'alpha', archived_at: '2026-01-01T00:00:00Z' }
+			]
+		});
+		const port = createSupabasePersonnelRecordPersistence(client, 'org-a', { kind: 'organization' });
+		const everyone = ['person-a', 'in-bravo', 'unassigned', 'archived'];
+		const groups = () => state.rows.personnel.map((row) => [row.id, row.group_id]);
+
+		expect(await port.moveToGroup(everyone, 'charlie', { groupId: 'alpha' })).toEqual(['person-a']);
+		expect(await port.moveToGroup(everyone, 'delta', { groupId: null })).toEqual(['unassigned']);
+		expect(groups()).toEqual([
+			['person-a', 'charlie'],
+			['in-bravo', 'bravo'],
+			['unassigned', 'delta'],
+			['archived', 'alpha']
+		]);
+	});
 	it('sets one field on only active People in the Organization in one write', async () => {
 		const { client, state } = personnelProvider({
 			personnel: [

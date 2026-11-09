@@ -1,4 +1,4 @@
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -16,6 +16,7 @@ import type {
 	PersonnelInsert,
 	PersonnelRecordPersistence
 } from './contracts';
+import { restorePersonnelRecord } from './personnelLifecycle.server';
 import { createActivePersonnelRankResolver } from './rankValidation.server';
 import { dodIdInputSchema } from './dodId';
 import {
@@ -35,8 +36,10 @@ interface PersonnelImportRecordsContext {
 	audit: PolicyAuditSink;
 	personnel: Pick<
 		PersonnelRecordPersistence,
-		'listImportSlugs' | 'createMany' | 'listArchiveCandidates' | 'updateEditable'
+		'listImportSlugs' | 'createMany' | 'listArchiveCandidates' | 'updateEditable' | 'findById'
 	>;
+	organizationPersonnel: Parameters<typeof restorePersonnelRecord>[0]['organizationPersonnel'];
+	personnelLifecycle: Parameters<typeof restorePersonnelRecord>[0]['personnelLifecycle'];
 	groups: Pick<GroupPersistence, 'listCatalog'>;
 	personnelSheets: Pick<PersonnelSheetPersistence, 'listDodIds' | 'findDodIdsInUse' | 'saveDodIds'>;
 	loadRankCatalog: Parameters<typeof createActivePersonnelRankResolver>[0]['loadRankCatalog'];
@@ -68,7 +71,7 @@ export async function importPersonnelRecords(
 	if (input.records.length > 500) fail(400, 'Maximum 500 records per batch');
 
 	const updateIds = [
-		...new Set(input.records.flatMap((record) => (record.op === 'update' ? [record.personnelId] : [])))
+		...new Set(input.records.flatMap((record) => (record.op === 'create' ? [] : [record.personnelId])))
 	];
 	const referenceReads = [];
 	for (let start = 0; start < updateIds.length; start += 100) {
@@ -99,6 +102,7 @@ export async function importPersonnelRecords(
 		personnelId: string;
 		patch: Partial<PersonnelEditableFields>;
 		dodId?: string;
+		restore: boolean;
 	}> = [];
 	const seenUpdateIds = new Set<string>();
 	const seenDodIds = new Set<string>();
@@ -116,14 +120,14 @@ export async function importPersonnelRecords(
 	}
 
 	for (const [index, record] of input.records.entries()) {
-		if (record.op === 'update') {
+		if (record.op !== 'create') {
 			if (seenUpdateIds.has(record.personnelId)) {
 				errors.push({ kind: 'failed', index, message: 'This Person is already referenced by an earlier update row' });
 				continue;
 			}
 			seenUpdateIds.add(record.personnelId);
 		}
-		const person = record.op === 'update' ? people.get(record.personnelId) : undefined;
+		const person = record.op !== 'create' ? people.get(record.personnelId) : undefined;
 		const fields = record.op === 'create' ? record : record.changes;
 		const parsedDodId = dodIdInputSchema.optional().safeParse(fields.dodId);
 		if (!parsedDodId.success) {
@@ -203,7 +207,8 @@ export async function importPersonnelRecords(
 			continue;
 		}
 
-		if (!person || person.archivedAt || !(await canWrite('update', person.groupId))) {
+		const restoreOp = record.op === 'restore';
+		if (!person || (person.archivedAt && !restoreOp) || !(await canWrite('update', person.groupId))) {
 			errors.push({ kind: 'failed', index, message: 'No active personnel row is available in your scope' });
 			continue;
 		}
@@ -221,25 +226,35 @@ export async function importPersonnelRecords(
 		if (fields.groupId !== undefined) patch.groupId = fields.groupId;
 		if (fields.ets !== undefined) patch.ets = fields.ets;
 		if (fields.deros !== undefined) patch.deros = fields.deros;
-		if (Object.keys(patch).length === 0 && !dodId) {
+		if (Object.keys(patch).length === 0 && !dodId && !restoreOp) {
 			errors.push({ kind: 'failed', index, message: 'An update must include at least one changed field' });
 			continue;
 		}
-		if (Object.keys(patch).length === 0) {
+		if (Object.keys(patch).length === 0 && !restoreOp) {
 			// The Person was read active and in scope above; rewriting a field from that read could undo a concurrent edit.
 			sheetWrites.push({ index, personnelId: record.personnelId, dodId: dodId! });
 			idOnlyUpdates.add(record.personnelId);
 			continue;
 		}
 
-		updates.push({ index, personnelId: record.personnelId, patch, dodId });
+		updates.push({ index, personnelId: record.personnelId, patch, dodId, restore: !!person.archivedAt });
 	}
 
 	for (let start = 0; start < updates.length; start += 12) {
 		const savedRows = await Promise.all(
-			updates.slice(start, start + 12).map(async ({ index, personnelId, patch, dodId }) => {
+			updates.slice(start, start + 12).map(async ({ index, personnelId, patch, dodId, restore }) => {
 				try {
-					const saved = await ctx.personnel.updateEditable(personnelId, patch, { onlyActive: true });
+					if (restore) {
+						const refusal = await restoreForImport(ctx, personnelId);
+						if (refusal) {
+							errors.push({ kind: 'failed', index, message: refusal });
+							return null;
+						}
+					}
+					const saved =
+						Object.keys(patch).length === 0
+							? await ctx.personnel.findById(personnelId)
+							: await ctx.personnel.updateEditable(personnelId, patch, { onlyActive: true });
 					if (!saved)
 						errors.push({ kind: 'failed', index, message: 'No active personnel row is available in your scope' });
 					if (saved && dodId) sheetWrites.push({ index, personnelId, dodId });
@@ -272,6 +287,25 @@ export async function importPersonnelRecords(
 	}
 	errors.sort((left, right) => left.index - right.index);
 	return { created, updated, errors };
+}
+
+const RESTORE_REFUSED = 'You cannot restore people in this Group. Ask someone who can, or skip this row.';
+
+/** A message when the Person was not restored. A Person who is already active converges, so the update still applies. */
+async function restoreForImport(
+	ctx: Parameters<typeof restorePersonnelRecord>[0],
+	personnelId: string
+): Promise<string | null> {
+	try {
+		await restorePersonnelRecord(ctx, personnelId);
+		return null;
+	} catch (error) {
+		if (!(error instanceof RequestFailure)) throw error;
+		if (error.status === 400) return null;
+		if (error.status === 403) return RESTORE_REFUSED;
+		if (error.status === 404) return 'No personnel row is available in your scope';
+		throw error;
+	}
 }
 
 async function createImportRows(

@@ -152,6 +152,13 @@ export class PersonnelPageContext {
 		}).allowed;
 	}
 
+	canRestorePersonnelInGroup(groupId: string | null): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.restoreRecords,
+			groupId ? { kind: 'group', groupId } : { kind: 'organization' }
+		).allowed;
+	}
+
 	get canImportPersonnel(): boolean {
 		const resource = personnelScopeResource(this.#org.scopeSet);
 		return (

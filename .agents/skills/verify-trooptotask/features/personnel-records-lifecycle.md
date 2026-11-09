@@ -21,6 +21,9 @@ archives or restores a record while keeping its identity, permissions and retain
   path, reusing the Groups that exist.
 - `record-archive-restore`: single and bulk archive remove People from active views; restore retains their IDs and
   restores only artifacts archived by that parent event.
+- `archive-undo`: the roster bulk bar's and the detail page's archive toasts carry `Undo` for 10 seconds. Undo restores
+  exactly the People that archive newly archived, and withdraws the approval requests it submitted, for the actor who
+  archived even without restore access. Anyone else, or an expired offer, is refused.
 - `record-approval`: an operate-only member requests archive approval without archiving the Person; an authorized
   reviewer applies the archive once.
 - `record-access`: view, operate, configure, assigned Group, empty Group scope and foreign Organization requests
@@ -236,16 +239,45 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    blur commits it. Skip the second duplicate; the row offers Undo and keeps focus on it. Pick the Bravo duplicate.
    Choose `Skip 1 row` on the SSG question: that row offers `Change skip for … in the fix rail` instead of Undo, which
    moves focus to the SSG question; `Change` there and map SSG to SGT. `Import 10 changes` (`7 added · 3 updated`) stays
-   disabled while any row waits for a fix.
+   disabled while any row waits for a fix; `Skip 1 row needing a fix and import the rest` is the other action, which this
+   walkthrough does not use.
 
    The commit sends one `POST api/personnel/import`, then refreshes the roster workspace and import page's ID list.
    Done reads
    `10 changes saved.` with Added 7, Updated 3 and Skipped 1 and no zero counts, and lists the skipped row as
-   `1st PLT · row 9` with `You skipped this row.` Capture `Download these rows (.xlsx)` with `$V export`: one sheet
+   `1st PLT · row 9` with `You skipped this row.` Capture `Download these rows (.xlsx)` with `$V export arm PAGE`, then `$V export save PAGE ABS_PATH` (an absolute path
+   under `.verification/evidence/verify-trooptotask/`), and read it with `$V workbook ABS_PATH SHEET_NAME`: one sheet
    named `1st PLT` with the original columns, DOD ID included, plus `Reason`. Read the rows back. Seven new People have
    SGT for both `Sgt.` and `SSG`, `2028-03-15` from `15MAR28`, first name `Jae` without the initial, `2027-02-28` for
    the corrected date and the new Group. The dedicated Person and Baker changed only ETS, only the Bravo duplicate got
    `2027-07-01`, and the Alpha and archived duplicates are unchanged.
+
+   **Skipping rows that need a fix.** Upload a CSV `Last name, First name, Rank, Group, MOS` with two new Alpha People,
+   one with rank `ZZZ`, one in the unknown Group `Nowhere Platoon`, and the seed's dedicated Person (`MapLifecycleTAG`,
+   Alpha) in Bravo. Review reads `Needs a fix · 3` and `New · 2`; the bar reads `2 changes ready` and offers
+   `Skip 3 rows needing fixes and import the rest` beside `Import 2 changes`, which stays disabled. The skip button is
+   legible on the dark bar and the page does not scroll sideways at 390 px. One click saves the two new People
+   (`rows personnel`): Done reads `2 changes saved.` with Added 2 and Skipped 3, and lists each skipped row with
+   `Needed a fix.` and what it needed (`Choose rank in the fix rail.`). `Download these rows (.xlsx)` carries the three
+   rows, original columns plus `Reason`. With no change ready the skip button is absent. Training, Calendar and
+   Critical Tasks imports never show it.
+
+   **Moving a person to another Group.** Upload `MapLifecycleTAG, Synthetic, SPC, Bravo, 25B` with no DoD ID. The rail
+   asks `Same person, or someone new?` for `Alpha to Bravo` with `Same person, move them to Bravo` and `Someone new`,
+   and the row reads `Needs a fix` with `This would move a person to another group. Choose in the fix rail.` Choose
+   the move: the row reads Update with Group `Bravo` before `Alpha` and `Import 1 change` saves it (`rows personnel`
+   shows the Bravo ID). Importing it again asks nothing. A row that carries the Person's DoD ID never asks. With `Someone new` instead,
+   `Import 1 change` (`1 added`) saves a second person in Bravo, and `rows personnel` shows both, the original still in
+   Alpha with its old MOS.
+
+   **Archived people.** Archive that Person (`personnel-archive-batch`), reload the import page and upload
+   `MapLifecycleTAG, Synthetic, SPC, Bravo, 68X`. As `manager` the rail asks `Archived. Restore, or create new?` with
+   `Restore` and `Create new`; the row reads `Needs a fix` until answered. Choose Restore: Review shows `Status`
+   `Archived` to `Restored` beside the MOS change, and `Import 1 change` leaves `archived_at` null with MOS `68X` and
+   one `personnel.restored` row in `audit_logs`. A row that carries the archived Person's DoD ID under a different last
+   name (so the ID is what matched) asks `Archived. Restore them?` with only `Restore`. Archive the Person again and
+   repeat as `personnelOperate`: the rail asks `Archived. Add a new person instead?` and offers only
+   `Add as a new person anyway` and `Skip this row`, never Restore. Both layouts fit at 390 px.
 
    **Group paths.** After the [Group tree](manage-groups.md#group-tree) steps plus a moved `2nd Squad` and a
    `3rd Platoon › Weapons Squad`, upload a one-sheet workbook (`Rank, Last Name, First Name, MOS, Group`) whose Group
@@ -327,10 +359,13 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    beside the Unchanged and Skipped counts; every sent row counts as not imported and no Person changes. Restore, choose
    `Import another file` and import again.
 
-   A committed write whose provider reply is lost needs separate lower-level proof. The Personnel server, route and
-   import-lane regression tests preserve the structured `unconfirmed` error. With 501 planned rows and an uncertain
-   first chunk, require Not confirmed 500, Not attempted 1 and no second request. The pre-dispatch network control above
-   does not establish provider-response loss.
+   Arm `network arm-drop PAGE personnel/import` before a commit of two new People: the request reaches the server and
+   the reply is lost. Done reads `0 changes saved.` with `Not confirmed` 2 and `Check the roster before importing
+these again.`, and `rows personnel` shows both People saved. Restore, choose `Import another file` and upload the
+   same file: Review reads `Unchanged · 2` behind `2 rows already match. Nothing to save.` and the roster keeps two
+   People. Repeat at 390 px: the Done screen and the Review bar fit without horizontal scroll. The Personnel server, route and import-lane regression tests preserve the structured `unconfirmed` error.
+   With 501 planned rows and an uncertain first chunk, require Not confirmed 500, Not attempted 1 and no second
+   request. `arm-fail` is pre-dispatch and does not establish provider-response loss.
 
    A mixed first chunk keeps each confirmed save and known failure. With one confirmed update, one unconfirmed create,
    one known failure and 497 confirmed creates, require Updated 1, Added 497, Failed 1, Not confirmed 1 and Not
@@ -516,6 +551,22 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
     rejection must preserve both parents and all child/Evaluation fields. Do not bypass constraints in the browser
     worker. A deletion blocked by historical foreign references must preserve the parent, its children and files,
     although earlier retention families may have already completed. Run final `doctor` and clean recorded seeds/files.
+
+12. **Undo after archive.** Seed `personnel-lifecycle` and arm `$V feedback arm $PAGE`. **Direct:** as `manager` select
+    one temporary Person on the roster, `Archive…`, `Archive`, capture `1 personnel archived` with `Undo`, then click
+    `Undo` within 10 seconds. Expect `1 person restored`, `archived_at` null again in `rows personnel`, and the Person
+    back on the roster. **Approval:** as `personnelOperate` request the archive of a temporary Person; expect the toast
+    `1 archival requests submitted for admin approval` with `Undo`. Click `Undo`: `1 archival request withdrawn` and
+    `$V rows deletion_requests orgA` shows that request `cancelled` with the Person still active. Do not read `rows`
+    between the toast and the click. Repeat both at 390x844. The token replays (another actor, expired, another
+    Organization) and the changed-since cases are covered by `undo/server.test.ts`, not driven live. **Detail, direct:**
+    as `manager` archive a temporary Person from `More Personnel record` and land on the roster with the
+    `Personnel archived` toast and `Undo`. Click `Undo` there: `1 person restored` and the Person is back on the
+    roster. Archive another temporary Person the same way, open another page (Home), then click `Undo`: nothing is
+    sent and `rows personnel` still shows `archived_at` set. **Detail, approval:** an operate-only actor
+    gets 403 on the detail page, so an archive request from a record is not reachable live. `archivePersonnel.test.ts`
+    covers it: the request goes through the archive batch, the success toast carries `Undo` that is live on the record
+    only, and a request already pending shows its notice with no `Undo`.
 
 ### Detail, Data sheet and loss baseline
 

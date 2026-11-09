@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { toastStore } from '$lib/stores/toast.svelte';
 import type { Personnel } from '../personnel.types';
 import { personnelStore } from '../stores/personnel.svelte';
 import { PersonnelRecordActions, type PersonnelRecordActionsDeps } from './personnelRecordActions.svelte';
@@ -18,13 +19,20 @@ const person: Personnel = {
 	archivedAt: null
 };
 
-afterEach(() => vi.unstubAllGlobals());
+const { appPage } = vi.hoisted(() => ({
+	appPage: { url: new URL('http://localhost/org/org-alpha/personnel/rivera-monica') }
+}));
+vi.mock('$app/state', () => ({ page: appPage }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn().mockResolvedValue(undefined) }));
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+	appPage.url = new URL('http://localhost/org/org-alpha/personnel/rivera-monica');
+});
 
 function makeActions(deps: PersonnelRecordActionsDeps = {}) {
-	return new PersonnelRecordActions(
-		() => ({ orgId: 'org-1', orgUrlSegment: 'org-alpha', person, requestArchiveApproval: async () => false }),
-		deps
-	);
+	return new PersonnelRecordActions(() => ({ orgId: 'org-1', orgUrlSegment: 'org-alpha', person }), deps);
 }
 
 function deferred<T>() {
@@ -71,39 +79,55 @@ describe('PersonnelRecordActions', () => {
 		expect(goto).toHaveBeenCalledWith('/org/org-alpha/personnel', { invalidate: ['app:personnel-data'] });
 	});
 
-	it.each([false, true])(
-		'routes an archive requiring approval to the approver and stays on the record (acknowledged: %s)',
-		async (accepted) => {
-			personnelStore.load([], 'another-org');
-			const fetchMock = vi.fn().mockResolvedValue(Response.json({ requiresApproval: true }, { status: 202 }));
-			vi.stubGlobal('fetch', fetchMock);
-			const requestArchiveApproval = vi.fn().mockResolvedValue(accepted);
-			const goto = vi.fn();
-			const actions = new PersonnelRecordActions(
-				() => ({ orgId: 'org-1', orgUrlSegment: 'org-alpha', person, requestArchiveApproval }),
-				{ goto }
-			);
-			actions.confirmingArchive = true;
+	it('sends an archive that needs approval through the archive batch and stays on the record', async () => {
+		personnelStore.load([], 'another-org');
+		const fetchMock = vi.fn(async (url: string, _init?: RequestInit) =>
+			url.endsWith('/archive-batch')
+				? Response.json({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [], undo: 'token-1' })
+				: Response.json({ requiresApproval: true }, { status: 202 })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const goto = vi.fn();
+		const actions = makeActions({ goto });
+		actions.confirmingArchive = true;
 
-			await actions.confirmArchive();
+		await actions.confirmArchive();
 
-			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id: 'person-1' })
-			});
-			expect(requestArchiveApproval).toHaveBeenCalledWith({
-				orgId: 'org-1',
-				personnelId: 'person-1',
-				description: expect.any(String),
-				resourceUrl: '/org/org-1/personnel/rivera-monica'
-			});
-			expect(personnelStore.items).toEqual([]);
-			expect(actions.confirmingArchive).toBe(false);
-			expect(actions.archiving).toBe(false);
-			expect(goto).not.toHaveBeenCalled();
-		}
-	);
+		expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method, init?.body])).toEqual([
+			['/org/org-1/api/personnel', 'DELETE', JSON.stringify({ id: 'person-1' })],
+			['/org/org-1/api/personnel/archive-batch', 'POST', JSON.stringify({ ids: ['person-1'] })]
+		]);
+		expect(success).toHaveBeenCalledOnce();
+		expect(personnelStore.items).toEqual([]);
+		expect(actions.confirmingArchive).toBe(false);
+		expect(actions.archiving).toBe(false);
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('sends the reader to the roster, where the archive Undo still works, and nowhere else', async () => {
+		const fetchMock = vi.fn(async (url: string) =>
+			url.endsWith('/archive-batch/undo')
+				? Response.json({ restoredIds: ['person-1'], changedIds: [], withdrawnRequestIds: [], reviewedRequestIds: [] })
+				: Response.json({ success: true, undo: 'token-1' })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const goto = vi.fn(async (path: string | URL) => void (appPage.url = new URL(`http://localhost${path}`)));
+		const actions = makeActions({ goto });
+
+		await actions.confirmArchive();
+		success.mock.calls[0][2]?.onClick();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		const restoredFromRoster = fetchMock.mock.calls.filter(([url]) => url.endsWith('/undo')).length;
+		appPage.url = new URL('http://localhost/org/org-alpha/calendar');
+		success.mock.calls[0][2]?.onClick();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(goto).toHaveBeenCalledWith('/org/org-alpha/personnel', { invalidate: ['app:personnel-data'] });
+		expect(restoredFromRoster).toBe(1);
+		expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/undo'))).toHaveLength(1);
+	});
 
 	it.each(['request', 'body'] as const)('does not download an export after disposal during its %s', async (stage) => {
 		const request = deferred<Response>();

@@ -68,8 +68,7 @@ async function renderHeader({
 			today: '2026-06-15',
 			activeTab,
 			edit,
-			access: { affordanceForFeatureAction: (action) => ({ allowed: allowed.includes(action.id) }) },
-			requestArchiveApproval: async () => false
+			access: { affordanceForFeatureAction: (action) => ({ allowed: allowed.includes(action.id) }) }
 		}
 	});
 	await widths.layOut(2000);

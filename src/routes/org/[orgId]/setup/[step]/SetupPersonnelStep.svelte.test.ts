@@ -48,7 +48,7 @@ async function settle() {
 }
 
 function renderPersonnelStep(setupFacts?: Promise<never>) {
-	page.data = { orgId: 'alpha', personnelImport: Promise.resolve({ dodIds: [] }) };
+	page.data = { orgId: 'alpha', personnelImport: Promise.resolve({ dodIds: [], archived: [] }) };
 	const fetch = vi.fn(answerEndpoint());
 	vi.stubGlobal('fetch', fetch);
 	const navigate = vi.fn(async () => {});

@@ -49,16 +49,17 @@ export class CalendarGesture {
 		return suppress;
 	}
 
+	/** Drops whatever is in progress, including an armed touch start day. */
+	cancel(): void {
+		this.#send({ type: 'cancel' });
+	}
+
 	#begin(row: HTMLElement, days: number, commit: GestureCommit): boolean {
-		if (this.state.kind !== 'idle') return false;
+		if (this.state.kind !== 'idle' && this.state.kind !== 'armed') return false;
 		this.#row = row;
 		this.#track = row.querySelector('[data-slot="bar-track"]') ?? row;
 		this.#days = days;
 		this.#commit = commit;
-		window.addEventListener('pointermove', this.#move);
-		window.addEventListener('pointerup', this.#release);
-		window.addEventListener('pointercancel', this.#cancel);
-		window.addEventListener('keydown', this.#key, { capture: true });
 		return true;
 	}
 
@@ -77,24 +78,34 @@ export class CalendarGesture {
 				this.#row.setPointerCapture(event.pointerId);
 			} catch {
 				// The pointer was already released, so the gesture cannot continue.
-				this.#cancel();
+				this.cancel();
 				return;
 			}
 			this.#capturedPointer = event.pointerId;
-		} else if (effect.type === 'quick-add' || effect.type === 'resize') {
+		} else if (effect.type === 'quick-add' || effect.type === 'resize' || effect.type === 'consume-click') {
 			this.#suppressClick = true;
 			// A click that a browser does not deliver must not swallow a later one.
 			setTimeout(() => (this.#suppressClick = false));
-			this.#commit?.(effect);
+			if (effect.type !== 'consume-click') this.#commit?.(effect);
 		}
-		if (state.kind === 'idle') this.#end();
+		this.#listen(state);
 	}
 
-	#end(): void {
-		window.removeEventListener('pointermove', this.#move);
-		window.removeEventListener('pointerup', this.#release);
-		window.removeEventListener('pointercancel', this.#cancel);
-		window.removeEventListener('keydown', this.#key, { capture: true });
+	/** Window listeners follow the state: a pointer is down, or a start day waits for the next tap. */
+	#listen({ kind }: GestureState): void {
+		const held = kind === 'pressing' || kind === 'selecting' || kind === 'resizing' || kind === 'tapping';
+		const toggle = <K extends keyof WindowEventMap>(
+			on: boolean,
+			type: K,
+			listener: (event: WindowEventMap[K]) => void,
+			options?: AddEventListenerOptions
+		) => (on ? window.addEventListener(type, listener, options) : window.removeEventListener(type, listener, options));
+		toggle(held, 'pointermove', this.#move);
+		toggle(held, 'pointerup', this.#release);
+		toggle(held, 'pointercancel', this.#pointerCancel);
+		toggle(held || kind === 'armed', 'keydown', this.#key, { capture: true });
+		toggle(kind === 'armed', 'click', this.#click, { capture: true });
+		if (held) return;
 		if (this.#capturedPointer !== null && this.#row?.hasPointerCapture(this.#capturedPointer)) {
 			this.#row.releasePointerCapture(this.#capturedPointer);
 		}
@@ -112,14 +123,22 @@ export class CalendarGesture {
 		this.#send({ type: 'release', pointerId: event.pointerId });
 	};
 
-	#cancel = () => {
-		this.#send({ type: 'cancel' });
+	#pointerCancel = (event: PointerEvent) => {
+		this.#send({ type: 'pointer-cancel', pointerId: event.pointerId });
+	};
+
+	// Any click that is not the tap that just armed or finished a selection means the user moved on.
+	#click = () => {
+		if (!this.#suppressClick) this.cancel();
 	};
 
 	#key = (event: KeyboardEvent) => {
 		if (event.key !== 'Escape') return;
-		event.preventDefault();
-		event.stopPropagation();
-		this.#cancel();
+		// An armed start day is not a modal state, so Escape still reaches whatever else is open.
+		if (this.state.kind !== 'armed') {
+			event.preventDefault();
+			event.stopPropagation();
+		}
+		this.cancel();
 	};
 }

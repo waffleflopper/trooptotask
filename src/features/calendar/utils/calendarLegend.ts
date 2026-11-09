@@ -31,6 +31,7 @@ export interface LegendSource {
 }
 
 export const DRAG_TO_ADD_HINT = 'Drag across days to add';
+export const TAP_TO_ADD_HINT = 'Tap two days to add';
 
 export function statusLegend(statusTypes: readonly StatusType[], hint?: string): LegendSource {
 	return {

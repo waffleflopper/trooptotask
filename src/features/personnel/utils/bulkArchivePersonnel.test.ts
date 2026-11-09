@@ -27,6 +27,17 @@ describe('bulkArchivePersonnel', () => {
 		});
 		expect(result.archivedIds).toEqual(['p-1', 'p-2']);
 	});
+	it('returns the Undo token when the server issues one, and drops a token that is not text', async () => {
+		const reply = { archivedIds: ['p-1'], approvalRequestedIds: [], errors: [] };
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ...reply, undo: 'token-1' }) })
+		);
+		await expect(bulkArchivePersonnel('org-1', ['p-1'])).resolves.toEqual({ ...reply, undo: 'token-1' });
+
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ...reply, undo: 7 }) }));
+		await expect(bulkArchivePersonnel('org-1', ['p-1'])).resolves.toEqual(reply);
+	});
 	it.each([
 		['a null result', null],
 		['an unconfirmed target', { archivedIds: ['p-1'], approvalRequestedIds: [], errors: [] }],

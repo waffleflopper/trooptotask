@@ -3,7 +3,7 @@ import { ImportSession, type IsoDate } from '$lib/components/patterns/import-flo
 import type { Personnel } from '../personnel.types';
 import { BUILT_IN_RANK_CATALOG } from '../rankCatalog';
 import { lastFirstSplitter, personnelImportColumns } from './personnelImportColumns';
-import { createPersonnelImportLane, type PersonnelImportSource } from './personnelImportLane';
+import { ANSWER, createPersonnelImportLane, type PersonnelImportSource } from './personnelImportLane';
 
 const groups = [
 	{ id: 'g1', name: '1st Platoon', sortOrder: 0, parentId: null, depth: 1 as const },
@@ -36,6 +36,8 @@ function lane(overrides: Partial<PersonnelImportSource> = {}) {
 			person('p3', { lastName: 'Smith', firstName: 'Ana', rank: 'SPC', groupId: null, groupName: '' })
 		],
 		dodIds: [],
+		archived: [],
+		canRestore: () => true,
 		groups,
 		rankCatalog: BUILT_IN_RANK_CATALOG,
 		canManageGroups: false,
@@ -71,7 +73,13 @@ function resolve(source: Lane, raw: Raw, pickedPerson?: Personnel) {
 			deros: (raw.deros ?? null) as IsoDate | null
 		},
 		refs: {
-			person: pickedPerson ? { id: pickedPerson.id, label: pickedPerson.lastName, value: pickedPerson } : one('person'),
+			person: pickedPerson
+				? {
+						id: pickedPerson.id,
+						label: pickedPerson.lastName,
+						value: { kind: 'person', person: pickedPerson, archived: false, by: 'choice' }
+					}
+				: one('person'),
 			rank: one('rank'),
 			group: one('group')
 		} as never,
@@ -501,5 +509,302 @@ describe('personnel import lane', () => {
 		await session.chooseFile([new File([csv], 'roster.csv')]);
 		session.goTo('review');
 		expect(session.review.counts).toMatchObject({ new: 0, update: 0, unchanged: 2 });
+	});
+
+	describe('moving someone to another group', () => {
+		async function review(source: Lane, csv: string) {
+			const session = new ImportSession(() => source);
+			await session.chooseFile([new File([csv], 'roster.csv')]);
+			session.goTo('review');
+			return session;
+		}
+
+		it('asks "Same person, or someone new?" when a name alone would move a person, and follows the answer', async () => {
+			const session = await review(lane(), 'Last name,First name,Rank,Group\nSmith,Ana,SPC,2nd Platoon');
+
+			expect(session.review.rows).toMatchObject([{ outcome: 'fix' }]);
+			expect(session.review.questions).toMatchObject([{ title: 'Same person, or someone new?', rowCount: 1 }]);
+			expect(session.commitBlocker).not.toBeNull();
+			const [question] = session.review.questions;
+
+			session.answer(question.key, { kind: 'pick', optionId: ANSWER.same });
+			expect(session.review.rows).toMatchObject([
+				{
+					outcome: 'update',
+					key: 'p3',
+					change: { op: 'update', personnelId: 'p3', changes: { groupId: 'g2' } },
+					diff: [{ label: 'Group', before: '', after: '2nd Platoon' }]
+				}
+			]);
+
+			session.answer(question.key, { kind: 'pick', optionId: ANSWER.someoneNew });
+			expect(session.review.rows).toMatchObject([
+				{ outcome: 'new', change: { op: 'create', lastName: 'Smith', firstName: 'Ana', rank: 'SPC', groupId: 'g2' } }
+			]);
+		});
+
+		it('keeps separate questions for one person moved to different groups', async () => {
+			const session = await review(
+				lane(),
+				'Last name,First name,Rank,Group\nSmith,Ana,SPC,2nd Platoon\nSmith,Ana,SPC,1st Platoon'
+			);
+			expect(session.review.questions).toHaveLength(2);
+		});
+
+		it('does not ask when the file keeps the person in their group or has no group column', async () => {
+			const source = lane({ personnel: [person('p1')] });
+			for (const csv of [
+				'Last name,First name,Rank,Group\nGarcia,Luis,SSG,1st Platoon',
+				'Last name,First name,Rank\nGarcia,Luis,SSG'
+			]) {
+				const session = await review(source, csv);
+				expect(session.review.questions).toEqual([]);
+				expect(session.review.rows).toMatchObject([{ outcome: 'update', change: { changes: { rank: 'SSG' } } }]);
+			}
+		});
+
+		it('moves a person matched by DoD ID without asking, whatever name the file gives', async () => {
+			const source = lane({ dodIds: [{ personnelId: 'p3', dodId: '0123456789' }] });
+			const session = await review(
+				source,
+				'Last name,First name,Rank,Group,DoD ID\nSmythe,Anna,SPC,2nd Platoon,0123456789'
+			);
+			expect(session.review.questions).toEqual([]);
+			expect(session.review.rows).toMatchObject([
+				{ outcome: 'update', change: { personnelId: 'p3', changes: { groupId: 'g2' } } }
+			]);
+		});
+
+		it('moves a person the user picked from a namesake question without a second question', async () => {
+			const source = lane({
+				groups: [...groups, { id: 'g3', name: '3rd Platoon', sortOrder: 2, parentId: null, depth: 1 as const }]
+			});
+			const session = await review(source, 'Last name,First name,Rank,Group\nGarcia,Luis,SGT,3rd Platoon');
+			expect(session.review.questions).toMatchObject([{ reference: 'person', title: 'Which person?' }]);
+
+			session.answer(session.review.questions[0].key, { kind: 'pick', optionId: 'p1' });
+
+			expect(session.review.questions).toMatchObject([{ reference: 'person' }]);
+			expect(session.review.rows).toMatchObject([
+				{ outcome: 'update', change: { personnelId: 'p1', changes: { groupId: 'g3' } } }
+			]);
+		});
+	});
+
+	describe('archived people', () => {
+		const rivera = person('a1', {
+			lastName: 'Rivera',
+			firstName: 'Dana',
+			mos: '25B',
+			archivedAt: '2026-06-01T00:00:00Z'
+		});
+		const okaforOne = person('a2', { lastName: 'Okafor', firstName: 'Sam', archivedAt: '2026-06-01T00:00:00Z' });
+		const okaforTwo = person('a3', {
+			lastName: 'Okafor',
+			firstName: 'Sam',
+			groupId: 'g2',
+			groupName: '2nd Platoon',
+			archivedAt: '2026-06-01T00:00:00Z'
+		});
+		const archivedSource = (overrides: Partial<PersonnelImportSource> = {}) =>
+			lane({ archived: [rivera, okaforOne, okaforTwo], ...overrides });
+
+		async function review(source: Lane, csv: string) {
+			const session = new ImportSession(() => source);
+			await session.chooseFile([new File([csv], 'roster.csv')]);
+			session.goTo('review');
+			return session;
+		}
+		const optionIds = (session: Awaited<ReturnType<typeof review>>) => {
+			const accepts = session.review.questions[0].accepts;
+			return accepts.kind === 'pick' ? accepts.options.map((option) => option.id) : [];
+		};
+
+		it('marks how each match was made so only a DoD ID is treated as proof', () => {
+			const source = archivedSource({ dodIds: [{ personnelId: 'a1', dodId: '0123456789' }] });
+			expect(match(source, 'person', { lastName: 'Rivera', firstName: 'Dana' })).toMatchObject({
+				kind: 'one',
+				option: { id: 'a1', value: { kind: 'person', archived: true, by: 'name' } }
+			});
+			expect(match(source, 'person', { lastName: 'X', firstName: 'Y', dodId: '0123456789' })).toMatchObject({
+				kind: 'one',
+				option: { id: 'a1', value: { kind: 'person', archived: true, by: 'dodId' } }
+			});
+			expect(match(source, 'person', { lastName: 'Smith', firstName: 'Ana' })).toMatchObject({
+				kind: 'one',
+				option: { value: { archived: false, by: 'name' } }
+			});
+			const namesakes = match(source, 'person', { lastName: 'Okafor', firstName: 'Sam' });
+			expect(namesakes?.kind === 'many' && namesakes.candidates.map((option) => option.id)).toEqual([
+				'a2',
+				'a3',
+				'new'
+			]);
+			expect(
+				namesakes?.kind === 'many' &&
+					namesakes.candidates.map((option) => option.hint).filter((hint) => hint?.includes('archived'))
+			).toHaveLength(2);
+			expect(namesakes?.kind === 'many' && namesakes.candidates[0].value).toMatchObject({
+				archived: true,
+				by: 'choice'
+			});
+		});
+
+		it('prefers an active person with the same name over an archived one', () => {
+			const source = archivedSource({ archived: [person('a9', { archivedAt: '2026-06-01T00:00:00Z' })] });
+			expect(
+				match(source, 'person', { lastName: 'Garcia', firstName: 'Luis', groupName: '1st Platoon' })
+			).toMatchObject({
+				kind: 'one',
+				option: { id: 'p1', value: { archived: false } }
+			});
+		});
+
+		it("matches an archived person's DoD ID before an active namesake", () => {
+			const source = archivedSource({
+				archived: [person('a9', { archivedAt: '2026-06-01T00:00:00Z' })],
+				dodIds: [{ personnelId: 'a9', dodId: '0123456789' }]
+			});
+			expect(
+				match(source, 'person', {
+					lastName: 'Garcia',
+					firstName: 'Luis',
+					groupName: '1st Platoon',
+					dodId: '0123456789'
+				})
+			).toMatchObject({
+				kind: 'one',
+				option: { id: 'a9', value: { archived: true, by: 'dodId' } }
+			});
+		});
+
+		it('offers Restore or Create new for an archived name match, and restores with the fields the file changes', async () => {
+			const session = await review(
+				archivedSource(),
+				'Last name,First name,Rank,Group,MOS\nRivera,Dana,SGT,1st Platoon,68W'
+			);
+			expect(session.review.rows).toMatchObject([{ outcome: 'fix' }]);
+			expect(optionIds(session)).toEqual([ANSWER.restore, ANSWER.createAnyway]);
+			expect(session.commitBlocker).not.toBeNull();
+
+			session.answer(session.review.questions[0].key, { kind: 'pick', optionId: ANSWER.restore });
+			expect(session.review.rows).toMatchObject([
+				{
+					outcome: 'update',
+					key: 'a1',
+					change: { op: 'restore', personnelId: 'a1', changes: { mos: '68W' } },
+					diff: [
+						{ label: 'Status', before: 'Archived', after: 'Restored' },
+						{ label: 'MOS', before: '25B', after: '68W' }
+					]
+				}
+			]);
+			expect(session.commitBlocker).toBeNull();
+
+			session.answer(session.review.questions[0].key, { kind: 'pick', optionId: ANSWER.createAnyway });
+			expect(session.review.rows).toMatchObject([
+				{ outcome: 'new', change: { op: 'create', lastName: 'Rivera', firstName: 'Dana', rank: 'SGT' } }
+			]);
+		});
+
+		it('restores with nothing else to change when the file matches the archived record', async () => {
+			const session = await review(archivedSource(), 'Last name,First name,Rank\nRivera,Dana,SGT');
+			session.answer(session.review.questions[0].key, { kind: 'pick', optionId: ANSWER.restore });
+			expect(session.review.rows).toMatchObject([
+				{ outcome: 'update', change: { op: 'restore', personnelId: 'a1', changes: {} }, diff: [{ label: 'Status' }] }
+			]);
+		});
+
+		it('offers only Restore for an archived DoD ID match, since that ID cannot belong to a new person', async () => {
+			const source = archivedSource({ dodIds: [{ personnelId: 'a1', dodId: '0123456789' }] });
+			const session = await review(source, 'Last name,First name,Rank,DoD ID\nNew Name,Other,SGT,0123456789');
+			expect(optionIds(session)).toEqual([ANSWER.restore]);
+		});
+
+		it('lets only a person who cannot restore add the archived person as new, on an explicit choice', async () => {
+			const source = archivedSource({ canRestore: () => false });
+			const session = await review(source, 'Last name,First name,Rank\nRivera,Dana,SGT');
+			expect(optionIds(session)).toEqual([ANSWER.createAnyway]);
+			expect(session.review.rows).toMatchObject([{ outcome: 'fix' }]);
+			expect(session.commitBlocker).not.toBeNull();
+
+			session.answer(session.review.questions[0].key, { kind: 'pick', optionId: ANSWER.createAnyway });
+			expect(session.review.rows).toMatchObject([{ outcome: 'new', change: { op: 'create', lastName: 'Rivera' } }]);
+		});
+
+		it('stops a person who cannot restore from re-adding an archived DoD ID holder, and offers no question', async () => {
+			const source = archivedSource({
+				canRestore: () => false,
+				dodIds: [{ personnelId: 'a1', dodId: '0123456789' }]
+			});
+			const session = await review(source, 'Last name,First name,Rank,DoD ID\nRivera,Dana,SGT,0123456789');
+			expect(session.review.questions).toEqual([]);
+			expect(session.review.rows).toMatchObject([{ outcome: 'fix', problems: [{ field: 'dodId' }] }]);
+			expect(session.skipFixesBlocker).toBe('There are no changes to import.');
+		});
+
+		it("checks restore permission in the archived person's own group", async () => {
+			const lopez = person('a4', {
+				lastName: 'Lopez',
+				firstName: 'Eva',
+				groupId: 'g2',
+				groupName: '2nd Platoon',
+				archivedAt: '2026-06-01T00:00:00Z'
+			});
+			const source = archivedSource({
+				archived: [rivera, lopez],
+				canRestore: (groupId) => groupId === 'g2'
+			});
+			const session = await review(source, 'Last name,First name,Rank\nRivera,Dana,SGT\nLopez,Eva,SGT');
+			const offered = new Map(
+				session.review.questions.map((question) => [
+					question.subject,
+					question.accepts.kind === 'pick' ? question.accepts.options.map((option) => option.id) : []
+				])
+			);
+			expect([...offered.values()].sort()).toEqual(
+				[[ANSWER.createAnyway], [ANSWER.restore, ANSWER.createAnyway]].sort()
+			);
+		});
+
+		it('asks which archived namesake is meant, with Add as a new person alongside', async () => {
+			const session = await review(archivedSource(), 'Last name,First name,Rank\nOkafor,Sam,SGT');
+			expect(session.review.questions).toMatchObject([
+				{ reference: 'person', title: 'Which person?', accepts: { canCreate: false } }
+			]);
+			expect(optionIds(session)).toEqual(['a2', 'a3', 'new']);
+		});
+
+		it('makes a restored person active, and the old DoD ID holder free, for a second file in the same session', async () => {
+			const source = archivedSource({ dodIds: [{ personnelId: 'a1', dodId: '0000000001' }] });
+			const csv = 'Last name,First name,Rank,DoD ID\nRivera,Dana,SGT,0123456789';
+			const restored = { ...rivera, archivedAt: null };
+			const request = vi.fn(async (_url: unknown, init?: RequestInit) => {
+				const body = JSON.parse(String(init?.body));
+				return Response.json({ created: [], updated: [restored], errors: [], echo: body });
+			});
+			vi.stubGlobal('fetch', request);
+			const session = new ImportSession(() => source);
+
+			await session.chooseFile([new File([csv], 'roster.csv')]);
+			session.goTo('review');
+			session.answer(session.review.questions[0].key, { kind: 'pick', optionId: ANSWER.restore });
+			await session.commit();
+
+			expect(session.phase).toMatchObject({ step: 'done', receipt: { updated: 1, failed: 0 } });
+			expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toEqual({
+				records: [{ op: 'restore', personnelId: 'a1', changes: { dodId: '0123456789' } }]
+			});
+
+			session.goTo('file');
+			await session.chooseFile([new File([csv], 'roster.csv')]);
+			session.goTo('review');
+			expect(session.review.questions).toEqual([]);
+			expect(session.review.rows).toMatchObject([{ outcome: 'unchanged', key: 'a1' }]);
+
+			await session.chooseFile([new File(['Last name,First name,Rank,DoD ID\nNew,Person,SGT,0000000001'], 'next.csv')]);
+			session.goTo('review');
+			expect(session.review.rows).toMatchObject([{ outcome: 'new' }]);
+		});
 	});
 });

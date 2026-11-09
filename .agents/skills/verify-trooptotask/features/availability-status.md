@@ -9,10 +9,15 @@ with the result visible again after reload.
 - `status-edit`: open `Edit details` from the popover, edit the status and save or cancel.
 - `status-add`: add a new status through the visible form opened from an empty day.
 - `status-quick-add`: drag across empty days in a person's month row and pick a status by click or number key.
+- `status-touch-add`: on a touch screen, tap a start day then an end day in one person's month row and pick a status
+  from the same quick-add popover.
 - `status-resize`: drag a selected bar's end to change its dates in place.
 - `status-remember`: the editor and quick-add start on the last status this person added in this Organization.
 - `status-save-close`: `Save and close` saves a status and closes the editor; `Add Status` saves and stays open.
 - `status-remove`: remove a status through the popover's inline confirmation.
+- `status-undo`: the `added —` and `Status removed` toasts carry `Undo` for 10 seconds. Undo deletes exactly the row the
+  add wrote or saves the removed row again under its own ID; an edit or a same-status overlap since is reported and left
+  alone. Updates offer no Undo.
 - `status-persist`: confirm a saved change through a second Calendar read.
 - `status-failed-add`: if operation permission disappears before save, no row or premature success appears and the
   member sees an error.
@@ -25,7 +30,9 @@ Sign in with Calendar operation access and choose `Calendar`. Each entry draws a
 note plus `Edit details` and `Remove`; the bar shows end handles while it is selected. Clicking an empty day opens
 `Set Personnel Status` for that person and date; clicking the person's name opens it for today. Dragging across empty
 days draws a dashed `N days` box and opens `Add status, <range>` with the status types numbered 1 to 9 and
-`Add a note or edit dates…`. A row with more than two
+`Add a note or edit dates…`. On a touch screen
+(`pointer: coarse`) tapping a day arms it as the start, drawn as a dashed `1 day` box, and tapping a second day in the
+same row opens that same `Add status, <range>` popover. A row with more than two
 overlapping entries ends its bottom lane with a `+N` button that lists the rest.
 
 ### Helper controls
@@ -36,6 +43,7 @@ $V network arm-hold 2 availability # hold a real response after persistence
 $V network arm-hold-dispatch 2 availability # hold a Calendar save or delete before dispatch; release sends it
 $V network arm-drop 2 availability # persist one create, update or remove, then lose its reply (any method)
 $V pointer drag 2 'EXACT_LOADED_URL' '[data-edge="end"]' '[data-person-id="ID"] [data-day="9"]' # real pointer drag by CSS selector
+$V pointer touch 2 'EXACT_LOADED_URL' '[data-person-id="ID"] [data-day="9"]' '[data-person-id="ID"] [data-day="9"]' # trusted touch tap; two selectors swipe
 ```
 
 ## Driving it with verify:app
@@ -76,6 +84,16 @@ restore any temporarily narrowed grant.
    opens with the dragged dates. Escape during a drag cancels it with no popover. On a row that already has two
    overlapping entries, a third overlapping add keeps the first-lane bar and folds the other two into `+2` in the bottom
    lane; its button opens `2 more entries, RANK Last` listing both, and choosing one opens that entry's popover.
+   **Touch quick add.** Native `click`, `drag` and `emulate` send mouse input, so a tap needs trusted touch events. Run
+   `emulate` with `{"pageId":PAGE,"viewport":"390x844x2,mobile,touch"}` and reload; the legend reads
+   `Tap two days to add`. Tap with `$V pointer touch PAGE 'EXACT_URL' SELECTOR SELECTOR` (the same selector twice);
+   swipe with two different selectors. Pick day cells inside the 390 px viewport (read each `[data-day]` rect). Expect:
+   (a) one tap on an empty day draws a dashed `1 day` box on that row, opens no dialog and no `Set Personnel Status`; (b) a horizontal swipe that starts on a day scrolls the grid, draws no box when none
+   was armed, and leaves an armed box in place (read `[data-slot="calendar-selection"]`); (c) a second tap in the same
+   row on a visible day opens `Add status, <range>` with the right day count; one tap on a
+   status adds the bar over exactly those days, three taps in all (`rows` and a reload confirm); (d) a tap in another
+   row, on a bar, on a person's name or on Next month clears the box (a bar still opens its popover); (e) Escape
+   clears it. Remove the added entry through the bar popover afterwards.
 8. **Resize.** Click a bar created in this run: `Drag ends to resize` shows in its popover and the bar draws a grip at
    each end it owns (none where it crosses the month edge, none in 3-Month, and none on the bars of people the member
    cannot manage). Capture that state. Grips are hidden from the accessibility tree, so native `drag` cannot reach them.
@@ -156,10 +174,25 @@ restore any temporarily narrowed grant.
     in that order inside the dialog; at 1024 they sit in one row. A failed save or lost reply leaves the editor open (see
     step 10). `$V rows user_org_preferences orgB` must have no row for this user until B is used.
 
+16. **Undo.** Use an empty day for Able and a unique note. Arm `$V feedback arm $PAGE` first, and keep the
+    toast-to-click path short: the offer lasts 10 seconds and each native call costs about a second. **Add:** `Add Status`,
+    capture the `added —` toast with `Undo`, click `Undo` by name. Expect `Status removed again` and
+    `$V rows availability_entries orgA note "$NOTE"` returning zero rows. **Remove:** save the status, open its bar,
+    `Remove`, confirm, then click `Undo`. Expect `The removed status is back` and one row with the same ID, dates and
+    note (`set_for_tasking_id` is not restored). **Changed since:** add a status, open `Edit status` in the still-open
+    form, change the note and `Update Status`, then click the older toast's `Undo`. Expect a warning
+    `Nothing was undone` with `1 status changed since and was left as it is` (`feedback` records only success and error
+    toasts, so capture the warning with a screenshot) and the edited row unchanged in `rows`. A remove whose same
+    status was added again over those dates reports the same warning. Repeat Add and Remove at 390x844 with the toast
+    clear of the dialog buttons.
+
 ## Gotchas
 
 - A drag starts only on a day no bar covers, since the bar takes the press. Pick an empty day for the first cell; the
   drag can then extend across bars.
+- A touch start day is armed in memory only: changing the month, the Organization or leaving the Calendar drops it, and
+  a pan or `pointercancel` from browser scrolling keeps it. A tap that is not on a day, or whose click lands anywhere
+  else, drops it. The legend hint follows `pointer: coarse`, so a desktop browser shows `Drag across days to add`.
 - Resize grips render only on a selected bar in Month view, and only for a mouse or pen; touch never offers them.
   Keyboard users change dates through `Edit details`.
 - A drag that crosses into another day and returns to its first day before release still opens quick-add, as a one-day

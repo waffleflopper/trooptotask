@@ -58,12 +58,19 @@ FROM (VALUES (601, 301), (602, 302), (603, 303), (604, 304), (605, 305), (606, 3
   (608, 307), (609, 314), (610, 326), (611, 328), (612, 329)) AS rows(request, person);
 INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug, archived_at)
 SELECT pg_temp.u(person), pg_temp.u(101), pg_temp.u(201), 'SGT', 'Expired', 'Person ' || person, 'lifecycle-wait-' || person,
-  '2020-01-01T00:00:00Z' FROM (VALUES (341), (342)) AS expired(person);
+  '2020-01-01T00:00:00Z' FROM (VALUES (341), (342), (343)) AS expired(person);
 INSERT INTO public.deletion_requests (
   id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status, created_at
 ) VALUES
   (pg_temp.u(621), pg_temp.u(101), pg_temp.u(5), 'requester@example.test', 'personnel', pg_temp.u(341), 'Archive 341', 'pending', '2029-08-01T00:00:00Z'),
   (pg_temp.u(622), pg_temp.u(101), pg_temp.u(5), 'requester@example.test', 'personnel', pg_temp.u(342), 'Archive 342', 'pending', '2029-08-01T00:00:00Z');
+INSERT INTO public.training_types (id, organization_id, name) VALUES (pg_temp.u(703), pg_temp.u(101), 'Expired training');
+INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, training_type_id)
+VALUES (pg_temp.u(704), pg_temp.u(101), pg_temp.u(343), pg_temp.u(703));
+INSERT INTO public.deletion_requests (
+  id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status, created_at
+) VALUES (pg_temp.u(623), pg_temp.u(101), pg_temp.u(5), 'requester@example.test', 'personnel_training', pg_temp.u(704),
+  'Training 704', 'pending', '2029-08-01T00:00:00Z');
 INSERT INTO public.onboarding_templates (id, organization_id, name) VALUES (pg_temp.u(701), pg_temp.u(101), 'Arrival');
 INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, template_id, started_at, status, cancelled_at)
 VALUES (pg_temp.u(702), pg_temp.u(101), pg_temp.u(319), pg_temp.u(701), '2029-01-01', 'cancelled', '2029-01-02T00:00:00Z');
@@ -691,6 +698,22 @@ SELECT is(pg_temp.reply('holder'), 'P0002 Pending deletion request not found', '
 SELECT dblink_exec('holder', 'ROLLBACK');
 SELECT results_eq($$ SELECT status FROM pg_temp.request(622) $$, $$ VALUES ('cancelled') $$,
   'the purge cancelled the pending request');
+
+SELECT pg_temp.begin_as('holder', NULL, 'service_role');
+SELECT is(pg_temp.run('holder', format('SELECT id::text FROM public.personnel_trainings WHERE id = %L FOR UPDATE', pg_temp.u(704))),
+  pg_temp.u(704)::text, 'Training approval locks the record before the request');
+SELECT pg_temp.begin_as('first', NULL, 'service_role');
+SELECT pg_temp.send('first', format('SELECT public.delete_expired_personnel(%L, %L::uuid[], %L)::text',
+  pg_temp.u(101), ARRAY[pg_temp.u(343)], '2025-01-01T00:00:00Z'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'the purge waits on the Training record before locking the request');
+SELECT is(pg_temp.run('holder', format('SELECT public.approve_record_deletion_request(%L, %L, %L, %L, %L, %L)::text',
+  pg_temp.u(101), pg_temp.u(623), 'personnel_training', pg_temp.u(704), pg_temp.u(1), '2030-02-01T00:00:00Z')), '',
+  'Training approval then approves its request without a deadlock');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'the purge completes after the Training approval');
+SELECT pg_temp.finish('first');
+SELECT results_eq($$ SELECT status FROM pg_temp.request(623) $$, $$ VALUES ('approved') $$,
+  'the approved Training request stays approved');
 
 SELECT dblink_disconnect(name) FROM (VALUES ('holder'), ('first'), ('second')) AS connections(name);
 SELECT dblink_exec('fixture', format($cleanup$

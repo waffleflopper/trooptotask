@@ -7593,7 +7593,15 @@ BEGIN
     RAISE EXCEPTION 'Organization, candidate IDs and cutoff are required' USING ERRCODE = '22023';
   END IF;
 
-  -- Requests lock before People, as request approval does, so a purge and an approval cannot deadlock.
+  -- Training and rating approvals delete their record before approving its request, and archive approval
+  -- locks its request before the Person. The purge takes records, then requests, then People.
+  PERFORM 1 FROM (SELECT record.id FROM public.personnel_trainings AS record
+    WHERE record.organization_id = p_org_id AND record.personnel_id = ANY (p_candidate_ids)
+    ORDER BY record.id FOR UPDATE) AS locked;
+  PERFORM 1 FROM (SELECT record.id FROM public.rating_scheme_entries AS record
+    WHERE record.organization_id = p_org_id AND record.rated_person_id = ANY (p_candidate_ids)
+    ORDER BY record.id FOR UPDATE) AS locked;
+
   SELECT coalesce(pg_catalog.array_agg(pending.id), '{}'), coalesce(pg_catalog.array_agg(pending.person_id), '{}')
   INTO v_request_ids, v_request_people FROM (
     SELECT request.id, target.person_id FROM public.deletion_requests AS request

@@ -5,7 +5,7 @@ import { createMockAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
 import { settles } from '$lib/test-support/settles';
-import { endOrganizationLifetime } from './lifetime.svelte';
+import { endOrganizationLifetime, onWriteConfirmedAfterLifetime } from './lifetime.svelte';
 
 interface TestItem {
 	id: string;
@@ -293,26 +293,26 @@ describe('createStore', () => {
 			expect(store.items).toEqual([item]);
 		});
 
-		it('should rollback on error and return error', async () => {
+		it('restores the item when removal is refused', async () => {
 			const item: TestItem = { id: '1', name: 'Alpha' };
 			const store = makeStore({
-				adapterOverrides: { remove: async () => 'error' }
+				adapterOverrides: { remove: async () => 'not-saved' }
 			});
 			store.load([item], 'org-1');
 
 			const result = await store.remove('1');
 
-			expect(result).toBe('error');
+			expect(result).toBe('not-saved');
 			expect(store.items).toEqual([item]);
 		});
 
-		it('should return error for non-existent ID', async () => {
+		it('returns not-saved for a non-existent ID', async () => {
 			const store = makeStore();
 			store.load([], 'org-1');
 
 			const result = await store.remove('nonexistent');
 
-			expect(result).toBe('error');
+			expect(result).toBe('not-saved');
 		});
 	});
 
@@ -329,7 +329,7 @@ describe('createStore', () => {
 
 		it('should return false on error', async () => {
 			const store = makeStore({
-				adapterOverrides: { remove: async () => 'error' }
+				adapterOverrides: { remove: async () => 'not-saved' }
 			});
 			store.load([{ id: '1', name: 'Alpha' }], 'org-1');
 
@@ -573,6 +573,90 @@ describe('createStore', () => {
 				});
 			}
 		}
+
+		for (const [name, operation] of Object.entries(lateOperations)) {
+			it.each(['resolve', 'reject'] as const)(
+				`clears busy without settling ${name} after the lifetime ends (%s)`,
+				async (outcome) => {
+					const work = Promise.withResolvers<TestItem | 'deleted'>();
+					const onError = vi.fn();
+					const heard = vi.fn();
+					const unsubscribe = onWriteConfirmedAfterLifetime(heard);
+					try {
+						const store = createStore<TestItem>({
+							resource: 'test-items',
+							adapter: makeAdapter({ [operation.adapter]: () => work.promise }),
+							onError
+						});
+						store.load([{ id: 'shared-id', name: 'Original' }], 'org-1');
+						const pending = operation.start(store);
+						expect(store.busy).toBe(true);
+						endOrganizationLifetime();
+						if (outcome === 'resolve') {
+							work.resolve(operation.adapter === 'remove' ? 'deleted' : { id: 'saved', name: 'New' });
+						} else work.reject(new TypeError('Lost reply'));
+
+						expect(await settles(pending)).toBe(false);
+						expect(store.busy).toBe(false);
+						expect(store.items).toEqual([{ id: 'shared-id', name: 'Original' }]);
+						expect(store.writes).toBe(0);
+						expect(heard).toHaveBeenCalledTimes(outcome === 'resolve' ? 1 : 0);
+						expect(onError).not.toHaveBeenCalled();
+					} finally {
+						unsubscribe();
+					}
+				}
+			);
+		}
+
+		it.each(['not-saved', 'unconfirmed', 'approval_required'] as const)(
+			'does not announce a late %s removal',
+			async (result) => {
+				const work = Promise.withResolvers<typeof result>();
+				const heard = vi.fn();
+				const unsubscribe = onWriteConfirmedAfterLifetime(heard);
+				try {
+					const store = makeStore({ adapterOverrides: { remove: () => work.promise } });
+					store.load([{ id: '1', name: 'Original' }], 'org-1');
+					const pending = store.remove('1');
+					endOrganizationLifetime();
+					work.resolve(result);
+					expect(await settles(pending)).toBe(false);
+					expect(store.busy).toBe(false);
+					expect(store.items).toEqual([{ id: '1', name: 'Original' }]);
+					expect(heard).not.toHaveBeenCalled();
+				} finally {
+					unsubscribe();
+				}
+			}
+		);
+
+		it.each([
+			{ reply: { deleted: 0, completedIds: [] }, announced: 0 },
+			{ reply: { deleted: 0, completedIds: ['1'] }, announced: 1 }
+		])('announces a late batch only when an ID completed: $reply', async ({ reply, announced }) => {
+			const work = Promise.withResolvers<typeof reply>();
+			const heard = vi.fn();
+			const unsubscribe = onWriteConfirmedAfterLifetime(heard);
+			try {
+				const batchAdapter: BatchApiAdapter<TestItem> = {
+					...makeAdapter(),
+					createBatch: async () => [],
+					removeBatch: () => work.promise
+				};
+				const store = createStore<TestItem>({ resource: 'test-items', adapter: batchAdapter, batchAdapter });
+				store.load([{ id: '1', name: 'Original' }], 'org-1');
+				const pending = store.removeBatch(['1']);
+				endOrganizationLifetime();
+				work.resolve(reply);
+				expect(await settles(pending)).toBe(false);
+				expect(store.busy).toBe(false);
+				expect(store.items).toEqual([{ id: '1', name: 'Original' }]);
+				expect(heard).toHaveBeenCalledTimes(announced);
+			} finally {
+				unsubscribe();
+			}
+		});
 
 		it('never settles, reports or displays a mutation that finishes after the Organization shell ends', async () => {
 			let settle!: (item: TestItem) => void;
@@ -864,7 +948,7 @@ describe('createStore', () => {
 				{ id: '3', name: 'Charlie' }
 			];
 			const store = makeStore({
-				adapterOverrides: { remove: async (id) => (id === '3' ? 'error' : 'deleted') }
+				adapterOverrides: { remove: async (id) => (id === '3' ? 'not-saved' : 'deleted') }
 			});
 			store.load(items, 'org-1');
 
@@ -1341,11 +1425,11 @@ describe('createStore', () => {
 			expect(onError).toHaveBeenCalledWith('update', expect.any(Error));
 		});
 
-		it('should call onError when remove fails', async () => {
+		it.each(['not-saved', 'unconfirmed'] as const)('calls onError when remove is %s', async (result) => {
 			const onError = vi.fn();
 			const store = createStore<TestItem>({
 				resource: 'test-items',
-				adapter: makeAdapter({ remove: async () => 'error' }),
+				adapter: makeAdapter({ remove: async () => result }),
 				onError
 			});
 			store.load([{ id: '1', name: 'Alice' }], 'org-1');

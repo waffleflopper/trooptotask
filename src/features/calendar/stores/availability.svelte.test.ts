@@ -126,6 +126,18 @@ describe('availabilityStore', () => {
 		});
 	});
 
+	it.each([404, 500, 'lost reply'] as const)('retains availability when a removal replies %s', async (reply) => {
+		vi.stubGlobal(
+			'fetch',
+			reply === 'lost reply'
+				? vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+				: vi.fn().mockResolvedValue(new Response(null, { status: reply }))
+		);
+		expect(await availabilityStore.remove('1')).toBe(false);
+		expect(availabilityStore.items).toEqual(mockEntries);
+		expect(availabilityStore.busy).toBe(false);
+	});
+
 	describe('removeBatch', () => {
 		it('reports the server count when fewer entries were deleted than requested', async () => {
 			vi.stubGlobal('fetch', mockFetch({ deleted: 1 }));

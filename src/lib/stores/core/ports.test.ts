@@ -99,22 +99,27 @@ describe('createRestAdapter', () => {
 			expect(result).toBe('approval_required' satisfies DeleteResult);
 		});
 
-		it('should return error on fetch failure', async () => {
+		it('returns unconfirmed on a thrown fetch', async () => {
 			vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('fail')));
 
 			const adapter = makeAdapter();
 			const result = await adapter.remove('1');
 
-			expect(result).toBe('error' satisfies DeleteResult);
+			expect(result).toBe('unconfirmed' satisfies DeleteResult);
 		});
 
-		it('should return error on non-ok response', async () => {
+		it('returns not-saved on a 404 reply', async () => {
+			vi.stubGlobal('fetch', mockFetch({}, 404));
+			expect(await makeAdapter().remove('1')).toBe('not-saved');
+		});
+
+		it('returns unconfirmed on a 500 reply', async () => {
 			vi.stubGlobal('fetch', mockFetch({}, 500));
 
 			const adapter = makeAdapter();
 			const result = await adapter.remove('1');
 
-			expect(result).toBe('error' satisfies DeleteResult);
+			expect(result).toBe('unconfirmed' satisfies DeleteResult);
 		});
 	});
 });

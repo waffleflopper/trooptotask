@@ -7,7 +7,12 @@ import type { MutationEntry } from './replay';
 import { createRestAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
-import { organizationLifetime, withinOrganizationLifetime } from './lifetime.svelte';
+import {
+	organizationLifetime,
+	stillInOrganizationLifetime,
+	withinOrganizationLifetime,
+	withinOrganizationWrite
+} from './lifetime.svelte';
 import {
 	applyConfirmedChange,
 	confirmedSequence,
@@ -201,6 +206,24 @@ export function createStoreWithInternals<T extends { id: string }>(
 		return withinOrganizationLifetime(work, () => version === organizationVersion);
 	}
 
+	function withinWrite<R>(
+		mutationId: string,
+		work: Promise<R>,
+		apply: (value: R) => void,
+		confirmed: (value: R) => boolean = () => true
+	): Promise<R> {
+		const version = organizationVersion;
+		const sameLifetime = stillInOrganizationLifetime();
+		const isCurrent = () => version === organizationVersion;
+		const settled = work
+			.then((value) => {
+				if (sameLifetime() && isCurrent()) apply(value);
+				return value;
+			})
+			.finally(() => log.resolve(mutationId));
+		return withinOrganizationWrite(settled, { isCurrent, confirmed });
+	}
+
 	let adapter: ApiAdapter<T> = config.adapter ?? createRestAdapter<T>(() => orgIdVal.value, config.resource);
 
 	let display: { server: T[]; entries: MutationEntry<T>[]; items: T[] } | null = null;
@@ -222,20 +245,18 @@ export function createStoreWithInternals<T extends { id: string }>(
 		const mutationId = crypto.randomUUID();
 		log.push({ type: 'remove', mutationId, targetId: id });
 
-		let result: DeleteResult;
-		try {
-			result = await withinOrganization(adapter.remove(id));
-		} catch (error) {
-			log.resolve(mutationId);
-			throw error;
-		}
-		if (result === 'deleted') {
-			commit({ deleted: [id] });
-		} else if (result !== 'approval_required') {
-			config.onError?.('remove', undefined);
-		}
-		log.resolve(mutationId);
-		return result;
+		return withinWrite(
+			mutationId,
+			adapter.remove(id),
+			(result) => {
+				if (result === 'deleted') {
+					commit({ deleted: [id] });
+				} else if (result !== 'approval_required') {
+					config.onError?.('remove', undefined);
+				}
+			},
+			(result) => result === 'deleted'
+		);
 	}
 
 	async function updateImpl(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean> {
@@ -246,13 +267,8 @@ export function createStoreWithInternals<T extends { id: string }>(
 		const mutationId = crypto.randomUUID();
 		log.push({ type: 'update', mutationId, targetId: id, data: data as Partial<T> });
 
-		try {
-			const updated = await withinOrganization(adapter.update(id, data));
-			commit({ saved: [updated] });
-			return true;
-		} finally {
-			log.resolve(mutationId);
-		}
+		await withinWrite(mutationId, adapter.update(id, data), (updated) => commit({ saved: [updated] }));
+		return true;
 	}
 
 	const store: Store<T> = {
@@ -317,16 +333,16 @@ export function createStoreWithInternals<T extends { id: string }>(
 			log.push({ type: 'add', mutationId, tempId, data });
 
 			try {
-				const created = await withinOrganization(adapter.create(data));
-				const current = loadedState.getSnapshot();
-				const keptIds: Record<string, true> = Object.create(null);
-				for (const item of config.beforeAdd ? config.beforeAdd(current, data).items : current) keptIds[item.id] = true;
-				commit({ saved: [created], deleted: current.filter((item) => !keptIds[item.id]).map((item) => item.id) });
-				log.resolve(mutationId);
+				const created = await withinWrite(mutationId, adapter.create(data), (created) => {
+					const current = loadedState.getSnapshot();
+					const keptIds: Record<string, true> = Object.create(null);
+					for (const item of config.beforeAdd ? config.beforeAdd(current, data).items : current)
+						keptIds[item.id] = true;
+					commit({ saved: [created], deleted: current.filter((item) => !keptIds[item.id]).map((item) => item.id) });
+				});
 				return created;
 			} catch (e) {
 				config.onError?.('add', e);
-				log.resolve(mutationId);
 				throw e;
 			}
 		},
@@ -337,17 +353,17 @@ export function createStoreWithInternals<T extends { id: string }>(
 			log.push({ type: 'add-batch', mutationId, tempIds, data: entries });
 
 			try {
-				const created = await withinOrganization(
+				const created = await withinWrite(
+					mutationId,
 					config.batchAdapter
 						? config.batchAdapter.createBatch(entries)
-						: Promise.all(entries.map((data) => adapter.create(data)))
+						: Promise.all(entries.map((data) => adapter.create(data))),
+					(created) => commit({ saved: created }),
+					(created) => created.length > 0
 				);
-				commit({ saved: created });
-				log.resolve(mutationId);
 				return created;
 			} catch (e) {
 				config.onError?.('addBatch', e);
-				log.resolve(mutationId);
 				throw e;
 			}
 		},
@@ -375,22 +391,22 @@ export function createStoreWithInternals<T extends { id: string }>(
 			log.push({ type: 'remove-batch', mutationId, targetIds: ids });
 
 			try {
-				const { deleted, completedIds } = await withinOrganization(
+				const { deleted, completedIds } = await withinWrite(
+					mutationId,
 					config.batchAdapter?.removeBatch
 						? config.batchAdapter.removeBatch(ids)
 						: Promise.all(ids.map((id) => adapter.remove(id))).then((results) => {
 								const completedIds = ids.filter((_, index) => results[index] === 'deleted');
 								return { deleted: completedIds.length, completedIds };
-							})
+							}),
+					({ completedIds }) => commit({ deleted: completedIds }),
+					({ completedIds }) => completedIds.length > 0
 				);
-				commit({ deleted: completedIds });
-				log.resolve(mutationId);
 				return completedIds.length < ids.length
 					? { kind: 'partial', deleted, completedIds }
 					: { kind: 'removed', deleted };
 			} catch (e) {
 				config.onError?.('removeBatch', e);
-				log.resolve(mutationId);
 				return { kind: 'failed' };
 			}
 		},

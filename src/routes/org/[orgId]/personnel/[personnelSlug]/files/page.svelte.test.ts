@@ -16,8 +16,7 @@ vi.mock('$app/state', () => ({ page: { state: {}, params: {} } }));
 vi.mock('$app/navigation', () => ({
 	afterNavigate: vi.fn(),
 	goto: vi.fn(),
-	invalidate: vi.fn(),
-	replaceState: vi.fn()
+	invalidate: vi.fn()
 }));
 
 afterEach(() => {

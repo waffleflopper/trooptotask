@@ -7,7 +7,7 @@ import type { TaskingWorkspace } from '../../taskings/taskingReadModel';
 import type { CalendarEvent, EventDetail, EventRead } from '../eventModel';
 import EventDetailPage from './EventDetailPage.svelte';
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn(), replaceState: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn() }));
 
 const cancelled: CalendarEvent = {
 	id: '00000000-0000-4000-8000-000000000301',

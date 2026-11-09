@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { afterNavigate, invalidate, replaceState } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { afterNavigate, invalidate } from '$app/navigation';
 	import { getAppShellContext } from '$features/app-shell';
 	import type { PersonnelCriticalTaskReadiness } from '$features/critical-tasks/contracts';
 	import PersonnelCriticalTaskReadinessTable from '$features/critical-tasks/components/PersonnelCriticalTaskReadinessTable.svelte';
@@ -19,6 +17,7 @@
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { ReadinessItemTableSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import { writeAddress } from '$lib/utils/addressWriter';
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 
 	let {
@@ -90,15 +89,12 @@
 
 	function close() {
 		drawer = null;
-		const params = [...new URLSearchParams(window.location.search)];
-		const kept = params.filter(([key]) => key !== 'item' && key !== 'add');
-		if (kept.length === params.length) return;
-		const path = resolve('/org/[orgId]/personnel/[personnelSlug]/readiness', {
-			orgId: page.params.orgId ?? orgId,
-			personnelSlug: page.params.personnelSlug ?? person.id
+		void writeAddress({
+			url: (url) => {
+				url.searchParams.delete('item');
+				url.searchParams.delete('add');
+			}
 		});
-		const query = new URLSearchParams(kept).toString();
-		replaceState(query ? `${path}?${query}` : path, page.state);
 	}
 
 	async function refresh() {

@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { onDestroy, type Snippet } from 'svelte';
-	import { afterNavigate, invalidate, replaceState } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { afterNavigate, invalidate } from '$app/navigation';
 	import { Dropzone } from '$lib/components/patterns/dropzone';
 	import { Progress } from '$lib/components/ui/progress';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { writeAddress } from '$lib/utils/addressWriter';
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import type {
 		PersonnelCounselingRecord,
@@ -55,8 +54,10 @@
 
 	afterNavigate(({ to }) => {
 		const kind = uploadIntentFromSearch(to?.url.searchParams ?? new URLSearchParams());
-		if (kind && canManage) flow = { id: ++flowCount, kind, file: null, fromUrl: true };
-		else if (!kind && flow?.fromUrl) flow = null;
+		if (kind && canManage) {
+			if (flow?.fromUrl && flow.kind === kind) return;
+			flow = { id: ++flowCount, kind, file: null, fromUrl: true };
+		} else if (!kind && flow?.fromUrl) flow = null;
 	});
 
 	function offer(dropped: File[]) {
@@ -75,19 +76,12 @@
 
 	function closeFlow() {
 		flow = null;
-		const params = [...new URLSearchParams(window.location.search)];
-		const kept = params.filter(([key]) => key !== 'add');
-		if (kept.length === params.length) return;
-		const path = resolve('/org/[orgId]/personnel/[personnelSlug]/files', {
-			orgId: page.params.orgId ?? orgId,
-			personnelSlug: page.params.personnelSlug ?? personnelId
-		});
-		const query = new URLSearchParams(kept).toString();
-		replaceState(query ? `${path}?${query}` : path, page.state);
+		return writeAddress({ url: (url) => url.searchParams.delete('add') });
 	}
 
 	async function uploaded() {
-		closeFlow();
+		// A shallow address write throws away a reload still loading, so the write lands first.
+		await closeFlow().catch(() => {});
 		await invalidate('app:personnel-detail-files');
 	}
 

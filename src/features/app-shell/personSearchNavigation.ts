@@ -1,5 +1,5 @@
-import { pushState } from '$app/navigation';
 import { page } from '$app/state';
+import { writeAddress } from '$lib/utils/addressWriter';
 
 /**
  * The person search palette lives in history as one shallow entry, so Back closes it. Closing steps back over that
@@ -13,7 +13,7 @@ export function isPersonSearchOpen(): boolean {
 }
 
 export function openPersonSearch() {
-	if (!isPersonSearchOpen()) void pushState('', { ...page.state, personSearch: true });
+	if (!isPersonSearchOpen()) void writeAddress({ push: true, state: { ...page.state, personSearch: true } });
 }
 
 // history.back() lands on a later popstate, so a second close before then must not step back past the page.

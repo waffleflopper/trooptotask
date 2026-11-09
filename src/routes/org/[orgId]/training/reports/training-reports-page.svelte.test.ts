@@ -12,7 +12,7 @@ import Page from './+page.svelte';
 
 vi.mock('$app/navigation', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$app/navigation')>()),
-	replaceState: vi.fn()
+	goto: vi.fn()
 }));
 vi.mock('$features/app-shell', () => ({ getAppShellContext: () => ({ orgId: 'org-1' }) }));
 

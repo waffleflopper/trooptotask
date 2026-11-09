@@ -203,6 +203,7 @@ POST_TREE_SQL_TESTS = (
     "platform_error_reporting.sql",
     "client_lifecycle_privileges.sql",
     "client_lifecycle_authority.sql",
+    "archived_person_live_work.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

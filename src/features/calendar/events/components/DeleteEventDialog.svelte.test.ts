@@ -121,7 +121,7 @@ describe('DeleteEventDialog', () => {
 
 		const deleteThem = await screen.findByRole('radio', { name: /Delete.*\b2\b.*too/ });
 		await fireEvent.click(deleteThem);
-		expect(screen.getByRole('radio', { name: /1 completed or cancelled stay as standalone/ })).toBeTruthy();
+		expect(screen.getByRole('radio', { name: /1 completed or cancelled stays as standalone/ })).toBeTruthy();
 		const confirm = screen.getByRole('button', { name: 'Delete event and 2 active taskings' });
 		await fireEvent.click(confirm);
 		await waitFor(() => expect(send).toHaveBeenCalledOnce());

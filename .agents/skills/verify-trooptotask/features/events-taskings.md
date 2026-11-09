@@ -882,7 +882,7 @@ Tasking under `Brigade CG visit`, then cancel that Event. Note the Tasking ids.
     null.
 32. **Delete the active ones.** `Brigade CG visit` holds the active `Clinic walkthrough for CG visit` and the
     Completed Tasking. Open `Delete event`: the second option reads `Delete the 1 active tasking too`, with
-    `1 completed or cancelled stay as standalone, with their history.` under it. Choose it; the button reads
+    `1 completed or cancelled stays as standalone, with their history.` under it. Choose it; the button reads
     `Delete event and 1 active tasking`. Confirm. The toast reads
     `Deleted Brigade CG visit and 1 tasking. 1 tasking kept as standalone.` The active Tasking's URL reads
     `This tasking is not available`. The Completed Tasking's detail reads `Standalone · no event`, keeps its equipment,

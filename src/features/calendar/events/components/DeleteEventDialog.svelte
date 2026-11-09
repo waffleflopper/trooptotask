@@ -93,7 +93,7 @@
 				{#if !Array.isArray(linked)}
 					What happens to its taskings?
 				{:else if staysAsStandalone}
-					Its {taskingCount(linked.length)} stay as standalone, with their history.
+					Its {taskingCount(linked.length)} {linked.length === 1 ? 'stays' : 'stay'} as standalone, with their history.
 				{:else}
 					What happens to its {taskingCount(linked.length)}?
 				{/if}
@@ -140,7 +140,7 @@
 						description={!counts
 							? 'Active taskings are deleted for good with their picks, equipment, checklist and activity. Completed and cancelled ones stay as standalone.'
 							: counts.closed > 0
-								? `${counts.closed} completed or cancelled stay as standalone, with their history. The active ${counts.active === 1 ? 'one is' : 'ones are'} deleted for good with picks, equipment, checklist and activity.`
+								? `${counts.closed} completed or cancelled ${counts.closed === 1 ? 'stays' : 'stay'} as standalone, with their history. The active ${counts.active === 1 ? 'one is' : 'ones are'} deleted for good with picks, equipment, checklist and activity.`
 								: 'Each is deleted for good with its picks, equipment, checklist and activity.'}
 					/>
 				</RadioGroup.Root>

@@ -3,7 +3,7 @@ import {
 	createRequestOnboardingLifecycleContext
 } from '$lib/server/adapters/featureRequestContexts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, noteUnhandledFailure, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
 import { dateOnlySchema, isUuid, issueMessage } from '$lib/utils/inputSchemas';
 import {
@@ -22,7 +22,8 @@ export const _postConfig = {
 		startOnboardingBatch(ctx, {
 			personnelIds: input.personnelIds as string[],
 			templateId: input.templateId as string,
-			startedAt: input.startedAt as string | undefined
+			startedAt: input.startedAt as string | undefined,
+			noteUnexpectedFailure: noteUnhandledFailure
 		})
 } satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestOnboardingStartContext>>;
 

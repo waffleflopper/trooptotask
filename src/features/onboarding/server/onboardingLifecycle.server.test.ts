@@ -551,20 +551,29 @@ describe('startOnboardingBatch', () => {
 	});
 
 	it.each([
-		[new Error('Creation failed'), { outcome: 'failed', message: 'Onboarding could not be started for this person.' }],
-		[new RequestFailure(404, 'Template unavailable'), { outcome: 'failed', message: 'Template unavailable' }],
+		[
+			new Error('Creation failed'),
+			{ outcome: 'failed', message: 'Onboarding could not be started for this person.' },
+			true
+		],
+		[new RequestFailure(404, 'Template unavailable'), { outcome: 'failed', message: 'Template unavailable' }, false],
 		[
 			new RequestFailure(503, 'Database detail'),
-			{ outcome: 'failed', message: 'Onboarding could not be started for this person.' }
+			{ outcome: 'failed', message: 'Onboarding could not be started for this person.' },
+			true
 		],
-		[new RequestFailure(409, 'Concurrent active packet'), { outcome: 'already_onboarding' }]
-	])('reports %s on the person without a success audit or generic fallback', async (error, outcome) => {
+		[new RequestFailure(409, 'Concurrent active packet'), { outcome: 'already_onboarding' }, false]
+	])('reports %s on the person without a success audit or generic fallback', async (error, outcome, noted) => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
 		ctx.create.mockRejectedValue(error);
-		await expect(startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1 })).resolves.toEqual({
+		const noteUnexpectedFailure = vi.fn();
+		await expect(
+			startOnboardingBatch(ctx, { personnelIds: [PERSON_1], templateId: TEMPLATE_1, noteUnexpectedFailure })
+		).resolves.toEqual({
 			results: [{ personnelId: PERSON_1, ...outcome }]
 		});
+		expect(noteUnexpectedFailure.mock.calls).toEqual(noted ? [[error]] : []);
 		expect(ctx.store.insert).not.toHaveBeenCalled();
 		expect(ctx.store.insertMany).not.toHaveBeenCalled();
 		expect(ctx.store.delete).not.toHaveBeenCalled();

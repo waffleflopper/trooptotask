@@ -22,6 +22,8 @@ interface StartBatchInput {
 	personnelIds: readonly string[];
 	templateId: string;
 	startedAt?: string;
+	/** Records a save failure the app did not raise as a 4xx, before it is reported to the operator in generic words. */
+	noteUnexpectedFailure?: (error: unknown) => void;
 }
 
 /** Each person's packet is saved in its own transaction, a few at a time. */
@@ -62,7 +64,7 @@ export async function startOnboardingBatch(
 	const packetCreation = ctx.onboardingPacketCreation;
 
 	// The creation transaction also enforces one active packet per person, for starts that overlap this check.
-	const alreadyOnboarding = new Set(await ctx.onboardingWorkflow.listActivePacketPersonnelIds());
+	const alreadyOnboarding = new Set(await ctx.onboardingWorkflow.listActivePacketPersonnelIds(personnelIds));
 	const toStart = personnelIds.filter((personnelId) => !alreadyOnboarding.has(personnelId));
 	const outcomes = new Map<string, StartOnboardingOutcome>(
 		personnelIds
@@ -129,6 +131,7 @@ export async function startOnboardingBatch(
 			} catch (error) {
 				if (error instanceof RequestFailure && error.status === 409)
 					return { personnelId, outcome: 'already_onboarding' };
+				if (!(error instanceof RequestFailure && error.status < 500)) input.noteUnexpectedFailure?.(error);
 				return { personnelId, outcome: 'failed', message: startFailureMessage(error) };
 			}
 		};

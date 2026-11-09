@@ -146,6 +146,8 @@ describe('ordinary Onboarding persistence', () => {
 			]
 		});
 		expect(await workflow.listActivePacketPersonnelIds()).toEqual(['ann', 'bob']);
+		expect(await workflow.listActivePacketPersonnelIds(['bob', 'cy', 'dee'])).toEqual(['bob']);
+		expect(await workflow.listActivePacketPersonnelIds([])).toEqual([]);
 	});
 	it('reports which template is the default', async () => {
 		const { catalog } = ports({

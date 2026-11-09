@@ -51,13 +51,16 @@ export function createSupabaseOnboardingWorkflowPersistence(
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map(toPacket);
 		},
-		async listActivePacketPersonnelIds() {
+		async listActivePacketPersonnelIds(personnelIds) {
+			if (personnelIds?.length === 0) return [];
 			const result = await selectAllSupabaseRows<{ id: string; personnel_id: string }>(async (from, to) => {
-				const { data, error } = await client
+				let query = client
 					.from('personnel_onboardings')
 					.select('id, personnel_id')
 					.eq('organization_id', orgId)
-					.eq('status', 'in_progress')
+					.eq('status', 'in_progress');
+				if (personnelIds) query = query.in('personnel_id', [...personnelIds]);
+				const { data, error } = await query
 					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<{ id: string; personnel_id: string }[]>();

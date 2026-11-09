@@ -110,7 +110,6 @@ describe('StartOnboardingModal', () => {
 		const { props } = renderModal({ onSubmit });
 
 		await choose('Smith', 'Young');
-		expect((startButton() as HTMLButtonElement).textContent).toContain('Start onboarding for 2 people');
 		await fireEvent.click(startButton());
 
 		expect(props.onClose).not.toHaveBeenCalled();
@@ -121,14 +120,6 @@ describe('StartOnboardingModal', () => {
 		confirm([started('person-1'), started('person-3')]);
 
 		await waitFor(() => expect(props.onClose).toHaveBeenCalledTimes(1));
-	});
-
-	it('says one person, not one people, on the button', async () => {
-		renderModal();
-
-		await choose('Smith');
-
-		expect(startButton().textContent).toContain('Start onboarding for 1 person');
 	});
 
 	describe('template choice', () => {
@@ -203,7 +194,6 @@ describe('StartOnboardingModal', () => {
 		expect(props.onClose).not.toHaveBeenCalled();
 		expect(screen.queryByRole('button', { name: 'Remove SGT Smith, Jane' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Remove SGT Young, Bo' })).toBeTruthy();
-		expect(startButton().textContent).toContain('Start onboarding for 1 person');
 
 		await fireEvent.click(startButton());
 

@@ -9,6 +9,8 @@ with the result visible again after reload.
 - `status-edit`: open `Edit details` from the popover, edit the status and save or cancel.
 - `status-add`: add a new status through the visible form opened from an empty day.
 - `status-quick-add`: drag across empty days in a person's month row and pick a status by click or number key.
+- `status-touch-add`: on a touch screen, tap a start day then an end day in one person's month row and pick a status
+  from the same quick-add popover.
 - `status-resize`: drag a selected bar's end to change its dates in place.
 - `status-remember`: the editor and quick-add start on the last status this person added in this Organization.
 - `status-save-close`: `Save and close` saves a status and closes the editor; `Add Status` saves and stays open.
@@ -28,7 +30,9 @@ Sign in with Calendar operation access and choose `Calendar`. Each entry draws a
 note plus `Edit details` and `Remove`; the bar shows end handles while it is selected. Clicking an empty day opens
 `Set Personnel Status` for that person and date; clicking the person's name opens it for today. Dragging across empty
 days draws a dashed `N days` box and opens `Add status, <range>` with the status types numbered 1 to 9 and
-`Add a note or edit dates…`. A row with more than two
+`Add a note or edit dates…`. On a touch screen
+(`pointer: coarse`) tapping a day arms it as the start, drawn as a dashed `1 day` box, and tapping a second day in the
+same row opens that same `Add status, <range>` popover. A row with more than two
 overlapping entries ends its bottom lane with a `+N` button that lists the rest.
 
 ### Helper controls
@@ -79,6 +83,18 @@ restore any temporarily narrowed grant.
    opens with the dragged dates. Escape during a drag cancels it with no popover. On a row that already has two
    overlapping entries, a third overlapping add keeps the first-lane bar and folds the other two into `+2` in the bottom
    lane; its button opens `2 more entries, RANK Last` listing both, and choosing one opens that entry's popover.
+   **Touch quick add.** Native `click`, `drag` and `emulate` send mouse input, so a tap needs trusted touch events. Run
+   `emulate` with `{"pageId":PAGE,"viewport":"390x844x2,mobile,touch"}` and reload; the legend reads
+   `Tap two days to add`. Send touches with a scratch Node script (not committed) that connects Puppeteer to the owned
+   browser's `DevToolsActivePort` endpoint and calls `page.touchscreen.touchStart(x, y)` then `.end()` for a tap
+   (`.move()` between them for a swipe). Pick day cells that are inside the 390 px viewport (read each
+   `[data-day]` rect). Expect: (a) one tap on an empty day draws a dashed `1 day` box on that row, opens no dialog
+   and no `Set Personnel Status`; (b) a horizontal swipe that starts on a day scrolls the grid, draws no box when none
+   was armed, and leaves an armed box in place (read `[data-slot="calendar-selection"]`); (c) a second tap in the same
+   row on a visible day opens `Add status, <range>` with the right day count; one tap on a
+   status adds the bar over exactly those days, three taps in all (`rows` and a reload confirm); (d) a tap in another
+   row, on a bar, on a person's name or on Next month clears the box (a bar still opens its popover); (e) Escape
+   clears it. Remove the added entry through the bar popover afterwards.
 8. **Resize.** Click a bar created in this run: `Drag ends to resize` shows in its popover and the bar draws a grip at
    each end it owns (none where it crosses the month edge, none in 3-Month, and none on the bars of people the member
    cannot manage). Capture that state. Grips are hidden from the accessibility tree, so native `drag` cannot reach them.
@@ -175,6 +191,9 @@ restore any temporarily narrowed grant.
 
 - A drag starts only on a day no bar covers, since the bar takes the press. Pick an empty day for the first cell; the
   drag can then extend across bars.
+- A touch start day is armed in memory only: changing the month, the Organization or leaving the Calendar drops it, and
+  a pan or `pointercancel` from browser scrolling keeps it. A tap that is not on a day, or whose click lands anywhere
+  else, drops it. The legend hint follows `pointer: coarse`, so a desktop browser shows `Drag across days to add`.
 - Resize grips render only on a selected bar in Month view, and only for a mouse or pen; touch never offers them.
   Keyboard users change dates through `Edit details`.
 - A drag that crosses into another day and returns to its first day before release still opens quick-add, as a one-day

@@ -1348,12 +1348,16 @@ BEGIN
   v_kind := CASE TG_OP WHEN 'INSERT' THEN 'status_type.created' WHEN 'UPDATE' THEN 'status_type.updated' WHEN 'DELETE' THEN 'status_type.deleted' END;
   IF TG_OP = 'UPDATE' THEN
     v_change := audit_private.changed(pg_catalog.to_jsonb(OLD), pg_catalog.to_jsonb(NEW), '{"name": "name", "shortLabel": "short_label", "color": "color", "textColor": "text_color", "rosterEffect": "roster_effect"}');
-    IF v_change = '{}'::jsonb THEN
+    IF v_change = '{}'::jsonb AND NOT ((OLD.archived_at IS NULL) <> (NEW.archived_at IS NULL)) THEN
       RETURN NULL;
     END IF;
+    v_kind := CASE
+      WHEN OLD.archived_at IS NULL AND NEW.archived_at IS NOT NULL THEN 'status_type.archived'
+      WHEN OLD.archived_at IS NOT NULL AND NEW.archived_at IS NULL THEN 'status_type.restored'
+      ELSE 'status_type.updated' END;
   END IF;
   v_details := '{}'::jsonb;
-  IF TG_OP = 'UPDATE' THEN
+  IF TG_OP = 'UPDATE' AND v_change <> '{}'::jsonb THEN
     v_details := v_details || pg_catalog.jsonb_build_object('change', v_change);
   END IF;
   PERFORM audit_private.record_entry(
@@ -12908,11 +12912,12 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('calendar-status-order:' || p_organization_id::text, 0)
   );
-  -- NO KEY UPDATE on every type holds the set against delete and edits without
+  -- The order covers active types only; archived types keep their position.
+  -- NO KEY UPDATE on every active type holds the set against delete and edits without
   -- waiting on availability foreign-key checks. It also applies the update
   -- policy, so authority is rechecked after the waits.
   PERFORM 1 FROM public.status_types
-  WHERE organization_id = p_organization_id
+  WHERE organization_id = p_organization_id AND archived_at IS NULL
   ORDER BY id
   FOR NO KEY UPDATE;
   IF public.can_manage_calendar_configuration(p_organization_id) IS NOT TRUE THEN
@@ -12921,7 +12926,7 @@ BEGIN
 
   SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, id), '{}') INTO v_saved
   FROM public.status_types
-  WHERE organization_id = p_organization_id;
+  WHERE organization_id = p_organization_id AND archived_at IS NULL;
   -- A replay after a lost reply, or the same change from two people, converges
   -- before the precondition can report a false conflict.
   IF v_saved = p_status_type_ids THEN
@@ -12945,7 +12950,7 @@ BEGIN
 
   UPDATE public.status_types AS t SET sort_order = (o.ordinal - 1)::integer
   FROM pg_catalog.unnest(p_status_type_ids) WITH ORDINALITY AS o(id, ordinal)
-  WHERE t.organization_id = p_organization_id AND t.id = o.id AND t.sort_order <> o.ordinal - 1;
+  WHERE t.organization_id = p_organization_id AND t.archived_at IS NULL AND t.id = o.id AND t.sort_order <> o.ordinal - 1;
 
   -- Row security silently hides rows from a write whose author lost authority
   -- after the check above.
@@ -12953,7 +12958,7 @@ BEGIN
     RAISE EXCEPTION 'Calendar configuration is not allowed' USING ERRCODE = '42501';
   END IF;
   IF (SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, id), '{}')
-      FROM public.status_types WHERE organization_id = p_organization_id)
+      FROM public.status_types WHERE organization_id = p_organization_id AND archived_at IS NULL)
      IS DISTINCT FROM p_status_type_ids
   THEN
     RAISE EXCEPTION 'Status type order was not saved' USING ERRCODE = 'STO01';
@@ -13484,6 +13489,33 @@ $$;
 
 
 ALTER FUNCTION public.start_onboarding_packet(p_organization_id uuid, p_personnel_id uuid, p_template_id uuid, p_started_at date, p_steps jsonb) OWNER TO postgres;
+
+--
+-- Name: status_type_record_counts(uuid); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.status_type_record_counts(p_organization_id uuid) RETURNS TABLE(status_type_id uuid, record_count bigint)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF auth.uid() IS NULL OR p_organization_id IS NULL
+    OR public.can_manage_calendar_configuration(p_organization_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Calendar configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  SELECT s.id,
+    (SELECT pg_catalog.count(*) FROM public.availability_entries a
+      WHERE a.organization_id = s.organization_id AND a.status_type_id = s.id)
+  FROM public.status_types s
+  WHERE s.organization_id = p_organization_id
+  ORDER BY s.id;
+END;
+$$;
+
+
+ALTER FUNCTION public.status_type_record_counts(p_organization_id uuid) OWNER TO postgres;
 
 --
 -- Name: storage_object_org_id(text); Type: FUNCTION; Schema: public; Owner: postgres
@@ -15501,6 +15533,7 @@ CREATE TABLE public.status_types (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     short_label text,
     roster_effect text DEFAULT 'A'::text NOT NULL,
+    archived_at timestamp with time zone,
     CONSTRAINT status_types_roster_effect_check CHECK ((roster_effect = ANY (ARRAY['available'::text, 'A'::text, 'D'::text, 'U'::text]))),
     CONSTRAINT status_types_short_label_length CHECK (((char_length(short_label) >= 1) AND (char_length(short_label) <= 3)))
 );
@@ -16676,6 +16709,13 @@ CREATE INDEX auth_email_outbox_setup_link_idx ON public.auth_email_outbox USING 
 --
 
 CREATE INDEX auth_email_outbox_status_idx ON public.auth_email_outbox USING btree (status, updated_at DESC);
+
+
+--
+-- Name: availability_entries_status_type_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX availability_entries_status_type_idx ON public.availability_entries USING btree (organization_id, status_type_id);
 
 
 --
@@ -18324,6 +18364,13 @@ CREATE TRIGGER set_user_org_preferences_updated_at BEFORE UPDATE ON public.user_
 
 
 --
+-- Name: status_types stamp_archived_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER stamp_archived_at BEFORE INSERT OR UPDATE ON public.status_types FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_catalog_archived_at();
+
+
+--
 -- Name: training_types stamp_archived_at; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -18703,7 +18750,7 @@ ALTER TABLE ONLY public.availability_entries
 --
 
 ALTER TABLE ONLY public.availability_entries
-    ADD CONSTRAINT availability_entries_org_status_type_fkey FOREIGN KEY (organization_id, status_type_id) REFERENCES public.status_types(organization_id, id) ON DELETE CASCADE NOT VALID;
+    ADD CONSTRAINT availability_entries_org_status_type_fkey FOREIGN KEY (organization_id, status_type_id) REFERENCES public.status_types(organization_id, id) NOT VALID;
 
 
 --
@@ -24245,6 +24292,14 @@ REVOKE ALL ON FUNCTION public.start_account_setup_attempt() FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION public.start_onboarding_packet(p_organization_id uuid, p_personnel_id uuid, p_template_id uuid, p_started_at date, p_steps jsonb) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.start_onboarding_packet(p_organization_id uuid, p_personnel_id uuid, p_template_id uuid, p_started_at date, p_steps jsonb) TO authenticated;
+
+
+--
+-- Name: FUNCTION status_type_record_counts(p_organization_id uuid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.status_type_record_counts(p_organization_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.status_type_record_counts(p_organization_id uuid) TO authenticated;
 
 
 --

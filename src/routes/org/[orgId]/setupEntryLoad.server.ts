@@ -79,7 +79,7 @@ export function streamSetupInvitationProgress({
 				// Review-only steps never use rank counts to decide whether they are done.
 				activeRanks: async () => 0,
 				activePeople: async () => (await workspace).data.personnel.length,
-				statusTypes: async () => (await workspace).data.statusTypes.length,
+				statusTypes: async () => (await workspace).data.statusTypes.filter((type) => !type.archivedAt).length,
 				assignmentTypes: async () => (await workspace).data.assignmentTypes.length,
 				trainingTypes: async () => (await workspace).data.trainingTypes.filter((type) => !type.archivedAt).length,
 				criticalTasks: async () => {

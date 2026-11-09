@@ -45,7 +45,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				order: 10,
 				loadDialog: () => import('../components/quick-add/StatusQuickAdd.svelte'),
 				available: (inputs, access) =>
-					inputs.statusTypes.length > 0 &&
+					inputs.statusTypes.some((type) => !type.archivedAt) &&
 					actionablePersonnel(inputs.personnel, access, calendar.manageAvailability).length > 0
 			}
 		]

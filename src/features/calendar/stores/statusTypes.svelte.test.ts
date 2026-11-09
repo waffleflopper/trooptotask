@@ -5,8 +5,26 @@ import { endOrganizationLifetime } from '$lib/stores/core';
 import type { StatusType } from '$features/calendar/contracts';
 
 const mockTypes: StatusType[] = [
-	{ id: '1', name: 'Leave', color: '#22c55e', textColor: '#ffffff', shortLabel: null, rosterEffect: 'A', sortOrder: 0 },
-	{ id: '2', name: 'TDY', color: '#3b82f6', textColor: '#ffffff', shortLabel: null, rosterEffect: 'A', sortOrder: 1 }
+	{
+		id: '1',
+		name: 'Leave',
+		color: '#22c55e',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 0,
+		archivedAt: null
+	},
+	{
+		id: '2',
+		name: 'TDY',
+		color: '#3b82f6',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 1,
+		archivedAt: null
+	}
 ];
 
 function stubFetch(response: unknown, status = 200) {
@@ -14,6 +32,12 @@ function stubFetch(response: unknown, status = 200) {
 		'fetch',
 		vi.fn().mockResolvedValue({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(response) })
 	);
+}
+
+function stubArchive(archivedAt: string | null) {
+	const fetchMock = vi.fn().mockResolvedValue(Response.json({ archivedAt }));
+	vi.stubGlobal('fetch', fetchMock);
+	return fetchMock;
 }
 
 describe('statusTypesStore', () => {
@@ -152,7 +176,8 @@ describe('statusTypesStore', () => {
 			textColor: '#ffffff',
 			shortLabel: 'SK',
 			rosterEffect: 'A',
-			sortOrder: 2
+			sortOrder: 2,
+			archivedAt: null
 		};
 		const ids = () => statusTypesStore.items.map((type) => type.id);
 		const orderRequest = (statusTypeIds: string[], expectedStatusTypeIds: string[]) => [
@@ -453,6 +478,60 @@ describe('statusTypesStore', () => {
 
 			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: true });
 			expect(ids()).toEqual(['3', '2', '1']);
+		});
+	});
+	describe('archiving', () => {
+		it('keeps archived types in items and leaves them out of active', async () => {
+			stubArchive('2030-03-04T05:06:07Z');
+
+			await statusTypesStore.setArchived('1', true);
+
+			expect(statusTypesStore.getById('1')?.archivedAt).toBe('2030-03-04T05:06:07Z');
+			expect(statusTypesStore.items.map((type) => type.id)).toContain('1');
+			expect(statusTypesStore.active.map((type) => type.id)).not.toContain('1');
+			expect(statusTypesStore.active).toHaveLength(statusTypesStore.items.length - 1);
+		});
+
+		it('sends the id and the direction to the archive route, and clears archivedAt on restore', async () => {
+			const fetchMock = stubArchive('2030-03-04T05:06:07Z');
+			await statusTypesStore.setArchived('1', true);
+			fetchMock.mockResolvedValueOnce(Response.json({ archivedAt: null }));
+
+			await statusTypesStore.setArchived('1', false);
+
+			expect(fetchMock.mock.calls.map(([url, init]) => [url, init.method, init.body])).toEqual([
+				['/org/org-1/api/status-types/archive', 'PUT', JSON.stringify({ id: '1', archived: true })],
+				['/org/org-1/api/status-types/archive', 'PUT', JSON.stringify({ id: '1', archived: false })]
+			]);
+			expect(statusTypesStore.getById('1')?.archivedAt).toBeNull();
+			expect(statusTypesStore.active.map((type) => type.id)).toContain('1');
+		});
+
+		it('rejects with the server reason and leaves the type active when the archive is refused', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue(Response.json({ message: 'Status type not found' }, { status: 404 }))
+			);
+
+			await expect(statusTypesStore.setArchived('1', true)).rejects.toThrow('Status type not found');
+
+			expect(statusTypesStore.getById('1')?.archivedAt).toBeNull();
+		});
+	});
+
+	describe('loadUsage', () => {
+		it('reads the counts for the current Organization', async () => {
+			const fetchMock = vi.fn().mockResolvedValue(Response.json({ '1': 3, '2': 0 }));
+			vi.stubGlobal('fetch', fetchMock);
+
+			expect(await statusTypesStore.loadUsage()).toEqual({ '1': 3, '2': 0 });
+			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/org/org-1/api/status-types/usage']);
+		});
+
+		it('rejects when the route fails', async () => {
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ message: 'No access' }, { status: 403 })));
+
+			await expect(statusTypesStore.loadUsage()).rejects.toThrow();
 		});
 	});
 });

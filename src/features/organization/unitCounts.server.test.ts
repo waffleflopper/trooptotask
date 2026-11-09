@@ -30,7 +30,11 @@ function seed(): Record<string, Row[]> {
 			...rows(9, OTHER, { archived_at: archivedAt }).map((r) => ({ ...r, id: `${r.id}-archived` }))
 		],
 		organization_memberships: [...rows(3, ORG), ...rows(8, OTHER)],
-		status_types: [...rows(6, ORG), ...rows(8, OTHER)],
+		status_types: [
+			...rows(6, ORG, { archived_at: null }),
+			...rows(2, ORG, { archived_at: archivedAt }).map((r) => ({ ...r, id: `${r.id}-archived` })),
+			...rows(8, OTHER, { archived_at: null })
+		],
 		assignment_types: [
 			...rows(4, ORG, { archived_at: null }),
 			...rows(3, ORG, { archived_at: archivedAt }).map((r) => ({ ...r, id: `${r.id}-archived` })),

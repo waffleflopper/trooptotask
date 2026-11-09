@@ -24,6 +24,10 @@ show their saved record; the open form is worked out from today's facts. The pag
   remark. Ending the swap removes the remark and the counts follow whoever holds each day.
 - `da6-states`: a loading skeleton, the page's own load error, the not-permitted state for a Group-scoped viewer, and a
   load error in place of a closed form whose saved record cannot be read.
+- `da6-status-archive`: archiving a status type with a roster effect drops it from the open form's counts and facts;
+  closed forms keep their saved numbers. Restoring it brings it back on the next recompute. Drive the archive and the
+  restore from [Calendar catalogs](calendar-catalogs.md#driving-it-with-verifyapp) step 4 and reread the open form
+  before and after. Archived status entries still show on calendar dates.
 - `da6-setup`: `?setup=1` opens the open form in setup mode, where a configurator copies the last numbers from a paper
   DA 6 into the first column of each track. A blank box starts at the lowest typed number. `Save starting numbers` saves
   them and re-picks the roster's planned days; hand-assigned days stay. `Skip, start everyone even` saves nothing; once

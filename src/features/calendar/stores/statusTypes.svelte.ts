@@ -18,6 +18,7 @@ import {
 } from '$features/calendar/contracts';
 import type { RosterEffect } from '$features/calendar/roster/rosterTypes';
 import { sameIdList } from '$features/calendar/utils/idList';
+import { getCatalogUsage, putCatalogArchive, type CatalogUsage } from '$lib/stores/core/catalogArchive';
 import { confirmedNotSaved } from './calendarCommandResponse';
 
 /** The fields an operator edits. Order changes only through `setOrder`. */
@@ -35,12 +36,18 @@ type OrderFlight = {
 };
 
 interface StatusTypeExtensions extends Record<string, unknown> {
+	/** Types that are not archived, in catalog order. Pickers and counts read this; id lookups use `items`. */
+	readonly active: StatusType[];
 	readonly orderBusy: boolean;
 	/** The order being saved, or null when no order save is in flight. */
 	readonly pendingOrder: readonly string[] | null;
 	add: (data: StatusTypeDraft) => Promise<StatusType | null>;
 	update: (id: string, data: Partial<StatusTypeDraft>) => Promise<boolean>;
 	remove: (id: string) => Promise<boolean>;
+	/** Archives or restores a type. Rejects with the server's reason; the type keeps its place in the store. */
+	setArchived: (id: string, archived: boolean) => Promise<void>;
+	/** How many schedule entries use each type. */
+	loadUsage: () => Promise<CatalogUsage>;
 	/** The numbers on open DA 6 forms that giving the status `rosterEffect` would change. Saves nothing. */
 	previewEffect: (id: string, rosterEffect: RosterEffect, today: string) => Promise<StatusEffectChange[]>;
 	setOrder: (ids: readonly string[]) => Promise<StatusOrderChange>;
@@ -69,6 +76,7 @@ function failureMessage(result: Extract<StatusOrderChange, { status: 'not-saved'
 function enhance(base: Store<StatusType>): StatusTypeExtensions {
 	let flight = $state.raw<OrderFlight | null>(null);
 	let desired = $state.raw<readonly string[]>([]);
+	const active = $derived(base.items.filter((type) => !type.archivedAt));
 
 	function currentFlight(): OrderFlight | null {
 		return flight && flight.inLifetime() && flight.orgId === base.orgId ? flight : null;
@@ -107,7 +115,7 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 	// latest order, sent with the order the previous save confirmed.
 	async function run(owner: OrderFlight): Promise<StatusOrderChange> {
 		const owns = () => currentFlight() === owner;
-		let expected: readonly string[] = base.items.map((type) => type.id);
+		let expected: readonly string[] = active.map((type) => type.id);
 		try {
 			for (;;) {
 				const sent = desired;
@@ -132,7 +140,7 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 					if (
 						!showsSaved ||
 						!sameIdList(
-							base.items.map((type) => type.id),
+							active.map((type) => type.id),
 							sent
 						)
 					) {
@@ -155,6 +163,10 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 	}
 
 	return {
+		get active() {
+			return active;
+		},
+
 		get orderBusy() {
 			return currentFlight() !== null;
 		},
@@ -191,6 +203,17 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 			if (currentFlight()) return false;
 			return base.removeBool(id);
 		},
+
+		async setArchived(id: string, archived: boolean) {
+			if (currentFlight()) throw new Error('Wait for the status order to finish saving.');
+			const archivedAt = await putCatalogArchive(base.orgId, 'status-types', id, archived);
+			base.updateLocalWhere(
+				(type) => type.id === id,
+				(type) => ({ ...type, archivedAt })
+			);
+		},
+
+		loadUsage: () => getCatalogUsage(base.orgId, 'status-types'),
 
 		setOrder(ids: readonly string[]): Promise<StatusOrderChange> {
 			if (base.busy) return Promise.resolve({ status: 'busy' });

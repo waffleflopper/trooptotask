@@ -29,7 +29,8 @@ const STATUS_TYPES: StatusType[] = [
 		textColor: '#fff',
 		shortLabel: null,
 		rosterEffect: 'available',
-		sortOrder: 4
+		sortOrder: 4,
+		archivedAt: null
 	},
 	{
 		id: 'leave',
@@ -38,7 +39,8 @@ const STATUS_TYPES: StatusType[] = [
 		textColor: '#fff',
 		shortLabel: null,
 		rosterEffect: 'available',
-		sortOrder: 0
+		sortOrder: 0,
+		archivedAt: null
 	},
 	{
 		id: 'tdy',
@@ -47,7 +49,8 @@ const STATUS_TYPES: StatusType[] = [
 		textColor: '#fff',
 		shortLabel: null,
 		rosterEffect: 'available',
-		sortOrder: 1
+		sortOrder: 1,
+		archivedAt: null
 	},
 	{
 		id: 'appt',
@@ -56,7 +59,8 @@ const STATUS_TYPES: StatusType[] = [
 		textColor: '#fff',
 		shortLabel: null,
 		rosterEffect: 'available',
-		sortOrder: 3
+		sortOrder: 3,
+		archivedAt: null
 	}
 ];
 

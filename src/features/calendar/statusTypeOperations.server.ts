@@ -6,12 +6,15 @@ import {
 	type CalendarCatalogDeletionPorts
 } from './calendarPolicy.server';
 import {
+	statusTypeArchiveInput,
 	statusTypeCreateInput,
 	statusTypeOrderInput,
 	statusTypeUpdateInput
 } from './calendarPersistenceMapping.server';
 import { issueMessage } from '$lib/utils/inputSchemas';
 
+const STATUS_TYPE_UNAVAILABLE_MESSAGE = 'That status type is no longer available.';
+const STATUS_TYPE_ARCHIVED_MESSAGE = 'This status type is archived. Restore it to change it.';
 const action = CALENDAR_POLICY_ACTIONS.configureStatusTypes;
 const resource = { kind: 'organization' } as const;
 
@@ -28,8 +31,26 @@ export async function updateStatusType(ctx: CalendarCatalogPorts, input: Record<
 	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.updateStatusType(id, patch);
-	if (!row) throw error(404, 'That status type is no longer available.');
+	if (row) return row;
+	const saved = (await ctx.calendarCatalogs.listStatusTypes()).find((type) => type.id === id);
+	throw error(saved ? 409 : 404, saved ? STATUS_TYPE_ARCHIVED_MESSAGE : STATUS_TYPE_UNAVAILABLE_MESSAGE);
+}
+
+/** Archives or restores a type. Its entries stay either way; the database sets the archive time. */
+export async function archiveStatusType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
+	const parsed = statusTypeArchiveInput.safeParse(input);
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
+	const { id, archived } = parsed.data;
+	await requireCalendarPolicy(ctx, action, resource);
+	const row = await ctx.calendarCatalogs.setStatusTypeArchived(id, archived);
+	if (!row) throw error(404, STATUS_TYPE_UNAVAILABLE_MESSAGE);
 	return row;
+}
+
+/** How many schedule entries use each type, for the Delete offer and the archive confirmation. */
+export async function readStatusTypeUsage(ctx: CalendarCatalogPorts) {
+	await requireCalendarPolicy(ctx, action, resource);
+	return ctx.calendarCatalogs.countStatusTypeRecords();
 }
 
 export async function setStatusTypeOrder(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {

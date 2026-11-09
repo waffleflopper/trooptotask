@@ -288,6 +288,8 @@ function createTestCalendarPersistence(
 				listStatusTypeLabels: unavailableCalendarPersistence,
 				createStatusType: unavailableCalendarPersistence,
 				updateStatusType: unavailableCalendarPersistence,
+				setStatusTypeArchived: unavailableCalendarPersistence,
+				countStatusTypeRecords: unavailableCalendarPersistence,
 				deleteStatusType: unavailableCalendarPersistence,
 				setStatusTypeOrder: unavailableCalendarPersistence,
 				listAssignmentTypes: unavailableCalendarPersistence,

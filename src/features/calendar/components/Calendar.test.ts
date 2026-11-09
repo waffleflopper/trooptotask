@@ -63,7 +63,8 @@ const statusTypes: StatusType[] = [
 		textColor: '#ffffff',
 		shortLabel: 'LV',
 		rosterEffect: 'A',
-		sortOrder: 0
+		sortOrder: 0,
+		archivedAt: null
 	}
 ];
 const smithOnLeave: AvailabilityEntry = {

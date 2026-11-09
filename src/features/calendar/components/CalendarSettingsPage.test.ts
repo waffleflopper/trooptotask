@@ -29,11 +29,17 @@ const {
 	},
 	statusTypesStoreMock: {
 		items: [] as StatusType[],
+		get active(): StatusType[] {
+			return this.items.filter((type) => !type.archivedAt);
+		},
+		orgId: 'org-1',
 		pendingOrder: null,
 		orderBusy: false,
 		add: vi.fn(),
 		updateOrThrow: vi.fn(),
 		remove: vi.fn(),
+		setArchived: vi.fn(),
+		loadUsage: vi.fn(),
 		previewEffect: vi.fn(),
 		setOrder: vi.fn()
 	},
@@ -94,7 +100,7 @@ vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: assignmentTypesStoreMock
 }));
 
-async function openRowAction(rowName: string, action: 'Edit' | 'Delete' | 'Remove') {
+async function openRowAction(rowName: string, action: 'Edit' | 'Archive' | 'Delete' | 'Remove') {
 	const trigger = screen.getByRole('button', {
 		name: (name) => name === `More actions for ${rowName}` || name.startsWith(`More actions for ${rowName}, `)
 	});
@@ -123,6 +129,10 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.add.mockReset();
 		statusTypesStoreMock.updateOrThrow.mockReset();
 		statusTypesStoreMock.remove.mockReset();
+		statusTypesStoreMock.setArchived.mockReset();
+		statusTypesStoreMock.setArchived.mockResolvedValue(undefined);
+		statusTypesStoreMock.loadUsage.mockReset();
+		statusTypesStoreMock.loadUsage.mockResolvedValue({});
 		statusTypesStoreMock.previewEffect.mockReset();
 		statusTypesStoreMock.previewEffect.mockResolvedValue([]);
 		statusTypesStoreMock.setOrder.mockReset();
@@ -193,7 +203,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			},
 			{
 				id: 'tdy',
@@ -202,7 +213,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 1
+				sortOrder: 1,
+				archivedAt: null
 			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
@@ -297,7 +309,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#f8f7f4',
 				shortLabel: 'LV',
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			}
 		];
 		statusTypesStoreMock.updateOrThrow.mockResolvedValueOnce(false);
@@ -333,7 +346,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: 'LV',
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
@@ -381,6 +395,7 @@ describe('CalendarSettingsPage', () => {
 			color: '#48bb78',
 			textColor: '#ffffff',
 			shortLabel: 'LV',
+			archivedAt: null,
 			rosterEffect: 'A',
 			sortOrder: 0
 		} as const;
@@ -513,7 +528,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			},
 			{
 				id: 'dental',
@@ -522,7 +538,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'available',
-				sortOrder: 1
+				sortOrder: 1,
+				archivedAt: null
 			},
 			{
 				id: 'awol',
@@ -531,7 +548,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'U',
-				sortOrder: 2
+				sortOrder: 2,
+				archivedAt: null
 			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
@@ -585,7 +603,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
@@ -619,7 +638,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
@@ -655,7 +675,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 0
+				sortOrder: 0,
+				archivedAt: null
 			},
 			{
 				id: 'school',
@@ -664,7 +685,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: 'SCH',
 				rosterEffect: 'A',
-				sortOrder: 1
+				sortOrder: 1,
+				archivedAt: null
 			},
 			{
 				id: 'sick',
@@ -673,7 +695,8 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 2
+				sortOrder: 2,
+				archivedAt: null
 			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
@@ -691,7 +714,29 @@ describe('CalendarSettingsPage', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('keeps delete confirmation open and local availability intact when deletion fails', async () => {
+	it('counts only active status types on the Status Types tab', () => {
+		const status = (id: string, archivedAt: string | null) => ({
+			id,
+			name: id,
+			color: '#48bb78',
+			textColor: '#ffffff',
+			shortLabel: null,
+			rosterEffect: 'A' as const,
+			sortOrder: 0,
+			archivedAt
+		});
+		statusTypesStoreMock.items = [
+			status('leave', null),
+			status('school', null),
+			status('sick', '2030-01-02T03:04:05Z')
+		];
+
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+
+		expect(screen.getByRole('tab', { name: /Status Types/ }).textContent).toMatch(/Status Types\s*2$/);
+	});
+
+	it('keeps the archive confirmation open and the calendar entries intact when archiving fails', async () => {
 		statusTypesStoreMock.items = [
 			{
 				id: 'leave',
@@ -700,28 +745,30 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 3
+				sortOrder: 3,
+				archivedAt: null
 			}
 		];
-		statusTypesStoreMock.remove.mockResolvedValueOnce(false);
+		statusTypesStoreMock.setArchived.mockRejectedValueOnce(new Error('Could not archive'));
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
-		await openRowAction('Leave', 'Delete');
-		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+		await openRowAction('Leave', 'Archive');
+		const dialog = screen.getByRole('alertdialog', { name: 'Archive Status Type' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
-		expect(screen.getByRole('alertdialog', { name: 'Delete Status Type' })).toBeTruthy();
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Could not archive'));
+		expect(screen.getByRole('alertdialog', { name: 'Archive Status Type' })).toBeTruthy();
+		expect(statusTypesStoreMock.setArchived).toHaveBeenCalledWith('leave', true);
 		expect(availabilityStoreMock.removeByStatusTypeLocal).not.toHaveBeenCalled();
-		expect(errorToast).toHaveBeenCalledOnce();
 	});
 
 	it.each([
 		['A', true],
 		['available', false]
 	] as const)(
-		'warns about open DA 6 forms when deleting a status with roster effect %s: %s',
+		'warns about open DA 6 forms when archiving a status with roster effect %s: %s',
 		async (rosterEffect, warns) => {
 			statusTypesStoreMock.items = [
 				{
@@ -731,14 +778,15 @@ describe('CalendarSettingsPage', () => {
 					textColor: '#ffffff',
 					shortLabel: null,
 					rosterEffect,
-					sortOrder: 0
+					sortOrder: 0,
+					archivedAt: null
 				}
 			];
 
 			render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
-			await openRowAction('Leave', 'Delete');
-			const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
+			await openRowAction('Leave', 'Archive');
+			const dialog = screen.getByRole('alertdialog', { name: 'Archive Status Type' });
 			expect(/DA 6/.test(dialog.textContent ?? '')).toBe(warns);
 		}
 	);
@@ -1272,7 +1320,7 @@ describe('CalendarSettingsPage', () => {
 		expect(inDisabledGroup(control('Last day'))).toBe(false);
 	});
 
-	it('keeps a held status deletion busy and undismissable until it settles', async () => {
+	it('keeps a held status archive busy and undismissable until it settles', async () => {
 		statusTypesStoreMock.items = [
 			{
 				id: 'leave',
@@ -1281,29 +1329,30 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 4
+				sortOrder: 4,
+				archivedAt: null
 			}
 		];
-		let settle!: (deleted: boolean) => void;
-		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
+		let settle!: () => void;
+		statusTypesStoreMock.setArchived.mockReturnValueOnce(new Promise<void>((resolve) => (settle = resolve)));
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
-		await openRowAction('Leave', 'Delete');
-		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+		await openRowAction('Leave', 'Archive');
+		const dialog = screen.getByRole('alertdialog', { name: 'Archive Status Type' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
 		expect(dialog.getAttribute('aria-busy')).toBe('true');
 		expect((within(dialog).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
 		await fireEvent.keyDown(dialog, { key: 'Escape' });
-		expect(screen.getByRole('alertdialog', { name: 'Delete Status Type' })).toBeTruthy();
+		expect(screen.getByRole('alertdialog', { name: 'Archive Status Type' })).toBeTruthy();
 
-		settle(true);
+		settle();
 
-		await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Delete Status Type' })).toBeNull());
-		expect(availabilityStoreMock.removeByStatusTypeLocal).toHaveBeenCalledWith('leave');
+		await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Archive Status Type' })).toBeNull());
+		expect(statusTypesStoreMock.setArchived).toHaveBeenCalledWith('leave', true);
 	});
 
-	it('clears busy and keeps a held status deletion open when it rejects', async () => {
+	it('clears busy and keeps a held status archive open when it rejects', async () => {
 		statusTypesStoreMock.items = [
 			{
 				id: 'leave',
@@ -1312,25 +1361,26 @@ describe('CalendarSettingsPage', () => {
 				textColor: '#ffffff',
 				shortLabel: null,
 				rosterEffect: 'A',
-				sortOrder: 5
+				sortOrder: 5,
+				archivedAt: null
 			}
 		];
 		let fail!: (error: Error) => void;
-		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));
+		statusTypesStoreMock.setArchived.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
-		await openRowAction('Leave', 'Delete');
-		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+		await openRowAction('Leave', 'Archive');
+		const dialog = screen.getByRole('alertdialog', { name: 'Archive Status Type' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
 		expect(dialog.getAttribute('aria-busy')).toBe('true');
 
 		fail(new Error('Status type is in use'));
 
 		await waitFor(() => {
-			const retained = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
+			const retained = screen.getByRole('alertdialog', { name: 'Archive Status Type' });
 			expect(retained.hasAttribute('aria-busy')).toBe(false);
-			expect((within(retained).getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
+			expect((within(retained).getByRole('button', { name: 'Archive' }) as HTMLButtonElement).disabled).toBe(false);
 		});
 		expect(errorToast).toHaveBeenCalledWith('Status type is in use');
 		expect(availabilityStoreMock.removeByStatusTypeLocal).not.toHaveBeenCalled();

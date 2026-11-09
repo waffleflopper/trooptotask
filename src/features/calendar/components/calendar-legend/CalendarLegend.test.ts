@@ -14,6 +14,7 @@ const leave = {
 	color: '#16a34a',
 	textColor: '#ffffff',
 	shortLabel: null,
+	archivedAt: null,
 	rosterEffect: 'A' as const,
 	sortOrder: 0
 };

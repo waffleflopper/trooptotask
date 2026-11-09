@@ -4,7 +4,16 @@ import { classifyBulkAddOverlaps } from './availabilityMutation';
 import { projectBulkRosterAvailability, rosterAvailabilityRow } from './bulkRosterAvailability';
 
 function status(id: string, name: string): StatusType {
-	return { id, name, color: '#48bb78', textColor: '#ffffff', shortLabel: null, rosterEffect: 'A', sortOrder: 0 };
+	return {
+		id,
+		name,
+		color: '#48bb78',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 0,
+		archivedAt: null
+	};
 }
 
 const statusTypes = [status('leave', 'Leave'), status('sick', 'Sick')];

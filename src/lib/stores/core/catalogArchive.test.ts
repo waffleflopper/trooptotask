@@ -9,13 +9,13 @@ describe('putCatalogArchive', () => {
 		const fetchMock = vi.fn().mockResolvedValue(Response.json({ archivedAt: '2030-03-04T05:06:07Z' }));
 		vi.stubGlobal('fetch', fetchMock);
 
-		const archivedAt = await putCatalogArchive('org-7', 'training-types', 'cpr', true);
+		const archivedAt = await putCatalogArchive('org-7', 'status-types', 'leave', true);
 
 		expect(archivedAt).toBe('2030-03-04T05:06:07Z');
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-7/api/training-types/archive', {
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-7/api/status-types/archive', {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id: 'cpr', archived: true })
+			body: JSON.stringify({ id: 'leave', archived: true })
 		});
 	});
 
@@ -59,8 +59,8 @@ describe('getCatalogUsage', () => {
 		const fetchMock = vi.fn().mockResolvedValue(Response.json({ a: 2, b: 0 }));
 		vi.stubGlobal('fetch', fetchMock);
 
-		expect(await getCatalogUsage('org-7', 'training-types')).toEqual({ a: 2, b: 0 });
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-7/api/training-types/usage');
+		expect(await getCatalogUsage('org-7', 'status-types')).toEqual({ a: 2, b: 0 });
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-7/api/status-types/usage');
 	});
 
 	it('rejects when the caller may not configure the catalog', async () => {

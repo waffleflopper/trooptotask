@@ -7525,7 +7525,7 @@ ALTER FUNCTION public.delete_archived_personnel_artifact(p_organization_id uuid,
 --
 
 CREATE FUNCTION public.delete_availability_entries(p_organization_id uuid, p_ids uuid[]) RETURNS integer
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 DECLARE
@@ -7545,9 +7545,29 @@ BEGIN
     RAISE EXCEPTION 'Invalid Calendar availability removal' USING ERRCODE = '22023';
   END IF;
 
-  DELETE FROM public.availability_entries
-  WHERE organization_id = p_organization_id AND id = ANY(p_ids);
-  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  DELETE FROM calendar_private.availability_undo WHERE expires_at <= pg_catalog.now();
+
+  WITH deleted AS (
+    DELETE FROM public.availability_entries e
+    WHERE e.organization_id = p_organization_id AND e.id = ANY(p_ids)
+      AND public.can_edit_availability_record(e.organization_id, e.personnel_id)
+    RETURNING e.id, e.organization_id, e.personnel_id, e.status_type_id, e.start_date, e.end_date, e.note,
+      e.created_at, e.set_for_tasking_id
+  ), kept AS (
+    -- 30 seconds: the 10 second Undo toast plus allowance for the removal reply and the Undo request in transit.
+    INSERT INTO calendar_private.availability_undo AS u (actor_id, organization_id, entry_id, personnel_id,
+      status_type_id, start_date, end_date, note, created_at, set_for_tasking_id, expires_at)
+    SELECT auth.uid(), d.organization_id, d.id, d.personnel_id, d.status_type_id, d.start_date, d.end_date, d.note,
+      d.created_at, d.set_for_tasking_id, pg_catalog.now() + interval '30 seconds'
+    FROM deleted d
+    ON CONFLICT (actor_id, entry_id) DO UPDATE SET
+      organization_id = EXCLUDED.organization_id, personnel_id = EXCLUDED.personnel_id,
+      status_type_id = EXCLUDED.status_type_id, start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date,
+      note = EXCLUDED.note, created_at = EXCLUDED.created_at, set_for_tasking_id = EXCLUDED.set_for_tasking_id,
+      expires_at = EXCLUDED.expires_at
+    RETURNING u.entry_id
+  )
+  SELECT pg_catalog.count(*) INTO deleted_count FROM deleted;
   RETURN deleted_count;
 END;
 $$;
@@ -11961,6 +11981,84 @@ $$;
 ALTER FUNCTION public.reset_federal_holidays(p_organization_id uuid, p_holidays jsonb) OWNER TO postgres;
 
 --
+-- Name: restore_availability_entries(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.restore_availability_entries(p_organization_id uuid, p_ids uuid[], p_personnel_ids uuid[]) RETURNS TABLE(id uuid, organization_id uuid, personnel_id uuid, status_type_id uuid, start_date date, end_date date, note text, created_at timestamp with time zone)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+#variable_conflict use_column
+BEGIN
+  IF auth.uid() IS NULL
+    OR p_organization_id IS NULL
+    OR public.member_access_has_capability(p_organization_id, 'calendar', 'operate') IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Calendar availability restore is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_ids IS NULL OR p_personnel_ids IS NULL
+    OR cardinality(p_ids) NOT BETWEEN 1 AND 500
+    OR cardinality(p_personnel_ids) <> cardinality(p_ids)
+    OR array_position(p_ids, NULL) IS NOT NULL
+    OR array_position(p_personnel_ids, NULL) IS NOT NULL
+  THEN
+    RAISE EXCEPTION 'Invalid Calendar availability restore' USING ERRCODE = '22023';
+  END IF;
+
+  DELETE FROM calendar_private.availability_undo WHERE expires_at <= pg_catalog.now();
+
+  -- An availability INSERT takes KEY SHARE on its Person through the foreign key, so this lock makes a concurrent
+  -- add of the same Person wait. The next statement then takes a fresh snapshot that sees every add that finished.
+  PERFORM 1 FROM public.personnel p
+  WHERE p.organization_id = p_organization_id AND p.id = ANY(p_personnel_ids)
+  ORDER BY p.id
+  FOR UPDATE;
+
+  RETURN QUERY
+  WITH claim AS (
+    SELECT c.entry_id, c.personnel_id FROM ROWS FROM (pg_catalog.unnest(p_ids), pg_catalog.unnest(p_personnel_ids)) AS c(entry_id, personnel_id)
+  ), consumed AS (
+    -- An Undo is one-shot: the record goes whether or not the entry comes back.
+    DELETE FROM calendar_private.availability_undo u
+    WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
+    RETURNING u.entry_id, u.organization_id, u.personnel_id, u.status_type_id, u.start_date, u.end_date, u.note,
+      u.created_at, u.set_for_tasking_id, u.expires_at
+  ), restorable AS (
+    SELECT u.* FROM consumed u
+    WHERE u.expires_at > pg_catalog.now()
+      AND EXISTS (SELECT 1 FROM claim c WHERE c.entry_id = u.entry_id AND c.personnel_id = u.personnel_id)
+      AND public.can_edit_availability_record(u.organization_id, u.personnel_id)
+      AND NOT EXISTS (
+        SELECT 1 FROM public.availability_entries a
+        WHERE a.organization_id = u.organization_id AND a.personnel_id = u.personnel_id
+          AND a.status_type_id = u.status_type_id
+          AND a.start_date <= u.end_date AND a.end_date >= u.start_date
+      )
+  ), restored AS (
+    INSERT INTO public.availability_entries AS e (id, organization_id, personnel_id, status_type_id, start_date,
+      end_date, note, created_at, set_for_tasking_id)
+    SELECT r.entry_id, r.organization_id, r.personnel_id, r.status_type_id, r.start_date, r.end_date, r.note,
+      r.created_at,
+      -- The link survives only while the Tasking exists and this caller may see it, as the table's own checks require.
+      (SELECT t.id FROM public.calendar_taskings t
+        WHERE t.organization_id = r.organization_id AND t.id = r.set_for_tasking_id
+          AND calendar_private.can_view_calendar_tasking(t.organization_id, t.responsible_group_id))
+    FROM restorable r
+    ON CONFLICT (id) DO NOTHING
+    RETURNING e.id, e.organization_id, e.personnel_id, e.status_type_id, e.start_date, e.end_date, e.note,
+      e.created_at
+  )
+  SELECT restored.id, restored.organization_id, restored.personnel_id, restored.status_type_id,
+    restored.start_date, restored.end_date, restored.note, restored.created_at
+  FROM restored;
+END;
+$$;
+
+
+ALTER FUNCTION public.restore_availability_entries(p_organization_id uuid, p_ids uuid[], p_personnel_ids uuid[]) OWNER TO postgres;
+
+--
 -- Name: restore_personnel(uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -14580,6 +14678,27 @@ $$;
 ALTER FUNCTION public.write_roster_assignment_slots(p_actor uuid, p_organization_id uuid, p_slots jsonb) OWNER TO postgres;
 
 --
+-- Name: availability_undo; Type: TABLE; Schema: calendar_private; Owner: postgres
+--
+
+CREATE TABLE calendar_private.availability_undo (
+    actor_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    entry_id uuid NOT NULL,
+    personnel_id uuid NOT NULL,
+    status_type_id uuid NOT NULL,
+    start_date date NOT NULL,
+    end_date date NOT NULL,
+    note text,
+    created_at timestamp with time zone NOT NULL,
+    set_for_tasking_id uuid,
+    expires_at timestamp with time zone NOT NULL
+);
+
+
+ALTER TABLE calendar_private.availability_undo OWNER TO postgres;
+
+--
 -- Name: template_duplicate_receipts; Type: TABLE; Schema: onboarding_private; Owner: postgres
 --
 
@@ -16089,6 +16208,14 @@ CREATE SEQUENCE public.whats_new_publish_seq
 ALTER SEQUENCE public.whats_new_publish_seq OWNER TO postgres;
 
 --
+-- Name: availability_undo availability_undo_pkey; Type: CONSTRAINT; Schema: calendar_private; Owner: postgres
+--
+
+ALTER TABLE ONLY calendar_private.availability_undo
+    ADD CONSTRAINT availability_undo_pkey PRIMARY KEY (actor_id, entry_id);
+
+
+--
 -- Name: template_duplicate_receipts template_duplicate_receipts_pkey; Type: CONSTRAINT; Schema: onboarding_private; Owner: postgres
 --
 
@@ -16950,6 +17077,13 @@ ALTER TABLE ONLY public.whats_new_entries
 
 ALTER TABLE ONLY public.whats_new_entries
     ADD CONSTRAINT whats_new_entries_published_seq_key UNIQUE (published_seq);
+
+
+--
+-- Name: availability_undo_expires_idx; Type: INDEX; Schema: calendar_private; Owner: postgres
+--
+
+CREATE INDEX availability_undo_expires_idx ON calendar_private.availability_undo USING btree (expires_at);
 
 
 --
@@ -19018,6 +19152,30 @@ CREATE TRIGGER whats_new_entries_stamp BEFORE INSERT OR UPDATE ON public.whats_n
 
 
 --
+-- Name: availability_undo availability_undo_actor_id_fkey; Type: FK CONSTRAINT; Schema: calendar_private; Owner: postgres
+--
+
+ALTER TABLE ONLY calendar_private.availability_undo
+    ADD CONSTRAINT availability_undo_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: availability_undo availability_undo_organization_id_fkey; Type: FK CONSTRAINT; Schema: calendar_private; Owner: postgres
+--
+
+ALTER TABLE ONLY calendar_private.availability_undo
+    ADD CONSTRAINT availability_undo_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: availability_undo availability_undo_personnel_id_fkey; Type: FK CONSTRAINT; Schema: calendar_private; Owner: postgres
+--
+
+ALTER TABLE ONLY calendar_private.availability_undo
+    ADD CONSTRAINT availability_undo_personnel_id_fkey FOREIGN KEY (personnel_id) REFERENCES public.personnel(id) ON DELETE CASCADE;
+
+
+--
 -- Name: template_duplicate_receipts template_duplicate_receipts_organization_id_fkey; Type: FK CONSTRAINT; Schema: onboarding_private; Owner: postgres
 --
 
@@ -20248,6 +20406,12 @@ ALTER TABLE ONLY public.user_suspensions
 ALTER TABLE ONLY public.whats_new_entries
     ADD CONSTRAINT whats_new_entries_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 
+
+--
+-- Name: availability_undo; Type: ROW SECURITY; Schema: calendar_private; Owner: postgres
+--
+
+ALTER TABLE calendar_private.availability_undo ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: template_duplicate_receipts; Type: ROW SECURITY; Schema: onboarding_private; Owner: postgres
@@ -24509,6 +24673,14 @@ GRANT ALL ON FUNCTION public.rescind_access_request_and_block_linked_invitations
 
 REVOKE ALL ON FUNCTION public.reset_federal_holidays(p_organization_id uuid, p_holidays jsonb) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.reset_federal_holidays(p_organization_id uuid, p_holidays jsonb) TO authenticated;
+
+
+--
+-- Name: FUNCTION restore_availability_entries(p_organization_id uuid, p_ids uuid[], p_personnel_ids uuid[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.restore_availability_entries(p_organization_id uuid, p_ids uuid[], p_personnel_ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.restore_availability_entries(p_organization_id uuid, p_ids uuid[], p_personnel_ids uuid[]) TO authenticated;
 
 
 --

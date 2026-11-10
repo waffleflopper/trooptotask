@@ -1,12 +1,20 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import type { DashboardPageUpdates, DashboardScreenModel } from '$features/dashboard';
-	let { ctx, updates }: { ctx: DashboardScreenModel | null; updates: DashboardPageUpdates } = $props();
+	let {
+		ctx,
+		updates,
+		summaryFailure
+	}: { ctx: DashboardScreenModel | null; updates: DashboardPageUpdates; summaryFailure?: Snippet } = $props();
 </script>
 
 <button type="button" onclick={() => updates.refreshSummary()}>Refresh summary</button>
 <button type="button" onclick={() => updates.retryTaskings()}>Retry Taskings</button>
 <button type="button" onclick={() => updates.retryAdminAttention()}>Retry administration</button>
 <output aria-label="Current people">{ctx?.data.trainingSummary?.stats?.current ?? 'pending'}</output>
+{#if ctx?.data.summaryFailed}
+	{@render summaryFailure?.()}
+{/if}
 <button
 	type="button"
 	onclick={() =>

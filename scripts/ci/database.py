@@ -212,6 +212,7 @@ POST_TREE_SQL_TESTS = (
     "calendar_tasking_equipment_returns.sql",
     "archived_person_live_work.sql",
     "calendar_availability_undo.sql",
+    "calendar_availability_undo_concurrency.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

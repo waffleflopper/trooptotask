@@ -40,7 +40,8 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   (pg_temp.id('503'), pg_temp.id('101'), pg_temp.id('202'), 'PFC', 'Cal', 'Cole', 'undo-503');
 INSERT INTO public.status_types (id, organization_id, name) VALUES
   (pg_temp.id('601'), pg_temp.id('101'), 'Training'),
-  (pg_temp.id('602'), pg_temp.id('101'), 'Leave');
+  (pg_temp.id('602'), pg_temp.id('101'), 'Leave'),
+  (pg_temp.id('603'), pg_temp.id('101'), 'Retiring');
 
 CREATE FUNCTION pg_temp.act_as(p_user text) RETURNS void LANGUAGE sql AS $$
   SELECT set_config('request.jwt.claim.sub', pg_temp.id(p_user)::text, true),
@@ -100,7 +101,8 @@ VALUES
   (pg_temp.id('710'), pg_temp.id('101'), pg_temp.id('501'), pg_temp.id('601'), '2031-07-01', '2031-07-02', NULL),
   (pg_temp.id('711'), pg_temp.id('101'), pg_temp.id('503'), pg_temp.id('601'), '2031-08-01', '2031-08-02', NULL),
   (pg_temp.id('712'), pg_temp.id('101'), pg_temp.id('503'), pg_temp.id('601'), '2031-08-05', '2031-08-06', NULL),
-  (pg_temp.id('715'), pg_temp.id('101'), pg_temp.id('502'), pg_temp.id('601'), '2031-11-01', '2031-11-02', 'first');
+  (pg_temp.id('715'), pg_temp.id('101'), pg_temp.id('502'), pg_temp.id('601'), '2031-11-01', '2031-11-02', 'first'),
+  (pg_temp.id('716'), pg_temp.id('101'), pg_temp.id('501'), pg_temp.id('603'), '2031-12-01', '2031-12-02', NULL);
 UPDATE public.availability_entries SET created_at = '2030-01-01 01:02:03+00' WHERE id::text LIKE '7a590000-%';
 
 -- (a) A Tasking-linked status comes back linked, and the Tasking counts it again.
@@ -207,19 +209,28 @@ SELECT is(pg_temp.remove(ARRAY['712']), 0, 'the narrowed operator removes nothin
 SELECT is(pg_temp.undo_rows('712'), 0::bigint, 'a removal that deleted nothing kept no record');
 SELECT ok(pg_temp.entry('712') IS NOT NULL, 'the Bravo status is still saved');
 
--- (h) A Tasking the caller can no longer see, or that is gone, comes back unlinked.
+-- (h) A link to a Tasking the caller cannot see comes back; one to a deleted Tasking comes back empty.
 SELECT is(pg_temp.remove(ARRAY['713']), 1, 'the Alpha operator removes a status linked to an Alpha Tasking');
 SELECT pg_temp.act_as('2');
 UPDATE public.calendar_taskings SET responsible_group_id = pg_temp.id('202') WHERE id = pg_temp.id('402');
 SELECT pg_temp.act_as('3');
 SELECT is(pg_temp.restore(ARRAY['713'], ARRAY['501']), ARRAY['713'], 'the status restores');
-SELECT is(pg_temp.link('713'), NULL::uuid, 'it comes back without the link to a Tasking the operator cannot see');
+SELECT is(pg_temp.link('713'), pg_temp.id('402'),
+  'it keeps its link to a Tasking the operator cannot see, which the server held');
+SELECT throws_ok(format($$ INSERT INTO public.availability_entries (organization_id, personnel_id, status_type_id,
+  start_date, end_date, set_for_tasking_id) VALUES (%L, %L, %L, '2031-09-10', '2031-09-11', %L) $$,
+  pg_temp.id('101'), pg_temp.id('501'), pg_temp.id('601'), pg_temp.id('402')),
+  '42501', 'Tasking is unavailable for this Organization',
+  'a direct write still cannot name a Tasking the operator cannot see');
 SELECT pg_temp.act_as('2');
-SELECT is(pg_temp.remove(ARRAY['714']), 1, 'the operator removes a status linked to a Tasking that will be deleted');
+SELECT is(pg_temp.remove(ARRAY['714', '716']), 2,
+  'the operator removes a status linked to a Tasking and the last status of a type, both about to be deleted');
 RESET ROLE;
 DELETE FROM public.calendar_taskings WHERE id = pg_temp.id('403');
+DELETE FROM public.status_types WHERE id = pg_temp.id('603');
 SET LOCAL ROLE authenticated;
-SELECT is(pg_temp.restore(ARRAY['714'], ARRAY['501']), ARRAY['714'], 'the status restores');
+SELECT is(pg_temp.restore(ARRAY['714', '716'], ARRAY['501', '501']), ARRAY['714'],
+  'the status restores, and the one whose type is gone stays removed without failing the batch');
 SELECT is(pg_temp.link('714'), NULL::uuid, 'it comes back without the link to a deleted Tasking');
 
 -- (l) Input and caller checks.

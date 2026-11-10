@@ -2003,7 +2003,9 @@ CREATE FUNCTION calendar_private.check_availability_tasking() RETURNS trigger
     AS $$
 BEGIN
   -- Also when unchanged: success on a no-op write would confirm a hidden Tasking's provenance.
-  IF NEW.set_for_tasking_id IS NOT NULL THEN
+  IF NEW.set_for_tasking_id IS NOT NULL
+    AND pg_catalog.current_setting('calendar_private.restoring_availability', true) IS DISTINCT FROM 'on'
+  THEN
     IF NOT EXISTS (SELECT 1 FROM public.calendar_taskings t
       WHERE t.organization_id = NEW.organization_id AND t.id = NEW.set_for_tasking_id
         AND calendar_private.can_view_calendar_tasking(t.organization_id, t.responsible_group_id)) THEN
@@ -12014,6 +12016,15 @@ BEGIN
   WHERE p.organization_id = p_organization_id AND p.id = ANY(p_personnel_ids)
   ORDER BY p.id
   FOR UPDATE;
+  -- An edit can move one of their existing entries into the restored dates without touching the Person, so those
+  -- entries are locked too.
+  PERFORM 1 FROM public.availability_entries a
+  WHERE a.organization_id = p_organization_id AND a.personnel_id = ANY(p_personnel_ids)
+  ORDER BY a.id
+  FOR SHARE;
+
+  -- The link comes from the server's own record, not from the caller, so the Tasking check below lets it through.
+  PERFORM pg_catalog.set_config('calendar_private.restoring_availability', 'on', true);
 
   RETURN QUERY
   WITH claim AS (
@@ -12029,6 +12040,8 @@ BEGIN
     WHERE u.expires_at > pg_catalog.now()
       AND EXISTS (SELECT 1 FROM claim c WHERE c.entry_id = u.entry_id AND c.personnel_id = u.personnel_id)
       AND public.can_edit_availability_record(u.organization_id, u.personnel_id)
+      AND EXISTS (SELECT 1 FROM public.status_types s
+        WHERE s.organization_id = u.organization_id AND s.id = u.status_type_id)
       AND NOT EXISTS (
         SELECT 1 FROM public.availability_entries a
         WHERE a.organization_id = u.organization_id AND a.personnel_id = u.personnel_id
@@ -12040,10 +12053,9 @@ BEGIN
       end_date, note, created_at, set_for_tasking_id)
     SELECT r.entry_id, r.organization_id, r.personnel_id, r.status_type_id, r.start_date, r.end_date, r.note,
       r.created_at,
-      -- The link survives only while the Tasking exists and this caller may see it, as the table's own checks require.
+      -- The link survives while its Tasking exists, even one this caller cannot see; the caller never reads it.
       (SELECT t.id FROM public.calendar_taskings t
-        WHERE t.organization_id = r.organization_id AND t.id = r.set_for_tasking_id
-          AND calendar_private.can_view_calendar_tasking(t.organization_id, t.responsible_group_id))
+        WHERE t.organization_id = r.organization_id AND t.id = r.set_for_tasking_id)
     FROM restorable r
     ON CONFLICT (id) DO NOTHING
     RETURNING e.id, e.organization_id, e.personnel_id, e.status_type_id, e.start_date, e.end_date, e.note,
@@ -12052,6 +12064,8 @@ BEGIN
   SELECT restored.id, restored.organization_id, restored.personnel_id, restored.status_type_id,
     restored.start_date, restored.end_date, restored.note, restored.created_at
   FROM restored;
+
+  PERFORM pg_catalog.set_config('calendar_private.restoring_availability', '', true);
 END;
 $$;
 

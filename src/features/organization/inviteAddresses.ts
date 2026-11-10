@@ -7,11 +7,12 @@ export type InviteAddressResult =
 	| { email: string; status: 'failed'; message: string };
 
 /**
- * The distinct addresses in pasted text, lowercased, in the order first given. Commas, semicolons, spaces, line
- * breaks and the angle brackets mail clients put around an address all separate addresses.
+ * The distinct addresses in pasted text, lowercased, in the order first given. Commas, semicolons, spaces and line
+ * breaks separate addresses. A mail client's `Name <address>` keeps only the address.
  */
 export function parseInviteAddresses(text: string): string[] {
-	return [...new Set(text.split(/[\s,;<>]+/).flatMap((part) => (part ? [part.toLowerCase()] : [])))];
+	const addresses = text.replace(/"[^"]*"/g, ' ').replace(/(?<=^|[\s,;])(?:[^\s,;<>@]+[ \t]+)*<([^<>]*)>/g, ' $1 ');
+	return [...new Set(addresses.split(/[\s,;<>]+/).flatMap((part) => (part ? [part.toLowerCase()] : [])))];
 }
 
 /** The addresses an admin still has to act on: the ones no invitation covers yet. */

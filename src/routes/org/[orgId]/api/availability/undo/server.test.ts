@@ -36,49 +36,54 @@ function context(calendar: 'operate' | 'view' | 'none') {
 }
 
 describe('POST /api/availability/undo', () => {
-	it('lets a Calendar operator take back an add and put a removal back', async () => {
+	const seededRow = (ctx: ReturnType<typeof context>) => ({
+		id: ENTRY,
+		organization_id: ctx.auth.orgId,
+		personnel_id: PERSON,
+		status_type_id: LEAVE,
+		start_date: saved.startDate,
+		end_date: saved.endDate,
+		note: null
+	});
+
+	it('lets a Calendar operator take back an add, and leaves nothing to restore for it', async () => {
 		const ctx = context('operate');
-		ctx.store.seed('availability_entries', [
-			{
-				id: ENTRY,
-				organization_id: ctx.auth.orgId,
-				personnel_id: PERSON,
-				status_type_id: LEAVE,
-				start_date: saved.startDate,
-				end_date: saved.endDate,
-				note: null
-			}
-		]);
+		ctx.store.seed('availability_entries', [seededRow(ctx)]);
 
 		await expect(handleUseCaseRequest(_postConfig, ctx, { remove: [saved] }, () => ctx)).resolves.toEqual({
 			removedIds: [ENTRY],
-			restoredIds: [],
+			restored: [],
 			changedIds: []
 		});
 		expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toEqual([]);
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { restore: [saved] }, () => ctx)).resolves.toEqual({
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { restore: [{ id: ENTRY, personnelId: PERSON }] }, () => ctx)
+		).resolves.toEqual({ removedIds: [], restored: [], changedIds: [ENTRY] });
+		expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toEqual([]);
+	});
+
+	it('lets a Calendar operator put a removal back with the values the removal deleted', async () => {
+		const ctx = context('operate');
+		ctx.store.seed('availability_entries', [{ ...seededRow(ctx), note: 'Edited since the page loaded' }]);
+		await ctx.calendarAvailability.deleteIds([ENTRY]);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { restore: [{ id: ENTRY, personnelId: PERSON }] }, () => ctx)
+		).resolves.toEqual({
 			removedIds: [],
-			restoredIds: [ENTRY],
+			restored: [{ ...saved, organization_id: ctx.auth.orgId, note: 'Edited since the page loaded' }],
 			changedIds: []
 		});
 		expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toEqual([
-			{
-				id: ENTRY,
-				organization_id: ctx.auth.orgId,
-				personnel_id: PERSON,
-				status_type_id: LEAVE,
-				start_date: saved.startDate,
-				end_date: saved.endDate,
-				note: null
-			}
+			{ ...seededRow(ctx), note: 'Edited since the page loaded' }
 		]);
 	});
 
 	it.each(['view', 'none'] as const)('refuses %s access before any status is read or written', async (calendar) => {
 		const ctx = context(calendar);
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { restore: [saved] }, () => {
+			handleUseCaseRequest(_postConfig, ctx, { restore: [{ id: ENTRY, personnelId: PERSON }] }, () => {
 				throw new Error('Denied request reached persistence');
 			})
 		).rejects.toMatchObject({ status: 403 });

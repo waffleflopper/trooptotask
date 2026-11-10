@@ -25,9 +25,10 @@ with clear partial results and whole-entry warnings.
   stops at the first failed chunk; the completed entries leave the review, the result says
   `Removed N of M status entries — K remain`, and confirming again sends only the remaining IDs.
 - `bulk-undo`: `Applied status to N people` and `Removed N status entries` carry `Undo` for 10 seconds. Add Undo
-  deletes exactly the saved rows that are still as saved; Remove Undo saves the removed entries again under their own
-  IDs. It survives the Calendar refresh a save causes, and stops after the page or Organization changes. A remove that
-  reports `already gone` entries offers no Undo.
+  deletes exactly the saved rows that are still as saved; Remove Undo asks the server to put back the entries it
+  deleted, under their own IDs, with the values and Tasking link they had. It survives the Calendar refresh a save
+  causes, and stops after the page or Organization changes. A remove that reports `already gone` entries offers no
+  Undo.
 - `bulk-partial`: if the second of two chunks fails, the first 500 remain saved, one Person and the submitted draft
   remain ready for retry, and the result says 500 of 501. The 500 saved people now show as `Already on …` and are
   disabled, so only the failed Person stays selected. Retry saves only that Person with the original status, dates and

@@ -176,6 +176,7 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261108210000_client_lifecycle_grants.sql",
     "20261108220000_keep_closed_taskings_on_event_delete.sql",
     "20261108220100_close_archived_person_work.sql",
+    "20261110120000_availability_undo_record.sql",
 )
 # Rows that must exist before the post-tree migrations apply, and the contracts that read them afterwards.
 POST_TREE_FIXTURES = ("equipment_returned_bound_before.sql",)
@@ -210,6 +211,8 @@ POST_TREE_SQL_TESTS = (
     "calendar_event_deletion.sql",
     "calendar_tasking_equipment_returns.sql",
     "archived_person_live_work.sql",
+    "calendar_availability_undo.sql",
+    "calendar_availability_undo_concurrency.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

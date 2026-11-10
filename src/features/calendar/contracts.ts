@@ -692,12 +692,15 @@ export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRem
 	findReference(id: string): Promise<{ personnelId: string } | null>;
 	create(input: AvailabilityCreate): Promise<SavedAvailabilityEntry>;
 	update(id: string, patch: AvailabilityPatch): Promise<SavedAvailabilityEntry>;
-	delete(id: string): Promise<void>;
 	createMany(inputs: AvailabilityCreate[]): Promise<SavedAvailabilityEntry[]>;
 	/** Deletes each entry only while its saved row still has these values, in the same statement; resolves to the ids deleted. */
 	deleteUnchanged(entries: readonly AvailabilityEntry[]): Promise<string[]>;
-	/** Saves each entry under its own id in one statement, skipping an id that exists again; resolves to the ids saved. */
-	restoreMany(entries: readonly AvailabilityEntry[]): Promise<string[]>;
+	/**
+	 * Restores the caller's own recent removals from the server's undo record, with the values that were deleted and
+	 * under their own ids. Skips any whose Person now has that status over those dates or whose id exists again, and
+	 * any whose window has passed. Resolves to the entries restored.
+	 */
+	restoreRemoved(entries: readonly { id: string; personnelId: string }[]): Promise<SavedAvailabilityEntry[]>;
 	/** Skips, by index, each entry whose overlaps changed since review; writes the rest in one transaction. */
 	insertReplacing(
 		entries: readonly AvailabilityImportWrite[]

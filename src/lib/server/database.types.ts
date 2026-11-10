@@ -5047,6 +5047,23 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      restore_availability_entries: {
+        Args: {
+          p_ids: string[]
+          p_organization_id: string
+          p_personnel_ids: string[]
+        }
+        Returns: {
+          created_at: string
+          end_date: string
+          id: string
+          note: string
+          organization_id: string
+          personnel_id: string
+          start_date: string
+          status_type_id: string
+        }[]
+      }
       restore_personnel: {
         Args: { p_organization_id: string; p_personnel_id: string }
         Returns: boolean

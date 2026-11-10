@@ -46,7 +46,7 @@ afterEach(() => {
 
 describe('availabilityUndoAction', () => {
 	it('takes back an add by sending only the wire fields of the added entry and drops it from the store', async () => {
-		fetchMock.mockResolvedValueOnce(reply({ removedIds: ['added'], restoredIds: [], changedIds: [] }));
+		fetchMock.mockResolvedValueOnce(reply({ removedIds: ['added'], restored: [], changedIds: [] }));
 		const success = vi.spyOn(toastStore, 'success');
 
 		availabilityUndoAction({ remove: [{ ...entry('added'), note: 'Block leave' }] }, scope()).onClick();
@@ -71,21 +71,49 @@ describe('availabilityUndoAction', () => {
 		expect(undone).toBe(1);
 	});
 
-	it('puts back only the removed entries the server restored and reports the ones that changed since', async () => {
+	it('asks for a removal to be undone by naming the entries only, and shows the rows the server restored', async () => {
 		availabilityStore.load([entry('kept')], 'org1');
-		fetchMock.mockResolvedValueOnce(reply({ removedIds: [], restoredIds: ['back'], changedIds: ['moved'] }));
+		const serverCopy = entry('back', { endDate: '2026-11-14', note: 'Edited since the page loaded' });
+		fetchMock.mockResolvedValueOnce(reply({ removedIds: [], restored: [serverCopy], changedIds: ['moved'] }));
 		const success = vi.spyOn(toastStore, 'success');
 
-		availabilityUndoAction({ restore: [entry('back'), entry('moved')] }, scope()).onClick();
+		availabilityUndoAction(
+			{ restore: [entry('back', { note: 'Old copy', statusTypeId: 'tdy' }), entry('moved')] },
+			scope()
+		).onClick();
 		await vi.waitFor(() => expect(success).toHaveBeenCalledTimes(1));
 
-		expect(ids()).toEqual(['kept', 'back']);
+		expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toEqual({
+			restore: [
+				{ id: 'back', personnelId: 'p1' },
+				{ id: 'moved', personnelId: 'p1' }
+			]
+		});
+		expect(availabilityStore.items).toEqual([entry('kept'), serverCopy]);
 		expect(success.mock.calls[0][3]).toEqual(expect.any(String));
 		expect(undone).toBe(1);
 	});
 
+	it.each([
+		[
+			'an entry without a Person',
+			[{ id: 'back', statusTypeId: 'leave', startDate: '2026-11-10', endDate: '2026-11-12' }]
+		],
+		['a restored value that is not a list', 'back']
+	])('refuses a reply with %s and leaves the store alone', async (_name, restored) => {
+		fetchMock.mockResolvedValueOnce(reply({ removedIds: [], restored, changedIds: [] }));
+		const error = vi.spyOn(toastStore, 'error');
+		const success = vi.spyOn(toastStore, 'success');
+
+		availabilityUndoAction({ restore: [entry('back')] }, scope()).onClick();
+		await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+
+		expect(success).not.toHaveBeenCalled();
+		expect(ids()).toEqual(['kept', 'added']);
+	});
+
 	it('warns that nothing was undone, without touching the store, when every entry changed since', async () => {
-		fetchMock.mockResolvedValueOnce(reply({ removedIds: [], restoredIds: [], changedIds: ['added'] }));
+		fetchMock.mockResolvedValueOnce(reply({ removedIds: [], restored: [], changedIds: ['added'] }));
 		const warning = vi.spyOn(toastStore, 'warning');
 		const success = vi.spyOn(toastStore, 'success');
 
@@ -99,7 +127,7 @@ describe('availabilityUndoAction', () => {
 
 	it('leaves the store alone when the reply arrives after the page moved to another Organization', async () => {
 		availabilityStore.load([entry('kept'), entry('added')], 'org2');
-		fetchMock.mockResolvedValueOnce(reply({ removedIds: ['added'], restoredIds: [], changedIds: [] }));
+		fetchMock.mockResolvedValueOnce(reply({ removedIds: ['added'], restored: [], changedIds: [] }));
 		const success = vi.spyOn(toastStore, 'success');
 
 		availabilityUndoAction({ remove: [entry('added')] }, scope()).onClick();
@@ -153,7 +181,7 @@ describe('availabilityUndoAction', () => {
 			availabilityUndoAction({ remove: [entry('added')] }, scope()).onClick();
 			await settle();
 			current = false;
-			if (outcome === 'reply') settleFetch.resolve(reply({ removedIds: ['added'], restoredIds: [], changedIds: [] }));
+			if (outcome === 'reply') settleFetch.resolve(reply({ removedIds: ['added'], restored: [], changedIds: [] }));
 			else settleFetch.reject(new Error('offline'));
 			await flush();
 
@@ -171,7 +199,7 @@ describe('availabilityUndoAction', () => {
 		availabilityUndoAction({ remove: [entry('added')] }, scope()).onClick();
 		await settle();
 		endOrganizationLifetime();
-		resolveFetch(reply({ removedIds: ['added'], restoredIds: [], changedIds: [] }));
+		resolveFetch(reply({ removedIds: ['added'], restored: [], changedIds: [] }));
 		await flush();
 
 		expect(ids()).toEqual(['kept', 'added']);
@@ -194,7 +222,7 @@ describe('availabilityUndoAction', () => {
 		availabilityStore.load([entry('kept'), ...many], 'org1');
 		fetchMock
 			.mockResolvedValueOnce(
-				reply({ removedIds: many.slice(0, 500).map((item) => item.id), restoredIds: [], changedIds: [] })
+				reply({ removedIds: many.slice(0, 500).map((item) => item.id), restored: [], changedIds: [] })
 			)
 			.mockResolvedValueOnce(reply({ message: 'Server unavailable' }, 503));
 		const error = vi.spyOn(toastStore, 'error');

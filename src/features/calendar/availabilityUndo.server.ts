@@ -1,13 +1,12 @@
 import { error } from '@sveltejs/kit';
 import { z } from 'zod';
 import { dateOnlySchema, issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
-import { rangesOverlap } from './utils/availabilityMutation';
 import {
 	CALENDAR_POLICY_ACTIONS,
 	requireCalendarPersonnelPolicy,
 	type CalendarAvailabilityPorts
 } from './calendarPolicy.server';
-import { AVAILABILITY_BATCH_LIMIT, type AvailabilityEntry } from './contracts';
+import { AVAILABILITY_BATCH_LIMIT, type SavedAvailabilityEntry } from './contracts';
 
 const undoEntry = z
 	.object({
@@ -21,8 +20,10 @@ const undoEntry = z
 	.strict()
 	.refine((entry) => entry.startDate <= entry.endDate, 'End date must be on or after the start date');
 
+const restoreClaim = z.object({ id: uuidSchema, personnelId: uuidSchema }).strict();
+
 const undoInput = z
-	.object({ remove: z.array(undoEntry).optional(), restore: z.array(undoEntry).optional() })
+	.object({ remove: z.array(undoEntry).optional(), restore: z.array(restoreClaim).optional() })
 	.strict()
 	.superRefine((input, context) => {
 		const ids = [...(input.remove ?? []), ...(input.restore ?? [])].map((entry) => entry.id);
@@ -35,17 +36,19 @@ const undoInput = z
 
 export interface AvailabilityUndoResult {
 	removedIds: string[];
-	restoredIds: string[];
+	/** The rows the server put back, with the values it deleted. */
+	restored: SavedAvailabilityEntry[];
 	/** Entries that were edited, removed or re-added since, or whose Person is gone; left exactly as they are. */
 	changedIds: string[];
 }
 
-const noteOf = (entry: Pick<AvailabilityEntry, 'note'>) => entry.note ?? null;
+const noteOf = (entry: { note?: string | null }) => entry.note ?? null;
 
 /**
  * Reverses a status change by the rows it wrote. `remove` deletes entries an add created, only while each is still
- * as it was saved. `restore` brings back entries a removal deleted under their own ids, unless the id exists again
- * or the Person now has the same status over those dates. Anything else is reported and left alone.
+ * as it was saved. `restore` names entries a removal deleted; the database puts back its own record of what it
+ * deleted, for this actor and a short window, unless the id exists again or the Person now has the same status over
+ * those dates. Anything else is reported and left alone.
  */
 export async function undoAvailabilityChange(
 	ctx: CalendarAvailabilityPorts,
@@ -53,47 +56,24 @@ export async function undoAvailabilityChange(
 ): Promise<AvailabilityUndoResult> {
 	const parsed = undoInput.safeParse(input);
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
-	const remove = parsed.data.remove ?? [];
-	const restore = (parsed.data.restore ?? []).map((entry) => ({ ...entry, note: noteOf(entry) }));
+	const remove = (parsed.data.remove ?? []).map((entry) => ({ ...entry, note: noteOf(entry) }));
+	const restore = parsed.data.restore ?? [];
 
 	const personnelIds = [...new Set([...remove, ...restore].map((entry) => entry.personnelId))];
 	const people = await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, personnelIds);
 
-	const restorable = restore.filter((entry) => people.has(entry.personnelId));
-	const overlapping = restorable.length
-		? await ctx.calendarAvailability.listOverlapping({
-				rangeStart: restorable.reduce(
-					(first, entry) => (entry.startDate < first ? entry.startDate : first),
-					restorable[0].startDate
-				),
-				rangeEnd: restorable.reduce(
-					(last, entry) => (entry.endDate > last ? entry.endDate : last),
-					restorable[0].endDate
-				),
-				personnelIds: [...new Set(restorable.map((entry) => entry.personnelId))]
-			})
-		: [];
-	const restorableNow = restorable.filter(
-		(entry) =>
-			!overlapping.some(
-				(other) =>
-					other.id !== entry.id &&
-					other.personnelId === entry.personnelId &&
-					rangesOverlap(other.startDate, other.endDate, entry.startDate, entry.endDate) &&
-					other.statusTypeId === entry.statusTypeId
-			)
-	);
 	const removable = remove.filter((entry) => people.has(entry.personnelId));
+	const restorable = restore.filter((entry) => people.has(entry.personnelId));
 
-	const [removedIds, restoredIds] = await Promise.all([
+	const [removedIds, restored] = await Promise.all([
 		removable.length ? ctx.calendarAvailability.deleteUnchanged(removable) : [],
-		restorableNow.length ? ctx.calendarAvailability.restoreMany(restorableNow) : []
+		restorable.length ? ctx.calendarAvailability.restoreRemoved(restorable) : []
 	]);
 
-	const done = new Set([...removedIds, ...restoredIds]);
+	const done = new Set([...removedIds, ...restored.map((entry) => entry.id)]);
 	return {
 		removedIds,
-		restoredIds,
+		restored,
 		changedIds: [...remove, ...restore].map((entry) => entry.id).filter((id) => !done.has(id))
 	};
 }

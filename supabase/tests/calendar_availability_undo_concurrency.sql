@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-SELECT plan(12);
+SELECT plan(16);
 
 SELECT dblink_connect('undo_fixture', 'hostaddr=' || host(inet_server_addr()) ||
   ' port=' || current_setting('port') || ' user=postgres password=postgres dbname=' || current_database() ||
@@ -42,6 +42,8 @@ SELECT dblink_exec('undo_fixture', $fixture$
      '7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000401','2030-06-01','2030-06-02'),
     ('7a5a0000-0000-4000-8000-000000000503','7a5a0000-0000-4000-8000-000000000101',
      '7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000402','2030-07-01','2030-07-01');
+  INSERT INTO public.calendar_taskings(id,organization_id,title,suspense_on) VALUES
+    ('7a5a0000-0000-4000-8000-000000000601','7a5a0000-0000-4000-8000-000000000101','Race Tasking','2030-08-01');
 $fixture$);
 
 CREATE FUNCTION pg_temp.restorer_waits() RETURNS boolean
@@ -141,6 +143,38 @@ SELECT is((SELECT restored FROM dblink_get_result('undo_restorer') AS result(res
 SELECT * FROM dblink_get_result('undo_restorer') AS result(restored integer);
 SELECT dblink_exec('undo_restorer','COMMIT');
 SELECT is(pg_temp.entries('7a5a0000-0000-4000-8000-000000000503'), 1, 'the restored status is saved');
+
+SELECT pg_temp.act('undo_fixture');
+SELECT dblink_exec('undo_fixture', $$
+  INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_type_id,start_date,end_date,set_for_tasking_id)
+  VALUES ('7a5a0000-0000-4000-8000-000000000504','7a5a0000-0000-4000-8000-000000000101',
+    '7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000402','2030-08-01','2030-08-01',
+    '7a5a0000-0000-4000-8000-000000000601')
+$$);
+SELECT is((SELECT removed FROM dblink('undo_fixture', $call$
+  SELECT public.delete_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    ARRAY['7a5a0000-0000-4000-8000-000000000504']::uuid[])
+$call$) AS result(removed integer)), 1, 'the operator removes a status set from a Tasking');
+SELECT dblink_exec('undo_fixture','COMMIT');
+SELECT dblink_exec('undo_writer', 'BEGIN');
+SELECT dblink_exec('undo_writer', $$
+  DELETE FROM public.calendar_taskings WHERE id='7a5a0000-0000-4000-8000-000000000601'
+$$);
+SELECT pg_temp.act('undo_restorer');
+SELECT dblink_send_query('undo_restorer', $call$
+  SELECT count(*)::integer FROM public.restore_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    ARRAY['7a5a0000-0000-4000-8000-000000000504']::uuid[], ARRAY['7a5a0000-0000-4000-8000-000000000301']::uuid[])
+$call$);
+SELECT ok(pg_temp.restorer_waits(), 'a restore waits for an uncommitted delete of its Tasking');
+SELECT dblink_exec('undo_writer','COMMIT');
+SELECT is((SELECT restored FROM dblink_get_result('undo_restorer') AS result(restored integer)), 1,
+  'once the delete commits the status still comes back');
+SELECT * FROM dblink_get_result('undo_restorer') AS result(restored integer);
+SELECT dblink_exec('undo_restorer','COMMIT');
+SELECT is((SELECT linked FROM dblink('undo_fixture', $query$
+  SELECT count(*)::integer FROM public.availability_entries
+  WHERE id = '7a5a0000-0000-4000-8000-000000000504' AND set_for_tasking_id IS NULL
+$query$) AS result(linked integer)), 1, 'it comes back without the link to the deleted Tasking');
 
 SELECT dblink_exec('undo_fixture', $cleanup$
   DELETE FROM public.organizations WHERE id='7a5a0000-0000-4000-8000-000000000101';

@@ -97,11 +97,11 @@ describe('availabilityUndoAction', () => {
 	it.each([
 		[
 			'an entry without a Person',
-			{ id: 'back', statusTypeId: 'leave', startDate: '2026-11-10', endDate: '2026-11-12' }
+			[{ id: 'back', statusTypeId: 'leave', startDate: '2026-11-10', endDate: '2026-11-12' }]
 		],
-		['a restored list that is not a list', 'back']
+		['a restored value that is not a list', 'back']
 	])('refuses a reply with %s and leaves the store alone', async (_name, restored) => {
-		fetchMock.mockResolvedValueOnce(reply({ removedIds: [], restored: [restored].flat(), changedIds: [] }));
+		fetchMock.mockResolvedValueOnce(reply({ removedIds: [], restored, changedIds: [] }));
 		const error = vi.spyOn(toastStore, 'error');
 		const success = vi.spyOn(toastStore, 'success');
 

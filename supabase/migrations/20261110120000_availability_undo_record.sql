@@ -138,6 +138,15 @@ BEGIN
   FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)
     ORDER BY c.personnel_id) AS claimed;
 
+  -- A Tasking delete locks the Tasking before it unlinks entries, so its linked Taskings are locked in that order too.
+  -- One deleted first comes back unlinked instead of failing the batch on its foreign key.
+  PERFORM 1 FROM public.calendar_taskings t
+  WHERE t.organization_id = p_organization_id AND t.id IN (
+    SELECT u.set_for_tasking_id FROM calendar_private.availability_undo u
+    WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids))
+  ORDER BY t.id
+  FOR KEY SHARE;
+
   -- An availability INSERT takes KEY SHARE on its Person through the foreign key, so this lock makes a concurrent
   -- add of the same Person wait. The next statement then takes a fresh snapshot that sees every add that finished.
   PERFORM 1 FROM public.personnel p

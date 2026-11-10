@@ -79,6 +79,22 @@ describe('settings member access workspace', () => {
 		expect(workspace.visibleMembers.map((row) => row.email)).toEqual(['charlie@example.com']);
 	});
 
+	it('opens a locked row on its name alone, with no access draft', () => {
+		const ownerRow = member('o', 'owner@example.com', 'owner');
+		const workspace = makeWorkspace({ members: [operator, ownerRow] });
+
+		workspace.openName(ownerRow);
+		expect(workspace.editingMember?.id).toBe('o');
+		expect(workspace.draft).toBeNull();
+		expect(workspace.changeCount).toBe(0);
+
+		workspace.setPreset('viewer');
+		expect(workspace.draft).toBeNull();
+
+		workspace.close();
+		expect(workspace.editingMember).toBeNull();
+	});
+
 	it('opens a draft of the saved access and never opens one for the owner', () => {
 		const workspace = makeWorkspace({ members: [operator, member('o', 'owner@example.com', 'owner')] });
 

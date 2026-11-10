@@ -143,10 +143,19 @@ function sameScope(a: ScopeSet, b: ScopeSet): boolean {
 export class SettingsMemberAccessWorkspace {
 	readonly #getData: () => SettingsMemberAccessData;
 
-	draft = $state<MemberAccessDraft | null>(null);
+	/** The member the sheet is open on; `draft` is null when their access is locked and only the name is editable. */
+	#sheet = $state<{ memberId: string; draft: MemberAccessDraft | null } | null>(null);
 	invite = $state<InviteDraft>({ emails: '', role: 'member', preset: 'editor', groupIds: [] });
 	filter = $state('');
 	readonly #tree = $derived(scopeTree(this.#data.groups));
+	/** The owner first, then everyone by email. */
+	readonly #members = $derived(
+		[...this.#data.members].sort((a, b) => {
+			if (a.membershipRole === 'owner' && b.membershipRole !== 'owner') return -1;
+			if (b.membershipRole === 'owner' && a.membershipRole !== 'owner') return 1;
+			return (a.email ?? '').localeCompare(b.email ?? '', undefined, { sensitivity: 'base' });
+		})
+	);
 
 	constructor(data: SettingsMemberAccessData | (() => SettingsMemberAccessData)) {
 		this.#getData = typeof data === 'function' ? data : () => data;
@@ -161,13 +170,13 @@ export class SettingsMemberAccessWorkspace {
 		return this.#getData();
 	}
 
-	/** The owner first, then everyone by email. */
 	get members(): SettingsMemberRow[] {
-		return [...this.#data.members].sort((a, b) => {
-			if (a.membershipRole === 'owner' && b.membershipRole !== 'owner') return -1;
-			if (b.membershipRole === 'owner' && a.membershipRole !== 'owner') return 1;
-			return (a.email ?? '').localeCompare(b.email ?? '', undefined, { sensitivity: 'base' });
-		});
+		return this.#members;
+	}
+
+	/** The open member's access as it would save, or null when the sheet is closed or shows only the name. */
+	get draft(): MemberAccessDraft | null {
+		return this.#sheet?.draft ?? null;
 	}
 
 	get visibleMembers(): SettingsMemberRow[] {
@@ -179,8 +188,8 @@ export class SettingsMemberAccessWorkspace {
 	}
 
 	get editingMember(): SettingsMemberRow | null {
-		const draft = this.draft;
-		return draft ? (this.#data.members.find((member) => member.id === draft.memberId) ?? null) : null;
+		const memberId = this.#sheet?.memberId;
+		return memberId ? (this.#data.members.find((member) => member.id === memberId) ?? null) : null;
 	}
 
 	isOff(lane: DurableFeatureLane): boolean {
@@ -193,11 +202,16 @@ export class SettingsMemberAccessWorkspace {
 
 	open(member: SettingsMemberRow): void {
 		if (member.membershipRole === 'owner') return;
-		this.draft = savedDraft(member, this.#data.offLanes, this.#tree);
+		this.#sheet = { memberId: member.id, draft: savedDraft(member, this.#data.offLanes, this.#tree) };
+	}
+
+	/** Opens the sheet on a member whose access is locked, with only their name to edit. */
+	openName(member: SettingsMemberRow): void {
+		this.#sheet = { memberId: member.id, draft: null };
 	}
 
 	close(): void {
-		this.draft = null;
+		this.#sheet = null;
 	}
 
 	setRole(role: EditableMembershipRole): void {

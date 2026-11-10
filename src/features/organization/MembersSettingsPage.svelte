@@ -262,9 +262,11 @@
 		if ((await revoked) && confirmRevoke?.id === invite.id) confirmRevoke = null;
 	}
 
-	function canManage(member: SettingsMemberRow): boolean {
-		if (member.membershipRole === 'owner' || !section.canManageMemberAccess) return false;
-		return member.membershipRole !== 'admin' || isOwner;
+	/** What a row opens: its access (and name), only its name when access is locked, or nothing. */
+	function rowSheet(member: SettingsMemberRow): 'access' | 'name' | null {
+		if (!section.canManageMemberAccess) return null;
+		if (member.membershipRole !== 'owner' && (member.membershipRole !== 'admin' || isOwner)) return 'access';
+		return member.name?.source === 'account' ? null : 'name';
 	}
 
 	/** What the unit calls the member: their name, else their email. */
@@ -611,10 +613,24 @@
 		<p class="grid">{@render accessLane(member)}</p>
 	{:else if column.key === 'groups'}
 		<p>{@render groupsLane(member)}</p>
-	{:else if column.key === 'actions' && !canManage(member)}
+	{:else if column.key === 'actions' && rowSheet(member) === null}
 		<p class="text-right font-mono text-xs text-muted-foreground">
 			<span aria-hidden="true">—</span><span class="sr-only">No actions</span>
 		</p>
+	{:else if column.key === 'actions' && rowSheet(member) === 'name'}
+		<div class="flex items-center justify-end">
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				onclick={(event) => {
+					accessOpener = event.currentTarget;
+					workspace.openName(member);
+				}}
+			>
+				{member.name ? 'Edit name' : 'Add name'} <span class="sr-only">for {memberName(member)}</span>
+			</Button>
+		</div>
 	{:else if column.key === 'actions'}
 		<div class="flex items-center justify-end gap-1" data-member-actions={member.id}>
 			<Button

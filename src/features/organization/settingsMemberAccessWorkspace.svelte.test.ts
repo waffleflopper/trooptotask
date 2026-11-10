@@ -246,10 +246,46 @@ describe('settings member access workspace', () => {
 
 	it('clears the invite after a send but keeps the chosen preset', () => {
 		const workspace = makeWorkspace();
-		workspace.invite = { email: 'new@example.com', role: 'admin', preset: 'viewer', groupIds: ['g-1'] };
+		workspace.invite = { emails: 'new@example.com', role: 'admin', preset: 'viewer', groupIds: ['g-1'] };
 
 		workspace.resetInvite();
 
-		expect(workspace.invite).toEqual({ email: '', role: 'member', preset: 'viewer', groupIds: [] });
+		expect(workspace.invite).toEqual({ emails: '', role: 'member', preset: 'viewer', groupIds: [] });
+	});
+
+	it('keeps the addresses to retry with the access they were sent with', () => {
+		const workspace = makeWorkspace();
+		workspace.invite = { emails: 'a@example.com, bad', role: 'member', preset: 'operator', groupIds: ['g-1'] };
+
+		workspace.resetInvite(['bad', 'busy@example.com']);
+
+		expect(workspace.invite).toEqual({
+			emails: 'bad\nbusy@example.com',
+			role: 'member',
+			preset: 'operator',
+			groupIds: ['g-1']
+		});
+	});
+
+	it("shows what the invite's preset lets someone view and change in each area the unit has on", () => {
+		const workspace = makeWorkspace({ offLanes: ['ratingScheme', 'onboarding'] });
+		workspace.invite.preset = 'operator';
+
+		expect(workspace.invitePresetAccess).toEqual([
+			{ id: 'calendar', label: 'Calendar', view: true, change: 'Day to day' },
+			{ id: 'personnel', label: 'Personnel', view: true, change: 'Day to day' },
+			{ id: 'training', label: 'Training', view: true, change: 'Day to day' },
+			{ id: 'criticalTasks', label: 'Critical tasks', view: true, change: 'Day to day' }
+		]);
+
+		workspace.invite.preset = 'viewer';
+		expect(workspace.invitePresetAccess.map(({ change }) => change)).toEqual(['No', 'No', 'No', 'No']);
+		workspace.invite.preset = 'editor';
+		expect(workspace.invitePresetAccess.map(({ change }) => change)).toEqual([
+			'Everything',
+			'Everything',
+			'Everything',
+			'Everything'
+		]);
 	});
 });

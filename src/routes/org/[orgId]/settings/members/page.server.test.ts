@@ -4,14 +4,14 @@ const {
 	buildRouteRequestMock,
 	createRequestNotificationContextMock,
 	createSettingsSensitiveNotificationContextMock,
-	inviteOrganizationMemberMock,
+	inviteOrganizationMembersMock,
 	resendOrganizationInvitationMock,
 	setOrganizationMemberNameMock
 } = vi.hoisted(() => ({
 	buildRouteRequestMock: vi.fn(),
 	createRequestNotificationContextMock: vi.fn(),
 	createSettingsSensitiveNotificationContextMock: vi.fn(),
-	inviteOrganizationMemberMock: vi.fn(),
+	inviteOrganizationMembersMock: vi.fn(),
 	resendOrganizationInvitationMock: vi.fn(),
 	setOrganizationMemberNameMock: vi.fn()
 }));
@@ -45,7 +45,7 @@ vi.mock('$features/organization/index.server', async () => {
 	);
 	return {
 		...actual,
-		inviteOrganizationMember: inviteOrganizationMemberMock,
+		inviteOrganizationMembers: inviteOrganizationMembersMock,
 		resendOrganizationInvitation: resendOrganizationInvitationMock,
 		setOrganizationMemberName: setOrganizationMemberNameMock
 	};
@@ -80,7 +80,8 @@ function actionEvent(actionName: string, body: URLSearchParams) {
 	} as never;
 }
 
-const inviteForm = () => new URLSearchParams({ email: 'recipient@example.com', membershipRole: 'admin' });
+const inviteForm = () =>
+	new URLSearchParams({ emails: 'first@example.com\nsecond@example.com', membershipRole: 'admin' });
 const nameForm = () =>
 	new URLSearchParams({ membershipId: 'membership-1', rank: 'SGT', firstName: 'Jo', lastName: 'Reyes' });
 const resendForm = () => new URLSearchParams({ inviteId: 'invite-1' });
@@ -95,7 +96,7 @@ describe('members settings actions', () => {
 	});
 
 	it.each([
-		['invite', inviteOrganizationMemberMock, inviteForm],
+		['invite', inviteOrganizationMembersMock, inviteForm],
 		['resendInvite', resendOrganizationInvitationMock, resendForm]
 	] as const)('%s hides a raw Auth lookup error behind a generic 500', async (name, useCase, form) => {
 		useCase.mockRejectedValue(authApiError(403, 'invalid JWT: unable to parse or verify signature'));
@@ -105,16 +106,23 @@ describe('members settings actions', () => {
 		expect(result).toEqual({ status: 500, data: { inviteError: 'Internal server error' } });
 	});
 
-	it('forwards an app-created duplicate-invite failure', async () => {
-		inviteOrganizationMemberMock.mockRejectedValue(
-			new RequestFailure(409, 'An invitation is already pending for this email')
-		);
+	it('forwards an app-created failure for the whole submission', async () => {
+		inviteOrganizationMembersMock.mockRejectedValue(new RequestFailure(400, 'Invite up to 50 addresses at a time'));
 
 		const result = await actions.invite(actionEvent('invite', inviteForm()));
 
-		expect(result).toEqual({
-			status: 409,
-			data: { inviteError: 'An invitation is already pending for this email' }
+		expect(result).toEqual({ status: 400, data: { inviteError: 'Invite up to 50 addresses at a time' } });
+	});
+
+	it('passes every pasted address to one invite submission', async () => {
+		inviteOrganizationMembersMock.mockResolvedValue({ inviteSuccess: true, inviteResults: [], inviteMessage: '' });
+
+		await actions.invite(actionEvent('invite', inviteForm()));
+
+		expect(inviteOrganizationMembersMock).toHaveBeenCalledTimes(1);
+		expect(inviteOrganizationMembersMock.mock.calls[0][1]).toMatchObject({
+			emails: 'first@example.com\nsecond@example.com',
+			membershipRole: 'admin'
 		});
 	});
 
@@ -151,7 +159,7 @@ describe('members settings actions', () => {
 	});
 
 	it('keeps step-up fields on a sensitive-action denial', async () => {
-		inviteOrganizationMemberMock.mockRejectedValue(
+		inviteOrganizationMembersMock.mockRejectedValue(
 			new RequestFailure(403, 'Please confirm your identity before continuing.', {
 				reason: 'denied.staleSession',
 				requiresStepUp: true,

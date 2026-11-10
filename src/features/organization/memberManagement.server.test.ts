@@ -6,7 +6,7 @@ import {
 } from './invitationDelivery.server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext, createTestSensitiveActionAuthorizer } from '$lib/server/adapters/inMemory';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { TARGET_MEMBER_PRESET_CAPABILITIES } from '$lib/access/memberAccessShape';
 import type { TargetMemberAccessCommand } from '$lib/access/memberAccessCommands';
@@ -23,7 +23,7 @@ import type {
 } from '$features/identity/index.server';
 import type { SendAccountSetupOutboxDeliveryResult } from '$features/identity/index.server';
 import {
-	inviteOrganizationMember as inviteOrganizationMemberUseCase,
+	inviteOrganizationMembers as inviteOrganizationMembersUseCase,
 	leaveOrganization,
 	removeOrganizationMember,
 	resendOrganizationInvitation,
@@ -134,7 +134,8 @@ interface SetupDeliveryInput {
 
 function createOrganizationSettingsMemberManagementPort(
 	options: {
-		existingInvitationId?: string | null;
+		/** Addresses a pending invitation already covers. */
+		pendingEmails?: string[];
 		createInvitationError?: string | null;
 		existingUserAccount?: { id: string; email: string; emailConfirmed?: boolean } | null;
 		accessRequestBridgeResult?:
@@ -170,7 +171,8 @@ function createOrganizationSettingsMemberManagementPort(
 		organizationGroupNames?: Record<string, string>;
 	} = {}
 ): OrganizationSettingsMemberManagementPort & {
-	invitationLookups: Array<{ orgId: string; email: string }>;
+	invitationLookups: Array<{ orgId: string; emails: string[] }>;
+	createInvitationCalls: number[];
 	userAccountLookups: string[];
 	createdInvitations: OrganizationInvitationCreateInput[];
 	accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[];
@@ -182,7 +184,8 @@ function createOrganizationSettingsMemberManagementPort(
 	updatedMemberships: OrganizationMembershipUpdateInput[];
 	namedMembers: Array<{ organizationId: string; userId: string; rank: string; firstName: string; lastName: string }>;
 } {
-	const invitationLookups: Array<{ orgId: string; email: string }> = [];
+	const invitationLookups: Array<{ orgId: string; emails: string[] }> = [];
+	const createInvitationCalls: number[] = [];
 	const userAccountLookups: string[] = [];
 	const createdInvitations: OrganizationInvitationCreateInput[] = [];
 	const accessRequestBridges: OrganizationInvitationAccessRequestBridgeInput[] = [];
@@ -204,6 +207,7 @@ function createOrganizationSettingsMemberManagementPort(
 	return {
 		namedMembers,
 		invitationLookups,
+		createInvitationCalls,
 		userAccountLookups,
 		createdInvitations,
 		accessRequestBridges,
@@ -213,9 +217,9 @@ function createOrganizationSettingsMemberManagementPort(
 		membershipLookups,
 		removedMemberships,
 		updatedMemberships,
-		async findPendingInvitation(orgId, email) {
-			invitationLookups.push({ orgId, email });
-			return options.existingInvitationId ? { id: options.existingInvitationId } : null;
+		async findPendingInvitationEmails(orgId, emails) {
+			invitationLookups.push({ orgId, emails });
+			return emails.filter((email) => options.pendingEmails?.includes(email));
 		},
 		async findPendingInvitationById(orgId, inviteId) {
 			pendingInvitationByIdLookups.push({ orgId, inviteId });
@@ -235,15 +239,18 @@ function createOrganizationSettingsMemberManagementPort(
 			userAccountLookups.push(email);
 			return options.existingUserAccount === undefined ? { id: 'user-1', email } : options.existingUserAccount;
 		},
-		async createInvitation(input) {
-			createdInvitations.push(input);
-			return options.createInvitationError
-				? { status: 'failed', message: options.createInvitationError }
-				: {
-						status: 'created',
-						invitationId: 'invite-created',
-						createdAt: '2026-05-22T12:00:00.000Z'
-					};
+		async createInvitations(inputs) {
+			createInvitationCalls.push(inputs.length);
+			createdInvitations.push(...inputs);
+			return inputs.map((input, index) =>
+				options.createInvitationError
+					? { status: 'failed', message: options.createInvitationError }
+					: {
+							status: 'created',
+							invitationId: index === 0 ? 'invite-created' : `invite-created-${input.email}`,
+							createdAt: '2026-05-22T12:00:00.000Z'
+						}
+			);
 		},
 		async createOrLinkApprovedAccessRequestForInvitation(input) {
 			accessRequestBridges.push(input);
@@ -300,12 +307,13 @@ function createOrganizationSettingsMemberManagementPort(
 	};
 }
 
-const inviteOrganizationMember = (
-	ports: Omit<Parameters<typeof inviteOrganizationMemberUseCase>[0], 'setupLinks' | 'setupDelivery'> &
-		Partial<Pick<Parameters<typeof inviteOrganizationMemberUseCase>[0], 'setupLinks' | 'setupDelivery'>>,
-	input: Parameters<typeof inviteOrganizationMemberUseCase>[1]
+type InvitePorts = Parameters<typeof inviteOrganizationMembersUseCase>[0];
+
+const inviteOrganizationMembers = (
+	ports: Omit<InvitePorts, 'setupLinks' | 'setupDelivery'> & Partial<Pick<InvitePorts, 'setupLinks' | 'setupDelivery'>>,
+	input: Parameters<typeof inviteOrganizationMembersUseCase>[1]
 ) =>
-	inviteOrganizationMemberUseCase(
+	inviteOrganizationMembersUseCase(
 		{
 			...createAccountSetupIssuancePorts(),
 			...ports
@@ -316,16 +324,16 @@ const inviteOrganizationMember = (
 const ORGANIZATION_GROUP_ID = '22222222-2222-4222-8222-222222222222';
 const FOREIGN_GROUP_ID = '33333333-3333-4333-8333-333333333333';
 
-describe('inviteOrganizationMember', () => {
+describe('inviteOrganizationMembers', () => {
 	it('rejects Group scopes naming groups outside the organization before creating invitations', async () => {
 		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
 		const port = createOrganizationSettingsMemberManagementPort({ organizationGroupIds: [ORGANIZATION_GROUP_ID] });
 
 		await expect(
-			inviteOrganizationMember(
+			inviteOrganizationMembers(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
-					email: 'new.user@example.com',
+					emails: 'new.user@example.com',
 					membershipRole: 'member',
 					memberAccess: memberAccess({
 						scopeSet: { kind: 'groups', groupIds: [ORGANIZATION_GROUP_ID, FOREIGN_GROUP_ID] }
@@ -349,10 +357,10 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort();
 
 		await expect(
-			inviteOrganizationMember(
+			inviteOrganizationMembers(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
-					email: 'new.user@example.com',
+					emails: 'new.user@example.com',
 					membershipRole: 'member',
 					memberAccess: memberAccess(),
 					actorEmail: 'actor@example.com'
@@ -378,6 +386,21 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
+	it('refuses an admin invitation from a member before any lookup', async () => {
+		const ctx = createTestContext({ auth: { userId: 'member-1', orgId: 'org-1', role: 'member' } });
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		await expect(
+			inviteOrganizationMembers(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{ emails: 'first.admin@example.com, second.admin@example.com', membershipRole: 'admin' }
+			)
+		).rejects.toMatchObject({ status: 403 });
+
+		expect(port.invitationLookups).toEqual([]);
+		expect(port.createdInvitations).toEqual([]);
+	});
+
 	it('requires owner rights before creating admin invitations', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -389,7 +412,7 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort();
 
 		await expect(
-			inviteOrganizationMember(
+			inviteOrganizationMembers(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
@@ -397,7 +420,7 @@ describe('inviteOrganizationMember', () => {
 					settings: port
 				},
 				{
-					email: 'new.admin@example.com',
+					emails: 'new.admin@example.com',
 					membershipRole: 'admin',
 					actorEmail: 'actor@example.com'
 				}
@@ -440,7 +463,7 @@ describe('inviteOrganizationMember', () => {
 		const delivery = createInvitationDeliveryPort('sent');
 
 		await expect(
-			inviteOrganizationMember(
+			inviteOrganizationMembers(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
@@ -450,7 +473,7 @@ describe('inviteOrganizationMember', () => {
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
 				{
-					email: 'new.admin@example.com',
+					emails: 'new.admin@example.com',
 					membershipRole: 'admin',
 					actorEmail: 'owner@example.com',
 					origin: 'https://trooptotask.test'
@@ -469,7 +492,7 @@ describe('inviteOrganizationMember', () => {
 				resourceType: 'organization',
 				resourceId: 'new.admin@example.com',
 				details: {
-					email: 'new.admin@example.com',
+					emails: ['new.admin@example.com'],
 					membershipRole: 'admin',
 					memberPreset: 'editor',
 					sensitiveAction: expect.objectContaining({
@@ -483,48 +506,188 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
-	it('rejects invalid invitation emails before querying pending invites', async () => {
+	it('reports an invalid address without querying pending invites when no address is valid', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort();
 
-		await expect(
-			inviteOrganizationMember(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
-				{
-					email: 'not-an-email',
-					membershipRole: 'member',
-					memberAccess: memberAccess(),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({
-			status: 400,
-			message: 'Please enter a valid email address'
-		});
+		const result = await inviteOrganizationMembers(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				emails: 'not-an-email',
+				membershipRole: 'member',
+				memberAccess: memberAccess(),
+				actorEmail: 'actor@example.com'
+			}
+		);
 
+		expect(result.inviteResults).toEqual([
+			{ email: 'not-an-email', status: 'failed', message: 'Not a valid email address.' }
+		]);
 		expect(port.invitationLookups).toEqual([]);
 	});
 
-	it('preserves the duplicate pending invite failure for the normalized email address', async () => {
+	it('rejects a submission with no address or more than fifty', async () => {
 		const ctx = createTestContext();
-		const port = createOrganizationSettingsMemberManagementPort({ existingInvitationId: 'invite-1' });
+		const port = createOrganizationSettingsMemberManagementPort();
+		const ports = { auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port };
+		const input = { membershipRole: 'member' as const, memberAccess: memberAccess(), actorEmail: 'actor@example.com' };
 
-		await expect(
-			inviteOrganizationMember(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
-				{
-					email: 'USER@EXAMPLE.COM ',
-					membershipRole: 'member',
-					memberAccess: memberAccess(),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({
+		await expect(inviteOrganizationMembers(ports, { ...input, emails: ' ,\n ' })).rejects.toMatchObject({
 			status: 400,
-			message: 'An invitation for this email is already pending'
+			message: 'Enter at least one email address'
 		});
+		const fiftyOne = Array.from({ length: 51 }, (_, index) => `person${index}@example.com`).join('\n');
+		await expect(inviteOrganizationMembers(ports, { ...input, emails: fiftyOne })).rejects.toMatchObject({
+			status: 400,
+			message: 'Invite up to 50 addresses at a time'
+		});
+		expect(port.createdInvitations).toEqual([]);
+	});
 
-		expect(port.invitationLookups).toEqual([{ orgId: 'test-org', email: 'user@example.com' }]);
+	it('invites each new address in one write and reports invalid, already-invited and refused addresses without blocking the rest', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
+		const port = createOrganizationSettingsMemberManagementPort({ pendingEmails: ['taken@example.com'] });
+		const delivery = createInvitationDeliveryPort('sent');
+		const rateLimiter = {
+			async check(input: { recipientEmail: string }) {
+				const limited = input.recipientEmail === 'busy@example.com';
+				return {
+					limited,
+					retryAfterMs: limited ? 60_000 : undefined,
+					action: 'create' as const,
+					checks: []
+				};
+			}
+		};
+
+		const result = await inviteOrganizationMembers(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery,
+				invitationRateLimiter: rateLimiter
+			},
+			{
+				emails: 'One@Example.com, not-an-email\ntaken@example.com; busy@example.com\n\ntwo@example.com one@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result).toEqual({
+			inviteSuccess: true,
+			inviteResults: [
+				{ email: 'one@example.com', status: 'invited', message: 'Invited. The email is on its way.' },
+				{ email: 'not-an-email', status: 'failed', message: 'Not a valid email address.' },
+				{
+					email: 'taken@example.com',
+					status: 'already-invited',
+					message: 'Already invited. Resend it from Waiting on them.'
+				},
+				{
+					email: 'busy@example.com',
+					status: 'failed',
+					message:
+						'Too many organization invitation attempts. Please wait before inviting this recipient again. Try again in about 1 minute.'
+				},
+				{ email: 'two@example.com', status: 'invited', message: 'Invited. The email is on its way.' }
+			],
+			inviteMessage: '2 invited. 1 already invited. 2 not invited.'
+		});
+		expect(port.invitationLookups).toEqual([
+			{
+				orgId: 'org-1',
+				emails: ['one@example.com', 'taken@example.com', 'busy@example.com', 'two@example.com']
+			}
+		]);
+		expect(port.createInvitationCalls).toEqual([2]);
+		expect(port.createdInvitations.map((invitation) => invitation.email).sort()).toEqual([
+			'one@example.com',
+			'two@example.com'
+		]);
+		expect(
+			ctx.auditPort.events.filter((event) => event.action === 'member.invite').map((event) => event.record)
+		).toEqual(expect.arrayContaining(['o***@example.com', 't***@example.com']));
+		expect(ctx.auditPort.events.filter((event) => event.action === 'member.invite')).toHaveLength(2);
+		expect(ctx.auditPort.events.filter((event) => event.action === 'member.invite_email_sent')).toHaveLength(2);
+		expect(delivery.deliveries).toHaveLength(2);
+		expect(ctx.notificationPort.notifications.filter((entry) => entry.target === 'admins')).toEqual([
+			{
+				target: 'admins',
+				orgId: 'org-1',
+				excludeUserId: 'actor-1',
+				notification: {
+					type: 'member_invited',
+					title: 'Members Invited',
+					message: '"actor@example.com" invited 2 people to the organization: one@example.com, two@example.com.',
+					link: '/org/org-1/settings/general'
+				}
+			}
+		]);
+	});
+
+	it('lets an owner with recent assurance invite several admins after one step-up check', async () => {
+		const ctx = createTestContext({ auth: { userId: 'owner-1', orgId: 'org-1', role: 'owner' } });
+		const authorizer = createTestSensitiveActionAuthorizer();
+		const port = createOrganizationSettingsMemberManagementPort();
+
+		const result = await inviteOrganizationMembers(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				sensitiveActionAuthorizer: authorizer
+			},
+			{
+				emails: 'first.admin@example.com\nsecond.admin@example.com',
+				membershipRole: 'admin',
+				actorEmail: 'owner@example.com'
+			}
+		);
+
+		expect(result.inviteResults.map(({ email, status }) => ({ email, status }))).toEqual([
+			{ email: 'first.admin@example.com', status: 'invited' },
+			{ email: 'second.admin@example.com', status: 'invited' }
+		]);
+		expect(authorizer.requests).toEqual([
+			{
+				action: 'organization.member.inviteHighPrivilege',
+				actorUserId: 'owner-1',
+				target: { type: 'organization_invitation', id: 'first.admin@example.com,second.admin@example.com' }
+			}
+		]);
+		expect(port.createdInvitations.map(({ email, role }) => ({ email, role }))).toEqual([
+			{ email: 'first.admin@example.com', role: 'admin' },
+			{ email: 'second.admin@example.com', role: 'admin' }
+		]);
+	});
+
+	it('reports an already-invited address under its normalized form', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({ pendingEmails: ['user@example.com'] });
+
+		const result = await inviteOrganizationMembers(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				emails: 'USER@EXAMPLE.COM ',
+				membershipRole: 'member',
+				memberAccess: memberAccess(),
+				actorEmail: 'actor@example.com'
+			}
+		);
+
+		expect(result.inviteResults).toEqual([
+			{
+				email: 'user@example.com',
+				status: 'already-invited',
+				message: 'Already invited. Resend it from Waiting on them.'
+			}
+		]);
+		expect(port.invitationLookups).toEqual([{ orgId: 'test-org', emails: ['user@example.com'] }]);
 		expect(port.createdInvitations).toEqual([]);
 	});
 
@@ -538,10 +701,10 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort();
 
 		await expect(
-			inviteOrganizationMember(
+			inviteOrganizationMembers(
 				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 				{
-					email: 'new.user@example.com',
+					emails: 'new.user@example.com',
 					membershipRole: 'member',
 					actorEmail: 'actor@example.com'
 				}
@@ -564,7 +727,7 @@ describe('inviteOrganizationMember', () => {
 		});
 		const port = createOrganizationSettingsMemberManagementPort();
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -573,7 +736,7 @@ describe('inviteOrganizationMember', () => {
 				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 			},
 			{
-				email: 'member@example.com',
+				emails: 'member@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'admin@example.com'
@@ -597,10 +760,10 @@ describe('inviteOrganizationMember', () => {
 		});
 		const port = createOrganizationSettingsMemberManagementPort();
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
-				email: 'NEW.USER@EXAMPLE.COM',
+				emails: 'NEW.USER@EXAMPLE.COM',
 				membershipRole: 'member',
 				memberAccess: memberAccess({
 					memberPreset: 'operator',
@@ -613,9 +776,14 @@ describe('inviteOrganizationMember', () => {
 
 		expect(result).toEqual({
 			inviteSuccess: true,
-			inviteEmail: 'new.user@example.com',
-			inviteMessage:
-				'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
+			inviteResults: [
+				{
+					email: 'new.user@example.com',
+					status: 'invited',
+					message: 'Invited. Tell them to sign in to Troop to Task to see it.'
+				}
+			],
+			inviteMessage: 'Invited. Tell them to sign in to Troop to Task to see it.'
 		});
 		expect(port.createdInvitations).toEqual([
 			{
@@ -670,10 +838,10 @@ describe('inviteOrganizationMember', () => {
 			existingUserAccount: { id: 'account-7', email: 'invitee@example.com' }
 		});
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
-				email: 'invitee@example.com',
+				emails: 'invitee@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess(),
 				actorEmail: 'actor@example.com'
@@ -704,10 +872,10 @@ describe('inviteOrganizationMember', () => {
 			existingUserAccount: null
 		});
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
-				email: 'newcomer@example.com',
+				emails: 'newcomer@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess(),
 				actorEmail: 'actor@example.com'
@@ -720,20 +888,24 @@ describe('inviteOrganizationMember', () => {
 	it('sends no invitation notification when the invitation could not be created', async () => {
 		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1' } });
 		const port = createOrganizationSettingsMemberManagementPort({ createInvitationError: 'insert failed' });
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-		await expect(
-			inviteOrganizationMember(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
-				{
-					email: 'invitee@example.com',
-					membershipRole: 'member',
-					memberAccess: memberAccess(),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({ status: 500 });
+		const result = await inviteOrganizationMembers(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				emails: 'invitee@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess(),
+				actorEmail: 'actor@example.com'
+			}
+		);
 
+		expect(result.inviteResults).toEqual([
+			{ email: 'invitee@example.com', status: 'failed', message: "This invitation couldn't be created. Try again." }
+		]);
 		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
+		consoleErrorSpy.mockRestore();
 	});
 
 	it('still creates the invitation and finishes when the invitation notification fails', async () => {
@@ -742,7 +914,7 @@ describe('inviteOrganizationMember', () => {
 		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		const adminNotices: unknown[] = [];
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -757,14 +929,14 @@ describe('inviteOrganizationMember', () => {
 				settings: port
 			},
 			{
-				email: 'invitee@example.com',
+				emails: 'invitee@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess(),
 				actorEmail: 'actor@example.com'
 			}
 		);
 
-		expect(result).toMatchObject({ inviteSuccess: true, inviteEmail: 'invitee@example.com' });
+		expect(result.inviteResults).toMatchObject([{ email: 'invitee@example.com', status: 'invited' }]);
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(adminNotices).toEqual(['member_invited']);
 		expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -789,7 +961,7 @@ describe('inviteOrganizationMember', () => {
 		};
 		const delivery = createInvitationDeliveryPort('sent');
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -799,7 +971,7 @@ describe('inviteOrganizationMember', () => {
 				invitationRateLimiter: createInvitationRateLimiter({ limited: false, action: 'create' })
 			},
 			{
-				email: 'invitee@example.com',
+				emails: 'invitee@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess(),
 				actorEmail: 'actor@example.com'
@@ -819,10 +991,10 @@ describe('inviteOrganizationMember', () => {
 		});
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
-				email: 'NEW.USER@EXAMPLE.COM',
+				emails: 'NEW.USER@EXAMPLE.COM',
 				membershipRole: 'member',
 				memberAccess: memberAccess({
 					memberPreset: 'operator',
@@ -868,10 +1040,10 @@ describe('inviteOrganizationMember', () => {
 			accessRequestBridgeResult: { status: 'linked', accessRequestId: 'pending-request-1' }
 		});
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
-				email: 'pending@example.com',
+				emails: 'pending@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -898,10 +1070,10 @@ describe('inviteOrganizationMember', () => {
 			accessRequestBridgeResult: { status: 'already-linked', accessRequestId: 'pending-request-1' }
 		});
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
-				email: 'pending@example.com',
+				emails: 'pending@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -927,10 +1099,10 @@ describe('inviteOrganizationMember', () => {
 			existingUserAccount: { id: 'existing-user-1', email: 'member@example.com' }
 		});
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
 			{
-				email: 'member@example.com',
+				emails: 'member@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -950,7 +1122,7 @@ describe('inviteOrganizationMember', () => {
 		});
 		const delivery = createInvitationDeliveryPort('sent');
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -959,7 +1131,7 @@ describe('inviteOrganizationMember', () => {
 				invitationDelivery: delivery
 			},
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com',
@@ -1001,21 +1173,23 @@ describe('inviteOrganizationMember', () => {
 		});
 		const issuance = createAccountSetupIssuancePorts();
 
-		await expect(
-			inviteOrganizationMember(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
-				{
-					email: 'new.user@example.com',
-					membershipRole: 'member',
-					memberAccess: memberAccess({ memberPreset: 'viewer' }),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({
-			status: 409,
-			message:
-				'The invitation was withdrawn or expired before platform access setup could be linked. Send a new invitation.'
-		});
+		const result = await inviteOrganizationMembers(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				emails: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+		expect(result.inviteResults).toEqual([
+			{
+				email: 'new.user@example.com',
+				status: 'failed',
+				message:
+					'The invitation was withdrawn or expired before platform access setup could be linked. Send a new invitation.'
+			}
+		]);
 
 		expect(port.blockedInvitations).toEqual([]);
 		expect(issuance.setupLinkRequests).toEqual([]);
@@ -1040,21 +1214,22 @@ describe('inviteOrganizationMember', () => {
 			accessRequestBridgeResult: { status: 'failed', message: 'access request store unavailable' }
 		});
 
-		await expect(
-			inviteOrganizationMember(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
-				{
-					email: 'new.user@example.com',
-					membershipRole: 'member',
-					memberAccess: memberAccess({ memberPreset: 'viewer' }),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({
-			status: 500,
-			message: 'Invitation could not be created because platform access setup could not be linked',
-			publicMessage: true
-		});
+		const result = await inviteOrganizationMembers(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				emails: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+		expect(result.inviteResults).toEqual([
+			{
+				email: 'new.user@example.com',
+				status: 'failed',
+				message: 'Invitation could not be created because platform access setup could not be linked'
+			}
+		]);
 
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(port.blockedInvitations).toEqual([
@@ -1082,12 +1257,13 @@ describe('inviteOrganizationMember', () => {
 	it.each([
 		{
 			blockInvitationResult: { status: 'not-pending' } as const,
-			failure: { status: 409, message: 'This invitation was withdrawn while it was being created.' },
+			failure: 'This invitation was withdrawn while it was being created.',
 			severity: 'warning'
 		},
 		{
 			blockInvitationResult: { status: 'failed', message: 'block write failed' } as const,
-			failure: { status: 500, publicMessage: true },
+			failure:
+				'Platform access setup could not be linked. Check Waiting on them and revoke the invitation if it is still listed.',
 			severity: 'critical'
 		}
 	])(
@@ -1101,17 +1277,16 @@ describe('inviteOrganizationMember', () => {
 			});
 			const issuance = createAccountSetupIssuancePorts();
 
-			await expect(
-				inviteOrganizationMember(
-					{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
-					{
-						email: 'new.user@example.com',
-						membershipRole: 'member',
-						memberAccess: memberAccess({ memberPreset: 'viewer' }),
-						actorEmail: 'actor@example.com'
-					}
-				)
-			).rejects.toMatchObject(failure);
+			const result = await inviteOrganizationMembers(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+				{
+					emails: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com'
+				}
+			);
+			expect(result.inviteResults).toEqual([{ email: 'new.user@example.com', status: 'failed', message: failure }]);
 			expect(issuance.setupLinkRequests).toEqual([]);
 			expect(ctx.auditPort.events).toContainEqual({
 				action: 'member.invite_access_request_link_failed',
@@ -1155,7 +1330,7 @@ describe('inviteOrganizationMember', () => {
 		const issuance = createAccountSetupIssuancePorts();
 		const delivery = createInvitationDeliveryPort('sent');
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -1165,7 +1340,7 @@ describe('inviteOrganizationMember', () => {
 				...issuance
 			},
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -1210,10 +1385,10 @@ describe('inviteOrganizationMember', () => {
 			revokedLinkIds: ['setup-link-0']
 		});
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -1241,7 +1416,7 @@ describe('inviteOrganizationMember', () => {
 		const issuance = createAccountSetupIssuancePorts({ deliveryStatus: 'failed' });
 		const delivery = createInvitationDeliveryPort('sent');
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -1251,7 +1426,7 @@ describe('inviteOrganizationMember', () => {
 				...issuance
 			},
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -1260,8 +1435,8 @@ describe('inviteOrganizationMember', () => {
 
 		expect(result).toMatchObject({
 			inviteSuccess: true,
-			inviteEmail: 'new.user@example.com',
-			inviteMessage: 'Invitation created and email delivery was queued.'
+			inviteResults: [expect.objectContaining({ email: 'new.user@example.com', status: 'invited' })],
+			inviteMessage: 'Invited. The email is on its way.'
 		});
 		expect(port.blockedInvitations).toEqual([]);
 		expect(ctx.notificationPort.notifications).toHaveLength(1);
@@ -1282,10 +1457,10 @@ describe('inviteOrganizationMember', () => {
 			throw new Error('auth email outbox unavailable');
 		};
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -1310,10 +1485,10 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
 		const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'concurrent-create' } });
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -1341,21 +1516,22 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
 		const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'access-request-not-approved' } });
 
-		await expect(
-			inviteOrganizationMember(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
-				{
-					email: 'new.user@example.com',
-					membershipRole: 'member',
-					memberAccess: memberAccess({ memberPreset: 'viewer' }),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({
-			status: 500,
-			message: 'Invitation could not be created because the account setup link could not be issued',
-			publicMessage: true
-		});
+		const result = await inviteOrganizationMembers(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				emails: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+		expect(result.inviteResults).toEqual([
+			{
+				email: 'new.user@example.com',
+				status: 'failed',
+				message: 'Invitation could not be created because the account setup link could not be issued'
+			}
+		]);
 
 		expect(port.blockedInvitations).toEqual([
 			{
@@ -1383,12 +1559,13 @@ describe('inviteOrganizationMember', () => {
 	it.each([
 		{
 			blockInvitationResult: { status: 'not-pending' } as const,
-			failure: { status: 409, message: 'This invitation was withdrawn while it was being created.' },
+			failure: 'This invitation was withdrawn while it was being created.',
 			severity: 'warning'
 		},
 		{
 			blockInvitationResult: { status: 'failed', message: 'block write failed' } as const,
-			failure: { status: 500, publicMessage: true },
+			failure:
+				'The account setup link could not be issued. Check Waiting on them and revoke the invitation if it is still listed.',
 			severity: 'critical'
 		}
 	])(
@@ -1398,17 +1575,16 @@ describe('inviteOrganizationMember', () => {
 			const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null, blockInvitationResult });
 			const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'access-request-not-approved' } });
 
-			await expect(
-				inviteOrganizationMember(
-					{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
-					{
-						email: 'new.user@example.com',
-						membershipRole: 'member',
-						memberAccess: memberAccess({ memberPreset: 'viewer' }),
-						actorEmail: 'actor@example.com'
-					}
-				)
-			).rejects.toMatchObject(failure);
+			const result = await inviteOrganizationMembers(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+				{
+					emails: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com'
+				}
+			);
+			expect(result.inviteResults).toEqual([{ email: 'new.user@example.com', status: 'failed', message: failure }]);
 			expect(ctx.auditPort.events).toContainEqual({
 				action: 'member.invite_account_setup_link_not_created',
 				resourceType: 'organization',
@@ -1451,17 +1627,22 @@ describe('inviteOrganizationMember', () => {
 		});
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-		await expect(
-			inviteOrganizationMember(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
-				{
-					email: 'new.user@example.com',
-					membershipRole: 'member',
-					memberAccess: memberAccess({ memberPreset: 'viewer' }),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({ status: 500 });
+		const result = await inviteOrganizationMembers(
+			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+			{
+				emails: 'new.user@example.com',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com'
+			}
+		);
+		expect(result.inviteResults).toEqual([
+			{
+				email: 'new.user@example.com',
+				status: 'failed',
+				message: 'Invitation could not be created because the account setup link could not be issued'
+			}
+		]);
 
 		expect(port.blockedInvitations).toHaveLength(1);
 		expect(ctx.auditPort.events).toContainEqual(
@@ -1480,10 +1661,10 @@ describe('inviteOrganizationMember', () => {
 		});
 		const issuance = createAccountSetupIssuancePorts();
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
 			{
-				email: 'member@example.com',
+				emails: 'member@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -1499,10 +1680,10 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
 		const issuance = createAccountSetupIssuancePorts();
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'
@@ -1529,7 +1710,7 @@ describe('inviteOrganizationMember', () => {
 		});
 		const port = createOrganizationSettingsMemberManagementPort();
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -1538,7 +1719,7 @@ describe('inviteOrganizationMember', () => {
 				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 			},
 			{
-				email: 'manager@example.com',
+				emails: 'manager@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({
 					memberPreset: 'viewer',
@@ -1583,7 +1764,7 @@ describe('inviteOrganizationMember', () => {
 		const delivery = createInvitationDeliveryPort('sent');
 		const rateLimiter = createInvitationRateLimiter({ limited: false, action: 'create' });
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -1593,7 +1774,7 @@ describe('inviteOrganizationMember', () => {
 				invitationRateLimiter: rateLimiter
 			},
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com',
@@ -1603,8 +1784,8 @@ describe('inviteOrganizationMember', () => {
 
 		expect(result).toMatchObject({
 			inviteSuccess: true,
-			inviteEmail: 'new.user@example.com',
-			inviteMessage: 'Invitation created and email delivery was queued.'
+			inviteResults: [expect.objectContaining({ email: 'new.user@example.com', status: 'invited' })],
+			inviteMessage: 'Invited. The email is on its way.'
 		});
 		expect(delivery.deliveries).toEqual([
 			{
@@ -1657,29 +1838,31 @@ describe('inviteOrganizationMember', () => {
 		const delivery = createInvitationDeliveryPort('sent');
 		const rateLimiter = createInvitationRateLimiter({ limited: true, retryAfterMs: 120_000, action: 'create' });
 
-		await expect(
-			inviteOrganizationMember(
-				{
-					auth: ctx.auth,
-					audit: ctx.audit,
-					notifications: ctx.notifications,
-					settings: port,
-					invitationDelivery: delivery,
-					invitationRateLimiter: rateLimiter
-				},
-				{
-					email: ' New.User@Example.Mil ',
-					membershipRole: 'member',
-					memberAccess: memberAccess({ memberPreset: 'viewer' }),
-					actorEmail: 'actor@example.com',
-					origin: 'https://trooptotask.test'
-				}
-			)
-		).rejects.toMatchObject({
-			status: 429,
-			message:
-				'Too many organization invitation attempts. Please wait before inviting this recipient again. Try again in about 2 minutes.'
-		});
+		const result = await inviteOrganizationMembers(
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				invitationDelivery: delivery,
+				invitationRateLimiter: rateLimiter
+			},
+			{
+				emails: ' New.User@Example.Mil ',
+				membershipRole: 'member',
+				memberAccess: memberAccess({ memberPreset: 'viewer' }),
+				actorEmail: 'actor@example.com',
+				origin: 'https://trooptotask.test'
+			}
+		);
+		expect(result.inviteResults).toEqual([
+			{
+				email: 'new.user@example.mil',
+				status: 'failed',
+				message:
+					'Too many organization invitation attempts. Please wait before inviting this recipient again. Try again in about 2 minutes.'
+			}
+		]);
 
 		expect(rateLimiter.checks).toEqual([
 			{
@@ -1714,7 +1897,7 @@ describe('inviteOrganizationMember', () => {
 		});
 		const delivery = createInvitationDeliveryPort('sent');
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -1723,7 +1906,7 @@ describe('inviteOrganizationMember', () => {
 				invitationDelivery: delivery
 			},
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com',
@@ -1744,7 +1927,7 @@ describe('inviteOrganizationMember', () => {
 		const port = createOrganizationSettingsMemberManagementPort({ orgName: 'Alpha Company' });
 		const delivery = createInvitationDeliveryPort('failed');
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -1753,7 +1936,7 @@ describe('inviteOrganizationMember', () => {
 				invitationDelivery: delivery
 			},
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com',
@@ -1786,7 +1969,7 @@ describe('inviteOrganizationMember', () => {
 			}
 		};
 
-		const result = await inviteOrganizationMember(
+		const result = await inviteOrganizationMembers(
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -1795,7 +1978,7 @@ describe('inviteOrganizationMember', () => {
 				invitationDelivery: delivery
 			},
 			{
-				email: 'new.user@example.com',
+				emails: 'new.user@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com',
@@ -2297,10 +2480,10 @@ describe('revokeOrganizationInvitation', () => {
 		expect(port.accessRequestBridges).toEqual([]);
 		expect(issuance.setupLinkRequests).toEqual([]);
 
-		await inviteOrganizationMember(
+		await inviteOrganizationMembers(
 			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
 			{
-				email: 'invitee@example.com',
+				emails: 'invitee@example.com',
 				membershipRole: 'member',
 				memberAccess: memberAccess({ memberPreset: 'viewer' }),
 				actorEmail: 'actor@example.com'

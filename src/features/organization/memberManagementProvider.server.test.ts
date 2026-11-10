@@ -37,14 +37,9 @@ function createMembershipLookupBuilder() {
 	return { builder, calls };
 }
 
-function createInvitationLookupBuilder() {
+/** A query chain that records each call and answers `returns()` with the next queued result. */
+function createReturningBuilder(results: Array<{ data: unknown; error: { message: string } | null }>) {
 	const calls: Call[] = [];
-	const result = {
-		data: {
-			id: 'invite-1'
-		},
-		error: null
-	};
 
 	function track(method: string) {
 		return (...args: unknown[]) => {
@@ -55,39 +50,13 @@ function createInvitationLookupBuilder() {
 
 	const builder: Record<string, unknown> = {
 		select: track('select'),
-		eq: track('eq'),
-		gt: track('gt'),
-		single: (...args: unknown[]) => {
-			calls.push({ method: 'single', args });
-			return result;
-		}
-	};
-
-	return { builder, calls };
-}
-
-function createInvitationInsertBuilder(result: {
-	data?: { id: string; created_at?: string } | null;
-	error: { message: string } | null;
-}) {
-	const calls: Call[] = [];
-
-	function track(method: string) {
-		return (...args: unknown[]) => {
-			calls.push({ method, args });
-			return builder;
-		};
-	}
-
-	const builder: Record<string, unknown> = {
 		insert: track('insert'),
-		select: track('select'),
-		single: (...args: unknown[]) => {
-			calls.push({ method: 'single', args });
-			return {
-				data: result.data ?? { id: 'invite-created', created_at: '2026-05-22T12:00:00.000Z' },
-				error: result.error
-			};
+		eq: track('eq'),
+		in: track('in'),
+		gt: track('gt'),
+		returns: () => {
+			calls.push({ method: 'returns', args: [] });
+			return results.shift();
 		}
 	};
 
@@ -211,6 +180,7 @@ function createInvitationExpiryBuilder() {
 	const builder: Record<string, unknown> = {
 		update: track('update'),
 		eq: track('eq'),
+		in: track('in'),
 		select: track('select'),
 		single: (...args: unknown[]) => {
 			calls.push({ method: 'single', args });
@@ -266,78 +236,109 @@ function createRpcBuilder(result: unknown) {
 }
 
 describe('createSupabaseOrgSettingsMemberManagementPort', () => {
-	it('looks up duplicate pending invitations by normalized email inside the organization', async () => {
-		const { builder, calls } = createInvitationLookupBuilder();
-		const supabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort({
-			supabase
-		} as never);
+	it('looks up which addresses already have a live pending invitation in one query', async () => {
+		const { builder, calls } = createReturningBuilder([
+			{ data: [{ normalized_email: 'taken@example.com' }], error: null }
+		]);
+		const supabase = { from: vi.fn(() => builder) };
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase } as never);
 
-		const result = await port.findPendingInvitation('org-1', 'user@example.com');
+		const result = await port.findPendingInvitationEmails('org-1', ['new@example.com', 'taken@example.com']);
 
-		expect(result).toEqual({ id: 'invite-1' });
-		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
+		expect(result).toEqual(['taken@example.com']);
+		expect(supabase.from).toHaveBeenCalledTimes(1);
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
+		expect(calls).toContainEqual({
+			method: 'in',
+			args: ['normalized_email', ['new@example.com', 'taken@example.com']]
+		});
 		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
 		expect(calls).toContainEqual({ method: 'gt', args: ['expires_at', expect.any(String)] });
 	});
 
-	it('persists the intended invitation role with the access snapshot', async () => {
+	const invitationInput = (email: string) => ({
+		organizationId: 'org-1',
+		email,
+		invitedBy: 'owner-1',
+		role: 'member' as const,
+		memberPreset: 'viewer' as const,
+		capabilityOverrides: { personnel: 'configure' as const },
+		accessScopeKind: 'organization' as const,
+		accessScopeGroupIds: []
+	});
+
+	it('expires stale invitations and creates every invitation with its access snapshot in one insert', async () => {
 		const { builder: expireBuilder, calls: expireCalls } = createInvitationExpiryBuilder();
-		const { builder, calls } = createInvitationInsertBuilder({ error: null });
-		const supabase = {
-			from: vi.fn().mockReturnValueOnce(expireBuilder).mockReturnValueOnce(builder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort({
-			supabase
-		} as never);
+		const { builder, calls } = createReturningBuilder([
+			{
+				data: [
+					{ id: 'invite-b', normalized_email: 'b@example.com', created_at: '2026-05-22T12:00:01.000Z' },
+					{ id: 'invite-a', normalized_email: 'a@example.com', created_at: '2026-05-22T12:00:00.000Z' }
+				],
+				error: null
+			}
+		]);
+		const supabase = { from: vi.fn().mockReturnValueOnce(expireBuilder).mockReturnValueOnce(builder) };
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase } as never);
 
-		const result = await port.createInvitation({
-			organizationId: 'org-1',
-			email: 'user@example.com',
-			invitedBy: 'owner-1',
-			role: 'member',
-			memberPreset: 'viewer',
-			capabilityOverrides: { personnel: 'configure' },
-			accessScopeKind: 'organization',
-			accessScopeGroupIds: []
-		});
+		const result = await port.createInvitations([invitationInput('a@example.com'), invitationInput('b@example.com')]);
 
-		expect(result).toEqual({
-			status: 'created',
-			invitationId: 'invite-created',
-			createdAt: '2026-05-22T12:00:00.000Z'
-		});
-		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
+		expect(result).toEqual([
+			{ status: 'created', invitationId: 'invite-a', createdAt: '2026-05-22T12:00:00.000Z' },
+			{ status: 'created', invitationId: 'invite-b', createdAt: '2026-05-22T12:00:01.000Z' }
+		]);
 		expect(expireCalls).toContainEqual({
 			method: 'update',
 			args: [expect.objectContaining({ status: 'expired', expired_at: expect.any(String) })]
 		});
 		expect(expireCalls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
-		expect(expireCalls).toContainEqual({ method: 'eq', args: ['normalized_email', 'user@example.com'] });
-		expect(expireCalls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
+		expect(expireCalls).toContainEqual({
+			method: 'in',
+			args: ['normalized_email', ['a@example.com', 'b@example.com']]
+		});
 		expect(expireCalls).toContainEqual({ method: 'lte', args: ['expires_at', expect.any(String)] });
 		expect(calls).toEqual([
 			{
 				method: 'insert',
 				args: [
-					expect.objectContaining({
+					['a@example.com', 'b@example.com'].map((email) => ({
 						organization_id: 'org-1',
-						email: 'user@example.com',
+						email,
 						invited_by: 'owner-1',
 						role: 'member',
 						member_preset: 'viewer',
 						capability_overrides: { personnel: 'configure' },
 						access_scope_kind: 'organization',
 						access_scope_group_ids: []
-					})
+					}))
 				]
 			},
-			{ method: 'select', args: ['id, created_at'] },
-			{ method: 'single', args: [] }
+			{ method: 'select', args: ['id, normalized_email, created_at'] },
+			{ method: 'returns', args: [] }
+		]);
+	});
+
+	it('retries each address alone when one row rejects the whole insert, so only that address fails', async () => {
+		const { builder: expireBuilder } = createInvitationExpiryBuilder();
+		const { builder, calls } = createReturningBuilder([
+			{ data: null, error: { message: 'duplicate key value violates unique constraint' } },
+			{
+				data: [{ id: 'invite-a', normalized_email: 'a@example.com', created_at: '2026-05-22T12:00:00.000Z' }],
+				error: null
+			},
+			{ data: null, error: { message: 'duplicate key value violates unique constraint' } }
+		]);
+		const supabase = { from: vi.fn().mockReturnValueOnce(expireBuilder).mockReturnValue(builder) };
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase } as never);
+
+		const result = await port.createInvitations([invitationInput('a@example.com'), invitationInput('b@example.com')]);
+
+		expect(result).toEqual([
+			{ status: 'created', invitationId: 'invite-a', createdAt: '2026-05-22T12:00:00.000Z' },
+			{ status: 'failed', message: 'duplicate key value violates unique constraint' }
+		]);
+		expect(calls.filter((call) => call.method === 'insert').map((call) => (call.args[0] as unknown[]).length)).toEqual([
+			2, 1, 1
 		]);
 	});
 

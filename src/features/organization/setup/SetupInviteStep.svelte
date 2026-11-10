@@ -11,6 +11,7 @@
 	import { settleAction } from '$lib/utils/settleAction';
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import MemberInviteForm from '../MemberInviteForm.svelte';
+	import { addressesToRetry, type InviteAddressResult } from '../inviteAddresses';
 	import { accessLabel, createSettingsMemberAccessWorkspace } from '../settingsMemberAccessWorkspace.svelte';
 	import SetupStepFooter from './SetupStepFooter.svelte';
 	import { getSetupFlow } from './setupFlow.svelte';
@@ -27,7 +28,8 @@
 		offLanes: []
 	}));
 
-	let emailInput = $state<HTMLInputElement | null>(null);
+	let emailsInput = $state<HTMLTextAreaElement | null>(null);
+	let results = $state.raw<InviteAddressResult[]>([]);
 	let pending = $state(false);
 	let error = $state<string | null>(null);
 	let message = $state<string | undefined>(undefined);
@@ -68,10 +70,11 @@
 							(result.type === 'failure' ? String(result.data?.inviteError ?? "Couldn't send the invitation.") : null);
 						if (result.type !== 'success' || error) return;
 						message = typeof result.data?.inviteMessage === 'string' ? result.data.inviteMessage : undefined;
-						workspace.resetInvite();
+						results = Array.isArray(result.data?.inviteResults) ? result.data.inviteResults : [];
+						workspace.resetInvite(addressesToRetry(results));
 						confirmedDraft = JSON.stringify(workspace.invite);
 					},
-					focus: () => [submitter as HTMLElement | null, emailInput]
+					focus: () => [submitter as HTMLElement | null, emailsInput]
 				}
 			);
 		};
@@ -115,8 +118,9 @@
 				{error}
 				{confirmed}
 				{message}
+				{results}
 				idPrefix="setup-invite"
-				bind:emailInput
+				bind:emailsInput
 			/>
 		{:else}
 			<p class="text-sm leading-5 text-muted-foreground">Only an owner or an admin can invite people.</p>

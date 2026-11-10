@@ -3,9 +3,11 @@
 	import type { SubmitFunction } from '$app/forms';
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
+	import * as Table from '$lib/components/ui/table/index.js';
+	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import { MAX_INVITES_PER_SUBMISSION, parseInviteAddresses, type InviteAddressResult } from './inviteAddresses';
 	import {
 		SETTINGS_ACCESS_OPTIONS,
 		SETTINGS_GOVERNANCE_ROLE_OPTIONS,
@@ -32,7 +34,9 @@
 		error?: string | null;
 		confirmed: boolean;
 		message?: string;
-		emailInput?: HTMLInputElement | null;
+		/** Each address's outcome from the last submission, shown while `confirmed`. */
+		results?: readonly InviteAddressResult[];
+		emailsInput?: HTMLTextAreaElement | null;
 		idPrefix?: string;
 	};
 
@@ -46,7 +50,8 @@
 		error = null,
 		confirmed,
 		message,
-		emailInput = $bindable(null),
+		results = [],
+		emailsInput = $bindable(null),
 		idPrefix = 'invite'
 	}: Props = $props();
 
@@ -62,11 +67,28 @@
 					.join(' ')
 	);
 	const groupOptions = $derived([{ id: ALL_GROUPS, label: 'Whole unit', depth: 0 }, ...workspace.scopeTree.options]);
+	const addressCount = $derived(parseInviteAddresses(workspace.invite.emails).length);
+	const overLimit = $derived(addressCount > MAX_INVITES_PER_SUBMISSION);
+	// One address answers in the helper's line; several list their outcomes below it.
+	const shownResults = $derived(confirmed && results.length > 1 ? results : []);
+	const soleFailure = $derived(confirmed && results.length === 1 && results[0].status === 'failed' ? results[0] : null);
+	const retryLeft = $derived(shownResults.some((result) => result.status === 'failed'));
+
+	const send: SubmitFunction = (input) => {
+		if (overLimit) return input.cancel();
+		return submit(input);
+	};
+
+	function submitOnModifiedEnter(event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return;
+		event.preventDefault();
+		event.currentTarget.form?.requestSubmit();
+	}
 </script>
 
-<section aria-label="Invite a member">
+<section aria-label="Invite members">
 	<!-- eslint-disable-next-line local/require-settled-enhance -- each caller builds `submit` with settleAction -->
-	<form {action} method="POST" class="grid gap-2.5 rounded-sm border bg-muted p-3.5" use:enhance={submit}>
+	<form {action} method="POST" class="grid gap-2.5 rounded-sm border bg-muted p-3.5" use:enhance={send}>
 		<input type="hidden" name="membershipRole" value={workspace.invite.role} />
 		{#if workspace.invite.role === 'member'}
 			<input type="hidden" name="memberPreset" value={workspace.invite.preset} />
@@ -79,19 +101,25 @@
 				<input type="hidden" name="scopeSetGroupIds" value={groupId} />
 			{/each}
 		{/if}
-		<div class="flex flex-wrap items-center gap-2">
-			<Label for="{idPrefix}-email" class="w-14 shrink-0 font-semibold">Invite</Label>
-			<Input
-				bind:ref={emailInput}
-				id="{idPrefix}-email"
-				name="email"
-				type="email"
-				placeholder="name@unit.mil"
-				class="min-w-48 flex-1 bg-background"
+		<div class="grid gap-1.5 sm:grid-cols-[3.5rem_1fr] sm:gap-2">
+			<Label for="{idPrefix}-emails" class="font-semibold sm:pt-2">Invite</Label>
+			<Textarea
+				bind:ref={emailsInput}
+				id="{idPrefix}-emails"
+				name="emails"
+				rows={2}
+				autocomplete="off"
+				spellcheck={false}
+				placeholder="name@unit.mil, one per line or separated by commas"
+				class="max-h-48 min-h-10 bg-background"
 				aria-describedby="{idPrefix}-helper"
-				bind:value={workspace.invite.email}
+				aria-invalid={overLimit || undefined}
+				onkeydown={submitOnModifiedEnter}
+				bind:value={workspace.invite.emails}
 				required
 			/>
+		</div>
+		<div class="flex flex-wrap items-center gap-2 sm:pl-16">
 			{#if isOwner}
 				<Select.Root
 					type="single"
@@ -139,19 +167,72 @@
 				</p>
 			{/if}
 			<!-- aria-disabled keeps focus on the pressed button while an invitation request is pending. -->
-			<Button type="submit" aria-disabled={pending ? 'true' : undefined} aria-busy={loading || undefined}
-				>{loading ? 'Sending...' : 'Send invite'}</Button
-			>
+			<Button type="submit" aria-disabled={pending || overLimit ? 'true' : undefined} aria-busy={loading || undefined}>
+				{#if loading}
+					Sending{addressCount > 1 ? ` ${addressCount} invites` : ''}...
+				{:else}
+					{addressCount > 1 ? `Send ${addressCount} invites` : 'Send invite'}
+				{/if}
+			</Button>
 		</div>
 		<!-- The outcome takes the helper's line so the strip keeps its height. -->
-		{#if error}
-			<p id="{idPrefix}-helper" role="alert" class="text-sm text-destructive-text sm:pl-16">{error}</p>
+		{#if overLimit}
+			<p id="{idPrefix}-helper" role="alert" class="text-sm text-destructive-text sm:pl-16">
+				That's {addressCount} addresses. Send up to {MAX_INVITES_PER_SUBMISSION} at a time.
+			</p>
+		{:else if error || soleFailure}
+			<p id="{idPrefix}-helper" role="alert" class="text-sm text-destructive-text sm:pl-16">
+				{error ?? `${soleFailure?.email}: ${soleFailure?.message}`}
+			</p>
 		{:else if confirmed}
 			<p id="{idPrefix}-helper" role="status" class="text-sm sm:pl-16">
 				{message ?? 'Invitation created.'}
+				{#if retryLeft}
+					The addresses that weren't invited are still in the box.
+				{/if}
 			</p>
 		{:else}
 			<p id="{idPrefix}-helper" class="text-sm text-muted-foreground sm:pl-16">{helper}</p>
+		{/if}
+		{#if shownResults.length > 0}
+			<ul aria-label="Invitation results" class="grid gap-1 text-sm sm:pl-16">
+				{#each shownResults as result (result.email)}
+					<li class="flex flex-wrap gap-x-2">
+						<span class="font-medium break-all">{result.email}</span>
+						<span class={result.status === 'failed' ? 'text-destructive-text' : 'text-muted-foreground'}>
+							{result.message}
+						</span>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		{#if workspace.invite.role === 'member'}
+			<div class="sm:pl-16">
+				<Table.Root class="max-w-sm bg-background text-[13px]">
+					<Table.Caption class="mt-1.5 text-left text-xs">
+						What {presetLabel(workspace.invite.preset)} allows{workspace.invite.groupIds.length > 0
+							? ' in the chosen Groups'
+							: ''}
+					</Table.Caption>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head class="h-7">Area</Table.Head>
+							<Table.Head class="h-7">View</Table.Head>
+							<Table.Head class="h-7">Change</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each workspace.invitePresetAccess as area (area.id)}
+							<Table.Row>
+								<Table.Cell class="py-1">{area.label}</Table.Cell>
+								<Table.Cell class="py-1">{area.view ? 'Yes' : 'No'}</Table.Cell>
+								<Table.Cell class="py-1 {area.change === 'No' ? 'text-muted-foreground' : ''}">{area.change}</Table.Cell
+								>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			</div>
 		{/if}
 	</form>
 </section>

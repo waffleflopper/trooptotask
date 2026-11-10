@@ -25,6 +25,7 @@
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import MemberAccessSheet from './MemberAccessSheet.svelte';
 	import MemberInviteForm from './MemberInviteForm.svelte';
+	import { addressesToRetry } from './inviteAddresses';
 	import type {
 		MembersSettingsActionData,
 		MembersSettingsData,
@@ -100,7 +101,7 @@
 	let historyOpen = $state(false);
 
 	let filterInput = $state<HTMLInputElement | null>(null);
-	let inviteEmailInput = $state<HTMLInputElement | null>(null);
+	let inviteEmailsInput = $state<HTMLTextAreaElement | null>(null);
 	let accessOpener = $state<HTMLElement | null>(null);
 	let memberRequestError = $state<string | null>(null);
 
@@ -181,11 +182,15 @@
 		}
 		await settleAction(outcome, {
 			isCurrent,
+			// The workspace owns the invite draft and keeps the addresses to retry.
+			reset: false,
 			settled: (error) => {
 				invitationRequestError = error;
 				invitationPending = false;
 				if (!error && owner === NEW_INVITATION && result.type === 'success') {
-					workspace.resetInvite();
+					workspace.resetInvite(
+						addressesToRetry(Array.isArray(result.data?.inviteResults) ? result.data.inviteResults : [])
+					);
 					confirmedDraft = JSON.stringify(workspace.invite);
 				}
 			},
@@ -193,7 +198,7 @@
 			focus: () => [
 				submitter instanceof HTMLButtonElement ? submitter : null,
 				revokeTrigger(owner),
-				inviteEmailInput,
+				inviteEmailsInput,
 				filterInput
 			]
 		});
@@ -290,7 +295,8 @@
 			error={invitationOwner === NEW_INVITATION ? inviteError : null}
 			confirmed={inviteConfirmed}
 			message={invitationForm?.inviteMessage}
-			bind:emailInput={inviteEmailInput}
+			results={invitationForm?.inviteResults}
+			bind:emailsInput={inviteEmailsInput}
 		/>
 	{/if}
 
@@ -524,7 +530,7 @@
 		confirmLabel="Revoke invitation"
 		onConfirm={() => submitRevoke(target)}
 		onCancel={() => (confirmRevoke = null)}
-		returnFocus={() => revokeTrigger(target.id) ?? inviteEmailInput ?? filterInput}
+		returnFocus={() => revokeTrigger(target.id) ?? inviteEmailsInput ?? filterInput}
 	>
 		{#if invitationOwner === target.id && inviteError}
 			<Alert.Root variant="destructive">
@@ -541,7 +547,7 @@
 {#snippet inviteAgain(invite: SettingsInvitationHistoryRow)}
 	<form method="POST" action="?/invite" use:enhance={invitationEnhance}>
 		<input type="hidden" name="inviteId" value={invite.id} />
-		<input type="hidden" name="email" value={invite.email} />
+		<input type="hidden" name="emails" value={invite.email} />
 		<input type="hidden" name="membershipRole" value={invite.membershipRole} />
 		{#if invite.membershipRole === 'member'}
 			<input type="hidden" name="memberPreset" value={invite.access.memberPreset} />

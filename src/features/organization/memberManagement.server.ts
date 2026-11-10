@@ -1,5 +1,5 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
@@ -51,6 +51,7 @@ import {
 	type OrganizationInvitationRateLimiter
 } from './invitationRateLimit.server';
 import { validateEmail, validateUUID } from '$lib/server/validation';
+import { MAX_INVITES_PER_SUBMISSION, parseInviteAddresses, type InviteAddressResult } from './inviteAddresses';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface OrganizationInvitationCreateInput {
@@ -139,10 +140,12 @@ export type OrganizationMemberNameWriteResult =
 	| { status: 'failed'; reason: 'denied' | 'not_found' | 'invalid' | 'error' };
 
 export interface OrganizationSettingsMemberManagementPort {
-	findPendingInvitation(orgId: string, email: string): Promise<{ id: string } | null>;
+	/** The given addresses that a live pending invitation in this Organization already covers. */
+	findPendingInvitationEmails(orgId: string, emails: string[]): Promise<string[]>;
 	findPendingInvitationById(orgId: string, inviteId: string): Promise<OrganizationInvitationResendLookupResult | null>;
 	findUserAccountByEmail(email: string): Promise<{ id: string; email: string; emailConfirmed?: boolean } | null>;
-	createInvitation(input: OrganizationInvitationCreateInput): Promise<OrganizationInvitationCreateResult>;
+	/** Creates the invitations in one write where it can, answering each input in order. */
+	createInvitations(inputs: OrganizationInvitationCreateInput[]): Promise<OrganizationInvitationCreateResult[]>;
 	createOrLinkApprovedAccessRequestForInvitation(
 		input: OrganizationInvitationAccessRequestBridgeInput
 	): Promise<OrganizationInvitationAccessRequestBridgeResult>;
@@ -207,8 +210,9 @@ interface OrganizationInvitationAccountSetupPorts {
 type InviteOrganizationMemberPorts = OrganizationSettingsMemberManagementPorts &
 	OrganizationInvitationAccountSetupPorts;
 
-interface InviteOrganizationMemberInput {
-	email: string;
+interface InviteOrganizationMembersInput {
+	/** The pasted addresses, separated by commas, semicolons, spaces or line breaks. */
+	emails: string;
 	membershipRole?: EditableMembershipRole | null;
 	memberAccess?: TargetMemberAccessCommand | null;
 	actorEmail?: string | null;
@@ -252,105 +256,235 @@ interface UpdateOrganizationMemberAccessInput {
 	actorEmail?: string | null;
 }
 
-export async function inviteOrganizationMember(
+export async function inviteOrganizationMembers(
 	ports: InviteOrganizationMemberPorts,
-	input: InviteOrganizationMemberInput
+	input: InviteOrganizationMembersInput
 ): Promise<{
 	inviteSuccess: true;
-	inviteEmail: string;
+	inviteResults: InviteAddressResult[];
 	inviteMessage: string;
 }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.inviteMember);
 	const membershipRole = input.membershipRole ?? 'member';
-	const invitesAdminRole = membershipRole === 'admin';
-	if (invitesAdminRole) {
+	if (membershipRole === 'admin') {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateAdminAccess);
 	}
 
 	const actorUserId = requireActorUserId(ports.auth);
-	const email = normalizeEmail(input.email);
-
-	if (!validateEmail(email)) {
-		fail(400, 'Please enter a valid email address');
+	const addresses = parseInviteAddresses(input.emails);
+	if (addresses.length === 0) {
+		fail(400, 'Enter at least one email address');
 	}
+	if (addresses.length > MAX_INVITES_PER_SUBMISSION) {
+		fail(400, `Invite up to ${MAX_INVITES_PER_SUBMISSION} addresses at a time`);
+	}
+
+	const results = new Map<string, InviteAddressResult>();
+	const outcome = () => inviteOutcome(addresses, results);
+	const valid = addresses.filter((email) => {
+		if (validateEmail(email)) return true;
+		results.set(email, { email, status: 'failed', message: 'Not a valid email address.' });
+		return false;
+	});
+	if (valid.length === 0) return outcome();
 
 	const accessCommand = memberAccessCommandToStorage({
 		membershipRole,
 		memberAccess: input.memberAccess
 	});
 	await requireOrganizationGroups(ports, accessCommand.accessScopeGroupIds);
-	const existing = await ports.settings.findPendingInvitation(ports.auth.orgId, email);
-	if (existing) {
-		fail(400, 'An invitation for this email is already pending');
-	}
 
-	const inviteRequiresStepUp = isHighPrivilegeAccess(accessCommand.role, false);
-	if (inviteRequiresStepUp)
+	if (isHighPrivilegeAccess(accessCommand.role, false))
 		await authorizeMemberManagementSensitiveAction(ports, {
 			action: ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
 			deniedAuditAction: 'member.high_privilege_invite_authorization_denied',
-			targetId: email,
+			targetId: valid.join(','),
 			targetType: 'organization_invitation',
 			details: {
-				email,
+				emails: valid,
 				membershipRole: accessCommand.role,
 				memberPreset: accessCommand.memberPreset
 			}
 		});
 
-	const existingUserAccount = await ports.settings.findUserAccountByEmail(email);
-	const rateLimit = await checkInvitationRateLimit(ports, {
-		action: 'create',
-		actorUserId,
-		email
-	});
-
-	const createResult = await ports.settings.createInvitation({
-		organizationId: ports.auth.orgId,
-		email,
-		invitedBy: actorUserId,
-		role: accessCommand.role,
-		memberPreset: accessCommand.memberPreset,
-		capabilityOverrides: accessCommand.capabilityOverrides,
-		accessScopeKind: accessCommand.accessScopeKind,
-		accessScopeGroupIds: accessCommand.accessScopeGroupIds
-	});
-
-	if (createResult.status === 'failed') {
-		fail(500, createResult.message);
+	const pending = new Set(await ports.settings.findPendingInvitationEmails(ports.auth.orgId, valid));
+	for (const email of pending) {
+		results.set(email, {
+			email,
+			status: 'already-invited',
+			message: 'Already invited. Resend it from Waiting on them.'
+		});
 	}
 
-	const shouldBridgeAccessRequest = !existingUserAccount;
-	const accessRequestBridge = shouldBridgeAccessRequest
-		? await bridgeInvitationToAccessRequest(ports, {
-				organizationId: ports.auth.orgId,
-				invitationId: createResult.invitationId,
-				email,
-				invitedBy: actorUserId,
-				invitedAt: createResult.createdAt,
-				role: accessCommand.role,
-				memberPreset: accessCommand.memberPreset,
-				capabilityOverrides: accessCommand.capabilityOverrides,
-				accessScopeKind: accessCommand.accessScopeKind,
-				accessScopeGroupIds: accessCommand.accessScopeGroupIds
-			})
-		: null;
+	const recipients = await settleEachAddress(
+		valid.filter((email) => !pending.has(email)),
+		results,
+		async (email) => ({
+			email,
+			account: await ports.settings.findUserAccountByEmail(email),
+			rateLimit: await checkInvitationRateLimit(ports, { action: 'create', actorUserId, email })
+		})
+	);
+	if (recipients.length === 0) return outcome();
 
-	if (accessRequestBridge?.status === 'invitation-not-pending') {
-		fail(
-			409,
-			'The invitation was withdrawn or expired before platform access setup could be linked. Send a new invitation.'
-		);
-	}
-
-	if (accessRequestBridge) {
-		await issueInvitationAccountSetupLink(ports, {
-			accessRequestId: accessRequestBridge.accessRequestId,
+	const created = await ports.settings.createInvitations(
+		recipients.map(({ email }) => ({
 			organizationId: ports.auth.orgId,
-			invitationId: createResult.invitationId,
 			email,
 			invitedBy: actorUserId,
-			publicOrigin: input.origin ?? ''
+			role: accessCommand.role,
+			memberPreset: accessCommand.memberPreset,
+			capabilityOverrides: accessCommand.capabilityOverrides,
+			accessScopeKind: accessCommand.accessScopeKind,
+			accessScopeGroupIds: accessCommand.accessScopeGroupIds
+		}))
+	);
+	const invitations = recipients.flatMap((recipient, index) => {
+		const result = created[index];
+		if (result?.status === 'created') return [{ ...recipient, ...result }];
+		console.error('[org-settings-member-management]', {
+			status: 'invitation-create-failed',
+			organizationId: ports.auth.orgId,
+			error: result?.message ?? 'missing create result'
+		});
+		results.set(recipient.email, { email: recipient.email, status: 'failed', message: ADDRESS_FAILED_MESSAGE });
+		return [];
+	});
+	if (invitations.length === 0) return outcome();
+
+	const organizationName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'your organization';
+	const delivered = await settleEachAddress(invitations, results, (invitation) =>
+		completeInvitation(ports, {
+			...invitation,
+			actorUserId,
+			actorEmail: input.actorEmail ?? null,
+			origin: input.origin ?? '',
+			organizationName,
+			accessCommand
+		})
+	);
+	for (const result of delivered) results.set(result.email, result);
+
+	const emails = addresses.filter((email) => results.get(email)?.status === 'invited');
+	if (emails.length > 0) {
+		await ports.notifications.notifyAdmins(ports.auth.orgId, actorUserId, {
+			type: 'member_invited',
+			title: emails.length === 1 ? 'Member Invited' : 'Members Invited',
+			message:
+				emails.length === 1
+					? `"${input.actorEmail ?? ''}" invited "${emails[0]}" to the organization.`
+					: `"${input.actorEmail ?? ''}" invited ${emails.length} people to the organization: ${emails.join(', ')}.`,
+			link: `/org/${ports.auth.orgId}/settings/general`
+		});
+	}
+
+	return outcome();
+}
+
+const ADDRESS_FAILED_MESSAGE = "This invitation couldn't be created. Try again.";
+// Bounds the per-address lookups and follow-ups a submission runs at once.
+const ADDRESS_CONCURRENCY = 5;
+
+/**
+ * Runs `work` for each item, a few at a time. A failure becomes that address's result and drops it from the
+ * returned values, so one address never stops the rest.
+ */
+async function settleEachAddress<T extends string | { email: string }, R>(
+	items: readonly T[],
+	results: Map<string, InviteAddressResult>,
+	work: (item: T) => Promise<R>
+): Promise<R[]> {
+	const settled: R[] = [];
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const item = items[next++];
+			try {
+				settled.push(await work(item));
+			} catch (error) {
+				const email = typeof item === 'string' ? item : item.email;
+				results.set(email, { email, status: 'failed', message: addressFailureMessage(error) });
+			}
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(ADDRESS_CONCURRENCY, items.length) }, worker));
+	return settled;
+}
+
+function addressFailureMessage(error: unknown): string {
+	if (error instanceof RequestFailure && (error.status < 500 || error.publicMessage)) return error.message;
+	console.error('[org-settings-member-management]', {
+		status: 'invitation-address-failed',
+		error: sanitizeErrorForLog(error)
+	});
+	return ADDRESS_FAILED_MESSAGE;
+}
+
+function inviteOutcome(
+	addresses: readonly string[],
+	results: ReadonlyMap<string, InviteAddressResult>
+): { inviteSuccess: true; inviteResults: InviteAddressResult[]; inviteMessage: string } {
+	const inviteResults = addresses.map(
+		(email) => results.get(email) ?? { email, status: 'failed' as const, message: ADDRESS_FAILED_MESSAGE }
+	);
+	const count = (status: InviteAddressResult['status']) => inviteResults.filter((r) => r.status === status).length;
+	const inviteMessage =
+		inviteResults.length === 1
+			? inviteResults[0].message
+			: [
+					[count('invited'), 'invited'],
+					[count('already-invited'), 'already invited'],
+					[count('failed'), 'not invited']
+				]
+					.filter(([n]) => n)
+					.map(([n, label]) => `${n} ${label}.`)
+					.join(' ');
+	return { inviteSuccess: true, inviteResults, inviteMessage };
+}
+
+/** Everything one created invitation still needs: platform access setup, its audit row, notices and its email. */
+async function completeInvitation(
+	ports: InviteOrganizationMemberPorts,
+	invitation: {
+		email: string;
+		invitationId: string;
+		createdAt: string;
+		account: { id: string } | null;
+		rateLimit: Record<string, unknown> | null;
+		actorUserId: string;
+		actorEmail: string | null;
+		origin: string;
+		organizationName: string;
+		accessCommand: ReturnType<typeof memberAccessCommandToStorage>;
+	}
+): Promise<InviteAddressResult> {
+	const { email, invitationId, account, accessCommand } = invitation;
+	if (!account) {
+		const bridge = await bridgeInvitationToAccessRequest(ports, {
+			organizationId: ports.auth.orgId,
+			invitationId,
+			email,
+			invitedBy: invitation.actorUserId,
+			invitedAt: invitation.createdAt,
+			role: accessCommand.role,
+			memberPreset: accessCommand.memberPreset,
+			capabilityOverrides: accessCommand.capabilityOverrides,
+			accessScopeKind: accessCommand.accessScopeKind,
+			accessScopeGroupIds: accessCommand.accessScopeGroupIds
+		});
+		if (bridge.status === 'invitation-not-pending') {
+			fail(
+				409,
+				'The invitation was withdrawn or expired before platform access setup could be linked. Send a new invitation.'
+			);
+		}
+		await issueInvitationAccountSetupLink(ports, {
+			accessRequestId: bridge.accessRequestId,
+			organizationId: ports.auth.orgId,
+			invitationId,
+			email,
+			invitedBy: invitation.actorUserId,
+			publicOrigin: invitation.origin
 		});
 	}
 
@@ -361,43 +495,34 @@ export async function inviteOrganizationMember(
 		details: { role: accessCommand.role }
 	});
 
-	const organizationName = (await ports.settings.getOrganizationName(ports.auth.orgId)) ?? 'your organization';
-
-	if (existingUserAccount) {
+	if (account) {
 		await notifyInvitedAccount(ports, {
-			userId: existingUserAccount.id,
-			invitationId: createResult.invitationId,
-			organizationName
+			userId: account.id,
+			invitationId,
+			organizationName: invitation.organizationName
 		});
 	}
 
 	const deliveryStatus = await deliverInvitationEmail(ports, {
-		invitationId: createResult.invitationId,
+		invitationId,
 		email,
-		actorEmail: input.actorEmail ?? null,
-		origin: input.origin ?? '',
-		requiresAccountSetup: !existingUserAccount,
-		organizationName,
+		actorEmail: invitation.actorEmail,
+		origin: invitation.origin,
+		requiresAccountSetup: !account,
+		organizationName: invitation.organizationName,
 		mode: 'initial',
-		rateLimit
-	});
-
-	await ports.notifications.notifyAdmins(ports.auth.orgId, actorUserId, {
-		type: 'member_invited',
-		title: 'Member Invited',
-		message: `"${input.actorEmail ?? ''}" invited "${email}" to the organization.`,
-		link: `/org/${ports.auth.orgId}/settings/general`
+		rateLimit: invitation.rateLimit
 	});
 
 	return {
-		inviteSuccess: true,
-		inviteEmail: email,
-		inviteMessage:
+		email,
+		status: 'invited',
+		message:
 			deliveryStatus === 'failed'
-				? 'Invitation created, but email delivery failed. You can resend it from Waiting on them.'
+				? 'Invited, but the email failed. Resend it from Waiting on them.'
 				: deliveryStatus === 'sent'
-					? 'Invitation created and email delivery was queued.'
-					: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
+					? 'Invited. The email is on its way.'
+					: 'Invited. Tell them to sign in to Troop to Task to see it.'
 	};
 }
 
@@ -1255,8 +1380,4 @@ async function requireIdentityPolicy(
 		details: policyDenialAuditDetails(decision),
 		message: 'You can only leave organizations for your own account'
 	});
-}
-
-function normalizeEmail(email: string): string {
-	return email.trim().toLowerCase();
 }

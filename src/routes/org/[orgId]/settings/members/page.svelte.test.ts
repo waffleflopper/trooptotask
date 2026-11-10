@@ -161,7 +161,7 @@ const invitationRow = (email: string) =>
 	within(screen.getByRole('region', { name: 'Waiting on them' }))
 		.getAllByRole('listitem')
 		.find((item) => within(item).queryByText(email)) as HTMLElement;
-const inviteStrip = () => screen.getByRole('region', { name: 'Invite a member' });
+const inviteStrip = () => screen.getByRole('region', { name: 'Invite members' });
 
 async function revokeInvitation(email: string) {
 	await fireEvent.click(screen.getByRole('button', { name: `Revoke invitation for ${email}` }));
@@ -399,6 +399,76 @@ describe('invite strip', () => {
 		expect(screen.getByRole('status').textContent?.trim()).toBe('Invitation created.');
 		expect((screen.getByLabelText('Invite') as HTMLInputElement).value).toBe('');
 	});
+
+	it('lists each address outcome after a submission and leaves only the addresses to fix in the box', async () => {
+		const view = renderPage();
+		const box = screen.getByLabelText('Invite') as HTMLTextAreaElement;
+		await fireEvent.input(box, { target: { value: 'a@example.com, bad\ntaken@example.com' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Send 3 invites' }));
+		expect(submitted[0].get('emails')).toBe('a@example.com, bad\ntaken@example.com');
+
+		await heldSubmissions[0](
+			frameworkOutcome(
+				{
+					type: 'success',
+					status: 200,
+					location: '/',
+					data: {
+						inviteSuccess: true,
+						inviteMessage: '1 invited. 1 already invited. 1 not invited.',
+						inviteResults: [
+							{ email: 'a@example.com', status: 'invited', message: 'Invited.' },
+							{ email: 'bad', status: 'failed', message: 'Not a valid email address.' },
+							{ email: 'taken@example.com', status: 'already-invited', message: 'Already invited.' }
+						]
+					}
+				},
+				{ applyForm: (form) => view.rerender({ form } as never) }
+			)
+		);
+
+		const results = await screen.findByRole('list', { name: 'Invitation results' });
+		expect(
+			within(results)
+				.getAllByRole('listitem')
+				.map((item) => item.textContent?.replace(/\s+/g, ' ').trim())
+		).toEqual(['a@example.com Invited.', 'bad Not a valid email address.', 'taken@example.com Already invited.']);
+		expect(box.value).toBe('bad');
+	});
+
+	it('holds a submission of more than fifty addresses in the form', async () => {
+		renderPage();
+		const addresses = Array.from({ length: 51 }, (_, index) => `p${index}@example.com`).join('\n');
+		await fireEvent.input(screen.getByLabelText('Invite'), { target: { value: addresses } });
+		const send = screen.getByRole('button', { name: 'Send 51 invites' });
+
+		await fireEvent.click(send);
+
+		expect(submitted).toHaveLength(0);
+		expect(send.getAttribute('aria-disabled')).toBe('true');
+		expect(within(inviteStrip()).getByRole('alert')).toBeTruthy();
+	});
+
+	it('shows what the chosen preset allows in each area, and drops the table for an admin invite', async () => {
+		renderPage();
+		const table = within(inviteStrip()).getByRole('table');
+		const rows = () =>
+			within(table)
+				.getAllByRole('row')
+				.slice(1)
+				.map((row) =>
+					within(row)
+						.getAllByRole('cell')
+						.map((cell) => cell.textContent?.trim())
+				);
+		expect(rows()[0]).toEqual(['Calendar', 'Yes', 'Everything']);
+
+		await pick('Preset', 'Viewer');
+		await waitFor(() => expect(rows()[0]).toEqual(['Calendar', 'Yes', 'No']));
+
+		await pick('Role', 'Admin');
+		await waitFor(() => expect(within(inviteStrip()).queryByRole('table')).toBeNull());
+	});
 });
 
 describe('waiting on them', () => {
@@ -634,7 +704,7 @@ describe('inviting again after an invitation expired', () => {
 
 		expect(heldSubmissions).toHaveLength(1);
 		const sent = submitted[0];
-		expect(sent.get('email')).toBe('lapsed@example.com');
+		expect(sent.get('emails')).toBe('lapsed@example.com');
 		expect(sent.get('membershipRole')).toBe('member');
 		expect(sent.get('memberPreset')).toBe('operator');
 		expect(sent.get('scopeSetKind')).toBe('groups');

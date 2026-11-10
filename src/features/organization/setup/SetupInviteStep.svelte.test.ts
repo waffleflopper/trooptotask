@@ -71,7 +71,7 @@ function renderStep(data: Promise<SetupTeamData>, unitFacts = facts()) {
 
 const emailField = () =>
 	waitFor(() => {
-		const field = document.querySelector<HTMLInputElement>('input[type="email"]');
+		const field = document.querySelector<HTMLTextAreaElement>('textarea[name="emails"]');
 		if (!field) throw new Error('The invitation form has not rendered.');
 		return field;
 	});
@@ -230,7 +230,7 @@ describe('Invite your team step', () => {
 		expect(await screen.findByRole('button', { name: /^Continue/ })).toBeEnabled();
 		await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
 		expect(sendButton()).toBeNull();
-		expect(document.querySelector('input[type="email"]')).toBeNull();
+		expect(document.querySelector('textarea[name="emails"]')).toBeNull();
 	});
 
 	it('reserves the form region while its data loads', () => {

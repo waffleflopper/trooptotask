@@ -15,9 +15,11 @@ with the result visible again after reload.
 - `status-remember`: the editor and quick-add start on the last status this person added in this Organization.
 - `status-save-close`: `Save and close` saves a status and closes the editor; `Add Status` saves and stays open.
 - `status-remove`: remove a status through the popover's inline confirmation.
-- `status-undo`: the `added —` and `Status removed` toasts carry `Undo` for 10 seconds. Undo deletes exactly the row the
-  add wrote or saves the removed row again under its own ID; an edit or a same-status overlap since is reported and left
-  alone. Updates offer no Undo.
+- `status-undo`: the `added —` and `Status removed` toasts carry `Undo` for 10 seconds. Undo of an add deletes exactly
+  the row the add wrote. Undo of a removal asks the server to put back what the removal deleted. The server keeps that
+  record for 30 seconds, for the member who removed it only. The row returns under its own ID with the values it had
+  when it was deleted, including any edit made after the remover's page loaded, and with its Tasking link. A same-status
+  overlap since, an ID that exists again, or a record past its window is reported and left alone. Updates offer no Undo.
 - `status-persist`: confirm a saved change through a second Calendar read.
 - `status-failed-add`: if operation permission disappears before save, no row or premature success appears and the
   member sees an error.
@@ -179,7 +181,13 @@ restore any temporarily narrowed grant.
     capture the `added —` toast with `Undo`, click `Undo` by name. Expect `Status removed again` and
     `$V rows availability_entries orgA note "$NOTE"` returning zero rows. **Remove:** save the status, open its bar,
     `Remove`, confirm, then click `Undo`. Expect `The removed status is back` and one row with the same ID, dates and
-    note (`set_for_tasking_id` is not restored). **Changed since:** add a status, open `Edit status` in the still-open
+    note. **Tasking coverage:** create a Tasking with execution dates and one pick, then add Leave for the pick over every
+    execution day from the Tasking's `Set availability…` (see
+    [Set availability](events-taskings.md#set-availability)). Its line reads
+    `Availability covers every execution day for everyone picked.` and `$V rows availability_entries orgA` shows
+    `set_for_tasking_id` equal to the Tasking. On the Calendar, remove that status and click `Undo`. Expect
+    `The removed status is back`, the same `set_for_tasking_id` in `rows`, and the Tasking's line reading
+    `Availability covers every execution day for everyone picked.` again after a reload. **Changed since:** add a status, open `Edit status` in the still-open
     form, change the note and `Update Status`, then click the older toast's `Undo`. Expect a warning
     `Nothing was undone` with `1 status changed since and was left as it is` (`feedback` records only success and error
     toasts, so capture the warning with a screenshot) and the edited row unchanged in `rows`. A remove whose same

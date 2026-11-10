@@ -25,7 +25,8 @@ with a confirmed action.
 As `orgOwner`, open `Settings` → `Members`. Under `Members`, the `Members` table lists everyone with no paging (the
 member cell is the row header); each row shows the member's Access lane (role or preset, plus an amber
 `+<n> area changes`) and Groups lane (amber `No groups` when empty). Choose `Manage` on a non-owner row; the owner's row
-shows a dash in its actions lane, read as `No actions`. The sheet is 560 px wide, titled with the member's email over a
+has no `Manage`: an owner sees a dash (`No actions`) there, and an admin sees `Add name` or `Edit name`, which opens a
+sheet with only the `Name` section (see Member name). The sheet is 560 px wide, titled with the member's email over a
 summary line (`Operator · HQ PLT · 2 area changes`) and a 2px rule. Each section is one row with its title on the left
 and its control on the right: `Role` and `Preset` as radio groups, `Area by area` with the sentence
 `Change an area only when the preset is too broad or too narrow for it.` and six lanes, `Calendar`, `Personnel`,
@@ -133,8 +134,16 @@ As `orgMember`, open `Account` → `Profile`, `Add name and rank`, save `CPT Mor
 that row reads `CPT Morgan Hale`, and `Manage` shows the account name with no `Edit`. From the signed-in `orgMember`
 page, submit `?/setMemberName` (`x-sveltekit-action: true`) for another member: expect a `failure` envelope with status
 403 and an unchanged `org_*` row. As `orgAdmin`, submit it with an Organization B membership ID: status 404
-`Membership not found` and B's row unchanged. Owner and other admin rows have no `Manage` for an admin, so they cannot be
-named from the page.
+`Membership not found` and B's row unchanged. A row whose access is locked, the owner's row and, for an admin viewer, other admin rows, has no `Manage` or row menu;
+it has `Add name` (or `Edit name` once named) instead. It opens a sheet (eyebrow `Member`, not `Manage access`) with only the `Name` section,
+the editor already open with focus on `Rank`, and one sentence saying why access is not there (`The owner's access
+changes only by transferring ownership.` or `Only the owner changes an admin's access.`). It has no `Role`, `Preset`,
+`Groups`, `Save changes` or `Remove`. A locked row whose name comes from the account shows no button.
+
+As `orgAdmin`, name the owner row and an admin row with no account name from their `Add name` buttons: `SGT Jordan Reyes`
+shows on the row after saving, `organization_memberships` has the `org_*` values and `audit_logs` has `member.name_changed`
+with the admin as actor. The sheet shows no access controls. At 390 px and 1280 px the page has no horizontal scroll.
+Closing the sheet returns focus to the row's button.
 
 ### Group tree scope
 

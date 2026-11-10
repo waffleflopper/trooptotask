@@ -174,8 +174,12 @@ POST_TREE_UPGRADE_MIGRATIONS = (
     "20261108130000_default_onboarding_template.sql",
     "20261108200000_organization_member_names.sql",
     "20261108210000_client_lifecycle_grants.sql",
-    "20261108210100_close_archived_person_work.sql",
+    "20261108220000_keep_closed_taskings_on_event_delete.sql",
+    "20261108220100_close_archived_person_work.sql",
 )
+# Rows that must exist before the post-tree migrations apply, and the contracts that read them afterwards.
+POST_TREE_FIXTURES = ("equipment_returned_bound_before.sql",)
+POST_TREE_CONTRACTS = ("equipment_returned_bound_after.sql",)
 POST_TREE_SQL_TESTS = (
     "audit_calendar_catalogs.sql",
     "audit_people.sql",
@@ -203,6 +207,8 @@ POST_TREE_SQL_TESTS = (
     "platform_error_reporting.sql",
     "client_lifecycle_privileges.sql",
     "client_lifecycle_authority.sql",
+    "calendar_event_deletion.sql",
+    "calendar_tasking_equipment_returns.sql",
     "archived_person_live_work.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
@@ -298,7 +304,6 @@ STAGED_UPGRADE_SQL_TESTS = (
     "audit_log_search.sql",
     "personnel_dod_id.sql",
     "personnel_dod_id_occupancy.sql",
-    "calendar_event_deletion.sql",
     "calendar_taskings.sql",
     "calendar_tasking_equipment_checklist.sql",
     "calendar_tasking_staffing.sql",
@@ -955,10 +960,15 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 raise ValueError('Nested Groups upgrade changed existing Group values or stored membership grants')
             print('Nested Groups upgrade retained every Group value and membership grant; all existing paths contain only their own id.', flush=True)
             execute(["supabase", "test", "db", "supabase/tests/nested_group_scope.sql"], workdir)
+            for name in POST_TREE_FIXTURES:
+                fixture = workdir / "supabase/migration-tests" / name
+                execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
             for name in POST_TREE_UPGRADE_MIGRATIONS:
                 shutil.copy2(repository / "supabase/migrations" / name,
                              workdir / "supabase/migrations" / name)
             execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
+            for name in POST_TREE_CONTRACTS:
+                execute(["supabase", "test", "db", f"supabase/migration-tests/{name}"], workdir)
             for name in POST_TREE_SQL_TESTS:
                 execute(["supabase", "test", "db", f"supabase/tests/{name}"], workdir)
             run(["node", str(repository / "scripts/ci/personnel_group_upgrade_provider_probe.mjs")],

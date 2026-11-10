@@ -7,6 +7,7 @@ import {
 	type EventActivity,
 	type EventDraft,
 	type EventDeletionMode,
+	type EventDeletionResult,
 	type EventHost,
 	type EventListWhen
 } from './eventModel';
@@ -24,7 +25,7 @@ export interface CalendarEventPersistence {
 	createEvent(id: string, draft: EventDraft): Promise<{ event: CalendarEvent; created: boolean }>;
 	updateEvent(id: string, draft: EventDraft): Promise<CalendarEvent | null>;
 	cancelEvent(id: string, reason: string | null): Promise<CalendarEvent>;
-	deleteEvent(id: string, taskings: EventDeletionMode): Promise<number>;
+	deleteEvent(id: string, taskings: EventDeletionMode): Promise<EventDeletionResult>;
 }
 
 const COLUMNS =
@@ -65,7 +66,7 @@ function toEvent(raw: unknown): CalendarEvent {
 	};
 }
 
-const deletionRowSchema = z.object({ taskings: z.number().int().nonnegative() });
+const deletionRowSchema = z.object({ deleted: z.number().int().nonnegative(), kept: z.number().int().nonnegative() });
 
 const datesSchema = z.object({ startsOn: z.string(), endsOn: z.string() });
 const coordinationSchema = z
@@ -201,7 +202,7 @@ export function createSupabaseCalendarEventPersistence(
 				})
 				.single();
 			if (error) return writeFailure(error);
-			return deletionRowSchema.parse(data).taskings;
+			return deletionRowSchema.parse(data);
 		},
 		async cancelEvent(id, reason) {
 			const { error } = await client.rpc('cancel_calendar_event', {

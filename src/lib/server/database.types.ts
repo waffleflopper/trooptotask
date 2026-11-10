@@ -4229,7 +4229,8 @@ export type Database = {
           p_taskings: string
         }
         Returns: {
-          taskings: number
+          deleted: number
+          kept: number
         }[]
       }
       delete_expired_personnel: {

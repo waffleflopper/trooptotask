@@ -10,7 +10,10 @@ import {
 	taskingDraftSchema,
 	taskingFiltersQuery,
 	DEFAULT_TASKING_FILTERS,
-	type Tasking
+	TASKING_TRANSITIONS,
+	type Tasking,
+	type TaskingAction,
+	type TaskingStatusKind
 } from './taskingModel';
 
 const TODAY = '2026-10-25';
@@ -92,6 +95,70 @@ describe('Tasking actions', () => {
 		expect(availableActions('blocked')).toEqual(['unblock', 'complete', 'cancel']);
 		expect(availableActions('completed')).toEqual(['reopen']);
 		expect(availableActions('cancelled')).toEqual([]);
+	});
+
+	// The same 30 cells are asserted against transition_calendar_tasking in
+	// supabase/tests/calendar_tasking_transitions.sql. Change one side and the other test fails.
+	// An outcome is the resulting status, 'unchanged' (the action's target is already the status) or 'refused'.
+	const MATRIX: Record<TaskingStatusKind, Record<TaskingAction, TaskingStatusKind | 'unchanged' | 'refused'>> = {
+		open: {
+			start: 'in_progress',
+			block: 'blocked',
+			unblock: 'refused',
+			complete: 'completed',
+			reopen: 'refused',
+			cancel: 'cancelled'
+		},
+		in_progress: {
+			start: 'unchanged',
+			block: 'blocked',
+			unblock: 'unchanged',
+			complete: 'completed',
+			reopen: 'unchanged',
+			cancel: 'cancelled'
+		},
+		blocked: {
+			start: 'refused',
+			block: 'unchanged',
+			unblock: 'in_progress',
+			complete: 'completed',
+			reopen: 'refused',
+			cancel: 'cancelled'
+		},
+		completed: {
+			start: 'refused',
+			block: 'refused',
+			unblock: 'refused',
+			complete: 'unchanged',
+			reopen: 'in_progress',
+			cancel: 'refused'
+		},
+		cancelled: {
+			start: 'refused',
+			block: 'refused',
+			unblock: 'refused',
+			complete: 'refused',
+			reopen: 'refused',
+			cancel: 'unchanged'
+		}
+	};
+
+	function outcome(status: TaskingStatusKind, action: TaskingAction) {
+		const { to } = TASKING_TRANSITIONS[action];
+		if (availableActions(status).includes(action)) return to;
+		return to === status ? 'unchanged' : 'refused';
+	}
+
+	const cells = Object.entries(MATRIX).flatMap(([status, row]) =>
+		Object.entries(row).map(([action, expected]) => [status, action, expected] as const)
+	);
+
+	it('covers every action from every status', () => {
+		expect(cells).toHaveLength(30);
+	});
+
+	it.each(cells)('%s + %s is %s', (status, action, expected) => {
+		expect(outcome(status as TaskingStatusKind, action as TaskingAction)).toBe(expected);
 	});
 });
 

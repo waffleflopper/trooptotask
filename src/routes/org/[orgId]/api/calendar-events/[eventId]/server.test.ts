@@ -52,10 +52,11 @@ function route(
 					);
 				}
 				if (url.pathname === '/rest/v1/rpc/delete_calendar_event' && request.method === 'POST') {
-					writes.push(await request.json());
+					const body = await request.json();
+					writes.push(body);
 					if (failure) return Response.json({ code: failure, message: 'RPC refused' }, { status: 400 });
 					exists = false;
-					return Response.json({ taskings: 2 });
+					return Response.json(body.p_taskings === 'delete' ? { deleted: 1, kept: 1 } : { deleted: 0, kept: 2 });
 				}
 				throw new Error('Unexpected provider request');
 			}
@@ -92,11 +93,14 @@ function route(
 }
 
 describe('DELETE /org/[orgId]/api/calendar-events/[eventId]', () => {
-	it.each(['standalone', 'delete'] as const)(
-		'answers with the %s mode and affected count after deleting',
-		async (taskings) => {
+	it.each([
+		['standalone', { deleted: 0, kept: 2 }],
+		['delete', { deleted: 1, kept: 1 }]
+	] as const)(
+		'answers with the database counts of deleted and kept Taskings after deleting in %s mode',
+		async (taskings, counts) => {
 			const request = route();
-			expect(await request.invoke({ taskings })).toEqual({ taskings, count: 2 });
+			expect(await request.invoke({ taskings })).toEqual(counts);
 			expect(request.exists()).toBe(false);
 			expect(request.writes).toEqual([{ p_organization_id: ORG, p_event_id: EVENT, p_taskings: taskings }]);
 		}

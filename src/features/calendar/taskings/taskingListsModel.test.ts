@@ -4,8 +4,10 @@ import {
 	equipmentDraftSchema,
 	equipmentReadiness,
 	equipmentState,
+	isReturned,
 	movedIds,
-	readinessOf
+	readinessOf,
+	returnedSchema
 } from './taskingListsModel';
 
 const item = (quantity: number, securedQuantity: number) => ({ quantity, securedQuantity });
@@ -63,6 +65,36 @@ describe('equipment input', () => {
 		expect(equipmentChangeSchema.safeParse({}).success).toBe(false);
 		expect(equipmentChangeSchema.safeParse({ quantity: 2, securedQuantity: 3 }).success).toBe(false);
 		expect(equipmentChangeSchema.safeParse({ securedQuantity: 3 }).success).toBe(true);
+	});
+
+	it('refuses a change that returns more than it states as secured', () => {
+		expect(equipmentChangeSchema.safeParse({ securedQuantity: 2, returnedQuantity: 3 }).success).toBe(false);
+		expect(equipmentChangeSchema.safeParse({ securedQuantity: 3, returnedQuantity: 3 }).success).toBe(true);
+		expect(equipmentChangeSchema.safeParse({ returnedQuantity: 9 }).success).toBe(true);
+	});
+});
+
+describe('returned counts', () => {
+	it.each([
+		[4, 0, true],
+		[4, 4, true],
+		[4, 5, false],
+		[4, -1, false],
+		[4, 1.5, false]
+	])('with 4 secured, a returned count of %s is %s', (secured, count, ok) => {
+		expect(returnedSchema(secured).safeParse(count).success).toBe(ok);
+	});
+
+	it('names how many were secured when the count is too high', () => {
+		expect(returnedSchema(1).safeParse(2).error?.issues[0]?.message).toBe('Only 1 was secured.');
+		expect(returnedSchema(4).safeParse(5).error?.issues[0]?.message).toBe('Only 4 were secured.');
+	});
+
+	it('counts an item as returned once everything secured is back, and never when nothing was secured to return', () => {
+		expect(isReturned({ securedQuantity: 4, returnedQuantity: 4 })).toBe(true);
+		expect(isReturned({ securedQuantity: 4, returnedQuantity: 3 })).toBe(false);
+		expect(isReturned({ securedQuantity: 4 })).toBe(false);
+		expect(isReturned({ securedQuantity: 0 })).toBe(false);
 	});
 });
 

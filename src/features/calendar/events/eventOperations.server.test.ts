@@ -60,7 +60,7 @@ function memoryEvents(): CalendarEventPersistence & {
 				if (taskings === 'delete') linked.delete(taskingId);
 				else linked.set(taskingId, null);
 			}
-			return ids.length;
+			return taskings === 'delete' ? { deleted: ids.length, kept: 0 } : { deleted: 0, kept: ids.length };
 		},
 		async cancelEvent(id, reason) {
 			const event = { ...stored.get(id)!, cancellation: { at: '2026-10-25T12:00:00Z', by: ACTOR, reason } };
@@ -107,7 +107,9 @@ describe('Event operations', () => {
 		calendarEvents.linked.set('tasking-b', EVENT);
 		calendarEvents.linked.set('unrelated', null);
 
-		expect(await deleteEvent(ctx, EVENT, { taskings })).toEqual({ taskings, count: 2 });
+		expect(await deleteEvent(ctx, EVENT, { taskings })).toEqual(
+			taskings === 'delete' ? { deleted: 2, kept: 0 } : { deleted: 0, kept: 2 }
+		);
 		expect(calendarEvents.stored.get(EVENT)).toBeUndefined();
 		expect([...calendarEvents.linked]).toEqual(
 			taskings === 'standalone'

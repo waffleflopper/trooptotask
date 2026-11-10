@@ -139,7 +139,9 @@
 				onSave={ctx.handleSaveTraining.bind(ctx)}
 				onSaveBatch={ctx.handleSaveTrainingBatch.bind(ctx)}
 				onRemove={ctx.handleRemoveTraining.bind(ctx)}
-				onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, person.id, exempt)}
+				onToggleExempt={async (typeId, exempt) => {
+					await ctx.handleToggleExempt(typeId, person.id, exempt);
+				}}
 				onClose={() => ctx.closeRecord()}
 			/>
 		{/snippet}

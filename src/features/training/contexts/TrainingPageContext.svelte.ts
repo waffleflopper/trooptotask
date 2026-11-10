@@ -478,17 +478,20 @@ export class TrainingPageContext {
 		return true;
 	}
 
-	async handleToggleExempt(typeId: string, personId: string, exempt: boolean): Promise<void> {
+	/** Resolves false when the change was not saved; the error toast is already shown. */
+	async handleToggleExempt(typeId: string, personId: string, exempt: boolean): Promise<boolean> {
 		const type = trainingTypesStore.items.find((t) => t.id === typeId);
-		if (!type) return;
+		if (!type) return false;
 		const currentIds = type.exemptPersonnelIds;
 		const updatedIds = exempt ? [...currentIds, personId] : currentIds.filter((id) => id !== personId);
 		try {
 			await trainingTypesStore.updateOrThrow(typeId, { exemptPersonnelIds: updatedIds });
+			return true;
 		} catch (error) {
-			if (!this.#isCurrentWorkspace()) return;
+			if (!this.#isCurrentWorkspace()) return false;
 			const fallback = exempt ? 'Failed to mark exempt. Try again.' : 'Failed to remove exemption. Try again.';
 			toastStore.error(rejectedRequestMessage(error, fallback));
+			return false;
 		}
 	}
 

@@ -34,8 +34,8 @@
 		onDirtyChange?: (dirty: boolean) => void;
 		/** Context shown above the date field, ruled off from it. */
 		header?: Snippet;
-		/** Anything that belongs under Save. */
-		footer?: Snippet;
+		/** Anything that belongs under Save; given true while this form's save is in flight. */
+		footer?: Snippet<[boolean]>;
 	}
 
 	let {
@@ -206,5 +206,5 @@
 			<CornerDownLeftIcon aria-hidden="true" />
 		</Button>
 	</div>
-	{@render footer?.()}
+	{@render footer?.(saving)}
 </form>

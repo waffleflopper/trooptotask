@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { PersonnelTraining, TrainingRecordSave, TrainingType } from '$features/training/training.types';
@@ -19,8 +20,8 @@
 		isCurrent: () => boolean;
 		onSave: (data: TrainingRecordSave) => void | Promise<void>;
 		onOpenRecord?: (person: Personnel) => void;
-		/** Offers Mark exempt, or Remove exemption on an exempt cell. */
-		onExempt?: (exempt: boolean) => Promise<void>;
+		/** Offers Mark exempt, or Remove exemption on an exempt cell. Resolves false when the change was not saved. */
+		onExempt?: (exempt: boolean) => Promise<boolean>;
 		onClose: () => void;
 	}
 
@@ -28,6 +29,10 @@
 		$props();
 
 	let exempting = $state(false);
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+	});
 
 	function saved(isUpdate: boolean) {
 		toast.success(isUpdate ? 'Training record updated' : 'Training record saved');
@@ -36,15 +41,12 @@
 
 	async function setExempt(exempt: boolean) {
 		if (!onExempt || exempting) return;
+		const startOrgId = orgId;
 		exempting = true;
-		try {
-			await onExempt(exempt);
-		} finally {
-			if (isCurrent()) {
-				exempting = false;
-				onClose();
-			}
-		}
+		const ok = await onExempt(exempt);
+		if (disposed || orgId !== startOrgId || !isCurrent()) return;
+		exempting = false;
+		if (ok) onClose();
 	}
 
 	const statusLine = $derived(getStatusLine(statusInfo));
@@ -57,7 +59,7 @@
 	};
 </script>
 
-<TrainingRecordForm {person} {type} {training} {orgId} {today} {isCurrent} {onSave} onSaved={saved}>
+<TrainingRecordForm {person} {type} {training} {orgId} {today} {isCurrent} busy={exempting} {onSave} onSaved={saved}>
 	{#snippet header()}
 		<div class="grid grid-cols-1 gap-1">
 			<div class="flex items-baseline justify-between gap-3 font-mono text-[0.6875rem] tracking-[0.08em] uppercase">
@@ -71,7 +73,7 @@
 			<p class={['text-xs', toneClass[statusLine.tone]]}>{statusLine.text}</p>
 		</div>
 	{/snippet}
-	{#snippet footer()}
+	{#snippet footer(saving: boolean)}
 		{#if onOpenRecord || onExempt}
 			<div class="flex items-center justify-between gap-2 border-t border-border pt-2">
 				{#if onOpenRecord}
@@ -83,7 +85,7 @@
 						variant="ghost"
 						size="xs"
 						class="ml-auto"
-						disabled={exempting}
+						disabled={exempting || saving}
 						onclick={() => void setExempt(!isExempt)}
 					>
 						{isExempt ? 'Remove exemption' : 'Mark exempt'}

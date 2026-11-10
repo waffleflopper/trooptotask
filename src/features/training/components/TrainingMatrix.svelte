@@ -52,7 +52,7 @@
 		/** Makes cells open the recording popover. */
 		onRecord?: (data: TrainingRecordSave) => void | Promise<void>;
 		/** Offers Mark exempt and Remove exemption in the popover, for types that allow exemptions. */
-		onExempt?: (typeId: string, personId: string, exempt: boolean) => Promise<void>;
+		onExempt?: (typeId: string, personId: string, exempt: boolean) => Promise<boolean>;
 		/** Adds a Record class button to each column header. */
 		onRecordClass?: (type: TrainingType) => void;
 		/** Opens the person's record; `opener` is where focus goes back to when it closes. */

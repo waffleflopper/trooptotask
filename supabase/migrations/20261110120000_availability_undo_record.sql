@@ -24,6 +24,20 @@ CREATE INDEX availability_undo_expires_idx ON calendar_private.availability_undo
 ALTER TABLE calendar_private.availability_undo ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE calendar_private.availability_undo FROM PUBLIC, anon, authenticated, service_role;
 
+-- Stands in for the foreign key on personnel_id, so a deleted Person keeps no removed status.
+CREATE FUNCTION calendar_private.forget_deleted_personnel_undo() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  DELETE FROM calendar_private.availability_undo u USING deleted_personnel d WHERE u.personnel_id = d.id;
+  RETURN NULL;
+END;
+$$;
+ALTER FUNCTION calendar_private.forget_deleted_personnel_undo() OWNER TO postgres;
+REVOKE ALL ON FUNCTION calendar_private.forget_deleted_personnel_undo() FROM PUBLIC, anon, authenticated, service_role;
+CREATE TRIGGER forget_deleted_personnel_undo AFTER DELETE ON public.personnel
+REFERENCING OLD TABLE AS deleted_personnel
+FOR EACH STATEMENT EXECUTE FUNCTION calendar_private.forget_deleted_personnel_undo();
+
 -- Row level security no longer applies to this function, so the can_edit_availability_record filter below is the
 -- authorization the DELETE policy gave it before.
 CREATE OR REPLACE FUNCTION public.delete_availability_entries(

@@ -2093,6 +2093,23 @@ $$;
 ALTER FUNCTION calendar_private.flag_picks_of_changed_tasking() OWNER TO postgres;
 
 --
+-- Name: forget_deleted_personnel_undo(); Type: FUNCTION; Schema: calendar_private; Owner: postgres
+--
+
+CREATE FUNCTION calendar_private.forget_deleted_personnel_undo() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  DELETE FROM calendar_private.availability_undo u USING deleted_personnel d WHERE u.personnel_id = d.id;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION calendar_private.forget_deleted_personnel_undo() OWNER TO postgres;
+
+--
 -- Name: guard_roster_forms(); Type: FUNCTION; Schema: calendar_private; Owner: postgres
 --
 
@@ -18617,6 +18634,13 @@ CREATE TRIGGER flag_calendar_tasking_picks_on_change AFTER UPDATE OF responsible
 
 
 --
+-- Name: personnel forget_deleted_personnel_undo; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER forget_deleted_personnel_undo AFTER DELETE ON public.personnel REFERENCING OLD TABLE AS deleted_personnel FOR EACH STATEMENT EXECUTE FUNCTION calendar_private.forget_deleted_personnel_undo();
+
+
+--
 -- Name: groups groups_cascade_path; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -22455,6 +22479,13 @@ REVOKE ALL ON FUNCTION calendar_private.flag_picks_of_changed_person() FROM PUBL
 --
 
 REVOKE ALL ON FUNCTION calendar_private.flag_picks_of_changed_tasking() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION forget_deleted_personnel_undo(); Type: ACL; Schema: calendar_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION calendar_private.forget_deleted_personnel_undo() FROM PUBLIC;
 
 
 --

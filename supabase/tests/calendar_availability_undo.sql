@@ -364,5 +364,18 @@ SELECT throws_ok($$ SELECT id FROM public.availability_entries WHERE set_for_tas
   'a member still cannot filter on the Tasking link');
 RESET ROLE;
 
+-- (m) A Person deleted for good keeps no removed status.
+INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug) VALUES
+  (pg_temp.id('504'), pg_temp.id('101'), pg_temp.id('201'), 'PVT', 'Dee', 'Dunn', 'undo-504');
+INSERT INTO public.availability_entries (id, organization_id, personnel_id, status_type_id, start_date, end_date, note)
+VALUES (pg_temp.id('717'), pg_temp.id('101'), pg_temp.id('504'), pg_temp.id('601'), '2032-01-01', '2032-01-02',
+  'private note');
+SET LOCAL ROLE authenticated;
+SELECT is(pg_temp.remove(ARRAY['717']), 1, 'the operator removes a status of a Person about to be deleted');
+RESET ROLE;
+SELECT is(pg_temp.undo_rows('717'), 1::bigint, 'the removal kept an undo record');
+DELETE FROM public.personnel WHERE id = pg_temp.id('504');
+SELECT is(pg_temp.undo_rows('717'), 0::bigint, 'deleting the Person deletes the undo record with it');
+
 SELECT * FROM finish();
 ROLLBACK;

@@ -16,11 +16,11 @@ export function parseInviteAddresses(text: string): string[] {
 		.split(/[,;\n]/)
 		.flatMap((entry) => {
 			const pieces = entry.split(/(<[^<>]*>)/);
-			const named = pieces.length > 1;
 			return pieces.flatMap((piece, index) => {
 				if (index % 2 === 1) return [piece.slice(1, -1)];
 				const words = piece.split(/[\s<>]+/);
-				return named ? words.filter((word) => word.includes('@')) : words;
+				// Text right before a bracketed address is its display name.
+				return index < pieces.length - 1 ? words.filter((word) => word.includes('@')) : words;
 			});
 		});
 	return [...new Set(addresses.flatMap((part) => (part.trim() ? [part.trim().toLowerCase()] : [])))];

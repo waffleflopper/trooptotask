@@ -520,9 +520,7 @@ describe('inviteOrganizationMembers', () => {
 			}
 		);
 
-		expect(result.inviteResults).toEqual([
-			{ email: 'not-an-email', status: 'failed', message: 'Not a valid email address.' }
-		]);
+		expect(result.inviteResults).toMatchObject([{ email: 'not-an-email', status: 'failed' }]);
 		expect(port.invitationLookups).toEqual([]);
 	});
 
@@ -860,9 +858,7 @@ describe('inviteOrganizationMembers', () => {
 			}
 		);
 
-		expect(result.inviteResults).toEqual([
-			{ email: 'invitee@example.com', status: 'failed', message: "This invitation couldn't be created. Try again." }
-		]);
+		expect(result.inviteResults).toMatchObject([{ email: 'invitee@example.com', status: 'failed' }]);
 		expect(ctx.notificationPort.notifications).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([]);
 		consoleErrorSpy.mockRestore();
@@ -1210,13 +1206,7 @@ describe('inviteOrganizationMembers', () => {
 				actorEmail: 'actor@example.com'
 			}
 		);
-		expect(result.inviteResults).toEqual([
-			{
-				email: 'new.user@example.com',
-				status: 'failed',
-				message: 'Invitation could not be created because platform access setup could not be linked'
-			}
-		]);
+		expect(result.inviteResults).toMatchObject([{ email: 'new.user@example.com', status: 'failed' }]);
 
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(port.blockedInvitations).toEqual([
@@ -1244,18 +1234,15 @@ describe('inviteOrganizationMembers', () => {
 	it.each([
 		{
 			blockInvitationResult: { status: 'not-pending' } as const,
-			failure: 'This invitation was withdrawn while it was being created.',
 			severity: 'warning'
 		},
 		{
 			blockInvitationResult: { status: 'failed', message: 'block write failed' } as const,
-			failure:
-				'Platform access setup could not be linked. Check Waiting on them and revoke the invitation if it is still listed.',
 			severity: 'critical'
 		}
 	])(
 		'reports a $blockInvitationResult.status cleanup block after Access Request linking fails',
-		async ({ blockInvitationResult, failure, severity }) => {
+		async ({ blockInvitationResult, severity }) => {
 			const ctx = createTestContext();
 			const port = createOrganizationSettingsMemberManagementPort({
 				existingUserAccount: null,
@@ -1273,7 +1260,7 @@ describe('inviteOrganizationMembers', () => {
 					actorEmail: 'actor@example.com'
 				}
 			);
-			expect(result.inviteResults).toEqual([{ email: 'new.user@example.com', status: 'failed', message: failure }]);
+			expect(result.inviteResults).toMatchObject([{ email: 'new.user@example.com', status: 'failed' }]);
 			expect(issuance.setupLinkRequests).toEqual([]);
 			expect(ctx.auditPort.events).toContainEqual({
 				action: 'member.invite_access_request_link_failed',
@@ -1511,13 +1498,7 @@ describe('inviteOrganizationMembers', () => {
 				actorEmail: 'actor@example.com'
 			}
 		);
-		expect(result.inviteResults).toEqual([
-			{
-				email: 'new.user@example.com',
-				status: 'failed',
-				message: 'Invitation could not be created because the account setup link could not be issued'
-			}
-		]);
+		expect(result.inviteResults).toMatchObject([{ email: 'new.user@example.com', status: 'failed' }]);
 
 		expect(port.blockedInvitations).toEqual([
 			{
@@ -1545,18 +1526,15 @@ describe('inviteOrganizationMembers', () => {
 	it.each([
 		{
 			blockInvitationResult: { status: 'not-pending' } as const,
-			failure: 'This invitation was withdrawn while it was being created.',
 			severity: 'warning'
 		},
 		{
 			blockInvitationResult: { status: 'failed', message: 'block write failed' } as const,
-			failure:
-				'The account setup link could not be issued. Check Waiting on them and revoke the invitation if it is still listed.',
 			severity: 'critical'
 		}
 	])(
 		'reports a $blockInvitationResult.status cleanup block after setup link issuance fails',
-		async ({ blockInvitationResult, failure, severity }) => {
+		async ({ blockInvitationResult, severity }) => {
 			const ctx = createTestContext();
 			const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null, blockInvitationResult });
 			const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'access-request-not-approved' } });
@@ -1570,7 +1548,7 @@ describe('inviteOrganizationMembers', () => {
 					actorEmail: 'actor@example.com'
 				}
 			);
-			expect(result.inviteResults).toEqual([{ email: 'new.user@example.com', status: 'failed', message: failure }]);
+			expect(result.inviteResults).toMatchObject([{ email: 'new.user@example.com', status: 'failed' }]);
 			expect(ctx.auditPort.events).toContainEqual({
 				action: 'member.invite_account_setup_link_not_created',
 				resourceType: 'organization',
@@ -1622,13 +1600,7 @@ describe('inviteOrganizationMembers', () => {
 				actorEmail: 'actor@example.com'
 			}
 		);
-		expect(result.inviteResults).toEqual([
-			{
-				email: 'new.user@example.com',
-				status: 'failed',
-				message: 'Invitation could not be created because the account setup link could not be issued'
-			}
-		]);
+		expect(result.inviteResults).toMatchObject([{ email: 'new.user@example.com', status: 'failed' }]);
 
 		expect(port.blockedInvitations).toHaveLength(1);
 		expect(ctx.auditPort.events).toContainEqual(

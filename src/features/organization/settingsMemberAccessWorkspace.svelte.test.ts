@@ -271,21 +271,21 @@ describe('settings member access workspace', () => {
 		const workspace = makeWorkspace({ offLanes: ['ratingScheme', 'onboarding'] });
 		workspace.invite.preset = 'operator';
 
-		expect(workspace.invitePresetAccess).toEqual([
-			{ id: 'calendar', label: 'Calendar', view: true, change: 'Day to day' },
-			{ id: 'personnel', label: 'Personnel', view: true, change: 'Day to day' },
-			{ id: 'training', label: 'Training', view: true, change: 'Day to day' },
-			{ id: 'criticalTasks', label: 'Critical tasks', view: true, change: 'Day to day' }
+		expect(workspace.invitePresetAccess.map(({ id, level }) => ({ id, level }))).toEqual([
+			{ id: 'calendar', level: 'operate' },
+			{ id: 'personnel', level: 'operate' },
+			{ id: 'training', level: 'operate' },
+			{ id: 'criticalTasks', level: 'operate' }
 		]);
 
 		workspace.invite.preset = 'viewer';
-		expect(workspace.invitePresetAccess.map(({ change }) => change)).toEqual(['No', 'No', 'No', 'No']);
+		expect(workspace.invitePresetAccess.map(({ level }) => level)).toEqual(['view', 'view', 'view', 'view']);
 		workspace.invite.preset = 'editor';
-		expect(workspace.invitePresetAccess.map(({ change }) => change)).toEqual([
-			'Everything',
-			'Everything',
-			'Everything',
-			'Everything'
+		expect(workspace.invitePresetAccess.map(({ level }) => level)).toEqual([
+			'configure',
+			'configure',
+			'configure',
+			'configure'
 		]);
 	});
 });

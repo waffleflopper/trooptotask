@@ -41,19 +41,19 @@ export const SETTINGS_CAPABILITY_OPTIONS: Array<{ value: CapabilityLevel; label:
 );
 
 /** What a level lets someone change in an area, in the words the invite form's preset table uses. */
-const CHANGE_LABELS: Record<CapabilityLevel, string> = {
+export const CHANGE_LABELS: Record<CapabilityLevel, string> = {
 	none: 'No',
 	view: 'No',
 	operate: 'Day to day',
 	configure: 'Everything'
 };
 
-export type PresetAreaAccess = { id: DurableFeatureLane; label: string; view: boolean; change: string };
+export type PresetAreaAccess = { id: DurableFeatureLane; label: string; level: CapabilityLevel };
 
-/** Each area the unit has turned on, with what the preset lets someone view and change there. */
+/** Each area the unit has turned on, with the level the preset grants there. */
 export function presetAreaAccess(preset: EditablePreset, offLanes: readonly DurableFeatureLane[]): PresetAreaAccess[] {
 	const levels = TARGET_MEMBER_PRESET_CAPABILITIES[preset];
 	return SETTINGS_ACCESS_LANES.flatMap(({ id, label }) =>
-		offLanes.includes(id) ? [] : [{ id, label, view: levels[id] !== 'none', change: CHANGE_LABELS[levels[id]] }]
+		offLanes.includes(id) ? [] : [{ id, label, level: levels[id] }]
 	);
 }

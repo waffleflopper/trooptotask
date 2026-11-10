@@ -9,6 +9,7 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { MAX_INVITES_PER_SUBMISSION, parseInviteAddresses, type InviteAddressResult } from './inviteAddresses';
 	import {
+		CHANGE_LABELS,
 		SETTINGS_ACCESS_OPTIONS,
 		SETTINGS_GOVERNANCE_ROLE_OPTIONS,
 		type EditableMembershipRole,
@@ -229,8 +230,9 @@
 						{#each workspace.invitePresetAccess as area (area.id)}
 							<Table.Row>
 								<Table.Cell class="py-1">{area.label}</Table.Cell>
-								<Table.Cell class="py-1">{area.view ? 'Yes' : 'No'}</Table.Cell>
-								<Table.Cell class="py-1 {area.change === 'No' ? 'text-muted-foreground' : ''}">{area.change}</Table.Cell
+								<Table.Cell class="py-1">{area.level === 'none' ? 'No' : 'Yes'}</Table.Cell>
+								<Table.Cell class="py-1 {area.level === 'none' || area.level === 'view' ? 'text-muted-foreground' : ''}"
+									>{CHANGE_LABELS[area.level]}</Table.Cell
 								>
 							</Table.Row>
 						{/each}

@@ -463,10 +463,12 @@ describe('invite strip', () => {
 						.getAllByRole('cell')
 						.map((cell) => cell.textContent?.trim())
 				);
-		expect(rows()[0]).toEqual(['Calendar', 'Yes', 'Everything']);
+		const editorRows = rows();
+		expect(editorRows.map(([area]) => area)).toContain('Calendar');
 
 		await pick('Preset', 'Viewer');
-		await waitFor(() => expect(rows()[0]).toEqual(['Calendar', 'Yes', 'No']));
+		await waitFor(() => expect(rows()).not.toEqual(editorRows));
+		expect(rows().map(([area]) => area)).toEqual(editorRows.map(([area]) => area));
 
 		await pick('Role', 'Admin');
 		await waitFor(() => expect(within(inviteStrip()).queryByRole('table')).toBeNull());

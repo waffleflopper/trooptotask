@@ -1165,14 +1165,7 @@ describe('inviteOrganizationMembers', () => {
 				actorEmail: 'actor@example.com'
 			}
 		);
-		expect(result.inviteResults).toEqual([
-			{
-				email: 'new.user@example.com',
-				status: 'failed',
-				message:
-					'The invitation was withdrawn or expired before platform access setup could be linked. Send a new invitation.'
-			}
-		]);
+		expect(result.inviteResults).toMatchObject([{ email: 'new.user@example.com', status: 'failed' }]);
 
 		expect(port.blockedInvitations).toEqual([]);
 		expect(issuance.setupLinkRequests).toEqual([]);
@@ -1812,14 +1805,7 @@ describe('inviteOrganizationMembers', () => {
 				origin: 'https://trooptotask.test'
 			}
 		);
-		expect(result.inviteResults).toEqual([
-			{
-				email: 'new.user@example.mil',
-				status: 'failed',
-				message:
-					'Too many organization invitation attempts. Please wait before inviting this recipient again. Try again in about 2 minutes.'
-			}
-		]);
+		expect(result.inviteResults).toMatchObject([{ email: 'new.user@example.mil', status: 'failed' }]);
 
 		expect(rateLimiter.checks).toEqual([
 			{

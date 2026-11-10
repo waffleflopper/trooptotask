@@ -85,7 +85,12 @@ BEGIN
     RAISE EXCEPTION 'Invalid Calendar availability removal' USING ERRCODE = '22023';
   END IF;
 
-  DELETE FROM calendar_private.availability_undo WHERE expires_at <= pg_catalog.now();
+  -- A purge skips a record another request holds, so two purges never wait on each other's rows.
+  DELETE FROM calendar_private.availability_undo u
+  WHERE (u.actor_id, u.entry_id) IN (
+    SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
+    WHERE x.expires_at <= pg_catalog.now()
+    FOR UPDATE OF x SKIP LOCKED);
 
   WITH deleted AS (
     DELETE FROM public.availability_entries e
@@ -167,6 +172,22 @@ BEGIN
     RAISE EXCEPTION 'Invalid Calendar availability restore' USING ERRCODE = '22023';
   END IF;
 
+  -- The purge skips a record another request holds, so two purges never wait on each other's rows.
+  DELETE FROM calendar_private.availability_undo u
+  WHERE (u.actor_id, u.entry_id) IN (
+    SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
+    WHERE x.expires_at <= pg_catalog.now()
+    FOR UPDATE OF x SKIP LOCKED);
+
+  -- The caller's records are locked before anything else, as a removal does, so waiting on a purge of one holds no
+  -- other lock. The Tasking check reads them, so they stay until the insert is done.
+  UPDATE calendar_private.availability_undo u SET restoring = true
+  WHERE (u.actor_id, u.entry_id) IN (
+    SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
+    WHERE x.actor_id = auth.uid() AND x.organization_id = p_organization_id AND x.entry_id = ANY(p_ids)
+    ORDER BY x.entry_id
+    FOR UPDATE OF x);
+
   -- A Tasking delete locks the Tasking before it unlinks entries, so its linked Taskings are locked in that order too.
   -- One deleted first comes back unlinked instead of failing the batch on its foreign key.
   PERFORM 1 FROM public.calendar_taskings t
@@ -176,7 +197,7 @@ BEGIN
   ORDER BY t.id
   FOR KEY SHARE;
 
-  -- Holds off a delete of the Person, which would otherwise wait on records this call locks below.
+  -- A Person deleted meanwhile would fail the batch's insert on its foreign key, so the delete waits instead.
   PERFORM 1 FROM public.personnel p
   WHERE p.organization_id = p_organization_id AND p.id = ANY(p_personnel_ids)
   ORDER BY p.id
@@ -194,11 +215,6 @@ BEGIN
   ORDER BY a.id
   FOR SHARE;
 
-  DELETE FROM calendar_private.availability_undo WHERE expires_at <= pg_catalog.now();
-
-  -- The Tasking check reads the caller's undo records, so they stay until the insert is done.
-  UPDATE calendar_private.availability_undo u SET restoring = true
-  WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids);
 
   RETURN QUERY
   WITH claim AS (

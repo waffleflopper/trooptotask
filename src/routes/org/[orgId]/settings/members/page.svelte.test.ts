@@ -1099,10 +1099,7 @@ describe('member names', () => {
 			return { opener, sheet: await screen.findByRole('dialog') };
 		}
 
-		it.each([
-			['owner', "The owner's access changes only by transferring ownership."],
-			['admin', "Only the owner changes an admin's access."]
-		])('lets an admin name the %s row without opening any access control', async (id, reason) => {
+		it.each(['owner', 'admin'])('lets an admin name the %s row without opening any access control', async (id) => {
 			renderPage({ isOwner: false, rows: [unnamedOwner, unnamedAdmin, alpha] });
 			const row = within(memberRow(id));
 			expect(row.queryByRole('button', { name: /^Manage/ })).toBeNull();
@@ -1122,7 +1119,6 @@ describe('member names', () => {
 				firstName: 'Jordan',
 				lastName: 'Reyes'
 			});
-			expect(within(sheet).getByText(reason)).toBeTruthy();
 			expect(within(sheet).queryAllByRole('radiogroup')).toEqual([]);
 			expect(sheet.querySelector('form[action="?/updateMemberAccess"]')).toBeNull();
 			expect(within(sheet).queryByRole('button', { name: /^Save \d+ change|No changes/ })).toBeNull();

@@ -92,6 +92,13 @@ BEGIN
     WHERE x.expires_at <= pg_catalog.now()
     FOR UPDATE OF x SKIP LOCKED);
 
+  -- A restore share-locks a Person's entries in id order, so the entries are locked in that order before the delete.
+  PERFORM 1 FROM public.availability_entries e
+  WHERE e.organization_id = p_organization_id AND e.id = ANY(p_ids)
+    AND public.can_edit_availability_record(e.organization_id, e.personnel_id)
+  ORDER BY e.id
+  FOR UPDATE;
+
   WITH deleted AS (
     DELETE FROM public.availability_entries e
     WHERE e.organization_id = p_organization_id AND e.id = ANY(p_ids)

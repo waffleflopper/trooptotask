@@ -25,7 +25,7 @@
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import MemberAccessSheet from './MemberAccessSheet.svelte';
 	import MemberInviteForm from './MemberInviteForm.svelte';
-	import { addressesToRetry } from './inviteAddresses';
+	import { addressesToRetry, type InviteAddressResult } from './inviteAddresses';
 	import type {
 		MembersSettingsActionData,
 		MembersSettingsData,
@@ -185,12 +185,14 @@
 			// The workspace owns the invite draft and keeps the addresses to retry.
 			reset: false,
 			settled: (error) => {
-				invitationRequestError = error;
+				const results: InviteAddressResult[] =
+					result.type === 'success' && Array.isArray(result.data?.inviteResults) ? result.data.inviteResults : [];
+				// A pending invitation row sends one address, so a refusal belongs on that row.
+				const refused = owner === NEW_INVITATION ? undefined : results.find((entry) => entry.status !== 'invited');
+				invitationRequestError = error ?? refused?.message ?? null;
 				invitationPending = false;
 				if (!error && owner === NEW_INVITATION && result.type === 'success') {
-					workspace.resetInvite(
-						addressesToRetry(Array.isArray(result.data?.inviteResults) ? result.data.inviteResults : [])
-					);
+					workspace.resetInvite(addressesToRetry(results));
 					confirmedDraft = JSON.stringify(workspace.invite);
 				}
 			},
@@ -207,6 +209,7 @@
 			active &&
 			owner !== NEW_INVITATION &&
 			result.type === 'success' &&
+			!invitationRequestError &&
 			typeof result.data?.inviteMessage === 'string'
 		)
 			toastStore.success(result.data.inviteMessage);

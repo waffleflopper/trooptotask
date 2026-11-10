@@ -731,13 +731,23 @@ describe('inviting again after an invitation expired', () => {
 
 		await heldSubmissions[0](
 			frameworkOutcome(
-				{ type: 'failure', status: 400, location: '/', data: { inviteError: 'Already a member' } },
+				{
+					type: 'success',
+					status: 200,
+					location: '/',
+					data: {
+						inviteSuccess: true,
+						inviteMessage: 'Already a member.',
+						inviteResults: [{ email: 'lapsed@example.com', status: 'failed', message: 'Already a member.' }]
+					}
+				},
 				{ applyForm: (form) => view.rerender({ form } as never) }
 			)
 		);
 
 		const row = screen.getByText('lapsed@example.com').closest('li') as HTMLElement;
-		await waitFor(() => expect(within(row).getByRole('alert').textContent?.trim()).toBe('Already a member'));
+		await waitFor(() => expect(within(row).getByRole('alert').textContent?.trim()).toBe('Already a member.'));
+		expect(toasts).toEqual([]);
 	});
 
 	it('is not offered to a viewer who cannot invite', async () => {

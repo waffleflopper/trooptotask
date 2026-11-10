@@ -174,7 +174,8 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
 
 13. **Tasking from an Event.** As the operator, create an Event with `Create and add tasking`. The page moves to the
     Event's detail and the `Add tasking` sheet opens with that Event as a filled row and `Organization level` chosen;
-    the URL has no `addTasking` left, and Back leaves the page with the sheet closed. Press `Add tasking` with nothing
+    the URL has no `addTasking` left, and Back leaves the page with the sheet closed. Forward returns to the Event with
+    the sheet still closed, and so do a reload and a second Back and Forward. Press `Add tasking` with nothing
     else filled: `Required outcome` and `Suspense` are invalid and no request leaves. Fill the outcome, choose `A Group`
     and `Alpha` (the hint names Alpha's leaders), a suspense three days ahead, `People committed` over the Event's dates
     with report time 0600 (the field reads `· report 0600`), equipment `M997 FLA ambulance` quantity 1 and
@@ -439,7 +440,7 @@ all linked to it; add a standalone Bravo Tasking.
 25. **Date review.** On the Event press `Edit`, move the dates to 17 – 19 Nov and save. `Review taskings` lists the
     Alpha, Bravo and Organization Taskings with notes, and the Event's rows regroup. Open the Alpha link: its edit sheet
     opens on arrival and the URL has no `edit` left. Back returns to the Event with the list still there, without
-    reopening the edit. Edit only the title of the Event and save: no review list appears.
+    reopening the edit, and Forward returns to the Tasking with the edit still closed. Edit only the title of the Event and save: no review list appears.
 26. **Cancel review.** Press `Cancel event`. The dialog lists the three active Taskings as links; complete one first and
     it drops off the list. Confirm. The detail shows the cancellation banner and the notice that the Taskings stay open,
     with every Tasking still `Open`, `In progress` or `Blocked`.

@@ -236,6 +236,12 @@ and fill them in the duty planner."`). The crumb is `button "HELP · CALENDAR"` 
     - No change: press Help and `Close help` without switching a tab, on Settings and on Bulk status with Able ticked on
       `Add`. The URL is `/calendar/settings` or `/calendar/bulk` with no `tab` or `section`, the Add selection stays
       `1 of 3 selected`, and one `back` leaves the page as before.
+18. **Report change keeps Help.** As `trainingConfigure` on `/training/reports`, at 1280x800 and at 390x844, press Help
+    and choose `30 days`. The URL is `?help=&horizon=30` and the drawer stays open. Reload: the drawer is still open and
+    `30 days` is pressed. Choose `90 days`: the URL is back to `?help=`. At 1280 the first click on a horizon only
+    closes an open filter list, so click again. At 390 the drawer covers the page and the horizon sits in
+    `More Training report controls`: focus that button with `ev`, press `Enter` with `press_key`, then choose the
+    `menuitemradio`. A fresh `?horizon=90&help=&rowsBy=mos` link opens Help and settles on `?help=&rowsBy=mos`.
 
 ## Gotchas
 

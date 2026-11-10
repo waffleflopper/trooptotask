@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	DEFAULT_TRAINING_BRIEFING_INPUT,
+	serializeTrainingBriefingReportInput,
 	type TrainingBriefingDetail,
 	type TrainingBriefingReportData,
 	type TrainingBriefingReportInput
@@ -49,7 +50,7 @@ function setup() {
 		orgId: 'org-1',
 		initialReport: reportFor(),
 		fetch: transport.fetch,
-		replaceQuery: (query) => queries.push(query)
+		syncAddress: (input) => queries.push(serializeTrainingBriefingReportInput(input).toString())
 	});
 	return { session, queries, calls: transport.calls };
 }

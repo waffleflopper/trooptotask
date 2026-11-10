@@ -34,7 +34,8 @@
 		type BriefingScope,
 		type TrainingBriefingHorizon,
 		type TrainingBriefingReportData,
-		type TrainingBriefingReportInput
+		type TrainingBriefingReportInput,
+		writeTrainingBriefingReportInput
 	} from '../contracts';
 	import { TrainingBriefingSession } from '../read-model/trainingBriefingSession.svelte';
 	import { TrainingPrintCycle } from '../read-model/trainingPrintCycle.svelte';
@@ -58,12 +59,8 @@
 				orgId,
 				initialReport,
 				fetch: fetchImpl,
-				replaceQuery: (query) =>
-					void writeAddress({
-						url: (url) => {
-							url.search = query;
-						}
-					})
+				syncAddress: (input) =>
+					void writeAddress({ url: (url) => writeTrainingBriefingReportInput(url.searchParams, input) })
 			})
 	);
 	$effect(() => {

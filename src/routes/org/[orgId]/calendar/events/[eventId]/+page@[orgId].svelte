@@ -1,19 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { writeAddress } from '$lib/utils/addressWriter';
+	import { takeOneTimeParam } from '$lib/utils/addressWriter';
 	import EventDetailPage from '$features/calendar/events/components/EventDetailPage.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	const org = getAppShellContext();
-	const addTasking = page.url.searchParams.has('addTasking');
-
-	// The request to add a tasking is spent on arrival, so Back or a reload never reopens the dialog.
-	onMount(() => {
-		void writeAddress({ url: (url) => url.searchParams.delete('addTasking') });
-	});
+	const addTasking = takeOneTimeParam('addTasking') !== null;
 </script>
 
 <svelte:head>

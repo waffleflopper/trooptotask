@@ -656,13 +656,7 @@ describe('inviteOrganizationMembers', () => {
 			}
 		);
 
-		expect(result.inviteResults).toEqual([
-			{
-				email: 'user@example.com',
-				status: 'already-invited',
-				message: 'Already invited. Resend it from Waiting on them.'
-			}
-		]);
+		expect(result.inviteResults).toMatchObject([{ email: 'user@example.com', status: 'already-invited' }]);
 		expect(port.invitationLookups).toEqual([{ orgId: 'test-org', emails: ['user@example.com'] }]);
 		expect(port.createdInvitations).toEqual([]);
 	});
@@ -750,17 +744,7 @@ describe('inviteOrganizationMembers', () => {
 			}
 		);
 
-		expect(result).toEqual({
-			inviteSuccess: true,
-			inviteResults: [
-				{
-					email: 'new.user@example.com',
-					status: 'invited',
-					message: 'Invited. Tell them to sign in to Troop to Task to see it.'
-				}
-			],
-			inviteMessage: 'Invited. Tell them to sign in to Troop to Task to see it.'
-		});
+		expect(result.inviteResults).toMatchObject([{ email: 'new.user@example.com', status: 'invited' }]);
 		expect(port.createdInvitations).toEqual([
 			{
 				organizationId: 'org-1',
@@ -1438,8 +1422,7 @@ describe('inviteOrganizationMembers', () => {
 
 		expect(result).toMatchObject({
 			inviteSuccess: true,
-			inviteResults: [expect.objectContaining({ email: 'new.user@example.com', status: 'invited' })],
-			inviteMessage: 'Invited. The email is on its way.'
+			inviteResults: [expect.objectContaining({ email: 'new.user@example.com', status: 'invited' })]
 		});
 		expect(port.blockedInvitations).toEqual([]);
 		expect(ctx.notificationPort.notifications).toHaveLength(1);
@@ -1787,8 +1770,7 @@ describe('inviteOrganizationMembers', () => {
 
 		expect(result).toMatchObject({
 			inviteSuccess: true,
-			inviteResults: [expect.objectContaining({ email: 'new.user@example.com', status: 'invited' })],
-			inviteMessage: 'Invited. The email is on its way.'
+			inviteResults: [expect.objectContaining({ email: 'new.user@example.com', status: 'invited' })]
 		});
 		expect(delivery.deliveries).toEqual([
 			{

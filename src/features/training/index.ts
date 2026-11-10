@@ -21,6 +21,7 @@ export { filterColumnsByView } from './utils/viewFiltering';
 export { isDueSoon } from './utils/dueSoon';
 export {
 	calculateExpirationDate,
+	trainingExpirationDate,
 	getTrainingStatus,
 	getDelinquentTrainings,
 	getTrainingStats

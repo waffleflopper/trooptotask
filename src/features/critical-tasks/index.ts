@@ -8,7 +8,7 @@ export {
 	criticalTasksViewReadinessAffordance
 } from './utils/criticalTasksPolicy';
 export { criticalTasksSettingsFromWorkspaceData } from './utils/criticalTasksWorkspaceData';
-export { normalizeCriticalTasksSettings } from './utils/ictStatus';
+export { getIctStatus, normalizeCriticalTasksSettings } from './utils/ictStatus';
 export { getActiveIctTasksForLibrary } from './utils/ictTaskLibrary';
 export {
 	criticalTasksWorkspaceHydrator,

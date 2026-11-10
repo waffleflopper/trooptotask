@@ -340,7 +340,7 @@ describe('invite strip', () => {
 		expect(submitted[1].getAll('scopeSetGroupIds')).toEqual(['g-2']);
 	});
 
-	it('keeps focus on Send invite while it sends and sends a second press nowhere', async () => {
+	it('keeps focus on Send invite while it sends, holds the draft still and sends a second press nowhere', async () => {
 		renderPage();
 		await fireEvent.input(screen.getByLabelText('Invite'), { target: { value: 'new@example.com' } });
 		const invite = screen.getByRole('button', { name: 'Send invite' }) as HTMLButtonElement;
@@ -354,6 +354,8 @@ describe('invite strip', () => {
 		expect(invite.getAttribute('aria-disabled')).toBe('true');
 		expect(invite.textContent?.trim()).toBe('Sending...');
 		expect(document.activeElement).toBe(invite);
+		expect((screen.getByLabelText('Invite') as HTMLTextAreaElement).readOnly).toBe(true);
+		expect((screen.getByRole('button', { name: 'Preset' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it.each([

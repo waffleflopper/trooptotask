@@ -116,6 +116,7 @@
 				aria-invalid={overLimit || undefined}
 				onkeydown={submitOnModifiedEnter}
 				bind:value={workspace.invite.emails}
+				readonly={pending}
 				required
 			/>
 		</div>
@@ -123,6 +124,7 @@
 			{#if isOwner}
 				<Select.Root
 					type="single"
+					disabled={pending}
 					bind:value={() => workspace.invite.role, (role: EditableMembershipRole) => (workspace.invite.role = role)}
 				>
 					<Select.Trigger aria-label="Role" class="w-28 bg-background">
@@ -138,6 +140,7 @@
 			{#if workspace.invite.role === 'member'}
 				<Select.Root
 					type="single"
+					disabled={pending}
 					bind:value={() => workspace.invite.preset, (preset: EditablePreset) => (workspace.invite.preset = preset)}
 				>
 					<Select.Trigger aria-label="Preset" class="w-28 bg-background">
@@ -159,6 +162,7 @@
 					valueLabel={workspace.inviteGroupsLabel}
 					options={groupOptions}
 					onValueChange={(values: string[]) => workspace.setInviteGroups(values)}
+					disabled={pending}
 					class="h-8 w-40 justify-between max-sm:w-full"
 				/>
 			{:else}

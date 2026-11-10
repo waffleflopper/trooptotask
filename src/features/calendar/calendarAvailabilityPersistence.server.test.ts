@@ -480,6 +480,26 @@ describe('Calendar ordinary availability persistence', () => {
 		expect(state.requests).toEqual([]);
 	});
 
+	it('inserts a batch in Person order, the order an Undo locks People in', async () => {
+		const { client, state } = calendarProvider();
+		const add = (personnelId: string) => ({
+			personnelId,
+			statusTypeId: 'status-a',
+			startDate: '2026-10-07',
+			endDate: '2026-10-07'
+		});
+		await persistence(client).createMany([
+			add('7f000000-0000-4000-8000-000000000000'),
+			add('0a000000-0000-4000-8000-000000000000'),
+			add('a1000000-0000-4000-8000-000000000000')
+		]);
+		expect((state.requests[0].body as { personnel_id: string }[]).map((row) => row.personnel_id)).toEqual([
+			'0a000000-0000-4000-8000-000000000000',
+			'7f000000-0000-4000-8000-000000000000',
+			'a1000000-0000-4000-8000-000000000000'
+		]);
+	});
+
 	it.each(['create', 'update', 'createMany'] as const)(
 		'classifies only the named org/status conflict from %s',
 		async (method) => {

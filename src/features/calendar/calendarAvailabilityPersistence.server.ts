@@ -138,9 +138,13 @@ export function createSupabaseCalendarAvailabilityPersistence(
 		},
 		async createMany(inputs) {
 			if (inputs.length === 0) return [];
+			// Each row takes its Person's lock as it goes in. Undo takes them in Person order, so a batch must too.
+			const byPerson = [...inputs].sort((a, b) =>
+				a.personnelId < b.personnelId ? -1 : a.personnelId > b.personnelId ? 1 : 0
+			);
 			const { data, error } = await client
 				.from('availability_entries')
-				.insert(inputs.map((input) => availabilityInsert(input, orgId)))
+				.insert(byPerson.map((input) => availabilityInsert(input, orgId)))
 				.select(AVAILABILITY_FIELDS)
 				.returns<AvailabilityRow[]>();
 			requireAvailabilityMutation(error);

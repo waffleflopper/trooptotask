@@ -2101,7 +2101,11 @@ CREATE FUNCTION calendar_private.forget_deleted_personnel_undo() RETURNS trigger
     SET search_path TO ''
     AS $$
 BEGIN
-  DELETE FROM calendar_private.availability_undo u USING deleted_personnel d WHERE u.personnel_id = d.id;
+  DELETE FROM calendar_private.availability_undo u
+  WHERE (u.actor_id, u.entry_id) IN (
+    SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
+    JOIN deleted_personnel d ON d.id = x.personnel_id
+    FOR UPDATE OF x SKIP LOCKED);
   RETURN NULL;
 END;
 $$;
@@ -2148,6 +2152,24 @@ $$;
 
 
 ALTER FUNCTION calendar_private.guard_roster_rules() OWNER TO postgres;
+
+--
+-- Name: lock_availability_person(); Type: FUNCTION; Schema: calendar_private; Owner: postgres
+--
+
+CREATE FUNCTION calendar_private.lock_availability_person() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(NEW.organization_id::text || ':' || NEW.personnel_id::text, 1861));
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION calendar_private.lock_availability_person() OWNER TO postgres;
 
 --
 -- Name: lock_calendar_tasking_for_list_write(uuid, uuid, boolean); Type: FUNCTION; Schema: calendar_private; Owner: postgres
@@ -12028,15 +12050,6 @@ BEGIN
     RAISE EXCEPTION 'Invalid Calendar availability restore' USING ERRCODE = '22023';
   END IF;
 
-  DELETE FROM calendar_private.availability_undo WHERE expires_at <= pg_catalog.now();
-
-  -- Import takes these Person locks before it locks the entries it replaces. Taking them first here keeps the two
-  -- from each holding what the other waits for.
-  PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(p_organization_id::text || ':' || claimed.personnel_id::text, 1861))
-  FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)
-    ORDER BY c.personnel_id) AS claimed;
-
   -- A Tasking delete locks the Tasking before it unlinks entries, so its linked Taskings are locked in that order too.
   -- One deleted first comes back unlinked instead of failing the batch on its foreign key.
   PERFORM 1 FROM public.calendar_taskings t
@@ -12046,18 +12059,20 @@ BEGIN
   ORDER BY t.id
   FOR KEY SHARE;
 
-  -- An availability INSERT takes KEY SHARE on its Person through the foreign key, so this lock makes a concurrent
-  -- add of the same Person wait. The next statement then takes a fresh snapshot that sees every add that finished.
+  -- Holds off a delete of the Person, which would otherwise wait on records this call locks below.
   PERFORM 1 FROM public.personnel p
   WHERE p.organization_id = p_organization_id AND p.id = ANY(p_personnel_ids)
   ORDER BY p.id
-  FOR UPDATE;
-  -- An edit can move one of their existing entries into the restored dates without touching the Person, so those
-  -- entries are locked too.
-  PERFORM 1 FROM public.availability_entries a
-  WHERE a.organization_id = p_organization_id AND a.personnel_id = ANY(p_personnel_ids)
-  ORDER BY a.id
-  FOR SHARE;
+  FOR KEY SHARE;
+
+  -- The lock every add, edit and import of the Person takes, in the order import and a sorted bulk add take it. The
+  -- next statement takes a fresh snapshot that sees every one of them that held it.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_organization_id::text || ':' || claimed.personnel_id::text, 1861))
+  FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)
+    ORDER BY c.personnel_id) AS claimed;
+
+  DELETE FROM calendar_private.availability_undo WHERE expires_at <= pg_catalog.now();
 
   -- The Tasking check reads the caller's undo records, so they stay until the insert is done.
   UPDATE calendar_private.availability_undo u SET restoring = true
@@ -18732,6 +18747,13 @@ CREATE TRIGGER keep_training_certificate_identity BEFORE UPDATE OF id ON public.
 
 
 --
+-- Name: availability_entries lock_availability_person; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER lock_availability_person BEFORE INSERT OR UPDATE OF organization_id, personnel_id, status_type_id, start_date, end_date ON public.availability_entries FOR EACH ROW EXECUTE FUNCTION calendar_private.lock_availability_person();
+
+
+--
 -- Name: assignment_types open_roster_form; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
@@ -22500,6 +22522,13 @@ REVOKE ALL ON FUNCTION calendar_private.guard_roster_forms() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION calendar_private.guard_roster_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION lock_availability_person(); Type: ACL; Schema: calendar_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION calendar_private.lock_availability_person() FROM PUBLIC;
 
 
 --

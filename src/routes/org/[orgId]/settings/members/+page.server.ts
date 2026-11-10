@@ -14,7 +14,7 @@ import { BUILT_IN_ARMY_RANK_OPTIONS } from '$features/personnel/contracts';
 import {
 	createSupabaseOrgSettingsMemberManagementPort,
 	loadMembersSettings,
-	inviteOrganizationMember,
+	inviteOrganizationMembers,
 	removeOrganizationMember,
 	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
@@ -51,7 +51,7 @@ export const actions: Actions = {
 			const ctx = createSettingsSensitiveNotificationContext(await buildRouteRequest(event));
 			const origin = event.url?.origin ?? new URL(request.url).origin;
 			const accessCommand = parseMemberAccessEditFormData(formData);
-			return await inviteOrganizationMember(
+			return await inviteOrganizationMembers(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
@@ -63,7 +63,7 @@ export const actions: Actions = {
 					...createAccountSetupLinkIssuancePorts()
 				},
 				{
-					email: (formData.get('email') as string) ?? '',
+					emails: String(formData.get('emails') ?? ''),
 					membershipRole: accessCommand.membershipRole,
 					memberAccess: accessCommand.memberAccess,
 					actorEmail: user.email,

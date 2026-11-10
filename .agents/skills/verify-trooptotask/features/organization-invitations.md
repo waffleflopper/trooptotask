@@ -7,6 +7,8 @@ correct account and invitation steps.
 ## Sub-features
 
 - `invite-existing`: an existing account receives a pending invitation with the selected role, preset and Group scope.
+- `invite-many`: one submission of up to 50 pasted addresses shares one role, preset and Group scope and reports each
+  address on its own line.
 - `accept-existing`: the invited account accepts on Dashboard; membership appears only after acceptance.
 - `invite-new`: account setup and Organization invitation are separate; setup alone does not grant membership.
 - `invitation-lifecycle`: duplicate, resend, revoke, expired/replayed, denial and delivery failure keep the correct
@@ -14,19 +16,28 @@ correct account and invitation steps.
 
 ## How to get to it (user POV)
 
-Sign in as the Organization owner or admin, open `Settings` → `Members`, and use the invite strip at the top: the
-`Invite` email
-field, `Role` (owner only), `Preset`, and `Groups` (a tree picker headed by `Whole unit`; checking Groups clears
-`Whole unit`, a squad covers its teams, and clearing the last Group returns to `Whole unit`), then `Send invite` (`Sending...` while pending). The line under the strip restates
-the preset's helper; with `Role` set to `Admin`, `Preset` reads `Uses Admin authority` and the line describes admin
-authority. `Waiting on them` appears above `Members` only while invitations are pending. Each row shows the email,
+Sign in as the Organization owner or admin, open `Settings` → `Members`, and use the `Invite members` strip at the top:
+the `Invite` box takes one or more addresses, one per line or separated by commas (Ctrl/Cmd+Enter sends), then `Role`
+(owner only), `Preset`, and `Groups` (a tree picker headed by `Whole unit`; checking Groups clears `Whole unit`, a squad
+covers its teams, and clearing the last Group returns to `Whole unit`), then the send button. It reads `Send invite` for
+one address and `Send <n> invites` for several, and `Sending...` or `Sending <n> invites...` while pending. More than 50
+addresses mark the box invalid, put `That's <n> addresses. Send up to 50 at a time.` in the line under it and hold the
+send. The line under the strip restates the preset's helper; with `Role` set to `Admin`, `Preset` reads
+`Uses Admin authority` and the line describes admin authority. A member invite also shows a table, `What <preset>
+allows`, with one row per area the unit has on and `Area`, `View` and `Change` columns: `View` reads `Yes`, and
+`Change` reads `No` for Viewer, `Day to day` for Operator and `Everything` for Editor. An admin invite has no table.
+After a send, one address answers in the line under the strip (an address that was not invited answers as an alert,
+`<email>: <reason>`). Several addresses put a summary there, such as `2 invited. 1 already invited. 1 not invited.`,
+and list each address with its outcome under `Invitation results`. Invalid and refused addresses stay in the box with
+the same role, preset and Groups, and the line adds `The addresses that weren't invited are still in the box.`
+Already-invited addresses read `Already invited. Resend it from Waiting on them.` and leave the box. `Waiting on them` appears above `Members` only while invitations are pending. Each row shows the email,
 `<preset> · sent <date> · expires in <n> days` (`expires tomorrow`, `expires today`), the funnel status and its detail
 (failed delivery in the destructive color), `Resend` and `Revoke`. `Revoke` opens one confirm dialog, `Revoke the
 invitation for <email>?`, with `Cancel` and `Revoke invitation`; Cancel changes nothing. Closed invitations fold into
 `Invitation history · <n> closed` at the foot of the members list; that read streams after first paint behind a
 skeleton. An expired row there reads `Expired <when>` and carries `Invite again`, which posts the `?/invite` action for
-the same email, role, preset and Groups and, on success, adds a new pending row and the toast `Invitation created and
-email delivery was queued.`; a revoked or accepted row has no button, and neither does an expired row once its email is
+the same email, role, preset and Groups and, on success, adds a new pending row and the toast `Invited. The email is on
+its way.`; a revoked or accepted row has no button, and neither does an expired row once its email is
 pending again. The Members link in the Settings nav carries a badge counting only pending, unexpired invitations; an
 expired one never counts. An existing invited account signs in and opens `/dashboard`, where the
 Organizations list shows each pending invitation first, under `Invitations`, with `Decline` and `Accept` on its row. A
@@ -82,7 +93,8 @@ helper provides invitation and membership readback for A/B. The owned app's outb
 1. As `orgOwner`, capture the invite strip. Enter `orgInvitee`'s synthetic email, choose member access and `Groups` →
    `Alpha`, then click `Send invite`. Save the result and a reload of `Waiting on them`, including email, access label
    and funnel status. Confirm the invitee is absent from `Members` and from the owned A membership readback before
-   acceptance. A duplicate pending invite must show a visible error and leave one pending invitation.
+   acceptance. A duplicate pending invite must answer `<email>: Already invited. Resend it from Waiting on them.` and
+   leave one pending invitation.
 2. As `orgInvitee`, open `/dashboard`; save a before snapshot with A under `Invitations` and `Nothing yet.` under
    `Member of`. Click that row's `Accept`: the page stays on `/dashboard?show=all`, the row leaves `Invitations`,
    `Joined <Organization>. It's now in your list.` shows above the list and A appears under `Member of` with its role.
@@ -94,8 +106,9 @@ helper provides invitation and membership readback for A/B. The owned app's outb
    invitation, and build the [Group tree](manage-groups.md#group-tree). As `orgOwner`, enter `orgInvitee`'s email,
    choose `Operator` and check `Alpha Team` under `2nd Platoon › 1st Squad` (search `alpha team`; rows read
    `<name> <subtree count>`). The trigger reads `Groups: 2nd Platoon › 1st Squad › Alpha Team` and the helper line
-   `Can view work and complete daily tasks in the selected areas. Sees 2nd Platoon › 1st Squad › Alpha Team: 2 people. Not Unassigned. They accept
-the invite after signing in.` The pending row stores `member_preset: operator`, `access_scope_kind: groups` and
+   `Sees everything and keeps it up to date day to day, but can't change how an area is set up. Sees 2nd Platoon › 1st
+Squad › Alpha Team: 2 people. Not Unassigned. They accept the invite after signing in.` The table caption reads
+   `What Operator allows in the chosen Groups`. The pending row stores `member_preset: operator`, `access_scope_kind: groups` and
    only Alpha Team's ID. Accept it as in step 2. The invitee's Personnel shows `Group: Alpha Team 2` and only Alpha
    Team's People, Calendar and Training list only them, and a Quick edit of one saves; their `Group` field is the
    static `Alpha Team`. A person moved out of Alpha Team leaves their roster on reload. A grant covers its sub-groups,
@@ -123,16 +136,16 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    for that email. Only an owner may grant Admin.
 
    ```bash
-   $V settings-request PAGE orgA settings/members/invite '{"email":"admin-denial-MARKER@example.test","membershipRole":"admin","memberPreset":"viewer"}'
+   $V settings-request PAGE orgA settings/members/invite '{"emails":"admin-denial-MARKER@example.test","membershipRole":"admin","memberPreset":"viewer"}'
    ```
 
 6. Exercise one denied owner action as `orgMember` with
-   `$V settings-request PAGE orgA settings/members/invite '{"email":"…@example.test","membershipRole":"member","memberPreset":"viewer"}'`,
+   `$V settings-request PAGE orgA settings/members/invite '{"emails":"…@example.test","membershipRole":"member","memberPreset":"viewer"}'`,
    and one foreign-Organization invitation ID against the current form action using that signed-in actor's request
    context. Record the action failure status and no new invitation rows or `$V rows organization_memberships orgA`
    changes; a SvelteKit form action can return HTTP 200 with a `failure` envelope carrying status 403. The missing
    invite strip is only an affordance observation. Invitation persistence can succeed while mail delivery fails: run
-   `$V mail fail invitation` before `Send invite`, capture the visible `Invitation created, but email delivery failed`
+   `$V mail fail invitation` before `Send invite`, capture the visible `Invited, but the email failed. Resend it from Waiting on them.`
    state and `$V mail state` showing the `failed` message, `$V mail restore`, then use `Resend` on that row in
    `Waiting on them`. Verify the original invitation ID remains pending and no new invitation or membership is created.
    Record expiry/replay as unverified unless the fixture can safely make those states.
@@ -159,7 +172,7 @@ the invite after signing in.` The pending row stores `member_preset: operator`, 
    (`tool emulate '{"pageId":PAGE,"viewport":"390x844x1"}'`, then `1280x900x1`; `resize_page` did not apply here),
    each with a different A member, because acceptance makes the invitee a B member.
    1. As `orgSettingsPeer` open `settings/members`, enter the invitee's email and `Send invite`; require
-      `Invitation created and email delivery was queued.` and one pending B invitation. Then open
+      `Invited. The email is on its way.` and one pending B invitation. Then open
       `$V actor orgMember home`: A's bell reads `1 unread notifications`. Open it: one item reading
       `Invitation to join Verification Organization B` with the message
       `You've been invited to join Verification Organization B. Open your invitations to accept or decline.`, a delete
@@ -185,8 +198,8 @@ approved and incomplete and either `approval_basis` is `platform_review` or a li
 platform approval, a live sibling Organization invitation and a completed account survive. Invitation expiry alone
 withdraws nothing.
 
-- (a) New email, `$V fault arm setup-link-create`, then `Send invite` as `orgOwner`. Expect a 500 failure whose visible
-  message is `Invitation could not be created because the account setup link could not be issued`, a `blocked`
+- (a) New email, `$V fault arm setup-link-create`, then `Send invite` as `orgOwner`. Expect the alert
+  `<email>: Invitation could not be created because the account setup link could not be issued`, a `blocked`
   invitation, and a request still `approved` with `approval_basis` `organization_invitation` and `setup_grant_live`
   false. `$V fault state` must show the `rpc/issue_account_setup_link` match. Restore, submit `/auth/renew-invite` for
   that email and expect `Check your email` with no new `account-setup` message in `$V mail state`.
@@ -212,7 +225,7 @@ withdraws nothing.
   Inbox or Done: invitation auto-approvals were never in the queue, and the admin UI no longer offers Rescind. Check the
   request row and its linked invitation with `$V platform-state` instead.
 - (h) `$V mail fail setup 1`, then invite a new email. The owner sees
-  `Invitation created and email delivery was queued.`, the funnel shows `Setup email didn't reach them`, the invitation
+  `Invited. The email is on its way.`, the funnel shows `Setup email didn't reach them`, the invitation
   stays pending with `setup_grant_live` true and renew-invite delivers a working link.
 - (i) Failure during cleanup: arm both `fault arm setup-link-create` and `fault arm invitation-block`, then invite a new
   email. The block fails too, so the invitation stays `pending` and is a live vouch the owner can see and revoke. The

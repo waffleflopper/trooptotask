@@ -15,8 +15,10 @@ import {
 	SETTINGS_ACCESS_LANES,
 	SETTINGS_ACCESS_OPTIONS,
 	SETTINGS_GOVERNANCE_ROLE_OPTIONS,
+	presetAreaAccess,
 	type EditableMembershipRole,
-	type EditablePreset
+	type EditablePreset,
+	type PresetAreaAccess
 } from './settingsMemberAccessConstants';
 
 export type { EditableMembershipRole, EditablePreset };
@@ -39,7 +41,8 @@ export interface MemberAccessDraft {
 }
 
 export interface InviteDraft {
-	email: string;
+	/** The pasted addresses, as typed. */
+	emails: string;
 	role: EditableMembershipRole;
 	preset: EditablePreset;
 	/** Empty means every group. */
@@ -142,7 +145,7 @@ export class SettingsMemberAccessWorkspace {
 
 	/** The member the sheet is open on; `draft` is null when their access is locked and only the name is editable. */
 	#sheet = $state<{ memberId: string; draft: MemberAccessDraft | null } | null>(null);
-	invite = $state<InviteDraft>({ email: '', role: 'member', preset: 'editor', groupIds: [] });
+	invite = $state<InviteDraft>({ emails: '', role: 'member', preset: 'editor', groupIds: [] });
 	filter = $state('');
 	readonly #tree = $derived(scopeTree(this.#data.groups));
 	/** The owner first, then everyone by email. */
@@ -288,8 +291,16 @@ export class SettingsMemberAccessWorkspace {
 		return ids.length === 1 ? this.groupName(ids[0]) : `${ids.length} Groups`;
 	}
 
-	resetInvite(): void {
-		this.invite = { email: '', role: 'member', preset: this.invite.preset, groupIds: [] };
+	get invitePresetAccess(): PresetAreaAccess[] {
+		return presetAreaAccess(this.invite.preset, this.#data.offLanes);
+	}
+
+	/** Clears the sent addresses. Any listed in `retry` stay, with the access they were sent with. */
+	resetInvite(retry: readonly string[] = []): void {
+		this.invite =
+			retry.length > 0
+				? { ...this.invite, emails: retry.join('\n') }
+				: { emails: '', role: 'member', preset: this.invite.preset, groupIds: [] };
 	}
 }
 

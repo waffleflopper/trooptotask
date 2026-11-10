@@ -1,4 +1,5 @@
 import type { DurableFeatureLane, MembershipRole } from '$lib/access/memberAccessShape';
+import type { InviteAddressResult } from './inviteAddresses';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
 /** A Group a member's access can cover, with the active people filed directly in it. */
@@ -86,6 +87,7 @@ export type MembersSettingsActionData = {
 	inviteError?: string;
 	inviteSuccess?: boolean;
 	inviteMessage?: string;
+	inviteResults?: InviteAddressResult[];
 	memberError?: string;
 	accessError?: string;
 	accessSuccess?: boolean;

@@ -154,7 +154,8 @@ UPDATE calendar_private.availability_undo SET expires_at = now() - interval '1 s
 WHERE entry_id = pg_temp.id('704');
 SET LOCAL ROLE authenticated;
 SELECT is(pg_temp.restore(ARRAY['704'], ARRAY['501']), ARRAY[]::text[], 'an expired record does not restore');
-SELECT is(pg_temp.undo_rows('704'), 0::bigint, 'the expired record is purged');
+SELECT is(pg_temp.remove(ARRAY['799']), 0, 'a later removal finds nothing to remove');
+SELECT is(pg_temp.undo_rows('704'), 0::bigint, 'and purges the expired record');
 SELECT is(pg_temp.entry('704'), NULL::jsonb, 'the expired removal stays removed');
 
 -- (e) A Person who now has the same status over those dates is not given a second one.

@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-SELECT plan(30);
+SELECT plan(29);
 
 SELECT dblink_connect('undo_fixture', 'hostaddr=' || host(inet_server_addr()) ||
   ' port=' || current_setting('port') || ' user=postgres password=postgres dbname=' || current_database() ||
@@ -251,8 +251,6 @@ SELECT dblink_exec('undo_restorer','COMMIT');
 
 SELECT dblink_exec('undo_fixture', $fixture$
   INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_type_id,start_date,end_date) VALUES
-    ('7a5a0000-0000-4000-8000-000000000506','7a5a0000-0000-4000-8000-000000000101',
-     '7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000401','2030-10-01','2030-10-01'),
     ('7a5a0000-0000-4000-8000-000000000507','7a5a0000-0000-4000-8000-000000000101',
      '7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000401','2030-11-01','2030-11-01');
 $fixture$);
@@ -277,20 +275,19 @@ SELECT is((SELECT removed FROM dblink('undo_fixture', $call$
 $call$) AS result(removed integer)), 1, 'a removal skips an expired record another request is purging');
 SELECT dblink_exec('undo_fixture','COMMIT');
 SELECT pg_temp.act('undo_restorer');
-SELECT dblink_send_query('undo_restorer', $call$
+SELECT dblink_exec('undo_restorer', $$SET LOCAL lock_timeout='2s'$$);
+SELECT is((SELECT restored FROM dblink('undo_restorer', $call$
   SELECT count(*)::integer FROM public.restore_availability_entries('7a5a0000-0000-4000-8000-000000000101',
     ARRAY['7a5a0000-0000-4000-8000-000000000504','7a5a0000-0000-4000-8000-000000000503']::uuid[],
     ARRAY['7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000301']::uuid[])
-$call$);
-SELECT ok(pg_temp.restorer_waits(), 'a restore waits for a purge of its own record');
-SELECT is(dblink_exec('undo_writer', $$
-  DELETE FROM public.availability_entries WHERE id='7a5a0000-0000-4000-8000-000000000506'
-$$), 'DELETE 1', 'while it waits it holds no lock on the Person''s statuses');
-SELECT dblink_exec('undo_writer','COMMIT');
-SELECT is((SELECT restored FROM dblink_get_result('undo_restorer') AS result(restored integer)), 1,
-  'the restore then brings back only the status whose record had not expired');
-SELECT * FROM dblink_get_result('undo_restorer') AS result(restored integer);
+$call$) AS result(restored integer)), 1,
+  'a restore never waits on a purge of its own expired record and brings back only the unexpired status');
 SELECT dblink_exec('undo_restorer','COMMIT');
+SELECT dblink_exec('undo_writer','COMMIT');
+SELECT is((SELECT kept FROM dblink('undo_fixture', $query$
+  SELECT count(*)::integer FROM calendar_private.availability_undo
+  WHERE entry_id IN ('7a5a0000-0000-4000-8000-000000000503','7a5a0000-0000-4000-8000-000000000504')
+$query$) AS result(kept integer)), 0, 'the restore used up its record and the purge removed the expired one');
 
 SELECT dblink_exec('undo_fixture', $cleanup$
   DELETE FROM public.organizations WHERE id='7a5a0000-0000-4000-8000-000000000101';

@@ -85,7 +85,7 @@ BEGIN
     RAISE EXCEPTION 'Invalid Calendar availability removal' USING ERRCODE = '22023';
   END IF;
 
-  -- A purge skips a record another request holds, so two purges never wait on each other's rows.
+  -- A purge skips a record another request holds, so it never waits on a purge or a restore.
   DELETE FROM calendar_private.availability_undo u
   WHERE (u.actor_id, u.entry_id) IN (
     SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
@@ -172,19 +172,14 @@ BEGIN
     RAISE EXCEPTION 'Invalid Calendar availability restore' USING ERRCODE = '22023';
   END IF;
 
-  -- The purge skips a record another request holds, so two purges never wait on each other's rows.
-  DELETE FROM calendar_private.availability_undo u
-  WHERE (u.actor_id, u.entry_id) IN (
-    SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
-    WHERE x.expires_at <= pg_catalog.now()
-    FOR UPDATE OF x SKIP LOCKED);
-
-  -- The caller's records are locked before anything else, as a removal does, so waiting on a purge of one holds no
-  -- other lock. The Tasking check reads them, so they stay until the insert is done.
+  -- Claims the caller's unexpired records, in id order and before any other lock, so a restore waits only on a
+  -- record it will use and holds nothing else meanwhile. An expired one is left to a removal's purge. The Tasking
+  -- check reads the claim, so the records stay until the insert is done.
   UPDATE calendar_private.availability_undo u SET restoring = true
   WHERE (u.actor_id, u.entry_id) IN (
     SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
     WHERE x.actor_id = auth.uid() AND x.organization_id = p_organization_id AND x.entry_id = ANY(p_ids)
+      AND x.expires_at > pg_catalog.now()
     ORDER BY x.entry_id
     FOR UPDATE OF x);
 
@@ -193,7 +188,8 @@ BEGIN
   PERFORM 1 FROM public.calendar_taskings t
   WHERE t.organization_id = p_organization_id AND t.id IN (
     SELECT u.set_for_tasking_id FROM calendar_private.availability_undo u
-    WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids))
+    WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
+      AND u.restoring)
   ORDER BY t.id
   FOR KEY SHARE;
 
@@ -215,14 +211,13 @@ BEGIN
   ORDER BY a.id
   FOR SHARE;
 
-
   RETURN QUERY
   WITH claim AS (
     SELECT c.entry_id, c.personnel_id FROM ROWS FROM (pg_catalog.unnest(p_ids), pg_catalog.unnest(p_personnel_ids)) AS c(entry_id, personnel_id)
   ), restorable AS (
     SELECT u.* FROM calendar_private.availability_undo u
     WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
-      AND u.expires_at > pg_catalog.now()
+      AND u.restoring
       AND EXISTS (SELECT 1 FROM claim c WHERE c.entry_id = u.entry_id AND c.personnel_id = u.personnel_id)
       AND public.can_edit_availability_record(u.organization_id, u.personnel_id)
       AND EXISTS (SELECT 1 FROM public.status_types s
@@ -250,9 +245,10 @@ BEGIN
     restored.start_date, restored.end_date, restored.note, restored.created_at
   FROM restored;
 
-  -- An Undo is one-shot: the record goes whether or not the entry came back.
+  -- An Undo is one-shot: a claimed record goes whether or not the entry came back.
   DELETE FROM calendar_private.availability_undo u
-  WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids);
+  WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
+    AND u.restoring;
 END;
 $$;
 ALTER FUNCTION public.restore_availability_entries(uuid, uuid[], uuid[]) OWNER TO postgres;

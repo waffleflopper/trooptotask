@@ -86,7 +86,7 @@ describe('organization invitation rate limits', () => {
 		const now = new Date('2026-05-22T12:00:00.000Z');
 		const store = makeStore();
 
-		for (let attempt = 0; attempt < 30; attempt += 1) {
+		for (let attempt = 0; attempt < 50; attempt += 1) {
 			await expect(
 				checkOrganizationInvitationRateLimit({
 					action: 'create',
@@ -345,7 +345,7 @@ describe('organization invitation durable limiter', () => {
 		{
 			action: 'create' as const,
 			budgets: [
-				[900, 30],
+				[900, 50],
 				[900, 100],
 				[900, 3]
 			]

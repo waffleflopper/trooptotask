@@ -59,7 +59,7 @@ function setup() {
 	const session = new TrainingBriefingSession({
 		orgId: 'synthetic-org',
 		initialReport: report(),
-		replaceQuery: () => {},
+		syncAddress: () => {},
 		fetch: () => new Promise<Response>((resolve) => requests.push(resolve))
 	});
 	const cycle = new TrainingPrintCycle(() => ({

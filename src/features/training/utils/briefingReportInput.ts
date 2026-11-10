@@ -77,6 +77,14 @@ export function serializeTrainingBriefingReportInput(input: TrainingBriefingRepo
 	return params;
 }
 
+const REPORT_PARAMS = ['view', 'group', 'rank', 'mos', 'role', 'types', 'horizon', 'rowsBy'];
+
+/** Replaces the report's own params in `params` with the canonical ones for `input`, and leaves every other param, such as `help`, in place. */
+export function writeTrainingBriefingReportInput(params: URLSearchParams, input: TrainingBriefingReportInput): void {
+	for (const name of REPORT_PARAMS) params.delete(name);
+	for (const [name, value] of serializeTrainingBriefingReportInput(input)) params.append(name, value);
+}
+
 export function serializeTrainingBriefingDetailInput(input: TrainingBriefingDetailInput): URLSearchParams {
 	const params = serializeTrainingBriefingReportInput(input.report);
 	params.set('scope', input.scope.kind);

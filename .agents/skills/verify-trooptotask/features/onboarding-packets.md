@@ -234,7 +234,9 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    reload.
 9. **Packet link:** Take an active packet ID from `$V rows personnel_onboardings orgA`. From the org's Onboarding URL,
    append `?packet=<id>` (a Dashboard Onboarding row link does the same). The packet opens in the overlay sheet and the
-   address drops the parameter, so a reload shows the plain list with no packet open. An ID that is not an active
+   address drops the parameter, so a reload shows the plain list with no packet open. Open the link again, close the
+   packet and open `History`. Back returns to the list with no packet open. Back once more, then Forward: the list
+   returns again with no packet open. An ID that is not an active
    packet, such as a random UUID or a packet no longer in processing, selects nothing and also drops the parameter.
    `Start onboarding` from the page POSTs through the same batch start the Dashboard uses and the new packet joins the
    list.

@@ -1,3 +1,4 @@
+import { onMount } from 'svelte';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import { visibleUrl } from './visibleUrl';
@@ -24,6 +25,17 @@ export function writeAddress({ url: edit, state = page.state, push = false }: Ad
 	edit?.(url);
 	if (!push && state === page.state && url.href === shown.href) return Promise.resolve();
 	return goto(`${url.pathname}${url.search}${url.hash}`, { shallow: true, replace: !push, state });
+}
+
+/**
+ * Reads a one-time request such as `?addTasking` from the shown address and removes it once the page mounts, so Back,
+ * Forward and reload never repeat it. Call it while a component initializes. It reads the shown address rather than
+ * `page.url` because Forward onto the entry reloads the URL the page first loaded with, which still holds the request.
+ */
+export function takeOneTimeParam(name: string): string | null {
+	const value = visibleUrl().searchParams.get(name);
+	onMount(() => void writeAddress({ url: (url) => url.searchParams.delete(name) }));
+	return value;
 }
 
 /**

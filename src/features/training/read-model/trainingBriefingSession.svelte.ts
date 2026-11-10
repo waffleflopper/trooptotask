@@ -31,8 +31,8 @@ export interface TrainingBriefingSessionOptions {
 	orgId: string;
 	initialReport: TrainingBriefingReportData;
 	fetch: typeof fetch;
-	/** Mirrors the canonical query string into the address bar without navigating. */
-	replaceQuery: (query: string) => void;
+	/** Mirrors the report params for `input` into the address bar without navigating. */
+	syncAddress: (input: TrainingBriefingReportInput) => void;
 }
 
 function queryFor(input: TrainingBriefingReportInput): string {
@@ -172,9 +172,9 @@ export class TrainingBriefingSession {
 		this.#cancel(this.#detailRequest);
 	}
 
-	/** Puts the canonical query of the briefing on screen into the address bar. */
+	/** Puts the report params of the briefing on screen into the address bar. */
 	syncQuery(): void {
-		this.#options.replaceQuery(queryFor(this.report.input));
+		this.#options.syncAddress(this.report.input);
 	}
 
 	#show(report: TrainingBriefingReportData, sync = true): void {

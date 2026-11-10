@@ -7,6 +7,7 @@ import {
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
 } from '$lib/access/index.server';
+import { MAX_INVITES_PER_SUBMISSION } from './inviteAddresses';
 
 export const ORGANIZATION_INVITATION_CREATE_RATE_LIMIT_MESSAGE =
 	'Too many organization invitation attempts. Please wait before inviting this recipient again.';
@@ -14,7 +15,11 @@ export const ORGANIZATION_INVITATION_RESEND_RATE_LIMIT_MESSAGE =
 	'Too many organization invitation resend attempts. Please wait before trying again.';
 
 const WINDOW_MS = 15 * 60 * 1000;
-const ACTOR_MAX_ATTEMPTS = 30;
+// One full invite submission fits inside the window.
+const ACTOR_MAX_ATTEMPTS: Record<OrganizationInvitationRateLimitAction, number> = {
+	create: MAX_INVITES_PER_SUBMISSION,
+	resend: 30
+};
 const ORGANIZATION_MAX_ATTEMPTS = 100;
 const RECIPIENT_MAX_ATTEMPTS = 3;
 const INVITATION_MAX_ATTEMPTS = 3;
@@ -104,7 +109,7 @@ export async function checkOrganizationInvitationRateLimit(input: {
 	const store = input.store ?? createSupabaseOrganizationInvitationRateLimitStore();
 	const checks: DurableRateLimitDecision[] = [];
 	const configs: RateLimitCheckConfig[] = [
-		{ dimension: 'actor', value: actorUserId, maxRequests: ACTOR_MAX_ATTEMPTS },
+		{ dimension: 'actor', value: actorUserId, maxRequests: ACTOR_MAX_ATTEMPTS[input.action] },
 		{ dimension: 'organization', value: organizationId, maxRequests: ORGANIZATION_MAX_ATTEMPTS },
 		...(invitationId
 			? [{ dimension: 'invitation' as const, value: invitationId, maxRequests: INVITATION_MAX_ATTEMPTS }]

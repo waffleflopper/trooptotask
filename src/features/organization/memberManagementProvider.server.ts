@@ -55,6 +55,9 @@ interface SetOrganizationMemberNameRpcRow {
 	saved_last_name: string | null;
 }
 
+// Bounds the single-row inserts that find which address a refused batch insert rejected.
+const RETRY_CONCURRENCY = 5;
+
 /** What the set_organization_member_name RPC raises: 42501 refused, P0002 no such member, 23514 or 22023 bad value. */
 const MEMBER_NAME_FAILURE_BY_CODE: Record<string, 'denied' | 'not_found' | 'invalid'> = {
 	'42501': 'denied',
@@ -169,15 +172,22 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			// One rejected row rolls back the whole insert, so each address is retried alone to find which.
 			if (inputs.length === 1)
 				return [{ status: 'failed', message: error?.message ?? 'Invitation could not be created' }];
-			return Promise.all(
-				inputs.map(async (input): Promise<OrganizationInvitationCreateResult> => {
-					const { data: rows, error: rowError } = await insert([input]);
-					const row = rows?.[0];
-					return rowError || !row
-						? { status: 'failed', message: rowError?.message ?? 'Invitation could not be created' }
-						: { status: 'created', invitationId: row.id, createdAt: row.created_at ?? new Date().toISOString() };
-				})
-			);
+			const results: OrganizationInvitationCreateResult[] = [];
+			for (let start = 0; start < inputs.length; start += RETRY_CONCURRENCY) {
+				const chunk = inputs.slice(start, start + RETRY_CONCURRENCY);
+				results.push(
+					...(await Promise.all(
+						chunk.map(async (input): Promise<OrganizationInvitationCreateResult> => {
+							const { data: rows, error: rowError } = await insert([input]);
+							const row = rows?.[0];
+							return rowError || !row
+								? { status: 'failed', message: rowError?.message ?? 'Invitation could not be created' }
+								: { status: 'created', invitationId: row.id, createdAt: row.created_at ?? new Date().toISOString() };
+						})
+					))
+				);
+			}
+			return results;
 		},
 
 		async findUserAccountByEmail(email) {

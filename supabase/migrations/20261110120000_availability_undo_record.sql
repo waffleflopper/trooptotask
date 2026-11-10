@@ -43,23 +43,6 @@ CREATE TRIGGER forget_deleted_personnel_undo AFTER DELETE ON public.personnel
 REFERENCING OLD TABLE AS deleted_personnel
 FOR EACH STATEMENT EXECUTE FUNCTION calendar_private.forget_deleted_personnel_undo();
 
--- Every add holds its Person's import lock until commit, so a restore that takes the same lock sees each of them
--- finished. Locking the Person row instead would also block every insert that references the Person, in any table.
--- An edit does not take it: an UPDATE trigger runs after the row is locked, and import locks rows after this lock.
-CREATE FUNCTION calendar_private.lock_availability_person() RETURNS trigger
-LANGUAGE plpgsql SET search_path = '' AS $$
-BEGIN
-  PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(NEW.organization_id::text || ':' || NEW.personnel_id::text, 1861));
-  RETURN NEW;
-END;
-$$;
-ALTER FUNCTION calendar_private.lock_availability_person() OWNER TO postgres;
-REVOKE ALL ON FUNCTION calendar_private.lock_availability_person() FROM PUBLIC, anon, authenticated, service_role;
-CREATE TRIGGER lock_availability_person
-BEFORE INSERT ON public.availability_entries
-FOR EACH ROW EXECUTE FUNCTION calendar_private.lock_availability_person();
-
 -- Row level security no longer applies to this function, so the can_edit_availability_record filter below is the
 -- authorization the DELETE policy gave it before.
 CREATE OR REPLACE FUNCTION public.delete_availability_entries(
@@ -91,13 +74,6 @@ BEGIN
     SELECT x.actor_id, x.entry_id FROM calendar_private.availability_undo x
     WHERE x.expires_at <= pg_catalog.now()
     FOR UPDATE OF x SKIP LOCKED);
-
-  -- A restore share-locks a Person's entries in id order, so the entries are locked in that order before the delete.
-  PERFORM 1 FROM public.availability_entries e
-  WHERE e.organization_id = p_organization_id AND e.id = ANY(p_ids)
-    AND public.can_edit_availability_record(e.organization_id, e.personnel_id)
-  ORDER BY e.id
-  FOR UPDATE;
 
   WITH deleted AS (
     DELETE FROM public.availability_entries e
@@ -179,8 +155,8 @@ BEGIN
     RAISE EXCEPTION 'Invalid Calendar availability restore' USING ERRCODE = '22023';
   END IF;
 
-  -- Claims the caller's unexpired records, in id order and before any other lock, so a restore waits only on a
-  -- record it will use and holds nothing else meanwhile. An expired one is left to a removal's purge. The Tasking
+  -- Claims the caller's unexpired records before any other lock, so a restore waits only on a record it will use
+  -- and holds nothing else meanwhile. An expired one is left to a removal's purge. The Tasking
   -- check reads the claim, so the records stay until the insert is done.
   UPDATE calendar_private.availability_undo u SET restoring = true
   WHERE (u.actor_id, u.entry_id) IN (
@@ -190,33 +166,50 @@ BEGIN
     ORDER BY x.entry_id
     FOR UPDATE OF x);
 
-  -- A Tasking delete locks the Tasking before it unlinks entries, so its linked Taskings are locked in that order too.
-  -- One deleted first comes back unlinked instead of failing the batch on its foreign key.
-  PERFORM 1 FROM public.calendar_taskings t
-  WHERE t.organization_id = p_organization_id AND t.id IN (
-    SELECT u.set_for_tasking_id FROM calendar_private.availability_undo u
-    WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
-      AND u.restoring)
-  ORDER BY t.id
-  FOR KEY SHARE;
-
-  -- A Person deleted meanwhile would fail the batch's insert on its foreign key, so the delete waits instead.
-  PERFORM 1 FROM public.personnel p
-  WHERE p.organization_id = p_organization_id AND p.id = ANY(p_personnel_ids)
-  ORDER BY p.id
-  FOR KEY SHARE;
-
-  -- The lock every add and import of the Person takes, in the order import and a sorted bulk add take it.
-  PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(p_organization_id::text || ':' || claimed.personnel_id::text, 1861))
-  FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)
-    ORDER BY c.personnel_id) AS claimed;
-  -- An edit locks the entry it moves, so waiting on the Person's entries waits out every open edit. The next
-  -- statement then takes a fresh snapshot that sees each add, edit and import that finished.
-  PERFORM 1 FROM public.availability_entries a
-  WHERE a.organization_id = p_organization_id AND a.personnel_id = ANY(p_personnel_ids)
-  ORDER BY a.id
-  FOR SHARE;
+  -- Every other lock is taken without waiting, all or none, so a restore never waits while it holds one and cannot
+  -- join a deadlock, whatever order other writers lock in. A busy lock rolls the attempt back, releasing the rest.
+  FOR attempt IN 1..100 LOOP
+    BEGIN
+      -- Every row the insert and its audit entry reference, so neither waits once the restore holds these. A
+      -- Tasking deleted first is not locked and its status comes back unlinked.
+      PERFORM 1 FROM public.organizations o WHERE o.id = p_organization_id FOR KEY SHARE NOWAIT;
+      PERFORM 1 FROM auth.users a WHERE a.id = auth.uid() FOR KEY SHARE NOWAIT;
+      PERFORM 1 FROM public.calendar_taskings t
+      WHERE t.organization_id = p_organization_id AND t.id IN (
+        SELECT u.set_for_tasking_id FROM calendar_private.availability_undo u
+        WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
+          AND u.restoring)
+      FOR KEY SHARE NOWAIT;
+      PERFORM 1 FROM public.status_types st
+      WHERE st.organization_id = p_organization_id AND st.id IN (
+        SELECT u.status_type_id FROM calendar_private.availability_undo u
+        WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
+          AND u.restoring)
+      FOR KEY SHARE NOWAIT;
+      -- An add holds its Person's key-share lock until it commits, so an attempt fails while any add is open.
+      PERFORM 1 FROM public.personnel p
+      WHERE p.organization_id = p_organization_id AND p.id = ANY(p_personnel_ids)
+      FOR UPDATE NOWAIT;
+      -- An import holds this lock from before its overlap check until it commits.
+      IF EXISTS (SELECT 1 FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)
+          ORDER BY c.personnel_id) AS claimed
+        WHERE NOT pg_catalog.pg_try_advisory_xact_lock(
+          pg_catalog.hashtextextended(p_organization_id::text || ':' || claimed.personnel_id::text, 1861)))
+      THEN
+        RAISE EXCEPTION 'Calendar availability is busy' USING ERRCODE = '55P03';
+      END IF;
+      -- An edit holds its entry's row lock until it commits.
+      PERFORM 1 FROM public.availability_entries a
+      WHERE a.organization_id = p_organization_id AND a.personnel_id = ANY(p_personnel_ids)
+      FOR SHARE NOWAIT;
+      EXIT;
+    EXCEPTION WHEN lock_not_available THEN
+      IF attempt = 100 THEN
+        RAISE EXCEPTION 'Calendar availability is busy' USING ERRCODE = '55P03';
+      END IF;
+      PERFORM pg_catalog.pg_sleep(0.05);
+    END;
+  END LOOP;
 
   RETURN QUERY
   WITH claim AS (

@@ -151,6 +151,11 @@ describe('Calendar ordinary availability persistence', () => {
 			status: 400,
 			message: 'Provide between 1 and 500 availability IDs'
 		});
+		reply = () => Response.json({ code: '55P03', message: 'Calendar availability is busy' }, { status: 409 });
+		await expect(port.restoreRemoved([{ id: 'entry-a', personnelId: 'person-a' }])).rejects.toMatchObject({
+			status: 409,
+			message: 'Another change to those statuses is still saving'
+		});
 	});
 
 	it('sends an import as one Organization-bound transaction and trusts only a matching acknowledgment', async () => {
@@ -478,26 +483,6 @@ describe('Calendar ordinary availability persistence', () => {
 		state.requests.length = 0;
 		expect(await port.createMany([])).toEqual([]);
 		expect(state.requests).toEqual([]);
-	});
-
-	it('inserts a batch in Person order, the order an Undo locks People in', async () => {
-		const { client, state } = calendarProvider();
-		const add = (personnelId: string) => ({
-			personnelId,
-			statusTypeId: 'status-a',
-			startDate: '2026-10-07',
-			endDate: '2026-10-07'
-		});
-		await persistence(client).createMany([
-			add('7f000000-0000-4000-8000-000000000000'),
-			add('0a000000-0000-4000-8000-000000000000'),
-			add('a1000000-0000-4000-8000-000000000000')
-		]);
-		expect((state.requests[0].body as { personnel_id: string }[]).map((row) => row.personnel_id)).toEqual([
-			'0a000000-0000-4000-8000-000000000000',
-			'7f000000-0000-4000-8000-000000000000',
-			'a1000000-0000-4000-8000-000000000000'
-		]);
 	});
 
 	it.each(['create', 'update', 'createMany'] as const)(

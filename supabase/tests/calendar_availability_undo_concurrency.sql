@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-SELECT plan(32);
+SELECT plan(36);
 
 SELECT dblink_connect('undo_fixture', 'hostaddr=' || host(inet_server_addr()) ||
   ' port=' || current_setting('port') || ' user=postgres password=postgres dbname=' || current_database() ||
@@ -56,7 +56,7 @@ BEGIN
   LOOP
     PERFORM pg_stat_clear_snapshot();
     IF EXISTS (SELECT 1 FROM pg_stat_activity AS activity
-      WHERE activity.application_name='t3_undo_restorer' AND activity.wait_event_type='Lock') THEN RETURN true; END IF;
+      WHERE activity.application_name='t3_undo_restorer' AND activity.wait_event_type IN ('Lock','Timeout')) THEN RETURN true; END IF;
     IF clock_timestamp() >= deadline THEN RETURN false; END IF;
     PERFORM pg_sleep(0.01);
   END LOOP;
@@ -226,29 +226,6 @@ SELECT is((SELECT kept FROM dblink('undo_fixture', $query$
   WHERE entry_id='7a5a0000-0000-4000-8000-000000000505'
 $query$) AS result(kept integer)), 0, 'the purge removed the record the delete skipped');
 
-SELECT pg_temp.act('undo_writer');
-SELECT * FROM dblink('undo_writer', $$
-  SELECT 1 FROM public.availability_entries WHERE id='7a5a0000-0000-4000-8000-000000000504' FOR UPDATE
-$$) AS locked(one integer);
-SELECT pg_temp.act('undo_restorer');
-SELECT dblink_send_query('undo_restorer', $call$
-  SELECT public.import_availability_entries('7a5a0000-0000-4000-8000-000000000101',
-    '[{"personnel_id":"7a5a0000-0000-4000-8000-000000000301","status_type_id":"7a5a0000-0000-4000-8000-000000000402",
-       "start_date":"2030-08-01","end_date":"2030-08-02","overlap":"replace",
-       "replaces":[{"id":"7a5a0000-0000-4000-8000-000000000504","status_type_id":"7a5a0000-0000-4000-8000-000000000402",
-         "start_date":"2030-08-01","end_date":"2030-08-01","note":null}]}]')
-$call$);
-SELECT ok(pg_temp.restorer_waits(), 'an import replacing a status waits for an open edit of it');
-SELECT is(dblink_exec('undo_writer', $$
-  UPDATE public.availability_entries SET start_date='2030-07-31', end_date='2030-08-01'
-  WHERE id='7a5a0000-0000-4000-8000-000000000504'
-$$), 'UPDATE 1', 'the edit finishes without waiting on the import''s Person lock');
-SELECT dblink_exec('undo_writer','COMMIT');
-SELECT is((SELECT saved FROM dblink_get_result('undo_restorer') AS result(saved jsonb)),
-  '{"inserted":0,"deleted":0,"stale":[0]}'::jsonb, 'the import then sees the edit and refuses its stale row');
-SELECT * FROM dblink_get_result('undo_restorer') AS result(saved jsonb);
-SELECT dblink_exec('undo_restorer','COMMIT');
-
 SELECT dblink_exec('undo_fixture', $fixture$
   INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_type_id,start_date,end_date) VALUES
     ('7a5a0000-0000-4000-8000-000000000507','7a5a0000-0000-4000-8000-000000000101',
@@ -290,32 +267,82 @@ SELECT is((SELECT kept FROM dblink('undo_fixture', $query$
 $query$) AS result(kept integer)), 0, 'the restore used up its record and the purge removed the expired one');
 
 SELECT dblink_exec('undo_fixture', $fixture$
+  INSERT INTO public.personnel(id,organization_id,rank,first_name,last_name,slug) VALUES
+    ('7a5a0000-0000-4000-8000-000000000303','7a5a0000-0000-4000-8000-000000000101','SGT','Late','Person','undo-late');
   INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_type_id,start_date,end_date) VALUES
-    ('7a5a0000-0000-4000-8000-000000000509','7a5a0000-0000-4000-8000-000000000101',
-     '7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000401','2030-12-09','2030-12-09');
-  INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_type_id,start_date,end_date) VALUES
-    ('7a5a0000-0000-4000-8000-000000000508','7a5a0000-0000-4000-8000-000000000101',
-     '7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000401','2030-12-08','2030-12-08');
+    ('7a5a0000-0000-4000-8000-000000000508','7a5a0000-0000-4000-8000-000000000101','7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000401','2030-12-08','2030-12-08'),
+    ('7a5a0000-0000-4000-8000-000000000509','7a5a0000-0000-4000-8000-000000000101','7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000401','2030-12-09','2030-12-09'),
+    ('7a5a0000-0000-4000-8000-000000000510','7a5a0000-0000-4000-8000-000000000101','7a5a0000-0000-4000-8000-000000000303','7a5a0000-0000-4000-8000-000000000401','2030-12-10','2030-12-10'),
+    ('7a5a0000-0000-4000-8000-000000000511','7a5a0000-0000-4000-8000-000000000101','7a5a0000-0000-4000-8000-000000000303','7a5a0000-0000-4000-8000-000000000401','2030-12-11','2030-12-11');
 $fixture$);
+SELECT pg_temp.act('undo_fixture');
+SELECT is((SELECT removed FROM dblink('undo_fixture', $call$
+  SELECT public.delete_availability_entries('7a5a0000-0000-4000-8000-000000000101', ARRAY['7a5a0000-0000-4000-8000-000000000510','7a5a0000-0000-4000-8000-000000000511']::uuid[])
+$call$) AS result(removed integer)), 2, 'the operator removes two statuses of a second Person');
+SELECT dblink_exec('undo_fixture','COMMIT');
+
 SELECT dblink_exec('undo_writer','BEGIN');
 SELECT * FROM dblink('undo_writer', $$
-  SELECT 1 FROM public.availability_entries WHERE id='7a5a0000-0000-4000-8000-000000000508' FOR SHARE
+  SELECT 1 FROM public.availability_entries WHERE id='7a5a0000-0000-4000-8000-000000000509' FOR UPDATE
 $$) AS locked(one integer);
 SELECT pg_temp.act('undo_restorer');
 SELECT dblink_send_query('undo_restorer', $call$
-  SELECT public.delete_availability_entries('7a5a0000-0000-4000-8000-000000000101',
-    ARRAY['7a5a0000-0000-4000-8000-000000000509','7a5a0000-0000-4000-8000-000000000508']::uuid[])
+  SELECT count(*)::integer FROM public.restore_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    ARRAY['7a5a0000-0000-4000-8000-000000000507']::uuid[], ARRAY['7a5a0000-0000-4000-8000-000000000301']::uuid[])
 $call$);
-SELECT ok(pg_temp.restorer_waits(), 'a removal waits on a status a restore has share-locked');
-SELECT is((SELECT free FROM dblink('undo_fixture', $query$
-  SELECT count(*)::integer FROM (SELECT 1 FROM public.availability_entries
-    WHERE id='7a5a0000-0000-4000-8000-000000000509' FOR UPDATE SKIP LOCKED) AS unlocked
-$query$) AS result(free integer)), 1, 'meanwhile it holds no lock on a later status the restore would lock next');
+SELECT ok(pg_temp.restorer_waits(), 'a restore retries while another request holds one of the Person''s statuses');
+SELECT dblink_exec('undo_writer', $$SET LOCAL lock_timeout='2s'$$);
+SELECT is((SELECT one FROM dblink('undo_writer', $$
+  SELECT 1 FROM public.availability_entries WHERE id='7a5a0000-0000-4000-8000-000000000508' FOR UPDATE
+$$) AS locked(one integer)), 1, 'meanwhile it holds none of them, so a writer locking them in another order goes on');
 SELECT dblink_exec('undo_writer','COMMIT');
-SELECT is((SELECT removed FROM dblink_get_result('undo_restorer') AS result(removed integer)), 2,
-  'the removal then deletes both');
-SELECT * FROM dblink_get_result('undo_restorer') AS result(removed integer);
+SELECT is((SELECT restored FROM dblink_get_result('undo_restorer') AS result(restored integer)), 1,
+  'the restore then goes through');
+SELECT * FROM dblink_get_result('undo_restorer') AS result(restored integer);
 SELECT dblink_exec('undo_restorer','COMMIT');
+
+SELECT pg_temp.act('undo_writer');
+SELECT dblink_exec('undo_writer', $$
+  INSERT INTO public.availability_entries(organization_id,personnel_id,status_type_id,start_date,end_date)
+  VALUES ('7a5a0000-0000-4000-8000-000000000101','7a5a0000-0000-4000-8000-000000000303','7a5a0000-0000-4000-8000-000000000402','2030-12-20','2030-12-20')
+$$);
+SELECT pg_temp.act('undo_restorer');
+SELECT dblink_send_query('undo_restorer', $call$
+  SELECT count(*)::integer FROM public.restore_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    ARRAY['7a5a0000-0000-4000-8000-000000000510','7a5a0000-0000-4000-8000-000000000599']::uuid[], ARRAY['7a5a0000-0000-4000-8000-000000000303','7a5a0000-0000-4000-8000-000000000301']::uuid[])
+$call$);
+SELECT ok(pg_temp.restorer_waits(), 'a restore retries while a batch is adding for a later Person');
+SELECT dblink_exec('undo_writer', $$SET LOCAL lock_timeout='2s'$$);
+SELECT is(dblink_exec('undo_writer', $$
+  INSERT INTO public.availability_entries(organization_id,personnel_id,status_type_id,start_date,end_date)
+  VALUES ('7a5a0000-0000-4000-8000-000000000101','7a5a0000-0000-4000-8000-000000000301','7a5a0000-0000-4000-8000-000000000402','2030-12-21','2030-12-21')
+$$), 'INSERT 0 1', 'the batch then adds for an earlier Person without waiting on the restore');
+SELECT dblink_exec('undo_writer','COMMIT');
+SELECT is((SELECT restored FROM dblink_get_result('undo_restorer') AS result(restored integer)), 1,
+  'the restore then brings back the second Person''s status');
+SELECT * FROM dblink_get_result('undo_restorer') AS result(restored integer);
+SELECT dblink_exec('undo_restorer','COMMIT');
+
+SELECT dblink_exec('undo_writer','BEGIN');
+SELECT * FROM dblink('undo_writer', $$
+  SELECT pg_advisory_xact_lock(hashtextextended('7a5a0000-0000-4000-8000-000000000101:7a5a0000-0000-4000-8000-000000000303', 1861))::text
+$$) AS locked(done text);
+SELECT pg_temp.act('undo_restorer');
+SELECT dblink_send_query('undo_restorer', $call$
+  SELECT count(*)::integer FROM public.restore_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    ARRAY['7a5a0000-0000-4000-8000-000000000511','7a5a0000-0000-4000-8000-000000000599']::uuid[], ARRAY['7a5a0000-0000-4000-8000-000000000303','7a5a0000-0000-4000-8000-000000000301']::uuid[])
+$call$);
+SELECT ok(pg_temp.restorer_waits(), 'a restore retries while an import holds a later Person');
+SELECT dblink_exec('undo_writer', $$SET LOCAL lock_timeout='2s'$$);
+SELECT is((SELECT count(*)::integer FROM dblink('undo_writer', $$
+  SELECT pg_advisory_xact_lock(hashtextextended('7a5a0000-0000-4000-8000-000000000101:7a5a0000-0000-4000-8000-000000000301', 1861))::text
+$$) AS locked(done text)), 1, 'the import then takes the earlier Person without waiting on the restore');
+SELECT dblink_exec('undo_writer','COMMIT');
+SELECT is((SELECT restored FROM dblink_get_result('undo_restorer') AS result(restored integer)), 1,
+  'the restore then brings back the other status');
+SELECT * FROM dblink_get_result('undo_restorer') AS result(restored integer);
+SELECT dblink_exec('undo_restorer','COMMIT');
+
 
 SELECT dblink_exec('undo_fixture', $cleanup$
   DELETE FROM public.organizations WHERE id='7a5a0000-0000-4000-8000-000000000101';

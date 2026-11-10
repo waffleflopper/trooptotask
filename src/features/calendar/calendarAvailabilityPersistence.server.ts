@@ -138,13 +138,9 @@ export function createSupabaseCalendarAvailabilityPersistence(
 		},
 		async createMany(inputs) {
 			if (inputs.length === 0) return [];
-			// Each row takes its Person's lock as it goes in. Undo takes them in Person order, so a batch must too.
-			const byPerson = [...inputs].sort((a, b) =>
-				a.personnelId < b.personnelId ? -1 : a.personnelId > b.personnelId ? 1 : 0
-			);
 			const { data, error } = await client
 				.from('availability_entries')
-				.insert(byPerson.map((input) => availabilityInsert(input, orgId)))
+				.insert(inputs.map((input) => availabilityInsert(input, orgId)))
 				.select(AVAILABILITY_FIELDS)
 				.returns<AvailabilityRow[]>();
 			requireAvailabilityMutation(error);
@@ -193,6 +189,7 @@ export function createSupabaseCalendarAvailabilityPersistence(
 			if (error) {
 				if (error.code === '42501') throw new RequestFailure(403, 'You do not have access to that Calendar scope');
 				if (error.code === '22023') throw new RequestFailure(400, 'Provide between 1 and 500 availability IDs');
+				if (error.code === '55P03') throw new RequestFailure(409, 'Another change to those statuses is still saving');
 				throw new Error(error.message);
 			}
 			return (data ?? []).map(toAvailability);

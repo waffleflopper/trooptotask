@@ -23,7 +23,11 @@ disabled, narrow and dark state, and each hand-built control exposes its name an
   only for an actor who can configure types. While the sheet code downloads, the sheet opens with the Soldier's rank and
   name and a skeleton; a failed download shows `Unable to open` with `Retry`.
 - `matrix-quick-record`: a matrix cell opens a popover anchored to it, with one date field, a live preview, optional
-  notes, and `Open record`. Enter saves, Escape closes, and focus returns to the cell.
+  notes, and `Open record`. For an actor who can configure types, a type that allows exemptions also offers
+  `Mark exempt`, or `Remove exemption` on an exempt cell; either updates the type's exempt Person IDs and closes the
+  popover. Enter saves, Escape closes, and focus returns to the cell. On the right-most column at 1280 and at 390, every
+  row of the popover, including a long truncated `Record · <type>` title, `Save` and the footer, stays inside the
+  popover and the viewport.
 - `failed-save-keeps-values`: a rejected save leaves the form open with every value, selection and chip in place, the
   saved row unchanged and an explicit retry that saves once.
 - `field-error-association`: a validation or save error on a field is rendered by `Field.Error`, the control is

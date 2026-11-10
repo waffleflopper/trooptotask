@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { PersonnelTraining, TrainingRecordSave, TrainingType } from '$features/training/training.types';
@@ -19,17 +20,37 @@
 		isCurrent: () => boolean;
 		onSave: (data: TrainingRecordSave) => void | Promise<void>;
 		onOpenRecord?: (person: Personnel) => void;
+		/** Offers Mark exempt, or Remove exemption on an exempt cell. Resolves false when the change was not saved. */
+		onExempt?: (exempt: boolean) => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { person, type, training, statusInfo, orgId, today, isCurrent, onSave, onOpenRecord, onClose }: Props = $props();
+	let { person, type, training, statusInfo, orgId, today, isCurrent, onSave, onOpenRecord, onExempt, onClose }: Props =
+		$props();
+
+	let exempting = $state(false);
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+	});
 
 	function saved(isUpdate: boolean) {
 		toast.success(isUpdate ? 'Training record updated' : 'Training record saved');
 		onClose();
 	}
 
+	async function setExempt(exempt: boolean) {
+		if (!onExempt || exempting) return;
+		const startOrgId = orgId;
+		exempting = true;
+		const ok = await onExempt(exempt);
+		if (disposed || orgId !== startOrgId || !isCurrent()) return;
+		exempting = false;
+		if (ok) onClose();
+	}
+
 	const statusLine = $derived(getStatusLine(statusInfo));
+	const isExempt = $derived(statusInfo.status === 'exempt');
 
 	const toneClass = {
 		danger: 'text-danger-foreground',
@@ -38,9 +59,9 @@
 	};
 </script>
 
-<TrainingRecordForm {person} {type} {training} {orgId} {today} {isCurrent} {onSave} onSaved={saved}>
+<TrainingRecordForm {person} {type} {training} {orgId} {today} {isCurrent} busy={exempting} {onSave} onSaved={saved}>
 	{#snippet header()}
-		<div class="grid gap-1">
+		<div class="grid grid-cols-1 gap-1">
 			<div class="flex items-baseline justify-between gap-3 font-mono text-[0.6875rem] tracking-[0.08em] uppercase">
 				<span class="min-w-0 truncate text-muted-foreground">Record · {type.name}</span>
 				<span class="shrink-0 text-muted-foreground">{getColumnIntervalLabel(type)}</span>
@@ -52,10 +73,24 @@
 			<p class={['text-xs', toneClass[statusLine.tone]]}>{statusLine.text}</p>
 		</div>
 	{/snippet}
-	{#snippet footer()}
-		{#if onOpenRecord}
-			<div class="border-t border-border pt-2">
-				<Button type="button" variant="ghost" size="xs" onclick={() => onOpenRecord(person)}>Open record</Button>
+	{#snippet footer(saving: boolean)}
+		{#if onOpenRecord || onExempt}
+			<div class="flex items-center justify-between gap-2 border-t border-border pt-2">
+				{#if onOpenRecord}
+					<Button type="button" variant="ghost" size="xs" onclick={() => onOpenRecord(person)}>Open record</Button>
+				{/if}
+				{#if onExempt}
+					<Button
+						type="button"
+						variant="ghost"
+						size="xs"
+						class="ml-auto"
+						disabled={exempting || saving}
+						onclick={() => void setExempt(!isExempt)}
+					>
+						{isExempt ? 'Remove exemption' : 'Mark exempt'}
+					</Button>
+				{/if}
 			</div>
 		{/if}
 	{/snippet}

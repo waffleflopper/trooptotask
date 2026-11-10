@@ -194,8 +194,7 @@ describe('TrainingPageContext', () => {
 				const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
 				const ctx = makeContext(makeData(), makePolicyOrg({ training: 'configure' }));
 
-				await ctx.handleToggleExempt(saved.id, mockPerson.id, exempt);
-
+				expect(await ctx.handleToggleExempt(saved.id, mockPerson.id, exempt)).toBe(false);
 				expect(errorToast).toHaveBeenCalledExactlyOnceWith(shown);
 				expect(trainingTypesStore.items[0].exemptPersonnelIds).toEqual(saved.exemptPersonnelIds);
 			}

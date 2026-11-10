@@ -807,6 +807,51 @@ describe('TrainingMatrix recording popover', () => {
 		expect(onRecord.mock.calls.map(([saved]) => saved.completionDate)).toEqual(['2026-10-20', '2026-10-20']);
 	});
 
+	it('leaves the reopened popover alone when an exemption from its closed opening finishes', async () => {
+		const user = userEvent.setup();
+		const exemption = deferred();
+		const onExempt = vi.fn().mockImplementationOnce(() => exemption.promise.then(() => true));
+		mountRecordable({ trainingTypes: [{ ...trainingType, canBeExempted: true }], onExempt });
+		const cell = screen.getByRole('button', { name: 'Smith CPR: No record' });
+
+		await user.click(cell);
+		await user.click(within(await openPopover()).getByRole('button', { name: 'Mark exempt' }));
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
+		await user.click(cell);
+		const reopened = await openPopover();
+
+		exemption.resolve();
+		await new Promise((settled) => setTimeout(settled, 0));
+		await tick();
+
+		expect(onExempt).toHaveBeenCalledOnce();
+		expect(reopened.isConnected).toBe(true);
+		expect(within(reopened).getByText('Record · CPR')).toBeTruthy();
+	});
+
+	it('holds Save while an exemption is pending, and Mark exempt while a save is', async () => {
+		const user = userEvent.setup();
+		const exemption = deferred();
+		const save = deferred();
+		const onExempt = vi.fn().mockImplementationOnce(() => exemption.promise.then(() => false));
+		const onRecord = vi.fn().mockImplementationOnce(() => save.promise);
+		mountRecordable({ trainingTypes: [{ ...trainingType, canBeExempted: true }], onExempt, onRecord });
+		const button = (popover: HTMLElement, name: RegExp | string) =>
+			within(popover).getByRole('button', { name }) as HTMLButtonElement;
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
+		const popover = await openPopover();
+		await user.click(button(popover, 'Mark exempt'));
+		expect(button(popover, /^Save/).disabled).toBe(true);
+
+		exemption.resolve();
+		await waitFor(() => expect(button(popover, /^Save/).disabled).toBe(false));
+		await user.click(button(popover, /^Save/));
+		expect(button(popover, 'Mark exempt').disabled).toBe(true);
+		save.resolve();
+	});
+
 	it('leaves a later popover alone when an earlier save finishes after it was closed', async () => {
 		const user = userEvent.setup();
 		const jones = named('Jones', 'person-2');
@@ -854,6 +899,63 @@ describe('TrainingMatrix recording popover', () => {
 
 		expect(vi.mocked(toast.success)).not.toHaveBeenCalled();
 		expect(screen.getByText('Record · CPR')).toBeTruthy();
+	});
+
+	it('marks the Soldier exempt from a type that allows it and closes on the cell', async () => {
+		const user = userEvent.setup();
+		const exemptable = { ...trainingType, canBeExempted: true };
+		const onExempt = vi.fn().mockResolvedValue(true);
+		mountRecordable({ trainingTypes: [exemptable], onExempt });
+		const cell = screen.getByRole('button', { name: 'Smith CPR: No record' });
+
+		await user.click(cell);
+		const popover = await openPopover();
+		await user.click(within(popover).getByRole('button', { name: 'Mark exempt' }));
+
+		expect(onExempt).toHaveBeenCalledWith('type-1', 'person-1', true);
+		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
+		expect(document.activeElement).toBe(cell);
+	});
+
+	it('removes the exemption from an exempt cell', async () => {
+		const user = userEvent.setup();
+		const exempted = { ...trainingType, canBeExempted: true, exemptPersonnelIds: [person.id] };
+		const onExempt = vi.fn().mockResolvedValue(true);
+		mountRecordable({ trainingTypes: [exempted], onExempt });
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: Exempt' }));
+		const popover = await openPopover();
+		await user.click(within(popover).getByRole('button', { name: 'Remove exemption' }));
+
+		expect(onExempt).toHaveBeenCalledWith('type-1', 'person-1', false);
+	});
+
+	it('keeps the popover and its draft open when the exemption is not saved', async () => {
+		const user = userEvent.setup();
+		const onExempt = vi.fn().mockResolvedValue(false);
+		mountRecordable({ trainingTypes: [{ ...trainingType, canBeExempted: true }], onExempt });
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
+		const popover = await openPopover();
+		await fireEvent.input(dateInput(popover), { target: { value: '2026-09-01' } });
+		await user.click(within(popover).getByRole('button', { name: 'Mark exempt' }));
+
+		expect(onExempt).toHaveBeenCalledOnce();
+		expect(dateInput(await openPopover()).value).toBe('2026-09-01');
+		expect((within(popover).getByRole('button', { name: 'Mark exempt' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('offers no exemption for a type that does not allow one, or to a viewer who cannot exempt', async () => {
+		const user = userEvent.setup();
+		const { view } = mountRecordable({ trainingTypes: [trainingType], onExempt: vi.fn() });
+
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
+		expect(within(await openPopover()).queryByRole('button', { name: 'Mark exempt' })).toBeNull();
+		view.unmount();
+
+		mountRecordable({ trainingTypes: [{ ...trainingType, canBeExempted: true }] });
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
+		expect(within(await openPopover()).queryByRole('button', { name: 'Mark exempt' })).toBeNull();
 	});
 
 	it('does not open a popover when the viewer cannot record', async () => {

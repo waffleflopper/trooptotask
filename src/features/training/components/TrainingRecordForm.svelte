@@ -34,8 +34,8 @@
 		onDirtyChange?: (dirty: boolean) => void;
 		/** Context shown above the date field, ruled off from it. */
 		header?: Snippet;
-		/** Anything that belongs under Save. */
-		footer?: Snippet;
+		/** Anything that belongs under Save; given true while this form's save is in flight. */
+		footer?: Snippet<[boolean]>;
 	}
 
 	let {
@@ -146,7 +146,7 @@
 	}
 </script>
 
-<form bind:this={formElement} class="grid gap-3" onsubmit={save} onkeydowncapture={submitOnEnterInDate}>
+<form bind:this={formElement} class="grid grid-cols-1 gap-3" onsubmit={save} onkeydowncapture={submitOnEnterInDate}>
 	{@render header?.()}
 	<Field.Root class={['gap-1.5', header && 'border-t border-border pt-3']}>
 		<div class="flex items-center justify-between gap-2">
@@ -206,5 +206,5 @@
 			<CornerDownLeftIcon aria-hidden="true" />
 		</Button>
 	</div>
-	{@render footer?.()}
+	{@render footer?.(saving)}
 </form>

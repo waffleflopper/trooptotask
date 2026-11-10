@@ -509,7 +509,7 @@
 							<Field.Content>
 								<Field.Label for="type-exemptions">Allow exemptions</Field.Label>
 								<Field.Description>
-									Leaders can mark a person exempt from their record sheet.
+									Leaders can mark a person exempt from the matrix or their record sheet.
 									{#if exemptNow > 0}{exemptNow} {exemptNow === 1 ? 'is' : 'are'} exempt now.{/if}
 								</Field.Description>
 							</Field.Content>

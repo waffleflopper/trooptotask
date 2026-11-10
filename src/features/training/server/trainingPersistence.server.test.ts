@@ -266,7 +266,11 @@ describe('ordinary Training persistence', () => {
 		]);
 		expect((await catalog.findTypeByName('Annual'))?.id).toBe('t1');
 		expect(await catalog.findTypeId('t1')).toEqual({ id: 't1' });
-		expect(await completions.findResource('r1')).toEqual({ personnelId: 'p1', trainingTypeId: 't1' });
+		expect(await completions.findResource('r1')).toEqual({
+			personnelId: 'p1',
+			trainingTypeId: 't1',
+			completionDate: '2026-01-01'
+		});
 		expect(await completions.findPair('p1', 't1')).toEqual({
 			id: 'r1',
 			completionDate: '2026-01-01',

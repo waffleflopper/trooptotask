@@ -570,6 +570,21 @@ describe('updateTrainingRecord', () => {
 		});
 	});
 
+	it('keeps a stored date when an edit sends the same completion date', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedRecord(ctx);
+
+		await updateTrainingRecord(ctx, { id: RECORD, completionDate: '2025-03-15', notes: 'Same date' });
+
+		await expect(ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: RECORD })).resolves.toMatchObject({
+			completion_date: '2025-03-15',
+			expiration_date: '2026-03-15',
+			notes: 'Same date'
+		});
+	});
+
 	it('leaves a stored date nobody reads alone when only the notes change', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);

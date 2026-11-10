@@ -387,7 +387,7 @@ export type TrainingCompletedUpsert = Pick<
 	completionDate?: string | null;
 	updatedAt: string;
 };
-export type TrainingCompletionResource = Pick<PersonnelTraining, 'personnelId' | 'trainingTypeId'>;
+export type TrainingCompletionResource = Pick<PersonnelTraining, 'personnelId' | 'trainingTypeId' | 'completionDate'>;
 export type TrainingCompletionPairReference = Pick<
 	PersonnelTraining,
 	'id' | 'personnelId' | 'trainingTypeId' | 'completionDate' | 'expirationDate'

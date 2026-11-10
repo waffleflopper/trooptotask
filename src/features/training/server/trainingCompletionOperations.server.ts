@@ -346,7 +346,8 @@ export async function updateTrainingRecord(
 		if (fields.expirationDate !== undefined) {
 			updates.expirationDate = fields.expirationDate;
 		}
-	} else if (fields.completionDate !== undefined) {
+	} else if (fields.completionDate !== undefined && fields.completionDate !== existing.completionDate) {
+		// An unchanged completion keeps its row as is, because clearing an old stored date would add a history row for nothing.
 		updates.expirationDate = null;
 	}
 

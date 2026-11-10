@@ -246,13 +246,14 @@ export function createInMemoryTrainingCompletionPersistence(
 				.map(toTrainingCompletionFacts);
 		},
 		async findResource(id) {
-			const row = await store.findOne<{ personnel_id: string; training_type_id: string }>(
-				'personnel_trainings',
-				orgId,
-				{ id },
-				'personnel_id, training_type_id'
-			);
-			return row ? { personnelId: row.personnel_id, trainingTypeId: row.training_type_id } : null;
+			const row = await store.findOne<{
+				personnel_id: string;
+				training_type_id: string;
+				completion_date: string | null;
+			}>('personnel_trainings', orgId, { id }, 'personnel_id, training_type_id, completion_date');
+			return row
+				? { personnelId: row.personnel_id, trainingTypeId: row.training_type_id, completionDate: row.completion_date }
+				: null;
 		},
 		async findPair(personnelId, trainingTypeId) {
 			const row = await store.findOne<{ id: string; completion_date: string | null; expiration_date: string | null }>(

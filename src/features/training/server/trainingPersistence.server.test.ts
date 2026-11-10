@@ -261,8 +261,8 @@ describe('ordinary Training persistence', () => {
 		});
 		expect((await catalog.listTypes()).map((row) => row.id)).toEqual(['t0', 't1']);
 		expect(await catalog.listTypeLabels()).toEqual([
-			{ id: 't0', name: 'Never' },
-			{ id: 't1', name: 'Annual' }
+			{ id: 't0', name: 'Never', expirationMonths: null, expirationDateOnly: false },
+			{ id: 't1', name: 'Annual', expirationMonths: 12, expirationDateOnly: false }
 		]);
 		expect((await catalog.findTypeByName('Annual'))?.id).toBe('t1');
 		expect(await catalog.findTypeId('t1')).toEqual({ id: 't1' });

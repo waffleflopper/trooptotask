@@ -105,7 +105,7 @@ describe('createTrainingRecord', () => {
 		certificateUrl: null
 	};
 
-	it('looks up training type, calculates expiration, and inserts', async () => {
+	it('inserts a dated completion without storing an expiration date, which is derived when read', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
@@ -116,11 +116,35 @@ describe('createTrainingRecord', () => {
 			personnelId: PERSON_1,
 			trainingTypeId: TRAINING_TYPE,
 			completionDate: '2025-03-15',
-			expirationDate: '2026-03-15'
+			expirationDate: null
 		});
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(1);
+	});
+
+	it('discards an expiration date sent for a type that is not expiration-date-only', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+
+		await createTrainingRecord(ctx, { ...validInput, expirationDate: '2099-01-01' });
+
+		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([
+			expect.objectContaining({ completion_date: '2025-03-15', expiration_date: null })
+		]);
+	});
+
+	it('stores the certificate date a date-only type was given', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { expiration_date_only: true, expiration_months: null });
+
+		await createTrainingRecord(ctx, { ...validInput, completionDate: null, expirationDate: '2027-06-01' });
+
+		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([
+			expect.objectContaining({ completion_date: null, expiration_date: '2027-06-01' })
+		]);
 	});
 
 	it.each([
@@ -157,7 +181,7 @@ describe('createTrainingRecord', () => {
 				personnel_id: PERSON_1,
 				training_type_id: TRAINING_TYPE,
 				completion_date: '2025-03-15',
-				expiration_date: '2026-03-15',
+				expiration_date: null,
 				notes,
 				certificate_url: null
 			})
@@ -202,7 +226,7 @@ describe('createTrainingRecord', () => {
 
 		expect(result).toMatchObject({
 			completionDate: '2025-06-01',
-			expirationDate: '2026-06-01'
+			expirationDate: null
 		});
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
@@ -215,7 +239,7 @@ describe('createTrainingRecord', () => {
 			expirationDateOnly: false,
 			dateInput: { completionDate: '2026-04-01' },
 			clearedDateInput: { completionDate: null },
-			dateFields: { completion_date: '2026-04-01', expiration_date: '2027-04-01' },
+			dateFields: { completion_date: '2026-04-01', expiration_date: null },
 			clearedDateFields: { completion_date: null, expiration_date: null }
 		},
 		{
@@ -541,9 +565,27 @@ describe('updateTrainingRecord', () => {
 		expect(result).toMatchObject({
 			id: RECORD,
 			completionDate: '2025-06-01',
-			expirationDate: '2026-06-01',
+			expirationDate: null,
 			notes: 'Updated score'
 		});
+	});
+
+	it('leaves a stored date nobody reads alone when only the notes change', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedRecord(ctx);
+
+		await createTrainingRecord(ctx, {
+			personnelId: PERSON_1,
+			trainingTypeId: TRAINING_TYPE,
+			completionDate: '2025-03-15',
+			notes: 'Again'
+		});
+
+		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([
+			expect.objectContaining({ completion_date: '2025-03-15', expiration_date: '2026-03-15', notes: 'Again' })
+		]);
 	});
 
 	it('denies updates outside the caller scope set and audits the policy denial', async () => {

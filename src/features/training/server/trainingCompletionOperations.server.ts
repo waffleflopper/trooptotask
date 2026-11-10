@@ -22,7 +22,6 @@ import type {
 	TrainingRecordDeleteContext,
 	TrainingRecordDeletionRequestContext
 } from './trainingCompletionPorts.server';
-import { calculateExpirationDate } from '../utils/trainingStatus';
 import type {
 	CorrectedTrainingCompletion,
 	SavedTrainingCompletion,
@@ -161,14 +160,13 @@ async function writeTrainingCompletion(
 	const completionDate = validated.completionDate ?? null;
 	const isExpirationDateOnly = trainingType.expirationDateOnly ?? false;
 
-	const expirationDate = isExpirationDateOnly
-		? validated.expirationDate
-		: calculateExpirationDate(completionDate, trainingType.expirationMonths);
+	// Only a date-only type stores an expiration date; every other type derives it when read.
+	const expirationDate = isExpirationDateOnly ? (validated.expirationDate ?? null) : null;
 
 	let existing = await ctx.trainingCompletions.findPair(personnelId, trainingTypeId);
 	const fields = {
 		completionDate: completionDate ?? null,
-		expirationDate: expirationDate ?? null,
+		expirationDate,
 		notes: validated.notes ?? null,
 		certificateUrl: validated.certificateUrl ?? null
 	};
@@ -182,8 +180,9 @@ async function writeTrainingCompletion(
 	if (validated.completionDate !== undefined) updates.completionDate = validated.completionDate;
 	if (isExpirationDateOnly) {
 		if (validated.expirationDate !== undefined) updates.expirationDate = validated.expirationDate;
-	} else if (validated.completionDate !== undefined) {
-		updates.expirationDate = expirationDate ?? null;
+	} else if (validated.completionDate !== undefined && validated.completionDate !== existing.completionDate) {
+		// An unchanged completion keeps its row as is, because clearing an old stored date would add a history row for nothing.
+		updates.expirationDate = null;
 	}
 	if (validated.notes !== undefined) updates.notes = validated.notes;
 	// Logging the same dates again without a file keeps that completion's certificate, as no history row takes it.
@@ -303,7 +302,7 @@ export async function correctTrainingCompletion(
 			? expirationDate === undefined
 				? entry.expirationDate
 				: expirationDate
-			: calculateExpirationDate(correctedCompletionDate, trainingType.expirationMonths),
+			: null,
 		notes: notes === undefined ? entry.notes : notes
 	});
 	if (!corrected) fail(404, 'Training record not found');
@@ -334,15 +333,8 @@ export async function updateTrainingRecord(
 
 	if (!existing) fail(404, 'Training record not found');
 
-	let isExpirationDateOnly = false;
-	let expirationMonths: number | null = null;
-
 	const trainingType = await ctx.trainingCatalog.findTypeTiming(existing.trainingTypeId);
-
-	if (trainingType) {
-		isExpirationDateOnly = trainingType.expirationDateOnly ?? false;
-		expirationMonths = trainingType.expirationMonths;
-	}
+	const isExpirationDateOnly = trainingType?.expirationDateOnly ?? false;
 
 	const updates: TrainingCompletionPatch = { updatedAt: new Date().toISOString() };
 
@@ -355,7 +347,7 @@ export async function updateTrainingRecord(
 			updates.expirationDate = fields.expirationDate;
 		}
 	} else if (fields.completionDate !== undefined) {
-		updates.expirationDate = calculateExpirationDate(fields.completionDate as string, expirationMonths);
+		updates.expirationDate = null;
 	}
 
 	if (fields.notes !== undefined) updates.notes = fields.notes;

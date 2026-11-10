@@ -1,6 +1,5 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourcesForTrainingPersonnel } from './trainingCompletionOperations.server';
-import { calculateExpirationDate } from '../utils/trainingStatus';
 import type { TrainingBatchContext } from './trainingCompletionPorts.server';
 import type {
 	TrainingBatchImportInput,
@@ -113,15 +112,11 @@ export async function importTrainingRecords(
 			continue;
 		}
 
-		const expirationDate = isExpirationDateOnly
-			? completionDate
-			: calculateExpirationDate(completionDate, type.expirationMonths);
-
 		completedRows.push({
 			personnelId: rec.personnelId,
 			trainingTypeId: rec.trainingTypeId,
 			completionDate: isExpirationDateOnly ? null : completionDate,
-			expirationDate: expirationDate,
+			expirationDate: isExpirationDateOnly ? completionDate : null,
 			notes: rec.notes ?? null,
 			updatedAt: new Date().toISOString()
 		});

@@ -7,7 +7,6 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { PersonnelTraining, TrainingRecordSave, TrainingType } from '$features/training/training.types';
 	import type { TrainingBatchRecord } from '$features/training/contracts';
-	import { calculateExpirationDate } from '$features/training/utils/trainingStatus';
 	import {
 		buildTrainingRecordSheet,
 		type ReadinessSegment,
@@ -165,7 +164,7 @@
 					personnelId: personId,
 					trainingTypeId: item.type.id,
 					completionDate: asOf,
-					expirationDate: calculateExpirationDate(asOf, item.type.expirationMonths),
+					expirationDate: null,
 					notes: null
 				});
 				saved = true;

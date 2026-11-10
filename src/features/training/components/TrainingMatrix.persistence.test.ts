@@ -134,7 +134,7 @@ describe('Recording from the matrix against stored records', () => {
 		await waitFor(() => expect(onRecord).toHaveBeenCalledTimes(1));
 		expect(await stored()).toMatchObject({
 			completionDate: '2026-10-20',
-			expirationDate: '2027-10-20',
+			expirationDate: null,
 			notes: 'Range card',
 			certificateUrl: 'https://example.test/cpr.pdf'
 		});

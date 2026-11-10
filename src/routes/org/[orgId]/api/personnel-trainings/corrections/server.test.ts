@@ -91,7 +91,7 @@ const groupOperator = {
 };
 
 describe('PATCH /api/personnel-trainings/corrections', () => {
-	it('corrects the current completion in place and recomputes its expiration from the cycle', async () => {
+	it('corrects the current completion in place and stores no expiration date for a cycle type', async () => {
 		const ctx = seededContext(groupOperator);
 
 		const result = await handleUseCaseRequest(
@@ -106,7 +106,7 @@ describe('PATCH /api/personnel-trainings/corrections', () => {
 			personnelId: PERSON,
 			trainingTypeId: CYCLE_TYPE,
 			completionDate: '2026-03-14',
-			expirationDate: '2027-03-14',
+			expirationDate: null,
 			notes: 'Range 4',
 			certificateUrl: 'https://example.test/cert.pdf'
 		});

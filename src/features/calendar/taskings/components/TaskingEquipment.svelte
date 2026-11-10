@@ -12,10 +12,11 @@
 		TASKING_LIST_LIMIT,
 		equipmentChangeSchema,
 		equipmentDraftSchema,
-		securedSchema,
 		equipmentReadiness,
 		equipmentState,
+		isReturned,
 		movedIds,
+		returnedSchema,
 		type EquipmentRequirement
 	} from '../taskingListsModel';
 	import {
@@ -67,14 +68,16 @@
 	});
 
 	const readiness = $derived(equipmentReadiness(items));
-	const returned = (item: EquipmentRequirement) => (item.returnedQuantity ?? 0) >= item.quantity;
 	const summary = $derived.by(() => {
 		if (!readiness) return { text: 'None needed', tone: 'text-muted-foreground' };
 		if (returning) {
-			const back = items.filter(returned).length;
+			// An item with nothing secured has nothing to bring back.
+			const returnable = items.filter((item) => item.securedQuantity > 0);
+			if (returnable.length === 0) return { text: 'Nothing to return', tone: 'text-muted-foreground' };
+			const back = returnable.filter(isReturned).length;
 			return {
-				text: `${back} of ${items.length} returned`,
-				tone: back === items.length ? 'text-success-foreground' : 'text-accent-text'
+				text: `${back} of ${returnable.length} returned`,
+				tone: back === returnable.length ? 'text-success-foreground' : 'text-accent-text'
 			};
 		}
 		const done = readiness.ready === readiness.total;
@@ -85,7 +88,12 @@
 	});
 	const shortTone = $derived(blocked ? 'text-danger-foreground' : 'text-accent-text');
 	const full = $derived(items.length >= TASKING_LIST_LIMIT);
-	const countParsed = $derived(counting ? securedSchema.safeParse(Number(counting.returnedQuantity)) : null);
+	const countedItem = $derived(counting ? items.find((item) => item.id === counting?.id) : undefined);
+	const countParsed = $derived(
+		counting && countedItem
+			? returnedSchema(countedItem.securedQuantity).safeParse(Number(counting.returnedQuantity))
+			: null
+	);
 	const addParsed = $derived(
 		equipmentDraftSchema.safeParse({ name: adding.name, quantity: Number(adding.quantity), securedQuantity: 0 })
 	);
@@ -149,11 +157,11 @@
 	const secure = (item: EquipmentRequirement, all: boolean) =>
 		change(item, { securedQuantity: all ? item.quantity : 0 });
 	const giveBack = (item: EquipmentRequirement, all: boolean) =>
-		change(item, { returnedQuantity: all ? item.quantity : 0 });
+		change(item, { returnedQuantity: all ? item.securedQuantity : 0 });
 
 	function saveCount(item: EquipmentRequirement) {
 		if (!counting || !countParsed?.success) return;
-		const returnedQuantity = Math.min(item.quantity, countParsed.data);
+		const returnedQuantity = countParsed.data;
 		const submitted = counting.returnedQuantity;
 		if (returnedQuantity === (item.returnedQuantity ?? 0)) counting = null;
 		else
@@ -316,7 +324,9 @@
 							}}
 						>
 							<Field.Root>
-								<Field.Label for={`equipment-returned-${item.id}`}>Returned of {item.quantity} {item.name}</Field.Label>
+								<Field.Label for={`equipment-returned-${item.id}`}
+									>Returned of {item.securedQuantity} {item.name}</Field.Label
+								>
 								<Input
 									id={`equipment-returned-${item.id}`}
 									inputmode="numeric"
@@ -341,31 +351,40 @@
 					{:else}
 						{@const back = item.returnedQuantity ?? 0}
 						{@const active = returning ? canReturn : canEdit}
+						{@const unsecured = returning && item.securedQuantity === 0}
 						<div class="flex min-h-7 items-center gap-[10px]">
-							<Checkbox
-								id={checkId}
-								class={[
-									!active && 'disabled:cursor-default disabled:opacity-100',
-									!returning && state !== 'ready' && blocked && 'border-danger',
-									!returning && state === 'partial' && !blocked && 'border-accent'
-								]
-									.filter(Boolean)
-									.join(' ')}
-								checked={returning ? returned(item) : state === 'ready'}
-								disabled={!active || writes.saving.pending}
-								onCheckedChange={(checked) => (returning ? giveBack(item, checked) : secure(item, checked))}
-							/>
-							<label for={checkId} class="min-w-0 flex-1 text-sm wrap-anywhere">{item.name}</label>
-							{#if returning && back > 0 && back < item.quantity}
-								<span class="shrink-0 font-mono text-xs text-accent-text tabular-nums">
-									{back} of {item.quantity} returned
-								</span>
-							{:else if !returning && state === 'partial'}
-								<span class={['shrink-0 font-mono text-xs tabular-nums', shortTone]}>
-									{item.securedQuantity} of {item.quantity} secured
-								</span>
+							{#if unsecured}
+								<span class="size-4 shrink-0" aria-hidden="true"></span>
+								<span class="min-w-0 flex-1 text-sm text-muted-foreground wrap-anywhere">{item.name}</span>
+								<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">none secured</span>
 							{:else}
-								<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">× {item.quantity}</span>
+								<Checkbox
+									id={checkId}
+									class={[
+										!active && 'disabled:cursor-default disabled:opacity-100',
+										!returning && state !== 'ready' && blocked && 'border-danger',
+										!returning && state === 'partial' && !blocked && 'border-accent'
+									]
+										.filter(Boolean)
+										.join(' ')}
+									checked={returning ? isReturned(item) : state === 'ready'}
+									disabled={!active || writes.saving.pending}
+									onCheckedChange={(checked) => (returning ? giveBack(item, checked) : secure(item, checked))}
+								/>
+								<label for={checkId} class="min-w-0 flex-1 text-sm wrap-anywhere">{item.name}</label>
+								{#if returning && back > 0 && back < item.securedQuantity}
+									<span class="shrink-0 font-mono text-xs text-accent-text tabular-nums">
+										{back} of {item.securedQuantity} returned
+									</span>
+								{:else if !returning && state === 'partial'}
+									<span class={['shrink-0 font-mono text-xs tabular-nums', shortTone]}>
+										{item.securedQuantity} of {item.quantity} secured
+									</span>
+								{:else}
+									<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+										× {returning ? item.securedQuantity : item.quantity}
+									</span>
+								{/if}
 							{/if}
 							{#if canEdit}
 								<ListItemActions
@@ -377,7 +396,7 @@
 									onEdit={() => startEdit(item)}
 									onRemove={() => remove(item)}
 								/>
-							{:else if canReturn}
+							{:else if canReturn && !unsecured}
 								<ListItemActions
 									name={item.name}
 									first={index === 0}

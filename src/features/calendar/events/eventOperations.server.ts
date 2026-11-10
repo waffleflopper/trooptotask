@@ -95,8 +95,7 @@ export async function deleteEvent(ctx: CalendarEventPorts, id: string, input: un
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageEvents, ORGANIZATION);
 	const event = await ctx.calendarEvents.findEvent(eventId(id));
 	if (!event) fail(404, EVENT_GONE);
-	const count = await ctx.calendarEvents.deleteEvent(event.id, taskings);
-	return { taskings, count };
+	return ctx.calendarEvents.deleteEvent(event.id, taskings);
 }
 
 export function settleEventRead<T>(read: Promise<T>): Promise<EventRead<T>> {

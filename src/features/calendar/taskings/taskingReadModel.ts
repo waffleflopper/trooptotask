@@ -8,7 +8,7 @@ export const taskingRowFactsSchema = z.object({
 		ready: z.number(),
 		total: z.number(),
 		returnedQuantity: z.number(),
-		totalQuantity: z.number()
+		securedQuantity: z.number()
 	}),
 	conflicts: z.number(),
 	nextDate: z.string(),

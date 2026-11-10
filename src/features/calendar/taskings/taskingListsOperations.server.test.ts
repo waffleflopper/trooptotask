@@ -225,7 +225,7 @@ describe('Tasking equipment and checklist operations', () => {
 
 		await updateEquipment(ctx, TASKING, LITTERS, { returnedQuantity: 3 });
 		await expect(
-			updateEquipment(ctx, TASKING, LITTERS, { returnedQuantity: 4, securedQuantity: 3 })
+			updateEquipment(ctx, TASKING, LITTERS, { returnedQuantity: 4, securedQuantity: 4 })
 		).rejects.toMatchObject({ status: 409 });
 
 		expect(equipment[0]).toMatchObject({ securedQuantity: 4, returnedQuantity: 3 });

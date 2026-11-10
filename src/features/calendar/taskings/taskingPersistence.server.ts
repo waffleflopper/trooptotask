@@ -220,8 +220,18 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 			})
 		}),
 		z.object({
-			kind: z.enum(['equipment_secured', 'equipment_returned']),
+			kind: z.literal('equipment_secured'),
 			payload: z.object({ name: z.string(), quantity: z.number(), from: z.number(), to: z.number() })
+		}),
+		z.object({
+			kind: z.literal('equipment_returned'),
+			payload: z.object({
+				name: z.string(),
+				quantity: z.number(),
+				securedQuantity: z.number().optional(),
+				from: z.number(),
+				to: z.number()
+			})
 		}),
 		z.object({
 			kind: z.enum(['checklist_added', 'checklist_removed', 'checklist_completed', 'checklist_reopened']),
@@ -273,6 +283,7 @@ function toActivity(row: ActivityRow): TaskingActivity {
 		case 'equipment_changed':
 			return { ...base, kind: row.kind, ...row.payload };
 		case 'equipment_secured':
+			return { ...base, kind: row.kind, ...row.payload };
 		case 'equipment_returned':
 			return { ...base, kind: row.kind, ...row.payload };
 		case 'checklist_added':

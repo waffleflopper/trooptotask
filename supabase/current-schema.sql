@@ -2466,7 +2466,7 @@ BEGIN
     INSERT INTO public.calendar_tasking_activity(organization_id, tasking_id, actor_id, kind, payload)
     VALUES(NEW.organization_id, NEW.tasking_id, NEW.updated_by, 'equipment_returned',
       pg_catalog.jsonb_build_object('name', NEW.name, 'quantity', NEW.quantity,
-        'from', OLD.returned_quantity, 'to', NEW.returned_quantity));
+        'securedQuantity', NEW.secured_quantity, 'from', OLD.returned_quantity, 'to', NEW.returned_quantity));
   END IF;
   RETURN NULL;
 END;
@@ -2719,6 +2719,10 @@ BEGIN
     NEW.tasking_id := OLD.tasking_id;
     NEW.created_at := OLD.created_at;
     NEW.created_by := OLD.created_by;
+    IF NEW.secured_quantity IS DISTINCT FROM OLD.secured_quantity
+      AND NEW.returned_quantity IS NOT DISTINCT FROM OLD.returned_quantity THEN
+      NEW.returned_quantity := LEAST(NEW.returned_quantity, NEW.secured_quantity);
+    END IF;
   END IF;
   NEW.updated_at := pg_catalog.now();
   NEW.updated_by := auth.uid();
@@ -5558,7 +5562,7 @@ CREATE FUNCTION public.calendar_tasking_workspace(p_organization_id uuid, p_toda
     SET search_path TO ''
     AS $$
   WITH membership AS MATERIALIZED (
-    SELECT m.role, m.access_scope_kind, m.access_scope_group_ids
+    SELECT m.*
     FROM public.organization_memberships m
     WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
       AND calendar_private.can_view_calendar_events(p_organization_id)
@@ -5570,7 +5574,7 @@ CREATE FUNCTION public.calendar_tasking_workspace(p_organization_id uuid, p_toda
   ), equipment AS (
     SELECT q.tasking_id, count(*)::integer AS total,
       count(*) FILTER (WHERE q.secured_quantity = q.quantity)::integer AS ready,
-      sum(q.quantity)::integer AS quantity, sum(q.returned_quantity)::integer AS returned
+      sum(q.secured_quantity)::integer AS secured, sum(q.returned_quantity)::integer AS returned
     FROM public.calendar_tasking_equipment q WHERE q.organization_id = p_organization_id GROUP BY q.tasking_id
   ), conflicts AS MATERIALIZED (
     SELECT c.tasking_id, count(DISTINCT c.personnel_id)::integer AS conflicts
@@ -5578,7 +5582,7 @@ CREATE FUNCTION public.calendar_tasking_workspace(p_organization_id uuid, p_toda
   ), facts AS MATERIALIZED (
     SELECT t.id, t.event_id, t.status, t.responsible_group_id, t.suspense_on, t.execution_starts_on,
       t.staffing_required, coalesce(p.picked, 0) AS picked, coalesce(q.total, 0) AS equipment_total,
-      coalesce(q.ready, 0) AS equipment_ready, coalesce(q.quantity, 0) AS equipment_quantity,
+      coalesce(q.ready, 0) AS equipment_ready, coalesce(q.secured, 0) AS equipment_secured,
       coalesce(q.returned, 0) AS equipment_returned, coalesce(c.conflicts, 0) AS conflicts,
       t.status IN ('open', 'in_progress', 'blocked') AS active,
       CASE WHEN t.event_id IS NULL THEN 'standalone'
@@ -5616,7 +5620,7 @@ CREATE FUNCTION public.calendar_tasking_workspace(p_organization_id uuid, p_toda
     'taskings', coalesce((SELECT pg_catalog.jsonb_object_agg(f.id, pg_catalog.jsonb_build_object(
       'eventRelation', f.relation, 'picked', f.picked, 'required', f.staffing_required,
       'equipment', pg_catalog.jsonb_build_object('ready', f.equipment_ready, 'total', f.equipment_total,
-        'returnedQuantity', f.equipment_returned, 'totalQuantity', f.equipment_quantity),
+        'returnedQuantity', f.equipment_returned, 'securedQuantity', f.equipment_secured),
       'conflicts', f.conflicts, 'nextDate', f.next_date, 'suspenseOn', f.suspense_on,
       'status', f.status, 'responsibleGroupId', f.responsible_group_id
     )) FROM facts f WHERE f.visible), '{}'::jsonb),
@@ -7470,11 +7474,13 @@ ALTER FUNCTION public.delete_availability_entries(p_organization_id uuid, p_ids 
 -- Name: delete_calendar_event(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.delete_calendar_event(p_organization_id uuid, p_event_id uuid, p_taskings text) RETURNS TABLE(taskings integer)
+CREATE FUNCTION public.delete_calendar_event(p_organization_id uuid, p_event_id uuid, p_taskings text) RETURNS TABLE(deleted integer, kept integer)
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-DECLARE v_count integer;
+DECLARE
+  v_linked integer;
+  v_deleted integer := 0;
 BEGIN
   IF p_taskings IS NULL OR p_taskings NOT IN ('standalone', 'delete') THEN
     RAISE EXCEPTION 'Choose standalone or delete for linked taskings' USING ERRCODE = '22023';
@@ -7491,19 +7497,21 @@ BEGIN
     RAISE EXCEPTION 'Event not found' USING ERRCODE = 'P0002';
   END IF;
 
+  -- Locked until commit, so no Tasking changes status between the delete and the counts.
   PERFORM t.id FROM public.calendar_taskings AS t
   WHERE t.organization_id = p_organization_id AND t.event_id = p_event_id
   ORDER BY t.id FOR UPDATE;
-  GET DIAGNOSTICS v_count = ROW_COUNT;
+  GET DIAGNOSTICS v_linked = ROW_COUNT;
 
   IF p_taskings = 'delete' THEN
     DELETE FROM public.calendar_taskings AS t
-    WHERE t.organization_id = p_organization_id AND t.event_id = p_event_id;
-    GET DIAGNOSTICS v_count = ROW_COUNT;
+    WHERE t.organization_id = p_organization_id AND t.event_id = p_event_id
+      AND t.status IN ('open', 'in_progress', 'blocked');
+    GET DIAGNOSTICS v_deleted = ROW_COUNT;
   END IF;
   DELETE FROM public.calendar_events AS e
   WHERE e.organization_id = p_organization_id AND e.id = p_event_id;
-  RETURN QUERY SELECT v_count;
+  RETURN QUERY SELECT v_deleted, v_linked - v_deleted;
 END;
 $$;
 
@@ -14859,9 +14867,9 @@ CREATE TABLE public.calendar_tasking_equipment (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
     returned_quantity integer DEFAULT 0 NOT NULL,
-    CONSTRAINT calendar_tasking_equipment_check CHECK (((returned_quantity >= 0) AND (returned_quantity <= quantity))),
     CONSTRAINT calendar_tasking_equipment_name_check CHECK (((btrim(name) <> ''::text) AND (char_length(name) <= 200))),
     CONSTRAINT calendar_tasking_equipment_quantity_check CHECK (((quantity >= 1) AND (quantity <= 9999))),
+    CONSTRAINT calendar_tasking_equipment_returned CHECK (((returned_quantity >= 0) AND (returned_quantity <= secured_quantity))),
     CONSTRAINT calendar_tasking_equipment_secured CHECK (((secured_quantity >= 0) AND (secured_quantity <= quantity)))
 );
 

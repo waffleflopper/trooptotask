@@ -57,6 +57,15 @@ const linked = [
 		by: null
 	})
 ];
+const closed = [
+	linked[2],
+	tasking('00000000-0000-4000-8000-000000000404', 'Return the litters', {
+		kind: 'cancelled',
+		reason: null,
+		at: '2026-10-16T00:00:00Z',
+		by: null
+	})
+];
 
 const loaded = (taskings: Tasking[]) =>
 	Promise.resolve<EventRead<{ taskings: Tasking[] }>>({ status: 'loaded', value: { taskings } });
@@ -83,7 +92,7 @@ afterEach(() => {
 
 describe('DeleteEventDialog', () => {
 	it('keeps the linked Taskings as standalone unless the reader chooses to delete them', async () => {
-		const send = vi.fn(async () => Response.json({ taskings: 'standalone', count: 3 }));
+		const send = vi.fn(async () => Response.json({ deleted: 0, kept: 3 }));
 		vi.stubGlobal('fetch', send);
 		open();
 
@@ -95,18 +104,60 @@ describe('DeleteEventDialog', () => {
 	});
 
 	it('sends delete, and says how many Taskings go with the Event, once the reader chooses it', async () => {
-		const send = vi.fn(async () => Response.json({ taskings: 'delete', count: 3 }));
+		const send = vi.fn(async () => Response.json({ deleted: 3, kept: 0 }));
 		vi.stubGlobal('fetch', send);
-		open();
+		open(linked.slice(0, 2));
 
 		await fireEvent.click(await screen.findByRole('radio', { name: /Delete them too/ }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete event and 3 taskings' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event and 2 taskings' }));
 		await waitFor(() => expect(send).toHaveBeenCalledOnce());
 		expect(sentMode(send)).toBe('delete');
 	});
 
+	it('names how many active Taskings go and how many closed ones stay before the reader confirms', async () => {
+		const send = vi.fn(async () => Response.json({ deleted: 2, kept: 1 }));
+		vi.stubGlobal('fetch', send);
+		open();
+
+		const deleteThem = await screen.findByRole('radio', { name: /Delete.*\b2\b.*too/ });
+		await fireEvent.click(deleteThem);
+		expect(screen.getByRole('radio', { name: /1 completed or cancelled stays as standalone/ })).toBeTruthy();
+		const confirm = screen.getByRole('button', { name: 'Delete event and 2 active taskings' });
+		await fireEvent.click(confirm);
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		expect(sentMode(send)).toBe('delete');
+	});
+
+	it('asks nothing when every linked Tasking is closed, since deleting would keep them all', async () => {
+		const send = vi.fn(async () => Response.json({ deleted: 0, kept: 2 }));
+		vi.stubGlobal('fetch', send);
+		open(closed);
+
+		const confirm = await screen.findByRole('button', { name: 'Delete event' });
+		await waitFor(() => expect(confirm.hasAttribute('disabled')).toBe(false));
+		expect(screen.queryByRole('radiogroup')).toBeNull();
+		await fireEvent.click(confirm);
+		await waitFor(() => expect(send).toHaveBeenCalledOnce());
+		expect(sentMode(send)).toBe('standalone');
+	});
+
+	it('still asks when the linked Taskings could not be listed', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => Response.json({ deleted: 0, kept: 0 }))
+		);
+		render(DeleteEventDialog, {
+			org,
+			event,
+			taskings: Promise.resolve<EventRead<{ taskings: Tasking[] }>>({ status: 'failed' }),
+			onClose: vi.fn()
+		});
+
+		expect(await screen.findByRole('radiogroup')).toBeTruthy();
+	});
+
 	it('asks nothing about Taskings when none are linked and keeps the standalone mode', async () => {
-		const send = vi.fn(async () => Response.json({ taskings: 'standalone', count: 0 }));
+		const send = vi.fn(async () => Response.json({ deleted: 0, kept: 0 }));
 		vi.stubGlobal('fetch', send);
 		open([]);
 
@@ -122,18 +173,18 @@ describe('DeleteEventDialog', () => {
 		const send = vi
 			.fn()
 			.mockResolvedValueOnce(Response.json({ message: 'Server unavailable' }, { status: 500 }))
-			.mockResolvedValueOnce(Response.json({ taskings: 'delete', count: 3 }));
+			.mockResolvedValueOnce(Response.json({ deleted: 2, kept: 1 }));
 		vi.stubGlobal('fetch', send);
 		const { onClose } = open();
 
-		await fireEvent.click(await screen.findByRole('radio', { name: /Delete them too/ }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete event and 3 taskings' }));
+		await fireEvent.click(await screen.findByRole('radio', { name: /Delete.*too/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Delete event and/ }));
 
 		expect(await screen.findByRole('alert')).toBeTruthy();
 		expect(goto).not.toHaveBeenCalled();
 		expect(onClose).not.toHaveBeenCalled();
-		expect(screen.getByRole('radio', { name: /Delete them too/ }).getAttribute('aria-checked')).toBe('true');
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete event and 3 taskings' }));
+		expect(screen.getByRole('radio', { name: /Delete.*too/ }).getAttribute('aria-checked')).toBe('true');
+		await fireEvent.click(screen.getByRole('button', { name: /^Delete event and/ }));
 		await waitFor(() => expect(goto).toHaveBeenCalledOnce());
 		expect(sentMode(send, 1)).toBe('delete');
 	});
@@ -142,7 +193,7 @@ describe('DeleteEventDialog', () => {
 		const success = vi.spyOn(toastStore, 'success').mockReturnValue('toast');
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async () => Response.json({ taskings: 'standalone', count: 3 }))
+			vi.fn(async () => Response.json({ deleted: 0, kept: 3 }))
 		);
 		open();
 
@@ -152,6 +203,21 @@ describe('DeleteEventDialog', () => {
 		await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/c-co/calendar/events'));
 		expect(success).toHaveBeenCalledOnce();
 		expect(success.mock.calls[0][0]).toMatch(/Best Medic Competition.*\b3\b/);
+	});
+
+	it('reports both the deleted and the kept Taskings when the database split them', async () => {
+		const success = vi.spyOn(toastStore, 'success').mockReturnValue('toast');
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => Response.json({ deleted: 5, kept: 7 }))
+		);
+		open();
+
+		await fireEvent.click(await screen.findByRole('radio', { name: /Delete.*too/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Delete event and/ }));
+
+		await waitFor(() => expect(success).toHaveBeenCalledOnce());
+		expect(success.mock.calls[0][0]).toMatch(/\b5\b.*\b7\b/);
 	});
 
 	it('does nothing with a reply that arrives after the Organization was left', async () => {
@@ -165,7 +231,7 @@ describe('DeleteEventDialog', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
 		await waitFor(() => expect(send).toHaveBeenCalledOnce());
 		endOrganizationLifetime();
-		reply(Response.json({ taskings: 'standalone', count: 3 }));
+		reply(Response.json({ deleted: 0, kept: 3 }));
 		await flush();
 
 		expect(goto).not.toHaveBeenCalled();

@@ -374,7 +374,7 @@ describe('calendar page', () => {
 						eventRelation: 'execution' as const,
 						picked: 1,
 						required: 2,
-						equipment: { ready: 0, total: 0, returnedQuantity: 0, totalQuantity: 0 },
+						equipment: { ready: 0, total: 0, returnedQuantity: 0, securedQuantity: 0 },
 						conflicts: 0,
 						nextDate: '2026-04-06',
 						suspenseOn: '2026-04-10',

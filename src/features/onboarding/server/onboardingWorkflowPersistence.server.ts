@@ -123,23 +123,6 @@ export function createSupabaseOnboardingWorkflowPersistence(
 			if (error) throw new Error(error.message);
 			return data ? toPacket(data) : null;
 		},
-		async listIncompleteActiveStepIds(onboardingId) {
-			const result = await selectAllSupabaseRows<{ id: string }>(async (from, to) => {
-				const { data, error } = await client
-					.from('onboarding_step_progress')
-					.select('id')
-					.eq('organization_id', orgId)
-					.eq('onboarding_id', onboardingId)
-					.eq('active', true)
-					.eq('completed', false)
-					.order('id', { ascending: true })
-					.range(from, to)
-					.returns<{ id: string }[]>();
-				return { data, error };
-			});
-			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map((row) => row.id);
-		},
 		async saveCheckboxCompletion(stepId, completed) {
 			const { data, error } = await client
 				.from('onboarding_step_progress')

@@ -334,7 +334,7 @@ describe('personnel follow-ups', () => {
 		expect(requireGroupAccess).toHaveBeenCalledWith('person-1');
 	});
 
-	it('refreshes the follow-up archive time on repeated archive while requiring archived state to restore', async () => {
+	it('keeps the first archive time on repeated archive while requiring archived state to restore', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);
 		const context = testPersonnelArtifactsContext(ctx);
@@ -351,8 +351,8 @@ describe('personnel follow-ups', () => {
 			const repeated = await archivePersonnelFollowUp(context, { personnelId: 'person-1', followUpId: created.id });
 			expect(repeated).toMatchObject({
 				status: 'archived',
-				archivedAt: '2026-10-02T12:00:00.000Z',
-				updatedAt: '2026-10-02T12:00:00.000Z'
+				archivedAt: '2026-10-01T12:00:00.000Z',
+				updatedAt: '2026-10-01T12:00:00.000Z'
 			});
 		} finally {
 			vi.useRealTimers();

@@ -16,7 +16,10 @@ Organization and Group scope.
 - `progress`: toggle checkbox steps, advance or reverse paperwork stages, retain attributed notes, and derive Training
   completion from the owned Training source.
 - `lifecycle-and-history`: cancel, reopen and complete packets, including the explicit warning for incomplete steps;
-  retain packet/progress identities and inspect history after reload.
+  retain packet/progress identities and inspect history after reload. Archiving a Person cancels their in-progress
+  packet with reason `archived`; restoring them leaves it cancelled until a leader reopens it. Starting or reopening a
+  packet for an archived Person answers 409 `This person is archived. Restore them before onboarding them.`; in a
+  several-person start it is a failed outcome, not `already onboarding`.
 - `reconciliation`: explicitly resync changed definitions or switch templates, preserving completed work/notes and
   inactive removed steps; assigning a template to a legacy packet is a separate case.
 - `status-and-order`: each active packet's status (Stalled when an open paperwork step has sat at its stage for 7 or
@@ -144,7 +147,8 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    History/reload. Separately reopen the cancelled packet through an ordinary authenticated PUT to `onboarding` with
    `{id,status:'in_progress'}`; require in-progress with cancelledAt cleared and progress retained, then reload/open its
    active row. This is API transition proof followed by visible readback, not a UI reopen action. Reopening while
-   another packet for the same Person is active must fail without creating a second active packet. Complete a packet
+   another packet for the same Person is active must answer 409 `This person already has an active onboarding` without
+   creating a second active packet. Reopening a packet whose Person is archived answers 409 with the archived message. Complete a packet
    with unfinished steps only through `Close out · N open` and its explicit incomplete-step warning; cancellation of
    that warning writes nothing. Confirm completion, inspect history/reload and compare status/completedAt and retained
    snapshots. Native History controls are read-only. The supported step API still admits authorized terminal

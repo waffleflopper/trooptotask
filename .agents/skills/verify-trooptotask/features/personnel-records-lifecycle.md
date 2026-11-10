@@ -20,7 +20,10 @@ archives or restores a record while keeping its identity, permissions and retain
   visible roots; a bare name several Groups share asks `Which group?` with each path, and `Create` builds a missing
   path, reusing the Groups that exist.
 - `record-archive-restore`: single and bulk archive remove People from active views; restore retains their IDs and
-  restores only artifacts archived by that parent event.
+  restores only artifacts archived by that parent event. Archive also cancels the Person's in-progress onboarding packet
+  with reason `archived`, and restore leaves it cancelled. An archived Person takes no new records: adding a document,
+  counseling, Follow-up or note answers 409 `This person is archived. Restore them before adding records.` before any
+  file uploads. Archiving an already archived Follow-up keeps its first archive time, so restore still finds it.
 - `archive-undo`: the roster bulk bar's and the detail page's archive toasts carry `Undo` for 10 seconds. Undo restores
   exactly the People that archive newly archived, and withdraws the approval requests it submitted, for the actor who
   archived even without restore access. Anyone else, or an expired offer, is refused.
@@ -38,7 +41,8 @@ archives or restores a record while keeping its identity, permissions and retain
 - `record-loss-acknowledgement`: distinguish detail ETS readiness from global ETS/DEROS losses, and set or clear the
   existing acknowledgement through its authenticated endpoint without inventing a Web toggle.
 - `record-retention`: scheduled removal of expired archived parents, complete cascade-file cleanup, retained history,
-  scoped counts and truthful failures.
+  scoped counts and truthful failures. The purge cancels pending deletion requests for the removed Person and their
+  counseling, Training and rating records in the same transaction.
 - `record-switching`: Organization changes and late save responses cannot mix A's Personnel or write permissions into B.
 
 ## How to get to it (user POV)
@@ -409,6 +413,13 @@ these again.`, and `rows personnel` shows both People saved. Restore, choose `Im
    repeated restore of an active Person may reject with 400 and must change no row. Separately replay the authorized
    single archive request before restore: it must not replace the original event timestamp or strand the earlier cascade
    on restore. A changed timestamp or stranded artifact is a failure. This API replay is not another UI archive journey.
+   **Live work:** seed `onboarding-legacy` for a Person with an in-progress packet, open the Person's Files `Add
+document` dialog as manager, then archive that Person as orgOwner in another page. Uploading from the open dialog must
+   show `This person is archived. Restore them before adding records.`, save no `personnel_documents` row and leave no
+   stored object. Onboarding as orgOwner must list no row for the Person, and no `Unknown` row, at 1280 and 390 px; the
+   packet reads `cancelled` with `cancellation_reason` `archived` and a `Cancelled onboarding … because they were
+archived` audit entry. Restore keeps it cancelled. The SQL contracts `archived_person_live_work.sql` and
+   `personnel_lifecycle_concurrency.sql` own the archive races.
 7. **Other archive entry points, bulk and approval:** On separate temporary People, exercise the roster bulk bar's
    `Archive…` with one row selected and detail → `More Personnel record` → Archive, confirming saved absence after
    reload. For bulk, restore the dedicated parent first and select it plus duplicateAlpha through the roster bulk bar's

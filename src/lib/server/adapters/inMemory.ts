@@ -210,7 +210,6 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 				findPacketReference: unavailable,
 				findStepReference: unavailable,
 				findLatestPacketForPersonnel: unavailable,
-				listIncompleteActiveStepIds: unavailable,
 				saveCheckboxCompletion: unavailable,
 				savePaperworkProgress: unavailable,
 				countActivePacketsByTemplate: unavailable

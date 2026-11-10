@@ -56,6 +56,26 @@ SELECT pg_temp.u(request), pg_temp.u(101), pg_temp.u(5), 'requester@example.test
   'Archive ' || person, 'pending', '2029-08-01T00:00:00Z'
 FROM (VALUES (601, 301), (602, 302), (603, 303), (604, 304), (605, 305), (606, 306), (607, 306),
   (608, 307), (609, 314), (610, 326), (611, 328), (612, 329)) AS rows(request, person);
+INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug, archived_at)
+SELECT pg_temp.u(person), pg_temp.u(101), pg_temp.u(201), 'SGT', 'Expired', 'Person ' || person, 'lifecycle-wait-' || person,
+  '2020-01-01T00:00:00Z' FROM (VALUES (341), (342), (343)) AS expired(person);
+INSERT INTO public.deletion_requests (
+  id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status, created_at
+) VALUES
+  (pg_temp.u(621), pg_temp.u(101), pg_temp.u(5), 'requester@example.test', 'personnel', pg_temp.u(341), 'Archive 341', 'pending', '2029-08-01T00:00:00Z'),
+  (pg_temp.u(622), pg_temp.u(101), pg_temp.u(5), 'requester@example.test', 'personnel', pg_temp.u(342), 'Archive 342', 'pending', '2029-08-01T00:00:00Z');
+INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug)
+VALUES (pg_temp.u(344), pg_temp.u(101), pg_temp.u(201), 'SGT', 'Upload', 'Person 344', 'lifecycle-wait-344');
+INSERT INTO public.training_types (id, organization_id, name) VALUES (pg_temp.u(703), pg_temp.u(101), 'Expired training');
+INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, training_type_id)
+VALUES (pg_temp.u(704), pg_temp.u(101), pg_temp.u(343), pg_temp.u(703));
+INSERT INTO public.deletion_requests (
+  id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status, created_at
+) VALUES (pg_temp.u(623), pg_temp.u(101), pg_temp.u(5), 'requester@example.test', 'personnel_training', pg_temp.u(704),
+  'Training 704', 'pending', '2029-08-01T00:00:00Z');
+INSERT INTO public.onboarding_templates (id, organization_id, name) VALUES (pg_temp.u(701), pg_temp.u(101), 'Arrival');
+INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, template_id, started_at, status, cancelled_at)
+VALUES (pg_temp.u(702), pg_temp.u(101), pg_temp.u(319), pg_temp.u(701), '2029-01-01', 'cancelled', '2029-01-02T00:00:00Z');
 COMMIT;
 
 BEGIN;
@@ -112,6 +132,20 @@ CREATE FUNCTION pg_temp.follow_up_status_sql(person integer, status text, at tex
     archived_at = CASE WHEN %L = 'archived' THEN %L::timestamptz END, updated_at = %L
     WHERE organization_id = %L AND personnel_id = %L AND id = %L RETURNING 1) SELECT count(*)::text FROM changed$q$,
     status, status, at, status, at, at, pg_temp.u(101), pg_temp.u(person), pg_temp.child(1, person, 1))
+$$;
+CREATE FUNCTION pg_temp.new_follow_up_sql(person integer, title text) RETURNS text LANGUAGE sql AS $$
+  SELECT format($q$SELECT count(*)::text FROM public.insert_personnel_artifacts(%L, %L, 'personnel_follow_ups',
+    jsonb_build_array(jsonb_build_object('personnel_id', %L, 'title', %L, 'status', 'open', 'created_by', 'fixture')))$q$,
+    pg_temp.u(3), pg_temp.u(101), pg_temp.u(person), title)
+$$;
+CREATE FUNCTION pg_temp.new_follow_ups(person integer)
+RETURNS TABLE (title text, archived_at timestamptz, status text) LANGUAGE sql AS $$
+  SELECT * FROM dblink('fixture', format($q$ SELECT title, archived_at, status FROM public.personnel_follow_ups
+    WHERE personnel_id = %L AND title LIKE 'New %%' ORDER BY title $q$, pg_temp.u(person))) AS r(title text, archived_at timestamptz, status text)
+$$;
+CREATE FUNCTION pg_temp.packet() RETURNS TABLE (status text, cancellation_reason text) LANGUAGE sql AS $$
+  SELECT * FROM dblink('fixture', format('SELECT status, cancellation_reason FROM public.personnel_onboardings WHERE id = %L',
+    pg_temp.u(702))) AS r(status text, cancellation_reason text)
 $$;
 CREATE FUNCTION pg_temp.send(conn text, sql text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -491,15 +525,60 @@ SELECT results_eq($$ SELECT * FROM pg_temp.state(318) $$, $$ SELECT * FROM pg_te
 
 SELECT pg_temp.begin_as('first', 3);
 SELECT is(pg_temp.run('first', pg_temp.archive_sql(ARRAY[319], '2030-01-19T00:00:00Z')), '1', 'archive holds the Person');
-SELECT dblink_exec('holder', $$SET lock_timeout = '1s'$$);
-SELECT is(pg_temp.run('holder', format($q$ WITH created AS (INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id,
-  title, status, created_by) VALUES (%L, %L, %L, 'Concurrent', 'open', 'fixture') RETURNING 1) SELECT count(*)::text FROM created $q$,
-  pg_temp.child(1, 319, 2), pg_temp.u(101), pg_temp.u(319))), '1', 'the insert commits without waiting on the archive');
-SELECT dblink_exec('holder', $$RESET lock_timeout$$);
+SELECT pg_temp.begin_as('holder', NULL, 'service_role');
+SELECT pg_temp.send('holder', pg_temp.new_follow_up_sql(319, 'New during archive'));
+SELECT ok(pg_temp.waits('holder', 'first'), 'a new record waits on the archive');
 SELECT pg_temp.finish('first');
-SELECT results_eq($$ SELECT * FROM pg_temp.state(319) WHERE family = 'follow_up' $$,
-  $$ VALUES ('follow_up', 1, '2030-01-19T00:00:00Z'::timestamptz, 'archived'), ('follow_up', 2, NULL, 'open') $$,
-  'the archive owns only rows its statement saw; the concurrent Follow-up stays active');
+SELECT is(pg_temp.reply('holder'), '55000 This person is archived. Restore them before adding records.',
+  'the record is refused once the archive commits');
+SELECT dblink_exec('holder', 'ROLLBACK');
+SELECT is_empty($$ SELECT * FROM pg_temp.new_follow_ups(319) $$, 'an archived Person gets no new record');
+
+SELECT pg_temp.begin_as('first', 3);
+SELECT is(pg_temp.run('first', pg_temp.restore_sql(319)), 'true', 'the Person restores');
+SELECT pg_temp.finish('first');
+SELECT pg_temp.begin_as('holder', NULL, 'service_role');
+SELECT is(pg_temp.run('holder', pg_temp.new_follow_up_sql(319, 'New before archive')), '1', 'a new record holds the Person');
+SELECT pg_temp.begin_as('first', 3);
+SELECT pg_temp.send('first', pg_temp.archive_sql(ARRAY[319], '2030-01-20T00:00:00Z'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'the archive waits on the new record');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'archive completes after the new record');
+SELECT pg_temp.finish('first');
+SELECT results_eq($$ SELECT * FROM pg_temp.new_follow_ups(319) $$,
+  $$ VALUES ('New before archive', '2030-01-20T00:00:00Z'::timestamptz, 'archived') $$,
+  'the archive closes the record written just before it');
+
+SELECT pg_temp.begin_as('first', 3);
+SELECT is(pg_temp.run('first', pg_temp.restore_sql(319)), 'true', 'the Person restores again');
+SELECT pg_temp.finish('first');
+SELECT pg_temp.begin_as('holder', 1);
+SELECT is(pg_temp.run('holder', format($q$ WITH changed AS (UPDATE public.personnel_onboardings SET status = 'in_progress'
+  WHERE id = %L RETURNING 1) SELECT count(*)::text FROM changed $q$, pg_temp.u(702))), '1', 'a reopened packet holds the Person');
+SELECT pg_temp.begin_as('first', 3);
+SELECT pg_temp.send('first', pg_temp.archive_sql(ARRAY[319], '2030-01-21T00:00:00Z'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'the archive waits on the reopen');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'archive completes after the reopen');
+SELECT pg_temp.finish('first');
+SELECT results_eq($$ SELECT * FROM pg_temp.packet() $$, $$ VALUES ('cancelled', 'archived') $$,
+  'the archive cancels the packet reopened just before it');
+
+SELECT pg_temp.begin_as('first', 3);
+SELECT is(pg_temp.run('first', pg_temp.restore_sql(319)), 'true', 'the Person restores with the packet still cancelled');
+SELECT pg_temp.finish('first');
+SELECT pg_temp.begin_as('first', 3);
+SELECT is(pg_temp.run('first', pg_temp.archive_sql(ARRAY[319], '2030-01-22T00:00:00Z')), '1', 'archive holds the Person');
+SELECT pg_temp.begin_as('holder', 1);
+SELECT pg_temp.send('holder', format($q$ WITH changed AS (UPDATE public.personnel_onboardings SET status = 'in_progress'
+  WHERE id = %L RETURNING 1) SELECT count(*)::text FROM changed $q$, pg_temp.u(702)));
+SELECT ok(pg_temp.waits('holder', 'first'), 'a reopen waits on the archive');
+SELECT pg_temp.finish('first');
+SELECT is(pg_temp.reply('holder'), '55000 This person is archived. Restore them before onboarding them.',
+  'the reopen is refused once the archive commits');
+SELECT dblink_exec('holder', 'ROLLBACK');
+SELECT results_eq($$ SELECT * FROM pg_temp.packet() $$, $$ VALUES ('cancelled', 'archived') $$,
+  'the refused reopen leaves the packet cancelled');
 
 SELECT pg_temp.begin_as('holder', NULL, 'service_role');
 SELECT is(pg_temp.run('holder', format($q$ SELECT coalesce(bool_or(deleted)::text, 'none') FROM public.delete_archived_personnel_artifact(%L, %L, 'counseling', %L,
@@ -592,6 +671,69 @@ SELECT dblink_exec('first', 'ROLLBACK');
 SELECT results_eq($$ SELECT * FROM pg_temp.state(326) $$, $$ SELECT * FROM pg_temp.whole('2029-05-01T00:00:00.123Z') $$,
   'rejected isolation levels change nothing');
 SELECT results_eq($$ SELECT status FROM pg_temp.request(610) $$, $$ VALUES ('pending') $$, 'the request stays pending');
+
+SELECT pg_temp.begin_as('holder', 1);
+SELECT dblink_exec('holder', 'RESET ROLE');
+SELECT is(pg_temp.run('holder', format('SELECT status FROM public.deletion_requests WHERE id = %L FOR UPDATE', pg_temp.u(621))),
+  'pending', 'approval locks the request before the Person');
+SELECT dblink_exec('holder', 'SET LOCAL ROLE authenticated');
+SELECT pg_temp.begin_as('first', NULL, 'service_role');
+SELECT pg_temp.send('first', format('SELECT public.delete_expired_personnel(%L, %L::uuid[], %L)::text',
+  pg_temp.u(101), ARRAY[pg_temp.u(341)], '2025-01-01T00:00:00Z'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'the purge waits on the request before locking the Person');
+SELECT is(pg_temp.run('holder', pg_temp.approve_sql(621, 341, '2030-02-01T00:00:00Z')), 'true',
+  'approval then locks the Person without a deadlock');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'the purge completes after the approval without a deadlock');
+SELECT pg_temp.finish('first');
+SELECT results_eq($$ SELECT status FROM pg_temp.request(621) $$, $$ VALUES ('approved') $$,
+  'the approved request stays approved');
+
+SELECT pg_temp.begin_as('first', NULL, 'service_role');
+SELECT is(pg_temp.run('first', format('SELECT public.delete_expired_personnel(%L, %L::uuid[], %L)::text',
+  pg_temp.u(101), ARRAY[pg_temp.u(342)], '2025-01-01T00:00:00Z')), '1', 'the purge holds the request and the Person');
+SELECT pg_temp.begin_as('holder', 1);
+SELECT pg_temp.send('holder', pg_temp.approve_sql(622, 342, '2030-02-01T00:00:00Z'));
+SELECT ok(pg_temp.waits('holder', 'first'), 'the approval waits on the purge');
+SELECT pg_temp.finish('first');
+SELECT is(pg_temp.reply('holder'), 'P0002 Pending deletion request not found', 'the approval finds the request cancelled');
+SELECT dblink_exec('holder', 'ROLLBACK');
+SELECT results_eq($$ SELECT status FROM pg_temp.request(622) $$, $$ VALUES ('cancelled') $$,
+  'the purge cancelled the pending request');
+
+SELECT pg_temp.begin_as('holder', NULL, 'service_role');
+SELECT is(pg_temp.run('holder', format('SELECT id::text FROM public.personnel_trainings WHERE id = %L FOR UPDATE', pg_temp.u(704))),
+  pg_temp.u(704)::text, 'Training approval locks the record before the request');
+SELECT pg_temp.begin_as('first', NULL, 'service_role');
+SELECT pg_temp.send('first', format('SELECT public.delete_expired_personnel(%L, %L::uuid[], %L)::text',
+  pg_temp.u(101), ARRAY[pg_temp.u(343)], '2025-01-01T00:00:00Z'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'the purge waits on the Training record before locking the request');
+SELECT is(pg_temp.run('holder', format('SELECT public.approve_record_deletion_request(%L, %L, %L, %L, %L, %L)::text',
+  pg_temp.u(101), pg_temp.u(623), 'personnel_training', pg_temp.u(704), pg_temp.u(1), '2030-02-01T00:00:00Z')), '',
+  'Training approval then approves its request without a deadlock');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'the purge completes after the Training approval');
+SELECT pg_temp.finish('first');
+SELECT results_eq($$ SELECT status FROM pg_temp.request(623) $$, $$ VALUES ('approved') $$,
+  'the approved Training request stays approved');
+
+CREATE FUNCTION pg_temp.new_document_sql(name text) RETURNS text LANGUAGE sql AS $$
+  SELECT format($q$SELECT count(*)::text FROM public.insert_personnel_artifacts(%L, %L, 'personnel_documents',
+    jsonb_build_array(jsonb_build_object('personnel_id', %L, 'title', %L, 'file_path', %L,
+      'file_size_bytes', 10, 'content_type', 'application/pdf', 'uploaded_by', %L)))$q$,
+    pg_temp.u(3), pg_temp.u(101), pg_temp.u(344), name,
+    pg_temp.u(101) || '/personnel/' || pg_temp.u(344) || '/documents/' || name, pg_temp.u(3))
+$$;
+SELECT pg_temp.begin_as('holder', NULL, 'service_role');
+SELECT is(pg_temp.run('holder', format('SELECT id::text FROM public.personnel WHERE id = %L FOR KEY SHARE', pg_temp.u(344))),
+  pg_temp.u(344)::text, 'one upload holds a key-share lock on the Person');
+SELECT pg_temp.begin_as('first', NULL, 'service_role');
+SELECT pg_temp.send('first', pg_temp.new_document_sql('first.pdf'));
+SELECT ok(pg_temp.waits('first', 'holder'), 'another document upload waits for the Person up front');
+SELECT is(pg_temp.run('holder', pg_temp.new_document_sql('holder.pdf')), '1', 'the first upload saves its document without a deadlock');
+SELECT pg_temp.finish('holder');
+SELECT is(pg_temp.reply('first'), '1', 'the waiting upload then saves its document');
+SELECT pg_temp.finish('first');
 
 SELECT dblink_disconnect(name) FROM (VALUES ('holder'), ('first'), ('second')) AS connections(name);
 SELECT dblink_exec('fixture', format($cleanup$

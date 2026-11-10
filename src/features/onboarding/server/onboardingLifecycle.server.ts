@@ -4,6 +4,7 @@
 import { fail, RequestFailure } from '$lib/errors';
 import type { OnboardingTrainingPorts, OnboardingLifecyclePorts } from './onboardingPorts.server';
 import {
+	ALREADY_ONBOARDING,
 	START_ONBOARDING_BATCH_LIMIT,
 	type OnboardingLifecycleTransition,
 	type StartOnboardingBatchResult,
@@ -129,7 +130,7 @@ export async function startOnboardingBatch(
 					}) as PersonnelOnboarding
 				};
 			} catch (error) {
-				if (error instanceof RequestFailure && error.status === 409)
+				if (error instanceof RequestFailure && error.reason === ALREADY_ONBOARDING)
 					return { personnelId, outcome: 'already_onboarding' };
 				if (!(error instanceof RequestFailure && error.status < 500)) input.noteUnexpectedFailure?.(error);
 				return { personnelId, outcome: 'failed', message: startFailureMessage(error) };
@@ -234,15 +235,15 @@ export async function completeOnboarding(
 		fail(400, 'Only in-progress onboardings can be completed');
 	}
 
-	const incompleteSteps = await ctx.onboardingWorkflow.listIncompleteActiveStepIds(id);
-
 	const updated = await persistTransition(ctx, id, { kind: 'complete', at: completedOn });
+	const incompleteCount = updated.incomplete?.[0].count;
+	if (incompleteCount === undefined) throw new Error('Onboarding completion returned no incomplete steps');
 
 	return {
 		id: updated.id,
 		status: updated.status,
 		cancelledAt: updated.cancelled_at,
 		completedAt: updated.completed_at,
-		incompleteCount: incompleteSteps.length
+		incompleteCount
 	};
 }

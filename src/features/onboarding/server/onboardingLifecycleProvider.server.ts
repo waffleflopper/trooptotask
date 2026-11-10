@@ -14,17 +14,29 @@ export function createSupabaseOnboardingLifecycleTransitionPort(
 				cancelled_at: command.kind === 'cancel' ? command.at : null,
 				completed_at: command.kind === 'complete' ? command.at : null
 			};
-			const { data, error } = await supabase
+			let query = supabase
 				.from('personnel_onboardings')
 				.update(patch)
 				.eq('organization_id', organizationId)
 				.eq('id', onboardingId)
-				.eq('status', expectedStatus)
-				.select('id,status,cancelled_at,completed_at')
+				.eq('status', expectedStatus);
+			if (command.kind === 'complete') {
+				query = query.eq('incomplete.active', true).eq('incomplete.completed', false);
+			}
+			const { data, error } = await query
+				.select(
+					command.kind === 'complete'
+						? 'id,status,cancelled_at,completed_at,incomplete:onboarding_step_progress(count)'
+						: 'id,status,cancelled_at,completed_at'
+				)
 				.maybeSingle();
 			if (error) {
 				if (error.code === '42501') fail(403, error.message);
 				if (error.code === '22023') fail(400, error.message);
+				if (error.code === '55000') fail(409, error.message);
+				if (error.code === '23505' && error.message.includes('"personnel_onboardings_active_idx"')) {
+					fail(409, 'This person already has an active onboarding');
+				}
 				throw new Error(error.message);
 			}
 			return data as OnboardingLifecycleTransitionResult | null;

@@ -149,6 +149,12 @@ describe('audit kind catalog', () => {
 		).toBeNull();
 	});
 
+	it('says an onboarding was cancelled because its person was archived', () => {
+		expect(read('onboarding.cancelled', { details: { template: 'New Arrival', reason: 'archived' } })).toBe(
+			'Cancelled onboarding for SPC Doe, Jane (New Arrival) because they were archived'
+		);
+	});
+
 	it('says when an onboarding template became or stopped being the default', () => {
 		expect(
 			read('onboarding_template.updated', {

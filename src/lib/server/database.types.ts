@@ -2591,6 +2591,7 @@ export type Database = {
       }
       personnel_onboardings: {
         Row: {
+          cancellation_reason: string | null
           cancelled_at: string | null
           completed_at: string | null
           created_at: string
@@ -2602,6 +2603,7 @@ export type Database = {
           template_id: string | null
         }
         Insert: {
+          cancellation_reason?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
@@ -2613,6 +2615,7 @@ export type Database = {
           template_id?: string | null
         }
         Update: {
+          cancellation_reason?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string

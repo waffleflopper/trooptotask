@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { OnboardingLifecycleTransitionResult, OnboardingPacketCreationPort } from '$features/onboarding/contracts';
+import {
+	ALREADY_ONBOARDING,
+	type OnboardingLifecycleTransitionResult,
+	type OnboardingPacketCreationPort
+} from '$features/onboarding/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -129,10 +133,13 @@ describe('/api/onboarding route config', () => {
 		[404, 'failed', 'Creation rejected'],
 		[409, 'already_onboarding', undefined],
 		[500, 'failed', 'Onboarding could not be started for this person.']
-	])(
+	] as const)(
 		'reports a creation failure %s on the person without a success audit or parent fallback',
 		async (status, outcome, message) => {
-			const failure = status === 500 ? new Error('Creation failed') : new RequestFailure(status, 'Creation rejected');
+			const failure =
+				status === 500
+					? new Error('Creation failed')
+					: new RequestFailure(status, 'Creation rejected', status === 409 ? { reason: ALREADY_ONBOARDING } : {});
 			const ctx = createTestContext({ onboardingPacketCreation: { create: vi.fn().mockRejectedValue(failure) } });
 			ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
 			ctx.store.seed('onboarding_templates', [{ id: TEMPLATE_1, name: 'Standard', organization_id: ctx.auth.orgId }]);
@@ -211,7 +218,13 @@ const lifecycleRequests = [
 	{
 		status: 'completed',
 		initialStatus: 'in_progress',
-		saved: { id: ONBOARDING_ID, status: 'completed', cancelled_at: null, completed_at: '2026-10-01' },
+		saved: {
+			id: ONBOARDING_ID,
+			status: 'completed',
+			cancelled_at: null,
+			completed_at: '2026-10-01',
+			incomplete: [{ count: 1 }]
+		},
 		response: {
 			id: ONBOARDING_ID,
 			status: 'completed',
@@ -332,7 +345,8 @@ describe('/api/onboarding PUT completion day', () => {
 				id,
 				status: 'completed',
 				cancelled_at: null,
-				completed_at: command.kind === 'complete' ? command.at : null
+				completed_at: command.kind === 'complete' ? command.at : null,
+				incomplete: [{ count: 0 }]
 			})
 		);
 

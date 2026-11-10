@@ -9,7 +9,7 @@ import type {
 } from '../contracts';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { RequestFailure } from '$lib/errors';
-import { START_ONBOARDING_BATCH_LIMIT } from '../contracts';
+import { ALREADY_ONBOARDING, START_ONBOARDING_BATCH_LIMIT } from '../contracts';
 import {
 	startOnboardingBatch,
 	cancelOnboarding,
@@ -60,7 +60,8 @@ const completedSaved: OnboardingLifecycleTransitionResult = {
 	id: ONBOARDING_ID,
 	status: 'completed',
 	cancelled_at: null,
-	completed_at: '2026-10-01'
+	completed_at: '2026-10-01',
+	incomplete: [{ count: 2 }]
 };
 const reopenedSaved: OnboardingLifecycleTransitionResult = {
 	id: ONBOARDING_ID,
@@ -562,7 +563,16 @@ describe('startOnboardingBatch', () => {
 			{ outcome: 'failed', message: 'Onboarding could not be started for this person.' },
 			true
 		],
-		[new RequestFailure(409, 'Concurrent active packet'), { outcome: 'already_onboarding' }, false]
+		[
+			new RequestFailure(409, 'Concurrent active packet', { reason: ALREADY_ONBOARDING }),
+			{ outcome: 'already_onboarding' },
+			false
+		],
+		[
+			new RequestFailure(409, 'This person is archived. Restore them before onboarding them.'),
+			{ outcome: 'failed', message: 'This person is archived. Restore them before onboarding them.' },
+			false
+		]
 	])('reports %s on the person without a success audit or generic fallback', async (error, outcome, noted) => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
@@ -859,18 +869,18 @@ function seedSteps(ctx: ReturnType<typeof buildContext>, overrides?: Record<stri
 }
 
 describe('completeOnboarding', () => {
-	it('sets status to completed with completed_at and returns incomplete count', async () => {
+	it('reports the incomplete count the completion read with the transition', async () => {
 		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx);
-		seedSteps(ctx); // 2 incomplete (step-1, step-3), 1 complete (step-2)
 
 		const result = await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01');
 
-		expect(result.status).toBe('completed');
-		expect(result.completedAt).toBeTruthy();
-		expect(result.completedAt).toBe('2026-10-01');
-		expect(result.cancelledAt).toBeNull();
-		expect(result.incompleteCount).toBe(2);
+		expect(result).toMatchObject({
+			status: 'completed',
+			completedAt: '2026-10-01',
+			cancelledAt: null,
+			incompleteCount: 2
+		});
 	});
 
 	it("saves the member's local completion day", async () => {
@@ -879,68 +889,24 @@ describe('completeOnboarding', () => {
 			id,
 			status: 'completed',
 			cancelled_at: null,
-			completed_at: command.kind === 'complete' ? command.at : null
+			completed_at: command.kind === 'complete' ? command.at : null,
+			incomplete: [{ count: 0 }]
 		}));
 		seedOnboarding(ctx);
-		seedSteps(ctx);
 
 		const result = await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-14');
 
-		expect(result.completedAt).toBe('2026-10-14');
+		expect(result).toMatchObject({ completedAt: '2026-10-14', incompleteCount: 0 });
 	});
 
-	it('returns 0 incomplete count when all active steps are complete', async () => {
-		const ctx = buildTransitionContext(completedSaved);
+	it('refuses to report a completion whose transition returned no step read', async () => {
+		const ctx = buildTransitionContext({ ...completedSaved, incomplete: undefined });
 		seedOnboarding(ctx);
-		seedSteps(ctx, [
-			{
-				id: STEP_1,
-				onboarding_id: ONBOARDING_ID,
-				step_type: 'checkbox',
-				completed: true,
-				active: true,
-				organization_id: 'test-org'
-			},
-			{
-				id: STEP_2,
-				onboarding_id: ONBOARDING_ID,
-				step_type: 'paperwork',
-				completed: true,
-				active: true,
-				organization_id: 'test-org'
-			}
-		]);
 
-		const result = await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01');
-
-		expect(result.incompleteCount).toBe(0);
-	});
-
-	it('excludes inactive steps from incomplete count', async () => {
-		const ctx = buildTransitionContext(completedSaved);
-		seedOnboarding(ctx);
-		seedSteps(ctx, [
-			{
-				id: STEP_1,
-				onboarding_id: ONBOARDING_ID,
-				step_type: 'checkbox',
-				completed: true,
-				active: true,
-				organization_id: 'test-org'
-			},
-			{
-				id: STEP_2,
-				onboarding_id: ONBOARDING_ID,
-				step_type: 'checkbox',
-				completed: false,
-				active: false,
-				organization_id: 'test-org'
-			}
-		]);
-
-		const result = await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01');
-
-		expect(result.incompleteCount).toBe(0);
+		await expect(completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01')).rejects.toThrow(
+			'Onboarding completion returned no incomplete steps'
+		);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('rejects completing a cancelled onboarding', async () => {

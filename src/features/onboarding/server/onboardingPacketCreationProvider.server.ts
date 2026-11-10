@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '$lib/server/database';
 import { fail } from '$lib/errors';
-import type { OnboardingPacketCreationPort, OnboardingPacketCreationResult } from '../contracts';
+import {
+	ALREADY_ONBOARDING,
+	type OnboardingPacketCreationPort,
+	type OnboardingPacketCreationResult
+} from '../contracts';
 
 /** The ordinary request client saves the prepared packet in one database transaction. */
 export function createSupabaseOnboardingPacketCreationPort(supabase: SupabaseClient): OnboardingPacketCreationPort {
@@ -26,8 +30,9 @@ export function createSupabaseOnboardingPacketCreationPort(supabase: SupabaseCli
 			if (error) {
 				if (error.code === '42501') fail(403, error.message);
 				if (error.code === 'P0002') fail(404, error.message);
+				if (error.code === '55000') fail(409, error.message);
 				if (error.code === '23505' && error.message.includes('"personnel_onboardings_active_idx"')) {
-					fail(409, 'Soldier already has an active onboarding');
+					fail(409, 'Soldier already has an active onboarding', { reason: ALREADY_ONBOARDING });
 				}
 				throw new Error(error.message);
 			}

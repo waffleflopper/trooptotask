@@ -127,8 +127,10 @@ export async function setPersonnelFollowUpStatus(
 
 	const current = await writer.findFollowUp(input.followUpId);
 	if (!current) fail(404, 'Follow-up not found');
-	if (current.status === 'archived' && input.status !== 'archived') {
-		fail(409, 'Archived follow-ups cannot be reopened');
+	if (current.status === 'archived') {
+		if (input.status !== 'archived') fail(409, 'Archived follow-ups cannot be reopened');
+		// A new archive time would no longer match the Person's archive event, and restoring the Person would miss it.
+		return followUpLifecycleResult(ctx, input.personnelId, current);
 	}
 
 	const now = new Date().toISOString();

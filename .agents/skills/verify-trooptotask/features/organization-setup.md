@@ -280,22 +280,22 @@ async () =>
 
 ## Invite your team step
 
-`/setup/invite` embeds the Settings › Members invite strip: the `Invite` email field, `Role` (owner only), `Preset`,
+`/setup/invite` embeds the Settings › Members invite strip: the `Invite` box (one or more addresses), `Role` (owner only), `Preset`,
 `Groups` and `Send invite`, under a band that says it is the same form as Settings › Members. Below it,
 `Waiting on them` lists each pending invitation as `<email>` and `<preset> · sent <relative> · <funnel status>`, with a
 link to Settings › Members for Resend and Revoke. The strip posts to the Members `?/invite` action and a sent invitation
 reaches the same mail sink as [organization invitations](organization-invitations.md).
 
 1. As `orgOwner`, `$V actor orgOwner settings/general`, then open `/setup/invite`. Expect `Step 12 of 12 · Team`, the
-   strip on one line at 1440 px (92 px tall, 816 px wide), no `Waiting on them` list on a fresh seed and
-   `Continue to Done`. The seed already has other members, so the rail row reads Done and the counter `7 of 12`.
+   strip with the `Invite` box above one row of controls and the `What Editor allows` table under them, no
+   `Waiting on them` list on a fresh seed and `Continue to Done`. The seed already has other members, so the rail row reads Done and the counter `7 of 12`.
 2. `$V fill PAGE textbox "Invite" s4-invite-one@example.test`, then `$V click PAGE button "Send invite"`. Expect the
-   line under the strip to read `Invitation created and email delivery was queued.`, the email field empty, one
+   line under the strip to read `Invited. The email is on its way.`, the `Invite` box empty, one
    `Waiting on them` row `Editor · sent today · Waiting on them` and, from `$V mail state`, an `account-setup` and an
    `invitation` message for that address. Settings › Members lists the same invitation.
-3. Send the same address again. Expect `An invitation for this email is already pending` under the strip, the address
-   still in the field and the URL unchanged. With `$V fault arm setup-link-create` and a new address, expect
-   `Invitation could not be created because the account setup link could not be issued`, the draft kept and the
+3. Send the same address again. Expect `<email>: Already invited. Resend it from Waiting on them.` under the strip, the
+   box empty and the URL unchanged. With `$V fault arm setup-link-create` and a new address, expect
+   `<email>: Invitation could not be created because the account setup link could not be issued`, the address kept and the
    invitation stored `blocked`, not `pending`. `$V fault restore` afterwards.
 4. As `orgAdmin`, the same step shows the strip without `Role` and a sent invitation lists the same way. As `orgMember`,
    the step answers 403 like the rest of setup.

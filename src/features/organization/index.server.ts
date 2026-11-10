@@ -23,7 +23,7 @@ export {
 export { createSupabaseDashboardOrgAccessPort } from './dashboardAccessProvider.server';
 export { autoAcceptOrgInvites, InvitationAcceptanceError } from './autoAcceptInvitations.server';
 export {
-	inviteOrganizationMember,
+	inviteOrganizationMembers,
 	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
 	removeOrganizationMember,

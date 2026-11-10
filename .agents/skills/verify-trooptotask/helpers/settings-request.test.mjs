@@ -54,13 +54,13 @@ test('named form actions use SvelteKit enhancement semantics and retain the acti
 	assert.deepEqual(JSON.parse(result.body), envelope);
 });
 
-test('the member invite action submits only email, role and preset to the A Members form action', async () => {
+test('the member invite action submits only the addresses, role and preset to the A Members form action', async () => {
 	const page = {
 		location: { origin: input.origin },
 		fetch: async (path, request) => {
 			assert.equal(path, '/org/synthetic-a/settings/members?/invite');
 			assert.deepEqual(Object.fromEntries(new URLSearchParams(request.body)), {
-				email: 'denied@example.test',
+				emails: 'denied@example.test',
 				membershipRole: 'member',
 				memberPreset: 'viewer'
 			});
@@ -70,7 +70,7 @@ test('the member invite action submits only email, role and preset to the A Memb
 	const result = await requestSettings(page, {
 		...input,
 		family: 'settings/members/invite',
-		body: { email: 'denied@example.test', membershipRole: 'member', memberPreset: 'viewer' }
+		body: { emails: 'denied@example.test', membershipRole: 'member', memberPreset: 'viewer' }
 	});
 	assert.equal(JSON.parse(result.body).status, 403);
 	await assert.rejects(

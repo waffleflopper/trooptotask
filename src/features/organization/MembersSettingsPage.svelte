@@ -25,6 +25,7 @@
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import MemberAccessSheet from './MemberAccessSheet.svelte';
 	import MemberInviteForm from './MemberInviteForm.svelte';
+	import { addressesToRetry, type InviteAddressResult } from './inviteAddresses';
 	import type {
 		MembersSettingsActionData,
 		MembersSettingsData,
@@ -100,7 +101,7 @@
 	let historyOpen = $state(false);
 
 	let filterInput = $state<HTMLInputElement | null>(null);
-	let inviteEmailInput = $state<HTMLInputElement | null>(null);
+	let inviteEmailsInput = $state<HTMLTextAreaElement | null>(null);
 	let accessOpener = $state<HTMLElement | null>(null);
 	let memberRequestError = $state<string | null>(null);
 
@@ -181,11 +182,17 @@
 		}
 		await settleAction(outcome, {
 			isCurrent,
+			// The workspace owns the invite draft and keeps the addresses to retry.
+			reset: false,
 			settled: (error) => {
-				invitationRequestError = error;
+				const results: InviteAddressResult[] =
+					result.type === 'success' && Array.isArray(result.data?.inviteResults) ? result.data.inviteResults : [];
+				// A pending invitation row sends one address, so a refusal belongs on that row.
+				const refused = owner === NEW_INVITATION ? undefined : results.find((entry) => entry.status !== 'invited');
+				invitationRequestError = error ?? refused?.message ?? null;
 				invitationPending = false;
 				if (!error && owner === NEW_INVITATION && result.type === 'success') {
-					workspace.resetInvite();
+					workspace.resetInvite(addressesToRetry(results));
 					confirmedDraft = JSON.stringify(workspace.invite);
 				}
 			},
@@ -193,7 +200,7 @@
 			focus: () => [
 				submitter instanceof HTMLButtonElement ? submitter : null,
 				revokeTrigger(owner),
-				inviteEmailInput,
+				inviteEmailsInput,
 				filterInput
 			]
 		});
@@ -202,6 +209,7 @@
 			active &&
 			owner !== NEW_INVITATION &&
 			result.type === 'success' &&
+			!invitationRequestError &&
 			typeof result.data?.inviteMessage === 'string'
 		)
 			toastStore.success(result.data.inviteMessage);
@@ -254,9 +262,11 @@
 		if ((await revoked) && confirmRevoke?.id === invite.id) confirmRevoke = null;
 	}
 
-	function canManage(member: SettingsMemberRow): boolean {
-		if (member.membershipRole === 'owner' || !section.canManageMemberAccess) return false;
-		return member.membershipRole !== 'admin' || isOwner;
+	/** What a row opens: its access (and name), only its name when access is locked, or nothing. */
+	function rowSheet(member: SettingsMemberRow): 'access' | 'name' | null {
+		if (!section.canManageMemberAccess) return null;
+		if (member.membershipRole !== 'owner' && (member.membershipRole !== 'admin' || isOwner)) return 'access';
+		return member.name?.source === 'account' ? null : 'name';
 	}
 
 	/** What the unit calls the member: their name, else their email. */
@@ -290,7 +300,8 @@
 			error={invitationOwner === NEW_INVITATION ? inviteError : null}
 			confirmed={inviteConfirmed}
 			message={invitationForm?.inviteMessage}
-			bind:emailInput={inviteEmailInput}
+			results={invitationForm?.inviteResults}
+			bind:emailsInput={inviteEmailsInput}
 		/>
 	{/if}
 
@@ -524,7 +535,7 @@
 		confirmLabel="Revoke invitation"
 		onConfirm={() => submitRevoke(target)}
 		onCancel={() => (confirmRevoke = null)}
-		returnFocus={() => revokeTrigger(target.id) ?? inviteEmailInput ?? filterInput}
+		returnFocus={() => revokeTrigger(target.id) ?? inviteEmailsInput ?? filterInput}
 	>
 		{#if invitationOwner === target.id && inviteError}
 			<Alert.Root variant="destructive">
@@ -541,7 +552,7 @@
 {#snippet inviteAgain(invite: SettingsInvitationHistoryRow)}
 	<form method="POST" action="?/invite" use:enhance={invitationEnhance}>
 		<input type="hidden" name="inviteId" value={invite.id} />
-		<input type="hidden" name="email" value={invite.email} />
+		<input type="hidden" name="emails" value={invite.email} />
 		<input type="hidden" name="membershipRole" value={invite.membershipRole} />
 		{#if invite.membershipRole === 'member'}
 			<input type="hidden" name="memberPreset" value={invite.access.memberPreset} />
@@ -602,10 +613,24 @@
 		<p class="grid">{@render accessLane(member)}</p>
 	{:else if column.key === 'groups'}
 		<p>{@render groupsLane(member)}</p>
-	{:else if column.key === 'actions' && !canManage(member)}
+	{:else if column.key === 'actions' && rowSheet(member) === null}
 		<p class="text-right font-mono text-xs text-muted-foreground">
 			<span aria-hidden="true">—</span><span class="sr-only">No actions</span>
 		</p>
+	{:else if column.key === 'actions' && rowSheet(member) === 'name'}
+		<div class="flex items-center justify-end">
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				onclick={(event) => {
+					accessOpener = event.currentTarget;
+					workspace.openName(member);
+				}}
+			>
+				{member.name ? 'Edit name' : 'Add name'} <span class="sr-only">for {memberName(member)}</span>
+			</Button>
+		</div>
 	{:else if column.key === 'actions'}
 		<div class="flex items-center justify-end gap-1" data-member-actions={member.id}>
 			<Button

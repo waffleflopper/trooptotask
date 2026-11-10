@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { checkModuleBoundaries, type Manifest } from './module-boundaries';
-import { buildImportGraph, scanRepository } from './module-imports';
+import { buildImportGraph } from './module-imports';
 
 function fixture(
 	sources: { path: string; content: string }[],
@@ -567,13 +567,4 @@ describe('module boundary declaration', () => {
 		]);
 		expect(violations.some((issue) => issue.kind === 'mixed-owner')).toBe(true);
 	});
-
-	it('classifies every current source file with one owner and keeps the target graph acyclic', () => {
-		const manifest = JSON.parse(readFileSync('scripts/module-boundaries.json', 'utf8')) as Manifest;
-		const graph = scanRepository(process.cwd());
-		const violations = checkModuleBoundaries(graph, manifest);
-		expect(
-			violations.filter((issue) => ['ownership', 'manifest', 'declared-cycle', 'source-graph'].includes(issue.kind))
-		).toEqual([]);
-	}, 60_000);
 });

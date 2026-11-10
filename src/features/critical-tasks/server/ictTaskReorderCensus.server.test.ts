@@ -24,10 +24,8 @@ it.each(cases)(
 		const totals = { assignments: orders.length ** count, schedules: 0, accepted: 0, refused: 0, failures: 0 };
 		const failuresByEdges: Record<string, number> = {};
 		const examples: unknown[] = [];
-		const moves = Array.from({ length: count - 1 }, (_, edge) => [
-			{ index: edge, direction: 1 as const },
-			{ index: edge + 1, direction: -1 as const }
-		]).flat();
+		// Moving edge e down plans the same swap as moving e + 1 up, so each edge is scheduled once and the mirror is asserted.
+		const moves = Array.from({ length: count - 1 }, (_, edge) => ({ index: edge, direction: 1 as const }));
 		for (let assignment = 0; assignment < totals.assignments; assignment += 1) {
 			const rows = Array.from({ length: count }, (_, index) => ({
 				id: taskIdForCode(String.fromCharCode(65 + index)),
@@ -38,6 +36,11 @@ it.each(cases)(
 				archived_at: null,
 				updated_at: 'retained'
 			}));
+			const seeded = createWritePortsContext();
+			seeded.rawStore.seed('ict_tasks', structuredClone(rows));
+			const seededTasks = getActiveIctTasksForLibrary(await seeded.criticalTaskLibrary.listCatalog());
+			for (const move of moves)
+				expect(planIctTaskMove(seededTasks, move.index + 1, -1)).toEqual(planIctTaskMove(seededTasks, move.index, 1));
 			for (const first of moves) {
 				for (const second of moves) {
 					totals.schedules += 1;

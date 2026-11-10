@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-SELECT plan(10);
+SELECT plan(12);
 
 SELECT dblink_connect('undo_fixture', 'hostaddr=' || host(inet_server_addr()) ||
   ' port=' || current_setting('port') || ' user=postgres password=postgres dbname=' || current_database() ||
@@ -121,11 +121,24 @@ SELECT is((SELECT removed FROM dblink('undo_fixture', $call$
     ARRAY['7a5a0000-0000-4000-8000-000000000503']::uuid[])
 $call$) AS result(removed integer)), 1, 'the operator removes the edited status');
 SELECT dblink_exec('undo_fixture','COMMIT');
+
+SELECT pg_temp.act('undo_writer');
+SELECT is((SELECT saved FROM dblink('undo_writer', $call$
+  SELECT public.import_availability_entries('7a5a0000-0000-4000-8000-000000000101',
+    '[{"personnel_id":"7a5a0000-0000-4000-8000-000000000301","status_type_id":"7a5a0000-0000-4000-8000-000000000401",
+       "start_date":"2030-05-02","end_date":"2030-05-03","overlap":"none"}]')
+$call$) AS result(saved jsonb)), '{"inserted":0,"deleted":0,"stale":[0]}'::jsonb,
+  'an import of a status the Person already has saves nothing and keeps its Person lock open');
 SELECT pg_temp.act('undo_restorer');
-SELECT is((SELECT restored FROM dblink('undo_restorer', $call$
+SELECT dblink_send_query('undo_restorer', $call$
   SELECT count(*)::integer FROM public.restore_availability_entries('7a5a0000-0000-4000-8000-000000000101',
     ARRAY['7a5a0000-0000-4000-8000-000000000503']::uuid[], ARRAY['7a5a0000-0000-4000-8000-000000000301']::uuid[])
-$call$) AS result(restored integer)), 1, 'with no writer in the way a restore of that Person goes through');
+$call$);
+SELECT ok(pg_temp.restorer_waits(), 'a restore queues behind an open import of the same Person');
+SELECT dblink_exec('undo_writer','COMMIT');
+SELECT is((SELECT restored FROM dblink_get_result('undo_restorer') AS result(restored integer)), 1,
+  'once the import commits the restore goes through');
+SELECT * FROM dblink_get_result('undo_restorer') AS result(restored integer);
 SELECT dblink_exec('undo_restorer','COMMIT');
 SELECT is(pg_temp.entries('7a5a0000-0000-4000-8000-000000000503'), 1, 'the restored status is saved');
 

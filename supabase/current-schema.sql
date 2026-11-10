@@ -2003,9 +2003,12 @@ CREATE FUNCTION calendar_private.check_availability_tasking() RETURNS trigger
     AS $$
 BEGIN
   -- Also when unchanged: success on a no-op write would confirm a hidden Tasking's provenance.
-  IF NEW.set_for_tasking_id IS NOT NULL
-    AND pg_catalog.current_setting('calendar_private.restoring_availability', true) IS DISTINCT FROM 'on'
-  THEN
+  IF NEW.set_for_tasking_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM calendar_private.availability_undo u
+    WHERE u.actor_id = auth.uid() AND u.entry_id = NEW.id AND u.organization_id = NEW.organization_id
+      AND u.personnel_id = NEW.personnel_id AND u.set_for_tasking_id = NEW.set_for_tasking_id
+      AND u.expires_at > pg_catalog.now()
+  ) THEN
     IF NOT EXISTS (SELECT 1 FROM public.calendar_taskings t
       WHERE t.organization_id = NEW.organization_id AND t.id = NEW.set_for_tasking_id
         AND calendar_private.can_view_calendar_tasking(t.organization_id, t.responsible_group_id)) THEN
@@ -12010,6 +12013,13 @@ BEGIN
 
   DELETE FROM calendar_private.availability_undo WHERE expires_at <= pg_catalog.now();
 
+  -- Import takes these Person locks before it locks the entries it replaces. Taking them first here keeps the two
+  -- from each holding what the other waits for.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_organization_id::text || ':' || claimed.personnel_id::text, 1861))
+  FROM (SELECT DISTINCT c.personnel_id FROM pg_catalog.unnest(p_personnel_ids) AS c(personnel_id)
+    ORDER BY c.personnel_id) AS claimed;
+
   -- An availability INSERT takes KEY SHARE on its Person through the foreign key, so this lock makes a concurrent
   -- add of the same Person wait. The next statement then takes a fresh snapshot that sees every add that finished.
   PERFORM 1 FROM public.personnel p
@@ -12023,21 +12033,14 @@ BEGIN
   ORDER BY a.id
   FOR SHARE;
 
-  -- The link comes from the server's own record, not from the caller, so the Tasking check below lets it through.
-  PERFORM pg_catalog.set_config('calendar_private.restoring_availability', 'on', true);
-
+  -- The Tasking check reads the caller's undo records, so they stay until the insert is done.
   RETURN QUERY
   WITH claim AS (
     SELECT c.entry_id, c.personnel_id FROM ROWS FROM (pg_catalog.unnest(p_ids), pg_catalog.unnest(p_personnel_ids)) AS c(entry_id, personnel_id)
-  ), consumed AS (
-    -- An Undo is one-shot: the record goes whether or not the entry comes back.
-    DELETE FROM calendar_private.availability_undo u
-    WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
-    RETURNING u.entry_id, u.organization_id, u.personnel_id, u.status_type_id, u.start_date, u.end_date, u.note,
-      u.created_at, u.set_for_tasking_id, u.expires_at
   ), restorable AS (
-    SELECT u.* FROM consumed u
-    WHERE u.expires_at > pg_catalog.now()
+    SELECT u.* FROM calendar_private.availability_undo u
+    WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids)
+      AND u.expires_at > pg_catalog.now()
       AND EXISTS (SELECT 1 FROM claim c WHERE c.entry_id = u.entry_id AND c.personnel_id = u.personnel_id)
       AND public.can_edit_availability_record(u.organization_id, u.personnel_id)
       AND EXISTS (SELECT 1 FROM public.status_types s
@@ -12065,7 +12068,9 @@ BEGIN
     restored.start_date, restored.end_date, restored.note, restored.created_at
   FROM restored;
 
-  PERFORM pg_catalog.set_config('calendar_private.restoring_availability', '', true);
+  -- An Undo is one-shot: the record goes whether or not the entry came back.
+  DELETE FROM calendar_private.availability_undo u
+  WHERE u.actor_id = auth.uid() AND u.organization_id = p_organization_id AND u.entry_id = ANY(p_ids);
 END;
 $$;
 

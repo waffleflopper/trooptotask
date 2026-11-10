@@ -222,6 +222,17 @@ SELECT throws_ok(format($$ INSERT INTO public.availability_entries (organization
   pg_temp.id('101'), pg_temp.id('501'), pg_temp.id('601'), pg_temp.id('402')),
   '42501', 'Tasking is unavailable for this Organization',
   'a direct write still cannot name a Tasking the operator cannot see');
+SELECT set_config('calendar_private.restoring_availability', 'on', true);
+SELECT throws_ok(format($$ INSERT INTO public.availability_entries (organization_id, personnel_id, status_type_id,
+  start_date, end_date, set_for_tasking_id) VALUES (%L, %L, %L, '2031-09-10', '2031-09-11', %L) $$,
+  pg_temp.id('101'), pg_temp.id('501'), pg_temp.id('601'), pg_temp.id('402')),
+  '42501', 'Tasking is unavailable for this Organization',
+  'a setting the caller chooses does not let a direct add name a Tasking the operator cannot see');
+SELECT throws_ok(format($$ UPDATE public.availability_entries SET set_for_tasking_id = %L WHERE id = %L $$,
+  pg_temp.id('402'), pg_temp.id('703')),
+  '42501', 'Tasking is unavailable for this Organization',
+  'nor a direct edit');
+SELECT is(pg_temp.link('703'), NULL::uuid, 'the edited status is still unlinked');
 SELECT pg_temp.act_as('2');
 SELECT is(pg_temp.remove(ARRAY['714', '716']), 2,
   'the operator removes a status linked to a Tasking and the last status of a type, both about to be deleted');

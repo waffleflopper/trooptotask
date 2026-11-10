@@ -2,7 +2,8 @@
 	import { onDestroy } from 'svelte';
 	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { ChevronLeft, Plus } from '@lucide/svelte';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import Plus from '@lucide/svelte/icons/plus';
 	import type { TrainingPageAccess } from '../contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as Empty from '$lib/components/ui/empty';

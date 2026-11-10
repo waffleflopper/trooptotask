@@ -1,4 +1,6 @@
 import type {
+	OrganizationInvitationCreateInput,
+	OrganizationInvitationCreateResult,
 	OrganizationInvitationRevokeResult,
 	OrganizationMembershipUpdateInput,
 	OrganizationSettingsMemberManagementPort
@@ -53,6 +55,9 @@ interface SetOrganizationMemberNameRpcRow {
 	saved_last_name: string | null;
 }
 
+// Bounds the single-row inserts that find which address a refused batch insert rejected.
+const RETRY_CONCURRENCY = 5;
+
 /** What the set_organization_member_name RPC raises: 42501 refused, P0002 no such member, 23514 or 22023 bad value. */
 const MEMBER_NAME_FAILURE_BY_CODE: Record<string, 'denied' | 'not_found' | 'invalid'> = {
 	'42501': 'denied',
@@ -83,21 +88,18 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 	const getAdminClientFn = deps.getAdminClient ?? getAdminClient;
 
 	return {
-		async findPendingInvitation(orgId, email) {
+		async findPendingInvitationEmails(orgId, emails) {
 			const { data, error } = await supabase
 				.from('organization_invitations')
-				.select('id')
+				.select('normalized_email')
 				.eq('organization_id', orgId)
-				.eq('normalized_email', email)
+				.in('normalized_email', emails)
 				.eq('status', 'pending')
 				.gt('expires_at', new Date().toISOString())
-				.single<OrganizationInvitationLookupRow>();
+				.returns<Array<{ normalized_email: string }>>();
 
-			if (error || !data) {
-				return null;
-			}
-
-			return { id: data.id };
+			if (error) throw error;
+			return (data ?? []).map((row) => row.normalized_email);
 		},
 
 		async findPendingInvitationById(orgId, inviteId) {
@@ -141,29 +143,51 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			};
 		},
 
-		async createInvitation(input) {
-			await expirePendingInvitationForEmail(supabase, input.organizationId, input.email);
+		async createInvitations(inputs) {
+			if (inputs.length === 0) return [];
+			await expirePendingInvitationsForEmails(
+				supabase,
+				inputs[0].organizationId,
+				inputs.map((input) => input.email)
+			);
 
-			const { data, error } = await supabase
-				.from('organization_invitations')
-				.insert({
-					organization_id: input.organizationId,
-					email: input.email,
-					invited_by: input.invitedBy,
-					role: input.role,
-					member_preset: input.memberPreset,
-					capability_overrides: input.capabilityOverrides,
-					access_scope_kind: input.accessScopeKind,
-					access_scope_group_ids: input.accessScopeGroupIds
-				})
-				.select('id, created_at')
-				.single<OrganizationInvitationLookupRow>();
+			const insert = (rows: typeof inputs) =>
+				supabase
+					.from('organization_invitations')
+					.insert(rows.map(invitationInsertRow))
+					.select('id, normalized_email, created_at')
+					.returns<Array<{ id: string; normalized_email: string; created_at: string | null }>>();
 
-			if (error || !data) {
-				return { status: 'failed', message: error?.message ?? 'Invitation could not be created' };
+			const { data, error } = await insert(inputs);
+			if (!error && data) {
+				const byEmail = new Map(data.map((row) => [row.normalized_email, row]));
+				return inputs.map((input): OrganizationInvitationCreateResult => {
+					const row = byEmail.get(input.email);
+					return row
+						? { status: 'created', invitationId: row.id, createdAt: row.created_at ?? new Date().toISOString() }
+						: { status: 'failed', message: 'Invitation could not be created' };
+				});
 			}
 
-			return { status: 'created', invitationId: data.id, createdAt: data.created_at ?? new Date().toISOString() };
+			// One rejected row rolls back the whole insert, so each address is retried alone to find which.
+			if (inputs.length === 1)
+				return [{ status: 'failed', message: error?.message ?? 'Invitation could not be created' }];
+			const results: OrganizationInvitationCreateResult[] = [];
+			for (let start = 0; start < inputs.length; start += RETRY_CONCURRENCY) {
+				const chunk = inputs.slice(start, start + RETRY_CONCURRENCY);
+				results.push(
+					...(await Promise.all(
+						chunk.map(async (input): Promise<OrganizationInvitationCreateResult> => {
+							const { data: rows, error: rowError } = await insert([input]);
+							const row = rows?.[0];
+							return rowError || !row
+								? { status: 'failed', message: rowError?.message ?? 'Invitation could not be created' }
+								: { status: 'created', invitationId: row.id, createdAt: row.created_at ?? new Date().toISOString() };
+						})
+					))
+				);
+			}
+			return results;
 		},
 
 		async findUserAccountByEmail(email) {
@@ -352,10 +376,23 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 	};
 }
 
-async function expirePendingInvitationForEmail(
+function invitationInsertRow(input: OrganizationInvitationCreateInput) {
+	return {
+		organization_id: input.organizationId,
+		email: input.email,
+		invited_by: input.invitedBy,
+		role: input.role,
+		member_preset: input.memberPreset,
+		capability_overrides: input.capabilityOverrides,
+		access_scope_kind: input.accessScopeKind,
+		access_scope_group_ids: input.accessScopeGroupIds
+	};
+}
+
+async function expirePendingInvitationsForEmails(
 	supabase: SupabaseClient,
 	organizationId: string,
-	email: string
+	emails: string[]
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await supabase
@@ -365,7 +402,7 @@ async function expirePendingInvitationForEmail(
 			expired_at: now
 		})
 		.eq('organization_id', organizationId)
-		.eq('normalized_email', email)
+		.in('normalized_email', emails)
 		.eq('status', 'pending')
 		.lte('expires_at', now);
 }

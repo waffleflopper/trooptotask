@@ -161,7 +161,7 @@ const invitationRow = (email: string) =>
 	within(screen.getByRole('region', { name: 'Waiting on them' }))
 		.getAllByRole('listitem')
 		.find((item) => within(item).queryByText(email)) as HTMLElement;
-const inviteStrip = () => screen.getByRole('region', { name: 'Invite a member' });
+const inviteStrip = () => screen.getByRole('region', { name: 'Invite members' });
 
 async function revokeInvitation(email: string) {
 	await fireEvent.click(screen.getByRole('button', { name: `Revoke invitation for ${email}` }));
@@ -236,7 +236,8 @@ describe('members list', () => {
 
 		expect(within(memberRow('owner')).getByText('You')).toBeTruthy();
 		expect(within(memberRow('alpha')).queryByText('You')).toBeNull();
-		expect(within(memberRow('owner')).queryAllByRole('button')).toEqual([]);
+		expect(within(memberRow('owner')).queryByRole('button', { name: /^Manage/ })).toBeNull();
+		expect(within(memberRow('owner')).queryByRole('button', { name: /^More actions/ })).toBeNull();
 		expect(
 			within(memberRow('alpha'))
 				.getAllByRole('button')
@@ -247,7 +248,8 @@ describe('members list', () => {
 	it('lets an admin manage members but not other admins', () => {
 		renderPage({ isOwner: false, rows: [owner, admin, alpha] });
 
-		expect(within(memberRow('admin')).queryAllByRole('button')).toEqual([]);
+		expect(within(memberRow('admin')).queryByRole('button', { name: /^Manage/ })).toBeNull();
+		expect(within(memberRow('admin')).queryByRole('button', { name: /^More actions/ })).toBeNull();
 		expect(
 			within(memberRow('alpha')).getByRole('button', { name: 'Manage access for alpha@example.com' })
 		).toBeTruthy();
@@ -340,7 +342,7 @@ describe('invite strip', () => {
 		expect(submitted[1].getAll('scopeSetGroupIds')).toEqual(['g-2']);
 	});
 
-	it('keeps focus on Send invite while it sends and sends a second press nowhere', async () => {
+	it('keeps focus on Send invite while it sends, holds the draft still and sends a second press nowhere', async () => {
 		renderPage();
 		await fireEvent.input(screen.getByLabelText('Invite'), { target: { value: 'new@example.com' } });
 		const invite = screen.getByRole('button', { name: 'Send invite' }) as HTMLButtonElement;
@@ -354,6 +356,8 @@ describe('invite strip', () => {
 		expect(invite.getAttribute('aria-disabled')).toBe('true');
 		expect(invite.textContent?.trim()).toBe('Sending...');
 		expect(document.activeElement).toBe(invite);
+		expect((screen.getByLabelText('Invite') as HTMLTextAreaElement).readOnly).toBe(true);
+		expect((screen.getByRole('button', { name: 'Preset' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it.each([
@@ -398,6 +402,78 @@ describe('invite strip', () => {
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Send invite' })));
 		expect(screen.getByRole('status').textContent?.trim()).toBe('Invitation created.');
 		expect((screen.getByLabelText('Invite') as HTMLInputElement).value).toBe('');
+	});
+
+	it('lists each address outcome after a submission and leaves only the addresses to fix in the box', async () => {
+		const view = renderPage();
+		const box = screen.getByLabelText('Invite') as HTMLTextAreaElement;
+		await fireEvent.input(box, { target: { value: 'a@example.com, bad\ntaken@example.com' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Send 3 invites' }));
+		expect(submitted[0].get('emails')).toBe('a@example.com, bad\ntaken@example.com');
+
+		await heldSubmissions[0](
+			frameworkOutcome(
+				{
+					type: 'success',
+					status: 200,
+					location: '/',
+					data: {
+						inviteSuccess: true,
+						inviteMessage: '1 invited. 1 already invited. 1 not invited.',
+						inviteResults: [
+							{ email: 'a@example.com', status: 'invited', message: 'Invited.' },
+							{ email: 'bad', status: 'failed', message: 'Not a valid email address.' },
+							{ email: 'taken@example.com', status: 'already-invited', message: 'Already invited.' }
+						]
+					}
+				},
+				{ applyForm: (form) => view.rerender({ form } as never) }
+			)
+		);
+
+		const results = await screen.findByRole('list', { name: 'Invitation results' });
+		expect(
+			within(results)
+				.getAllByRole('listitem')
+				.map((item) => item.textContent?.replace(/\s+/g, ' ').trim())
+		).toEqual(['a@example.com Invited.', 'bad Not a valid email address.', 'taken@example.com Already invited.']);
+		expect(box.value).toBe('bad');
+	});
+
+	it('holds a submission of more than fifty addresses in the form', async () => {
+		renderPage();
+		const addresses = Array.from({ length: 51 }, (_, index) => `p${index}@example.com`).join('\n');
+		await fireEvent.input(screen.getByLabelText('Invite'), { target: { value: addresses } });
+		const send = screen.getByRole('button', { name: 'Send 51 invites' });
+
+		await fireEvent.click(send);
+
+		expect(submitted).toHaveLength(0);
+		expect(send.getAttribute('aria-disabled')).toBe('true');
+		expect(within(inviteStrip()).getByRole('alert')).toBeTruthy();
+	});
+
+	it('shows what the chosen preset allows in each area, and drops the table for an admin invite', async () => {
+		renderPage();
+		const table = within(inviteStrip()).getByRole('table');
+		const rows = () =>
+			within(table)
+				.getAllByRole('row')
+				.slice(1)
+				.map((row) =>
+					within(row)
+						.getAllByRole('cell')
+						.map((cell) => cell.textContent?.trim())
+				);
+		const editorRows = rows();
+		expect(editorRows.map(([area]) => area)).toContain('Calendar');
+
+		await pick('Preset', 'Viewer');
+		await waitFor(() => expect(rows()).not.toEqual(editorRows));
+		expect(rows().map(([area]) => area)).toEqual(editorRows.map(([area]) => area));
+
+		await pick('Role', 'Admin');
+		await waitFor(() => expect(within(inviteStrip()).queryByRole('table')).toBeNull());
 	});
 });
 
@@ -634,7 +710,7 @@ describe('inviting again after an invitation expired', () => {
 
 		expect(heldSubmissions).toHaveLength(1);
 		const sent = submitted[0];
-		expect(sent.get('email')).toBe('lapsed@example.com');
+		expect(sent.get('emails')).toBe('lapsed@example.com');
 		expect(sent.get('membershipRole')).toBe('member');
 		expect(sent.get('memberPreset')).toBe('operator');
 		expect(sent.get('scopeSetKind')).toBe('groups');
@@ -659,13 +735,23 @@ describe('inviting again after an invitation expired', () => {
 
 		await heldSubmissions[0](
 			frameworkOutcome(
-				{ type: 'failure', status: 400, location: '/', data: { inviteError: 'Already a member' } },
+				{
+					type: 'success',
+					status: 200,
+					location: '/',
+					data: {
+						inviteSuccess: true,
+						inviteMessage: 'Already a member.',
+						inviteResults: [{ email: 'lapsed@example.com', status: 'failed', message: 'Already a member.' }]
+					}
+				},
 				{ applyForm: (form) => view.rerender({ form } as never) }
 			)
 		);
 
 		const row = screen.getByText('lapsed@example.com').closest('li') as HTMLElement;
-		await waitFor(() => expect(within(row).getByRole('alert').textContent?.trim()).toBe('Already a member'));
+		await waitFor(() => expect(within(row).getByRole('alert').textContent?.trim()).toBe('Already a member.'));
+		expect(toasts).toEqual([]);
 	});
 
 	it('is not offered to a viewer who cannot invite', async () => {
@@ -1085,6 +1171,86 @@ describe('member names', () => {
 		expect(within(row).getByText('blank@example.com')).toBeTruthy();
 		expect(within(row).queryByRole('button', { name: /^Manage/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: /name and rank/ })).toBeNull();
+	});
+
+	describe('naming a row whose access is locked', () => {
+		const unnamedOwner = member('owner', 'owner@example.com', 'owner');
+		const unnamedAdmin = member('admin', 'admin@example.com', 'admin');
+
+		async function openNameOnly(id: string, button: RegExp) {
+			const opener = within(memberRow(id)).getByRole('button', { name: button });
+			await fireEvent.click(opener);
+			return { opener, sheet: await screen.findByRole('dialog') };
+		}
+
+		it.each(['owner', 'admin'])('lets an admin name the %s row without opening any access control', async (id) => {
+			renderPage({ isOwner: false, rows: [unnamedOwner, unnamedAdmin, alpha] });
+			const row = within(memberRow(id));
+			expect(row.queryByRole('button', { name: /^Manage/ })).toBeNull();
+			expect(row.queryByRole('button', { name: /^More actions/ })).toBeNull();
+
+			const { sheet } = await openNameOnly(id, new RegExp(`^Add name for ${id}@example\\.com`));
+			await waitFor(() => expect(document.activeElement).toBe(within(sheet).getByLabelText('Rank')));
+			await fill(sheet, { rank: 'SGT', first: 'Jordan', last: 'Reyes' });
+			await fireEvent.click(within(sheet).getByRole('button', { name: 'Save name' }));
+
+			const form = within(sheet).getByLabelText('First name').closest('form');
+			expect(form?.getAttribute('action')).toBe('?/setMemberName');
+			expect(submitted).toHaveLength(1);
+			expect(Object.fromEntries(submitted[0])).toEqual({
+				membershipId: id,
+				rank: 'SGT',
+				firstName: 'Jordan',
+				lastName: 'Reyes'
+			});
+			expect(within(sheet).queryAllByRole('radiogroup')).toEqual([]);
+			expect(sheet.querySelector('form[action="?/updateMemberAccess"]')).toBeNull();
+			expect(within(sheet).queryByRole('button', { name: /^Save \d+ change|No changes/ })).toBeNull();
+			expect(within(sheet).queryByRole('button', { name: /^Remove/ })).toBeNull();
+		});
+
+		it('keeps Manage, not a name-only button, on an admin row the owner can manage', () => {
+			renderPage({ rows: [unnamedOwner, unnamedAdmin, alpha] });
+
+			expect(within(memberRow('admin')).getByRole('button', { name: /^Manage/ })).toBeTruthy();
+			expect(within(memberRow('admin')).queryByRole('button', { name: /name for/ })).toBeNull();
+		});
+
+		it('says Edit name when the Organization already named the row', async () => {
+			renderPage({
+				isOwner: false,
+				rows: [member('owner', 'owner@example.com', 'owner', { name: organizationName }), alpha]
+			});
+			const { sheet } = await openNameOnly('owner', /^Edit name for/);
+
+			await waitFor(() => expect((within(sheet).getByLabelText('First name') as HTMLInputElement).value).toBe('Jane'));
+		});
+
+		it('offers no button on a locked row whose name comes from the account', () => {
+			renderPage({
+				isOwner: false,
+				rows: [member('owner', 'owner@example.com', 'owner', { name: accountName }), alpha]
+			});
+
+			expect(within(memberRow('owner')).queryAllByRole('button')).toEqual([]);
+		});
+
+		it('offers no button on any row to a viewer who cannot manage members', () => {
+			renderPage({ isOwner: false, rows: [unnamedOwner, unnamedAdmin, alpha], canManageMemberAccess: false });
+
+			for (const id of ['owner', 'admin', 'alpha']) expect(within(memberRow(id)).queryAllByRole('button')).toEqual([]);
+		});
+
+		it('returns focus to the row button when the sheet closes', async () => {
+			renderPage({ isOwner: false, rows: [unnamedOwner, alpha] });
+			const { opener, sheet } = await openNameOnly('owner', /^Add name for/);
+
+			await fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }));
+			await fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
+
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+			expect(document.activeElement).toBe(opener);
+		});
 	});
 
 	it('locks the sheet while the name saves and closes the editor with the saved name', async () => {

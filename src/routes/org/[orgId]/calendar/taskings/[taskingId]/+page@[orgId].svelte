@@ -1,19 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { writeAddress } from '$lib/utils/addressWriter';
+	import { takeOneTimeParam } from '$lib/utils/addressWriter';
 	import TaskingDetailPage from '$features/calendar/taskings/components/TaskingDetailPage.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	const org = getAppShellContext();
-	const edit = page.url.searchParams.has('edit');
-
-	// The request to edit is spent on arrival, so Back or a reload never reopens the dialog.
-	onMount(() => {
-		void writeAddress({ url: (url) => url.searchParams.delete('edit') });
-	});
+	const edit = takeOneTimeParam('edit') !== null;
 </script>
 
 <svelte:head>

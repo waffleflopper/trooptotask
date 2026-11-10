@@ -58,7 +58,18 @@ export default ts.config(
 			'no-fallthrough': ['error', { commentPattern: 'falls?\\s*through' }],
 
 			// Allow hasOwnProperty — Object.hasOwn not available in all target envs
-			'no-prototype-builtins': 'off'
+			'no-prototype-builtins': 'off',
+
+			// The package root evaluates all ~7,300 icons, which costs every test file that reaches it about two seconds.
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{ name: '@lucide/svelte', message: "Import each icon from '@lucide/svelte/icons/<name>'." },
+						{ name: '@lucide/svelte/icons', message: "Import each icon from '@lucide/svelte/icons/<name>'." }
+					]
+				}
+			]
 		}
 	},
 	{

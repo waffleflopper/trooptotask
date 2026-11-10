@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { TreeSelect } from '$lib/components/patterns/tree-select';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -93,9 +93,12 @@
 	];
 
 	function close() {
+		const nameOnly = !draft;
 		requestError = null;
 		errorMemberId = null;
 		workspace.close();
+		// A name-only sheet has no save to place focus, so closing it goes back to the row button.
+		if (nameOnly) void tick().then(() => (opener?.isConnected ? opener : fallbackFocus())?.focus());
 	}
 
 	function summary(row: SettingsMemberRow): string {
@@ -117,12 +120,12 @@
 </script>
 
 <Sheet.Root
-	open={Boolean(member && draft)}
+	open={Boolean(member)}
 	onOpenChange={(open) => {
 		if (!open && !busy) close();
 	}}
 >
-	{#if member && draft}
+	{#if member}
 		<Sheet.Content
 			class="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-140"
 			aria-busy={busy || undefined}
@@ -132,7 +135,7 @@
 		>
 			<Sheet.Header class="gap-2 border-b-2 border-foreground px-5 pt-7 pb-5 sm:px-8">
 				<p class="font-mono text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-					Manage access
+					{draft ? 'Manage access' : 'Member'}
 				</p>
 				<Sheet.Title class="font-heading text-[32px] leading-8 font-bold tracking-[-0.01em] wrap-anywhere">
 					{member.name?.text ?? member.email ?? 'Selected member'}
@@ -150,213 +153,222 @@
 					{nameError}
 					blocked={loading}
 					bind:saving={nameSaving}
+					startEditing={!draft}
 				/>
 			{/key}
-			<form
-				method="POST"
-				action="?/updateMemberAccess"
-				class="flex min-h-0 flex-1 flex-col"
-				use:enhance={({ cancel }) => {
-					if (busy) return cancel();
-					const memberId = member.id;
-					loading = true;
-					errorMemberId = memberId;
-					requestError = null;
-					onSaveStart();
-					return async (outcome) => {
-						if (!active) return;
-						const { result } = outcome;
-						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
-							loading = false;
-							return;
-						}
-						await settleAction(outcome, {
-							isCurrent: () => active,
-							settled: (error) => {
-								requestError = error;
+			{#if !draft}
+				<p class="px-5 py-4.5 text-sm text-muted-foreground sm:px-8">
+					{member.membershipRole === 'owner'
+						? "The owner's access changes only by transferring ownership."
+						: "Only the owner changes an admin's access."}
+				</p>
+			{:else}
+				<form
+					method="POST"
+					action="?/updateMemberAccess"
+					class="flex min-h-0 flex-1 flex-col"
+					use:enhance={({ cancel }) => {
+						if (busy) return cancel();
+						const memberId = member.id;
+						loading = true;
+						errorMemberId = memberId;
+						requestError = null;
+						onSaveStart();
+						return async (outcome) => {
+							if (!active) return;
+							const { result } = outcome;
+							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
 								loading = false;
-								if (!error && result.type === 'success') close();
-							},
-							focus: () => [saveButton, opener, fallbackFocus()]
-						});
-					};
-				}}
-			>
-				<fieldset class="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 sm:px-8" disabled={busy}>
-					<input type="hidden" name="membershipId" value={member.id} />
-					<input type="hidden" name="membershipRole" value={draft.role} />
-					<input type="hidden" name="memberPreset" value={draft.preset} />
+								return;
+							}
+							await settleAction(outcome, {
+								isCurrent: () => active,
+								settled: (error) => {
+									requestError = error;
+									loading = false;
+									if (!error && result.type === 'success') close();
+								},
+								focus: () => [saveButton, opener, fallbackFocus()]
+							});
+						};
+					}}
+				>
+					<fieldset class="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 sm:px-8" disabled={busy}>
+						<input type="hidden" name="membershipId" value={member.id} />
+						<input type="hidden" name="membershipRole" value={draft.role} />
+						<input type="hidden" name="memberPreset" value={draft.preset} />
 
-					<section class="grid gap-2 border-b py-4.5" aria-label="Role">
-						<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-							<h3 class={SECTION_TITLE}>Role</h3>
-							{#if isOwner}
-								<SegmentedFilter.Root
-									label="Role"
-									describedBy="access-role-helper"
-									options={ROLE_OPTIONS}
-									bind:value={() => draft.role, (role: EditableMembershipRole) => workspace.setRole(role)}
-								/>
-							{:else}
-								<p class="text-sm">{draft.role === 'admin' ? 'Admin' : 'Member'}</p>
-							{/if}
-						</div>
-						<p id="access-role-helper" class="text-sm text-muted-foreground">{roleHelper(draft.role)}</p>
-					</section>
-
-					{#if draft.role === 'member'}
-						<section class="grid gap-2 border-b py-4.5" aria-label="Preset">
+						<section class="grid gap-2 border-b py-4.5" aria-label="Role">
 							<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-								<h3 class={SECTION_TITLE}>Preset</h3>
-								<SegmentedFilter.Root
-									label="Preset"
-									describedBy="access-preset-helper"
-									options={PRESET_OPTIONS}
-									bind:value={() => draft.preset, (preset: EditablePreset) => workspace.setPreset(preset)}
-								/>
+								<h3 class={SECTION_TITLE}>Role</h3>
+								{#if isOwner}
+									<SegmentedFilter.Root
+										label="Role"
+										describedBy="access-role-helper"
+										options={ROLE_OPTIONS}
+										bind:value={() => draft.role, (role: EditableMembershipRole) => workspace.setRole(role)}
+									/>
+								{:else}
+									<p class="text-sm">{draft.role === 'admin' ? 'Admin' : 'Member'}</p>
+								{/if}
 							</div>
-							<p id="access-preset-helper" class="text-sm text-muted-foreground">{presetHelper(draft.preset)}</p>
+							<p id="access-role-helper" class="text-sm text-muted-foreground">{roleHelper(draft.role)}</p>
 						</section>
 
-						<section class="grid pt-4.5" aria-label="Area by area">
-							<div class="flex flex-wrap items-baseline gap-x-3 pb-1">
-								<h3 class={SECTION_TITLE}>Area by area</h3>
+						{#if draft.role === 'member'}
+							<section class="grid gap-2 border-b py-4.5" aria-label="Preset">
+								<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+									<h3 class={SECTION_TITLE}>Preset</h3>
+									<SegmentedFilter.Root
+										label="Preset"
+										describedBy="access-preset-helper"
+										options={PRESET_OPTIONS}
+										bind:value={() => draft.preset, (preset: EditablePreset) => workspace.setPreset(preset)}
+									/>
+								</div>
+								<p id="access-preset-helper" class="text-sm text-muted-foreground">{presetHelper(draft.preset)}</p>
+							</section>
+
+							<section class="grid pt-4.5" aria-label="Area by area">
+								<div class="flex flex-wrap items-baseline gap-x-3 pb-1">
+									<h3 class={SECTION_TITLE}>Area by area</h3>
+									<p
+										class={cn(
+											'font-mono text-xs',
+											areaChangeCount > 0 ? 'font-semibold text-warning-foreground' : 'text-muted-foreground'
+										)}
+									>
+										{areaChangeCount > 0
+											? `${plural(areaChangeCount, 'change')} from ${presetLabel(draft.preset)}`
+											: `Matches ${presetLabel(draft.preset)}`}
+									</p>
+								</div>
+								<p class="pb-2 text-sm text-muted-foreground">
+									Change an area only when the preset is too broad or too narrow for it.
+								</p>
+								<ul class="grid">
+									{#each SETTINGS_ACCESS_LANES as lane (lane.id)}
+										{@const off = workspace.isOff(lane.id)}
+										{@const gap = workspace.presetGap(lane.id)}
+										<li class="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 border-b py-1.5">
+											<input type="hidden" name="capabilityOverride:{lane.id}" value={draft.levels[lane.id]} />
+											<span class="flex w-2 shrink-0" aria-hidden="true">
+												{#if gap}
+													<span class="size-1.5 rounded-full bg-warning"></span>
+												{/if}
+											</span>
+											<div class="grid min-w-24 flex-1">
+												<p class={cn('text-sm', gap && 'font-semibold')}>{lane.label}</p>
+												{#if off}
+													<p class="font-mono text-[11px] leading-3.5 text-muted-foreground">Off for {unit}</p>
+												{:else if gap}
+													<p class="font-mono text-[11px] leading-3.5 text-muted-foreground">{gap}</p>
+												{/if}
+											</div>
+											<div class="ml-auto">
+												<SegmentedFilter.Root
+													label={`${lane.label} access`}
+													options={SETTINGS_CAPABILITY_OPTIONS}
+													disabled={off}
+													bind:value={
+														() => draft.levels[lane.id], (level: CapabilityLevel) => workspace.setLevel(lane.id, level)
+													}
+												/>
+											</div>
+										</li>
+									{/each}
+								</ul>
+							</section>
+
+							<section class="grid gap-2.5 py-4.5" aria-label="Groups">
+								<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+									<h3 class={SECTION_TITLE}>Groups</h3>
+									<SegmentedFilter.Root
+										label="Groups"
+										options={SCOPE_OPTIONS}
+										bind:value={() => scope.kind, (kind: ScopeSet['kind']) => workspace.setScopeKind(kind)}
+									/>
+								</div>
+								<input type="hidden" name="scopeSetKind" value={scope.kind} />
+								{#if scope.kind === 'groups'}
+									{@const selected = scope.groupIds}
+									{#each selected as groupId (groupId)}
+										<input type="hidden" name="scopeSetGroupIds" value={groupId} />
+									{/each}
+									<TreeSelect
+										multiple
+										label="Groups they work in"
+										hideLabel
+										placeholder="Choose Groups"
+										searchPlaceholder="Search Groups"
+										value={selected}
+										valueLabel={selected.length === 0
+											? null
+											: selected.length === 1
+												? workspace.groupName(selected[0])
+												: `${selected.length} Groups`}
+										options={workspace.scopeTree.options}
+										onValueChange={(ids: string[]) => workspace.setScopeGroups(ids)}
+										class="h-9 w-full justify-between"
+									/>
+								{/if}
 								<p
 									class={cn(
-										'font-mono text-xs',
-										areaChangeCount > 0 ? 'font-semibold text-warning-foreground' : 'text-muted-foreground'
+										'text-sm',
+										scope.kind === 'groups' && scope.groupIds.length === 0
+											? 'text-warning-foreground'
+											: 'text-muted-foreground'
 									)}
 								>
-									{areaChangeCount > 0
-										? `${plural(areaChangeCount, 'change')} from ${presetLabel(draft.preset)}`
-										: `Matches ${presetLabel(draft.preset)}`}
+									{scopeSentence(scope)}
 								</p>
-							</div>
-							<p class="pb-2 text-sm text-muted-foreground">
-								Change an area only when the preset is too broad or too narrow for it.
+							</section>
+						{:else}
+							<p class="py-4.5 text-sm text-muted-foreground">
+								Admins work across every area and group in {unit}. Presets and groups apply to members.
 							</p>
-							<ul class="grid">
-								{#each SETTINGS_ACCESS_LANES as lane (lane.id)}
-									{@const off = workspace.isOff(lane.id)}
-									{@const gap = workspace.presetGap(lane.id)}
-									<li class="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 border-b py-1.5">
-										<input type="hidden" name="capabilityOverride:{lane.id}" value={draft.levels[lane.id]} />
-										<span class="flex w-2 shrink-0" aria-hidden="true">
-											{#if gap}
-												<span class="size-1.5 rounded-full bg-warning"></span>
-											{/if}
-										</span>
-										<div class="grid min-w-24 flex-1">
-											<p class={cn('text-sm', gap && 'font-semibold')}>{lane.label}</p>
-											{#if off}
-												<p class="font-mono text-[11px] leading-3.5 text-muted-foreground">Off for {unit}</p>
-											{:else if gap}
-												<p class="font-mono text-[11px] leading-3.5 text-muted-foreground">{gap}</p>
-											{/if}
-										</div>
-										<div class="ml-auto">
-											<SegmentedFilter.Root
-												label={`${lane.label} access`}
-												options={SETTINGS_CAPABILITY_OPTIONS}
-												disabled={off}
-												bind:value={
-													() => draft.levels[lane.id], (level: CapabilityLevel) => workspace.setLevel(lane.id, level)
-												}
-											/>
-										</div>
-									</li>
-								{/each}
-							</ul>
-						</section>
+						{/if}
 
-						<section class="grid gap-2.5 py-4.5" aria-label="Groups">
-							<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-								<h3 class={SECTION_TITLE}>Groups</h3>
-								<SegmentedFilter.Root
-									label="Groups"
-									options={SCOPE_OPTIONS}
-									bind:value={() => scope.kind, (kind: ScopeSet['kind']) => workspace.setScopeKind(kind)}
-								/>
-							</div>
-							<input type="hidden" name="scopeSetKind" value={scope.kind} />
-							{#if scope.kind === 'groups'}
-								{@const selected = scope.groupIds}
-								{#each selected as groupId (groupId)}
-									<input type="hidden" name="scopeSetGroupIds" value={groupId} />
-								{/each}
-								<TreeSelect
-									multiple
-									label="Groups they work in"
-									hideLabel
-									placeholder="Choose Groups"
-									searchPlaceholder="Search Groups"
-									value={selected}
-									valueLabel={selected.length === 0
-										? null
-										: selected.length === 1
-											? workspace.groupName(selected[0])
-											: `${selected.length} Groups`}
-									options={workspace.scopeTree.options}
-									onValueChange={(ids: string[]) => workspace.setScopeGroups(ids)}
-									class="h-9 w-full justify-between"
-								/>
-							{/if}
-							<p
-								class={cn(
-									'text-sm',
-									scope.kind === 'groups' && scope.groupIds.length === 0
-										? 'text-warning-foreground'
-										: 'text-muted-foreground'
-								)}
-							>
-								{scopeSentence(scope)}
-							</p>
-						</section>
-					{:else}
-						<p class="py-4.5 text-sm text-muted-foreground">
-							Admins work across every area and group in {unit}. Presets and groups apply to members.
-						</p>
-					{/if}
-
-					{#if shownError}
-						<Alert.Root variant="destructive" class="mb-4.5">
-							<Alert.Description>{shownError}</Alert.Description>
-						</Alert.Root>
-					{/if}
-				</fieldset>
-				<!-- Outside the fieldset so Save keeps focus (aria-disabled) while the request is pending. -->
-				<Sheet.Footer class="flex-row flex-wrap items-center gap-2 border-t bg-muted px-5 py-3.5 sm:px-8">
-					<Button
-						type="button"
-						variant="ghost"
-						class="text-destructive-text"
-						disabled={busy}
-						onclick={() => {
-							const target = member;
-							close();
-							onRemove(target);
-						}}>Remove from {unit}</Button
-					>
-					<div class="ml-auto flex gap-2">
-						<Button type="button" variant="outline" disabled={busy} onclick={close}>Cancel</Button>
+						{#if shownError}
+							<Alert.Root variant="destructive" class="mb-4.5">
+								<Alert.Description>{shownError}</Alert.Description>
+							</Alert.Root>
+						{/if}
+					</fieldset>
+					<!-- Outside the fieldset so Save keeps focus (aria-disabled) while the request is pending. -->
+					<Sheet.Footer class="flex-row flex-wrap items-center gap-2 border-t bg-muted px-5 py-3.5 sm:px-8">
 						<Button
-							bind:ref={saveButton}
-							type="submit"
-							disabled={changeCount === 0}
-							aria-disabled={busy ? 'true' : undefined}
-							aria-busy={loading || undefined}
+							type="button"
+							variant="ghost"
+							class="text-destructive-text"
+							disabled={busy}
+							onclick={() => {
+								const target = member;
+								close();
+								onRemove(target);
+							}}>Remove from {unit}</Button
 						>
-							{#if loading}
-								Saving...
-							{:else if changeCount > 0}
-								Save {plural(changeCount, 'change')}
-							{:else}
-								No changes
-							{/if}
-						</Button>
-					</div>
-				</Sheet.Footer>
-			</form>
+						<div class="ml-auto flex gap-2">
+							<Button type="button" variant="outline" disabled={busy} onclick={close}>Cancel</Button>
+							<Button
+								bind:ref={saveButton}
+								type="submit"
+								disabled={changeCount === 0}
+								aria-disabled={busy ? 'true' : undefined}
+								aria-busy={loading || undefined}
+							>
+								{#if loading}
+									Saving...
+								{:else if changeCount > 0}
+									Save {plural(changeCount, 'change')}
+								{:else}
+									No changes
+								{/if}
+							</Button>
+						</div>
+					</Sheet.Footer>
+				</form>
+			{/if}
 		</Sheet.Content>
 	{/if}
 </Sheet.Root>

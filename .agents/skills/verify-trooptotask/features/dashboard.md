@@ -300,7 +300,10 @@ says `Needs you is incomplete. Training items could not load.` under its rows, o
 `Nothing needs you right now.`. It names only failed columns whose section feeds Needs you, so Critical tasks never
 appears there. One `Retry Dashboard` alert sits above the bands; a viewer who reads neither summary source sees neither
 the note nor the alert. A failed background refresh after a successful load keeps the last values and shows nothing. A
-failed workspace source is caught by the Dashboard layout, which replaces the whole page. Steps live in
+save's refresh that fails before the first summary arrives shows the same load error, and a first summary that lands
+during or after that refresh still replaces it. Only a save from an open dialog that outlives a switch to another
+Organization and back can start a refresh before the first summary, and no fixture actor belongs to two Organizations
+with a summary-refreshing save, so that path is covered by `page.updates.svelte.test.ts`. A failed workspace source is caught by the Dashboard layout, which replaces the whole page. Steps live in
 [Dashboard and Training states](training-form-states.md#driving-it-with-verifyapp).
 
 ## Viewer day
@@ -474,7 +477,10 @@ On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out
    old completion date so `STATUS` reads `Expired`. Arm `arm-fail` on the same family and choose `Save`:
    `Training record was not saved` shows inline. Restore and save. The dialog closes, one `GET api/dashboard/summary`
    refreshes the summary without another workspace bootstrap, Training stays `0%` with
-   `1 Soldier expired and 2 missing training.` Reload and read again.
+   `1 Soldier expired and 2 missing training.` Reload and read again. To fail that refresh, arm
+   `$V server-source arm personnel_trainings fail-hard 2` before `Save`; the save's own read is the first match. The
+   save returns 200 and `GET api/dashboard/summary` returns 500. Training keeps the values it showed before the save,
+   with no alert and no `Loading Dashboard`. Restore, reload, and the saved record counts.
 4. **Start onboarding.** Arm `arm-hold PAGE onboarding/start-options` and open it: a skeleton dialog reads
    `Loading onboarding templates.` with only `Cancel`. Arm `arm-fail` on the same family and open it again:
    `Could not open Start Onboarding` with `Try again`, which then loads the dialog. Choose a Member (the picker takes

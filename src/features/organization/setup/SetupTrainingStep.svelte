@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { invalidate } from '$app/navigation';
-	import { Pencil } from '@lucide/svelte';
+	import Pencil from '@lucide/svelte/icons/pencil';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';

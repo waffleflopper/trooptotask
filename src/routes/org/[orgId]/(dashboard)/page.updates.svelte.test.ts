@@ -71,15 +71,18 @@ function data(orgId: string, value: DashboardPageSummaryData | Promise<Dashboard
 }
 function deferred<T>() {
 	let resolve!: (value: T) => void;
-	const promise = new Promise<T>((done) => {
+	let reject!: (reason: Error) => void;
+	const promise = new Promise<T>((done, fail) => {
 		resolve = done;
+		reject = fail;
 	});
-	return { promise, resolve };
+	return { promise, resolve, reject };
 }
 const value = () => screen.getByLabelText('Current people').textContent;
 const expired = () => screen.getByLabelText('Expired people').textContent?.trim();
 const recordClass = () => fireEvent.click(screen.getByRole('button', { name: 'Record class' }));
 const refresh = () => fireEvent.click(screen.getByRole('button', { name: 'Refresh summary' }));
+const loadError = () => screen.queryByRole('button', { name: 'Retry Dashboard' });
 
 describe('Dashboard Tasking read', () => {
 	it("asks again for the page's day, so the forecast lane covers the same 14 days as the forecast", async () => {
@@ -196,5 +199,33 @@ describe('Dashboard summary endpoint refresh', () => {
 		await waitFor(() => expect(value()).toBe('1'));
 		await tick();
 		expect(expired()).toBe('brooks');
+	});
+
+	it('shows the load error when a refresh fails before the first summary, and takes the late summary', async () => {
+		const first = deferred<DashboardPageSummaryData>();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(null, { status: 503 })));
+		render(Page, { props: { data: data('org-1', first.promise) } });
+		await refresh();
+
+		await waitFor(() => expect(loadError()).not.toBeNull());
+		first.resolve(summary(2));
+		await waitFor(() => expect(value()).toBe('2'));
+		expect(loadError()).toBeNull();
+	});
+
+	it('keeps a first summary that lands during a refresh when that refresh fails', async () => {
+		const first = deferred<DashboardPageSummaryData>();
+		const response = deferred<Response>();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(response.promise));
+		render(Page, { props: { data: data('org-1', first.promise) } });
+		await refresh();
+		first.resolve(summary(2));
+		await waitFor(() => expect(value()).toBe('2'));
+
+		response.reject(new Error('offline'));
+		await tick();
+		await tick();
+		expect(value()).toBe('2');
+		expect(loadError()).toBeNull();
 	});
 });

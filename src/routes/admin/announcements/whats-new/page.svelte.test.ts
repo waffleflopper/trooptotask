@@ -81,7 +81,7 @@ function open(search = '') {
 async function renderPage(search = '', pageData = data()) {
 	open(search);
 	const view = render(WhatsNew, { props: { data: pageData, form: null } });
-	await screen.findByRole('link', { name: /Draft entry|Live entry|Old entry/ }).catch(() => {});
+	await screen.findAllByRole('link', { name: /Draft entry|Live entry|Old entry/ }).catch(() => {});
 	return view;
 }
 async function submit(button: HTMLElement) {

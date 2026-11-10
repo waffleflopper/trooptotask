@@ -105,13 +105,19 @@ export function createSupabaseTrainingCompletionPersistence(
 		async findResource(id) {
 			const { data, error } = await client
 				.from('personnel_trainings')
-				.select('personnel_id, training_type_id')
+				.select('personnel_id, training_type_id, completion_date')
 				.eq('organization_id', orgId)
 				.eq('id', id)
-				.single<{ personnel_id: string; training_type_id: string }>();
+				.single<{ personnel_id: string; training_type_id: string; completion_date: string | null }>();
 			if (error?.code === 'PGRST116') return null;
 			if (error) throw new Error(error.message);
-			return data ? { personnelId: data.personnel_id, trainingTypeId: data.training_type_id } : null;
+			return data
+				? {
+						personnelId: data.personnel_id,
+						trainingTypeId: data.training_type_id,
+						completionDate: data.completion_date
+					}
+				: null;
 		},
 		async findPair(personnelId, trainingTypeId) {
 			const { data, error } = await client
@@ -126,25 +132,32 @@ export function createSupabaseTrainingCompletionPersistence(
 			return data ? { id: data.id, completionDate: data.completion_date, expirationDate: data.expiration_date } : null;
 		},
 		async listPairReferences(personnelIds, trainingTypeIds) {
-			const result = await selectAllSupabaseRows<{ id: string; personnel_id: string; training_type_id: string }>(
-				async (from, to) => {
-					const { data, error } = await client
-						.from('personnel_trainings')
-						.select('id, personnel_id, training_type_id')
-						.eq('organization_id', orgId)
-						.in('personnel_id', [...personnelIds])
-						.in('training_type_id', [...trainingTypeIds])
-						.order('id', { ascending: true })
-						.range(from, to)
-						.returns<{ id: string; personnel_id: string; training_type_id: string }[]>();
-					return { data, error };
-				}
-			);
+			type PairRow = {
+				id: string;
+				personnel_id: string;
+				training_type_id: string;
+				completion_date: string | null;
+				expiration_date: string | null;
+			};
+			const result = await selectAllSupabaseRows<PairRow>(async (from, to) => {
+				const { data, error } = await client
+					.from('personnel_trainings')
+					.select('id, personnel_id, training_type_id, completion_date, expiration_date')
+					.eq('organization_id', orgId)
+					.in('personnel_id', [...personnelIds])
+					.in('training_type_id', [...trainingTypeIds])
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<PairRow[]>();
+				return { data, error };
+			});
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map((row) => ({
 				id: row.id,
 				personnelId: row.personnel_id,
-				trainingTypeId: row.training_type_id
+				trainingTypeId: row.training_type_id,
+				completionDate: row.completion_date,
+				expirationDate: row.expiration_date
 			}));
 		},
 		async listPersonExportFacts(personnelId) {

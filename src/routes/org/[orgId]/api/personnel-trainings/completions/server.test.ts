@@ -44,7 +44,7 @@ describe('POST /api/personnel-trainings/completions', () => {
 			personnelId: PERSON,
 			trainingTypeId: TRAINING_TYPE,
 			completionDate: '2026-04-01',
-			expirationDate: '2028-04-01',
+			expirationDate: null,
 			notes: null,
 			certificateUrl: expect.stringMatching(CERTIFICATE_PATH),
 			organization_id: ctx.auth.orgId
@@ -79,7 +79,7 @@ describe('POST /api/personnel-trainings/completions', () => {
 		expect(record).toMatchObject({
 			id: RECORD,
 			completionDate: '2026-04-02',
-			expirationDate: '2028-04-02',
+			expirationDate: null,
 			notes: 'Renewed',
 			certificateUrl: null
 		});

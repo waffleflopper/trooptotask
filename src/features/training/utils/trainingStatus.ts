@@ -26,6 +26,8 @@ export interface TrainingStatusInfo {
 	color: string;
 	label: string;
 	daysUntilExpiration: number | null;
+	/** The effective expiration date, from the type's current months or, for a date-only type, the certificate date. */
+	expirationDate: string | null;
 }
 
 export function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
@@ -34,14 +36,34 @@ export function calculateExpirationDate(completionDate: string | null, expiratio
 	return formatDate(addMonthsClamped(parseDate(completionDate), expirationMonths));
 }
 
-function present(status: TrainingStatus, label: string, daysUntilExpiration: number | null): TrainingStatusInfo {
-	return { status, color: TRAINING_STATUS_COLORS[status], label, daysUntilExpiration };
+/**
+ * The one place a completion's effective expiration date is decided. A stored
+ * `expirationDate` counts only for an `expirationDateOnly` type, where the date
+ * comes from a certificate. Every other type derives it from the completion date
+ * and the type's current months, so changing the months changes every completion.
+ */
+export function trainingExpirationDate(
+	completion: Pick<PersonnelTraining, 'completionDate' | 'expirationDate'>,
+	type: Pick<TrainingType, 'expirationDateOnly' | 'expirationMonths'>
+): string | null {
+	return type.expirationDateOnly
+		? completion.expirationDate
+		: calculateExpirationDate(completion.completionDate, type.expirationMonths);
+}
+
+function present(
+	status: TrainingStatus,
+	label: string,
+	daysUntilExpiration: number | null,
+	expirationDate: string | null = null
+): TrainingStatusInfo {
+	return { status, color: TRAINING_STATUS_COLORS[status], label, daysUntilExpiration, expirationDate };
 }
 
 /**
  * `expirationMonths === null` means "never expires" for Training, so that case is
- * resolved here rather than handed to the core. Training keeps using the stored
- * `training.expirationDate`; it is not recomputed at status time.
+ * resolved here rather than handed to the core. The expiration date is derived
+ * when read, as for Critical Tasks; see `trainingExpirationDate`.
  */
 export function getTrainingStatus(
 	training: Pick<PersonnelTraining, 'completionDate' | 'expirationDate'> | undefined,
@@ -74,7 +96,7 @@ export function getTrainingStatus(
 	}
 
 	const result = currencyStatus(
-		{ completionDate: training.completionDate, expirationDate: training.expirationDate },
+		{ completionDate: training.completionDate, expirationDate: trainingExpirationDate(training, type) },
 		{
 			expirationDateOnly: type.expirationDateOnly,
 			warnBands: [
@@ -90,11 +112,16 @@ export function getTrainingStatus(
 		case 'not-recorded':
 			return present('not-completed', 'Not Done', null);
 		case 'current':
-			return present('current', 'Current', days);
+			return present('current', 'Current', days, result.expirationDate);
 		case 'expired':
-			return present('expired', `Expired ${Math.abs(days ?? 0)}d ago`, days);
+			return present('expired', `Expired ${Math.abs(days ?? 0)}d ago`, days, result.expirationDate);
 		case 'expiring':
-			return present(result.band === 'orange' ? 'warning-orange' : 'warning-yellow', `${days}d left`, days);
+			return present(
+				result.band === 'orange' ? 'warning-orange' : 'warning-yellow',
+				`${days}d left`,
+				days,
+				result.expirationDate
+			);
 	}
 }
 

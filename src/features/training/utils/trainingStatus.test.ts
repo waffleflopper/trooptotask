@@ -5,19 +5,23 @@ import {
 	calculateExpirationDate,
 	getDelinquentTrainings,
 	getTrainingStats,
-	getTrainingStatus
+	getTrainingStatus,
+	trainingExpirationDate
 } from './trainingStatus';
-import { formatDate } from '$lib/utils/dates';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 
-/** A YYYY-MM-DD string `days` calendar days from local midnight today. */
-function isoDaysFromToday(days: number): string {
-	const d = new Date();
-	d.setHours(0, 0, 0, 0);
-	d.setDate(d.getDate() + days);
-	return formatDate(d);
-}
+const AS_OF = '2026-06-15';
+/** With the base 12-month type, a completion on these dates expires this many days after AS_OF. */
+const COMPLETED_EXPIRING_IN = {
+	'-5': '2025-06-10',
+	'15': '2025-06-30',
+	'30': '2025-07-15',
+	'45': '2025-07-30',
+	'60': '2025-08-14',
+	'90': '2025-09-13'
+} as const;
+const dateOnlyType = () => baseType({ expirationDateOnly: true, expirationMonths: null });
 
 function basePerson(overrides: Partial<Personnel> = {}): Personnel {
 	return {
@@ -149,12 +153,6 @@ describe('getDelinquentTrainings sort order', () => {
 	}
 
 	it('sorts expired before warning-orange before not-completed', () => {
-		const today = new Date();
-		const past = new Date(today);
-		past.setDate(past.getDate() - 10);
-		const soon = new Date(today);
-		soon.setDate(soon.getDate() + 15);
-
 		const personnel = [makePerson('p1'), makePerson('p2'), makePerson('p3')];
 		const type = makeType();
 		const trainings: PersonnelTraining[] = [
@@ -162,8 +160,8 @@ describe('getDelinquentTrainings sort order', () => {
 				id: 't1',
 				personnelId: 'p1',
 				trainingTypeId: 'type-1',
-				completionDate: '2024-01-01',
-				expirationDate: soon.toISOString().split('T')[0],
+				completionDate: COMPLETED_EXPIRING_IN['15'],
+				expirationDate: null,
 				notes: null,
 				certificateUrl: null
 			},
@@ -171,14 +169,14 @@ describe('getDelinquentTrainings sort order', () => {
 				id: 't2',
 				personnelId: 'p2',
 				trainingTypeId: 'type-1',
-				completionDate: '2024-01-01',
-				expirationDate: past.toISOString().split('T')[0],
+				completionDate: COMPLETED_EXPIRING_IN['-5'],
+				expirationDate: null,
 				notes: null,
 				certificateUrl: null
 			}
 		];
 
-		const result = getDelinquentTrainings(personnel, [type], trainings);
+		const result = getDelinquentTrainings(personnel, [type], trainings, { asOf: AS_OF });
 
 		expect(result[0].person.id).toBe('p2');
 		expect(result[0].statusInfo.status).toBe('expired');
@@ -207,8 +205,13 @@ describe('calculateExpirationDate', () => {
 describe('getTrainingStatus adapter', () => {
 	it('reports exempt before anything else', () => {
 		const type = baseType({ canBeExempted: true, exemptPersonnelIds: ['p1'] });
-		const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(-5) }), type, basePerson());
-		expect(info).toMatchObject({ status: 'exempt', label: 'Exempt', daysUntilExpiration: null });
+		const info = getTrainingStatus(
+			baseTraining({ completionDate: COMPLETED_EXPIRING_IN['-5'] }),
+			type,
+			basePerson(),
+			AS_OF
+		);
+		expect(info).toMatchObject({ status: 'exempt', label: 'Exempt', daysUntilExpiration: null, expirationDate: null });
 	});
 
 	it('reports N/A for optional training with no record', () => {
@@ -233,13 +236,23 @@ describe('getTrainingStatus adapter', () => {
 		expect(info).toMatchObject({ status: 'current', label: 'Current', daysUntilExpiration: null });
 	});
 
-	it('reports Current for a completed record with no stored expiration date', () => {
-		const info = getTrainingStatus(baseTraining({ expirationDate: null }), baseType(), basePerson());
-		expect(info).toMatchObject({ status: 'current', label: 'Current', daysUntilExpiration: null });
+	it('reports Current for a completed record of a type with no months, ignoring a stored date', () => {
+		const info = getTrainingStatus(
+			baseTraining({ expirationDate: '2020-01-01' }),
+			baseType({ expirationMonths: null }),
+			basePerson(),
+			AS_OF
+		);
+		expect(info).toMatchObject({
+			status: 'current',
+			label: 'Current',
+			daysUntilExpiration: null,
+			expirationDate: null
+		});
 	});
 
 	describe('expirationDateOnly types', () => {
-		const type = baseType({ expirationDateOnly: true, expirationMonths: null });
+		const type = dateOnlyType();
 
 		it('reports Not Done when no expiration date is stored', () => {
 			const info = getTrainingStatus(baseTraining({ completionDate: null, expirationDate: null }), type, basePerson());
@@ -248,42 +261,56 @@ describe('getTrainingStatus adapter', () => {
 
 		it('classifies from the stored expiration date with no completion date', () => {
 			const info = getTrainingStatus(
-				baseTraining({ completionDate: null, expirationDate: isoDaysFromToday(90) }),
+				baseTraining({ completionDate: null, expirationDate: '2026-09-13' }),
 				type,
-				basePerson()
+				basePerson(),
+				AS_OF
 			);
-			expect(info).toMatchObject({ status: 'current', label: 'Current', daysUntilExpiration: 90 });
+			expect(info).toMatchObject({
+				status: 'current',
+				label: 'Current',
+				daysUntilExpiration: 90,
+				expirationDate: '2026-09-13'
+			});
 		});
 	});
 
 	describe('dated classification', () => {
+		const dated = (days: keyof typeof COMPLETED_EXPIRING_IN) =>
+			baseTraining({ completionDate: COMPLETED_EXPIRING_IN[days] });
+
 		it('reports expired with a days-ago label', () => {
-			const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(-5) }), baseType(), basePerson());
-			expect(info).toMatchObject({ status: 'expired', label: 'Expired 5d ago', daysUntilExpiration: -5 });
+			const info = getTrainingStatus(dated('-5'), baseType(), basePerson(), AS_OF);
+			expect(info).toMatchObject({
+				status: 'expired',
+				label: 'Expired 5d ago',
+				daysUntilExpiration: -5,
+				expirationDate: '2026-06-10'
+			});
 		});
 
 		it('reports warning-orange inside the orange window', () => {
-			const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(15) }), baseType(), basePerson());
+			const info = getTrainingStatus(dated('15'), baseType(), basePerson(), AS_OF);
 			expect(info).toMatchObject({ status: 'warning-orange', label: '15d left', daysUntilExpiration: 15 });
 		});
 
 		it('reports warning-yellow inside the yellow window', () => {
-			const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(45) }), baseType(), basePerson());
+			const info = getTrainingStatus(dated('45'), baseType(), basePerson(), AS_OF);
 			expect(info).toMatchObject({ status: 'warning-yellow', label: '45d left', daysUntilExpiration: 45 });
 		});
 
 		it('reports Current beyond the yellow window', () => {
-			const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(90) }), baseType(), basePerson());
+			const info = getTrainingStatus(dated('90'), baseType(), basePerson(), AS_OF);
 			expect(info).toMatchObject({ status: 'current', label: 'Current', daysUntilExpiration: 90 });
 		});
 
 		it('counts the orange threshold day itself as warning-orange', () => {
-			const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(30) }), baseType(), basePerson());
+			const info = getTrainingStatus(dated('30'), baseType(), basePerson(), AS_OF);
 			expect(info.status).toBe('warning-orange');
 		});
 
 		it('counts the yellow threshold day itself as warning-yellow', () => {
-			const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(60) }), baseType(), basePerson());
+			const info = getTrainingStatus(dated('60'), baseType(), basePerson(), AS_OF);
 			expect(info.status).toBe('warning-yellow');
 		});
 	});
@@ -294,11 +321,11 @@ describe('getTrainingStats', () => {
 		const personnel = [basePerson({ id: 'p1' }), basePerson({ id: 'p2' })];
 		const type = baseType();
 		const trainings: PersonnelTraining[] = [
-			{ ...baseTraining({ id: 'a', personnelId: 'p1', expirationDate: isoDaysFromToday(90) }) },
-			{ ...baseTraining({ id: 'b', personnelId: 'p2', expirationDate: isoDaysFromToday(-5) }) }
+			baseTraining({ id: 'a', personnelId: 'p1', completionDate: COMPLETED_EXPIRING_IN['90'] }),
+			baseTraining({ id: 'b', personnelId: 'p2', completionDate: COMPLETED_EXPIRING_IN['-5'] })
 		];
 
-		const stats = getTrainingStats(personnel, [type], trainings);
+		const stats = getTrainingStats(personnel, [type], trainings, undefined, AS_OF);
 		expect(stats.total).toBe(2);
 		expect(stats.current).toBe(1);
 		expect(stats.expired).toBe(1);
@@ -314,9 +341,9 @@ describe('getTrainingStatus asOf', () => {
 		const type = baseType();
 		const person = basePerson();
 		const records = [
-			baseTraining({ expirationDate: '2026-12-15' }),
-			baseTraining({ expirationDate: '2026-10-15' }),
-			baseTraining({ expirationDate: '2026-09-28' }),
+			baseTraining({ completionDate: '2025-12-15' }),
+			baseTraining({ completionDate: '2025-10-15' }),
+			baseTraining({ completionDate: '2025-09-28' }),
 			baseTraining({ completionDate: null }),
 			undefined
 		];
@@ -336,7 +363,12 @@ describe('getTrainingStatus asOf', () => {
 		['2028-02-29', '2028-03-01', 'expired', -1],
 		['2026-03-31', '2026-01-31', 'warning-yellow', 59]
 	])('treats a record expiring %s as ready through that day when asOf is %s', (expiration, asOf, status, days) => {
-		const result = getTrainingStatus(baseTraining({ expirationDate: expiration }), baseType(), basePerson(), asOf);
+		const result = getTrainingStatus(
+			baseTraining({ completionDate: null, expirationDate: expiration }),
+			dateOnlyType(),
+			basePerson(),
+			asOf
+		);
 
 		expect([result.status, result.daysUntilExpiration]).toEqual([status, days]);
 	});
@@ -345,9 +377,10 @@ describe('getTrainingStatus asOf', () => {
 		const originalTimeZone = process.env.TZ;
 		process.env.TZ = 'America/New_York';
 		try {
-			const training = baseTraining({ expirationDate: '2026-11-02' });
-			const fromString = getTrainingStatus(training, baseType(), basePerson(), '2026-10-31');
-			const fromDate = getTrainingStatus(training, baseType(), basePerson(), new Date(2026, 9, 31, 23, 30));
+			const training = baseTraining({ completionDate: null, expirationDate: '2026-11-02' });
+			const type = dateOnlyType();
+			const fromString = getTrainingStatus(training, type, basePerson(), '2026-10-31');
+			const fromDate = getTrainingStatus(training, type, basePerson(), new Date(2026, 9, 31, 23, 30));
 
 			expect([fromString.daysUntilExpiration, fromDate.daysUntilExpiration]).toEqual([2, 2]);
 		} finally {
@@ -356,16 +389,50 @@ describe('getTrainingStatus asOf', () => {
 		}
 	});
 
-	it('keeps never-expiring and completed-without-expiration records current at any asOf', () => {
-		const neverExpires = getTrainingStatus(
-			baseTraining({ completionDate: null }),
-			baseType({ expirationMonths: null }),
-			basePerson(),
-			'2099-01-01'
-		);
-		const noStoredExpiration = getTrainingStatus(baseTraining(), baseType(), basePerson(), '2099-01-01');
+	it('keeps never-expiring records current at any asOf, dated or not', () => {
+		const type = baseType({ expirationMonths: null });
+		const undated = getTrainingStatus(baseTraining({ completionDate: null }), type, basePerson(), '2099-01-01');
+		const dated = getTrainingStatus(baseTraining(), type, basePerson(), '2099-01-01');
 
-		expect([neverExpires.status, noStoredExpiration.status]).toEqual(['current', 'current']);
-		expect([neverExpires.daysUntilExpiration, noStoredExpiration.daysUntilExpiration]).toEqual([null, null]);
+		expect([undated.status, dated.status]).toEqual(['current', 'current']);
+		expect([undated.daysUntilExpiration, dated.daysUntilExpiration]).toEqual([null, null]);
+	});
+});
+
+describe('trainingExpirationDate', () => {
+	it('derives from the completion date and the type months, ignoring a stored date', () => {
+		const completion = { completionDate: '2025-01-31', expirationDate: '2028-01-31' };
+
+		expect(trainingExpirationDate(completion, { expirationDateOnly: false, expirationMonths: 1 })).toBe('2025-02-28');
+		expect(trainingExpirationDate(completion, { expirationDateOnly: false, expirationMonths: null })).toBeNull();
+	});
+
+	it('takes the stored date for a date-only type', () => {
+		const completion = { completionDate: null, expirationDate: '2027-03-04' };
+
+		expect(trainingExpirationDate(completion, { expirationDateOnly: true, expirationMonths: 12 })).toBe('2027-03-04');
+	});
+});
+
+describe('a Training Type whose months changed', () => {
+	it('reads a completion saved under 36 months as expired by the current 12 months', () => {
+		const stale = baseTraining({ completionDate: '2025-01-10', expirationDate: '2028-01-10' });
+
+		const info = getTrainingStatus(stale, baseType({ expirationMonths: 12 }), basePerson(), '2026-03-01');
+
+		expect(info).toMatchObject({
+			status: 'expired',
+			label: 'Expired 50d ago',
+			daysUntilExpiration: -50,
+			expirationDate: '2026-01-10'
+		});
+	});
+
+	it('moves every completion when the months are lengthened', () => {
+		const completion = baseTraining({ completionDate: '2025-01-10', expirationDate: '2026-01-10' });
+
+		const info = getTrainingStatus(completion, baseType({ expirationMonths: 36 }), basePerson(), '2026-03-01');
+
+		expect(info).toMatchObject({ status: 'current', daysUntilExpiration: 680, expirationDate: '2028-01-10' });
 	});
 });

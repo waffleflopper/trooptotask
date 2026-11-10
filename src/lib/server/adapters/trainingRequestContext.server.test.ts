@@ -48,7 +48,9 @@ describe('Training request authority', () => {
 		const roster = createRequestTrainingRosterContext(request);
 		const reports = createRequestTrainingBriefingContext(request);
 		request.auth.orgId = 'org-b';
-		expect(await catalog.trainingCatalog.listTypeLabels()).toEqual([{ id: 'a', name: 'A' }]);
+		expect(await catalog.trainingCatalog.listTypeLabels()).toEqual([
+			{ id: 'a', name: 'A', expirationMonths: null, expirationDateOnly: false }
+		]);
 		expect(await roster.trainingCompletions.listCompletions()).toEqual([
 			{ id: 'r-a', personnelId: 'p-a', trainingTypeId: 'a', notes: null, certificateUrl: null }
 		]);

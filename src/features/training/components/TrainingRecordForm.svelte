@@ -82,8 +82,14 @@
 		return () => onDirtyChange?.(false);
 	});
 
+	// Only a date-only type stores its expiration date; the others show a preview and save none.
+	const storedExpirationDate = $derived(kind === 'cardDate' ? date || null : null);
 	const expirationDate = $derived(
-		kind === 'cardDate' ? date || null : kind === 'months' ? calculateExpirationDate(date, type.expirationMonths) : null
+		kind === 'cardDate'
+			? storedExpirationDate
+			: kind === 'months'
+				? calculateExpirationDate(date, type.expirationMonths)
+				: null
 	);
 	// A never-expiring completion may be stored without a date; editing it keeps that allowed.
 	const dateOptional = untrack(() => kind === 'never' && keepRecordedDate && !!training && !training.completionDate);
@@ -117,7 +123,7 @@
 				personnelId: person.id,
 				trainingTypeId: type.id,
 				completionDate: kind === 'cardDate' ? (training?.completionDate ?? null) : date || null,
-				expirationDate,
+				expirationDate: storedExpirationDate,
 				notes: notes.trim() || null
 			});
 			if (!stillHere()) return;

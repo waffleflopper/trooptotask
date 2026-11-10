@@ -34,8 +34,9 @@ const savedAs = (...entries: [string, string][]) => entries.map(([personnelId, s
 
 const people = [person('p-okafor', 'Okafor'), person('p-brooks', 'Brooks'), person('p-liang', 'Liang')];
 
-function record(personnelId: string, expirationDate: string | null = '2027-10-21') {
-	return { id: `t-${personnelId}`, personnelId, trainingTypeId: 'sharp', completionDate: '2026-10-21', expirationDate };
+function record(personnelId: string, expires = '2027-10-21') {
+	const completionDate = `${Number(expires.slice(0, 4)) - 1}${expires.slice(4)}`;
+	return { id: `t-${personnelId}`, personnelId, trainingTypeId: 'sharp', completionDate, expirationDate: null };
 }
 
 const fetchMock = vi.fn();

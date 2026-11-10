@@ -28,7 +28,7 @@ export interface PersonnelTraining {
 	personnelId: string;
 	trainingTypeId: string;
 	completionDate: string | null; // YYYY-MM-DD, null for never-expires when marked complete without date
-	expirationDate: string | null; // calculated or null if never expires
+	expirationDate: string | null; // read only for expirationDateOnly types; other types derive it when read and ignore any stored value (see trainingExpirationDate)
 	notes: string | null;
 	certificateUrl: string | null;
 }

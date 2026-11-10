@@ -66,7 +66,7 @@
 
 	const { type, record, statusInfo } = $derived(item);
 	const isExempt = $derived(section === 'exempt');
-	const statusLine = $derived(getStatusLine(statusInfo, record, type));
+	const statusLine = $derived(getStatusLine(statusInfo));
 	const canExemptHere = $derived(canExempt && type.canBeExempted && section !== 'not-required');
 	const hasMenu = $derived(isExempt ? canExempt : true);
 	const toneClass = {

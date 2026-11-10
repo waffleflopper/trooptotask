@@ -18,8 +18,9 @@
  * `asOf` param (defaults to now), mirroring the existing ICT status helper.
  *
  * Date-only strings are parsed with `parseDate` (local calendar) on BOTH sides,
- * matching the existing ICT helper and the way Training writes its expiration
- * dates.
+ * matching the existing ICT helper. Training and Critical Tasks both derive the
+ * effective date when read (completion date plus the current months); only a
+ * date-only Training Type takes it from the stored certificate date.
  */
 import { parseDate } from '$lib/utils/dates';
 
@@ -113,8 +114,8 @@ export function currencyStatus(
 
 	if (record.completionDate == null) return NOT_RECORDED;
 
-	// Completed, but no stored expiration date → current. Critical Tasks never
-	// reaches here: its adapter always supplies a computed expiration date.
+	// Completed, but no effective expiration date → current (a never-expiring Training Type).
+	// Critical Tasks never reaches here because its adapter always supplies a computed expiration date.
 	if (record.expirationDate == null) {
 		return { state: 'current', band: null, expirationDate: null, daysUntilExpiration: null };
 	}

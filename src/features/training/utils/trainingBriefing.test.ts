@@ -66,11 +66,17 @@ function trainingType(id: string, overrides: Partial<TrainingType> = {}): Traini
 	};
 }
 
+/**
+ * A completion that expires on `expirationDate` under the 12-month types here, completed a year earlier unless
+ * `completionDate` says otherwise. The date is also stored, which only a date-only type reads.
+ */
 function record(
 	personnelId: string,
 	trainingTypeId: string,
 	expirationDate: string | null,
-	completionDate: string | null = '2025-01-01'
+	completionDate: string | null = expirationDate
+		? `${Number(expirationDate.slice(0, 4)) - 1}${expirationDate.slice(4)}`
+		: '2025-01-01'
 ): PersonnelTraining {
 	return {
 		id: `record-${personnelId}-${trainingTypeId}`,
@@ -400,7 +406,7 @@ describe('buildTrainingBriefing forecast', () => {
 	it.each([
 		['America/New_York', '2026-10-30', 7, '2026-11-02', '2026-11-03', '2026-11-06'],
 		['America/New_York', '2026-03-07', 7, '2026-03-08', '2026-03-09', '2026-03-14'],
-		['UTC', '2028-02-28', 7, '2028-02-29', '2028-03-01', '2028-03-06'],
+		['UTC', '2028-02-27', 7, '2028-02-28', '2028-02-29', '2028-03-05'],
 		['UTC', '2026-01-31', 30, '2026-02-28', '2026-03-01', '2026-03-02']
 	])('walks calendar days in %s from %s', (timeZone, asOf, horizonDays, expiration, lapseDate, horizonEnd) => {
 		const originalTimeZone = process.env.TZ;
@@ -813,7 +819,7 @@ describe('buildTrainingBriefing focus areas', () => {
 		expect(briefing.focus.areas[0]).toMatchObject({
 			key: 'wave',
 			requirementCount: 7,
-			body: '7 of the 7 records lapsing 7 Oct–27 Oct are CPR. Most were completed on 1 Jan 2025, so they lapse together. Bravo takes the biggest hit.'
+			body: '7 of the 7 records lapsing 7 Oct–27 Oct are CPR. Most were completed on 22 Oct 2025, so they lapse together. Bravo takes the biggest hit.'
 		});
 	});
 
@@ -880,10 +886,10 @@ describe('buildTrainingBriefing focus areas', () => {
 	});
 
 	it.each([
-		['half share one date', ['2025-10-22', '2025-10-22', '2025-10-22', '2025-10-01', '2025-10-02', '2025-10-03'], true],
+		['half share one date', ['2025-10-22', '2025-10-22', '2025-10-22', '2025-10-08', '2025-10-09', '2025-10-10'], true],
 		[
 			'a third share one date',
-			['2025-10-22', '2025-10-22', '2025-10-01', '2025-10-02', '2025-10-03', '2025-10-04'],
+			['2025-10-22', '2025-10-22', '2025-10-08', '2025-10-09', '2025-10-10', '2025-10-11'],
 			false
 		]
 	])(

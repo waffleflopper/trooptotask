@@ -66,13 +66,13 @@ function soldier(id: string, groupId: string, groupName: string): Personnel {
 	return { id, rank: 'SGT', lastName: id, firstName: 'Pat', mos: '68W', clinicRole: 'Medic', groupId, groupName };
 }
 
-function completion(personnelId: string, expirationDate: string): PersonnelTraining {
+function completion(personnelId: string, expires: string): PersonnelTraining {
 	return {
 		id: `pt-${personnelId}`,
 		personnelId,
 		trainingTypeId: 'cpr',
-		completionDate: '2025-10-20',
-		expirationDate,
+		completionDate: `${Number(expires.slice(0, 4)) - 1}${expires.slice(4)}`,
+		expirationDate: null,
 		notes: null,
 		certificateUrl: null
 	};

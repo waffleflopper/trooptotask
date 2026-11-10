@@ -28,8 +28,8 @@ describe('Training catalog reads', () => {
 		expect(types[1]).toMatchObject({ appliesToRoles: [], excludedRanks: [], isOptional: false });
 		expect(await ctx.trainingCatalog.listViews()).toMatchObject([{ id: 'view', columnIds: ['targeted', 'required'] }]);
 		expect(await ctx.trainingCatalog.listTypeLabels()).toEqual([
-			{ id: 'required', name: 'Required' },
-			{ id: 'targeted', name: 'Targeted' }
+			{ id: 'required', name: 'Required', expirationMonths: null, expirationDateOnly: false },
+			{ id: 'targeted', name: 'Targeted', expirationMonths: null, expirationDateOnly: false }
 		]);
 		expect((await ctx.trainingCatalog.findTypeByName('Targeted'))?.id).toBe('targeted');
 		expect(await ctx.trainingCatalog.findTypeByName('Foreign')).toBeNull();

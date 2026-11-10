@@ -261,19 +261,23 @@ describe('ordinary Training persistence', () => {
 		});
 		expect((await catalog.listTypes()).map((row) => row.id)).toEqual(['t0', 't1']);
 		expect(await catalog.listTypeLabels()).toEqual([
-			{ id: 't0', name: 'Never' },
-			{ id: 't1', name: 'Annual' }
+			{ id: 't0', name: 'Never', expirationMonths: null, expirationDateOnly: false },
+			{ id: 't1', name: 'Annual', expirationMonths: 12, expirationDateOnly: false }
 		]);
 		expect((await catalog.findTypeByName('Annual'))?.id).toBe('t1');
 		expect(await catalog.findTypeId('t1')).toEqual({ id: 't1' });
-		expect(await completions.findResource('r1')).toEqual({ personnelId: 'p1', trainingTypeId: 't1' });
+		expect(await completions.findResource('r1')).toEqual({
+			personnelId: 'p1',
+			trainingTypeId: 't1',
+			completionDate: '2026-01-01'
+		});
 		expect(await completions.findPair('p1', 't1')).toEqual({
 			id: 'r1',
 			completionDate: '2026-01-01',
 			expirationDate: null
 		});
 		expect(await completions.listPairReferences(['p1'], ['t1'])).toEqual([
-			{ id: 'r1', personnelId: 'p1', trainingTypeId: 't1' }
+			{ id: 'r1', personnelId: 'p1', trainingTypeId: 't1', completionDate: '2026-01-01', expirationDate: null }
 		]);
 		expect(await completions.listPersonExportFacts('p1')).toEqual([
 			{ trainingTypeId: 't1', completionDate: '2026-01-01', expirationDate: null, notes: 'keep' }

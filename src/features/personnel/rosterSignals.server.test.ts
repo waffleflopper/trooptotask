@@ -112,9 +112,10 @@ describe('loadRosterSignals', () => {
 									name: 'CPR/BLS',
 									status: 'expired' as const,
 									daysUntilExpiration: -22,
+									expirationDate: '2026-10-01',
 									cycleMonths: 24,
 									applicability: { kind: 'all' as const },
-									completion: { completionDate: '2024-10-01', expirationDate: '2026-10-01' }
+									completion: { completionDate: '2024-10-01' }
 								}
 							]
 						}

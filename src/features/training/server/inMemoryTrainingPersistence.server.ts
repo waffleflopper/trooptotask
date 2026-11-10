@@ -75,8 +75,18 @@ export function createInMemoryTrainingCatalogPersistence(
 		},
 		async listTypeLabels() {
 			return (
-				await store.findMany<{ id: string; name: string }>('training_types', orgId, {}, { select: 'id, name' })
-			).map(({ id, name }) => ({ id, name }));
+				await store.findMany<{
+					id: string;
+					name: string;
+					expiration_months: number | null;
+					expiration_date_only: boolean | null;
+				}>('training_types', orgId, {}, { select: 'id, name, expiration_months, expiration_date_only' })
+			).map((row) => ({
+				id: row.id,
+				name: row.name,
+				expirationMonths: row.expiration_months ?? null,
+				expirationDateOnly: row.expiration_date_only ?? false
+			}));
 		},
 		async listRankApplicabilityReferences() {
 			return (
@@ -236,13 +246,14 @@ export function createInMemoryTrainingCompletionPersistence(
 				.map(toTrainingCompletionFacts);
 		},
 		async findResource(id) {
-			const row = await store.findOne<{ personnel_id: string; training_type_id: string }>(
-				'personnel_trainings',
-				orgId,
-				{ id },
-				'personnel_id, training_type_id'
-			);
-			return row ? { personnelId: row.personnel_id, trainingTypeId: row.training_type_id } : null;
+			const row = await store.findOne<{
+				personnel_id: string;
+				training_type_id: string;
+				completion_date: string | null;
+			}>('personnel_trainings', orgId, { id }, 'personnel_id, training_type_id, completion_date');
+			return row
+				? { personnelId: row.personnel_id, trainingTypeId: row.training_type_id, completionDate: row.completion_date }
+				: null;
 		},
 		async findPair(personnelId, trainingTypeId) {
 			const row = await store.findOne<{ id: string; completion_date: string | null; expiration_date: string | null }>(
@@ -255,16 +266,23 @@ export function createInMemoryTrainingCompletionPersistence(
 		},
 		async listPairReferences(personnelIds, trainingTypeIds) {
 			return (
-				await store.findMany<{ id: string; personnel_id: string; training_type_id: string }>(
-					'personnel_trainings',
-					orgId,
-					undefined,
-					{
-						inFilters: { personnel_id: [...personnelIds], training_type_id: [...trainingTypeIds] },
-						select: 'id, personnel_id, training_type_id'
-					}
-				)
-			).map((row) => ({ id: row.id, personnelId: row.personnel_id, trainingTypeId: row.training_type_id }));
+				await store.findMany<{
+					id: string;
+					personnel_id: string;
+					training_type_id: string;
+					completion_date: string | null;
+					expiration_date: string | null;
+				}>('personnel_trainings', orgId, undefined, {
+					inFilters: { personnel_id: [...personnelIds], training_type_id: [...trainingTypeIds] },
+					select: 'id, personnel_id, training_type_id, completion_date, expiration_date'
+				})
+			).map((row) => ({
+				id: row.id,
+				personnelId: row.personnel_id,
+				trainingTypeId: row.training_type_id,
+				completionDate: row.completion_date,
+				expirationDate: row.expiration_date
+			}));
 		},
 		async listPersonExportFacts(personnelId) {
 			return (

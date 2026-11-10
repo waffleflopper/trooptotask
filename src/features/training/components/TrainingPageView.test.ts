@@ -303,7 +303,7 @@ describe('TrainingPageView', () => {
 			personnelId: 'person-1',
 			trainingTypeId: 'type-1',
 			completionDate: '2026-10-25',
-			expirationDate: '2027-10-25',
+			expirationDate: null,
 			notes: 'Range qualification',
 			certificateUrl: null
 		};
@@ -347,7 +347,7 @@ describe('TrainingPageView', () => {
 					personnelId: 'person-1',
 					trainingTypeId: 'type-1',
 					completionDate: '2026-10-25',
-					expirationDate: '2027-10-25',
+					expirationDate: null,
 					notes: 'Range qualification',
 					certificateUrl: null
 				})

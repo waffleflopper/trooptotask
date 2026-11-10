@@ -65,7 +65,7 @@ const trainings: PersonnelTraining[] = [
 		personnelId: 'p1',
 		trainingTypeId: 'bls',
 		completionDate: '2025-08-04',
-		expirationDate: '2026-08-04',
+		expirationDate: null,
 		notes: null,
 		certificateUrl: null
 	},
@@ -74,7 +74,7 @@ const trainings: PersonnelTraining[] = [
 		personnelId: 'p1',
 		trainingTypeId: 'ok',
 		completionDate: '2026-10-06',
-		expirationDate: '2027-10-06',
+		expirationDate: null,
 		notes: null,
 		certificateUrl: null
 	}
@@ -115,7 +115,7 @@ describe('TrainingRecordSheet', () => {
 				personnelId: 'p1',
 				trainingTypeId: 'cpr',
 				completionDate: '2026-10-25',
-				expirationDate: '2027-10-25',
+				expirationDate: null,
 				notes: null
 			})
 		);
@@ -331,7 +331,7 @@ describe('TrainingRecordSheet', () => {
 
 			await waitFor(() =>
 				expect(onSave).toHaveBeenCalledExactlyOnceWith(
-					expect.objectContaining({ trainingTypeId: 'bls', completionDate: '2026-10-25', expirationDate: '2027-10-25' })
+					expect.objectContaining({ trainingTypeId: 'bls', completionDate: '2026-10-25', expirationDate: null })
 				)
 			);
 		});
@@ -352,7 +352,7 @@ describe('TrainingRecordSheet', () => {
 					personnelId: 'p1',
 					trainingTypeId: 'ok',
 					completionDate: '2026-10-06',
-					expirationDate: '2027-10-06',
+					expirationDate: null,
 					notes: 'Re-scanned certificate'
 				})
 			);

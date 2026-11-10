@@ -22,7 +22,7 @@
 				name: item.name,
 				detail: describeTrainingItem(item),
 				recordedOn: item.completion?.completionDate ?? null,
-				expiresOn: item.completion?.expirationDate ?? null
+				expiresOn: item.expirationDate
 			})
 		)
 	);

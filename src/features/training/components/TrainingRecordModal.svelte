@@ -90,7 +90,7 @@
 
 	const previewTraining = $derived({
 		completionDate: expirationDateOnly ? null : completionDate || null,
-		expirationDate: previewExpirationDate
+		expirationDate: expirationDateOnly ? directExpirationDate || null : null
 	});
 
 	const previewStatus = $derived.by(() => {
@@ -119,7 +119,7 @@
 			personnelId: person.id,
 			trainingTypeId: trainingType.id,
 			completionDate: expirationDateOnly ? null : completionDate || null,
-			expirationDate: previewExpirationDate,
+			expirationDate: previewTraining.expirationDate,
 			notes: notes.trim() || null
 		};
 		const isUpdate = !!existingTraining;

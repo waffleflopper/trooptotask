@@ -75,14 +75,15 @@ function trainingType(id: string, name: string, sortOrder: number, overrides: Re
 	};
 }
 
-function completion(personId: string, typeId: string, expirationDate: string) {
+/** A completion of a 12-month type, dated so that it expires on `expires`. */
+function completion(personId: string, typeId: string, expires: string) {
 	return {
 		id: `pt-${personId}-${typeId}`,
 		organization_id: ORG,
 		personnel_id: personId,
 		training_type_id: typeId,
-		completion_date: '2025-06-01',
-		expiration_date: expirationDate,
+		completion_date: `${Number(expires.slice(0, 4)) - 1}${expires.slice(4)}`,
+		expiration_date: null,
 		notes: 'private note',
 		certificate_url: null
 	};
@@ -179,8 +180,8 @@ describe('Training briefing report', () => {
 					id: 'pt-p-able-bls',
 					personnel_id: 'p-able',
 					training_type_id: 'bls',
-					completion_date: '2025-06-01',
-					expiration_date: '2026-10-10'
+					completion_date: '2025-10-10',
+					expiration_date: null
 				}
 			]);
 		}

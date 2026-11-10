@@ -46,11 +46,14 @@ function type(id: string, overrides: Partial<TrainingType> = {}): TrainingType {
 	};
 }
 
+/** A completion that expires on `expirationDate` under a 12-month type, which is also stored for a date-only type. */
 function record(
 	personnelId: string,
 	trainingTypeId: string,
 	expirationDate: string | null,
-	completionDate: string | null = '2026-01-01'
+	completionDate: string | null = expirationDate
+		? `${Number(expirationDate.slice(0, 4)) - 1}${expirationDate.slice(4)}`
+		: '2026-01-01'
 ): TrainingCompletionFacts {
 	return { personnelId, trainingTypeId, expirationDate, completionDate };
 }

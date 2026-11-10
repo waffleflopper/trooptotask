@@ -274,7 +274,7 @@ function requirementEntries(input: TrainingReadinessInput, rowsBy: BriefingRowsB
 					status: status.status,
 					label: status.label,
 					completionDate: record?.completionDate ?? null,
-					expirationDate: record?.expirationDate ?? null,
+					expirationDate: status.expirationDate,
 					readyToday,
 					lapseDate: lapseOffset === null ? null : addDays(input.asOf, lapseOffset),
 					lapsesInHorizon: lapseOffset !== null && lapseOffset <= input.horizonDays

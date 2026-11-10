@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -22,9 +22,11 @@
 		blocked: boolean;
 		/** True while the name request is in flight, so the sheet cannot close under it. */
 		saving: boolean;
+		/** Open the editor as soon as the section mounts, when the name is all the sheet offers. */
+		startEditing?: boolean;
 	};
 
-	let { member, ranks, canEdit, nameError, blocked, saving = $bindable(false) }: Props = $props();
+	let { member, ranks, canEdit, nameError, blocked, saving = $bindable(false), startEditing = false }: Props = $props();
 
 	let active = true;
 	onDestroy(() => {
@@ -54,6 +56,10 @@
 		editing = true;
 		void tick().then(() => rankSelect?.focus());
 	}
+
+	onMount(() => {
+		if (startEditing && canEdit && !fromAccount) open();
+	});
 
 	function cancel() {
 		editing = false;

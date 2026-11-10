@@ -236,7 +236,8 @@ describe('members list', () => {
 
 		expect(within(memberRow('owner')).getByText('You')).toBeTruthy();
 		expect(within(memberRow('alpha')).queryByText('You')).toBeNull();
-		expect(within(memberRow('owner')).queryAllByRole('button')).toEqual([]);
+		expect(within(memberRow('owner')).queryByRole('button', { name: /^Manage/ })).toBeNull();
+		expect(within(memberRow('owner')).queryByRole('button', { name: /^More actions/ })).toBeNull();
 		expect(
 			within(memberRow('alpha'))
 				.getAllByRole('button')
@@ -247,7 +248,8 @@ describe('members list', () => {
 	it('lets an admin manage members but not other admins', () => {
 		renderPage({ isOwner: false, rows: [owner, admin, alpha] });
 
-		expect(within(memberRow('admin')).queryAllByRole('button')).toEqual([]);
+		expect(within(memberRow('admin')).queryByRole('button', { name: /^Manage/ })).toBeNull();
+		expect(within(memberRow('admin')).queryByRole('button', { name: /^More actions/ })).toBeNull();
 		expect(
 			within(memberRow('alpha')).getByRole('button', { name: 'Manage access for alpha@example.com' })
 		).toBeTruthy();
@@ -1085,6 +1087,86 @@ describe('member names', () => {
 		expect(within(row).getByText('blank@example.com')).toBeTruthy();
 		expect(within(row).queryByRole('button', { name: /^Manage/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: /name and rank/ })).toBeNull();
+	});
+
+	describe('naming a row whose access is locked', () => {
+		const unnamedOwner = member('owner', 'owner@example.com', 'owner');
+		const unnamedAdmin = member('admin', 'admin@example.com', 'admin');
+
+		async function openNameOnly(id: string, button: RegExp) {
+			const opener = within(memberRow(id)).getByRole('button', { name: button });
+			await fireEvent.click(opener);
+			return { opener, sheet: await screen.findByRole('dialog') };
+		}
+
+		it.each(['owner', 'admin'])('lets an admin name the %s row without opening any access control', async (id) => {
+			renderPage({ isOwner: false, rows: [unnamedOwner, unnamedAdmin, alpha] });
+			const row = within(memberRow(id));
+			expect(row.queryByRole('button', { name: /^Manage/ })).toBeNull();
+			expect(row.queryByRole('button', { name: /^More actions/ })).toBeNull();
+
+			const { sheet } = await openNameOnly(id, new RegExp(`^Add name for ${id}@example\\.com`));
+			await waitFor(() => expect(document.activeElement).toBe(within(sheet).getByLabelText('Rank')));
+			await fill(sheet, { rank: 'SGT', first: 'Jordan', last: 'Reyes' });
+			await fireEvent.click(within(sheet).getByRole('button', { name: 'Save name' }));
+
+			const form = within(sheet).getByLabelText('First name').closest('form');
+			expect(form?.getAttribute('action')).toBe('?/setMemberName');
+			expect(submitted).toHaveLength(1);
+			expect(Object.fromEntries(submitted[0])).toEqual({
+				membershipId: id,
+				rank: 'SGT',
+				firstName: 'Jordan',
+				lastName: 'Reyes'
+			});
+			expect(within(sheet).queryAllByRole('radiogroup')).toEqual([]);
+			expect(sheet.querySelector('form[action="?/updateMemberAccess"]')).toBeNull();
+			expect(within(sheet).queryByRole('button', { name: /^Save \d+ change|No changes/ })).toBeNull();
+			expect(within(sheet).queryByRole('button', { name: /^Remove/ })).toBeNull();
+		});
+
+		it('keeps Manage, not a name-only button, on an admin row the owner can manage', () => {
+			renderPage({ rows: [unnamedOwner, unnamedAdmin, alpha] });
+
+			expect(within(memberRow('admin')).getByRole('button', { name: /^Manage/ })).toBeTruthy();
+			expect(within(memberRow('admin')).queryByRole('button', { name: /name for/ })).toBeNull();
+		});
+
+		it('says Edit name when the Organization already named the row', async () => {
+			renderPage({
+				isOwner: false,
+				rows: [member('owner', 'owner@example.com', 'owner', { name: organizationName }), alpha]
+			});
+			const { sheet } = await openNameOnly('owner', /^Edit name for/);
+
+			await waitFor(() => expect((within(sheet).getByLabelText('First name') as HTMLInputElement).value).toBe('Jane'));
+		});
+
+		it('offers no button on a locked row whose name comes from the account', () => {
+			renderPage({
+				isOwner: false,
+				rows: [member('owner', 'owner@example.com', 'owner', { name: accountName }), alpha]
+			});
+
+			expect(within(memberRow('owner')).queryAllByRole('button')).toEqual([]);
+		});
+
+		it('offers no button on any row to a viewer who cannot manage members', () => {
+			renderPage({ isOwner: false, rows: [unnamedOwner, unnamedAdmin, alpha], canManageMemberAccess: false });
+
+			for (const id of ['owner', 'admin', 'alpha']) expect(within(memberRow(id)).queryAllByRole('button')).toEqual([]);
+		});
+
+		it('returns focus to the row button when the sheet closes', async () => {
+			renderPage({ isOwner: false, rows: [unnamedOwner, alpha] });
+			const { opener, sheet } = await openNameOnly('owner', /^Add name for/);
+
+			await fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }));
+			await fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
+
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+			expect(document.activeElement).toBe(opener);
+		});
 	});
 
 	it('locks the sheet while the name saves and closes the editor with the saved name', async () => {
